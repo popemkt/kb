@@ -207,8 +207,8 @@ export function CalendarToolbar({
         type="button"
         className={PRIMARY_BUTTON_CLASS}
         onClick={onNew}
-        title="New routine (c)"
-        aria-label={narrow ? "New routine" : undefined}
+        title="New event (c)"
+        aria-label={narrow ? "New event" : undefined}
       >
         <PlusIcon size={12} weight="bold" aria-hidden />
         {narrow ? null : "New"}
@@ -234,8 +234,8 @@ export function IssuesNote({
       <WarningIcon size={14} className="text-warning" />
       <span className="text-foreground">
         {issues.length === 1
-          ? "1 routine cannot be shown:"
-          : `${String(issues.length)} routines cannot be shown:`}
+          ? "1 event cannot be shown:"
+          : `${String(issues.length)} events cannot be shown:`}
       </span>
       {issues.map((issue) => (
         <button

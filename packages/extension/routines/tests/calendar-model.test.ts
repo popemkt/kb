@@ -389,7 +389,7 @@ describe("gestures", () => {
         "series",
         mint,
       ),
-    ).toEqual({ refused: "This repeat cannot move by days: change it in the routine instead" });
+    ).toEqual({ refused: "This repeat cannot move by days: change it on the event instead" });
     expect(shiftRule("FREQ=MONTHLY;BYMONTHDAY=10", "2026-11-10", 2)).toBe(
       "BYMONTHDAY=12;FREQ=MONTHLY",
     );

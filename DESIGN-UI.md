@@ -3781,7 +3781,12 @@ the next two weeks, open at the day the URL names
 week is the default elsewhere. The model and its Google sync are the
 family's, specified once in
 [docs/research/2026-11-02-kb-routines-gcal.md](docs/research/2026-11-02-kb-routines-gcal.md);
-the page adds no storage of its own.
+the page adds no storage of its own. The page speaks the family's labels: a
+person makes, edits and syncs *events*, in the Events calendar. The ids,
+test hooks and code keep `routine`, as the relabel keeps every id
+([data plane → migrating the routines data](docs/research/2026-11-10-data-plane-fields-events.md#65-migrating-the-routines-data)).
+The Google app's own name, "kb routines", and the pages that name it stay
+as they are, since a person's Cloud project registered them.
 
 - **One expansion.** What the page shows is `calendarEntries` in
   `@kb/routines`. It reads each routine through the engine's own reader and
