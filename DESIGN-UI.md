@@ -3984,9 +3984,11 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
 
   What is dated the day is not a section: it is the day's References,
   which its outline draws, each row naming the date field that dates it
-  ("due →"; DESIGN.md → [Days](./DESIGN.md#days)). The page is its own
-  chunk, fetched the first time a day opens, and each section's body is
-  one too.
+  ("due →"; DESIGN.md → [Days](./DESIGN.md#days)). The page scrolls in
+  the pane's one scroll region (`frame: "scroll"`), and the room after a
+  page's end is the region's, never the outline's, so nothing opens a gap
+  between the outline and the sections. The page is its own chunk,
+  fetched the first time a day opens, and each section's body is one too.
 - **A date opens its day.** Days replaces the page role `ui.date-target`:
   following a date value opens that day's node, made if need be through
   `ext.days.today`, in its day page. If days fails, the role's recovery

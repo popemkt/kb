@@ -24,14 +24,14 @@ export function DayPage({ params }: ViewProps<DayParams>) {
     return <p className="p-6 text-ui text-foreground/50">This node is not a day.</p>;
   }
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto" data-day-page={day}>
+    <div data-day-page={day}>
       <ViewSlot
         view={OutlineView}
         params={{ root: node.id }}
         placement="page"
         fallback={<p className="px-6 text-meta text-foreground/40">The outline is off.</p>}
       />
-      <div className="mx-auto w-full max-w-3xl px-4 pb-16 pt-2">
+      <div className="mx-auto w-full max-w-3xl px-4 pt-2">
         {sections.map(({ id, title, Component }) => (
           <section key={id} className="mb-5" data-day-section={id}>
             <h2 className="mb-1.5 px-2 text-meta kb-label text-foreground/40">{title}</h2>

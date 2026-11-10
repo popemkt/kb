@@ -97,7 +97,7 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
 
   if (rootNodeId !== WORKSPACE_ROOT_ID) {
     return (
-      <div className="outline-editor px-2 pb-40">
+      <div className="outline-editor px-2">
         <Breadcrumbs root={rootProp} />
         <ZoomedRootHeader node={root} view={rootView?.key ?? null} />
 
@@ -132,7 +132,7 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
   }
 
   return (
-    <div className="outline-editor px-2 pb-40">
+    <div className="outline-editor px-2">
       <div className="relative">
         <PageBackdrop color="var(--primary)" />
         <Breadcrumbs root={rootProp} />

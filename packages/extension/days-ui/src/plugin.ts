@@ -81,7 +81,12 @@ export const daysUiPlugin = definePlugin({
         ctx.plugin(daySectionsPlugin),
         ctx.contribute(
           ViewPoint,
-          provideView(DayView, { placements: ["page"], sample: {}, Component: DayPage }),
+          provideView(DayView, {
+            placements: ["page"],
+            sample: {},
+            Component: DayPage,
+            frame: "scroll",
+          }),
         ),
         ctx.contribute(SidebarSectionPoint, {
           id: "section",
