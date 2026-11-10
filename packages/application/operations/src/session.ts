@@ -102,6 +102,22 @@ export interface PersistOptions {
 }
 
 /**
+ * A person's write to a node the index serves from a source that is not the
+ * store (`NodeIndex.isVirtual`: a saved query, read from its `.edn` file),
+ * refused: a stored copy would shadow the file, and the two would drift. Its
+ * source is where it changes.
+ */
+function virtualWriteRefusal(
+  tx: StoreTx,
+  index: NodeIndex,
+): { readonly id: NodeId; readonly message: string } | null {
+  const id = [...tx.upserts.map((n) => n.id), ...tx.deletes].find((each) => index.isVirtual(each));
+  return id === undefined
+    ? null
+    : { id, message: `${id} is read from its source file, not the store; change it there` };
+}
+
+/**
  * Commit a transaction and move the index with it.
  *
  * The catch-up first is not defensive noise: the store commits under a lock by
@@ -123,6 +139,9 @@ export interface PersistOptions {
  * catch up to whatever the tail now holds. `refresh` rather than an append,
  * because the same call also adopts anything another process appended in the
  * meantime — the log has one way to learn what happened, not two.
+ *
+ * A person's write to a virtual node is refused the same way
+ * (`virtualWriteRefusal`): it is file-backed, whatever its id.
  *
  * The commit is the one owner of the system-write rule (`systemTxRefusal`,
  * DESIGN.md → Data model → write protection): a transaction that writes a
@@ -154,7 +173,8 @@ export const persistEffect = Effect.fn("kb.persist")(function* (
   }
   const call = yield* CurrentCall;
   if (systemWrites === "checked") {
-    const refused = systemTxRefusal(tx, (id) => ctx.index.getNode(id));
+    const refused =
+      virtualWriteRefusal(tx, ctx.index) ?? systemTxRefusal(tx, (id) => ctx.index.getNode(id));
     if (refused !== null) {
       return yield* domainError("forbidden", refused.message, {
         id: refused.id,

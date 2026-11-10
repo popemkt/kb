@@ -81,6 +81,7 @@ function reads(index: NodeIndex) {
     stored: index.storedNodes().map((n) => n.id),
     all: [...index.allNodes()].map((n) => n.id),
     each: IDS.map((id) => index.getNode(id) ?? null),
+    virtual: IDS.map((id) => index.isVirtual(id)),
     refs: [...index.allNodes()].map((n) => [...index.referencesOf(n)].toSorted()),
     search: index.search("[[", 3).map((n) => n.id),
   };
@@ -99,6 +100,18 @@ describe("NodeIndex contract", () => {
           apply(index, step);
           expect(reads(table)).toEqual(reads(index));
         }
+      }),
+    );
+  });
+
+  test("a virtual node is one the index serves and does not store", () => {
+    fc.assert(
+      fc.property(uniqueNodes, fc.array(stepArb, { maxLength: 8 }), (start, steps) => {
+        const table = new NodeTable(start, derivedWith({}));
+        for (const step of steps) apply(table, step);
+        const stored = new Set(table.storedNodes().map((n) => n.id));
+        for (const id of IDS)
+          expect(table.isVirtual(id)).toBe(table.getNode(id) !== undefined && !stored.has(id));
       }),
     );
   });

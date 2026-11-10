@@ -1,7 +1,9 @@
 /**
  * A write plan reads the stored graph only: the index's virtual nodes (saved
  * queries materialised by `kb ui`) never reach the store, so `node.add`
- * neither files a node under one nor counts its id as taken.
+ * neither files a node under one nor counts its id as taken; and a virtual
+ * node is its source file's, so the commit refuses a person's write to one
+ * and takes the owner's force.
  */
 import { afterEach, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -45,4 +47,17 @@ test("node.add does not count a virtual id as taken", async () => {
   });
   expect(added).toMatchObject({ status: "succeeded", output: { id: VIRTUAL } });
   expect(ctx.nodes.find((n) => n.id === VIRTUAL)?.text).toBe("stored");
+});
+
+test("a person's edit or delete of a virtual node is refused, and stores nothing", async () => {
+  const ctx = await withVirtual();
+  for (const request of [
+    { id: "node.update", input: { id: VIRTUAL, text: "mine" } },
+    { id: "node.delete", input: { id: VIRTUAL } },
+  ]) {
+    const refused = await invoke(ctx, request);
+    expect(refused).toMatchObject({ status: "failed", code: "forbidden" });
+  }
+  expect(ctx.nodes.some((n) => n.id === VIRTUAL)).toBe(false);
+  expect(ctx.index.getNode(VIRTUAL)?.text).toBe("probe");
 });

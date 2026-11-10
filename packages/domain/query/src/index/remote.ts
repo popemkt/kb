@@ -189,6 +189,10 @@ export class RemoteIndex implements NodeIndex {
     return this.#table.storedNodes();
   }
 
+  isVirtual(...args: Parameters<NodeIndex["isVirtual"]>): ReturnType<NodeIndex["isVirtual"]> {
+    return this.#table.isVirtual(...args);
+  }
+
   search(...args: Parameters<NodeIndex["search"]>): ReturnType<NodeIndex["search"]> {
     return this.#table.search(...args);
   }

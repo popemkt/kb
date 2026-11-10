@@ -550,7 +550,11 @@ type PropValue =
   commit that is not a person's write says which it is (`systemWrites`):
   `forced`, the owner's `--force`, or `system`, kb's own code writing the
   schema it owns (`views.migrate`, the locations family minting its nodes
-  in the home store, a test fixture). `force` is meant as the owner's:
+  in the home store, a test fixture). The same commit refuses a person's
+  write to a virtual node (`NodeIndex.isVirtual`: a saved query, read
+  from its `.kb/queries/*.edn`), whatever its id, because it is
+  file-backed: a stored copy would shadow the file and drift from it, so
+  the file is where it changes. `force` is meant as the owner's:
   the governance family's force guard would refuse it from a caller that
   acts for the owner, and is not contributed for now ([Action
   registry](#action-registry) → Current stance).
