@@ -76,6 +76,11 @@ const INDEXES: Record<string, (nodes: KbNode[], derived: readonly DerivedRef[]) 
   },
 };
 
+/** The mentions `held` makes (a field's own ref to its type option is a mention too). */
+async function heldBy(subject: Subject): Promise<string[]> {
+  return (await subject.mentions()).filter((row) => row.startsWith("held "));
+}
+
 const due = node("f.due", typed(SYSTEM_IDS.ftDate));
 const note = node("f.note");
 const task = node("task", { "f.due": str("2026-11-12"), "f.note": str("2026-11-13") });
@@ -108,6 +113,28 @@ for (const [name, make] of Object.entries(INDEXES))
         DERIVED,
       );
       expect(await fresh.mentions()).toEqual(await index.mentions());
+    });
+
+    test("a field typed through a person's option follows that option's type, however it moves", async () => {
+      // f.when chooses my.date, a person's option naming the built-in date type.
+      const when = node("f.when", typed("my.date"));
+      const held = node("held", { "f.when": str("2026-11-12") });
+      const index = make([when, node("my.date", typed(SYSTEM_IDS.ftDate)), held, ...days], DERIVED);
+      expect(await heldBy(index)).toEqual(["held day.2026-11-12"]);
+      // The option is retyped, two hops from the holder: the mention goes.
+      index.applyTx({ upserts: [node("my.date", typed(SYSTEM_IDS.ftText))], deletes: [] });
+      expect(await heldBy(index)).toEqual([]);
+      // Back to a date: it returns.
+      index.applyTx({ upserts: [node("my.date", typed(SYSTEM_IDS.ftDate))], deletes: [] });
+      expect(await heldBy(index)).toEqual(["held day.2026-11-12"]);
+      // The option is deleted: the field reads as text, and the mention goes.
+      index.applyTx({ upserts: [], deletes: ["my.date"] });
+      expect(await heldBy(index)).toEqual([]);
+      // The option arrives again, naming a date: the mention returns.
+      index.applyTx({ upserts: [node("my.date", typed(SYSTEM_IDS.ftDate))], deletes: [] });
+      expect(await heldBy(index)).toEqual(["held day.2026-11-12"]);
+      const fresh = make([when, node("my.date", typed(SYSTEM_IDS.ftDate)), held, ...days], DERIVED);
+      expect(await heldBy(fresh)).toEqual(await heldBy(index));
     });
 
     test("a field's other edits leave its holders' mentions as they were", async () => {

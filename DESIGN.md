@@ -704,7 +704,11 @@ set`, MCP and the UI all replace in one write), a many-valued field gains
   a text are both stored as `{t:"str"}` and only the field says which. A
   carrier reads nothing else of the graph, so the index knows when to read
   a node again: when it changes, when a target it names starts or stops
-  existing, and when a field it holds changes type (`NodeTable.change`). A
+  existing, and when a field it holds changes type (`NodeTable.change`):
+  the node table remembers each field's type with every id its reading
+  looked up, the field and the option it chooses (a person's own option
+  may name the built-in type), so the option retyped, deleted or arriving
+  retypes the field as surely as the field's own choice does. A
   field's other edits, its label say, read no holder again. The UI renders inactive text refs as
   accent links (click = zoom, ⌘/Ctrl-click = jump); the relationship itself is
   queryable, not UI-only. Example — nodes that reference a target:
