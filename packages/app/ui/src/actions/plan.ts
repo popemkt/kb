@@ -111,17 +111,11 @@ export function planMergeInto(
   targetId: string,
 ): PlannedMutation | null {
   if (id === targetId) return null;
-  const source = requireNode(nodes, id);
+  requireNode(nodes, id);
   const target = requireNode(nodes, targetId);
+  // One action, so the commit takes or refuses the whole merge.
   return {
-    actions: [
-      { id: "node.update", input: { id: targetId, text: target.text + source.text } },
-      ...source.children.map((childId, offset) => ({
-        id: "node.update",
-        input: { id: childId, parent: targetId, position: target.children.length + offset },
-      })),
-      { id: "node.delete", input: { id } },
-    ],
+    actions: [{ id: "node.merge", input: { id, into: targetId } }],
     focusId: targetId,
     focusCursor: target.text.length,
   };

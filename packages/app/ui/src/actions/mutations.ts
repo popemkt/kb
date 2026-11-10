@@ -67,11 +67,12 @@ function wire(): WireNode[] {
 
 /**
  * Whether the commit's own rule (`personWriteRefusal`) takes `tx`, asked
- * before a gesture whose earlier steps would stay written if this, its
- * last, were refused: a plan's actions commit one by one
- * (`runOptimistic`), and an upload is made before the text that names it.
- * Refused, it says why, as the commit would. The same rule asked earlier,
- * not a second one.
+ * before a gesture whose earlier step would stay written if this, its
+ * last, were refused: a view node is minted before its frame names it, and
+ * an upload is made before the text that names it. Refused, it says why, as
+ * the commit would. The same rule asked earlier, not a second one. A
+ * gesture that is one write (a merge, `node.merge`) is one action instead,
+ * and the commit decides it whole.
  */
 function landsAhead(tx: StoreTx): boolean {
   const { index } = useGraphStore.getState();
@@ -270,14 +271,12 @@ export const mutations: PageWrites = {
   },
 
   async mergeNextIntoThis(thisId: string, nextId: string): Promise<void> {
-    if (!landsAhead({ upserts: [], deletes: [nextId] })) return;
     const plan = planMergeInto(wire(), nextId, thisId);
     if (!plan) return;
     await applyPlan(plan);
   },
 
   async mergeWithPrevious(id: string, previousId: string | null = null): Promise<void> {
-    if (!landsAhead({ upserts: [], deletes: [id] })) return;
     let plan: PlannedMutation | null = null;
     if (previousId !== null && previousId !== id) plan = planMergeInto(wire(), id, previousId);
     if (!plan) plan = planMergeWithPrevious(wire(), id);

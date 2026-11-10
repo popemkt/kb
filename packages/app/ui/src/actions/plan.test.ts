@@ -66,13 +66,12 @@ describe("outline action input builders", () => {
     ]);
   });
 
-  it("merge preserves UI focus metadata while actions own graph changes", () => {
+  it("merge is one action, so the commit takes or refuses it whole, and keeps UI focus metadata", () => {
     const merged = present(planMergeInto(fixtureGraph.nodes, "n.child-a2", "n.child-a1"), "merge");
     expect(merged.focusId).toBe("n.child-a1");
-    expect(merged.actions.at(-1)).toEqual({
-      id: "node.delete",
-      input: { id: "n.child-a2" },
-    });
+    expect(merged.actions).toEqual([
+      { id: "node.merge", input: { id: "n.child-a2", into: "n.child-a1" } },
+    ]);
   });
 
   it("replaces a property in one node.update: unset and set in the same transaction", () => {

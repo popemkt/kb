@@ -675,10 +675,13 @@ node is written from the page as from any surface: its label, a person's
 child and a person's field in its tag's template land, and what its owner
 ships is refused by the commit (`personWriteRefusal` in `@kb/operations`,
 DESIGN.md → Data model → write protection), whose reason is the toast. The
-page keeps no second copy of the rule. A gesture of several steps whose last
-the commit would refuse (a merge that deletes a system node, a view a system
-frame cannot name) asks the same rule before its first step lands, so no
-part of it is written. A tag's Fields list offers "Add field" on every tag;
+page keeps no second copy of the rule. A gesture that is one write is one
+action, so the commit takes or refuses it whole: a merge is `node.merge`
+(the text, the children ranked after the other's, and the deletion, in one
+transaction). A gesture of two writes that cannot be one asks the same rule
+of its last before its first lands (a view node is minted before a frame
+names it; an upload is made before the text that names it), so a refusal
+leaves nothing behind. A tag's Fields list offers "Add field" on every tag;
 a field its owner ships (`isShipped`) is marked "shipped" and offers no
 remove. Only a row whose text is changed elsewhere is read-only at the door:
 `store.activateNode` degrades it to selection so no caret enters it, and the

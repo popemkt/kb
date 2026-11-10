@@ -29,6 +29,9 @@ const wireNode = (id: string, text: string): WireNode => ({
   updatedAt: AT,
 });
 
+/** The text of the node the merge regression merges into. */
+const reviewTargetText = () => present(outlineNodes().get("review.target"), "review.target").text;
+
 /** The fixture with `nodes` in it, each replacing the fixture's node of its id. */
 function hydrateWith(...nodes: WireNode[]): void {
   const ids = new Set(nodes.map((node) => node.id));
@@ -82,13 +85,56 @@ describe("the page writes a system node through the commit", () => {
     expect(after).toEqual([...before, expect.any(String)]);
   });
 
-  it("refuses a merge that would delete a system node before any of it lands", async () => {
+  it("refuses a merge that would delete a system node whole: none of it lands", async () => {
     withChildUnderSysTag("n.before-sys");
     const before = present(outlineNodes().get("n.before-sys"), "n.before-sys").text;
     await mutations.mergeNextIntoThis("n.before-sys", "sys.field");
     expect(present(outlineNodes().get("n.before-sys"), "n.before-sys").text).toBe(before);
     expect(outlineNodes().has("sys.field")).toBe(true);
     expect(toasts().some((text) => text.includes("sys.field is its owner's to delete"))).toBe(true);
+  });
+
+  it("merges a person's node holding a system node whole, or refuses it whole", async () => {
+    // A system node under a person's node, as only its owner's force puts it
+    // (its seeded parent's edge removed, so the tree stays one tree), at a
+    // rank of its own.
+    const arrange = (targetChildren: WireNode[]) => {
+      const field = {
+        ...cloneWire(present(outlineNodes().get("sys.field"), "sys.field")),
+        order: "m",
+      };
+      const parents = fixtureGraph.nodes
+        .filter((node) => node.children.includes(field.id))
+        .map((node) => ({
+          ...cloneWire(node),
+          children: node.children.filter((id) => id !== field.id),
+        }));
+      const source = { ...wireNode("review.source", " source"), children: [field.id] };
+      const target = {
+        ...wireNode("review.target", "target"),
+        children: targetChildren.map((child) => child.id),
+      };
+      hydrateWith(...parents, field, source, target, ...targetChildren);
+    };
+
+    // Its rank fits after the other's children, so the commit takes all of it.
+    arrange([]);
+    await mutations.mergeNextIntoThis("review.target", "review.source");
+    expect(reviewTargetText()).toBe("target source");
+    expect(outlineNodes().has("review.source")).toBe(false);
+    expect(present(outlineNodes().get("review.target"), "review.target").children).toEqual([
+      "sys.field",
+    ]);
+
+    // Its rank would have to change to follow them, so the commit refuses all of it.
+    arrange([{ ...wireNode("review.after", "after"), order: "t" }]);
+    useUiStore.setState({ toasts: [] });
+    await mutations.mergeNextIntoThis("review.target", "review.source");
+    expect(reviewTargetText()).toBe("target");
+    expect(outlineNodes().has("review.source")).toBe(true);
+    expect(toasts().some((t) => t.includes("sys.field keeps the rank its owner gave it"))).toBe(
+      true,
+    );
   });
 
   it("refuses a view a system frame cannot name before minting its view node", async () => {
