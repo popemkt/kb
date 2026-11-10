@@ -3465,7 +3465,11 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
     though the node is `sys.*`, because the write rule
     (`systemWriteRefusal`, `@kb/model`) admits exactly the values of fields
     that configure the node being written. Its text, its children, its rank
-    and every other field stay write-protected. The invoke core checks
+    and every other field stay write-protected, which is narrower than
+    [data-plane freedom](AGENTS.md#data-plane-freedom) asks:
+    additive edits (GAP [[01M7342V3W6X9PFNWVZ92WD7SF]]) and
+    labels (GAP [[01M7342W0CNMFK152YEFNJHPP4]]).
+    The invoke core checks
     every commit against the rule, on the server and on the page's replica,
     and the page's field rows read `isWritableField` to offer an edit only
     where it would land. `surfaceContract` holds every surface to it.

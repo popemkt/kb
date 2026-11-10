@@ -101,6 +101,51 @@ implementation.
 This is Rule 1 applied to implementations. Two backends that meet one promise
 in two unrelated ways are a mirror; the contract suite is the bridge.
 
+## Data-plane freedom
+
+The data plane is the nodes, fields, tags and values a store holds. A person
+owns it; a family, core included, owns only its promises. Freedom is the
+default, and every protection names the reason it exists. These are
+Rule 1's corollary ("everything is a node") seen from the person's side: a
+family's tags and fields are nodes like the person's, so the person can work
+on them as they work on their own.
+
+- **Additive edits are always allowed.** On any node, a `sys.*` or family
+  node included, a person may add a field to a tag's template, a child, an
+  option to an open option set, a tag that extends it, or a setting, and may
+  take back what they added. What a family ships stays as it shipped: its
+  seeded fields, options and children, in their order.
+- **Labels are cosmetic; ids are identity.** A node's text is the person's to
+  change, a family's tag, field or option included, without `--force`. The
+  seed keeps a label the person edited
+  ([DESIGN.md → Extension families](DESIGN.md#extension-families), "The seed
+  retires what it renames").
+- **Everything references by id.** A stored reference, a saved query, a lens,
+  a view's filter and a check name nodes by id (`[?t :node/id "<id>"]`,
+  `:f/<field-id>`), never by text, so a rename changes what is shown and
+  never what is meant. A name a person types (`kb add --tag todo`) resolves to
+  an id once, at the entry point; matching by text belongs to search.
+- **Constrain before you lock.** A family protects its data first with the
+  field's constraints, enforced at the commit on every surface: the type and
+  its form, the option source (children, a tag or a query), a closed option
+  set, and the family's commit guard. A bad value is refused with a reason.
+  A lock covers two things only: the family's identity and structure (its
+  ids, the existence of its seeded nodes and what they ship), and values the
+  family declares it manages because they mirror something outside the
+  person's hand, such as a sync's ids or a day node's date. A managed value
+  changes through the family's actions, and the editor says which ones.
+- **Families migrate their own data, declared and previewed.** A family whose
+  update changes the shape of data it owns ships the change as declared
+  migration steps. The steps are pure, deterministic and idempotent. The
+  person sees them as a dry-run diff before approving the update, and they
+  apply as one transaction that can be undone and is recorded as a node. A
+  rename is an alias or a retirement row, and no step deletes or rewrites
+  what the person added.
+
+Where the code falls short of these today, a `#gap` names the rule it bends
+(`kb backlinks` on the rule lists them). The proposal that motivated them is
+`docs/research/2026-11-10-data-plane-fields-events.md`.
+
 ## Canonical statements
 
 Every rule, principle, and decision has exactly one home. Other files link to
@@ -172,7 +217,7 @@ checkout, `bin/kb` runs the CLI from source.
 kb add "Fix drift audit" --tag todo --prop status=doing
 kb add --outline plan.md --parent <id>   # a whole outline (Tana Paste) in one tx; DESIGN.md → Outline paste
 kb search "drift" --json
-kb query '[:find ?id ?text :where [?n :f/sys.f.type ?t] [?t :node/text "todo"] [?n :node/id ?id] [?n :node/text ?text]]'
+kb query '[:find ?id ?text :where [?n :f/sys.f.type ?t] [?t :node/id "01KZFW1A5BT06QS7V6X6EBQMZ4"] [?n :node/id ?id] [?n :node/text ?text]]'   # #todo, by id
 kb run <saved-query>            # .kb/queries/<name>.edn
 kb docs materialize             # regenerate docs/rules.md and docs/todos.md
 kb ext list                     # loaded extensions + their actions

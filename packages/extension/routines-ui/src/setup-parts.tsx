@@ -13,8 +13,12 @@ import {
 } from "@phosphor-icons/react";
 import { cn, IconButton, toast } from "@kb/ui-sdk";
 
-/** A value to paste somewhere else, shown whole, with a button that copies it. */
+/**
+ * A value to paste somewhere else, shown whole, with a button that copies it:
+ * one line, or a text of several lines kept as written and scrolled when long.
+ */
 export function CopyValue({ label, value }: { readonly label: string; readonly value: string }) {
+  const text = value.includes("\n");
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
@@ -27,9 +31,17 @@ export function CopyValue({ label, value }: { readonly label: string; readonly v
     }
   };
   return (
-    <div className="flex min-w-0 items-center gap-1 rounded-md border border-border bg-muted py-0.5 pl-2 pr-0.5">
+    <div
+      className={cn(
+        "flex min-w-0 gap-1 rounded-md border border-border bg-muted py-0.5 pl-2 pr-0.5",
+        text ? "items-start" : "items-center",
+      )}
+    >
       <code
-        className="min-w-0 flex-1 break-all font-mono text-meta text-foreground select-all"
+        className={cn(
+          "min-w-0 flex-1 font-mono text-meta text-foreground select-all",
+          text ? "max-h-48 overflow-y-auto whitespace-pre-wrap break-words py-1" : "break-all",
+        )}
         data-copy-value=""
       >
         {value}

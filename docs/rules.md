@@ -38,15 +38,20 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Admission gate | AGENTS.md#gate-run-first | repo | Every commit is admitted through the one pre-commit gate; a missing tool is restored, never worked around. | prose | — |
 | Batch related changes in one reviewable PR | docs/ci.md#batches | repo | Related changes land together, with separate structural and behavior commits. | prose | — |
 | Canonical statements | AGENTS.md#canonical-statements | repo | Every rule, principle and decision has exactly one home; other files link to it and never restate it. Restatement is drift. | prose | — |
+| Data-plane freedom: additive edits | AGENTS.md#data-plane-freedom | repo | On any node, a sys.* or plugin node included, a person may add a field to a tag's template, a child, an option to an open option set, a tag that extends it, or a setting, and may take back what they added. What a family ships is kept: its seeded fields, options and children, in their order. | prose | A store-contract property that a person's additive edit to every seeded node commits without force, and that removing or reordering a seeded value or child is refused. |
+| Data-plane freedom: constrain before you lock | AGENTS.md#data-plane-freedom | repo | A family protects its data first by the field's constraints, enforced at the commit on every surface: the type and its form, the option source (children, a tag, a query), a closed option set, the family's commit guard. It locks only its identity and structure (its ids, its seeded nodes, what they ship) and values it declares it manages because they mirror something outside the person's hand. | prose | The commit enforcing a ref field's target constraint, and a declared managed-by field option the commit reads, each with a contract property. |
+| Data-plane freedom: labels are cosmetic | AGENTS.md#data-plane-freedom | repo | A node's text is the person's to change, a sys.* or plugin tag's, field's or option's included, without force. Ids are identity: code, queries, docs and agents name nodes by id, so a rename changes what is shown, never what is meant. | prose | A store-contract property that a text-only write to a seeded node commits without force and that a later open keeps it. |
 | Domain typing — discriminator over optional | DESIGN.md#domain-typing--effect-schema | repo | If the rule for when a field appears is encodable, lift it into a discriminator instead of declaring an optional field. | prose | — |
 | Domain typing — literal discriminators | DESIGN.md#domain-typing--effect-schema | repo | A discriminator is a literal or an enum of literals, never a bare string. | prose | — |
 | Domain typing — one canonical schema | DESIGN.md#domain-typing--effect-schema | repo | A shared shape is declared once and referenced; an inline re-declaration of it is a divergence waiting to drop a field. | prose | — |
 | Editor first (the editor is the main human editing surface) | DESIGN-UI.md#decisions-from-qa | repo | Every core concept is creatable and editable in the editor (outline + outline-ui); a concept writable only through the CLI or MCP, or only as a raw sys.* value, is a recorded gap. The CLI and MCP are equal agent surfaces, not the editor's fallback. | prose | an editor-surface test that walks every seeded field a person may set and asserts the editor draws a writable widget for it (none yet) |
 | Effect v4 idiom | AGENTS.md#effect | repo | Read the shipped Effect AGENTS.md before writing Effect code; the v4 non-negotiables listed there are not optional and v3 memory is wrong. | prose | effect-tsgo's effectFnOpportunity, promoted to error in the src/ lane of tsconfig.iso.json. Today it is off, and switching it on does not help yet: in effect-tsgo 0.40.0 it reports nothing through tsc, not even at error on a probe function that only returns an Effect.gen, so it has no sites to count. The other non-negotiables are partly held by errors that already run (outdatedApi, missingReturnYieldStar), which does not make the rule checked. |
+| Everything references by id | AGENTS.md#data-plane-freedom | repo | A stored reference, a saved query, a lens, a view's filter and a check name nodes by id, never by text. A name a person types resolves to an id once, at the entry point (kb add --tag todo). | prose | A check that no stored query, lens or filter matches :node/text against a literal. |
 | Kinds, roles and options | DESIGN.md#kinds-roles-and-options | repo | A supertag says what a node is; a behaviour is a field; an option set is children. Strip the behaviour and ask whether the node is still that thing. | prose | A lint rejecting a new supertag that templates no fields would close the option-set clause (@kb/model kinds.test.ts pins it for the seed); the strip test itself stays a reviewer judgement. |
 | Lab principles | DESIGN-UI.md#lab-principles | packages/extension/lab-ui packages/kit lab scene graph | Every lab study follows the motion (M1–M7), light and colour (L1–L5), composition (P1–P5) and technology (T1: WebGPU plus TSL only) principles and is built from the one scene kit (@kb/scene and @kb/scene-gpu), which the 3D graph stands on too; a study's info card cites the principles by id and never restates them. | prose | The measured bounds are their own rule (Lab principles: measured bounds). What is left is judgement: a render-lane frame-budget and reduced-motion-still check would close P3 and M7; composition and light stay a review verdict. |
 | Navigation is in the URL | DESIGN-UI.md#decisions-from-qa | packages/app/ui packages/extension | Going somewhere moves the focused pane through the router, which pushes a history entry; minor state is replaced. Stated in DESIGN-UI.md → Decisions → Navigation. | prose | a harness check that no UI code moves the page's place (the zoom, a scope) outside the router; today navigation-url.e2e.ts and graph.store.test.ts prove the zoom and the scope |
 | One contract, every implementation | AGENTS.md#one-contract-every-implementation | repo | A behaviour one implementation of a port guarantees is a guarantee of the port: stated once in the spec and proved by one contract suite that runs over every implementation. | prose | A harness check that every port with more than one implementation has a contract suite run over its whole registry. Not built yet, because half the ports are not discoverable: the store and tail ports are nominal (class … implements), but the scene handle, the graph renderers and the design systems are object-literal registries, so a check over implements clauses alone would read as covering the rule while missing them. The first step is one registry form every port declares. Found while looking: storeContract and logContract run over JsonlStore and SqliteStore (and their tails), but not over the UI's BrowserStore or tx-log's MemoryTxTail. |
+| Plugins migrate their own data, declared and previewed | AGENTS.md#data-plane-freedom | repo | A family whose update changes the shape of data it owns ships the change as declared migration steps: pure, deterministic and idempotent, shown as a dry-run diff before the person approves the update, applied as one transaction that can be undone, and recorded as a node. A rename is an alias or a retirement row, and no step deletes or rewrites what the person added. | prose | A migration runner whose contract suite proves idempotence, one-transaction apply and the survival of the person's nodes and fields. |
 | Property selection | DESIGN.md#testing-doctrine | tests | A property states a falsifiable domain claim and is exercised from the rejecting side. TAUTOLOGY, STRUCTURAL and quantifier theatre are review verdicts cited by name. | prose | — |
 | Spec-first changes | DESIGN.md#spec-first-changes | repo | The design doc is edited before the code it describes, in the same change and earlier in commit order. If the section cannot be written, the code cannot be written. | prose | — |
 
@@ -220,6 +225,24 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — the agent cannot be switched off before kb ui first runs with it, except from the page
 - **closes** — the host families' declarations reported (not loaded) by every process, or the agent's declaration joining the bundled list with a host half that only kb ui loads
 - **node** — `01M43H3T8XEMTNBARC024PZD2W`
+
+### GAP: a family cannot declare a field it manages
+
+- **expected** — A family marks the fields its sync writes (routines' gcal event id, status, synced at) as managed by its extension; the commit admits their values only from that extension's actions, and the editor shows them at rest with the action to use.
+- **current** — Nothing distinguishes a synced value from a person's value: routines' sync facts are writable from every surface, and the only protection kb has is the sys.* node lock, which locks whole nodes rather than values.
+- **impact** — A person's edit or an agent's write can corrupt a sync's bookkeeping (a wrong event id re-creates a Google event); families that need protection reach for the node lock, which is the wrong grain.
+- **closes** — A managed-by field option the commit guard reads against the call's via action, and a quiet managed row in the editor.
+- **rule** — Data-plane freedom: constrain before you lock
+- **node** — `01M7342WTAZQBARRM7T9F751HT`
+
+### GAP: a family cannot declare a migration of its data
+
+- **expected** — A family's manifest declares a data version and pure, idempotent migration steps; an update shows their dry-run diff on its approval sheet, applies them as one transaction that can be undone, and records a migration node.
+- **current** — A family changes its data only through seed retirement rows (renames, applied on open without a preview) and bespoke passes such as views' migrate; neither is previewed, approved, undoable as a unit or recorded.
+- **impact** — The routines to events rename, and any change to what a family's data means, would rewrite a person's nodes without their seeing it first.
+- **closes** — A manifest data block, a migration runner with a contract suite, the dry-run diff on the trust sheet and a #migration record node.
+- **rule** — Plugins migrate their own data, declared and previewed
+- **node** — `01M7342YFJC4B6DMAFD8MTSTD7`
 
 ### GAP: a flat item turned face-down shows its face mirrored in 2D
 
@@ -1267,6 +1290,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The server reads the UI dist through one asset source that a compiled build fills from embedded files (Bun.embeddedFiles) and a bundle fills from disk; then publish.yml, the one release path, adds a compile matrix and release-smoke runs on each binary.
 - **node** — `01M56H9MA14N5TG8640BN6PHXP`
 
+### GAP: renaming a sys.* or plugin node's label needs force
+
+- **expected** — A text-only write to a seeded node commits without force; the seed keeps the edited label (it already does on open).
+- **current** — systemWriteRefusal refuses any change to a sys.* node's text, and the zoomed header shows a padlock on its title.
+- **impact** — A person cannot call the events tag habit, or a status option Waiting, in their own words without overriding the whole protection.
+- **closes** — Admit text in systemWriteRefusal for sys.* nodes, replace the padlock with an owned-by note, and prove with a store-contract property that the edited text survives the next open.
+- **rule** — Data-plane freedom: labels are cosmetic
+- **node** — `01M7342W0CNMFK152YEFNJHPP4`
+
 ### GAP: replacement approval inspection awaits the keybinding consumer
 
 - **expected** — Every published kernel and native page API has a production consumer.
@@ -1331,6 +1363,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — stacks on tilted solids float or sink
 - **closes** — surface-height stacking
 - **node** — `01M41W5769NCQYYYWC9NMFWM3J`
+
+### GAP: stored queries may match a node by its text
+
+- **expected** — Every stored query, lens and view filter names nodes by id; a label a person picks in the query builder is written as the id it resolves to.
+- **current** — The query IR's label atom compiles to a match on the node's id or its text, and nothing checks stored queries; tests and research records use [?t :node/text "todo"] as the standard example.
+- **impact** — A saved query or a view filter that matched a tag or an option by its text silently returns nothing after a person renames it, which makes cosmetic renames unsafe.
+- **closes** — The builder resolves a label to a ref atom when it names a node, and a check refuses a stored query, lens or filter that matches :node/text against a literal.
+- **rule** — Everything references by id
+- **node** — `01M7342XMGCJ1J68JHT38EZ7XE`
 
 ### GAP: subscription re-evaluation is O(clients x subs x full query) per tx
 
@@ -1631,6 +1672,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Timestamp readings that hold on Metal (per pass, or three's per-frame grouping fixed), checked against wall time on the M4, and the WebGL2 disjoint timer where the browser has it.
 - **node** — `01M5STYVVX474T8WBT4FY341CM`
 
+### GAP: the system-write rule refuses additive edits to seeded nodes
+
+- **expected** — A person's field added to a seeded tag's template, a child under a seeded node and an option under a seeded field commit without force; removing or reordering what the seed ships is refused.
+- **current** — systemWriteRefusal admits only values of fields that configure the node; every other field, the children and the rank of a sys.* node need force, and the editor hides Add field on seeded tags and toasts that sys.* nodes are read-only.
+- **impact** — A person cannot add a field to a family's tag (a Location on the events tag), an option to its option set, or a child under it, so extending a plugin's model means forking it.
+- **closes** — systemWriteRefusal keeps every sys.* id a seeded list held, in order, and admits the person's ids in sys.f.fields, sys.f.extends and children; the editor offers the additive gestures on every node.
+- **rule** — Data-plane freedom: additive edits
+- **node** — `01M7342V3W6X9PFNWVZ92WD7SF`
+
 ### GAP: the systemd-creds sealed-store contract runs only on a host that can seal
 
 - **expected** — The sealed-store contract (packages/app/runtime/tests/sealed-contract.ts) runs over every cipher, systemd-creds included, on every machine the suite runs on, CI too.
@@ -1661,6 +1711,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **current** — txIntegrityError checks that a written value's kind is one its field's type accepts and that a ref names a stored node. Only the UI's ref picker consults allowedRefIdsOf. The integrity check is pure and engine-free, while two of the three constraint carriers (targetQuery, and children, derived into EDN) resolve through an injected EDN runner it is not given.
 - **impact** — Every surface except the picker - CLI, MCP, HTTP, @kb/client - can write a ref its field excludes, for example a #gap rule naming a node that is not a #rule. The constraint reads as enforced because the UI enforces it.
 - **closes** — Hand the integrity check an EDN runner over the prospective graph (the session index already has one), then check every written ref value against allowedRefIdsOf, with a test per carrier.
+- **rule** — Data-plane freedom: constrain before you lock
 - **node** — `01M39YM7FQ9S231XW8JBA5MG0E`
 
 ### GAP: theme head art meets the breadcrumbs in a narrow head
