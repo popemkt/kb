@@ -19,8 +19,10 @@ import {
 } from "@kb/contracts";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { DAYS_IDS } from "./ids.ts";
+import { DAYS_POINT_DEFINITIONS } from "./point-definitions.ts";
 import { daysSeed } from "./seed.ts";
 import { TODAY_ACTION } from "./today.ts";
+import { periodTagGuard } from "./period-tag.ts";
 import { uniqueKeyGuard } from "./unique-key.ts";
 import { DayView } from "./view.ts";
 
@@ -47,6 +49,7 @@ export const daysExtension = defineExtension({
   optional: { byDefault: "on" },
   seed: daysSeed,
   views: [viewDef(DayView)],
+  points: Object.values(DAYS_POINT_DEFINITIONS),
   tagDefaultViews: { [DAYS_IDS.dayTag]: DayView },
 });
 
@@ -60,6 +63,7 @@ export function daysPlugin(): Plugin {
         [
           ctx.contribute(ActionPoint, provideAction(TODAY_ACTION)),
           guardAction(ctx, "every write", uniqueKeyGuard, "unique-key"),
+          guardAction(ctx, "every write", periodTagGuard, "period-tag"),
           ctx.plugin(declarationPlugin(daysExtension)),
         ],
         { discard: true },

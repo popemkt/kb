@@ -857,8 +857,8 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 - **expected** — A node of a tag that extends another is that tag's node in datalog too: a derived :node/is datom holds the closure of sys.f.type over sys.f.extends, the query builder's has-tag lowers to it and the page's condition evaluator reads kindsOf, while :f/sys.f.type stays tagged-exactly.
 - **current** — kindsOf and isA read the chain in @kb/model, and the template, views, ref targets and ontology members follow it, but datalog has only :f/sys.f.type, so a has-tag filter, a saved query or a tag page's instance list names only nodes tagged exactly.
-- **impact** — A person's #meeting that extends #event shows in the calendar's readers once they ask isA, but not in a query or a view filter for #event.
-- **closes** — Add :node/is to CORE_DERIVED with a carrier that reads the chain and re-derives a tag's instances when its sys.f.extends changes; lower has-tag to it, evaluate it with isA, and stop canonicalizing a sys.f.type is-condition into has-tag.
+- **impact** — A person's #meeting that extends #event shows on the calendar page, which reads the page's graph through isA, but the routines engine reads its nodes with a datalog query on sys.f.type and does not sync it; a query or a view filter for #event does not name it either.
+- **closes** — Add :node/is to CORE_DERIVED with a carrier that reads the chain and re-derives a tag's instances when its sys.f.extends changes; lower has-tag to it, evaluate it with isA, and stop canonicalizing a sys.f.type is-condition into has-tag. The routines engine's read (routines-host graph.ts) then asks :node/is and brings the tags its readers walk.
 - **node** — `01M738XHYKHDFFCN8DK595Z15T`
 
 ### GAP: Durable browser invocation replay

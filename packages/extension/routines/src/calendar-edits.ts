@@ -183,7 +183,7 @@ function displaced(place: Place, minutes: number): Place {
 }
 
 /** Why a move is refused when the rule cannot carry it. */
-const CANNOT_SHIFT = "This repeat cannot move by days: change it in the routine instead";
+const CANNOT_SHIFT = "This repeat cannot move by days: change it on the event instead";
 
 /**
  * Move a whole series by as much as one of its instances moves: its start

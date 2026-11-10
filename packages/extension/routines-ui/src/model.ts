@@ -4,7 +4,7 @@
  * placed on the days of the person's zone.
  */
 import { useMemo } from "react";
-import { addDays, formatDay, parseDay, typeRefsOf, type NodeLike } from "@kb/model";
+import { addDays, formatDay, nodesOfKind, parseDay, type NodeLike } from "@kb/model";
 import {
   calendarEntries,
   DEFAULT_ROUTINE_ZONE,
@@ -46,8 +46,7 @@ export function inkOf(calendar: CalendarChoice | undefined): string {
 }
 
 function calendarsOf(nodes: ReadonlyMap<string, NodeLike>): readonly CalendarChoice[] {
-  return [...nodes.values()]
-    .filter((node) => typeRefsOf(node).includes(ROUTINE_TAGS.calendar))
+  return nodesOfKind(nodes, ROUTINE_TAGS.calendar)
     .toSorted((a, b) => a.id.localeCompare(b.id))
     .map((node, ink) => {
       let read: { mode: string; zone: string } = { mode: "invalid", zone: DEFAULT_ROUTINE_ZONE };

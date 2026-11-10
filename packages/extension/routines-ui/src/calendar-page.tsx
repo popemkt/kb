@@ -100,7 +100,7 @@ export function CalendarPage({ params }: { readonly params: CalendarParams }) {
       onKeyDown={onKeyDown}
       data-testid="routines-calendar"
       data-calendar-mode={mode}
-      aria-label="Routines calendar"
+      aria-label="Events calendar"
       className="flex h-full min-h-0 flex-col bg-background text-foreground outline-none"
     >
       <CalendarToolbar

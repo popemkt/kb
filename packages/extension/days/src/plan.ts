@@ -6,6 +6,7 @@
  */
 import { refValuesOf, type NodeLike } from "@kb/model";
 import { DAYS_IDS, periodNodeId } from "./ids.ts";
+import { periodTagOf } from "./period-tag.ts";
 import { dayTitle, isDayKey, weekKey, weekTitle, yearKey } from "./period.ts";
 
 /** One node the plan makes, parent first. */
@@ -53,7 +54,8 @@ export function journalOf(
  * under its year, the day under its week; a period that exists anywhere is
  * reused where it is, so a week a person moved keeps its new days. What it
  * makes takes its key's {@link periodNodeId}, or a `fresh` id when another
- * node already has that one.
+ * node already has that one, and a new day or week the tag the family's
+ * `day tag` or `week tag` setting chooses ({@link periodTagOf}).
  */
 export function planDay(
   nodes: ReadonlyMap<string, NodeLike>,
@@ -74,8 +76,12 @@ export function planDay(
   };
   let journal: string | null = null;
   const root = () =>
-    journalOf(nodes.get(DAYS_IDS.family), (id) => nodes.get(id)) ??
+    journalOf(family, nodeOf) ??
     (journal = add({ text: JOURNAL_TEXT, parent: null, tag: null, key: null }));
+  const family = nodes.get(DAYS_IDS.family);
+  const nodeOf = (id: string) => nodes.get(id);
+  const dayTag = periodTagOf(family, DAYS_IDS.dayTagField, DAYS_IDS.dayTag, nodeOf);
+  const weekTag = periodTagOf(family, DAYS_IDS.weekTagField, DAYS_IDS.weekTag, nodeOf);
   const yearOf = periodNodeOf(all, yearKey(day));
   const weekOf = periodNodeOf(all, weekKey(day));
   const week =
@@ -85,9 +91,9 @@ export function planDay(
       parent:
         yearOf ??
         add({ text: yearKey(day), parent: root(), tag: DAYS_IDS.yearTag, key: yearKey(day) }),
-      tag: DAYS_IDS.weekTag,
+      tag: weekTag,
       key: weekKey(day),
     });
-  const id = add({ text: dayTitle(day), parent: week, tag: DAYS_IDS.dayTag, key: day });
+  const id = add({ text: dayTitle(day), parent: week, tag: dayTag, key: day });
   return { day: id, make, journal };
 }

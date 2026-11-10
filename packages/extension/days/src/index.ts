@@ -7,3 +7,12 @@ export type { DayPlan, NewPeriodNode } from "./plan.ts";
 export { duplicateKeyOf, uniqueKeyGuard } from "./unique-key.ts";
 export { TODAY_ACTION } from "./today.ts";
 export { DayParams, DayView } from "./view.ts";
+export {
+  PERIOD_TAG_SETTINGS,
+  periodTagGuard,
+  periodTagOf,
+  periodTagRefusal,
+} from "./period-tag.ts";
+export { datedOn, datesOf } from "./dated.ts";
+export type { DatedValue } from "./dated.ts";
+export { DAYS_POINT_DEFINITIONS } from "./point-definitions.ts";
