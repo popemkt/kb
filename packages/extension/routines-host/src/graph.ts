@@ -81,6 +81,7 @@ export function makeRoutineHost(host: UiHostService): RoutineHost {
   });
   const read = Effect.fn("routines.graph.read")(function* () {
     const kinds = [T.routine, T.calendar, T.account];
+    // GAP [[01M738XHYKHDFFCN8DK595Z15T]]: tagged exactly, so a subtype's nodes are not read.
     const query =
       "[:find ?id :where [?n :node/id ?id] [?n :f/sys.f.type ?t] (or " +
       kinds.map((kind) => '[?t :node/id "' + kind + '"]').join(" ") +

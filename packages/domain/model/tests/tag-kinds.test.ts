@@ -13,7 +13,14 @@ import { resolveOntology } from "../src/ontology.ts";
 import { ensureSystemSeed, systemSeedNodes } from "../src/seed.ts";
 import { foldSeed } from "../src/seed-fold.ts";
 import { systemWriteRefusal } from "../src/system-write.ts";
-import { isA, kindsOf, tagAncestors, tagChains, templateFieldsOf } from "../src/tag-kinds.ts";
+import {
+  isA,
+  kindsOf,
+  nodesOfKind,
+  tagAncestors,
+  tagChains,
+  templateFieldsOf,
+} from "../src/tag-kinds.ts";
 import { tagViewsOf } from "../src/view-node.ts";
 
 const AT = "2026-11-11T00:00:00.000Z";
@@ -107,6 +114,12 @@ describe("a node of a tag that extends another", () => {
 });
 
 describe("a scan over every node", () => {
+  test("finds every node of a tag and of the tags that extend it, in the map's order", () => {
+    expect(nodesOfKind(byId, "event").map((n) => n.id)).toEqual(["walk", "call"]);
+    expect(nodesOfKind(byId, "task").map((n) => n.id)).toEqual(["walk", "chore"]);
+    expect(nodesOfKind(byId, "habit").map((n) => n.id)).toEqual(["walk"]);
+  });
+
   test("walks each tag's chain once, whatever the number of nodes it asks of", () => {
     // A 20-deep chain, t19 extends t18 … extends t0, and a thousand nodes of t19.
     const chain = Array.from({ length: 20 }, (_, i) =>

@@ -23,7 +23,7 @@ import {
   type ConfirmedStep,
   type ProjectSource,
 } from "@kb/routines";
-import { typeRefsOf } from "@kb/model";
+import { nodesOfKind } from "@kb/model";
 import { cn, useNodes } from "@kb/ui-sdk";
 import { BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from "./dialog";
 import { FIELD_CLASS } from "./repeat-picker";
@@ -538,8 +538,7 @@ async function syncEach(
 export function CalendarsStep({ setup, index }: StepProps) {
   const nodes = useNodes();
   const zone = new Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const calendars = [...nodes.values()]
-    .filter((node) => typeRefsOf(node).includes(ROUTINE_TAGS.calendar))
+  const calendars = nodesOfKind(nodes, ROUTINE_TAGS.calendar)
     .map((node) => {
       let read = { account: "", calendarId: "", mode: "invalid" };
       try {

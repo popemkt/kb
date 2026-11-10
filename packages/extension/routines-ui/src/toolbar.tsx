@@ -7,7 +7,7 @@ import {
   WarningIcon,
 } from "@phosphor-icons/react";
 import { ROUTINE_TAGS, type CalendarIssue, type CalendarMode } from "@kb/routines";
-import { typeRefsOf } from "@kb/model";
+import { nodesOfKind } from "@kb/model";
 import { cn, navigate } from "@kb/ui-sdk";
 import { titleOf } from "./dates";
 import { BUTTON_CLASS, ICON_BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from "./dialog";
@@ -160,9 +160,7 @@ export function CalendarToolbar({
   readonly onNew: () => void;
 }) {
   const summary = syncSummary(model);
-  const hasService = [...model.nodes.values()].some((node) =>
-    typeRefsOf(node).includes(ROUTINE_TAGS.account),
-  );
+  const hasService = nodesOfKind(model.nodes, ROUTINE_TAGS.account).length > 0;
   return (
     <div
       className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-3 py-2"
