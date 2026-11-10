@@ -3927,6 +3927,34 @@ reports the family on.
   Listing the rows inside ⌘K waits on a palette step a command can hand a
   list of choices to (GAP [[01M53VP7RKJG53B305MM26AYVG]]).
 
+### Days
+
+The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
+[Days](./DESIGN.md#days)). It loads while the server reports the family on.
+
+- **The day page** is `#day`'s default view (`days.day`, a tag view, so a
+  day opens in it at `/node/<id>` and a person may choose another there).
+  It draws the day's own outline, with its title, fields and children, then
+  **Made or edited this day**: the nodes whose created or updated instant
+  falls within the local day, newest first. Schema, the period nodes and
+  `sys.*` nodes are left out. Each row opens its node.
+- **The Today row** sits under Home in the sidebar (`order: 5`) and opens
+  today's node, making it if need be. It is the active row while today's
+  node is open.
+- **⌘K "Go to today"** is the `sys.command` node the family seeds
+  (`sys.cmd.days.today`). A direct key waits on a global key context a
+  family can contribute to (GAP [[01M6Y9H6R5D9Y8TQKZJZVWX8PB]]).
+- **Opening on today.** The family's setting `open on` (`sys.f.days.openOn`:
+  `today` or `home`; empty reads as `today`) decides where a page that
+  loads at the root, with nothing in its URL, goes. With `today` it replaces
+  the history entry with today's node, so Back leaves kb rather than
+  returning to Home. It applies once per page load, never when the family
+  is switched on later.
+- **The capture target's provider** answers today's node through
+  `ext.days.today`, with the page's local day. ⌘K "Add node" with nothing
+  selected and a picker's "create" row for a new top-level node both go
+  through it (`captureNode`), so either lands in today.
+
 ## Design tokens
 
 A whole design system (colour, type, faces, weights, radius, elevation,
