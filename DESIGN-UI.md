@@ -4545,11 +4545,12 @@ A PR for a backdrop reports a score against each criterion.
   the space's top whether or not the breadcrumbs are there). Any page head
   renders it with its colour and its node, and names no backdrop. It draws
   nothing itself: it declares the head (its colour, its node, its choice
-  and where its space lies in the scroll region) to the pane's host, which
-  draws (**One backdrop across pages**). Behind is a paint layer, not a
+  and its space) to the pane's host, which draws in that space (**One
+  backdrop across pages**), so layout places the backdrop with the page in
+  the pass that lays the page out. Behind is a paint layer, not a
   position: the host stands the frame in the negative layer of the page's
-  paint root, the scroll region (`PageFrame`, `isolation: isolate`), at the
-  space's place, so every box of the page, positioned or not, paints over
+  paint root, the scroll region (`PageFrame`, `isolation: isolate`), over
+  the whole space, so every box of the page, positioned or not, paints over
   the frame at full opacity wherever the frame reaches below the head, and
   the frame still paints over the shell's ground. A head's rows need no
   positioning of their own to stay above it (`backdrop-stacking.e2e.ts`
@@ -4577,16 +4578,23 @@ A PR for a backdrop reports a score against each criterion.
   between pages never mounts a backdrop again. A page framed by its route
   (the outline's home) and one framed by the view it resolves to
   (`/node/<id>`, `NodeViewSurface`) stand in two different scroll regions,
-  so the host draws into an element of its own, through a portal, which
-  each region takes in when it mounts (`useBackdropRegion`): the element
-  moves with its canvases, and their contexts, in the commit that swaps
-  the regions. Its layers are keyed by the backdrop's declared id:
+  so the host draws into an element of its own, through a portal, which a
+  head takes into its space as it declares itself, in the commit that
+  shows it: the element moves with its canvases, and their contexts, from
+  one page's space to the next, whichever region each stands in. A frame
+  that spans the region measures against the region it stands in now
+  (`useBreakoutShift`). While no head is declared the element stays in the
+  space it was in and leaves the page with it. Its layers are keyed by the
+  backdrop's declared id:
   - the next page's head choosing the backdrop shown keeps it, its frame,
     scene, clock and GPU context; its colour, node and settings reach it as
     props, as an edit's do (One scene for the life of the head);
   - choosing another crossfades: the one shown fades out over the theme's
     duration while the new one fades in, and its layer, scene and context
-    go once it has; under reduced motion it goes at once, with no fade;
+    go when that time is up, by the clock: a fade advances only as frames
+    are drawn, and a page whose frames stall (a busy GPU, a hidden tab)
+    still lets the old scene go; under reduced motion it goes at once,
+    with no fade;
   - no head declared (a page with none, or the next one still loading)
     holds the backdrop for a reveal, then fades it out, so a page that
     declares the same backdrop meanwhile finds it running;
@@ -4982,7 +4990,8 @@ sys.backdrop-variant.backdrops.astral.orrery`; `set` appends, so
   them: the host keeps the instance it mounted, and a GPU backdrop's scene
   mounts once, with one renderer, and its clock only moves forward. A page
   that shows another backdrop crossfades to it and lets the old scene go
-  once it has faded, at once under reduced motion, and at once when its
+  once the fade's time is up, though no frame drew it on, at once under
+  reduced motion, and at once when its
   family is unloaded on the way; reducing motion during a crossfade or a
   hold cuts it, and the next page swaps without a fade.
 

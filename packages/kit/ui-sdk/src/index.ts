@@ -195,7 +195,6 @@ export {
   PageBackdrop,
   PageBackdropHost,
 } from "./components/page-backdrop";
-export { useBackdropRegion } from "./lib/backdrop-host";
 export { BackdropCard } from "./components/backdrop-card";
 export { HoldStill } from "./components/hold-still";
 export { deferred, type DeferredOptions } from "./components/deferred";

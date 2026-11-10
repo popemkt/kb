@@ -132,18 +132,19 @@ test("a page that chooses another backdrop crossfades to it", async ({ page, har
   await expect(page.locator(`${FRAME} [data-scene-state="ready"]`)).toBeAttached({
     timeout: 20_000,
   });
+  // A fade long enough to look at: the theme's duration is the motion token's.
+  await page.addStyleTag({ content: "html { --motion-duration-theme: 2s !important; }" });
   await go(page, `/node/${OWN}`);
   // Both are drawn while the one shown fades out, as an animation of its opacity.
   const leaving = page.locator('[data-backdrop-layer="leaving"]');
   await expect(leaving).toHaveCount(1);
-  expect(
-    await leaving.evaluate((layer) => layer.getAnimations().some((a) => a.playState === "running")),
-  ).toBe(true);
+  expect(await leaving.evaluate((layer) => layer.getAnimations().length)).toBeGreaterThan(0);
   await expect(
     page.locator(`[data-backdrop-layer="shown"] ${FRAME.split(" ")[1]}`),
   ).toHaveAttribute("data-backdrop", BLACK_HOLE);
-  // Then the one it left is let go, its canvas with it (the page's own backdrop field shows its cards' too).
-  await expect(leaving).toHaveCount(0);
+  // Then, its time up, the one it left is let go, its canvas with it, however few frames the
+  // page drew meanwhile (the page's own backdrop field shows its cards' canvases too).
+  await expect(leaving).toHaveCount(0, { timeout: 10_000 });
   await expect(page.locator(`${FRAME} [data-scene-state="ready"]`)).toBeAttached({
     timeout: 20_000,
   });

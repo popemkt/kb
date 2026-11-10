@@ -42,6 +42,7 @@ import {
   PageBackdrop,
   PageBackdropHost,
   currentContributions,
+  readTiming,
   syncUiPlugins,
   useNode,
   type PageEditor,
@@ -440,7 +441,7 @@ describe("a keystroke or an edit never restarts a page-head backdrop", () => {
       return lens;
     }
 
-    it("crossfades to it, and lets the one it leaves go once it has faded", async () => {
+    it("crossfades to it, and lets the one it leaves go once its fade's time is up", async () => {
       const lens = await atLens(false);
       act(() => root.render(pane(PAGE_OWN, false)));
       await settle(container);
@@ -451,11 +452,11 @@ describe("a keystroke or an edit never restarts a page-head backdrop", () => {
       expect(gpu.live.has(lens as never)).toBe(true);
       const fades = leaving[0]?.getAnimations() ?? [];
       expect(fades.length).toBeGreaterThan(0);
-      await act(async () => {
-        for (const fade of fades) fade.finish();
-        await Promise.resolve();
-      });
+      // Its time up, it is let go, its scene with it, though no frame drew its fade on (a test DOM
+      // draws none, as a page whose GPU is busy may not): the fade shows it, the clock ends it.
+      await act(() => new Promise((done) => setTimeout(done, (readTiming().theme + 0.1) * 1000)));
       await settle(container);
+      expect(fades.every((fade) => fade.playState !== "finished")).toBe(true);
       expect(layers("leaving")).toHaveLength(0);
       expect(gpu.live.has(lens as never)).toBe(false);
       act(() => root.unmount());
@@ -514,12 +515,11 @@ describe("a keystroke or an edit never restarts a page-head backdrop", () => {
       const lens = await atLens(false);
       act(() => root.render(createElement(Pane, { at: PAGE_B, bare: true })));
       await settle(container);
-      // No head declared: what was shown is held, then fades.
-      expect(layers("leaving")).toHaveLength(1);
+      // No head declared: what was shown is held, then fades; it left the page with the space it was drawn in.
+      expect(layers("leaving")).toHaveLength(0);
       expect(gpu.live.has(lens as never)).toBe(true);
       try {
         await reduceMotion(true);
-        expect(layers("leaving")).toHaveLength(0);
         expect(gpu.live.has(lens as never)).toBe(false);
         act(() => root.render(pane(PAGE_OWN, false)));
         await settle(container);

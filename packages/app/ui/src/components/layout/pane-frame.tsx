@@ -1,4 +1,4 @@
-import { useCallback, useRef, type ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import {
   cn,
   matchRoute,
@@ -6,7 +6,6 @@ import {
   PageBackdropHost,
   RoutePoint,
   ThemeArt,
-  useBackdropRegion,
   useContributions,
   ViewSlot,
   WorkspaceState,
@@ -31,12 +30,9 @@ const NOT_FOUND = <NotFound what="Page" back={{ label: "Home", path: "/" }} />;
  * compensating offsets.
  *
  * It is the page's paint root (`isolate`): what a page paints behind its
- * content, a page head's backdrop, stands in the region's negative layer,
- * under every box of the page and over the shell's ground, and is never
- * carried under a background an ancestor paints. The pane's backdrop host
- * (`PageBackdropHost`, in `PaneFrame`) draws in whichever region the pane
- * shows now (`useBackdropRegion`); the region is the drawing's containing
- * block (`relative`), so the backdrop scrolls with the page.
+ * content, a page head's backdrop (`PageBackdrop`), stands in the region's
+ * negative layer, under every box of the page and over the shell's ground,
+ * and is never carried under a background an ancestor paints.
  */
 function ScrollRegion({
   scroll,
@@ -46,26 +42,13 @@ function ScrollRegion({
   readonly scroll: boolean;
   readonly children: ReactNode;
 }) {
-  const region = useRef<HTMLElement | null>(null);
-  const attachBackdrop = useBackdropRegion();
-  const attach = useCallback(
-    (element: HTMLElement | null) => {
-      region.current = element;
-      if (element === null) return undefined;
-      const detach = attachBackdrop(element);
-      return () => {
-        region.current = null;
-        detach();
-      };
-    },
-    [attachBackdrop],
-  );
+  const region = useRef<HTMLElement>(null);
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <main
-        ref={attach}
+        ref={region}
         className={cn(
-          "relative isolate min-h-0 flex-1",
+          "isolate min-h-0 flex-1",
           scroll ? "overflow-x-auto overflow-y-auto" : "overflow-hidden",
         )}
         data-main-region={scroll ? "scroll" : "fixed"}
@@ -133,7 +116,7 @@ export function PaneFrame({ path, subject }: { readonly path: string; readonly s
   return (
     <div className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col" data-pane-path={path}>
       {route?.chrome}
-      {/* Above the router: the backdrop outlives the page under it, in whichever region frames it. */}
+      {/* Above the router: the backdrop outlives the page under it, drawn in whichever head declares it. */}
       <PageBackdropHost>
         <PageFrame frame={route?.frame ?? "scroll"}>{body}</PageFrame>
       </PageBackdropHost>

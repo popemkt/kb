@@ -3,6 +3,7 @@ import {
   useContext,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type ReactNode,
@@ -28,12 +29,7 @@ import type { Backdrop, BackdropPresentation, BackdropProps } from "../lib/plugi
 import { usePointerOver } from "../lib/pointer-over";
 import type { OutlineNode } from "../lib/types";
 import { cornerTop } from "../lib/backdrop-corner-place";
-import {
-  HostContext,
-  type HeadBox,
-  type HeadDeclaration,
-  type HostPort,
-} from "../lib/backdrop-host";
+import { HostContext, type HeadDeclaration, type HostPort } from "../lib/backdrop-host";
 import { BackdropCorner } from "./backdrop-corner";
 
 /**
@@ -124,40 +120,16 @@ function placementOf({ span, offset }: BackdropPresentation): {
   };
 }
 
-const sameBox = (a: HeadBox, b: HeadBox): boolean =>
-  a.top === b.top && a.left === b.left && a.width === b.width && a.height === b.height;
-
-/**
- * Where `space` lies in `region`, by layout rather than by what is painted:
- * offsets up to the region, so neither the region's scroll nor a transform
- * on the way (an enter animation) moves it.
- */
-function boxIn(space: HTMLElement, region: HTMLElement): HeadBox {
-  let top = 0;
-  let left = 0;
-  let at: HTMLElement | null = space;
-  while (at !== null && at !== region) {
-    top += at.offsetTop;
-    left += at.offsetLeft;
-    const parent: Element | null = at.offsetParent;
-    at = parent instanceof HTMLElement ? parent : null;
-    if (at !== null && at !== region) {
-      top += at.clientTop;
-      left += at.clientLeft;
-    }
-  }
-  return { top, left, width: space.offsetWidth, height: space.offsetHeight };
-}
-
 /**
  * The page-head slot (DESIGN-UI.md → Page-head backdrops → One slot): the
  * head's space, at the top of the page, holding the head's first row (the
  * breadcrumbs) over the chosen backdrop. A head renders it with its colour
  * and the node it shows, and names no backdrop: which one, how strong and
  * which way are settings (`usePageBackdrop`), the node's own, then core's.
- * It draws nothing itself. It declares the head to its pane's host
- * (`PageBackdropHost`), which draws the backdrop where the space lies, so
- * a backdrop is not mounted again when the page under it changes.
+ * It draws nothing itself. It declares the head and its space to its
+ * pane's host (`PageBackdropHost`), which draws the backdrop in that space,
+ * so layout places it with the page, and a backdrop is not mounted again
+ * when the page under it changes.
  *
  * The space is as tall as the backdrop's presentation asks, and never less
  * than what it holds; the rows it holds stand on a soft scrim of the page's
@@ -179,36 +151,20 @@ export function PageBackdrop({
 }) {
   const declare = useContext(HostContext)?.declare ?? null;
   const choice = usePageBackdrop(node);
-  const [space, setSpace] = useState<HTMLDivElement | null>(null);
+  // A ref, not state: the head declares in the commit it mounts in, the one the page it
+  // replaces withdraws in, so the host sees one head give way to the next and holds nothing.
+  const space = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
-    const region = space?.closest<HTMLElement>("[data-main-region]");
-    if (declare === null || space === null || region === null || region === undefined) {
-      return undefined;
-    }
-    let box = boxIn(space, region);
-    let withdraw = declare({ color, node, choice, box });
-    // The space or the region resized: the head is declared again where it now lies.
-    if (typeof ResizeObserver === "undefined") return () => withdraw();
-    const observer = new ResizeObserver(() => {
-      const next = boxIn(space, region);
-      if (sameBox(next, box)) return;
-      box = next;
-      const previous = withdraw;
-      withdraw = declare({ color, node, choice, box });
-      previous();
-    });
-    observer.observe(space);
-    observer.observe(region);
-    return () => {
-      observer.disconnect();
-      withdraw();
-    };
-  }, [declare, space, color, node, choice]);
+    const element = space.current;
+    return declare === null || element === null
+      ? undefined
+      : declare({ color, node, choice, space: element });
+  }, [declare, color, node, choice]);
   const presentation = choice.backdrop?.value.presentation;
   return (
     <div
-      ref={setSpace}
-      className={cn("kb-page-head-space", className)}
+      ref={space}
+      className={cn("kb-page-head-space relative", className)}
       data-page-head-space="true"
       style={
         presentation === undefined ? undefined : { minHeight: `min(${presentation.space}px, 24vw)` }
@@ -255,11 +211,12 @@ function HeadBand({ scrim, children }: { readonly scrim: boolean; readonly child
  * lies, in the negative layer of the scroll region the page stands in.
  *
  * The drawing is the host's own element, which it renders into through a
- * portal and which follows the pane's scroll region (`useBackdropRegion`):
- * a page framed by its route and a page framed by the view it resolves to
- * stand in two different regions (`PageFrame`), and the element moves from
- * one to the other in the commit that swaps them, its canvases and their
- * contexts with it. Being in the region, it scrolls with the page.
+ * portal and puts in the declared head's space: layout places it with the
+ * page, in the region the page stands in (a page framed by its route and a
+ * page framed by the view it resolves to stand in two, `PageFrame`), and
+ * it moves to the next page's space in the commit that shows it, its
+ * canvases and their contexts with it. While no head is declared it stays
+ * in the space it was in, and leaves the page with it.
  *
  * A page that chooses the backdrop already drawn keeps it: its frame, its
  * scene, its clock and its GPU context; the new page's colour, node and
@@ -271,26 +228,24 @@ function HeadBand({ scrim, children }: { readonly scrim: boolean; readonly child
  */
 export function PageBackdropHost({ children }: { readonly children: ReactNode }) {
   const [declared, setDeclared] = useState<HeadDeclaration | null>(null);
-  // Positioned and unstacked: its layers' own stacking reaches the region's (`HostedBackdrops`).
+  // Over the whole space and unstacked: its layers' own stacking reaches the region's (`HostedBackdrops`).
   const [drawing] = useState(() => {
     if (typeof document === "undefined") return null;
     const element = document.createElement("div");
-    element.className = "pointer-events-none absolute inset-x-0 top-0";
+    element.className = "pointer-events-none absolute inset-0";
     element.dataset.pageBackdropHost = "true";
     return element;
   });
   const port = useMemo<HostPort>(
     () => ({
+      // The drawing moves in as the head declares itself, in the commit that shows it, so
+      // what the host draws is laid out in the space before it renders for the new head.
       declare: (declaration) => {
+        if (drawing !== null && drawing.parentElement !== declaration.space) {
+          declaration.space.prepend(drawing);
+        }
         setDeclared(declaration);
         return () => setDeclared((current) => (current === declaration ? null : current));
-      },
-      attach: (region) => {
-        if (drawing === null) return () => undefined;
-        region.prepend(drawing);
-        return () => {
-          if (drawing.parentElement === region) drawing.remove();
-        };
       },
     }),
     [drawing],
@@ -365,17 +320,15 @@ interface Corner {
 
 /**
  * What the host draws: the declared head's backdrop, the ones still fading
- * out, and the head's corner. Their box is the declared space's, held where
- * it was while no head is declared.
+ * out, and the head's corner, over the whole of the space the drawing is
+ * in.
  */
 function HostedBackdrops({ declared }: { readonly declared: HeadDeclaration | null }) {
   const reducedMotion = useReducedMotion();
   const next = declared?.choice.backdrop?.id ?? null;
   const [layers, setLayers] = useState<readonly Layer[]>([]);
-  const [box, setBox] = useState<HeadBox | null>(null);
   const [corner, setCorner] = useState<Corner | null>(null);
   if (!drawsChosen(layers, next, reducedMotion)) setLayers(chosenOver(layers, next, reducedMotion));
-  if (declared !== null && (box === null || !sameBox(box, declared.box))) setBox(declared.box);
   const gone = useCallback(
     (key: string) =>
       setLayers((now) => now.filter((layer) => layer.key !== key || layer.leaving === false)),
@@ -387,19 +340,11 @@ function HostedBackdrops({ declared }: { readonly declared: HeadDeclaration | nu
     [],
   );
   const closeCorner = useCallback(() => setCorner(null), []);
-  if (box === null) return null;
-  const place: CSSProperties = {
-    top: box.top,
-    left: box.left,
-    width: box.width,
-    height: box.height,
-  };
   const presentation = declared?.choice.backdrop?.value.presentation;
   return (
     <>
       <div
-        className="kb-header-backdrop-space pointer-events-none absolute -z-1"
-        style={place}
+        className="kb-header-backdrop-space pointer-events-none absolute inset-0 -z-1"
         aria-hidden="true"
         data-page-backdrop="true"
       >
@@ -414,7 +359,7 @@ function HostedBackdrops({ declared }: { readonly declared: HeadDeclaration | nu
         ))}
       </div>
       {corner === null || corner.backdrop !== next || presentation === undefined ? null : (
-        <div className="pointer-events-none absolute" style={place}>
+        <div className="pointer-events-none absolute inset-0">
           <BackdropCorner
             key={corner.key}
             backdrop={declared?.choice.backdrop?.value.key.id ?? corner.backdrop}
@@ -473,21 +418,27 @@ function HostLayer({
       fadeIn.finished.catch(() => undefined);
       return () => fadeIn.cancel();
     }
-    const fadeOut = withdrawn
-      ? undefined
-      : element.animate([{ opacity: 1 }, { opacity: 0 }], {
-          duration: theme * 1000,
-          delay: leaving === "held" ? reveal * 1000 : 0,
-          easing: "ease-in-out",
-          fill: "forwards",
-        });
-    if (fadeOut === undefined) {
+    if (withdrawn) {
       queueMicrotask(() => onGone(key));
       return undefined;
     }
-    // Gone once faded; a fade cancelled (taken back, or the host unmounted) leaves it be.
-    fadeOut.finished.then(() => onGone(key)).catch(() => undefined);
-    return () => fadeOut.cancel();
+    const delay = leaving === "held" ? reveal : 0;
+    const fadeOut = element.animate([{ opacity: 1 }, { opacity: 0 }], {
+      duration: theme * 1000,
+      delay: delay * 1000,
+      easing: "ease-in-out",
+      fill: "forwards",
+    });
+    // Cancelled when taken back, or when the host unmounts: nothing waits on its `finished`.
+    fadeOut.finished.catch(() => undefined);
+    // Gone when its time is up, by the clock rather than by the fade: an animation moves only
+    // as frames are drawn, and a page whose frames stall (a busy GPU, a hidden tab) still lets
+    // the scene it leaves go. Taken back, or the host unmounted, it is let be.
+    const timer = setTimeout(() => onGone(key), (delay + theme) * 1000);
+    return () => {
+      clearTimeout(timer);
+      fadeOut.cancel();
+    };
   }, [element, leaving, enters, withdrawn, key, onGone]);
   const doubleClicked = useCallback(
     (room: number) => onDoubleClick(key, room),
@@ -504,6 +455,7 @@ function HostLayer({
           color={drawn.color}
           node={drawn.node}
           choice={drawn.choice}
+          space={drawn.space}
           onDoubleClick={leaving === false ? doubleClicked : undefined}
         />
       )}
@@ -525,17 +477,20 @@ export function HeadBackdropFrame({
   color,
   node,
   choice: { backdrop: chosen, strength, direction, art, variants },
+  space,
   onDoubleClick,
 }: {
   readonly color: string;
   readonly node: OutlineNode | undefined;
   readonly choice: PageBackdropChoice;
+  /** The head's space it is drawn in, when its host carries it from page to page. */
+  readonly space?: HTMLElement;
   readonly onDoubleClick?: (room: number) => void;
 }) {
   const activity = usePageActivity();
   const [pointer, attachFrame] = usePointerOver();
   const spansRegion = chosen?.value.presentation.span.reach === "region";
-  const shift = useBreakoutShift(spansRegion);
+  const shift = useBreakoutShift(spansRegion, space);
   const frameRef = useCallback(
     (frame: HTMLDivElement | null) => {
       shift(frame);
