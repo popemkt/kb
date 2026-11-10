@@ -3848,13 +3848,14 @@ the page adds no storage of its own.
 `/calendar/sync` (`RoutinesSyncView`) lists the `#google-account` nodes as
 sync services, each with its state, and Add sync service opens a provider
 picker (Google is the one provider). Picking one adds an account node and
-opens its setup at `/calendar/sync/<account>`: a wizard of seven numbered
+opens its setup at `/calendar/sync/<account>`: a wizard of eight numbered
 steps with a progress bar, a vertical list beside the step on a wide screen
 and a horizontal one above it on a narrow one.
 
 - **Where a person is, is the account's own data.** The project id
   (`google project`) and the steps confirmed by hand (`setup done`, options
-  project, apis, branding and audience) are fields of the account node;
+  project, apis, branding, domain and audience, and `existing` for a
+  project the person already had) are fields of the account node;
   the rest is read from what is there: the client is set when its two
   references are, connect is done when the account's status is synced, and
   calendars when one linked calendar is provisioned with sync on
@@ -3862,6 +3863,16 @@ and a horizontal one above it on a narrow one.
   wizard opens at the first step not done, so leaving and coming back
   resumes, and a later step stays shut until the ones before it are done.
   Changing the project takes back what was confirmed for the old one.
+  One confirmation can vouch for others (`COVERS` in `setup.ts`, the one
+  table): a publish counts the Branding page step (`domain`) done, so an
+  account confirmed past it before the step existed keeps its place, and
+  `existing` counts every step up to the client done.
+- **Two paths, one wizard.** Step 1 offers a new project or one the person
+  already has, with the Calendar API on, its app published and a Web
+  client. Choosing the second names the project and confirms `existing`,
+  so the wizard resumes at the client step, which then asks for kb's
+  redirect URI on that client instead of a new one. Choosing a new project
+  again takes `existing` back.
 - **Each step links to the Console page it needs**, with the project
   chosen (`?project=`), and says what the person will see there. Where kb
   can check a step, it does: the client step shows the exact redirect URI

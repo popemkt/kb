@@ -5,20 +5,23 @@
  * the page's invoke path: node calls from `@kb/routines` → setup.ts, and the
  * host's `ext.routines.*` actions, which only a person may make.
  */
-import { useState, type ReactNode } from "react";
+import { useState, type ComponentType, type ReactNode } from "react";
 import { Schema } from "effect";
 import {
   addSetupCalendar,
   chooseProject,
+  confirmedBy,
   confirmStep,
   linkCalendar,
   PROJECT_ID,
+  projectSource,
   readCalendar,
   ROUTINE_TAGS,
   setAccountEmail,
   setCalendarSync,
   type AccountSetup,
   type ConfirmedStep,
+  type ProjectSource,
 } from "@kb/routines";
 import { typeRefsOf } from "@kb/model";
 import { cn, useNodes } from "@kb/ui-sdk";
@@ -32,6 +35,7 @@ import {
   startConnect,
   type SetupInfo,
 } from "./setup-calls";
+import { ExistingClientGuide, ExistingProject, SourceChoice } from "./setup-existing";
 import { ConsoleLink, CopyValue, Field, Pick, StepFrame, Verdict, WhatYouSee } from "./setup-parts";
 import { mintId, runCalls } from "./writes";
 
@@ -66,8 +70,14 @@ function useAction() {
   return { busy, error, run, setError };
 }
 
-/** The button that confirms a step done by hand, or takes it back. */
-function Confirm({
+/** Why a step is done when another confirmation vouches for it. */
+const COVERED: Partial<Record<ConfirmedStep, string>> = {
+  audience: "Done: the app is published, so its Branding page is complete.",
+  existing: "Done: your project was set up before. Step 1 says which project.",
+};
+
+/** The button that confirms a step done by hand, or takes it back; or why it is done already. */
+export function Confirm({
   setup,
   step,
   children,
@@ -76,7 +86,9 @@ function Confirm({
   readonly step: ConfirmedStep;
   readonly children: ReactNode;
 }) {
-  const done = setup.confirmed.has(step);
+  const by = confirmedBy(setup, step);
+  if (by !== null && by !== step) return <Verdict tone="ok">{COVERED[by] ?? "Done."}</Verdict>;
+  const done = by === step;
   return (
     <div className="flex flex-wrap items-center gap-2">
       {done ? (
@@ -104,6 +116,25 @@ function Confirm({
 }
 
 export function ProjectStep({ setup, info, index }: StepProps) {
+  const [source, setSource] = useState<ProjectSource>(() => projectSource(setup));
+  return (
+    <StepFrame
+      index={index}
+      title="Choose a Google Cloud project"
+      why="Your own project holds the OAuth client kb signs in with, so nobody else's app touches your calendar."
+    >
+      <SourceChoice value={source} onChange={setSource} />
+      {source === "new" ? (
+        <NewProject setup={setup} info={info} />
+      ) : (
+        <ExistingProject setup={setup} />
+      )}
+    </StepFrame>
+  );
+}
+
+/** Step 1 for a project made for kb: its id, made by gcloud or in the Console. */
+function NewProject({ setup, info }: Omit<StepProps, "index">) {
   const [project, setProject] = useState(() => setup.project || suggestedProject());
   const action = useAction();
   const valid = PROJECT_ID.test(project);
@@ -112,18 +143,17 @@ export function ProjectStep({ setup, info, index }: StepProps) {
     action.run(async () => {
       const done = await setupCall("automate", { project }, Schema.Unknown);
       if (!done.ok) return done.error;
-      const saved = await runCalls([chooseProject(setup, project)], "Could not save the project");
+      const saved = await runCalls(
+        [chooseProject(setup, project, "new")],
+        "Could not save the project",
+      );
       if (!saved) return null;
       const next = { ...setup, project, confirmed: new Set<ConfirmedStep>(["project"]) };
       await runCalls([confirmStep(next, "apis", true)], "Could not save it");
       return null;
     });
   return (
-    <StepFrame
-      index={index}
-      title="Create a Google Cloud project"
-      why="Your own project holds the OAuth client kb signs in with, so nobody else's app touches your calendar."
-    >
+    <>
       <Field
         label="Project ID"
         hint="6–30 lowercase letters, digits or hyphens, starting with a letter. It can't be changed later."
@@ -177,13 +207,13 @@ export function ProjectStep({ setup, info, index }: StepProps) {
         type="button"
         className={cn(PRIMARY_BUTTON_CLASS, "w-fit")}
         disabled={!valid}
-        onClick={() => void runCalls([chooseProject(setup, project)], "Could not save it")}
+        onClick={() => void runCalls([chooseProject(setup, project, "new")], "Could not save it")}
       >
-        {setup.project === project && setup.confirmed.has("project")
+        {setup.project === project && projectSource(setup) === "new"
           ? "Saved"
           : `I created ${valid ? project : "it"}`}
       </button>
-    </StepFrame>
+    </>
   );
 }
 
@@ -274,7 +304,8 @@ export function AudienceStep({ setup, index }: StepProps) {
       <WhatYouSee>
         <li>
           <Pick>Publishing status: Testing</Pick>. Press <Pick>Publish app</Pick>, then{" "}
-          <Pick>Confirm</Pick>.
+          <Pick>Confirm</Pick>. If it's greyed out and asks you to complete the Branding page, go
+          back to step {index - 1}.
         </li>
         <li>
           The status reads <Pick>In production</Pick>. Google may say the app needs verification. An
@@ -291,6 +322,44 @@ export function AudienceStep({ setup, index }: StepProps) {
     </StepFrame>
   );
 }
+
+/** The client step's guide for a project made for kb: a new client. */
+function NewClientGuide({ setup }: { readonly setup: AccountSetup }) {
+  return (
+    <>
+      <ConsoleLink href={consolePage("auth/clients/create", setup.project)}>
+        Open Create OAuth client
+      </ConsoleLink>
+      <WhatYouSee>
+        <li>
+          <Pick>Application type</Pick>: choose <Pick>Web application</Pick>. Name it “kb routines”.
+        </li>
+        <li>
+          Under <Pick>Authorized redirect URIs</Pick>, press <Pick>Add URI</Pick> and paste the URI
+          below exactly. Then press <Pick>Create</Pick>.
+        </li>
+        <li>
+          A dialog shows the <Pick>Client ID</Pick> and the <Pick>Client secret</Pick>. Copy both
+          now, because Google won't show the secret again. Download the JSON if you want a copy.
+        </li>
+      </WhatYouSee>
+    </>
+  );
+}
+
+/** The client step, by where the project came from: a new client, or kb added to one it has. */
+const CLIENT_GUIDES: Readonly<
+  Record<
+    ProjectSource,
+    {
+      readonly title: string;
+      readonly Guide: ComponentType<{ readonly setup: AccountSetup }>;
+    }
+  >
+> = {
+  new: { title: "Create the OAuth client", Guide: NewClientGuide },
+  existing: { title: "Add kb to your OAuth client", Guide: ExistingClientGuide },
+};
 
 export function ClientStep({ setup, info, index }: StepProps) {
   const [clientId, setClientId] = useState("");
@@ -311,15 +380,14 @@ export function ClientStep({ setup, info, index }: StepProps) {
       setSaved(true);
       return null;
     });
+  const guide = CLIENT_GUIDES[projectSource(setup)];
   return (
     <StepFrame
       index={index}
-      title="Create the OAuth client"
+      title={guide.title}
       why="The client is how kb asks Google for access. You paste its ID and secret here, and kb checks them with Google before keeping them."
     >
-      <ConsoleLink href={consolePage("auth/clients/create", setup.project)}>
-        Open Create OAuth client
-      </ConsoleLink>
+      <guide.Guide setup={setup} />
       <div className="flex flex-col gap-1">
         <span className="text-label text-muted-foreground">Authorized redirect URI</span>
         {info === null ? (
@@ -335,19 +403,6 @@ export function ClientStep({ setup, info, index }: StepProps) {
           </Verdict>
         ) : null}
       </div>
-      <WhatYouSee>
-        <li>
-          <Pick>Application type</Pick>: choose <Pick>Web application</Pick>. Name it “kb routines”.
-        </li>
-        <li>
-          Under <Pick>Authorized redirect URIs</Pick>, press <Pick>Add URI</Pick> and paste the URI
-          above exactly. Then press <Pick>Create</Pick>.
-        </li>
-        <li>
-          A dialog shows the <Pick>Client ID</Pick> and the <Pick>Client secret</Pick>. Copy both
-          now, because Google won't show the secret again. Download the JSON if you want a copy.
-        </li>
-      </WhatYouSee>
       <form
         className="flex flex-col gap-3"
         onSubmit={(event) => {

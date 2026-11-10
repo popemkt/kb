@@ -81,10 +81,18 @@ export {
   stepOpen,
   addAccount,
   chooseProject,
+  projectSource,
+  confirmedBy,
   confirmStep,
   setAccountEmail,
   addSetupCalendar,
   linkCalendar,
   setCalendarSync,
 } from "./setup.ts";
-export type { SetupStep, ConfirmedStep, AccountSetup, SetupCalendar } from "./setup.ts";
+export type {
+  SetupStep,
+  ConfirmedStep,
+  ProjectSource,
+  AccountSetup,
+  SetupCalendar,
+} from "./setup.ts";
