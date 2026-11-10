@@ -315,22 +315,44 @@ interface Layer {
   readonly enters: boolean;
 }
 
-/** The layers once the head chooses `next` (null, none) over `layers`. */
+/**
+ * Whether `layers` draw `next` (null, none) as the head chose it: it is the
+ * one shown, and under reduced motion nothing fades in or out beside it.
+ */
+function drawsChosen(
+  layers: readonly Layer[],
+  next: string | null,
+  reducedMotion: boolean,
+): boolean {
+  const live = layers.find((layer) => layer.leaving === false)?.key ?? null;
+  return (
+    live === next &&
+    (!reducedMotion || layers.every((layer) => layer.leaving === false && !layer.enters))
+  );
+}
+
+/**
+ * The layers once the head chooses `next` (null, none) over `layers`. Under
+ * reduced motion that is the chosen one alone, held still: whatever was
+ * fading in or out when motion was reduced is cut, not left to finish.
+ */
 function chosenOver(
   layers: readonly Layer[],
   next: string | null,
   reducedMotion: boolean,
 ): readonly Layer[] {
+  if (reducedMotion) return next === null ? [] : [{ key: next, leaving: false, enters: false }];
   const out: Layer[] = [];
   for (const layer of layers) {
     if (layer.key === next) continue;
-    if (layer.leaving !== false) out.push(layer);
-    else if (!reducedMotion) out.push({ ...layer, leaving: next === null ? "held" : "now" });
+    out.push(
+      layer.leaving === false ? { ...layer, leaving: next === null ? "held" : "now" } : layer,
+    );
   }
   if (next === null) return out;
   // A backdrop still on its way out is taken back as it is; another comes in over what was shown.
   const back = layers.some((layer) => layer.key === next);
-  const enters = !back && !reducedMotion && out.length > 0;
+  const enters = !back && out.length > 0;
   return [...out, { key: next, leaving: false, enters }];
 }
 
@@ -352,8 +374,7 @@ function HostedBackdrops({ declared }: { readonly declared: HeadDeclaration | nu
   const [layers, setLayers] = useState<readonly Layer[]>([]);
   const [box, setBox] = useState<HeadBox | null>(null);
   const [corner, setCorner] = useState<Corner | null>(null);
-  const live = layers.find((layer) => layer.leaving === false)?.key ?? null;
-  if (live !== next) setLayers(chosenOver(layers, next, reducedMotion));
+  if (!drawsChosen(layers, next, reducedMotion)) setLayers(chosenOver(layers, next, reducedMotion));
   if (declared !== null && (box === null || !sameBox(box, declared.box))) setBox(declared.box);
   const gone = useCallback(
     (key: string) =>

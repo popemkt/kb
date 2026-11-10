@@ -149,12 +149,14 @@ function graphChoosing(backdrop: string, own = backdrop): WireNode[] {
  * framed `full`), so moving between them changes the region the backdrop
  * stands in. Each page is a fresh subtree, as a route's page is.
  */
-function Pane({ at }: { readonly at: string | null }) {
+function Pane({ at, bare = false }: { readonly at: string | null; readonly bare?: boolean }) {
   const node = useNode(at ?? undefined);
-  const head = createElement(PageBackdrop, {
-    color: "red",
-    ...(node === undefined ? {} : { node }),
-  });
+  const head = bare
+    ? null
+    : createElement(PageBackdrop, {
+        color: "red",
+        ...(node === undefined ? {} : { node }),
+      });
   const page = createElement("section", { key: at ?? "home", "data-page": at ?? "home" }, head);
   return createElement(
     PageBackdropHost,
@@ -412,11 +414,18 @@ describe("a keystroke or an edit never restarts a page-head backdrop", () => {
         ? createElement(HoldStill, null, createElement(Pane, { at }))
         : createElement(Pane, { at });
 
+    const observers = g.MutationObserver;
+
     beforeAll(() => {
       container = document.createElement("div");
       document.body.appendChild(container);
+      // The motion hooks hear the owner's setting change through the window's observer, as a page's do.
+      g.MutationObserver = (window as unknown as Record<string, unknown>).MutationObserver;
     });
-    afterAll(() => container.remove());
+    afterAll(() => {
+      container.remove();
+      g.MutationObserver = observers;
+    });
 
     /** The pane at a page showing core's Lens, its scene running; Lens's renderer. */
     async function atLens(still: boolean) {
@@ -460,6 +469,67 @@ describe("a keystroke or an edit never restarts a page-head backdrop", () => {
       expect(shownBackdrop()).toBe(BLACK_HOLE);
       expect(gpu.live.has(lens as never)).toBe(false);
       act(() => root.unmount());
+    });
+
+    /** Whether any layer the host draws still runs a fade. */
+    const fading = () =>
+      [...container.querySelectorAll<HTMLElement>("[data-backdrop-layer]")].some((layer) =>
+        layer.getAnimations().some((fade) => fade.playState !== "finished"),
+      );
+    /** Motion reduced as the owner's setting paints it, read by every motion hook. */
+    const reduceMotion = async (reduced: boolean) => {
+      act(() => {
+        if (reduced) document.documentElement.setAttribute("data-motion", "reduced");
+        else document.documentElement.removeAttribute("data-motion");
+      });
+      await settle(container);
+    };
+
+    it("cuts a crossfade under way when motion is reduced, and swaps at once after", async () => {
+      const lens = await atLens(false);
+      act(() => root.render(pane(PAGE_OWN, false)));
+      await settle(container);
+      expect(layers("leaving")).toHaveLength(1);
+      expect(fading()).toBe(true);
+      try {
+        await reduceMotion(true);
+        // The one it was leaving is gone and the one it was showing stands still, both at once.
+        expect(layers("leaving")).toHaveLength(0);
+        expect(gpu.live.has(lens as never)).toBe(false);
+        expect(shownBackdrop()).toBe(BLACK_HOLE);
+        expect(fading()).toBe(false);
+        // The next page swaps without a fade.
+        act(() => root.render(pane(PAGE_A, false)));
+        expect(layers("leaving")).toHaveLength(0);
+        await settle(container);
+        expect(shownBackdrop()).toBe(LENS);
+        expect(fading()).toBe(false);
+      } finally {
+        await reduceMotion(false);
+        act(() => root.unmount());
+      }
+    });
+
+    it("cuts a held backdrop when motion is reduced on a page with no head", async () => {
+      const lens = await atLens(false);
+      act(() => root.render(createElement(Pane, { at: PAGE_B, bare: true })));
+      await settle(container);
+      // No head declared: what was shown is held, then fades.
+      expect(layers("leaving")).toHaveLength(1);
+      expect(gpu.live.has(lens as never)).toBe(true);
+      try {
+        await reduceMotion(true);
+        expect(layers("leaving")).toHaveLength(0);
+        expect(gpu.live.has(lens as never)).toBe(false);
+        act(() => root.render(pane(PAGE_OWN, false)));
+        await settle(container);
+        expect(shownBackdrop()).toBe(BLACK_HOLE);
+        expect(layers("leaving")).toHaveLength(0);
+        expect(fading()).toBe(false);
+      } finally {
+        await reduceMotion(false);
+        act(() => root.unmount());
+      }
     });
 
     it("lets the one it leaves go at once when its family is unloaded", async () => {

@@ -4562,6 +4562,9 @@ A PR for a backdrop reports a score against each criterion.
   - no head declared (a page with none, or the next one still loading)
     holds the backdrop for a reveal, then fades it out, so a page that
     declares the same backdrop meanwhile finds it running;
+  - motion reduced, by the setting or the system, while a backdrop fades
+    in, out or is held cuts it there: only the chosen backdrop is left,
+    standing still, and the next page swaps at once;
   - a backdrop whose family stops contributing it (a plugin unloaded or
     reloaded on the way out) is let go at once, so no code of a plugin that
     is gone keeps drawing;
@@ -4952,7 +4955,8 @@ sys.backdrop-variant.backdrops.astral.orrery`; `set` appends, so
   mounts once, with one renderer, and its clock only moves forward. A page
   that shows another backdrop crossfades to it and lets the old scene go
   once it has faded, at once under reduced motion, and at once when its
-  family is unloaded on the way.
+  family is unloaded on the way; reducing motion during a crossfade or a
+  hold cuts it, and the next page swaps without a fade.
 
 #### Variation
 
