@@ -348,23 +348,23 @@ export function RoutineEditor({
         ? [
             addRoutine({
               id: mintId(),
-              title: title.trim() === "" ? "Untitled routine" : title,
+              title: title.trim() === "" ? "Untitled event" : title,
               settings,
             }),
           ]
         : editRoutine(target.id, start, { title, settings });
-    if (await runCalls(calls, "Could not save the routine")) onClose();
+    if (await runCalls(calls, "Could not save the event")) onClose();
   };
   const remove = async () => {
     if (
       target.kind === "routine" &&
-      (await runCalls([deleteNode(target.id)], "Could not delete the routine"))
+      (await runCalls([deleteNode(target.id)], "Could not delete the event"))
     )
       onClose();
   };
   return (
     <Dialog
-      title={target.kind === "new" ? "New routine" : "Edit routine"}
+      title={target.kind === "new" ? "New event" : "Edit event"}
       onClose={onClose}
       testId="routine-editor"
     >
