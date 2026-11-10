@@ -424,6 +424,12 @@ describe("registry + operations", () => {
     expect(blocked.status).toBe("failed");
     if (blocked.status === "failed") {
       expect(blocked.code).toBe("forbidden");
+      // The refusal travels as data, for a surface to word itself.
+      expect(blocked.details).toMatchObject({
+        rule: "setting",
+        id: SYSTEM_IDS.tag,
+        field: SYSTEM_IDS.typeField,
+      });
     }
     const forced = await invoke(ctx, { id: "node.update", input: { ...retype, force: true } });
     expect(forced.status).toBe("succeeded");
@@ -459,6 +465,7 @@ describe("registry + operations", () => {
     expect(mint.status).toBe("failed");
     if (mint.status === "failed") {
       expect(mint.code).toBe("forbidden");
+      expect(mint.details).toMatchObject({ rule: "mint", id: "sys.evil" });
     }
     expect(ctx.nodes.some((n) => n.id === "sys.evil")).toBe(false);
 
@@ -469,6 +476,7 @@ describe("registry + operations", () => {
     expect(moveOut.status).toBe("failed");
     if (moveOut.status === "failed") {
       expect(moveOut.code).toBe("forbidden");
+      expect(moveOut.details).toMatchObject({ rule: "children", id: SYSTEM_IDS.viewsRoot });
     }
     expect(ctx.nodes.find((n) => n.id === SYSTEM_IDS.viewsRoot)?.children[0]).toBe(seeded);
 

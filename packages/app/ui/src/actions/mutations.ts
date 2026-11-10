@@ -52,7 +52,7 @@ const mb = (bytes: number) => `${Math.round(bytes / (1024 * 1024))} MB`;
 import { findParentWire } from "@/lib/tx";
 import { restoreInvocations } from "@/actions/restore";
 import type { WireNode } from "@kb/contracts";
-import { typeRefsOf } from "@kb/model";
+import { typeRefsOf, writeRefusalMessage } from "@kb/model";
 import { shownNodes, useGraphStore } from "@/stores/graph.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { pageRows } from "@/stores/page"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { pageEditor } from "@/stores/page-editor"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
@@ -77,7 +77,7 @@ function wire(): WireNode[] {
 function landsAhead(tx: StoreTx): boolean {
   const { index } = useGraphStore.getState();
   const refused = index === null ? null : personWriteRefusal(tx, index);
-  if (refused !== null) toast(refused.message);
+  if (refused !== null) toast(writeRefusalMessage(refused));
   return refused === null;
 }
 
