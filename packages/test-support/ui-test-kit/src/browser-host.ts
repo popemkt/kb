@@ -105,7 +105,7 @@ const INERT_WRITES: PageWrites = {
   removeFieldTargetTag: done,
   setFieldTargetQuery: done,
   splitNode: done,
-  deleteNode: done,
+  deleteNode: refused,
   mergeNextIntoThis: done,
   mergeWithPrevious: done,
   indentNode: done,

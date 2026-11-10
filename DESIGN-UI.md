@@ -681,6 +681,9 @@ path every surface takes from a failed receipt to a toast): the node by its
 label, who owns it (`:node/owner`, by the owner's label, "kb" where no
 family seeds it), and what they can do instead — add their own, or make
 their own tag that extends it — never the override, which is its owner's.
+A refused write leaves the person where they were: a delete answers whether
+it landed (`PageWrites.deleteNode`), and the selection or caret moves past
+the row only when it did.
 A seeded node's page says who owns it under its title: "Owned by" and its
 owner's node as a chip, which a click follows (`GraphRead.ownerOf`, the
 index's point read `related(id, ":node/owner")`). An extension's own node

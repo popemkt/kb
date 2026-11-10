@@ -269,8 +269,8 @@ export const mutations: PageWrites = {
     await applyPlan(planSplit(wire(), id, cursor, ulid(), { expandedIds }));
   },
 
-  async deleteNode(id: string): Promise<void> {
-    await applyPlan(planDelete(wire(), id));
+  async deleteNode(id: string): Promise<boolean> {
+    return applyPlan(planDelete(wire(), id));
   },
 
   async mergeNextIntoThis(thisId: string, nextId: string): Promise<void> {
