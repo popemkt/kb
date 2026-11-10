@@ -2385,7 +2385,12 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     - A guard (`ActionGuardPoint`, `action/guard`; `guardAction(plugin,
 match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
       asked before an action runs (`before`) and again before the call
-      commits (`commit`, with the commit's actual writes). The invoke core
+      commits (`commit`, with the commit's actual writes). A commit lands
+      only on the state its `commit` guards, integrity check and
+      system-write rule were asked over (`persistEffect` commits
+      conditionally, and catches up and asks again when the store moved),
+      so a verdict such as days' one node per key holds against every
+      concurrent writer, on every store backend. The invoke core
       holds the call as sealed data from the start — the invocation and
       its input, and the action, a copy of the definition's id, mode and
       batch parts — and `CurrentCall` carries that, so no reader can
@@ -5311,6 +5316,76 @@ are `docs/brainstorms/2026-10-17-kb-locations/README.md`.
   `kb ui --port 0` and reads its presence. The family joins
   `extensionContract` and `surfaceContract` as every bundled family does.
 
+## Days
+
+The days family gives every calendar day a node, made the first time it is
+needed, and makes today the place a capture with no chosen place lands. It
+is optional and on by default. Its browser half is DESIGN-UI.md →
+[Days](./DESIGN-UI.md#days), and the proposal it comes from is
+`docs/research/2026-11-10-data-plane-fields-events.md` → §8.
+
+| Package        | Layer, scope       | Holds                                                                                                                                                           |
+| -------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@kb/days`     | extension, shared  | the declaration, `DAYS_IDS`, the period keys (`period.ts`), the plan (`planDay`), `ext.days.today` and the one-node-per-key guard: one plugin on both hosts |
+| `@kb/days-ui`  | extension, browser | the day page, the Today row, ⌘K "Go to today", opening on today, and the capture target's provider                                                             |
+
+- **A period is a node with a key.** `#day`, `#week` and `#year`
+  (`sys.tag.day`, `sys.tag.week`, `sys.tag.year`) are tags the family
+  seeds, and each templates `sys.f.days.key` (text, one value, hidden): the
+  one field that says which period a node is, `2026-11-10`, `2026-W46` or
+  `2026`. A period node is found by its key, never by its text or its place.
+  So a person may rename "Tue, Nov 10", move it, tag it and fill it, and it
+  stays that day ([data-plane freedom](AGENTS.md#data-plane-freedom)).
+- **One node per key.** The key is the family's identity data, and three
+  things keep it to one node:
+  - `ext.days.today` commits only on the state it planned from (the
+    store's conditional commit, `persistPlannedEffect`). A caller that
+    planned the same day while another committed it is planned again,
+    finds the day and writes nothing, in this process or another, on
+    either store.
+  - A period is made with an id derived from its key alone
+    (`periodNodeId`: `days.2026-11-10`, `days.2026-W46`, `days.2026`,
+    `days.journal`), or a fresh one when another node holds that id. Two
+    clones that each make one day therefore hold one id, and their stores
+    merge into one node ([Merge](#merge) resolves by id). The id is where
+    a period is made, not how it is found.
+  - A commit that would leave two nodes holding one key is refused, from
+    every surface (`ext.days.unique-key`, a commit guard on every write).
+    This is what stops a person hand-keying a duplicate.
+
+  The key is hidden, but a person can still write it through a node's
+  debug fields until a family can declare a field it manages (GAP
+  [[01M7342WTAZQBARRM7T9F751HT]]).
+- **The hierarchy is made lazily, in one transaction.** `ext.days.today`
+  (`{day?}` → `{id, made}`) answers a day's node, and in the same
+  transaction makes whatever is missing above it: the journal root, the
+  year, the ISO week and the day, each found by its key first, so a week a
+  person moved keeps its new days. A week belongs to the year its Thursday
+  falls in, so 2027-01-01 sits under 2026 › Week 53. Nothing is made ahead
+  of time, and nothing existing moves: the family files only the nodes it
+  makes.
+- **The journal root is a setting.** `journal` (`sys.f.days.journal`, a ref
+  on the family's node) names the node years go under. Empty, the first day
+  makes a top-level "Daily notes" and points the setting at it, in the same
+  transaction. A person may point it at any node to keep their days there.
+- **The day is the caller's.** `ext.days.today` takes the calendar date
+  from its caller: the page passes its local day, and without one the
+  action uses the local day of the process that runs it (`kb action-invoke`
+  from a terminal). The family never decides which day it is somewhere
+  else.
+- **Captures land in today.** Where a node made with no chosen place goes
+  is the page role `ui.capture-target` ([Provider roles](#provider-roles)).
+  Core owns it, and core's default answers the top level. The days
+  manifest claims a replacement at priority 50 that answers today's node,
+  so with days on a capture lands in today. If days fails, the role's
+  recovery demotes it and core's default answers. With days off, or core
+  chosen on the role's node, a capture goes to the top level as before.
+  Another family may claim the role the same way (an inbox, say). The
+  server's `node.add` without a parent does not ask it yet (GAP
+  [[01M7357PSG9XZH0JBFDHV6DM2T]]).
+- **No month nodes yet.** A month is not on the path to a day, and no view
+  reads one, so the family seeds no `#month` until one does.
+
 ## Sandbox
 
 Code that a model writes runs in a sandbox (roadmap decisions 4 and 5 in
@@ -5925,6 +6000,12 @@ its old identity and cannot demote new code. Roles must be defined beside their 
 `roleCall` currently has no live server role; its shared contract suite
 proves the boundary until a server consumer opts in.
 The first role is `ui.field-editor`, consumed by outline rows, tables and settings.
+The second is `ui.capture-target`, the parent a node made with no chosen place
+goes under. Core owns it and answers the top level, and days replaces it
+([Days](#days)). The third is `ui.landing`, the node a page that loads at
+the root opens on, which the shell asks once per page load. Core owns it
+and stays home, and days replaces it with today (DESIGN-UI.md →
+[Days](./DESIGN-UI.md#days)).
 
 ### Transaction reactions
 

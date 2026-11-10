@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   cn,
   hasText,
+  landOnce,
   SettingsTrigger,
   SidebarToggle,
   ThemeArt,
@@ -221,6 +222,10 @@ export function App() {
       }
       setStatus("ready");
       ensureLiveConnection();
+      // Where a page that loads at the root opens is the landing role's
+      // answer, asked once per page load, now that the graph and the
+      // families' plugins are in (DESIGN.md → Provider roles).
+      void landOnce();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setStatus("error");

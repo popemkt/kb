@@ -38,6 +38,7 @@
         "@kb/code": "workspace:*",
         "@kb/collections": "workspace:*",
         "@kb/contracts": "workspace:*",
+        "@kb/days": "workspace:*",
         "@kb/docs": "workspace:*",
         "@kb/gallery": "workspace:*",
         "@kb/governance": "workspace:*",
@@ -141,6 +142,7 @@
         "@kb/code": "workspace:*",
         "@kb/collections": "workspace:*",
         "@kb/contracts": "workspace:*",
+        "@kb/days": "workspace:*",
         "@kb/ext-canvas": "workspace:*",
         "@kb/ext-check": "workspace:*",
         "@kb/ext-docs": "workspace:*",
@@ -247,6 +249,8 @@
         "@kb/collections": "workspace:*",
         "@kb/collections-ui": "workspace:*",
         "@kb/contracts": "workspace:*",
+        "@kb/days": "workspace:*",
+        "@kb/days-ui": "workspace:*",
         "@kb/docs": "workspace:*",
         "@kb/gallery": "workspace:*",
         "@kb/gallery-ui": "workspace:*",
@@ -749,6 +753,45 @@
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
         "happy-dom": "catalog:",
+        "vite-plus": "catalog:",
+        "vitest": "catalog:",
+      },
+    },
+    "packages/extension/days": {
+      "name": "@kb/days",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/operations": "workspace:*",
+        "@kb/plugin": "workspace:*",
+        "@kb/views": "workspace:*",
+        "effect": "catalog:",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/extension/days-ui": {
+      "name": "@kb/days-ui",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/days": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/plugin": "workspace:*",
+        "@kb/ui-sdk": "workspace:*",
+        "@kb/views": "workspace:*",
+        "@phosphor-icons/react": "catalog:",
+        "effect": "catalog:",
+        "react": "catalog:",
+      },
+      "devDependencies": {
+        "@types/react": "catalog:",
+        "@types/react-dom": "catalog:",
+        "happy-dom": "catalog:",
+        "react-dom": "catalog:",
         "vite-plus": "catalog:",
         "vitest": "catalog:",
       },
@@ -1858,6 +1901,10 @@
     "@kb/collections-ui": ["@kb/collections-ui@workspace:packages/extension/collections-ui"],
 
     "@kb/contracts": ["@kb/contracts@workspace:packages/contract/contracts"],
+
+    "@kb/days": ["@kb/days@workspace:packages/extension/days"],
+
+    "@kb/days-ui": ["@kb/days-ui@workspace:packages/extension/days-ui"],
 
     "@kb/docs": ["@kb/docs@workspace:packages/extension/docs"],
 

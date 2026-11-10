@@ -41,6 +41,7 @@ import {
   SYSTEM_IDS,
   toast,
   WORKSPACE_ROOT_ID,
+  captureTarget,
 } from "@kb/ui-sdk";
 
 /** `asset.upload` answers with the repo-relative path it stored the bytes at. */
@@ -160,9 +161,16 @@ export const mutations: PageWrites = {
     await applyPlan(planInsertSibling(wire(), afterId, "after", ulid()));
   },
 
-  async addRootNode(text: string, newId?: string): Promise<boolean> {
+  async captureNode(text: string, newId?: string): Promise<boolean> {
     const id = newId ?? ulid();
-    return applyPlan(planAddRootNode(text, id));
+    const parent = await captureTarget().catch(() => undefined);
+    if (parent === undefined) {
+      toast("Nothing answered where a new node goes, so it was not made");
+      return false;
+    }
+    return applyPlan(
+      parent === null ? planAddRootNode(text, id) : planAddChild(wire(), parent, id, text),
+    );
   },
 
   async addChildNode(parentId: string, text: string, newId?: string): Promise<boolean> {
@@ -368,7 +376,7 @@ export const mutations: PageWrites = {
     if (creation.kind === "child") {
       return (await mutations.addChildNode(creation.parentId, name, id)) ? id : null;
     }
-    if (!(await mutations.addRootNode(name, id))) return null;
+    if (!(await mutations.captureNode(name, id))) return null;
     if (creation.kind === "tagged") await mutations.addTag(id, creation.tagId);
     return id;
   },

@@ -315,7 +315,14 @@ export type {
   ExtensionLockRead,
 } from "./extension-install.ts";
 
-export { bundledPlugin, declaredRoles, FIELD_EDITOR_ROLE, type ProviderRole } from "./roles.ts";
+export {
+  bundledPlugin,
+  CAPTURE_TARGET_ROLE,
+  LANDING_ROLE,
+  declaredRoles,
+  FIELD_EDITOR_ROLE,
+  type ProviderRole,
+} from "./roles.ts";
 
 export { orderedRoles, type OrderedRole } from "./extension-report.ts";
 
