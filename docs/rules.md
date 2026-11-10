@@ -358,6 +358,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Distinct encodings in datoms.ts (for example refs on :f/<fieldId> and numbers on a typed value, or a separate ref attr per field), with queries.ts, parse.ts find-type inference, and stored queries over numeric props migrated to match.
 - **node** — `01M3A0Y5JQ5XKZMC87K34HDT2B`
 
+### GAP: a page head unmounted while Unicorn starts cold leaves the runtime initialising on a dead canvas
+
+- **expected** — A Unicorn scene whose backdrop goes while the runtime or scene.json is still loading stops cleanly: its element stays alive until addScene settles, then the scene is destroyed, and no error escapes the runtime
+- **current** — UnicornBackdrop aborts and destroys a scene that resolves after unmount, and catches a rejected addScene, but the runtime's own initialisation keeps running after its element is removed and throws 'Cannot read properties of null (reading canvas)' in setInitialFlattenedPlaneUniforms, outside the promise kb holds
+- **impact** — An uncaught page error on a cold start when the head's backdrop goes mid-init: about 1 in 5 cold loads of / with a route change ~800 ms in on main 9baac94d (reported from the days work, #152). With one backdrop across pages (#153) a move between pages that share Unicorn keeps the scene, so it remains on a crossfade away from Unicorn, or a head undeclared for longer than the hold, during a cold start
+- **closes** — Keep the scene element mounted (detached from layout) until addScene settles and destroy it then, with a render test that crossfades away from Unicorn during a cold start and sees no page error
+- **node** — `01M73AAXHQQ24FM7EMDA3H1J6R`
+
 ### GAP: a page's own backdrop has no gesture
 
 - **expected** — A page chooses its own backdrop with the ordinary field gesture.
