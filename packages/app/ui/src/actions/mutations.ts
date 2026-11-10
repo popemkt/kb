@@ -160,7 +160,7 @@ export const mutations: PageWrites = {
     await applyPlan(planInsertSibling(wire(), afterId, "after", ulid()));
   },
 
-  async addRootNode(text: string, newId?: string): Promise<boolean> {
+  async captureNode(text: string, newId?: string): Promise<boolean> {
     const id = newId ?? ulid();
     return applyPlan(planAddRootNode(text, id));
   },
@@ -368,7 +368,7 @@ export const mutations: PageWrites = {
     if (creation.kind === "child") {
       return (await mutations.addChildNode(creation.parentId, name, id)) ? id : null;
     }
-    if (!(await mutations.addRootNode(name, id))) return null;
+    if (!(await mutations.captureNode(name, id))) return null;
     if (creation.kind === "tagged") await mutations.addTag(id, creation.tagId);
     return id;
   },
