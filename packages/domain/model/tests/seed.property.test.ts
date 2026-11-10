@@ -4,23 +4,21 @@
  * fills only genuinely missing prop keys — a present value, even one a user
  * modified away from the fresh default, is never rewritten.
  *
- * Excludes seed.ts's exported TEMPLATE_TAGS: those get a separate, deliberate
- * "merge missing template field refs" pass (documented in seed.ts) distinct
- * from the generic fill-absent invariant under test here. The list is imported,
- * not restated, so adding a template tag cannot silently break this property.
+ * The additive lists (`ADDITIVE_FIELDS`: a tag's template and what it
+ * extends) are the one exception, and a deliberate one: the seed unions what
+ * it ships into a present list, so a value the store holds is kept and the
+ * seed's missing ones follow it. The set is imported, not restated.
  */
 import { describe, expect, test } from "bun:test";
 import { present } from "../src/present.ts";
 import fc from "fast-check";
 import type { KbNode, PropValue } from "../src/model.ts";
-import { TEMPLATE_TAGS, ensureSystemSeed } from "../src/seed.ts";
+import { ensureSystemSeed } from "../src/seed.ts";
+import { ADDITIVE_FIELDS } from "../src/system-write.ts";
 import { bundledFold, bundledSeed } from "@kb/bundled";
 
 const AT = "2026-08-24T00:00:00.000Z";
-const EXCLUDED = new Set<string>(TEMPLATE_TAGS);
-const CANDIDATE_IDS = bundledSeed(AT)
-  .map((n) => n.id)
-  .filter((id) => !EXCLUDED.has(id));
+const CANDIDATE_IDS = bundledSeed(AT).map((n) => n.id);
 
 describe("seed idempotence properties (fast-check)", () => {
   test("ensureSystemSeed over the pristine seed is a no-op", () => {
@@ -69,7 +67,12 @@ describe("seed idempotence properties (fast-check)", () => {
             const fresh = present(baseById.get(id), "expected baseById.get(id)");
 
             for (const key of Object.keys(before.props)) {
-              expect(after.props[key]).toEqual(before.props[key]);
+              const kept = before.props[key] ?? [];
+              // An additive list keeps what it held, then gains each seeded ref it lacks.
+              const missing = ADDITIVE_FIELDS.has(key)
+                ? (fresh.props[key] ?? []).filter((v) => !kept.some((k) => k.v === v.v))
+                : [];
+              expect(after.props[key]).toEqual([...kept, ...missing]);
             }
             for (const key of Object.keys(fresh.props)) {
               if (!(key in before.props)) {

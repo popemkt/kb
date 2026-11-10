@@ -10,6 +10,7 @@
 import { SYSTEM_IDS, type NodeId, type PropValue } from "./model.ts";
 import { childrenTargetQuery } from "./field-type.ts";
 import { isValidWorkspaceName } from "./workspace-name.ts";
+import { kindsOf } from "./tag-kinds.ts";
 
 /** What this module reads of a node: its props. */
 interface Carrier {
@@ -107,21 +108,22 @@ export interface TagView {
 }
 
 /**
- * The views `node`'s tags name in `role`, in the order it carries them:
- * each tag (a `sys.f.type` ref) whose node names one in the role's field
- * ({@link TAG_VIEWS}). For `default`, a node that names no view opens
- * in the first of these its host can show, before the store's. `lookup`
- * reads a node.
+ * The views `node`'s kinds name in `role`, nearest first: each tag it
+ * carries, in order, then the tags that one extends ({@link kindsOf}),
+ * where the tag's node names one in the role's field ({@link TAG_VIEWS}).
+ * So a `#meeting` that extends `#event` and names no view of its own opens
+ * as an event does. For `default`, a node that names no view opens in the
+ * first of these its host can show, before the store's. `lookup` reads a
+ * node.
  */
 export function tagViewsOf(
   node: Carrier | undefined,
   role: TagViewRole,
   lookup: (id: NodeId) => Carrier | undefined,
 ): TagView[] {
-  return (node?.props[SYSTEM_IDS.typeField] ?? []).flatMap((value) => {
-    if (value.t !== "ref") return [];
-    const option = firstRefOf(lookup(value.v), TAG_VIEWS[role].field);
-    return option === null ? [] : [{ tag: value.v, option }];
+  return kindsOf(node, lookup).flatMap((tag) => {
+    const option = firstRefOf(lookup(tag), TAG_VIEWS[role].field);
+    return option === null ? [] : [{ tag, option }];
   });
 }
 

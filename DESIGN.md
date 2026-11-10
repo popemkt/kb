@@ -502,6 +502,22 @@ type PropValue =
 - **Tags (supertags) are nodes** typed `sys.tag`, holding a `sys.f.fields`
   prop listing field-node refs they template. Applying a tag = adding a
   `sys.f.type` ref prop. Multiple tags per node allowed.
+- **A tag extends tags** (`sys.f.extends`, many, in order: a setting of
+  every tag, and an additive list on a seeded one), and a node of it is a
+  node of each. A node's _chips_ are its `sys.f.type` refs; its _kinds_ are
+  those tags and their chains, and every question of membership is asked of
+  the kinds (`kindsOf`, `isA` in `@kb/model`'s `tag-kinds.ts`, the one
+  reader). A chain (`tagAncestors`) is the tag, then its parents breadth
+  first in declared order, each once, so a diamond reaches a shared tag once
+  and a cycle ends where it closes; nothing graph-shaped throws. Nearer
+  wins wherever a chain is read in order: a node shows its tags' own fields,
+  then their ancestors' (`templateFieldsOf`; a tag cannot drop a field it
+  inherits), opens in its own tag's view before an ancestor's (`tagViewsOf`),
+  is a target of a field that targets an ancestor (`allowedRefIdsOf`), and a
+  member of an ontology that includes one. Inheritance is read, never
+  copied, so a field a family adds to its tag reaches every subtype at once
+  (the seed unions what it ships into a seeded tag's additive lists, after
+  the person's).
 - **Ref targets are declared on the field node**, by exactly one of three
   carriers: `sys.f.targetQuery` (general form — parameter-free EDN whose rows
   name node ids), `sys.f.targetTag` (sugar — union of the listed tags'
@@ -517,7 +533,9 @@ type PropValue =
   `@kb/model` — same posture as the ontology resolver.
 - **Hiding `sys.*` is a display rule, never a resolution rule.** Resolution
   surfaces — ref-target constraints, ontology membership, datalog, validity
-  checks — read the kind slot (`typeRefsOf`, i.e. `sys.f.type`) and return
+  checks — read the kind slot (`typeRefsOf`, i.e. `sys.f.type`, through the
+  chains it names: `kindsOf`; datalog does not follow a chain yet, GAP
+  [[01M738XHYKHDFFCN8DK595Z15T]]) and return
   everything it names, seeded ids included: `sys.f.fieldType` legitimately
   targets six `sys.ft.*` options and `sys.f.onto.include` legitimately targets
   every supertag. Display surfaces then decide what to _show_: an unconstrained

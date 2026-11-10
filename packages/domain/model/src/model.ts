@@ -92,6 +92,11 @@ export const SYSTEM_IDS = {
   cardinalityMany: "sys.cardinality.many",
   /** Ref constraint sugar: allowed target tag(s), multi = union. */
   targetTagField: "sys.f.targetTag",
+  /**
+   * The tags a tag extends (many, in order): its nodes are those tags'
+   * nodes too, with their fields and views (DESIGN.md → Data model → Tags).
+   */
+  extendsField: "sys.f.extends",
   /** Ref constraint general form: EDN datalog of allowed node ids (wins over tag). */
   targetQueryField: "sys.f.targetQuery",
   /**
