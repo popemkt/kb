@@ -26,7 +26,7 @@ import { FIELD_CLASS, RepeatPicker } from "./repeat-picker";
 import { StatusDot } from "./status-dot";
 import { syncShown } from "./sync-shown";
 import { TimeField } from "./time-field";
-import { clockOf, lengthBetween, lengthText, minutesOf } from "./time-text";
+import { clockOf, DAY_MINUTES, lengthBetween, lengthText, minutesOf } from "./time-text";
 import { mintId, runCalls, syncNow } from "./writes";
 
 /** What the editor opens: a routine, or a new one with the settings it starts from. */
@@ -185,7 +185,7 @@ function WhenFields({
   // The time it had before All day, given back when All day is switched off.
   const [lastAt, setLastAt] = useState(allDay ? "09:00" : settings.at);
   const ends = allDay ? "" : clockOf(minutesOf(settings.at) + settings.duration);
-  const nextDay = !allDay && minutesOf(settings.at) + settings.duration > 24 * 60;
+  const nextDay = !allDay && minutesOf(settings.at) + settings.duration > DAY_MINUTES;
   return (
     <div className="flex flex-col gap-2" data-routine-when="">
       <div className="flex flex-wrap items-end gap-3">

@@ -7,7 +7,7 @@
 import { addDays, formatDay, parseDay } from "@kb/model";
 
 /** Minutes in a day. */
-const DAY = 24 * 60;
+export const DAY_MINUTES = 1440;
 /** How far apart the times a time field lists are. */
 const TIME_STEP = 15;
 
@@ -37,7 +37,7 @@ export function minutesOf(time: string): number {
 
 /** Minutes of the day (any whole number, wrapped onto one day) as `HH:MM`. */
 export function clockOf(minutes: number): string {
-  const wrapped = ((minutes % DAY) + DAY) % DAY;
+  const wrapped = ((minutes % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES;
   const hour = Math.floor(wrapped / 60);
   return `${String(hour).padStart(2, "0")}:${String(wrapped % 60).padStart(2, "0")}`;
 }
@@ -56,11 +56,11 @@ export function lengthText(minutes: number): string {
  * start lasts nothing.
  */
 export function lengthBetween(start: string, end: string): number {
-  return (((minutesOf(end) - minutesOf(start)) % DAY) + DAY) % DAY;
+  return (((minutesOf(end) - minutesOf(start)) % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES;
 }
 
 /** The times a field lists, every {@link TIME_STEP} minutes from midnight. */
-export const TIMES: readonly string[] = Array.from({ length: DAY / TIME_STEP }, (_, i) =>
+export const TIMES: readonly string[] = Array.from({ length: DAY_MINUTES / TIME_STEP }, (_, i) =>
   clockOf(i * TIME_STEP),
 );
 
@@ -80,7 +80,7 @@ export function newStart(
   if (!days.includes(today))
     return { day: days.includes(anchor) ? anchor : (days[0] ?? anchor), from: nine };
   const next = (Math.floor(now / 30) + 1) * 30;
-  if (next < DAY) return { day: today, from: next };
+  if (next < DAY_MINUTES) return { day: today, from: next };
   const local = parseDay(today);
   return { day: local === null ? today : formatDay(addDays(local, 1)), from: nine };
 }

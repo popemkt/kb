@@ -7,6 +7,7 @@ import type { Drag, Spot } from "./drag";
 import { EntryChip } from "./entry-chip";
 import { HOUR_PX, placeDay, type Placed } from "./layout";
 import type { CalendarModel } from "./model";
+import { DAY_MINUTES } from "./time-text";
 
 /** What a layout hands its instances and slots: the presses that start a gesture, and opening. */
 interface LayoutPresses {
@@ -38,8 +39,6 @@ export interface LayoutProps {
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 const px = (minutes: number) => (minutes / 60) * HOUR_PX;
-/** A day's minutes: the grid's height. */
-const DAY_MINUTES = 1440;
 /** The fewest minutes an instance is drawn as, so its one line stays readable. */
 const MIN_DRAWN = 25;
 /** Below this many minutes an instance is drawn on one line, its time before its title. */
