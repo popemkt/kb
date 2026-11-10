@@ -44,13 +44,14 @@ export function useNodeTextBindingThrough(
   port: NodeTextPort,
   instanceKey: string | undefined,
 ): NodeTextHostBinding {
-  const { outline, schema } = useGraphReadThrough(port);
+  const { outline, schema, isVirtual } = useGraphReadThrough(port);
   const caret = () => (instanceKey === undefined ? null : port.pendingCaret(instanceKey));
   const pendingCaret = useSyncExternalStore(port.subscribe, caret, caret);
   const onFollow = useFollowThrough(port.follow);
   return {
     nodes: outline,
     schema,
+    isVirtual,
     pendingCaret,
     onFollow,
     consumeCaret: port.consumeCaret,

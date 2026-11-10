@@ -5,7 +5,6 @@ import {
   FieldRow,
   type Follow,
   IconButton,
-  isSysPrefixed,
   PickerList,
   pickerRows,
   schemaOf,
@@ -14,6 +13,7 @@ import {
   usePickerKeys,
 } from "@kb/ui-sdk";
 import { PlusIcon, XIcon } from "@phosphor-icons/react";
+import { isShipped } from "@kb/model";
 import { fieldGlyphOf } from "./value-views";
 import { resolveTagFields, type TagFieldRef } from "./tag-fields";
 
@@ -22,7 +22,12 @@ export interface TagFieldsConfigViewProps {
   template: TagFieldRef[];
   /** Existing fields not yet on this tag, offered so names get reused. */
   suggestions: TagFieldRef[];
-  readOnly: boolean;
+  /**
+   * The template's fields its owner ships (`isShipped`): kept on the tag by
+   * the commit, so they are marked and offer no remove. Every other field is
+   * the person's, theirs to take back.
+   */
+  shipped: ReadonlySet<string>;
   onAdd: (name: string) => void;
   onRemove: (fieldId: string) => void;
   /** Carry out a follow (`useFollow`): a field's glyph opens the field. */
@@ -37,6 +42,8 @@ export interface TagFieldsConfigViewProps {
  * panel and nothing replaced the gesture, so there was no way to add a field
  * from the UI at all — only the CLI. Tags are ordinary nodes, so this lives on
  * the tag's own page beside its other fields rather than in a special panel.
+ * Every tag takes a person's fields, a system tag's too; what its owner
+ * ships stays, so those rows say "shipped" where a person's offer a remove.
  *
  * Kept as a pure view with a connected wrapper below: store reads do not
  * survive `renderToStaticMarkup`, so the logic has to be testable without one.
@@ -44,7 +51,7 @@ export interface TagFieldsConfigViewProps {
 export function TagFieldsConfigView({
   template,
   suggestions,
-  readOnly,
+  shipped,
   onAdd,
   onRemove,
   onFollow,
@@ -101,7 +108,15 @@ export function TagFieldsConfigView({
           onFollow={onFollow}
         >
           <div className="flex min-w-0 flex-1 items-center justify-end">
-            {!readOnly && (
+            {shipped.has(field.id) ? (
+              <span
+                className="text-meta text-foreground/30"
+                title="Its owner ships this field with the tag, so it stays"
+                data-field-shipped="true"
+              >
+                shipped
+              </span>
+            ) : (
               <IconButton
                 label={`Remove field ${field.name} from this tag`}
                 title={`Remove ${field.name} from this tag`}
@@ -114,43 +129,41 @@ export function TagFieldsConfigView({
         </FieldRow>
       ))}
 
-      {!readOnly && (
-        <div className="mt-1 flex items-center gap-1.5 px-1">
-          <PlusIcon size={10} weight="bold" className="text-foreground/40" aria-hidden />
-          <div ref={anchorRef} className="relative min-w-0 flex-1">
-            <input
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onFocus={() => setPicking(true)}
-              onKeyDown={(e) => {
-                keys.handleKeyDown(e);
-              }}
-              onBlur={() => {
-                setPicking(false);
-                add(draft);
-              }}
-              placeholder="Add field"
-              aria-label="Add a field to this tag"
-              className={cn(
-                "w-full bg-transparent text-ui text-foreground",
-                "placeholder:text-faint-foreground outline-none",
-              )}
-            />
-            {picking && (
-              <PickerList
-                placement="popover"
-                anchorRef={anchorRef}
-                rows={rows}
-                activeIndex={keys.activeIndex}
-                onHover={keys.setActiveIndex}
-                onPick={(row) => add(row.kind === "item" ? row.label : row.name)}
-                createLabel={(name) => `Create field "${name}"`}
-                aria-label="Fields"
-              />
+      <div className="mt-1 flex items-center gap-1.5 px-1">
+        <PlusIcon size={10} weight="bold" className="text-foreground/40" aria-hidden />
+        <div ref={anchorRef} className="relative min-w-0 flex-1">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onFocus={() => setPicking(true)}
+            onKeyDown={(e) => {
+              keys.handleKeyDown(e);
+            }}
+            onBlur={() => {
+              setPicking(false);
+              add(draft);
+            }}
+            placeholder="Add field"
+            aria-label="Add a field to this tag"
+            className={cn(
+              "w-full bg-transparent text-ui text-foreground",
+              "placeholder:text-faint-foreground outline-none",
             )}
-          </div>
+          />
+          {picking && (
+            <PickerList
+              placement="popover"
+              anchorRef={anchorRef}
+              rows={rows}
+              activeIndex={keys.activeIndex}
+              onHover={keys.setActiveIndex}
+              onPick={(row) => add(row.kind === "item" ? row.label : row.name)}
+              createLabel={(name) => `Create field "${name}"`}
+              aria-label="Fields"
+            />
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -164,12 +177,16 @@ export function TagFieldsConfig({ tagId }: { tagId: string }) {
     () => resolveTagFields(schema, tagId),
     [schema, tagId],
   );
+  const shipped = useMemo(
+    () => new Set(template.flatMap((field) => (isShipped(tagId, field.id) ? [field.id] : []))),
+    [template, tagId],
+  );
 
   return (
     <TagFieldsConfigView
       template={template}
       suggestions={suggestions}
-      readOnly={isSysPrefixed(tagId)}
+      shipped={shipped}
       onFollow={follow}
       onRemove={(fieldId) => void browserHost().writes.removeTagField(tagId, fieldId)}
       onAdd={(name) => {

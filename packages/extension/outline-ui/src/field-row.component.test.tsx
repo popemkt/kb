@@ -99,7 +99,7 @@ describe("a field row's glyph", () => {
       createElement(TagFieldsConfigView, {
         template: [{ id: "f_owner", name: "owner" }],
         suggestions: [],
-        readOnly: false,
+        shipped: new Set<string>(),
         onAdd: () => undefined,
         onRemove: () => undefined,
         onFollow: () => undefined,

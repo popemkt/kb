@@ -8,6 +8,7 @@ const noopFollow = (): void => undefined;
 const binding: NodeTextHostBinding = {
   nodes: new Map(),
   schema: schemaOfGraph(new Map()),
+  isVirtual: (id) => id === "sys.query.todos",
   pendingCaret: null,
   onFollow: noopFollow,
   consumeCaret: () => null,
@@ -78,13 +79,14 @@ export const MultilineWithTag: Story = {
 };
 
 /**
- * `sys.`-prefixed node ids are read-only (`isSysPrefixed`): the lock glyph
- * replaces the editable content, and no ref/tag mutation affordance shows.
+ * A node read from its source file (a saved query, `isVirtual`) is read-only:
+ * the lock glyph says so, and no ref/tag mutation affordance shows. A
+ * system node's text is the person's, so a `sys.` id alone locks nothing.
  */
-export const ReadOnlySysNode: Story = {
+export const ReadOnlyFileNode: Story = {
   args: {
-    nodeId: "sys.field.status",
-    content: "Status",
+    nodeId: "sys.query.todos",
+    content: "todos",
     isActive: false,
     tags: [{ id: "tag.core", name: "core", color: "#64748b" }],
   },

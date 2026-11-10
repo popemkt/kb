@@ -156,6 +156,11 @@ function graphNow(): PageGraphState {
   return browserHost().graph.state();
 }
 
+/** Whether the graph serves `id` from its source file (`NodeIndex.isVirtual`). */
+function virtualNow(id: string): boolean {
+  return graphNow().index?.isVirtual(id) ?? false;
+}
+
 /** The schema the outline resolves against: the graph's (`schemaOf`). */
 function schemaNow(): SchemaIndex {
   return schemaOf(graphNow());
@@ -398,9 +403,9 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
       if (!outlineNodes().has(id)) return;
       // A row whose text cannot be written is read-only at the DOM level:
       // activation degrades to selection so no caret ever enters it (r1 D20).
-      // `rowTextReadOnlyReason` owns which rows those are — sys.* text, and a
-      // contextual reference whose target is gone.
-      if (rowTextReadOnlyReason(id, outlineNodes().get(id), schemaNow()) !== null) {
+      // `rowTextReadOnlyReason` owns which rows those are — a node read from
+      // its source file, and a contextual reference whose target is gone.
+      if (rowTextReadOnlyReason(id, outlineNodes().get(id), schemaNow(), virtualNow) !== null) {
         // The outline being worked in is the one the focus is leaving.
         const roKey = resolveActivateKey(
           id,

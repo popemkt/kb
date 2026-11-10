@@ -49,6 +49,9 @@ function mapWith(extra: WireNode[]): NodeMap {
   return wireToOutlineMap([...fixtureGraph.nodes, ...REF_SEED_WIRES, ...extra], new Set());
 }
 
+/** The one node these rows read from a source file. */
+const fileBacked = (id: string) => id === "sys.query.todos";
+
 describe("contextual reference model", () => {
   it("recognises a node carrying a target on sys.f.ref.target", () => {
     const nodes = mapWith([ctxRefWire("n.ctx", "n.root-a")]);
@@ -131,28 +134,27 @@ describe("contextual reference model", () => {
     expect(rowTextOf(state, "n.missing")).toEqual({ text: "", textNodeId: "n.missing" });
   });
 
-  it("owns the read-only-text rule: sys text and missing targets, never a live reference", () => {
+  it("owns the read-only-text rule: file-backed text and missing targets, never a system node's label", () => {
     const nodes = mapWith([
       ctxRefWire("n.ctx", "n.root-a"),
       ctxRefWire("n.to-sys", "sys.f.query"),
+      ctxRefWire("n.to-file", "sys.query.todos"),
       ctxRefWire("n.dangling", "n.gone"),
     ]);
     const schema = schemaFor(nodes);
+    const reason = (id: string) => rowTextReadOnlyReason(id, nodes.get(id), schema, fileBacked);
     // A live reference edits its original in place.
-    expect(rowTextReadOnlyReason("n.ctx", nodes.get("n.ctx"), schema)).toBeNull();
-    // The rule is about the text on screen: a reference to a sys node is as
-    // read-only as the sys node itself.
-    expect(rowTextReadOnlyReason("n.to-sys", nodes.get("n.to-sys"), schema)).toBe(
-      "System node — read-only",
-    );
-    expect(rowTextReadOnlyReason("sys.f.query", nodes.get("sys.f.query"), schema)).toBe(
-      "System node — read-only",
-    );
+    expect(reason("n.ctx")).toBeNull();
+    // A system node's label is the person's, through a reference or on its own row.
+    expect(reason("n.to-sys")).toBeNull();
+    expect(reason("sys.f.query")).toBeNull();
+    // The rule is about the text on screen: a reference to a node read from
+    // its source file is as read-only as that node.
+    expect(reason("n.to-file")).toBe("Read from its source file — change it there");
+    expect(reason("sys.query.todos")).toBe("Read from its source file — change it there");
     // A dangling reference has no text to write to.
-    expect(rowTextReadOnlyReason("n.dangling", nodes.get("n.dangling"), schema)).toBe(
-      "Reference target is missing",
-    );
-    expect(rowTextReadOnlyReason("n.root-a", nodes.get("n.root-a"), schema)).toBeNull();
+    expect(reason("n.dangling")).toBe("Reference target is missing");
+    expect(reason("n.root-a")).toBeNull();
   });
 });
 
