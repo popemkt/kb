@@ -7,7 +7,7 @@
  * would not.
  */
 import { DateTime, Option } from "effect";
-import { firstRef, formatDay, parseDay, typeRefsOf, type NodeLike } from "@kb/model";
+import { firstRef, formatDay, nodesOfKind, parseDay, type NodeLike } from "@kb/model";
 import { readRoutine, readSyncStatus, routineOccurrences, routineZone } from "./config.ts";
 import { SyncError, type Occurrence, type Routine, type SyncStatus } from "./model.ts";
 import { instancePlace, project, recurrence } from "./projection.ts";
@@ -189,8 +189,7 @@ export function calendarEntries(
 ): { readonly entries: readonly CalendarEntry[]; readonly issues: readonly CalendarIssue[] } {
   const entries: CalendarEntry[] = [];
   const issues: CalendarIssue[] = [];
-  for (const node of nodes.values()) {
-    if (!typeRefsOf(node).includes(T.routine)) continue;
+  for (const node of nodesOfKind(nodes, T.routine)) {
     try {
       const { routine } = readRoutine(node, routineZone(node, nodes));
       // What the engine would refuse to send, the calendar does not show.

@@ -238,6 +238,24 @@ describe("calendar entries", () => {
     expect(must(shown[0]).start).toBe(Date.UTC(2026, 10, 2, 0, 0));
     expect(must(shown[0]).end).toBe(Date.UTC(2026, 10, 2, 1, 0));
   });
+  test("a node of a tag that extends #event is an event: the calendar shows it", () => {
+    const meeting: NodeLike = {
+      id: "meeting",
+      text: "meeting",
+      children: [],
+      props: {
+        [SYSTEM_IDS.typeField]: [ref(SYSTEM_IDS.tag)],
+        [SYSTEM_IDS.extendsField]: [ref(T.routine)],
+      },
+    };
+    const standup: NodeLike = {
+      id: "standup",
+      text: "Standup",
+      children: [],
+      props: { ...zoned, [SYSTEM_IDS.typeField]: [ref("meeting")] },
+    };
+    expect(only(graphOf(meeting, standup), "2026-11-02").routine).toBe("standup");
+  });
   test("a routine the engine refuses is an issue, not an entry", () => {
     const { entries, issues } = calendarEntries(
       graphOf(routineNode("bad", { ...zoned, [F.rrule]: [str("FREQ=HOURLY")] })),

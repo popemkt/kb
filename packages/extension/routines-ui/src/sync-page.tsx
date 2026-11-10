@@ -18,7 +18,7 @@ import {
   CONNECT_PATH,
   type SyncParams,
 } from "@kb/routines";
-import { typeRefsOf } from "@kb/model";
+import { nodesOfKind } from "@kb/model";
 import { cn, navigate, toast, useNodes } from "@kb/ui-sdk";
 import { BUTTON_CLASS, Dialog, PRIMARY_BUTTON_CLASS } from "./dialog";
 import { CALENDAR_PATH, syncPath } from "./routes";
@@ -78,8 +78,7 @@ function ProviderPicker({ onClose }: { readonly onClose: () => void }) {
 function ServiceList() {
   const nodes = useNodes();
   const [picking, setPicking] = useState(false);
-  const services = [...nodes.values()]
-    .filter((node) => typeRefsOf(node).includes(ROUTINE_TAGS.account))
+  const services = nodesOfKind(nodes, ROUTINE_TAGS.account)
     .toSorted((a, b) => a.id.localeCompare(b.id))
     .map((node) => readAccountSetup(node, nodes));
   return (

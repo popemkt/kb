@@ -1,5 +1,5 @@
 import { Clock, Result, Context, DateTime, Effect, Layer, Random, Semaphore } from "effect";
-import { canonicalJson, firstRef, typeRefsOf, type NodeLike } from "@kb/model";
+import { canonicalJson, firstRef, nodesOfKind, tagChains, type NodeLike } from "@kb/model";
 import {
   eventId,
   project,
@@ -98,15 +98,13 @@ const previewNodes = Effect.fn("routines.previewNodes")(function* (options: Engi
   const nodes = yield* options.host.read;
   return yield* Effect.try({
     try: () =>
-      [...nodes.values()]
-        .filter((node) => typeRefsOf(node).includes(T.routine))
-        .map((node) =>
-          project(
-            readRoutine(node, routineZone(node, nodes)).routine,
-            options.origin + "/node/" + node.id,
-            0,
-          ),
+      nodesOfKind(nodes, T.routine).map((node) =>
+        project(
+          readRoutine(node, routineZone(node, nodes)).routine,
+          options.origin + "/node/" + node.id,
+          0,
         ),
+      ),
     catch: () => new SyncError({ status: 400, code: "invalid_rule" }),
   });
 });
@@ -181,8 +179,7 @@ export const makeRoutineEngine = Effect.fn("routines.engine.make")(function* (
     const nodes = yield* options.host.read;
     const at = yield* Clock.currentTimeMillis;
     const active = new Set<string>();
-    for (const node of nodes.values()) {
-      if (!typeRefsOf(node).includes(T.routine)) continue;
+    for (const node of nodesOfKind(nodes, T.routine)) {
       const calendar = nodes.get(firstRef(F.calendar)(node.props) ?? "");
       if (calendar === undefined) continue;
       const config = readCalendar(calendar);
@@ -251,11 +248,11 @@ export const makeRoutineEngine = Effect.fn("routines.engine.make")(function* (
   });
   const preview = previewNodes(options);
   const status = Effect.fn("routines.engine.status")(function* () {
+    const nodes = yield* options.host.read;
+    const { isA } = tagChains((id) => nodes.get(id));
     return {
-      nodes: [...(yield* options.host.read).values()]
-        .filter(
-          (node) => typeRefsOf(node).includes(T.routine) || typeRefsOf(node).includes(T.occurrence),
-        )
+      nodes: [...nodes.values()]
+        .filter((node) => isA(node, T.routine) || isA(node, T.occurrence))
         .map((node) => ({ id: node.id, props: node.props })),
       pendingDeletions: [...queue.entries()].filter(([, work]) => work.removed).map(([id]) => id),
     };
