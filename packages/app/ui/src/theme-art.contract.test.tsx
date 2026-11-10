@@ -34,7 +34,6 @@ import {
 import {
   BackdropPoint,
   DesignSystemPoint,
-  PageBackdrop,
   THEME_GESTURE_MAX_MS,
   QUIET_ACTIVITY,
   ThemeArt,
@@ -50,6 +49,7 @@ import { BackdropThemeTag } from "@/backdrop-theme-tag";
 import { designSystemsUiPlugin } from "@/design-systems";
 import { useGraphStore } from "@/stores/graph.store";
 import { PAGE_FAMILIES } from "@/test-support/design-systems";
+import { HeadFrame } from "@/test-support/page-head";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 
 const AT = "2026-01-01T00:00:00.000Z";
@@ -144,7 +144,7 @@ const wait = (ms: number) =>
 /** The backdrop the page head shows. */
 function head(): string | undefined {
   const host = document.createElement("div");
-  host.innerHTML = renderToStaticMarkup(createElement(PageBackdrop, { color: "red" }));
+  host.innerHTML = renderToStaticMarkup(createElement(HeadFrame, { color: "red" }));
   return host.querySelector<HTMLElement>(".kb-header-backdrop")?.dataset.backdrop;
 }
 

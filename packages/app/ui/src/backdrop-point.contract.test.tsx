@@ -57,7 +57,6 @@ import {
   BREAKOUT_CLASS,
   BackdropPoint,
   EMPTY_EDITOR,
-  PageBackdrop,
   currentContributions,
   provideBackdrop,
   syncUiPlugins,
@@ -74,6 +73,7 @@ import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { useGraphStore } from "@/stores/graph.store";
 import { providePageEditor } from "@/stores/page-editor";
+import { HeadFrame, PaneWithHead } from "@/test-support/page-head";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { BROWSER_EXTENSIONS } from "@/ui-plugins";
 import { loadExamplePageHalf } from "@/test-support/example-page-half";
@@ -230,7 +230,7 @@ const backdrops = () => currentContributions(BackdropPoint);
 function slot(node?: OutlineNode): HTMLElement | null {
   const host = document.createElement("div");
   host.innerHTML = renderToStaticMarkup(
-    createElement(PageBackdrop, { color: "red", ...(node === undefined ? {} : { node }) }),
+    createElement(HeadFrame, { color: "red", ...(node === undefined ? {} : { node }) }),
   );
   return host.querySelector<HTMLElement>(".kb-header-backdrop");
 }
@@ -313,7 +313,7 @@ describe("every contributed page-head backdrop", () => {
       useGraphStore
         .getState()
         .hydrateFromWire(graphWith(settingsOf(value.key.id, "soft", "down")), 1, "fixtures");
-      const { prelude } = await prerender(createElement(PageBackdrop, { color: "red" }));
+      const { prelude } = await prerender(createElement(HeadFrame, { color: "red" }));
       const host = document.createElement("div");
       host.innerHTML = await new Response(prelude).text();
       const frame = host.querySelector<HTMLElement>(".kb-header-backdrop");
@@ -526,19 +526,28 @@ describe("every contributed page-head backdrop", () => {
   describe("as the owner works", () => {
     let container: HTMLElement;
     let root: Root;
+    const g = globalThis as Record<string, unknown>;
+    const resizes = g.ResizeObserver;
 
     beforeAll(() => {
+      // The head's slot watches its space's size; a test DOM lays nothing out, so nothing resizes.
+      g.ResizeObserver ??= class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      };
       useGraphStore
         .getState()
         .hydrateFromWire(graphWith(settingsOf(PLAIN_KEY.id, "soft", "down")), 1, "fixtures");
       container = document.createElement("div");
       document.body.appendChild(container);
       root = createRoot(container);
-      act(() => root.render(createElement(PageBackdrop, { color: "red" })));
+      act(() => root.render(createElement(PaneWithHead, { color: "red" })));
     });
     afterAll(() => {
       act(() => root.unmount());
       container.remove();
+      g.ResizeObserver = resizes;
     });
 
     const shown = () => container.querySelector("[data-plain]");
