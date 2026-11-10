@@ -21,6 +21,7 @@ import { definePlugin, type Plugin } from "@kb/plugin";
 import { DAYS_IDS } from "./ids.ts";
 import { daysSeed } from "./seed.ts";
 import { TODAY_ACTION } from "./today.ts";
+import { periodTagGuard } from "./period-tag.ts";
 import { uniqueKeyGuard } from "./unique-key.ts";
 import { DayView } from "./view.ts";
 
@@ -60,6 +61,7 @@ export function daysPlugin(): Plugin {
         [
           ctx.contribute(ActionPoint, provideAction(TODAY_ACTION)),
           guardAction(ctx, "every write", uniqueKeyGuard, "unique-key"),
+          guardAction(ctx, "every write", periodTagGuard, "period-tag"),
           ctx.plugin(declarationPlugin(daysExtension)),
         ],
         { discard: true },

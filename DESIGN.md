@@ -5382,6 +5382,19 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
   falls in, so 2027-01-01 sits under 2026 › Week 53. Nothing is made ahead
   of time, and nothing existing moves: the family files only the nodes it
   makes.
+- **A day carries the person's tag.** The family's settings `day tag`
+  (`sys.f.days.dayTag`) and `week tag` (`sys.f.days.weekTag`), each a ref to
+  one tag, choose the tag a new day or week gets: empty, it is `#day` or
+  `#week`, and a person points it at a tag of theirs that extends the base
+  (`sys.f.extends`, read through its chain). So with `#my day` extending
+  `#day`, every new day carries the person's fields, and `#day`'s key and its
+  day page come with it through the chain
+  ([Data model](#data-model--everything-is-a-node), "A tag extends tags"). A commit that
+  points a setting at a tag that does not reach its base is refused with
+  why (`ext.days.period-tag`, a commit guard). A chosen tag that later
+  stops extending the base, or is deleted, reads as the base, as a
+  `journal` naming a deleted node reads as empty. Existing days keep their
+  tags; years stay `#year`.
 - **The journal root is a setting.** `journal` (`sys.f.days.journal`, a ref
   on the family's node) names the node years go under. Empty, the first day
   makes a top-level "Daily notes" and points the setting at it, in the same
