@@ -6,6 +6,7 @@ import {
   dateTarget,
   nodePath,
   nodeTarget,
+  toast,
   useFollowThrough,
 } from "@kb/ui-sdk";
 import { pageProjection, useGraphStore } from "@/stores/graph.store";
@@ -41,7 +42,12 @@ export function followFrom(at: FollowFrom, target: FollowTarget, how: FollowHow)
       (id) => {
         if (id !== null) followFrom(at, nodeTarget(id), how);
       },
-      () => undefined,
+      // The role rejects only when no candidate answered, which only a
+      // missing or failing default can cause: tell the owner, and lead nowhere.
+      (error: unknown) =>
+        toast(
+          `Could not follow ${target.date}: ${error instanceof Error ? error.message : String(error)}`,
+        ),
     );
     return;
   }
