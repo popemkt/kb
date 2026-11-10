@@ -1,5 +1,5 @@
 import { present, type KbNode, type NodeId, type PropValue } from "@kb/model";
-import type { DerivedRef, FieldTypes } from "./derived.ts";
+import type { CarriedRef, DerivedRef, FieldTypes } from "./derived.ts";
 
 export type Datom = [number | string, string, unknown, number?, boolean?];
 
@@ -68,16 +68,16 @@ export interface NodeDatoms {
 
 /**
  * What each derived attribute's carriers read off `node`, its fields typed
- * by `types`: the ids it points at by them, in order.
+ * by `types`: the references it makes by them, in order.
  */
 function carriedBy(
   node: KbNode,
   derived: readonly DerivedRef[],
   types: FieldTypes,
-): { readonly attr: string; readonly ids: readonly NodeId[] }[] {
+): { readonly attr: string; readonly refs: readonly CarriedRef[] }[] {
   return derived.map(({ attr, carriers }) => ({
     attr,
-    ids: carriers.flatMap((carrier) => [...carrier.refsOf(node, types)]),
+    refs: carriers.flatMap((carrier) => [...carrier.refsOf(node, types)]),
   }));
 }
 
@@ -92,7 +92,7 @@ function pointedAt(node: KbNode, carried: ReturnType<typeof carriedBy>): Set<Nod
     refs.add(field);
     for (const pv of values) if (pv.t === "ref") refs.add(pv.v);
   }
-  for (const { ids } of carried) for (const id of ids) refs.add(id);
+  for (const carriedRefs of carried) for (const { id } of carriedRefs.refs) refs.add(id);
   return refs;
 }
 
@@ -159,9 +159,9 @@ export function nodeToDatoms(
   // One datom per (source, target) and attribute, whichever carrier produced
   // it: a derived attr is a set, so a duplicate would be a duplicate datom
   // rather than a no-op.
-  for (const { attr, ids: carriedIds } of carried) {
+  for (const { attr, refs: carriedRefs } of carried) {
     const targets = new Set<number>();
-    for (const id of carriedIds) {
+    for (const { id } of carriedRefs) {
       const target = ids.toEid.get(id);
       if (target !== undefined) targets.add(target);
     }

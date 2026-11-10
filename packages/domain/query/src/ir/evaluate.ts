@@ -11,7 +11,7 @@
  * each other (a number field compared with a date), this answers false.
  */
 import { SYSTEM_IDS, type ClockSample, type KbNode, type NodeId } from "@kb/model";
-import { fieldTypesIn, type DerivedRef } from "../index/derived.ts";
+import { fieldTypesIn, referenceCarriers, type DerivedRef } from "../index/derived.ts";
 import {
   canonicalConditions,
   includesFn,
@@ -45,13 +45,13 @@ export function conditionGraph(
   derived: readonly DerivedRef[],
   clock?: ClockSample,
 ): ConditionGraph {
-  const carriers = derived.find((d) => d.attr === ":node/mentions")?.carriers ?? [];
+  const carriers = referenceCarriers(derived);
   const types = fieldTypesIn((id) => nodes.get(id));
   const memo = new Map<NodeId, ReadonlySet<NodeId>>();
   const mentions = (node: KbNode): ReadonlySet<NodeId> => {
     let out = memo.get(node.id);
     if (out === undefined) {
-      const ids = carriers.flatMap((carrier) => [...carrier.refsOf(node, types)]);
+      const ids = carriers.flatMap((carrier) => [...carrier.refsOf(node, types)].map((r) => r.id));
       out = new Set(ids.filter((id) => nodes.has(id)));
       memo.set(node.id, out);
     }
