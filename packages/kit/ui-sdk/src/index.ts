@@ -189,7 +189,12 @@ export {
 } from "./lib/view-key";
 export { useSlotChain } from "./components/slot-chain";
 export { ViewSlot } from "./components/view-slot";
-export { BackdropFrame, PageBackdrop } from "./components/page-backdrop";
+export {
+  BackdropFrame,
+  HeadBackdropFrame,
+  PageBackdrop,
+  PageBackdropHost,
+} from "./components/page-backdrop";
 export { BackdropCard } from "./components/backdrop-card";
 export { HoldStill } from "./components/hold-still";
 export { deferred, type DeferredOptions } from "./components/deferred";

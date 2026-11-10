@@ -3,6 +3,7 @@ import {
   cn,
   matchRoute,
   NotFound,
+  PageBackdropHost,
   RoutePoint,
   ThemeArt,
   useContributions,
@@ -121,7 +122,10 @@ export function PaneFrame({ path, subject }: { readonly path: string; readonly s
   return (
     <div className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col" data-pane-path={path}>
       {route?.chrome}
-      <PageFrame frame={route?.frame ?? "scroll"}>{body}</PageFrame>
+      {/* Above the router: the backdrop outlives the page under it, drawn in whichever head declares it. */}
+      <PageBackdropHost>
+        <PageFrame frame={route?.frame ?? "scroll"}>{body}</PageFrame>
+      </PageBackdropHost>
       {/* Over this pane: the theme's gesture for this pane's own page change,
        * keyed on its path, so moving the focus between panes plays nothing
        * (`.kb-veil`: hidden under reduced motion and with `pageWipe` off). */}
