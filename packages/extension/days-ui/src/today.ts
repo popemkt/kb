@@ -36,21 +36,27 @@ function arrived(id: string): Promise<boolean> {
 }
 
 /**
- * Today's node, made if need be. Rejects when the family refused or the
- * node never reached the page: as the capture target's provider, a failure
- * demotes days and the role's default answers (DESIGN.md → Provider roles).
+ * The node of `day` (`YYYY-MM-DD`), made if need be. Rejects when the
+ * family refused or the node never reached the page: as a role's provider
+ * (the capture target, the date target), a failure demotes days and the
+ * role's default answers (DESIGN.md → Provider roles).
  */
-export async function todayNode(): Promise<string> {
-  const receipt = await browserHost().invoke(DAYS_IDS.todayAction, { day: pageDay() });
-  if (receipt.status === "failed") throw new Error(`today's node was refused: ${receipt.message}`);
+export async function dayNode(day: string): Promise<string> {
+  const receipt = await browserHost().invoke(DAYS_IDS.todayAction, { day });
+  if (receipt.status === "failed") throw new Error(`${day}'s node was refused: ${receipt.message}`);
   const output: unknown = receipt.output;
   const id =
     typeof output === "object" && output !== null && "id" in output && typeof output.id === "string"
       ? output.id
       : null;
-  if (id === null) throw new Error("today's node: the action answered no id");
-  if (!(await arrived(id))) throw new Error(`today's node ${id} never reached the page`);
+  if (id === null) throw new Error(`${day}'s node: the action answered no id`);
+  if (!(await arrived(id))) throw new Error(`${day}'s node ${id} never reached the page`);
   return id;
+}
+
+/** Today's node, in the page's local day, made if need be. */
+export function todayNode(): Promise<string> {
+  return dayNode(pageDay());
 }
 
 /** Open today's node in its own view (the day page), making it first if need be. */

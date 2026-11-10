@@ -12,7 +12,15 @@ import { Effect } from "effect";
 import { join } from "node:path";
 import type { ActionReceipt } from "@kb/contracts";
 import { DAYS_IDS, periodNodeId } from "@kb/days";
-import { mergeNodeSets, present, refValuesOf, tagViewsOf, type KbNode } from "@kb/model";
+import {
+  mergeNodeSets,
+  present,
+  refValuesOf,
+  SYSTEM_IDS,
+  tagViewsOf,
+  type KbNode,
+} from "@kb/model";
+import { backlinksQuery } from "@kb/query";
 import { invoke } from "../src/invoke.ts";
 import { resetRegistryCache } from "../src/registry.ts";
 import { bunFileSystemLayer } from "../src/platform.ts";
@@ -64,6 +72,21 @@ function keyedAdd(id: string) {
   };
 }
 
+/** A `node.add` minting the field `id` of the built-in type option `type`. */
+function fieldAdd(id: string, type: string) {
+  return {
+    id: "node.add",
+    input: {
+      id,
+      text: id,
+      props: [
+        { field: SYSTEM_IDS.typeField, value: { t: "ref", v: SYSTEM_IDS.field } },
+        { field: SYSTEM_IDS.fieldTypeField, value: { t: "ref", v: type } },
+      ],
+    },
+  };
+}
+
 function daysContract(backend: StoreBackend) {
   const freshKb = async () => openKb(await freshRoot(backend));
   describe(`ext.days.today (${backend})`, () => {
@@ -96,6 +119,31 @@ function daysContract(backend: StoreBackend) {
         await invoke(ctx, { id: "ext.days.today", input: { day: "2026-11-11" } }),
       );
       expect(nextDay.made).toHaveLength(1);
+    });
+
+    test("a date in any date field references its day, which lists it among its backlinks", async () => {
+      const ctx = await freshKb();
+      output(await invoke(ctx, fieldAdd("f.due", SYSTEM_IDS.ftDate)));
+      output(await invoke(ctx, fieldAdd("f.note", SYSTEM_IDS.ftText)));
+      const dated = async (text: string, fieldId: string) =>
+        output(
+          await invoke(ctx, {
+            id: "node.add",
+            input: { text, props: [{ field: fieldId, value: { t: "str", v: "2026-11-12" } }] },
+          }),
+        ).id;
+      // Dated before the day exists: the reference holds once it does.
+      const due = await dated("Call the plumber", "f.due");
+      const note = await dated("Says the date in text", "f.note");
+      const { id: day } = output(
+        await invoke(ctx, { id: "ext.days.today", input: { day: "2026-11-12" } }),
+      );
+      const back = output(
+        await invoke(ctx, { id: "graph.query", input: { query: backlinksQuery(day) } }),
+      ) as unknown as { rows: unknown[][] };
+      const referrers = back.rows.map((row) => row[0]);
+      expect(referrers).toContain(due);
+      expect(referrers).not.toContain(note);
     });
 
     test("a renamed, moved day is still that day", async () => {

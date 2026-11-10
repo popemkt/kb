@@ -118,7 +118,11 @@ const DATASCRIPT = /cljs\.core/;
 // The value carriers (field types handed to carriers, each field's type
 // remembered with what it read), merged onto main with C1b's first step,
 // measure 1,815,068; the budget keeps about 1.5 KB of headroom over it.
-const EAGER_BUDGET_BYTES = 1_816_600;
+// Days' date → day carrier in its declaration, which the page derives
+// with, and following a date (the date target role, its core default and
+// days' provider, and the follow's date branch) take it to 1,816,343; the
+// budget keeps about 1.5 KB over that.
+const EAGER_BUDGET_BYTES = 1_817_850;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {
