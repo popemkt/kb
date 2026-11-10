@@ -55,7 +55,9 @@ function ScrollRegion({
         ref={region}
         className={cn(
           "isolate min-h-0 flex-1",
-          scroll ? "overflow-x-auto overflow-y-auto pb-40" : "overflow-hidden",
+          scroll ? "overflow-x-auto overflow-y-auto" : "overflow-hidden",
+          // The room after the page's end is the region's (above).
+          scroll && "pb-40",
         )}
         data-main-region={scroll ? "scroll" : "fixed"}
       >
