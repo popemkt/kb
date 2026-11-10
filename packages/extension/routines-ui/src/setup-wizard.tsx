@@ -25,6 +25,7 @@ import { BUTTON_CLASS, Dialog, PRIMARY_BUTTON_CLASS } from "./dialog";
 import { syncPath } from "./routes";
 import { Schema } from "effect";
 import { consolePage, setupCall, startConnect, useSetupInfo, type SetupInfo } from "./setup-calls";
+import { DomainStep } from "./setup-branding";
 import { Pick, Verdict } from "./setup-parts";
 import {
   ApisStep,
@@ -44,6 +45,7 @@ const STEPS: Readonly<
   project: { label: "Project", Body: ProjectStep },
   apis: { label: "Calendar API", Body: ApisStep },
   branding: { label: "Consent screen", Body: BrandingStep },
+  domain: { label: "Branding", Body: DomainStep },
   audience: { label: "Publish", Body: AudienceStep },
   client: { label: "OAuth client", Body: ClientStep },
   connect: { label: "Connect", Body: ConnectStep },
