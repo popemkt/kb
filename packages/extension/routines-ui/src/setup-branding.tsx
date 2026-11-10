@@ -45,6 +45,22 @@ kb routines is a personal app, provided as is and without warranty, for its owne
 
 Contact: ${contact}`;
 
+/** Values to copy, each named beside it: what it is shown as, what copying it is called, it. */
+function Labelled({ rows }: { readonly rows: readonly (readonly [string, string, string])[] }) {
+  return (
+    <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-1.5">
+      {rows.map(([shown, label, value]) => (
+        <div key={label} className="contents">
+          <dt className="pt-1.5 text-label text-muted-foreground">{shown}</dt>
+          <dd className="min-w-0">
+            <CopyValue label={label} value={value} />
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 export function DomainStep({ setup, index }: StepProps) {
   const contact = setup.email === "" ? "your email address" : setup.email;
   return (
@@ -87,9 +103,13 @@ export function DomainStep({ setup, index }: StepProps) {
         <p className="text-meta text-muted-foreground">
           Text to host, ready to copy. Check it says what you do, and change what doesn't.
         </p>
-        <CopyValue label="Home page text" value={homePage(contact)} />
-        <CopyValue label="Privacy policy text" value={privacyPolicy(contact)} />
-        <CopyValue label="Terms of service text" value={termsOfService(contact)} />
+        <Labelled
+          rows={[
+            ["index.html", "Home page text", homePage(contact)],
+            ["privacy.html", "Privacy policy text", privacyPolicy(contact)],
+            ["terms.html", "Terms of service text", termsOfService(contact)],
+          ]}
+        />
       </div>
       <details className="flex flex-col gap-1.5 text-ui text-foreground">
         <summary className="cursor-pointer text-label text-muted-foreground">
@@ -99,10 +119,14 @@ export function DomainStep({ setup, index }: StepProps) {
           <p className="text-meta text-muted-foreground">
             What the four values look like. Use your own pages; use these only if they are yours.
           </p>
-          <CopyValue label="Home page" value={EXAMPLE.home} />
-          <CopyValue label="Privacy policy link" value={EXAMPLE.privacy} />
-          <CopyValue label="Terms of service link" value={EXAMPLE.terms} />
-          <CopyValue label="Authorized domain" value={EXAMPLE.domain} />
+          <Labelled
+            rows={[
+              ["Home page", "Home page", EXAMPLE.home],
+              ["Privacy policy", "Privacy policy link", EXAMPLE.privacy],
+              ["Terms of service", "Terms of service link", EXAMPLE.terms],
+              ["Authorized domain", "Authorized domain", EXAMPLE.domain],
+            ]}
+          />
         </div>
       </details>
       <Verdict tone="note">
