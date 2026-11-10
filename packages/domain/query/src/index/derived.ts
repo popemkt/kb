@@ -86,8 +86,11 @@ export function graphReadsIn(
 export function keyHolders(nodes: Iterable<KbNode>, field: NodeId): Map<string, NodeId[]> {
   const values = new Map<string, NodeId[]>();
   for (const node of nodes)
-    for (const value of keysOf(node, field))
-      values.set(value, [...(values.get(value) ?? []), node.id]);
+    for (const value of keysOf(node, field)) {
+      const holders = values.get(value);
+      if (holders === undefined) values.set(value, [node.id]);
+      else holders.push(node.id);
+    }
   return values;
 }
 
