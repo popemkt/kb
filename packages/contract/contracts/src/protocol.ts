@@ -62,6 +62,13 @@ export type WireNode = z.infer<typeof WireNodeSchema>;
 export const GraphSnapshotSchema = z.object({
   rev: z.number().int().nonnegative(),
   nodes: z.array(WireNodeSchema),
+  /**
+   * The ids among `nodes` the server's index holds as virtual: served from a
+   * source that is not the store (a saved query's `.edn`), so the page's
+   * index holds them as virtual too (`NodeIndex.isVirtual`). Absent from a
+   * server that predates it, which reads as none.
+   */
+  virtual: z.array(z.string()).optional(),
 });
 export type GraphSnapshot = z.infer<typeof GraphSnapshotSchema>;
 
@@ -182,6 +189,15 @@ export const ServerMessageSchema = z.discriminatedUnion("op", [
     rev: z.number().int(),
     upserts: z.array(WireNodeSchema),
     deletes: z.array(z.string()),
+    /**
+     * The transaction moved the virtual set (the log's `VIRTUAL_ORIGIN`):
+     * its upserts are virtual nodes and its deletes leave that set, so a
+     * client keeps them out of its store. It names only ids the server's
+     * index holds, or held, as virtual: a stored node keeps its id against
+     * a virtual one, so a frame never touches a stored node. Absent on
+     * every other frame.
+     */
+    virtual: z.literal(true).optional(),
   }),
   /** Live query result push (full rows, v1; delta shape reserved). */
   z.object({

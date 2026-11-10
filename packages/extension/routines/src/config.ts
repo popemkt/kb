@@ -6,7 +6,7 @@ import {
   firstRef,
   firstStr,
   oneOf,
-  typeRefsOf,
+  isA,
   writeNum,
   writeRef,
   writeStr,
@@ -197,7 +197,7 @@ export function routineOccurrences(
   const found = new Map<string, { node: NodeLike; occurrence: Occurrence }>();
   for (const id of node.children) {
     const child = nodes.get(id);
-    if (child === undefined || !typeRefsOf(child).includes(T.occurrence)) continue;
+    if (child === undefined || !isA(child, T.occurrence, (each) => nodes.get(each))) continue;
     const occurrence = readOccurrence(child);
     if (found.has(occurrence.on))
       throw new SyncError({ status: 400, code: "duplicate_occurrence" });
@@ -288,7 +288,8 @@ export function routineInputs(node: NodeLike, nodes: ReadonlyMap<string, NodeLik
   const children = node.children
     .map((id) => nodes.get(id))
     .filter(
-      (child): child is NodeLike => child !== undefined && typeRefsOf(child).includes(T.occurrence),
+      (child): child is NodeLike =>
+        child !== undefined && isA(child, T.occurrence, (each) => nodes.get(each)),
     );
   return {
     value: {

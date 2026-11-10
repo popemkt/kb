@@ -23,7 +23,7 @@ import {
   type ConfirmedStep,
   type ProjectSource,
 } from "@kb/routines";
-import { typeRefsOf } from "@kb/model";
+import { nodesOfKind } from "@kb/model";
 import { cn, useNodes } from "@kb/ui-sdk";
 import { BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from "./dialog";
 import { FIELD_CLASS } from "./repeat-picker";
@@ -222,7 +222,7 @@ export function ApisStep({ setup, index }: StepProps) {
     <StepFrame
       index={index}
       title="Enable the Google Calendar API"
-      why="kb writes routines as events through this API. Projects start with it switched off."
+      why="kb writes your events to Google Calendar through this API. Projects start with it switched off."
     >
       <ConsoleLink href={consolePage("apis/library/calendar-json.googleapis.com", setup.project)}>
         Open Google Calendar API
@@ -538,8 +538,7 @@ async function syncEach(
 export function CalendarsStep({ setup, index }: StepProps) {
   const nodes = useNodes();
   const zone = new Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const calendars = [...nodes.values()]
-    .filter((node) => typeRefsOf(node).includes(ROUTINE_TAGS.calendar))
+  const calendars = nodesOfKind(nodes, ROUTINE_TAGS.calendar)
     .map((node) => {
       let read = { account: "", calendarId: "", mode: "invalid" };
       try {
@@ -553,7 +552,7 @@ export function CalendarsStep({ setup, index }: StepProps) {
   const [picked, setPicked] = useState<ReadonlySet<string>>(
     () => new Set(calendars.filter((calendar) => calendar.account === setup.id).map((c) => c.id)),
   );
-  const [fresh, setFresh] = useState(calendars.length === 0 ? "Routines" : "");
+  const [fresh, setFresh] = useState(calendars.length === 0 ? "Events" : "");
   const [results, setResults] = useState<ReadonlyMap<string, string | null>>(new Map());
   const action = useAction();
   const toggle = (id: string) =>
@@ -632,7 +631,7 @@ export function CalendarsStep({ setup, index }: StepProps) {
         <input
           className={FIELD_CLASS}
           value={fresh}
-          placeholder="Routines"
+          placeholder="Events"
           onChange={(event) => setFresh(event.target.value)}
         />
       </Field>

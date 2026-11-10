@@ -857,8 +857,8 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 - **expected** — A node of a tag that extends another is that tag's node in datalog too: a derived :node/is datom holds the closure of sys.f.type over sys.f.extends, the query builder's has-tag lowers to it and the page's condition evaluator reads kindsOf, while :f/sys.f.type stays tagged-exactly.
 - **current** — kindsOf and isA read the chain in @kb/model, and the template, views, ref targets and ontology members follow it, but datalog has only :f/sys.f.type, so a has-tag filter, a saved query or a tag page's instance list names only nodes tagged exactly.
-- **impact** — A person's #meeting that extends #event shows in the calendar's readers once they ask isA, but not in a query or a view filter for #event.
-- **closes** — Add :node/is to CORE_DERIVED with a carrier that reads the chain and re-derives a tag's instances when its sys.f.extends changes; lower has-tag to it, evaluate it with isA, and stop canonicalizing a sys.f.type is-condition into has-tag.
+- **impact** — A person's #meeting that extends #event shows on the calendar page, which reads the page's graph through isA, but the routines engine reads its nodes with a datalog query on sys.f.type and does not sync it; a query or a view filter for #event does not name it either.
+- **closes** — Add :node/is to CORE_DERIVED with a carrier that reads the chain and re-derives a tag's instances when its sys.f.extends changes; lower has-tag to it, evaluate it with isA, and stop canonicalizing a sys.f.type is-condition into has-tag. The routines engine's read (routines-host graph.ts) then asks :node/is and brings the tags its readers walk.
 - **node** — `01M738XHYKHDFFCN8DK595Z15T`
 
 ### GAP: Durable browser invocation replay
@@ -1631,15 +1631,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — On a root with repository extensions, nodes those extensions seed have an owner on the server but not on the page or in clients, and fields they declare as refCarriers feed References on the server only.
 - **closes** — The manifest or snapshot carries the root's declarations or owners, and both hosts derive from it.
 - **node** — `01M549TK1WP4E6T4QHNDRSDYQA`
-
-### GAP: the page's index does not know which nodes are virtual
-
-- **expected** — The graph snapshot names the virtual ids and a tx frame carries its origin, and page hydration, snapshot install and frame ingest route virtual nodes through NodeIndex.withVirtual and keep them out of the BrowserStore. The page's index then answers isVirtual as the server's does, its local commit refuses the write the server refuses, and the row shows as its file's (read-only). A page-hydration and reconnect case in a contract proves it.
-- **current** — The server snapshot flattens index.allNodes() into nodes, and the page builds BrowserStore and its index from that array (replaceBrowserSession, installBrowserNodes, ingestBrowserTx). A saved-query node is therefore stored on the page and RemoteIndex.isVirtual is false. The page's sys.* pre-check (guardSysWrite, the read-only row) still covers sys.query.* rows by id, but a key or command that invokes node.update on one commits locally and is refused only by the server.
-- **impact** — An invoke-path edit of a saved-query node on the page is undone by the server's refusal rather than refused on the page. It becomes a visible offer of an edit that fails once C1b removes the sys.* pre-checks, so it must close before then.
-- **closes** — A virtual-ids field on GraphSnapshotSchema and an origin on the tx frame (contracts/protocol.ts); the server's snapshot and frames set them; hydrateFromWire, installBrowserNodes and ingestBrowserTx split virtual from stored and call withVirtual; and a contract test of page hydration and since-catch-up over a saved query.
-- **rule** — One contract, every implementation
-- **node** — `01M73BRQC9ZSQHG9RWDCRQ6CEK`
 
 ### GAP: the page's offline family list reads only the bundled families
 

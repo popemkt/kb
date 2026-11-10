@@ -18,7 +18,7 @@ import {
   CONNECT_PATH,
   type SyncParams,
 } from "@kb/routines";
-import { typeRefsOf } from "@kb/model";
+import { nodesOfKind } from "@kb/model";
 import { cn, navigate, toast, useNodes } from "@kb/ui-sdk";
 import { BUTTON_CLASS, Dialog, PRIMARY_BUTTON_CLASS } from "./dialog";
 import { CALENDAR_PATH, syncPath } from "./routes";
@@ -33,7 +33,7 @@ const PROVIDERS = [
     id: "google",
     name: "Google Calendar",
     blurb:
-      "Routines become events in calendars kb creates in your Google account. About ten minutes to set up, with your own Google Cloud project.",
+      "Your events go to calendars kb creates in your Google account. About ten minutes to set up, with your own Google Cloud project.",
   },
 ] as const;
 
@@ -50,7 +50,7 @@ function ProviderPicker({ onClose }: { readonly onClose: () => void }) {
   };
   return (
     <Dialog title="Add a sync service" onClose={onClose} testId="sync-provider-picker">
-      <p className="text-ui text-muted-foreground">Where should kb send your routines?</p>
+      <p className="text-ui text-muted-foreground">Where should kb send your events?</p>
       <div className="flex flex-col gap-2" role="list">
         {PROVIDERS.map((provider) => (
           <button
@@ -78,8 +78,7 @@ function ProviderPicker({ onClose }: { readonly onClose: () => void }) {
 function ServiceList() {
   const nodes = useNodes();
   const [picking, setPicking] = useState(false);
-  const services = [...nodes.values()]
-    .filter((node) => typeRefsOf(node).includes(ROUTINE_TAGS.account))
+  const services = nodesOfKind(nodes, ROUTINE_TAGS.account)
     .toSorted((a, b) => a.id.localeCompare(b.id))
     .map((node) => readAccountSetup(node, nodes));
   return (

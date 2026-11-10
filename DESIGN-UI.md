@@ -3781,7 +3781,12 @@ the next two weeks, open at the day the URL names
 week is the default elsewhere. The model and its Google sync are the
 family's, specified once in
 [docs/research/2026-11-02-kb-routines-gcal.md](docs/research/2026-11-02-kb-routines-gcal.md);
-the page adds no storage of its own.
+the page adds no storage of its own. The page speaks the family's labels: a
+person makes, edits and syncs *events*, in the Events calendar. The ids,
+test hooks and code keep `routine`, as the relabel keeps every id
+([data plane → migrating the routines data](docs/research/2026-11-10-data-plane-fields-events.md#65-migrating-the-routines-data)).
+The Google app's own name, "kb routines", and the pages that name it stay
+as they are, since a person's Cloud project registered them.
 
 - **One expansion.** What the page shows is `calendarEntries` in
   `@kb/routines`. It reads each routine through the engine's own reader and
@@ -3963,10 +3968,20 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
 - **The day page** is `#day`'s default view (`days.day`, a tag view, so a
   day opens in it at `/node/<id>` and a person may choose another there).
   It draws the day's own outline, with its title, fields and children, then
-  **Made or edited this day**: the nodes whose created or updated instant
-  falls within the local day, newest first. Schema, the period nodes and
-  `sys.*` nodes are left out. Each row opens its node. The page is its own
-  chunk, fetched the first time a day opens.
+  the **sections** contributed to the family's declared point
+  `days.sections`, in ascending `order`. A section is `{order, title,
+  Component}`, and its component is given the day node and its key. Days
+  never imports a family that shows something on a day; that family
+  contributes a section (the events section is one). Days fills two:
+  - **Dated this day** (`order: 20`): every node holding the day in a
+    date-typed field, whatever the field and whichever family made it,
+    each with the field's name beside it (`datedOn` in `@kb/days`).
+  - **Made or edited this day** (`order: 30`): the nodes whose created or
+    updated instant falls within the local day, newest first. Schema, the
+    period nodes and `sys.*` nodes are left out.
+
+  Each row opens its node. The page is its own chunk, fetched the first
+  time a day opens, and each section's body is one too.
 - **The Today row** sits under Home in the sidebar (`order: 5`) and opens
   today's node, making it if need be. It is the active row while today's
   node is open.

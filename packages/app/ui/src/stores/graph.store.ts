@@ -91,13 +91,23 @@ interface GraphState extends PageGraphState {
   undoStack: UndoEntry[];
   redoStack: UndoEntry[];
 
-  hydrateFromWire: (nodes: WireNode[], rev: number, source: "api" | "fixtures") => void;
-  /** Apply node-level delta (optimistic edits + WS tx). */
-  applyTx: (upserts: WireNode[], deletes: string[], opts?: { rev?: number }) => void;
+  /** Load a snapshot: its nodes, its rev, and which of them are virtual (`GraphSnapshot.virtual`). */
+  hydrateFromWire: (
+    nodes: WireNode[],
+    rev: number,
+    source: "api" | "fixtures",
+    virtual?: readonly string[],
+  ) => void;
+  /** Apply node-level delta (optimistic edits + WS tx); `virtual` is the virtual set, when it moved. */
+  applyTx: (
+    upserts: WireNode[],
+    deletes: string[],
+    opts?: { rev?: number; virtual?: readonly WireNode[] },
+  ) => void;
   /** Re-read the snapshot after the shared local action advanced the existing index. */
   syncFromIndex: () => void;
   /** Full-snapshot resync (rev gap) that preserves zoom and scope. */
-  refreshFromWire: (nodes: WireNode[], rev: number) => void;
+  refreshFromWire: (nodes: WireNode[], rev: number, virtual?: readonly WireNode[]) => void;
   /** Enter (id) / leave (null) an ontology scope. */
   setOntologyScope: (id: string | null) => void;
   /**
@@ -253,15 +263,25 @@ export function replaceGraph(next: GraphStateData): void {
 
 // The replica's moves.
 
-function hydrateFromWire(wireNodes: WireNode[], rev: number, source: "api" | "fixtures"): void {
+function hydrateFromWire(
+  wireNodes: WireNode[],
+  rev: number,
+  source: "api" | "fixtures",
+  virtual: readonly string[] = [],
+): void {
   // A fresh load starts unscoped; App re-applies the URL scope after.
   now().index?.close();
-  const index = replicaOver(wireNodes);
+  const served = new Set(virtual);
+  const index = replicaOver(wireNodes.filter((node) => !served.has(node.id)));
   const queries = answersOver(index);
-  replaceBrowserSession(wireNodes, rev, index, queries, {
+  replaceBrowserSession({ nodes: wireNodes, rev, virtual }, index, queries, {
     onLocalCommit: syncFromIndex,
-    applyServerTx: (tx, txRev) => applyTx(tx.upserts, tx.deletes, { rev: txRev }),
-    installServerSnapshot: (nodes, snapshotRev) => refreshFromWire(nodes, snapshotRev),
+    applyServerTx: (tx, txRev, moved) =>
+      applyTx(tx.upserts, tx.deletes, {
+        rev: txRev,
+        ...(moved === undefined ? {} : { virtual: moved }),
+      }),
+    installServerSnapshot: (nodes, snapshotRev, set) => refreshFromWire(nodes, snapshotRev, set),
     arrived: () => useUiStore.getState().noteEvent("arrivals"),
   });
   moveTo("load", {
@@ -282,9 +302,13 @@ function hydrateFromWire(wireNodes: WireNode[], rev: number, source: "api" | "fi
   });
 }
 
-function applyTx(upserts: WireNode[], deletes: string[], opts?: { rev?: number }): void {
+function applyTx(
+  upserts: WireNode[],
+  deletes: string[],
+  opts?: { rev?: number; virtual?: readonly WireNode[] },
+): void {
   const prev = now();
-  ingestBrowserTx({ upserts, deletes });
+  ingestBrowserTx({ upserts, deletes }, opts?.virtual);
   const wireNodes = mergeTx(prev.wireNodes, upserts, deletes);
   const scope = scopeFields(wireNodes, prev.ontologyId, prev.queries);
   const next = { wireNodes, ontologyId: prev.ontologyId, ...scope };
@@ -298,15 +322,16 @@ function applyTx(upserts: WireNode[], deletes: string[], opts?: { rev?: number }
 function syncFromIndex(): void {
   const prev = now();
   if (prev.index === null) return;
-  const wireNodes = prev.index.storedNodes();
+  // What the page shows is every node the index answers over, its virtual ones included.
+  const wireNodes = [...prev.index.allNodes()];
   const scope = scopeFields(wireNodes, prev.ontologyId, prev.queries);
   const next = { wireNodes, ontologyId: prev.ontologyId, ...scope };
   moveTo("sync", { ...next, rootNodeId: clampedRoot(next, prev) });
 }
 
-function refreshFromWire(wireNodes: WireNode[], rev: number): void {
+function refreshFromWire(wireNodes: WireNode[], rev: number, virtual?: readonly WireNode[]): void {
   const prev = now();
-  if (prev.index !== null) installBrowserNodes(wireNodes);
+  if (prev.index !== null) installBrowserNodes(wireNodes, virtual);
   const scope = scopeFields(wireNodes, prev.ontologyId, prev.queries);
   const next = { wireNodes, ontologyId: prev.ontologyId, ...scope };
   moveTo("resync", { ...next, rev, rootNodeId: clampedRoot(next, prev) });
