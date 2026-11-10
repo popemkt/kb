@@ -50,8 +50,12 @@ import { BrowserReplica, type Hold, type ReplicaLink } from "./replica";
 /** How the graph store follows the session: local commits, server deltas, snapshots. */
 export interface BrowserSessionView {
   readonly onLocalCommit: () => void;
-  readonly applyServerTx: (tx: StoreTx, rev: number) => void;
-  readonly installServerSnapshot: (nodes: KbNode[], rev: number) => void;
+  readonly applyServerTx: (tx: StoreTx, rev: number, virtual?: readonly KbNode[]) => void;
+  readonly installServerSnapshot: (
+    nodes: KbNode[],
+    rev: number,
+    virtual: readonly KbNode[],
+  ) => void;
   /** A change made elsewhere reached what the page shows (`ReplicaView.arrived`). */
   readonly arrived: () => void;
 }
@@ -128,16 +132,40 @@ function pageEngine(queries: QueryAnswers): QueryEngine {
   };
 }
 
-/** Install the browser infrastructure around the graph store's one index and its engine. */
-export function replaceBrowserSession(
+/**
+ * The nodes of `nodes` the store holds, and the virtual ones (`virtual`, by
+ * id) the index alone holds: what the page's store and index each take of a
+ * snapshot or a frame, as the server's do.
+ */
+function splitVirtual(
   nodes: readonly KbNode[],
-  rev: number,
+  virtual: ReadonlySet<string>,
+): { readonly stored: KbNode[]; readonly served: KbNode[] } {
+  const stored: KbNode[] = [];
+  const served: KbNode[] = [];
+  for (const node of nodes) (virtual.has(node.id) ? served : stored).push(node);
+  return { stored, served };
+}
+
+/**
+ * Install the browser infrastructure around the graph store's one index and
+ * its engine, from `snapshot`. `index` was built over its stored nodes; the
+ * virtual ones (`snapshot.virtual`, by id) reach it here, as virtual.
+ */
+export function replaceBrowserSession(
+  snapshot: {
+    readonly nodes: readonly KbNode[];
+    readonly rev: number;
+    readonly virtual: readonly string[];
+  },
   index: NodeIndex,
   queries: QueryAnswers,
   view: BrowserSessionView,
 ): void {
-  // GAP [[01M73BRQC9ZSQHG9RWDCRQ6CEK]]: the snapshot does not say which nodes are virtual, so they are stored here.
-  const store = new BrowserStore(nodes);
+  const { nodes, rev, virtual } = snapshot;
+  const { stored, served } = splitVirtual(nodes, new Set(virtual));
+  if (served.length > 0) index.withVirtual(served);
+  const store = new BrowserStore(stored);
   const ctx: KbContext<NodeIndex> = {
     root: "browser",
     store,
@@ -167,26 +195,45 @@ export function replaceBrowserSession(
         arrived: view.arrived,
       },
       () => link,
+      virtual,
     ),
   };
   session = nextSession;
   noteBrowserStoreSynced(nextSession);
 }
 
-/** Advance the replicated store and index together when a server tx arrives. */
-export function ingestBrowserTx(tx: StoreTx): void {
+/**
+ * Advance the replicated store and index together when a server tx arrives.
+ * The store and the index take its stored part. `virtual`, given when the tx
+ * moved the virtual set, is that whole set, which the index takes as
+ * virtual; without it, the ids the index already holds as virtual stay so.
+ */
+export function ingestBrowserTx(tx: StoreTx, virtual?: readonly KbNode[]): void {
   const current = session;
   if (current === null) return;
-  current.store.apply(tx);
-  current.ctx.index.applyTx(tx);
+  const index = current.ctx.index;
+  const ids = virtual === undefined ? null : new Set(virtual.map((node) => node.id));
+  const served = (id: string) => (ids === null ? index.isVirtual(id) : ids.has(id));
+  const stored: StoreTx = {
+    upserts: tx.upserts.filter((node) => !served(node.id)),
+    deletes: tx.deletes.filter((id) => !served(id)),
+  };
+  current.store.apply(stored);
+  index.applyTx(stored);
+  if (virtual !== undefined) index.withVirtual(virtual);
   noteBrowserStoreSynced(current);
 }
 
 /** Replace the replicated store and index with an authoritative server snapshot. */
-export function installBrowserNodes(nodes: readonly KbNode[]): void {
+export function installBrowserNodes(
+  nodes: readonly KbNode[],
+  virtual: readonly KbNode[] = [],
+): void {
   const current = requireSession();
-  current.store.replace(nodes);
-  current.ctx.index.rebuild([...nodes]);
+  const { stored } = splitVirtual(nodes, new Set(virtual.map((node) => node.id)));
+  current.store.replace(stored);
+  current.ctx.index.rebuild(stored);
+  current.ctx.index.withVirtual(virtual);
   noteBrowserStoreSynced(current);
 }
 

@@ -1624,15 +1624,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The manifest or snapshot carries the root's declarations or owners, and both hosts derive from it.
 - **node** — `01M549TK1WP4E6T4QHNDRSDYQA`
 
-### GAP: the page's index does not know which nodes are virtual
-
-- **expected** — The graph snapshot names the virtual ids and a tx frame carries its origin, and page hydration, snapshot install and frame ingest route virtual nodes through NodeIndex.withVirtual and keep them out of the BrowserStore. The page's index then answers isVirtual as the server's does, its local commit refuses the write the server refuses, and the row shows as its file's (read-only). A page-hydration and reconnect case in a contract proves it.
-- **current** — The server snapshot flattens index.allNodes() into nodes, and the page builds BrowserStore and its index from that array (replaceBrowserSession, installBrowserNodes, ingestBrowserTx). A saved-query node is therefore stored on the page and RemoteIndex.isVirtual is false. The page's sys.* pre-check (guardSysWrite, the read-only row) still covers sys.query.* rows by id, but a key or command that invokes node.update on one commits locally and is refused only by the server.
-- **impact** — An invoke-path edit of a saved-query node on the page is undone by the server's refusal rather than refused on the page. It becomes a visible offer of an edit that fails once C1b removes the sys.* pre-checks, so it must close before then.
-- **closes** — A virtual-ids field on GraphSnapshotSchema and an origin on the tx frame (contracts/protocol.ts); the server's snapshot and frames set them; hydrateFromWire, installBrowserNodes and ingestBrowserTx split virtual from stored and call withVirtual; and a contract test of page hydration and since-catch-up over a saved query.
-- **rule** — One contract, every implementation
-- **node** — `01M73BRQC9ZSQHG9RWDCRQ6CEK`
-
 ### GAP: the page's offline family list reads only the bundled families
 
 - **expected** — The rows the page follows while no server answers come from one list of every family source, each hosted family reported as not hosted.

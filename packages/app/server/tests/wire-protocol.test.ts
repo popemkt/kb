@@ -41,9 +41,11 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // Protocol 7: manifests carry scoped named-point dependencies and reaction
 // matches; earlier strict readers cannot decode or review those claims.
 // The days family adds an action (`ext.days.today`) a previous page ignores.
+// The snapshot's `virtual` ids and the tx frame's `virtual` flag are optional:
+// a previous page ignores them and holds every node as stored, as it did.
 const RECORDED = {
   protocol: 7,
-  fingerprint: "28f8382404f8278f35732e027de59cf62e26b229116ff5615ba1084b5d78afed",
+  fingerprint: "62132f487e1594d2e3039db1e58ee2fe5b456b3cf9e31a1c8c8e2ed43f25aca6",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */
