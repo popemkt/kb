@@ -2,12 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { present } from "../src/present.ts";
 import fc from "fast-check";
 import { SYSTEM_IDS, type NodeId, type PropValue } from "../src/model.ts";
-import {
-  resolveOntology,
-  ontologyClosureMode,
-  type NodeLike,
-  type OntologyResolution,
-} from "../src/ontology.ts";
+import type { NodeLike } from "../src/node-like.ts";
+import { resolveOntology, ontologyClosureMode, type OntologyResolution } from "../src/ontology.ts";
 
 function ref(id: NodeId): PropValue {
   return { t: "ref", v: id };

@@ -16,7 +16,7 @@
 import { cardinalityOf, declaresOptionSet, fieldTypeOf } from "./field-type.ts";
 import type { Cardinality, FieldType } from "./field-type.ts";
 import { SYSTEM_IDS, type NodeId } from "./model.ts";
-import { typeRefsOf, type NodeLike } from "./ontology.ts";
+import { typeRefsOf, type NodeLike } from "./node-like.ts";
 import { configures } from "./system-write.ts";
 
 /** One option of a setting whose values are its field's children. */

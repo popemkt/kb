@@ -40,7 +40,7 @@
  */
 import { SYSTEM_IDS, isExtensionNodeId, isSysPrefixed, type KbNode, type NodeId } from "./model.ts";
 import { changedFields } from "./tx.ts";
-import { refValuesOf, typeRefsOf, type NodeLike } from "./ontology.ts";
+import { refValuesOf, typeRefsOf, type NodeLike } from "./node-like.ts";
 
 /**
  * The node a setting is checked against: its id, and its props where they

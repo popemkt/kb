@@ -29,18 +29,9 @@
  * inference, auto-classification, validation enforcement, tag inheritance.
  */
 import { present } from "./present.ts";
-import { SYSTEM_IDS, type NodeId, type PropValue } from "./model.ts";
-
-/**
- * Structural minimum both `KbNode` and `WireNode` satisfy — the reason one
- * resolver serves backend and browser.
- */
-export interface NodeLike {
-  readonly id: NodeId;
-  readonly text: string;
-  readonly props: Readonly<Record<string, readonly PropValue[]>>;
-  readonly children: readonly NodeId[];
-}
+import { SYSTEM_IDS, type NodeId } from "./model.ts";
+import { refValuesOf, strValueOf, typeRefsOf, type NodeLike } from "./node-like.ts";
+import { kindsOf } from "./tag-kinds.ts";
 
 type MemberReasonKind = "member" | "tag" | "query" | "extends" | "closure";
 
@@ -88,52 +79,6 @@ export const LIST_ONTOLOGIES_QUERY = `[:find ?id ?text
                       [?n :node/text ?text]
                       [?n :f/${SYSTEM_IDS.typeField} ?t]
                       [?t :node/id "${SYSTEM_IDS.ontologyTag}"]]`;
-
-// ── prop readers ───────────────────────────────────────────────────────────
-//
-// Generic, kind-agnostic readers over `NodeLike.props`. They are the only
-// place a prop is decoded, so every resolution surface — ontology membership,
-// ref-target constraints, CLI receipts — reads the same bytes the same way.
-// (Their natural home is the model alongside `PropValue`; they live here
-// because this is the module that already owns the isomorphic node shape.)
-
-/** Ref values of a multi-valued ref field, in stored order. */
-export function refValuesOf(node: Pick<NodeLike, "props"> | undefined, fieldId: string): NodeId[] {
-  return (node?.props[fieldId] ?? [])
-    .filter((v) => v.t === "ref" && typeof v.v === "string")
-    .map((v) => v.v);
-}
-
-/** First non-empty str value of a single-valued str field. */
-export function strValueOf(
-  node: Pick<NodeLike, "props"> | undefined,
-  fieldId: string,
-): string | null {
-  for (const v of node?.props[fieldId] ?? []) {
-    if (v.t !== "str" || typeof v.v !== "string") continue;
-    const trimmed = v.v.trim();
-    if (trimmed) return trimmed;
-  }
-  return null;
-}
-
-/**
- * TRUTH READER for the kind slot: the ids a node declares in `sys.f.type`.
- *
- * "n is tagged t", "n is a supertag", "n is a field" are all this one datum —
- * a tag node carries `sys.f.type → sys.tag`, an instance carries
- * `sys.f.type → <tag>`. Every membership / constraint / validity decision must
- * come through here.
- *
- * It is deliberately NOT the same list a UI renders as `#tag` chips: the
- * badge list drops the kind refs (`sys.tag`, `sys.field`) because a chip
- * saying "#tag" on a tag's own page would be nonsense. That is a *display*
- * rule. Reading badges back as truth is what made `sys.f.onto.include`
- * (`targetTag → sys.tag`) resolve to the empty set and the field unfillable.
- */
-export function typeRefsOf(node: Pick<NodeLike, "props"> | undefined): NodeId[] {
-  return refValuesOf(node, SYSTEM_IDS.typeField);
-}
 
 export function isOntologyNode(node: NodeLike): boolean {
   return typeRefsOf(node).includes(SYSTEM_IDS.ontologyTag);
@@ -211,9 +156,10 @@ function warn(state: ResolveState, key: string, message: string): void {
 }
 
 function buildTagIndex(nodes: readonly NodeLike[]): Map<NodeId, NodeId[]> {
+  const byId = new Map(nodes.map((node) => [node.id, node]));
   const byTag = new Map<NodeId, NodeId[]>();
   for (const node of nodes) {
-    for (const tagId of typeRefsOf(node)) {
+    for (const tagId of kindsOf(node, (id) => byId.get(id))) {
       const list = byTag.get(tagId);
       if (list) list.push(node.id);
       else byTag.set(tagId, [node.id]);

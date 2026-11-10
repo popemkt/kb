@@ -12,7 +12,7 @@
  */
 import { allowedRefIdsOf, fieldTypeOf } from "./field-type.ts";
 import { isSysPrefixed, SYSTEM_IDS, type NodeId, type PropValue } from "./model.ts";
-import { typeRefsOf, type NodeLike } from "./ontology.ts";
+import { typeRefsOf, type NodeLike } from "./node-like.ts";
 
 /** A field node's inverse label, or null when it names none. */
 export function relationInverseOf(
