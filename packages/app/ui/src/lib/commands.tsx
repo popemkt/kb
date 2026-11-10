@@ -163,7 +163,7 @@ const GLOBAL_COMMANDS: readonly Command[] = [
         return;
       }
       const newId = ulid();
-      if (await browserHost().writes.captureNode("Untitled", newId)) ctx.outline.jumpToNode(newId);
+      if (await browserHost().writes.captureNode("", newId)) ctx.outline.jumpToNode(newId);
     },
   },
   {
