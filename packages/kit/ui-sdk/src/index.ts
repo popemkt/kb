@@ -335,7 +335,13 @@ export {
 } from "./lib/frame-layout";
 export { frameRows, type FrameRowsInput } from "./lib/frame-rows";
 export { UNDO_DEPTH } from "./lib/undo-depth";
-export { type CaptureTarget, CaptureTargetService, captureTarget } from "./lib/capture-target";
+export {
+  type CaptureTarget,
+  CaptureTargetService,
+  captureTarget,
+  topLevelCapture,
+} from "./lib/capture-target";
+export { type Landing, LandingService, land, landOnce, stayHome } from "./lib/landing";
 export {
   type FieldEditorProps,
   type FieldRowProps,

@@ -35,22 +35,26 @@ function arrived(id: string): Promise<boolean> {
   });
 }
 
-/** Today's node, made if need be; null when the family refused or it never arrived. */
-export async function todayNode(): Promise<string | null> {
-  const receipt = await browserHost()
-    .invoke(DAYS_IDS.todayAction, { day: pageDay() })
-    .catch(() => null);
-  if (receipt === null || receipt.status === "failed") return null;
+/**
+ * Today's node, made if need be. Rejects when the family refused or the
+ * node never reached the page: as the capture target's provider, a failure
+ * demotes days and the role's default answers (DESIGN.md → Provider roles).
+ */
+export async function todayNode(): Promise<string> {
+  const receipt = await browserHost().invoke(DAYS_IDS.todayAction, { day: pageDay() });
+  if (receipt.status === "failed") throw new Error(`today's node was refused: ${receipt.message}`);
   const output: unknown = receipt.output;
   const id =
     typeof output === "object" && output !== null && "id" in output && typeof output.id === "string"
       ? output.id
       : null;
-  return id !== null && (await arrived(id)) ? id : null;
+  if (id === null) throw new Error("today's node: the action answered no id");
+  if (!(await arrived(id))) throw new Error(`today's node ${id} never reached the page`);
+  return id;
 }
 
 /** Open today's node in its own view (the day page), making it first if need be. */
 export async function openToday(): Promise<void> {
-  const id = await todayNode();
+  const id = await todayNode().catch(() => null);
   if (id !== null) navigate(nodePath(id));
 }

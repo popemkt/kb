@@ -8,7 +8,7 @@ import {
   browserHost,
   CaptureTargetService,
   CommandPoint,
-  getPath,
+  LandingService,
   provideView,
   SidebarSectionPoint,
   ViewPoint,
@@ -16,32 +16,25 @@ import {
 import { goToTodayCommand } from "./command";
 import { DayPage } from "./day-page";
 import { TodaySection } from "./section";
-import { openToday, todayNode } from "./today";
-
-/** Whether this page load has decided where it opens; true once, ever. */
-let opened = false;
+import { todayNode } from "./today";
 
 /**
- * Opening on today (DESIGN-UI.md → Days): a page that loads at the root,
- * with nothing in its URL, goes to today unless the family's `open on`
- * setting says home. Once per page load, never when the family is switched
- * on later.
+ * Where a page that loads at the root opens (DESIGN-UI.md → Days): today's
+ * node unless the family's `open on` setting says home. The shell asks once
+ * per page load, so switching the family on later never moves the page.
  */
-function openOnToday(): void {
-  if (opened) return;
-  opened = true;
-  if (typeof window === "undefined" || getPath() !== "/" || window.location.search !== "") return;
+async function landOnToday(): Promise<string | null> {
   const family = browserHost().nodes().get(DAYS_IDS.family);
   const [choice] = family === undefined ? [] : refValuesOf(family, DAYS_IDS.openOnField);
-  if (choice === DAYS_IDS.openOnHome) return;
-  void openToday();
+  return choice === DAYS_IDS.openOnHome ? null : todayNode();
 }
 
 /**
  * The days family's page entry (DESIGN-UI.md → Days). It loads the family's
  * plugin as a child, so the day page's key, `ext.days.today` and the
  * one-node-per-key guard are the page kernel's too, and adds the day page,
- * the Today row, ⌘K "Go to today" and the capture target: today's node.
+ * the Today row, ⌘K "Go to today", and its replacements of the capture
+ * target and the landing: today's node.
  */
 export const daysUiPlugin = definePlugin({
   name: daysExtension.name,
@@ -61,7 +54,7 @@ export const daysUiPlugin = definePlugin({
         }),
         ctx.contribute(CommandPoint, { id: goToTodayCommand.id, value: goToTodayCommand }),
         ctx.provide(CaptureTargetService, todayNode),
-        Effect.sync(openOnToday),
+        ctx.provide(LandingService, landOnToday),
       ],
       { discard: true },
     ),

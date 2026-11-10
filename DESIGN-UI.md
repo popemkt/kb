@@ -3944,15 +3944,24 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
 - **⌘K "Go to today"** is the `sys.command` node the family seeds
   (`sys.cmd.days.today`). A direct key waits on a global key context a
   family can contribute to (GAP [[01M6Y9H6R5D9Y8TQKZJZVWX8PB]]).
-- **Opening on today.** The family's setting `open on` (`sys.f.days.openOn`:
-  `today` or `home`; empty reads as `today`) decides where a page that
-  loads at the root, with nothing in its URL, goes. With `today` it opens
-  today's node, making it if need be. It applies once per page load, never
-  when the family is switched on later.
-- **The capture target's provider** answers today's node through
+- **Opening on today.** Where a page that loads at the root opens is the
+  page role `ui.landing` (DESIGN.md → [Provider roles](./DESIGN.md#provider-roles)).
+  Core owns it and stays home, and days replaces it. Days answers today's
+  node, making it if need be, unless the family's setting `open on`
+  (`sys.f.days.openOn`: `today` or `home`; empty reads as `today`) says
+  home. The shell asks once per page load, when the graph and the
+  families' plugins are first in (`landOnce`), so switching days on later,
+  or reloading a plugin, never moves the page. The shell asks only while
+  the page is at `/` with nothing in its URL, and moves only if the page
+  has not moved by the time the answer comes. The move replaces the root's
+  history entry, so Back leaves the page.
+- **The capture target's replacement** answers today's node through
   `ext.days.today`, with the page's local day. ⌘K "Add node" with nothing
   selected and a picker's "create" row for a new top-level node both go
-  through it (`captureNode`), so either lands in today.
+  through the role (`captureNode`), so either lands in today. When the
+  action refuses or the node never reaches the page, the replacement fails
+  rather than answering the top level itself: the role demotes it and
+  core's default answers.
 
 ## Design tokens
 

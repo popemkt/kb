@@ -50,7 +50,6 @@ import {
   bundledPlugin,
   extensionAdmissionIssue,
   NO_SWITCHES,
-  declarationPlugin,
   extensionRow,
   familyOn,
   installHostModules,
@@ -65,11 +64,11 @@ import { labExtension } from "@kb/lab";
 import { locationsUiPlugin } from "@kb/locations-ui";
 import { outlineExtension } from "@kb/outline";
 import { outlineUiPlugin } from "@kb/outline-ui";
-import { coreExtension } from "@kb/operations";
 import { useGraphStore } from "@/stores/graph.store";
 import { PluginError, type Plugin } from "@kb/plugin";
 import { getLiveClient } from "@/api/live";
 import { browserHostUiPlugin } from "@/browser-host";
+import { coreUiPlugin } from "@/core-plugin";
 import { designSystemsUiPlugin } from "@/design-systems";
 import { canvasUiPlugin } from "@kb/canvas-ui";
 import { chartUiPlugin } from "@kb/chart-ui";
@@ -97,7 +96,7 @@ import { webMcpUiPlugin } from "@/webmcp";
  * kernel's catalog through the same declaration the server loads them from.
  */
 export const CORE_UI_PLUGINS: readonly Plugin[] = [
-  bundledPlugin(coreExtension, declarationPlugin(coreExtension)),
+  coreUiPlugin,
   paletteStepsPlugin,
   browserHostUiPlugin,
   designSystemsUiPlugin,

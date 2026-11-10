@@ -8,6 +8,7 @@ import { Effect } from "effect";
 import {
   ActionPoint,
   CAPTURE_TARGET_ROLE,
+  LANDING_ROLE,
   declarationPlugin,
   defineExtension,
   extensionNamespace,
@@ -28,10 +29,22 @@ export const daysExtension = defineExtension({
   label: "Days",
   manifest: {
     description: "A node for every day, made when first needed; new captures land in today.",
+    replaces: [
+      {
+        role: CAPTURE_TARGET_ROLE.role,
+        priority: 50,
+        why: "A node made with no chosen place lands in today's node",
+      },
+      {
+        role: LANDING_ROLE.role,
+        priority: 50,
+        why: "A page that loads at the root opens on today, unless its open on setting says home",
+      },
+    ],
+    capabilities: { page: "full" },
   },
   tags: ["days"],
   optional: { byDefault: "on" },
-  roles: [CAPTURE_TARGET_ROLE],
   seed: daysSeed,
   views: [viewDef(DayView)],
   tagDefaultViews: { [DAYS_IDS.dayTag]: DayView },

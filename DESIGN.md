@@ -5350,12 +5350,15 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
   from a terminal). The family never decides which day it is somewhere
   else.
 - **Captures land in today.** Where a node made with no chosen place goes
-  is the page role `ui.capture-target` ([Provider roles](#provider-roles)),
-  which the days family owns and answers with today's node. With the
-  family off, the role has no provider and a capture goes to the top level,
-  as before. Another family may replace the role through its manifest (an
-  inbox, say). The server's `node.add` without a parent does not ask it yet
-  (GAP [[01M7357PSG9XZH0JBFDHV6DM2T]]).
+  is the page role `ui.capture-target` ([Provider roles](#provider-roles)).
+  Core owns it, and core's default answers the top level. The days
+  manifest claims a replacement at priority 50 that answers today's node,
+  so with days on a capture lands in today. If days fails, the role's
+  recovery demotes it and core's default answers. With days off, or core
+  chosen on the role's node, a capture goes to the top level as before.
+  Another family may claim the role the same way (an inbox, say). The
+  server's `node.add` without a parent does not ask it yet (GAP
+  [[01M7357PSG9XZH0JBFDHV6DM2T]]).
 - **No month nodes yet.** A month is not on the path to a day, and no view
   reads one, so the family seeds no `#month` until one does.
 
@@ -5974,7 +5977,11 @@ its old identity and cannot demote new code. Roles must be defined beside their 
 proves the boundary until a server consumer opts in.
 The first role is `ui.field-editor`, consumed by outline rows, tables and settings.
 The second is `ui.capture-target`, the parent a node made with no chosen place
-goes under, which the days family owns ([Days](#days)).
+goes under. Core owns it and answers the top level, and days replaces it
+([Days](#days)). The third is `ui.landing`, the node a page that loads at
+the root opens on, which the shell asks once per page load. Core owns it
+and stays home, and days replaces it with today (DESIGN-UI.md →
+[Days](./DESIGN-UI.md#days)).
 
 ### Transaction reactions
 

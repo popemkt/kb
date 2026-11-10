@@ -163,7 +163,11 @@ export const mutations: PageWrites = {
 
   async captureNode(text: string, newId?: string): Promise<boolean> {
     const id = newId ?? ulid();
-    const parent = await captureTarget();
+    const parent = await captureTarget().catch(() => undefined);
+    if (parent === undefined) {
+      toast("Nothing answered where a new node goes, so it was not made");
+      return false;
+    }
     return applyPlan(
       parent === null ? planAddRootNode(text, id) : planAddChild(wire(), parent, id, text),
     );

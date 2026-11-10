@@ -698,21 +698,18 @@ export function useRole<P extends object>(role: RoleKey<ComponentType<P>>): Comp
 }
 
 /**
- * Call a page service role's elected provider (`roleCall`): a provider
- * that dies or overruns `budgetMs` is demoted and the next one tried. The
- * answer is undefined when no provider is loaded or the call fails, so a
- * caller falls back to what the page does without the role.
+ * Call a page service role's elected provider (`roleCall`): a replacement
+ * that dies or overruns `budgetMs` is demoted and the next candidate tried,
+ * down to the role's default. A call that fails there rejects; the role's
+ * failure is the caller's to report, never a second default path.
  */
 export function callPageRole<C, A>(
   role: RoleKey<C>,
   invoke: (provider: C) => Promise<A>,
   budgetMs: number,
-): Promise<A | undefined> {
+): Promise<A> {
   return Effect.runPromise(
-    roleCall(uiKernel, role, (provider) => Effect.promise(() => invoke(provider)), budgetMs).pipe(
-      Effect.map((answer): A | undefined => answer),
-      Effect.catchCause(() => Effect.succeed(undefined)),
-    ),
+    roleCall(uiKernel, role, (provider) => Effect.promise(() => invoke(provider)), budgetMs),
   );
 }
 

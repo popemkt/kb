@@ -1,8 +1,9 @@
 /**
- * Where a node made with no chosen place goes (DESIGN.md → Days): the
- * page role `ui.capture-target`, whose provider answers the parent's id,
- * or null for the top level. The days family owns it and answers today's
- * node. With no provider loaded, a capture goes to the top level.
+ * Where a node made with no chosen place goes (DESIGN.md → Provider roles):
+ * the page role `ui.capture-target`, whose provider answers the parent's
+ * id, or null for the top level. Core owns the role, and its default,
+ * {@link topLevelCapture}, answers the top level; a family that replaces
+ * it (days, with today's node) is elected over it as any replacement is.
  */
 import { CAPTURE_TARGET_ROLE } from "@kb/contracts";
 import { Role, Service } from "@kb/plugin";
@@ -18,10 +19,17 @@ export const CaptureTargetService = Service<CaptureTarget>()(
 
 const CaptureTargetRole = Role(CaptureTargetService);
 
-/** A capture that waits longer than this goes to the top level. */
+/** Core's answer, the role's default: a capture goes to the top level. */
+export const topLevelCapture: CaptureTarget = () => Promise.resolve(null);
+
+/** How long the elected provider may take before the next candidate answers. */
 const CAPTURE_BUDGET_MS = 5_000;
 
-/** The parent a node made with no chosen place goes under now; null is the top level. */
-export async function captureTarget(): Promise<string | null> {
-  return (await callPageRole(CaptureTargetRole, (target) => target(), CAPTURE_BUDGET_MS)) ?? null;
+/**
+ * The parent a node made with no chosen place goes under now; null is the
+ * top level. Rejects when no candidate answered, which only a missing or
+ * failing default can cause.
+ */
+export function captureTarget(): Promise<string | null> {
+  return callPageRole(CaptureTargetRole, (target) => target(), CAPTURE_BUDGET_MS);
 }

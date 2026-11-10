@@ -16,13 +16,25 @@ export const FIELD_EDITOR_ROLE = {
 } as const satisfies ProviderRole;
 
 /**
- * Where a node made with no chosen place goes (DESIGN.md → Days): a page
- * service answering the parent's id, or null for the top level. The days
- * family owns it and answers with today's node.
+ * Where a node made with no chosen place goes (DESIGN.md → Provider roles):
+ * a page service answering the parent's id, or null for the top level.
+ * Core owns it and answers the top level; days replaces it with today.
  */
 export const CAPTURE_TARGET_ROLE = {
   role: "ui.capture-target",
   label: "Capture target",
+  spec: { kernel: "page", tier: "T3", replaceable: true },
+} as const satisfies ProviderRole;
+
+/**
+ * Where a page that loads at the root opens (DESIGN.md → Provider roles): a
+ * page service answering the node to open, or null to stay home. The shell
+ * asks it once per page load. Core owns it and stays home; days replaces it
+ * with today.
+ */
+export const LANDING_ROLE = {
+  role: "ui.landing",
+  label: "Landing",
   spec: { kernel: "page", tier: "T3", replaceable: true },
 } as const satisfies ProviderRole;
 
