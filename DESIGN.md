@@ -538,8 +538,13 @@ type PropValue =
   node, the extensions' list for every extension's node, or a kind for
   every node of it — `sys.f.view.default` configures `sys.tag`; [Extension
   families](#extension-families) → configuration). Minting or deleting
-  one, its rank, and any other field are its owner's. The rule is stated
-  once in `@kb/model`'s `system-write.ts` and checked by the commit itself
+  one, its rank, and any other field are its owner's. The rule is
+  actor-neutral: "a person" is whoever makes the call, so an agent over MCP
+  or HTTP, a family's action and a reaction get the same freedom as the
+  page, and the rule only narrows what the commit refuses; every guard,
+  intercept and approval a call passes through still applies to it. The
+  rule is stated once in `@kb/model`'s `system-write.ts` and checked by the
+  commit itself
   (`persistEffect`, the rule's one owner, over every transaction's upserts
   and deletes), so no action meets it by remembering to call a guard. A
   commit that is not a person's write says which it is (`systemWrites`):

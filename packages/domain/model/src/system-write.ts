@@ -27,6 +27,11 @@
  *   and creation stamp, and the values of any other field are written only
  *   with `force`.
  *
+ * The rule is actor-neutral: "a person" is whoever makes the call, so an
+ * agent over MCP or HTTP, a family's action and a reaction write under it
+ * as the page does. It says only what the commit refuses; the guards,
+ * intercepts and approvals a call passes through apply as they did.
+ *
  * One statement for every surface. The commit refuses a transaction that
  * breaks it ({@link systemTxRefusal}, read by `persistEffect` in
  * `@kb/operations`, its one owner), on the server and on the page's replica
