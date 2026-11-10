@@ -6,14 +6,15 @@
 import { useRef, useState } from "react";
 import { ArrowSquareOutIcon, XIcon } from "@phosphor-icons/react";
 import { describeRepeat, routineSettings, type CalendarEntry, type Place } from "@kb/routines";
-import { IconButton, useAnchoredPosition, useDismiss, useOpenNode } from "@kb/ui-sdk";
+import { cn, IconButton, useAnchoredPosition, useDismiss, useOpenNode } from "@kb/ui-sdk";
+import { DateField } from "./date-field";
 import { longDay } from "./dates";
 import { BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from "./dialog";
 import { displayDay, displayTimes } from "./layout";
-import type { CalendarModel } from "./model";
-import { FIELD_CLASS } from "./repeat-picker";
+import { inkOf, type CalendarModel } from "./model";
 import { StatusDot } from "./status-dot";
 import { syncShown } from "./sync-shown";
+import { TimeField } from "./time-field";
 
 export interface EntryPopoverActions {
   readonly setState: (entry: CalendarEntry, state: "done" | "skipped" | null) => void;
@@ -26,44 +27,90 @@ const STATE_TEXT = { scheduled: "", moved: "Moved", done: "Done", skipped: "Skip
 
 function MoveForm({
   entry,
+  today,
   onMove,
 }: {
   readonly entry: CalendarEntry;
+  readonly today: string;
   readonly onMove: (to: Place) => void;
 }) {
   const [day, setDay] = useState(entry.day);
   const [at, setAt] = useState(entry.at ?? "");
-  // A cleared field is no place to move to: Move waits for a day, and a time when it has one.
-  const ready = day !== "" && (entry.at === null || at !== "");
+  const [readable, setReadable] = useState(true);
+  // Move waits for a time it can read, when the instance has one.
+  const ready = day !== "" && (entry.at === null || (at !== "" && readable));
   return (
     <form
-      className="flex flex-wrap items-center gap-1.5"
+      className="flex flex-col gap-2 rounded-md border border-border p-2"
+      data-move-form=""
       onSubmit={(event) => {
         event.preventDefault();
         if (ready) onMove({ day, at: entry.at === null ? null : at });
       }}
     >
-      <input
-        type="date"
-        aria-label="Move to day"
-        className={FIELD_CLASS}
-        value={day}
-        onChange={(event) => setDay(event.target.value)}
-      />
-      {entry.at === null ? null : (
-        <input
-          type="time"
-          aria-label="Move to time"
-          step={300}
-          className={FIELD_CLASS}
-          value={at}
-          onChange={(event) => setAt(event.target.value)}
-        />
+      <div className="flex flex-wrap items-center gap-1.5">
+        <DateField label="Move to day" value={day} today={today} onChange={setDay} />
+        {entry.at === null ? null : (
+          <TimeField label="Move to time" value={at} onChange={setAt} onText={setReadable} />
+        )}
+      </div>
+      {readable ? null : (
+        <p className="text-meta text-destructive" role="alert">
+          That isn't a time yet. Type it as 9:30, 930 or 9:30pm.
+        </p>
       )}
-      <button type="submit" className={PRIMARY_BUTTON_CLASS} disabled={!ready}>
+      <button type="submit" className={cn(PRIMARY_BUTTON_CLASS, "self-end")} disabled={!ready}>
         Move
       </button>
     </form>
+  );
+}
+
+/** What can be done to the one instance: tick it, skip it, or move it. */
+function InstanceActions({
+  entry,
+  today,
+  actions,
+}: {
+  readonly entry: CalendarEntry;
+  readonly today: string;
+  readonly actions: EntryPopoverActions;
+}) {
+  const [moving, setMoving] = useState(false);
+  const done = entry.state === "done";
+  const skipped = entry.state === "skipped";
+  return (
+    <>
+      <div className="flex flex-wrap gap-1.5">
+        <button
+          type="button"
+          className={done ? BUTTON_CLASS : PRIMARY_BUTTON_CLASS}
+          onClick={() => actions.setState(entry, done ? null : "done")}
+        >
+          {done ? "Not done" : "Done"}
+        </button>
+        <button
+          type="button"
+          className={BUTTON_CLASS}
+          onClick={() => actions.setState(entry, skipped ? null : "skipped")}
+        >
+          {skipped ? "Bring back" : "Skip"}
+        </button>
+        {skipped ? null : (
+          <button
+            type="button"
+            className={BUTTON_CLASS}
+            aria-expanded={moving}
+            onClick={() => setMoving(!moving)}
+          >
+            {entry.series ? "Move this one…" : "Move…"}
+          </button>
+        )}
+      </div>
+      {moving ? (
+        <MoveForm entry={entry} today={today} onMove={(to) => actions.moveOne(entry, to)} />
+      ) : null}
+    </>
   );
 }
 
@@ -72,6 +119,7 @@ export function EntryPopover({
   element,
   model,
   zone,
+  today,
   actions,
   onClose,
 }: {
@@ -79,12 +127,13 @@ export function EntryPopover({
   readonly element: HTMLElement;
   readonly model: CalendarModel;
   readonly zone: string;
+  /** Today on the page's clock, which the move's date picker marks. */
+  readonly today: string;
   readonly actions: EntryPopoverActions;
   readonly onClose: () => void;
 }) {
   const anchor = useRef<HTMLElement | null>(element);
   const panel = useRef<HTMLDivElement>(null);
-  const [moving, setMoving] = useState(false);
   const style = useAnchoredPosition(anchor, panel, true);
   useDismiss(true, { inside: [panel], trigger: anchor }, onClose);
   const openNode = useOpenNode();
@@ -92,15 +141,13 @@ export function EntryPopover({
   const settings = node === undefined ? null : routineSettings(node).settings;
   const times = displayTimes(entry, zone);
   const calendar = model.calendars.get(entry.calendar);
-  const done = entry.state === "done";
-  const skipped = entry.state === "skipped";
   return (
     <div
       ref={panel}
       role="dialog"
       aria-label={entry.title}
       data-testid="entry-popover"
-      className="fixed z-40 flex w-72 flex-col gap-2 rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-overlay"
+      className="fixed z-40 flex w-80 flex-col gap-2 overflow-y-auto rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-overlay"
       style={style}
     >
       <div className="flex items-start gap-2">
@@ -109,6 +156,18 @@ export function EntryPopover({
         </h2>
         <IconButton label="Close" icon={XIcon} size="md" onClick={onClose} />
       </div>
+      {calendar === undefined ? null : (
+        <p
+          className="flex items-center gap-1.5 text-meta text-muted-foreground"
+          data-entry-calendar=""
+        >
+          <span
+            className={cn("h-2.5 w-2.5 shrink-0 rounded-sm border-2", inkOf(calendar))}
+            aria-hidden
+          />
+          {calendar.name}
+        </p>
+      )}
       <p className="text-meta text-muted-foreground">
         {longDay(displayDay(entry, zone))} ·{" "}
         {times === null ? "All day" : `${times.start}–${times.end}`}
@@ -136,33 +195,7 @@ export function EntryPopover({
           Open in Google Calendar <ArrowSquareOutIcon size={12} />
         </a>
       )}
-      <div className="flex flex-wrap gap-1.5">
-        <button
-          type="button"
-          className={done ? BUTTON_CLASS : PRIMARY_BUTTON_CLASS}
-          onClick={() => actions.setState(entry, done ? null : "done")}
-        >
-          {done ? "Not done" : "Done"}
-        </button>
-        <button
-          type="button"
-          className={BUTTON_CLASS}
-          onClick={() => actions.setState(entry, skipped ? null : "skipped")}
-        >
-          {skipped ? "Bring back" : "Skip"}
-        </button>
-        {skipped ? null : (
-          <button
-            type="button"
-            className={BUTTON_CLASS}
-            aria-expanded={moving}
-            onClick={() => setMoving(!moving)}
-          >
-            {entry.series ? "Move this one…" : "Move…"}
-          </button>
-        )}
-      </div>
-      {moving ? <MoveForm entry={entry} onMove={(to) => actions.moveOne(entry, to)} /> : null}
+      <InstanceActions entry={entry} today={today} actions={actions} />
       <div className="flex gap-3 border-t border-border pt-2 text-meta">
         <button
           type="button"

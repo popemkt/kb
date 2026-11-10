@@ -6,7 +6,7 @@
  */
 import { useLayoutEffect, useMemo, useRef, type KeyboardEvent } from "react";
 import { parseDay } from "@kb/model";
-import { CALENDAR_MODES, type CalendarMode, type CalendarParams } from "@kb/routines";
+import { CALENDAR_MODES, wallClock, type CalendarMode, type CalendarParams } from "@kb/routines";
 import { navigate, useNarrowViewport } from "@kb/ui-sdk";
 import { useCalendarActions } from "./actions";
 import { AgendaView } from "./agenda-view";
@@ -18,6 +18,7 @@ import { useCalendarModel } from "./model";
 import { MonthView } from "./month-view";
 import { RoutineEditor } from "./routine-editor";
 import { calendarPath } from "./routes";
+import { newStart } from "./time-text";
 import { ScopePrompt } from "./scope-prompt";
 import { CalendarToolbar, IssuesNote } from "./toolbar";
 import { WeekView, type LayoutProps } from "./week-view";
@@ -60,6 +61,11 @@ export function CalendarPage({ params }: { readonly params: CalendarParams }) {
   const go = (next: { mode?: CalendarMode; date?: string }) =>
     navigate(calendarPath({ mode: next.mode ?? mode, date: next.date ?? anchor }));
   const step = (direction: 1 | -1) => go({ date: stepAnchor(mode, anchor, direction) });
+  // Nothing pointed at: today's next half hour when today is shown, else nine; for half an hour.
+  const createNew = () => {
+    const at = newStart(days, today, wallClock(now, clock.zone).minutes, anchor);
+    actions.create(at.day, { from: at.from, to: at.from + 30 });
+  };
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (notForCalendar(event)) return;
     const key = event.key.toLowerCase();
@@ -68,7 +74,7 @@ export function CalendarPage({ params }: { readonly params: CalendarParams }) {
     else if (key === "t") go({ date: today });
     else if (key === "arrowright" || key === "j" || key === "n") step(1);
     else if (key === "arrowleft" || key === "k" || key === "p") step(-1);
-    else if (key === "c") actions.create(anchor, { from: 9 * 60, to: 9 * 60 + 30 });
+    else if (key === "c") createNew();
     else return;
     event.preventDefault();
   };
@@ -105,7 +111,7 @@ export function CalendarPage({ params }: { readonly params: CalendarParams }) {
         onMode={(next) => go({ mode: next })}
         onStep={step}
         onToday={() => go({ date: today })}
-        onNew={() => actions.create(anchor, null)}
+        onNew={createNew}
         modes={CALENDAR_MODES}
       />
       <IssuesNote issues={model.issues} onOpen={actions.edit} />
@@ -124,6 +130,7 @@ export function CalendarPage({ params }: { readonly params: CalendarParams }) {
           element={opened.element}
           model={model}
           zone={clock.zone}
+          today={today}
           actions={actions}
           onClose={actions.closeOpened}
         />
@@ -136,7 +143,12 @@ export function CalendarPage({ params }: { readonly params: CalendarParams }) {
         />
       )}
       {actions.editor === null ? null : (
-        <RoutineEditor target={actions.editor} model={model} onClose={actions.closeEditor} />
+        <RoutineEditor
+          target={actions.editor}
+          model={model}
+          today={today}
+          onClose={actions.closeEditor}
+        />
       )}
     </div>
   );

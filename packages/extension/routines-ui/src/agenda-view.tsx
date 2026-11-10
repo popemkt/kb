@@ -101,7 +101,12 @@ export function AgendaView({
         </p>
       ) : null}
       {days.map((day) => (
-        <section key={day} aria-label={longDay(day)} data-calendar-day={day}>
+        <section
+          key={day}
+          aria-label={longDay(day)}
+          data-calendar-day={day}
+          className="mx-auto w-full max-w-3xl px-1"
+        >
           <h3
             className={cn(
               "sticky top-0 z-10 bg-background px-2 pb-1 pt-3 text-label kb-label",

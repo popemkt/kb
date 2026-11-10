@@ -8,6 +8,7 @@ import { instantOf } from "@kb/routines";
 import { daysOf, stepAnchor, titleOf, weekStartOf } from "./dates";
 import { elapsed, instantAfter, minutesAt, placeAt, placeDay } from "./layout";
 import { calendarPath, matchCalendar } from "./routes";
+import { clockOf, lengthBetween, lengthText, newStart, parseTime } from "./time-text";
 
 describe("routes", () => {
   test("a path names a layout and a day, and reads back", () => {
@@ -107,6 +108,70 @@ describe("the week grid", () => {
     expect(placeAt("2026-11-04", 23 * 60, "Europe/Berlin", ZONE)).toEqual({
       day: "2026-11-05",
       at: "05:00",
+    });
+  });
+});
+
+describe("typed times", () => {
+  test("what a person types reads as HH:MM, and what is not a time reads as nothing", () => {
+    const read = [
+      "9",
+      "09",
+      "930",
+      "0930",
+      "9:30",
+      "9.30",
+      "21:30",
+      "2130",
+      "9pm",
+      "9:30 am",
+      "12am",
+      "12pm",
+      "12:15p",
+    ];
+    expect(read.map(parseTime)).toEqual([
+      "09:00",
+      "09:00",
+      "09:30",
+      "09:30",
+      "09:30",
+      "09:30",
+      "21:30",
+      "21:30",
+      "21:00",
+      "09:30",
+      "00:00",
+      "12:00",
+      "12:15",
+    ]);
+    expect(["24:00", "9:60", "13pm", "0am", "nine", "", "9:3"].map(parseTime)).toEqual(
+      Array.from({ length: 7 }, () => null),
+    );
+  });
+  test("lengths wrap past midnight and read in words", () => {
+    expect(lengthBetween("09:00", "10:45")).toBe(105);
+    expect(lengthBetween("23:00", "07:00")).toBe(480);
+    expect(lengthBetween("09:00", "09:00")).toBe(0);
+    expect([30, 60, 105, 1560].map(lengthText)).toEqual(["30 min", "1 h", "1 h 45 min", "26 h"]);
+    expect(clockOf(24 * 60 + 15)).toBe("00:15");
+  });
+  test("a new routine starts at today's next half hour, at nine off today's range, tomorrow at nine late at night", () => {
+    const week = daysOf("week", "2026-11-04");
+    expect(newStart(week, "2026-11-04", 10 * 60, "2026-11-04")).toEqual({
+      day: "2026-11-04",
+      from: 630,
+    });
+    expect(newStart(week, "2026-11-04", 10 * 60 + 30, "2026-11-04")).toEqual({
+      day: "2026-11-04",
+      from: 660,
+    });
+    expect(newStart(week, "2026-11-04", 23 * 60 + 40, "2026-11-04")).toEqual({
+      day: "2026-11-05",
+      from: 540,
+    });
+    expect(newStart(daysOf("week", "2026-11-18"), "2026-11-04", 600, "2026-11-18")).toEqual({
+      day: "2026-11-18",
+      from: 540,
     });
   });
 });

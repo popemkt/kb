@@ -219,6 +219,53 @@ describe("sync services", () => {
     expect(setupCurrent()).toBe("branding");
   });
 
+  test("a project the person already has skips to the client, which asks for kb's URI on its client", async () => {
+    await open("/calendar/sync/acct", [account()]);
+    expect(setupCurrent()).toBe("project");
+    const existing = [...document.querySelectorAll("label")].find((each) =>
+      each.textContent.startsWith("Use a project I already have"),
+    );
+    await click(existing?.querySelector("input") ?? document.body);
+    fill("Project ID", "tanaint-ops");
+    await click(button("Use tanaint-ops"));
+    expect(calls.find((call) => call.id === "node.update")?.input["setProps"]).toEqual([
+      { field: F.project, value: str("tanaint-ops") },
+      ...["project", "existing"].map((step) => ({
+        field: F.setup,
+        value: ref(routineOption("setup", step)),
+      })),
+    ]);
+    act(() => root.unmount());
+    root = createRoot(document.body.appendChild(document.createElement("div")));
+    await open("/calendar/sync/acct", [...graph.values()]);
+    expect(setupCurrent()).toBe("client");
+    expect(text()).toContain("Add kb to your OAuth client");
+    expect(document.querySelector("[data-copy-value]")?.textContent).toBe(INFO.redirectUri);
+  });
+
+  test("an account past the consent screen resumes at the Branding page, with text for its pages", async () => {
+    await open("/calendar/sync/acct", [account(confirmed("project", "apis", "branding"))]);
+    expect(setupCurrent()).toBe("domain");
+    expect(
+      [...document.querySelectorAll("a")].some(
+        (each) =>
+          each.href === "https://console.cloud.google.com/auth/branding?project=kb-routines-me",
+      ),
+    ).toBe(true);
+    expect(text()).toContain("Leave App logo empty");
+    const copied = [...document.querySelectorAll("[data-copy-value]")].map(
+      (each) => each.textContent,
+    );
+    expect(copied.some((each) => each.startsWith("Privacy policy for kb routines"))).toBe(true);
+    await click(button("The Branding page is filled in"));
+    expect(calls.find((call) => call.id === "node.update")?.input["setProps"]).toEqual(
+      ["project", "apis", "branding", "domain"].map((step) => ({
+        field: F.setup,
+        value: ref(routineOption("setup", step)),
+      })),
+    );
+  });
+
   test("the client step shows the exact redirect URI to copy, and Google's verdict on a client", async () => {
     await open("/calendar/sync/acct", [
       account(confirmed("project", "apis", "branding", "audience")),

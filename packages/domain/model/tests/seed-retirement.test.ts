@@ -331,4 +331,22 @@ describe("a label the seed retires", () => {
     expect(opened.has("sys.cmd.preferences")).toBe(false);
     expect(opened.get(SYSTEM_IDS.cmdSettings)?.text).toBe("Settings");
   });
+
+  test("routines': a store seeded with Routines, routine and rrule reads Events, event and repeat, and keeps a word its owner chose", () => {
+    const all = foldSeed(BUNDLED_DECLARATIONS, AT);
+    const shipped: Readonly<Record<NodeId, string>> = {
+      "sys.extension.routines": "Routines",
+      "sys.tag.routine": "routine",
+      "sys.f.routines.rrule": "rrule",
+    };
+    const seeded = ensureSystemSeed([], all).nodes.map((n) =>
+      n.id in shipped ? { ...n, text: shipped[n.id] ?? n.text } : n,
+    );
+    const opened = byId(ensureSystemSeed(seeded, all).nodes);
+    expect(opened.get("sys.extension.routines")?.text).toBe("Events");
+    expect(opened.get("sys.tag.routine")?.text).toBe("event");
+    expect(opened.get("sys.f.routines.rrule")?.text).toBe("repeat");
+    const renamed = seeded.map((n) => (n.id === "sys.tag.routine" ? { ...n, text: "habit" } : n));
+    expect(byId(ensureSystemSeed(renamed, all).nodes).get("sys.tag.routine")?.text).toBe("habit");
+  });
 });
