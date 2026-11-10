@@ -119,8 +119,12 @@ const DATASCRIPT = /cljs\.core/;
 // `isVirtual` read) and merging in one action (`node.merge`, which the page
 // runs on its own replica), with the value carriers (field types handed to
 // carriers, each field's type remembered with what it read), measure
-// 1,815,736; the budget keeps about 1.5 KB of headroom over it.
-const EAGER_BUDGET_BYTES = 1_817_300;
+// 1,815,736.
+// A refused write worded for a person (`failureText`, every toast's one path
+// from a failed receipt), the refusal as data it reads (`WriteRefusal`), and
+// the owner chip with the index's point read it asks (`related`), measure
+// 1,818,335; the budget keeps about 1.5 KB of headroom over it.
+const EAGER_BUDGET_BYTES = 1_819_900;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

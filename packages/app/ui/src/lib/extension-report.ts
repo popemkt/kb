@@ -29,6 +29,7 @@ import {
   subscribeUiKernel,
   toast,
   uiKernelReader,
+  failureText,
 } from "@kb/ui-sdk";
 import { z } from "zod";
 import { loadManifest, subscribeManifest } from "@/lib/manifest";
@@ -387,7 +388,7 @@ export function useExtensionReport(): ExtensionReading {
  */
 export async function switchExtension(name: string, on: boolean): Promise<void> {
   const receipt = await invoke(extensionSwitchDef.id, { name, on });
-  if (receipt.status === "failed") toast(receipt.message);
+  if (receipt.status === "failed") toast(failureText(receipt));
   await loadManifest();
 }
 

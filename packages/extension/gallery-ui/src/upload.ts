@@ -5,7 +5,7 @@
  * The gallery writes nothing any other way.
  */
 import { GALLERY_IDS } from "@kb/gallery";
-import { browserHost, toast } from "@kb/ui-sdk";
+import { browserHost, toast, failureText } from "@kb/ui-sdk";
 import { addNode } from "./add-node";
 
 /** A picture written as an asset: its path, and its pixel size when it could be read. */
@@ -52,7 +52,7 @@ export async function uploadPicture(file: File): Promise<Uploaded | null> {
     ext: file.type.slice("image/".length).replace("jpeg", "jpg").replace("svg+xml", "svg"),
   });
   if (receipt.status === "failed") {
-    toast(`Could not keep “${file.name}”: ${receipt.message}`);
+    toast(`Could not keep “${file.name}”: ${failureText(receipt)}`);
     return null;
   }
   const path = isRecord(receipt.output) ? receipt.output["path"] : undefined;

@@ -41,6 +41,9 @@ import {
   toast,
   WORKSPACE_ROOT_ID,
   captureTarget,
+  failureText,
+  personRefusal,
+  refusalNames,
 } from "@kb/ui-sdk";
 
 /** `asset.upload` answers with the repo-relative path it stored the bytes at. */
@@ -52,7 +55,7 @@ const mb = (bytes: number) => `${Math.round(bytes / (1024 * 1024))} MB`;
 import { findParentWire } from "@/lib/tx";
 import { restoreInvocations } from "@/actions/restore";
 import type { WireNode } from "@kb/contracts";
-import { typeRefsOf, writeRefusalMessage } from "@kb/model";
+import { typeRefsOf } from "@kb/model";
 import { shownNodes, useGraphStore } from "@/stores/graph.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { pageRows } from "@/stores/page"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { pageEditor } from "@/stores/page-editor"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
@@ -77,7 +80,7 @@ function wire(): WireNode[] {
 function landsAhead(tx: StoreTx): boolean {
   const { index } = useGraphStore.getState();
   const refused = index === null ? null : personWriteRefusal(tx, index);
-  if (refused !== null) toast(writeRefusalMessage(refused));
+  if (refused !== null) toast(personRefusal(refused, refusalNames(index)));
   return refused === null;
 }
 
@@ -99,7 +102,7 @@ async function invokeAll(actions: Array<{ id: string; input: unknown }>): Promis
     // oxlint-disable-next-line eslint/no-await-in-loop -- history is ordered for structural dependencies
     const receipt = localOnly ? await invokeLocal(action) : await invoke(action.id, action.input);
     if (receipt.status === "failed") {
-      toast(receipt.message);
+      toast(failureText(receipt));
       return false;
     }
   }
@@ -159,7 +162,7 @@ export const mutations: PageWrites = {
       store.loadSource === "api"
         ? (await invokeCoalesced(action, `text:${id}`)).receipt
         : await invokeLocal(action);
-    if (receipt.status === "failed") toast(receipt.message);
+    if (receipt.status === "failed") toast(failureText(receipt));
   },
 
   async createNodeAfter(afterId: string): Promise<void> {
@@ -426,7 +429,7 @@ export const mutations: PageWrites = {
         filename: file.name,
       });
       if (receipt.status === "failed") {
-        toast(receipt.message);
+        toast(failureText(receipt));
         return null;
       }
       const out = AssetUploadOutputSchema.safeParse(receipt.output);

@@ -6,7 +6,7 @@
  * asked for while one runs joins it.
  */
 import { lookOf, lookWrites, nameOf, type GraphNode, type LookDraft } from "@kb/gallery";
-import { browserHost, toast } from "@kb/ui-sdk";
+import { browserHost, toast, failureText } from "@kb/ui-sdk";
 import { addNode } from "./add-node";
 import { currentDraft, updateDraft } from "./draft";
 
@@ -26,7 +26,7 @@ async function run(
     // oxlint-disable-next-line eslint/no-await-in-loop -- the writes depend on one another's order
     const receipt = await browserHost().invoke(write.id, write.input);
     if (receipt.status === "failed") {
-      toast(`Could not save the look: ${receipt.message}`);
+      toast(`Could not save the look: ${failureText(receipt)}`);
       return { ok: false, added };
     }
   }

@@ -34,6 +34,7 @@ import {
   type ScriptHostProps,
   type SandboxEvents,
   type SandboxRun,
+  failureText,
 } from "@kb/ui-sdk";
 
 /** One script attached to one subject: what runs, and the node it runs for. */
@@ -112,7 +113,7 @@ function ScriptRow({
   const setTrusted = async (trusted: boolean) => {
     if (trust === null) return;
     const receipt = await browserHost().sandbox.setTrusted(trust.digest, trusted);
-    if (receipt.status === "failed") toast(receipt.message);
+    if (receipt.status === "failed") toast(failureText(receipt));
     setStatus(null);
     refresh();
   };
@@ -122,7 +123,7 @@ function ScriptRow({
       script: script.id,
       subject,
     });
-    if (receipt.status === "failed") toast(receipt.message);
+    if (receipt.status === "failed") toast(failureText(receipt));
   };
   return (
     <li

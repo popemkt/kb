@@ -7,7 +7,7 @@
  * server keeps.
  */
 import { ulid } from "ulid";
-import { browserHost, toast } from "@kb/ui-sdk";
+import { browserHost, toast, failureText } from "@kb/ui-sdk";
 
 /** What `node.add` takes, less the id this mints. */
 export interface NodeAdd {
@@ -22,7 +22,7 @@ export async function addNode(input: NodeAdd, failure: string): Promise<string |
   const id = ulid();
   const receipt = await browserHost().invoke("node.add", { ...input, id });
   if (receipt.status === "failed") {
-    toast(`${failure}: ${receipt.message}`);
+    toast(`${failure}: ${failureText(receipt)}`);
     return null;
   }
   return id;

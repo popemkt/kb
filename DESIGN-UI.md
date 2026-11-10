@@ -674,8 +674,17 @@ expanded rows (load ≈ 0.2 s at 1×, 1.1 s at 6×), named as
 node is written from the page as from any surface: its label, a person's
 child and a person's field in its tag's template land, and what its owner
 ships is refused by the commit (`personWriteRefusal` in `@kb/operations`,
-DESIGN.md → Data model → write protection), whose reason is the toast. The
-page keeps no second copy of the rule. A gesture that is one write is one
+DESIGN.md → Data model → write protection). The page keeps no second copy
+of the rule. Its refusal is data (`WriteRefusal`), and the toast words it
+for a person (`failureText` in `@kb/ui-sdk`'s `lib/refusal.ts`, the one
+path every surface takes from a failed receipt to a toast): the node by its
+label, who owns it (`:node/owner`, by the owner's label, "kb" where no
+family seeds it), and what they can do instead — add their own, or make
+their own tag that extends it — never the override, which is its owner's.
+A seeded node's page says who owns it under its title: "Owned by" and its
+owner's node as a chip, which a click follows (`GraphRead.ownerOf`, the
+index's point read `related(id, ":node/owner")`). An extension's own node
+has no owner (a family is never its own), and its page is that extension's. A gesture that is one write is one
 action, so the commit takes or refuses it whole: a merge is `node.merge`
 (the text, the children ranked after the other's, and the deletion, in one
 transaction). A gesture of two writes that cannot be one asks the same rule

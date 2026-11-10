@@ -259,6 +259,10 @@ export class DatascriptIndex implements KbIndex {
     return this.#table.referencesOf(node);
   }
 
+  related(id: NodeId, attr: DerivedRef["attr"]): readonly NodeId[] {
+    return this.#table.related(id, attr);
+  }
+
   getNode(id: NodeId): KbNode | undefined {
     return this.#table.getNode(id);
   }

@@ -10,6 +10,7 @@ import {
   extensionNodeId,
   isShipped,
   isWritableField,
+  systemTxRefusal,
   systemWriteRefusal,
   type KbNode,
 } from "../src/index.ts";
@@ -133,6 +134,14 @@ describe("a write to a system node", () => {
     expect(isShipped(before.id, "sys.f.a")).toBe(true);
     expect(isShipped(before.id, "f.mine")).toBe(false);
     expect(isShipped("n.user", "sys.f.a")).toBe(false);
+  });
+
+  test("refuses a seeded node's deletion as that, not as its parent's list", () => {
+    // Deleting a seeded child takes it from its parent too: the write is about the child.
+    const parent = { ...before, children: ["sys.a", "sys.b"] };
+    const nodes = new Map([[parent.id, parent]]);
+    const tx = { upserts: [{ ...parent, children: ["sys.b"] }], deletes: ["sys.a"] };
+    expect(systemTxRefusal(tx, (id) => nodes.get(id))).toEqual({ rule: "delete", id: "sys.a" });
   });
 
   test("keeps its rank and creation stamp, and is never minted", () => {

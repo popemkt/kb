@@ -22,6 +22,7 @@ import {
   type NodeCommand,
   type PaletteStep,
   type PickerCandidate,
+  failureText,
 } from "@kb/ui-sdk";
 
 /** The step's id in the graph's namespace, which the node command opens. */
@@ -82,7 +83,7 @@ const typeReferenceStep: PaletteStep = {
       target,
       field,
     });
-    if (receipt.status === "failed") toast(receipt.message);
+    if (receipt.status === "failed") toast(failureText(receipt));
   },
 };
 

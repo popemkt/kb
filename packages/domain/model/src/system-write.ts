@@ -174,17 +174,20 @@ export function systemWriteRefusal(
 
 /**
  * Why committing `tx` over the graph `nodeOf` reads is not a person's to make
- * without force, or null when it is: an upsert {@link systemWriteRefusal}
- * refuses, or the deletion of a system node.
+ * without force, or null when it is: the deletion of a system node, or an
+ * upsert {@link systemWriteRefusal} refuses. A deletion is asked first: the
+ * transaction that deletes a seeded node also takes it from its parent's
+ * list, and the node deleted is what the write is about.
  */
 export function systemTxRefusal(
   tx: { readonly upserts: readonly KbNode[]; readonly deletes: readonly NodeId[] },
   nodeOf: (id: NodeId) => KbNode | undefined,
 ): SystemRefusal | null {
+  const deleted = tx.deletes.find((id) => isSysPrefixed(id));
+  if (deleted !== undefined) return { rule: "delete", id: deleted };
   for (const next of tx.upserts) {
     const refusal = systemWriteRefusal(nodeOf(next.id), next, nodeOf);
     if (refusal !== null) return refusal;
   }
-  const deleted = tx.deletes.find((id) => isSysPrefixed(id));
-  return deleted === undefined ? null : { rule: "delete", id: deleted };
+  return null;
 }

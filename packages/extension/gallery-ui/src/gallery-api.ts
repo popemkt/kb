@@ -11,7 +11,7 @@ import {
   galleryStarterDef,
   type SourceResult,
 } from "@kb/gallery";
-import { browserHost, toast } from "@kb/ui-sdk";
+import { browserHost, toast, failureText } from "@kb/ui-sdk";
 
 export interface SearchPage {
   readonly results: readonly SourceResult[];
@@ -27,7 +27,7 @@ async function call(id: string, input: unknown, what: string): Promise<unknown> 
     .invoke(id, input)
     .catch((error: unknown) => ({ status: "failed" as const, message: messageOf(error) }));
   if (receipt.status === "failed") {
-    toast(`${what}: ${receipt.message}`);
+    toast(`${what}: ${failureText(receipt)}`);
     return null;
   }
   return receipt.output;

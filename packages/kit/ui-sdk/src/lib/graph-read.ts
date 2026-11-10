@@ -20,8 +20,8 @@
  * query's answer, and is watched while the component is mounted, so a move
  * of the replica asks it again (`useAnswered` reads queries the same way);
  * any other use of the answers depends on every answer arriving. A point
- * read of the index ({@link IndexReads}: whether a node is virtual) is
- * recorded with what it answered, as a query is.
+ * read of the index ({@link IndexReads}: whether a node is virtual, who
+ * seeds it) is recorded with what it answered, as a query is.
  *
  * Reads always answer from the source's current maps, never from the
  * snapshot the view was made on; the recording only decides when the view is
@@ -51,6 +51,12 @@ import type { NodeMap } from "./types";
 interface IndexReads {
   /** Whether the graph serves `id` from its source file, not the store (`NodeIndex.isVirtual`). */
   readonly isVirtual: (id: string) => boolean;
+  /**
+   * Who seeds `id`: its owner's node (`sys.extension.<name>`, the family
+   * whose declaration seeds it), or null for a node no family seeds
+   * (`NodeIndex.related` of `:node/owner`).
+   */
+  readonly ownerOf: (id: string) => string | null;
 }
 
 /** An index point read, by name: what a read view records and compares. */
@@ -96,6 +102,7 @@ function sourcesOf(source: GraphSource): Sources {
     queries,
     answers: queries?.version ?? 0,
     isVirtual: source.isVirtual,
+    ownerOf: source.ownerOf,
   };
 }
 
@@ -275,6 +282,7 @@ class Reader {
               this.#queried = true;
             }),
       isVirtual: (id) => this.#record("isVirtual", id, this.#sources.isVirtual(id)),
+      ownerOf: (id) => this.#record("ownerOf", id, this.#sources.ownerOf(id)),
     };
   }
 

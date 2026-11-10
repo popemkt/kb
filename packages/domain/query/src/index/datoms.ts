@@ -75,10 +75,16 @@ function carriedBy(
   derived: readonly DerivedRef[],
   types: FieldTypes,
 ): { readonly attr: string; readonly ids: readonly NodeId[] }[] {
-  return derived.map(({ attr, carriers }) => ({
-    attr,
-    ids: carriers.flatMap((carrier) => [...carrier.refsOf(node, types)]),
-  }));
+  return derived.map((entry) => ({ attr: entry.attr, ids: derivedTargets(node, entry, types) }));
+}
+
+/**
+ * What `entry`'s carriers read off `node`, its fields typed by `types`: the
+ * ids it points at by that attribute, in order, resolvable or not, repeats
+ * kept (its datoms keep each target that exists, once).
+ */
+export function derivedTargets(node: KbNode, entry: DerivedRef, types: FieldTypes): NodeId[] {
+  return entry.carriers.flatMap((carrier) => [...carrier.refsOf(node, types)]);
 }
 
 /**

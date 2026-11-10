@@ -8,6 +8,7 @@
  */
 import { browserHost } from "../host";
 import { toast } from "./toast";
+import { failureText } from "./refusal";
 
 /** An action by id, with the input it is called with. */
 export interface ActionCall {
@@ -70,5 +71,5 @@ export async function invokeAction({
   readonly input: Readonly<Record<string, unknown>>;
 }): Promise<void> {
   const receipt = await browserHost().invoke(action, input);
-  if (receipt.status === "failed") toast(`${action} failed: ${receipt.message}`);
+  if (receipt.status === "failed") toast(`${action} failed: ${failureText(receipt)}`);
 }
