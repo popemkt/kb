@@ -1,5 +1,5 @@
 import { present, type KbNode, type NodeId, type PropValue } from "@kb/model";
-import type { CarriedRef, DerivedRef, FieldTypes } from "./derived.ts";
+import { referenceCarriers, type CarriedRef, type DerivedRef, type FieldTypes } from "./derived.ts";
 
 export type Datom = [number | string, string, unknown, number?, boolean?];
 
@@ -107,6 +107,26 @@ export function nodeRefs(
   types: FieldTypes,
 ): Set<NodeId> {
   return pointedAt(node, carriedBy(node, derived, types));
+}
+
+/**
+ * The fields through which `node` references `target`, read by the
+ * reference relation's carriers in `derived`, its fields typed by `types`:
+ * a ref value's field, a text value's field holding a `[[target]]` token,
+ * the field of any value a family's carrier reads as naming `target`. A
+ * reference in no field (the node's own text, its owner) adds none.
+ */
+export function referenceFields(
+  node: KbNode,
+  target: NodeId,
+  derived: readonly DerivedRef[],
+  types: FieldTypes,
+): Set<NodeId> {
+  const fields = new Set<NodeId>();
+  for (const carrier of referenceCarriers(derived))
+    for (const { id, field } of carrier.refsOf(node, types))
+      if (id === target && field !== undefined) fields.add(field);
+  return fields;
 }
 
 /**

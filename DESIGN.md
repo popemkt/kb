@@ -740,6 +740,12 @@ set`, MCP and the UI all replace in one write), a many-valued field gains
   `packages/extension/graph/src/edges.ts`, scans text tokens — `nodeMentions`,
   the same reader the datoms use — children and ref props separately and
   never queries `:node/mentions`, which would double every prop edge). The
+  field a reference comes through is the other lens: each carrier reads a
+  reference with the field whose value holds it (none for the node's own
+  text or its owner), and `NodeIndex.referenceFields(node, target)` answers
+  it from those same carriers, so the References row says "due →" for a
+  date as it says "owner →" for a ref, and no surface scans props for a
+  second copy of what a carrier reads. The
   one place two carriers meet is a **typed mention**: a source that both
   mentions a target and holds it in a ref field has said what the mention
   means, so the projection folds the mention into that relation's edge (its
