@@ -117,9 +117,10 @@ const DATASCRIPT = /cljs\.core/;
 // of headroom over it.
 // The page asking the commit's rule (`personWriteRefusal`, the tracked
 // `isVirtual` read) and merging in one action (`node.merge`, which the page
-// runs on its own replica) measure 1,814,859; the budget keeps about 1.5 KB
-// of headroom over it.
-const EAGER_BUDGET_BYTES = 1_816_400;
+// runs on its own replica), with the value carriers (field types handed to
+// carriers, each field's type remembered with what it read), measure
+// 1,815,736; the budget keeps about 1.5 KB of headroom over it.
+const EAGER_BUDGET_BYTES = 1_817_300;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

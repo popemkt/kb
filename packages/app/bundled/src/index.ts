@@ -121,7 +121,7 @@ export function bundledOwners(): ReadonlyMap<NodeId, string> {
 export function derivedOf(declarations: readonly ExtensionDeclaration[]): readonly DerivedRef[] {
   const { owners } = foldSeed(declarations);
   return derivedWith({
-    fields: declarations.flatMap((declaration) => declaration.refCarriers ?? []),
+    carriers: declarations.flatMap((declaration) => declaration.refCarriers ?? []),
     owners: new Map([...owners].map(([id, owner]) => [id, extensionNodeId(owner)] as const)),
   });
 }
