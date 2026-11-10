@@ -28,25 +28,16 @@ import { dayNode, todayNode } from "./today";
 const DayPage = lazy(() => import("./day-page").then((m) => ({ default: m.DayPage })));
 
 /**
- * The day page's sections point, and the two days fills (DESIGN-UI.md →
- * Days): what is dated the day, then what was made or edited on it. Each
- * section's body is a chunk of its own, fetched with the page.
+ * The day page's sections point, and the one days fills (DESIGN-UI.md →
+ * Days): what was made or edited on the day. What is dated the day is the
+ * day's References, each naming its date field. A section's body is a
+ * chunk of its own, fetched with the page.
  */
 const daySectionsPlugin = definePlugin({
   name: "day-sections",
   apply: (ctx) =>
     Effect.gen(function* () {
       const point = yield* ctx.declare(DaySectionPoint, DAYS_POINT_DEFINITIONS.sections.spec);
-      yield* ctx.contribute(point, {
-        id: "dated",
-        value: {
-          order: 20,
-          title: "Dated this day",
-          Component: lazy(() =>
-            import("./dated-section").then((m) => ({ default: m.DatedSection })),
-          ),
-        },
-      });
       yield* ctx.contribute(point, {
         id: "touched",
         value: {

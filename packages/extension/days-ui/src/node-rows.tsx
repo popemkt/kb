@@ -3,19 +3,13 @@ import type { ReactNode } from "react";
 import { useNodes, useOpenNode } from "@kb/ui-sdk";
 import { textOf } from "./touched";
 
-export interface NodeRow {
-  readonly id: string;
-  /** What the row says beside the node, quieter. */
-  readonly note?: string;
-}
-
-export function NodeRows({ rows }: { readonly rows: readonly NodeRow[] }): ReactNode {
+export function NodeRows({ ids }: { readonly ids: readonly string[] }): ReactNode {
   const nodes = useNodes();
   const open = useOpenNode();
-  if (rows.length === 0) return <p className="px-2 text-meta text-foreground/30">Nothing yet.</p>;
+  if (ids.length === 0) return <p className="px-2 text-meta text-foreground/30">Nothing yet.</p>;
   return (
     <ul>
-      {rows.map(({ id, note }) => (
+      {ids.map((id) => (
         <li key={id}>
           <button
             type="button"
@@ -23,9 +17,6 @@ export function NodeRows({ rows }: { readonly rows: readonly NodeRow[] }): React
             onClick={() => open(id)}
           >
             <span className="truncate">{textOf(nodes.get(id))}</span>
-            {note === undefined ? null : (
-              <span className="shrink-0 text-meta text-foreground/40">{note}</span>
-            )}
           </button>
         </li>
       ))}

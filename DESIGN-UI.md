@@ -3977,16 +3977,16 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
   `days.sections`, in ascending `order`. A section is `{order, title,
   Component}`, and its component is given the day node and its key. Days
   never imports a family that shows something on a day; that family
-  contributes a section (the events section is one). Days fills two:
-  - **Dated this day** (`order: 20`): every node holding the day in a
-    date-typed field, whatever the field and whichever family made it,
-    each with the field's name beside it (`datedOn` in `@kb/days`).
-  - **Made or edited this day** (`order: 30`): the nodes whose created or
-    updated instant falls within the local day, newest first. Schema, the
-    period nodes and `sys.*` nodes are left out.
+  contributes a section (the events section is one). Days fills one,
+  **Made or edited this day** (`order: 30`): the nodes whose created or
+  updated instant falls within the local day, newest first. Schema, the
+  period nodes and `sys.*` nodes are left out. Each row opens its node.
 
-  Each row opens its node. The page is its own chunk, fetched the first
-  time a day opens, and each section's body is one too.
+  What is dated the day is not a section: it is the day's References,
+  which its outline draws, each row naming the date field that dates it
+  ("due →"; DESIGN.md → [Days](./DESIGN.md#days)). The page is its own
+  chunk, fetched the first time a day opens, and each section's body is
+  one too.
 - **A date opens its day.** Days replaces the page role `ui.date-target`:
   following a date value opens that day's node, made if need be through
   `ext.days.today`, in its day page. If days fails, the role's recovery
