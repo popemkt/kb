@@ -9,7 +9,17 @@
 import { expect } from "bun:test";
 import { Effect } from "effect";
 import { BUNDLED_DECLARATIONS } from "@kb/bundled";
-import { SYSTEM_IDS, fieldTypeValue, viewOptionId, roleNodeId, type KbNode } from "@kb/model";
+import {
+  SYSTEM_IDS,
+  fieldTypeValue,
+  refValuesOf,
+  typeRefsOf,
+  viewOptionId,
+  roleNodeId,
+  type KbNode,
+} from "@kb/model";
+import { persistEffect } from "@kb/operations";
+import { kbRuntimeLayer } from "@kb/runtime";
 import { seedGoldenNodes } from "./seed-golden.ts";
 import {
   CONTRACT_AT,
@@ -248,6 +258,62 @@ export function unfoldedSeedNodesSurviveOpening(makeStore: StoreFactory): Promis
         const loaded = new Map((yield* makeStore(root).loadEffect).map((node) => [node.id, node]));
         expect(loaded.get(SYSTEM_IDS.viewsRoot)?.children.at(-1)).toBe(retiredView);
         expect(loaded.get(retiredField)?.text).toBe("retired");
+      }),
+    ),
+  );
+}
+
+/**
+ * A person's edits to seeded nodes, committed through the system-write rule
+ * without force — a seeded list's new label, their child at its head, and
+ * their field in a seeded tag's template — are theirs to keep: the next
+ * open writes nothing over them (AGENTS.md → Data-plane freedom).
+ */
+export function personEditsToSeededNodesSurviveOpening(makeStore: StoreFactory): Promise<void> {
+  const child = plainNode("n.mine", "mine");
+  const field: KbNode = {
+    ...plainNode("f.mine", "my field"),
+    props: {
+      [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+      [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("text")],
+    },
+  };
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* backendRoot(makeStore);
+        yield* makeStore(root).commitEffect(
+          { upserts: seedGoldenNodes(), deletes: [] },
+          { at: AT },
+        );
+        const ctx = yield* openSession(root);
+        // Edited as the store holds them once open: a seeded list, and a seeded tag with a template.
+        const list = ctx.nodes.find((node) => node.id === SYSTEM_IDS.viewsRoot);
+        const tag = ctx.nodes.find(
+          (node) =>
+            typeRefsOf(node).includes(SYSTEM_IDS.tag) &&
+            refValuesOf(node, SYSTEM_IDS.fieldsField).length > 0,
+        );
+        if (list === undefined || tag === undefined)
+          throw new Error("the seed holds a list and a tag");
+        const template = [
+          ...(tag.props[SYSTEM_IDS.fieldsField] ?? []),
+          { t: "ref" as const, v: field.id },
+        ];
+        const edits = [
+          { ...list, text: "My view types", children: [child.id, ...list.children] },
+          { ...tag, props: { ...tag.props, [SYSTEM_IDS.fieldsField]: template } },
+          child,
+          field,
+        ];
+        yield* persistEffect(ctx, { upserts: edits, deletes: [] }).pipe(
+          Effect.provide(kbRuntimeLayer(ctx)),
+        );
+        yield* opensWithoutWriting(makeStore, root);
+        const loaded = new Map((yield* makeStore(root).loadEffect).map((node) => [node.id, node]));
+        expect(loaded.get(list.id)?.text).toBe("My view types");
+        expect(loaded.get(list.id)?.children[0]).toBe(child.id);
+        expect(refValuesOf(loaded.get(tag.id), SYSTEM_IDS.fieldsField).at(-1)).toBe(field.id);
       }),
     ),
   );

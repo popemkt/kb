@@ -94,7 +94,9 @@ const DATASCRIPT = /cljs\.core/;
 // command, and core's capture-target and landing roles with their defaults.
 // The day page loads lazily, which takes 2,268 measured eager bytes back
 // (2,075,518 → 2,073,250); the family's plugin, row, command and roles stay.
-const EAGER_BUDGET_BYTES = 2_076_000;
+// With #151's ownership rule merged the set measures 2,074,060 bytes; the
+// budget keeps 1.5 KB of headroom over it.
+const EAGER_BUDGET_BYTES = 2_075_600;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

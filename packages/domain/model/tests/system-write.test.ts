@@ -1,6 +1,8 @@
 /**
- * Which writes to a system node are a person's: only the values of fields
- * that configure it (`sys.f.configures`), and nothing else of it.
+ * Which writes to a system node are a person's: its text, a person's ids in
+ * its children and its template (every seeded id kept, in order), and the
+ * values of fields that configure it (`sys.f.configures`); nothing else of
+ * it.
  */
 import { describe, expect, test } from "bun:test";
 import {
@@ -54,7 +56,7 @@ describe("a write to a system node", () => {
   test("may not write a field that configures another node, or none", () => {
     for (const field of ["sys.f.elsewhere", "f.plain"]) {
       const next = { ...before, props: { [field]: ref("n.p") } };
-      expect(systemWriteRefusal(before, next, fieldOf), field).toMatch(/write-protected/);
+      expect(systemWriteRefusal(before, next, fieldOf), field).toMatch(/owner's/);
       expect(isWritableField({ id: AGENT }, field, fieldOf(field)), field).toBe(false);
     }
   });
@@ -62,19 +64,65 @@ describe("a write to a system node", () => {
   test("may not write a field anyone could add that declares itself a setting", () => {
     // Only a system field is a setting: a field that is not one names what it likes.
     const next = { ...before, props: { "f.minted": ref("n.p") } };
-    expect(systemWriteRefusal(before, next, fieldOf)).toMatch(/write-protected/);
+    expect(systemWriteRefusal(before, next, fieldOf)).toMatch(/owner's/);
     expect(isWritableField({ id: AGENT }, "f.minted", fieldOf("f.minted"))).toBe(false);
   });
 
-  test("may not change its text, children or rank, nor mint one", () => {
-    for (const next of [
-      { ...before, text: "renamed" },
-      { ...before, children: ["n.child"] },
-      { ...before, order: "a0" },
+  test("takes a new text: a label is the person's", () => {
+    expect(systemWriteRefusal(before, { ...before, text: "renamed" }, fieldOf)).toBeNull();
+  });
+
+  test("takes a person's child anywhere among the seeded ones, moved or taken back", () => {
+    const seeded = { ...before, children: ["sys.a", "sys.b"] };
+    for (const children of [
+      ["n.mine", "sys.a", "sys.b"],
+      ["sys.a", "n.mine", "sys.b", "n.yours"],
+      ["sys.a", "sys.b", "n.mine"],
     ]) {
-      expect(systemWriteRefusal(before, next, fieldOf)).toMatch(/write-protected/);
+      const next = { ...seeded, children };
+      expect(systemWriteRefusal(seeded, next, fieldOf), children.join()).toBeNull();
+      expect(systemWriteRefusal(next, seeded, fieldOf), children.join()).toBeNull();
     }
-    expect(systemWriteRefusal(undefined, before, fieldOf)).toMatch(/write-protected/);
+  });
+
+  test("keeps every seeded child, in its order, and takes no system id it did not hold", () => {
+    const seeded = { ...before, children: ["sys.a", "n.mine", "sys.b"] };
+    for (const children of [
+      ["sys.a", "n.mine"],
+      ["sys.b", "n.mine", "sys.a"],
+      ["sys.a", "n.mine", "sys.b", "sys.c"],
+    ]) {
+      expect(systemWriteRefusal(seeded, { ...seeded, children }, fieldOf), children.join()).toMatch(
+        /keeps the children/,
+      );
+    }
+  });
+
+  test("takes a person's field in its tag's template, and keeps the seeded ones in order", () => {
+    const template = (...ids: string[]) => ({
+      ...before,
+      props: { [SYSTEM_IDS.fieldsField]: ids.map((v) => ({ t: "ref" as const, v })) },
+    });
+    const seeded = template("sys.f.a", "sys.f.b");
+    expect(
+      systemWriteRefusal(seeded, template("sys.f.a", "f.mine", "sys.f.b"), fieldOf),
+    ).toBeNull();
+    expect(
+      systemWriteRefusal(template("sys.f.a", "f.mine", "sys.f.b"), seeded, fieldOf),
+    ).toBeNull();
+    for (const next of [template("sys.f.a"), template("sys.f.b", "sys.f.a")]) {
+      expect(systemWriteRefusal(seeded, next, fieldOf)).toMatch(/keeps the sys.f.fields values/);
+    }
+  });
+
+  test("keeps its rank and creation stamp, and is never minted", () => {
+    for (const next of [
+      { ...before, order: "a0" },
+      { ...before, createdAt: "later" },
+    ]) {
+      expect(systemWriteRefusal(before, next, fieldOf)).toMatch(/keeps its|keeps the rank/);
+    }
+    expect(systemWriteRefusal(undefined, before, fieldOf)).toMatch(/only its owner's seed mints/);
   });
 
   test("is not this rule's business when the node is not a system node", () => {

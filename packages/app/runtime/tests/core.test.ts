@@ -407,22 +407,25 @@ describe("registry + operations", () => {
     }
   });
 
-  test("sys.* write-guard blocks edits unless force", async () => {
+  test("sys.* write-guard takes a new label and blocks other edits unless force", async () => {
     const ctx = await openKb(root);
-    const blocked = await invoke(ctx, {
+    const renamed = await invoke(ctx, {
       id: "node.update",
-      input: { id: SYSTEM_IDS.tag, text: "hacked" },
+      input: { id: SYSTEM_IDS.tag, text: "kind" },
     });
+    expect(renamed.status).toBe("succeeded");
+    expect(ctx.nodes.find((n) => n.id === SYSTEM_IDS.tag)?.text).toBe("kind");
+
+    const retype = {
+      id: SYSTEM_IDS.tag,
+      setProps: [{ field: SYSTEM_IDS.typeField, value: { t: "ref", v: SYSTEM_IDS.field } }],
+    };
+    const blocked = await invoke(ctx, { id: "node.update", input: retype });
     expect(blocked.status).toBe("failed");
     if (blocked.status === "failed") {
       expect(blocked.code).toBe("forbidden");
     }
-    expect(ctx.nodes.find((n) => n.id === SYSTEM_IDS.tag)?.text).toBe("sys.tag");
-
-    const forced = await invoke(ctx, {
-      id: "node.update",
-      input: { id: SYSTEM_IDS.tag, text: "sys.tag", force: true },
-    });
+    const forced = await invoke(ctx, { id: "node.update", input: { ...retype, force: true } });
     expect(forced.status).toBe("succeeded");
 
     // Browse (node.get) still works
@@ -436,19 +439,17 @@ describe("registry + operations", () => {
     expect(ctx.nodes.some((n) => n.id === SYSTEM_IDS.cmdAddNode)).toBe(true);
   });
 
-  test("sys.* write-guard blocks node.add mint-id and parent bypasses", async () => {
+  test("sys.* write-guard takes a person's child, and blocks node.add mint-id and moving a seeded child", async () => {
     const ctx = await openKb(root);
 
-    // node.add under a sys.* parent must be forbidden (guard bypass).
+    // A person's node under a sys.* parent is theirs: additive, so no force.
     const underSys = await invoke(ctx, {
       id: "node.add",
-      input: { text: "evil", parent: SYSTEM_IDS.tag },
+      input: { text: "mine", parent: SYSTEM_IDS.tag },
     });
-    expect(underSys.status).toBe("failed");
-    if (underSys.status === "failed") {
-      expect(underSys.code).toBe("forbidden");
-    }
-    expect(ctx.nodes.find((n) => n.id === SYSTEM_IDS.tag)?.children).toEqual([]);
+    expect(underSys.status).toBe("succeeded");
+    const mineId = (underSys as { output: { id: string } }).output.id;
+    expect(ctx.nodes.find((n) => n.id === SYSTEM_IDS.tag)?.children).toEqual([mineId]);
 
     // node.add minting a sys.* id must be forbidden (guard bypass).
     const mint = await invoke(ctx, {
@@ -461,25 +462,17 @@ describe("registry + operations", () => {
     }
     expect(ctx.nodes.some((n) => n.id === "sys.evil")).toBe(false);
 
-    // reparenting a normal node under a sys.* node must be forbidden.
-    const victim = await invoke(ctx, {
-      id: "node.add",
-      input: { text: "victim" },
-    });
-    const victimId = (victim as { output: { id: string } }).output.id;
-    const reparent = await invoke(ctx, {
-      id: "node.update",
-      input: { id: victimId, parent: SYSTEM_IDS.field },
-    });
-    expect(reparent.status).toBe("failed");
-    if (reparent.status === "failed") {
-      expect(reparent.code).toBe("forbidden");
+    // Moving a seeded child out of the list that ships it must be forbidden.
+    const [seeded] = ctx.nodes.find((n) => n.id === SYSTEM_IDS.viewsRoot)?.children ?? [];
+    if (seeded === undefined) throw new Error("sys.views ships its view types");
+    const moveOut = await invoke(ctx, { id: "node.update", input: { id: seeded, parent: null } });
+    expect(moveOut.status).toBe("failed");
+    if (moveOut.status === "failed") {
+      expect(moveOut.code).toBe("forbidden");
     }
-    expect(ctx.nodes.find((n) => n.id === SYSTEM_IDS.field)?.children.includes(victimId)).toBe(
-      false,
-    );
+    expect(ctx.nodes.find((n) => n.id === SYSTEM_IDS.viewsRoot)?.children[0]).toBe(seeded);
 
-    // The documented admin escape (force) still works for mint + reparent.
+    // The documented admin escape (force) still works for mint + move.
     const forcedMint = await invoke(ctx, {
       id: "node.add",
       input: { text: "minted", id: "sys.evil", force: true },
@@ -487,14 +480,12 @@ describe("registry + operations", () => {
     expect(forcedMint.status).toBe("succeeded");
     expect(ctx.nodes.some((n) => n.id === "sys.evil")).toBe(true);
 
-    const forcedReparent = await invoke(ctx, {
+    const forcedMove = await invoke(ctx, {
       id: "node.update",
-      input: { id: victimId, parent: SYSTEM_IDS.field, force: true },
+      input: { id: seeded, parent: SYSTEM_IDS.viewsRoot, position: 1, force: true },
     });
-    expect(forcedReparent.status).toBe("succeeded");
-    expect(ctx.nodes.find((n) => n.id === SYSTEM_IDS.field)?.children.includes(victimId)).toBe(
-      true,
-    );
+    expect(forcedMove.status).toBe("succeeded");
+    expect(ctx.nodes.find((n) => n.id === SYSTEM_IDS.viewsRoot)?.children[1]).toBe(seeded);
   });
 
   test("sys.* write-guard covers field.define / tag.define id-mint aliases", async () => {
