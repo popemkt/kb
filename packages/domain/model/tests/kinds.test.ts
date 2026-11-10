@@ -38,6 +38,7 @@ describe("kinds, roles and options", () => {
       "calendar",
       "canvas",
       "comment",
+      "day",
       "facet",
       "google-account",
       "image source",
@@ -49,6 +50,8 @@ describe("kinds, roles and options", () => {
       "script",
       "style",
       "visual",
+      "week",
+      "year",
     ]);
   });
 

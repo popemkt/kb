@@ -40,9 +40,10 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // the existing human/agent/cli/script actor strings.
 // Protocol 7: manifests carry scoped named-point dependencies and reaction
 // matches; earlier strict readers cannot decode or review those claims.
+// The days family adds an action (`ext.days.today`) a previous page ignores.
 const RECORDED = {
   protocol: 7,
-  fingerprint: "43b796716352fe945f65253276c3b7bf55e39575615bf47ac345419849707c04",
+  fingerprint: "28f8382404f8278f35732e027de59cf62e26b229116ff5615ba1084b5d78afed",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */
