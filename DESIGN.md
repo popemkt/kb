@@ -5312,11 +5312,25 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
   `2026`. A period node is found by its key, never by its text or its place.
   So a person may rename "Tue, Nov 10", move it, tag it and fill it, and it
   stays that day ([data-plane freedom](AGENTS.md#data-plane-freedom)).
-- **One node per key.** The key is the family's identity data, so a commit
-  that would leave two nodes holding one key is refused, from every surface
-  (`ext.days.unique-key`, a commit guard on every write). The key is
-  hidden, but a person can still write it through a node's debug fields
-  until a family can declare a field it manages (GAP
+- **One node per key.** The key is the family's identity data, and three
+  things keep it to one node:
+  - `ext.days.today` commits only on the state it planned from (the
+    store's conditional commit, `persistPlannedEffect`). A caller that
+    planned the same day while another committed it is planned again,
+    finds the day and writes nothing, in this process or another, on
+    either store.
+  - A period is made with an id derived from its key alone
+    (`periodNodeId`: `days.2026-11-10`, `days.2026-W46`, `days.2026`,
+    `days.journal`), or a fresh one when another node holds that id. Two
+    clones that each make one day therefore hold one id, and their stores
+    merge into one node ([Merge](#merge) resolves by id). The id is where
+    a period is made, not how it is found.
+  - A commit that would leave two nodes holding one key is refused, from
+    every surface (`ext.days.unique-key`, a commit guard on every write).
+    This is what stops a person hand-keying a duplicate.
+
+  The key is hidden, but a person can still write it through a node's
+  debug fields until a family can declare a field it manages (GAP
   [[01M7342WTAZQBARRM7T9F751HT]]).
 - **The hierarchy is made lazily, in one transaction.** `ext.days.today`
   (`{day?}` → `{id, made}`) answers a day's node, and in the same

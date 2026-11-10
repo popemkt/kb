@@ -1,7 +1,7 @@
 /**
  * The days family's frozen ids (DESIGN.md → Days). A period node is an
  * ordinary node; these name the tags, the identity field and the family's
- * settings, never a day.
+ * settings. A period's own id is derived from its key ({@link periodNodeId}).
  */
 import { extensionNodeId } from "@kb/model";
 
@@ -28,3 +28,14 @@ export const DAYS_IDS = {
   /** The commit guard that keeps one node per key. */
   uniqueKeyGuard: "ext.days.unique-key",
 } as const;
+
+/**
+ * The id a period node is made with: `days.2026-11-10`, `days.2026-W46`,
+ * `days.2026`, and `days.journal` for the journal root the family makes.
+ * Derived from the key alone, so two clones that each make one day converge
+ * on one node when their stores merge (DESIGN.md → Merge resolves by id).
+ * It is where a period is made, not how it is found: the key finds it.
+ */
+export function periodNodeId(key: string | null): string {
+  return `${DAYS_FAMILY}.${key ?? "journal"}`;
+}

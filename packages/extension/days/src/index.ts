@@ -1,4 +1,4 @@
-export { DAYS_FAMILY, DAYS_IDS } from "./ids.ts";
+export { DAYS_FAMILY, DAYS_IDS, periodNodeId } from "./ids.ts";
 export { daysExtension, daysPlugin } from "./extension.ts";
 export { daysSeed } from "./seed.ts";
 export { dayKeyAt, dayTitle, isDayKey, isoWeekOf, weekKey, weekTitle, yearKey } from "./period.ts";

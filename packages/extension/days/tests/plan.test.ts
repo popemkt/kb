@@ -24,14 +24,26 @@ function apply(nodes: Map<string, NodeLike>, make: readonly NewPeriodNode[]) {
 describe("planDay", () => {
   test("an empty graph gets journal, year, week and day, parent first", () => {
     const plan = planDay(new Map(), "2026-11-10", minter());
-    expect(plan.make.map((m) => [m.text, m.parent, m.tag, m.key])).toEqual([
-      [JOURNAL_TEXT, null, null, null],
-      ["2026", "n1", DAYS_IDS.yearTag, "2026"],
-      ["Week 46", "n2", DAYS_IDS.weekTag, "2026-W46"],
-      ["Tue, Nov 10", "n3", DAYS_IDS.dayTag, "2026-11-10"],
+    expect(plan.make.map((m) => [m.id, m.text, m.parent, m.tag, m.key])).toEqual([
+      ["days.journal", JOURNAL_TEXT, null, null, null],
+      ["days.2026", "2026", "days.journal", DAYS_IDS.yearTag, "2026"],
+      ["days.2026-W46", "Week 46", "days.2026", DAYS_IDS.weekTag, "2026-W46"],
+      ["days.2026-11-10", "Tue, Nov 10", "days.2026-W46", DAYS_IDS.dayTag, "2026-11-10"],
     ]);
-    expect(plan.day).toBe("n4");
-    expect(plan.journal).toBe("n1");
+    expect(plan.day).toBe("days.2026-11-10");
+    expect(plan.journal).toBe("days.journal");
+  });
+
+  test("a derived id another node holds gives way to a fresh one", () => {
+    const nodes = new Map([["days.2026-11-10", node("days.2026-11-10")]]);
+    const plan = planDay(nodes, "2026-11-10", minter());
+    expect(plan.day).toBe("n1");
+    expect(plan.make.map((m) => m.id)).toEqual([
+      "days.journal",
+      "days.2026",
+      "days.2026-W46",
+      "n1",
+    ]);
   });
 
   test("asking twice makes nothing the second time", () => {
@@ -40,7 +52,7 @@ describe("planDay", () => {
     apply(nodes, planDay(nodes, "2026-11-10", mint).make);
     const again = planDay(nodes, "2026-11-10", mint);
     expect(again.make).toEqual([]);
-    expect(again.day).toBe("n4");
+    expect(again.day).toBe("days.2026-11-10");
   });
 
   test("a day is found by its key, whatever its text or place", () => {
@@ -66,8 +78,8 @@ describe("planDay", () => {
     const plan = planDay(nodes, "2026-01-05", minter());
     expect(plan.make.map((m) => [m.parent, m.key])).toEqual([
       ["j", "2026"],
-      ["n1", "2026-W02"],
-      ["n2", "2026-01-05"],
+      ["days.2026", "2026-W02"],
+      ["days.2026-W02", "2026-01-05"],
     ]);
     expect(plan.journal).toBeNull();
   });
@@ -79,7 +91,7 @@ describe("planDay", () => {
         node(DAYS_IDS.family, { [DAYS_IDS.journalField]: [{ t: "ref", v: "gone" }] }),
       ],
     ]);
-    expect(planDay(nodes, "2026-11-10", minter()).journal).toBe("n1");
+    expect(planDay(nodes, "2026-11-10", minter()).journal).toBe("days.journal");
   });
 
   test("a day of a week that straddles New Year goes under the week's year", () => {

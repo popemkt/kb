@@ -5,7 +5,7 @@
  * alone; its text, its place and its other tags are the person's.
  */
 import { refValuesOf, type NodeLike } from "@kb/model";
-import { DAYS_IDS } from "./ids.ts";
+import { DAYS_IDS, periodNodeId } from "./ids.ts";
 import { dayTitle, isDayKey, weekKey, weekTitle, yearKey } from "./period.ts";
 
 /** One node the plan makes, parent first. */
@@ -51,12 +51,14 @@ export function journalOf(
 /**
  * The plan for `day`'s node. Its year goes under the journal root, its week
  * under its year, the day under its week; a period that exists anywhere is
- * reused where it is, so a week a person moved keeps its new days.
+ * reused where it is, so a week a person moved keeps its new days. What it
+ * makes takes its key's {@link periodNodeId}, or a `fresh` id when another
+ * node already has that one.
  */
 export function planDay(
   nodes: ReadonlyMap<string, NodeLike>,
   day: string,
-  mint: () => string,
+  fresh: () => string,
 ): DayPlan {
   if (!isDayKey(day)) throw new RangeError(`not a calendar date (YYYY-MM-DD): ${day}`);
   const all = [...nodes.values()];
@@ -64,7 +66,8 @@ export function planDay(
   if (existing !== null) return { day: existing, make: [], journal: null };
   const make: NewPeriodNode[] = [];
   const add = (node: Omit<NewPeriodNode, "id">): string => {
-    const id = mint();
+    const derived = periodNodeId(node.key);
+    const id = nodes.has(derived) ? fresh() : derived;
     make.push({ id, ...node });
     return id;
   };
