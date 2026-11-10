@@ -90,6 +90,7 @@ describe("built-in routes", () => {
       .map((section) => section.id);
     expect(sections).toEqual([
       "layout.home",
+      "days.section",
       "graph.section",
       "ontology.section",
       "canvas.section",
@@ -147,6 +148,7 @@ describe("the families the page loads", () => {
       "transistor",
       "yorha",
       "gallery",
+      "days",
       "agent",
     ]);
   });
@@ -168,6 +170,7 @@ describe("the families the page loads", () => {
       "transistor",
       "yorha",
       "gallery",
+      "days",
     ]);
   });
 
@@ -199,6 +202,7 @@ describe("the families the page loads", () => {
       "transistor",
       "yorha",
       "gallery",
+      "days",
     ]);
   });
 
@@ -260,6 +264,7 @@ describe("an optional family switched off on the server", () => {
       "transistor",
       "yorha",
       "gallery",
+      "days",
       "agent",
     ]);
   });

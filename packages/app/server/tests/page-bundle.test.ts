@@ -89,7 +89,10 @@ const DATASCRIPT = /cljs\.core/;
 // Commit receipts, reaction frames and identified actor metadata add 3,246 measured eager bytes.
 // Shared capability metadata, manifest constraints and waiting status add 6,246 measured eager bytes.
 // The integrated editor, roles and routines surfaces measure 2,064,033 eager bytes.
-const EAGER_BUDGET_BYTES = 2_065_000;
+// The days family adds 12,724 measured eager bytes (2,062,465 → 2,075,189): its
+// declaration and seed, which the page folds, its day page, Today row and
+// command, and core's capture-target and landing roles with their defaults.
+const EAGER_BUDGET_BYTES = 2_078_000;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

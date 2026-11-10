@@ -48,7 +48,7 @@ describe("governance, required", () => {
     );
     expect(registry.interception.missing()).toEqual([]);
     const guards = registry.interception.guards({ id: "node.delete", mode: { kind: "write" } });
-    expect(guards).toEqual([]);
+    expect(guards.filter(({ owner }) => owner === "governance")).toEqual([]);
   });
 
   test("required approval refuses agent trust while other policy remains deferred", async () => {

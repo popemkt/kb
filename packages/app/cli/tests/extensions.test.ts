@@ -256,6 +256,7 @@ describe("kb ext list", () => {
       "check",
       "code",
       "collections",
+      "days",
       "docs",
       "gallery",
       "governance",
@@ -314,7 +315,7 @@ describe("kb ext list", () => {
     expect(tagsOf("canvas")).toEqual(["canvas"]);
     const guards = output.points.find(({ point }) => point === "action/guard")?.listeners;
     // Core owns required approval; governance contributes no policy guard.
-    expect(guards?.map(({ id }) => id)).toEqual(["ext.code.script-run"]);
+    expect(guards?.map(({ id }) => id)).toEqual(["ext.code.script-run", "ext.days.unique-key"]);
 
     resetRegistryCache();
     const human = await runCli(["--root", root, "ext", "list"]);

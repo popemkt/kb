@@ -1,0 +1,1 @@
+export { daysUiPlugin } from "./plugin";
