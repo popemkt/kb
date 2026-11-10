@@ -33,7 +33,7 @@ const PROVIDERS = [
     id: "google",
     name: "Google Calendar",
     blurb:
-      "Routines become events in calendars kb creates in your Google account. About ten minutes to set up, with your own Google Cloud project.",
+      "Your events go to calendars kb creates in your Google account. About ten minutes to set up, with your own Google Cloud project.",
   },
 ] as const;
 
@@ -50,7 +50,7 @@ function ProviderPicker({ onClose }: { readonly onClose: () => void }) {
   };
   return (
     <Dialog title="Add a sync service" onClose={onClose} testId="sync-provider-picker">
-      <p className="text-ui text-muted-foreground">Where should kb send your routines?</p>
+      <p className="text-ui text-muted-foreground">Where should kb send your events?</p>
       <div className="flex flex-col gap-2" role="list">
         {PROVIDERS.map((provider) => (
           <button

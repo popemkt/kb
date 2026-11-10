@@ -202,7 +202,7 @@ export function EntryPopover({
           className="text-primary hover:underline"
           onClick={() => actions.edit(entry.routine)}
         >
-          Edit routine
+          Edit event
         </button>
         <button
           type="button"

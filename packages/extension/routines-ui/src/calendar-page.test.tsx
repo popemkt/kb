@@ -322,7 +322,7 @@ describe("creating", () => {
     await click(button("Cancel"));
     pointer("pointerdown", chip("gym/2026-11-02"), y(7) + 10);
     pointer("pointerup", chip("gym/2026-11-02"), y(7) + 10);
-    await click(button("Edit routine"));
+    await click(button("Edit event"));
     expect(valueOf('select[aria-label="Repeat"]')).toBe("custom");
     expect($("[data-repeat-summary]").textContent).toBe("Every week on Mon, Wed");
   });
