@@ -5454,9 +5454,10 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
   <day>` list every node dated it, with no stored link, and a References
   row names the field that dates it ("due →"), as it names any field a
   reference comes through. A value dated before its day exists is
-  mentioned once the day is made. The carrier names the day by its derived
-  id, `days.<date>`, so a day held under another id is not mentioned, and
-  its page shows nothing dated it (GAP [[01M73N2FPM7GGCX6H62V6PE8JG]]).
+  mentioned once the day is made. The carrier names the day by its key
+  (a `KeyRef` on `sys.f.days.key`), not by an id, so a day is mentioned
+  under whatever id it was made with: `days.<date>`, a fresh id when that
+  one was taken, or the id of a day merged in from elsewhere.
   Following a date value opens its day, made if need be: days replaces the
   page role `ui.date-target` ([Provider roles](#provider-roles)).
 - **The day page's sections are a declared point,** `days.sections` (page
