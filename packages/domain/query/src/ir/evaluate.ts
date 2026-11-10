@@ -46,7 +46,10 @@ export function conditionGraph(
   clock?: ClockSample,
 ): ConditionGraph {
   const carriers = referenceCarriers(derived);
-  const reads = graphReadsIn((id) => nodes.get(id));
+  const reads = graphReadsIn(
+    (id) => nodes.get(id),
+    () => nodes.values(),
+  );
   const memo = new Map<NodeId, ReadonlySet<NodeId>>();
   const mentions = (node: KbNode): ReadonlySet<NodeId> => {
     let out = memo.get(node.id);

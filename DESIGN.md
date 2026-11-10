@@ -704,9 +704,17 @@ set`, MCP and the UI all replace in one write), a many-valued field gains
   carrier reads each value with the field it is in, the field's id and
   declared type (`ValueField`, typed by `fieldTypeOf`), because a date and
   a text are both stored as `{t:"str"}` and only the field says which. A
-  carrier reads nothing else of the graph, so the index knows when to read
-  a node again: when it changes, when a target it names starts or stops
-  existing, and when a field it holds changes type (`NodeTable.change`):
+  value names its targets by id, or **by key** (`KeyRef`): the nodes whose
+  key field holds a text value, whatever their ids (a day by its date,
+  say), so a node a family finds by a key it manages is referenced under
+  any id it was made with. What a carrier may
+  read of the graph beyond its node is one object, `GraphReads` (each
+  field's type, who holds a key), handed over by the index, so the index
+  knows when to read a node again: when it changes, when a target it names
+  starts or stops existing, when a field it holds changes type, and when a
+  key it asked about changes holders, a node taking it, giving it up or
+  being deleted (`NodeTable.change`, which indexes a key field the first
+  time a carrier asks about it). For the type:
   the node table remembers each field's type with every id its reading
   looked up, the field and the option it chooses (a person's own option
   may name the built-in type), so the option retyped, deleted or arriving
@@ -3552,8 +3560,8 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
       setting that does, together with a contract property over the
       registry, the `kb ui` host and the page.
 - **A family's fields can carry references** (`refCarriers`): each names
-  a field and reads the node ids its values point at, beyond `[[id]]`
-  tokens and ref values. The reference relation reads them as carriers
+  a field and reads what its values point at, node ids or keys the nodes
+  hold (`KeyRef`), beyond `[[id]]` tokens and ref values. The reference relation reads them as carriers
   (Data model → Refs). Like the seed it is the bundled fold:
   `bundledDerived()` (`@kb/bundled`) is every bundled declaration's
   carriers on top of `CORE_DERIVED`, and every index a host builds is built

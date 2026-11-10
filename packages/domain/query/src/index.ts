@@ -9,6 +9,7 @@ export type {
   DerivedSources,
   FieldTypes,
   GraphReads,
+  KeyRef,
   ValueField,
   ValueRefCarrier,
 } from "./index/derived.ts";
