@@ -11,6 +11,7 @@ import {
   type GraphSnapshot,
   type ServerMessage,
   type WireNode,
+  VIRTUAL_ORIGIN,
   WIRE_PROTOCOL,
 } from "@kb/contracts";
 import type { KbNode, KbTx } from "@kb/model";
@@ -185,11 +186,13 @@ export class SubscriptionHub {
   get graph(): KeptGraph {
     const at = `${this.ctx.index.generation}.${this.ctx.log.head}`;
     if (this.kept?.at === at) return this.kept.graph;
+    const nodes = [...this.ctx.index.allNodes()].toSorted((a, b) =>
+      a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
+    );
     const snapshot = GraphSnapshotSchema.parse({
       rev: this.ctx.log.head,
-      nodes: [...this.ctx.index.allNodes()]
-        .toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
-        .map(toWireNode),
+      nodes: nodes.map(toWireNode),
+      virtual: nodes.filter((node) => this.ctx.index.isVirtual(node.id)).map((node) => node.id),
     });
     const graph = { snapshot, json: JSON.stringify(snapshot), version: `${this.instance}.${at}` };
     this.kept = { at, graph };
@@ -377,6 +380,7 @@ export class SubscriptionHub {
       rev: tx.rev,
       upserts: tx.ops.upserts.map(toWireNode),
       deletes: tx.ops.deletes,
+      ...(tx.origin === VIRTUAL_ORIGIN ? { virtual: true as const } : {}),
     };
     return JSON.stringify(frame);
   }

@@ -115,11 +115,18 @@ const DATASCRIPT = /cljs\.core/;
 // loads, and the point's declaration with days' sections' lazy loaders
 // (their bodies are chunks of their own), measured with both sections. The budget keeps about 1.5 KB
 // of headroom over it.
+// The value carriers (field types handed to carriers, each field's type
+// remembered with what it read), merged onto main with C1b's first step,
+// measure 1,815,068; the budget keeps about 1.5 KB of headroom over it.
+// Days' date → day carrier in its declaration, which the page derives
+// with, and following a date (the date target role, its core default and
+// days' provider, and the follow's date branch) take it to 1,816,343; the
+// budget keeps about 1.5 KB over that.
 // One backdrop across pages adds the pane's host above the router, its layers' crossfade and
 // hold, a head's declaration of its space and the breadcrumbs' band; every scene still loads lazily.
-// It measures 5,500 production bytes (1,812,739 → 1,818,239 merged with main at b62fcb17); the
+// It measures 5,250 production bytes (1,816,343 → 1,821,593 merged with main at 8a68021a); the
 // budget keeps about 1.5 KB of headroom over it.
-const EAGER_BUDGET_BYTES = 1_819_700;
+const EAGER_BUDGET_BYTES = 1_823_100;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

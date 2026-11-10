@@ -88,12 +88,25 @@ export class SavedQuerySet {
     if (nodes.length > 0) this.ctx.index.withVirtual(this.current);
   }
 
-  /** Adopt `nodes` and record the difference. A no-op when nothing moved. */
+  /**
+   * Adopt `nodes` and record what the index's virtual set did, which is not
+   * the file diff: a stored node keeps its id against a file's
+   * (`NodeIndex.withVirtual`), so a file change under a stored id moves
+   * nothing a client holds, and a file node whose stored node has since gone
+   * comes back. The frame names only ids the index holds, or held, as
+   * virtual, so a client applies it as it stands. A no-op when the files
+   * did not move, which leaves the index as it is (every directory tick
+   * calls this, and `withVirtual` rebuilds it).
+   */
   sync(nodes: readonly KbNode[], at: string): void {
-    const ops = diffTx(this.current, nodes);
-    if (ops.upserts.length === 0 && ops.deletes.length === 0) return;
+    const files = diffTx(this.current, nodes);
+    if (files.upserts.length === 0 && files.deletes.length === 0) return;
+    const shown = () => this.current.filter((node) => this.ctx.index.isVirtual(node.id));
+    const before = shown();
     this.current = [...nodes];
     this.ctx.index.withVirtual(this.current);
+    const ops = diffTx(before, shown());
+    if (ops.upserts.length === 0 && ops.deletes.length === 0) return;
     this.ctx.log.append(ops, at, VIRTUAL_ORIGIN);
   }
 }

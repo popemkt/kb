@@ -870,7 +870,10 @@ the row's anatomy, a primitive of `@kb/ui-sdk` that prefs renders too
 Following is one function for every pointer in kb (`lib/follow.ts`:
 `routePointerClick`, the bullet rule `bulletClickIntent`, and `useFollow`,
 which carries a follow out); a url's link is a real anchor, so the browser's
-open, middle-click and context menu work.
+open, middle-click and context menu work. A date follows (⌘/Ctrl-click,
+⌘Enter) to the node the page role `ui.date-target` answers for it
+(DESIGN.md → [Provider roles](./DESIGN.md#provider-roles)): its day's
+node with days on, made if need be ([Days](#days)), and nowhere without.
 
 **Keys.** At rest (the slot focused, its editor closed): ↑/↓ and
 Tab/Shift-Tab move through the field's values and out to the row; Backspace or
@@ -3982,6 +3985,10 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
 
   Each row opens its node. The page is its own chunk, fetched the first
   time a day opens, and each section's body is one too.
+- **A date opens its day.** Days replaces the page role `ui.date-target`:
+  following a date value opens that day's node, made if need be through
+  `ext.days.today`, in its day page. If days fails, the role's recovery
+  demotes it and core's default leads nowhere.
 - **The Today row** sits under Home in the sidebar (`order: 5`) and opens
   today's node, making it if need be. It is the active row while today's
   node is open.

@@ -210,6 +210,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — list nested panes in the screen state with their own ids
 - **node** — `01M411FPSNN7B18JQ62RKB8ZXW`
 
+### GAP: a day held under another id than days.<date> is not what a date value mentions
+
+- **expected** — A date value in any date-typed field mentions the day node for that date, whatever the day's id: the day's References and kb backlinks list every node dated it.
+- **current** — The date → day carrier (days B3) can read a value and its field's type only, not the graph, so it names the derived id days.<date> (periodNodeId). ext.days.today makes a day under a fresh id when days.<date> is taken by a node that is not that day (plan.ts, planDay), and a day merged or retagged from elsewhere keeps its own id; neither is mentioned by a date value.
+- **impact** — Rare: days.<date> is taken only by a hand-minted id or a day whose key was stripped. Such a day's References miss the nodes dated it; the day page's "Dated this day" still lists them, since it reads datesOf over the graph by key.
+- **closes** — A carrier that joins a date value to the node whose sys.f.days.key is that date at index time (the index re-reading holders when a key appears or moves), or a re-id of such a day to days.<date>.
+- **node** — `01M73N2FPM7GGCX6H62V6PE8JG`
+
 ### GAP: a dependency from one kernel to a family another kernel composes cannot be an edge
 
 - **expected** — a call from the registry to a family the kb ui host composes (the agent) is an edge the graph reports and a key whose absence pends its caller, on every host
@@ -1623,15 +1631,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — On a root with repository extensions, nodes those extensions seed have an owner on the server but not on the page or in clients, and fields they declare as refCarriers feed References on the server only.
 - **closes** — The manifest or snapshot carries the root's declarations or owners, and both hosts derive from it.
 - **node** — `01M549TK1WP4E6T4QHNDRSDYQA`
-
-### GAP: the page's index does not know which nodes are virtual
-
-- **expected** — The graph snapshot names the virtual ids and a tx frame carries its origin, and page hydration, snapshot install and frame ingest route virtual nodes through NodeIndex.withVirtual and keep them out of the BrowserStore. The page's index then answers isVirtual as the server's does, its local commit refuses the write the server refuses, and the row shows as its file's (read-only). A page-hydration and reconnect case in a contract proves it.
-- **current** — The server snapshot flattens index.allNodes() into nodes, and the page builds BrowserStore and its index from that array (replaceBrowserSession, installBrowserNodes, ingestBrowserTx). A saved-query node is therefore stored on the page and RemoteIndex.isVirtual is false. The page's sys.* pre-check (guardSysWrite, the read-only row) still covers sys.query.* rows by id, but a key or command that invokes node.update on one commits locally and is refused only by the server.
-- **impact** — An invoke-path edit of a saved-query node on the page is undone by the server's refusal rather than refused on the page. It becomes a visible offer of an edit that fails once C1b removes the sys.* pre-checks, so it must close before then.
-- **closes** — A virtual-ids field on GraphSnapshotSchema and an origin on the tx frame (contracts/protocol.ts); the server's snapshot and frames set them; hydrateFromWire, installBrowserNodes and ingestBrowserTx split virtual from stored and call withVirtual; and a contract test of page hydration and since-catch-up over a saved query.
-- **rule** — One contract, every implementation
-- **node** — `01M73BRQC9ZSQHG9RWDCRQ6CEK`
 
 ### GAP: the page's offline family list reads only the bundled families
 
