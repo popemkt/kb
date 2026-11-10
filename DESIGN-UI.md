@@ -4630,8 +4630,11 @@ A PR for a backdrop reports a score against each criterion.
     duration while the new one fades in, and its layer, scene and context
     go when that time is up, by the clock: a fade advances only as frames
     are drawn, and a page whose frames stall (a busy GPU, a hidden tab)
-    still lets the old scene go; under reduced motion it goes at once,
-    with no fade;
+    still lets the old scene go. The time runs from when it began to
+    leave, so a page above the host that suspends and shows again, which
+    disconnects the host's effects meanwhile, picks the fade up where it
+    was rather than starting it over; under reduced motion it goes at
+    once, with no fade;
   - no head declared (a page with none, or the next one still loading)
     holds the backdrop for a reveal, then fades it out, so a page that
     declares the same backdrop meanwhile finds it running;

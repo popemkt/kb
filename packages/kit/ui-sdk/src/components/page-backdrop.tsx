@@ -404,10 +404,19 @@ function HostLayer({
     );
   const [element, setElement] = useState<HTMLDivElement | null>(null);
   const { leaving, enters, key } = layer;
+  // When it began to leave, and for how long: the layer's own, so the effect that shows its fade
+  // can be disconnected and run again (a page above the host suspends and shows again) and pick
+  // the fade up where it was rather than start it over.
+  const leftAt = useRef<{
+    readonly since: number;
+    readonly delay: number;
+    readonly theme: number;
+  } | null>(null);
   useLayoutEffect(() => {
     if (element === null) return undefined;
     const { theme, reveal } = readTiming();
     if (leaving === false) {
+      leftAt.current = null;
       if (!enters) return undefined;
       const fadeIn = element.animate([{ opacity: 0 }, { opacity: 1 }], {
         duration: theme * 1000,
@@ -422,19 +431,26 @@ function HostLayer({
       queueMicrotask(() => onGone(key));
       return undefined;
     }
-    const delay = leaving === "held" ? reveal : 0;
+    leftAt.current ??= {
+      since: performance.now(),
+      delay: (leaving === "held" ? reveal : 0) * 1000,
+      theme: theme * 1000,
+    };
+    const left = leftAt.current;
     const fadeOut = element.animate([{ opacity: 1 }, { opacity: 0 }], {
-      duration: theme * 1000,
-      delay: delay * 1000,
+      duration: left.theme,
+      delay: left.delay,
       easing: "ease-in-out",
       fill: "forwards",
     });
+    const elapsed = performance.now() - left.since;
+    fadeOut.currentTime = elapsed;
     // Cancelled when taken back, or when the host unmounts: nothing waits on its `finished`.
     fadeOut.finished.catch(() => undefined);
     // Gone when its time is up, by the clock rather than by the fade: an animation moves only
     // as frames are drawn, and a page whose frames stall (a busy GPU, a hidden tab) still lets
     // the scene it leaves go. Taken back, or the host unmounted, it is let be.
-    const timer = setTimeout(() => onGone(key), (delay + theme) * 1000);
+    const timer = setTimeout(() => onGone(key), Math.max(0, left.delay + left.theme - elapsed));
     return () => {
       clearTimeout(timer);
       fadeOut.cancel();

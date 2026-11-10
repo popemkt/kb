@@ -22,7 +22,7 @@
  * Three's renderer is the stand-in (`FAKE_WEBGPU`), so the scenes are real
  * and their frames are driven here.
  */
-import { act, createElement } from "react";
+import { Suspense, act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { BUNDLED_DECLARATIONS, BUNDLED_FAMILIES } from "@kb/bundled";
@@ -459,6 +459,47 @@ describe("a keystroke or an edit never restarts a page-head backdrop", () => {
       expect(fades.every((fade) => fade.playState !== "finished")).toBe(true);
       expect(layers("leaving")).toHaveLength(0);
       expect(gpu.live.has(lens as never)).toBe(false);
+      act(() => root.unmount());
+    });
+
+    it("lets the one it leaves go when its fade's time is up, though the page suspends meanwhile", async () => {
+      // A page above the host that suspends hides the host with it, and its effects are
+      // disconnected until the page shows again: the leaving layer's time runs on regardless.
+      const never = new Promise<never>(() => undefined);
+      function Waits({ wait }: { readonly wait: boolean }) {
+        if (wait) throw never;
+        return null;
+      }
+      const suspending = (at: string, wait: boolean) =>
+        createElement(
+          Suspense,
+          { fallback: null },
+          createElement(Pane, { at }),
+          createElement(Waits, { wait }),
+        );
+      useGraphStore.getState().hydrateFromWire(graphChoosing(LENS, BLACK_HOLE), 1, "fixtures");
+      gpu.last = null;
+      root = createRoot(container);
+      act(() => root.render(suspending(PAGE_A, false)));
+      await settle(container);
+      const lens = gpu.last;
+      expect(shownBackdrop()).toBe(LENS);
+      act(() => root.render(suspending(PAGE_OWN, false)));
+      await settle(container);
+      expect(layers("leaving")).toHaveLength(1);
+      // The page suspends and shows again, over and over, for three times the fade's length.
+      const fade = readTiming().theme * 1000;
+      const started = performance.now();
+      while (performance.now() - started < 3 * fade) {
+        act(() => root.render(suspending(PAGE_OWN, true)));
+        await act(() => new Promise((done) => setTimeout(done, fade / 3)));
+        act(() => root.render(suspending(PAGE_OWN, false)));
+        await act(() => new Promise((done) => setTimeout(done, fade / 3)));
+      }
+      await settle(container);
+      expect(layers("leaving")).toHaveLength(0);
+      expect(gpu.live.has(lens as never)).toBe(false);
+      expect(shownBackdrop()).toBe(BLACK_HOLE);
       act(() => root.unmount());
     });
 

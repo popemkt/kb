@@ -83,6 +83,32 @@ const clock = (page: Page) =>
     FRAME,
   );
 
+/** What the page shows of its layers, and whether its timers and frames run: what a failure reports. */
+async function described(): Promise<string> {
+  const layers = [...document.querySelectorAll<HTMLElement>("[data-backdrop-layer]")].map(
+    (layer) => ({
+      state: layer.dataset.backdropLayer,
+      backdrop: layer.querySelector<HTMLElement>("[data-backdrop]")?.dataset.backdrop,
+      fades: layer.getAnimations().map((fade) => [fade.playState, fade.currentTime]),
+    }),
+  );
+  const asked = performance.now();
+  const timerLate = await new Promise<number>((done) => {
+    setTimeout(() => done(performance.now() - asked - 50), 50);
+  });
+  const frameIn = await new Promise<number>((done) => {
+    const at = performance.now();
+    requestAnimationFrame(() => done(performance.now() - at));
+  });
+  return JSON.stringify({
+    layers,
+    visibility: document.visibilityState,
+    heads: document.querySelectorAll("[data-page-head-space]").length,
+    timerLate,
+    frameIn,
+  });
+}
+
 test.beforeEach(async ({ request }) => {
   await action(request, "node.update", {
     id: CORE,
@@ -144,7 +170,11 @@ test("a page that chooses another backdrop crossfades to it", async ({ page, har
   ).toHaveAttribute("data-backdrop", BLACK_HOLE);
   // Then, its time up, the one it left is let go, its canvas with it, however few frames the
   // page drew meanwhile (the page's own backdrop field shows its cards' canvases too).
-  await expect(leaving).toHaveCount(0, { timeout: 10_000 });
+  await expect(leaving)
+    .toHaveCount(0, { timeout: 10_000 })
+    .catch(async (error: unknown) => {
+      throw new Error(`${String(error)}\n${await page.evaluate(described)}`);
+    });
   await expect(page.locator(`${FRAME} [data-scene-state="ready"]`)).toBeAttached({
     timeout: 20_000,
   });
