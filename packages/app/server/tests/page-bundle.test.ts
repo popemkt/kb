@@ -110,7 +110,12 @@ const DATASCRIPT = /cljs\.core/;
 // on: the same tree measures 1,810,346 eager bytes from ~/Projects/… and from
 // /tmp/…, and the budget keeps about 1.5 KB of headroom over it. A raise from
 // here is a production measurement.
-const EAGER_BUDGET_BYTES = 1_811_900;
+// Days' period tag settings and the day page's sections point measure
+// 1,812,739: the two settings and their guard, which the page folds and
+// loads, and the point's declaration with days' sections' lazy loaders
+// (their bodies are chunks of their own), measured with both sections. The budget keeps about 1.5 KB
+// of headroom over it.
+const EAGER_BUDGET_BYTES = 1_814_200;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

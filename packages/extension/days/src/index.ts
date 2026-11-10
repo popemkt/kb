@@ -13,3 +13,4 @@ export {
   periodTagOf,
   periodTagRefusal,
 } from "./period-tag.ts";
+export { DAYS_POINT_DEFINITIONS } from "./point-definitions.ts";

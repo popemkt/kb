@@ -5414,6 +5414,10 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
   Another family may claim the role the same way (an inbox, say). The
   server's `node.add` without a parent does not ask it yet (GAP
   [[01M7357PSG9XZH0JBFDHV6DM2T]]).
+- **The day page's sections are a declared point,** `days.sections` (page
+  kernel, a list in ascending order). Days fills its own, and a family that
+  shows something on a day contributes a section rather than days
+  importing it.
 - **No month nodes yet.** A month is not on the path to a day, and no view
   reads one, so the family seeds no `#month` until one does.
 

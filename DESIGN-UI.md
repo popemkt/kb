@@ -3963,10 +3963,17 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
 - **The day page** is `#day`'s default view (`days.day`, a tag view, so a
   day opens in it at `/node/<id>` and a person may choose another there).
   It draws the day's own outline, with its title, fields and children, then
-  **Made or edited this day**: the nodes whose created or updated instant
-  falls within the local day, newest first. Schema, the period nodes and
-  `sys.*` nodes are left out. Each row opens its node. The page is its own
-  chunk, fetched the first time a day opens.
+  the **sections** contributed to the family's declared point
+  `days.sections`, in ascending `order`. A section is `{order, title,
+  Component}`, and its component is given the day node and its key. Days
+  never imports a family that shows something on a day; that family
+  contributes a section (the events section is one). Days fills:
+  - **Made or edited this day** (`order: 30`): the nodes whose created or
+    updated instant falls within the local day, newest first. Schema, the
+    period nodes and `sys.*` nodes are left out.
+
+  Each row opens its node. The page is its own chunk, fetched the first
+  time a day opens, and each section's body is one too.
 - **The Today row** sits under Home in the sidebar (`order: 5`) and opens
   today's node, making it if need be. It is the active row while today's
   node is open.

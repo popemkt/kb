@@ -1,7 +1,7 @@
 import { lazy } from "react";
 import { Effect } from "effect";
 import { familyTags } from "@kb/contracts";
-import { DAYS_IDS, DayView, daysExtension, daysPlugin } from "@kb/days";
+import { DAYS_IDS, DAYS_POINT_DEFINITIONS, DayView, daysExtension, daysPlugin } from "@kb/days";
 import { refValuesOf } from "@kb/model";
 import { definePlugin } from "@kb/plugin";
 import {
@@ -15,6 +15,7 @@ import {
   ViewPoint,
 } from "@kb/ui-sdk";
 import { goToTodayCommand } from "./command";
+import { DaySectionPoint } from "./sections";
 import { TodaySection } from "./section";
 import { todayNode } from "./today";
 
@@ -24,6 +25,29 @@ import { todayNode } from "./today";
  * its Today row, its command and its role answers.
  */
 const DayPage = lazy(() => import("./day-page").then((m) => ({ default: m.DayPage })));
+
+/**
+ * The day page's sections point, and the section days fills (DESIGN-UI.md
+ * → Days): what was made or edited on the day. A section's body is a chunk
+ * of its own, fetched with the page.
+ */
+const daySectionsPlugin = definePlugin({
+  name: "day-sections",
+  apply: (ctx) =>
+    Effect.gen(function* () {
+      const point = yield* ctx.declare(DaySectionPoint, DAYS_POINT_DEFINITIONS.sections.spec);
+      yield* ctx.contribute(point, {
+        id: "touched",
+        value: {
+          order: 30,
+          title: "Made or edited this day",
+          Component: lazy(() =>
+            import("./touched-section").then((m) => ({ default: m.TouchedSection })),
+          ),
+        },
+      });
+    }),
+});
 
 /**
  * Where a page that loads at the root opens (DESIGN-UI.md → Days): today's
@@ -39,8 +63,8 @@ async function landOnToday(): Promise<string | null> {
 /**
  * The days family's page entry (DESIGN-UI.md → Days). It loads the family's
  * plugin as a child, so the day page's key, `ext.days.today` and the
- * one-node-per-key guard are the page kernel's too, and adds the day page,
- * the Today row, ⌘K "Go to today", and its replacements of the capture
+ * one-node-per-key guard are the page kernel's too, and adds the day page
+ * with its sections point, the Today row, ⌘K "Go to today", and its replacements of the capture
  * target and the landing: today's node.
  */
 export const daysUiPlugin = definePlugin({
@@ -51,6 +75,7 @@ export const daysUiPlugin = definePlugin({
     Effect.all(
       [
         ctx.plugin(daysPlugin()),
+        ctx.plugin(daySectionsPlugin),
         ctx.contribute(
           ViewPoint,
           provideView(DayView, { placements: ["page"], sample: {}, Component: DayPage }),
