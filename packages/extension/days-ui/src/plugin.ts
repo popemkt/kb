@@ -1,3 +1,4 @@
+import { lazy } from "react";
 import { Effect } from "effect";
 import { familyTags } from "@kb/contracts";
 import { DAYS_IDS, DayView, daysExtension, daysPlugin } from "@kb/days";
@@ -14,9 +15,15 @@ import {
   ViewPoint,
 } from "@kb/ui-sdk";
 import { goToTodayCommand } from "./command";
-import { DayPage } from "./day-page";
 import { TodaySection } from "./section";
 import { todayNode } from "./today";
+
+/**
+ * The day page, in a chunk of its own: the page fetches it the first time a
+ * day opens, so what every visit loads keeps only the family's declaration,
+ * its Today row, its command and its role answers.
+ */
+const DayPage = lazy(() => import("./day-page").then((m) => ({ default: m.DayPage })));
 
 /**
  * Where a page that loads at the root opens (DESIGN-UI.md → Days): today's
