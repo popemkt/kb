@@ -3819,18 +3819,35 @@ the page adds no storage of its own.
   instances do not move. A click on an empty slot opens the editor on a
   half-hour draft there, and a drag sets its length. Nothing is created
   until Save.
-- **The editor.** Title, date, time or all day, duration, the repeat
-  (presets read back from the rule, a custom frequency, interval, weekdays
-  and monthly by day or weekday, ends never, on a day or after a count, and
-  the raw rule) and the calendar. It also shows the routine's sync state,
-  Open in Google Calendar and Sync now. A draft the engine could not send
-  is said before Save.
+- **The week is one grid.** The day header, the all-day row and the hours
+  are rows of one column template inside one scroller, the first two held
+  at the top, so a scrollbar narrows every row alike. The grid opens a
+  little above its first hour so that hour's label is drawn whole.
+- **The editor.** Title, the day (a button that opens a month: arrows move
+  a day or a week, Page Up and Page Down a month, Enter picks), All day as
+  a switch, and start and end times typed ("930", "9:30pm") or picked from
+  a quarter-hour list, the end's list starting after the start and saying
+  how long each would last; moving the start keeps the length. Then the
+  repeat (presets read back from the rule, a custom frequency, interval,
+  weekdays and monthly by day or weekday, ends never, on a day or after a
+  count, and the raw rule, said in words below its choice when the choice
+  does not already say it) and the calendar, and for a routine its sync
+  state, Open in Google Calendar and Sync now. What stops Save is said in
+  words, one problem at a time: no day, a time that isn't one yet, an end
+  at the start, a repeat that ends before it starts, a rule the engine
+  could not send. Enter in a field saves, Ctrl or ⌘+Enter saves from
+  anywhere, Escape closes the picker on top and then the editor, and Tab
+  stays inside it. New and `c` start today at the next half hour when
+  today is shown, else at nine on the day shown, for half an hour. The
+  instance popover's Move this one uses the same day and time fields.
 - **Sync status.** Every instance carries a dot for its routine's status,
   or its occurrence's own when it has one: synced, pending or error, with
   the message as its tooltip. A calendar in preview or paused says it is not
-  sent. The toolbar's Sync now (`ext.routines.sync`) carries the worst state
-  showing, beside Sync services; with no account yet the toolbar offers
-  Set up sync instead.
+  sent. The toolbar groups its controls: Today and the steps, the title,
+  the layouts, then sync, then New, all one height. Sync's group reads the
+  worst state showing as text with its dot (a status, not a button), beside
+  Sync now (`ext.routines.sync`) and Sync services as icon buttons; with no
+  account yet it offers Set up sync instead.
 - **Time zones.** Instances are drawn on the browser's clock, and a drop is
   converted back to the routine's zone, so a routine in Berlin dragged on a
   page in Ho Chi Minh City keeps its meaning. Across a DST change a
@@ -3848,13 +3865,14 @@ the page adds no storage of its own.
 `/calendar/sync` (`RoutinesSyncView`) lists the `#google-account` nodes as
 sync services, each with its state, and Add sync service opens a provider
 picker (Google is the one provider). Picking one adds an account node and
-opens its setup at `/calendar/sync/<account>`: a wizard of seven numbered
+opens its setup at `/calendar/sync/<account>`: a wizard of eight numbered
 steps with a progress bar, a vertical list beside the step on a wide screen
 and a horizontal one above it on a narrow one.
 
 - **Where a person is, is the account's own data.** The project id
   (`google project`) and the steps confirmed by hand (`setup done`, options
-  project, apis, branding and audience) are fields of the account node;
+  project, apis, branding, domain and audience, and `existing` for a
+  project the person already had) are fields of the account node;
   the rest is read from what is there: the client is set when its two
   references are, connect is done when the account's status is synced, and
   calendars when one linked calendar is provisioned with sync on
@@ -3862,6 +3880,16 @@ and a horizontal one above it on a narrow one.
   wizard opens at the first step not done, so leaving and coming back
   resumes, and a later step stays shut until the ones before it are done.
   Changing the project takes back what was confirmed for the old one.
+  One confirmation can vouch for others (`COVERS` in `setup.ts`, the one
+  table): a publish counts the Branding page step (`domain`) done, so an
+  account confirmed past it before the step existed keeps its place, and
+  `existing` counts every step up to the client done.
+- **Two paths, one wizard.** Step 1 offers a new project or one the person
+  already has, with the Calendar API on, its app published and a Web
+  client. Choosing the second names the project and confirms `existing`,
+  so the wizard resumes at the client step, which then asks for kb's
+  redirect URI on that client instead of a new one. Choosing a new project
+  again takes `existing` back.
 - **Each step links to the Console page it needs**, with the project
   chosen (`?project=`), and says what the person will see there. Where kb
   can check a step, it does: the client step shows the exact redirect URI

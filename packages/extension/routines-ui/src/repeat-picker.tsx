@@ -8,6 +8,7 @@
 import { useId, useState } from "react";
 import {
   canonicalRule,
+  describeRepeat,
   FREQUENCIES,
   readRepeat,
   repeatPresets,
@@ -250,6 +251,9 @@ export function RepeatPicker({
   const repeat = readRepeat(value.rrule, starts);
   const choice = custom ? "custom" : presetOf(value.rrule, starts);
   const presets = repeatPresets(starts);
+  // What the rule does in words, said only when the option chosen does not already say it.
+  const summary = describeRepeat(value.rrule, value.until, starts === "" ? "1970-01-01" : starts);
+  const said = presets.find((preset) => preset.id === choice)?.label;
   return (
     <div className="flex flex-col gap-2">
       <select
@@ -281,6 +285,11 @@ export function RepeatPicker({
         ))}
         <option value="custom">Custom…</option>
       </select>
+      {summary === said ? null : (
+        <p className="text-meta text-muted-foreground" data-repeat-summary="">
+          {summary}
+        </p>
+      )}
       {choice === "custom" && repeat !== null ? (
         <CustomRepeat
           repeat={repeat}

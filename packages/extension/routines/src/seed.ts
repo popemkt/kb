@@ -51,8 +51,17 @@ const fields = {
   clientSecret: field("client secret", "secret"),
   refreshToken: field("refresh token", "secret"),
   project: field("google project", "text"),
-  /** The setup steps a person confirmed by hand: kb cannot see them in Google before it connects. */
-  setup: field("setup done", "ref", ["project", "apis", "branding", "audience"], false),
+  /**
+   * What a person confirmed by hand about their setup, which kb cannot see in
+   * Google before it connects: the steps done, or `existing`, a project they
+   * already had, set up and published.
+   */
+  setup: field(
+    "setup done",
+    "ref",
+    ["project", "apis", "branding", "domain", "audience", "existing"],
+    false,
+  ),
 };
 export type RoutineField = keyof typeof fields;
 export type RoutineOption<K extends RoutineField> = (typeof fields)[K]["options"][number];

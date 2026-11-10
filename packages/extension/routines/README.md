@@ -16,7 +16,10 @@ ordinary outline fields and `ext.routines.*` actions work as well.
 Setup is a wizard in the page: **Calendar → Set up sync** (or **Sync services**),
 **Add sync service → Google** ([DESIGN-UI.md → Sync services](../../../DESIGN-UI.md#sync-services)).
 Every step links to the Google Cloud Console page it needs, with your project
-already chosen, and says what you will see there. In short:
+already chosen, and says what you will see there. A project you already have,
+with the Calendar API on, its app published and a Web OAuth client, skips
+steps 2–5: name it in step 1, then add kb's redirect URI to that client in
+step 6. A new project goes the whole way; in short:
 
 1. **Project.** Create your own Google Cloud project (never shared
    credentials). When `gcloud` is signed in on kb's host, the wizard offers to
@@ -24,21 +27,26 @@ already chosen, and says what you will see there. In short:
 2. **Calendar API.** Enable the Google Calendar API on it.
 3. **Consent screen.** Google Auth platform → Get started: app name, your
    email, audience **External**.
-4. **Publish.** Audience → **Publish app**, so the status reads **In
+4. **Branding.** Google Auth platform → Branding: fill the application home
+   page, privacy policy link and terms of service link, and list their
+   domain under **Authorized domains**; leave the logo empty, since an
+   uploaded logo sends the app to verification. The pages must be public on
+   one domain (a tailnet address won't do); the wizard offers text for them.
+5. **Publish.** Audience → **Publish app**, so the status reads **In
    production**. In Testing, Google ends the connection after seven days.
    An app only you use stays unverified; Google's warning at sign-in is
    expected.
-5. **OAuth client.** Clients → Create client, type **Web application**, with
+6. **OAuth client.** Clients → Create client, type **Web application**, with
    the **Authorized redirect URI** the wizard shows
    (`<public origin>/calendar/connect`; start kb with
    `kb ui --public-origin https://<your-kb-host>` so it is the address you
    open kb at). Paste the client ID and secret into the wizard, which checks
    them with Google before keeping them.
-6. **Connect.** Connect with Google: you approve kb's binding on this host,
+7. **Connect.** Connect with Google: you approve kb's binding on this host,
    sign in with the right account, and Google sends you back to kb with a
    refresh token kept on the host. kb asks only for
    `https://www.googleapis.com/auth/calendar.app.created`.
-7. **Calendars.** Pick kb calendars to sync (or name a new one). Each gets its
+8. **Calendars.** Pick kb calendars to sync (or name a new one). Each gets its
    own new **kb routines** Google calendar; kb never adopts an existing
    personal calendar. Their sync is switched on.
 
