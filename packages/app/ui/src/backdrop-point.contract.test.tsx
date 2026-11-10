@@ -526,16 +526,8 @@ describe("every contributed page-head backdrop", () => {
   describe("as the owner works", () => {
     let container: HTMLElement;
     let root: Root;
-    const g = globalThis as Record<string, unknown>;
-    const resizes = g.ResizeObserver;
 
     beforeAll(() => {
-      // The head's slot watches its space's size; a test DOM lays nothing out, so nothing resizes.
-      g.ResizeObserver ??= class {
-        observe() {}
-        unobserve() {}
-        disconnect() {}
-      };
       useGraphStore
         .getState()
         .hydrateFromWire(graphWith(settingsOf(PLAIN_KEY.id, "soft", "down")), 1, "fixtures");
@@ -547,7 +539,6 @@ describe("every contributed page-head backdrop", () => {
     afterAll(() => {
       act(() => root.unmount());
       container.remove();
-      g.ResizeObserver = resizes;
     });
 
     const shown = () => container.querySelector("[data-plain]");

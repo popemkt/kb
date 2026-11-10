@@ -188,6 +188,7 @@ export function PageBackdrop({
     let box = boxIn(space, region);
     let withdraw = declare({ color, node, choice, box });
     // The space or the region resized: the head is declared again where it now lies.
+    if (typeof ResizeObserver === "undefined") return () => withdraw();
     const observer = new ResizeObserver(() => {
       const next = boxIn(space, region);
       if (sameBox(next, box)) return;
