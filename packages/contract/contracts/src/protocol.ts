@@ -192,7 +192,10 @@ export const ServerMessageSchema = z.discriminatedUnion("op", [
     /**
      * The transaction moved the virtual set (the log's `VIRTUAL_ORIGIN`):
      * its upserts are virtual nodes and its deletes leave that set, so a
-     * client keeps them out of its store. Absent on every other frame.
+     * client keeps them out of its store. It names only ids the server's
+     * index holds, or held, as virtual: a stored node keeps its id against
+     * a virtual one, so a frame never touches a stored node. Absent on
+     * every other frame.
      */
     virtual: z.literal(true).optional(),
   }),
