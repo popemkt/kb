@@ -38,7 +38,7 @@ const SERVED_AT = EXAMPLE_SERVED_AT;
  * drawings, its section, its keys, its node command, its picker step and its
  * backdrop.
  */
-const FOOTPRINT = 12;
+const FOOTPRINT = 13;
 
 /** Where the server says the half is: the example's, or bytes that throw as they are imported. */
 let servedAt = SERVED_AT;
@@ -113,6 +113,7 @@ describe("a repository extension's page half (acceptance)", () => {
       ["ui.keybindings", "example.move-up"],
       ["ui.keybindings", "example.move-up-selected"],
       ["ui.keybindings", "example.stamp"],
+      ["ui.keybindings", "example.unrate"],
       ["ui.backdrops", "example.glow"],
     ]);
   });
