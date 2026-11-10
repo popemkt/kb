@@ -326,13 +326,13 @@ describe("creating", () => {
     expect(valueOf('select[aria-label="Repeat"]')).toBe("custom");
     expect($("[data-repeat-summary]").textContent).toBe("Every week on Mon, Wed");
   });
-  test("a routine ending at midnight lasts to midnight on its day; one past midnight ends the next day", async () => {
+  test("a routine ending at midnight ends the next day, and is drawn on the day it starts", async () => {
     open("/calendar/week/2026-11-02", [CALENDAR]);
     await click(button("New"));
     fill("Title", "Late call");
     fill("Starts", "23:30");
     expect(valueOf('[aria-label="Ends"]')).toBe("00:00");
-    expect($("[data-routine-length]").textContent).toBe("30 min");
+    expect($("[data-routine-length]").textContent).toBe("30 min, ends the next day");
     fill("Ends", "00:30");
     expect($("[data-routine-length]").textContent).toBe("1 h, ends the next day");
     fill("Ends", "00:00");

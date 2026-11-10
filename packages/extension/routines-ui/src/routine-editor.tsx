@@ -184,7 +184,8 @@ function WhenFields({
   // The time it had before All day, given back when All day is switched off.
   const [lastAt, setLastAt] = useState(allDay ? "09:00" : settings.at);
   const ends = allDay ? "" : clockOf(minutesOf(settings.at) + settings.duration);
-  const nextDay = !allDay && minutesOf(settings.at) + settings.duration > DAY_MINUTES;
+  // An end at 00:00 is the next day's midnight, so it ends the next day too.
+  const nextDay = !allDay && minutesOf(settings.at) + settings.duration >= DAY_MINUTES;
   return (
     <div className="flex flex-col gap-2" data-routine-when="">
       <div className="flex flex-wrap items-end gap-3">
