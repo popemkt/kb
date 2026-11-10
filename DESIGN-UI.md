@@ -3946,10 +3946,9 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
   family can contribute to (GAP [[01M6Y9H6R5D9Y8TQKZJZVWX8PB]]).
 - **Opening on today.** The family's setting `open on` (`sys.f.days.openOn`:
   `today` or `home`; empty reads as `today`) decides where a page that
-  loads at the root, with nothing in its URL, goes. With `today` it replaces
-  the history entry with today's node, so Back leaves kb rather than
-  returning to Home. It applies once per page load, never when the family
-  is switched on later.
+  loads at the root, with nothing in its URL, goes. With `today` it opens
+  today's node, making it if need be. It applies once per page load, never
+  when the family is switched on later.
 - **The capture target's provider** answers today's node through
   `ext.days.today`, with the page's local day. ⌘K "Add node" with nothing
   selected and a picker's "create" row for a new top-level node both go

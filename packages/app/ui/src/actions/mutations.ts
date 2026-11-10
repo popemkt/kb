@@ -41,6 +41,7 @@ import {
   SYSTEM_IDS,
   toast,
   WORKSPACE_ROOT_ID,
+  captureTarget,
 } from "@kb/ui-sdk";
 
 /** `asset.upload` answers with the repo-relative path it stored the bytes at. */
@@ -162,7 +163,10 @@ export const mutations: PageWrites = {
 
   async captureNode(text: string, newId?: string): Promise<boolean> {
     const id = newId ?? ulid();
-    return applyPlan(planAddRootNode(text, id));
+    const parent = await captureTarget();
+    return applyPlan(
+      parent === null ? planAddRootNode(text, id) : planAddChild(wire(), parent, id, text),
+    );
   },
 
   async addChildNode(parentId: string, text: string, newId?: string): Promise<boolean> {

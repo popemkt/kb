@@ -16,6 +16,8 @@
  * repository extension's is its closure's page half, which the server
  * serves at the path its row names, imported beside them.
  */
+import { daysExtension } from "@kb/days";
+import { daysUiPlugin } from "@kb/days-ui";
 import { decodeExtensionPlugin } from "@kb/ext-sdk";
 import * as React from "react";
 import * as jsxRuntime from "react/jsx-runtime";
@@ -194,6 +196,7 @@ const browserEntries: Readonly<Record<string, BrowserExtension | null>> = {
     load: () => import("@kb/gallery-ui").then(({ galleryUiPlugin }) => galleryUiPlugin),
   },
   [agentExtension.name]: { load: loadAgentEntry },
+  [daysExtension.name]: { load: () => Promise.resolve(daysUiPlugin) },
 };
 
 /** Bundled admission binds the owner's role grants at the composition boundary. */

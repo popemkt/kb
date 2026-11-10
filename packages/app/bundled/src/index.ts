@@ -29,6 +29,7 @@ import { galleryExtension } from "@kb/gallery";
 import { governanceExtension } from "@kb/governance";
 import { graphExtension } from "@kb/graph";
 import { labExtension } from "@kb/lab";
+import { daysExtension } from "@kb/days";
 import { locationsExtension } from "@kb/locations";
 import { extensionNodeId, foldSeed, type FoldedSeed, type KbNode, type NodeId } from "@kb/model";
 import { coreExtension } from "@kb/operations";
@@ -62,6 +63,7 @@ export const BUNDLED_FAMILIES: readonly ExtensionDeclaration[] = [
   transistorExtension,
   yorhaExtension,
   galleryExtension,
+  daysExtension,
 ];
 
 /**

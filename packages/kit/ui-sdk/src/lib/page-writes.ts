@@ -20,7 +20,8 @@ export interface PageWrites {
   readonly createNodeAfter: (afterId: string) => Promise<void>;
   /**
    * Add a node made with no chosen place (⌘K "Add node" with nothing
-   * selected, a picker's new top-level target): it goes at the top level.
+   * selected, a picker's new top-level target): it goes under the capture
+   * target (`captureTarget`), the top level when no family provides one.
    */
   readonly captureNode: (text: string, newId?: string) => Promise<boolean>;
   readonly addChildNode: (parentId: string, text: string, newId?: string) => Promise<boolean>;

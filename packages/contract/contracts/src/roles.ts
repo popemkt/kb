@@ -15,6 +15,17 @@ export const FIELD_EDITOR_ROLE = {
   spec: { kernel: "page", tier: "T3", replaceable: true },
 } as const satisfies ProviderRole;
 
+/**
+ * Where a node made with no chosen place goes (DESIGN.md → Days): a page
+ * service answering the parent's id, or null for the top level. The days
+ * family owns it and answers with today's node.
+ */
+export const CAPTURE_TARGET_ROLE = {
+  role: "ui.capture-target",
+  label: "Capture target",
+  spec: { kernel: "page", tier: "T3", replaceable: true },
+} as const satisfies ProviderRole;
+
 /** Bundled composition grants its declaration's defaults; the provider cannot grant itself a role. */
 export function bundledPlugin(declaration: ExtensionDeclaration, plugin: Plugin): Plugin {
   const manifest =
