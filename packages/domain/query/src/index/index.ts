@@ -72,6 +72,14 @@ export interface NodeIndex {
    */
   storedNodes(): Array<KbNode>;
 
+  /**
+   * Whether `id` is one of the index's virtual nodes: served from a source
+   * that is not the store (a saved query's `.edn`), which a stored node of
+   * the same id would shadow. The commit refuses a person's write to one
+   * for that reason.
+   */
+  isVirtual(id: NodeId): boolean;
+
   /** Case-insensitive substring scan over node text, sorted by id. */
   search(text: string, limit?: number): Array<KbNode>;
 

@@ -640,20 +640,18 @@ describe("cli e2e (tmpdir)", () => {
     expect(JSON.parse(broken.stdout).code).toBe("invalid_input");
   });
 
-  test("mv / add under a sys.* parent require --force", async () => {
+  test("mv / add under a sys.* parent are a person's; minting a sys.* id requires --force", async () => {
     await kb(["init"]);
-    const add = await kb(["add", "victim"]);
+    const add = await kb(["add", "mine"]);
     expect(add.code).toBe(0);
-    const victimId = JSON.parse(add.stdout).output.id as string;
+    const mineId = JSON.parse(add.stdout).output.id as string;
 
-    const blockedMv = await kb(["mv", victimId, "sys.tag"]);
-    expect(blockedMv.code).toBe(1);
-    expect(JSON.parse(blockedMv.stdout).code).toBe("forbidden");
+    expect((await kb(["mv", mineId, "sys.tag"])).code).toBe(0);
+    expect((await kb(["add", "also mine", "--parent", "sys.tag"])).code).toBe(0);
 
-    const blockedAdd = await kb(["add", "evil", "--parent", "sys.tag"]);
-    expect(blockedAdd.code).toBe(1);
-    expect(JSON.parse(blockedAdd.stdout).code).toBe("forbidden");
-
+    const blockedMint = await kb(["add", "minted", "--id", "sys.evil"]);
+    expect(blockedMint.code).toBe(1);
+    expect(JSON.parse(blockedMint.stdout).code).toBe("forbidden");
     const forcedAdd = await kb(["add", "minted", "--id", "sys.evil", "--force"]);
     expect(forcedAdd.code).toBe(0);
   });

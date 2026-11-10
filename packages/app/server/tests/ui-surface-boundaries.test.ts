@@ -389,7 +389,7 @@ describe("ui http boundary", () => {
     expect(receipt.code).toBe("invalid_input");
   });
 
-  test("POST /api/action node.add under a sys.* parent is forbidden", async () => {
+  test("POST /api/action node.add minting a sys.* id is forbidden", async () => {
     const root = await mkdtemp(join(tmpdir(), "kb-ui-http-sys-"));
     await mkdir(join(root, ".kb", "queries"), { recursive: true });
     const ctx = await openKb(root);
@@ -401,7 +401,7 @@ describe("ui http boundary", () => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           id: "node.add",
-          input: { text: "evil", parent: "sys.tag" },
+          input: { text: "evil", id: "sys.evil" },
         }),
       }),
       HTTP_WIRE,

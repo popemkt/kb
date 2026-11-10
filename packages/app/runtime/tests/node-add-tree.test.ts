@@ -234,13 +234,15 @@ describe("node.addTree", () => {
     expect(large.reads()).toBe(small.reads());
   });
 
-  test("a sys.* parent needs force, as node.add's does", async () => {
+  test("a sys.* parent takes a person's outline, as node.add's does", async () => {
     const { ctx } = await session();
-    const refused = await invoke(ctx, {
+    const filed = await invoke(ctx, {
       id: "node.addTree",
       input: { outline: "- a", parent: "sys.tag" },
     });
-    expect(refused).toMatchObject({ status: "failed", code: "forbidden", details: { line: 1 } });
+    expect(filed).toMatchObject({ status: "succeeded" });
+    const [a] = ctx.nodes.find((n) => n.id === "sys.tag")?.children ?? [];
+    expect(ctx.nodes.find((n) => n.id === a)?.text).toBe("a");
   });
 
   test("an outline with no items is refused", async () => {

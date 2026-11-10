@@ -119,6 +119,10 @@ export class NodeTable implements NodeIndex {
     return this.#nodes.values();
   }
 
+  isVirtual(id: NodeId): boolean {
+    return this.#virtualIds.has(id);
+  }
+
   /** The virtual nodes still standing: those no stored node has since taken the id of. */
   virtualNodes(): readonly KbNode[] {
     return this.#virtual;

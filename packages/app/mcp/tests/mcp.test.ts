@@ -218,7 +218,7 @@ describe("MCP surface", () => {
     await server.close();
   });
 
-  test("node_add under a sys.* parent returns isError forbidden", async () => {
+  test("node_add minting a sys.* id returns isError forbidden", async () => {
     const server = await run(createMcpServer(root));
     const client = new Client({ name: "kb-mcp-test", version: "0.0.0" });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -226,7 +226,7 @@ describe("MCP surface", () => {
 
     const result = await client.callTool({
       name: "node_add",
-      arguments: { text: "evil", parent: "sys.tag" },
+      arguments: { text: "evil", id: "sys.evil" },
     });
     expect(result.isError).toBe(true);
     const text = present(

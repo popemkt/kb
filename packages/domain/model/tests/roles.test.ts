@@ -41,7 +41,8 @@ test("the owner seeds an ordinary role node, and its provider is an ordinary wri
       ({ field }) => field === SYSTEM_IDS.providerField,
     ),
   ).toBe(true);
-  expect(
-    systemWriteRefusal(chosen, { ...chosen, text: "take over" }, (id) => nodes.get(id)),
-  ).toMatch(/write-protected/);
+  // Its label is the person's; its kind, like any field that is not a setting, its owner's.
+  expect(systemWriteRefusal(chosen, { ...chosen, text: "Mine" }, (id) => nodes.get(id))).toBeNull();
+  const untyped = { ...chosen, props: { ...chosen.props, [SYSTEM_IDS.typeField]: [] } };
+  expect(systemWriteRefusal(chosen, untyped, (id) => nodes.get(id))).toMatch(/owner's to write/);
 });

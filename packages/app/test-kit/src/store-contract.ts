@@ -58,6 +58,7 @@ import {
   familyViewOrderOnOpening,
   goldenSeedOpensUnwritten,
   openingNeverWrites,
+  personEditsToSeededNodesSurviveOpening,
   providerRolesReachEarlierStoreOnce,
   unfoldedSeedNodesSurviveOpening,
   viewTypeOrderSurvivesOpening,
@@ -237,6 +238,11 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
   [
     "opening keeps seed nodes no bundled family declares: nothing deleted, nothing rewritten",
     unfoldedSeedNodesSurviveOpening,
+  ],
+  [
+    "a person's label, child and template field on seeded nodes commit without force and " +
+      "survive every later open, which writes nothing",
+    personEditsToSeededNodesSurviveOpening,
   ],
   [
     "a node created without a rank gets one from the one owner, and a reopen keeps it",

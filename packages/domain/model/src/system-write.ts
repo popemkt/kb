@@ -1,20 +1,36 @@
 /**
  * Which writes to a system node are a person's to make (DESIGN.md → Data
- * model → write protection, Extension families → configuration).
+ * model → write protection; AGENTS.md → Data-plane freedom).
  *
- * A `sys.*` node is seeded and code reads its shape, so it is written only
- * with `force`, with one exception the graph itself declares: a system field
- * that carries `sys.f.configures`, a ref to an extension's node, to their
- * list `sys.extensions` (every one of them), or to a kind (`sys.tag`: every
- * tag), is a setting of what it names, and its
- * values there are written like any field's values on any node. The field must itself be a system field: only the
- * owner's `force` mints or retargets one, so a field anyone may add cannot
- * declare itself a setting of a node it does not own. Nothing else of a
- * system node is a person's to write: not its text, its children, its rank,
- * nor a field that does not configure it. The switch
- * (`sys.f.extension.enabled`, which configures every extension's node) is a
- * setting like any other, and `extension.switch` writes it through the same
- * rule.
+ * A `sys.*` node is seeded, and its owner's code reads its id and what it
+ * ships: the ids its seeded lists hold, in order. That is all the rule
+ * keeps. Ownership follows the id, so the rule needs no record of what was
+ * seeded: a `sys.*` id in a seeded node's list is its owner's, and any other
+ * id there is a person's.
+ *
+ * - **Its text is the person's.** A label is cosmetic; code names the node by
+ *   its id, and the seed keeps an edited label on every open.
+ * - **Its lists are additive.** Its children and its tag's template
+ *   ({@link ADDITIVE_FIELDS}) take a person's ids anywhere among the
+ *   seeded ones, and give them back, as long as every `sys.*` id the list
+ *   held stays, in the order it held them ({@link keepsSeeded}).
+ * - **Its settings are the person's.** A system field that carries
+ *   `sys.f.configures`, naming the node, their list `sys.extensions` (every
+ *   extension's node) or a kind the node is (`sys.tag`: every tag), is a
+ *   setting of it, written like any field's values on any node. The field
+ *   must itself be a system field: only the owner's `force` mints or
+ *   retargets one, so a field anyone may add cannot declare itself a setting
+ *   of a node it does not own. The switch (`sys.f.extension.enabled`) is a
+ *   setting like any other, and `extension.switch` writes it through the
+ *   same rule.
+ * - **The rest is its owner's.** Minting or deleting a system node, its rank
+ *   and creation stamp, and the values of any other field are written only
+ *   with `force`.
+ *
+ * The rule is actor-neutral: "a person" is whoever makes the call, so an
+ * agent over MCP or HTTP, a family's action and a reaction write under it
+ * as the page does. It says only what the commit refuses; the guards,
+ * intercepts and approvals a call passes through apply as they did.
  *
  * One statement for every surface. The commit refuses a transaction that
  * breaks it ({@link systemTxRefusal}, read by `persistEffect` in
@@ -89,11 +105,40 @@ export function isWritableField(
 }
 
 /**
+ * The fields whose values on a system node are a list a person may add to
+ * ({@link keepsSeeded}): a tag's template, `sys.f.fields`. A node's
+ * children are the other such list.
+ */
+const ADDITIVE_FIELDS: ReadonlySet<NodeId> = new Set([SYSTEM_IDS.fieldsField]);
+
+/**
+ * Whether `next` keeps what `before` ships: every system id `before` holds,
+ * in the order it holds them. Every other id is a person's, added, moved
+ * or taken back as they like.
+ */
+function keepsSeeded(before: readonly NodeId[], next: readonly NodeId[]): boolean {
+  const shipped = before.filter(isSysPrefixed);
+  const kept = next.filter(isSysPrefixed);
+  return shipped.length === kept.length && shipped.every((id, at) => kept[at] === id);
+}
+
+/** The node ids `values` hold: what an additive field's list is made of. */
+const idsOf = (values: KbNode["props"][string] | undefined): NodeId[] =>
+  (values ?? []).flatMap((value) => (value.t === "ref" ? [value.v] : []));
+
+/** A refusal of a system node's write: what is its owner's, and how its owner overrides. */
+const refused = (sentence: string) => `${sentence} (use force to override)`;
+
+/** What a refused list keeps, and what a person may do with it. */
+const KEEPS = "its owner seeded, in their order: a person's may be added, moved or removed";
+
+/**
  * Why writing `next` over `before` (the node as the graph holds it now,
  * absent for a new one) is not a person's to make without force, or null
  * when it is. A node that is not a system node is always theirs. A system
- * node may change only in the values of fields that configure it, as
- * `fieldOf` reads those fields; minting one is never a person's write.
+ * node takes a new text, a person's ids in its additive lists, and the
+ * values of the fields that configure it, as `fieldOf` reads those fields;
+ * minting one is never a person's write.
  */
 export function systemWriteRefusal(
   before: KbNode | undefined,
@@ -101,18 +146,20 @@ export function systemWriteRefusal(
   fieldOf: NodeOf,
 ): string | null {
   if (!isSysPrefixed(next.id)) return null;
-  const protectedWrite = `sys.* nodes are write-protected (use force to override): ${next.id}`;
-  if (before === undefined) return protectedWrite;
-  if (
-    before.text !== next.text ||
-    before.order !== next.order ||
-    before.createdAt !== next.createdAt ||
-    JSON.stringify(before.children) !== JSON.stringify(next.children)
-  ) {
-    return protectedWrite;
-  }
+  const id = next.id;
+  if (before === undefined)
+    return refused(`${id} is a system id, which only its owner's seed mints`);
+  if (before.order !== next.order) return refused(`${id} keeps the rank its owner gave it`);
+  if (before.createdAt !== next.createdAt) return refused(`${id} keeps its creation stamp`);
+  if (!keepsSeeded(before.children, next.children))
+    return refused(`${id} keeps the children ${KEEPS}`);
   for (const field of changedFields(before, next)) {
-    if (!isWritableField(before, field, fieldOf(field))) return protectedWrite;
+    if (ADDITIVE_FIELDS.has(field)) {
+      if (!keepsSeeded(idsOf(before.props[field]), idsOf(next.props[field])))
+        return refused(`${id} keeps the ${field} values ${KEEPS}`);
+    } else if (!isWritableField(before, field, fieldOf(field))) {
+      return refused(`${field} on ${id} is its owner's to write`);
+    }
   }
   return null;
 }
@@ -133,8 +180,5 @@ export function systemTxRefusal(
   const deleted = tx.deletes.find((id) => isSysPrefixed(id));
   return deleted === undefined
     ? null
-    : {
-        id: deleted,
-        message: `sys.* nodes are write-protected (use force to override): ${deleted}`,
-      };
+    : { id: deleted, message: refused(`${deleted} is its owner's to delete`) };
 }
