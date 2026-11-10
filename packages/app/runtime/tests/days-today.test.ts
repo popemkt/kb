@@ -12,7 +12,7 @@ import { Effect } from "effect";
 import { join } from "node:path";
 import type { ActionReceipt } from "@kb/contracts";
 import { DAYS_IDS, periodNodeId } from "@kb/days";
-import { mergeNodeSets, present, refValuesOf, type KbNode } from "@kb/model";
+import { mergeNodeSets, present, refValuesOf, tagViewsOf, type KbNode } from "@kb/model";
 import { invoke } from "../src/invoke.ts";
 import { resetRegistryCache } from "../src/registry.ts";
 import { bunFileSystemLayer } from "../src/platform.ts";
@@ -167,6 +167,63 @@ function daysContract(backend: StoreBackend) {
       ]);
       expect(receipts.map((r) => r.status).toSorted()).toEqual(["failed", "succeeded"]);
       expect(await holdersOf(root, "2026-11-10")).toHaveLength(1);
+    });
+
+    test("a day tag of the person's that extends #day is what a new day carries", async () => {
+      const ctx = await freshKb();
+      const myDay = output(
+        await invoke(ctx, {
+          id: "node.add",
+          input: {
+            id: "my-day",
+            text: "my day",
+            props: [
+              { field: "sys.f.type", value: { t: "ref", v: "sys.tag" } },
+              { field: "sys.f.extends", value: { t: "ref", v: DAYS_IDS.dayTag } },
+            ],
+          },
+        }),
+      ).id;
+      const point = (tag: string) =>
+        invoke(ctx, {
+          id: "node.update",
+          input: {
+            id: DAYS_IDS.family,
+            setProps: [{ field: DAYS_IDS.dayTagField, value: { t: "ref", v: tag } }],
+          },
+        });
+      expect((await point(myDay)).status).toBe("succeeded");
+      const { id } = output(
+        await invoke(ctx, { id: "ext.days.today", input: { day: "2026-11-10" } }),
+      );
+      const day = present(
+        ctx.nodes.find((n) => n.id === id),
+        "the day",
+      );
+      expect(refValuesOf(day, "sys.f.type")).toEqual([myDay]);
+      // The day opens in the day page through #my day's chain to #day.
+      expect(tagViewsOf(day, "default", (n) => ctx.index.getNode(n))[0]?.tag).toBe(DAYS_IDS.dayTag);
+    });
+
+    test("a day tag that does not extend #day is refused with why", async () => {
+      const ctx = await freshKb();
+      await invoke(ctx, {
+        id: "node.add",
+        input: {
+          id: "other",
+          text: "other",
+          props: [{ field: "sys.f.type", value: { t: "ref", v: "sys.tag" } }],
+        },
+      });
+      const refused = await invoke(ctx, {
+        id: "node.update",
+        input: {
+          id: DAYS_IDS.family,
+          setProps: [{ field: DAYS_IDS.dayTagField, value: { t: "ref", v: "other" } }],
+        },
+      });
+      expect(refused).toMatchObject({ status: "failed" });
+      expect(JSON.stringify(refused)).toContain("does not extend #day");
     });
 
     test("two clones that each made one day merge into one node per period", async () => {
