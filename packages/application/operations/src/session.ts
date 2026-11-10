@@ -118,6 +118,21 @@ function virtualWriteRefusal(
 }
 
 /**
+ * Why a person may not commit `tx` over `index`, and which node it is
+ * refused for, or null when they may: the rule the commit runs under
+ * `systemWrites: "checked"`, a virtual node's write first
+ * (`virtualWriteRefusal`), then a system node's (`systemTxRefusal`). Asked
+ * ahead of a gesture whose later step would be refused after its earlier
+ * ones landed, it is the same rule, not a second one.
+ */
+export function personWriteRefusal(
+  tx: StoreTx,
+  index: NodeIndex,
+): { readonly id: NodeId; readonly message: string } | null {
+  return virtualWriteRefusal(tx, index) ?? systemTxRefusal(tx, (id) => index.getNode(id));
+}
+
+/**
  * Commit a transaction and move the index with it.
  *
  * The catch-up first is not defensive noise: the store commits under a lock by
@@ -204,8 +219,7 @@ const persistAttempt = Effect.fn("kb.persist.attempt")(function* (
   }
   const call = yield* CurrentCall;
   if (systemWrites === "checked") {
-    const refused =
-      virtualWriteRefusal(tx, ctx.index) ?? systemTxRefusal(tx, (id) => ctx.index.getNode(id));
+    const refused = personWriteRefusal(tx, ctx.index);
     if (refused !== null) {
       return yield* domainError("forbidden", refused.message, {
         id: refused.id,

@@ -109,6 +109,7 @@ export { graphWritesLayer } from "./graph-writes.ts";
 export {
   noteStoreSynced,
   persistEffect,
+  personWriteRefusal,
   persistPlannedEffect,
   reloadEffect,
   type PersistOptions,
