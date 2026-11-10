@@ -12,7 +12,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { XIcon } from "@phosphor-icons/react";
 import type { WireNode } from "@kb/contracts";
-import { declaresOptionSet } from "@kb/model";
+import { declaresOptionSet, templateFieldsOf } from "@kb/model";
 import type { ConditionEdge, ConditionRow } from "@kb/query";
 import {
   cn,
@@ -117,13 +117,7 @@ function subjectCandidates(builder: Builder): PickerCandidate[] {
   const fields = nodesOfKind(builder.wireNodes, SYSTEM_IDS.field).filter(
     (f) => !isSysPrefixed(f.id),
   );
-  const templated = new Set(
-    tagsOf(builder.tree).flatMap((tag) =>
-      (schema.get(tag)?.props[SYSTEM_IDS.fieldsField] ?? []).flatMap((v) =>
-        v.t === "ref" ? [v.v] : [],
-      ),
-    ),
-  );
+  const templated = new Set(templateFieldsOf(tagsOf(builder.tree), (id) => schema.get(id)));
   const attributes = ATTRIBUTES.map((attr) => ({
     id: `${ATTRIBUTE_ID}${attr}`,
     label: ATTRIBUTE_LABELS[attr],

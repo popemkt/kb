@@ -4,7 +4,14 @@ import {
   BACKDROP_STRENGTHS,
   BACKDROP_STRENGTH_OPTION_IDS,
 } from "./backdrop.ts";
-import { SYSTEM_IDS, extensionNodeId, type KbNode, type NodeId, nowIso } from "./model.ts";
+import {
+  SYSTEM_IDS,
+  extensionNodeId,
+  type KbNode,
+  type NodeId,
+  type PropValue,
+  nowIso,
+} from "./model.ts";
 import {
   FIELD_TYPES,
   FIELD_TYPE_OPTION_IDS,
@@ -28,27 +35,12 @@ import {
 import { ONTOLOGY_TARGET_QUERY } from "./ontology.ts";
 import type { FoldedSeed } from "./seed-fold.ts";
 import { retireSeeded } from "./seed-retirement.ts";
+import { ADDITIVE_FIELDS } from "./system-write.ts";
 import {
   VIEW_FAMILY_VALUES,
   VIEW_NODE_TARGET_QUERY,
   VIEW_OPTION_TARGET_QUERY,
 } from "./view-node.ts";
-
-/**
- * Tags whose `sys.f.fields` template must stay in sync as fields are added to
- * the seed. Exported because it is a real invariant boundary: the generic
- * fill-absent pass does not apply to these, so the property test that asserts
- * the generic rule has to exclude exactly this set — reading it here instead of
- * restating it is what keeps the two from drifting. `sys.tag` is one because
- * it templates `view.default`: a seeded tag, opened before that field existed,
- * gains it in its editor like a tag made since.
- */
-export const TEMPLATE_TAGS: readonly string[] = [
-  SYSTEM_IDS.field,
-  SYSTEM_IDS.ontologyTag,
-  SYSTEM_IDS.roleTag,
-  SYSTEM_IDS.tag,
-];
 
 /** What a field that holds one value declares: its cardinality. */
 const SINGLE: KbNode["props"] = { [SYSTEM_IDS.cardinalityField]: [cardinalityValue("one")] };
@@ -217,6 +209,17 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     children: cardinalityOptions.map((option) => option.id),
   };
   const targetTagField = typedField(SYSTEM_IDS.targetTagField, "targetTag", "ref");
+  /*
+   * The tags a tag extends: a setting of every tag (it configures the kind
+   * `sys.tag`), whose values are tags, and an additive list on a seeded tag,
+   * so a person makes a family's tag extend theirs and keeps what it ships.
+   */
+  const extendsField = typedField(SYSTEM_IDS.extendsField, "extends", "ref", {
+    props: {
+      [SYSTEM_IDS.configuresField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
+      [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
+    },
+  });
   const targetQueryField = singleField(SYSTEM_IDS.targetQueryField, "targetQuery", "text");
   const relationInverseField = singleField(SYSTEM_IDS.relationInverseField, "inverse", "text");
   // Deliberately NOT self-typed. `sys.f.type` is the kind slot, and a ref to
@@ -230,6 +233,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
       { t: "ref", v: SYSTEM_IDS.hiddenField },
       { t: "ref", v: SYSTEM_IDS.viewDefaultField },
       { t: "ref", v: SYSTEM_IDS.viewRowField },
+      // Last, where the seed's union puts it in a store seeded before it.
+      { t: "ref", v: SYSTEM_IDS.extendsField },
     ],
   });
 
@@ -593,6 +598,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     cardinalityField,
     ...cardinalityOptions,
     targetTagField,
+    extendsField,
     targetQueryField,
     relationInverseField,
     command,
@@ -678,34 +684,36 @@ export function ensureSystemSeed(
   let seeded = retired;
 
   const seedById = new Map<string, KbNode>();
-  const seedTemplateTags = new Map<string, KbNode>();
   for (const node of seed) {
     seedById.set(node.id, node);
-    if (TEMPLATE_TAGS.includes(node.id)) seedTemplateTags.set(node.id, node);
     if (!byId.has(node.id)) {
       byId.set(node.id, node);
       seeded = true;
     }
   }
 
-  // Merge missing template field refs onto existing template tags
-  // (ensureSystemSeed otherwise never rewrites existing sys.* props).
-  for (const tagId of TEMPLATE_TAGS) {
-    const seedTag = seedTemplateTags.get(tagId);
-    const existingTag = byId.get(tagId);
-    if (!seedTag || !existingTag) continue;
-    const want = seedTag.props[SYSTEM_IDS.fieldsField] ?? [];
-    const have = existingTag.props[SYSTEM_IDS.fieldsField] ?? [];
-    const haveIds = new Set(have.filter((v) => v.t === "ref").map((v) => v.v));
-    const missing = want.filter((v) => v.t === "ref" && !haveIds.has(v.v));
-    if (missing.length === 0) continue;
-    byId.set(tagId, {
-      ...existingTag,
-      props: {
-        ...existingTag.props,
-        [SYSTEM_IDS.fieldsField]: [...have, ...missing],
-      },
-    });
+  /*
+   * Union what the seed ships into each additive list a stored node holds
+   * (`ADDITIVE_FIELDS`: a tag's template and what it extends). The list is
+   * the person's to add to and the owner's to grow (DESIGN.md → Data model
+   * → write protection), so a field a family adds to its tag reaches a
+   * store seeded before, after the person's own, and nothing of theirs is
+   * dropped or moved. The fill-absent pass below never rewrites a key that
+   * is present, so these keys are this pass's.
+   */
+  for (const declared of seedById.values()) {
+    const existing = byId.get(declared.id);
+    if (existing === undefined || existing === declared) continue;
+    const grown: Record<string, PropValue[]> = {};
+    for (const field of ADDITIVE_FIELDS) {
+      const have = existing.props[field];
+      if (have === undefined) continue;
+      const held = new Set(have.flatMap((v) => (v.t === "ref" ? [v.v] : [])));
+      const missing = (declared.props[field] ?? []).filter((v) => v.t === "ref" && !held.has(v.v));
+      if (missing.length > 0) grown[field] = [...have, ...missing];
+    }
+    if (Object.keys(grown).length === 0) continue;
+    byId.set(declared.id, { ...existing, props: { ...existing.props, ...grown } });
     seeded = true;
   }
 

@@ -1,5 +1,5 @@
 import { SYSTEM_IDS, isSysPrefixed, type KbNode, type NodeId } from "./model.ts";
-import { typeRefsOf } from "./ontology.ts";
+import { typeRefsOf } from "./node-like.ts";
 
 /** Whether `node` defines a tag or a field. */
 const definesKind = (node: Pick<KbNode, "props"> | undefined): boolean =>

@@ -1,3 +1,4 @@
+import { templateFieldsOf, typeRefsOf } from "@kb/model";
 import type { SchemaIndex } from "./schema";
 import type { OutlineNode, PropValue, ResolvedProp } from "./types";
 import { SYSTEM_IDS } from "./types";
@@ -59,15 +60,7 @@ export type VisibleProp = ResolvedProp & {
  * nothing.
  */
 function templatedFieldIds(node: OutlineNode, schema: SchemaIndex): string[] {
-  const ids: string[] = [];
-  for (const type of node.props[SYSTEM_IDS.typeField] ?? []) {
-    if (type.t !== "ref" || typeof type.v !== "string") continue;
-    for (const ref of schema.get(type.v)?.props[SYSTEM_IDS.fieldsField] ?? []) {
-      if (ref.t !== "ref" || typeof ref.v !== "string") continue;
-      if (!ids.includes(ref.v)) ids.push(ref.v);
-    }
-  }
-  return ids;
+  return templateFieldsOf(typeRefsOf(node), (id) => schema.get(id));
 }
 
 const NONE: ReadonlySet<string> = new Set();

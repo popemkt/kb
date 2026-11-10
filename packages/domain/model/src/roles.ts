@@ -1,5 +1,5 @@
 import { SYSTEM_IDS, extensionNameOf, type KbNode } from "./model.ts";
-import { refValuesOf } from "./ontology.ts";
+import { refValuesOf } from "./node-like.ts";
 
 /** A bundled owner's role, materialized by the seed fold. */
 export interface RoleDefinition {

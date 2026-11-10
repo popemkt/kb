@@ -40,7 +40,7 @@
  */
 import { SYSTEM_IDS, isExtensionNodeId, isSysPrefixed, type KbNode, type NodeId } from "./model.ts";
 import { changedFields } from "./tx.ts";
-import { refValuesOf, typeRefsOf, type NodeLike } from "./ontology.ts";
+import { refValuesOf, typeRefsOf, type NodeLike } from "./node-like.ts";
 
 /**
  * The node a setting is checked against: its id, and its props where they
@@ -106,10 +106,14 @@ export function isWritableField(
 
 /**
  * The fields whose values on a system node are a list a person may add to
- * ({@link keepsSeeded}): a tag's template, `sys.f.fields`. A node's
- * children are the other such list.
+ * ({@link keepsSeeded}): a tag's template, `sys.f.fields`, and the tags it
+ * extends, `sys.f.extends`. A node's children are the other such list. The
+ * seed unions what it ships into each of them (`ensureSystemSeed`).
  */
-const ADDITIVE_FIELDS: ReadonlySet<NodeId> = new Set([SYSTEM_IDS.fieldsField]);
+export const ADDITIVE_FIELDS: ReadonlySet<NodeId> = new Set([
+  SYSTEM_IDS.fieldsField,
+  SYSTEM_IDS.extendsField,
+]);
 
 /**
  * Whether `next` keeps what `before` ships: every system id `before` holds,

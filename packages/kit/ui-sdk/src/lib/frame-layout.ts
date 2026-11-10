@@ -6,6 +6,7 @@
  * in, and the settings its view node holds, are `frameViewOf` and
  * `frameConfigOf`.
  */
+import { templateFieldsOf } from "@kb/model";
 import { conditionGraph, conditionsMatcher, derivedWith } from "../query";
 import type { SortSpec, ViewFilter } from "@kb/views";
 import { type OutlineNode, type PropValue, SYSTEM_IDS } from "./types";
@@ -87,15 +88,12 @@ function derivedColumns(
   const seen = new Set<string>();
   const columns: TableColumnSpec[] = [];
   for (const child of children) {
-    for (const tag of child.tags) {
-      const tagNode = schema.get(tag.id);
-      if (!tagNode) continue;
-      for (const ref of tagNode.props[SYSTEM_IDS.fieldsField] ?? []) {
-        if (ref.t !== "ref" || seen.has(ref.v)) continue;
-        seen.add(ref.v);
-        if (!showDebugColumns && isFieldHidden(ref.v, schema)) continue;
-        columns.push(toColumnSpec(ref.v, schema));
-      }
+    const tags = child.tags.map((tag) => tag.id);
+    for (const field of templateFieldsOf(tags, (id) => schema.get(id))) {
+      if (seen.has(field)) continue;
+      seen.add(field);
+      if (!showDebugColumns && isFieldHidden(field, schema)) continue;
+      columns.push(toColumnSpec(field, schema));
     }
   }
   return columns;

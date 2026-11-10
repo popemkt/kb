@@ -13,7 +13,7 @@
  * types), no locale lookup — a surface that has a locale passes it in.
  */
 import { acceptsValueKind, fieldTypeOf, shownRefusedValue, type FieldType } from "./field-type.ts";
-import type { NodeLike } from "./ontology.ts";
+import type { NodeLike } from "./node-like.ts";
 import type { NodeId, PropValue } from "./model.ts";
 import { parseDateInput, parseDay, type LocalDate } from "./local-date.ts";
 import { parseSecretRef } from "./secret-ref.ts";

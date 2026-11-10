@@ -7,13 +7,18 @@
  * (`OUTLINE_IDS.displayFields`) and this module alone reads and writes.
  */
 import { createElement, useMemo, type ReactNode } from "react";
-import { eachDisplayOption, type DisplayOption, type NodeId, type PropValue } from "@kb/model";
+import {
+  eachDisplayOption,
+  templateFieldsOf,
+  type DisplayOption,
+  type NodeId,
+  type PropValue,
+} from "@kb/model";
 import { OUTLINE_IDS } from "@kb/outline";
 import type { HeldTagView, ViewKey } from "@kb/views";
 import {
   browserHost,
   nodePath,
-  SYSTEM_IDS,
   tagOpeningOf,
   tagRowViewOf,
   useContributions,
@@ -45,7 +50,7 @@ export function useRowOpening(node: OutlineNode | undefined): RowOpening | null 
     if (opening === null) return null;
     const Icon = opening.picker?.icon;
     const shown = eachDisplayOption((option) => displayShownOf(node, opening, option));
-    const template = schema.get(opening.tag)?.props[SYSTEM_IDS.fieldsField] ?? [];
+    const template = templateFieldsOf([opening.tag], (id) => schema.get(id));
     return {
       ...opening,
       label: opening.key.label,
@@ -54,9 +59,7 @@ export function useRowOpening(node: OutlineNode | undefined): RowOpening | null 
           ? null
           : createElement(Icon, { size: 12, weight: opening.picker?.iconWeight }),
       shown,
-      revealed: new Set(
-        shown.properties ? template.flatMap((ref) => (ref.t === "ref" ? [ref.v] : [])) : [],
-      ),
+      revealed: new Set(shown.properties ? template : []),
     };
   }, [node, schema, views]);
 }

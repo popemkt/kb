@@ -24,8 +24,9 @@
  */
 import type { DeclaredOptions } from "./declared-option.ts";
 import { SYSTEM_IDS, type NodeId, type PropValue } from "./model.ts";
-import { refValuesOf, strValueOf, typeRefsOf, type NodeLike } from "./ontology.ts";
+import { refValuesOf, strValueOf, type NodeLike } from "./node-like.ts";
 import type { NodeOf } from "./system-write.ts";
+import { tagChains } from "./tag-kinds.ts";
 
 /**
  * The field types' kind of declared option (DESIGN.md → Field types): the
@@ -340,10 +341,10 @@ export function allowedRefIdsOf(
   const tags = targetTagsOf(fieldNode);
   if (tags.length === 0) return null;
 
-  const tagSet = new Set(tags);
+  const { isA } = tagChains((id) => nodes.get(id));
   const allowed = new Set<NodeId>();
   for (const node of nodes.values()) {
-    if (typeRefsOf(node).some((t) => tagSet.has(t))) allowed.add(node.id);
+    if (tags.some((tag) => isA(node, tag))) allowed.add(node.id);
   }
   return allowed;
 }

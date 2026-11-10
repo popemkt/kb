@@ -1,5 +1,5 @@
 import type { KbNode, NodeId } from "./model.ts";
-import { typeRefsOf } from "./ontology.ts";
+import { typeRefsOf } from "./node-like.ts";
 import { compareRootOrder, siblingSlots, type SiblingGroups, type Slots } from "./order.ts";
 import type { NamedNodes } from "./resolve.ts";
 

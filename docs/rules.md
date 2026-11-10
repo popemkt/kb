@@ -845,6 +845,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M63BZRZ4RDTCE1ZFVGRNEXGR`
 
+### GAP: datalog and the query builder's tag filter do not reach a subtype's nodes
+
+- **expected** — A node of a tag that extends another is that tag's node in datalog too: a derived :node/is datom holds the closure of sys.f.type over sys.f.extends, the query builder's has-tag lowers to it and the page's condition evaluator reads kindsOf, while :f/sys.f.type stays tagged-exactly.
+- **current** — kindsOf and isA read the chain in @kb/model, and the template, views, ref targets and ontology members follow it, but datalog has only :f/sys.f.type, so a has-tag filter, a saved query or a tag page's instance list names only nodes tagged exactly.
+- **impact** — A person's #meeting that extends #event shows in the calendar's readers once they ask isA, but not in a query or a view filter for #event.
+- **closes** — Add :node/is to CORE_DERIVED with a carrier that reads the chain and re-derives a tag's instances when its sys.f.extends changes; lower has-tag to it, evaluate it with isA, and stop canonicalizing a sys.f.type is-condition into has-tag.
+- **node** — `01M738XHYKHDFFCN8DK595Z15T`
+
 ### GAP: Durable browser invocation replay
 
 - **expected** — The browser invocation lane durably queues offline mutations and replays them under an explicit conflict policy.
@@ -1528,14 +1536,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — DateEditor delegates Enter/Tab to the ValueSlot keymap instead of handling them itself.
 - **node** — `01M3KA39ATBBJHPY4AWP7VKX8G`
 
-### GAP: the eager-budget test measures a test-mode build, whose size grows with the checkout's path
-
-- **expected** — page-bundle.test.ts measures the build the page ships, a production build (NODE_ENV=production), whose bytes do not depend on where the checkout lives, against a budget calibrated to it
-- **current** — it spawns vp build under bun test's NODE_ENV=test; that build embeds each module's absolute path (101 of them in the eager set), so one tree measures 1,962,825 bytes at /tmp/kbm, 1,964,340 at /home/runner/work/kb/kb and 1,971,107 in a bb worktree path, and main fails its own budget in a long worktree path
-- **impact** — the budget passes or fails by the checkout's path, not by what the page ships; about 260 KB of the measured 1.96 MB is never shipped (the production eager set is 1.70 MB), so a real regression can hide in the slack and a long path fails a clean tree
-- **closes** — spawn the build with NODE_ENV=production and recalibrate EAGER_BUDGET_BYTES to the production eager set (1,701,190 bytes with the gallery)
-- **node** — `01M66K9DRY5A9RYHFD99QCQTE8`
-
 ### GAP: the extension dependency graph has no command, view or reverse edges
 
 - **expected** — extension.graph returns every derived edge {from, to, key, kind, optional, source} and data edges between families; kb ext graph prints it (and --dot), kb ext why <plugin> says why a plugin is not active, extension.list rows carry dependants, and the graph view has a lens over sys.extensions drawing the same edges
@@ -1702,7 +1702,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **expected** — A person's field added to a seeded tag's template, a child under a seeded node and an option under a seeded field commit without force; removing or reordering what the seed ships is refused.
 - **current** — The commit admits a person's ids in a seeded node's children and template and keeps every seeded id there in order (systemWriteRefusal, proven over every surface by the surface contract), but the editor still hides Add field on seeded tags, refuses a child under a seeded node before it reaches the commit (isSysPrefixed guards in the page), and toasts that sys.* nodes are read-only.
 - **impact** — A person cannot add a field to a family's tag (a Location on the events tag), an option to its option set, or a child under it, so extending a plugin's model means forking it.
-- **closes** — The editor offers the additive gestures on every node, Add field on a seeded tag and a child under a seeded node, asking the commit's rule instead of isSysPrefixed, and its refusals name the owner; sys.f.extends joins the additive fields with tag extension.
+- **closes** — The editor offers the additive gestures on every node, Add field on a seeded tag and a child under a seeded node, asking the commit's rule instead of isSysPrefixed, and its refusals name the owner.
 - **rule** — Data-plane freedom: additive edits
 - **node** — `01M7342V3W6X9PFNWVZ92WD7SF`
 

@@ -23,7 +23,7 @@ import {
   targetQueryOf,
   targetTagsOf,
 } from "../src/field-type.ts";
-import { refValuesOf, typeRefsOf } from "../src/ontology.ts";
+import { refValuesOf, typeRefsOf } from "../src/node-like.ts";
 import { bundledSeed } from "@kb/bundled";
 
 const seed: KbNode[] = bundledSeed();
