@@ -13,7 +13,7 @@ import { resolveOntology } from "../src/ontology.ts";
 import { ensureSystemSeed, systemSeedNodes } from "../src/seed.ts";
 import { foldSeed } from "../src/seed-fold.ts";
 import { systemWriteRefusal } from "../src/system-write.ts";
-import { isA, kindsOf, tagAncestors, templateFieldsOf } from "../src/tag-kinds.ts";
+import { isA, kindsOf, tagAncestors, tagChains, templateFieldsOf } from "../src/tag-kinds.ts";
 import { tagViewsOf } from "../src/view-node.ts";
 
 const AT = "2026-11-11T00:00:00.000Z";
@@ -103,6 +103,25 @@ describe("a node of a tag that extends another", () => {
     const members = resolveOntology([...GRAPH, onto], "onto").members;
     expect(["walk", "call"].every((id) => members.has(id))).toBe(true);
     expect(members.has("chore")).toBe(false);
+  });
+});
+
+describe("a scan over every node", () => {
+  test("walks each tag's chain once, whatever the number of nodes it asks of", () => {
+    // A 20-deep chain, t19 extends t18 … extends t0, and a thousand nodes of t19.
+    const chain = Array.from({ length: 20 }, (_, i) =>
+      tag(`t${String(i)}`, i === 0 ? [] : [`t${String(i - 1)}`]),
+    );
+    const graph = new Map(chain.map((n) => [n.id, n]));
+    let reads = 0;
+    const chains = tagChains((id) => {
+      reads += 1;
+      return graph.get(id);
+    });
+    const nodes = Array.from({ length: 1000 }, (_, i) => tagged(`n${String(i)}`, "t19"));
+    expect(nodes.every((n) => chains.isA(n, "t0"))).toBe(true);
+    expect(reads).toBe(20);
+    expect(chains.kindsOf(nodes[0])).toEqual(tagAncestors("t19", (id) => graph.get(id)));
   });
 });
 

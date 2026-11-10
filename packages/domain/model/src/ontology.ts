@@ -31,7 +31,7 @@
 import { present } from "./present.ts";
 import { SYSTEM_IDS, type NodeId } from "./model.ts";
 import { refValuesOf, strValueOf, typeRefsOf, type NodeLike } from "./node-like.ts";
-import { kindsOf } from "./tag-kinds.ts";
+import { tagChains } from "./tag-kinds.ts";
 
 type MemberReasonKind = "member" | "tag" | "query" | "extends" | "closure";
 
@@ -157,9 +157,10 @@ function warn(state: ResolveState, key: string, message: string): void {
 
 function buildTagIndex(nodes: readonly NodeLike[]): Map<NodeId, NodeId[]> {
   const byId = new Map(nodes.map((node) => [node.id, node]));
+  const { kindsOf } = tagChains((id) => byId.get(id));
   const byTag = new Map<NodeId, NodeId[]>();
   for (const node of nodes) {
-    for (const tagId of kindsOf(node, (id) => byId.get(id))) {
+    for (const tagId of kindsOf(node)) {
       const list = byTag.get(tagId);
       if (list) list.push(node.id);
       else byTag.set(tagId, [node.id]);
