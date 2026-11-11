@@ -224,6 +224,9 @@ for (const [name, make] of Object.entries(INDEXES))
       // The key moves to another node in one transaction.
       index.applyTx({ upserts: [keyed("first"), keyed("second", "2026-11-12")], deletes: [] });
       expect(await index.mentions()).toEqual(["task second"]);
+      // The field it comes through follows the key too.
+      expect([...index.referenceFields(task, "second")]).toEqual(["f.due"]);
+      expect([...index.referenceFields(task, "first")]).toEqual([]);
       // Its holder is deleted: nothing is mentioned.
       index.applyTx({ upserts: [], deletes: ["second"] });
       expect(await index.mentions()).toEqual([]);
