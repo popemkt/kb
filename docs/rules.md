@@ -218,6 +218,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P4 of docs/research/2026-10-29-plugin-codependency.md, after the owner chooses between resolving against the catalog the invoke core reaches and composing a needed family beside its caller
 - **node** — `01M63C0M1WRKY0Q09AGK9NK7NJ`
 
+### GAP: a DST replay of seed dst-2 diverged once: four stamps 46 s apart
+
+- **expected** — A seeded DST history replays to a byte-identical store every time (dst.test.ts 'same seed replays to a byte-identical store'), on any machine and under any load
+- **current** — Once, under heavy load, the two runs of dst-2 differed in four nodes only: the same ids' random parts, text and order, with createdAt, updatedAt and the id's time part 46 s earlier in the second run. The seeded clock steps 1 s per read, so the first run read the clock 46 more times before them: something on the plan/apply path reads the clock a number of times that depends on scheduling. It happened while the test ran past its 32 s timeout (unit gate of 23d6f999, 2026-11-11). Not reproduced since: 12 sequential replays, 4 pairs of concurrent dst-2 runs, 4 runs beside dst-3 and 3 full dst.test.ts runs under load were all identical. No bundled family contributes a budgeted tx/after, guard or interceptor, so budgeted's race against the seeded clock's instant sleep is ruled out as the source
+- **impact** — A rare DST failure that a rerun hides, and a store whose stamps may depend on timing outside the simulation
+- **closes** — Make the next divergence name its op: the harness records the seeded clock's read count after each op, and a replay mismatch reports the first op whose count differs. Then fix the reader it names (or give the seeded clock a sleep that never fires on its own, if a sleep race is it)
+- **node** — `01M740E2KPGXWP4WKTE2XZ6N56`
+
 ### GAP: a family a host composes is switched only where that host runs
 
 - **expected** — every surface can write any family's switch, a hosted one included, and kb ext list lists it
@@ -357,14 +365,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A number-valued prop on a field that is walked as an edge (or joined as one) can alias an arbitrary node, and which node depends on eid assignment order. Rare in practice, since ref fields hold refs and number fields are not walked, but silent when it happens.
 - **closes** — Distinct encodings in datoms.ts (for example refs on :f/<fieldId> and numbers on a typed value, or a separate ref attr per field), with queries.ts, parse.ts find-type inference, and stored queries over numeric props migrated to match.
 - **node** — `01M3A0Y5JQ5XKZMC87K34HDT2B`
-
-### GAP: a page head unmounted while Unicorn starts cold leaves the runtime initialising on a dead canvas
-
-- **expected** — A Unicorn scene whose backdrop goes while the runtime or scene.json is still loading stops cleanly: its element stays alive until addScene settles, then the scene is destroyed, and no error escapes the runtime
-- **current** — UnicornBackdrop aborts and destroys a scene that resolves after unmount, and catches a rejected addScene, but the runtime's own initialisation keeps running after its element is removed and throws 'Cannot read properties of null (reading canvas)' in setInitialFlattenedPlaneUniforms, outside the promise kb holds
-- **impact** — An uncaught page error on a cold start when the head's backdrop goes mid-init: about 1 in 5 cold loads of / with a route change ~800 ms in on main 9baac94d (reported from the days work, #152). With one backdrop across pages (#153) a move between pages that share Unicorn keeps the scene, so it remains on a crossfade away from Unicorn, or a head undeclared for longer than the hold, during a cold start
-- **closes** — Keep the scene element mounted (detached from layout) until addScene settles and destroy it then, with a render test that crossfades away from Unicorn during a cold start and sees no page error
-- **node** — `01M73AAXHQQ24FM7EMDA3H1J6R`
 
 ### GAP: a page's own backdrop has no gesture
 
@@ -1559,6 +1559,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A regression in how the 2D host disposes sigma, or re-reads tokens on an appearance change, goes unnoticed by the unit run.
 - **closes** — Run the renderer contract suite in the browser lane (Playwright with WebGL), or give sigma a headless WebGL context in the unit run, and drop the todo rows.
 - **node** — `01M3EGV5616VKVV4J76ABC5XX2`
+
+### GAP: the graph's cluster render specs fail intermittently on CI (render.e2e.ts:269, :444)
+
+- **expected** — The cluster renderer's specs pass on every CI render shard: 'cluster paints labels and a hull spanning its members' (render.e2e.ts:269) and 'cluster selects in place, keeps camera still, and composes zero search with selection' (:444)
+- **current** — Both fail intermittently on the macOS render shard and pass on a rerun. :444 failed on days/base in run 42865936403 (before #153) and on #167 in run 42921073994 attempt 1 (job 130195816989): the selection card was not found within 5 s of a click at the root node's position. :269 failed on main 0f66c889 in run 42920818373 (job 130194974248): the hull's alpha box did not span 60% of the members within 5 s. /graph draws no page-head backdrop, so the backdrop work is not the cause
+- **impact** — A red render shard on main or on a PR for a reason unrelated to the change, rerun until green, which hides a real failure in the same specs
+- **closes** — Find what each waits on: :269's final poll uses expect's 5 s default where the spec's other polls use PAGE_READY or SETTLE, and the hull is drawn only after the layout frames its members; :444 clicks a node's page position, which a layout still moving can leave. Then make each wait on the signal it means, with a run that fails before and passes after, without weakening either assertion
+- **node** — `01M740DVZBBAHDACZTMG9N1RX8`
 
 ### GAP: the inline markdown parser is a 41-branch hand-rolled scanner
 

@@ -5188,7 +5188,11 @@ light with screen. Light pages turn the flowing rays into warm sunlight, with a
 soft solar core and halo painted by `--header-sun`; multiply blending keeps the
 canvas ground transparent on the page. It has no pointer targets,
 pauses for reduced motion, background tabs and offscreen headers, and is released
-when the header unmounts or the choice changes. Failed loading or unavailable
+when the header unmounts or the choice changes. A scene is handed over only once
+the runtime has started it: `addScene` resolves before the scene's planes are
+made, and a scene destroyed sooner leaves the rest of its start reading what
+`destroy` took. So a scene whose header goes while it starts cold is destroyed
+the moment it has started (`unicorn-cold-start.e2e.ts`). Failed loading or unavailable
 WebGL leaves the wash it paints over. Rendering needs no external requests.
 
 #### GPU scenes
