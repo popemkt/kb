@@ -27,6 +27,7 @@ import {
  * author-facing page surface; a new capability joins that surface on purpose.
  * The page surface bridge holds their names and contracts together.
  */
+// GAP [[01M74PDWPASZ30SBGA95EV0X0M]] NodeSectionPoint is not offered here, so only a bundled family contributes ui.node-sections
 export const PAGE_EXTENSION_SDK = {
   ViewPoint,
   provideView,

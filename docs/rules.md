@@ -754,14 +754,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Body tones in canvas-style.ts, both painters resolving them, and a look-contract assertion.
 - **node** — `01M540YKDP4WQPSJR41GH0Q90V`
 
-### GAP: canvas-ui's two heaviest tests time out under CPU contention
-
-- **expected** — A test's time budget fits its work: the canvas camera's hit-test march and the gizmo's reach property, each a sweep that takes about 2.2 s alone at nice 15 on 4 workers, pass whatever else the machine runs
-- **current** — Both run under Vitest's default 5 s timeout and fail with "Test timed out in 5000ms" when CPU is contended (reproduced: canvas-ui pinned to one core, 8.2 s and 8.5 s; every other canvas-ui test passes). On a quiet machine and on CI they pass
-- **impact** — test:ui goes red on a loaded shared host for a reason that is not a defect, so a reader learns to rerun it, and a real failure there reads as noise
-- **closes** — Size the work, not the clock: give the two sweeps a timeout of their own, as bunfig gives bun test its 30 s, or bound their sample count; or make test:ui's per-test budget the CI runner's measure, as bun test's is
-- **node** — `01M6VQFVG8FPA7KPZHD3J99NGX`
-
 ### GAP: caretRangeFromPoint needs a CaretDocument cast because lib.dom marks it deprecated
 
 - **expected** — offsetFromPoint calls document.caretRangeFromPoint bound, with no type assertion, and typescript/no-deprecated does not fire on the DOM method.
@@ -917,6 +909,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A theme with ground art (kb#34) cannot show the Lens or Black hole backdrop without a visible frame.
 - **closes** — An alpha StageOptions mode in @kb/scene-gpu: premultiplied output whose alpha is the scene's presence (1 - veil), the ground no longer mixed in, and the GPU backdrops built on it.
 - **node** — `01M5STYVFCKQ7TZ8XBSGSRHRH9`
+
+### GAP: graph backups exclude root text files
+
+- **expected** — A root backup captures and restores queries, pages, ui.json and extension files with the graph; assets remain owned by Mackup.
+- **current** — Graph backup and restore cover nodes and transaction history only; help, output and manifests declare exclusions.
+- **impact** — Restoring a graph does not restore the editor configuration or trusted extension source used with it.
+- **closes** — A root-state transaction coordinates graph conditional commit with validated file snapshot, restore and recovery.
+- **node** — `01M75ASR5TB03NYPW1G057TTY8`
 
 ### GAP: graph link labels are 2D only
 
@@ -1333,6 +1333,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M6YS6XH9XS4TX7S7AYWXJX3A`
 
+### GAP: repository extensions cannot contribute ui.node-sections
+
+- **expected** — The page surface a repository extension's page half gets (kb-ext-sdk/page, PAGE_EXTENSION_SDK) offers NodeSectionPoint, so a family loaded from .kb/extensions can add a section below the outline of a node that is one of its tags, as a bundled family does (DESIGN-UI.md → Node pages).
+- **current** — NodeSectionPoint (ui.node-sections) is in @kb/ui-sdk only. PAGE_EXTENSION_SDK and its restatement for authors (@kb/ext-sdk page-surface.ts, sdk-dts.text.ts) do not name it, so only bundled families (days) contribute sections. It was left out of #182 because joining the surface means restating NodeSection for authors, within the page surface bridge's rules, and that change is wider than the day page.
+- **impact** — A repository extension cannot show anything on its tags' pages: an inbox, a project or an events family has to wait for a bundled build or draw its own page, which Rule 1 rules out. The point's promise (any family, per tag) holds only for bundled code.
+- **closes** — Add NodeSectionPoint to PAGE_EXTENSION_SDK and NodeSection/NodeSectionProps to page-surface.ts and sdk-dts.text.ts, so page-surface-bridge.test.ts holds them together. Prove it with the example repository extension contributing a section in repository-extension.acceptance.test.tsx.
+- **node** — `01M74PDWPASZ30SBGA95EV0X0M`
+
 ### GAP: repository extensions cannot ship UI
 
 - **expected** — A .kb/extensions module can carry a browser half (<name>.ui.tsx) that the server builds to ESM, serves at /ext/<name>/ui.js and the UI loads into its kernel at runtime, sharing the host's React through import-map shims, reloaded on change.
@@ -1569,14 +1577,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Run the renderer contract suite in the browser lane (Playwright with WebGL), or give sigma a headless WebGL context in the unit run, and drop the todo rows.
 - **node** — `01M3EGV5616VKVV4J76ABC5XX2`
 
-### GAP: the graph's cluster render specs fail intermittently on CI (render.e2e.ts:269, :444)
-
-- **expected** — The cluster renderer's specs pass on every CI render shard: 'cluster paints labels and a hull spanning its members' (render.e2e.ts:269) and 'cluster selects in place, keeps camera still, and composes zero search with selection' (:444)
-- **current** — Both fail intermittently on the macOS render shard and pass on a rerun. :444 failed on days/base in run 42865936403 (before #153) and on #167 in run 42921073994 attempt 1 (job 130195816989): the selection card was not found within 5 s of a click at the root node's position. :269 failed on main 0f66c889 in run 42920818373 (job 130194974248): the hull's alpha box did not span 60% of the members within 5 s. /graph draws no page-head backdrop, so the backdrop work is not the cause
-- **impact** — A red render shard on main or on a PR for a reason unrelated to the change, rerun until green, which hides a real failure in the same specs
-- **closes** — Find what each waits on: :269's final poll uses expect's 5 s default where the spec's other polls use PAGE_READY or SETTLE, and the hull is drawn only after the layout frames its members; :444 clicks a node's page position, which a layout still moving can leave. Then make each wait on the signal it means, with a run that fails before and passes after, without weakening either assertion
-- **node** — `01M740DVZBBAHDACZTMG9N1RX8`
-
 ### GAP: the inline markdown parser is a 41-branch hand-rolled scanner
 
 - **expected** — Inline markdown parses through a table of segment recognizers tried in order, each recognizer a named, separately tested function.
@@ -1648,6 +1648,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Two pinpoint disables of a rule that is error everywhere else, on the one ui path with a measured latency bar.
 - **closes** — palette-index.test.ts asserts open <50ms and keystroke <10ms at 50k nodes. A standalone benchmark puts Array.from({length:n}) about 40% behind new Array(n) at that size, and the push variant flipped that test red on three of four full-suite runs on a loaded machine. Close it by making the 50k path fast enough that the allocation shape stops mattering (incremental or worker-side palette search), then delete both disables.
 - **node** — `01M1MFJXAQ8NVBMA6E6CZ7CY9W`
+
+### GAP: the routines Google setup wizard keeps its own steps beside the core procedure
+
+- **expected** — The wizard is a procedure (ProcedurePoint): each setup step an action, each step's done-ness the routines setup predicates, read by procedure.status; the setup page is the procedure wizard page
+- **current** — SETUP_STEPS / stepDone / currentStep in packages/extension/routines/src/setup.ts and the SetupWizard shell in routines-ui are the one-off of the pattern the core procedure generalises
+- **impact** — Two step-walkers: a fix to resuming, ordering or surfaces lands in one and not the other; the wizard has no CLI or MCP walk
+- **closes** — Contribute the routines setup as a procedure (steps over the confirm actions, checks over readAccountSetup), render the sync page from procedure.status, delete SETUP_STEPS' own walker
+- **node** — `01M74NN86YC7HP65R2JVYMM27F`
 
 ### GAP: the saved-query virtual set appends to the store's tail, which a remote root does not own
 

@@ -134,6 +134,15 @@ export type { InterceptionOptions } from "./interception.ts";
 export { extensionInstallDef, extensionInstallEffect } from "./extension-install.ts";
 
 export { coreActions } from "./core-actions.ts";
+export { procedureListDef, procedureStatusDef, procedureStepDef } from "./procedure.ts";
+export {
+  DEFAULT_BACKUPS_KEPT,
+  backupsKept,
+  storeBackupDef,
+  storeBackupsDef,
+  storeRestoreDef,
+  storeRestoreEffect,
+} from "./store-backup.ts";
 export { isomorphicActions } from "./isomorphic-actions.ts";
 
 export { sandboxTrustDef } from "./trust.ts";

@@ -52,9 +52,13 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // top level; its local commit and the server's would disagree, so it reloads.
 // Protocol 9 adds the extension-watch greeting and live state; earlier pages
 // reject that frame and show a server-message error, so they reload first.
+// `store.backup`, `store.backups` and `store.restore` are new actions a
+// previous page never calls.
+// `procedure.list`, `procedure.status` and `procedure.step` are new actions a
+// previous page never calls.
 const RECORDED = {
   protocol: 9,
-  fingerprint: "0c71ed9566b055a68ab5cbe02703a58321e0c18953cc14a0a7d00de7fd219707",
+  fingerprint: "b7d005c8e858fa506b171486c57aa37cebff99508ba6c5036cc955f881482e10",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

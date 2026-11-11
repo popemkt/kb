@@ -169,6 +169,23 @@ export type {
   Listener,
 } from "./interception.ts";
 export {
+  ProcedureCallSchema,
+  ProcedurePoint,
+  ProcedureStatusSchema,
+  StepCheckSchema,
+  StepStatusSchema,
+  isDecision,
+  walkedSteps,
+} from "./procedure.ts";
+export type {
+  ProcedureCall,
+  ProcedureContribution,
+  ProcedureStatus,
+  ProcedureStep,
+  StepAction,
+  StepStatus,
+} from "./procedure.ts";
+export {
   CORE_CONTEXT_REFERENCES,
   NO_CONTEXT,
   ContextReferencePoint,
@@ -277,7 +294,7 @@ export {
   isValidWorkspaceName,
 } from "./workspace.ts";
 export { KbRoots } from "./roots.ts";
-export type { KbRootsPort, RootProbe, RootState } from "./roots.ts";
+export type { BackupTaken, KbRootsPort, RootProbe, RootState, StoreBackup } from "./roots.ts";
 export type {
   AssetsPort,
   CodeTrustPort,

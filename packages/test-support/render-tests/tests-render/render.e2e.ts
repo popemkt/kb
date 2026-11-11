@@ -32,7 +32,7 @@ type SigmaInspector = {
   getGraph(): { nodes(): string[]; neighbors(id: string): string[] };
   getNodeDisplayData(id: string): { x: number; y: number; label?: string } | undefined;
   framedGraphToViewport(position: { x: number; y: number }): { x: number; y: number };
-  getCamera(): { getState(): { x: number; y: number; ratio: number } };
+  getCamera(): { getState(): { x: number; y: number; ratio: number }; isAnimated(): boolean };
 };
 type SigmaHost = HTMLDivElement & { __kbSigma?: SigmaInspector };
 
@@ -58,18 +58,19 @@ async function sigmaReady(page: Page, host: string) {
 }
 
 /**
- * A node's page position under the sigma renderer at `host`, once its layout
- * has stopped moving: a position read mid-layout is somewhere the node no
- * longer is by the time the pointer gets there.
+ * Wait until the sigma renderer at `host` holds every fixture node and its
+ * drawing has stopped moving: two samples in a row with every node at the
+ * same place on screen, and no camera move under way (a stalled frame can
+ * leave a moving camera where it was for one sample).
  */
-async function sigmaPagePoint(page: Page, host: string, id: string) {
+async function sigmaSettled(page: Page, host: string) {
   await sigmaReady(page, host);
   let previous = "";
   await expect
     .poll(async () => {
       const next = await page.locator(host).evaluate((element) => {
         const sigma = (element as SigmaHost).__kbSigma;
-        if (!sigma) return "";
+        if (!sigma || sigma.getCamera().isAnimated()) return "";
         return JSON.stringify(
           sigma
             .getGraph()
@@ -85,6 +86,15 @@ async function sigmaPagePoint(page: Page, host: string, id: string) {
       return still;
     }, SETTLE)
     .toBe(true);
+}
+
+/**
+ * A node's page position under the sigma renderer at `host`, once its
+ * drawing has settled: a position read mid-layout is somewhere the node no
+ * longer is by the time the pointer gets there.
+ */
+async function sigmaPagePoint(page: Page, host: string, id: string) {
+  await sigmaSettled(page, host);
   return page.locator(host).evaluate((element, node) => {
     const sigma = (element as SigmaHost).__kbSigma;
     const display = sigma?.getNodeDisplayData(node);
@@ -93,6 +103,62 @@ async function sigmaPagePoint(page: Page, host: string, id: string) {
     const box = element.getBoundingClientRect();
     return { x: box.left + point.x, y: box.top + point.y, camera: sigma.getCamera().getState() };
   }, id);
+}
+
+/**
+ * Where to press node `id` under the sigma at `host`: its settled page point,
+ * once the pointer stands there and sigma's own picking has a node under it
+ * (`enterNode` turns the cursor to a pointer). A graph placed again after it
+ * settled has moved the node from under the pointer, and the point is read
+ * again; the pointer comes in from the host's corner each time, so every
+ * attempt is a fresh move.
+ */
+async function pointOnNode(page: Page, host: string, id: string) {
+  const found: { at: Awaited<ReturnType<typeof sigmaPagePoint>> | null } = { at: null };
+  await expect
+    .poll(async () => {
+      const at = await sigmaPagePoint(page, host, id);
+      const corner = await page.locator(host).boundingBox();
+      if (corner) await page.mouse.move(corner.x + 1, corner.y + 1);
+      await page.mouse.move(at.x, at.y);
+      const over = await page.locator(host).evaluate(
+        (element) =>
+          new Promise<boolean>((resolve) => {
+            const until = performance.now() + 1000;
+            const look = () => {
+              if (element.style.cursor === "pointer") resolve(true);
+              else if (performance.now() > until) resolve(false);
+              else requestAnimationFrame(look);
+            };
+            look();
+          }),
+      );
+      if (over) found.at = at;
+      return over;
+    }, SETTLE)
+    .toBe(true);
+  if (found.at === null) throw new Error(`the pointer never stood on ${id}`);
+  return found.at;
+}
+
+/** How far the members of the sigma at `host` spread on screen, as they stand now. */
+async function memberExtent(page: Page, host: string) {
+  return page.locator(host).evaluate((element) => {
+    const sigma = (element as SigmaHost).__kbSigma;
+    if (!sigma) return { width: 0, height: 0 };
+    const points = sigma
+      .getGraph()
+      .nodes()
+      .map((id) => sigma.getNodeDisplayData(id))
+      .filter((point): point is { x: number; y: number } => !!point)
+      .map((point) => sigma.framedGraphToViewport(point));
+    return {
+      width:
+        Math.max(...points.map((point) => point.x)) - Math.min(...points.map((point) => point.x)),
+      height:
+        Math.max(...points.map((point) => point.y)) - Math.min(...points.map((point) => point.y)),
+    };
+  });
 }
 
 async function sigmaViewportCoverage(page: Page, host: string) {
@@ -266,7 +332,6 @@ test("force2d traces from the selection to a shift-clicked node and lights the p
   await expect(card).toBeHidden();
 });
 
-// Fails intermittently on CI: GAP [[01M740DVZBBAHDACZTMG9N1RX8]].
 test("cluster paints labels and a hull spanning its members", async ({ page }) => {
   await selectRenderer(page, "cluster");
   const host = "[data-testid='cluster-graph'] > div";
@@ -281,28 +346,16 @@ test("cluster paints labels and a hull spanning its members", async ({ page }) =
     .poll(() => alphaBoundingBox(page, `${host} canvas.sigma-labels`).then((box) => box.pixels))
     .toBeGreaterThan(0);
 
-  const members = await page.locator(host).evaluate((element) => {
-    const sigma = (element as SigmaHost).__kbSigma;
-    if (!sigma) return { width: 0, height: 0 };
-    const points = sigma
-      .getGraph()
-      .nodes()
-      .map((id) => sigma.getNodeDisplayData(id))
-      .filter((point): point is { x: number; y: number } => !!point)
-      .map((point) => sigma.framedGraphToViewport(point));
-    return {
-      width:
-        Math.max(...points.map((point) => point.x)) - Math.min(...points.map((point) => point.x)),
-      height:
-        Math.max(...points.map((point) => point.y)) - Math.min(...points.map((point) => point.y)),
-    };
-  });
-  // The hulls are drawn after the layout frames its members: poll for them.
+  // The hulls are drawn after sigma draws the frame its members stand in, so
+  // each sample sets the hull drawn against the members as they stand then,
+  // never against a spread read before the graph was last placed.
+  await sigmaSettled(page, host);
   await expect
     .poll(async () => {
+      const members = await memberExtent(page, host);
       const hull = await alphaBoundingBox(page, "[data-testid='cluster-graph'] > canvas");
       return hull.width >= members.width * 0.6 && hull.height >= members.height * 0.6;
-    })
+    }, SETTLE)
     .toBe(true);
 });
 
@@ -442,14 +495,13 @@ test("force3d draws through the scene kit's post chain and flies to a selected n
   await expect.poll(() => scene3d(page).then((s) => s?.particles)).toBe(0);
 });
 
-// Fails intermittently on CI: GAP [[01M740DVZBBAHDACZTMG9N1RX8]].
 test("cluster selects in place, keeps camera still, and composes zero search with selection", async ({
   page,
 }) => {
   await selectRenderer(page, "cluster");
   const host = page.locator("[data-sigma-container]");
   await expect(host.locator("canvas.sigma-labels")).toBeVisible(PAGE_READY);
-  const root = await sigmaPagePoint(page, "[data-sigma-container]", "render.fixture.root");
+  const root = await pointOnNode(page, "[data-sigma-container]", "render.fixture.root");
   await page.mouse.click(root.x, root.y);
   await expect(page.getByTestId("graph-selection-card")).toContainText("Fixture root");
   await expect(page).toHaveURL(/\/graph\//);

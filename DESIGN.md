@@ -1833,7 +1833,58 @@ constructing _both concrete adapters_ and deleting _their_ files; written
 against `EffectStore` alone it cannot name a single one of those things. The
 one place that legitimately knows both adapters exist is the composition root,
 so `migrateStore` lives beside `selectStore` in `@kb/runtime` and the CLI
-command is a thin surface over it.
+command is a thin surface over it. Its copy — read one state, commit it into
+an empty target, refuse a source written meanwhile, carry the tail — is
+`copyStore(from, to)`, each end a root and a backend; migrating is that copy
+into the root's other backend, then the removal, and a backup is the same copy
+into another root.
+
+### Backups
+
+A **graph backup** is a copy of a root's store as one state, in the same backend,
+kept on this machine: `<KB_DATA>/backups/<root's name>-<hash of its path>/<id>`,
+never under the root (a repository's `.kb` is committed; a backup is what a
+person had here, not a revision of it). Each is **a kb root of its own** —
+`kb --root <backup>` opens it — with a `backup.json` beside its `.kb` naming
+the root it copied, when, its node count and the source's **fingerprint at the
+copy**: the state it is. A directory without a readable manifest is not a
+backup, so a copy that dies half-way is never listed.
+
+Graph backups exclude queries, pages, ui.json and extension source; they also
+exclude `.kb/assets`, whose backup belongs to Mackup. Manifests and CLI output
+state this scope. Root text state awaits a coordinated graph-and-files restore
+transaction (gap [[01M75ASR5TB03NYPW1G057TTY8]]).
+
+Backup payloads are read through `KbRoots.useBackup`: their backend must be
+present and their graph must match the manifest's content digest. An empty
+payload is valid; an absent or altered payload is refused and never reused as
+a safety copy. Directory reservation is exclusive and the manifest is published
+by atomic rename only after the payload completes. Publication and retention share a cross-process lock per root, and retention selects the globally newest `keep` copies. `useBackup` holds that same lock through validation and the caller's use, so restore cannot commit while its safety payload is pruned. Restore commits conditionally
+on the safety backup's source fingerprint; a concurrent write refuses the
+restore without erasing the write, rather than replanning over unprotected data.
+
+The mechanism is the runtime's, behind `KbRoots` (`backup`, `backups`, and
+`snapshot`, a raw read of a root that composes and seeds nothing); the policy
+is three core actions:
+
+- **`store.backup`** answers the newest backup when the store's fingerprint is
+  still its fingerprint (a state is copied once), else copies, then keeps the
+  newest **`backups kept`** — a number setting of core's node
+  (`sys.f.backups.kept`; unset is 3, at least 1), so it is set as any setting
+  is, `kb set sys.extension.core "backups kept" 5`.
+- **`store.backups`** lists them newest first, each marked `current` when the
+  store is still its state. "Is there a backup of the store as it is now" is
+  therefore read, never recorded — what a procedure's backup step asks.
+- **`store.restore <id>`** (approval required, so never from MCP) reads the
+  backup, backs up the state it is about to replace, and commits
+  `diffTx(now, backup)` as **one transaction** on the live store through the
+  planned-commit path. It does not stop or swap a served store: a served page
+  sees the restore as any write, and the tail keeps going. Restoring the
+  backup it took undoes it. It reads the backup before taking that one, as
+  retention may remove the oldest.
+
+`kb store backup`, `kb store backups` and `kb store restore <id>` are those
+actions. `store-backup-contract.test.ts` proves them over every backend.
 
 ### The transaction tail — the store records what changed, in order
 
@@ -2963,6 +3014,43 @@ an untagged device carries its owner's login, so the person's login is
 whoever owns the devices that reach the Service. A Service is hosted by
 tagged nodes, so a process on the host itself that goes through the
 Service's address is a tagged device's and gets no header.
+
+### Procedures
+
+A **procedure** is an ordered list of steps that a person or an agent walks
+through on any surface: a wizard page, `kb procedure`, MCP. It is data over
+actions, contributed to `ProcedurePoint` (`kb.procedures`, keyed):
+
+- **A step offers actions.** With one, doing the step runs it. With several,
+  the step is a **decision** (keep or roll back): the caller names the
+  action it means, and nothing takes it for a person.
+- **A step's done-ness is read, never recorded.** Each step names a `check`,
+  a read action whose output's `done` answers whether it is done. The answer
+  comes from the store, or from what the store's machine holds, such as a
+  backup. There is no progress state to drift, so a procedure resumes
+  wherever it was left, on whichever surface.
+- **Order is one rule** (`walkedSteps`): a step counts as done when its own
+  check says so **or a later step's does**. Steps are walked in order, so a
+  later step done means this one was passed, whatever its check reads now
+  (a migration's backup step stays behind it after the apply changes the
+  store). The **current** step is the first one not done.
+
+The core actions are `procedure.list` and `procedure.status` (read), and
+`procedure.step {procedure, step, action?}`. `procedure.step` refuses any
+step but the current one. It then invokes the step's action through the
+invoke core (`CoreInvoke`) as its own caller, so that action is decided as
+it would be on its own. An action needing approval needs it on the call
+that walks it: `callWithin` lends the nested call only its caller's
+approval. MCP, which carries no approval, is refused there as it is anywhere.
+
+`kb procedure [id]` lists the procedures or shows one's status.
+`--run` walks a procedure from its current step, asking before each step;
+`--yes` skips that question but not an approval. `--run` stops at a
+decision, so `--yes` never takes one. `--action <id>` is the person's
+decision at the current step. `procedure-contract.test.ts` proves this
+through the invoke core. The routines Google setup wizard predates the
+primitive and keeps its own walker for now (`#gap`
+01M74NN86YC7HP65R2JVYMM27F).
 
 ### Core boundary & extensions
 
@@ -5456,7 +5544,7 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
 | Package        | Layer, scope       | Holds                                                                                                                                                           |
 | -------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `@kb/days`     | extension, shared  | the declaration, `DAYS_IDS`, the period keys (`period.ts`), the plan (`planDay`), `ext.days.today` and the one-node-per-key guard: one plugin on both hosts, and the registry's capture target (`captureToday`, under `daysRegistryPlugin`) |
-| `@kb/days-ui`  | extension, browser | the day page, the Today row, ⌘K "Go to today", opening on today, and the capture target's provider                                                             |
+| `@kb/days-ui`  | extension, browser | "made or edited" on a period's page, the Today row, ⌘K "Go to today", opening on today, and the capture target's provider                                                             |
 
 - **A period is a node with a key.** `#day`, `#week` and `#year`
   (`sys.tag.day`, `sys.tag.week`, `sys.tag.year`) are tags the family
@@ -5517,8 +5605,8 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
   one tag, choose the tag a new day or week gets: empty, it is `#day` or
   `#week`, and a person points it at a tag of theirs that extends the base
   (`sys.f.extends`, read through its chain). So with `#my day` extending
-  `#day`, every new day carries the person's fields, and `#day`'s key and its
-  day page come with it through the chain
+  `#day`, every new day carries the person's fields, and `#day`'s key and
+  the sections a `#day`'s page shows come with it through the chain
   ([Data model](#data-model--everything-is-a-node), "A tag extends tags"). A commit that
   points a setting at a tag that does not reach its base is refused with
   why (`ext.days.period-tag`, a commit guard). A chosen tag that later
@@ -5577,10 +5665,10 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
   one was taken, or the id of a day merged in from elsewhere.
   Following a date value opens its day, made if need be: days replaces the
   page role `ui.date-target` ([Provider roles](#provider-roles)).
-- **The day page's sections are a declared point,** `days.sections` (page
-  kernel, a list in ascending order). Days fills one, and a family that
-  shows something on a day contributes a section rather than days
-  importing it.
+- **A day's page is the node page.** What a family shows on a day is a
+  section it contributes for `#day` to core's `ui.node-sections`
+  (DESIGN-UI.md → [Node pages](./DESIGN-UI.md#node-pages)), never a
+  page of its own; days contributes "made or edited", off by default.
 - **No month nodes yet.** A month is not on the path to a day, and no view
   reads one, so the family seeds no `#month` until one does.
 

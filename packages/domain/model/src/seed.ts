@@ -575,6 +575,17 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     configuresCore,
   );
   /*
+   * How many backups of the store a machine keeps (DESIGN.md → Storage →
+   * Backups): a setting of core's node, seeded with no value, so the
+   * default applies until a person sets one.
+   */
+  const backupsKeptField = singleField(
+    SYSTEM_IDS.backupsKeptField,
+    "backups kept",
+    "number",
+    configuresCore,
+  );
+  /*
    * Motion options (DESIGN-UI.md → Motion options): settings of core's
    * node, each unset by default, so the shown theme's preset (the same
    * fields on its option node) or the default applies. The four option
@@ -675,6 +686,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     backdropArtField,
     backdropVariantField,
     designSystemField,
+    backupsKeptField,
     ...motionFields,
     extensionsWatchField,
   ];

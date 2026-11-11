@@ -11,7 +11,7 @@ import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { join } from "node:path";
 import { domainError, ensureDomainError, type DomainError } from "@kb/model";
-import type { EffectStore } from "@kb/contracts";
+import type { EffectStore, StoreFingerprint } from "@kb/contracts";
 import { JsonlStore } from "@kb/store-jsonl";
 import { SqliteStore, sqliteStoreFiles } from "@kb/store-sqlite";
 import { createOwnStore, persistOwnWrite, sessionOver } from "./own-write.ts";
@@ -173,10 +173,89 @@ export interface StoreMigration {
   path: string;
 }
 
+/** One end of a {@link copyStore}: a root, and the backend its store is (or will be) in. */
+export interface StoreAt {
+  readonly root: string;
+  readonly backend: StoreBackend;
+}
+
+/** What a {@link copyStore} carried: the source's state it copied, and where it landed. */
+export interface StoreCopy {
+  /** The source's fingerprint, unchanged from before the read to after the commit. */
+  readonly fingerprint: StoreFingerprint | null;
+  readonly nodes: number;
+  /** The target store's path. */
+  readonly path: string;
+}
+
 /**
- * Move a root from the store it has to the one it asked for: load everything,
- * commit it into the other backend, carry the transaction tail across, then
- * remove the source's files.
+ * Copy the store at `from` into an empty store at `to`: load everything,
+ * commit it into the target as one transaction, then carry the transaction
+ * tail across. The source is only read.
+ *
+ * The copy is of one state. A source written to while it was read leaves no
+ * target behind (its files are removed) and fails, so a caller never holds a
+ * copy of a state the source was never in.
+ */
+export const copyStore = Effect.fn("kb.copyStore")(function* (
+  from: StoreAt,
+  to: StoreAt,
+): Effect.fn.Return<StoreCopy, DomainError, FileSystem> {
+  const fs = yield* FileSystem;
+  const source = BACKENDS[from.backend].open(from.root);
+  const target = BACKENDS[to.backend].open(to.root);
+  const before = yield* source.store.fingerprint;
+  const nodes = yield* source.store.loadEffect;
+  const tail = source.store.txTail.entries();
+  // A copy lands only on an empty target: one that holds nodes by the time
+  // the commit finds it is another writer's, and is never written over.
+  const into = yield* sessionOver(to.root, target.store, [], []);
+  // An empty transaction is normally omitted; a copy must materialize its empty payload.
+  if (nodes.length === 0) yield* createOwnStore(into);
+  yield* persistOwnWrite(into, (held) =>
+    held.length === 0
+      ? Effect.succeed({ upserts: nodes, deletes: [] })
+      : domainError(
+          "conflict",
+          `${to.root}'s ${to.backend} store was written while it was copied into; it is left as it was`,
+          {
+            root: to.root,
+            to: to.backend,
+          },
+        ),
+  );
+  // A write to the source after it was read is not in the copy: then the
+  // copy is undone, and the caller is told to copy again.
+  if ((yield* source.store.fingerprint) !== before) {
+    target.release();
+    for (const file of BACKENDS[to.backend].files(to.root)) {
+      yield* fs.remove(file, { force: true }).pipe(Effect.mapError(ensureDomainError));
+    }
+    source.release();
+    return yield* domainError(
+      "conflict",
+      `${from.root}'s ${from.backend} store changed while it was read; it is left as it was and nothing was copied, so try again`,
+      { root: from.root, from: from.backend, to: to.backend },
+    );
+  }
+  // The tail moves with the nodes, revs and all. A copy changes nothing a
+  // client can see, so it must not be the thing that forces every client
+  // into a snapshot — and `adopt` re-stamps the store mark, because the marks
+  // in the source tail describe the source. It runs after the node commit so
+  // the mark it stamps is the target's settled one. A source with no tail (a
+  // store written before tails existed) leaves the target the one record its
+  // own commit made, which is the truthful answer: the whole graph arrived in
+  // one transaction and nothing before it is known.
+  if (tail.length > 0) target.store.txTail.adopt(tail);
+  source.release();
+  const path = target.store.path;
+  target.release();
+  return { fingerprint: before, nodes: nodes.length, path };
+});
+
+/**
+ * Move a root from the store it has to the one it asked for: copy it into
+ * the other backend ({@link copyStore}), then remove the source's files.
  *
  * The removal is the point. Selection is by presence, so leaving the old files
  * behind would leave the root in exactly the state the selector refuses to
@@ -197,55 +276,12 @@ export const migrateStore = Effect.fn("kb.migrateStore")(function* (
   if (from === to) {
     return yield* domainError("conflict", `${root} is already a ${to} store`, { root, to });
   }
-
-  const source = BACKENDS[from].open(root);
-  const target = BACKENDS[to].open(root);
-  const before = yield* source.store.fingerprint;
-  const nodes = yield* source.store.loadEffect;
-  const tail = source.store.txTail.entries();
-  // A copy lands only on an empty target: one that holds nodes by the time
-  // the commit finds it is another writer's, and is never written over.
-  const into = yield* sessionOver(root, target.store, [], []);
-  yield* persistOwnWrite(into, (held) =>
-    held.length === 0
-      ? Effect.succeed({ upserts: nodes, deletes: [] })
-      : domainError("conflict", `${root}'s ${to} store was written while it was migrated into`, {
-          root,
-          to,
-        }),
-  );
-  // A write to the source after it was read would be lost with its files:
-  // then the copy is undone and the root keeps the store it had.
-  if ((yield* source.store.fingerprint) !== before) {
-    target.release();
-    for (const file of BACKENDS[to].files(root)) {
-      yield* fs.remove(file, { force: true }).pipe(Effect.mapError(ensureDomainError));
-    }
-    source.release();
-    return yield* domainError(
-      "conflict",
-      `${root}'s ${from} store changed while it was migrated; it is left as it was, so migrate again`,
-      { root, from, to },
-    );
-  }
-  // The tail moves with the nodes, revs and all. The migration changes nothing
-  // a client can see, so it must not be the thing that forces every client
-  // into a snapshot — and `adopt` re-stamps the store mark, because the marks
-  // in the source tail describe a store that is about to be deleted. It runs
-  // after the node commit so the mark it stamps is the target's settled one.
-  // A source with no tail (a store written before tails existed) leaves the
-  // target the one record its own commit made, which is the truthful answer:
-  // the whole graph arrived in one transaction and nothing before it is known.
-  if (tail.length > 0) target.store.txTail.adopt(tail);
-
-  // Release before removing: a backend that holds a file open would otherwise
-  // recreate its sidecars on close, and the root would have two stores again.
-  source.release();
+  const copied = yield* copyStore({ root, backend: from }, { root, backend: to });
+  // The source was released by the copy before its files go: a backend that
+  // holds a file open would otherwise recreate its sidecars on close, and the
+  // root would have two stores again.
   for (const file of BACKENDS[from].files(root)) {
     yield* fs.remove(file, { force: true }).pipe(Effect.mapError(ensureDomainError));
   }
-  const path = target.store.path;
-  target.release();
-
-  return { from, to, nodes: nodes.length, path };
+  return { from, to, nodes: copied.nodes, path: copied.path };
 });
