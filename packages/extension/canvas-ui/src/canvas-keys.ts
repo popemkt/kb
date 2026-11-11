@@ -149,7 +149,7 @@ export interface CanvasShortcut {
   readonly chords: readonly Chord[];
   readonly intent: CanvasIntent | null | ((event: CanvasKeyEvent) => CanvasIntent);
   /** Its keys in words, where its chords are too many to list one by one (`←↑→↓`). */
-  readonly hint?: string;
+  readonly hintStyle?: "arrows";
   /**
    * Pressed with nothing selected, or nothing in it to act on (`acts`), it
    * does nothing: swallowed, or passed to the browser.
@@ -539,11 +539,11 @@ export const CANVAS_SHORTCUTS: readonly CanvasShortcut[] = [
   viewRow("pan", "Pan (hold)", { type: "panModifier" }, [{ code: "Space" }]),
   edit("nudge", "Nudge", nudge(1), nudgeChords(false), {
     needsSelection: "pass",
-    hint: "←↑→↓",
+    hintStyle: "arrows",
   }),
   edit("nudge.ten", "Nudge ten", nudge(10), nudgeChords(true), {
     needsSelection: "pass",
-    hint: "⇧←↑→↓",
+    hintStyle: "arrows",
   }),
   transformRow(
     "grab",

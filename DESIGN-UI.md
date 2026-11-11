@@ -483,7 +483,7 @@ point's `combine`:
   other: a page binding over a chord a surface's owner binds in its surface
   is refused, so the outline's own keys stand, and a surface binding over a
   chord the page holds is refused, since no key would reach it;
-- **no two held chords overlap** (`chordsOverlap`: a common key, and a state
+- **no two held chords in one precedence slot overlap** (`chordsOverlap`: a common key, and a state
   of the four modifiers both admit), but along a chain of replacements. So
   the order bindings are listed in means nothing, and each says exactly what
   it claims: the outline's split is `Enter` without Shift, its bare arrows
@@ -494,7 +494,13 @@ point's `combine`:
   (`key`) or by place (`code`, `KeyboardEvent.code`: `Numpad7`, `KeyH`),
   where the place is what counts. One press has both, and which character a
   place types is the layout's, so a chord by place and one by character
-  never overlap: a keymap asks its chords by place first (`byPlace`);
+  can overlap: reservations and cross-context admission protect their shared
+  press. Inside one context, election asks chords by place first (`byPlace`),
+  and the same owner may populate both precedence slots. Another owner still
+  needs replacement approval for any shared press. Layout-independent
+  keys, including numpad digits with NumLock on or off, narrow that overlap;
+  layout-dependent positions are checked conservatively. Reserved page-owner
+  bindings remain ahead of conflicting surface-owner claims;
 - a binding over a held chord is refused unless it names the holder in
   `replaces` (the record's §9 default 7: an occupied chord is never taken
   silently). A replacement takes exactly its own chord, and the holder keeps
@@ -2013,7 +2019,7 @@ the view node switches every page showing the canvas through it.
   `canvas.present`) with the chords kb binds it to, which are canvas-ui's
   bindings (`CANVAS_BINDINGS`), both contributed to the page kernel
   ([Keybindings](#outline-editor-i1)): any plugin may bind a canvas key, or
-  take one by naming its holder. No two of a context's chords overlap, a
+  take one by naming its holder. No two of a context's chords in the same precedence slot overlap, a
   chord by place asked first. While frames are presented, present mode's
   keys are asked before the canvas's at rest; a modal transform's are the
   only ones asked while it runs, and it swallows a key they leave. The

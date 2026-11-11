@@ -83,8 +83,8 @@ describe("a chord by place", () => {
     expect(matchesChord({ key: "7" }, numpad7)).toBe(false);
   });
 
-  it("never overlaps a chord by character, and overlaps one by place only at that place", () => {
-    expect(chordsOverlap(numpad7, seven)).toBe(false);
+  it("protects a shared press across representations, and distinguishes physical places", () => {
+    expect(chordsOverlap(numpad7, seven)).toBe(true);
     expect(chordsOverlap(numpad7, { code: "Numpad7" })).toBe(true);
     expect(chordsOverlap(numpad7, { code: "Numpad1", mod: false })).toBe(false);
     expect(chordsOverlap(numpad7, { code: "Numpad7", mod: true })).toBe(false);

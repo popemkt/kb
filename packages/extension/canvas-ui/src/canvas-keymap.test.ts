@@ -432,3 +432,31 @@ describe("another plugin's canvas keys", () => {
     );
   });
 });
+
+for (const name of ["nudge", "nudge.ten"]) {
+  for (const all of [false, true]) {
+    test(`${name} hints follow ${all ? "full" : "partial"} replacement`, () => {
+      const entry = CANVAS_SHORTCUTS.find((e) => e.name === name);
+      if (entry === undefined) throw new Error("missing shortcut");
+      const replacements = entry.chords.flatMap((bindingChord, index) =>
+        all || bindingChord.key === "ArrowUp"
+          ? [
+              {
+                id: `nudge-${index}`,
+                value: {
+                  context: "canvas.rest",
+                  chord: bindingChord,
+                  run: { action: "keys.nudge" },
+                  replaces: `canvas.rest.${name}${index === 0 ? "" : `.${index + 1}`}`,
+                },
+              },
+            ]
+          : [],
+      );
+      withKeys(keys(...replacements), () => {
+        expect(canvasKeymap("rest").refused).toEqual([]);
+        expect(hintOf(entry)).toBe(all ? "" : `${name === "nudge.ten" ? "⇧" : ""}←→↓`);
+      });
+    });
+  }
+}
