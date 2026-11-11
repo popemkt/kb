@@ -109,15 +109,19 @@ describe("the gizmo bridge", () => {
         expect((reach.right - reach.left) * (reach.bottom - reach.top)).toBeLessThan(
           (size.width * size.height) / 2,
         );
-        let hits = 0;
+        // A point inside the reach cannot break it, so it is asked only until
+        // some handle answers; every point outside it is asked.
+        let answered = false;
         for (let x = 0; x <= size.width; x += 6) {
           for (let y = 0; y <= size.height; y += 6) {
+            const within = inside({ x, y }, reach);
+            if (within && answered) continue;
             if (!layer.hover(view, size, { x, y })) continue;
-            hits += 1;
-            expect(inside({ x, y }, reach), `${mode} at ${x},${y}`).toBe(true);
+            answered = true;
+            expect(within, `${mode} at ${x},${y}`).toBe(true);
           }
         }
-        expect(hits, mode).toBeGreaterThan(0);
+        expect(answered, mode).toBe(true);
       }
     }
     // With nothing selected it shows no handles, and reaches nothing.

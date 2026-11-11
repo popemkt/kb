@@ -188,6 +188,12 @@ describe("hit-testing", () => {
     expect(hitTest([asItem({ ...solid, shape: "sphere" })], front, size, at(50, 50))).toBe("s");
   });
 
+  /** The corners of a cube round a sample, and its half-side in the box's unit space. */
+  const CUBE_CORNERS = [-1, 1].flatMap((a) =>
+    [-1, 1].flatMap((b) => [-1, 1].map((c) => [a, b, c] as const)),
+  );
+  const NUDGE = 0.03;
+
   // GAP [[01M6VQFVG8FPA7KPZHD3J99NGX]] a sweep that outgrows Vitest's 5 s budget when CPU is contended
   test("every volume is hit exactly where a march along the ray first enters it", () => {
     // An independent statement of each volume, in the box's unit space.
@@ -222,21 +228,23 @@ describe("hit-testing", () => {
       const near = screenToPlane(view, size, screen, 200);
       const far = screenToPlane(view, size, screen, -100);
       if (near === null || far === null) continue;
-      // Deep: well inside at some sample. Grazing: never inside, but once near the surface.
+      // Deep: well inside at some sample, all eight corners of a small cube
+      // round it inside. Grazing: never deep, but some corner inside once.
+      // The first deep sample settles the ray, so the march stops there.
       let deep = false;
       let grazing = false;
       const isInside = inside[shape] ?? (() => false);
-      const nudges = [-1, 1].flatMap((a) => [-1, 1].flatMap((b) => [-1, 1].map((c) => [a, b, c])));
-      for (let s = 0; s <= 4000; s++) {
+      for (let s = 0; s <= 4000 && !deep; s++) {
         const t = s / 4000;
-        const p = (k: "x" | "y" | "z") => near[k] + (far[k] - near[k]) * t;
-        const u = (p("x") - item.x - 60) / 60;
-        const v = (p("y") - item.y - 40) / 40;
-        const w = p("z") / 90;
-        const around = (d: number) =>
-          nudges.map(([a = 0, b = 0, c = 0]) => isInside(u + a * d, v + b * d, w + c * d));
-        if (around(0.03).every(Boolean)) deep = true;
-        if (around(0.03).some(Boolean)) grazing = true;
+        const u = (near.x + (far.x - near.x) * t - item.x - 60) / 60;
+        const v = (near.y + (far.y - near.y) * t - item.y - 40) / 40;
+        const w = (near.z + (far.z - near.z) * t) / 90;
+        let corners = 0;
+        for (const [a, b, c] of CUBE_CORNERS) {
+          if (isInside(u + a * NUDGE, v + b * NUDGE, w + c * NUDGE)) corners++;
+        }
+        deep = corners === CUBE_CORNERS.length;
+        grazing ||= corners > 0;
       }
       if (!deep && grazing) continue;
       expect(hit, `${shape} #${i}`).toBe(deep ? "s" : null);
