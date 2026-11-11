@@ -10,7 +10,7 @@ import {
   type FieldType,
   type Writable,
 } from "@kb/model";
-import { forestRootIds, isSysPrefixed, SYSTEM_IDS, type PropValue } from "@kb/ui-sdk";
+import { forestRootIds, SYSTEM_IDS, type PropValue } from "@kb/ui-sdk";
 import {
   FRAME_VIEW_FAMILY,
   frameSettingWrite,
@@ -111,17 +111,11 @@ export function planMergeInto(
   targetId: string,
 ): PlannedMutation | null {
   if (id === targetId) return null;
-  const source = requireNode(nodes, id);
+  requireNode(nodes, id);
   const target = requireNode(nodes, targetId);
+  // One action, so the commit takes or refuses the whole merge.
   return {
-    actions: [
-      { id: "node.update", input: { id: targetId, text: target.text + source.text } },
-      ...source.children.map((childId, offset) => ({
-        id: "node.update",
-        input: { id: childId, parent: targetId, position: target.children.length + offset },
-      })),
-      { id: "node.delete", input: { id } },
-    ],
+    actions: [{ id: "node.merge", input: { id, into: targetId } }],
     focusId: targetId,
     focusCursor: target.text.length,
   };
@@ -378,19 +372,11 @@ export const planAddChild = (n: WireNode[], parent: string, id: string, text = "
 export const planPrependChild = (_n: WireNode[], parent: string, id: string, text = "") =>
   addNode(id, text, { parent, position: 0 });
 
-function mutableSchema(id: string): void {
-  if (isSysPrefixed(id)) throw new Error("sys.* schema nodes are read-only");
-}
-function schemaMutation(id: string, build: () => PlannedMutation): PlannedMutation {
-  mutableSchema(id);
-  return build();
-}
 export const planAddTagField = (n: WireNode[], id: string, field: string) =>
-  schemaMutation(id, () => refProp(n, id, SYSTEM_IDS.fieldsField, field));
+  refProp(n, id, SYSTEM_IDS.fieldsField, field);
 export const planRemoveTagField = (n: WireNode[], id: string, field: string) =>
-  schemaMutation(id, () => unrefProp(n, id, SYSTEM_IDS.fieldsField, field));
+  unrefProp(n, id, SYSTEM_IDS.fieldsField, field);
 export function planSetFieldHidden(n: WireNode[], id: string, hidden: boolean) {
-  mutableSchema(id);
   // One setting (`cardinality: one`), so showing it again replaces a stored
   // `false` rather than appending beside it.
   return hidden
@@ -398,7 +384,6 @@ export function planSetFieldHidden(n: WireNode[], id: string, hidden: boolean) {
     : planUnsetProp(n, id, SYSTEM_IDS.hiddenField, { t: "bool", v: true });
 }
 export function planSetTagColor(n: WireNode[], id: string, color: string | null) {
-  mutableSchema(id);
   const value = color?.trim() ?? "";
   const old = requireNode(n, id).props[SYSTEM_IDS.colorField]?.[0];
   return value
@@ -406,15 +391,12 @@ export function planSetTagColor(n: WireNode[], id: string, color: string | null)
     : planUnsetProp(n, id, SYSTEM_IDS.colorField, old);
 }
 export const planSetFieldType = (n: WireNode[], id: string, type: FieldType) =>
-  schemaMutation(id, () =>
-    planReplaceField(n, id, SYSTEM_IDS.fieldTypeField, [fieldTypeValue(type)]),
-  );
+  planReplaceField(n, id, SYSTEM_IDS.fieldTypeField, [fieldTypeValue(type)]);
 export const planAddFieldTargetTag = (n: WireNode[], id: string, tag: string) =>
-  schemaMutation(id, () => refProp(n, id, SYSTEM_IDS.targetTagField, tag));
+  refProp(n, id, SYSTEM_IDS.targetTagField, tag);
 export const planRemoveFieldTargetTag = (n: WireNode[], id: string, tag: string) =>
-  schemaMutation(id, () => unrefProp(n, id, SYSTEM_IDS.targetTagField, tag));
+  unrefProp(n, id, SYSTEM_IDS.targetTagField, tag);
 export function planSetFieldTargetQuery(n: WireNode[], id: string, edn: string | null) {
-  mutableSchema(id);
   const value = edn?.trim() ?? "";
   return planReplaceField(
     n,

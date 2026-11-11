@@ -52,6 +52,8 @@ export interface NodeTextHostBinding {
   nodes: NodeMap;
   /** What a reference's target resolves against (`rowTextReadOnlyReason`). */
   schema: SchemaIndex;
+  /** Whether a node is served from its source file, so its text is changed there (`rowTextReadOnlyReason`). */
+  isVirtual: (id: string) => boolean;
   pendingCaret: CaretIntent | null;
   /** Follow a pointer in the text (`useFollow`). */
   onFollow: Follow;
@@ -136,6 +138,7 @@ export function NodeTextHost({
   onKeyDown,
   nodes,
   schema,
+  isVirtual,
   pendingCaret,
   onFollow,
   consumeCaret,
@@ -165,7 +168,7 @@ export function NodeTextHost({
   /** D14: Escape dismisses the popup without blurring or leaving edit mode. */
   const [acDismissed, setAcDismissed] = useState(false);
   const [cursor, setCursor] = useState(0);
-  const readOnlyReason = rowTextReadOnlyReason(nodeId, nodes.get(nodeId), schema);
+  const readOnlyReason = rowTextReadOnlyReason(nodeId, nodes.get(nodeId), schema, isVirtual);
   /** How the text's references are inked, from the graph they point into. */
   const ink = refInkOf(schema);
   const readOnly = readOnlyReason !== null;
@@ -437,7 +440,7 @@ export function NodeTextHost({
               <span
                 className="shrink-0 text-foreground/25 opacity-0 transition-opacity duration-150 group-hover/node:opacity-100"
                 title={readOnlyReason}
-                data-sys-lock="true"
+                data-read-only="true"
               >
                 <LockSimpleIcon size={12} weight="bold" />
               </span>

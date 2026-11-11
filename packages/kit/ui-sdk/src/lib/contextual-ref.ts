@@ -37,7 +37,7 @@
 import { instanceAncestorIds } from "./instance-key";
 import type { RowSource, SchemaIndex } from "./schema";
 import type { OutlineNode } from "./types";
-import { SYSTEM_IDS, isSysPrefixed } from "./types";
+import { SYSTEM_IDS } from "./types";
 
 /**
  * The node this reference points at, or null when it is not a reference.
@@ -131,21 +131,23 @@ export function rowTextOf(
 
 /**
  * Why a row's text cannot be edited, or null when it can — the single owner
- * of that rule, and of the wording the padlock shows.
+ * of that rule, and of the wording the row shows for it.
  *
- * The rule is about the node whose text is on screen (`shownNodeId`): a
- * `sys.*` node is read-only at the door (r1 D20), whether the row is that node
- * or a reference to it, and a reference whose target is gone has no text to
- * write to. Returning the reason rather than a bare boolean keeps the tooltip
- * from re-deriving the distinction at the call site.
+ * The rule is about the node whose text is on screen (`shownNodeId`),
+ * whether the row is that node or a reference to it. A node the page's
+ * index serves from its source file (`isVirtual`: a saved query) is changed
+ * there, and a reference whose target is gone has no text to write to.
+ * Every other node's text is the person's, a system node's included: a
+ * label is theirs, and the commit keeps an edited one.
  */
 export function rowTextReadOnlyReason(
   id: string,
   node: OutlineNode | undefined,
   schema: SchemaIndex,
+  isVirtual: (id: string) => boolean,
 ): string | null {
   const shownId = node ? shownNodeId(node) : id;
-  if (isSysPrefixed(id) || isSysPrefixed(shownId)) return "System node — read-only";
+  if (isVirtual(id) || isVirtual(shownId)) return "Read from its source file — change it there";
   if (shownId !== id && schema.get(shownId) === undefined) return "Reference target is missing";
   return null;
 }

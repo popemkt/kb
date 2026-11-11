@@ -94,6 +94,7 @@ describe("a graph view's query reads (component)", () => {
       nodes: () => outline,
       schema: () => schema,
       queries: () => queries,
+      isVirtual: () => false,
     };
     function Ids() {
       const graph = useGraphReadThrough(source);

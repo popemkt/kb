@@ -106,10 +106,8 @@ export interface PageWrites {
    * contextual reference under the seeded `pinned` node, and nothing here is
    * bespoke — `node.add` with one ref prop, `deleteNode` for the row.
    *
-   * No `guardSysWrite` on the target: nothing is written to it. The guard was
-   * there because a tag edits the node's kind slot, so pinning `sys.queries`
-   * was a write to a system node; pointing a reference at one is not, and
-   * `sys.*` browse has always been open.
+   * Nothing is written to the target, so pinning a system node writes no
+   * system node: pointing a reference at one is the person's.
    */
   readonly togglePin: (nodeId: string) => Promise<boolean>;
   /**

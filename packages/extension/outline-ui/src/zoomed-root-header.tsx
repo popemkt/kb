@@ -1,8 +1,7 @@
 import { useCallback } from "react";
-import { LockSimpleIcon } from "@phosphor-icons/react";
 import {
   cn,
-  isSysPrefixed,
+  useGraphRead,
   pageTitleInstanceKey,
   type OutlineNode,
   rowText,
@@ -21,13 +20,15 @@ import { useOutlineStore } from "./outline.store";
 
 /**
  * D13: everything is a node — the zoomed page title edits in place with
- * header typography. sys.* roots stay read-only behind a padlock.
+ * header typography, a system node's too: its label is the person's. Only
+ * what the row rule refuses (`rowTextReadOnlyReason`) stays read-only.
  */
 function EditableTitle({ node }: { node: OutlineNode }) {
   const schema = usePageGraph(schemaOf);
+  const { isVirtual } = useGraphRead();
   // The same text channel as a row: what it shows and whether it can be
   // written are the row rules (`lib/contextual-ref`), not a second copy.
-  const readOnly = rowTextReadOnlyReason(node.id, node, schema) !== null;
+  const readOnly = rowTextReadOnlyReason(node.id, node, schema, isVirtual) !== null;
   const text = rowText(node, schema);
   // Its edit is the page editor's, as a row's is: activated under its own
   // instance, so the page (and every backdrop reading `editing()`) knows the
@@ -142,15 +143,6 @@ export function ZoomedRootHeader({
       <div className="relative pl-7">
         <div className="group/header flex min-h-9 items-start justify-between gap-2">
           <EditableTitle node={node} />
-          {isSysPrefixed(node.id) && (
-            <span
-              className="flex h-9 shrink-0 items-center text-foreground/30"
-              title="System node — read-only"
-              data-sys-lock="true"
-            >
-              <LockSimpleIcon size={14} weight="bold" />
-            </span>
-          )}
           {/* A list frame keeps its view control quiet: it shows on hover or
               keyboard focus, and stays while something it opened is open. A
               plain list tucks it behind one gear; a query's shows its toolbar,

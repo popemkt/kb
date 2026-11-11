@@ -158,7 +158,7 @@ const GLOBAL_COMMANDS: readonly Command[] = [
     menu: GLOBAL,
     run: async (ctx) => {
       const selected = ctx.outline.selectedNodeId;
-      if (selected !== null && !isSysPrefixed(selected)) {
+      if (selected !== null) {
         await browserHost().writes.createNodeAfter(selected);
         return;
       }

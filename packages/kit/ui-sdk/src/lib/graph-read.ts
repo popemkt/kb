@@ -19,7 +19,9 @@
  * map. A query read through the answers (`runner`, `read`) depends on that
  * query's answer, and is watched while the component is mounted, so a move
  * of the replica asks it again (`useAnswered` reads queries the same way);
- * any other use of the answers depends on every answer arriving.
+ * any other use of the answers depends on every answer arriving. Whether a
+ * node is virtual (`isVirtual`) is recorded with what it answered, as a
+ * query is.
  *
  * Reads always answer from the source's current maps, never from the
  * snapshot the view was made on; the recording only decides when the view is
@@ -40,9 +42,15 @@ import type { EdnRunner } from "../query";
 import type { QueryAnswers, QueryRead } from "./replica-queries";
 import type { NodeMap } from "./types";
 
-/** The graph as a component reads it: the outline as shown, its schema, the query answers. */
+/**
+ * The graph as a component reads it: the outline as shown, its schema, the
+ * query answers, and which nodes it serves from a source that is not the
+ * store.
+ */
 export interface GraphRead extends FieldContext {
   readonly outline: NodeMap;
+  /** Whether the graph serves `id` from its source file, not the store (`NodeIndex.isVirtual`). */
+  readonly isVirtual: (id: string) => boolean;
 }
 
 /**
@@ -59,6 +67,8 @@ export interface GraphSource {
   readonly schema: () => SchemaIndex;
   /** The replica's query answers, or null before the graph has loaded. */
   readonly queries: () => QueryAnswers | null;
+  /** Whether the graph serves `id` from its source file, not the store (`NodeIndex.isVirtual`). */
+  readonly isVirtual: (id: string) => boolean;
 }
 
 /** The store values a read stands on, as of one check. */
@@ -67,6 +77,7 @@ interface Sources {
   readonly schema: SchemaIndex;
   readonly queries: QueryAnswers | null;
   readonly answers: number;
+  readonly isVirtual: (id: string) => boolean;
 }
 
 function sourcesOf(source: GraphSource): Sources {
@@ -76,6 +87,7 @@ function sourcesOf(source: GraphSource): Sources {
     schema: source.schema(),
     queries,
     answers: queries?.version ?? 0,
+    isVirtual: source.isVirtual,
   };
 }
 
@@ -230,6 +242,8 @@ class Reader {
   readonly #schema = new MapReads();
   /** The queries read through the view, with what each answered. */
   readonly reads = new Map<string, QueryRead>();
+  /** The ids asked whether they are virtual, with what each answered. */
+  readonly #virtual = new Map<string, boolean>();
   #queried = false;
   readonly view: GraphRead;
 
@@ -249,6 +263,11 @@ class Reader {
           : new AnswersRead(queries, this.reads, () => {
               this.#queried = true;
             }),
+      isVirtual: (id) => {
+        const virtual = this.#sources.isVirtual(id);
+        this.#virtual.set(id, virtual);
+        return virtual;
+      },
     };
   }
 
@@ -268,6 +287,7 @@ class Reader {
     // unscoped schema's entries are the projection's (`lib/schema.ts`), so an
     // expand since the last snapshot is not a change to a schema reader.
     if (!this.#schema.unchanged(prev.schema, next.schema, sameMeaning)) return false;
+    for (const [id, virtual] of this.#virtual) if (next.isVirtual(id) !== virtual) return false;
     this.#sources = next;
     return true;
   }

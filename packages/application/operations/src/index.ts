@@ -45,6 +45,8 @@ export {
   nodeUpdateEffect,
   nodeDeleteDef,
   nodeDeleteEffect,
+  nodeMergeDef,
+  nodeMergeEffect,
   tagDefineDef,
   tagDefineEffect,
 } from "./actions.ts";
@@ -109,6 +111,7 @@ export { graphWritesLayer } from "./graph-writes.ts";
 export {
   noteStoreSynced,
   persistEffect,
+  personWriteRefusal,
   persistPlannedEffect,
   reloadEffect,
   type PersistOptions,

@@ -8,6 +8,7 @@ import { describe, expect, test } from "bun:test";
 import {
   SYSTEM_IDS,
   extensionNodeId,
+  isShipped,
   isWritableField,
   systemWriteRefusal,
   type KbNode,
@@ -113,6 +114,13 @@ describe("a write to a system node", () => {
     for (const next of [template("sys.f.a"), template("sys.f.b", "sys.f.a")]) {
       expect(systemWriteRefusal(seeded, next, fieldOf)).toMatch(/keeps the sys.f.fields values/);
     }
+  });
+
+  test("ships the system ids its lists hold, and nothing in a person's node", () => {
+    // What the page marks "shipped" is what the commit keeps: the same rule.
+    expect(isShipped(before.id, "sys.f.a")).toBe(true);
+    expect(isShipped(before.id, "f.mine")).toBe(false);
+    expect(isShipped("n.user", "sys.f.a")).toBe(false);
   });
 
   test("keeps its rank and creation stamp, and is never minted", () => {

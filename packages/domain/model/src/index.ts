@@ -43,6 +43,7 @@ export type { NumberSeparators, ParseContext, ParsedValue } from "./field-value.
 export {
   configures,
   configuresAnExtension,
+  isShipped,
   isWritableField,
   systemTxRefusal,
   systemWriteRefusal,
