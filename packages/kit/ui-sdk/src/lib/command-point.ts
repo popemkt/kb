@@ -22,6 +22,7 @@ import type { FamilyView } from "./view-key";
 /** What commands read and drive on the outline store. */
 export interface OutlineCommandApi {
   readonly selectedNodeId: string | null;
+  /** The node the page stands at: the one its focused pane is shown for, a zoom or a node opened there. */
   readonly rootNodeId: string;
   readonly ontologyId: string | null;
   readonly nodes: NodeMap;

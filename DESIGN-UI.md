@@ -2384,7 +2384,9 @@ being listed first.
 
 ⌘K with no row anchored is the page's search (`CommandPalette`), and it
 finds the node menu's commands too: those `listNodeCommands` offers the
-node it acts on — the selected row, else the page's node — ahead of the
+node it acts on — the selected row, else the node the page stands at, the
+one its focused pane is shown for (`paneSubjectAt`: a zoom, or a node
+opened at `/node/<id>`) — ahead of the
 graph's entries, each marked with that node's label (`withNodeCommands`).
 So a page's own commands are found where a person searches, with nothing
 selected: on a tag's page, "Make your own tag that extends this". A command

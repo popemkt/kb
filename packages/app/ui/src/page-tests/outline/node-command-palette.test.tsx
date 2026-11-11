@@ -24,10 +24,14 @@ import {
   pageTitleInstanceKey,
   syncUiPlugins,
   SYSTEM_IDS,
+  WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
 import { CommandPalette } from "@/components/palette/command-palette";
 import { pageEditor } from "@/stores/page-editor";
 import { useUiStore } from "@/stores/ui.store";
+import { useWorkspaceStore } from "@/stores/workspace.store";
+import { singlePane } from "@kb/views";
+import { layoutUiPlugin } from "@/components/layout/plugin";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
@@ -349,6 +353,8 @@ describe("the global palette on a page", () => {
   let root: Root;
 
   beforeAll(() => {
+    // The page's routes too: a pane opened at a node names it by its route.
+    syncPagePlugins([outlineUiPlugin, collectionsUiPlugin, chartUiPlugin, layoutUiPlugin]);
     dom = new Window();
     const g = globalThis as Record<string, unknown>;
     g.window = dom;
@@ -390,6 +396,23 @@ describe("the global palette on a page", () => {
     await openPalette();
     const extend = row("Make your own tag that extends this");
     expect(extend.lastElementChild?.textContent).toBe("project");
+  });
+
+  it("acts on the node a pane is opened at, as on the zoom", async () => {
+    useGraphStore.setState({ rootNodeId: WORKSPACE_ROOT_ID });
+    const before = useWorkspaceStore.getState();
+    useWorkspaceStore.setState({
+      layout: singlePane({ id: "p.node", path: "/node/t.super" }),
+      focused: "p.node",
+    });
+    try {
+      await openPalette();
+      expect(row("Make your own tag that extends this").lastElementChild?.textContent).toBe(
+        "project",
+      );
+    } finally {
+      useWorkspaceStore.setState({ layout: before.layout, focused: before.focused });
+    }
   });
 
   it("runs one on the page's node", async () => {
