@@ -1333,6 +1333,15 @@
         "@types/bun": "catalog:",
       },
     },
+    "packages/infrastructure/code-image": {
+      "name": "@kb/code-image",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "effect": "catalog:",
+      },
+    },
     "packages/infrastructure/file-write": {
       "name": "@kb/file-write",
       "version": "0.0.0",
@@ -1915,6 +1924,8 @@
     "@kb/client": ["@kb/client@workspace:packages/app/client"],
 
     "@kb/code": ["@kb/code@workspace:packages/extension/code"],
+
+    "@kb/code-image": ["@kb/code-image@workspace:packages/infrastructure/code-image"],
 
     "@kb/code-ui": ["@kb/code-ui@workspace:packages/extension/code-ui"],
 

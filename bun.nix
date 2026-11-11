@@ -646,6 +646,7 @@
   "@kb/cli" = copyPathToStore ./packages/app/cli;
   "@kb/client" = copyPathToStore ./packages/app/client;
   "@kb/code" = copyPathToStore ./packages/extension/code;
+  "@kb/code-image" = copyPathToStore ./packages/infrastructure/code-image;
   "@kb/code-ui" = copyPathToStore ./packages/extension/code-ui;
   "@kb/collections" = copyPathToStore ./packages/extension/collections;
   "@kb/collections-ui" = copyPathToStore ./packages/extension/collections-ui;

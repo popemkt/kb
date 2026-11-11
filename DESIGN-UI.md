@@ -522,6 +522,14 @@ port reports; hashing changed files after loading is not an attestation. The
 page closure includes executable lazy chunks and workers. Native identity is
 independent of a cache label or the UI source-cache fingerprint.
 
+The `@kb/code-image` primitive materializes a trusted bundled native artifact
+and the supplied page-file set before loading. It imports the captured native
+bytes under a fresh load URL and publishes identity only after import succeeds.
+Page reads return immutable captured Blobs, with no filesystem fallback; the
+page digest covers the sorted filename/content manifest, including lazy modules
+and workers. This primitive is not yet bound to the production bootstrap or
+HTTP server and grants no authority by itself.
+
 In checkout/dev execution the visible reason is “approvals need a packaged
 build”. Normal keyboard dispatch and non-replacing stored shortcuts remain
 available; this limitation applies to persistent stored replacement grants.
