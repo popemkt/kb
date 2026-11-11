@@ -152,6 +152,9 @@ test("non-object and non-JSON input recipes are rejected without losing data", (
   const cyclic: Record<string, unknown> = {};
   cyclic.self = cyclic;
   for (const input of [
+    new Date("2026-01-01T00:00:00Z"),
+    new Map([["x", 1]]),
+    new Set([1]),
     null,
     1,
     "x",

@@ -71,11 +71,11 @@ function intentKey(context: string, intent: string): string {
   return `${encodeURIComponent(context)}:${encodeURIComponent(intent)}`;
 }
 
+const CallInput = Schema.Json.pipe(Schema.decodeTo(Schema.JsonObject));
+
 /** Stored calls preserve the action's object input contract and contain JSON data only. */
 export function normalizedCall(call: ActionCall): { action: string; input: Schema.JsonObject } {
-  const input = Schema.decodeUnknownSync(Schema.JsonObject)(
-    call.input === undefined ? {} : call.input,
-  );
+  const input = Schema.decodeUnknownSync(CallInput)(call.input === undefined ? {} : call.input);
   return { action: call.action, input: structuredClone(input) };
 }
 

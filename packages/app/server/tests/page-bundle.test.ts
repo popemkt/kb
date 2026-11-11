@@ -177,7 +177,8 @@ const DATASCRIPT = /cljs\.core/;
 // Shared keyboard declarations and their ordinary shortcut/chord descriptions
 // measure 1,855,046 bytes; retain about 1.5 KB of eager headroom.
 // Stable intent targets, call recipes and the target-choice query measure 1,856,120 bytes.
-const EAGER_BUDGET_BYTES = 1_857_620;
+// Validating JSON compatibility before the object shape measures 1,856,152 bytes.
+const EAGER_BUDGET_BYTES = 1_857_700;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {
