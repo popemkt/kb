@@ -21,8 +21,19 @@ export const ProcedureCallSchema = z.object({
 });
 export type ProcedureCall = z.infer<typeof ProcedureCallSchema>;
 
-/** What a step's check answers: a read action's output, done when it says so. */
-export const StepCheckSchema = z.object({ done: z.boolean() }).loose();
+/**
+ * What a step's check answers: a read action's output, done when it says
+ * so. It may also say which of the step's actions it recommends (roll back,
+ * when a migration's verify found problems) and give lines to show beside
+ * the step (those problems).
+ */
+export const StepCheckSchema = z
+  .object({
+    done: z.boolean(),
+    recommended: z.string().optional(),
+    notes: z.array(z.string()).optional(),
+  })
+  .loose();
 
 /** One action a step offers: its name in the step, and the call it makes. */
 export interface StepAction {
@@ -84,6 +95,10 @@ export const StepStatusSchema = z.object({
   ),
   /** More than one action: the caller decides which, and nothing decides for a person. */
   decision: z.boolean(),
+  /** The action its check recommends, one of `actions`. */
+  recommended: z.string().optional(),
+  /** What its check gives to show beside it. */
+  notes: z.array(z.string()),
   /** What its check answered: done, not done, or why it could not say. */
   check: z.discriminatedUnion("status", [
     z.object({ status: z.literal("done") }),

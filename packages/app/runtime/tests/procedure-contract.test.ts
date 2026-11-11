@@ -10,7 +10,9 @@
  * - a later step done puts every step before it behind the procedure, so a
  *   procedure resumes where its store says it is;
  * - a step that offers more than one action is a decision: the call names
- *   which, and none is taken for it.
+ *   which, and none is taken for it;
+ * - a check may recommend one of its step's actions and give notes to show
+ *   beside it; a recommendation naming no action of the step is dropped.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
@@ -23,6 +25,7 @@ import {
   KbCtx,
   KbStore,
   ProcedurePoint,
+  StepCheckSchema,
   onWire,
   type ActionInvocation,
   type HostedFamilies,
@@ -52,6 +55,7 @@ const note = (id: string): KbNode => ({
 });
 
 const Marked = z.object({ id: z.string() });
+const Advice = z.object({ recommended: z.string() });
 
 /** A call of `action` about the node `n.<id>`. */
 const call = (action: string, id: string) => ({ action, input: { id: `n.${id}` } });
@@ -105,6 +109,39 @@ const stepsPlugin = definePlugin({
             }),
         },
       });
+      yield* ctx.contribute(ActionPoint, {
+        id: "advise",
+        value: {
+          title: "advise",
+          description: "not done, recommending what its input names",
+          mode: { kind: "read" },
+          inputSchema: Advice,
+          outputSchema: StepCheckSchema,
+          effect: (input: never) =>
+            Effect.sync(() => {
+              const { recommended } = Advice.parse(input);
+              return { done: false, recommended, notes: [`why ${recommended}`] };
+            }),
+        },
+      });
+      for (const recommended of ["drop", "maybe"])
+        yield* ctx.contribute(ProcedurePoint, {
+          id: `advised.${recommended}`,
+          value: {
+            title: "an advised decision",
+            steps: [
+              {
+                id: "decide",
+                title: "keep or drop",
+                actions: [
+                  { id: "keep", title: "Keep", call: call("t.mark", "keep") },
+                  { id: "drop", title: "Drop", call: call("t.mark", "drop") },
+                ],
+                check: { action: "t.advise", input: { recommended } },
+              },
+            ],
+          },
+        });
       yield* ctx.contribute(ProcedurePoint, {
         id: "proc",
         value: {
@@ -193,7 +230,11 @@ describe("procedure contract", () => {
         expect(at.steps.map((s) => s.decision)).toEqual([false, false, false, true]);
         const listed = yield* invoke("procedure.list", {});
         expect(listed.status === "succeeded" && listed.output).toEqual({
-          procedures: [{ id: "t.proc", title: "a procedure", current: "one" }],
+          procedures: [
+            { id: "t.advised.drop", title: "an advised decision", current: "decide" },
+            { id: "t.advised.maybe", title: "an advised decision", current: "decide" },
+            { id: "t.proc", title: "a procedure", current: "one" },
+          ],
         });
       }),
     ));
@@ -280,6 +321,27 @@ describe("procedure contract", () => {
         );
         expect(ids()).toContain("n.four");
         expect((yield* status()).current).toBeNull();
+      }),
+    ));
+
+  test("a check's recommendation and notes reach the status, a stray one dropped", () =>
+    run(
+      Effect.gen(function* () {
+        const read = (procedure: string) =>
+          invoke("procedure.status", { procedure }).pipe(
+            Effect.map((receipt) =>
+              receipt.status === "succeeded" ? (receipt.output as ProcedureStatus) : null,
+            ),
+          );
+        const advised = yield* read("t.advised.drop");
+        expect(advised?.steps[0]).toMatchObject({
+          decision: true,
+          recommended: "drop",
+          notes: ["why drop"],
+        });
+        const stray = yield* read("t.advised.maybe");
+        expect(stray?.steps[0]?.recommended).toBeUndefined();
+        expect(stray?.steps[0]?.notes).toEqual(["why maybe"]);
       }),
     ));
 

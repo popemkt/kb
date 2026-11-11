@@ -44,6 +44,7 @@ describe("kinds, roles and options", () => {
       "google-account",
       "image source",
       "look",
+      "migration",
       "occurrence",
       "ontology",
       "role",
