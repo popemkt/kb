@@ -163,15 +163,17 @@ export function report(
   return EXIT_OK;
 }
 
-/** Invoke through the CLI; only a terminal confirmation can approve a call. */
-export const invokeCliEffect = Effect.fn("invokeCliEffect")(function* (
-  ctx: KbContext,
-  invocation: ActionInvocation,
+/**
+ * Ask the person at this process's terminal a yes/no `question` after
+ * `preface`, and answer whether they said yes. No terminal, or no answer in
+ * two minutes, is no: the terminal is the one place a person answers, so a
+ * pipe or a script never does.
+ */
+const askTerminal = Effect.fn("askTerminal")(function* <R>(
+  preface: Effect.Effect<string, never, R>,
+  question: string,
 ) {
-  const { approved: _approved, ...call } = invocation;
-  const receipt = yield* invokeReceiptEffect(ctx, call);
-  if (receipt.status !== "failed" || receipt.code !== "approval_required") return receipt;
-  const approved = yield* Effect.acquireUseRelease(
+  return yield* Effect.acquireUseRelease(
     Effect.sync(() => {
       let input: ReadStream | undefined;
       let output: WriteStream | undefined;
@@ -189,13 +191,9 @@ export const invokeCliEffect = Effect.fn("invokeCliEffect")(function* (
     (tty) =>
       Effect.gen(function* () {
         if (tty === null) return false;
-        const title =
-          (yield* manifest(ctx.root)).find((entry) => entry.id === call.id)?.title ?? call.id;
-        tty.output.write(
-          `${typeof call.actor === "string" ? call.actor : JSON.stringify(call.actor)}: ${title} (${call.id}) ${JSON.stringify(call.input)}\n${receipt.message}\n`,
-        );
+        tty.output.write(yield* preface);
         const answer = yield* Effect.promise(() =>
-          tty.terminal.question("Approve this call? [y/N] "),
+          tty.terminal.question(`${question} [y/N] `),
         ).pipe(Effect.timeoutOption(120_000));
         return Option.isSome(answer) && /^(y|yes)$/i.test(answer.value.trim());
       }),
@@ -205,6 +203,24 @@ export const invokeCliEffect = Effect.fn("invokeCliEffect")(function* (
         tty?.input.destroy();
         tty?.output.destroy();
       }),
+  );
+});
+
+/** Invoke through the CLI; only a terminal confirmation can approve a call. */
+export const invokeCliEffect = Effect.fn("invokeCliEffect")(function* (
+  ctx: KbContext,
+  invocation: ActionInvocation,
+) {
+  const { approved: _approved, ...call } = invocation;
+  const receipt = yield* invokeReceiptEffect(ctx, call);
+  if (receipt.status !== "failed" || receipt.code !== "approval_required") return receipt;
+  const approved = yield* askTerminal(
+    Effect.gen(function* () {
+      const title =
+        (yield* manifest(ctx.root)).find((entry) => entry.id === call.id)?.title ?? call.id;
+      return `${typeof call.actor === "string" ? call.actor : JSON.stringify(call.actor)}: ${title} (${call.id}) ${JSON.stringify(call.input)}\n${receipt.message}\n`;
+    }),
+    "Approve this call?",
   );
   return approved ? yield* invokeReceiptEffect(ctx, { ...call, approved: true }) : receipt;
 });
