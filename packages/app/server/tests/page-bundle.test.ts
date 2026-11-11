@@ -141,7 +141,11 @@ const DATASCRIPT = /cljs\.core/;
 // its planned commit, and the descriptions saying what an omitted parent
 // means) and days' captures and time zone settings, merged with main at
 // c33abe82, measure 1,829,178; the budget keeps about 1.5 KB over it.
-const EAGER_BUDGET_BYTES = 1_830_700;
+// A field a family manages (`useFieldWrite`, the "managed by" note with its
+// Edit step that every field row reads, and the write rule's `fieldWriting`)
+// and days' period-key guard, on #175's head, measure 1,831,728; the budget
+// keeps about 1.5 KB over it.
+const EAGER_BUDGET_BYTES = 1_833_200;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {
