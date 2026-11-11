@@ -746,7 +746,9 @@ then its References.
   setting, say), and a section shows always without it. The page draws
   the title as References draws its own; the body is given the node's id,
   may be a chunk of its own, and lists nodes with `NodeLinkRow`, the row
-  References uses. No family gets a page of its own for this.
+  References uses. No family gets a page of its own for this. A
+  repository extension cannot contribute one yet: the point is not on
+  its page surface (GAP [[01M74PDWPASZ30SBGA95EV0X0M]]).
 
 ### Contextual references (2026-08-27)
 
