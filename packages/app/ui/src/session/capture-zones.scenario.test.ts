@@ -159,10 +159,25 @@ describe("a capture across the tab's and the store's midnight", () => {
     expect(useGraphStore.getState().rev).toBe(3);
   });
 
+  it("reads an undefined parent as none given, and pushes the tab's place", async () => {
+    await invoke("node.add", { id: CAPTURED, text: "undefined parent", parent: undefined });
+    await vi.advanceTimersByTimeAsync(0);
+    await serve(0, 2, [wire(TAB_DAY, dayIn(TAB_ZONE))]);
+    expect(pushes[1]?.input).toMatchObject({ id: CAPTURED, parent: TAB_DAY });
+    // As it crosses the wire: JSON keeps the place.
+    expect(JSON.parse(JSON.stringify(pushes[1]?.input))).toMatchObject({ parent: TAB_DAY });
+  });
+
   it("pushes a place it was given, or chose itself, as given", async () => {
     await invoke("node.add", { id: "n.top", text: "top", parent: null });
     await vi.advanceTimersByTimeAsync(0);
     expect(pushes[0]?.input).toMatchObject({ id: "n.top", parent: null });
+    await serve(0, 2, [wire("n.top", "top")]);
+
+    const [chosen] = fixtureGraph.nodes;
+    await invoke("node.add", { id: "n.under", text: "under", parent: chosen?.id });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(pushes[1]?.input).toMatchObject({ id: "n.under", parent: chosen?.id });
     // The capture target was never asked, so nothing was made for it.
     expect(shown(TAB_DAY)).toBeUndefined();
   });

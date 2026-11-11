@@ -505,10 +505,15 @@ type Placed = { readonly parent: string | null } | null;
 /**
  * `invocation` with the place its capture target answered given as its
  * `parent`, the input whose absence asks the capture target, so the server
- * commits the node where the tab did.
+ * commits the node where the tab did. An undefined `parent` is an absent
+ * one, as `node.add` reads it and as JSON drops it on the way.
  */
 function asPlaced(invocation: ActionRequest, placed: Placed): ActionRequest {
-  if (placed === null || !Predicate.isObject(invocation.input) || "parent" in invocation.input)
+  if (
+    placed === null ||
+    !Predicate.isObject(invocation.input) ||
+    invocation.input["parent"] !== undefined
+  )
     return invocation;
   return { ...invocation, input: { ...invocation.input, parent: placed.parent } };
 }
