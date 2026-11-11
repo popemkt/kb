@@ -52,9 +52,11 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // top level; its local commit and the server's would disagree, so it reloads.
 // `store.backup`, `store.backups` and `store.restore` are new actions a
 // previous page never calls.
+// `procedure.list`, `procedure.status` and `procedure.step` are new actions a
+// previous page never calls.
 const RECORDED = {
   protocol: 8,
-  fingerprint: "2fd4f516bcf313ad3abd14426c3657fe97e524daefe26ff95ee522a82636a58e",
+  fingerprint: "0a52f17fe9f9275a99d16bb500ea80b132311c6f821b4b2d99a1a941d4a6b821",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

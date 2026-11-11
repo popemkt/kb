@@ -3015,6 +3015,43 @@ whoever owns the devices that reach the Service. A Service is hosted by
 tagged nodes, so a process on the host itself that goes through the
 Service's address is a tagged device's and gets no header.
 
+### Procedures
+
+A **procedure** is an ordered list of steps that a person or an agent walks
+through on any surface: a wizard page, `kb procedure`, MCP. It is data over
+actions, contributed to `ProcedurePoint` (`kb.procedures`, keyed):
+
+- **A step offers actions.** With one, doing the step runs it. With several,
+  the step is a **decision** (keep or roll back): the caller names the
+  action it means, and nothing takes it for a person.
+- **A step's done-ness is read, never recorded.** Each step names a `check`,
+  a read action whose output's `done` answers whether it is done. The answer
+  comes from the store, or from what the store's machine holds, such as a
+  backup. There is no progress state to drift, so a procedure resumes
+  wherever it was left, on whichever surface.
+- **Order is one rule** (`walkedSteps`): a step counts as done when its own
+  check says so **or a later step's does**. Steps are walked in order, so a
+  later step done means this one was passed, whatever its check reads now
+  (a migration's backup step stays behind it after the apply changes the
+  store). The **current** step is the first one not done.
+
+The core actions are `procedure.list` and `procedure.status` (read), and
+`procedure.step {procedure, step, action?}`. `procedure.step` refuses any
+step but the current one. It then invokes the step's action through the
+invoke core (`CoreInvoke`) as its own caller, so that action is decided as
+it would be on its own. An action needing approval needs it on the call
+that walks it: `callWithin` lends the nested call only its caller's
+approval. MCP, which carries no approval, is refused there as it is anywhere.
+
+`kb procedure [id]` lists the procedures or shows one's status.
+`--run` walks a procedure from its current step, asking before each step;
+`--yes` skips that question but not an approval. `--run` stops at a
+decision, so `--yes` never takes one. `--action <id>` is the person's
+decision at the current step. `procedure-contract.test.ts` proves this
+through the invoke core. The routines Google setup wizard predates the
+primitive and keeps its own walker for now (`#gap`
+01M74NN86YC7HP65R2JVYMM27F).
+
 ### Core boundary & extensions
 
 Core ships mechanism only: store (JSONL), datalog (DataScript), the action

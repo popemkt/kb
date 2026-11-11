@@ -53,6 +53,7 @@ import {
   cliAction,
   handleCliError,
   kbAction,
+  outputLines,
   report,
   type GlobalOpts,
 } from "./command.ts";
@@ -61,6 +62,7 @@ import { trustCommands } from "./trust.ts";
 import { extensionCommands } from "./extensions.ts";
 import { gateCommands } from "./gates.ts";
 import { locationCommands } from "./locations.ts";
+import { procedureCommands } from "./procedures.ts";
 import { mergeDriverCommand } from "./merge-driver.ts";
 import { relationCommands } from "./relations.ts";
 import { hostExtensions } from "./host-plugins.ts";
@@ -733,6 +735,7 @@ function buildProgram(): Command {
   extensionCommands(program);
   trustCommands(program);
   locationCommands(program);
+  procedureCommands(program);
   relationCommands(program);
   gateCommands(program);
   mergeDriverCommand(program);
@@ -782,26 +785,6 @@ function backupLine(backup: {
 }): string {
   const now = backup.current === true ? "  (current)" : "";
   return `${backup.id}  ${String(backup.nodes)} nodes  ${backup.path}${now}`;
-}
-
-/** An action's output as lines, read through its definition's schema. */
-function outputLines<T>(
-  def: {
-    id: string;
-    outputSchema: {
-      safeParse: (
-        value: unknown,
-      ) => { success: true; data: T } | { success: false; error: { message: string } };
-    };
-  },
-  lines: (output: T) => readonly string[],
-): (output: unknown) => readonly string[] {
-  return (output) => {
-    const parsed = def.outputSchema.safeParse(output);
-    return parsed.success
-      ? lines(parsed.data)
-      : [`${def.id} answered in another shape: ${parsed.error.message}`];
-  };
 }
 
 /** `kb store backup | backups | restore`: the `store.*` backup actions (DESIGN.md → Storage → Backups). */
