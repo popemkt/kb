@@ -276,7 +276,7 @@ export {
   isValidWorkspaceName,
 } from "./workspace.ts";
 export { KbRoots } from "./roots.ts";
-export type { KbRootsPort, RootProbe, RootState } from "./roots.ts";
+export type { BackupTaken, KbRootsPort, RootProbe, RootState, StoreBackup } from "./roots.ts";
 export type {
   AssetsPort,
   CodeTrustPort,
