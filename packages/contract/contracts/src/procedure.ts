@@ -137,3 +137,9 @@ export function walkedSteps(checks: readonly boolean[]): {
   const current = done.indexOf(false);
   return { done, current: current === -1 ? null : current };
 }
+
+/** The result of one step: its nested action receipt and freshly read progress. */
+export const ProcedureStepOutputSchema = z.object({
+  receipt: z.unknown(),
+  status: ProcedureStatusSchema,
+});

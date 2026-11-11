@@ -177,6 +177,7 @@ export {
   ProcedureCallSchema,
   ProcedurePoint,
   ProcedureStatusSchema,
+  ProcedureStepOutputSchema,
   StepCheckSchema,
   StepStatusSchema,
   isDecision,
