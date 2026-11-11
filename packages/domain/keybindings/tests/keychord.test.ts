@@ -1,5 +1,5 @@
 import fc from "fast-check";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import {
   chordIncludes,
   chordsOverlap,
@@ -9,7 +9,7 @@ import {
   parseChord,
   type Chord,
   type KeyChordEvent,
-} from "./keychord";
+} from "../src/chord.ts";
 
 describe("parseChord", () => {
   it.each([

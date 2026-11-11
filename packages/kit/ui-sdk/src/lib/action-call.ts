@@ -10,12 +10,8 @@ import { browserHost } from "../host";
 import { toast } from "./toast";
 import { failureText } from "./refusal";
 
-/** An action by id, with the input it is called with. */
-export interface ActionCall {
-  readonly action: string;
-  /** The action's input; the row's node is added as `id`. */
-  readonly input?: Readonly<Record<string, unknown>>;
-}
+import type { ActionCall } from "@kb/keybindings";
+export type { ActionCall } from "@kb/keybindings";
 
 /** Where a picker step's input takes the node the person picked. */
 export interface Picked {

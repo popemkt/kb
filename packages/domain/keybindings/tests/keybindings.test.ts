@@ -3,10 +3,15 @@
  * offered every key before any surface is, so the two are decided together
  * and neither shadows the other.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import type { Contribution } from "@kb/plugin";
-import { admitKeymaps, provideKeybinding, type KeyContext, type Keybinding } from "./keybindings";
-import { PALETTE_CHORD } from "./keychord";
+import {
+  admitKeymaps,
+  provideKeybinding,
+  type KeyContext,
+  type Keybinding,
+} from "../src/bindings.ts";
+import { PALETTE_CHORD } from "../src/chord.ts";
 
 /** A host that approves every owner replacing what another holds. */
 const ANYONE = () => true;
