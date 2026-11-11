@@ -158,11 +158,9 @@ const DATASCRIPT = /cljs\.core/;
 // (`ext.days.untag-period`), on main after #175, measure 1,833,556; the
 // budget keeps about 1.5 KB over it. Merged with main at 2ac7de7b (#178),
 // it measures 1,836,700; the budget keeps about 1.5 KB over that.
-// A day in the node page (sections below a node's outline per tag, the
-// shared NodeLinkRow, the empty page's strip and the title's Enter, the day
-// page gone), merged with main after #177 and #179, measures 1,837,370;
-// the budget keeps about 1.5 KB over it.
-const EAGER_BUDGET_BYTES = 1_838_900;
+// Merging the migration declaration/procedure, with step recommendations and
+// notes, into that main measures 1,840,175 bytes; retain about 1.5 KB headroom.
+const EAGER_BUDGET_BYTES = 1_841_700;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {
