@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { coversFromAbove, type CanvasNode } from "@kb/canvas";
+import { MAX_PITCH } from "./canvas-camera-stops";
 import {
-  MAX_PITCH,
   PERSPECTIVE_FOV,
   heldOrbit,
   lensOf,

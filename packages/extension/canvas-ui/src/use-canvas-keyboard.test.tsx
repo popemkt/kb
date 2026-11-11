@@ -5,7 +5,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest
 import type { CanvasDoc, CanvasItemLink } from "@kb/canvas";
 import { EMPTY_SELECTION, selectNode, type CanvasSelection } from "./canvas-selection";
 import type { ToolState } from "./canvas-tool";
-import type { CanvasIntent } from "./canvas-keymap";
+import type { CanvasIntent } from "./canvas-keys";
 import { useCanvasKeyboard } from "./use-canvas-keyboard";
 
 /**

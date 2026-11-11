@@ -1,15 +1,13 @@
 import { describe, expect, test } from "vitest";
 import {
-  canvasKeymap,
   CANVAS_SHORTCUTS,
   CANVAS_VIEW_COMMANDS,
-  menuRows,
-  mapCanvasKey,
   type CanvasIntent,
   type CanvasKeyEvent,
   type CanvasMenuName,
-} from "./canvas-keymap.ts";
-import { ZOOM_STEP } from "./canvas-camera";
+} from "./canvas-keys";
+import { canvasKeymap, menuRows, mapCanvasKey } from "./canvas-keymap";
+import { ZOOM_STEP } from "./canvas-camera-stops";
 
 const withSelection = { selectionEmpty: false, transforming: false };
 const empty = { selectionEmpty: true, transforming: false };

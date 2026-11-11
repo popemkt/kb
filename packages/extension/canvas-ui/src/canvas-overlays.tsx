@@ -10,7 +10,7 @@ import {
   TrashIcon,
   XIcon,
 } from "@phosphor-icons/react";
-import type { PresentAct } from "./canvas-keymap";
+import type { PresentAct } from "./canvas-keys";
 import { frameName } from "./canvas-frame-name";
 import { CanvasToolbar } from "./canvas-toolbar";
 import { NodePicker } from "./node-picker";
