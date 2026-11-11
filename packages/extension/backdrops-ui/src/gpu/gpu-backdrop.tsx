@@ -11,11 +11,12 @@
  * three (`UI_LAZY_ONLY`): the plugin imports it with `lazy()`, and it
  * imports each scene, which is three's, with `import()`.
  */
-import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { type RefObject, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { SEED_KNOB } from "@kb/backdrops";
 import { knobValue } from "@kb/model";
 import { attachScene } from "@kb/scene";
 import {
+  HeldStill,
   logWarn,
   readTiming,
   useAppearance,
@@ -29,6 +30,7 @@ import { readStagePalette } from "../scene/tokens";
 import { useTellOwner } from "../scene/owner";
 import { TintBackdrop } from "../tint-backdrop";
 import type { ContentBox } from "./framing";
+import { inTurn } from "./sample-turns";
 import type { GpuBackdropInit, GpuBackdropMount, GpuBackdropScene, GpuLook } from "./gpu-scene";
 
 /** Each GPU backdrop's scene, behind the second lazy boundary. */
@@ -151,6 +153,8 @@ export default function GpuBackdrop({
   const mounted = useRef<GpuBackdropScene | null>(null);
   const appearance = useAppearance();
   const reducedMotion = useReducedMotion();
+  // A sample's scene starts in its turn, a page head's at once (`inTurn`).
+  const sample = useContext(HeldStill);
   const { color, opacity, activity, node, pointer, budget, knobs } = backdrop;
   // A pinned seed is a composition of its own: a new pin mounts the scene again.
   const pinned = knobValue(knobs, SEED_KNOB);
@@ -185,21 +189,26 @@ export default function GpuBackdrop({
       inView = playing;
       apply();
     });
-    const pending = SCENES[id]().then((mount) =>
-      // A pin is the mount's seed whatever the load's (`backdropSeed`).
-      mount(
-        el,
-        initNow(
+    const turn = new AbortController();
+    const start = () =>
+      SCENES[id]().then((mount) => {
+        // Gone while its scene loaded: nothing is mounted to be disposed.
+        turn.signal.throwIfAborted();
+        // A pin is the mount's seed whatever the load's (`backdropSeed`).
+        return mount(
           el,
-          look,
-          { ...latest.current, seed: pinned ?? latest.current.seed },
-          {
-            pointer,
-            budget,
-          },
-        ),
-      ),
-    );
+          initNow(
+            el,
+            look,
+            { ...latest.current, seed: pinned ?? latest.current.seed },
+            {
+              pointer,
+              budget,
+            },
+          ),
+        );
+      });
+    const pending = sample ? inTurn(start, turn.signal) : start();
     const unwatch = watchContent(el, (content) => scene?.setContent(content));
     const detach = attachScene(
       el,
@@ -229,12 +238,13 @@ export default function GpuBackdrop({
       },
     );
     return () => {
+      turn.abort();
       watch.dispose();
       unwatch();
       detach();
       mounted.current = null;
     };
-  }, [id, pointer, budget, pinned, looked]);
+  }, [id, pointer, budget, pinned, looked, sample]);
 
   useEffect(() => {
     latest.current.editing = editing;
