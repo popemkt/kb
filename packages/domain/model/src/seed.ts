@@ -497,6 +497,14 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     childrenTargetQuery(SYSTEM_IDS.extensionsRoot),
     { one: true },
   );
+  // A field whose values a family writes names it, so the page shows them at
+  // rest and a person's edit is a deliberate step.
+  const managedByField = refQueryField(
+    SYSTEM_IDS.managedByField,
+    "managed by",
+    childrenTargetQuery(SYSTEM_IDS.extensionsRoot),
+    { one: true },
+  );
   const roleTag = seededTag(SYSTEM_IDS.roleTag, "role", [SYSTEM_IDS.providerField], at);
   const providerField = refQueryField(
     SYSTEM_IDS.providerField,
@@ -650,6 +658,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     providerField,
     extensionEnabledField,
     configuresField,
+    managedByField,
     backdropField,
     backdropStrengthField,
     ...strengthOptions,

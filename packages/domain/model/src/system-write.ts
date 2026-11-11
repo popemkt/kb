@@ -93,16 +93,40 @@ export function configuresAnExtension(
 }
 
 /**
- * Whether a person may write values of the field `fieldId` (its node
- * `fieldNode`) on `node` without force: on any node that is not a system
- * node, and on a system node only where the field is one of its settings.
+ * How a person may write values of the field `fieldId` (its node
+ * `fieldNode`) on `node`: `closed` without force (a system node's field
+ * that is not one of its settings), `managed` deliberately (a family writes
+ * them, `sys.f.managedBy` names it, and the page asks for the step), or
+ * `open`. Managed is friction, not a lock: the commit admits a person's
+ * write of a managed value as any other, and the family's constraints say
+ * what a value may be.
+ */
+export type FieldWriting =
+  | { readonly kind: "open" }
+  | { readonly kind: "managed"; readonly family: NodeId }
+  | { readonly kind: "closed" };
+
+export function fieldWriting(
+  node: Configured,
+  fieldId: NodeId,
+  fieldNode: Pick<NodeLike, "props"> | undefined,
+): FieldWriting {
+  if (isSysPrefixed(node.id) && !configures(fieldId, fieldNode, node)) return { kind: "closed" };
+  const [family] = refValuesOf(fieldNode, SYSTEM_IDS.managedByField);
+  // GAP [[01M74AS94FM8GDGF3W10M84P43]] no managed field is locked to its family, even one no constraint can check
+  return family === undefined ? { kind: "open" } : { kind: "managed", family };
+}
+
+/**
+ * Whether a person may write values of the field `fieldId` on `node`
+ * without force ({@link fieldWriting}: anything but `closed`).
  */
 export function isWritableField(
   node: Configured,
   fieldId: NodeId,
   fieldNode: Pick<NodeLike, "props"> | undefined,
 ): boolean {
-  return !isSysPrefixed(node.id) || configures(fieldId, fieldNode, node);
+  return fieldWriting(node, fieldId, fieldNode).kind !== "closed";
 }
 
 /**
