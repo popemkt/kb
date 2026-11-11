@@ -1961,10 +1961,14 @@ the view node switches every page showing the canvas through it.
   named for where the eye stands; front is the +y side) and the oblique look
   a canvas first opens at. The view commands (`CANVAS_VIEW_COMMANDS`) are
   rows of the canvas's one shortcut table (`CANVAS_SHORTCUTS`,
-  `canvas-ui/src/canvas-keymap.ts`), the single statement of its keys: the
-  keymap matches chords against it, and the view menu, the toolbar's key
-  hints and the shortcut sheet (`?`, `canvas-shortcuts-sheet.tsx`, every
-  named row by section) list from it. Its Arrange rows reach `@kb/canvas`'s
+  `canvas-ui/src/canvas-keymap.ts`). A row is an intent of one of the
+  canvas's three key contexts (at rest, a modal transform, present mode)
+  with the chords kb binds it to, which are canvas-ui's bindings
+  (`CANVAS_BINDINGS`); no two of a context's chords overlap, a chord by
+  place asked first. The context's keymap decides what a key runs, and the
+  view menu, the toolbar's key hints and the shortcut sheet (`?`,
+  `canvas-shortcuts-sheet.tsx`, every named row by section) list the
+  chords it holds. Its Arrange rows reach `@kb/canvas`'s
   arrangements, as the `arrange` verb does: `]` and `[` to the front and
   back, ⌥ with them one step; ⌥A, ⌥H, ⌥D align left, centres and right,
   ⌥W, ⌥V, ⌥S top, middles and bottom (⌥ letters match by physical key,

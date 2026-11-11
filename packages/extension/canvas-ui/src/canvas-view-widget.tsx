@@ -22,7 +22,12 @@ import {
   screenAxes,
   type CanvasView,
 } from "./canvas-camera";
-import { CANVAS_VIEW_COMMANDS, type CanvasIntent, type CanvasViewCommand } from "./canvas-keymap";
+import {
+  CANVAS_VIEW_COMMANDS,
+  hintOf,
+  type CanvasIntent,
+  type CanvasViewCommand,
+} from "./canvas-keymap";
 import { cn, MENU_ROW, MENU_SURFACE, MenuSeparator, useDismiss, useMenuKeys } from "@kb/ui-sdk";
 import { AXIS_INK } from "./canvas-gizmo";
 import { frameName } from "./canvas-frame-name";
@@ -258,7 +263,7 @@ function ViewMenu({
                 aria-hidden
               />
               <span className="truncate">{command.label}</span>
-              <MenuHint hint={command.hint} />
+              <MenuHint hint={hintOf(command)} />
             </button>
           </div>
         );
