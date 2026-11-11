@@ -72,7 +72,7 @@ export async function addVisual(
     {
       text,
       tags: [GALLERY_IDS.visualTag],
-      ...(parent === null ? {} : { parent }),
+      parent,
       props: [
         { field: GALLERY_IDS.mediaField, value: { t: "str", v: `![${text}](${picture.path})` } },
         ...num(GALLERY_IDS.widthField, picture.width),

@@ -66,7 +66,8 @@ export const nodeAddDef = {
   inputSchema: z.object({
     text: z.string(),
     props: z.array(PropInputSchema).optional(),
-    parent: z.string().optional(),
+    /** The node it goes under; null for the top level. */
+    parent: z.string().nullable().optional(),
     position: z.number().int().nonnegative().optional(),
     tags: z.array(z.string()).optional(),
     id: z.string().optional(),
@@ -416,10 +417,23 @@ export interface PropEntry {
   value: PropValue;
 }
 
-/** What one add says, whoever says it: `node.add`'s input, its props as values of the model. */
-export type NodeAddPlanInput = Omit<z.infer<typeof nodeAddDef.inputSchema>, "props" | "id"> & {
+/**
+ * What one add says, whoever says it: `node.add`'s input, its props as
+ * values of the model, and its place decided: under `parent`, or at the
+ * top level without one.
+ */
+export type NodeAddPlanInput = Omit<
+  z.infer<typeof nodeAddDef.inputSchema>,
+  "props" | "id" | "parent"
+> & {
   props?: readonly PropEntry[] | undefined;
+  parent?: NodeId | undefined;
 };
+
+/** Where `node.add`'s input puts the node, for the planner: under its parent, or the top level. */
+export function placeOf(parent: NodeId | null | undefined): NodeId | undefined {
+  return parent ?? undefined;
+}
 
 /**
  * What one add means, stated once: the new node, and its parent with the
@@ -478,7 +492,9 @@ export const planNodeAddEffect = Effect.fn("node.add.plan")(function* (
   const at = yield* currentIso;
   const id = input.id ?? (yield* freshId);
   const graph = sessionGraph(ctx);
-  const { node, written } = yield* syncDomain(() => planNodeAdd(graph, input, id, at));
+  const { node, written } = yield* syncDomain(() =>
+    planNodeAdd(graph, { ...input, parent: placeOf(input.parent) }, id, at),
+  );
   const upserts = written.map((w) => present(graph.get(w), "a written node is in the graph"));
   return { id, node, upserts };
 });
@@ -605,6 +621,7 @@ export const fieldDefineEffect = Effect.fn("field.define")(function* (
   const result = yield* nodeAddEffect({
     id: input.id,
     text: input.name,
+    parent: null,
     props: [
       {
         field: SYSTEM_IDS.typeField,
@@ -639,6 +656,7 @@ export const tagDefineEffect = Effect.fn("tag.define")(function* (
   const result = yield* nodeAddEffect({
     id: input.id,
     text: input.name,
+    parent: null,
     props,
   });
   return { id: result.id };

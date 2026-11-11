@@ -12,7 +12,8 @@ import { browserHost, toast } from "@kb/ui-sdk";
 /** What `node.add` takes, less the id this mints. */
 export interface NodeAdd {
   readonly text: string;
-  readonly parent?: string;
+  /** The node it goes under; null for the top level. */
+  readonly parent: string | null;
   readonly tags?: readonly string[];
   readonly props?: readonly unknown[];
 }

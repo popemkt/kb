@@ -96,7 +96,11 @@ export function planSplit(
       { id: "node.update", input: { id, text: left } },
       {
         id: "node.add",
-        input: { id: newId, text: right, ...(parent ? { parent: parent.id, position } : {}) },
+        input: {
+          id: newId,
+          text: right,
+          ...(parent ? { parent: parent.id, position } : { parent: null }),
+        },
       },
     ],
     focusId: newId,
@@ -209,6 +213,7 @@ export function planNewQueryNode(
         input: {
           id,
           text,
+          parent: null,
           props: [{ field: SYSTEM_IDS.queryField, value: { t: "str", v: edn } }],
         },
       },
@@ -247,7 +252,9 @@ export function planPinNode(
 
 export function planDefineOntology(name: string, id: string): PlannedMutation {
   return {
-    actions: [{ id: "node.add", input: { id, text: name, tags: [SYSTEM_IDS.ontologyTag] } }],
+    actions: [
+      { id: "node.add", input: { id, text: name, parent: null, tags: [SYSTEM_IDS.ontologyTag] } },
+    ],
     focusId: id,
     focusCursor: name.length,
   };
@@ -330,7 +337,7 @@ function addNode(
         input: {
           id,
           text,
-          ...(parent !== undefined ? { parent } : {}),
+          parent: parent ?? null,
           ...(position !== undefined ? { position } : {}),
           ...(props
             ? {

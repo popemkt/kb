@@ -27,6 +27,7 @@ import {
   nodeAddDef,
   planNodeAdd,
   sessionGraph,
+  placeOf,
   syncDomain,
   type PropEntry,
 } from "./actions.ts";
@@ -49,7 +50,8 @@ export const nodeAddTreeDef = {
   batchOf: [nodeAddDef.id],
   inputSchema: z.object({
     outline: z.string(),
-    parent: z.string().optional(),
+    /** The node its top-level items go under; null for the top level. */
+    parent: z.string().nullable().optional(),
     position: z.number().int().nonnegative().optional(),
     /** Bypass sys.* write-guard (browse yes / break no), as node.add's. */
     force: z.boolean().optional(),
@@ -266,7 +268,7 @@ export const planNodeAddTreeEffect = Effect.fn("node.addTree.plan")(function* (
   const planned: PlannedItem[] = flat.map(({ item, parentIndex, position }, index) => ({
     item,
     id: idAt(index),
-    parent: parentIndex === null ? input.parent : idAt(parentIndex),
+    parent: parentIndex === null ? placeOf(input.parent) : idAt(parentIndex),
     position,
   }));
 
@@ -313,7 +315,7 @@ export const nodeAddTreeEffect = Effect.fn("node.addTree")(function* (
   const { ids, lines, upserts } = yield* planNodeAddTreeEffect(input, sessionGraph(ctx));
   yield* persistEffect(ctx, { upserts, deletes: [] }, forcedBy(input)).pipe(
     Effect.mapError((err) => {
-      const line = refusedLine(err, input.parent, lines);
+      const line = refusedLine(err, placeOf(input.parent), lines);
       return line === null ? err : atLine(line)(err);
     }),
   );

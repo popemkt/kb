@@ -21,7 +21,10 @@ const node = (id: string, props: WireNode["props"] = {}): WireNode => ({
 describe("ontology action inputs", () => {
   it("mints ontologies through node.add", () => {
     expect(planDefineOntology("Work", "onto.work").actions).toEqual([
-      { id: "node.add", input: { id: "onto.work", text: "Work", tags: [SYSTEM_IDS.ontologyTag] } },
+      {
+        id: "node.add",
+        input: { id: "onto.work", text: "Work", parent: null, tags: [SYSTEM_IDS.ontologyTag] },
+      },
     ]);
   });
 
