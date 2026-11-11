@@ -99,4 +99,36 @@ describe("the server's log", () => {
       "kb ui: refused node.update (not_found) session tab-b nodes 01JBZ8Y3K4M5N6P7Q8R9S0T1V2\n",
     ]);
   });
+  test("records a browser-local refusal through the same structured formatter", async () => {
+    const written: string[] = [];
+    const stderr = spyOn(process.stderr, "write").mockImplementation((chunk) => {
+      written.push(String(chunk));
+      return true;
+    });
+    try {
+      const response = await fetch(`${handle.url}/api/client-failure`, {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: new URL(handle.url).origin },
+        body: JSON.stringify({
+          invocation: {
+            id: "node.update",
+            input: { id: "01JBZ8Y3K4M5N6P7Q8R9S0T1V2", text: "private typed text" },
+            session: "tab-b",
+          },
+          receipt: {
+            status: "failed",
+            id: "node.update",
+            code: "invalid_input",
+            message: "private graph text",
+          },
+        }),
+      });
+      expect(response.status).toBe(200);
+    } finally {
+      stderr.mockRestore();
+    }
+    expect(written).toEqual([
+      "kb ui: refused node.update (invalid_input) session tab-b nodes 01JBZ8Y3K4M5N6P7Q8R9S0T1V2\n",
+    ]);
+  });
 });

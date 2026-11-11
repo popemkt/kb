@@ -259,4 +259,35 @@ describe("browser action runtime", () => {
     expect(index()?.getNode(probe.id)?.text).toBe("probe");
     expect(useGraphStore.getState().wireNodes.some((n) => n.id === probe.id)).toBe(true);
   });
+  it("resyncs a divergent local graph and reports the refusal before allowing the next edit", async () => {
+    const nodes = structuredClone(fixtureGraph.nodes);
+    useGraphStore.getState().hydrateFromWire(nodes, 1, "api");
+    const fetchSnapshot = vi.fn();
+    setBrowserLink({ since: vi.fn(), fetchSnapshot, retryAfter: vi.fn() });
+    const fetch = vi.fn(async () => new Response("{}"));
+    vi.stubGlobal("fetch", fetch);
+    try {
+      // Reproduce a damaged replica whose parent still names a locally removed child.
+      const parent = nodes.find((node) => node.children.length > 0);
+      const child = parent?.children[0];
+      if (child === undefined) throw new Error("missing fixture child");
+      useGraphStore.getState().applyTx([], [child]);
+      const receipt = await invokeLocal({
+        id: "node.update",
+        input: { id: "n.root-a", text: "blocked" },
+      });
+      expect(receipt).toMatchObject({ status: "failed", code: "invalid_input" });
+      expect(fetchSnapshot).toHaveBeenCalledOnce();
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/client-failure",
+        expect.objectContaining({ method: "POST" }),
+      );
+      browserReplica()?.receive({ op: "snapshot", snapshot: { rev: 1, nodes, virtual: [] } });
+      expect(
+        await invokeLocal({ id: "node.update", input: { id: "n.root-a", text: "recovered" } }),
+      ).toMatchObject({ status: "succeeded" });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });

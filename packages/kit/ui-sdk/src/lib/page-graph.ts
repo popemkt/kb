@@ -66,7 +66,7 @@ export interface PageGraphPort {
    * moving.
    */
   readonly reached: (id: string) => PageGraphState | null;
-  /** Take a row out of the replica, as a local transaction: an empty row an editor minted and left. */
+  /** Delete a transient through the ordered write lane, without an undo entry. */
   readonly drop: (id: string) => void;
 }
 

@@ -143,11 +143,11 @@ export function requestGuard(site: GuardSite): RequestGuard {
         return refused(403, `origin ${origin} is not this kb ui`);
       }
       if (
-        url.pathname === "/api/action" &&
+        ["/api/action", "/api/client-failure"].includes(url.pathname) &&
         req.method === "POST" &&
         !isJson(req.headers.get("content-type"))
       ) {
-        return refused(415, "POST /api/action takes application/json");
+        return refused(415, `POST ${url.pathname} takes application/json`);
       }
       const identified = site.identify(req);
       if ("refused" in identified) return refused(403, identified.refused);

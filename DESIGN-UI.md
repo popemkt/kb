@@ -75,6 +75,11 @@ implementation modules under `packages/app/server/src/` split by concern:
 
 ### Replica sync
 
+A local write refused with `invalid graph transaction` signals replica divergence:
+the tab requests a full server snapshot before the next edit. Every local write
+refusal is also reported to `/api/client-failure`, which uses the server’s
+structured refusal log (action, code, tab and node ids, never free text).
+
 The browser replica is the server's graph as of one `rev`, with the local
 writes the server has not confirmed laid over it. One state machine,
 `BrowserReplica` in `session/replica.ts`, owns that. `KbWsClient` carries its
@@ -404,9 +409,10 @@ handoff with the honest cut list.
 
 ### Transient-prune remote compensation
 
-When an empty session-transient is pruned after its optimistic `node.add` has
-already reached the server, the mutation path MUST post a compensating delete.
-Pre-existing nodes remain ineligible for this cleanup.
+Pruning an empty session-transient invokes `node.delete` through the ordered
+write lane after its `node.add`, without adding an undo entry. The deletion
+detaches it from its parent locally and on the server; it is never a local-only
+removal. Pre-existing nodes remain ineligible for this cleanup.
 
 ### Outline editor (i1)
 
