@@ -4503,6 +4503,18 @@ store records can use it.
 `ext.canvas.run {canvasId, from?, rounds?}` runs a canvas as a computer,
 tldraw computer's model built from kb's parts (research
 `docs/research/2026-10-28-canvas-tldraw-parity.md`, D6).
+- **Field bindings.** Each canvas names its input and output field definitions
+  through ordinary references, `sys.f.canvas.run.inputField` and
+  `sys.f.canvas.run.outputField`. They must name distinct multi-value text
+  fields. Runtime writes, script setup and stored-output reads use those IDs.
+  On the deliberate first run, absent bindings adopt the legacy `input` and
+  `output` labels once, creating missing definitions when needed. Both bindings
+  and any definitions publish in one conditional transaction before any
+  component executes; contention replans against the current graph. Ambiguous
+  discovery, or a present malformed, missing or incompatible reference, refuses
+  without writes or execution and asks the person to choose the references.
+  Existing values and custom field IDs remain intact. Later label changes and
+  unrelated same-label fields cannot change an adopted binding.
 - **Components and wires.** Every item that stands for a node and is an
   end of an edge between two such items is a component; each such edge
   carries the output of the one it leaves into the one it enters. `from`

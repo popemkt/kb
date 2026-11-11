@@ -23,15 +23,23 @@ import { Effect } from "effect";
 import { z } from "zod";
 import {
   CoreInvoke,
+  type GraphWrites,
   KbCtx,
   type ActionReceipt,
   type ExtensionAction,
   type KbContext,
 } from "@kb/contracts";
 import type { NodeId } from "@kb/model";
-import { MAX_FLOW_ROUNDS, flowPlan, runFlow, type FlowResult, type FlowStep } from "@kb/canvas";
+import {
+  MAX_FLOW_ROUNDS,
+  flowPlan,
+  runFlow,
+  type FlowResult,
+  type FlowStep,
+  type CanvasRunFields,
+} from "@kb/canvas";
 import type { NodeIndex } from "@kb/query";
-import { RUN_FIELD_NAMES, runFieldEffect } from "./run-fields.ts";
+import { runFieldsEffect } from "./run-fields.ts";
 import { CanvasIdSchema } from "./schemas.ts";
 import { CanvasTxError, canvasStep, readCanvasEffect, type CanvasFail } from "./write.ts";
 
@@ -135,7 +143,7 @@ function storedOutput(
 const fail = (message: string): FlowResult => ({ ok: false, message });
 
 /** The performer: a step's node says how it performs; its output is written to `field`. */
-function performer(field: string) {
+function performer(fields: CanvasRunFields) {
   return Effect.fn("ext.canvas.run.perform")(function* (step: FlowStep) {
     const ctx = yield* KbCtx;
     const invoke = yield* CoreInvoke;
@@ -150,13 +158,9 @@ function performer(field: string) {
         : [];
     let made: FlowResult;
     if (scripts.length > 0) {
-      const inputField = yield* runFieldEffect(RUN_FIELD_NAMES.input).pipe(
-        Effect.catch((err) => Effect.succeed(err)),
-      );
-      if (typeof inputField !== "string") return fail(inputField.message);
       const unwritten = yield* writeField(
         nodeId,
-        inputField,
+        fields.input,
         step.inputs.map((i) => i.text),
       );
       if (unwritten !== null) return fail(`its inputs were not written: ${unwritten}`);
@@ -168,9 +172,9 @@ function performer(field: string) {
         const failure = failureOf(ran);
         if (failure !== null) return fail(`script ${script.id}: ${failure}`);
       }
-      const output = storedOutput(ctx, nodeId, field);
+      const output = storedOutput(ctx, nodeId, fields.output);
       return output === undefined
-        ? fail(`its scripts ran and left no ${RUN_FIELD_NAMES.output}`)
+        ? fail(`its scripts ran and left no output in ${fields.output}`)
         : { ok: true as const, output, by: "script" };
     } else if (step.component.inputs.length === 0) {
       made = { ok: true, output: node.text, by: "constant" };
@@ -195,14 +199,14 @@ function performer(field: string) {
             : fail(`${MODEL_ACTION} answered no text`);
     }
     if (!made.ok) return made;
-    const unwritten = yield* writeField(nodeId, field, [made.output]);
+    const unwritten = yield* writeField(nodeId, fields.output, [made.output]);
     return unwritten === null ? made : fail(`its output was not written: ${unwritten}`);
   });
 }
 
 const canvasRunEffect = Effect.fn("ext.canvas.run")(function* (
   input: z.infer<typeof runInput>,
-): Effect.fn.Return<z.infer<typeof runOutput>, CanvasFail, KbCtx> {
+): Effect.fn.Return<z.infer<typeof runOutput>, CanvasFail, KbCtx | GraphWrites> {
   const ctx = yield* KbCtx;
   const doc = yield* readCanvasEffect(input.canvasId);
   const plan = yield* canvasStep(() => flowPlan(doc, input.from));
@@ -213,13 +217,13 @@ const canvasRunEffect = Effect.fn("ext.canvas.run")(function* (
       ),
     );
   }
-  const field = yield* runFieldEffect(RUN_FIELD_NAMES.output);
+  const fields = yield* runFieldsEffect(input.canvasId);
   const nodeOf = new Map(plan.components.map((c) => [c.item, c.nodeId]));
-  const run = yield* runFlow(plan, performer(field), {
+  const run = yield* runFlow(plan, performer(fields), {
     ...(input.rounds === undefined ? {} : { rounds: input.rounds }),
     stored: (item) => {
       const nodeId = nodeOf.get(item);
-      return nodeId === undefined ? undefined : storedOutput(ctx, nodeId, field);
+      return nodeId === undefined ? undefined : storedOutput(ctx, nodeId, fields.output);
     },
   });
   return {
@@ -227,7 +231,7 @@ const canvasRunEffect = Effect.fn("ext.canvas.run")(function* (
     order: [...plan.order],
     rounds: run.rounds,
     steps: run.steps,
-    outputField: field,
+    outputField: fields.output,
     outcomes: run.outcomes.map((outcome) => {
       const nodeId = nodeOf.get(outcome.item) ?? outcome.item;
       if (outcome.status === "skipped") return { ...outcome, nodeId, after: [...outcome.after] };

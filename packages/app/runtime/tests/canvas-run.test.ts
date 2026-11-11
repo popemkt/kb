@@ -15,9 +15,12 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
+import { CANVAS_RUN_FIELDS } from "@kb/canvas";
+import { createStore, STORE_BACKENDS, type StoreBackend } from "../src/store-selection.ts";
+import { bunFileSystemLayer } from "../src/platform.ts";
 import { CODE_IDS } from "@kb/code";
 import type { ActionReceipt } from "@kb/contracts";
-import { canonicalJson, present } from "@kb/model";
+import { canonicalJson, present, SYSTEM_IDS } from "@kb/model";
 import { codeDigest } from "@kb/sandbox";
 import { invoke } from "../src/invoke.ts";
 import { resetRegistryCache } from "../src/registry.ts";
@@ -53,9 +56,14 @@ const card = (id: string, x: number) => ({
 });
 
 /** A board whose constants a and b feed `sum` (an instruction) and a, `double` (a script). */
-async function computerKb(): Promise<Kb> {
+const chosenPorts = [
+  { field: CANVAS_RUN_FIELDS.input.field, value: { t: "ref" as const, v: "f.input" } },
+  { field: CANVAS_RUN_FIELDS.output.field, value: { t: "ref" as const, v: "f.output" } },
+];
+async function computerKb(backend: StoreBackend = "jsonl", ports = chosenPorts): Promise<Kb> {
   const root = await mkdtemp(join(tmpdir(), "kb-canvas-run-"));
   roots.push(root);
+  await Effect.runPromise(createStore(root, backend).pipe(Effect.provide(bunFileSystemLayer)));
   const ctx = await openKb(root);
   await invoke(ctx, { id: "field.define", input: { name: "input", id: "f.input" } });
   await invoke(ctx, { id: "field.define", input: { name: "output", id: "f.output" } });
@@ -75,7 +83,7 @@ async function computerKb(): Promise<Kb> {
   await invoke(ctx, { id: "sandbox.trust", input: { digest }, actor: "human" });
   await invoke(ctx, {
     id: "node.add",
-    input: { text: "Computer", id: "n.board", tags: ["canvas"] },
+    input: { text: "Computer", id: "n.board", tags: ["canvas"], props: ports },
   });
   for (const [id, text] of [
     ["a", "21"],
@@ -225,3 +233,249 @@ test("a terminal-approved non-human canvas run performs its script components", 
     child.terminal?.close();
   }
 });
+
+/** Historical stores had unique protocol labels and no persisted port choices. */
+async function legacyKb(backend: StoreBackend): Promise<Kb> {
+  const ctx = await computerKb(backend, []);
+  for (const field of ctx.nodes.filter(
+    (node) => ["input", "output"].includes(node.text) && !["f.input", "f.output"].includes(node.id),
+  )) {
+    await invoke(ctx, {
+      id: "node.update",
+      input: { id: field.id, text: `Unrelated ${field.id}` },
+    });
+  }
+  return ctx;
+}
+
+const run = (ctx: Kb) =>
+  invoke(ctx, { id: "ext.canvas.run", actor: "human", input: { canvasId: "n.board" } });
+
+for (const backend of STORE_BACKENDS) {
+  describe(`${backend}: canvas run field bindings`, () => {
+    test("adopts custom field IDs once and keeps the script contract after labels change", async () => {
+      const ctx = await legacyKb(backend);
+      expect((await run(ctx)).status).toBe("succeeded");
+      const bindings = () => present(ctx.index.getNode("n.board"), "board").props;
+      expect(bindings()[CANVAS_RUN_FIELDS.input.field]).toEqual([{ t: "ref", v: "f.input" }]);
+      expect(bindings()[CANVAS_RUN_FIELDS.output.field]).toEqual([{ t: "ref", v: "f.output" }]);
+      for (const id of ["f.input", "f.output"])
+        expect(
+          (await invoke(ctx, { id: "node.update", input: { id, text: `Renamed ${id}` } })).status,
+        ).toBe("succeeded");
+      await invoke(ctx, { id: "field.define", input: { name: "input", id: "other.input" } });
+      await invoke(ctx, { id: "field.define", input: { name: "output", id: "other.output" } });
+      expect(
+        (
+          await invoke(ctx, {
+            id: "node.update",
+            input: {
+              id: "other.input",
+              setProps: [
+                {
+                  field: SYSTEM_IDS.cardinalityField,
+                  value: { t: "ref", v: SYSTEM_IDS.cardinalityOne },
+                },
+              ],
+            },
+          })
+        ).status,
+      ).toBe("succeeded");
+      await invoke(ctx, { id: "node.update", input: { id: "n.a", text: "11" } });
+      expect((await run(ctx)).status).toBe("succeeded");
+      expect(outputOf(ctx, "n.double")).toEqual([{ t: "str", v: "22" }]);
+      expect(present(ctx.index.getNode("n.double"), "double").props["other.input"]).toBeUndefined();
+      expect(bindings()[CANVAS_RUN_FIELDS.input.field]).toEqual([{ t: "ref", v: "f.input" }]);
+    });
+    test("ambiguous second binding refuses before any graph write or component execution", async () => {
+      let ctx = await legacyKb(backend);
+      await invoke(ctx, { id: "field.define", input: { name: "output", id: "duplicate.output" } });
+      await Effect.runPromise(
+        ctx.store.commitEffect(
+          { upserts: [], deletes: ["f.input"] },
+          { at: "2026-11-12T00:00:00.000Z" },
+        ),
+      );
+      ctx = await openKb(ctx.root);
+      const before = canonicalJson(ctx.nodes);
+      const receipt = await run(ctx);
+      expect(receipt.status).toBe("failed");
+      expect(receipt.status === "failed" ? receipt.message : "").toContain(
+        "choose sys.f.canvas.run.outputField",
+      );
+      expect(canonicalJson(ctx.nodes)).toBe(before);
+      expect(outputOf(ctx, "n.a")).toBeUndefined();
+    });
+    test("simultaneous first runs adopt the same definitions and references", async () => {
+      const ctx = await legacyKb(backend);
+      const other = await openKb(ctx.root);
+      const receipts = await Promise.all([run(ctx), run(other)]);
+      expect(receipts.map(({ status }) => status)).toEqual(["succeeded", "succeeded"]);
+      const reopened = await openKb(ctx.root);
+      expect(
+        present(reopened.index.getNode("n.board"), "board").props[CANVAS_RUN_FIELDS.input.field],
+      ).toEqual([{ t: "ref", v: "f.input" }]);
+      expect(reopened.nodes.filter(({ text }) => text === "input")).toHaveLength(1);
+      expect(reopened.nodes.filter(({ text }) => text === "output")).toHaveLength(1);
+    });
+  });
+}
+
+for (const backend of STORE_BACKENDS) {
+  describe(`${backend}: canvas run refusal and contention`, () => {
+    test("present invalid second bindings never fall back or partially execute", async () => {
+      for (const value of [
+        { t: "ref" as const, v: "missing.field" },
+        { t: "ref" as const, v: CANVAS_RUN_FIELDS.output.field },
+        { t: "str" as const, v: "f.output" },
+        { t: "ref" as const, v: "f.input" },
+      ]) {
+        const ctx = await legacyKb(backend);
+        const canvas = present(ctx.index.getNode("n.board"), "board");
+        // Imports can contain invalid bindings; runtime must refuse those as well.
+        await Effect.runPromise(
+          ctx.store.commitEffect(
+            {
+              upserts: [
+                {
+                  ...canvas,
+                  props: {
+                    ...canvas.props,
+                    [CANVAS_RUN_FIELDS.input.field]: [{ t: "ref", v: "f.input" }],
+                    [CANVAS_RUN_FIELDS.output.field]: [value],
+                  },
+                },
+              ],
+              deletes: [],
+            },
+            { at: "2026-11-12T00:00:00.000Z" },
+          ),
+        );
+        const reopened = await openKb(ctx.root);
+        const before = canonicalJson(reopened.nodes);
+        const receipt = await invoke(reopened, {
+          id: "ext.canvas.run",
+          actor: "human",
+          input: { canvasId: "n.board" },
+        });
+        expect(receipt.status).toBe("failed");
+        expect(canonicalJson(reopened.nodes)).toBe(before);
+        expect(outputOf(reopened, "n.a")).toBeUndefined();
+      }
+    });
+    test("ordinary edits validate the chosen fields on every commit", async () => {
+      const ctx = await legacyKb(backend);
+      const bound = await invoke(ctx, {
+        id: "node.update",
+        input: {
+          id: "n.board",
+          setProps: [
+            { field: CANVAS_RUN_FIELDS.input.field, value: { t: "ref", v: "f.input" } },
+            { field: CANVAS_RUN_FIELDS.output.field, value: { t: "ref", v: "f.output" } },
+          ],
+        },
+      });
+      expect(bound.status).toBe("succeeded");
+      const before = canonicalJson(ctx.nodes);
+      const invalid = await invoke(ctx, {
+        id: "node.update",
+        input: {
+          id: "f.input",
+          setProps: [
+            {
+              field: SYSTEM_IDS.cardinalityField,
+              value: { t: "ref", v: SYSTEM_IDS.cardinalityOne },
+            },
+          ],
+        },
+      });
+      expect(invalid.status).toBe("failed");
+      expect(canonicalJson(ctx.nodes)).toBe(before);
+    });
+    test("concurrent adoption creates missing definitions only once", async () => {
+      const ctx = await legacyKb(backend);
+      await Effect.runPromise(
+        ctx.store.commitEffect(
+          { upserts: [], deletes: ["f.input", "f.output"] },
+          { at: "2026-11-12T00:00:00.000Z" },
+        ),
+      );
+      const first = await openKb(ctx.root);
+      const second = await openKb(ctx.root);
+      const receipts = await Promise.all(
+        [first, second].map((session) =>
+          invoke(session, { id: "ext.canvas.run", actor: "human", input: { canvasId: "n.board" } }),
+        ),
+      );
+      expect(receipts.map(({ status }) => status)).toEqual(["succeeded", "succeeded"]);
+      const reopened = await openKb(ctx.root);
+      for (const role of ["input", "output"] as const) {
+        const definitions = reopened.nodes.filter(({ text }) => text === role);
+        expect(definitions).toHaveLength(1);
+        expect(
+          present(reopened.index.getNode("n.board"), "board").props[CANVAS_RUN_FIELDS[role].field],
+        ).toEqual([{ t: "ref", v: present(definitions[0], "one definition").id }]);
+      }
+    });
+    test("a person's intervening binding choice survives adoption retry", async () => {
+      const ctx = await legacyKb(backend);
+      for (const role of ["input", "output"])
+        await invoke(ctx, {
+          id: "field.define",
+          input: { name: `Alternate ${role}`, id: `alternate.${role}` },
+        });
+      const original = ctx.store.commitEffect.bind(ctx.store);
+      let intervened = false;
+      const commit: typeof ctx.store.commitEffect = Effect.fn("test.canvas.adoptionRace")(
+        function* (...args: Parameters<typeof original>) {
+          const [tx] = args;
+          if (
+            !intervened &&
+            tx.upserts.some(
+              (node) =>
+                node.id === "n.board" && node.props[CANVAS_RUN_FIELDS.input.field] !== undefined,
+            )
+          ) {
+            intervened = true;
+            const board = present(ctx.index.getNode("n.board"), "board");
+            yield* original(
+              {
+                upserts: [
+                  {
+                    ...board,
+                    props: {
+                      ...board.props,
+                      [CANVAS_RUN_FIELDS.input.field]: [{ t: "ref", v: "alternate.input" }],
+                      [CANVAS_RUN_FIELDS.output.field]: [{ t: "ref", v: "alternate.output" }],
+                    },
+                  },
+                ],
+                deletes: [],
+              },
+              { at: "2026-11-12T00:00:00.000Z" },
+            );
+          }
+          return yield* original(...args);
+        },
+      );
+      Object.defineProperty(ctx.store, "commitEffect", { value: commit, configurable: true });
+      expect(
+        (
+          await invoke(ctx, {
+            id: "ext.canvas.run",
+            actor: "human",
+            input: { canvasId: "n.board" },
+          })
+        ).status,
+      ).toBe("succeeded");
+      expect(intervened).toBe(true);
+      const reopened = await openKb(ctx.root);
+      expect(
+        present(reopened.index.getNode("n.board"), "board").props[CANVAS_RUN_FIELDS.input.field],
+      ).toEqual([{ t: "ref", v: "alternate.input" }]);
+      expect(
+        present(reopened.index.getNode("n.board"), "board").props[CANVAS_RUN_FIELDS.output.field],
+      ).toEqual([{ t: "ref", v: "alternate.output" }]);
+    });
+  });
+}
