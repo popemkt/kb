@@ -17,9 +17,9 @@
  * a reserved chord is the owner's alone. A refusal is told to the person,
  * by name, once a page session.
  */
-import { CORE_POINT_DEFINITIONS } from "@kb/contracts";
+import { KeybindingPoint, KeyContextPoint } from "@kb/contracts";
+export { KeybindingPoint, KeyContextPoint } from "@kb/contracts";
 import type { Contribution } from "@kb/plugin";
-import { Point } from "@kb/plugin";
 import { browserHost } from "../host";
 import { callInput, invokeAction } from "./action-call";
 import { pointReader } from "./plugins";
@@ -46,15 +46,6 @@ export {
   type RefusedBinding,
   type Keymap,
 } from "@kb/keybindings";
-
-export const KeybindingPoint = Point<Keybinding>()(
-  CORE_POINT_DEFINITIONS.keybinding.name,
-  CORE_POINT_DEFINITIONS.keybinding.spec,
-);
-export const KeyContextPoint = Point<KeyContextSpec>()(
-  CORE_POINT_DEFINITIONS.keyContext.name,
-  CORE_POINT_DEFINITIONS.keyContext.spec,
-);
 
 /** The keymap of a context no plugin has contributed: it holds no key. */
 const NO_KEYS: Keymap = { refused: [], held: [], resolve: () => undefined };

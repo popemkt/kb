@@ -368,3 +368,5 @@ export { hostCapabilities, extensionAdmissionIssue, type HostCapabilities } from
 export { waitingForPoint, PointNamesSchema } from "./point-names.ts";
 
 export { manifestAuthority } from "./manifest-authority.ts";
+
+export { KeybindingPoint, KeyContextPoint } from "./keybindings.ts";
