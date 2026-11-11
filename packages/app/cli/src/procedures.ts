@@ -7,7 +7,13 @@
  */
 import type { Command } from "commander";
 import { Effect } from "effect";
-import { onWire, type KbContext, type ProcedureStatus, type StepStatus } from "@kb/contracts";
+import {
+  ActionReceiptSchema,
+  onWire,
+  type KbContext,
+  type ProcedureStatus,
+  type StepStatus,
+} from "@kb/contracts";
 import { procedureListDef, procedureStatusDef, procedureStepDef } from "@kb/operations";
 import { writeErr, writeOut } from "@kb/runtime";
 import {
@@ -75,13 +81,35 @@ const statusOf = (ctx: KbContext, procedure: string) =>
     }),
   );
 
+/** Decode the step's nested receipt and report a failure or a check that stayed put. */
+function reportStepResult(output: unknown, globals: GlobalOpts, step: string): boolean {
+  const parsed = procedureStepDef.outputSchema
+    .extend({ receipt: ActionReceiptSchema })
+    .safeParse(output);
+  if (!parsed.success) {
+    writeErr(`invalid procedure step result: ${parsed.error.message}`);
+    return false;
+  }
+  const result = parsed.data;
+  if (result.receipt.status === "failed") {
+    writeOut(formatReceipt(result.receipt, { json: globals.json === true }));
+    return false;
+  }
+  if (result.status.current === step) {
+    for (const line of statusLines(result.status)) writeOut(line);
+    writeErr(`stopped after ${step}: its check did not advance the procedure`);
+    return false;
+  }
+  return true;
+}
+
 /**
  * Walk `procedure` from its next step (or run that step alone, `once`):
  * each one asked about first unless `yes`, a decision taken only when
  * `action` names one of its actions, and a step that fails or is declined
  * stopping the walk where it is.
  */
-const walk = Effect.fn("kb.procedure.walk")(function* (
+export const walk = Effect.fn("kb.procedure.walk")(function* (
   ctx: KbContext,
   globals: GlobalOpts,
   procedure: string,
@@ -105,7 +133,7 @@ const walk = Effect.fn("kb.procedure.walk")(function* (
       for (const line of statusLines(status)) writeOut(line);
       return EXIT_OK;
     }
-    const action = step.decision ? opts.action : undefined;
+    const action = decided ? undefined : opts.action;
     if (!opts.yes) {
       const go = yield* askTerminal(
         Effect.succeed(`${statusLines(status).join("\n")}\n`),
@@ -127,6 +155,7 @@ const walk = Effect.fn("kb.procedure.walk")(function* (
       writeOut(formatReceipt(receipt, { json: globals.json === true }));
       return EXIT_FAILED;
     }
+    if (!reportStepResult(receipt.output, globals, step.id)) return EXIT_FAILED;
     writeErr(`ran ${step.id}`);
     decided = decided || step.decision;
   }
