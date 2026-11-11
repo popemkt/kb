@@ -1,7 +1,7 @@
 /**
  * The canvas's shortcuts, listed: every row of the one shortcut table
- * (`CANVAS_SHORTCUTS`) that has a chord, by section, with every chord that
- * presses it. Opened with `?`; Escape, a press outside it or its button
+ * (`CANVAS_SHORTCUTS`) that a key presses, by section, with every chord its
+ * context's keymap holds for it. Opened with `?`; Escape, a press outside it or its button
  * closes it.
  */
 import { useRef } from "react";
@@ -9,6 +9,8 @@ import { useDismiss } from "@kb/ui-sdk";
 import {
   CANVAS_SHORTCUTS,
   chordHint,
+  heldChords,
+  hintOf,
   type CanvasShortcut,
   type CanvasShortcutSection,
 } from "./canvas-keymap.ts";
@@ -26,11 +28,17 @@ const SECTIONS: readonly CanvasShortcutSection[] = [
 
 /** The rows a section lists: named ones that a chord presses. */
 const rowsOf = (section: CanvasShortcutSection): readonly CanvasShortcut[] =>
-  CANVAS_SHORTCUTS.filter((s) => s.section === section && s.label !== "" && s.chords.length > 0);
+  CANVAS_SHORTCUTS.filter(
+    (s) => s.section === section && s.label !== "" && heldChords(s).length > 0,
+  );
 
-/** Every chord of a row in words, each one once. */
-const chordsOf = (row: CanvasShortcut): string[] =>
-  row.chords.length > 4 ? [row.hint] : [...new Set(row.chords.map(chordHint))];
+/** Every chord of a row in words, each one once; its hint alone where it names one or has many. */
+function chordsOf(row: CanvasShortcut): string[] {
+  const held = heldChords(row);
+  return row.hint !== undefined || held.length > 4
+    ? [hintOf(row)]
+    : [...new Set(held.map(chordHint))];
+}
 
 export function CanvasShortcutsSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const sheet = useRef<HTMLDivElement>(null);

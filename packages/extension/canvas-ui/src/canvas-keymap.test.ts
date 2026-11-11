@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  canvasKeymap,
   CANVAS_SHORTCUTS,
   CANVAS_VIEW_COMMANDS,
   menuRows,
@@ -302,5 +303,30 @@ describe("the command menus", () => {
     const cut = menuRows("selection")[1]?.[0];
     expect(cut?.intent).toEqual({ type: "cut" });
     expect(cut?.hint).toBe("⌘X");
+  });
+});
+
+describe("the canvas's key contexts", () => {
+  test.each(["rest", "transform", "present"] as const)(
+    "%s holds every chord kb binds in it: none overlaps another",
+    (name) => {
+      const keymap = canvasKeymap(name);
+      expect(keymap.refused).toEqual([]);
+      const bound = CANVAS_SHORTCUTS.filter(({ context }) => context === name).flatMap(
+        ({ chords }) => chords,
+      );
+      expect(keymap.held.map(({ value }) => value.chord)).toEqual(bound);
+    },
+  );
+
+  test("a numpad digit looks from a view, by its place, before the tool its character picks", () => {
+    expect(mapCanvasKey(chord("7", { code: "Numpad7" }), withSelection)?.intent).toEqual({
+      type: "look",
+      preset: "top",
+    });
+    expect(mapCanvasKey(chord("7", { code: "Digit7" }), withSelection)?.intent).toEqual({
+      type: "tool",
+      tool: "group",
+    });
   });
 });
