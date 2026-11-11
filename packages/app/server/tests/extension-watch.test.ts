@@ -160,3 +160,56 @@ test("without the flag, core's setting turns watching on and off, and the page i
   await kb(root, "set", core, SYSTEM_IDS.extensionsWatchField, "false");
   await until(() => (watched(frames) === null ? true : undefined), "watching off");
 }, 30_000);
+
+test("an edit to a nested imported module is followed", async () => {
+  const root = await bareRoot();
+  await writeExtension(root, "parts/value.ts", "export const value = 1071;");
+  await writeExtension(
+    root,
+    "live.ts",
+    extensionModule("live", {
+      declaration,
+      actions: actions(1).replace("version:1", "version:value"),
+      prelude: 'import {value} from "./parts/value.ts";',
+    }),
+  );
+  await trustExtension(root, "live.ts");
+  const handle = await serve(root, true);
+  const frames = await connect(handle.url);
+  await until(() => (watched(frames) === FOLDER ? true : undefined), "watch");
+  expect(await call(handle, "ext.live.version")).toMatchObject({ output: { version: 1071 } });
+  await Bun.sleep(200);
+  frames.length = 0;
+  await writeExtension(root, "parts/value.ts", "export const value = 1072;");
+  await until(() => frames.find((f) => f.op === "manifest-changed"), "nested edit");
+  expect(await liveRow(handle)).toMatchObject({ trusted: false });
+}, 30000);
+
+test("recreating the watched folder follows the next extension", async () => {
+  const root = await bareRoot();
+  await writeExtension(
+    root,
+    "live.ts",
+    extensionModule("live", { declaration, actions: actions(2071) }),
+  );
+  const first = await trustExtension(root, "live.ts");
+  const handle = await serve(root, true);
+  const frames = await connect(handle.url);
+  await until(() => (watched(frames) === FOLDER ? true : undefined), "watch");
+  expect(await call(handle, "ext.live.version")).toMatchObject({ output: { version: 2071 } });
+  await Bun.sleep(200);
+  frames.length = 0;
+  await rm(join(root, FOLDER), { recursive: true });
+  await until(() => frames.find((f) => f.op === "manifest-changed"), "folder removal");
+  frames.length = 0;
+  await writeExtension(
+    root,
+    "live.ts",
+    extensionModule("live", { declaration, actions: actions(2072) }),
+  );
+  await until(() => frames.find((f) => f.op === "manifest-changed"), "recreated folder edit");
+  const recreated = present(await liveRow(handle), "recreated extension");
+  expect(recreated.trusted).toBe(false);
+  expect(recreated.digest).not.toBe(first);
+  expect(await call(handle, "ext.live.version")).toMatchObject({ code: "unknown_action" });
+}, 30000);
