@@ -65,6 +65,13 @@ describe("untaggedInput", () => {
     expect(untag(plain)).toBe(plain);
     const text = { id: "day", text: "renamed" };
     expect(untag(text)).toBe(text);
+    // node.update matches an unset value by its JSON, so a ref written with
+    // its keys the other way round takes nothing off, and nor does this.
+    const reversed = {
+      id: "day",
+      unsetProps: [{ field: SYSTEM_IDS.typeField, value: { v: DAYS_IDS.dayTag, t: "ref" } }],
+    };
+    expect(untag(reversed)).toBe(reversed);
     // Already taking the key off: nothing to add.
     const both = { id: "day", unsetProps: [{ field: SYSTEM_IDS.typeField }, KEY_UNSET] };
     expect(untag(both)).toBe(both);

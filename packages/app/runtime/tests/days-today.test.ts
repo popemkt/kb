@@ -261,6 +261,18 @@ function daysContract(backend: StoreBackend) {
           "the day",
         );
       expect(nodeOf().props[DAYS_IDS.keyField]).toEqual([{ t: "str", v: "2026-11-10" }]);
+      // An unset whose value is the ref with its keys the other way round
+      // matches nothing in node.update, so it is a no-op, not a refusal.
+      const reversed = await invoke(ctx, {
+        id: "node.update",
+        input: {
+          id,
+          unsetProps: [{ field: SYSTEM_IDS.typeField, value: { v: DAYS_IDS.dayTag, t: "ref" } }],
+        },
+      });
+      expect(reversed.status).toBe("succeeded");
+      expect(nodeOf().props[DAYS_IDS.keyField]).toEqual([{ t: "str", v: "2026-11-10" }]);
+      expect(nodeOf().props[SYSTEM_IDS.typeField]).toEqual([{ t: "ref", v: DAYS_IDS.dayTag }]);
       // The page's tag chip takes one tag off (planRemoveTag): one sys.f.type value.
       const untagged = await invoke(ctx, {
         id: "node.update",

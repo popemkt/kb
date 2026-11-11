@@ -9,96 +9,46 @@
  *
  * An interceptor transforms the input before the call runs, on the server
  * and in a tab alike, so the write the guards judge is the whole one. It
- * reads the update's fields as `node.update` does (`resolveFieldIn`), and
- * does nothing for a node that holds no key, so an ordinary update costs
- * one lookup.
+ * reads the input as `node.update` will (its own schema) and asks what the
+ * update leaves through the action's own projection (`projectPropEdits`),
+ * so it never disagrees with the write it adds to. It does nothing for a
+ * node that holds no key, so an ordinary update costs one lookup.
  */
 import { Effect } from "effect";
 import type { ActionInterceptor, InterceptedCall } from "@kb/contracts";
-import {
-  ScannedNodes,
-  SYSTEM_IDS,
-  resolveFieldIn,
-  typeRefsOf,
-  type KbNode,
-  type KindsLookup,
-  type NodeLike,
-  type PropValue,
-} from "@kb/model";
+import { IndexedNodes, type KbNode, type KindsLookup } from "@kb/model";
+import { nodeUpdateDef, projectPropEdits } from "@kb/operations";
 import { DAYS_IDS } from "./ids.ts";
 import { keyValues, periodsOf } from "./period-key.ts";
 
-interface PropEdit {
-  readonly field: string;
-  readonly value?: unknown;
-}
-
-interface UpdateInput {
-  readonly id: string;
-  readonly setProps?: readonly PropEdit[];
-  readonly unsetProps?: readonly PropEdit[];
-}
-
-function isUpdateInput(input: unknown): input is UpdateInput {
-  return (
-    typeof input === "object" && input !== null && "id" in input && typeof input.id === "string"
-  );
-}
-
-const isRef = (value: unknown): value is Extract<PropValue, { t: "ref" }> =>
-  typeof value === "object" && value !== null && "t" in value && value.t === "ref" && "v" in value;
-
-/** The field an edit names, as `node.update` resolves it; null when it names none. */
-function fieldOf(fields: ScannedNodes, edit: PropEdit): string | null {
-  try {
-    return resolveFieldIn(fields, edit.field);
-  } catch {
-    // The update fails on its own unknown field; it is not this one's to decide.
-    return null;
-  }
-}
-
-/** The tags `node` wears after `input`'s edits of `sys.f.type`, in the order `node.update` applies them. */
-function tagsAfter(
-  node: Pick<NodeLike, "props">,
-  input: UpdateInput,
-  fields: ScannedNodes,
-): string[] {
-  let tags = [...typeRefsOf(node)];
-  for (const edit of input.unsetProps ?? []) {
-    if (fieldOf(fields, edit) !== SYSTEM_IDS.typeField) continue;
-    tags =
-      edit.value === undefined
-        ? []
-        : tags.filter((tag) => !isRef(edit.value) || tag !== edit.value.v);
-  }
-  for (const edit of input.setProps ?? [])
-    if (fieldOf(fields, edit) === SYSTEM_IDS.typeField && isRef(edit.value))
-      tags.push(edit.value.v);
-  return tags;
-}
-
 /**
  * `input` with the key unset too when it leaves its node, a keyed period,
- * no period at all; otherwise `input` as given. `nodes` is every node, read
- * only to resolve the update's field names.
+ * no period at all; otherwise `input` as given. `nodes` is every node, the
+ * graph the update resolves its fields in.
  */
 export function untaggedInput(
   input: unknown,
   nodes: readonly KbNode[],
   nodeOf: KindsLookup,
 ): unknown {
-  if (!isUpdateInput(input) || (input.unsetProps ?? []).length === 0) return input;
-  const node = nodeOf(input.id);
+  const parsed = nodeUpdateDef.inputSchema.safeParse(input);
+  // An input the action will refuse is the action's to refuse.
+  if (!parsed.success || parsed.data.unsetProps === undefined) return input;
+  const node = nodeOf(parsed.data.id);
   if (node === undefined || keyValues(node).length === 0 || periodsOf(node, nodeOf).length === 0)
     return input;
-  const fields = new ScannedNodes([...nodes]);
-  const unsets = input.unsetProps ?? [];
-  if (unsets.some((edit) => fieldOf(fields, edit) === DAYS_IDS.keyField)) return input;
-  const tags = tagsAfter(node, input, fields).map((v) => ({ t: "ref" as const, v }));
-  const after = { ...node, props: { ...node.props, [SYSTEM_IDS.typeField]: tags } };
-  if (periodsOf(after, nodeOf).length > 0) return input;
-  return { ...input, unsetProps: [...unsets, { field: DAYS_IDS.keyField }] };
+  const graph = IndexedNodes.of(nodes);
+  let props: KbNode["props"];
+  try {
+    props = projectPropEdits(graph, node.props, parsed.data);
+  } catch {
+    // A field the update names and the graph does not hold: the action fails on its own.
+    return input;
+  }
+  // The update already takes the key off, or leaves the node a period: nothing to add.
+  if (keyValues({ props }).length === 0 || periodsOf({ props }, nodeOf).length > 0) return input;
+  // The input as the action reads it, with the key's unset after its own.
+  return { ...parsed.data, unsetProps: [...parsed.data.unsetProps, { field: DAYS_IDS.keyField }] };
 }
 
 export const untagPeriod: Omit<ActionInterceptor, "match"> = {
