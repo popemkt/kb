@@ -7,9 +7,11 @@
  * fields on its node. Core names no editor; the outline provides its own
  * while it is loaded, and with none provided a field draws nothing.
  */
-import { createElement, type ComponentType } from "react";
+import { Fragment, createElement, type ComponentType } from "react";
 import { Service, Role, type PluginContext } from "@kb/plugin";
-import { isWritableField, parseTypedValue, type FieldType, type ParsedValue } from "@kb/model";
+import { parseTypedValue, type FieldType, type ParsedValue } from "@kb/model";
+import { ManagedNote } from "../components/managed-field";
+import { useFieldWrite } from "./field-write";
 import { browserHost } from "../host";
 import { resolveFieldTypeById } from "./field-type";
 import { FIELD_EDITOR_ROLE } from "@kb/contracts";
@@ -68,7 +70,9 @@ export function provideFieldEditor(ctx: PluginContext, Component: ComponentType<
   function Editor({ nodeId, fieldId, label, values, context, valueOnly }: FieldEditorProps) {
     const { schema } = context;
     const fieldType = resolveFieldTypeById(fieldId, schema);
-    return createElement(Component, {
+    // The row is the family's; a managed field's note is the page's, under it.
+    const { readOnly, managed } = useFieldWrite(nodeId, fieldId, schema);
+    const row = createElement(Component, {
       nodeId,
       fieldId,
       label,
@@ -76,15 +80,14 @@ export function provideFieldEditor(ctx: PluginContext, Component: ComponentType<
       valueOnly,
       fieldType,
       parse: (text) => parseTypedValue(text, fieldType),
-      readOnly: !isWritableField(
-        schema.get(nodeId) ?? { id: nodeId },
-        fieldId,
-        schema.get(fieldId),
-      ),
+      readOnly,
       update: (value, previous) =>
         browserHost().writes.updateProp(nodeId, fieldId, value, previous),
       remove: (value) => browserHost().writes.removeProp(nodeId, fieldId, value),
     });
+    return managed === null
+      ? row
+      : createElement(Fragment, null, row, createElement(ManagedNote, { managed }));
   }
   return ctx.provide(FieldEditorService, Editor);
 }

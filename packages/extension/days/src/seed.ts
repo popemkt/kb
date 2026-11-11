@@ -28,8 +28,13 @@ export function daysSeed(at: string): readonly KbNode[] {
     props: CONFIGURES_DAYS,
   });
   return [
-    // GAP [[01M7342WTAZQBARRM7T9F751HT]] the key is the family's identity data, hidden and kept unique, but a person can still write it through debug fields
-    seededField(DAYS_IDS.keyField, "period", "text", at, { one: true, hidden: true }),
+    // The family's identity data: hidden, managed (a person's edit is a
+    // deliberate step), and kept to a real period by its guards.
+    seededField(DAYS_IDS.keyField, "period", "text", at, {
+      one: true,
+      hidden: true,
+      props: { [SYSTEM_IDS.managedByField]: ref(DAYS_IDS.family) },
+    }),
     seededTag(DAYS_IDS.dayTag, "day", [DAYS_IDS.keyField], at),
     seededTag(DAYS_IDS.weekTag, "week", [DAYS_IDS.keyField], at),
     seededTag(DAYS_IDS.yearTag, "year", [DAYS_IDS.keyField], at),
