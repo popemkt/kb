@@ -19,6 +19,7 @@ import { NO_CONTEXT, type ContextReferences } from "./context.ts";
 import type { GraphWrites } from "./graph-writes.ts";
 import type { KbCtx, KbStore } from "./session.ts";
 import type { TemplateRegistry } from "./template.ts";
+import type { CaptureTarget } from "./capture-target.ts";
 import type { ExtensionCatalog } from "./declaration.ts";
 import type { ExtensionFailures } from "./extension-report.ts";
 import type { FamilyKernels } from "./footprint.ts";
@@ -125,6 +126,7 @@ export type ActionHandlerEnv =
   | QueryEngineService
   | FileSystem
   | TemplateRegistry
+  | CaptureTarget
   | ActionCatalog
   | ViewCatalog
   | ExtensionCatalog
@@ -168,14 +170,18 @@ export type ActionEffectHandler<R = ActionHandlerEnv> = (
 
 /**
  * The services every runtime can supply from its own store, node set and
- * query engine, and
- * the view catalog it reads off its own kernel — no filesystem, no workspace
- * ports. An action whose handler requires only these
+ * query engine, and the view catalog and capture target it reads off its
+ * own kernel — no filesystem, no workspace ports. An action whose handler requires only these
  * runs identically in the browser and on the server; the list of such actions
  * is `isomorphicActions` in `@kb/operations`, typed with this env so a
  * composition root that has nothing more can provide it without lying.
  */
-export type IsomorphicActionEnv = KbCtx | KbStore | QueryEngineService | ViewCatalog;
+export type IsomorphicActionEnv =
+  | KbCtx
+  | KbStore
+  | QueryEngineService
+  | ViewCatalog
+  | CaptureTarget;
 
 /**
  * Action contract. Schemas are Standard Schema v1–compatible (zod 4 satisfies

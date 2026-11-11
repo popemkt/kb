@@ -159,7 +159,8 @@ export type LookWrite =
       readonly id: "node.add";
       readonly input: {
         readonly text: string;
-        readonly parent?: string;
+        /** The node it goes under; null for the top level. */
+        readonly parent: string | null;
         readonly tags?: readonly string[];
         readonly props: readonly PropWrite[];
       };
@@ -198,7 +199,7 @@ export function lookWrites(
         id: "node.add",
         input: {
           text: nameOf(draft),
-          ...(parent === null ? {} : { parent }),
+          parent,
           tags: [GALLERY_IDS.lookTag],
           props: lookProps(draft),
         },

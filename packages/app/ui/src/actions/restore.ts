@@ -88,7 +88,7 @@ export function restoreInvocations(
         id: node.id,
         text: node.text,
         props: propEntries(node),
-        ...(parent !== null ? { parent } : {}),
+        parent,
         position,
       },
     });

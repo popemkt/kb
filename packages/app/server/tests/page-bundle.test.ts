@@ -136,7 +136,12 @@ const DATASCRIPT = /cljs\.core/;
 // from a failed receipt), the refusal as data it reads (`WriteRefusal`), and
 // the owner chip with the index's point read it asks (`related`), merged with
 // C1b-a at 2adf28cf, measure 1,826,408; the budget keeps about 1.5 KB over it.
-const EAGER_BUDGET_BYTES = 1_827_900;
+// The capture target on both kernels (`CaptureTarget` in the page's action
+// env, the page's planner over its role, `node.add` deciding its place in
+// its planned commit, and the descriptions saying what an omitted parent
+// means) and days' captures and time zone settings, merged with main at
+// c33abe82, measure 1,829,178; the budget keeps about 1.5 KB over it.
+const EAGER_BUDGET_BYTES = 1_830_700;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

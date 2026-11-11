@@ -4041,7 +4041,8 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
   has not moved by the time the answer comes. The move replaces the root's
   history entry, so Back leaves the page.
 - **The capture target's replacement** answers today's node through
-  `ext.days.today`, with the page's local day. ⌘K "Add node" with nothing
+  `ext.days.today`, with the page's local day, unless the family's
+  `captures` setting says the top level. ⌘K "Add node" with nothing
   selected and a picker's "create" row for a new top-level node both go
   through the role (`captureNode`), so either lands in today. When the
   action refuses or the node never reaches the page, the replacement fails

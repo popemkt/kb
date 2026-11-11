@@ -1,7 +1,14 @@
 import { lazy } from "react";
 import { Effect } from "effect";
 import { familyTags } from "@kb/contracts";
-import { DAYS_IDS, DAYS_POINT_DEFINITIONS, DayView, daysExtension, daysPlugin } from "@kb/days";
+import {
+  capturesToday,
+  DAYS_IDS,
+  DAYS_POINT_DEFINITIONS,
+  DayView,
+  daysExtension,
+  daysPlugin,
+} from "@kb/days";
 import { refValuesOf } from "@kb/model";
 import { definePlugin } from "@kb/plugin";
 import {
@@ -63,6 +70,17 @@ async function landOnToday(): Promise<string | null> {
 }
 
 /**
+ * Where the page's own captures go (DESIGN-UI.md → Days): today's node, in
+ * the page's local day, unless the family's `captures` setting says the
+ * top level.
+ */
+function captureIntoToday(): Promise<string | null> {
+  return capturesToday(browserHost().nodes().get(DAYS_IDS.family))
+    ? todayNode()
+    : Promise.resolve(null);
+}
+
+/**
  * The days family's page entry (DESIGN-UI.md → Days). It loads the family's
  * plugin as a child, so the day page's key, `ext.days.today` and the
  * one-node-per-key guard are the page kernel's too, and adds the day page
@@ -93,7 +111,7 @@ export const daysUiPlugin = definePlugin({
           value: { order: 5, Component: TodaySection },
         }),
         ctx.contribute(CommandPoint, { id: goToTodayCommand.id, value: goToTodayCommand }),
-        ctx.provide(CaptureTargetService, todayNode),
+        ctx.provide(CaptureTargetService, captureIntoToday),
         ctx.provide(LandingService, landOnToday),
         ctx.provide(DateTargetService, dayNode),
       ],

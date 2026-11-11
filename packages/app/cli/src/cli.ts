@@ -185,6 +185,7 @@ interface IdOpts {
 }
 interface AddOpts extends IdOpts, ForceOpts {
   parent?: string;
+  top?: boolean;
   position?: number;
   tag: string[];
   prop: string[];
@@ -194,9 +195,11 @@ interface AddOpts extends IdOpts, ForceOpts {
 
 /**
  * `kb add`: one node from argv (`node.add`), or a whole outline from a file or
- * stdin (`node.addTree`), placed by the same `--parent` / `--position`. An
- * outline carries its own text, tags, fields and ids, so the flags that would
- * say them again are refused rather than merged.
+ * stdin (`node.addTree`), placed by the same `--parent` / `--top` /
+ * `--position`. Without `--parent` or `--top` it lands where captures go,
+ * the capture target (DESIGN.md → Provider roles). An outline carries its
+ * own text, tags, fields and ids, so the flags that would say them again are
+ * refused rather than merged.
  */
 function addEffect(
   ctx: KbContext,
@@ -206,13 +209,17 @@ function addEffect(
 ): Effect.Effect<number, Error, ActionHandlerEnv> {
   return Effect.gen(function* () {
     const create = { create: opts.create === true };
+    if (opts.top === true && opts.parent !== undefined) {
+      return yield* new UsageError({ message: "kb add: --parent and --top name two places" });
+    }
+    const parent = opts.top === true ? null : opts.parent;
     if (opts.outline === undefined) {
       if (text === undefined) {
         return yield* new UsageError({ message: "kb add: missing <text> (or --outline <file>)" });
       }
       const plan = mapAdd({
         text,
-        parent: opts.parent,
+        parent,
         position: opts.position,
         tags: opts.tag,
         props: opts.prop.map((arg) => parsePropArg(arg, declaredTypes(ctx.nodes))),
@@ -234,7 +241,7 @@ function addEffect(
     const outline = yield* readTextArgEffect("--outline", opts.outline);
     const plan = mapAddTree({
       outline,
-      parent: opts.parent,
+      parent,
       position: opts.position,
       force: opts.force === true,
     });
@@ -450,7 +457,8 @@ function buildProgram(): Command {
     .description("Create a node, or a whole outline in one transaction (--outline)")
     .argument("[text]", "node text")
     .option("--outline <file>", "add an outline (Tana Paste) from a file, or - for stdin")
-    .option("--parent <id>", "parent node id")
+    .option("--parent <id>", "parent node id (default: the capture target, today's node with days)")
+    .option("--top", "add at the top level, not the capture target", false)
     .option("--position <n>", "child index", toInt)
     .option("--tag <name>", "tag name (repeatable)", collect, [])
     .option("--prop <field=value>", "prop (repeatable)", collect, [])

@@ -228,7 +228,7 @@ describe("ext.gallery.starter", () => {
       visuals: STARTER_VISUALS.map(() => "01NEW"),
     });
     expect(calls.slice(0, 2).map((c) => c.id)).toEqual(["node.addTree", "node.update"]);
-    expect(calls[0]?.input).toEqual({ outline: STARTER.text });
+    expect(calls[0]?.input).toEqual({ outline: STARTER.text, parent: null });
     expect(calls[1]?.input).toEqual({
       id: extensionNodeId("gallery"),
       setProps: [{ field: GALLERY_IDS.saveIntoField, value: { t: "ref", v: "01LIB" } }],

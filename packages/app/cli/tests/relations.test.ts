@@ -40,13 +40,14 @@ beforeEach(async () => {
   root = join(scratch, "root");
   await mkdir(root);
   expect((await kb(["init", "--bare"])).code).toBe(0);
+  // At the top level, not today's node, so the only paths are the ones drawn here.
   for (const args of [
     ["field", "define", "influences", "--id", "f.influences"],
     ["field", "type", "f.influences", "ref"],
-    ["add", "B", "--id", "b"],
+    ["add", "B", "--id", "b", "--top"],
     ["add", "C", "--id", "c", "--parent", "b"],
-    ["add", "A on [[b|B]]", "--id", "a"],
-    ["add", "E on [[b]]", "--id", "e"],
+    ["add", "A on [[b|B]]", "--id", "a", "--top"],
+    ["add", "E on [[b]]", "--id", "e", "--top"],
   ])
     expect((await kb(args)).code).toBe(0);
 });

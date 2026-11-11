@@ -7,6 +7,7 @@ import { bunFileSystemLayer } from "./platform.ts";
 import { engineOf, KbIndexService, QueryEngineService } from "@kb/query";
 import {
   ActionCatalog,
+  CaptureTarget,
   CurrentInterception,
   ExtensionCatalog,
   ExtensionFailures,
@@ -22,6 +23,7 @@ import {
   CurrentCall,
   type CoreInvoker,
   type Screens,
+  kernelCaptureTarget,
   TemplateRegistry,
   ViewCatalog,
 } from "@kb/contracts";
@@ -103,6 +105,10 @@ export function kbRuntimeLayer(
     screens,
     Layer.effect(TemplateRegistry, registry.pipe(Effect.map(({ templates }) => templates))),
     Layer.effect(ViewCatalog, registry.pipe(Effect.map(({ views }) => views))),
+    Layer.effect(
+      CaptureTarget,
+      registry.pipe(Effect.map(({ kernel }) => kernelCaptureTarget(kernel))),
+    ),
     Layer.effect(
       ExtensionCatalog,
       Effect.all([registry, hosted?.rows ?? Effect.succeed([])]).pipe(
