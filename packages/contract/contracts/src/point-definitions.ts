@@ -134,6 +134,16 @@ export const CORE_POINT_DEFINITIONS = {
       tier: "T3",
     },
   },
+  keyContext: {
+    name: "ui.key-contexts",
+    spec: {
+      cardinality: "keyed",
+      combine:
+        "one context per id, owned by the plugin that contributes it: the page's are offered every key first, so their chords are held in every context",
+      kernel: "page",
+      tier: "T0",
+    },
+  },
   keybinding: {
     name: "ui.keybindings",
     spec: {

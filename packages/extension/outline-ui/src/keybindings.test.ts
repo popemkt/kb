@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { admitKeybindings, provideKeybinding } from "@kb/ui-sdk";
-import { EDITING_BINDINGS, EDITING_CONTEXT } from "./editing-keymap";
-import { SELECTION_BINDINGS, SELECTION_CONTEXT } from "./selection-keymap";
-import { outlineKeybindings } from "./test-support/keybindings";
+import { EDITING_BINDINGS } from "./editing-keymap";
+import { SELECTION_BINDINGS } from "./selection-keymap";
+import {
+  EDITING_KEY_CONTEXT,
+  outlineKeybindings,
+  SELECTION_KEY_CONTEXT,
+} from "./test-support/keybindings";
 
 /** A host that approves every owner replacing what another holds. */
 const ANYONE = () => true;
@@ -17,8 +21,8 @@ const onlyKbs = (owner: string) => owner === "outline";
  */
 describe("the outline's keybindings", () => {
   it.each([
-    [EDITING_CONTEXT, EDITING_BINDINGS],
-    [SELECTION_CONTEXT, SELECTION_BINDINGS],
+    [EDITING_KEY_CONTEXT, EDITING_BINDINGS],
+    [SELECTION_KEY_CONTEXT, SELECTION_BINDINGS],
   ] as const)("admits every binding of $id, refusing none", (context, bindings) => {
     const keymap = admitKeybindings(context, outlineKeybindings(), ANYONE);
     expect(keymap.refused).toEqual([]);
@@ -29,8 +33,8 @@ describe("the outline's keybindings", () => {
 
   it("runs only intents its context names", () => {
     for (const [context, bindings] of [
-      [EDITING_CONTEXT, EDITING_BINDINGS],
-      [SELECTION_CONTEXT, SELECTION_BINDINGS],
+      [EDITING_KEY_CONTEXT, EDITING_BINDINGS],
+      [SELECTION_KEY_CONTEXT, SELECTION_BINDINGS],
     ] as const) {
       for (const { value } of bindings) {
         expect("intent" in value.run && context.intents.includes(value.run.intent)).toBe(true);
@@ -40,7 +44,7 @@ describe("the outline's keybindings", () => {
 
   it("refuses another plugin's binding over a held or reserved chord, by name", () => {
     const keymap = admitKeybindings(
-      SELECTION_CONTEXT,
+      SELECTION_KEY_CONTEXT,
       outlineKeybindings({
         name: "keys",
         bindings: [
@@ -120,7 +124,7 @@ describe("a binding that replaces a held one", () => {
   };
 
   it("takes exactly its own chord, and the holder keeps the rest", () => {
-    const keymap = admitKeybindings(SELECTION_CONTEXT, outlineKeybindings(moveWithAlt), ANYONE);
+    const keymap = admitKeybindings(SELECTION_KEY_CONTEXT, outlineKeybindings(moveWithAlt), ANYONE);
     expect(keymap.refused).toEqual([]);
     expect(keymap.resolve({ key: "ArrowUp", altKey: true })?.id).toBe("keys.move-up");
     expect(keymap.resolve({ key: "ArrowUp" })?.id).toBe("outline.selection.up");
@@ -132,7 +136,7 @@ describe("a binding that replaces a held one", () => {
   it("is refused while its owner may not replace unapproved, and the holder keeps its chord", () => {
     // The host approves only kb's own here: `keys` is an installed extension.
     const keymap = admitKeybindings(
-      SELECTION_CONTEXT,
+      SELECTION_KEY_CONTEXT,
       outlineKeybindings({
         name: "keys",
         bindings: [
@@ -159,7 +163,7 @@ describe("a binding that replaces a held one", () => {
 
   it("is refused when it names no holder of its chord, or a second takes the same chord", () => {
     const keymap = admitKeybindings(
-      SELECTION_CONTEXT,
+      SELECTION_KEY_CONTEXT,
       outlineKeybindings(moveWithAlt, {
         name: "more",
         bindings: [
@@ -195,7 +199,7 @@ describe("a binding that replaces a held one", () => {
 
   it("is itself replaced by a binding that names it, and each it stands on keeps the rest", () => {
     const keymap = admitKeybindings(
-      SELECTION_CONTEXT,
+      SELECTION_KEY_CONTEXT,
       outlineKeybindings(moveWithAlt, replace("again", "Alt-ArrowUp", "keys.move-up")),
       ANYONE,
     );
@@ -206,7 +210,7 @@ describe("a binding that replaces a held one", () => {
 
   it("names the binding that holds the part of the chord it takes", () => {
     const wrong = admitKeybindings(
-      SELECTION_CONTEXT,
+      SELECTION_KEY_CONTEXT,
       outlineKeybindings(moveWithAlt, replace("wide", "Alt-Shift-ArrowUp", "keys.move-up")),
       ANYONE,
     );
@@ -218,7 +222,7 @@ describe("a binding that replaces a held one", () => {
       },
     ]);
     const right = admitKeybindings(
-      SELECTION_CONTEXT,
+      SELECTION_KEY_CONTEXT,
       outlineKeybindings(moveWithAlt, replace("wide", "Alt-Shift-ArrowUp", "outline.selection.up")),
       ANYONE,
     );
@@ -230,7 +234,7 @@ describe("a binding that replaces a held one", () => {
 
   it("is refused once the binding it replaces leaves, and the key goes back to the holder", () => {
     const keymap = admitKeybindings(
-      SELECTION_CONTEXT,
+      SELECTION_KEY_CONTEXT,
       outlineKeybindings(replace("again", "Alt-ArrowUp", "keys.move-up")),
       ANYONE,
     );
@@ -246,7 +250,7 @@ describe("a binding that replaces a held one", () => {
 
   it("may not take a reserved chord, even by replacing its holder", () => {
     const keymap = admitKeybindings(
-      EDITING_CONTEXT,
+      EDITING_KEY_CONTEXT,
       outlineKeybindings({
         name: "keys",
         bindings: [

@@ -11,7 +11,7 @@ import {
   TEXT_HISTORY_CHORD,
   type Chord,
   type KeyChordEvent,
-  type KeyContext,
+  type KeyContextSpec,
   type Keybinding,
   type Keymap,
 } from "@kb/ui-sdk";
@@ -151,12 +151,16 @@ const SELECTION_INTENTS = new Map<string, IntentOf>([
  * Owned by the outline, so its bindings are held first and Escape is its
  * alone, with the history chords and the palette's ⌘K.
  */
-export const SELECTION_CONTEXT: KeyContext = {
-  id: "outline.selection",
-  owner: outlineExtension.name,
-  intents: [...SELECTION_INTENTS.keys()],
-  reserved: [{ key: "Escape" }, TEXT_HISTORY_CHORD, PALETTE_CHORD],
+export const SELECTION_CONTEXT: ContributionEntry<KeyContextSpec> = {
+  id: "selection",
+  value: {
+    intents: [...SELECTION_INTENTS.keys()],
+    reserved: [{ key: "Escape" }, TEXT_HISTORY_CHORD, PALETTE_CHORD],
+  },
 };
+
+/** The context's id, as bindings name it: the outline's namespace, then its own. */
+export const SELECTION_CONTEXT_ID = `${outlineExtension.name}.${SELECTION_CONTEXT.id}`;
 
 function selectionBinding(
   id: string,
@@ -165,7 +169,7 @@ function selectionBinding(
 ): ContributionEntry<Keybinding> {
   return {
     id: `selection.${id}`,
-    value: { context: SELECTION_CONTEXT.id, chord, run: { intent } },
+    value: { context: SELECTION_CONTEXT_ID, chord, run: { intent } },
   };
 }
 
@@ -220,7 +224,7 @@ export const SELECTION_BINDINGS: readonly ContributionEntry<Keybinding>[] = [
 
 /**
  * Map a keydown to a selection action under `keymap` (the selection
- * context's, `currentKeymap(SELECTION_CONTEXT)`), or null if not handled.
+ * context's, `currentKeymap(SELECTION_CONTEXT_ID)`), or null if not handled.
  * Caller should preventDefault when a non-null action is returned.
  */
 export function mapSelectionKey(

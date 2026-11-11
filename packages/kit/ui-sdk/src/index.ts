@@ -446,13 +446,18 @@ export {
 } from "./lib/keychord";
 export {
   admitKeybindings,
+  admitKeymaps,
   currentKeymap,
   type KeyContext,
+  keyContextOf,
+  KeyContextPoint,
+  type KeyContextSpec,
   type Keybinding,
   KeybindingPoint,
   type Keymap,
   type KeyRun,
   provideKeybinding,
+  tellKeymaps,
 } from "./lib/keybindings";
 export { logError, logWarn } from "./lib/log";
 export {

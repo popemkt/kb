@@ -444,9 +444,11 @@ re-entry into Mode A. Focus hand-offs are specified per operation (split → new
 node at 0; indent/outdent → same offset; merge → the join boundary; delete →
 neighbour) and tested.
 
-**Keybindings.** Each mode is a _context_, and its keys are contributions to
-`ui.keybindings` (`KeybindingPoint`, `@kb/ui-sdk`'s `lib/keybindings`), the
-outline's as any plugin's. A binding is data: a context, a chord, and what it
+**Keybindings.** Each mode is a _context_, a contribution to
+`ui.key-contexts` (`KeyContextPoint`) by the plugin that reads it, which owns
+it: its id is the contribution's (`outline.editing`, `outline.selection`). Its
+keys are contributions to `ui.keybindings` (`KeybindingPoint`, `@kb/ui-sdk`'s
+`lib/keybindings`), the outline's as any plugin's. A binding is data: a context, a chord, and what it
 runs, one of the context's _intents_ by name (`split`, `indent`, `move-up`,
 `line-down`, …; the selection's `up`, `create-after`, `append`, …). An intent
 answers which of a key's meanings applies on this row (the caret, the row's
@@ -456,11 +458,12 @@ The intents are each mode's table (`EDITING_INTENTS`, `SELECTION_INTENTS`);
 the guard that keeps a query-result row from being restructured is part of
 each structural intent, so it holds whatever chord runs it.
 
-The page's one keymap (`admitKeybindings`, read live as `currentKeymap`)
-decides a context's keys, and its rule is the point's `combine`:
+The page's one keymap (`admitKeymaps`, every context's at once, read live
+as `currentKeymap(id)`) decides a context's keys, and its rule is the
+point's `combine`:
 
-- a context's owner states it (`KeyContext`): its intents, and the chords
-  only it may bind (`reserved`). The outline reserves `Escape`, the text
+- a context's owner states it (`KeyContextSpec`): its intents, and the
+  chords only it may bind (`reserved`). The outline reserves `Escape`, the text
   host's history chord (`TEXT_HISTORY_CHORD`, ⌘Z and ⌘⇧Z) and the palette's
   ⌘K (`PALETTE_CHORD`), so no binding can trap a person in a row;
 - the owner's bindings are held first, then the rest in load order;
@@ -493,9 +496,10 @@ decides a context's keys, and its rule is the point's `combine`:
   GAP [[01M6YFRJGV8MAF2AM34N567MBQ]];
 - a binding over a reserved chord is refused, even as a replacement, and so
   is one that replaces a binding holding no chord it overlaps, or names an
-  intent its context lacks. The outline reads both keymaps whenever the page kernel moves, so a
-  refusal is told when the binding arrives, once a page session, naming the
-  binding, the chord and its holder. The kernel admits a binding by its id
+  intent its context lacks. Core's page half reads every keymap whenever
+  the page kernel moves (`tellKeymaps`), so a refusal is told when the
+  binding arrives, once a page session, naming the binding, the chord and
+  its holder. The kernel admits a binding by its id
   alone, so a refused one stays contributed and inert:
   GAP [[01M6Y9H5FD9GVMK9N9QBT5DNTN]].
 
