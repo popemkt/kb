@@ -1,5 +1,6 @@
 /** Ordinary shortcut rows resolve identities from the loaded catalog, never from writable provenance. */
-import { Schema } from "effect";
+import { Encoding, Schema } from "effect";
+import { hash } from "fast-sha256";
 import { canonicalJson, tagChains, type TagChains, type NodeLike } from "@kb/model";
 import type { Contribution } from "@kb/plugin";
 import type { Keybinding, KeyContext, KeyRun, RefusedBinding } from "./bindings.ts";
@@ -177,7 +178,6 @@ function candidateOf(row: NodeLike, reading: KeyReading): PreparedKeybinding {
   // The registered call's complete JSON semantics participate, including action inputs.
   const run = readJson(target.run);
   const reviewData = {
-    format: "kb.shortcut.v1",
     id: row.id,
     provider: STORED_KEY_OWNER,
     context: {
@@ -189,9 +189,7 @@ function candidateOf(row: NodeLike, reading: KeyReading): PreparedKeybinding {
     },
     chord: chordData(chord),
     target: { reference: targetRef, id: target.id, source: { ...target.source }, run },
-    ...(replacesRef === undefined
-      ? {}
-      : { replaces: replacesRef, holder: nativeHolder(replacesRef, reading) }),
+    ...(replacesRef === undefined ? {} : { replaces: replacesRef }),
   };
   return {
     nodeId: row.id,
@@ -202,6 +200,86 @@ function candidateOf(row: NodeLike, reading: KeyReading): PreparedKeybinding {
       value,
     },
     reviewData,
+  };
+}
+
+interface ReviewDependency {
+  readonly id: string;
+  readonly data: Schema.Json;
+  readonly parent: string | undefined;
+}
+
+function reviewDigest(data: Schema.Json): string {
+  return Encoding.encodeHex(hash(new TextEncoder().encode(canonicalJson(data))));
+}
+
+/** Each local definition is hashed once; parent identities never embed serialized reviews. */
+function holderIdentity(
+  stored: ReadonlyMap<string, PreparedKeybinding>,
+  reading: KeyReading,
+): (id: string) => string {
+  const identities = new Map<string, string>();
+  const dependency = (id: string): ReviewDependency => {
+    const row = stored.get(id);
+    if (row !== undefined)
+      return {
+        id,
+        data: { kind: "stored", definition: row.reviewData },
+        parent: row.contribution.value.replaces,
+      };
+    const native = reading.defaults.get(shortcutNodeId(id));
+    return {
+      id,
+      data:
+        native === undefined
+          ? { kind: "missing" }
+          : { kind: "native", definition: nativeHolder(shortcutNodeId(id), reading) },
+      parent: native?.value.replaces,
+    };
+  };
+  return (id) => {
+    const path: ReviewDependency[] = [];
+    const positions = new Map<string, number>();
+    let next: string | undefined = id;
+    while (next !== undefined && !identities.has(next) && !positions.has(next)) {
+      positions.set(next, path.length);
+      const entry = dependency(next);
+      path.push(entry);
+      next = entry.parent;
+    }
+    const cycleStart = next === undefined ? undefined : positions.get(next);
+    if (cycleStart !== undefined) {
+      // A component digest covers every edge and definition, independent of the traversal start.
+      const cycle = path
+        .splice(cycleStart)
+        .toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+      const component = reviewDigest({
+        domain: "kb.shortcut.cycle.v1",
+        members: cycle.map(({ id: member, data, parent }) => ({
+          id: member,
+          data,
+          parent: parent ?? null,
+        })),
+      });
+      for (const member of cycle)
+        identities.set(
+          member.id,
+          reviewDigest({ domain: "kb.shortcut.cycle-member.v1", component, id: member.id }),
+        );
+    }
+    for (const entry of path.toReversed())
+      identities.set(
+        entry.id,
+        reviewDigest({
+          domain: "kb.shortcut.holder.v1",
+          id: entry.id,
+          data: entry.data,
+          parent: entry.parent === undefined ? null : (identities.get(entry.parent) ?? null),
+        }),
+      );
+    const identity = identities.get(id);
+    if (identity === undefined) throw new Error(`Unresolved replacement identity: ${id}`);
+    return identity;
   };
 }
 
@@ -263,27 +341,34 @@ export function storedKeybindings(
     ordered.push(next[1]);
     pending.delete(next[0]);
   }
-  const reviewed = new Map<string, StoredKeybinding>();
+  const byId = new Map(
+    [...candidates.values()].map((candidate) => [candidate.contribution.id, candidate]),
+  );
+  const identityOf = holderIdentity(byId, reading);
+  const reviewed: StoredKeybinding[] = [];
   for (const prepared of ordered) {
-    const holderId = prepared.contribution.value.replaces;
-    const storedHolder =
-      holderId === undefined || !holderId.startsWith(`${STORED_KEY_OWNER}:`)
-        ? undefined
-        : (reviewed.get(holderId)?.review ?? "unavailable");
-    const review = canonicalJson(
-      Object.fromEntries([
-        ...Object.entries(prepared.reviewData),
-        ...(storedHolder === undefined ? [] : [["storedHolder", storedHolder]]),
-      ]),
-    );
-    reviewed.set(prepared.contribution.id, {
-      nodeId: prepared.nodeId,
-      contribution: prepared.contribution,
-      review,
-    });
+    try {
+      reviewed.push({
+        nodeId: prepared.nodeId,
+        contribution: prepared.contribution,
+        review: canonicalJson({
+          format: "kb.shortcut.v1",
+          binding: prepared.reviewData,
+          holder:
+            prepared.contribution.value.replaces === undefined
+              ? null
+              : identityOf(prepared.contribution.value.replaces),
+        }),
+      });
+    } catch (error) {
+      refused.push({
+        id: prepared.nodeId,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
   return {
-    candidates: [...reviewed.values()],
+    candidates: reviewed,
     refused: refused.toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
   };
 }

@@ -13,7 +13,8 @@
   "dependencies": {
     "@kb/model": "workspace:*",
     "@kb/plugin": "workspace:*",
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "fast-sha256": "catalog:"
   },
   "devDependencies": {
     "@types/bun": "catalog:",

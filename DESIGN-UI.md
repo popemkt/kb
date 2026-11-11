@@ -498,9 +498,13 @@ not inherit a family's reserved keys or implicit physical-key precedence.
 Replacement dependencies determine order, with stable-id ties; ordinary
 admission still decides overlap, reservations and election. Review content
 includes normalized context/chord data, resolved target code and input recipe,
-and the current native holder or stored holder's review chain. A changed
-implementation or dependency therefore changes the review even if row IDs stay
-fixed. The decoder grants no authority; live approval and host integration are
+and a SHA-256 dependency identity for the complete native/stored holder chain.
+Each local definition is hashed once with its parent identity, rather than
+embedding serialized reviews. Cycles hash their sorted component definitions
+and edges before deriving member identities; missing edges have explicit
+identities. Total review output grows with the binding data. A changed
+implementation or dependency therefore changes dependent reviews even if row
+IDs stay fixed. The decoder grants no authority; live approval and host integration are
 separate from reading definitions.
 
 The page itself is a context too, `core.page`, which core owns

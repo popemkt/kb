@@ -542,3 +542,92 @@ test("replacement reviews cover native holder semantics and the whole stored dep
   expect(implementationChanged.candidates[1]?.review).not.toBe(initial.candidates[1]?.review);
   expect(storedKeybindings(nodes.toReversed(), registrations)).toEqual(initial);
 });
+
+test("long stored chains have linear review size without nested JSON string encoding", () => {
+  const size = (count: number) => {
+    const nodes = [
+      ...seed,
+      ...Array.from({ length: count }, (_, index) =>
+        shortcut(
+          `chain.${index}`,
+          { key: "g", mod: true },
+          { replaces: index === 0 ? shortcutNodeId("core.go") : `chain.${index - 1}` },
+        ),
+      ).flat(),
+    ];
+    const reading = storedKeybindings(nodes, registrations);
+    expect(reading.refused).toEqual([]);
+    const last = reading.candidates.find(({ nodeId }) => nodeId === `chain.${count - 1}`);
+    expect(last).toBeDefined();
+    const review = last?.review ?? "";
+    expect(review.length).toBeLessThan(1800);
+    expect(
+      reading.candidates.reduce((sum, candidate) => sum + candidate.review.length, 0),
+    ).toBeLessThan(count * 1800);
+    return review.length;
+  };
+  const small = size(6);
+  size(10);
+  const large = size(14);
+  expect(large).toBeLessThan(small * 1.1);
+  size(100);
+});
+
+test("native replacement ancestry participates in dependent review and handles missing/cyclic edges", () => {
+  const leaf: Contribution<Keybinding> = {
+    id: "native.leaf",
+    owner: "core",
+    aliases: [],
+    value: {
+      context: "core.page",
+      chord: { key: "g", mod: true },
+      run: { command: "core.other" },
+      replaces: "core.go",
+    },
+  };
+  const nodes = [
+    ...seed,
+    ...shortcut("replace.native", { key: "g", mod: true }, { replaces: shortcutNodeId(leaf.id) }),
+  ];
+  const held = { ...registrations, bindings: [...registrations.bindings, leaf] };
+  const initial = storedKeybindings(nodes, held);
+  expect(initial.candidates).toHaveLength(1);
+  const changed = storedKeybindings(nodes, {
+    ...held,
+    command: (id) =>
+      id === "core.go"
+        ? { id, source: { provider: "changed", implementation: "new" } }
+        : held.command(id),
+  });
+  expect(changed.candidates[0]?.review).not.toBe(initial.candidates[0]?.review);
+  const semanticsChanged = storedKeybindings(nodes, {
+    ...held,
+    bindings: held.bindings.map((binding) =>
+      binding.id === "core.go"
+        ? { ...binding, value: { ...binding.value, chord: { key: "h", mod: true } } }
+        : binding,
+    ),
+  });
+  expect(semanticsChanged.candidates[0]?.review).not.toBe(initial.candidates[0]?.review);
+  const missing = { ...held, bindings: held.bindings.filter(({ id }) => id !== "core.go") };
+  expect(storedKeybindings(nodes, missing).candidates[0]?.review).not.toBe(
+    initial.candidates[0]?.review,
+  );
+  const cyclic = {
+    ...held,
+    bindings: held.bindings.map((binding) =>
+      binding.id === "core.go"
+        ? { ...binding, value: { ...binding.value, replaces: leaf.id } }
+        : binding,
+    ),
+  };
+  const reading = storedKeybindings(nodes, cyclic);
+  expect(reading).toEqual(
+    storedKeybindings(nodes.toReversed(), { ...cyclic, bindings: cyclic.bindings.toReversed() }),
+  );
+  expect(reading.candidates[0]?.review.length ?? 0).toBeLessThan(10000);
+  expect(
+    election(nodes, "all", cyclic).maps.get("core.page")?.resolve({ key: "g", ctrlKey: true })
+      ?.owner,
+  ).not.toBe(`${STORED_KEY_OWNER}/replace.native`);
+});
