@@ -1218,6 +1218,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — An item picker in the Link row, fed by the target canvas's document through world.docOf.
 - **node** — `01M5486YWGBMNG9G60EY4MPS0X`
 
+### GAP: physical shortcut hints must use the shared chord key domain
+
+- **expected** — Shortcut hints agree with actual election for chords that constrain both physical code and character key, deriving representative keys from the shared chord model.
+- **current** — PR #181 at 0e4fcc8c is approved but its canvas pressOf uses an empty key for code-only chords. A replacement of canvas.rest.pan using code Space and key space runs correctly while the old pan hint still advertises Space.
+- **impact** — A stale shortcut hint can advertise a key that runs another binding. Dispatch, reservations and approval remain correct; Sol classifies this as non-blocking P3.
+- **closes** — After #181 lands, derive physical representative key values from the shared chord model and retain the review181-r3-hint-probe regression as coverage.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M75H9VJT3C118T7DHK87PSFD`
+
 ### GAP: picking and stacking treat rounded corners as square
 
 - **expected** — hitTest and surface snap follow the rounded rect corners that are drawn
