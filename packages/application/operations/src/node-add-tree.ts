@@ -22,15 +22,8 @@ import {
   type OutlineItem,
   type ParsedValue,
 } from "@kb/model";
-import {
-  forcedBy,
-  nodeAddDef,
-  placedGraph,
-  placeOf,
-  planNodeAdd,
-  syncDomain,
-  type PropEntry,
-} from "./actions.ts";
+import { forcedBy, nodeAddDef, planNodeAdd, syncDomain, type PropEntry } from "./actions.ts";
+import { placedGraph, placeOf } from "./place.ts";
 import { persistPlannedEffect } from "./session.ts";
 
 export const nodeAddTreeDef = {
