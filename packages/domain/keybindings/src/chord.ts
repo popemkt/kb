@@ -23,6 +23,8 @@
  * must protect that shared press; within a context, a keymap asks its chords by place first ({@link placeFirst}).
  */
 
+import type { ChordData } from "./chord-data.ts";
+
 /** The parts of a keyboard event a chord is allowed to look at. */
 export interface KeyChordEvent {
   key: string;
@@ -34,33 +36,14 @@ export interface KeyChordEvent {
   altKey?: boolean;
 }
 
-/** One key, several spellings of one key, or a predicate over the name. */
-export interface PrintableKeys {
-  readonly kind: "printable";
-  readonly except: readonly string[];
-}
+/** Runtime predicates extend the stored model; all declarative fields derive from its codec. */
+export type PrintableKeys = Extract<NonNullable<ChordData["key"]>, { readonly kind: "printable" }>;
+type KeyMatch = NonNullable<ChordData["key"]> | ((key: string) => boolean);
 
-type KeyMatch = string | readonly string[] | PrintableKeys | ((key: string) => boolean);
-
-export interface Chord {
-  /** Absent ⇒ any key; the modifier constraints then carry the whole chord. */
-  key?: KeyMatch;
-  /** The key's place (`KeyboardEvent.code`): a chord that names one is a chord by place. */
-  code?: string;
-  /**
-   * `metaKey || ctrlKey` — the platform-agnostic "command" modifier.
-   *
-   * {@link Chord.meta} exists beside it because the editing keymap
-   * distinguishes them: ⌘⇧↑ reorders a row while ⌃⇧↑ collapses it. Ask with
-   * `mod` unless a binding genuinely means the Command key, or {@link
-   * Chord.ctrl} the Control key.
-   */
-  mod?: boolean;
-  meta?: boolean;
-  ctrl?: boolean;
-  shift?: boolean;
-  alt?: boolean;
-}
+/** Mutable chord constraints, retaining the SDK's runtime construction API. */
+export type Chord = {
+  -readonly [Field in keyof Omit<ChordData, "key">]: ChordData[Field];
+} & { key?: KeyMatch };
 
 /** A single-character key name — the printable fall-through both maps use. */
 export function isPrintableKey(key: string): boolean {
