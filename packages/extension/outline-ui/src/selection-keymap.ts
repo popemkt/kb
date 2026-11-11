@@ -5,8 +5,7 @@
 import type { ContributionEntry } from "@kb/plugin";
 import { outlineExtension } from "@kb/outline";
 import {
-  chordsOverlap,
-  isPrintableKey,
+  printableExcept,
   TEXT_HISTORY_CHORD,
   type Chord,
   type KeyChordEvent,
@@ -213,11 +212,10 @@ const SELECTION_KEYS: readonly ContributionEntry<Keybinding>[] = [
 export const SELECTION_BINDINGS: readonly ContributionEntry<Keybinding>[] = [
   ...SELECTION_KEYS,
   selectionBinding("append", {
-    key: (key) =>
-      isPrintableKey(key) &&
-      !SELECTION_KEYS.some(({ value }) =>
-        chordsOverlap(value.chord, { key, mod: false, alt: false }),
-      ),
+    key: printableExcept(
+      SELECTION_KEYS.map(({ value }) => value.chord),
+      { mod: false, alt: false },
+    ),
     mod: false,
     alt: false,
   }),

@@ -7,6 +7,7 @@ export {
   lookupChord,
   matchesChord,
   parseChord,
+  printableExcept,
   PALETTE_CHORD,
   TEXT_HISTORY_CHORD,
   type Chord,
@@ -25,3 +26,5 @@ export {
   type Keymap,
   type ActionCall,
 } from "./bindings.ts";
+
+export { ChordDataSchema, type ChordData } from "./chord-data.ts";

@@ -442,6 +442,7 @@ export {
   lookupChord,
   matchesChord,
   PALETTE_CHORD,
+  printableExcept,
   TEXT_HISTORY_CHORD,
 } from "./lib/keychord";
 export {
