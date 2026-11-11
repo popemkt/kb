@@ -5,7 +5,8 @@
  * - a backup is a root of its own that holds, raw, exactly what the store
  *   held, and names the store's state (its fingerprint) at the copy;
  * - a store already backed up as it is answers that backup, copying nothing;
- * - a machine keeps the newest `backups kept` (core's setting) of a store;
+ * - a machine keeps the newest `backups kept` (core's setting) of a store,
+ *   and every backup a node pins (`backup pin`) beside them;
  * - a restore needs a person's approval, puts the backup's state back as one
  *   transaction, and backs up the state it replaces first, so restoring that
  *   backup undoes it.
@@ -287,6 +288,37 @@ function backupsContract(backend: StoreBackend): void {
           // The third removes the first; the newest two are what is left.
           expect(taken.map((t) => t.removed.map((b) => b.id))).toEqual([[], [], ids.slice(0, 1)]);
           expect((yield* backups()).backups.map((b) => b.id)).toEqual(ids.slice(1).toReversed());
+        }),
+      ));
+
+    test("a backup a node pins outlives retention, and is listed pinned", () =>
+      run(
+        Effect.gen(function* () {
+          const core = ctx().nodes.find((n) => n.id === extensionNodeId("core"));
+          if (core === undefined) throw new Error("no core node");
+          yield* write([
+            {
+              ...core,
+              props: { ...core.props, [SYSTEM_IDS.backupsKeptField]: [{ t: "num", v: 1 }] },
+            },
+          ]);
+          const { backup: first } = yield* backup();
+          yield* write([
+            {
+              ...note("n.pin"),
+              props: { [SYSTEM_IDS.backupPinField]: [{ t: "str", v: first.id }] },
+            },
+          ]);
+          const second = yield* backup();
+          expect(second.removed).toEqual([]);
+          yield* write([note("n.more")]);
+          const third = yield* backup();
+          expect(third.removed.map((b) => b.id)).toEqual([second.backup.id]);
+          const listed = (yield* backups()).backups as (Backup & { pinned: boolean })[];
+          expect(listed.map((b) => [b.id, b.pinned])).toEqual([
+            [third.backup.id, false],
+            [first.id, true],
+          ]);
         }),
       ));
 

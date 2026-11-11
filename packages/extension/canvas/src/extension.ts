@@ -11,7 +11,16 @@
  * canvas (`tagDefaultViews`), and its canvas view draws a preview of it
  * (`CanvasView.preview`). It is optional and on by default.
  */
-import { declarationPlugin, defineExtension, viewDef } from "@kb/contracts";
+import { Effect } from "effect";
+import { definePlugin } from "@kb/plugin";
+import { canvasRunFieldGuard } from "./run-field-guard.ts";
+import {
+  declarationPlugin,
+  defineExtension,
+  viewDef,
+  guardAction,
+  familyTags,
+} from "@kb/contracts";
 import type { Plugin } from "@kb/plugin";
 import { CANVAS_CONTEXT } from "./context.ts";
 import { CANVAS_IDS } from "./ids.ts";
@@ -37,5 +46,16 @@ export const canvasExtension = defineExtension({
  * entry loads it as a child.
  */
 export function canvasPlugin(): Plugin {
-  return declarationPlugin(canvasExtension);
+  return definePlugin({
+    name: canvasExtension.name,
+    tags: familyTags(canvasExtension),
+    apply: (ctx) =>
+      Effect.all(
+        [
+          ctx.plugin(declarationPlugin(canvasExtension)),
+          guardAction(ctx, "every write", canvasRunFieldGuard, "run-fields"),
+        ],
+        { discard: true },
+      ),
+  });
 }

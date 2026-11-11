@@ -3,7 +3,7 @@
  * schema means. Under an ontology scope the projection holds members only,
  * and every field and tag lookup reads the whole graph through `schemaOf`.
  */
-import { beforeAll, afterAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { cardinalityOf, present } from "@kb/model";
 import { bundledSeed } from "@kb/bundled";
@@ -19,6 +19,7 @@ import {
   syncUiPlugins,
   SYSTEM_IDS,
 } from "@kb/ui-sdk";
+import { setPostAction } from "@/api/action";
 import { useGraphStore } from "@/stores/graph.store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { backlinkRows, outlineNodes, useOutlineStore } from "@kb/outline-ui";
@@ -267,9 +268,19 @@ describe("transient prune reads content, not template slots", () => {
     return "n.new";
   }
 
-  it("a blank node tagged with a templating supertag prunes on blur", () => {
-    const id = transient({ [SYSTEM_IDS.typeField]: [{ t: "ref", v: "t.task" }] });
-    expect(outlineNodes().has(id)).toBe(false);
+  it("a blank node tagged with a templating supertag prunes on blur", async () => {
+    setPostAction(async (invocation) => ({
+      status: "succeeded",
+      id: invocation.id,
+      output: {},
+      rev: 2,
+    }));
+    try {
+      const id = transient({ [SYSTEM_IDS.typeField]: [{ t: "ref", v: "t.task" }] });
+      await vi.waitFor(() => expect(outlineNodes().has(id)).toBe(false));
+    } finally {
+      setPostAction(null);
+    }
   });
 
   it("a blank node holding a value in a hidden field is kept", () => {

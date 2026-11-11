@@ -10,6 +10,7 @@
  * script a run performs cannot ask the model either. With no agent hosted,
  * `canvas-run.test.ts` (`@kb/runtime`) holds that an instruction fails by name.
  */
+import { CANVAS_RUN_FIELDS } from "@kb/canvas";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -108,7 +109,15 @@ const card = (id: string, x: number) => ({
 const wire = (from: string, to: string) => ({ id: `${from}-${to}`, fromNode: from, toNode: to });
 /** A canvas `id` of these cards and wires. */
 async function board(id: string, cards: readonly string[], wires: readonly [string, string][]) {
-  await done("node.add", { id, text: id, tags: ["canvas"] });
+  await done("node.add", {
+    id,
+    text: id,
+    tags: ["canvas"],
+    props: [
+      { field: CANVAS_RUN_FIELDS.input.field, value: { t: "ref", v: "f.input" } },
+      { field: CANVAS_RUN_FIELDS.output.field, value: { t: "ref", v: "f.output" } },
+    ],
+  });
   await done("ext.canvas.tx.apply", {
     canvasId: id,
     doc: {

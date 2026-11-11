@@ -3,6 +3,7 @@
 import {
   ActionResponseSchema,
   envelopeOf,
+  type ActionReceipt,
   type ActionRequest,
   type ActionResponse,
 } from "@kb/contracts";
@@ -43,4 +44,20 @@ export function setPostAction(fn: PostActionFn | null): void {
  */
 export function postAction(invocation: ActionRequest): Promise<ActionResponse> {
   return postActionImpl(inTabSession(invocation));
+}
+
+/** Best-effort diagnostics for a write refused before it reached the server. */
+export function reportLocalFailure(
+  invocation: ActionRequest,
+  receipt: Extract<ActionReceipt, { status: "failed" }>,
+): void {
+  void Promise.resolve()
+    .then(() =>
+      fetch("/api/client-failure", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invocation: envelopeOf(inTabSession(invocation)), receipt }),
+      }),
+    )
+    .catch(() => undefined);
 }

@@ -1859,7 +1859,7 @@ Backup payloads are read through `KbRoots.useBackup`: their backend must be
 present and their graph must match the manifest's content digest. An empty
 payload is valid; an absent or altered payload is refused and never reused as
 a safety copy. Directory reservation is exclusive and the manifest is published
-by atomic rename only after the payload completes. Publication and retention share a cross-process lock per root, and retention selects the globally newest `keep` copies. `useBackup` holds that same lock through validation and the caller's use, so restore cannot commit while its safety payload is pruned. Restore commits conditionally
+by atomic rename only after the payload completes. Publication and retention share a cross-process lock per root, and retention selects the globally newest `keep` copies. `useBackup` holds that same lock through validation and the caller's use, so restore cannot commit while its safety payload is pruned. Retention reads pins from the authoritative stored graph inside this boundary, never from a session snapshot. A migration preview holds protected use through its pin transaction; later pruning observes the committed pin. Restore commits conditionally
 on the safety backup's source fingerprint; a concurrent write refuses the
 restore without erasing the write, rather than replanning over unprotected data.
 
@@ -1872,8 +1872,12 @@ is three core actions:
   newest **`backups kept`** — a number setting of core's node
   (`sys.f.backups.kept`; unset is 3, at least 1), so it is set as any setting
   is, `kb set sys.extension.core "backups kept" 5`.
+- **A pinned backup outlives retention.** Any node may hold `backup pin`
+  (`sys.f.backup.pin`, text, many): each value a backup's id, kept beside
+  the newest `backups kept`, however old. A pending migration's record pins
+  the backup taken before it (Plugin data migrations).
 - **`store.backups`** lists them newest first, each marked `current` when the
-  store is still its state. "Is there a backup of the store as it is now" is
+  store is still its state, and `pinned` when a node pins it. "Is there a backup of the store as it is now" is
   therefore read, never recorded — what a procedure's backup step asks.
 - **`store.restore <id>`** (approval required, so never from MCP) reads the
   backup, backs up the state it is about to replace, and commits
@@ -3028,7 +3032,11 @@ actions, contributed to `ProcedurePoint` (`kb.procedures`, keyed):
   a read action whose output's `done` answers whether it is done. The answer
   comes from the store, or from what the store's machine holds, such as a
   backup. There is no progress state to drift, so a procedure resumes
-  wherever it was left, on whichever surface.
+  wherever it was left, on whichever surface. A check may also name the
+  step action it **recommends** and give **notes** to show beside the step
+  (roll back, listing what a migration's verify found). A recommendation
+  that names none of the step's actions is dropped, and none is ever taken
+  for the person.
 - **Order is one rule** (`walkedSteps`): a step counts as done when its own
   check says so **or a later step's does**. Steps are walked in order, so a
   later step done means this one was passed, whatever its check reads now
@@ -3051,6 +3059,84 @@ decision at the current step. `procedure-contract.test.ts` proves this
 through the invoke core. The routines Google setup wizard predates the
 primitive and keeps its own walker for now (`#gap`
 01M74NN86YC7HP65R2JVYMM27F).
+
+### Plugin data migrations
+
+A family migrates the data it owns, meaning the values on a person's nodes,
+with a **migration**: a script it ships and declares on its declaration
+(`migrations: [{ id, title, run, check? }]`, `ExtensionMigration`). Seeds
+and their retirement table still cover the family's own system nodes; a
+migration is for what a person wrote.
+
+- **The script plans and never writes.** `run(graph)` returns the
+  transaction that moves the data, `{upserts, deletes}`. `graph` holds the
+  nodes, `nodeOf`, and the instant `at` to stamp writes with. It is pure,
+  and idempotent: on a migrated graph it plans nothing, which is how kb knows
+  a migration has nothing to do. The script is the family's own code, so it
+  runs under the trust its family already has: kb's build, or a repository
+  extension a person trusted, whose module imports it (by convention from
+  `./migrations/<name>.ts`). `check(graph)` names, one line each, what is
+  wrong with a migrated graph.
+- **kb applies only what it previewed.** kb holds every plan to the node
+  shape. It drops writes that change nothing, and refuses a write to the
+  migrations' own ledger. A plan's digest covers exactly what it writes.
+  Applying it plans again at the instant the preview recorded and refuses a
+  different digest, so the transaction that lands is the one a person saw.
+  It lands as one transaction with the record's update, so every surface
+  sees before or after and never between.
+- **Running one is a procedure** ([Procedures](#procedures)).
+  `declarationPlugin` contributes each migration to `MigrationPoint`
+  (`kb.migrations`) as `<family>.<id>`, and contributes the procedure
+  `migration.<family>.<id>` (`migrationProcedure`), whose five steps are
+  core actions:
+  1. **Back up** (`store.backup`).
+  2. **Preview** (`migration.preview`). It needs a backup of the store as it
+     is now, and records the plan's digest, its instant and that backup.
+  3. **Apply** (`migration.apply`, approval required).
+  4. **Verify** (`migration.verify`). It runs the family's check, and also
+     checks that planning the migration again writes nothing.
+  5. **Keep or roll back**, a decision taken after a **trial** of living
+     with the result. **Keep** (`migration.keep`) makes it final.
+     **Roll back** (`migration.rollback`, approval required) is
+     `store.restore` of the backup from step 1, after which the migration is
+     offered again.
+
+  Every step's done-ness is `migration.progress`, read from the record and
+  the machine's backups.
+- **A failed verify is never left silently applied.** When verify finds
+  problems, the migration is recorded `failed` and the procedure stops at the
+  decision. The decision's check recommends roll back and lists the problems
+  (a step check's `recommended` and `notes`). Whatever verify found, the
+  choice states what rolling back costs. It names the backup it restores and
+  how many nodes changed since the migration, which roll back undoes too. It
+  also names the backup that keeps those edits: the current one, or the one
+  `store.restore` takes first, which `migration.rollback` returns with the
+  count (`undone`). A loss is never silent. A person may still keep it,
+  with the problems on its record. `--yes` and any other walk in order stop
+  before the decision, so nothing keeps a migration for a person.
+- **The record is a node.** Each migration has one record, tagged
+  `migration`, under the Migrations list (`sys.migrations`, core's, under its
+  own node), at `sys.migration.<family>.<id>`. It holds the migration's id,
+  its **state** (an option set: previewed, applied, verified, failed, kept,
+  rolled back), the plan digest and its instant, the backup taken before it,
+  and the problems verify found. Only kb's `migration.*` actions write it
+  (`systemWrites: "system"`), and a script never sees it. Until the
+  migration is kept or rolled back, the record **pins** its backup
+  (`backup pin`, [Backups](#backups)), so retention cannot remove what a roll
+  back needs. A rolled-back record counts as never run. So does a store
+  opened from a backup taken before the migration: there the migration is
+  pending again.
+
+The surfaces are `kb migrate`, which lists pending migrations, and
+`kb migrate <id>`, which walks one. `--status` shows where a migration
+stands and `--plan` shows what it would write. `--keep` and `--rollback`
+take the decision, and `--yes` runs every step but that decision. MCP and
+agents call the same actions, and the steps that need approval are refused
+there as anywhere a call carries none.
+`migration-contract.test.ts` proves the contract over every store backend.
+A roll back restores the whole store, so edits made during the trial survive
+only in the backup the restore takes first (`#gap`
+01M74SGAXQNMA8CME3GEG09EVF).
 
 ### Core boundary & extensions
 
@@ -4417,6 +4503,18 @@ store records can use it.
 `ext.canvas.run {canvasId, from?, rounds?}` runs a canvas as a computer,
 tldraw computer's model built from kb's parts (research
 `docs/research/2026-10-28-canvas-tldraw-parity.md`, D6).
+- **Field bindings.** Each canvas names its input and output field definitions
+  through ordinary references, `sys.f.canvas.run.inputField` and
+  `sys.f.canvas.run.outputField`. They must name distinct multi-value text
+  fields. Runtime writes, script setup and stored-output reads use those IDs.
+  On the deliberate first run, absent bindings adopt the legacy `input` and
+  `output` labels once, creating missing definitions when needed. Both bindings
+  and any definitions publish in one conditional transaction before any
+  component executes; contention replans against the current graph. Ambiguous
+  discovery, or a present malformed, missing or incompatible reference, refuses
+  without writes or execution and asks the person to choose the references.
+  Existing values and custom field IDs remain intact. Later label changes and
+  unrelated same-label fields cannot change an adopted binding.
 - **Components and wires.** Every item that stands for a node and is an
   end of an edge between two such items is a component; each such edge
   carries the output of the one it leaves into the one it enters. `from`

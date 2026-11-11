@@ -308,6 +308,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A conflict tag and the sync agent writing one node per reported conflict (P1).
 - **node** — `01M69E3QETRHZH00T7JFMQ0F37`
 
+### GAP: a migration's roll back restores the whole store, not only the migration
+
+- **expected** — Rolling back a migration undoes exactly its transaction (the inverse of the tx the apply recorded), so edits made during the trial stay
+- **current** — migration.rollback is store.restore of the backup taken before the migration: the whole store goes back, and edits made since survive only in the backup the restore takes first
+- **impact** — A long trial followed by a roll back loses the person's later edits from the live store; they must recover them from the replaced backup by hand
+- **closes** — Server-side undo of a recorded transaction (the tx log's inverse, refused when later writes touched the same nodes), which migration.rollback then uses, keeping the backup as the fallback
+- **node** — `01M74SGAXQNMA8CME3GEG09EVF`
+
 ### GAP: a modal transform takes one typed value, not a vector
 
 - **expected** — typed input like Blender's: one value per axis with Tab to the next, and expressions

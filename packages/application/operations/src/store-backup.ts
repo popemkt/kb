@@ -18,6 +18,7 @@ import {
 } from "@kb/contracts";
 import {
   SYSTEM_IDS,
+  pinnedBackups,
   diffTx,
   domainError,
   extensionNodeId,
@@ -52,7 +53,7 @@ const BackupSchema = z.object({
  * fingerprint is the source's at the copy, so it is this state exactly when
  * the store still says that fingerprint.
  */
-const currentBackup = Effect.fn("store.backup.current")(function* (
+export const currentBackup = Effect.fn("store.backup.current")(function* (
   roots: KbRootsPort,
   root: string,
 ): Effect.fn.Return<StoreBackup | undefined, DomainError, KbStore> {
@@ -72,7 +73,7 @@ export const storeBackupDef = {
   id: "store.backup",
   title: "Back up this graph",
   description:
-    "Graph backup only (excludes queries, pages, ui.json, extensions and .kb/assets). Copy this root's store, as it is now, into a backup on this machine (a kb root of its own under KB_DATA/backups), keeping the newest `backups kept` (a setting of core's node). A store already backed up as it is answers that backup",
+    "Graph backup only (excludes queries, pages, ui.json, extensions and .kb/assets). Copy this root's store, as it is now, into a backup on this machine (a kb root of its own under KB_DATA/backups), keeping the newest `backups kept` (a setting of core's node) and every backup a node pins (`backup pin`). A store already backed up as it is answers that backup",
   mode: { kind: "write", outsideRoot: true } as const,
   inputSchema: z.object({}),
   outputSchema: z.object({
@@ -110,7 +111,13 @@ export const storeBackupsDef = {
   mode: { kind: "read", outsideRoot: true } as const,
   inputSchema: z.object({}),
   outputSchema: z.object({
-    backups: z.array(BackupSchema.extend({ current: z.boolean() })),
+    backups: z.array(
+      BackupSchema.extend({
+        current: z.boolean(),
+        /** A node pins it (`backup pin`), so retention keeps it. */
+        pinned: z.boolean(),
+      }),
+    ),
     /** How many this machine keeps of this store. */
     kept: z.number(),
   }),
@@ -125,8 +132,13 @@ export const storeBackupsEffect = Effect.fn("store.backups")(function* (): Effec
   const roots = yield* KbRoots;
   const current = yield* currentBackup(roots, ctx.root);
   const backups = yield* roots.backups(ctx.root);
+  const pinned = new Set(pinnedBackups(ctx.nodes));
   return {
-    backups: backups.map((backup) => ({ ...backup, current: backup.id === current?.id })),
+    backups: backups.map((backup) => ({
+      ...backup,
+      current: backup.id === current?.id,
+      pinned: pinned.has(backup.id),
+    })),
     kept: backupsKept(ctx.nodes),
   };
 });

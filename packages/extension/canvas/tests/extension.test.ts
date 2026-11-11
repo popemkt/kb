@@ -13,6 +13,7 @@ import { makeKernel } from "@kb/plugin";
 import { issueText, paramsFrom, viewNodeFor } from "@kb/views";
 import {
   CANVAS_IDS,
+  CANVAS_RUN_FIELDS,
   CanvasListView,
   CanvasView,
   canvasExtension,
@@ -62,13 +63,19 @@ describe("canvas family", () => {
 
   test("its seed is the #canvas tag templating the field its document lives in", () => {
     const seed = canvasExtension.seed?.(AT) ?? [];
-    expect(seed.map((node) => node.id).slice(0, 2)).toEqual([
+    expect(seed.map((node) => node.id).slice(0, 4)).toEqual([
       CANVAS_IDS.canvasField,
+      CANVAS_RUN_FIELDS.input.field,
+      CANVAS_RUN_FIELDS.output.field,
       CANVAS_IDS.canvasTag,
     ]);
     const tag = seed.find((node) => node.id === CANVAS_IDS.canvasTag);
     expect(tag?.props[SYSTEM_IDS.typeField]).toEqual([{ t: "ref", v: SYSTEM_IDS.tag }]);
-    expect(tag?.props[SYSTEM_IDS.fieldsField]).toEqual([{ t: "ref", v: CANVAS_IDS.canvasField }]);
+    expect(tag?.props[SYSTEM_IDS.fieldsField]).toEqual([
+      { t: "ref", v: CANVAS_IDS.canvasField },
+      { t: "ref", v: CANVAS_RUN_FIELDS.input.field },
+      { t: "ref", v: CANVAS_RUN_FIELDS.output.field },
+    ]);
   });
 
   test("the bundled fold seeds its nodes and derives its views' options", () => {

@@ -343,3 +343,5 @@ export type {
   TldrawRecordNode,
   TldrawValue,
 } from "./tldraw.ts";
+
+export { CANVAS_RUN_FIELDS, planCanvasRunFields, type CanvasRunFields } from "./run-fields.ts";

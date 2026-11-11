@@ -806,6 +806,15 @@ scheduler, events' sync).
 
 ## 10. Plugin data migrations (addendum 3)
 
+> **Superseded by the owner's decision (2026-11-11, D14).** A migration is a
+> script that returns a planned transaction, run as a procedure with a
+> backup, a preview, one transaction, a verify and a keep-or-roll-back
+> decision after a trial. The manifest `data` versions, the sandbox pure
+> tier, the trust-sheet data diff and the inverse-transaction rollback below
+> were not built. What was built, and why, is stated once, in `DESIGN.md` →
+> Plugin data migrations. The section below is kept as the record of the
+> proposal.
+
 Today a family has two mechanisms: the fold reconciles seeds on open
 (fill-absent, adopt orphans) and the retirement table renames. Some families
 also have a bespoke pass (`views.migrate`). There is no general way for a
@@ -1009,7 +1018,7 @@ build follows), and the tradeoff a veto would weigh.
 | D11 | Unplaced captures from the CLI and MCP | **The same capture-target role as the page (today, when days is on)** | always the top level | One rule everywhere. Scripts can pass `--parent`. |
 | D12 | A proposal path beyond extending and renaming? | **None in-app. Extend or rename, and edit the seed for a repository extension you own** | an in-app "suggest upstream" | A suggestion sends content outside and needs an upstream to exist. |
 | D13 | Data packs under a lighter trust tier? | **Yes: a data tier, no module, approved on a node diff** | code trust like families | Tana clusters become cheap to share, and a pack cannot run code. |
-| D14 | Plugin data migrations | **Declared, pure, idempotent, previewed, one transaction, rollback, a record node** | ad-hoc per family | More machinery up front, but it is the only way a person sees a data change first. |
+| D14 | Plugin data migrations | **A script the family ships returns a planned transaction and never writes; kb walks it as a procedure: back up, preview, apply as one transaction, verify, then keep or roll back after a trial (the backup pinned until then). A record node per migration** (owner, 2026-11-11; replaces the declarative shape §10 first proposed) | ad-hoc per family; a declarative migration language | One write path and one record. A person sees the change before it lands and can put the store back after living with it. As built: `DESIGN.md` → Plugin data migrations. |
 | D15 | Values as nodes? | **Inline primitives plus refs, with promotion on demand** | every value a node | Measured at about 3.4× the time and 6× the memory (§11). Options are already nodes. |
 | D16 | Week nodes by default? | **On** | off (a flatter journal) | The owner's Tana has weekly rituals. |
 | D17 | Saved queries | **Stored by id. The builder writes refs, and a check guards stored queries** | allow text matches | Renames stay safe. A typed query may still search text. |
