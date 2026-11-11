@@ -15,7 +15,11 @@ export interface PickerKeysInput {
   rows: readonly PickerRow[];
   /** The live search string, owned by the caller's input. */
   query: string;
-  /** Enter (and Tab, when `pickOnTab`): the highlighted row, or null when there is none. */
+  /**
+   * Enter (and Tab, when `pickOnTab`): the highlighted row, or null when there
+   * is none. A disabled row is not picked: the key is claimed, and nothing
+   * happens, as a click on it does nothing.
+   */
   onPick: (row: PickerRow | null) => void;
   /** Escape. */
   onCancel: () => void;
@@ -86,7 +90,10 @@ export function usePickerKeys({
   const APPLY: Readonly<Record<PickerIntent, () => void>> = {
     next: () => wrap(1),
     previous: () => wrap(-1),
-    pick: () => onPick(rows[activeIndex] ?? null),
+    pick: () => {
+      const row = rows[activeIndex] ?? null;
+      if (row?.kind !== "item" || !row.disabled) onPick(row);
+    },
     cancel: onCancel,
     removeLast: () => onRemoveLast?.(),
   };
