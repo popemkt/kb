@@ -57,14 +57,17 @@ const PERIODS = [
 ] as const;
 
 /** The periods `node` is, through its tags and what they extend. */
-function periodsOf(node: NodeLike, nodeOf: KindsLookup): (typeof PERIODS)[number][] {
+export function periodsOf(
+  node: Pick<NodeLike, "props">,
+  nodeOf: KindsLookup,
+): (typeof PERIODS)[number][] {
   const chains = tagChains(nodeOf);
   const reached = new Set(typeRefsOf(node).flatMap((tag) => chains.ancestors(tag)));
   return PERIODS.filter(({ tag }) => reached.has(tag));
 }
 
 /** The key values `node` holds, as stored; none when it holds no key. */
-function keyValues(node: Pick<NodeLike, "props"> | undefined): readonly PropValue[] {
+export function keyValues(node: Pick<NodeLike, "props"> | undefined): readonly PropValue[] {
   return node?.props[DAYS_IDS.keyField] ?? [];
 }
 
@@ -103,15 +106,15 @@ function keyRefusal(node: NodeLike, nodeOf: KindsLookup): string | null {
 /**
  * Why `write` may not take the key off its node: the node stays a day, week
  * or year, and a period without its key is no longer found as one (the
- * family would make a second node for that date). The way out is to take
- * the tag and the key off together.
+ * family would make a second node for that date). Taking the tag off is
+ * the way out: it takes the key with it (`untag.ts`).
  */
 function removalRefusal({ before, after }: NodeWrite, nodeOf: KindsLookup): string | null {
   if (after === undefined || keyValues(before).length === 0 || keyValues(after).length > 0)
     return null;
   const [period] = periodsOf(after, nodeOf);
   if (period === undefined) return null;
-  return `“${after.text}” is a ${period.name}, so its period can be changed but not removed: to make it an ordinary node, take #${period.name} and its period off together`;
+  return `“${after.text}” is a ${period.name}, so its period can be changed but not removed: take #${period.name} off to make it an ordinary node`;
 }
 
 const leftBy = (writes: readonly NodeWrite[]) =>

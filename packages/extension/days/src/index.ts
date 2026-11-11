@@ -7,6 +7,7 @@ export { JOURNAL_TEXT, journalOf, periodNodeOf, planDay } from "./plan.ts";
 export type { DayPlan, NewPeriodNode } from "./plan.ts";
 export { duplicateKeyOf, uniqueKeyGuard } from "./unique-key.ts";
 export { periodKeyGuard, periodKeyRefusal } from "./period-key.ts";
+export { untagPeriod, untaggedInput } from "./untag.ts";
 export { TODAY_ACTION } from "./today.ts";
 export { DayParams, DayView } from "./view.ts";
 export {

@@ -243,7 +243,7 @@ function daysContract(backend: StoreBackend) {
       ).toEqual([extendsDay.value]);
     });
 
-    test("a day keeps its period: the key comes off only with #day", async () => {
+    test("a day keeps its period, and untagging it as the page does makes it an ordinary node", async () => {
       const ctx = await freshKb();
       const { id } = output(
         await invoke(ctx, { id: "ext.days.today", input: { day: "2026-11-10" } }),
@@ -253,21 +253,30 @@ function daysContract(backend: StoreBackend) {
         input: { id, unsetProps: [{ field: DAYS_IDS.keyField }] },
       });
       expect(removed.status === "failed" && removed.message).toContain(
-        "is a day, so its period can be changed but not removed",
+        "is a day, so its period can be changed but not removed: take #day off",
       );
-      const day = present(
-        ctx.nodes.find((node) => node.id === id),
-        "the day",
-      );
-      expect(day.props[DAYS_IDS.keyField]).toEqual([{ t: "str", v: "2026-11-10" }]);
-      const ordinary = await invoke(ctx, {
+      const nodeOf = () =>
+        present(
+          ctx.nodes.find((node) => node.id === id),
+          "the day",
+        );
+      expect(nodeOf().props[DAYS_IDS.keyField]).toEqual([{ t: "str", v: "2026-11-10" }]);
+      // The page's tag chip takes one tag off (planRemoveTag): one sys.f.type value.
+      const untagged = await invoke(ctx, {
         id: "node.update",
         input: {
           id,
-          unsetProps: [{ field: DAYS_IDS.keyField }, { field: SYSTEM_IDS.typeField }],
+          unsetProps: [{ field: SYSTEM_IDS.typeField, value: { t: "ref", v: DAYS_IDS.dayTag } }],
         },
       });
-      expect(ordinary.status).toBe("succeeded");
+      expect(untagged.status).toBe("succeeded");
+      expect(nodeOf().props[DAYS_IDS.keyField]).toBeUndefined();
+      expect(nodeOf().props[SYSTEM_IDS.typeField]).toBeUndefined();
+      // The date is free again: today's node for it is a new one.
+      const again = output(
+        await invoke(ctx, { id: "ext.days.today", input: { day: "2026-11-10" } }),
+      );
+      expect(again.id).not.toBe(id);
     });
 
     test("a value that is not a calendar date is refused", async () => {

@@ -110,14 +110,14 @@ describe("periodKeyRefusal", () => {
     expect(day([])).toBeNull();
   });
 
-  test("a node that stays a period keeps a key; the tag and the key come off together", () => {
+  test("a node that stays a period keeps a key; it comes off with the tag", () => {
     const holder = node("d", [DAYS_IDS.dayTag], "2026-11-11");
     expect(refusal({ before: holder, after: node("d", [DAYS_IDS.dayTag]) })).toBe(
-      "“d” is a day, so its period can be changed but not removed: to make it an ordinary node, take #day and its period off together",
+      "“d” is a day, so its period can be changed but not removed: take #day off to make it an ordinary node",
     );
     const week = node("w", [DAYS_IDS.weekTag], "2026-W46");
     expect(refusal({ before: week, after: node("w", [DAYS_IDS.weekTag]) })).toContain(
-      "take #week and its period off together",
+      "take #week off to make it an ordinary node",
     );
     expect(refusal({ before: holder, after: node("d", []) })).toBeNull();
     expect(refusal({ before: holder, after: node("d", ["t.note"]) })).toBeNull();

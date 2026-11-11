@@ -1820,14 +1820,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The runtime takes its cursor from kb (an input hook, or a scene we draw ourselves), or kb writes the vendor scene's mouse state from the pointer source with interactivity.mouse.disabled held on
 - **node** — `01M6XGS4KEXS9321E2JXHRYRK5`
 
-### GAP: untagging a keyed day on the page has no single gesture
-
-- **expected** — Taking #day (or #week, #year) off a keyed node on the page takes its period off in the same write, so untagging is the way to make a day an ordinary node from every surface, as it is from the CLI and MCP (one node.update unsetting the tag and the key).
-- **current** — The period-key guard refuses a key on a node that is no period and refuses taking the key off a node that stays one, so on the page untagging a keyed day alone is refused and no gesture sends both changes in one write.
-- **impact** — A person who wants a day back as an ordinary node on the page cannot: they must delete it or use the CLI or an agent.
-- **closes** — A days family intercept (or the tag chip's remove) that, when a write takes a period tag off a keyed node, takes the key off in the same write; the refusal then names the gesture.
-- **node** — `01M74G589QG69NF2YXM8KGVAC9`
-
 ### GAP: untrusted sandbox code runs on the frame's main thread
 
 - **expected** — untrusted QuickJS runs off the sandbox frame's main thread

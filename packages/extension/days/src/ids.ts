@@ -41,6 +41,8 @@ export const DAYS_IDS = {
   periodTagGuard: "ext.days.period-tag",
   /** The commit guard that keeps a key on a day, week or year, in its period's form. */
   periodKeyGuard: "ext.days.period-key",
+  /** The interceptor that takes a node's key off when its period tag comes off. */
+  untagPeriod: "ext.days.untag-period",
 } as const;
 
 /**

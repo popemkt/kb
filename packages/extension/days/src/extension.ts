@@ -16,6 +16,7 @@ import {
   extensionNamespace,
   familyTags,
   guardAction,
+  onAction,
   provideAction,
   viewDef,
 } from "@kb/contracts";
@@ -28,6 +29,7 @@ import { TODAY_ACTION } from "./today.ts";
 import { captureToday } from "./capture.ts";
 import { periodTagGuard } from "./period-tag.ts";
 import { periodKeyGuard } from "./period-key.ts";
+import { untagPeriod } from "./untag.ts";
 import { uniqueKeyGuard } from "./unique-key.ts";
 import { DayView } from "./view.ts";
 
@@ -82,6 +84,7 @@ export function daysPlugin(): Plugin {
           guardAction(ctx, "every write", uniqueKeyGuard, "unique-key"),
           guardAction(ctx, "every write", periodTagGuard, "period-tag"),
           guardAction(ctx, "every write", periodKeyGuard, "period-key"),
+          onAction(ctx, "node.update", untagPeriod, "untag-period"),
           ctx.plugin(declarationPlugin(daysExtension)),
         ],
         { discard: true },
