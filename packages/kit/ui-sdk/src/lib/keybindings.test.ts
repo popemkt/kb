@@ -143,3 +143,123 @@ describe("a keymap's chords by place", () => {
     expect(keymap?.resolve({ key: "Enter", code: "Enter" })?.id).toBe("outline.split");
   });
 });
+
+describe("reservations across character and physical chords", () => {
+  it("keeps physical bare keys out of the page", () => {
+    const typed: Contribution<Keybinding> = {
+      id: "x.typed",
+      owner: "x",
+      aliases: [],
+      value: {
+        context: "core.page",
+        chord: { code: "KeyA", mod: false },
+        run: { command: "x.go" },
+      },
+    };
+    const km = admitKeymaps([PAGE], [PALETTE, typed], ANYONE).get("core.page");
+    expect(km?.refused.map((b) => b.id)).toContain("x.typed");
+    expect(km?.resolve({ key: "a", code: "KeyA" })).toBeUndefined();
+  });
+  it("keeps physical Escape reserved in a surface", () => {
+    const surface: KeyContext = {
+      id: "canvas.transform",
+      owner: "canvas",
+      reach: "surface",
+      intents: ["cancel"],
+      reserved: [{ key: "Escape" }],
+    };
+    const cancel: Contribution<Keybinding> = {
+      id: "canvas.cancel",
+      owner: "canvas",
+      aliases: [],
+      value: { context: surface.id, chord: { key: "Escape" }, run: { intent: "cancel" } },
+    };
+    const trap: Contribution<Keybinding> = {
+      id: "x.trap",
+      owner: "x",
+      aliases: [],
+      value: { context: surface.id, chord: { code: "Escape" }, run: { command: "x.go" } },
+    };
+    const km = admitKeymaps([surface], [cancel, trap], ANYONE).get(surface.id);
+    expect(km?.refused.map((b) => b.id)).toContain("x.trap");
+    expect(km?.resolve({ key: "Escape", code: "Escape" })?.id).toBe("canvas.cancel");
+  });
+});
+
+for (const physicalPage of [false, true]) {
+  it(`refuses page/surface shadowing with ${physicalPage ? "physical page" : "physical surface"}`, () => {
+    const characterPage = binding("x", "page", {
+      context: "core.page",
+      chord: "Mod-F2",
+      run: { command: "x.go" },
+    });
+    const page = physicalPage
+      ? {
+          ...characterPage,
+          value: { ...characterPage.value, chord: { code: "F2", mod: true } },
+        }
+      : characterPage;
+    const surface = physicalPage
+      ? { ...INDENT, value: { ...INDENT.value, chord: { key: "F2", mod: true } } }
+      : { ...INDENT, value: { ...INDENT.value, chord: { code: "F2", mod: true } } };
+    const maps = admitKeymaps([PAGE, ROW], [PALETTE, surface, page], ANYONE);
+    expect(maps.get(PAGE.id)?.refused.map((b) => b.id)).toContain("x.page");
+  });
+}
+it("refuses a physical palette chord while retaining numpad precedence", () => {
+  const physical: Contribution<Keybinding> = {
+    id: "x.palette",
+    owner: "x",
+    aliases: [],
+    value: { context: "core.page", chord: { code: "KeyK", mod: true }, run: { command: "x.go" } },
+  };
+  const numpad = {
+    ...SPLIT,
+    id: "outline.numpad",
+    value: { ...SPLIT.value, chord: { code: "NumpadEnter", mod: false } },
+  };
+  const maps = admitKeymaps([PAGE, ROW], [PALETTE, physical, SPLIT, numpad], ANYONE);
+  expect(maps.get(PAGE.id)?.refused.map((b) => b.id)).toContain("x.palette");
+  expect(maps.get(ROW.id)?.refused).toEqual([]);
+  expect(maps.get(ROW.id)?.resolve({ key: "Enter", code: "NumpadEnter" })?.id).toBe(
+    "outline.numpad",
+  );
+});
+
+it("keeps the palette ahead of a physical surface-owner binding", () => {
+  const trap = { ...INDENT, value: { ...INDENT.value, chord: { code: "KeyK", mod: true } } };
+  const maps = admitKeymaps([PAGE, ROW], [PALETTE, trap], ANYONE);
+  expect(maps.get(PAGE.id)?.resolve({ key: "k", code: "KeyK", metaKey: true })?.id).toBe(
+    PALETTE.id,
+  );
+  expect(maps.get(ROW.id)?.refused.map((b) => b.id)).toContain(INDENT.id);
+});
+
+it("requires replacement approval when another owner takes a character chord by code", () => {
+  const physical: Contribution<Keybinding> = {
+    id: "x.enter",
+    owner: "x",
+    aliases: [],
+    value: {
+      context: ROW.id,
+      chord: { code: "NumpadEnter", mod: false },
+      run: { command: "x.go" },
+    },
+  };
+  expect(
+    admitKeymaps([ROW], [SPLIT, physical], ANYONE)
+      .get(ROW.id)
+      ?.refused.map((b) => b.id),
+  ).toContain(physical.id);
+  const replacement = { ...physical, value: { ...physical.value, replaces: SPLIT.id } };
+  expect(
+    admitKeymaps([ROW], [SPLIT, replacement], () => false)
+      .get(ROW.id)
+      ?.refused.map((b) => b.id),
+  ).toContain(physical.id);
+  expect(
+    admitKeymaps([ROW], [SPLIT, replacement], ANYONE)
+      .get(ROW.id)
+      ?.resolve({ key: "Enter", code: "NumpadEnter" })?.id,
+  ).toBe(physical.id);
+});

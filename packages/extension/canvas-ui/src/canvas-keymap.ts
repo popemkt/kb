@@ -152,9 +152,14 @@ export function heldChords(entry: CanvasShortcut): readonly Chord[] {
 
 /** `entry`'s keys in words, as a menu or a tooltip shows them: its first chord's; "" for none. */
 export function hintOf(entry: CanvasShortcut): string {
-  if (entry.hint !== undefined) return entry.hint;
-  const [first] = heldChords(entry);
-  return first === undefined ? "" : chordHint(first);
+  const held = heldChords(entry);
+  const [first] = held;
+  if (first === undefined) return "";
+  const hint = chordHint(first);
+  if (entry.hintStyle !== "arrows") return hint;
+  const prefix = hint.replace(/[←↑→↓]$/, "");
+  const keys = new Set(held.map(chordHint));
+  return prefix + ["←", "↑", "→", "↓"].filter((arrow) => keys.has(prefix + arrow)).join("");
 }
 
 /** A command a menu lists: a shortcut whose intent is known before any key is pressed, and its key. */

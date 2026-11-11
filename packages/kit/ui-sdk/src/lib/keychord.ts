@@ -19,8 +19,8 @@
  * `KeyH`, `BracketLeft`), where the place is what counts: a numpad digit is
  * not the row's, and ⌥ makes another character of a letter on a Mac. One
  * press has both, and which character a place types is the layout's, so a
- * chord by place and one by character are never taken to overlap: a keymap
- * asks its chords by place first ({@link placeFirst}).
+ * chord by place may overlap a character chord under some layout. Reservations
+ * must protect that shared press; within a context, a keymap asks its chords by place first ({@link placeFirst}).
  */
 
 /** The parts of a keyboard event a chord is allowed to look at. */
@@ -138,16 +138,60 @@ function keysOverlap(a: KeyMatch | undefined, b: KeyMatch | undefined): boolean 
   return true;
 }
 
+/** Layout-independent numpad meanings; NumLock changes the same physical digit's key. */
+const NUMPAD_KEYS: Readonly<Record<string, readonly string[]>> = {
+  Numpad0: ["0", "Insert"],
+  Numpad1: ["1", "End"],
+  Numpad2: ["2", "ArrowDown"],
+  Numpad3: ["3", "PageDown"],
+  Numpad4: ["4", "ArrowLeft"],
+  Numpad5: ["5", "Clear"],
+  Numpad6: ["6", "ArrowRight"],
+  Numpad7: ["7", "Home"],
+  Numpad8: ["8", "ArrowUp"],
+  Numpad9: ["9", "PageUp"],
+  NumpadDecimal: [".", ",", "Delete"],
+  NumpadEnter: ["Enter"],
+  NumpadAdd: ["+"],
+  NumpadSubtract: ["-"],
+  NumpadMultiply: ["*"],
+  NumpadDivide: ["/"],
+};
+
+const layoutCharacter = (key: string) =>
+  isPrintableKey(key) || key === "Dead" || key === "Unidentified";
+
+/** A known code narrows its key domain; layout-dependent positions remain conservative. */
+function keyDomain(chord: Chord): KeyMatch | undefined {
+  if (chord.key !== undefined || chord.code === undefined) return chord.key;
+  const numpad = NUMPAD_KEYS[chord.code];
+  if (numpad !== undefined) return numpad;
+  if (chord.code === "Space") return " ";
+  if (
+    /^(Key[A-Z]|Digit[0-9]|BracketLeft|BracketRight|Backslash|IntlBackslash|IntlRo|IntlYen|Minus|Equal|Semicolon|Quote|Backquote|Comma|Period|Slash)$/.test(
+      chord.code,
+    )
+  )
+    return layoutCharacter;
+  if (
+    /^(Escape|Enter|Tab|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Arrow(Up|Down|Left|Right)|F[0-9]+)$/.test(
+      chord.code,
+    )
+  )
+    return chord.code;
+  return undefined;
+}
+
 /**
  * Whether one key event could match both chords: they admit a common key,
  * and some state of the four modifiers satisfies both. A keymap whose
- * chords never overlap means the same in any order. A chord by place and
- * one by character never overlap: a keymap ranks them, by place first.
+ * chords never overlap means the same in any order. Unknown layout mappings
+ * are conservative: a code constraint cannot prove a character disjoint.
  */
 export function chordsOverlap(a: Chord, b: Chord): boolean {
-  if (byPlace(a) !== byPlace(b) || a.code !== b.code) return false;
+  if (a.code !== undefined && b.code !== undefined && a.code !== b.code) return false;
   return (
-    keysOverlap(a.key, b.key) &&
+    keysOverlap(keyDomain(a), keyDomain(b)) &&
     MODIFIER_STATES.some((mods) => modifiersMatch(a, mods) && modifiersMatch(b, mods))
   );
 }

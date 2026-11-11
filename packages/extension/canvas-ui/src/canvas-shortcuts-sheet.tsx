@@ -29,7 +29,7 @@ const rowsOf = (section: CanvasShortcutSection): readonly CanvasShortcut[] =>
 /** Every chord of a row in words, each one once; its hint alone where it names one or has many. */
 function chordsOf(row: CanvasShortcut): string[] {
   const held = heldChords(row);
-  return row.hint !== undefined || held.length > 4
+  return row.hintStyle !== undefined || held.length > 4
     ? [hintOf(row)]
     : [...new Set(held.map(chordHint))];
 }

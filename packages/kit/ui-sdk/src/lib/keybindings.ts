@@ -150,7 +150,7 @@ function chainOf(id: string | undefined, held: readonly Contribution<Keybinding>
 
 /**
  * Why `binding` may not join `held`, or null when it may. Every held
- * binding its chord overlaps must be the one it replaces or one that
+ * binding its chord competes with in the same precedence slot must be the one it replaces or one that
  * binding stands on ({@link chainOf}), so the bindings any one key event
  * matches are always one chain, each newer than the one it replaces.
  */
@@ -183,8 +183,13 @@ function refusal(
     return `it replaces ${value.replaces}, which holds no chord overlapping ${chord} in ${context.id}`;
   }
   const chain = chainOf(value.replaces, held);
-  // The newest binding it overlaps outside its chain: the one a key would reach.
-  const taken = overlapping.findLast(({ id }) => !chain.has(id));
+  // Within a context, code-first election has separate precedence slots.
+  // A different owner still needs replacement approval for a shared press.
+  // Reservations and cross-context checks above cover both slots.
+  const taken = overlapping.findLast(
+    ({ id, owner: otherOwner, value: other }) =>
+      (byPlace(other.chord) === byPlace(value.chord) || otherOwner !== owner) && !chain.has(id),
+  );
   if (taken !== undefined) {
     return `${chord} in ${context.id} is held by ${taken.id}; a binding that takes it says replaces: "${taken.id}"`;
   }
@@ -252,8 +257,19 @@ export function admitKeymaps(
   approved: (owner: string) => boolean,
 ): ReadonlyMap<string, Keymap> {
   const surfaces = contexts.filter(({ reach }) => reach === "surface");
-  const surfacesOwn = bindings.filter(({ owner, value }) =>
-    surfaces.some((surface) => surface.id === value.context && surface.owner === owner),
+  const pagesOwn = bindings.filter(({ owner, value }) =>
+    contexts.some(
+      (context) =>
+        context.reach === "page" &&
+        context.id === value.context &&
+        context.owner === owner &&
+        context.reserved.some((chord) => chordsOverlap(chord, value.chord)),
+    ),
+  );
+  const surfacesOwn = bindings.filter(
+    ({ owner, value }) =>
+      surfaces.some((surface) => surface.id === value.context && surface.owner === owner) &&
+      !pagesOwn.some((page) => chordsOverlap(page.value.chord, value.chord)),
   );
   const keymaps = new Map<string, Keymap>();
   for (const context of contexts.filter(({ reach }) => reach === "page")) {
