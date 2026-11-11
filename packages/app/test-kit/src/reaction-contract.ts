@@ -158,11 +158,15 @@ function settledOuterCall(makeStore: StoreFactory): Promise<void> {
         "test.outer",
         action("test.outer", () =>
           Effect.gen(function* () {
-            yield* h.run({ id: "node.add", input: { id: "first", text: "first" }, actor: "human" });
+            yield* h.run({
+              id: "node.add",
+              input: { id: "first", text: "first", parent: null },
+              actor: "human",
+            });
             expect(reads).toEqual([]);
             yield* h.run({
               id: "node.add",
-              input: { id: "second", text: "second" },
+              input: { id: "second", text: "second", parent: null },
               actor: "human",
             });
             expect(reads).toEqual([]);
@@ -233,7 +237,11 @@ function localCommitsOnly(makeStore: StoreFactory): Promise<void> {
       h.ctx.log.append({ upserts: [plainNode("virtual", "virtual")], deletes: [] }, CONTRACT_AT);
       yield* h.run({ id: "node.get", input: { id: "foreign" }, actor: "human" });
       expect(calls).toBe(0);
-      yield* h.run({ id: "node.add", input: { id: "local", text: "local" }, actor: "human" });
+      yield* h.run({
+        id: "node.add",
+        input: { id: "local", text: "local", parent: null },
+        actor: "human",
+      });
       expect(calls).toBe(1);
     }),
   );
@@ -298,13 +306,16 @@ function ownWritesExcluded(makeStore: StoreFactory): Promise<void> {
           react: (_change, kb) =>
             Effect.gen(function* () {
               calls += 1;
-              yield* kb.invoke("node.add", { text: "reaction child" });
+              yield* kb.invoke("node.add", { text: "reaction child", parent: null });
             }),
         },
       });
       expect(
-        (yield* h.run({ id: "node.add", input: { id: "start", text: "start" }, actor: "human" }))
-          .status,
+        (yield* h.run({
+          id: "node.add",
+          input: { id: "start", text: "start", parent: null },
+          actor: "human",
+        })).status,
       ).toBe("succeeded");
       expect(calls).toBe(1);
       expect(h.ctx.nodes.filter(({ text }) => text === "reaction child")).toHaveLength(1);
@@ -407,8 +418,11 @@ function failureIsolation(makeStore: StoreFactory): Promise<void> {
           },
         });
         expect(
-          (yield* h.run({ id: "node.add", input: { id: "safe", text: "safe" }, actor: "human" }))
-            .status,
+          (yield* h.run({
+            id: "node.add",
+            input: { id: "safe", text: "safe", parent: null },
+            actor: "human",
+          })).status,
         ).toBe("succeeded");
         expect(observed).toBe("safe");
         expect(h.ctx.index.getNode("safe")?.text).toBe("safe");
@@ -437,13 +451,13 @@ function hostRetires(makeStore: StoreFactory): Promise<void> {
           match: { created: true },
           react: (_change, kb) =>
             Effect.sync(() => {
-              retained.push(kb.invoke("node.add", { id: "late", text: "late" }));
+              retained.push(kb.invoke("node.add", { id: "late", text: "late", parent: null }));
             }),
         },
         throws: {
           match: { created: true },
           react: (_change, kb) => {
-            retained.push(kb.invoke("node.add", { id: "late-throw", text: "late" }));
+            retained.push(kb.invoke("node.add", { id: "late-throw", text: "late", parent: null }));
             throw new Error("callback construction failed");
           },
         },
@@ -456,7 +470,11 @@ function hostRetires(makeStore: StoreFactory): Promise<void> {
             }),
         },
       });
-      yield* h.run({ id: "node.add", input: { id: "start", text: "start" }, actor: "human" });
+      yield* h.run({
+        id: "node.add",
+        input: { id: "start", text: "start", parent: null },
+        actor: "human",
+      });
       expect(during.map(({ status }) => status)).toEqual(["failed", "failed"]);
       for (const pending of retained) expect((yield* pending).status).toBe("failed");
       expect(h.ctx.nodes.some(({ id }) => id === "late" || id === "late-throw")).toBe(false);
@@ -515,7 +533,7 @@ function approvalAndGuards(makeStore: StoreFactory): Promise<void> {
       });
       yield* h.run({
         id: "node.add",
-        input: { id: "start", text: "start" },
+        input: { id: "start", text: "start", parent: null },
         actor: "human",
         approved: true,
       });

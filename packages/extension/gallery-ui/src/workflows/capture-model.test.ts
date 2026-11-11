@@ -66,7 +66,8 @@ describe("a captured link", () => {
       parent: "lib",
       props: [{ field: GALLERY_IDS.sourceField, value: { t: "str", v: "https://x.org/a.png" } }],
     });
-    expect("parent" in linkVisualInput({ url: "https://x.org/a", name: "a" }, null)).toBe(false);
+    // With no library to keep it in, it says the top level: an omitted parent would be the capture target.
+    expect(linkVisualInput({ url: "https://x.org/a", name: "a" }, null).parent).toBeNull();
   });
 });
 
