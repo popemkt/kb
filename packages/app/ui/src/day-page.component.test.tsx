@@ -1,8 +1,9 @@
 /**
  * The day page in the browser (DESIGN-UI.md → Days): below the day's own
  * outline come the sections plugins contribute to `days.sections`, in
- * ascending order. Days fills two, "Dated this day" and "Made or edited
- * this day", and another plugin adds its own without days knowing it. It
+ * ascending order. Days fills one, "Made or edited this day" (what is dated
+ * the day is its References, which the outline draws), and another plugin
+ * adds its own without days knowing it. It
  * is drawn as the shell draws it: the days family's page entry loaded
  * beside the page's host, and its view found on the view point.
  */
@@ -130,15 +131,11 @@ describe("day page (component)", () => {
   const section = (id: string) =>
     container.querySelector(`[data-day-section="${id}"]`)?.textContent ?? "";
 
-  it("shows days' two sections in order, and dated lists what a date field puts on the day", async () => {
+  it("shows days' one section; what is dated the day is not a section of its own", async () => {
     syncPagePlugins([days]);
     await show();
-    expect(headings()).toEqual(["Dated this day", "Made or edited this day"]);
-    const dated = section("days.dated");
-    expect(dated).toContain("Call the plumber");
-    expect(dated).toContain("due");
-    expect(dated).not.toContain("File taxes");
-    expect(dated).not.toContain("Says 2026-11-12 in text");
+    expect(headings()).toEqual(["Made or edited this day"]);
+    expect(container.textContent).not.toContain("Call the plumber");
     // Every fixture node was made and edited on another day.
     expect(section("days.touched")).toContain("Nothing yet.");
   });
@@ -146,7 +143,7 @@ describe("day page (component)", () => {
   it("takes another plugin's section at its order, without days naming it", async () => {
     syncPagePlugins([days, eventsSection]);
     await show();
-    expect(headings()).toEqual(["Events", "Dated this day", "Made or edited this day"]);
+    expect(headings()).toEqual(["Events", "Made or edited this day"]);
     expect(container.textContent).toContain("events on 2026-11-12");
   });
 });

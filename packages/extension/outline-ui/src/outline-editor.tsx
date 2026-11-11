@@ -98,7 +98,7 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
 
   if (rootNodeId !== WORKSPACE_ROOT_ID) {
     return (
-      <div className="outline-editor px-2 pb-40">
+      <div className="outline-editor px-2">
         {/* The head's space holds the breadcrumbs over the backdrop; the title stands under it.
             Its colour is an ambient wash, not an identity readout: one tag colour is enough, and
             which one comes from the tag-colour owner. */}
@@ -142,7 +142,7 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
   }
 
   return (
-    <div className="outline-editor px-2 pb-40">
+    <div className="outline-editor px-2">
       <PageBackdrop color="var(--primary)">
         <Breadcrumbs root={rootProp} />
       </PageBackdrop>

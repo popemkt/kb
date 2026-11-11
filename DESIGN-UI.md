@@ -803,11 +803,13 @@ original's text; a context breadcrumb is the obvious next step and is not
 built. There is no global ⌘K entry: a contextual reference needs both a host
 row and a target, and the global palette has no two-step for that.
 
-A References row names each typed relation its referrer holds to the node
-(a non-system ref field pointing here), worded from the node's side: the
-field's inverse label when it names one ("influenced by"), else its label
-read toward the node ("influences →"); a referrer that only mentions the
-node shows none. A mention is typed where it is read: with the graph
+A References row names each field its referrer points here through
+(`NodeIndex.referenceFields`, read by the carriers that made the
+reference: a ref value, a `[[id]]` token in a text value, a date for its
+day), leaving out system fields, worded from the node's side: the field's
+inverse label when it names one ("influenced by"), else its label read
+toward the node ("influences →", "due →"); a referrer that only mentions
+the node in its own text shows none. A mention is typed where it is read: with the graph
 family's setting `graph.suggest-relations` on, a row that mentions a node
 offers "Type this reference…" in its node menu. The graph contributes the
 command and the palette step it opens (`PaletteStepPoint`, `graph-ui`
@@ -3975,16 +3977,18 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
   `days.sections`, in ascending `order`. A section is `{order, title,
   Component}`, and its component is given the day node and its key. Days
   never imports a family that shows something on a day; that family
-  contributes a section (the events section is one). Days fills two:
-  - **Dated this day** (`order: 20`): every node holding the day in a
-    date-typed field, whatever the field and whichever family made it,
-    each with the field's name beside it (`datedOn` in `@kb/days`).
-  - **Made or edited this day** (`order: 30`): the nodes whose created or
-    updated instant falls within the local day, newest first. Schema, the
-    period nodes and `sys.*` nodes are left out.
+  contributes a section (the events section is one). Days fills one,
+  **Made or edited this day** (`order: 30`): the nodes whose created or
+  updated instant falls within the local day, newest first. Schema, the
+  period nodes and `sys.*` nodes are left out. Each row opens its node.
 
-  Each row opens its node. The page is its own chunk, fetched the first
-  time a day opens, and each section's body is one too.
+  What is dated the day is not a section: it is the day's References,
+  which its outline draws, each row naming the date field that dates it
+  ("due →"; DESIGN.md → [Days](./DESIGN.md#days)). The page scrolls in
+  the pane's one scroll region (`frame: "scroll"`), and the room after a
+  page's end is the region's, never the outline's, so nothing opens a gap
+  between the outline and the sections. The page is its own chunk,
+  fetched the first time a day opens, and each section's body is one too.
 - **A date opens its day.** Days replaces the page role `ui.date-target`:
   following a date value opens that day's node, made if need be through
   `ext.days.today`, in its day page. If days fails, the role's recovery

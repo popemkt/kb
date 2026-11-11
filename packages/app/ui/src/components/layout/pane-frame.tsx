@@ -29,6 +29,12 @@ const NOT_FOUND = <NotFound what="Page" back={{ label: "Home", path: "/" }} />;
  * scrollbar). Fixing it here is what keeps every downstream element free of
  * compensating offsets.
  *
+ * A scrolling region leaves room after the page's end, so whatever the page
+ * ends with (an outline's References, a day page's last section) can be
+ * scrolled up off the pane's bottom edge. The room is the region's, never a
+ * part's: a view drawn inside another page (the outline in a day page) adds
+ * none, so it opens no gap before what follows it.
+ *
  * It is the page's paint root (`isolate`): what a page paints behind its
  * content, a page head's backdrop (`PageBackdrop`), stands in the region's
  * negative layer, under every box of the page and over the shell's ground,
@@ -50,6 +56,8 @@ function ScrollRegion({
         className={cn(
           "isolate min-h-0 flex-1",
           scroll ? "overflow-x-auto overflow-y-auto" : "overflow-hidden",
+          // The room after the page's end is the region's (above).
+          scroll && "pb-40",
         )}
         data-main-region={scroll ? "scroll" : "fixed"}
       >
