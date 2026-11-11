@@ -128,3 +128,18 @@ describe("a surface context's keys", () => {
     ]);
   });
 });
+
+describe("a keymap's chords by place", () => {
+  it("are held beside chords by character, and asked first", () => {
+    // The numpad's ↵ by its place, beside the split's ↵ by character.
+    const byPlace: Contribution<Keybinding> = {
+      ...SPLIT,
+      id: "outline.numpad-enter",
+      value: { ...SPLIT.value, chord: { code: "NumpadEnter", mod: false } },
+    };
+    const keymap = admitKeymaps([ROW], [SPLIT, byPlace], ANYONE).get("outline.editing");
+    expect(keymap?.refused).toEqual([]);
+    expect(keymap?.resolve({ key: "Enter", code: "NumpadEnter" })?.id).toBe("outline.numpad-enter");
+    expect(keymap?.resolve({ key: "Enter", code: "Enter" })?.id).toBe("outline.split");
+  });
+});
