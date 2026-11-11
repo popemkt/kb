@@ -73,6 +73,7 @@ export {
 } from "./local-date.ts";
 export type { LocalDate } from "./local-date.ts";
 export {
+  MIGRATION_STATES,
   SYSTEM_IDS,
   clockSampler,
   currentIso,
@@ -83,9 +84,11 @@ export {
   freshId,
   isNodeIdShaped,
   isSysPrefixed,
+  migrationRecordId,
+  migrationStateId,
   nowIso,
 } from "./model.ts";
-export type { ClockSample, KbNode, NodeId, PropValue } from "./model.ts";
+export type { ClockSample, KbNode, MigrationState, NodeId, PropValue } from "./model.ts";
 export {
   allValues,
   decodeNodeConfig,

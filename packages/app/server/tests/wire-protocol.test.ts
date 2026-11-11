@@ -55,9 +55,12 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // `procedure.list`, `procedure.status` and `procedure.step` are new actions a
 // previous page never calls. `store.backups` answers whether each backup is
 // pinned, a field a previous page ignores.
+// A procedure step's status may name the action its check recommends and
+// carries its check's notes, fields a previous page ignores. The
+// `migration.*` actions are new actions a previous page never calls.
 const RECORDED = {
   protocol: 8,
-  fingerprint: "db0a49e1b4f50713e9cce83dd2d7ecded3a37e1efaf33719730450c749ec7caf",
+  fingerprint: "a3b0932b152e732db39ab20ab562d4c3cb2653c790434c9cb429e78972887186",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

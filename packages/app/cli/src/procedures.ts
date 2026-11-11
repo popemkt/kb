@@ -4,11 +4,27 @@
  * `procedure.step`, so the terminal decides a step's approval as it decides
  * any call's; `--yes` only spares the "run it?" question, and stops at a
  * decision, which is never taken for a person.
+ *
+ * `kb migrate` is the same walk over a family's migration, whose procedure
+ * is `migration.<id>` (DESIGN.md → Action registry → Plugin data
+ * migrations), with its keep-or-roll-back decision named as flags.
  */
 import type { Command } from "commander";
 import { Effect } from "effect";
-import { onWire, type KbContext, type ProcedureStatus, type StepStatus } from "@kb/contracts";
-import { procedureListDef, procedureStatusDef, procedureStepDef } from "@kb/operations";
+import {
+  migrationProcedureId,
+  onWire,
+  type KbContext,
+  type ProcedureStatus,
+  type StepStatus,
+} from "@kb/contracts";
+import {
+  migrationListDef,
+  migrationPlanDef,
+  procedureListDef,
+  procedureStatusDef,
+  procedureStepDef,
+} from "@kb/operations";
 import { writeErr, writeOut } from "@kb/runtime";
 import {
   ACTION_INVOKE_WIRE,
@@ -78,6 +94,18 @@ const statusOf = (ctx: KbContext, procedure: string) =>
     }),
   );
 
+/** What a step's own action answered, as `procedure.step` returns its receipt, on one line. */
+function ranOutput(output: unknown): string {
+  const parsed = procedureStepDef.outputSchema.safeParse(output);
+  const receipt = parsed.success ? parsed.data.receipt : undefined;
+  return typeof receipt === "object" &&
+    receipt !== null &&
+    "output" in receipt &&
+    receipt.output !== undefined
+    ? `: ${JSON.stringify(receipt.output)}`
+    : "";
+}
+
 /**
  * Walk `procedure` from its next step (or run that step alone, `once`):
  * each one asked about first unless `yes`, a decision taken only when
@@ -130,7 +158,7 @@ const walk = Effect.fn("kb.procedure.walk")(function* (
       writeOut(formatReceipt(receipt, { json: globals.json === true }));
       return EXIT_FAILED;
     }
-    writeErr(`ran ${step.id}`);
+    writeErr(`ran ${step.id}${ranOutput(receipt.output)}`);
     decided = decided || step.decision;
   }
   const after = yield* statusOf(ctx, procedure);
@@ -195,6 +223,93 @@ export function procedureCommands(program: Command): void {
             report(receipt, globals, outputLines(procedureStatusDef, statusLines)),
           ),
         );
+      }),
+    );
+}
+
+interface MigrateOpts {
+  readonly yes?: boolean;
+  readonly status?: boolean;
+  readonly plan?: boolean;
+  readonly keep?: boolean;
+  readonly rollback?: boolean;
+}
+
+/** `kb migrate [id] [--yes] [--status] [--plan] [--keep | --rollback]`. */
+export function migrateCommands(program: Command): void {
+  program
+    .command("migrate")
+    .description(
+      "The data migrations the loaded families ship; with an id, run it: back up, preview, apply, verify, then keep or roll back after a trial",
+    )
+    .argument("[id]", "the migration, as `kb migrate` lists it (<family>.<id>)")
+    .option("--yes", "do not ask before each step (approvals still ask; never keeps)", false)
+    .option("--status", "show where the migration stands, running nothing", false)
+    .option("--plan", "show what it would write now, running nothing", false)
+    .option("--keep", "end its trial: keep it (its backup becomes an ordinary one)", false)
+    .option("--rollback", "end its trial: put the store back to the backup taken before it", false)
+    .action(
+      kbAction((ctx, globals, [id, opts]: [string | undefined, MigrateOpts]) => {
+        if (id === undefined)
+          return invokeCliEffect(
+            ctx,
+            onWire(ACTION_INVOKE_WIRE, { id: migrationListDef.id, input: {} }),
+          ).pipe(
+            Effect.map((receipt) =>
+              report(
+                receipt,
+                globals,
+                outputLines(migrationListDef, (out) =>
+                  out.migrations.length === 0
+                    ? ["no migrations"]
+                    : out.migrations.map(
+                        (m) =>
+                          `${m.id}  ${m.title}  ${m.state ?? "not run"}  ${m.problem !== undefined ? `cannot plan: ${m.problem}` : m.pending ? `pending, ${m.changes} change(s) now` : "nothing to do"}`,
+                      ),
+                ),
+              ),
+            ),
+          );
+        const procedure = migrationProcedureId(id);
+        if (opts.keep === true && opts.rollback === true) {
+          writeErr("--keep and --rollback are the two answers to one decision: give one");
+          return Effect.succeed(EXIT_FAILED);
+        }
+        const decided = opts.keep === true ? "keep" : opts.rollback === true ? "rollback" : null;
+        if (decided !== null)
+          return walk(ctx, globals, procedure, { yes: true, action: decided, once: true });
+        if (opts.plan === true)
+          return invokeCliEffect(
+            ctx,
+            onWire(ACTION_INVOKE_WIRE, { id: migrationPlanDef.id, input: { migration: id } }),
+          ).pipe(
+            Effect.map((receipt) =>
+              report(
+                receipt,
+                globals,
+                outputLines(migrationPlanDef, (plan) => [
+                  `${plan.migration}: creates ${plan.creates}, changes ${plan.changes}, deletes ${plan.deletes} (planned at ${plan.at}${plan.previewed ? ", as previewed" : ""})`,
+                  ...plan.samples.map(
+                    (sample) => `  ${sample.change} ${sample.id}  ${sample.text}`,
+                  ),
+                ]),
+              ),
+            ),
+          );
+        if (opts.status === true)
+          return invokeCliEffect(
+            ctx,
+            onWire(ACTION_INVOKE_WIRE, { id: procedureStatusDef.id, input: { procedure } }),
+          ).pipe(
+            Effect.map((receipt) =>
+              report(receipt, globals, outputLines(procedureStatusDef, statusLines)),
+            ),
+          );
+        return walk(ctx, globals, procedure, {
+          yes: opts.yes === true,
+          action: undefined,
+          once: false,
+        });
       }),
     );
 }

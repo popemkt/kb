@@ -5,8 +5,10 @@ import {
   BACKDROP_STRENGTH_OPTION_IDS,
 } from "./backdrop.ts";
 import {
+  MIGRATION_STATES,
   SYSTEM_IDS,
   extensionNodeId,
+  migrationStateId,
   type KbNode,
   type NodeId,
   type PropValue,
@@ -583,6 +585,31 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
    */
   const backupPinField = seededField(SYSTEM_IDS.backupPinField, "backup pin", "text", at);
   /*
+   * A family's data migration is recorded on a node tagged `migration`
+   * (DESIGN.md → Action registry → Plugin data migrations), filed under the
+   * Migrations list, which core's declaration files under its own node.
+   * Only kb's `migration.*` actions write one; its state is an option set.
+   */
+  const migrationStates = MIGRATION_STATES.map((state) => mk(migrationStateId(state), state));
+  const migrationFields = [
+    singleField(SYSTEM_IDS.migrationField, "migration", "text"),
+    {
+      ...singleField(SYSTEM_IDS.migrationStateField, "migration state", "ref"),
+      children: migrationStates.map((option) => option.id),
+    },
+    singleField(SYSTEM_IDS.migrationDigestField, "plan digest", "text"),
+    singleField(SYSTEM_IDS.migrationAtField, "planned at", "text"),
+    singleField(SYSTEM_IDS.migrationBackupField, "backup before", "text"),
+    typedField(SYSTEM_IDS.migrationProblemsField, "problems", "text"),
+  ];
+  const migrationTag = seededTag(
+    SYSTEM_IDS.migrationTag,
+    "migration",
+    migrationFields.map((entry) => entry.id),
+    at,
+  );
+  const migrationsList = mk(SYSTEM_IDS.migrationsList, "Migrations");
+  /*
    * Motion options (DESIGN-UI.md → Motion options): settings of core's
    * node, each unset by default, so the shown theme's preset (the same
    * fields on its option node) or the default applies. The four option
@@ -676,6 +703,10 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     designSystemField,
     backupsKeptField,
     backupPinField,
+    ...migrationFields,
+    ...migrationStates,
+    migrationTag,
+    migrationsList,
     ...motionFields,
   ];
 }

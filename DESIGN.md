@@ -3012,6 +3012,84 @@ through the invoke core. The routines Google setup wizard predates the
 primitive and keeps its own walker for now (`#gap`
 01M74NN86YC7HP65R2JVYMM27F).
 
+### Plugin data migrations
+
+A family migrates the data it owns, meaning the values on a person's nodes,
+with a **migration**: a script it ships and declares on its declaration
+(`migrations: [{ id, title, run, check? }]`, `ExtensionMigration`). Seeds
+and their retirement table still cover the family's own system nodes; a
+migration is for what a person wrote.
+
+- **The script plans and never writes.** `run(graph)` returns the
+  transaction that moves the data, `{upserts, deletes}`. `graph` holds the
+  nodes, `nodeOf`, and the instant `at` to stamp writes with. It is pure,
+  and idempotent: on a migrated graph it plans nothing, which is how kb knows
+  a migration has nothing to do. The script is the family's own code, so it
+  runs under the trust its family already has: kb's build, or a repository
+  extension a person trusted, whose module imports it (by convention from
+  `./migrations/<name>.ts`). `check(graph)` names, one line each, what is
+  wrong with a migrated graph.
+- **kb applies only what it previewed.** kb holds every plan to the node
+  shape. It drops writes that change nothing, and refuses a write to the
+  migrations' own ledger. A plan's digest covers exactly what it writes.
+  Applying it plans again at the instant the preview recorded and refuses a
+  different digest, so the transaction that lands is the one a person saw.
+  It lands as one transaction with the record's update, so every surface
+  sees before or after and never between.
+- **Running one is a procedure** ([Procedures](#procedures)).
+  `declarationPlugin` contributes each migration to `MigrationPoint`
+  (`kb.migrations`) as `<family>.<id>`, and contributes the procedure
+  `migration.<family>.<id>` (`migrationProcedure`), whose five steps are
+  core actions:
+  1. **Back up** (`store.backup`).
+  2. **Preview** (`migration.preview`). It needs a backup of the store as it
+     is now, and records the plan's digest, its instant and that backup.
+  3. **Apply** (`migration.apply`, approval required).
+  4. **Verify** (`migration.verify`). It runs the family's check, and also
+     checks that planning the migration again writes nothing.
+  5. **Keep or roll back**, a decision taken after a **trial** of living
+     with the result. **Keep** (`migration.keep`) makes it final.
+     **Roll back** (`migration.rollback`, approval required) is
+     `store.restore` of the backup from step 1, after which the migration is
+     offered again.
+
+  Every step's done-ness is `migration.progress`, read from the record and
+  the machine's backups.
+- **A failed verify is never left silently applied.** When verify finds
+  problems, the migration is recorded `failed` and the procedure stops at the
+  decision. The decision's check recommends roll back and lists the problems
+  (a step check's `recommended` and `notes`). Whatever verify found, the
+  choice states what rolling back costs. It names the backup it restores and
+  how many nodes changed since the migration, which roll back undoes too. It
+  also names the backup that keeps those edits: the current one, or the one
+  `store.restore` takes first, which `migration.rollback` returns with the
+  count (`undone`). A loss is never silent. A person may still keep it,
+  with the problems on its record. `--yes` and any other walk in order stop
+  before the decision, so nothing keeps a migration for a person.
+- **The record is a node.** Each migration has one record, tagged
+  `migration`, under the Migrations list (`sys.migrations`, core's, under its
+  own node), at `sys.migration.<family>.<id>`. It holds the migration's id,
+  its **state** (an option set: previewed, applied, verified, failed, kept,
+  rolled back), the plan digest and its instant, the backup taken before it,
+  and the problems verify found. Only kb's `migration.*` actions write it
+  (`systemWrites: "system"`), and a script never sees it. Until the
+  migration is kept or rolled back, the record **pins** its backup
+  (`backup pin`, [Backups](#backups)), so retention cannot remove what a roll
+  back needs. A rolled-back record counts as never run. So does a store
+  opened from a backup taken before the migration: there the migration is
+  pending again.
+
+The surfaces are `kb migrate`, which lists pending migrations, and
+`kb migrate <id>`, which walks one. `--status` shows where a migration
+stands and `--plan` shows what it would write. `--keep` and `--rollback`
+take the decision, and `--yes` runs every step but that decision. MCP and
+agents call the same actions, and the steps that need approval are refused
+there as anywhere a call carries none.
+`migration-contract.test.ts` proves the contract over every store backend.
+A roll back restores the whole store, so edits made during the trial survive
+only in the backup the restore takes first (`#gap`
+01M74SGAXQNMA8CME3GEG09EVF).
+
 ### Core boundary & extensions
 
 Core ships mechanism only: store (JSONL), datalog (DataScript), the action

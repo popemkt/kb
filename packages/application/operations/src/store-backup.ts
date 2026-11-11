@@ -61,7 +61,7 @@ const BackupSchema = z.object({
  * fingerprint is the source's at the copy, so it is this state exactly when
  * the store still says that fingerprint.
  */
-const currentBackup = Effect.fn("store.backup.current")(function* (
+export const currentBackup = Effect.fn("store.backup.current")(function* (
   roots: KbRootsPort,
   root: string,
 ): Effect.fn.Return<StoreBackup | undefined, DomainError, KbStore> {

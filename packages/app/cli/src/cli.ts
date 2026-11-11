@@ -62,7 +62,7 @@ import { trustCommands } from "./trust.ts";
 import { extensionCommands } from "./extensions.ts";
 import { gateCommands } from "./gates.ts";
 import { locationCommands } from "./locations.ts";
-import { procedureCommands } from "./procedures.ts";
+import { migrateCommands, procedureCommands } from "./procedures.ts";
 import { mergeDriverCommand } from "./merge-driver.ts";
 import { relationCommands } from "./relations.ts";
 import { hostExtensions } from "./host-plugins.ts";
@@ -736,6 +736,7 @@ function buildProgram(): Command {
   trustCommands(program);
   locationCommands(program);
   procedureCommands(program);
+  migrateCommands(program);
   relationCommands(program);
   gateCommands(program);
   mergeDriverCommand(program);

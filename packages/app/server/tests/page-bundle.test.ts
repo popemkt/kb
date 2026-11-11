@@ -151,7 +151,12 @@ const DATASCRIPT = /cljs\.core/;
 // its held-value deselect take it to 1,829,237; merged with main at
 // c52a467b, beside the capture target, it measures 1,832,167; the budget
 // keeps about 1.5 KB over that.
-const EAGER_BUDGET_BYTES = 1_833_700;
+// A family's declaration contributing its migrations and the procedure that
+// runs each (`declarationPlugin`, the one plugin both hosts load of a
+// declaration, so `migrationProcedure` ships with it), and a step check's
+// recommendation and notes, take it to 1,835,391; the budget keeps about
+// 1.5 KB over that.
+const EAGER_BUDGET_BYTES = 1_836_900;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {
