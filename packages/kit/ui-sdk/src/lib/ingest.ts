@@ -4,11 +4,12 @@
  *
  * The outline declares `outline.ingest` (its family's point definitions
  * hold the name), a chain: each handler says, as
- * data, which gestures and which kinds of data it takes (`match`), and the
- * first whose match holds, by priority, claims the gesture. Its `ingest`
- * then says what the gesture makes, as data too (`IngestOutcome`), and the
- * surface commits it: a handler never writes. What no handler claims is the
- * browser's own: text pasted into the row.
+ * data, which gestures and which kinds of data it takes (`match`). By
+ * priority, each whose match holds is asked what the gesture makes, as data
+ * too (`IngestOutcome`), and the first to make something claims it; one that
+ * makes nothing declines, and the next is asked. The surface commits what
+ * the claim makes: a handler never writes. What every handler declines is
+ * the browser's own: text pasted into the row.
  *
  * A text host offers a gesture through its {@link IngestPort}, which the
  * surface that draws it binds: the outline's runs the chain at its row, and a
@@ -58,8 +59,12 @@ export interface IngestHandler {
   readonly match: IngestMatch;
   /** Higher claims first; the outline's own sit at 0, and a tie goes to the first contributed. */
   readonly priority: number;
-  /** What the claimed gesture makes at `site`, or null for nothing. */
-  readonly ingest: (ingested: Ingested, site: IngestSite) => Promise<IngestOutcome | null>;
+  /**
+   * What the gesture makes at `site`, or null to decline it, so the next
+   * handler is asked. It answers at once: whether the gesture is claimed is
+   * decided while its event runs, before the browser's own would.
+   */
+  readonly ingest: (ingested: Ingested, site: IngestSite) => IngestOutcome | null;
 }
 
 /** What a text host offers a gesture to: the surface's, which names the row. */
@@ -114,12 +119,36 @@ function byPriority(handlers: readonly IngestHandler[]): readonly IngestHandler[
     .map(({ handler }) => handler);
 }
 
-/** The handler that claims `ingested` among `handlers`, or null when none does. */
-export function claimantOf(
+/** A claim: the handler that made something of a gesture, and what it made. */
+export interface IngestClaim {
+  readonly handler: IngestHandler;
+  readonly outcome: IngestOutcome;
+}
+
+/**
+ * The claim on `ingested` at `site` among `handlers`: by priority, the first
+ * whose match holds and that makes something. Null when every one declines.
+ * A handler that throws declines too, and the person is told.
+ */
+export function claimOf(
   handlers: readonly IngestHandler[],
   ingested: Ingested,
-): IngestHandler | null {
-  return byPriority(handlers).find(({ match }) => holds(match, ingested)) ?? null;
+  site: IngestSite,
+): IngestClaim | null {
+  for (const handler of byPriority(handlers)) {
+    if (!holds(handler.match, ingested)) continue;
+    let outcome: IngestOutcome | null;
+    try {
+      outcome = handler.ingest(ingested, site);
+    } catch (error) {
+      toast(
+        `A ${ingested.gesture} handler failed and was skipped: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      continue;
+    }
+    if (outcome !== null) return { handler, outcome };
+  }
+  return null;
 }
 
 /** What `node.addTree` answers that a paste reads: the ids it made, in tree order. */
@@ -178,8 +207,8 @@ async function commitIngest(outcome: IngestOutcome, site: IngestSite): Promise<v
 
 /**
  * A text host's port onto `handlers`, at the row `site` names when a
- * gesture comes: the first to claim it says what it makes, which is written
- * there. A claim that fails is told, and writes nothing.
+ * gesture comes: the claim is decided at once, and what it makes is written
+ * there after. A write that fails is told, and leaves nothing.
  */
 export function ingestPort(
   handlers: () => readonly IngestHandler[],
@@ -188,17 +217,14 @@ export function ingestPort(
   return {
     accepts: (gesture, types) => handlers().some(({ match }) => takes(match, gesture, types)),
     offer: (ingested) => {
-      const claimant = claimantOf(handlers(), ingested);
-      if (claimant === null) return false;
       const at = site();
-      void Promise.resolve()
-        .then(() => claimant.ingest(ingested, at))
-        .then((outcome) => (outcome === null ? undefined : commitIngest(outcome, at)))
-        .catch((error: unknown) => {
-          toast(
-            `Nothing was made of that ${ingested.gesture}: ${error instanceof Error ? error.message : String(error)}`,
-          );
-        });
+      const claim = claimOf(handlers(), ingested, at);
+      if (claim === null) return false;
+      void commitIngest(claim.outcome, at).catch((error: unknown) => {
+        toast(
+          `Nothing was made of that ${ingested.gesture}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      });
       return true;
     },
   };
@@ -208,7 +234,7 @@ export function ingestPort(
 export interface IngestForm {
   readonly match: IngestMatch;
   readonly priority: number;
-  /** The gesture's text as outline paste text, or null for nothing. */
+  /** The gesture's text as outline paste text, or null to decline it: the next handler is asked. */
   readonly transform: (text: string) => string | null;
 }
 
@@ -236,7 +262,7 @@ export function provideIngest(id: string, form: IngestForm): ContributionEntry<I
       ingest: ({ text }) => {
         // The transform runs here, in the page, at T3: GAP [[01M73WFP42V98AA4VRG8JBQQ2N]].
         const outline = form.transform(text);
-        return Promise.resolve(outline === null ? null : { outline });
+        return outline === null ? null : { outline };
       },
     },
   };
@@ -246,5 +272,5 @@ export function provideIngest(id: string, form: IngestForm): ContributionEntry<I
 export const ATTACH_FILE: IngestHandler = {
   match: { gestures: ["drop"], types: ["Files"] },
   priority: 0,
-  ingest: ({ files }) => Promise.resolve(files[0] === undefined ? null : { attach: files[0] }),
+  ingest: ({ files }) => (files[0] === undefined ? null : { attach: files[0] }),
 };

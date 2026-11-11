@@ -2481,7 +2481,7 @@ already writes one.
 ### Paste and drop
 
 What a paste or a drop brings into a row's text is offered to a chain, and
-the browser's own paste or drop runs only when nothing claims it
+the browser's own paste or drop runs only when every handler declines it
 (`lib/ingest`).
 
 - **The outline declares the chain.** `outline.ingest`, a point in the
@@ -2492,11 +2492,16 @@ the browser's own paste or drop runs only when nothing claims it
   `drop`) and the data's types (`text/plain`, `Files`). It may add a
   regular expression its text must match. A pattern that does not compile
   takes nothing.
-- **The first match claims.** Handlers are tried by priority, higher first,
-  and in the order contributed on a tie. The first whose match holds claims
-  the gesture, so the browser's own does not run. While data is dragged
-  over a row, it is accepted when some handler takes its types; its data
-  cannot be read until it is dropped.
+- **The first to make something claims.** Handlers are tried by priority,
+  higher first, and in the order contributed on a tie. Each whose match
+  holds is asked what the gesture makes, and the first that makes
+  something claims it, so the browser's own does not run. One that makes
+  nothing (null) declines, and the next is asked. So does one that throws,
+  and the person is told. A handler answers at once (`claimOf`), because
+  whether the browser's own runs is decided while the gesture's event
+  runs; only the write comes after. While data is dragged over a row, it
+  is accepted when some handler takes its types; its data cannot be read
+  until it is dropped.
 - **A handler never writes.** It says what the gesture makes, as data
   (`IngestOutcome`), and the page writes it at the row: the node the
   row's text is (`shownNodeId`). It makes one of two things:
@@ -2509,8 +2514,8 @@ the browser's own paste or drop runs only when nothing claims it
   - **A file**, kept as an asset and linked from the row's text
     (`attachFileToNode`).
 
-  A claim that fails, such as an outline that names a tag the store does
-  not have, is told, and writes nothing.
+  A write that fails, such as an outline that names a tag the store does
+  not have, is told, and leaves nothing.
 - **The outline's own handlers are contributions.** It contributes two, as
   any family would:
   - the paste of a list (`PASTE_LIST`, `outline-paste`): Tana Paste
@@ -2526,7 +2531,8 @@ the browser's own paste or drop runs only when nothing claims it
   as before.
 - **A family's handler is a transform** (`provideIngest(id, { match,
   priority, transform })`): its match as data, and its text as outline
-  paste text, or null. What the outline makes of it is the nodes it says.
+  paste text, or null to decline. What the outline makes of it is the
+  nodes it says.
   A family claims before the outline's own list paste by a priority above
   0; `checklist` in kb-extensions turns a Markdown checklist into rows with
   a `done` checkbox.
