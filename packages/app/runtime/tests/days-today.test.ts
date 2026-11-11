@@ -53,14 +53,18 @@ function output(receipt: ActionReceipt): { id: string; made: string[] } {
   return receipt.output as { id: string; made: string[] };
 }
 
-/** A plain `node.add` that hand-keys its node as the day `2026-11-10`. */
-function keyedAdd(id: string) {
+/** A plain `node.add` that hand-makes a `#day` keyed `key` (the day `2026-11-10` unless said). */
+function keyedAdd(id: string, key = "2026-11-10", tag: string = DAYS_IDS.dayTag) {
   return {
     id: "node.add",
     input: {
       id,
       text: id,
-      props: [{ field: DAYS_IDS.keyField, value: { t: "str", v: "2026-11-10" } }],
+      parent: null,
+      props: [
+        { field: SYSTEM_IDS.typeField, value: { t: "ref", v: tag } },
+        { field: DAYS_IDS.keyField, value: { t: "str", v: key } },
+      ],
     },
   };
 }
@@ -161,14 +165,123 @@ function daysContract(backend: StoreBackend) {
     test("a second node holding a day's key is refused from any surface", async () => {
       const ctx = await freshKb();
       output(await invoke(ctx, { id: "ext.days.today", input: { day: "2026-11-10" } }));
-      const copy = await invoke(ctx, {
-        id: "node.add",
+      const copy = await invoke(ctx, keyedAdd("copy"));
+      expect(copy.status === "failed" && copy.message).toContain("is already");
+    });
+
+    test("a key is a real period on a period node, and a day may be re-keyed to a free date", async () => {
+      const ctx = await freshKb();
+      const refused = async (add: ReturnType<typeof keyedAdd>, says: string) => {
+        const receipt = await invoke(ctx, add);
+        expect(receipt.status === "failed" && receipt.message).toContain(says);
+      };
+      await refused(keyedAdd("bad-date", "2026-02-30"), "“2026-02-30” is not a day");
+      await refused(keyedAdd("bad-week", "2026-W60", DAYS_IDS.weekTag), "is not a week");
+      await refused(keyedAdd("no-period", "2026-11-10", SYSTEM_IDS.tag), "only a node that is one");
+      const { id } = output(
+        await invoke(ctx, { id: "ext.days.today", input: { day: "2026-11-10" } }),
+      );
+      const rekeyed = await invoke(ctx, {
+        id: "node.update",
         input: {
-          text: "copy",
-          props: [{ field: DAYS_IDS.keyField, value: { t: "str", v: "2026-11-10" } }],
+          id,
+          unsetProps: [{ field: DAYS_IDS.keyField }],
+          setProps: [{ field: DAYS_IDS.keyField, value: { t: "str", v: "2026-11-09" } }],
         },
       });
-      expect(copy.status).toBe("failed");
+      expect(rekeyed.status).toBe("succeeded");
+      expect(
+        output(await invoke(ctx, { id: "ext.days.today", input: { day: "2026-11-09" } })).id,
+      ).toBe(id);
+    });
+
+    test("a key is judged as stored, and a tag that stops extending #day takes its holders' period away", async () => {
+      const ctx = await freshKb();
+      const failed = async (call: { id: string; input: unknown }, says: string) => {
+        const receipt = await invoke(ctx, call);
+        expect(receipt.status === "failed" && receipt.message).toContain(says);
+      };
+      await failed(keyedAdd("blank", "   "), "“   ” is not a day");
+      await failed(keyedAdd("padded", " 2026-11-10"), "is not a day");
+
+      const extendsDay = {
+        field: SYSTEM_IDS.extendsField,
+        value: { t: "ref" as const, v: DAYS_IDS.dayTag },
+      };
+      const made = await invoke(ctx, {
+        id: "node.add",
+        input: {
+          id: "t.myday",
+          text: "my day",
+          parent: null,
+          props: [
+            { field: SYSTEM_IDS.typeField, value: { t: "ref", v: SYSTEM_IDS.tag } },
+            extendsDay,
+          ],
+        },
+      });
+      expect(made.status).toBe("succeeded");
+      expect((await invoke(ctx, keyedAdd("mine", "2026-11-10", "t.myday"))).status).toBe(
+        "succeeded",
+      );
+      await failed(
+        {
+          id: "node.update",
+          input: { id: "t.myday", unsetProps: [{ field: SYSTEM_IDS.extendsField }] },
+        },
+        "“mine” holds the period “2026-11-10”, but only a node that is one",
+      );
+      expect(
+        ctx.nodes.find((node) => node.id === "t.myday")?.props[SYSTEM_IDS.extendsField],
+      ).toEqual([extendsDay.value]);
+    });
+
+    test("a day keeps its period, and untagging it as the page does makes it an ordinary node", async () => {
+      const ctx = await freshKb();
+      const { id } = output(
+        await invoke(ctx, { id: "ext.days.today", input: { day: "2026-11-10" } }),
+      );
+      const removed = await invoke(ctx, {
+        id: "node.update",
+        input: { id, unsetProps: [{ field: DAYS_IDS.keyField }] },
+      });
+      expect(removed.status === "failed" && removed.message).toContain(
+        "is a day, so its period can be changed but not removed: take #day off",
+      );
+      const nodeOf = () =>
+        present(
+          ctx.nodes.find((node) => node.id === id),
+          "the day",
+        );
+      expect(nodeOf().props[DAYS_IDS.keyField]).toEqual([{ t: "str", v: "2026-11-10" }]);
+      // An unset whose value is the ref with its keys the other way round
+      // matches nothing in node.update, so it is a no-op, not a refusal.
+      const reversed = await invoke(ctx, {
+        id: "node.update",
+        input: {
+          id,
+          unsetProps: [{ field: SYSTEM_IDS.typeField, value: { v: DAYS_IDS.dayTag, t: "ref" } }],
+        },
+      });
+      expect(reversed.status).toBe("succeeded");
+      expect(nodeOf().props[DAYS_IDS.keyField]).toEqual([{ t: "str", v: "2026-11-10" }]);
+      expect(nodeOf().props[SYSTEM_IDS.typeField]).toEqual([{ t: "ref", v: DAYS_IDS.dayTag }]);
+      // The page's tag chip takes one tag off (planRemoveTag): one sys.f.type value.
+      const untagged = await invoke(ctx, {
+        id: "node.update",
+        input: {
+          id,
+          unsetProps: [{ field: SYSTEM_IDS.typeField, value: { t: "ref", v: DAYS_IDS.dayTag } }],
+        },
+      });
+      expect(untagged.status).toBe("succeeded");
+      expect(nodeOf().props[DAYS_IDS.keyField]).toBeUndefined();
+      expect(nodeOf().props[SYSTEM_IDS.typeField]).toBeUndefined();
+      // The date is free again: today's node for it is a new one.
+      const again = output(
+        await invoke(ctx, { id: "ext.days.today", input: { day: "2026-11-10" } }),
+      );
+      expect(again.id).not.toBe(id);
     });
 
     test("a value that is not a calendar date is refused", async () => {

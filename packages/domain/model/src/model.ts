@@ -279,6 +279,15 @@ export const SYSTEM_IDS = {
    */
   configuresField: "sys.f.configures",
   /**
+   * On a field node: the family whose values these are (ref, one, to one of
+   * `sys.extensions`' children). The family writes them through its own
+   * actions; a person may still write them, deliberately, and the page asks
+   * for that step (`fieldWriting`). It constrains nothing itself: what a
+   * value may be is the family's constraints' (DESIGN.md → Data-plane
+   * freedom, "Constrain before you lock").
+   */
+  managedByField: "sys.f.managedBy",
+  /**
    * A page head's backdrop (`backdrop.ts`): which one, how strong and which
    * way it faces, each a ref to one of its field's children.
    * Settings of core's node, and on any node, of that node's page.
