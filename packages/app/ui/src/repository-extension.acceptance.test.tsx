@@ -103,12 +103,12 @@ describe("a repository extension's page half (acceptance)", () => {
     await follow();
     expect(pageFootprint("example").map(({ kind, id }) => [kind, id])).toEqual([
       ["ui.value-kinds", "example.stars"],
-      ["kb.views", "example.board"],
-      ["kb.views", "example.note"],
       ["ui.keybindings", "example.move-up"],
       ["ui.keybindings", "example.move-up-selected"],
       ["ui.keybindings", "example.stamp"],
       ["ui.keybindings", "example.unrate"],
+      ["kb.views", "example.board"],
+      ["kb.views", "example.note"],
       ["ui.palette-steps", "example.link"],
       ["ui.views", "example.board"],
       ["ui.views", "example.note"],
