@@ -64,6 +64,7 @@ describe("DST — seeded histories over the real plan/apply path", () => {
     },
   );
 
+  // Diverged once under load, not reproduced since: GAP [[01M740E2KPGXWP4WKTE2XZ6N56]].
   scenarioTest("same seed replays to a byte-identical store", async () => {
     for (const seed of COMMITTED_SEEDS) {
       const a = await run(seed);
