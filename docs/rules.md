@@ -40,7 +40,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Admission gate | AGENTS.md#gate-run-first | repo | Every commit is admitted through the one pre-commit gate; a missing tool is restored, never worked around. | prose | — |
 | Batch related changes in one reviewable PR | docs/ci.md#batches | repo | Related changes land together, with separate structural and behavior commits. | prose | — |
 | Canonical statements | AGENTS.md#canonical-statements | repo | Every rule, principle and decision has exactly one home; other files link to it and never restate it. Restatement is drift. | prose | — |
-| Data-plane freedom: constrain before you lock | AGENTS.md#data-plane-freedom | repo | A family protects its data first by the field's constraints, enforced at the commit on every surface: the type and its form, the option source (children, a tag, a query), a closed option set, the family's commit guard. It locks only its identity and structure (its ids, its seeded nodes, what they ship) and values it declares it manages because they mirror something outside the person's hand. | prose | The commit enforcing a ref field's target constraint, and a declared managed-by field option the commit reads, each with a contract property. |
+| Data-plane freedom: constrain before you lock | AGENTS.md#data-plane-freedom | repo | A family protects its data first by the field's constraints, enforced at the commit on every surface: the type and its form, the option source (children, a tag, a query), a closed option set, the family's commit guard. It locks only its identity and structure (its ids, its seeded nodes, what they ship) and values that mirror something outside the person's hand which no constraint can check, such as a synced event's Google Calendar id. A value its constraints keep valid is managed (sys.f.managedBy), not locked: days' period key is the example. | prose | The commit enforcing a ref field's target constraint, and the managed-field commit lock for values no constraint can check (gap 01M74AS94FM8GDGF3W10M84P43), each with a contract property. |
 | Domain typing — discriminator over optional | DESIGN.md#domain-typing--effect-schema | repo | If the rule for when a field appears is encodable, lift it into a discriminator instead of declaring an optional field. | prose | — |
 | Domain typing — literal discriminators | DESIGN.md#domain-typing--effect-schema | repo | A discriminator is a literal or an enum of literals, never a bare string. | prose | — |
 | Domain typing — one canonical schema | DESIGN.md#domain-typing--effect-schema | repo | A shared shape is declared once and referenced; an inline re-declaration of it is a divergence waiting to drop a field. | prose | — |
@@ -233,15 +233,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — the agent cannot be switched off before kb ui first runs with it, except from the page
 - **closes** — the host families' declarations reported (not loaded) by every process, or the agent's declaration joining the bundled list with a host half that only kb ui loads
 - **node** — `01M43H3T8XEMTNBARC024PZD2W`
-
-### GAP: a family cannot declare a field it manages
-
-- **expected** — A family marks the fields its sync writes (routines' gcal event id, status, synced at) as managed by its extension; the commit admits their values only from that extension's actions, and the editor shows them at rest with the action to use.
-- **current** — Nothing distinguishes a synced value from a person's value: routines' sync facts are writable from every surface, and the only protection kb has is the sys.* node lock, which locks whole nodes rather than values.
-- **impact** — A person's edit or an agent's write can corrupt a sync's bookkeeping (a wrong event id re-creates a Google event); families that need protection reach for the node lock, which is the wrong grain.
-- **closes** — A managed-by field option the commit guard reads against the call's via action, and a quiet managed row in the editor.
-- **rule** — Data-plane freedom: constrain before you lock
-- **node** — `01M7342WTAZQBARRM7T9F751HT`
 
 ### GAP: a family cannot declare a migration of its data
 
@@ -763,14 +754,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Body tones in canvas-style.ts, both painters resolving them, and a look-contract assertion.
 - **node** — `01M540YKDP4WQPSJR41GH0Q90V`
 
-### GAP: canvas-ui's two heaviest tests time out under CPU contention
-
-- **expected** — A test's time budget fits its work: the canvas camera's hit-test march and the gizmo's reach property, each a sweep that takes about 2.2 s alone at nice 15 on 4 workers, pass whatever else the machine runs
-- **current** — Both run under Vitest's default 5 s timeout and fail with "Test timed out in 5000ms" when CPU is contended (reproduced: canvas-ui pinned to one core, 8.2 s and 8.5 s; every other canvas-ui test passes). On a quiet machine and on CI they pass
-- **impact** — test:ui goes red on a loaded shared host for a reason that is not a defect, so a reader learns to rerun it, and a real failure there reads as noise
-- **closes** — Size the work, not the clock: give the two sweeps a timeout of their own, as bunfig gives bun test its 30 s, or bound their sample count; or make test:ui's per-test budget the CI runner's measure, as bun test's is
-- **node** — `01M6VQFVG8FPA7KPZHD3J99NGX`
-
 ### GAP: caretRangeFromPoint needs a CaretDocument cast because lib.dom marks it deprecated
 
 - **expected** — offsetFromPoint calls document.caretRangeFromPoint bound, with no type assertion, and typescript/no-deprecated does not fire on the DOM method.
@@ -1047,6 +1030,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Show properties on a #canvas node reveals its document field, so the row draws the whole canvas JSON; any long text field (pasted logs, notes) stretches the outline the same way.
 - **closes** — A clamp-with-expand on the outline's field value view, stated in DESIGN-UI → Long text, with a test on a long value; the canvas document under Show properties then shows a few clamped lines.
 - **node** — `01M6BAEDQ6NQTXPBY5VNTJ5KBN`
+
+### GAP: managed-field commit lock
+
+- **expected** — A field whose value mirrors something outside the store, which no constraint can check (routines' gcal sync fields: the event id, its status, synced at), is locked to its family: the commit admits its values only from that family's actions, on every surface, and the editor names the action to use instead of an Edit.
+- **current** — sys.f.managedBy declares that a family manages a field, and the page puts an Edit step in front of a person's write, but the commit admits the write from anyone. Days needs no more (its period-key and unique-key guards keep every key valid); routines' sync fields have no constraint that could tell a right event id from a wrong one.
+- **impact** — A person's or an agent's write to a sync field can corrupt the sync's bookkeeping: a wrong gcal event id re-creates or orphans a Google event. A family that wants protection today can only reach for the sys.* node lock, which is the wrong grain.
+- **closes** — The commit reads sys.f.managedBy against the call's owning family (the called action's owner, part of the action contract), for fields that declare the lock; the field row shows the family's action in place of Edit. Only where no constraint can do the job (data-plane freedom: constrain before you lock).
+- **rule** — Data-plane freedom: constrain before you lock
+- **node** — `01M74AS94FM8GDGF3W10M84P43`
 
 ### GAP: no [[ completion while editing a text field value
 
@@ -1567,14 +1559,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A regression in how the 2D host disposes sigma, or re-reads tokens on an appearance change, goes unnoticed by the unit run.
 - **closes** — Run the renderer contract suite in the browser lane (Playwright with WebGL), or give sigma a headless WebGL context in the unit run, and drop the todo rows.
 - **node** — `01M3EGV5616VKVV4J76ABC5XX2`
-
-### GAP: the graph's cluster render specs fail intermittently on CI (render.e2e.ts:269, :444)
-
-- **expected** — The cluster renderer's specs pass on every CI render shard: 'cluster paints labels and a hull spanning its members' (render.e2e.ts:269) and 'cluster selects in place, keeps camera still, and composes zero search with selection' (:444)
-- **current** — Both fail intermittently on the macOS render shard and pass on a rerun. :444 failed on days/base in run 42865936403 (before #153) and on #167 in run 42921073994 attempt 1 (job 130195816989): the selection card was not found within 5 s of a click at the root node's position. :269 failed on main 0f66c889 in run 42920818373 (job 130194974248): the hull's alpha box did not span 60% of the members within 5 s. /graph draws no page-head backdrop, so the backdrop work is not the cause
-- **impact** — A red render shard on main or on a PR for a reason unrelated to the change, rerun until green, which hides a real failure in the same specs
-- **closes** — Find what each waits on: :269's final poll uses expect's 5 s default where the spec's other polls use PAGE_READY or SETTLE, and the hull is drawn only after the layout frames its members; :444 clicks a node's page position, which a layout still moving can leave. Then make each wait on the signal it means, with a run that fails before and passes after, without weakening either assertion
-- **node** — `01M740DVZBBAHDACZTMG9N1RX8`
 
 ### GAP: the inline markdown parser is a 41-branch hand-rolled scanner
 

@@ -151,7 +151,14 @@ const DATASCRIPT = /cljs\.core/;
 // its held-value deselect take it to 1,829,237; merged with main at
 // c52a467b, beside the capture target, it measures 1,832,167; the budget
 // keeps about 1.5 KB over that.
-const EAGER_BUDGET_BYTES = 1_833_700;
+// A field a family manages (`useFieldWrite`, the "managed by" note with its
+// Edit step that every field row reads, and the write rule's `fieldWriting`)
+// and days' period-key guard, with its raw-key, ancestry and keep-the-key
+// rules and the interceptor that takes a key off with its period tag
+// (`ext.days.untag-period`), on main after #175, measure 1,833,556; the
+// budget keeps about 1.5 KB over it. Merged with main at 2ac7de7b (#178),
+// it measures 1,836,700; the budget keeps about 1.5 KB over that.
+const EAGER_BUDGET_BYTES = 1_838_200;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {
