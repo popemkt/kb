@@ -820,7 +820,7 @@
 {"children":[],"createdAt":"2026-09-26T07:12:34.886Z","id":"sys.cardinality.many","order":"j","props":{},"text":"many","updatedAt":"2026-09-26T07:12:34.886Z"}
 {"children":[],"createdAt":"2026-09-26T07:12:34.886Z","id":"sys.cardinality.one","order":"i","props":{},"text":"one","updatedAt":"2026-09-26T07:12:34.886Z"}
 {"children":[],"createdAt":"2026-08-08T09:24:49.357Z","id":"sys.cmd.add-node","order":"0fs","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Add node","updatedAt":"2026-08-08T09:24:49.357Z"}
-{"children":[],"createdAt":"2026-08-08T09:24:49.357Z","id":"sys.cmd.add-tag","order":"0hs","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Add tag","updatedAt":"2026-08-08T09:24:49.357Z"}
+{"children":[],"createdAt":"2026-08-08T09:24:49.357Z","id":"sys.cmd.add-tag","order":"0hs","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"New tag","updatedAt":"2026-08-08T09:24:49.357Z"}
 {"children":[],"createdAt":"2026-10-03T14:07:59.366Z","id":"sys.cmd.close-pane","order":"g2u","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Close pane","updatedAt":"2026-10-03T14:07:59.366Z"}
 {"children":[],"createdAt":"2026-08-08T19:00:00.000Z","id":"sys.cmd.collapse-all","order":"0jr","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Collapse all","updatedAt":"2026-08-08T19:00:00.000Z"}
 {"children":[],"createdAt":"2026-11-10T21:00:07.383Z","id":"sys.cmd.days.today","order":"zz2","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Go to today","updatedAt":"2026-11-10T21:00:07.383Z"}

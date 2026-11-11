@@ -108,7 +108,7 @@
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.cardinality.many","props":{},"text":"many","updatedAt":"2026-01-01T00:00:00.000Z"}
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.cardinality.one","props":{},"text":"one","updatedAt":"2026-01-01T00:00:00.000Z"}
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.cmd.add-node","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Add node","updatedAt":"2026-01-01T00:00:00.000Z"}
-{"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.cmd.add-tag","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Add tag","updatedAt":"2026-01-01T00:00:00.000Z"}
+{"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.cmd.add-tag","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"New tag","updatedAt":"2026-01-01T00:00:00.000Z"}
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.cmd.close-pane","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Close pane","updatedAt":"2026-01-01T00:00:00.000Z"}
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.cmd.collapse-all","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Collapse all","updatedAt":"2026-01-01T00:00:00.000Z"}
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.cmd.days.today","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Go to today","updatedAt":"2026-01-01T00:00:00.000Z"}

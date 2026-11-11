@@ -251,7 +251,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const cmd = (id: string, text: string): KbNode => seededCommand(id, text, at);
   const commands: KbNode[] = [
     cmd(SYSTEM_IDS.cmdAddNode, "Add node"),
-    cmd(SYSTEM_IDS.cmdAddTag, "Add tag"),
+    cmd(SYSTEM_IDS.cmdAddTag, "New tag"),
     cmd(SYSTEM_IDS.cmdDefineField, "Define field"),
     cmd(SYSTEM_IDS.cmdGoQuery, "Saved queries"),
     cmd(SYSTEM_IDS.cmdNewQuery, "New query node"),
