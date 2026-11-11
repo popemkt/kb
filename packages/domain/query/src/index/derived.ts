@@ -1,7 +1,7 @@
 import {
   extractMentions,
   fieldTypeOf,
-  tagAncestors,
+  tagChains,
   typeRefsOf,
   type FieldType,
   type KbNode,
@@ -65,8 +65,9 @@ export interface GraphReads {
 }
 
 /**
- * {@link GraphReads} over the graph `nodeOf` reads, remembering nothing
- * between calls: who holds a key is a scan of `nodes`, once per field.
+ * {@link GraphReads} over the graph `nodeOf` reads, held for one read of
+ * it and dropped: who holds a key is a scan of `nodes`, once per field, and
+ * each tag's chain is walked once (`tagChains`), however many nodes carry it.
  */
 export function graphReadsIn(
   nodeOf: (id: NodeId) => KbNode | undefined,
@@ -75,7 +76,7 @@ export function graphReadsIn(
   const byField = new Map<NodeId, Map<string, NodeId[]>>();
   return {
     fieldType: fieldTypesIn(nodeOf),
-    ancestors: (tag) => tagAncestors(tag, nodeOf),
+    ancestors: tagChains(nodeOf).ancestors,
     holders: (key) => {
       let values = byField.get(key.field);
       if (values === undefined) {
