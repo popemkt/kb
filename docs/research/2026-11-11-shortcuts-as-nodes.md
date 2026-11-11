@@ -49,3 +49,41 @@ shortcut tags, enable/disable, graph edits without reload, scope exclusion,
 reserved typing/Escape/palette, unauthorized replacements, replacement chains
 across physical/character forms, and hint agreement. Record seed fixtures, wire
 fingerprints and measured page budgets with the commits that change them.
+
+## Admission authority and lifecycle
+
+Every ordinary stored shortcut has a fixed storage-provider contribution owner.
+Writable owner/family fields and `where`, `runs`, or `replaces` references never
+lend it the referenced family's identity or reserved-key rights. This applies
+equally to person-created, agent-created and plugin-written rows. Free chords
+remain subject to normal admission. Replacements require machine-local approval
+of their exact canonical content through the existing person-approval boundary;
+no writable graph field is an authority grant. Actions invoked by a shortcut
+still need their own normal approval.
+
+The approval payload has a domain/format version and covers normalized chord
+constraints (including absent versus false modifiers), registered matcher
+identity and trusted implementation identity, the context, the resolved run
+(including action inputs and trusted registered target semantics), and the
+replacement identity. A writable target cannot silently change the approved
+call by retaining its id. Context-intent targets belong to that context, rather
+than merely sharing an intent string. Delayed approval checks the current
+canonical content again and refuses a changed binding. Enable/disable is an
+eligibility switch and may retain authority for otherwise unchanged content.
+
+Approval state is a third live invalidation source beside graph and kernel
+state. Granting or revoking authority must rebuild the admitted map without a
+node or plugin change; a keymap cached solely by contribution arrays is not
+sufficient. This must be wired through the authority service's observable state,
+not inferred from a possibly unchanged extension registry object.
+
+The loaded declaration/point is the sole runtime source of shipped defaults.
+Their protected graph rows describe those defaults and do not emit bindings.
+Ordinary override nodes are separate candidates. Unloading a family removes its
+runtime default even though its graph description remains; reloading creates
+only that one default. User overrides are sorted after defaults, topologically
+by replacement dependency with stable-id ties. Deterministic cyclic leftovers
+are passed to the existing admission rule, which refuses missing held targets;
+cycles and their dependents stay inert. Missing contexts, targets and holders
+stay inert and are reconsidered on reload. Incremental and fresh reads must
+agree, including reversed graph enumeration and intermediate holder unloads.

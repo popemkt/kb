@@ -1,5 +1,5 @@
 import fc from "fast-check";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import {
   chordIncludes,
   chordsOverlap,
@@ -9,7 +9,7 @@ import {
   parseChord,
   type Chord,
   type KeyChordEvent,
-} from "./keychord.ts";
+} from "../src/chord.ts";
 
 /** A chord by place: the key `KeyboardEvent.code` names, and the modifiers it asks about. */
 const at = (place: string, modifiers: Omit<Chord, "key" | "code"> = {}): Chord => ({

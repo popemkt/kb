@@ -442,6 +442,17 @@
         "@types/bun": "catalog:",
       },
     },
+    "packages/domain/keybindings": {
+      "name": "@kb/keybindings",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/plugin": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+        "fast-check": "catalog:",
+      },
+    },
     "packages/domain/model": {
       "name": "@kb/model",
       "version": "0.0.0",
@@ -1534,6 +1545,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/contracts": "workspace:*",
+        "@kb/keybindings": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/query": "workspace:*",
@@ -1549,7 +1561,6 @@
         "@types/bun": "catalog:",
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
-        "fast-check": "catalog:",
         "happy-dom": "catalog:",
         "react-dom": "catalog:",
         "vite-plus": "catalog:",
@@ -2010,6 +2021,8 @@
     "@kb/graph": ["@kb/graph@workspace:packages/extension/graph"],
 
     "@kb/graph-ui": ["@kb/graph-ui@workspace:packages/extension/graph-ui"],
+
+    "@kb/keybindings": ["@kb/keybindings@workspace:packages/domain/keybindings"],
 
     "@kb/lab": ["@kb/lab@workspace:packages/extension/lab"],
 
