@@ -11,7 +11,6 @@
  * a branch's own list, so it exists in a person's tree and never in the
  * canonical form (`canonicalConditions`).
  */
-import { SYSTEM_IDS } from "@kb/model";
 import { alphaEquivalent } from "./alpha.ts";
 import type {
   Clause,
@@ -132,9 +131,6 @@ export type AnywhereContains = {
 /** A condition a view's narrowing holds: the query's, and `anywhere-contains`. */
 export type NarrowingCondition = ConditionOf<AnywhereContains>;
 
-/** `has tag #t`: `type is t`, one row of the vocabulary under its own name. */
-const TYPE_FIELD = SYSTEM_IDS.typeField;
-
 /** The result node's variable, and the find variable its id is. */
 const SUBJECT = "n";
 const ID = "id";
@@ -173,14 +169,11 @@ export function isGroup<X extends PlacementRow>(c: ConditionOf<X>): c is GroupOf
   return c.kind === "any-of" || c.kind === "all-of" || c.kind === "none-of";
 }
 
-/** `c` as a `field-is`, when it is one or a `has-tag` (type is the tag). */
+/** `c` as a `field-is`, when it is one. */
 function asFieldIs<X extends PlacementRow>(
   c: ConditionOf<X>,
 ): { field: string; values: readonly ConditionValue[] } | undefined {
-  if (!isRow(c)) return undefined;
-  if (c.kind === "field-is") return c;
-  if (c.kind === "has-tag") return { field: TYPE_FIELD, values: [{ t: "ref", v: c.tag }] };
-  return undefined;
+  return isRow(c) && c.kind === "field-is" ? c : undefined;
 }
 
 /** Branches that are each one `is` on one field, as one `field-is` of all their values. */
@@ -235,12 +228,7 @@ function canonicalGroup<X extends PlacementRow>(g: GroupOf<X>): ConditionOf<X>[]
 function canonicalOne<X extends PlacementRow>(c: ConditionOf<X>): ConditionOf<X>[] {
   if (isGroup(c)) return canonicalGroup(c);
   if (!isRow(c) || (c.kind !== "field-is" && c.kind !== "field-is-not")) return [c];
-  const [only, ...more] = c.values;
-  if (only === undefined) return [];
-  if (c.field !== TYPE_FIELD || more.length > 0 || only.t !== "ref") return [c];
-  return [
-    c.kind === "field-is" ? { kind: "has-tag", tag: only.v } : { kind: "lacks-tag", tag: only.v },
-  ];
+  return c.values.length === 0 ? [] : [c];
 }
 
 /**
@@ -250,8 +238,10 @@ function canonicalOne<X extends PlacementRow>(c: ConditionOf<X>): ConditionOf<X>
  * that branch; an `any-of` or `none-of` whose branches are each one `is` on
  * one field is one multi-value row; a `none-of` of one row with an operator
  * form is that form (`is not`, `lacks tag`, `is not set`), and a `none-of`
- * of one `any-of` is a `none-of` of its branches; `type is` one node is
- * `has tag`. The UI keeps a person's tree as built and writes this.
+ * of one `any-of` is a `none-of` of its branches. `has tag #t` is "is a #t,
+ * subtypes included" (`:node/is`) and `type is #t` is "tagged #t exactly",
+ * so neither is the other's form. The UI keeps a person's tree as built and
+ * writes this.
  */
 export function canonicalConditions<X extends PlacementRow>(
   conditions: readonly ConditionOf<X>[],
@@ -409,8 +399,7 @@ const reachOf = (
  * A negated row is `not-join` over its positive one, so the two cannot drift.
  */
 const LOWERINGS: { readonly [K in ConditionRow["kind"]]: Lowering<K> } = {
-  "has-tag": (row, vars) =>
-    lowerRow({ kind: "field-is", field: TYPE_FIELD, values: [{ t: "ref", v: row.tag }] }, vars),
+  "has-tag": (row, vars) => anchored(row.tag, vars, (a) => pattern(SUBJECT, ":node/is", v(a))),
   "lacks-tag": (row, vars) => [notJoin(lowerRow({ kind: "has-tag", tag: row.tag }, vars))],
   "field-set": (row) => [pattern(SUBJECT, fieldAttr(row.field), BLANK)],
   "field-unset": (row, vars) => [notJoin(lowerRow({ kind: "field-set", field: row.field }, vars))],
@@ -647,6 +636,7 @@ function fromAnchorRow(p: PatternClause, node: string): ConditionRow | undefined
 /** `[?n <attr> ?a]`: the subject points at the anchor. */
 function toAnchorRow(p: PatternClause, node: string): ConditionRow | undefined {
   if (p.attr === ":node/mentions") return { kind: "links-to", node };
+  if (p.attr === ":node/is") return { kind: "has-tag", tag: node };
   const field = fieldOf(p.attr);
   return field === undefined
     ? undefined
@@ -820,8 +810,8 @@ function liftConjunction(cur: Cursor): Condition[] | undefined {
 
 /**
  * The conditions `ir` is, all or nothing: proposed by structure (variable
- * names are free; a hand-written `[?task :f/sys.f.type ?tag] [?tag :node/id
- * "todo"]` is "has tag #todo"), then accepted only when lowering them gives
+ * names are free; a hand-written `[?tag :node/id "todo"] [?task :node/is
+ * ?tag]` is "has tag #todo"), then accepted only when lowering them gives
  * a query alpha-equivalent to `ir`, so lifting a query and writing it back
  * never changes what it asks (property 6). Anything else — a raw query, a
  * find or input the builder does not write, a clause outside the

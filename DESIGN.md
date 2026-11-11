@@ -2122,7 +2122,9 @@ same lane. One path to a client, whatever a node's provenance.
   IR, owned here and not by any UI. The subject of every condition is the
   result node `?n`; a list is ANDed; a group is `any-of`, `all-of` or
   `none-of` (not any of its branches, each branch a conjunction). The rows:
-  `has-tag` / `lacks-tag` (`type is` the tag), `field-set` / `field-unset`,
+  `has-tag` / `lacks-tag` (is a node of the tag, subtypes included:
+  `[?a :node/id "t"] [?n :node/is ?a]`; `field-is` on `sys.f.type` is
+  "tagged exactly"), `field-set` / `field-unset`,
   `field-is` / `field-is-not` over values that are a node, a literal, or a
   `label` (the text a person typed, matching a literal whose text it is or
   a node whose id or text it is), `field-contains` and `text-contains`
@@ -2149,15 +2151,16 @@ same lane. One path to a client, whatever a node's provenance.
   (`canonicalConditions`: an `all-of` is spliced into its parent, an empty
   group, branch or value list is dropped, a one-branch `any-of` is its
   branch, branches that are each one `is` on one field are one multi-value
-  row, a `none-of` of one row with an operator form is that form, `type is`
-  one node is `has tag`). Its laws — lower then lift is the identity on
-  canonical conditions, lift is blind to renaming, lift loses nothing — are
-  `@kb/query`'s `conditions.test.ts` properties, with a semantic example
-  per row on kb's index. The model has a second placement, a view's
+  row, a `none-of` of one row with an operator form is that form). Its
+  laws — lower then lift is the identity on canonical conditions, lift is
+  blind to renaming, lift loses nothing — are `@kb/query`'s
+  `conditions.test.ts` properties, with a semantic example per row on kb's
+  index. The model has a second placement, a view's
   narrowing of its frame's rows ([View nodes](#view-nodes) → a view's
   filter), answered in JS by `conditionsMatcher` (`ir/evaluate.ts`) over a
-  `ConditionGraph` (a node lookup, the reference relation as the index
-  derives it, the run's clock sample); `evaluate.test.ts` holds it to
+  `ConditionGraph` (a node lookup, each derived relation as the index
+  derives it — the references, what a node is — and the run's clock
+  sample); `evaluate.test.ts` holds it to
   `compile(lowerIr(…))` on generated graphs, node for node. The design and
   its review:
   [`docs/brainstorms/2026-10-20-query-builder`](docs/brainstorms/2026-10-20-query-builder/README.md).
