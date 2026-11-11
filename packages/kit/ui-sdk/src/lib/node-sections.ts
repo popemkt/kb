@@ -11,9 +11,9 @@ import { useMemo, type ComponentType } from "react";
 import { CORE_POINT_DEFINITIONS } from "@kb/contracts";
 import { tagChains } from "@kb/model";
 import { Point, type Contribution } from "@kb/plugin";
-import { useNodes } from "../hooks";
+import { useSchema } from "../hooks";
 import { useContributions } from "./plugins";
-import type { NodeMap } from "./types";
+import type { SchemaIndex } from "./schema";
 
 /** What a section is drawn for: the page's node. */
 export interface NodeSectionProps {
@@ -28,7 +28,7 @@ export interface NodeSection {
   /** Its heading. */
   readonly title: string;
   /** Whether it shows now, read from the graph (a family's setting, say); always when absent. */
-  readonly shown?: (nodes: NodeMap) => boolean;
+  readonly shown?: (nodes: SchemaIndex) => boolean;
   readonly Component: ComponentType<NodeSectionProps>;
 }
 
@@ -43,7 +43,7 @@ export type ShownSection = NodeSection & { readonly id: string };
 /** The sections `id`'s page shows over `nodes`, in ascending order. */
 export function nodeSectionsOf(
   id: string,
-  nodes: NodeMap,
+  nodes: SchemaIndex,
   contributed: readonly Contribution<NodeSection>[],
 ): readonly ShownSection[] {
   const node = nodes.get(id);
@@ -59,7 +59,7 @@ export function nodeSectionsOf(
 
 /** {@link nodeSectionsOf} for the page of `id`, following the graph and the point. */
 export function useNodeSections(id: string): readonly ShownSection[] {
-  const nodes = useNodes();
+  const nodes = useSchema();
   const contributed = useContributions(NodeSectionPoint);
   return useMemo(() => nodeSectionsOf(id, nodes, contributed), [id, nodes, contributed]);
 }

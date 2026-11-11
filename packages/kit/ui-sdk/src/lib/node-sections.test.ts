@@ -7,7 +7,8 @@ import { describe, expect, it } from "vitest";
 import { SYSTEM_IDS } from "@kb/model";
 import type { Contribution } from "@kb/plugin";
 import { nodeSectionsOf, type NodeSection } from "./node-sections";
-import type { NodeMap, OutlineNode } from "./types";
+import { schemaOfGraph } from "./schema";
+import type { OutlineNode } from "./types";
 
 const ref = (v: string) => [{ t: "ref" as const, v }];
 
@@ -26,16 +27,18 @@ function node(id: string, props: OutlineNode["props"] = {}): OutlineNode {
   };
 }
 
-const NODES: NodeMap = new Map(
-  [
-    node("t.day"),
-    node("t.my-day", { [SYSTEM_IDS.extendsField]: ref("t.day") }),
-    node("t.task"),
-    node("a.day", { [SYSTEM_IDS.typeField]: ref("t.day") }),
-    node("a.my-day", { [SYSTEM_IDS.typeField]: ref("t.my-day") }),
-    node("a.task", { [SYSTEM_IDS.typeField]: ref("t.task") }),
-    node("a.plain"),
-  ].map((n) => [n.id, n]),
+const NODES = schemaOfGraph(
+  new Map(
+    [
+      node("t.day"),
+      node("t.my-day", { [SYSTEM_IDS.extendsField]: ref("t.day") }),
+      node("t.task"),
+      node("a.day", { [SYSTEM_IDS.typeField]: ref("t.day") }),
+      node("a.my-day", { [SYSTEM_IDS.typeField]: ref("t.my-day") }),
+      node("a.task", { [SYSTEM_IDS.typeField]: ref("t.task") }),
+      node("a.plain"),
+    ].map((n) => [n.id, n]),
+  ),
 );
 
 const Body = () => null;
@@ -74,6 +77,8 @@ describe("a node page's sections", () => {
     const off = section("off", { shown: (nodes) => nodes.has("a.setting") });
     expect(ids("a.day", [off])).toEqual([]);
     const on = new Map(NODES).set("a.setting", node("a.setting"));
-    expect(nodeSectionsOf("a.day", on, [off]).map((shown) => shown.id)).toEqual(["off"]);
+    expect(nodeSectionsOf("a.day", schemaOfGraph(on), [off]).map((shown) => shown.id)).toEqual([
+      "off",
+    ]);
   });
 });
