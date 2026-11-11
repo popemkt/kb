@@ -330,13 +330,13 @@ describe("semantic examples: each row answers what it says", () => {
 });
 
 describe("the vocabulary's EDN", () => {
-  test("has tag is the tag's id, then the pattern that reaches it, one clause a line", () => {
+  test("has tag is the tag's id, then what the node is (`:node/is`), one clause a line", () => {
     expect(printEdn(lowerIr([todo]))).toBe(
       [
         "[:find ?id :where",
         " [?n :node/id ?id]",
-        ' [?v1 :node/id "tag.todo"]',
-        " [?n :f/sys.f.type ?v1]]",
+        ' [?a1 :node/id "tag.todo"]',
+        " [?n :node/is ?a1]]",
       ].join("\n"),
     );
   });
@@ -360,9 +360,19 @@ describe("the vocabulary's EDN", () => {
 
   test("a hand-written has tag lifts, whatever its variables are called", () => {
     const ir = parseEdn(
-      '[:find ?id :where [?task :node/id ?id] [?tag :node/id "todo"] [?task :f/sys.f.type ?tag]]',
+      '[:find ?id :where [?task :node/id ?id] [?tag :node/id "todo"] [?task :node/is ?tag]]',
     );
     expect(lift(ir)).toEqual({ lifted: true, conditions: [{ kind: "has-tag", tag: "todo" }] });
+  });
+
+  test("tagged exactly lifts as type is, which has tag is not: it leaves out subtypes", () => {
+    const ir = parseEdn(
+      '[:find ?id :where [?task :node/id ?id] [?tag :node/id "todo"] [?task :f/sys.f.type ?tag]]',
+    );
+    expect(lift(ir)).toEqual({
+      lifted: true,
+      conditions: [{ kind: "field-is", field: "sys.f.type", values: [{ t: "ref", v: "todo" }] }],
+    });
   });
 
   test("a node value is matched from the node: the other way round, a text value fails the query", () => {

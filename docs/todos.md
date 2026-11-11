@@ -18,6 +18,7 @@
 
 ### todo
 
+- ⌘K with nothing typed leads with ~13 node commands (the 'Open with: …' run is long), pushing recents and navigation down: cap them to a few with 'more…', or rank them under recents while the query is empty
 - canvas C2: media cards (assets) + frictionless quick-add — draw.io feel
 - Check out ideas from this, how did it handle transaction and stuff https://news.ycombinator.com/item?id=49440174
 - Check out Memgraph optimization: how does it optimize its in-memory virtualization layer (and other deployment modes) similar to our architecture

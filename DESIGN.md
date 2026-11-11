@@ -598,6 +598,20 @@ type PropValue =
   the governance family's force guard would refuse it from a caller that
   acts for the owner, and is not contributed for now ([Action
   registry](#action-registry) → Current stance).
+- **A family may say it manages a field** (`sys.f.managedBy`, a ref to its
+  extension's node, on the field node): the field holds data the family
+  keeps, such as a day's period. Managing is a declaration, not a lock. The
+  family keeps the data valid with constraints its commit guards enforce on
+  every write, whoever makes it (data-plane freedom: constrain before you
+  lock), and a person may still write the field, as a deliberate step: the
+  page shows its values at rest under a note naming the family, with an
+  Edit that unlocks the row (DESIGN-UI.md → Field values). The write rule
+  reads it in one place, `fieldWriting` in `@kb/model`'s `system-write.ts`
+  (`open`, `managed` or `closed`); `isWritableField` is whether it is not
+  `closed`. A field whose value mirrors something outside the store, which
+  no constraint can check (a calendar sync's event id), would need the
+  commit to refuse anyone but its family; there is no such lock yet
+  (GAP [[01M74AS94FM8GDGF3W10M84P43]]).
 - **System nodes**, seeded on init, are ordinary nodes with reserved ids:
   `sys.field` (the type of fields), `sys.tag` (the type of tags),
   `sys.f.type` (the "type/tag" field), `sys.f.fields` (tag→templated fields).
@@ -799,6 +813,23 @@ sys.extension.<name>` answers it.
   [:find ?label :where [?f :node/id "sys.f.canvas"] [?f :node/owner ?e] [?e :node/text ?label]]
   ; what canvas seeds
   [:find ?id :where [?e :node/id "sys.extension.canvas"] [?n :node/owner ?e] [?n :node/id ?id]]
+  ```
+
+- **`:node/is` (what a node is), derived, never stored.** The third entry
+  of the derived table: each tag a node carries (`sys.f.type`) and every
+  tag each of those extends (`sys.f.extends`, `tagAncestors`), so a node of
+  `#meeting`, which extends `#event`, is an `#event` too. `[?n :f/sys.f.type
+  ?t]` stays "tagged exactly", and `[?n :node/is ?t]` is "is a, subtypes
+  included"; `isA` and `kindsOf` in `@kb/model` are the same reading
+  outside datalog. Its carrier reads a tag's chain through the index
+  (`GraphReads.ancestors`), which remembers every tag the walk looked up
+  (`ReadMemo`), so a tag that changes what it extends, appears or vanishes
+  restates the nodes it is on, however many hops away; a cycle a write let
+  through ends the walk, each tag on it once.
+
+  ```clojure
+  ; every #event, each #meeting (a tag that extends it) included
+  [:find ?id :where [?t :node/text "event"] [?n :node/is ?t] [?n :node/id ?id]]
   ```
 
   Optional Logseq-style `:node/path-refs` (ancestor mentions) is backlog —
@@ -1810,7 +1841,7 @@ into another root.
 
 ### Backups
 
-A **backup** is a copy of a root's store as one state, in the same backend,
+A **graph backup** is a copy of a root's store as one state, in the same backend,
 kept on this machine: `<KB_DATA>/backups/<root's name>-<hash of its path>/<id>`,
 never under the root (a repository's `.kb` is committed; a backup is what a
 person had here, not a revision of it). Each is **a kb root of its own** —
@@ -1818,6 +1849,19 @@ person had here, not a revision of it). Each is **a kb root of its own** —
 the root it copied, when, its node count and the source's **fingerprint at the
 copy**: the state it is. A directory without a readable manifest is not a
 backup, so a copy that dies half-way is never listed.
+
+Graph backups exclude queries, pages, ui.json and extension source; they also
+exclude `.kb/assets`, whose backup belongs to Mackup. Manifests and CLI output
+state this scope. Root text state awaits a coordinated graph-and-files restore
+transaction (gap [[01M75ASR5TB03NYPW1G057TTY8]]).
+
+Backup payloads are read through `KbRoots.useBackup`: their backend must be
+present and their graph must match the manifest's content digest. An empty
+payload is valid; an absent or altered payload is refused and never reused as
+a safety copy. Directory reservation is exclusive and the manifest is published
+by atomic rename only after the payload completes. Publication and retention share a cross-process lock per root, and retention selects the globally newest `keep` copies. `useBackup` holds that same lock through validation and the caller's use, so restore cannot commit while its safety payload is pruned. Restore commits conditionally
+on the safety backup's source fingerprint; a concurrent write refuses the
+restore without erasing the write, rather than replanning over unprotected data.
 
 The mechanism is the runtime's, behind `KbRoots` (`backup`, `backups`, and
 `snapshot`, a raw read of a root that composes and seeds nothing); the policy
@@ -2143,7 +2187,9 @@ same lane. One path to a client, whatever a node's provenance.
   IR, owned here and not by any UI. The subject of every condition is the
   result node `?n`; a list is ANDed; a group is `any-of`, `all-of` or
   `none-of` (not any of its branches, each branch a conjunction). The rows:
-  `has-tag` / `lacks-tag` (`type is` the tag), `field-set` / `field-unset`,
+  `has-tag` / `lacks-tag` (is a node of the tag, subtypes included:
+  `[?a :node/id "t"] [?n :node/is ?a]`; `field-is` on `sys.f.type` is
+  "tagged exactly"), `field-set` / `field-unset`,
   `field-is` / `field-is-not` over values that are a node, a literal, or a
   `label` (the text a person typed, matching a literal whose text it is or
   a node whose id or text it is), `field-contains` and `text-contains`
@@ -2170,15 +2216,16 @@ same lane. One path to a client, whatever a node's provenance.
   (`canonicalConditions`: an `all-of` is spliced into its parent, an empty
   group, branch or value list is dropped, a one-branch `any-of` is its
   branch, branches that are each one `is` on one field are one multi-value
-  row, a `none-of` of one row with an operator form is that form, `type is`
-  one node is `has tag`). Its laws — lower then lift is the identity on
-  canonical conditions, lift is blind to renaming, lift loses nothing — are
-  `@kb/query`'s `conditions.test.ts` properties, with a semantic example
-  per row on kb's index. The model has a second placement, a view's
+  row, a `none-of` of one row with an operator form is that form). Its
+  laws — lower then lift is the identity on canonical conditions, lift is
+  blind to renaming, lift loses nothing — are `@kb/query`'s
+  `conditions.test.ts` properties, with a semantic example per row on kb's
+  index. The model has a second placement, a view's
   narrowing of its frame's rows ([View nodes](#view-nodes) → a view's
   filter), answered in JS by `conditionsMatcher` (`ir/evaluate.ts`) over a
-  `ConditionGraph` (a node lookup, the reference relation as the index
-  derives it, the run's clock sample); `evaluate.test.ts` holds it to
+  `ConditionGraph` (a node lookup, each derived relation as the index
+  derives it — the references, what a node is — and the run's clock
+  sample); `evaluate.test.ts` holds it to
   `compile(lowerIr(…))` on generated graphs, node for node. The design and
   its review:
   [`docs/brainstorms/2026-10-20-query-builder`](docs/brainstorms/2026-10-20-query-builder/README.md).
@@ -2199,7 +2246,8 @@ same lane. One path to a client, whatever a node's provenance.
   ```
 
   `<edge>` is any node-valued attribute: `:node/mentions` (the reference
-  relation, any carrier), `:node/owner` (who seeds it), `:node/child`, or
+  relation, any carrier), `:node/owner` (who seeds it), `:node/is` (each
+  tag it is), `:node/child`, or
   `:f/<fieldId>` for a ref field. A find position bound as the value of a
   derived attribute is a node, as one bound by `:node/child` is.
   A list headed `reach` with a keyword in the edge slot is this form. If it is
@@ -3635,8 +3683,8 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
     (GAP [[01M7342W0CNMFK152YEFNJHPP4]]).
     The invoke core checks
     every commit against the rule, on the server and on the page's replica,
-    and the page's field rows read `isWritableField` to offer an edit only
-    where it would land. `surfaceContract` holds every surface to it.
+    and the page's field rows read the rule (`fieldWriting`, through
+    `useFieldWrite`) to offer an edit only where it would land. `surfaceContract` holds every surface to it.
   - **Two classes of setting**, after DeepSeek Harness's "volatile" split:
     - _Read per call._ The plugin reads its node when it needs the value
       (the agent's provider, at the start of each turn), so a change applies
@@ -5493,10 +5541,29 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
   - A commit that would leave two nodes holding one key is refused, from
     every surface (`ext.days.unique-key`, a commit guard on every write).
     This is what stops a person hand-keying a duplicate.
+  - A key is a real period of its node (`ext.days.period-key`, a commit
+    guard on every write): only a node that is one `#day`, `#week` or
+    `#year` (or a tag extending one) holds a key, in that period's form, a
+    date `2026-11-10`, an ISO week of its year `2026-W46` or a year `2026`.
+    The key is judged as stored, never trimmed, so a blank or padded key
+    is a malformed one. The guard reads a write that changes a node's key
+    or tags; a write that changes what a tag extends (or deletes a tag that
+    extended one) has every holder judged again over the graph after it,
+    so a tag that stops extending `#day` cannot leave its nodes keyed. A
+    node that stays a period keeps a key: a write may change it but not
+    take it off, since a day without its key is no longer found by its
+    date and the family would make a second node for it. Untagging is
+    the way out: a `node.update` that leaves a keyed period node no
+    period also unsets its key, in the same write (`ext.days.untag-period`,
+    an interceptor on `node.update`, on the server and in a tab alike), so
+    the page's tag chip, the CLI and an agent each make a day an ordinary
+    node by taking `#day` off.
 
-  The key is hidden, but a person can still write it through a node's
-  debug fields until a family can declare a field it manages (GAP
-  [[01M7342WTAZQBARRM7T9F751HT]]).
+  With the two guards, every key a store holds names one real period, so
+  the key needs no lock. It is hidden, and managed by the family
+  (`sys.f.managedBy`, [Data model](#data-model--everything-is-a-node)): a
+  person who opens a day's debug fields sees it at rest and may re-key a
+  mis-dated day to another free date, a correction the guards admit.
 - **The hierarchy is made lazily, in one transaction.** `ext.days.today`
   (`{day?}` → `{id, made}`) answers a day's node, and in the same
   transaction makes whatever is missing above it: the journal root, the
@@ -5539,9 +5606,16 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
   days manifest claims a replacement at priority 50 that answers today's
   node: on the page in the page's day, and on the registry in the store's
   (`captureToday`), planning the day and whatever is missing above it into
-  the add's own transaction. If days fails, the role's recovery demotes it
-  and core's default answers. With days off, or core chosen on the role's
-  node, a capture goes to the top level as before. The family's `captures`
+  the add's own transaction. A `node.add` with no parent run in a tab (a
+  WebMCP tool, a script) commits locally under the page's day and pushes
+  the place the page's capture target chose, as context it filled
+  (`asFilled`), so the server commits it under the same day and nothing
+  moves when the tab's day and the store's differ
+  (`capture-zones.scenario.test.ts`); from `kb` or MCP it lands in the
+  store's day. If
+  days fails, the role's recovery demotes it and core's default answers.
+  With days off, or core chosen on the role's node, a capture goes to the
+  top level as before. The family's `captures`
   setting (`sys.f.days.captures`: `today` or `top level`; empty reads as
   `today`) sends captures to the top level with days still on, as a store
   kept in a repository does so its agents' gaps and todos are not dated.

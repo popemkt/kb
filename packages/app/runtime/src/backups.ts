@@ -12,15 +12,27 @@ import { createHash } from "node:crypto";
 import { basename, join } from "node:path";
 import { Effect, Option, Schema } from "effect";
 import { FileSystem } from "effect/FileSystem";
+import { acquireFileWriteLockEffect, releaseFileWriteLock } from "@kb/file-write";
 import type { BackupTaken, StoreBackup } from "@kb/contracts";
-import { currentIso, domainError, ensureDomainError, type DomainError } from "@kb/model";
+import {
+  canonicalJsonl,
+  type KbNode,
+  currentIso,
+  domainError,
+  ensureDomainError,
+  type DomainError,
+} from "@kb/model";
 import { canonicalRoot, currentData } from "@kb/workspace-fs";
-import { copyStore, storeBackendAt } from "./store-selection.ts";
+import { copyStore, storeBackendAt, storeSnapshot } from "./store-selection.ts";
 
+// GAP [[01M75ASR5TB03NYPW1G057TTY8]] root text state needs a coordinated restore transaction.
 const MANIFEST = "backup.json";
 
 const BackupManifest = Schema.Struct({
   version: Schema.Literal(1),
+  digest: Schema.String,
+  scope: Schema.Literal("graph"),
+  excludes: Schema.Array(Schema.String),
   root: Schema.String,
   backend: Schema.Literals(["jsonl", "sqlite"]),
   fingerprint: Schema.NullOr(Schema.String),
@@ -28,6 +40,32 @@ const BackupManifest = Schema.Struct({
   at: Schema.String,
 });
 const decodeManifest = Schema.decodeUnknownOption(Schema.fromJsonString(BackupManifest));
+
+/** Payload identity is independent of backend fingerprints, which name the source file. */
+const graphDigest = (nodes: readonly KbNode[]) =>
+  createHash("sha256").update(canonicalJsonl(nodes)).digest("hex");
+
+/** Missing, damaged or replaced payloads are never interpreted as an empty graph. */
+const readBackup = Effect.fn("kb.backups.read")(function* (backup: StoreBackup) {
+  const fs = yield* FileSystem;
+  const manifest = decodeManifest(
+    yield* fs.readFileString(join(backup.path, MANIFEST)).pipe(Effect.mapError(ensureDomainError)),
+  );
+  if (
+    Option.isNone(manifest) ||
+    manifest.value.root !== backup.root ||
+    manifest.value.backend !== backup.backend ||
+    (yield* storeBackendAt(backup.path)) !== backup.backend
+  )
+    return yield* domainError("invalid_input", `backup ${backup.id} has no valid payload`);
+  const nodes = yield* storeSnapshot(backup.path);
+  if (nodes.length !== manifest.value.nodes || graphDigest(nodes) !== manifest.value.digest)
+    return yield* domainError(
+      "invalid_input",
+      `backup ${backup.id} payload does not match its manifest`,
+    );
+  return nodes;
+});
 
 /**
  * Where `root`'s backups live: its directory's name, for a person reading
@@ -40,6 +78,27 @@ const backupsDir = Effect.fn("kb.backups.dir")(function* (
   const canonical = yield* canonicalRoot(root);
   const key = createHash("sha256").update(canonical).digest("hex").slice(0, 12);
   return join(yield* currentData, "backups", `${basename(canonical)}-${key}`);
+});
+
+/** One root's publication, retention and protected payload uses share a cross-process lock. */
+const withBackups = Effect.fn("kb.backups.exclusive")(function* <A, E, R>(
+  root: string,
+  body: Effect.Effect<A, E, R>,
+) {
+  const dir = yield* backupsDir(root);
+  return yield* Effect.acquireUseRelease(
+    acquireFileWriteLockEffect(join(dir, "retention")),
+    () => body,
+    (lock) => Effect.sync(() => releaseFileWriteLock(lock)),
+  );
+});
+
+/** Hold the retention boundary through validation and use, not only the payload read. */
+export const useBackup = Effect.fn("kb.backups.use")(function* <A, E, R>(
+  backup: StoreBackup,
+  use: (nodes: readonly KbNode[]) => Effect.Effect<A, E, R>,
+) {
+  return yield* withBackups(backup.root, readBackup(backup).pipe(Effect.flatMap(use)));
 });
 
 /** `root`'s backups, newest first; a directory without a readable manifest is not one. */
@@ -58,29 +117,21 @@ export const listBackups = Effect.fn("kb.backups.list")(function* (
     const manifest = decodeManifest(text);
     if (Option.isNone(manifest)) continue;
     const { root: of, backend, fingerprint, nodes, at } = manifest.value;
-    found.push({ id, path, root: of, backend, fingerprint, nodes, at });
+    const backup = { id, path, root: of, backend, fingerprint, nodes, at };
+    const valid = yield* readBackup(backup).pipe(
+      Effect.as(true),
+      Effect.orElseSucceed(() => false),
+    );
+    if (valid) found.push(backup);
   }
   return found.toSorted((a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id));
-});
-
-/** A name for a backup taken at `at` that no backup of the root has yet. */
-const freshId = Effect.fn("kb.backups.freshId")(function* (
-  dir: string,
-  at: string,
-): Effect.fn.Return<string, DomainError, FileSystem> {
-  const fs = yield* FileSystem;
-  const stamp = at.replaceAll(":", "-").replaceAll(".", "-");
-  for (let n = 1; ; n++) {
-    const id = n === 1 ? stamp : `${stamp}-${String(n)}`;
-    if (!(yield* fs.exists(join(dir, id)).pipe(Effect.mapError(ensureDomainError)))) return id;
-  }
 });
 
 /**
  * Copy `root`'s store into a new backup, then keep only the newest `keep`
  * of its backups. A copy that fails leaves no directory behind.
  */
-export const takeBackup = Effect.fn("kb.backups.take")(function* (
+const copyBackup = Effect.fn("kb.backups.take")(function* (
   root: string,
   keep: number,
 ): Effect.fn.Return<BackupTaken, DomainError, FileSystem> {
@@ -91,9 +142,11 @@ export const takeBackup = Effect.fn("kb.backups.take")(function* (
     return yield* domainError("not_found", `no kb store under ${canonical}`, { root: canonical });
   const dir = yield* backupsDir(canonical);
   const at = yield* currentIso;
-  const id = yield* freshId(dir, at);
-  const path = join(dir, id);
-  yield* fs.makeDirectory(path, { recursive: true }).pipe(Effect.mapError(ensureDomainError));
+  yield* fs.makeDirectory(dir, { recursive: true }).pipe(Effect.mapError(ensureDomainError));
+  const path = yield* fs
+    .makeTempDirectory({ directory: dir, prefix: at.replaceAll(":", "-") + "-" })
+    .pipe(Effect.mapError(ensureDomainError));
+  const id = basename(path);
   const copied = yield* copyStore({ root: canonical, backend }, { root: path, backend }).pipe(
     Effect.tapError(() => fs.remove(path, { recursive: true, force: true }).pipe(Effect.ignore)),
   );
@@ -108,6 +161,9 @@ export const takeBackup = Effect.fn("kb.backups.take")(function* (
   };
   const manifest: typeof BackupManifest.Type = {
     version: 1,
+    scope: "graph",
+    excludes: [".kb/queries", ".kb/pages", ".kb/ui.json", ".kb/extensions", ".kb/assets"],
+    digest: graphDigest(yield* storeSnapshot(path)),
     root: canonical,
     backend,
     fingerprint: copied.fingerprint,
@@ -116,14 +172,20 @@ export const takeBackup = Effect.fn("kb.backups.take")(function* (
   };
   // The manifest last: until it is written, the directory is not a backup.
   yield* fs
-    .writeFileString(join(path, MANIFEST), `${JSON.stringify(manifest)}\n`)
+    .writeFileString(join(path, `${MANIFEST}.tmp`), `${JSON.stringify(manifest)}\n`)
     .pipe(Effect.mapError(ensureDomainError));
-  const removed = (yield* listBackups(canonical))
-    .filter((held) => held.id !== id)
-    .slice(Math.max(keep, 1) - 1);
+  yield* fs
+    .rename(join(path, `${MANIFEST}.tmp`), join(path, MANIFEST))
+    .pipe(Effect.mapError(ensureDomainError));
+  const removed = (yield* listBackups(canonical)).slice(Math.max(keep, 1));
   for (const old of removed)
     yield* fs
       .remove(old.path, { recursive: true, force: true })
       .pipe(Effect.mapError(ensureDomainError));
   return { backup, removed };
+});
+
+/** Publish and prune in one serialized operation, including across processes. */
+export const takeBackup = Effect.fn("kb.backups.take")(function* (root: string, keep: number) {
+  return yield* withBackups(root, copyBackup(root, keep));
 });

@@ -24,7 +24,7 @@ import {
   type DomainError,
   type KbNode,
 } from "@kb/model";
-import { persistPlannedEffect } from "./session.ts";
+import { persistEffect } from "./session.ts";
 
 /** How many backups a machine keeps of a store whose `backups kept` is unset. */
 export const DEFAULT_BACKUPS_KEPT = 3;
@@ -58,14 +58,21 @@ const currentBackup = Effect.fn("store.backup.current")(function* (
 ): Effect.fn.Return<StoreBackup | undefined, DomainError, KbStore> {
   const now = yield* (yield* KbStore).fingerprint;
   const [newest] = yield* roots.backups(root);
-  return now !== null && newest?.fingerprint === now ? newest : undefined;
+  if (now === null || newest?.fingerprint !== now) return undefined;
+  const valid = yield* roots
+    .useBackup(newest, () => Effect.succeed(true))
+    .pipe(
+      Effect.as(true),
+      Effect.orElseSucceed(() => false),
+    );
+  return valid ? newest : undefined;
 });
 
 export const storeBackupDef = {
   id: "store.backup",
-  title: "Back up this store",
+  title: "Back up this graph",
   description:
-    "Copy this root's store, as it is now, into a backup on this machine (a kb root of its own under KB_DATA/backups), keeping the newest `backups kept` (a setting of core's node). A store already backed up as it is answers that backup",
+    "Graph backup only (excludes queries, pages, ui.json, extensions and .kb/assets). Copy this root's store, as it is now, into a backup on this machine (a kb root of its own under KB_DATA/backups), keeping the newest `backups kept` (a setting of core's node). A store already backed up as it is answers that backup",
   mode: { kind: "write", outsideRoot: true } as const,
   inputSchema: z.object({}),
   outputSchema: z.object({
@@ -126,9 +133,9 @@ export const storeBackupsEffect = Effect.fn("store.backups")(function* (): Effec
 
 export const storeRestoreDef = {
   id: "store.restore",
-  title: "Restore a backup",
+  title: "Restore a graph backup",
   description:
-    "Put this store back to a backup's state as one transaction (served pages see it as any write), after backing up the state it replaces, so the restore is itself undone by restoring that backup",
+    "Restore graph only (excludes queries, pages, ui.json, extensions and .kb/assets). Put this store back to a backup's state as one transaction (served pages see it as any write), after backing up the state it replaces, so the restore is itself undone by restoring that backup",
   mode: { kind: "write", approval: "required", outsideRoot: true } as const,
   inputSchema: z.object({
     /** The backup's id, as `store.backups` lists it. */
@@ -159,18 +166,24 @@ export const storeRestoreEffect = Effect.fn("store.restore")(function* (input: {
     });
   // Read before the backup of the state it replaces: that backup's retention
   // may remove the oldest, which can be this one.
-  const nodes = yield* roots.snapshot(restored.path);
+  const nodes = yield* roots.useBackup(restored, Effect.succeed);
   const replaced = (yield* storeBackupEffect()).backup;
-  const tx = yield* persistPlannedEffect(
-    ctx,
-    (now) => Effect.succeed(diffTx(now, nodes)),
-    // Kb's own write: the backup holds the system nodes as they were.
-    { systemWrites: "system" },
-  );
+  if (replaced.fingerprint === null)
+    return yield* domainError(
+      "conflict",
+      "the safety backup has no state identity; restore refused",
+    );
+  const expected = replaced.fingerprint;
+  const tx = yield* roots.useBackup(replaced, (before) => {
+    const planned = diffTx(before, nodes);
+    return persistEffect(ctx, planned, { systemWrites: "system", expected }).pipe(
+      Effect.as(planned),
+    );
+  });
   return {
     restored,
     replaced,
-    upserts: tx?.upserts.length ?? 0,
-    deletes: tx?.deletes.length ?? 0,
+    upserts: tx.upserts.length,
+    deletes: tx.deletes.length,
   };
 });
