@@ -87,3 +87,63 @@ describe("a text host's port", () => {
     expect(attached).toEqual([]);
   });
 });
+
+/**
+ * Where a pasted outline goes: after the row, under the row's parent. A
+ * top-level row's outline names `parent: null`, the top level, since an
+ * omitted parent would mean the capture target (today, with days on).
+ */
+describe("a pasted outline's place", () => {
+  const AT = "2026-11-11T00:00:00.000Z";
+  const wire = (id: string, children: readonly string[]) => ({
+    id,
+    text: id,
+    props: {},
+    children: [...children],
+    createdAt: AT,
+    updatedAt: AT,
+  });
+  const added: unknown[] = [];
+  const host = testBrowserHost({
+    wireNodes: () => [wire("n.parent", ["n.first", "n.nested"]), wire("n.top", [])],
+    invoke: (id, input) => {
+      added.push({ id, input });
+      return Promise.resolve({ status: "succeeded", id, output: { ids: ["n.made"] } });
+    },
+  });
+  const outline: IngestHandler = {
+    match: { gestures: ["paste"], types: ["text/plain"] },
+    priority: 0,
+    ingest: ({ text }) => ({ outline: text }),
+  };
+
+  beforeAll(() => syncUiPlugins([testHostPlugin(host)]));
+  afterAll(() => syncUiPlugins([]));
+  beforeEach(() => {
+    added.length = 0;
+  });
+
+  it("is after the row, under its parent", async () => {
+    const port = ingestPort(
+      () => [outline],
+      () => ({ nodeId: "n.nested", text: "n.nested" }),
+    );
+    expect(port.offer({ ...pasted, text: "- one" })).toBe(true);
+    await expect
+      .poll(() => added)
+      .toEqual([
+        { id: "node.addTree", input: { outline: "- one", parent: "n.parent", position: 2 } },
+      ]);
+  });
+
+  it("is the top level for a top-level row, named as null, never the capture target", async () => {
+    const port = ingestPort(
+      () => [outline],
+      () => ({ nodeId: "n.top", text: "n.top" }),
+    );
+    expect(port.offer({ ...pasted, text: "- one" })).toBe(true);
+    await expect
+      .poll(() => added)
+      .toEqual([{ id: "node.addTree", input: { outline: "- one", parent: null } }]);
+  });
+});

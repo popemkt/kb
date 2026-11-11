@@ -6,7 +6,9 @@
 // first by the test kit's example extension, installed and trusted in the
 // scratch root, whose handler sits before the outline's: each item becomes
 // a node rated as it says, its guard holding the ratings to their form.
-// Prose is the browser's. The store is read back over the API.
+// Prose is the browser's. A top-level row's outline stays at the top level
+// with days on, never landing in today, the capture target. The store is
+// read back over the API.
 import type { APIRequestContext, Page } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
 
@@ -115,4 +117,46 @@ test("prose is the browser's: no node is made of it", async ({ page, request }) 
   await paste(page, row, "Issue #12\nis fixed");
   await page.keyboard.press("Escape");
   expect((await stored(request, ROOT)).children.length).toBe(before);
+});
+
+/** The ids of the nodes whose text is `text`, and of each one's parent, if any. */
+async function placed(
+  request: APIRequestContext,
+  text: string,
+): Promise<{ readonly ids: readonly string[]; readonly parents: readonly string[] }> {
+  const query = async (q: string) =>
+    ((await call(request, "graph.query", { query: q })) as { rows: string[][] }).rows.map(
+      ([id]) => id ?? "",
+    );
+  const ids = await query(`[:find ?id :where [?n :node/text "${text}"] [?n :node/id ?id]]`);
+  const parents = await query(
+    `[:find ?pid :where [?n :node/text "${text}"] [?p :node/children ?cs] [(identity ?cs) [?c ...]] [(= ?c ?n)] [?p :node/id ?pid]]`,
+  );
+  return { ids, parents };
+}
+
+test("a top-level row's pasted list stays at the top level with days on, not in today", async ({
+  page,
+  request,
+}) => {
+  await call(request, "extension.switch", { name: "days", on: true });
+  const { id } = (await call(request, "node.add", { text: "Loose row", parent: null })) as {
+    id: string;
+  };
+  // With days on the root lands on today; Home is the top level.
+  await page.goto("/");
+  await expect(page.locator("[data-day-page]")).toBeVisible();
+  await page.getByRole("button", { name: "Home" }).first().click();
+  await page.locator(`[data-node-id="${id}"] .node-content`).first().click();
+  await expect(page.locator(`[data-node-id="${id}"][data-active="true"]`)).toBeVisible();
+
+  await paste(page, id, "- Loose one\n- Loose two");
+  await expect.poll(async () => (await placed(request, "Loose two")).ids.length).toBe(1);
+  for (const text of ["Loose one", "Loose two"]) {
+    expect((await placed(request, text)).parents).toEqual([]);
+  }
+  // The query sees a parent where there is one.
+  expect((await placed(request, "Loose row")).parents).toEqual([]);
+  await call(request, "node.add", { text: "A placed child", parent: ROOT });
+  expect((await placed(request, "A placed child")).parents).toEqual([ROOT]);
 });

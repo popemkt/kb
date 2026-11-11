@@ -154,13 +154,17 @@ export function claimOf(
 /** What `node.addTree` answers that a paste reads: the ids it made, in tree order. */
 const decodeAdded = Schema.decodeUnknownSync(Schema.Struct({ ids: Schema.Array(Schema.String) }));
 
-/** Where the node `id` sits: its parent (none at the roots) and its place among its parent's children. */
-function placeOf(id: string): { readonly parent?: string; readonly position?: number } {
+/**
+ * Where the node `id` sits: its parent and its place among its parent's
+ * children, or the top level (`parent: null`) for a root. The parent is
+ * always named: an omitted one would mean the capture target.
+ */
+function placeOf(id: string): { readonly parent: string | null; readonly position?: number } {
   for (const node of browserHost().wireNodes()) {
     const at = node.children.indexOf(id);
     if (at >= 0) return { parent: node.id, position: at };
   }
-  return {};
+  return { parent: null };
 }
 
 /** A row that holds nothing: no text, no fields or tags, no children. */
@@ -180,7 +184,8 @@ function holdsNothing(id: string, text: string): boolean {
  * Add `outline` after the row `site` names, in one transaction, and put the
  * caret at the end of the last node it made. A row that held nothing was
  * where the person meant the outline to go: it gives the outline its place,
- * and goes.
+ * and goes. A top-level row's outline goes to the top level, at its end,
+ * never to the capture target.
  */
 async function addOutlineAt(outline: string, site: IngestSite): Promise<void> {
   const host = browserHost();
@@ -188,7 +193,7 @@ async function addOutlineAt(outline: string, site: IngestSite): Promise<void> {
   const { parent, position } = placeOf(site.nodeId);
   const input = {
     outline,
-    ...(parent === undefined ? {} : { parent }),
+    parent,
     ...(position === undefined ? {} : { position: empty ? position : position + 1 }),
   };
   const receipt = await host.invoke("node.addTree", input);
