@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   chordsOverlap,
   describeChord,
+  lookupChord,
   matchesChord,
   parseChord,
   type Chord,
@@ -68,5 +69,37 @@ describe("chordsOverlap", () => {
         expect(chordsOverlap(a, b)).toBe(both);
       }),
     );
+  });
+});
+
+describe("a chord by place", () => {
+  const numpad7: Chord = { code: "Numpad7", mod: false };
+  const seven: Chord = { key: "7", mod: false };
+
+  it("matches the key at its place, whatever character it types", () => {
+    expect(matchesChord({ key: "7", code: "Numpad7" }, numpad7)).toBe(true);
+    expect(matchesChord({ key: "Home", code: "Numpad7" }, numpad7)).toBe(true);
+    expect(matchesChord({ key: "7", code: "Digit7" }, numpad7)).toBe(false);
+    expect(matchesChord({ key: "7" }, numpad7)).toBe(false);
+  });
+
+  it("never overlaps a chord by character, and overlaps one by place only at that place", () => {
+    expect(chordsOverlap(numpad7, seven)).toBe(false);
+    expect(chordsOverlap(numpad7, { code: "Numpad7" })).toBe(true);
+    expect(chordsOverlap(numpad7, { code: "Numpad1", mod: false })).toBe(false);
+    expect(chordsOverlap(numpad7, { code: "Numpad7", mod: true })).toBe(false);
+  });
+
+  it("is asked before a chord by character, wherever it is listed", () => {
+    const rows = [
+      { chord: seven, name: "frame tool" },
+      { chord: numpad7, name: "look from the top" },
+    ];
+    expect(lookupChord({ key: "7", code: "Numpad7" }, rows)?.name).toBe("look from the top");
+    expect(lookupChord({ key: "7", code: "Digit7" }, rows)?.name).toBe("frame tool");
+  });
+
+  it("reads as its place", () => {
+    expect(describeChord({ code: "KeyH", alt: true, shift: true })).toBe("Shift-Alt-[KeyH]");
   });
 });

@@ -19,7 +19,7 @@
 import { CORE_POINT_DEFINITIONS } from "@kb/contracts";
 import type { ContributionEntry, Contribution } from "@kb/plugin";
 import { Point } from "@kb/plugin";
-import { chordsOverlap, describeChord, matchesChord, parseChord } from "./keychord";
+import { byPlace, chordsOverlap, describeChord, matchesChord, parseChord } from "./keychord";
 import type { Chord, KeyChordEvent } from "./keychord";
 import { browserHost } from "../host";
 import { callInput, invokeAction, type ActionCall } from "./action-call";
@@ -213,7 +213,14 @@ export function admitKeybindings(
   return {
     refused,
     held,
-    resolve: (ev) => held.findLast(({ value }) => matchesChord(ev, value.chord)),
+    // The newest binding a key matches, asked by place first (`byPlace`).
+    resolve: (ev) => {
+      const asked = (place: boolean) =>
+        held.findLast(
+          ({ value }) => byPlace(value.chord) === place && matchesChord(ev, value.chord),
+        );
+      return asked(true) ?? asked(false);
+    },
   };
 }
 

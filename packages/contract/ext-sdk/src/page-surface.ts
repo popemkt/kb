@@ -429,11 +429,14 @@ export declare function provideValueKind(
 
 /**
  * A key as a binding states it: a key name as `KeyboardEvent.key` names
- * it (or several, or a test of the name), and the modifiers it asks about.
- * A modifier left out is not asked about. `mod` is ⌘ or Ctrl.
+ * it (or several, or a test of the name), or its place as
+ * `KeyboardEvent.code` names it (`Numpad7`), and the modifiers it asks
+ * about. A modifier left out is not asked about. `mod` is ⌘ or Ctrl. A
+ * chord by place is asked before one by character.
  */
 export interface Chord {
   key?: string | readonly string[] | ((key: string) => boolean);
+  code?: string;
   mod?: boolean;
   meta?: boolean;
   ctrl?: boolean;

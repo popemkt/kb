@@ -13,11 +13,21 @@
  * Every keymap reads this module rather than testing `event.metaKey`
  * itself: "does this event match this chord" is one question, so it has one
  * answer.
+ *
+ * A chord names its key by character (`key`, as `KeyboardEvent.key` names
+ * it) or by place (`code`, as `KeyboardEvent.code` names it: `Numpad7`,
+ * `KeyH`, `BracketLeft`), where the place is what counts: a numpad digit is
+ * not the row's, and ⌥ makes another character of a letter on a Mac. One
+ * press has both, and which character a place types is the layout's, so a
+ * chord by place and one by character are never taken to overlap: a keymap
+ * asks its chords by place first ({@link placeFirst}).
  */
 
 /** The parts of a keyboard event a chord is allowed to look at. */
 export interface KeyChordEvent {
   key: string;
+  /** The key's place on the keyboard (`KeyboardEvent.code`); absent, no chord by place matches. */
+  code?: string;
   metaKey?: boolean;
   ctrlKey?: boolean;
   shiftKey?: boolean;
@@ -30,6 +40,8 @@ type KeyMatch = string | readonly string[] | ((key: string) => boolean);
 export interface Chord {
   /** Absent ⇒ any key; the modifier constraints then carry the whole chord. */
   key?: KeyMatch;
+  /** The key's place (`KeyboardEvent.code`): a chord that names one is a chord by place. */
+  code?: string;
   /**
    * `metaKey || ctrlKey` — the platform-agnostic "command" modifier.
    *
@@ -79,9 +91,15 @@ function modifiersMatch(chord: Chord, mods: Modifiers): boolean {
   );
 }
 
+/** Whether `chord` names its key by place (`code`) rather than by character. */
+export function byPlace(chord: Chord): boolean {
+  return chord.code !== undefined;
+}
+
 /** True when `ev` satisfies every constraint the chord states. */
 export function matchesChord(ev: KeyChordEvent, chord: Chord): boolean {
   return (
+    (chord.code === undefined || chord.code === ev.code) &&
     keyMatches(chord.key, ev.key) &&
     modifiersMatch(chord, {
       meta: ev.metaKey === true,
@@ -123,9 +141,11 @@ function keysOverlap(a: KeyMatch | undefined, b: KeyMatch | undefined): boolean 
 /**
  * Whether one key event could match both chords: they admit a common key,
  * and some state of the four modifiers satisfies both. A keymap whose
- * chords never overlap means the same in any order.
+ * chords never overlap means the same in any order. A chord by place and
+ * one by character never overlap: a keymap ranks them, by place first.
  */
 export function chordsOverlap(a: Chord, b: Chord): boolean {
+  if (byPlace(a) !== byPlace(b) || a.code !== b.code) return false;
   return (
     keysOverlap(a.key, b.key) &&
     MODIFIER_STATES.some((mods) => modifiersMatch(a, mods) && modifiersMatch(b, mods))
@@ -185,7 +205,7 @@ export function describeChord(chord: Chord): string {
   if (chord.ctrl === true) flags.push("Ctrl");
   if (chord.shift === true) flags.push("Shift");
   if (chord.alt === true) flags.push("Alt");
-  return [...flags, keyName(chord.key)].join("-");
+  return [...flags, chord.code === undefined ? keyName(chord.key) : `[${chord.code}]`].join("-");
 }
 
 /**
@@ -203,7 +223,8 @@ interface ChordBinding {
 }
 
 /**
- * The first binding whose chord matches, or undefined.
+ * The first binding whose chord matches, or undefined: the first by place,
+ * else the first by character.
  *
  * `accepts` is the second half of a row's condition for maps whose rows depend
  * on more than the event — the editing map's reference guard asks about the
@@ -215,5 +236,10 @@ export function lookupChord<B extends ChordBinding>(
   bindings: readonly B[],
   accepts: (binding: B) => boolean = () => true,
 ): B | undefined {
-  return bindings.find((binding) => matchesChord(ev, binding.chord) && accepts(binding));
+  const asked = (place: boolean) =>
+    bindings.find(
+      (binding) =>
+        byPlace(binding.chord) === place && matchesChord(ev, binding.chord) && accepts(binding),
+    );
+  return asked(true) ?? asked(false);
 }

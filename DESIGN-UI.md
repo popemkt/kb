@@ -488,7 +488,11 @@ point's `combine`:
   are `mod: false`, and typing over a selected row is any printable key the
   selection's other bindings leave. Alt is a modifier like the others: an
   Alt-composed character (⌥o is ø) is no outline key, so it stays native
-  unless a binding claims its chord;
+  unless a binding claims its chord. A chord names its key by character
+  (`key`) or by place (`code`, `KeyboardEvent.code`: `Numpad7`, `KeyH`),
+  where the place is what counts. One press has both, and which character a
+  place types is the layout's, so a chord by place and one by character
+  never overlap: a keymap asks its chords by place first (`byPlace`);
 - a binding over a held chord is refused unless it names the holder in
   `replaces` (the record's §9 default 7: an occupied chord is never taken
   silently). A replacement takes exactly its own chord, and the holder keeps
