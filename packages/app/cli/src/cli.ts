@@ -638,9 +638,15 @@ function buildProgram(): Command {
     .argument("<name>", "tag name")
     .option("--id <id>", "explicit id")
     .option("--field <name>", "templated field (repeatable)", collect, [])
+    .option("--extends <tag>", "a tag it extends (repeatable, in order)", collect, [])
     .action(
-      kbAction((ctx, globals, [name, opts]: [string, IdOpts & { field: string[] }]) =>
-        runPlanEffect(ctx, mapTagDefine({ name, id: opts.id, fields: opts.field }), globals),
+      kbAction(
+        (ctx, globals, [name, opts]: [string, IdOpts & { field: string[]; extends: string[] }]) =>
+          runPlanEffect(
+            ctx,
+            mapTagDefine({ name, id: opts.id, fields: opts.field, extends: opts.extends }),
+            globals,
+          ),
       ),
     );
   tag

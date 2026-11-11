@@ -76,6 +76,7 @@ import {
   shownDesignSystem,
   ViewPoint,
   SYSTEM_IDS,
+  textOr,
   type ThemePref,
   toast,
   WORKSPACE_ROOT_ID,
@@ -310,6 +311,27 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     menu: nodeMenu("make", 10),
     chrome: () => ({ label: "Add tag", icon: <HashIcon size={14} weight="bold" /> }),
     run: (ctx) => ctx.palette.openStep("outline.add-tag"),
+  },
+  {
+    // A tag's own fields, views and place are its owner's; a person makes
+    // their own tag that is one of it, and changes that (DESIGN-UI.md → The
+    // commit decides what a person may write).
+    id: "extend-tag",
+    menu: nodeMenu("make", 15),
+    chrome: () => ({
+      label: "Make your own tag that extends this",
+      icon: <HashIcon size={14} weight="regular" />,
+    }),
+    when: (ctx) => typeRefsOf(targetNode(ctx)).includes(SYSTEM_IDS.tag),
+    run: (ctx) =>
+      nodeAction(ctx, (nodeId) => {
+        const name = textOr(ctx.outline.nodes.get(nodeId)?.text.trim(), nodeId);
+        void browserHost()
+          .writes.defineTag(`my ${name}`, [nodeId])
+          .then((id) => {
+            if (id !== null) ctx.outline.zoomTo(id);
+          });
+      }),
   },
   {
     id: "turn-query",

@@ -189,8 +189,12 @@ export const planRemoveTag = (n: WireNode[], id: string, tag: string) =>
   planUnsetProp(n, id, SYSTEM_IDS.typeField, { t: "ref", v: tag });
 export const planDefineField = (name: string, id: string) =>
   plan({ id: "field.define", input: { name, id } });
-export const planDefineTag = (name: string, id: string) =>
-  plan({ id: "tag.define", input: { name, id } });
+/** Mint tag `name` as `id`, extending `parents` (`sys.f.extends`), in order. */
+export const planDefineTag = (name: string, id: string, parents: readonly string[] = []) =>
+  plan({
+    id: "tag.define",
+    input: { name, id, ...(parents.length > 0 ? { extends: [...parents] } : {}) },
+  });
 export function planNewQueryNode(
   text: string,
   id: string,

@@ -45,9 +45,11 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // a previous page ignores them and holds every node as stored, as it did.
 // `node.merge` is a new action: a previous page never calls it, and merges as
 // it did, with the updates and the delete it is made of.
+// `tag.define` takes the tags a new tag extends, an optional input a previous
+// page never sends.
 const RECORDED = {
   protocol: 7,
-  fingerprint: "624a0627443a538097d1938d59aad715a399c546e12f0fea5b8d5b1da5c51a1f",
+  fingerprint: "628d4ba74df79ba558b17c3e5ce63d6ea311932912c0b407ba19e3e1bc7074e4",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */
