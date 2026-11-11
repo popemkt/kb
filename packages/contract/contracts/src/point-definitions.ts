@@ -180,6 +180,15 @@ export const CORE_POINT_DEFINITIONS = {
       tier: "T3",
     },
   },
+  nodeSection: {
+    name: "ui.node-sections",
+    spec: {
+      cardinality: "list",
+      combine: "those for a tag the node is, through what it extends, in ascending order",
+      kernel: "page",
+      tier: "T3",
+    },
+  },
   dock: {
     name: "ui.docks",
     spec: {

@@ -719,6 +719,26 @@ tucked. From the keyboard: Tab reaches the
 button, and the node menu offers "Edit query" / "Hide query", opening a
 closed row to show it (`outline-ui/src/outline-commands.tsx`).
 
+### Node pages
+
+A node's page (`/node/<id>`, the outline rooted at the node) is the same
+for every node: a day, a tag, a person's note. Under the page head come
+its title, tags and fields, its children in its view, and then what
+reaches it from elsewhere: for a tag or field, what carries it (Schema),
+then its References.
+
+- **Sections below the outline, contributed per tag.** A family that
+  shows something on the page of a node that is one of its tags
+  contributes a section to the core point `ui.node-sections` (page
+  kernel, `NodeSectionPoint` in `@kb/ui-sdk`): `{tags, order, title,
+  shown?, Component}`. The page draws, after References, every section
+  contributed for a tag the node is, through its tags and what they
+  extend, in ascending `order`. `shown` reads the graph (a family's
+  setting, say), and a section shows always without it. The page draws
+  the title as References draws its own; the body is given the node's id,
+  may be a chunk of its own, and lists nodes with `NodeLinkRow`, the row
+  References uses. No family gets a page of its own for this.
+
 ### Contextual references (2026-08-27)
 
 Tana's _reference_, expressed with no new storage shape and no new

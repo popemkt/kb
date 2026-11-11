@@ -21,6 +21,7 @@ import { FrameViewSlot } from "./frame-view-slot";
 import { NodeBlock } from "./node-block";
 import { QueryResultsSection } from "./query-results";
 import { NodeCommandPalette } from "./node-command-palette";
+import { NodeSections } from "./node-sections";
 import { ReferencesSection } from "./references-section";
 import { SchemaSection } from "./schema-section";
 import { ZoomedRootHeader } from "./zoomed-root-header";
@@ -137,6 +138,7 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
         {!projected && !isQuery && <CreateStrip parentId={rootNodeId} />}
         <SchemaSection nodeId={rootNodeId} />
         <ReferencesSection nodeId={rootNodeId} />
+        <NodeSections nodeId={rootNodeId} />
         {leads ? <OutlinePageKeys /> : null}
       </div>
     );

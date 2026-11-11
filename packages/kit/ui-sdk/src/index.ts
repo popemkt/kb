@@ -211,6 +211,14 @@ export { MENU_ROW, MENU_SURFACE, useMenuKeys, type MenuKeys } from "./components
 export { MenuSeparator } from "./components/menu-separator";
 export { InlineMarkdown, MdView } from "./components/md-view";
 export { NodeLinkRow, type NodeLinkRowProps } from "./components/node-link-row";
+export {
+  NodeSectionPoint,
+  nodeSectionsOf,
+  useNodeSections,
+  type NodeSection,
+  type NodeSectionProps,
+  type ShownSection,
+} from "./lib/node-sections";
 export { NodeRow } from "./components/node-row";
 export { menuAnchor, menuAnchorOf } from "./lib/menu-anchor";
 export {
