@@ -39,7 +39,7 @@ import {
   type UiDevChild,
   type UiDevSpawn,
 } from "./dev.ts";
-import { recordBuild } from "./build-archive.ts";
+import { directoryBuildSource, recordBuild } from "./build-archive.ts";
 import { UI_DIST, UI_ROOT } from "./paths.ts";
 import { identifyBy, serverOwner } from "./auth.ts";
 import { requestGuard, type RequestGuard } from "./guard.ts";
@@ -464,7 +464,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   // Kept beside the server's start, not before it: the tabs it keeps them
   // for are of earlier builds, which earlier starts kept.
   if (builds !== null && opts.codeImage === undefined) {
-    yield* Effect.forkIn(recordBuild(builds, UI_DIST), lifetime);
+    yield* Effect.forkIn(recordBuild(builds, directoryBuildSource(UI_DIST)), lifetime);
   }
 
   yield* Scope.addFinalizer(

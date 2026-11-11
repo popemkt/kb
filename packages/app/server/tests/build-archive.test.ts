@@ -10,7 +10,7 @@ import { Effect } from "effect";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import { bunFileSystemLayer } from "@kb/runtime";
 import { serveStaticEffect } from "../src/assets.ts";
-import { entryScriptOf, recordBuild } from "../src/build-archive.ts";
+import { directoryBuildSource, entryScriptOf, recordBuild } from "../src/build-archive.ts";
 
 /** A `ui/dist` whose entry is `index-<name>.js`, with `chunks` beside it under `static/`. */
 async function build(dist: string, name: string, chunks: Record<string, string>): Promise<void> {
@@ -38,7 +38,9 @@ async function serve(dist: string, builds: string | null, path: string) {
 }
 
 async function record(builds: string, dist: string, keep?: number): Promise<void> {
-  await run(recordBuild(builds, dist, keep).pipe(Effect.provide(bunFileSystemLayer)));
+  await run(
+    recordBuild(builds, directoryBuildSource(dist), keep).pipe(Effect.provide(bunFileSystemLayer)),
+  );
 }
 
 describe("the builds kept for open tabs", () => {

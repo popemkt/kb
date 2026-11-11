@@ -24,6 +24,7 @@
 import { basename, join, normalize } from "node:path";
 import { Clock, Effect, Option, Schema } from "effect";
 import { FileSystem } from "effect/FileSystem";
+import type { PlatformError } from "effect/PlatformError";
 import { writeErr } from "@kb/runtime";
 import { containedFile } from "@kb/workspace-fs";
 
@@ -71,6 +72,28 @@ const buildIn = Effect.fn("kb.ui.builds.buildIn")(function* (distDir: string) {
   return entryScriptOf(html);
 });
 
+/** A page build publishes its own digest-named bytes, whatever holds them. */
+export interface PageBuildSource {
+  readonly entry: Effect.Effect<string | null, PlatformError, FileSystem>;
+  readonly write: (directory: string) => Effect.Effect<void, PlatformError, FileSystem>;
+}
+
+/** The checkout adapter retains the existing directory-copy publication. */
+export function directoryBuildSource(distDir: string): PageBuildSource {
+  const digestNamed = join(distDir, DIGEST_NAMED_DIR);
+  return {
+    entry: Effect.gen(function* () {
+      const fs = yield* FileSystem;
+      const build = yield* buildIn(distDir);
+      return build !== null && (yield* fs.exists(digestNamed)) ? build : null;
+    }),
+    write: Effect.fn("kb.ui.builds.copyDirectory")(function* (directory: string) {
+      const fs = yield* FileSystem;
+      yield* fs.copy(digestNamed, directory);
+    }),
+  };
+}
+
 /** A build's directory name: its entry script's, which carries its digest. */
 function directoryOf(build: string): string {
   return basename(build)
@@ -94,14 +117,14 @@ const writeWhole = Effect.fn("kb.ui.builds.writeWhole")(function* (path: string,
 const publish = Effect.fn("kb.ui.builds.publish")(function* (
   archive: string,
   dir: string,
-  digestNamed: string,
+  source: PageBuildSource,
   record: string,
 ) {
   const fs = yield* FileSystem;
   const staging = join(archive, `${STAGING}${crypto.randomUUID()}`);
   yield* Effect.gen(function* () {
     yield* fs.makeDirectory(staging, { recursive: true });
-    yield* fs.copy(digestNamed, join(staging, DIGEST_NAMED_DIR));
+    yield* source.write(join(staging, DIGEST_NAMED_DIR));
     yield* fs.writeFileString(join(staging, RECORD), record);
     yield* fs
       .rename(staging, dir)
@@ -143,21 +166,20 @@ const prune = Effect.fn("kb.ui.builds.prune")(function* (archive: string, keep: 
 });
 
 /**
- * Keep the build `distDir` serves in `archive`, or note that a server started
+ * Keep the build `source` serves in `archive`, or note that a server started
  * on it again, then remove all but the newest `keep`. Never fails: a server
  * that cannot keep its build still serves it, and says why.
  */
 export const recordBuild = Effect.fn("kb.ui.recordBuild")(
-  function* (archive: string, distDir: string, keep: number = KEEP_BUILDS) {
+  function* (archive: string, source: PageBuildSource, keep: number = KEEP_BUILDS) {
     const fs = yield* FileSystem;
-    const build = yield* buildIn(distDir);
-    const digestNamed = join(distDir, DIGEST_NAMED_DIR);
-    if (build === null || !(yield* fs.exists(digestNamed))) return;
+    const build = yield* source.entry;
+    if (build === null) return;
     const dir = join(archive, directoryOf(build));
     const record = yield* encodeRecord({ build, at: yield* Clock.currentTimeMillis });
     yield* fs.makeDirectory(archive, { recursive: true });
     if (yield* fs.exists(dir)) yield* writeWhole(join(dir, RECORD), record);
-    else yield* publish(archive, dir, digestNamed, record);
+    else yield* publish(archive, dir, source, record);
     yield* prune(archive, keep);
   },
   Effect.catch((error) =>
