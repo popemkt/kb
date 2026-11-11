@@ -927,6 +927,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — An alpha StageOptions mode in @kb/scene-gpu: premultiplied output whose alpha is the scene's presence (1 - veil), the ground no longer mixed in, and the GPU backdrops built on it.
 - **node** — `01M5STYVFCKQ7TZ8XBSGSRHRH9`
 
+### GAP: graph backups exclude root text files
+
+- **expected** — A root backup captures and restores queries, pages, ui.json and extension files with the graph; assets remain owned by Mackup.
+- **current** — Graph backup and restore cover nodes and transaction history only; help, output and manifests declare exclusions.
+- **impact** — Restoring a graph does not restore the editor configuration or trusted extension source used with it.
+- **closes** — A root-state transaction coordinates graph conditional commit with validated file snapshot, restore and recovery.
+- **node** — `01M75ASR5TB03NYPW1G057TTY8`
+
 ### GAP: graph link labels are 2D only
 
 - **expected** — Force3dView declares edgeLabels and draws label billboards.

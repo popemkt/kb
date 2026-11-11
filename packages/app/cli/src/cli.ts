@@ -808,7 +808,9 @@ function outputLines<T>(
 function storeBackupCommands(store: Command): void {
   store
     .command("backup")
-    .description("Copy this root's store, as it is now, into a backup on this machine")
+    .description(
+      "Graph backup on this machine; excludes queries, pages, ui.json, extensions and assets",
+    )
     .action(
       kbAction((ctx, globals) =>
         invokeCliEffect(ctx, onWire(ACTION_INVOKE_WIRE, { id: storeBackupDef.id, input: {} })).pipe(
@@ -818,6 +820,7 @@ function storeBackupCommands(store: Command): void {
               globals,
               outputLines(storeBackupDef, (out) => [
                 `${out.fresh ? "backed up" : "already backed up"}: ${backupLine(out.backup)}`,
+                "graph only; excludes queries, pages, ui.json, extensions and .kb/assets",
                 ...out.removed.map((old) => `removed ${old.id}`),
               ]),
             ),
@@ -827,7 +830,7 @@ function storeBackupCommands(store: Command): void {
     );
   store
     .command("backups")
-    .description("This root's backups on this machine, newest first")
+    .description("This root's graph backups on this machine, newest first")
     .action(
       kbAction((ctx, globals) =>
         invokeCliEffect(
@@ -850,7 +853,7 @@ function storeBackupCommands(store: Command): void {
   store
     .command("restore")
     .description(
-      "Put this store back to a backup's state as one transaction, after backing up the state it replaces; asks first",
+      "Restore a graph backup as one transaction, after a safety graph backup; root files and assets excluded; asks first",
     )
     .argument("<backup>", "the backup's id, as `kb store backups` lists it")
     .action(

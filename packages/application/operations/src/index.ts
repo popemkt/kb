@@ -139,6 +139,7 @@ export {
   storeBackupDef,
   storeBackupsDef,
   storeRestoreDef,
+  storeRestoreEffect,
 } from "./store-backup.ts";
 export { isomorphicActions } from "./isomorphic-actions.ts";
 

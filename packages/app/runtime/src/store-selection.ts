@@ -210,6 +210,8 @@ export const copyStore = Effect.fn("kb.copyStore")(function* (
   // A copy lands only on an empty target: one that holds nodes by the time
   // the commit finds it is another writer's, and is never written over.
   const into = yield* sessionOver(to.root, target.store, [], []);
+  // An empty transaction is normally omitted; a copy must materialize its empty payload.
+  if (nodes.length === 0) yield* createOwnStore(into);
   yield* persistOwnWrite(into, (held) =>
     held.length === 0
       ? Effect.succeed({ upserts: nodes, deletes: [] })

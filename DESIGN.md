@@ -1810,7 +1810,7 @@ into another root.
 
 ### Backups
 
-A **backup** is a copy of a root's store as one state, in the same backend,
+A **graph backup** is a copy of a root's store as one state, in the same backend,
 kept on this machine: `<KB_DATA>/backups/<root's name>-<hash of its path>/<id>`,
 never under the root (a repository's `.kb` is committed; a backup is what a
 person had here, not a revision of it). Each is **a kb root of its own** —
@@ -1818,6 +1818,19 @@ person had here, not a revision of it). Each is **a kb root of its own** —
 the root it copied, when, its node count and the source's **fingerprint at the
 copy**: the state it is. A directory without a readable manifest is not a
 backup, so a copy that dies half-way is never listed.
+
+Graph backups exclude queries, pages, ui.json and extension source; they also
+exclude `.kb/assets`, whose backup belongs to Mackup. Manifests and CLI output
+state this scope. Root text state awaits a coordinated graph-and-files restore
+transaction (gap [[01M75ASR5TB03NYPW1G057TTY8]]).
+
+Backup payloads are read through `KbRoots.readBackup`: their backend must be
+present and their graph must match the manifest's content digest. An empty
+payload is valid; an absent or altered payload is refused and never reused as
+a safety copy. Directory reservation is exclusive and the manifest is published
+by atomic rename only after the payload completes. Restore commits conditionally
+on the safety backup's source fingerprint; a concurrent write refuses the
+restore without erasing the write, rather than replanning over unprotected data.
 
 The mechanism is the runtime's, behind `KbRoots` (`backup`, `backups`, and
 `snapshot`, a raw read of a root that composes and seeds nothing); the policy

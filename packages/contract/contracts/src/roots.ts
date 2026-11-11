@@ -95,6 +95,8 @@ export interface KbRootsPort {
     root: string,
     options: { readonly keep: number },
   ) => Effect.Effect<BackupTaken, DomainError>;
+  /** Read a backup only if its payload is present and matches its manifest; never seed or repair it. */
+  readonly readBackup: (backup: StoreBackup) => Effect.Effect<readonly KbNode[], DomainError>;
   /** `root`'s backups on this machine, newest first. */
   readonly backups: (root: string) => Effect.Effect<readonly StoreBackup[], DomainError>;
 }
