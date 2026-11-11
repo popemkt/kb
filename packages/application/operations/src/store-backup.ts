@@ -37,6 +37,15 @@ export function backupsKept(nodes: readonly KbNode[]): number {
   return Math.max(1, Math.floor(value.v));
 }
 
+/** The backups `nodes` pin (`backup pin`): kept out of retention, whatever their age. */
+function pinnedBackups(nodes: readonly KbNode[]): string[] {
+  const pinned = new Set<string>();
+  for (const node of nodes)
+    for (const value of node.props[SYSTEM_IDS.backupPinField] ?? [])
+      if (value.t === "str") pinned.add(value.v);
+  return [...pinned];
+}
+
 const BackupSchema = z.object({
   id: z.string(),
   path: z.string(),
@@ -65,7 +74,7 @@ export const storeBackupDef = {
   id: "store.backup",
   title: "Back up this store",
   description:
-    "Copy this root's store, as it is now, into a backup on this machine (a kb root of its own under KB_DATA/backups), keeping the newest `backups kept` (a setting of core's node). A store already backed up as it is answers that backup",
+    "Copy this root's store, as it is now, into a backup on this machine (a kb root of its own under KB_DATA/backups), keeping the newest `backups kept` (a setting of core's node) and every backup a node pins (`backup pin`). A store already backed up as it is answers that backup",
   mode: { kind: "write", outsideRoot: true } as const,
   inputSchema: z.object({}),
   outputSchema: z.object({
@@ -91,7 +100,10 @@ export const storeBackupEffect = Effect.fn("store.backup")(function* (): Effect.
   const roots = yield* KbRoots;
   const held = yield* currentBackup(roots, ctx.root);
   if (held !== undefined) return { backup: held, fresh: false, removed: [] };
-  const taken = yield* roots.backup(ctx.root, { keep: backupsKept(ctx.nodes) });
+  const taken = yield* roots.backup(ctx.root, {
+    keep: backupsKept(ctx.nodes),
+    pinned: pinnedBackups(ctx.nodes),
+  });
   return { backup: taken.backup, fresh: true, removed: [...taken.removed] };
 });
 
@@ -103,7 +115,13 @@ export const storeBackupsDef = {
   mode: { kind: "read", outsideRoot: true } as const,
   inputSchema: z.object({}),
   outputSchema: z.object({
-    backups: z.array(BackupSchema.extend({ current: z.boolean() })),
+    backups: z.array(
+      BackupSchema.extend({
+        current: z.boolean(),
+        /** A node pins it (`backup pin`), so retention keeps it. */
+        pinned: z.boolean(),
+      }),
+    ),
     /** How many this machine keeps of this store. */
     kept: z.number(),
   }),
@@ -118,8 +136,13 @@ export const storeBackupsEffect = Effect.fn("store.backups")(function* (): Effec
   const roots = yield* KbRoots;
   const current = yield* currentBackup(roots, ctx.root);
   const backups = yield* roots.backups(ctx.root);
+  const pinned = new Set(pinnedBackups(ctx.nodes));
   return {
-    backups: backups.map((backup) => ({ ...backup, current: backup.id === current?.id })),
+    backups: backups.map((backup) => ({
+      ...backup,
+      current: backup.id === current?.id,
+      pinned: pinned.has(backup.id),
+    })),
     kept: backupsKept(ctx.nodes),
   };
 });

@@ -78,11 +78,13 @@ const freshId = Effect.fn("kb.backups.freshId")(function* (
 
 /**
  * Copy `root`'s store into a new backup, then keep only the newest `keep`
- * of its backups. A copy that fails leaves no directory behind.
+ * of its backups that `pinned` does not name (a pinned one is kept beside
+ * them). A copy that fails leaves no directory behind.
  */
 export const takeBackup = Effect.fn("kb.backups.take")(function* (
   root: string,
   keep: number,
+  pinned: readonly string[],
 ): Effect.fn.Return<BackupTaken, DomainError, FileSystem> {
   const fs = yield* FileSystem;
   const canonical = yield* canonicalRoot(root);
@@ -118,8 +120,9 @@ export const takeBackup = Effect.fn("kb.backups.take")(function* (
   yield* fs
     .writeFileString(join(path, MANIFEST), `${JSON.stringify(manifest)}\n`)
     .pipe(Effect.mapError(ensureDomainError));
+  const kept = new Set(pinned);
   const removed = (yield* listBackups(canonical))
-    .filter((held) => held.id !== id)
+    .filter((held) => held.id !== id && !kept.has(held.id))
     .slice(Math.max(keep, 1) - 1);
   for (const old of removed)
     yield* fs

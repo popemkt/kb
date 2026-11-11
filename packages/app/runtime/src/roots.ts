@@ -84,7 +84,8 @@ export function kbRootsLayer(
         open: (root) => openKbEffect(root).pipe(Effect.provide(context)),
         serve,
         snapshot: (root) => storeSnapshot(root).pipe(Effect.provide(context)),
-        backup: (root, { keep }) => takeBackup(root, keep).pipe(Effect.provide(context)),
+        backup: (root, { keep, pinned }) =>
+          takeBackup(root, keep, pinned).pipe(Effect.provide(context)),
         backups: (root) => listBackups(root).pipe(Effect.provide(context)),
       });
     }),

@@ -1828,8 +1828,12 @@ is three core actions:
   newest **`backups kept`** — a number setting of core's node
   (`sys.f.backups.kept`; unset is 3, at least 1), so it is set as any setting
   is, `kb set sys.extension.core "backups kept" 5`.
+- **A pinned backup outlives retention.** Any node may hold `backup pin`
+  (`sys.f.backup.pin`, text, many): each value a backup's id, kept beside
+  the newest `backups kept`, however old. A pending migration's record pins
+  the backup taken before it (Plugin data migrations).
 - **`store.backups`** lists them newest first, each marked `current` when the
-  store is still its state. "Is there a backup of the store as it is now" is
+  store is still its state, and `pinned` when a node pins it. "Is there a backup of the store as it is now" is
   therefore read, never recorded — what a procedure's backup step asks.
 - **`store.restore <id>`** (approval required, so never from MCP) reads the
   backup, backs up the state it is about to replace, and commits

@@ -304,6 +304,12 @@ export const SYSTEM_IDS = {
    */
   backupsKeptField: "sys.f.backups.kept",
   /**
+   * The backups a node keeps out of retention (DESIGN.md → Storage →
+   * Backups): text, each a backup's id. Any node may hold it; a pending
+   * migration's record pins the backup taken before it.
+   */
+  backupPinField: "sys.f.backup.pin",
+  /**
    * Motion options (`motion.ts`): the mode, intensity, style and speed, each
    * a ref to one of its field's children, and one checkbox field per effect
    * (`motionEffectFieldId`). Settings of core's node; a design system's

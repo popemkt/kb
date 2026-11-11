@@ -53,10 +53,11 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // `store.backup`, `store.backups` and `store.restore` are new actions a
 // previous page never calls.
 // `procedure.list`, `procedure.status` and `procedure.step` are new actions a
-// previous page never calls.
+// previous page never calls. `store.backups` answers whether each backup is
+// pinned, a field a previous page ignores.
 const RECORDED = {
   protocol: 8,
-  fingerprint: "0a52f17fe9f9275a99d16bb500ea80b132311c6f821b4b2d99a1a941d4a6b821",
+  fingerprint: "db0a49e1b4f50713e9cce83dd2d7ecded3a37e1efaf33719730450c749ec7caf",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

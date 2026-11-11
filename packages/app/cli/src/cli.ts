@@ -782,8 +782,9 @@ function backupLine(backup: {
   nodes: number;
   path: string;
   current?: boolean;
+  pinned?: boolean;
 }): string {
-  const now = backup.current === true ? "  (current)" : "";
+  const now = `${backup.current === true ? "  (current)" : ""}${backup.pinned === true ? "  (pinned)" : ""}`;
   return `${backup.id}  ${String(backup.nodes)} nodes  ${backup.path}${now}`;
 }
 

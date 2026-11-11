@@ -89,11 +89,12 @@ export interface KbRootsPort {
   readonly snapshot: (root: string) => Effect.Effect<readonly KbNode[], DomainError>;
   /**
    * Copy `root`'s store, as one state of it, into a new backup, then remove
-   * all but the newest `keep` of its backups (at least the one just taken).
+   * all but the newest `keep` of its backups (at least the one just taken),
+   * never one `pinned` names: those are kept beside the `keep`.
    */
   readonly backup: (
     root: string,
-    options: { readonly keep: number },
+    options: { readonly keep: number; readonly pinned: readonly string[] },
   ) => Effect.Effect<BackupTaken, DomainError>;
   /** `root`'s backups on this machine, newest first. */
   readonly backups: (root: string) => Effect.Effect<readonly StoreBackup[], DomainError>;
