@@ -19,11 +19,15 @@ import { CANVAS_RUN_FIELDS } from "@kb/canvas";
 import { createStore, STORE_BACKENDS, type StoreBackend } from "../src/store-selection.ts";
 import { bunFileSystemLayer } from "../src/platform.ts";
 import { CODE_IDS } from "@kb/code";
-import type { ActionReceipt } from "@kb/contracts";
-import { canonicalJson, present, SYSTEM_IDS } from "@kb/model";
+import { CurrentInterception, type ActionReceipt, type KbStore } from "@kb/contracts";
+import { z } from "zod";
+import { invokeReceiptWith, persistEffect, type RegisteredAction } from "@kb/operations";
+
+import { kbRuntimeLayer } from "../src/layers.ts";
+import { canonicalJson, present, SYSTEM_IDS, type StoreTx } from "@kb/model";
 import { codeDigest } from "@kb/sandbox";
 import { invoke } from "../src/invoke.ts";
-import { resetRegistryCache } from "../src/registry.ts";
+import { resetRegistryCache, sessionRegistry } from "../src/registry.ts";
 import { openKb } from "../src/session.ts";
 
 type Kb = Awaited<ReturnType<typeof openKb>>;
@@ -477,5 +481,119 @@ for (const backend of STORE_BACKENDS) {
         present(reopened.index.getNode("n.board"), "board").props[CANVAS_RUN_FIELDS.output.field],
       ).toEqual([{ t: "ref", v: "alternate.output" }]);
     });
+  });
+}
+
+const atomicWrite = Effect.fn("test.canvas.atomicWrite")(function* (ctx: Kb, tx: StoreTx) {
+  const registry = yield* sessionRegistry(ctx);
+  const action: RegisteredAction<KbStore> = {
+    def: {
+      id: "test.atomic",
+      title: "Atomic test write",
+      description: "Commit both edits together",
+      mode: { kind: "write" },
+      inputSchema: z.object({}),
+      outputSchema: z.object({}),
+    },
+    source: "core",
+    aliases: [],
+    effect: Effect.fn("test.canvas.atomicEffect")(function* () {
+      yield* persistEffect(ctx, tx);
+      return {};
+    }),
+  };
+  return yield* invokeReceiptWith(new Map([["test.atomic", action]]), ctx, {
+    id: "test.atomic",
+    actor: "human",
+    input: {},
+  }).pipe(
+    Effect.provideService(CurrentInterception, registry.interception),
+    Effect.provide(kbRuntimeLayer(ctx)),
+  );
+});
+
+for (const backend of STORE_BACKENDS) {
+  test(`${backend}: bound fields keep direct and inherited field identity, including atomic edits`, async () => {
+    const ctx = await computerKb(backend);
+    const untag = await invoke(ctx, {
+      id: "node.update",
+      input: { id: "f.input", unsetProps: [{ field: SYSTEM_IDS.typeField }] },
+    });
+    expect(untag.status).toBe("failed");
+    expect(
+      (
+        await invoke(ctx, {
+          id: "node.add",
+          input: {
+            id: "custom.field.tag",
+            text: "Custom field",
+            tags: [SYSTEM_IDS.tag],
+            props: [{ field: SYSTEM_IDS.extendsField, value: { t: "ref", v: SYSTEM_IDS.field } }],
+          },
+        })
+      ).status,
+    ).toBe("succeeded");
+    expect(
+      (
+        await invoke(ctx, {
+          id: "node.update",
+          input: {
+            id: "f.input",
+            unsetProps: [{ field: SYSTEM_IDS.typeField }],
+            setProps: [{ field: SYSTEM_IDS.typeField, value: { t: "ref", v: "custom.field.tag" } }],
+          },
+        })
+      ).status,
+    ).toBe("succeeded");
+    expect(
+      (
+        await invoke(ctx, {
+          id: "node.update",
+          input: { id: "custom.field.tag", unsetProps: [{ field: SYSTEM_IDS.extendsField }] },
+        })
+      ).status,
+    ).toBe("failed");
+    const tag = present(ctx.index.getNode("custom.field.tag"), "tag");
+    const board = present(ctx.index.getNode("n.board"), "board");
+    const tagProps = { ...tag.props };
+    delete tagProps[SYSTEM_IDS.extendsField];
+    // The complete post-write graph decides: retargeting to a valid field
+    // permits removing the former target's ancestry in the same transaction.
+    await invoke(ctx, {
+      id: "field.define",
+      input: { id: "replacement.input", name: "Replacement input" },
+    });
+    const receipt = await Effect.runPromise(
+      atomicWrite(ctx, {
+        upserts: [
+          { ...tag, props: tagProps },
+          {
+            ...board,
+            props: {
+              ...board.props,
+              [CANVAS_RUN_FIELDS.input.field]: [{ t: "ref", v: "replacement.input" }],
+            },
+          },
+        ],
+        deletes: [],
+      }).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+    expect(receipt.status).toBe("succeeded");
+    const invalid = await Effect.runPromise(
+      atomicWrite(ctx, {
+        upserts: [
+          {
+            ...board,
+            props: {
+              ...board.props,
+              [CANVAS_RUN_FIELDS.input.field]: [{ t: "ref", v: "f.input" }],
+            },
+          },
+          { ...tag, props: tagProps },
+        ],
+        deletes: [],
+      }).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+    expect(invalid.status).toBe("failed");
   });
 }
