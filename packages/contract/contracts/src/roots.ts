@@ -96,6 +96,11 @@ export interface KbRootsPort {
     root: string,
     options: { readonly keep: number; readonly pinned: readonly string[] },
   ) => Effect.Effect<BackupTaken, DomainError>;
+  /** Validate and use a payload while retention cannot prune it, across processes. */
+  readonly useBackup: <A, E, R>(
+    backup: StoreBackup,
+    use: (nodes: readonly KbNode[]) => Effect.Effect<A, E, R>,
+  ) => Effect.Effect<A, E | DomainError, R>;
   /** `root`'s backups on this machine, newest first. */
   readonly backups: (root: string) => Effect.Effect<readonly StoreBackup[], DomainError>;
 }

@@ -49,6 +49,8 @@ const str = (xs: readonly string[]) => pick(xs).map((v): PropValue => ({ t: "str
 /** Each field and the values it may hold. */
 const FIELD_VALUES: Record<string, fc.Arbitrary<PropValue>> = {
   "sys.f.type": fc.oneof(ref(TAGS), ref(["gone"])),
+  // Tags extend tags, cycles and missing ones included: has tag reads the chain.
+  "sys.f.extends": fc.oneof(ref(TAGS), ref(["gone"])),
   st: fc.oneof(ref(OPTIONS), ref(CONTENT), ref(["gone"])),
   tx: fc.oneof(
     str(TEXTS),

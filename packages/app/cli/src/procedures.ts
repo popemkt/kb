@@ -13,6 +13,7 @@ import type { Command } from "commander";
 import { Effect } from "effect";
 import {
   migrationProcedureId,
+  ActionReceiptSchema,
   onWire,
   type KbContext,
   type ProcedureStatus,
@@ -94,16 +95,26 @@ const statusOf = (ctx: KbContext, procedure: string) =>
     }),
   );
 
-/** What a step's own action answered, as `procedure.step` returns its receipt, on one line. */
-function ranOutput(output: unknown): string {
-  const parsed = procedureStepDef.outputSchema.safeParse(output);
-  const receipt = parsed.success ? parsed.data.receipt : undefined;
-  return typeof receipt === "object" &&
-    receipt !== null &&
-    "output" in receipt &&
-    receipt.output !== undefined
-    ? `: ${JSON.stringify(receipt.output)}`
-    : "";
+/** Decode the step's nested receipt and report a failure or a check that stayed put. */
+function reportStepResult(output: unknown, globals: GlobalOpts, step: string): string | undefined {
+  const parsed = procedureStepDef.outputSchema
+    .extend({ receipt: ActionReceiptSchema })
+    .safeParse(output);
+  if (!parsed.success) {
+    writeErr(`invalid procedure step result: ${parsed.error.message}`);
+    return undefined;
+  }
+  const result = parsed.data;
+  if (result.receipt.status === "failed") {
+    writeOut(formatReceipt(result.receipt, { json: globals.json === true }));
+    return undefined;
+  }
+  if (result.status.current === step) {
+    for (const line of statusLines(result.status)) writeOut(line);
+    writeErr(`stopped after ${step}: its check did not advance the procedure`);
+    return undefined;
+  }
+  return result.receipt.output === undefined ? "" : `: ${JSON.stringify(result.receipt.output)}`;
 }
 
 /**
@@ -112,7 +123,7 @@ function ranOutput(output: unknown): string {
  * `action` names one of its actions, and a step that fails or is declined
  * stopping the walk where it is.
  */
-const walk = Effect.fn("kb.procedure.walk")(function* (
+export const walk = Effect.fn("kb.procedure.walk")(function* (
   ctx: KbContext,
   globals: GlobalOpts,
   procedure: string,
@@ -136,7 +147,7 @@ const walk = Effect.fn("kb.procedure.walk")(function* (
       for (const line of statusLines(status)) writeOut(line);
       return EXIT_OK;
     }
-    const action = step.decision ? opts.action : undefined;
+    const action = decided ? undefined : opts.action;
     if (!opts.yes) {
       const go = yield* askTerminal(
         Effect.succeed(`${statusLines(status).join("\n")}\n`),
@@ -158,7 +169,9 @@ const walk = Effect.fn("kb.procedure.walk")(function* (
       writeOut(formatReceipt(receipt, { json: globals.json === true }));
       return EXIT_FAILED;
     }
-    writeErr(`ran ${step.id}${ranOutput(receipt.output)}`);
+    const output = reportStepResult(receipt.output, globals, step.id);
+    if (output === undefined) return EXIT_FAILED;
+    writeErr(`ran ${step.id}${output}`);
     decided = decided || step.decision;
   }
   const after = yield* statusOf(ctx, procedure);

@@ -14,7 +14,6 @@ import {
   ResolveError,
   ActorSchema,
   SYSTEM_IDS,
-  cardinalityOf,
   currentIso,
   domainError,
   domainFromResolve,
@@ -23,7 +22,6 @@ import {
   type RankSlot,
   IndexedNodes,
   resolveFieldId,
-  resolveFieldIn,
   resolveTagId,
   resolveTagIn,
   type NodeGraph,
@@ -36,6 +34,7 @@ import {
 } from "@kb/model";
 import { persistEffect, persistPlannedEffect, type PersistOptions } from "./session.ts";
 import { placedGraph, placeOf } from "./place.ts";
+import { applyProps, projectPropEdits, type PropEntry } from "./prop-edits.ts";
 import { DatalogError, QueryEngineService, type NodeIndex } from "@kb/query";
 
 type KbWriteEnv = KbCtx | KbStore;
@@ -340,22 +339,6 @@ export function cloneNode(n: KbNode): KbNode {
 // A field's cardinality is read from the plan graph, which holds stored
 // nodes only. A field is never virtual (the virtual nodes are saved queries),
 // so this reads what the session index would.
-function applyProps(
-  graph: NodeGraph,
-  props: Record<NodeId, PropValue[]>,
-  entries: readonly PropEntry[],
-): void {
-  const replaced = new Set<NodeId>();
-  for (const e of entries) {
-    const fieldId = resolveFieldIn(graph, e.field);
-    const single = cardinalityOf(graph.get(fieldId)?.props, (id) => graph.get(id)) === "one";
-    const list = single && !replaced.has(fieldId) ? [] : (props[fieldId] ?? []);
-    if (single) replaced.add(fieldId);
-    list.push(e.value);
-    props[fieldId] = list;
-  }
-}
-
 function isInSubtree(nodes: KbNode[], rootId: NodeId, targetId: NodeId): boolean {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const stack = [rootId];
@@ -455,10 +438,6 @@ function pullSubtree(ctx: KbContext<NodeIndex>, id: NodeId, depth: number): unkn
 }
 
 /** One prop a write names: a field (by name or id) and the value it gains. */
-export interface PropEntry {
-  field: string;
-  value: PropValue;
-}
 
 /**
  * What one add says, whoever says it: `node.add`'s input, its props as
@@ -614,20 +593,8 @@ export const nodeUpdateEffect = Effect.fn("node.update")(function* (
 
   yield* syncDomain(() => {
     if (input.text !== undefined) node.text = input.text;
-    if (input.unsetProps) {
-      for (const u of input.unsetProps) {
-        const fieldId = resolveFieldIn(graph(), u.field);
-        if (u.value === undefined) {
-          delete node.props[fieldId];
-        } else {
-          const list = node.props[fieldId] ?? [];
-          node.props[fieldId] = list.filter((pv) => JSON.stringify(pv) !== JSON.stringify(u.value));
-          if (node.props[fieldId].length === 0) delete node.props[fieldId];
-        }
-      }
-    }
-    // Remove old values before adding replacements in the same node update.
-    if (input.setProps) applyProps(graph(), node.props, input.setProps);
+    if (input.unsetProps !== undefined || input.setProps !== undefined)
+      node.props = projectPropEdits(graph(), node.props, input);
   });
 
   // A placement is a move to `parent` (null: the forest roots), or — with

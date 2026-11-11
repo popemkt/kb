@@ -51,7 +51,8 @@ export {
   tagDefineDef,
   tagDefineEffect,
 } from "./actions.ts";
-export type { PlacedAddInput, PropEntry } from "./actions.ts";
+export type { PlacedAddInput } from "./actions.ts";
+export { projectPropEdits, type PropEdits, type PropEntry, type PropUnset } from "./prop-edits.ts";
 export { KB_DESIGN_SYSTEM, coreExtension } from "./core-extension.ts";
 export { nodeAddTreeDef, nodeAddTreeEffect, planNodeAddTreeEffect } from "./node-add-tree.ts";
 export { planViewProposal, type PlannedView, type ViewProposal } from "./view-propose.ts";
@@ -141,6 +142,7 @@ export {
   storeBackupDef,
   storeBackupsDef,
   storeRestoreDef,
+  storeRestoreEffect,
 } from "./store-backup.ts";
 export { isomorphicActions } from "./isomorphic-actions.ts";
 

@@ -109,8 +109,8 @@ function subjectFromId(id: string): Subject {
  * What a row may be about, in the order a person reaches for it: the fields
  * of the tags the query already names (`sys.f.fields`), then the
  * vocabulary's own sentences, then every other field. Fields are the
- * add-field step's candidates (`nodesOfKind`); a `sys.*` field and the type
- * field (that is "has tag") are not offered.
+ * add-field step's candidates (`nodesOfKind`); a `sys.*` field is not
+ * offered, the type field among them: "has tag" is the sentence for it.
  */
 function subjectCandidates(builder: Builder): PickerCandidate[] {
   const { schema } = builder.read;

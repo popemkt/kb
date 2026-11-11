@@ -18,7 +18,8 @@ import { join } from "node:path";
 import { Effect } from "effect";
 import { KbRoots, KbStore, onWire, type ActionInvocation, type KbContext } from "@kb/contracts";
 import { SYSTEM_IDS, extensionNodeId, type KbNode } from "@kb/model";
-import { persistEffect } from "@kb/operations";
+import { storeRestoreEffect, persistEffect } from "@kb/operations";
+import { currentData } from "@kb/workspace-fs";
 import { CONTRACT_AT } from "@kb/test-kit";
 import { kbRuntimeLayer } from "../src/layers.ts";
 import { openKbEffect } from "../src/open.ts";
@@ -121,6 +122,121 @@ function backupsContract(backend: StoreBackend): void {
       session = null;
       return rm(scratch, { recursive: true, force: true });
     });
+
+    test("a late write after the safety copy refuses restore and survives", () =>
+      run(
+        Effect.gen(function* () {
+          const first = yield* backup();
+          yield* write([note("n.changed")]);
+          const roots = yield* KbRoots;
+          const wrapped = {
+            ...roots,
+            backup: (
+              root: string,
+              options: { readonly keep: number; readonly pinned: readonly string[] },
+            ) => roots.backup(root, options).pipe(Effect.tap(() => write([note("n.late")]))),
+          };
+          const result = yield* storeRestoreEffect({ backup: first.backup.id }).pipe(
+            Effect.provideService(KbRoots, wrapped),
+            Effect.result,
+          );
+          expect(result._tag).toBe("Failure");
+          expect((yield* raw(scratch)).some((n) => n.id === "n.late")).toBe(true);
+        }).pipe(Effect.provide(kbRuntimeLayer(ctx()))),
+      ));
+
+    test("a missing payload is refused and never reused as safety", () =>
+      run(
+        Effect.gen(function* () {
+          const first = yield* backup();
+          const before = sorted(yield* raw(scratch));
+          yield* Effect.promise(() =>
+            rm(join(first.backup.path, ".kb"), { recursive: true, force: true }),
+          );
+          const receipt = yield* invoke(
+            "store.restore",
+            { backup: first.backup.id },
+            { actor: "human", approved: true },
+          );
+          expect(receipt.status).toBe("failed");
+          expect(sorted(yield* raw(scratch))).toEqual(before);
+          expect((yield* backup()).fresh).toBe(true);
+        }),
+      ));
+
+    test("concurrent backups reserve distinct complete payloads", () =>
+      run(
+        Effect.gen(function* () {
+          const roots = yield* KbRoots;
+          const copies = yield* Effect.all(
+            Array.from({ length: 4 }, () => roots.backup(scratch, { keep: 20, pinned: [] })),
+            { concurrency: "unbounded" },
+          );
+          expect(new Set(copies.map((copy) => copy.backup.id)).size).toBe(4);
+          const expected = sorted(yield* raw(scratch));
+          for (const copy of copies)
+            expect(sorted(yield* roots.useBackup(copy.backup, Effect.succeed))).toEqual(expected);
+        }).pipe(Effect.provide(kbRuntimeLayer(ctx()))),
+      ));
+
+    test("concurrent keep-one retains exactly the globally newest copy", () =>
+      run(
+        Effect.gen(function* () {
+          const roots = yield* KbRoots;
+          yield* Effect.all(
+            Array.from({ length: 4 }, () => roots.backup(scratch, { keep: 1, pinned: [] })),
+            { concurrency: "unbounded" },
+          );
+          const held = yield* roots.backups(scratch);
+          expect(held).toHaveLength(1);
+          const [newest] = held;
+          if (newest === undefined) throw new Error("no backup");
+          expect(sorted(yield* roots.useBackup(newest, Effect.succeed))).toEqual(
+            sorted(yield* raw(scratch)),
+          );
+        }).pipe(Effect.provide(kbRuntimeLayer(ctx()))),
+      ));
+
+    test("separate processes share keep-one retention", () =>
+      run(
+        Effect.gen(function* () {
+          const data = yield* currentData;
+          const backupsModule = new URL("../src/backups.ts", import.meta.url).pathname;
+          const platformModule = new URL("../src/platform.ts", import.meta.url).pathname;
+          const effectModule = import.meta.resolve("effect");
+          const source = `import {Effect} from ${JSON.stringify(effectModule)}; import {takeBackup} from ${JSON.stringify(backupsModule)}; import {bunFileSystemLayer} from ${JSON.stringify(platformModule)}; await Effect.runPromise(takeBackup(${JSON.stringify(scratch)},1).pipe(Effect.provide(bunFileSystemLayer)));`;
+          const codes = yield* Effect.promise(async () =>
+            Promise.all(
+              Array.from({ length: 3 }, async () => {
+                const child = Bun.spawn([process.execPath, "-e", source], {
+                  env: { ...process.env, KB_DATA: data },
+                  stdout: "ignore",
+                  stderr: "pipe",
+                });
+                const [code, error] = await Promise.all([
+                  child.exited,
+                  new Response(child.stderr).text(),
+                ]);
+                if (code !== 0) throw new Error(error);
+                return code;
+              }),
+            ),
+          );
+          expect(codes).toEqual([0, 0, 0]);
+          expect((yield* backups()).backups).toHaveLength(1);
+        }),
+      ));
+
+    test("an empty graph is a valid backup payload", () =>
+      run(
+        Effect.gen(function* () {
+          const empty = join(scratch, "empty");
+          yield* createStore(empty, backend).pipe(Effect.provide(bunFileSystemLayer));
+          const roots = yield* KbRoots;
+          const copied = yield* roots.backup(empty, { keep: 3, pinned: [] });
+          expect(yield* roots.useBackup(copied.backup, Effect.succeed)).toEqual([]);
+        }).pipe(Effect.provide(kbRuntimeLayer(ctx()))),
+      ));
 
     test("a backup is a root holding exactly what the store held, named by its state", () =>
       run(

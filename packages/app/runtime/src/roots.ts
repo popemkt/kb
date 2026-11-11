@@ -16,7 +16,7 @@ import { ensureDomainError, type DomainError, type KbNode } from "@kb/model";
 import { canonicalRoot, currentHome, servingUi } from "@kb/workspace-fs";
 import { openKbEffect } from "./open.ts";
 import { oneStartPerRoot, selfLaunch, serveRoot } from "./serve.ts";
-import { listBackups, takeBackup } from "./backups.ts";
+import { listBackups, takeBackup, useBackup } from "./backups.ts";
 import { createStore, storeBackendAt, storeSnapshot } from "./store-selection.ts";
 
 /** The store a new root is made with: the default `kb init` makes. */
@@ -86,6 +86,7 @@ export function kbRootsLayer(
         snapshot: (root) => storeSnapshot(root).pipe(Effect.provide(context)),
         backup: (root, { keep, pinned }) =>
           takeBackup(root, keep, pinned).pipe(Effect.provide(context)),
+        useBackup: (backup, use) => useBackup(backup, use).pipe(Effect.provide(context)),
         backups: (root) => listBackups(root).pipe(Effect.provide(context)),
       });
     }),

@@ -46,6 +46,8 @@ export {
   configuresAnExtension,
   isShipped,
   isWritableField,
+  fieldWriting,
+  type FieldWriting,
   systemTxRefusal,
   systemWriteRefusal,
 } from "./system-write.ts";
@@ -136,6 +138,7 @@ export {
   isA,
   kindsOf,
   nodesOfKind,
+  tagAncestors,
   tagChains,
   templateFieldsOf,
   type TagChains,
