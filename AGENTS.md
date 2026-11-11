@@ -171,10 +171,10 @@ and `kb mcp`) stay up and serve. Two rules keep the modes apart:
   cache is keyed by the store's fingerprint, so deleting it costs only
   time.
 - **One-shot commands load no host code.** Servers, sockets, watchers,
-  schedulers, agent runtimes and MCP are host code. One-shot commands reach
-  them from the CLI entry only through a dynamic `import()`, and so are
-  painters and engines that a command does not use. The release build
-  emits that code in chunks a one-shot command never parses. The two modes
+  schedulers, agent runtimes and MCP are host code. The CLI entry reaches
+  host code, and painters or engines a command does not use, only through
+  a dynamic `import()`. The release build emits that code in chunks a
+  one-shot command never parses. The two modes
   share one mode-neutral core: the domain, the store, and the actions.
 
 Where the code falls short of these today, a `#gap` names the rule it bends

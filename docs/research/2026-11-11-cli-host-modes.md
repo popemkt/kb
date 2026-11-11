@@ -46,8 +46,8 @@ Splitting the build alone saves only 60–135 ms, because the static graph
 behind it is 5.2 MB. The levers work together: split the build, move painters
 and engines behind their first use, and open only what a command reads (§4.5).
 **`kb get` under 100 ms needs all three, plus a diet in the core's own module
-init** (§1.3 has the floor). `--version` and `help` can reach it with steps
-1–3 alone. §5 asks the owner to confirm the target.
+init** (§1.3 has the floor). `--version` can reach it with steps
+1–3 alone (an estimate). §5 asks the owner to confirm the target.
 
 Rule audit (§3): two features keep truth only in a running process. The
 first is routines' Google Calendar sync: the push queue, deletion detection,
@@ -131,7 +131,7 @@ dependencies, so read the marginal cost against the effect + model baseline:
 |---|---:|---:|
 | effect (`Effect`, `Schema`) | 0.15 MB | 22 |
 | commander | 0.08 MB | 23 |
-| zod | 0.09 MB | 20 |
+| zod (tree-shaken to `z.object`; the bundle carries 0.66 MB) | 0.09 MB | 20 |
 | effect + `@kb/model` | 0.47 MB | 37–43 |
 | `@kb/query` (datascript) | 1.20 MB | 61 |
 | `@kb/operations` | 0.84 MB | 66 |
@@ -218,6 +218,10 @@ authority, watchers, debounced or write-behind paths, and features that only
 [AGENTS.md](../../AGENTS.md#hosts-are-accelerators).
 
 ### Violations
+
+No routine fires on a local timer today. Nothing in a process computes
+"what is due", so the owner's first example already holds. The violation
+is the sync engine that projects routines to Google.
 
 **Routines → Google Calendar sync** (`@kb/routines-host`, `engine.ts`).
 **Violates.**
@@ -335,8 +339,11 @@ There stays **one process entry**, `packages/app/cli/src/main.ts`, and one
 launcher, so the [runtime launch contract](../../DESIGN.md#runtime-launch-contract)
 and the "Minimal valid entrypoints" rule are unchanged.
 
-- `main.ts` answers `--version` and `help` before it imports the runtime. The
-  version comes from the SDK module alone.
+- `main.ts` answers `--version` before it imports the runtime. The version
+  comes from the SDK module alone. `help` stays in `cli.ts`, whose command
+  table is the one place commands are declared. It gets cheap once that
+  table stops importing the runtime eagerly (steps 4–6), not through a
+  second copy of the table.
 - `cli.ts` keeps the `kb ui`, `kb mcp` and `kb open` handlers behind
   `import()`, as it does today.
 - The build gains `--splitting`, so each lazy edge is its own file under
@@ -405,7 +412,9 @@ Applied:
    `extensionContract` (`@kb/test-kit`): for a family with a host loop, its
    catch-up action run one-shot after any sequence of writes, deletions
    included, reaches the store state and remote effects that a host running
-   throughout reaches. For routines, the memory Calendar fake already
+   throughout reaches. Of the hosted families, only the agent runs under
+   `extensionContract` today (`cli/tests/extension-contract.test.ts`), so
+   routines joins the suite first. For routines, the memory Calendar fake already
    satisfies `calendarContract`. Until the property exists, the rule's
    enforcement is `prose`.
 
@@ -419,7 +428,7 @@ behaviour in a separate commit (Rule 1).
 | 0 | This record, the two rules, and the gaps | — |
 | 1 | Generalize the UI lazy fence into a table, with the UI row only, preserving behaviour. Then add the CLI row with today's breaches listed, and the static-closure baseline. | the split cannot regress from here |
 | 2 | One build script with `--splitting`, called by `bin/release-bundle` and `nix/package.nix`; the chunked `lib/kb/` layout; the startup contract over it | about −225 ms of parse moves to chunks that are parsed only when imported (−60 to −135 ms wall today) |
-| 3 | `--version` and `help` answered in `main.ts` without the runtime | `--version` drops to ~30–50 ms |
+| 3 | `--version` answered in `main.ts` without the runtime | `--version` drops to an estimated ~30–50 ms |
 | 4 | One PR per family: painters behind first use (chart-vega, gallery-net, canvas' tldraw reader); each removes its breach row | Vega and d3 (~70 ms marginal) and gallery-net leave the eager graph |
 | 5 | Engines and adapters behind first use: QuickJS, store-sqlite at selection, source-git | ~1.3 MB of wasm and both adapters leave the eager graph |
 | 6 | Split the `@kb/runtime` barrel: host-only modules move to `@kb/server`; the barrel is the core | the CLI fence holds with no breach rows |
