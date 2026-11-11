@@ -1,13 +1,15 @@
 import { watch } from "node:fs";
 import { join, relative, resolve } from "node:path";
-import { Cause, Effect, Exit, Scope, Stream, type Layer } from "effect";
+import { Cause, Effect, Exit, Queue, Scope, Stream, type Layer } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import type { PlatformError } from "effect/PlatformError";
 import {
   IdentityPoint,
+  EXTENSIONS_WATCH_NODE,
   NO_EMBEDDING,
   UI_DEFAULT_PORT,
   directorySignals,
+  extensionsWatched,
   type ActionHandlerEnv,
   type Embedding,
   type ExtensionEntry,
@@ -22,6 +24,8 @@ import { reloadEffect } from "@kb/operations";
 import {
   bunFileSystemLayer,
   extensionRuntimeChanges,
+  ownExtensionEdits,
+  ownExtensionPath,
   sessionRegistry,
   childProcessEnv,
   openKbEffect,
@@ -112,6 +116,13 @@ export interface UiServerOptions {
    * has none of; `null` keeps none.
    */
   builds?: string | null;
+  /**
+   * Watch the root's own `.kb/extensions/` for this run (`kb ui
+   * --watch-extensions`), whatever core's setting says; without it, the
+   * server watches while the setting is on (DESIGN.md → Watching the root's
+   * own extensions). Default: false.
+   */
+  watchExtensions?: boolean;
 }
 
 /**
@@ -121,7 +132,7 @@ export interface UiServerOptions {
  */
 export type ServedOptions = Pick<
   UiServerOptions,
-  "root" | "publicOrigin" | "embedding" | "identity" | "extensions" | "openedBy"
+  "root" | "publicOrigin" | "embedding" | "identity" | "extensions" | "openedBy" | "watchExtensions"
 >;
 
 export interface UiServerHandle {
@@ -403,6 +414,45 @@ const observeExtensions = Effect.fn("kb.observeExtensions")(function* (
 });
 
 /**
+ * Whether the server watches the root's own extensions, each time that
+ * changes: always, when this run `asked` (`--watch-extensions`); otherwise
+ * as core's setting reads now and after each write to core's node, from
+ * any surface, since every write reaches the session's log.
+ */
+function extensionWatching(ctx: KbContext, asked: boolean): Stream.Stream<boolean> {
+  if (asked) return Stream.succeed(true);
+  const read = () =>
+    extensionsWatched(
+      (id) => ctx.index.getNode(id),
+      (warning) => writeErr(`kb ui: the extensions.watch setting: ${warning} (read as off)`),
+    );
+  return Stream.callback<boolean>((queue) =>
+    Effect.acquireRelease(
+      Effect.sync(() => {
+        const unsubscribe = ctx.log.subscribe((tx) => {
+          const ids = [...tx.ops.upserts.map(({ id }) => id), ...tx.ops.deletes];
+          if (ids.includes(EXTENSIONS_WATCH_NODE)) Queue.offerUnsafe(queue, read());
+        });
+        Queue.offerUnsafe(queue, read());
+        return unsubscribe;
+      }),
+      (unsubscribe) => Effect.sync(unsubscribe),
+    ),
+  ).pipe(Stream.changes);
+}
+
+/** Every runtime or watched-source change uses the same composition refresh path. */
+function extensionSignals(ctx: KbContext, hub: SubscriptionHub, watchExtensions: boolean) {
+  const edits = extensionWatching(ctx, watchExtensions).pipe(
+    Stream.tap((on) => hub.extensionWatch(on ? ownExtensionPath(ctx.root) : null)),
+    Stream.switchMap((on) => (on ? ownExtensionEdits(ctx.root) : Stream.empty)),
+  );
+  return Stream.merge(extensionRuntimeChanges(ctx.root), edits).pipe(
+    Stream.provide(bunFileSystemLayer),
+  );
+}
+
+/**
  * Start the `kb ui` HTTP+WS server.
  *
  * Single Bun.serve / Effect runtime boundary: `Bun.serve` owns the TCP listen,
@@ -488,10 +538,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     lifetime,
   );
   yield* Effect.forkIn(
-    ingestEach(
-      extensionRuntimeChanges(ctx.root).pipe(Stream.provide(bunFileSystemLayer)),
-      observation.refresh,
-    ),
+    ingestEach(extensionSignals(ctx, hub, opts.watchExtensions === true), observation.refresh),
     lifetime,
   );
   yield* Effect.forkIn(

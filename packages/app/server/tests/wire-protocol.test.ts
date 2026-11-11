@@ -58,9 +58,11 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // A procedure step's status may name the action its check recommends and
 // carries its check's notes, fields a previous page ignores. The
 // `migration.*` actions are new actions a previous page never calls.
+// Protocol 9 adds the extension-watch greeting and live state; earlier pages
+// reject that frame and show a server-message error, so they reload first.
 const RECORDED = {
-  protocol: 8,
-  fingerprint: "a3b0932b152e732db39ab20ab562d4c3cb2653c790434c9cb429e78972887186",
+  protocol: 9,
+  fingerprint: "0c71ed9566b055a68ab5cbe02703a58321e0c18953cc14a0a7d00de7fd219707",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

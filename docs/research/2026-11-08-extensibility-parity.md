@@ -896,3 +896,5 @@ Implementation follow-up (Step 8): the [installed-role proof](2026-11-09-replace
 Implementation follow-up (Step 10): [transaction reactions](../../DESIGN.md#transaction-reactions) state the live contract; the [installed sample proof](2026-11-09-transaction-reactions-e2e.md) covers both committing surfaces.
 
 Implementation follow-up (Step 13): [capability admission](../../DESIGN.md#capability-admission) states the live contract and the absent-owner waiting policy; the [installed proof](2026-11-09-capability-admission-e2e.md) covers the Settings state and later owner arrival.
+
+Implementation follow-up (Step 14): the dev watcher is opt-in, by `kb ui --watch-extensions` or core's `sys.f.extensions.watch` setting, and the page's header shows a quiet note while it is on. Each save is still a new digest that a person trusts again. [Watching the root's own extensions](../../DESIGN.md#core-boundary--extensions) states the contract.

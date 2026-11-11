@@ -29,7 +29,7 @@ import { ScreenAckSchema, ScreenCommandSchema, ScreenStateSchema } from "./scree
  * (`packages/app/server/tests/wire-protocol.test.ts`), so a change to any
  * of those shapes is a decision: still compatible, or the next protocol.
  */
-export const WIRE_PROTOCOL = 8;
+export const WIRE_PROTOCOL = 9;
 
 /** A prop value as the wire carries it. */
 export const PropValueSchema = z.union([
@@ -224,6 +224,12 @@ export const ServerMessageSchema = z.discriminatedUnion("op", [
   z.object({ op: z.literal("pong") }),
   /** Runtime composition changed; reread kb.manifest independently of graph transactions. */
   z.object({ op: z.literal("manifest-changed") }),
+  /**
+   * Whether the server watches the root's own extensions, and which folder,
+   * root-relative (`null`: it does not). Sent when a connection is greeted
+   * and whenever it changes (DESIGN.md → Watching the root's own extensions).
+   */
+  z.object({ op: z.literal("extension-watch"), folder: z.string().min(1).nullable() }),
   /**
    * Carry out this command (`ui.navigate`, `ui.select`) and answer with a
    * `screen-ack` of the same `id`. Sent only to a connection that has

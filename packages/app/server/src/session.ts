@@ -130,6 +130,8 @@ export class SubscriptionHub {
   /** What an app that frames the page may have, which each connection is told. */
   private readonly embedding: Embedding;
   private readonly unsubscribe: () => void;
+  /** The folder of the root's own extensions the server watches, or null ({@link extensionWatch}). */
+  private watching: string | null = null;
   /** The screens of the connections that are UI tabs; the pictures they draw kept under the root. */
   readonly screens: ScreenHub;
 
@@ -161,10 +163,28 @@ export class SubscriptionHub {
 
   /** Runtime definitions moved without a node delta; answers still follow the index. */
   manifestChanged(): Effect.Effect<void> {
-    const payload = JSON.stringify({ op: "manifest-changed" } satisfies ServerMessage);
+    return this.broadcast({ op: "manifest-changed" }).pipe(
+      Effect.andThen(this.publishRows(this.ctx.log.head)),
+    );
+  }
+
+  /**
+   * Whether the server watches the root's own extensions, and which folder
+   * (`null`: it does not): told to every connection now, and to each one
+   * greeted later.
+   */
+  extensionWatch(folder: string | null): Effect.Effect<void> {
+    if (folder === this.watching) return Effect.void;
+    this.watching = folder;
+    return this.broadcast({ op: "extension-watch", folder });
+  }
+
+  /** `message` to every connection. */
+  private broadcast(message: ServerMessage): Effect.Effect<void> {
+    const payload = JSON.stringify(message);
     return Effect.forEach([...this.clients.values()], (client) => client.send(payload), {
       discard: true,
-    }).pipe(Effect.andThen(this.publishRows(this.ctx.log.head)));
+    });
   }
 
   /** Test hook: number of live clients. */
@@ -199,7 +219,10 @@ export class SubscriptionHub {
     return graph;
   }
 
-  /** Register `caller`'s client and greet it: `hello`, then who the server takes it to be. */
+  /**
+   * Register `caller`'s client and greet it: `hello`, then who the server
+   * takes it to be, then whether it watches the root's own extensions.
+   */
   addClient(clientId: string, deliver: ClientSend, caller: Caller): Effect.Effect<void> {
     const send = (text: string) => Effect.ignore(deliver(text));
     this.clients.set(clientId, { send, deliver, caller, watchTx: false, subs: new Map() });
@@ -210,6 +233,7 @@ export class SubscriptionHub {
         person: caller.person,
         ...(this.embedding.origins.length === 0 ? {} : { embedding: this.embedding }),
       },
+      { op: "extension-watch", folder: this.watching },
     ];
     return Effect.forEach(greeting, (frame) => send(JSON.stringify(frame)), { discard: true });
   }

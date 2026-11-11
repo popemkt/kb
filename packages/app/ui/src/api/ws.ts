@@ -86,6 +86,11 @@ export interface KbWsClientOptions {
   /** Read the server catalog on connection and whenever the server announces a change. */
   onManifestChanged?: () => void;
   /**
+   * The folder of the root's own extensions the server watches, or null:
+   * told on every connect and whenever it changes.
+   */
+  onExtensionWatch?: (folder: string | null) => void;
+  /**
    * A command the server asks this tab to carry out; the answer goes back
    * with {@link KbWsClient.answerScreenCommand} under the same id.
    */
@@ -343,6 +348,9 @@ export class KbWsClient {
         break;
       case "manifest-changed":
         this.opts.onManifestChanged?.();
+        break;
+      case "extension-watch":
+        this.opts.onExtensionWatch?.(msg.folder);
         break;
       // Exhaustive over ServerMessage['op']; switch-exhaustiveness-check guards it
       // no default
