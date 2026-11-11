@@ -1488,14 +1488,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXNP3EMV1ES85BVE9CXMYE`
 
-### GAP: the canvas keymap is a fixed table, not a key context
-
-- **expected** — canvas-ui contributes a canvas key context to ui.key-contexts, with its intents and reserved chords, and reads its keys through currentKeymap, as the outline and the page do.
-- **current** — canvas-ui reads its own CANVAS keymap table; it neither offers ui.keybindings a context nor reads one.
-- **impact** — An extension cannot bind or rebind a canvas key, and the canvas answers which key means what by a mechanism of its own, beside the one the page and the outline share. Admission cannot see the canvas's chords, so a page key (core.page) is not refused over one: it would take that key on a canvas.
-- **closes** — A canvas context (reach surface) whose intents are the canvas keymap's actions, its chords contributed as canvas-ui's bindings, and the canvas's dispatch reading currentKeymap.
-- **node** — `01M74A3DT90MGHYGK1TAXZT9WZ`
-
 ### GAP: the canvas's 60fps bar is measured on a scratch benchmark, not gated
 
 - **expected** — A frame-time check over the 2000-item benchmark canvas (pan, zoom, a 1-item and a 50-item drag) that fails the render lane when p95 rises past a frame

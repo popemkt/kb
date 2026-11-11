@@ -8,11 +8,14 @@
  * No two of a context's chords overlap, so their order means nothing; a
  * chord by place (`code`) is asked before one by character.
  *
- * What a key does once a keymap holds it, and how a menu or a hint shows it,
- * is the keymap's (`canvas-keymap.ts`).
+ * canvas-ui contributes the contexts and the bindings to the page kernel
+ * (`contributeCanvasKeys`), so any plugin may bind a canvas key as it binds
+ * an outline one, and the page's one admission decides each context's
+ * keymap. What a key does once a keymap holds it, and how a menu or a hint
+ * shows it, is the keymap's (`canvas-keymap.ts`).
  */
-// GAP [[01M74A3DT90MGHYGK1TAXZT9WZ]] the canvas's keys are this table, not a key context on ui.keybindings
-import type { ContributionEntry } from "@kb/plugin";
+import { Effect } from "effect";
+import type { ContributionEntry, PluginContext } from "@kb/plugin";
 import {
   type CanvasAlignEdge,
   type CanvasFlipAxis,
@@ -20,7 +23,14 @@ import {
   type CanvasProjectionKind,
   canvasExtension,
 } from "@kb/canvas";
-import type { Chord, KeyChordEvent, KeyContextSpec, Keybinding } from "@kb/ui-sdk";
+import {
+  KeybindingPoint,
+  KeyContextPoint,
+  type Chord,
+  type KeyChordEvent,
+  type KeyContextSpec,
+  type Keybinding,
+} from "@kb/ui-sdk";
 import type { CanvasToolPick } from "./canvas-tool";
 import type { CanvasViewPresetName } from "@kb/contracts";
 import { CANVAS_VIEW_PRESETS, ZOOM_STEP } from "./canvas-camera-stops";
@@ -598,7 +608,7 @@ export const CANVAS_SHORTCUTS: readonly CanvasShortcut[] = [
  * its intents its shortcuts, and Escape its own, so no binding traps a
  * person in a transform or a presentation.
  */
-export const CANVAS_CONTEXTS: readonly ContributionEntry<KeyContextSpec>[] = (
+const CANVAS_CONTEXTS: readonly ContributionEntry<KeyContextSpec>[] = (
   ["rest", "transform", "present"] as const
 ).map((name) => ({
   id: name,
@@ -614,10 +624,21 @@ export const CANVAS_CONTEXTS: readonly ContributionEntry<KeyContextSpec>[] = (
  * binding per chord of each shortcut, `canvas.rest.tool.select`,
  * `canvas.rest.tool.select.2`, … No two of a context's chords overlap.
  */
-export const CANVAS_BINDINGS: readonly ContributionEntry<Keybinding>[] = CANVAS_SHORTCUTS.flatMap(
+const CANVAS_BINDINGS: readonly ContributionEntry<Keybinding>[] = CANVAS_SHORTCUTS.flatMap(
   (entry) =>
     entry.chords.map((chord, index) => ({
       id: `${entry.context}.${entry.name}${index === 0 ? "" : `.${index + 1}`}`,
       value: { context: CANVAS_CONTEXT_IDS[entry.context], chord, run: { intent: entry.name } },
     })),
 );
+
+/** Contribute the canvas's key contexts and its bindings, as canvas-ui does. */
+export function contributeCanvasKeys(ctx: PluginContext) {
+  return Effect.all(
+    [
+      ...CANVAS_CONTEXTS.map((context) => ctx.contribute(KeyContextPoint, context)),
+      ...CANVAS_BINDINGS.map((binding) => ctx.contribute(KeybindingPoint, binding)),
+    ],
+    { discard: true },
+  );
+}

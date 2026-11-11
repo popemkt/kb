@@ -4,9 +4,10 @@
  *
  * A context is a place keys mean something, a contribution to
  * {@link KeyContextPoint} by the plugin that reads it, which owns it: the
- * page's own (`core.page`), offered every key first, and the outline's
- * editing row (`outline.editing`) and its selection (`outline.selection`),
- * offered the keys of what has focus. Its owner states its bindings as every other
+ * page's own (`core.page`), offered every key first; and the outline's
+ * editing row (`outline.editing`) and its selection (`outline.selection`)
+ * and the canvas's three (`canvas.rest`, `canvas.transform`,
+ * `canvas.present`), offered the keys of what has focus. Its owner states its bindings as every other
  * plugin does, as contributions to {@link KeybindingPoint}, so a built-in
  * has an id another binding can name. The keymap a context reads is
  * decided here, once, for every context: the owner's bindings first,
@@ -47,8 +48,18 @@ export const KeybindingPoint = Point<Keybinding>()(
   CORE_POINT_DEFINITIONS.keybinding.spec,
 );
 
-/** The contexts a binding may name: the page's own, and the outline's row being edited and its selection. */
-export type KeyContextId = "core.page" | "outline.editing" | "outline.selection";
+/**
+ * The contexts a binding may name: the page's own; the outline's row being
+ * edited and its selection; and the canvas at rest, in a modal transform,
+ * and presenting frames.
+ */
+export type KeyContextId =
+  | "core.page"
+  | "outline.editing"
+  | "outline.selection"
+  | "canvas.rest"
+  | "canvas.transform"
+  | "canvas.present";
 
 /**
  * A binding as data (its T0 form): a chord written as text

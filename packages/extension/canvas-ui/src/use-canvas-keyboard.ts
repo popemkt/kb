@@ -38,7 +38,7 @@ import {
 } from "./canvas-tool";
 import type { CanvasViewportControls } from "./canvas-camera";
 import type { CanvasPointerEvent } from "./canvas-pointer";
-import { isTextEntry } from "@kb/ui-sdk";
+import { isTextEntry, runKeyCall } from "@kb/ui-sdk";
 import { readPastedText } from "./canvas-paste";
 import { hasEditor } from "./canvas-face-overlay";
 import { intentApplies } from "./use-canvas-menu";
@@ -390,6 +390,7 @@ export function useCanvasKeyboard(context: CanvasKeyboardContext): (intent: Canv
       });
       if (binding === null) return;
       if (binding.intent !== null) applyCanvasIntent(context, binding.intent);
+      if (binding.call !== undefined) void runKeyCall(binding.call);
       if (binding.preventDefault) event.preventDefault();
     };
     const onKeyUp = (event: KeyboardEvent) => {

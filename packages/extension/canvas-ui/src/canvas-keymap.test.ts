@@ -1,4 +1,8 @@
-import { describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { Effect } from "effect";
+import { definePlugin } from "@kb/plugin";
+import { KeybindingPoint, provideKeybinding, syncUiPlugins } from "@kb/ui-sdk";
+import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
 import {
   CANVAS_SHORTCUTS,
   CANVAS_VIEW_COMMANDS,
@@ -6,8 +10,12 @@ import {
   type CanvasKeyEvent,
   type CanvasMenuName,
 } from "./canvas-keys";
-import { canvasKeymap, menuRows, mapCanvasKey } from "./canvas-keymap";
+import { canvasKeymap, hintOf, menuRows, mapCanvasKey } from "./canvas-keymap";
 import { ZOOM_STEP } from "./canvas-camera-stops";
+import { canvasKeysPlugin } from "./test-support/canvas-keys";
+
+beforeAll(() => syncUiPlugins([canvasKeysPlugin]));
+afterAll(() => syncUiPlugins([]));
 
 const withSelection = { selectionEmpty: false, transforming: false };
 const empty = { selectionEmpty: true, transforming: false };
@@ -326,5 +334,101 @@ describe("the canvas's key contexts", () => {
       type: "tool",
       tool: "group",
     });
+  });
+});
+
+/** A plugin binding `bindings`, beside the canvas's own. */
+const keys = (...bindings: ReturnType<typeof provideKeybinding>[]) =>
+  definePlugin({
+    name: "keys",
+    apply: (ctx) =>
+      Effect.all(
+        bindings.map((binding) => ctx.contribute(KeybindingPoint, binding)),
+        { discard: true },
+      ),
+  });
+
+/** The canvas's keys with `plugin`'s beside them, while `run` runs, under a host that approves replacements. */
+function withKeys(plugin: ReturnType<typeof keys>, run: () => void): void {
+  syncUiPlugins([testHostPlugin(testBrowserHost()), canvasKeysPlugin, plugin]);
+  try {
+    run();
+  } finally {
+    syncUiPlugins([canvasKeysPlugin]);
+  }
+}
+
+describe("another plugin's canvas keys", () => {
+  test("bind a free chord to an action, which the key runs", () => {
+    withKeys(
+      keys(
+        provideKeybinding("stamp", {
+          context: "canvas.rest",
+          chord: "Mod-Shift-y",
+          run: { action: "keys.stamp" },
+        }),
+      ),
+      () => {
+        expect(canvasKeymap("rest").refused).toEqual([]);
+        expect(mapCanvasKey(chord("Y", { metaKey: true, shiftKey: true }), withSelection)).toEqual({
+          intent: null,
+          call: { type: "runAction", action: "keys.stamp", input: {} },
+          preventDefault: true,
+        });
+      },
+    );
+  });
+
+  test("take a held chord only by naming its holder, and the hints follow the keymap", () => {
+    const copy = CANVAS_SHORTCUTS.find(({ name }) => name === "copy");
+    expect(copy && hintOf(copy)).toBe("⌘C");
+    withKeys(
+      keys(
+        provideKeybinding("draw", {
+          context: "canvas.rest",
+          chord: "Alt-p",
+          run: { intent: "tool.draw" },
+        }),
+        provideKeybinding("copy", {
+          context: "canvas.rest",
+          chord: "Mod-c",
+          run: { action: "keys.copy-as-link" },
+          replaces: "canvas.rest.copy",
+        }),
+      ),
+      () => {
+        expect(canvasKeymap("rest").refused).toEqual([
+          {
+            id: "keys.draw",
+            reason:
+              'Alt-p in canvas.rest is held by canvas.rest.tool.draw; a binding that takes it says replaces: "canvas.rest.tool.draw"',
+          },
+        ]);
+        expect(mapCanvasKey(chord("c", { metaKey: true }), withSelection)?.call).toEqual({
+          type: "runAction",
+          action: "keys.copy-as-link",
+          input: {},
+        });
+        // Copy holds no chord now, so no menu or tooltip names one for it.
+        expect(copy && hintOf(copy)).toBe("");
+      },
+    );
+  });
+
+  test("may not take Escape, so no key traps a person in a transform", () => {
+    withKeys(
+      keys(
+        provideKeybinding("out", {
+          context: "canvas.transform",
+          chord: "Escape",
+          run: { intent: "transform.confirm" },
+        }),
+      ),
+      () => {
+        expect(canvasKeymap("transform").refused).toEqual([
+          { id: "keys.out", reason: "Escape is reserved in canvas.transform" },
+        ]);
+      },
+    );
   });
 });
