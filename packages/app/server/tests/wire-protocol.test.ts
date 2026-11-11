@@ -50,9 +50,11 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // Protocol 8: node.add and node.addTree read an omitted parent as the
 // capture target (today's node with days), where a previous page meant the
 // top level; its local commit and the server's would disagree, so it reloads.
+// `store.backup`, `store.backups` and `store.restore` are new actions a
+// previous page never calls.
 const RECORDED = {
   protocol: 8,
-  fingerprint: "95a8336ede518edc9d09b076038f70a7a2e51bd1ef2e2d7da53e5e9f866e8eec",
+  fingerprint: "2fd4f516bcf313ad3abd14426c3657fe97e524daefe26ff95ee522a82636a58e",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

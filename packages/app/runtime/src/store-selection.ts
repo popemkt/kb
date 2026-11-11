@@ -197,7 +197,7 @@ export interface StoreCopy {
  * target behind (its files are removed) and fails, so a caller never holds a
  * copy of a state the source was never in.
  */
-const copyStore = Effect.fn("kb.copyStore")(function* (
+export const copyStore = Effect.fn("kb.copyStore")(function* (
   from: StoreAt,
   to: StoreAt,
 ): Effect.fn.Return<StoreCopy, DomainError, FileSystem> {

@@ -57,6 +57,14 @@ import {
   renderViewsDef,
 } from "./render.ts";
 import {
+  storeBackupDef,
+  storeBackupEffect,
+  storeBackupsDef,
+  storeBackupsEffect,
+  storeRestoreDef,
+  storeRestoreEffect,
+} from "./store-backup.ts";
+import {
   uiCaptureDef,
   uiCaptureEffect,
   uiNavigateDef,
@@ -95,6 +103,9 @@ const portActions: readonly RegisteredAction[] = [
   coreNative(extensionDiffDef, extensionDiffEffect),
   coreNative(extensionSettingsDef, extensionSettingsEffect),
   coreNative(viewsMigrateDef, viewsMigrateEffect),
+  coreNative(storeBackupDef, storeBackupEffect),
+  coreNative(storeBackupsDef, storeBackupsEffect),
+  coreNative(storeRestoreDef, storeRestoreEffect),
   coreNative(uiScreenDef, uiScreenEffect),
   coreNative(uiNavigateDef, uiNavigateEffect),
   coreNative(uiSelectDef, uiSelectEffect),

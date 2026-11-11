@@ -299,6 +299,11 @@ export const SYSTEM_IDS = {
    */
   designSystemField: "sys.f.design-system",
   /**
+   * How many backups of this store a machine keeps (DESIGN.md → Storage →
+   * Backups): a number, a setting of core's node; unset is the default.
+   */
+  backupsKeptField: "sys.f.backups.kept",
+  /**
    * Motion options (`motion.ts`): the mode, intensity, style and speed, each
    * a ref to one of its field's children, and one checkbox field per effect
    * (`motionEffectFieldId`). Settings of core's node; a design system's

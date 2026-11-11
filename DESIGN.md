@@ -1802,7 +1802,45 @@ constructing _both concrete adapters_ and deleting _their_ files; written
 against `EffectStore` alone it cannot name a single one of those things. The
 one place that legitimately knows both adapters exist is the composition root,
 so `migrateStore` lives beside `selectStore` in `@kb/runtime` and the CLI
-command is a thin surface over it.
+command is a thin surface over it. Its copy — read one state, commit it into
+an empty target, refuse a source written meanwhile, carry the tail — is
+`copyStore(from, to)`, each end a root and a backend; migrating is that copy
+into the root's other backend, then the removal, and a backup is the same copy
+into another root.
+
+### Backups
+
+A **backup** is a copy of a root's store as one state, in the same backend,
+kept on this machine: `<KB_DATA>/backups/<root's name>-<hash of its path>/<id>`,
+never under the root (a repository's `.kb` is committed; a backup is what a
+person had here, not a revision of it). Each is **a kb root of its own** —
+`kb --root <backup>` opens it — with a `backup.json` beside its `.kb` naming
+the root it copied, when, its node count and the source's **fingerprint at the
+copy**: the state it is. A directory without a readable manifest is not a
+backup, so a copy that dies half-way is never listed.
+
+The mechanism is the runtime's, behind `KbRoots` (`backup`, `backups`, and
+`snapshot`, a raw read of a root that composes and seeds nothing); the policy
+is three core actions:
+
+- **`store.backup`** answers the newest backup when the store's fingerprint is
+  still its fingerprint (a state is copied once), else copies, then keeps the
+  newest **`backups kept`** — a number setting of core's node
+  (`sys.f.backups.kept`; unset is 3, at least 1), so it is set as any setting
+  is, `kb set sys.extension.core "backups kept" 5`.
+- **`store.backups`** lists them newest first, each marked `current` when the
+  store is still its state. "Is there a backup of the store as it is now" is
+  therefore read, never recorded — what a procedure's backup step asks.
+- **`store.restore <id>`** (approval required, so never from MCP) reads the
+  backup, backs up the state it is about to replace, and commits
+  `diffTx(now, backup)` as **one transaction** on the live store through the
+  planned-commit path. It does not stop or swap a served store: a served page
+  sees the restore as any write, and the tail keeps going. Restoring the
+  backup it took undoes it. It reads the backup before taking that one, as
+  retention may remove the oldest.
+
+`kb store backup`, `kb store backups` and `kb store restore <id>` are those
+actions. `store-backup-contract.test.ts` proves them over every backend.
 
 ### The transaction tail — the store records what changed, in order
 
