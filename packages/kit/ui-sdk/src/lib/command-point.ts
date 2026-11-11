@@ -186,6 +186,12 @@ export interface GlobalCommand extends CommandBase {
 export interface NodeCommand extends CommandBase {
   readonly menu: Extract<CommandMenu, { readonly where: "node" }>;
   readonly chrome: (ctx: CommandContext) => CommandChrome;
+  /**
+   * The global command (its `sys.command` id) this is the node menu's face
+   * of: the one act, there on the page's frame, here on this node. Where ⌘K
+   * lists a node's commands, it lists this row in that one's place.
+   */
+  readonly faceOf?: string | undefined;
 }
 
 export type Command = GlobalCommand | NodeCommand;
@@ -203,6 +209,8 @@ export const CommandPoint = Point<Command>()(
 /** One row of the node menu: what to show, and what pressing it does. */
 export interface NodeCommandListing {
   readonly id: string;
+  /** The global command this row is the node's face of (`NodeCommand.faceOf`). */
+  readonly faceOf?: string | undefined;
   readonly label: string;
   readonly icon: ReactNode;
   readonly run: () => void;

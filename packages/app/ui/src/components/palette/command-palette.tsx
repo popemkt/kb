@@ -5,6 +5,7 @@ import {
   cn,
   type CommandContext,
   isSysPrefixed,
+  menuAnchorOf,
   pageTitleInstanceKey,
   schemaZoomKind,
   textOr,
@@ -27,12 +28,25 @@ import { pageEditor } from "@/stores/page-editor";
 import { useUiStore } from "@/stores/ui.store";
 
 /**
- * Open the node menu on `nodeId` at picker step `step`: where it is
- * selected, or else at its page's title, as the page's node is shown there.
+ * Where the node menu would open on `nodeId`: the instance it is selected
+ * at, else its page's title; null where neither is on screen (a canvas, a
+ * graph), so the menu has nowhere to open.
  */
-function openNodeMenuAt(nodeId: string, step: string): void {
+function menuInstanceOf(nodeId: string): string | null {
   const editor = pageEditor().getState();
-  if (editor.selectedNodeId !== nodeId) editor.selectNode(nodeId, pageTitleInstanceKey(nodeId));
+  const key =
+    editor.selectedNodeId === nodeId && editor.selectedInstanceKey !== null
+      ? editor.selectedInstanceKey
+      : pageTitleInstanceKey(nodeId);
+  return menuAnchorOf(key) === null ? null : key;
+}
+
+/** Open the node menu on `nodeId` at picker step `step`, where it is shown. */
+function openNodeMenuAt(nodeId: string, step: string): void {
+  const key = menuInstanceOf(nodeId);
+  if (key === null) return;
+  const editor = pageEditor().getState();
+  if (editor.selectedInstanceKey !== key) editor.selectNode(nodeId, key);
   useUiStore.getState().setNodePaletteOpen(true, step);
 }
 
@@ -99,7 +113,9 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const nodeCommands = useMemo(() => {
     if (!open) return [];
     const ctx = commandContext(onClose);
-    return ctx.target.nodeId === null ? [] : listNodeCommands(ctx);
+    const nodeId = ctx.target.nodeId;
+    // Only where the node's menu can open: a step it hands over opens there.
+    return nodeId === null || menuInstanceOf(nodeId) === null ? [] : listNodeCommands(ctx);
   }, [open, onClose]);
   const index = useMemo(() => {
     const nodeId = commandTargetNodeId(pageCommandApi());

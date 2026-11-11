@@ -458,10 +458,12 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     run: (ctx) => nodeAction(ctx, (nodeId) => void browserHost().writes.togglePin(nodeId)),
   },
   {
-    // Per node, never global: the answer is about the node you are looking at
+    // Per node: the answer is about the node you are looking at; ⌘K's "Debug:
+    // show all fields" is the same act on its target
     // (stores/debug-fields.store).
     id: "toggle-debug-fields",
     menu: nodeMenu("mark", 20),
+    faceOf: SYSTEM_IDS.cmdDebugShowFields,
     chrome: (ctx) => {
       const nodeId = ctx.target.nodeId;
       const on = nodeId !== null && ctx.debugFields.ids.has(nodeId);
@@ -481,6 +483,7 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
   {
     id: "view-filter",
     menu: nodeMenu("view", 90),
+    faceOf: SYSTEM_IDS.cmdViewFilter,
     chrome: () => ({ label: "Filter…", icon: <MagnifyingGlassIcon size={14} /> }),
     run: (ctx) => nodeAction(ctx, (nodeId) => ctx.ui.setViewSettingsFrameId(nodeId)),
   },
@@ -505,6 +508,7 @@ function frameViewCommands(ctx: CommandContext): {
       ({ key, picker }): Command => ({
         id: `view-as-${localIdOf(key)}`,
         menu: nodeMenu("view", 10),
+        faceOf: picker.command,
         chrome: () => {
           const Icon = picker.icon;
           return {
@@ -644,6 +648,7 @@ export function listNodeCommands(ctx: CommandContext): NodeCommandListing[] {
       const chrome = command.chrome(ctx);
       return {
         id: command.id,
+        faceOf: command.faceOf,
         label: chrome.label,
         icon: chrome.icon,
         run: () => void runCommand(command.id, ctx),

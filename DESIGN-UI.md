@@ -2389,9 +2389,17 @@ one its focused pane is shown for (`paneSubjectAt`: a zoom, or a node
 opened at `/node/<id>`) — ahead of the
 graph's entries, each marked with that node's label (`withNodeCommands`).
 So a page's own commands are found where a person searches, with nothing
-selected: on a tag's page, "Make your own tag that extends this". A command
-that asks for a picker step hands over to the node menu on that node at
-its title, opened at that step (`setNodePaletteOpen(true, step)`).
+selected: on a tag's page, "Make your own tag that extends this". It lists
+them only where that node's menu can open — the instance it is selected
+at, else its page's title, carries a menu anchor — so a page that shows its
+node without a title (a canvas, a graph) offers ⌘K's own commands alone. A
+command that asks for a picker step hands over to the node menu there,
+opened at that step (`setNodePaletteOpen(true, step)`). A node command that
+is the node's face of a global one names it (`faceOf`: "View as: …",
+"Filter…", the debug fields), and stands in its place, so one act is one
+row; a global command and a node command that do different things are
+named apart (⌘K's "New tag" makes a tag, the node menu's "Add tag" puts
+one on the node).
 
 **A command and a picker step as data.** A node command may hand the
 palette to a picker step (`palette.openStep(id)`, `PaletteStepPoint`,

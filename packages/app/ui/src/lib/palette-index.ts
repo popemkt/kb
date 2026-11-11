@@ -54,15 +54,24 @@ function entryOf(id: string, text: string, kind: PaletteEntryKind): PaletteEntry
 /**
  * `index` with the commands of one node (`listNodeCommands`) ahead of it:
  * what the node menu offers that node, found by the same search, each marked
- * with the node it acts on.
+ * with the node it acts on. A node command that is the face of a global one
+ * (`faceOf`) stands in its place, so one act is one row.
  */
 export function withNodeCommands(
   index: PaletteIndex,
-  commands: readonly { readonly id: string; readonly label: string }[],
+  commands: readonly {
+    readonly id: string;
+    readonly label: string;
+    readonly faceOf?: string | undefined;
+  }[],
   target: string,
 ): PaletteIndex {
+  const faced = new Set(commands.flatMap((c) => (c.faceOf === undefined ? [] : [c.faceOf])));
   const entries = commands.map((c) => ({ ...entryOf(c.id, c.label, "command"), target }));
-  return { rev: index.rev, entries: [...entries, ...index.entries] };
+  return {
+    rev: index.rev,
+    entries: [...entries, ...index.entries.filter((entry) => !faced.has(entry.id))],
+  };
 }
 
 function fuzzySubsequence(hay: string, q: string): boolean {

@@ -366,17 +366,31 @@ describe("the global palette on a page", () => {
 
   beforeEach(() => {
     seed();
+    // ⌘K's own "Filter…", whose node face the node menu offers.
+    const filter = {
+      id: SYSTEM_IDS.cmdViewFilter,
+      text: "Filter…",
+      props: { [SYSTEM_IDS.typeField]: [{ t: "ref" as const, v: SYSTEM_IDS.command }] },
+    };
+    useGraphStore.getState().hydrateFromWire([...graph(), wire(filter)], 2, "fixtures");
     useGraphStore.setState({ rootNodeId: "t.super" });
     container = dom.document.createElement("div") as unknown as HTMLDivElement;
     dom.document.body.appendChild(container as unknown as never);
     root = createRoot(container);
+    // The page's title, where the page's node is shown and its menu opens.
+    title = dom.document.createElement("div");
+    title.setAttribute("data-menu-anchor", pageTitleInstanceKey("t.super"));
+    dom.document.body.appendChild(title);
   });
 
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    title.remove();
     vi.restoreAllMocks();
   });
+
+  let title: InstanceType<typeof dom.HTMLElement>;
 
   async function openPalette() {
     await act(async () => {
@@ -413,6 +427,25 @@ describe("the global palette on a page", () => {
     } finally {
       useWorkspaceStore.setState({ layout: before.layout, focused: before.focused });
     }
+  });
+
+  it("lists a global command once, as the node's face of it", async () => {
+    await openPalette();
+    const filters = [...dom.document.querySelectorAll("[data-palette-row]")].filter(
+      (b) => b.querySelector(".flex-1")?.textContent === "Filter…",
+    );
+    expect(filters.map((b) => b.lastElementChild.textContent)).toEqual(["project"]);
+  });
+
+  it("lists no node's commands where its menu cannot open, and the global ones stand", async () => {
+    // A page that shows its node with no title: a canvas, a graph.
+    title.remove();
+    await openPalette();
+    const texts = [...dom.document.querySelectorAll("[data-palette-row]")].map(
+      (b) => b.querySelector(".flex-1")?.textContent,
+    );
+    expect(texts).not.toContain("Make your own tag that extends this");
+    expect(row("Filter…").lastElementChild?.textContent).toBe("cmd");
   });
 
   it("runs one on the page's node", async () => {
