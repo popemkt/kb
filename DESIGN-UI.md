@@ -727,6 +727,15 @@ its title, tags and fields, its children in its view, and then what
 reaches it from elsewhere: for a tag or field, what carries it (Schema),
 then its References.
 
+- **A page that takes rows** (a list, not a projected view or a query;
+  `takesRows`) offers two ways to its rows, the same on every node's page:
+  - **Enter in its title** ends the title's edit and opens a first row
+    above whatever the page holds, as Tana's title does: a transient row
+    (Outline editor), pruned if left empty.
+  - **Its create strip** adds a row at the end. While the page holds no
+    rows, as a new day does, the strip is the first row's place and says
+    so without a hover ("+ New node"); once it holds one, it is the quiet
+    strip again. Nothing is written until the person asks.
 - **Sections below the outline, contributed per tag.** A family that
   shows something on the page of a node that is one of its tags
   contributes a section to the core point `ui.node-sections` (page
