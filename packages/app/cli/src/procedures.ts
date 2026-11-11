@@ -38,21 +38,24 @@ interface WalkOpts {
   readonly once: boolean;
 }
 
-/** A step as a line: behind (✓), next (→) or ahead, and a decision's actions. */
-function stepLine(step: StepStatus, current: string | null): string {
+/** A step as lines: behind (✓), next (→) or ahead, a decision's actions (the recommended one marked), and its notes. */
+function stepLines(step: StepStatus, current: string | null): string[] {
   const mark = step.done ? "✓" : step.id === current ? "→" : " ";
-  const offers = step.decision
-    ? `  — decide: ${step.actions.map((a) => `${a.id} (${a.title})`).join(" | ")}`
-    : "";
+  const named = (a: StepStatus["actions"][number]) =>
+    `${a.id} (${a.title}${a.id === step.recommended ? ", recommended" : ""})`;
+  const offers = step.decision ? `  — decide: ${step.actions.map(named).join(" | ")}` : "";
   const failed = step.check.status === "failed" ? `  [check failed: ${step.check.message}]` : "";
-  return `${mark} ${step.id}  ${step.title}${offers}${failed}`;
+  return [
+    `${mark} ${step.id}  ${step.title}${offers}${failed}`,
+    ...step.notes.map((note) => `    ${note}`),
+  ];
 }
 
 function statusLines(status: ProcedureStatus): string[] {
   const next = status.steps.find((step) => step.id === status.current);
   return [
     `${status.title} (${status.id})`,
-    ...status.steps.map((step) => stepLine(step, status.current)),
+    ...status.steps.flatMap((step) => stepLines(step, status.current)),
     next === undefined
       ? "every step is done"
       : next.decision

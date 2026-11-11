@@ -2984,7 +2984,11 @@ actions, contributed to `ProcedurePoint` (`kb.procedures`, keyed):
   a read action whose output's `done` answers whether it is done. The answer
   comes from the store, or from what the store's machine holds, such as a
   backup. There is no progress state to drift, so a procedure resumes
-  wherever it was left, on whichever surface.
+  wherever it was left, on whichever surface. A check may also name the
+  step action it **recommends** and give **notes** to show beside the step
+  (roll back, listing what a migration's verify found). A recommendation
+  that names none of the step's actions is dropped, and none is ever taken
+  for the person.
 - **Order is one rule** (`walkedSteps`): a step counts as done when its own
   check says so **or a later step's does**. Steps are walked in order, so a
   later step done means this one was passed, whatever its check reads now

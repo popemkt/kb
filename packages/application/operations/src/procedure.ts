@@ -57,18 +57,40 @@ const procedureOf = Effect.fn("procedure.of")(function* (
 
 const requestOf = (call: ProcedureCall) => ({ id: call.action, input: call.input });
 
-/** What a step's check answered, read through the invoke core as a read. */
-function checkOf(receipt: ActionReceipt): StepStatus["check"] {
+/** What a step's check answered, read through the invoke core as a read, and what it adds. */
+function checkOf(receipt: ActionReceipt): {
+  readonly check: StepStatus["check"];
+  readonly recommended?: string;
+  readonly notes: readonly string[];
+} {
   if (receipt.status === "failed")
-    return { status: "failed", code: receipt.code, message: receipt.message };
+    return { check: { status: "failed", code: receipt.code, message: receipt.message }, notes: [] };
   const parsed = StepCheckSchema.safeParse(receipt.output);
   if (!parsed.success)
     return {
-      status: "failed",
-      code: "internal",
-      message: `${receipt.id} answered no \`done\`: ${parsed.error.message}`,
+      check: {
+        status: "failed",
+        code: "internal",
+        message: `${receipt.id} answered no \`done\`: ${parsed.error.message}`,
+      },
+      notes: [],
     };
-  return { status: parsed.data.done ? "done" : "not-done" };
+  const { done, recommended, notes = [] } = parsed.data;
+  return {
+    check: { status: done ? "done" : "not-done" },
+    ...(recommended === undefined ? {} : { recommended }),
+    notes,
+  };
+}
+
+/** A check's recommendation, kept only when it names one of the step's actions. */
+function recommendedOf(
+  step: ProcedureContribution["steps"][number],
+  recommended: string | undefined,
+): { recommended?: string } {
+  return recommended !== undefined && step.actions.some((action) => action.id === recommended)
+    ? { recommended }
+    : {};
 }
 
 /** `id`'s status: every step's check read now, and the step to run next. */
@@ -80,7 +102,7 @@ const statusOf = Effect.fn("procedure.statusOf")(function* (
   const checks = yield* Effect.forEach(procedure.steps, (step) =>
     invoke(requestOf(step.check), "read").pipe(Effect.map(checkOf)),
   );
-  const walked = walkedSteps(checks.map((check) => check.status === "done"));
+  const walked = walkedSteps(checks.map(({ check }) => check.status === "done"));
   return {
     id,
     title: procedure.title,
@@ -91,7 +113,9 @@ const statusOf = Effect.fn("procedure.statusOf")(function* (
       ...(step.description === undefined ? {} : { description: step.description }),
       actions: step.actions.map((action) => ({ ...action })),
       decision: isDecision(step),
-      check: checks[at] ?? { status: "not-done" },
+      ...recommendedOf(step, checks[at]?.recommended),
+      notes: [...(checks[at]?.notes ?? [])],
+      check: checks[at]?.check ?? { status: "not-done" },
       done: walked.done[at] ?? false,
     })),
     current: walked.current === null ? null : (procedure.steps[walked.current]?.id ?? null),
