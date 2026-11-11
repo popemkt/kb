@@ -290,4 +290,49 @@ describe("browser action runtime", () => {
       vi.unstubAllGlobals();
     }
   });
+  it("preserves schema refusals when rejected input cannot be serialized", async () => {
+    useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+    const fetch = vi.fn(async () => new Response("{}"));
+    vi.stubGlobal("fetch", fetch);
+    const cyclic: Record<string, unknown> = {};
+    cyclic.self = cyclic;
+    try {
+      for (const text of [1n, cyclic]) {
+        await expect(
+          invokeLocal({ id: "node.update", input: { id: "n.root-a", text } }),
+        ).resolves.toMatchObject({ status: "failed", code: "invalid_input" });
+      }
+      expect(fetch).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it.each(["throw", "reject"])(
+    "preserves the refusal and snapshot recovery when reporting fails: %s",
+    async (mode) => {
+      const nodes = structuredClone(fixtureGraph.nodes);
+      useGraphStore.getState().hydrateFromWire(nodes, 1, "api");
+      const fetchSnapshot = vi.fn();
+      setBrowserLink({ since: vi.fn(), fetchSnapshot, retryAfter: vi.fn() });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(() => {
+          if (mode === "throw") throw new Error("report setup failed");
+          return Promise.reject(new Error("report transport failed"));
+        }),
+      );
+      try {
+        const child = nodes.find((node) => node.children.length > 0)?.children[0];
+        if (child === undefined) throw new Error("missing fixture child");
+        useGraphStore.getState().applyTx([], [child]);
+        await expect(
+          invokeLocal({ id: "node.update", input: { id: "n.root-a", text: "blocked" } }),
+        ).resolves.toMatchObject({ status: "failed", code: "invalid_input" });
+        expect(fetchSnapshot).toHaveBeenCalledOnce();
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    },
+  );
 });

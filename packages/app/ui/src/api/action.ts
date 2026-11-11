@@ -51,9 +51,13 @@ export function reportLocalFailure(
   invocation: ActionRequest,
   receipt: Extract<ActionReceipt, { status: "failed" }>,
 ): void {
-  void fetch("/api/client-failure", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ invocation: envelopeOf(inTabSession(invocation)), receipt }),
-  }).catch(() => undefined);
+  void Promise.resolve()
+    .then(() =>
+      fetch("/api/client-failure", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invocation: envelopeOf(inTabSession(invocation)), receipt }),
+      }),
+    )
+    .catch(() => undefined);
 }
