@@ -48,6 +48,38 @@ function RootRows({ root, view }: { root: OutlineNode; view: FrameViewKey | null
 }
 
 /**
+ * The strip under a page's rows that adds one at the end. The page's
+ * background is not a create target, only the strip is (F14), and the
+ * strip's handler is its own, with no guard (F1).
+ */
+function CreateStrip({ parentId }: { readonly parentId: string }) {
+  const create = useCallback(() => {
+    void createTransientNode(parentId, outlineNodes().get(parentId)?.children.slice(-1)[0] ?? null);
+  }, [parentId]);
+  return (
+    <div
+      data-create-child-zone={parentId}
+      role="button"
+      tabIndex={0}
+      aria-label="New node"
+      className="group/create flex h-8 cursor-pointer items-center rounded-sm pl-6 outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+      onClick={create}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          create();
+        }
+      }}
+      title="New node"
+    >
+      <span className="text-ui leading-none text-foreground/0 transition-colors duration-150 group-hover/create:text-foreground/25 group-focus-visible/create:text-foreground/25">
+        +
+      </span>
+    </div>
+  );
+}
+
+/**
  * Home (`__kb_root__`) is a virtual node with empty props — view.mode cannot
  * persist there, so home always renders the list of forest roots. Projected
  * views are available on zoomed/nested frames via ViewToolbar.
@@ -67,17 +99,6 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
     return () => setOutlineHost(host, null);
   }, [host, rootProp, slotChain, open]);
   const leads = useLeadsOutlines();
-
-  /**
-   * Container background is NOT a create target — only the explicit strip is (F14).
-   * The zoomed container click is removed entirely; the strip has its own guard-free handler (F1).
-   */
-  const handleStripCreate = useCallback(() => {
-    void createTransientNode(
-      rootNodeId,
-      outlineNodes().get(rootNodeId)?.children.slice(-1)[0] ?? null,
-    );
-  }, [rootNodeId]);
 
   if (!root) {
     return (
@@ -113,27 +134,7 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
 
         {rootRows}
 
-        {!projected && !isQuery && (
-          <div
-            data-create-child-zone={rootNodeId}
-            role="button"
-            tabIndex={0}
-            aria-label="New node"
-            className="group/create flex h-8 cursor-pointer items-center rounded-sm pl-6 outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-            onClick={handleStripCreate}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                handleStripCreate();
-              }
-            }}
-            title="New node"
-          >
-            <span className="text-ui leading-none text-foreground/0 transition-colors duration-150 group-hover/create:text-foreground/25 group-focus-visible/create:text-foreground/25">
-              +
-            </span>
-          </div>
-        )}
+        {!projected && !isQuery && <CreateStrip parentId={rootNodeId} />}
         <SchemaSection nodeId={rootNodeId} />
         <ReferencesSection nodeId={rootNodeId} />
         {leads ? <OutlinePageKeys /> : null}
@@ -149,25 +150,7 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
 
       {rootRows}
 
-      <div
-        data-create-child-zone={WORKSPACE_ROOT_ID}
-        role="button"
-        tabIndex={0}
-        aria-label="New node"
-        className="group/create flex h-8 cursor-pointer items-center rounded-sm pl-6 outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-        onClick={handleStripCreate}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            handleStripCreate();
-          }
-        }}
-        title="New node"
-      >
-        <span className="text-ui leading-none text-foreground/0 transition-colors duration-150 group-hover/create:text-foreground/25 group-focus-visible/create:text-foreground/25">
-          +
-        </span>
-      </div>
+      <CreateStrip parentId={WORKSPACE_ROOT_ID} />
       {leads ? <OutlinePageKeys /> : null}
     </div>
   );
