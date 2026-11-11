@@ -452,11 +452,14 @@ export {
   keyContextOf,
   KeyContextPoint,
   type KeyContextSpec,
+  type KeyCall,
+  keyCallOf,
   type Keybinding,
   KeybindingPoint,
   type Keymap,
   type KeyRun,
   provideKeybinding,
+  runKeyCall,
   tellKeymaps,
 } from "./lib/keybindings";
 export { logError, logWarn } from "./lib/log";

@@ -1203,14 +1203,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — shapes show their node
 - **node** — `01M42Q9H3RA1FHZYYYP2M9QJ4V`
 
-### GAP: only the outline keymaps are keybinding contexts; the global Mod-K and the canvas keymap are fixed tables
-
-- **expected** — Every page surface whose keys mean something is a context on ui.keybindings (the parity record §3.3 names a global context), so a binding can rebind or extend it and the conflict rule covers it.
-- **current** — matchGlobalShortcut decides Mod-K in code, and canvas-ui reads its own CANVAS keymap table; both only reserve or ignore ui.keybindings.
-- **impact** — An extension cannot add a global key or a canvas key, and two mechanisms answer which key means what.
-- **closes** — A global context owned by the shell and a canvas context owned by canvas-ui, each with intents and reserved chords, read through currentKeymap.
-- **node** — `01M6Y9H6R5D9Y8TQKZJZVWX8PB`
-
 ### GAP: only view.propose checks a view node's settings against its key
 
 - **expected** — every write of a view node, from any action, is checked by its view key
@@ -1552,6 +1544,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Either @kb/ui-sdk's query seam exports the index layer the session runtime builds and the query constants the page runs, or the seam moves to session/ and the kit's query module becomes its caller — one of the two, decided when the browser store's ownership settles.
 - **rule** — UI import matrix
 - **node** — `01M1RXNP3EMV1ES85BVE9CXMYE`
+
+### GAP: the canvas keymap is a fixed table, not a key context
+
+- **expected** — canvas-ui contributes a canvas key context to ui.key-contexts, with its intents and reserved chords, and reads its keys through currentKeymap, as the outline and the page do.
+- **current** — canvas-ui reads its own CANVAS keymap table; it neither offers ui.keybindings a context nor reads one.
+- **impact** — An extension cannot bind or rebind a canvas key, and the canvas answers which key means what by a mechanism of its own, beside the one the page and the outline share. Admission cannot see the canvas's chords, so a page key (core.page) is not refused over one: it would take that key on a canvas.
+- **closes** — A canvas context (reach surface) whose intents are the canvas keymap's actions, its chords contributed as canvas-ui's bindings, and the canvas's dispatch reading currentKeymap.
+- **node** — `01M74A3DT90MGHYGK1TAXZT9WZ`
 
 ### GAP: the canvas's 60fps bar is measured on a scratch benchmark, not gated
 

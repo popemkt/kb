@@ -4,8 +4,9 @@
  *
  * A context is a place keys mean something, a contribution to
  * {@link KeyContextPoint} by the plugin that reads it, which owns it: the
- * outline's editing row (`outline.editing`) and its selection
- * (`outline.selection`). Its owner states its bindings as every other
+ * page's own (`core.page`), offered every key first, and the outline's
+ * editing row (`outline.editing`) and its selection (`outline.selection`),
+ * offered the keys of what has focus. Its owner states its bindings as every other
  * plugin does, as contributions to {@link KeybindingPoint}, so a built-in
  * has an id another binding can name. The keymap a context reads is
  * decided here, once, for every context: the owner's bindings first,
@@ -21,12 +22,15 @@ import { Point } from "@kb/plugin";
 import { chordsOverlap, describeChord, matchesChord, parseChord } from "./keychord";
 import type { Chord, KeyChordEvent } from "./keychord";
 import { browserHost } from "../host";
-import type { ActionCall } from "./action-call";
+import { callInput, invokeAction, type ActionCall } from "./action-call";
 import { pointReader } from "./plugins.ts";
 import { toast } from "./toast";
 
-/** What a key runs: an intent of its context, by name, or an action, through the invoke path. */
-export type KeyRun = { readonly intent: string } | ActionCall;
+/**
+ * What a key runs: an intent of its context, by name; an action, through
+ * the invoke path; or a command, by id, as a palette runs it.
+ */
+export type KeyRun = { readonly intent: string } | ActionCall | { readonly command: string };
 
 /** A key in a context, and what it runs. */
 export interface Keybinding {
@@ -43,8 +47,8 @@ export const KeybindingPoint = Point<Keybinding>()(
   CORE_POINT_DEFINITIONS.keybinding.spec,
 );
 
-/** The contexts a binding may name: the outline's row being edited, and its selection. */
-export type KeyContextId = "outline.editing" | "outline.selection";
+/** The contexts a binding may name: the page's own, and the outline's row being edited and its selection. */
+export type KeyContextId = "core.page" | "outline.editing" | "outline.selection";
 
 /**
  * A binding as data (its T0 form): a chord written as text
@@ -67,8 +71,17 @@ export function provideKeybinding(
   return { id, value: { ...binding, chord } };
 }
 
-/** A context as its owner contributes it: what its bindings may run, and what no other plugin may take. */
+/**
+ * A context as its owner contributes it: where it is offered keys, what its
+ * bindings may run, and what no other plugin may take.
+ */
 export interface KeyContextSpec {
+  /**
+   * `page`: offered every key before any surface is, so a chord it holds is
+   * held in every context, and it may not take a chord a surface's owner
+   * binds there. `surface`: offered the keys of what has focus.
+   */
+  readonly reach: "page" | "surface";
   /** The intents a binding may run, by name. */
   readonly intents: readonly string[];
   /** Chords only the owner may bind. */
@@ -101,9 +114,10 @@ interface RefusedBinding {
   readonly reason: string;
 }
 
-/** A context's keymap: the binding a key event resolves to, and what was refused. */
+/** A context's keymap: the binding a key event resolves to, what it holds, and what was refused. */
 export interface Keymap {
   readonly resolve: (ev: KeyChordEvent) => Contribution<Keybinding> | undefined;
+  readonly held: readonly Contribution<Keybinding>[];
   readonly refused: readonly RefusedBinding[];
 }
 
@@ -134,8 +148,15 @@ function refusal(
   held: readonly Contribution<Keybinding>[],
   { owner, value }: Contribution<Keybinding>,
   approved: (owner: string) => boolean,
+  elsewhere: readonly Contribution<Keybinding>[],
 ): string | null {
   const chord = describeChord(value.chord);
+  const before = elsewhere.find((other) => chordsOverlap(other.value.chord, value.chord));
+  if (before !== undefined) {
+    return context.reach === "page"
+      ? `${chord} is ${before.value.context}'s own, held by ${before.id}`
+      : `${chord} is the page's, held by ${before.id}`;
+  }
   if ("intent" in value.run && !context.intents.includes(value.run.intent)) {
     return `${context.id} has no intent "${value.run.intent}"`;
   }
@@ -169,6 +190,8 @@ function refusal(
  * it names while each binding it stands on keeps the rest. A replacement
  * whose holder leaves is refused until it names the binding that holds the
  * chord then, so a key never moves to a binding no one chose for it.
+ * `elsewhere` holds the chords another context holds first
+ * ({@link admitKeymaps}): a binding overlapping one is refused.
  * The kernel admitted each binding by its id alone, so a refused one stays
  * contributed and inert: GAP [[01M6Y9H5FD9GVMK9N9QBT5DNTN]].
  */
@@ -176,6 +199,7 @@ export function admitKeybindings(
   context: KeyContext,
   contributions: readonly Contribution<Keybinding>[],
   approved: (owner: string) => boolean,
+  elsewhere: readonly Contribution<Keybinding>[] = [],
 ): Keymap {
   const named = contributions.filter(({ value }) => value.context === context.id);
   const ordered = [
@@ -185,32 +209,47 @@ export function admitKeybindings(
   const held: Contribution<Keybinding>[] = [];
   const refused: RefusedBinding[] = [];
   for (const binding of ordered) {
-    const reason = refusal(context, held, binding, approved);
+    const reason = refusal(context, held, binding, approved, elsewhere);
     if (reason === null) held.push(binding);
     else refused.push({ id: binding.id, reason });
   }
   return {
     refused,
+    held,
     resolve: (ev) => held.findLast(({ value }) => matchesChord(ev, value.chord)),
   };
 }
 
 /**
  * The keymap of every context in `contexts` over `bindings`, by context id
- * ({@link admitKeybindings}).
+ * ({@link admitKeybindings}). The page's contexts are offered a key first,
+ * so they are decided first, and neither kind may shadow the other: a page
+ * binding may not take a chord a surface's owner binds in that surface
+ * (the surface's own keys stand), and a surface binding may not take a
+ * chord a page context holds (it would never be reached).
  */
 export function admitKeymaps(
   contexts: readonly KeyContext[],
   bindings: readonly Contribution<Keybinding>[],
   approved: (owner: string) => boolean,
 ): ReadonlyMap<string, Keymap> {
-  return new Map(
-    contexts.map((context) => [context.id, admitKeybindings(context, bindings, approved)]),
+  const surfaces = contexts.filter(({ reach }) => reach === "surface");
+  const surfacesOwn = bindings.filter(({ owner, value }) =>
+    surfaces.some((surface) => surface.id === value.context && surface.owner === owner),
   );
+  const keymaps = new Map<string, Keymap>();
+  for (const context of contexts.filter(({ reach }) => reach === "page")) {
+    keymaps.set(context.id, admitKeybindings(context, bindings, approved, surfacesOwn));
+  }
+  const pages = [...keymaps.values()].flatMap(({ held }) => held);
+  for (const context of surfaces) {
+    keymaps.set(context.id, admitKeybindings(context, bindings, approved, pages));
+  }
+  return keymaps;
 }
 
 /** The keymap of a context no plugin has contributed: it holds no key. */
-const NO_KEYS: Keymap = { refused: [], resolve: () => undefined };
+const NO_KEYS: Keymap = { refused: [], held: [], resolve: () => undefined };
 
 const readContexts = pointReader(KeyContextPoint);
 const readBindings = pointReader(KeybindingPoint);
@@ -236,13 +275,17 @@ function currentKeymaps(): ReadonlyMap<string, Keymap> {
     browserHost().replacementApproved(owner),
   );
   byBindings.set(bindings, admitted);
-  for (const { refused } of admitted.values()) {
-    for (const { id, reason } of refused) {
-      const line = `Keybinding ${id} refused: ${reason}`;
-      if (told.has(line)) continue;
-      told.add(line);
-      toast(line);
-    }
+  const nowhere = bindings
+    .filter(({ value }) => !admitted.has(value.context))
+    .map(({ id, value }) => ({ id, reason: `there is no key context ${value.context}` }));
+  for (const { id, reason } of [
+    ...[...admitted.values()].flatMap(({ refused }) => refused),
+    ...nowhere,
+  ]) {
+    const line = `Keybinding ${id} refused: ${reason}`;
+    if (told.has(line)) continue;
+    told.add(line);
+    toast(line);
   }
   return admitted;
 }
@@ -259,4 +302,32 @@ export function currentKeymap(id: string): Keymap {
  */
 export function tellKeymaps(): void {
   currentKeymaps();
+}
+
+/**
+ * What a key runs besides an intent of its context: an action, invoked with
+ * the node the key is about as its input's `id`; or a command, run about
+ * that node. A key the page answers is about the page's own target, the
+ * one ⌘K's commands run about, or none.
+ */
+export type KeyCall =
+  | {
+      readonly type: "runAction";
+      readonly action: string;
+      readonly input: Readonly<Record<string, unknown>>;
+    }
+  | { readonly type: "runCommand"; readonly command: string; readonly nodeId: string | null };
+
+/** What `run` means about the node `nodeId` (or none): its action or command, or null for an intent. */
+export function keyCallOf(run: KeyRun, nodeId: string | null): KeyCall | null {
+  if ("command" in run) return { type: "runCommand", command: run.command, nodeId };
+  if (!("action" in run)) return null;
+  const input = nodeId === null ? (run.input ?? {}) : callInput(run, { id: nodeId });
+  return { type: "runAction", action: run.action, input };
+}
+
+/** Run `call`: an action through the page's one invoke path, a command through the page's command runner. */
+export function runKeyCall(call: KeyCall): Promise<void> {
+  if (call.type === "runAction") return invokeAction(call);
+  return browserHost().runCommand(call.command, call.nodeId);
 }

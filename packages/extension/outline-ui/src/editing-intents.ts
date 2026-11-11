@@ -12,7 +12,7 @@
 import { mergeWithPrevious } from "./editing-writes";
 import {
   browserHost,
-  invokeAction,
+  runKeyCall,
   refInkOf,
   renderInlineMarkdown,
   rowTextOf,
@@ -122,7 +122,8 @@ const EDITING_STEPS: EditingSteps = {
     useOutlineStore.getState().activateNode(nodeId, cursor, instanceKey, { x }),
   select: ({ nodeId, instanceKey }) => useOutlineStore.getState().selectNode(nodeId, instanceKey),
   enterFields: ({ instanceKey, which }) => void enterFields(instanceKey, which),
-  runAction: (step) => void invokeAction(step),
+  runAction: (step) => void runKeyCall(step),
+  runCommand: (step) => void runKeyCall(step),
 };
 
 /**
