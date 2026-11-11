@@ -5518,9 +5518,16 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
   days manifest claims a replacement at priority 50 that answers today's
   node: on the page in the page's day, and on the registry in the store's
   (`captureToday`), planning the day and whatever is missing above it into
-  the add's own transaction. If days fails, the role's recovery demotes it
-  and core's default answers. With days off, or core chosen on the role's
-  node, a capture goes to the top level as before. The family's `captures`
+  the add's own transaction. A `node.add` with no parent run in a tab (a
+  WebMCP tool, a script) commits locally under the page's day and pushes
+  the place the page's capture target chose, as context it filled
+  (`asFilled`), so the server commits it under the same day and nothing
+  moves when the tab's day and the store's differ
+  (`capture-zones.scenario.test.ts`); from `kb` or MCP it lands in the
+  store's day. If
+  days fails, the role's recovery demotes it and core's default answers.
+  With days off, or core chosen on the role's node, a capture goes to the
+  top level as before. The family's `captures`
   setting (`sys.f.days.captures`: `today` or `top level`; empty reads as
   `today`) sends captures to the top level with days still on, as a store
   kept in a repository does so its agents' gaps and todos are not dated.
