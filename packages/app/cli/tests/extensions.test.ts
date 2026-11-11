@@ -316,6 +316,7 @@ describe("kb ext list", () => {
     const guards = output.points.find(({ point }) => point === "action/guard")?.listeners;
     // Core owns required approval; governance contributes no policy guard.
     expect(guards?.map(({ id }) => id)).toEqual([
+      "ext.canvas.run-fields",
       "ext.code.script-run",
       "ext.days.unique-key",
       "ext.days.period-tag",
@@ -328,7 +329,8 @@ describe("kb ext list", () => {
     expect(human.out).toContain(
       "action/guard (registry): list, T3, registry/page; strictest verdict",
     );
-    expect(human.out).toContain("  1. ext.code.script-run (code)");
+    expect(human.out).toContain("  1. ext.canvas.run-fields (canvas/canvas)");
+    expect(human.out).toContain("  2. ext.code.script-run (code)");
   });
 });
 

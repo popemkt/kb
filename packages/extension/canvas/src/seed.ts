@@ -10,6 +10,7 @@
  * → the seed is the bundled fold).
  */
 import { SYSTEM_IDS, seededField, seededTag, type KbNode } from "@kb/model";
+import { CANVAS_RUN_FIELDS } from "./run-fields.ts";
 import { CANVAS_IDS } from "./ids.ts";
 
 const ref = (v: string) => [{ t: "ref" as const, v }];
@@ -30,7 +31,18 @@ export function canvasSeedNodes(at: string): readonly KbNode[] {
   });
   return [
     seededField(CANVAS_IDS.canvasField, "canvas", "text", at, { one: true, hidden: true }),
-    seededTag(CANVAS_IDS.canvasTag, "canvas", [CANVAS_IDS.canvasField], at),
+    ...Object.values(CANVAS_RUN_FIELDS).map(({ field, legacyName }) =>
+      seededField(field, `run ${legacyName} field`, "ref", at, {
+        one: true,
+        props: { [SYSTEM_IDS.targetTagField]: ref(SYSTEM_IDS.field) },
+      }),
+    ),
+    seededTag(
+      CANVAS_IDS.canvasTag,
+      "canvas",
+      [CANVAS_IDS.canvasField, ...Object.values(CANVAS_RUN_FIELDS).map(({ field }) => field)],
+      at,
+    ),
     { ...projection, children: [CANVAS_IDS.canvasProjection2d, CANVAS_IDS.canvasProjection3d] },
     option(CANVAS_IDS.canvasProjection2d, "2d", at),
     option(CANVAS_IDS.canvasProjection3d, "3d", at),

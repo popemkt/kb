@@ -160,7 +160,10 @@ const DATASCRIPT = /cljs\.core/;
 // it measures 1,836,700; the budget keeps about 1.5 KB over that.
 // Merging the migration declaration/procedure, with step recommendations and
 // notes, into that main measures 1,840,175 bytes; retain about 1.5 KB headroom.
-const EAGER_BUDGET_BYTES = 1_841_700;
+// Canvas run field references and their shared commit guard measure 1,843,186 bytes.
+// Tracking the validator's actual graph dependencies measures 1,843,078 bytes.
+// Preserving absent versus present binding data measures 1,843,086 bytes.
+const EAGER_BUDGET_BYTES = 1_844_700;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {
