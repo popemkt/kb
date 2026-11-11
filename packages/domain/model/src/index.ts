@@ -45,6 +45,8 @@ export {
   configuresAnExtension,
   isShipped,
   isWritableField,
+  fieldWriting,
+  type FieldWriting,
   systemTxRefusal,
   systemWriteRefusal,
 } from "./system-write.ts";

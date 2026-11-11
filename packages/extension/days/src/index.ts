@@ -6,6 +6,7 @@ export { dayKeyAt, dayTitle, isDayKey, isoWeekOf, weekKey, weekTitle, yearKey } 
 export { JOURNAL_TEXT, journalOf, periodNodeOf, planDay } from "./plan.ts";
 export type { DayPlan, NewPeriodNode } from "./plan.ts";
 export { duplicateKeyOf, uniqueKeyGuard } from "./unique-key.ts";
+export { periodKeyGuard, periodKeyRefusal } from "./period-key.ts";
 export { TODAY_ACTION } from "./today.ts";
 export { DayParams, DayView } from "./view.ts";
 export {

@@ -587,6 +587,20 @@ type PropValue =
   the governance family's force guard would refuse it from a caller that
   acts for the owner, and is not contributed for now ([Action
   registry](#action-registry) → Current stance).
+- **A family may say it manages a field** (`sys.f.managedBy`, a ref to its
+  extension's node, on the field node): the field holds data the family
+  keeps, such as a day's period. Managing is a declaration, not a lock. The
+  family keeps the data valid with constraints its commit guards enforce on
+  every write, whoever makes it (data-plane freedom: constrain before you
+  lock), and a person may still write the field, as a deliberate step: the
+  page shows its values at rest under a note naming the family, with an
+  Edit that unlocks the row (DESIGN-UI.md → Field values). The write rule
+  reads it in one place, `fieldWriting` in `@kb/model`'s `system-write.ts`
+  (`open`, `managed` or `closed`); `isWritableField` is whether it is not
+  `closed`. A field whose value mirrors something outside the store, which
+  no constraint can check (a calendar sync's event id), would need the
+  commit to refuse anyone but its family; there is no such lock yet
+  (GAP [[01M74AS94FM8GDGF3W10M84P43]]).
 - **System nodes**, seeded on init, are ordinary nodes with reserved ids:
   `sys.field` (the type of fields), `sys.tag` (the type of tags),
   `sys.f.type` (the "type/tag" field), `sys.f.fields` (tag→templated fields).
@@ -3549,8 +3563,8 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
     (GAP [[01M7342W0CNMFK152YEFNJHPP4]]).
     The invoke core checks
     every commit against the rule, on the server and on the page's replica,
-    and the page's field rows read `isWritableField` to offer an edit only
-    where it would land. `surfaceContract` holds every surface to it.
+    and the page's field rows read the rule (`fieldWriting`, through
+    `useFieldWrite`) to offer an edit only where it would land. `surfaceContract` holds every surface to it.
   - **Two classes of setting**, after DeepSeek Harness's "volatile" split:
     - _Read per call._ The plugin reads its node when it needs the value
       (the agent's provider, at the start of each turn), so a change applies
@@ -5408,9 +5422,17 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
     every surface (`ext.days.unique-key`, a commit guard on every write).
     This is what stops a person hand-keying a duplicate.
 
-  The key is hidden, but a person can still write it through a node's
-  debug fields until a family can declare a field it manages (GAP
-  [[01M7342WTAZQBARRM7T9F751HT]]).
+  - A key is a real period of its node (`ext.days.period-key`, a commit
+    guard on every write): only a node that is one `#day`, `#week` or
+    `#year` (or a tag extending one) holds a key, in that period's form, a
+    date `2026-11-10`, an ISO week of its year `2026-W46` or a year `2026`.
+    The guard reads only a write that changes a key or a keyed node's tags.
+
+  With the two guards, every key a store holds names one real period, so
+  the key needs no lock. It is hidden, and managed by the family
+  (`sys.f.managedBy`, [Data model](#data-model--everything-is-a-node)): a
+  person who opens a day's debug fields sees it at rest and may re-key a
+  mis-dated day to another free date, a correction the guards admit.
 - **The hierarchy is made lazily, in one transaction.** `ext.days.today`
   (`{day?}` → `{id, made}`) answers a day's node, and in the same
   transaction makes whatever is missing above it: the journal root, the

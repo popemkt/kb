@@ -60,14 +60,18 @@ function output(receipt: ActionReceipt): { id: string; made: string[] } {
   return receipt.output as { id: string; made: string[] };
 }
 
-/** A plain `node.add` that hand-keys its node as the day `2026-11-10`. */
-function keyedAdd(id: string) {
+/** A plain `node.add` that hand-makes a `#day` keyed `key` (the day `2026-11-10` unless said). */
+function keyedAdd(id: string, key = "2026-11-10", tag: string = DAYS_IDS.dayTag) {
   return {
     id: "node.add",
     input: {
       id,
       text: id,
-      props: [{ field: DAYS_IDS.keyField, value: { t: "str", v: "2026-11-10" } }],
+      parent: null,
+      props: [
+        { field: SYSTEM_IDS.typeField, value: { t: "ref", v: tag } },
+        { field: DAYS_IDS.keyField, value: { t: "str", v: key } },
+      ],
     },
   };
 }
@@ -168,14 +172,34 @@ function daysContract(backend: StoreBackend) {
     test("a second node holding a day's key is refused from any surface", async () => {
       const ctx = await freshKb();
       output(await invoke(ctx, { id: "ext.days.today", input: { day: "2026-11-10" } }));
-      const copy = await invoke(ctx, {
-        id: "node.add",
+      const copy = await invoke(ctx, keyedAdd("copy"));
+      expect(copy.status === "failed" && copy.message).toContain("is already");
+    });
+
+    test("a key is a real period on a period node, and a day may be re-keyed to a free date", async () => {
+      const ctx = await freshKb();
+      const refused = async (add: ReturnType<typeof keyedAdd>, says: string) => {
+        const receipt = await invoke(ctx, add);
+        expect(receipt.status === "failed" && receipt.message).toContain(says);
+      };
+      await refused(keyedAdd("bad-date", "2026-02-30"), "2026-02-30 is not a day");
+      await refused(keyedAdd("bad-week", "2026-W60", DAYS_IDS.weekTag), "is not a week");
+      await refused(keyedAdd("no-period", "2026-11-10", SYSTEM_IDS.tag), "only a node that is one");
+      const { id } = output(
+        await invoke(ctx, { id: "ext.days.today", input: { day: "2026-11-10" } }),
+      );
+      const rekeyed = await invoke(ctx, {
+        id: "node.update",
         input: {
-          text: "copy",
-          props: [{ field: DAYS_IDS.keyField, value: { t: "str", v: "2026-11-10" } }],
+          id,
+          unsetProps: [{ field: DAYS_IDS.keyField }],
+          setProps: [{ field: DAYS_IDS.keyField, value: { t: "str", v: "2026-11-09" } }],
         },
       });
-      expect(copy.status).toBe("failed");
+      expect(rekeyed.status).toBe("succeeded");
+      expect(
+        output(await invoke(ctx, { id: "ext.days.today", input: { day: "2026-11-09" } })).id,
+      ).toBe(id);
     });
 
     test("a value that is not a calendar date is refused", async () => {

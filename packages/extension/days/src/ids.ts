@@ -39,6 +39,8 @@ export const DAYS_IDS = {
   uniqueKeyGuard: "ext.days.unique-key",
   /** The commit guard that keeps the day and week tag settings to tags that extend the base. */
   periodTagGuard: "ext.days.period-tag",
+  /** The commit guard that keeps a key on a day, week or year, in its period's form. */
+  periodKeyGuard: "ext.days.period-key",
 } as const;
 
 /**

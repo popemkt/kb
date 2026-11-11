@@ -205,6 +205,8 @@ export { Bullet } from "./components/bullet";
 export { EdnEditor } from "./components/edn-editor";
 export { type EnumOption, EnumSelect } from "./components/enum-select";
 export { FieldRow } from "./components/field-row";
+export { ManagedNote } from "./components/managed-field";
+export { type FieldWrite, type ManagedWrite, useFieldWrite } from "./lib/field-write";
 export { IconButton } from "./components/icon-button";
 export { KnobControl } from "./components/deferred-parts";
 export { MENU_ROW, MENU_SURFACE, useMenuKeys, type MenuKeys } from "./components/menu";
