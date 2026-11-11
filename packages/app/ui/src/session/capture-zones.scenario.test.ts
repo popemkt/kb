@@ -1,14 +1,14 @@
 /**
  * A capture made in a tab whose day is not the store's (DESIGN.md → Days →
- * the mismatch case): just after midnight at UTC+7, while the store's zone
- * is still on the day before. A `node.add` with no parent, run in the tab,
- * commits locally under the tab's day, which the page's provider makes
+ * captures land in today): just after midnight at UTC+7, while the store's
+ * zone is still on the day before. A `node.add` with no parent, run in the
+ * tab, commits locally under the tab's day, which the page's provider makes
  * first (as days' does, through its own pushed action). The push carries
- * no place, so the server decides again, under the store's day. Driven
- * through the real live client, runtime and graph store against a server
- * scripted to place exactly as `node.add` does, the replica must converge
- * on the server's answer: the node under the store's day, the tab's day
- * kept as the server holds it, and no hold left behind.
+ * the place the tab's capture target chose, so the server commits it there
+ * and never decides again in the store's zone. Driven through the real
+ * live client, runtime and graph store against a server scripted to place
+ * exactly as `node.add` does, the node stays where the tab showed it, the
+ * store's day is never made, and no hold is left behind.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { bundledPlugin, type WireNode } from "@kb/contracts";
@@ -127,7 +127,7 @@ describe("a capture across the tab's and the store's midnight", () => {
     await vi.advanceTimersByTimeAsync(0);
   }
 
-  it("lands under the tab's day at once, and converges on the store's day the server chose", async () => {
+  it("is committed by the server where the tab showed it, in the tab's day", async () => {
     expect(TAB_DAY).not.toBe(STORE_DAY);
     const receipt = await invoke("node.add", { id: CAPTURED, text: "captured after midnight" });
     await vi.advanceTimersByTimeAsync(0);
@@ -141,22 +141,29 @@ describe("a capture across the tab's and the store's midnight", () => {
     // The server makes the tab's day where it was asked.
     await serve(0, 2, [wire(TAB_DAY, dayIn(TAB_ZONE))]);
 
-    // Then the capture, which carries no place: the server decides it again,
-    // as its own node.add does, under the store's day.
+    // Then the capture, carrying the place the tab's capture target chose:
+    // the server, placing as its own node.add does, puts it there.
     const capturePush = pushes[1];
-    expect(capturePush?.input.id).toBe(CAPTURED);
-    expect(capturePush?.input).not.toHaveProperty("parent");
+    expect(capturePush?.input).toMatchObject({ id: CAPTURED, parent: TAB_DAY });
     const place = serverPlace(capturePush?.input ?? {});
-    expect(place).toBe(STORE_DAY);
+    expect(place).toBe(TAB_DAY);
     await serve(1, 3, [
-      wire(STORE_DAY, dayIn(STORE_ZONE), [CAPTURED]),
+      wire(TAB_DAY, dayIn(TAB_ZONE), [CAPTURED]),
       wire(CAPTURED, "captured after midnight"),
     ]);
 
-    expect(shown(STORE_DAY)?.children).toEqual([CAPTURED]);
-    expect(shown(TAB_DAY)?.children).toEqual([]);
+    expect(shown(TAB_DAY)?.children).toEqual([CAPTURED]);
+    expect(shown(STORE_DAY)).toBeUndefined();
     expect(shown(CAPTURED)?.text).toBe("captured after midnight");
     expect(browserReplica()?.state).toMatchObject({ rev: 3, holds: 0 });
     expect(useGraphStore.getState().rev).toBe(3);
+  });
+
+  it("pushes a place it was given, or chose itself, as given", async () => {
+    await invoke("node.add", { id: "n.top", text: "top", parent: null });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(pushes[0]?.input).toMatchObject({ id: "n.top", parent: null });
+    // The capture target was never asked, so nothing was made for it.
+    expect(shown(TAB_DAY)).toBeUndefined();
   });
 });

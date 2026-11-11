@@ -5466,9 +5466,11 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
   (`captureToday`), planning the day and whatever is missing above it into
   the add's own transaction. A `node.add` with no parent run in a tab (a
   WebMCP tool, a script) commits locally under the page's day and pushes
-  no place, so the server decides again in the store's day; when the two
-  days differ, the node moves to the server's day and the replica holds
-  exactly what the server does (`capture-zones.scenario.test.ts`). If
+  the place the page's capture target chose, as context it filled
+  (`asFilled`), so the server commits it under the same day and nothing
+  moves when the tab's day and the store's differ
+  (`capture-zones.scenario.test.ts`); from `kb` or MCP it lands in the
+  store's day. If
   days fails, the role's recovery demotes it and core's default answers.
   With days off, or core chosen on the role's node, a capture goes to the
   top level as before. The family's `captures`

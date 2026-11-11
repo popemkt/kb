@@ -3,6 +3,7 @@ import {
   type ActionRequest,
   type ActionReceipt,
   CaptureTarget,
+  type CapturePlanner,
   type FilledInput,
   type IsomorphicActionEnv,
   type KbContext,
@@ -65,7 +66,8 @@ export interface BrowserSessionView {
 interface BrowserSession {
   readonly ctx: KbContext<NodeIndex>;
   readonly store: BrowserStore;
-  readonly layer: Layer.Layer<IsomorphicActionEnv>;
+  /** The action env but the capture target, which each local call is given (`runLocal`). */
+  readonly layer: Layer.Layer<Exclude<IsomorphicActionEnv, CaptureTarget>>;
   readonly onLocalCommit: () => void;
   readonly replica: BrowserReplica;
 }
@@ -185,7 +187,6 @@ export function replaceBrowserSession(
       kbCtxLayer(ctx),
       Layer.succeed(QueryEngineService, pageEngine(queries)),
       Layer.succeed(ViewCatalog, livePageCatalog),
-      Layer.succeed(CaptureTarget, pageCapturePlanner),
     ),
     onLocalCommit: view.onLocalCommit,
     replica: new BrowserReplica(
@@ -346,6 +347,11 @@ export function resetPushLaneForTests(): void {
  * prerequisite export lands; port-backed actions remain server-owned.
  */
 export function invokeLocal(invocation: ActionRequest): Promise<ActionReceipt> {
+  return runLocal(invocation, pageCapturePlanner);
+}
+
+/** {@link invokeLocal}, asking `capture` where a node made with no chosen place goes. */
+function runLocal(invocation: ActionRequest, capture: CapturePlanner): Promise<ActionReceipt> {
   const current = requireSession();
   const call = invokeReceiptWith(
     localActions,
@@ -354,6 +360,7 @@ export function invokeLocal(invocation: ActionRequest): Promise<ActionReceipt> {
   ).pipe(
     Effect.provideService(CurrentInterception, localInterception),
     Effect.provideService(CurrentContextReferences, localReferences),
+    Effect.provideService(CaptureTarget, capture),
   );
   const screened =
     localScreens === null ? call : call.pipe(Effect.provideService(Screens, localScreens));
@@ -366,19 +373,27 @@ export function invokeLocal(invocation: ActionRequest): Promise<ActionReceipt> {
 }
 
 /** Commit `invocation` to the replica; on success, the ids the commit touched. */
-async function commitLocal(
-  invocation: ActionRequest,
-): Promise<{ receipt: ActionReceipt; touched: string[] }> {
+async function commitLocal(invocation: ActionRequest): Promise<{
+  receipt: ActionReceipt;
+  touched: string[];
+  /** Where the page's capture target placed a node the call made with no chosen place. */
+  placed: Placed;
+}> {
   const current = requireSession();
   const before = current.store.txTail.head();
-  const receipt = await invokeLocal(invocation);
-  if (receipt.status === "failed") return { receipt, touched: [] };
+  let placed: Placed = null;
+  const recording: CapturePlanner = (nodes) =>
+    pageCapturePlanner(nodes).pipe(
+      Effect.tap(({ parent }) => Effect.sync(() => (placed = { parent }))),
+    );
+  const receipt = await runLocal(invocation, recording);
+  if (receipt.status === "failed") return { receipt, touched: [], placed: null };
   const touched = current.store.txTail
     .entries()
     .flatMap((tx) =>
       tx.rev > before ? [...tx.ops.upserts.map((node) => node.id), ...tx.ops.deletes] : [],
     );
-  return { receipt, touched };
+  return { receipt, touched, placed };
 }
 
 /**
@@ -437,17 +452,17 @@ export async function invokeSettled(invocation: ActionRequest): Promise<Invoked>
   const local = localActions.get(id);
   if (local === undefined) return done(await pushInvocation(invocation));
   if (local.def.mode.kind === "read") return done(await invokeLocal(invocation));
-  const { receipt, touched } = await commitLocal(invocation);
+  const { receipt, touched, placed } = await commitLocal(invocation);
   if (receipt.status === "failed") return done(receipt);
   const hold = requireSession().replica.hold(touched);
-  // What the local commit filled from this tab's screen is pushed as given,
-  // so the server fills nothing and commits what the replica did; its
-  // receipt says what was filled, as the local one does.
+  // What the local commit decided from this tab is pushed as given: what it
+  // filled from the tab's screen, and where the page's capture target put a
+  // node made with no chosen place. The server decides neither again, so it
+  // commits what the replica did, in the tab's day; its receipt says what
+  // was filled, as the local one does.
   const { context } = receipt;
-  return {
-    receipt,
-    settled: settledOf(id, pushInvocation(asFilled(invocation, context), hold), context),
-  };
+  const pushed = asPlaced(asFilled(invocation, context), placed);
+  return { receipt, settled: settledOf(id, pushInvocation(pushed, hold), context) };
 }
 
 /**
@@ -482,6 +497,20 @@ export async function invokeCoalesced(invocation: ActionRequest, key: string): P
     settled,
   };
   return { receipt, settled };
+}
+
+/** Where the page's capture target put a call's node, or null when it was not asked. */
+type Placed = { readonly parent: string | null } | null;
+
+/**
+ * `invocation` with the place its capture target answered given as its
+ * `parent`, the input whose absence asks the capture target, so the server
+ * commits the node where the tab did.
+ */
+function asPlaced(invocation: ActionRequest, placed: Placed): ActionRequest {
+  if (placed === null || !Predicate.isObject(invocation.input) || "parent" in invocation.input)
+    return invocation;
+  return { ...invocation, input: { ...invocation.input, parent: placed.parent } };
 }
 
 /** `invocation` with the inputs its tab session filled given, as the local commit ran it. */
