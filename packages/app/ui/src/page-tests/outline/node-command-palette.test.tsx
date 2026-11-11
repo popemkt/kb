@@ -210,10 +210,11 @@ describe("node command palette", () => {
     ]);
   });
 
-  it("drops Make supertag on a supertag, keeping the rest in order", async () => {
+  it("offers a tag that extends a supertag, and drops Make supertag, keeping the rest in order", async () => {
     await open("t.super");
     expect(labels()).toEqual([
       "Add tag",
+      "Make your own tag that extends this",
       "Turn into query",
       "Turn into reference…",
       "Add field",

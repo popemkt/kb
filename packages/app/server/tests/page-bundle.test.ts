@@ -136,7 +136,11 @@ const DATASCRIPT = /cljs\.core/;
 // from a failed receipt), the refusal as data it reads (`WriteRefusal`), and
 // the owner chip with the index's point read it asks (`related`), merged with
 // C1b-a at 2adf28cf, measure 1,826,408; the budget keeps about 1.5 KB over it.
-const EAGER_BUDGET_BYTES = 1_827_900;
+// An acyclic ref field's picker check (`closesCycleOf`, over the one ref
+// walk), Enter keeping a disabled row unpicked, and the node menu's "Make
+// your own tag that extends this" take it to 1,827,344; the budget keeps
+// about 1.5 KB over that.
+const EAGER_BUDGET_BYTES = 1_828_900;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {
