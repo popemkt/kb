@@ -9,7 +9,9 @@
  * (`sys.f.managedBy`; DESIGN.md → Data-plane freedom).
  *
  * The key is judged as stored, never trimmed: a blank or padded key is a
- * malformed one, and only a node with no key value at all holds none. The
+ * malformed one, and only a node with no key value at all holds none. A
+ * node that stays a period keeps a key: its key can be changed, not taken
+ * off, so a day is never left that the family cannot find by its date. The
  * guard judges a node whose key or tags a write changes; a write that
  * changes what a tag extends (or deletes a tag that extended one) can make
  * a holder stop being its period, so it judges every holder, over the graph
@@ -98,6 +100,20 @@ function keyRefusal(node: NodeLike, nodeOf: KindsLookup): string | null {
     : `${shown} is not a ${period.name}: a ${period.name}'s period is ${period.form}`;
 }
 
+/**
+ * Why `write` may not take the key off its node: the node stays a day, week
+ * or year, and a period without its key is no longer found as one (the
+ * family would make a second node for that date). The way out is to take
+ * the tag and the key off together.
+ */
+function removalRefusal({ before, after }: NodeWrite, nodeOf: KindsLookup): string | null {
+  if (after === undefined || keyValues(before).length === 0 || keyValues(after).length > 0)
+    return null;
+  const [period] = periodsOf(after, nodeOf);
+  if (period === undefined) return null;
+  return `“${after.text}” is a ${period.name}, so its period can be changed but not removed: to make it an ordinary node, take #${period.name} and its period off together`;
+}
+
 const leftBy = (writes: readonly NodeWrite[]) =>
   writes.flatMap(({ after }) => (after === undefined ? [] : [after]));
 
@@ -124,6 +140,10 @@ export function periodKeyRefusal(
   nodeOf: KindsLookup,
   held: Iterable<NodeLike> = [],
 ): string | null {
+  for (const write of writes) {
+    const refusal = removalRefusal(write, nodeOf);
+    if (refusal !== null) return refusal;
+  }
   for (const node of judgedBy(writes, held)) {
     const refusal = keyRefusal(node, nodeOf);
     if (refusal !== null) return refusal;

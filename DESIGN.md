@@ -5429,7 +5429,13 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
     is a malformed one. The guard reads a write that changes a node's key
     or tags; a write that changes what a tag extends (or deletes a tag that
     extended one) has every holder judged again over the graph after it,
-    so a tag that stops extending `#day` cannot leave its nodes keyed.
+    so a tag that stops extending `#day` cannot leave its nodes keyed. A
+    node that stays a period keeps a key: a write may change it but not
+    take it off, since a day without its key is no longer found by its
+    date and the family would make a second node for it. The way out is
+    one write that takes the tag and the key off together. The page has
+    no single gesture for that yet: untagging a keyed day alone is
+    refused, because it leaves the key on a node that is no period.
 
   With the two guards, every key a store holds names one real period, so
   the key needs no lock. It is hidden, and managed by the family

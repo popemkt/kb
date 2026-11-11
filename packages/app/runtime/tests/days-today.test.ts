@@ -243,6 +243,33 @@ function daysContract(backend: StoreBackend) {
       ).toEqual([extendsDay.value]);
     });
 
+    test("a day keeps its period: the key comes off only with #day", async () => {
+      const ctx = await freshKb();
+      const { id } = output(
+        await invoke(ctx, { id: "ext.days.today", input: { day: "2026-11-10" } }),
+      );
+      const removed = await invoke(ctx, {
+        id: "node.update",
+        input: { id, unsetProps: [{ field: DAYS_IDS.keyField }] },
+      });
+      expect(removed.status === "failed" && removed.message).toContain(
+        "is a day, so its period can be changed but not removed",
+      );
+      const day = present(
+        ctx.nodes.find((node) => node.id === id),
+        "the day",
+      );
+      expect(day.props[DAYS_IDS.keyField]).toEqual([{ t: "str", v: "2026-11-10" }]);
+      const ordinary = await invoke(ctx, {
+        id: "node.update",
+        input: {
+          id,
+          unsetProps: [{ field: DAYS_IDS.keyField }, { field: SYSTEM_IDS.typeField }],
+        },
+      });
+      expect(ordinary.status).toBe("succeeded");
+    });
+
     test("a value that is not a calendar date is refused", async () => {
       const ctx = await freshKb();
       expect((await invoke(ctx, { id: "ext.days.today", input: { day: "Nov 10" } })).status).toBe(

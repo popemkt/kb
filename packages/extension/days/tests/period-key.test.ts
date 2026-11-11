@@ -108,9 +108,21 @@ describe("periodKeyRefusal", () => {
     expect(day([{ t: "str", v: "" }])).toContain("is not a day");
     expect(day([{ t: "num", v: 2026 }])).toContain("is not a day");
     expect(day([])).toBeNull();
-    // Taking the key off is not a malformed key.
+  });
+
+  test("a node that stays a period keeps a key; the tag and the key come off together", () => {
     const holder = node("d", [DAYS_IDS.dayTag], "2026-11-11");
-    expect(refusal({ before: holder, after: node("d", [DAYS_IDS.dayTag]) })).toBeNull();
+    expect(refusal({ before: holder, after: node("d", [DAYS_IDS.dayTag]) })).toBe(
+      "“d” is a day, so its period can be changed but not removed: to make it an ordinary node, take #day and its period off together",
+    );
+    const week = node("w", [DAYS_IDS.weekTag], "2026-W46");
+    expect(refusal({ before: week, after: node("w", [DAYS_IDS.weekTag]) })).toContain(
+      "take #week and its period off together",
+    );
+    expect(refusal({ before: holder, after: node("d", []) })).toBeNull();
+    expect(refusal({ before: holder, after: node("d", ["t.note"]) })).toBeNull();
+    // A node tagged #day by hand, with no key yet, is left alone.
+    expect(refusal(made(node("hand", [DAYS_IDS.dayTag])))).toBeNull();
   });
 
   test("a tag that stops extending #day leaves its keyed nodes no period, and is refused", () => {
