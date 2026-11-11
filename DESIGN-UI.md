@@ -1013,7 +1013,10 @@ nothing typed an option set keeps its own order, other fields offer the
 session's recent picks and then the most used. The field picker shows what the
 field holds checked; in a many-valued field Enter toggles and it stays open,
 Backspace on an empty query takes back the last value, and in a one-valued
-field a pick replaces and closes. Its last row creates the query as a node
+field a pick replaces and closes. A value that would close a cycle through a field
+that declares itself acyclic (a tag's `extends`; `closesCycleOf`) is shown,
+noted "would cycle", and refused; no picker picks a disabled row, by click or
+by Enter. Its last row creates the query as a node
 where the field's declaration says a target goes (`refCreationOf`: an option
 under the field, a node with the field's target tag, a top-level node) — never
 for a query-constrained field. The list is anchored to its input, flipped and

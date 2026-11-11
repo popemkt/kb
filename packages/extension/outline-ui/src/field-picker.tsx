@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { declaresOptionSet } from "@kb/model";
 import {
+  closesCycleOf,
   cn,
   KB_TEXT_CLASS,
   nodeCandidates,
@@ -40,6 +41,9 @@ const inputClass = cn(
  *   toggles a row and the picker stays open for the next; Backspace on an
  *   empty query takes back the last value. In a single-valued field a pick
  *   replaces the value and closes.
+ * - **A value that would close a cycle** the field declares it never holds
+ *   (`sys.f.acyclic`, as a tag's `extends` does) is shown, noted, and
+ *   refused (`closesCycleOf`).
  * - **Create** the query as a new node, as the last row, wherever the
  *   field's declaration says a new target goes (`refCreationOf`) — a new
  *   option under the field, a node with the field's tag — and never for a
@@ -49,6 +53,9 @@ const inputClass = cn(
  * Its placeholder is the input's own native attribute: `.empty-placeholder`
  * cannot render on an `<input>`, so there is one placeholder per state.
  */
+/** What a candidate refused for closing a cycle is noted with. */
+const WOULD_CYCLE = "would cycle";
+
 export function FieldPicker({
   fieldId,
   context,
@@ -78,15 +85,24 @@ export function FieldPicker({
     () => new Set(field.values.flatMap((v) => (v.t === "ref" ? [v.v] : []))),
     [field.values],
   );
-  const candidates = useMemo(
-    () =>
-      orderCandidates(nodeCandidates(search.pool, { allowed: search.allowed }), {
-        declared: declaresOptionSet(fieldNode) ? fieldNode?.children : undefined,
-        recent: recentPicks(fieldId),
-        uses: refUses(context.outline, fieldId),
-      }),
-    [search.pool, search.allowed, fieldNode, fieldId, context.outline],
-  );
+  const candidates = useMemo(() => {
+    const closes = closesCycleOf(context.schema, fieldId, field.holder);
+    return orderCandidates(nodeCandidates(search.pool, { allowed: search.allowed }), {
+      declared: declaresOptionSet(fieldNode) ? fieldNode?.children : undefined,
+      recent: recentPicks(fieldId),
+      uses: refUses(context.outline, fieldId),
+    }).map((candidate) =>
+      closes(candidate.id) ? { ...candidate, note: WOULD_CYCLE, disabled: true } : candidate,
+    );
+  }, [
+    search.pool,
+    search.allowed,
+    fieldNode,
+    fieldId,
+    context.outline,
+    context.schema,
+    field.holder,
+  ]);
   const rows = useMemo(
     () => pickerRows(candidates, { query, selected, canCreate: creation !== null, limit: 50 }),
     [candidates, query, selected, creation],

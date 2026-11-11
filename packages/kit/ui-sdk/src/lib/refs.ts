@@ -1,6 +1,12 @@
-import { declaresOptionSet, targetQueryOf, targetTagsOf } from "@kb/model";
+import {
+  closesCycle,
+  declaresOptionSet,
+  isAcyclicField,
+  targetQueryOf,
+  targetTagsOf,
+} from "@kb/model";
 import { allowedRefsOf } from "./field-type";
-import type { FieldContext } from "./schema";
+import type { FieldContext, SchemaIndex } from "./schema";
 import type { PickerCandidate } from "./picker";
 import type { OutlineNode } from "./types";
 import { isSysPrefixed, WORKSPACE_ROOT_ID } from "./types";
@@ -43,6 +49,24 @@ export interface RefSearch {
 export function refSearchOf(context: FieldContext, fieldId: string): RefSearch {
   const allowed = allowedRefsOf(context, fieldId);
   return { allowed, pool: allowed === null ? context.outline : context.schema };
+}
+
+/**
+ * Which of a ref field's candidates the node holding its value may not take:
+ * those whose chain through the field reaches the holder, when the field
+ * declares its values never close a cycle (`sys.f.acyclic`). A picker shows
+ * them, refused. A value no node holds yet (a query's slot) closes nothing.
+ *
+ * GAP [[01M39YM7FQ9S231XW8JBA5MG0E]] — only the picker refuses such a value;
+ * the commit does not yet.
+ */
+export function closesCycleOf(
+  schema: SchemaIndex,
+  fieldId: string,
+  holder: string | null,
+): (id: string) => boolean {
+  if (holder === null || !isAcyclicField(schema.get(fieldId))) return () => false;
+  return (id) => closesCycle((ref) => schema.get(ref), fieldId, holder, id);
 }
 
 /**

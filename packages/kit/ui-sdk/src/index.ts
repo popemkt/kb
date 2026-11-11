@@ -312,7 +312,14 @@ export {
   pinnedRefIds,
   pinnedRefIdsFor,
 } from "./lib/pinned";
-export { nodeCandidates, type RefCreation, refCreationOf, refSearchOf, refUses } from "./lib/refs";
+export {
+  closesCycleOf,
+  nodeCandidates,
+  type RefCreation,
+  refCreationOf,
+  refSearchOf,
+  refUses,
+} from "./lib/refs";
 export {
   fieldCarriersQuery,
   queryFieldCarriers,

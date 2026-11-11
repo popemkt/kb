@@ -129,6 +129,7 @@ describe("typed field seeds", () => {
       SYSTEM_IDS.targetTagField,
       SYSTEM_IDS.targetQueryField,
       SYSTEM_IDS.relationInverseField,
+      SYSTEM_IDS.acyclicField,
     ]);
   });
 

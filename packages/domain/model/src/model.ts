@@ -100,6 +100,12 @@ export const SYSTEM_IDS = {
   /** Ref constraint general form: EDN datalog of allowed node ids (wins over tag). */
   targetQueryField: "sys.f.targetQuery",
   /**
+   * A ref field whose values never close a cycle (checkbox): no node reaches
+   * itself by following the field (`closesCycle`). A tag's and an
+   * ontology's `extends` declare it.
+   */
+  acyclicField: "sys.f.acyclic",
+  /**
    * What a ref field's relation is called read against its direction
    * ("influenced by" for "influences"): plain text on the field node. The
    * graph's hop explanations and the outline's References read it; no

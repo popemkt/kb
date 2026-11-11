@@ -62,6 +62,20 @@ const GRAPH: WireNode[] = [
     },
   }),
   wire({ id: "n.alpha", text: "Alpha" }),
+  // A field whose values never close a cycle, over three options; Beta's
+  // value is Apex already, so Beta leads back to Apex.
+  wire({
+    id: "f.over",
+    text: "over",
+    children: ["n.apex", "n.beta", "n.free"],
+    props: {
+      [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")],
+      [SYSTEM_IDS.acyclicField]: [{ t: "bool", v: true }],
+    },
+  }),
+  wire({ id: "n.apex", text: "Apex" }),
+  wire({ id: "n.beta", text: "Beta", props: { "f.over": [{ t: "ref", v: "n.apex" }] } }),
+  wire({ id: "n.free", text: "Free" }),
 ];
 
 const show = (v: PropValue) => (v.t === "ref" ? v.v : JSON.stringify(v));
@@ -118,8 +132,9 @@ describe("FieldPicker", () => {
     container.remove();
   });
 
-  function handle(values: PropValue[], many: boolean): FieldHandle {
+  function handle(values: PropValue[], many: boolean, holder: string | null = null): FieldHandle {
     return {
+      holder,
       values,
       many,
       add: (v) => calls.push(`add ${show(v)}`),
@@ -218,6 +233,32 @@ describe("FieldPicker", () => {
     } finally {
       syncUiPlugins([]);
     }
+  });
+
+  it("refuses, noted, a value that would close a cycle the field never holds", async () => {
+    const input = await open("f.over", handle([], true, "n.apex"));
+    expect(
+      [...container.querySelectorAll('[role="option"]')].map((row) => [
+        row.textContent,
+        row.getAttribute("aria-disabled"),
+      ]),
+    ).toEqual([
+      ["Apexwould cycle", "true"],
+      ["Betawould cycle", "true"],
+      ["Free", null],
+    ]);
+    // Enter on a refused row picks nothing; on the next one it picks.
+    await press(input, "Enter");
+    await press(input, "ArrowDown");
+    await press(input, "Enter");
+    await press(input, "ArrowDown");
+    await press(input, "Enter");
+    expect(calls).toEqual(["add n.free"]);
+  });
+
+  it("refuses nothing for a value no node holds", async () => {
+    await open("f.over", handle([], true));
+    expect(container.querySelector('[aria-disabled="true"]')).toBeNull();
   });
 
   it("filters fuzzily, marks what matched, and offers to create the rest", async () => {

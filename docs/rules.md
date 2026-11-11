@@ -1721,12 +1721,12 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Make a retype or delete that would strand values either fail (listing them) or carry their migration in the same transaction, and add an on-open audit that reports legacy mismatches the way migrateFieldTypeValues repairs legacy type values.
 - **node** — `01M39YM7VRD0K4H70E48R71VRP`
 
-### GAP: the write check does not enforce a ref field's target constraint
+### GAP: the write check does not enforce a ref field's value constraints
 
-- **expected** — A ref value outside the set its field declares (allowedRefIdsOf: targetQuery, targetTag or the field's children) is rejected at the same chokepoint, and with the same error, as a value of the wrong kind.
-- **current** — txIntegrityError checks that a written value's kind is one its field's type accepts and that a ref names a stored node. Only the UI's ref picker consults allowedRefIdsOf. The integrity check is pure and engine-free, while two of the three constraint carriers (targetQuery, and children, derived into EDN) resolve through an injected EDN runner it is not given.
-- **impact** — Every surface except the picker - CLI, MCP, HTTP, @kb/client - can write a ref its field excludes, for example a #gap rule naming a node that is not a #rule. The constraint reads as enforced because the UI enforces it.
-- **closes** — Hand the integrity check an EDN runner over the prospective graph (the session index already has one), then check every written ref value against allowedRefIdsOf, with a test per carrier.
+- **expected** — A ref value its field does not allow is rejected at the same chokepoint, and with the same error, as a value of the wrong kind: one outside the set the field declares (allowedRefIdsOf: targetQuery, targetTag or the field's children), and one that would close a cycle through a field that declares itself acyclic (sys.f.acyclic: closesCycle from the value to the node holding it).
+- **current** — txIntegrityError checks that a written value's kind is one its field's type accepts and that a ref names a stored node. Only the UI's ref picker consults allowedRefIdsOf and, for an acyclic field, closesCycleOf, which shows a cycling value refused. The integrity check is pure and engine-free, while two of the three set carriers (targetQuery, and children, derived into EDN) resolve through an injected EDN runner it is not given. The ontology's add-extends plan refuses its own cycle.
+- **impact** — Every surface except the picker - CLI, MCP, HTTP, @kb/client - can write a ref its field excludes, for example a #gap rule naming a node that is not a #rule, or a tag that extends itself through another. The constraint reads as enforced because the UI enforces it. A tag cycle does not break reads (tag chains end where a cycle closes) but makes two tags each other's kind.
+- **closes** — Hand the integrity check an EDN runner over the prospective graph (the session index already has one), then check every written ref value against allowedRefIdsOf and, for an acyclic field, closesCycle over the prospective graph, with a test per carrier.
 - **rule** — Data-plane freedom: constrain before you lock
 - **node** — `01M39YM7FQ9S231XW8JBA5MG0E`
 

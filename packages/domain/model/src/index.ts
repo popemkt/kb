@@ -34,6 +34,7 @@ export {
   fieldTypeValue,
   isFieldType,
   migrateFieldTypeValues,
+  isAcyclicField,
   targetQueryOf,
   targetTagsOf,
 } from "./field-type.ts";

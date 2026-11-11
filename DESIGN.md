@@ -507,7 +507,7 @@ type PropValue =
   node of each. A node's _chips_ are its `sys.f.type` refs; its _kinds_ are
   those tags and their chains, and every question of membership is asked of
   the kinds (`kindsOf`, `isA` in `@kb/model`'s `tag-kinds.ts`, the one
-  reader). A chain (`tagAncestors`) is the tag, then its parents breadth
+  reader). A chain (`tagAncestors`, the field's `refChain`) is the tag, then its parents breadth
   first in declared order, each once, so a diamond reaches a shared tag once
   and a cycle ends where it closes; nothing graph-shaped throws. Nearer
   wins wherever a chain is read in order: a node shows its tags' own fields,
@@ -531,6 +531,17 @@ type PropValue =
   Resolution lives in `@kb/model`'s `field-type.ts` (`allowedRefIdsOf`, EDN
   runner injected) and is shared by CLI, MCP and the browser through
   `@kb/model` — same posture as the ontology resolver.
+- **A ref field may declare itself acyclic** (`sys.f.acyclic`, a checkbox
+  every field templates beside its target carriers): no node reaches itself
+  by following it. A tag's `sys.f.extends` and an ontology's
+  `sys.f.onto.extends` declare it. It constrains a value against the node
+  holding it, not the target set, so it is not a fourth carrier: a value
+  closes a cycle when its own chain through the field reaches the holder
+  (`closesCycle`, over `refChain` in `@kb/model`'s `ref-chain.ts`, the one
+  walk a tag's chain is read with too). The field picker shows such a value
+  refused (DESIGN-UI.md → The one node picker); the commit does not refuse
+  it yet, as it does not check a target carrier (GAP
+  [[01M39YM7FQ9S231XW8JBA5MG0E]]).
 - **Hiding `sys.*` is a display rule, never a resolution rule.** Resolution
   surfaces — ref-target constraints, ontology membership, datalog, validity
   checks — read the kind slot (`typeRefsOf`, i.e. `sys.f.type`, through the
