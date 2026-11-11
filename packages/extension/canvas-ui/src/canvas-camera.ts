@@ -42,6 +42,7 @@ import {
   type CanvasViewPresetName,
   type CanvasViewTarget,
 } from "@kb/contracts";
+import { CANVAS_VIEW_PRESETS, MAX_PITCH, MAX_ZOOM, MIN_ZOOM } from "./canvas-camera-stops";
 
 export interface CanvasPoint {
   x: number;
@@ -80,14 +81,6 @@ export interface CanvasScreenPoint {
   /** Distance in front of the eye along the view direction, canvas units. */
   readonly depth: number;
 }
-
-/**
- * Zoom bounds and step, owned here because every surface that changes zoom —
- * the wheel, the keymap, zoom-to-fit, an orbit's dolly — has to agree on them.
- */
-const MIN_ZOOM = 0.1;
-const MAX_ZOOM = 3;
-export const ZOOM_STEP = 1.15;
 
 export function clampZoom(zoom: number): number {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
@@ -604,9 +597,6 @@ export function isTopView(view: CanvasView): boolean {
   return view.pitch < FROM_TOP && Math.abs(turn(view.yaw, 0)) < FROM_TOP;
 }
 
-/** An orbit tips no further than level with the floor, radians, and never under it. */
-export const MAX_PITCH = Math.PI / 2;
-
 /** Radians of orbit per pixel of drag. */
 const ORBIT_PER_PIXEL = 0.004;
 
@@ -725,28 +715,6 @@ export function withLens(view: CanvasView, lens: CanvasLens): CanvasView {
 }
 
 // ── view presets ─────────────────────────────────────────────────────────
-
-/**
- * The named orientations of the orbit, Blender's numpad views: from the top
- * (the 2D view's), level from each side, and the oblique look a canvas first
- * opens at in 3D. Each side is named for where the eye stands — `front` on
- * the +y side, looking across the floor with x to the right; `right` on +x.
- */
-
-interface ViewPresetSpec {
-  readonly label: string;
-  readonly yaw: number;
-  readonly pitch: number;
-}
-
-export const CANVAS_VIEW_PRESETS: { readonly [P in CanvasViewPresetName]: ViewPresetSpec } = {
-  top: { label: "Top", yaw: 0, pitch: 0 },
-  front: { label: "Front", yaw: 0, pitch: MAX_PITCH },
-  right: { label: "Right", yaw: -Math.PI / 2, pitch: MAX_PITCH },
-  back: { label: "Back", yaw: Math.PI, pitch: MAX_PITCH },
-  left: { label: "Left", yaw: Math.PI / 2, pitch: MAX_PITCH },
-  oblique: { label: "Oblique", yaw: -0.4, pitch: 0.85 },
-};
 
 /** `from` turned to look from `preset`, its focus, zoom and lens kept. */
 export function presetView(from: CanvasView, preset: CanvasViewPresetName): CanvasView {

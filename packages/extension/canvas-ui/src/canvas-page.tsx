@@ -86,7 +86,7 @@ import { CanvasCommentLayer } from "./canvas-comments";
 import { CanvasLinkMarks } from "./canvas-link-marks";
 import { CanvasCommentList, CommentsToggle } from "./canvas-comment-list";
 import { useCanvasComments } from "./use-canvas-comments";
-import type { PresentAct } from "./canvas-keymap";
+import type { PresentAct } from "./canvas-keys";
 import { FIRST_GIZMO, NO_GIZMO, type GizmoChoice, type SceneGizmo } from "./canvas-gizmo";
 import { viewOfPan, type CanvasHitItem } from "./canvas-camera";
 import { placeUnder } from "./canvas-faces";

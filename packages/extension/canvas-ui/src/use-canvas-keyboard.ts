@@ -27,12 +27,8 @@ import {
   selectionEmpty,
   soleItem,
 } from "./canvas-selection";
-import {
-  mapCanvasKey,
-  type CanvasIntent,
-  type PresentAct,
-  type TransformAct,
-} from "./canvas-keymap";
+import type { CanvasIntent, PresentAct, TransformAct } from "./canvas-keys";
+import { mapCanvasKey } from "./canvas-keymap";
 import {
   pickTool,
   reduceCanvasTool,

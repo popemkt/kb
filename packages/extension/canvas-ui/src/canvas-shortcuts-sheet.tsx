@@ -6,14 +6,8 @@
  */
 import { useRef } from "react";
 import { useDismiss } from "@kb/ui-sdk";
-import {
-  CANVAS_SHORTCUTS,
-  chordHint,
-  heldChords,
-  hintOf,
-  type CanvasShortcut,
-  type CanvasShortcutSection,
-} from "./canvas-keymap";
+import { CANVAS_SHORTCUTS, type CanvasShortcut, type CanvasShortcutSection } from "./canvas-keys";
+import { chordHint, heldChords, hintOf } from "./canvas-keymap";
 
 /** The sections, in the order the sheet lists them. */
 const SECTIONS: readonly CanvasShortcutSection[] = [

@@ -9,7 +9,7 @@ import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { presetView, viewOfPan, type CanvasView } from "./canvas-camera";
 import { CanvasCameraRig } from "./canvas-camera-rig";
-import type { CanvasIntent } from "./canvas-keymap";
+import type { CanvasIntent } from "./canvas-keys";
 import { TIMING_FALLBACK } from "@kb/ui-sdk";
 import { CanvasViewWidget } from "./canvas-view-widget";
 import type { CanvasGroupNode } from "@kb/canvas";

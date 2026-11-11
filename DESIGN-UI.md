@@ -1781,7 +1781,7 @@ manipulation feel professional rather than merely functional.
   right-click on the 2D stage selects what it lands on unless it is
   selected already, and nothing on empty canvas (`selectForMenu`), and
   opens there, kept inside the stage, a menu of the keymap's own commands
-  with their keys (`CANVAS_MENUS`, `menuRows`, `canvas-keymap.ts`), sent through the
+  with their keys (each row's `menus`, read by `menuRows` in `canvas-keymap.ts`), sent through the
   keymap's applier, so a row and its key cannot mean different things. On
   the selection: edit its words and follow its link, cut, copy, duplicate
   and delete, group, ungroup and lock, front and back, the flips, and
@@ -1957,15 +1957,16 @@ the view node switches every page showing the canvas through it.
   orthographic lens, and the orthographic end of a dolly, with an exact
   orthographic projection, so it is the same picture as the DOM canvas.
 - **Views, the widget and the view menu.** The camera model names six
-  orientations (`CANVAS_VIEW_PRESETS`): top, front, right, back, left (each
+  orientations (`CANVAS_VIEW_PRESETS`, among the camera's stops in
+  `canvas-camera-stops.ts`, beside its zoom step and its tilt limit): top, front, right, back, left (each
   named for where the eye stands; front is the +y side) and the oblique look
   a canvas first opens at. The view commands (`CANVAS_VIEW_COMMANDS`) are
   rows of the canvas's one shortcut table (`CANVAS_SHORTCUTS`,
-  `canvas-ui/src/canvas-keymap.ts`). A row is an intent of one of the
+  `canvas-ui/src/canvas-keys.ts`). A row is an intent of one of the
   canvas's three key contexts (at rest, a modal transform, present mode)
   with the chords kb binds it to, which are canvas-ui's bindings
   (`CANVAS_BINDINGS`); no two of a context's chords overlap, a chord by
-  place asked first. The context's keymap decides what a key runs, and the
+  place asked first. The context's keymap (`canvas-keymap.ts`) decides what a key runs, and the
   view menu, the toolbar's key hints and the shortcut sheet (`?`,
   `canvas-shortcuts-sheet.tsx`, every named row by section) list the
   chords it holds. Its Arrange rows reach `@kb/canvas`'s
