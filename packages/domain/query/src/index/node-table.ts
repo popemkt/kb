@@ -1,4 +1,4 @@
-import type { FieldType, KbNode, NodeId, StoreTx } from "@kb/model";
+import { tagAncestors, type FieldType, type KbNode, type NodeId, type StoreTx } from "@kb/model";
 import { derivedTargets, nodeRefs, referenceFields } from "./datoms.ts";
 import {
   fieldTypesIn,
@@ -30,8 +30,11 @@ function byId(a: KbNode, b: KbNode): number {
  * reads a value with its field's type (`FieldTypes`). A type changes when
  * anything its reading looked up does: the field's choice of option, or
  * the option node it chooses appearing, vanishing or naming another type.
- * And each node that asked who holds a key (`GraphReads.holders`) whose
- * holders changed: a node took the key, gave it up, or was deleted.
+ * And each referrer of a tag whose chain changed (`GraphReads.ancestors`),
+ * since a node is each tag on its tags' chains: a tag on it changed what it
+ * extends, appeared or vanished. And each node that asked who holds a key
+ * (`GraphReads.holders`) whose holders changed: a node took the key, gave it
+ * up, or was deleted.
  */
 export interface NodeChange {
   readonly created: readonly NodeId[];
@@ -86,6 +89,18 @@ export class NodeTable implements NodeIndex {
    */
   readonly fieldTypes: FieldTypes = (field) => this.#types.get(field);
 
+  /**
+   * Each tag's chain (`tagAncestors`), with every tag the walk looked up:
+   * a change to any tag's `extends` on it reads it again, and the nodes
+   * pointing at the tag — those of it, and those of a tag that extends it,
+   * whose `:node/is` holds it — are restated (`change`).
+   */
+  #chains = new ReadMemo<readonly NodeId[]>(
+    (tag, nodeOf) => tagAncestors(tag, nodeOf),
+    (id) => this.#nodes.get(id),
+    (a, b) => a.length === b.length && a.every((id, i) => id === b[i]),
+  );
+
   /** Who holds each value of each key field asked about: field → value → holders. */
   #holders = new Map<NodeId, Map<string, Set<NodeId>>>();
   /** A key, as one string (`keyName`) → the nodes whose carriers asked who holds it. */
@@ -103,6 +118,7 @@ export class NodeTable implements NodeIndex {
   readsOf(reader: NodeId | null): GraphReads {
     return {
       fieldType: this.fieldTypes,
+      ancestors: (tag) => this.#chains.get(tag),
       holders: (key) => {
         if (reader !== null) this.#rememberKeyRead(reader, key);
         return [...(this.#holdersOf(key.field).get(key.value) ?? [])];
@@ -125,6 +141,7 @@ export class NodeTable implements NodeIndex {
     this.#refsFrom = new Map();
     this.#refsTo = new Map();
     this.#types.clear();
+    this.#chains.clear();
     this.#holders = new Map();
     this.#keyReaders = new Map();
     this.#keysReadBy = new Map();
@@ -146,6 +163,7 @@ export class NodeTable implements NodeIndex {
     if (created.length === 0 && removed.length === 0 && tx.upserts.length === 0) return null;
     const touched = [...tx.upserts.map((n) => n.id), ...tx.deletes];
     const typed = this.#types.forget(touched);
+    const chained = this.#chains.forget(touched);
     const keysWere = new Map(touched.map((id) => [id, this.#keysHeld(this.#nodes.get(id))]));
 
     for (const id of removed) {
@@ -161,7 +179,8 @@ export class NodeTable implements NodeIndex {
     const restated = new Map<NodeId, KbNode>();
     for (const node of tx.upserts) restated.set(node.id, node);
     const retyped = this.#types.changed(typed);
-    const referrers = [...created, ...removed, ...retyped].flatMap((id) => [
+    const rechained = this.#chains.changed(chained);
+    const referrers = [...created, ...removed, ...retyped, ...rechained].flatMap((id) => [
       ...(this.#refsTo.get(id) ?? []),
     ]);
     for (const referrer of [...referrers, ...rekeyed]) {

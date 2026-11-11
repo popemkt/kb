@@ -801,6 +801,23 @@ sys.extension.<name>` answers it.
   [:find ?id :where [?e :node/id "sys.extension.canvas"] [?n :node/owner ?e] [?n :node/id ?id]]
   ```
 
+- **`:node/is` (what a node is), derived, never stored.** The third entry
+  of the derived table: each tag a node carries (`sys.f.type`) and every
+  tag each of those extends (`sys.f.extends`, `tagAncestors`), so a node of
+  `#meeting`, which extends `#event`, is an `#event` too. `[?n :f/sys.f.type
+  ?t]` stays "tagged exactly", and `[?n :node/is ?t]` is "is a, subtypes
+  included"; `isA` and `kindsOf` in `@kb/model` are the same reading
+  outside datalog. Its carrier reads a tag's chain through the index
+  (`GraphReads.ancestors`), which remembers every tag the walk looked up
+  (`ReadMemo`), so a tag that changes what it extends, appears or vanishes
+  restates the nodes it is on, however many hops away; a cycle a write let
+  through ends the walk, each tag on it once.
+
+  ```clojure
+  ; every #event, each #meeting (a tag that extends it) included
+  [:find ?id :where [?t :node/text "event"] [?n :node/is ?t] [?n :node/id ?id]]
+  ```
+
   Optional Logseq-style `:node/path-refs` (ancestor mentions) is backlog —
   add only when a real query needs hierarchy-scoped reach.
 
@@ -2161,7 +2178,8 @@ same lane. One path to a client, whatever a node's provenance.
   ```
 
   `<edge>` is any node-valued attribute: `:node/mentions` (the reference
-  relation, any carrier), `:node/owner` (who seeds it), `:node/child`, or
+  relation, any carrier), `:node/owner` (who seeds it), `:node/is` (each
+  tag it is), `:node/child`, or
   `:f/<fieldId>` for a ref field. A find position bound as the value of a
   derived attribute is a node, as one bound by `:node/child` is.
   A list headed `reach` with a keyword in the edge slot is this form. If it is
