@@ -2817,6 +2817,13 @@ until "Save workspace".
   is drawn under it, whatever its frame. A route's `frame` says only how its
   page fills its pane (`full`: the page frames itself), never whether the
   shell is drawn, so no contribution can hide or replace the shell's chrome.
+- **The header says what the server is doing.** Its connection word (_live_,
+  _connecting_, _offline_, _idle_) is followed by one quiet note while the
+  server watches the root's own extensions: _watching .kb/extensions_, the
+  folder as the server names it, with a title that says a save there must
+  be trusted again (DESIGN.md → Watching the root's own extensions). The
+  page holds only what the server last told it (`extensionWatch` in the ui
+  store), so a reconnect to a server that does not watch drops the note.
 - **A pane's body outlives its place on screen** (`pane-bodies.tsx`). Each
   body is drawn once, into an element of its own, under its pane id
   (`PaneContext`, `lib/pane`). The layout only places that element, so

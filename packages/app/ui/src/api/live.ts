@@ -117,6 +117,7 @@ export function createLiveClient(overrides: Partial<KbWsClientOptions> = {}): Kb
       useUiStore.getState().pushToast("error", `ws ${err.code}: ${err.message}`),
     onProtocol: (protocol) => followServerProtocol(protocol),
     onManifestChanged: () => void loadManifest(),
+    onExtensionWatch: (folder) => useUiStore.getState().setExtensionWatch(folder),
     onScreenCommand: (id, command) => answerScreenCommand(next, id, command),
     onScreenRefused: (tab) => screenTab?.refused(tab),
     ...overrides,

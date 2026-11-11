@@ -50,9 +50,11 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // Protocol 8: node.add and node.addTree read an omitted parent as the
 // capture target (today's node with days), where a previous page meant the
 // top level; its local commit and the server's would disagree, so it reloads.
+// Protocol 9 adds the extension-watch greeting and live state; earlier pages
+// reject that frame and show a server-message error, so they reload first.
 const RECORDED = {
-  protocol: 8,
-  fingerprint: "95a8336ede518edc9d09b076038f70a7a2e51bd1ef2e2d7da53e5e9f866e8eec",
+  protocol: 9,
+  fingerprint: "0c71ed9566b055a68ab5cbe02703a58321e0c18953cc14a0a7d00de7fd219707",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

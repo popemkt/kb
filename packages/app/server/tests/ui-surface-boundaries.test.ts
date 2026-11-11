@@ -206,7 +206,11 @@ describe("ui session boundary", () => {
       op: "person",
       person: null,
     });
-    frames.splice(1, 1);
+    expect(JSON.parse(present(frames[2], "expected frames[2]"))).toEqual({
+      op: "extension-watch",
+      folder: null,
+    });
+    frames.splice(1, 2);
 
     await Effect.runPromise(hub.handleMessage("c1", "not-json{{{"));
     expect(JSON.parse(present(frames[1], "expected frames[1]"))).toMatchObject({
