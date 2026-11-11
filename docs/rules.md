@@ -47,6 +47,8 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Editor first (the editor is the main human editing surface) | DESIGN-UI.md#decisions-from-qa | repo | Every core concept is creatable and editable in the editor (outline + outline-ui); a concept writable only through the CLI or MCP, or only as a raw sys.* value, is a recorded gap. The CLI and MCP are equal agent surfaces, not the editor's fallback. | prose | an editor-surface test that walks every seeded field a person may set and asserts the editor draws a writable widget for it (none yet) |
 | Effect v4 idiom | AGENTS.md#effect | repo | Read the shipped Effect AGENTS.md before writing Effect code; the v4 non-negotiables listed there are not optional and v3 memory is wrong. | prose | effect-tsgo's effectFnOpportunity, promoted to error in the src/ lane of tsconfig.iso.json. Today it is off, and switching it on does not help yet: in effect-tsgo 0.40.0 it reports nothing through tsc, not even at error on a probe function that only returns an Effect.gen, so it has no sites to count. The other non-negotiables are partly held by errors that already run (outdatedApi, missingReturnYieldStar), which does not make the rule checked. |
 | Everything references by id | AGENTS.md#data-plane-freedom | repo | A stored reference, a saved query, a lens, a view's filter and a check name nodes by id, never by text. A name a person types resolves to an id once, at the entry point (kb add --tag todo). | prose | A check that no stored query, lens or filter matches :node/text against a literal. |
+| Hosts are accelerators: one-shot commands load no host code | AGENTS.md#hosts-are-accelerators | packages/app/cli entry and the release build | From the CLI entry, host code (servers, sockets, watchers, schedulers, agent runtimes, MCP) and painters or engines a command does not use are reached only through a dynamic import(), and the release build emits them in chunks a one-shot command never parses. | prose | The UI lazy fence (UI_LAZY_ONLY, UI_LAZY_DEPTH) generalized to a table keyed by entry with a CLI row over the backend import graph, plus a static-closure budget over the split CLI build's metafile. |
+| Hosts are accelerators: the store is the truth | AGENTS.md#hosts-are-accelerators | repo | A long-running process (kb ui, kb mcp) only makes a result arrive sooner. Every feature is correct when only one-shot commands ever run against a store: what is due, retained, rolled over or synced is computed from the store when asked, state that outlives a call is in the store under its lock, and a host loop runs the same action a one-shot command can. | prose | A hostless property in extensionContract (@kb/test-kit): a family's catch-up action run one-shot after any sequence of writes, deletions included, reaches the store state and remote effects a host running throughout reaches. |
 | Kinds, roles and options | DESIGN.md#kinds-roles-and-options | repo | A supertag says what a node is; a behaviour is a field; an option set is children. Strip the behaviour and ask whether the node is still that thing. | prose | A lint rejecting a new supertag that templates no fields would close the option-set clause (@kb/model kinds.test.ts pins it for the seed); the strip test itself stays a reviewer judgement. |
 | Lab principles | DESIGN-UI.md#lab-principles | packages/extension/lab-ui packages/kit lab scene graph | Every lab study follows the motion (M1–M7), light and colour (L1–L5), composition (P1–P5) and technology (T1: WebGPU plus TSL only) principles and is built from the one scene kit (@kb/scene and @kb/scene-gpu), which the 3D graph stands on too; a study's info card cites the principles by id and never restates them. | prose | The measured bounds are their own rule (Lab principles: measured bounds). What is left is judgement: a render-lane frame-budget and reduced-motion-still check would close P3 and M7; composition and light stay a review verdict. |
 | Navigation is in the URL | DESIGN-UI.md#decisions-from-qa | packages/app/ui packages/extension | Going somewhere moves the focused pane through the router, which pushes a history entry; minor state is replaced. Stated in DESIGN-UI.md → Decisions → Navigation. | prose | a harness check that no UI code moves the page's place (the zoom, a scope) outside the router; today navigation-url.e2e.ts and graph.store.test.ts prove the zoom and the scope |
@@ -429,6 +431,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A derived, gitignored mirror file under .kb/cache/, adopted on connect and replaced by a snapshot when the authority has compacted past it.
 - **node** — `01M6950XSKGDE356Q8RK622WKQ`
 
+### GAP: a routines OAuth connect attempt lives in one host process
+
+- **expected** — A connect attempt's state is verifiable without the process that began it: signed with a host secret, or a pending attempt kept in the store.
+- **current** — @kb/routines-host connections.ts keeps a connecting Map with a 10-minute TTL; finish must reach the same kb ui process that ran connect.
+- **impact** — A restart, or a second process, between connect and the OAuth redirect fails the attempt and the person starts over. The refresh token itself is stored durably.
+- **closes** — Signed or stored connect state (docs/research/2026-11-11-cli-host-modes.md step 9).
+- **rule** — Hosts are accelerators: the store is the truth
+- **node** — `01M75MA0QYHNYGSNMJAGTZKZQ1`
+
 ### GAP: a sandboxed graph.query is bounded in size, not in time
 
 - **expected** — a guest's graph.query has a deadline in the query layer
@@ -623,6 +634,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **current** — conversations are held in the agent bridge's memory per connection (at most 8) and vanish when the connection or server ends; Claude Code keeps its own session file
 - **impact** — no history across reloads; what an agent did and why is not part of the graph
 - **closes** — a thread/message node model the bridge writes, and resume from it
+- **rule** — Hosts are accelerators: the store is the truth
 - **node** — `01M40WSVNKVH3ZY8QE0GN5DY8X`
 
 ### GAP: an approval-required action cannot be invoked over MCP
@@ -900,6 +912,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — large expanded outlines are slow to open and the first scroll can hitch on slow machines
 - **closes** — windowing for the outline list that keeps caret, focus, selection, pickers and jump-to-node working
 - **node** — `01M41062Z83M38GYHC276XJ8RF`
+
+### GAP: every one-shot command rebuilds the whole index, derived sets and manifest
+
+- **expected** — A command pays for what it reads: manifest JSON Schemas are built for kb.manifest and MCP tools/list only, the DataScript index on first datalog use, and derived sets on demand, or from a snapshot keyed by the store fingerprint.
+- **current** — Opening a root builds DatascriptIndex from every node and computes every derived set, and the action table converts every action's schema to JSON Schema, even for kb get: about 200 ms at 360 nodes and 270 ms at 1,209.
+- **impact** — kb get and kb search stay above about 200 ms whatever the module split does, and the cost grows with the store.
+- **closes** — docs/research/2026-11-11-cli-host-modes.md step 7.
+- **node** — `01M75MA4HB3NFDXGGKG0RE45H5`
 
 ### GAP: ext-sdk declarations are still a hand-kept mirror; generation needs type-first and author-facing contracts
 
@@ -1211,6 +1231,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Core names no feature
 - **node** — `01M63C0JP6WDX8CZ0VBPYQY4ER`
 
+### GAP: nothing proves a family correct when no host runs
+
+- **expected** — extensionContract (@kb/test-kit) has a hostless property: for a family with a host loop, its catch-up action run one-shot after any sequence of writes, deletions included, reaches the store state and remote effects a host running throughout reaches.
+- **current** — The rule is prose. No suite runs a family without its host, and the routines engine is tested only as a running loop.
+- **impact** — A new host loop, scheduler or in-memory map can become the only place a truth lives, and nothing goes red.
+- **closes** — The property in extensionContract, run over the routines memory Calendar; the rule's enforcement then moves to ci (docs/research/2026-11-11-cli-host-modes.md step 10).
+- **rule** — Hosts are accelerators: the store is the truth
+- **node** — `01M75MA1FDWA0W84EBDYGCCEHX`
+
 ### GAP: offline writes to a shared store are unsupported (the tail is a total order the store assigns)
 
 - **expected** — Either offline writes are refused with a stated reason, or revs are assigned at push time so devices can write offline (docs/research/2026-10-31-online-stores.md §2.4).
@@ -1437,6 +1466,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A second background family establishes the shared contract requirements.
 - **node** — `01M6EKEE8P040W6592ZZ3HDVGC`
 
+### GAP: routines' Google Calendar sync keeps its truth in the kb ui host
+
+- **expected** — Sync is a registry action any process can run one-shot: refresh, push, exit. The change cursor, each routine's last-pushed signature, retry attempts and mass-deletion holds are props in the store; deletions are read from the transaction tail since the cursor; the kb ui loop only triggers the same action, under the same trust check.
+- **current** — @kb/routines-host engine.ts holds the push queue, seen (the deletion baseline, empty at each start), applied, the tail cursor and releases in memory, driven by a 1 s Effect.forever loop. The family is hosted by kb ui alone (HOSTED_FAMILIES), so the CLI and kb mcp reach neither sync nor preview nor status.
+- **impact** — With only one-shot commands nothing is pushed. A routine deleted while no host runs is never retired in Google, and every restart re-puts every routine and forgets give-ups and granted releases. The 2026-11-04 routines design accepted this; the rule reverses it.
+- **closes** — docs/research/2026-11-11-cli-host-modes.md §3 and step 9: a one-shot routines.sync with durable cursor, signatures, attempts and holds, and the host loop as its trigger.
+- **rule** — Hosts are accelerators: the store is the truth
+- **node** — `01M75M9ZQBAAH00J9DZW5TJX4K`
+
 ### GAP: sandboxed third-party code has no distribution
 
 - **expected** — Code views and scripts (nodes under a CodeGrant) can be installed from a source as an outline, their grants said in words by grantSentence and each untrusted until its digest is trusted; a component engine runs non-JavaScript guests under the same grant (docs/research/2026-10-31-plugin-sources.md §5).
@@ -1601,6 +1639,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Move the phrase parser into @kb/model next to parseTypedValue and call it from CLI/MCP.
 - **node** — `01M3KA3AEEFG0E200V4D63G5SN`
 
+### GAP: the CLI's eager graph loads every family's painters and the host's engines
+
+- **expected** — From the CLI entry, painters and engines load at first use (chart-vega's Vega, gallery-net, canvas' tldraw reader, the QuickJS engine, store-sqlite when selected, source-git at first fetch), and the @kb/runtime barrel exports the mode-neutral core only.
+- **current** — cli.ts imports @kb/runtime, whose barrel statically reaches bundled.ts (BUNDLED_EXTENSIONS builds every family's server plugin at module load), layers.ts (sandbox-quickjs, source-git) and store-selection.ts (store-sqlite). 1,116 of the bundle's 1,310 modules run for kb --version; the barrel alone bundles to 8.1 MB and about 254 ms.
+- **impact** — About 135-145 ms of module init on every command, plus their parse once the build is split; kb get cannot approach 100 ms.
+- **closes** — docs/research/2026-11-11-cli-host-modes.md steps 4-6, each removing its breach row from the CLI lazy fence.
+- **rule** — Hosts are accelerators: one-shot commands load no host code
+- **node** — `01M75MA300NQJS5M3V6GEWQS8E`
+
 ### GAP: the command palette draws every command the same way, so a theme cannot draw functions as cards
 
 - **expected** — the shown design system may present palette commands in its own form (Transistor: a function card with name(), a MEM cost and slots; ART-DIRECTION.md → Transistor)
@@ -1728,6 +1775,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Two pinpoint disables of a rule that is error everywhere else, on the one ui path with a measured latency bar.
 - **closes** — palette-index.test.ts asserts open <50ms and keystroke <10ms at 50k nodes. A standalone benchmark puts Array.from({length:n}) about 40% behind new Array(n) at that size, and the push variant flipped that test red on three of four full-suite runs on a loaded machine. Close it by making the 50k path fast enough that the allocation shape stops mattering (incremental or worker-side palette search), then delete both disables.
 - **node** — `01M1MFJXAQ8NVBMA6E6CZ7CY9W`
+
+### GAP: the release bundle is one file, so every command parses host code
+
+- **expected** — One build script, called by both bin/release-bundle and nix/package.nix, builds the CLI with --splitting; each import() edge is a chunk under lib/kb/ that a one-shot command never parses, and the KB startup contract covers the chunked layout.
+- **current** — Each of the two files runs its own bun build packages/app/cli/src/main.ts --target=bun without --splitting and ships one 10.9 MB cli.js. An import() becomes an __esm initializer in that file, which defers evaluation but not parsing.
+- **impact** — About 225 ms of every command, 55-60% of kb --version, parses code it never runs: the agent SDK, the MCP SDK and ajv, the server. The build line is written twice, so a fix to one can miss the other.
+- **closes** — docs/research/2026-11-11-cli-host-modes.md step 2.
+- **rule** — Hosts are accelerators: one-shot commands load no host code
+- **node** — `01M75MA27E1ARMJ8GK6PW2ASY4`
 
 ### GAP: the routines Google setup wizard keeps its own steps beside the core procedure
 
