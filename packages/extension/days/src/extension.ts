@@ -1,8 +1,9 @@
 /**
  * The days family's declaration and its plugin (DESIGN.md → Days). The
- * plugin is the entry on both hosts, as code's is: the day page's view
- * key, `ext.days.today`, and the guard that keeps one node per period key,
- * which every commit on either host passes.
+ * plugin is the entry on both hosts, as code's is: `ext.days.today`, and
+ * the guard that keeps one node per period key, which every commit on
+ * either host passes. A day is an ordinary node, and its page is every
+ * node's page.
  */
 import { Effect } from "effect";
 import {
@@ -17,18 +18,32 @@ import {
   familyTags,
   guardAction,
   provideAction,
-  viewDef,
 } from "@kb/contracts";
+import { displayDefaultId, displaySettingIds, viewOptionId } from "@kb/model";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { dateDayReferences } from "./dated.ts";
 import { DAYS_IDS } from "./ids.ts";
-import { DAYS_POINT_DEFINITIONS } from "./point-definitions.ts";
 import { daysSeed } from "./seed.ts";
 import { TODAY_ACTION } from "./today.ts";
 import { captureToday } from "./capture.ts";
 import { periodTagGuard } from "./period-tag.ts";
 import { uniqueKeyGuard } from "./unique-key.ts";
-import { DayView } from "./view.ts";
+
+/**
+ * The day page, retired: it was `#day`'s default view, and a day opens in
+ * the node page now. Its view's node goes, and with it the display setting
+ * the fold derived for a tag's default view, its options, and the family's
+ * value of it.
+ */
+const RETIRED_DAY_PAGE = (() => {
+  const properties = displaySettingIds(DAYS_IDS.retiredDayView).properties;
+  return [
+    viewOptionId(DAYS_IDS.retiredDayView),
+    properties,
+    displayDefaultId(properties, "asked"),
+    displayDefaultId(properties, "always"),
+  ];
+})();
 
 export const daysExtension = defineExtension({
   name: "days",
@@ -57,9 +72,7 @@ export const daysExtension = defineExtension({
   tags: ["days"],
   optional: { byDefault: "on" },
   seed: daysSeed,
-  views: [viewDef(DayView)],
-  points: Object.values(DAYS_POINT_DEFINITIONS),
-  tagDefaultViews: { [DAYS_IDS.dayTag]: DayView },
+  retires: RETIRED_DAY_PAGE.map((from) => ({ from })),
   refCarriers: [{ refsOf: dateDayReferences }],
 });
 

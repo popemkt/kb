@@ -27,6 +27,10 @@ export function daysSeed(at: string): readonly KbNode[] {
     one: true,
     props: CONFIGURES_DAYS,
   });
+  const touched = seededField(DAYS_IDS.touchedField, "made or edited", "ref", at, {
+    one: true,
+    props: CONFIGURES_DAYS,
+  });
   return [
     // GAP [[01M7342WTAZQBARRM7T9F751HT]] the key is the family's identity data, hidden and kept unique, but a person can still write it through debug fields
     seededField(DAYS_IDS.keyField, "period", "text", at, { one: true, hidden: true }),
@@ -42,6 +46,9 @@ export function daysSeed(at: string): readonly KbNode[] {
     { ...captures, children: [DAYS_IDS.capturesToday, DAYS_IDS.capturesTop] },
     option(DAYS_IDS.capturesToday, "today", at),
     option(DAYS_IDS.capturesTop, "top level", at),
+    { ...touched, children: [DAYS_IDS.touchedHidden, DAYS_IDS.touchedShown] },
+    option(DAYS_IDS.touchedHidden, "hidden", at),
+    option(DAYS_IDS.touchedShown, "shown", at),
     seededField(DAYS_IDS.timeZoneField, "time zone", "text", at, {
       one: true,
       props: CONFIGURES_DAYS,

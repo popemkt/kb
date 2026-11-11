@@ -29,6 +29,12 @@ export const DAYS_IDS = {
   capturesField: "sys.f.days.captures",
   capturesToday: "sys.f.days.captures.today",
   capturesTop: "sys.f.days.captures.top",
+  /** Setting: whether a period's page lists what was made or edited in it; hidden when empty. */
+  touchedField: "sys.f.days.touched",
+  touchedShown: "sys.f.days.touched.shown",
+  touchedHidden: "sys.f.days.touched.hidden",
+  /** The day page's view key, retired: a day opens in the node page. */
+  retiredDayView: "days.day",
   /** Setting: the store's time zone (IANA), which says what today is away from the page. */
   timeZoneField: "sys.f.days.timeZone",
   /** The action that returns a day's node, making it and what is missing above it. */
