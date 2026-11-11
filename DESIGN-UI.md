@@ -2511,6 +2511,18 @@ contribution (`CommandPoint`). Each says where it is offered (`menu`):
   names a node command, so it names itself (`chrome`, a label and an
   icon).
 
+`commandsFor` is the ordered runner catalog behind both listing and dispatch.
+Each entry retains its implementation provenance: the actual `CommandPoint`
+registration for a contributed command, or the host handler's captured inputs
+and live view-key/provider dependencies for a generated command. These are code
+references, not authority inferred from writable descriptions. A missing or
+ambiguous provider remains visible to an authority adapter; this metadata alone
+never authenticates it. Listing applies each command's `when` predicate, while
+the existing runner resolves the first matching id in catalog order. An adapter
+must check that elected entry's availability, rather than selecting a later
+same-id entry which happens to be offered. The catalog is read afresh, so target
+changes and plugin withdrawal/replacement do not require a shortcut-node edit.
+
 The groups, in the menu's order (`NODE_MENU_GROUPS`):
 
 | Group | What it holds | Its rows today |

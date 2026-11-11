@@ -73,6 +73,7 @@ import {
   ontologyPath,
   SETTINGS_PATH,
   type OutlineCommandApi,
+  type ProvidedView,
   shownDesignSystem,
   ViewPoint,
   SYSTEM_IDS,
@@ -92,8 +93,10 @@ import {
   paramsFromProps,
   type FrameViewKey,
   type LayoutTree,
+  type ViewKey,
 } from "@kb/views";
 import { Result } from "effect";
+import type { Contribution } from "@kb/plugin";
 
 const GLOBAL = { where: "global" } as const;
 
@@ -494,30 +497,42 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
  * node-menu row named and drawn by its picker, in the pickers' order.
  */
 function frameViewCommands(ctx: CommandContext): {
-  readonly global: readonly Command[];
-  readonly node: readonly Command[];
+  readonly global: readonly CommandRegistration[];
+  readonly node: readonly CommandRegistration[];
 } {
   const views = ctx.outline.frameViews();
   return {
-    global: views.flatMap(({ key, picker }): Command[] =>
+    global: views.flatMap(({ key, picker }): CommandRegistration[] =>
       picker.command === undefined
         ? []
-        : [{ id: picker.command, menu: GLOBAL, run: (c) => setGlobalFrameView(c, key) }],
+        : [
+            hostCommand(
+              { id: picker.command, menu: GLOBAL, run: (c) => setGlobalFrameView(c, key) },
+              { view: key.id },
+              [key],
+            ),
+          ],
     ),
     node: views.map(
-      ({ key, picker }): Command => ({
-        id: `view-as-${localIdOf(key)}`,
-        menu: nodeMenu("view", 10),
-        faceOf: picker.command,
-        chrome: () => {
-          const Icon = picker.icon;
-          return {
-            label: `View as: ${key.label}`,
-            icon: Icon === undefined ? null : <Icon size={14} weight={picker.iconWeight} />,
-          };
-        },
-        run: (c) => nodeAction(c, (nodeId) => void browserHost().writes.setFrameView(nodeId, key)),
-      }),
+      ({ key, picker }): CommandRegistration =>
+        hostCommand(
+          {
+            id: `view-as-${localIdOf(key)}`,
+            menu: nodeMenu("view", 10),
+            faceOf: picker.command,
+            chrome: () => {
+              const Icon = picker.icon;
+              return {
+                label: `View as: ${key.label}`,
+                icon: Icon === undefined ? null : <Icon size={14} weight={picker.iconWeight} />,
+              };
+            },
+            run: (c) =>
+              nodeAction(c, (nodeId) => void browserHost().writes.setFrameView(nodeId, key)),
+          },
+          { view: key.id },
+          [key],
+        ),
     ),
   };
 }
@@ -537,7 +552,7 @@ function viewLabel(byId: ReadonlyMap<string, WireNode>, viewId: string): string 
  * each host that names it after another view. Each moves the view first in
  * that host's `sys.f.views`.
  */
-function defaultViewCommands(ctx: CommandContext): readonly Command[] {
+function defaultViewCommands(ctx: CommandContext): readonly CommandRegistration[] {
   const targetId = ctx.target.nodeId;
   if (targetId === null) return [];
   const wires = ctx.outline.wireNodes;
@@ -560,15 +575,19 @@ function defaultViewCommands(ctx: CommandContext): readonly Command[] {
         }))
     : [];
   return [...ofHost, ...ofView].map(
-    ({ hostId, viewId, label }): Command => ({
-      id: `make-default-view:${hostId}:${viewId}`,
-      menu: nodeMenu("view", 20),
-      chrome: () => ({ label, icon: <StarIcon size={14} /> }),
-      run: async (c) => {
-        c.palette.close();
-        await browserHost().writes.makeDefaultView(hostId, viewId);
-      },
-    }),
+    ({ hostId, viewId, label }): CommandRegistration =>
+      hostCommand(
+        {
+          id: `make-default-view:${hostId}:${viewId}`,
+          menu: nodeMenu("view", 20),
+          chrome: () => ({ label, icon: <StarIcon size={14} /> }),
+          run: async (c) => {
+            c.palette.close();
+            await browserHost().writes.makeDefaultView(hostId, viewId);
+          },
+        },
+        { hostId, viewId },
+      ),
   );
 }
 
@@ -579,47 +598,92 @@ function defaultViewCommands(ctx: CommandContext): readonly Command[] {
  * …", and leads the menu. Each moves the focused pane to the node opened
  * that way; nothing is written.
  */
-function openWithCommands(ctx: CommandContext): readonly Command[] {
+function openWithCommands(ctx: CommandContext): readonly CommandRegistration[] {
   const nodeId = ctx.target.nodeId;
   if (nodeId === null) return [];
   const byId = new Map(ctx.outline.wireNodes.map((n) => [n.id, n]));
   const views = currentContributions(ViewPoint);
   const openings = pageOpeningsOf(nodeId, pageCatalog(), views, (id) => byId.get(id));
-  return openings.flatMap(({ view, label, key, tag, default: isDefault }): Command[] => {
-    if (view === undefined) return [];
-    const Icon = views.find(({ value }) => value.key === key)?.value.picker?.icon;
-    return [
-      {
-        id: `open-with:${view}`,
-        // The view a tag of the node names is how the node itself opens: it leads.
-        menu: tag === undefined ? nodeMenu("open", 40) : nodeMenu("lead", 10),
-        chrome: () => ({
-          label:
-            tag === undefined
-              ? `Open with: ${label}${isDefault ? " (default)" : ""}`
-              : `Open in ${label}`,
-          icon: Icon === undefined ? <ArrowSquareOutIcon size={14} /> : <Icon size={14} />,
-        }),
-        run: (c) => {
-          c.palette.close();
-          browserHost().navigatePane(c.workspace.focused, nodePath(nodeId, view));
-        },
-      },
-    ];
-  });
+  return openings.flatMap(
+    ({ view, label, key, tag, default: isDefault }): CommandRegistration[] => {
+      if (view === undefined) return [];
+      const Icon = views.find(({ value }) => value.key === key)?.value.picker?.icon;
+      return [
+        hostCommand(
+          {
+            id: `open-with:${view}`,
+            // The view a tag of the node names is how the node itself opens: it leads.
+            menu: tag === undefined ? nodeMenu("open", 40) : nodeMenu("lead", 10),
+            chrome: () => ({
+              label:
+                tag === undefined
+                  ? `Open with: ${label}${isDefault ? " (default)" : ""}`
+                  : `Open in ${label}`,
+              icon: Icon === undefined ? <ArrowSquareOutIcon size={14} /> : <Icon size={14} />,
+            }),
+            run: (c) => {
+              c.palette.close();
+              browserHost().navigatePane(c.workspace.focused, nodePath(nodeId, view));
+            },
+          },
+          { nodeId, viewId: view },
+          key === undefined ? [] : [key],
+        ),
+      ];
+    },
+  );
 }
 
-/** Every command, in order: the static ones, with the views' where they sit. */
-function commandsFor(ctx: CommandContext): readonly Command[] {
+/** A view key captured by a host-generated command, with its live page providers. */
+interface CommandViewDependency {
+  readonly key: ViewKey<unknown>;
+  readonly registrations: readonly Contribution<ProvidedView>[];
+}
+
+/** The actual runner entry; provenance is a code reference, never an approval grant. */
+interface CommandRegistration {
+  readonly command: Command;
+  readonly source:
+    | {
+        readonly kind: "host";
+        readonly input: Readonly<Record<string, string>>;
+        readonly views: readonly CommandViewDependency[];
+      }
+    | { readonly kind: "contribution"; readonly registration: Contribution<Command> };
+}
+
+function hostCommand(
+  command: Command,
+  input: Readonly<Record<string, string>> = {},
+  keys: readonly ViewKey<unknown>[] = [],
+): CommandRegistration {
+  return {
+    command,
+    source: {
+      kind: "host",
+      input,
+      views: keys.map((key) => ({
+        key,
+        registrations: currentContributions(ViewPoint).filter(({ value }) => value.key === key),
+      })),
+    },
+  };
+}
+
+/** Every runner entry, in order; graph descriptions never manufacture membership. */
+export function commandsFor(ctx: CommandContext): readonly CommandRegistration[] {
   const views = frameViewCommands(ctx);
   return [
-    ...GLOBAL_COMMANDS,
+    ...GLOBAL_COMMANDS.map((command) => hostCommand(command)),
     ...views.global,
-    ...NODE_COMMANDS,
+    ...NODE_COMMANDS.map((command) => hostCommand(command)),
     ...openWithCommands(ctx),
     ...views.node,
     ...defaultViewCommands(ctx),
-    ...currentContributions(CommandPoint).map(({ value }) => value),
+    ...currentContributions(CommandPoint).map((registration) => ({
+      command: registration.value,
+      source: { kind: "contribution" as const, registration },
+    })),
   ];
 }
 
@@ -635,6 +699,7 @@ function menuRank(menu: NodeCommand["menu"]): readonly [number, number] {
  */
 export function listNodeCommands(ctx: CommandContext): NodeCommandListing[] {
   return commandsFor(ctx)
+    .map(({ command }) => command)
     .filter(
       (command): command is NodeCommand =>
         command.menu.where === "node" && (command.when?.(ctx) ?? true),
@@ -658,7 +723,7 @@ export function listNodeCommands(ctx: CommandContext): NodeCommandListing[] {
 
 /** Run a command by id — the runner both palettes share. */
 export async function runCommand(commandId: string, ctx: CommandContext): Promise<void> {
-  const command = commandsFor(ctx).find((c) => c.id === commandId);
+  const command = commandsFor(ctx).find((entry) => entry.command.id === commandId)?.command;
   if (command === undefined) {
     toast(`Unknown command: ${commandId}`);
     return;

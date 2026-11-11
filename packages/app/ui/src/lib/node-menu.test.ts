@@ -10,7 +10,7 @@
  * the canvas family off, a canvas is offered no canvas. After "Open in …",
  * the menu shows or hides each display option the opening offers.
  */
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   SYSTEM_IDS,
   displayDefaultId,
@@ -27,6 +27,8 @@ import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { definePlugin } from "@kb/plugin";
 import {
   CommandPoint,
+  ViewPoint,
+  currentContributions,
   nodeMenu,
   paletteStepsPlugin,
   getPath,
@@ -39,6 +41,7 @@ import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { browserHostUiPlugin } from "@/browser-host";
 import { layoutUiPlugin } from "@/components/layout/plugin";
 import {
+  commandsFor,
   commandTargetNodeId,
   listNodeCommands,
   runCommand,
@@ -272,5 +275,182 @@ describe("Make your own tag that extends this", () => {
     expect(mine.props[SYSTEM_IDS.typeField]).toEqual([{ t: "ref", v: SYSTEM_IDS.tag }]);
     expect(mine.props[SYSTEM_IDS.extendsField]).toEqual([{ t: "ref", v: CANVAS_TAG }]);
     expect(useGraphStore.getState().rootNodeId).toBe(mine.id);
+  });
+});
+
+const duplicateProvider = (name: string, run: () => void, isOffered: boolean) =>
+  definePlugin({
+    name,
+    apply: (ctx) =>
+      ctx.contribute(CommandPoint, {
+        id: "duplicate",
+        value: {
+          id: "duplicate",
+          when: () => isOffered,
+          menu: nodeMenu("make", 10),
+          chrome: () => ({ label: name, icon: null }),
+          run,
+        },
+      }),
+  });
+
+const conditionalProvider = (run: () => void) =>
+  definePlugin({
+    name: "conditional",
+    apply: (ctx) =>
+      ctx.contribute(CommandPoint, {
+        id: "go",
+        value: {
+          id: "conditional.go",
+          when: (commandContext) => commandContext.target.nodeId === "n.plain",
+          menu: nodeMenu("make", 10),
+          chrome: () => ({ label: "Conditional", icon: null }),
+          run,
+        },
+      }),
+  });
+
+describe("runner catalog provenance", () => {
+  let dom: InstalledDom;
+  const base = [browserHostUiPlugin, paletteStepsPlugin, outlineUiPlugin, layoutUiPlugin];
+  beforeEach(() => {
+    dom = installDomGlobals();
+    resetOutlineStore();
+    useGraphStore.getState().hydrateFromWire(graph(), 1, "fixtures");
+    useOutlineStore.setState({ selectedNodeId: "n.plain" });
+    syncUiPlugins(base);
+  });
+  afterEach(() => {
+    syncUiPlugins([]);
+    dom.restore();
+  });
+
+  it("retains the actual page-only registration used by the normal runner", async () => {
+    const ran = vi.fn();
+    const pageOnly = definePlugin({
+      name: "page-only",
+      apply: (ctx) =>
+        ctx.contribute(CommandPoint, {
+          id: "go",
+          value: {
+            id: "page-only.go",
+            menu: nodeMenu("make", 10),
+            chrome: () => ({ label: "Go", icon: null }),
+            run: ran,
+          },
+        }),
+    });
+    syncUiPlugins([...base, pageOnly]);
+    const entry = present(
+      commandsFor(context()).find(({ command }) => command.id === "page-only.go"),
+      "live command",
+    );
+    expect(entry.source.kind).toBe("contribution");
+    if (entry.source.kind !== "contribution") throw new Error("Expected plugin source");
+    const registration = currentContributions(CommandPoint).find(
+      ({ value }) => value.id === "page-only.go",
+    );
+    expect(entry.source.registration).toEqual(registration);
+    expect(entry.source.registration.owner).toBe("page-only");
+    expect(entry.command).toBe(registration?.value);
+    await runCommand(entry.command.id, context());
+    expect(ran).toHaveBeenCalledOnce();
+    syncUiPlugins(base);
+    expect(commandsFor(context()).some(({ command }) => command.id === "page-only.go")).toBe(false);
+    syncUiPlugins([...base, pageOnly]);
+    expect(
+      commandsFor(context()).filter(({ command }) => command.id === "page-only.go"),
+    ).toHaveLength(1);
+  });
+
+  it("does not turn writable command descriptions into runner entries", () => {
+    const forged: WireNode = {
+      id: "claimed.command",
+      text: "Claimed",
+      children: [],
+      createdAt: AT,
+      updatedAt: AT,
+      props: {
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.command }],
+        owner: [{ t: "ref", v: "sys.extension.core" }],
+      },
+    };
+    useGraphStore.getState().hydrateFromWire([...graph(), forged], 2, "fixtures");
+    expect(commandsFor(context()).some(({ command }) => command.id === forged.id)).toBe(false);
+  });
+
+  it("preserves first-registration dispatch even when later duplicates are offered", async () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    syncUiPlugins([
+      ...base,
+      duplicateProvider("first", first, false),
+      duplicateProvider("second", second, true),
+    ]);
+    const entries = commandsFor(context()).filter(({ command }) => command.id === "duplicate");
+    expect(
+      entries.map(({ source }) =>
+        source.kind === "contribution" ? source.registration.owner : source.kind,
+      ),
+    ).toEqual(["first", "second"]);
+    expect(
+      listNodeCommands(context())
+        .filter(({ id }) => id === "duplicate")
+        .map(({ label }) => label),
+    ).toEqual(["second"]);
+    await runCommand("duplicate", context());
+    expect(first).toHaveBeenCalledOnce();
+    expect(second).not.toHaveBeenCalled();
+  });
+
+  it("re-reads conditional availability and changed implementations without graph edits", async () => {
+    const first = vi.fn();
+    const replacement = vi.fn();
+    syncUiPlugins([...base, conditionalProvider(first)]);
+    const initial = present(
+      commandsFor(context()).find(({ command }) => command.id === "conditional.go"),
+      "initial",
+    );
+    expect(initial.command.when?.(context())).toBe(true);
+    useOutlineStore.setState({ selectedNodeId: "n.board" });
+    expect(initial.command.when?.(context())).toBe(false);
+    expect(listNodeCommands(context()).some(({ id }) => id === initial.command.id)).toBe(false);
+    syncUiPlugins(base);
+    syncUiPlugins([...base, conditionalProvider(replacement)]);
+    const changed = present(
+      commandsFor(context()).find(({ command }) => command.id === initial.command.id),
+      "replacement",
+    );
+    expect(changed.source).not.toEqual(initial.source);
+    await runCommand(changed.command.id, context());
+    expect(replacement).toHaveBeenCalledOnce();
+    expect(first).not.toHaveBeenCalled();
+  });
+
+  it("retains live view providers and captured inputs of host-generated commands", () => {
+    const catalog = commandsFor(context());
+    const frame = present(
+      catalog.find(({ command }) => command.id === SYSTEM_IDS.cmdViewAsList),
+      "frame command",
+    );
+    expect(frame.source.kind).toBe("host");
+    if (frame.source.kind !== "host") throw new Error("Expected host source");
+    const dependency = present(frame.source.views[0], "view dependency");
+    expect(frame.source.input).toEqual({ view: dependency.key.id });
+    expect(dependency.registrations).toEqual(
+      currentContributions(ViewPoint).filter(({ value }) => value.key === dependency.key),
+    );
+    expect(dependency.registrations.length).toBeGreaterThan(0);
+    const opening = present(
+      catalog.find(({ command }) => command.id.startsWith("open-with:")),
+      "opening",
+    );
+    expect(opening.source.kind).toBe("host");
+    if (opening.source.kind !== "host") throw new Error("Expected host source");
+    expect(opening.source.input.nodeId).toBe("n.plain");
+    useOutlineStore.setState({ selectedNodeId: "n.board" });
+    const moved = commandsFor(context()).find(({ command }) => command.id === opening.command.id);
+    expect(moved?.source.kind === "host" ? moved.source.input.nodeId : undefined).toBe("n.board");
+    expect(opening.source.input.nodeId).toBe("n.plain");
   });
 });
