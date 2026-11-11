@@ -20,7 +20,13 @@ import {
   defineExtension,
   viewDef,
 } from "@kb/contracts";
-import { DESIGN_SYSTEM_OPTIONS, SYSTEM_IDS, systemSeedNodes, type SeedOption } from "@kb/model";
+import {
+  DESIGN_SYSTEM_OPTIONS,
+  SYSTEM_IDS,
+  extensionNodeId,
+  systemSeedNodes,
+  type SeedOption,
+} from "@kb/model";
 import {
   DocsMarkdownView,
   HomeView,
@@ -60,6 +66,8 @@ export const coreExtension = defineExtension({
     viewDef(NodeReadView),
   ],
   declaredOptions: [{ kind: DESIGN_SYSTEM_OPTIONS, options: [KB_DESIGN_SYSTEM] }],
+  // Its own lists it files under its node: the families' migration records.
+  files: { [extensionNodeId("core")]: [SYSTEM_IDS.migrationsList] },
   // Where a node made with no chosen place goes, and where a page that
   // loads at the root opens: core's page half answers the top level and
   // home, and a family may replace either (days answers today). Where a

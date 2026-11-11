@@ -89,7 +89,9 @@ export interface KbRootsPort {
   readonly snapshot: (root: string) => Effect.Effect<readonly KbNode[], DomainError>;
   /**
    * Copy `root`'s store, as one state of it, into a new backup, then remove
-   * all but the newest `keep` of its backups (at least the one just taken).
+   * all but the newest `keep` of its backups (at least the one just taken),
+   * never one the authoritative stored graph pins: those are kept beside the `keep`.
+   * Pin reads and pruning share the same retention boundary as `useBackup`.
    */
   readonly backup: (
     root: string,

@@ -63,7 +63,7 @@
       "name": "@kb/cli",
       "version": "0.0.0",
       "bin": {
-        "kb": "../../../bin/kb",
+        "kb": "./bin/kb",
       },
       "dependencies": {
         "@kb/agent": "workspace:*",
@@ -85,6 +85,7 @@
         "effect": "catalog:",
       },
       "devDependencies": {
+        "@kb/canvas": "workspace:*",
         "@kb/code": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/sandbox": "workspace:*",

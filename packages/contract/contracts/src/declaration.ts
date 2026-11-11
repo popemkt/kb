@@ -37,6 +37,13 @@ import { definePlugin, type Plugin } from "@kb/plugin";
 import { ViewKeyPoint, type ViewDef } from "./view-catalog.ts";
 import { contributeKeyboard } from "./keybindings.ts";
 import { ContextReferencePoint, type ContextReference } from "./context.ts";
+import {
+  MigrationPoint,
+  migrationProcedure,
+  migrationProcedureId,
+  type ExtensionMigration,
+} from "./migration.ts";
+import { ProcedurePoint } from "./procedure.ts";
 
 export interface ExtensionDeclaration {
   /** The family's name: the one home of it, which its plugins and its manifest row read. */
@@ -147,6 +154,12 @@ export interface ExtensionDeclaration {
    * `@kb/query`), so a node's References show what points at it this way.
    */
   readonly refCarriers?: readonly ValueRefCarrier[];
+  /**
+   * The data migrations the family ships (DESIGN.md → Action registry →
+   * Plugin data migrations), each run as the procedure
+   * `migration.<family>.<id>` every surface walks.
+   */
+  readonly migrations?: readonly ExtensionMigration[];
 }
 
 /** A family's declaration, as written in its shared package. */
@@ -174,12 +187,6 @@ export function defineExtension(declaration: ExtensionDeclaration): ExtensionDec
 }
 
 /**
- * What both hosts load of a declaration: its views, each contributed to
- * {@link ViewKeyPoint} under its view id. A view id already carries its
- * namespace (`<namespace>.<local id>`), so the plugin sits in the root
- * namespace. A host's entry plugin loads it as a child, or loads it as is.
- */
-/**
  * The tags a plugin of `declaration`'s family carries: the family's, then
  * any of the plugin's own (`"ui"` on a browser half).
  */
@@ -190,6 +197,13 @@ export function familyTags(
   return [...(declaration.tags ?? []), ...own];
 }
 
+/**
+ * What both hosts load of a declaration: its views, each contributed to
+ * {@link ViewKeyPoint} under its view id, its context references, and each
+ * migration with the procedure that runs it. A view id already carries its
+ * namespace (`<namespace>.<local id>`), so the plugin sits in the root
+ * namespace. A host's entry plugin loads it as a child, or loads it as is.
+ */
 export function declarationPlugin(declaration: ExtensionDeclaration): Plugin {
   return definePlugin({
     name: declaration.name,
@@ -207,6 +221,23 @@ export function declarationPlugin(declaration: ExtensionDeclaration): Plugin {
           Effect.forEach(
             Object.entries(declaration.context ?? {}),
             ([id, value]) => ctx.contribute(ContextReferencePoint, { id, value }),
+            { discard: true },
+          ),
+          Effect.forEach(
+            declaration.migrations ?? [],
+            (migration) => {
+              const id = `${declaration.name}.${migration.id}`;
+              return Effect.all(
+                [
+                  ctx.contribute(MigrationPoint, { id, value: migration }),
+                  ctx.contribute(ProcedurePoint, {
+                    id: migrationProcedureId(id),
+                    value: migrationProcedure(id, migration),
+                  }),
+                ],
+                { discard: true },
+              );
+            },
             { discard: true },
           ),
         ],

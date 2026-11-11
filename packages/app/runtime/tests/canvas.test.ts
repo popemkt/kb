@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   CANVAS_IDS,
+  CANVAS_RUN_FIELDS,
   CanvasView,
   canvasViewIdOf,
   readCanvasCamera,
@@ -70,7 +71,7 @@ afterEach(async () => {
 });
 
 describe("C1 seed: canvas tag + field", () => {
-  test("seeds sys.tag.canvas templating sys.f.canvas", () => {
+  test("seeds the canvas document and run-field bindings on sys.tag.canvas", () => {
     const seed = bundledSeed();
     const byId = new Map(seed.map((n) => [n.id, n]));
     const tag = byId.get(CANVAS_IDS.canvasTag);
@@ -81,6 +82,8 @@ describe("C1 seed: canvas tag + field", () => {
     ]);
     expect(present(tag, "expected tag").props[SYSTEM_IDS.fieldsField]).toEqual([
       { t: "ref", v: CANVAS_IDS.canvasField },
+      { t: "ref", v: CANVAS_RUN_FIELDS.input.field },
+      { t: "ref", v: CANVAS_RUN_FIELDS.output.field },
     ]);
     const field = byId.get(CANVAS_IDS.canvasField);
     expect(field).toBeDefined();

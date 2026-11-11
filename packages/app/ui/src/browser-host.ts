@@ -14,7 +14,7 @@ import { proposeView } from "@/lib/propose-view";
 import { pageCatalog } from "@/lib/view-catalog";
 import { BrowserHostService, type BrowserHost } from "@kb/ui-sdk";
 import { hostSandboxFrame, invokeAsScript, isTrusted, setTrusted } from "@/lib/sandbox-host";
-import { invoke } from "@/session/runtime";
+import { invoke, invokeSettled } from "@/session/runtime";
 import { reachedState, useGraphStore } from "@/stores/graph.store";
 import { pageRows, subscribePage } from "@/stores/page";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
@@ -82,7 +82,11 @@ const host: BrowserHost = {
     subscribe: (listener) => useGraphStore.subscribe(listener),
     reach: (id) => useGraphStore.getState().reach(id),
     reached: reachedState,
-    drop: (id) => useGraphStore.getState().applyTx([], [id]),
+    drop: (id) => {
+      void invokeSettled({ id: "node.delete", input: { id } }).then(({ receipt }) => {
+        if (receipt.status === "failed") useUiStore.getState().pushToast("error", receipt.message);
+      });
+    },
   },
   debugFields: {
     ids: () => useDebugFieldsStore.getState().ids,

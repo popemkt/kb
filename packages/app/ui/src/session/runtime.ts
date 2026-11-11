@@ -35,7 +35,7 @@ import {
   isomorphicActions,
   noteStoreSynced,
 } from "@kb/operations";
-import { postAction, type ActionResponse } from "@/api/action";
+import { reportLocalFailure, postAction, type ActionResponse } from "@/api/action";
 import { inTabSession } from "@/api/tab-session";
 import {
   answerMessage,
@@ -368,6 +368,12 @@ function runLocal(invocation: ActionRequest, capture: CapturePlanner): Promise<A
     // Only a write commits; a read leaves the graph store nothing to follow.
     const writes = localActions.get(invocation.id)?.def.mode.kind === "write";
     if (writes && receipt.status === "succeeded") current.onLocalCommit();
+    if (writes && receipt.status === "failed") {
+      reportLocalFailure(invocation, receipt);
+      if (receipt.message.startsWith("invalid graph transaction:")) {
+        current.replica.receive({ op: "snapshot-required", head: current.replica.state.rev });
+      }
+    }
     return receipt;
   });
 }

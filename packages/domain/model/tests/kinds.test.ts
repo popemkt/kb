@@ -46,6 +46,7 @@ describe("kinds, roles and options", () => {
       "image source",
       "key chord",
       "look",
+      "migration",
       "occurrence",
       "ontology",
       "role",

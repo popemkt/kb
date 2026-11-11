@@ -167,6 +167,8 @@ describe("the contract's seed, view and text promises have a subject", () => {
     expect(canvas?.declaration.seed?.("2026-01-01T00:00:00.000Z").map((node) => node.id)).toEqual(
       expect.arrayContaining([
         "sys.f.canvas",
+        "sys.f.canvas.run.inputField",
+        "sys.f.canvas.run.outputField",
         "sys.tag.canvas",
         "sys.f.canvas.projection",
         "sys.canvas-projection.2d",

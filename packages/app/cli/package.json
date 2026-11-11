@@ -31,6 +31,7 @@
     "effect": "catalog:"
   },
   "devDependencies": {
+    "@kb/canvas": "workspace:*",
     "@kb/code": "workspace:*",
     "@kb/plugin": "workspace:*",
     "@kb/sandbox": "workspace:*",

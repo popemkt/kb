@@ -176,6 +176,18 @@ export {
   isDecision,
   walkedSteps,
 } from "./procedure.ts";
+export {
+  MIGRATION_STEPS,
+  MigrationPoint,
+  migrationProcedure,
+  migrationProcedureId,
+} from "./migration.ts";
+export type {
+  ExtensionMigration,
+  MigrationGraph,
+  MigrationPlan,
+  MigrationStep,
+} from "./migration.ts";
 export type {
   ProcedureCall,
   ProcedureContribution,

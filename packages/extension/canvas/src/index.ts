@@ -381,3 +381,5 @@ export {
   type CanvasMenuName,
   type CanvasViewCommand,
 } from "./keybindings.ts";
+
+export { CANVAS_RUN_FIELDS, planCanvasRunFields, type CanvasRunFields } from "./run-fields.ts";

@@ -1,7 +1,8 @@
 import { relative } from "node:path";
-import { Cause, Effect, Option } from "effect";
+import { Cause, Effect, Option, Schema } from "effect";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import {
+  ActionReceiptSchema,
   listingOf,
   onWire,
   requestOf,
@@ -12,13 +13,13 @@ import {
   type ServerIdentity,
   type SurfaceWire,
 } from "@kb/contracts";
-import { servedPage, type ActionHandlerEnv } from "@kb/runtime";
+import { writeErr, servedPage, type ActionHandlerEnv } from "@kb/runtime";
 import { SANDBOX_FRAME_HEADERS, SANDBOX_FRAME_PATH, sandboxFrameDocument } from "@kb/sandbox";
 import { canonicalRoot } from "@kb/workspace-fs";
 import * as assets from "./assets.ts";
 import { deliver } from "./delivery.ts";
 import { HTTP_WIRE } from "./guard.ts";
-import { serverInvoke } from "./invoke.ts";
+import { refusalLine, serverInvoke } from "./invoke.ts";
 import { listSavedQueriesEffect } from "./saved-queries.ts";
 import { serverRuntimeLayer } from "./screens.ts";
 import type { SubscriptionHub } from "./session.ts";
@@ -189,6 +190,26 @@ const FILE_READS: readonly FileRead[] = [
  * store reloads and snapshot reads are all Effect programs. Content-Type
  * matches the pre-Effect surface (`Response.json` charset + bare text bodies).
  */
+const ClientFailureSchema = Schema.Struct({ invocation: Schema.Unknown, receipt: Schema.Unknown });
+
+/** A browser-local refusal reaches the server's one structured refusal log. */
+const clientFailureResponse = Effect.fn("ui.clientFailureResponse")(function* (
+  req: Request,
+  wire: SurfaceWire,
+) {
+  const body = yield* Effect.tryPromise(() => req.json()).pipe(Effect.option);
+  if (Option.isNone(body)) return invalidInput("request body must be JSON");
+  const report = Schema.decodeUnknownOption(ClientFailureSchema)(body.value);
+  if (Option.isNone(report)) return invalidInput("expected a failed action receipt and invocation");
+  const receipt = ActionReceiptSchema.safeParse(report.value.receipt);
+  if (!receipt.success || receipt.data.status !== "failed")
+    return invalidInput("expected a failed action receipt");
+  const made = requestOf(report.value.invocation);
+  if ("invalid" in made) return invalidInput(made.invalid);
+  writeErr(refusalLine(onWire(wire, made.request), receipt.data));
+  return jsonResponse({ reported: true });
+});
+
 const handleHttpRequestEffect = (
   req: Request,
   wire: SurfaceWire,
@@ -206,6 +227,10 @@ const handleHttpRequestEffect = (
     // The request guard (`guard.ts`) has already refused another site's
     // page, and said whose wire this is: the page's when it carries the UI's
     // Origin, else a local program's.
+    if (url.pathname === "/api/client-failure" && req.method === "POST") {
+      return yield* clientFailureResponse(req, wire);
+    }
+
     if (url.pathname === "/api/action" && req.method === "POST") {
       const body = yield* Effect.tryPromise(() => req.json()).pipe(Effect.option);
       if (Option.isNone(body)) {

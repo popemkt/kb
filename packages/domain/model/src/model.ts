@@ -313,6 +313,28 @@ export const SYSTEM_IDS = {
    */
   backupsKeptField: "sys.f.backups.kept",
   /**
+   * The backups a node keeps out of retention (DESIGN.md → Storage →
+   * Backups): text, each a backup's id. Any node may hold it; a pending
+   * migration's record pins the backup taken before it.
+   */
+  backupPinField: "sys.f.backup.pin",
+  /**
+   * The record of a family's data migration (DESIGN.md → Action registry →
+   * Plugin data migrations): a node tagged `migration`, one per migration,
+   * filed under the Migrations list, holding which migration it is, the
+   * state it is in (a ref to one of its field's children), the digest and
+   * instant of the plan it previewed, the backup taken before it, and what
+   * its verify found wrong.
+   */
+  migrationTag: "sys.tag.migration",
+  migrationsList: "sys.migrations",
+  migrationField: "sys.f.migration",
+  migrationStateField: "sys.f.migration.state",
+  migrationDigestField: "sys.f.migration.digest",
+  migrationAtField: "sys.f.migration.at",
+  migrationBackupField: "sys.f.migration.backup",
+  migrationProblemsField: "sys.f.migration.problems",
+  /**
    * Motion options (`motion.ts`): the mode, intensity, style and speed, each
    * a ref to one of its field's children, and one checkbox field per effect
    * (`motionEffectFieldId`). Settings of core's node; a design system's
@@ -323,6 +345,31 @@ export const SYSTEM_IDS = {
   motionStyleField: "sys.f.motion.style",
   motionSpeedField: "sys.f.motion.speed",
 } as const;
+
+/**
+ * The states a migration's record goes through: previewed, applied, then
+ * verified or failed, then kept or rolled back. A rolled-back migration is
+ * offered again, as one never run is.
+ */
+export const MIGRATION_STATES = [
+  "previewed",
+  "applied",
+  "verified",
+  "failed",
+  "kept",
+  "rolled-back",
+] as const;
+export type MigrationState = (typeof MIGRATION_STATES)[number];
+
+/** The option node of the migration state `state`: one of `migration state`'s children. */
+export function migrationStateId(state: MigrationState): NodeId {
+  return `sys.migration-state.${state}`;
+}
+
+/** The record node of the migration `id` (`<family>.<id>`). */
+export function migrationRecordId(id: string): NodeId {
+  return `sys.migration.${id}`;
+}
 
 /** Any reserved / seeded id under the `sys.` prefix (browse yes, break no). */
 export function isSysPrefixed(id: string): boolean {

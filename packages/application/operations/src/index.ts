@@ -135,6 +135,7 @@ export { extensionInstallDef, extensionInstallEffect } from "./extension-install
 
 export { coreActions } from "./core-actions.ts";
 export { procedureListDef, procedureStatusDef, procedureStepDef } from "./procedure.ts";
+export { migrationListDef, migrationPlanDef } from "./migration.ts";
 export {
   DEFAULT_BACKUPS_KEPT,
   backupsKept,
