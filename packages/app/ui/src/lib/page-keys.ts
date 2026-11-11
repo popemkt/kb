@@ -10,9 +10,6 @@
  * the page answers never takes typing from a field. ⌘S is left to the
  * browser, since kb has no save action to bind it to.
  */
-import type { ContributionEntry } from "@kb/plugin";
-import { coreExtension } from "@kb/operations";
-import { PALETTE_CHORD, type KeyContextSpec, type Keybinding } from "@kb/ui-sdk";
 
 /** Where ⌘K opens: the anchored row's node palette, or the global search. */
 export type PaletteOpening = "node-palette" | "global-search";
@@ -21,25 +18,3 @@ export type PaletteOpening = "node-palette" | "global-search";
 export function paletteOpening(rowAnchored: boolean): PaletteOpening {
   return rowAnchored ? "node-palette" : "global-search";
 }
-
-/** The page's context, as core contributes it to `ui.key-contexts`. */
-export const PAGE_CONTEXT: ContributionEntry<KeyContextSpec> = {
-  id: "page",
-  value: {
-    reach: "page",
-    intents: ["palette"],
-    // Every chord without ⌘ or Ctrl, so a page key never types; and ⌘K, the palette's, always.
-    reserved: [{ mod: false }, PALETTE_CHORD],
-  },
-};
-
-/** The context's id, as bindings name it: core's namespace, then its own. */
-export const PAGE_CONTEXT_ID = `${coreExtension.name}.${PAGE_CONTEXT.id}`;
-
-/** The page's own keys, as core contributes them to `ui.keybindings`: ⌘K. */
-export const PAGE_BINDINGS: readonly ContributionEntry<Keybinding>[] = [
-  {
-    id: "page.palette",
-    value: { context: PAGE_CONTEXT_ID, chord: PALETTE_CHORD, run: { intent: "palette" } },
-  },
-];

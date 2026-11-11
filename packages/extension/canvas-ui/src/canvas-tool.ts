@@ -1,3 +1,25 @@
+import {
+  STROKE_TOOLS,
+  HOLDING_TOOLS,
+  TOOL_FAMILIES,
+  type CanvasTool,
+  type CanvasToolPick,
+  type CanvasToolFamily,
+  type CanvasStrokeTool,
+  isGroupNode,
+  isPathNode,
+  lineThrough,
+  placeItems,
+  placedOnFace,
+  presetItem,
+  presetType,
+  withBox,
+  type CanvasDoc,
+  type CanvasFrame,
+  type CanvasNode,
+  type CanvasPresetKind,
+  type CommentPlace,
+} from "@kb/canvas";
 /**
  * Canvas tool strip state + placement (pure — unit-tested). Every placing
  * tool is a preset (`CANVAS_PRESETS`, `@kb/canvas`): the tool makes its
@@ -18,38 +40,8 @@
  * down and where it is, or a line between them); a click places the
  * preset at its own size, centred where it was pressed, as tldraw's do.
  */
-import {
-  CANVAS_SHAPE_PRESETS,
-  CANVAS_SOLID_PRESETS,
-  isGroupNode,
-  isPathNode,
-  lineThrough,
-  placeItems,
-  placedOnFace,
-  presetItem,
-  presetType,
-  withBox,
-  type CanvasDoc,
-  type CanvasFrame,
-  type CanvasNode,
-  type CanvasPresetKind,
-  type CommentPlace,
-} from "@kb/canvas";
+
 import type { CanvasPlace } from "./canvas-faces";
-
-/** The stroke tools, and the stroke each draws: the pen's, or a highlighter's. */
-const STROKE_TOOLS = {
-  draw: { highlight: false },
-  highlight: { highlight: true },
-} as const satisfies Readonly<Record<string, { readonly highlight: boolean }>>;
-
-type CanvasStrokeTool = keyof typeof STROKE_TOOLS;
-
-/** The tools that take hold of what is there: select, the hand (a press pans), the comment tool. */
-const HOLDING_TOOLS = ["select", "hand", "comment"] as const;
-
-/** A tool that takes hold, a stroke tool, or a tool that places its preset. */
-export type CanvasTool = (typeof HOLDING_TOOLS)[number] | CanvasStrokeTool | CanvasPresetKind;
 
 /** Whether `tool` is a stroke tool (`STROKE_TOOLS`). */
 const isStrokeTool = (tool: CanvasToolPick): tool is CanvasStrokeTool =>
@@ -59,17 +51,6 @@ const isStrokeTool = (tool: CanvasToolPick): tool is CanvasStrokeTool =>
 function strokeOf(tool: CanvasTool): { readonly highlight: boolean } | null {
   return isStrokeTool(tool) ? STROKE_TOOLS[tool] : null;
 }
-
-/** The tools that share one button and one pick, each family's in its picker's order. */
-export const TOOL_FAMILIES = {
-  shape: CANVAS_SHAPE_PRESETS,
-  solid: CANVAS_SOLID_PRESETS,
-} as const satisfies Readonly<Record<string, readonly CanvasPresetKind[]>>;
-
-export type CanvasToolFamily = keyof typeof TOOL_FAMILIES;
-
-/** What a key or a button picks: a tool, or a family (whichever of its tools was picked last). */
-export type CanvasToolPick = CanvasTool | CanvasToolFamily;
 
 export interface ToolState {
   tool: CanvasTool;

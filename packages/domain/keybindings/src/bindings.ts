@@ -274,3 +274,9 @@ export function admitKeymaps(
   }
   return keymaps;
 }
+
+/** A family's keyboard definitions, shared by its graph description and page contributions. */
+export interface KeyboardDefinition {
+  readonly contexts?: readonly ContributionEntry<KeyContextSpec>[];
+  readonly bindings?: readonly ContributionEntry<Keybinding>[];
+}

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { coversFromAbove, type CanvasNode } from "@kb/canvas";
-import { MAX_PITCH } from "./canvas-camera-stops";
+import { coversFromAbove, type CanvasNode, MAX_PITCH } from "@kb/canvas";
+
 import {
   PERSPECTIVE_FOV,
   heldOrbit,

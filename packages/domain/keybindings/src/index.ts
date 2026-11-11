@@ -19,6 +19,7 @@ export {
   keyContextOf,
   provideKeybinding,
   type KeyRun,
+  type KeyboardDefinition,
   type Keybinding,
   type KeyContextId,
   type KeyContextSpec,

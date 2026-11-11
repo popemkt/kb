@@ -9,6 +9,7 @@ import {
   stringifyCanvasDoc,
   svgPathData,
   type CanvasDoc,
+  type CanvasTool,
 } from "@kb/canvas";
 import {
   draftItem,
@@ -19,7 +20,6 @@ import {
   pressWithTool,
   reduceCanvasTool,
   toolTakes,
-  type CanvasTool,
   type ToolState,
 } from "./canvas-tool";
 

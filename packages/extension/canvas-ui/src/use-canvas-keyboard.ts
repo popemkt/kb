@@ -1,8 +1,11 @@
-import { useEffect } from "react";
-import type { Dispatch, RefObject, SetStateAction } from "react";
+import { useEffect, type Dispatch, type RefObject, type SetStateAction } from "react";
+
 import { ulid } from "ulid";
-import type { CanvasDoc, CanvasItemLink, CanvasNode, CanvasProjectionKind } from "@kb/canvas";
 import {
+  type CanvasDoc,
+  type CanvasItemLink,
+  type CanvasNode,
+  type CanvasProjectionKind,
   GRID_STEP,
   CanvasRelationError,
   arrangeItems,
@@ -16,7 +19,12 @@ import {
   pasteItems,
   stringifyCanvasDoc,
   ungroupItems,
+  type CanvasIntent,
+  type PresentAct,
+  type TransformAct,
+  type CanvasToolPick,
 } from "@kb/canvas";
+
 import {
   type CanvasScope,
   type CanvasSelection,
@@ -27,15 +35,10 @@ import {
   selectionEmpty,
   soleItem,
 } from "./canvas-selection";
-import type { CanvasIntent, PresentAct, TransformAct } from "./canvas-keys";
+
 import { mapCanvasKey } from "./canvas-keymap";
-import {
-  pickTool,
-  reduceCanvasTool,
-  type CanvasChooser,
-  type CanvasToolPick,
-  type ToolState,
-} from "./canvas-tool";
+import { pickTool, reduceCanvasTool, type CanvasChooser, type ToolState } from "./canvas-tool";
+
 import type { CanvasViewportControls } from "./canvas-camera";
 import type { CanvasPointerEvent } from "./canvas-pointer";
 import { isTextEntry, runKeyCall } from "@kb/ui-sdk";

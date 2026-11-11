@@ -11,7 +11,8 @@ import { currentKeymap, setToastSink, syncUiPlugins, tellKeymaps } from "@kb/ui-
 import type { Plugin } from "@kb/plugin";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { BROWSER_EXTENSIONS, CORE_UI_PLUGINS } from "@/ui-plugins";
-import { PAGE_CONTEXT_ID, paletteOpening } from "./page-keys";
+import { PAGE_CONTEXT_ID } from "@kb/operations";
+import { paletteOpening } from "./page-keys";
 
 const told: string[] = [];
 

@@ -1,12 +1,18 @@
 import { Effect } from "effect";
 import { SquareIcon } from "@phosphor-icons/react";
-import { familyTags } from "@kb/contracts";
+import { familyTags, contributeKeyboard } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import { CANVAS_LIST_PATH, matchCanvas, matchCanvasList } from "./routes";
 import { CanvasListSurface, CanvasSection, CanvasSurface } from "./surfaces";
-import { CanvasListView, CanvasView, canvasExtension, canvasPlugin } from "@kb/canvas";
+import {
+  CanvasListView,
+  CanvasView,
+  canvasExtension,
+  canvasPlugin,
+  CANVAS_KEYBOARD,
+} from "@kb/canvas";
 import { canvasBoard } from "./board";
-import { contributeCanvasKeys } from "./canvas-keys";
+
 import {
   BoardService,
   BrowserHostService,
@@ -21,7 +27,7 @@ import {
  * Canvases: the list and one canvas (its own viewport, so `fixed`), their
  * routes, the section, the page's board (`BoardService`): a node's board is
  * its child canvas, and the canvas's keys: its three key contexts and its
- * bindings (`contributeCanvasKeys`).
+ * bindings (`contributeKeyboard`).
  *
  * It is the canvas family's page entry, so it loads the family's shared
  * plugin as a child: the canvas views' keys reach the page kernel's catalog
@@ -79,7 +85,7 @@ export const canvasUiPlugin = definePlugin({
           id: "section",
           value: { order: 30, Component: CanvasSection },
         }),
-        contributeCanvasKeys(ctx),
+        contributeKeyboard(ctx, CANVAS_KEYBOARD),
       ],
       { discard: true },
     ),

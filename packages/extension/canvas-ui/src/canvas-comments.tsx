@@ -10,7 +10,13 @@
  */
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { ChatCircleIcon } from "@phosphor-icons/react";
-import { paintOrder, type CanvasDoc, type CanvasWorld, type CommentAnchor } from "@kb/canvas";
+import {
+  paintOrder,
+  type CanvasDoc,
+  type CanvasWorld,
+  type CommentAnchor,
+  type CanvasTool,
+} from "@kb/canvas";
 import { cn } from "@kb/ui-sdk";
 import {
   hitTest,
@@ -20,7 +26,7 @@ import {
   type ViewSize,
 } from "./canvas-camera";
 import { CommentThreadPanel } from "./canvas-comment-thread";
-import type { CanvasTool } from "./canvas-tool";
+
 import { anchorRects, threadPins } from "./canvas-visible";
 import { targetLabel } from "./comment-target";
 import { shows, type CanvasComments } from "./use-canvas-comments";

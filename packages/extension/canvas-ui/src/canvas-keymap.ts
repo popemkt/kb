@@ -28,7 +28,7 @@ import {
   type CanvasKeyEvent,
   type CanvasMenuName,
   type CanvasShortcut,
-} from "./canvas-keys";
+} from "@kb/canvas";
 
 /**
  * A chord the canvas claims.

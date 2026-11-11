@@ -12,16 +12,10 @@
  * is caret geometry: {@link VerticalNavDecision} belongs to `./caret`, and a
  * leaf module may not reach up here for it.
  */
-import type { ContributionEntry } from "@kb/plugin";
-import { outlineExtension } from "@kb/outline";
 import {
-  TEXT_HISTORY_CHORD,
-  type Chord,
   type KeyChordEvent,
-  type KeyContextSpec,
   keyCallOf,
   type KeyCall,
-  type Keybinding,
   type Keymap,
   type VerticalNavDecision,
 } from "@kb/ui-sdk";
@@ -260,68 +254,6 @@ const EDITING_INTENTS = new Map<string, IntentOf>([
   // Popups handle Escape before delegating; bare Escape selects.
   ["select", (ctx) => ({ type: "select", nodeId: ctx.nodeId, instanceKey: ctx.instanceKey })],
 ]);
-
-/**
- * The editing row's keys: what the row's text host hands its keydown, the
- * text host having kept composition and its own history first. Owned by
- * the outline, so its bindings are held first and Escape is its alone, with
- * the history chords, which other bindings may never take. The page's keys
- * (⌘K) are offered first, so no binding here may take one.
- */
-export const EDITING_CONTEXT: ContributionEntry<KeyContextSpec> = {
-  id: "editing",
-  value: {
-    reach: "surface",
-    intents: [...EDITING_INTENTS.keys()],
-    reserved: [{ key: "Escape" }, TEXT_HISTORY_CHORD],
-  },
-};
-
-/** The context's id, as bindings name it: the outline's namespace, then its own. */
-export const EDITING_CONTEXT_ID = `${outlineExtension.name}.${EDITING_CONTEXT.id}`;
-
-function editingBinding(id: string, chord: Chord, intent: string): ContributionEntry<Keybinding> {
-  return { id: `editing.${id}`, value: { context: EDITING_CONTEXT_ID, chord, run: { intent } } };
-}
-
-/**
- * The outline's editing keys, as its contributions to `ui.keybindings`.
- * No two chords overlap, so each says exactly which keys it claims. The
- * arrows are where that matters: ⌘⇧ reorders, any other command-modified
- * arrow reveals (two chords: ⌘ without ⇧, and ⌃ without ⌘), and the bare
- * arrow navigates.
- */
-export const EDITING_BINDINGS: readonly ContributionEntry<Keybinding>[] = [
-  editingBinding("soft-break", { key: "Enter", shift: true }, "soft-break"),
-  editingBinding("split", { key: "Enter", shift: false }, "split"),
-  editingBinding("outdent", { key: "Tab", shift: true }, "outdent"),
-  editingBinding("indent", { key: "Tab", shift: false }, "indent"),
-  editingBinding(
-    "delete-subtree-at-start",
-    { key: "Backspace", mod: true },
-    "delete-subtree-at-start",
-  ),
-  editingBinding("backspace", { key: "Backspace", mod: false }, "backspace"),
-  editingBinding("delete-subtree", { key: "Delete", mod: true }, "delete-subtree"),
-  editingBinding("delete-forward", { key: "Delete", mod: false }, "delete-forward"),
-  editingBinding("move-up", { key: "ArrowUp", meta: true, shift: true }, "move-up"),
-  editingBinding("move-down", { key: "ArrowDown", meta: true, shift: true }, "move-down"),
-  editingBinding(
-    "collapse-or-leave",
-    { key: "ArrowUp", meta: true, shift: false },
-    "collapse-or-leave",
-  ),
-  editingBinding(
-    "collapse-or-leave-ctrl",
-    { key: "ArrowUp", meta: false, ctrl: true },
-    "collapse-or-leave",
-  ),
-  editingBinding("expand", { key: "ArrowDown", meta: true, shift: false }, "expand"),
-  editingBinding("expand-ctrl", { key: "ArrowDown", meta: false, ctrl: true }, "expand"),
-  editingBinding("line-up", { key: "ArrowUp", mod: false }, "line-up"),
-  editingBinding("line-down", { key: "ArrowDown", mod: false }, "line-down"),
-  editingBinding("select", { key: "Escape" }, "select"),
-];
 
 /**
  * The intent a chord means on this row under `keymap` (the editing

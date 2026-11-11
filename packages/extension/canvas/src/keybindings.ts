@@ -14,27 +14,16 @@
  * keymap. What a key does once a keymap holds it, and how a menu or a hint
  * shows it, is the keymap's (`canvas-keymap.ts`).
  */
-import { Effect } from "effect";
-import type { ContributionEntry, PluginContext } from "@kb/plugin";
-import {
-  type CanvasAlignEdge,
-  type CanvasFlipAxis,
-  type CanvasOrder,
-  type CanvasProjectionKind,
-  canvasExtension,
-} from "@kb/canvas";
-import {
-  KeybindingPoint,
-  KeyContextPoint,
-  type Chord,
-  type KeyChordEvent,
-  type KeyContextSpec,
-  type Keybinding,
-} from "@kb/ui-sdk";
-import type { CanvasToolPick } from "./canvas-tool";
+import type { ContributionEntry } from "@kb/plugin";
+import type { CanvasAlignEdge, CanvasOrder } from "./arrange.ts";
+import type { CanvasFlipAxis } from "./transform.ts";
+
+import type { CanvasProjectionKind } from "./camera.ts";
+import type { Chord, KeyChordEvent, KeyContextSpec, Keybinding } from "@kb/keybindings";
+import type { CanvasToolPick } from "./tool-model.ts";
 import type { CanvasViewPresetName } from "@kb/contracts";
-import { CANVAS_VIEW_PRESETS, ZOOM_STEP } from "./canvas-camera-stops";
-import type { CanvasAxis, TransformKey, TransformMode } from "./canvas-transform-input";
+import { CANVAS_VIEW_PRESETS, ZOOM_STEP } from "./camera-stops.ts";
+import type { CanvasAxis, TransformKey, TransformMode } from "./transform-input-model.ts";
 
 /** A key event as the canvas reads it: the chord, and whether the key is held. */
 export interface CanvasKeyEvent extends KeyChordEvent {
@@ -117,9 +106,9 @@ export type CanvasKeyContextName = "rest" | "transform" | "present";
 
 /** Each context's id, as bindings name it: canvas-ui's namespace, then its own. */
 export const CANVAS_CONTEXT_IDS: Readonly<Record<CanvasKeyContextName, string>> = {
-  rest: `${canvasExtension.name}.rest`,
-  transform: `${canvasExtension.name}.transform`,
-  present: `${canvasExtension.name}.present`,
+  rest: "canvas.rest",
+  transform: "canvas.transform",
+  present: "canvas.present",
 };
 
 /** Where a shortcut is listed. */
@@ -632,13 +621,4 @@ const CANVAS_BINDINGS: readonly ContributionEntry<Keybinding>[] = CANVAS_SHORTCU
     })),
 );
 
-/** Contribute the canvas's key contexts and its bindings, as canvas-ui does. */
-export function contributeCanvasKeys(ctx: PluginContext) {
-  return Effect.all(
-    [
-      ...CANVAS_CONTEXTS.map((context) => ctx.contribute(KeyContextPoint, context)),
-      ...CANVAS_BINDINGS.map((binding) => ctx.contribute(KeybindingPoint, binding)),
-    ],
-    { discard: true },
-  );
-}
+export const CANVAS_KEYBOARD = { contexts: CANVAS_CONTEXTS, bindings: CANVAS_BINDINGS };

@@ -9,8 +9,11 @@ import {
   useRef,
   useState,
 } from "react";
-import type { CanvasDoc, CanvasItemLink, CanvasLint, CanvasNode } from "@kb/canvas";
 import {
+  type CanvasDoc,
+  type CanvasItemLink,
+  type CanvasLint,
+  type CanvasNode,
   CANVAS_EVENTS,
   CanvasView,
   boardOf,
@@ -25,7 +28,9 @@ import {
   upsertCanvasEdge,
   upsertCanvasNode,
   viewpointFrames,
+  type PresentAct,
 } from "@kb/canvas";
+
 import {
   browserHost,
   cn,
@@ -86,7 +91,7 @@ import { CanvasCommentLayer } from "./canvas-comments";
 import { CanvasLinkMarks } from "./canvas-link-marks";
 import { CanvasCommentList, CommentsToggle } from "./canvas-comment-list";
 import { useCanvasComments } from "./use-canvas-comments";
-import type { PresentAct } from "./canvas-keys";
+
 import { FIRST_GIZMO, NO_GIZMO, type GizmoChoice, type SceneGizmo } from "./canvas-gizmo";
 import { viewOfPan, type CanvasHitItem } from "./canvas-camera";
 import { placeUnder } from "./canvas-faces";

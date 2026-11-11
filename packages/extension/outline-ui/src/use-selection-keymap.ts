@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { browserHost, currentKeymap, shownNode } from "@kb/ui-sdk";
-import { isEditableTarget, mapSelectionKey, SELECTION_CONTEXT_ID } from "./selection-keymap";
+import { isEditableTarget, mapSelectionKey } from "./selection-keymap";
+import { SELECTION_CONTEXT_ID } from "@kb/outline";
 import { useOutlineStore, outlineNodes } from "./outline.store";
 import { applySelectionAction } from "./selection-actions";
 import { fieldSlotCount } from "./value-slot-nav";

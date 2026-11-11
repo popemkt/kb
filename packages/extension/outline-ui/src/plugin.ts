@@ -1,18 +1,18 @@
+import { contributeKeyboard, familyTags } from "@kb/contracts";
+import { OUTLINE_KEYBOARD, outlineExtension, outlinePlugin } from "@kb/outline";
 import { Effect } from "effect";
-import { familyTags } from "@kb/contracts";
+
 import { definePlugin } from "@kb/plugin";
 import { ListFrameView } from "./frame-views";
 import { OutlineSurface, PinnedSection } from "./surfaces";
 import { ViewSettingsPopoverHost } from "./view-settings-popover";
-import { outlineExtension, outlinePlugin } from "@kb/outline";
+
 import { OutlineListView, OutlineSnippetView, OutlineView, DEFAULT_VIEW_CONFIG } from "@kb/views";
 import { OutlineSnippet } from "./outline-snippet";
 import {
   BrowserHostService,
   CommandPoint,
-  KeyContextPoint,
   FieldEditorService,
-  KeybindingPoint,
   OverlayPoint,
   PageEditorService,
   PaletteStepPoint,
@@ -28,8 +28,6 @@ import { outlineValueKindsPlugin } from "./slot-kind";
 import { outlineProjection, useOutlineStore } from "./outline.store";
 import { OUTLINE_COMMANDS } from "./outline-commands";
 import { OUTLINE_STEPS } from "./outline-steps";
-import { EDITING_BINDINGS, EDITING_CONTEXT } from "./editing-keymap";
-import { SELECTION_BINDINGS, SELECTION_CONTEXT } from "./selection-keymap";
 
 const { filters } = DEFAULT_VIEW_CONFIG;
 
@@ -119,12 +117,7 @@ export const outlineUiPlugin = definePlugin({
           // Its two key contexts, the editing row's and the selection's, and
           // their keys: bindings like any other plugin's, which the page's
           // keymap holds first.
-          ...[EDITING_CONTEXT, SELECTION_CONTEXT].map((context) =>
-            ctx.contribute(KeyContextPoint, context),
-          ),
-          ...[...EDITING_BINDINGS, ...SELECTION_BINDINGS].map((binding) =>
-            ctx.contribute(KeybindingPoint, binding),
-          ),
+          contributeKeyboard(ctx, OUTLINE_KEYBOARD),
           ctx.contribute(OverlayPoint, {
             id: "view-filter",
             value: { order: 0, Component: ViewSettingsPopoverHost },

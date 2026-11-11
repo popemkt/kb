@@ -9,9 +9,10 @@ import {
   type CanvasIntent,
   type CanvasKeyEvent,
   type CanvasMenuName,
-} from "./canvas-keys";
+  ZOOM_STEP,
+} from "@kb/canvas";
 import { canvasKeymap, hintOf, menuRows, mapCanvasKey } from "./canvas-keymap";
-import { ZOOM_STEP } from "./canvas-camera-stops";
+
 import { canvasKeysPlugin } from "./test-support/canvas-keys";
 
 beforeAll(() => syncUiPlugins([canvasKeysPlugin]));

@@ -345,6 +345,7 @@
       "dependencies": {
         "@kb/contracts": "workspace:*",
         "@kb/extension-source": "workspace:*",
+        "@kb/keybindings": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/query": "workspace:*",
@@ -591,6 +592,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/contracts": "workspace:*",
+        "@kb/keybindings": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/sandbox": "workspace:*",
@@ -1084,6 +1086,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/contracts": "workspace:*",
+        "@kb/keybindings": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/views": "workspace:*",

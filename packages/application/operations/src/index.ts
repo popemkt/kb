@@ -150,3 +150,5 @@ export { sandboxTrustDef } from "./trust.ts";
 export { reactionsFrom } from "./reactions.ts";
 export { MAX_REACTION_DEPTH } from "./commit-frame.ts";
 export { personWriteRefusal } from "./write-refusal.ts";
+
+export { CORE_KEYBOARD, PAGE_CONTEXT_ID } from "./keyboard.ts";

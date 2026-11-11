@@ -12,7 +12,8 @@ import {
 } from "@kb/ui-sdk";
 import { outlineSource, useOutlineStore, outlineNodes } from "./outline.store";
 import { applyEditingIntent } from "./editing-intents";
-import { EDITING_CONTEXT_ID, mapEditingKey, type EditingKeyContext } from "./editing-keymap";
+import { mapEditingKey, type EditingKeyContext } from "./editing-keymap";
+import { EDITING_CONTEXT_ID } from "@kb/outline";
 import { fieldSlotCount } from "./value-slot-nav";
 
 export interface UseNodeKeyDownArgs {

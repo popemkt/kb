@@ -2,19 +2,7 @@
  * Selection-mode keymap (nxus / DESIGN-REFINE §2 W1; r1 §3.2 Mode B).
  * Active only when a node is selected and not being edited.
  */
-import type { ContributionEntry } from "@kb/plugin";
-import { outlineExtension } from "@kb/outline";
-import {
-  printableExcept,
-  TEXT_HISTORY_CHORD,
-  type Chord,
-  type KeyChordEvent,
-  type KeyContextSpec,
-  keyCallOf,
-  type KeyCall,
-  type Keybinding,
-  type Keymap,
-} from "@kb/ui-sdk";
+import { type KeyChordEvent, keyCallOf, type KeyCall, type Keymap } from "@kb/ui-sdk";
 import type { VisibleInstance } from "./visible-instances";
 
 /** Selection mode reads the same event shape every keymap reads. */
@@ -80,9 +68,6 @@ interface SelectionTarget {
 /** An intent as its binding runs it: the action it means for the selection, or null. */
 type IntentOf = (target: SelectionTarget) => SelectionKeyAction | null;
 
-/** The three names a space bar arrives under. */
-const SPACE_KEYS = [" ", "Space", "Spacebar"] as const;
-
 function selectInstance(instance: VisibleInstance | null): SelectionKeyAction | null {
   return instance === null
     ? null
@@ -144,82 +129,6 @@ const SELECTION_INTENTS = new Map<string, IntentOf>([
     ({ nodeId, instanceKey, key }) => ({ type: "append", nodeId, instanceKey, char: key }),
   ],
 ]);
-
-/**
- * The selection's keys, read while a row is selected and none is edited.
- * Owned by the outline, so its bindings are held first and Escape is its
- * alone, with the history chords. The page's keys (⌘K) are offered first.
- */
-export const SELECTION_CONTEXT: ContributionEntry<KeyContextSpec> = {
-  id: "selection",
-  value: {
-    reach: "surface",
-    intents: [...SELECTION_INTENTS.keys()],
-    reserved: [{ key: "Escape" }, TEXT_HISTORY_CHORD],
-  },
-};
-
-/** The context's id, as bindings name it: the outline's namespace, then its own. */
-export const SELECTION_CONTEXT_ID = `${outlineExtension.name}.${SELECTION_CONTEXT.id}`;
-
-function selectionBinding(
-  id: string,
-  chord: Chord,
-  intent: string = id,
-): ContributionEntry<Keybinding> {
-  return {
-    id: `selection.${id}`,
-    value: { context: SELECTION_CONTEXT_ID, chord, run: { intent } },
-  };
-}
-
-/**
- * The bindings typing over a row yields to: a character one of them claims
- * is not typed. A character key says `alt: false`, so an Alt-composed glyph
- * (⌥o is ø) is never one of the outline's keys and stays native unless a
- * binding claims its chord.
- */
-const SELECTION_KEYS: readonly ContributionEntry<Keybinding>[] = [
-  selectionBinding("move-up", { key: "ArrowUp", mod: true, shift: true }),
-  selectionBinding("move-down", { key: "ArrowDown", mod: true, shift: true }),
-  selectionBinding("zoom", { key: ".", mod: true }),
-  selectionBinding("up", { key: "ArrowUp", mod: false }),
-  selectionBinding("down", { key: "ArrowDown", mod: false }),
-  selectionBinding("close-or-climb", { key: "ArrowLeft", mod: false }),
-  selectionBinding("open-or-descend", { key: "ArrowRight", mod: false }),
-  selectionBinding("edit", { key: "Enter", mod: false }),
-  selectionBinding("toggle-collapse", { key: SPACE_KEYS, mod: false, alt: false }),
-  selectionBinding("outdent", { key: "Tab", shift: true, mod: false }),
-  selectionBinding("indent", { key: "Tab", shift: false, mod: false }),
-  selectionBinding("create-after", { key: "o", mod: false, alt: false }),
-  // Shift+o: a new empty row directly above. Case is the binding, so this is
-  // its own row rather than a `shift` constraint on the one above.
-  selectionBinding("create-before", { key: "O", mod: false, alt: false }),
-  selectionBinding("delete", { key: ["Backspace", "Delete"], mod: false }),
-  selectionBinding("clear", { key: "Escape", mod: false }),
-];
-
-/**
- * The outline's selection keys, as its contributions to `ui.keybindings`
- * (DESIGN-REFINE §2 W1; r1 §3.2 Mode B). No two chords overlap. Every
- * binding but ⌘⇧↑/↓ and ⌘. says `mod: false`, so any other command chord
- * resolves to nothing and stays the browser's or the shell's. Typing over a
- * selected row edits it with the character appended: any printable key but
- * those the bindings above claim, with Alt excluded so Alt-composed glyphs
- * stay native. The keymap alone says which keys are the selection's: an
- * event no binding resolves is left to the page, Alt or not.
- */
-export const SELECTION_BINDINGS: readonly ContributionEntry<Keybinding>[] = [
-  ...SELECTION_KEYS,
-  selectionBinding("append", {
-    key: printableExcept(
-      SELECTION_KEYS.map(({ value }) => value.chord),
-      { mod: false, alt: false },
-    ),
-    mod: false,
-    alt: false,
-  }),
-];
 
 /**
  * Map a keydown to a selection action under `keymap` (the selection

@@ -343,3 +343,42 @@ export type {
   TldrawRecordNode,
   TldrawValue,
 } from "./tldraw.ts";
+
+export {
+  STROKE_TOOLS,
+  HOLDING_TOOLS,
+  TOOL_FAMILIES,
+  type CanvasTool,
+  type CanvasToolPick,
+  type CanvasToolFamily,
+  type CanvasStrokeTool,
+} from "./tool-model.ts";
+export type {
+  CanvasAxis,
+  TransformConstraint,
+  TransformMode,
+  TransformKey,
+} from "./transform-input-model.ts";
+export {
+  MIN_ZOOM,
+  MAX_ZOOM,
+  ZOOM_STEP,
+  MAX_PITCH,
+  CANVAS_VIEW_PRESETS,
+  type ViewPresetSpec,
+} from "./camera-stops.ts";
+export {
+  CANVAS_KEYBOARD,
+  CANVAS_CONTEXT_IDS,
+  CANVAS_SHORTCUTS,
+  CANVAS_VIEW_COMMANDS,
+  type CanvasKeyEvent,
+  type CanvasIntent,
+  type PresentAct,
+  type TransformAct,
+  type CanvasKeyContextName,
+  type CanvasShortcutSection,
+  type CanvasShortcut,
+  type CanvasMenuName,
+  type CanvasViewCommand,
+} from "./keybindings.ts";

@@ -36,13 +36,16 @@ import {
   type CanvasPickItem,
   type CanvasPose,
   type CanvasVec,
+  CANVAS_VIEW_PRESETS,
+  MAX_PITCH,
+  MAX_ZOOM,
+  MIN_ZOOM,
 } from "@kb/canvas";
 import {
   CANVAS_VIEW_PRESET_NAMES,
   type CanvasViewPresetName,
   type CanvasViewTarget,
 } from "@kb/contracts";
-import { CANVAS_VIEW_PRESETS, MAX_PITCH, MAX_ZOOM, MIN_ZOOM } from "./canvas-camera-stops";
 
 export interface CanvasPoint {
   x: number;

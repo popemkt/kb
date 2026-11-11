@@ -1,8 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { canvasMembership, type CanvasDoc, type CanvasNode } from "@kb/canvas";
+import { canvasMembership, type CanvasDoc, type CanvasNode, type TransformKey } from "@kb/canvas";
 import { EMPTY_SELECTION, selectNode } from "./canvas-selection";
 import { projectPoint, viewOfPan, type CanvasView } from "./canvas-camera";
-import { ALONG_Z, type TransformKey } from "./canvas-transform-input";
+import { ALONG_Z } from "./canvas-transform-input";
+
 import {
   createPointerState,
   pointerReduce,

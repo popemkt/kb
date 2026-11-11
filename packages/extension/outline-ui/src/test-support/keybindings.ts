@@ -5,7 +5,15 @@
  */
 import { Effect } from "effect";
 import { definePlugin, makeKernel, type Contribution, type ContributionEntry } from "@kb/plugin";
-import { outlineExtension } from "@kb/outline";
+import {
+  outlineExtension,
+  EDITING_BINDINGS,
+  EDITING_CONTEXT,
+  EDITING_CONTEXT_ID,
+  SELECTION_BINDINGS,
+  SELECTION_CONTEXT,
+  SELECTION_CONTEXT_ID,
+} from "@kb/outline";
 import {
   KeybindingPoint,
   keyContextOf,
@@ -13,8 +21,6 @@ import {
   type KeyContext,
   type Keybinding,
 } from "@kb/ui-sdk";
-import { EDITING_BINDINGS, EDITING_CONTEXT, EDITING_CONTEXT_ID } from "../editing-keymap";
-import { SELECTION_BINDINGS, SELECTION_CONTEXT, SELECTION_CONTEXT_ID } from "../selection-keymap";
 
 /** The outline's context of id `id`, as a page kernel holding the outline's two reads it. */
 function outlineKeyContext(id: string): KeyContext {

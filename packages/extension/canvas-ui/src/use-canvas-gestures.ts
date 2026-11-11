@@ -1,20 +1,36 @@
-import { useCallback, useLayoutEffect, useRef } from "react";
-import type { Dispatch, RefObject, SetStateAction } from "react";
+import {
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+} from "react";
+
 import { ulid } from "ulid";
-import type { CanvasDoc, CanvasSide, CommentPlace } from "@kb/canvas";
-import { isTextNode, paintOrder, placeItems, presetItem } from "@kb/canvas";
+import {
+  type CanvasDoc,
+  type CanvasSide,
+  type CommentPlace,
+  isTextNode,
+  paintOrder,
+  placeItems,
+  presetItem,
+  type CanvasTool,
+} from "@kb/canvas";
+
 import {
   draftItem,
   pickTool,
   pressWithTool,
   reduceCanvasTool,
   type CanvasChooser,
-  type CanvasTool,
   type ToolSpot,
   type ToolState,
 } from "./canvas-tool";
-import { selectNode as selNode } from "./canvas-selection";
-import type { CanvasSelection } from "./canvas-selection";
+
+import { selectNode as selNode, type CanvasSelection } from "./canvas-selection";
+
 import type {
   CanvasPointerEvent,
   PointerResult,

@@ -5,3 +5,13 @@
  */
 export { outlineExtension, outlinePlugin } from "./extension.ts";
 export { OUTLINE_IDS } from "./ids.ts";
+
+export {
+  OUTLINE_KEYBOARD,
+  EDITING_CONTEXT,
+  EDITING_CONTEXT_ID,
+  EDITING_BINDINGS,
+  SELECTION_CONTEXT,
+  SELECTION_CONTEXT_ID,
+  SELECTION_BINDINGS,
+} from "./keyboard.ts";
