@@ -130,11 +130,13 @@ const DATASCRIPT = /cljs\.core/;
 // `isVirtual` read) and merging in one action (`node.merge`, which the page
 // runs on its own replica), merged with main at 5cd57bb2, measure 1,821,983;
 // the budget keeps about 1.5 KB of headroom over it.
+// Days' date naming its day by key, under any id (#169), merged in at
+// 9333a2e7, takes it to 1,823,752; the budget keeps about 1.5 KB over that.
 // A refused write worded for a person (`failureText`, every toast's one path
 // from a failed receipt), the refusal as data it reads (`WriteRefusal`), and
 // the owner chip with the index's point read it asks (`related`), merged with
-// C1b-a at d491f5cd, measure 1,824,661; the budget keeps about 1.5 KB over it.
-const EAGER_BUDGET_BYTES = 1_826_200;
+// C1b-a at 2adf28cf, measure 1,826,408; the budget keeps about 1.5 KB over it.
+const EAGER_BUDGET_BYTES = 1_827_900;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

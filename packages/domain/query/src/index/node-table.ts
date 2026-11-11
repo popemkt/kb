@@ -1,7 +1,20 @@
 import type { FieldType, KbNode, NodeId, StoreTx } from "@kb/model";
 import { derivedTargets, nodeRefs, referenceFields } from "./datoms.ts";
-import { fieldTypesIn, type DerivedRef, type FieldTypes } from "./derived.ts";
+import {
+  fieldTypesIn,
+  keyHolders,
+  keysOf,
+  type DerivedRef,
+  type FieldTypes,
+  type GraphReads,
+  type KeyRef,
+} from "./derived.ts";
 import type { NodeIndex } from "./index.ts";
+
+/** A key as one string, for the maps keyed by key. */
+function keyName(key: KeyRef): string {
+  return JSON.stringify([key.field, key.value]);
+}
 
 function byId(a: KbNode, b: KbNode): number {
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
@@ -16,6 +29,8 @@ function byId(a: KbNode, b: KbNode): number {
  * reads a value with its field's type (`FieldTypes`). A type changes when
  * anything its reading looked up does: the field's choice of option, or
  * the option node it chooses appearing, vanishing or naming another type.
+ * And each node that asked who holds a key (`GraphReads.holders`) whose
+ * holders changed: a node took the key, gave it up, or was deleted.
  */
 export interface NodeChange {
   readonly created: readonly NodeId[];
@@ -85,6 +100,30 @@ export class NodeTable implements NodeIndex {
     return type;
   };
 
+  /** Who holds each value of each key field asked about: field → value → holders. */
+  #holders = new Map<NodeId, Map<string, Set<NodeId>>>();
+  /** A key, as one string (`keyName`) → the nodes whose carriers asked who holds it. */
+  #keyReaders = new Map<string, Set<NodeId>>();
+  /** node → the keys its carriers asked about (the reverse of `#keyReaders`). */
+  #keysReadBy = new Map<NodeId, Set<string>>();
+
+  /**
+   * What carriers read of the table beyond the node (`GraphReads`), on
+   * behalf of `reader`: each key it asks about is remembered against it,
+   * so a change of that key's holders reads it again (`change`). A node
+   * only planned, or a question with no node behind it, is asked with no
+   * reader and leaves nothing behind.
+   */
+  readsOf(reader: NodeId | null): GraphReads {
+    return {
+      fieldType: this.fieldTypes,
+      holders: (key) => {
+        if (reader !== null) this.#rememberKeyRead(reader, key);
+        return [...(this.#holdersOf(key.field).get(key.value) ?? [])];
+      },
+    };
+  }
+
   /** The full index replaces its definition while keeping this node table. */
   setDerived(derived: readonly DerivedRef[]): void {
     this.#derived = derived;
@@ -101,8 +140,10 @@ export class NodeTable implements NodeIndex {
     this.#refsTo = new Map();
     this.#types = new Map();
     this.#typeReaders = new Map();
-    for (const node of merged)
-      this.#setRefs(node.id, nodeRefs(node, this.#derived, this.fieldTypes));
+    this.#holders = new Map();
+    this.#keyReaders = new Map();
+    this.#keysReadBy = new Map();
+    for (const node of merged) this.#restate(node);
     this.#generation += 1;
   }
 
@@ -118,11 +159,17 @@ export class NodeTable implements NodeIndex {
     const created = tx.upserts.filter((n) => !this.#nodes.has(n.id)).map((n) => n.id);
     const removed = tx.deletes.filter((id) => this.#nodes.has(id));
     if (created.length === 0 && removed.length === 0 && tx.upserts.length === 0) return null;
-    const typed = this.#forgetTypesReading([...tx.upserts.map((n) => n.id), ...tx.deletes]);
+    const touched = [...tx.upserts.map((n) => n.id), ...tx.deletes];
+    const typed = this.#forgetTypesReading(touched);
+    const keysWere = new Map(touched.map((id) => [id, this.#keysHeld(this.#nodes.get(id))]));
 
-    for (const id of removed) this.#setRefs(id, new Set());
+    for (const id of removed) {
+      this.#setRefs(id, new Set());
+      this.#forgetKeyReads(id);
+    }
     for (const node of tx.upserts) this.#nodes.set(node.id, node);
     for (const id of removed) this.#nodes.delete(id);
+    const rekeyed = this.#moveKeys(keysWere);
     // A virtual node a tx stores or deletes is no longer virtual: nothing brings it back.
     this.#dropVirtual([...tx.upserts.map((n) => n.id), ...removed]);
 
@@ -131,14 +178,14 @@ export class NodeTable implements NodeIndex {
     const retyped = [...typed]
       .filter(([id, type]) => this.fieldTypes(id) !== type)
       .map(([id]) => id);
-    for (const id of [...created, ...removed, ...retyped]) {
-      for (const referrer of this.#refsTo.get(id) ?? []) {
-        const node = this.#nodes.get(referrer);
-        if (node !== undefined) restated.set(referrer, node);
-      }
+    const referrers = [...created, ...removed, ...retyped].flatMap((id) => [
+      ...(this.#refsTo.get(id) ?? []),
+    ]);
+    for (const referrer of [...referrers, ...rekeyed]) {
+      const node = this.#nodes.get(referrer);
+      if (node !== undefined) restated.set(referrer, node);
     }
-    for (const node of restated.values())
-      this.#setRefs(node.id, nodeRefs(node, this.#derived, this.fieldTypes));
+    for (const node of restated.values()) this.#restate(node);
     this.#generation += 1;
     return { created, removed, restated: [...restated.values()] };
   }
@@ -152,7 +199,7 @@ export class NodeTable implements NodeIndex {
   }
 
   referencesOf(node: KbNode): ReadonlySet<NodeId> {
-    return nodeRefs(node, this.#derived, this.fieldTypes);
+    return nodeRefs(node, this.#derived, this.readsOf(null));
   }
 
   related(id: NodeId, attr: DerivedRef["attr"]): readonly NodeId[] {
@@ -160,13 +207,13 @@ export class NodeTable implements NodeIndex {
     const entry = this.#derived.find((each) => each.attr === attr);
     if (node === undefined || entry === undefined) return [];
     const targets = new Set(
-      derivedTargets(node, entry, this.fieldTypes).map((carried) => carried.id),
+      derivedTargets(node, entry, this.readsOf(null)).map((carried) => carried.id),
     );
     return [...targets].filter((target) => this.#nodes.has(target));
   }
 
   referenceFields(node: KbNode, target: NodeId): ReadonlySet<NodeId> {
-    return referenceFields(node, target, this.#derived, this.fieldTypes);
+    return referenceFields(node, target, this.#derived, this.readsOf(null));
   }
 
   getNode(id: NodeId): KbNode | undefined {
@@ -224,6 +271,75 @@ export class NodeTable implements NodeIndex {
       }
     }
     return was;
+  }
+
+  /** Read `node`'s references again, its key reads with them. */
+  #restate(node: KbNode): void {
+    this.#forgetKeyReads(node.id);
+    this.#setRefs(node.id, nodeRefs(node, this.#derived, this.readsOf(node.id)));
+  }
+
+  /** Who holds each value of `field`, indexed the first time a carrier asks. */
+  #holdersOf(field: NodeId): Map<string, Set<NodeId>> {
+    let values = this.#holders.get(field);
+    if (values === undefined) {
+      values = new Map(
+        [...keyHolders(this.#nodes.values(), field)].map(([value, ids]) => [value, new Set(ids)]),
+      );
+      this.#holders.set(field, values);
+    }
+    return values;
+  }
+
+  #rememberKeyRead(reader: NodeId, key: KeyRef): void {
+    const name = keyName(key);
+    const readers = this.#keyReaders.get(name);
+    if (readers === undefined) this.#keyReaders.set(name, new Set([reader]));
+    else readers.add(reader);
+    const read = this.#keysReadBy.get(reader);
+    if (read === undefined) this.#keysReadBy.set(reader, new Set([name]));
+    else read.add(name);
+  }
+
+  #forgetKeyReads(reader: NodeId): void {
+    for (const name of this.#keysReadBy.get(reader) ?? [])
+      this.#keyReaders.get(name)?.delete(reader);
+    this.#keysReadBy.delete(reader);
+  }
+
+  /** The keys `node` holds in the key fields indexed so far, by `keyName`. */
+  #keysHeld(node: KbNode | undefined): Map<string, KeyRef> {
+    const held = new Map<string, KeyRef>();
+    for (const field of this.#holders.keys())
+      for (const value of keysOf(node, field))
+        held.set(keyName({ field, value }), { field, value });
+    return held;
+  }
+
+  /**
+   * Bring the key index up to the nodes as they now stand, given the keys
+   * each touched node held before (`was`), and say who asked about a key
+   * whose holders changed.
+   */
+  #moveKeys(was: ReadonlyMap<NodeId, ReadonlyMap<string, KeyRef>>): Set<NodeId> {
+    const readers = new Set<NodeId>();
+    for (const [id, before] of was) {
+      const after = this.#keysHeld(this.#nodes.get(id));
+      for (const [name, key] of before) {
+        if (after.has(name)) continue;
+        this.#holders.get(key.field)?.get(key.value)?.delete(id);
+        for (const reader of this.#keyReaders.get(name) ?? []) readers.add(reader);
+      }
+      for (const [name, key] of after) {
+        if (before.has(name)) continue;
+        const values = this.#holdersOf(key.field);
+        const holders = values.get(key.value);
+        if (holders === undefined) values.set(key.value, new Set([id]));
+        else holders.add(id);
+        for (const reader of this.#keyReaders.get(name) ?? []) readers.add(reader);
+      }
+    }
+    return readers;
   }
 
   #setRefs(id: NodeId, refs: Set<NodeId>): void {

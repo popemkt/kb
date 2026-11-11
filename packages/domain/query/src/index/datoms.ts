@@ -1,5 +1,5 @@
 import { present, type KbNode, type NodeId, type PropValue } from "@kb/model";
-import { referenceCarriers, type CarriedRef, type DerivedRef, type FieldTypes } from "./derived.ts";
+import { referenceCarriers, type CarriedRef, type DerivedRef, type GraphReads } from "./derived.ts";
 
 export type Datom = [number | string, string, unknown, number?, boolean?];
 
@@ -68,24 +68,24 @@ export interface NodeDatoms {
 
 /**
  * What each derived attribute's carriers read off `node`, its fields typed
- * by `types`: the references it makes by them, in order.
+ * by `reads`: the references it makes by them, in order.
  */
 function carriedBy(
   node: KbNode,
   derived: readonly DerivedRef[],
-  types: FieldTypes,
+  reads: GraphReads,
 ): { readonly attr: string; readonly refs: readonly CarriedRef[] }[] {
-  return derived.map((entry) => ({ attr: entry.attr, refs: derivedTargets(node, entry, types) }));
+  return derived.map((entry) => ({ attr: entry.attr, refs: derivedTargets(node, entry, reads) }));
 }
 
 /**
- * What `entry`'s carriers read off `node`, its fields typed by `types`: the
+ * What `entry`'s carriers read off `node`, the graph read by `reads`: the
  * ids it points at by that attribute, each with the field it was read from,
  * in order, resolvable or not, repeats kept (its datoms keep each target
  * that exists, once).
  */
-export function derivedTargets(node: KbNode, entry: DerivedRef, types: FieldTypes): CarriedRef[] {
-  return entry.carriers.flatMap((carrier) => [...carrier.refsOf(node, types)]);
+export function derivedTargets(node: KbNode, entry: DerivedRef, reads: GraphReads): CarriedRef[] {
+  return entry.carriers.flatMap((carrier) => [...carrier.refsOf(node, reads)]);
 }
 
 /**
@@ -111,14 +111,14 @@ function pointedAt(node: KbNode, carried: ReturnType<typeof carriedBy>): Set<Nod
 export function nodeRefs(
   node: KbNode,
   derived: readonly DerivedRef[],
-  types: FieldTypes,
+  reads: GraphReads,
 ): Set<NodeId> {
-  return pointedAt(node, carriedBy(node, derived, types));
+  return pointedAt(node, carriedBy(node, derived, reads));
 }
 
 /**
  * The fields through which `node` references `target`, read by the
- * reference relation's carriers in `derived`, its fields typed by `types`:
+ * reference relation's carriers in `derived`, the graph read by `reads`:
  * a ref value's field, a text value's field holding a `[[target]]` token,
  * the field of any value a family's carrier reads as naming `target`. A
  * reference in no field (the node's own text, its owner) adds none.
@@ -127,31 +127,31 @@ export function referenceFields(
   node: KbNode,
   target: NodeId,
   derived: readonly DerivedRef[],
-  types: FieldTypes,
+  reads: GraphReads,
 ): Set<NodeId> {
   const fields = new Set<NodeId>();
   for (const carrier of referenceCarriers(derived))
-    for (const { id, field } of carrier.refsOf(node, types))
+    for (const { id, field } of carrier.refsOf(node, reads))
       if (id === target && field !== undefined) fields.add(field);
   return fields;
 }
 
 /**
  * One node → its datoms: what it states, then each derived ref attribute in
- * `derived` from its carriers, its fields typed by `types`. Pure in (node,
- * ids, derived, types): the index owns all four.
+ * `derived` from its carriers, the graph read by `reads`. Pure in (node,
+ * ids, derived, reads): the index owns all four.
  */
 export function nodeToDatoms(
   node: KbNode,
   ids: IdMap,
   derived: readonly DerivedRef[],
-  types: FieldTypes,
+  reads: GraphReads,
 ): NodeDatoms {
   const eid = present(ids.toEid.get(node.id), `eid for ${node.id}`);
   const datoms: Datom[] = [];
   const attrs = new Set<string>();
   const refAttrs = new Set<string>();
-  const carried = carriedBy(node, derived, types);
+  const carried = carriedBy(node, derived, reads);
   const refs = pointedAt(node, carried);
 
   datoms.push([eid, ":node/id", node.id]);
