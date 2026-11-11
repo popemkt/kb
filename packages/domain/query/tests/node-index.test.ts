@@ -3,7 +3,8 @@
  * a host keeps beside a query engine that runs elsewhere, and the
  * `DatascriptIndex` that keeps its datoms over one. Driven by the same
  * transactions, every point read answers the same from both, and so does
- * the generation a reader keys its cache on.
+ * the generation a reader keys its cache on. A derived attribute's point
+ * read (`related`) is what its datoms state.
  */
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
@@ -38,6 +39,14 @@ type Step =
   | { kind: "tx"; tx: StoreTx }
   | { kind: "rebuild"; nodes: KbNode[] }
   | { kind: "virtual"; nodes: KbNode[] };
+
+/** Who seeds whom: `c` is its own, which a node never is (`ownerCarrier`). */
+const OWNERS = new Map([
+  ["a", "b"],
+  ["c", "c"],
+  ["d", "f"],
+]);
+const DERIVED_ATTRS = [":node/mentions", ":node/owner"] as const;
 
 const uniqueNodes = fc.uniqueArray(nodeArb, { selector: (n) => n.id, maxLength: 4 });
 
@@ -83,15 +92,26 @@ function reads(index: NodeIndex) {
     each: IDS.map((id) => index.getNode(id) ?? null),
     virtual: IDS.map((id) => index.isVirtual(id)),
     refs: [...index.allNodes()].map((n) => [...index.referencesOf(n)].toSorted()),
+    related: IDS.map((id) => DERIVED_ATTRS.map((attr) => index.related(id, attr))),
     search: index.search("[[", 3).map((n) => n.id),
   };
 }
+
+/** What `index`'s datalog says `id` points at by `attr`, sorted. */
+const targets = (index: DatascriptIndex, id: string, attr: string) =>
+  index
+    .runDatalog(
+      `[:find ?to :in $ ?id :where [?n :node/id ?id] [?n ${attr} ?t] [?t :node/id ?to]]`,
+      id,
+    )
+    .map(([to]) => String(to))
+    .toSorted();
 
 describe("NodeIndex contract", () => {
   test("NodeTable and DatascriptIndex answer every point read alike", () => {
     fc.assert(
       fc.property(uniqueNodes, fc.array(stepArb, { maxLength: 8 }), (start, steps) => {
-        const derived = derivedWith({});
+        const derived = derivedWith({ owners: OWNERS });
         const table = new NodeTable(start, derived);
         const index = new DatascriptIndex(start, { derived });
         expect(reads(table)).toEqual(reads(index));
@@ -100,6 +120,24 @@ describe("NodeIndex contract", () => {
           apply(index, step);
           expect(reads(table)).toEqual(reads(index));
         }
+      }),
+    );
+  });
+
+  test("a derived attribute's point read is what its datoms state", () => {
+    fc.assert(
+      fc.property(uniqueNodes, fc.array(stepArb, { maxLength: 8 }), (start, steps) => {
+        const index = new DatascriptIndex(start, { derived: derivedWith({ owners: OWNERS }) });
+        for (const step of steps) apply(index, step);
+        for (const id of IDS)
+          for (const attr of DERIVED_ATTRS)
+            expect([...index.related(id, attr)].toSorted(), `${attr} of ${id}`).toEqual(
+              targets(index, id, attr),
+            );
+        // Who seeds a node: one owner at most, never itself.
+        for (const id of IDS)
+          expect(index.related(id, ":node/owner").length).toBeLessThanOrEqual(1);
+        expect(index.related("c", ":node/owner")).toEqual([]);
       }),
     );
   });

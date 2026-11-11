@@ -19,7 +19,9 @@
  * map. A query read through the answers (`runner`, `read`) depends on that
  * query's answer, and is watched while the component is mounted, so a move
  * of the replica asks it again (`useAnswered` reads queries the same way);
- * any other use of the answers depends on every answer arriving.
+ * any other use of the answers depends on every answer arriving. A point
+ * read of the index ({@link IndexReads}: whether a node is virtual, who
+ * seeds it) is recorded with what it answered, as a query is.
  *
  * Reads always answer from the source's current maps, never from the
  * snapshot the view was made on; the recording only decides when the view is
@@ -40,8 +42,31 @@ import type { EdnRunner } from "../query";
 import type { QueryAnswers, QueryRead } from "./replica-queries";
 import type { NodeMap } from "./types";
 
-/** The graph as a component reads it: the outline as shown, its schema, the query answers. */
-export interface GraphRead extends FieldContext {
+/**
+ * What a component asks the graph's index about one node: the index's point
+ * reads (`NodeIndex`), each answering for an id. A read view records each
+ * with what it answered, so a component depends on exactly the answers it
+ * read.
+ */
+interface IndexReads {
+  /** Whether the graph serves `id` from its source file, not the store (`NodeIndex.isVirtual`). */
+  readonly isVirtual: (id: string) => boolean;
+  /**
+   * Who seeds `id`: its owner's node (`sys.extension.<name>`, the family
+   * whose declaration seeds it), or null for a node no family seeds
+   * (`NodeIndex.related` of `:node/owner`).
+   */
+  readonly ownerOf: (id: string) => string | null;
+}
+
+/** An index point read, by name: what a read view records and compares. */
+type IndexRead = keyof IndexReads;
+
+/**
+ * The graph as a component reads it: the outline as shown, its schema, the
+ * query answers, and the index's point reads ({@link IndexReads}).
+ */
+export interface GraphRead extends FieldContext, IndexReads {
   readonly outline: NodeMap;
 }
 
@@ -50,7 +75,7 @@ export interface GraphRead extends FieldContext {
  * what it holds now. Each read returns the same value until what it reads
  * changes.
  */
-export interface GraphSource {
+export interface GraphSource extends IndexReads {
   /** Listen for any change to what this source's reads answer; returns the unsubscribe. */
   readonly subscribe: (listener: () => void) => () => void;
   /** Every node of the graph, as the page shows them: the rows of the projection it stands in. */
@@ -61,8 +86,8 @@ export interface GraphSource {
   readonly queries: () => QueryAnswers | null;
 }
 
-/** The store values a read stands on, as of one check. */
-interface Sources {
+/** The store values a read stands on, as of one check, and the index it asks. */
+interface Sources extends IndexReads {
   readonly outline: NodeMap;
   readonly schema: SchemaIndex;
   readonly queries: QueryAnswers | null;
@@ -76,6 +101,8 @@ function sourcesOf(source: GraphSource): Sources {
     schema: source.schema(),
     queries,
     answers: queries?.version ?? 0,
+    isVirtual: source.isVirtual,
+    ownerOf: source.ownerOf,
   };
 }
 
@@ -230,6 +257,11 @@ class Reader {
   readonly #schema = new MapReads();
   /** The queries read through the view, with what each answered. */
   readonly reads = new Map<string, QueryRead>();
+  /** The index's point reads served, by read and id, with what each answered. */
+  readonly #points = new Map<
+    string,
+    { readonly read: IndexRead; readonly id: string; readonly answer: unknown }
+  >();
   #queried = false;
   readonly view: GraphRead;
 
@@ -249,7 +281,15 @@ class Reader {
           : new AnswersRead(queries, this.reads, () => {
               this.#queried = true;
             }),
+      isVirtual: (id) => this.#record("isVirtual", id, this.#sources.isVirtual(id)),
+      ownerOf: (id) => this.#record("ownerOf", id, this.#sources.ownerOf(id)),
     };
+  }
+
+  /** Record what the index's point read `read` of `id` answered, and answer it. */
+  #record<T>(read: IndexRead, id: string, answer: T): T {
+    this.#points.set(`${read}\u0000${id}`, { read, id, answer });
+    return answer;
   }
 
   /**
@@ -268,6 +308,8 @@ class Reader {
     // unscoped schema's entries are the projection's (`lib/schema.ts`), so an
     // expand since the last snapshot is not a change to a schema reader.
     if (!this.#schema.unchanged(prev.schema, next.schema, sameMeaning)) return false;
+    for (const { read, id, answer } of this.#points.values())
+      if (next[read](id) !== answer) return false;
     this.#sources = next;
     return true;
   }

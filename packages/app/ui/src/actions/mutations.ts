@@ -1,11 +1,11 @@
 /**
  * Mutation action layer — optimistic local tx → POST /api/action.
  */
-import { ASSET_MAX_BYTES } from "@kb/operations";
+import { ASSET_MAX_BYTES, personWriteRefusal } from "@kb/operations";
 import { ulid } from "ulid";
 import { z } from "zod";
 import type { FrameViewKey, SortSpec, ViewConfig, ViewFilter } from "@kb/views";
-import type { FieldType } from "@kb/model";
+import type { FieldType, KbNode, StoreTx } from "@kb/model";
 import { runOptimistic } from "@/actions/optimistic";
 import {
   planAddChild,
@@ -33,7 +33,6 @@ import {
 } from "@/actions/plan";
 import {
   forestRootIds,
-  isSysPrefixed,
   type PageWrites,
   pinnedRefIdsFor,
   type PropValue,
@@ -42,6 +41,9 @@ import {
   toast,
   WORKSPACE_ROOT_ID,
   captureTarget,
+  failureText,
+  personRefusal,
+  refusalNames,
 } from "@kb/ui-sdk";
 
 /** `asset.upload` answers with the repo-relative path it stored the bytes at. */
@@ -53,7 +55,7 @@ const mb = (bytes: number) => `${Math.round(bytes / (1024 * 1024))} MB`;
 import { findParentWire } from "@/lib/tx";
 import { restoreInvocations } from "@/actions/restore";
 import type { WireNode } from "@kb/contracts";
-import { isWritableField, typeRefsOf } from "@kb/model";
+import { typeRefsOf } from "@kb/model";
 import { shownNodes, useGraphStore } from "@/stores/graph.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { pageRows } from "@/stores/page"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { pageEditor } from "@/stores/page-editor"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
@@ -66,22 +68,25 @@ function wire(): WireNode[] {
   return useGraphStore.getState().wireNodes;
 }
 
-/** Block edits on sys.* in the UI with a toast (core also enforces). */
-function guardSysWrite(id: string): boolean {
-  if (!isSysPrefixed(id)) return true;
-  toast("System nodes (sys.*) are read-only");
-  return false;
+/**
+ * Whether the commit's own rule (`personWriteRefusal`) takes `tx`, asked
+ * before a gesture whose earlier step would stay written if this, its
+ * last, were refused: a view node is minted before its frame names it, and
+ * an upload is made before the text that names it. Refused, it says why, as
+ * the commit would. The same rule asked earlier, not a second one. A
+ * gesture that is one write (a merge, `node.merge`) is one action instead,
+ * and the commit decides it whole.
+ */
+function landsAhead(tx: StoreTx): boolean {
+  const { index } = useGraphStore.getState();
+  const refused = index === null ? null : personWriteRefusal(tx, index);
+  if (refused !== null) toast(personRefusal(refused, refusalNames(index)));
+  return refused === null;
 }
 
-/**
- * Block a value write the invoke core would refuse, with the same toast: a
- * field's values on a system node are written only where the field
- * configures that node (`isWritableField`).
- */
-function guardFieldWrite(nodeId: string, fieldId: string): boolean {
-  const field = wire().find((n) => n.id === fieldId);
-  const node = wire().find((n) => n.id === nodeId) ?? { id: nodeId };
-  return isWritableField(node, fieldId, field) || guardSysWrite(nodeId);
+/** The node as the page's index holds it: what a write ahead is asked of. */
+function indexed(id: string): KbNode | undefined {
+  return useGraphStore.getState().index?.getNode(id);
 }
 
 function recordHistory(preWire: WireNode[], plan: PlannedMutation): void {
@@ -97,7 +102,7 @@ async function invokeAll(actions: Array<{ id: string; input: unknown }>): Promis
     // oxlint-disable-next-line eslint/no-await-in-loop -- history is ordered for structural dependencies
     const receipt = localOnly ? await invokeLocal(action) : await invoke(action.id, action.input);
     if (receipt.status === "failed") {
-      toast(receipt.message);
+      toast(failureText(receipt));
       return false;
     }
   }
@@ -117,12 +122,22 @@ async function applyPlan(plan: PlannedMutation | null): Promise<boolean> {
  * Views list) when the frame names none (`planEditFrameView`).
  */
 async function editFrameView(frameId: string, edit: FrameViewEdit): Promise<void> {
-  if (!guardSysWrite(frameId)) return;
   const { planEditFrameView } = await import("@/actions/plan");
-  const plan = planEditFrameView(wire(), frameId, edit, ulid());
+  const newViewId = ulid();
+  const plan = planEditFrameView(wire(), frameId, edit, newViewId);
   if (plan === null) {
     toast("There is no Views list to keep this frame's view in");
     return;
+  }
+  // A frame that names no view node gets one, then names it: ask the naming
+  // first, so a refused one leaves no view node behind.
+  const frame = indexed(frameId);
+  if (plan.actions.length > 1 && frame !== undefined) {
+    const views = {
+      ...frame.props,
+      [SYSTEM_IDS.viewsField]: [{ t: "ref" as const, v: newViewId }],
+    };
+    if (!landsAhead({ upserts: [{ ...frame, props: views }], deletes: [] })) return;
   }
   await applyPlan(plan);
 }
@@ -135,8 +150,6 @@ async function frameConfig(frameId: string): Promise<ViewConfig> {
 
 export const mutations: PageWrites = {
   async updateNodeContent(id: string, content: string): Promise<void> {
-    if (!guardSysWrite(id)) return;
-
     const store = useGraphStore.getState();
     if (!store.wireNodes.some((node) => node.id === id)) return;
 
@@ -149,15 +162,10 @@ export const mutations: PageWrites = {
       store.loadSource === "api"
         ? (await invokeCoalesced(action, `text:${id}`)).receipt
         : await invokeLocal(action);
-    if (receipt.status === "failed") toast(receipt.message);
+    if (receipt.status === "failed") toast(failureText(receipt));
   },
 
   async createNodeAfter(afterId: string): Promise<void> {
-    if (!guardSysWrite(afterId)) return;
-    // Splitting after a node inserts the new row under the sibling's parent —
-    // guard that parent, not just the sibling id (sys.* write-guard).
-    const siblingParent = findParentWire(wire(), afterId);
-    if (siblingParent && !guardSysWrite(siblingParent.id)) return;
     await applyPlan(planInsertSibling(wire(), afterId, "after", ulid()));
   },
 
@@ -174,7 +182,6 @@ export const mutations: PageWrites = {
   },
 
   async addChildNode(parentId: string, text: string, newId?: string): Promise<boolean> {
-    if (!guardSysWrite(parentId)) return false;
     const id = newId ?? ulid();
     return applyPlan(planAddChild(wire(), parentId, id, text));
   },
@@ -185,13 +192,8 @@ export const mutations: PageWrites = {
     if (parentId === WORKSPACE_ROOT_ID) {
       ok = await applyPlan(planAddRootNode("", newId));
     } else if (afterSiblingId !== null) {
-      // Inserting after a sibling lands under the sibling's parent — guard
-      // that parent, not just the sibling id (sys.* write-guard).
-      const siblingParent = findParentWire(wire(), afterSiblingId);
-      if (siblingParent && !guardSysWrite(siblingParent.id)) return null;
       ok = await applyPlan(planInsertSibling(wire(), afterSiblingId, "after", newId));
     } else {
-      if (!guardSysWrite(parentId)) return null;
       ok = await applyPlan(planAddChild(wire(), parentId, newId, ""));
     }
     if (!ok) return null;
@@ -200,12 +202,10 @@ export const mutations: PageWrites = {
   },
 
   async createEmptyNodeBefore(beforeId: string): Promise<string | null> {
-    if (!guardSysWrite(beforeId)) return null;
     const parent = findParentWire(wire(), beforeId);
     if (!parent) {
       return mutations.createEmptyNode(WORKSPACE_ROOT_ID, beforeId);
     }
-    if (!guardSysWrite(parent.id)) return null;
     const siblings = parent.children;
     const idx = siblings.indexOf(beforeId);
     const prevSibling = idx > 0 ? (siblings[idx - 1] ?? null) : null;
@@ -221,77 +221,65 @@ export const mutations: PageWrites = {
     return newId;
   },
   async addTagField(tagId: string, fieldId: string): Promise<void> {
-    if (!guardSysWrite(tagId)) return;
     const { planAddTagField } = await import("@/actions/plan");
     await applyPlan(planAddTagField(wire(), tagId, fieldId));
   },
 
   async removeTagField(tagId: string, fieldId: string): Promise<void> {
-    if (!guardSysWrite(tagId)) return;
     const { planRemoveTagField } = await import("@/actions/plan");
     await applyPlan(planRemoveTagField(wire(), tagId, fieldId));
   },
 
   async setTagColor(tagId: string, color: string | null): Promise<void> {
-    if (!guardSysWrite(tagId)) return;
     const { planSetTagColor } = await import("@/actions/plan");
     await applyPlan(planSetTagColor(wire(), tagId, color));
   },
 
   async setFieldHidden(fieldId: string, hidden: boolean): Promise<void> {
-    if (!guardSysWrite(fieldId)) return;
     const { planSetFieldHidden } = await import("@/actions/plan");
     await applyPlan(planSetFieldHidden(wire(), fieldId, hidden));
   },
 
   async setFieldType(fieldId: string, fieldType: FieldType): Promise<void> {
-    if (!guardSysWrite(fieldId)) return;
     const { planSetFieldType } = await import("@/actions/plan");
     await applyPlan(planSetFieldType(wire(), fieldId, fieldType));
   },
 
   async addFieldTargetTag(fieldId: string, tagId: string): Promise<void> {
-    if (!guardSysWrite(fieldId)) return;
     const { planAddFieldTargetTag } = await import("@/actions/plan");
     await applyPlan(planAddFieldTargetTag(wire(), fieldId, tagId));
   },
 
   async removeFieldTargetTag(fieldId: string, tagId: string): Promise<void> {
-    if (!guardSysWrite(fieldId)) return;
     const { planRemoveFieldTargetTag } = await import("@/actions/plan");
     await applyPlan(planRemoveFieldTargetTag(wire(), fieldId, tagId));
   },
 
   async setFieldTargetQuery(fieldId: string, edn: string | null): Promise<void> {
-    if (!guardSysWrite(fieldId)) return;
     const { planSetFieldTargetQuery } = await import("@/actions/plan");
     await applyPlan(planSetFieldTargetQuery(wire(), fieldId, edn));
   },
 
   async splitNode(id: string, cursor: number | "end"): Promise<void> {
-    if (!guardSysWrite(id)) return;
     // Expanded set from the page's rows drives Tana first-child splits.
     const expandedIds = new Set<string>();
     for (const n of pageRows().values()) {
-      if (!n.collapsed && !isSysPrefixed(n.id)) expandedIds.add(n.id);
+      if (!n.collapsed) expandedIds.add(n.id);
     }
     await applyPlan(planSplit(wire(), id, cursor, ulid(), { expandedIds }));
   },
 
-  async deleteNode(id: string): Promise<void> {
-    if (!guardSysWrite(id)) return;
-    await applyPlan(planDelete(wire(), id));
+  async deleteNode(id: string): Promise<boolean> {
+    return applyPlan(planDelete(wire(), id));
   },
 
   async mergeNextIntoThis(thisId: string, nextId: string): Promise<void> {
-    if (!guardSysWrite(thisId) || !guardSysWrite(nextId)) return;
     const plan = planMergeInto(wire(), nextId, thisId);
     if (!plan) return;
     await applyPlan(plan);
   },
 
   async mergeWithPrevious(id: string, previousId: string | null = null): Promise<void> {
-    if (!guardSysWrite(id)) return;
     let plan: PlannedMutation | null = null;
     if (previousId !== null && previousId !== id) plan = planMergeInto(wire(), id, previousId);
     if (!plan) plan = planMergeWithPrevious(wire(), id);
@@ -299,14 +287,13 @@ export const mutations: PageWrites = {
   },
 
   async indentNode(id: string, cursor?: number): Promise<void> {
-    if (!guardSysWrite(id)) return;
     const store = useGraphStore.getState();
     const parent = findParentWire(store.wireNodes, id);
     const siblings = parent ? parent.children : forestRootIds(store.wireNodes);
     const idx = siblings.indexOf(id);
     if (idx <= 0) return;
     const prevId = siblings[idx - 1];
-    if (prevId === undefined || !guardSysWrite(prevId)) return;
+    if (prevId === undefined) return;
 
     const preWire = store.wireNodes;
     const plan = planIndent(preWire, id);
@@ -323,7 +310,6 @@ export const mutations: PageWrites = {
   },
 
   async outdentNode(id: string, cursor?: number): Promise<void> {
-    if (!guardSysWrite(id)) return;
     const store = useGraphStore.getState();
     const plan = planOutdent(store.wireNodes, id);
     if (!plan) return;
@@ -335,12 +321,10 @@ export const mutations: PageWrites = {
   },
 
   async moveNodeUp(id: string): Promise<void> {
-    if (!guardSysWrite(id)) return;
     await applyPlan(planMove(wire(), id, "up"));
   },
 
   async moveNodeDown(id: string): Promise<void> {
-    if (!guardSysWrite(id)) return;
     await applyPlan(planMove(wire(), id, "down"));
   },
 
@@ -362,12 +346,10 @@ export const mutations: PageWrites = {
     value: PropValue,
     oldValue?: PropValue,
   ): Promise<void> {
-    if (!guardFieldWrite(nodeId, fieldId)) return;
     await applyPlan(planSetProp(wire(), nodeId, fieldId, value, oldValue));
   },
 
   async removeProp(nodeId: string, fieldId: string, value?: PropValue): Promise<void> {
-    if (!guardFieldWrite(nodeId, fieldId)) return;
     await applyPlan(planUnsetProp(wire(), nodeId, fieldId, value));
   },
 
@@ -382,12 +364,10 @@ export const mutations: PageWrites = {
   },
 
   async addTag(nodeId: string, tagId: string): Promise<void> {
-    if (!guardSysWrite(nodeId)) return;
     await applyPlan(planAddTag(wire(), nodeId, tagId));
   },
 
   async removeTag(nodeId: string, tagId: string): Promise<void> {
-    if (!guardSysWrite(nodeId)) return;
     await applyPlan(planRemoveTag(wire(), nodeId, tagId));
   },
 
@@ -398,7 +378,6 @@ export const mutations: PageWrites = {
   },
 
   async makeSupertag(nodeId: string): Promise<boolean> {
-    if (!guardSysWrite(nodeId)) return false;
     const node = wire().find((n) => n.id === nodeId);
     if (typeRefsOf(node).includes(SYSTEM_IDS.tag)) return true;
     return applyPlan(planAddTag(wire(), nodeId, SYSTEM_IDS.tag));
@@ -450,7 +429,7 @@ export const mutations: PageWrites = {
         filename: file.name,
       });
       if (receipt.status === "failed") {
-        toast(receipt.message);
+        toast(failureText(receipt));
         return null;
       }
       const out = AssetUploadOutputSchema.safeParse(receipt.output);
@@ -466,7 +445,10 @@ export const mutations: PageWrites = {
   },
 
   async attachFileToNode(nodeId: string, file: File): Promise<boolean> {
-    if (!guardSysWrite(nodeId)) return false;
+    // A node's text is a person's wherever the commit takes a write of the
+    // node at all, so asking of it unchanged asks of its text: before the upload.
+    const held = indexed(nodeId);
+    if (held !== undefined && !landsAhead({ upserts: [held], deletes: [] })) return false;
     const path = await mutations.uploadAsset(file);
     if (path === null) return false;
     try {
@@ -504,43 +486,36 @@ export const mutations: PageWrites = {
   },
 
   async ontologyAddInclude(ontoId: string, tagId: string): Promise<void> {
-    if (!guardSysWrite(ontoId)) return;
     const { planOntologyAddInclude } = await import("@/actions/plan");
     await applyPlan(planOntologyAddInclude(wire(), ontoId, tagId));
   },
 
   async ontologyRemoveInclude(ontoId: string, tagId: string): Promise<void> {
-    if (!guardSysWrite(ontoId)) return;
     const { planOntologyRemoveInclude } = await import("@/actions/plan");
     await applyPlan(planOntologyRemoveInclude(wire(), ontoId, tagId));
   },
 
   async ontologyAddMember(ontoId: string, nodeId: string): Promise<void> {
-    if (!guardSysWrite(ontoId)) return;
     const { planOntologyAddMember } = await import("@/actions/plan");
     await applyPlan(planOntologyAddMember(wire(), ontoId, nodeId));
   },
 
   async ontologyRemoveMember(ontoId: string, nodeId: string): Promise<void> {
-    if (!guardSysWrite(ontoId)) return;
     const { planOntologyRemoveMember } = await import("@/actions/plan");
     await applyPlan(planOntologyRemoveMember(wire(), ontoId, nodeId));
   },
 
   async ontologyExclude(ontoId: string, nodeId: string): Promise<void> {
-    if (!guardSysWrite(ontoId)) return;
     const { planOntologyExclude } = await import("@/actions/plan");
     await applyPlan(planOntologyExclude(wire(), ontoId, nodeId));
   },
 
   async ontologyUnexclude(ontoId: string, nodeId: string): Promise<void> {
-    if (!guardSysWrite(ontoId)) return;
     const { planOntologyUnexclude } = await import("@/actions/plan");
     await applyPlan(planOntologyUnexclude(wire(), ontoId, nodeId));
   },
 
   async ontologyAddExtends(ontoId: string, parentId: string): Promise<boolean> {
-    if (!guardSysWrite(ontoId)) return false;
     const { planOntologyAddExtends } = await import("@/actions/plan");
     const plan = planOntologyAddExtends(wire(), ontoId, parentId);
     if (!plan) {
@@ -551,25 +526,21 @@ export const mutations: PageWrites = {
   },
 
   async ontologyRemoveExtends(ontoId: string, parentId: string): Promise<void> {
-    if (!guardSysWrite(ontoId)) return;
     const { planOntologyRemoveExtends } = await import("@/actions/plan");
     await applyPlan(planOntologyRemoveExtends(wire(), ontoId, parentId));
   },
 
   async ontologySetQuery(ontoId: string, edn: string): Promise<void> {
-    if (!guardSysWrite(ontoId)) return;
     const { planOntologySetQuery } = await import("@/actions/plan");
     await applyPlan(planOntologySetQuery(wire(), ontoId, edn));
   },
 
   async ontologySetClosure(ontoId: string, mode: "none" | "descendants"): Promise<void> {
-    if (!guardSysWrite(ontoId)) return;
     const { planOntologySetClosure } = await import("@/actions/plan");
     await applyPlan(planOntologySetClosure(wire(), ontoId, mode));
   },
 
   async makeDefaultView(hostId: string, viewId: string): Promise<void> {
-    if (!guardSysWrite(hostId)) return;
     const { planMakeDefaultView } = await import("@/actions/plan");
     await applyPlan(planMakeDefaultView(wire(), hostId, viewId));
   },
@@ -580,7 +551,6 @@ export const mutations: PageWrites = {
   },
 
   async replaceField(nodeId: string, fieldId: string, values: PropValue[]): Promise<void> {
-    if (!guardSysWrite(nodeId)) return;
     const { planReplaceField } = await import("@/actions/plan");
     await applyPlan(planReplaceField(wire(), nodeId, fieldId, values));
   },
@@ -653,7 +623,6 @@ export const mutations: PageWrites = {
     oldValue: PropValue | null,
     newValue: PropValue | null,
   ): Promise<void> {
-    if (!guardSysWrite(nodeId)) return;
     const { planMoveBoardCard } = await import("@/actions/plan");
     await applyPlan(planMoveBoardCard(wire(), nodeId, fieldId, oldValue, newValue));
   },

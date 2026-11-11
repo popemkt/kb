@@ -32,6 +32,7 @@ import {
   type SandboxTrust,
   type SandboxRun,
   type ViewProps,
+  failureText,
 } from "@kb/ui-sdk";
 
 const BUTTON = cn(
@@ -170,7 +171,7 @@ export function CodePage({ params, host }: ViewProps<CodeParams>) {
   const changeTrust = async (trusted: boolean) => {
     if (trust === null) return;
     const receipt = await browserHost().sandbox.setTrusted(trust.digest, trusted);
-    if (receipt.status === "failed") toast(receipt.message);
+    if (receipt.status === "failed") toast(failureText(receipt));
     setStatus(null);
     refresh();
   };

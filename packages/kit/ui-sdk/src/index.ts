@@ -251,6 +251,7 @@ export {
   shownNodeId,
   showsAncestor,
 } from "./lib/contextual-ref";
+export { failureText, personRefusal, refusalNames } from "./lib/refusal";
 export {
   clearAllowedRefIdsCache,
   emptyValueForType,

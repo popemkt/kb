@@ -564,7 +564,14 @@ type PropValue =
   rule is stated once in `@kb/model`'s `system-write.ts` and checked by the
   commit itself
   (`persistEffect`, the rule's one owner, over every transaction's upserts
-  and deletes), so no action meets it by remembering to call a guard. A
+  and deletes), so no action meets it by remembering to call a guard. Its
+  refusal is data (`WriteRefusal` in `@kb/model`'s `write-refusal.ts`: the
+  node, and the part of the rule the write broke; a deletion is asked
+  first, so a refused delete names the node deleted, not its parent's
+  list). The `forbidden` failure carries it as its details beside the
+  sentence `writeRefusalMessage` makes of it for an agent or a command
+  line, and each surface words it from the data, so a person is never
+  told to use the override (DESIGN-UI.md → the commit decides). A
   commit that is not a person's write says which it is (`systemWrites`):
   `forced`, the owner's `--force`, or `system`, kb's own code writing the
   schema it owns (`views.migrate`, the locations family minting its nodes

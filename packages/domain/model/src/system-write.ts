@@ -41,6 +41,7 @@
 import { SYSTEM_IDS, isExtensionNodeId, isSysPrefixed, type KbNode, type NodeId } from "./model.ts";
 import { changedFields } from "./tx.ts";
 import { refValuesOf, typeRefsOf, type NodeLike } from "./node-like.ts";
+import type { SystemRefusal } from "./write-refusal.ts";
 
 /**
  * The node a setting is checked against: its id, and its props where they
@@ -116,25 +117,30 @@ export const ADDITIVE_FIELDS: ReadonlySet<NodeId> = new Set([
 ]);
 
 /**
- * Whether `next` keeps what `before` ships: every system id `before` holds,
- * in the order it holds them. Every other id is a person's, added, moved
- * or taken back as they like.
+ * Whether `id`, in one of the lists of the node `holder` (its children, or
+ * an {@link ADDITIVE_FIELDS} value), is what `holder`'s owner ships there: a
+ * system id in a system node's list. The commit keeps it, in its place; any
+ * other id there is a person's, theirs to take back.
  */
-function keepsSeeded(before: readonly NodeId[], next: readonly NodeId[]): boolean {
-  const shipped = before.filter(isSysPrefixed);
-  const kept = next.filter(isSysPrefixed);
+export function isShipped(holder: NodeId, id: NodeId): boolean {
+  return isSysPrefixed(holder) && isSysPrefixed(id);
+}
+
+/**
+ * Whether `next`, a list of the system node `holder`, keeps what `before`
+ * ships ({@link isShipped}): every such id, in the order it holds them.
+ * Every other id is a person's, added, moved or taken back as they like.
+ */
+function keepsSeeded(holder: NodeId, before: readonly NodeId[], next: readonly NodeId[]): boolean {
+  const ships = (id: NodeId) => isShipped(holder, id);
+  const shipped = before.filter(ships);
+  const kept = next.filter(ships);
   return shipped.length === kept.length && shipped.every((id, at) => kept[at] === id);
 }
 
 /** The node ids `values` hold: what an additive field's list is made of. */
 const idsOf = (values: KbNode["props"][string] | undefined): NodeId[] =>
   (values ?? []).flatMap((value) => (value.t === "ref" ? [value.v] : []));
-
-/** A refusal of a system node's write: what is its owner's, and how its owner overrides. */
-const refused = (sentence: string) => `${sentence} (use force to override)`;
-
-/** What a refused list keeps, and what a person may do with it. */
-const KEEPS = "its owner seeded, in their order: a person's may be added, moved or removed";
 
 /**
  * Why writing `next` over `before` (the node as the graph holds it now,
@@ -148,21 +154,19 @@ export function systemWriteRefusal(
   before: KbNode | undefined,
   next: KbNode,
   fieldOf: NodeOf,
-): string | null {
+): SystemRefusal | null {
   if (!isSysPrefixed(next.id)) return null;
   const id = next.id;
-  if (before === undefined)
-    return refused(`${id} is a system id, which only its owner's seed mints`);
-  if (before.order !== next.order) return refused(`${id} keeps the rank its owner gave it`);
-  if (before.createdAt !== next.createdAt) return refused(`${id} keeps its creation stamp`);
-  if (!keepsSeeded(before.children, next.children))
-    return refused(`${id} keeps the children ${KEEPS}`);
+  if (before === undefined) return { rule: "mint", id };
+  if (before.order !== next.order) return { rule: "rank", id };
+  if (before.createdAt !== next.createdAt) return { rule: "stamp", id };
+  if (!keepsSeeded(id, before.children, next.children)) return { rule: "children", id };
   for (const field of changedFields(before, next)) {
     if (ADDITIVE_FIELDS.has(field)) {
-      if (!keepsSeeded(idsOf(before.props[field]), idsOf(next.props[field])))
-        return refused(`${id} keeps the ${field} values ${KEEPS}`);
+      if (!keepsSeeded(id, idsOf(before.props[field]), idsOf(next.props[field])))
+        return { rule: "list", id, field };
     } else if (!isWritableField(before, field, fieldOf(field))) {
-      return refused(`${field} on ${id} is its owner's to write`);
+      return { rule: "setting", id, field };
     }
   }
   return null;
@@ -170,19 +174,20 @@ export function systemWriteRefusal(
 
 /**
  * Why committing `tx` over the graph `nodeOf` reads is not a person's to make
- * without force, and which node it is refused for, or null when it is: an
- * upsert {@link systemWriteRefusal} refuses, or the deletion of a system node.
+ * without force, or null when it is: the deletion of a system node, or an
+ * upsert {@link systemWriteRefusal} refuses. A deletion is asked first: the
+ * transaction that deletes a seeded node also takes it from its parent's
+ * list, and the node deleted is what the write is about.
  */
 export function systemTxRefusal(
   tx: { readonly upserts: readonly KbNode[]; readonly deletes: readonly NodeId[] },
   nodeOf: (id: NodeId) => KbNode | undefined,
-): { readonly id: NodeId; readonly message: string } | null {
-  for (const next of tx.upserts) {
-    const message = systemWriteRefusal(nodeOf(next.id), next, nodeOf);
-    if (message !== null) return { id: next.id, message };
-  }
+): SystemRefusal | null {
   const deleted = tx.deletes.find((id) => isSysPrefixed(id));
-  return deleted === undefined
-    ? null
-    : { id: deleted, message: refused(`${deleted} is its owner's to delete`) };
+  if (deleted !== undefined) return { rule: "delete", id: deleted };
+  for (const next of tx.upserts) {
+    const refusal = systemWriteRefusal(nodeOf(next.id), next, nodeOf);
+    if (refusal !== null) return refusal;
+  }
+  return null;
 }

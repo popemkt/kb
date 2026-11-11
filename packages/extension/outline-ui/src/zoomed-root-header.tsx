@@ -1,14 +1,18 @@
 import { useCallback } from "react";
-import { LockSimpleIcon } from "@phosphor-icons/react";
 import {
   cn,
-  isSysPrefixed,
+  useFollow,
+  useGraphRead,
+  nodeTagColors,
+  OptionChip,
   pageTitleInstanceKey,
   type OutlineNode,
+  routePointerClick,
   rowText,
   rowTextReadOnlyReason,
   schemaOf,
   TagChipGroup,
+  UNTAGGED_COLOR,
   useOpenNode,
   usePageGraph,
 } from "@kb/ui-sdk";
@@ -21,13 +25,15 @@ import { useOutlineStore } from "./outline.store";
 
 /**
  * D13: everything is a node — the zoomed page title edits in place with
- * header typography. sys.* roots stay read-only behind a padlock.
+ * header typography, a system node's too: its label is the person's. Only
+ * what the row rule refuses (`rowTextReadOnlyReason`) stays read-only.
  */
 function EditableTitle({ node }: { node: OutlineNode }) {
   const schema = usePageGraph(schemaOf);
+  const { isVirtual } = useGraphRead();
   // The same text channel as a row: what it shows and whether it can be
   // written are the row rules (`lib/contextual-ref`), not a second copy.
-  const readOnly = rowTextReadOnlyReason(node.id, node, schema) !== null;
+  const readOnly = rowTextReadOnlyReason(node.id, node, schema, isVirtual) !== null;
   const text = rowText(node, schema);
   // Its edit is the page editor's, as a row's is: activated under its own
   // instance, so the page (and every backdrop reading `editing()`) knows the
@@ -118,6 +124,39 @@ const TITLE_CLASS = cn(
   "text-title font-semibold leading-[1.4]",
 );
 
+/**
+ * Who seeds the page's node, when the graph says (`GraphRead.ownerOf`): its
+ * owner's node, drawn as a chip for a node is and followed as a reference is.
+ * What the owner ships of the node stays as it shipped it; the label, a
+ * person's children and fields, and its settings are the person's.
+ */
+function OwnedBy({ id }: { id: string }) {
+  // The owner is named as a ref value is, against the whole graph: a scope
+  // that lists this node need not list the family that seeds it.
+  const { ownerOf, schema } = useGraphRead();
+  const follow = useFollow();
+  const ownerId = ownerOf(id);
+  const owner = ownerId === null ? undefined : schema.get(ownerId);
+  if (owner === undefined) return null;
+  return (
+    <div
+      className="flex items-center gap-1 text-meta text-muted-foreground"
+      role="presentation"
+      data-owned-by={owner.id}
+      onClick={(e) => {
+        routePointerClick(e, follow);
+      }}
+    >
+      <span>Owned by</span>
+      <OptionChip
+        id={owner.id}
+        label={owner.text || owner.id}
+        color={nodeTagColors(owner)[0] ?? UNTAGGED_COLOR}
+      />
+    </div>
+  );
+}
+
 /** Zoomed root title + fields at depth −1 (DESIGN-RESKIN §1.5), under the page head's space. */
 export function ZoomedRootHeader({
   node,
@@ -142,15 +181,6 @@ export function ZoomedRootHeader({
       <div className="relative pl-7">
         <div className="group/header flex min-h-9 items-start justify-between gap-2">
           <EditableTitle node={node} />
-          {isSysPrefixed(node.id) && (
-            <span
-              className="flex h-9 shrink-0 items-center text-foreground/30"
-              title="System node — read-only"
-              data-sys-lock="true"
-            >
-              <LockSimpleIcon size={14} weight="bold" />
-            </span>
-          )}
           {/* A list frame keeps its view control quiet: it shows on hover or
               keyboard focus, and stays while something it opened is open. A
               plain list tucks it behind one gear; a query's shows its toolbar,
@@ -169,8 +199,9 @@ export function ZoomedRootHeader({
           </span>
         </div>
 
-        {node.tags.length > 0 && (
-          <div className="flex items-center gap-1 pb-2">
+        {/* Its tags and its owner: hidden when it has neither. */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pb-2 empty:hidden">
+          {node.tags.length > 0 && (
             <TagChipGroup
               tags={node.tags}
               onTagClick={(tag, e) => {
@@ -178,8 +209,9 @@ export function ZoomedRootHeader({
                 zoomTo(tag.id);
               }}
             />
-          </div>
-        )}
+          )}
+          <OwnedBy id={node.id} />
+        </div>
       </div>
 
       <FieldsSection nodeId={node.id} depth={-1} instanceKey={`title/${node.id}`} />

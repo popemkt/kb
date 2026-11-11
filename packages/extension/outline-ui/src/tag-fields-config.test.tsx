@@ -81,7 +81,7 @@ const view = (over: Partial<Parameters<typeof TagFieldsConfigView>[0]> = {}) =>
     createElement(TagFieldsConfigView, {
       template: [{ id: "f_owner", name: "owner" }],
       suggestions: [{ id: "f_severity", name: "severity" }],
-      readOnly: false,
+      shipped: new Set<string>(),
       onAdd: () => undefined,
       onRemove: () => undefined,
       onFollow: () => undefined,
@@ -147,7 +147,7 @@ describe("TagFieldsConfigView", () => {
           createElement(TagFieldsConfigView, {
             template: [{ id: "f_owner", name: "owner" }],
             suggestions: [{ id: "f_severity", name: "severity" }],
-            readOnly: false,
+            shipped: new Set<string>(),
             onAdd: () => undefined,
             onRemove: () => undefined,
             onFollow: () => undefined,
@@ -177,10 +177,18 @@ describe("TagFieldsConfigView", () => {
     expect(html).toContain("No fields yet");
   });
 
-  it("offers no editing controls on a write-guarded sys.* tag", () => {
-    const html = view({ readOnly: true });
-    expect(html).not.toContain('aria-label="Add a field to this tag"');
-    expect(html).not.toContain("Remove field");
+  it("takes a person's field on a tag whose owner ships some, and keeps the shipped ones", () => {
+    const html = view({
+      template: [
+        { id: "sys.f.shipped", name: "when" },
+        { id: "f_mine", name: "location" },
+      ],
+      shipped: new Set(["sys.f.shipped"]),
+    });
+    expect(html).toContain('aria-label="Add a field to this tag"');
+    expect(html).toContain('aria-label="Remove field location from this tag"');
+    expect(html).not.toContain('aria-label="Remove field when from this tag"');
+    expect(html.match(/data-field-shipped="true"/g)).toHaveLength(1);
   });
 
   it("commits a typed name on Enter", () => {

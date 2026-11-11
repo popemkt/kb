@@ -20,6 +20,7 @@ import {
   domainFromResolve,
   freshId,
   rankForInsert,
+  type RankSlot,
   IndexedNodes,
   resolveFieldId,
   resolveFieldIn,
@@ -138,6 +139,34 @@ export const nodeDeleteDef = {
   outputSchema: z.object({
     id: z.string(),
     deleted: z.literal(true),
+  }),
+} satisfies ActionDefinition;
+
+/**
+ * Merging one node into another is one write, so it commits as one
+ * transaction: the other takes its text after its own and its children
+ * after its own, ranked there as a placement is (`placedRank`), and it is
+ * deleted. Made as the update and the delete it is (`batchOf`), so a guard
+ * on either governs it; and whole, so the commit takes or refuses all of
+ * it, never the text without the children.
+ */
+export const nodeMergeDef = {
+  id: "node.merge",
+  title: "Merge node",
+  description:
+    "Merge a node into another: its text is appended to the other's, its children follow the other's, and it is deleted, in one transaction",
+  mode: { kind: "write" } as const,
+  targets: ["id", "into"],
+  batchOf: [nodeUpdateDef.id, nodeDeleteDef.id],
+  inputSchema: z.object({
+    id: z.string(),
+    into: z.string(),
+    /** Bypass sys.* write-guard (browse yes / break no). */
+    force: z.boolean().optional(),
+  }),
+  outputSchema: z.object({
+    id: z.string(),
+    node: z.record(z.string(), z.unknown()),
   }),
 } satisfies ActionDefinition;
 
@@ -632,6 +661,42 @@ export const nodeUpdateEffect = Effect.fn("node.update")(function* (
   upserts.push(node);
   yield* persistEffect(ctx, { upserts, deletes: [] }, forcedBy(input));
   return { id: input.id, node };
+});
+
+export const nodeMergeEffect = Effect.fn("node.merge")(function* (
+  input: z.infer<typeof nodeMergeDef.inputSchema>,
+): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbWriteEnv> {
+  const ctx = yield* KbCtx;
+  const at = yield* currentIso;
+  if (isInSubtree(ctx.nodes, input.id, input.into)) {
+    return yield* domainError(
+      "invalid_move",
+      `cannot merge ${input.id} into itself or its own descendant ${input.into}`,
+      { id: input.id, into: input.into },
+    );
+  }
+  const source = yield* syncDomain(() => requireNode(ctx, input.id));
+  const parents = detachFromParents(ctx.nodes, input.id, at);
+  const target = yield* syncDomain(() =>
+    cloneNode(parents.find((n) => n.id === input.into) ?? requireNode(ctx, input.into)),
+  );
+  // Each child joins the group after the last, ranked as a placement there is.
+  const graph = sessionGraph(ctx);
+  const group: RankSlot[] = target.children.flatMap((id) => graph.get(id) ?? []);
+  const moved = source.children.flatMap((id) => {
+    const child = graph.get(id);
+    if (child === undefined) return [];
+    const placed = { ...cloneNode(child), order: rankForInsert(group, group.length, child.order) };
+    placed.updatedAt = at;
+    group.push(placed);
+    return [placed];
+  });
+  target.text += source.text;
+  target.children = [...target.children, ...source.children];
+  target.updatedAt = at;
+  const upserts = [...parents.filter((n) => n.id !== target.id), target, ...moved];
+  yield* persistEffect(ctx, { upserts, deletes: [input.id] }, forcedBy(input));
+  return { id: target.id, node: target };
 });
 
 export const nodeGetEffect = Effect.fn("node.get")(function* (

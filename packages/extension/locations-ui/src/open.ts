@@ -16,7 +16,7 @@ import {
   LocationOpenedSchema,
   type LocationList,
 } from "@kb/locations";
-import { toast, type BrowserHost } from "@kb/ui-sdk";
+import { toast, type BrowserHost, failureText } from "@kb/ui-sdk";
 
 /** What the section shows: the rows, or why there are none to show. */
 export type Listing =
@@ -105,5 +105,5 @@ export async function openLocation(
 /** Forget the location `id`: its node leaves the home store, and its directory is untouched. */
 export async function forgetLocation(invoke: Invoke, id: string): Promise<void> {
   const receipt = await call(invoke, LOCATION_ACTIONS.forget, { id });
-  if (receipt.status === "failed") toast(receipt.message);
+  if (receipt.status === "failed") toast(failureText(receipt));
 }

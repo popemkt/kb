@@ -46,6 +46,8 @@ export {
   nodeUpdateEffect,
   nodeDeleteDef,
   nodeDeleteEffect,
+  nodeMergeDef,
+  nodeMergeEffect,
   tagDefineDef,
   tagDefineEffect,
 } from "./actions.ts";
@@ -137,3 +139,4 @@ export { sandboxTrustDef } from "./trust.ts";
 
 export { reactionsFrom } from "./reactions.ts";
 export { MAX_REACTION_DEPTH } from "./commit-frame.ts";
+export { personWriteRefusal } from "./write-refusal.ts";

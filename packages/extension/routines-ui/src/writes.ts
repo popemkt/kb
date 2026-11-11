@@ -7,7 +7,7 @@
  */
 import { ulid } from "ulid";
 import type { NodeCall } from "@kb/routines";
-import { browserHost, toast } from "@kb/ui-sdk";
+import { browserHost, toast, failureText } from "@kb/ui-sdk";
 
 /** A new node id. */
 export const mintId = (): string => ulid();
@@ -18,7 +18,7 @@ export async function runCalls(calls: readonly NodeCall[], failure: string): Pro
   if (call === undefined) return true;
   const receipt = await browserHost().invoke(call.id, call.input);
   if (receipt.status === "failed") {
-    toast(`${failure}: ${receipt.message}`);
+    toast(`${failure}: ${failureText(receipt)}`);
     return false;
   }
   return runCalls(rest, failure);
@@ -27,5 +27,7 @@ export async function runCalls(calls: readonly NodeCall[], failure: string): Pro
 /** Ask the engine to push every pending and failed routine now. */
 export async function syncNow(): Promise<void> {
   const receipt = await browserHost().invoke("ext.routines.sync", {});
-  toast(receipt.status === "succeeded" ? "Sync requested" : `Sync now failed: ${receipt.message}`);
+  toast(
+    receipt.status === "succeeded" ? "Sync requested" : `Sync now failed: ${failureText(receipt)}`,
+  );
 }

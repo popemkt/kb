@@ -1,9 +1,9 @@
 /**
  * The page's graph as a graph source (`@kb/ui-sdk` → `lib/graph-read`):
  * what a row's tracked read of the graph answers from — the rows of the
- * projection the page stands in (`pageRows`), and the graph store's schema
- * and query answers. The page's `BrowserHost` answers its graph reads from
- * this same source.
+ * projection the page stands in (`pageRows`), and the graph store's schema,
+ * query answers and index (which nodes are virtual, and who seeds each). The page's
+ * `BrowserHost` answers its graph reads from this same source.
  */
 import { type GraphSource, schemaOf } from "@kb/ui-sdk";
 import { subscribeAnswers, useGraphStore } from "@/stores/graph.store";
@@ -21,4 +21,6 @@ export const pageGraph: GraphSource = {
   nodes: pageRows,
   schema: () => schemaOf(useGraphStore.getState()),
   queries: () => useGraphStore.getState().queries,
+  isVirtual: (id) => useGraphStore.getState().index?.isVirtual(id) ?? false,
+  ownerOf: (id) => useGraphStore.getState().index?.related(id, ":node/owner")[0] ?? null,
 };

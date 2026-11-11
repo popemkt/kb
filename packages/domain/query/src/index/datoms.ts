@@ -75,10 +75,17 @@ function carriedBy(
   derived: readonly DerivedRef[],
   reads: GraphReads,
 ): { readonly attr: string; readonly refs: readonly CarriedRef[] }[] {
-  return derived.map(({ attr, carriers }) => ({
-    attr,
-    refs: carriers.flatMap((carrier) => [...carrier.refsOf(node, reads)]),
-  }));
+  return derived.map((entry) => ({ attr: entry.attr, refs: derivedTargets(node, entry, reads) }));
+}
+
+/**
+ * What `entry`'s carriers read off `node`, the graph read by `reads`: the
+ * ids it points at by that attribute, each with the field it was read from,
+ * in order, resolvable or not, repeats kept (its datoms keep each target
+ * that exists, once).
+ */
+export function derivedTargets(node: KbNode, entry: DerivedRef, reads: GraphReads): CarriedRef[] {
+  return entry.carriers.flatMap((carrier) => [...carrier.refsOf(node, reads)]);
 }
 
 /**

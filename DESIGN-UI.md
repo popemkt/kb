@@ -670,9 +670,34 @@ blocks above them are laid out. What remains is mount cost, linear in
 expanded rows (load ≈ 0.2 s at 1×, 1.1 s at 6×), named as
 `GAP [[01M41062Z83M38GYHC276XJ8RF]]` where the list renders its rows.
 
-**`sys.*` rows are read-only at the door.** `store.activateNode` degrades a
-`sys.*` id to selection so no caret ever enters one; the row shows a hover
-padlock instead of failing on write.
+**The commit decides what a person may write; the page asks it.** A system
+node is written from the page as from any surface: its label, a person's
+child and a person's field in its tag's template land, and what its owner
+ships is refused by the commit (`personWriteRefusal` in `@kb/operations`,
+DESIGN.md → Data model → write protection). The page keeps no second copy
+of the rule. Its refusal is data (`WriteRefusal`), and the toast words it
+for a person (`failureText` in `@kb/ui-sdk`'s `lib/refusal.ts`, the one
+path every surface takes from a failed receipt to a toast): the node by its
+label, who owns it (`:node/owner`, by the owner's label, "kb" where no
+family seeds it), and what they can do instead — add their own, or make
+their own tag that extends it — never the override, which is its owner's.
+A refused write leaves the person where they were: a delete answers whether
+it landed (`PageWrites.deleteNode`), and the selection or caret moves past
+the row only when it did.
+A seeded node's page says who owns it under its title: "Owned by" and its
+owner's node as a chip, which a click follows (`GraphRead.ownerOf`, the
+index's point read `related(id, ":node/owner")`). An extension's own node
+has no owner (a family is never its own), and its page is that extension's. A gesture that is one write is one
+action, so the commit takes or refuses it whole: a merge is `node.merge`
+(the text, the children ranked after the other's, and the deletion, in one
+transaction). A gesture of two writes that cannot be one asks the same rule
+of its last before its first lands (a view node is minted before a frame
+names it; an upload is made before the text that names it), so a refusal
+leaves nothing behind. A tag's Fields list offers "Add field" on every tag;
+a field its owner ships (`isShipped`) is marked "shipped" and offers no
+remove. Only a row whose text is changed elsewhere is read-only at the door:
+`store.activateNode` degrades it to selection so no caret enters it, and the
+row shows a hover padlock with the reason.
 
 **A query node's query is tucked away; its results are its content.** As
 Tana keeps a search node's expression behind "Edit query", the builder
@@ -752,9 +777,14 @@ schema)` is the one answer to "which node does this row show" — the target
   `lib/instance-key.ts` reads the path) — and `resolveRowChrome` and the
   visible-instance walk both read it, so such a row is a leaf in the render
   and in keyboard navigation alike.
-  `rowTextReadOnlyReason(id, node, schema)` owns what cannot be written: `sys.*`
-  text (whether the row is the sys node or a reference to it, r1 D20) and a
-  reference whose target is missing; it supplies the padlock's wording.
+  `rowTextReadOnlyReason(id, node, schema, isVirtual)` owns what cannot be
+  written: the text of a node the page's index serves from its source file
+  (`isVirtual`, read through `GraphRead` like any graph read; whether the
+  row is that node or a reference to it) and a reference whose target is
+  missing; it supplies the padlock's wording. A system node's text is the
+  person's. _History:_ until 2026-11-11 a `sys.*` row's text was read-only
+  (r1 D20), and the page refused every write to a `sys.*` node before the
+  commit saw it.
   _History:_ until 2026-09-27 the reference's text was read-only and a click
   opened the original; that was rejected on the grounds that it made a
   reference a different kind of row to click and type into. Until 2026-09-28

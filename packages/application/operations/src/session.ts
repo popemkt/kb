@@ -4,8 +4,8 @@ import {
   currentIso,
   type DomainError,
   domainError,
-  systemTxRefusal,
   txIntegrityError,
+  writeRefusalMessage,
   writesOf,
   type KbNode,
   type NodeId,
@@ -23,6 +23,7 @@ import {
 import { CurrentCommitFrame } from "./commit-frame.ts";
 import { guardCommit, refusalOf } from "./interception.ts";
 import { scriptWriteRefusal } from "./script-reach.ts";
+import { personWriteRefusal } from "./write-refusal.ts";
 
 /**
  * The store as this session last saw it.
@@ -99,22 +100,6 @@ export interface PersistOptions {
    * there.
    */
   readonly expected?: StoreFingerprint;
-}
-
-/**
- * A person's write to a node the index serves from a source that is not the
- * store (`NodeIndex.isVirtual`: a saved query, read from its `.edn` file),
- * refused: a stored copy would shadow the file, and the two would drift. Its
- * source is where it changes.
- */
-function virtualWriteRefusal(
-  tx: StoreTx,
-  index: NodeIndex,
-): { readonly id: NodeId; readonly message: string } | null {
-  const id = [...tx.upserts.map((n) => n.id), ...tx.deletes].find((each) => index.isVirtual(each));
-  return id === undefined
-    ? null
-    : { id, message: `${id} is read from its source file, not the store; change it there` };
 }
 
 /**
@@ -204,11 +189,10 @@ const persistAttempt = Effect.fn("kb.persist.attempt")(function* (
   }
   const call = yield* CurrentCall;
   if (systemWrites === "checked") {
-    const refused =
-      virtualWriteRefusal(tx, ctx.index) ?? systemTxRefusal(tx, (id) => ctx.index.getNode(id));
+    const refused = personWriteRefusal(tx, ctx.index);
     if (refused !== null) {
-      return yield* domainError("forbidden", refused.message, {
-        id: refused.id,
+      return yield* domainError("forbidden", writeRefusalMessage(refused), {
+        ...refused,
         ...(call === null ? {} : { action: call.invocation.id }),
       });
     }

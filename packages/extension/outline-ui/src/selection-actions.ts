@@ -88,14 +88,18 @@ function zoom({ nodeId, instanceKey }: ActionOf<"zoom">): void {
   openFromRow(instanceKey, node ? shownNodeId(node) : nodeId);
 }
 
-/** Delete, then take the focus to the previous visible row, else the next. */
+/**
+ * Delete, then take the focus to the previous visible row, else the next.
+ * A refused delete leaves the row where it was, and the selection on it.
+ */
 function deleteRow({ nodeId, instanceKey }: ActionOf<"delete">): void {
   const store = useOutlineStore.getState();
   const prev = store.getPreviousVisibleInstance(instanceKey);
   const next = store.getNextVisibleInstance(instanceKey);
   void browserHost()
     .writes.deleteNode(nodeId)
-    .then(() => {
+    .then((landed) => {
+      if (!landed) return;
       const pick = prev ?? next;
       if (pick) {
         useOutlineStore.getState().selectNode(pick.nodeId, pick.instanceKey);

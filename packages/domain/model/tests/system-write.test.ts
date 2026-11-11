@@ -8,7 +8,9 @@ import { describe, expect, test } from "bun:test";
 import {
   SYSTEM_IDS,
   extensionNodeId,
+  isShipped,
   isWritableField,
+  systemTxRefusal,
   systemWriteRefusal,
   type KbNode,
 } from "../src/index.ts";
@@ -56,7 +58,11 @@ describe("a write to a system node", () => {
   test("may not write a field that configures another node, or none", () => {
     for (const field of ["sys.f.elsewhere", "f.plain"]) {
       const next = { ...before, props: { [field]: ref("n.p") } };
-      expect(systemWriteRefusal(before, next, fieldOf), field).toMatch(/owner's/);
+      expect(systemWriteRefusal(before, next, fieldOf), field).toEqual({
+        rule: "setting",
+        id: AGENT,
+        field,
+      });
       expect(isWritableField({ id: AGENT }, field, fieldOf(field)), field).toBe(false);
     }
   });
@@ -64,7 +70,11 @@ describe("a write to a system node", () => {
   test("may not write a field anyone could add that declares itself a setting", () => {
     // Only a system field is a setting: a field that is not one names what it likes.
     const next = { ...before, props: { "f.minted": ref("n.p") } };
-    expect(systemWriteRefusal(before, next, fieldOf)).toMatch(/owner's/);
+    expect(systemWriteRefusal(before, next, fieldOf)).toEqual({
+      rule: "setting",
+      id: AGENT,
+      field: "f.minted",
+    });
     expect(isWritableField({ id: AGENT }, "f.minted", fieldOf("f.minted"))).toBe(false);
   });
 
@@ -92,8 +102,8 @@ describe("a write to a system node", () => {
       ["sys.b", "n.mine", "sys.a"],
       ["sys.a", "n.mine", "sys.b", "sys.c"],
     ]) {
-      expect(systemWriteRefusal(seeded, { ...seeded, children }, fieldOf), children.join()).toMatch(
-        /keeps the children/,
+      expect(systemWriteRefusal(seeded, { ...seeded, children }, fieldOf), children.join()).toEqual(
+        { rule: "children", id: AGENT },
       );
     }
   });
@@ -111,18 +121,39 @@ describe("a write to a system node", () => {
       systemWriteRefusal(template("sys.f.a", "f.mine", "sys.f.b"), seeded, fieldOf),
     ).toBeNull();
     for (const next of [template("sys.f.a"), template("sys.f.b", "sys.f.a")]) {
-      expect(systemWriteRefusal(seeded, next, fieldOf)).toMatch(/keeps the sys.f.fields values/);
+      expect(systemWriteRefusal(seeded, next, fieldOf)).toEqual({
+        rule: "list",
+        id: AGENT,
+        field: SYSTEM_IDS.fieldsField,
+      });
     }
   });
 
+  test("ships the system ids its lists hold, and nothing in a person's node", () => {
+    // What the page marks "shipped" is what the commit keeps: the same rule.
+    expect(isShipped(before.id, "sys.f.a")).toBe(true);
+    expect(isShipped(before.id, "f.mine")).toBe(false);
+    expect(isShipped("n.user", "sys.f.a")).toBe(false);
+  });
+
+  test("refuses a seeded node's deletion as that, not as its parent's list", () => {
+    // Deleting a seeded child takes it from its parent too: the write is about the child.
+    const parent = { ...before, children: ["sys.a", "sys.b"] };
+    const nodes = new Map([[parent.id, parent]]);
+    const tx = { upserts: [{ ...parent, children: ["sys.b"] }], deletes: ["sys.a"] };
+    expect(systemTxRefusal(tx, (id) => nodes.get(id))).toEqual({ rule: "delete", id: "sys.a" });
+  });
+
   test("keeps its rank and creation stamp, and is never minted", () => {
-    for (const next of [
-      { ...before, order: "a0" },
-      { ...before, createdAt: "later" },
-    ]) {
-      expect(systemWriteRefusal(before, next, fieldOf)).toMatch(/keeps its|keeps the rank/);
-    }
-    expect(systemWriteRefusal(undefined, before, fieldOf)).toMatch(/only its owner's seed mints/);
+    expect(systemWriteRefusal(before, { ...before, order: "a0" }, fieldOf)).toEqual({
+      rule: "rank",
+      id: AGENT,
+    });
+    expect(systemWriteRefusal(before, { ...before, createdAt: "later" }, fieldOf)).toEqual({
+      rule: "stamp",
+      id: AGENT,
+    });
+    expect(systemWriteRefusal(undefined, before, fieldOf)).toEqual({ rule: "mint", id: AGENT });
   });
 
   test("is not this rule's business when the node is not a system node", () => {

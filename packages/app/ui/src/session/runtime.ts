@@ -43,6 +43,7 @@ import {
   type QueryAnswers,
   toast,
   uiKernelReader,
+  failureText,
 } from "@kb/ui-sdk";
 import { livePageCatalog } from "@/lib/view-catalog";
 import { BrowserStore } from "./browser-store";
@@ -392,7 +393,7 @@ function settledOf(
 ): Promise<ActionReceipt> {
   return push.then(
     (response): ActionReceipt => {
-      if (response.status === "failed") toast(`Not saved: ${response.message}`);
+      if (response.status === "failed") toast(`Not saved: ${failureText(response)}`);
       return response.status === "succeeded" && context !== undefined
         ? { ...response, context }
         : response;

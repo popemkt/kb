@@ -43,6 +43,7 @@ export type { NumberSeparators, ParseContext, ParsedValue } from "./field-value.
 export {
   configures,
   configuresAnExtension,
+  isShipped,
   isWritableField,
   systemTxRefusal,
   systemWriteRefusal,
@@ -52,6 +53,13 @@ export type { Setting, SettingOption } from "./settings.ts";
 export { formatSecretRef, parseSecretRef, secretRefLabel } from "./secret-ref.ts";
 export type { SecretRef } from "./secret-ref.ts";
 export type { NodeOf } from "./system-write.ts";
+export {
+  SystemRefusalSchema,
+  WriteRefusalSchema,
+  writeRefusalMessage,
+  writeRefusalOf,
+} from "./write-refusal.ts";
+export type { SystemRefusal, WriteRefusal } from "./write-refusal.ts";
 export {
   addDays,
   addMonths,

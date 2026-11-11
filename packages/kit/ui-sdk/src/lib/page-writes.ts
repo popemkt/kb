@@ -47,7 +47,12 @@ export interface PageWrites {
   readonly removeFieldTargetTag: (fieldId: string, tagId: string) => Promise<void>;
   readonly setFieldTargetQuery: (fieldId: string, edn: string | null) => Promise<void>;
   readonly splitNode: (id: string, cursor: number | "end") => Promise<void>;
-  readonly deleteNode: (id: string) => Promise<void>;
+  /**
+   * Delete the node and its subtree. Answers whether it landed: false when
+   * the commit refused it, so a caller that moves the selection or the caret
+   * past the row moves it only when the row went.
+   */
+  readonly deleteNode: (id: string) => Promise<boolean>;
   /**
    * Merge the next row into this one (Delete at the end of a row).
    */
@@ -106,10 +111,8 @@ export interface PageWrites {
    * contextual reference under the seeded `pinned` node, and nothing here is
    * bespoke — `node.add` with one ref prop, `deleteNode` for the row.
    *
-   * No `guardSysWrite` on the target: nothing is written to it. The guard was
-   * there because a tag edits the node's kind slot, so pinning `sys.queries`
-   * was a write to a system node; pointing a reference at one is not, and
-   * `sys.*` browse has always been open.
+   * Nothing is written to the target, so pinning a system node writes no
+   * system node: pointing a reference at one is the person's.
    */
   readonly togglePin: (nodeId: string) => Promise<boolean>;
   /**
