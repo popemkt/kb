@@ -14,13 +14,16 @@ beforeAll(async () => {
   await mkdir(lib, { recursive: true });
   await mkdir(join(release, "bin"));
   const built = await Bun.build({
-    entrypoints: [join(repository, "packages/app/cli/src/main.ts")],
+    entrypoints: ["main", "program"].map((name) =>
+      join(repository, `packages/app/cli/src/${name}.ts`),
+    ),
     target: "bun",
     outdir: lib,
-    naming: "cli.js",
+    naming: "[name].js",
     throw: false,
   });
   if (!built.success) throw new Error(built.logs.map((log) => log.message).join("\n"));
+  await copyFile(join(lib, "main.js"), join(lib, "cli.js"));
   await copyFile(join(repository, "bin/kb-bun"), join(lib, "launch"));
   await copyFile(
     join(repository, "packages/infrastructure/child-process/src/kb-launch-flags.txt"),
@@ -144,6 +147,27 @@ describe("KB startup contract", () => {
       data: join(on.root, "forged-data"),
     });
     expect(await Bun.file(on.marker).exists()).toBe(true);
+  });
+  test("the importable program waits for main before running the CLI", async () => {
+    const on = await fixture("importable-program");
+    const entry = join(release, "lib/kb/program.js");
+    const probe = join(scratch, "program-probe.mjs");
+    await writeFile(
+      probe,
+      `const program = await import(${JSON.stringify(entry)});
+console.log("loaded");
+console.log("status=" + await program.main([process.execPath, ${JSON.stringify(entry)}, "--version"]));
+`,
+    );
+    const flags = (await readFile(join(release, "lib/kb/launch-flags"), "utf8")).trim().split("\n");
+    const result = await run([process.execPath, ...flags, probe], on);
+    expect(result.exit, result.error).toBe(0);
+    expect(result.out.trim().split("\n")).toEqual([
+      "loaded",
+      expect.stringMatching(/^\d+\.\d+\.\d+/),
+      "status=0",
+    ]);
+    expect(await Bun.file(join(on.root, ".kb", "nodes.jsonl")).exists()).toBe(false);
   });
   test("raw cli.js with an extra preload flag exits 78 before opening the root", async () => {
     const on = await fixture("extra-startup-flag");
