@@ -28,16 +28,13 @@ import {
   type ExtensionAction,
   type KbContext,
 } from "@kb/contracts";
-import { IndexedNodes, ResolveError, resolveFieldIn, type NodeId } from "@kb/model";
+import type { NodeId } from "@kb/model";
 import { MAX_FLOW_ROUNDS, flowPlan, runFlow, type FlowResult, type FlowStep } from "@kb/canvas";
 import type { NodeIndex } from "@kb/query";
+import { RUN_FIELD_NAMES, runFieldEffect } from "./run-fields.ts";
 import { CanvasIdSchema } from "./schemas.ts";
 import { CanvasTxError, canvasStep, readCanvasEffect, type CanvasFail } from "./write.ts";
 
-/** The field a component's output is kept in, made at the first run that needs it. */
-const OUTPUT_FIELD = "output";
-/** The field a script component reads its inputs from, written by the run before its scripts run. */
-const INPUT_FIELD = "input";
 /** The model performer: one tool-less turn of the agent family's selected provider. */
 const MODEL_ACTION = "ext.agent.complete";
 /** What the model is told it is, before the instruction it performs. */
@@ -102,26 +99,6 @@ const completedSchema = z.object({ text: z.string() });
 const failureOf = (receipt: ActionReceipt) =>
   receipt.status === "failed" ? receipt.message : null;
 
-/** The id of the field named `name`: the field of that name, made when kb has none. */
-const fieldEffect = Effect.fn("ext.canvas.run.field")(function* (name: string) {
-  const ctx = yield* KbCtx;
-  const found = yield* canvasStep(() => {
-    try {
-      return resolveFieldIn(IndexedNodes.of(ctx.nodes), name);
-    } catch (err) {
-      if (err instanceof ResolveError && err.code === "not_found") return null;
-      throw err;
-    }
-  });
-  if (found !== null) return found;
-  const invoke = yield* CoreInvoke;
-  if (invoke === null)
-    return yield* Effect.fail(new CanvasTxError("this host runs no invoke core"));
-  const made = yield* invoke({ id: "field.define", input: { name } }, "write");
-  if (made.status === "failed") return yield* Effect.fail(new CanvasTxError(made.message));
-  return z.object({ id: z.string() }).parse(made.output).id;
-});
-
 /** Write `values` as `field` of `nodeId`, in place of what it held; the failure in words, or null. */
 const writeField = Effect.fn("ext.canvas.run.write")(function* (
   nodeId: NodeId,
@@ -173,7 +150,7 @@ function performer(field: string) {
         : [];
     let made: FlowResult;
     if (scripts.length > 0) {
-      const inputField = yield* fieldEffect(INPUT_FIELD).pipe(
+      const inputField = yield* runFieldEffect(RUN_FIELD_NAMES.input).pipe(
         Effect.catch((err) => Effect.succeed(err)),
       );
       if (typeof inputField !== "string") return fail(inputField.message);
@@ -193,7 +170,7 @@ function performer(field: string) {
       }
       const output = storedOutput(ctx, nodeId, field);
       return output === undefined
-        ? fail(`its scripts ran and left no ${OUTPUT_FIELD}`)
+        ? fail(`its scripts ran and left no ${RUN_FIELD_NAMES.output}`)
         : { ok: true as const, output, by: "script" };
     } else if (step.component.inputs.length === 0) {
       made = { ok: true, output: node.text, by: "constant" };
@@ -236,7 +213,7 @@ const canvasRunEffect = Effect.fn("ext.canvas.run")(function* (
       ),
     );
   }
-  const field = yield* fieldEffect(OUTPUT_FIELD);
+  const field = yield* runFieldEffect(RUN_FIELD_NAMES.output);
   const nodeOf = new Map(plan.components.map((c) => [c.item, c.nodeId]));
   const run = yield* runFlow(plan, performer(field), {
     ...(input.rounds === undefined ? {} : { rounds: input.rounds }),
