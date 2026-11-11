@@ -97,3 +97,47 @@ test("a missing held index returns no page despite a disk index being available"
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("production startup serves its held image without ensuring a disk build", async () => {
+  const root = await mkdtemp(join(tmpdir(), "kb-held-server-"));
+  const held = await Effect.runPromise(
+    loadCodeImage(
+      new Blob(["export const loaded = true;"]),
+      new Map([
+        ["index.html", new Blob(["held application"])],
+        ["static/worker.js", new Blob(["postMessage('held')"])],
+      ]),
+    ),
+  );
+  const { startProductionUi } = await import("../src/server.ts");
+  try {
+    const { handle, build } = await Effect.runPromise(
+      startProductionUi({
+        root,
+        port: 0,
+        openBrowser: false,
+        uiRoot: join(root, "missing-ui"),
+        codeImage: held.image,
+        ensureBuilt: Effect.fn("heldPage.unexpectedBuild")(function* () {
+          return yield* Effect.die(new Error("held startup attempted a disk build"));
+        }),
+      }),
+    );
+    try {
+      expect(build).toEqual({ built: false, state: "fresh" });
+      const index = await fetch(handle.url);
+      expect(await index.text()).toBe("held application");
+      expect(index.headers.get("ETag")).toBe(
+        `"${held.image.identity.kind === "packaged" ? held.image.identity.page : ""}"`,
+      );
+      expect(await (await fetch(new URL("/static/worker.js", handle.url))).text()).toBe(
+        "postMessage('held')",
+      );
+      expect((await fetch(new URL("/static/missing.js", handle.url))).status).toBe(404);
+    } finally {
+      await Effect.runPromise(handle.stop);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

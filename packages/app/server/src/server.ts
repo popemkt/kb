@@ -9,6 +9,7 @@ import {
   UI_DEFAULT_PORT,
   directorySignals,
   type ActionHandlerEnv,
+  type CodeImagePort,
   type Embedding,
   type ExtensionEntry,
   type HostedFamilies,
@@ -57,6 +58,8 @@ export type EnsureUiBuilt = (
 
 export interface UiServerOptions {
   root: string;
+  /** The bootstrap-held runtime/page image; omitted for checkout and external dev pages. */
+  codeImage?: CodeImagePort;
   /** Bind port; 0 = ephemeral. Default UI_DEFAULT_PORT. */
   port?: number;
   openBrowser?: boolean;
@@ -248,6 +251,7 @@ function serveUi(deps: {
   ctx: KbContext;
   hub: SubscriptionHub;
   hosted: HostedFamilies;
+  codeImage: CodeImagePort | undefined;
   /** The server's kernel, whose identity providers say who a request is. */
   kernel: Kernel;
   /** Where earlier builds are kept ({@link UiServerOptions.builds}). */
@@ -294,6 +298,7 @@ function serveUi(deps: {
         hosted: deps.hosted,
         embedding: deps.embedding,
         builds: deps.builds,
+        codeImage: deps.codeImage,
       });
     },
     websocket: {
@@ -453,11 +458,14 @@ export const startUi = Effect.fn("kb.startUi")(function* (
       hosted,
       kernel,
       builds,
+      codeImage: opts.codeImage,
     }),
   );
   // Kept beside the server's start, not before it: the tabs it keeps them
   // for are of earlier builds, which earlier starts kept.
-  if (builds !== null) yield* Effect.forkIn(recordBuild(builds, UI_DIST), lifetime);
+  if (builds !== null && opts.codeImage === undefined) {
+    yield* Effect.forkIn(recordBuild(builds, UI_DIST), lifetime);
+  }
 
   yield* Scope.addFinalizer(
     lifetime,
@@ -586,6 +594,7 @@ export const startDevServer = Effect.fn("kb.startDevServer")(function* (opts: {
  */
 export const startProductionUi = Effect.fn("kb.startProductionUi")(function* (opts: {
   root: string;
+  codeImage?: CodeImagePort;
   port: number;
   socket?: string;
   openBrowser: boolean;
@@ -598,9 +607,13 @@ export const startProductionUi = Effect.fn("kb.startProductionUi")(function* (op
   openedBy?: SurfaceWire;
 }): Effect.fn.Return<{ handle: UiServerHandle; build: UiEnsureResult }, DomainError, FileSystem> {
   const ensure = opts.ensureBuilt ?? ensureUiBuilt;
-  const build = yield* ensure(opts.uiRoot, UI_DIST).pipe(Effect.mapError(ensureDomainError));
+  const build: UiEnsureResult =
+    opts.codeImage === undefined
+      ? yield* ensure(opts.uiRoot, UI_DIST).pipe(Effect.mapError(ensureDomainError))
+      : { built: false, state: "fresh" };
   const handle = yield* startUi({
     root: opts.root,
+    codeImage: opts.codeImage,
     port: opts.port,
     socket: opts.socket,
     openBrowser: opts.openBrowser,
@@ -629,6 +642,8 @@ function onTerminationSignal(stop: Effect.Effect<void>): () => void {
 
 export interface RunUiCliOptions {
   root: string;
+  /** Held image for production; dev deliberately serves the external page without it. */
+  codeImage?: CodeImagePort;
   port?: number;
   /** Listen on this Unix socket instead of a port ({@link UiServerOptions.socket}); not with `dev`. */
   socket?: string;
@@ -691,6 +706,7 @@ export const runUiCli = Effect.fn("kb.runUiCli")(function* (
 
   const { build, handle } = yield* startProductionUi({
     root: opts.root,
+    codeImage: opts.codeImage,
     port: opts.port ?? UI_DEFAULT_PORT,
     socket: opts.socket,
     openBrowser: open,
