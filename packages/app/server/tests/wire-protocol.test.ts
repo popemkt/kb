@@ -43,9 +43,12 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // The days family adds an action (`ext.days.today`) a previous page ignores.
 // The snapshot's `virtual` ids and the tx frame's `virtual` flag are optional:
 // a previous page ignores them and holds every node as stored, as it did.
+// Protocol 8: node.add and node.addTree read an omitted parent as the
+// capture target (today's node with days), where a previous page meant the
+// top level; its local commit and the server's would disagree, so it reloads.
 const RECORDED = {
-  protocol: 7,
-  fingerprint: "62132f487e1594d2e3039db1e58ee2fe5b456b3cf9e31a1c8c8e2ed43f25aca6",
+  protocol: 8,
+  fingerprint: "d555804e0a328272eaca8fd96b5bf2736cbcf11a6737668d65139a8633b7f24c",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

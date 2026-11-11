@@ -5374,7 +5374,7 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
 
 | Package        | Layer, scope       | Holds                                                                                                                                                           |
 | -------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@kb/days`     | extension, shared  | the declaration, `DAYS_IDS`, the period keys (`period.ts`), the plan (`planDay`), `ext.days.today` and the one-node-per-key guard: one plugin on both hosts |
+| `@kb/days`     | extension, shared  | the declaration, `DAYS_IDS`, the period keys (`period.ts`), the plan (`planDay`), `ext.days.today` and the one-node-per-key guard: one plugin on both hosts, and the registry's capture target (`captureToday`, under `daysRegistryPlugin`) |
 | `@kb/days-ui`  | extension, browser | the day page, the Today row, ⌘K "Go to today", opening on today, and the capture target's provider                                                             |
 
 - **A period is a node with a key.** `#day`, `#week` and `#year`
@@ -5429,21 +5429,30 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
   on the family's node) names the node years go under. Empty, the first day
   makes a top-level "Daily notes" and points the setting at it, in the same
   transaction. A person may point it at any node to keep their days there.
-- **The day is the caller's.** `ext.days.today` takes the calendar date
-  from its caller: the page passes its local day, and without one the
-  action uses the local day of the process that runs it (`kb action-invoke`
-  from a terminal). The family never decides which day it is somewhere
-  else.
+- **The day is the caller's, else the store's.** `ext.days.today` takes
+  the calendar date from its caller: the page passes its local day.
+  Without one, the action uses today in the store's zone: the family's
+  `time zone` setting (`sys.f.days.timeZone`, an IANA name), or the zone of
+  the process that runs it when the setting is empty or names no zone. A
+  process serving a store may run far from its person (a server in UTC for
+  a person at UTC+7), so the zone is the store's to say. The page keeps
+  its own day, so without the setting a capture made away from the page
+  just after the person's midnight lands in the person's yesterday.
 - **Captures land in today.** Where a node made with no chosen place goes
-  is the page role `ui.capture-target` ([Provider roles](#provider-roles)).
-  Core owns it, and core's default answers the top level. The days
-  manifest claims a replacement at priority 50 that answers today's node,
-  so with days on a capture lands in today. If days fails, the role's
-  recovery demotes it and core's default answers. With days off, or core
-  chosen on the role's node, a capture goes to the top level as before.
-  Another family may claim the role the same way (an inbox, say). The
-  server's `node.add` without a parent does not ask it yet (GAP
-  [[01M7357PSG9XZH0JBFDHV6DM2T]]).
+  is the role `ui.capture-target` ([Provider roles](#provider-roles)), on
+  the page and the registry alike: the page's captures and every
+  `node.add` or `node.addTree` that omits its parent, from `kb add`, MCP or
+  a script. Core owns it, and core's default answers the top level. The
+  days manifest claims a replacement at priority 50 that answers today's
+  node: on the page in the page's day, and on the registry in the store's
+  (`captureToday`), planning the day and whatever is missing above it into
+  the add's own transaction. If days fails, the role's recovery demotes it
+  and core's default answers. With days off, or core chosen on the role's
+  node, a capture goes to the top level as before. The family's `captures`
+  setting (`sys.f.days.captures`: `today` or `top level`; empty reads as
+  `today`) sends captures to the top level with days still on, as a store
+  kept in a repository does so its agents' gaps and todos are not dated.
+  Another family may claim the role the same way (an inbox, say).
 - **A node is dated a day by any date field.** A value in a date-typed
   field, whichever field and family, dates its node that day: the field's
   type says a value is a date, and a date value is stored as its
@@ -6079,11 +6088,19 @@ service call, and never hides the role globally. A replacement fault lasts
 for the page or process session, including registry rebuilds,
 or until the provider's trusted code digest changes. A stale failure carries
 its old identity and cannot demote new code. Roles must be defined beside their host key before providers load.
-`roleCall` currently has no live server role; its shared contract suite
-proves the boundary until a server consumer opts in.
 The first role is `ui.field-editor`, consumed by outline rows, tables and settings.
-The second is `ui.capture-target`, the parent a node made with no chosen place
-goes under. Core owns it and answers the top level, and days replaces it
+The second is `ui.capture-target`, where a node made with no chosen place
+goes. It is one role on two kernels, which one role node chooses for: the
+page's key (`CaptureTargetService`) answers the page's own captures, and
+the registry's (`CapturePlannerService`) answers a write that omits its
+parent. The registry's is its first live server role. Given the store's
+nodes, it answers a place and what that place needs made first, and
+`node.add` and `node.addTree` commit both with the node in one transaction.
+A handler reaches it through the `CaptureTarget` service, which each
+runtime gives at the invoke tip (the registry's role on the server, the
+page's in a tab), so `kb add`, an MCP tool call and a script land where the
+page's captures do. `parent: null` is the top level and never asks.
+Core owns the role and answers the top level, and days replaces it
 ([Days](#days)). The third is `ui.landing`, the node a page that loads at
 the root opens on, which the shell asks once per page load. Core owns it
 and stays home, and days replaces it with today (DESIGN-UI.md →

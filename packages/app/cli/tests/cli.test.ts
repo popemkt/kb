@@ -386,13 +386,23 @@ describe("cli e2e (tmpdir)", () => {
     expect(await values()).toEqual([{ t: "num", v: 5 }]);
   });
 
-  test("kb add --top adds at the top level, and refuses a --parent beside it", async () => {
+  test("kb add lands in today, --top at the top level, and --top refuses a --parent", async () => {
     expect((await kb(["init", "--bare"])).code).toBe(0);
-    const parent = JSON.parse((await kb(["add", "Parent", "--top"])).stdout);
-    expect(parent.status).toBe("succeeded");
-    const top = await kb(["get", parent.output.id, "--depth", "0"]);
-    expect(JSON.parse(top.stdout).output.node.id).toBe(parent.output.id);
-    const both = await kb(["add", "Both", "--top", "--parent", parent.output.id]);
+    const added = async (args: string[]) => {
+      const out = JSON.parse((await kb(["add", ...args])).stdout);
+      expect(out.status).toBe("succeeded");
+      return out.output.id as string;
+    };
+    const captured = await added(["Captured"]);
+    const top = await added(["Top", "--top"]);
+    const nodes = (await readFile(join(root, ".kb", "nodes.jsonl"), "utf8"))
+      .split("\n")
+      .filter((line) => line.trim() !== "")
+      .map((line) => JSON.parse(line) as { id: string; children: string[]; props: object });
+    const parentOf = (id: string) => nodes.find((node) => node.children.includes(id));
+    expect(parentOf(captured)?.props).toHaveProperty(["sys.f.days.key"]);
+    expect(parentOf(top)).toBeUndefined();
+    const both = await kb(["add", "Both", "--top", "--parent", top]);
     expect(both.code).not.toBe(0);
     expect(both.stderr + both.stdout).toContain("--parent and --top name two places");
   });

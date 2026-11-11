@@ -25,6 +25,12 @@ export const DAYS_IDS = {
   openOnField: "sys.f.days.openOn",
   openOnToday: "sys.f.days.openOn.today",
   openOnHome: "sys.f.days.openOn.home",
+  /** Setting: where a node written with no chosen place lands, today (the default) or the top level. */
+  capturesField: "sys.f.days.captures",
+  capturesToday: "sys.f.days.captures.today",
+  capturesTop: "sys.f.days.captures.top",
+  /** Setting: the store's time zone (IANA), which says what today is away from the page. */
+  timeZoneField: "sys.f.days.timeZone",
   /** The action that returns a day's node, making it and what is missing above it. */
   todayAction: "ext.days.today",
   /** ⌘K "Go to today", a `sys.command` node the seed declares. */
