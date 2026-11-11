@@ -268,6 +268,7 @@
         "@kb/governance": "workspace:*",
         "@kb/graph": "workspace:*",
         "@kb/graph-ui": "workspace:*",
+        "@kb/keybindings": "workspace:*",
         "@kb/lab": "workspace:*",
         "@kb/lab-ui": "workspace:*",
         "@kb/locations": "workspace:*",
