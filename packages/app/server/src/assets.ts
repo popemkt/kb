@@ -2,6 +2,7 @@ import { join, normalize } from "node:path";
 import { Effect, Option } from "effect";
 import type { FileSystem, File } from "effect/FileSystem";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
+import type { CodeImagePort } from "@kb/contracts";
 import { assetMediaType } from "@kb/model";
 import { containedFile, resolveAssetFile, assetsDir } from "@kb/workspace-fs";
 import { bunFileSystemLayer } from "@kb/runtime";
@@ -85,14 +86,14 @@ export function frameAncestors(embedOrigins: readonly string[]): string {
  * its `ETag` answers with a `304` when it has not.
  */
 export function staticCacheHeaders(rel: string, info: File.Info): Record<string, string> {
-  if (rel.startsWith(DIGEST_NAMED_DIR)) {
-    return { "Cache-Control": "public, max-age=31536000, immutable" };
-  }
   const mtime = Option.match(info.mtime, { onNone: () => 0, onSome: (at) => at.getTime() });
-  return {
-    "Cache-Control": "no-cache",
-    ETag: `W/"${Number(info.size).toString(36)}-${mtime.toString(36)}"`,
-  };
+  return pageCacheHeaders(rel, `W/"${Number(info.size).toString(36)}-${mtime.toString(36)}"`);
+}
+
+function pageCacheHeaders(rel: string, etag: string | undefined): Record<string, string> {
+  if (rel.startsWith(DIGEST_NAMED_DIR))
+    return { "Cache-Control": "public, max-age=31536000, immutable" };
+  return { "Cache-Control": "no-cache", ...(etag === undefined ? {} : { ETag: etag }) };
 }
 
 interface PageFile {
@@ -125,6 +126,19 @@ function directoryPageFiles(dist: string, builds: string | null): PageFiles {
         if (kept !== null) return file(kept.path, name, kept.info);
       }
       return { kind: "missing" } as const;
+    }),
+  };
+}
+
+/** Bridge to the returned held port, never to a directory or kept-build fallback. */
+export function imagePageFiles(image: CodeImagePort): PageFiles {
+  const etag = image.identity.kind === "packaged" ? `"${image.identity.page}"` : undefined;
+  return {
+    read: Effect.fn("kb.ui.imagePageFile")(function* (name: string) {
+      const body = yield* Effect.sync(() => image.pageFile(name));
+      return body === null
+        ? ({ kind: "missing" } as const)
+        : ({ kind: "file", file: { body, headers: pageCacheHeaders(name, etag) } } as const);
     }),
   };
 }
