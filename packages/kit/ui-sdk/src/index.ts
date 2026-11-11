@@ -210,6 +210,7 @@ export { KnobControl } from "./components/deferred-parts";
 export { MENU_ROW, MENU_SURFACE, useMenuKeys, type MenuKeys } from "./components/menu";
 export { MenuSeparator } from "./components/menu-separator";
 export { InlineMarkdown, MdView } from "./components/md-view";
+export { NodeLinkRow, type NodeLinkRowProps } from "./components/node-link-row";
 export { NodeRow } from "./components/node-row";
 export { menuAnchor, menuAnchorOf } from "./lib/menu-anchor";
 export {
