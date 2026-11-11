@@ -5172,7 +5172,9 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   it has settled, in a task of its own, so a gallery of a dozen cards never
   holds the page for all of their compiles in a row, and the page's own
   timers (a crossfade letting its old backdrop go) run between any two. A
-  page head's scene is no sample and starts at once.
+  sample that goes passes its turn on at once, even while its start hangs,
+  and a scene its start makes later is disposed. A page head's scene is no
+  sample and starts at once.
 - **One mount** (`gpu/gpu-scene.ts`'s `mountBackdrop`) gives every GPU
   backdrop the same stage and the same promises; a backdrop is its shader
   and its `BackdropParts`.

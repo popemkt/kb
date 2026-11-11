@@ -191,9 +191,11 @@ export default function GpuBackdrop({
     });
     const turn = new AbortController();
     const start = () =>
-      SCENES[id]().then((mount) =>
+      SCENES[id]().then((mount) => {
+        // Gone while its scene loaded: nothing is mounted to be disposed.
+        turn.signal.throwIfAborted();
         // A pin is the mount's seed whatever the load's (`backdropSeed`).
-        mount(
+        return mount(
           el,
           initNow(
             el,
@@ -204,8 +206,8 @@ export default function GpuBackdrop({
               budget,
             },
           ),
-        ),
-      );
+        );
+      });
     const pending = sample ? inTurn(start, turn.signal) : start();
     const unwatch = watchContent(el, (content) => scene?.setContent(content));
     const detach = attachScene(

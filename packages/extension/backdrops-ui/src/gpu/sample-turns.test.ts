@@ -74,6 +74,53 @@ describe("samples' scenes start in turns", () => {
     expect(log).toEqual(["start a", "start c"]);
   });
 
+  it("releases the turn when a started sample goes, its start never settling", async () => {
+    const log: string[] = [];
+    const a = startOf("a", log);
+    const b = startOf("b", log);
+    const gone = new AbortController();
+    const kept = new AbortController().signal;
+    const first = inTurn(a.start, gone.signal);
+    await nextTask();
+    await nextTask();
+    expect(log).toEqual(["start a"]);
+    // Its page is left while its start hangs: the next page's sample starts all the same.
+    gone.abort();
+    const second = inTurn(b.start, kept);
+    await nextTask();
+    await nextTask();
+    expect(log).toEqual(["start a", "start b"]);
+    b.settle();
+    expect(await second).toBe("b");
+    // The start that hung still resolves to whoever holds it, who disposes what it made.
+    a.settle();
+    expect(await first).toBe("a");
+  });
+
+  it("keeps a sample behind one still starting when a sample between them goes", async () => {
+    const log: string[] = [];
+    const a = startOf("a", log);
+    const b = startOf("b", log);
+    const c = startOf("c", log);
+    const gone = new AbortController();
+    const kept = new AbortController().signal;
+    void inTurn(a.start, kept);
+    void inTurn(b.start, gone.signal);
+    const third = inTurn(c.start, kept);
+    await nextTask();
+    gone.abort();
+    await nextTask();
+    await nextTask();
+    expect(log).toEqual(["start a"]);
+    a.settle();
+    await nextTask();
+    await nextTask();
+    await nextTask();
+    expect(log).toEqual(["start a", "start c"]);
+    c.settle();
+    expect(await third).toBe("c");
+  });
+
   it("passes the turn on when a start fails", async () => {
     const log: string[] = [];
     const b = startOf("b", log);

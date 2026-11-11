@@ -183,12 +183,13 @@ test("a page that chooses another backdrop crossfades to it", async ({ page, har
   expect(await page.locator("[data-page-backdrop] canvas").count()).toBe(1);
 });
 
-/** Records the page's long tasks, from the first script on. */
+/** Records the page's long tasks, each as its start and end, from the first script on. */
 function recordLongTasks() {
-  const tasks: number[] = [];
+  const tasks: [number, number][] = [];
   Object.assign(window, { kbLongTasks: tasks });
   new PerformanceObserver((list) => {
-    for (const entry of list.getEntries()) tasks.push(entry.duration);
+    for (const entry of list.getEntries())
+      tasks.push([entry.startTime, entry.startTime + entry.duration]);
   }).observe({ type: "longtask", buffered: true });
 }
 
@@ -210,7 +211,7 @@ test("on a slow machine, a crossfade onto a page of samples lets its old backdro
   // The page clocks the move and the old backdrop's going itself, so no poll's interval is counted.
   await page.evaluate((to) => {
     const timed = window as unknown as {
-      kbLongTasks: number[];
+      kbLongTasks: [number, number][];
       kbMovedAt: number;
       kbGoneAt: number;
     };
@@ -235,20 +236,25 @@ test("on a slow machine, a crossfade onto a page of samples lets its old backdro
   const leaving = page.locator('[data-backdrop-layer="leaving"]');
   await expect(leaving).toHaveCount(1);
   await expect(leaving).toHaveCount(0, { timeout: 120_000 });
-  const late = await page.evaluate((fade) => {
-    const timed = window as unknown as { kbMovedAt: number; kbGoneAt: number };
-    return Math.round(timed.kbGoneAt - timed.kbMovedAt - fade);
-  }, fadeMs);
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
-  const tasks = await page.evaluate(
-    () => (window as unknown as { kbLongTasks: number[] }).kbLongTasks,
-  );
+  // How late it went, and the long tasks the page ran between the move and its going, by length.
+  const { late, tasks } = await page.evaluate((fade) => {
+    const timed = window as unknown as {
+      kbMovedAt: number;
+      kbGoneAt: number;
+      kbLongTasks: [number, number][];
+    };
+    const between = timed.kbLongTasks
+      .filter(([from, to]) => from < timed.kbGoneAt && to > timed.kbMovedAt)
+      .map(([from, to]) => Math.round(to - from));
+    return { late: Math.round(timed.kbGoneAt - timed.kbMovedAt - fade), tasks: between };
+  }, fadeMs);
   const [longest = 0, next = 0] = tasks.toSorted((a, b) => b - a);
   // Its old backdrop goes when its fade is over, as late as the page was busy then: at most the
   // head's own start and one sample's, never every sample's in a row (`gpu/sample-turns.ts`).
   expect(
     late,
-    `${late} ms late; long tasks ${JSON.stringify(tasks.map(Math.round))}`,
+    `${late} ms late; long tasks meanwhile ${JSON.stringify(tasks)}`,
   ).toBeLessThanOrEqual(longest + next + 500);
 });
 
