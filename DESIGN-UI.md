@@ -2422,11 +2422,43 @@ the browser's own paste or drop runs only when nothing claims it
   cannot be read until it is dropped.
 - **A handler never writes.** It says what the gesture makes, as data
   (`IngestOutcome`), and the page writes it at the row: the node the
-  row's text is (`shownNodeId`). A dropped file is kept as an asset and
-  linked from that text (`attachFileToNode`). A claim that fails is told,
-  and writes nothing.
-- **The outline's own handlers are contributions.** It contributes the
-  drop of a file (`ATTACH_FILE`) as any family would.
+  row's text is (`shownNodeId`). It makes one of two things:
+  - **Nodes**, as outline paste text (DESIGN.md → Outline paste). The page
+    adds them after the row through `node.addTree`, in one transaction,
+    under the guards every call meets, and puts the caret at the end of
+    the last. A row that held nothing (no text, fields, tags or children)
+    is where the person meant them to go: they take its place, and it is
+    deleted. That is a second write, so undo takes them back in two steps.
+  - **A file**, kept as an asset and linked from the row's text
+    (`attachFileToNode`).
+
+  A claim that fails, such as an outline that names a tag the store does
+  not have, is told, and writes nothing.
+- **The outline's own handlers are contributions.** It contributes two, as
+  any family would:
+  - the paste of a list (`PASTE_LIST`, `outline-paste`): Tana Paste
+    (`%%tana%%`), or two or more lines that are each a `-`, `*` or `+`
+    item, nesting by indent. Its items become nodes, every marker read as
+    `-`.
+  - the drop of a file (`ATTACH_FILE`).
+
+  Only a list is the outline's to claim. Outline paste reads `#tag`,
+  `field:: value` and `[[ref]]` in an item's text and refuses one that is
+  not there, and prose has no way to say that a `#` is only text. So a
+  paragraph is never read as an outline: it pastes as text into the row,
+  as before.
+- **A family's handler is a transform** (`provideIngest(id, { match,
+  priority, transform })`): its match as data, and its text as outline
+  paste text, or null. What the outline makes of it is the nodes it says.
+  A family claims before the outline's own list paste by a priority above
+  0; `checklist` in kb-extensions turns a Markdown checklist into rows with
+  a `done` checkbox.
+
+  The transform is page code: T3, labelled as page power on the trust
+  sheet as a page half is. Its shape is text in and outline out, so moving
+  it into the isolated frame (`connect-src 'none'`), where it can see the
+  clipboard but send it nowhere, will change where it runs and not what an
+  author writes. GAP [[01M73WFP42V98AA4VRG8JBQQ2N]].
 - **A text host offers each gesture through its port** (`IngestPort`,
   bound by the surface that draws it). A row's port is the chain at that
   row (`useRowIngest`). A canvas card's takes a dropped file alone.
@@ -3336,6 +3368,9 @@ the shell.
     option node: the outline's eight and a family's own types', which a
     page half contributes with `provideValueKind` ([Field
     values](#field-values-one-slot-grammar), DESIGN.md → Field types);
+  - `provideIngest`, a row's paste or drop handler written as a
+    transform, which a page half contributes to the outline's
+    `outline.ingest`, reached by name ([Paste and drop](#paste-and-drop));
   - the primitives and the design tokens;
   - `BrowserHost`, a kernel service the shell provides. Through it a half
     reaches what it would otherwise take from the shell's stores, actions

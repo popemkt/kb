@@ -14,6 +14,8 @@
  * surface that draws it binds: the outline's runs the chain at its row, and a
  * canvas card's keeps a dropped file.
  */
+import type { ContributionEntry } from "@kb/plugin";
+import { Schema } from "effect";
 import { browserHost } from "../host";
 import { toast } from "./toast";
 
@@ -36,8 +38,12 @@ export interface IngestSite {
   readonly text: string;
 }
 
-/** What a claimed gesture makes, which the surface commits: a file kept as an asset and linked from the row's text. */
-export type IngestOutcome = { readonly attach: File };
+/**
+ * What a claimed gesture makes, which the page writes at the row: nodes, as
+ * outline paste text (DESIGN.md → Outline paste), added after it in one
+ * transaction; or a file, kept as an asset and linked from its text.
+ */
+export type IngestOutcome = { readonly outline: string } | { readonly attach: File };
 
 /** Which gestures a handler takes, as data: the gesture, the data's types, and a test of its text. */
 export interface IngestMatch {
@@ -83,15 +89,21 @@ function takes(match: IngestMatch, gesture: IngestGesture, types: readonly strin
   return match.gestures.includes(gesture) && match.types.some((type) => types.includes(type));
 }
 
+/** A match's `pattern` as a regular expression, or why it is none. */
+function compiled(pattern: string): RegExp | Error {
+  try {
+    return new RegExp(pattern, "u");
+  } catch (error) {
+    return error instanceof Error ? error : new Error(String(error));
+  }
+}
+
 /** `match` takes `ingested`, its text and all. A pattern that is no regular expression takes nothing. */
 function holds(match: IngestMatch, ingested: Ingested): boolean {
   if (!takes(match, ingested.gesture, ingested.types)) return false;
   if (match.pattern === undefined) return true;
-  try {
-    return new RegExp(match.pattern, "u").test(ingested.text);
-  } catch {
-    return false;
-  }
+  const pattern = compiled(match.pattern);
+  return pattern instanceof RegExp && pattern.test(ingested.text);
 }
 
 /** `handlers` by the order they claim in: priority, higher first, then as listed. */
@@ -110,8 +122,57 @@ export function claimantOf(
   return byPriority(handlers).find(({ match }) => holds(match, ingested)) ?? null;
 }
 
-/** Write what a claim made at `site`: a file kept as an asset and linked from its text. */
+/** What `node.addTree` answers that a paste reads: the ids it made, in tree order. */
+const decodeAdded = Schema.decodeUnknownSync(Schema.Struct({ ids: Schema.Array(Schema.String) }));
+
+/** Where the node `id` sits: its parent (none at the roots) and its place among its parent's children. */
+function placeOf(id: string): { readonly parent?: string; readonly position?: number } {
+  for (const node of browserHost().wireNodes()) {
+    const at = node.children.indexOf(id);
+    if (at >= 0) return { parent: node.id, position: at };
+  }
+  return {};
+}
+
+/** A row that holds nothing: no text, no fields or tags, no children. */
+function holdsNothing(id: string, text: string): boolean {
+  const node = browserHost()
+    .wireNodes()
+    .find((n) => n.id === id);
+  return (
+    text.trim() === "" &&
+    node !== undefined &&
+    node.children.length === 0 &&
+    Object.keys(node.props).length === 0
+  );
+}
+
+/**
+ * Add `outline` after the row `site` names, in one transaction, and put the
+ * caret at the end of the last node it made. A row that held nothing was
+ * where the person meant the outline to go: it gives the outline its place,
+ * and goes.
+ */
+async function addOutlineAt(outline: string, site: IngestSite): Promise<void> {
+  const host = browserHost();
+  const empty = holdsNothing(site.nodeId, site.text);
+  const { parent, position } = placeOf(site.nodeId);
+  const input = {
+    outline,
+    ...(parent === undefined ? {} : { parent }),
+    ...(position === undefined ? {} : { position: empty ? position : position + 1 }),
+  };
+  const receipt = await host.invoke("node.addTree", input);
+  if (receipt.status === "failed") throw new Error(receipt.message);
+  const { ids } = decodeAdded(receipt.output);
+  if (empty) await host.writes.deleteNode(site.nodeId);
+  const last = ids.at(-1);
+  if (last !== undefined) host.activateNode(last);
+}
+
+/** Write what a claim made at `site`. */
 async function commitIngest(outcome: IngestOutcome, site: IngestSite): Promise<void> {
+  if ("outline" in outcome) return addOutlineAt(outcome.outline, site);
   await browserHost().writes.attachFileToNode(site.nodeId, outcome.attach);
 }
 
@@ -139,6 +200,44 @@ export function ingestPort(
           );
         });
       return true;
+    },
+  };
+}
+
+/** What a page half writes of a handler: its match and priority, and its text as outline paste text. */
+export interface IngestForm {
+  readonly match: IngestMatch;
+  readonly priority: number;
+  /** The gesture's text as outline paste text, or null for nothing. */
+  readonly transform: (text: string) => string | null;
+}
+
+/**
+ * The `outline.ingest` contribution for a handler whose transform is
+ * text in, outline out: what it makes is the nodes its outline says, which
+ * the page adds after the row. A pattern that is no regular expression
+ * throws where its plugin applies.
+ */
+export function provideIngest(id: string, form: IngestForm): ContributionEntry<IngestHandler> {
+  const pattern = form.match.pattern === undefined ? null : compiled(form.match.pattern);
+  if (pattern instanceof Error) {
+    throw new Error(
+      `paste handler ${id}: its pattern is no regular expression: ${pattern.message}`,
+      {
+        cause: pattern,
+      },
+    );
+  }
+  return {
+    id,
+    value: {
+      match: form.match,
+      priority: form.priority,
+      ingest: ({ text }) => {
+        // The transform runs here, in the page, at T3: GAP [[01M73WFP42V98AA4VRG8JBQQ2N]].
+        const outline = form.transform(text);
+        return Promise.resolve(outline === null ? null : { outline });
+      },
     },
   };
 }

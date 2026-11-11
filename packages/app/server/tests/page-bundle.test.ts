@@ -139,7 +139,10 @@ const DATASCRIPT = /cljs\.core/;
 // A row's paste and drop as one chain: the outline's ingest point, each row's port onto it,
 // and the claim by a match written as data. It measures 1,652 production bytes
 // (1,826,408 → 1,828,060 on main at c33abe82); the budget keeps about 1.5 KB of headroom over it.
-const EAGER_BUDGET_BYTES = 1_829_500;
+// A pasted list becomes nodes: the outline's list paste, the page writing an outline after a
+// row, and the SDK's provideIngest take it to 1,829,638 (1,578 more); the budget keeps about
+// 1.5 KB of headroom over that.
+const EAGER_BUDGET_BYTES = 1_831_100;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {
