@@ -325,6 +325,15 @@ export {
   type ProviderRole,
 } from "./roles.ts";
 
+export {
+  CaptureTarget,
+  CapturePlannerService,
+  kernelCaptureTarget,
+  topLevelPlan,
+  type CapturePlan,
+  type CapturePlanner,
+} from "./capture-target.ts";
+
 export { orderedRoles, type OrderedRole } from "./extension-report.ts";
 
 export { TxAfterPoint, onCommit, CurrentReactions } from "./reactions.ts";

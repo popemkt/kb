@@ -36,6 +36,7 @@ export {
   graphChangesDef,
   graphChangesEffect,
   nodeAddDef,
+  addNodeAtEffect,
   nodeAddEffect,
   planNodeAdd,
   planNodeAddEffect,
@@ -48,7 +49,7 @@ export {
   tagDefineDef,
   tagDefineEffect,
 } from "./actions.ts";
-export type { PropEntry } from "./actions.ts";
+export type { PlacedAddInput, PropEntry } from "./actions.ts";
 export { KB_DESIGN_SYSTEM, coreExtension } from "./core-extension.ts";
 export { nodeAddTreeDef, nodeAddTreeEffect, planNodeAddTreeEffect } from "./node-add-tree.ts";
 export { planViewProposal, type PlannedView, type ViewProposal } from "./view-propose.ts";

@@ -53,7 +53,7 @@ function readsPerItem(items: number): number {
   graph.slots(null); // the one ordering, as the first placement would make it
   reads.n = 0;
   const outline = Array.from({ length: items }, (_, i) => `- top ${i}`).join("\n");
-  const plan = Effect.runSync(planNodeAddTreeEffect({ outline }, graph));
+  const plan = Effect.runSync(planNodeAddTreeEffect({ outline, parent: null }, graph));
   expect(plan.ids).toHaveLength(items);
   return reads.n / items;
 }

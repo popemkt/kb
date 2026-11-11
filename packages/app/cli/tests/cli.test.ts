@@ -54,6 +54,11 @@ describe("arg → invocation mapping", () => {
     });
   });
 
+  test("mapAdd sends null for the top level and leaves an omitted parent out", () => {
+    expect(mapAdd({ text: "top", parent: null }).input).toEqual({ text: "top", parent: null });
+    expect(mapAdd({ text: "captured" }).input).toEqual({ text: "captured" });
+  });
+
   test("mapSet / mapUnset / mapRm / mapMv", () => {
     expect(mapSet({ id: "n1", field: "status", value: { t: "str", v: "done" } }).input).toEqual({
       id: "n1",
@@ -379,6 +384,17 @@ describe("cli e2e (tmpdir)", () => {
     expect(abc.code).toBe(2);
     expect(JSON.parse(abc.stdout)).toMatchObject({ status: "failed", code: "invalid_input" });
     expect(await values()).toEqual([{ t: "num", v: 5 }]);
+  });
+
+  test("kb add --top adds at the top level, and refuses a --parent beside it", async () => {
+    expect((await kb(["init", "--bare"])).code).toBe(0);
+    const parent = JSON.parse((await kb(["add", "Parent", "--top"])).stdout);
+    expect(parent.status).toBe("succeeded");
+    const top = await kb(["get", parent.output.id, "--depth", "0"]);
+    expect(JSON.parse(top.stdout).output.node.id).toBe(parent.output.id);
+    const both = await kb(["add", "Both", "--top", "--parent", parent.output.id]);
+    expect(both.code).not.toBe(0);
+    expect(both.stderr + both.stdout).toContain("--parent and --top name two places");
   });
 
   test("init → add → query → get", async () => {
