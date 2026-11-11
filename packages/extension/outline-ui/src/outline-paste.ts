@@ -30,5 +30,5 @@ export function outlineOfList(text: string): string {
 export const PASTE_LIST: IngestHandler = {
   match: { gestures: ["paste"], types: ["text/plain"], pattern: PASTED_LIST },
   priority: 0,
-  ingest: ({ text }) => Promise.resolve({ outline: outlineOfList(text) }),
+  ingest: ({ text }) => ({ outline: outlineOfList(text) }),
 };

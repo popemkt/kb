@@ -464,14 +464,20 @@ export type IngestOutcome = { readonly outline: string } | { readonly attach: Fi
 /**
  * A row's paste and drop handler. The outline declares their point,
  * `outline.ingest`, so a plugin that contributes one names it in `uses` and
- * reaches it with `ctx.point<IngestHandler>("outline.ingest")`. The first
- * whose match holds claims the gesture; what none claims is the browser's.
+ * reaches it with `ctx.point<IngestHandler>("outline.ingest")`. By
+ * priority, each whose match holds is asked what the gesture makes, and the
+ * first to make something claims it; what every one declines is the
+ * browser's.
  */
 export interface IngestHandler {
   readonly match: IngestMatch;
   /** Higher claims first; kb's own sit at 0, and a tie goes to the first contributed. */
   readonly priority: number;
-  readonly ingest: (ingested: Ingested, site: IngestSite) => Promise<IngestOutcome | null>;
+  /**
+   * What the gesture makes at `site`, or null to decline it, so the next
+   * handler is asked. It answers at once, while the gesture's event runs.
+   */
+  readonly ingest: (ingested: Ingested, site: IngestSite) => IngestOutcome | null;
 }
 
 /**
@@ -486,7 +492,7 @@ export declare function provideIngest(
   form: {
     readonly match: IngestMatch;
     readonly priority: number;
-    /** The gesture's text as outline paste text, or null for nothing. */
+    /** The gesture's text as outline paste text, or null to decline it: the next handler is asked. */
     readonly transform: (text: string) => string | null;
   },
 ): ContributionEntry<IngestHandler>;

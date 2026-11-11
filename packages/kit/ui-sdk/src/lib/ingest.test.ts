@@ -1,16 +1,17 @@
 /**
- * Paste and drop (DESIGN-UI.md → Paste and drop): the first handler whose
- * match holds, by priority, claims a gesture.
+ * Paste and drop (DESIGN-UI.md → Paste and drop): by priority, the first
+ * handler whose match holds and that makes something claims a gesture.
  */
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   ATTACH_FILE,
-  claimantOf,
+  claimOf,
   type Ingested,
   type IngestHandler,
   type IngestMatch,
   provideIngest,
 } from "./ingest";
+import { setToastSink } from "./toast";
 
 const pasted = (text: string): Ingested => ({
   gesture: "paste",
@@ -21,8 +22,9 @@ const pasted = (text: string): Ingested => ({
 const file = new File(["x"], "photo.png", { type: "image/png" });
 const dropped: Ingested = { gesture: "drop", types: ["Files"], text: "", files: [file] };
 
-function handler(name: string, match: IngestMatch, priority = 0): IngestHandler & { name: string } {
-  return { name, match, priority, ingest: () => Promise.resolve(null) };
+/** A handler that makes an outline of its own name, or declines when `declines`. */
+function handler(name: string, match: IngestMatch, priority = 0, declines = false): IngestHandler {
+  return { match, priority, ingest: () => (declines ? null : { outline: name }) };
 }
 const lines = handler("lines", { gestures: ["paste"], types: ["text/plain"], pattern: "\\n" });
 const urls = handler(
@@ -31,25 +33,59 @@ const urls = handler(
   5,
 );
 const words = handler("words", { gestures: ["paste"], types: ["text/plain"] });
-const nameOf = (claimant: IngestHandler | null) =>
-  (claimant as (IngestHandler & { name: string }) | null)?.name ?? null;
+const site = { nodeId: "n", text: "" };
+/** What claims `ingested` among `handlers`: the outline the claim makes, or null when none does. */
+function claimed(handlers: readonly IngestHandler[], ingested: Ingested) {
+  const claim = claimOf(handlers, ingested, site);
+  if (claim === null) return null;
+  return "outline" in claim.outcome ? claim.outcome.outline : claim.outcome.attach;
+}
 
 describe("who claims a paste or a drop", () => {
-  it("is the first whose match holds, by priority, then as listed", () => {
-    expect(nameOf(claimantOf([lines, urls, words], pasted("https://kb.example")))).toBe("urls");
-    expect(nameOf(claimantOf([lines, urls, words], pasted("a\nb")))).toBe("lines");
-    expect(nameOf(claimantOf([words, lines], pasted("a\nb")))).toBe("words");
+  const told: string[] = [];
+  beforeEach(() => {
+    told.length = 0;
+    setToastSink((message) => told.push(message));
+  });
+
+  it("is the first whose match holds and that makes something, by priority, then as listed", () => {
+    expect(claimed([lines, urls, words], pasted("https://kb.example"))).toBe("urls");
+    expect(claimed([lines, urls, words], pasted("a\nb"))).toBe("lines");
+    expect(claimed([words, lines], pasted("a\nb"))).toBe("words");
+  });
+
+  it("asks the next when one before it makes nothing", () => {
+    const declining = handler("declining", { gestures: ["paste"], types: ["text/plain"] }, 9, true);
+    expect(claimed([words, declining], pasted("a"))).toBe("words");
+  });
+
+  it("is no one when every handler makes nothing, so the browser's own runs", () => {
+    const declining = handler("declining", { gestures: ["paste"], types: ["text/plain"] }, 9, true);
+    expect(claimOf([declining], pasted("a"), site)).toBeNull();
+    expect(claimOf([ATTACH_FILE], { ...dropped, files: [] }, site)).toBeNull();
+  });
+
+  it("skips one that throws, and tells the person", () => {
+    const throwing: IngestHandler = {
+      match: { gestures: ["paste"], types: ["text/plain"] },
+      priority: 9,
+      ingest: () => {
+        throw new Error("no");
+      },
+    };
+    expect(claimed([throwing, words], pasted("a"))).toBe("words");
+    expect(told).toEqual(["A paste handler failed and was skipped: no"]);
   });
 
   it("takes only its gestures and its data's types", () => {
-    expect(claimantOf([lines, urls, words], dropped)).toBeNull();
-    expect(claimantOf([ATTACH_FILE], pasted("a"))).toBe(null);
-    expect(claimantOf([ATTACH_FILE], dropped)).toBe(ATTACH_FILE);
+    expect(claimed([lines, urls, words], dropped)).toBeNull();
+    expect(claimed([ATTACH_FILE], pasted("a"))).toBeNull();
+    expect(claimed([ATTACH_FILE], dropped)).toBe(file);
   });
 
   it("takes nothing by a pattern that is no regular expression", () => {
     const broken = handler("broken", { gestures: ["paste"], types: ["text/plain"], pattern: "(" });
-    expect(claimantOf([broken], pasted("("))).toBeNull();
+    expect(claimed([broken], pasted("("))).toBeNull();
   });
 });
 
@@ -60,14 +96,13 @@ describe("a handler written as a transform", () => {
     transform: (text: string) => (text.includes("skip") ? null : text.toUpperCase()),
   } as const;
 
-  it("makes the outline its transform returns, or nothing for null", async () => {
+  it("makes the outline its transform returns, and declines for null", () => {
     const { id, value } = provideIngest("shout", form);
     expect(id).toBe("shout");
     expect(value.match).toBe(form.match);
     expect(value.priority).toBe(10);
-    const site = { nodeId: "n", text: "" };
-    await expect(value.ingest(pasted("- a"), site)).resolves.toEqual({ outline: "- A" });
-    await expect(value.ingest(pasted("- skip"), site)).resolves.toBeNull();
+    expect(value.ingest(pasted("- a"), site)).toEqual({ outline: "- A" });
+    expect(value.ingest(pasted("- skip"), site)).toBeNull();
   });
 
   it("throws where its plugin applies when its pattern is no regular expression", () => {

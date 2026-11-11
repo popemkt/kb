@@ -522,10 +522,11 @@ export {
 } from "./lib/keybindings";
 export {
   ATTACH_FILE,
-  claimantOf,
+  claimOf,
   ingestedOf,
   ingestPort,
   provideIngest,
+  type IngestClaim,
   type IngestForm,
   type Ingested,
   type IngestGesture,
