@@ -2,8 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { admitKeybindings, provideKeybinding, setToastSink, syncUiPlugins } from "@kb/ui-sdk";
 import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
 import { applySelectionAction } from "./selection-actions";
-import { mapSelectionKey, SELECTION_CONTEXT } from "./selection-keymap";
-import { outlineKeybindings } from "./test-support/keybindings";
+import { mapSelectionKey } from "./selection-keymap";
+import { outlineKeybindings, SELECTION_KEY_CONTEXT } from "./test-support/keybindings";
 
 /** The calls the host was asked to make, and what it answers each: the action's own failure for `stamp`. */
 const calls: { readonly id: string; readonly input: unknown }[] = [];
@@ -29,7 +29,7 @@ afterAll(() => syncUiPlugins([]));
 const ANYONE = () => true;
 
 const keymap = admitKeybindings(
-  SELECTION_CONTEXT,
+  SELECTION_KEY_CONTEXT,
   outlineKeybindings({
     name: "keys",
     bindings: [

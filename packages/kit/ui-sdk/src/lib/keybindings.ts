@@ -2,12 +2,13 @@
  * Keybindings as a point: a key in a context runs an intent the context
  * names, or an action (DESIGN-UI.md → Keybindings).
  *
- * A context is a place keys mean something, owned by the plugin that
- * reads it: the outline's editing row (`outline.editing`) and its
- * selection (`outline.selection`). Its owner states its bindings as every
- * other plugin does, as contributions to {@link KeybindingPoint}, so a
- * built-in has an id another binding can name. The keymap a context reads
- * is decided here, once, for every context: the owner's bindings first,
+ * A context is a place keys mean something, a contribution to
+ * {@link KeyContextPoint} by the plugin that reads it, which owns it: the
+ * outline's editing row (`outline.editing`) and its selection
+ * (`outline.selection`). Its owner states its bindings as every other
+ * plugin does, as contributions to {@link KeybindingPoint}, so a built-in
+ * has an id another binding can name. The keymap a context reads is
+ * decided here, once, for every context: the owner's bindings first,
  * then the rest in the order they were contributed. A binding whose chord
  * overlaps one already held is refused, unless it says it `replaces` that
  * holder and the host approves its owner replacing (`replacementApproved`);
@@ -66,15 +67,32 @@ export function provideKeybinding(
   return { id, value: { ...binding, chord } };
 }
 
-/** A context as its owner states it: what its bindings may run, and what no other plugin may take. */
-export interface KeyContext {
-  readonly id: KeyContextId;
-  /** The plugin that reads the context: its bindings are held first, and may hold a reserved chord. */
-  readonly owner: string;
+/** A context as its owner contributes it: what its bindings may run, and what no other plugin may take. */
+export interface KeyContextSpec {
   /** The intents a binding may run, by name. */
   readonly intents: readonly string[];
   /** Chords only the owner may bind. */
   readonly reserved: readonly Chord[];
+}
+
+export const KeyContextPoint = Point<KeyContextSpec>()(
+  CORE_POINT_DEFINITIONS.keyContext.name,
+  CORE_POINT_DEFINITIONS.keyContext.spec,
+);
+
+/**
+ * A context as the keymap reads it: its id, the contribution's, and its
+ * owner, the plugin that contributed it, whose bindings are held first and
+ * may hold a reserved chord.
+ */
+export interface KeyContext extends KeyContextSpec {
+  readonly id: string;
+  readonly owner: string;
+}
+
+/** The context a contribution to {@link KeyContextPoint} states. */
+export function keyContextOf({ id, owner, value }: Contribution<KeyContextSpec>): KeyContext {
+  return { ...value, id, owner };
 }
 
 /** A binding the keymap did not admit, and why, in words. */
@@ -177,30 +195,68 @@ export function admitKeybindings(
   };
 }
 
+/**
+ * The keymap of every context in `contexts` over `bindings`, by context id
+ * ({@link admitKeybindings}).
+ */
+export function admitKeymaps(
+  contexts: readonly KeyContext[],
+  bindings: readonly Contribution<Keybinding>[],
+  approved: (owner: string) => boolean,
+): ReadonlyMap<string, Keymap> {
+  return new Map(
+    contexts.map((context) => [context.id, admitKeybindings(context, bindings, approved)]),
+  );
+}
+
+/** The keymap of a context no plugin has contributed: it holds no key. */
+const NO_KEYS: Keymap = { refused: [], resolve: () => undefined };
+
+const readContexts = pointReader(KeyContextPoint);
 const readBindings = pointReader(KeybindingPoint);
-const keymaps = new WeakMap<readonly Contribution<Keybinding>[], Map<KeyContextId, Keymap>>();
+const keymaps = new WeakMap<
+  readonly Contribution<KeyContextSpec>[],
+  WeakMap<readonly Contribution<Keybinding>[], ReadonlyMap<string, Keymap>>
+>();
 const told = new Set<string>();
 
 /**
- * The keymap of `context` now, over the page kernel's bindings: computed
- * once per change to the kernel, and each refusal told once a page
- * session, naming the binding and why.
+ * Every context's keymap now, over the page kernel's contexts and
+ * bindings: computed once per change to the kernel, and each refusal told
+ * once a page session, naming the binding and why.
  */
-export function currentKeymap(context: KeyContext): Keymap {
+function currentKeymaps(): ReadonlyMap<string, Keymap> {
+  const contexts = readContexts();
   const bindings = readBindings();
-  const byContext = keymaps.get(bindings) ?? new Map<KeyContextId, Keymap>();
-  keymaps.set(bindings, byContext);
-  const cached = byContext.get(context.id);
+  const byBindings = keymaps.get(contexts) ?? new WeakMap();
+  keymaps.set(contexts, byBindings);
+  const cached = byBindings.get(bindings);
   if (cached !== undefined) return cached;
-  const keymap = admitKeybindings(context, bindings, (owner) =>
+  const admitted = admitKeymaps(contexts.map(keyContextOf), bindings, (owner) =>
     browserHost().replacementApproved(owner),
   );
-  byContext.set(context.id, keymap);
-  for (const { id, reason } of keymap.refused) {
-    const line = `Keybinding ${id} refused: ${reason}`;
-    if (told.has(line)) continue;
-    told.add(line);
-    toast(line);
+  byBindings.set(bindings, admitted);
+  for (const { refused } of admitted.values()) {
+    for (const { id, reason } of refused) {
+      const line = `Keybinding ${id} refused: ${reason}`;
+      if (told.has(line)) continue;
+      told.add(line);
+      toast(line);
+    }
   }
-  return keymap;
+  return admitted;
+}
+
+/** The keymap of the context `id` now ({@link currentKeymaps}); one holding no key while no plugin contributes it. */
+export function currentKeymap(id: string): Keymap {
+  return currentKeymaps().get(id) ?? NO_KEYS;
+}
+
+/**
+ * Read every context's keymap, which tells any refusal: the page does so
+ * whenever its kernel moves, so a binding a keymap refuses is told when it
+ * arrives, not at the first key pressed in its context.
+ */
+export function tellKeymaps(): void {
+  currentKeymaps();
 }

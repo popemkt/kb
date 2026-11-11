@@ -10,7 +10,7 @@ import { OutlineSnippet } from "./outline-snippet";
 import {
   BrowserHostService,
   CommandPoint,
-  currentKeymap,
+  KeyContextPoint,
   FieldEditorService,
   KeybindingPoint,
   OverlayPoint,
@@ -19,7 +19,6 @@ import {
   PageProjectionService,
   provideView,
   SidebarSectionPoint,
-  subscribeUiKernel,
   SYSTEM_IDS,
   ViewPoint,
 } from "@kb/ui-sdk";
@@ -33,12 +32,6 @@ import { EDITING_BINDINGS, EDITING_CONTEXT } from "./editing-keymap";
 import { SELECTION_BINDINGS, SELECTION_CONTEXT } from "./selection-keymap";
 
 const { filters } = DEFAULT_VIEW_CONFIG;
-
-/** Read both of the outline's keymaps, which tells any refusal (`currentKeymap`). */
-function readKeymaps(): void {
-  currentKeymap(EDITING_CONTEXT);
-  currentKeymap(SELECTION_CONTEXT);
-}
 
 /**
  * The outline's views: its page, its list frame view — shown inline, under
@@ -123,17 +116,14 @@ export const outlineUiPlugin = definePlugin({
             ctx.contribute(CommandPoint, { id: command.id, value: command }),
           ),
           ...OUTLINE_STEPS.map((step) => ctx.contribute(paletteSteps, step)),
-          // Its two keymaps, the editing row's and the selection's: bindings
-          // like any other plugin's, which the page's keymap holds first.
+          // Its two key contexts, the editing row's and the selection's, and
+          // their keys: bindings like any other plugin's, which the page's
+          // keymap holds first.
+          ...[EDITING_CONTEXT, SELECTION_CONTEXT].map((context) =>
+            ctx.contribute(KeyContextPoint, context),
+          ),
           ...[...EDITING_BINDINGS, ...SELECTION_BINDINGS].map((binding) =>
             ctx.contribute(KeybindingPoint, binding),
-          ),
-          // It reads its two keymaps whenever the page kernel moves, so a
-          // binding another plugin brings that its keymaps refuse is told
-          // then, not at the first key pressed in its context.
-          Effect.acquireRelease(
-            Effect.sync(() => subscribeUiKernel(readKeymaps)),
-            (unsubscribe) => Effect.sync(unsubscribe),
           ),
           ctx.contribute(OverlayPoint, {
             id: "view-filter",

@@ -19,7 +19,7 @@ import {
   TEXT_HISTORY_CHORD,
   type Chord,
   type KeyChordEvent,
-  type KeyContext,
+  type KeyContextSpec,
   type Keybinding,
   type Keymap,
   type VerticalNavDecision,
@@ -267,15 +267,19 @@ const EDITING_INTENTS = new Map<string, IntentOf>([
  * the outline, so its bindings are held first and Escape is its alone, with
  * the history chords and the palette's ⌘K, which other bindings may never take.
  */
-export const EDITING_CONTEXT: KeyContext = {
-  id: "outline.editing",
-  owner: outlineExtension.name,
-  intents: [...EDITING_INTENTS.keys()],
-  reserved: [{ key: "Escape" }, TEXT_HISTORY_CHORD, PALETTE_CHORD],
+export const EDITING_CONTEXT: ContributionEntry<KeyContextSpec> = {
+  id: "editing",
+  value: {
+    intents: [...EDITING_INTENTS.keys()],
+    reserved: [{ key: "Escape" }, TEXT_HISTORY_CHORD, PALETTE_CHORD],
+  },
 };
 
+/** The context's id, as bindings name it: the outline's namespace, then its own. */
+export const EDITING_CONTEXT_ID = `${outlineExtension.name}.${EDITING_CONTEXT.id}`;
+
 function editingBinding(id: string, chord: Chord, intent: string): ContributionEntry<Keybinding> {
-  return { id: `editing.${id}`, value: { context: EDITING_CONTEXT.id, chord, run: { intent } } };
+  return { id: `editing.${id}`, value: { context: EDITING_CONTEXT_ID, chord, run: { intent } } };
 }
 
 /**
@@ -319,7 +323,7 @@ export const EDITING_BINDINGS: readonly ContributionEntry<Keybinding>[] = [
 
 /**
  * The intent a chord means on this row under `keymap` (the editing
- * context's, `currentKeymap(EDITING_CONTEXT)`), or null to leave the key to
+ * context's, `currentKeymap(EDITING_CONTEXT_ID)`), or null to leave the key to
  * the browser. A non-null intent is always claimed with `preventDefault`.
  */
 export function mapEditingKey(

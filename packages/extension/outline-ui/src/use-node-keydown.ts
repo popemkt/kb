@@ -12,7 +12,7 @@ import {
 } from "@kb/ui-sdk";
 import { outlineSource, useOutlineStore, outlineNodes } from "./outline.store";
 import { applyEditingIntent } from "./editing-intents";
-import { EDITING_CONTEXT, mapEditingKey, type EditingKeyContext } from "./editing-keymap";
+import { EDITING_CONTEXT_ID, mapEditingKey, type EditingKeyContext } from "./editing-keymap";
 import { fieldSlotCount } from "./value-slot-nav";
 
 export interface UseNodeKeyDownArgs {
@@ -82,7 +82,7 @@ export function useNodeKeyDown({ nodeId, instanceKey }: UseNodeKeyDownArgs) {
           altKey: e.altKey,
         },
         readEditingContext({ nodeId, instanceKey, editable }),
-        currentKeymap(EDITING_CONTEXT),
+        currentKeymap(EDITING_CONTEXT_ID),
       );
       if (intent === null) return;
       e.preventDefault();
