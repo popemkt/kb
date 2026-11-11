@@ -239,6 +239,7 @@ export function testBrowserHost(overrides: Partial<BrowserHost> = {}): TestBrows
     viewCatalog: () => ({ keyOf: () => null }),
     writes: INERT_WRITES,
     invoke: (id) => noCall(id),
+    runCommand: () => Promise.resolve(),
     replacementApproved: () => true,
     subscribeManifest: () => () => {},
     screen: {

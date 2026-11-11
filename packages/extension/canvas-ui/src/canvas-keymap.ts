@@ -9,6 +9,7 @@
  * beside the hook that owns the effects (`use-canvas-keyboard`). The table's
  * order is load-bearing; `CANVAS_SHORTCUTS` says how.
  */
+// GAP [[01M74A3DT90MGHYGK1TAXZT9WZ]] the canvas's keys are this table, not a key context on ui.keybindings
 import type {
   CanvasAlignEdge,
   CanvasFlipAxis,

@@ -19,7 +19,7 @@ import { reachedState, useGraphStore } from "@/stores/graph.store";
 import { pageRows, subscribePage } from "@/stores/page";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useDesignSystemStore } from "@/stores/design-system.store";
-import { pageCommandContext } from "@/stores/page-commands";
+import { pageCommandContext, runKeyCommand } from "@/stores/page-commands";
 import { pageEditor } from "@/stores/page-editor";
 import { appearanceIn, usePrefsStore } from "@/stores/prefs.store";
 import { nodeTextPort } from "@/stores/node-text-port";
@@ -99,6 +99,7 @@ const host: BrowserHost = {
   replacementApproved,
   writes: mutations,
   invoke,
+  runCommand: runKeyCommand,
   subscribeManifest,
   screen: paneScreenPort,
   proposeView,

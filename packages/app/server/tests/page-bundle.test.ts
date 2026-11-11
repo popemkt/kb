@@ -136,7 +136,10 @@ const DATASCRIPT = /cljs\.core/;
 // from a failed receipt), the refusal as data it reads (`WriteRefusal`), and
 // the owner chip with the index's point read it asks (`related`), merged with
 // C1b-a at 2adf28cf, measure 1,826,408; the budget keeps about 1.5 KB over it.
-const EAGER_BUDGET_BYTES = 1_827_900;
+// The page's own key context (`core.page`, its ⌘K a binding the page
+// answers), keys that run commands, and days' Mod-Shift-D, take it to
+// 1,828,450; the budget keeps about 1.5 KB over that.
+const EAGER_BUDGET_BYTES = 1_830_000;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

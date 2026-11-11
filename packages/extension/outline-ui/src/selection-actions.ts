@@ -14,7 +14,7 @@ import { createNodeBefore, createTransientNode } from "./editing-writes";
 import {
   browserHost,
   childInstanceKey,
-  invokeAction,
+  runKeyCall,
   rowTextOf,
   shownNode,
   shownNodeId,
@@ -131,7 +131,8 @@ const SELECTION_STEPS: SelectionSteps = {
   createBefore: ({ nodeId }) => void createNodeBefore(nodeId),
   append,
   delete: deleteRow,
-  runAction: (step) => void invokeAction(step),
+  runAction: (step) => void runKeyCall(step),
+  runCommand: (step) => void runKeyCall(step),
 };
 
 /**

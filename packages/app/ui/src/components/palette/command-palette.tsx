@@ -8,10 +8,10 @@ import {
   schemaZoomKind,
   toast,
 } from "@kb/ui-sdk";
-import { commandTargetNodeId, runCommand, viewTargetFrameId } from "@/lib/commands";
+import { runCommand } from "@/lib/commands";
 import { buildPaletteIndex, searchPalette, type PaletteHit } from "@/lib/palette-index";
 import { pageProjection, shownNodes, useGraphStore } from "@/stores/graph.store";
-import { pageCommandApi, pageCommandContext } from "@/stores/page-commands";
+import { pageCommandContext, pageCommandTarget } from "@/stores/page-commands";
 
 /**
  * The state a command runs against, read at the moment it runs
@@ -20,11 +20,10 @@ import { pageCommandApi, pageCommandContext } from "@/stores/page-commands";
  * to nothing.
  */
 function commandContext(onClose: () => void): CommandContext {
-  const outline = pageCommandApi();
-  return pageCommandContext(
-    { nodeId: commandTargetNodeId(outline), frameId: viewTargetFrameId(outline) },
-    { close: onClose, openStep: () => toast("That command needs a selected row") },
-  );
+  return pageCommandContext(pageCommandTarget(), {
+    close: onClose,
+    openStep: () => toast("That command needs a selected row"),
+  });
 }
 
 const ROW_LIMIT = 20;

@@ -102,6 +102,12 @@ export interface BrowserHost extends NodeTextPort {
   /** Make one call through the browser's one invoke path and answer its receipt. */
   readonly invoke: (id: string, input: unknown) => Promise<ActionReceipt>;
   /**
+   * Run the command `command` about the node `nodeId`, or about the page's
+   * own target (the one ⌘K's commands run about) when null, as a palette
+   * runs it: the page's runner, from a key (`runKeyCall`).
+   */
+  readonly runCommand: (command: string, nodeId: string | null) => Promise<void>;
+  /**
    * Whether the plugin `owner` (a contribution's owner) may take what
    * another holds by naming what it replaces: the host's authority, from
    * where its family's code came from (`replacesWithoutApproval`).

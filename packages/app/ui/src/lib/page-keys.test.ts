@@ -1,0 +1,63 @@
+/**
+ * The page's own keys (DESIGN-UI.md → Keybindings), with every family the
+ * main bundle carries loaded as the app loads them: core owns `core.page`
+ * and its ⌘K, days binds "Go to today" to Mod-Shift-D there, and no
+ * bundled binding is refused in any context.
+ */
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { DAYS_IDS } from "@kb/days";
+import { currentKeymap, setToastSink, syncUiPlugins, tellKeymaps } from "@kb/ui-sdk";
+import type { Plugin } from "@kb/plugin";
+import { syncPagePlugins } from "@/test-support/page-plugins";
+import { BROWSER_EXTENSIONS, CORE_UI_PLUGINS } from "@/ui-plugins";
+import { PAGE_CONTEXT_ID, paletteOpening } from "./page-keys";
+
+const told: string[] = [];
+
+beforeAll(async () => {
+  setToastSink((message) => told.push(message));
+  const families = await Promise.all(
+    Object.values(BROWSER_EXTENSIONS).flatMap((entry): Promise<Plugin>[] =>
+      entry === null ? [] : [entry.load()],
+    ),
+  );
+  syncPagePlugins([...CORE_UI_PLUGINS, ...families]);
+  tellKeymaps();
+});
+afterAll(() => syncUiPlugins([]));
+
+describe("the page's own keys", () => {
+  it("refuses no bundled binding, in any context", () => {
+    expect(told.filter((line) => line.startsWith("Keybinding"))).toEqual([]);
+    for (const id of [PAGE_CONTEXT_ID, "outline.editing", "outline.selection"]) {
+      expect(currentKeymap(id).refused).toEqual([]);
+    }
+  });
+
+  it("answers ⌘K with the palette's intent", () => {
+    expect(currentKeymap(PAGE_CONTEXT_ID).resolve({ key: "k", metaKey: true })?.value.run).toEqual({
+      intent: "palette",
+    });
+  });
+
+  it("answers Mod-Shift-D with days' Go to today, as a command", () => {
+    const today = currentKeymap(PAGE_CONTEXT_ID).resolve({
+      key: "D",
+      ctrlKey: true,
+      shiftKey: true,
+    });
+    expect(today?.id).toBe("days.today");
+    expect(today?.value.run).toEqual({ command: DAYS_IDS.todayCommand });
+  });
+
+  it("holds no key without ⌘ or Ctrl, so typing never reaches it", () => {
+    expect(currentKeymap(PAGE_CONTEXT_ID).resolve({ key: "d", shiftKey: true })).toBeUndefined();
+  });
+});
+
+describe("where ⌘K opens", () => {
+  it("is the anchored row's node palette, else the global search", () => {
+    expect(paletteOpening(true)).toBe("node-palette");
+    expect(paletteOpening(false)).toBe("global-search");
+  });
+});

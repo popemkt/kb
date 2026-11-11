@@ -6,7 +6,15 @@
  * against it, so the context is built in one place (`pageCommandContext`),
  * and the node menu reads it through the page's host (`nodeCommands`).
  */
-import type { CommandContext, CommandTarget, OutlineCommandApi, PaletteSurface } from "@kb/ui-sdk";
+import {
+  providedFrameViews,
+  toast,
+  type CommandContext,
+  type CommandTarget,
+  type OutlineCommandApi,
+  type PaletteSurface,
+} from "@kb/ui-sdk";
+import { commandTargetNodeId, runCommand, viewTargetFrameId } from "@/lib/commands";
 import { pageProjection, useGraphStore } from "@/stores/graph.store";
 import { pageRows } from "@/stores/page";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
@@ -14,7 +22,6 @@ import { pageEditor } from "@/stores/page-editor";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { currentWorkspace } from "@/stores/workspace.store";
-import { providedFrameViews } from "@kb/ui-sdk";
 
 export function pageCommandApi(): OutlineCommandApi {
   const graph = useGraphStore.getState();
@@ -48,4 +55,29 @@ export function pageCommandContext(target: CommandTarget, palette: PaletteSurfac
     workspace: currentWorkspace(),
     palette,
   };
+}
+
+/**
+ * What a command run from ⌘K or a key is about: the node `nodeId`, or the
+ * page's own target when null (the selected row, else the zoomed node),
+ * and the frame a view command edits.
+ */
+export function pageCommandTarget(nodeId: string | null = null): CommandTarget {
+  const outline = pageCommandApi();
+  return { nodeId: nodeId ?? commandTargetNodeId(outline), frameId: viewTargetFrameId(outline) };
+}
+
+/**
+ * Run `command` from a key, about `nodeId` or the page's own target: as ⌘K
+ * runs it, with no palette to close, and a picker step it would open told
+ * as needing the node palette.
+ */
+export function runKeyCommand(command: string, nodeId: string | null): Promise<void> {
+  return runCommand(
+    command,
+    pageCommandContext(pageCommandTarget(nodeId), {
+      close: () => {},
+      openStep: () => toast("That command needs the node palette"),
+    }),
+  );
 }

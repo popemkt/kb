@@ -15,17 +15,17 @@
 import type { ContributionEntry } from "@kb/plugin";
 import { outlineExtension } from "@kb/outline";
 import {
-  PALETTE_CHORD,
   TEXT_HISTORY_CHORD,
   type Chord,
   type KeyChordEvent,
   type KeyContextSpec,
+  keyCallOf,
+  type KeyCall,
   type Keybinding,
   type Keymap,
   type VerticalNavDecision,
 } from "@kb/ui-sdk";
 import type { VisibleInstance } from "./visible-instances";
-import { runActionOf, type RunAction } from "./key-action";
 
 /** What the row looks like to the keymap. Offsets are SERIALIZED offsets. */
 export interface EditingKeyContext {
@@ -103,7 +103,7 @@ export type EditingIntent =
   | { type: "select"; nodeId: string; instanceKey: string }
   /** Onto a row's field values: its first going down, its last coming up. */
   | { type: "enterFields"; instanceKey: string; which: "first" | "last" }
-  | RunAction;
+  | KeyCall;
 
 /** An intent as its binding runs it: what it means on this row, or null to leave the key native. */
 type IntentOf = (ctx: EditingKeyContext) => EditingIntent | null;
@@ -265,13 +265,15 @@ const EDITING_INTENTS = new Map<string, IntentOf>([
  * The editing row's keys: what the row's text host hands its keydown, the
  * text host having kept composition and its own history first. Owned by
  * the outline, so its bindings are held first and Escape is its alone, with
- * the history chords and the palette's ⌘K, which other bindings may never take.
+ * the history chords, which other bindings may never take. The page's keys
+ * (⌘K) are offered first, so no binding here may take one.
  */
 export const EDITING_CONTEXT: ContributionEntry<KeyContextSpec> = {
   id: "editing",
   value: {
+    reach: "surface",
     intents: [...EDITING_INTENTS.keys()],
-    reserved: [{ key: "Escape" }, TEXT_HISTORY_CHORD, PALETTE_CHORD],
+    reserved: [{ key: "Escape" }, TEXT_HISTORY_CHORD],
   },
 };
 
@@ -334,6 +336,6 @@ export function mapEditingKey(
   const binding = keymap.resolve(ev);
   if (binding === undefined) return null;
   const { run } = binding.value;
-  if ("action" in run) return runActionOf(run, ctx.nodeId);
+  if (!("intent" in run)) return keyCallOf(run, ctx.nodeId);
   return EDITING_INTENTS.get(run.intent)?.(ctx) ?? null;
 }

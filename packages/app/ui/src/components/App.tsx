@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   cn,
+  currentKeymap,
   hasText,
+  keyCallOf,
   landOnce,
+  runKeyCall,
   SettingsTrigger,
   SidebarToggle,
   ThemeArt,
@@ -18,11 +21,12 @@ import { DockHost, DockToggles } from "@/docks";
 import { Overlays } from "@/overlays";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { Workspace } from "@/components/layout/workspace";
-import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
+import { PAGE_CONTEXT_ID, paletteOpening } from "@/lib/page-keys";
 import { loadManifest, readManifest } from "@/lib/manifest";
 import { startWorkspace } from "@/stores/workspace.store";
 import { extensionsSettled, startUiPlugins } from "@/ui-plugins";
 import { startOutlineLocation, useGraphStore } from "@/stores/graph.store";
+import { pageCommandTarget } from "@/stores/page-commands";
 import { pageEditor } from "@/stores/page-editor";
 import { useSidebarToggle } from "@/stores/prefs.store";
 import type { WsStatus } from "@/api/ws";
@@ -237,14 +241,10 @@ export function App() {
   }, [reload]);
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
+    const openPalette = () => {
       const o = pageEditor().getState();
-      const action = matchGlobalShortcut(e, {
-        rowAnchored: o.activeNodeId !== null || o.selectedNodeId !== null,
-      });
-      if (action === null) return;
-      e.preventDefault();
-      if (action === "node-palette") {
+      const rowAnchored = o.activeNodeId !== null || o.selectedNodeId !== null;
+      if (paletteOpening(rowAnchored) === "node-palette") {
         // An edited row is demoted to selected, so the palette anchors on it.
         if (o.activeNodeId !== null && o.activeInstanceKey !== null) {
           o.selectNode(o.activeNodeId, o.activeInstanceKey);
@@ -253,6 +253,19 @@ export function App() {
         return;
       }
       setGlobalPaletteOpen(!useUiStore.getState().globalPaletteOpen);
+    };
+    // The page's own keys (`core.page`): offered every key first, so captured.
+    const handler = (e: KeyboardEvent) => {
+      const binding = currentKeymap(PAGE_CONTEXT_ID).resolve(e);
+      if (binding === undefined) return;
+      e.preventDefault();
+      const { run } = binding.value;
+      if ("intent" in run) {
+        if (run.intent === "palette") openPalette();
+        return;
+      }
+      const call = keyCallOf(run, pageCommandTarget().nodeId);
+      if (call !== null) void runKeyCall(call);
     };
     window.addEventListener("keydown", handler, true);
     return () => window.removeEventListener("keydown", handler, true);
