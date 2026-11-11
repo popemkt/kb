@@ -1,13 +1,18 @@
 import { useCallback } from "react";
 import {
   cn,
+  useFollow,
   useGraphRead,
+  nodeTagColors,
+  OptionChip,
   pageTitleInstanceKey,
   type OutlineNode,
+  routePointerClick,
   rowText,
   rowTextReadOnlyReason,
   schemaOf,
   TagChipGroup,
+  UNTAGGED_COLOR,
   useOpenNode,
   usePageGraph,
 } from "@kb/ui-sdk";
@@ -119,6 +124,39 @@ const TITLE_CLASS = cn(
   "text-title font-semibold leading-[1.4]",
 );
 
+/**
+ * Who seeds the page's node, when the graph says (`GraphRead.ownerOf`): its
+ * owner's node, drawn as a chip for a node is and followed as a reference is.
+ * What the owner ships of the node stays as it shipped it; the label, a
+ * person's children and fields, and its settings are the person's.
+ */
+function OwnedBy({ id }: { id: string }) {
+  // The owner is named as a ref value is, against the whole graph: a scope
+  // that lists this node need not list the family that seeds it.
+  const { ownerOf, schema } = useGraphRead();
+  const follow = useFollow();
+  const ownerId = ownerOf(id);
+  const owner = ownerId === null ? undefined : schema.get(ownerId);
+  if (owner === undefined) return null;
+  return (
+    <div
+      className="flex items-center gap-1 text-meta text-muted-foreground"
+      role="presentation"
+      data-owned-by={owner.id}
+      onClick={(e) => {
+        routePointerClick(e, follow);
+      }}
+    >
+      <span>Owned by</span>
+      <OptionChip
+        id={owner.id}
+        label={owner.text || owner.id}
+        color={nodeTagColors(owner)[0] ?? UNTAGGED_COLOR}
+      />
+    </div>
+  );
+}
+
 /** Zoomed root title + fields at depth −1 (DESIGN-RESKIN §1.5), under the page head's space. */
 export function ZoomedRootHeader({
   node,
@@ -161,8 +199,9 @@ export function ZoomedRootHeader({
           </span>
         </div>
 
-        {node.tags.length > 0 && (
-          <div className="flex items-center gap-1 pb-2">
+        {/* Its tags and its owner: hidden when it has neither. */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pb-2 empty:hidden">
+          {node.tags.length > 0 && (
             <TagChipGroup
               tags={node.tags}
               onTagClick={(tag, e) => {
@@ -170,8 +209,9 @@ export function ZoomedRootHeader({
                 zoomTo(tag.id);
               }}
             />
-          </div>
-        )}
+          )}
+          <OwnedBy id={node.id} />
+        </div>
       </div>
 
       <FieldsSection nodeId={node.id} depth={-1} instanceKey={`title/${node.id}`} />

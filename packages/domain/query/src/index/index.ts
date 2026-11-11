@@ -62,6 +62,16 @@ export interface NodeIndex {
   referencesOf(node: KbNode): ReadonlySet<NodeId>;
 
   /**
+   * The nodes `id` points at by the derived attribute `attr` (`DerivedRef`),
+   * as its datoms state them: each target of the attribute's carriers that
+   * the index holds, once, in the order the carriers read them. None for a
+   * node the index does not hold or an attribute it does not derive. A
+   * cardinality-one attribute answers at most one: `:node/owner`, who seeds
+   * the node.
+   */
+  related(id: NodeId, attr: DerivedRef["attr"]): readonly NodeId[];
+
+  /**
    * The fields through which `node` references `target` in the reference
    * relation (`:node/mentions`), whichever carrier reads it: the field of a
    * ref value, of a text value holding a `[[target]]` token, or of a value a

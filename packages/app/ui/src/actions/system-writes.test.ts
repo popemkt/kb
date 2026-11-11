@@ -2,11 +2,12 @@
  * The page writes a system node as any surface does: the commit decides
  * (`personWriteRefusal`, DESIGN.md → Data model → write protection). A
  * person's label and additions land; what the owner ships is refused, with
- * the commit's reason as the toast; and a gesture whose last step would be
- * refused is refused before its first lands.
+ * the commit's reason worded for a person as the toast (who owns it, never
+ * the override); and a gesture whose last step would be refused is refused
+ * before its first lands.
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import { present, SYSTEM_IDS } from "@kb/model";
+import { extensionNodeId, present, SYSTEM_IDS } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
 import type { WireNode } from "@kb/contracts";
@@ -29,11 +30,19 @@ const wireNode = (id: string, text: string): WireNode => ({
   updatedAt: AT,
 });
 
+/** Core's own node: who seeds `sys.field` and `sys.tag` (`:node/owner`), by its label. */
+const CORE = wireNode(extensionNodeId("core"), "Core");
+
+/** Whether a toast said `words`, and none named the override, which is the owner's. */
+const toasted = (words: string) =>
+  toasts().some((text) => text.includes(words)) && !toasts().some((text) => text.includes("force"));
+
 /** The text of the node the merge regression merges into. */
 const reviewTargetText = () => present(outlineNodes().get("review.target"), "review.target").text;
 
-/** The fixture with `nodes` in it, each replacing the fixture's node of its id. */
-function hydrateWith(...nodes: WireNode[]): void {
+/** The fixture with Core's node and `nodes` in it, each replacing the fixture's node of its id. */
+function hydrateWith(...extra: WireNode[]): void {
+  const nodes = [CORE, ...extra];
   const ids = new Set(nodes.map((node) => node.id));
   const kept = fixtureGraph.nodes.filter((node) => !ids.has(node.id));
   useGraphStore
@@ -52,9 +61,7 @@ describe("the page writes a system node through the commit", () => {
   beforeEach(() => {
     resetOutlineStore();
     useUiStore.setState({ toasts: [] });
-    useGraphStore
-      .getState()
-      .hydrateFromWire(structuredClone(fixtureGraph.nodes), fixtureGraph.rev, "fixtures");
+    hydrateWith();
   });
 
   it("takes a person's label for a system node", async () => {
@@ -63,10 +70,10 @@ describe("the page writes a system node through the commit", () => {
     expect(toasts()).toEqual([]);
   });
 
-  it("refuses deleting a system node, with the commit's reason", async () => {
+  it("refuses deleting a system node, naming who owns it", async () => {
     await mutations.deleteNode("sys.field");
     expect(outlineNodes().has("sys.field")).toBe(true);
-    expect(toasts().some((text) => text.includes("sys.field is its owner's to delete"))).toBe(true);
+    expect(toasted("comes with Core, so it can't be deleted")).toBe(true);
   });
 
   it("takes a person's child under a system node, at the end and after a person's row", async () => {
@@ -91,7 +98,7 @@ describe("the page writes a system node through the commit", () => {
     await mutations.mergeNextIntoThis("n.before-sys", "sys.field");
     expect(present(outlineNodes().get("n.before-sys"), "n.before-sys").text).toBe(before);
     expect(outlineNodes().has("sys.field")).toBe(true);
-    expect(toasts().some((text) => text.includes("sys.field is its owner's to delete"))).toBe(true);
+    expect(toasted("comes with Core, so it can't be deleted")).toBe(true);
   });
 
   it("merges a person's node holding a system node whole, or refuses it whole", async () => {
@@ -132,9 +139,7 @@ describe("the page writes a system node through the commit", () => {
     await mutations.mergeNextIntoThis("review.target", "review.source");
     expect(reviewTargetText()).toBe("target");
     expect(outlineNodes().has("review.source")).toBe(true);
-    expect(toasts().some((t) => t.includes("sys.field keeps the rank its owner gave it"))).toBe(
-      true,
-    );
+    expect(toasted("stays where Core put it")).toBe(true);
   });
 
   it("refuses a view a system frame cannot name before minting its view node", async () => {
@@ -142,9 +147,7 @@ describe("the page writes a system node through the commit", () => {
     const count = useGraphStore.getState().wireNodes.length;
     await mutations.setFrameView("sys.tag", CollectionTableView);
     expect(useGraphStore.getState().wireNodes).toHaveLength(count);
-    expect(toasts().some((text) => text.includes(`${SYSTEM_IDS.viewsField} on sys.tag`))).toBe(
-      true,
-    );
+    expect(toasted("Core sets the")).toBe(true);
     // A person's frame names its new view node as it always has.
     await mutations.setFrameView("n.root-a", CollectionTableView);
     expect(useGraphStore.getState().wireNodes).toHaveLength(count + 1);

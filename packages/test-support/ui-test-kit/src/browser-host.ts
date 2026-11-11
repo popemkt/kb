@@ -105,7 +105,7 @@ const INERT_WRITES: PageWrites = {
   removeFieldTargetTag: done,
   setFieldTargetQuery: done,
   splitNode: done,
-  deleteNode: done,
+  deleteNode: refused,
   mergeNextIntoThis: done,
   mergeWithPrevious: done,
   indentNode: done,
@@ -186,6 +186,7 @@ export function testBrowserHost(overrides: Partial<BrowserHost> = {}): TestBrows
     schema: schemaNow,
     queries: () => null,
     isVirtual: () => false,
+    ownerOf: () => null,
     node: (id) => nodes.get(id),
     isActive: (nodeId, instanceKey) =>
       active?.nodeId === nodeId && active.instanceKey === instanceKey,

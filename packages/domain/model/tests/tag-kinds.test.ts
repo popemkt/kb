@@ -157,7 +157,10 @@ describe("a seeded tag's additive lists", () => {
     const mine = tag("sys.tag.fam", ["n.mine"], ["sys.f.fam.a", "f.mine"]);
     expect(systemWriteRefusal(seeded, mine, () => undefined)).toBeNull();
     const dropped = tag("sys.tag.fam", ["n.mine"], ["f.mine"]);
-    expect(systemWriteRefusal(mine, dropped, () => undefined)).toMatch(/keeps the sys.f.fields/);
+    expect(systemWriteRefusal(mine, dropped, () => undefined)).toMatchObject({
+      rule: "list",
+      field: SYSTEM_IDS.fieldsField,
+    });
   });
 
   test("gain a field the family adds later after the person's, in one open, then hold", () => {

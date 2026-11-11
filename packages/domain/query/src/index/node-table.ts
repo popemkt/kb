@@ -1,5 +1,5 @@
 import type { FieldType, KbNode, NodeId, StoreTx } from "@kb/model";
-import { nodeRefs, referenceFields } from "./datoms.ts";
+import { derivedTargets, nodeRefs, referenceFields } from "./datoms.ts";
 import {
   fieldTypesIn,
   keyHolders,
@@ -200,6 +200,16 @@ export class NodeTable implements NodeIndex {
 
   referencesOf(node: KbNode): ReadonlySet<NodeId> {
     return nodeRefs(node, this.#derived, this.readsOf(null));
+  }
+
+  related(id: NodeId, attr: DerivedRef["attr"]): readonly NodeId[] {
+    const node = this.#nodes.get(id);
+    const entry = this.#derived.find((each) => each.attr === attr);
+    if (node === undefined || entry === undefined) return [];
+    const targets = new Set(
+      derivedTargets(node, entry, this.readsOf(null)).map((carried) => carried.id),
+    );
+    return [...targets].filter((target) => this.#nodes.has(target));
   }
 
   referenceFields(node: KbNode, target: NodeId): ReadonlySet<NodeId> {

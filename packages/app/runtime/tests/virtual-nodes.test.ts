@@ -56,7 +56,11 @@ test("a person's edit or delete of a virtual node is refused, and stores nothing
     { id: "node.delete", input: { id: VIRTUAL } },
   ]) {
     const refused = await invoke(ctx, request);
-    expect(refused).toMatchObject({ status: "failed", code: "forbidden" });
+    expect(refused).toMatchObject({
+      status: "failed",
+      code: "forbidden",
+      details: { rule: "virtual", id: VIRTUAL },
+    });
   }
   expect(ctx.nodes.some((n) => n.id === VIRTUAL)).toBe(false);
   expect(ctx.index.getNode(VIRTUAL)?.text).toBe("probe");

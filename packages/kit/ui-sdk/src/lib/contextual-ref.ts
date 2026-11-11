@@ -40,6 +40,13 @@ import type { OutlineNode } from "./types";
 import { SYSTEM_IDS } from "./types";
 
 /**
+ * Where a node the index serves from a file (a saved query's `.edn`) is
+ * read from, and so where it changes: "read …" in a row's read-only reason
+ * and in a refused write's toast (`lib/refusal`).
+ */
+export const FROM_SOURCE = "from its source file — change it there";
+
+/**
  * The node this reference points at, or null when it is not a reference.
  *
  * One read of one carrier. The tag check that used to guard this was the second
@@ -147,7 +154,7 @@ export function rowTextReadOnlyReason(
   isVirtual: (id: string) => boolean,
 ): string | null {
   const shownId = node ? shownNodeId(node) : id;
-  if (isVirtual(id) || isVirtual(shownId)) return "Read from its source file — change it there";
+  if (isVirtual(id) || isVirtual(shownId)) return `Read ${FROM_SOURCE}`;
   if (shownId !== id && schema.get(shownId) === undefined) return "Reference target is missing";
   return null;
 }

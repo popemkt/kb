@@ -1,5 +1,5 @@
 import type { PlannedMutation } from "@/actions/plan";
-import { toast } from "@kb/ui-sdk";
+import { toast, failureText } from "@kb/ui-sdk";
 import { invoke, invokeLocal } from "@/session/runtime";
 import { useGraphStore } from "@/stores/graph.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { pageEditor } from "@/stores/page-editor"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
@@ -24,7 +24,7 @@ export async function runOptimistic(
     // oxlint-disable-next-line eslint/no-await-in-loop -- plans are deliberately ordered (split and merge depend on prior writes)
     const receipt = await (skipRemote ? invokeLocal(action) : invoke(action.id, action.input));
     if (receipt.status === "failed") {
-      toast(receipt.message);
+      toast(failureText(receipt));
       return { ok: false };
     }
   }

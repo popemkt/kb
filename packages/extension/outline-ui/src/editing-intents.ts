@@ -55,6 +55,7 @@ function softBreak(
 /**
  * Delete the subtree, then put the caret on the previous visible row at its
  * text end — or on the next row at its start, or nowhere when neither exists.
+ * A refused delete leaves the caret in the row.
  */
 function deleteSubtree({ nodeId, instanceKey }: IntentOf<"deleteSubtree">): void {
   const store = useOutlineStore.getState();
@@ -62,7 +63,8 @@ function deleteSubtree({ nodeId, instanceKey }: IntentOf<"deleteSubtree">): void
   const next = store.getNextVisibleInstance(instanceKey);
   void browserHost()
     .writes.deleteNode(nodeId)
-    .then(() => {
+    .then((landed) => {
+      if (!landed) return;
       const pick = prev ?? next;
       if (!pick) {
         useOutlineStore.getState().selectNode(null);
@@ -73,13 +75,16 @@ function deleteSubtree({ nodeId, instanceKey }: IntentOf<"deleteSubtree">): void
     });
 }
 
-/** An empty leaf: delete it and focus the end of the previous visible row. */
+/**
+ * An empty leaf: delete it and focus the end of the previous visible row. A
+ * refused delete leaves the caret in the row.
+ */
 function deleteEmptyRow({ nodeId, instanceKey }: IntentOf<"deleteEmptyRow">): void {
   const prev = useOutlineStore.getState().getPreviousVisibleInstance(instanceKey);
   void browserHost()
     .writes.deleteNode(nodeId)
-    .then(() => {
-      if (!prev) return;
+    .then((landed) => {
+      if (!landed || !prev) return;
       const store = useOutlineStore.getState();
       store.activateNode(
         prev.nodeId,

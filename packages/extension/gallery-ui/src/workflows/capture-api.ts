@@ -4,7 +4,7 @@
  * one invoke path.
  */
 import { GALLERY_ACTIONS, GALLERY_IDS } from "@kb/gallery";
-import { browserHost, toast } from "@kb/ui-sdk";
+import { browserHost, toast, failureText } from "@kb/ui-sdk";
 import { addNode } from "../add-node";
 import { linkVisualInput, type CapturedLink } from "./capture-model";
 
@@ -30,10 +30,10 @@ export async function addLinkVisual(
     return typeof id === "string" ? id : null;
   }
   if (receipt.code !== "forbidden") {
-    toast(`Could not keep the picture: ${receipt.message}`);
+    toast(`Could not keep the picture: ${failureText(receipt)}`);
     return null;
   }
-  toast(`${receipt.message}: the link is kept, not the picture`);
+  toast(`${failureText(receipt)}: the link is kept, not the picture`);
   return addNode(linkVisualInput(link, parent), "Could not keep the link");
 }
 
@@ -44,7 +44,7 @@ export async function addStyleToVisual(visual: string, style: string): Promise<b
     setProps: [{ field: GALLERY_IDS.stylesField, value: { t: "ref", v: style } }],
   });
   if (receipt.status === "failed") {
-    toast(`Could not add the style: ${receipt.message}`);
+    toast(`Could not add the style: ${failureText(receipt)}`);
     return false;
   }
   return true;
