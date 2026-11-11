@@ -39,7 +39,8 @@ import {
   type UiDevChild,
   type UiDevSpawn,
 } from "./dev.ts";
-import { directoryBuildSource, recordBuild } from "./build-archive.ts";
+import { preparePageDelivery } from "./page-delivery.ts";
+import type { PageFiles } from "./assets.ts";
 import { UI_DIST, UI_ROOT } from "./paths.ts";
 import { identifyBy, serverOwner } from "./auth.ts";
 import { requestGuard, type RequestGuard } from "./guard.ts";
@@ -251,7 +252,7 @@ function serveUi(deps: {
   ctx: KbContext;
   hub: SubscriptionHub;
   hosted: HostedFamilies;
-  codeImage: CodeImagePort | undefined;
+  pageFiles: PageFiles | undefined;
   /** The server's kernel, whose identity providers say who a request is. */
   kernel: Kernel;
   /** Where earlier builds are kept ({@link UiServerOptions.builds}). */
@@ -298,7 +299,7 @@ function serveUi(deps: {
         hosted: deps.hosted,
         embedding: deps.embedding,
         builds: deps.builds,
-        codeImage: deps.codeImage,
+        pageFiles: deps.pageFiles,
       });
     },
     websocket: {
@@ -442,6 +443,8 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   const builds =
     opts.builds !== undefined ? opts.builds : cache === null ? null : join(cache, "ui-builds");
 
+  const delivery = yield* preparePageDelivery(opts.codeImage, builds, UI_DIST, lifetime);
+
   // The listener first: a bind that fails throws here, before the lifetime
   // owns the server, so nothing is left running behind a server that never
   // came up.
@@ -458,14 +461,12 @@ export const startUi = Effect.fn("kb.startUi")(function* (
       hosted,
       kernel,
       builds,
-      codeImage: opts.codeImage,
+      pageFiles: delivery.files,
     }),
   );
   // Kept beside the server's start, not before it: the tabs it keeps them
   // for are of earlier builds, which earlier starts kept.
-  if (builds !== null && opts.codeImage === undefined) {
-    yield* Effect.forkIn(recordBuild(builds, directoryBuildSource(UI_DIST)), lifetime);
-  }
+  yield* delivery.keep;
 
   yield* Scope.addFinalizer(
     lifetime,

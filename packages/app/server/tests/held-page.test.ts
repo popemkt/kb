@@ -141,3 +141,66 @@ test("production startup serves its held image without ensuring a disk build", a
     await rm(root, { recursive: true, force: true });
   }
 });
+
+const upgradeImage = async (name: string) =>
+  (
+    await Effect.runPromise(
+      loadCodeImage(
+        new Blob(["export {};"]),
+        new Map([
+          [
+            "index.html",
+            new Blob([`<script type="module" src="/static/index-${name}.js"></script>`]),
+          ],
+          [`static/index-${name}.js`, new Blob([`entry ${name}`])],
+          [`static/lazy-${name}.js`, new Blob([`lazy ${name}`])],
+        ]),
+      ),
+    )
+  ).image;
+
+test("an old tab keeps its held chunks across server upgrades without admitting unheld cache files", async () => {
+  const root = await mkdtemp(join(tmpdir(), "kb-held-upgrade-"));
+  const builds = join(root, "builds");
+  const { startUi } = await import("../src/server.ts");
+  const a = await upgradeImage("a");
+  const b = await upgradeImage("b");
+  const start = (name: string, codeImage: typeof a) =>
+    Effect.runPromise(
+      startUi({
+        root: join(root, name),
+        port: 0,
+        openBrowser: false,
+        builds,
+        codeImage,
+      }),
+    );
+  try {
+    const first = await start("first", a);
+    await Effect.runPromise(first.stop);
+    const second = await start("second", b);
+    try {
+      // Publication came from A's held bytes, and B captures them before listening.
+      await writeFile(join(builds, "index-a.js/static/lazy-a.js"), "changed after startup");
+      await writeFile(join(builds, "index-b.js/static/unheld.js"), "unheld cache injection");
+      expect(await (await fetch(new URL("/static/lazy-a.js", second.url))).text()).toBe("lazy a");
+      expect(await (await fetch(new URL("/static/lazy-b.js", second.url))).text()).toBe("lazy b");
+      expect((await fetch(new URL("/static/unheld.js", second.url))).status).toBe(404);
+      expect((await fetch(new URL("/static/missing.js", second.url))).status).toBe(404);
+      expect(a.pageFile("static/lazy-b.js")).toBeNull();
+      expect(b.pageFile("static/lazy-a.js")).toBeNull();
+    } finally {
+      await Effect.runPromise(second.stop);
+    }
+    const third = await start("third", await upgradeImage("c"));
+    try {
+      expect(await (await fetch(new URL("/static/lazy-b.js", third.url))).text()).toBe("lazy b");
+      expect((await fetch(new URL("/static/unheld.js", third.url))).status).toBe(404);
+      expect((await fetch(new URL("/static/lazy-a.js", third.url))).status).toBe(404);
+    } finally {
+      await Effect.runPromise(third.stop);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

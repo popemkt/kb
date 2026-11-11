@@ -7,7 +7,6 @@ import {
   onWire,
   requestOf,
   type ActionResponse,
-  type CodeImagePort,
   type Embedding,
   type HostedFamilies,
   type KbContext,
@@ -30,7 +29,7 @@ const JSON_CONTENT_TYPE = "application/json;charset=utf-8";
 
 export interface UiHttpDeps {
   root: string;
-  codeImage?: CodeImagePort;
+  pageFiles?: assets.PageFiles;
   /** Where its page is (`uiAddressOf` its listener), as `/api/identity` says it. */
   page: string;
   ctx: KbContext;
@@ -262,7 +261,7 @@ const handleHttpRequestEffect = (
     const staticResp = yield* assets.serveStaticEffect(url.pathname, {
       embedOrigins: deps.embedding?.origins ?? [],
       builds: deps.builds ?? null,
-      files: deps.codeImage === undefined ? undefined : assets.imagePageFiles(deps.codeImage),
+      files: deps.pageFiles,
     });
     if (staticResp) return staticResp;
 

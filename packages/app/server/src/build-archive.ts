@@ -21,11 +21,13 @@
  * whichever kept build has it. The archive is a cache: losing it costs a tab
  * of an older build a reload, nothing else.
  */
-import { basename, join, normalize } from "node:path";
+import { basename, dirname, join, normalize } from "node:path";
 import { Clock, Effect, Option, Schema } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import type { PlatformError } from "effect/PlatformError";
 import { writeErr } from "@kb/runtime";
+import { assetMediaType } from "@kb/model";
+import type { CodeImagePort } from "@kb/contracts";
 import { containedFile } from "@kb/workspace-fs";
 
 /**
@@ -45,7 +47,11 @@ const STAGING = ".staging-";
 /** A staging directory this old was left by a server that stopped while writing it. */
 const ABANDONED_MS = 60 * 60 * 1000;
 
-const BuildRecord = Schema.Struct({ build: Schema.String, at: Schema.Finite });
+const BuildRecord = Schema.Struct({
+  build: Schema.String,
+  at: Schema.Finite,
+  files: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+});
 const RecordJson = Schema.fromJsonString(BuildRecord);
 const decodeRecord = Schema.decodeUnknownOption(RecordJson);
 const encodeRecord = Schema.encodeEffect(RecordJson);
@@ -94,6 +100,90 @@ export function directoryBuildSource(distDir: string): PageBuildSource {
   };
 }
 
+/** Publish only captured bytes; filesystem changes cannot enter this source. */
+export function heldBuildSource(image: CodeImagePort): PageBuildSource {
+  return {
+    entry: Effect.gen(function* () {
+      const index = image.pageFile("index.html");
+      return index === null ? null : entryScriptOf(yield* Effect.promise(() => index.text()));
+    }),
+    write: Effect.fn("kb.ui.builds.writeHeld")(function* (directory: string) {
+      const fs = yield* FileSystem;
+      yield* fs.makeDirectory(directory, { recursive: true });
+      for (const name of image.pageNames) {
+        if (!name.startsWith(DIGEST_NAMED_DIR) || normalize(name) !== name) continue;
+        const body = image.pageFile(name);
+        if (body === null) continue;
+        const path = join(directory, name.slice(DIGEST_NAMED_DIR.length));
+        yield* fs.makeDirectory(dirname(path), { recursive: true });
+        const bytes = yield* Effect.promise(() => body.arrayBuffer());
+        yield* fs.writeFile(path, new Uint8Array(bytes));
+      }
+    }),
+  };
+}
+
+const fileDigest = (bytes: Uint8Array): string =>
+  new Bun.CryptoHasher("sha256").update(bytes).digest("hex");
+
+/** One containment-checked snapshot reader for publication manifests and held historical files. */
+const snapshotFiles = Effect.fn("kb.ui.builds.snapshotFiles")(function* (
+  root: string,
+  directory: string,
+  inventory?: Readonly<Record<string, string>>,
+) {
+  const fs = yield* FileSystem;
+  const files = new Map<string, Uint8Array>();
+  const entries =
+    inventory === undefined
+      ? yield* fs.readDirectory(directory, { recursive: true }).pipe(Effect.orElseSucceed(() => []))
+      : Object.keys(inventory);
+  for (const name of entries) {
+    if (normalize(name) !== name || name.startsWith("..") || name.startsWith("/")) continue;
+    const found = yield* containedFile(root, join(directory, name));
+    if (found.kind !== "ok") continue;
+    const bytes = yield* fs.readFile(found.path).pipe(Effect.option);
+    if (
+      Option.isSome(bytes) &&
+      (inventory === undefined || fileDigest(bytes.value) === inventory[name])
+    )
+      files.set(name, bytes.value);
+  }
+  return files;
+});
+
+/** Historical bytes are captured separately; they never become part of the current image identity. */
+export const captureKeptFiles = Effect.fn("kb.ui.builds.captureKeptFiles")(function* (
+  archive: string,
+) {
+  const fs = yield* FileSystem;
+  const files = new Map<string, Blob>();
+  const names = yield* fs.readDirectory(archive).pipe(Effect.orElseSucceed(() => []));
+  for (const name of names.toSorted((a, b) => (a < b ? -1 : a > b ? 1 : 0))) {
+    if (name.startsWith(STAGING)) continue;
+    const text = yield* fs
+      .readFileString(join(archive, name, RECORD))
+      .pipe(Effect.orElseSucceed(() => ""));
+    const record = decodeRecord(text);
+    if (Option.isNone(record)) continue;
+    // Legacy cache records predate the inventory; retain their existing old-tab delivery policy.
+    const snapshot = yield* snapshotFiles(
+      archive,
+      join(archive, name, DIGEST_NAMED_DIR),
+      record.value.files,
+    );
+    for (const [entry, bytes] of snapshot) {
+      const rel = DIGEST_NAMED_DIR + entry;
+      if (!files.has(rel))
+        files.set(
+          rel,
+          new Blob([bytes], { type: assetMediaType(rel) ?? "application/octet-stream" }),
+        );
+    }
+  }
+  return files;
+});
+
 /** A build's directory name: its entry script's, which carries its digest. */
 function directoryOf(build: string): string {
   return basename(build)
@@ -118,14 +208,18 @@ const publish = Effect.fn("kb.ui.builds.publish")(function* (
   archive: string,
   dir: string,
   source: PageBuildSource,
-  record: string,
+  record: typeof BuildRecord.Type,
 ) {
   const fs = yield* FileSystem;
   const staging = join(archive, `${STAGING}${crypto.randomUUID()}`);
   yield* Effect.gen(function* () {
     yield* fs.makeDirectory(staging, { recursive: true });
     yield* source.write(join(staging, DIGEST_NAMED_DIR));
-    yield* fs.writeFileString(join(staging, RECORD), record);
+    const snapshot = yield* snapshotFiles(staging, join(staging, DIGEST_NAMED_DIR));
+    const files = Object.fromEntries(
+      [...snapshot].map(([name, bytes]) => [name, fileDigest(bytes)]),
+    );
+    yield* fs.writeFileString(join(staging, RECORD), yield* encodeRecord({ ...record, files }));
     yield* fs
       .rename(staging, dir)
       .pipe(
@@ -176,10 +270,17 @@ export const recordBuild = Effect.fn("kb.ui.recordBuild")(
     const build = yield* source.entry;
     if (build === null) return;
     const dir = join(archive, directoryOf(build));
-    const record = yield* encodeRecord({ build, at: yield* Clock.currentTimeMillis });
+    const record = { build, at: yield* Clock.currentTimeMillis };
     yield* fs.makeDirectory(archive, { recursive: true });
-    if (yield* fs.exists(dir)) yield* writeWhole(join(dir, RECORD), record);
-    else yield* publish(archive, dir, source, record);
+    if (yield* fs.exists(dir)) {
+      const previous = decodeRecord(
+        yield* fs.readFileString(join(dir, RECORD)).pipe(Effect.orElseSucceed(() => "")),
+      );
+      yield* writeWhole(
+        join(dir, RECORD),
+        yield* encodeRecord({ ...Option.getOrUndefined(previous), ...record }),
+      );
+    } else yield* publish(archive, dir, source, record);
     yield* prune(archive, keep);
   },
   Effect.catch((error) =>

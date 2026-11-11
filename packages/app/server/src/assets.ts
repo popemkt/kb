@@ -107,7 +107,7 @@ type PageFileRead =
   | { readonly kind: "forbidden" };
 
 /** Delivery reads one source; filesystem and held images share the same route/fallback policy. */
-interface PageFiles {
+export interface PageFiles {
   readonly read: (name: string) => Effect.Effect<PageFileRead, never, FileSystem>;
 }
 
@@ -189,3 +189,17 @@ export function serveStatic(pathname: string): Promise<Response | null> {
 }
 
 export { UI_DIST };
+
+/** A composed source may serve captured history for static misses; the current image stays strict. */
+export function withPageHistory(current: PageFiles, history: ReadonlyMap<string, Blob>): PageFiles {
+  return {
+    read: Effect.fn("kb.ui.pageWithHistory")(function* (name: string) {
+      const found = yield* current.read(name);
+      if (found.kind !== "missing" || !name.startsWith(DIGEST_NAMED_DIR)) return found;
+      const body = history.get(name);
+      return body === undefined
+        ? found
+        : { kind: "file" as const, file: { body, headers: pageCacheHeaders(name, undefined) } };
+    }),
+  };
+}

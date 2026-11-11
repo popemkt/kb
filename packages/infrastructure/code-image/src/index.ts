@@ -50,6 +50,10 @@ export const loadCodeImage = Effect.fn("kb.loadCodeImage")(function* (
   });
   return {
     module: loaded,
-    image: Object.freeze({ identity, pageFile: (name: string) => page.get(name) ?? null }),
+    image: Object.freeze({
+      identity,
+      pageNames: Object.freeze([...page.keys()]),
+      pageFile: (name: string) => page.get(name) ?? null,
+    }),
   };
 });

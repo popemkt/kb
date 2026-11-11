@@ -35,6 +35,8 @@ test("loads held native bytes and serves held files after original files and map
     expect(result.image.pageFile("../native.js")).toBeNull();
     expect(result.image.pageFile("missing.js")).toBeNull();
     expect(Object.isFrozen(identity)).toBe(true);
+    expect(Object.isFrozen(result.image.pageNames)).toBe(true);
+    expect(result.image.pageNames).toEqual([...pages().keys()].toSorted());
   } finally {
     await rm(root, { recursive: true, force: true });
   }
