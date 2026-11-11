@@ -133,6 +133,7 @@ export {
   isA,
   kindsOf,
   nodesOfKind,
+  tagAncestors,
   tagChains,
   templateFieldsOf,
   type TagChains,

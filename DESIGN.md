@@ -801,6 +801,23 @@ sys.extension.<name>` answers it.
   [:find ?id :where [?e :node/id "sys.extension.canvas"] [?n :node/owner ?e] [?n :node/id ?id]]
   ```
 
+- **`:node/is` (what a node is), derived, never stored.** The third entry
+  of the derived table: each tag a node carries (`sys.f.type`) and every
+  tag each of those extends (`sys.f.extends`, `tagAncestors`), so a node of
+  `#meeting`, which extends `#event`, is an `#event` too. `[?n :f/sys.f.type
+  ?t]` stays "tagged exactly", and `[?n :node/is ?t]` is "is a, subtypes
+  included"; `isA` and `kindsOf` in `@kb/model` are the same reading
+  outside datalog. Its carrier reads a tag's chain through the index
+  (`GraphReads.ancestors`), which remembers every tag the walk looked up
+  (`ReadMemo`), so a tag that changes what it extends, appears or vanishes
+  restates the nodes it is on, however many hops away; a cycle a write let
+  through ends the walk, each tag on it once.
+
+  ```clojure
+  ; every #event, each #meeting (a tag that extends it) included
+  [:find ?id :where [?t :node/text "event"] [?n :node/is ?t] [?n :node/id ?id]]
+  ```
+
   Optional Logseq-style `:node/path-refs` (ancestor mentions) is backlog —
   add only when a real query needs hierarchy-scoped reach.
 
@@ -2105,7 +2122,9 @@ same lane. One path to a client, whatever a node's provenance.
   IR, owned here and not by any UI. The subject of every condition is the
   result node `?n`; a list is ANDed; a group is `any-of`, `all-of` or
   `none-of` (not any of its branches, each branch a conjunction). The rows:
-  `has-tag` / `lacks-tag` (`type is` the tag), `field-set` / `field-unset`,
+  `has-tag` / `lacks-tag` (is a node of the tag, subtypes included:
+  `[?a :node/id "t"] [?n :node/is ?a]`; `field-is` on `sys.f.type` is
+  "tagged exactly"), `field-set` / `field-unset`,
   `field-is` / `field-is-not` over values that are a node, a literal, or a
   `label` (the text a person typed, matching a literal whose text it is or
   a node whose id or text it is), `field-contains` and `text-contains`
@@ -2132,15 +2151,16 @@ same lane. One path to a client, whatever a node's provenance.
   (`canonicalConditions`: an `all-of` is spliced into its parent, an empty
   group, branch or value list is dropped, a one-branch `any-of` is its
   branch, branches that are each one `is` on one field are one multi-value
-  row, a `none-of` of one row with an operator form is that form, `type is`
-  one node is `has tag`). Its laws — lower then lift is the identity on
-  canonical conditions, lift is blind to renaming, lift loses nothing — are
-  `@kb/query`'s `conditions.test.ts` properties, with a semantic example
-  per row on kb's index. The model has a second placement, a view's
+  row, a `none-of` of one row with an operator form is that form). Its
+  laws — lower then lift is the identity on canonical conditions, lift is
+  blind to renaming, lift loses nothing — are `@kb/query`'s
+  `conditions.test.ts` properties, with a semantic example per row on kb's
+  index. The model has a second placement, a view's
   narrowing of its frame's rows ([View nodes](#view-nodes) → a view's
   filter), answered in JS by `conditionsMatcher` (`ir/evaluate.ts`) over a
-  `ConditionGraph` (a node lookup, the reference relation as the index
-  derives it, the run's clock sample); `evaluate.test.ts` holds it to
+  `ConditionGraph` (a node lookup, each derived relation as the index
+  derives it — the references, what a node is — and the run's clock
+  sample); `evaluate.test.ts` holds it to
   `compile(lowerIr(…))` on generated graphs, node for node. The design and
   its review:
   [`docs/brainstorms/2026-10-20-query-builder`](docs/brainstorms/2026-10-20-query-builder/README.md).
@@ -2161,7 +2181,8 @@ same lane. One path to a client, whatever a node's provenance.
   ```
 
   `<edge>` is any node-valued attribute: `:node/mentions` (the reference
-  relation, any carrier), `:node/owner` (who seeds it), `:node/child`, or
+  relation, any carrier), `:node/owner` (who seeds it), `:node/is` (each
+  tag it is), `:node/child`, or
   `:f/<fieldId>` for a ref field. A find position bound as the value of a
   derived attribute is a node, as one bound by `:node/child` is.
   A list headed `reach` with a keyword in the edge slot is this form. If it is
