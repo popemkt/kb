@@ -2323,6 +2323,16 @@ both are answered from the node ⌘K menu rather than from a device switch.
     user who had the global switch on has no id set to migrate to, so debug
     starts off and is re-armed per node. The stale key inside
     `localStorage["kb-prefs"]` is ignored on read and dropped on next write.
+- **A managed field edits after one step.** A field its family manages
+  (`sys.f.managedBy`, DESIGN.md → Data model), such as a day's period, shows
+  its values at rest with a note under them, "managed by Days", and an
+  **Edit** that makes that row editable until **Done**. It is friction, not
+  a lock: the family's constraints judge the write when it commits, and a
+  refusal is worded for the person like any other. `useFieldWrite`
+  (`@kb/ui-sdk`) is the one reading of the write rule on the page, and its
+  `ManagedNote` is drawn by the outline's field editor and, under a
+  family's own row, by `provideFieldEditor`, so a family's row never has to
+  know about it.
 - **Pinning is listing.** `@kb/ui-sdk`'s `lib/pinned.ts` owns it: the
   seeded `pinned` node's **children** are contextual references (`sys.f.ref.target`) to the pinned
   nodes, and that list _is_ the sidebar section. `mutations.togglePin` appends

@@ -319,6 +319,7 @@ describe("kb ext list", () => {
       "ext.code.script-run",
       "ext.days.unique-key",
       "ext.days.period-tag",
+      "ext.days.period-key",
     ]);
 
     resetRegistryCache();
