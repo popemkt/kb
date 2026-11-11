@@ -47,9 +47,12 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // it did, with the updates and the delete it is made of.
 // `tag.define` takes the tags a new tag extends, an optional input a previous
 // page never sends.
+// Protocol 8: node.add and node.addTree read an omitted parent as the
+// capture target (today's node with days), where a previous page meant the
+// top level; its local commit and the server's would disagree, so it reloads.
 const RECORDED = {
-  protocol: 7,
-  fingerprint: "628d4ba74df79ba558b17c3e5ce63d6ea311932912c0b407ba19e3e1bc7074e4",
+  protocol: 8,
+  fingerprint: "95a8336ede518edc9d09b076038f70a7a2e51bd1ef2e2d7da53e5e9f866e8eec",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

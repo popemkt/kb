@@ -53,7 +53,7 @@ function apply(graph: Graph, calls: readonly NodeCall[]): Graph {
       } = input as {
         id: string;
         text: string;
-        parent?: string;
+        parent?: string | null;
         tags?: string[];
         props?: { field: string; value: PropValue }[];
       };
@@ -62,7 +62,7 @@ function apply(graph: Graph, calls: readonly NodeCall[]): Graph {
       if (tags.length > 0) nodeProps[SYSTEM_IDS.typeField] = tags.map(ref);
       const nodeId = String(input["id"]);
       next.set(nodeId, { id: nodeId, text, props: nodeProps, children: [] });
-      if (parent !== undefined) {
+      if (parent !== undefined && parent !== null) {
         const owner = must(next.get(parent));
         next.set(parent, { ...owner, children: [...owner.children, nodeId] });
       }

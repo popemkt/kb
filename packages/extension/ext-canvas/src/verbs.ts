@@ -727,6 +727,7 @@ const canvasPromoteEffect = Effect.fn("ext.canvas.promote")(function* (
   // write leaves no node behind, and the pair is one step of history.
   const planned = yield* planNodeAddEffect({
     text,
+    parent: null,
     ...(input.nodeId === undefined ? {} : { id: input.nodeId }),
   });
   const nodeId = planned.id;

@@ -4,6 +4,9 @@ import { extensionStorageLayer } from "@kb/workspace-fs";
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import {
+  bundledPlugin,
+  CapturePlannerService,
+  topLevelPlan,
   ActionPoint,
   ContextReferencePoint,
   CurrentContextReferences,
@@ -153,31 +156,38 @@ function registryLifetime(kernel: Kernel): RegistryLifetime {
 }
 
 /**
- * Core's server entry: its actions, contributed like anyone else's but in the
- * root namespace, and its declaration's views, loaded as a child.
+ * Core's server entry, bound as its bundled declaration grants (DESIGN.md →
+ * Provider roles): its actions, contributed like anyone else's but in the
+ * root namespace, its declaration's views, loaded as a child, and the
+ * default of the role it owns here: `ui.capture-target` answers the top
+ * level.
  */
-const corePlugin = definePlugin({
-  name: coreExtension.name,
-  tags: familyTags(coreExtension),
-  namespace: "",
-  apply: (ctx) =>
-    Effect.all(
-      [
-        Effect.forEach(
-          coreActions,
-          (action) =>
-            ctx.contribute(ActionPoint, {
-              id: action.def.id,
-              aliases: action.aliases,
-              value: { ...action.def, effect: action.effect, handler: action.handler },
-            }),
-          { discard: true },
-        ),
-        ctx.plugin(declarationPlugin(coreExtension)),
-      ],
-      { discard: true },
-    ),
-});
+const corePlugin = bundledPlugin(
+  coreExtension,
+  definePlugin({
+    name: coreExtension.name,
+    tags: familyTags(coreExtension),
+    namespace: "",
+    apply: (ctx) =>
+      Effect.all(
+        [
+          ctx.provide(CapturePlannerService, topLevelPlan),
+          Effect.forEach(
+            coreActions,
+            (action) =>
+              ctx.contribute(ActionPoint, {
+                id: action.def.id,
+                aliases: action.aliases,
+                value: { ...action.def, effect: action.effect, handler: action.handler },
+              }),
+            { discard: true },
+          ),
+          ctx.plugin(declarationPlugin(coreExtension)),
+        ],
+        { discard: true },
+      ),
+  }),
+);
 
 /** The context references a kernel's plugins contribute, core's first. */
 function referencesOf(kernel: Pick<Kernel, "contributions">): ContextReferences {

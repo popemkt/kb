@@ -2,10 +2,10 @@ import { Effect, Layer, Predicate } from "effect";
 import {
   type ActionRequest,
   type ActionReceipt,
+  CaptureTarget,
   type FilledInput,
+  type IsomorphicActionEnv,
   type KbContext,
-  type KbCtx,
-  type KbStore,
   ContextReferencePoint,
   CurrentContextReferences,
   CurrentInterception,
@@ -38,6 +38,7 @@ import { postAction, type ActionResponse } from "@/api/action";
 import { inTabSession } from "@/api/tab-session";
 import {
   answerMessage,
+  pageCapturePlanner,
   type QueryAnswer,
   type QueryAnswers,
   toast,
@@ -64,7 +65,7 @@ export interface BrowserSessionView {
 interface BrowserSession {
   readonly ctx: KbContext<NodeIndex>;
   readonly store: BrowserStore;
-  readonly layer: Layer.Layer<KbCtx | KbStore | QueryEngineService | ViewCatalog>;
+  readonly layer: Layer.Layer<IsomorphicActionEnv>;
   readonly onLocalCommit: () => void;
   readonly replica: BrowserReplica;
 }
@@ -184,6 +185,7 @@ export function replaceBrowserSession(
       kbCtxLayer(ctx),
       Layer.succeed(QueryEngineService, pageEngine(queries)),
       Layer.succeed(ViewCatalog, livePageCatalog),
+      Layer.succeed(CaptureTarget, pageCapturePlanner),
     ),
     onLocalCommit: view.onLocalCommit,
     replica: new BrowserReplica(

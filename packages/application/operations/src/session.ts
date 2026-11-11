@@ -265,11 +265,12 @@ const PLANNED_ATTEMPTS = 3;
  */
 export const persistPlannedEffect = Effect.fn("kb.persistPlanned")(function* <
   W extends { readonly upserts: readonly KbNode[]; readonly deletes: readonly NodeId[] },
+  R = never,
 >(
   ctx: KbContext<NodeIndex>,
-  plan: (nodes: readonly KbNode[]) => Effect.Effect<W | null, DomainError>,
+  plan: (nodes: readonly KbNode[]) => Effect.Effect<W | null, DomainError, R>,
   options: PersistOptions = {},
-): Effect.fn.Return<W | null, DomainError, KbStore> {
+): Effect.fn.Return<W | null, DomainError, KbStore | R> {
   for (let attempt = 1; ; attempt++) {
     yield* reloadEffect(ctx);
     const read = seen.get(ctx);

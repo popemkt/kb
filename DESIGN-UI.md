@@ -4071,7 +4071,8 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
   has not moved by the time the answer comes. The move replaces the root's
   history entry, so Back leaves the page.
 - **The capture target's replacement** answers today's node through
-  `ext.days.today`, with the page's local day. ⌘K "Add node" with nothing
+  `ext.days.today`, with the page's local day, unless the family's
+  `captures` setting says the top level. ⌘K "Add node" with nothing
   selected and a picker's "create" row for a new top-level node both go
   through the role (`captureNode`), so either lands in today. When the
   action refuses or the node never reaches the page, the replacement fails
@@ -5217,7 +5218,11 @@ light with screen. Light pages turn the flowing rays into warm sunlight, with a
 soft solar core and halo painted by `--header-sun`; multiply blending keeps the
 canvas ground transparent on the page. It has no pointer targets,
 pauses for reduced motion, background tabs and offscreen headers, and is released
-when the header unmounts or the choice changes. Failed loading or unavailable
+when the header unmounts or the choice changes. A scene is handed over only once
+the runtime has started it: `addScene` resolves before the scene's planes are
+made, and a scene destroyed sooner leaves the rest of its start reading what
+`destroy` took. So a scene whose header goes while it starts cold is destroyed
+the moment it has started (`unicorn-cold-start.e2e.ts`). Failed loading or unavailable
 WebGL leaves the wash it paints over. Rendering needs no external requests.
 
 #### GPU scenes

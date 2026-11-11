@@ -46,7 +46,7 @@ export function linkVisualInput(link: CapturedLink, parent: string | null) {
   return {
     text: link.name,
     tags: [GALLERY_IDS.visualTag],
-    ...(parent === null ? {} : { parent }),
+    parent,
     props: [{ field: GALLERY_IDS.sourceField, value: { t: "str" as const, v: link.url } }],
   };
 }

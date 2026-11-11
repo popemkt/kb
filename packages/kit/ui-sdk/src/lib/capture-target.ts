@@ -5,22 +5,25 @@
  * {@link topLevelCapture}, answers the top level; a family that replaces
  * it (days, with today's node) is elected over it as any replacement is.
  */
-import { CAPTURE_TARGET_ROLE } from "@kb/contracts";
+import { Effect } from "effect";
+import { CAPTURE_TARGET_ROLE, type CapturePlanner } from "@kb/contracts";
+import { domainError } from "@kb/model";
 import { Role, Service } from "@kb/plugin";
 import { callPageRole } from "./plugins";
 
 /** The parent a capture goes under, or null for the top level. */
-export type CaptureTarget = () => Promise<string | null>;
+export type PageCaptureTarget = () => Promise<string | null>;
 
-export const CaptureTargetService = Service<CaptureTarget>()(
-  CAPTURE_TARGET_ROLE.role,
-  CAPTURE_TARGET_ROLE.spec,
-);
+/** The page kernel's key of `ui.capture-target`; the registry's is `CapturePlannerService` in `@kb/contracts`. */
+export const CaptureTargetService = Service<PageCaptureTarget>()(CAPTURE_TARGET_ROLE.role, {
+  ...CAPTURE_TARGET_ROLE.spec,
+  kernel: "page",
+});
 
 const CaptureTargetRole = Role(CaptureTargetService);
 
 /** Core's answer, the role's default: a capture goes to the top level. */
-export const topLevelCapture: CaptureTarget = () => Promise.resolve(null);
+export const topLevelCapture: PageCaptureTarget = () => Promise.resolve(null);
 
 /** How long the elected provider may take before the next candidate answers. */
 const CAPTURE_BUDGET_MS = 5_000;
@@ -33,3 +36,19 @@ const CAPTURE_BUDGET_MS = 5_000;
 export function captureTarget(): Promise<string | null> {
   return callPageRole(CaptureTargetRole, (target) => target(), CAPTURE_BUDGET_MS);
 }
+
+/**
+ * The page's capture target as an action handler on this page asks it
+ * (`CaptureTarget`): a `node.add` with no parent, run in the tab, lands
+ * where the page's own captures do, in the page's day. Nothing is left to
+ * make, as a page provider makes its place before it answers.
+ */
+export const pageCapturePlanner: CapturePlanner = () =>
+  Effect.tryPromise({
+    try: captureTarget,
+    catch: (cause) =>
+      domainError(
+        "internal",
+        `no capture target answered: ${cause instanceof Error ? cause.message : String(cause)}`,
+      ),
+  }).pipe(Effect.map((parent) => ({ parent, upserts: [] })));

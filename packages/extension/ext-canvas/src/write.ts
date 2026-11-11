@@ -310,7 +310,7 @@ export const createCanvasEffect = Effect.fn("ext.canvas.create")(function* (
     text: name,
     tags: ["canvas"],
     props: [{ field: CANVAS_IDS.canvasField, value: { t: "str", v: stringifyCanvasDoc(doc) } }],
-    ...(parent === undefined ? {} : { parent }),
+    parent: parent ?? null,
   });
   yield* persistEffect(ctx, { upserts: planned.upserts, deletes: [] });
   return planned.id;

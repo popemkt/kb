@@ -8,6 +8,14 @@ export interface UnicornScene {
   destroy: () => void;
 }
 
+/**
+ * The runtime's scene as `addScene` hands it over: it resolves before the
+ * scene's planes are made, and `initializing` holds until they are.
+ */
+interface StartingScene extends UnicornScene {
+  readonly initializing?: boolean;
+}
+
 interface UnicornRuntime {
   addScene: (options: {
     element: HTMLElement;
@@ -17,7 +25,7 @@ interface UnicornRuntime {
     scale: number;
     lazyLoad: boolean;
     interactivity: { mouse: { disabled: boolean } };
-  }) => Promise<UnicornScene>;
+  }) => Promise<StartingScene>;
 }
 
 declare global {
@@ -59,13 +67,35 @@ function loadRuntime(): Promise<UnicornRuntime> {
   return runtime;
 }
 
+/**
+ * The scene once the runtime has started it, looked for once a frame (the
+ * runtime makes its planes in a frame too). The runtime offers no word of it,
+ * and a scene destroyed sooner leaves the rest of its start reading what
+ * `destroy` took, outside any promise kb holds; so a scene handed over is
+ * one that can be destroyed at once.
+ */
+function started(scene: StartingScene): Promise<UnicornScene> {
+  return new Promise((resolve) => {
+    const look = () => {
+      if (scene.initializing === true) requestAnimationFrame(look);
+      else resolve(scene);
+    };
+    look();
+  });
+}
+
+/**
+ * A scene in `element`, resolved once the runtime has started it. Aborted
+ * before the runtime has loaded, no scene is started; aborted after, the
+ * caller destroys the scene it is handed.
+ */
 export async function createUnicornScene(
   element: HTMLElement,
   signal: AbortSignal,
 ): Promise<UnicornScene> {
   const loaded = await loadRuntime();
   signal.throwIfAborted();
-  return loaded.addScene({
+  const scene = await loaded.addScene({
     element,
     filePath: "/vendor/unicorn/scene.json",
     fps: 60,
@@ -75,6 +105,7 @@ export async function createUnicornScene(
     // Still until the pointer source says the pointer is over its frame (`followPointer`).
     interactivity: { mouse: { disabled: true } },
   });
+  return started(scene);
 }
 
 /**

@@ -136,6 +136,11 @@ const DATASCRIPT = /cljs\.core/;
 // from a failed receipt), the refusal as data it reads (`WriteRefusal`), and
 // the owner chip with the index's point read it asks (`related`), merged with
 // C1b-a at 2adf28cf, measure 1,826,408; the budget keeps about 1.5 KB over it.
+// The capture target on both kernels (`CaptureTarget` in the page's action
+// env, the page's planner over its role, `node.add` deciding its place in
+// its planned commit, and the descriptions saying what an omitted parent
+// means) and days' captures and time zone settings, merged with main at
+// c33abe82, measure 1,829,178; the budget keeps about 1.5 KB over it.
 // An acyclic ref field's picker check (`closesCycleOf`, over the one ref
 // walk), Enter keeping a disabled row unpicked, and the node menu's "Make
 // your own tag that extends this" take it to 1,827,344; the budget keeps
@@ -143,9 +148,10 @@ const DATASCRIPT = /cljs\.core/;
 // The node menu reaching a page's own node (one menu anchor on rows and
 // titles, ⌘K listing the page node's commands, a step handed to the node
 // menu, `faceOf`, the focused pane's subject), the picker's kind label and
-// its held-value deselect take it to 1,829,237; the budget keeps about
-// 1.5 KB over that.
-const EAGER_BUDGET_BYTES = 1_830_700;
+// its held-value deselect take it to 1,829,237; merged with main at
+// c52a467b, beside the capture target, it measures 1,832,167; the budget
+// keeps about 1.5 KB over that.
+const EAGER_BUDGET_BYTES = 1_833_700;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {
