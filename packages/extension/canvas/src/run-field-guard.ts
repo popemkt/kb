@@ -22,7 +22,8 @@ export const canvasRunFieldGuard: Omit<ActionGuard, "match"> = {
         const before = call.nodeOf(node.id);
         const bindingChanged = Object.values(CANVAS_RUN_FIELDS).some(
           ({ field }) =>
-            canonicalJson(before?.props[field] ?? []) !== canonicalJson(node.props[field] ?? []),
+            canonicalJson({ value: before?.props[field] }) !==
+            canonicalJson({ value: node.props[field] }),
         );
         const dependencies = new Set<string>();
         if (before !== undefined) {

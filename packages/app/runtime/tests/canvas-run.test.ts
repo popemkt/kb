@@ -15,7 +15,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
-import { CANVAS_RUN_FIELDS } from "@kb/canvas";
+import { CANVAS_RUN_FIELDS, CANVAS_IDS } from "@kb/canvas";
 import { createStore, STORE_BACKENDS, type StoreBackend } from "../src/store-selection.ts";
 import { bunFileSystemLayer } from "../src/platform.ts";
 import { CODE_IDS } from "@kb/code";
@@ -595,5 +595,33 @@ for (const backend of STORE_BACKENDS) {
       }).pipe(Effect.provide(bunFileSystemLayer)),
     );
     expect(invalid.status).toBe("failed");
+  });
+}
+
+for (const backend of STORE_BACKENDS) {
+  test(`${backend}: empty present bindings are refused on existing and new nodes`, async () => {
+    const ctx = await legacyKb(backend);
+    const board = present(ctx.index.getNode("n.board"), "board");
+    const before = canonicalJson(ctx.nodes);
+    for (const node of [
+      board,
+      {
+        id: "new.empty.binding",
+        text: "New canvas",
+        props: { [SYSTEM_IDS.typeField]: [{ t: "ref" as const, v: CANVAS_IDS.canvasTag }] },
+        children: [],
+        createdAt: board.createdAt,
+        updatedAt: board.updatedAt,
+      },
+    ]) {
+      const receipt = await Effect.runPromise(
+        atomicWrite(ctx, {
+          upserts: [{ ...node, props: { ...node.props, [CANVAS_RUN_FIELDS.input.field]: [] } }],
+          deletes: [],
+        }).pipe(Effect.provide(bunFileSystemLayer)),
+      );
+      expect(receipt.status).toBe("failed");
+      expect(canonicalJson(ctx.nodes)).toBe(before);
+    }
   });
 }
