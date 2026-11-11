@@ -114,6 +114,16 @@ export interface UiServerOptions {
   builds?: string | null;
 }
 
+/**
+ * What a server serves whichever way it is started: the options `kb ui`'s
+ * start paths ({@link startDevServer}, {@link startProductionUi},
+ * {@link runUiCli}) hand {@link startUi} as they were given.
+ */
+export type ServedOptions = Pick<
+  UiServerOptions,
+  "root" | "publicOrigin" | "embedding" | "identity" | "extensions" | "openedBy"
+>;
+
 export interface UiServerHandle {
   /** Where it listens: the TCP port it bound (0 resolved), or its socket. */
   at: UiListener;
@@ -533,36 +543,28 @@ export interface UiDevServer {
  * /assets and /ws back to it (HMR on the Vite port). Fails fast — stopping
  * the backend — if either cannot come up (e.g. backend port already bound).
  */
-export const startDevServer = Effect.fn("kb.startDevServer")(function* (opts: {
-  root: string;
-  backendPort: number;
-  devPort: number;
-  uiRoot: string;
-  publicOrigin?: string;
-  embedding?: Embedding;
-  identity?: readonly Plugin[];
-  spawn?: UiDevSpawn;
-  extensions?: readonly ExtensionEntry[];
-  openedBy?: SurfaceWire;
-}): Effect.fn.Return<UiDevServer, DomainError, FileSystem> {
+export const startDevServer = Effect.fn("kb.startDevServer")(function* (
+  opts: ServedOptions & {
+    backendPort: number;
+    devPort: number;
+    uiRoot: string;
+    spawn?: UiDevSpawn;
+  },
+): Effect.fn.Return<UiDevServer, DomainError, FileSystem> {
+  const { backendPort, devPort, uiRoot, spawn: spawnDev, ...served } = opts;
   const backend = yield* startUi({
-    root: opts.root,
-    port: opts.backendPort,
+    ...served,
+    port: backendPort,
     openBrowser: false,
-    uiPort: opts.devPort,
-    publicOrigin: opts.publicOrigin,
-    embedding: opts.embedding,
-    identity: opts.identity,
-    extensions: opts.extensions,
-    openedBy: opts.openedBy,
+    uiPort: devPort,
   });
-  const spawn = opts.spawn ?? bunSpawnDev;
+  const spawn = spawnDev ?? bunSpawnDev;
   const child = yield* Effect.try({
     try: () =>
       spawn({
         cmd: "bun",
-        args: ["run", "dev", "--port", String(opts.devPort)],
-        cwd: join(opts.uiRoot),
+        args: ["run", "dev", "--port", String(devPort)],
+        cwd: join(uiRoot),
         env: childProcessEnv("tool", {
           // Vite proxy target: /api, /assets, /ws all route to the kb backend.
           KB_UI_API_PORT: new URL(backend.url).port,
@@ -573,7 +575,7 @@ export const startDevServer = Effect.fn("kb.startDevServer")(function* (opts: {
   return {
     backend,
     child,
-    url: `http://127.0.0.1:${opts.devPort}`,
+    url: `http://127.0.0.1:${devPort}`,
     stop: Effect.sync(() => {
       child.kill();
     }).pipe(Effect.andThen(backend.stop)),
@@ -584,32 +586,19 @@ export const startDevServer = Effect.fn("kb.startDevServer")(function* (opts: {
  * Production lifecycle: ensure the built UI is present and fresh, then serve.
  * The build step is injectable for tests (fake runner, no live checkout).
  */
-export const startProductionUi = Effect.fn("kb.startProductionUi")(function* (opts: {
-  root: string;
-  port: number;
-  socket?: string;
-  openBrowser: boolean;
-  uiRoot: string;
-  publicOrigin?: string;
-  embedding?: Embedding;
-  identity?: readonly Plugin[];
-  ensureBuilt?: EnsureUiBuilt;
-  extensions?: readonly ExtensionEntry[];
-  openedBy?: SurfaceWire;
-}): Effect.fn.Return<{ handle: UiServerHandle; build: UiEnsureResult }, DomainError, FileSystem> {
-  const ensure = opts.ensureBuilt ?? ensureUiBuilt;
-  const build = yield* ensure(opts.uiRoot, UI_DIST).pipe(Effect.mapError(ensureDomainError));
-  const handle = yield* startUi({
-    root: opts.root,
-    port: opts.port,
-    socket: opts.socket,
-    openBrowser: opts.openBrowser,
-    publicOrigin: opts.publicOrigin,
-    embedding: opts.embedding,
-    identity: opts.identity,
-    extensions: opts.extensions,
-    openedBy: opts.openedBy,
-  });
+export const startProductionUi = Effect.fn("kb.startProductionUi")(function* (
+  opts: ServedOptions & {
+    port: number;
+    socket?: string;
+    openBrowser: boolean;
+    uiRoot: string;
+    ensureBuilt?: EnsureUiBuilt;
+  },
+): Effect.fn.Return<{ handle: UiServerHandle; build: UiEnsureResult }, DomainError, FileSystem> {
+  const { uiRoot, ensureBuilt, ...served } = opts;
+  const ensure = ensureBuilt ?? ensureUiBuilt;
+  const build = yield* ensure(uiRoot, UI_DIST).pipe(Effect.mapError(ensureDomainError));
+  const handle = yield* startUi(served);
   return { handle, build };
 }, Effect.provide(bunFileSystemLayer));
 
@@ -627,8 +616,7 @@ function onTerminationSignal(stop: Effect.Effect<void>): () => void {
   };
 }
 
-export interface RunUiCliOptions {
-  root: string;
+export interface RunUiCliOptions extends ServedOptions {
   port?: number;
   /** Listen on this Unix socket instead of a port ({@link UiServerOptions.socket}); not with `dev`. */
   socket?: string;
@@ -636,17 +624,9 @@ export interface RunUiCliOptions {
   dev?: boolean;
   devPort?: number;
   uiRoot?: string;
-  publicOrigin?: string;
-  embedding?: Embedding;
-  /** How the person is authenticated ({@link UiServerOptions.identity}). */
-  identity?: readonly Plugin[];
   /** Injectable build-ensure step (default {@link ensureUiBuilt}). */
   ensureBuilt?: EnsureUiBuilt;
   spawnDev?: UiDevSpawn;
-  /** The extensions the server hosts ({@link UiServerOptions.extensions}). */
-  extensions?: readonly ExtensionEntry[];
-  /** Who opened the root ({@link UiServerOptions.openedBy}). */
-  openedBy?: SurfaceWire;
 }
 
 /**
@@ -658,29 +638,33 @@ export interface RunUiCliOptions {
 export const runUiCli = Effect.fn("kb.runUiCli")(function* (
   opts: RunUiCliOptions,
 ): Effect.fn.Return<never, DomainError, FileSystem> {
-  const open = opts.openBrowser !== false;
-  const uiRoot = opts.uiRoot ?? UI_ROOT;
+  const {
+    port,
+    socket,
+    openBrowser: asked,
+    dev,
+    devPort,
+    uiRoot,
+    ensureBuilt,
+    spawnDev,
+    ...served
+  } = opts;
+  const open = asked !== false;
 
-  if (opts.dev === true) {
-    const devPort = opts.devPort ?? UI_DEV_DEFAULT_PORT;
-    const dev = yield* startDevServer({
-      root: opts.root,
-      backendPort: opts.port ?? UI_DEFAULT_PORT,
-      devPort,
-      uiRoot,
-      spawn: opts.spawnDev,
-      publicOrigin: opts.publicOrigin,
-      embedding: opts.embedding,
-      identity: opts.identity,
-      extensions: opts.extensions,
-      openedBy: opts.openedBy,
+  if (dev === true) {
+    const started = yield* startDevServer({
+      ...served,
+      backendPort: port ?? UI_DEFAULT_PORT,
+      devPort: devPort ?? UI_DEV_DEFAULT_PORT,
+      uiRoot: uiRoot ?? UI_ROOT,
+      spawn: spawnDev,
     });
-    writeErr(`kb ui dev server listening on ${dev.url}`);
-    if (open) openBrowser(dev.url);
+    writeErr(`kb ui dev server listening on ${started.url}`);
+    if (open) openBrowser(started.url);
 
-    const detachSignals = onTerminationSignal(dev.stop);
+    const detachSignals = onTerminationSignal(started.stop);
 
-    const code = yield* runDevUntilExit(dev, (exitCode) => {
+    const code = yield* runDevUntilExit(started, (exitCode) => {
       detachSignals();
       if (exitCode !== 0 && exitCode !== null) {
         writeErr(`kb ui: vite dev server exited with code ${exitCode}`);
@@ -690,17 +674,12 @@ export const runUiCli = Effect.fn("kb.runUiCli")(function* (
   }
 
   const { build, handle } = yield* startProductionUi({
-    root: opts.root,
-    port: opts.port ?? UI_DEFAULT_PORT,
-    socket: opts.socket,
+    ...served,
+    port: port ?? UI_DEFAULT_PORT,
+    socket,
     openBrowser: open,
-    uiRoot,
-    ensureBuilt: opts.ensureBuilt,
-    publicOrigin: opts.publicOrigin,
-    embedding: opts.embedding,
-    identity: opts.identity,
-    extensions: opts.extensions,
-    openedBy: opts.openedBy,
+    uiRoot: uiRoot ?? UI_ROOT,
+    ensureBuilt,
   });
   if (build.built) {
     writeErr(`kb ui: built UI at ${relative(process.cwd(), UI_DIST)} (${build.state})`);
