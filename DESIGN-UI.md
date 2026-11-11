@@ -821,11 +821,13 @@ original's text; a context breadcrumb is the obvious next step and is not
 built. There is no global ⌘K entry: a contextual reference needs both a host
 row and a target, and the global palette has no two-step for that.
 
-A References row names each typed relation its referrer holds to the node
-(a non-system ref field pointing here), worded from the node's side: the
-field's inverse label when it names one ("influenced by"), else its label
-read toward the node ("influences →"); a referrer that only mentions the
-node shows none. A mention is typed where it is read: with the graph
+A References row names each field its referrer points here through
+(`NodeIndex.referenceFields`, read by the carriers that made the
+reference: a ref value, a `[[id]]` token in a text value, a date for its
+day), leaving out system fields, worded from the node's side: the field's
+inverse label when it names one ("influenced by"), else its label read
+toward the node ("influences →", "due →"); a referrer that only mentions
+the node in its own text shows none. A mention is typed where it is read: with the graph
 family's setting `graph.suggest-relations` on, a row that mentions a node
 offers "Type this reference…" in its node menu. The graph contributes the
 command and the palette step it opens (`PaletteStepPoint`, `graph-ui`
@@ -888,7 +890,10 @@ the row's anatomy, a primitive of `@kb/ui-sdk` that prefs renders too
 Following is one function for every pointer in kb (`lib/follow.ts`:
 `routePointerClick`, the bullet rule `bulletClickIntent`, and `useFollow`,
 which carries a follow out); a url's link is a real anchor, so the browser's
-open, middle-click and context menu work.
+open, middle-click and context menu work. A date follows (⌘/Ctrl-click,
+⌘Enter) to the node the page role `ui.date-target` answers for it
+(DESIGN.md → [Provider roles](./DESIGN.md#provider-roles)): its day's
+node with days on, made if need be ([Days](#days)), and nowhere without.
 
 **Keys.** At rest (the slot focused, its editor closed): ↑/↓ and
 Tab/Shift-Tab move through the field's values and out to the row; Backspace or
@@ -3990,16 +3995,22 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
   `days.sections`, in ascending `order`. A section is `{order, title,
   Component}`, and its component is given the day node and its key. Days
   never imports a family that shows something on a day; that family
-  contributes a section (the events section is one). Days fills two:
-  - **Dated this day** (`order: 20`): every node holding the day in a
-    date-typed field, whatever the field and whichever family made it,
-    each with the field's name beside it (`datedOn` in `@kb/days`).
-  - **Made or edited this day** (`order: 30`): the nodes whose created or
-    updated instant falls within the local day, newest first. Schema, the
-    period nodes and `sys.*` nodes are left out.
+  contributes a section (the events section is one). Days fills one,
+  **Made or edited this day** (`order: 30`): the nodes whose created or
+  updated instant falls within the local day, newest first. Schema, the
+  period nodes and `sys.*` nodes are left out. Each row opens its node.
 
-  Each row opens its node. The page is its own chunk, fetched the first
-  time a day opens, and each section's body is one too.
+  What is dated the day is not a section: it is the day's References,
+  which its outline draws, each row naming the date field that dates it
+  ("due →"; DESIGN.md → [Days](./DESIGN.md#days)). The page scrolls in
+  the pane's one scroll region (`frame: "scroll"`), and the room after a
+  page's end is the region's, never the outline's, so nothing opens a gap
+  between the outline and the sections. The page is its own chunk,
+  fetched the first time a day opens, and each section's body is one too.
+- **A date opens its day.** Days replaces the page role `ui.date-target`:
+  following a date value opens that day's node, made if need be through
+  `ext.days.today`, in its day page. If days fails, the role's recovery
+  demotes it and core's default leads nowhere.
 - **The Today row** sits under Home in the sidebar (`order: 5`) and opens
   today's node, making it if need be. It is the active row while today's
   node is open.
@@ -4606,20 +4617,84 @@ A PR for a backdrop reports a score against each criterion.
     (`trackPointerOver`). The slot hands the hook's callback ref to its
     frame (`usePointerOver`'s `attach`), so a frame that mounts late is
     followed from the moment it attaches.
-- **One slot.** `PageBackdrop` (`@kb/ui-sdk`) is the one page-head slot.
-  It frames the chosen backdrop by its presentation, behind the page's
-  content, and renders nothing when nothing is contributed. Behind is a
-  paint layer, not a position: the slot stands in the negative layer of the
-  page's paint root, the scroll region (`PageFrame`, `isolation: isolate`),
-  so every box of the page, positioned or not, paints over the frame at
-  full opacity wherever the frame reaches below the head, and the frame
-  still paints over the shell's ground. A head's rows need no positioning of
-  their own to stay above it (`backdrop-stacking.e2e.ts` holds it for every
-  backdrop, page kind, scheme and strength). Any page head
-  renders it with its colour and its node. The outline's home head and its
-  zoomed head are the heads that render it today; canvas and graph pages
-  have no head yet, so nothing renders it there
-  (gap 01M54CEKJJXNDPYNT55AR6KEV8).
+- **One slot.** `PageBackdrop` (`@kb/ui-sdk`) is the one page-head slot:
+  the head's space, at the top of the page, as tall as the chosen
+  backdrop's presentation asks (`space`, at most 24vw) and never less than
+  what it holds. It holds the head's first row, the breadcrumbs, so the
+  backdrop reaches up behind them and the title stands under the space,
+  where the backdrop's composition expects it (the title sits `space` below
+  the space's top whether or not the breadcrumbs are there). Any page head
+  renders it with its colour and its node, and names no backdrop. It draws
+  nothing itself: it declares the head (its colour, its node, its choice
+  and its space) to the pane's host, which draws in that space (**One
+  backdrop across pages**), so layout places the backdrop with the page in
+  the pass that lays the page out. Behind is a paint layer, not a
+  position: the host stands the frame in the negative layer of the page's
+  paint root, the scroll region (`PageFrame`, `isolation: isolate`), over
+  the whole space, so every box of the page, positioned or not, paints over
+  the frame at full opacity wherever the frame reaches below the head, and
+  the frame still paints over the shell's ground. A head's rows need no
+  positioning of their own to stay above it (`backdrop-stacking.e2e.ts`
+  holds it for every backdrop, page kind, scheme and strength). The
+  outline's home head and its zoomed head are the heads that render it
+  today; canvas and graph pages have no head yet, so nothing renders it
+  there (gap 01M54CEKJJXNDPYNT55AR6KEV8).
+- **The head's top row reads over any backdrop.** The rows the space holds
+  stand, as wide as they are, on a scrim that is the page's ground itself
+  (`HeadBand`): opaque, soft-edged by a blur, and reaching past the rows by
+  twice that blur, so under every glyph it is at least nine parts ground
+  and the backdrop shows all round it rather than under a band. Muted
+  breadcrumbs keep AA contrast that way on any picture, light or dark: a
+  thinner, translucent scrim does not, for the muted ink is near AA on the
+  bare ground already. `head-band-contrast.e2e.ts` photographs the band
+  with its text made transparent, for every contributed backdrop at its
+  strongest, on the home and a node's page, in light and in dark, and holds
+  each crumb's colour against every pixel of its box to at least 4.5:1.
+  Theme art composed to keep the band clear in a narrow head (the OVC
+  terminal, the broadcast sign) now reaches under it there
+  (gap 01M7355M039ESNZV6N85EV8BQ2).
+- **One backdrop across pages.** A pane's backdrop host
+  (`PageBackdropHost`, in `PaneFrame`) is the one place a page-head
+  backdrop is drawn, mounted once for the pane above the router, so moving
+  between pages never mounts a backdrop again. A page framed by its route
+  (the outline's home) and one framed by the view it resolves to
+  (`/node/<id>`, `NodeViewSurface`) stand in two different scroll regions,
+  so the host draws into an element of its own, through a portal, which a
+  head takes into its space as it declares itself, in the commit that
+  shows it: the element moves with its canvases, and their contexts, from
+  one page's space to the next, whichever region each stands in. A frame
+  that spans the region measures against the region it stands in now
+  (`useBreakoutShift`). While no head is declared the element stays in the
+  space it was in and leaves the page with it. Its layers are keyed by the
+  backdrop's declared id:
+  - the next page's head choosing the backdrop shown keeps it, its frame,
+    scene, clock and GPU context; its colour, node and settings reach it as
+    props, as an edit's do (One scene for the life of the head);
+  - choosing another crossfades: the one shown fades out over the theme's
+    duration while the new one fades in, and its layer, scene and context
+    go when that time is up, by the clock: a fade advances only as frames
+    are drawn, and a page whose frames stall (a busy GPU, a hidden tab)
+    still lets the old scene go. The time runs from when it began to
+    leave, so a page above the host that suspends and shows again, which
+    disconnects the host's effects meanwhile, picks the fade up where it
+    was rather than starting it over; under reduced motion it goes at
+    once, with no fade;
+  - no head declared (a page with none, or the next one still loading)
+    holds the backdrop for a reveal, then fades it out, so a page that
+    declares the same backdrop meanwhile finds it running;
+  - motion reduced, by the setting or the system, while a backdrop fades
+    in, out or is held cuts it there: only the chosen backdrop is left,
+    standing still, and the next page swaps at once;
+  - a backdrop whose family stops contributing it (a plugin unloaded or
+    reloaded on the way out) is let go at once, so no code of a plugin that
+    is gone keeps drawing;
+  - a page's own settings changing (its backdrop, its strength) are the
+    same two cases: another backdrop crossfades, a setting is a prop.
+  `backdrop-navigation.e2e.ts` moves 20 times in the page between the home,
+  a node's page and a tag's page: the head's canvas is the same element
+  throughout, its clock only moves forward, and no GPU context is made after
+  the first; a page choosing another backdrop crossfades to it and leaves
+  one canvas, and under reduced motion swaps at once.
 - **A backdrop is declared, and its option is derived.** A family lists its
   backdrops' keys on its declaration, as declared options of the backdrop
   kind (`declaredOptions`, `BACKDROP_OPTIONS`). The seed
@@ -4951,8 +5026,10 @@ sys.backdrop-variant.backdrops.astral.orrery`; `set` appends, so
 - **Read once, checked.** A repository extension's page half is
   third-party code built against whichever SDK it was, and will lag the
   contract. So the page never draws what `BackdropPoint` holds as the
-  kernel holds it: every reader (a head, a card, Settings, the studio)
-  reads it through one check (`useBackdrops`, `decodeBackdrop`). A list
+  kernel holds it: every reader (a head, the pane's host, a card,
+  Settings, the studio) reads it through one check (`useBackdrops`,
+  `decodeBackdrop`), once for each version of the kernel whoever reads it,
+  so a head and the host that draws it hold the same backdrop. A list
   the contract has since required and a contribution left out is its
   empty value (`interactions`, none). Anything else that is not what the
   contract says (a field missing or of the wrong shape, its key's variants,
@@ -4991,9 +5068,16 @@ sys.backdrop-variant.backdrops.astral.orrery`; `set` appends, so
     writes core's setting, and the row and the slot then show it.
   - A page's own node chooses for that page over core's.
 - **The continuity contract** (`app/ui/src/backdrop-continuity.contract.test.tsx`)
-  renders the page head with each declared backdrop chosen, types 30 keys
-  into a node and makes an edit: the slot keeps the instance it mounted, and
-  a GPU backdrop's scene mounts once and its clock only moves forward.
+  renders the page head in a pane with each declared backdrop chosen. It
+  types 30 keys into a node and makes an edit, and it moves between pages
+  that show the same backdrop, the home's region and a node page's among
+  them: the host keeps the instance it mounted, and a GPU backdrop's scene
+  mounts once, with one renderer, and its clock only moves forward. A page
+  that shows another backdrop crossfades to it and lets the old scene go
+  once the fade's time is up, though no frame drew it on, at once under
+  reduced motion, and at once when its
+  family is unloaded on the way; reducing motion during a crossfade or a
+  hold cuts it, and the next page swaps without a fade.
 
 #### Variation
 
@@ -5104,6 +5188,15 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   each scene with `import()`: three never reaches the first-load bundle
   (`UI_LAZY_ONLY`). Until a scene is ready, and on a machine that cannot
   start one, the head shows the wash.
+- **Samples start in turns** (`gpu/sample-turns.ts`). A scene's start
+  compiles its materials on the main thread, in its first frame. A sample
+  (`HeldStill`: an option card, a gallery's) starts once the sample before
+  it has settled, in a task of its own, so a gallery of a dozen cards never
+  holds the page for all of their compiles in a row, and the page's own
+  timers (a crossfade letting its old backdrop go) run between any two. A
+  sample that goes passes its turn on at once, even while its start hangs,
+  and a scene its start makes later is disposed. A page head's scene is no
+  sample and starts at once.
 - **One mount** (`gpu/gpu-scene.ts`'s `mountBackdrop`) gives every GPU
   backdrop the same stage and the same promises; a backdrop is its shader
   and its `BackdropParts`.

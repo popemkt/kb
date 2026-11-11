@@ -505,7 +505,8 @@
 }
 
 /* A narrow head (bb's side panel, a phone): the set shrinks, so the TV
- * stays above the breadcrumb and the title. */
+ * stays above the title. The breadcrumbs now stand over the head's top, and
+ * the set's top reaches under them. GAP [[01M7355M039ESNZV6N85EV8BQ2]] */
 @container (max-width: 640px) {
   .kb-broadcast-tv {
     top: 12px;
@@ -862,7 +863,8 @@
 }
 
 /* A narrow head (bb's side panel, a phone): everything shrinks and rises,
- * so the art stays above the breadcrumb and the title. */
+ * so the art stays above the title. The breadcrumbs now stand over the
+ * head's top, and the art's top reaches under them. GAP [[01M7355M039ESNZV6N85EV8BQ2]] */
 @container (max-width: 640px) {
   .kb-hollow-panel {
     top: 22px;

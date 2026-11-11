@@ -76,6 +76,16 @@ void fieldRows;
 const cues: Same<UiSdk.BackdropCue, PageSurface.BackdropCue> = true;
 const interactions: Same<UiSdk.BackdropInteraction, PageSurface.BackdropInteraction> = true;
 const dropsACue: Same<UiSdk.BackdropCue, Exclude<PageSurface.BackdropCue, "navigation">> = false;
+/**
+ * Where a value kind's `follow` points is held exactly too: a page half's
+ * kind returns one, and a target the surface dropped (a date, say) would
+ * be one the page still carries out. The witness: a surface without dates fails.
+ */
+const followTargets: Same<UiSdk.FollowTarget, PageSurface.FollowTarget> = true;
+const dropsDates: Same<
+  UiSdk.FollowTarget,
+  Exclude<PageSurface.FollowTarget, { readonly kind: "date" }>
+> = false;
 
 describe("the page SDK surface", () => {
   it("declares only what the page serves, exactly, in shapes the page reads", () => {
@@ -92,5 +102,9 @@ describe("the page SDK surface", () => {
 
   it("names the cues a backdrop answers exactly as the page does", () => {
     expect([cues, interactions, dropsACue]).toEqual([true, true, false]);
+  });
+
+  it("names where a value points exactly as the page does", () => {
+    expect([followTargets, dropsDates]).toEqual([true, false]);
   });
 });

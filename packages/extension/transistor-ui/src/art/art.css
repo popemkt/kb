@@ -636,7 +636,8 @@
 }
 
 /* A narrow head: the terminal takes the width and its lines tighten, so it
- * stays above the breadcrumb and the title. */
+ * stays above the title. The breadcrumbs now stand over the head's top, and
+ * the terminal's top reaches under them. GAP [[01M7355M039ESNZV6N85EV8BQ2]] */
 @container (max-width: 640px) {
   .kb-ovc-terminal {
     top: 26px;

@@ -416,6 +416,7 @@
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.motion-style.clean","props":{},"text":"clean","updatedAt":"2026-01-01T00:00:00.000Z"}
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.motion-style.wobbly","props":{},"text":"wobbly","updatedAt":"2026-01-01T00:00:00.000Z"}
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.role.ui.capture-target","props":{"sys.f.type":[{"t":"ref","v":"sys.tag.role"}]},"text":"Capture target","updatedAt":"2026-01-01T00:00:00.000Z"}
+{"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.role.ui.date-target","props":{"sys.f.type":[{"t":"ref","v":"sys.tag.role"}]},"text":"Date target","updatedAt":"2026-01-01T00:00:00.000Z"}
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.role.ui.field-editor","props":{"sys.f.type":[{"t":"ref","v":"sys.tag.role"}]},"text":"Field editor","updatedAt":"2026-01-01T00:00:00.000Z"}
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.role.ui.landing","props":{"sys.f.type":[{"t":"ref","v":"sys.tag.role"}]},"text":"Landing","updatedAt":"2026-01-01T00:00:00.000Z"}
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.tag","props":{"sys.f.fields":[{"t":"ref","v":"sys.f.color"},{"t":"ref","v":"sys.f.hidden"},{"t":"ref","v":"sys.f.view.default"},{"t":"ref","v":"sys.f.view.row"},{"t":"ref","v":"sys.f.extends"}]},"text":"sys.tag","updatedAt":"2026-01-01T00:00:00.000Z"}

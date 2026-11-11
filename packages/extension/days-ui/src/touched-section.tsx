@@ -13,6 +13,6 @@ function pageZone(): string {
 
 export function TouchedSection({ day }: DaySectionProps) {
   const nodes = useNodes() as ReadonlyMap<string, Stamped>;
-  const rows = useMemo(() => touchedOn(nodes, day, pageZone()).map((id) => ({ id })), [nodes, day]);
-  return <NodeRows rows={rows} />;
+  const ids = useMemo(() => touchedOn(nodes, day, pageZone()), [nodes, day]);
+  return <NodeRows ids={ids} />;
 }

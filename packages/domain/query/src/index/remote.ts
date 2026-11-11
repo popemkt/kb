@@ -181,6 +181,12 @@ export class RemoteIndex implements NodeIndex {
     return this.#table.referencesOf(...args);
   }
 
+  referenceFields(
+    ...args: Parameters<NodeIndex["referenceFields"]>
+  ): ReturnType<NodeIndex["referenceFields"]> {
+    return this.#table.referenceFields(...args);
+  }
+
   allNodes(): ReturnType<NodeIndex["allNodes"]> {
     return this.#table.allNodes();
   }

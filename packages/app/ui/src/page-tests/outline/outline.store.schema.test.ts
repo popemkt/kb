@@ -177,13 +177,13 @@ describe("a member's backlinks under a scope", () => {
     useGraphStore.getState().setOntologyScope("o.1");
     const g = useGraphStore.getState();
     expect(outlineNodes().has("n.pointer")).toBe(false);
-    const rows = await answered(g, (run) => backlinkRows(run, schemaOf(g), "n.a"));
+    const rows = await answered(g, (run) => backlinkRows(run, schemaOf(g), g.index, "n.a"));
     expect(rows.find((r) => r.id === "n.pointer")?.text).toBe("alpha");
   });
 });
 
 describe("a backlink's typed relations", () => {
-  it("word each ref field the referrer points here through from this side, and skip system fields", async () => {
+  it("word each field the referrer points here through from this side, and skip system fields", async () => {
     const graph = [
       ...wire(),
       node("f.influences", "influences", {
@@ -197,15 +197,43 @@ describe("a backlink's typed relations", () => {
         [SYSTEM_IDS.typeField]: [{ t: "ref", v: "n.a" }],
       }),
       node("n.mention", "mentions [[n.a]]"),
+      node("f.notes", "notes", { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }] }),
+      node("n.noted", "Noted", { "f.notes": [{ t: "str", v: "see [[n.a]]" }] }),
     ];
     useGraphStore.getState().hydrateFromWire(graph, 1, "fixtures");
     const g = useGraphStore.getState();
-    const rows = await answered(g, (run) => backlinkRows(run, schemaOf(g), "n.a"));
+    const rows = await answered(g, (run) => backlinkRows(run, schemaOf(g), g.index, "n.a"));
     expect(rows.find((r) => r.id === "n.source")?.relations).toEqual([
       { field: "f.influences", label: "influenced by" },
       { field: "f.owner", label: "owner →" },
     ]);
+    // A token in the node's own text is in no field; one in a text value is in that field.
     expect(rows.find((r) => r.id === "n.mention")?.relations).toEqual([]);
+    expect(rows.find((r) => r.id === "n.noted")?.relations).toEqual([
+      { field: "f.notes", label: "notes →" },
+    ]);
+  });
+});
+
+describe("a backlink's relation through a date", () => {
+  it("names the date field a node is dated the day through, read by days' carrier", async () => {
+    const graph = [
+      ...wire(),
+      node("f.due", "due", {
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+        [SYSTEM_IDS.fieldTypeField]: [{ t: "ref", v: SYSTEM_IDS.ftDate }],
+      }),
+      node("days.2026-11-12", "Thu, Nov 12"),
+      node("n.task", "Call the plumber", { "f.due": [{ t: "str", v: "2026-11-12" }] }),
+    ];
+    useGraphStore.getState().hydrateFromWire(graph, 1, "fixtures");
+    const g = useGraphStore.getState();
+    const rows = await answered(g, (run) =>
+      backlinkRows(run, schemaOf(g), g.index, "days.2026-11-12"),
+    );
+    expect(rows.find((r) => r.id === "n.task")?.relations).toEqual([
+      { field: "f.due", label: "due →" },
+    ]);
   });
 });
 

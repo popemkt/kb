@@ -740,6 +740,12 @@ set`, MCP and the UI all replace in one write), a many-valued field gains
   `packages/extension/graph/src/edges.ts`, scans text tokens — `nodeMentions`,
   the same reader the datoms use — children and ref props separately and
   never queries `:node/mentions`, which would double every prop edge). The
+  field a reference comes through is the other lens: each carrier reads a
+  reference with the field whose value holds it (none for the node's own
+  text or its owner), and `NodeIndex.referenceFields(node, target)` answers
+  it from those same carriers, so the References row says "due →" for a
+  date as it says "owner →" for a ref, and no surface scans props for a
+  second copy of what a carrier reads. The
   one place two carriers meet is a **typed mention**: a source that both
   mentions a target and holds it in a ref field has said what the mention
   means, so the projection folds the mention into that relation's edge (its
@@ -5255,7 +5261,8 @@ are `docs/brainstorms/2026-10-17-kb-locations/README.md`.
   `test` — what `bun test` and Vitest give the process and every child it
   starts — must name its home in `KB_HOME`, and resolving the home without
   it is a defect, not a fallback. The test preload names one per run
-  (`@kb/test-kit`'s `test-home.ts`), so a test that registers a root writes
+  (`@kb/test-kit`'s `test-home.ts`, in its `preload.ts`, which the root's
+  and every `bun test` package's `bunfig.toml` name), so a test that registers a root writes
   only there, and one that starts a kb child without passing that on fails
   instead of writing to the person's.
 - **The data is nodes.** In the home store: the tag `sys.tag.kb-location`
@@ -5429,16 +5436,24 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
   Another family may claim the role the same way (an inbox, say). The
   server's `node.add` without a parent does not ask it yet (GAP
   [[01M7357PSG9XZH0JBFDHV6DM2T]]).
-- **A node is dated a day by any date field.** The days a node holds are
-  its values in date-typed fields, whichever field and family (`datesOf`):
-  the field's type says a value is a date, and a date value is stored as
-  its `YYYY-MM-DD` text, which is the day's key. There is no shared date
-  field. The day page's "Dated this day" reads this one function
-  (DESIGN-UI.md → [Days](./DESIGN-UI.md#days)). The date → day reference
-  (a date value in a day's References and `kb backlinks`) waits on carriers
-  that read a value with its field node, and will read the same function.
+- **A node is dated a day by any date field.** A value in a date-typed
+  field, whichever field and family, dates its node that day: the field's
+  type says a value is a date, and a date value is stored as its
+  `YYYY-MM-DD` text, which is the day's key. There is no shared date
+  field.
+- **Date fields link to days.** The family declares a carrier over every
+  field (`refCarriers`; [Refs](#data-model--everything-is-a-node)): a date
+  value mentions its day's node, so the day's References and `kb backlinks
+  <day>` list every node dated it, with no stored link, and a References
+  row names the field that dates it ("due →"), as it names any field a
+  reference comes through. A value dated before its day exists is
+  mentioned once the day is made. The carrier names the day by its derived
+  id, `days.<date>`, so a day held under another id is not mentioned, and
+  its page shows nothing dated it (GAP [[01M73N2FPM7GGCX6H62V6PE8JG]]).
+  Following a date value opens its day, made if need be: days replaces the
+  page role `ui.date-target` ([Provider roles](#provider-roles)).
 - **The day page's sections are a declared point,** `days.sections` (page
-  kernel, a list in ascending order). Days fills two, and a family that
+  kernel, a list in ascending order). Days fills one, and a family that
   shows something on a day contributes a section rather than days
   importing it.
 - **No month nodes yet.** A month is not on the path to a day, and no view
@@ -6063,7 +6078,10 @@ goes under. Core owns it and answers the top level, and days replaces it
 ([Days](#days)). The third is `ui.landing`, the node a page that loads at
 the root opens on, which the shell asks once per page load. Core owns it
 and stays home, and days replaces it with today (DESIGN-UI.md →
-[Days](./DESIGN-UI.md#days)).
+[Days](./DESIGN-UI.md#days)). The fourth is `ui.date-target`, the node a
+followed date value opens (a `date` follow target, DESIGN-UI.md → Field
+values). Core owns it and leads nowhere, and days replaces it with the
+date's day, made if need be.
 
 ### Transaction reactions
 

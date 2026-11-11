@@ -8,6 +8,7 @@ import { Effect } from "effect";
 import {
   ActionPoint,
   CAPTURE_TARGET_ROLE,
+  DATE_TARGET_ROLE,
   LANDING_ROLE,
   declarationPlugin,
   defineExtension,
@@ -18,6 +19,7 @@ import {
   viewDef,
 } from "@kb/contracts";
 import { definePlugin, type Plugin } from "@kb/plugin";
+import { dateDayReferences } from "./dated.ts";
 import { DAYS_IDS } from "./ids.ts";
 import { DAYS_POINT_DEFINITIONS } from "./point-definitions.ts";
 import { daysSeed } from "./seed.ts";
@@ -38,6 +40,11 @@ export const daysExtension = defineExtension({
         why: "A node made with no chosen place lands in today's node",
       },
       {
+        role: DATE_TARGET_ROLE.role,
+        priority: 50,
+        why: "A followed date opens its day's node, made if need be",
+      },
+      {
         role: LANDING_ROLE.role,
         priority: 50,
         why: "A page that loads at the root opens on today, unless its open on setting says home",
@@ -51,6 +58,7 @@ export const daysExtension = defineExtension({
   views: [viewDef(DayView)],
   points: Object.values(DAYS_POINT_DEFINITIONS),
   tagDefaultViews: { [DAYS_IDS.dayTag]: DayView },
+  refCarriers: [{ refsOf: dateDayReferences }],
 });
 
 export function daysPlugin(): Plugin {

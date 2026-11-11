@@ -38,6 +38,18 @@ export const LANDING_ROLE = {
   spec: { kernel: "page", tier: "T3", replaceable: true },
 } as const satisfies ProviderRole;
 
+/**
+ * Where a date leads (DESIGN.md → Provider roles): a page service answering
+ * the node a date value opens when followed, made if need be, or null when
+ * a date leads nowhere. Core owns it and leads nowhere; days replaces it
+ * with the date's day.
+ */
+export const DATE_TARGET_ROLE = {
+  role: "ui.date-target",
+  label: "Date target",
+  spec: { kernel: "page", tier: "T3", replaceable: true },
+} as const satisfies ProviderRole;
+
 /** Bundled composition grants its declaration's defaults; the provider cannot grant itself a role. */
 export function bundledPlugin(declaration: ExtensionDeclaration, plugin: Plugin): Plugin {
   const manifest =
