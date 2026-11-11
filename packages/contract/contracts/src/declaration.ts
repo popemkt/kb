@@ -1,3 +1,9 @@
+import {
+  keyboardNodes,
+  keyboardOptions,
+  keyboardRootIds,
+  type KeyboardDefinition,
+} from "@kb/keybindings";
 import type { PointDefinition } from "./point-definitions.ts";
 import type { ProviderRole } from "./roles.ts";
 import {
@@ -17,7 +23,13 @@ import type { ExtensionManifest } from "./extension-manifest.ts";
  */
 import { Context, Effect } from "effect";
 import { z } from "zod";
-import type { DeclaredOptionSet, KbNode, NodeId, SeedRetirement } from "@kb/model";
+import {
+  extensionNodeId,
+  type DeclaredOptionSet,
+  type KbNode,
+  type NodeId,
+  type SeedRetirement,
+} from "@kb/model";
 import type { ValueRefCarrier } from "@kb/query";
 import type { ViewKey } from "@kb/views";
 import { definePlugin, type Plugin } from "@kb/plugin";
@@ -65,6 +77,8 @@ export interface ExtensionDeclaration {
    * plugin contributes none.
    */
   readonly seed?: (at: string) => readonly KbNode[];
+  /** One keyboard definition supplies default graph descriptions and the page contributions. */
+  readonly keyboard?: KeyboardDefinition;
   /** Bundled role nodes derived by the same seed fold as views and options. */
   readonly roles?: readonly ProviderRole[];
   /** Bundled point metadata, read before any page implementation loads. */
@@ -135,7 +149,26 @@ export interface ExtensionDeclaration {
 
 /** A family's declaration, as written in its shared package. */
 export function defineExtension(declaration: ExtensionDeclaration): ExtensionDeclaration {
-  return declaration;
+  const keyboard = declaration.keyboard;
+  if (keyboard === undefined) return declaration;
+  return {
+    ...declaration,
+    seed: (at) => [
+      ...(declaration.seed?.(at) ?? []),
+      ...keyboardNodes(declaration.name, keyboard, at),
+    ],
+    declaredOptions: [
+      ...(declaration.declaredOptions ?? []),
+      ...keyboardOptions(declaration.name, keyboard),
+    ],
+    files: {
+      ...declaration.files,
+      [extensionNodeId(declaration.name)]: [
+        ...(declaration.files?.[extensionNodeId(declaration.name)] ?? []),
+        ...keyboardRootIds(declaration.name, keyboard),
+      ],
+    },
+  };
 }
 
 /**

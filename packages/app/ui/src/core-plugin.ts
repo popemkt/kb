@@ -10,7 +10,7 @@
  */
 import { Effect } from "effect";
 import { bundledPlugin, declarationPlugin, familyTags, contributeKeyboard } from "@kb/contracts";
-import { coreExtension, CORE_KEYBOARD } from "@kb/operations";
+import { coreExtension } from "@kb/operations";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import {
   CaptureTargetService,
@@ -35,7 +35,7 @@ export const coreUiPlugin: Plugin = bundledPlugin(
           ctx.provide(CaptureTargetService, topLevelCapture),
           ctx.provide(LandingService, stayHome),
           ctx.provide(DateTargetService, leadsNowhere),
-          contributeKeyboard(ctx, CORE_KEYBOARD),
+          contributeKeyboard(ctx, coreExtension.keyboard ?? {}),
           Effect.acquireRelease(
             Effect.sync(() => subscribeUiKernel(tellKeymaps)),
             (unsubscribe) => Effect.sync(unsubscribe),

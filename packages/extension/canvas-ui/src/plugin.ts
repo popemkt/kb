@@ -4,13 +4,7 @@ import { familyTags, contributeKeyboard } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import { CANVAS_LIST_PATH, matchCanvas, matchCanvasList } from "./routes";
 import { CanvasListSurface, CanvasSection, CanvasSurface } from "./surfaces";
-import {
-  CanvasListView,
-  CanvasView,
-  canvasExtension,
-  canvasPlugin,
-  CANVAS_KEYBOARD,
-} from "@kb/canvas";
+import { CanvasListView, CanvasView, canvasExtension, canvasPlugin } from "@kb/canvas";
 import { canvasBoard } from "./board";
 
 import {
@@ -85,7 +79,7 @@ export const canvasUiPlugin = definePlugin({
           id: "section",
           value: { order: 30, Component: CanvasSection },
         }),
-        contributeKeyboard(ctx, CANVAS_KEYBOARD),
+        contributeKeyboard(ctx, canvasExtension.keyboard ?? {}),
       ],
       { discard: true },
     ),

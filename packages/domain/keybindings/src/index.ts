@@ -30,3 +30,16 @@ export {
 } from "./bindings.ts";
 
 export { ChordDataSchema, type ChordData } from "./chord-data.ts";
+
+export {
+  SHORTCUT_IDS,
+  keyboardSchemaNodes,
+  keyboardNodes,
+  keyboardOptions,
+  keyboardRootIds,
+  chordNode,
+  chordOfNode,
+  chordData,
+  shortcutNodeId,
+  keyTargetNodeId,
+} from "./nodes.ts";

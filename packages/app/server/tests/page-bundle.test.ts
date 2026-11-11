@@ -174,7 +174,9 @@ const DATASCRIPT = /cljs\.core/;
 // bytes; retain about 1.5 KB of headroom for the combined page.
 // Canvas key contexts and the refreshed page bridge on main d94876c5
 // measure 1,850,164 bytes; retain about 1.5 KB over that combined page.
-const EAGER_BUDGET_BYTES = 1_851_700;
+// Shared keyboard declarations and their ordinary shortcut/chord descriptions
+// measure 1,855,046 bytes; retain about 1.5 KB of eager headroom.
+const EAGER_BUDGET_BYTES = 1_856_500;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

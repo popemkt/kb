@@ -1,6 +1,6 @@
 import { lazy } from "react";
 import { Effect } from "effect";
-import { familyTags } from "@kb/contracts";
+import { familyTags, contributeKeyboard } from "@kb/contracts";
 import { capturesToday, DAYS_IDS, daysExtension, daysPlugin, showsTouched } from "@kb/days";
 import { refValuesOf } from "@kb/model";
 import { definePlugin } from "@kb/plugin";
@@ -10,13 +10,12 @@ import {
   CaptureTargetService,
   CommandPoint,
   DateTargetService,
-  KeybindingPoint,
   LandingService,
   NodeSectionPoint,
   SidebarSectionPoint,
   type NodeMap,
 } from "@kb/ui-sdk";
-import { goToTodayCommand, goToTodayKey } from "./command";
+import { goToTodayCommand } from "./command";
 import { TodaySection } from "./section";
 import { dayNode, todayNode } from "./today";
 
@@ -92,7 +91,7 @@ export const daysUiPlugin = definePlugin({
           value: { order: 5, Component: TodaySection },
         }),
         ctx.contribute(CommandPoint, { id: goToTodayCommand.id, value: goToTodayCommand }),
-        ctx.contribute(KeybindingPoint, goToTodayKey),
+        contributeKeyboard(ctx, daysExtension.keyboard ?? {}),
         ctx.provide(CaptureTargetService, captureIntoToday),
         ctx.provide(LandingService, landOnToday),
         ctx.provide(DateTargetService, dayNode),

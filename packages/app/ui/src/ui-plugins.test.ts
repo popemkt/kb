@@ -5,10 +5,19 @@
  * which families' browser entries the page loads for what the server reports.
  */
 import { Effect, Schema } from "effect";
-import { ChordDataSchema, matchesChord, type KeyChordEvent } from "@kb/keybindings";
+import {
+  SHORTCUT_IDS,
+  chordData,
+  chordOfNode,
+  shortcutNodeId,
+  keyTargetNodeId,
+  ChordDataSchema,
+  matchesChord,
+  type KeyChordEvent,
+} from "@kb/keybindings";
 import { describe, expect, it } from "vitest";
 import { makeKernel, syncPlugins } from "@kb/plugin";
-import { BUNDLED_FAMILIES, HOSTED_FAMILIES } from "@kb/bundled";
+import { BUNDLED_FAMILIES, HOSTED_FAMILIES, bundledSeed } from "@kb/bundled";
 import { NO_SWITCHES, extensionRow, familyOn, type ExtensionRow } from "@kb/contracts";
 import { agentExtension } from "@kb/agent";
 import { LAB_SCENE_IDS, labExtension } from "@kb/lab";
@@ -46,6 +55,28 @@ function route(path: string): { surface: string; params: unknown } | null {
 }
 
 describe("shipped keybinding data", () => {
+  it("derives exactly one graph description for every runtime default from the same declaration", () => {
+    const graph = new Map(bundledSeed("2026-11-11T00:00:00.000Z").map((node) => [node.id, node]));
+    const bindings = kernelWithBuiltins().contributions(KeybindingPoint);
+    const ids = bindings.map(({ id }) => shortcutNodeId(id));
+    const descriptions = [...graph.values()].filter(
+      (node) =>
+        node.props["sys.f.type"]?.some(
+          (value) => value.t === "ref" && value.v === SHORTCUT_IDS.tag,
+        ) === true,
+    );
+    expect(descriptions.map(({ id }) => id).toSorted()).toEqual(ids.toSorted());
+    for (const binding of bindings) {
+      const row = graph.get(shortcutNodeId(binding.id));
+      const key = row?.props[SHORTCUT_IDS.keys]?.[0];
+      const chord = key?.t === "ref" ? graph.get(key.v) : undefined;
+      expect(chord, binding.id).toBeDefined();
+      if (chord === undefined) continue;
+      expect(chordOfNode(chord), binding.id).toEqual(chordData(binding.value.chord));
+      expect(row?.props[SHORTCUT_IDS.runs]).toEqual([{ t: "ref", v: keyTargetNodeId(binding.id) }]);
+      expect(graph.has(keyTargetNodeId(binding.id))).toBe(true);
+    }
+  });
   it("round-trips every loaded binding without losing constraints or matching behavior", () => {
     const bindings = kernelWithBuiltins().contributions(KeybindingPoint);
     expect(bindings.length).toBeGreaterThan(100);

@@ -368,7 +368,6 @@ export {
   type ViewPresetSpec,
 } from "./camera-stops.ts";
 export {
-  CANVAS_KEYBOARD,
   CANVAS_CONTEXT_IDS,
   CANVAS_SHORTCUTS,
   CANVAS_VIEW_COMMANDS,

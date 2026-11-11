@@ -452,8 +452,25 @@ The intents are each mode's table (`EDITING_INTENTS`, `SELECTION_INTENTS`);
 the guard that keeps a query-result row from being restructured is part of
 each structural intent, so it holds whatever chord runs it.
 
+The shared declaration's `keyboard` supplies both page contributions and seeded
+`#shortcut` descriptions. The runtime point is the sole source of default
+bindings; these graph rows describe it. Shipped descriptions protect their
+structure and values like other defaults, while their labels remain cosmetic.
+A separate ordinary shortcut can name a default through `replaces`.
+
+A shortcut's `keys` references one chord node, `runs` its registered target,
+`where` its context, and `enabled` is a checkbox. One node describes one binding,
+matching the admission model. A chord can name a set of character keys, a
+physical `code`, or the registered printable matcher with exclusions. Its
+modifier fields use ordinary option references: absent means unconstrained,
+`required` means true, and `excluded` means false. This keeps an unconstrained
+modifier visibly distinct from one that must be up. The chord's label is only its display, never its
+parser. A chord with malformed carriers or conflicting matcher fields is
+refused rather than interpreted as a broader chord. Executable plugin
+predicates have no stored representation.
+
 The page itself is a context too, `core.page`, which core owns
-(`app/ui` `lib/page-keys.ts`). A context says where it is offered keys
+(`operations/src/keyboard.ts`). A context says where it is offered keys
 (`reach`): the outline's are `surface` contexts, offered the keys of what
 has focus, as the canvas's three are (`canvas.rest`, `canvas.transform`,
 `canvas.present`; [Canvas (i3)](#canvas-i3), its views), and the
@@ -2006,11 +2023,11 @@ the view node switches every page showing the canvas through it.
   orthographic projection, so it is the same picture as the DOM canvas.
 - **Views, the widget and the view menu.** The camera model names six
   orientations (`CANVAS_VIEW_PRESETS`, among the camera's stops in
-  `canvas-camera-stops.ts`, beside its zoom step and its tilt limit): top, front, right, back, left (each
+  `canvas/src/camera-stops.ts`, beside its zoom step and its tilt limit): top, front, right, back, left (each
   named for where the eye stands; front is the +y side) and the oblique look
   a canvas first opens at. The view commands (`CANVAS_VIEW_COMMANDS`) are
   rows of the canvas's one shortcut table (`CANVAS_SHORTCUTS`,
-  `canvas-ui/src/canvas-keys.ts`). A row is an intent of one of the
+  `canvas/src/keybindings.ts`). A row is an intent of one of the
   canvas's three key contexts (`canvas.rest`, `canvas.transform`,
   `canvas.present`) with the chords kb binds it to, which are canvas-ui's
   bindings (`CANVAS_BINDINGS`), both contributed to the page kernel

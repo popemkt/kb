@@ -7,7 +7,6 @@ export { outlineExtension, outlinePlugin } from "./extension.ts";
 export { OUTLINE_IDS } from "./ids.ts";
 
 export {
-  OUTLINE_KEYBOARD,
   EDITING_CONTEXT,
   EDITING_CONTEXT_ID,
   EDITING_BINDINGS,
