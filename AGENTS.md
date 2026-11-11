@@ -130,10 +130,14 @@ on them as they work on their own.
   its form, the option source (children, a tag or a query), a closed option
   set, and the family's commit guard. A bad value is refused with a reason.
   A lock covers two things only: the family's identity and structure (its
-  ids, the existence of its seeded nodes and what they ship), and values the
-  family declares it manages because they mirror something outside the
-  person's hand, such as a sync's ids or a day node's date. A managed value
-  changes through the family's actions, and the editor says which ones.
+  ids, the existence of its seeded nodes and what they ship), and values
+  that mirror something outside the person's hand which no constraint can
+  check, such as a synced event's Google Calendar id. A locked value
+  changes through the family's actions, and the editor says which ones. A
+  value the family's constraints keep valid is managed, not locked
+  (`sys.f.managedBy`): days' period key is kept to one real period by its
+  guards, so a person may re-key a day after the page's one deliberate
+  step.
 - **Families migrate their own data, declared and previewed.** A family whose
   update changes the shape of data it owns ships the change as declared
   migration steps. The steps are pure, deterministic and idempotent. The
