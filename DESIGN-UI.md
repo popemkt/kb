@@ -2515,7 +2515,10 @@ contribution (`CommandPoint`). Each says where it is offered (`menu`):
 Each entry retains its implementation provenance: the actual `CommandPoint`
 registration for a contributed command, or the host handler's captured inputs
 and live view-key/provider dependencies for a generated command. These are code
-references, not authority inferred from writable descriptions. A missing or
+references, not authority inferred from writable descriptions. Contributed
+command and view providers retain the kernel's effective host-bound provenance
+([Declared point lifecycle](DESIGN.md#declared-point-lifecycle)); a reported
+provenance record still needs independent authentication by the authority host. A missing or
 ambiguous provider remains visible to an authority adapter; this metadata alone
 never authenticates it. Listing applies each command's `when` predicate, while
 the existing runner resolves the first matching id in catalog order. An adapter

@@ -76,6 +76,7 @@ import {
   type ProvidedView,
   shownDesignSystem,
   ViewPoint,
+  uiKernelReader,
   SYSTEM_IDS,
   textOr,
   type ThemePref,
@@ -96,7 +97,7 @@ import {
   type ViewKey,
 } from "@kb/views";
 import { Result } from "effect";
-import type { Contribution } from "@kb/plugin";
+import type { Contribution, Kernel } from "@kb/plugin";
 
 const GLOBAL = { where: "global" } as const;
 
@@ -634,10 +635,19 @@ function openWithCommands(ctx: CommandContext): readonly CommandRegistration[] {
   );
 }
 
+interface CodeRegistration<C> {
+  readonly registration: Contribution<C>;
+  readonly provenance: ReturnType<Kernel["provenance"]>;
+}
+
+function codeRegistration<C>(registration: Contribution<C>): CodeRegistration<C> {
+  return { registration, provenance: uiKernelReader.provenance(registration.owner) };
+}
+
 /** A view key captured by a host-generated command, with its live page providers. */
 interface CommandViewDependency {
   readonly key: ViewKey<unknown>;
-  readonly registrations: readonly Contribution<ProvidedView>[];
+  readonly registrations: readonly CodeRegistration<ProvidedView>[];
 }
 
 /** The actual runner entry; provenance is a code reference, never an approval grant. */
@@ -649,7 +659,7 @@ interface CommandRegistration {
         readonly input: Readonly<Record<string, string>>;
         readonly views: readonly CommandViewDependency[];
       }
-    | { readonly kind: "contribution"; readonly registration: Contribution<Command> };
+    | ({ readonly kind: "contribution" } & CodeRegistration<Command>);
 }
 
 function hostCommand(
@@ -664,7 +674,9 @@ function hostCommand(
       input,
       views: keys.map((key) => ({
         key,
-        registrations: currentContributions(ViewPoint).filter(({ value }) => value.key === key),
+        registrations: currentContributions(ViewPoint)
+          .filter(({ value }) => value.key === key)
+          .map(codeRegistration),
       })),
     },
   };
@@ -682,7 +694,7 @@ export function commandsFor(ctx: CommandContext): readonly CommandRegistration[]
     ...defaultViewCommands(ctx),
     ...currentContributions(CommandPoint).map((registration) => ({
       command: registration.value,
-      source: { kind: "contribution" as const, registration },
+      source: { kind: "contribution" as const, ...codeRegistration(registration) },
     })),
   ];
 }

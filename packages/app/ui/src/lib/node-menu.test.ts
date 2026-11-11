@@ -24,7 +24,7 @@ import { bundledSeed } from "@kb/bundled";
 import { canvasUiPlugin } from "@kb/canvas-ui";
 import { useOutlineStore } from "@kb/outline-ui";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
-import { definePlugin } from "@kb/plugin";
+import { bindPluginAuthority, definePlugin } from "@kb/plugin";
 import {
   CommandPoint,
   ViewPoint,
@@ -352,6 +352,7 @@ describe("runner catalog provenance", () => {
     );
     expect(entry.source.registration).toEqual(registration);
     expect(entry.source.registration.owner).toBe("page-only");
+    expect(entry.source.provenance).toEqual({ root: "page-only", source: "bundled" });
     expect(entry.command).toBe(registration?.value);
     await runCommand(entry.command.id, context());
     expect(ran).toHaveBeenCalledOnce();
@@ -361,6 +362,29 @@ describe("runner catalog provenance", () => {
     expect(
       commandsFor(context()).filter(({ command }) => command.id === "page-only.go"),
     ).toHaveLength(1);
+  });
+
+  it("reads host-bound code provenance for an extension command without granting authority", () => {
+    const digest = `sha256:${"a".repeat(64)}`;
+    const plugin = bindPluginAuthority(
+      duplicateProvider("installed", () => {}, true),
+      {
+        source: "extension",
+        pointNamespace: "ext.installed",
+        digest,
+        replacements: [],
+        defaults: [],
+      },
+    );
+    syncUiPlugins([...base, plugin]);
+    const entry = commandsFor(context()).find(({ command }) => command.id === "duplicate");
+    expect(entry?.source.kind === "contribution" ? entry.source.provenance : undefined).toEqual({
+      root: "installed",
+      source: "extension",
+      digest,
+    });
+    syncUiPlugins(base);
+    expect(commandsFor(context()).some(({ command }) => command.id === "duplicate")).toBe(false);
   });
 
   it("does not turn writable command descriptions into runner entries", () => {
@@ -437,7 +461,7 @@ describe("runner catalog provenance", () => {
     if (frame.source.kind !== "host") throw new Error("Expected host source");
     const dependency = present(frame.source.views[0], "view dependency");
     expect(frame.source.input).toEqual({ view: dependency.key.id });
-    expect(dependency.registrations).toEqual(
+    expect(dependency.registrations.map(({ registration }) => registration)).toEqual(
       currentContributions(ViewPoint).filter(({ value }) => value.key === dependency.key),
     );
     expect(dependency.registrations.length).toBeGreaterThan(0);
