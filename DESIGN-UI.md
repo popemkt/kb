@@ -461,7 +461,9 @@ each structural intent, so it holds whatever chord runs it.
 The page itself is a context too, `core.page`, which core owns
 (`app/ui` `lib/page-keys.ts`). A context says where it is offered keys
 (`reach`): the outline's are `surface` contexts, offered the keys of what
-has focus, and the page's is `page`, offered every key first, wherever
+has focus, as the canvas's three are (`canvas.rest`, `canvas.transform`,
+`canvas.present`; [Canvas (i3)](#canvas-i3), its views), and the
+page's is `page`, offered every key first, wherever
 focus is (the shell answers it at the capture phase). Its one intent is
 `palette`, bound to ⌘K (`core.page.palette`): the anchored row's node
 palette when a row is selected or edited, the global search otherwise.
@@ -535,9 +537,9 @@ needs the node palette, since a key has none to open. Days binds
 text (`parseChord`: modifiers, then the key as `KeyboardEvent.key` names
 it, joined by `-`; exact, so a modifier it does not name must be up; a
 letter matches in either case, since macOS reports ⌘⇧S as `s`). A binding
-that names no context is refused, and told. The canvas's keymap is not a
-context yet, so its keys are no binding's and admission cannot see them:
-GAP [[01M74A3DT90MGHYGK1TAXZT9WZ]]. A key's action is the one shape a
+that names no context is refused, and told. A canvas key's action or
+command is about what ⌘K's commands are about, since the canvas's
+selection is its items, not nodes. A key's action is the one shape a
 command's and a picker step's are as data (`ActionCall`, [The node
 menu](#the-node-menu)).
 
@@ -2007,10 +2009,15 @@ the view node switches every page showing the canvas through it.
   a canvas first opens at. The view commands (`CANVAS_VIEW_COMMANDS`) are
   rows of the canvas's one shortcut table (`CANVAS_SHORTCUTS`,
   `canvas-ui/src/canvas-keys.ts`). A row is an intent of one of the
-  canvas's three key contexts (at rest, a modal transform, present mode)
-  with the chords kb binds it to, which are canvas-ui's bindings
-  (`CANVAS_BINDINGS`); no two of a context's chords overlap, a chord by
-  place asked first. The context's keymap (`canvas-keymap.ts`) decides what a key runs, and the
+  canvas's three key contexts (`canvas.rest`, `canvas.transform`,
+  `canvas.present`) with the chords kb binds it to, which are canvas-ui's
+  bindings (`CANVAS_BINDINGS`), both contributed to the page kernel
+  ([Keybindings](#outline-editor-i1)): any plugin may bind a canvas key, or
+  take one by naming its holder. No two of a context's chords overlap, a
+  chord by place asked first. While frames are presented, present mode's
+  keys are asked before the canvas's at rest; a modal transform's are the
+  only ones asked while it runs, and it swallows a key they leave. The
+  context's keymap (`canvas-keymap.ts`) decides what a key runs, and the
   view menu, the toolbar's key hints and the shortcut sheet (`?`,
   `canvas-shortcuts-sheet.tsx`, every named row by section) list the
   chords it holds. Its Arrange rows reach `@kb/canvas`'s

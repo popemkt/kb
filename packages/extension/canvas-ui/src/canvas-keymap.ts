@@ -1,22 +1,27 @@
 /**
  * The canvas keymap: what a key does on the canvas, from its key table
- * (`canvas-keys.ts`). Each of the canvas's three contexts has a keymap,
- * admitted from its bindings (DESIGN-UI.md → Keybindings), which decides
- * which chord runs which intent. The dispatch, the view menu, the toolbar's
- * hints and the shortcut sheet all read those keymaps, and none of them can
- * disagree with a key.
+ * (`canvas-keys.ts`). Each of the canvas's three contexts has a keymap, as
+ * the page's one admission decides it from every plugin's bindings
+ * (DESIGN-UI.md → Keybindings, `currentKeymap`), which decides which chord
+ * runs which intent. The dispatch, the view menu, the toolbar's hints and
+ * the shortcut sheet all read those keymaps, and none of them can disagree
+ * with a key.
  *
- * Pure, like the outline's `selection-keymap.ts`: nothing here reads a store, a ref or
- * the DOM, so the whole table is reachable from a unit test. The appliers live
+ * Like the outline's `selection-keymap.ts`, nothing here reads a document, a
+ * ref or the DOM: a unit test that contributes the canvas's keys
+ * (`test-support/canvas-keys.ts`) reaches the whole table. The appliers live
  * beside the hook that owns the effects (`use-canvas-keyboard`).
  */
-import type { Contribution, ContributionEntry } from "@kb/plugin";
-import { canvasExtension } from "@kb/canvas";
-import { admitKeymaps, keyContextOf, type Chord, type Keymap } from "@kb/ui-sdk";
 import {
-  CANVAS_BINDINGS,
+  currentKeymap,
+  keyCallOf,
+  type Chord,
+  type KeyCall,
+  type KeyChordEvent,
+  type Keymap,
+} from "@kb/ui-sdk";
+import {
   CANVAS_CONTEXT_IDS,
-  CANVAS_CONTEXTS,
   CANVAS_SHORTCUTS,
   type CanvasIntent,
   type CanvasKeyContextName,
@@ -33,9 +38,13 @@ import {
  * the chord is still consumed, and `preventDefault` still decides whether the
  * browser gets it. Delete, copy and duplicate swallow the default that way;
  * an arrow key does not, and neither does Escape.
+ *
+ * A binding another plugin contributes may run an action or a command
+ * instead of an intent (`call`), about what the page's commands are about.
  */
 export interface CanvasKeyBinding {
   intent: CanvasIntent | null;
+  call?: KeyCall;
   preventDefault: boolean;
 }
 
@@ -105,34 +114,39 @@ export function chordHint(chord: Chord): string {
 /** The canvas's shortcuts, by the name a binding runs them by. */
 const SHORTCUTS_BY_NAME = new Map(CANVAS_SHORTCUTS.map((entry) => [entry.name, entry]));
 
-/** `entry`, as canvas-ui's contribution: its id in the canvas's namespace. */
-function owned<C>(entry: ContributionEntry<C>): Contribution<C> {
+/** The keymap of the canvas's context `name`, as the page's admission decides it. */
+export function canvasKeymap(name: CanvasKeyContextName): Keymap {
+  return currentKeymap(CANVAS_CONTEXT_IDS[name]);
+}
+
+/** A press of `chord`: its key, or its place, with the modifiers it holds down and no others. */
+function pressOf(chord: Chord): KeyChordEvent | null {
+  const key =
+    typeof chord.key === "string" ? chord.key : Array.isArray(chord.key) ? chord.key[0] : "";
+  if (key === undefined || typeof chord.key === "function") return null;
   return {
-    id: `${canvasExtension.name}.${entry.id}`,
-    aliases: [],
-    owner: canvasExtension.name,
-    value: entry.value,
+    key,
+    ...(chord.code === undefined ? {} : { code: chord.code }),
+    metaKey: chord.meta === true || (chord.mod === true && chord.ctrl !== true),
+    ctrlKey: chord.ctrl === true,
+    shiftKey: chord.shift === true,
+    altKey: chord.alt === true,
   };
 }
 
-/** The canvas's keymaps, admitted from its own contexts and bindings. */
-const OWN_KEYMAPS = admitKeymaps(
-  CANVAS_CONTEXTS.map((context) => keyContextOf(owned(context))),
-  CANVAS_BINDINGS.map(owned),
-  () => true,
-);
-
-/** The keymap of the canvas's context `name`. */
-export function canvasKeymap(name: CanvasKeyContextName): Keymap {
-  const keymap = OWN_KEYMAPS.get(CANVAS_CONTEXT_IDS[name]);
-  if (keymap === undefined) throw new Error(`the canvas has no key context ${name}`);
-  return keymap;
-}
-
-/** The chords the keymap of `entry`'s context holds for it, as it holds them. */
+/**
+ * The chords that press `entry` now: those its context's keymap holds for
+ * it whose own press still reaches it, so one another binding replaced is
+ * not named.
+ */
 export function heldChords(entry: CanvasShortcut): readonly Chord[] {
-  return canvasKeymap(entry.context)
-    .held.filter(({ value }) => "intent" in value.run && value.run.intent === entry.name)
+  const keymap = canvasKeymap(entry.context);
+  return keymap.held
+    .filter(({ id, value }) => {
+      if (!("intent" in value.run) || value.run.intent !== entry.name) return false;
+      const press = pressOf(value.chord);
+      return press !== null && keymap.resolve(press)?.id === id;
+    })
     .map(({ value }) => value.chord);
 }
 
@@ -209,8 +223,13 @@ export function mapCanvasKey(
 ): CanvasKeyBinding | null {
   for (const name of contextsOf(state)) {
     const run = canvasKeymap(name).resolve(event)?.value.run;
-    const found =
-      run !== undefined && "intent" in run ? SHORTCUTS_BY_NAME.get(run.intent) : undefined;
+    if (run === undefined) continue;
+    if (!("intent" in run)) {
+      const call = keyCallOf(run, null);
+      if (call !== null) return { intent: null, call, preventDefault: true };
+      continue;
+    }
+    const found = SHORTCUTS_BY_NAME.get(run.intent);
     if (found !== undefined) return bindingOf(found, event, state);
   }
   if (state.transforming) return claim(null, event.repeat === true);

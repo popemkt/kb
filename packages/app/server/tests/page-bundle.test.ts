@@ -166,8 +166,13 @@ const DATASCRIPT = /cljs\.core/;
 // browser color-token port
 // The page's own key context (`core.page`, its ⌘K a binding the page
 // answers), keys that run commands, and days' Mod-Shift-D, on main after
-// chunk 2, measure 1,841,254 bytes; the budget stays.
-const EAGER_BUDGET_BYTES = 1_845_000;
+// chunk 2, measure 1,841,254 bytes.
+// The canvas's key table (`canvas-keys.ts`: its contexts and bindings,
+// contributed when canvas-ui applies, so the page's admission sees them) and
+// the camera's stops it names take it to 1,837,113; the keymap that reads
+// them, and the camera's math, stay with the canvas scene. The budget keeps
+// about 1.5 KB over that.
+const EAGER_BUDGET_BYTES = 1_838_600;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

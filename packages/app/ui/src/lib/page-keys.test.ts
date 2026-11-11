@@ -2,7 +2,8 @@
  * The page's own keys (DESIGN-UI.md → Keybindings), with every family the
  * main bundle carries loaded as the app loads them: core owns `core.page`
  * and its ⌘K, days binds "Go to today" to Mod-Shift-D there, and no
- * bundled binding is refused in any context.
+ * bundled binding is refused in any context, the outline's and the
+ * canvas's among them.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DAYS_IDS } from "@kb/days";
@@ -39,7 +40,15 @@ afterAll(() => syncUiPlugins([]));
 describe("the page's own keys", () => {
   it("refuses no bundled binding, in any context", () => {
     expect(told.filter((line) => line.startsWith("Keybinding"))).toEqual([]);
-    for (const id of [PAGE_CONTEXT_ID, "outline.editing", "outline.selection"]) {
+    expect(currentKeymap("canvas.rest").held.length).toBeGreaterThan(0);
+    for (const id of [
+      PAGE_CONTEXT_ID,
+      "outline.editing",
+      "outline.selection",
+      "canvas.rest",
+      "canvas.transform",
+      "canvas.present",
+    ]) {
       expect(currentKeymap(id).refused).toEqual([]);
     }
   });
