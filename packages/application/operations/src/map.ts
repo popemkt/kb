@@ -91,7 +91,8 @@ export class UsageError extends Schema.TaggedError<UsageError>()("Kb/UsageError"
 
 export function mapAdd(opts: {
   text: string;
-  parent?: string;
+  /** The node it goes under; null for the top level; omitted, the capture target. */
+  parent?: string | null;
   position?: number;
   tags?: string[];
   props?: { field: string; value: PropValue }[];
@@ -120,7 +121,8 @@ export function mapAdd(opts: {
  */
 export function mapAddTree(opts: {
   outline: string;
-  parent?: string;
+  /** As {@link mapAdd}'s. */
+  parent?: string | null;
   position?: number;
   force?: boolean;
 }): PlannedAction {

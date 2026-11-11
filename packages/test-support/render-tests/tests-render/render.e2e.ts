@@ -266,6 +266,7 @@ test("force2d traces from the selection to a shift-clicked node and lights the p
   await expect(card).toBeHidden();
 });
 
+// Fails intermittently on CI: GAP [[01M740DVZBBAHDACZTMG9N1RX8]].
 test("cluster paints labels and a hull spanning its members", async ({ page }) => {
   await selectRenderer(page, "cluster");
   const host = "[data-testid='cluster-graph'] > div";
@@ -441,6 +442,7 @@ test("force3d draws through the scene kit's post chain and flies to a selected n
   await expect.poll(() => scene3d(page).then((s) => s?.particles)).toBe(0);
 });
 
+// Fails intermittently on CI: GAP [[01M740DVZBBAHDACZTMG9N1RX8]].
 test("cluster selects in place, keeps camera still, and composes zero search with selection", async ({
   page,
 }) => {

@@ -126,10 +126,13 @@ describe("node.addTree", () => {
     );
   });
 
-  test("without a parent the top-level items are forest roots, appended in order", async () => {
+  test("with a null parent the top-level items are forest roots, appended in order", async () => {
     const { ctx } = await session();
     const output = (await succeed(
-      invoke(ctx, { id: "node.addTree", input: { outline: "- one\n- two\n  - inner\n- three" } }),
+      invoke(ctx, {
+        id: "node.addTree",
+        input: { outline: "- one\n- two\n  - inner\n- three", parent: null },
+      }),
     )) as { ids: string[] };
     const [one, two, , three] = output.ids as [string, string, string, string];
     const forest = ctx.nodes
