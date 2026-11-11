@@ -18,7 +18,7 @@ import {
   FamilyKernels,
   KbCtx,
   KbRoots,
-  type KbStore,
+  KbStore,
   MIGRATION_STEPS,
   MigrationPoint,
   type ActionDefinition,
@@ -138,10 +138,14 @@ function recordWrite(
   const nodeId = migrationRecordId(id);
   const held = nodes.find((node) => node.id === nodeId);
   const pinned = record.state !== "kept" && record.state !== "rolled-back";
+  const props = { ...held?.props };
+  delete props[SYSTEM_IDS.backupPinField];
+  delete props[SYSTEM_IDS.migrationProblemsField];
   const node: KbNode = {
     id: nodeId,
-    text: title,
+    text: held?.text ?? title,
     props: {
+      ...props,
       [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.migrationTag }],
       [SYSTEM_IDS.migrationField]: [str(id)],
       [SYSTEM_IDS.migrationStateField]: [{ t: "ref", v: migrationStateId(record.state) }],
@@ -561,38 +565,48 @@ export const migrationPreviewEffect = Effect.fn("migration.preview")(function* (
   const roots = yield* KbRoots;
   const at = yield* currentIso;
   let planned: { plan: Plan; backup: string } | undefined;
-  yield* persistPlannedEffect(
-    ctx,
-    (nodes) =>
-      Effect.gen(function* () {
-        // Read on the state this commit lands on: the backup is of exactly it.
-        const backup = yield* currentBackup(roots, ctx.root);
-        if (backup === undefined)
-          return yield* domainError(
-            "conflict",
-            `${id} needs a backup of the store as it is now first (store.backup)`,
-            { migration: id },
-          );
-        const held = liveRecord(nodes, id);
-        if (held !== undefined && held.state !== "previewed")
-          return yield* domainError("conflict", `${id} is already ${held.state}`, {
-            migration: id,
-            state: held.state,
-          });
-        const plan = yield* planOf(id, migration, nodes, at);
-        if (isEmpty(plan))
-          return yield* domainError("conflict", `${id} has nothing to migrate`, { migration: id });
-        planned = { plan, backup: backup.id };
-        const record = {
-          state: "previewed",
-          digest: plan.digest,
-          at,
-          backup: backup.id,
-          problems: [],
-        } as const;
-        return { upserts: recordWrite(nodes, id, migration.title, record, at), deletes: [] };
-      }),
-    { systemWrites: "system" },
+  const protectedBackup = yield* currentBackup(roots, ctx.root);
+  if (protectedBackup === undefined)
+    return yield* domainError(
+      "conflict",
+      `${id} needs a backup of the store as it is now first (store.backup)`,
+      { migration: id },
+    );
+  yield* roots.useBackup(protectedBackup, () =>
+    persistPlannedEffect(
+      ctx,
+      (nodes) =>
+        Effect.gen(function* () {
+          // Read on the state this commit lands on: the backup is of exactly it.
+          if ((yield* (yield* KbStore).fingerprint) !== protectedBackup.fingerprint)
+            return yield* domainError(
+              "conflict",
+              `${id} needs a backup of the current store first`,
+              { migration: id },
+            );
+          const held = liveRecord(nodes, id);
+          if (held !== undefined && held.state !== "previewed")
+            return yield* domainError("conflict", `${id} is already ${held.state}`, {
+              migration: id,
+              state: held.state,
+            });
+          const plan = yield* planOf(id, migration, nodes, at);
+          if (isEmpty(plan))
+            return yield* domainError("conflict", `${id} has nothing to migrate`, {
+              migration: id,
+            });
+          planned = { plan, backup: protectedBackup.id };
+          const record = {
+            state: "previewed",
+            digest: plan.digest,
+            at,
+            backup: protectedBackup.id,
+            problems: [],
+          } as const;
+          return { upserts: recordWrite(nodes, id, migration.title, record, at), deletes: [] };
+        }),
+      { systemWrites: "system" },
+    ),
   );
   if (planned === undefined) return yield* domainError("internal", `${id} recorded no plan`);
   const { plan, backup } = planned;

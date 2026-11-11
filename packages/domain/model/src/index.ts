@@ -1,3 +1,4 @@
+export { pinnedBackups } from "./backup-pins.ts";
 export { ACTORS, ActorSchema, actorKind } from "./actor.ts";
 export type { Actor, ActorKind } from "./actor.ts";
 export { MODE_MATCHES, matchSpecificity } from "./action-match.ts";

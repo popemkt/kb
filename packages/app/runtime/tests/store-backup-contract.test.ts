@@ -131,10 +131,8 @@ function backupsContract(backend: StoreBackend): void {
           const roots = yield* KbRoots;
           const wrapped = {
             ...roots,
-            backup: (
-              root: string,
-              options: { readonly keep: number; readonly pinned: readonly string[] },
-            ) => roots.backup(root, options).pipe(Effect.tap(() => write([note("n.late")]))),
+            backup: (root: string, options: { readonly keep: number }) =>
+              roots.backup(root, options).pipe(Effect.tap(() => write([note("n.late")]))),
           };
           const result = yield* storeRestoreEffect({ backup: first.backup.id }).pipe(
             Effect.provideService(KbRoots, wrapped),
@@ -169,7 +167,7 @@ function backupsContract(backend: StoreBackend): void {
         Effect.gen(function* () {
           const roots = yield* KbRoots;
           const copies = yield* Effect.all(
-            Array.from({ length: 4 }, () => roots.backup(scratch, { keep: 20, pinned: [] })),
+            Array.from({ length: 4 }, () => roots.backup(scratch, { keep: 20 })),
             { concurrency: "unbounded" },
           );
           expect(new Set(copies.map((copy) => copy.backup.id)).size).toBe(4);
@@ -184,7 +182,7 @@ function backupsContract(backend: StoreBackend): void {
         Effect.gen(function* () {
           const roots = yield* KbRoots;
           yield* Effect.all(
-            Array.from({ length: 4 }, () => roots.backup(scratch, { keep: 1, pinned: [] })),
+            Array.from({ length: 4 }, () => roots.backup(scratch, { keep: 1 })),
             { concurrency: "unbounded" },
           );
           const held = yield* roots.backups(scratch);
@@ -233,7 +231,7 @@ function backupsContract(backend: StoreBackend): void {
           const empty = join(scratch, "empty");
           yield* createStore(empty, backend).pipe(Effect.provide(bunFileSystemLayer));
           const roots = yield* KbRoots;
-          const copied = yield* roots.backup(empty, { keep: 3, pinned: [] });
+          const copied = yield* roots.backup(empty, { keep: 3 });
           expect(yield* roots.useBackup(copied.backup, Effect.succeed)).toEqual([]);
         }).pipe(Effect.provide(kbRuntimeLayer(ctx()))),
       ));

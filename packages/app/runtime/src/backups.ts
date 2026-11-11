@@ -16,6 +16,7 @@ import { acquireFileWriteLockEffect, releaseFileWriteLock } from "@kb/file-write
 import type { BackupTaken, StoreBackup } from "@kb/contracts";
 import {
   canonicalJsonl,
+  pinnedBackups,
   type KbNode,
   currentIso,
   domainError,
@@ -129,13 +130,12 @@ export const listBackups = Effect.fn("kb.backups.list")(function* (
 
 /**
  * Copy `root`'s store into a new backup, then keep only the newest `keep`
- * of its backups that `pinned` does not name (a pinned one is kept beside
+ * of its backups that the current stored graph does not pin (a pinned one is kept beside
  * them). A copy that fails leaves no directory behind.
  */
 const copyBackup = Effect.fn("kb.backups.take")(function* (
   root: string,
   keep: number,
-  pinned: readonly string[],
 ): Effect.fn.Return<BackupTaken, DomainError, FileSystem> {
   const fs = yield* FileSystem;
   const canonical = yield* canonicalRoot(root);
@@ -179,7 +179,7 @@ const copyBackup = Effect.fn("kb.backups.take")(function* (
   yield* fs
     .rename(join(path, `${MANIFEST}.tmp`), join(path, MANIFEST))
     .pipe(Effect.mapError(ensureDomainError));
-  const kept = new Set(pinned);
+  const kept = new Set(pinnedBackups(yield* storeSnapshot(canonical)));
   const removed = (yield* listBackups(canonical))
     .filter((held) => !kept.has(held.id))
     .slice(Math.max(keep, 1));
@@ -191,10 +191,6 @@ const copyBackup = Effect.fn("kb.backups.take")(function* (
 });
 
 /** Publish and prune in one serialized operation, including across processes. */
-export const takeBackup = Effect.fn("kb.backups.take")(function* (
-  root: string,
-  keep: number,
-  pinned: readonly string[] = [],
-) {
-  return yield* withBackups(root, copyBackup(root, keep, pinned));
+export const takeBackup = Effect.fn("kb.backups.take")(function* (root: string, keep: number) {
+  return yield* withBackups(root, copyBackup(root, keep));
 });

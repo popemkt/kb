@@ -24,6 +24,7 @@ import { join } from "node:path";
 import { Effect } from "effect";
 import {
   KbStore,
+  KbRoots,
   declarationPlugin,
   defineExtension,
   onWire,
@@ -33,7 +34,7 @@ import {
   type MigrationGraph,
   type ProcedureStatus,
 } from "@kb/contracts";
-import { migrationRecordId, type KbNode } from "@kb/model";
+import { SYSTEM_IDS, extensionNodeId, present, migrationRecordId, type KbNode } from "@kb/model";
 import { persistEffect } from "@kb/operations";
 import { makeKernel } from "@kb/plugin";
 import { CONTRACT_AT } from "@kb/test-kit";
@@ -200,6 +201,84 @@ function migrationContract(backend: StoreBackend): void {
       hosted = null;
       return rm(scratch, { recursive: true, force: true });
     });
+
+    const keepOne = () =>
+      write([
+        {
+          ...present(
+            ctx().nodes.find((n) => n.id === extensionNodeId("core")),
+            "core",
+          ),
+          props: { [SYSTEM_IDS.backupsKeptField]: [{ t: "num", v: 1 }] },
+        },
+      ]);
+
+    test("a stale second session cannot prune a published rollback pin", () =>
+      run(
+        Effect.gen(function* () {
+          yield* keepOne();
+          const stale = yield* openKbEffect(scratch).pipe(Effect.provide(bunFileSystemLayer));
+          const first = (yield* output("store.backup", {})) as { backup: { id: string } };
+          yield* output("migration.preview", { migration: "fam.rename" });
+          const receipt = yield* invokeReceiptEffect(
+            stale,
+            onWire(IN_PROCESS_WIRE, { id: "store.backup", input: {} }),
+          ).pipe(Effect.provide(kbRuntimeLayer(stale)));
+          expect(receipt.status).toBe("succeeded");
+          expect(yield* pinned()).toContain(first.backup.id);
+        }),
+      ));
+
+    test("a backup racing preview cannot prune its pin before publication", () =>
+      run(
+        Effect.gen(function* () {
+          yield* keepOne();
+          const first = (yield* output("store.backup", {})) as { backup: { id: string } };
+          const roots = yield* KbRoots;
+          const store = ctx().store;
+          const commit = store.commitEffect.bind(store);
+          let racing: Promise<unknown> | undefined;
+          store.commitEffect = Effect.fn("test.previewPublication")(function* (
+            ...[tx, record, expected]: Parameters<typeof store.commitEffect>
+          ) {
+            if (
+              racing === undefined &&
+              tx.upserts.some((n) => n.id === migrationRecordId("fam.rename"))
+            ) {
+              racing = run(roots.backup(scratch, { keep: 1 }));
+              yield* Effect.sleep("500 millis");
+            }
+            return yield* commit(tx, record, expected);
+          });
+          try {
+            yield* output("migration.preview", { migration: "fam.rename" });
+            if (racing === undefined) throw new Error("preview did not commit");
+            yield* Effect.promise(() => racing ?? Promise.resolve());
+            expect(yield* pinned()).toContain(first.backup.id);
+          } finally {
+            store.commitEffect = commit;
+          }
+        }).pipe(Effect.provide(kbRuntimeLayer(ctx()))),
+      ));
+
+    test("later steps preserve the record's edited label", () =>
+      run(
+        Effect.gen(function* () {
+          yield* applied();
+          const record = present(
+            ctx().nodes.find((n) => n.id === migrationRecordId("fam.rename")),
+            "record",
+          );
+          yield* write([{ ...record, text: "My trial" }]);
+          yield* output("migration.verify", { migration: "fam.rename" });
+          yield* output("migration.keep", { migration: "fam.rename" });
+          const after = present(
+            ctx().nodes.find((n) => n.id === record.id),
+            "record",
+          );
+          expect(after.text).toBe("My trial");
+        }),
+      ));
 
     test("a migration with something to do is pending, its procedure at the backup", () =>
       run(

@@ -18,6 +18,7 @@ import {
 } from "@kb/contracts";
 import {
   SYSTEM_IDS,
+  pinnedBackups,
   diffTx,
   domainError,
   extensionNodeId,
@@ -35,15 +36,6 @@ export function backupsKept(nodes: readonly KbNode[]): number {
   const [value] = core?.props[SYSTEM_IDS.backupsKeptField] ?? [];
   if (value?.t !== "num" || !Number.isFinite(value.v)) return DEFAULT_BACKUPS_KEPT;
   return Math.max(1, Math.floor(value.v));
-}
-
-/** The backups `nodes` pin (`backup pin`): kept out of retention, whatever their age. */
-function pinnedBackups(nodes: readonly KbNode[]): string[] {
-  const pinned = new Set<string>();
-  for (const node of nodes)
-    for (const value of node.props[SYSTEM_IDS.backupPinField] ?? [])
-      if (value.t === "str") pinned.add(value.v);
-  return [...pinned];
 }
 
 const BackupSchema = z.object({
@@ -107,10 +99,7 @@ export const storeBackupEffect = Effect.fn("store.backup")(function* (): Effect.
   const roots = yield* KbRoots;
   const held = yield* currentBackup(roots, ctx.root);
   if (held !== undefined) return { backup: held, fresh: false, removed: [] };
-  const taken = yield* roots.backup(ctx.root, {
-    keep: backupsKept(ctx.nodes),
-    pinned: pinnedBackups(ctx.nodes),
-  });
+  const taken = yield* roots.backup(ctx.root, { keep: backupsKept(ctx.nodes) });
   return { backup: taken.backup, fresh: true, removed: [...taken.removed] };
 });
 

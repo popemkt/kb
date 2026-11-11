@@ -1859,7 +1859,7 @@ Backup payloads are read through `KbRoots.useBackup`: their backend must be
 present and their graph must match the manifest's content digest. An empty
 payload is valid; an absent or altered payload is refused and never reused as
 a safety copy. Directory reservation is exclusive and the manifest is published
-by atomic rename only after the payload completes. Publication and retention share a cross-process lock per root, and retention selects the globally newest `keep` copies. `useBackup` holds that same lock through validation and the caller's use, so restore cannot commit while its safety payload is pruned. Restore commits conditionally
+by atomic rename only after the payload completes. Publication and retention share a cross-process lock per root, and retention selects the globally newest `keep` copies. `useBackup` holds that same lock through validation and the caller's use, so restore cannot commit while its safety payload is pruned. Retention reads pins from the authoritative stored graph inside this boundary, never from a session snapshot. A migration preview holds protected use through its pin transaction; later pruning observes the committed pin. Restore commits conditionally
 on the safety backup's source fingerprint; a concurrent write refuses the
 restore without erasing the write, rather than replanning over unprotected data.
 

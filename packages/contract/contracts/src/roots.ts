@@ -90,11 +90,12 @@ export interface KbRootsPort {
   /**
    * Copy `root`'s store, as one state of it, into a new backup, then remove
    * all but the newest `keep` of its backups (at least the one just taken),
-   * never one `pinned` names: those are kept beside the `keep`.
+   * never one the authoritative stored graph pins: those are kept beside the `keep`.
+   * Pin reads and pruning share the same retention boundary as `useBackup`.
    */
   readonly backup: (
     root: string,
-    options: { readonly keep: number; readonly pinned: readonly string[] },
+    options: { readonly keep: number },
   ) => Effect.Effect<BackupTaken, DomainError>;
   /** Validate and use a payload while retention cannot prune it, across processes. */
   readonly useBackup: <A, E, R>(
