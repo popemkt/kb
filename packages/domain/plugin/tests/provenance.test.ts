@@ -138,3 +138,45 @@ for (const host of KERNEL_HOSTS) {
     });
   });
 }
+
+for (const host of KERNEL_HOSTS) {
+  test(`${host} provenance follows actual parents through slash-bearing names`, () => {
+    const kernel = makeKernel({ host });
+    const child = extension(
+      definePlugin({
+        name: "branch/leaf",
+        apply: (ctx) => ctx.plugin(definePlugin({ name: "end", apply: () => Effect.void })),
+      }),
+      CHANGED,
+    );
+    const root = extension(
+      definePlugin({
+        name: "trusted/stranger",
+        apply: (ctx) => ctx.plugin(child),
+      }),
+      DIGEST,
+    );
+    run(kernel.load(root));
+    expect(kernel.provenance("trusted")).toBeUndefined();
+    for (const owner of [
+      "trusted/stranger",
+      "trusted/stranger/branch/leaf",
+      "trusted/stranger/branch/leaf/end",
+    ])
+      expect(kernel.provenance(owner)).toEqual({
+        root: "trusted/stranger",
+        source: "extension",
+        digest: DIGEST,
+      });
+    run(
+      kernel.load(extension(definePlugin({ name: "trusted", apply: () => Effect.void }), CHANGED)),
+    );
+    expect(kernel.provenance("trusted")?.digest).toBe(CHANGED);
+    expect(kernel.provenance("trusted/stranger/branch/leaf")?.root).toBe("trusted/stranger");
+    run(kernel.unload("trusted/stranger"));
+    expect(kernel.provenance("trusted/stranger")).toBeUndefined();
+    expect(kernel.provenance("trusted/stranger/branch/leaf/end")).toBeUndefined();
+    expect(kernel.provenance("trusted")?.digest).toBe(CHANGED);
+    run(kernel.shutdown);
+  });
+}

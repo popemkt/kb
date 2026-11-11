@@ -183,6 +183,7 @@ const DATASCRIPT = /cljs\.core/;
 // Retaining provenance in the normal command runner catalog measures 1,856,660 bytes.
 // Sharing the scoped plugin-root lookup measures 1,856,725 bytes.
 // Inspecting host-bound provenance through the command catalog measures 1,857,014 bytes.
+// Resolving provenance roots through loaded parent entries measures 1,857,105 bytes.
 const EAGER_BUDGET_BYTES = 1_857_800;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */

@@ -45,7 +45,6 @@ import {
   asKeyType,
   localPointName,
   namespaced,
-  rootPluginName,
   roleKeyAt,
   asPointKey,
   pointKey,
@@ -627,8 +626,14 @@ function contextFor(state: State, active: Activation): PluginContext {
 function provenanceOf(state: State, owner: string): PluginProvenance | undefined {
   const entry = state.entries.get(owner);
   if (entry === undefined || !visible(state, owner)) return undefined;
+  let root = entry;
+  while (root.parent !== null) {
+    const parent = state.entries.get(root.parent);
+    if (parent === undefined) return undefined;
+    root = parent;
+  }
   return {
-    root: rootPluginName(owner),
+    root: root.name,
     source: entry.authority.source,
     ...(entry.authority.digest === undefined ? {} : { digest: entry.authority.digest }),
   };

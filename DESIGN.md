@@ -6161,7 +6161,8 @@ until it exists, and return to pending when its owner leaves.
 `ctx.contributions(point)` reads through the kernel's normal visibility rules,
 so installed declarers can consume contributions without a kernel reference.
 `Kernel.provenance(owner)` reads the visible owner's effective host-bound
-code origin: its root plugin, bundled/extension source and, when bound, closure
+code origin: its actual root plugin (following loaded parent links, never
+parsing owner-name prefixes), bundled/extension source and, when bound, closure
 digest. Children inherit the root authority even when their contribution
 namespace differs; plugin object fields cannot manufacture it. The reading
 uses the same whole-activation visibility as contributions, so applying,
