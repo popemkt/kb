@@ -10,6 +10,7 @@ import {
   type KeyRef,
 } from "./derived.ts";
 import type { NodeIndex } from "./index.ts";
+import { ReadMemo } from "./read-memo.ts";
 
 /** A key as one string, for the maps keyed by key. */
 function keyName(key: KeyRef): string {
@@ -69,13 +70,13 @@ export class NodeTable implements NodeIndex {
 
   /**
    * Each field's declared type, as read (`fieldTypesIn`), with every id
-   * the reading looked up, found or not: the field itself and the type
-   * option it chooses, which may be a person's own node naming a built-in
-   * type. A transaction that touches any of those ids reads the type again.
+   * the reading looked up: the field itself and the type option it
+   * chooses, which may be a person's own node naming a built-in type.
    */
-  #types = new Map<NodeId, { readonly type: FieldType; readonly reads: ReadonlySet<NodeId> }>();
-  /** id → the fields whose type reading looked it up (the reverse of `#types`' reads). */
-  #typeReaders = new Map<NodeId, Set<NodeId>>();
+  #types = new ReadMemo<FieldType>(
+    (field, nodeOf) => fieldTypesIn(nodeOf)(field),
+    (id) => this.#nodes.get(id),
+  );
 
   /**
    * Each field's declared type in the table as it stands, read as every
@@ -83,22 +84,7 @@ export class NodeTable implements NodeIndex {
    * with what it read, so a change to any of it, however many hops from
    * the field, reads it again (`change`).
    */
-  readonly fieldTypes: FieldTypes = (field) => {
-    const known = this.#types.get(field);
-    if (known !== undefined) return known.type;
-    const reads = new Set<NodeId>();
-    const type = fieldTypesIn((id) => {
-      reads.add(id);
-      return this.#nodes.get(id);
-    })(field);
-    this.#types.set(field, { type, reads });
-    for (const id of reads) {
-      const readers = this.#typeReaders.get(id);
-      if (readers === undefined) this.#typeReaders.set(id, new Set([field]));
-      else readers.add(field);
-    }
-    return type;
-  };
+  readonly fieldTypes: FieldTypes = (field) => this.#types.get(field);
 
   /** Who holds each value of each key field asked about: field → value → holders. */
   #holders = new Map<NodeId, Map<string, Set<NodeId>>>();
@@ -138,8 +124,7 @@ export class NodeTable implements NodeIndex {
     this.#nodes = new Map(merged.map((n) => [n.id, n]));
     this.#refsFrom = new Map();
     this.#refsTo = new Map();
-    this.#types = new Map();
-    this.#typeReaders = new Map();
+    this.#types.clear();
     this.#holders = new Map();
     this.#keyReaders = new Map();
     this.#keysReadBy = new Map();
@@ -160,7 +145,7 @@ export class NodeTable implements NodeIndex {
     const removed = tx.deletes.filter((id) => this.#nodes.has(id));
     if (created.length === 0 && removed.length === 0 && tx.upserts.length === 0) return null;
     const touched = [...tx.upserts.map((n) => n.id), ...tx.deletes];
-    const typed = this.#forgetTypesReading(touched);
+    const typed = this.#types.forget(touched);
     const keysWere = new Map(touched.map((id) => [id, this.#keysHeld(this.#nodes.get(id))]));
 
     for (const id of removed) {
@@ -175,9 +160,7 @@ export class NodeTable implements NodeIndex {
 
     const restated = new Map<NodeId, KbNode>();
     for (const node of tx.upserts) restated.set(node.id, node);
-    const retyped = [...typed]
-      .filter(([id, type]) => this.fieldTypes(id) !== type)
-      .map(([id]) => id);
+    const retyped = this.#types.changed(typed);
     const referrers = [...created, ...removed, ...retyped].flatMap((id) => [
       ...(this.#refsTo.get(id) ?? []),
     ]);
@@ -251,26 +234,6 @@ export class NodeTable implements NodeIndex {
     }
     hits.sort(byId);
     return limit !== undefined && hits.length > limit ? hits.slice(0, limit) : hits;
-  }
-
-  /**
-   * Forget the type of every field whose reading looked up one of `ids`,
-   * and say what each was: read again after the transaction, a change
-   * names a field whose holders' carriers must be read again.
-   */
-  #forgetTypesReading(ids: readonly NodeId[]): Map<NodeId, FieldType> {
-    const was = new Map<NodeId, FieldType>();
-    for (const id of ids) {
-      // Deleting the field being visited from the set is safe while iterating it.
-      for (const field of this.#typeReaders.get(id) ?? []) {
-        const known = this.#types.get(field);
-        if (known === undefined) continue;
-        was.set(field, known.type);
-        this.#types.delete(field);
-        for (const read of known.reads) this.#typeReaders.get(read)?.delete(field);
-      }
-    }
-    return was;
   }
 
   /** Read `node`'s references again, its key reads with them. */
