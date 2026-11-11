@@ -1,5 +1,6 @@
 /** Keyboard data as ordinary nodes; executable targets remain registered code. */
 import { Option, Schema, Record as Records } from "effect";
+import { namespaced } from "@kb/plugin";
 import {
   canonicalJson,
   declaredOptionId,
@@ -15,7 +16,7 @@ import {
 } from "@kb/model";
 import { ChordDataSchema, type ChordData } from "./chord-data.ts";
 import { describeChord, type Chord } from "./chord.ts";
-import type { ActionCall, KeyRun, KeyboardDefinition } from "./bindings.ts";
+import { keyboardIn, type ActionCall, type KeyRun, type KeyboardDefinition } from "./bindings.ts";
 
 export const SHORTCUT_IDS = {
   tag: "sys.shortcut",
@@ -280,7 +281,7 @@ export function chordOfNode(value: NodeLike): ChordData | null {
 /** Shortcut rows are filed under the family; each chord lives under its binding. */
 export function keyboardRootIds(family: string, definition: KeyboardDefinition): string[] {
   return [
-    ...(definition.bindings ?? []).map(({ id }) => shortcutNodeId(`${family}.${id}`)),
+    ...keyboardIn(family, definition).bindings.map(({ id }) => shortcutNodeId(id)),
     ...new Set(
       (definition.bindings ?? []).flatMap(({ value }) =>
         "action" in value.run ? [keyTargetNodeId(family, value.context, value.run)] : [],
@@ -297,7 +298,7 @@ export function keyboardNodes(
 ): KbNode[] {
   const calls = new Map<string, KbNode>();
   const bindings = (definition.bindings ?? []).flatMap(({ id, value }) => {
-    const binding = `${family}.${id}`;
+    const binding = namespaced(family, id);
     const target = keyTargetNodeId(family, value.context, value.run);
     if ("action" in value.run) {
       const call = normalizedCall(value.run);
@@ -330,20 +331,21 @@ export function keyboardOptions(
   family: string,
   definition: KeyboardDefinition,
 ): readonly DeclaredOptionSet[] {
+  const qualified = keyboardIn(family, definition);
   return [
     {
       kind: KEY_CONTEXT_OPTIONS,
-      options: (definition.contexts ?? []).map(({ id }) => ({
-        id: `${family}.${id}`,
-        label: `${family}.${id}`,
+      options: qualified.contexts.map(({ id }) => ({
+        id,
+        label: id,
       })),
     },
     {
       kind: KEY_INTENT_OPTIONS,
-      options: (definition.contexts ?? []).flatMap(({ id, value }) =>
+      options: qualified.contexts.flatMap(({ id, value }) =>
         [...new Set(value.intents)].map((intent) => ({
-          id: intentKey(`${family}.${id}`, intent),
-          label: `${family}.${id}: ${intent}`,
+          id: intentKey(id, intent),
+          label: `${id}: ${intent}`,
         })),
       ),
     },

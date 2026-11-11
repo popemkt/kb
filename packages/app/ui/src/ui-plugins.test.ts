@@ -4,9 +4,15 @@
  * `lib/router`, now asserted over the contributions that replaced it — and
  * which families' browser entries the page loads for what the server reports.
  */
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { resolve, join } from "node:path";
 import { Effect, Schema } from "effect";
 import {
   SHORTCUT_IDS,
+  admitKeymaps,
+  keyContextOf,
   chordData,
   chordOfNode,
   shortcutNodeId,
@@ -16,7 +22,7 @@ import {
   type KeyChordEvent,
 } from "@kb/keybindings";
 import { describe, expect, it } from "vitest";
-import { makeKernel, syncPlugins } from "@kb/plugin";
+import { definePlugin, makeKernel, syncPlugins } from "@kb/plugin";
 import { BUNDLED_FAMILIES, HOSTED_FAMILIES, bundledSeed } from "@kb/bundled";
 import { NO_SWITCHES, extensionRow, familyOn, type ExtensionRow } from "@kb/contracts";
 import { agentExtension } from "@kb/agent";
@@ -29,6 +35,7 @@ import {
   ontologyPath,
   RoutePoint,
   KeybindingPoint,
+  KeyContextPoint,
   SidebarSectionPoint,
 } from "@kb/ui-sdk";
 import { NoParams, viewKey, type OntologyView } from "@kb/views";
@@ -54,6 +61,137 @@ function route(path: string): { surface: string; params: unknown } | null {
   return matched === null ? null : { surface: matched.view.id, params: matched.params };
 }
 
+const CatalogRow = Schema.Struct({
+  id: Schema.String,
+  owner: Schema.String,
+  value: Schema.Unknown,
+});
+const CatalogSnapshot = Schema.Struct({
+  contexts: Schema.Array(CatalogRow),
+  bindings: Schema.Array(CatalogRow),
+  cycles: Schema.Array(
+    Schema.Struct({
+      name: Schema.String,
+      offStatus: Schema.String,
+      onStatus: Schema.String,
+      off: Schema.Array(CatalogRow),
+      on: Schema.Array(CatalogRow),
+    }),
+  ),
+});
+
+function registryKeyboardSnapshot() {
+  const scratch = mkdtempSync(join(tmpdir(), "kb-keyboard-parity-"));
+  try {
+    const root = resolve(import.meta.dirname, "../../../..");
+    const output = execFileSync(
+      "bun",
+      [resolve(root, "packages/app/test-kit/tests/registry-keyboard.fixture.ts")],
+      {
+        cwd: root,
+        env: { ...process.env, KB_HOME: join(scratch, "home"), KB_DATA: join(scratch, "data") },
+        encoding: "utf8",
+        timeout: 30_000,
+      },
+    );
+    return Schema.decodeUnknownSync(CatalogSnapshot)(JSON.parse(output));
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+  }
+}
+
+const catalogData = (rows: readonly { id: string; value: unknown }[]) =>
+  rows
+    .map(({ id, value }) => ({ id, value }))
+    .toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+
+describe("keyboard publication on both hosts", () => {
+  it("publishes the same native catalog and preserves owner relationships", () => {
+    const registry = registryKeyboardSnapshot();
+    const page = kernelWithBuiltins();
+    const contexts = page.contributions(KeyContextPoint);
+    const bindings = page.contributions(KeybindingPoint);
+    expect(catalogData(contexts)).toEqual(catalogData(registry.contexts));
+    expect(catalogData(bindings)).toEqual(catalogData(registry.bindings));
+    const all = [...contexts, ...bindings];
+    const remote = new Map(
+      [...registry.contexts, ...registry.bindings].map((row) => [row.id, row]),
+    );
+    // Hosts nest their entry plugins differently. Family authority and same-owner
+    // relations must agree even when one host adds a declaration scope segment.
+    for (const left of all) {
+      expect(left.owner.split("/")[0], left.id).toBe(remote.get(left.id)?.owner.split("/")[0]);
+      for (const right of all)
+        expect(left.owner === right.owner, `${left.id} / ${right.id}`).toBe(
+          remote.get(left.id)?.owner === remote.get(right.id)?.owner,
+        );
+    }
+    expect(bindings.filter(({ id }) => id === "core.page.palette")).toHaveLength(1);
+    for (const cycle of registry.cycles) {
+      expect([cycle.offStatus, cycle.onStatus]).toEqual(["succeeded", "succeeded"]);
+      expect(cycle.off.some(({ owner }) => owner.split("/")[0] === cycle.name)).toBe(false);
+      expect(catalogData(cycle.off)).toEqual(
+        catalogData(registry.bindings.filter(({ owner }) => owner.split("/")[0] !== cycle.name)),
+      );
+      expect(catalogData(cycle.on)).toEqual(catalogData(registry.bindings));
+      expect(new Set(cycle.on.map(({ id }) => id)).size).toBe(cycle.on.length);
+    }
+  }, 40_000);
+
+  it("withdraws and republishes one native copy across unload/reload", () => {
+    const kernel = kernelWithBuiltins();
+    const before = kernel.contributions(KeybindingPoint);
+    for (const family of ["canvas", "outline", "days", "core"]) {
+      Effect.runSync(kernel.unload(family));
+      expect(
+        kernel.contributions(KeybindingPoint).some(({ owner }) => owner.split("/")[0] === family),
+      ).toBe(false);
+      Effect.runSync(syncPlugins(kernel, [...CORE_UI_PLUGINS, ...ALWAYS_ON]));
+      expect(
+        kernel
+          .contributions(KeybindingPoint)
+          .toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
+      ).toEqual(before.toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)));
+    }
+  });
+
+  it("keeps installed page-only contributions live without inventing registry authority", () => {
+    const kernel = kernelWithBuiltins();
+    const extension = definePlugin({
+      name: "installed",
+      apply: (ctx) =>
+        ctx.contribute(KeybindingPoint, {
+          id: "page-only",
+          value: {
+            context: "core.page",
+            chord: { code: "F8", mod: true },
+            run: { command: "installed.command" },
+          },
+        }),
+    });
+    Effect.runSync(kernel.load(extension));
+    expect(
+      kernel.contributions(KeybindingPoint).find(({ id }) => id === "installed.page-only"),
+    ).toMatchObject({ owner: "installed" });
+    const keymaps = admitKeymaps(
+      kernel.contributions(KeyContextPoint).map(keyContextOf),
+      kernel.contributions(KeybindingPoint),
+      () => false,
+    );
+    expect(keymaps.get("core.page")?.resolve({ key: "F8", code: "F8", ctrlKey: true })?.id).toBe(
+      "installed.page-only",
+    );
+    Effect.runSync(kernel.unload("installed"));
+    expect(
+      kernel.contributions(KeybindingPoint).some(({ id }) => id === "installed.page-only"),
+    ).toBe(false);
+    Effect.runSync(kernel.load(extension));
+    expect(
+      kernel.contributions(KeybindingPoint).filter(({ id }) => id === "installed.page-only"),
+    ).toHaveLength(1);
+  });
+});
+
 describe("shipped keybinding data", () => {
   it("derives exactly one graph description for every runtime default from the same declaration", () => {
     const graph = new Map(bundledSeed("2026-11-11T00:00:00.000Z").map((node) => [node.id, node]));
@@ -74,10 +212,23 @@ describe("shipped keybinding data", () => {
       if (chord === undefined) continue;
       expect(chordOfNode(chord), binding.id).toEqual(chordData(binding.value.chord));
       expect(row?.props[SHORTCUT_IDS.runs]).toEqual([
-        { t: "ref", v: keyTargetNodeId(binding.owner, binding.value.context, binding.value.run) },
+        {
+          t: "ref",
+          v: keyTargetNodeId(
+            binding.owner.split("/")[0] ?? "",
+            binding.value.context,
+            binding.value.run,
+          ),
+        },
       ]);
       expect(
-        graph.has(keyTargetNodeId(binding.owner, binding.value.context, binding.value.run)),
+        graph.has(
+          keyTargetNodeId(
+            binding.owner.split("/")[0] ?? "",
+            binding.value.context,
+            binding.value.run,
+          ),
+        ),
       ).toBe(true);
     }
   });

@@ -1,4 +1,4 @@
-import { contributeKeyboard, familyTags } from "@kb/contracts";
+import { familyTags } from "@kb/contracts";
 import { outlineExtension, outlinePlugin } from "@kb/outline";
 import { Effect } from "effect";
 
@@ -114,10 +114,6 @@ export const outlineUiPlugin = definePlugin({
             ctx.contribute(CommandPoint, { id: command.id, value: command }),
           ),
           ...OUTLINE_STEPS.map((step) => ctx.contribute(paletteSteps, step)),
-          // Its two key contexts, the editing row's and the selection's, and
-          // their keys: bindings like any other plugin's, which the page's
-          // keymap holds first.
-          contributeKeyboard(ctx, outlineExtension.keyboard ?? {}),
           ctx.contribute(OverlayPoint, {
             id: "view-filter",
             value: { order: 0, Component: ViewSettingsPopoverHost },

@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { SquareIcon } from "@phosphor-icons/react";
-import { familyTags, contributeKeyboard } from "@kb/contracts";
+import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import { CANVAS_LIST_PATH, matchCanvas, matchCanvasList } from "./routes";
 import { CanvasListSurface, CanvasSection, CanvasSurface } from "./surfaces";
@@ -79,7 +79,6 @@ export const canvasUiPlugin = definePlugin({
           id: "section",
           value: { order: 30, Component: CanvasSection },
         }),
-        contributeKeyboard(ctx, canvasExtension.keyboard ?? {}),
       ],
       { discard: true },
     ),

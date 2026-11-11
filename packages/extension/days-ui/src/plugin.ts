@@ -1,6 +1,6 @@
 import { lazy } from "react";
 import { Effect } from "effect";
-import { familyTags, contributeKeyboard } from "@kb/contracts";
+import { familyTags } from "@kb/contracts";
 import { capturesToday, DAYS_IDS, daysExtension, daysPlugin, showsTouched } from "@kb/days";
 import { refValuesOf } from "@kb/model";
 import { definePlugin } from "@kb/plugin";
@@ -91,7 +91,6 @@ export const daysUiPlugin = definePlugin({
           value: { order: 5, Component: TodaySection },
         }),
         ctx.contribute(CommandPoint, { id: goToTodayCommand.id, value: goToTodayCommand }),
-        contributeKeyboard(ctx, daysExtension.keyboard ?? {}),
         ctx.provide(CaptureTargetService, captureIntoToday),
         ctx.provide(LandingService, landOnToday),
         ctx.provide(DateTargetService, dayNode),

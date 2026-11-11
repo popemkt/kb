@@ -1,4 +1,4 @@
-import type { Contribution, ContributionEntry } from "@kb/plugin";
+import { namespaced, type Contribution, type ContributionEntry } from "@kb/plugin";
 import {
   byPlace,
   chordIncludes,
@@ -279,4 +279,22 @@ export function admitKeymaps(
 export interface KeyboardDefinition {
   readonly contexts?: readonly ContributionEntry<KeyContextSpec>[];
   readonly bindings?: readonly ContributionEntry<Keybinding>[];
+}
+
+/** The kernel's own address fold, shared by declaration publication and graph descriptions. */
+export function keyboardIn(
+  namespace: string,
+  definition: KeyboardDefinition,
+): Required<KeyboardDefinition> {
+  const address = <T>(entry: ContributionEntry<T>): ContributionEntry<T> => ({
+    ...entry,
+    id: namespaced(namespace, entry.id),
+    ...(entry.aliases === undefined
+      ? {}
+      : { aliases: entry.aliases.map((id) => namespaced(namespace, id)) }),
+  });
+  return {
+    contexts: (definition.contexts ?? []).map(address),
+    bindings: (definition.bindings ?? []).map(address),
+  };
 }

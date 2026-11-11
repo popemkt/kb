@@ -17,6 +17,7 @@ export {
   admitKeybindings,
   admitKeymaps,
   keyContextOf,
+  keyboardIn,
   provideKeybinding,
   type KeyRun,
   type KeyboardDefinition,

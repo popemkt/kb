@@ -9,7 +9,7 @@
  * refuses is told when it arrives (`tellKeymaps`).
  */
 import { Effect } from "effect";
-import { bundledPlugin, declarationPlugin, familyTags, contributeKeyboard } from "@kb/contracts";
+import { bundledPlugin, declarationPlugin, familyTags } from "@kb/contracts";
 import { coreExtension } from "@kb/operations";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import {
@@ -35,7 +35,6 @@ export const coreUiPlugin: Plugin = bundledPlugin(
           ctx.provide(CaptureTargetService, topLevelCapture),
           ctx.provide(LandingService, stayHome),
           ctx.provide(DateTargetService, leadsNowhere),
-          contributeKeyboard(ctx, coreExtension.keyboard ?? {}),
           Effect.acquireRelease(
             Effect.sync(() => subscribeUiKernel(tellKeymaps)),
             (unsubscribe) => Effect.sync(unsubscribe),

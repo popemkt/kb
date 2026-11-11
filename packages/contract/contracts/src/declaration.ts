@@ -1,5 +1,6 @@
 import {
   keyboardNodes,
+  keyboardIn,
   keyboardOptions,
   keyboardRootIds,
   type KeyboardDefinition,
@@ -34,6 +35,7 @@ import type { ValueRefCarrier } from "@kb/query";
 import type { ViewKey } from "@kb/views";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { ViewKeyPoint, type ViewDef } from "./view-catalog.ts";
+import { contributeKeyboard } from "./keybindings.ts";
 import { ContextReferencePoint, type ContextReference } from "./context.ts";
 
 export interface ExtensionDeclaration {
@@ -196,6 +198,7 @@ export function declarationPlugin(declaration: ExtensionDeclaration): Plugin {
     apply: (ctx) =>
       Effect.all(
         [
+          contributeKeyboard(ctx, keyboardIn(declaration.name, declaration.keyboard ?? {})),
           Effect.forEach(
             declaration.views ?? [],
             (view) => ctx.contribute(ViewKeyPoint, { id: view.key.id, value: view }),

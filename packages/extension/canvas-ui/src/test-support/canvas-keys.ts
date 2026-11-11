@@ -5,10 +5,6 @@
  * owner are the kernel's, as the page's.
  */
 import { canvasExtension } from "@kb/canvas";
-import { definePlugin } from "@kb/plugin";
-import { contributeKeyboard } from "@kb/contracts";
+import { declarationPlugin } from "@kb/contracts";
 
-export const canvasKeysPlugin = definePlugin({
-  name: canvasExtension.name,
-  apply: (ctx) => contributeKeyboard(ctx, canvasExtension.keyboard ?? {}),
-});
+export const canvasKeysPlugin = declarationPlugin(canvasExtension);

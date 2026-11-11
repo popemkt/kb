@@ -453,8 +453,13 @@ the guard that keeps a query-result row from being restructured is part of
 each structural intent, so it holds whatever chord runs it.
 
 The shared declaration's `keyboard` supplies both page contributions and seeded
-`#shortcut` descriptions. The runtime point is the sole source of default
-bindings; these graph rows describe it. Shipped descriptions protect their
+`#shortcut` descriptions. The declaration publishes native defaults through the same keyboard points in
+both registry and page kernels; the runtime point is the sole source of default
+bindings, and the graph rows describe it. Existing extensions may still publish
+bindings directly from their page half through the SDK. Those stay in the page's
+live dispatch map. A stored override whose target the authority host cannot
+resolve is refused; writable graph descriptions never reconstruct a missing
+page-only registration. Shipped descriptions protect their
 structure and values like other defaults, while their labels remain cosmetic.
 A separate ordinary shortcut can name a default through `replaces`.
 
