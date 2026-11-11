@@ -38,14 +38,24 @@ export function fieldTypesIn(nodeOf: (id: NodeId) => KbNode | undefined): FieldT
 }
 
 /**
- * One way a node points at other nodes: the ids it names, resolvable or
- * not, in order. What it reads is the node itself and the declared type of
+ * One reference a carrier reads off a node: the id it names, and the field
+ * whose value names it. A reference in no field (the node's own text, the
+ * owner a host hands the index) has none.
+ */
+export interface CarriedRef {
+  readonly id: NodeId;
+  readonly field?: NodeId;
+}
+
+/**
+ * One way a node points at other nodes: the references it reads, resolvable
+ * or not, in order. What it reads is the node itself and the declared type of
  * each field the node holds, and nothing else of the graph, so the index
  * knows when to read it again: when the node changes, when a target starts
  * or stops existing, or when a field it holds changes type.
  */
-interface RefCarrier {
-  readonly refsOf: (node: KbNode, types: FieldTypes) => Iterable<NodeId>;
+export interface RefCarrier {
+  readonly refsOf: (node: KbNode, types: FieldTypes) => Iterable<CarriedRef>;
 }
 
 /**
@@ -67,23 +77,37 @@ export interface DerivedRef {
  * repeats (a caller that wants a set dedupes).
  */
 export function nodeMentions(node: Pick<KbNode, "text" | "props">): NodeId[] {
-  const out = extractMentions(node.text);
-  for (const values of Object.values(node.props)) {
-    for (const pv of values) if (pv.t === "str") out.push(...extractMentions(pv.v));
+  return textTokens(node).map((ref) => ref.id);
+}
+
+/** {@link nodeMentions} as references: a token in a text value is in that value's field. */
+function textTokens(node: Pick<KbNode, "text" | "props">): CarriedRef[] {
+  const out: CarriedRef[] = extractMentions(node.text).map((id) => ({ id }));
+  for (const [field, values] of Object.entries(node.props)) {
+    for (const pv of values)
+      if (pv.t === "str") out.push(...extractMentions(pv.v).map((id) => ({ id, field })));
   }
   return out;
 }
 
 /** A `[[id]]` token in text, the node's own or a text value's (`nodeMentions`). */
-const TEXT_TOKENS: RefCarrier = { refsOf: nodeMentions };
+const TEXT_TOKENS: RefCarrier = { refsOf: textTokens };
 
 /** A `{t:"ref"}` prop value, in any field. */
 const REF_PROPS: RefCarrier = {
   refsOf: (node) =>
-    Object.values(node.props).flatMap((values) =>
-      values.flatMap((pv) => (pv.t === "ref" ? [pv.v] : [])),
+    Object.entries(node.props).flatMap(([field, values]) =>
+      values.flatMap((pv) => (pv.t === "ref" ? [{ id: pv.v, field }] : [])),
     ),
 };
+
+/** The reference relation's attribute: "this node references that one" (`CORE_DERIVED`). */
+const REFERENCE_ATTR = ":node/mentions";
+
+/** The carriers that feed the reference relation in `derived`. */
+export function referenceCarriers(derived: readonly DerivedRef[]): readonly RefCarrier[] {
+  return derived.find((d) => d.attr === REFERENCE_ATTR)?.carriers ?? [];
+}
 
 /**
  * The derived ref attributes every index builds:
@@ -93,7 +117,7 @@ const REF_PROPS: RefCarrier = {
  *   (`derivedWith`), so an index built without them derives none.
  */
 export const CORE_DERIVED: readonly DerivedRef[] = [
-  { attr: ":node/mentions", cardinality: "many", carriers: [TEXT_TOKENS, REF_PROPS] },
+  { attr: REFERENCE_ATTR, cardinality: "many", carriers: [TEXT_TOKENS, REF_PROPS] },
   { attr: ":node/owner", cardinality: "one", carriers: [] },
 ];
 
@@ -122,10 +146,12 @@ function valueCarrier({ field, refsOf }: ValueRefCarrier): RefCarrier {
   return {
     refsOf: (node, types) =>
       Object.entries(node.props)
-        .filter(([id]) => field === undefined || id === field)
-        .flatMap(([id, values]) => {
-          const at: ValueField = { id, type: types(id) };
-          return values.flatMap((value) => [...refsOf(value, at)]);
+        .filter(([held]) => field === undefined || held === field)
+        .flatMap(([held, values]) => {
+          const at: ValueField = { id: held, type: types(held) };
+          return values.flatMap((value) =>
+            [...refsOf(value, at)].map((id) => ({ id, field: held })),
+          );
         }),
   };
 }
@@ -140,7 +166,7 @@ function ownerCarrier(owners: ReadonlyMap<NodeId, NodeId>): RefCarrier {
   return {
     refsOf: (node) => {
       const owner = owners.get(node.id);
-      return owner === undefined || owner === node.id ? [] : [owner];
+      return owner === undefined || owner === node.id ? [] : [{ id: owner }];
     },
   };
 }
@@ -162,7 +188,7 @@ export interface DerivedSources {
 export function derivedWith({ carriers = [], owners }: DerivedSources): readonly DerivedRef[] {
   const owner = owners === undefined ? [] : [ownerCarrier(owners)];
   const fed: Readonly<Record<DerivedRef["attr"], readonly RefCarrier[]>> = {
-    ":node/mentions": [...carriers.map(valueCarrier), ...owner],
+    [REFERENCE_ATTR]: [...carriers.map(valueCarrier), ...owner],
     ":node/owner": owner,
   };
   return CORE_DERIVED.map((entry) => ({

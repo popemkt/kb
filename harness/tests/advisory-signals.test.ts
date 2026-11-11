@@ -54,9 +54,13 @@ describe("advisory-signals", () => {
     };
     expect(config.thresholds?.break ?? null).toBeNull();
     // A signal is only worth reading if it is the same signal twice: the
-    // preload in bunfig.toml seeds fast-check when this variable is set.
+    // preload in bunfig.toml (its one list, test-kit's preload.ts) seeds
+    // fast-check when this variable is set.
     expect(config.commandRunner?.command ?? "").toMatch(/^KB_FAST_CHECK_SEED=\d+ bun test /);
-    expect(read("bunfig.toml")).toContain("packages/app/test-kit/src/fast-check-seed.ts");
+    expect(read("bunfig.toml")).toContain("packages/app/test-kit/src/preload.ts");
+    expect(read("packages/app/test-kit/src/preload.ts")).toContain(
+      'import "./fast-check-seed.ts";',
+    );
     // What actually runs is a shard's config, derived from this one: it keeps
     // both halves rather than restating them.
     const shard = shardConfig(

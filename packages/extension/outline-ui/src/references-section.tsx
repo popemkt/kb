@@ -18,9 +18,10 @@ import { useOutlineNodes } from "./outline.store";
  */
 export function ReferencesSection({ nodeId }: { nodeId: string }) {
   const schema = usePageGraph(schemaOf);
+  const index = usePageGraph((s) => s.index);
   const { value: backlinks } = useAnswered(
-    (run): BacklinkRow[] => backlinkRows(run, schema, nodeId),
-    [nodeId, schema],
+    (run): BacklinkRow[] => backlinkRows(run, schema, index, nodeId),
+    [nodeId, schema, index],
   );
 
   return <ReferencesView nodeId={nodeId} backlinks={backlinks} />;

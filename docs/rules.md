@@ -214,7 +214,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 - **expected** — A date value in any date-typed field mentions the day node for that date, whatever the day's id: the day's References and kb backlinks list every node dated it.
 - **current** — The date → day carrier (days B3) can read a value and its field's type only, not the graph, so it names the derived id days.<date> (periodNodeId). ext.days.today makes a day under a fresh id when days.<date> is taken by a node that is not that day (plan.ts, planDay), and a day merged or retagged from elsewhere keeps its own id; neither is mentioned by a date value.
-- **impact** — Rare: days.<date> is taken only by a hand-minted id or a day whose key was stripped. Such a day's References miss the nodes dated it; the day page's "Dated this day" still lists them, since it reads datesOf over the graph by key.
+- **impact** — Rare: days.<date> is taken only by a hand-minted id or a day whose key was stripped. Such a day's References miss the nodes dated it, and with them its page shows nothing dated it: References are where a day lists what is dated it.
 - **closes** — A carrier that joins a date value to the node whose sys.f.days.key is that date at index time (the index re-reading holders when a key appears or moves), or a re-id of such a day to days.<date>.
 - **node** — `01M73N2FPM7GGCX6H62V6PE8JG`
 

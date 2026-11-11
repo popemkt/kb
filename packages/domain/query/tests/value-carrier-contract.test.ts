@@ -39,6 +39,7 @@ const MENTIONS =
 interface Subject {
   readonly mentions: () => Promise<string[]>;
   readonly referencesOf: (node: KbNode) => ReadonlySet<string>;
+  readonly referenceFields: (node: KbNode, target: string) => ReadonlySet<string>;
   readonly applyTx: (tx: StoreTx) => void;
 }
 
@@ -50,6 +51,7 @@ const INDEXES: Record<string, (nodes: KbNode[], derived: readonly DerivedRef[]) 
     return {
       mentions: () => Promise.resolve(sortedRows(index.runDatalog(MENTIONS))),
       referencesOf: (n) => index.referencesOf(n),
+      referenceFields: (n, target) => index.referenceFields(n, target),
       applyTx: (tx) => index.applyTx(tx),
     };
   },
@@ -71,6 +73,7 @@ const INDEXES: Record<string, (nodes: KbNode[], derived: readonly DerivedRef[]) 
         return answer.kind === "rows" ? sortedRows(answer.rows) : [answer.kind];
       },
       referencesOf: (n) => index.referencesOf(n),
+      referenceFields: (n, target) => index.referenceFields(n, target),
       applyTx: (tx) => index.applyTx(tx),
     };
   },
@@ -148,6 +151,33 @@ for (const [name, make] of Object.entries(INDEXES))
       expect(await index.mentions()).toEqual([]);
       index.applyTx({ upserts: [dayOne], deletes: [] });
       expect(await index.mentions()).toEqual(["task day.2026-11-12"]);
+    });
+
+    test("a reference says the fields it comes through, whichever carrier reads it", () => {
+      const link = node("f.link");
+      const through = {
+        ...node("through", {
+          "f.due": str("2026-11-12"),
+          "f.link": [{ t: "ref" as const, v: "day.2026-11-12" }],
+          "f.note": str("about [[day.2026-11-12]]"),
+        }),
+        text: "see [[day.2026-11-12]] and [[day.2026-11-13]]",
+      };
+      const index = make([due, note, link, through, ...days], DERIVED);
+      // A date, a ref value and a token in a text value each name their field.
+      expect([...index.referenceFields(through, "day.2026-11-12")].toSorted()).toEqual([
+        "f.due",
+        "f.link",
+        "f.note",
+      ]);
+      // A token in the node's own text is in no field.
+      expect([...index.referenceFields(through, "day.2026-11-13")]).toEqual([]);
+      // The date is read with its field's type as it stands.
+      index.applyTx({ upserts: [node("f.due", typed(SYSTEM_IDS.ftText))], deletes: [] });
+      expect([...index.referenceFields(through, "day.2026-11-12")].toSorted()).toEqual([
+        "f.link",
+        "f.note",
+      ]);
     });
 
     test("a carrier that names one field reads that field only", async () => {
