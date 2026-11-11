@@ -3311,7 +3311,10 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   `@kb/contracts`) is on, so a person can leave it on. The flag is per run and
   the setting is the store's, committed with it.
   - **What watching does.** `ownExtensionEdits` (`app/runtime`) watches the
-    folder and every folder under it, creating it when it is missing. After
+    folder and every folder under it, creating it when it is initially missing.
+    Its parent-directory signal follows removal and recreation, replacing the
+    scoped recursive watch when the directory identity changes. Disabling
+    watching or stopping the server closes both watches. After
     each burst of edits it drops the root's reading, and the server's follower
     then announces a changed manifest, as it does for a lock.
   - **Trust is not skipped.** Saving a file gives its closure a new digest, so

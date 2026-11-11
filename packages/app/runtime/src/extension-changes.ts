@@ -1,6 +1,6 @@
 /** Proactive runtime change signals; ordinary calls use the same lock fingerprint. */
-import { watch } from "node:fs";
-import { relative } from "node:path";
+import { statSync, watch } from "node:fs";
+import { dirname, relative } from "node:path";
 import { Effect, Layer, Stream } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { CodeTrust, ExtensionStorage, directorySignals } from "@kb/contracts";
@@ -39,8 +39,27 @@ export function ownExtensionEdits(root: string): Stream.Stream<void, never, File
     Effect.gen(function* () {
       const fs = yield* FileSystem;
       yield* fs.makeDirectory(dir, { recursive: true }).pipe(Effect.ignore);
-      return directorySignals([dir], (folder, listener) =>
-        watch(folder, { recursive: true }, listener),
+      // The parent owns the directory entry's lifetime; its inode decides
+      // whether to re-arm, so unrelated parent traffic does not reload code.
+      return directorySignals([dirname(dir)], watch).pipe(
+        Stream.mapEffect(() =>
+          Effect.sync(() => {
+            try {
+              const state = statSync(dir, { bigint: true });
+              return `${state.dev}:${state.ino}:${state.birthtimeNs}`;
+            } catch {
+              return null;
+            }
+          }),
+        ),
+        Stream.changes,
+        Stream.switchMap((inode) =>
+          inode === null
+            ? Stream.succeed(undefined)
+            : directorySignals([dir], (folder, listener) =>
+                watch(folder, { recursive: true }, listener),
+              ),
+        ),
       );
     }),
   ).pipe(
