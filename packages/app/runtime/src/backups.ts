@@ -12,6 +12,7 @@ import { createHash } from "node:crypto";
 import { basename, join } from "node:path";
 import { Effect, Option, Schema } from "effect";
 import { FileSystem } from "effect/FileSystem";
+import { acquireFileWriteLockEffect, releaseFileWriteLock } from "@kb/file-write";
 import type { BackupTaken, StoreBackup } from "@kb/contracts";
 import {
   canonicalJsonl,
@@ -45,7 +46,7 @@ const graphDigest = (nodes: readonly KbNode[]) =>
   createHash("sha256").update(canonicalJsonl(nodes)).digest("hex");
 
 /** Missing, damaged or replaced payloads are never interpreted as an empty graph. */
-export const readBackup = Effect.fn("kb.backups.read")(function* (backup: StoreBackup) {
+const readBackup = Effect.fn("kb.backups.read")(function* (backup: StoreBackup) {
   const fs = yield* FileSystem;
   const manifest = decodeManifest(
     yield* fs.readFileString(join(backup.path, MANIFEST)).pipe(Effect.mapError(ensureDomainError)),
@@ -79,6 +80,27 @@ const backupsDir = Effect.fn("kb.backups.dir")(function* (
   return join(yield* currentData, "backups", `${basename(canonical)}-${key}`);
 });
 
+/** One root's publication, retention and protected payload uses share a cross-process lock. */
+const withBackups = Effect.fn("kb.backups.exclusive")(function* <A, E, R>(
+  root: string,
+  body: Effect.Effect<A, E, R>,
+) {
+  const dir = yield* backupsDir(root);
+  return yield* Effect.acquireUseRelease(
+    acquireFileWriteLockEffect(join(dir, "retention")),
+    () => body,
+    (lock) => Effect.sync(() => releaseFileWriteLock(lock)),
+  );
+});
+
+/** Hold the retention boundary through validation and use, not only the payload read. */
+export const useBackup = Effect.fn("kb.backups.use")(function* <A, E, R>(
+  backup: StoreBackup,
+  use: (nodes: readonly KbNode[]) => Effect.Effect<A, E, R>,
+) {
+  return yield* withBackups(backup.root, readBackup(backup).pipe(Effect.flatMap(use)));
+});
+
 /** `root`'s backups, newest first; a directory without a readable manifest is not one. */
 export const listBackups = Effect.fn("kb.backups.list")(function* (
   root: string,
@@ -109,7 +131,7 @@ export const listBackups = Effect.fn("kb.backups.list")(function* (
  * Copy `root`'s store into a new backup, then keep only the newest `keep`
  * of its backups. A copy that fails leaves no directory behind.
  */
-export const takeBackup = Effect.fn("kb.backups.take")(function* (
+const copyBackup = Effect.fn("kb.backups.take")(function* (
   root: string,
   keep: number,
 ): Effect.fn.Return<BackupTaken, DomainError, FileSystem> {
@@ -155,12 +177,15 @@ export const takeBackup = Effect.fn("kb.backups.take")(function* (
   yield* fs
     .rename(join(path, `${MANIFEST}.tmp`), join(path, MANIFEST))
     .pipe(Effect.mapError(ensureDomainError));
-  const removed = (yield* listBackups(canonical))
-    .filter((held) => held.id !== id)
-    .slice(Math.max(keep, 1) - 1);
+  const removed = (yield* listBackups(canonical)).slice(Math.max(keep, 1));
   for (const old of removed)
     yield* fs
       .remove(old.path, { recursive: true, force: true })
       .pipe(Effect.mapError(ensureDomainError));
   return { backup, removed };
+});
+
+/** Publish and prune in one serialized operation, including across processes. */
+export const takeBackup = Effect.fn("kb.backups.take")(function* (root: string, keep: number) {
+  return yield* withBackups(root, copyBackup(root, keep));
 });

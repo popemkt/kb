@@ -59,10 +59,12 @@ const currentBackup = Effect.fn("store.backup.current")(function* (
   const now = yield* (yield* KbStore).fingerprint;
   const [newest] = yield* roots.backups(root);
   if (now === null || newest?.fingerprint !== now) return undefined;
-  const valid = yield* roots.readBackup(newest).pipe(
-    Effect.as(true),
-    Effect.orElseSucceed(() => false),
-  );
+  const valid = yield* roots
+    .useBackup(newest, () => Effect.succeed(true))
+    .pipe(
+      Effect.as(true),
+      Effect.orElseSucceed(() => false),
+    );
   return valid ? newest : undefined;
 });
 
@@ -164,16 +166,20 @@ export const storeRestoreEffect = Effect.fn("store.restore")(function* (input: {
     });
   // Read before the backup of the state it replaces: that backup's retention
   // may remove the oldest, which can be this one.
-  const nodes = yield* roots.readBackup(restored);
+  const nodes = yield* roots.useBackup(restored, Effect.succeed);
   const replaced = (yield* storeBackupEffect()).backup;
   if (replaced.fingerprint === null)
     return yield* domainError(
       "conflict",
       "the safety backup has no state identity; restore refused",
     );
-  const before = yield* roots.readBackup(replaced);
-  const tx = diffTx(before, nodes);
-  yield* persistEffect(ctx, tx, { systemWrites: "system", expected: replaced.fingerprint });
+  const expected = replaced.fingerprint;
+  const tx = yield* roots.useBackup(replaced, (before) => {
+    const planned = diffTx(before, nodes);
+    return persistEffect(ctx, planned, { systemWrites: "system", expected }).pipe(
+      Effect.as(planned),
+    );
+  });
   return {
     restored,
     replaced,
