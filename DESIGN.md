@@ -5435,7 +5435,8 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
     date and the family would make a second node for it. The way out is
     one write that takes the tag and the key off together. The page has
     no single gesture for that yet: untagging a keyed day alone is
-    refused, because it leaves the key on a node that is no period.
+    refused, because it leaves the key on a node that is no period
+    (GAP [[01M74G589QG69NF2YXM8KGVAC9]]).
 
   With the two guards, every key a store holds names one real period, so
   the key needs no lock. It is hidden, and managed by the family
