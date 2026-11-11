@@ -38,6 +38,70 @@ export function fieldTypesIn(nodeOf: (id: NodeId) => KbNode | undefined): FieldT
 }
 
 /**
+ * A reference by key: the nodes whose `field` holds the text `value`,
+ * whatever their ids. A family whose nodes are found by a key it manages
+ * (a day by its date) names them so, and a node it reaches this way is
+ * referenced under any id, made by any path.
+ */
+export interface KeyRef {
+  readonly field: NodeId;
+  readonly value: string;
+}
+
+/**
+ * What a carrier may read of the graph beyond the node it reads. The index
+ * that hands it over knows what each read depends on, so it reads a node
+ * again when any of that changes: a field's type, or which nodes hold a key.
+ */
+export interface GraphReads {
+  /** Each field's declared type (`FieldTypes`). */
+  readonly fieldType: FieldTypes;
+  /** The nodes holding `key` ({@link KeyRef}), in no particular order. */
+  readonly holders: (key: KeyRef) => readonly NodeId[];
+}
+
+/**
+ * {@link GraphReads} over the graph `nodeOf` reads, remembering nothing
+ * between calls: who holds a key is a scan of `nodes`, once per field.
+ */
+export function graphReadsIn(
+  nodeOf: (id: NodeId) => KbNode | undefined,
+  nodes: () => Iterable<KbNode>,
+): GraphReads {
+  const byField = new Map<NodeId, Map<string, NodeId[]>>();
+  return {
+    fieldType: fieldTypesIn(nodeOf),
+    holders: (key) => {
+      let values = byField.get(key.field);
+      if (values === undefined) {
+        values = keyHolders(nodes(), key.field);
+        byField.set(key.field, values);
+      }
+      return values.get(key.value) ?? [];
+    },
+  };
+}
+
+/** Who holds each text value of `field` among `nodes`: value → their ids, in node order. */
+export function keyHolders(nodes: Iterable<KbNode>, field: NodeId): Map<string, NodeId[]> {
+  const values = new Map<string, NodeId[]>();
+  for (const node of nodes)
+    for (const value of keysOf(node, field)) {
+      const holders = values.get(value);
+      if (holders === undefined) values.set(value, [node.id]);
+      else holders.push(node.id);
+    }
+  return values;
+}
+
+/** The text values `node` holds in `field`: the keys it holds there. */
+export function keysOf(node: Pick<KbNode, "props"> | undefined, field: NodeId): Set<string> {
+  const out = new Set<string>();
+  for (const pv of node?.props[field] ?? []) if (pv.t === "str") out.add(pv.v);
+  return out;
+}
+
+/**
  * One reference a carrier reads off a node: the id it names, and the field
  * whose value names it. A reference in no field (the node's own text, the
  * owner a host hands the index) has none.
@@ -55,7 +119,7 @@ export interface CarriedRef {
  * or stops existing, or when a field it holds changes type.
  */
 export interface RefCarrier {
-  readonly refsOf: (node: KbNode, types: FieldTypes) => Iterable<CarriedRef>;
+  readonly refsOf: (node: KbNode, reads: GraphReads) => Iterable<CarriedRef>;
 }
 
 /**
@@ -137,20 +201,28 @@ export interface ValueField {
 export interface ValueRefCarrier {
   /** The one field whose values it reads; absent, it reads every field's. */
   readonly field?: NodeId;
-  /** The node ids one value points at, given the field it is in; none for a value it cannot read. */
-  readonly refsOf: (value: PropValue, field: ValueField) => Iterable<NodeId>;
+  /**
+   * What one value points at, given the field it is in: node ids, or keys
+   * the nodes it means hold ({@link KeyRef}); none for a value it cannot read.
+   */
+  readonly refsOf: (value: PropValue, field: ValueField) => Iterable<NodeId | KeyRef>;
 }
 
 /** `carrier` as a node's carrier: what each value it reads points at, in prop order. */
 function valueCarrier({ field, refsOf }: ValueRefCarrier): RefCarrier {
   return {
-    refsOf: (node, types) =>
+    refsOf: (node, reads) =>
       Object.entries(node.props)
         .filter(([held]) => field === undefined || held === field)
         .flatMap(([held, values]) => {
-          const at: ValueField = { id: held, type: types(held) };
+          const at: ValueField = { id: held, type: reads.fieldType(held) };
           return values.flatMap((value) =>
-            [...refsOf(value, at)].map((id) => ({ id, field: held })),
+            [...refsOf(value, at)].flatMap((target) =>
+              (typeof target === "string" ? [target] : reads.holders(target)).map((id) => ({
+                id,
+                field: held,
+              })),
+            ),
           );
         }),
   };

@@ -194,3 +194,63 @@ for (const [name, make] of Object.entries(INDEXES))
       expect(await index.mentions()).toEqual(["task day.2026-11-13"]);
     });
   });
+
+/** A date value names the nodes whose `f.key` is that date, whatever their ids. */
+const KEYED = derivedWith({
+  carriers: [
+    {
+      refsOf: (value, field) =>
+        field.type === "date" && value.t === "str" ? [{ field: "f.key", value: value.v }] : [],
+    },
+  ],
+});
+const keyed = (id: string, key?: string) =>
+  node(id, key === undefined ? {} : { "f.key": str(key) });
+
+for (const [name, make] of Object.entries(INDEXES))
+  describe(`${name}: a value carrier may name its target by key`, () => {
+    test("a value names whichever node holds the key, under any id", async () => {
+      const index = make([due, note, task, keyed("any-id", "2026-11-12")], KEYED);
+      expect(await index.mentions()).toEqual(["task any-id"]);
+      expect([...index.referenceFields(task, "any-id")]).toEqual(["f.due"]);
+    });
+
+    test("the mention follows the key as it arrives, moves and goes", async () => {
+      const index = make([due, note, task], KEYED);
+      expect(await index.mentions()).toEqual([]);
+      // A node takes the key: it is mentioned.
+      index.applyTx({ upserts: [keyed("first", "2026-11-12")], deletes: [] });
+      expect(await index.mentions()).toEqual(["task first"]);
+      // The key moves to another node in one transaction.
+      index.applyTx({ upserts: [keyed("first"), keyed("second", "2026-11-12")], deletes: [] });
+      expect(await index.mentions()).toEqual(["task second"]);
+      // The field it comes through follows the key too.
+      expect([...index.referenceFields(task, "second")]).toEqual(["f.due"]);
+      expect([...index.referenceFields(task, "first")]).toEqual([]);
+      // Its holder is deleted: nothing is mentioned.
+      index.applyTx({ upserts: [], deletes: ["second"] });
+      expect(await index.mentions()).toEqual([]);
+      // It comes back under a third id, and the holder's own value changes.
+      index.applyTx({ upserts: [keyed("third", "2026-11-12")], deletes: [] });
+      index.applyTx({ upserts: [{ ...task, props: { "f.due": str("2026-11-13") } }], deletes: [] });
+      expect(await index.mentions()).toEqual([]);
+      index.applyTx({ upserts: [keyed("third", "2026-11-13")], deletes: [] });
+      expect(await index.mentions()).toEqual(["task third"]);
+      const fresh = make(
+        [
+          due,
+          note,
+          { ...task, props: { "f.due": str("2026-11-13") } },
+          keyed("third", "2026-11-13"),
+        ],
+        KEYED,
+      );
+      expect(await fresh.mentions()).toEqual(await index.mentions());
+    });
+
+    test("a node only planned is read by key too, and a planned key holder is not yet held", () => {
+      const index = make([due, note, keyed("held", "2026-11-12")], KEYED);
+      expect(index.referencesOf(task)).toContain("held");
+      expect(index.referencesOf(node("x", { "f.due": str("2026-11-14") }))).not.toContain("held");
+    });
+  });
