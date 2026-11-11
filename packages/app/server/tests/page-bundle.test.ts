@@ -181,6 +181,7 @@ const DATASCRIPT = /cljs\.core/;
 // Publishing native keyboard declarations on both hosts measures 1,856,252 bytes.
 // The shared call codec extraction measures 1,856,290 bytes; the inactive reader is tree-shaken.
 // Retaining provenance in the normal command runner catalog measures 1,856,660 bytes.
+// Sharing the scoped plugin-root lookup measures 1,856,725 bytes.
 const EAGER_BUDGET_BYTES = 1_857_800;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
