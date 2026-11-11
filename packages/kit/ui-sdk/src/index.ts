@@ -459,6 +459,8 @@ export {
   claimantOf,
   ingestedOf,
   ingestPort,
+  provideIngest,
+  type IngestForm,
   type Ingested,
   type IngestGesture,
   type IngestHandler,

@@ -9,6 +9,7 @@ import {
   type Ingested,
   type IngestHandler,
   type IngestMatch,
+  provideIngest,
 } from "./ingest";
 
 const pasted = (text: string): Ingested => ({
@@ -49,5 +50,29 @@ describe("who claims a paste or a drop", () => {
   it("takes nothing by a pattern that is no regular expression", () => {
     const broken = handler("broken", { gestures: ["paste"], types: ["text/plain"], pattern: "(" });
     expect(claimantOf([broken], pasted("("))).toBeNull();
+  });
+});
+
+describe("a handler written as a transform", () => {
+  const form = {
+    match: { gestures: ["paste"], types: ["text/plain"], pattern: "^- " },
+    priority: 10,
+    transform: (text: string) => (text.includes("skip") ? null : text.toUpperCase()),
+  } as const;
+
+  it("makes the outline its transform returns, or nothing for null", async () => {
+    const { id, value } = provideIngest("shout", form);
+    expect(id).toBe("shout");
+    expect(value.match).toBe(form.match);
+    expect(value.priority).toBe(10);
+    const site = { nodeId: "n", text: "" };
+    await expect(value.ingest(pasted("- a"), site)).resolves.toEqual({ outline: "- A" });
+    await expect(value.ingest(pasted("- skip"), site)).resolves.toBeNull();
+  });
+
+  it("throws where its plugin applies when its pattern is no regular expression", () => {
+    expect(() =>
+      provideIngest("broken", { ...form, match: { ...form.match, pattern: "(" } }),
+    ).toThrow(/paste handler broken: its pattern is no regular expression/);
   });
 });
