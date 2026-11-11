@@ -223,14 +223,13 @@ describe("a backlink's relation through a date", () => {
         [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
         [SYSTEM_IDS.fieldTypeField]: [{ t: "ref", v: SYSTEM_IDS.ftDate }],
       }),
-      node("days.2026-11-12", "Thu, Nov 12"),
+      // A day is the node holding its date as key, whatever its id.
+      node("n.day", "Thu, Nov 12", { "sys.f.days.key": [{ t: "str", v: "2026-11-12" }] }),
       node("n.task", "Call the plumber", { "f.due": [{ t: "str", v: "2026-11-12" }] }),
     ];
     useGraphStore.getState().hydrateFromWire(graph, 1, "fixtures");
     const g = useGraphStore.getState();
-    const rows = await answered(g, (run) =>
-      backlinkRows(run, schemaOf(g), g.index, "days.2026-11-12"),
-    );
+    const rows = await answered(g, (run) => backlinkRows(run, schemaOf(g), g.index, "n.day"));
     expect(rows.find((r) => r.id === "n.task")?.relations).toEqual([
       { field: "f.due", label: "due →" },
     ]);
