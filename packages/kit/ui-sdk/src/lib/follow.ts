@@ -26,8 +26,15 @@ import { asElement } from "./dom";
 import { INLINE_TEXT_CLASSES, KB_REF_ID_ATTR } from "./md-edit";
 import { usePane } from "./pane";
 
-/** Where a pointer goes: a node in this graph, or a location outside it. */
-export type FollowTarget = { kind: "node"; id: string } | { kind: "href"; href: string };
+/**
+ * Where a pointer goes: a node in this graph, a location outside it, or a
+ * date (`YYYY-MM-DD`), which leads where the page role `ui.date-target`
+ * says (`dateTarget`), or nowhere.
+ */
+export type FollowTarget =
+  | { kind: "node"; id: string }
+  | { kind: "href"; href: string }
+  | { kind: "date"; date: string };
 
 /**
  * How far a node follow goes. `open` makes the node the pane's page (the

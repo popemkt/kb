@@ -319,6 +319,7 @@ export {
   bundledPlugin,
   CAPTURE_TARGET_ROLE,
   LANDING_ROLE,
+  DATE_TARGET_ROLE,
   declaredRoles,
   FIELD_EDITOR_ROLE,
   type ProviderRole,

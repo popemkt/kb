@@ -13,6 +13,5 @@ export {
   periodTagOf,
   periodTagRefusal,
 } from "./period-tag.ts";
-export { datedOn, datesOf } from "./dated.ts";
-export type { DatedValue } from "./dated.ts";
+export { dateDayReferences } from "./dated.ts";
 export { DAYS_POINT_DEFINITIONS } from "./point-definitions.ts";

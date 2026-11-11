@@ -47,6 +47,14 @@ describe("value kinds", () => {
     expect(VALUE_KINDS.url.follow({ t: "str", v: "" })).toBeNull();
   });
 
+  it("a date follows as a date, which the page's date target leads somewhere or nowhere", () => {
+    expect(VALUE_KINDS.date.follow({ t: "str", v: "2026-11-12" })).toEqual({
+      kind: "date",
+      date: "2026-11-12",
+    });
+    expect(VALUE_KINDS.date.follow({ t: "str", v: "" })).toBeNull();
+  });
+
   it("a toggle flips a true bool off and anything else on", () => {
     expect(toggledValue({ t: "bool", v: true })).toEqual({ t: "bool", v: false });
     expect(toggledValue({ t: "bool", v: false })).toEqual({ t: "bool", v: true });

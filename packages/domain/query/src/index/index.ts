@@ -71,6 +71,16 @@ export interface NodeIndex {
    */
   related(id: NodeId, attr: DerivedRef["attr"]): readonly NodeId[];
 
+  /**
+   * The fields through which `node` references `target` in the reference
+   * relation (`:node/mentions`), whichever carrier reads it: the field of a
+   * ref value, of a text value holding a `[[target]]` token, or of a value a
+   * family's carrier reads (a date, for its day). Empty when the reference
+   * is in no field (the node's own text) or there is none. Asked of any
+   * node, as `referencesOf` is.
+   */
+  referenceFields(node: KbNode, target: NodeId): ReadonlySet<NodeId>;
+
   /** Every node the index answers over — stored plus virtual. */
   allNodes(): Iterable<KbNode>;
 

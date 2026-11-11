@@ -13,6 +13,7 @@
 import {
   CAPTURE_TARGET_ROLE,
   LANDING_ROLE,
+  DATE_TARGET_ROLE,
   CORE_CONTEXT_REFERENCES,
   defineExtension,
   viewDef,
@@ -58,8 +59,9 @@ export const coreExtension = defineExtension({
   declaredOptions: [{ kind: DESIGN_SYSTEM_OPTIONS, options: [KB_DESIGN_SYSTEM] }],
   // Where a node made with no chosen place goes, and where a page that
   // loads at the root opens: core's page half answers the top level and
-  // home, and a family may replace either (days answers today).
-  roles: [CAPTURE_TARGET_ROLE, LANDING_ROLE],
+  // home, and a family may replace either (days answers today). Where a
+  // followed date leads: core's leads nowhere, and days answers its day.
+  roles: [CAPTURE_TARGET_ROLE, LANDING_ROLE, DATE_TARGET_ROLE],
   retires: [
     // ⌘K's Preferences became Settings with the page that replaced the popover.
     { from: "sys.cmd.preferences", to: SYSTEM_IDS.cmdSettings, text: "Preferences" },

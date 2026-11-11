@@ -95,6 +95,12 @@ describe("layout-shift regressions (i10)", () => {
     expect(src).not.toMatch(/\[scrollbar-gutter:|overflow-y-scroll/);
     // Pinned at the region itself, so a later edit cannot quietly drop its scrolling.
     expect(src).toMatch(/scroll \? "overflow-x-auto overflow-y-auto"/);
+    // The room after a page's end is the region's too, never a view's: a view
+    // drawn inside another page (the outline in a day page) would open a gap.
+    expect(src).toMatch(/scroll && "pb-40"/);
+    const editor = readFileSync(path.join(outlineDir, "outline-editor.tsx"), "utf8");
+    expect(editor).toMatch(/className="outline-editor /);
+    expect(editor).not.toMatch(/className="outline-editor [^"]*\bpb-/);
     // And the shift is fixed at the scroll region, not compensated downstream.
     const crumbs = readFileSync(path.join(outlineDir, "breadcrumbs.tsx"), "utf8");
     expect(crumbs).not.toMatch(/scrollbar|margin-left|\bml-|padding-right|\bpr-/);

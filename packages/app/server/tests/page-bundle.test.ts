@@ -115,16 +115,26 @@ const DATASCRIPT = /cljs\.core/;
 // loads, and the point's declaration with days' sections' lazy loaders
 // (their bodies are chunks of their own), measured with both sections. The budget keeps about 1.5 KB
 // of headroom over it.
+// The value carriers (field types handed to carriers, each field's type
+// remembered with what it read), merged onto main with C1b's first step,
+// measure 1,815,068; the budget keeps about 1.5 KB of headroom over it.
+// Days' date → day carrier in its declaration, which the page derives
+// with, and following a date (the date target role, its core default and
+// days' provider, and the follow's date branch) take it to 1,816,343; the
+// budget keeps about 1.5 KB over that.
+// One backdrop across pages adds the pane's host above the router, its layers' crossfade and
+// hold, a head's declaration of its space and the breadcrumbs' band; every scene still loads lazily.
+// It measures 5,250 production bytes (1,816,343 → 1,821,593 merged with main at 8a68021a); the
+// budget keeps about 1.5 KB of headroom over it.
 // The page asking the commit's rule (`personWriteRefusal`, the tracked
 // `isVirtual` read) and merging in one action (`node.merge`, which the page
-// runs on its own replica), with the value carriers (field types handed to
-// carriers, each field's type remembered with what it read), measure
-// 1,815,736.
+// runs on its own replica), merged with main at 5cd57bb2, measure 1,821,983;
+// the budget keeps about 1.5 KB of headroom over it.
 // A refused write worded for a person (`failureText`, every toast's one path
 // from a failed receipt), the refusal as data it reads (`WriteRefusal`), and
-// the owner chip with the index's point read it asks (`related`), measure
-// 1,818,335; the budget keeps about 1.5 KB of headroom over it.
-const EAGER_BUDGET_BYTES = 1_819_900;
+// the owner chip with the index's point read it asks (`related`), merged with
+// C1b-a at d491f5cd, measure 1,824,661; the budget keeps about 1.5 KB over it.
+const EAGER_BUDGET_BYTES = 1_826_200;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

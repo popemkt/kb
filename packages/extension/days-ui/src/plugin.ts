@@ -9,6 +9,7 @@ import {
   browserHost,
   CaptureTargetService,
   CommandPoint,
+  DateTargetService,
   LandingService,
   provideView,
   SidebarSectionPoint,
@@ -17,7 +18,7 @@ import {
 import { goToTodayCommand } from "./command";
 import { DaySectionPoint } from "./sections";
 import { TodaySection } from "./section";
-import { todayNode } from "./today";
+import { dayNode, todayNode } from "./today";
 
 /**
  * The day page, in a chunk of its own: the page fetches it the first time a
@@ -27,25 +28,16 @@ import { todayNode } from "./today";
 const DayPage = lazy(() => import("./day-page").then((m) => ({ default: m.DayPage })));
 
 /**
- * The day page's sections point, and the two days fills (DESIGN-UI.md →
- * Days): what is dated the day, then what was made or edited on it. Each
- * section's body is a chunk of its own, fetched with the page.
+ * The day page's sections point, and the one days fills (DESIGN-UI.md →
+ * Days): what was made or edited on the day. What is dated the day is the
+ * day's References, each naming its date field. A section's body is a
+ * chunk of its own, fetched with the page.
  */
 const daySectionsPlugin = definePlugin({
   name: "day-sections",
   apply: (ctx) =>
     Effect.gen(function* () {
       const point = yield* ctx.declare(DaySectionPoint, DAYS_POINT_DEFINITIONS.sections.spec);
-      yield* ctx.contribute(point, {
-        id: "dated",
-        value: {
-          order: 20,
-          title: "Dated this day",
-          Component: lazy(() =>
-            import("./dated-section").then((m) => ({ default: m.DatedSection })),
-          ),
-        },
-      });
       yield* ctx.contribute(point, {
         id: "touched",
         value: {
@@ -74,8 +66,9 @@ async function landOnToday(): Promise<string | null> {
  * The days family's page entry (DESIGN-UI.md → Days). It loads the family's
  * plugin as a child, so the day page's key, `ext.days.today` and the
  * one-node-per-key guard are the page kernel's too, and adds the day page
- * with its sections point, the Today row, ⌘K "Go to today", and its replacements of the capture
- * target and the landing: today's node.
+ * with its sections point, the Today row, ⌘K "Go to today", and its
+ * replacements of three roles: the capture target and the landing answer
+ * today's node, and the date target a date's own day.
  */
 export const daysUiPlugin = definePlugin({
   name: daysExtension.name,
@@ -88,7 +81,12 @@ export const daysUiPlugin = definePlugin({
         ctx.plugin(daySectionsPlugin),
         ctx.contribute(
           ViewPoint,
-          provideView(DayView, { placements: ["page"], sample: {}, Component: DayPage }),
+          provideView(DayView, {
+            placements: ["page"],
+            sample: {},
+            Component: DayPage,
+            frame: "scroll",
+          }),
         ),
         ctx.contribute(SidebarSectionPoint, {
           id: "section",
@@ -97,6 +95,7 @@ export const daysUiPlugin = definePlugin({
         ctx.contribute(CommandPoint, { id: goToTodayCommand.id, value: goToTodayCommand }),
         ctx.provide(CaptureTargetService, todayNode),
         ctx.provide(LandingService, landOnToday),
+        ctx.provide(DateTargetService, dayNode),
       ],
       { discard: true },
     ),

@@ -15,7 +15,6 @@ import {
   UNTAGGED_COLOR,
   useOpenNode,
   usePageGraph,
-  PageBackdrop,
 } from "@kb/ui-sdk";
 import { isQueryNode } from "@kb/model";
 import { projectsRows, type FrameViewKey } from "@kb/views";
@@ -158,7 +157,7 @@ function OwnedBy({ id }: { id: string }) {
   );
 }
 
-/** Zoomed root title + tag wash + fields at depth −1 (DESIGN-RESKIN §1.5). */
+/** Zoomed root title + fields at depth −1 (DESIGN-RESKIN §1.5), under the page head's space. */
 export function ZoomedRootHeader({
   node,
   view,
@@ -168,22 +167,18 @@ export function ZoomedRootHeader({
   readonly view: FrameViewKey | null;
 }) {
   const zoomTo = useOpenNode();
-  // Ambient wash, not an identity readout: one color is enough, but which
-  // color and how it weakens both come from the tag-color owner.
-  const washColor = nodeTagColors(node)[0] ?? null;
   const isList = !projectsRows(view);
   // A query page's control holds its query, one click away: never behind the gear.
   const tucked = isList && !isQueryNode(node);
 
   return (
     <div
-      className="zoomed-root-header px-2 pb-2 pt-1"
+      className="zoomed-root-header px-2 pb-2"
       data-zoomed-root-header="true"
       data-frame-id={node.id}
     >
-      <div className="relative pl-7 pt-1">
-        <PageBackdrop color={washColor ?? "var(--primary)"} node={node} />
-
+      {/* Under the head's space (`PageBackdrop`, the outline editor's), whose backdrop reaches behind it. */}
+      <div className="relative pl-7">
         <div className="group/header flex min-h-9 items-start justify-between gap-2">
           <EditableTitle node={node} />
           {/* A list frame keeps its view control quiet: it shows on hover or
