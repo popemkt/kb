@@ -507,6 +507,28 @@ implementation or dependency therefore changes dependent reviews even if row
 IDs stay fixed. The decoder grants no authority; live approval and host integration are
 separate from reading definitions.
 
+Persistent stored replacement approval requires an authenticated packaged image.
+The code-image port reports either a held identity (native program digest,
+served page-closure digest and load generation) or an unavailable reason.
+Grants read that port, without inspecting checkout paths or build flags. The
+loader and page server must consume the same held images whose identity the
+port reports; hashing changed files after loading is not an attestation. The
+page closure includes executable lazy chunks and workers. Native identity is
+independent of a cache label or the UI source-cache fingerprint.
+
+In checkout/dev execution the visible reason is “approvals need a packaged
+build”. Normal keyboard dispatch and non-replacing stored shortcuts remain
+available; this limitation applies to persistent stored replacement grants.
+[[01M76AZFNNGRS5P55CSCG93YJM|Authenticated checkout execution]] requires a
+loaded-module manifest digest behind the same port, without changing grants.
+
+The authority join reads trusted declaration ownership for the same loaded
+code generation, then authenticates the exact first elected live runner entry.
+View-dependent commands must retain both the live `ViewKeyPoint` registration
+and the actual `ViewPoint` provider dependencies, including selected code
+identity. A key description alone never authenticates a renderer. Missing,
+ambiguous, stale or unsupported provenance refuses authentication.
+
 The page itself is a context too, `core.page`, which core owns
 (`operations/src/keyboard.ts`). A context says where it is offered keys
 (`reach`): the outline's are `surface` contexts, offered the keys of what

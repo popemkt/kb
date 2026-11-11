@@ -674,6 +674,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — move the shared GPU backdrop host out of backdrops-ui into a kit package (beside @kb/scene-gpu) with its scene registry passed in, then port arena-scene.ts onto mountBackdrop and delete Arena's wrapper; the port drops Arena's write() and its Pod re-fire in favour of reactions.impulse / reactions.stir read in frame(), and Arena passes backdrop-continuity.contract.test.tsx
 - **node** — `01M5SYY397F5NPN3CHWGCSPQSY`
 
+### GAP: authenticate checkout code for stored shortcut approvals
+
+- **expected** — Persistent shortcut replacement grants authenticate the exact loaded native and page code in packaged and checkout execution through one code-image interface.
+- **current** — The first stored replacement approval integration requires a packaged image; checkout/dev approvals are explicitly unavailable while ordinary key dispatch and non-replacing shortcuts remain available.
+- **impact** — Checkout/dev cannot grant persistent stored key replacements.
+- **closes** — Provide a loaded-module manifest digest bound to the actual imported module closure and served executable page closure; the 64-bit UI source-cache fingerprint is insufficient.
+- **node** — `01M76AZFNNGRS5P55CSCG93YJM`
+
 ### GAP: BrowserStore IndexedDB persistence
 
 - **expected** — The browser replica persists through an IndexedDB-backed EffectStore across page reloads.
