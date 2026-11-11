@@ -16,6 +16,7 @@ import {
 } from "./canvas-camera";
 import { GizmoLayer } from "./canvas-scene-gizmo";
 import type { GizmoChoice } from "./canvas-gizmo";
+import { SWEEP_BUDGET_MS } from "./test-support/sweep-budget";
 
 const size = { width: 800, height: 600 };
 /** Straight down, through the orthographic lens: the 2D view's look, so screen pixels are units. */
@@ -96,38 +97,41 @@ describe("the gizmo bridge", () => {
     expect(layer.press(top, size, around(60, 0))).toBe(false);
   });
 
-  // GAP [[01M6VQFVG8FPA7KPZHD3J99NGX]] a sweep that outgrows Vitest's 5 s budget when CPU is contended
-  test("its reach holds every point where its picking finds a handle, in either lens and every mode", () => {
-    const oblique = { ...presetView(top, "oblique"), fov: PERSPECTIVE_FOV };
-    for (const view of [top, oblique]) {
-      for (const mode of ["move", "rotate", "scale"] as const) {
-        const layer = gizmoAt(view, { mode, space: "global" });
-        const reach = layer.reach(view, size);
-        expect(reach, mode).not.toBeNull();
-        if (reach === null) continue;
-        // A box round the handles, never the whole stage.
-        expect((reach.right - reach.left) * (reach.bottom - reach.top)).toBeLessThan(
-          (size.width * size.height) / 2,
-        );
-        // A point inside the reach cannot break it, so it is asked only until
-        // some handle answers; every point outside it is asked.
-        let answered = false;
-        for (let x = 0; x <= size.width; x += 6) {
-          for (let y = 0; y <= size.height; y += 6) {
-            const within = inside({ x, y }, reach);
-            if (within && answered) continue;
-            if (!layer.hover(view, size, { x, y })) continue;
-            answered = true;
-            expect(within, `${mode} at ${x},${y}`).toBe(true);
+  test(
+    "its reach holds every point where its picking finds a handle, in either lens and every mode",
+    { timeout: SWEEP_BUDGET_MS },
+    () => {
+      const oblique = { ...presetView(top, "oblique"), fov: PERSPECTIVE_FOV };
+      for (const view of [top, oblique]) {
+        for (const mode of ["move", "rotate", "scale"] as const) {
+          const layer = gizmoAt(view, { mode, space: "global" });
+          const reach = layer.reach(view, size);
+          expect(reach, mode).not.toBeNull();
+          if (reach === null) continue;
+          // A box round the handles, never the whole stage.
+          expect((reach.right - reach.left) * (reach.bottom - reach.top)).toBeLessThan(
+            (size.width * size.height) / 2,
+          );
+          // A point inside the reach cannot break it, so it is asked only until
+          // some handle answers; every point outside it is asked.
+          let answered = false;
+          for (let x = 0; x <= size.width; x += 6) {
+            for (let y = 0; y <= size.height; y += 6) {
+              const within = inside({ x, y }, reach);
+              if (within && answered) continue;
+              if (!layer.hover(view, size, { x, y })) continue;
+              answered = true;
+              expect(within, `${mode} at ${x},${y}`).toBe(true);
+            }
           }
+          expect(answered, mode).toBe(true);
         }
-        expect(answered, mode).toBe(true);
       }
-    }
-    // With nothing selected it shows no handles, and reaches nothing.
-    const bare = gizmoAt(top, { mode: "move", space: "global" }, []);
-    expect(bare.reach(top, size)).toBeNull();
-  });
+      // With nothing selected it shows no handles, and reaches nothing.
+      const bare = gizmoAt(top, { mode: "move", space: "global" }, []);
+      expect(bare.reach(top, size)).toBeNull();
+    },
+  );
 });
 
 /** A gizmo on `items` under `view`, its stage camera aimed as the scene aims it. */
