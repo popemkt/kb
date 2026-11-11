@@ -34,6 +34,8 @@ import {
 } from "./seed.ts";
 
 /** The steps, in order. */
+// GAP [[01M74NN86YC7HP65R2JVYMM27F]]: a one-off of the core procedure
+// (ProcedurePoint), with its own walker; to be contributed as one.
 export const SETUP_STEPS = [
   "project",
   "apis",
@@ -172,7 +174,7 @@ export function stepOpen(setup: AccountSetup, step: SetupStep): boolean {
 
 /** A new sync service: one account node, named for its provider. */
 export function addAccount(id: string, name: string): NodeCall {
-  return { id: "node.add", input: { id, text: name, tags: [T.account] } };
+  return { id: "node.add", input: { id, text: name, parent: null, tags: [T.account] } };
 }
 
 const confirmations = (steps: Iterable<ConfirmedStep>) =>
@@ -232,6 +234,7 @@ export function addSetupCalendar(
     input: {
       id,
       text: name,
+      parent: null,
       tags: [T.calendar],
       props: [
         { field: F.account, value: { t: "ref", v: account } },

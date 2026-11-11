@@ -1,6 +1,6 @@
 import { Effect, Predicate } from "effect";
 import { z } from "zod";
-import { type ActionDefinition, KbCtx, type KbStore } from "@kb/contracts";
+import { type ActionDefinition, type CaptureTarget, KbCtx, type KbStore } from "@kb/contracts";
 import {
   ResolveError,
   cardinalityOf,
@@ -22,15 +22,10 @@ import {
   type OutlineItem,
   type ParsedValue,
 } from "@kb/model";
-import {
-  forcedBy,
-  nodeAddDef,
-  planNodeAdd,
-  sessionGraph,
-  syncDomain,
-  type PropEntry,
-} from "./actions.ts";
-import { persistEffect } from "./session.ts";
+import { forcedBy, nodeAddDef, planNodeAdd, syncDomain } from "./actions.ts";
+import type { PropEntry } from "./prop-edits.ts";
+import { placedGraph, placeOf } from "./place.ts";
+import { persistPlannedEffect } from "./session.ts";
 
 export const nodeAddTreeDef = {
   id: "node.addTree",
@@ -40,8 +35,10 @@ export const nodeAddTreeDef = {
     "nested `- ` items (indent nests), `#tag` / `#[[multi word tag]]`, `field:: value` " +
     "(or `field::` with nested `- value` items for several values), and `[[ref]]` / " +
     "`[[id|label]]` naming a node id or another item of the same outline by its text. " +
-    "Top-level items go under parent at position (the forest roots and the end when " +
-    "omitted). All or nothing; returns the created ids in tree order and each item's line.",
+    "Top-level items go under parent at position (the end when omitted); an omitted " +
+    "parent puts them where captures go, the capture target (today's node while days is " +
+    "on and its captures setting says today), and parent: null at the top level. All or " +
+    "nothing; returns the created ids in tree order and each item's line.",
   mode: { kind: "write" } as const,
   targets: ["parent"],
   // Every call is a batch of node.adds: a guard on node.add governs it too,
@@ -49,7 +46,13 @@ export const nodeAddTreeDef = {
   batchOf: [nodeAddDef.id],
   inputSchema: z.object({
     outline: z.string(),
-    parent: z.string().optional(),
+    parent: z
+      .string()
+      .nullable()
+      .optional()
+      .describe(
+        "the node its top-level items go under; null for the top level; omitted, the capture target (today's node while days is on)",
+      ),
     position: z.number().int().nonnegative().optional(),
     /** Bypass sys.* write-guard (browse yes / break no), as node.add's. */
     force: z.boolean().optional(),
@@ -63,6 +66,8 @@ export const nodeAddTreeDef = {
 } satisfies ActionDefinition;
 
 type NodeAddTreeInput = z.infer<typeof nodeAddTreeDef.inputSchema>;
+/** An outline add with its place decided: under `parent`, or the top level for null. */
+type PlacedTreeInput = Omit<NodeAddTreeInput, "parent"> & { readonly parent: NodeId | null };
 
 /** One item in tree order: its parent's index in that order (null: top level) and its position. */
 interface FlatItem {
@@ -242,7 +247,7 @@ const itemProps = Effect.fnUntraced(function* (
  * a refusal of the commit's system-write rule included (`refusedLine`).
  */
 export const planNodeAddTreeEffect = Effect.fn("node.addTree.plan")(function* (
-  input: NodeAddTreeInput,
+  input: PlacedTreeInput,
   graph: NodeGraph,
 ): Effect.fn.Return<
   z.infer<typeof nodeAddTreeDef.outputSchema> & { upserts: KbNode[] },
@@ -266,7 +271,7 @@ export const planNodeAddTreeEffect = Effect.fn("node.addTree.plan")(function* (
   const planned: PlannedItem[] = flat.map(({ item, parentIndex, position }, index) => ({
     item,
     id: idAt(index),
-    parent: parentIndex === null ? input.parent : idAt(parentIndex),
+    parent: parentIndex === null ? (input.parent ?? undefined) : idAt(parentIndex),
     position,
   }));
 
@@ -301,21 +306,37 @@ export const planNodeAddTreeEffect = Effect.fn("node.addTree.plan")(function* (
 });
 
 /**
- * `node.addTree`: a whole outline as one transaction — its plan over the
- * session's stored graph, indexed once, committed once through
- * `persistEffect`: one integrity check, one transaction-log entry, one undo
- * step. Any failure, on any line, writes nothing.
+ * `node.addTree`: a whole outline as one transaction — its plan at its
+ * place (`placeOf`, with what the capture target makes there) over the
+ * session's stored graph, indexed once, committed once on the state it was
+ * planned from (`persistPlannedEffect`): one integrity check, one
+ * transaction-log entry, one undo step. Any failure, on any line, writes
+ * nothing.
  */
 export const nodeAddTreeEffect = Effect.fn("node.addTree")(function* (
   input: NodeAddTreeInput,
-): Effect.fn.Return<z.infer<typeof nodeAddTreeDef.outputSchema>, DomainError, KbCtx | KbStore> {
+): Effect.fn.Return<
+  z.infer<typeof nodeAddTreeDef.outputSchema>,
+  DomainError,
+  KbCtx | KbStore | CaptureTarget
+> {
   const ctx = yield* KbCtx;
-  const { ids, lines, upserts } = yield* planNodeAddTreeEffect(input, sessionGraph(ctx));
-  yield* persistEffect(ctx, { upserts, deletes: [] }, forcedBy(input)).pipe(
+  // The last plan made, so a refused commit can name the line it refused.
+  let last: { readonly parent: NodeId | null; readonly lines: Record<string, NodeId> } | null =
+    null;
+  const plan = Effect.fn("node.addTree.placed")(function* (nodes: readonly KbNode[]) {
+    const place = yield* placeOf(input.parent, nodes);
+    const { graph, upserts } = placedGraph(nodes, place.upserts);
+    const tree = yield* planNodeAddTreeEffect({ ...input, parent: place.parent }, graph);
+    last = { parent: place.parent, lines: tree.lines };
+    return { ...tree, upserts: upserts(tree.upserts.map(({ id }) => id)), deletes: [] };
+  });
+  const planned = yield* persistPlannedEffect(ctx, plan, forcedBy(input)).pipe(
     Effect.mapError((err) => {
-      const line = refusedLine(err, input.parent, lines);
+      const line = last === null ? null : refusedLine(err, last.parent ?? undefined, last.lines);
       return line === null ? err : atLine(line)(err);
     }),
   );
+  const { ids, lines } = present(planned, "an outline add always writes");
   return { ids, lines };
 });

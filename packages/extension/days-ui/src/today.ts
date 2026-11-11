@@ -59,7 +59,7 @@ export function todayNode(): Promise<string> {
   return dayNode(pageDay());
 }
 
-/** Open today's node in its own view (the day page), making it first if need be. */
+/** Open today's node in its page, making it first if need be. */
 export async function openToday(): Promise<void> {
   const id = await todayNode().catch(() => null);
   if (id !== null) navigate(nodePath(id));

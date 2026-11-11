@@ -25,6 +25,18 @@ export const DAYS_IDS = {
   openOnField: "sys.f.days.openOn",
   openOnToday: "sys.f.days.openOn.today",
   openOnHome: "sys.f.days.openOn.home",
+  /** Setting: where a node written with no chosen place lands, today (the default) or the top level. */
+  capturesField: "sys.f.days.captures",
+  capturesToday: "sys.f.days.captures.today",
+  capturesTop: "sys.f.days.captures.top",
+  /** Setting: whether a period's page lists what was made or edited in it; hidden when empty. */
+  touchedField: "sys.f.days.touched",
+  touchedShown: "sys.f.days.touched.shown",
+  touchedHidden: "sys.f.days.touched.hidden",
+  /** The day page's view key, retired: a day opens in the node page. */
+  retiredDayView: "days.day",
+  /** Setting: the store's time zone (IANA), which says what today is away from the page. */
+  timeZoneField: "sys.f.days.timeZone",
   /** The action that returns a day's node, making it and what is missing above it. */
   todayAction: "ext.days.today",
   /** ⌘K "Go to today", a `sys.command` node the seed declares. */
@@ -33,6 +45,10 @@ export const DAYS_IDS = {
   uniqueKeyGuard: "ext.days.unique-key",
   /** The commit guard that keeps the day and week tag settings to tags that extend the base. */
   periodTagGuard: "ext.days.period-tag",
+  /** The commit guard that keeps a key on a day, week or year, in its period's form. */
+  periodKeyGuard: "ext.days.period-key",
+  /** The interceptor that takes a node's key off when its period tag comes off. */
+  untagPeriod: "ext.days.untag-period",
 } as const;
 
 /**

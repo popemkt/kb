@@ -6,12 +6,23 @@ import { SYSTEM_IDS, type OutlineNode } from "./types";
 
 export type SchemaZoomKind = "tag" | "field" | null;
 
-export function schemaZoomKind(node: OutlineNode | undefined): SchemaZoomKind {
-  if (!node) return null;
-  const types = node.props[SYSTEM_IDS.typeField] ?? [];
-  if (types.some((v) => v.t === "ref" && v.v === SYSTEM_IDS.tag)) return "tag";
-  if (types.some((v) => v.t === "ref" && v.v === SYSTEM_IDS.field)) return "field";
+/**
+ * The schema kind a type names: a node typed `sys.tag` is a tag, one typed
+ * `sys.field` a field, and the kind is what a person calls it, never its id.
+ */
+export function kindOfType(typeId: string): SchemaZoomKind {
+  if (typeId === SYSTEM_IDS.tag) return "tag";
+  if (typeId === SYSTEM_IDS.field) return "field";
   return null;
+}
+
+export function schemaZoomKind(node: OutlineNode | undefined): SchemaZoomKind {
+  const kinds = new Set(
+    (node?.props[SYSTEM_IDS.typeField] ?? []).map((v) => (v.t === "ref" ? kindOfType(v.v) : null)),
+  );
+  // A tag that is also a field is shown as the tag it is.
+  if (kinds.has("tag")) return "tag";
+  return kinds.has("field") ? "field" : null;
 }
 
 export interface SchemaHit {

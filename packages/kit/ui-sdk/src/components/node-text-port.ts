@@ -28,8 +28,11 @@ export interface NodeTextPort extends GraphSource {
   readonly unregisterTextHost: (instanceKey: string) => void;
   /** Select a node in one instance. */
   readonly selectNode: (nodeId: string, instanceKey?: string) => void;
-  /** Open or close the node palette. */
-  readonly setNodePaletteOpen: (open: boolean) => void;
+  /**
+   * Open or close the node palette: open at a picker step (`PaletteStepPoint`)
+   * when `step` names one, else at its commands.
+   */
+  readonly setNodePaletteOpen: (open: boolean, step?: string) => void;
   /** Carry out a follow from where its caller is drawn (`useFollowThrough`). */
   readonly follow: CarryOutFollow;
 }

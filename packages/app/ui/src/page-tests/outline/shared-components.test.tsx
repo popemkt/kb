@@ -168,8 +168,11 @@ describe("shared outline components (W8b)", () => {
   it("surface modules import the single shared row/chip/field components", () => {
     expect(importsFromKit(readOutlineSource("node-block.tsx"), "NodeRow")).toBe(true);
     expect(readPrimitiveSource("node-text-host.tsx")).toMatch(/from "\.\/tag-chip"/);
-    expect(importsFromKit(readOutlineSource("references-section.tsx"), "NodeRow")).toBe(true);
-    expect(importsFromKit(readOutlineSource("references-section.tsx"), "TagChip\\w*")).toBe(true);
+    // A reference is a NodeLinkRow, the kit's row for a node a page lists,
+    // drawn with the one NodeRow and TagChip.
+    expect(importsFromKit(readOutlineSource("references-section.tsx"), "NodeLinkRow")).toBe(true);
+    expect(readPrimitiveSource("node-link-row.tsx")).toMatch(/from "\.\/node-row"/);
+    expect(readPrimitiveSource("node-link-row.tsx")).toMatch(/from "\.\/tag-chip"/);
     expect(importsFromKit(readOutlineSource("field-value.tsx"), "NodeRow")).toBe(true);
     expect(importsFromKit(readOutlineSource("field-value.tsx"), "TagChip\\w*")).toBe(true);
     expect(importsFromKit(readOutlineSource("fields-section.tsx"), "FieldRow")).toBe(true);

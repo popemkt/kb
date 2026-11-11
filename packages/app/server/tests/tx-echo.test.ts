@@ -81,7 +81,7 @@ function addNode(
   return handleHttpRequest(
     new Request("http://127.0.0.1/api/action", {
       method: "POST",
-      body: JSON.stringify({ id: "node.add", input: { text: id, id }, session }),
+      body: JSON.stringify({ id: "node.add", input: { text: id, id, parent: null }, session }),
     }),
     HTTP_WIRE,
     deps,

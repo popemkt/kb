@@ -61,7 +61,7 @@ describe("outline action input builders", () => {
     expect(inserted).toEqual([
       {
         id: "node.add",
-        input: { id: "new", text: "", position: roots.indexOf("n.root-a") + 1 },
+        input: { id: "new", text: "", parent: null, position: roots.indexOf("n.root-a") + 1 },
       },
     ]);
   });

@@ -30,6 +30,7 @@ import {
   type CanvasHitItem,
   type CanvasView,
 } from "./canvas-camera";
+import { SWEEP_BUDGET_MS } from "./test-support/sweep-budget";
 
 const size = { width: 1200, height: 800 };
 const perspective: CanvasView = {
@@ -188,63 +189,74 @@ describe("hit-testing", () => {
     expect(hitTest([asItem({ ...solid, shape: "sphere" })], front, size, at(50, 50))).toBe("s");
   });
 
-  // GAP [[01M6VQFVG8FPA7KPZHD3J99NGX]] a sweep that outgrows Vitest's 5 s budget when CPU is contended
-  test("every volume is hit exactly where a march along the ray first enters it", () => {
-    // An independent statement of each volume, in the box's unit space.
-    const inside: Record<string, (u: number, v: number, w: number) => boolean> = {
-      rect: (u, v, w) => Math.abs(u) <= 1 && Math.abs(v) <= 1 && w >= 0 && w <= 1,
-      ellipse: (u, v, w) => u * u + v * v <= 1 && w >= 0 && w <= 1,
-      diamond: (u, v, w) => Math.abs(u) + Math.abs(v) <= 1 && w >= 0 && w <= 1,
-      sphere: (u, v, w) => u * u + v * v + (2 * w - 1) ** 2 <= 1,
-      cone: (u, v, w) => w >= 0 && w <= 1 && u * u + v * v <= (1 - w) ** 2,
-    };
-    let seed = 7;
-    const rand = () => {
-      seed = (seed * 16807) % 2147483647;
-      return seed / 2147483647;
-    };
-    const item = { id: "s", x: -60, y: -40, width: 120, height: 80, depth: 90 };
-    const agreed = { hits: 0, misses: 0 };
-    for (let i = 0; i < 800; i++) {
-      const shape = (["rect", "ellipse", "diamond", "sphere", "cone"] as const)[i % 5] ?? "rect";
-      const view: CanvasView = {
-        x: 0,
-        y: 0,
-        z: 45,
-        zoom: 1,
-        yaw: rand() * Math.PI * 2,
-        pitch: rand() * MAX_PITCH,
-        fov: rand() < 0.5 ? 0 : PERSPECTIVE_FOV,
+  /** The corners of a cube round a sample, and its half-side in the box's unit space. */
+  const CUBE_CORNERS = [-1, 1].flatMap((a) =>
+    [-1, 1].flatMap((b) => [-1, 1].map((c) => [a, b, c] as const)),
+  );
+  const NUDGE = 0.03;
+
+  test(
+    "every volume is hit exactly where a march along the ray first enters it",
+    { timeout: SWEEP_BUDGET_MS },
+    () => {
+      // An independent statement of each volume, in the box's unit space.
+      const inside: Record<string, (u: number, v: number, w: number) => boolean> = {
+        rect: (u, v, w) => Math.abs(u) <= 1 && Math.abs(v) <= 1 && w >= 0 && w <= 1,
+        ellipse: (u, v, w) => u * u + v * v <= 1 && w >= 0 && w <= 1,
+        diamond: (u, v, w) => Math.abs(u) + Math.abs(v) <= 1 && w >= 0 && w <= 1,
+        sphere: (u, v, w) => u * u + v * v + (2 * w - 1) ** 2 <= 1,
+        cone: (u, v, w) => w >= 0 && w <= 1 && u * u + v * v <= (1 - w) ** 2,
       };
-      const screen = { x: 600 + (rand() - 0.5) * 200, y: 400 + (rand() - 0.5) * 200 };
-      const hit = hitTest([asItem({ ...item, shape })], view, size, screen);
-      // March the ray through the box's neighbourhood and note where it is inside.
-      const near = screenToPlane(view, size, screen, 200);
-      const far = screenToPlane(view, size, screen, -100);
-      if (near === null || far === null) continue;
-      // Deep: well inside at some sample. Grazing: never inside, but once near the surface.
-      let deep = false;
-      let grazing = false;
-      const isInside = inside[shape] ?? (() => false);
-      const nudges = [-1, 1].flatMap((a) => [-1, 1].flatMap((b) => [-1, 1].map((c) => [a, b, c])));
-      for (let s = 0; s <= 4000; s++) {
-        const t = s / 4000;
-        const p = (k: "x" | "y" | "z") => near[k] + (far[k] - near[k]) * t;
-        const u = (p("x") - item.x - 60) / 60;
-        const v = (p("y") - item.y - 40) / 40;
-        const w = p("z") / 90;
-        const around = (d: number) =>
-          nudges.map(([a = 0, b = 0, c = 0]) => isInside(u + a * d, v + b * d, w + c * d));
-        if (around(0.03).every(Boolean)) deep = true;
-        if (around(0.03).some(Boolean)) grazing = true;
+      let seed = 7;
+      const rand = () => {
+        seed = (seed * 16807) % 2147483647;
+        return seed / 2147483647;
+      };
+      const item = { id: "s", x: -60, y: -40, width: 120, height: 80, depth: 90 };
+      const agreed = { hits: 0, misses: 0 };
+      for (let i = 0; i < 800; i++) {
+        const shape = (["rect", "ellipse", "diamond", "sphere", "cone"] as const)[i % 5] ?? "rect";
+        const view: CanvasView = {
+          x: 0,
+          y: 0,
+          z: 45,
+          zoom: 1,
+          yaw: rand() * Math.PI * 2,
+          pitch: rand() * MAX_PITCH,
+          fov: rand() < 0.5 ? 0 : PERSPECTIVE_FOV,
+        };
+        const screen = { x: 600 + (rand() - 0.5) * 200, y: 400 + (rand() - 0.5) * 200 };
+        const hit = hitTest([asItem({ ...item, shape })], view, size, screen);
+        // March the ray through the box's neighbourhood and note where it is inside.
+        const near = screenToPlane(view, size, screen, 200);
+        const far = screenToPlane(view, size, screen, -100);
+        if (near === null || far === null) continue;
+        // Deep: well inside at some sample, all eight corners of a small cube
+        // round it inside. Grazing: never deep, but some corner inside once.
+        // The first deep sample settles the ray, so the march stops there.
+        let deep = false;
+        let grazing = false;
+        const isInside = inside[shape] ?? (() => false);
+        for (let s = 0; s <= 4000 && !deep; s++) {
+          const t = s / 4000;
+          const u = (near.x + (far.x - near.x) * t - item.x - 60) / 60;
+          const v = (near.y + (far.y - near.y) * t - item.y - 40) / 40;
+          const w = (near.z + (far.z - near.z) * t) / 90;
+          let corners = 0;
+          for (const [a, b, c] of CUBE_CORNERS) {
+            if (isInside(u + a * NUDGE, v + b * NUDGE, w + c * NUDGE)) corners++;
+          }
+          deep = corners === CUBE_CORNERS.length;
+          grazing ||= corners > 0;
+        }
+        if (!deep && grazing) continue;
+        expect(hit, `${shape} #${i}`).toBe(deep ? "s" : null);
+        agreed[deep ? "hits" : "misses"]++;
       }
-      if (!deep && grazing) continue;
-      expect(hit, `${shape} #${i}`).toBe(deep ? "s" : null);
-      agreed[deep ? "hits" : "misses"]++;
-    }
-    expect(agreed.hits).toBeGreaterThan(100);
-    expect(agreed.misses).toBeGreaterThan(50);
-  });
+      expect(agreed.hits).toBeGreaterThan(100);
+      expect(agreed.misses).toBeGreaterThan(50);
+    },
+  );
 });
 
 describe("zoom to fit", () => {

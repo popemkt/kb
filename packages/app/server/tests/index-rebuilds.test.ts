@@ -60,7 +60,10 @@ describe("index rebuilds on the interactive path", () => {
       const res = await handleHttpRequest(
         new Request("http://127.0.0.1/api/action", {
           method: "POST",
-          body: JSON.stringify({ id: "node.add", input: { text: "edited", id: "n.edit" } }),
+          body: JSON.stringify({
+            id: "node.add",
+            input: { text: "edited", id: "n.edit", parent: null },
+          }),
         }),
         HTTP_WIRE,
         deps,

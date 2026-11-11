@@ -54,6 +54,11 @@ describe("arg → invocation mapping", () => {
     });
   });
 
+  test("mapAdd sends null for the top level and leaves an omitted parent out", () => {
+    expect(mapAdd({ text: "top", parent: null }).input).toEqual({ text: "top", parent: null });
+    expect(mapAdd({ text: "captured" }).input).toEqual({ text: "captured" });
+  });
+
   test("mapSet / mapUnset / mapRm / mapMv", () => {
     expect(mapSet({ id: "n1", field: "status", value: { t: "str", v: "done" } }).input).toEqual({
       id: "n1",
@@ -379,6 +384,27 @@ describe("cli e2e (tmpdir)", () => {
     expect(abc.code).toBe(2);
     expect(JSON.parse(abc.stdout)).toMatchObject({ status: "failed", code: "invalid_input" });
     expect(await values()).toEqual([{ t: "num", v: 5 }]);
+  });
+
+  test("kb add lands in today, --top at the top level, and --top refuses a --parent", async () => {
+    expect((await kb(["init", "--bare"])).code).toBe(0);
+    const added = async (args: string[]) => {
+      const out = JSON.parse((await kb(["add", ...args])).stdout);
+      expect(out.status).toBe("succeeded");
+      return out.output.id as string;
+    };
+    const captured = await added(["Captured"]);
+    const top = await added(["Top", "--top"]);
+    const nodes = (await readFile(join(root, ".kb", "nodes.jsonl"), "utf8"))
+      .split("\n")
+      .filter((line) => line.trim() !== "")
+      .map((line) => JSON.parse(line) as { id: string; children: string[]; props: object });
+    const parentOf = (id: string) => nodes.find((node) => node.children.includes(id));
+    expect(parentOf(captured)?.props).toHaveProperty(["sys.f.days.key"]);
+    expect(parentOf(top)).toBeUndefined();
+    const both = await kb(["add", "Both", "--top", "--parent", top]);
+    expect(both.code).not.toBe(0);
+    expect(both.stderr + both.stdout).toContain("--parent and --top name two places");
   });
 
   test("init → add → query → get", async () => {

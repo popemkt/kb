@@ -101,6 +101,11 @@ export interface RejectedInput {
  * the stack that holds the values provides it.
  */
 export interface FieldHandle {
+  /**
+   * The node that holds the field's values, or null for a value no node
+   * holds (a query's slot): what a value may not lead back to (`closesCycleOf`).
+   */
+  readonly holder: string | null;
   /** Every value the field holds: a picker shows them checked. */
   readonly values: readonly PropValue[];
   /** The field holds many values: its picker toggles, and stays open. */

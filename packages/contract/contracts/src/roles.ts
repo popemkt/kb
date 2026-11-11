@@ -16,14 +16,16 @@ export const FIELD_EDITOR_ROLE = {
 } as const satisfies ProviderRole;
 
 /**
- * Where a node made with no chosen place goes (DESIGN.md → Provider roles):
- * a page service answering the parent's id, or null for the top level.
- * Core owns it and answers the top level; days replaces it with today.
+ * Where a node made with no chosen place goes (DESIGN.md → Provider roles),
+ * on both kernels one role node chooses for: the registry's answers a write
+ * that omits its parent (`CapturePlannerService`), the page's answers the
+ * page's own captures (`CaptureTargetService` in `@kb/ui-sdk`). Core owns
+ * it and answers the top level; days replaces it with today.
  */
 export const CAPTURE_TARGET_ROLE = {
   role: "ui.capture-target",
   label: "Capture target",
-  spec: { kernel: "page", tier: "T3", replaceable: true },
+  spec: { kernel: ["registry", "page"], tier: "T3", replaceable: true },
 } as const satisfies ProviderRole;
 
 /**

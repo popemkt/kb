@@ -10,8 +10,8 @@
  * to one answer. Where DataScript orders values of different kinds against
  * each other (a number field compared with a date), this answers false.
  */
-import { SYSTEM_IDS, type ClockSample, type KbNode, type NodeId } from "@kb/model";
-import { graphReadsIn, referenceCarriers, type DerivedRef } from "../index/derived.ts";
+import type { ClockSample, KbNode, NodeId } from "@kb/model";
+import { graphReadsIn, type DerivedRef } from "../index/derived.ts";
 import {
   canonicalConditions,
   includesFn,
@@ -30,37 +30,47 @@ import { kbFunctions } from "./kb-functions.ts";
 export interface ConditionGraph {
   /** A node by id, when it exists. */
   readonly node: (id: NodeId) => KbNode | undefined;
-  /** The nodes `node` references (`:node/mentions`): every carrier, existing targets only. */
-  readonly mentions: (node: KbNode) => ReadonlySet<NodeId>;
+  /**
+   * The nodes `node` points at by a derived attribute (`DerivedRef`):
+   * `:node/mentions`, the nodes it references; `:node/is`, each tag it is.
+   * Every carrier of the attribute, existing targets only, as its datoms.
+   */
+  readonly related: (node: KbNode, attr: DerivedRef["attr"]) => ReadonlySet<NodeId>;
   /** The run's one clock sample, for the date rows; without one, a date row fails naming its function. */
   readonly clock?: ClockSample;
 }
 
 /**
- * The graph over `nodes`, its reference relation read by the carriers of
- * `derived` (the table the index builds, `derivedWith`), each node's read once.
+ * The graph over `nodes`, its derived relations read by the carriers of
+ * `derived` (the table the index builds, `derivedWith`), each node's read
+ * once per attribute.
  */
 export function conditionGraph(
   nodes: ReadonlyMap<NodeId, KbNode>,
   derived: readonly DerivedRef[],
   clock?: ClockSample,
 ): ConditionGraph {
-  const carriers = referenceCarriers(derived);
   const reads = graphReadsIn(
     (id) => nodes.get(id),
     () => nodes.values(),
   );
-  const memo = new Map<NodeId, ReadonlySet<NodeId>>();
-  const mentions = (node: KbNode): ReadonlySet<NodeId> => {
-    let out = memo.get(node.id);
+  const memo = new Map<DerivedRef["attr"], Map<NodeId, ReadonlySet<NodeId>>>();
+  const related = (node: KbNode, attr: DerivedRef["attr"]): ReadonlySet<NodeId> => {
+    let byNode = memo.get(attr);
+    if (byNode === undefined) {
+      byNode = new Map();
+      memo.set(attr, byNode);
+    }
+    let out = byNode.get(node.id);
     if (out === undefined) {
+      const carriers = derived.find((entry) => entry.attr === attr)?.carriers ?? [];
       const ids = carriers.flatMap((carrier) => [...carrier.refsOf(node, reads)].map((r) => r.id));
       out = new Set(ids.filter((id) => nodes.has(id)));
-      memo.set(node.id, out);
+      byNode.set(node.id, out);
     }
     return out;
   };
-  return { node: (id) => nodes.get(id), mentions, ...(clock === undefined ? {} : { clock }) };
+  return { node: (id) => nodes.get(id), related, ...(clock === undefined ? {} : { clock }) };
 }
 
 /** A field's value as the index stores it. */
@@ -103,7 +113,7 @@ function compares(a: string | number, op: CompareOp, b: string | number): boolea
 /** The nodes `node` steps to along `edge`: its existing children, the nodes it references, or a ref field's nodes. */
 function stepsOf(node: KbNode, edge: ConditionEdge, graph: ConditionGraph): Iterable<NodeId> {
   if (edge.t === "child") return node.children.filter((id) => graph.node(id) !== undefined);
-  if (edge.t === "mentions") return graph.mentions(node);
+  if (edge.t === "mentions") return graph.related(node, ":node/mentions");
   return datumsOf(node, edge.field, graph).flatMap((d) => (d.t === "ref" ? [d.id] : []));
 }
 
@@ -159,8 +169,7 @@ type Evaluation<K extends ConditionRow["kind"]> = (
 const anchor = (id: string, graph: ConditionGraph) => graph.node(id);
 
 const EVALUATIONS: { readonly [K in ConditionRow["kind"]]: Evaluation<K> } = {
-  "has-tag": (row, node, graph) =>
-    datumsOf(node, SYSTEM_IDS.typeField, graph).some((d) => d.t === "ref" && d.id === row.tag),
+  "has-tag": (row, node, graph) => graph.related(node, ":node/is").has(row.tag),
   "lacks-tag": (row, node, graph) => !matchesRow({ kind: "has-tag", tag: row.tag }, node, graph),
   "field-set": (row, node, graph) => datumsOf(node, row.field, graph).length > 0,
   "field-unset": (row, node, graph) =>
@@ -202,10 +211,10 @@ const EVALUATIONS: { readonly [K in ConditionRow["kind"]]: Evaluation<K> } = {
     reached(node, row.via, graph, row.maxHops).has(row.node),
   "child-of": (row, node, graph) => anchor(row.node, graph)?.children.includes(node.id) === true,
   "has-children": (_row, node, graph) => node.children.some((id) => graph.node(id) !== undefined),
-  "links-to": (row, node, graph) => graph.mentions(node).has(row.node),
+  "links-to": (row, node, graph) => graph.related(node, ":node/mentions").has(row.node),
   "linked-from": (row, node, graph) => {
     const from = anchor(row.node, graph);
-    return from !== undefined && graph.mentions(from).has(node.id);
+    return from !== undefined && graph.related(from, ":node/mentions").has(node.id);
   },
 };
 

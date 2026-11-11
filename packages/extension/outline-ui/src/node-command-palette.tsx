@@ -6,6 +6,7 @@ import {
   browserHost,
   cn,
   CREATE_ROW_ID,
+  menuAnchorOf,
   type PaletteStep,
   PaletteStepPoint,
   type PaletteSurface,
@@ -61,6 +62,8 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
 
   const selectedNodeId = useOutlineStore((s) => s.selectedNodeId);
   const activeNodeId = useOutlineStore((s) => s.activeNodeId);
+  // The instance it was opened on: a row, or the page's title.
+  const targetInstanceKey = useOutlineStore((s) => s.activeInstanceKey ?? s.selectedInstanceKey);
   const nodes = useOutlineNodes();
   const schema = usePageGraph(schemaOf);
   const wireNodes = usePageGraph((s) => s.wireNodes);
@@ -73,21 +76,17 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
    * effect's re-render, whatever was typed right after ⌘K was lost.
    */
   useLayoutEffect(() => {
-    if (!open || targetNodeId === null) {
-      setAnchorRect(null);
-      return;
-    }
-    const anchorEl = document.querySelector(
-      `[data-node-id="${CSS.escape(targetNodeId)}"] .node-row`,
-    );
-    if (anchorEl instanceof HTMLElement) {
-      setAnchorRect(anchorEl.getBoundingClientRect());
-    }
-  }, [open, targetNodeId]);
+    const anchorEl =
+      open && targetNodeId !== null && targetInstanceKey !== null
+        ? menuAnchorOf(targetInstanceKey)
+        : null;
+    setAnchorRect(anchorEl?.getBoundingClientRect() ?? null);
+  }, [open, targetNodeId, targetInstanceKey]);
 
+  // It opens at its commands, or at the step it was opened at.
   useLayoutEffect(() => {
     if (open) {
-      setStep(null);
+      setStep(browserHost().nodePaletteStep());
       setQuery("");
     }
   }, [open]);

@@ -144,7 +144,37 @@ const DATASCRIPT = /cljs\.core/;
 // the camera's stops it names take it to 1,837,113; the keymap that reads
 // them, and the camera's math, stay with the canvas scene. The budget keeps
 // about 1.5 KB over that.
-const EAGER_BUDGET_BYTES = 1_838_600;
+// The capture target on both kernels (`CaptureTarget` in the page's action
+// env, the page's planner over its role, `node.add` deciding its place in
+// its planned commit, and the descriptions saying what an omitted parent
+// means) and days' captures and time zone settings, merged with main at
+// c33abe82, measure 1,829,178; the budget keeps about 1.5 KB over it.
+// An acyclic ref field's picker check (`closesCycleOf`, over the one ref
+// walk), Enter keeping a disabled row unpicked, and the node menu's "Make
+// your own tag that extends this" take it to 1,827,344; the budget keeps
+// about 1.5 KB over that.
+// The node menu reaching a page's own node (one menu anchor on rows and
+// titles, ⌘K listing the page node's commands, a step handed to the node
+// menu, `faceOf`, the focused pane's subject), the picker's kind label and
+// its held-value deselect take it to 1,829,237; merged with main at
+// c52a467b, beside the capture target, it measures 1,832,167; the budget
+// keeps about 1.5 KB over that.
+// A field a family manages (`useFieldWrite`, the "managed by" note with its
+// Edit step that every field row reads, and the write rule's `fieldWriting`)
+// and days' period-key guard, with its raw-key, ancestry and keep-the-key
+// rules and the interceptor that takes a key off with its period tag
+// (`ext.days.untag-period`), on main after #175, measure 1,833,556; the
+// budget keeps about 1.5 KB over it. Merged with main at 2ac7de7b (#178),
+// it measures 1,836,700; the budget keeps about 1.5 KB over that.
+// A day in the node page (sections below a node's outline per tag, the
+// shared NodeLinkRow, the empty page's strip and the title's Enter, the day
+// page gone), merged with main after #177 and #179, measures 1,837,370;
+// the budget keeps about 1.5 KB over it.
+// The page key context merged with main at d94876c5 measures 1,840,131
+// bytes; retain about 1.5 KB of headroom for the combined page.
+// Canvas key contexts and the refreshed page bridge on main d94876c5
+// measure 1,850,164 bytes; retain about 1.5 KB over that combined page.
+const EAGER_BUDGET_BYTES = 1_851_700;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

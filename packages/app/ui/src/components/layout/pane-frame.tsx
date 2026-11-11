@@ -30,10 +30,10 @@ const NOT_FOUND = <NotFound what="Page" back={{ label: "Home", path: "/" }} />;
  * compensating offsets.
  *
  * A scrolling region leaves room after the page's end, so whatever the page
- * ends with (an outline's References, a day page's last section) can be
+ * ends with (an outline's References, a section below them) can be
  * scrolled up off the pane's bottom edge. The room is the region's, never a
- * part's: a view drawn inside another page (the outline in a day page) adds
- * none, so it opens no gap before what follows it.
+ * part's: a view drawn inside another page adds none, so it opens no gap
+ * before what follows it.
  *
  * It is the page's paint root (`isolate`): what a page paints behind its
  * content, a page head's backdrop (`PageBackdrop`), stands in the region's
