@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { XIcon } from "@phosphor-icons/react";
 import type { WireNode } from "@kb/contracts";
 import {
+  closesCycle,
   isOntologyNode,
   refValuesOf,
   resolveOntology,
   strValueOf,
   typeRefsOf,
-  wouldCreateExtendsCycle,
 } from "@kb/model";
 import {
   browserHost,
@@ -92,7 +92,12 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
     return wireNodes
       .filter((n) => n.id !== ontologyId && isOntologyNode(n))
       .map((n) => {
-        const cycles = wouldCreateExtendsCycle(wireNodes, ontologyId, n.id);
+        const cycles = closesCycle(
+          (id) => byId.get(id),
+          SYSTEM_IDS.ontoExtendsField,
+          ontologyId,
+          n.id,
+        );
         return {
           id: n.id,
           label: n.text || n.id,
@@ -102,7 +107,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
       })
       .toSorted((a, b) => a.label.localeCompare(b.label));
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- joined-key is a stable primitive dep for a fresh-array input; depends on the array's contents, not its identity
-  }, [wireNodes, ontologyId, extendsIds.join(",")]);
+  }, [wireNodes, byId, ontologyId, extendsIds.join(",")]);
 
   if (!onto) {
     return (

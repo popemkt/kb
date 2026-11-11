@@ -10,7 +10,7 @@
  */
 import { Effect } from "effect";
 import type { ActionGuard } from "@kb/contracts";
-import { refValuesOf, tagChains, type KindsLookup, type NodeLike, type NodeWrite } from "@kb/model";
+import { refValuesOf, tagChains, type NodeLookup, type NodeLike, type NodeWrite } from "@kb/model";
 import { DAYS_IDS } from "./ids.ts";
 
 /** Each period tag setting and the base tag its value must reach. */
@@ -20,7 +20,7 @@ export const PERIOD_TAG_SETTINGS = [
 ] as const;
 
 /** Whether `tag` is a node that is `base` or extends it. */
-function reaches(tag: string, base: string, nodeOf: KindsLookup): boolean {
+function reaches(tag: string, base: string, nodeOf: NodeLookup): boolean {
   return nodeOf(tag) !== undefined && tagChains(nodeOf).ancestors(tag).includes(base);
 }
 
@@ -29,7 +29,7 @@ export function periodTagOf(
   family: Pick<NodeLike, "props"> | undefined,
   field: string,
   base: string,
-  nodeOf: KindsLookup,
+  nodeOf: NodeLookup,
 ): string {
   const [chosen] = refValuesOf(family, field);
   return chosen !== undefined && reaches(chosen, base, nodeOf) ? chosen : base;

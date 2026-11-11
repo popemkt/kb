@@ -1,12 +1,12 @@
 import type { ActionRequest, WireNode } from "@kb/contracts";
 import {
+  closesCycle,
   familyViewIdOf,
   fieldTypeValue,
   hostViewIds,
   viewsWithDefault,
   siblingSlots,
   viewOptionId,
-  wouldCreateExtendsCycle,
   type FieldType,
   type Writable,
 } from "@kb/model";
@@ -277,7 +277,8 @@ export function planOntologyAddExtends(
   id: string,
   parent: string,
 ): PlannedMutation | null {
-  return wouldCreateExtendsCycle(nodes, id, parent)
+  const byId = wireById(nodes);
+  return closesCycle((ref) => byId.get(ref), SYSTEM_IDS.ontoExtendsField, id, parent)
     ? null
     : refProp(nodes, id, SYSTEM_IDS.ontoExtendsField, parent);
 }
