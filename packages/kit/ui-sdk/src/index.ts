@@ -527,6 +527,7 @@ export {
   matchesChord,
   PALETTE_CHORD,
   parseChord,
+  printableExcept,
   TEXT_HISTORY_CHORD,
 } from "./lib/keychord";
 export {

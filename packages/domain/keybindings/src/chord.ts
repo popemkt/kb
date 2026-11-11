@@ -35,7 +35,12 @@ export interface KeyChordEvent {
 }
 
 /** One key, several spellings of one key, or a predicate over the name. */
-type KeyMatch = string | readonly string[] | ((key: string) => boolean);
+export interface PrintableKeys {
+  readonly kind: "printable";
+  readonly except: readonly string[];
+}
+
+type KeyMatch = string | readonly string[] | PrintableKeys | ((key: string) => boolean);
 
 export interface Chord {
   /** Absent ⇒ any key; the modifier constraints then carry the whole chord. */
@@ -66,6 +71,7 @@ function keyMatches(match: KeyMatch | undefined, key: string): boolean {
   if (match === undefined) return true;
   if (typeof match === "string") return match === key;
   if (typeof match === "function") return match(key);
+  if ("kind" in match) return isPrintableKey(key) && !match.except.includes(key);
   return match.includes(key);
 }
 
@@ -120,7 +126,12 @@ const MODIFIER_STATES: readonly Modifiers[] = Array.from({ length: 16 }, (_, bit
 
 /** The key names a match lists, or null for one that lists none (any key, a predicate). */
 function listedKeys(match: KeyMatch | undefined): readonly string[] | null {
-  if (match === undefined || typeof match === "function") return null;
+  if (
+    match === undefined ||
+    typeof match === "function" ||
+    (typeof match === "object" && "kind" in match)
+  )
+    return null;
   return typeof match === "string" ? [match] : match;
 }
 
@@ -210,6 +221,19 @@ export function chordIncludes(whole: Chord, part: Chord): boolean {
   );
 }
 
+/** A data matcher for printable keys not claimed by these chords under `within`. */
+export function printableExcept(chords: readonly Chord[], within: Chord): PrintableKeys {
+  const except = new Set<string>();
+  for (const chord of chords) {
+    const keys = listedKeys(keyDomain(chord));
+    if (keys === null) throw new Error("printable exclusions must list their keys");
+    for (const key of keys) {
+      if (isPrintableKey(key) && chordsOverlap(chord, { ...within, key })) except.add(key);
+    }
+  }
+  return { kind: "printable", except: [...except].toSorted() };
+}
+
 const MODIFIER_TOKENS = ["Mod", "Meta", "Ctrl", "Shift", "Alt"] as const;
 type ModifierToken = (typeof MODIFIER_TOKENS)[number];
 
@@ -248,7 +272,8 @@ export function parseChord(text: string): Chord | null {
 /** A key match as a person reads it: a letter matched in either case reads as the letter. */
 function keyName(key: KeyMatch | undefined): string {
   if (key === undefined) return "any key";
-  if (typeof key === "function") return "a typed character";
+  if (typeof key === "function" || (typeof key === "object" && "kind" in key))
+    return "a typed character";
   const names = [key].flat();
   const [first, second] = names;
   if (names.length === 2 && first !== undefined && first.toUpperCase() === second) return first;

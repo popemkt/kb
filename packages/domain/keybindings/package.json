@@ -11,7 +11,8 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@kb/plugin": "workspace:*"
+    "@kb/plugin": "workspace:*",
+    "effect": "catalog:"
   },
   "devDependencies": {
     "@types/bun": "catalog:",
