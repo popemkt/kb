@@ -5516,7 +5516,7 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
 | Package        | Layer, scope       | Holds                                                                                                                                                           |
 | -------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `@kb/days`     | extension, shared  | the declaration, `DAYS_IDS`, the period keys (`period.ts`), the plan (`planDay`), `ext.days.today` and the one-node-per-key guard: one plugin on both hosts, and the registry's capture target (`captureToday`, under `daysRegistryPlugin`) |
-| `@kb/days-ui`  | extension, browser | the day page, the Today row, ⌘K "Go to today", opening on today, and the capture target's provider                                                             |
+| `@kb/days-ui`  | extension, browser | "made or edited" on a period's page, the Today row, ⌘K "Go to today", opening on today, and the capture target's provider                                                             |
 
 - **A period is a node with a key.** `#day`, `#week` and `#year`
   (`sys.tag.day`, `sys.tag.week`, `sys.tag.year`) are tags the family
@@ -5577,8 +5577,8 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
   one tag, choose the tag a new day or week gets: empty, it is `#day` or
   `#week`, and a person points it at a tag of theirs that extends the base
   (`sys.f.extends`, read through its chain). So with `#my day` extending
-  `#day`, every new day carries the person's fields, and `#day`'s key and its
-  day page come with it through the chain
+  `#day`, every new day carries the person's fields, and `#day`'s key and
+  the sections a `#day`'s page shows come with it through the chain
   ([Data model](#data-model--everything-is-a-node), "A tag extends tags"). A commit that
   points a setting at a tag that does not reach its base is refused with
   why (`ext.days.period-tag`, a commit guard). A chosen tag that later
@@ -5637,10 +5637,10 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
   one was taken, or the id of a day merged in from elsewhere.
   Following a date value opens its day, made if need be: days replaces the
   page role `ui.date-target` ([Provider roles](#provider-roles)).
-- **The day page's sections are a declared point,** `days.sections` (page
-  kernel, a list in ascending order). Days fills one, and a family that
-  shows something on a day contributes a section rather than days
-  importing it.
+- **A day's page is the node page.** What a family shows on a day is a
+  section it contributes for `#day` to core's `ui.node-sections`
+  (DESIGN-UI.md → [Node pages](./DESIGN-UI.md#node-pages)), never a
+  page of its own; days contributes "made or edited", off by default.
 - **No month nodes yet.** A month is not on the path to a day, and no view
   reads one, so the family seeds no `#month` until one does.
 

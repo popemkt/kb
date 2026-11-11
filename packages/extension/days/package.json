@@ -17,7 +17,6 @@
     "@kb/operations": "workspace:*",
     "@kb/plugin": "workspace:*",
     "@kb/query": "workspace:*",
-    "@kb/views": "workspace:*",
     "effect": "catalog:",
     "zod": "catalog:"
   },

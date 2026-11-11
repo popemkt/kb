@@ -1,17 +1,5 @@
 import { backlinkRows, type BacklinkRow } from "./backlinks";
-import {
-  Bullet,
-  MdView,
-  NodeRow,
-  schemaOf,
-  TagChipGroup,
-  useAnswered,
-  useFollow,
-  useOpenNode,
-  usePageGraph,
-  useRefInk,
-} from "@kb/ui-sdk";
-import { useOutlineNodes } from "./outline.store";
+import { NodeLinkRow, schemaOf, useAnswered, usePageGraph } from "@kb/ui-sdk";
 
 /**
  * Inline "References (N)" at the bottom of a zoomed view (DESIGN-RESKIN §1.5).
@@ -49,68 +37,20 @@ export function ReferencesView({
 }
 
 function ShallowBacklinkRow({ row }: { row: BacklinkRow }) {
-  const zoomTo = useOpenNode();
-  const follow = useFollow();
-  const ink = useRefInk();
-  const nodes = useOutlineNodes();
-  const node = nodes.get(row.id);
-
-  const bulletNode = node ?? {
-    id: row.id,
-    text: row.text,
-    parentId: null,
-    children: [],
-    collapsed: true,
-    props: {},
-    createdAt: "",
-    updatedAt: "",
-    tags: row.tags,
-  };
-
   return (
-    <NodeRow
-      depth={0}
-      nodeId={row.id}
-      className="w-full text-left"
-      onRowClick={() => zoomTo(row.id)}
-      bullet={
-        <Bullet
-          node={bulletNode}
-          isRef
-          onClick={(e) => {
-            e.stopPropagation();
-            zoomTo(row.id);
-          }}
-        />
-      }
-      content={
-        <>
-          {row.relations.map((relation) => (
-            <span
-              key={relation.field}
-              className="shrink-0 rounded-xs bg-foreground/[0.05] px-1.5 py-0.5 text-caption text-foreground/50"
-              data-backlink-relation={relation.field}
-            >
-              {relation.label}
-            </span>
-          ))}
-          <MdView
-            text={row.text}
-            className="min-w-0 flex-1 text-foreground/85"
-            onFollow={follow}
-            ink={ink}
-          />
-          {row.tags.length > 0 && (
-            <TagChipGroup
-              tags={row.tags}
-              onTagClick={(tag, e) => {
-                e.stopPropagation();
-                zoomTo(tag.id);
-              }}
-            />
-          )}
-        </>
-      }
+    <NodeLinkRow
+      id={row.id}
+      text={row.text}
+      tags={row.tags}
+      leading={row.relations.map((relation) => (
+        <span
+          key={relation.field}
+          className="shrink-0 rounded-xs bg-foreground/[0.05] px-1.5 py-0.5 text-caption text-foreground/50"
+          data-backlink-relation={relation.field}
+        >
+          {relation.label}
+        </span>
+      ))}
     />
   );
 }

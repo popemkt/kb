@@ -12,14 +12,7 @@ import { Effect } from "effect";
 import { join } from "node:path";
 import type { ActionReceipt } from "@kb/contracts";
 import { DAYS_IDS, periodNodeId } from "@kb/days";
-import {
-  mergeNodeSets,
-  present,
-  refValuesOf,
-  SYSTEM_IDS,
-  tagViewsOf,
-  type KbNode,
-} from "@kb/model";
+import { mergeNodeSets, present, refValuesOf, SYSTEM_IDS, tagChains, type KbNode } from "@kb/model";
 import { backlinksQuery } from "@kb/query";
 import { invoke } from "../src/invoke.ts";
 import { resetRegistryCache } from "../src/registry.ts";
@@ -362,8 +355,8 @@ function daysContract(backend: StoreBackend) {
         "the day",
       );
       expect(refValuesOf(day, "sys.f.type")).toEqual([myDay]);
-      // The day opens in the day page through #my day's chain to #day.
-      expect(tagViewsOf(day, "default", (n) => ctx.index.getNode(n))[0]?.tag).toBe(DAYS_IDS.dayTag);
+      // It is a #day through #my day's chain, so its page shows #day's sections.
+      expect(tagChains((n) => ctx.index.getNode(n)).isA(day, DAYS_IDS.dayTag)).toBe(true);
     });
 
     test("a day tag that does not extend #day is refused with why", async () => {

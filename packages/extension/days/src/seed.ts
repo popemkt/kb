@@ -27,6 +27,10 @@ export function daysSeed(at: string): readonly KbNode[] {
     one: true,
     props: CONFIGURES_DAYS,
   });
+  const touched = seededField(DAYS_IDS.touchedField, "made or edited", "ref", at, {
+    one: true,
+    props: CONFIGURES_DAYS,
+  });
   return [
     // The family's identity data: hidden, managed (a person's edit is a
     // deliberate step), and kept to a real period by its guards.
@@ -47,6 +51,9 @@ export function daysSeed(at: string): readonly KbNode[] {
     { ...captures, children: [DAYS_IDS.capturesToday, DAYS_IDS.capturesTop] },
     option(DAYS_IDS.capturesToday, "today", at),
     option(DAYS_IDS.capturesTop, "top level", at),
+    { ...touched, children: [DAYS_IDS.touchedHidden, DAYS_IDS.touchedShown] },
+    option(DAYS_IDS.touchedHidden, "hidden", at),
+    option(DAYS_IDS.touchedShown, "shown", at),
     seededField(DAYS_IDS.timeZoneField, "time zone", "text", at, {
       one: true,
       props: CONFIGURES_DAYS,
