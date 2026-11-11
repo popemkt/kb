@@ -1,10 +1,11 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { present } from "@kb/model";
-import { mkdir, mkdtemp, symlink, unlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, symlink, unlink, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
-import { openKb } from "@kb/runtime";
+import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
+import { openKb, bunFileSystemLayer } from "@kb/runtime";
 import { WIRE_PROTOCOL } from "@kb/contracts";
 import * as assets from "../src/assets.ts";
 import { handleHttpRequest } from "../src/http.ts";
@@ -113,6 +114,24 @@ async function greeted(hub: SubscriptionHub): Promise<unknown> {
   hub.dispose();
   return JSON.parse(present(frames[1], "the person frame"));
 }
+
+test("static page index and SPA fallback share the same file-containment boundary", async () => {
+  const root = await mkdtemp(join(tmpdir(), "kb-page-source-"));
+  const dist = join(root, "dist");
+  try {
+    await mkdir(dist);
+    await writeFile(join(root, "outside.html"), "outside page");
+    await symlink(join(root, "outside.html"), join(dist, "index.html"));
+    for (const pathname of ["/", "/some/client/route"]) {
+      const answer = await Effect.runPromise(
+        assets.serveStaticEffect(pathname, { dist }).pipe(Effect.provide(bunFileSystemLayer)),
+      );
+      expect(answer === null ? null : HttpServerResponse.toWeb(answer).status).toBe(403);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 describe("who may frame the page", () => {
   test("its own origin, and each origin kb ui --embed-origin names", () => {

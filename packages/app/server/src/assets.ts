@@ -1,6 +1,6 @@
-import { join, normalize, resolve } from "node:path";
+import { join, normalize } from "node:path";
 import { Effect, Option } from "effect";
-import { FileSystem, type File } from "effect/FileSystem";
+import type { FileSystem, File } from "effect/FileSystem";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import { assetMediaType } from "@kb/model";
 import { containedFile, resolveAssetFile, assetsDir } from "@kb/workspace-fs";
@@ -95,69 +95,73 @@ export function staticCacheHeaders(rel: string, info: File.Info): Record<string,
   };
 }
 
-/**
- * Serve a file from `ui/dist`, or SPA fallback to index.html, saying who
- * may frame it ({@link frameAncestors}) and how long it may be kept
- * ({@link staticCacheHeaders}). Returns null when the UI has not been built.
- */
+interface PageFile {
+  readonly body: Blob;
+  readonly headers: Readonly<Record<string, string>>;
+}
+
+type PageFileRead =
+  | { readonly kind: "file"; readonly file: PageFile }
+  | { readonly kind: "missing" }
+  | { readonly kind: "forbidden" };
+
+/** Delivery reads one source; filesystem and held images share the same route/fallback policy. */
+interface PageFiles {
+  readonly read: (name: string) => Effect.Effect<PageFileRead, never, FileSystem>;
+}
+
+function directoryPageFiles(dist: string, builds: string | null): PageFiles {
+  const file = (path: string, name: string, info: File.Info): PageFileRead => ({
+    kind: "file",
+    file: { body: Bun.file(path), headers: staticCacheHeaders(name, info) },
+  });
+  return {
+    read: Effect.fn("kb.ui.directoryPageFile")(function* (name: string) {
+      const found = yield* containedFile(dist, join(dist, name));
+      if (found.kind === "ok") return file(found.path, name, found.info);
+      if (found.kind === "forbidden") return { kind: "forbidden" } as const;
+      if (name.startsWith(DIGEST_NAMED_DIR) && builds !== null) {
+        const kept = yield* keptFile(builds, name);
+        if (kept !== null) return file(kept.path, name, kept.info);
+      }
+      return { kind: "missing" } as const;
+    }),
+  };
+}
+
+/** Serve one file source through the common SPA, cache and framing policy. */
 export const serveStaticEffect = Effect.fn("kb.ui.serveStatic")(function* (
   pathname: string,
   {
     embedOrigins = [],
     builds = null,
     dist = UI_DIST,
+    files = directoryPageFiles(dist, builds),
   }: {
-    /** Who else may frame the page ({@link frameAncestors}). */
     readonly embedOrigins?: readonly string[];
-    /** Where earlier builds are kept (`build-archive.ts`); none when null. */
     readonly builds?: string | null;
     readonly dist?: string;
+    readonly files?: PageFiles;
   } = {},
 ) {
-  const framing = { "Content-Security-Policy": frameAncestors(embedOrigins) };
-  const fs = yield* FileSystem;
-  const indexHtml = join(dist, "index.html");
-  // Platform I/O errors become defects; HTTP catchCause maps them to 500.
-  if (!(yield* fs.exists(indexHtml).pipe(Effect.orDie))) {
-    return null as HttpServerResponse.HttpServerResponse | null;
-  }
-
+  const index = yield* files.read("index.html");
+  if (index.kind === "missing") return null as HttpServerResponse.HttpServerResponse | null;
+  if (index.kind === "forbidden") return plainStatus("forbidden", 403);
   const rel = pathname === "/" ? "index.html" : pathname.replace(/^\//, "");
-  const candidate = normalize(join(dist, rel));
-  const distResolved = resolve(dist);
-  if (candidate !== distResolved && !candidate.startsWith(distResolved + "/")) {
+  // Validate the logical address once, before either source is asked for it.
+  const candidate = normalize(join("/", rel));
+  if (normalize(rel) === ".." || normalize(rel).startsWith("../") || rel.startsWith("/"))
     return plainStatus("forbidden", 403);
-  }
-
-  const served = (path: string, inDist: string, info: File.Info) =>
-    HttpServerResponse.raw(Bun.file(path), {
-      status: 200,
-      headers: { ...framing, ...staticCacheHeaders(inDist, info) },
-    });
-
-  if (yield* fs.exists(candidate).pipe(Effect.orDie)) {
-    const contained = yield* containedFile(dist, candidate);
-    if (contained.kind === "ok") {
-      return served(contained.path, rel, contained.info);
-    }
-    if (contained.kind === "forbidden") {
-      return plainStatus("forbidden", 403);
-    }
-    // missing after exists: race / broken link — fall through to SPA
-  }
-
-  // A digest-named file this build does not have is an earlier build's,
-  // asked for by a tab of it: served from the builds kept for such tabs
-  // (`build-archive.ts`), else not found. Never the page: a module that
-  // answers with HTML fails as a module that is broken, not as one missing.
-  if (rel.startsWith(DIGEST_NAMED_DIR)) {
-    const kept = builds === null ? null : yield* keptFile(builds, rel);
-    return kept === null ? plainStatus("not found", 404) : served(kept.path, rel, kept.info);
-  }
-
-  // SPA fallback
-  const index = yield* fs.stat(indexHtml).pipe(Effect.orDie);
-  return served(indexHtml, "index.html", index);
+  const name = candidate.slice(1);
+  const read = name === "index.html" ? index : yield* files.read(name);
+  if (read.kind === "forbidden") return plainStatus("forbidden", 403);
+  if (read.kind === "missing" && rel.startsWith(DIGEST_NAMED_DIR))
+    return plainStatus("not found", 404);
+  const selected = read.kind === "file" ? read.file : index.file;
+  return HttpServerResponse.raw(selected.body, {
+    status: 200,
+    headers: { ...selected.headers, "Content-Security-Policy": frameAncestors(embedOrigins) },
+  });
 });
 
 /** Promise facade for the WS-free HTTP path / tests. */
