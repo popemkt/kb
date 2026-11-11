@@ -458,6 +458,22 @@ bindings; these graph rows describe it. Shipped descriptions protect their
 structure and values like other defaults, while their labels remain cosmetic.
 A separate ordinary shortcut can name a default through `replaces`.
 
+Intent targets are keyed by an unambiguous tuple of context id and intent id,
+derived from the complete registered intent list, including intents without a
+default key. Command targets reference the registered command id directly.
+Binding descriptions and chord nodes use disjoint id namespaces, so a binding
+id ending in `.keys` cannot collide with another binding's chord.
+
+An action target is an ordinary `#call` recipe: a registered action id and a
+JSON object input. Generated recipes belong to their declaring family and equal
+recipes within that declaration share one node; person-authored recipes retain
+their own identities. Object keys are normalized, and non-object or non-JSON
+inputs are refused, never coerced or partially discarded. The live ActionCatalog
+resolves the action and validates its input; a recipe, its label, and writable
+owner fields confer no authority. Normal invocation approval still applies.
+Canonical shortcut approval must include the resolved implementation identity
+and complete normalized recipe, so changing either invalidates the approval.
+
 A shortcut's `keys` references one chord node, `runs` its registered target,
 `where` its context, and `enabled` is a checkbox. One node describes one binding,
 matching the admission model. A chord can name a set of character keys, a

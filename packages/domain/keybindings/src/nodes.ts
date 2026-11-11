@@ -1,6 +1,7 @@
 /** Keyboard data as ordinary nodes; executable targets remain registered code. */
 import { Option, Schema, Record as Records } from "effect";
 import {
+  canonicalJson,
   declaredOptionId,
   type DeclaredOptionSet,
   type DeclaredOptions,
@@ -14,11 +15,14 @@ import {
 } from "@kb/model";
 import { ChordDataSchema, type ChordData } from "./chord-data.ts";
 import { describeChord, type Chord } from "./chord.ts";
-import type { KeyboardDefinition } from "./bindings.ts";
+import type { ActionCall, KeyRun, KeyboardDefinition } from "./bindings.ts";
 
 export const SHORTCUT_IDS = {
   tag: "sys.shortcut",
   chord: "sys.shortcut.chord",
+  call: "sys.call",
+  action: "sys.f.call.action",
+  input: "sys.f.call.input",
   keys: "sys.f.shortcut.keys",
   runs: "sys.f.shortcut.runs",
   where: "sys.f.shortcut.where",
@@ -38,9 +42,9 @@ const KEY_CONTEXT_OPTIONS: DeclaredOptions = {
   field: SHORTCUT_IDS.where,
   prefix: "sys.shortcut.context.",
 };
-const KEY_TARGET_OPTIONS: DeclaredOptions = {
+const KEY_INTENT_OPTIONS: DeclaredOptions = {
   field: SHORTCUT_IDS.runs,
-  prefix: "sys.shortcut.target.",
+  prefix: "sys.shortcut.intent.",
 };
 
 /** Each scalar's graph address and carrier, exhaustive over the codec's members. */
@@ -62,8 +66,26 @@ export function shortcutNodeId(binding: string): string {
 function keyContextNodeId(context: string): string {
   return declaredOptionId(KEY_CONTEXT_OPTIONS, context);
 }
-export function keyTargetNodeId(binding: string): string {
-  return declaredOptionId(KEY_TARGET_OPTIONS, binding);
+/** A tuple encoding: punctuation inside either member cannot become its separator. */
+function intentKey(context: string, intent: string): string {
+  return `${encodeURIComponent(context)}:${encodeURIComponent(intent)}`;
+}
+
+/** Stored calls preserve the action's object input contract and contain JSON data only. */
+export function normalizedCall(call: ActionCall): { action: string; input: Schema.JsonObject } {
+  const input = Schema.decodeUnknownSync(Schema.JsonObject)(
+    call.input === undefined ? {} : call.input,
+  );
+  return { action: call.action, input: structuredClone(input) };
+}
+
+/** Commands name their registered node; intents name their context/intent tuple. */
+export function keyTargetNodeId(family: string, context: string, run: KeyRun): string {
+  if ("intent" in run) return declaredOptionId(KEY_INTENT_OPTIONS, intentKey(context, run.intent));
+  if ("command" in run) return run.command;
+  // Recipes belong to their declaring family, like its other seeded data. Within that
+  // declaration equal calls share one recipe, independently of the binding ids.
+  return `sys.call.generated.${encodeURIComponent(family)}:${encodeURIComponent(canonicalJson(normalizedCall(run)))}`;
 }
 
 function node(
@@ -101,6 +123,9 @@ export function keyboardSchemaNodes(at: string): KbNode[] {
     states,
     node(SHORTCUT_IDS.required, "required", null, at),
     node(SHORTCUT_IDS.excluded, "excluded", null, at),
+    seededTag(SHORTCUT_IDS.call, "call", [SHORTCUT_IDS.action, SHORTCUT_IDS.input], at),
+    seededField(SHORTCUT_IDS.action, "action", "text", at, { one: true }),
+    seededField(SHORTCUT_IDS.input, "input", "text", at, { one: true }),
     seededTag(
       SHORTCUT_IDS.tag,
       "shortcut",
@@ -126,7 +151,17 @@ export function keyboardSchemaNodes(at: string): KbNode[] {
     ),
 
     ref(SHORTCUT_IDS.keys, "keys", SHORTCUT_IDS.chord, true),
-    seededField(SHORTCUT_IDS.runs, "runs", "ref", at, { one: true }),
+    seededField(SHORTCUT_IDS.runs, "runs", "ref", at, {
+      one: true,
+      props: {
+        [SYSTEM_IDS.targetQueryField]: [
+          {
+            t: "str",
+            v: `[:find ?id :where [?n :node/id ?id] (or-join [?n] (and [?p :node/id "${SHORTCUT_IDS.runs}"] [?p :node/child ?n]) (and [?t :node/id "${SYSTEM_IDS.command}"] [?n :f/sys.f.type ?t]) (and [?t :node/id "${SHORTCUT_IDS.call}"] [?n :f/sys.f.type ?t]))]`,
+          },
+        ],
+      },
+    }),
     seededField(SHORTCUT_IDS.where, "where", "ref", at, { one: true }),
     ref(SHORTCUT_IDS.replaces, "replaces", SHORTCUT_IDS.tag, true),
     seededField(SHORTCUT_IDS.enabled, "enabled", "checkbox", at, { one: true }),
@@ -244,7 +279,14 @@ export function chordOfNode(value: NodeLike): ChordData | null {
 
 /** Shortcut rows are filed under the family; each chord lives under its binding. */
 export function keyboardRootIds(family: string, definition: KeyboardDefinition): string[] {
-  return (definition.bindings ?? []).map(({ id }) => shortcutNodeId(`${family}.${id}`));
+  return [
+    ...(definition.bindings ?? []).map(({ id }) => shortcutNodeId(`${family}.${id}`)),
+    ...new Set(
+      (definition.bindings ?? []).flatMap(({ value }) =>
+        "action" in value.run ? [keyTargetNodeId(family, value.context, value.run)] : [],
+      ),
+    ),
+  ];
 }
 
 /** Defaults are descriptions of the declaration, never a second source of runtime bindings. */
@@ -253,10 +295,21 @@ export function keyboardNodes(
   definition: KeyboardDefinition,
   at: string,
 ): KbNode[] {
-  return (definition.bindings ?? []).flatMap(({ id, value }) => {
+  const calls = new Map<string, KbNode>();
+  const bindings = (definition.bindings ?? []).flatMap(({ id, value }) => {
     const binding = `${family}.${id}`;
-    const target = keyTargetNodeId(binding);
-    const chord = chordNode(`${shortcutNodeId(binding)}.keys`, value.chord, at);
+    const target = keyTargetNodeId(family, value.context, value.run);
+    if ("action" in value.run) {
+      const call = normalizedCall(value.run);
+      calls.set(
+        target,
+        node(target, call.action, SHORTCUT_IDS.call, at, {
+          [SHORTCUT_IDS.action]: [{ t: "str", v: call.action }],
+          [SHORTCUT_IDS.input]: [{ t: "str", v: canonicalJson(call.input) }],
+        }),
+      );
+    }
+    const chord = chordNode(`sys.shortcut.chord.${binding}`, value.chord, at);
     const description = node(shortcutNodeId(binding), id, SHORTCUT_IDS.tag, at, {
       [SHORTCUT_IDS.keys]: [{ t: "ref", v: chord.id }],
       [SHORTCUT_IDS.runs]: [{ t: "ref", v: target }],
@@ -269,6 +322,7 @@ export function keyboardNodes(
     description.children = [chord.id];
     return [chord, description];
   });
+  return [...bindings, ...calls.values()];
 }
 
 /** Context and run choices join the existing declared-option fold, like views and backdrops. */
@@ -285,16 +339,13 @@ export function keyboardOptions(
       })),
     },
     {
-      kind: KEY_TARGET_OPTIONS,
-      options: (definition.bindings ?? []).map(({ id, value }) => ({
-        id: `${family}.${id}`,
-        label:
-          "intent" in value.run
-            ? `${value.context}: ${value.run.intent}`
-            : "command" in value.run
-              ? value.run.command
-              : value.run.action,
-      })),
+      kind: KEY_INTENT_OPTIONS,
+      options: (definition.contexts ?? []).flatMap(({ id, value }) =>
+        [...new Set(value.intents)].map((intent) => ({
+          id: intentKey(`${family}.${id}`, intent),
+          label: `${family}.${id}: ${intent}`,
+        })),
+      ),
     },
   ];
 }

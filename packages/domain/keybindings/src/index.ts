@@ -42,4 +42,5 @@ export {
   chordData,
   shortcutNodeId,
   keyTargetNodeId,
+  normalizedCall,
 } from "./nodes.ts";

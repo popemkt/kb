@@ -73,8 +73,12 @@ describe("shipped keybinding data", () => {
       expect(chord, binding.id).toBeDefined();
       if (chord === undefined) continue;
       expect(chordOfNode(chord), binding.id).toEqual(chordData(binding.value.chord));
-      expect(row?.props[SHORTCUT_IDS.runs]).toEqual([{ t: "ref", v: keyTargetNodeId(binding.id) }]);
-      expect(graph.has(keyTargetNodeId(binding.id))).toBe(true);
+      expect(row?.props[SHORTCUT_IDS.runs]).toEqual([
+        { t: "ref", v: keyTargetNodeId(binding.owner, binding.value.context, binding.value.run) },
+      ]);
+      expect(
+        graph.has(keyTargetNodeId(binding.owner, binding.value.context, binding.value.run)),
+      ).toBe(true);
     }
   });
   it("round-trips every loaded binding without losing constraints or matching behavior", () => {
