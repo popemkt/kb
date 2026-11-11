@@ -495,8 +495,10 @@ point's `combine`:
   where the place is what counts. One press has both, and which character a
   place types is the layout's, so a chord by place and one by character
   can overlap: reservations and cross-context admission protect their shared
-  press. Inside one context, election asks chords by place first (`byPlace`),
-  and the same owner may populate both precedence slots. Another owner still
+  press. Inside one context, explicit replacement chains win first, then
+  chords by place (`byPlace`); the same owner may populate both precedence slots.
+  A replacement inherits its holder’s precedence over that owner’s fallback
+  only when the holder covers the replacement’s whole chord. Another owner still
   needs replacement approval for any shared press. Layout-independent
   keys, including numpad digits with NumLock on or off, narrow that overlap;
   layout-dependent positions are checked conservatively. Reserved page-owner
