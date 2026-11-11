@@ -754,14 +754,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Body tones in canvas-style.ts, both painters resolving them, and a look-contract assertion.
 - **node** — `01M540YKDP4WQPSJR41GH0Q90V`
 
-### GAP: canvas-ui's two heaviest tests time out under CPU contention
-
-- **expected** — A test's time budget fits its work: the canvas camera's hit-test march and the gizmo's reach property, each a sweep that takes about 2.2 s alone at nice 15 on 4 workers, pass whatever else the machine runs
-- **current** — Both run under Vitest's default 5 s timeout and fail with "Test timed out in 5000ms" when CPU is contended (reproduced: canvas-ui pinned to one core, 8.2 s and 8.5 s; every other canvas-ui test passes). On a quiet machine and on CI they pass
-- **impact** — test:ui goes red on a loaded shared host for a reason that is not a defect, so a reader learns to rerun it, and a real failure there reads as noise
-- **closes** — Size the work, not the clock: give the two sweeps a timeout of their own, as bunfig gives bun test its 30 s, or bound their sample count; or make test:ui's per-test budget the CI runner's measure, as bun test's is
-- **node** — `01M6VQFVG8FPA7KPZHD3J99NGX`
-
 ### GAP: caretRangeFromPoint needs a CaretDocument cast because lib.dom marks it deprecated
 
 - **expected** — offsetFromPoint calls document.caretRangeFromPoint bound, with no type assertion, and typescript/no-deprecated does not fire on the DOM method.
@@ -1567,14 +1559,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A regression in how the 2D host disposes sigma, or re-reads tokens on an appearance change, goes unnoticed by the unit run.
 - **closes** — Run the renderer contract suite in the browser lane (Playwright with WebGL), or give sigma a headless WebGL context in the unit run, and drop the todo rows.
 - **node** — `01M3EGV5616VKVV4J76ABC5XX2`
-
-### GAP: the graph's cluster render specs fail intermittently on CI (render.e2e.ts:269, :444)
-
-- **expected** — The cluster renderer's specs pass on every CI render shard: 'cluster paints labels and a hull spanning its members' (render.e2e.ts:269) and 'cluster selects in place, keeps camera still, and composes zero search with selection' (:444)
-- **current** — Both fail intermittently on the macOS render shard and pass on a rerun. :444 failed on days/base in run 42865936403 (before #153) and on #167 in run 42921073994 attempt 1 (job 130195816989): the selection card was not found within 5 s of a click at the root node's position. :269 failed on main 0f66c889 in run 42920818373 (job 130194974248): the hull's alpha box did not span 60% of the members within 5 s. /graph draws no page-head backdrop, so the backdrop work is not the cause
-- **impact** — A red render shard on main or on a PR for a reason unrelated to the change, rerun until green, which hides a real failure in the same specs
-- **closes** — Find what each waits on: :269's final poll uses expect's 5 s default where the spec's other polls use PAGE_READY or SETTLE, and the hull is drawn only after the layout frames its members; :444 clicks a node's page position, which a layout still moving can leave. Then make each wait on the signal it means, with a run that fails before and passes after, without weakening either assertion
-- **node** — `01M740DVZBBAHDACZTMG9N1RX8`
 
 ### GAP: the inline markdown parser is a 41-branch hand-rolled scanner
 
