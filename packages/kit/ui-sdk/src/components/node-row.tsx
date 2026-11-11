@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { cn } from "../lib/cn";
 import { asInstance } from "../lib/dom";
 import { indentStyle } from "../lib/indent";
+import { menuAnchor } from "../lib/menu-anchor";
 
 export interface NodeRowProps {
   depth: number;
@@ -71,6 +72,7 @@ export function NodeRow({
       }}
       data-node-id={nodeId}
       data-instance-key={instanceKey}
+      {...(instanceKey === undefined ? {} : menuAnchor(instanceKey))}
       data-node-row="true"
       data-selected={isSelected ? "true" : undefined}
       data-active={isActive ? "true" : undefined}

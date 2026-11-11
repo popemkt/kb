@@ -17,7 +17,21 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
-import { fieldTypeValue, isPinned, syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
+import {
+  browserHost,
+  fieldTypeValue,
+  isPinned,
+  pageTitleInstanceKey,
+  syncUiPlugins,
+  SYSTEM_IDS,
+  WORKSPACE_ROOT_ID,
+} from "@kb/ui-sdk";
+import { CommandPalette } from "@/components/palette/command-palette";
+import { pageEditor } from "@/stores/page-editor";
+import { useUiStore } from "@/stores/ui.store";
+import { useWorkspaceStore } from "@/stores/workspace.store";
+import { singlePane } from "@kb/views";
+import { layoutUiPlugin } from "@/components/layout/plugin";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
@@ -71,6 +85,7 @@ function graph(): WireNode[] {
 
 function seed() {
   resetOutlineStore();
+  useUiStore.getState().setNodePaletteOpen(false);
   useGraphStore.getState().hydrateFromWire(graph(), 1, "fixtures");
   useDebugFieldsStore.setState({ ids: new Set() });
 }
@@ -109,19 +124,16 @@ describe("node command palette", () => {
     dom.document.body.innerHTML = "";
   });
 
-  /** The anchor the palette measures: a row with the node's id. */
-  function anchor(nodeId: string) {
+  /** The row the palette opens at: where the selected instance is shown. */
+  function anchor(nodeId: string, instanceKey = `row/${nodeId}`) {
     const row = dom.document.createElement("div");
-    row.setAttribute("data-node-id", nodeId);
-    const inner = dom.document.createElement("div");
-    inner.className = "node-row";
-    row.appendChild(inner);
+    row.setAttribute("data-menu-anchor", instanceKey);
     dom.document.body.appendChild(row);
   }
 
   async function open(nodeId: string) {
     anchor(nodeId);
-    useOutlineStore.setState({ selectedNodeId: nodeId });
+    useOutlineStore.setState({ selectedNodeId: nodeId, selectedInstanceKey: `row/${nodeId}` });
     await act(async () => {
       root.render(<NodeCommandPalette open onClose={() => {}} />);
     });
@@ -210,10 +222,11 @@ describe("node command palette", () => {
     ]);
   });
 
-  it("drops Make supertag on a supertag, keeping the rest in order", async () => {
+  it("offers a tag that extends a supertag, and drops Make supertag, keeping the rest in order", async () => {
     await open("t.super");
     expect(labels()).toEqual([
       "Add tag",
+      "Make your own tag that extends this",
       "Turn into query",
       "Turn into reference…",
       "Add field",
@@ -288,6 +301,28 @@ describe("node command palette", () => {
     expect(labels()[1]).toBe("Turn into query");
   });
 
+  it("opens at a page's title, where the page's node is active", async () => {
+    const key = pageTitleInstanceKey("t.super");
+    anchor("t.super", key);
+    useOutlineStore.setState({ activeNodeId: "t.super", activeInstanceKey: key });
+    await act(async () => {
+      root.render(<NodeCommandPalette open onClose={() => {}} />);
+    });
+    expect(labels()).toContain("Make your own tag that extends this");
+  });
+
+  it("opens at the step it was opened at", async () => {
+    anchor("n.plain");
+    useOutlineStore.setState({ selectedNodeId: "n.plain", selectedInstanceKey: "row/n.plain" });
+    useUiStore.getState().setNodePaletteOpen(true, "outline.add-tag");
+    await act(async () => {
+      root.render(<NodeCommandPalette open onClose={() => {}} />);
+    });
+    expect(dom.document.querySelector('[role="dialog"]')?.getAttribute("aria-label")).toBe(
+      "Add tag",
+    );
+  });
+
   it("Add tag opens the tag picker step", async () => {
     await open("n.plain");
     const row = [...dom.document.querySelectorAll('[data-palette-list="true"] button')].find(
@@ -303,5 +338,132 @@ describe("node command palette", () => {
     expect(dom.document.querySelector('[role="dialog"]')?.getAttribute("aria-label")).toBe(
       "Add tag",
     );
+  });
+});
+
+/**
+ * ⌘K, the page's search, finds what the node menu offers the node it acts on
+ * — the selected row, else the page's node — beside the graph, each marked
+ * with that node. A tag's own page is where a person meets "Make your own tag
+ * that extends this", so it is found there with nothing selected.
+ */
+describe("the global palette on a page", () => {
+  let dom: Window;
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeAll(() => {
+    // The page's routes too: a pane opened at a node names it by its route.
+    syncPagePlugins([outlineUiPlugin, collectionsUiPlugin, chartUiPlugin, layoutUiPlugin]);
+    dom = new Window();
+    const g = globalThis as Record<string, unknown>;
+    g.window = dom;
+    g.document = dom.document;
+    g.HTMLElement = dom.HTMLElement;
+    g.Node = dom.Node;
+    g.CSS = { escape: (s: string) => s };
+  });
+
+  beforeEach(() => {
+    seed();
+    // ⌘K's own "Filter…", whose node face the node menu offers.
+    const filter = {
+      id: SYSTEM_IDS.cmdViewFilter,
+      text: "Filter…",
+      props: { [SYSTEM_IDS.typeField]: [{ t: "ref" as const, v: SYSTEM_IDS.command }] },
+    };
+    useGraphStore.getState().hydrateFromWire([...graph(), wire(filter)], 2, "fixtures");
+    useGraphStore.setState({ rootNodeId: "t.super" });
+    container = dom.document.createElement("div") as unknown as HTMLDivElement;
+    dom.document.body.appendChild(container as unknown as never);
+    root = createRoot(container);
+    // The page's title, where the page's node is shown and its menu opens.
+    title = dom.document.createElement("div");
+    title.setAttribute("data-menu-anchor", pageTitleInstanceKey("t.super"));
+    dom.document.body.appendChild(title);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    title.remove();
+    vi.restoreAllMocks();
+  });
+
+  let title: InstanceType<typeof dom.HTMLElement>;
+
+  async function openPalette() {
+    await act(async () => {
+      root.render(<CommandPalette open onClose={() => {}} />);
+    });
+  }
+
+  /** A row of the palette by its text, and what it marks as its target. */
+  const row = (text: string) => {
+    const button = [...dom.document.querySelectorAll("[data-palette-row]")].find(
+      (b) => b.querySelector(".flex-1")?.textContent === text,
+    );
+    return present(button, `palette row ${text}`) as unknown as HTMLElement;
+  };
+
+  it("lists the page's node's commands, marked with the node", async () => {
+    await openPalette();
+    const extend = row("Make your own tag that extends this");
+    expect(extend.lastElementChild?.textContent).toBe("project");
+  });
+
+  it("acts on the node a pane is opened at, as on the zoom", async () => {
+    useGraphStore.setState({ rootNodeId: WORKSPACE_ROOT_ID });
+    const before = useWorkspaceStore.getState();
+    useWorkspaceStore.setState({
+      layout: singlePane({ id: "p.node", path: "/node/t.super" }),
+      focused: "p.node",
+    });
+    try {
+      await openPalette();
+      expect(row("Make your own tag that extends this").lastElementChild?.textContent).toBe(
+        "project",
+      );
+    } finally {
+      useWorkspaceStore.setState({ layout: before.layout, focused: before.focused });
+    }
+  });
+
+  it("lists a global command once, as the node's face of it", async () => {
+    await openPalette();
+    const filters = [...dom.document.querySelectorAll("[data-palette-row]")].filter(
+      (b) => b.querySelector(".flex-1")?.textContent === "Filter…",
+    );
+    expect(filters.map((b) => b.lastElementChild.textContent)).toEqual(["project"]);
+  });
+
+  it("lists no node's commands where its menu cannot open, and the global ones stand", async () => {
+    // A page that shows its node with no title: a canvas, a graph.
+    title.remove();
+    await openPalette();
+    const texts = [...dom.document.querySelectorAll("[data-palette-row]")].map(
+      (b) => b.querySelector(".flex-1")?.textContent,
+    );
+    expect(texts).not.toContain("Make your own tag that extends this");
+    expect(row("Filter…").lastElementChild?.textContent).toBe("cmd");
+  });
+
+  it("runs one on the page's node", async () => {
+    const defineTag = vi.spyOn(browserHost().writes, "defineTag").mockResolvedValue(null);
+    await openPalette();
+    await act(async () => {
+      row("Make your own tag that extends this").click();
+    });
+    expect(defineTag).toHaveBeenCalledWith("my project", ["t.super"]);
+  });
+
+  it("hands a command that asks for a step to the node menu at the page's title", async () => {
+    await openPalette();
+    await act(async () => {
+      row("Add tag").click();
+    });
+    expect(pageEditor().getState().selectedNodeId).toBe("t.super");
+    expect(pageEditor().getState().selectedInstanceKey).toBe(pageTitleInstanceKey("t.super"));
+    expect(useUiStore.getState().nodePaletteStep).toBe("outline.add-tag");
   });
 });

@@ -97,33 +97,6 @@ export function ontologyClosureMode(node: NodeLike): OntologyClosureMode {
   return raw === "descendants" ? "descendants" : "none";
 }
 
-/**
- * Would adding `parentId` to `ontoId`'s `extends` close a cycle?
- * Cheap client-side pre-check; the resolver stays cycle-safe regardless.
- */
-export function wouldCreateExtendsCycle(
-  nodes: readonly NodeLike[],
-  ontoId: NodeId,
-  parentId: NodeId,
-): boolean {
-  if (ontoId === parentId) return true;
-  const byId = new Map(nodes.map((n) => [n.id, n]));
-  const seen = new Set<NodeId>();
-  const stack: NodeId[] = [parentId];
-  while (stack.length > 0) {
-    const current = present(stack.pop(), "wouldCreateExtendsCycle: pop on non-empty stack");
-    if (current === ontoId) return true;
-    if (seen.has(current)) continue;
-    seen.add(current);
-    const node = byId.get(current);
-    if (!node) continue;
-    for (const next of refValuesOf(node, SYSTEM_IDS.ontoExtendsField)) {
-      stack.push(next);
-    }
-  }
-  return false;
-}
-
 // ── resolution ─────────────────────────────────────────────────────────────
 
 interface ResolveState {

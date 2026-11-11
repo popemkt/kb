@@ -3,7 +3,9 @@
  * own instance (`pageTitleInstanceKey`), so while the owner types in it the
  * page reports editing (`BrowserHost.editing()`, `PageActivity.editing`) and
  * the writes its keystrokes make are typing — never structural writes, which
- * a theme's art and a backdrop answer with a gesture.
+ * a theme's art and a backdrop answer with a gesture. Enter ends it and
+ * opens a first row, as Tana's title does, on every page that takes rows:
+ * a day's as any node's.
  */
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -27,6 +29,8 @@ import { resetOutlineStore } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 
 const PAGE = "n.root-a";
+/** A node with no rows yet, as a new day is. */
+const EMPTY = "n.empty-page";
 
 /** Every activity the page reported, in order, as a backdrop is handed it. */
 const seen: PageActivity[] = [];
@@ -103,13 +107,67 @@ describe("the page title's edit", () => {
     expect(typed.filter((activity) => !activity.editing)).toEqual([]);
     expect(browserHost().editing()).toBe(true);
 
-    // Ending the edit (Enter) ends the page's edit with it.
+    // Enter ends the title's edit and opens a first row above what the page holds.
+    const [first] = useGraphStore.getState().index?.getNode(PAGE)?.children ?? [];
+    await pressEnterInTitle();
+    expect(container.querySelector('[data-zoom-title="true"]')).not.toBeNull();
+    const opened = openedRow();
+    expect(useGraphStore.getState().index?.getNode(PAGE)?.children.slice(0, 2)).toEqual([
+      opened,
+      first,
+    ]);
+  });
+
+  it("opens the first row of an empty page, whose strip says where it goes", async () => {
+    const at = "2026-11-11T00:00:00.000Z";
+    useGraphStore
+      .getState()
+      .hydrateFromWire(
+        [
+          ...structuredClone(fixtureGraph.nodes),
+          { id: EMPTY, text: "Thu, Nov 12", props: {}, children: [], createdAt: at, updatedAt: at },
+        ],
+        fixtureGraph.rev,
+        "fixtures",
+      );
+    await act(async () => {
+      root.render(<OutlineEditor root={EMPTY} />);
+    });
+    const strip = container.querySelector(`[data-create-child-zone="${EMPTY}"]`);
+    expect(strip?.getAttribute("data-create-empty")).toBe("true");
+    expect(strip?.textContent).toBe("+ New node");
+
+    const title = container.querySelector<HTMLElement>('[data-zoom-title="true"]');
+    await act(async () => {
+      title?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    });
+    await pressEnterInTitle();
+    const opened = openedRow();
+    expect(useGraphStore.getState().index?.getNode(EMPTY)?.children).toEqual([opened]);
+    // The page holds a row now, so its strip is the quiet one again.
+    expect(
+      container
+        .querySelector(`[data-create-child-zone="${EMPTY}"]`)
+        ?.hasAttribute("data-create-empty"),
+    ).toBe(false);
+  });
+
+  /** Enter in the open title's editor. */
+  async function pressEnterInTitle(): Promise<void> {
     const editor = container.querySelector<HTMLElement>("[contenteditable]");
     if (editor === null) throw new Error("the title's editor is not open");
     await act(async () => {
       editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     });
-    expect(browserHost().editing()).toBe(false);
-    expect(container.querySelector('[data-zoom-title="true"]')).not.toBeNull();
-  });
+  }
+
+  /** The row Enter opened: the one being edited now, empty and transient. */
+  function openedRow(): string {
+    const { activeNodeId, activeInstanceKey, transientIds } = useOutlineStore.getState();
+    expect(activeInstanceKey).not.toBe(pageTitleInstanceKey(PAGE));
+    if (activeNodeId === null) throw new Error("Enter opened no row");
+    expect(useGraphStore.getState().index?.getNode(activeNodeId)?.text).toBe("");
+    expect(transientIds.has(activeNodeId)).toBe(true);
+    return activeNodeId;
+  }
 });

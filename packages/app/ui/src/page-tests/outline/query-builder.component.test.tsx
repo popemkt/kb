@@ -103,7 +103,7 @@ const stored = (): string => {
   return value?.t === "str" ? value.v : "";
 };
 
-const TODO_EDN = `[:find ?id :where [?n :node/id ?id] [?v1 :node/id "t.todo"] [?n :f/sys.f.type ?v1]]`;
+const TODO_EDN = `[:find ?id :where [?n :node/id ?id] [?a1 :node/id "t.todo"] [?n :node/is ?a1]]`;
 
 describe("the query builder", () => {
   let dom: InstalledDom;
@@ -253,7 +253,7 @@ describe("the query builder", () => {
     await pick("todo");
     await vi.waitFor(() =>
       expect(stored()).toBe(
-        '[:find ?id :where\n [?n :node/id ?id]\n [?v1 :node/id "t.todo"]\n [?n :f/sys.f.type ?v1]]',
+        '[:find ?id :where\n [?n :node/id ?id]\n [?a1 :node/id "t.todo"]\n [?n :node/is ?a1]]',
       ),
     );
     await answered();
@@ -464,7 +464,7 @@ describe("the query builder", () => {
 
   it("every slot is a button with an accessible name", async () => {
     await mount(
-      '[:find ?id :where [?n :node/id ?id] [?v1 :node/id "t.todo"] [?n :f/sys.f.type ?v1] (not-join [?n] [?v2 :node/id "s.done"] [?n :f/f.status ?v2])]',
+      '[:find ?id :where [?n :node/id ?id] [?a1 :node/id "t.todo"] [?n :node/is ?a1] (not-join [?n] [?v1 :node/id "s.done"] [?n :f/f.status ?v1])]',
     );
     const names = [...container.querySelectorAll("[data-qb-slot]")].map((s) => [
       s.tagName,

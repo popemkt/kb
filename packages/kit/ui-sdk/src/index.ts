@@ -205,12 +205,24 @@ export { Bullet } from "./components/bullet";
 export { EdnEditor } from "./components/edn-editor";
 export { type EnumOption, EnumSelect } from "./components/enum-select";
 export { FieldRow } from "./components/field-row";
+export { ManagedNote } from "./components/managed-field";
+export { type FieldWrite, type ManagedWrite, useFieldWrite } from "./lib/field-write";
 export { IconButton } from "./components/icon-button";
 export { KnobControl } from "./components/deferred-parts";
 export { MENU_ROW, MENU_SURFACE, useMenuKeys, type MenuKeys } from "./components/menu";
 export { MenuSeparator } from "./components/menu-separator";
 export { InlineMarkdown, MdView } from "./components/md-view";
+export { NodeLinkRow, type NodeLinkRowProps } from "./components/node-link-row";
+export {
+  NodeSectionPoint,
+  nodeSectionsOf,
+  useNodeSections,
+  type NodeSection,
+  type NodeSectionProps,
+  type ShownSection,
+} from "./lib/node-sections";
 export { NodeRow } from "./components/node-row";
+export { menuAnchor, menuAnchorOf } from "./lib/menu-anchor";
 export {
   type CaretAt,
   type CaretIntent,
@@ -312,12 +324,20 @@ export {
   pinnedRefIds,
   pinnedRefIdsFor,
 } from "./lib/pinned";
-export { nodeCandidates, type RefCreation, refCreationOf, refSearchOf, refUses } from "./lib/refs";
+export {
+  closesCycleOf,
+  nodeCandidates,
+  type RefCreation,
+  refCreationOf,
+  refSearchOf,
+  refUses,
+} from "./lib/refs";
 export {
   fieldCarriersQuery,
   queryFieldCarriers,
   queryTaggedInstances,
   type SchemaHit,
+  kindOfType,
   schemaZoomKind,
   taggedInstancesQuery,
 } from "./lib/schema-zoom";

@@ -87,7 +87,7 @@ export const fixtureGraph: GraphSnapshot = {
     }),
     node({
       id: "sys.cmd.add-tag",
-      text: "Add tag",
+      text: "New tag",
       props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
     }),
     node({

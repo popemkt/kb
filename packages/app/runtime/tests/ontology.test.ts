@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   canonicalJson,
+  closesCycle,
   DEFAULT_MAX_DEPTH,
   ensureSystemSeed,
   fieldTypeOf,
@@ -23,7 +24,6 @@ import {
   type KbNode,
   type NodeLike,
   type PropValue,
-  wouldCreateExtendsCycle,
 } from "@kb/model";
 import { ontologyMembersEffect } from "@kb/operations";
 import { runWithKb } from "../src/layers.ts";
@@ -504,17 +504,20 @@ describe("ontology helpers", () => {
     expect(listOntologyNodes(nodes).map((n) => n.id)).toEqual(["o.z", "o.a"]);
   });
 
-  test("wouldCreateExtendsCycle catches self, direct, and transitive cycles", () => {
+  test("closesCycle over extends catches self, direct, and transitive cycles", () => {
     const nodes = [
       ontology("o.a", "A", { extends: ["o.b"] }),
       ontology("o.b", "B", { extends: ["o.c"] }),
       ontology("o.c", "C"),
       ontology("o.d", "D"),
     ];
-    expect(wouldCreateExtendsCycle(nodes, "o.a", "o.a")).toBe(true);
-    expect(wouldCreateExtendsCycle(nodes, "o.c", "o.a")).toBe(true);
-    expect(wouldCreateExtendsCycle(nodes, "o.b", "o.a")).toBe(true);
-    expect(wouldCreateExtendsCycle(nodes, "o.a", "o.d")).toBe(false);
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    const cycles = (holder: string, candidate: string) =>
+      closesCycle((id) => byId.get(id), SYSTEM_IDS.ontoExtendsField, holder, candidate);
+    expect(cycles("o.a", "o.a")).toBe(true);
+    expect(cycles("o.c", "o.a")).toBe(true);
+    expect(cycles("o.b", "o.a")).toBe(true);
+    expect(cycles("o.a", "o.d")).toBe(false);
   });
 });
 

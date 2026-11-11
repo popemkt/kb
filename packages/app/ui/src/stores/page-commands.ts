@@ -1,12 +1,24 @@
 /**
  * What a command reads and drives of the page (`OutlineCommandApi`), read
- * now: the zoom, the scope and the graph from the graph store, the rows and
+ * now: the node the page stands at — the one the focused pane is shown for
+ * (`paneSubjectAt`), so a node opened in a pane is the page's node as a zoom
+ * is — the scope and the graph from the graph store, the rows and
  * the reveal from the projection the page stands in, the selection from its
  * editor, and the frame views from the UI kernel. Both palettes run commands
  * against it, so the context is built in one place (`pageCommandContext`),
  * and the node menu reads it through the page's host (`nodeCommands`).
  */
-import type { CommandContext, CommandTarget, OutlineCommandApi, PaletteSurface } from "@kb/ui-sdk";
+import { findPane } from "@kb/views";
+import {
+  currentContributions,
+  providedFrameViews,
+  RoutePoint,
+  type CommandContext,
+  type CommandTarget,
+  type OutlineCommandApi,
+  type PaletteSurface,
+} from "@kb/ui-sdk";
+import { paneSubjectAt } from "@/lib/pane-subject";
 import { pageProjection, useGraphStore } from "@/stores/graph.store";
 import { pageRows } from "@/stores/page";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
@@ -14,13 +26,20 @@ import { pageEditor } from "@/stores/page-editor";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { currentWorkspace } from "@/stores/workspace.store";
-import { providedFrameViews } from "@kb/ui-sdk";
+
+/** The node the focused pane is shown for, else the page's zoom (`zoom`). */
+function standingNodeId(zoom: string): string {
+  const workspace = currentWorkspace();
+  const path = findPane(workspace.layout, workspace.focused)?.path;
+  if (path === undefined) return zoom;
+  return paneSubjectAt(currentContributions(RoutePoint), path, zoom) ?? zoom;
+}
 
 export function pageCommandApi(): OutlineCommandApi {
   const graph = useGraphStore.getState();
   return {
     selectedNodeId: pageEditor().getState().selectedNodeId,
-    rootNodeId: graph.rootNodeId,
+    rootNodeId: standingNodeId(graph.rootNodeId),
     ontologyId: graph.ontologyId,
     nodes: pageRows(),
     wireNodes: graph.wireNodes,

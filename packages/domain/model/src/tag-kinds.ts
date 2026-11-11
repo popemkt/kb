@@ -12,18 +12,15 @@
  * chips. The two are kept apart for the same reason the badge list is kept
  * apart from the kind slot.
  *
- * A tag's chain ({@link tagAncestors}) is breadth first in declared order,
- * each tag once, so a diamond reaches a shared ancestor once and a cycle
- * ends where it closes: nothing graph-shaped throws, as the ontology
- * resolver does not. What is nearer wins wherever a chain is read in order:
+ * A tag's chain ({@link tagAncestors}) is its `sys.f.extends` chain
+ * (`refChain`): breadth first in declared order, each tag once, ending
+ * where a cycle closes. What is nearer wins wherever a chain is read in order:
  * a tag's own fields, then each ancestor's; its own views, then theirs.
  */
 import type { NodeId } from "./model.ts";
 import { SYSTEM_IDS } from "./model.ts";
 import { refValuesOf, typeRefsOf, type NodeLike } from "./node-like.ts";
-
-/** How a reader finds a node: the graph it is asked over. */
-export type KindsLookup = (id: NodeId) => Pick<NodeLike, "props"> | undefined;
+import { refChain, type NodeLookup } from "./ref-chain.ts";
 
 /**
  * The kinds of one graph, as one read of it asks them: each tag's chain is
@@ -41,19 +38,12 @@ export interface TagChains {
   readonly isA: (node: Pick<NodeLike, "props"> | undefined, tag: NodeId) => boolean;
 }
 
-export function tagChains(nodeOf: KindsLookup): TagChains {
+export function tagChains(nodeOf: NodeLookup): TagChains {
   const chains = new Map<NodeId, readonly NodeId[]>();
   const ancestors = (tag: NodeId): readonly NodeId[] => {
     const kept = chains.get(tag);
     if (kept !== undefined) return kept;
-    const chain = new Set<NodeId>();
-    const queue: NodeId[] = [tag];
-    for (let next = queue.shift(); next !== undefined; next = queue.shift()) {
-      if (chain.has(next)) continue;
-      chain.add(next);
-      queue.push(...refValuesOf(nodeOf(next), SYSTEM_IDS.extendsField));
-    }
-    const walked = [...chain];
+    const walked = refChain(nodeOf, SYSTEM_IDS.extendsField, tag);
     chains.set(tag, walked);
     return walked;
   };
@@ -70,14 +60,14 @@ export function tagChains(nodeOf: KindsLookup): TagChains {
 }
 
 /** `tag`, then every tag it extends, breadth first in declared order, each once. */
-export function tagAncestors(tag: NodeId, nodeOf: KindsLookup): readonly NodeId[] {
+export function tagAncestors(tag: NodeId, nodeOf: NodeLookup): readonly NodeId[] {
   return tagChains(nodeOf).ancestors(tag);
 }
 
 /** Every tag `node` is, each once: each tag it carries, in order, followed by its chain. */
 export function kindsOf(
   node: Pick<NodeLike, "props"> | undefined,
-  nodeOf: KindsLookup,
+  nodeOf: NodeLookup,
 ): readonly NodeId[] {
   return tagChains(nodeOf).kindsOf(node);
 }
@@ -86,7 +76,7 @@ export function kindsOf(
 export function isA(
   node: Pick<NodeLike, "props"> | undefined,
   tag: NodeId,
-  nodeOf: KindsLookup,
+  nodeOf: NodeLookup,
 ): boolean {
   return tagChains(nodeOf).isA(node, tag);
 }
@@ -111,7 +101,7 @@ export function nodesOfKind<N extends Pick<NodeLike, "props">>(
  * those tags shows as its fields, whatever it holds. A tag cannot drop a
  * field it inherits, so every node of a tag has its ancestors' fields.
  */
-export function templateFieldsOf(tags: readonly NodeId[], nodeOf: KindsLookup): NodeId[] {
+export function templateFieldsOf(tags: readonly NodeId[], nodeOf: NodeLookup): NodeId[] {
   const { ancestors } = tagChains(nodeOf);
   const fields = new Set<NodeId>();
   for (const tag of tags)

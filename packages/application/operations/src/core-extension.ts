@@ -68,6 +68,8 @@ export const coreExtension = defineExtension({
     // The Extensions page became Settings' Extensions part, and its command followed.
     { from: "sys.view.extensions.list", to: SettingsView.option },
     { from: SYSTEM_IDS.cmdExtensions, to: SYSTEM_IDS.cmdExtensions, text: "Extensions" },
+    // ⌘K's "Add tag" makes a new tag; the node menu's adds one to a node.
+    { from: SYSTEM_IDS.cmdAddTag, to: SYSTEM_IDS.cmdAddTag, text: "Add tag" },
   ],
   context: CORE_CONTEXT_REFERENCES,
 });

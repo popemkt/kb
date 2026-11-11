@@ -100,6 +100,12 @@ export const SYSTEM_IDS = {
   /** Ref constraint general form: EDN datalog of allowed node ids (wins over tag). */
   targetQueryField: "sys.f.targetQuery",
   /**
+   * A ref field whose values never close a cycle (checkbox): no node reaches
+   * itself by following the field (`closesCycle`). A tag's and an
+   * ontology's `extends` declare it.
+   */
+  acyclicField: "sys.f.acyclic",
+  /**
    * What a ref field's relation is called read against its direction
    * ("influenced by" for "influences"): plain text on the field node. The
    * graph's hop explanations and the outline's References read it; no
@@ -273,6 +279,15 @@ export const SYSTEM_IDS = {
    */
   configuresField: "sys.f.configures",
   /**
+   * On a field node: the family whose values these are (ref, one, to one of
+   * `sys.extensions`' children). The family writes them through its own
+   * actions; a person may still write them, deliberately, and the page asks
+   * for that step (`fieldWriting`). It constrains nothing itself: what a
+   * value may be is the family's constraints' (DESIGN.md → Data-plane
+   * freedom, "Constrain before you lock").
+   */
+  managedByField: "sys.f.managedBy",
+  /**
    * A page head's backdrop (`backdrop.ts`): which one, how strong and which
    * way it faces, each a ref to one of its field's children.
    * Settings of core's node, and on any node, of that node's page.
@@ -292,6 +307,11 @@ export const SYSTEM_IDS = {
    * of core's node.
    */
   designSystemField: "sys.f.design-system",
+  /**
+   * How many backups of this store a machine keeps (DESIGN.md → Storage →
+   * Backups): a number, a setting of core's node; unset is the default.
+   */
+  backupsKeptField: "sys.f.backups.kept",
   /**
    * Motion options (`motion.ts`): the mode, intensity, style and speed, each
    * a ref to one of its field's children, and one checkbox field per effect

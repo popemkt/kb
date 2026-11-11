@@ -5,7 +5,7 @@
  * focus leaves it still empty (Tana, r1 §3.3), and "the row above" is the one
  * the outline draws above (r1 D09).
  */
-import { useOutlineStore } from "./outline.store";
+import { outlineNodes, useOutlineStore } from "./outline.store";
 import { browserHost } from "@kb/ui-sdk";
 
 /** The minted id, marked transient; null when the write was refused. */
@@ -24,6 +24,15 @@ export async function createTransientNode(
   afterSiblingId: string | null,
 ): Promise<string | null> {
   return transient(await browserHost().writes.createEmptyNode(parentId, afterSiblingId));
+}
+
+/**
+ * A transient first row of `parentId`, focused: Enter from a page's title
+ * opens one above whatever the page holds, as Tana's does.
+ */
+export async function createFirstChild(parentId: string): Promise<string | null> {
+  const [first] = outlineNodes().get(parentId)?.children ?? [];
+  return first === undefined ? createTransientNode(parentId, null) : createNodeBefore(first);
 }
 
 /** A transient sibling directly ABOVE the anchor, focused ('O' key). */

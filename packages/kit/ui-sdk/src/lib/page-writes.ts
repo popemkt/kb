@@ -103,7 +103,11 @@ export interface PageWrites {
    * caller is responsible for taking the user to it.
    */
   readonly makeSupertag: (nodeId: string) => Promise<boolean>;
-  readonly defineTag: (name: string) => Promise<string | null>;
+  /**
+   * Mint a tag called `name`, extending `parents` in order (`sys.f.extends`),
+   * as one write: its id, or null when the write did not land.
+   */
+  readonly defineTag: (name: string, parents?: readonly string[]) => Promise<string | null>;
   /**
    * Pin / unpin a node for the sidebar's Pinned section.
    *

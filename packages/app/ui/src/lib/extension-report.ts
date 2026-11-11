@@ -250,6 +250,7 @@ const POINT_WORDS: Readonly<Record<string, string>> = {
   "ui.design-systems": "themes",
   "ui.commands": "commands",
   "ui.sidebar": "sidebar sections",
+  "ui.node-sections": "node page sections",
   "ui.docks": "docks",
   "ui.overlays": "overlays",
   "kb.templates": "templates",

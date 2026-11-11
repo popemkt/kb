@@ -53,6 +53,8 @@ import { useWorkspaceStore } from "@/stores/workspace.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 
 const AT = "2026-10-31T00:00:00.000Z";
+/** A seeded tag, the canvas family's. */
+const CANVAS_TAG = "sys.tag.canvas";
 const tagged = (tag: string): Record<string, PropValue[]> => ({
   [SYSTEM_IDS.typeField]: [{ t: "ref", v: tag }],
 });
@@ -73,7 +75,7 @@ function graph(extra: Record<string, WireNode["props"]> = {}): WireNode[] {
   );
   const over = (n: WireNode): WireNode =>
     extra[n.id] === undefined ? n : { ...n, props: { ...n.props, ...extra[n.id] } };
-  return [...seeded, node("n.board", tagged("sys.tag.canvas")), node("n.plain", {}), root]
+  return [...seeded, node("n.board", tagged(CANVAS_TAG)), node("n.plain", {}), root]
     .filter((n, i, all) => all.findIndex((m) => m.id === n.id) === i)
     .map(over);
 }
@@ -236,5 +238,39 @@ describe("the node menu's order", () => {
     expect(at("Indent")).toBeLessThan(at("Pin"));
     expect(at("Pin")).toBeLessThan(at("Filter…"));
     expect(labels.at(-1)).toBe("Delete node");
+  });
+});
+
+describe("Make your own tag that extends this", () => {
+  let dom: InstalledDom;
+  beforeEach(() => {
+    dom = installDomGlobals();
+    resetOutlineStore();
+    useGraphStore.getState().hydrateFromWire(graph(), 1, "fixtures");
+    syncUiPlugins([paletteStepsPlugin, browserHostUiPlugin, outlineUiPlugin, layoutUiPlugin]);
+  });
+  afterEach(() => {
+    syncUiPlugins([]);
+    dom.restore();
+  });
+
+  it("is offered on a tag, and not on a node that is none", () => {
+    expect(offered(CANVAS_TAG, "extend-tag").map((c) => c.label)).toEqual([
+      "Make your own tag that extends this",
+    ]);
+    expect(offered("n.plain", "extend-tag")).toEqual([]);
+  });
+
+  it("makes the person's tag, extending this one, and opens it", async () => {
+    const [command] = offered(CANVAS_TAG, "extend-tag");
+    await runCommand(present(command, "the command").id, context());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const mine = present(
+      useGraphStore.getState().wireNodes.find((n) => n.text === "my canvas"),
+      "the person's tag",
+    );
+    expect(mine.props[SYSTEM_IDS.typeField]).toEqual([{ t: "ref", v: SYSTEM_IDS.tag }]);
+    expect(mine.props[SYSTEM_IDS.extendsField]).toEqual([{ t: "ref", v: CANVAS_TAG }]);
+    expect(useGraphStore.getState().rootNodeId).toBe(mine.id);
   });
 });

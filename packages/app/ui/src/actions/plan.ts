@@ -1,12 +1,12 @@
 import type { ActionRequest, WireNode } from "@kb/contracts";
 import {
+  closesCycle,
   familyViewIdOf,
   fieldTypeValue,
   hostViewIds,
   viewsWithDefault,
   siblingSlots,
   viewOptionId,
-  wouldCreateExtendsCycle,
   type FieldType,
   type Writable,
 } from "@kb/model";
@@ -193,8 +193,12 @@ export const planRemoveTag = (n: WireNode[], id: string, tag: string) =>
   planUnsetProp(n, id, SYSTEM_IDS.typeField, { t: "ref", v: tag });
 export const planDefineField = (name: string, id: string) =>
   plan({ id: "field.define", input: { name, id } });
-export const planDefineTag = (name: string, id: string) =>
-  plan({ id: "tag.define", input: { name, id } });
+/** Mint tag `name` as `id`, extending `parents` (`sys.f.extends`), in order. */
+export const planDefineTag = (name: string, id: string, parents: readonly string[] = []) =>
+  plan({
+    id: "tag.define",
+    input: { name, id, ...(parents.length > 0 ? { extends: [...parents] } : {}) },
+  });
 export function planNewQueryNode(
   text: string,
   id: string,
@@ -284,7 +288,8 @@ export function planOntologyAddExtends(
   id: string,
   parent: string,
 ): PlannedMutation | null {
-  return wouldCreateExtendsCycle(nodes, id, parent)
+  const byId = wireById(nodes);
+  return closesCycle((ref) => byId.get(ref), SYSTEM_IDS.ontoExtendsField, id, parent)
     ? null
     : refProp(nodes, id, SYSTEM_IDS.ontoExtendsField, parent);
 }
