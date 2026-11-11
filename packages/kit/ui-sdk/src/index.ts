@@ -325,6 +325,7 @@ export {
   queryFieldCarriers,
   queryTaggedInstances,
   type SchemaHit,
+  kindOfType,
   schemaZoomKind,
   taggedInstancesQuery,
 } from "./lib/schema-zoom";

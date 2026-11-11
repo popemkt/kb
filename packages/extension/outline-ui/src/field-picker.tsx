@@ -3,6 +3,7 @@ import { declaresOptionSet } from "@kb/model";
 import {
   closesCycleOf,
   cn,
+  kindOfType,
   KB_TEXT_CLASS,
   nodeCandidates,
   orderCandidates,
@@ -43,7 +44,8 @@ const inputClass = cn(
  *   replaces the value and closes.
  * - **A value that would close a cycle** the field declares it never holds
  *   (`sys.f.acyclic`, as a tag's `extends` does) is shown, noted, and
- *   refused (`closesCycleOf`).
+ *   refused (`closesCycleOf`) — refused as an addition only: one already
+ *   held stays checked and can be taken back.
  * - **Create** the query as a new node, as the last row, wherever the
  *   field's declaration says a new target goes (`refCreationOf`) — a new
  *   option under the field, a node with the field's tag — and never for a
@@ -92,9 +94,14 @@ export function FieldPicker({
       recent: recentPicks(fieldId),
       uses: refUses(context.outline, fieldId),
     }).map((candidate) =>
-      closes(candidate.id) ? { ...candidate, note: WOULD_CYCLE, disabled: true } : candidate,
+      // Only adding is refused: a value already held stays checked and can be
+      // taken back, however the cycle came to be.
+      !selected.has(candidate.id) && closes(candidate.id)
+        ? { ...candidate, note: WOULD_CYCLE, disabled: true }
+        : candidate,
     );
   }, [
+    selected,
     search.pool,
     search.allowed,
     fieldNode,
@@ -237,6 +244,9 @@ export function PickerInput({
 function createLabelOf(creation: RefCreation | null, context: FieldContext, name: string): string {
   if (creation?.kind === "child") return `Create option “${name}”`;
   if (creation?.kind === "tagged") {
+    // A node of a kind is one (a new tag, a new field); a node of a tag carries it.
+    const kind = kindOfType(creation.tagId);
+    if (kind !== null) return `Create ${kind} “${name}”`;
     return `Create #${textOr(context.schema.get(creation.tagId)?.text, "tag")} “${name}”`;
   }
   return `Create “${name}”`;

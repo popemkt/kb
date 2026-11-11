@@ -1015,11 +1015,15 @@ field holds checked; in a many-valued field Enter toggles and it stays open,
 Backspace on an empty query takes back the last value, and in a one-valued
 field a pick replaces and closes. A value that would close a cycle through a field
 that declares itself acyclic (a tag's `extends`; `closesCycleOf`) is shown,
-noted "would cycle", and refused; no picker picks a disabled row, by click or
-by Enter. Its last row creates the query as a node
-where the field's declaration says a target goes (`refCreationOf`: an option
-under the field, a node with the field's target tag, a top-level node) — never
-for a query-constrained field. The list is anchored to its input, flipped and
+noted "would cycle", and refused as an addition only: a value the field
+already holds stays checked and can be taken back, however the cycle came to
+be. No picker picks a disabled row, by click or by Enter. Its last row
+creates the query as a node where the field's declaration says a target goes
+(`refCreationOf`: an option under the field, a node with the field's target
+tag, a top-level node) — never for a query-constrained field — and names
+what it makes as the page names it: "Create option “x”", "Create tag “x”"
+for a target that is a kind (`kindOfType`), "Create #person “x”" for one
+that carries a tag; never a raw id. The list is anchored to its input, flipped and
 clamped to the viewport (`useAnchoredPosition`), so a cell or a column never
 clips it. The global ⌘K palette is a different gesture — search and open —
 and keeps its own index.
