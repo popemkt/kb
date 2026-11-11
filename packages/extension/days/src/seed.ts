@@ -23,9 +23,22 @@ export function daysSeed(at: string): readonly KbNode[] {
     one: true,
     props: CONFIGURES_DAYS,
   });
+  const captures = seededField(DAYS_IDS.capturesField, "captures", "ref", at, {
+    one: true,
+    props: CONFIGURES_DAYS,
+  });
+  const touched = seededField(DAYS_IDS.touchedField, "made or edited", "ref", at, {
+    one: true,
+    props: CONFIGURES_DAYS,
+  });
   return [
-    // GAP [[01M7342WTAZQBARRM7T9F751HT]] the key is the family's identity data, hidden and kept unique, but a person can still write it through debug fields
-    seededField(DAYS_IDS.keyField, "period", "text", at, { one: true, hidden: true }),
+    // The family's identity data: hidden, managed (a person's edit is a
+    // deliberate step), and kept to a real period by its guards.
+    seededField(DAYS_IDS.keyField, "period", "text", at, {
+      one: true,
+      hidden: true,
+      props: { [SYSTEM_IDS.managedByField]: ref(DAYS_IDS.family) },
+    }),
     seededTag(DAYS_IDS.dayTag, "day", [DAYS_IDS.keyField], at),
     seededTag(DAYS_IDS.weekTag, "week", [DAYS_IDS.keyField], at),
     seededTag(DAYS_IDS.yearTag, "year", [DAYS_IDS.keyField], at),
@@ -35,6 +48,16 @@ export function daysSeed(at: string): readonly KbNode[] {
     { ...openOn, children: [DAYS_IDS.openOnToday, DAYS_IDS.openOnHome] },
     option(DAYS_IDS.openOnToday, "today", at),
     option(DAYS_IDS.openOnHome, "home", at),
+    { ...captures, children: [DAYS_IDS.capturesToday, DAYS_IDS.capturesTop] },
+    option(DAYS_IDS.capturesToday, "today", at),
+    option(DAYS_IDS.capturesTop, "top level", at),
+    { ...touched, children: [DAYS_IDS.touchedHidden, DAYS_IDS.touchedShown] },
+    option(DAYS_IDS.touchedHidden, "hidden", at),
+    option(DAYS_IDS.touchedShown, "shown", at),
+    seededField(DAYS_IDS.timeZoneField, "time zone", "text", at, {
+      one: true,
+      props: CONFIGURES_DAYS,
+    }),
     seededCommand(DAYS_IDS.todayCommand, "Go to today", at),
   ];
 }

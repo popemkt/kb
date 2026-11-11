@@ -45,9 +45,18 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // a previous page ignores them and holds every node as stored, as it did.
 // `node.merge` is a new action: a previous page never calls it, and merges as
 // it did, with the updates and the delete it is made of.
+// `tag.define` takes the tags a new tag extends, an optional input a previous
+// page never sends.
+// Protocol 8: node.add and node.addTree read an omitted parent as the
+// capture target (today's node with days), where a previous page meant the
+// top level; its local commit and the server's would disagree, so it reloads.
+// `store.backup`, `store.backups` and `store.restore` are new actions a
+// previous page never calls.
+// `procedure.list`, `procedure.status` and `procedure.step` are new actions a
+// previous page never calls.
 const RECORDED = {
-  protocol: 7,
-  fingerprint: "624a0627443a538097d1938d59aad715a399c546e12f0fea5b8d5b1da5c51a1f",
+  protocol: 8,
+  fingerprint: "0a52f17fe9f9275a99d16bb500ea80b132311c6f821b4b2d99a1a941d4a6b821",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

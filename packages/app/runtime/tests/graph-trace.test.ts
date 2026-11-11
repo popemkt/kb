@@ -23,7 +23,9 @@ async function must(ctx: KbContext, invocation: ActionRequest): Promise<unknown>
 
 /** a mentions b, b contains c, c —influences→ d; e shares a's neighbour b. */
 async function seed(ctx: KbContext): Promise<void> {
-  const add = (input: Record<string, unknown>) => must(ctx, { id: "node.add", input });
+  // At the top level, not today's node, so the only paths are the ones drawn here.
+  const add = (input: Record<string, unknown>) =>
+    must(ctx, { id: "node.add", input: { parent: null, ...input } });
   await add({
     id: "f.influences",
     text: "influences",

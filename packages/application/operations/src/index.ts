@@ -36,6 +36,7 @@ export {
   graphChangesDef,
   graphChangesEffect,
   nodeAddDef,
+  addNodeAtEffect,
   nodeAddEffect,
   planNodeAdd,
   planNodeAddEffect,
@@ -50,7 +51,8 @@ export {
   tagDefineDef,
   tagDefineEffect,
 } from "./actions.ts";
-export type { PropEntry } from "./actions.ts";
+export type { PlacedAddInput } from "./actions.ts";
+export { projectPropEdits, type PropEdits, type PropEntry, type PropUnset } from "./prop-edits.ts";
 export { KB_DESIGN_SYSTEM, coreExtension } from "./core-extension.ts";
 export { nodeAddTreeDef, nodeAddTreeEffect, planNodeAddTreeEffect } from "./node-add-tree.ts";
 export { planViewProposal, type PlannedView, type ViewProposal } from "./view-propose.ts";
@@ -132,6 +134,15 @@ export type { InterceptionOptions } from "./interception.ts";
 export { extensionInstallDef, extensionInstallEffect } from "./extension-install.ts";
 
 export { coreActions } from "./core-actions.ts";
+export { procedureListDef, procedureStatusDef, procedureStepDef } from "./procedure.ts";
+export {
+  DEFAULT_BACKUPS_KEPT,
+  backupsKept,
+  storeBackupDef,
+  storeBackupsDef,
+  storeRestoreDef,
+  storeRestoreEffect,
+} from "./store-backup.ts";
 export { isomorphicActions } from "./isomorphic-actions.ts";
 
 export { sandboxTrustDef } from "./trust.ts";

@@ -234,6 +234,7 @@ export function testBrowserHost(overrides: Partial<BrowserHost> = {}): TestBrows
     viewSettingsFrame: () => null,
     setViewSettingsFrame: () => {},
     nodePaletteOpen: () => false,
+    nodePaletteStep: () => null,
     nodeCommands: () => [],
     navigatePane: () => {},
     viewCatalog: () => ({ keyOf: () => null }),

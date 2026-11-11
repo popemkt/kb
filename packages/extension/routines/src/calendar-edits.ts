@@ -64,6 +64,7 @@ export function addRoutine(routine: NewRoutine): NodeCall {
     input: {
       id: routine.id,
       text: routine.title,
+      parent: null,
       tags: [T.routine],
       props: propsOf(routineWrite(routine.settings)),
     },

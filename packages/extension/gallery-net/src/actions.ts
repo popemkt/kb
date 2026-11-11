@@ -193,7 +193,7 @@ const file = Effect.fn("gallery.file")(function* (data: string, ext: string, vis
         text: visual.text,
         tags: [GALLERY_IDS.visualTag],
         props: visual.props(uploaded),
-        ...(parent === null ? {} : { parent }),
+        parent,
       },
     }),
   );
@@ -294,7 +294,7 @@ export const starterEffect = Effect.fn("ext.gallery.starter")(function* (): Effe
   KbCtx
 > {
   const outline = starterOutline();
-  const added = yield* call({ id: "node.addTree", input: { outline: outline.text } });
+  const added = yield* call({ id: "node.addTree", input: { outline: outline.text, parent: null } });
   const library = idAtLine(added, outline.library);
   if (library === null) return yield* domainError("internal", "node.addTree answered no Library");
   yield* call({

@@ -80,6 +80,8 @@ export interface BrowserHost extends NodeTextPort {
   readonly setViewSettingsFrame: (frameId: string | null) => void;
   /** Whether the node palette is open (`setNodePaletteOpen` opens and closes it). */
   readonly nodePaletteOpen: () => boolean;
+  /** The picker step the node palette was opened at, or null for its commands. */
+  readonly nodePaletteStep: () => string | null;
   /**
    * The node menu for `target`: the registry's node commands it offers, in
    * order, each run against the page's state as it is when it runs.

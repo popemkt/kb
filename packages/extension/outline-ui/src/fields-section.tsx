@@ -1,5 +1,5 @@
 import { Suspense, lazy, useLayoutEffect, useRef, useState } from "react";
-import { cardinalityOf, declaresOptionSet, isWritableField } from "@kb/model";
+import { cardinalityOf, declaresOptionSet } from "@kb/model";
 import { PlusIcon, XIcon } from "@phosphor-icons/react";
 import {
   browserHost,
@@ -11,6 +11,7 @@ import {
   formatPropValue,
   IconButton,
   isValueMismatch,
+  ManagedNote,
   type PropValue,
   resolveFieldTypeById,
   resolveProps,
@@ -18,6 +19,7 @@ import {
   useDebugFields,
   useFollow,
   useFieldEditor,
+  useFieldWrite,
   useGraphRead,
   useOptionPreview,
   type FieldHandle,
@@ -238,6 +240,7 @@ function useFieldHandle({
 
   const store = useOutlineStore.getState;
   const field: FieldHandle = {
+    holder: nodeId,
     values,
     many,
     add: (value) => void browserHost().writes.updateProp(nodeId, fieldId, value),
@@ -437,11 +440,7 @@ export function NodeField({
   const fieldType = resolveFieldTypeById(fieldId, context.schema);
   const { icon } = useSlotKind(fieldType, fieldId, context.schema);
   const fieldNode = context.schema.get(fieldId);
-  const readOnly = !isWritableField(
-    context.schema.get(nodeId) ?? { id: nodeId },
-    fieldId,
-    fieldNode,
-  );
+  const { readOnly, managed } = useFieldWrite(nodeId, fieldId, context.schema);
   // An option field whose kind previews at card size is chosen by sight: its
   // options laid out at once (DESIGN-UI.md → Field values → option galleries).
   const card = useOptionPreview(fieldId, "card");
@@ -488,6 +487,7 @@ export function NodeField({
       ) : (
         stack
       )}
+      {managed !== null && <ManagedNote managed={managed} />}
     </FieldRow>
   );
 }

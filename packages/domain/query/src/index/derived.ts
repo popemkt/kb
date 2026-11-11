@@ -1,6 +1,8 @@
 import {
   extractMentions,
   fieldTypeOf,
+  tagChains,
+  typeRefsOf,
   type FieldType,
   type KbNode,
   type NodeId,
@@ -58,11 +60,14 @@ export interface GraphReads {
   readonly fieldType: FieldTypes;
   /** The nodes holding `key` ({@link KeyRef}), in no particular order. */
   readonly holders: (key: KeyRef) => readonly NodeId[];
+  /** `tag`, then every tag it extends (`tagAncestors`): what a node of it is. */
+  readonly ancestors: (tag: NodeId) => readonly NodeId[];
 }
 
 /**
- * {@link GraphReads} over the graph `nodeOf` reads, remembering nothing
- * between calls: who holds a key is a scan of `nodes`, once per field.
+ * {@link GraphReads} over the graph `nodeOf` reads, held for one read of
+ * it and dropped: who holds a key is a scan of `nodes`, once per field, and
+ * each tag's chain is walked once (`tagChains`), however many nodes carry it.
  */
 export function graphReadsIn(
   nodeOf: (id: NodeId) => KbNode | undefined,
@@ -71,6 +76,7 @@ export function graphReadsIn(
   const byField = new Map<NodeId, Map<string, NodeId[]>>();
   return {
     fieldType: fieldTypesIn(nodeOf),
+    ancestors: tagChains(nodeOf).ancestors,
     holders: (key) => {
       let values = byField.get(key.field);
       if (values === undefined) {
@@ -165,6 +171,16 @@ const REF_PROPS: RefCarrier = {
     ),
 };
 
+/**
+ * Each tag a node is: each it carries (`sys.f.type`) and every tag each
+ * extends, the chain read off the graph, so a node of `#meeting` that
+ * extends `#event` is an `#event` too.
+ */
+const KINDS: RefCarrier = {
+  refsOf: (node, reads) =>
+    typeRefsOf(node).flatMap((tag) => reads.ancestors(tag).map((id) => ({ id }))),
+};
+
 /** The reference relation's attribute: "this node references that one" (`CORE_DERIVED`). */
 const REFERENCE_ATTR = ":node/mentions";
 
@@ -178,11 +194,15 @@ export function referenceCarriers(derived: readonly DerivedRef[]): readonly RefC
  * - `:node/mentions`, the reference relation, fed by text and ref props;
  * - `:node/owner`, the declaration a seeded node came from, as its family's
  *   node. It is fed only by the owners a host hands the index
- *   (`derivedWith`), so an index built without them derives none.
+ *   (`derivedWith`), so an index built without them derives none;
+ * - `:node/is`, each tag a node is, subtypes included: `sys.f.type` closed
+ *   over `sys.f.extends` (`KINDS`). `[?n :f/sys.f.type ?t]` stays "tagged
+ *   exactly", and `[?n :node/is ?t]` is "is a".
  */
 export const CORE_DERIVED: readonly DerivedRef[] = [
   { attr: REFERENCE_ATTR, cardinality: "many", carriers: [TEXT_TOKENS, REF_PROPS] },
   { attr: ":node/owner", cardinality: "one", carriers: [] },
+  { attr: ":node/is", cardinality: "many", carriers: [KINDS] },
 ];
 
 /** The field a value is in, as a {@link ValueRefCarrier} reads it: its id and declared type. */

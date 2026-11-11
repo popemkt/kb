@@ -7,7 +7,7 @@
 import { Effect } from "effect";
 import { z } from "zod";
 import type { ExtensionAction, KbCtx, KbStore } from "@kb/contracts";
-import { nodeAddEffect } from "@kb/operations";
+import { addNodeAtEffect } from "@kb/operations";
 import { CANVAS_IDS, canvasWorld, commentWrite, type CommentPlace } from "@kb/canvas";
 import { CanvasIdSchema } from "./schemas.ts";
 import { canvasStep, readCanvasEffect, readableEffect, type CanvasFail } from "./write.ts";
@@ -60,7 +60,7 @@ const canvasCommentEffect = Effect.fn("ext.canvas.comment")(function* (
   const threads = canvasWorld(yield* readableEffect()).threadsOn(input.canvasId);
   const write = yield* canvasStep(() => commentWrite(input.canvasId, placeOf(input), doc, threads));
   // A comment is a node like any other: written as `node.add` writes one.
-  const added = yield* nodeAddEffect({
+  const added = yield* addNodeAtEffect({
     text: input.text,
     tags: [CANVAS_IDS.commentTag],
     parent: write.parent,

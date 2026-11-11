@@ -91,6 +91,7 @@ const host: BrowserHost = {
   viewSettingsFrame: () => useUiStore.getState().viewSettingsFrameId,
   setViewSettingsFrame: (frameId) => useUiStore.getState().setViewSettingsFrameId(frameId),
   nodePaletteOpen: () => useUiStore.getState().nodePaletteOpen,
+  nodePaletteStep: () => useUiStore.getState().nodePaletteStep,
   nodeCommands: (target, palette) => listNodeCommands(pageCommandContext(target, palette)),
   activateNode: (nodeId, cursorPos, instanceKey) =>
     pageEditor().getState().activateNode(nodeId, cursorPos, instanceKey),

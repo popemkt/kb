@@ -162,7 +162,7 @@ export async function createCanvasNode(
     text,
     id,
     tags: [CANVAS_IDS.canvasTag],
-    ...(parent === undefined ? {} : { parent }),
+    parent: parent ?? null,
     props: [{ field: CANVAS_IDS.canvasField, value: { t: "str", v: docStr } }],
   });
   if (receipt.status === "failed") {

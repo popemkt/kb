@@ -22,7 +22,7 @@ export const addDocsView = Effect.fn("testKit.addDocsView")(function* (
     ctx,
     onWire(IN_PROCESS_WIRE, {
       id: "node.add",
-      input: { id: docsViewNodeId(name), text: name, props },
+      input: { id: docsViewNodeId(name), text: name, parent: null, props },
     }),
   ).pipe(Effect.provide(kbRuntimeLayer(ctx)));
   if (receipt.status !== "succeeded")

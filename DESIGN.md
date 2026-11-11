@@ -507,7 +507,7 @@ type PropValue =
   node of each. A node's _chips_ are its `sys.f.type` refs; its _kinds_ are
   those tags and their chains, and every question of membership is asked of
   the kinds (`kindsOf`, `isA` in `@kb/model`'s `tag-kinds.ts`, the one
-  reader). A chain (`tagAncestors`) is the tag, then its parents breadth
+  reader). A chain (`tagAncestors`, the field's `refChain`) is the tag, then its parents breadth
   first in declared order, each once, so a diamond reaches a shared tag once
   and a cycle ends where it closes; nothing graph-shaped throws. Nearer
   wins wherever a chain is read in order: a node shows its tags' own fields,
@@ -531,6 +531,17 @@ type PropValue =
   Resolution lives in `@kb/model`'s `field-type.ts` (`allowedRefIdsOf`, EDN
   runner injected) and is shared by CLI, MCP and the browser through
   `@kb/model` — same posture as the ontology resolver.
+- **A ref field may declare itself acyclic** (`sys.f.acyclic`, a checkbox
+  every field templates beside its target carriers): no node reaches itself
+  by following it. A tag's `sys.f.extends` and an ontology's
+  `sys.f.onto.extends` declare it. It constrains a value against the node
+  holding it, not the target set, so it is not a fourth carrier: a value
+  closes a cycle when its own chain through the field reaches the holder
+  (`closesCycle`, over `refChain` in `@kb/model`'s `ref-chain.ts`, the one
+  walk a tag's chain is read with too). The field picker shows such a value
+  refused (DESIGN-UI.md → The one node picker); the commit does not refuse
+  it yet, as it does not check a target carrier (GAP
+  [[01M39YM7FQ9S231XW8JBA5MG0E]]).
 - **Hiding `sys.*` is a display rule, never a resolution rule.** Resolution
   surfaces — ref-target constraints, ontology membership, datalog, validity
   checks — read the kind slot (`typeRefsOf`, i.e. `sys.f.type`, through the
@@ -587,6 +598,20 @@ type PropValue =
   the governance family's force guard would refuse it from a caller that
   acts for the owner, and is not contributed for now ([Action
   registry](#action-registry) → Current stance).
+- **A family may say it manages a field** (`sys.f.managedBy`, a ref to its
+  extension's node, on the field node): the field holds data the family
+  keeps, such as a day's period. Managing is a declaration, not a lock. The
+  family keeps the data valid with constraints its commit guards enforce on
+  every write, whoever makes it (data-plane freedom: constrain before you
+  lock), and a person may still write the field, as a deliberate step: the
+  page shows its values at rest under a note naming the family, with an
+  Edit that unlocks the row (DESIGN-UI.md → Field values). The write rule
+  reads it in one place, `fieldWriting` in `@kb/model`'s `system-write.ts`
+  (`open`, `managed` or `closed`); `isWritableField` is whether it is not
+  `closed`. A field whose value mirrors something outside the store, which
+  no constraint can check (a calendar sync's event id), would need the
+  commit to refuse anyone but its family; there is no such lock yet
+  (GAP [[01M74AS94FM8GDGF3W10M84P43]]).
 - **System nodes**, seeded on init, are ordinary nodes with reserved ids:
   `sys.field` (the type of fields), `sys.tag` (the type of tags),
   `sys.f.type` (the "type/tag" field), `sys.f.fields` (tag→templated fields).
@@ -788,6 +813,23 @@ sys.extension.<name>` answers it.
   [:find ?label :where [?f :node/id "sys.f.canvas"] [?f :node/owner ?e] [?e :node/text ?label]]
   ; what canvas seeds
   [:find ?id :where [?e :node/id "sys.extension.canvas"] [?n :node/owner ?e] [?n :node/id ?id]]
+  ```
+
+- **`:node/is` (what a node is), derived, never stored.** The third entry
+  of the derived table: each tag a node carries (`sys.f.type`) and every
+  tag each of those extends (`sys.f.extends`, `tagAncestors`), so a node of
+  `#meeting`, which extends `#event`, is an `#event` too. `[?n :f/sys.f.type
+  ?t]` stays "tagged exactly", and `[?n :node/is ?t]` is "is a, subtypes
+  included"; `isA` and `kindsOf` in `@kb/model` are the same reading
+  outside datalog. Its carrier reads a tag's chain through the index
+  (`GraphReads.ancestors`), which remembers every tag the walk looked up
+  (`ReadMemo`), so a tag that changes what it extends, appears or vanishes
+  restates the nodes it is on, however many hops away; a cycle a write let
+  through ends the walk, each tag on it once.
+
+  ```clojure
+  ; every #event, each #meeting (a tag that extends it) included
+  [:find ?id :where [?t :node/text "event"] [?n :node/is ?t] [?n :node/id ?id]]
   ```
 
   Optional Logseq-style `:node/path-refs` (ancestor mentions) is backlog —
@@ -1791,7 +1833,58 @@ constructing _both concrete adapters_ and deleting _their_ files; written
 against `EffectStore` alone it cannot name a single one of those things. The
 one place that legitimately knows both adapters exist is the composition root,
 so `migrateStore` lives beside `selectStore` in `@kb/runtime` and the CLI
-command is a thin surface over it.
+command is a thin surface over it. Its copy — read one state, commit it into
+an empty target, refuse a source written meanwhile, carry the tail — is
+`copyStore(from, to)`, each end a root and a backend; migrating is that copy
+into the root's other backend, then the removal, and a backup is the same copy
+into another root.
+
+### Backups
+
+A **graph backup** is a copy of a root's store as one state, in the same backend,
+kept on this machine: `<KB_DATA>/backups/<root's name>-<hash of its path>/<id>`,
+never under the root (a repository's `.kb` is committed; a backup is what a
+person had here, not a revision of it). Each is **a kb root of its own** —
+`kb --root <backup>` opens it — with a `backup.json` beside its `.kb` naming
+the root it copied, when, its node count and the source's **fingerprint at the
+copy**: the state it is. A directory without a readable manifest is not a
+backup, so a copy that dies half-way is never listed.
+
+Graph backups exclude queries, pages, ui.json and extension source; they also
+exclude `.kb/assets`, whose backup belongs to Mackup. Manifests and CLI output
+state this scope. Root text state awaits a coordinated graph-and-files restore
+transaction (gap [[01M75ASR5TB03NYPW1G057TTY8]]).
+
+Backup payloads are read through `KbRoots.useBackup`: their backend must be
+present and their graph must match the manifest's content digest. An empty
+payload is valid; an absent or altered payload is refused and never reused as
+a safety copy. Directory reservation is exclusive and the manifest is published
+by atomic rename only after the payload completes. Publication and retention share a cross-process lock per root, and retention selects the globally newest `keep` copies. `useBackup` holds that same lock through validation and the caller's use, so restore cannot commit while its safety payload is pruned. Restore commits conditionally
+on the safety backup's source fingerprint; a concurrent write refuses the
+restore without erasing the write, rather than replanning over unprotected data.
+
+The mechanism is the runtime's, behind `KbRoots` (`backup`, `backups`, and
+`snapshot`, a raw read of a root that composes and seeds nothing); the policy
+is three core actions:
+
+- **`store.backup`** answers the newest backup when the store's fingerprint is
+  still its fingerprint (a state is copied once), else copies, then keeps the
+  newest **`backups kept`** — a number setting of core's node
+  (`sys.f.backups.kept`; unset is 3, at least 1), so it is set as any setting
+  is, `kb set sys.extension.core "backups kept" 5`.
+- **`store.backups`** lists them newest first, each marked `current` when the
+  store is still its state. "Is there a backup of the store as it is now" is
+  therefore read, never recorded — what a procedure's backup step asks.
+- **`store.restore <id>`** (approval required, so never from MCP) reads the
+  backup, backs up the state it is about to replace, and commits
+  `diffTx(now, backup)` as **one transaction** on the live store through the
+  planned-commit path. It does not stop or swap a served store: a served page
+  sees the restore as any write, and the tail keeps going. Restoring the
+  backup it took undoes it. It reads the backup before taking that one, as
+  retention may remove the oldest.
+
+`kb store backup`, `kb store backups` and `kb store restore <id>` are those
+actions. `store-backup-contract.test.ts` proves them over every backend.
 
 ### The transaction tail — the store records what changed, in order
 
@@ -2094,7 +2187,9 @@ same lane. One path to a client, whatever a node's provenance.
   IR, owned here and not by any UI. The subject of every condition is the
   result node `?n`; a list is ANDed; a group is `any-of`, `all-of` or
   `none-of` (not any of its branches, each branch a conjunction). The rows:
-  `has-tag` / `lacks-tag` (`type is` the tag), `field-set` / `field-unset`,
+  `has-tag` / `lacks-tag` (is a node of the tag, subtypes included:
+  `[?a :node/id "t"] [?n :node/is ?a]`; `field-is` on `sys.f.type` is
+  "tagged exactly"), `field-set` / `field-unset`,
   `field-is` / `field-is-not` over values that are a node, a literal, or a
   `label` (the text a person typed, matching a literal whose text it is or
   a node whose id or text it is), `field-contains` and `text-contains`
@@ -2121,15 +2216,16 @@ same lane. One path to a client, whatever a node's provenance.
   (`canonicalConditions`: an `all-of` is spliced into its parent, an empty
   group, branch or value list is dropped, a one-branch `any-of` is its
   branch, branches that are each one `is` on one field are one multi-value
-  row, a `none-of` of one row with an operator form is that form, `type is`
-  one node is `has tag`). Its laws — lower then lift is the identity on
-  canonical conditions, lift is blind to renaming, lift loses nothing — are
-  `@kb/query`'s `conditions.test.ts` properties, with a semantic example
-  per row on kb's index. The model has a second placement, a view's
+  row, a `none-of` of one row with an operator form is that form). Its
+  laws — lower then lift is the identity on canonical conditions, lift is
+  blind to renaming, lift loses nothing — are `@kb/query`'s
+  `conditions.test.ts` properties, with a semantic example per row on kb's
+  index. The model has a second placement, a view's
   narrowing of its frame's rows ([View nodes](#view-nodes) → a view's
   filter), answered in JS by `conditionsMatcher` (`ir/evaluate.ts`) over a
-  `ConditionGraph` (a node lookup, the reference relation as the index
-  derives it, the run's clock sample); `evaluate.test.ts` holds it to
+  `ConditionGraph` (a node lookup, each derived relation as the index
+  derives it — the references, what a node is — and the run's clock
+  sample); `evaluate.test.ts` holds it to
   `compile(lowerIr(…))` on generated graphs, node for node. The design and
   its review:
   [`docs/brainstorms/2026-10-20-query-builder`](docs/brainstorms/2026-10-20-query-builder/README.md).
@@ -2150,7 +2246,8 @@ same lane. One path to a client, whatever a node's provenance.
   ```
 
   `<edge>` is any node-valued attribute: `:node/mentions` (the reference
-  relation, any carrier), `:node/owner` (who seeds it), `:node/child`, or
+  relation, any carrier), `:node/owner` (who seeds it), `:node/is` (each
+  tag it is), `:node/child`, or
   `:f/<fieldId>` for a ref field. A find position bound as the value of a
   derived attribute is a node, as one bound by `:node/child` is.
   A list headed `reach` with a keyword in the edge slot is this form. If it is
@@ -2918,6 +3015,43 @@ whoever owns the devices that reach the Service. A Service is hosted by
 tagged nodes, so a process on the host itself that goes through the
 Service's address is a tagged device's and gets no header.
 
+### Procedures
+
+A **procedure** is an ordered list of steps that a person or an agent walks
+through on any surface: a wizard page, `kb procedure`, MCP. It is data over
+actions, contributed to `ProcedurePoint` (`kb.procedures`, keyed):
+
+- **A step offers actions.** With one, doing the step runs it. With several,
+  the step is a **decision** (keep or roll back): the caller names the
+  action it means, and nothing takes it for a person.
+- **A step's done-ness is read, never recorded.** Each step names a `check`,
+  a read action whose output's `done` answers whether it is done. The answer
+  comes from the store, or from what the store's machine holds, such as a
+  backup. There is no progress state to drift, so a procedure resumes
+  wherever it was left, on whichever surface.
+- **Order is one rule** (`walkedSteps`): a step counts as done when its own
+  check says so **or a later step's does**. Steps are walked in order, so a
+  later step done means this one was passed, whatever its check reads now
+  (a migration's backup step stays behind it after the apply changes the
+  store). The **current** step is the first one not done.
+
+The core actions are `procedure.list` and `procedure.status` (read), and
+`procedure.step {procedure, step, action?}`. `procedure.step` refuses any
+step but the current one. It then invokes the step's action through the
+invoke core (`CoreInvoke`) as its own caller, so that action is decided as
+it would be on its own. An action needing approval needs it on the call
+that walks it: `callWithin` lends the nested call only its caller's
+approval. MCP, which carries no approval, is refused there as it is anywhere.
+
+`kb procedure [id]` lists the procedures or shows one's status.
+`--run` walks a procedure from its current step, asking before each step;
+`--yes` skips that question but not an approval. `--run` stops at a
+decision, so `--yes` never takes one. `--action <id>` is the person's
+decision at the current step. `procedure-contract.test.ts` proves this
+through the invoke core. The routines Google setup wizard predates the
+primitive and keeps its own walker for now (`#gap`
+01M74NN86YC7HP65R2JVYMM27F).
+
 ### Core boundary & extensions
 
 Core ships mechanism only: store (JSONL), datalog (DataScript), the action
@@ -3549,8 +3683,8 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
     (GAP [[01M7342W0CNMFK152YEFNJHPP4]]).
     The invoke core checks
     every commit against the rule, on the server and on the page's replica,
-    and the page's field rows read `isWritableField` to offer an edit only
-    where it would land. `surfaceContract` holds every surface to it.
+    and the page's field rows read the rule (`fieldWriting`, through
+    `useFieldWrite`) to offer an edit only where it would land. `surfaceContract` holds every surface to it.
   - **Two classes of setting**, after DeepSeek Harness's "volatile" split:
     - _Read per call._ The plugin reads its node when it needs the value
       (the agent's provider, at the start of each turn), so a change applies
@@ -5381,8 +5515,8 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
 
 | Package        | Layer, scope       | Holds                                                                                                                                                           |
 | -------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@kb/days`     | extension, shared  | the declaration, `DAYS_IDS`, the period keys (`period.ts`), the plan (`planDay`), `ext.days.today` and the one-node-per-key guard: one plugin on both hosts |
-| `@kb/days-ui`  | extension, browser | the day page, the Today row, ⌘K "Go to today", opening on today, and the capture target's provider                                                             |
+| `@kb/days`     | extension, shared  | the declaration, `DAYS_IDS`, the period keys (`period.ts`), the plan (`planDay`), `ext.days.today` and the one-node-per-key guard: one plugin on both hosts, and the registry's capture target (`captureToday`, under `daysRegistryPlugin`) |
+| `@kb/days-ui`  | extension, browser | "made or edited" on a period's page, the Today row, ⌘K "Go to today", opening on today, and the capture target's provider                                                             |
 
 - **A period is a node with a key.** `#day`, `#week` and `#year`
   (`sys.tag.day`, `sys.tag.week`, `sys.tag.year`) are tags the family
@@ -5407,10 +5541,29 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
   - A commit that would leave two nodes holding one key is refused, from
     every surface (`ext.days.unique-key`, a commit guard on every write).
     This is what stops a person hand-keying a duplicate.
+  - A key is a real period of its node (`ext.days.period-key`, a commit
+    guard on every write): only a node that is one `#day`, `#week` or
+    `#year` (or a tag extending one) holds a key, in that period's form, a
+    date `2026-11-10`, an ISO week of its year `2026-W46` or a year `2026`.
+    The key is judged as stored, never trimmed, so a blank or padded key
+    is a malformed one. The guard reads a write that changes a node's key
+    or tags; a write that changes what a tag extends (or deletes a tag that
+    extended one) has every holder judged again over the graph after it,
+    so a tag that stops extending `#day` cannot leave its nodes keyed. A
+    node that stays a period keeps a key: a write may change it but not
+    take it off, since a day without its key is no longer found by its
+    date and the family would make a second node for it. Untagging is
+    the way out: a `node.update` that leaves a keyed period node no
+    period also unsets its key, in the same write (`ext.days.untag-period`,
+    an interceptor on `node.update`, on the server and in a tab alike), so
+    the page's tag chip, the CLI and an agent each make a day an ordinary
+    node by taking `#day` off.
 
-  The key is hidden, but a person can still write it through a node's
-  debug fields until a family can declare a field it manages (GAP
-  [[01M7342WTAZQBARRM7T9F751HT]]).
+  With the two guards, every key a store holds names one real period, so
+  the key needs no lock. It is hidden, and managed by the family
+  (`sys.f.managedBy`, [Data model](#data-model--everything-is-a-node)): a
+  person who opens a day's debug fields sees it at rest and may re-key a
+  mis-dated day to another free date, a correction the guards admit.
 - **The hierarchy is made lazily, in one transaction.** `ext.days.today`
   (`{day?}` → `{id, made}`) answers a day's node, and in the same
   transaction makes whatever is missing above it: the journal root, the
@@ -5424,8 +5577,8 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
   one tag, choose the tag a new day or week gets: empty, it is `#day` or
   `#week`, and a person points it at a tag of theirs that extends the base
   (`sys.f.extends`, read through its chain). So with `#my day` extending
-  `#day`, every new day carries the person's fields, and `#day`'s key and its
-  day page come with it through the chain
+  `#day`, every new day carries the person's fields, and `#day`'s key and
+  the sections a `#day`'s page shows come with it through the chain
   ([Data model](#data-model--everything-is-a-node), "A tag extends tags"). A commit that
   points a setting at a tag that does not reach its base is refused with
   why (`ext.days.period-tag`, a commit guard). A chosen tag that later
@@ -5436,21 +5589,37 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
   on the family's node) names the node years go under. Empty, the first day
   makes a top-level "Daily notes" and points the setting at it, in the same
   transaction. A person may point it at any node to keep their days there.
-- **The day is the caller's.** `ext.days.today` takes the calendar date
-  from its caller: the page passes its local day, and without one the
-  action uses the local day of the process that runs it (`kb action-invoke`
-  from a terminal). The family never decides which day it is somewhere
-  else.
+- **The day is the caller's, else the store's.** `ext.days.today` takes
+  the calendar date from its caller: the page passes its local day.
+  Without one, the action uses today in the store's zone: the family's
+  `time zone` setting (`sys.f.days.timeZone`, an IANA name), or the zone of
+  the process that runs it when the setting is empty or names no zone. A
+  process serving a store may run far from its person (a server in UTC for
+  a person at UTC+7), so the zone is the store's to say. The page keeps
+  its own day, so without the setting a capture made away from the page
+  just after the person's midnight lands in the person's yesterday.
 - **Captures land in today.** Where a node made with no chosen place goes
-  is the page role `ui.capture-target` ([Provider roles](#provider-roles)).
-  Core owns it, and core's default answers the top level. The days
-  manifest claims a replacement at priority 50 that answers today's node,
-  so with days on a capture lands in today. If days fails, the role's
-  recovery demotes it and core's default answers. With days off, or core
-  chosen on the role's node, a capture goes to the top level as before.
-  Another family may claim the role the same way (an inbox, say). The
-  server's `node.add` without a parent does not ask it yet (GAP
-  [[01M7357PSG9XZH0JBFDHV6DM2T]]).
+  is the role `ui.capture-target` ([Provider roles](#provider-roles)), on
+  the page and the registry alike: the page's captures and every
+  `node.add` or `node.addTree` that omits its parent, from `kb add`, MCP or
+  a script. Core owns it, and core's default answers the top level. The
+  days manifest claims a replacement at priority 50 that answers today's
+  node: on the page in the page's day, and on the registry in the store's
+  (`captureToday`), planning the day and whatever is missing above it into
+  the add's own transaction. A `node.add` with no parent run in a tab (a
+  WebMCP tool, a script) commits locally under the page's day and pushes
+  the place the page's capture target chose, as context it filled
+  (`asFilled`), so the server commits it under the same day and nothing
+  moves when the tab's day and the store's differ
+  (`capture-zones.scenario.test.ts`); from `kb` or MCP it lands in the
+  store's day. If
+  days fails, the role's recovery demotes it and core's default answers.
+  With days off, or core chosen on the role's node, a capture goes to the
+  top level as before. The family's `captures`
+  setting (`sys.f.days.captures`: `today` or `top level`; empty reads as
+  `today`) sends captures to the top level with days still on, as a store
+  kept in a repository does so its agents' gaps and todos are not dated.
+  Another family may claim the role the same way (an inbox, say).
 - **A node is dated a day by any date field.** A value in a date-typed
   field, whichever field and family, dates its node that day: the field's
   type says a value is a date, and a date value is stored as its
@@ -5468,10 +5637,10 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
   one was taken, or the id of a day merged in from elsewhere.
   Following a date value opens its day, made if need be: days replaces the
   page role `ui.date-target` ([Provider roles](#provider-roles)).
-- **The day page's sections are a declared point,** `days.sections` (page
-  kernel, a list in ascending order). Days fills one, and a family that
-  shows something on a day contributes a section rather than days
-  importing it.
+- **A day's page is the node page.** What a family shows on a day is a
+  section it contributes for `#day` to core's `ui.node-sections`
+  (DESIGN-UI.md → [Node pages](./DESIGN-UI.md#node-pages)), never a
+  page of its own; days contributes "made or edited", off by default.
 - **No month nodes yet.** A month is not on the path to a day, and no view
   reads one, so the family seeds no `#month` until one does.
 
@@ -6086,11 +6255,19 @@ service call, and never hides the role globally. A replacement fault lasts
 for the page or process session, including registry rebuilds,
 or until the provider's trusted code digest changes. A stale failure carries
 its old identity and cannot demote new code. Roles must be defined beside their host key before providers load.
-`roleCall` currently has no live server role; its shared contract suite
-proves the boundary until a server consumer opts in.
 The first role is `ui.field-editor`, consumed by outline rows, tables and settings.
-The second is `ui.capture-target`, the parent a node made with no chosen place
-goes under. Core owns it and answers the top level, and days replaces it
+The second is `ui.capture-target`, where a node made with no chosen place
+goes. It is one role on two kernels, which one role node chooses for: the
+page's key (`CaptureTargetService`) answers the page's own captures, and
+the registry's (`CapturePlannerService`) answers a write that omits its
+parent. The registry's is its first live server role. Given the store's
+nodes, it answers a place and what that place needs made first, and
+`node.add` and `node.addTree` commit both with the node in one transaction.
+A handler reaches it through the `CaptureTarget` service, which each
+runtime gives at the invoke tip (the registry's role on the server, the
+page's in a tab), so `kb add`, an MCP tool call and a script land where the
+page's captures do. `parent: null` is the top level and never asks.
+Core owns the role and answers the top level, and days replaces it
 ([Days](#days)). The third is `ui.landing`, the node a page that loads at
 the root opens on, which the shell asks once per page load. Core owns it
 and stays home, and days replaces it with today (DESIGN-UI.md →

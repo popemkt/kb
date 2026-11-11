@@ -5,6 +5,7 @@ import {
   useGraphRead,
   nodeTagColors,
   OptionChip,
+  menuAnchor,
   pageTitleInstanceKey,
   type OutlineNode,
   routePointerClick,
@@ -22,13 +23,22 @@ import { FieldsSection } from "./fields-section";
 import { ViewToolbar } from "./view-toolbar";
 import { NodeContent } from "./node-content";
 import { useOutlineStore } from "./outline.store";
+import { createFirstChild } from "./editing-writes";
+import { takesRows } from "./takes-rows";
 
 /**
  * D13: everything is a node — the zoomed page title edits in place with
  * header typography, a system node's too: its label is the person's. Only
  * what the row rule refuses (`rowTextReadOnlyReason`) stays read-only.
  */
-function EditableTitle({ node }: { node: OutlineNode }) {
+function EditableTitle({
+  node,
+  onEnter,
+}: {
+  node: OutlineNode;
+  /** What Enter does after it ends the edit: open a first row, on a page that takes rows. */
+  onEnter?: (() => void) | undefined;
+}) {
   const schema = usePageGraph(schemaOf);
   const { isVirtual } = useGraphRead();
   // The same text channel as a row: what it shows and whether it can be
@@ -79,6 +89,7 @@ function EditableTitle({ node }: { node: OutlineNode }) {
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             commit();
+            onEnter?.();
           }
         }}
       />
@@ -179,8 +190,14 @@ export function ZoomedRootHeader({
     >
       {/* Under the head's space (`PageBackdrop`, the outline editor's), whose backdrop reaches behind it. */}
       <div className="relative pl-7">
-        <div className="group/header flex min-h-9 items-start justify-between gap-2">
-          <EditableTitle node={node} />
+        <div
+          className="group/header flex min-h-9 items-start justify-between gap-2"
+          {...menuAnchor(pageTitleInstanceKey(node.id))}
+        >
+          <EditableTitle
+            node={node}
+            onEnter={takesRows(node, view) ? () => void createFirstChild(node.id) : undefined}
+          />
           {/* A list frame keeps its view control quiet: it shows on hover or
               keyboard focus, and stays while something it opened is open. A
               plain list tucks it behind one gear; a query's shows its toolbar,

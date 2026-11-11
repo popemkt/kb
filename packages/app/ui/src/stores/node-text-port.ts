@@ -14,6 +14,6 @@ import { useUiStore } from "@/stores/ui.store";
 export const nodeTextPort: NodeTextPort = {
   ...pageGraph,
   ...editorTextPort(pageEditor),
-  setNodePaletteOpen: (open) => useUiStore.getState().setNodePaletteOpen(open),
+  setNodePaletteOpen: (open, step) => useUiStore.getState().setNodePaletteOpen(open, step),
   follow: followFrom,
 };

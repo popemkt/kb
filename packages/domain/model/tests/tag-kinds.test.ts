@@ -7,7 +7,7 @@
  * what a person put there.
  */
 import { describe, expect, test } from "bun:test";
-import { allowedRefIdsOf } from "../src/field-type.ts";
+import { allowedRefIdsOf, isAcyclicField } from "../src/field-type.ts";
 import { SYSTEM_IDS, type KbNode, type NodeId } from "../src/model.ts";
 import { resolveOntology } from "../src/ontology.ts";
 import { ensureSystemSeed, systemSeedNodes } from "../src/seed.ts";
@@ -62,6 +62,15 @@ describe("a tag's chain", () => {
   test("ends where a cycle closes, and reaches past a missing tag", () => {
     expect(tagAncestors("loop", nodeOf)).toEqual(["loop", "loop2"]);
     expect(tagAncestors("gone", nodeOf)).toEqual(["gone"]);
+  });
+});
+
+describe("an extends field", () => {
+  test("is acyclic, a tag's and an ontology's", () => {
+    const seeded = new Map(systemSeedNodes().map((seed) => [seed.id, seed]));
+    expect(isAcyclicField(seeded.get(SYSTEM_IDS.extendsField))).toBe(true);
+    expect(isAcyclicField(seeded.get(SYSTEM_IDS.ontoExtendsField))).toBe(true);
+    expect(isAcyclicField(seeded.get(SYSTEM_IDS.typeField))).toBe(false);
   });
 });
 

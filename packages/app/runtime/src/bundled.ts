@@ -1,5 +1,5 @@
 import { locationEntries } from "@kb/locations";
-import { daysPlugin } from "@kb/days";
+import { daysRegistryPlugin } from "@kb/days";
 import type { KbNode } from "@kb/model";
 /**
  * The server's entries for the bundled families (DESIGN.md → Extension
@@ -79,7 +79,7 @@ export const BUNDLED_EXTENSIONS: readonly ExtensionEntry[] = serverEntriesFor(BU
   transistorPlugin(),
   yorhaPlugin(),
   galleryServerPlugin(),
-  daysPlugin(),
+  daysRegistryPlugin(),
 ]).map(({ declaration, entry }) => ({ declaration, entry: bundledPlugin(declaration, entry) }));
 
 /** The locations family's graph projection, selected at the server composition root. */

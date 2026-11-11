@@ -40,7 +40,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Admission gate | AGENTS.md#gate-run-first | repo | Every commit is admitted through the one pre-commit gate; a missing tool is restored, never worked around. | prose | — |
 | Batch related changes in one reviewable PR | docs/ci.md#batches | repo | Related changes land together, with separate structural and behavior commits. | prose | — |
 | Canonical statements | AGENTS.md#canonical-statements | repo | Every rule, principle and decision has exactly one home; other files link to it and never restate it. Restatement is drift. | prose | — |
-| Data-plane freedom: constrain before you lock | AGENTS.md#data-plane-freedom | repo | A family protects its data first by the field's constraints, enforced at the commit on every surface: the type and its form, the option source (children, a tag, a query), a closed option set, the family's commit guard. It locks only its identity and structure (its ids, its seeded nodes, what they ship) and values it declares it manages because they mirror something outside the person's hand. | prose | The commit enforcing a ref field's target constraint, and a declared managed-by field option the commit reads, each with a contract property. |
+| Data-plane freedom: constrain before you lock | AGENTS.md#data-plane-freedom | repo | A family protects its data first by the field's constraints, enforced at the commit on every surface: the type and its form, the option source (children, a tag, a query), a closed option set, the family's commit guard. It locks only its identity and structure (its ids, its seeded nodes, what they ship) and values that mirror something outside the person's hand which no constraint can check, such as a synced event's Google Calendar id. A value its constraints keep valid is managed (sys.f.managedBy), not locked: days' period key is the example. | prose | The commit enforcing a ref field's target constraint, and the managed-field commit lock for values no constraint can check (gap 01M74AS94FM8GDGF3W10M84P43), each with a contract property. |
 | Domain typing — discriminator over optional | DESIGN.md#domain-typing--effect-schema | repo | If the rule for when a field appears is encodable, lift it into a discriminator instead of declaring an optional field. | prose | — |
 | Domain typing — literal discriminators | DESIGN.md#domain-typing--effect-schema | repo | A discriminator is a literal or an enum of literals, never a bare string. | prose | — |
 | Domain typing — one canonical schema | DESIGN.md#domain-typing--effect-schema | repo | A shared shape is declared once and referenced; an inline re-declaration of it is a divergence waiting to drop a field. | prose | — |
@@ -234,15 +234,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — the host families' declarations reported (not loaded) by every process, or the agent's declaration joining the bundled list with a host half that only kb ui loads
 - **node** — `01M43H3T8XEMTNBARC024PZD2W`
 
-### GAP: a family cannot declare a field it manages
-
-- **expected** — A family marks the fields its sync writes (routines' gcal event id, status, synced at) as managed by its extension; the commit admits their values only from that extension's actions, and the editor shows them at rest with the action to use.
-- **current** — Nothing distinguishes a synced value from a person's value: routines' sync facts are writable from every surface, and the only protection kb has is the sys.* node lock, which locks whole nodes rather than values.
-- **impact** — A person's edit or an agent's write can corrupt a sync's bookkeeping (a wrong event id re-creates a Google event); families that need protection reach for the node lock, which is the wrong grain.
-- **closes** — A managed-by field option the commit guard reads against the call's via action, and a quiet managed row in the editor.
-- **rule** — Data-plane freedom: constrain before you lock
-- **node** — `01M7342WTAZQBARRM7T9F751HT`
-
 ### GAP: a family cannot declare a migration of its data
 
 - **expected** — A family's manifest declares a data version and pure, idempotent migration steps; an update shows their dry-run diff on its approval sheet, applies them as one transaction that can be undone, and records a migration node.
@@ -340,14 +331,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — One large file can grow a shard past its budget and, past ~2.5x, past the job's timeout, so that shard is cancelled and its files are retested every run.
 - **closes** — packageShards packs mutants by line range instead of by file, emitting file:start-end entries in a shard's mutate.
 - **node** — `01M558MRWHR92991GYFRC5WWXY`
-
-### GAP: a node added without a parent from the CLI or MCP does not ask the capture target
-
-- **expected** — Every surface that adds a node with no chosen place (node.add or node.addTree without parent: kb add, MCP, an agent) asks the capture target, as the page does, so a capture lands in today wherever it is made.
-- **current** — Only the page asks it: ui.capture-target is a page role, and planNodeAdd puts a node without a parent at the forest roots.
-- **impact** — kb add "x" and an agent's capture land at the top level while the page's land in today, so a person finds them in two places.
-- **closes** — A server role of the same name that node.add and node.addTree consult through roleCall when parent is absent, provided by the days family's host half.
-- **node** — `01M7357PSG9XZH0JBFDHV6DM2T`
 
 ### GAP: a node can be moved only one step at a time
 
@@ -771,14 +754,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Body tones in canvas-style.ts, both painters resolving them, and a look-contract assertion.
 - **node** — `01M540YKDP4WQPSJR41GH0Q90V`
 
-### GAP: canvas-ui's two heaviest tests time out under CPU contention
-
-- **expected** — A test's time budget fits its work: the canvas camera's hit-test march and the gizmo's reach property, each a sweep that takes about 2.2 s alone at nice 15 on 4 workers, pass whatever else the machine runs
-- **current** — Both run under Vitest's default 5 s timeout and fail with "Test timed out in 5000ms" when CPU is contended (reproduced: canvas-ui pinned to one core, 8.2 s and 8.5 s; every other canvas-ui test passes). On a quiet machine and on CI they pass
-- **impact** — test:ui goes red on a loaded shared host for a reason that is not a defect, so a reader learns to rerun it, and a real failure there reads as noise
-- **closes** — Size the work, not the clock: give the two sweeps a timeout of their own, as bunfig gives bun test its 30 s, or bound their sample count; or make test:ui's per-test budget the CI runner's measure, as bun test's is
-- **node** — `01M6VQFVG8FPA7KPZHD3J99NGX`
-
 ### GAP: caretRangeFromPoint needs a CaretDocument cast because lib.dom marks it deprecated
 
 - **expected** — offsetFromPoint calls document.caretRangeFromPoint bound, with no type assertion, and typescript/no-deprecated does not fire on the DOM method.
@@ -935,6 +910,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — An alpha StageOptions mode in @kb/scene-gpu: premultiplied output whose alpha is the scene's presence (1 - veil), the ground no longer mixed in, and the GPU backdrops built on it.
 - **node** — `01M5STYVFCKQ7TZ8XBSGSRHRH9`
 
+### GAP: graph backups exclude root text files
+
+- **expected** — A root backup captures and restores queries, pages, ui.json and extension files with the graph; assets remain owned by Mackup.
+- **current** — Graph backup and restore cover nodes and transaction history only; help, output and manifests declare exclusions.
+- **impact** — Restoring a graph does not restore the editor configuration or trusted extension source used with it.
+- **closes** — A root-state transaction coordinates graph conditional commit with validated file snapshot, restore and recovery.
+- **node** — `01M75ASR5TB03NYPW1G057TTY8`
+
 ### GAP: graph link labels are 2D only
 
 - **expected** — Force3dView declares edgeLabels and draws label billboards.
@@ -1047,6 +1030,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Show properties on a #canvas node reveals its document field, so the row draws the whole canvas JSON; any long text field (pasted logs, notes) stretches the outline the same way.
 - **closes** — A clamp-with-expand on the outline's field value view, stated in DESIGN-UI → Long text, with a test on a long value; the canvas document under Show properties then shows a few clamped lines.
 - **node** — `01M6BAEDQ6NQTXPBY5VNTJ5KBN`
+
+### GAP: managed-field commit lock
+
+- **expected** — A field whose value mirrors something outside the store, which no constraint can check (routines' gcal sync fields: the event id, its status, synced at), is locked to its family: the commit admits its values only from that family's actions, on every surface, and the editor names the action to use instead of an Edit.
+- **current** — sys.f.managedBy declares that a family manages a field, and the page puts an Edit step in front of a person's write, but the commit admits the write from anyone. Days needs no more (its period-key and unique-key guards keep every key valid); routines' sync fields have no constraint that could tell a right event id from a wrong one.
+- **impact** — A person's or an agent's write to a sync field can corrupt the sync's bookkeeping: a wrong gcal event id re-creates or orphans a Google event. A family that wants protection today can only reach for the sys.* node lock, which is the wrong grain.
+- **closes** — The commit reads sys.f.managedBy against the call's owning family (the called action's owner, part of the action contract), for fields that declare the lock; the field row shows the family's action in place of Edit. Only where no constraint can do the job (data-plane freedom: constrain before you lock).
+- **rule** — Data-plane freedom: constrain before you lock
+- **node** — `01M74AS94FM8GDGF3W10M84P43`
 
 ### GAP: no [[ completion while editing a text field value
 
@@ -1324,6 +1316,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M6YS6XH9XS4TX7S7AYWXJX3A`
 
+### GAP: repository extensions cannot contribute ui.node-sections
+
+- **expected** — The page surface a repository extension's page half gets (kb-ext-sdk/page, PAGE_EXTENSION_SDK) offers NodeSectionPoint, so a family loaded from .kb/extensions can add a section below the outline of a node that is one of its tags, as a bundled family does (DESIGN-UI.md → Node pages).
+- **current** — NodeSectionPoint (ui.node-sections) is in @kb/ui-sdk only. PAGE_EXTENSION_SDK and its restatement for authors (@kb/ext-sdk page-surface.ts, sdk-dts.text.ts) do not name it, so only bundled families (days) contribute sections. It was left out of #182 because joining the surface means restating NodeSection for authors, within the page surface bridge's rules, and that change is wider than the day page.
+- **impact** — A repository extension cannot show anything on its tags' pages: an inbox, a project or an events family has to wait for a bundled build or draw its own page, which Rule 1 rules out. The point's promise (any family, per tag) holds only for bundled code.
+- **closes** — Add NodeSectionPoint to PAGE_EXTENSION_SDK and NodeSection/NodeSectionProps to page-surface.ts and sdk-dts.text.ts, so page-surface-bridge.test.ts holds them together. Prove it with the example repository extension contributing a section in repository-extension.acceptance.test.tsx.
+- **node** — `01M74PDWPASZ30SBGA95EV0X0M`
+
 ### GAP: repository extensions cannot ship UI
 
 - **expected** — A .kb/extensions module can carry a browser half (<name>.ui.tsx) that the server builds to ESM, serves at /ext/<name>/ui.js and the UI loads into its kernel at runtime, sharing the host's React through import-map shims, reloaded on change.
@@ -1568,14 +1568,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Run the renderer contract suite in the browser lane (Playwright with WebGL), or give sigma a headless WebGL context in the unit run, and drop the todo rows.
 - **node** — `01M3EGV5616VKVV4J76ABC5XX2`
 
-### GAP: the graph's cluster render specs fail intermittently on CI (render.e2e.ts:269, :444)
-
-- **expected** — The cluster renderer's specs pass on every CI render shard: 'cluster paints labels and a hull spanning its members' (render.e2e.ts:269) and 'cluster selects in place, keeps camera still, and composes zero search with selection' (:444)
-- **current** — Both fail intermittently on the macOS render shard and pass on a rerun. :444 failed on days/base in run 42865936403 (before #153) and on #167 in run 42921073994 attempt 1 (job 130195816989): the selection card was not found within 5 s of a click at the root node's position. :269 failed on main 0f66c889 in run 42920818373 (job 130194974248): the hull's alpha box did not span 60% of the members within 5 s. /graph draws no page-head backdrop, so the backdrop work is not the cause
-- **impact** — A red render shard on main or on a PR for a reason unrelated to the change, rerun until green, which hides a real failure in the same specs
-- **closes** — Find what each waits on: :269's final poll uses expect's 5 s default where the spec's other polls use PAGE_READY or SETTLE, and the hull is drawn only after the layout frames its members; :444 clicks a node's page position, which a layout still moving can leave. Then make each wait on the signal it means, with a run that fails before and passes after, without weakening either assertion
-- **node** — `01M740DVZBBAHDACZTMG9N1RX8`
-
 ### GAP: the inline markdown parser is a 41-branch hand-rolled scanner
 
 - **expected** — Inline markdown parses through a table of segment recognizers tried in order, each recognizer a named, separately tested function.
@@ -1647,6 +1639,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Two pinpoint disables of a rule that is error everywhere else, on the one ui path with a measured latency bar.
 - **closes** — palette-index.test.ts asserts open <50ms and keystroke <10ms at 50k nodes. A standalone benchmark puts Array.from({length:n}) about 40% behind new Array(n) at that size, and the push variant flipped that test red on three of four full-suite runs on a loaded machine. Close it by making the 50k path fast enough that the allocation shape stops mattering (incremental or worker-side palette search), then delete both disables.
 - **node** — `01M1MFJXAQ8NVBMA6E6CZ7CY9W`
+
+### GAP: the routines Google setup wizard keeps its own steps beside the core procedure
+
+- **expected** — The wizard is a procedure (ProcedurePoint): each setup step an action, each step's done-ness the routines setup predicates, read by procedure.status; the setup page is the procedure wizard page
+- **current** — SETUP_STEPS / stepDone / currentStep in packages/extension/routines/src/setup.ts and the SetupWizard shell in routines-ui are the one-off of the pattern the core procedure generalises
+- **impact** — Two step-walkers: a fix to resuming, ordering or surfaces lands in one and not the other; the wizard has no CLI or MCP walk
+- **closes** — Contribute the routines setup as a procedure (steps over the confirm actions, checks over readAccountSetup), render the sync page from procedure.status, delete SETUP_STEPS' own walker
+- **node** — `01M74NN86YC7HP65R2JVYMM27F`
 
 ### GAP: the saved-query virtual set appends to the store's tail, which a remote root does not own
 
@@ -1729,12 +1729,12 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Make a retype or delete that would strand values either fail (listing them) or carry their migration in the same transaction, and add an on-open audit that reports legacy mismatches the way migrateFieldTypeValues repairs legacy type values.
 - **node** — `01M39YM7VRD0K4H70E48R71VRP`
 
-### GAP: the write check does not enforce a ref field's target constraint
+### GAP: the write check does not enforce a ref field's value constraints
 
-- **expected** — A ref value outside the set its field declares (allowedRefIdsOf: targetQuery, targetTag or the field's children) is rejected at the same chokepoint, and with the same error, as a value of the wrong kind.
-- **current** — txIntegrityError checks that a written value's kind is one its field's type accepts and that a ref names a stored node. Only the UI's ref picker consults allowedRefIdsOf. The integrity check is pure and engine-free, while two of the three constraint carriers (targetQuery, and children, derived into EDN) resolve through an injected EDN runner it is not given.
-- **impact** — Every surface except the picker - CLI, MCP, HTTP, @kb/client - can write a ref its field excludes, for example a #gap rule naming a node that is not a #rule. The constraint reads as enforced because the UI enforces it.
-- **closes** — Hand the integrity check an EDN runner over the prospective graph (the session index already has one), then check every written ref value against allowedRefIdsOf, with a test per carrier.
+- **expected** — A ref value its field does not allow is rejected at the same chokepoint, and with the same error, as a value of the wrong kind: one outside the set the field declares (allowedRefIdsOf: targetQuery, targetTag or the field's children), and one that would close a cycle through a field that declares itself acyclic (sys.f.acyclic: closesCycle from the value to the node holding it).
+- **current** — txIntegrityError checks that a written value's kind is one its field's type accepts and that a ref names a stored node. Only the UI's ref picker consults allowedRefIdsOf and, for an acyclic field, closesCycleOf, which shows a cycling value refused. The integrity check is pure and engine-free, while two of the three set carriers (targetQuery, and children, derived into EDN) resolve through an injected EDN runner it is not given. The ontology's add-extends plan refuses its own cycle.
+- **impact** — Every surface except the picker - CLI, MCP, HTTP, @kb/client - can write a ref its field excludes, for example a #gap rule naming a node that is not a #rule, or a tag that extends itself through another. The constraint reads as enforced because the UI enforces it. A tag cycle does not break reads (tag chains end where a cycle closes) but makes two tags each other's kind.
+- **closes** — Hand the integrity check an EDN runner over the prospective graph (the session index already has one), then check every written ref value against allowedRefIdsOf and, for an acyclic field, closesCycle over the prospective graph, with a test per carrier.
 - **rule** — Data-plane freedom: constrain before you lock
 - **node** — `01M39YM7FQ9S231XW8JBA5MG0E`
 

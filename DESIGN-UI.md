@@ -743,6 +743,37 @@ tucked. From the keyboard: Tab reaches the
 button, and the node menu offers "Edit query" / "Hide query", opening a
 closed row to show it (`outline-ui/src/outline-commands.tsx`).
 
+### Node pages
+
+A node's page (`/node/<id>`, the outline rooted at the node) is the same
+for every node: a day, a tag, a person's note. Under the page head come
+its title, tags and fields, its children in its view, and then what
+reaches it from elsewhere: for a tag or field, what carries it (Schema),
+then its References.
+
+- **A page that takes rows** (a list, not a projected view or a query;
+  `takesRows`) offers two ways to its rows, the same on every node's page:
+  - **Enter in its title** ends the title's edit and opens a first row
+    above whatever the page holds, as Tana's title does: a transient row
+    (Outline editor), pruned if left empty.
+  - **Its create strip** adds a row at the end. While the page holds no
+    rows, as a new day does, the strip is the first row's place and says
+    so without a hover ("+ New node"); once it holds one, it is the quiet
+    strip again. Nothing is written until the person asks.
+- **Sections below the outline, contributed per tag.** A family that
+  shows something on the page of a node that is one of its tags
+  contributes a section to the core point `ui.node-sections` (page
+  kernel, `NodeSectionPoint` in `@kb/ui-sdk`): `{tags, order, title,
+  shown?, Component}`. The page draws, after References, every section
+  contributed for a tag the node is, through its tags and what they
+  extend, in ascending `order`. `shown` reads the graph (a family's
+  setting, say), and a section shows always without it. The page draws
+  the title as References draws its own; the body is given the node's id,
+  may be a chunk of its own, and lists nodes with `NodeLinkRow`, the row
+  References uses. No family gets a page of its own for this. A
+  repository extension cannot contribute one yet: the point is not on
+  its page surface (GAP [[01M74PDWPASZ30SBGA95EV0X0M]]).
+
 ### Contextual references (2026-08-27)
 
 Tana's _reference_, expressed with no new storage shape and no new
@@ -1037,10 +1068,17 @@ nothing typed an option set keeps its own order, other fields offer the
 session's recent picks and then the most used. The field picker shows what the
 field holds checked; in a many-valued field Enter toggles and it stays open,
 Backspace on an empty query takes back the last value, and in a one-valued
-field a pick replaces and closes. Its last row creates the query as a node
-where the field's declaration says a target goes (`refCreationOf`: an option
-under the field, a node with the field's target tag, a top-level node) — never
-for a query-constrained field. The list is anchored to its input, flipped and
+field a pick replaces and closes. A value that would close a cycle through a field
+that declares itself acyclic (a tag's `extends`; `closesCycleOf`) is shown,
+noted "would cycle", and refused as an addition only: a value the field
+already holds stays checked and can be taken back, however the cycle came to
+be. No picker picks a disabled row, by click or by Enter. Its last row
+creates the query as a node where the field's declaration says a target goes
+(`refCreationOf`: an option under the field, a node with the field's target
+tag, a top-level node) — never for a query-constrained field — and names
+what it makes as the page names it: "Create option “x”", "Create tag “x”"
+for a target that is a kind (`kindOfType`), "Create #person “x”" for one
+that carries a tag; never a raw id. The list is anchored to its input, flipped and
 clamped to the viewport (`useAnchoredPosition`), so a cell or a column never
 clips it. The global ⌘K palette is a different gesture — search and open —
 and keeps its own index.
@@ -2342,6 +2380,16 @@ both are answered from the node ⌘K menu rather than from a device switch.
     user who had the global switch on has no id set to migrate to, so debug
     starts off and is re-armed per node. The stale key inside
     `localStorage["kb-prefs"]` is ignored on read and dropped on next write.
+- **A managed field edits after one step.** A field its family manages
+  (`sys.f.managedBy`, DESIGN.md → Data model), such as a day's period, shows
+  its values at rest with a note under them, "managed by Days", and an
+  **Edit** that makes that row editable until **Done**. It is friction, not
+  a lock: the family's constraints judge the write when it commits, and a
+  refusal is worded for the person like any other. `useFieldWrite`
+  (`@kb/ui-sdk`) is the one reading of the write rule on the page, and its
+  `ManagedNote` is drawn by the outline's field editor and, under a
+  family's own row, by `provideFieldEditor`, so a family's row never has to
+  know about it.
 - **Pinning is listing.** `@kb/ui-sdk`'s `lib/pinned.ts` owns it: the
   seeded `pinned` node's **children** are contextual references (`sys.f.ref.target`) to the pinned
   nodes, and that list _is_ the sidebar section. `mutations.togglePin` appends
@@ -2366,8 +2414,12 @@ both are answered from the node ⌘K menu rather than from a device switch.
 ### The node menu
 
 The node menu is the node palette (`NodeCommandPalette`), opened on a row
-from its bullet or by ⌘K on a selected row. It lists the commands about
-that row: the shell's own, the rows the page derives from the graph
+from its bullet, or by ⌘K on a selected or active row or page title (the
+title shows the page's node). It opens at the place that shows that node:
+a row and a page title both mark themselves as the menu's anchor for their
+instance (`menuAnchor`), and the menu finds the instance it acts on
+(`menuAnchorOf`), so no surface is a row by being one. It lists the
+commands about that node: the shell's own, the rows the page derives from the graph
 (Open with…, View as…, Make default view…), and every `ui.commands`
 contribution (`CommandPoint`). Each says where it is offered (`menu`):
 
@@ -2385,7 +2437,7 @@ The groups, in the menu's order (`NODE_MENU_GROUPS`):
 | Group | What it holds | Its rows today |
 | --- | --- | --- |
 | `lead` | how the node itself opens and shows | "Open in …" for its tag's view; "Show/Hide preview", "Show/Hide properties" |
-| `make` | what the node is and holds | Add tag, Turn into query, Turn into reference…, Add field, Make supertag, Type this reference… |
+| `make` | what the node is and holds | Add tag, Make your own tag that extends this, Turn into query, Turn into reference…, Add field, Make supertag, Type this reference… |
 | `open` | where it opens | Search everything…, Open in panel, Open as workspace, Open with: … |
 | `arrange` | where it sits | Indent, Outdent |
 | `mark` | what marks it | Pin / Unpin, Show / Hide debug fields |
@@ -2396,6 +2448,25 @@ So a family's command takes a place among the shell's by naming it, and
 the one menu builder (`listNodeCommands`) reads the place from the
 command: no list position means anything, and no row is the shell's by
 being listed first.
+
+⌘K with no row anchored is the page's search (`CommandPalette`), and it
+finds the node menu's commands too: those `listNodeCommands` offers the
+node it acts on — the selected row, else the node the page stands at, the
+one its focused pane is shown for (`paneSubjectAt`: a zoom, or a node
+opened at `/node/<id>`) — ahead of the
+graph's entries, each marked with that node's label (`withNodeCommands`).
+So a page's own commands are found where a person searches, with nothing
+selected: on a tag's page, "Make your own tag that extends this". It lists
+them only where that node's menu can open — the instance it is selected
+at, else its page's title, carries a menu anchor — so a page that shows its
+node without a title (a canvas, a graph) offers ⌘K's own commands alone. A
+command that asks for a picker step hands over to the node menu there,
+opened at that step (`setNodePaletteOpen(true, step)`). A node command that
+is the node's face of a global one names it (`faceOf`: "View as: …",
+"Filter…", the debug fields), and stands in its place, so one act is one
+row; a global command and a node command that do different things are
+named apart (⌘K's "New tag" makes a tag, the node menu's "Add tag" puts
+one on the node).
 
 **A command and a picker step as data.** A node command may hand the
 palette to a picker step (`palette.openStep(id)`, `PaletteStepPoint`,
@@ -4026,28 +4097,29 @@ reports the family on.
 The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
 [Days](./DESIGN.md#days)). It loads while the server reports the family on.
 
-- **The day page** is `#day`'s default view (`days.day`, a tag view, so a
-  day opens in it at `/node/<id>` and a person may choose another there).
-  It draws the day's own outline, with its title, fields and children, then
-  the **sections** contributed to the family's declared point
-  `days.sections`, in ascending `order`. A section is `{order, title,
-  Component}`, and its component is given the day node and its key. Days
-  never imports a family that shows something on a day; that family
-  contributes a section (the events section is one). Days fills one,
-  **Made or edited this day** (`order: 30`): the nodes whose created or
-  updated instant falls within the local day, newest first. Schema, the
-  period nodes and `sys.*` nodes are left out. Each row opens its node.
-
-  What is dated the day is not a section: it is the day's References,
-  which its outline draws, each row naming the date field that dates it
-  ("due →"; DESIGN.md → [Days](./DESIGN.md#days)). The page scrolls in
-  the pane's one scroll region (`frame: "scroll"`), and the room after a
-  page's end is the region's, never the outline's, so nothing opens a gap
-  between the outline and the sections. The page is its own chunk,
-  fetched the first time a day opens, and each section's body is one too.
+- **A day is an ordinary node, and opens in the node page** ([Node
+  pages](#node-pages)), as Tana's days do: its title, tags and fields, its
+  children in the view a person chooses, then its References. Nothing about
+  the page is the family's: the first row, the keyboard, the title, the
+  chips and the view switcher are every node's. What is dated the day is
+  its References, each row naming the date field that dates it ("due →";
+  DESIGN.md → [Days](./DESIGN.md#days)). The family's old day page, a
+  default view for `#day` (`sys.view.days.day`), is retired in the seed,
+  so a store that held it opens without it.
+- **Made or edited.** Days contributes a section below the outline for each
+  period tag (`ui.node-sections`): **Made or edited this day**, **this
+  week** and **this year** (`order: 30`), and so for a person's tag that
+  extends one. It lists the nodes whose created or updated instant falls
+  within the period in the page's zone, newest first, at most 30. Schema,
+  the period nodes and `sys.*` nodes are left out. Each row opens its node
+  (`NodeLinkRow`). It is off by default: the family's setting `made or
+  edited` (`sys.f.days.touched`: `hidden` or `shown`; empty reads
+  `hidden`) shows it. Its body is a chunk of its own, fetched the first
+  time a period's page shows it. Another family that shows something on a
+  day contributes its own section for `#day`, and days never imports it.
 - **A date opens its day.** Days replaces the page role `ui.date-target`:
   following a date value opens that day's node, made if need be through
-  `ext.days.today`, in its day page. If days fails, the role's recovery
+  `ext.days.today`. If days fails, the role's recovery
   demotes it and core's default leads nowhere.
 - **The Today row** sits under Home in the sidebar (`order: 5`) and opens
   today's node, making it if need be. It is the active row while today's
@@ -4069,7 +4141,8 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
   has not moved by the time the answer comes. The move replaces the root's
   history entry, so Back leaves the page.
 - **The capture target's replacement** answers today's node through
-  `ext.days.today`, with the page's local day. ⌘K "Add node" with nothing
+  `ext.days.today`, with the page's local day, unless the family's
+  `captures` setting says the top level. ⌘K "Add node" with nothing
   selected and a picker's "create" row for a new top-level node both go
   through the role (`captureNode`), so either lands in today. When the
   action refuses or the node never reaches the page, the replacement fails

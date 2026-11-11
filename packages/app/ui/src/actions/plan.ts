@@ -1,12 +1,12 @@
 import type { ActionRequest, WireNode } from "@kb/contracts";
 import {
+  closesCycle,
   familyViewIdOf,
   fieldTypeValue,
   hostViewIds,
   viewsWithDefault,
   siblingSlots,
   viewOptionId,
-  wouldCreateExtendsCycle,
   type FieldType,
   type Writable,
 } from "@kb/model";
@@ -96,7 +96,11 @@ export function planSplit(
       { id: "node.update", input: { id, text: left } },
       {
         id: "node.add",
-        input: { id: newId, text: right, ...(parent ? { parent: parent.id, position } : {}) },
+        input: {
+          id: newId,
+          text: right,
+          ...(parent ? { parent: parent.id, position } : { parent: null }),
+        },
       },
     ],
     focusId: newId,
@@ -189,8 +193,12 @@ export const planRemoveTag = (n: WireNode[], id: string, tag: string) =>
   planUnsetProp(n, id, SYSTEM_IDS.typeField, { t: "ref", v: tag });
 export const planDefineField = (name: string, id: string) =>
   plan({ id: "field.define", input: { name, id } });
-export const planDefineTag = (name: string, id: string) =>
-  plan({ id: "tag.define", input: { name, id } });
+/** Mint tag `name` as `id`, extending `parents` (`sys.f.extends`), in order. */
+export const planDefineTag = (name: string, id: string, parents: readonly string[] = []) =>
+  plan({
+    id: "tag.define",
+    input: { name, id, ...(parents.length > 0 ? { extends: [...parents] } : {}) },
+  });
 export function planNewQueryNode(
   text: string,
   id: string,
@@ -203,6 +211,7 @@ export function planNewQueryNode(
         input: {
           id,
           text,
+          parent: null,
           props: [{ field: SYSTEM_IDS.queryField, value: { t: "str", v: edn } }],
         },
       },
@@ -241,7 +250,9 @@ export function planPinNode(
 
 export function planDefineOntology(name: string, id: string): PlannedMutation {
   return {
-    actions: [{ id: "node.add", input: { id, text: name, tags: [SYSTEM_IDS.ontologyTag] } }],
+    actions: [
+      { id: "node.add", input: { id, text: name, parent: null, tags: [SYSTEM_IDS.ontologyTag] } },
+    ],
     focusId: id,
     focusCursor: name.length,
   };
@@ -277,7 +288,8 @@ export function planOntologyAddExtends(
   id: string,
   parent: string,
 ): PlannedMutation | null {
-  return wouldCreateExtendsCycle(nodes, id, parent)
+  const byId = wireById(nodes);
+  return closesCycle((ref) => byId.get(ref), SYSTEM_IDS.ontoExtendsField, id, parent)
     ? null
     : refProp(nodes, id, SYSTEM_IDS.ontoExtendsField, parent);
 }
@@ -324,7 +336,7 @@ function addNode(
         input: {
           id,
           text,
-          ...(parent !== undefined ? { parent } : {}),
+          parent: parent ?? null,
           ...(position !== undefined ? { position } : {}),
           ...(props
             ? {

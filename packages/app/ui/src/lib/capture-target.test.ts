@@ -11,15 +11,15 @@ import { bundledPlugin } from "@kb/contracts";
 import { daysExtension } from "@kb/days";
 import { coreExtension } from "@kb/operations";
 import { definePlugin, makeKernel, Role, roleCall, type Kernel } from "@kb/plugin";
-import { CaptureTargetService, topLevelCapture, type CaptureTarget } from "@kb/ui-sdk";
+import { CaptureTargetService, topLevelCapture, type PageCaptureTarget } from "@kb/ui-sdk";
 
 const role = Role(CaptureTargetService);
 
-function provider(name: string, answer: CaptureTarget) {
+function provider(name: string, answer: PageCaptureTarget) {
   return definePlugin({ name, apply: (ctx) => ctx.provide(CaptureTargetService, answer) });
 }
 
-function kernelWith(days: CaptureTarget | null): Kernel {
+function kernelWith(days: PageCaptureTarget | null): Kernel {
   const kernel = makeKernel({ host: "page" });
   Effect.runSync(kernel.load(bundledPlugin(coreExtension, provider("core", topLevelCapture))));
   if (days !== null)

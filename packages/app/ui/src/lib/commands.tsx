@@ -76,6 +76,7 @@ import {
   shownDesignSystem,
   ViewPoint,
   SYSTEM_IDS,
+  textOr,
   type ThemePref,
   toast,
   WORKSPACE_ROOT_ID,
@@ -312,6 +313,27 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     run: (ctx) => ctx.palette.openStep("outline.add-tag"),
   },
   {
+    // A tag's own fields, views and place are its owner's; a person makes
+    // their own tag that is one of it, and changes that (DESIGN-UI.md → The
+    // commit decides what a person may write).
+    id: "extend-tag",
+    menu: nodeMenu("make", 15),
+    chrome: () => ({
+      label: "Make your own tag that extends this",
+      icon: <HashIcon size={14} weight="regular" />,
+    }),
+    when: (ctx) => typeRefsOf(targetNode(ctx)).includes(SYSTEM_IDS.tag),
+    run: (ctx) =>
+      nodeAction(ctx, (nodeId) => {
+        const name = textOr(ctx.outline.nodes.get(nodeId)?.text.trim(), nodeId);
+        void browserHost()
+          .writes.defineTag(`my ${name}`, [nodeId])
+          .then((id) => {
+            if (id !== null) ctx.outline.zoomTo(id);
+          });
+      }),
+  },
+  {
     id: "turn-query",
     menu: nodeMenu("make", 20),
     chrome: () => ({
@@ -436,10 +458,12 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     run: (ctx) => nodeAction(ctx, (nodeId) => void browserHost().writes.togglePin(nodeId)),
   },
   {
-    // Per node, never global: the answer is about the node you are looking at
+    // Per node: the answer is about the node you are looking at; ⌘K's "Debug:
+    // show all fields" is the same act on its target
     // (stores/debug-fields.store).
     id: "toggle-debug-fields",
     menu: nodeMenu("mark", 20),
+    faceOf: SYSTEM_IDS.cmdDebugShowFields,
     chrome: (ctx) => {
       const nodeId = ctx.target.nodeId;
       const on = nodeId !== null && ctx.debugFields.ids.has(nodeId);
@@ -459,6 +483,7 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
   {
     id: "view-filter",
     menu: nodeMenu("view", 90),
+    faceOf: SYSTEM_IDS.cmdViewFilter,
     chrome: () => ({ label: "Filter…", icon: <MagnifyingGlassIcon size={14} /> }),
     run: (ctx) => nodeAction(ctx, (nodeId) => ctx.ui.setViewSettingsFrameId(nodeId)),
   },
@@ -483,6 +508,7 @@ function frameViewCommands(ctx: CommandContext): {
       ({ key, picker }): Command => ({
         id: `view-as-${localIdOf(key)}`,
         menu: nodeMenu("view", 10),
+        faceOf: picker.command,
         chrome: () => {
           const Icon = picker.icon;
           return {
@@ -622,6 +648,7 @@ export function listNodeCommands(ctx: CommandContext): NodeCommandListing[] {
       const chrome = command.chrome(ctx);
       return {
         id: command.id,
+        faceOf: command.faceOf,
         label: chrome.label,
         icon: chrome.icon,
         run: () => void runCommand(command.id, ctx),

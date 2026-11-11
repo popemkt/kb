@@ -2,6 +2,8 @@ import { Effect, Schema } from "effect";
 import { z } from "zod";
 import {
   type ActionDefinition,
+  type CaptureTarget,
+  type CapturePlan,
   type KbContext,
   KbCtx,
   type KbStore,
@@ -12,7 +14,6 @@ import {
   ResolveError,
   ActorSchema,
   SYSTEM_IDS,
-  cardinalityOf,
   currentIso,
   domainError,
   domainFromResolve,
@@ -21,7 +22,7 @@ import {
   type RankSlot,
   IndexedNodes,
   resolveFieldId,
-  resolveFieldIn,
+  resolveTagId,
   resolveTagIn,
   type NodeGraph,
   type SiblingGroups,
@@ -31,10 +32,14 @@ import {
   type PropValue,
   present,
 } from "@kb/model";
-import { persistEffect, type PersistOptions } from "./session.ts";
+import { persistEffect, persistPlannedEffect, type PersistOptions } from "./session.ts";
+import { placedGraph, placeOf } from "./place.ts";
+import { applyProps, projectPropEdits, type PropEntry } from "./prop-edits.ts";
 import { DatalogError, QueryEngineService, type NodeIndex } from "@kb/query";
 
 type KbWriteEnv = KbCtx | KbStore;
+/** A write that may place a node where captures go. */
+type KbCaptureEnv = KbWriteEnv | CaptureTarget;
 
 /** Lift sync resolve/throw helpers into DomainError. */
 export function syncDomain<A>(f: () => A): Effect.Effect<A, DomainError> {
@@ -61,13 +66,19 @@ export const nodeAddDef = {
   id: "node.add",
   title: "Add node",
   description:
-    "Create a node with optional props, parent, position (index in its sibling group; the end when omitted), and tags",
+    "Create a node with optional props, parent, position (index in its sibling group; the end when omitted), and tags. An omitted parent puts it where captures go, the capture target (today's node while days is on and its captures setting says today); pass parent: null for the top level.",
   mode: { kind: "write" } as const,
   targets: ["parent"],
   inputSchema: z.object({
     text: z.string(),
     props: z.array(PropInputSchema).optional(),
-    parent: z.string().optional(),
+    parent: z
+      .string()
+      .nullable()
+      .optional()
+      .describe(
+        "the node it goes under; null for the top level; omitted, the capture target (today's node while days is on)",
+      ),
     position: z.number().int().nonnegative().optional(),
     tags: z.array(z.string()).optional(),
     id: z.string().optional(),
@@ -188,12 +199,15 @@ export const fieldDefineDef = {
 export const tagDefineDef = {
   id: "tag.define",
   title: "Define tag",
-  description: "Mint a tag node (typed sys.tag) with optional templated fields",
+  description:
+    "Mint a tag node (typed sys.tag) with optional templated fields, and the tags it extends",
   mode: { kind: "write" } as const,
   inputSchema: z.object({
     name: z.string(),
     id: z.string().optional(),
     fields: z.array(z.string()).optional(),
+    /** The tags it extends (`sys.f.extends`), by name or id, in order. */
+    extends: z.array(z.string()).optional(),
   }),
   outputSchema: z.object({ id: z.string() }),
 } satisfies ActionDefinition;
@@ -325,22 +339,6 @@ export function cloneNode(n: KbNode): KbNode {
 // A field's cardinality is read from the plan graph, which holds stored
 // nodes only. A field is never virtual (the virtual nodes are saved queries),
 // so this reads what the session index would.
-function applyProps(
-  graph: NodeGraph,
-  props: Record<NodeId, PropValue[]>,
-  entries: readonly PropEntry[],
-): void {
-  const replaced = new Set<NodeId>();
-  for (const e of entries) {
-    const fieldId = resolveFieldIn(graph, e.field);
-    const single = cardinalityOf(graph.get(fieldId)?.props, (id) => graph.get(id)) === "one";
-    const list = single && !replaced.has(fieldId) ? [] : (props[fieldId] ?? []);
-    if (single) replaced.add(fieldId);
-    list.push(e.value);
-    props[fieldId] = list;
-  }
-}
-
 function isInSubtree(nodes: KbNode[], rootId: NodeId, targetId: NodeId): boolean {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const stack = [rootId];
@@ -440,14 +438,18 @@ function pullSubtree(ctx: KbContext<NodeIndex>, id: NodeId, depth: number): unkn
 }
 
 /** One prop a write names: a field (by name or id) and the value it gains. */
-export interface PropEntry {
-  field: string;
-  value: PropValue;
-}
 
-/** What one add says, whoever says it: `node.add`'s input, its props as values of the model. */
-export type NodeAddPlanInput = Omit<z.infer<typeof nodeAddDef.inputSchema>, "props" | "id"> & {
+/**
+ * What one add says, whoever says it: `node.add`'s input, its props as
+ * values of the model, and its place decided: under `parent`, or at the
+ * top level without one.
+ */
+export type NodeAddPlanInput = Omit<
+  z.infer<typeof nodeAddDef.inputSchema>,
+  "props" | "id" | "parent"
+> & {
   props?: readonly PropEntry[] | undefined;
+  parent?: NodeId | undefined;
 };
 
 /**
@@ -494,31 +496,66 @@ export function planNodeAdd(
   return { node, written };
 }
 
+/** `node.add`'s input with its place decided: under `parent`, or the top level for null. */
+export type PlacedAddInput = Omit<z.infer<typeof nodeAddDef.inputSchema>, "parent"> & {
+  readonly parent: NodeId | null;
+};
+
 /**
- * {@link planNodeAdd} over the session's graph. `nodeAddEffect` persists
- * what it plans; a caller whose write must land with another (a canvas card
- * and its node) hands the upserts to that write instead, so the two commit
- * as one transaction.
+ * {@link planNodeAdd} over the session's graph, at a decided place, after
+ * what the place needs `made` (a capture target's day, say), so both land in
+ * one transaction. `nodeAddEffect` persists what it plans; a caller whose
+ * write must land with another (a canvas card and its node) hands the
+ * upserts to that write instead, so the two commit as one transaction.
  */
 export const planNodeAddEffect = Effect.fn("node.add.plan")(function* (
-  input: z.infer<typeof nodeAddDef.inputSchema>,
+  input: PlacedAddInput,
+  made: readonly KbNode[] = [],
 ): Effect.fn.Return<{ id: string; node: KbNode; upserts: KbNode[] }, DomainError, KbCtx> {
   const ctx = yield* KbCtx;
   const at = yield* currentIso;
   const id = input.id ?? (yield* freshId);
-  const graph = sessionGraph(ctx);
-  const { node, written } = yield* syncDomain(() => planNodeAdd(graph, input, id, at));
-  const upserts = written.map((w) => present(graph.get(w), "a written node is in the graph"));
-  return { id, node, upserts };
+  const { graph, upserts } = placedGraph(ctx.nodes, made);
+  const { node, written } = yield* syncDomain(() =>
+    planNodeAdd(graph, { ...input, parent: input.parent ?? undefined }, id, at),
+  );
+  return { id, node, upserts: upserts(written) };
 });
 
+/**
+ * One add at the place `place` answers over the nodes it is planned from,
+ * committed on that state (`persistPlannedEffect`): a place made for it, a
+ * day say, is planned again over what another writer made meanwhile, never
+ * written over it.
+ */
+const commitAddEffect = Effect.fn("node.add.commit")(function* <R>(
+  input: Omit<z.infer<typeof nodeAddDef.inputSchema>, "parent">,
+  place: (nodes: readonly KbNode[]) => Effect.Effect<CapturePlan, DomainError, R>,
+): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbWriteEnv | R> {
+  const ctx = yield* KbCtx;
+  const id = input.id ?? (yield* freshId);
+  const plan = Effect.fn("node.add.placed")(function* (nodes: readonly KbNode[]) {
+    const { parent, upserts: made } = yield* place(nodes);
+    const add = yield* planNodeAddEffect({ ...input, id, parent }, made);
+    return { ...add, deletes: [] };
+  });
+  const planned = yield* persistPlannedEffect(ctx, plan, forcedBy(input));
+  const { node } = present(planned, "an add always writes");
+  return { id, node };
+});
+
+/** `node.add`: one node at the place its input names ({@link placeOf}), the capture target's when it names none. */
 export const nodeAddEffect = Effect.fn("node.add")(function* (
   input: z.infer<typeof nodeAddDef.inputSchema>,
+): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbCaptureEnv> {
+  return yield* commitAddEffect(input, (nodes) => placeOf(input.parent, nodes));
+});
+
+/** One node at a place its caller decided, as `node.add` writes it: the capture target is never asked. */
+export const addNodeAtEffect = Effect.fn("node.add.at")(function* (
+  input: PlacedAddInput,
 ): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbWriteEnv> {
-  const ctx = yield* KbCtx;
-  const { id, node, upserts } = yield* planNodeAddEffect(input);
-  yield* persistEffect(ctx, { upserts, deletes: [] }, forcedBy(input));
-  return { id, node };
+  return yield* commitAddEffect(input, () => Effect.succeed({ parent: input.parent, upserts: [] }));
 });
 
 /**
@@ -556,20 +593,8 @@ export const nodeUpdateEffect = Effect.fn("node.update")(function* (
 
   yield* syncDomain(() => {
     if (input.text !== undefined) node.text = input.text;
-    if (input.unsetProps) {
-      for (const u of input.unsetProps) {
-        const fieldId = resolveFieldIn(graph(), u.field);
-        if (u.value === undefined) {
-          delete node.props[fieldId];
-        } else {
-          const list = node.props[fieldId] ?? [];
-          node.props[fieldId] = list.filter((pv) => JSON.stringify(pv) !== JSON.stringify(u.value));
-          if (node.props[fieldId].length === 0) delete node.props[fieldId];
-        }
-      }
-    }
-    // Remove old values before adding replacements in the same node update.
-    if (input.setProps) applyProps(graph(), node.props, input.setProps);
+    if (input.unsetProps !== undefined || input.setProps !== undefined)
+      node.props = projectPropEdits(graph(), node.props, input);
   });
 
   // A placement is a move to `parent` (null: the forest roots), or — with
@@ -667,9 +692,10 @@ export const fieldDefineEffect = Effect.fn("field.define")(function* (
       ids: existing.map((e) => e.id),
     });
   }
-  const result = yield* nodeAddEffect({
+  const result = yield* addNodeAtEffect({
     id: input.id,
     text: input.name,
+    parent: null,
     props: [
       {
         field: SYSTEM_IDS.typeField,
@@ -700,10 +726,18 @@ export const tagDefineEffect = Effect.fn("tag.define")(function* (
         });
       }
     }
+    // A tag no node names yet extends what it likes: it closes no cycle.
+    for (const parent of input.extends ?? []) {
+      props.push({
+        field: SYSTEM_IDS.extendsField,
+        value: { t: "ref", v: resolveTagId(ctx.nodes, parent) },
+      });
+    }
   });
-  const result = yield* nodeAddEffect({
+  const result = yield* addNodeAtEffect({
     id: input.id,
     text: input.name,
+    parent: null,
     props,
   });
   return { id: result.id };

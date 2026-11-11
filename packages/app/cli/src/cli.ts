@@ -53,6 +53,8 @@ import {
   cliAction,
   handleCliError,
   kbAction,
+  outputLines,
+  report,
   type GlobalOpts,
 } from "./command.ts";
 import { filledLines, formatReceipt } from "./format.ts";
@@ -60,6 +62,7 @@ import { trustCommands } from "./trust.ts";
 import { extensionCommands } from "./extensions.ts";
 import { gateCommands } from "./gates.ts";
 import { locationCommands } from "./locations.ts";
+import { procedureCommands } from "./procedures.ts";
 import { mergeDriverCommand } from "./merge-driver.ts";
 import { relationCommands } from "./relations.ts";
 import { hostExtensions } from "./host-plugins.ts";
@@ -92,6 +95,9 @@ import {
   parseFieldValue,
   parsePropArg,
   persistEffect,
+  storeBackupDef,
+  storeBackupsDef,
+  storeRestoreDef,
   UsageError,
   type PlannedAction,
 } from "@kb/operations";
@@ -185,6 +191,7 @@ interface IdOpts {
 }
 interface AddOpts extends IdOpts, ForceOpts {
   parent?: string;
+  top?: boolean;
   position?: number;
   tag: string[];
   prop: string[];
@@ -194,9 +201,11 @@ interface AddOpts extends IdOpts, ForceOpts {
 
 /**
  * `kb add`: one node from argv (`node.add`), or a whole outline from a file or
- * stdin (`node.addTree`), placed by the same `--parent` / `--position`. An
- * outline carries its own text, tags, fields and ids, so the flags that would
- * say them again are refused rather than merged.
+ * stdin (`node.addTree`), placed by the same `--parent` / `--top` /
+ * `--position`. Without `--parent` or `--top` it lands where captures go,
+ * the capture target (DESIGN.md → Provider roles). An outline carries its
+ * own text, tags, fields and ids, so the flags that would say them again are
+ * refused rather than merged.
  */
 function addEffect(
   ctx: KbContext,
@@ -206,13 +215,17 @@ function addEffect(
 ): Effect.Effect<number, Error, ActionHandlerEnv> {
   return Effect.gen(function* () {
     const create = { create: opts.create === true };
+    if (opts.top === true && opts.parent !== undefined) {
+      return yield* new UsageError({ message: "kb add: --parent and --top name two places" });
+    }
+    const parent = opts.top === true ? null : opts.parent;
     if (opts.outline === undefined) {
       if (text === undefined) {
         return yield* new UsageError({ message: "kb add: missing <text> (or --outline <file>)" });
       }
       const plan = mapAdd({
         text,
-        parent: opts.parent,
+        parent,
         position: opts.position,
         tags: opts.tag,
         props: opts.prop.map((arg) => parsePropArg(arg, declaredTypes(ctx.nodes))),
@@ -234,7 +247,7 @@ function addEffect(
     const outline = yield* readTextArgEffect("--outline", opts.outline);
     const plan = mapAddTree({
       outline,
-      parent: opts.parent,
+      parent,
       position: opts.position,
       force: opts.force === true,
     });
@@ -445,12 +458,15 @@ function buildProgram(): Command {
       ),
     );
 
+  storeBackupCommands(store);
+
   program
     .command("add")
     .description("Create a node, or a whole outline in one transaction (--outline)")
     .argument("[text]", "node text")
     .option("--outline <file>", "add an outline (Tana Paste) from a file, or - for stdin")
-    .option("--parent <id>", "parent node id")
+    .option("--parent <id>", "parent node id (default: the capture target, today's node with days)")
+    .option("--top", "add at the top level, not the capture target", false)
     .option("--position <n>", "child index", toInt)
     .option("--tag <name>", "tag name (repeatable)", collect, [])
     .option("--prop <field=value>", "prop (repeatable)", collect, [])
@@ -638,9 +654,15 @@ function buildProgram(): Command {
     .argument("<name>", "tag name")
     .option("--id <id>", "explicit id")
     .option("--field <name>", "templated field (repeatable)", collect, [])
+    .option("--extends <tag>", "a tag it extends (repeatable, in order)", collect, [])
     .action(
-      kbAction((ctx, globals, [name, opts]: [string, IdOpts & { field: string[] }]) =>
-        runPlanEffect(ctx, mapTagDefine({ name, id: opts.id, fields: opts.field }), globals),
+      kbAction(
+        (ctx, globals, [name, opts]: [string, IdOpts & { field: string[]; extends: string[] }]) =>
+          runPlanEffect(
+            ctx,
+            mapTagDefine({ name, id: opts.id, fields: opts.field, extends: opts.extends }),
+            globals,
+          ),
       ),
     );
   tag
@@ -713,6 +735,7 @@ function buildProgram(): Command {
   extensionCommands(program);
   trustCommands(program);
   locationCommands(program);
+  procedureCommands(program);
   relationCommands(program);
   gateCommands(program);
   mergeDriverCommand(program);
@@ -751,4 +774,88 @@ export function main(argv: string[] = process.argv): Promise<number> {
       process.exitCode = code;
       return code;
     });
+}
+
+/** One backup as a line: its id, its nodes, where it is, and whether the store is still that state. */
+function backupLine(backup: {
+  id: string;
+  nodes: number;
+  path: string;
+  current?: boolean;
+}): string {
+  const now = backup.current === true ? "  (current)" : "";
+  return `${backup.id}  ${String(backup.nodes)} nodes  ${backup.path}${now}`;
+}
+
+/** `kb store backup | backups | restore`: the `store.*` backup actions (DESIGN.md → Storage → Backups). */
+function storeBackupCommands(store: Command): void {
+  store
+    .command("backup")
+    .description(
+      "Graph backup on this machine; excludes queries, pages, ui.json, extensions and assets",
+    )
+    .action(
+      kbAction((ctx, globals) =>
+        invokeCliEffect(ctx, onWire(ACTION_INVOKE_WIRE, { id: storeBackupDef.id, input: {} })).pipe(
+          Effect.map((receipt) =>
+            report(
+              receipt,
+              globals,
+              outputLines(storeBackupDef, (out) => [
+                `${out.fresh ? "backed up" : "already backed up"}: ${backupLine(out.backup)}`,
+                "graph only; excludes queries, pages, ui.json, extensions and .kb/assets",
+                ...out.removed.map((old) => `removed ${old.id}`),
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
+  store
+    .command("backups")
+    .description("This root's graph backups on this machine, newest first")
+    .action(
+      kbAction((ctx, globals) =>
+        invokeCliEffect(
+          ctx,
+          onWire(ACTION_INVOKE_WIRE, { id: storeBackupsDef.id, input: {} }),
+        ).pipe(
+          Effect.map((receipt) =>
+            report(
+              receipt,
+              globals,
+              outputLines(storeBackupsDef, (out) => [
+                ...out.backups.map(backupLine),
+                `keeps the newest ${String(out.kept)} (kb set sys.extension.core "backups kept" <n>)`,
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
+  store
+    .command("restore")
+    .description(
+      "Restore a graph backup as one transaction, after a safety graph backup; root files and assets excluded; asks first",
+    )
+    .argument("<backup>", "the backup's id, as `kb store backups` lists it")
+    .action(
+      kbAction((ctx, globals, [backup]: [string]) =>
+        invokeCliEffect(
+          ctx,
+          onWire(ACTION_INVOKE_WIRE, { id: storeRestoreDef.id, input: { backup } }),
+        ).pipe(
+          Effect.map((receipt) =>
+            report(
+              receipt,
+              globals,
+              outputLines(storeRestoreDef, (out) => [
+                `restored ${out.restored.id}: ${String(out.upserts)} written, ${String(out.deletes)} deleted`,
+                `the state it replaced is backup ${out.replaced.id} (kb store restore ${out.replaced.id} undoes this)`,
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
 }
