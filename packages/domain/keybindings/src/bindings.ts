@@ -146,10 +146,11 @@ function precedes(
 function refusal(
   context: KeyContext,
   held: readonly Contribution<Keybinding>[],
-  { owner, value }: Contribution<Keybinding>,
-  approved: (owner: string) => boolean,
+  binding: Contribution<Keybinding>,
+  approved: (owner: string, binding: Contribution<Keybinding>) => boolean,
   elsewhere: readonly Contribution<Keybinding>[],
 ): string | null {
+  const { owner, value } = binding;
   const chord = describeChord(value.chord);
   const before = elsewhere.find((other) => chordsOverlap(other.value.chord, value.chord));
   if (before !== undefined) {
@@ -164,7 +165,7 @@ function refusal(
     return `${chord} is reserved in ${context.id}`;
   }
   // GAP [[01M6YFRJGV8MAF2AM34N567MBQ]] the host approves a replacement by its owner's origin.
-  if (value.replaces !== undefined && !approved(owner)) {
+  if (value.replaces !== undefined && !approved(owner, binding)) {
     return `it replaces ${value.replaces}, which waits for replacement approval: ${owner} may bind free chords, and taking a held one needs a person to approve it`;
   }
   const overlapping = held.filter((other) => chordsOverlap(other.value.chord, value.chord));
@@ -209,7 +210,7 @@ function refusal(
 export function admitKeybindings(
   context: KeyContext,
   contributions: readonly Contribution<Keybinding>[],
-  approved: (owner: string) => boolean,
+  approved: (owner: string, binding: Contribution<Keybinding>) => boolean,
   elsewhere: readonly Contribution<Keybinding>[] = [],
 ): Keymap {
   const named = contributions.filter(({ value }) => value.context === context.id);
@@ -247,7 +248,7 @@ export function admitKeybindings(
 export function admitKeymaps(
   contexts: readonly KeyContext[],
   bindings: readonly Contribution<Keybinding>[],
-  approved: (owner: string) => boolean,
+  approved: (owner: string, binding: Contribution<Keybinding>) => boolean,
 ): ReadonlyMap<string, Keymap> {
   const surfaces = contexts.filter(({ reach }) => reach === "surface");
   const pagesOwn = bindings.filter(({ owner, value }) =>

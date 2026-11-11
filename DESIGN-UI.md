@@ -490,6 +490,19 @@ parser. A chord with malformed carriers or conflicting matcher fields is
 refused rather than interpreted as a broader chord. Executable plugin
 predicates have no stored representation.
 
+The shared `storedKeybindings` decoder reads a complete unscoped snapshot and
+resolves targets through host-supplied live registrations. Descriptive rows,
+labels and writable provenance never authenticate code. Its candidates retain
+one fixed storage provider with a separate row scope, so two ordinary rows do
+not inherit a family's reserved keys or implicit physical-key precedence.
+Replacement dependencies determine order, with stable-id ties; ordinary
+admission still decides overlap, reservations and election. Review content
+includes normalized context/chord data, resolved target code and input recipe,
+and the current native holder or stored holder's review chain. A changed
+implementation or dependency therefore changes the review even if row IDs stay
+fixed. The decoder grants no authority; live approval and host integration are
+separate from reading definitions.
+
 The page itself is a context too, `core.page`, which core owns
 (`operations/src/keyboard.ts`). A context says where it is offered keys
 (`reach`): the outline's are `surface` contexts, offered the keys of what

@@ -179,7 +179,8 @@ const DATASCRIPT = /cljs\.core/;
 // Stable intent targets, call recipes and the target-choice query measure 1,856,120 bytes.
 // Validating JSON compatibility before the object shape measures 1,856,152 bytes.
 // Publishing native keyboard declarations on both hosts measures 1,856,252 bytes.
-const EAGER_BUDGET_BYTES = 1_857_700;
+// The shared call codec extraction measures 1,856,290 bytes; the inactive reader is tree-shaken.
+const EAGER_BUDGET_BYTES = 1_857_800;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

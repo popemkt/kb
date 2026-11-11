@@ -64,7 +64,7 @@ const SCALARS = {
 export function shortcutNodeId(binding: string): string {
   return `sys.shortcut.binding.${binding}`;
 }
-function keyContextNodeId(context: string): string {
+export function keyContextNodeId(context: string): string {
   return declaredOptionId(KEY_CONTEXT_OPTIONS, context);
 }
 /** A tuple encoding: punctuation inside either member cannot become its separator. */
@@ -87,6 +87,15 @@ export function keyTargetNodeId(family: string, context: string, run: KeyRun): s
   // Recipes belong to their declaring family, like its other seeded data. Within that
   // declaration equal calls share one recipe, independently of the binding ids.
   return `sys.call.generated.${encodeURIComponent(family)}:${encodeURIComponent(canonicalJson(normalizedCall(run)))}`;
+}
+
+/** The same ordinary recipe codec is used for generated and person-authored calls. */
+export function callNode(id: string, call: ActionCall, at: string): KbNode {
+  const normalized = normalizedCall(call);
+  return node(id, normalized.action, SHORTCUT_IDS.call, at, {
+    [SHORTCUT_IDS.action]: [{ t: "str", v: normalized.action }],
+    [SHORTCUT_IDS.input]: [{ t: "str", v: canonicalJson(normalized.input) }],
+  });
 }
 
 function node(
@@ -236,6 +245,29 @@ const Strings = Schema.Array(Schema.Struct({ t: Schema.Literal("str"), v: Schema
 const readStrings = Schema.decodeUnknownOption(Strings);
 const readData = Schema.decodeUnknownOption(ChordDataSchema);
 
+/** Malformed imported recipes are inert; JSON text is never spread or partially decoded. */
+export function callOfNode(value: NodeLike): ActionCall | null {
+  const action = readStrings(value.props[SHORTCUT_IDS.action] ?? []);
+  const input = readStrings(value.props[SHORTCUT_IDS.input] ?? []);
+  if (
+    Option.isNone(action) ||
+    Option.isNone(input) ||
+    action.value.length !== 1 ||
+    input.value.length > 1
+  )
+    return null;
+  const id = action.value[0]?.v;
+  if (id === undefined) return null;
+  try {
+    return normalizedCall({
+      action: id,
+      input: input.value[0] === undefined ? {} : JSON.parse(input.value[0].v),
+    });
+  } catch {
+    return null;
+  }
+}
+
 /** Scalar fields keep their declared graph carrier and cardinality. */
 function scalarData(value: NodeLike): Record<string, unknown> | null {
   const data: Record<string, unknown> = {};
@@ -300,16 +332,7 @@ export function keyboardNodes(
   const bindings = (definition.bindings ?? []).flatMap(({ id, value }) => {
     const binding = namespaced(family, id);
     const target = keyTargetNodeId(family, value.context, value.run);
-    if ("action" in value.run) {
-      const call = normalizedCall(value.run);
-      calls.set(
-        target,
-        node(target, call.action, SHORTCUT_IDS.call, at, {
-          [SHORTCUT_IDS.action]: [{ t: "str", v: call.action }],
-          [SHORTCUT_IDS.input]: [{ t: "str", v: canonicalJson(call.input) }],
-        }),
-      );
-    }
+    if ("action" in value.run) calls.set(target, callNode(target, value.run, at));
     const chord = chordNode(`sys.shortcut.chord.${binding}`, value.chord, at);
     const description = node(shortcutNodeId(binding), id, SHORTCUT_IDS.tag, at, {
       [SHORTCUT_IDS.keys]: [{ t: "ref", v: chord.id }],
