@@ -140,7 +140,12 @@ const DATASCRIPT = /cljs\.core/;
 // walk), Enter keeping a disabled row unpicked, and the node menu's "Make
 // your own tag that extends this" take it to 1,827,344; the budget keeps
 // about 1.5 KB over that.
-const EAGER_BUDGET_BYTES = 1_828_900;
+// The node menu reaching a page's own node (one menu anchor on rows and
+// titles, ⌘K listing the page node's commands, a step handed to the node
+// menu, `faceOf`, the focused pane's subject), the picker's kind label and
+// its held-value deselect take it to 1,829,237; the budget keeps about
+// 1.5 KB over that.
+const EAGER_BUDGET_BYTES = 1_830_700;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {
