@@ -196,6 +196,20 @@ export function chordsOverlap(a: Chord, b: Chord): boolean {
   );
 }
 
+/** Whether every press of `part` is also claimed by `whole`; unknown predicates stay conservative. */
+export function chordIncludes(whole: Chord, part: Chord): boolean {
+  const keys = listedKeys(part.key);
+  const includesKeys =
+    whole.key === undefined ||
+    whole.key === part.key ||
+    (keys !== null && keys.every((key) => keyMatches(whole.key, key)));
+  return (
+    (whole.code === undefined || whole.code === part.code) &&
+    includesKeys &&
+    MODIFIER_STATES.every((mods) => !modifiersMatch(part, mods) || modifiersMatch(whole, mods))
+  );
+}
+
 const MODIFIER_TOKENS = ["Mod", "Meta", "Ctrl", "Shift", "Alt"] as const;
 type ModifierToken = (typeof MODIFIER_TOKENS)[number];
 

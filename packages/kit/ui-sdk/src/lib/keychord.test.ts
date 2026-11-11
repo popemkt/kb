@@ -1,6 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
+  chordIncludes,
   chordsOverlap,
   describeChord,
   lookupChord,
@@ -101,5 +102,24 @@ describe("a chord by place", () => {
 
   it("reads as its place", () => {
     expect(describeChord({ code: "KeyH", alt: true, shift: true })).toBe("Shift-Alt-[KeyH]");
+  });
+});
+
+describe("chordIncludes", () => {
+  it("proves every modifier and character admitted by the part belongs to the whole", () => {
+    fc.assert(
+      fc.property(chordArb, chordArb, (whole, part) => {
+        if (chordIncludes(whole, part)) {
+          expect(events.every((ev) => !matchesChord(ev, part) || matchesChord(ev, whole))).toBe(
+            true,
+          );
+        }
+      }),
+    );
+  });
+  it("requires the same physical place when the whole constrains it", () => {
+    expect(chordIncludes({ code: "NumpadEnter" }, { code: "NumpadEnter", mod: false })).toBe(true);
+    expect(chordIncludes({ code: "NumpadEnter" }, { key: "Enter" })).toBe(false);
+    expect(chordIncludes({ code: "NumpadEnter" }, { code: "Enter" })).toBe(false);
   });
 });

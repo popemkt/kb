@@ -263,3 +263,77 @@ it("requires replacement approval when another owner takes a character chord by 
       ?.resolve({ key: "Enter", code: "NumpadEnter" })?.id,
   ).toBe(physical.id);
 });
+
+describe("replacements across precedence slots", () => {
+  const numpad: Contribution<Keybinding> = {
+    ...SPLIT,
+    id: "outline.numpad",
+    value: { ...SPLIT.value, chord: { code: "NumpadEnter", mod: false } },
+  };
+  it("lets an approved character replacement replace a physical holder", () => {
+    const replacement: Contribution<Keybinding> = {
+      id: "x.enter",
+      owner: "x",
+      aliases: [],
+      value: {
+        context: ROW.id,
+        chord: { key: "Enter", mod: false },
+        run: { command: "x.go" },
+        replaces: numpad.id,
+      },
+    };
+    const map = admitKeymaps([ROW], [numpad, replacement], ANYONE).get(ROW.id);
+    expect(map?.refused).toEqual([]);
+    expect(
+      admitKeymaps([ROW], [SPLIT, numpad, replacement], () => false)
+        .get(ROW.id)
+        ?.refused.map((b) => b.id),
+    ).toContain(replacement.id);
+    expect(map?.resolve({ key: "Enter", code: "NumpadEnter" })?.id).toBe(replacement.id);
+  });
+  it("lets an approved physical replacement replace its holder with a lower-priority fallback present", () => {
+    const replacement: Contribution<Keybinding> = {
+      id: "x.numpad",
+      owner: "x",
+      aliases: [],
+      value: {
+        context: ROW.id,
+        chord: { code: "NumpadEnter", mod: false },
+        run: { command: "x.go" },
+        replaces: numpad.id,
+      },
+    };
+    const map = admitKeymaps([ROW], [SPLIT, numpad, replacement], ANYONE).get(ROW.id);
+    expect(map?.refused).toEqual([]);
+    expect(
+      admitKeymaps([ROW], [SPLIT, numpad, replacement], () => false)
+        .get(ROW.id)
+        ?.refused.map((b) => b.id),
+    ).toContain(replacement.id);
+    expect(map?.resolve({ key: "Enter", code: "NumpadEnter" })?.id).toBe(replacement.id);
+    expect(map?.resolve({ key: "Enter", code: "Enter" })?.id).toBe(SPLIT.id);
+  });
+});
+
+it("refuses a physical replacement that expands beyond its holder into a fallback", () => {
+  const numpad = {
+    ...SPLIT,
+    id: "outline.numpad",
+    value: { ...SPLIT.value, chord: { code: "NumpadEnter", mod: false, shift: false } },
+  };
+  const replacement: Contribution<Keybinding> = {
+    id: "x.numpad",
+    owner: "x",
+    aliases: [],
+    value: {
+      context: ROW.id,
+      chord: { code: "NumpadEnter", mod: false },
+      run: { command: "x.go" },
+      replaces: numpad.id,
+    },
+  };
+  const fallback = { ...SPLIT, value: { ...SPLIT.value, chord: { key: "Enter", mod: false } } };
+  const map = admitKeymaps([ROW], [fallback, numpad, replacement], ANYONE).get(ROW.id);
+  expect(map?.refused.map((b) => b.id)).toContain(replacement.id);
+  expect(map?.resolve({ key: "Enter", code: "NumpadEnter", shiftKey: true })?.id).toBe(SPLIT.id);
+});
