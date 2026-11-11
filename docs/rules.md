@@ -1560,14 +1560,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Run the renderer contract suite in the browser lane (Playwright with WebGL), or give sigma a headless WebGL context in the unit run, and drop the todo rows.
 - **node** — `01M3EGV5616VKVV4J76ABC5XX2`
 
-### GAP: the graph's cluster render specs fail intermittently on CI (render.e2e.ts:269, :444)
-
-- **expected** — The cluster renderer's specs pass on every CI render shard: 'cluster paints labels and a hull spanning its members' (render.e2e.ts:269) and 'cluster selects in place, keeps camera still, and composes zero search with selection' (:444)
-- **current** — Both fail intermittently on the macOS render shard and pass on a rerun. :444 failed on days/base in run 42865936403 (before #153) and on #167 in run 42921073994 attempt 1 (job 130195816989): the selection card was not found within 5 s of a click at the root node's position. :269 failed on main 0f66c889 in run 42920818373 (job 130194974248): the hull's alpha box did not span 60% of the members within 5 s. /graph draws no page-head backdrop, so the backdrop work is not the cause
-- **impact** — A red render shard on main or on a PR for a reason unrelated to the change, rerun until green, which hides a real failure in the same specs
-- **closes** — Find what each waits on: :269's final poll uses expect's 5 s default where the spec's other polls use PAGE_READY or SETTLE, and the hull is drawn only after the layout frames its members; :444 clicks a node's page position, which a layout still moving can leave. Then make each wait on the signal it means, with a run that fails before and passes after, without weakening either assertion
-- **node** — `01M740DVZBBAHDACZTMG9N1RX8`
-
 ### GAP: the inline markdown parser is a 41-branch hand-rolled scanner
 
 - **expected** — Inline markdown parses through a table of segment recognizers tried in order, each recognizer a named, separately tested function.
