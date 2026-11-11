@@ -333,14 +333,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — packageShards packs mutants by line range instead of by file, emitting file:start-end entries in a shard's mutate.
 - **node** — `01M558MRWHR92991GYFRC5WWXY`
 
-### GAP: a node added without a parent from the CLI or MCP does not ask the capture target
-
-- **expected** — Every surface that adds a node with no chosen place (node.add or node.addTree without parent: kb add, MCP, an agent) asks the capture target, as the page does, so a capture lands in today wherever it is made.
-- **current** — Only the page asks it: ui.capture-target is a page role, and planNodeAdd puts a node without a parent at the forest roots.
-- **impact** — kb add "x" and an agent's capture land at the top level while the page's land in today, so a person finds them in two places.
-- **closes** — A server role of the same name that node.add and node.addTree consult through roleCall when parent is absent, provided by the days family's host half.
-- **node** — `01M7357PSG9XZH0JBFDHV6DM2T`
-
 ### GAP: a node can be moved only one step at a time
 
 - **expected** — A node is moved anywhere in the graph from the editor: to another parent picked by name, or by dragging the row.
