@@ -69,6 +69,15 @@ export const CORE_POINT_DEFINITIONS = {
       tier: "T3",
     },
   },
+  procedure: {
+    name: "kb.procedures",
+    spec: {
+      cardinality: "keyed",
+      combine: "lookup by contribution id",
+      kernel: ["registry", "server"],
+      tier: "T3",
+    },
+  },
   action: {
     name: "kb.actions",
     spec: {

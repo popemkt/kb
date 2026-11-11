@@ -163,13 +163,33 @@ export function report(
   return EXIT_OK;
 }
 
+/** An action's output as lines, read through its definition's schema. */
+export function outputLines<T>(
+  def: {
+    id: string;
+    outputSchema: {
+      safeParse: (
+        value: unknown,
+      ) => { success: true; data: T } | { success: false; error: { message: string } };
+    };
+  },
+  lines: (output: T) => readonly string[],
+): (output: unknown) => readonly string[] {
+  return (output) => {
+    const parsed = def.outputSchema.safeParse(output);
+    return parsed.success
+      ? lines(parsed.data)
+      : [`${def.id} answered in another shape: ${parsed.error.message}`];
+  };
+}
+
 /**
  * Ask the person at this process's terminal a yes/no `question` after
  * `preface`, and answer whether they said yes. No terminal, or no answer in
  * two minutes, is no: the terminal is the one place a person answers, so a
  * pipe or a script never does.
  */
-const askTerminal = Effect.fn("askTerminal")(function* <R>(
+export const askTerminal = Effect.fn("askTerminal")(function* <R>(
   preface: Effect.Effect<string, never, R>,
   question: string,
 ) {

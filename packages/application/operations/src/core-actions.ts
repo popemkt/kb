@@ -57,6 +57,14 @@ import {
   renderViewsDef,
 } from "./render.ts";
 import {
+  procedureListDef,
+  procedureListEffect,
+  procedureStatusDef,
+  procedureStatusEffect,
+  procedureStepDef,
+  procedureStepEffect,
+} from "./procedure.ts";
+import {
   storeBackupDef,
   storeBackupEffect,
   storeBackupsDef,
@@ -106,6 +114,9 @@ const portActions: readonly RegisteredAction[] = [
   coreNative(storeBackupDef, storeBackupEffect),
   coreNative(storeBackupsDef, storeBackupsEffect),
   coreNative(storeRestoreDef, storeRestoreEffect),
+  coreNative(procedureListDef, procedureListEffect),
+  coreNative(procedureStatusDef, procedureStatusEffect),
+  coreNative(procedureStepDef, procedureStepEffect),
   coreNative(uiScreenDef, uiScreenEffect),
   coreNative(uiNavigateDef, uiNavigateEffect),
   coreNative(uiSelectDef, uiSelectEffect),

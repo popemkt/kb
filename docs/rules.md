@@ -1640,6 +1640,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — palette-index.test.ts asserts open <50ms and keystroke <10ms at 50k nodes. A standalone benchmark puts Array.from({length:n}) about 40% behind new Array(n) at that size, and the push variant flipped that test red on three of four full-suite runs on a loaded machine. Close it by making the 50k path fast enough that the allocation shape stops mattering (incremental or worker-side palette search), then delete both disables.
 - **node** — `01M1MFJXAQ8NVBMA6E6CZ7CY9W`
 
+### GAP: the routines Google setup wizard keeps its own steps beside the core procedure
+
+- **expected** — The wizard is a procedure (ProcedurePoint): each setup step an action, each step's done-ness the routines setup predicates, read by procedure.status; the setup page is the procedure wizard page
+- **current** — SETUP_STEPS / stepDone / currentStep in packages/extension/routines/src/setup.ts and the SetupWizard shell in routines-ui are the one-off of the pattern the core procedure generalises
+- **impact** — Two step-walkers: a fix to resuming, ordering or surfaces lands in one and not the other; the wizard has no CLI or MCP walk
+- **closes** — Contribute the routines setup as a procedure (steps over the confirm actions, checks over readAccountSetup), render the sync page from procedure.status, delete SETUP_STEPS' own walker
+- **node** — `01M74NN86YC7HP65R2JVYMM27F`
+
 ### GAP: the saved-query virtual set appends to the store's tail, which a remote root does not own
 
 - **expected** — The virtual set records its transactions without taking a rev in the store's sequence (docs/research/2026-10-31-online-stores.md §4.4).
