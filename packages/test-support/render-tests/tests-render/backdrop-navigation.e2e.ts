@@ -8,7 +8,9 @@
 // and its one context, its clock only moves forward, and no GPU context is
 // made after the first. A page that chooses another backdrop crossfades to
 // it, and under reduced motion swaps at once; either way only one canvas is
-// left once it has.
+// left once it has. On a slow machine, a crossfade onto a page whose backdrop
+// field shows every backdrop as a sample still lets its old backdrop go when
+// its fade is over, the samples' scenes starting in turns.
 import { SYSTEM_IDS, backdropOptionId } from "@kb/model";
 import type { APIRequestContext, Page } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
@@ -179,6 +181,75 @@ test("a page that chooses another backdrop crossfades to it", async ({ page, har
     timeout: 20_000,
   });
   expect(await page.locator("[data-page-backdrop] canvas").count()).toBe(1);
+});
+
+/** Records the page's long tasks, from the first script on. */
+function recordLongTasks() {
+  const tasks: number[] = [];
+  Object.assign(window, { kbLongTasks: tasks });
+  new PerformanceObserver((list) => {
+    for (const entry of list.getEntries()) tasks.push(entry.duration);
+  }).observe({ type: "longtask", buffered: true });
+}
+
+test("on a slow machine, a crossfade onto a page of samples lets its old backdrop go on time", async ({
+  page,
+  harness,
+}) => {
+  test.setTimeout(180_000);
+  await page.addInitScript(recordLongTasks);
+  await page.goto(`${harness.url}/node/${ROOT}`);
+  await expect(page.locator(`${FRAME} [data-scene-state="ready"]`)).toBeAttached({
+    timeout: 20_000,
+  });
+  const fadeMs = 2000;
+  await page.addStyleTag({ content: `html { --motion-duration-theme: ${fadeMs}ms !important; }` });
+  // A slow machine: every script the page runs, a scene's compile among them, takes six times as long.
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 6 });
+  // The page clocks the move and the old backdrop's going itself, so no poll's interval is counted.
+  await page.evaluate((to) => {
+    const timed = window as unknown as {
+      kbLongTasks: number[];
+      kbMovedAt: number;
+      kbGoneAt: number;
+    };
+    timed.kbLongTasks.length = 0;
+    let seen = false;
+    const watch = new MutationObserver(() => {
+      if (document.querySelector('[data-backdrop-layer="leaving"]') !== null) {
+        seen = true;
+        return;
+      }
+      if (!seen) return;
+      timed.kbGoneAt = performance.now();
+      watch.disconnect();
+    });
+    timed.kbGoneAt = 0;
+    // The page chooses its own backdrop, so its backdrop field shows every backdrop as a sample.
+    timed.kbMovedAt = performance.now();
+    history.pushState({}, "", to);
+    dispatchEvent(new PopStateEvent("popstate"));
+    watch.observe(document.body, { childList: true, subtree: true, attributes: true });
+  }, `/node/${OWN}`);
+  const leaving = page.locator('[data-backdrop-layer="leaving"]');
+  await expect(leaving).toHaveCount(1);
+  await expect(leaving).toHaveCount(0, { timeout: 120_000 });
+  const late = await page.evaluate((fade) => {
+    const timed = window as unknown as { kbMovedAt: number; kbGoneAt: number };
+    return Math.round(timed.kbGoneAt - timed.kbMovedAt - fade);
+  }, fadeMs);
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+  const tasks = await page.evaluate(
+    () => (window as unknown as { kbLongTasks: number[] }).kbLongTasks,
+  );
+  const [longest = 0, next = 0] = tasks.toSorted((a, b) => b - a);
+  // Its old backdrop goes when its fade is over, as late as the page was busy then: at most the
+  // head's own start and one sample's, never every sample's in a row (`gpu/sample-turns.ts`).
+  expect(
+    late,
+    `${late} ms late; long tasks ${JSON.stringify(tasks.map(Math.round))}`,
+  ).toBeLessThanOrEqual(longest + next + 500);
 });
 
 test("under reduced motion, a page that chooses another backdrop swaps to it at once", async ({

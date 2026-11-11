@@ -5166,6 +5166,13 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   each scene with `import()`: three never reaches the first-load bundle
   (`UI_LAZY_ONLY`). Until a scene is ready, and on a machine that cannot
   start one, the head shows the wash.
+- **Samples start in turns** (`gpu/sample-turns.ts`). A scene's start
+  compiles its materials on the main thread, in its first frame. A sample
+  (`HeldStill`: an option card, a gallery's) starts once the sample before
+  it has settled, in a task of its own, so a gallery of a dozen cards never
+  holds the page for all of their compiles in a row, and the page's own
+  timers (a crossfade letting its old backdrop go) run between any two. A
+  page head's scene is no sample and starts at once.
 - **One mount** (`gpu/gpu-scene.ts`'s `mountBackdrop`) gives every GPU
   backdrop the same stage and the same promises; a backdrop is its shader
   and its `BackdropParts`.
