@@ -5421,12 +5421,15 @@ is optional and on by default. Its browser half is DESIGN-UI.md →
   - A commit that would leave two nodes holding one key is refused, from
     every surface (`ext.days.unique-key`, a commit guard on every write).
     This is what stops a person hand-keying a duplicate.
-
   - A key is a real period of its node (`ext.days.period-key`, a commit
     guard on every write): only a node that is one `#day`, `#week` or
     `#year` (or a tag extending one) holds a key, in that period's form, a
     date `2026-11-10`, an ISO week of its year `2026-W46` or a year `2026`.
-    The guard reads only a write that changes a key or a keyed node's tags.
+    The key is judged as stored, never trimmed, so a blank or padded key
+    is a malformed one. The guard reads a write that changes a node's key
+    or tags; a write that changes what a tag extends (or deletes a tag that
+    extended one) has every holder judged again over the graph after it,
+    so a tag that stops extending `#day` cannot leave its nodes keyed.
 
   With the two guards, every key a store holds names one real period, so
   the key needs no lock. It is hidden, and managed by the family

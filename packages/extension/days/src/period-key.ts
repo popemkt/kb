@@ -8,19 +8,23 @@
  * a correction, not a corruption, so the field is managed but not locked
  * (`sys.f.managedBy`; DESIGN.md → Data-plane freedom).
  *
- * The guard looks only at a write that leaves a node holding a key it did
- * not hold so, or tagged otherwise than before, so an ordinary commit costs
- * nothing.
+ * The key is judged as stored, never trimmed: a blank or padded key is a
+ * malformed one, and only a node with no key value at all holds none. The
+ * guard judges a node whose key or tags a write changes; a write that
+ * changes what a tag extends (or deletes a tag that extended one) can make
+ * a holder stop being its period, so it judges every holder, over the graph
+ * as the commit leaves it. An ordinary commit costs nothing.
  */
 import { Effect } from "effect";
 import type { ActionGuard } from "@kb/contracts";
 import {
-  strValueOf,
+  SYSTEM_IDS,
   tagChains,
   typeRefsOf,
   type KindsLookup,
   type NodeLike,
   type NodeWrite,
+  type PropValue,
 } from "@kb/model";
 import { DAYS_IDS } from "./ids.ts";
 import { isDayKey, weekKey } from "./period.ts";
@@ -57,26 +61,72 @@ function periodsOf(node: NodeLike, nodeOf: KindsLookup): (typeof PERIODS)[number
   return PERIODS.filter(({ tag }) => reached.has(tag));
 }
 
+/** The key values `node` holds, as stored; none when it holds no key. */
+function keyValues(node: Pick<NodeLike, "props"> | undefined): readonly PropValue[] {
+  return node?.props[DAYS_IDS.keyField] ?? [];
+}
+
+const same = (a: readonly unknown[], b: readonly unknown[]) =>
+  JSON.stringify(a) === JSON.stringify(b);
+
+const extendsOf = (node: NodeLike | undefined) => node?.props[SYSTEM_IDS.extendsField] ?? [];
+
+/** Whether `write` changes what a tag extends: the ancestry every holder is judged through. */
+function movesAncestry({ before, after }: NodeWrite): boolean {
+  return !same(extendsOf(before), extendsOf(after));
+}
+
+/** Whether `write` leaves a node whose key or tags are not what they were. */
+function changesKeyOrTags({ before, after }: NodeWrite): boolean {
+  if (after === undefined) return false;
+  if (before === undefined) return true;
+  return !same(keyValues(before), keyValues(after)) || !same(typeRefsOf(before), typeRefsOf(after));
+}
+
+/** Why `node`'s key is not a period of it, or null when it is one or there is none. */
+function keyRefusal(node: NodeLike, nodeOf: KindsLookup): string | null {
+  const values = keyValues(node);
+  if (values.length === 0) return null;
+  const shown = values.map((value) => `“${String(value.v)}”`).join(", ");
+  const periods = periodsOf(node, nodeOf);
+  const [period] = periods;
+  if (period === undefined || periods.length > 1)
+    return `“${node.text}” holds the period ${shown}, but only a node that is one #day, #week or #year has a period`;
+  const fits = values.every((value) => value.t === "str" && period.fits(value.v));
+  return fits
+    ? null
+    : `${shown} is not a ${period.name}: a ${period.name}'s period is ${period.form}`;
+}
+
+const leftBy = (writes: readonly NodeWrite[]) =>
+  writes.flatMap(({ after }) => (after === undefined ? [] : [after]));
+
+/**
+ * The nodes `writes` could leave with a key that is no period of theirs:
+ * those whose key or tags they change, or, when they move what a tag
+ * extends, every node after the commit (`held` is every node before it).
+ */
+function judgedBy(writes: readonly NodeWrite[], held: Iterable<NodeLike>): NodeLike[] {
+  if (!writes.some(movesAncestry)) return leftBy(writes.filter(changesKeyOrTags));
+  const written = new Set(writes.map(({ before, after }) => (after ?? before)?.id));
+  return [...leftBy(writes), ...[...held].filter((node) => !written.has(node.id))];
+}
+
 /**
  * Why `writes` may not land: a node they leave holding a period key that
  * is not a day, week or year, or a key not in its period's form, read over
  * the graph as it would be after the commit (`nodeOf`); null when every
- * key they touch is one.
+ * key they touch is one. `held` is every node before the commit, which a
+ * write that moves a tag's ancestry has judged again.
  */
-export function periodKeyRefusal(writes: readonly NodeWrite[], nodeOf: KindsLookup): string | null {
-  for (const { before, after } of writes) {
-    if (after === undefined) continue;
-    const key = strValueOf(after, DAYS_IDS.keyField);
-    if (key === null) continue;
-    const retagged =
-      typeRefsOf(after).join() !== (before === undefined ? "" : typeRefsOf(before).join());
-    if (key === strValueOf(before, DAYS_IDS.keyField) && !retagged) continue;
-    const periods = periodsOf(after, nodeOf);
-    const [period] = periods;
-    if (period === undefined || periods.length > 1)
-      return `“${after.text}” holds the period ${key}, but only a node that is one #day, #week or #year has a period`;
-    if (!period.fits(key))
-      return `${key} is not a ${period.name}: a ${period.name}'s period is ${period.form}`;
+export function periodKeyRefusal(
+  writes: readonly NodeWrite[],
+  nodeOf: KindsLookup,
+  held: Iterable<NodeLike> = [],
+): string | null {
+  for (const node of judgedBy(writes, held)) {
+    const refusal = keyRefusal(node, nodeOf);
+    if (refusal !== null) return refusal;
   }
   return null;
 }
@@ -89,7 +139,7 @@ export const periodKeyGuard: Omit<ActionGuard, "match"> = {
       );
       const nodeOf = (id: string): NodeLike | undefined =>
         written.has(id) ? written.get(id) : call.nodeOf(id);
-      const refusal = periodKeyRefusal(call.writes, nodeOf);
+      const refusal = periodKeyRefusal(call.writes, nodeOf, call.ctx.nodes);
       return refusal === null
         ? { decision: "allow" as const }
         : { decision: "deny" as const, rule: "days.period-key", message: refusal };

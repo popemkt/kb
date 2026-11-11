@@ -182,7 +182,7 @@ function daysContract(backend: StoreBackend) {
         const receipt = await invoke(ctx, add);
         expect(receipt.status === "failed" && receipt.message).toContain(says);
       };
-      await refused(keyedAdd("bad-date", "2026-02-30"), "2026-02-30 is not a day");
+      await refused(keyedAdd("bad-date", "2026-02-30"), "“2026-02-30” is not a day");
       await refused(keyedAdd("bad-week", "2026-W60", DAYS_IDS.weekTag), "is not a week");
       await refused(keyedAdd("no-period", "2026-11-10", SYSTEM_IDS.tag), "only a node that is one");
       const { id } = output(
@@ -200,6 +200,47 @@ function daysContract(backend: StoreBackend) {
       expect(
         output(await invoke(ctx, { id: "ext.days.today", input: { day: "2026-11-09" } })).id,
       ).toBe(id);
+    });
+
+    test("a key is judged as stored, and a tag that stops extending #day takes its holders' period away", async () => {
+      const ctx = await freshKb();
+      const failed = async (call: { id: string; input: unknown }, says: string) => {
+        const receipt = await invoke(ctx, call);
+        expect(receipt.status === "failed" && receipt.message).toContain(says);
+      };
+      await failed(keyedAdd("blank", "   "), "“   ” is not a day");
+      await failed(keyedAdd("padded", " 2026-11-10"), "is not a day");
+
+      const extendsDay = {
+        field: SYSTEM_IDS.extendsField,
+        value: { t: "ref" as const, v: DAYS_IDS.dayTag },
+      };
+      const made = await invoke(ctx, {
+        id: "node.add",
+        input: {
+          id: "t.myday",
+          text: "my day",
+          parent: null,
+          props: [
+            { field: SYSTEM_IDS.typeField, value: { t: "ref", v: SYSTEM_IDS.tag } },
+            extendsDay,
+          ],
+        },
+      });
+      expect(made.status).toBe("succeeded");
+      expect((await invoke(ctx, keyedAdd("mine", "2026-11-10", "t.myday"))).status).toBe(
+        "succeeded",
+      );
+      await failed(
+        {
+          id: "node.update",
+          input: { id: "t.myday", unsetProps: [{ field: SYSTEM_IDS.extendsField }] },
+        },
+        "“mine” holds the period “2026-11-10”, but only a node that is one",
+      );
+      expect(
+        ctx.nodes.find((node) => node.id === "t.myday")?.props[SYSTEM_IDS.extendsField],
+      ).toEqual([extendsDay.value]);
     });
 
     test("a value that is not a calendar date is refused", async () => {
