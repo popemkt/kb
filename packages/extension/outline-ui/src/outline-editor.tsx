@@ -1,6 +1,7 @@
 import { useCallback, useContext, useEffect } from "react";
 import {
   browserHost,
+  cn,
   isTextEntry,
   nodeTagColors,
   OpenNodeContext,
@@ -13,7 +14,7 @@ import {
   PageBackdrop,
 } from "@kb/ui-sdk";
 import { isQueryNode } from "@kb/model";
-import { projectsRows, type FrameViewKey } from "@kb/views";
+import type { FrameViewKey } from "@kb/views";
 import { useOutlineNode, outlineNodes } from "./outline.store";
 import { createTransientNode } from "./editing-writes";
 import { Breadcrumbs } from "./breadcrumbs";
@@ -21,12 +22,14 @@ import { FrameViewSlot } from "./frame-view-slot";
 import { NodeBlock } from "./node-block";
 import { QueryResultsSection } from "./query-results";
 import { NodeCommandPalette } from "./node-command-palette";
+import { NodeSections } from "./node-sections";
 import { ReferencesSection } from "./references-section";
 import { SchemaSection } from "./schema-section";
 import { ZoomedRootHeader } from "./zoomed-root-header";
 import { useSelectionKeymap } from "./use-selection-keymap";
 import { setOutlineHost } from "./outline-hosts";
 import { useLeadsOutlines, useOutlineHost } from "./outline-host";
+import { takesRows } from "./takes-rows";
 
 /**
  * The root's rows. The root is a frame like any other: its view shows its
@@ -44,6 +47,48 @@ function RootRows({ root, view }: { root: OutlineNode; view: FrameViewKey | null
         <NodeBlock key={instanceKey} nodeId={nodeId} instanceKey={instanceKey} depth={depth} />
       )}
     />
+  );
+}
+
+/**
+ * The strip under a page's rows that adds one at the end. The page's
+ * background is not a create target, only the strip is (F14), and the
+ * strip's handler is its own, with no guard (F1). On a page with no rows
+ * yet it is the first row's place, and says so without a hover.
+ */
+function CreateStrip({ parentId }: { readonly parentId: string }) {
+  const empty = useOutlineNode(parentId)?.children.length === 0;
+  const create = useCallback(() => {
+    void createTransientNode(parentId, outlineNodes().get(parentId)?.children.slice(-1)[0] ?? null);
+  }, [parentId]);
+  return (
+    <div
+      data-create-child-zone={parentId}
+      role="button"
+      tabIndex={0}
+      aria-label="New node"
+      className="group/create flex h-8 cursor-pointer items-center rounded-sm pl-6 outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+      onClick={create}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          create();
+        }
+      }}
+      title="New node"
+      data-create-empty={empty || undefined}
+    >
+      <span
+        className={cn(
+          "text-ui leading-none transition-colors duration-150",
+          empty
+            ? "text-foreground/30 group-hover/create:text-foreground/50"
+            : "text-foreground/0 group-hover/create:text-foreground/25 group-focus-visible/create:text-foreground/25",
+        )}
+      >
+        {empty ? "+ New node" : "+"}
+      </span>
+    </div>
   );
 }
 
@@ -68,17 +113,6 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
   }, [host, rootProp, slotChain, open]);
   const leads = useLeadsOutlines();
 
-  /**
-   * Container background is NOT a create target — only the explicit strip is (F14).
-   * The zoomed container click is removed entirely; the strip has its own guard-free handler (F1).
-   */
-  const handleStripCreate = useCallback(() => {
-    void createTransientNode(
-      rootNodeId,
-      outlineNodes().get(rootNodeId)?.children.slice(-1)[0] ?? null,
-    );
-  }, [rootNodeId]);
-
   if (!root) {
     return (
       <div
@@ -92,8 +126,6 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
     );
   }
 
-  const projected = projectsRows(rootView?.key ?? null);
-  const isQuery = isQueryNode(root);
   const rootRows = <RootRows root={root} view={rootView?.key ?? null} />;
 
   if (rootNodeId !== WORKSPACE_ROOT_ID) {
@@ -113,29 +145,10 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
 
         {rootRows}
 
-        {!projected && !isQuery && (
-          <div
-            data-create-child-zone={rootNodeId}
-            role="button"
-            tabIndex={0}
-            aria-label="New node"
-            className="group/create flex h-8 cursor-pointer items-center rounded-sm pl-6 outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-            onClick={handleStripCreate}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                handleStripCreate();
-              }
-            }}
-            title="New node"
-          >
-            <span className="text-ui leading-none text-foreground/0 transition-colors duration-150 group-hover/create:text-foreground/25 group-focus-visible/create:text-foreground/25">
-              +
-            </span>
-          </div>
-        )}
+        {takesRows(root, rootView?.key ?? null) && <CreateStrip parentId={rootNodeId} />}
         <SchemaSection nodeId={rootNodeId} />
         <ReferencesSection nodeId={rootNodeId} />
+        <NodeSections nodeId={rootNodeId} />
         {leads ? <OutlinePageKeys /> : null}
       </div>
     );
@@ -149,25 +162,7 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
 
       {rootRows}
 
-      <div
-        data-create-child-zone={WORKSPACE_ROOT_ID}
-        role="button"
-        tabIndex={0}
-        aria-label="New node"
-        className="group/create flex h-8 cursor-pointer items-center rounded-sm pl-6 outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-        onClick={handleStripCreate}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            handleStripCreate();
-          }
-        }}
-        title="New node"
-      >
-        <span className="text-ui leading-none text-foreground/0 transition-colors duration-150 group-hover/create:text-foreground/25 group-focus-visible/create:text-foreground/25">
-          +
-        </span>
-      </div>
+      <CreateStrip parentId={WORKSPACE_ROOT_ID} />
       {leads ? <OutlinePageKeys /> : null}
     </div>
   );

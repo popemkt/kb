@@ -1316,6 +1316,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M6YS6XH9XS4TX7S7AYWXJX3A`
 
+### GAP: repository extensions cannot contribute ui.node-sections
+
+- **expected** — The page surface a repository extension's page half gets (kb-ext-sdk/page, PAGE_EXTENSION_SDK) offers NodeSectionPoint, so a family loaded from .kb/extensions can add a section below the outline of a node that is one of its tags, as a bundled family does (DESIGN-UI.md → Node pages).
+- **current** — NodeSectionPoint (ui.node-sections) is in @kb/ui-sdk only. PAGE_EXTENSION_SDK and its restatement for authors (@kb/ext-sdk page-surface.ts, sdk-dts.text.ts) do not name it, so only bundled families (days) contribute sections. It was left out of #182 because joining the surface means restating NodeSection for authors, within the page surface bridge's rules, and that change is wider than the day page.
+- **impact** — A repository extension cannot show anything on its tags' pages: an inbox, a project or an events family has to wait for a bundled build or draw its own page, which Rule 1 rules out. The point's promise (any family, per tag) holds only for bundled code.
+- **closes** — Add NodeSectionPoint to PAGE_EXTENSION_SDK and NodeSection/NodeSectionProps to page-surface.ts and sdk-dts.text.ts, so page-surface-bridge.test.ts holds them together. Prove it with the example repository extension contributing a section in repository-extension.acceptance.test.tsx.
+- **node** — `01M74PDWPASZ30SBGA95EV0X0M`
+
 ### GAP: repository extensions cannot ship UI
 
 - **expected** — A .kb/extensions module can carry a browser half (<name>.ui.tsx) that the server builds to ESM, serves at /ext/<name>/ui.js and the UI loads into its kernel at runtime, sharing the host's React through import-map shims, reloaded on change.

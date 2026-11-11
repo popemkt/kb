@@ -1,14 +1,14 @@
 import { describe, expect, test } from "vitest";
 import { DAYS_IDS } from "@kb/days";
 import { SYSTEM_IDS } from "@kb/model";
-import { touchedOn, type Stamped } from "./touched";
+import { touchedIn, type Stamped } from "./touched";
 
 function node(id: string, extra: Partial<Stamped> = {}): Stamped {
   return { id, text: id, props: {}, children: [], ...extra };
 }
 const ref = (v: string) => [{ t: "ref" as const, v }];
 
-describe("touchedOn", () => {
+describe("touchedIn", () => {
   const nodes = new Map<string, Stamped>(
     [
       node("made", {
@@ -43,16 +43,24 @@ describe("touchedOn", () => {
   );
 
   test("a node made or edited on the day counts, newest edit first", () => {
-    expect(touchedOn(nodes, "2026-11-10", "UTC")).toEqual(["edited", "made"]);
+    expect(touchedIn(nodes, "2026-11-10", "UTC")).toEqual(["edited", "made"]);
   });
 
   test("the day is read in the page's zone", () => {
-    expect(touchedOn(nodes, "2026-11-10", "Asia/Ho_Chi_Minh")).toEqual(["edited", "made", "late"]);
-    expect(touchedOn(nodes, "2026-11-09", "UTC")).toEqual(["late", "yesterday"]);
+    expect(touchedIn(nodes, "2026-11-10", "Asia/Ho_Chi_Minh")).toEqual(["edited", "made", "late"]);
+    expect(touchedIn(nodes, "2026-11-09", "UTC")).toEqual(["late", "yesterday"]);
+  });
+
+  test("a week or a year counts what was made or edited within it, in the page's zone", () => {
+    // 2026-11-09 to 2026-11-15 is ISO week 46.
+    expect(touchedIn(nodes, "2026-W46", "UTC")).toEqual(["edited", "made", "late", "yesterday"]);
+    expect(touchedIn(nodes, "2026-W45", "UTC")).toEqual([]);
+    expect(touchedIn(nodes, "2026", "UTC")).toEqual(["edited", "made", "late", "yesterday"]);
+    expect(touchedIn(nodes, "2025", "UTC")).toEqual([]);
   });
 
   test("period nodes, schema, options and sys nodes are never what a day made", () => {
-    const listed = touchedOn(nodes, "2026-11-10", "UTC");
+    const listed = touchedIn(nodes, "2026-11-10", "UTC");
     for (const id of ["day", "tag", "option", "sys.thing"]) expect(listed).not.toContain(id);
   });
 });

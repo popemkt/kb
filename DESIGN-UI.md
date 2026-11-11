@@ -719,6 +719,37 @@ tucked. From the keyboard: Tab reaches the
 button, and the node menu offers "Edit query" / "Hide query", opening a
 closed row to show it (`outline-ui/src/outline-commands.tsx`).
 
+### Node pages
+
+A node's page (`/node/<id>`, the outline rooted at the node) is the same
+for every node: a day, a tag, a person's note. Under the page head come
+its title, tags and fields, its children in its view, and then what
+reaches it from elsewhere: for a tag or field, what carries it (Schema),
+then its References.
+
+- **A page that takes rows** (a list, not a projected view or a query;
+  `takesRows`) offers two ways to its rows, the same on every node's page:
+  - **Enter in its title** ends the title's edit and opens a first row
+    above whatever the page holds, as Tana's title does: a transient row
+    (Outline editor), pruned if left empty.
+  - **Its create strip** adds a row at the end. While the page holds no
+    rows, as a new day does, the strip is the first row's place and says
+    so without a hover ("+ New node"); once it holds one, it is the quiet
+    strip again. Nothing is written until the person asks.
+- **Sections below the outline, contributed per tag.** A family that
+  shows something on the page of a node that is one of its tags
+  contributes a section to the core point `ui.node-sections` (page
+  kernel, `NodeSectionPoint` in `@kb/ui-sdk`): `{tags, order, title,
+  shown?, Component}`. The page draws, after References, every section
+  contributed for a tag the node is, through its tags and what they
+  extend, in ascending `order`. `shown` reads the graph (a family's
+  setting, say), and a section shows always without it. The page draws
+  the title as References draws its own; the body is given the node's id,
+  may be a chunk of its own, and lists nodes with `NodeLinkRow`, the row
+  References uses. No family gets a page of its own for this. A
+  repository extension cannot contribute one yet: the point is not on
+  its page surface (GAP [[01M74PDWPASZ30SBGA95EV0X0M]]).
+
 ### Contextual references (2026-08-27)
 
 Tana's _reference_, expressed with no new storage shape and no new
@@ -4040,28 +4071,29 @@ reports the family on.
 The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
 [Days](./DESIGN.md#days)). It loads while the server reports the family on.
 
-- **The day page** is `#day`'s default view (`days.day`, a tag view, so a
-  day opens in it at `/node/<id>` and a person may choose another there).
-  It draws the day's own outline, with its title, fields and children, then
-  the **sections** contributed to the family's declared point
-  `days.sections`, in ascending `order`. A section is `{order, title,
-  Component}`, and its component is given the day node and its key. Days
-  never imports a family that shows something on a day; that family
-  contributes a section (the events section is one). Days fills one,
-  **Made or edited this day** (`order: 30`): the nodes whose created or
-  updated instant falls within the local day, newest first. Schema, the
-  period nodes and `sys.*` nodes are left out. Each row opens its node.
-
-  What is dated the day is not a section: it is the day's References,
-  which its outline draws, each row naming the date field that dates it
-  ("due →"; DESIGN.md → [Days](./DESIGN.md#days)). The page scrolls in
-  the pane's one scroll region (`frame: "scroll"`), and the room after a
-  page's end is the region's, never the outline's, so nothing opens a gap
-  between the outline and the sections. The page is its own chunk,
-  fetched the first time a day opens, and each section's body is one too.
+- **A day is an ordinary node, and opens in the node page** ([Node
+  pages](#node-pages)), as Tana's days do: its title, tags and fields, its
+  children in the view a person chooses, then its References. Nothing about
+  the page is the family's: the first row, the keyboard, the title, the
+  chips and the view switcher are every node's. What is dated the day is
+  its References, each row naming the date field that dates it ("due →";
+  DESIGN.md → [Days](./DESIGN.md#days)). The family's old day page, a
+  default view for `#day` (`sys.view.days.day`), is retired in the seed,
+  so a store that held it opens without it.
+- **Made or edited.** Days contributes a section below the outline for each
+  period tag (`ui.node-sections`): **Made or edited this day**, **this
+  week** and **this year** (`order: 30`), and so for a person's tag that
+  extends one. It lists the nodes whose created or updated instant falls
+  within the period in the page's zone, newest first, at most 30. Schema,
+  the period nodes and `sys.*` nodes are left out. Each row opens its node
+  (`NodeLinkRow`). It is off by default: the family's setting `made or
+  edited` (`sys.f.days.touched`: `hidden` or `shown`; empty reads
+  `hidden`) shows it. Its body is a chunk of its own, fetched the first
+  time a period's page shows it. Another family that shows something on a
+  day contributes its own section for `#day`, and days never imports it.
 - **A date opens its day.** Days replaces the page role `ui.date-target`:
   following a date value opens that day's node, made if need be through
-  `ext.days.today`, in its day page. If days fails, the role's recovery
+  `ext.days.today`. If days fails, the role's recovery
   demotes it and core's default leads nowhere.
 - **The Today row** sits under Home in the sidebar (`order: 5`) and opens
   today's node, making it if need be. It is the active row while today's
