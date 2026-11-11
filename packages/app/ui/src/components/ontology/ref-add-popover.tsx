@@ -42,7 +42,7 @@ export function RefAddPopover({
   );
 
   const commit = (row: PickerRow | null) => {
-    if (row?.kind !== "item" || row.disabled) return;
+    if (row?.kind !== "item") return;
     onPick(row.id);
     setOpen(false);
   };

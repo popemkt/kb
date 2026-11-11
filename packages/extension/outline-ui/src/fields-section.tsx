@@ -238,6 +238,7 @@ function useFieldHandle({
 
   const store = useOutlineStore.getState;
   const field: FieldHandle = {
+    holder: nodeId,
     values,
     many,
     add: (value) => void browserHost().writes.updateProp(nodeId, fieldId, value),

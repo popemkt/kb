@@ -34,6 +34,7 @@ export {
   fieldTypeValue,
   isFieldType,
   migrateFieldTypeValues,
+  isAcyclicField,
   targetQueryOf,
   targetTagsOf,
 } from "./field-type.ts";
@@ -125,7 +126,6 @@ export {
   listOntologyNodes,
   ontologyClosureMode,
   resolveOntology,
-  wouldCreateExtendsCycle,
 } from "./ontology.ts";
 export type { MemberReason, OntologyResolution } from "./ontology.ts";
 export { refValuesOf, strValueOf, typeRefsOf, type NodeLike } from "./node-like.ts";
@@ -135,9 +135,9 @@ export {
   nodesOfKind,
   tagChains,
   templateFieldsOf,
-  type KindsLookup,
   type TagChains,
 } from "./tag-kinds.ts";
+export { closesCycle, refChain, type NodeLookup } from "./ref-chain.ts";
 export { IndexedNodes, ScannedNodes } from "./node-graph.ts";
 export { StoreState } from "./store-state.ts";
 export type { NodeGraph } from "./node-graph.ts";
