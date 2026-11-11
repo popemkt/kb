@@ -5,6 +5,7 @@ import {
   useGraphRead,
   nodeTagColors,
   OptionChip,
+  menuAnchor,
   pageTitleInstanceKey,
   type OutlineNode,
   routePointerClick,
@@ -179,7 +180,10 @@ export function ZoomedRootHeader({
     >
       {/* Under the head's space (`PageBackdrop`, the outline editor's), whose backdrop reaches behind it. */}
       <div className="relative pl-7">
-        <div className="group/header flex min-h-9 items-start justify-between gap-2">
+        <div
+          className="group/header flex min-h-9 items-start justify-between gap-2"
+          {...menuAnchor(pageTitleInstanceKey(node.id))}
+        >
           <EditableTitle node={node} />
           {/* A list frame keeps its view control quiet: it shows on hover or
               keyboard focus, and stays while something it opened is open. A

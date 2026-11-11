@@ -15,6 +15,8 @@ export interface PaletteEntry {
   haystack: string;
   textLower: string;
   idLower: string;
+  /** For a node's command: the node it acts on, by its label. */
+  target?: string;
 }
 
 export interface PaletteIndex {
@@ -32,18 +34,7 @@ export function buildPaletteIndex(nodes: WireNode[], rev: number): PaletteIndex 
   // oxlint-disable-next-line unicorn/no-new-array -- GAP [[01M1MFJXAQ8NVBMA6E6CZ7CY9W]]
   const entries: PaletteEntry[] = new Array(nodes.length);
   for (const [i, n] of nodes.entries()) {
-    const text = n.text || n.id;
-    const kind: PaletteEntryKind = isCommandNode(n) ? "command" : "node";
-    const textLower = text.toLowerCase();
-    const idLower = n.id.toLowerCase();
-    entries[i] = {
-      id: n.id,
-      text,
-      kind,
-      haystack: `${textLower}\0${idLower}`,
-      textLower,
-      idLower,
-    };
+    entries[i] = entryOf(n.id, n.text || n.id, isCommandNode(n) ? "command" : "node");
   }
   // Commands first for empty-query browsing, then stable by text.
   entries.sort((a, b) => {
@@ -51,6 +42,27 @@ export function buildPaletteIndex(nodes: WireNode[], rev: number): PaletteIndex 
     return a.text.localeCompare(b.text) || a.id.localeCompare(b.id);
   });
   return { rev, entries };
+}
+
+/** `entry` as the index holds it: its match strings built once. */
+function entryOf(id: string, text: string, kind: PaletteEntryKind): PaletteEntry {
+  const textLower = text.toLowerCase();
+  const idLower = id.toLowerCase();
+  return { id, text, kind, haystack: `${textLower}\0${idLower}`, textLower, idLower };
+}
+
+/**
+ * `index` with the commands of one node (`listNodeCommands`) ahead of it:
+ * what the node menu offers that node, found by the same search, each marked
+ * with the node it acts on.
+ */
+export function withNodeCommands(
+  index: PaletteIndex,
+  commands: readonly { readonly id: string; readonly label: string }[],
+  target: string,
+): PaletteIndex {
+  const entries = commands.map((c) => ({ ...entryOf(c.id, c.label, "command"), target }));
+  return { rev: index.rev, entries: [...entries, ...index.entries] };
 }
 
 function fuzzySubsequence(hay: string, q: string): boolean {

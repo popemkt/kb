@@ -5,25 +5,54 @@ import {
   cn,
   type CommandContext,
   isSysPrefixed,
+  pageTitleInstanceKey,
   schemaZoomKind,
-  toast,
+  textOr,
 } from "@kb/ui-sdk";
-import { commandTargetNodeId, runCommand, viewTargetFrameId } from "@/lib/commands";
-import { buildPaletteIndex, searchPalette, type PaletteHit } from "@/lib/palette-index";
+import {
+  commandTargetNodeId,
+  listNodeCommands,
+  runCommand,
+  viewTargetFrameId,
+} from "@/lib/commands";
+import {
+  buildPaletteIndex,
+  searchPalette,
+  withNodeCommands,
+  type PaletteHit,
+} from "@/lib/palette-index";
 import { pageProjection, shownNodes, useGraphStore } from "@/stores/graph.store";
 import { pageCommandApi, pageCommandContext } from "@/stores/page-commands";
+import { pageEditor } from "@/stores/page-editor";
+import { useUiStore } from "@/stores/ui.store";
+
+/**
+ * Open the node menu on `nodeId` at picker step `step`: where it is
+ * selected, or else at its page's title, as the page's node is shown there.
+ */
+function openNodeMenuAt(nodeId: string, step: string): void {
+  const editor = pageEditor().getState();
+  if (editor.selectedNodeId !== nodeId) editor.selectNode(nodeId, pageTitleInstanceKey(nodeId));
+  useUiStore.getState().setNodePaletteOpen(true, step);
+}
 
 /**
  * The state a command runs against, read at the moment it runs
- * (`pageCommandContext`). ⌘K offers only the `sys.command` nodes and none of
- * those is a picker step, so `openStep` states that rather than being wired
- * to nothing.
+ * (`pageCommandContext`): the selected row, else the page's node. A command
+ * that asks for a picker step hands over to the node menu on that node, at
+ * the step, as the node menu would have shown it.
  */
 function commandContext(onClose: () => void): CommandContext {
   const outline = pageCommandApi();
+  const nodeId = commandTargetNodeId(outline);
   return pageCommandContext(
-    { nodeId: commandTargetNodeId(outline), frameId: viewTargetFrameId(outline) },
-    { close: onClose, openStep: () => toast("That command needs a selected row") },
+    { nodeId, frameId: viewTargetFrameId(outline) },
+    {
+      close: onClose,
+      openStep: (step) => {
+        if (nodeId !== null) openNodeMenuAt(nodeId, step);
+      },
+    },
   );
 }
 
@@ -58,7 +87,26 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
    * circuited forever and ⌘K matched nothing. useMemo already rebuilds exactly
    * when its inputs change, so the cache was only able to be wrong.
    */
-  const index = useMemo(() => buildPaletteIndex(wireNodes, generation), [wireNodes, generation]);
+  const graphIndex = useMemo(
+    () => buildPaletteIndex(wireNodes, generation),
+    [wireNodes, generation],
+  );
+  /*
+   * What the node menu offers the node the palette acts on (the selected row,
+   * else the page's node), read as it opens: a node's commands are found here
+   * too, beside the graph's, each marked with the node it acts on.
+   */
+  const nodeCommands = useMemo(() => {
+    if (!open) return [];
+    const ctx = commandContext(onClose);
+    return ctx.target.nodeId === null ? [] : listNodeCommands(ctx);
+  }, [open, onClose]);
+  const index = useMemo(() => {
+    const nodeId = commandTargetNodeId(pageCommandApi());
+    if (nodeId === null || nodeCommands.length === 0) return graphIndex;
+    const label = textOr(shownNodes().get(nodeId)?.text.trim(), nodeId);
+    return withNodeCommands(graphIndex, nodeCommands, label);
+  }, [graphIndex, nodeCommands]);
 
   const hits = useMemo(() => searchPalette(index, query, ROW_LIMIT), [index, query]);
 
@@ -93,6 +141,11 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const selectHit = useCallback(
     async (hit: PaletteHit) => {
       onClose();
+      const nodeCommand = nodeCommands.find((c) => c.id === hit.id && hit.target !== undefined);
+      if (nodeCommand !== undefined) {
+        nodeCommand.run();
+        return;
+      }
       if (hit.kind === "command") {
         await runCommand(hit.id, commandContext(onClose));
         return;
@@ -104,7 +157,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       }
       pageProjection().reveal(hit.id);
     },
-    [onClose, zoomTo],
+    [onClose, zoomTo, nodeCommands],
   );
 
   const onKeyDown = useCallback(
@@ -234,7 +287,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                   </span>
                   {/* A shade of the row's own ink, so it holds AA on the active row's accent too. */}
                   <span className="shrink-0 font-mono text-caption text-foreground/70">
-                    {hit.kind === "command" ? "cmd" : hit.id}
+                    {hit.target ?? (hit.kind === "command" ? "cmd" : hit.id)}
                   </span>
                 </button>
               </li>

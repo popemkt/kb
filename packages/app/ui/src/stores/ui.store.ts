@@ -52,6 +52,8 @@ interface UiState {
   sidebarOverlayOpen: boolean;
   globalPaletteOpen: boolean;
   nodePaletteOpen: boolean;
+  /** The picker step the node palette opened at (`PaletteStepPoint`), or null for its commands. */
+  nodePaletteStep: string | null;
   /** W7.1: open filter popover for this frame (toolbar ⚙ / palette Filter…). */
   viewSettingsFrameId: string | null;
   /**
@@ -65,7 +67,7 @@ interface UiState {
   setReload: (state: ReloadState) => void;
   setSidebarOverlayOpen: (open: boolean) => void;
   setGlobalPaletteOpen: (open: boolean) => void;
-  setNodePaletteOpen: (open: boolean) => void;
+  setNodePaletteOpen: (open: boolean, step?: string) => void;
   setViewSettingsFrameId: (frameId: string | null) => void;
   setOpenDock: (dock: string | null) => void;
   /**
@@ -95,6 +97,7 @@ export const useUiStore = create<UiState>((set) => ({
   sidebarOverlayOpen: false,
   globalPaletteOpen: false,
   nodePaletteOpen: false,
+  nodePaletteStep: null,
   viewSettingsFrameId: null,
   openDock: null,
   events: NO_EVENTS,
@@ -110,9 +113,10 @@ export const useUiStore = create<UiState>((set) => ({
       globalPaletteOpen,
       nodePaletteOpen: globalPaletteOpen ? false : s.nodePaletteOpen,
     })),
-  setNodePaletteOpen: (nodePaletteOpen) =>
+  setNodePaletteOpen: (nodePaletteOpen, step) =>
     set((s) => ({
       nodePaletteOpen,
+      nodePaletteStep: nodePaletteOpen ? (step ?? null) : null,
       globalPaletteOpen: nodePaletteOpen ? false : s.globalPaletteOpen,
     })),
   setViewSettingsFrameId: (viewSettingsFrameId) => set({ viewSettingsFrameId }),

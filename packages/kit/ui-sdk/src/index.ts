@@ -211,6 +211,7 @@ export { MENU_ROW, MENU_SURFACE, useMenuKeys, type MenuKeys } from "./components
 export { MenuSeparator } from "./components/menu-separator";
 export { InlineMarkdown, MdView } from "./components/md-view";
 export { NodeRow } from "./components/node-row";
+export { menuAnchor, menuAnchorOf } from "./lib/menu-anchor";
 export {
   type CaretAt,
   type CaretIntent,

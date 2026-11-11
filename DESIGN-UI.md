@@ -2347,8 +2347,12 @@ both are answered from the node ⌘K menu rather than from a device switch.
 ### The node menu
 
 The node menu is the node palette (`NodeCommandPalette`), opened on a row
-from its bullet or by ⌘K on a selected row. It lists the commands about
-that row: the shell's own, the rows the page derives from the graph
+from its bullet, or by ⌘K on a selected or active row or page title (the
+title shows the page's node). It opens at the place that shows that node:
+a row and a page title both mark themselves as the menu's anchor for their
+instance (`menuAnchor`), and the menu finds the instance it acts on
+(`menuAnchorOf`), so no surface is a row by being one. It lists the
+commands about that node: the shell's own, the rows the page derives from the graph
 (Open with…, View as…, Make default view…), and every `ui.commands`
 contribution (`CommandPoint`). Each says where it is offered (`menu`):
 
@@ -2366,7 +2370,7 @@ The groups, in the menu's order (`NODE_MENU_GROUPS`):
 | Group | What it holds | Its rows today |
 | --- | --- | --- |
 | `lead` | how the node itself opens and shows | "Open in …" for its tag's view; "Show/Hide preview", "Show/Hide properties" |
-| `make` | what the node is and holds | Add tag, Turn into query, Turn into reference…, Add field, Make supertag, Type this reference… |
+| `make` | what the node is and holds | Add tag, Make your own tag that extends this, Turn into query, Turn into reference…, Add field, Make supertag, Type this reference… |
 | `open` | where it opens | Search everything…, Open in panel, Open as workspace, Open with: … |
 | `arrange` | where it sits | Indent, Outdent |
 | `mark` | what marks it | Pin / Unpin, Show / Hide debug fields |
@@ -2377,6 +2381,15 @@ So a family's command takes a place among the shell's by naming it, and
 the one menu builder (`listNodeCommands`) reads the place from the
 command: no list position means anything, and no row is the shell's by
 being listed first.
+
+⌘K with no row anchored is the page's search (`CommandPalette`), and it
+finds the node menu's commands too: those `listNodeCommands` offers the
+node it acts on — the selected row, else the page's node — ahead of the
+graph's entries, each marked with that node's label (`withNodeCommands`).
+So a page's own commands are found where a person searches, with nothing
+selected: on a tag's page, "Make your own tag that extends this". A command
+that asks for a picker step hands over to the node menu on that node at
+its title, opened at that step (`setNodePaletteOpen(true, step)`).
 
 **A command and a picker step as data.** A node command may hand the
 palette to a picker step (`palette.openStep(id)`, `PaletteStepPoint`,

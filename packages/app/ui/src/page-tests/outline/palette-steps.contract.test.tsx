@@ -140,13 +140,11 @@ describe("node-palette steps", () => {
   });
 
   async function open(nodeId = "n.a"): Promise<void> {
+    // The row the palette opens at: where the selected instance is shown.
     const row = dom.document.createElement("div");
-    row.setAttribute("data-node-id", nodeId);
-    const inner = dom.document.createElement("div");
-    inner.className = "node-row";
-    row.appendChild(inner);
+    row.setAttribute("data-menu-anchor", `row/${nodeId}`);
     dom.document.body.appendChild(row);
-    useOutlineStore.setState({ selectedNodeId: nodeId });
+    useOutlineStore.setState({ selectedNodeId: nodeId, selectedInstanceKey: `row/${nodeId}` });
     await act(async () => {
       root.render(<NodeCommandPalette open onClose={() => {}} />);
     });
