@@ -518,6 +518,24 @@ describe("registry + operations", () => {
     expect(ctx.nodes.some((n) => n.id === "sys.evil")).toBe(false);
   });
 
+  test("tag.define mints a tag that extends others, by name or id, in order", async () => {
+    const ctx = await openKb(root);
+    const base = await invoke(ctx, { id: "tag.define", input: { name: "gathering", id: "t.g" } });
+    const other = await invoke(ctx, { id: "tag.define", input: { name: "outing", id: "t.o" } });
+    expect([base.status, other.status]).toEqual(["succeeded", "succeeded"]);
+    const mine = await invoke(ctx, {
+      id: "tag.define",
+      input: { name: "my gathering", id: "t.mine", extends: ["gathering", "t.o"] },
+    });
+    expect(mine.status).toBe("succeeded");
+    const made = ctx.nodes.find((n) => n.id === "t.mine");
+    expect(made?.props[SYSTEM_IDS.extendsField]).toEqual([
+      { t: "ref", v: "t.g" },
+      { t: "ref", v: "t.o" },
+    ]);
+    expect(made?.props[SYSTEM_IDS.typeField]).toEqual([{ t: "ref", v: SYSTEM_IDS.tag }]);
+  });
+
   test("graph.query with malformed EDN returns invalid_input, not internal", async () => {
     const ctx = await openKb(root);
     const q = await invoke(ctx, {

@@ -57,6 +57,7 @@ const noRemove = (): void => undefined;
 /** A slot with no stack around it: one value, replaced by what is picked. */
 function loneField(value: PropValue | null, onCommit: (next: PropValue) => void): FieldHandle {
   return {
+    holder: null,
     values: value === null ? [] : [value],
     many: false,
     add: onCommit,

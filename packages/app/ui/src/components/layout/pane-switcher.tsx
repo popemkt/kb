@@ -19,7 +19,7 @@ import {
 import { pageOpeningsOf } from "@/lib/node-openings";
 import { usePageCatalog } from "@/lib/view-catalog";
 import { useGraphStore, useShownNodes } from "@/stores/graph.store";
-import { shownZoomAt } from "./pane-title";
+import { shownZoomAt } from "@/lib/pane-subject";
 
 interface Choice {
   readonly path: string;

@@ -221,6 +221,7 @@ export function mapTagDefine(opts: {
   name: string;
   id?: string;
   fields?: string[];
+  extends?: string[];
 }): PlannedAction {
   return {
     id: "tag.define",
@@ -228,6 +229,7 @@ export function mapTagDefine(opts: {
       name: opts.name,
       ...(opts.id !== undefined ? { id: opts.id } : {}),
       ...(opts.fields && opts.fields.length > 0 ? { fields: opts.fields } : {}),
+      ...(opts.extends && opts.extends.length > 0 ? { extends: opts.extends } : {}),
     },
   };
 }

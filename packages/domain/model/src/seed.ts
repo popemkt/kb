@@ -45,6 +45,9 @@ import {
 /** What a field that holds one value declares: its cardinality. */
 const SINGLE: KbNode["props"] = { [SYSTEM_IDS.cardinalityField]: [cardinalityValue("one")] };
 
+/** What a ref field whose values never close a cycle declares: acyclic. */
+const ACYCLIC: KbNode["props"] = { [SYSTEM_IDS.acyclicField]: [{ t: "bool", v: true }] };
+
 /** What a field whose values are not drawn as field rows declares: hidden. */
 const HIDDEN: KbNode["props"] = { [SYSTEM_IDS.hiddenField]: [{ t: "bool", v: true }] };
 
@@ -177,6 +180,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
       { t: "ref", v: SYSTEM_IDS.targetTagField },
       { t: "ref", v: SYSTEM_IDS.targetQueryField },
       { t: "ref", v: SYSTEM_IDS.relationInverseField },
+      // Last, where the seed's union puts it in a store seeded before it.
+      { t: "ref", v: SYSTEM_IDS.acyclicField },
     ],
   });
   const typeField = typedField(SYSTEM_IDS.typeField, "type", "ref", HIDE);
@@ -213,15 +218,18 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
    * The tags a tag extends: a setting of every tag (it configures the kind
    * `sys.tag`), whose values are tags, and an additive list on a seeded tag,
    * so a person makes a family's tag extend theirs and keeps what it ships.
+   * No tag extends itself, however far round: it is acyclic.
    */
   const extendsField = typedField(SYSTEM_IDS.extendsField, "extends", "ref", {
     props: {
+      ...ACYCLIC,
       [SYSTEM_IDS.configuresField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
       [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
     },
   });
   const targetQueryField = singleField(SYSTEM_IDS.targetQueryField, "targetQuery", "text");
   const relationInverseField = singleField(SYSTEM_IDS.relationInverseField, "inverse", "text");
+  const acyclicField = singleField(SYSTEM_IDS.acyclicField, "acyclic", "checkbox");
   // Deliberately NOT self-typed. `sys.f.type` is the kind slot, and a ref to
   // `sys.tag` there declares "this node is a supertag" — resolveTags skips it
   // precisely so it never renders as a chip. Listing sys.tag among selectable
@@ -243,7 +251,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const cmd = (id: string, text: string): KbNode => seededCommand(id, text, at);
   const commands: KbNode[] = [
     cmd(SYSTEM_IDS.cmdAddNode, "Add node"),
-    cmd(SYSTEM_IDS.cmdAddTag, "Add tag"),
+    cmd(SYSTEM_IDS.cmdAddTag, "New tag"),
     cmd(SYSTEM_IDS.cmdDefineField, "Define field"),
     cmd(SYSTEM_IDS.cmdGoQuery, "Saved queries"),
     cmd(SYSTEM_IDS.cmdNewQuery, "New query node"),
@@ -417,7 +425,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     SYSTEM_IDS.ontoExtendsField,
     "onto.extends",
     ONTOLOGY_TARGET_QUERY,
-    HIDE,
+    { ...HIDE, props: ACYCLIC },
   );
   const ontoQueryField = singleField(SYSTEM_IDS.ontoQueryField, "onto.query", "text", HIDE);
   const ontoClosureField = singleField(SYSTEM_IDS.ontoClosureField, "onto.closure", "text", HIDE);
@@ -609,6 +617,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     extendsField,
     targetQueryField,
     relationInverseField,
+    acyclicField,
     command,
     ...commands,
     queryField,

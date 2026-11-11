@@ -235,6 +235,7 @@ export function ValuesSlot({
 
   if (open && editing.t !== "toggle") {
     const field: FieldHandle = {
+      holder: null,
       values,
       many: editing.t === "picked",
       add: (value) => onValues([...values, value]),

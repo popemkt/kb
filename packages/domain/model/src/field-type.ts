@@ -232,6 +232,12 @@ export function targetQueryOf(fieldNode: NodeLike | undefined): string | null {
   return strValueOf(fieldNode, SYSTEM_IDS.targetQueryField);
 }
 
+/** Whether a ref field declares that its values never close a cycle (`sys.f.acyclic`). */
+export function isAcyclicField(fieldNode: NodeLike | undefined): boolean {
+  const [flag] = fieldNode?.props[SYSTEM_IDS.acyclicField] ?? [];
+  return flag?.t === "bool" && flag.v;
+}
+
 /**
  * The option set a field declares by *parenting* it: this field node's own
  * children, in child order.

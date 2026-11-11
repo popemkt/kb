@@ -170,7 +170,8 @@ test("a query is built in the builder, and its results and count follow every co
   // The EDN tab holds the canonical text the conditions wrote.
   await builder.getByRole("tab", { name: "EDN" }).click();
   const edn = builder.getByRole("textbox", { name: "Query (EDN)" });
-  await expect(edn).toHaveValue(/\[\?n :f\/sys\.f\.type \?v1\]/);
+  // "has tag" is "is a node of the tag, subtypes included": `:node/is`.
+  await expect(edn).toHaveValue(/\[\?n :node\/is \?a1\]/);
   await expect(edn).toHaveValue(/not-join \[\?n\]/);
   await expect(edn).toHaveValue(/or-join \[\?n\]/);
   await builder.screenshot({ path: testInfo.outputPath("query-builder-edn.png") });

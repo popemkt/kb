@@ -22,6 +22,7 @@ import {
   type RankSlot,
   IndexedNodes,
   resolveFieldId,
+  resolveTagId,
   resolveTagIn,
   type NodeGraph,
   type SiblingGroups,
@@ -198,12 +199,15 @@ export const fieldDefineDef = {
 export const tagDefineDef = {
   id: "tag.define",
   title: "Define tag",
-  description: "Mint a tag node (typed sys.tag) with optional templated fields",
+  description:
+    "Mint a tag node (typed sys.tag) with optional templated fields, and the tags it extends",
   mode: { kind: "write" } as const,
   inputSchema: z.object({
     name: z.string(),
     id: z.string().optional(),
     fields: z.array(z.string()).optional(),
+    /** The tags it extends (`sys.f.extends`), by name or id, in order. */
+    extends: z.array(z.string()).optional(),
   }),
   outputSchema: z.object({ id: z.string() }),
 } satisfies ActionDefinition;
@@ -721,6 +725,13 @@ export const tagDefineEffect = Effect.fn("tag.define")(function* (
           value: { t: "ref", v: fieldId },
         });
       }
+    }
+    // A tag no node names yet extends what it likes: it closes no cycle.
+    for (const parent of input.extends ?? []) {
+      props.push({
+        field: SYSTEM_IDS.extendsField,
+        value: { t: "ref", v: resolveTagId(ctx.nodes, parent) },
+      });
     }
   });
   const result = yield* addNodeAtEffect({

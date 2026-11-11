@@ -383,9 +383,9 @@ export const mutations: PageWrites = {
     return applyPlan(planAddTag(wire(), nodeId, SYSTEM_IDS.tag));
   },
 
-  async defineTag(name: string): Promise<string | null> {
+  async defineTag(name: string, parents?: readonly string[]): Promise<string | null> {
     const newId = ulid();
-    const ok = await applyPlan(planDefineTag(name, newId));
+    const ok = await applyPlan(planDefineTag(name, newId, parents));
     return ok ? newId : null;
   },
 

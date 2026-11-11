@@ -23,7 +23,7 @@ import {
   SYSTEM_IDS,
   tagChains,
   typeRefsOf,
-  type KindsLookup,
+  type NodeLookup,
   type NodeLike,
   type NodeWrite,
   type PropValue,
@@ -59,7 +59,7 @@ const PERIODS = [
 /** The periods `node` is, through its tags and what they extend. */
 export function periodsOf(
   node: Pick<NodeLike, "props">,
-  nodeOf: KindsLookup,
+  nodeOf: NodeLookup,
 ): (typeof PERIODS)[number][] {
   const chains = tagChains(nodeOf);
   const reached = new Set(typeRefsOf(node).flatMap((tag) => chains.ancestors(tag)));
@@ -89,7 +89,7 @@ function changesKeyOrTags({ before, after }: NodeWrite): boolean {
 }
 
 /** Why `node`'s key is not a period of it, or null when it is one or there is none. */
-function keyRefusal(node: NodeLike, nodeOf: KindsLookup): string | null {
+function keyRefusal(node: NodeLike, nodeOf: NodeLookup): string | null {
   const values = keyValues(node);
   if (values.length === 0) return null;
   const shown = values.map((value) => `“${String(value.v)}”`).join(", ");
@@ -109,7 +109,7 @@ function keyRefusal(node: NodeLike, nodeOf: KindsLookup): string | null {
  * family would make a second node for that date). Taking the tag off is
  * the way out: it takes the key with it (`untag.ts`).
  */
-function removalRefusal({ before, after }: NodeWrite, nodeOf: KindsLookup): string | null {
+function removalRefusal({ before, after }: NodeWrite, nodeOf: NodeLookup): string | null {
   if (after === undefined || keyValues(before).length === 0 || keyValues(after).length > 0)
     return null;
   const [period] = periodsOf(after, nodeOf);
@@ -140,7 +140,7 @@ function judgedBy(writes: readonly NodeWrite[], held: Iterable<NodeLike>): NodeL
  */
 export function periodKeyRefusal(
   writes: readonly NodeWrite[],
-  nodeOf: KindsLookup,
+  nodeOf: NodeLookup,
   held: Iterable<NodeLike> = [],
 ): string | null {
   for (const write of writes) {

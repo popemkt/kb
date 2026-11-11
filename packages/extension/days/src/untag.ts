@@ -16,7 +16,7 @@
  */
 import { Effect } from "effect";
 import type { ActionInterceptor, InterceptedCall } from "@kb/contracts";
-import { IndexedNodes, type KbNode, type KindsLookup } from "@kb/model";
+import { IndexedNodes, type KbNode, type NodeLookup } from "@kb/model";
 import { nodeUpdateDef, projectPropEdits } from "@kb/operations";
 import { DAYS_IDS } from "./ids.ts";
 import { keyValues, periodsOf } from "./period-key.ts";
@@ -29,7 +29,7 @@ import { keyValues, periodsOf } from "./period-key.ts";
 export function untaggedInput(
   input: unknown,
   nodes: readonly KbNode[],
-  nodeOf: KindsLookup,
+  nodeOf: NodeLookup,
 ): unknown {
   const parsed = nodeUpdateDef.inputSchema.safeParse(input);
   // An input the action will refuse is the action's to refuse.
