@@ -1048,6 +1048,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Data-plane freedom: constrain before you lock
 - **node** — `01M74AS94FM8GDGF3W10M84P43`
 
+### GAP: module cohesion sensor awaits M2 calibration
+
+- **expected** — Oversized files containing disjoint export-consumer groups are measured by a calibrated cohesion lane.
+- **current** — M1 has no cohesion sensor; calibration is explicitly deferred to M2.
+- **impact** — The line cap remains the only size-based guard until calibration.
+- **closes** — M2 calibrates plugins/actions as flagged and verbs/stage as passing before enabling the lane.
+- **node** — `01M787F34W9DSYPD544DRS5S4H`
+
+### GAP: module consumer graph and single-family measurement await M1b
+
+- **expected** — Core files used by one family are measured through production barrel consumers.
+- **current** — M1 measures barrel width and family names only; namespace members count as one exported name.
+- **impact** — Family-only core files and wide namespace members remain unmeasured.
+- **closes** — M1b adds the minimal symbol-consumer graph and single-family lane.
+- **node** — `01M787EFNSYXKT510HYDPGVB9A`
+
 ### GAP: no [[ completion while editing a text field value
 
 - **expected** — Typing [[ in a text value opens the same node picker node text does.
