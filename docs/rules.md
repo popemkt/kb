@@ -33,7 +33,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | UI import matrix | harness/src/constraints.ts | packages/app/ui | Who may import whom inside the UI is one table — UI_ALLOWS in constraints.ts, keyed by the zone a file sits in — and the harness applies it to every intra-package import. ARCHITECTURE.md links to that table; a sanctioned breach carries a GAP marker on its import line. | harness | — |
 | Version authored once | docs/waves/2026-09-03/briefs/w1-workspace.md | workspace | Internal deps are workspace refs and external deps are catalog refs; no literal, floating or latest specifier appears in any manifest. | harness | — |
 | Warn ratchet | docs/waves/2026-09-03/briefs/g2-strict-stack.md | repo | Warn-lane counts are frozen per rule whole-repo and held to the ledger at the fork point with main: a rise against it fails, a drop prompts a re-snapshot, a rule at zero must be promoted. A newly enabled rule cannot arrive pre-forgiven, and a regenerated snapshot cannot raise the ledger. | harness | — |
-| Code-unit cohesion (L1/L2/L3) | DESIGN.md#testing-doctrine | repo | Boundaries and branching gate; size only warns; semantic cohesion is a reviewer verdict. A unit may be long, it may not be tangled. | lint | — |
+| Code-unit cohesion (L1/L2/L3) | DESIGN.md#testing-doctrine | repo | Boundaries and branching gate; size uses a backstop and ratcheted sensors; semantic cohesion is a reviewer verdict. | lint | — |
 | Design tokens: no bypass | DESIGN-UI.md#design-tokens | packages/app/ui | UI code names a design-system step, never a raw value that compiles past the bridge: no arbitrary font size, shadow or radius, no Tailwind palette colour, no hex colour in a component. Each value lives once, in design-system.css, so the design system can be swapped whole. | lint | — |
 | Domain typing — parse unknown at the boundary | DESIGN.md#domain-typing--effect-schema | repo | Every boundary parses unknown into the domain type. A cast or a non-null assertion on a domain value means the schema is too loose; tighten the schema instead. | lint | — |
 | Abstraction before addition (Rule 1) | AGENTS.md#rule-1--abstraction-before-addition | repo | Every change lands in the shape it would have had if the requirement had always existed; when the model does not fit, the model gets fixed, not special-cased. | prose | — |
@@ -795,6 +795,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Separate design question recorded in briefs/p1-persistence.md section 4: protocol, discovery, and fallback when no server is running.
 - **node** — `01M1M08WPQTB514E7JERKYEDWZ`
 
+### GAP: cohesion calibration misses small groups in plugins and contract actions
+
+- **expected** — Cohesion measurement identifies independent concepts without filename exceptions.
+- **current** — M2 uses the approved max(2, ceil(5% of distinct importers)) group threshold. Stage and verbs pass; operations/actions is flagged. Plugins and contract actions are missed because their small groups fall below that threshold. The current flagged set is frozen in the cohesion ledger.
+- **impact** — The sensor ratchets visible splits but is not a complete semantic cohesion test; existing flagged files still need concept-level restructuring.
+- **closes** — Drain the cohesion ledger through module restructuring; reconsider the predicate only when an approved requirement needs the missed cases.
+- **node** — `01M787F34W9DSYPD544DRS5S4H`
+
 ### GAP: command dispatcher eagerly reaches chart engines and QuickJS
 
 - **expected** — The command dispatcher reaches host-only engines only across dynamic imports; its static closure shrinks.
@@ -1063,14 +1071,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The commit reads sys.f.managedBy against the call's owning family (the called action's owner, part of the action contract), for fields that declare the lock; the field row shows the family's action in place of Edit. Only where no constraint can do the job (data-plane freedom: constrain before you lock).
 - **rule** — Data-plane freedom: constrain before you lock
 - **node** — `01M74AS94FM8GDGF3W10M84P43`
-
-### GAP: module cohesion sensor awaits M2 calibration
-
-- **expected** — Oversized files containing disjoint export-consumer groups are measured by a calibrated cohesion lane.
-- **current** — M1 has no cohesion sensor; calibration is explicitly deferred to M2.
-- **impact** — The line cap remains the only size-based guard until calibration.
-- **closes** — M2 calibrates plugins/actions as flagged and verbs/stage as passing before enabling the lane.
-- **node** — `01M787F34W9DSYPD544DRS5S4H`
 
 ### GAP: module namespace-member width and served SDK membership remain unmeasured
 

@@ -272,11 +272,17 @@ barrel names (type exports included, aliases by their exported name, a
 namespace as one name); `family-names` counts AST string and identifier
 occurrences equal to a declared family id or beginning with its dotted
 prefix, under the core layers in `CORE_NAME_LAYERS`. Comments do not count.
-Family ids come from the same declaration reader as `extension-families`.
-`SURFACE_BUDGETS` records current package widths; new packages have the
-`NEW_SURFACE_BUDGET` ceiling. Once a lane exists in the fork-point ledger,
-its counts may only fall (a new surface may begin within that ceiling).
-The introducing commit initializes the lanes against a base without them.
+Property access names and property declarations/signatures do not count.
+Object-literal keys and shorthand remain counted, preserving family vocabulary. String types used as indexed-access keys, Pick/Omit keys or the
+excluded keys of an Exclude over keyof do not count; value strings still do. Family ids come from the same
+declaration reader as `extension-families`.
+`SURFACE_BUDGETS` in `harness/surface-budgets.json` sets reviewed width ceilings;
+packages without an entry use `NEW_SURFACE_BUDGET`. The surface ledger equals
+measured width, which may grow within its budget. Raising a budget requires a
+new or updated nonempty reason on that entry compared with the fork point.
+`family-names` is debt: once present in the fork-point ledger, its counts may
+only fall, with no exceptions. The introducing commit initializes debt lanes
+against a base without them.
 The `single-family` lane joins production imports (type imports included) to
 the source declarations exposed by package barrels. Named exports and aliases
 resolve through local re-exports; namespace and dynamic imports conservatively
@@ -285,7 +291,15 @@ consume all exposed names. Test files never contribute consumers. A file in
 family contributes one debt entry. Internal production imports count, while
 direct re-export statements forward identity without adding a consumer.
 Namespace-member width and served SDK membership remain outside this minimal
-graph; cohesion awaits M2 calibration (the residual gaps are recorded in kb).
+graph. The `cohesion` lane measures excess disconnected importer groups in
+files above `COHESION_MIN_LINES`. A group qualifies only at
+`max(COHESION_MIN_IMPORTERS, ceil(total distinct file importers *
+COHESION_IMPORTER_FRACTION))`; the constants live in `constraints.ts`.
+The sensor uses the same production symbol-consumer graph and freezes its
+current findings in the ledger. This is a calibrated heuristic, not a
+semantic verdict: it passes stage/verbs and flags operations/actions, while
+plugins/contracts-actions fall below its group threshold. That limitation
+and the current flagged files are recorded as a gap.
 
 The lazy-import policy is one entry-to-forbidden-closure table, `LAZY_FENCES`
 in `harness/src/constraints.ts`. The UI row fences the issuer's chunk;
@@ -426,13 +440,11 @@ holds both halves.
 - **L2 — within-unit sensors, two tiers.** _Branching_ sensors (`complexity`,
   `max-depth`, `max-nested-callbacks`) are hard, because they measure shape
   directly; the caps are refrepo's (`complexity` 20, `max-depth` 5,
-  `max-nested-callbacks` 4). _Size_ sensors (`max-lines` 900,
-  `max-lines-per-function` 120, `max-params` 5) only ever `warn`: a
-  legitimately large cohesive unit is real, and a length cap forces exactly
-  the bad split a reviewer would have to reverse. A long but flat body of
-  well-named steps is good code. Function-length and callback-nesting are
-  measured over `src` only: a `describe`/`test`/`fc.property` body is the
-  runner's structure, not a unit kb wrote.
+  `max-nested-callbacks` 4). _Size_ uses the hard line-count backstop and parameter
+  limit in `.oxlintrc.json`, plus the function-length warning ratchet.
+  Function-length and callback-nesting are measured over `src` only: a
+  `describe`/`test`/`fc.property` body is the runner's structure, not a unit
+  kb wrote. A long but flat body of well-named steps is good code.
 - **L3 — cohesion, advisory.** "Is this one responsibility?" is a review
   judgement, never a merge blocker.
 

@@ -3,7 +3,13 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { CORE_NAME_LAYERS, isPackageTestFile } from "./constraints.ts";
 import { declaredNames } from "./families.ts";
-import { parseModule, sourceFilesUnder, stringLiteral, walkAst } from "./import-graph.ts";
+import {
+  parseModule,
+  sourceFilesUnder,
+  stringLiteral,
+  walkAst,
+  isAstNode,
+} from "./import-graph.ts";
 import { PACKAGES_ROOT, workspacePackages } from "./workspace.ts";
 
 /** Unique public names, including type-only exports; aliases count by their public name.
@@ -22,21 +28,62 @@ export function exportedNames(file: string, source: string): string[] {
   return [...names].toSorted();
 }
 
-/** One hit per AST occurrence, so comments and substrings cannot create debt. */
+function span(node: Record<string, unknown>): string {
+  return `${String(node["start"])}:${String(node["end"])}`;
+}
+
+/** Family ids and identifiers in semantic positions, once per source occurrence. */
 export function familyNameHits(file: string, source: string, families: readonly string[]): number {
-  let hits = 0;
-  // Parsers can represent a shorthand key and value as separate nodes at one span.
+  const program = parseModule(file, source).program;
+  const propertySpans = new Set<string>();
+  const exclude = (node: unknown): void => {
+    if (isAstNode(node)) propertySpans.add(span(node));
+  };
+  const excludeTypeKeys = (node: unknown): void => {
+    walkAst(node, (child) => {
+      if (child.type === "TSLiteralType") exclude(child["literal"]);
+    });
+  };
+  walkAst(program, (node) => {
+    if (node.type === "MemberExpression" && node["computed"] !== true) exclude(node["property"]);
+    if (
+      typeof node.type === "string" &&
+      [
+        "TSPropertySignature",
+        "PropertyDefinition",
+        "MethodDefinition",
+        "TSMethodSignature",
+      ].includes(node.type)
+    ) {
+      const key = node["key"];
+      if (node["computed"] !== true || stringLiteral(key) !== undefined) exclude(key);
+    }
+    if (node.type === "TSIndexedAccessType") excludeTypeKeys(node["indexType"]);
+    if (node.type !== "TSTypeReference") return;
+    const name = node["typeName"];
+    const args = node["typeArguments"];
+    if (!isAstNode(name) || !isAstNode(args) || !Array.isArray(args["params"])) return;
+    const [input, keys] = args["params"];
+    if (
+      name["name"] === "Pick" ||
+      name["name"] === "Omit" ||
+      (name["name"] === "Exclude" &&
+        isAstNode(input) &&
+        input.type === "TSTypeOperator" &&
+        input["operator"] === "keyof")
+    ) {
+      excludeTypeKeys(keys);
+    }
+  });
   const spans = new Set<string>();
-  walkAst(parseModule(file, source).program, (node) => {
+  walkAst(program, (node) => {
+    if (propertySpans.has(span(node))) return;
     const name = node.type === "Identifier" ? node["name"] : stringLiteral(node);
     if (typeof name !== "string") return;
     if (!families.some((family) => name === family || name.startsWith(`${family}.`))) return;
-    const span = `${String(node["start"])}:${String(node["end"])}`;
-    if (spans.has(span)) return;
-    spans.add(span);
-    hits++;
+    spans.add(span(node));
   });
-  return hits;
+  return spans.size;
 }
 
 export interface ModuleMeasures {
@@ -72,4 +119,35 @@ export function collectModuleMeasures(packagesRoot: string = PACKAGES_ROOT): Mod
     }
   }
   return { surface, "family-names": names };
+}
+
+export interface SurfaceBudget {
+  width: number;
+  reason?: string;
+}
+
+/** Surface width is a reviewed budget, rather than irreversible debt. */
+export function surfaceBudgetProblems(
+  measured: Record<string, number>,
+  budgets: Readonly<Record<string, SurfaceBudget>>,
+  previous: Readonly<Record<string, SurfaceBudget>>,
+  newPackageBudget: number,
+): string[] {
+  const problems: string[] = [];
+  for (const [name, width] of Object.entries(measured)) {
+    if (width > (budgets[name]?.width ?? newPackageBudget)) {
+      problems.push(`surface ${name} exceeds its budget`);
+    }
+  }
+  for (const [name, budget] of Object.entries(budgets)) {
+    const before = previous[name];
+    const reason = budget.reason?.trim() ?? "";
+    if (
+      budget.width > (before?.width ?? newPackageBudget) &&
+      (reason === "" || reason === before?.reason?.trim())
+    ) {
+      problems.push(`surface ${name} budget rise needs a new or updated reason`);
+    }
+  }
+  return problems;
 }

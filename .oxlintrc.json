@@ -111,7 +111,7 @@
     "eslint/max-lines": [
       "error",
       {
-        "max": 900
+        "max": 1500
       }
     ],
     "unicorn/no-abusive-eslint-disable": "error",

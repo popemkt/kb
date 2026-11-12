@@ -1,3 +1,4 @@
+import { collectCohesion } from "./cohesion.ts";
 import { collectSingleFamily } from "./symbol-consumers.ts";
 import { collectCliFence, collectStaticClosure } from "./cli-closure.ts";
 /**
@@ -44,6 +45,7 @@ export interface BaselineLanes {
     "lazy-fence": Record<string, number>;
     "cli-closure": Record<string, number>;
     "single-family": Record<string, number>;
+    cohesion: Record<string, number>;
   };
 }
 
@@ -61,11 +63,14 @@ export type BaseLedger =
       rev: string;
       lanes: Omit<
         BaselineLanes["lanes"],
-        keyof ModuleMeasures | "lazy-fence" | "cli-closure" | "single-family"
+        keyof ModuleMeasures | "lazy-fence" | "cli-closure" | "single-family" | "cohesion"
       > &
         Partial<
           ModuleMeasures &
-            Pick<BaselineLanes["lanes"], "lazy-fence" | "cli-closure" | "single-family">
+            Pick<
+              BaselineLanes["lanes"],
+              "lazy-fence" | "cli-closure" | "single-family" | "cohesion"
+            >
         >;
     }
   | { ok: false; reason: string };
@@ -456,6 +461,7 @@ function buildBaseline(
       "lazy-fence": sortedRecord(collectCliFence()),
       "cli-closure": collectStaticClosure(LAZY_FENCES.cli.entry),
       "single-family": sortedRecord(collectSingleFamily()),
+      cohesion: sortedRecord(collectCohesion()),
       blocking,
       advisory,
       knip: sortedRecord(knipFindings),
