@@ -30,7 +30,7 @@ interface RegisteredKeyTarget {
 export interface KeyboardRegistrations {
   readonly contexts: readonly KeyContext[];
   readonly bindings: readonly Contribution<Keybinding>[];
-  // GAP [[01M76AZFNNGRS5P55CSCG93YJM]] checkout identity needs a loaded-module manifest, not a cache fingerprint
+  // GAP [[01M76AZFNNGRS5P55CSCG93YJM]] code-image identity is parked; shortcut overrides use person/content confirmation
   readonly source: (owner: string) => KeySource | undefined;
   /** Actual eligible membership in the normal runner catalog, including host-derived commands. */
   readonly command: (id: string) => RegisteredKeyTarget | undefined;

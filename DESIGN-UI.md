@@ -482,8 +482,8 @@ their own identities. Object keys are normalized, and non-object or non-JSON
 inputs are refused, never coerced or partially discarded. The live ActionCatalog
 resolves the action and validates its input; a recipe, its label, and writable
 owner fields confer no authority. Normal invocation approval still applies.
-Canonical shortcut approval must include the resolved implementation identity
-and complete normalized recipe, so changing either invalidates the approval.
+A shortcut confirmation includes the target id and complete normalized recipe,
+so changing either requires a new confirmation; actions retain their normal approval.
 
 A shortcut's `keys` references one chord node, `runs` its registered target,
 `where` its context, and `enabled` is a checkbox. One node describes one binding,
@@ -513,27 +513,32 @@ implementation or dependency therefore changes dependent reviews even if row
 IDs stay fixed. The decoder grants no authority; live approval and host integration are
 separate from reading definitions.
 
-Persistent stored replacement approval requires an authenticated packaged image.
-The code-image port reports either a held identity (native program digest,
-served page-closure digest and load generation) or an unavailable reason.
-Grants read that port, without inspecting checkout paths or build flags. The
-loader and page server must consume the same held images whose identity the
-port reports; hashing changed files after loading is not an attestation. The
-page closure includes executable lazy chunks and workers. Native identity is
-independent of a cache label or the UI source-cache fingerprint.
+Stored shortcuts use the existing admission and normal command/action runners.
+A binding on a free chord needs no replacement confirmation; reserved typing,
+Escape and palette keys remain protected by that admission. Taking a shipped
+or another family's held binding requires one explicit confirmation from the
+person in the UI, whoever wrote the shortcut node. Until then the override is
+pending and inactive, including untouched and ambiguous legacy rows.
 
-In checkout/dev execution the visible reason is “approvals need a packaged
-build”. Normal keyboard dispatch and non-replacing stored shortcuts remain
-available; this limitation applies to persistent stored replacement grants.
-[[01M76AZFNNGRS5P55CSCG93YJM|Authenticated checkout execution]] requires a
-loaded-module manifest digest behind the same port, without changing grants.
+The confirmation is machine-local and keyed by versioned canonical binding
+content: its normalized chord (including unconstrained versus false modifiers
+and matcher identity), context, target command or context-intent identity,
+normalized action input, and replacement identity. Labels and enable/disable are
+not authority. Changed content requires confirmation again; a delayed answer
+must still match the current content. The confirmation, not an authorship proof,
+is the authority. When known, the writer is shown from `KbTx.actor`/`via` as
+information only. It never grants or prevents a confirmation. No invocation or
+writer-provenance plumbing is required. A confirmation never bypasses admission
+or an action's own approval. Approval changes invalidate the admitted map even
+without a graph/plugin edit.
 
-The authority join reads trusted declaration ownership for the same loaded
-code generation, then authenticates the exact first elected live runner entry.
-View-dependent commands must retain both the live `ViewKeyPoint` registration
-and the actual `ViewPoint` provider dependencies, including selected code
-identity. A key description alone never authenticates a renderer. Missing,
-ambiguous, stale or unsupported provenance refuses authentication.
+kb is currently a single-owner local tool: installed code remains trust-gated,
+and shortcut confirmation does not authenticate a packaged code image. It works
+in a normal checkout. Code-image identity and its loader/delivery work are
+[[01M76AZFNNGRS5P55CSCG93YJM|parked on bb/kb-held-image]] for a future requirement;
+that branch is outside this feature. The inactive decoder's code/dependency
+review identities remain available for diagnostics; they are not the key of a
+person's content confirmation.
 
 The page itself is a context too, `core.page`, which core owns
 (`operations/src/keyboard.ts`). A context says where it is offered keys

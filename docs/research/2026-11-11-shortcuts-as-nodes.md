@@ -87,3 +87,13 @@ are passed to the existing admission rule, which refuses missing held targets;
 cycles and their dependents stay inert. Missing contexts, targets and holders
 stay inert and are reconsidered on reload. Incremental and fresh reads must
 agree, including reversed graph enumeration and intermediate holder unloads.
+
+
+## Scope decision, 2026-11-12
+
+The current authority policy is [DESIGN-UI.md](../../DESIGN-UI.md#outline-editor-i1).
+It supersedes the code-identity and authorship approval proposals above: the
+single-owner checkout uses one explicit canonical-content confirmation for any
+override, whoever wrote it; writer information is informational only.
+The held-image work is preserved unchanged on `bb/kb-held-image`; its parked
+status is recorded by [[01M76AZFNNGRS5P55CSCG93YJM]].

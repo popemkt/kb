@@ -682,14 +682,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — move the shared GPU backdrop host out of backdrops-ui into a kit package (beside @kb/scene-gpu) with its scene registry passed in, then port arena-scene.ts onto mountBackdrop and delete Arena's wrapper; the port drops Arena's write() and its Pod re-fire in favour of reactions.impulse / reactions.stir read in frame(), and Arena passes backdrop-continuity.contract.test.tsx
 - **node** — `01M5SYY397F5NPN3CHWGCSPQSY`
 
-### GAP: authenticate checkout code for stored shortcut approvals
-
-- **expected** — Persistent shortcut replacement grants authenticate the exact loaded native and page code in packaged and checkout execution through one code-image interface.
-- **current** — The first stored replacement approval integration requires a packaged image; checkout/dev approvals are explicitly unavailable while ordinary key dispatch and non-replacing shortcuts remain available.
-- **impact** — Checkout/dev cannot grant persistent stored key replacements.
-- **closes** — Provide a loaded-module manifest digest bound to the actual imported module closure and served executable page closure; the 64-bit UI source-cache fingerprint is insufficient.
-- **node** — `01M76AZFNNGRS5P55CSCG93YJM`
-
 ### GAP: BrowserStore IndexedDB persistence
 
 - **expected** — The browser replica persists through an IndexedDB-backed EffectStore across page reloads.
@@ -802,6 +794,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Interactive use is bounded by cold start, and the derived snapshot cache exists mostly to work around it.
 - **closes** — Separate design question recorded in briefs/p1-persistence.md section 4: protocol, discovery, and fallback when no server is running.
 - **node** — `01M1M08WPQTB514E7JERKYEDWZ`
+
+### GAP: code-image identity parked for the single-owner shortcut model
+
+- **expected** — Revisit loaded-code image identity only if kb needs stronger authentication than its single-owner local trust/approval model.
+- **current** — Code-image identity, held loader, page history/lifetime and MIME work are parked unchanged on branch bb/kb-held-image at 1dfb15e8. Shortcuts instead use one explicit person confirmation of versioned canonical content, whoever wrote the node, in a normal checkout.
+- **impact** — Packaged image authentication is intentionally not required for shortcut overrides; extensions remain trust-gated and actions keep their own approvals.
+- **closes** — A concrete multi-owner or untrusted-code requirement justifies restoring and reviewing bb/kb-held-image and its code-image boundary.
+- **node** — `01M76AZFNNGRS5P55CSCG93YJM`
 
 ### GAP: core seeds the view-as command nodes for every family's views
 
