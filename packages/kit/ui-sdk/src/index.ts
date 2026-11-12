@@ -62,6 +62,7 @@ export type { HostedFrame, SandboxEvents, SandboxPorts, SandboxRun } from "./san
 // waiting on a person, its frame, and the card a person answers them on.
 export { useSandboxPorts, useSandboxTrust, type Asking, type SandboxTrust } from "./sandbox-run";
 export { SandboxFrame } from "./components/sandbox-frame";
+export { ActionReviewDialog } from "./components/action-review-dialog";
 export { ActionApproval } from "./components/action-approval";
 export { ActionReviewPoint, type ApprovalView } from "./lib/action-review";
 export { SandboxApprovalCard } from "./components/sandbox-approval-card";
@@ -527,19 +528,28 @@ export {
   matchesChord,
   PALETTE_CHORD,
   parseChord,
+  printableExcept,
   TEXT_HISTORY_CHORD,
 } from "./lib/keychord";
 export {
   admitKeybindings,
+  admitKeymaps,
   currentKeymap,
   type KeyContext,
   type KeyContextId,
+  keyContextOf,
+  KeyContextPoint,
+  type KeyContextSpec,
+  type KeyCall,
+  keyCallOf,
   type Keybinding,
   KeybindingPoint,
   type Keymap,
   type KeyRun,
   provideKeybinding,
   type RefusedBinding,
+  runKeyCall,
+  tellKeymaps,
 } from "./lib/keybindings";
 export { logError, logWarn } from "./lib/log";
 export {

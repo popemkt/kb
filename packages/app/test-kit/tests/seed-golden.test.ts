@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { canonicalJsonl, present } from "@kb/model";
+import { DatascriptIndex, derivedWith } from "@kb/query";
 import { Effect } from "effect";
 import { ACTOR_OPTION_IDS, GOVERNANCE_IDS } from "@kb/governance";
 import { STORE_BACKENDS, createStore, bunFileSystemLayer } from "@kb/runtime";
@@ -60,3 +61,32 @@ for (const backend of STORE_BACKENDS) {
       ),
     ));
 }
+
+describe("shortcut target choices", () => {
+  test("offers unbound commands and ordinary action recipes alongside registered intents", () => {
+    const at = "2026-11-11T00:00:00.000Z";
+    const seed = bundledSeed(at);
+    const make = (id: string, tag: string) => ({
+      id,
+      text: id,
+      props: { "sys.f.type": [{ t: "ref" as const, v: tag }] },
+      children: [],
+      createdAt: at,
+      updatedAt: at,
+    });
+    const index = new DatascriptIndex(
+      [...seed, make("unbound-command", "sys.command"), make("unbound-call", "sys.call")],
+      { derived: derivedWith({}) },
+    );
+    const query = seed.find(({ id }) => id === "sys.f.shortcut.runs")?.props[
+      "sys.f.targetQuery"
+    ]?.[0];
+    expect(query?.t).toBe("str");
+    if (query?.t !== "str") return;
+    const choices = index.runDatalog(query.v).map((row) => row[0]);
+    expect(choices).toContain("unbound-command");
+    expect(choices).toContain("unbound-call");
+    expect(choices.some((id) => String(id).startsWith("sys.shortcut.intent."))).toBe(true);
+    expect(choices).not.toContain("sys.f.shortcut.keys");
+  });
+});

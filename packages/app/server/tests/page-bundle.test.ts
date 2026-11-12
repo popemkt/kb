@@ -136,6 +136,14 @@ const DATASCRIPT = /cljs\.core/;
 // from a failed receipt), the refusal as data it reads (`WriteRefusal`), and
 // the owner chip with the index's point read it asks (`related`), merged with
 // C1b-a at 2adf28cf, measure 1,826,408; the budget keeps about 1.5 KB over it.
+// The page's own key context (`core.page`, its ⌘K a binding the page
+// answers), keys that run commands, and days' Mod-Shift-D, take it to
+// 1,828,450; the budget keeps about 1.5 KB over that.
+// The canvas's key table (`canvas-keys.ts`: its contexts and bindings,
+// contributed when canvas-ui applies, so the page's admission sees them) and
+// the camera's stops it names take it to 1,837,113; the keymap that reads
+// them, and the camera's math, stay with the canvas scene. The budget keeps
+// about 1.5 KB over that.
 // The capture target on both kernels (`CaptureTarget` in the page's action
 // env, the page's planner over its role, `node.add` deciding its place in
 // its planned commit, and the descriptions saying what an omitted parent
@@ -158,12 +166,33 @@ const DATASCRIPT = /cljs\.core/;
 // (`ext.days.untag-period`), on main after #175, measure 1,833,556; the
 // budget keeps about 1.5 KB over it. Merged with main at 2ac7de7b (#178),
 // it measures 1,836,700; the budget keeps about 1.5 KB over that.
+// A day in the node page (sections below a node's outline per tag, the
+// shared NodeLinkRow, the empty page's strip and the title's Enter, the day
+// page gone), merged with main after #177 and #179, measures 1,837,370;
+// the budget keeps about 1.5 KB over it.
+// The page key context merged with main at d94876c5 measures 1,840,131
+// bytes; retain about 1.5 KB of headroom for the combined page.
+// Canvas key contexts and the refreshed page bridge on main d94876c5
+// measure 1,850,164 bytes; retain about 1.5 KB over that combined page.
+// Shared keyboard declarations and their ordinary shortcut/chord descriptions
+// measure 1,855,046 bytes; retain about 1.5 KB of eager headroom.
+// Stable intent targets, call recipes and the target-choice query measure 1,856,120 bytes.
+// Validating JSON compatibility before the object shape measures 1,856,152 bytes.
+// Publishing native keyboard declarations on both hosts measures 1,856,252 bytes.
+// The shared call codec extraction measures 1,856,290 bytes; the inactive reader is tree-shaken.
+// Retaining provenance in the normal command runner catalog measures 1,856,660 bytes.
+// Sharing the scoped plugin-root lookup measures 1,856,725 bytes.
+// Inspecting host-bound provenance through the command catalog measures 1,857,014 bytes.
+// Resolving provenance roots through loaded parent entries measures 1,857,105 bytes.
 // Merging the migration declaration/procedure, with step recommendations and
 // notes, into that main measures 1,840,175 bytes; retain about 1.5 KB headroom.
 // Canvas run field references and their shared commit guard measure 1,843,186 bytes.
 // Tracking the validator's actual graph dependencies measures 1,843,078 bytes.
 // Preserving absent versus present binding data measures 1,843,086 bytes.
-const EAGER_BUDGET_BYTES = 1_844_700;
+// Merged with main 0caabcc0: measured 1,855,695 bytes; retain about 1.5 KB headroom.
+// Combined shortcut reader with main 0caabcc0 measures 1,862,107 bytes.
+// The live graph reader, confirmation review and shared action-review composition measure 1,887,487 bytes.
+const EAGER_BUDGET_BYTES = 1_889_000;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

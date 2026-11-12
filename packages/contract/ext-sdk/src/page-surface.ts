@@ -429,11 +429,14 @@ export declare function provideValueKind(
 
 /**
  * A key as a binding states it: a key name as `KeyboardEvent.key` names
- * it (or several, or a test of the name), and the modifiers it asks about.
- * A modifier left out is not asked about. `mod` is ⌘ or Ctrl.
+ * it (or several, or a test of the name), or its place as
+ * `KeyboardEvent.code` names it (`Numpad7`), and the modifiers it asks
+ * about. A modifier left out is not asked about. `mod` is ⌘ or Ctrl. A
+ * chord by place is asked before one by character.
  */
 export interface Chord {
   key?: string | readonly string[] | ((key: string) => boolean);
+  code?: string;
   mod?: boolean;
   meta?: boolean;
   ctrl?: boolean;
@@ -442,18 +445,30 @@ export interface Chord {
 }
 
 /**
- * Where a key means something: the outline's row being edited, or its
- * selection (a row selected, none edited).
+ * Where a key means something: the page itself (`core.page`), offered every
+ * key wherever focus is, before anything else is; the outline's row being
+ * edited, or its selection (a row selected, none edited); or the canvas at
+ * rest, in a modal transform, or presenting its frames.
  */
-export type KeyContextId = "outline.editing" | "outline.selection";
+export type KeyContextId =
+  | "core.page"
+  | "outline.editing"
+  | "outline.selection"
+  | "canvas.rest"
+  | "canvas.transform"
+  | "canvas.present";
 
 /**
- * What a key runs: one of its context's intents by name (`outline.editing`:
- * `split`, `indent`, `move-up`, `line-down`, …; `outline.selection`: `up`,
- * `move-down`, `create-after`, `zoom`, …), or an action through the page's
- * invoke path, with the row's node as its input's `id`.
+ * What a key runs: one of its context's intents by name (`core.page`:
+ * `palette`; `outline.editing`: `split`, `indent`, `move-up`, `line-down`,
+ * …; `outline.selection`: `up`, `move-down`, `create-after`, `zoom`, …;
+ * `canvas.rest`: `tool.draw`, `copy`, `nudge`, `align.left`, …); an
+ * action through the page's invoke path, with the row's node as its input's
+ * `id`; or a command by id, as ⌘K runs it, about the row's node (on
+ * `core.page`, about what ⌘K's commands are about: the selected row, else
+ * the zoomed node).
  */
-export type KeyRun = { readonly intent: string } | ActionCall;
+export type KeyRun = { readonly intent: string } | ActionCall | { readonly command: string };
 
 /** A key in a context, and what it runs; the binding whose held chord it takes, if any. */
 export interface Keybinding {
@@ -464,12 +479,15 @@ export interface Keybinding {
 }
 
 /**
- * Every key of the outline's contexts. One binding per chord per context:
- * the outline's own are held first (`outline.editing.split`,
- * `outline.selection.up`, …). A binding over a held chord is refused, and
- * the person told why, unless it names the holder in `replaces`; it then
- * takes exactly its own chord, and the holder keeps the rest. `Escape`,
- * ⌘Z, ⌘⇧Z and ⌘K are never a binding's.
+ * Every key of every context. One binding per chord per context: the
+ * context's owner's own are held first (`core.page.palette`,
+ * `outline.editing.split`, `outline.selection.up`,
+ * `canvas.rest.tool.draw`, …). A binding over a held
+ * chord is refused, and the person told why, unless it names the holder in
+ * `replaces`; it then takes exactly its own chord, and the holder keeps the
+ * rest. A `core.page` key holds ⌘ or Ctrl, may not take a chord the outline
+ * binds in its own contexts, and holds its chord in every one of them.
+ * `Escape`, ⌘Z, ⌘⇧Z and ⌘K are never a binding's.
  */
 export declare const KeybindingPoint: PointKey<Keybinding>;
 

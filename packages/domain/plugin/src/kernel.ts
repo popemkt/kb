@@ -157,6 +157,11 @@ export function isPlugin(value: unknown): value is Plugin {
  */
 export type PluginStatus = "pending" | "active" | "failed";
 
+/** Effective code origin supplied by the host, independent of contribution namespaces. */
+interface PluginProvenance extends Pick<PluginAuthority, "source" | "digest"> {
+  readonly root: string;
+}
+
 export interface PluginState {
   readonly name: string;
   readonly namespace: string;
@@ -233,6 +238,8 @@ export interface Kernel {
     provider: RoleProvider,
     cause: unknown,
   ) => Effect.Effect<boolean>;
+  /** Effective host-bound code origin of a visible owner; not membership or replacement approval. */
+  readonly provenance: (owner: string) => PluginProvenance | undefined;
   readonly plugins: () => readonly PluginState[];
   /**
    * Whether `plugin`, this very value, is what the kernel holds under its
@@ -615,6 +622,23 @@ function contextFor(state: State, active: Activation): PluginContext {
   };
 }
 
+/** The same whole-activation boundary governs registrations and their code origin. */
+function provenanceOf(state: State, owner: string): PluginProvenance | undefined {
+  const entry = state.entries.get(owner);
+  if (entry === undefined || !visible(state, owner)) return undefined;
+  let root = entry;
+  while (root.parent !== null) {
+    const parent = state.entries.get(root.parent);
+    if (parent === undefined) return undefined;
+    root = parent;
+  }
+  return {
+    root: root.name,
+    source: entry.authority.source,
+    ...(entry.authority.digest === undefined ? {} : { digest: entry.authority.digest }),
+  };
+}
+
 /**
  * The plugin kernel: one per host (the server session, the CLI, the browser).
  * State is plain maps mutated only inside the kernel's own effects, and read
@@ -648,6 +672,7 @@ export function makeKernel({
         { discard: true },
       ),
     ),
+    provenance: (owner) => provenanceOf(state, owner),
     contributions: (point) => contributionsAt(state, point),
     lookup: (point, id) => {
       const slot = state.points.get(point.name);

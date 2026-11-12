@@ -6,10 +6,10 @@
  * card of an extension whose selection was removed while its nodes stay.
  * Approval itself belongs to `ActionApproval`.
  */
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { ActionInvocation, ExtensionReportRow, ExtensionScope } from "@kb/contracts";
 import { DEFAULT_EXTENSION_SCOPE } from "@kb/contracts";
-import { ActionApproval, cn, EnumSelect } from "@kb/ui-sdk";
+import { ActionReviewDialog, cn, EnumSelect } from "@kb/ui-sdk";
 import { extensionNodeId } from "@kb/model";
 import { PlusIcon } from "@phosphor-icons/react";
 import { usePrefsStore } from "@/stores/prefs.store";
@@ -35,8 +35,6 @@ export function ReviewSheet({
   readonly row: ExtensionReportRow;
   readonly close: () => void;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const title = useId();
   const invocation = useMemo<ActionInvocation>(
     () => ({
       id: "sandbox.trust",
@@ -50,28 +48,11 @@ export function ReviewSheet({
     }),
     [row],
   );
-  useEffect(() => {
-    const element = dialog.current;
-    element?.showModal();
-    return () => element?.close();
-  }, []);
   function answer(approved: boolean) {
     if (!approved) return Promise.resolve(close());
     return changeExtensions(invocation.id, invocation.input).then(close);
   }
-  return (
-    <dialog
-      ref={dialog}
-      aria-labelledby={title}
-      onCancel={close}
-      className="m-auto max-h-[85vh] w-full max-w-3xl overflow-auto rounded-md border border-border bg-card p-5 text-foreground"
-    >
-      <h3 id={title} className="text-title">
-        Review &amp; trust
-      </h3>
-      <ActionApproval invocation={invocation} answer={answer} />
-    </dialog>
-  );
+  return <ActionReviewDialog invocation={invocation} answer={answer} close={close} />;
 }
 
 /** The scope a control writes, chosen once beside it. */

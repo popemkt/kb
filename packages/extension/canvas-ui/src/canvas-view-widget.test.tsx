@@ -9,10 +9,9 @@ import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { presetView, viewOfPan, type CanvasView } from "./canvas-camera";
 import { CanvasCameraRig } from "./canvas-camera-rig";
-import type { CanvasIntent } from "./canvas-keymap";
+import type { CanvasIntent, CanvasGroupNode } from "@kb/canvas";
 import { TIMING_FALLBACK } from "@kb/ui-sdk";
 import { CanvasViewWidget } from "./canvas-view-widget";
-import type { CanvasGroupNode } from "@kb/canvas";
 
 const size = { width: 800, height: 600 };
 const flat = viewOfPan({ x: 0, y: 0 }, 1, size);

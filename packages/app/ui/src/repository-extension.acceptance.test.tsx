@@ -103,6 +103,10 @@ describe("a repository extension's page half (acceptance)", () => {
     await follow();
     expect(pageFootprint("example").map(({ kind, id }) => [kind, id])).toEqual([
       ["ui.value-kinds", "example.stars"],
+      ["ui.keybindings", "example.move-up"],
+      ["ui.keybindings", "example.move-up-selected"],
+      ["ui.keybindings", "example.stamp"],
+      ["ui.keybindings", "example.unrate"],
       ["kb.views", "example.board"],
       ["kb.views", "example.note"],
       ["ui.palette-steps", "example.link"],
@@ -110,10 +114,6 @@ describe("a repository extension's page half (acceptance)", () => {
       ["ui.views", "example.note"],
       ["ui.sidebar", "example.section"],
       ["ui.commands", "example.link"],
-      ["ui.keybindings", "example.move-up"],
-      ["ui.keybindings", "example.move-up-selected"],
-      ["ui.keybindings", "example.stamp"],
-      ["ui.keybindings", "example.unrate"],
       ["ui.backdrops", "example.glow"],
     ]);
   });

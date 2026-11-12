@@ -1,3 +1,21 @@
+import {
+  type CanvasAxis,
+  type TransformConstraint,
+  type TransformMode,
+  type TransformKey,
+  IDENTITY,
+  axisAngleOf,
+  canvasDepth,
+  canvasTop,
+  coversFromAbove,
+  paintOrder,
+  stillAbout,
+  turnAbout,
+  type CanvasMatrix,
+  type CanvasNode,
+  type CanvasTransform,
+  type CanvasVec,
+} from "@kb/canvas";
 /**
  * How the pointer and the keyboard make one `CanvasTransform` (plan
  * 2026-10-02, decisions 9 and 10): a grab carries items, a rotate turns
@@ -12,20 +30,7 @@
  * Pure: the pointer is read through the camera model, so one input means the
  * same thing in both projections and from any orbit.
  */
-import {
-  IDENTITY,
-  axisAngleOf,
-  canvasDepth,
-  canvasTop,
-  coversFromAbove,
-  paintOrder,
-  stillAbout,
-  turnAbout,
-  type CanvasMatrix,
-  type CanvasNode,
-  type CanvasTransform,
-  type CanvasVec,
-} from "@kb/canvas";
+
 import {
   hitTest,
   projectPoint,
@@ -38,7 +43,6 @@ import {
 } from "./canvas-camera";
 
 /** One of the canvas's axes, or of an item's own. */
-export type CanvasAxis = "x" | "y" | "z";
 
 const AXES: readonly CanvasAxis[] = ["x", "y", "z"];
 
@@ -50,17 +54,11 @@ const COLUMN = { x: 0, y: 1, z: 2 } as const satisfies { readonly [A in CanvasAx
  * which is every axis but that one; along the canvas's axes (`global`) or
  * the lead item's own (`local`).
  */
-export interface TransformConstraint {
-  readonly axis: CanvasAxis;
-  readonly plane: boolean;
-  readonly space: "global" | "local";
-}
 
 /** The canvas's Z axis: what Alt-drag holds a grab to. */
 export const ALONG_Z: TransformConstraint = { axis: "z", plane: false, space: "global" };
 
 /** What an input does: carry, turn, stretch, or grow depth. */
-export type TransformMode = "grab" | "rotate" | "scale" | "extrude";
 
 /**
  * A transform under way as the pointer makes it. Unconstrained, a grab
@@ -340,13 +338,6 @@ export function transformAt(
 }
 
 /** A key pressed during a modal transform (plan decision 9's keymap). */
-export type TransformKey =
-  /** X, Y or Z: hold to that axis; with Shift, to the plane across it. */
-  | { readonly kind: "axis"; readonly axis: CanvasAxis; readonly plane: boolean }
-  /** A digit, `.`, `-` (which negates) or Backspace: the typed value. */
-  | { readonly kind: "type"; readonly key: string }
-  /** G, R or S: switch to grab, rotate or scale. */
-  | { readonly kind: "mode"; readonly mode: Exclude<TransformMode, "extrude"> };
 
 /**
  * The constraint after pressing `axis` (`plane` with Shift): the same key

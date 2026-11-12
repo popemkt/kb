@@ -1,3 +1,4 @@
+import { OUTLINE_KEYBOARD } from "./keyboard.ts";
 /**
  * The outline family's declaration and its shared plugin (DESIGN.md →
  * Extension families). The outline is the default editing mode: its
@@ -22,6 +23,7 @@ import { OUTLINE_IDS } from "./ids.ts";
 
 export const outlineExtension = defineExtension({
   name: "outline",
+  keyboard: OUTLINE_KEYBOARD,
   label: "Outline",
   manifest: {
     description: "The outliner: the default way to read and edit a node and its children.",

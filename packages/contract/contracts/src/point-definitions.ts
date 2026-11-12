@@ -123,13 +123,23 @@ export const CORE_POINT_DEFINITIONS = {
       tier: "T3",
     },
   },
+  keyContext: {
+    name: "ui.key-contexts",
+    spec: {
+      cardinality: "keyed",
+      combine:
+        "one context per id, owned by the plugin that contributes it: the page's are offered every key first, so their chords are held in every context",
+      kernel: ["registry", "page"],
+      tier: "T0",
+    },
+  },
   keybinding: {
     name: "ui.keybindings",
     spec: {
       cardinality: "keyed",
       combine:
         "one binding per chord per context: the context owner's first, then load order; an overlapping or reserved chord is refused unless the binding replaces its holder",
-      kernel: "page",
+      kernel: ["registry", "page"],
       tier: "T0",
     },
   },

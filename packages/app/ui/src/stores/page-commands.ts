@@ -13,11 +13,13 @@ import {
   currentContributions,
   providedFrameViews,
   RoutePoint,
+  toast,
   type CommandContext,
   type CommandTarget,
   type OutlineCommandApi,
   type PaletteSurface,
 } from "@kb/ui-sdk";
+import { commandTargetNodeId, runCommand, viewTargetFrameId } from "@/lib/commands";
 import { paneSubjectAt } from "@/lib/pane-subject";
 import { pageProjection, useGraphStore } from "@/stores/graph.store";
 import { pageRows } from "@/stores/page";
@@ -67,4 +69,29 @@ export function pageCommandContext(target: CommandTarget, palette: PaletteSurfac
     workspace: currentWorkspace(),
     palette,
   };
+}
+
+/**
+ * What a command run from ⌘K or a key is about: the node `nodeId`, or the
+ * page's own target when null (the selected row, else the zoomed node),
+ * and the frame a view command edits.
+ */
+export function pageCommandTarget(nodeId: string | null = null): CommandTarget {
+  const outline = pageCommandApi();
+  return { nodeId: nodeId ?? commandTargetNodeId(outline), frameId: viewTargetFrameId(outline) };
+}
+
+/**
+ * Run `command` from a key, about `nodeId` or the page's own target: as ⌘K
+ * runs it, with no palette to close, and a picker step it would open told
+ * as needing the node palette.
+ */
+export function runKeyCommand(command: string, nodeId: string | null): Promise<void> {
+  return runCommand(
+    command,
+    pageCommandContext(pageCommandTarget(nodeId), {
+      close: () => {},
+      openStep: () => toast("That command needs the node palette"),
+    }),
+  );
 }

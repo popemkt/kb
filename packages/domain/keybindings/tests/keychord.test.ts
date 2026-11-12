@@ -1,13 +1,15 @@
 import fc from "fast-check";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import {
+  chordIncludes,
   chordsOverlap,
   describeChord,
+  lookupChord,
   matchesChord,
   parseChord,
   type Chord,
   type KeyChordEvent,
-} from "./keychord";
+} from "../src/chord.ts";
 
 describe("parseChord", () => {
   it.each([
@@ -68,5 +70,56 @@ describe("chordsOverlap", () => {
         expect(chordsOverlap(a, b)).toBe(both);
       }),
     );
+  });
+});
+
+describe("a chord by place", () => {
+  const numpad7: Chord = { code: "Numpad7", mod: false };
+  const seven: Chord = { key: "7", mod: false };
+
+  it("matches the key at its place, whatever character it types", () => {
+    expect(matchesChord({ key: "7", code: "Numpad7" }, numpad7)).toBe(true);
+    expect(matchesChord({ key: "Home", code: "Numpad7" }, numpad7)).toBe(true);
+    expect(matchesChord({ key: "7", code: "Digit7" }, numpad7)).toBe(false);
+    expect(matchesChord({ key: "7" }, numpad7)).toBe(false);
+  });
+
+  it("protects a shared press across representations, and distinguishes physical places", () => {
+    expect(chordsOverlap(numpad7, seven)).toBe(true);
+    expect(chordsOverlap(numpad7, { code: "Numpad7" })).toBe(true);
+    expect(chordsOverlap(numpad7, { code: "Numpad1", mod: false })).toBe(false);
+    expect(chordsOverlap(numpad7, { code: "Numpad7", mod: true })).toBe(false);
+  });
+
+  it("is asked before a chord by character, wherever it is listed", () => {
+    const rows = [
+      { chord: seven, name: "frame tool" },
+      { chord: numpad7, name: "look from the top" },
+    ];
+    expect(lookupChord({ key: "7", code: "Numpad7" }, rows)?.name).toBe("look from the top");
+    expect(lookupChord({ key: "7", code: "Digit7" }, rows)?.name).toBe("frame tool");
+  });
+
+  it("reads as its place", () => {
+    expect(describeChord({ code: "KeyH", alt: true, shift: true })).toBe("Shift-Alt-[KeyH]");
+  });
+});
+
+describe("chordIncludes", () => {
+  it("proves every modifier and character admitted by the part belongs to the whole", () => {
+    fc.assert(
+      fc.property(chordArb, chordArb, (whole, part) => {
+        if (chordIncludes(whole, part)) {
+          expect(events.every((ev) => !matchesChord(ev, part) || matchesChord(ev, whole))).toBe(
+            true,
+          );
+        }
+      }),
+    );
+  });
+  it("requires the same physical place when the whole constrains it", () => {
+    expect(chordIncludes({ code: "NumpadEnter" }, { code: "NumpadEnter", mod: false })).toBe(true);
+    expect(chordIncludes({ code: "NumpadEnter" }, { key: "Enter" })).toBe(false);
+    expect(chordIncludes({ code: "NumpadEnter" }, { code: "Enter" })).toBe(false);
   });
 });

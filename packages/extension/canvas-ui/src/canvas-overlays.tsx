@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { CanvasNode, CanvasProjectionKind } from "@kb/canvas";
+import type { CanvasNode, CanvasProjectionKind, PresentAct, CanvasTool } from "@kb/canvas";
 import {
   ArrowLineDownIcon,
   ArrowLineUpIcon,
@@ -10,13 +10,14 @@ import {
   TrashIcon,
   XIcon,
 } from "@phosphor-icons/react";
-import type { PresentAct } from "./canvas-keymap";
+
 import { frameName } from "./canvas-frame-name";
 import { CanvasToolbar } from "./canvas-toolbar";
 import { NodePicker } from "./node-picker";
-import type { CanvasSelection } from "./canvas-selection";
-import { selectionEmpty } from "./canvas-selection";
-import type { CanvasTool, ToolState } from "./canvas-tool";
+import { type CanvasSelection, selectionEmpty } from "./canvas-selection";
+
+import type { ToolState } from "./canvas-tool";
+
 import { GIZMO_MODES, type GizmoChoice } from "./canvas-gizmo";
 import { cn } from "@kb/ui-sdk";
 import { bottomBarClass } from "./canvas-stage-layout";

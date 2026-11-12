@@ -795,6 +795,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Separate design question recorded in briefs/p1-persistence.md section 4: protocol, discovery, and fallback when no server is running.
 - **node** — `01M1M08WPQTB514E7JERKYEDWZ`
 
+### GAP: code-image identity parked for the single-owner shortcut model
+
+- **expected** — Revisit loaded-code image identity only if kb needs stronger authentication than its single-owner local trust/approval model.
+- **current** — Code-image identity, held loader, page history/lifetime and MIME work are parked unchanged on branch bb/kb-held-image at 1dfb15e8. Shortcuts instead use one explicit person confirmation of versioned canonical content, whoever wrote the node, in a normal checkout.
+- **impact** — Packaged image authentication is intentionally not required for shortcut overrides; extensions remain trust-gated and actions keep their own approvals.
+- **closes** — A concrete multi-owner or untrusted-code requirement justifies restoring and reviewing bb/kb-held-image and its code-image boundary.
+- **node** — `01M76AZFNNGRS5P55CSCG93YJM`
+
 ### GAP: core seeds the view-as command nodes for every family's views
 
 - **expected** — each family seeds the node commands for its own views (the outline its list, collections its table, board and cards)
@@ -1161,14 +1169,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — shapes stay unpromotable
 - **closes** — shapes show their node
 - **node** — `01M42Q9H3RA1FHZYYYP2M9QJ4V`
-
-### GAP: only the outline keymaps are keybinding contexts; the global Mod-K and the canvas keymap are fixed tables
-
-- **expected** — Every page surface whose keys mean something is a context on ui.keybindings (the parity record §3.3 names a global context), so a binding can rebind or extend it and the conflict rule covers it.
-- **current** — matchGlobalShortcut decides Mod-K in code, and canvas-ui reads its own CANVAS keymap table; both only reserve or ignore ui.keybindings.
-- **impact** — An extension cannot add a global key or a canvas key, and two mechanisms answer which key means what.
-- **closes** — A global context owned by the shell and a canvas context owned by canvas-ui, each with intents and reserved chords, read through currentKeymap.
-- **node** — `01M6Y9H6R5D9Y8TQKZJZVWX8PB`
 
 ### GAP: only view.propose checks a view node's settings against its key
 

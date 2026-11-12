@@ -54,7 +54,7 @@ export {
 
 export { roleCall } from "./role-call.ts";
 
-export { namespaced } from "./keys.ts";
+export { namespaced, rootPluginName } from "./keys.ts";
 
 export { roleSession, type RoleSession } from "./role-session.ts";
 

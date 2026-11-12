@@ -7,10 +7,11 @@
  * lazy chunk the canvas page imports.
  */
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
-import type { CanvasDoc, CanvasNode } from "@kb/canvas";
+import type { CanvasDoc, CanvasNode, CanvasTool } from "@kb/canvas";
 import { wheelZoomFactor, type CanvasPoint, type ViewSize } from "./canvas-camera";
 import type { CanvasPainter } from "./canvas-capture";
-import { toolTakes, type CanvasTool, type ToolSpot } from "./canvas-tool";
+import { toolTakes, type ToolSpot } from "./canvas-tool";
+
 import type { CanvasCameraRig } from "./canvas-camera-rig";
 import type { CanvasPointerEvent } from "./canvas-pointer";
 import type { CanvasSelection } from "./canvas-selection";
