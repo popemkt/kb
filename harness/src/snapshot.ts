@@ -1,3 +1,4 @@
+import { collectCliFence, collectStaticClosure } from "./cli-closure.ts";
 /**
  * Generates the lint-warn-baseline.json ratchet ledger (plan A.9 #2 / spec 11).
  *
@@ -17,7 +18,7 @@ import { collectModuleMeasures, type ModuleMeasures } from "./module-measures.ts
 import { execFileSync, execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { RUNTIME_PRESET_BY_SCOPE } from "./constraints.ts";
+import { LAZY_FENCES, RUNTIME_PRESET_BY_SCOPE } from "./constraints.ts";
 import { projectDirOf, typecheckProjects } from "./scopes.ts";
 import {
   HARNESS_ROOT,
@@ -39,6 +40,8 @@ export interface BaselineLanes {
     blocking: Record<string, number>;
     advisory: Record<string, number>;
     knip: Record<string, number>;
+    "lazy-fence": Record<string, number>;
+    "cli-closure": Record<string, number>;
   };
 }
 
@@ -54,7 +57,8 @@ export type BaseLedger =
   | {
       ok: true;
       rev: string;
-      lanes: Omit<BaselineLanes["lanes"], keyof ModuleMeasures> & Partial<ModuleMeasures>;
+      lanes: Omit<BaselineLanes["lanes"], keyof ModuleMeasures | "lazy-fence" | "cli-closure"> &
+        Partial<ModuleMeasures & Pick<BaselineLanes["lanes"], "lazy-fence" | "cli-closure">>;
     }
   | { ok: false; reason: string };
 
@@ -441,6 +445,8 @@ function buildBaseline(
   return {
     lanes: {
       ...collectModuleMeasures(),
+      "lazy-fence": sortedRecord(collectCliFence()),
+      "cli-closure": collectStaticClosure(LAZY_FENCES.cli.entry),
       blocking,
       advisory,
       knip: sortedRecord(knipFindings),

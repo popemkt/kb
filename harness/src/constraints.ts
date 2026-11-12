@@ -582,6 +582,16 @@ export interface LazyFence {
 
 /** One policy table, independent of emitted chunk names or host topology. */
 export const LAZY_FENCES = {
+  // GAP [[01M75MA3QTAABRAE6N0069CB8R]]: current engine breaches are held in the ledger.
+  cli: {
+    // main.ts already imports this dispatcher dynamically for launch validation.
+    // Measure the code every command actually loads, not that thin launcher.
+    entry: "packages/app/cli/src/cli.ts",
+    forbidden:
+      /^(?:@kb\/(?:server|mcp|routines-host|routines-gcal|agent-claude|agent-openai)(?:\/|$)|@modelcontextprotocol\/sdk(?:\/|$)|@anthropic-ai\/claude-agent-sdk(?:\/|$)|vega[^/]*(?:\/|$)|@jitl\/quickjs-|packages\/(?:app\/(?:server|mcp)|extension\/(?:routines-host|routines-gcal|agent-claude|agent-openai))\/)/,
+    depth: 1,
+    boundary: "dependency",
+  },
   ui: {
     entry: UI_ENTRY,
     forbidden: /^(?:three|@kb\/chart-vega|vega(?:-lite|-interpreter)?)(?:\/|$)/,

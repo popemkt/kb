@@ -280,6 +280,22 @@ The introducing commit initializes the lanes against a base without them.
 Consumer and namespace-member measurement awaits M1b; cohesion awaits M2
 calibration (the corresponding gaps are recorded in kb).
 
+The lazy-import policy is one entry-to-forbidden-closure table, `LAZY_FENCES`
+in `harness/src/constraints.ts`. The UI row fences the issuer's chunk;
+its meaning is stated in [DESIGN-UI](DESIGN-UI.md#extension-ui-halves).
+The CLI row measures the command dispatcher (`cli.ts`): `main.ts` already
+loads that dispatcher dynamically for launch validation, so using the launcher
+would hide the command's eager imports. The CLI row fences the dependency
+itself. Its current violations form the `lazy-fence` ledger lane, keyed by
+importing file and specifier. `cli-closure` holds total emitted bytes and
+distinct source modules across the dispatcher's entire static output closure,
+including shared chunks and excluding dynamic imports. A measurement build
+uses Bun splitting, whitespace minification (removing path-bearing comments)
+and its metafile; output filenames are not policy. Both
+lanes must match reality and may only fall after their introducing commit.
+`harness:snapshot` regenerates them; an unresolvable source import or missing
+metafile output fails the collector. This check does not change release layout.
+
 Rejected rules are recorded here with their measured count, like rejected
 compiler flags: `oxc/no-map-spread` (14 sites) — a micro-optimisation for
 `Array.prototype.map` callbacks that spread; kb's arrays are small, the

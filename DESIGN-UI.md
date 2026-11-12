@@ -3432,7 +3432,7 @@ the shell.
   against the shell's design-system sheets. Its barrel names only what the
   entry already loads, and the light arithmetic, so the page tests pull no
   renderer into the entry's chunk.
-- **The lazy fence follows packages.** `UI_LAZY_ONLY` applies to the import
+- **The lazy fence follows packages.** `LAZY_FENCES.ui` applies to the import
   closure from `UI_ENTRY`, walking into `scope:browser` workspace packages
   too, so a chart page moved out of `app/ui` is still fenced from Vega.
 
@@ -3552,7 +3552,7 @@ seeded random a study scatters from), `scene-host` (its React wrapper over
 graph sit behind a dynamic `import()` inside their surface's own lazy route
 chunk, so every path from the entry to a three import, direct or through
 `@kb/scene-gpu`, crosses two of them. That is one
-rule over the import graph (`UI_LAZY_ONLY` in `harness/src/constraints.ts`,
+rule over the import graph (`LAZY_FENCES.ui` in `harness/src/constraints.ts`,
 applied by the harness's `ui-lazy-fence` check), so no surface lists which of
 its files may import three.
 
@@ -5281,7 +5281,7 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
 - **Two lazy boundaries.** The plugin's eager module holds only the
   contribution and a `lazy()` host (`gpu/gpu-backdrop.tsx`), which imports
   each scene with `import()`: three never reaches the first-load bundle
-  (`UI_LAZY_ONLY`). Until a scene is ready, and on a machine that cannot
+  (`LAZY_FENCES.ui`). Until a scene is ready, and on a machine that cannot
   start one, the head shows the wash.
 - **Samples start in turns** (`gpu/sample-turns.ts`). A scene's start
   compiles its materials on the main thread, in its first frame. A sample

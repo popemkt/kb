@@ -179,6 +179,16 @@
       "kit/ui-sdk/src/lib/tag-color.test.ts": 5,
       "kit/ui-sdk/src/lib/tag-color.ts": 6,
       "kit/ui-sdk/src/sandbox-run.ts": 8
+    },
+    "lazy-fence": {
+      "packages/infrastructure/sandbox-quickjs/src/index.ts imports @jitl/quickjs-singlefile-browser-release-sync": 1,
+      "packages/extension/chart-vega/src/index.ts imports vega": 1,
+      "packages/extension/chart-vega/src/index.ts imports vega-lite": 1,
+      "packages/extension/chart-vega/src/index.ts imports vega-interpreter": 1
+    },
+    "cli-closure": {
+      "bytes": 5855891,
+      "modules": 1107
     }
   }
 }

@@ -46,9 +46,12 @@ export function lazyDepths(
 }
 
 /** Breaches of one entry's forbidden-closure policy, with shortest witness paths. */
-export function lazyFenceBreaches(sites: readonly ImportClosureSite[], fence: LazyFence): string[] {
+export function lazyFenceViolations(
+  sites: readonly ImportClosureSite[],
+  fence: LazyFence,
+): Array<{ site: ImportClosureSite; witness: string }> {
   const depths = lazyDepths(sites, fence.entry);
-  const out: string[] = [];
+  const out: Array<{ site: ImportClosureSite; witness: string }> = [];
   for (const site of sites) {
     if (site.kind === "type") continue;
     if (
@@ -60,7 +63,17 @@ export function lazyFenceBreaches(sites: readonly ImportClosureSite[], fence: La
     if (reached === undefined) continue;
     const depth = reached.depth + (fence.boundary === "dependency" && site.kind === "lazy" ? 1 : 0);
     if (depth >= fence.depth) continue;
-    out.push(`${reached.chain.join(" ")} ${site.kind === "lazy" ? "=>" : "->"} ${site.specifier}`);
+    out.push({
+      site,
+      witness: `${reached.chain.join(" ")} ${site.kind === "lazy" ? "=>" : "->"} ${site.specifier}`,
+    });
   }
-  return out.toSorted();
+  return out;
+}
+
+/** Human-readable shortest witnesses for the same violations the ledger counts. */
+export function lazyFenceBreaches(sites: readonly ImportClosureSite[], fence: LazyFence): string[] {
+  return lazyFenceViolations(sites, fence)
+    .map((finding) => finding.witness)
+    .toSorted();
 }

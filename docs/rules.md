@@ -795,6 +795,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Separate design question recorded in briefs/p1-persistence.md section 4: protocol, discovery, and fallback when no server is running.
 - **node** — `01M1M08WPQTB514E7JERKYEDWZ`
 
+### GAP: command dispatcher eagerly reaches chart engines and QuickJS
+
+- **expected** — The command dispatcher reaches host-only engines only across dynamic imports; its static closure shrinks.
+- **current** — The lazy-fence ledger holds four eager imports: chart-vega imports vega, vega-lite and vega-interpreter; sandbox-quickjs imports its QuickJS engine.
+- **impact** — One-shot commands load unused engine code; the measured static closure is 5855891 bytes and 1107 modules.
+- **closes** — Move each engine behind first use and drain the lazy-fence ledger, then lower the static closure budget.
+- **node** — `01M75MA3QTAABRAE6N0069CB8R`
+
 ### GAP: core seeds the view-as command nodes for every family's views
 
 - **expected** — each family seeds the node commands for its own views (the outline its list, collections its table, board and cards)
