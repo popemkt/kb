@@ -1,246 +1,246 @@
 {
   "@kb/bundled": {
-    "width": 9
+    "limit": 9
   },
   "@kb/client": {
-    "width": 8
+    "limit": 8
   },
   "@kb/mcp": {
-    "width": 10
+    "limit": 10
   },
   "@kb/runtime": {
-    "width": 44
+    "limit": 44
   },
   "@kb/server": {
-    "width": 12
+    "limit": 12
   },
   "@kb/test-kit": {
-    "width": 56
+    "limit": 56
   },
   "@kb/webmcp": {
-    "width": 12
+    "limit": 12
   },
   "@kb/operations": {
-    "width": 154,
+    "limit": 154,
     "reason": "Initial measured interface; module migration will narrow it."
   },
   "@kb/contracts": {
-    "width": 374,
+    "limit": 374,
     "reason": "Initial measured interface; module migration will narrow it."
   },
   "@kb/ext-sdk": {
-    "width": 9
+    "limit": 9
   },
   "@kb/extension-source": {
-    "width": 27
+    "limit": 27
   },
   "@kb/sandbox": {
-    "width": 89,
+    "limit": 89,
     "reason": "Initial measured interface; module migration will narrow it."
   },
   "@kb/model": {
-    "width": 376,
+    "limit": 376,
     "reason": "Initial measured interface; module migration will narrow it."
   },
   "@kb/plugin": {
-    "width": 54
+    "limit": 54
   },
   "@kb/query": {
-    "width": 90,
+    "limit": 90,
     "reason": "Initial measured interface; module migration will narrow it."
   },
   "@kb/views": {
-    "width": 108,
+    "limit": 108,
     "reason": "Initial measured interface; module migration will narrow it."
   },
   "@kb/agent": {
-    "width": 62,
+    "limit": 62,
     "reason": "Initial measured interface; module migration will narrow it."
   },
   "@kb/agent-claude": {
-    "width": 3
+    "limit": 3
   },
   "@kb/agent-openai": {
-    "width": 3
+    "limit": 3
   },
   "@kb/agent-ui": {
-    "width": 6
+    "limit": 6
   },
   "@kb/backdrops": {
-    "width": 71,
+    "limit": 71,
     "reason": "Initial measured interface; module migration will narrow it."
   },
   "@kb/backdrops-ui": {
-    "width": 1
+    "limit": 1
   },
   "@kb/canvas": {
-    "width": 359,
+    "limit": 359,
     "reason": "Initial measured interface; module migration will narrow it."
   },
   "@kb/canvas-ui": {
-    "width": 1
+    "limit": 1
   },
   "@kb/chart": {
-    "width": 17
+    "limit": 17
   },
   "@kb/chart-ui": {
-    "width": 1
+    "limit": 1
   },
   "@kb/chart-vega": {
-    "width": 6
+    "limit": 6
   },
   "@kb/check": {
-    "width": 1
+    "limit": 1
   },
   "@kb/code": {
-    "width": 11
+    "limit": 11
   },
   "@kb/code-ui": {
-    "width": 1
+    "limit": 1
   },
   "@kb/collections": {
-    "width": 5
+    "limit": 5
   },
   "@kb/collections-ui": {
-    "width": 3
+    "limit": 3
   },
   "@kb/days": {
-    "width": 36
+    "limit": 36
   },
   "@kb/days-ui": {
-    "width": 1
+    "limit": 1
   },
   "@kb/docs": {
-    "width": 1
+    "limit": 1
   },
   "@kb/ext-canvas": {
-    "width": 2
+    "limit": 2
   },
   "@kb/ext-check": {
-    "width": 7
+    "limit": 7
   },
   "@kb/ext-docs": {
-    "width": 7
+    "limit": 7
   },
   "@kb/gallery": {
-    "width": 82,
+    "limit": 82,
     "reason": "Initial measured interface; module migration will narrow it."
   },
   "@kb/gallery-net": {
-    "width": 1
+    "limit": 1
   },
   "@kb/gallery-ui": {
-    "width": 1
+    "limit": 1
   },
   "@kb/governance": {
-    "width": 9
+    "limit": 9
   },
   "@kb/graph": {
-    "width": 130,
+    "limit": 130,
     "reason": "Initial measured interface; module migration will narrow it."
   },
   "@kb/graph-ui": {
-    "width": 15
+    "limit": 15
   },
   "@kb/lab": {
-    "width": 7
+    "limit": 7
   },
   "@kb/lab-ui": {
-    "width": 12
+    "limit": 12
   },
   "@kb/locations": {
-    "width": 19
+    "limit": 19
   },
   "@kb/locations-fs": {
-    "width": 1
+    "limit": 1
   },
   "@kb/locations-ui": {
-    "width": 1
+    "limit": 1
   },
   "@kb/outline": {
-    "width": 3
+    "limit": 3
   },
   "@kb/outline-ui": {
-    "width": 40
+    "limit": 40
   },
   "@kb/routines": {
-    "width": 110,
+    "limit": 110,
     "reason": "Initial measured interface; module migration will narrow it."
   },
   "@kb/routines-gcal": {
-    "width": 17
+    "limit": 17
   },
   "@kb/routines-host": {
-    "width": 14
+    "limit": 14
   },
   "@kb/routines-ui": {
-    "width": 1
+    "limit": 1
   },
   "@kb/themes": {
-    "width": 4
+    "limit": 4
   },
   "@kb/themes-ui": {
-    "width": 1
+    "limit": 1
   },
   "@kb/transistor": {
-    "width": 5
+    "limit": 5
   },
   "@kb/transistor-ui": {
-    "width": 1
+    "limit": 1
   },
   "@kb/yorha": {
-    "width": 5
+    "limit": 5
   },
   "@kb/yorha-ui": {
-    "width": 1
+    "limit": 1
   },
   "@kb/zzz": {
-    "width": 5
+    "limit": 5
   },
   "@kb/zzz-ui": {
-    "width": 1
+    "limit": 1
   },
   "@kb/child-process": {
-    "width": 5
+    "limit": 5
   },
   "@kb/file-write": {
-    "width": 5
+    "limit": 5
   },
   "@kb/sandbox-quickjs": {
-    "width": 1
+    "limit": 1
   },
   "@kb/sandbox-worker": {
-    "width": 1
+    "limit": 1
   },
   "@kb/source-git": {
-    "width": 3
+    "limit": 3
   },
   "@kb/store-jsonl": {
-    "width": 3
+    "limit": 3
   },
   "@kb/store-sqlite": {
-    "width": 4
+    "limit": 4
   },
   "@kb/tx-log": {
-    "width": 2
+    "limit": 2
   },
   "@kb/workspace-fs": {
-    "width": 30
+    "limit": 30
   },
   "@kb/scene": {
-    "width": 13
+    "limit": 13
   },
   "@kb/scene-gpu": {
-    "width": 35
+    "limit": 35
   },
   "@kb/theme-art": {
-    "width": 6
+    "limit": 6
   },
   "@kb/ui-sdk": {
-    "width": 617,
+    "limit": 617,
     "reason": "Initial measured interface; module migration will narrow it."
   },
   "@kb/ui-test-kit": {
-    "width": 26
+    "limit": 26
   }
 }

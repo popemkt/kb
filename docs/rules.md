@@ -2249,6 +2249,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — the O3 cut: @kb/outline declares the views and the default
 - **node** — `01M52J3DADW4P7YV6907ME9C50`
 
+### GAP: deleting a surface budget bypasses increase rationale
+
+- **expected** — Every effective surface ceiling increase for a measured package requires a new or updated reason, including deletion of an explicit entry.
+- **current** — Closed in M3: the shared budget policy checks effective limits for measured and explicit entries; deleting a measured budget cannot silently raise its ceiling. A regression test covers the reviewed example.
+- **impact** — A budget deletion can admit added exports without the reviewed rationale required for an explicit budget increase. Tooling policy edge; non-blocking in the combined chunk-1 review.
+- **closes** — Compare effective ceilings for still-measured packages over the union of current and previous entries, and add the deletion regression case.
+- **node** — `01M78KTDSRDKXAR7Z4BBF3AC27`
+
 ### GAP: dismissing a popover (Escape, outside press) is copied in six places
 
 - **expected** — One ui-sdk dismiss hook owns Escape and outside-press dismissal, and every popover (CanvasPopover included) uses it.
