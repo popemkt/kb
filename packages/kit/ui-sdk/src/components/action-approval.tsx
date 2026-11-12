@@ -2,13 +2,8 @@
 import { useEffect, useState } from "react";
 import type { ActionInvocation } from "@kb/contracts";
 import { ActionReviewPoint, type ActionReview, type ApprovalView } from "../lib/action-review";
-import { cn } from "../lib/cn";
+import { Button } from "./button";
 import { useContributions } from "../lib/plugins.ts";
-
-const BUTTON = cn(
-  "rounded-sm px-2 py-1 text-label font-medium outline-none transition duration-100",
-  "focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-default disabled:opacity-40",
-);
 
 interface ActionApprovalProps {
   readonly invocation: ActionInvocation;
@@ -40,22 +35,12 @@ function ApprovalDecision({ answer, approveLabel, disabled = false }: DecisionPr
         </p>
       )}
       <div className="mt-2 flex justify-end gap-1">
-        <button
-          type="button"
-          disabled={pending}
-          className={cn(BUTTON, "text-foreground/60 hover:bg-foreground/[0.06]")}
-          onClick={() => void decide(false)}
-        >
+        <Button disabled={pending} variant="ghost" onClick={() => void decide(false)}>
           Decline
-        </button>
-        <button
-          type="button"
-          disabled={disabled || pending}
-          className={cn(BUTTON, "bg-primary text-primary-foreground hover:bg-primary/90")}
-          onClick={() => void decide(true)}
-        >
+        </Button>
+        <Button disabled={disabled || pending} variant="primary" onClick={() => void decide(true)}>
           {approveLabel}
-        </button>
+        </Button>
       </div>
     </>
   );
