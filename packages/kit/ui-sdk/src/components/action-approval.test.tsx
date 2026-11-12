@@ -117,3 +117,40 @@ it("inputs a review does not describe retain the generic action review", async (
   expect(container.textContent).toContain("synthetic");
   expect(button("Approve once").disabled).toBe(false);
 });
+
+it("asks matching readers in order and uses the first review that describes the input", async () => {
+  const later = vi.fn(() =>
+    Promise.resolve({
+      content: <p>Exact shortcut content</p>,
+      approveLabel: "Confirm this override",
+    }),
+  );
+  const unused = vi.fn(() => Promise.resolve(null));
+  contributions.rows = [
+    { id: "extensions", value: { action: invocation.id, read: () => Promise.resolve(null) } },
+    { id: "shortcuts", value: { action: invocation.id, read: later } },
+    { id: "unused", value: { action: invocation.id, read: unused } },
+  ];
+  await act(async () => root.render(<ActionApproval invocation={invocation} answer={() => {}} />));
+  expect(container.textContent).toContain("Exact shortcut content");
+  expect(button("Confirm this override").disabled).toBe(false);
+  expect(later).toHaveBeenCalledExactlyOnceWith(invocation);
+  expect(unused).not.toHaveBeenCalled();
+});
+
+it("a failed matching reader cannot fall through to another review", async () => {
+  const later = vi.fn(() =>
+    Promise.resolve({ content: <p>Wrong review</p>, approveLabel: "Approve" }),
+  );
+  contributions.rows = [
+    {
+      id: "failed",
+      value: { action: invocation.id, read: () => Promise.reject(new Error("Stale input")) },
+    },
+    { id: "later", value: { action: invocation.id, read: later } },
+  ];
+  await act(async () => root.render(<ActionApproval invocation={invocation} answer={() => {}} />));
+  expect(container.textContent).toContain("Stale input");
+  expect(button("Approve once").disabled).toBe(true);
+  expect(later).not.toHaveBeenCalled();
+});

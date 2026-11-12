@@ -1,7 +1,12 @@
 /** One action review and its decision controls, independent of the asking surface. */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ActionInvocation } from "@kb/contracts";
-import { ActionReviewPoint, type ActionReview, type ApprovalView } from "../lib/action-review";
+import {
+  ActionReviewPoint,
+  readActionReviews,
+  type ActionReview,
+  type ApprovalView,
+} from "../lib/action-review";
 import { cn } from "../lib/cn";
 import { useContributions } from "../lib/plugins";
 
@@ -74,37 +79,37 @@ function DefaultActionApproval({ invocation, answer }: ActionApprovalProps) {
 
 interface Reading {
   readonly invocation: ActionInvocation;
-  readonly review: ActionReview;
+  readonly reviews: readonly ActionReview[];
   readonly result: { readonly view: ApprovalView | null } | { readonly problem: string };
 }
 
 function ContributedApproval({
   invocation,
   answer,
-  review,
-}: ActionApprovalProps & { readonly review: ActionReview }) {
+  reviews,
+}: ActionApprovalProps & { readonly reviews: readonly ActionReview[] }) {
   const [reading, setReading] = useState<Reading | null>(null);
   useEffect(() => {
     let live = true;
     void Promise.resolve()
-      .then(() => review.read(invocation))
+      .then(() => readActionReviews(reviews, invocation))
       .then((view) => {
-        if (live) setReading({ invocation, review, result: { view } });
+        if (live) setReading({ invocation, reviews, result: { view } });
       })
       .catch((error: unknown) => {
         if (live)
           setReading({
             invocation,
-            review,
+            reviews,
             result: { problem: error instanceof Error ? error.message : String(error) },
           });
       });
     return () => {
       live = false;
     };
-  }, [invocation, review]);
+  }, [invocation, reviews]);
   const result =
-    reading?.invocation === invocation && reading.review === review ? reading.result : undefined;
+    reading?.invocation === invocation && reading.reviews === reviews ? reading.result : undefined;
   if (result !== undefined && "view" in result && result.view === null)
     return <DefaultActionApproval invocation={invocation} answer={answer} />;
   const view = result !== undefined && "view" in result ? result.view : null;
@@ -132,12 +137,17 @@ function ContributedApproval({
 
 /** A review must finish successfully before approval; lookup failures never become generic approval. */
 export function ActionApproval(props: ActionApprovalProps) {
-  const review = useContributions(ActionReviewPoint).find(
-    ({ value }) => value.action === props.invocation.id,
-  )?.value;
-  return review === undefined ? (
+  const contributions = useContributions(ActionReviewPoint);
+  const reviews = useMemo(
+    () =>
+      contributions
+        .filter(({ value }) => value.action === props.invocation.id)
+        .map(({ value }) => value),
+    [contributions, props.invocation.id],
+  );
+  return reviews.length === 0 ? (
     <DefaultActionApproval {...props} />
   ) : (
-    <ContributedApproval {...props} review={review} />
+    <ContributedApproval {...props} reviews={reviews} />
   );
 }
