@@ -1,3 +1,4 @@
+import { collectSingleFamily } from "./symbol-consumers.ts";
 import { collectCliFence, collectStaticClosure } from "./cli-closure.ts";
 /**
  * Generates the lint-warn-baseline.json ratchet ledger (plan A.9 #2 / spec 11).
@@ -42,6 +43,7 @@ export interface BaselineLanes {
     knip: Record<string, number>;
     "lazy-fence": Record<string, number>;
     "cli-closure": Record<string, number>;
+    "single-family": Record<string, number>;
   };
 }
 
@@ -57,8 +59,14 @@ export type BaseLedger =
   | {
       ok: true;
       rev: string;
-      lanes: Omit<BaselineLanes["lanes"], keyof ModuleMeasures | "lazy-fence" | "cli-closure"> &
-        Partial<ModuleMeasures & Pick<BaselineLanes["lanes"], "lazy-fence" | "cli-closure">>;
+      lanes: Omit<
+        BaselineLanes["lanes"],
+        keyof ModuleMeasures | "lazy-fence" | "cli-closure" | "single-family"
+      > &
+        Partial<
+          ModuleMeasures &
+            Pick<BaselineLanes["lanes"], "lazy-fence" | "cli-closure" | "single-family">
+        >;
     }
   | { ok: false; reason: string };
 
@@ -447,6 +455,7 @@ function buildBaseline(
       ...collectModuleMeasures(),
       "lazy-fence": sortedRecord(collectCliFence()),
       "cli-closure": collectStaticClosure(LAZY_FENCES.cli.entry),
+      "single-family": sortedRecord(collectSingleFamily()),
       blocking,
       advisory,
       knip: sortedRecord(knipFindings),

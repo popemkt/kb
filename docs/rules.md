@@ -910,6 +910,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — 3D workspace step 3 (items get depth), or drawn outlines on flat items
 - **node** — `01M41AB7YM5801ZJNM1Q647SYD`
 
+### GAP: four core files have consumers in only one extension family
+
+- **expected** — Every file in SINGLE_FAMILY_LAYERS serves core or more than one extension family.
+- **current** — The single-family ledger holds sandbox snapshot, query IR print, scene-gpu offscreen and screen-fill.
+- **impact** — Family-specific implementation remains in shared core packages.
+- **closes** — Move or generalize each flagged file by concept and lower the single-family ledger.
+- **node** — `01M78BBBXM8791SRARJFQ9TNW6`
+
 ### GAP: Git source failures do not distinguish unavailable repositories or refs
 
 - **expected** — The source port distinguishes a repository/ref that is unavailable or denied from transfer caps and transport failures, without exposing credentials.
@@ -1064,12 +1072,12 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — M2 calibrates plugins/actions as flagged and verbs/stage as passing before enabling the lane.
 - **node** — `01M787F34W9DSYPD544DRS5S4H`
 
-### GAP: module consumer graph and single-family measurement await M1b
+### GAP: module namespace-member width and served SDK membership remain unmeasured
 
-- **expected** — Core files used by one family are measured through production barrel consumers.
-- **current** — M1 measures barrel width and family names only; namespace members count as one exported name.
-- **impact** — Family-only core files and wide namespace members remain unmeasured.
-- **closes** — M1b adds the minimal symbol-consumer graph and single-family lane.
+- **expected** — Public namespace members have measured width and symbols exposed through served SDKs have explicit consumption evidence.
+- **current** — M1b measures production import consumers and single-family files. Namespace imports conservatively consume every exposed name; namespace-member width still counts once, and served SDK membership is not modeled.
+- **impact** — Namespace width and SDK exposure are not distinguished by the current measurements.
+- **closes** — Add only the namespace-width and SDK-exposure measurement needed by a future approved lane.
 - **node** — `01M787EFNSYXKT510HYDPGVB9A`
 
 ### GAP: no [[ completion while editing a text field value

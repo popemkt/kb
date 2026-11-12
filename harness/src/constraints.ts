@@ -695,3 +695,7 @@ export const SURFACE_BUDGETS: Readonly<Record<string, number>> = {
   "@kb/ui-sdk": 617,
   "@kb/ui-test-kit": 26,
 };
+
+/** Layers whose mechanisms must serve more than one extension family. */
+// GAP [[01M78BBBXM8791SRARJFQ9TNW6]]: existing family-only core files are frozen in the ledger.
+export const SINGLE_FAMILY_LAYERS: readonly string[] = ["domain", "contract", "kit", "application"];
