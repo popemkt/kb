@@ -7,7 +7,7 @@
  * sets is the proxy's.
  */
 import { createConnection } from "node:net";
-import { Effect, Scope } from "effect";
+import { Effect, Exit, Scope } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import type { UiListener } from "@kb/contracts";
 import { type DomainError, domainError } from "@kb/model";
@@ -35,6 +35,9 @@ function stale(path: string): Effect.Effect<boolean> {
       probe.destroy();
       resume(Effect.succeed(error.code === "ECONNREFUSED"));
     });
+    return Effect.sync(() => {
+      probe.destroy();
+    });
   });
 }
 
@@ -52,48 +55,68 @@ function stale(path: string): Effect.Effect<boolean> {
  *   owner read and write;
  * - is removed when `lifetime` closes.
  */
-const bind = Effect.fn("kb.bind")(function* <T extends { stop(force?: boolean): unknown }>(
+interface BoundListener {
+  stop(force?: boolean): unknown;
+}
+interface ListenerBinding<T> {
+  readonly create: () => T;
+  readonly close: (listener: T) => Effect.Effect<void>;
+  readonly ready: Effect.Effect<void, DomainError>;
+}
+const stop = Effect.fn("kb.listener.stop")(function* (listener: BoundListener) {
+  yield* Effect.promise(() => Promise.resolve(listener.stop(true)));
+});
+
+/** Preflight remains cancellable; only the returned synchronous constructor will be masked. */
+const bindingOf = Effect.fn("kb.listener.bindingOf")(function* <T extends BoundListener>(
   at: UiListener,
-  lifetime: Scope.Closeable,
   serve: (where: BindOptions) => T,
-): Effect.fn.Return<T, DomainError, FileSystem> {
-  if (at.kind === "tcp") return serve({ hostname: at.hostname, port: at.port });
+): Effect.fn.Return<ListenerBinding<T>, DomainError, FileSystem> {
+  if (at.kind === "tcp")
+    return {
+      create: () => serve({ hostname: at.hostname, port: at.port }),
+      close: stop,
+      ready: Effect.void,
+    };
   const fs = yield* FileSystem;
   const failed = (doing: string) => (err: { message: string }) =>
     domainError("internal", `cannot ${doing} ${at.path}: ${err.message}`);
-
   const info = yield* fs.stat(at.path).pipe(Effect.orElseSucceed(() => null));
   if (info !== null) {
-    if (info.type !== "Socket") {
+    if (info.type !== "Socket")
       return yield* domainError("conflict", `${at.path} exists and is not a socket`);
-    }
-    if (!(yield* stale(at.path))) {
+    if (!(yield* stale(at.path)))
       return yield* domainError("conflict", `a server already listens on ${at.path}`);
-    }
     yield* fs.remove(at.path).pipe(Effect.mapError(failed("remove the stale socket")));
   }
-
-  // A bind that fails throws, as a TCP one does.
-  const previous = process.umask(0o777 & ~SOCKET_MODE);
-  let served: T;
-  try {
-    served = serve({ unix: at.path });
-  } finally {
-    process.umask(previous);
-  }
-  yield* Scope.addFinalizer(lifetime, fs.remove(at.path).pipe(Effect.ignore));
-  yield* fs.chmod(at.path, SOCKET_MODE).pipe(
-    Effect.mapError(failed("restrict to its owner")),
-    Effect.tapError(() => Effect.sync(() => void served.stop(true))),
-  );
-  return served;
+  return {
+    create: () => {
+      const previous = process.umask(0o777 & ~SOCKET_MODE);
+      try {
+        return serve({ unix: at.path });
+      } finally {
+        process.umask(previous);
+      }
+    },
+    close: (listener) =>
+      stop(listener).pipe(Effect.ensuring(fs.remove(at.path).pipe(Effect.ignore))),
+    ready: fs.chmod(at.path, SOCKET_MODE).pipe(Effect.mapError(failed("restrict to its owner"))),
+  };
 });
 
-/** Acquiring the bound listener and registering its stop are one uninterruptible resource operation. */
-export const listen = Effect.fn("kb.listen")(function* <
-  T extends { stop(force?: boolean): unknown },
->(at: UiListener, lifetime: Scope.Closeable, serve: (where: BindOptions) => T) {
-  return yield* Effect.acquireRelease(bind(at, lifetime, serve), (listener) =>
-    Effect.asVoid(Effect.promise(() => Promise.resolve(listener.stop(true)))),
-  ).pipe(Effect.provideService(Scope.Scope, lifetime));
+/** Own the bound resource before asynchronous setup; unsuccessful setup closes only that resource. */
+export const listen = Effect.fn("kb.listen")(function* <T extends BoundListener>(
+  at: UiListener,
+  lifetime: Scope.Closeable,
+  serve: (where: BindOptions) => T,
+) {
+  const binding = yield* bindingOf(at, serve);
+  const owned = yield* Scope.fork(lifetime);
+  return yield* Effect.gen(function* () {
+    const listener = yield* Effect.acquireRelease(Effect.sync(binding.create), binding.close).pipe(
+      Effect.provideService(Scope.Scope, owned),
+    );
+    yield* binding.ready;
+    return listener;
+  }).pipe(Effect.onExit((exit) => (Exit.isFailure(exit) ? Scope.close(owned, exit) : Effect.void)));
 });
