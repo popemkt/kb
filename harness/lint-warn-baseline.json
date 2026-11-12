@@ -195,6 +195,17 @@
       "domain/query/src/ir/print.ts": 1,
       "kit/scene-gpu/src/offscreen.ts": 1,
       "kit/scene-gpu/src/screen-fill.ts": 1
+    },
+    "cohesion": {
+      "application/operations/src/actions.ts": 1,
+      "application/operations/src/interception.ts": 1,
+      "extension/canvas-ui/src/canvas-camera.ts": 1,
+      "extension/canvas-ui/src/canvas-card-face.ts": 1,
+      "extension/canvas-ui/src/canvas-keymap.ts": 1,
+      "extension/canvas-ui/src/canvas-transform-input.ts": 1,
+      "extension/graph/src/lens.ts": 1,
+      "extension/graph-ui/src/graph-lens.ts": 1,
+      "extension/outline-ui/src/fields-section.tsx": 1
     }
   }
 }

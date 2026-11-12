@@ -699,3 +699,8 @@ export const SURFACE_BUDGETS: Readonly<Record<string, number>> = {
 /** Layers whose mechanisms must serve more than one extension family. */
 // GAP [[01M78BBBXM8791SRARJFQ9TNW6]]: existing family-only core files are frozen in the ledger.
 export const SINGLE_FAMILY_LAYERS: readonly string[] = ["domain", "contract", "kit", "application"];
+
+/** Cohesion calibration: ignore small satellite groups, never special-case a file. */
+export const COHESION_MIN_LINES = 400;
+export const COHESION_MIN_IMPORTERS = 2;
+export const COHESION_IMPORTER_FRACTION = 0.05;
