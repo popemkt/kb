@@ -213,3 +213,51 @@ for (const backend of ["jsonl", "sqlite"] as const)
       await rm(at, { recursive: true, force: true });
     }
   }, 30000);
+
+for (const backend of ["jsonl", "sqlite"] as const)
+  test(`${backend}: machine confirmation changes refresh a tab without changing extension membership`, async () => {
+    const at = await mkdtemp(join(tmpdir(), "kb-confirmation-reload-"));
+    const root = join(at, "root");
+    const digest = `sha256:${new Bun.CryptoHasher("sha256").update(root).digest("hex")}`;
+    let handle: UiServerHandle | undefined;
+    let client: Awaited<ReturnType<typeof watching>> | undefined;
+    async function change(trusted: boolean) {
+      await child([
+        process.execPath,
+        "--no-env-file",
+        "--config=/dev/null",
+        "--eval",
+        `import {Effect,Layer} from "effect";
+         import {CodeTrust} from "@kb/contracts";
+         import {codeTrustLayer} from "@kb/workspace-fs";
+         import {bunFileSystemLayer} from "@kb/runtime";
+         await Effect.runPromise(Effect.flatMap(CodeTrust,t=>t.${trusted ? "trust" : "untrust"}(${JSON.stringify(digest)})).pipe(Effect.provide(codeTrustLayer().pipe(Layer.provide(bunFileSystemLayer)))));`,
+      ]);
+    }
+    try {
+      await child([KB_SOURCE_BIN, "--root", root, "init", "--store", backend, "--bare"]);
+      handle = await Effect.runPromise(startUi({ root, port: 0, openBrowser: false }));
+      client = await watching(handle.url);
+      const before = kbManifestDef.outputSchema.parse((await invoke(handle, "kb.manifest")).output);
+      expect(before.root).toBe(root);
+      expect(before.trusted).not.toContain(digest);
+      await change(true);
+      await frame(client.frames, (message) => message.op === "manifest-changed");
+      const confirmed = kbManifestDef.outputSchema.parse(
+        (await invoke(handle, "kb.manifest")).output,
+      );
+      expect(confirmed.trusted).toContain(digest);
+      expect(confirmed.extensions).toEqual(before.extensions);
+      client.frames.length = 0;
+      await change(false);
+      await frame(client.frames, (message) => message.op === "manifest-changed");
+      expect(
+        kbManifestDef.outputSchema.parse((await invoke(handle, "kb.manifest")).output).trusted,
+      ).not.toContain(digest);
+    } finally {
+      client?.ws.close();
+      if (handle !== undefined) await Effect.runPromise(handle.stop);
+      await change(false);
+      await rm(at, { recursive: true, force: true });
+    }
+  }, 30000);

@@ -38,11 +38,13 @@ export interface KeyboardRegistrations {
   readonly action: (id: string) => RegisteredKeyTarget | undefined;
 }
 
-interface StoredKeybinding {
+export interface StoredKeybinding {
   readonly nodeId: string;
   readonly contribution: Contribution<Keybinding>;
   /** Exact normalized review content, excluding cosmetic labels and the enable switch. */
   readonly review: string;
+  /** Person confirmation covers data semantics, independently of code provenance or labels. */
+  readonly content: string;
 }
 
 export interface StoredKeybindings {
@@ -114,12 +116,12 @@ function nativeHolder(referenceId: string, reading: KeyReading): Schema.Json {
   if (holder === undefined) return null;
   const source = reading.registrations.source(holder.owner);
   if (source === undefined)
-    throw new Error("replacement holder is unsupported by the authority host");
+    throw new Error("replacement holder is unavailable in the live catalog");
   const { context, chord, run, replaces } = holder.value;
   const heldContext = reading.contexts.get(keyContextNodeId(context));
   const target = heldContext === undefined ? undefined : registeredRun(run, heldContext, reading);
   if (target === undefined)
-    throw new Error("replacement holder target is unavailable or unsupported");
+    throw new Error("replacement holder target is unavailable in the live catalog");
   return {
     id: holder.id,
     source: { ...source },
@@ -160,7 +162,7 @@ function candidateOf(row: NodeLike, reading: KeyReading): PreparedKeybinding {
     targetRef === undefined ||
     !reading.graph.has(targetRef)
   )
-    throw new Error("runs target is unavailable or unsupported by the authority host");
+    throw new Error("runs target is unavailable in the live catalog");
   const chord = chordFor(row, reading);
   const replacesRef = reference(row, SHORTCUT_IDS.replaces);
   const replaces =
@@ -200,6 +202,13 @@ function candidateOf(row: NodeLike, reading: KeyReading): PreparedKeybinding {
       owner: `${STORED_KEY_OWNER}/${row.id}`,
       value,
     },
+    content: canonicalJson({
+      format: "kb.shortcut.confirmation.v1",
+      context: context.id,
+      chord: chordData(chord),
+      target: { reference: targetRef, id: target.id, run },
+      replaces: replacesRef ?? null,
+    }),
     reviewData,
   };
 }
@@ -212,6 +221,16 @@ interface ReviewDependency {
 
 function reviewDigest(data: Schema.Json): string {
   return Encoding.encodeHex(hash(new TextEncoder().encode(canonicalJson(data))));
+}
+
+/** Machine-local confirmation is scoped to the root, row and exact normalized binding. */
+export function shortcutConfirmation(root: string, candidate: StoredKeybinding): string {
+  return `sha256:${reviewDigest({
+    format: "kb.shortcut.confirmation-key.v1",
+    root,
+    node: candidate.nodeId,
+    content: candidate.content,
+  })}`;
 }
 
 /** Each local definition is hashed once; parent identities never embed serialized reviews. */
@@ -352,6 +371,7 @@ export function storedKeybindings(
       reviewed.push({
         nodeId: prepared.nodeId,
         contribution: prepared.contribution,
+        content: prepared.content,
         review: canonicalJson({
           format: "kb.shortcut.v1",
           binding: prepared.reviewData,

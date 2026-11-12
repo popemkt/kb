@@ -532,6 +532,22 @@ writer-provenance plumbing is required. A confirmation never bypasses admission
 or an action's own approval. Approval changes invalidate the admitted map even
 without a graph/plugin edit.
 
+The page lowers enabled ordinary rows into `KeybindingPoint` after native
+bindings, in replacement dependency order. It reads the complete replica even
+inside an ontology scope. Targets must exist in the live normal runner catalog;
+a writable command description alone creates no registration. `kb.manifest`
+reports the served root and machine-local confirmation digests, and its existing
+runtime-change signal refreshes them when trust changes without an extension
+load/unload.
+
+The shortcut node's ordinary menu offers **Shortcut status**, **Review shortcut
+override** while pending, and **Revoke shortcut confirmation** while an override
+is active. Review uses the shared action approval dialog and machine-local trust
+action. Editing keys, target, input or replacement while the dialog is open makes
+its answer stale; close it and review the current content. Shipped description
+rows remain descriptions of their declaration; a separate ordinary row supplies
+an override.
+
 kb is currently a single-owner local tool: installed code remains trust-gated,
 and shortcut confirmation does not authenticate a packaged code image. It works
 in a normal checkout. Code-image identity and its loader/delivery work are

@@ -33,6 +33,15 @@ export {
 export { ChordDataSchema, type ChordData } from "./chord-data.ts";
 
 export {
+  storedKeybindings,
+  shortcutConfirmation,
+  STORED_KEY_OWNER,
+  type KeyboardRegistrations,
+  type StoredKeybinding,
+  type StoredKeybindings,
+} from "./stored.ts";
+
+export {
   SHORTCUT_IDS,
   keyboardSchemaNodes,
   keyboardNodes,

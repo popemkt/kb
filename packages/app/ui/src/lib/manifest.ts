@@ -9,7 +9,7 @@
  * manifest arrives — there is no manifest, and each reader falls back to the
  * page being its own server.
  */
-import type { ExtensionRow } from "@kb/contracts";
+import type { DecidedEntry, ExtensionRow } from "@kb/contracts";
 import { kbManifestDef } from "@kb/operations";
 import type { ViewCatalogEntry } from "@kb/views";
 import { postAction } from "@/api/action";
@@ -17,6 +17,9 @@ import { latestRead, logWarn } from "@kb/ui-sdk";
 
 /** The part of `kb.manifest` the page follows. */
 export interface ServedManifest {
+  readonly root?: string;
+  readonly trusted?: readonly string[];
+  readonly actions?: readonly DecidedEntry[];
   readonly views: readonly ViewCatalogEntry[];
   readonly extensions: readonly ExtensionRow[];
 }
@@ -65,7 +68,7 @@ export async function readManifest(): Promise<ManifestRead> {
   if (!manifest.success) {
     return { problem: `kb.manifest answered in another shape: ${manifest.error.message}` };
   }
-  return { manifest: { views: manifest.data.views, extensions: manifest.data.extensions } };
+  return { manifest: manifest.data };
 }
 
 /**
@@ -76,7 +79,11 @@ export async function readManifest(): Promise<ManifestRead> {
 export const loadManifest = latestRead(
   (read: Promise<ManifestRead> = readManifest()) => read,
   (answered) => {
-    if ("problem" in answered) logWarn(`[kb/manifest] ${answered.problem}`);
-    else setServedManifest(answered.manifest);
+    if ("problem" in answered) {
+      logWarn(`[kb/manifest] ${answered.problem}`);
+      // Keep the last catalog for display, but an unreadable approval ledger
+      // cannot continue authorizing stored replacements.
+      if (served !== null) setServedManifest({ ...served, trusted: undefined });
+    } else setServedManifest(answered.manifest);
   },
 );

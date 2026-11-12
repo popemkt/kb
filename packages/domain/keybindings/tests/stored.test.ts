@@ -28,7 +28,12 @@ import {
   shortcutNodeId,
   SHORTCUT_IDS,
 } from "../src/nodes.ts";
-import { storedKeybindings, STORED_KEY_OWNER, type KeyboardRegistrations } from "../src/stored.ts";
+import {
+  storedKeybindings,
+  shortcutConfirmation,
+  STORED_KEY_OWNER,
+  type KeyboardRegistrations,
+} from "../src/stored.ts";
 
 const at = "2026-11-11T00:00:00.000Z";
 const core: KeyboardDefinition = {
@@ -485,8 +490,8 @@ test("a description never manufactures a command registration or authenticates a
   ];
   const absent = storedKeybindings(nodes, registrations);
   expect(absent.candidates).toEqual([]);
-  expect(absent.refused[0]?.reason).toContain("unavailable or unsupported");
-  // A live adapter supplies only entries whose code identity the authority host authenticates.
+  expect(absent.refused[0]?.reason).toContain("unavailable");
+  // A live adapter supplies actual runner membership; descriptions cannot register a target.
   const pageOnly = { ...registrations, command: () => undefined };
   expect(
     storedKeybindings([...seed, ...shortcut("page.only", { key: "z", mod: true })], pageOnly)
@@ -630,4 +635,86 @@ test("native replacement ancestry participates in dependent review and handles m
     election(nodes, "all", cyclic).maps.get("core.page")?.resolve({ key: "g", ctrlKey: true })
       ?.owner,
   ).not.toBe(`${STORED_KEY_OWNER}/replace.native`);
+});
+
+function confirmationCandidate(nodes: readonly NodeLike[], catalog = registrations) {
+  const value = storedKeybindings(nodes, catalog).candidates[0];
+  if (value === undefined) throw new Error("missing candidate");
+  return value;
+}
+
+describe("person confirmation content", () => {
+  const rows = () => [
+    ...seed,
+    ...shortcut("my.override", { key: "g", mod: true }, { replaces: shortcutNodeId("core.go") }),
+  ];
+  test("canonical content is scoped by root and row, independent of writer and loaded code", () => {
+    const initial = confirmationCandidate(rows());
+    const key = shortcutConfirmation("/root/a", initial);
+    expect(key).toMatch(/^sha256:[a-f0-9]{64}$/);
+    expect(shortcutConfirmation("/root/b", initial)).not.toBe(key);
+    expect(shortcutConfirmation("/root/a", { ...initial, nodeId: "other.row" })).not.toBe(key);
+    const otherCode = confirmationCandidate(rows(), {
+      ...registrations,
+      source: () => ({ provider: "plugin", implementation: "changed" }),
+    });
+    expect(otherCode.review).not.toBe(initial.review);
+    expect(shortcutConfirmation("/root/a", otherCode)).toBe(key);
+    const renamed = rows().map((row) => ({
+      ...row,
+      text: "Someone renamed this",
+      updatedAt: "later",
+    }));
+    expect(shortcutConfirmation("/root/a", confirmationCandidate(renamed))).toBe(key);
+  });
+  test("all chord states, target and replacement references participate", () => {
+    const initial = confirmationCandidate(rows()).content;
+    for (const chord of [
+      { key: "g", mod: true, shift: false },
+      { code: "KeyG", mod: true },
+      { key: ["g", "G"], mod: true },
+    ]) {
+      expect(
+        confirmationCandidate([
+          ...seed,
+          ...shortcut("my.override", chord, { replaces: shortcutNodeId("core.go") }),
+        ]).content,
+      ).not.toBe(initial);
+    }
+    expect(
+      confirmationCandidate([
+        ...seed,
+        ...shortcut(
+          "my.override",
+          { key: "g", mod: true },
+          { target: "core.go", replaces: shortcutNodeId("core.go") },
+        ),
+      ]).content,
+    ).not.toBe(initial);
+    expect(
+      confirmationCandidate([
+        ...seed,
+        ...shortcut(
+          "my.override",
+          { key: "g", mod: true },
+          { replaces: shortcutNodeId("core.other") },
+        ),
+      ]).content,
+    ).not.toBe(initial);
+  });
+  test("the full normalized input recipe participates without depending on object key order", () => {
+    const read = (input: Record<string, unknown>) =>
+      confirmationCandidate([
+        ...seed,
+        callNode("my.call", { action: "test.unbound", input }, at),
+        ...shortcut(
+          "my.override",
+          { key: "g", mod: true },
+          { target: "my.call", replaces: shortcutNodeId("core.go") },
+        ),
+      ]);
+    const initial = read({ x: 1, nested: { a: true, b: [1, 2] } }).content;
+    expect(read({ nested: { b: [1, 2], a: true }, x: 1 }).content).toBe(initial);
+    expect(read({ x: 1, nested: { a: true, b: [2, 1] } }).content).not.toBe(initial);
+  });
 });

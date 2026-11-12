@@ -5962,6 +5962,8 @@ sends it more than 400 messages a second.
   approved atomically attaches its verified source provenance; this operation
   cannot grant trust or revive a revoked digest. Explicit untrust withdraws all this machine's records
   for the digest.
+  The same ledger holds [shortcut confirmations](DESIGN-UI.md#outline-editor-i1);
+  their canonical content and interaction policy live there.
   Repository bytes are never a source of authority: `CodeTrust` has no root
   parameter, reads only the per-user file, and a read never writes or deletes.
   `extension.list` reports the old file as ignored when present.
