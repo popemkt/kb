@@ -20,9 +20,9 @@
 import { KeybindingPoint, KeyContextPoint } from "@kb/contracts";
 export { KeybindingPoint, KeyContextPoint } from "@kb/contracts";
 import type { Contribution } from "@kb/plugin";
-import { browserHost } from "../host";
+import { browserHost, BrowserHostService } from "../host";
 import { callInput, invokeAction } from "./action-call";
-import { pointReader } from "./plugins";
+import { currentService, pointReader } from "./plugins";
 import { toast } from "./toast";
 
 import {
@@ -70,8 +70,10 @@ function currentKeymaps(): ReadonlyMap<string, Keymap> {
   keymaps.set(contexts, byBindings);
   const cached = byBindings.get(bindings);
   if (cached !== undefined) return cached;
-  const admitted = admitKeymaps(contexts.map(keyContextOf), bindings, (owner) =>
-    browserHost().replacementApproved(owner),
+  const admitted = admitKeymaps(
+    contexts.map(keyContextOf),
+    bindings,
+    (owner) => currentService(BrowserHostService)?.replacementApproved(owner) ?? false,
   );
   byBindings.set(bindings, admitted);
   const nowhere = bindings
