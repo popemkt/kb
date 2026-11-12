@@ -975,6 +975,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M3KA3AM9KQZCX6N73YKV3HB5`
 
+### GAP: imported Google events are one-way; kb cannot change them in Google
+
+- **expected** — Per subscribed calendar, an opt-in push-back: title and time become kb-owned on that calendar and are put to Google with If-Match on the event's etag, under the calendar.events scope and only where Google says the person may edit the event (data-plane design D9/E5).
+- **current** — The inbound import (docs/research/2026-11-12-gcal-inbound.md) is one-way: Google-owned fields are managed by the events family, a person's edit stays in kb until Google next changes the event and never reaches Google.
+- **impact** — Moving or retitling an imported meeting means opening Google Calendar; an edit made in kb is silently overwritten by Google's next change to that event.
+- **closes** — A push-back PR after the import ships (the record's section 9), with its etag handling in the CalendarSource and CalendarPort contract suites.
+- **node** — `01M788V048BR0P62DZ7KM70N60`
+
 ### GAP: in 3D, edges to a billboard meet the floor below it
 
 - **expected** — an edge attaches to what is drawn: a billboard's standing face, a label's front
