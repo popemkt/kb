@@ -525,7 +525,7 @@ export class ActionCatalog extends Context.Service<ActionCatalog, readonly Manif
  * action that writes before the core; `write` makes any call, decided by the
  * core like every call.
  */
-export type InvokeScope = "read" | "write";
+type InvokeScope = "read" | "write";
 
 /**
  * One call through the invoke core, within `scope`, made while another runs:

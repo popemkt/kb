@@ -42,7 +42,6 @@ export {
   type Keybinding,
   type KeyContextSpec,
   type KeyContext,
-  type RefusedBinding,
   type Keymap,
 } from "@kb/keybindings";
 

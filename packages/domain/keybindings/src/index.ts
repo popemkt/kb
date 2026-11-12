@@ -1,6 +1,4 @@
 export {
-  byPlace,
-  chordIncludes,
   chordsOverlap,
   describeChord,
   isPrintableKey,
@@ -27,4 +25,4 @@ export {
   type ActionCall,
 } from "./bindings.ts";
 
-export { ChordDataSchema, type ChordData } from "./chord-data.ts";
+export { ChordDataSchema } from "./chord-data.ts";

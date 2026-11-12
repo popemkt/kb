@@ -2,7 +2,7 @@ import { Duration, Effect, Queue, Stream } from "effect";
 import type { StoreFingerprint } from "./store.ts";
 
 /** The part of a platform directory watcher this module uses. */
-export interface DirectoryWatcher {
+interface DirectoryWatcher {
   close(): void;
   on(event: "error", listener: (error: Error) => void): unknown;
 }

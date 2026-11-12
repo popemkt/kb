@@ -4,7 +4,7 @@ import { ChordDataSchema, matchesChord, printableExcept, type Chord } from "../s
 
 const read = Schema.decodeUnknownOption(ChordDataSchema);
 const chords: readonly Chord[] = [
-  { code: "NumpadEnter", mod: false },
+  { physicalKey: "NumpadEnter", mod: false },
   { key: ["k", "K"], mod: true, shift: false },
   { key: "Escape" },
   {
@@ -20,11 +20,11 @@ test("declarative chords retain matching behavior after storage, including wildc
     expect(Option.isSome(decoded)).toBe(true);
     if (Option.isNone(decoded)) continue;
     for (const key of ["a", "o", "O", "k", "K", "Escape", "Enter", " ", "ø", "ArrowUp"]) {
-      for (const code of ["NumpadEnter", "Enter", "KeyK"]) {
+      for (const physicalKey of ["NumpadEnter", "Enter", "KeyK"]) {
         for (let bits = 0; bits < 16; bits++) {
           const event = {
             key,
-            code,
+            physicalKey,
             metaKey: (bits & 1) !== 0,
             ctrlKey: (bits & 2) !== 0,
             shiftKey: (bits & 4) !== 0,

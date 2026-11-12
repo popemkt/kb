@@ -12,17 +12,17 @@ import {
 } from "../src/chord.ts";
 
 /** A chord by place: the key `KeyboardEvent.code` names, and the modifiers it asks about. */
-const at = (place: string, modifiers: Omit<Chord, "key" | "code"> = {}): Chord => ({
+const at = (place: string, modifiers: Omit<Chord, "key" | "physicalKey"> = {}): Chord => ({
   ...modifiers,
-  code: place,
+  physicalKey: place,
 });
 
 /** A key event: the character it types, the key's place, and the modifiers held. */
 const pressed = (
   key: string,
   place: string,
-  held: Omit<KeyChordEvent, "key" | "code"> = {},
-): KeyChordEvent => ({ ...held, key, code: place });
+  held: Omit<KeyChordEvent, "key" | "physicalKey"> = {},
+): KeyChordEvent => ({ ...held, key, physicalKey: place });
 
 describe("parseChord", () => {
   it.each([

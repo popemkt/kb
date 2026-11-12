@@ -299,7 +299,6 @@ export { type Landing, LandingService, land, landOnce, stayHome } from "./lib/la
 export { type DateTarget, DateTargetService, dateTarget, leadsNowhere } from "./lib/date-target";
 export {
   type FieldEditorProps,
-  type FieldRowProps,
   FieldEditorService,
   provideFieldEditor,
   useFieldEditor,
@@ -439,6 +438,7 @@ export {
   chordsOverlap,
   isPrintableKey,
   type KeyChordEvent,
+  keyChordEvent,
   lookupChord,
   matchesChord,
   PALETTE_CHORD,
@@ -458,7 +458,6 @@ export {
   type Keybinding,
   KeybindingPoint,
   type Keymap,
-  type KeyRun,
   provideKeybinding,
   runKeyCall,
   tellKeymaps,

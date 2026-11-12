@@ -436,7 +436,7 @@ export declare function provideValueKind(
  */
 export interface Chord {
   key?: string | readonly string[] | ((key: string) => boolean);
-  code?: string;
+  physicalKey?: string;
   mod?: boolean;
   meta?: boolean;
   ctrl?: boolean;

@@ -15,7 +15,7 @@
  * answer.
  *
  * A chord names its key by character (`key`, as `KeyboardEvent.key` names
- * it) or by place (`code`, as `KeyboardEvent.code` names it: `Numpad7`,
+ * it) or by place (`physicalKey`, as `KeyboardEvent.code` names it: `Numpad7`,
  * `KeyH`, `BracketLeft`), where the place is what counts: a numpad digit is
  * not the row's, and ⌥ makes another character of a letter on a Mac. One
  * press has both, and which character a place types is the layout's, so a
@@ -29,7 +29,7 @@ import type { ChordData } from "./chord-data.ts";
 export interface KeyChordEvent {
   key: string;
   /** The key's place on the keyboard (`KeyboardEvent.code`); absent, no chord by place matches. */
-  code?: string;
+  physicalKey?: string;
   metaKey?: boolean;
   ctrlKey?: boolean;
   shiftKey?: boolean;
@@ -80,15 +80,15 @@ function modifiersMatch(chord: Chord, mods: Modifiers): boolean {
   );
 }
 
-/** Whether `chord` names its key by place (`code`) rather than by character. */
+/** Whether `chord` names its key by place (`physicalKey`) rather than by character. */
 export function byPlace(chord: Chord): boolean {
-  return chord.code !== undefined;
+  return chord.physicalKey !== undefined;
 }
 
 /** True when `ev` satisfies every constraint the chord states. */
 export function matchesChord(ev: KeyChordEvent, chord: Chord): boolean {
   return (
-    (chord.code === undefined || chord.code === ev.code) &&
+    (chord.physicalKey === undefined || chord.physicalKey === ev.physicalKey) &&
     keyMatches(chord.key, ev.key) &&
     modifiersMatch(chord, {
       meta: ev.metaKey === true,
@@ -155,24 +155,24 @@ const NUMPAD_KEYS: Readonly<Record<string, readonly string[]>> = {
 const layoutCharacter = (key: string) =>
   isPrintableKey(key) || key === "Dead" || key === "Unidentified";
 
-/** A known code narrows its key domain; layout-dependent positions remain conservative. */
+/** A known physicalKey narrows its key domain; layout-dependent positions remain conservative. */
 function keyDomain(chord: Chord): KeyMatch | undefined {
-  if (chord.key !== undefined || chord.code === undefined) return chord.key;
-  const numpad = NUMPAD_KEYS[chord.code];
+  if (chord.key !== undefined || chord.physicalKey === undefined) return chord.key;
+  const numpad = NUMPAD_KEYS[chord.physicalKey];
   if (numpad !== undefined) return numpad;
-  if (chord.code === "Space") return " ";
+  if (chord.physicalKey === "Space") return " ";
   if (
     /^(Key[A-Z]|Digit[0-9]|BracketLeft|BracketRight|Backslash|IntlBackslash|IntlRo|IntlYen|Minus|Equal|Semicolon|Quote|Backquote|Comma|Period|Slash)$/.test(
-      chord.code,
+      chord.physicalKey,
     )
   )
     return layoutCharacter;
   if (
     /^(Escape|Enter|Tab|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Arrow(Up|Down|Left|Right)|F[0-9]+)$/.test(
-      chord.code,
+      chord.physicalKey,
     )
   )
-    return chord.code;
+    return chord.physicalKey;
   return undefined;
 }
 
@@ -180,10 +180,11 @@ function keyDomain(chord: Chord): KeyMatch | undefined {
  * Whether one key event could match both chords: they admit a common key,
  * and some state of the four modifiers satisfies both. A keymap whose
  * chords never overlap means the same in any order. Unknown layout mappings
- * are conservative: a code constraint cannot prove a character disjoint.
+ * are conservative: a physicalKey constraint cannot prove a character disjoint.
  */
 export function chordsOverlap(a: Chord, b: Chord): boolean {
-  if (a.code !== undefined && b.code !== undefined && a.code !== b.code) return false;
+  if (a.physicalKey !== undefined && b.physicalKey !== undefined && a.physicalKey !== b.physicalKey)
+    return false;
   return (
     keysOverlap(keyDomain(a), keyDomain(b)) &&
     MODIFIER_STATES.some((mods) => modifiersMatch(a, mods) && modifiersMatch(b, mods))
@@ -198,7 +199,7 @@ export function chordIncludes(whole: Chord, part: Chord): boolean {
     whole.key === part.key ||
     (keys !== null && keys.every((key) => keyMatches(whole.key, key)));
   return (
-    (whole.code === undefined || whole.code === part.code) &&
+    (whole.physicalKey === undefined || whole.physicalKey === part.physicalKey) &&
     includesKeys &&
     MODIFIER_STATES.every((mods) => !modifiersMatch(part, mods) || modifiersMatch(whole, mods))
   );
@@ -271,7 +272,10 @@ export function describeChord(chord: Chord): string {
   if (chord.ctrl === true) flags.push("Ctrl");
   if (chord.shift === true) flags.push("Shift");
   if (chord.alt === true) flags.push("Alt");
-  return [...flags, chord.code === undefined ? keyName(chord.key) : `[${chord.code}]`].join("-");
+  return [
+    ...flags,
+    chord.physicalKey === undefined ? keyName(chord.key) : `[${chord.physicalKey}]`,
+  ].join("-");
 }
 
 /**

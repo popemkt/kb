@@ -26,7 +26,7 @@ export interface MigrationGraph {
 }
 
 /** What a migration plans: the nodes it writes, whole, and the ids it deletes. */
-export interface MigrationPlan {
+interface MigrationPlan {
   readonly upserts: readonly KbNode[];
   readonly deletes: readonly NodeId[];
 }

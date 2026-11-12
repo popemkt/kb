@@ -491,7 +491,7 @@ point's `combine`:
   selection's other bindings leave. Alt is a modifier like the others: an
   Alt-composed character (⌥o is ø) is no outline key, so it stays native
   unless a binding claims its chord. A chord names its key by character
-  (`key`) or by place (`code`, `KeyboardEvent.code`: `Numpad7`, `KeyH`),
+  (`key`) or by place (`physicalKey`, `KeyboardEvent.code`: `Numpad7`, `KeyH`),
   where the place is what counts. One press has both, and which character a
   place types is the layout's, so a chord by place and one by character
   can overlap: reservations and cross-context admission protect their shared

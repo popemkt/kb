@@ -87,3 +87,10 @@ are passed to the existing admission rule, which refuses missing held targets;
 cycles and their dependents stay inert. Missing contexts, targets and holders
 stay inert and are reconsidered on reload. Incremental and fresh reads must
 agree, including reversed graph enumeration and intermediate holder unloads.
+
+
+Module ledger on the #193 refresh:
+
+- `@kb/keybindings` (24 public names): the shared model/codec is imported by contracts, SDK and family definitions; it stays below the new-package cap of 60.
+- Existing contracts/plugin/SDK surfaces shrink after removing types and host adapters with no cross-package consumers; no existing surface ceiling rises.
+- Family-name entries remain at main's baseline. The module stack will refine property-name matching before this stack merges; generic physical-key `code` and graph vocabulary are not new ledger debt.

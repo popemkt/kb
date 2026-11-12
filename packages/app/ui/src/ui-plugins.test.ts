@@ -75,11 +75,11 @@ describe("shipped keybinding data", () => {
             : []),
       ]);
       for (const key of keys) {
-        for (const code of new Set(["KeyA", "Enter", "NumpadEnter", chord.code])) {
+        for (const physicalKey of new Set(["KeyA", "Enter", "NumpadEnter", chord.physicalKey])) {
           for (let flags = 0; flags < 16; flags++) {
             const event: KeyChordEvent = {
               key,
-              ...(code === undefined ? {} : { code }),
+              ...(physicalKey === undefined ? {} : { physicalKey }),
               metaKey: (flags & 1) !== 0,
               ctrlKey: (flags & 2) !== 0,
               shiftKey: (flags & 4) !== 0,

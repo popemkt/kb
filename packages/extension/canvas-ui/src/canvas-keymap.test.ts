@@ -40,7 +40,7 @@ describe("with something selected", () => {
     [chord("Enter"), { type: "edit" }],
     [chord("d", { metaKey: true }), { type: "duplicate" }],
     [chord("Escape"), { type: "escape" }],
-    [chord(" ", { code: "Space" }), { type: "panModifier" }],
+    [chord(" ", { physicalKey: "Space" }), { type: "panModifier" }],
     [chord("ArrowLeft"), { type: "nudge", dx: -1, dy: 0 }],
     [chord("ArrowRight"), { type: "nudge", dx: 1, dy: 0 }],
     [chord("ArrowUp"), { type: "nudge", dx: 0, dy: -1 }],
@@ -65,31 +65,43 @@ describe("with something selected", () => {
     [chord("-", { metaKey: true }), { type: "zoomBy", factor: 1 / ZOOM_STEP }],
     [chord("0", { metaKey: true }), { type: "zoomTo", zoom: 1 }],
     [chord("!", { shiftKey: true }), { type: "frame", scope: "all" }],
-    [chord("@", { code: "Digit2", shiftKey: true }), { type: "frame", scope: "selection" }],
-    [chord("Delete", { code: "NumpadDecimal" }), { type: "frame", scope: "selection" }],
-    [chord("Home", { code: "Numpad7" }), { type: "look", preset: "top" }],
-    [chord("End", { code: "Numpad1", ctrlKey: true }), { type: "look", preset: "back" }],
-    [chord("5", { code: "Numpad5" }), { type: "toggleLens" }],
-    [chord("`", { code: "Backquote" }), { type: "viewMenu" }],
+    [chord("@", { physicalKey: "Digit2", shiftKey: true }), { type: "frame", scope: "selection" }],
+    [chord("Delete", { physicalKey: "NumpadDecimal" }), { type: "frame", scope: "selection" }],
+    [chord("Home", { physicalKey: "Numpad7" }), { type: "look", preset: "top" }],
+    [chord("End", { physicalKey: "Numpad1", ctrlKey: true }), { type: "look", preset: "back" }],
+    [chord("5", { physicalKey: "Numpad5" }), { type: "toggleLens" }],
+    [chord("`", { physicalKey: "Backquote" }), { type: "viewMenu" }],
     [chord("?", { shiftKey: true }), { type: "shortcuts" }],
     [chord("L", { shiftKey: true }), { type: "lock" }],
     [chord("h"), { type: "tool", tool: "hand" }],
     [chord("l"), { type: "tool", tool: "line" }],
-    [chord("]", { code: "BracketRight" }), { type: "order", order: "front" }],
-    [chord("[", { code: "BracketLeft" }), { type: "order", order: "back" }],
-    [chord("‘", { code: "BracketRight", altKey: true }), { type: "order", order: "forward" }],
-    [chord("“", { code: "BracketLeft", altKey: true }), { type: "order", order: "backward" }],
+    [chord("]", { physicalKey: "BracketRight" }), { type: "order", order: "front" }],
+    [chord("[", { physicalKey: "BracketLeft" }), { type: "order", order: "back" }],
+    [
+      chord("‘", { physicalKey: "BracketRight", altKey: true }),
+      { type: "order", order: "forward" },
+    ],
+    [
+      chord("“", { physicalKey: "BracketLeft", altKey: true }),
+      { type: "order", order: "backward" },
+    ],
     [chord("H", { shiftKey: true }), { type: "flip", axis: "x" }],
     [chord("V", { shiftKey: true }), { type: "flip", axis: "y" }],
     // ⌥ makes another character of a letter on a Mac: the place on the keyboard decides.
-    [chord("å", { code: "KeyA", altKey: true }), { type: "align", edge: "left" }],
-    [chord("˙", { code: "KeyH", altKey: true }), { type: "align", edge: "centre" }],
-    [chord("∂", { code: "KeyD", altKey: true }), { type: "align", edge: "right" }],
-    [chord("∑", { code: "KeyW", altKey: true }), { type: "align", edge: "top" }],
-    [chord("√", { code: "KeyV", altKey: true }), { type: "align", edge: "middle" }],
-    [chord("ß", { code: "KeyS", altKey: true }), { type: "align", edge: "bottom" }],
-    [chord("Ó", { code: "KeyH", altKey: true, shiftKey: true }), { type: "distribute", axis: "x" }],
-    [chord("◊", { code: "KeyV", altKey: true, shiftKey: true }), { type: "distribute", axis: "y" }],
+    [chord("å", { physicalKey: "KeyA", altKey: true }), { type: "align", edge: "left" }],
+    [chord("˙", { physicalKey: "KeyH", altKey: true }), { type: "align", edge: "centre" }],
+    [chord("∂", { physicalKey: "KeyD", altKey: true }), { type: "align", edge: "right" }],
+    [chord("∑", { physicalKey: "KeyW", altKey: true }), { type: "align", edge: "top" }],
+    [chord("√", { physicalKey: "KeyV", altKey: true }), { type: "align", edge: "middle" }],
+    [chord("ß", { physicalKey: "KeyS", altKey: true }), { type: "align", edge: "bottom" }],
+    [
+      chord("Ó", { physicalKey: "KeyH", altKey: true, shiftKey: true }),
+      { type: "distribute", axis: "x" },
+    ],
+    [
+      chord("◊", { physicalKey: "KeyV", altKey: true, shiftKey: true }),
+      { type: "distribute", axis: "y" },
+    ],
   ];
 
   test.each(table)("%o maps to %o", (event, intent) => {
@@ -151,7 +163,7 @@ describe("a modal transform (G, S, E)", () => {
       { type: "transform", act: { kind: "key", key: { kind: "type", key: "Backspace" } } },
     ],
     [
-      chord("4", { code: "Numpad4" }),
+      chord("4", { physicalKey: "Numpad4" }),
       { type: "transform", act: { kind: "key", key: { kind: "type", key: "4" } } },
     ],
     [chord("Enter"), { type: "transform", act: { kind: "confirm" } }],
@@ -198,9 +210,9 @@ describe("what the browser still gets", () => {
 
   test("an empty selection swallows the arrange keys, and flip is not the hand", () => {
     for (const event of [
-      chord("]", { code: "BracketRight" }),
+      chord("]", { physicalKey: "BracketRight" }),
       chord("H", { shiftKey: true }),
-      chord("å", { code: "KeyA", altKey: true }),
+      chord("å", { physicalKey: "KeyA", altKey: true }),
     ]) {
       expect(mapCanvasKey(event, empty)).toEqual({ intent: null, preventDefault: true });
     }
@@ -326,11 +338,11 @@ describe("the canvas's key contexts", () => {
   );
 
   test("a numpad digit looks from a view, by its place, before the tool its character picks", () => {
-    expect(mapCanvasKey(chord("7", { code: "Numpad7" }), withSelection)?.intent).toEqual({
+    expect(mapCanvasKey(chord("7", { physicalKey: "Numpad7" }), withSelection)?.intent).toEqual({
       type: "look",
       preset: "top",
     });
-    expect(mapCanvasKey(chord("7", { code: "Digit7" }), withSelection)?.intent).toEqual({
+    expect(mapCanvasKey(chord("7", { physicalKey: "Digit7" }), withSelection)?.intent).toEqual({
       type: "tool",
       tool: "group",
     });

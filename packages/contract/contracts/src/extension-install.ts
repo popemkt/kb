@@ -58,7 +58,7 @@ export interface CachedTree extends SourceAddress {
   readonly source: SourceTree;
 }
 /** Write capabilities exist inside one cross-process installation-state mutation. */
-export interface ExtensionCollection {
+interface ExtensionCollection {
   readonly retained: readonly SourceAddress[];
   readonly sweep: Effect.Effect<
     {

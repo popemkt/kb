@@ -84,7 +84,7 @@ const KEY_NAMES: Record<string, string> = {
 
 /** The key a chord names, as one name: its place, or the first spelling of its character. */
 function namedKey(chord: Chord): string {
-  if (chord.code !== undefined) return chord.code;
+  if (chord.physicalKey !== undefined) return chord.physicalKey;
   if (typeof chord.key === "string") return chord.key;
   if (Array.isArray(chord.key)) return chord.key[0] ?? "";
   return "";
@@ -126,7 +126,7 @@ function pressOf(chord: Chord): KeyChordEvent | null {
   if (key === undefined || typeof chord.key === "function") return null;
   return {
     key,
-    ...(chord.code === undefined ? {} : { code: chord.code }),
+    ...(chord.physicalKey === undefined ? {} : { physicalKey: chord.physicalKey }),
     metaKey: chord.meta === true || (chord.mod === true && chord.ctrl !== true),
     ctrlKey: chord.ctrl === true,
     shiftKey: chord.shift === true,
