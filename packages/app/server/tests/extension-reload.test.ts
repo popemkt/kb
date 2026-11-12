@@ -7,7 +7,7 @@ import { Effect } from "effect";
 import { extensionNodeId, present } from "@kb/model";
 import { GraphSnapshotSchema, type ServerMessage } from "@kb/contracts";
 import { kbManifestDef } from "@kb/operations";
-import { childProcessEnv } from "@kb/runtime";
+import { childProcessEnv, STORE_BACKENDS } from "@kb/runtime";
 import { extensionModule, KB_SOURCE_BIN, writeExtension } from "@kb/test-kit";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
@@ -64,7 +64,7 @@ async function invoke(handle: UiServerHandle, id: string) {
   return response.json() as Promise<{ status: string; output?: unknown }>;
 }
 
-for (const backend of ["jsonl", "sqlite"] as const)
+for (const backend of STORE_BACKENDS)
   test(`${backend}: CLI selection and shared trust refresh the manifest and derived subscriptions live`, async () => {
     const at = await mkdtemp(join(tmpdir(), "kb-extension-reload-"));
     const root = join(at, "root");
@@ -214,7 +214,7 @@ for (const backend of ["jsonl", "sqlite"] as const)
     }
   }, 30000);
 
-for (const backend of ["jsonl", "sqlite"] as const)
+for (const backend of STORE_BACKENDS)
   test(`${backend}: machine confirmation changes refresh a tab without changing extension membership`, async () => {
     const at = await mkdtemp(join(tmpdir(), "kb-confirmation-reload-"));
     const root = join(at, "root");
