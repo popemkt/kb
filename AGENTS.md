@@ -154,32 +154,32 @@ Where the code falls short of these today, a `#gap` names the rule it bends
 
 kb runs in two modes. One-shot commands (`kb get`, `kb add`,
 `kb search`, …) open a store, act, and exit. Long-running hosts (`kb ui`
-and `kb mcp`) stay up and serve. Two rules keep the modes apart:
+and `kb mcp`) stay up and serve. Both modes share one core (the domain,
+the store and the actions), and one rule keeps them apart:
 
 - **The store is the truth; a host only makes it arrive sooner.** Every
-  feature is correct when only one-shot commands ever run against a store.
-  A result that something is due, retained, rolled over or synced is worked
-  out from the store when it is asked for, never from a timer or a map in a
-  process. State that must outlive a call is written to the store under its
-  lock. Some features already work this way:
+  feature is correct when only one-shot commands ever run against a store,
+  and a command gives the same answer whether a host serves it or it runs
+  in-process. A result that something is due, retained, rolled over or
+  synced is worked out from the store when it is asked for, never from a
+  timer or a map in a process. State that must outlive a call is written
+  to the store under its lock. Some features already work this way:
   - backup retention is done at write time under the lock;
   - a day rolls over when it is read;
   - the store watcher only saves a reload that the next command would do
     anyway.
 
-  A host loop calls the same action a person could run one-shot, and a
-  cache is keyed by the store's fingerprint, so deleting it costs only
-  time.
-- **One-shot commands load no host code.** Servers, sockets, watchers,
-  schedulers, agent runtimes and MCP are host code. The CLI entry reaches
-  host code, and painters or engines a command does not use, only through
-  a dynamic `import()`. The release build emits that code in chunks a
-  one-shot command never parses. The two modes
-  share one mode-neutral core: the domain, the store, and the actions.
+  A host loop, a scheduler or a webhook only triggers the same action a
+  person could run one-shot. A cache is keyed by the store's fingerprint,
+  so deleting it costs only time.
 
-Where the code falls short of these today, a `#gap` names the rule it bends
-(`kb backlinks` on the rule lists them). The evidence and the migration plan
-are in `docs/research/2026-11-11-cli-host-modes.md`.
+Which code a one-shot command may load is a module boundary, not a second
+rule. Its home is with the other boundaries in `harness/src/constraints.ts`,
+as a CLI row of the lazy fence, and a budget holds the size of the
+command's eager graph. Neither exists yet; a `#gap` holds the place. Where
+the code bends the rule today, a `#gap` names it (`kb backlinks` on the
+rule lists them). The evidence, the topology and the migration plan are in
+`docs/research/2026-11-11-cli-host-modes.md`.
 
 ## Canonical statements
 
