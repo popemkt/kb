@@ -267,6 +267,19 @@ file sets on purpose.
   committed lane, so both rises and partial improvements require an explicit
   `bun run harness:snapshot` update.
 
+The module-design lanes share this ledger: `surface` counts distinct public
+barrel names (type exports included, aliases by their exported name, a
+namespace as one name); `family-names` counts AST string and identifier
+occurrences equal to a declared family id or beginning with its dotted
+prefix, under the core layers in `CORE_NAME_LAYERS`. Comments do not count.
+Family ids come from the same declaration reader as `extension-families`.
+`SURFACE_BUDGETS` records current package widths; new packages have the
+`NEW_SURFACE_BUDGET` ceiling. Once a lane exists in the fork-point ledger,
+its counts may only fall (a new surface may begin within that ceiling).
+The introducing commit initializes the lanes against a base without them.
+Consumer and namespace-member measurement awaits M1b; cohesion awaits M2
+calibration (the corresponding gaps are recorded in kb).
+
 Rejected rules are recorded here with their measured count, like rejected
 compiler flags: `oxc/no-map-spread` (14 sites) — a micro-optimisation for
 `Array.prototype.map` callbacks that spread; kb's arrays are small, the
