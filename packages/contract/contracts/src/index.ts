@@ -100,6 +100,7 @@ export type {
   ExtensionRow,
 } from "./declaration.ts";
 export { NO_SWITCHES, familyOn, switchWrites } from "./extension-switch.ts";
+export { EXTENSIONS_WATCH_NODE, extensionsWatched } from "./extension-watch.ts";
 export {
   FOOTPRINT_SOURCES,
   FamilyKernels,

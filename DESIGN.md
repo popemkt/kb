@@ -3236,6 +3236,34 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   Admission imports only own code; it checks lock
   schemas, bundled names, store-relative links and present tree integrity
   without fetching, importing or executing installed/linked code.
+- **Watching the root's own extensions.** A lock moves when a selection does,
+  so the readings above follow every installed and linked extension. The
+  root's own `.kb/extensions/` has no lock: its files are read once per root
+  reading, and an edit to one is seen when something else invalidates that
+  reading, or at the next start. A `kb ui` server can also watch the folder.
+  It watches while `kb ui --watch-extensions` asked it to, or while core's
+  setting `sys.f.extensions.watch` (a checkbox, `extensionsWatched` in
+  `@kb/contracts`) is on, so a person can leave it on. The flag is per run and
+  the setting is the store's, committed with it.
+  - **What watching does.** `ownExtensionEdits` (`app/runtime`) watches the
+    folder and every folder under it, creating it when it is initially missing.
+    Its parent-directory signal follows removal and recreation, replacing the
+    scoped recursive watch when the directory identity changes. Disabling
+    watching or stopping the server closes both watches. After
+    each burst of edits it drops the root's reading, and the server's follower
+    then announces a changed manifest, as it does for a lock.
+  - **Trust is not skipped.** Saving a file gives its closure a new digest, so
+    the extension is untrusted until a person trusts it again, and the page
+    shows it refused with that digest. No flag, setting or agent path imports
+    unreviewed bytes.
+  - **Module instances accumulate.** A module cannot be un-imported, so each
+    trusted save leaves the previous instance in the process until it
+    restarts. That is why watching is opt-in, for a person developing an
+    extension, and not the default.
+  - **The page is told.** The server says whether it watches, and which
+    folder, in an `extension-watch` message: once when a connection is
+    greeted, and again whenever that changes. The page shows the note
+    (DESIGN-UI.md → Panes and layouts).
 - **Pinned extension sources.** `SourceReader` (`@kb/extension-source`) resolves
   GitHub sources to full 40-hex commits and reads regular files from that pin.
   The reader returns a checked, sorted file set independent of product

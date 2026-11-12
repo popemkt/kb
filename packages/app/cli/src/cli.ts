@@ -328,6 +328,10 @@ function buildProgram(): Command {
       "trust the reverse proxy's <header> to name the person; a request whose header is <login> is theirs (repeatable; with --socket)",
       collectIdentity,
     )
+    .option(
+      "--watch-extensions",
+      "follow edits to this root's own .kb/extensions as they are saved (saved changes need trust again)",
+    )
     .option("--no-open", "do not open a browser")
     .action(
       cliAction(
@@ -343,6 +347,7 @@ function buildProgram(): Command {
               embedOrigin?: readonly string[];
               embedScript?: readonly string[];
               identityHeader?: { header: string; people: readonly string[] };
+              watchExtensions?: boolean;
               open?: boolean;
             },
           ],
@@ -373,6 +378,7 @@ function buildProgram(): Command {
                 opts.publicOrigin ?? `http://127.0.0.1:${opts.port ?? UI_DEFAULT_PORT}`,
               ),
               openedBy: ACTION_INVOKE_WIRE,
+              watchExtensions: opts.watchExtensions === true,
             });
           }),
       ),

@@ -73,7 +73,9 @@ async function socket(headers: Record<string, string>, frames: readonly unknown[
   await done;
   ws.close();
   const person = heard.find((msg) => msg.op === "person")?.person;
-  const said = heard.filter((msg) => !["hello", "person", "pong"].includes(msg.op));
+  const said = heard.filter(
+    (msg) => !["hello", "person", "extension-watch", "pong"].includes(msg.op),
+  );
   return { opened, person, heard: said };
 }
 

@@ -50,18 +50,16 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // Protocol 8: node.add and node.addTree read an omitted parent as the
 // capture target (today's node with days), where a previous page meant the
 // top level; its local commit and the server's would disagree, so it reloads.
+// Protocol 9 adds the extension-watch greeting and live state; earlier pages
+// reject that frame and show a server-message error, so they reload first.
 // `store.backup`, `store.backups` and `store.restore` are new actions a
 // previous page never calls.
 // `procedure.list`, `procedure.status` and `procedure.step` are new actions a
-// previous page never calls. `store.backups` answers whether each backup is
-// pinned, a field a previous page ignores.
-// A procedure step's status may name the action its check recommends and
-// carries its check's notes, fields a previous page ignores. The
-// `migration.*` actions are new actions a previous page never calls.
-// The manifest adds optional root and machine-local confirmation digests; older pages ignore them.
+// previous page never calls.
+// Trial composition also includes the optional manifest root and confirmation digests.
 const RECORDED = {
-  protocol: 8,
-  fingerprint: "b013b0491814526d51da8c188acba37d6b8e62e06c9f1698203d9e460a794ecb",
+  protocol: 9,
+  fingerprint: "7a9db883d3a1d4b561198857f33895c999209989eeb5c4c39cd1520c314ca3f9",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

@@ -1,13 +1,15 @@
 import { watch } from "node:fs";
 import { join, relative, resolve } from "node:path";
-import { Cause, Effect, Exit, Scope, Stream, type Layer } from "effect";
+import { Cause, Effect, Exit, Queue, Scope, Stream, type Layer } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import type { PlatformError } from "effect/PlatformError";
 import {
   IdentityPoint,
+  EXTENSIONS_WATCH_NODE,
   NO_EMBEDDING,
   UI_DEFAULT_PORT,
   directorySignals,
+  extensionsWatched,
   type ActionHandlerEnv,
   type Embedding,
   type ExtensionEntry,
@@ -22,6 +24,8 @@ import { reloadEffect } from "@kb/operations";
 import {
   bunFileSystemLayer,
   extensionRuntimeChanges,
+  ownExtensionEdits,
+  ownExtensionPath,
   sessionRegistry,
   childProcessEnv,
   openKbEffect,
@@ -112,7 +116,24 @@ export interface UiServerOptions {
    * has none of; `null` keeps none.
    */
   builds?: string | null;
+  /**
+   * Watch the root's own `.kb/extensions/` for this run (`kb ui
+   * --watch-extensions`), whatever core's setting says; without it, the
+   * server watches while the setting is on (DESIGN.md → Watching the root's
+   * own extensions). Default: false.
+   */
+  watchExtensions?: boolean;
 }
+
+/**
+ * What a server serves whichever way it is started: the options `kb ui`'s
+ * start paths ({@link startDevServer}, {@link startProductionUi},
+ * {@link runUiCli}) hand {@link startUi} as they were given.
+ */
+export type ServedOptions = Pick<
+  UiServerOptions,
+  "root" | "publicOrigin" | "embedding" | "identity" | "extensions" | "openedBy" | "watchExtensions"
+>;
 
 export interface UiServerHandle {
   /** Where it listens: the TCP port it bound (0 resolved), or its socket. */
@@ -400,6 +421,45 @@ const observeExtensions = Effect.fn("kb.observeExtensions")(function* (
 });
 
 /**
+ * Whether the server watches the root's own extensions, each time that
+ * changes: always, when this run `asked` (`--watch-extensions`); otherwise
+ * as core's setting reads now and after each write to core's node, from
+ * any surface, since every write reaches the session's log.
+ */
+function extensionWatching(ctx: KbContext, asked: boolean): Stream.Stream<boolean> {
+  if (asked) return Stream.succeed(true);
+  const read = () =>
+    extensionsWatched(
+      (id) => ctx.index.getNode(id),
+      (warning) => writeErr(`kb ui: the extensions.watch setting: ${warning} (read as off)`),
+    );
+  return Stream.callback<boolean>((queue) =>
+    Effect.acquireRelease(
+      Effect.sync(() => {
+        const unsubscribe = ctx.log.subscribe((tx) => {
+          const ids = [...tx.ops.upserts.map(({ id }) => id), ...tx.ops.deletes];
+          if (ids.includes(EXTENSIONS_WATCH_NODE)) Queue.offerUnsafe(queue, read());
+        });
+        Queue.offerUnsafe(queue, read());
+        return unsubscribe;
+      }),
+      (unsubscribe) => Effect.sync(unsubscribe),
+    ),
+  ).pipe(Stream.changes);
+}
+
+/** Every runtime or watched-source change uses the same composition refresh path. */
+function extensionSignals(ctx: KbContext, hub: SubscriptionHub, watchExtensions: boolean) {
+  const edits = extensionWatching(ctx, watchExtensions).pipe(
+    Stream.tap((on) => hub.extensionWatch(on ? ownExtensionPath(ctx.root) : null)),
+    Stream.switchMap((on) => (on ? ownExtensionEdits(ctx.root) : Stream.empty)),
+  );
+  return Stream.merge(extensionRuntimeChanges(ctx.root), edits).pipe(
+    Stream.provide(bunFileSystemLayer),
+  );
+}
+
+/**
  * Start the `kb ui` HTTP+WS server.
  *
  * Single Bun.serve / Effect runtime boundary: `Bun.serve` owns the TCP listen,
@@ -485,10 +545,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     lifetime,
   );
   yield* Effect.forkIn(
-    ingestEach(
-      extensionRuntimeChanges(ctx.root).pipe(Stream.provide(bunFileSystemLayer)),
-      observation.refresh,
-    ),
+    ingestEach(extensionSignals(ctx, hub, opts.watchExtensions === true), observation.refresh),
     lifetime,
   );
   yield* Effect.forkIn(
@@ -540,36 +597,28 @@ export interface UiDevServer {
  * /assets and /ws back to it (HMR on the Vite port). Fails fast — stopping
  * the backend — if either cannot come up (e.g. backend port already bound).
  */
-export const startDevServer = Effect.fn("kb.startDevServer")(function* (opts: {
-  root: string;
-  backendPort: number;
-  devPort: number;
-  uiRoot: string;
-  publicOrigin?: string;
-  embedding?: Embedding;
-  identity?: readonly Plugin[];
-  spawn?: UiDevSpawn;
-  extensions?: readonly ExtensionEntry[];
-  openedBy?: SurfaceWire;
-}): Effect.fn.Return<UiDevServer, DomainError, FileSystem> {
+export const startDevServer = Effect.fn("kb.startDevServer")(function* (
+  opts: ServedOptions & {
+    backendPort: number;
+    devPort: number;
+    uiRoot: string;
+    spawn?: UiDevSpawn;
+  },
+): Effect.fn.Return<UiDevServer, DomainError, FileSystem> {
+  const { backendPort, devPort, uiRoot, spawn: spawnDev, ...served } = opts;
   const backend = yield* startUi({
-    root: opts.root,
-    port: opts.backendPort,
+    ...served,
+    port: backendPort,
     openBrowser: false,
-    uiPort: opts.devPort,
-    publicOrigin: opts.publicOrigin,
-    embedding: opts.embedding,
-    identity: opts.identity,
-    extensions: opts.extensions,
-    openedBy: opts.openedBy,
+    uiPort: devPort,
   });
-  const spawn = opts.spawn ?? bunSpawnDev;
+  const spawn = spawnDev ?? bunSpawnDev;
   const child = yield* Effect.try({
     try: () =>
       spawn({
         cmd: "bun",
-        args: ["run", "dev", "--port", String(opts.devPort)],
-        cwd: join(opts.uiRoot),
+        args: ["run", "dev", "--port", String(devPort)],
+        cwd: join(uiRoot),
         env: childProcessEnv("tool", {
           // Vite proxy target: /api, /assets, /ws all route to the kb backend.
           KB_UI_API_PORT: new URL(backend.url).port,
@@ -580,7 +629,7 @@ export const startDevServer = Effect.fn("kb.startDevServer")(function* (opts: {
   return {
     backend,
     child,
-    url: `http://127.0.0.1:${opts.devPort}`,
+    url: `http://127.0.0.1:${devPort}`,
     stop: Effect.sync(() => {
       child.kill();
     }).pipe(Effect.andThen(backend.stop)),
@@ -591,32 +640,19 @@ export const startDevServer = Effect.fn("kb.startDevServer")(function* (opts: {
  * Production lifecycle: ensure the built UI is present and fresh, then serve.
  * The build step is injectable for tests (fake runner, no live checkout).
  */
-export const startProductionUi = Effect.fn("kb.startProductionUi")(function* (opts: {
-  root: string;
-  port: number;
-  socket?: string;
-  openBrowser: boolean;
-  uiRoot: string;
-  publicOrigin?: string;
-  embedding?: Embedding;
-  identity?: readonly Plugin[];
-  ensureBuilt?: EnsureUiBuilt;
-  extensions?: readonly ExtensionEntry[];
-  openedBy?: SurfaceWire;
-}): Effect.fn.Return<{ handle: UiServerHandle; build: UiEnsureResult }, DomainError, FileSystem> {
-  const ensure = opts.ensureBuilt ?? ensureUiBuilt;
-  const build = yield* ensure(opts.uiRoot, UI_DIST).pipe(Effect.mapError(ensureDomainError));
-  const handle = yield* startUi({
-    root: opts.root,
-    port: opts.port,
-    socket: opts.socket,
-    openBrowser: opts.openBrowser,
-    publicOrigin: opts.publicOrigin,
-    embedding: opts.embedding,
-    identity: opts.identity,
-    extensions: opts.extensions,
-    openedBy: opts.openedBy,
-  });
+export const startProductionUi = Effect.fn("kb.startProductionUi")(function* (
+  opts: ServedOptions & {
+    port: number;
+    socket?: string;
+    openBrowser: boolean;
+    uiRoot: string;
+    ensureBuilt?: EnsureUiBuilt;
+  },
+): Effect.fn.Return<{ handle: UiServerHandle; build: UiEnsureResult }, DomainError, FileSystem> {
+  const { uiRoot, ensureBuilt, ...served } = opts;
+  const ensure = ensureBuilt ?? ensureUiBuilt;
+  const build = yield* ensure(uiRoot, UI_DIST).pipe(Effect.mapError(ensureDomainError));
+  const handle = yield* startUi(served);
   return { handle, build };
 }, Effect.provide(bunFileSystemLayer));
 
@@ -634,8 +670,7 @@ function onTerminationSignal(stop: Effect.Effect<void>): () => void {
   };
 }
 
-export interface RunUiCliOptions {
-  root: string;
+export interface RunUiCliOptions extends ServedOptions {
   port?: number;
   /** Listen on this Unix socket instead of a port ({@link UiServerOptions.socket}); not with `dev`. */
   socket?: string;
@@ -643,17 +678,9 @@ export interface RunUiCliOptions {
   dev?: boolean;
   devPort?: number;
   uiRoot?: string;
-  publicOrigin?: string;
-  embedding?: Embedding;
-  /** How the person is authenticated ({@link UiServerOptions.identity}). */
-  identity?: readonly Plugin[];
   /** Injectable build-ensure step (default {@link ensureUiBuilt}). */
   ensureBuilt?: EnsureUiBuilt;
   spawnDev?: UiDevSpawn;
-  /** The extensions the server hosts ({@link UiServerOptions.extensions}). */
-  extensions?: readonly ExtensionEntry[];
-  /** Who opened the root ({@link UiServerOptions.openedBy}). */
-  openedBy?: SurfaceWire;
 }
 
 /**
@@ -665,29 +692,33 @@ export interface RunUiCliOptions {
 export const runUiCli = Effect.fn("kb.runUiCli")(function* (
   opts: RunUiCliOptions,
 ): Effect.fn.Return<never, DomainError, FileSystem> {
-  const open = opts.openBrowser !== false;
-  const uiRoot = opts.uiRoot ?? UI_ROOT;
+  const {
+    port,
+    socket,
+    openBrowser: asked,
+    dev,
+    devPort,
+    uiRoot,
+    ensureBuilt,
+    spawnDev,
+    ...served
+  } = opts;
+  const open = asked !== false;
 
-  if (opts.dev === true) {
-    const devPort = opts.devPort ?? UI_DEV_DEFAULT_PORT;
-    const dev = yield* startDevServer({
-      root: opts.root,
-      backendPort: opts.port ?? UI_DEFAULT_PORT,
-      devPort,
-      uiRoot,
-      spawn: opts.spawnDev,
-      publicOrigin: opts.publicOrigin,
-      embedding: opts.embedding,
-      identity: opts.identity,
-      extensions: opts.extensions,
-      openedBy: opts.openedBy,
+  if (dev === true) {
+    const started = yield* startDevServer({
+      ...served,
+      backendPort: port ?? UI_DEFAULT_PORT,
+      devPort: devPort ?? UI_DEV_DEFAULT_PORT,
+      uiRoot: uiRoot ?? UI_ROOT,
+      spawn: spawnDev,
     });
-    writeErr(`kb ui dev server listening on ${dev.url}`);
-    if (open) openBrowser(dev.url);
+    writeErr(`kb ui dev server listening on ${started.url}`);
+    if (open) openBrowser(started.url);
 
-    const detachSignals = onTerminationSignal(dev.stop);
+    const detachSignals = onTerminationSignal(started.stop);
 
-    const code = yield* runDevUntilExit(dev, (exitCode) => {
+    const code = yield* runDevUntilExit(started, (exitCode) => {
       detachSignals();
       if (exitCode !== 0 && exitCode !== null) {
         writeErr(`kb ui: vite dev server exited with code ${exitCode}`);
@@ -697,17 +728,12 @@ export const runUiCli = Effect.fn("kb.runUiCli")(function* (
   }
 
   const { build, handle } = yield* startProductionUi({
-    root: opts.root,
-    port: opts.port ?? UI_DEFAULT_PORT,
-    socket: opts.socket,
+    ...served,
+    port: port ?? UI_DEFAULT_PORT,
+    socket,
     openBrowser: open,
-    uiRoot,
-    ensureBuilt: opts.ensureBuilt,
-    publicOrigin: opts.publicOrigin,
-    embedding: opts.embedding,
-    identity: opts.identity,
-    extensions: opts.extensions,
-    openedBy: opts.openedBy,
+    uiRoot: uiRoot ?? UI_ROOT,
+    ensureBuilt,
   });
   if (build.built) {
     writeErr(`kb ui: built UI at ${relative(process.cwd(), UI_DIST)} (${build.state})`);
