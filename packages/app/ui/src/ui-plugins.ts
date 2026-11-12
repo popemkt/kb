@@ -76,8 +76,8 @@ import { codeUiPlugin } from "@kb/code-ui";
 import { layoutUiPlugin } from "@/components/layout/plugin";
 import { ontologyUiPlugin } from "@/components/ontology/plugin";
 import { settingsUiPlugin } from "@/components/prefs/settings-plugin";
+import { PAGE_EXTENSION_SDK } from "./page-extension-sdk";
 import {
-  PAGE_EXTENSION_SDK,
   paletteStepsPlugin,
   latestRead,
   configureUiRoles,

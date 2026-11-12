@@ -22,8 +22,8 @@ import {
   useAppearance,
   useReducedMotion,
   type Appearance,
-  type BackdropProps,
 } from "@kb/ui-sdk";
+import type { BackdropProps } from "@kb/appearance-kit";
 import { watchPlayback } from "../playback";
 import { useBackdropSeed } from "../scene/seed";
 import { readStagePalette } from "../scene/tokens";

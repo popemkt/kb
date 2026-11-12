@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cardWindowTop } from "./backdrop-card-window";
+import { cardWindowTop } from "./backdrop-card-window.ts";
 import type { BackdropPresentation } from "./appearance-points.ts";
 
 const frame = (

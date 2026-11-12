@@ -5,7 +5,7 @@
  * fallback of a machine that cannot start the scene.
  */
 import { Suspense, lazy } from "react";
-import type { BackdropProps } from "@kb/ui-sdk";
+import type { BackdropProps } from "@kb/appearance-kit";
 import type { GpuSceneId } from "./gpu-backdrop";
 
 const GpuBackdrop = lazy(() => import("./gpu-backdrop"));

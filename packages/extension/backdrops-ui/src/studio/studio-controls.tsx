@@ -11,7 +11,11 @@ import {
   MagnifyingGlassMinusIcon,
   MagnifyingGlassPlusIcon,
 } from "@phosphor-icons/react";
-import { BACKDROP_CUE_LABELS, type BackdropCue, type BackdropInteraction } from "@kb/ui-sdk";
+import {
+  BACKDROP_CUE_LABELS,
+  type BackdropCue,
+  type BackdropInteraction,
+} from "@kb/appearance-kit";
 import { ASPECTS, MAX_ZOOM, MIN_ZOOM, type AspectId, type Preview } from "./framing";
 import type { StudioActivity } from "./interact";
 import { Segments, ToolButton } from "./segments";

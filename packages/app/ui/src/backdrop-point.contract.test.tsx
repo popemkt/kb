@@ -56,14 +56,16 @@ import { definePlugin } from "@kb/plugin";
 import {
   BACKDROP_CUE_LABELS,
   decodeBackdrop,
-  BREAKOUT_CLASS,
   BackdropPoint,
+  provideBackdrop,
+  type BackdropProps,
+} from "@kb/appearance-kit";
+import {
+  BREAKOUT_CLASS,
   EMPTY_EDITOR,
   currentContributions,
-  provideBackdrop,
   syncUiPlugins,
   useReducedMotion,
-  type BackdropProps,
   type OutlineNode,
   type PageEditor,
 } from "@kb/ui-sdk";

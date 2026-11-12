@@ -30,12 +30,10 @@ import { NO_SWITCHES, familyOn, type WireNode } from "@kb/contracts";
 import { BACKDROP_STRENGTH_OPTION_IDS, backdropOptionId } from "@kb/appearance";
 import { SYSTEM_IDS, extensionNodeId, type PropValue } from "@kb/model";
 import { foldSeed } from "@kb/seed";
+import { BackdropPoint, PageBackdrop, PageBackdropHost } from "@kb/appearance-kit";
 import {
-  BackdropPoint,
   EMPTY_EDITOR,
   HoldStill,
-  PageBackdrop,
-  PageBackdropHost,
   currentContributions,
   readTiming,
   syncUiPlugins,

@@ -2,13 +2,8 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import {
-  BACKDROP_BUDGETS,
-  QUIET_ACTIVITY,
-  syncUiPlugins,
-  type BackdropProps,
-  type PageActivity,
-} from "@kb/ui-sdk";
+import { BACKDROP_BUDGETS, QUIET_ACTIVITY, syncUiPlugins, type PageActivity } from "@kb/ui-sdk";
+import type { BackdropProps } from "@kb/appearance-kit";
 import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
 import type { ArenaScene } from "./arena-scene";
 

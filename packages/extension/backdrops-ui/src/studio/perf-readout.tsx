@@ -5,7 +5,8 @@
  * wash, a vendor runtime) says so.
  */
 import { useEffect, useState } from "react";
-import { cn, readFrameMeter, type BackdropBudget, type FrameMeterReading } from "@kb/ui-sdk";
+import { cn, type BackdropBudget } from "@kb/ui-sdk";
+import { readFrameMeter, type FrameMeterReading } from "@kb/appearance-kit";
 import { budgetWarning } from "./budget-warning";
 
 /** How often the readout reads the meter: the meter itself reports over a window, not per frame. */

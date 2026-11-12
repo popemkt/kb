@@ -2,12 +2,8 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import {
-  BACKDROP_BUDGETS,
-  QUIET_ACTIVITY,
-  type BackdropProps,
-  type PageActivity,
-} from "@kb/ui-sdk";
+import { BACKDROP_BUDGETS, QUIET_ACTIVITY, type PageActivity } from "@kb/ui-sdk";
+import type { BackdropProps } from "@kb/appearance-kit";
 import { BunkerBackdrop } from "./bunker-backdrop";
 
 beforeAll(() => {

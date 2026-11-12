@@ -7,8 +7,8 @@ import {
   toRenderableColor,
   useAppearance,
   useReducedMotion,
-  type BackdropProps,
 } from "@kb/ui-sdk";
+import type { BackdropProps } from "@kb/appearance-kit";
 import type { ArenaLook, ArenaScene } from "./arena-scene";
 
 /**

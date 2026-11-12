@@ -5,8 +5,8 @@
  * `components/page-backdrop.tsx`.
  */
 import { createContext } from "react";
-import type { PageBackdropChoice } from "../hooks";
-import type { OutlineNode } from "./types";
+import type { PageBackdropChoice } from "../appearance-hooks.ts";
+import type { OutlineNode } from "@kb/ui-sdk";
 
 /** What a page head declares to its pane's backdrop host. */
 export interface HeadDeclaration {

@@ -7,7 +7,7 @@
  * page's, and the gesture never takes the default from it.
  */
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { watchBackdropDoubleClick } from "./backdrop-gesture";
+import { watchBackdropDoubleClick } from "./backdrop-gesture.ts";
 
 function byId(id: string): HTMLElement {
   const el = document.getElementById(id);

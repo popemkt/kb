@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import { logWarn, useReducedMotion, type BackdropProps } from "@kb/ui-sdk";
+import { logWarn, useReducedMotion } from "@kb/ui-sdk";
+import type { BackdropProps } from "@kb/appearance-kit";
 import { watchPlayback } from "./playback";
 import { TintBackdrop } from "./tint-backdrop";
 import { createUnicornScene, followPointer, type UnicornScene } from "./unicorn-scene";

@@ -1,5 +1,5 @@
 import type { PreviewSize } from "@kb/ui-sdk";
-import { BackdropCard } from "@kb/ui-sdk";
+import { BackdropCard } from "@kb/appearance-kit";
 import { BackdropThemeTag } from "@/backdrop-theme-tag";
 
 /**

@@ -11,9 +11,9 @@
   },
   "dependencies": {
     "@fontsource-variable/archivo": "catalog:",
+    "@kb/appearance-kit": "workspace:*",
     "@kb/contracts": "workspace:*",
     "@kb/plugin": "workspace:*",
-    "@kb/theme-art": "workspace:*",
     "@kb/ui-sdk": "workspace:*",
     "@kb/zzz": "workspace:*",
     "effect": "catalog:",

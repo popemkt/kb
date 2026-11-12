@@ -12,7 +12,7 @@
  * its floor (`data-quality-floor`), and the smoothed cost as
  * `data-frame-ms` (the main thread's) or `data-gpu-ms` (the GPU's).
  */
-import type { BackdropBudget } from "./plugins";
+import type { BackdropBudget } from "@kb/ui-sdk";
 
 /**
  * What one recorded cost measures: the main thread's time drawing the

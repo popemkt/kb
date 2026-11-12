@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
-import { deferred, type BackdropProps, type ThemeArtProps } from "@kb/ui-sdk";
-import { ART_FRAME } from "@kb/theme-art";
+import { deferred } from "@kb/ui-sdk";
+import { type BackdropProps, type ThemeArtProps, ART_FRAME } from "@kb/appearance-kit";
 
 /*
  * What the Transistor family contributes for its theme's art, each piece

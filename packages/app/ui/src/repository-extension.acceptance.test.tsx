@@ -14,8 +14,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { BUNDLED_FAMILIES } from "@kb/bundled";
 import { NO_SWITCHES, extensionRow, familyOn, organisationOf } from "@kb/contracts";
+import { BackdropPoint } from "@kb/appearance-kit";
 import {
-  BackdropPoint,
   PAGE_FAMILY_KERNEL,
   SidebarSectionPoint,
   chosenDeclared,

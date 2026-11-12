@@ -13,11 +13,11 @@
   "dependencies": {
     "@fontsource/barlow": "catalog:",
     "@fontsource/barlow-condensed": "catalog:",
+    "@kb/appearance-kit": "workspace:*",
     "@kb/contracts": "workspace:*",
     "@kb/plugin": "workspace:*",
     "@kb/scene": "workspace:*",
     "@kb/scene-gpu": "workspace:*",
-    "@kb/theme-art": "workspace:*",
     "@kb/ui-sdk": "workspace:*",
     "@kb/yorha": "workspace:*",
     "effect": "catalog:",

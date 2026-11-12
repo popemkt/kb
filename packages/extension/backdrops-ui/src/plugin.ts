@@ -24,16 +24,18 @@ import { BACKDROP_DIRECTIONS } from "@kb/appearance";
 import { SlidersHorizontalIcon } from "@phosphor-icons/react";
 import {
   BACKDROP_BUDGETS,
-  BackdropActionPoint,
-  BackdropPoint,
   navigate,
-  provideBackdrop,
   provideRoute,
   provideView,
   RoutePoint,
   ViewPoint,
-  type Backdrop,
 } from "@kb/ui-sdk";
+import {
+  BackdropActionPoint,
+  BackdropPoint,
+  provideBackdrop,
+  type Backdrop,
+} from "@kb/appearance-kit";
 import {
   AstralBackdrop,
   BlackHoleBackdrop,

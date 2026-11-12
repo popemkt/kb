@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef } from "react";
 import { SEED_KNOB, SPEED_KNOB } from "@kb/backdrops";
 import { knobValue } from "@kb/model";
-import { useAppearance, useReducedMotion, type BackdropProps } from "@kb/ui-sdk";
+import { useAppearance, useReducedMotion } from "@kb/ui-sdk";
+import type { BackdropProps } from "@kb/appearance-kit";
 import type { CompositionFactory } from "./composition";
 import { compositionKnobs, type Look } from "./look";
 import { useBackdropSeed } from "./seed";

@@ -8,10 +8,9 @@
  * focus is on it, Escape dismisses it, and it never takes focus.
  */
 import { useEffect, useState } from "react";
-import { CORNER_HEIGHT } from "../lib/backdrop-corner-place";
-import { cn } from "../lib/cn";
+import { CORNER_HEIGHT } from "../lib/backdrop-corner-place.ts";
+import { cn, useContributions } from "@kb/ui-sdk";
 import { BackdropActionPoint } from "../lib/appearance-points.ts";
-import { useContributions } from "../lib/plugins";
 
 /** How long the corner stays once shown, while nothing holds it. */
 const CORNER_SHOWN_MS = 4000;

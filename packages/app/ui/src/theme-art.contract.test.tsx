@@ -31,14 +31,11 @@ import {
   BackdropPoint,
   DesignSystemPoint,
   THEME_GESTURE_MAX_MS,
-  QUIET_ACTIVITY,
   ThemeArt,
-  replacePath,
-  currentContributions,
-  syncUiPlugins,
   type DesignSystem,
   type ThemeArtPlane,
-} from "@kb/ui-sdk";
+} from "@kb/appearance-kit";
+import { QUIET_ACTIVITY, replacePath, currentContributions, syncUiPlugins } from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { BackdropThemeTag } from "@/backdrop-theme-tag";

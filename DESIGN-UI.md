@@ -4242,7 +4242,7 @@ kb ships six; the last three are whole themes (Themes, below):
   `yorha.arena`), with `themeSystem` and `themeBackdrop` (`@kb/model`), so
   every theme's options have one shape; its browser half holds its sheet
   (`src/<family>.css`), its faces and its art (`src/art/`), drawn with the
-  art kit `@kb/theme-art` (`useBeat`, `useGesture`, `ART_FRAME`, `band`),
+  art kit `@kb/appearance-kit` (`useBeat`, `useGesture`, `ART_FRAME`, `band`),
   which knows no theme, and the kit's `deferred` (`@kb/ui-sdk`). Switched off, a family takes its systems and heads
   and nothing else; the page offers the default and whatever another
   family contributes.
@@ -4442,7 +4442,7 @@ above). What each of kb's themes is after, and where each idea lives, is
     and nothing else) changes no pane's path and plays nothing. A gesture
     keyed on a change never
     plays on arrival: a boot, its redirects and switching to the system are
-    not events (`useBeat`, `@kb/theme-art`). Typing is not a write: the
+    not events (`useBeat`, `@kb/appearance-kit`). Typing is not a write: the
     art leaves alone every write made while a node is edited, and the text's
     last save, which lands just after the editor closes (`useBeat`'s
     `hold`, given `editing`).
@@ -4455,7 +4455,7 @@ above). What each of kb's themes is after, and where each idea lives, is
     on a frame, reduced motion turned on midway. However fast the pages
     change, the veil draws what one change draws, one at a time: a change
     that comes while a gesture plays is merged into it, which carries on
-    rather than replaying from its start (`useGesture` in `@kb/theme-art`
+    rather than replaying from its start (`useGesture` in `@kb/appearance-kit`
     removes it on `animationend` and on a timer, whichever comes first).
   - Art paints with tokens alone (the chart palette is a theme's art
     palette), mixing in `oklab` so a colour never swings through another

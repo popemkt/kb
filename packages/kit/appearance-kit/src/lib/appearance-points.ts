@@ -5,9 +5,13 @@ import { CORE_POINT_DEFINITIONS } from "@kb/contracts";
 import { Point, type ContributionEntry } from "@kb/plugin";
 import type { SeedOption, KnobValues } from "@kb/model";
 import type { BackdropDirection, BackdropStrength, SeedBackdrop } from "@kb/appearance";
-import type { OutlineNode } from "./types";
-import type { PointerSource } from "./pointer-over";
-import { provideDeclared, type PageActivity, type BackdropBudget } from "./plugins";
+import {
+  type OutlineNode,
+  type PointerSource,
+  provideDeclared,
+  type PageActivity,
+  type BackdropBudget,
+} from "@kb/ui-sdk";
 
 /**
  * How far across the page a backdrop's frame reaches: centred under the

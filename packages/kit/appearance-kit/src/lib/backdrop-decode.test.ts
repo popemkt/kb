@@ -1,7 +1,7 @@
 import { forwardRef, memo } from "react";
 import { describe, expect, test } from "vitest";
-import { decodeBackdrop, readBackdrops } from "./backdrop-decode";
-import { BACKDROP_BUDGETS } from "./plugins";
+import { decodeBackdrop, readBackdrops } from "./backdrop-decode.ts";
+import { BACKDROP_BUDGETS } from "@kb/ui-sdk";
 
 const presentation = {
   space: 40,

@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
-import { QUIET_ACTIVITY, deferred, type BackdropProps, type ThemeArtProps } from "@kb/ui-sdk";
-import { ART_FRAME, NOWHERE } from "@kb/theme-art";
+import { QUIET_ACTIVITY, deferred } from "@kb/ui-sdk";
+import { type BackdropProps, type ThemeArtProps, ART_FRAME, NOWHERE } from "@kb/appearance-kit";
 
 /*
  * What the ZZZ family contributes for its theme's art, each piece loaded

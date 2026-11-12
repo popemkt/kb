@@ -13,24 +13,29 @@ import { createPortal } from "react-dom";
 import { drawVariant, shownStrength, shownVariants, type BackdropStrength } from "@kb/appearance";
 import {
   useAppearance,
+  usePageActivity,
+  BREAKOUT_CLASS,
+  useBreakoutShift,
+  useLoadSeed,
+  cn,
+  useReducedMotion,
+  readTiming,
+  usePointerOver,
+  type OutlineNode,
+} from "@kb/ui-sdk";
+import {
   useBackdropKnobs,
   useBackdrops,
-  usePageActivity,
   usePageBackdrop,
   type PageBackdropChoice,
-} from "../hooks.ts";
-import { watchBackdropDoubleClick } from "../lib/backdrop-gesture";
-import { BREAKOUT_CLASS, useBreakoutShift } from "../lib/breakout";
-import { useLoadSeed } from "../lib/load-seed";
-import { cn } from "../lib/cn";
-import { useReducedMotion } from "../lib/motion";
-import { readTiming } from "../lib/timing";
+} from "../appearance-hooks.ts";
+import { watchBackdropDoubleClick } from "../lib/backdrop-gesture.ts";
+
 import type { Backdrop, BackdropPresentation, BackdropProps } from "../lib/appearance-points.ts";
-import { usePointerOver } from "../lib/pointer-over";
-import type { OutlineNode } from "../lib/types";
-import { cornerTop } from "../lib/backdrop-corner-place";
-import { HostContext, type HeadDeclaration, type HostPort } from "../lib/backdrop-host";
-import { BackdropCorner } from "./backdrop-corner";
+
+import { cornerTop } from "../lib/backdrop-corner-place.ts";
+import { HostContext, type HeadDeclaration, type HostPort } from "../lib/backdrop-host.ts";
+import { BackdropCorner } from "./backdrop-corner.tsx";
 
 /**
  * A backdrop's frame: the box its component draws in, as tall as its

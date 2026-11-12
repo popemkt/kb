@@ -13,12 +13,13 @@ import type { Contribution } from "@kb/plugin";
 import type { ExtensionReportRow } from "@kb/contracts";
 import {
   BackdropCard,
-  navigate,
-  useBackdrops,
-  usePageBackdrop,
   type Backdrop,
   type RefusedBackdrop,
-} from "@kb/ui-sdk";
+  useBackdrops,
+  usePageBackdrop,
+} from "@kb/appearance-kit";
+import { navigate } from "@kb/ui-sdk";
+
 import { familyOf, sourceOf, type PluginExtensions } from "./plugin-extensions";
 import { studioPath } from "./routes";
 

@@ -1,4 +1,5 @@
-import { tagColorAlpha, type BackdropProps } from "@kb/ui-sdk";
+import { tagColorAlpha } from "@kb/ui-sdk";
+import type { BackdropProps } from "@kb/appearance-kit";
 
 /**
  * The ambient wash: a soft radial tint of the head's colour, weakened

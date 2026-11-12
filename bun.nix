@@ -634,6 +634,7 @@
   "@kb/agent-openai" = copyPathToStore ./packages/extension/agent-openai;
   "@kb/agent-ui" = copyPathToStore ./packages/extension/agent-ui;
   "@kb/appearance" = copyPathToStore ./packages/domain/appearance;
+  "@kb/appearance-kit" = copyPathToStore ./packages/kit/appearance-kit;
   "@kb/backdrops" = copyPathToStore ./packages/extension/backdrops;
   "@kb/backdrops-ui" = copyPathToStore ./packages/extension/backdrops-ui;
   "@kb/bundled" = copyPathToStore ./packages/app/bundled;
@@ -695,7 +696,6 @@
   "@kb/store-jsonl" = copyPathToStore ./packages/infrastructure/store-jsonl;
   "@kb/store-sqlite" = copyPathToStore ./packages/infrastructure/store-sqlite;
   "@kb/test-kit" = copyPathToStore ./packages/app/test-kit;
-  "@kb/theme-art" = copyPathToStore ./packages/kit/theme-art;
   "@kb/themes" = copyPathToStore ./packages/extension/themes;
   "@kb/themes-ui" = copyPathToStore ./packages/extension/themes-ui;
   "@kb/transistor" = copyPathToStore ./packages/extension/transistor;

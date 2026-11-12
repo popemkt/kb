@@ -18,7 +18,8 @@ import {
 } from "@kb/appearance";
 import { extensionNodeId, type KbNode } from "@kb/model";
 import { foldSeed } from "@kb/seed";
-import { DesignSystemPoint, currentContributions } from "@kb/ui-sdk";
+import { DesignSystemPoint } from "@kb/appearance-kit";
+import { currentContributions } from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { designSystemsUiPlugin } from "@/design-systems";
 import { motionPaint, springEasing } from "@/lib/motion-paint";

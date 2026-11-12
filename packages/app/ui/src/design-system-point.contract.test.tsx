@@ -32,13 +32,11 @@ import { definePlugin } from "@kb/plugin";
 import {
   browserHost,
   currentContributions,
-  DesignSystemPoint,
   oklchToRgb,
-  provideDesignSystem,
   syncUiPlugins,
   useOptionPreview,
-  type DesignSystem,
 } from "@kb/ui-sdk";
+import { DesignSystemPoint, provideDesignSystem, type DesignSystem } from "@kb/appearance-kit";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { SettingsPage } from "@/components/prefs/settings-page";

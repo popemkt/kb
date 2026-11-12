@@ -1,5 +1,4 @@
-import type { BackdropProps } from "@kb/ui-sdk";
-import { useBeat, useGesture, useStructuralWrites } from "@kb/theme-art";
+import { type BackdropProps, useBeat, useGesture, useStructuralWrites } from "@kb/appearance-kit";
 
 /** The order the lit tile walks the Hollow's grid of screens: a snake. */
 const WALK = [0, 1, 2, 5, 4, 3] as const;

@@ -1,5 +1,4 @@
-import type { BackdropProps } from "@kb/ui-sdk";
-import { useBeat, useGesture, useStructuralWrites } from "@kb/theme-art";
+import { type BackdropProps, useBeat, useGesture, useStructuralWrites } from "@kb/appearance-kit";
 
 /**
  * Broadcast, the page head ZZZ pairs with: a stack of slanted panels (a

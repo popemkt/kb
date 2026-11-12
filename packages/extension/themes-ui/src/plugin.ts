@@ -7,7 +7,7 @@ import {
   themesExtension,
   themesPlugin,
 } from "@kb/themes";
-import { DesignSystemPoint, provideDesignSystem } from "@kb/ui-sdk";
+import { DesignSystemPoint, provideDesignSystem } from "@kb/appearance-kit";
 // GAP [[01M5SNSPSGYCF6AKWVXQS2GJQJ]] a theme's token values are CSS here, not data
 import paper from "./design-systems/paper.css?raw";
 import terminal from "./design-systems/terminal.css?raw";

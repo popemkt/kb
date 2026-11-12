@@ -5,7 +5,7 @@
  * starts above its breathing room would put it.
  */
 import { describe, expect, test } from "vitest";
-import { CORNER_HEIGHT, CORNER_INSET, cornerTop } from "./backdrop-corner-place";
+import { CORNER_HEIGHT, CORNER_INSET, cornerTop } from "./backdrop-corner-place.ts";
 
 describe("a backdrop's corner", () => {
   test("stands inside its frame's top, in the breathing room above the title", () => {

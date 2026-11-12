@@ -1,5 +1,4 @@
-import type { ThemeArtProps } from "@kb/ui-sdk";
-import { useBeat, useGesture, useStructuralWrites } from "@kb/theme-art";
+import { type ThemeArtProps, useBeat, useGesture, useStructuralWrites } from "@kb/appearance-kit";
 
 /**
  * The sound a structural write makes, drawn instead of played: a comic

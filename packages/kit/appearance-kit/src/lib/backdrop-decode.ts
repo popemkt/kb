@@ -15,7 +15,7 @@ import { Cause, Effect, Predicate, Result, Schema } from "effect";
 import { BACKDROP_DIRECTIONS, BACKDROP_STRENGTHS } from "@kb/appearance";
 import { KnobSchema } from "@kb/model";
 import type { Contribution } from "@kb/plugin";
-import { componentSchema } from "./component-schema";
+import { componentSchema } from "@kb/ui-sdk";
 import {
   BACKDROP_CUE_LABELS,
   type Backdrop,

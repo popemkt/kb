@@ -20,13 +20,8 @@
 import { create } from "zustand";
 import { extensionNodeId } from "@kb/model";
 import type { Contribution } from "@kb/plugin";
-import {
-  currentContributions,
-  DesignSystemPoint,
-  shownDesignSystem,
-  subscribeUiKernel,
-  type DesignSystem,
-} from "@kb/ui-sdk";
+import { currentContributions, subscribeUiKernel } from "@kb/ui-sdk";
+import { DesignSystemPoint, shownDesignSystem, type DesignSystem } from "@kb/appearance-kit";
 import { transitionTheme } from "@/lib/theme-transition";
 import { useGraphStore } from "@/stores/graph.store";
 

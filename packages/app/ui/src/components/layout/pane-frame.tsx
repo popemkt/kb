@@ -3,14 +3,13 @@ import {
   cn,
   matchRoute,
   NotFound,
-  PageBackdropHost,
   RoutePoint,
-  ThemeArt,
   useContributions,
   ViewSlot,
   WorkspaceState,
   type ResolvedRoute,
 } from "@kb/ui-sdk";
+import { PageBackdropHost, ThemeArt } from "@kb/appearance-kit";
 import { RegionScrollbar } from "./region-scrollbar";
 
 const NOT_FOUND = <NotFound what="Page" back={{ label: "Home", path: "/" }} />;

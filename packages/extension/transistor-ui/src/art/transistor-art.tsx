@@ -1,5 +1,5 @@
-import type { ThemeArtProps } from "@kb/ui-sdk";
-import { useBeat, useGesture, useStructuralWrites } from "@kb/theme-art";
+import { type ThemeArtProps, useBeat, useGesture, useStructuralWrites } from "@kb/appearance-kit";
+
 import { SkylineSvg } from "./skyline-svg";
 
 /** The light rails over the city: height above the ground (vh), length (vw), period (s) and phase. */

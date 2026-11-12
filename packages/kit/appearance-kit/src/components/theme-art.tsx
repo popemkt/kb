@@ -1,6 +1,6 @@
-import { usePageActivity, useShownDesignSystem } from "../hooks";
+import { usePageActivity, usePath } from "@kb/ui-sdk";
+import { useShownDesignSystem } from "../appearance-hooks.ts";
 import type { ThemeArtPlane } from "../lib/appearance-points.ts";
-import { usePath } from "../lib/router";
 
 /**
  * The one art slot (DESIGN-UI.md → Design tokens → Themes): one plane of

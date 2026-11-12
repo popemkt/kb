@@ -1,4 +1,5 @@
-import type { Backdrop, BackdropBudget, BackdropInteraction } from "@kb/ui-sdk";
+import type { Backdrop, BackdropInteraction } from "./lib/appearance-points";
+import type { BackdropBudget } from "@kb/ui-sdk";
 
 /**
  * A theme's head drawn as a band across the top, as tall as Broadcast's:

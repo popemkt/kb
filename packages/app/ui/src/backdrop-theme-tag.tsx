@@ -5,7 +5,8 @@ import {
   designSystemOptionId,
 } from "@kb/appearance";
 import { SYSTEM_IDS, declaredIdOf, firstRef } from "@kb/model";
-import { useNode, useShownDesignSystem } from "@kb/ui-sdk";
+import { useNode } from "@kb/ui-sdk";
+import { useShownDesignSystem } from "@kb/appearance-kit";
 import { DesignSystemSwatch } from "@/design-system-swatch";
 
 /**

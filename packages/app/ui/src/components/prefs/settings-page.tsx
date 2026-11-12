@@ -39,11 +39,9 @@ import {
   THEME_GLYPHS,
   type ThemePref,
   useGraphRead,
-  usePageBackdrop,
-  type PageBackdropChoice,
-  useShownDesignSystem,
   type WidthPref,
 } from "@kb/ui-sdk";
+import { usePageBackdrop, type PageBackdropChoice, useShownDesignSystem } from "@kb/appearance-kit";
 import { SETTINGS_PARTS, type SettingsPart } from "@kb/views";
 import { ArrowsHorizontalIcon, SidebarSimpleIcon } from "@phosphor-icons/react";
 import { useEffect, useState, type ReactNode } from "react";
