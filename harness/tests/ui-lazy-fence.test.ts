@@ -1,17 +1,16 @@
+import { lazyDepths, lazyFenceBreaches } from "../src/import-closure.ts";
 import { describe, expect, test } from "bun:test";
-import { UI_ENTRY, UI_LAZY_DEPTH, UI_LAZY_ONLY, uiZoneOf } from "../src/constraints.ts";
+import { UI_ENTRY, LAZY_FENCES, uiZoneOf } from "../src/constraints.ts";
 import { importsOf } from "../src/import-graph.ts";
 import {
   type UiImportSite,
   bundleImportSites,
-  lazyDepths,
-  lazyFenceBreaches,
   uiImportSitesIn,
   uiSourceFiles,
 } from "../src/ui-imports.ts";
 
 /**
- * The UI's lazy-chunk fence (`UI_LAZY_ONLY` and `UI_LAZY_DEPTH` in
+ * The UI's lazy-chunk fence (`LAZY_FENCES.ui` in
  * constraints.ts): three loads only in a chunk of its own, so every path from
  * the entry to a three import crosses two dynamic `import()`s — the surface's
  * route chunk, then the 3D view's own. The walk follows a `@kb/<package>`
@@ -45,7 +44,7 @@ function site(file: string, specifier: string, kind: UiImportSite["kind"], targe
 
 describe("ui-lazy-fence", () => {
   test("every path from the entry to a three import crosses two dynamic imports", () => {
-    const breaches = lazyFenceBreaches(bundleImportSites());
+    const breaches = lazyFenceBreaches(bundleImportSites(), LAZY_FENCES.ui);
     expect(
       breaches,
       `three reached outside a chunk of its own (=> is a lazy edge):\n${breaches.join("\n")}`,
@@ -54,12 +53,16 @@ describe("ui-lazy-fence", () => {
 
   test("the fence has something to hold: three is imported, and reached at depth", () => {
     const sites = bundleImportSites();
-    const importers = sites.filter((s) => s.kind === "eager" && UI_LAZY_ONLY.test(s.specifier));
+    const importers = sites.filter(
+      (s) => s.kind === "eager" && LAZY_FENCES.ui.forbidden.test(s.specifier),
+    );
     expect(importers.length).toBeGreaterThan(0);
     expect(uiSourceFiles()).toContain(UI_ENTRY);
-    const depths = lazyDepths(sites);
+    const depths = lazyDepths(sites, UI_ENTRY);
     expect([...depths.values()].filter((d) => d.depth === 0).length).toBeGreaterThan(10);
-    const reached = importers.filter((s) => (depths.get(s.file)?.depth ?? -1) >= UI_LAZY_DEPTH);
+    const reached = importers.filter(
+      (s) => (depths.get(s.file)?.depth ?? -1) >= LAZY_FENCES.ui.depth,
+    );
     expect(reached.length, "some three import is reached through the fence").toBeGreaterThan(0);
   });
 
@@ -69,7 +72,9 @@ describe("ui-lazy-fence", () => {
       site(entry, "@/lib/a", "eager", "lib/a.ts"),
       site("lib/a.ts", "three", "eager"),
     ];
-    expect(lazyFenceBreaches(inEntry, entry)).toEqual(["main.tsx -> lib/a.ts -> three"]);
+    expect(lazyFenceBreaches(inEntry, { ...LAZY_FENCES.ui, entry })).toEqual([
+      "main.tsx -> lib/a.ts -> three",
+    ]);
 
     // A surface's page is a route chunk: lazily loaded, but on every visit.
     const routePage = "components/layout/page.tsx";
@@ -77,7 +82,9 @@ describe("ui-lazy-fence", () => {
       site(entry, "@/components/layout/page", "lazy", routePage),
       site(routePage, "three", "eager"),
     ];
-    expect(lazyFenceBreaches(inRoute, entry)).toEqual([`main.tsx => ${routePage} -> three`]);
+    expect(lazyFenceBreaches(inRoute, { ...LAZY_FENCES.ui, entry })).toEqual([
+      `main.tsx => ${routePage} -> three`,
+    ]);
 
     // One eager path is enough: the shortest path decides, not the one drawn.
     const host = "components/layout/scene-host.tsx";
@@ -87,7 +94,7 @@ describe("ui-lazy-fence", () => {
       site(routePage, "./scene-host", "eager", host),
       site(host, "three/webgpu", "eager"),
     ];
-    expect(lazyFenceBreaches(bypassed, entry)).toEqual([
+    expect(lazyFenceBreaches(bypassed, { ...LAZY_FENCES.ui, entry })).toEqual([
       `main.tsx => ${routePage} -> ${host} -> three/webgpu`,
     ]);
 
@@ -98,19 +105,23 @@ describe("ui-lazy-fence", () => {
       site(entry, "@/lib/a", "eager", "lib/a.ts"),
       site("lib/a.ts", "three", "lazy"),
     ];
-    expect(lazyFenceBreaches(lazyInEntry, entry)).toEqual(["main.tsx -> lib/a.ts => three"]);
+    expect(lazyFenceBreaches(lazyInEntry, { ...LAZY_FENCES.ui, entry })).toEqual([
+      "main.tsx -> lib/a.ts => three",
+    ]);
     const lazyInRoute = [
       site(entry, "@/components/layout/page", "lazy", routePage),
       site(routePage, "three", "lazy"),
     ];
-    expect(lazyFenceBreaches(lazyInRoute, entry)).toEqual([`main.tsx => ${routePage} => three`]);
+    expect(lazyFenceBreaches(lazyInRoute, { ...LAZY_FENCES.ui, entry })).toEqual([
+      `main.tsx => ${routePage} => three`,
+    ]);
     const hostChunk = "components/layout/scene-host.tsx";
     const lazyInHost = [
       site(entry, "@/components/layout/page", "lazy", routePage),
       site(routePage, "./scene-host", "lazy", hostChunk),
       site(hostChunk, "three", "lazy"),
     ];
-    expect(lazyFenceBreaches(lazyInHost, entry)).toEqual([]);
+    expect(lazyFenceBreaches(lazyInHost, { ...LAZY_FENCES.ui, entry })).toEqual([]);
 
     const fenced = [
       site(entry, "@/components/layout/page", "lazy", routePage),
@@ -119,11 +130,11 @@ describe("ui-lazy-fence", () => {
       site(host, "three/webgpu", "eager"),
       site("lib/b.ts", "three", "eager"),
     ];
-    expect(lazyFenceBreaches(fenced, entry)).toEqual([]);
+    expect(lazyFenceBreaches(fenced, { ...LAZY_FENCES.ui, entry })).toEqual([]);
   });
 
   test("the walk crosses into browser packages: the kit's barrel is reached from the entry", () => {
-    const depths = lazyDepths(bundleImportSites());
+    const depths = lazyDepths(bundleImportSites(), UI_ENTRY);
     expect(depths.get("@kb/ui-sdk/src/index.ts")?.depth).toBe(0);
   });
 
@@ -136,7 +147,7 @@ describe("ui-lazy-fence", () => {
       { file: half, specifier: "./chart-page", kind: "lazy", target: page },
       { file: page, specifier: "@kb/chart-vega", kind: "eager", target: undefined },
     ] as const;
-    expect(lazyFenceBreaches(sites, entry)).toEqual([
+    expect(lazyFenceBreaches(sites, { ...LAZY_FENCES.ui, entry })).toEqual([
       `main.tsx -> ${half} => ${page} -> @kb/chart-vega`,
     ]);
     const fenced = [
@@ -149,7 +160,7 @@ describe("ui-lazy-fence", () => {
         target: undefined,
       },
     ] as const;
-    expect(lazyFenceBreaches(fenced, entry)).toEqual([]);
+    expect(lazyFenceBreaches(fenced, { ...LAZY_FENCES.ui, entry })).toEqual([]);
   });
 
   test("each site sits on the line of its own specifier, and carries that line's marker", () => {

@@ -1,3 +1,4 @@
+import type { ImportClosureSite } from "./import-closure.ts";
 /**
  * The UI's intra-package import sites, resolved to zones.
  *
@@ -12,9 +13,6 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import {
   UI_ALLOWS,
-  UI_ENTRY,
-  UI_LAZY_DEPTH,
-  UI_LAZY_ONLY,
   UI_SPECIFIER_ALLOWS,
   UI_SRC,
   type UiZone,
@@ -161,7 +159,6 @@ export function uiViolations(): Array<UiImportSite & { violation: string }> {
  * browser package by its package name and its path in the package
  * (`@kb/ui-sdk/src/index.ts`).
  */
-export type BundleSite = Pick<UiImportSite, "file" | "specifier" | "kind" | "target">;
 
 /** The package `@kb/ui`'s `src` belongs to. */
 const UI_PACKAGE = "@kb/ui";
@@ -197,7 +194,7 @@ export function bundleSourceFiles(): Array<{ readonly key: string; readonly path
   ];
 }
 
-let cachedBundle: BundleSite[] | undefined;
+let cachedBundle: ImportClosureSite[] | undefined;
 
 /**
  * Every import of the page's bundle. A `@kb/<browser package>` specifier lands
@@ -206,7 +203,7 @@ let cachedBundle: BundleSite[] | undefined;
  * as Vite does. Any other package is not part of the walk: its imports are not
  * compiled into the bundle from this tree.
  */
-export function bundleImportSites(): BundleSite[] {
+export function bundleImportSites(): ImportClosureSite[] {
   if (cachedBundle !== undefined) return cachedBundle;
   const packages = browserPackages();
   const barrels = new Map(
@@ -236,65 +233,6 @@ export function bundleImportSites(): BundleSite[] {
   );
   cachedBundle = [...ui, ...rest];
   return cachedBundle;
-}
-
-/**
- * The fewest dynamic imports any path from `entry` crosses to reach each
- * file, with the path that does it (`a => b` for a lazy edge). Type-only
- * edges load nothing and are not paths.
- */
-export function lazyDepths(
-  sites: readonly BundleSite[],
-  entry: string = UI_ENTRY,
-): Map<string, { depth: number; chain: readonly string[] }> {
-  const edges = new Map<string, Array<{ to: string; lazy: boolean }>>();
-  for (const site of sites) {
-    if (site.kind === "type" || site.target === undefined) continue;
-    const from = edges.get(site.file) ?? [];
-    from.push({ to: site.target, lazy: site.kind === "lazy" });
-    edges.set(site.file, from);
-  }
-  // 0-1 breadth-first: an eager edge costs nothing, a lazy one costs one.
-  const best = new Map<string, { depth: number; chain: readonly string[] }>([
-    [entry, { depth: 0, chain: [entry] }],
-  ]);
-  const queue = [entry];
-  for (let file = queue.shift(); file !== undefined; file = queue.shift()) {
-    const here = best.get(file);
-    if (here === undefined) continue;
-    for (const { to, lazy } of edges.get(file) ?? []) {
-      const depth = here.depth + (lazy ? 1 : 0);
-      const known = best.get(to);
-      if (known !== undefined && known.depth <= depth) continue;
-      best.set(to, { depth, chain: [...here.chain, `${lazy ? "=>" : "->"} ${to}`] });
-      if (lazy) queue.push(to);
-      else queue.unshift(to);
-    }
-  }
-  return best;
-}
-
-/**
- * Each import of a {@link UI_LAZY_ONLY} specifier issued from a file some
- * path from the entry reaches across fewer than {@link UI_LAZY_DEPTH}
- * dynamic imports, printed as that path (`=>` marks a lazy edge). Eager or
- * lazy alike: a top-level `import("three")` in a route chunk fetches three
- * on every visit to the surface, so it too must sit behind the 3D view's own
- * boundary. A type-only import loads nothing.
- */
-export function lazyFenceBreaches(
-  sites: readonly BundleSite[],
-  entry: string = UI_ENTRY,
-): string[] {
-  const depths = lazyDepths(sites, entry);
-  const out: string[] = [];
-  for (const site of sites) {
-    if (site.kind === "type" || !UI_LAZY_ONLY.test(site.specifier)) continue;
-    const reached = depths.get(site.file);
-    if (reached === undefined || reached.depth >= UI_LAZY_DEPTH) continue;
-    out.push(`${reached.chain.join(" ")} ${site.kind === "lazy" ? "=>" : "->"} ${site.specifier}`);
-  }
-  return out.toSorted();
 }
 
 /** Where a UI file sits in the repository, for a message a reader can follow. */
