@@ -3,7 +3,7 @@
  * stage every real-time 3D view stands on — three's renderer, one post chain,
  * one frame loop and one reveal — with its rig, starfield, screen geometry,
  * pointer field and node helpers. It is three by another name, so the lazy
- * fence (`UI_LAZY_ONLY`) follows it from the page's entry: only a view's own
+ * fence (`LAZY_FENCES.ui`) follows it from the page's entry: only a view's own
  * lazily loaded scene imports it. The host and palette it draws with are
  * `@kb/scene`.
  */

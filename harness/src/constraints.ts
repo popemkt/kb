@@ -569,29 +569,26 @@ export const UI_SPECIFIER_ALLOWS: Record<string, readonly UiZone[]> = {
  */
 export const UI_ENTRY = "main.tsx";
 
-/**
- * The lazy-chunk fence: specifiers the page loads only inside a chunk of
- * their own. three is the whole real-time 3D stack (`@kb/scene-gpu` is three
- * by another name, and is caught through the three it imports, since the walk
- * follows the page into every browser package), and only a view that draws 3D — a lab study's scene, the 3D graph
- * — may load it. `@kb/chart-vega` is the whole chart stack (Vega, Vega-Lite
- * and the expression interpreter, which only it imports), and only a chart's
- * drawing may load it.
- *
- * Its own chunk means {@link UI_LAZY_DEPTH} dynamic `import()`s on every path
- * from the entry: the entry chunk loads on every visit, and a surface's
- * route chunk on every visit to that surface, so three sits behind one more
- * lazy boundary inside the surface — the 3D host, a study's `load()`. A
- * static three import in the graph page is as much a breach as one in the
- * entry.
- *
- * One rule over the import graph, so no surface lists which of its files may
- * import three. `ui-lazy-fence.test.ts` applies it.
+/** A forbidden closure and the dynamic boundaries every path must cross.
+ * `issuer` fences where a load is issued (the UI's view-owned chunk);
+ * `dependency` fences the dependency itself (a CLI's on-demand host).
  */
-export const UI_LAZY_ONLY = /^(?:three|@kb\/chart-vega|vega(?:-lite|-interpreter)?)(?:\/|$)/;
+export interface LazyFence {
+  entry: string;
+  forbidden: RegExp;
+  depth: number;
+  boundary: "issuer" | "dependency";
+}
 
-/** Dynamic imports every path from {@link UI_ENTRY} to a {@link UI_LAZY_ONLY} import crosses. */
-export const UI_LAZY_DEPTH = 2;
+/** One policy table, independent of emitted chunk names or host topology. */
+export const LAZY_FENCES = {
+  ui: {
+    entry: UI_ENTRY,
+    forbidden: /^(?:three|@kb\/chart-vega|vega(?:-lite|-interpreter)?)(?:\/|$)/,
+    depth: 2,
+    boundary: "issuer",
+  },
+} as const satisfies Readonly<Record<string, LazyFence>>;
 
 /**
  * Test files answer to {@link UI_SPECIFIER_ALLOWS} but not to
