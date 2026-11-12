@@ -39,9 +39,12 @@ export const loadCodeImage = Effect.fn("kb.loadCodeImage")(function* (
   const nativeDigest = digest(bytes);
   const pageDigest = digest(canonicalJson({ format: "kb.page-image.v1", files: manifest }));
   const generation = randomUUID();
-  // The generation also prevents Bun's module cache reusing a previous load of equal bytes.
-  const url = `data:text/javascript;generation=${generation};base64,${Buffer.from(bytes).toString("base64")}`;
-  const loaded: unknown = yield* Effect.tryPromise({ try: () => import(url), catch: imageError });
+  // A fresh opaque URL avoids module-cache reuse without embedding the artifact in every stack frame.
+  const url = URL.createObjectURL(new Blob([bytes], { type: "text/javascript" }));
+  const loaded: unknown = yield* Effect.tryPromise({
+    try: () => import(url),
+    catch: imageError,
+  }).pipe(Effect.ensuring(Effect.sync(() => URL.revokeObjectURL(url))));
   const identity = Object.freeze({
     kind: "packaged" as const,
     native: nativeDigest,

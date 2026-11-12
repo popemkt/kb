@@ -75,3 +75,10 @@ test("a native import that fails cannot publish an image identity", async () => 
   expect(Result.isFailure(result)).toBe(true);
   if (Result.isFailure(result)) expect(result.failure.message).toContain("load refused");
 });
+
+test("native source references stay bounded as the artifact grows", async () => {
+  const code = 'export const trace = () => new Error("trace").stack;\n//' + "x".repeat(100_000);
+  const loaded = await Effect.runPromise(loadCodeImage(new Blob([code]), pages()));
+  const module = loaded.module as { trace: () => string };
+  expect(module.trace().length).toBeLessThan(2_000);
+});
