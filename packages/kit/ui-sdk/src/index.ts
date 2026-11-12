@@ -551,6 +551,22 @@ export {
   runKeyCall,
   tellKeymaps,
 } from "./lib/keybindings";
+export {
+  ATTACH_FILE,
+  claimOf,
+  ingestedOf,
+  ingestPort,
+  provideIngest,
+  type IngestClaim,
+  type IngestForm,
+  type Ingested,
+  type IngestGesture,
+  type IngestHandler,
+  type IngestMatch,
+  type IngestOutcome,
+  type IngestPort,
+  type IngestSite,
+} from "./lib/ingest";
 export { logError, logWarn } from "./lib/log";
 export {
   getCaretSerializedOffset,

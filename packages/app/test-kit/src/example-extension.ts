@@ -306,11 +306,13 @@ import {
   ViewPoint,
   provideBackdrop,
   provideCommand,
+  provideIngest,
   provideKeybinding,
   providePaletteStep,
   provideValueKind,
   provideView,
   ValueKindPoint,
+  type IngestHandler,
   type ValueKindSpec,
   type ValueSurfaceProps,
   type ViewProps,
@@ -437,9 +439,37 @@ const LINK_STEP = providePaletteStep("link", {
   },
 });
 
+/** The outline's paste and drop handlers, a point it declares: reached by name. */
+const INGEST = "outline.ingest";
+
+/** One rated item of a pasted list: \`- Dune (4/5)\`. */
+const RATED_ITEM = "^[ \\t]*- (.+) [(]([1-5])/5[)][ \\t]*$";
+
+/**
+ * A pasted list of ratings, claimed before the outline's own list paste:
+ * two or more \`- <text> (<n>/5)\` lines, each a node of its text rated n.
+ * kb writes them after the row, under the guard that holds a rating.
+ */
+const RATINGS_PASTE = provideIngest("ratings", {
+  match: {
+    gestures: ["paste"],
+    types: ["text/plain"],
+    pattern: "^(?:[ \\t]*- [^\\r\\n]+ [(][1-5]/5[)][ \\t]*(?:\\r?\\n|$)){2,}$",
+  },
+  priority: 10,
+  transform: (text) =>
+    text
+      .split(/\\r?\\n/u)
+      .flatMap((line) => {
+        const rated = new RegExp(RATED_ITEM, "u").exec(line);
+        return rated === null ? [] : ["- " + rated[1], "  - " + RATING + ":: " + rated[2]];
+      })
+      .join("\\n"),
+});
+
 export default definePlugin({
   name: declaration.name,
-  uses: [PaletteStepPoint.name],
+  uses: [PaletteStepPoint.name, INGEST],
   apply: (ctx) =>
     Effect.all(
       [
@@ -450,6 +480,9 @@ export default definePlugin({
           provideValueKind(STARS, { icon: "star", spec: STARS_SPEC, Surface: Stars }),
         ),
         Effect.flatMap(ctx.point(PaletteStepPoint), (steps) => ctx.contribute(steps, LINK_STEP)),
+        Effect.flatMap(ctx.point<IngestHandler>(INGEST), (ingests) =>
+          ctx.contribute(ingests, RATINGS_PASTE),
+        ),
         ctx.contribute(
           ViewPoint,
           provideView(BoardView, { placements: ["page"], sample: {}, Component: Board }),

@@ -14,3 +14,4 @@ export {
   SELECTION_CONTEXT_ID,
   SELECTION_BINDINGS,
 } from "./keyboard.ts";
+export { OUTLINE_POINT_DEFINITIONS } from "./point-definitions.ts";

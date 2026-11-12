@@ -6,6 +6,7 @@ import { meterFrames } from "./lib/frame-meter";
 import { KeybindingPoint, provideKeybinding } from "./lib/keybindings";
 import { useReducedMotion } from "./lib/motion";
 import { provideValueKind, ValueKindPoint } from "./lib/value-kind";
+import { provideIngest } from "./lib/ingest";
 import {
   BACKDROP_BUDGETS,
   BackdropPoint,
@@ -44,6 +45,7 @@ export const PAGE_EXTENSION_SDK = {
   PICKED,
   ValueKindPoint,
   provideValueKind,
+  provideIngest,
   KeybindingPoint,
   provideKeybinding,
   DesignSystemPoint,

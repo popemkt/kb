@@ -258,6 +258,7 @@ const POINT_WORDS: Readonly<Record<string, string>> = {
   "kb.ui.channels": "channels",
   "ui.action-reviews": "action reviews",
   "ui.palette-steps": "palette steps",
+  "outline.ingest": "paste and drop handlers",
   "ui.option-previews": "option previews",
   "action/guard": "guards",
   "action/intercept": "interceptors",

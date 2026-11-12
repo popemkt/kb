@@ -35,10 +35,10 @@ const SERVED_AT = EXAMPLE_SERVED_AT;
 
 /**
  * How many contributions the example's page half makes: its views' keys and
- * drawings, its section, its keys, its node command, its picker step and its
- * backdrop.
+ * drawings, its section, its keys, its node command, its picker step, its
+ * paste handler and its backdrop.
  */
-const FOOTPRINT = 13;
+const FOOTPRINT = 14;
 
 /** Where the server says the half is: the example's, or bytes that throw as they are imported. */
 let servedAt = SERVED_AT;
@@ -98,7 +98,7 @@ describe("a repository extension's page half (acceptance)", () => {
     setPostAction(null);
   });
 
-  it("loads beside the bundled families, and its views, sidebar section, keys, command, step and field type's kind are the page's", async () => {
+  it("loads beside the bundled families, and its views, sidebar section, keys, command, step, paste handler and field type's kind are the page's", async () => {
     loaded = true;
     await follow();
     expect(pageFootprint("example").map(({ kind, id }) => [kind, id])).toEqual([
@@ -113,6 +113,7 @@ describe("a repository extension's page half (acceptance)", () => {
       ["ui.views", "example.board"],
       ["ui.views", "example.note"],
       ["ui.sidebar", "example.section"],
+      ["outline.ingest", "example.ratings"],
       ["ui.commands", "example.link"],
       ["ui.backdrops", "example.glow"],
     ]);

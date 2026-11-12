@@ -1,5 +1,5 @@
 import { familyTags } from "@kb/contracts";
-import { outlineExtension, outlinePlugin } from "@kb/outline";
+import { OUTLINE_POINT_DEFINITIONS, outlineExtension, outlinePlugin } from "@kb/outline";
 import { Effect } from "effect";
 
 import { definePlugin } from "@kb/plugin";
@@ -28,6 +28,7 @@ import { outlineValueKindsPlugin } from "./slot-kind";
 import { outlineProjection, useOutlineStore } from "./outline.store";
 import { OUTLINE_COMMANDS } from "./outline-commands";
 import { OUTLINE_STEPS } from "./outline-steps";
+import { IngestPoint, OUTLINE_INGESTS } from "./ingest";
 
 const { filters } = DEFAULT_VIEW_CONFIG;
 
@@ -87,6 +88,8 @@ export const outlineUiPlugin = definePlugin({
   apply: (ctx) =>
     Effect.gen(function* () {
       const paletteSteps = yield* ctx.point(PaletteStepPoint);
+      // Its rows' pastes and drops: a chain it declares, its own handlers first in it.
+      const ingests = yield* ctx.declare(IngestPoint, OUTLINE_POINT_DEFINITIONS.ingest.spec);
       yield* Effect.all(
         [
           ctx.plugin(outlinePlugin()),
@@ -114,6 +117,7 @@ export const outlineUiPlugin = definePlugin({
             ctx.contribute(CommandPoint, { id: command.id, value: command }),
           ),
           ...OUTLINE_STEPS.map((step) => ctx.contribute(paletteSteps, step)),
+          ...OUTLINE_INGESTS.map((handler) => ctx.contribute(ingests, handler)),
           ctx.contribute(OverlayPoint, {
             id: "view-filter",
             value: { order: 0, Component: ViewSettingsPopoverHost },

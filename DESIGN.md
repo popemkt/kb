@@ -3496,7 +3496,8 @@ from "kb-ext-sdk"`. Types are generated from
   are always the host's. A page half's types are `.kb/sdk-page.d.ts`
   (module `kb-ext-sdk/page`, from `page-surface.ts`: the UI points —
   views, routes, sidebar sections, docks, overlays, commands, picker
-  steps, field types' value kinds, keybindings, design systems, backdrops
+  steps, field types' value kinds, paste and drop handlers, keybindings,
+  design systems, backdrops
   with their budgets and the kit's frame meter — and
   React's own types), written beside it. `kb-ext-sdk` carries the
   declared-option kinds a declaration names its backdrops and field types

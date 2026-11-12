@@ -191,8 +191,8 @@ const DATASCRIPT = /cljs\.core/;
 // Preserving absent versus present binding data measures 1,843,086 bytes.
 // Merged with main 0caabcc0: measured 1,855,695 bytes; retain about 1.5 KB headroom.
 // Combined shortcut reader with main 0caabcc0 measures 1,862,107 bytes.
-// The live graph reader, confirmation review and shared action-review composition measure 1,887,487 bytes.
-const EAGER_BUDGET_BYTES = 1_889_000;
+// The live graph reader, confirmation review and shared action-review composition measure 1,890,711 bytes.
+const EAGER_BUDGET_BYTES = 1_892_300;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {
