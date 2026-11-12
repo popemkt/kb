@@ -26,7 +26,6 @@ import { Clock, Effect, Option, Schema } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import type { PlatformError } from "effect/PlatformError";
 import { writeErr } from "@kb/runtime";
-import { assetMediaType } from "@kb/model";
 import type { CodeImagePort } from "@kb/contracts";
 import { containedFile } from "@kb/workspace-fs";
 
@@ -133,7 +132,7 @@ const snapshotFiles = Effect.fn("kb.ui.builds.snapshotFiles")(function* (
   inventory?: Readonly<Record<string, string>>,
 ) {
   const fs = yield* FileSystem;
-  const files = new Map<string, Uint8Array>();
+  const files = new Map<string, { readonly body: Blob; readonly digest: string }>();
   const entries =
     inventory === undefined
       ? yield* fs.readDirectory(directory, { recursive: true }).pipe(Effect.orElseSucceed(() => []))
@@ -143,11 +142,13 @@ const snapshotFiles = Effect.fn("kb.ui.builds.snapshotFiles")(function* (
     const found = yield* containedFile(root, join(directory, name));
     if (found.kind !== "ok") continue;
     const bytes = yield* fs.readFile(found.path).pipe(Effect.option);
-    if (
-      Option.isSome(bytes) &&
-      (inventory === undefined || fileDigest(bytes.value) === inventory[name])
-    )
-      files.set(name, bytes.value);
+    if (Option.isNone(bytes)) continue;
+    const digest = fileDigest(bytes.value);
+    if (inventory !== undefined && digest !== inventory[name]) continue;
+    files.set(name, {
+      body: new Blob([bytes.value], { type: Bun.file(found.path).type }),
+      digest,
+    });
   }
   return files;
 });
@@ -172,13 +173,9 @@ export const captureKeptFiles = Effect.fn("kb.ui.builds.captureKeptFiles")(funct
       join(archive, name, DIGEST_NAMED_DIR),
       record.value.files,
     );
-    for (const [entry, bytes] of snapshot) {
+    for (const [entry, file] of snapshot) {
       const rel = DIGEST_NAMED_DIR + entry;
-      if (!files.has(rel))
-        files.set(
-          rel,
-          new Blob([bytes], { type: assetMediaType(rel) ?? "application/octet-stream" }),
-        );
+      if (!files.has(rel)) files.set(rel, file.body);
     }
   }
   return files;
@@ -216,9 +213,7 @@ const publish = Effect.fn("kb.ui.builds.publish")(function* (
     yield* fs.makeDirectory(staging, { recursive: true });
     yield* source.write(join(staging, DIGEST_NAMED_DIR));
     const snapshot = yield* snapshotFiles(staging, join(staging, DIGEST_NAMED_DIR));
-    const files = Object.fromEntries(
-      [...snapshot].map(([name, bytes]) => [name, fileDigest(bytes)]),
-    );
+    const files = Object.fromEntries([...snapshot].map(([name, file]) => [name, file.digest]));
     yield* fs.writeFileString(join(staging, RECORD), yield* encodeRecord({ ...record, files }));
     yield* fs
       .rename(staging, dir)

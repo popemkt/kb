@@ -185,7 +185,11 @@ test("an old tab keeps its held chunks across server upgrades without admitting 
       // Publication came from A's held bytes, and B captures them before listening.
       await writeFile(join(builds, "index-a.js/static/lazy-a.js"), "changed after startup");
       await writeFile(join(builds, "index-b.js/static/unheld.js"), "unheld cache injection");
-      expect(await (await fetch(new URL("/static/lazy-a.js", second.url))).text()).toBe("lazy a");
+      const oldChunk = await fetch(new URL("/static/lazy-a.js", second.url));
+      expect(await oldChunk.text()).toBe("lazy a");
+      expect(oldChunk.headers.get("Content-Type") ?? "").toMatch(
+        /^(?:text|application)\/javascript(?:;|$)/,
+      );
       expect(await (await fetch(new URL("/static/lazy-b.js", second.url))).text()).toBe("lazy b");
       expect((await fetch(new URL("/static/unheld.js", second.url))).status).toBe(404);
       expect((await fetch(new URL("/static/missing.js", second.url))).status).toBe(404);
