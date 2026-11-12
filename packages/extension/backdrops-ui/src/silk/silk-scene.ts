@@ -33,7 +33,7 @@ import {
   type GpuBackdropScene,
   type GpuLook,
   groundsOf,
-} from "../gpu/gpu-scene";
+} from "../gpu/gpu-scene.ts";
 import {
   PUFFS,
   RIBBONS,
@@ -43,7 +43,7 @@ import {
   silkFrame,
   silkUniforms,
   type SilkUniforms,
-} from "./silk-shader";
+} from "./silk-shader.ts";
 import { COSMOS_MARGIN } from "./silk-stage";
 import { silkTuning } from "./silk-tuning";
 

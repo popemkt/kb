@@ -14,9 +14,8 @@ import {
   type KbNode,
   type PropValue,
   LIST_ONTOLOGIES_QUERY,
-  outlineFieldNames,
-  parseOutline,
 } from "@kb/model";
+import { outlineFieldNames, parseOutline } from "./outline.ts";
 
 export interface PlannedAction {
   id: string;

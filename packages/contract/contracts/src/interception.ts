@@ -21,7 +21,7 @@ import type { KbContext } from "./session.ts";
  *   output after — and cannot refuse it. One that fails aborts the call.
  *
  * Each names the calls it is for with a `match` (an action id, a pattern
- * with `*`, or a mode word: `matchSpecificity` in `@kb/model`).
+ * with `*`, or a mode word: `matchSpecificity` in `@kb/operations`).
  */
 
 /** What a guard decides about a call. */

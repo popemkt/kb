@@ -12,7 +12,8 @@
  * GAP [[01M6XKP09V8E144HJBXMBV0MFK]].
  */
 import { Cause, Effect, Predicate, Result, Schema } from "effect";
-import { BACKDROP_DIRECTIONS, BACKDROP_STRENGTHS, KnobSchema } from "@kb/model";
+import { BACKDROP_DIRECTIONS, BACKDROP_STRENGTHS } from "@kb/appearance";
+import { KnobSchema } from "@kb/model";
 import type { Contribution } from "@kb/plugin";
 import { componentSchema } from "./component-schema";
 import {
@@ -20,7 +21,7 @@ import {
   type Backdrop,
   type BackdropCue,
   type BackdropProps,
-} from "./plugins";
+} from "./plugins.ts";
 
 /** One contribution read: the backdrop to draw, or why it is refused. */
 export type DecodedBackdrop =

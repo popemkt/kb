@@ -27,7 +27,8 @@ import {
   type Plugin,
   kernelHosts,
 } from "@kb/plugin";
-import { foldSeed, SYSTEM_IDS, VIEW_FAMILY_VALUES } from "@kb/model";
+import { foldSeed } from "@kb/seed";
+import { SYSTEM_IDS, VIEW_FAMILY_VALUES } from "@kb/model";
 import {
   findView,
   keptLoad,

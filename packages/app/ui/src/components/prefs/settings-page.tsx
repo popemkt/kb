@@ -14,13 +14,15 @@ import {
   MOTION_EFFECTS,
   MOTION_FIELD_IDS,
   MOTION_OPTION_SETTINGS,
+  motionEffectFieldId,
+  type MotionChoice,
+  type MotionSource,
+} from "@kb/appearance";
+import {
   SYSTEM_IDS,
   extensionNodeId,
   roleNodeId,
-  motionEffectFieldId,
   settingsOf,
-  type MotionChoice,
-  type MotionSource,
   type NodeId,
   type Setting,
 } from "@kb/model";
@@ -62,7 +64,7 @@ import {
   ExtensionLede,
   PartLink,
   ReportStatus,
-} from "./settings-extensions";
+} from "./settings-extensions.tsx";
 import {
   Fold,
   Groups,
@@ -70,7 +72,7 @@ import {
   type Row,
   type Section,
   type SectionGroup,
-} from "./settings-fold";
+} from "./settings-fold.tsx";
 
 const CORE = extensionNodeId("core");
 

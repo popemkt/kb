@@ -14,7 +14,7 @@ import {
   type CanvasView,
   type CanvasViewportControls,
   type ViewSize,
-} from "./canvas-camera";
+} from "./canvas-camera.ts";
 import { visibleItemIds } from "./canvas-visible";
 import type { CanvasSelection } from "./canvas-selection";
 import { usePaneScreen, type PaneCommand, type PaneSelection } from "@kb/ui-sdk";

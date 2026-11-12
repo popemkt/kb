@@ -81,7 +81,7 @@ import {
   toolTakes,
   type CanvasChooser,
   type ToolState,
-} from "./canvas-tool";
+} from "./canvas-tool.ts";
 import { CanvasCommentLayer } from "./canvas-comments";
 import { CanvasLinkMarks } from "./canvas-link-marks";
 import { CanvasCommentList, CommentsToggle } from "./canvas-comment-list";
@@ -97,7 +97,7 @@ import {
   deleteSelected,
   selectNode as selNode,
   selectionEmpty,
-} from "./canvas-selection";
+} from "./canvas-selection.ts";
 import { CanvasContextMenu } from "./canvas-context-menu";
 import { CanvasZoomMenu } from "./canvas-zoom-menu";
 import { useCanvasContextMenu } from "./use-canvas-menu";
@@ -109,7 +109,7 @@ import {
   type Point,
   type PointerResult,
   type PointerState,
-} from "./canvas-pointer";
+} from "./canvas-pointer.ts";
 
 /** The 3D projection's chunk: three loads only when a canvas is looked at in depth. */
 const Canvas3dStage = lazy(() => import("./canvas-3d-stage"));

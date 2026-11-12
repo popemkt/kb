@@ -69,7 +69,7 @@ import {
   type Line,
   type Path,
   type Subject,
-} from "./model";
+} from "./model.ts";
 import { neighbourSlot, slotClass } from "./slot-dom";
 import { ChoiceSlot, ValuesSlot, type ValueEditing } from "./slots";
 

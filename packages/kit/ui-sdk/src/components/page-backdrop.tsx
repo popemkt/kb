@@ -10,7 +10,7 @@ import {
   type Ref,
 } from "react";
 import { createPortal } from "react-dom";
-import { drawVariant, shownStrength, shownVariants, type BackdropStrength } from "@kb/model";
+import { drawVariant, shownStrength, shownVariants, type BackdropStrength } from "@kb/appearance";
 import {
   useAppearance,
   useBackdropKnobs,
@@ -18,7 +18,7 @@ import {
   usePageActivity,
   usePageBackdrop,
   type PageBackdropChoice,
-} from "../hooks";
+} from "../hooks.ts";
 import { watchBackdropDoubleClick } from "../lib/backdrop-gesture";
 import { BREAKOUT_CLASS, useBreakoutShift } from "../lib/breakout";
 import { useLoadSeed } from "../lib/load-seed";

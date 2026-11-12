@@ -4,7 +4,7 @@
  * where a CSS mask would band on a dark ground) and applied to every actor
  * where it stands, so a bat leaving the frame dissolves instead of being cut.
  */
-import type { BackdropDirection } from "@kb/model";
+import type { BackdropDirection } from "@kb/appearance";
 import { smoothstep } from "./math.ts";
 
 export interface Feather {

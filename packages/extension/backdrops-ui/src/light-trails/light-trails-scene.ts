@@ -27,7 +27,7 @@ import {
   type GpuBackdropScene,
   type GpuLook,
   groundsOf,
-} from "../gpu/gpu-scene";
+} from "../gpu/gpu-scene.ts";
 import { textScrim } from "../gpu/text-scrim";
 import { trailFrame, trailUniforms, type TrailUniforms } from "./light-trails-shader";
 import { layoutTrails, strandsShown, trailsLook, type Strand, type TrailsLook } from "./trails";

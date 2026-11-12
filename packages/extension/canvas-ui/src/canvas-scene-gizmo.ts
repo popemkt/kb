@@ -45,7 +45,7 @@ import {
   type CanvasView,
   type ScreenRect,
   type ViewSize,
-} from "./canvas-camera";
+} from "./canvas-camera.ts";
 import type { GizmoChoice, GizmoMode } from "./canvas-gizmo";
 import { fromThree, matrixFromThree, matrixToThree, toThree } from "./canvas-scene-space";
 

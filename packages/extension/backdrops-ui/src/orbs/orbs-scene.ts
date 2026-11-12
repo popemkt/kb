@@ -24,7 +24,7 @@ import {
   type GpuBackdropScene,
   type GpuLook,
   groundsOf,
-} from "../gpu/gpu-scene";
+} from "../gpu/gpu-scene.ts";
 import { farField, glowAbout, type FieldReach } from "../gpu/dissolve";
 import { textScrim } from "../gpu/text-scrim";
 import { orbFrame, orbUniforms } from "./orbs-shader";

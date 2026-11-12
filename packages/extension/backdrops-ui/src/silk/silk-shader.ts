@@ -79,7 +79,7 @@ import {
   type F,
   type V2,
   type V3,
-} from "./silk-stage";
+} from "./silk-stage.ts";
 import { SILK_FILM_MIX, silkTuning } from "./silk-tuning";
 
 type I = TslNode<"int">;

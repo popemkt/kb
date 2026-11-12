@@ -17,7 +17,7 @@ import {
   selectionEmpty,
   soleItem,
   toggleNode,
-} from "./canvas-selection";
+} from "./canvas-selection.ts";
 
 const sampleDoc: CanvasDoc = {
   nodes: [

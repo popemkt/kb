@@ -4,13 +4,8 @@
  * choice the shell's painter, the Settings page and the switch command share, and
  * the one write that makes it.
  */
-import {
-  designSystemChoice,
-  designSystemOptionId,
-  extensionNodeId,
-  SYSTEM_IDS,
-  type KbNode,
-} from "@kb/model";
+import { designSystemChoice, designSystemOptionId } from "@kb/appearance";
+import { extensionNodeId, SYSTEM_IDS, type KbNode } from "@kb/model";
 import type { Contribution } from "@kb/plugin";
 import type { PageWrites } from "./page-writes";
 import { chosenDeclared, type DesignSystem } from "./plugins";

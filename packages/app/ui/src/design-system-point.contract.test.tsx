@@ -25,16 +25,9 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { BUNDLED_DECLARATIONS } from "@kb/bundled";
 import { declarationPlugin, defineExtension, type WireNode } from "@kb/contracts";
-import {
-  DESIGN_SYSTEM_OPTIONS,
-  SYSTEM_IDS,
-  designSystemOptionId,
-  extensionNodeId,
-  foldSeed,
-  present,
-  type KbNode,
-  type SeedOption,
-} from "@kb/model";
+import { DESIGN_SYSTEM_OPTIONS, designSystemOptionId } from "@kb/appearance";
+import { SYSTEM_IDS, extensionNodeId, present, type KbNode, type SeedOption } from "@kb/model";
+import { foldSeed } from "@kb/seed";
 import { definePlugin } from "@kb/plugin";
 import {
   browserHost,

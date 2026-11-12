@@ -24,7 +24,8 @@ import {
   type CanvasEdge,
 } from "@kb/canvas";
 import { openKb } from "../src/session.ts";
-import { ensureSystemSeed, fieldTypeValue, present, SYSTEM_IDS } from "@kb/model";
+import { ensureSystemSeed } from "@kb/seed";
+import { fieldTypeValue, present, SYSTEM_IDS } from "@kb/model";
 import { invoke } from "../src/invoke.ts";
 import { resetRegistryCache } from "../src/registry.ts";
 import { bundledFold, bundledSeed } from "@kb/bundled";

@@ -18,7 +18,7 @@ import {
   type CanvasView,
   type ScreenRect,
   type ViewSize,
-} from "./canvas-camera";
+} from "./canvas-camera.ts";
 import { CommentThreadPanel } from "./canvas-comment-thread";
 import type { CanvasTool } from "./canvas-tool";
 import { anchorRects, threadPins } from "./canvas-visible";

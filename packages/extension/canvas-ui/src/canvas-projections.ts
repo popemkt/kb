@@ -25,7 +25,7 @@ import {
   viewOfPose,
   withLens,
   type CanvasView,
-} from "./canvas-camera";
+} from "./canvas-camera.ts";
 
 export interface CanvasProjection {
   readonly kind: CanvasProjectionKind;

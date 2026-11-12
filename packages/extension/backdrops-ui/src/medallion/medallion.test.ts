@@ -12,7 +12,7 @@ import {
   swingOn,
   type Point,
   type Swing,
-} from "./medallion";
+} from "./medallion.ts";
 
 /** Whether `at` is inside the closed polygon `points` (even–odd). */
 function inside([x, y]: Point, points: readonly Point[]): boolean {

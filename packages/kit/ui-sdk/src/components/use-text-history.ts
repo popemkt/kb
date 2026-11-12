@@ -6,14 +6,14 @@ import {
   serializeEditable,
   setCaretSerializedOffset,
   type RefInk,
-} from "../lib/md-edit";
+} from "../lib/md-edit.ts";
 import {
   emptyTextHistory,
   recordTextEdit,
   redoTextEdit,
   undoTextEdit,
   type TextState,
-} from "../lib/text-history";
+} from "../lib/text-history.ts";
 
 /**
  * Text undo for the row being edited (`lib/text-history`).

@@ -14,7 +14,8 @@
  */
 
 import { MEDALLION_EMBERS_KNOB, MEDALLION_GLYPHS_KNOB, MEDALLION_SMOKE_KNOB } from "@kb/backdrops";
-import { knobValue, type BackdropGlyph, type KnobValues } from "@kb/model";
+import { knobValue, type KnobValues } from "@kb/model";
+import type { BackdropGlyph } from "@kb/appearance";
 
 export type Point = readonly [number, number];
 /** One straight stroke: from, to. */

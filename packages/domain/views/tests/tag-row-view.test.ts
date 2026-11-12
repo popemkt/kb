@@ -8,16 +8,14 @@
 import { describe, expect, test } from "bun:test";
 import {
   SYSTEM_IDS,
-  claimedTagViews,
-  foldSeed,
   isWritableField,
   present,
   tagViewsOf,
   viewOptionId,
   type KbNode,
   type NodeProps,
-  type SeedSource,
 } from "@kb/model";
+import { claimedTagViews, foldSeed, type SeedSource } from "@kb/seed";
 import { BUNDLED_DECLARATIONS } from "@kb/bundled";
 import { heldTagViewOf, ignoreReport, NoParams, viewCatalogOf, viewKey } from "@kb/views";
 

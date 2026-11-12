@@ -82,7 +82,7 @@ import {
   type CanvasView,
   type ScreenRect,
   type ViewSize,
-} from "./canvas-camera";
+} from "./canvas-camera.ts";
 import type { CanvasSelection } from "./canvas-selection";
 import { syncUiPlugins } from "@kb/ui-sdk";
 import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";

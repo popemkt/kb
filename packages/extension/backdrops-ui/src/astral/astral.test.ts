@@ -18,7 +18,7 @@ import {
   trainClock,
   walk,
   type AmbientKind,
-} from "./astral";
+} from "./astral.ts";
 import { compose } from "./compositions";
 
 /** A train run from `start` to `until` in frames of `dt`: where a wheel on every `every`th tick stands. */

@@ -25,7 +25,7 @@ import {
   type GpuBackdropInit,
   type GpuLook,
   groundsOf,
-} from "../gpu/gpu-scene";
+} from "../gpu/gpu-scene.ts";
 import {
   GAS_BILLOWS,
   GAS_STREAMS,
@@ -34,7 +34,7 @@ import {
   gasBillowsFragment,
   gasStreamsFragment,
   type BakedGas,
-} from "./black-hole-shader";
+} from "./black-hole-shader.ts";
 import { flareOrbit, holeDensity, holeDolly, sharpened, type HoleLook } from "./hole-rig";
 import { gargantuaTuning } from "./hole-tuning";
 

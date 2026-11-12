@@ -29,7 +29,7 @@ import {
   graphNeighborhood,
   showsHoverCard,
   type GraphEmphasis,
-} from "./graph-interaction";
+} from "./graph-interaction.ts";
 import { computeLayoutPositions } from "./graph-layouts";
 import { createFA2Layout, type FA2Controller } from "./fa2-layout";
 import { NodeDrag } from "./graph-drag";
@@ -46,7 +46,7 @@ import {
   resetGraphLabels,
   setGraphLabelPaint,
   type GraphNodeBox,
-} from "./sigma-labels";
+} from "./sigma-labels.ts";
 import { createBulletProgram, SigmaBullets } from "./sigma-bullets";
 import { DEFAULT_GRAPH_THEME, restingLink, type GraphTheme, type NodeForm } from "./graph-themes";
 import { withGraphAlpha } from "./graph-dim";

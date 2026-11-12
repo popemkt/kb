@@ -30,7 +30,7 @@ import {
   bulletTableKey,
   PLAIN_BULLET,
   signedDistanceField,
-} from "./bullet-gpu";
+} from "./bullet-gpu.ts";
 
 const appear = (partial: Partial<BulletAppearanceInput> = {}) =>
   bulletAppearance({

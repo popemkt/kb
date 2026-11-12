@@ -60,7 +60,7 @@ import {
   type GpuLook,
   type Grounds,
   groundsOf,
-} from "../gpu/gpu-scene";
+} from "../gpu/gpu-scene.ts";
 import { textScrim } from "../gpu/text-scrim";
 import {
   ASTRAL_VARIANTS,
@@ -83,7 +83,7 @@ import {
   type Part,
   type StarShape,
   type Train,
-} from "./astral";
+} from "./astral.ts";
 import { compose } from "./compositions";
 import {
   armGeometry,
@@ -92,7 +92,7 @@ import {
   shadowRadius,
   wheelGeometry,
   wheelLayout,
-} from "./astral-geometry";
+} from "./astral-geometry.ts";
 import {
   GLOW,
   KEY_REST,
@@ -108,7 +108,7 @@ import {
   type AstralUniforms,
   type FigureUniforms,
   type Outline,
-} from "./astral-shader";
+} from "./astral-shader.ts";
 import { astralSky, slowSky } from "./astral-sky";
 
 /**

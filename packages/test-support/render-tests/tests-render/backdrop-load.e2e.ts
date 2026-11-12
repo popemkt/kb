@@ -9,7 +9,8 @@
 // shown while it loads, the scene marked ready once and the canvas faded in
 // once. A remount, a second context, a frame drawn at the wrong size or a
 // placeholder before the scene is what the eye sees as a flicker on load.
-import { SYSTEM_IDS, backdropOptionId } from "@kb/model";
+import { SYSTEM_IDS } from "@kb/model";
+import { backdropOptionId } from "@kb/appearance";
 import type { APIRequestContext, BrowserContext } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
 import { backdropOptions } from "./backdrop-options.ts";

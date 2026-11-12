@@ -21,7 +21,7 @@ import {
   presetOf,
   screenAxes,
   type CanvasView,
-} from "./canvas-camera";
+} from "./canvas-camera.ts";
 import { CANVAS_VIEW_COMMANDS, type CanvasIntent, type CanvasViewCommand } from "./canvas-keymap";
 import { cn, MENU_ROW, MENU_SURFACE, MenuSeparator, useDismiss, useMenuKeys } from "@kb/ui-sdk";
 import { AXIS_INK } from "./canvas-gizmo";

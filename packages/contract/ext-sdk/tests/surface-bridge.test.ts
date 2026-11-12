@@ -7,14 +7,8 @@ import type {
   EXTENSION_SDK,
   ExtensionDeclaration,
 } from "@kb/contracts";
-import type {
-  Actor,
-  BackdropVariant,
-  FailureCode,
-  Knob,
-  NumberKnob,
-  SeedBackdrop,
-} from "@kb/model";
+import type { Actor, FailureCode, Knob, NumberKnob } from "@kb/model";
+import type { BackdropVariant, SeedBackdrop } from "@kb/appearance";
 import type {
   Plugin,
   PointSpec,

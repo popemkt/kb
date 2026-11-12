@@ -1,5 +1,6 @@
 import { bundledSeed } from "@kb/bundled";
-import { SYSTEM_IDS, backdropOptionId } from "@kb/model";
+import { SYSTEM_IDS } from "@kb/model";
+import { backdropOptionId } from "@kb/appearance";
 import { FIXTURE_TIMESTAMP } from "./fixture.ts";
 
 // The same seed as server/server.ts, read at discovery time so every contributed

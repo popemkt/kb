@@ -1,3 +1,4 @@
+import { renamedBaseLanes } from "./ratchet.ts";
 import { collectCohesion } from "./cohesion.ts";
 import { collectSingleFamily } from "./symbol-consumers.ts";
 import { collectCliFence, collectStaticClosure } from "./cli-closure.ts";
@@ -51,11 +52,11 @@ export interface BaselineLanes {
 
 /**
  * Where the ratchet counts from: the commit this change forked from. In
- * order, `KB_RATCHET_BASE`, local `main`, `origin/main`, merged with HEAD.
+ * order, `KB_RATCHET_BASE`, `origin/main`, local `main`, merged with HEAD.
  * On the base branch itself the fork point is HEAD, and then the change
  * under test is HEAD's own commit, so the base is its first parent.
  */
-export const RATCHET_BASE_REFS = ["main", "origin/main"] as const;
+export const RATCHET_BASE_REFS = ["origin/main", "main"] as const;
 
 export type BaseLedger =
   | {
@@ -103,7 +104,17 @@ export function baselineAtRatchetBase(
     if (rev === null) continue;
     const text = attempt(["show", `${rev}:./lint-warn-baseline.json`]);
     if (text === null) return { ok: false, reason: `${rev} has no lint-warn-baseline.json` };
-    return { ok: true, rev, lanes: (JSON.parse(text) as BaselineLanes).lanes };
+    const renames = attempt([
+      "diff",
+      "--name-status",
+      "-z",
+      "--find-renames",
+      "--diff-filter=R",
+      rev,
+    ]);
+    if (renames === null) return { ok: false, reason: `${rev}: Git rename detection failed` };
+    const lanes = renamedBaseLanes((JSON.parse(text) as BaselineLanes).lanes, renames);
+    return { ok: true, rev, lanes };
   }
   return {
     ok: false,

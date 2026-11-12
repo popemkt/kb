@@ -7,7 +7,7 @@ import {
   type QueryRequest,
   type QueryTransport,
   ReplicaQueries,
-} from "./replica-queries";
+} from "./replica-queries.ts";
 
 const clock = () => performance.now();
 

@@ -9,7 +9,7 @@ import {
   type SelectionKeyContext,
   type SelectionKeyEvent,
   type SelectionNodeInfo,
-} from "./selection-keymap";
+} from "./selection-keymap.ts";
 import type { VisibleInstance } from "./visible-instances";
 
 /** A host that approves every owner replacing what another holds. */

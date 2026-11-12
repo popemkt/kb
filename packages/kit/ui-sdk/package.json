@@ -11,6 +11,7 @@
     "test": "vp test"
   },
   "dependencies": {
+    "@kb/appearance": "workspace:*",
     "@kb/contracts": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/plugin": "workspace:*",

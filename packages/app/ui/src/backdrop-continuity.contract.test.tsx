@@ -27,14 +27,9 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { BUNDLED_DECLARATIONS, BUNDLED_FAMILIES } from "@kb/bundled";
 import { NO_SWITCHES, familyOn, type WireNode } from "@kb/contracts";
-import {
-  BACKDROP_STRENGTH_OPTION_IDS,
-  SYSTEM_IDS,
-  backdropOptionId,
-  extensionNodeId,
-  foldSeed,
-  type PropValue,
-} from "@kb/model";
+import { BACKDROP_STRENGTH_OPTION_IDS, backdropOptionId } from "@kb/appearance";
+import { SYSTEM_IDS, extensionNodeId, type PropValue } from "@kb/model";
+import { foldSeed } from "@kb/seed";
 import {
   BackdropPoint,
   EMPTY_EDITOR,

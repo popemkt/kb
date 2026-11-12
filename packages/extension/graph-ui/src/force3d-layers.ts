@@ -23,7 +23,7 @@ import {
   topologyOf,
   type Force3dFades,
   type Force3dTopology,
-} from "./force3d-emphasis";
+} from "./force3d-emphasis.ts";
 import type { GraphPlaces } from "./force3d-camera";
 import { LabelLayer } from "./force3d-labels";
 import { startLayout3d, type Layout3d } from "./force3d-layout";
@@ -34,7 +34,7 @@ import {
   type LinkLayer,
   type ParticleLayer,
   type ParticleMotion,
-} from "./force3d-links";
+} from "./force3d-links.ts";
 import { bulletLayer } from "./force3d-bullets";
 import { solidLayer, type NodeLayer, type NodeLayerInit } from "./force3d-nodes";
 import type { GraphTheme, NodeForm } from "./graph-themes";

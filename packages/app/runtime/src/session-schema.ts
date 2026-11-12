@@ -2,16 +2,14 @@
 import { Effect, Semaphore } from "effect";
 import {
   currentIso,
-  foldSeed,
   diffTx,
-  ensureSystemSeed,
   migrateDateValues,
   migrateFieldTypeValues,
   type DomainError,
-  type FoldedSeed,
   type KbNode,
   type StoreTx,
 } from "@kb/model";
+import { foldSeed, ensureSystemSeed, type FoldedSeed } from "@kb/seed";
 import { KbStore, type KbContext, type ExtensionDeclaration } from "@kb/contracts";
 import type { FileSystem } from "effect/FileSystem";
 import { derivedOf } from "@kb/bundled";

@@ -21,8 +21,8 @@
     "limit": 12
   },
   "@kb/operations": {
-    "limit": 154,
-    "reason": "Initial measured interface; module migration will narrow it."
+    "limit": 165,
+    "reason": "M3 relocation; final ceiling 90 pending API redesign"
   },
   "@kb/contracts": {
     "limit": 374,
@@ -39,8 +39,8 @@
     "reason": "Initial measured interface; module migration will narrow it."
   },
   "@kb/model": {
-    "limit": 376,
-    "reason": "Initial measured interface; module migration will narrow it."
+    "limit": 294,
+    "reason": "M3 relocation; final ceiling 220 pending API redesign"
   },
   "@kb/plugin": {
     "limit": 54
@@ -242,5 +242,13 @@
   },
   "@kb/ui-test-kit": {
     "limit": 26
+  },
+  "@kb/appearance": {
+    "limit": 64,
+    "reason": "M3 relocation; final ceiling 45 pending API redesign"
+  },
+  "@kb/seed": {
+    "limit": 8,
+    "reason": "M3 relocation; final ceiling 20 pending API redesign"
   }
 }

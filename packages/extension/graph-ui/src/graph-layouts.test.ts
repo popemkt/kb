@@ -7,7 +7,7 @@ import {
   gridLayout,
   hierarchicalLayout,
   radialLayout,
-} from "./graph-layouts";
+} from "./graph-layouts.ts";
 
 function byKey(x: [string, unknown], y: [string, unknown]): number {
   return x[0].localeCompare(y[0]);

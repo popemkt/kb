@@ -34,7 +34,7 @@ import {
   setupCall,
   startConnect,
   type SetupInfo,
-} from "./setup-calls";
+} from "./setup-calls.ts";
 import { ExistingClientGuide, ExistingProject, SourceChoice } from "./setup-existing";
 import { ConsoleLink, CopyValue, Field, Pick, StepFrame, Verdict, WhatYouSee } from "./setup-parts";
 import { mintId, runCalls } from "./writes";

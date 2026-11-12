@@ -11,7 +11,7 @@ import {
   selectNode,
   toggleEdge,
   toggleNode,
-} from "./canvas-selection";
+} from "./canvas-selection.ts";
 
 /** The modifiers a card press carries; a DOM pointer event is one. */
 type CardPress = Pick<PointerEvent, "shiftKey" | "metaKey" | "ctrlKey">;

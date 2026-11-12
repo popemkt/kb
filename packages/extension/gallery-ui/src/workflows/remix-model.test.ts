@@ -7,7 +7,7 @@ import {
   remixRows,
   variationGroups,
   type RemixSource,
-} from "./remix-model";
+} from "./remix-model.ts";
 
 const ref = (v: string): PropValue => ({ t: "ref", v });
 const n = (id: string, tag: string | null, children: string[] = [], text = id): GraphNode => ({

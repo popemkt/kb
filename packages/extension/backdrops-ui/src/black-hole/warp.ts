@@ -25,7 +25,7 @@ import {
   type GpuBackdropInit,
   type GpuLook,
   groundsOf,
-} from "../gpu/gpu-scene";
+} from "../gpu/gpu-scene.ts";
 import { flareOrbit, holeDensity, holeDolly, sharpened, type HoleLook } from "./hole-rig";
 import { warpTuning } from "./hole-tuning";
 import { warpFragment, warpUniforms } from "./warp-shader";

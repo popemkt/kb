@@ -27,7 +27,7 @@ import {
   type GpuBackdropScene,
   type GpuLook,
   groundsOf,
-} from "../gpu/gpu-scene";
+} from "../gpu/gpu-scene.ts";
 import { lensFrame, lensUniforms, nebulaFragment } from "./lens-shader";
 import { lensTuning } from "./lens-tuning";
 

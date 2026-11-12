@@ -633,6 +633,7 @@
   "@kb/agent-claude" = copyPathToStore ./packages/extension/agent-claude;
   "@kb/agent-openai" = copyPathToStore ./packages/extension/agent-openai;
   "@kb/agent-ui" = copyPathToStore ./packages/extension/agent-ui;
+  "@kb/appearance" = copyPathToStore ./packages/domain/appearance;
   "@kb/backdrops" = copyPathToStore ./packages/extension/backdrops;
   "@kb/backdrops-ui" = copyPathToStore ./packages/extension/backdrops-ui;
   "@kb/bundled" = copyPathToStore ./packages/app/bundled;
@@ -688,6 +689,7 @@
   "@kb/sandbox-worker" = copyPathToStore ./packages/infrastructure/sandbox-worker;
   "@kb/scene" = copyPathToStore ./packages/kit/scene;
   "@kb/scene-gpu" = copyPathToStore ./packages/kit/scene-gpu;
+  "@kb/seed" = copyPathToStore ./packages/domain/seed;
   "@kb/server" = copyPathToStore ./packages/app/server;
   "@kb/source-git" = copyPathToStore ./packages/infrastructure/source-git;
   "@kb/store-jsonl" = copyPathToStore ./packages/infrastructure/store-jsonl;

@@ -11,7 +11,8 @@
 // left once it has. On a slow machine, a crossfade onto a page whose backdrop
 // field shows every backdrop as a sample still lets its old backdrop go when
 // its fade is over, the samples' scenes starting in turns.
-import { SYSTEM_IDS, backdropOptionId } from "@kb/model";
+import { SYSTEM_IDS } from "@kb/model";
+import { backdropOptionId } from "@kb/appearance";
 import type { APIRequestContext, Page } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
 

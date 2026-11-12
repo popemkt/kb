@@ -26,20 +26,20 @@ import {
   selectNode,
   selectionEmpty,
   soleItem,
-} from "./canvas-selection";
+} from "./canvas-selection.ts";
 import {
   mapCanvasKey,
   type CanvasIntent,
   type PresentAct,
   type TransformAct,
-} from "./canvas-keymap";
+} from "./canvas-keymap.ts";
 import {
   pickTool,
   reduceCanvasTool,
   type CanvasChooser,
   type CanvasToolPick,
   type ToolState,
-} from "./canvas-tool";
+} from "./canvas-tool.ts";
 import type { CanvasViewportControls } from "./canvas-camera";
 import type { CanvasPointerEvent } from "./canvas-pointer";
 import { isTextEntry } from "@kb/ui-sdk";

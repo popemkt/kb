@@ -25,12 +25,11 @@ import {
   SYSTEM_IDS,
   currentIso,
   ensureDomainError,
-  exampleSeedNodes,
-  isPristine,
   isSysPrefixed,
   resolveFieldId,
   resolveTagId,
 } from "@kb/model";
+import { exampleSeedNodes, isPristine } from "./example.ts";
 import { KB_SDK_VERSION } from "@kb/ext-sdk";
 import { bundledSeed } from "@kb/bundled";
 import {

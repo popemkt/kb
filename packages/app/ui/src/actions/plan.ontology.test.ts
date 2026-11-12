@@ -7,7 +7,7 @@ import {
   planOntologyAddInclude,
   planOntologyExclude,
   planOntologySetQuery,
-} from "./plan";
+} from "./plan.ts";
 
 const node = (id: string, props: WireNode["props"] = {}): WireNode => ({
   id,

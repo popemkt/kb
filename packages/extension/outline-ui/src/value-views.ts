@@ -25,7 +25,7 @@ import {
   SecretSurface,
   TextSurface,
   UrlSurface,
-} from "./field-value";
+} from "./field-value.tsx";
 import { VALUE_KINDS, valueKindOf, type ValueKind } from "./value-kind";
 import type { Icon } from "@phosphor-icons/react";
 

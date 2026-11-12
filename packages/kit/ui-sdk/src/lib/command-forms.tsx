@@ -20,7 +20,7 @@ import {
   type NodeCommand,
   type NodeMenuGroup,
   type PaletteStep,
-} from "./command-point";
+} from "./command-point.ts";
 import type { PickerCandidate } from "./picker";
 import { savedQueryIds } from "./saved-query";
 

@@ -1,7 +1,7 @@
 export { pinnedBackups } from "./backup-pins.ts";
 export { ACTORS, ActorSchema, actorKind } from "./actor.ts";
 export type { Actor, ActorKind } from "./actor.ts";
-export { MODE_MATCHES, matchSpecificity } from "./action-match.ts";
+
 export { byNodeId, canonicalJson, canonicalJsonl, canonicalJsonlOf } from "./canonical.ts";
 export {
   DomainError,
@@ -13,12 +13,11 @@ export {
 } from "./errors.ts";
 export { extractMentions, mentionSpans, replaceMentions } from "./mention.ts";
 export type { MentionSpan } from "./mention.ts";
-export { OUTLINE_HEADER, outlineFieldNames, parseOutline } from "./outline.ts";
-export type { OutlineField, OutlineItem, OutlineParse, OutlineValue } from "./outline.ts";
+
 export { mergeNodeSets } from "./merge.ts";
 export type { MergeConflict, MergeConflictReason, MergeResult } from "./merge.ts";
 export { present } from "./present.ts";
-export { exampleSeedNodes, isPristine } from "./example.ts";
+
 export { FailureCodeSchema } from "./failure.ts";
 export type { CodedError, FailureCode } from "./failure.ts";
 export {
@@ -177,38 +176,7 @@ export {
   schemaToJsonSchema,
 } from "./schema-seam.ts";
 export type { ActionSchema } from "./schema-seam.ts";
-export {
-  BACKDROP_DIRECTIONS,
-  BACKDROP_DIRECTION_OPTION_IDS,
-  BACKDROP_STRENGTHS,
-  BACKDROP_STRENGTH_OPTION_IDS,
-  BACKDROP_OPTIONS,
-  BACKDROP_VARIANT_OPTIONS,
-  backdropChoice,
-  backdropOptionId,
-  backdropVariantId,
-  backdropVariantOptionId,
-  backdropVariantOptions,
-  DEFAULT_BACKDROP_STRENGTH,
-  drawVariant,
-  knobsOf,
-  shownStrength,
-  shownVariants,
-  type BackdropChoice,
-  type BackdropVariant,
-  type ColorScheme,
-  type SeedBackdrop,
-  type BackdropDirection,
-  type BackdropStrength,
-} from "./backdrop.ts";
-export {
-  backdropKnobValues,
-  knobFieldId,
-  knobFields,
-  knobOptionId,
-  knobPropValue,
-  knobValues,
-} from "./knob-fields.ts";
+
 export {
   KNOB_COLOR,
   KnobSchema,
@@ -227,60 +195,11 @@ export {
   type NumberKnob,
   type SeedKnob,
 } from "./knob.ts";
-export {
-  MAX_BACKDROP_GLYPHS,
-  OWN_ART,
-  backdropArtOf,
-  imageArt,
-  isArtManifest,
-  isBackdropArt,
-  type BackdropArt,
-  type BackdropGlyph,
-  type BackdropGlyphShape,
-} from "./backdrop-art.ts";
-export {
-  MOTION_EFFECTS,
-  MOTION_FIELD_IDS,
-  MOTION_INTENSITIES,
-  MOTION_MODES,
-  MOTION_OPTION_SETTINGS,
-  MOTION_SPEEDS,
-  MOTION_STYLES,
-  motionEffectFieldId,
-  motionOptionId,
-  motionPresetProps,
-  type MotionEffect,
-  type MotionIntensity,
-  type MotionMode,
-  type MotionOptionSetting,
-  type MotionPreset,
-  type MotionSettings,
-  type MotionSpeed,
-  type MotionStyle,
-} from "./motion.ts";
-export {
-  MOTION_DEFAULTS,
-  motionChoice,
-  type MotionChoice,
-  type MotionSource,
-} from "./motion-choice.ts";
-export { ensureSystemSeed, systemSeedNodes } from "./seed.ts";
+
 export { seededCommand, seededField, seededTag } from "./seed-builders.ts";
-export {
-  claimedTagViews,
-  foldSeed,
-  TAG_VIEW_CLAIMS,
-  type FoldedSeed,
-  type SeedSource,
-  type SeedView,
-} from "./seed-fold.ts";
+
 export type { SeedRetirement } from "./seed-retirement.ts";
-export { themeBackdrop, themeSystem } from "./theme.ts";
-export {
-  DESIGN_SYSTEM_OPTIONS,
-  designSystemChoice,
-  designSystemOptionId,
-} from "./design-system.ts";
+
 export {
   chosenProps,
   declaredChoice,
@@ -340,7 +259,7 @@ export {
   relationMisfit,
   type RelationFieldFit,
 } from "./relation.ts";
-export { isVocabulary } from "./vocabulary.ts";
+
 export {
   MEDIA_EXTENSIONS,
   assetMediaType,
@@ -353,7 +272,7 @@ export {
   type AssetEmbed,
   type AssetMediaKind,
 } from "./asset.ts";
-export { sanitizeSvg } from "./svg-sanitize.ts";
+
 export {
   DISPLAY_DEFAULTS,
   DISPLAY_OPTIONS,
@@ -371,3 +290,6 @@ export {
 } from "./display.ts";
 
 export { roleNodeId, roleSelections, type RoleDefinition } from "./roles.ts";
+export { ADDITIVE_FIELDS } from "./system-write.ts";
+export type { FieldOptions } from "./seed-builders.ts";
+export { ranksFor } from "./order.ts";

@@ -16,7 +16,7 @@ import {
   type Preview,
   type Size,
   type Zoom,
-} from "./framing";
+} from "./framing.ts";
 
 export interface Framing {
   readonly preview: Preview;

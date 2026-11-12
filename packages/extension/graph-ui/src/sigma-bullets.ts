@@ -32,7 +32,7 @@ import {
   bulletTableKey,
   PLAIN_BULLET,
   readBulletPage,
-} from "./bullet-gpu";
+} from "./bullet-gpu.ts";
 import { drawGraphHover, drawGraphLabel } from "./sigma-labels";
 
 /** The node attributes the program reads: the node's entry in the table, and its box per disc radius. */

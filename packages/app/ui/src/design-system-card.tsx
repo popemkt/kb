@@ -1,13 +1,5 @@
-import {
-  BACKDROP_OPTIONS,
-  MOTION_FIELD_IDS,
-  SYSTEM_IDS,
-  declaredIdOf,
-  designSystemOptionId,
-  extensionNodeId,
-  firstRef,
-  type KbNode,
-} from "@kb/model";
+import { BACKDROP_OPTIONS, MOTION_FIELD_IDS, designSystemOptionId } from "@kb/appearance";
+import { SYSTEM_IDS, declaredIdOf, extensionNodeId, firstRef, type KbNode } from "@kb/model";
 import { bundledOwners } from "@kb/bundled";
 import { useNode } from "@kb/ui-sdk";
 

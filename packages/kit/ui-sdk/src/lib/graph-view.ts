@@ -15,7 +15,7 @@ import {
   type OutlineNode,
   type ResolvedProp,
   type TagBadge,
-} from "./types";
+} from "./types.ts";
 
 function isTagNode(node: WireNode | OutlineNode | undefined): boolean {
   return typeRefsOf(node).includes(SYSTEM_IDS.tag);

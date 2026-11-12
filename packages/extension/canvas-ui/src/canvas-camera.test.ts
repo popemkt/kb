@@ -29,7 +29,7 @@ import {
   zoomViewAt,
   type CanvasHitItem,
   type CanvasView,
-} from "./canvas-camera";
+} from "./canvas-camera.ts";
 import { SWEEP_BUDGET_MS } from "./test-support/sweep-budget";
 
 const size = { width: 1200, height: 800 };

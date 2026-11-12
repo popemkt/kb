@@ -29,7 +29,8 @@
  * host's own lazy import reaches it (`gpu-backdrop.tsx`).
  */
 import { SPEED_KNOB } from "@kb/backdrops";
-import { knobValue, type BackdropDirection, type KnobValues } from "@kb/model";
+import { knobValue, type KnobValues } from "@kb/model";
+import type { BackdropDirection } from "@kb/appearance";
 import type { SceneHandle, ScenePalette } from "@kb/scene";
 import { mountScene, type SceneStage, type StageOptions, type TslNode } from "@kb/scene-gpu";
 import { meterFrames, type BackdropBudget, type PointerSource, type Timing } from "@kb/ui-sdk";

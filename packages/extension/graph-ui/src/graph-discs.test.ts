@@ -26,7 +26,7 @@ import {
   discSpacing,
   linkWidth,
   separateDiscs,
-} from "./graph-discs";
+} from "./graph-discs.ts";
 
 /** The datalog of `nodes`, read as the page reads its query answers. */
 function runOver(nodes: ConstructorParameters<typeof DatascriptIndex>[0]): EdnRunner {

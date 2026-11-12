@@ -58,9 +58,9 @@ const ALLOWED: Record<string, Set<string>> = {
   "ulid(": new Set([MODEL]),
   "nowIso(": new Set([
     MODEL,
-    at("@kb/model", "src/seed.ts"),
-    at("@kb/model", "src/seed-fold.ts"),
-    at("@kb/model", "src/example.ts"),
+    at("@kb/seed", "src/seed.ts"),
+    at("@kb/seed", "src/seed-fold.ts"),
+    at("@kb/cli", "src/example.ts"),
   ]),
   "Date(": new Set([MODEL]),
 };

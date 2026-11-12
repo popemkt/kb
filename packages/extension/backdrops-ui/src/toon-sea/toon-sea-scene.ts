@@ -25,7 +25,7 @@ import {
   type GpuBackdropScene,
   type GpuLook,
   groundsOf,
-} from "../gpu/gpu-scene";
+} from "../gpu/gpu-scene.ts";
 import { SPLASHES, seaFrame, skyFragment, toonSeaUniforms } from "./toon-sea-shader";
 import { toonSeaTuning } from "./toon-sea-tuning";
 

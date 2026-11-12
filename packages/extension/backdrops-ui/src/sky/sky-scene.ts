@@ -14,7 +14,7 @@ import {
   scatterMotes,
   type Mote,
   type Weather,
-} from "../scene/atmosphere";
+} from "../scene/atmosphere.ts";
 import { featherOf, type Feather } from "../scene/feather";
 import { newFlier, type Flier } from "../scene/flier";
 import { respawn, stepFliers, type Air } from "../scene/flock";

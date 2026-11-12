@@ -27,7 +27,7 @@ import {
   type CanvasView,
   type CanvasViewportControls,
   type ViewSize,
-} from "./canvas-camera";
+} from "./canvas-camera.ts";
 import { posesAgree } from "@kb/canvas";
 import { easeAt, type Timing } from "@kb/ui-sdk";
 

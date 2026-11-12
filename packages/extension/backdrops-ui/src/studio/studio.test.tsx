@@ -16,15 +16,13 @@ import { Effect } from "effect";
 import { act, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
+import { SYSTEM_IDS, extensionNodeId, type PropValue } from "@kb/model";
 import {
-  SYSTEM_IDS,
   backdropOptionId,
   backdropVariantOptionId,
-  extensionNodeId,
   knobFieldId,
-  type PropValue,
   type SeedBackdrop,
-} from "@kb/model";
+} from "@kb/appearance";
 import { definePlugin } from "@kb/plugin";
 import {
   BACKDROP_BUDGETS,

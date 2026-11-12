@@ -14,7 +14,7 @@ import {
   flattenBoardOrder,
   groupChildrenForBoard,
   sortChildrenForTable,
-} from "./frame-layout";
+} from "./frame-layout.ts";
 import type { FrameView } from "./frame-view";
 import type { NodeMap, OutlineNode } from "./types";
 import type { SchemaIndex } from "./schema";

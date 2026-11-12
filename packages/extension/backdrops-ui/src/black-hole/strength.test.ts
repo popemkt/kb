@@ -5,7 +5,7 @@
  */
 import { expect, it } from "vitest";
 import { BLACK_HOLE_BACKDROP } from "@kb/backdrops";
-import { DEFAULT_BACKDROP_STRENGTH, shownStrength } from "@kb/model";
+import { DEFAULT_BACKDROP_STRENGTH, shownStrength } from "@kb/appearance";
 
 it("shows Warp vivid and Gargantua at the default where nothing chooses a strength", () => {
   expect(shownStrength(null, BLACK_HOLE_BACKDROP, "warp")).toBe("vivid");

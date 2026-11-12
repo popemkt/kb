@@ -54,16 +54,8 @@ import {
 } from "@kb/views";
 import { roleComponent } from "./roles";
 import { toast } from "./toast";
-import {
-  present,
-  roleSelections,
-  type KbNode,
-  type BackdropDirection,
-  type BackdropStrength,
-  type KnobValues,
-  type SeedBackdrop,
-  type SeedOption,
-} from "@kb/model";
+import { present, roleSelections, type KbNode, type KnobValues, type SeedOption } from "@kb/model";
+import type { BackdropDirection, BackdropStrength, SeedBackdrop } from "@kb/appearance";
 import type { OutlineNode } from "./types";
 
 /**

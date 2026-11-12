@@ -4,7 +4,7 @@ import {
   graphNodeAlpha,
   premultipliedGraphColor,
   withGraphAlpha,
-} from "./graph-dim";
+} from "./graph-dim.ts";
 
 describe("graph dim", () => {
   it("keeps dimmed nodes readable when emphasis constraints overlap", () => {

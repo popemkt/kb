@@ -1,29 +1,5 @@
 {
   "lanes": {
-    "blocking": {
-      "eslint/max-lines-per-function": 21,
-      "react/exhaustive-effect-dependencies": 7,
-      "react/globals": 1,
-      "react/memo-dependencies": 2,
-      "react/refs": 9,
-      "react/set-state-in-effect": 11
-    },
-    "advisory": {},
-    "knip": {
-      "devDependencies:packages/domain/model/package.json:@kb/test-kit": 1,
-      "exports:packages/app/ui/src/actions/plan.ts:planInsertChild": 1,
-      "exports:packages/app/ui/src/lib/ontology-scope.ts:labelOf": 1,
-      "nsExports:packages/app/ui/src/stores/prefs.store.ts:PrefsStore.DEFAULT_PREFS": 1,
-      "nsExports:packages/app/ui/src/stores/prefs.store.ts:PrefsStore.defaultSidebarOpen": 1,
-      "nsExports:packages/app/ui/src/stores/prefs.store.ts:PrefsStore.loadPrefs": 1,
-      "nsExports:packages/app/ui/src/stores/prefs.store.ts:PrefsStore.PREFS_STORAGE_KEY": 1,
-      "types:harness/src/workspace.ts:EffectPluginOverride": 1,
-      "types:packages/app/ui/src/api/graph.ts:GraphLoadSource": 1,
-      "types:packages/app/ui/src/lib/ontology-scope.ts:MemberReason": 1,
-      "types:packages/app/ui/src/lib/palette-index.ts:PaletteEntry": 1,
-      "types:packages/app/ui/src/lib/palette-index.ts:PaletteEntryKind": 1,
-      "types:packages/contract/contracts/src/actions.ts:ActionHandlerError": 1
-    },
     "surface": {
       "@kb/bundled": 9,
       "@kb/client": 8,
@@ -32,14 +8,16 @@
       "@kb/server": 12,
       "@kb/test-kit": 56,
       "@kb/webmcp": 12,
-      "@kb/operations": 154,
+      "@kb/operations": 165,
       "@kb/contracts": 374,
       "@kb/ext-sdk": 9,
       "@kb/extension-source": 27,
       "@kb/sandbox": 89,
-      "@kb/model": 376,
+      "@kb/appearance": 64,
+      "@kb/model": 294,
       "@kb/plugin": 54,
       "@kb/query": 90,
+      "@kb/seed": 8,
       "@kb/views": 108,
       "@kb/agent": 62,
       "@kb/agent-claude": 3,
@@ -119,13 +97,12 @@
       "contract/sandbox/src/prelude.ts": 2,
       "contract/sandbox/src/protocol.ts": 3,
       "contract/sandbox/src/snapshot.ts": 1,
+      "domain/appearance/src/backdrop.ts": 2,
       "domain/model/src/actor.ts": 1,
-      "domain/model/src/backdrop.ts": 2,
       "domain/model/src/errors.ts": 8,
       "domain/model/src/local-date.ts": 1,
       "domain/model/src/node-graph.ts": 3,
       "domain/model/src/resolve.ts": 9,
-      "domain/model/src/svg-sanitize.ts": 9,
       "domain/model/src/view-node.ts": 4,
       "domain/query/src/ir/conditions.ts": 7,
       "domain/query/src/ir/edn.ts": 4,
@@ -170,13 +147,13 @@
       "kit/ui-sdk/src/sandbox-run.ts": 5
     },
     "lazy-fence": {
-      "packages/infrastructure/sandbox-quickjs/src/index.ts imports @jitl/quickjs-singlefile-browser-release-sync": 1,
       "packages/extension/chart-vega/src/index.ts imports vega": 1,
+      "packages/extension/chart-vega/src/index.ts imports vega-interpreter": 1,
       "packages/extension/chart-vega/src/index.ts imports vega-lite": 1,
-      "packages/extension/chart-vega/src/index.ts imports vega-interpreter": 1
+      "packages/infrastructure/sandbox-quickjs/src/index.ts imports @jitl/quickjs-singlefile-browser-release-sync": 1
     },
     "cli-closure": {
-      "bytes": 5855891,
+      "bytes": 5846878,
       "modules": 1108
     },
     "single-family": {
@@ -192,9 +169,33 @@
       "extension/canvas-ui/src/canvas-card-face.ts": 1,
       "extension/canvas-ui/src/canvas-keymap.ts": 1,
       "extension/canvas-ui/src/canvas-transform-input.ts": 1,
-      "extension/graph/src/lens.ts": 1,
       "extension/graph-ui/src/graph-lens.ts": 1,
+      "extension/graph/src/lens.ts": 1,
       "extension/outline-ui/src/fields-section.tsx": 1
+    },
+    "blocking": {
+      "eslint/max-lines-per-function": 21,
+      "react/exhaustive-effect-dependencies": 7,
+      "react/globals": 1,
+      "react/memo-dependencies": 2,
+      "react/refs": 9,
+      "react/set-state-in-effect": 11
+    },
+    "advisory": {},
+    "knip": {
+      "devDependencies:packages/domain/model/package.json:@kb/test-kit": 1,
+      "exports:packages/app/ui/src/actions/plan.ts:planInsertChild": 1,
+      "exports:packages/app/ui/src/lib/ontology-scope.ts:labelOf": 1,
+      "nsExports:packages/app/ui/src/stores/prefs.store.ts:PrefsStore.DEFAULT_PREFS": 1,
+      "nsExports:packages/app/ui/src/stores/prefs.store.ts:PrefsStore.defaultSidebarOpen": 1,
+      "nsExports:packages/app/ui/src/stores/prefs.store.ts:PrefsStore.loadPrefs": 1,
+      "nsExports:packages/app/ui/src/stores/prefs.store.ts:PrefsStore.PREFS_STORAGE_KEY": 1,
+      "types:harness/src/workspace.ts:EffectPluginOverride": 1,
+      "types:packages/app/ui/src/api/graph.ts:GraphLoadSource": 1,
+      "types:packages/app/ui/src/lib/ontology-scope.ts:MemberReason": 1,
+      "types:packages/app/ui/src/lib/palette-index.ts:PaletteEntry": 1,
+      "types:packages/app/ui/src/lib/palette-index.ts:PaletteEntryKind": 1,
+      "types:packages/contract/contracts/src/actions.ts:ActionHandlerError": 1
     }
   }
 }

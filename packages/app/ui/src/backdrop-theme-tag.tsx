@@ -1,12 +1,10 @@
 import {
   BACKDROP_OPTIONS,
   DESIGN_SYSTEM_OPTIONS,
-  SYSTEM_IDS,
   backdropOptionId,
-  declaredIdOf,
   designSystemOptionId,
-  firstRef,
-} from "@kb/model";
+} from "@kb/appearance";
+import { SYSTEM_IDS, declaredIdOf, firstRef } from "@kb/model";
 import { useNode, useShownDesignSystem } from "@kb/ui-sdk";
 import { DesignSystemSwatch } from "@/design-system-swatch";
 

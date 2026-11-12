@@ -9,7 +9,7 @@ import {
   type CanvasPointerEvent,
   type PointerContext,
   type PointerState,
-} from "./canvas-pointer";
+} from "./canvas-pointer.ts";
 
 const moving: CanvasNode = {
   id: "moving",

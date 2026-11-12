@@ -5,7 +5,7 @@
  * into its parts (`@kb/model`'s `backdropArtOf`). One reading for every
  * backdrop, so each takes the parts it has and draws its own for the rest.
  */
-import { OWN_ART, backdropArtOf, imageArt, isArtManifest, type BackdropArt } from "@kb/model";
+import { OWN_ART, backdropArtOf, imageArt, isArtManifest, type BackdropArt } from "@kb/appearance";
 
 /** The art at `url` (null, none): an image at once, a manifest once fetched. */
 export async function loadBackdropArt(url: string | null): Promise<BackdropArt> {

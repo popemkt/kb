@@ -29,14 +29,14 @@ import {
   paintGraphLabel,
   setGraphLabelType,
   type GraphLabelStyle,
-} from "./graph-label-paint";
+} from "./graph-label-paint.ts";
 import { labelArrived } from "./graph-arrival";
 import {
   byLabelPriority,
   fitGraphLabel,
   reserveGraphLabel,
   type GraphLabelBox,
-} from "./graph-label-layout";
+} from "./graph-label-layout.ts";
 import type { ScenePalette } from "@kb/scene";
 import { pixelsPerUnit, toScreen, type ScreenPoint } from "@kb/scene-gpu";
 import type { Force3dFades, Force3dTopology } from "./force3d-emphasis";

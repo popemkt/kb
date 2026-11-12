@@ -31,7 +31,7 @@ import {
   variationGroups,
   type RemixChoices,
   type RemixSource,
-} from "./remix-model";
+} from "./remix-model.ts";
 
 const BUTTON =
   "rounded-md border border-border px-2 py-0.5 text-label text-foreground/70 hover:bg-foreground/5 disabled:opacity-50";

@@ -13,7 +13,6 @@ import {
   canonicalJson,
   closesCycle,
   DEFAULT_MAX_DEPTH,
-  ensureSystemSeed,
   fieldTypeOf,
   isOntologyNode,
   listOntologyNodes,
@@ -25,6 +24,7 @@ import {
   type NodeLike,
   type PropValue,
 } from "@kb/model";
+import { ensureSystemSeed } from "@kb/seed";
 import { ontologyMembersEffect } from "@kb/operations";
 import { runWithKb } from "../src/layers.ts";
 import { openKb } from "../src/session.ts";

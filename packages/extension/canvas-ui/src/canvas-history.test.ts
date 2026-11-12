@@ -9,7 +9,7 @@ import {
   pushHistory,
   redo,
   undo,
-} from "./canvas-history";
+} from "./canvas-history.ts";
 
 const d0: CanvasDoc = { nodes: [], edges: [] };
 const d1: CanvasDoc = {

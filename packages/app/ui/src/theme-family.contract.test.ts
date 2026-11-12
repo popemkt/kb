@@ -26,16 +26,17 @@ import {
 import {
   BACKDROP_OPTIONS,
   DESIGN_SYSTEM_OPTIONS,
-  SYSTEM_IDS,
-  declaredIdOf,
-  ensureSystemSeed,
-  foldSeed,
-  retiredOption,
   themeBackdrop,
   themeSystem,
+} from "@kb/appearance";
+import {
+  SYSTEM_IDS,
+  declaredIdOf,
+  retiredOption,
   type DeclaredOptions,
   type KbNode,
 } from "@kb/model";
+import { ensureSystemSeed, foldSeed } from "@kb/seed";
 import { definePlugin, makeKernel, syncPlugins, type Plugin } from "@kb/plugin";
 import {
   BACKDROP_BUDGETS,

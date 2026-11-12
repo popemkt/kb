@@ -11,14 +11,13 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { BUNDLED_DECLARATIONS } from "@kb/bundled";
 import {
   designSystemOptionId,
-  extensionNodeId,
-  foldSeed,
   MOTION_FIELD_IDS,
   motionEffectFieldId,
   motionOptionId,
-  type KbNode,
   motionChoice,
-} from "@kb/model";
+} from "@kb/appearance";
+import { extensionNodeId, type KbNode } from "@kb/model";
+import { foldSeed } from "@kb/seed";
 import { DesignSystemPoint, currentContributions } from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { designSystemsUiPlugin } from "@/design-systems";

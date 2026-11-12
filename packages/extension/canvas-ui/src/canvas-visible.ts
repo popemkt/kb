@@ -26,7 +26,7 @@ import {
   type CanvasView,
   type ScreenRect,
   type ViewSize,
-} from "./canvas-camera";
+} from "./canvas-camera.ts";
 
 /**
  * Where `view` draws each item on a stage of `size`, in document order: the

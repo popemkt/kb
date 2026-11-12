@@ -35,7 +35,7 @@ import {
   type CanvasPoint,
   type CanvasView,
   type ViewSize,
-} from "./canvas-camera";
+} from "./canvas-camera.ts";
 
 /** One of the canvas's axes, or of an item's own. */
 export type CanvasAxis = "x" | "y" | "z";

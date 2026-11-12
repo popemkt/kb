@@ -14,7 +14,7 @@ import {
   listCanvasNavItems,
   planNativeBind,
   syncDocOnRev,
-} from "./canvas-api";
+} from "./canvas-api.ts";
 
 /** An outline node with nothing but an id, a text and props. */
 function outline(id: string, text: string, props: OutlineNode["props"] = {}): OutlineNode {

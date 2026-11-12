@@ -9,7 +9,8 @@
  * straight line. Pure geometry, in the frame's CSS pixels.
  */
 import { ROOST_WINDOW_KNOB } from "@kb/backdrops";
-import { knobValue, type BackdropDirection, type KnobValues } from "@kb/model";
+import { knobValue, type KnobValues } from "@kb/model";
+import type { BackdropDirection } from "@kb/appearance";
 import type { Poly } from "../scene/figure";
 import type { GlowSpec } from "../scene/glow";
 

@@ -8,7 +8,7 @@ import {
   redo as redoHistory,
   undo as undoHistory,
   type CanvasHistory,
-} from "./canvas-history";
+} from "./canvas-history.ts";
 import type { OutlineNode } from "@kb/ui-sdk";
 
 const DEBOUNCE_MS = 300;

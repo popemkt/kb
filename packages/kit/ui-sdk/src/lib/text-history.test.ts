@@ -6,7 +6,7 @@ import {
   recordTextEdit,
   redoTextEdit,
   undoTextEdit,
-} from "./text-history";
+} from "./text-history.ts";
 
 const s = (text: string, caret = text.length) => ({ text, caret });
 

@@ -12,7 +12,7 @@ import {
   type MotionIntensity,
   type MotionSpeed,
   type MotionChoice,
-} from "@kb/model";
+} from "@kb/appearance";
 
 /** How much faster or slower each speed is than `normal`. */
 const SPEED_FACTOR: Readonly<Record<MotionSpeed, number>> = {

@@ -43,7 +43,7 @@ import {
   type OperandKind,
   type Path,
   type Subject,
-} from "./model";
+} from "./model.ts";
 
 /** The fields a person can pick, each with the kind of value its type holds. */
 const FIELDS: Readonly<Record<string, OperandKind>> = {

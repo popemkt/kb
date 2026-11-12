@@ -33,23 +33,25 @@ import {
   BACKDROP_STRENGTHS,
   BACKDROP_STRENGTH_OPTION_IDS,
   BACKDROP_VARIANT_OPTIONS,
-  SYSTEM_IDS,
   backdropOptionId,
   backdropVariantOptions,
-  declaredOptionId,
-  extensionNodeId,
-  foldSeed,
   backdropVariantOptionId,
   knobFieldId,
-  knobSchemaError,
   knobsOf,
-  type Knob,
   type BackdropDirection,
   type BackdropStrength,
+  type SeedBackdrop,
+} from "@kb/appearance";
+import {
+  SYSTEM_IDS,
+  declaredOptionId,
+  extensionNodeId,
+  knobSchemaError,
+  type Knob,
   type KbNode,
   type PropValue,
-  type SeedBackdrop,
 } from "@kb/model";
+import { foldSeed } from "@kb/seed";
 import { definePlugin } from "@kb/plugin";
 import {
   BACKDROP_CUE_LABELS,

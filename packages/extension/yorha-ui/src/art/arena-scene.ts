@@ -61,7 +61,7 @@ import {
   viewAt,
   type ArenaView,
   type FieldPoint,
-} from "./arena-sim";
+} from "./arena-sim.ts";
 
 /** The colours the stage's palette has no role for, each a token's. */
 export interface ArenaColors {

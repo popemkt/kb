@@ -17,6 +17,7 @@
     "@kb/plugin": "workspace:*",
     "@kb/scene": "workspace:*",
     "@kb/scene-gpu": "workspace:*",
+    "@kb/seed": "workspace:*",
     "@kb/ui-sdk": "workspace:*",
     "@kb/views": "workspace:*",
     "@phosphor-icons/react": "catalog:",

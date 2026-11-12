@@ -12,18 +12,21 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@kb/appearance": "workspace:*",
     "@kb/contracts": "workspace:*",
     "@kb/extension-source": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/plugin": "workspace:*",
     "@kb/query": "workspace:*",
     "@kb/sandbox": "workspace:*",
+    "@kb/seed": "workspace:*",
     "@kb/views": "workspace:*",
     "effect": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@types/bun": "catalog:"
+    "@types/bun": "catalog:",
+    "fast-check": "catalog:"
   },
   "nx": {
     "tags": [

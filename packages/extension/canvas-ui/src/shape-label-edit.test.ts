@@ -4,7 +4,7 @@ import {
   commitLabelEdit,
   startLabelEdit,
   typeLabelDraft,
-} from "./shape-label-edit";
+} from "./shape-label-edit.ts";
 
 describe("shape label edit draft", () => {
   test("start seeds draft from baseline", () => {

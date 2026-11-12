@@ -27,7 +27,7 @@ import {
   type LayoutReply,
   type LayoutRequest,
   type Layout3d,
-} from "./force3d-layout";
+} from "./force3d-layout.ts";
 import { graphPoint, placedDrag } from "./sigma-drag";
 
 // --- a star (a hub and its six leaves) and, apart from it, a linked pair ---

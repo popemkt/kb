@@ -19,7 +19,7 @@ import {
   provideDesignSystem,
   provideRoute,
   provideView,
-} from "./lib/plugins";
+} from "./lib/plugins.ts";
 
 /**
  * The host's own page objects: point keys compare by identity, so an extension

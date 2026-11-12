@@ -14,12 +14,12 @@ import {
   graphFocus,
   graphNeighborhood,
   type GraphEmphasis,
-} from "./graph-interaction";
+} from "./graph-interaction.ts";
 import {
   treeCameraControls,
   type GraphCameraControls,
   type TreeViewHandle,
-} from "./graph-camera-controls";
+} from "./graph-camera-controls.ts";
 import type { GraphSelection } from "./graph-selection";
 import { layoutForest, resolveFold, sameFold, type TreeFold } from "./tree-layout";
 

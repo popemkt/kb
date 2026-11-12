@@ -18,13 +18,9 @@ import {
   defineExtension,
   viewDef,
 } from "@kb/contracts";
-import {
-  DESIGN_SYSTEM_OPTIONS,
-  SYSTEM_IDS,
-  extensionNodeId,
-  systemSeedNodes,
-  type SeedOption,
-} from "@kb/model";
+import { DESIGN_SYSTEM_OPTIONS } from "@kb/appearance";
+import { SYSTEM_IDS, extensionNodeId, type SeedOption } from "@kb/model";
+import { systemSeedNodes } from "@kb/seed";
 import {
   DocsMarkdownView,
   HomeView,

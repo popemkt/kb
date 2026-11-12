@@ -9,7 +9,6 @@ import {
   PERSPECTIVE_RENDERER_FIELD,
   SYSTEM_IDS,
   cardinalityOf,
-  ensureSystemSeed,
   fieldTypeOf,
   present,
   targetQueryOf,
@@ -17,6 +16,7 @@ import {
   viewOptionId,
   type KbNode,
 } from "@kb/model";
+import { ensureSystemSeed } from "@kb/seed";
 import { bundledFold, bundledSeed } from "@kb/bundled";
 import { GRAPH_IDS } from "@kb/graph";
 

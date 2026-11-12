@@ -77,7 +77,7 @@ import {
   paintColor,
   type CardFace,
   type CardLook,
-} from "./canvas-card-face";
+} from "./canvas-card-face.ts";
 import type { CanvasSceneContent } from "./canvas-scene-content";
 import { FacePictures } from "./canvas-face-pictures";
 import { BODY, FACE, solidGeometry, solidKey, type SolidSpec } from "./canvas-scene-solids";
