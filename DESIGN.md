@@ -272,11 +272,17 @@ barrel names (type exports included, aliases by their exported name, a
 namespace as one name); `family-names` counts AST string and identifier
 occurrences equal to a declared family id or beginning with its dotted
 prefix, under the core layers in `CORE_NAME_LAYERS`. Comments do not count.
-Family ids come from the same declaration reader as `extension-families`.
-`SURFACE_BUDGETS` records current package widths; new packages have the
-`NEW_SURFACE_BUDGET` ceiling. Once a lane exists in the fork-point ledger,
-its counts may only fall (a new surface may begin within that ceiling).
-The introducing commit initializes the lanes against a base without them.
+Property access names and property declarations/signatures do not count.
+Object-literal keys and shorthand remain counted, preserving family vocabulary. String types used as indexed-access keys, Pick/Omit keys or the
+excluded keys of an Exclude over keyof do not count; value strings still do. Family ids come from the same
+declaration reader as `extension-families`.
+`SURFACE_BUDGETS` in `harness/surface-budgets.json` sets reviewed width ceilings;
+packages without an entry use `NEW_SURFACE_BUDGET`. The surface ledger equals
+measured width, which may grow within its budget. Raising a budget requires a
+new or updated nonempty reason on that entry compared with the fork point.
+`family-names` is debt: once present in the fork-point ledger, its counts may
+only fall, with no exceptions. The introducing commit initializes debt lanes
+against a base without them.
 The `single-family` lane joins production imports (type imports included) to
 the source declarations exposed by package barrels. Named exports and aliases
 resolve through local re-exports; namespace and dynamic imports conservatively
