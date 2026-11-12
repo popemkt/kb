@@ -7,7 +7,7 @@ import { parseModule, sourceFilesUnder, stringLiteral, walkAst } from "./import-
 import { PACKAGES_ROOT, workspacePackages } from "./workspace.ts";
 
 /** Unique public names, including type-only exports; aliases count by their public name.
- * GAP [[01M787EFNSYXKT510HYDPGVB9A]]: A namespace is one exported name. Its members belong to M1b's symbol graph.
+ * GAP [[01M787EFNSYXKT510HYDPGVB9A]]: A namespace is one exported name. Namespace-member width remains deferred; the consumer graph treats namespaces conservatively.
  */
 export function exportedNames(file: string, source: string): string[] {
   const names = new Set<string>();

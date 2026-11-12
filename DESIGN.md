@@ -277,8 +277,15 @@ Family ids come from the same declaration reader as `extension-families`.
 `NEW_SURFACE_BUDGET` ceiling. Once a lane exists in the fork-point ledger,
 its counts may only fall (a new surface may begin within that ceiling).
 The introducing commit initializes the lanes against a base without them.
-Consumer and namespace-member measurement awaits M1b; cohesion awaits M2
-calibration (the corresponding gaps are recorded in kb).
+The `single-family` lane joins production imports (type imports included) to
+the source declarations exposed by package barrels. Named exports and aliases
+resolve through local re-exports; namespace and dynamic imports conservatively
+consume all exposed names. Test files never contribute consumers. A file in
+`SINGLE_FAMILY_LAYERS` with nonempty consumers belonging only to one extension
+family contributes one debt entry. Internal production imports count, while
+direct re-export statements forward identity without adding a consumer.
+Namespace-member width and served SDK membership remain outside this minimal
+graph; cohesion awaits M2 calibration (the residual gaps are recorded in kb).
 
 The lazy-import policy is one entry-to-forbidden-closure table, `LAZY_FENCES`
 in `harness/src/constraints.ts`. The UI row fences the issuer's chunk;
