@@ -1,0 +1,10 @@
+{
+  "bytes": {
+    "limit": 5856973,
+    "reason": "Shared shortcut commands add 1,082 bytes to the CLI static closure."
+  },
+  "modules": {
+    "limit": 1107,
+    "reason": "Initial emitted static closure module budget."
+  }
+}

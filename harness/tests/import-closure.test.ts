@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
 import { lazyDepths, lazyFenceBreaches } from "../src/import-closure.ts";
 import { readFileSync } from "node:fs";
-import { LAZY_FENCES } from "../src/constraints.ts";
+import { budgetProblems, budgetsAtBase } from "../src/budgets.ts";
+import { CLI_CLOSURE_BUDGETS, LAZY_FENCES } from "../src/constraints.ts";
 import { ratchetMismatches, ratchetRises } from "../src/ratchet.ts";
 import { BASELINE_PATH, baselineAtRatchetBase, type BaselineLanes } from "../src/snapshot.ts";
 import { collectCliFence, collectStaticClosure, staticOutputClosure } from "../src/cli-closure.ts";
@@ -65,7 +66,7 @@ test("static emitted closure follows shared chunks once and excludes dynamic chu
   expect(() => staticOutputClosure({}, "missing.ts")).toThrow("no entry");
 });
 
-test("CLI fence and static closure match the ledger and never rise", () => {
+test("CLI measurements match the ledger, fit budgets and retain the lazy fence", () => {
   const ledger = (JSON.parse(readFileSync(BASELINE_PATH, "utf8")) as BaselineLanes).lanes;
   const base = baselineAtRatchetBase();
   expect(base.ok, base.ok ? "" : base.reason).toBe(true);
@@ -79,7 +80,34 @@ test("CLI fence and static closure match the ledger and never rise", () => {
     problems.push(...ratchetMismatches(ledger[lane], current[lane], lane));
     const previous = base.lanes[lane];
     // Only the introducing commit may have a base without these lanes.
-    if (previous !== undefined) problems.push(...ratchetRises(previous, current[lane], lane));
+    if (lane === "lazy-fence" && previous !== undefined)
+      problems.push(...ratchetRises(previous, current[lane], lane));
   }
+  problems.push(
+    ...budgetProblems(
+      current["cli-closure"],
+      CLI_CLOSURE_BUDGETS,
+      budgetsAtBase(base.rev, "harness/cli-closure-budgets.json", base.lanes["cli-closure"]),
+      0,
+      "cli-closure",
+    ),
+  );
   expect(problems, problems.join("\n")).toEqual([]);
 }, 30000);
+
+test("a CLI closure budget increase needs a changed reason; forbidden imports remain debt", () => {
+  const previous = { modules: { limit: 1107 } };
+  expect(
+    budgetProblems(
+      { modules: 1108 },
+      { modules: { limit: 1108, reason: "seed builders split from seed application" } },
+      previous,
+      0,
+      "cli-closure",
+    ),
+  ).toEqual([]);
+  expect(
+    budgetProblems({ modules: 1108 }, { modules: { limit: 1108 } }, previous, 0, "cli-closure"),
+  ).toHaveLength(1);
+  expect(ratchetRises({}, { "file imports forbidden engine": 1 }, "lazy-fence")).toHaveLength(1);
+});

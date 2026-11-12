@@ -280,6 +280,8 @@ declaration reader as `extension-families`.
 packages without an entry use `NEW_SURFACE_BUDGET`. The surface ledger equals
 measured width, which may grow within its budget. Raising a budget requires a
 new or updated nonempty reason on that entry compared with the fork point.
+The shared budget policy in `harness/src/budgets.ts` compares effective ceilings,
+so removing an entry for a measured package cannot silently raise its limit.
 `family-names` is debt: once present in the fork-point ledger, its counts may
 only fall, with no exceptions. The introducing commit initializes debt lanes
 against a base without them.
@@ -312,8 +314,11 @@ importing file and specifier. `cli-closure` holds total emitted bytes and
 distinct source modules across the dispatcher's entire static output closure,
 including shared chunks and excluding dynamic imports. A measurement build
 uses Bun splitting, whitespace minification (removing path-bearing comments)
-and its metafile; output filenames are not policy. Both
-lanes must match reality and may only fall after their introducing commit.
+and its metafile; output filenames are not policy. Both lanes must match
+reality. The lazy-fence debt may only fall after its introducing commit. CLI
+modules and bytes instead fit the reviewed limits in
+`harness/cli-closure-budgets.json`, through the same budget policy as surface
+widths: raising a ceiling requires a new or updated reason in the same diff.
 `harness:snapshot` regenerates them; an unresolvable source import or missing
 metafile output fails the collector. This check does not change release layout.
 

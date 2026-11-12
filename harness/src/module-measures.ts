@@ -120,34 +120,3 @@ export function collectModuleMeasures(packagesRoot: string = PACKAGES_ROOT): Mod
   }
   return { surface, "family-names": names };
 }
-
-export interface SurfaceBudget {
-  width: number;
-  reason?: string;
-}
-
-/** Surface width is a reviewed budget, rather than irreversible debt. */
-export function surfaceBudgetProblems(
-  measured: Record<string, number>,
-  budgets: Readonly<Record<string, SurfaceBudget>>,
-  previous: Readonly<Record<string, SurfaceBudget>>,
-  newPackageBudget: number,
-): string[] {
-  const problems: string[] = [];
-  for (const [name, width] of Object.entries(measured)) {
-    if (width > (budgets[name]?.width ?? newPackageBudget)) {
-      problems.push(`surface ${name} exceeds its budget`);
-    }
-  }
-  for (const [name, budget] of Object.entries(budgets)) {
-    const before = previous[name];
-    const reason = budget.reason?.trim() ?? "";
-    if (
-      budget.width > (before?.width ?? newPackageBudget) &&
-      (reason === "" || reason === before?.reason?.trim())
-    ) {
-      problems.push(`surface ${name} budget rise needs a new or updated reason`);
-    }
-  }
-  return problems;
-}
