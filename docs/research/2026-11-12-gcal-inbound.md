@@ -55,7 +55,8 @@ that with nodes for every imported event. The reasons:
 
 D9 (Google wins on its own fields, with no push-back) stands, and so does
 §6.6's field table, apart from what §2 changes. Decision 1 asks the owner to
-confirm the supersession.
+confirm the supersession, and E4 in the data-plane build plan should wait
+for that answer.
 
 ## 1. Calendars: which ones, and what keeps kb's own out
 
@@ -227,12 +228,15 @@ lines, EXRULE, several RRULEs, BYHOUR, BYWEEKNO, WKST.
 
 - **`repeat` always holds Google's lines verbatim.** There is one carrier,
   not a "kb rule" field beside a "raw rule" field.
-- **Expansion reads the whole set.** The family's one expansion reader
-  (`seriesDays`/`calendarEntries`) moves from `RRule` to rrule's own
-  `rrulestr(…, {forceset: true})` (`RRuleSet`, in the pinned rrule 2.8.1).
-  It takes DTSTART from `starts` + `at` with `TZID = timezone`. A
-  single-RRULE `repeat`, which is every kb-made event, expands exactly as
-  today, so the reader gains no branch by source.
+- **Expansion reads the whole set.** Today the family's one expansion
+  reader, `seriesDays` in `routines/src/calendar.ts` (which
+  `calendarEntries` calls), goes through `recurrence()` and `canonicalRule`.
+  It refuses any rule the push engine cannot send, and expands the rest with
+  `RRule`. It gains a second path for any other set: rrule's own
+  `rrulestr(…, {forceset: true})` (`RRuleSet`, in the pinned rrule 2.8.1),
+  with DTSTART from `starts` + `at` and `TZID = timezone`. A rule kb can
+  say, which covers every kb-made event, keeps today's path. The split is by
+  what the rule says, never by where the event came from.
 - **The editor names what it can.** The repeat picker names a rule it can
   say ("every week on Mon, Wed"). Anything else shows as its lines, read
   only, because Google owns it.
@@ -265,11 +269,13 @@ lines, EXRULE, several RRULEs, BYHOUR, BYWEEKNO, WKST.
   `on at`.
 - **All-day events.** `start.date` and `end.date` mark them, and the end is
   exclusive. `at` is empty. A one-day event has `duration` empty or 1440.
-  A longer one has days × 1440. **The model needs one reader change here:**
-  today `span` always draws an all-day event as one day, whatever its
-  duration (`projection.ts`). The reader learns to honour a whole-day
-  duration, and kb-made all-day events get multi-day events for free (§10,
-  step G2).
+  A longer one has days × 1440. **The model needs one reader change here.**
+  Today an all-day event is always one day, whatever its duration, in two
+  places: the calendar reader (`entry` in `calendar.ts` gives an all-day
+  entry no start or end, only its day) and the push projection (`span` in
+  `projection.ts` ends it the next day). Both learn to honour a whole-day
+  duration, and kb-made all-day events get multi-day events for free
+  (§10, step G2).
 - **All-day series.** Exceptions' `originalStartTime` is a `date`, so `on at`
   stays empty.
 
@@ -430,7 +436,7 @@ behaviour in a separate commit (Rule 1).
 | — | **E2** (occurrences: `on at`, optional `state`, several a day, one materialize function) and **E3** (managed sync fields), from the data-plane design | — |
 | — | **Jobs** (kb#189 step 11: `#job`, `job: true`, `jobs.run`, `kb jobs`) | — |
 | G1 | **Fields and guards.** `source` on calendars, `import from`, `gcal sync token`, `event status`, `attendees`, `meeting link`, `location`, `description`, each managed. The unique key (calendar, `gcal event id`) on events and (series, `gcal event id`) on occurrences. The push guard on `repeat` limited to push calendars. The guard refusing a `google` calendar that holds a kb calendar's id | E2, E3 |
-| G2 | **The reader.** Expansion through `RRuleSet` (multi-line recurrence, read only). An occurrence's own text and duration. `event status = cancelled` drawn as not happening. Whole-day durations for all-day events. All pure, with DST and all-day tests | E2 |
+| G2 | **The reader.** `seriesDays` expands through `RRuleSet` any set that `canonicalRule` refuses (multi-line recurrence, read only). An occurrence's own text and duration. `event status = cancelled` drawn as not happening. Whole-day durations for all-day events. All pure, with DST and all-day tests | E2 |
 | G3 | **Decoding.** A pure `remoteToWrites(event, calendar, lookup)` that turns a single event, master, exception or cancellation into node writes, with zones and all-day handling, the echo filter and the window. Property tests over generated Google events | G1, G2 |
 | G4 | **The port.** `CalendarSource`, the memory fake, the Google adapter, and `calendarSourceContract` (paging, token on the last page, deltas, 410) | — |
 | G5 | **The action.** `ext.routines.import`: first import, incremental runs, the 410 reconcile, bounded transactions, the token rule, preview. Its seeded `#job` node. The hostless property in the extension contract | G3, G4, jobs |
