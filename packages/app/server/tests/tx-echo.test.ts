@@ -276,7 +276,7 @@ describe("the server echoes every tx to every watcher", () => {
       const hub = new SubscriptionHub(ctx);
       const deps = { root: dir, page: "http://127.0.0.1:4321", ctx, hub };
       const a = await watcher(hub, "client-a");
-      hub.dispose();
+      await Effect.runPromise(hub.dispose());
       await addNode(deps, "n.after", "client-a");
       expect(txFrames(a)).toEqual([]);
     } finally {

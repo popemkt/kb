@@ -407,17 +407,22 @@ const observeExtensions = Effect.fn("kb.observeExtensions")(function* (
  * are Effect programs provided with FileSystem/KbStore layers. Binds
  * 127.0.0.1 only by default.
  */
-export const startUi = Effect.fn("kb.startUi")(function* (
+const openUi = Effect.fn("kb.openUi")(function* (
   opts: UiServerOptions,
-): Effect.fn.Return<UiServerHandle, DomainError, FileSystem> {
+  lifetime: Scope.Closeable,
+): Effect.fn.Return<UiServerHandle, DomainError, FileSystem | Scope.Scope> {
   const asked = yield* listenerOf(opts);
   const openBrowserFlag = opts.openBrowser !== false;
 
-  const lifetime = Scope.makeUnsafe("parallel");
-
   const ctx = yield* openKbEffect(opts.root);
-  const kernel = makeKernel({ host: "server" });
-  const hub = new SubscriptionHub(ctx, channelsOf(kernel), opts.embedding ?? NO_EMBEDDING);
+  const kernel = yield* Effect.acquireRelease(
+    Effect.sync(() => makeKernel({ host: "server" })),
+    (provided) => provided.shutdown,
+  );
+  const hub = yield* Effect.acquireRelease(
+    Effect.sync(() => new SubscriptionHub(ctx, channelsOf(kernel), opts.embedding ?? NO_EMBEDDING)),
+    (owned) => owned.dispose(),
+  );
   const hosted = yield* loadServerPlugins(
     kernel,
     ctx,
@@ -425,7 +430,9 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     opts.extensions ?? [],
     opts.identity ?? [],
   );
-  const observation = yield* observeExtensions(ctx, hosted, hub);
+  const observation = yield* Effect.acquireRelease(observeExtensions(ctx, hosted, hub), (owned) =>
+    Effect.sync(owned.unsubscribe),
+  );
   const queries = new SavedQuerySet(ctx);
   queries.adopt(savedQueryNodes(yield* listSavedQueriesEffect(opts.root)));
 
@@ -467,17 +474,6 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   // Kept beside the server's start, not before it: the tabs it keeps them
   // for are of earlier builds, which earlier starts kept.
   yield* delivery.keep;
-
-  yield* Scope.addFinalizer(
-    lifetime,
-    Effect.sync(() => {
-      hub.dispose();
-      void server.stop(true);
-    }),
-  );
-  // Each plugin's scope closes with the server's: what it forked stops with it.
-  yield* Scope.addFinalizer(lifetime, Effect.sync(observation.unsubscribe));
-  yield* Scope.addFinalizer(lifetime, kernel.shutdown);
 
   // The store says when it moved; the server never names its files. The first
   // element is the state once the subscription is armed, so a write that
@@ -526,6 +522,15 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     hosted,
     stop: Scope.close(lifetime, Exit.void),
   };
+});
+
+/** Startup owns its lifetime until it successfully returns the handle that owns stop. */
+export const startUi = Effect.fn("kb.startUi")(function* (opts: UiServerOptions) {
+  const lifetime = Scope.makeUnsafe("parallel");
+  return yield* openUi(opts, lifetime).pipe(
+    Effect.provideService(Scope.Scope, lifetime),
+    Effect.onExit((exit) => (Exit.isFailure(exit) ? Scope.close(lifetime, exit) : Effect.void)),
+  );
 }, Effect.provide(bunFileSystemLayer));
 
 export interface UiDevServer {

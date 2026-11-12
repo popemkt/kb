@@ -1,8 +1,10 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect } from "effect";
+import { Effect, Exit, Fiber } from "effect";
+import { definePlugin } from "@kb/plugin";
+import { SubscriptionHub } from "../src/session.ts";
 import * as FileSystem from "effect/FileSystem";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import { loadCodeImage } from "@kb/code-image";
@@ -204,3 +206,90 @@ test("an old tab keeps its held chunks across server upgrades without admitting 
     await rm(root, { recursive: true, force: true });
   }
 });
+
+for (const transport of ["tcp", "socket"] as const)
+  for (const end of ["interruption", "failure"] as const)
+    test(`${transport}: startup ${end} during held publication releases its listener, hub and plugin scopes`, async () => {
+      const root = await mkdtemp(join(tmpdir(), "kb-held-startup-lifetime-"));
+      const image = await upgradeImage("pending");
+      let entered!: () => void;
+      const publishing = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      let reject!: (error: Error) => void;
+      const pending = new Promise<string>((_resolve, fail) => {
+        reject = fail;
+      });
+      class PendingIndex extends Blob {
+        override text(): Promise<string> {
+          entered();
+          return pending;
+        }
+      }
+      let alive = false;
+      const plugin = definePlugin({
+        name: "startup-lifetime-probe",
+        apply: () =>
+          Effect.acquireRelease(
+            Effect.sync(() => {
+              alive = true;
+            }),
+            () =>
+              Effect.sync(() => {
+                alive = false;
+              }),
+          ),
+      });
+      let listener: ReturnType<typeof Bun.serve> | undefined;
+      const listening = spyOn(Bun, "serve");
+      const disposed = spyOn(SubscriptionHub.prototype, "dispose");
+      const { startUi } = await import("../src/server.ts");
+      const socket = join(root, "listener.sock");
+      const fiber = Effect.runFork(
+        startUi({
+          root,
+          openBrowser: false,
+          builds: join(root, "builds"),
+          identity: [plugin],
+          ...(transport === "tcp" ? { port: 0 } : { socket, publicOrigin: "http://localhost" }),
+          codeImage: {
+            ...image,
+            pageFile: (name) =>
+              name === "index.html" ? new PendingIndex(["held index"]) : image.pageFile(name),
+          },
+        }),
+      );
+      try {
+        await publishing;
+        const bound = listening.mock.results[0];
+        if (bound?.type !== "return") throw new Error("listener not acquired");
+        const acquired = bound.value;
+        listener = acquired;
+        const request = () =>
+          transport === "tcp"
+            ? fetch(new URL("/api/identity", acquired.url))
+            : fetch("http://localhost/api/identity", { unix: socket });
+        expect((await request()).status).toBe(200);
+        expect(alive).toBe(true);
+        expect(listener).toBeDefined();
+        if (end === "failure") reject(new Error("publication failure"));
+        if (end === "interruption") await Effect.runPromise(Fiber.interrupt(fiber));
+        const exit = await Effect.runPromise(Fiber.await(fiber));
+        expect(Exit.isFailure(exit)).toBe(true);
+        expect(alive).toBe(false);
+        expect(disposed).toHaveBeenCalledTimes(1);
+        expect(
+          await request().then(
+            (response) => response.status,
+            () => null,
+          ),
+        ).toBeNull();
+        if (transport === "socket") expect(await Bun.file(socket).exists()).toBe(false);
+      } finally {
+        await Effect.runPromise(Fiber.interrupt(fiber));
+        listening.mockRestore();
+        disposed.mockRestore();
+        if (listener !== undefined) await listener.stop(true);
+        await rm(root, { recursive: true, force: true });
+      }
+    });

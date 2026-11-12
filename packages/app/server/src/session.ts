@@ -153,10 +153,12 @@ export class SubscriptionHub {
   }
 
   /** Detach from the log. The server scope owns this. */
-  dispose(): void {
-    this.unsubscribe();
-    this.clients.clear();
-    Effect.runFork(this.screens.dispose());
+  dispose(): Effect.Effect<void> {
+    return Effect.suspend(() => {
+      this.unsubscribe();
+      this.clients.clear();
+      return this.screens.dispose();
+    });
   }
 
   /** Runtime definitions moved without a node delta; answers still follow the index. */

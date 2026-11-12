@@ -99,7 +99,7 @@ async function hello(hub: SubscriptionHub): Promise<unknown> {
   const frames: string[] = [];
   const send = (text: string) => Effect.sync(() => void frames.push(text));
   await Effect.runPromise(hub.addClient("c1", send, PROGRAM));
-  hub.dispose();
+  await Effect.runPromise(hub.dispose());
   return JSON.parse(present(frames[0], "the hello frame"));
 }
 
@@ -111,7 +111,7 @@ async function greeted(hub: SubscriptionHub): Promise<unknown> {
       frames.push(text);
     });
   await Effect.runPromise(hub.addClient("c1", send, PROGRAM));
-  hub.dispose();
+  await Effect.runPromise(hub.dispose());
   return JSON.parse(present(frames[1], "the person frame"));
 }
 

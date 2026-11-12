@@ -52,9 +52,7 @@ function stale(path: string): Effect.Effect<boolean> {
  *   owner read and write;
  * - is removed when `lifetime` closes.
  */
-export const listen = Effect.fn("kb.listen")(function* <
-  T extends { stop(force?: boolean): unknown },
->(
+const bind = Effect.fn("kb.bind")(function* <T extends { stop(force?: boolean): unknown }>(
   at: UiListener,
   lifetime: Scope.Closeable,
   serve: (where: BindOptions) => T,
@@ -89,4 +87,13 @@ export const listen = Effect.fn("kb.listen")(function* <
     Effect.tapError(() => Effect.sync(() => void served.stop(true))),
   );
   return served;
+});
+
+/** Acquiring the bound listener and registering its stop are one uninterruptible resource operation. */
+export const listen = Effect.fn("kb.listen")(function* <
+  T extends { stop(force?: boolean): unknown },
+>(at: UiListener, lifetime: Scope.Closeable, serve: (where: BindOptions) => T) {
+  return yield* Effect.acquireRelease(bind(at, lifetime, serve), (listener) =>
+    Effect.asVoid(Effect.promise(() => Promise.resolve(listener.stop(true)))),
+  ).pipe(Effect.provideService(Scope.Scope, lifetime));
 });
