@@ -77,6 +77,9 @@ describe("settingsOf", () => {
     expect(ids).toContain(SYSTEM_IDS.backdropDirectionField);
     expect(ids).not.toContain(SYSTEM_IDS.extensionEnabledField);
     expect(ids.filter((id) => id.startsWith("sys.f.motion.")).length).toBe(14);
+    const head = settings.find((s) => s.field === SYSTEM_IDS.backdropHeadField);
+    expect(head?.cardinality).toBe("one");
+    expect(head?.options.map((o) => o.label)).toEqual(["shadow", "fade"]);
     const strength = settings.find((s) => s.field === SYSTEM_IDS.backdropStrengthField);
     expect(strength?.cardinality).toBe("one");
     expect(strength?.options.map((o) => o.label)).toEqual(["subtle", "soft", "vivid"]);

@@ -191,6 +191,12 @@ export const BACKDROP_STRENGTH_OPTION_IDS: Readonly<Record<BackdropStrength, Nod
   soft: "sys.backdrop-strength.soft",
   vivid: "sys.backdrop-strength.vivid",
 };
+export const BACKDROP_HEADS = ["shadow", "fade"] as const;
+export type BackdropHead = (typeof BACKDROP_HEADS)[number];
+export const BACKDROP_HEAD_OPTION_IDS: Readonly<Record<BackdropHead, NodeId>> = {
+  shadow: "sys.backdrop-head.shadow",
+  fade: "sys.backdrop-head.fade",
+};
 export const BACKDROP_DIRECTION_OPTION_IDS: Readonly<Record<BackdropDirection, NodeId>> = {
   down: "sys.backdrop-direction.down",
   up: "sys.backdrop-direction.up",
@@ -202,6 +208,7 @@ export interface BackdropChoice {
   readonly backdrop: string | null;
   /** The strength chosen; null, none (`shownStrength` resolves it once a variant is drawn). */
   readonly strength: BackdropStrength | null;
+  readonly head: BackdropHead;
   readonly direction: BackdropDirection;
   /**
    * A file of kb's own assets (`assets/…`) naming the art the backdrop draws
@@ -255,6 +262,14 @@ export function backdropChoice(
           firstRef(SYSTEM_IDS.backdropStrengthField)(props),
         ),
       ) ?? null,
+    head:
+      first((props) =>
+        optionOf(
+          BACKDROP_HEADS,
+          BACKDROP_HEAD_OPTION_IDS,
+          firstRef(SYSTEM_IDS.backdropHeadField)(props),
+        ),
+      ) ?? "shadow",
     direction:
       first((props) =>
         optionOf(

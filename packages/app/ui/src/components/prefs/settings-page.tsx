@@ -118,6 +118,7 @@ const CORE_GROUPS: readonly {
     title: "Page head",
     rows: [
       { field: SYSTEM_IDS.backdropField, label: "backdrop" },
+      { field: SYSTEM_IDS.backdropHeadField, label: "head" },
       { field: SYSTEM_IDS.backdropStrengthField, label: "strength" },
       { field: SYSTEM_IDS.backdropDirectionField, label: "direction" },
       { field: SYSTEM_IDS.backdropArtField, label: "art" },
@@ -435,6 +436,7 @@ function useCoreRow(graph: GraphRead, settings: readonly Setting[]): CoreRowOf {
   // theme's pairing or the default, as the head resolves it.
   const headInForce: ReadonlyMap<NodeId, string> = new Map([
     [SYSTEM_IDS.backdropField, head.backdrop?.value.key.label ?? "none"],
+    [SYSTEM_IDS.backdropHeadField, head.head],
     [SYSTEM_IDS.backdropStrengthField, head.strength ?? strengthsOwn(head)],
     [SYSTEM_IDS.backdropDirectionField, head.direction],
     [SYSTEM_IDS.backdropArtField, head.art ?? "its own"],

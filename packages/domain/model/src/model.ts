@@ -293,6 +293,7 @@ export const SYSTEM_IDS = {
    * Settings of core's node, and on any node, of that node's page.
    */
   backdropField: "sys.f.backdrop",
+  backdropHeadField: "sys.f.backdrop.head",
   backdropStrengthField: "sys.f.backdrop.strength",
   backdropDirectionField: "sys.f.backdrop.direction",
   backdropArtField: "sys.f.backdrop.art",

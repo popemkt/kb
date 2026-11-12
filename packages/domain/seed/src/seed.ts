@@ -1,4 +1,6 @@
 import {
+  BACKDROP_HEADS,
+  BACKDROP_HEAD_OPTION_IDS,
   BACKDROP_DIRECTIONS,
   BACKDROP_DIRECTION_OPTION_IDS,
   BACKDROP_STRENGTHS,
@@ -428,6 +430,11 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     props: { [SYSTEM_IDS.configuresField]: [{ t: "ref", v: extensionNodeId("core") }] },
   };
   const backdropField = singleField(SYSTEM_IDS.backdropField, "backdrop", "ref", configuresCore);
+  const headOptions = BACKDROP_HEADS.map((value) => mk(BACKDROP_HEAD_OPTION_IDS[value], value));
+  const backdropHeadField: KbNode = {
+    ...singleField(SYSTEM_IDS.backdropHeadField, "backdrop.head", "ref", configuresCore),
+    children: headOptions.map((option) => option.id),
+  };
   const strengthOptions = BACKDROP_STRENGTHS.map((value) =>
     mk(BACKDROP_STRENGTH_OPTION_IDS[value], value),
   );
@@ -595,6 +602,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     configuresField,
     managedByField,
     backdropField,
+    backdropHeadField,
+    ...headOptions,
     backdropStrengthField,
     ...strengthOptions,
     backdropDirectionField,

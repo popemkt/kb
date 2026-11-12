@@ -730,8 +730,8 @@ describe("every contributed page-head backdrop", () => {
       return found;
     };
 
-    it("draws core's five settings as field rows, the backdrop's as a gallery with a card per contributed backdrop", () => {
-      expect(rows().querySelectorAll("[data-field-row]")).toHaveLength(5);
+    it("draws core's six settings as field rows, the backdrop's as a gallery with a card per contributed backdrop", () => {
+      expect(rows().querySelectorAll("[data-field-row]")).toHaveLength(6);
       expect(rows().querySelector("[data-option-gallery]")).not.toBeNull();
       for (const { value } of backdrops()) {
         expect(

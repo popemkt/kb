@@ -4740,20 +4740,14 @@ A PR for a backdrop reports a score against each criterion.
   outline's home head and its zoomed head are the heads that render it
   today; canvas and graph pages have no head yet, so nothing renders it
   there (gap 01M54CEKJJXNDPYNT55AR6KEV8).
-- **The head's top row reads over any backdrop.** The rows the space holds
-  stand, as wide as they are, on a scrim that is the page's ground itself
-  (`HeadBand`): opaque, soft-edged by a blur, and reaching past the rows by
-  twice that blur, so under every glyph it is at least nine parts ground
-  and the backdrop shows all round it rather than under a band. Muted
-  breadcrumbs keep AA contrast that way on any picture, light or dark: a
-  thinner, translucent scrim does not, for the muted ink is near AA on the
-  bare ground already. `head-band-contrast.e2e.ts` photographs the band
-  with its text made transparent, for every contributed backdrop at its
-  strongest, on the home and a node's page, in light and in dark, and holds
-  each crumb's colour against every pixel of its box to at least 4.5:1.
-  Theme art composed to keep the band clear in a narrow head (the OVC
-  terminal, the broadcast sign) now reaches under it there
-  (gap 01M7355M039ESNZV6N85EV8BQ2).
+- **The head's top row reads over a backdrop.** `backdrop.head` chooses
+  `shadow` (default), a glyph-local text and icon halo, or `fade`, a
+  region-wide gradient of the page's ground (`HeadBand`). Like strength,
+  this is a node option, resolved from the page's node, then core's.
+  `head-band-contrast.e2e.ts` holds fade's breadcrumb colour against every
+  pixel of its box to at least 4.5:1 for each backdrop in both schemes.
+  Shadow was approved visually; a glyph-local contrast check is deferred
+  (GAP [[01M789X4HZ130RY16R7ASVVVF7]]).
 - **One backdrop across pages.** A pane's backdrop host
   (`PageBackdropHost`, in `PaneFrame`) is the one place a page-head
   backdrop is drawn, mounted once for the pane above the router, so moving

@@ -63,6 +63,11 @@ interface NotAClass {
 }
 
 const NOT_CLASSES: readonly NotAClass[] = [
+  {
+    file: "@kb/ui-sdk/src/components/page-backdrop.tsx",
+    candidate: "shadow",
+    context: 'head === "shadow"',
+  },
   // tailwind-merge's theme key for the elevation names.
   { file: "@kb/ui-sdk/src/lib/cn.ts", candidate: "shadow", context: "shadow: [...ELEVATIONS]" },
   // Prose in the Light study's description.
