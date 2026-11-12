@@ -1,5 +1,5 @@
 import type { BackdropDirection } from "@kb/appearance";
-import type { BackdropPresentation } from "./plugins";
+import type { BackdropPresentation } from "./appearance-points.ts";
 
 /**
  * How far down its frame a card's window looks (frame pixels), `shown`

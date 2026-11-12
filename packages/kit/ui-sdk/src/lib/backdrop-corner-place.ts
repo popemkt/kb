@@ -3,7 +3,7 @@
  * DESIGN-UI.md → Page-head backdrops → Its actions), measured from the top
  * of the head's breathing room, which the page's title follows.
  */
-import type { BackdropPresentation } from "./plugins";
+import type { BackdropPresentation } from "./appearance-points.ts";
 
 /** How far the corner keeps inside its frame's top edge, and above the title. */
 export const CORNER_INSET = 8;

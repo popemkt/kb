@@ -39,14 +39,16 @@ import { type FrameViewKey, isFrameViewKey } from "@kb/views";
 import { shownDesignSystem } from "./lib/design-system";
 import {
   BackdropPoint,
-  chosenDeclared,
   DesignSystemPoint,
   type DesignSystem,
+  type Backdrop,
+} from "./lib/appearance-points.ts";
+import {
+  chosenDeclared,
   familyViews,
   uiKernelReader,
   useContributions,
   ViewPoint,
-  type Backdrop,
   type PageActivity,
 } from "./lib/plugins.ts";
 import type { Contribution } from "@kb/plugin";

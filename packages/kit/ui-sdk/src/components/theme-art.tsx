@@ -1,5 +1,5 @@
 import { usePageActivity, useShownDesignSystem } from "../hooks";
-import type { ThemeArtPlane } from "../lib/plugins";
+import type { ThemeArtPlane } from "../lib/appearance-points.ts";
 import { usePath } from "../lib/router";
 
 /**

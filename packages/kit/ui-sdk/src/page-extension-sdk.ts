@@ -8,18 +8,20 @@ import { useReducedMotion } from "./lib/motion";
 import { provideValueKind, ValueKindPoint } from "./lib/value-kind";
 import {
   BACKDROP_BUDGETS,
-  BackdropPoint,
-  DesignSystemPoint,
   DockPoint,
   OverlayPoint,
   RoutePoint,
   SidebarSectionPoint,
   ViewPoint,
-  provideBackdrop,
-  provideDesignSystem,
   provideRoute,
   provideView,
 } from "./lib/plugins.ts";
+import {
+  BackdropPoint,
+  DesignSystemPoint,
+  provideBackdrop,
+  provideDesignSystem,
+} from "./lib/appearance-points.ts";
 
 /**
  * The host's own page objects: point keys compare by identity, so an extension

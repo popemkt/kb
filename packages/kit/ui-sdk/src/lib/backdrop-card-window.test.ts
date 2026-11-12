@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { cardWindowTop } from "./backdrop-card-window";
-import type { BackdropPresentation } from "./plugins";
+import type { BackdropPresentation } from "./appearance-points.ts";
 
 const frame = (
   space: number,

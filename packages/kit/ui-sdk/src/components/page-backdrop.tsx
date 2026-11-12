@@ -25,7 +25,7 @@ import { useLoadSeed } from "../lib/load-seed";
 import { cn } from "../lib/cn";
 import { useReducedMotion } from "../lib/motion";
 import { readTiming } from "../lib/timing";
-import type { Backdrop, BackdropPresentation, BackdropProps } from "../lib/plugins";
+import type { Backdrop, BackdropPresentation, BackdropProps } from "../lib/appearance-points.ts";
 import { usePointerOver } from "../lib/pointer-over";
 import type { OutlineNode } from "../lib/types";
 import { cornerTop } from "../lib/backdrop-corner-place";

@@ -21,7 +21,7 @@ import {
   type Backdrop,
   type BackdropCue,
   type BackdropProps,
-} from "./plugins.ts";
+} from "./appearance-points.ts";
 
 /** One contribution read: the backdrop to draw, or why it is refused. */
 export type DecodedBackdrop =
