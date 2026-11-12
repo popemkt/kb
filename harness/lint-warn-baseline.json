@@ -177,7 +177,7 @@
     },
     "cli-closure": {
       "bytes": 5855891,
-      "modules": 1107
+      "modules": 1108
     },
     "single-family": {
       "contract/sandbox/src/snapshot.ts": 1,

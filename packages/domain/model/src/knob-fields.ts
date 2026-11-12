@@ -14,7 +14,7 @@ import { backdropOptionId, backdropVariantOptionId, type SeedBackdrop } from "./
 import { KNOB_COLOR, type Knob, type KnobValue, type KnobValues } from "./knob.ts";
 import { SYSTEM_IDS, type KbNode, type NodeId, type PropValue } from "./model.ts";
 import type { FieldType } from "./field-type.ts";
-import { seededField } from "./seed.ts";
+import { seededField } from "./seed-builders.ts";
 
 /** The field holding the knob `knobId`'s value on the node `holder` it configures. */
 export function knobFieldId(holder: NodeId, knobId: string): NodeId {

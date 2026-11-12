@@ -264,13 +264,8 @@ export {
   type MotionChoice,
   type MotionSource,
 } from "./motion-choice.ts";
-export {
-  ensureSystemSeed,
-  seededCommand,
-  seededField,
-  seededTag,
-  systemSeedNodes,
-} from "./seed.ts";
+export { ensureSystemSeed, systemSeedNodes } from "./seed.ts";
+export { seededCommand, seededField, seededTag } from "./seed-builders.ts";
 export {
   claimedTagViews,
   foldSeed,
