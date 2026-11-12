@@ -517,14 +517,18 @@ What the numbers say:
   client's time minus its 0.5 ms transport. Its answers were fresh. A node
   that a one-shot `kb add` made, and then one that a `kb rm` removed a
   moment later, were both seen correctly on the next call through the
-  socket, so the host already checks the store on each call.
+  socket. That is by design: `serverInvoke` (`@kb/server`, `invoke.ts`)
+  runs `reloadEffect` before every invocation, so a write another process
+  made is never missed. The ~8 ms includes that check.
 - **kb already has the pieces.** `kb ui --socket` listens on a Unix socket
   only its owner can connect to (mode 0600). `.kb/ui.json`, which the CLI
   already reads for screens (`servingUi` in `@kb/workspace-fs`), says which
   host serves a root. `POST /api/action` invokes an action.
 
 **The in-process path's baseline.** The module builder's PR 2 on
-popemkt/kb (commit `b2c2a6d8`, gap `01M7896YXTKZJVQFW9G3GF0144`) measured
+popemkt/kb measured it (commit `b2c2a6d8`, gap
+`01M7896YXTKZJVQFW9G3GF0144`, both on that branch and not yet on `main`
+when this was written). It measured
 the CLI dispatch entry's static closure: `packages/app/cli/src/cli.ts` at
 depth 1, following shared output chunks through the esbuild metafile. It is
 **7,169,864 bytes in 1,107 modules** today. Four breaches are pulled in
@@ -535,6 +539,20 @@ to the core (§1.3's ~86 ms floor) before the command reads anything. The
 launcher of option B has to stay tiny: the presence reader and the socket
 client, a few kilobytes, with the 7.2 MB behind its one `import()`. The
 closure budget of §4.4 (item 2) uses this figure as its first baseline.
+When that PR lands, its gap and this record's "no fence or budget" gap
+(`01M75MA3QTAABRAE6N0069CB8R`) should become one.
+
+Three sizes in this record measure three different closures:
+
+- **5.2 MB (§0):** the static graph behind this record's own `--splitting`
+  build of `main.ts`, at `d94876c5`;
+- **7.2 MB:** `cli.ts` at depth 1, following shared chunks, on a later
+  `main`;
+- **8.1 MB (§1.3):** the `@kb/runtime` barrel bundled alone, where nothing
+  is shaken out by the CLI's use.
+
+They agree on what matters here: the command path is megabytes, and the
+launcher has to be kilobytes.
 
 ### 5.2 The options
 
@@ -573,8 +591,12 @@ number of processes, and at most one host per root makes them faster.
   reads: `KB_VIA`, `KB_HOME`, `KB_DATA`, `KB_CACHE`. The reply is
   `{stdout, stderr, exit}`, streamed for long output.
 - **Running it.** The host runs the same command table in-process, on the
-  CLI's own wire (`IN_PROCESS_WIRE`: actor `cli`, carries approval). A
-  command forwarded this way is decided exactly as it would be locally.
+  CLI's own wire (`ACTION_INVOKE_WIRE` in `cli/src/command.ts`: actor
+  `cli`, and the JSON envelope carries no approval), so a command forwarded
+  this way is decided exactly as it would be locally. The CLI approves
+  through a confirmation on the controlling terminal (`invokeCliEffect`),
+  which a forwarded command has no access to. A command that would ask is
+  therefore one of those that run locally (below).
   `POST /api/action` stays what it is today, a local program's wire with no
   approval and actor `agent`, so the launcher does not reuse it.
 - **Who may call.** The route is admitted on the owner-only socket only,
@@ -582,7 +604,8 @@ number of processes, and at most one host per root makes them faster.
   over TCP, where kb cannot tell who the caller is.
 - **Commands that always run locally:**
   - commands that read stdin or prompt (`procedure --run` without `--yes`,
-    and `--outline -`);
+    `--outline -`, and any call whose action asks for approval at the
+    terminal);
   - the host commands (`kb ui`, `kb mcp`, `kb open`) and `kb init`;
   - a `--root` other than the host's.
 - **Skew and stale presence.** The request names the root and the build
