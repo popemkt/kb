@@ -13,6 +13,7 @@
  *
  * Deterministic: sorted keys, no timestamps.
  */
+import { collectModuleMeasures, type ModuleMeasures } from "./module-measures.ts";
 import { execFileSync, execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -34,7 +35,7 @@ export const BASELINE_PATH = join(HARNESS_ROOT, "lint-warn-baseline.json");
 const ADVISORY_RULES = new Set(["typescript/no-deprecated"]);
 
 export interface BaselineLanes {
-  lanes: {
+  lanes: ModuleMeasures & {
     blocking: Record<string, number>;
     advisory: Record<string, number>;
     knip: Record<string, number>;
@@ -50,7 +51,11 @@ export interface BaselineLanes {
 export const RATCHET_BASE_REFS = ["main", "origin/main"] as const;
 
 export type BaseLedger =
-  | { ok: true; rev: string; lanes: BaselineLanes["lanes"] }
+  | {
+      ok: true;
+      rev: string;
+      lanes: Omit<BaselineLanes["lanes"], keyof ModuleMeasures> & Partial<ModuleMeasures>;
+    }
   | { ok: false; reason: string };
 
 export function baselineAtRatchetBase(
@@ -435,6 +440,7 @@ function buildBaseline(
 
   return {
     lanes: {
+      ...collectModuleMeasures(),
       blocking,
       advisory,
       knip: sortedRecord(knipFindings),
