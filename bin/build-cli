@@ -1,0 +1,10 @@
+#!/bin/sh
+# The installed entry is a guarded loader; program.js is its one importable runtime artifact.
+set -eu
+if [ "$#" -ne 1 ]; then
+  echo 'usage: bin/build-cli <output-directory>' >&2
+  exit 64
+fi
+bun build packages/app/cli/src/packaged.ts packages/app/cli/src/program.ts \
+  --outdir "$1" --target=bun --sourcemap=none
+mv "$1/packaged.js" "$1/cli.js"

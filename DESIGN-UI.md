@@ -527,8 +527,12 @@ and the supplied page-file set before loading. It imports the captured native
 bytes under a fresh load URL and publishes identity only after import succeeds.
 Page reads return immutable captured Blobs, with no filesystem fallback; the
 page digest covers the sorted filename/content manifest, including lazy modules
-and workers. This primitive is not yet bound to the production bootstrap or
-HTTP server and grants no authority by itself.
+and workers. The packaged entry validates the launch contract before capturing
+`program.js` and the complete packaged page tree, then invokes the returned
+module's `main` with that same image port. Release and Nix use `bin/build-cli`
+for the loader/runtime artifacts. Production HTTP consumes the port's captured
+files; retained older chunks are captured separately and do not extend the
+current image identity. This wiring grants no authority by itself.
 
 In checkout/dev execution the visible reason is “approvals need a packaged
 build”. Normal keyboard dispatch and non-replacing stored shortcuts remain

@@ -3,7 +3,13 @@ import { Command, CommanderError } from "commander";
 import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { join } from "node:path";
-import { UI_DEFAULT_PORT, type KbContext, type ActionReceipt, onWire } from "@kb/contracts";
+import {
+  UI_DEFAULT_PORT,
+  type KbContext,
+  type CodeImagePort,
+  type ActionReceipt,
+  onWire,
+} from "@kb/contracts";
 import {
   kbRuntimeLayer,
   openKbEffect,
@@ -262,7 +268,7 @@ interface MvOpts extends ForceOpts {
   rootParent?: boolean;
 }
 
-function buildProgram(): Command {
+function buildProgram(codeImage: CodeImagePort | undefined): Command {
   const program = new Command();
   program
     .name("kb")
@@ -355,6 +361,7 @@ function buildProgram(): Command {
             const root = yield* resolveRootEffect({ root: globals.root });
             return yield* runUiCli({
               root,
+              codeImage,
               port: opts.port ?? UI_DEFAULT_PORT,
               socket: opts.socket,
               openBrowser: opts.open !== false,
@@ -766,8 +773,8 @@ function buildProgram(): Command {
  * turning a thrown parse/usage error into the same exit code every command
  * uses.
  */
-export function main(argv: string[] = process.argv): Promise<number> {
-  return buildProgram()
+export function main(argv: string[] = process.argv, codeImage?: CodeImagePort): Promise<number> {
+  return buildProgram(codeImage)
     .parseAsync(argv)
     .then(() => (typeof process.exitCode === "number" ? process.exitCode : EXIT_OK))
     .catch((err: unknown) => {

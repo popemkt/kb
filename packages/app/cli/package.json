@@ -12,11 +12,13 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@effect/platform-bun": "catalog:",
     "@kb/agent": "workspace:*",
     "@kb/agent-claude": "workspace:*",
     "@kb/agent-openai": "workspace:*",
     "@kb/bundled": "workspace:*",
     "@kb/child-process": "workspace:*",
+    "@kb/code-image": "workspace:*",
     "@kb/contracts": "workspace:*",
     "@kb/ext-sdk": "workspace:*",
     "@kb/mcp": "workspace:*",
@@ -27,6 +29,7 @@
     "@kb/routines-host": "workspace:*",
     "@kb/runtime": "workspace:*",
     "@kb/server": "workspace:*",
+    "@kb/workspace-fs": "workspace:*",
     "commander": "catalog:",
     "effect": "catalog:"
   },
@@ -37,7 +40,6 @@
     "@kb/sandbox": "workspace:*",
     "@kb/test-kit": "workspace:*",
     "@kb/webmcp": "workspace:*",
-    "@kb/workspace-fs": "workspace:*",
     "@modelcontextprotocol/sdk": "catalog:",
     "@types/bun": "catalog:",
     "typescript": "catalog:",

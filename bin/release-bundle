@@ -1,7 +1,8 @@
 #!/bin/sh
 # Builds kb's platform-independent release bundle from this checkout:
 #   out/kb-<version>/bin/kb                         sh launcher
-#   out/kb-<version>/lib/kb/cli.js                  the CLI, one bun-target script
+#   out/kb-<version>/lib/kb/cli.js                  the guarded packaged loader
+#   out/kb-<version>/lib/kb/program.js              the held runtime artifact
 #   out/kb-<version>/lib/kb/packages/app/ui/dist    the UI it serves
 # packed as out/kb-<version>.tar.gz with out/kb-<version>.tar.gz.sha256.
 # The version is package.json's, or the one given as `bin/release-bundle
@@ -28,10 +29,10 @@ trap 'mv "$out/sdk-dts.text.ts.committed" "$sdk"' EXIT
 bun packages/contract/ext-sdk/scripts/generate.ts --version "$version"
 
 (cd packages/app/ui && bun run build)
-bun build packages/app/cli/src/main.ts --outdir "$out/cli" --target=bun --sourcemap=none
+bin/build-cli "$out/cli"
 
 mkdir -p "$stage/bin" "$stage/lib/kb/packages/app/ui"
-cp "$out/cli/main.js" "$stage/lib/kb/cli.js"
+cp "$out/cli/cli.js" "$out/cli/program.js" "$stage/lib/kb/"
 cp bin/kb-bun "$stage/lib/kb/launch"
 cp packages/infrastructure/child-process/src/kb-launch-flags.txt "$stage/lib/kb/launch-flags"
 cp -R packages/app/ui/dist "$stage/lib/kb/packages/app/ui/dist"

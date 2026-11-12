@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtemp, mkdir, readFile, writeFile, copyFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, writeFile, copyFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { KB_SOURCE_BIN, extensionModule, writeTrustedExtension } from "@kb/test-kit";
@@ -13,17 +13,19 @@ beforeAll(async () => {
   const lib = join(release, "lib/kb");
   await mkdir(lib, { recursive: true });
   await mkdir(join(release, "bin"));
-  const built = await Bun.build({
-    entrypoints: ["main", "program"].map((name) =>
-      join(repository, `packages/app/cli/src/${name}.ts`),
-    ),
-    target: "bun",
-    outdir: lib,
-    naming: "[name].js",
-    throw: false,
+  const built = Bun.spawn(["sh", join(repository, "bin/build-cli"), lib], {
+    cwd: repository,
+    stdout: "ignore",
+    stderr: "pipe",
   });
-  if (!built.success) throw new Error(built.logs.map((log) => log.message).join("\n"));
-  await copyFile(join(lib, "main.js"), join(lib, "cli.js"));
+  const error = await new Response(built.stderr).text();
+  if ((await built.exited) !== 0) throw new Error(error);
+  expect((await readdir(lib)).toSorted()).toEqual(["cli.js", "program.js"]);
+  await mkdir(join(lib, "packages/app/ui/dist"), { recursive: true });
+  await writeFile(join(lib, "packages/app/ui/dist/index.html"), "startup fixture");
+  await mkdir(join(lib, "packages/app/ui/dist/static"));
+  await writeFile(join(lib, "packages/app/ui/dist/static/lazy.js"), "held lazy module");
+  await writeFile(join(lib, "packages/app/ui/dist/static/worker.js"), "held worker");
   await copyFile(join(repository, "bin/kb-bun"), join(lib, "launch"));
   await copyFile(
     join(repository, "packages/infrastructure/child-process/src/kb-launch-flags.txt"),
@@ -169,6 +171,61 @@ console.log("status=" + await program.main([process.execPath, ${JSON.stringify(e
     ]);
     expect(await Bun.file(join(on.root, ".kb", "nodes.jsonl")).exists()).toBe(false);
   });
+  test("the packaged server keeps executing and serving its captured artifacts after disk replacement", async () => {
+    const on = await fixture("held-packaged-server");
+    const lib = join(release, "lib/kb");
+    const paths = [
+      "program.js",
+      "packages/app/ui/dist/index.html",
+      "packages/app/ui/dist/static/lazy.js",
+      "packages/app/ui/dist/static/worker.js",
+    ];
+    const originals = await Promise.all(
+      paths.map(async (path) => ({ path, bytes: await readFile(join(lib, path)) })),
+    );
+    const child = Bun.spawn(
+      [join(release, "bin/kb"), "--root", on.root, "ui", "--port", "0", "--no-open"],
+      {
+        cwd: on.root,
+        env: on.env,
+        stdin: "ignore",
+        stdout: "ignore",
+        stderr: "pipe",
+      },
+    );
+    const timeout = setTimeout(() => child.kill(), 10_000);
+    const reader = child.stderr.getReader();
+    try {
+      let log = "";
+      let address: string | undefined;
+      while (address === undefined) {
+        const chunk = await reader.read();
+        if (chunk.done) throw new Error(`packaged server stopped before listening: ${log}`);
+        log += new TextDecoder().decode(chunk.value);
+        address = /kb ui listening on (http:\/\/[^;\s]+)/.exec(log)?.[1];
+      }
+      clearTimeout(timeout);
+      for (const path of paths)
+        await writeFile(join(lib, path), 'throw new Error("disk replacement")');
+      await writeFile(join(lib, "packages/app/ui/dist/static/unheld.js"), "unheld disk module");
+      const index = await fetch(address);
+      expect(await index.text()).toBe("startup fixture");
+      expect(index.headers.get("ETag")).toMatch(/^"sha256:/);
+      expect(await (await fetch(new URL("/static/lazy.js", address))).text()).toBe(
+        "held lazy module",
+      );
+      expect(await (await fetch(new URL("/static/worker.js", address))).text()).toBe("held worker");
+      expect((await fetch(new URL("/static/unheld.js", address))).status).toBe(404);
+      expect((await fetch(new URL("/api/identity", address))).status).toBe(200);
+    } finally {
+      clearTimeout(timeout);
+      child.kill();
+      await child.exited;
+      reader.releaseLock();
+      await Promise.all(originals.map(({ path, bytes }) => writeFile(join(lib, path), bytes)));
+      await rm(join(lib, "packages/app/ui/dist/static/unheld.js"), { force: true });
+    }
+  }, 15_000);
   test("raw cli.js with an extra preload flag exits 78 before opening the root", async () => {
     const on = await fixture("extra-startup-flag");
     const preload = join(on.root, "explicit-preload.ts");

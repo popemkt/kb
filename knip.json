@@ -31,6 +31,9 @@
         "tests/gen-example-page.ts",
         "tests/registry-keyboard.fixture.ts"
       ]
+    },
+    "packages/app/cli": {
+      "entry": ["src/{main,packaged}.ts", "tests/**/*.test.ts"]
     }
   },
   "ignore": [
