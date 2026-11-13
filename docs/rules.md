@@ -1099,9 +1099,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: M3 intermediate interfaces exceed final model and appearance ceilings
 
 - **expected** — Model exposes at most 220 names and appearance at most 45, after the later API diets in M5/M7/M8.
-- **current** — M3 relocation retains model 294 and appearance 64. Even removing every export without a production named importer leaves model 246 and appearance 53. Node/schema/field/declared-option/display/knob contracts in model and BACKDROP option/variant/knob helpers plus MOTION option/choice contracts in appearance have active consumers in contracts, seed, views, ui-sdk and theme families.
+- **current** — M3b dropped every barrel name no package outside its owner imports: model 300 -> 265, appearance 64 -> 57. Every model file is now shared by two or more packages, so the rest is a split or a redesign of a concept, not a move. In appearance, the backdrop art reading (BackdropArt, backdropArtOf, the glyph types) is used only by backdrops-ui but DESIGN-UI.md makes it the art reading for every backdrop, and the knob and motion helpers that remain are used by seed and ui tests and the ext-sdk bridge test.
 - **impact** — Interfaces remain wider than the approved final ceilings. Explicit intermediate budgets admit relocation while retaining every existing consumer; no API redesign or behavior change is hidden in the move.
-- **closes** — M5/M7/M8 redesign the consumed APIs and ratchet model to 220 and appearance to 45; keep one owner per vocabulary and update importers without re-export shims.
+- **closes** — An owner-decided redesign of the shared model concepts (split a file only where a concept has two owners), and a decision on whether the backdrop art reading stays core or moves to backdrops-ui; then ratchet model to 220 and appearance to 45, with importers updated and no re-export shims.
 - **node** — `01M78V3TNFF2XAVGZB6TXEAPR0`
 
 ### GAP: managed-field commit lock

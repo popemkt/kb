@@ -14,12 +14,12 @@ import { compareRootOrder, rankTx } from "./order.ts";
 import { StoreState } from "./store-state.ts";
 
 /** Why two sides could not be reconciled for one node id. */
-export type MergeConflictReason =
+type MergeConflictReason =
   | "deleted-and-modified"
   | "modified-both-same-stamp"
   | "modified-both-position";
 
-export interface MergeConflict {
+interface MergeConflict {
   id: string;
   reason: MergeConflictReason;
 }

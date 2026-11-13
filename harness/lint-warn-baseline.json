@@ -13,8 +13,8 @@
       "@kb/ext-sdk": 9,
       "@kb/extension-source": 27,
       "@kb/sandbox": 94,
-      "@kb/appearance": 64,
-      "@kb/model": 300,
+      "@kb/appearance": 57,
+      "@kb/model": 265,
       "@kb/plugin": 54,
       "@kb/query": 92,
       "@kb/seed": 8,
@@ -118,6 +118,7 @@
       "kit/scene-gpu/src/stage.ts": 3,
       "kit/ui-sdk/src/components/node-text-port.ts": 2,
       "kit/ui-sdk/src/components/view-error-boundary.test.tsx": 3,
+      "kit/ui-sdk/src/hooks.ts": 3,
       "kit/ui-sdk/src/lib/bullet-mode.test.ts": 4,
       "kit/ui-sdk/src/lib/bullet-mode.ts": 6,
       "kit/ui-sdk/src/lib/command-forms.tsx": 3,
@@ -128,23 +129,22 @@
       "kit/ui-sdk/src/lib/graph-read.component.test.tsx": 5,
       "kit/ui-sdk/src/lib/graph-read.ts": 2,
       "kit/ui-sdk/src/lib/graph-view.ts": 5,
+      "kit/ui-sdk/src/lib/keybindings.ts": 2,
       "kit/ui-sdk/src/lib/md-edit.ts": 3,
       "kit/ui-sdk/src/lib/md-inline.test.ts": 5,
       "kit/ui-sdk/src/lib/md-inline.ts": 3,
+      "kit/ui-sdk/src/lib/node-sections-scope.test.ts": 4,
       "kit/ui-sdk/src/lib/page-graph.test.ts": 7,
       "kit/ui-sdk/src/lib/page-ports.ts": 3,
       "kit/ui-sdk/src/lib/pinned-nav.test.ts": 6,
       "kit/ui-sdk/src/lib/pinned.test.ts": 16,
+      "kit/ui-sdk/src/lib/plugins.ts": 1,
       "kit/ui-sdk/src/lib/refusal.test.ts": 3,
       "kit/ui-sdk/src/lib/router.ts": 1,
       "kit/ui-sdk/src/lib/schema.ts": 4,
       "kit/ui-sdk/src/lib/tag-color.test.ts": 5,
       "kit/ui-sdk/src/lib/tag-color.ts": 6,
-      "kit/ui-sdk/src/lib/keybindings.ts": 2,
-      "kit/ui-sdk/src/lib/node-sections-scope.test.ts": 4,
-      "kit/ui-sdk/src/lib/plugins.ts": 1,
-      "kit/ui-sdk/src/sandbox-run.ts": 5,
-      "kit/ui-sdk/src/hooks.ts": 3
+      "kit/ui-sdk/src/sandbox-run.ts": 5
     },
     "lazy-fence": {
       "packages/extension/chart-vega/src/index.ts imports vega": 1,
@@ -153,7 +153,7 @@
       "packages/infrastructure/sandbox-quickjs/src/index.ts imports @jitl/quickjs-singlefile-browser-release-sync": 1
     },
     "cli-closure": {
-      "bytes": 5849535,
+      "bytes": 5849094,
       "modules": 1108
     },
     "single-family": {
