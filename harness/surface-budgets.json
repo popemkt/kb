@@ -21,8 +21,8 @@
     "limit": 12
   },
   "@kb/operations": {
-    "limit": 152,
-    "reason": "M6 moved write planners, script reach and query errors to their owners; final ceiling 90 pending API redesign"
+    "limit": 96,
+    "reason": "M8 dropped the 56 names nothing outside operations imports; the 90 ceiling waits on where four core-action families register (GAP 01M79JW3AJJZ8Q56KHN2RRNX0W)."
   },
   "@kb/contracts": {
     "limit": 379,

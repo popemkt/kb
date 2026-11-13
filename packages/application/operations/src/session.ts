@@ -89,7 +89,7 @@ export const reloadEffect = Effect.fn("kb.reload")(function* (
  * kb's own code writing the schema it owns (`system`: a migration, a family
  * minting its nodes, a fixture) are not.
  */
-export type SystemWrites = "checked" | "forced" | "system";
+type SystemWrites = "checked" | "forced" | "system";
 
 export interface PersistOptions {
   readonly systemWrites?: SystemWrites;

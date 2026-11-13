@@ -395,7 +395,7 @@ export type PlacedAddInput = Omit<z.infer<typeof nodeAddDef.inputSchema>, "paren
  * write must land with another (a canvas card and its node) hands the
  * upserts to that write instead, so the two commit as one transaction.
  */
-export const planNodeAddEffect = Effect.fn("node.add.plan")(function* (
+const planNodeAddEffect = Effect.fn("node.add.plan")(function* (
   input: PlacedAddInput,
   made: readonly KbNode[] = [],
 ): Effect.fn.Return<{ id: string; node: KbNode; upserts: KbNode[] }, DomainError, KbCtx> {
@@ -439,7 +439,7 @@ export const nodeAddEffect = Effect.fn("node.add")(function* (
 });
 
 /** One node at a place its caller decided, as `node.add` writes it: the capture target is never asked. */
-export const addNodeAtEffect = Effect.fn("node.add.at")(function* (
+const addNodeAtEffect = Effect.fn("node.add.at")(function* (
   input: PlacedAddInput,
 ): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbWriteEnv> {
   return yield* commitAddEffect(input, () => Effect.succeed({ parent: input.parent, upserts: [] }));

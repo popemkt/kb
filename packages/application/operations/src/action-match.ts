@@ -11,7 +11,7 @@
  * The words `match` takes for a mode instead of an action: every action of
  * that mode. An action id has no space, so neither can be mistaken for one.
  */
-export const MODE_MATCHES = { "every read": "read", "every write": "write" } as const;
+const MODE_MATCHES = { "every read": "read", "every write": "write" } as const;
 
 /**
  * How specifically `match` names an action, or `null` when it does not name
