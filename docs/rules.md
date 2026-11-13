@@ -826,7 +826,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 - **expected** — The command dispatcher reaches host-only engines only across dynamic imports; its static closure shrinks.
 - **current** — The lazy-fence ledger holds one eager import: sandbox-quickjs imports its QuickJS engine. chart-vega loads Vega on first use.
-- **impact** — One-shot commands load unused engine code; the measured static closure is 4604284 bytes and 727 modules.
+- **impact** — One-shot commands load unused engine code; the measured static closure is 2739582 bytes and 723 modules.
 - **closes** — Move each engine behind first use and drain the lazy-fence ledger, then lower the static closure budget.
 - **node** — `01M75MA3QTAABRAE6N0069CB8R`
 
@@ -1625,7 +1625,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: the CLI's eager graph loads every family's painters and the host's engines
 
 - **expected** — From the CLI entry, painters and engines load at first use (chart-vega's Vega, gallery-net, canvas' tldraw reader, the QuickJS engine, store-sqlite when selected, source-git at first fetch), and the @kb/runtime barrel exports the mode-neutral core only.
-- **current** — cli.ts imports @kb/runtime, whose barrel statically reaches bundled.ts (BUNDLED_EXTENSIONS builds every family's server plugin at module load: gallery-net, canvas' tldraw reader), layers.ts (sandbox-quickjs, source-git) and store-selection.ts (store-sqlite). Chart's Vega loads on first use. The command path's static closure is 4.6 MB and 727 modules.
+- **current** — cli.ts imports @kb/runtime, whose barrel statically reaches bundled.ts (BUNDLED_EXTENSIONS builds every family's server plugin at module load, canvas' tldraw reader among them), layers.ts (sandbox-quickjs, source-git) and store-selection.ts (store-sqlite). Chart's Vega and gallery's starter pictures load on first use. The command path's static closure is 2.7 MB and 723 modules.
 - **impact** — About 135-145 ms of module init on every command, plus their parse once the build is split; kb get cannot approach 100 ms.
 - **closes** — docs/research/2026-11-11-cli-host-modes.md steps 4-6, each removing its breach row from the CLI lazy fence.
 - **node** — `01M75MA300NQJS5M3V6GEWQS8E`

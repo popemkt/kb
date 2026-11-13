@@ -5,9 +5,9 @@
  * 500px rendering, credited with its Commons page; and the One Pillar
  * Pagoda rendered in fourteen of the starter's 3D styles, made from code by
  * `docs/research/assets/2026-10-31-3d-styles/scene.js`, so they are kb's
- * own and CC0. They are held in source, not as files beside it, so the one
- * bundle a release ships carries them; only the server half has them, and a
- * page never does.
+ * own and CC0. They are held in source, not as files beside it, so the
+ * release's build carries them, in a chunk the starter loads when it runs;
+ * only the server half has them, and a page never does.
  */
 
 export const STARTER_VISUALS = [

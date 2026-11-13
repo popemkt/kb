@@ -1,10 +1,10 @@
 {
   "bytes": {
-    "limit": 4604891,
-    "reason": "chart-vega loads Vega on first use, so the command path holds no painter."
+    "limit": 2740189,
+    "reason": "gallery-net loads its starter's outline and pictures when the starter runs."
   },
   "modules": {
-    "limit": 728,
-    "reason": "chart-vega loads Vega on first use, so the command path holds no painter."
+    "limit": 724,
+    "reason": "gallery-net loads its starter's outline and pictures when the starter runs."
   }
 }
