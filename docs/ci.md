@@ -100,8 +100,15 @@ Each backdrop option is a separate isolated render test. Playwright shards
 individual tests by count with `fullyParallel: true`, taking contiguous
 slices in file order. All 60 backdrop tests currently land in shard 1:
 about 8.7 minutes of tests against an estimated 6.3 minutes in shard 2.
-This balances count, not duration, and remains sensitive to file order.
-CI pins `workers: 1` to keep per-runner load fixed; local runs use the default.
+This balances count, not duration, and remains sensitive to file order
+(a `#gap` names it). CI pins `workers: 2` to keep per-runner load fixed on
+the three-core macOS runner; local runs use the default. Each test still
+gets its own harness process and scratch store; a worker starts the next
+test's while the current one runs (`HarnessPool` in
+`tests-render/harness-server.ts`), so a test no longer waits out a process
+start. `core` runs its files in four isolated workers, the reason stated
+in the root `bunfig.toml`. The measurements behind both are in
+[the 2026-11-13 record](research/2026-11-13-test-suite-speed.md).
 Superseded PR runs cancel; publishing is serialized and never cancelled.
 
 The setup action owns Nix installation and dependency setup, including the

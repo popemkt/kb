@@ -2,10 +2,12 @@
  * The one `test` every render spec imports: Playwright's, plus a fresh
  * fixture store per test (`harness`) that `baseURL` points at, so
  * `page.goto("/graph")` always lands on a store no earlier test has written
- * to, and the GPU facts a spec may depend on (`gpu`).
+ * to, and the GPU facts a spec may depend on (`gpu`). Each worker's
+ * harnesses come from its pool (`harnessPool`), which starts the next one
+ * while a test runs.
  */
 import { test as base, expect, type Locator } from "playwright/test";
-import { startHarness, type HarnessOptions } from "./harness-server.ts";
+import { HarnessPool, type HarnessOptions } from "./harness-server.ts";
 
 export { expect };
 
@@ -47,15 +49,30 @@ export interface GpuFacts {
   readonly backend: "WebGPU" | "WebGL2";
 }
 
-export const test = base.extend<{
-  harness: { url: string };
-  gpu: GpuFacts;
-  /** What the harness installs beside the fixture store; a spec sets it with `test.use`. */
-  harnessOptions: HarnessOptions;
-}>({
+export const test = base.extend<
+  {
+    harness: { url: string };
+    gpu: GpuFacts;
+    /** What the harness installs beside the fixture store; a spec sets it with `test.use`. */
+    harnessOptions: HarnessOptions;
+  },
+  { harnessPool: HarnessPool }
+>({
   harnessOptions: [{}, { option: true }],
-  harness: async ({ harnessOptions }, provide) => {
-    const harness = await startHarness(harnessOptions);
+  harnessPool: [
+    // oxlint-disable-next-line no-empty-pattern -- Playwright reads a fixture's dependencies from this pattern; the pool has none
+    async ({}, provide) => {
+      const pool = new HarnessPool();
+      try {
+        await provide(pool);
+      } finally {
+        await pool.close();
+      }
+    },
+    { scope: "worker" },
+  ],
+  harness: async ({ harnessOptions, harnessPool }, provide) => {
+    const harness = await harnessPool.take(harnessOptions);
     try {
       await provide({ url: harness.url });
     } finally {

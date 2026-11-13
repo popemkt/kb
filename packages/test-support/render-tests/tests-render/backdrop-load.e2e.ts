@@ -116,6 +116,7 @@ async function load(context: BrowserContext, url: string): Promise<LoadRecord | 
   await tab.addInitScript(recordLoad);
   await tab.goto(url);
   const host = tab.locator(".kb-header-backdrop-space .kb-gpu-backdrop").first();
+  // GAP [[01M79GTJ1VVQ9YQEW68AQM68B0]]
   const isGpu = await host
     .waitFor({ timeout: 8000 })
     .then(() => true)
