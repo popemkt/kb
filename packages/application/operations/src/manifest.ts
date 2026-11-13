@@ -71,7 +71,7 @@ export const kbManifestEffect = Effect.fn("kb.manifest")(function* (): Effect.fn
   const call = yield* CurrentCall;
   if (call === null) return yield* Effect.die("kb.manifest runs only as an action's handler");
   const interception = yield* CurrentInterception;
-  const actions = yield* Effect.forEach(yield* ActionCatalog, (entry) =>
+  const actions = yield* Effect.forEach((yield* ActionCatalog)(), (entry) =>
     guardBefore(interception, {
       ctx,
       invocation: { ...call.invocation, id: entry.id, input: undefined },

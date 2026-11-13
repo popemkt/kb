@@ -58,12 +58,12 @@ test("a lock changed while seeding takes effect on the next composition, never w
     const first = await Effect.runPromise(
       sessionRegistry(ctx).pipe(Effect.provide(bunFileSystemLayer)),
     );
-    expect(first.manifestEntries.some((action) => action.id === "ext.beta.version")).toBe(false);
+    expect(first.manifestEntries().some((action) => action.id === "ext.beta.version")).toBe(false);
     expect(ctx.index.getNode("beta.seed")).toBeUndefined();
     const next = await Effect.runPromise(
       sessionRegistry(ctx).pipe(Effect.provide(bunFileSystemLayer)),
     );
-    expect(next.manifestEntries.some((action) => action.id === "ext.beta.version")).toBe(true);
+    expect(next.manifestEntries().some((action) => action.id === "ext.beta.version")).toBe(true);
     expect(ctx.index.getNode("beta.seed")).toBeDefined();
   } finally {
     resetRegistryCache();

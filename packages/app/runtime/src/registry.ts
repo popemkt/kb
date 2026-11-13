@@ -238,7 +238,8 @@ function registeredTemplate(contribution: Contribution<TemplateFn>): RegisteredT
 interface ActionTable {
   readonly actions: readonly RegisteredAction[];
   readonly byId: ReadonlyMap<string, RegisteredAction>;
-  readonly manifestEntries: readonly ManifestEntry[];
+  /** Every action and alias as listed, with its JSON Schemas: built on the first call, then kept. */
+  readonly manifestEntries: () => readonly ManifestEntry[];
 }
 
 /** The table `contributions` make, their context references read from `references`. */
@@ -253,14 +254,17 @@ function actionTable(
     for (const alias of action.aliases) byId.set(alias, action);
   }
   const modeOf = (id: string) => byId.get(id)?.def.mode;
-  const manifestEntries: ManifestEntry[] = actions.flatMap((action) => [
-    actionToManifestEntry(action.def, modeOf, references),
-    ...action.aliases.map((alias) => ({
-      ...actionToManifestEntry(action.def, modeOf, references),
-      id: alias,
-      aliasOf: action.def.id,
-    })),
-  ]);
+  // Converting every schema to JSON Schema is paid by a call that lists, not by every open.
+  let listing: readonly ManifestEntry[] | undefined;
+  const manifestEntries = () =>
+    (listing ??= actions.flatMap((action) => [
+      actionToManifestEntry(action.def, modeOf, references),
+      ...action.aliases.map((alias) => ({
+        ...actionToManifestEntry(action.def, modeOf, references),
+        id: alias,
+        aliasOf: action.def.id,
+      })),
+    ]));
   return { actions, byId, manifestEntries };
 }
 
@@ -706,7 +710,7 @@ export function resetRegistryCache(): void {
 export const manifest = Effect.fn("kb.manifest")(function* (
   root?: string,
 ): Effect.fn.Return<readonly ManifestEntry[], never, FileSystem> {
-  return (yield* registryFor(root ?? null)).manifestEntries;
+  return (yield* registryFor(root ?? null)).manifestEntries();
 });
 
 /**
