@@ -37,11 +37,6 @@ export {
   useNodeTextBinding,
   useOpenNode,
   usePageActivity,
-  useBackdropKnobs,
-  useBackdrops,
-  usePageBackdrop,
-  useShownDesignSystem,
-  type PageBackdropChoice,
   usePageGraph,
   usePaneScreen,
   usePrefs,
@@ -50,6 +45,7 @@ export {
   useSchema,
   useWireNodes,
 } from "./hooks";
+
 export {
   browserHost,
   type BrowserHost,
@@ -116,26 +112,10 @@ export {
   currentContributions,
   currentView,
   currentService,
-  type Backdrop,
-  type BackdropAction,
-  BackdropActionPoint,
-  BackdropPoint,
   chosenDeclared,
   provideDeclared,
-  provideBackdrop,
-  type DesignSystem,
-  DesignSystemPoint,
-  provideDesignSystem,
-  type ThemeArtProps,
-  THEME_GESTURE_MAX_MS,
-  type ThemeArtPlane,
-  type BackdropPresentation,
   BACKDROP_BUDGETS,
   type BackdropBudget,
-  BACKDROP_CUE_LABELS,
-  type BackdropCue,
-  type BackdropInteraction,
-  type BackdropProps,
   type PageActivity,
   type PageEvents,
   QUIET_ACTIVITY,
@@ -171,15 +151,7 @@ export {
   type RowSubject,
   type ViewProps,
 } from "./lib/plugins";
-export { decodeBackdrop, type RefusedBackdrop } from "./lib/backdrop-decode";
-export {
-  type FrameCost,
-  type FrameMeter,
-  type FrameMeterOptions,
-  type FrameMeterReading,
-  meterFrames,
-  readFrameMeter,
-} from "./lib/frame-meter";
+
 export {
   type FamilyView,
   MAX_VIEW_DEPTH,
@@ -189,16 +161,9 @@ export {
 } from "./lib/view-key";
 export { useSlotChain } from "./components/slot-chain";
 export { ViewSlot } from "./components/view-slot";
-export {
-  BackdropFrame,
-  HeadBackdropFrame,
-  PageBackdrop,
-  PageBackdropHost,
-} from "./components/page-backdrop";
-export { BackdropCard } from "./components/backdrop-card";
+
 export { HoldStill } from "./components/hold-still";
 export { deferred, type DeferredOptions } from "./components/deferred";
-export { ThemeArt } from "./components/theme-art";
 
 // The primitives.
 export { Bullet } from "./components/bullet";
@@ -625,7 +590,7 @@ export {
   WIDTHS,
 } from "./lib/theme";
 export { THEME_GLYPHS } from "./lib/theme-glyphs";
-export { chooseDesignSystem, shownDesignSystem } from "./lib/design-system";
+
 export {
   OptionPreviewPoint,
   useOptionPreview,
@@ -673,6 +638,7 @@ export { BREAKOUT_CLASS, useBreakoutShift } from "./lib/breakout";
 export { useLoadSeed } from "./lib/load-seed";
 export { tagOpeningOf, tagRowViewOf, type KeyCatalog, type TagOpening } from "./lib/tag-opening";
 
-export { PAGE_EXTENSION_SDK } from "./page-extension-sdk";
-
 export { useRole, configureUiRoles, replacementApproved } from "./lib/plugins";
+export { NO_POINTER, coveringAncestor } from "./lib/pointer-over.ts";
+export { usePath } from "./lib/router.ts";
+export { componentSchema } from "./lib/component-schema.ts";

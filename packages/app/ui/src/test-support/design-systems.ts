@@ -15,7 +15,7 @@ import { Effect } from "effect";
 import { BUNDLED_FAMILIES } from "@kb/bundled";
 import { NO_SWITCHES, familyOn } from "@kb/contracts";
 import { makeKernel, syncPlugins, type Plugin } from "@kb/plugin";
-import { DesignSystemPoint, type DesignSystem } from "@kb/ui-sdk";
+import { DesignSystemPoint, type DesignSystem } from "@kb/appearance-kit";
 import { designSystemsUiPlugin } from "@/design-systems";
 import { readDesignSystemSheets, type DesignSystemSheets } from "@/lib/design-system-sheets";
 import { BROWSER_EXTENSIONS } from "@/ui-plugins";

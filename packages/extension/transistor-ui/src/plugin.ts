@@ -1,7 +1,14 @@
 import { Effect } from "effect";
 import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
-import { band } from "@kb/theme-art";
+import {
+  band,
+  BackdropPoint,
+  DesignSystemPoint,
+  provideBackdrop,
+  provideDesignSystem,
+  type Backdrop,
+} from "@kb/appearance-kit";
 import {
   CLOUDBANK_BACKDROP,
   OVC_BACKDROP,
@@ -9,14 +16,8 @@ import {
   transistorExtension,
   transistorPlugin,
 } from "@kb/transistor";
-import {
-  BACKDROP_BUDGETS,
-  BackdropPoint,
-  DesignSystemPoint,
-  provideBackdrop,
-  provideDesignSystem,
-  type Backdrop,
-} from "@kb/ui-sdk";
+import { BACKDROP_BUDGETS } from "@kb/ui-sdk";
+
 // Transistor's faces, all under the SIL Open Font License, bundled from npm
 // (never committed): each face downloads only when the system sets it.
 // GAP [[01M5SNSQH2HMD784PCD51W46D5]] faces are imported here, not declared

@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import type { BackdropStrength } from "@kb/appearance";
-import { useBackdrops, usePageBackdrop } from "../hooks";
-import { cardWindowTop } from "../lib/backdrop-card-window";
-import { QUIET_ACTIVITY } from "../lib/plugins";
-import { NO_POINTER } from "../lib/pointer-over";
-import { HoldStill } from "./hold-still";
-import { BackdropFrame } from "./page-backdrop";
+import { useBackdrops, usePageBackdrop } from "../appearance-hooks.ts";
+import { cardWindowTop } from "../lib/backdrop-card-window.ts";
+import { QUIET_ACTIVITY, NO_POINTER, HoldStill } from "@kb/ui-sdk";
+
+import { BackdropFrame } from "./page-backdrop.tsx";
 
 /** The width a card draws its backdrop's frame at, then scales into the card: a side panel's, the narrowest a head is drawn. */
 const FRAME_WIDTH = 480;

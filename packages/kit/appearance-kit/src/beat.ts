@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { THEME_GESTURE_MAX_MS } from "@kb/ui-sdk";
+import { THEME_GESTURE_MAX_MS } from "./lib/appearance-points";
 
 /** How long after the art mounts a change still counts as its arrival. */
 const ARRIVAL_MS = 1500;

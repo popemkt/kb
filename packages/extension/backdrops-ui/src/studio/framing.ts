@@ -5,7 +5,7 @@
  * at its own size and scaled on screen, so at 1:1 a pixel of it is a pixel
  * of the page, and its frame meter measures what a page would pay.
  */
-import type { BackdropPresentation } from "@kb/ui-sdk";
+import type { BackdropPresentation } from "@kb/appearance-kit";
 
 export interface Size {
   readonly width: number;

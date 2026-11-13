@@ -10,11 +10,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   QUIET_ACTIVITY,
-  type BackdropCue,
   type OutlineNode,
   type PageActivity,
   type PointerSource,
 } from "@kb/ui-sdk";
+import type { BackdropCue } from "@kb/appearance-kit";
 
 /** The cues the studio acts out; the pointer is the person's own. */
 export type ActedCue = Exclude<BackdropCue, "pointer">;

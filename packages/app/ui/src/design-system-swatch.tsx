@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
-import { DesignSystemPoint, type PreviewSize, useContributions } from "@kb/ui-sdk";
+import { DesignSystemPoint } from "@kb/appearance-kit";
+import { type PreviewSize, useContributions } from "@kb/ui-sdk";
 
 /** A theme's card: loaded where a gallery first draws one, not with the page. */
 const DesignSystemCard = lazy(() => import("./design-system-card"));

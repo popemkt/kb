@@ -11,8 +11,8 @@ import {
   usePageGraph,
   useSlotChain,
   WORKSPACE_ROOT_ID,
-  PageBackdrop,
 } from "@kb/ui-sdk";
+import { PageBackdrop } from "@kb/appearance-kit";
 import { isQueryNode } from "@kb/model";
 import type { FrameViewKey } from "@kb/views";
 import { useOutlineNode, outlineNodes } from "./outline.store";

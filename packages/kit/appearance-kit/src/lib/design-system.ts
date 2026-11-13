@@ -7,8 +7,9 @@
 import { designSystemChoice, designSystemOptionId } from "@kb/appearance";
 import { extensionNodeId, SYSTEM_IDS, type KbNode } from "@kb/model";
 import type { Contribution } from "@kb/plugin";
-import type { PageWrites } from "./page-writes";
-import { chosenDeclared, type DesignSystem } from "./plugins";
+import { type PageWrites, chosenDeclared } from "@kb/ui-sdk";
+
+import type { DesignSystem } from "./appearance-points.ts";
 
 const CORE = extensionNodeId("core");
 

@@ -3,7 +3,7 @@
  * the zoom and the pan, and the viewport they are measured against.
  */
 import { useCallback, useMemo, useState } from "react";
-import type { BackdropPresentation } from "@kb/ui-sdk";
+import type { BackdropPresentation } from "@kb/appearance-kit";
 import {
   canPan,
   placeScene,

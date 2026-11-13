@@ -1,0 +1,36 @@
+{
+  "name": "@kb/appearance-kit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vp test"
+  },
+  "dependencies": {
+    "@kb/appearance": "workspace:*",
+    "@kb/contracts": "workspace:*",
+    "@kb/model": "workspace:*",
+    "@kb/plugin": "workspace:*",
+    "@kb/ui-sdk": "workspace:*",
+    "@phosphor-icons/react": "catalog:",
+    "effect": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "scope:browser"
+    ]
+  }
+}

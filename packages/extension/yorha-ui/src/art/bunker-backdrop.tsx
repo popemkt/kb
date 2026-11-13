@@ -1,6 +1,11 @@
 import { useEffect, useRef, type RefObject } from "react";
-import { THEME_GESTURE_MAX_MS, type BackdropProps } from "@kb/ui-sdk";
-import { useBeat, useGesture, useStructuralWrites } from "@kb/theme-art";
+import {
+  THEME_GESTURE_MAX_MS,
+  type BackdropProps,
+  useBeat,
+  useGesture,
+  useStructuralWrites,
+} from "@kb/appearance-kit";
 
 /** How much faster the reticle tracks while a node is being edited. */
 const EDITING_RATE = 6;

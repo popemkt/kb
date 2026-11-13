@@ -18,7 +18,8 @@ import { Effect } from "effect";
 import { BACKDROP_OPTIONS, DESIGN_SYSTEM_OPTIONS } from "@kb/appearance";
 import { KB_DESIGN_SYSTEM, coreExtension } from "@kb/operations";
 import { definePlugin } from "@kb/plugin";
-import { DesignSystemPoint, OptionPreviewPoint, provideDesignSystem } from "@kb/ui-sdk";
+import { DesignSystemPoint, provideDesignSystem } from "@kb/appearance-kit";
+import { OptionPreviewPoint } from "@kb/ui-sdk";
 import { BackdropPreview } from "@/backdrop-preview";
 import { DesignSystemPreview } from "@/design-system-swatch";
 

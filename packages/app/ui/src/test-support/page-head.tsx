@@ -3,8 +3,9 @@ import {
   PageBackdrop,
   PageBackdropHost,
   usePageBackdrop,
-  type OutlineNode,
-} from "@kb/ui-sdk";
+} from "@kb/appearance-kit";
+
+import type { OutlineNode } from "@kb/ui-sdk";
 import { PageFrame } from "@/components/layout/pane-frame";
 
 interface Head {

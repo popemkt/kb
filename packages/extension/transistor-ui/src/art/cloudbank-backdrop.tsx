@@ -1,5 +1,5 @@
-import type { BackdropProps } from "@kb/ui-sdk";
-import { useBeat, useGesture, useStructuralWrites } from "@kb/theme-art";
+import { type BackdropProps, useBeat, useGesture, useStructuralWrites } from "@kb/appearance-kit";
+
 import { SkylineSvg } from "./skyline-svg";
 
 /**

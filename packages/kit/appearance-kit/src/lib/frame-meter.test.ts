@@ -6,7 +6,7 @@
  * floor; the canvas carries what it measured, which the studio reads.
  */
 import { describe, expect, test } from "vitest";
-import { meterFrames, readFrameMeter, type FrameCost } from "./frame-meter";
+import { meterFrames, readFrameMeter, type FrameCost } from "./frame-meter.ts";
 
 const BUDGET = { frameMs: 2 };
 

@@ -244,6 +244,7 @@
         "@kb/agent": "workspace:*",
         "@kb/agent-ui": "workspace:*",
         "@kb/appearance": "workspace:*",
+        "@kb/appearance-kit": "workspace:*",
         "@kb/backdrops": "workspace:*",
         "@kb/backdrops-ui": "workspace:*",
         "@kb/bundled": "workspace:*",
@@ -588,6 +589,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/appearance": "workspace:*",
+        "@kb/appearance-kit": "workspace:*",
         "@kb/backdrops": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
@@ -1122,6 +1124,7 @@
       "name": "@kb/outline-ui",
       "version": "0.0.0",
       "dependencies": {
+        "@kb/appearance-kit": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/outline": "workspace:*",
@@ -1232,10 +1235,10 @@
       "name": "@kb/themes-ui",
       "version": "0.0.0",
       "dependencies": {
+        "@kb/appearance-kit": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/themes": "workspace:*",
-        "@kb/ui-sdk": "workspace:*",
         "effect": "catalog:",
       },
       "devDependencies": {
@@ -1263,9 +1266,9 @@
         "@fontsource-variable/jost": "catalog:",
         "@fontsource/marcellus-sc": "catalog:",
         "@fontsource/share-tech-mono": "catalog:",
+        "@kb/appearance-kit": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/plugin": "workspace:*",
-        "@kb/theme-art": "workspace:*",
         "@kb/transistor": "workspace:*",
         "@kb/ui-sdk": "workspace:*",
         "effect": "catalog:",
@@ -1298,11 +1301,11 @@
       "dependencies": {
         "@fontsource/barlow": "catalog:",
         "@fontsource/barlow-condensed": "catalog:",
+        "@kb/appearance-kit": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/scene": "workspace:*",
         "@kb/scene-gpu": "workspace:*",
-        "@kb/theme-art": "workspace:*",
         "@kb/ui-sdk": "workspace:*",
         "@kb/yorha": "workspace:*",
         "effect": "catalog:",
@@ -1339,9 +1342,9 @@
       "version": "0.0.0",
       "dependencies": {
         "@fontsource-variable/archivo": "catalog:",
+        "@kb/appearance-kit": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/plugin": "workspace:*",
-        "@kb/theme-art": "workspace:*",
         "@kb/ui-sdk": "workspace:*",
         "@kb/zzz": "workspace:*",
         "effect": "catalog:",
@@ -1463,6 +1466,28 @@
         "@types/bun": "catalog:",
       },
     },
+    "packages/kit/appearance-kit": {
+      "name": "@kb/appearance-kit",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/appearance": "workspace:*",
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/plugin": "workspace:*",
+        "@kb/ui-sdk": "workspace:*",
+        "@phosphor-icons/react": "catalog:",
+        "effect": "catalog:",
+        "react": "catalog:",
+        "react-dom": "catalog:",
+      },
+      "devDependencies": {
+        "@types/react": "catalog:",
+        "@types/react-dom": "catalog:",
+        "vite": "catalog:",
+        "vite-plus": "catalog:",
+        "vitest": "catalog:",
+      },
+    },
     "packages/kit/scene": {
       "name": "@kb/scene",
       "version": "0.0.0",
@@ -1490,22 +1515,10 @@
         "vitest": "catalog:",
       },
     },
-    "packages/kit/theme-art": {
-      "name": "@kb/theme-art",
-      "version": "0.0.0",
-      "dependencies": {
-        "@kb/ui-sdk": "workspace:*",
-        "react": "catalog:",
-      },
-      "devDependencies": {
-        "@types/react": "catalog:",
-      },
-    },
     "packages/kit/ui-sdk": {
       "name": "@kb/ui-sdk",
       "version": "0.0.0",
       "dependencies": {
-        "@kb/appearance": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
@@ -1519,7 +1532,6 @@
         "tailwind-merge": "catalog:",
       },
       "devDependencies": {
-        "@kb/ext-sdk": "workspace:*",
         "@types/bun": "catalog:",
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
@@ -1919,6 +1931,8 @@
 
     "@kb/appearance": ["@kb/appearance@workspace:packages/domain/appearance"],
 
+    "@kb/appearance-kit": ["@kb/appearance-kit@workspace:packages/kit/appearance-kit"],
+
     "@kb/backdrops": ["@kb/backdrops@workspace:packages/extension/backdrops"],
 
     "@kb/backdrops-ui": ["@kb/backdrops-ui@workspace:packages/extension/backdrops-ui"],
@@ -2040,8 +2054,6 @@
     "@kb/store-sqlite": ["@kb/store-sqlite@workspace:packages/infrastructure/store-sqlite"],
 
     "@kb/test-kit": ["@kb/test-kit@workspace:packages/app/test-kit"],
-
-    "@kb/theme-art": ["@kb/theme-art@workspace:packages/kit/theme-art"],
 
     "@kb/themes": ["@kb/themes@workspace:packages/extension/themes"],
 

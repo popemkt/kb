@@ -233,12 +233,9 @@
   "@kb/scene-gpu": {
     "limit": 35
   },
-  "@kb/theme-art": {
-    "limit": 6
-  },
   "@kb/ui-sdk": {
-    "limit": 617,
-    "reason": "Initial measured interface; module migration will narrow it."
+    "limit": 583,
+    "reason": "M4 appearance host moved into appearance-kit; page SDK assembled by app/ui."
   },
   "@kb/ui-test-kit": {
     "limit": 26
@@ -250,5 +247,9 @@
   "@kb/seed": {
     "limit": 8,
     "reason": "M3 relocation; final ceiling 20 pending API redesign"
+  },
+  "@kb/appearance-kit": {
+    "limit": 45,
+    "reason": "M4 appearance host and theme art share one kit."
   }
 }

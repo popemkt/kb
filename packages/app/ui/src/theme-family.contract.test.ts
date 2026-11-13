@@ -38,13 +38,13 @@ import {
 } from "@kb/model";
 import { ensureSystemSeed, foldSeed } from "@kb/seed";
 import { definePlugin, makeKernel, syncPlugins, type Plugin } from "@kb/plugin";
+import { BACKDROP_BUDGETS } from "@kb/ui-sdk";
 import {
-  BACKDROP_BUDGETS,
   BackdropPoint,
   DesignSystemPoint,
   provideBackdrop,
   provideDesignSystem,
-} from "@kb/ui-sdk";
+} from "@kb/appearance-kit";
 import { BROWSER_EXTENSIONS } from "@/ui-plugins";
 
 /** A theme family of the test's own, declared and contributed as the bundled ones are. */

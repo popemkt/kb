@@ -1,5 +1,4 @@
-import type { BackdropProps } from "@kb/ui-sdk";
-import { useBeat, useGesture, useStructuralWrites } from "@kb/theme-art";
+import { type BackdropProps, useBeat, useGesture, useStructuralWrites } from "@kb/appearance-kit";
 
 /** The tally's segments, and how many of them the count starts with lit. */
 const SEGMENTS = 10;

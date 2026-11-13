@@ -1,4 +1,4 @@
-import type { BackdropProps } from "@kb/ui-sdk";
+import type { BackdropProps } from "@kb/appearance-kit";
 import { SceneStage } from "../scene/scene-stage";
 import { createRoost } from "./roost-scene";
 

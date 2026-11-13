@@ -4,7 +4,8 @@
  * the studio is opened; a scene's own code loads only when it is shown.
  */
 import type { BackdropStudioParams } from "@kb/backdrops";
-import { useBackdrops, WorkspaceState } from "@kb/ui-sdk";
+import { useBackdrops } from "@kb/appearance-kit";
+import { WorkspaceState } from "@kb/ui-sdk";
 import { familyOf, usePluginExtensions } from "./plugin-extensions";
 import { StudioGallery } from "./studio-gallery";
 import { StudioScene } from "./studio-scene";

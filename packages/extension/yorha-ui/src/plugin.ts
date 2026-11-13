@@ -1,14 +1,15 @@
 import { Effect } from "effect";
 import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
-import { band } from "@kb/theme-art";
 import {
-  BACKDROP_BUDGETS,
+  band,
   BackdropPoint,
   DesignSystemPoint,
   provideBackdrop,
   provideDesignSystem,
-} from "@kb/ui-sdk";
+} from "@kb/appearance-kit";
+import { BACKDROP_BUDGETS } from "@kb/ui-sdk";
+
 import {
   ARENA_BACKDROP,
   BUNKER_BACKDROP,

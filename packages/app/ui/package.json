@@ -24,6 +24,7 @@
     "@kb/agent": "workspace:*",
     "@kb/agent-ui": "workspace:*",
     "@kb/appearance": "workspace:*",
+    "@kb/appearance-kit": "workspace:*",
     "@kb/backdrops": "workspace:*",
     "@kb/backdrops-ui": "workspace:*",
     "@kb/bundled": "workspace:*",

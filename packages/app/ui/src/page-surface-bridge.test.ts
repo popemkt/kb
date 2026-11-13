@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Bridge, PageSurface, Surface } from "@kb/ext-sdk";
-import type * as UiSdk from "./index";
-import type { PAGE_EXTENSION_SDK } from "./page-extension-sdk";
+import type * as UiSdk from "@kb/ui-sdk";
+import type * as AppearanceKit from "@kb/appearance-kit";
+import type { PAGE_EXTENSION_SDK } from "./page-extension-sdk.ts";
 
 /**
  * `kb-ext-sdk/page` is PAGE_EXTENSION_SDK, served to a repository
@@ -73,9 +74,12 @@ const dropsBudget: Declares<
  */
 const fieldRows: Same<UiSdk.FieldRowProps, PageSurface.FieldRowProps> = true;
 void fieldRows;
-const cues: Same<UiSdk.BackdropCue, PageSurface.BackdropCue> = true;
-const interactions: Same<UiSdk.BackdropInteraction, PageSurface.BackdropInteraction> = true;
-const dropsACue: Same<UiSdk.BackdropCue, Exclude<PageSurface.BackdropCue, "navigation">> = false;
+const cues: Same<AppearanceKit.BackdropCue, PageSurface.BackdropCue> = true;
+const interactions: Same<AppearanceKit.BackdropInteraction, PageSurface.BackdropInteraction> = true;
+const dropsACue: Same<
+  AppearanceKit.BackdropCue,
+  Exclude<PageSurface.BackdropCue, "navigation">
+> = false;
 /**
  * Where a value kind's `follow` points is held exactly too: a page half's
  * kind returns one, and a target the surface dropped (a date, say) would

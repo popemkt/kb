@@ -5,11 +5,11 @@ import {
   landOnce,
   SettingsTrigger,
   SidebarToggle,
-  ThemeArt,
   useRoute,
   ViewErrorBoundary,
   WorkspaceBoundary,
 } from "@kb/ui-sdk";
+import { ThemeArt } from "@kb/appearance-kit";
 import { fixturesForced, loadGraph } from "@/api/graph";
 import { ensureLiveConnection } from "@/api/live";
 import { ReloadChip } from "@/reload-chip";

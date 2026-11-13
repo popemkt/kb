@@ -56,9 +56,7 @@ import {
   type Command,
   type CommandContext,
   CommandPoint,
-  chooseDesignSystem,
   currentContributions,
-  DesignSystemPoint,
   isContextualRef,
   isPinned,
   isSysPrefixed,
@@ -73,7 +71,6 @@ import {
   ontologyPath,
   SETTINGS_PATH,
   type OutlineCommandApi,
-  shownDesignSystem,
   ViewPoint,
   SYSTEM_IDS,
   textOr,
@@ -81,6 +78,7 @@ import {
   toast,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
+import { chooseDesignSystem, DesignSystemPoint, shownDesignSystem } from "@kb/appearance-kit";
 import { pageOpeningsOf } from "@/lib/node-openings";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { pageCatalog } from "@/lib/view-catalog";

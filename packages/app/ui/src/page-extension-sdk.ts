@@ -1,25 +1,32 @@
-import { PICKED } from "./lib/action-call";
-import { provideCommand, providePaletteStep } from "./lib/command-forms";
-import { CommandPoint, PaletteStepPoint } from "./lib/command-point";
-import { provideFieldEditor } from "./lib/field-editor";
-import { meterFrames } from "./lib/frame-meter";
-import { KeybindingPoint, provideKeybinding } from "./lib/keybindings";
-import { useReducedMotion } from "./lib/motion";
-import { provideValueKind, ValueKindPoint } from "./lib/value-kind";
 import {
+  PICKED,
+  provideCommand,
+  providePaletteStep,
+  CommandPoint,
+  PaletteStepPoint,
+  provideFieldEditor,
+  KeybindingPoint,
+  provideKeybinding,
+  useReducedMotion,
+  provideValueKind,
+  ValueKindPoint,
   BACKDROP_BUDGETS,
-  BackdropPoint,
-  DesignSystemPoint,
   DockPoint,
   OverlayPoint,
   RoutePoint,
   SidebarSectionPoint,
   ViewPoint,
-  provideBackdrop,
-  provideDesignSystem,
   provideRoute,
   provideView,
-} from "./lib/plugins.ts";
+} from "@kb/ui-sdk";
+
+import {
+  meterFrames,
+  BackdropPoint,
+  DesignSystemPoint,
+  provideBackdrop,
+  provideDesignSystem,
+} from "@kb/appearance-kit";
 
 /**
  * The host's own page objects: point keys compare by identity, so an extension

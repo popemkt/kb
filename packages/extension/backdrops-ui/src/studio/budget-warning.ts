@@ -2,7 +2,8 @@
  * What the studio's perf readout warns of (DESIGN-UI.md → Backdrop Studio →
  * the perf readout): a scene over its budget, in words, not in colour alone.
  */
-import type { BackdropBudget, FrameMeterReading } from "@kb/ui-sdk";
+import type { BackdropBudget } from "@kb/ui-sdk";
+import type { FrameMeterReading } from "@kb/appearance-kit";
 
 /**
  * The warning a reading over `budget` earns, in words: over budget, and at
