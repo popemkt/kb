@@ -6,11 +6,17 @@
  */
 import { Effect } from "effect";
 import { z } from "zod";
-import type { ExtensionAction, KbCtx, KbStore } from "@kb/contracts";
-import { addNodeAtEffect } from "@kb/operations";
+import { GraphWrites, type ExtensionAction, type KbCtx } from "@kb/contracts";
+import { freshId } from "@kb/model";
 import { CANVAS_IDS, canvasWorld, commentWrite, type CommentPlace } from "@kb/canvas";
 import { CanvasIdSchema } from "./schemas.ts";
-import { canvasStep, readCanvasEffect, readableEffect, type CanvasFail } from "./write.ts";
+import {
+  canvasStep,
+  planAddEffect,
+  readCanvasEffect,
+  readableEffect,
+  type CanvasFail,
+} from "./write.ts";
 
 const commentInput = z
   .object({
@@ -54,20 +60,22 @@ function placeOf(input: z.infer<typeof commentInput>): CommentPlace {
 
 const canvasCommentEffect = Effect.fn("ext.canvas.comment")(function* (
   input: z.infer<typeof commentInput>,
-): Effect.fn.Return<z.infer<typeof commentOutput>, CanvasFail, KbCtx | KbStore> {
+): Effect.fn.Return<z.infer<typeof commentOutput>, CanvasFail, KbCtx | GraphWrites> {
   const doc = yield* readCanvasEffect(input.canvasId);
   // The threads as this call may read them: a script answers only those its subject holds.
   const threads = canvasWorld(yield* readableEffect()).threadsOn(input.canvasId);
   const write = yield* canvasStep(() => commentWrite(input.canvasId, placeOf(input), doc, threads));
   // A comment is a node like any other: written as `node.add` writes one.
-  const added = yield* addNodeAtEffect({
+  // Planned over the graph it lands on, so a reply never drops one written meanwhile.
+  const id = input.id ?? (yield* freshId);
+  const add = {
     text: input.text,
     tags: [CANVAS_IDS.commentTag],
     parent: write.parent,
     props: Object.entries(write.props).map(([field, value]) => ({ field, value })),
-    ...(input.id === undefined ? {} : { id: input.id }),
-  });
-  return { canvasId: input.canvasId, id: added.id, thread: write.thread ?? added.id };
+  };
+  yield* (yield* GraphWrites).commit((nodes) => planAddEffect(nodes, add, id));
+  return { canvasId: input.canvasId, id, thread: write.thread ?? id };
 });
 
 export const COMMENT_VERB: ExtensionAction = {

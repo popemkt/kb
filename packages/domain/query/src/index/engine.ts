@@ -1,11 +1,13 @@
 import { Context, Effect, Schema } from "effect";
+import { domainError, type DomainError } from "@kb/model";
+import { DatalogError } from "../datalog-error.ts";
 import type { KbIndex } from "./index.ts";
 
 /**
  * A query the engine could not answer. `cause` is what it threw: a
  * `DatalogError` when the caller's datalog is wrong, anything else when kb's
- * own glue failed; the action boundary tells them apart
- * (`classifyQueryError`).
+ * own glue failed; {@link classifyQueryError} tells them
+ * apart.
  */
 export class QueryError extends Schema.TaggedError<QueryError>()("QueryError", {
   cause: Schema.Defect(),
@@ -29,6 +31,40 @@ export interface QueryEngine {
 export class QueryEngineService extends Context.Service<QueryEngineService, QueryEngine>()(
   "kb/QueryEngine",
 ) {}
+
+/**
+ * Map a query-layer failure to a typed domain error. Datalog errors thrown by
+ * the datascript engine (parse/eval of the user's EDN) are `invalid_input`;
+ * anything else — a genuine defect in our glue (normalization, revive) — stays
+ * `internal` so internal bugs are never hidden behind an "invalid query" code.
+ */
+export function classifyQueryError(err: unknown, queryString: string): DomainError {
+  if (err instanceof DatalogError) {
+    return domainError("invalid_input", `invalid datalog query: ${err.message}`, {
+      query: queryString,
+    });
+  }
+  return domainError(
+    "internal",
+    `graph query failed: ${err instanceof Error ? err.message : String(err)}`,
+    { query: queryString },
+  );
+}
+
+/**
+ * Datalog on whichever engine the host runs, its failure as a typed domain
+ * error ({@link classifyQueryError}): what `graph.query` and `graph.run` answer,
+ * and what a family reads the graph with.
+ */
+export const datalogRows = Effect.fn("datalogRows")(function* (
+  edn: string,
+  inputs?: unknown[],
+): Effect.fn.Return<unknown[][], DomainError, QueryEngineService> {
+  const engine = yield* QueryEngineService;
+  return yield* engine
+    .runDatalog(edn, inputs)
+    .pipe(Effect.mapError(({ cause }) => classifyQueryError(cause, edn)));
+});
 
 /** The engine of an index that runs in this process: each answer is the index's own, at once. */
 export function engineOf(index: KbIndex): QueryEngine {

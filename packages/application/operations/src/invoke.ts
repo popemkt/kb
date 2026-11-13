@@ -36,7 +36,7 @@ import {
   sealedPart,
 } from "./interception.ts";
 import { CurrentCommitFrame, commitFrame } from "./commit-frame.ts";
-import { callWithin, scriptRefusal } from "./script-reach.ts";
+import { callWithin, scriptRefusal } from "@kb/sandbox";
 import { fillFromSession, withContextHint } from "./context-fill.ts";
 /**
  * The invoke core: one registered-action shape, the core actions

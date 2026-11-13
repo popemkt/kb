@@ -4,9 +4,9 @@ import { bunFileSystemLayer } from "../src/platform.ts";
 import { present } from "@kb/model";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { DatalogError } from "@kb/query";
+import { DatalogError, classifyQueryError } from "@kb/query";
 import { openKb } from "../src/session.ts";
-import { classifyQueryError, graphRunEffect, graphSearchEffect } from "@kb/operations";
+import { graphRunEffect, graphSearchEffect } from "@kb/operations";
 import { invoke } from "../src/invoke.ts";
 import { manifest } from "../src/registry.ts";
 

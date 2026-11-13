@@ -13,7 +13,7 @@
 import { Effect, Predicate } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
-import { CoreInvoke, type ExtensionAction, type KbCtx, type KbStore } from "@kb/contracts";
+import { CoreInvoke, type ExtensionAction, type GraphWrites, type KbCtx } from "@kb/contracts";
 import {
   DIAGRAM_FLOWS,
   DIAGRAM_LIMITS,
@@ -25,8 +25,7 @@ import {
   type DiagramSpec,
 } from "@kb/canvas";
 import { freshId } from "@kb/model";
-import { graphQueryEffect } from "@kb/operations";
-import type { KbIndexService, QueryEngineService } from "@kb/query";
+import { datalogRows, type KbIndexService, type QueryEngineService } from "@kb/query";
 import { CanvasTxError, canvasStep, createCanvasEffect, type CanvasFail } from "./write.ts";
 
 /** The action that answers the edges among a set of nodes, which the graph family provides. */
@@ -108,7 +107,7 @@ const querySpecEffect = Effect.fn("ext.canvas.diagram.query")(function* (
   query: string,
   input: DiagramInput,
 ): Effect.fn.Return<{ spec: DiagramSpec; reported: string[] }, CanvasFail, QueryEngineService> {
-  const { rows } = yield* graphQueryEffect({ query });
+  const rows = yield* datalogRows(query);
   const ids = rowIds(rows);
   if (ids.length === 0) {
     return yield* Effect.fail(new CanvasTxError("the query names no node in its first column"));
@@ -163,7 +162,7 @@ const canvasDiagramEffect = Effect.fn("ext.canvas.diagram")(function* (
 ): Effect.fn.Return<
   z.infer<typeof diagramOutput>,
   CanvasFail,
-  KbCtx | KbStore | FileSystem | KbIndexService | QueryEngineService
+  KbCtx | GraphWrites | FileSystem | KbIndexService | QueryEngineService
 > {
   const { spec, reported } =
     input.query === undefined

@@ -20,7 +20,7 @@ import {
 } from "@kb/contracts";
 import { isVocabulary } from "./vocabulary.ts";
 import type { KbNode, NodeId, StoreTx } from "@kb/model";
-import { CodeGrant, callTargets, grantRefusal, subjectReach } from "@kb/sandbox";
+import { CodeGrant, callTargets, grantRefusal, readsWholeGraph, subjectReach } from "./grant.ts";
 
 const decodeGrant = Schema.decodeUnknownOption(CodeGrant);
 
@@ -189,7 +189,8 @@ export function scriptWriteRefusal(
 /** Whether `invocation` reads the whole graph: any call but a script's, and a script's whose grant reads it. */
 function readsGraph(invocation: ActionInvocation | undefined): boolean {
   if (invocation === undefined || !madeByScript(invocation)) return true;
-  return Option.getOrUndefined(decodeGrant(invocation.script?.grant))?.reads === "graph";
+  const grant = Option.getOrUndefined(decodeGrant(invocation.script?.grant));
+  return grant !== undefined && readsWholeGraph(grant);
 }
 
 /**

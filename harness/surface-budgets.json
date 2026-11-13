@@ -21,12 +21,12 @@
     "limit": 12
   },
   "@kb/operations": {
-    "limit": 165,
-    "reason": "M3 relocation; final ceiling 90 pending API redesign"
+    "limit": 152,
+    "reason": "M6 moved write planners, script reach and query errors to their owners; final ceiling 90 pending API redesign"
   },
   "@kb/contracts": {
-    "limit": 377,
-    "reason": "M5 pure family token catalogue reader and loaded declaration point."
+    "limit": 379,
+    "reason": "M6: node.update input and prop input schemas, shared by the action and days' untag interceptor."
   },
   "@kb/ext-sdk": {
     "limit": 9
@@ -35,23 +35,23 @@
     "limit": 27
   },
   "@kb/sandbox": {
-    "limit": 89,
-    "reason": "Initial measured interface; module migration will narrow it."
+    "limit": 94,
+    "reason": "M6: script reach (callWithin, scriptRefusal, scriptWriteRefusal, readableNodes, readableQuery) moved from @kb/operations beside grants."
   },
   "@kb/model": {
-    "limit": 294,
-    "reason": "M5 view-family option registry replaced by generic declared options."
+    "limit": 300,
+    "reason": "M6: planNodeAdd, placedRank, projectPropEdits, NodeAddPlanInput, PropEntry and syncDomain moved from @kb/operations; pure write meaning a capture planner can use."
   },
   "@kb/plugin": {
     "limit": 54
   },
   "@kb/query": {
-    "limit": 90,
-    "reason": "Initial measured interface; module migration will narrow it."
+    "limit": 92,
+    "reason": "M6: datalogRows and classifyQueryError moved from @kb/operations; how a family reads the graph."
   },
   "@kb/views": {
-    "limit": 108,
-    "reason": "Initial measured interface; module migration will narrow it."
+    "limit": 111,
+    "reason": "M6: planViewProposal, PlannedView and ViewProposal moved from @kb/operations beside viewNodeFor."
   },
   "@kb/agent": {
     "limit": 62,

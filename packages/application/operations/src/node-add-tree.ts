@@ -19,10 +19,12 @@ import {
   type NodeId,
   type NodeGraph,
   type ParsedValue,
+  planNodeAdd,
+  syncDomain,
+  type PropEntry,
 } from "@kb/model";
 import { parseOutline, type OutlineItem } from "./outline.ts";
-import { forcedBy, nodeAddDef, planNodeAdd, syncDomain } from "./actions.ts";
-import type { PropEntry } from "./prop-edits.ts";
+import { forcedBy, nodeAddDef } from "./actions.ts";
 import { placedGraph, placeOf } from "./place.ts";
 import { persistPlannedEffect } from "./session.ts";
 

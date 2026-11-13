@@ -13,7 +13,7 @@ import {
   type RunningCall,
   type SurfaceWire,
 } from "@kb/contracts";
-import { callWithin } from "../src/script-reach.ts";
+import { callWithin } from "@kb/sandbox";
 
 const PROGRAM_WIRE: SurfaceWire = { carriesApproval: false, actor: "agent" };
 

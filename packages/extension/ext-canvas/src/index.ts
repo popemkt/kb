@@ -7,7 +7,7 @@ import {
   extensionNamespace,
   provideAction,
   type ExtensionAction,
-  type KbStore,
+  type GraphWrites,
   familyTags,
 } from "@kb/contracts";
 import { canvasExtension, canvasPlugin } from "@kb/canvas";
@@ -70,7 +70,7 @@ const applyOutput = z.object({
 
 export const canvasTxApplyEffect = Effect.fn("ext.canvas.tx.apply")(function* (
   input: z.infer<typeof applyInput>,
-): Effect.fn.Return<z.infer<typeof applyOutput>, CanvasFail, KbCtx | KbStore | FileSystem> {
+): Effect.fn.Return<z.infer<typeof applyOutput>, CanvasFail, KbCtx | GraphWrites | FileSystem> {
   const ctx = yield* KbCtx;
   const doc = yield* parseDocEffect(input.doc, input.canvasId);
   const hasPropOps =

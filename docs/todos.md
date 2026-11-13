@@ -90,8 +90,6 @@
 - Cordis-level plugin integration, maybe more: config as fields on sys.extension.<name> with re-apply; a graph-driven loader; a plugin view; hot reload; optional injects and lifecycle events. First a Sonnet survey, then an Opus plan (integration.md)
 - Dependency upgrades (survey: docs/brainstorms/2026-10-04-kb-upgrades/README.md)
 - E14 · close the gaps, flip the extension rule's enforcement to harness, docs.materialize
-- E15b · ext-canvas onto GraphWrites; KbStore and @kb/operations leave ext-canvas (adds planNodeAdd with its caller)
-- E15c · fence: LAYER_ALLOWS.extension drops application; DESIGN.md workspace shape fixed
 - E16 · copied family helpers get one home each
 - E17 · type-check the repository extension surface (kb-ext-sdk) against the contract
 - E18 · the CLI's report bins import no family (a report shape in @kb/contracts, one generic print path)
@@ -123,6 +121,8 @@
 - Canvas parity with tldraw offline · P1–P5 (styles, edge anchors and routes, path item, lock/align/distribute, shortcut table); P6–P8 wait on the owner's questions. Plan: docs/brainstorms/2026-10-17-kb-canvas-tldraw-parity/README.md
 - canvas.test.ts calls mkdtemp inside packages/app/runtime/tests, so an aborted run leaves kb-canvas-* directories in the tree (seen in the t2 worktree 2026-09-04); use os.tmpdir() or a try/finally rm
 - E10c · every cleanly extracted family can be switched off through the one extension switch (canvas, chart, code, lab, agent; --no-agent folds into it). Plan: docs/brainstorms/2026-10-04-kb-extension-boundaries/README.md
+- E15b · ext-canvas onto GraphWrites; KbStore and @kb/operations leave ext-canvas (adds planNodeAdd with its caller)
+- E15c · fence: LAYER_ALLOWS.extension drops application; DESIGN.md workspace shape fixed
 - Fix pre-existing test:render failure: projection.e2e "collapse holds the camera; mapped perspectives save…" fails on main (seen at a988d219, reported by the trace builder 2026-10-17); test:render is not in the gate, so nothing else catches it
 - Flaky test: locations contract 'opening a closed root through the real serve' (locations-contract.test.ts:400) fails ~1 in 3 — order() returns two ids minted in the same instant in swapped order; tie-ordering is not deterministic
 - Investigate the layers DeepSeek Harness adds on top of Cordis (DESIGN.md names it as the kernel's model): what it layers on, what kb lacks, what is worth taking

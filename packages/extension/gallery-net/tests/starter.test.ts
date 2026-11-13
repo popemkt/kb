@@ -4,6 +4,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import { SYSTEM_IDS } from "@kb/model";
+// GAP [[01M79FGVEF9PKK9BB1998YTTGQ]]: core's outline-paste parser, read from application.
 import { parseOutline, type OutlineItem } from "@kb/operations";
 import { galleryExtension } from "@kb/gallery";
 import { NOTES_3D } from "../src/starter-3d.ts";

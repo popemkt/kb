@@ -22,7 +22,7 @@ import {
 } from "@kb/contracts";
 import { CurrentCommitFrame } from "./commit-frame.ts";
 import { guardCommit, refusalOf } from "./interception.ts";
-import { scriptWriteRefusal } from "./script-reach.ts";
+import { scriptWriteRefusal } from "@kb/sandbox";
 import { personWriteRefusal } from "./write-refusal.ts";
 
 /**

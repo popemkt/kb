@@ -16,7 +16,7 @@ import {
   HOSTS_BY_SCOPE,
   type ExtensionRoot,
   type PackageAxes,
-  type SanctionedExtensionImport,
+  type SanctionedImport,
   UI_SURFACES,
   isPackageTestFile,
 } from "./constraints.ts";
@@ -40,7 +40,7 @@ import {
 } from "./workspace.ts";
 
 type Roots = Readonly<Record<string, readonly ExtensionRoot[]>>;
-type Sanctions = Readonly<Record<string, readonly SanctionedExtensionImport[]>>;
+type Sanctions = Readonly<Record<string, readonly SanctionedImport[]>>;
 
 /** The layer whose packages are composition roots and delivery surfaces. */
 const APP_LAYER = "app";
@@ -251,7 +251,7 @@ function rootOf(roots: Roots, edge: ImportEdge): ExtensionRoot | undefined {
 /** One import of an extension package by an `app` package from outside every root. */
 export interface RootBreach extends ImportEdge {
   /** The sanctioned row that names its file, if one does. */
-  readonly sanction: SanctionedExtensionImport | undefined;
+  readonly sanction: SanctionedImport | undefined;
 }
 
 /**

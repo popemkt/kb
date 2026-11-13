@@ -9,12 +9,18 @@
  */
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
-import { CurrentCall, KbCtx, type KbContext, type KbStore } from "@kb/contracts";
+import { CurrentCall, GraphWrites, KbCtx, type KbContext } from "@kb/contracts";
 import { KbIndexService, type NodeIndex } from "@kb/query";
-import { persistEffect, planNodeAddEffect, readableNodes, readableQuery } from "@kb/operations";
+import { readableNodes, readableQuery } from "@kb/sandbox";
 import {
   isSysPrefixed,
   currentIso,
+  freshId,
+  IndexedNodes,
+  planNodeAdd,
+  present,
+  syncDomain,
+  type NodeAddPlanInput,
   ResolveError,
   domainError,
   domainFromResolve,
@@ -216,8 +222,24 @@ export const readableQueryEffect = Effect.fn("ext.canvas.readableQuery")(
   },
 );
 
-/** What a canvas write needs: the kb it reads and the store it commits to. */
-export type CanvasWriteEnv = KbCtx | KbStore | FileSystem;
+/** What a canvas write needs: the kb it reads and core's write path it commits through. */
+export type CanvasWriteEnv = KbCtx | GraphWrites | FileSystem;
+
+/**
+ * One node added over `nodes` as `node.add` adds one (`planNodeAdd`), with
+ * the id `id`: the node, and its parent with the child filed in, as a write.
+ */
+export const planAddEffect = Effect.fn("ext.canvas.planAdd")(function* (
+  nodes: readonly KbNode[],
+  input: NodeAddPlanInput,
+  id: NodeId,
+): Effect.fn.Return<{ upserts: KbNode[]; deletes: NodeId[] }, DomainError> {
+  const at = yield* currentIso;
+  const graph = IndexedNodes.of(nodes);
+  const { written } = yield* syncDomain(() => planNodeAdd(graph, input, id, at));
+  const upserts = written.map((w) => present(graph.get(w), "a planned node is in the graph"));
+  return { upserts, deletes: [] };
+});
 
 /**
  * The `#canvas` node `host` holding the document `docStr`, stamped `at`:
@@ -273,7 +295,7 @@ export interface CanvasWritten {
  */
 export const commitCanvasEffect = Effect.fn("ext.canvas.commit")(function* (
   write: CanvasWrite,
-): Effect.fn.Return<CanvasWritten, CanvasFail, KbCtx | KbStore | FileSystem> {
+): Effect.fn.Return<CanvasWritten, CanvasFail, CanvasWriteEnv> {
   const ctx = yield* KbCtx;
   const docStr = stringifyCanvasDoc(write.doc);
   // One stamp per transaction, from the Clock the store's replay overrides.
@@ -292,7 +314,8 @@ export const commitCanvasEffect = Effect.fn("ext.canvas.commit")(function* (
     write.doc,
     canvasWorld(yield* readableEffect([...also, canvas])),
   );
-  yield* persistEffect(ctx, { upserts: [canvas, ...also], deletes: [] });
+  const upserts = [canvas, ...also];
+  yield* (yield* GraphWrites).commit(() => Effect.succeed({ upserts, deletes: [] }));
   return { doc: docStr, lints: lintDiff(before, after) };
 });
 
@@ -304,14 +327,16 @@ export const createCanvasEffect = Effect.fn("ext.canvas.create")(function* (
   name: string,
   doc: CanvasDoc,
   parent?: string,
-): Effect.fn.Return<string, CanvasFail, KbCtx | KbStore | FileSystem> {
-  const ctx = yield* KbCtx;
-  const planned = yield* planNodeAddEffect({
+): Effect.fn.Return<string, CanvasFail, CanvasWriteEnv> {
+  const id = yield* freshId;
+  const add = {
     text: name,
     tags: ["canvas"],
-    props: [{ field: CANVAS_IDS.canvasField, value: { t: "str", v: stringifyCanvasDoc(doc) } }],
-    parent: parent ?? null,
-  });
-  yield* persistEffect(ctx, { upserts: planned.upserts, deletes: [] });
-  return planned.id;
+    props: [
+      { field: CANVAS_IDS.canvasField, value: { t: "str" as const, v: stringifyCanvasDoc(doc) } },
+    ],
+    parent,
+  };
+  yield* (yield* GraphWrites).commit((nodes) => planAddEffect(nodes, add, id));
+  return id;
 });

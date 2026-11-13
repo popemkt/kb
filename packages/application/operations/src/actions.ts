@@ -7,6 +7,8 @@ import {
   type KbContext,
   KbCtx,
   type KbStore,
+  NodeUpdateInputSchema,
+  PropInputSchema,
   SavedQueries,
   viaWithin,
 } from "@kb/contracts";
@@ -16,51 +18,28 @@ import {
   SYSTEM_IDS,
   currentIso,
   domainError,
-  domainFromResolve,
   freshId,
   rankForInsert,
   type RankSlot,
   IndexedNodes,
   resolveFieldId,
   resolveTagId,
-  resolveTagIn,
-  type NodeGraph,
-  type SiblingGroups,
   type DomainError,
   type KbNode,
   type NodeId,
-  type PropValue,
   present,
+  syncDomain,
+  placedRank,
+  planNodeAdd,
+  projectPropEdits,
 } from "@kb/model";
 import { persistEffect, persistPlannedEffect, type PersistOptions } from "./session.ts";
 import { placedGraph, placeOf } from "./place.ts";
-import { applyProps, projectPropEdits, type PropEntry } from "./prop-edits.ts";
-import { DatalogError, QueryEngineService, type NodeIndex } from "@kb/query";
+import { datalogRows, type NodeIndex, type QueryEngineService } from "@kb/query";
 
 type KbWriteEnv = KbCtx | KbStore;
 /** A write that may place a node where captures go. */
 type KbCaptureEnv = KbWriteEnv | CaptureTarget;
-
-/** Lift sync resolve/throw helpers into DomainError. */
-export function syncDomain<A>(f: () => A): Effect.Effect<A, DomainError> {
-  return Effect.try({
-    try: f,
-    catch: (err) => {
-      if (err instanceof ResolveError) return domainFromResolve(err);
-      return domainError("internal", err instanceof Error ? err.message : String(err));
-    },
-  });
-}
-
-const PropInputSchema = z.object({
-  field: z.string(),
-  value: z.union([
-    z.object({ t: z.literal("str"), v: z.string() }),
-    z.object({ t: z.literal("num"), v: z.number() }),
-    z.object({ t: z.literal("bool"), v: z.boolean() }),
-    z.object({ t: z.literal("ref"), v: z.string() }),
-  ]),
-});
 
 export const nodeAddDef = {
   id: "node.add",
@@ -99,18 +78,7 @@ export const nodeUpdateDef = {
   targets: ["id", "parent"],
   // "Rename this": a call made in a tab session may leave out the node it edits.
   context: { id: "focused" },
-  inputSchema: z.object({
-    id: z.string(),
-    text: z.string().optional(),
-    setProps: z.array(PropInputSchema).optional(),
-    unsetProps: z.array(z.object({ field: z.string(), value: z.unknown().optional() })).optional(),
-    /** Move under this parent, or to the forest roots when null. */
-    parent: z.string().nullable().optional(),
-    /** Index in the target sibling group; the end when omitted on a move. */
-    position: z.number().int().nonnegative().optional(),
-    /** Bypass sys.* write-guard (browse yes / break no). */
-    force: z.boolean().optional(),
-  }),
+  inputSchema: NodeUpdateInputSchema,
   outputSchema: z.object({
     id: z.string(),
     node: z.record(z.string(), z.unknown()),
@@ -318,7 +286,7 @@ export function requireNode(ctx: KbContext<NodeIndex>, id: NodeId): KbNode {
   return n;
 }
 
-export function cloneNode(n: KbNode): KbNode {
+function cloneNode(n: KbNode): KbNode {
   return {
     ...n,
     props: Object.fromEntries(
@@ -383,34 +351,12 @@ function collectSubtreeIds(nodes: KbNode[], rootId: NodeId): NodeId[] {
   return result;
 }
 
-export function insertChild(
-  parent: KbNode,
-  childId: NodeId,
-  at: string,
-  position?: number,
-): KbNode {
+function insertChild(parent: KbNode, childId: NodeId, at: string, position?: number): KbNode {
   const c = cloneNode(parent);
   const pos = position === undefined || position > c.children.length ? c.children.length : position;
   c.children = [...c.children.slice(0, pos), childId, ...c.children.slice(pos)];
   c.updatedAt = at;
   return c;
-}
-
-/**
- * The rank a node takes when it is placed at `position` in the sibling group
- * under `parent` (the forest roots when null), read from `groups` — the state
- * before the placement, which is why the node itself is excluded. The one
- * owner of the answer is `@kb/model`'s `rankForInsert`; the store's commit
- * settles it again against whatever it merges into.
- */
-export function placedRank(
-  groups: SiblingGroups<KbNode>,
-  parent: NodeId | null,
-  node: KbNode,
-  position: number | undefined,
-): string {
-  const siblings = groups.slots(parent, node.id);
-  return rankForInsert(siblings, position ?? siblings.length, node.order);
 }
 
 /** Prefer structured pull from our nodes map for reliable ordered depth. */
@@ -435,65 +381,6 @@ function pullSubtree(ctx: KbContext<NodeIndex>, id: NodeId, depth: number): unkn
     return base;
   };
   return walk(node, depth);
-}
-
-/** One prop a write names: a field (by name or id) and the value it gains. */
-
-/**
- * What one add says, whoever says it: `node.add`'s input, its props as
- * values of the model, and its place decided: under `parent`, or at the
- * top level without one.
- */
-export type NodeAddPlanInput = Omit<
-  z.infer<typeof nodeAddDef.inputSchema>,
-  "props" | "id" | "parent"
-> & {
-  props?: readonly PropEntry[] | undefined;
-  parent?: NodeId | undefined;
-};
-
-/**
- * What one add means, stated once: the new node, and its parent with the
- * child filed in, written into `graph` (checked, not stored). It returns the
- * ids it wrote; reading them back from `graph` gives the upserts. It throws
- * {@link ResolveError}, and a refused add writes nothing; the effects below
- * lift it.
- */
-export function planNodeAdd(
-  graph: NodeGraph,
-  input: NodeAddPlanInput,
-  id: NodeId,
-  at: string,
-): { node: KbNode; written: NodeId[] } {
-  if (graph.has(id)) {
-    throw new ResolveError("ambiguous", `node id already exists: ${id}`, { id });
-  }
-
-  const props: Record<NodeId, PropValue[]> = {};
-  if (input.props) applyProps(graph, props, input.props);
-  if (input.tags) {
-    for (const tagName of input.tags) {
-      const tagId = resolveTagIn(graph, tagName);
-      const list = props[SYSTEM_IDS.typeField] ?? [];
-      list.push({ t: "ref", v: tagId });
-      props[SYSTEM_IDS.typeField] = list;
-    }
-  }
-
-  const draft: KbNode = { id, text: input.text, props, children: [], createdAt: at, updatedAt: at };
-  const parentId = input.parent;
-  const node: KbNode = {
-    ...draft,
-    order: placedRank(graph, parentId ?? null, draft, input.position),
-  };
-  const written = parentId === undefined ? [id] : [id, parentId];
-  if (parentId !== undefined && !graph.has(parentId)) {
-    throw new ResolveError("not_found", `node not found: ${parentId}`, { id: parentId });
-  }
-  // Filed before it is put, so the node never passes through the roots.
-  if (parentId !== undefined) graph.insertChild(parentId, id, input.position, at);
-  graph.put(node);
-  return { node, written };
 }
 
 /** `node.add`'s input with its place decided: under `parent`, or the top level for null. */
@@ -743,40 +630,10 @@ export const tagDefineEffect = Effect.fn("tag.define")(function* (
   return { id: result.id };
 });
 
-/**
- * Map a query-layer failure to a typed domain error. Datalog errors thrown by
- * the datascript engine (parse/eval of the user's EDN) are `invalid_input`;
- * anything else — a genuine defect in our glue (normalization, revive) — stays
- * `internal` so internal bugs are never hidden behind an "invalid query" code.
- */
-export function classifyQueryError(err: unknown, queryString: string): DomainError {
-  if (err instanceof DatalogError) {
-    return domainError("invalid_input", `invalid datalog query: ${err.message}`, {
-      query: queryString,
-    });
-  }
-  return domainError(
-    "internal",
-    `graph query failed: ${err instanceof Error ? err.message : String(err)}`,
-    { query: queryString },
-  );
-}
-
-/** Shared datalog execution for graph.query / graph.run, on whichever engine the host runs. */
-const runDatalog = Effect.fn("runDatalog")(function* (
-  edn: string,
-  inputs?: unknown[],
-): Effect.fn.Return<unknown[][], DomainError, QueryEngineService> {
-  const engine = yield* QueryEngineService;
-  return yield* engine
-    .runDatalog(edn, inputs)
-    .pipe(Effect.mapError(({ cause }) => classifyQueryError(cause, edn)));
-});
-
 export const graphQueryEffect = Effect.fn("graph.query")(function* (
   input: z.infer<typeof graphQueryDef.inputSchema>,
 ): Effect.fn.Return<{ rows: unknown }, DomainError, QueryEngineService> {
-  const rows = yield* runDatalog(input.query, input.inputs);
+  const rows = yield* datalogRows(input.query, input.inputs);
   return { rows };
 });
 
@@ -794,7 +651,7 @@ export const graphRunEffect = Effect.fn("graph.run")(function* (
       name: input.name,
     });
   }
-  const rows = yield* runDatalog(edn, input.inputs);
+  const rows = yield* datalogRows(edn, input.inputs);
   return { name: input.name, query: edn.trim(), rows };
 });
 

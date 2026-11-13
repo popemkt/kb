@@ -14,7 +14,7 @@
 import type { NodeIndex } from "@kb/query";
 import { Effect } from "effect";
 import { z } from "zod";
-import { KbCtx, type ExtensionAction, type KbContext, type KbStore } from "@kb/contracts";
+import { GraphWrites, KbCtx, type ExtensionAction, type KbContext } from "@kb/contracts";
 import {
   CANVAS_IDS,
   CanvasView,
@@ -29,8 +29,8 @@ import {
   type CanvasCamera,
   type CanvasDoc,
 } from "@kb/canvas";
-import { currentIso, type DomainError, type KbNode, type NodeId } from "@kb/model";
-import { persistPlannedEffect, planViewProposal } from "@kb/operations";
+import { currentIso, IndexedNodes, type DomainError, type KbNode, type NodeId } from "@kb/model";
+import { planViewProposal } from "@kb/views";
 
 const migrateOutput = z.object({
   /** The canvases whose camera moved onto a view node. */
@@ -89,12 +89,17 @@ const planMove = Effect.fn("ext.canvas.camera.migrate.plan")(function* (
     };
     return { upserts: [moved, looking], deletes: [] };
   }
-  const planned = yield* planViewProposal(ctx, CanvasView, {
-    params: { id: canvas.id, ...camera },
-    host: canvas.id,
-    text: "",
-    default: false,
-  });
+  const planned = yield* planViewProposal(
+    (id) => ctx.index.getNode(id),
+    IndexedNodes.of(ctx.nodes),
+    CanvasView,
+    {
+      params: { id: canvas.id, ...camera },
+      host: canvas.id,
+      text: "",
+      default: false,
+    },
+  );
   const upserts = planned.upserts.map((node) =>
     node.id === canvas.id ? withoutCamera(node, doc, at) : node,
   );
@@ -104,13 +109,14 @@ const planMove = Effect.fn("ext.canvas.camera.migrate.plan")(function* (
 const cameraMigrateEffect = Effect.fn("ext.canvas.camera.migrate")(function* (): Effect.fn.Return<
   MigrateOutput,
   DomainError,
-  KbCtx | KbStore
+  KbCtx | GraphWrites
 > {
   const ctx = yield* KbCtx;
+  const writes = yield* GraphWrites;
   const moved: string[] = [];
   const unread = new Set<string>();
   for (const id of ctx.nodes.filter(isCanvasNode).map((node) => node.id)) {
-    const written = yield* persistPlannedEffect(ctx, () =>
+    const written = yield* writes.commit(() =>
       Effect.gen(function* () {
         const canvas = ctx.index.getNode(id);
         const held = canvas === undefined ? undefined : legacyCameraOf(canvas);

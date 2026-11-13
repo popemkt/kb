@@ -15,9 +15,8 @@
  * node that holds no key, so an ordinary update costs one lookup.
  */
 import { Effect } from "effect";
-import type { ActionInterceptor, InterceptedCall } from "@kb/contracts";
-import { IndexedNodes, type KbNode, type NodeLookup } from "@kb/model";
-import { nodeUpdateDef, projectPropEdits } from "@kb/operations";
+import { NodeUpdateInputSchema, type ActionInterceptor, type InterceptedCall } from "@kb/contracts";
+import { IndexedNodes, projectPropEdits, type KbNode, type NodeLookup } from "@kb/model";
 import { DAYS_IDS } from "./ids.ts";
 import { keyValues, periodsOf } from "./period-key.ts";
 
@@ -31,7 +30,7 @@ export function untaggedInput(
   nodes: readonly KbNode[],
   nodeOf: NodeLookup,
 ): unknown {
-  const parsed = nodeUpdateDef.inputSchema.safeParse(input);
+  const parsed = NodeUpdateInputSchema.safeParse(input);
   // An input the action will refuse is the action's to refuse.
   if (!parsed.success || parsed.data.unsetProps === undefined) return input;
   const node = nodeOf(parsed.data.id);

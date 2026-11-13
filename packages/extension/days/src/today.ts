@@ -5,9 +5,8 @@
  */
 import { Effect } from "effect";
 import { z } from "zod";
-import { KbCtx, type ExtensionAction, type KbStore } from "@kb/contracts";
+import { GraphWrites, KbCtx, type ExtensionAction } from "@kb/contracts";
 import { domainError, present, type DomainError } from "@kb/model";
-import { persistPlannedEffect } from "@kb/operations";
 import { storeToday } from "./capture.ts";
 import { isDayKey } from "./period.ts";
 import { planToday } from "./today-plan.ts";
@@ -29,19 +28,19 @@ const todayOutput = z.object({
 
 /**
  * One node per key holds across every caller because the write lands only
- * on the state it was planned from (`persistPlannedEffect`, the store's
+ * on the state it was planned from (`GraphWrites.commit`, the store's
  * conditional commit): a second caller that planned the same day before the
  * first committed is planned again, finds the day, and writes nothing. The
  * unique-key guard is what refuses a hand-keyed duplicate.
  */
 const todayEffect = Effect.fn("ext.days.today")(function* (
   input: z.infer<typeof todayInput>,
-): Effect.fn.Return<z.infer<typeof todayOutput>, DomainError, KbCtx | KbStore> {
+): Effect.fn.Return<z.infer<typeof todayOutput>, DomainError, KbCtx | GraphWrites> {
   const ctx = yield* KbCtx;
   const day = input.day ?? (yield* storeToday(ctx.nodes));
   if (!isDayKey(day))
     return yield* domainError("invalid_input", `not a calendar date (YYYY-MM-DD): ${day}`);
-  const write = yield* persistPlannedEffect(ctx, (nodes) => planToday(nodes, day));
+  const write = yield* (yield* GraphWrites).commit((nodes) => planToday(nodes, day));
   const { id, made } = present(write, "a day plan always answers");
   return { id, made: [...made] };
 });

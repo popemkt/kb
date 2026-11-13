@@ -24,7 +24,6 @@ export {
 } from "./extension-marketplace.ts";
 export { extensionDiffDef, extensionDiffEffect } from "./extension-review.ts";
 export {
-  classifyQueryError,
   fieldDefineDef,
   fieldDefineEffect,
   graphQueryDef,
@@ -38,7 +37,6 @@ export {
   nodeAddDef,
   addNodeAtEffect,
   nodeAddEffect,
-  planNodeAdd,
   planNodeAddEffect,
   nodeGetDef,
   nodeGetEffect,
@@ -52,10 +50,8 @@ export {
   tagDefineEffect,
 } from "./actions.ts";
 export type { PlacedAddInput } from "./actions.ts";
-export { projectPropEdits, type PropEdits, type PropEntry, type PropUnset } from "./prop-edits.ts";
 export { KB_DESIGN_SYSTEM, coreExtension } from "./core-extension.ts";
 export { nodeAddTreeDef, nodeAddTreeEffect, planNodeAddTreeEffect } from "./node-add-tree.ts";
-export { planViewProposal, type PlannedView, type ViewProposal } from "./view-propose.ts";
 export { ASSET_MAX_BYTES, assetUploadDef, assetUploadEffect } from "./assets.ts";
 export { GENERATED_HEADER } from "./docs/docs.ts";
 export { DocsError } from "./docs/views.ts";
@@ -127,7 +123,6 @@ export {
   receiptFromError,
 } from "./invoke.ts";
 export type { RegisteredAction } from "./invoke.ts";
-export { callWithin, readableNodes, readableQuery } from "./script-reach.ts";
 export { interceptionFrom, interceptionOf } from "./interception.ts";
 export type { InterceptionOptions } from "./interception.ts";
 
@@ -155,5 +150,4 @@ export { personWriteRefusal } from "./write-refusal.ts";
 export { MODE_MATCHES, matchSpecificity } from "./action-match.ts";
 export { OUTLINE_HEADER, outlineFieldNames, parseOutline } from "./outline.ts";
 export type { OutlineField, OutlineItem, OutlineParse, OutlineValue } from "./outline.ts";
-export { isVocabulary } from "./vocabulary.ts";
 export { sanitizeSvg } from "./svg-sanitize.ts";

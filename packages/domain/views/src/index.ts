@@ -87,7 +87,13 @@ export {
   type ViewCatalogEntry,
   type ViewCatalogOf,
 } from "./catalog.ts";
-export { viewNodeFor, type ViewNodeProposal } from "./view-node.ts";
+export {
+  planViewProposal,
+  viewNodeFor,
+  type PlannedView,
+  type ViewNodeProposal,
+  type ViewProposal,
+} from "./view-node.ts";
 export { SUBJECT_SLOTS, subjectRootOf, subjectRootProps } from "./subject.ts";
 export {
   HomeView,

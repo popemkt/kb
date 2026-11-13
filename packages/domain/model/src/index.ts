@@ -10,6 +10,7 @@ export {
   ensureDomainError,
   isDomainError,
   receiptCodeOf,
+  syncDomain,
 } from "./errors.ts";
 export { extractMentions, mentionSpans, replaceMentions } from "./mention.ts";
 export type { MentionSpan } from "./mention.ts";
@@ -156,6 +157,13 @@ export {
   siblingSlots,
 } from "./order.ts";
 export type { NodeRank, RankBase, RankSlot, SiblingGroups, Slots } from "./order.ts";
+export {
+  placedRank,
+  planNodeAdd,
+  projectPropEdits,
+  type NodeAddPlanInput,
+  type PropEntry,
+} from "./node-write.ts";
 export { hasQueryDef, isQueryNode, queryDefOf, queryTextOf } from "./query-node.ts";
 export type { QueryNodeDef } from "./query-node.ts";
 export {

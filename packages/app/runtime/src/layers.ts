@@ -27,7 +27,7 @@ import {
   TemplateRegistry,
   ViewCatalog,
 } from "@kb/contracts";
-import { UntrustedEngine } from "@kb/sandbox";
+import { UntrustedEngine, callWithin } from "@kb/sandbox";
 import { quickjsEngine } from "@kb/sandbox-quickjs";
 import {
   assetsLayer,
@@ -38,7 +38,7 @@ import {
   legacyDocsViewsLayer,
   savedQueriesLayer,
 } from "@kb/workspace-fs";
-import { callWithin, graphWritesLayer } from "@kb/operations";
+import { graphWritesLayer } from "@kb/operations";
 import {
   invokeReceiptEffect,
   reachableActions,

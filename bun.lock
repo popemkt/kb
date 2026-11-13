@@ -421,6 +421,7 @@
       "dependencies": {
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
+        "@kb/query": "workspace:*",
         "effect": "catalog:",
       },
       "devDependencies": {
@@ -805,7 +806,6 @@
       "dependencies": {
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
-        "@kb/operations": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/query": "workspace:*",
         "effect": "catalog:",
@@ -852,9 +852,10 @@
         "@kb/canvas": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
-        "@kb/operations": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/query": "workspace:*",
+        "@kb/sandbox": "workspace:*",
+        "@kb/views": "workspace:*",
         "effect": "catalog:",
         "zod": "catalog:",
       },
