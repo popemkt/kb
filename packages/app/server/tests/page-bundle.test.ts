@@ -165,8 +165,9 @@ const DATASCRIPT = /cljs\.core/;
 // Preserving absent versus present binding data measures 1,843,086 bytes.
 // browser color-token port
 // The page's own key context (`core.page`, its ⌘K a binding the page
-// answers), keys that run commands, and days' Mod-Shift-D: MEASURE.
-const EAGER_BUDGET_BYTES = 1_845_600;
+// answers), keys that run commands, and days' Mod-Shift-D, on main after
+// chunk 2, measure 1,841,254 bytes; the budget stays.
+const EAGER_BUDGET_BYTES = 1_845_000;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

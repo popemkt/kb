@@ -110,7 +110,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     return nodeId === null || menuInstanceOf(nodeId) === null ? [] : listNodeCommands(ctx);
   }, [open, onClose]);
   const index = useMemo(() => {
-    const nodeId = commandTargetNodeId(pageCommandApi());
+    const nodeId = pageCommandTarget().nodeId;
     if (nodeId === null || nodeCommands.length === 0) return graphIndex;
     const label = textOr(shownNodes().get(nodeId)?.text.trim(), nodeId);
     return withNodeCommands(graphIndex, nodeCommands, label);

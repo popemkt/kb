@@ -47,7 +47,11 @@ export const KeybindingPoint = Point<Keybinding>()(
   CORE_POINT_DEFINITIONS.keybinding.spec,
 );
 
-/** The contexts a binding may name: the page's own, and the outline's row being edited and its selection. */
+/**
+ * The contexts a binding may name: the page's own, and the outline's row
+ * being edited and its selection. Core names outline's contexts here
+ * rather than reading them from their owner. GAP [[01M7A4XKCMH09XC5WT6KEBFV4H]]
+ */
 export type KeyContextId = "core.page" | "outline.editing" | "outline.selection";
 
 /**

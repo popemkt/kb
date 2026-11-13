@@ -5,8 +5,8 @@
  */
 import { describe, expect, it } from "vitest";
 import type { Contribution } from "@kb/plugin";
-import { admitKeymaps, provideKeybinding, type KeyContext, type Keybinding } from "./keybindings";
-import { PALETTE_CHORD } from "./keychord";
+import { admitKeymaps, type KeyContext, type Keybinding } from "./keybindings";
+import { PALETTE_CHORD, parseChord } from "./keychord";
 
 /** A host that approves every owner replacing what another holds. */
 const ANYONE = () => true;
@@ -19,9 +19,16 @@ const PAGE: KeyContext = {
   reserved: [{ mod: false }, PALETTE_CHORD],
 };
 
+/**
+ * The row being edited: a surface context, named once. Admission reads any
+ * context a plugin contributes, so the fixture's own plugin names it, not a
+ * context core lists in KeyContextId. GAP [[01M7A4XKCMH09XC5WT6KEBFV4H]]
+ */
+const EDITING = "notes.editing";
+
 const ROW: KeyContext = {
-  id: "outline.editing",
-  owner: "outline",
+  id: EDITING,
+  owner: "notes",
   reach: "surface",
   intents: ["split", "indent"],
   reserved: [],
@@ -31,9 +38,11 @@ const ROW: KeyContext = {
 function binding(
   owner: string,
   id: string,
-  spec: Parameters<typeof provideKeybinding>[1],
+  spec: Omit<Keybinding, "chord"> & { readonly chord: string },
 ): Contribution<Keybinding> {
-  return { id: `${owner}.${id}`, aliases: [], owner, value: provideKeybinding(id, spec).value };
+  const chord = parseChord(spec.chord);
+  if (chord === null) throw new Error(`keybinding ${id}: "${spec.chord}" is not a chord`);
+  return { id: `${owner}.${id}`, aliases: [], owner, value: { ...spec, chord } };
 }
 
 const PALETTE = binding("core", "page.palette", {
@@ -41,20 +50,20 @@ const PALETTE = binding("core", "page.palette", {
   chord: "Mod-k",
   run: { intent: "palette" },
 });
-const SPLIT = binding("outline", "split", {
-  context: "outline.editing",
+const SPLIT = binding("notes", "split", {
+  context: EDITING,
   chord: "Enter",
   run: { intent: "split" },
 });
-const INDENT = binding("outline", "indent", {
-  context: "outline.editing",
+const INDENT = binding("notes", "indent", {
+  context: EDITING,
   chord: "Mod-]",
   run: { intent: "indent" },
 });
 
 describe("a page context's keys", () => {
   it("holds a plugin's key that holds ⌘ or Ctrl, and runs its command", () => {
-    const today = binding("days", "today", {
+    const today = binding("planner", "today", {
       context: "core.page",
       chord: "Mod-Shift-D",
       run: { command: "sys.cmd.days.today" },
@@ -65,18 +74,18 @@ describe("a page context's keys", () => {
     expect(page?.resolve({ key: "d", metaKey: true, shiftKey: true })?.value.run).toEqual({
       command: "sys.cmd.days.today",
     });
-    expect(keymaps.get("outline.editing")?.refused).toEqual([]);
+    expect(keymaps.get(EDITING)?.refused).toEqual([]);
   });
 
   it("refuses a key without ⌘ or Ctrl, so a page key never takes typing", () => {
-    const typed = binding("days", "t", {
+    const typed = binding("planner", "t", {
       context: "core.page",
       chord: "t",
       run: { command: "sys.cmd.days.today" },
     });
     const keymaps = admitKeymaps([PAGE, ROW], [PALETTE, typed], ANYONE);
     expect(keymaps.get("core.page")?.refused).toEqual([
-      { id: "days.t", reason: "t is reserved in core.page" },
+      { id: "planner.t", reason: "t is reserved in core.page" },
     ]);
   });
 
@@ -102,29 +111,27 @@ describe("a page context's keys", () => {
     });
     const keymaps = admitKeymaps([PAGE, ROW], [PALETTE, INDENT, over], ANYONE);
     expect(keymaps.get("core.page")?.refused).toEqual([
-      { id: "x.over", reason: "Mod-] is outline.editing's own, held by outline.indent" },
+      { id: "x.over", reason: `Mod-] is ${EDITING}'s own, held by notes.indent` },
     ]);
-    expect(keymaps.get("outline.editing")?.resolve({ key: "]", metaKey: true })?.id).toBe(
-      "outline.indent",
-    );
+    expect(keymaps.get(EDITING)?.resolve({ key: "]", metaKey: true })?.id).toBe("notes.indent");
   });
 });
 
 describe("a surface context's keys", () => {
   it("refuses another plugin's binding over a chord the page holds, which it would never reach", () => {
-    const today = binding("days", "today", {
+    const today = binding("planner", "today", {
       context: "core.page",
       chord: "Mod-Shift-D",
       run: { command: "d" },
     });
     const under = binding("x", "under", {
-      context: "outline.editing",
+      context: EDITING,
       chord: "Mod-Shift-d",
       run: { intent: "split" },
     });
     const keymaps = admitKeymaps([PAGE, ROW], [PALETTE, today, under], ANYONE);
-    expect(keymaps.get("outline.editing")?.refused).toEqual([
-      { id: "x.under", reason: "Mod-Shift-d is the page's, held by days.today" },
+    expect(keymaps.get(EDITING)?.refused).toEqual([
+      { id: "x.under", reason: "Mod-Shift-d is the page's, held by planner.today" },
     ]);
   });
 });
