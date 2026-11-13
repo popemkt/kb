@@ -1,3 +1,5 @@
+import { Point } from "@kb/plugin";
+import { CORE_POINT_DEFINITIONS } from "./point-definitions.ts";
 /**
  * The colour tokens a renderer reads (DESIGN-UI.md → Design tokens): the
  * contract between a design system's stylesheet, which defines each, and
@@ -54,3 +56,9 @@ export function colorTokenReader(
     },
   };
 }
+
+/** Loaded declarations offer fallback data without adding it to the wire catalog. */
+export const ColorTokenPoint = Point<Readonly<Record<ColorToken, string>>>()(
+  CORE_POINT_DEFINITIONS.colorTokens.name,
+  CORE_POINT_DEFINITIONS.colorTokens.spec,
+);

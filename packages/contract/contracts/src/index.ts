@@ -24,6 +24,7 @@ export {
 } from "./extension-manifest.ts";
 export {
   COLOR_TOKEN_FALLBACKS,
+  ColorTokenPoint,
   colorTokenReader,
   type ColorTokenReader,
   type ColorToken,

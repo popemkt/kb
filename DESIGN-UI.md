@@ -4130,8 +4130,10 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
 ## Design tokens
 
 Families declare pure `colorTokens` fallback maps. The page supplies a composed
-`ColorTokenReader` through the rendering port, including installed families
-while disabled; server renderers can compose the same reader without a host.
+`ColorTokenReader` through the rendering port. Bundled fallback data is
+available even for disabled families; loaded declarations contribute through
+`ColorTokenPoint`, without adding metadata to the server registry rows or wire.
+Server renderers can compose the same reader without a host.
 Conflicting fallback declarations are refused. Core owns only generic tokens
 and the reader contract.
 

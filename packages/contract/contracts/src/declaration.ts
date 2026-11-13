@@ -1,3 +1,4 @@
+import { ColorTokenPoint } from "./design-tokens.ts";
 import type { PointDefinition } from "./point-definitions.ts";
 import type { ProviderRole } from "./roles.ts";
 import {
@@ -180,6 +181,11 @@ export function declarationPlugin(declaration: ExtensionDeclaration): Plugin {
       Effect.all(
         [
           Effect.forEach(
+            declaration.colorTokens === undefined ? [] : [declaration.colorTokens],
+            (value) => ctx.contribute(ColorTokenPoint, { id: declaration.name, value }),
+            { discard: true },
+          ),
+          Effect.forEach(
             declaration.views ?? [],
             (view) => ctx.contribute(ViewKeyPoint, { id: view.key.id, value: view }),
             { discard: true },
@@ -232,7 +238,6 @@ export interface ExtensionEntry {
  * family no store can switch off.
  */
 export const ExtensionRowSchema = z.object({
-  colorTokens: z.record(z.string().startsWith("--"), z.string()).optional(),
   ...ExtensionReviewSchema.shape,
   origin: ExtensionOriginSchema,
   name: z.string(),
@@ -293,7 +298,6 @@ export function extensionRow(
   return {
     name: declaration.name,
     label: declaration.label,
-    ...(declaration.colorTokens === undefined ? {} : { colorTokens: declaration.colorTokens }),
     ...(manifest === undefined ? {} : { manifest }),
     ...(declaration.required === undefined ? {} : { required: declaration.required }),
     enabled,

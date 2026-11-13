@@ -25,8 +25,8 @@
     "reason": "M3 relocation; final ceiling 90 pending API redesign"
   },
   "@kb/contracts": {
-    "limit": 376,
-    "reason": "M5 pure family token catalogue reader contract."
+    "limit": 377,
+    "reason": "M5 pure family token catalogue reader and loaded declaration point."
   },
   "@kb/ext-sdk": {
     "limit": 9

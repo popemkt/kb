@@ -1,4 +1,5 @@
 import {
+  ColorTokenPoint,
   COLOR_TOKEN_FALLBACKS,
   colorTokenReader,
   EXTENSION_SDK,
@@ -11,6 +12,8 @@ import {
   type ExtensionRow,
 } from "@kb/contracts";
 import {
+  currentContributions,
+  uiKernelReader,
   provideColorTokens,
   paletteStepsPlugin,
   latestRead,
@@ -18,6 +21,7 @@ import {
   logWarn,
   syncUiPlugins,
 } from "@kb/ui-sdk";
+
 import { BUNDLED_DECLARATIONS, BUNDLED_FAMILIES, BUNDLED_CAPABILITIES } from "@kb/bundled";
 /**
  * The plugins the UI ships with, and which of them the page loads. The shell
@@ -267,12 +271,22 @@ function browserEntry(row: ExtensionRow): BrowserExtension | null {
  * as the page's own objects, and its one React.
  */
 function installPageModules(): void {
-  provideColorTokens(
-    colorTokenReader([
-      COLOR_TOKEN_FALLBACKS,
-      ...BUNDLED_DECLARATIONS.map((d) => d.colorTokens ?? {}),
-    ]),
-  );
+  let version = -1;
+  let reader = colorTokenReader([COLOR_TOKEN_FALLBACKS]);
+  provideColorTokens({
+    fallback: (name) => {
+      const next = uiKernelReader.version();
+      if (next !== version) {
+        reader = colorTokenReader([
+          COLOR_TOKEN_FALLBACKS,
+          ...BUNDLED_DECLARATIONS.map((d) => d.colorTokens ?? {}),
+          ...currentContributions(ColorTokenPoint).map(({ value }) => value),
+        ]);
+        version = next;
+      }
+      return reader.fallback(name);
+    },
+  });
   installHostModules("page", {
     "kb-ext-sdk": EXTENSION_SDK,
     "kb-ext-sdk/page": PAGE_EXTENSION_SDK,
@@ -405,14 +419,8 @@ const selectRoles = () => configureUiRoles((id) => useGraphStore.getState().inde
  * server's report when its catalog changes. Returns the unsubscribe.
  */
 export function startUiPlugins(): () => void {
+  installPageModules();
   const sync = () => {
-    provideColorTokens(
-      colorTokenReader([
-        COLOR_TOKEN_FALLBACKS,
-        ...BUNDLED_DECLARATIONS.map((d) => d.colorTokens ?? {}),
-        ...followedExtensions().map((row) => row.colorTokens ?? {}),
-      ]),
-    );
     settling = converge(followedExtensions());
   };
   selectRoles();
