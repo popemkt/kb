@@ -5292,7 +5292,12 @@ WebGPU with three's WebGL2 fallback), hosted by `@kb/backdrops-ui`'s `gpu/`.
   contribution and a `lazy()` host (`gpu/gpu-backdrop.tsx`), which imports
   each scene with `import()`: three never reaches the first-load bundle
   (`LAZY_FENCES.ui`). Until a scene is ready, and on a machine that cannot
-  start one, the head shows the wash.
+  start one, the head shows the wash. The host's element
+  (`gpu/host-element.tsx`) is outside the lazy boundary: while the host's
+  chunk loads it stands in, empty and `loading`, so a frame shows from its
+  first render that the GPU host draws it. The render specs read that
+  instead of waiting for a host that may never come
+  (`tests-render/backdrop-host.ts`).
 - **Samples start in turns** (`gpu/sample-turns.ts`). A scene's start
   compiles its materials on the main thread, in its first frame. A sample
   (`HeldStill`: an option card, a gallery's) starts once the sample before

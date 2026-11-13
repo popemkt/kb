@@ -13,6 +13,7 @@ import { SYSTEM_IDS } from "@kb/model";
 import { backdropOptionId } from "@kb/appearance";
 import type { APIRequestContext, BrowserContext } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
+import { drawnByGpuHost } from "./backdrop-host.ts";
 import { backdropOptions } from "./backdrop-options.ts";
 
 /** What one load did, as the page recorded it. */
@@ -109,19 +110,18 @@ async function action(request: APIRequestContext, id: string, input: Record<stri
 
 /**
  * The home page loaded in a fresh tab, and what its load did once the
- * backdrop has settled; null when the backdrop is not a GPU scene.
+ * backdrop `option` has settled; null when the GPU host does not draw it.
  */
-async function load(context: BrowserContext, url: string): Promise<LoadRecord | null> {
+async function load(
+  context: BrowserContext,
+  url: string,
+  option: string,
+): Promise<LoadRecord | null> {
   const tab = await context.newPage();
   await tab.addInitScript(recordLoad);
   await tab.goto(url);
   const host = tab.locator(".kb-header-backdrop-space .kb-gpu-backdrop").first();
-  // GAP [[01M79GTJ1VVQ9YQEW68AQM68B0]]
-  const isGpu = await host
-    .waitFor({ timeout: 8000 })
-    .then(() => true)
-    .catch(() => false);
-  if (!isGpu) {
+  if (!(await drawnByGpuHost(tab, option))) {
     await tab.close();
     return null;
   }
@@ -151,7 +151,7 @@ for (const option of backdropOptions) {
       id: "sys.extension.core",
       setProps: [{ field: SYSTEM_IDS.backdropField, value: { t: "ref", v: option } }],
     });
-    const record = await load(context, harness.url);
+    const record = await load(context, harness.url, option);
     if (option === backdropOptionId("backdrops.lens")) expect(record).not.toBeNull();
     if (record === null) return;
     expect.soft(record.state, option).toBe("ready");

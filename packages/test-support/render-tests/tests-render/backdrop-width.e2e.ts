@@ -14,6 +14,7 @@ import { SYSTEM_IDS } from "@kb/model";
 import { backdropOptionId } from "@kb/appearance";
 import type { APIRequestContext, Page } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
+import { drawnByGpuHost } from "./backdrop-host.ts";
 import { backdropOptions } from "./backdrop-options.ts";
 
 /** Window widths at which a page head is wide (its frame past `WIDE_WIDTH` with the sidebar open). */
@@ -137,13 +138,9 @@ for (const option of backdropOptions) {
     await page.addInitScript(countRemovedCanvases);
     await page.goto(harness.url);
     const host = page.locator(HOST);
-    // GAP [[01M79GTJ1VVQ9YQEW68AQM68B0]]
-    const isGpu = await host
-      .waitFor({ timeout: 8000 })
-      .then(() => true)
-      .catch(() => false);
     const spans =
-      isGpu && (await page.locator(FRAME).evaluate((el) => el.classList.contains("kb-breakout")));
+      (await drawnByGpuHost(page, option)) &&
+      (await page.locator(FRAME).evaluate((el) => el.classList.contains("kb-breakout")));
     if (option === backdropOptionId("backdrops.floating-geometry")) expect(spans).toBe(true);
     if (!spans) {
       await context.close();

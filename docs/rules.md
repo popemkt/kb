@@ -690,14 +690,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — move the shared GPU backdrop host out of backdrops-ui into a kit package (beside @kb/scene-gpu) with its scene registry passed in, then port arena-scene.ts onto mountBackdrop and delete Arena's wrapper; the port drops Arena's write() and its Pod re-fire in favour of reactions.impulse / reactions.stir read in frame(), and Arena passes backdrop-continuity.contract.test.tsx
 - **node** — `01M5SYY397F5NPN3CHWGCSPQSY`
 
-### GAP: backdrop-load and backdrop-width learn a backdrop is not a GPU scene by waiting out an 8 s timeout
-
-- **expected** — the page says which kind of backdrop it mounted (a GPU scene suspends with fallback={null} until its chunk loads, so the frame shows nothing either way), for example a data attribute of the frame naming the kind, or the kind as data on the backdrop option node; each spec reads it and branches at once
-- **current** — each spec waits up to 8000 ms for .kb-gpu-backdrop and treats a timeout as not a GPU scene: ten of the twenty contributed backdrops idle 8 s in each of the two files on every run, and a GPU backdrop that never mounts reads as not a GPU scene, so its test returns early as a pass (only the lens and floating-geometry sentinels are pinned)
-- **impact** — about 160 s of the render suite's 908 s of test time (2026-11-13, 2 workers), all of it in CI render shard 1, the job that bounds Validate; and a GPU backdrop that silently fails to load passes both specs
-- **closes** — the frame or the option declares the backdrop's kind (a UI change in @kb/ui-sdk's page-backdrop or the backdrops family), and backdrop-load.e2e.ts and backdrop-width.e2e.ts read it instead of waiting
-- **node** — `01M79GTJ1VVQ9YQEW68AQM68B0`
-
 ### GAP: BrowserStore IndexedDB persistence
 
 - **expected** — The browser replica persists through an IndexedDB-backed EffectStore across page reloads.
@@ -1409,7 +1401,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **expected** — CI render shards hold about equal test time, whatever the file order
 - **current** — Playwright cuts contiguous slices of equal test count in file order; the sixty backdrop-* tests sort first and take about 8 s each, so shard 1 summed 623 s of tests against 396 s in shard 2 (run 43354552275)
 - **impact** — render 1/2 finishes minutes after 2/2 and bounds Validate
-- **closes** — a duration-balanced split (Playwright has no timing-based sharding; PWTEST_SHARD_WEIGHTS is internal and still count-based), or the backdrop timeout gap closing, which takes about 160 s out of shard 1
+- **closes** — a duration-balanced split (Playwright has no timing-based sharding; PWTEST_SHARD_WEIGHTS is internal and still count-based); the backdrop timeout gap closing (2026-11-13) took about 110 s out of shard 1 but left the split by count
 - **node** — `01M79GV526E3V6ZPVW0D6752FK`
 
 ### GAP: replacement approval inspection awaits the keybinding consumer
@@ -2197,6 +2189,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Every new selection action grows one function, and the store choreography inside a case cannot be exercised without going through the whole dispatcher.
 - **closes** — SLAP-extract each case body into a named step, then replace the switch with a Record<SelectionKeyAction['type'], (a) => void>. Behaviour-preserving but not mechanical: the cases share narrowed action fields.
 - **node** — `01M1MGCDRS0K28YBF1Q86YY61S`
+
+### GAP: backdrop-load and backdrop-width learn a backdrop is not a GPU scene by waiting out an 8 s timeout
+
+- **expected** — the page says which kind of backdrop it mounted (a GPU scene suspends with fallback={null} until its chunk loads, so the frame shows nothing either way), for example a data attribute of the frame naming the kind, or the kind as data on the backdrop option node; each spec reads it and branches at once
+- **current** — each spec waits up to 8000 ms for .kb-gpu-backdrop and treats a timeout as not a GPU scene: ten of the twenty contributed backdrops idle 8 s in each of the two files on every run, and a GPU backdrop that never mounts reads as not a GPU scene, so its test returns early as a pass (only the lens and floating-geometry sentinels are pinned)
+- **impact** — about 160 s of the render suite's 908 s of test time (2026-11-13, 2 workers), all of it in CI render shard 1, the job that bounds Validate; and a GPU backdrop that silently fails to load passes both specs
+- **closes** — the frame or the option declares the backdrop's kind (a UI change in @kb/ui-sdk's page-backdrop or the backdrops family), and backdrop-load.e2e.ts and backdrop-width.e2e.ts read it instead of waiting
+- **node** — `01M79GTJ1VVQ9YQEW68AQM68B0`
 
 ### GAP: Bullet computes its appearance with 46 branches
 

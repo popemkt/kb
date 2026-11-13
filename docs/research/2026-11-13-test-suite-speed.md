@@ -157,3 +157,22 @@ one worker, against 499 s for shard 2 at two.
 Core gained less on CI than locally (466 to 407 s, against 634 to about
 270 s here). The surface contract is the floor (`#gap`
 01M79GV5XZGH57HF5174KXYYAB), and this runner takes it longer.
+
+## Follow-up: the GPU host's element from the first render
+
+The deferred backdrop timeout, closed. A GPU backdrop's lazy boundary now
+shows the host's element, empty and `loading`, while the host's chunk loads,
+where it showed nothing. So whether a frame holds the GPU host is settled in
+the same render that shows the frame. `backdrop-load` and `backdrop-width`
+wait until the head shows the chosen backdrop and read that, with no
+timeout. A backdrop that never shows, or a GPU backdrop whose host never
+finishes loading, now fails where it used to pass as "not a GPU scene".
+
+The marker is the host's own element rather than a kind declared beside the
+backdrop. The specs ask whether the shared GPU host draws a backdrop, and
+the budget kinds (`BACKDROP_BUDGETS`) don't answer that: Unicorn and Arena
+are GPU-budgeted but draw through their own runtimes, not the host.
+
+The two files, at two workers, locally: 294 s of test time before, 182 s
+after. The ten backdrops the host does not draw went from about 10 s each
+to 2–3 s.
