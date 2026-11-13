@@ -153,7 +153,7 @@
       "packages/infrastructure/sandbox-quickjs/src/index.ts imports @jitl/quickjs-singlefile-browser-release-sync": 1
     },
     "cli-closure": {
-      "bytes": 5849094,
+      "bytes": 5849561,
       "modules": 1108
     },
     "single-family": {

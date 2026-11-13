@@ -12,7 +12,8 @@
  * - status is read from each path: a JSONL store, a SQLite store, nothing
  *   there, a plain directory, and a store a live server answers for;
  * - a malformed location lists as broken, and two for one root warn;
- * - listing writes to no listed store;
+ * - listing writes to no listed store, and the home write port writes no
+ *   store but the home store;
  * - the tag and the field are minted once;
  * - opening a served root answers its URL and ranks it first; opening a
  *   closed one starts a server for it, and a start that fails ranks
@@ -322,6 +323,28 @@ function locationsContract(homeBackend: StoreBackend): void {
           yield* list();
           yield* list();
           expect(yield* snapshot(root)).toEqual(before);
+        }),
+      ));
+
+    test("the home write port writes no store but the home store", () =>
+      run(
+        Effect.gen(function* () {
+          if (session === null) throw new Error("no session: beforeEach did not run");
+          const ctx = session;
+          const other = yield* storeRoot("not-home");
+          const node = taggedByHand("01M7AWRITEHOMEREFUSED00000", [other]);
+          const { refused, before } = yield* Effect.gen(function* () {
+            const roots = yield* KbRoots;
+            // Opening seeds the store, so its bytes are read after it.
+            const opened = yield* roots.open(other);
+            const seeded = yield* snapshot(other);
+            const failure = yield* roots
+              .writeHome(opened, () => Effect.succeed({ upserts: [node], deletes: [] }))
+              .pipe(Effect.flip);
+            return { refused: failure, before: seeded };
+          }).pipe(Effect.provide(kbRuntimeLayer(ctx)));
+          expect(refused.code).toBe("invalid_input");
+          expect(yield* snapshot(other)).toEqual(before);
         }),
       ));
 

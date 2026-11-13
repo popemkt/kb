@@ -11,8 +11,9 @@
 import { resolve } from "node:path";
 import { Effect, Layer } from "effect";
 import { FileSystem } from "effect/FileSystem";
-import { KbRoots, uiAddressOf, type RootProbe } from "@kb/contracts";
-import { ensureDomainError, type DomainError, type KbNode } from "@kb/model";
+import { KbRoots, KbStore, uiAddressOf, type KbContext, type RootProbe } from "@kb/contracts";
+import { domainError, ensureDomainError, type DomainError, type KbNode } from "@kb/model";
+import { persistPlannedEffect } from "@kb/operations";
 import { canonicalRoot, currentHome, servingUi } from "@kb/workspace-fs";
 import { openKbEffect } from "./open.ts";
 import { oneStartPerRoot, selfLaunch, serveRoot } from "./serve.ts";
@@ -55,6 +56,23 @@ const createRoot = Effect.fn("kb.roots.create")(function* (
   yield* createStore(root, NEW_ROOT_BACKEND);
 });
 
+/**
+ * `home`, when it is a session over the home store; refused otherwise, as
+ * `writeHome` writes no other root.
+ */
+const homeOnly = Effect.fn("kb.roots.homeOnly")(function* (
+  home: KbContext,
+): Effect.fn.Return<KbContext, DomainError, FileSystem> {
+  const at = yield* probeRoot(home.root);
+  const expected = yield* probeRoot(yield* currentHome);
+  if (at.path !== expected.path)
+    return yield* domainError(
+      "invalid_input",
+      `${at.path} is not the home store (${expected.path}); only the home store is written here`,
+    );
+  return home;
+});
+
 export function kbRootsLayer(
   registeredPaths: (nodes: readonly KbNode[]) => readonly string[],
 ): Layer.Layer<KbRoots, never, FileSystem> {
@@ -82,6 +100,16 @@ export function kbRootsLayer(
         // GAP [[01M39XVZCR684Y1V9FXNDT44D5]]: the store opened here is never
         // released, as no selected store is; a sqlite root keeps its connection.
         open: (root) => openKbEffect(root).pipe(Effect.provide(context)),
+        // Core's planned commit, with the system writes the home registry is made of.
+        writeHome: (home, plan) =>
+          homeOnly(home).pipe(
+            Effect.provide(context),
+            Effect.andThen((session) =>
+              persistPlannedEffect(session, plan, { systemWrites: "system" }).pipe(
+                Effect.provideService(KbStore, session.store),
+              ),
+            ),
+          ),
         serve,
         snapshot: (root) => storeSnapshot(root).pipe(Effect.provide(context)),
         backup: (root, { keep }) => takeBackup(root, keep).pipe(Effect.provide(context)),

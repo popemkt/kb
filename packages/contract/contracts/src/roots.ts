@@ -9,10 +9,12 @@
  * root is opened and seeded, and how a server says which root it serves.
  *
  * An action that uses it touches more than its own root, so its mode says
- * `outsideRoot`.
+ * `outsideRoot`. It writes one store beside the session's own, the home
+ * store, and only through core's write path (`writeHome`).
  */
 import { Context, type Effect } from "effect";
 import type { DomainError, KbNode } from "@kb/model";
+import type { GraphPlan, GraphWrite } from "./graph-writes.ts";
 import type { KbContext } from "./session.ts";
 
 /** What a path holds, read from the directory alone: nothing there is opened or written. */
@@ -74,6 +76,20 @@ export interface KbRootsPort {
   readonly create: (root: string) => Effect.Effect<void, DomainError>;
   /** A session over `root`, opened as every surface opens one: its store chosen by presence, seeded. */
   readonly open: (root: string) => Effect.Effect<KbContext, DomainError>;
+  /**
+   * Commit a write planned over the home store's nodes, through `home`, a
+   * session over the home store that `open` gave. It is core's write path
+   * (`GraphWrites.commit`): planned from the session as it has caught up,
+   * landed only on that state and planned again when another process wrote
+   * in between, and the session moves with it. The home store's registry
+   * (DESIGN.md → Locations) is kb's own system nodes, so the write is a
+   * system write. Fails `invalid_input` when `home` is a session over any
+   * other root: this port writes no store but the home store.
+   */
+  readonly writeHome: <W extends GraphWrite>(
+    home: KbContext,
+    plan: GraphPlan<W>,
+  ) => Effect.Effect<W | null, DomainError>;
   /**
    * Start a `kb ui` serving `root` and answer its URL once it says it serves
    * the root. The server outlives the call, as a `kb ui` a person starts

@@ -217,8 +217,6 @@ export interface SanctionedImport {
  * package may declare it; nothing else crosses the row.
  */
 export const LAYER_BREACHES: Readonly<Record<string, readonly SanctionedImport[]>> = {
-  // GAP [[01M79FGTP0S14GPABE7ST2QCC1]]: home-registry writes need a capability-scoped port.
-  "@kb/locations-fs": [{ target: "@kb/operations", files: ["src/actions.ts"] }],
   // GAP [[01M79FGVEF9PKK9BB1998YTTGQ]]: the outline-paste parser has no home a family reaches.
   "@kb/gallery-net": [{ target: "@kb/operations", files: ["tests/starter.test.ts"] }],
 };

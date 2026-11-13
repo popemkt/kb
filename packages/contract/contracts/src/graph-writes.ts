@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { DomainError, KbNode, NodeId, StoreTx } from "@kb/model";
 
 /** What a plan writes: the nodes to put and the ids to delete, and whatever else its planner answers. */
-interface GraphWrite {
+export interface GraphWrite {
   readonly upserts: readonly KbNode[];
   readonly deletes: readonly NodeId[];
 }
