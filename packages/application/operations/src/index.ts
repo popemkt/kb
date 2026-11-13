@@ -64,3 +64,4 @@ export { MAX_REACTION_DEPTH } from "./commit-frame.ts";
 export { personWriteRefusal } from "./write-refusal.ts";
 
 export { matchSpecificity } from "./action-match.ts";
+export { PAGE_CONTEXT_ID } from "./keyboard.ts";

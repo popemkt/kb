@@ -23,7 +23,7 @@ import type { BackdropBudget } from "@kb/ui-sdk";
  */
 export type FrameCost = "frame" | "gpu" | "interval";
 
-export interface FrameMeter {
+interface FrameMeter {
   /** 1 at full detail, down to the meter's floor while frames run over budget. */
   readonly quality: () => number;
   /**
@@ -34,7 +34,7 @@ export interface FrameMeter {
   readonly record: (ms: number, cost?: FrameCost) => boolean;
 }
 
-export interface FrameMeterOptions {
+interface FrameMeterOptions {
   /** The lowest quality it steps down to (by default 0.45). */
   readonly floor?: number;
 }

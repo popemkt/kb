@@ -38,7 +38,7 @@ export const NodeSectionPoint = Point<NodeSection>()(
 );
 
 /** A section to draw: its contribution id, and what it was contributed with. */
-export type ShownSection = NodeSection & { readonly id: string };
+type ShownSection = NodeSection & { readonly id: string };
 
 /** The sections `id`'s page shows over `nodes`, in ascending order. */
 export function nodeSectionsOf(

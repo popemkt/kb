@@ -26,7 +26,7 @@ export const MAX_PITCH = Math.PI / 2;
  * the +y side, looking across the floor with x to the right; `right` on +x.
  */
 
-export interface ViewPresetSpec {
+interface ViewPresetSpec {
   readonly label: string;
   readonly yaw: number;
   readonly pitch: number;

@@ -34,12 +34,12 @@ import type { CanvasLooksPatch } from "./style.ts";
 export const MERMAID_TEXT_LIMIT = 64 * 1024;
 
 /** What did not come across, by the line it is on. */
-export interface MermaidReport {
+interface MermaidReport {
   readonly line: number;
   readonly note: string;
 }
 
-export interface MermaidDiagram {
+interface MermaidDiagram {
   readonly spec: DiagramSpec;
   readonly reported: readonly MermaidReport[];
 }

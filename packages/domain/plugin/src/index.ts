@@ -1,6 +1,13 @@
 export { PluginError, PluginErrorReason } from "./errors.ts";
 export { definePlugin, isPlugin, makeKernel } from "./kernel.ts";
-export type { Contribution, ContributionEntry, Kernel, Plugin, PluginContext } from "./kernel.ts";
+export type {
+  Contribution,
+  ContributionEntry,
+  Kernel,
+  Plugin,
+  PluginContext,
+  PluginHandle,
+} from "./kernel.ts";
 export {
   PointName,
   Point,
@@ -32,7 +39,7 @@ export {
 
 export { roleCall } from "./role-call.ts";
 
-export { namespaced } from "./keys.ts";
+export { namespaced, rootPluginName } from "./keys.ts";
 
 export { roleSession, type RoleSession } from "./role-session.ts";
 

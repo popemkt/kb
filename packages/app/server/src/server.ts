@@ -389,7 +389,14 @@ const observeExtensions = Effect.fn("kb.observeExtensions")(function* (
       }).pipe(Effect.provide(bunFileSystemLayer)),
     );
   });
-  return { refresh: announceComposition.pipe(Effect.provide(bunFileSystemLayer)), unsubscribe };
+  // Runtime changes include machine-local trust even when the loaded extension set is unchanged.
+  // That state is part of kb.manifest too, and pages must withdraw revoked confirmations.
+  const refresh = Effect.gen(function* () {
+    const next = yield* sessionRegistry(ctx);
+    composition = next;
+    yield* hub.manifestChanged();
+  }).pipe(Effect.provide(bunFileSystemLayer));
+  return { refresh, unsubscribe };
 });
 
 /**

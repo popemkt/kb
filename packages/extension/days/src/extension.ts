@@ -1,3 +1,4 @@
+import { provideKeybinding } from "@kb/keybindings";
 /**
  * The days family's declaration and its plugin (DESIGN.md → Days). The
  * plugin is the entry on both hosts, as code's is: `ext.days.today`, and
@@ -75,6 +76,15 @@ export const daysExtension = defineExtension({
   tags: ["days"],
   optional: { byDefault: "on" },
   seed: daysSeed,
+  keyboard: {
+    bindings: [
+      provideKeybinding("today", {
+        context: "core.page",
+        chord: "Mod-Shift-D",
+        run: { command: DAYS_IDS.todayCommand },
+      }),
+    ],
+  },
   retires: RETIRED_DAY_PAGE.map((from) => ({ from })),
   refCarriers: [{ refsOf: dateDayReferences }],
 });

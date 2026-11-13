@@ -96,7 +96,7 @@ const rounded = ({ min, max }: CanvasBounds): CanvasBounds => ({
 });
 
 /** An item as a description gives it: in full when in focus, blurred to what and where otherwise. */
-export interface DescribedItem {
+interface DescribedItem {
   readonly id: string;
   readonly kind: string;
   readonly words: string;
@@ -118,7 +118,7 @@ export interface DescribedItem {
 }
 
 /** A line as `place`'s `make.line` takes it: its points in its box, closed or not, each head worn. */
-export interface DescribedLine {
+interface DescribedLine {
   readonly points: readonly CanvasAnchor[];
   readonly closed?: true;
   readonly fromHead?: CanvasHead;
@@ -126,7 +126,7 @@ export interface DescribedLine {
 }
 
 /** How two items stand: `from` is `kind` `to` — on it, in it, linked to it, or `side` of it. */
-export type DescribedRelation =
+type DescribedRelation =
   | { readonly kind: "on" | "in"; readonly from: string; readonly to: string }
   | {
       readonly kind: "linked";
@@ -160,13 +160,13 @@ export type DescribedRelation =
     };
 
 /** What is off screen: how many items, by kind, in each frame that belongs to no other (null: none). */
-export interface DescribedCluster {
+interface DescribedCluster {
   readonly frame: string | null;
   readonly count: number;
   readonly kinds: Readonly<Record<string, number>>;
 }
 
-export interface CanvasDescription {
+interface CanvasDescription {
   readonly items: readonly DescribedItem[];
   /** The comment threads on the canvas, each with where it is pinned and whether it is resolved. */
   readonly comments: readonly CanvasThread[];

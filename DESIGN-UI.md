@@ -458,8 +458,126 @@ The intents are each mode's table (`EDITING_INTENTS`, `SELECTION_INTENTS`);
 the guard that keeps a query-result row from being restructured is part of
 each structural intent, so it holds whatever chord runs it.
 
+The shared declaration's `keyboard` supplies both page contributions and seeded
+`#shortcut` descriptions. The declaration publishes native defaults through the same keyboard points in
+both registry and page kernels; the runtime point is the sole source of default
+bindings, and the graph rows describe it. Existing extensions may still publish
+bindings directly from their page half through the SDK. Those stay in the page's
+live dispatch map. A stored override whose target the authority host cannot
+resolve is refused; writable graph descriptions never reconstruct a missing
+page-only registration. Shipped descriptions protect their
+structure and values like other defaults, while their labels remain cosmetic.
+A separate ordinary shortcut can name a default through `replaces`.
+Each native registration retains the shortcut reference supplied by its
+declaration. Alternate registrations share that reference; different families
+retain distinct description identities. The reader does not reconstruct this
+identity from diagnostic code provenance or writable descriptions.
+
+Context intents are ordinary command nodes, keyed by an unambiguous tuple of
+context id and intent id. Their context is recorded on the command. The complete
+registered intent list supplies these commands, including intents without default
+keys. Existing command targets keep their registered command node ids.
+
+An action target is an ordinary `#call` recipe: a registered action id and a
+JSON object input. Generated recipes belong to their declaring family and equal
+recipes within that declaration share one node; person-authored recipes retain
+their own identities. Object keys are normalized, and non-object or non-JSON
+inputs are refused, never coerced or partially discarded. The live ActionCatalog
+resolves the action and validates its input; a recipe, its label, and writable
+owner fields confer no authority. Normal invocation approval still applies.
+A shortcut confirmation includes the target id and complete normalized recipe,
+so changing either requires a new confirmation; actions retain their normal approval.
+
+One shortcut describes one action in one execution context. Its multi-valued
+text `keys` holds alternate chords, `runs` references an ordinary command node,
+and `enabled` is a checkbox. Commands with an intrinsic context carry it on the
+command; `where` selects the execution context for global commands or action
+recipes. Shipped shortcut descriptions sit under one **Shortcuts** parent; their command
+nodes remain under their declaring owners. No chord or intent-option helper
+nodes are created.
+Context commands are excluded from global palette browsing and search; they
+remain ordinary nodes in the outline and reference picker, without adding
+surface-only operations to the global command list.
+
+Key text bridges to the existing lossless chord codec. Canonical forms such as
+`Mod-K` and `Shift-Enter` name the schema’s positive constraints; `NoShift` or
+`NoMod` names an explicit false constraint, while omitted modifiers remain
+unconstrained. Physical positions use `[NumpadEnter]`, character sets use a text
+array, and the printable matcher names its exclusions. The existing exact SDK
+entry form keeps its default-up semantics. Both forms use the schema’s modifier
+names; arbitrary predicates have no text representation. Character sets, physical
+codes, printable exclusions and absent versus false modifiers survive the bridge.
+Malformed text refuses the row rather than broadening a chord; arbitrary
+executable predicates have no stored representation. Alternate keys are normalized,
+deduplicated and ordered for confirmation, so reordering equal key text does not
+change authority. Each key lowers to an ordinary atomic contribution, and all
+components share the row's one confirmation and activation lifetime. A replacement
+names another shortcut row; existing admission chooses the matching native or
+stored component without granting its other chords.
+
+The shared `storedKeybindings` decoder reads a complete unscoped snapshot and
+resolves targets through host-supplied live registrations. Descriptive rows,
+labels and writable provenance never authenticate code. Its candidates retain
+one fixed storage provider with a separate row scope, so two ordinary rows do
+not inherit a family's reserved keys or implicit physical-key precedence.
+Replacement dependencies determine order, with stable-id ties; ordinary
+admission still decides overlap, reservations and election. Review content
+includes normalized context/chord data, resolved target code and input recipe,
+and a SHA-256 dependency identity for the complete native/stored holder chain.
+Each local definition is hashed once with its parent identity, rather than
+embedding serialized reviews. Cycles hash their sorted component definitions
+and edges before deriving member identities; missing edges have explicit
+identities. Total review output grows with the binding data. A changed
+implementation or dependency therefore changes dependent reviews even if row
+IDs stay fixed. The decoder grants no authority; live approval and host integration are
+separate from reading definitions.
+
+Stored shortcuts use the existing admission and normal command/action runners.
+A binding on a free chord needs no replacement confirmation; reserved typing,
+Escape and palette keys remain protected by that admission. Taking a shipped
+or another family's held binding requires one explicit confirmation from the
+person in the UI, whoever wrote the shortcut node. Until then the override is
+pending and inactive, including untouched and ambiguous legacy rows.
+
+The confirmation is machine-local and keyed by versioned canonical binding
+content: its normalized alternate chords (including unconstrained versus false modifiers
+and matcher identity), context, target command or context-intent identity,
+normalized action input, and replacement identity. Labels and enable/disable are
+not authority. Changed content requires confirmation again; a delayed answer
+must still match the current content. The confirmation, not an authorship proof,
+is the authority. When known, the writer is shown from `KbTx.actor`/`via` as
+information only. It never grants or prevents a confirmation. No invocation or
+writer-provenance plumbing is required. A confirmation never bypasses admission
+or an action's own approval. Approval changes invalidate the admitted map even
+without a graph/plugin edit.
+
+The page lowers enabled ordinary rows into `KeybindingPoint` after native
+bindings, in replacement dependency order. It reads the complete replica even
+inside an ontology scope. Targets must exist in the live normal runner catalog;
+a writable command description alone creates no registration. `kb.manifest`
+reports the served root and machine-local confirmation digests, and its existing
+runtime-change signal refreshes them when trust changes without an extension
+load/unload.
+
+The shortcut node's ordinary menu offers **Shortcut status**, **Review shortcut
+override** while pending, and **Revoke shortcut confirmation** while an override
+is active. Review uses the shared action approval dialog and machine-local trust
+action. Its human line names the keys, context, target and replaced shortcut; a
+Details disclosure contains the canonical content without making labels authority. Editing keys, target, input or replacement while the dialog is open makes
+its answer stale; close it and review the current content. Shipped description
+rows remain descriptions of their declaration; a separate ordinary row supplies
+an override.
+
+kb is currently a single-owner local tool: installed code remains trust-gated,
+and shortcut confirmation does not authenticate a packaged code image. It works
+in a normal checkout. Code-image identity and its loader/delivery work are
+[[01M76AZFNNGRS5P55CSCG93YJM|parked on bb/kb-held-image]] for a future requirement;
+that branch is outside this feature. The inactive decoder's code/dependency
+review identities remain available for diagnostics; they are not the key of a
+person's content confirmation.
+
 The page itself is a context too, `core.page`, which core owns
-(`app/ui` `lib/page-keys.ts`). A context says where it is offered keys
+(`operations/src/keyboard.ts`). A context says where it is offered keys
 (`reach`): the outline's are `surface` contexts, offered the keys of what
 has focus, as the canvas's three are (`canvas.rest`, `canvas.transform`,
 `canvas.present`; [Canvas (i3)](#canvas-i3), its views), and the
@@ -2012,11 +2130,11 @@ the view node switches every page showing the canvas through it.
   orthographic projection, so it is the same picture as the DOM canvas.
 - **Views, the widget and the view menu.** The camera model names six
   orientations (`CANVAS_VIEW_PRESETS`, among the camera's stops in
-  `canvas-camera-stops.ts`, beside its zoom step and its tilt limit): top, front, right, back, left (each
+  `canvas/src/camera-stops.ts`, beside its zoom step and its tilt limit): top, front, right, back, left (each
   named for where the eye stands; front is the +y side) and the oblique look
   a canvas first opens at. The view commands (`CANVAS_VIEW_COMMANDS`) are
   rows of the canvas's one shortcut table (`CANVAS_SHORTCUTS`,
-  `canvas-ui/src/canvas-keys.ts`). A row is an intent of one of the
+  `canvas/src/keybindings.ts`). A row is an intent of one of the
   canvas's three key contexts (`canvas.rest`, `canvas.transform`,
   `canvas.present`) with the chords kb binds it to, which are canvas-ui's
   bindings (`CANVAS_BINDINGS`), both contributed to the page kernel
@@ -2461,6 +2579,21 @@ contribution (`CommandPoint`). Each says where it is offered (`menu`):
   came, a family's in the order its plugin loaded. Nothing in the graph
   names a node command, so it names itself (`chrome`, a label and an
   icon).
+
+`commandsFor` is the ordered runner catalog behind both listing and dispatch.
+Each entry retains its implementation provenance: the actual `CommandPoint`
+registration for a contributed command, or the host handler's captured inputs
+and live view-key/provider dependencies for a generated command. These are code
+references, not authority inferred from writable descriptions. Contributed
+command and view providers retain the kernel's effective host-bound provenance
+([Declared point lifecycle](DESIGN.md#declared-point-lifecycle)); a reported
+provenance record still needs independent authentication by the authority host. A missing or
+ambiguous provider remains visible to an authority adapter; this metadata alone
+never authenticates it. Listing applies each command's `when` predicate, while
+the existing runner resolves the first matching id in catalog order. An adapter
+must check that elected entry's availability, rather than selecting a later
+same-id entry which happens to be offered. The catalog is read afresh, so target
+changes and plugin withdrawal/replacement do not require a shortcut-node edit.
 
 The groups, in the menu's order (`NODE_MENU_GROUPS`):
 

@@ -233,7 +233,7 @@ export const ValueKindPoint = Point<FieldTypeKind>()(CORE_POINT_DEFINITIONS.valu
 });
 
 /** A family's field type's value kind, as its page half writes it: the glyph by name. */
-export interface ValueKindForm {
+interface ValueKindForm {
   readonly icon: IconName;
   readonly spec: ValueKindSpec;
   readonly Surface: ComponentType<ValueSurfaceProps>;

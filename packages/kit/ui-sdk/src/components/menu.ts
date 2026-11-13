@@ -20,7 +20,7 @@ export const MENU_ROW = cn(
 );
 
 /** A menu's element and what its keys do. */
-export interface MenuKeys {
+interface MenuKeys {
   readonly ref: RefObject<HTMLDivElement | null>;
   readonly onKeyDown: (e: KeyboardEvent) => void;
 }

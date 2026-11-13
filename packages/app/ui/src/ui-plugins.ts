@@ -95,6 +95,7 @@ import { settingsUiPlugin } from "@/components/prefs/settings-plugin";
 import { PAGE_EXTENSION_SDK } from "./page-extension-sdk";
 
 import { servedManifest, subscribeManifest } from "@/lib/manifest";
+import { storedShortcutsUiPlugin } from "@/stored-shortcuts";
 import { screenUiPlugin } from "@/screen";
 import { invokeSettled } from "@/session/runtime";
 import { useUiStore } from "@/stores/ui.store";
@@ -115,6 +116,7 @@ export const CORE_UI_PLUGINS: readonly Plugin[] = [
   layoutUiPlugin,
   webMcpUiPlugin,
   screenUiPlugin,
+  storedShortcutsUiPlugin,
 ];
 
 /**

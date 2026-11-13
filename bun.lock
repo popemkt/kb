@@ -358,6 +358,7 @@
         "@kb/appearance": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/extension-source": "workspace:*",
+        "@kb/keybindings": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/outline-paste": "workspace:*",
         "@kb/plugin": "workspace:*",
@@ -379,6 +380,7 @@
       "dependencies": {
         "@kb/appearance": "workspace:*",
         "@kb/extension-source": "workspace:*",
+        "@kb/keybindings": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/query": "workspace:*",
@@ -447,8 +449,10 @@
       "name": "@kb/keybindings",
       "version": "0.0.0",
       "dependencies": {
+        "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
         "effect": "catalog:",
+        "fast-sha256": "catalog:",
       },
       "devDependencies": {
         "@types/bun": "catalog:",
@@ -646,6 +650,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/contracts": "workspace:*",
+        "@kb/keybindings": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/sandbox": "workspace:*",
@@ -831,6 +836,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/contracts": "workspace:*",
+        "@kb/keybindings": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/query": "workspace:*",
@@ -1141,6 +1147,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/contracts": "workspace:*",
+        "@kb/keybindings": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/views": "workspace:*",
@@ -1654,6 +1661,7 @@
     "dockview-react": "^8.4.0",
     "effect": "4.0.0-rc.112",
     "fast-check": "^4.9.0",
+    "fast-sha256": "1.3.0",
     "graphology": "^0.26.0",
     "graphology-communities-louvain": "2.0.2",
     "graphology-layout": "0.6.1",

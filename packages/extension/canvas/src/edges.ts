@@ -35,7 +35,7 @@ import {
 export type EdgeEnd = "from" | "to";
 
 /** Where an end meets its item, and which way out of the item it faces across the floor. */
-export interface EdgeTerminal {
+interface EdgeTerminal {
   /** The point on the item's outline, halfway up it (on a flat item, its plane). */
   readonly at: CanvasVec;
   /** The outline's outward direction across the floor there, unit length. */
@@ -390,7 +390,7 @@ function runRoute(from: CanvasNode, to: CanvasNode, edge: CanvasEdge): EdgeRoute
 }
 
 /** A change of how an edge runs: each named part set, or to undefined to go back to its default. */
-export interface EdgeRoutePatch {
+interface EdgeRoutePatch {
   readonly route?: CanvasRoute | undefined;
   readonly bend?: number | undefined;
 }
@@ -496,7 +496,7 @@ export function routeMidpoint(route: EdgeRoute): { x: number; y: number } {
 }
 
 /** A record whose ends wear heads: an edge, or a line item. */
-export type CanvasEnded = CanvasEdge | CanvasPathNode;
+type CanvasEnded = CanvasEdge | CanvasPathNode;
 
 /** Whether a record with ends is a line: an item, where an edge has no type. */
 const isLine = (record: CanvasEnded): record is CanvasPathNode => "type" in record;

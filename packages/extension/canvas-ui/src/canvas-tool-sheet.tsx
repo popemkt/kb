@@ -7,9 +7,10 @@
  */
 import { useRef, useState } from "react";
 import { DotsThreeIcon } from "@phosphor-icons/react";
-import type { CanvasProjectionKind } from "@kb/canvas";
+import { type CanvasProjectionKind, TOOL_FAMILIES, type CanvasTool } from "@kb/canvas";
 import { cn, useDismiss } from "@kb/ui-sdk";
-import { TOOL_FAMILIES, type CanvasTool, type ToolState } from "./canvas-tool";
+import type { ToolState } from "./canvas-tool";
+
 import { ProjectionToggle, ToolButton } from "./canvas-tool-buttons";
 import { STRIP, toolButtonClass } from "./canvas-tool-looks";
 

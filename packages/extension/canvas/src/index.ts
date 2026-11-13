@@ -64,7 +64,7 @@ export {
   transpose,
   turnAbout,
 } from "./rotation.ts";
-export type { CanvasMatrix, CanvasRotation } from "./rotation.ts";
+export type { CanvasMatrix } from "./rotation.ts";
 export {
   isStill,
   motionBetween,
@@ -76,7 +76,7 @@ export {
   transformItems,
   withBox,
 } from "./transform.ts";
-export type { CanvasFlipAxis, CanvasTransform } from "./transform.ts";
+export type { CanvasTransform } from "./transform.ts";
 export {
   TOP_AXES,
   boxBounds,
@@ -97,7 +97,7 @@ export {
   itemFrame,
   planeCorners,
 } from "./box.ts";
-export type { CanvasAxes, CanvasBounds, CanvasBox, CanvasFrame, CanvasVec } from "./box.ts";
+export type { CanvasAxes, CanvasFrame, CanvasVec } from "./box.ts";
 export {
   CANVAS_CAMERA_FIELDS,
   LEGACY_CAMERA_KEY,
@@ -116,13 +116,7 @@ export {
   flipItems,
   orderItems,
 } from "./arrange.ts";
-export type {
-  CanvasAlignEdge,
-  CanvasArrangement,
-  CanvasLayerValue,
-  CanvasLayout,
-  CanvasOrder,
-} from "./arrange.ts";
+export type { CanvasLayerValue } from "./arrange.ts";
 export { connectItems } from "./connect.ts";
 export {
   CARD_BODY_FALLBACK,
@@ -154,10 +148,9 @@ export type {
 export { paintCss, paletteToken, toneCss } from "./paint-css.ts";
 export { canvasSvg } from "./svg.ts";
 export { DIAGRAM_FLOWS, DIAGRAM_LIMITS, diagramDoc } from "./diagram.ts";
-export type { DiagramBox, DiagramFlow, DiagramLink, DiagramSpec } from "./diagram.ts";
+export type { DiagramFlow, DiagramLink, DiagramSpec } from "./diagram.ts";
 export { MERMAID_TEXT_LIMIT, mermaidDiagram } from "./mermaid.ts";
-export type { MermaidDiagram, MermaidReport } from "./mermaid.ts";
-export type { SvgSource } from "./svg.ts";
+
 export {
   freehandItem,
   lineThrough,
@@ -168,11 +161,11 @@ export {
   smoothThrough,
   withLine,
 } from "./paths.ts";
-export type { CanvasLinePatch, CanvasMark } from "./paths.ts";
+
 export { controlLead, isLinkNode, isLinkUrl, itemLead, linkCard, withLink } from "./links.ts";
 export { inClip, itemClips } from "./clip.ts";
-export type { CanvasClip, CanvasFloorPoint } from "./clip.ts";
-export type { CanvasItemLink, CanvasLinkCard, CanvasLinkNode } from "./links.ts";
+export type { CanvasClip } from "./clip.ts";
+export type { CanvasItemLink, CanvasLinkNode } from "./links.ts";
 export {
   anchorNear,
   edgeHead,
@@ -187,41 +180,26 @@ export {
   withHead,
   withRoute,
 } from "./edges.ts";
-export type {
-  CanvasEnded,
-  EdgeEnd,
-  EdgeHead,
-  EdgeRoute,
-  EdgeRoutePatch,
-  EdgeTerminal,
-} from "./edges.ts";
-export type { CanvasConnection } from "./connect.ts";
+export type { EdgeEnd, EdgeHead, EdgeRoute } from "./edges.ts";
+
 export { describeCanvas, itemKind, itemWords } from "./describe.ts";
-export type {
-  CanvasDescription,
-  DescribedCluster,
-  DescribedItem,
-  DescribedLine,
-  DescribedRelation,
-} from "./describe.ts";
+
 export { CANVAS_LINT_RULES, lintCanvas, lintDiff } from "./lint.ts";
 export { canvasReferences } from "./references.ts";
 export { boardOf, boardPages, canvasPages, nextPageName } from "./pages.ts";
-export type { BoardPage, PageLink } from "./pages.ts";
+
 export {
   commentWrite,
   isCommentNode,
   pinLost,
   pinnedItems,
-  type CanvasCommentText,
   type CanvasThread,
   type CommentAnchor,
   type CommentPlace,
-  type CommentWrite,
 } from "./comments.ts";
 export { canvasWorld, isCanvasNode } from "./world.ts";
-export type { CanvasWorld, WorldNode } from "./world.ts";
-export type { CanvasLint, CanvasLintDiff, CanvasLintRule } from "./lint.ts";
+export type { CanvasWorld } from "./world.ts";
+export type { CanvasLint, CanvasLintDiff } from "./lint.ts";
 export { placeItem } from "./place.ts";
 export type { CanvasWhere } from "./place.ts";
 export { promotableText, promoteItem } from "./promote.ts";
@@ -233,9 +211,9 @@ export {
   itemBounds,
   overlaps,
 } from "./relations.ts";
-export type { CanvasDirection } from "./relations.ts";
+
 export { coversFromAbove, rayIntoItem } from "./pick.ts";
-export type { CanvasPickItem, CanvasRay } from "./pick.ts";
+export type { CanvasPickItem } from "./pick.ts";
 export {
   GRID_STEP,
   restingOn,
@@ -256,7 +234,7 @@ export {
   withStyle,
   writtenLooks,
 } from "./style.ts";
-export type { CanvasLooksPatch, CanvasPaint, CanvasPaletteId, CanvasStyle } from "./style.ts";
+export type { CanvasPaint, CanvasPaletteId } from "./style.ts";
 export {
   CANVAS_ALIGNS,
   CANVAS_DASHES,
@@ -265,15 +243,7 @@ export {
   CANVAS_SIZES,
   CANVAS_VALIGNS,
 } from "./style-fields.ts";
-export type {
-  CanvasAlign,
-  CanvasDash,
-  CanvasFill,
-  CanvasFont,
-  CanvasLooks,
-  CanvasSize,
-  CanvasVAlign,
-} from "./style-fields.ts";
+export type { CanvasAlign, CanvasFont, CanvasVAlign } from "./style-fields.ts";
 export { CANVAS_IDS } from "./ids.ts";
 export { CANVAS_EVENTS, CanvasListView, CanvasParams, CanvasView, canvasViewIdOf } from "./view.ts";
 export { canvasExtension, canvasPlugin } from "./extension.ts";
@@ -302,23 +272,14 @@ export {
   topView,
   tracePath,
 } from "./shapes.ts";
-export type {
-  TopFace,
-  CanvasFootprint,
-  CanvasTopView,
-  CanvasPathCommand,
-  CanvasPathSink,
-  CanvasVolume,
-} from "./shapes.ts";
-export type { CanvasItemSpec, CanvasPresetKind } from "./presets.ts";
+export type { CanvasFootprint, CanvasPathCommand, CanvasVolume } from "./shapes.ts";
+export type { CanvasPresetKind } from "./presets.ts";
 export type { CanvasCamera, CanvasPose, CanvasProjectionKind } from "./camera.ts";
 export type {
-  CanvasAnchor,
   CanvasDoc,
   CanvasEdge,
   CanvasHead,
   CanvasItemFlag,
-  CanvasRoute,
   CanvasFileNode,
   CanvasGroupNode,
   CanvasKbNode,
@@ -332,16 +293,41 @@ export type {
 } from "./doc.ts";
 export { CANVAS_OPEN, CANVAS_SELECTION } from "./context.ts";
 export { editCanvas, landItems, nudgeItems, patchItem, requireItems, takeItems } from "./edit.ts";
-export type { CanvasEdit, CanvasItemPatch, CanvasTaken } from "./edit.ts";
+export type { CanvasEdit } from "./edit.ts";
 export { MAX_FLOW_ROUNDS, flowPlan, runFlow } from "./flow.ts";
 export type { FlowResult, FlowStep } from "./flow.ts";
 export { tldrawBoard, tldrawKeys, tldrawText } from "./tldraw.ts";
+export type { TldrawValue } from "./tldraw.ts";
+
+export {
+  STROKE_TOOLS,
+  HOLDING_TOOLS,
+  TOOL_FAMILIES,
+  type CanvasTool,
+  type CanvasToolPick,
+  type CanvasToolFamily,
+  type CanvasStrokeTool,
+} from "./tool-model.ts";
 export type {
-  TldrawBoard,
-  TldrawIds,
-  TldrawPage,
-  TldrawRecordNode,
-  TldrawValue,
-} from "./tldraw.ts";
+  CanvasAxis,
+  TransformConstraint,
+  TransformMode,
+  TransformKey,
+} from "./transform-input-model.ts";
+export { MIN_ZOOM, MAX_ZOOM, ZOOM_STEP, MAX_PITCH, CANVAS_VIEW_PRESETS } from "./camera-stops.ts";
+export {
+  CANVAS_CONTEXT_IDS,
+  CANVAS_SHORTCUTS,
+  CANVAS_VIEW_COMMANDS,
+  type CanvasKeyEvent,
+  type CanvasIntent,
+  type PresentAct,
+  type TransformAct,
+  type CanvasKeyContextName,
+  type CanvasShortcutSection,
+  type CanvasShortcut,
+  type CanvasMenuName,
+  type CanvasViewCommand,
+} from "./keybindings.ts";
 
 export { CANVAS_RUN_FIELDS, planCanvasRunFields, type CanvasRunFields } from "./run-fields.ts";

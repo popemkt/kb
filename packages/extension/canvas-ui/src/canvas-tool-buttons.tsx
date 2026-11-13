@@ -3,8 +3,8 @@
  * tool's, and the 2D/3D toggle's.
  */
 import type { Ref, ReactNode } from "react";
-import type { CanvasProjectionKind } from "@kb/canvas";
-import type { CanvasTool } from "./canvas-tool";
+import type { CanvasProjectionKind, CanvasTool } from "@kb/canvas";
+
 import { cn } from "@kb/ui-sdk";
 import { CANVAS_PROJECTIONS } from "./canvas-projections";
 import { shortcutHint } from "./canvas-keymap";

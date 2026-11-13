@@ -15,8 +15,6 @@ import { definePlugin, type Plugin } from "@kb/plugin";
 import {
   CaptureTargetService,
   DateTargetService,
-  KeybindingPoint,
-  KeyContextPoint,
   LandingService,
   leadsNowhere,
   stayHome,
@@ -24,7 +22,6 @@ import {
   tellKeymaps,
   topLevelCapture,
 } from "@kb/ui-sdk";
-import { PAGE_BINDINGS, PAGE_CONTEXT } from "@/lib/page-keys";
 
 export const coreUiPlugin: Plugin = bundledPlugin(
   coreExtension,
@@ -38,8 +35,6 @@ export const coreUiPlugin: Plugin = bundledPlugin(
           ctx.provide(CaptureTargetService, topLevelCapture),
           ctx.provide(LandingService, stayHome),
           ctx.provide(DateTargetService, leadsNowhere),
-          ctx.contribute(KeyContextPoint, PAGE_CONTEXT),
-          ...PAGE_BINDINGS.map((binding) => ctx.contribute(KeybindingPoint, binding)),
           Effect.acquireRelease(
             Effect.sync(() => subscribeUiKernel(tellKeymaps)),
             (unsubscribe) => Effect.sync(unsubscribe),

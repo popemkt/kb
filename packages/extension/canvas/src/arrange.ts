@@ -35,7 +35,7 @@ export const CANVAS_LAYOUTS = [
   "align",
   "distribute",
 ] as const;
-export type CanvasLayout = (typeof CANVAS_LAYOUTS)[number];
+type CanvasLayout = (typeof CANVAS_LAYOUTS)[number];
 
 /** The edge an `align` lines items up on: one of the set's sides, or its middle across or down. */
 export const CANVAS_ALIGN_EDGES = ["left", "centre", "right", "top", "middle", "bottom"] as const;
@@ -45,7 +45,7 @@ export type CanvasAlignEdge = (typeof CANVAS_ALIGN_EDGES)[number];
 export type CanvasLayerValue = number | string;
 
 /** How a set of items is laid out. */
-export interface CanvasArrangement {
+interface CanvasArrangement {
   readonly layout: CanvasLayout;
   /** The room between neighbours (between layers' bases, for layers), canvas units. */
   readonly gap?: number;

@@ -75,7 +75,7 @@ function listenersOf<L>(contributions: readonly Contribution<L>[]): Listener<L>[
 }
 
 /** What a host passes beside its listeners. */
-export interface InterceptionOptions {
+interface InterceptionOptions {
   /**
    * The plugins whose guards the deployment requires: while one is not
    * applied, every call is denied.

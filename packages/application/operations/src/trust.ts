@@ -26,7 +26,7 @@ export const sandboxTrustDef = {
   id: "sandbox.trust",
   title: "Trust code",
   description:
-    "Trust, on this machine, by the digest of exactly what it covers: sandboxed code and its grant (it then runs in a Worker instead of QuickJS), a repository extension's source (it then runs with the server's reach, and so does what it loads or evaluates when it runs), or an agent provider's binding (the key it sends, the endpoint it sends it to, the executable it starts). Declared required approval is enforced by the invoke core in every deployment. It is never written to the graph.",
+    "Trust, on this machine, by the digest of exactly what it covers: sandboxed code and its grant (it then runs in a Worker instead of QuickJS), a repository extension's source (it then runs with the server's reach, and so does what it loads or evaluates when it runs), an agent provider's binding (the key it sends, the endpoint it sends it to, the executable it starts), or the exact canonical content of a shortcut override. Declared required approval is enforced by the invoke core in every deployment. It is never written to the graph.",
   mode: { kind: "write", approval: "required" } as const,
   inputSchema: z.object({
     digest: Digest,

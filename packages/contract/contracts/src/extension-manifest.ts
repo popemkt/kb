@@ -105,7 +105,7 @@ export function listingMissing(manifest: ExtensionManifest | undefined): readonl
 }
 
 /** One capability in plain words; `said` is false where the manifest does not declare it. */
-export interface CapabilityLine {
+interface CapabilityLine {
   readonly label: string;
   readonly text: string;
   readonly said: boolean;

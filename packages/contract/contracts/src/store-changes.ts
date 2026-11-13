@@ -11,7 +11,7 @@ interface DirectoryWatcher {
  * Open a watch on one directory. `node:fs`'s `watch` is one; the parameter is
  * how a `scope:shared` module gets a platform capability without importing it.
  */
-export type WatchDirectory = (directory: string, listener: () => void) => DirectoryWatcher;
+type WatchDirectory = (directory: string, listener: () => void) => DirectoryWatcher;
 
 /**
  * A tick once the watches are armed, then one each time anything in a watched

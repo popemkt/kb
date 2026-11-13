@@ -56,6 +56,7 @@ export type { HostedFrame, SandboxEvents, SandboxPorts, SandboxRun } from "./san
 // waiting on a person, its frame, and the card a person answers them on.
 export { useSandboxPorts, useSandboxTrust, type SandboxTrust } from "./sandbox-run";
 export { SandboxFrame } from "./components/sandbox-frame";
+export { ActionReviewDialog } from "./components/action-review-dialog";
 export { ActionApproval } from "./components/action-approval";
 export { ActionReviewPoint, type ApprovalView } from "./lib/action-review";
 export { SandboxApprovalCard } from "./components/sandbox-approval-card";
@@ -453,7 +454,6 @@ export {
   type KeyContext,
   keyContextOf,
   KeyContextPoint,
-  type KeyContextSpec,
   type KeyCall,
   keyCallOf,
   type Keybinding,

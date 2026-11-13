@@ -163,7 +163,8 @@
     "limit": 1
   },
   "@kb/outline": {
-    "limit": 3
+    "limit": 9,
+    "reason": "Shared editing/selection contexts moved from the browser package."
   },
   "@kb/outline-ui": {
     "limit": 40

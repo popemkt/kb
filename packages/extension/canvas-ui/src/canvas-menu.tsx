@@ -7,7 +7,7 @@
  */
 import { useLayoutEffect, useState, type RefObject } from "react";
 import { cn, MENU_ROW, MENU_SURFACE, MenuSeparator, useDismiss, useMenuKeys } from "@kb/ui-sdk";
-import type { CanvasIntent } from "./canvas-keys";
+import type { CanvasIntent } from "@kb/canvas";
 import type { CanvasMenuCommand } from "./canvas-keymap";
 
 interface Spot {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { admitKeybindings, provideKeybinding } from "@kb/ui-sdk";
-import { EDITING_BINDINGS } from "./editing-keymap";
-import { SELECTION_BINDINGS } from "./selection-keymap";
+import { EDITING_BINDINGS, SELECTION_BINDINGS } from "@kb/outline";
+
 import {
   EDITING_KEY_CONTEXT,
   outlineKeybindings,

@@ -99,7 +99,7 @@ export function controlLead(item: CanvasNode): CanvasItemLink | undefined {
 }
 
 /** What a link card says of its page: a title, and the host it is on. */
-export interface CanvasLinkCard {
+interface CanvasLinkCard {
   readonly title: string;
   readonly host: string;
 }

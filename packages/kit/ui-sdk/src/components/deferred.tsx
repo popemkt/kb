@@ -1,7 +1,7 @@
 import { Suspense, lazy, type ComponentType, type ReactNode } from "react";
 
 /** What a deferred component draws while its code loads. */
-export interface DeferredOptions {
+interface DeferredOptions {
   /** Drawn in its place until it has loaded (none, nothing). */
   readonly fallback?: ReactNode;
   /** The class of a box drawn at once around it, for a slot that counts what it was handed. */

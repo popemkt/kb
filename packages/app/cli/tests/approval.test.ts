@@ -106,6 +106,7 @@ test("kb trust import needs a terminal and imports only the displayed machine's 
     expect(await empty.exited).toBe(0);
     expect(await Bun.file(join(root, "data", "trust.json")).exists()).toBe(false);
     await writeFile(legacy, body);
+    // Ignoring stdin alone leaves the test runner's controlling terminal available.
     const refused = Bun.spawn(cmd, {
       env,
       detached: true,
@@ -164,7 +165,13 @@ test("kb ext trust prints the compiled review and uses the terminal approval edg
       join(root, ".kb", "extensions", "hello.ts"),
       'import {defineExtension} from "kb-ext-sdk";export const declaration=defineExtension({name:"hello",label:"Hello"});',
     );
-    const refused = Bun.spawn(cmd, { env, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
+    const refused = Bun.spawn(cmd, {
+      env,
+      detached: true,
+      stdin: "ignore",
+      stdout: "pipe",
+      stderr: "pipe",
+    });
     const [out, review] = await Promise.all([
       new Response(refused.stdout).text(),
       new Response(refused.stderr).text(),

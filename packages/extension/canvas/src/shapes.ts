@@ -137,7 +137,7 @@ export function faceShare(item: CanvasNode): number {
  * Every 2D painter places a turned face by this one rule: the DOM canvas as
  * a CSS `matrix3d`, the SVG export as the turn's top view.
  */
-export interface TopFace {
+interface TopFace {
   readonly matrix: CanvasMatrix;
   readonly lift: CanvasVec;
 }
@@ -467,7 +467,7 @@ export function svgPathData(commands: readonly CanvasPathCommand[]): string {
 }
 
 /** Anything a path is traced into: a canvas 2D context, a `Path2D`, a three `Shape`. */
-export interface CanvasPathSink {
+interface CanvasPathSink {
   moveTo(x: number, y: number): unknown;
   lineTo(x: number, y: number): unknown;
   bezierCurveTo(x1: number, y1: number, x2: number, y2: number, x: number, y: number): unknown;
@@ -601,7 +601,7 @@ const wound = (polygon: CanvasPolygon): CanvasPolygon =>
  * it is (a painter fills them nonzero, and a point is in it when it is in
  * any of them); `rims` are the outlines a painter strokes round it.
  */
-export interface CanvasTopView {
+interface CanvasTopView {
   readonly pieces: readonly CanvasPolygon[];
   readonly rims: readonly CanvasPolygon[];
 }
