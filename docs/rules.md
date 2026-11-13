@@ -1790,14 +1790,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — palette-index.test.ts asserts open <50ms and keystroke <10ms at 50k nodes. A standalone benchmark puts Array.from({length:n}) about 40% behind new Array(n) at that size, and the push variant flipped that test red on three of four full-suite runs on a loaded machine. Close it by making the 50k path fast enough that the allocation shape stops mattering (incremental or worker-side palette search), then delete both disables.
 - **node** — `01M1MFJXAQ8NVBMA6E6CZ7CY9W`
 
-### GAP: the release bundle is one file, so every command parses host code
-
-- **expected** — One build script, called by both bin/release-bundle and nix/package.nix, builds the CLI with --splitting; each import() edge is a chunk under lib/kb/ that a one-shot command never parses, and the KB startup contract covers the chunked layout.
-- **current** — Each of the two files runs its own bun build packages/app/cli/src/main.ts --target=bun without --splitting and ships one 10.9 MB cli.js. An import() becomes an __esm initializer in that file, which defers evaluation but not parsing.
-- **impact** — About 225 ms of every command, 55-60% of kb --version, parses code it never runs: the agent SDK, the MCP SDK and ajv, the server. The build line is written twice, so a fix to one can miss the other.
-- **closes** — docs/research/2026-11-11-cli-host-modes.md step 2.
-- **node** — `01M75MA27E1ARMJ8GK6PW2ASY4`
-
 ### GAP: the routines Google setup wizard keeps its own steps beside the core procedure
 
 - **expected** — The wizard is a procedure (ProcedurePoint): each setup step an action, each step's done-ness the routines setup predicates, read by procedure.status; the setup page is the procedure wizard page
@@ -2961,6 +2953,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Move the row layout into components/ui/ beside EnumSelect and PopoverShell, which this file already uses.
 - **rule** — UI import matrix
 - **node** — `01M1RXNMP8NQZ2WD8F2E8V6QBH`
+
+### GAP: the release bundle is one file, so every command parses host code
+
+- **expected** — One build script, called by both bin/release-bundle and nix/package.nix, builds the CLI with --splitting; each import() edge is a chunk under lib/kb/ that a one-shot command never parses, and the KB startup contract covers the chunked layout.
+- **current** — Each of the two files runs its own bun build packages/app/cli/src/main.ts --target=bun without --splitting and ships one 10.9 MB cli.js. An import() becomes an __esm initializer in that file, which defers evaluation but not parsing.
+- **impact** — About 225 ms of every command, 55-60% of kb --version, parses code it never runs: the agent SDK, the MCP SDK and ajv, the server. The build line is written twice, so a fix to one can miss the other.
+- **closes** — docs/research/2026-11-11-cli-host-modes.md step 2.
+- **node** — `01M75MA27E1ARMJ8GK6PW2ASY4`
 
 ### GAP: the runtime binds the code view's snapshot policy in kbRuntimeLayer
 

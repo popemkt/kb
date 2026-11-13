@@ -54,17 +54,14 @@ stdenvNoCC.mkDerivation {
   buildPhase = ''
     runHook preBuild
     (cd packages/app/ui && bun run build)
-    bun build ./packages/app/cli/src/main.ts \
-      --outdir="$TMPDIR/bundle" \
-      --target=bun \
-      --sourcemap=none
+    sh bin/build-cli "$TMPDIR/bundle"
     runHook postBuild
   '';
 
   installPhase = ''
     runHook preInstall
     mkdir -p "$out/lib/kb/packages/app/ui" "$out/bin"
-    cp -a "$TMPDIR/bundle/main.js" "$out/lib/kb/cli.js"
+    cp -a "$TMPDIR/bundle/." "$out/lib/kb/"
     cp -a packages/app/ui/dist "$out/lib/kb/packages/app/ui/dist"
     cp bin/kb-bun "$out/lib/kb/launch"
     patchShebangs "$out/lib/kb/launch"

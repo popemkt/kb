@@ -13,14 +13,9 @@ beforeAll(async () => {
   const lib = join(release, "lib/kb");
   await mkdir(lib, { recursive: true });
   await mkdir(join(release, "bin"));
-  const built = await Bun.build({
-    entrypoints: [join(repository, "packages/app/cli/src/main.ts")],
-    target: "bun",
-    outdir: lib,
-    naming: "cli.js",
-    throw: false,
-  });
-  if (!built.success) throw new Error(built.logs.map((log) => log.message).join("\n"));
+  // The release and Nix packages' own build, so the contract covers the chunked layout.
+  const built = Bun.spawnSync(["sh", join(repository, "bin/build-cli"), lib], { stderr: "pipe" });
+  if (built.exitCode !== 0) throw new Error(built.stderr.toString());
   await copyFile(join(repository, "bin/kb-bun"), join(lib, "launch"));
   await copyFile(
     join(repository, "packages/infrastructure/child-process/src/kb-launch-flags.txt"),
