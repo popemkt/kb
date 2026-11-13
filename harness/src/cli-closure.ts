@@ -44,6 +44,22 @@ export function staticOutputClosure(
   outputs: Record<string, MetafileOutput>,
   entry: string,
 ): Record<string, number> {
+  const { bytes, inputs } = staticOutputWalk(outputs, entry);
+  return { bytes, modules: inputs.size };
+}
+
+/** The source modules an entry's eager outputs hold: what loading the entry parses. */
+export function staticOutputInputs(
+  outputs: Record<string, MetafileOutput>,
+  entry: string,
+): string[] {
+  return [...staticOutputWalk(outputs, entry).inputs].toSorted();
+}
+
+function staticOutputWalk(
+  outputs: Record<string, MetafileOutput>,
+  entry: string,
+): { bytes: number; inputs: Set<string> } {
   outputs = Object.fromEntries(
     Object.entries(outputs).map(([key, value]) => [normalize(key), value]),
   );
@@ -65,11 +81,20 @@ export function staticOutputClosure(
       queue.push(join(dirname(key), imported.path));
     }
   }
-  return { bytes, modules: inputs.size };
+  return { bytes, inputs };
 }
 
 /** Build only for measurement; the release layout is untouched. */
 export function collectStaticClosure(entry: string): Record<string, number> {
+  return staticOutputClosure(buildMetafile(entry), entry);
+}
+
+/** The source modules loading `entry` parses, from the same measurement build. */
+export function collectStaticInputs(entry: string): string[] {
+  return staticOutputInputs(buildMetafile(entry), entry);
+}
+
+function buildMetafile(entry: string): Record<string, MetafileOutput> {
   const scratch = mkdtempSync(join(tmpdir(), "kb-closure-"));
   try {
     const metafile = join(scratch, "meta.json");
@@ -92,7 +117,7 @@ export function collectStaticClosure(entry: string): Record<string, number> {
     const meta = JSON.parse(readFileSync(metafile, "utf8")) as {
       outputs: Record<string, MetafileOutput>;
     };
-    return staticOutputClosure(meta.outputs, entry);
+    return meta.outputs;
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }

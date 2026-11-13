@@ -2,10 +2,16 @@ import { expect, test } from "bun:test";
 import { lazyDepths, lazyFenceBreaches } from "../src/import-closure.ts";
 import { readFileSync } from "node:fs";
 import { budgetProblems, budgetsAtBase } from "../src/budgets.ts";
-import { CLI_CLOSURE_BUDGETS, LAZY_FENCES } from "../src/constraints.ts";
+import { CLI_CLOSURE_BUDGETS, CLI_LAUNCHER, LAZY_FENCES } from "../src/constraints.ts";
 import { ratchetMismatches, ratchetRises } from "../src/ratchet.ts";
 import { BASELINE_PATH, baselineAtRatchetBase, type BaselineLanes } from "../src/snapshot.ts";
-import { collectCliFence, collectStaticClosure, staticOutputClosure } from "../src/cli-closure.ts";
+import {
+  collectCliFence,
+  collectStaticClosure,
+  collectStaticInputs,
+  staticOutputClosure,
+  staticOutputInputs,
+} from "../src/cli-closure.ts";
 
 const fence = {
   entry: "entry.ts",
@@ -63,6 +69,7 @@ test("static emitted closure follows shared chunks once and excludes dynamic chu
     "./lazy.js": { bytes: 50, inputs: { c: {} }, imports: [] },
   };
   expect(staticOutputClosure(outputs, "entry.ts")).toEqual({ bytes: 30, modules: 2 });
+  expect(staticOutputInputs(outputs, "entry.ts")).toEqual(["a", "b"]);
   expect(() => staticOutputClosure({}, "missing.ts")).toThrow("no entry");
 });
 
@@ -111,3 +118,7 @@ test("a CLI closure budget increase needs a changed reason; forbidden imports re
   ).toHaveLength(1);
   expect(ratchetRises({}, { "file imports forbidden engine": 1 }, "lazy-fence")).toHaveLength(1);
 });
+
+test("the launcher parses only the launch check and the version before its import()", () => {
+  expect(collectStaticInputs(CLI_LAUNCHER.entry)).toEqual([...CLI_LAUNCHER.eager]);
+}, 30000);

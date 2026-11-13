@@ -597,6 +597,25 @@ export interface LazyFence {
   boundary: "issuer" | "dependency";
 }
 
+/**
+ * The launcher every `kb` process runs first (`main.ts`), and the only
+ * modules loading it may parse: the launch check and the version it
+ * answers itself. Everything else (the command table, the runtime, any
+ * host) sits behind its one `import()` of the CLI fence's entry.
+ */
+export const CLI_LAUNCHER = {
+  entry: "packages/app/cli/src/main.ts",
+  eager: [
+    "packages/app/cli/src/main.ts",
+    "packages/app/cli/src/version-option.ts",
+    "packages/contract/ext-sdk/src/index.ts",
+    "packages/contract/ext-sdk/src/sdk-dts.text.ts",
+    "packages/infrastructure/child-process/src/index.ts",
+    "packages/infrastructure/child-process/src/kb-launch-flags.txt",
+    "packages/infrastructure/child-process/src/kb-launch.ts",
+  ],
+} as const;
+
 /** One policy table, independent of emitted chunk names or host topology. */
 export const LAZY_FENCES = {
   // GAP [[01M75MA3QTAABRAE6N0069CB8R]]: current engine breaches are held in the ledger.
