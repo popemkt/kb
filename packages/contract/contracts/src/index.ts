@@ -93,6 +93,7 @@ export {
   extensionRow,
 } from "./declaration.ts";
 export type { ExtensionDeclaration, ExtensionEntry, ExtensionRow } from "./declaration.ts";
+export { hostEntry } from "./host-entry.ts";
 export { NO_SWITCHES, familyOn, switchWrites } from "./extension-switch.ts";
 export { EXTENSIONS_WATCH_NODE, extensionsWatched } from "./extension-watch.ts";
 export {

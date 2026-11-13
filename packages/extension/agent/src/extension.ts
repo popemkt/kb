@@ -11,6 +11,12 @@
 import { defineExtension } from "@kb/contracts";
 import { agentSeedNodes } from "./provider.ts";
 
+/** The completion's local id, in the family's namespace. */
+export const COMPLETE_ID = "complete";
+
+/** The sight's local id: whether the model a completion would ask sees pictures. */
+export const SIGHT_ID = "sight";
+
 export const agentExtension = defineExtension({
   name: "agent",
   label: "Agent",
@@ -18,4 +24,13 @@ export const agentExtension = defineExtension({
   tags: ["agent"],
   optional: { byDefault: "on" },
   seed: agentSeedNodes,
+  host: {
+    capabilities: [
+      {
+        name: "threads",
+        reason: "the agent's model backends and conversations live in the kb ui process",
+        actions: [COMPLETE_ID, SIGHT_ID],
+      },
+    ],
+  },
 });

@@ -5212,6 +5212,19 @@ A plugin can hold its own conversation with the connections of `kb ui`
   action keeps: an id or alias the registry holds stays the registry's, and
   one that breaks a batch's or a context's rule is left out, each said on
   stderr. `hosted-actions.test.ts` (`@kb/server`) holds it.
+- **A host entry declares what it hosts.** A family's declaration says
+  what a running host adds to it (`host`): each capability only a host
+  can serve, with a one-line reason and the actions it serves, by local
+  id. Its host entry is built with `hostEntry` (`contracts/src/host-entry.ts`),
+  whose handle has three members: a service it injects, a channel, and
+  `serve`, which contributes a declared capability's actions, exactly the
+  ones it lists. It has no member that contributes anything else, provides
+  a service or loads a plugin, so a host entry cannot own an ordinary
+  action or store truth. A capability the declaration does not name, or
+  another set of actions, fails the entry's load. Only kb's build
+  declares a host part; a repository extension that does is refused. The
+  agent's `threads` and routines' `sync` are the two
+  ([research](docs/research/2026-11-11-cli-host-modes.md#12-host-entries-declare-their-mode)).
 - In the browser, `KbWsClient.listen` and `sendChannel` carry a channel. A
   frame sent while the socket is down is dropped rather than replayed,
   because the plugin forgets a connection that closes.
@@ -5228,7 +5241,8 @@ The sidebar agent lives outside core, in packages that core never imports
 | `@kb/agent-openai` | extension, shared  | the `openai-chat` adapter, a step over Chat Completions                                                                                                                                                  |
 
 - **The bridge is a plugin of `kb ui`.** `agentPlugin({adapters, secrets})`
-  injects `UiHost` and owns the channel `agent.chat`
+  is the agent's host entry: it injects `UiHost`, owns the channel
+  `agent.chat` and serves the `threads` capability
   ([Plugin channels](#plugin-channels)). Anywhere else it waits, pending,
   and does nothing.
 - **The runtime is a port**, and each backend is an adapter of it.

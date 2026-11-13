@@ -27,8 +27,8 @@
     "reason": "Lane B moved the CLI's flag mappers (map.ts) to @kb/cli and the outline-paste parser to @kb/outline-paste; ui.*, render.*, procedure.* and store.* stay core actions every surface offers. #191 adds core's page context id (PAGE_CONTEXT_ID), declared beside core's actions, and graphChangesDef, whose output the page checks when it names a shortcut's last writer."
   },
   "@kb/contracts": {
-    "limit": 355,
-    "reason": "#191: the keyboard points (KeybindingPoint, KeyContextPoint) are declared in contracts beside the other core points; #187: the extension watch's setting node and its reading (EXTENSIONS_WATCH_NODE, extensionsWatched), which the server reads; #203: a procedure step's output schema (ProcedureStepOutputSchema), shared by the procedure action and the page that shows it; #190 dropped the names no package outside contracts imports, and M6 added node.update's input and prop input schemas."
+    "limit": 356,
+    "reason": "#191: the keyboard points (KeybindingPoint, KeyContextPoint) are declared in contracts beside the other core points; #187: the extension watch's setting node and its reading (EXTENSIONS_WATCH_NODE, extensionsWatched), which the server reads; #203: a procedure step's output schema (ProcedureStepOutputSchema), shared by the procedure action and the page that shows it; #190 dropped the names no package outside contracts imports, and M6 added node.update's input and prop input schemas; #189 §12 adds hostEntry, the one constructor of a family's host entry, which the agent and routines build theirs with."
   },
   "@kb/ext-sdk": {
     "limit": 9

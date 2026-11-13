@@ -1,19 +1,8 @@
 import { Effect, Encoding, Stream } from "effect";
 import { z } from "zod";
-import {
-  ActionPoint,
-  Assets,
-  CoreInvoke,
-  extensionActionId,
-  extensionNamespace,
-  failed,
-  familyTags,
-  provideAction,
-  type ExtensionAction,
-} from "@kb/contracts";
+import { Assets, CoreInvoke, extensionActionId, failed, type ExtensionAction } from "@kb/contracts";
 import { assetMediaType, domainError, isAssetPath } from "@kb/model";
-import { definePlugin, type Plugin } from "@kb/plugin";
-import { agentExtension } from "./extension.ts";
+import { COMPLETE_ID, SIGHT_ID, agentExtension } from "./extension.ts";
 import { chooseProvider, type Backends } from "./selection.ts";
 import {
   AGENT_IMAGE_TYPES,
@@ -58,14 +47,8 @@ export const COMPLETION_LIMITS = {
   timeoutMs: 180_000,
 } as const;
 
-/** The completion's local id, in the family's namespace. */
-const COMPLETE_ID = "complete";
-
 /** The id the completion is invoked by: the one spelling of it, for the family's own halves. */
 export const AGENT_COMPLETE_ACTION = extensionActionId(agentExtension.name, COMPLETE_ID);
-
-/** The sight's local id: whether the model a completion would ask sees pictures. */
-const SIGHT_ID = "sight";
 
 /** The id the sight is invoked by. */
 export const AGENT_SIGHT_ACTION = extensionActionId(agentExtension.name, SIGHT_ID);
@@ -268,20 +251,11 @@ function sightAction(backends: Backends): ExtensionAction {
 }
 
 /**
- * The agent family's actions, in its `ext.agent` namespace: a child of the
- * bridge, which holds the backends they run on.
+ * The agent family's actions, served by its host entry as its `threads`
+ * capability (`agentExtension.host`), in its `ext.agent` namespace, on the
+ * backends the bridge holds.
  */
 // GAP [[01M5ZF97R8ZK857GS29QGVD3EN]] ext.agent.models and ext.agent.check are not built
-export function agentActionsPlugin(backends: Backends): Plugin {
-  return definePlugin({
-    name: "actions",
-    namespace: extensionNamespace(agentExtension.name),
-    tags: familyTags(agentExtension),
-    apply: (ctx) =>
-      Effect.forEach(
-        [completeAction(backends), sightAction(backends)],
-        (action) => ctx.contribute(ActionPoint, provideAction(action)),
-        { discard: true },
-      ),
-  });
+export function agentActions(backends: Backends): readonly ExtensionAction[] {
+  return [completeAction(backends), sightAction(backends)];
 }

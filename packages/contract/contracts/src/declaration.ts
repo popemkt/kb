@@ -166,6 +166,30 @@ export interface ExtensionDeclaration {
    * `migration.<family>.<id>` every surface walks.
    */
   readonly migrations?: readonly ExtensionMigration[];
+  /**
+   * What a running host adds to the family (DESIGN.md → Plugin channels →
+   * host entries): each capability only a host can serve, with why and the
+   * actions it serves. Its host entry (`hostEntry`) serves exactly these;
+   * every other part of the family runs in every process. Only kb's build
+   * declares one: a repository extension that does is refused, as no host
+   * composes one.
+   */
+  readonly host?: HostPart;
+}
+
+/** One thing only a running host can do for its family, and why. */
+interface HostCapability {
+  /** Its name, once in its family. */
+  readonly name: string;
+  /** Why it needs a host, in one line: what a surface says when no host runs. */
+  readonly reason: string;
+  /** The actions it serves, by local id in the family's namespace (`ext.<name>.<id>`). */
+  readonly actions: readonly string[];
+}
+
+/** What a running host adds to its family: each capability only a host can serve. */
+interface HostPart {
+  readonly capabilities: readonly HostCapability[];
 }
 
 /** A family's declaration, as written in its shared package. */

@@ -232,6 +232,28 @@ describe("a repository extension's node", () => {
     }
   });
 
+  test("a module that declares a host part is refused: no host composes it", async () => {
+    resetRegistryCache();
+    const root = await rootWith({
+      "hosted.ts": extensionModule("hosted", {
+        declaration:
+          '{ name: "hosted", label: "Hosted", host: { capabilities: [{ name: "live", reason: "it says so", actions: ["go"] }] } }',
+      }),
+    });
+    try {
+      const { families, failures } = await Effect.runPromise(
+        rootFamilies(root).pipe(Effect.provide(bunFileSystemLayer)),
+      );
+      expect(families.filter(({ source }) => source !== "bundled")).toEqual([]);
+      expect(failures).toContainEqual({
+        file: "hosted.ts",
+        error: expect.stringContaining("no host composes"),
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   describe("what it says about itself, its manifest", () => {
     test("is read before anyone trusts the code, and its bytes are in the digest", async () => {
       const bare = await untrusted(null);

@@ -1,16 +1,6 @@
 import { Context, Layer, Effect } from "effect";
+import { type SecretStore, UiHost, hostEntry } from "@kb/contracts";
 import {
-  ActionPoint,
-  type SecretStore,
-  ChannelPoint,
-  UiHost,
-  familyTags,
-  provideAction,
-  extensionNamespace,
-} from "@kb/contracts";
-import { definePlugin } from "@kb/plugin";
-import {
-  routinesDeclarationPlugin,
   routinesExtension,
   type SyncError,
   type AccountConfig,
@@ -71,18 +61,20 @@ export interface RoutinesPluginOptions {
   /** The public origin: event backlinks, and the redirect URI Google sends the person back to. */
   readonly origin: string;
 }
+/**
+ * The routines' host entry: the engine, run while `kb ui` runs, serving the
+ * family's `sync` capability (`routinesExtension.host`) and its status
+ * channel. Anywhere else it waits, pending, and does nothing.
+ */
 export function routinesPlugin(options: RoutinesPluginOptions) {
-  return definePlugin({
-    name: routinesExtension.name,
-    tags: familyTags(routinesExtension),
+  return hostEntry(routinesExtension, {
     inject: [UiHost],
-    apply: (ctx) =>
+    apply: (host) =>
       Effect.gen(function* () {
         const scope = yield* Effect.scope;
-        yield* ctx.plugin(routinesDeclarationPlugin());
-        const ui = yield* ctx.get(UiHost);
+        const ui = yield* host.get(UiHost);
         const graphLayer = RoutineGraph.layer(ui);
-        const host = Context.get(yield* Layer.build(graphLayer), RoutineGraph);
+        const graph = Context.get(yield* Layer.build(graphLayer), RoutineGraph);
         const engine = Context.get(
           yield* Layer.build(
             RoutineEngine.layer({
@@ -90,41 +82,23 @@ export function routinesPlugin(options: RoutinesPluginOptions) {
               client: (binding) =>
                 options.client(
                   binding,
-                  calendarBindingDigest(binding).pipe(Effect.flatMap(host.trusted)),
+                  calendarBindingDigest(binding).pipe(Effect.flatMap(graph.trusted)),
                 ),
-            }).pipe(Layer.provide(Layer.succeed(RoutineGraph, host))),
+            }).pipe(Layer.provide(Layer.succeed(RoutineGraph, graph))),
           ),
           RoutineEngine,
         );
-        const actions = routineActions(
-          engine,
-          connections(options, ui, host),
-          options.setup,
-          scope,
+        yield* host.serve(
+          "sync",
+          routineActions(engine, connections(options, ui, graph), options.setup, scope),
         );
-        yield* ctx.plugin(
-          definePlugin({
-            name: "actions",
-            namespace: extensionNamespace(routinesExtension.name),
-            tags: familyTags(routinesExtension),
-            apply: (actionCtx) =>
-              Effect.forEach(
-                actions,
-                (action) => actionCtx.contribute(ActionPoint, provideAction(action)),
-                { discard: true },
-              ),
-          }),
-        );
-        yield* ctx.contribute(ChannelPoint, {
-          id: "routines.status",
-          value: {
-            receive: (peer) =>
-              engine.status().pipe(
-                Effect.flatMap((status) => peer.send(status)),
-                Effect.orElseSucceed(() => undefined),
-              ),
-            drop: () => Effect.void,
-          },
+        yield* host.channel("routines.status", {
+          receive: (peer) =>
+            engine.status().pipe(
+              Effect.flatMap((status) => peer.send(status)),
+              Effect.orElseSucceed(() => undefined),
+            ),
+          drop: () => Effect.void,
         });
         yield* engine.run;
       }),
