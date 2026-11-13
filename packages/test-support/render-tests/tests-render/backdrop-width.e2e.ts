@@ -137,6 +137,7 @@ for (const option of backdropOptions) {
     await page.addInitScript(countRemovedCanvases);
     await page.goto(harness.url);
     const host = page.locator(HOST);
+    // GAP [[01M79GTJ1VVQ9YQEW68AQM68B0]]
     const isGpu = await host
       .waitFor({ timeout: 8000 })
       .then(() => true)

@@ -65,6 +65,12 @@ export interface HarnessOptions {
   readonly example?: boolean;
 }
 
+/** A running harness: where it serves, and how to stop it and remove its scratch root. */
+export interface Harness {
+  readonly url: string;
+  readonly stop: () => Promise<void>;
+}
+
 /**
  * Spawn a harness UI over a fresh fixture store (`tests-render/server/server.ts`).
  *
@@ -72,23 +78,28 @@ export interface HarnessOptions {
  * `harness-test.ts`. The store lives on the server for that server's
  * lifetime, so a test that switches a renderer or promotes a node would
  * otherwise change what a later test counts — which is exactly how a passing
- * test makes an unrelated one fail. A store opens in about 300 ms, so
- * isolation is cheaper than any reset a test could get wrong.
+ * test makes an unrelated one fail. A process per store, and not a reset
+ * inside one: the server reads its home, data and cache from the process's
+ * environment whenever it needs them, so two stores in one process would
+ * share a home store and its trust. What the process costs to start,
+ * {@link HarnessPool} spends while the previous test runs.
  */
-export async function startHarness(options: HarnessOptions = {}): Promise<{
-  url: string;
-  stop: () => Promise<void>;
-}> {
+async function startHarness(options: HarnessOptions = {}): Promise<Harness> {
   const port = await freePort();
   // The port travels as an argument. The served UI travels through the
   // server's own override, `KB_UI_DIST` (packages/app/server/src/paths.ts):
   // this process runs under Node, so it cannot import that Bun module to
-  // name it, and the harness is the override's reason to exist.
+  // name it, and the harness is the override's reason to exist. The server
+  // is a test run (`NODE_ENV=test`), so it never falls back to the person's
+  // home, data or cache (@kb/workspace-fs's `home.ts`): it names its home
+  // and data in its scratch root, and keeps no build archive, where it would
+  // otherwise publish its test build among the person's kept builds and
+  // prune theirs.
   const args = [String(port), ...(options.example === true ? [EXAMPLE_ARG] : [])];
   const server = spawn("bun", ["tests-render/server/server.ts", ...args], {
     cwd: process.cwd(),
     stdio: ["ignore", "pipe", "inherit"],
-    env: { ...process.env, KB_UI_DIST: HARNESS_UI_DIST },
+    env: { ...process.env, KB_UI_DIST: HARNESS_UI_DIST, NODE_ENV: "test" },
   });
   const url = `http://127.0.0.1:${port}`;
   server.stdout.setEncoding("utf8");
@@ -106,4 +117,55 @@ export async function startHarness(options: HarnessOptions = {}): Promise<{
   }
   await stop(server);
   throw new Error(`render harness UI did not start at ${url}`);
+}
+
+/**
+ * One Playwright worker's harnesses, each started one test ahead.
+ *
+ * A test still gets a harness no test has touched, with its own process,
+ * scratch root, home store and port, and that harness is stopped when the
+ * test ends. What the pool changes is when it starts: while a test runs,
+ * the next test's harness boots beside it, so the next test takes one that
+ * is already listening. The spare has the options of the test that took the
+ * last one, which are the next test's within a file (`test.use` is per
+ * file); a test that asks for other options stops the spare and starts its own.
+ */
+export class HarnessPool {
+  #spare: { readonly key: string; readonly harness: Promise<Harness> } | null = null;
+  /** Spares a test's other options displaced, stopping; {@link close} waits for them. */
+  readonly #stopping = new Set<Promise<void>>();
+
+  /** A fresh harness for one test, which the caller stops. */
+  take(options: HarnessOptions): Promise<Harness> {
+    const key = JSON.stringify(options);
+    const spare = this.#spare;
+    const next = startHarness(options);
+    // Handled here, so a spare that fails to start while a test runs fails
+    // the test that takes it, not the worker the moment it rejects.
+    next.catch(() => {});
+    this.#spare = { key, harness: next };
+    if (spare?.key === key) return spare.harness;
+    if (spare !== null) {
+      const stopping = stopWhenStarted(spare.harness);
+      this.#stopping.add(stopping);
+      void stopping.finally(() => this.#stopping.delete(stopping));
+    }
+    return startHarness(options);
+  }
+
+  /** Stop the spare no test took, and wait out any still stopping. */
+  async close(): Promise<void> {
+    const spare = this.#spare;
+    this.#spare = null;
+    if (spare !== null) await stopWhenStarted(spare.harness);
+    await Promise.all(this.#stopping);
+  }
+}
+
+/** Stop a harness once it is up; one that never started has nothing to stop. */
+async function stopWhenStarted(harness: Promise<Harness>): Promise<void> {
+  await harness.then(
+    (started) => started.stop(),
+    () => undefined,
+  );
 }

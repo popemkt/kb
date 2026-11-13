@@ -19,6 +19,15 @@ trustedDependencies = []
 # takes the suite's heaviest cases far longer (the 2000-run forest merge
 # property, 0.12 s on a dev Mac, ran 4.8 s and 5.5 s there, the second a
 # timeout), so the default made them flake. A hang still fails, later.
+#
+# The `test` script's --parallel=4 runs the files in four worker processes,
+# each file isolated (its own globals and module registry, and so its own
+# preload: a scratch home and data root per file, where a serial run shares
+# one home across files). Four is CI's Ubuntu runner's core count, and more
+# buys little: the slowest file, the CLI surface contract, is a third of the
+# serial time by itself and bounds the run. Sixteen workers on a 16-core host
+# took 239 s against 298 s for four, and pushed a DST scenario past its
+# budget (docs/research/2026-11-13-test-suite-speed.md).
 pathIgnorePatterns = ["**/packages/app/ui/**", "**/packages/kit/**", "**/packages/extension/*-ui/**", "**/packages/test-support/ui-test-kit/**"]
 # What a run preloads is one list, packages/app/test-kit/src/preload.ts: the
 # fast-check seed (inert unless KB_FAST_CHECK_SEED is set; the mutation run
