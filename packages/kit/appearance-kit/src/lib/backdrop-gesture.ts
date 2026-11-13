@@ -20,7 +20,7 @@
  * The listener is passive in effect: it never takes the default, so a
  * double-click meant for the page does what it did before.
  */
-import { coveringAncestor, placeOver } from "@kb/ui-sdk";
+import { coveringAncestor, placeOver } from "./pointer-over.ts";
 
 /** What takes a double-click of its own: the page's, never the backdrop's. */
 const PAGE_TAKES =

@@ -7,8 +7,8 @@
  * that lowers detail before a busy page feels the scene. It knows nothing of
  * bats, and a composition (`composition.ts`) knows nothing of the clock.
  */
-import { meterFrames } from "@kb/appearance-kit";
-import type { BackdropBudget, PointerSource } from "@kb/ui-sdk";
+import { meterFrames, type PointerSource } from "@kb/appearance-kit";
+import type { BackdropBudget } from "@kb/ui-sdk";
 import { watchPlayback } from "../playback.ts";
 import type { Composition, SceneConfig } from "./composition.ts";
 import { clamp } from "./math.ts";

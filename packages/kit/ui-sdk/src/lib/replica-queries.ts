@@ -29,7 +29,7 @@ export type { QueryAnswer, QueryRequest, QueryTransport } from "@kb/query";
  * it took too long: long enough for any query a person reads the answer of,
  * short enough that a slow one is stopped well before it is a hang.
  */
-export const QUERY_BUDGET_MS = 3000;
+const QUERY_BUDGET_MS = 3000;
 
 /** The wall clock answers are held against, and the timers that ask again when one lapses. */
 export interface AnswerClock extends Timers {

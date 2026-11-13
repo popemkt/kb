@@ -1896,7 +1896,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: ui-sdk interface above its 380 ceiling after the M7 split
 
 - **expected** — @kb/ui-sdk exports at most 380 names (later 300): page points, session, ports and shared primitives, with each export used by more than the shell
-- **current** — M7 split plugins.ts by point and moved the shell-only files and the backdrop budgets out, which leaves about 576 names. 29 files are shared only by @kb/ui and outline-ui (field rows, popovers, keybindings, md-edit, refs, pinned …), and many exports inside them have one consumer
+- **current** — M7b dropped the 58 names nothing outside the kit imports, tests included, and moved the backdrop pointer input (pointer-over) to @kb/appearance-kit, beside the BackdropProps that carry it: 578 -> 514. 43 more names are imported only by tests in other packages. Of the rest, 269 have one production consumer, mostly outline-ui (113) and @kb/ui (91), and they sit in files the two share; no remaining file has a single consumer it could move to whole. replacementApproved stays exported as the prepared seam of GAP 01M6YS6XH9XS4TX7S7AYWXJX3A, and the sandbox run trio stays as the page mechanism for every sandbox run.
 - **impact** — the kit stays the widest interface in the workspace, so a family half can lean on shell internals and the surface ledger shows no fall toward the proposal's ceiling
 - **closes** — M7b: a per-symbol diet of the shell-shared files (decide each by concept: kit primitive, shell-only to @kb/ui, or outline-only behind a point), and @kb/keybindings (#190) taking keychord/keybindings; then lower the ui-sdk budget
 - **node** — `01M79H9PY7XVHHVGAN1WA3VYAF`

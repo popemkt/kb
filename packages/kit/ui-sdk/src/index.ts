@@ -22,12 +22,10 @@ export {
   useFrameView,
   useFrameViewNode,
   useFrameViews,
-  useEditing,
   useGeneration,
   useGraphRead,
   useAnswered,
   useAnswers,
-  useQueryAnswer,
   useReplicaQueries,
   useIsActive,
   useIsSelected,
@@ -56,7 +54,7 @@ export {
 export type { HostedFrame, SandboxEvents, SandboxPorts, SandboxRun } from "./sandbox";
 // Running sandboxed code the one way: its trust, its ports and the calls
 // waiting on a person, its frame, and the card a person answers them on.
-export { useSandboxPorts, useSandboxTrust, type Asking, type SandboxTrust } from "./sandbox-run";
+export { useSandboxPorts, useSandboxTrust, type SandboxTrust } from "./sandbox-run";
 export { SandboxFrame } from "./components/sandbox-frame";
 export { ActionApproval } from "./components/action-approval";
 export { ActionReviewPoint, type ApprovalView } from "./lib/action-review";
@@ -69,9 +67,7 @@ export {
   createViewEvents,
   type ScriptHostProps,
   type ViewLayout,
-  type ViewLayoutState,
   type ScreenRegion,
-  type ViewEvents,
 } from "./view-scripts";
 export { ViewScripts } from "./components/view-scripts";
 
@@ -80,33 +76,22 @@ export { ViewScripts } from "./components/view-scripts";
 export {
   type Command,
   type CommandContext,
-  type CommandMenu,
   CommandPoint,
   type CommandTarget,
-  type GlobalCommand,
   nodeAction,
   type NodeCommand,
   type NodeCommandListing,
   NODE_MENU_GROUPS,
-  type NodeMenuGroup,
   nodeMenu,
   type OutlineCommandApi,
   type PaletteStep,
-  type PaletteStepGraph,
-  type PaletteStepPick,
   PaletteStepPoint,
   paletteStepsPlugin,
   type PaletteSurface,
 } from "./lib/command-point";
-export { type ActionCall, callInput, invokeAction, PICKED, type Picked } from "./lib/action-call";
-export {
-  type CommandForm,
-  type PaletteStepForm,
-  provideCommand,
-  providePaletteStep,
-} from "./lib/command-forms";
-export { type IconName } from "./lib/form-icons";
-export { savedQueryIds } from "./lib/saved-query";
+export { callInput, invokeAction, PICKED } from "./lib/action-call";
+export { provideCommand, providePaletteStep } from "./lib/command-forms";
+
 export {
   currentContributions,
   currentView,
@@ -119,8 +104,6 @@ export {
   syncUiPlugins,
   uiKernelReader,
   useContributions,
-  useService,
-  useRole,
   configureUiRoles,
   replacementApproved,
   BACKDROP_BUDGETS,
@@ -147,13 +130,7 @@ export {
   RoutePoint,
   useRoute,
 } from "./lib/route-point.ts";
-export {
-  type Dock,
-  DockPoint,
-  type Overlay,
-  OverlayPoint,
-  SidebarSectionPoint,
-} from "./lib/shell-points.ts";
+export { type Dock, DockPoint, OverlayPoint, SidebarSectionPoint } from "./lib/shell-points.ts";
 export { type PageActivity, type PageEvents, QUIET_ACTIVITY } from "./lib/page-activity.ts";
 export { chosenDeclared, provideDeclared } from "./lib/declared.ts";
 
@@ -168,7 +145,7 @@ export { useSlotChain } from "./components/slot-chain";
 export { ViewSlot } from "./components/view-slot";
 
 export { HoldStill } from "./components/hold-still";
-export { deferred, type DeferredOptions } from "./components/deferred";
+export { deferred } from "./components/deferred";
 
 // The primitives.
 export { Bullet } from "./components/bullet";
@@ -176,31 +153,23 @@ export { EdnEditor } from "./components/edn-editor";
 export { type EnumOption, EnumSelect } from "./components/enum-select";
 export { FieldRow } from "./components/field-row";
 export { ManagedNote } from "./components/managed-field";
-export { type FieldWrite, type ManagedWrite, useFieldWrite } from "./lib/field-write";
+export { useFieldWrite } from "./lib/field-write";
 export { IconButton } from "./components/icon-button";
 export { KnobControl } from "./components/deferred-parts";
-export { MENU_ROW, MENU_SURFACE, useMenuKeys, type MenuKeys } from "./components/menu";
+export { MENU_ROW, MENU_SURFACE, useMenuKeys } from "./components/menu";
 export { MenuSeparator } from "./components/menu-separator";
 export { InlineMarkdown, MdView } from "./components/md-view";
-export { NodeLinkRow, type NodeLinkRowProps } from "./components/node-link-row";
-export {
-  NodeSectionPoint,
-  nodeSectionsOf,
-  useNodeSections,
-  type NodeSection,
-  type NodeSectionProps,
-  type ShownSection,
-} from "./lib/node-sections";
+export { NodeLinkRow } from "./components/node-link-row";
+export { NodeSectionPoint, useNodeSections, type NodeSectionProps } from "./lib/node-sections";
 export { NodeRow } from "./components/node-row";
 export { menuAnchor, menuAnchorOf } from "./lib/menu-anchor";
 export {
-  type CaretAt,
   type CaretIntent,
   NodeTextHost,
   type NodeTextHostBinding,
   type NodeTextHostProps,
 } from "./components/node-text-host";
-export { type NodeTextPort, useNodeTextBindingThrough } from "./components/node-text-port";
+export { type NodeTextPort } from "./components/node-text-port";
 export { NoFrame } from "./components/no-frame";
 export { NotFound } from "./components/not-found";
 export { PickerList } from "./components/picker-list";
@@ -208,10 +177,10 @@ export { PrefFieldRow } from "./components/pref-field-row";
 export { POPOVER_VALUE_CLASS, PopoverShell } from "./components/popover-shell";
 export { OntologyPicker } from "./components/ontology-picker";
 export { type SidebarNavItem, SidebarRow, SidebarSection } from "./components/sidebar-row";
-export { OptionChip, TagChip, TagChipGroup, type TagChipAction } from "./components/tag-chip";
+export { OptionChip, TagChip, TagChipGroup } from "./components/tag-chip";
 export { ViewOptionsGlyph } from "./components/view-options-glyph";
 export { useAnchoredPosition } from "./components/use-anchored-position";
-export { useDismiss, type DismissInside } from "./components/use-dismiss";
+export { useDismiss } from "./components/use-dismiss";
 export { useRevealMarkup } from "./components/use-reveal-markup";
 export { ViewErrorBoundary } from "./components/view-error-boundary";
 export { WorkspaceBoundary } from "./components/workspace-boundary";
@@ -252,7 +221,6 @@ export {
 } from "./lib/model-completion";
 export { type Board, type BoardCard, type BoardReply, BoardService } from "./lib/board";
 export {
-  type NodeLinkEdge,
   type NodeLinkGraph,
   type NodeLinkGraphs,
   NodeLinkGraphService,
@@ -264,7 +232,6 @@ export {
   loadExpansion,
   loadIdSet,
   resolveProps,
-  sameMeaning,
   saveExpansionChanges,
   type ExpansionChanges,
   saveIdSet,
@@ -284,13 +251,7 @@ export {
   pageTitleInstanceKey,
   queryResultInstanceKey,
 } from "./lib/instance-key";
-export {
-  isPinned,
-  listPinnedNavItems,
-  listPinnedNodes,
-  pinnedRefIds,
-  pinnedRefIdsFor,
-} from "./lib/pinned";
+export { isPinned, listPinnedNavItems, pinnedRefIds, pinnedRefIdsFor } from "./lib/pinned";
 export {
   closesCycleOf,
   nodeCandidates,
@@ -314,7 +275,6 @@ export {
   type FrameView,
   frameViewLabelOf,
   frameViewOf,
-  frameViewThrough,
   getViewConfig,
 } from "./lib/frame-view";
 export {
@@ -351,12 +311,11 @@ export {
   useFrameSubject,
 } from "./lib/frame-subject";
 export { isReferenceRow, resolveRowChrome } from "./lib/row-chrome";
-export { type GraphRead, type GraphSource, useGraphReadThrough } from "./lib/graph-read";
+export { type GraphRead, type GraphSource } from "./lib/graph-read";
 export {
   type GraphChange,
   inScope,
   listOntologyItems,
-  type PageGraphPort,
   type PageGraphState,
   type ScopeSource,
   scopedWireOf,
@@ -368,7 +327,6 @@ export {
   editorTextPort,
   type PageEditor,
   PageEditorService,
-  type PageEditorState,
   type PageProjection,
   PageProjectionService,
 } from "./lib/page-ports";
@@ -377,7 +335,6 @@ export {
   type FieldContext,
   fieldContextOf,
   type FieldContextSource,
-  type RowSource,
   type SchemaIndex,
   schemaOf,
   schemaOfGraph,
@@ -413,17 +370,12 @@ export {
 } from "./query";
 export {
   answerMessage,
-  type PageQuery,
   type AnswerClock,
-  QUERY_BUDGET_MS,
   type QueryAnswer,
-  type QueryRead,
-  type QueryRequest,
-  type QueryTransport,
   type QueryAnswers,
   ReplicaQueries,
 } from "./lib/replica-queries";
-export { type Answered, useAnswersOf, useLastSettled } from "./lib/use-replica-queries";
+export { useAnswersOf, useLastSettled } from "./lib/use-replica-queries";
 
 // Pure helpers: bullets, the caret, class names, colours, the DOM, keys,
 // labels, logging, markdown, motion, panes, pickers, pointers, routing,
@@ -465,11 +417,9 @@ export {
 } from "./lib/dom";
 export {
   bulletClickIntent,
-  type CarryOutFollow,
   type Follow,
   type FollowFrom,
   type FollowHow,
-  followHowOf,
   type FollowTarget,
   nodeTarget,
   OpenNodeContext,
@@ -487,26 +437,22 @@ export { keptLoad } from "./lib/kept-load";
 export {
   type Chord,
   chordsOverlap,
-  describeChord,
   isPrintableKey,
   type KeyChordEvent,
   lookupChord,
   matchesChord,
   PALETTE_CHORD,
-  parseChord,
   TEXT_HISTORY_CHORD,
 } from "./lib/keychord";
 export {
   admitKeybindings,
   currentKeymap,
   type KeyContext,
-  type KeyContextId,
   type Keybinding,
   KeybindingPoint,
   type Keymap,
   type KeyRun,
   provideKeybinding,
-  type RefusedBinding,
 } from "./lib/keybindings";
 export { logError, logWarn } from "./lib/log";
 export {
@@ -529,7 +475,6 @@ export {
   type PaneCarryOut,
   type PaneCommand,
   type PaneSelection,
-  usePaneScreenThrough,
 } from "./lib/pane-screen";
 export {
   CREATE_ROW_ID,
@@ -547,7 +492,7 @@ export {
   POINTER_SLOPS,
   type PointerKind,
 } from "./lib/pointer-slop";
-export { useMenuGesture, type MenuGesture } from "./lib/menu-gesture";
+
 export {
   getPath,
   navigate,
@@ -560,7 +505,6 @@ export {
   subscribePath,
 } from "./lib/router";
 export {
-  type BuildEnv,
   type ReloadState,
   browserBuildEnv,
   followServerProtocol,
@@ -592,12 +536,7 @@ export {
   WIDTHS,
 } from "./lib/theme";
 
-export {
-  OptionPreviewPoint,
-  useOptionPreview,
-  type OptionPreview,
-  type PreviewSize,
-} from "./lib/option-preview";
+export { OptionPreviewPoint, useOptionPreview, type PreviewSize } from "./lib/option-preview";
 export {
   provideValueKind,
   ValueKindPoint,
@@ -606,7 +545,6 @@ export {
   type FieldHandle,
   type FieldTypeKind,
   type RejectedInput,
-  type ValueKindForm,
   type ValueKindSpec,
   type ValueSurfaceProps,
   type ValueView,
@@ -629,16 +567,9 @@ export {
 export { setToastSink, toast } from "./lib/toast";
 export { usePickerKeys } from "./lib/use-picker";
 export { useNarrowViewport } from "./lib/viewport";
-export {
-  placeOver,
-  usePointerOver,
-  type PointerPlace,
-  type PointerSource,
-} from "./lib/pointer-over";
 export { BREAKOUT_CLASS, useBreakoutShift } from "./lib/breakout";
 export { useLoadSeed } from "./lib/load-seed";
-export { tagOpeningOf, tagRowViewOf, type KeyCatalog, type TagOpening } from "./lib/tag-opening";
+export { tagOpeningOf, tagRowViewOf, type TagOpening } from "./lib/tag-opening";
 
-export { NO_POINTER, coveringAncestor } from "./lib/pointer-over.ts";
 export { usePath } from "./lib/router.ts";
 export { componentSchema } from "./lib/component-schema.ts";

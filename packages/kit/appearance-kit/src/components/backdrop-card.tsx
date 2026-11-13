@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import type { BackdropStrength } from "@kb/appearance";
 import { useBackdrops, usePageBackdrop } from "../appearance-hooks.ts";
 import { cardWindowTop } from "../lib/backdrop-card-window.ts";
-import { QUIET_ACTIVITY, NO_POINTER, HoldStill } from "@kb/ui-sdk";
+import { NO_POINTER } from "../lib/pointer-over.ts";
+import { QUIET_ACTIVITY, HoldStill } from "@kb/ui-sdk";
 
 import { BackdropFrame } from "./page-backdrop.tsx";
 

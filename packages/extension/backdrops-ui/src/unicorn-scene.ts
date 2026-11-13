@@ -1,4 +1,4 @@
-import type { PointerSource } from "@kb/ui-sdk";
+import type { PointerSource } from "@kb/appearance-kit";
 
 /** The self-hosted Unicorn Studio runtime, shared by every header scene. */
 export interface UnicornScene {

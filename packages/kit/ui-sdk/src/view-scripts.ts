@@ -48,7 +48,7 @@ export type ScreenRegion =
  * script's drawing never lies over, so a press always reaches what is
  * drawn there.
  */
-export interface ViewLayoutState {
+interface ViewLayoutState {
   readonly anchors: SandboxAnchors;
   readonly interactive: readonly ScreenRegion[];
 }

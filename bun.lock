@@ -1484,6 +1484,7 @@
       "devDependencies": {
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
+        "happy-dom": "catalog:",
         "vite": "catalog:",
         "vite-plus": "catalog:",
         "vitest": "catalog:",

@@ -18,7 +18,6 @@ export { NOWHERE, band } from "./head";
 
 export {
   type Backdrop,
-  type BackdropAction,
   BackdropActionPoint,
   BackdropPoint,
   provideBackdrop,
@@ -35,14 +34,8 @@ export {
   type BackdropProps,
 } from "./lib/appearance-points.ts";
 export { decodeBackdrop, type RefusedBackdrop } from "./lib/backdrop-decode.ts";
-export {
-  type FrameCost,
-  type FrameMeter,
-  type FrameMeterOptions,
-  type FrameMeterReading,
-  meterFrames,
-  readFrameMeter,
-} from "./lib/frame-meter.ts";
+export { usePointerOver, type PointerPlace, type PointerSource } from "./lib/pointer-over.ts";
+export { type FrameMeterReading, meterFrames, readFrameMeter } from "./lib/frame-meter.ts";
 export {
   BackdropFrame,
   HeadBackdropFrame,
@@ -54,7 +47,6 @@ export { ThemeArt } from "./components/theme-art.tsx";
 export { chooseDesignSystem, shownDesignSystem } from "./lib/design-system.ts";
 
 export {
-  useBackdropKnobs,
   useBackdrops,
   usePageBackdrop,
   useShownDesignSystem,

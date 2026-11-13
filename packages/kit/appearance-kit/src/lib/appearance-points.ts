@@ -5,9 +5,9 @@ import { CORE_POINT_DEFINITIONS } from "@kb/contracts";
 import { Point, type ContributionEntry } from "@kb/plugin";
 import type { SeedOption, KnobValues } from "@kb/model";
 import type { BackdropDirection, BackdropStrength, SeedBackdrop } from "@kb/appearance";
+import type { PointerSource } from "./pointer-over.ts";
 import {
   type OutlineNode,
-  type PointerSource,
   provideDeclared,
   type PageActivity,
   type BackdropBudget,
