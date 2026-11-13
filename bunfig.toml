@@ -23,11 +23,12 @@ trustedDependencies = []
 # The `test` script's --parallel=4 runs the files in four worker processes,
 # each file isolated (its own globals and module registry, and so its own
 # preload: a scratch home and data root per file, where a serial run shares
-# one home across files). Four is CI's Ubuntu runner's core count, and more
-# buys little: the slowest file, the CLI surface contract, is a third of the
-# serial time by itself and bounds the run. Sixteen workers on a 16-core host
-# took 239 s against 298 s for four, and pushed a DST scenario past its
-# budget (docs/research/2026-11-13-test-suite-speed.md).
+# one home across files). Four is CI's Ubuntu runner's core count. Bun
+# parallelises files, not tests, so no file may hold a third of the run: the
+# CLI surface contract runs each of its cells from a file of its own
+# (packages/app/cli/tests/surfaces.ts). Sixteen workers on a 16-core host
+# pushed a DST scenario past its budget
+# (docs/research/2026-11-13-test-suite-speed.md).
 pathIgnorePatterns = ["**/packages/app/ui/**", "**/packages/kit/**", "**/packages/extension/*-ui/**", "**/packages/test-support/ui-test-kit/**"]
 # What a run preloads is one list, packages/app/test-kit/src/preload.ts: the
 # fast-check seed (inert unless KB_FAST_CHECK_SEED is set; the mutation run

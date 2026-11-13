@@ -3,7 +3,7 @@
  * read is answered by the replica and pushes nothing, anything else goes to
  * `POST /api/action`, and the listing comes from `kb.manifest` on that path.
  * What the adapter promises for the whole registry is the surface contract's
- * business (`packages/app/cli/tests/surface-contract.test.ts`).
+ * business (`packages/app/cli/tests/surfaces.ts`).
  */
 import { Effect } from "effect";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

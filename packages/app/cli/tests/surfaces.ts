@@ -1,9 +1,10 @@
 /**
- * The surface contract (`@kb/test-kit`'s `surfaceContract`) run over every
- * surface that projects the action registry. This package is the one place
- * that can reach all five: the CLI is its own, and it composes the MCP and
- * HTTP servers, the page's WebMCP adapter, and the agent bridge the `kb ui`
- * server hosts.
+ * Every surface that projects the action registry, as the surface contract
+ * (`@kb/test-kit`'s `surfaceContract`) runs over them: one test file per
+ * contract cell, `surface-contract.<cell>.test.ts`, takes {@link SURFACES}
+ * from here. This package is the one place that can reach all five: the CLI
+ * is its own, and it composes the MCP and HTTP servers, the page's WebMCP
+ * adapter, and the agent bridge the `kb ui` server hosts.
  *
  * Each adapter speaks its surface's own protocol and turns the answer back
  * into a listing and a receipt without consulting the registry. That way a
@@ -49,11 +50,11 @@ import {
   KB_SOURCE_BIN,
   FakeModelContext,
   FakeTab,
-  surfaceContract,
   type ActionSurface,
   type ListedAction,
   type ServeUi,
   type SurfaceFactory,
+  type SurfaceSet,
 } from "@kb/test-kit";
 import { ToolCallFailed, WEBMCP_WIRE, startWebMcp, type ModelContextTool } from "@kb/webmcp";
 import { requestUi } from "@kb/workspace-fs";
@@ -403,5 +404,8 @@ const agent: SurfaceFactory = async (_root, ui) => {
   } satisfies ActionSurface;
 };
 
-// GAP [[01M79GV5XZGH57HF5174KXYYAB]]
-surfaceContract({ serve, surfaces: { cli, mcp, http, page: pageWire, webmcp, agent } });
+/** How a root is served, and every surface by name: what each contract cell runs over. */
+export const SURFACES: SurfaceSet = {
+  serve,
+  surfaces: { cli, mcp, http, page: pageWire, webmcp, agent },
+};
