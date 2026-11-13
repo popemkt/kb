@@ -1541,6 +1541,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Those steps read shownNode while still returning row ids.
 - **node** — `01M3KA3B5V5K7GYYPAYK7G6KHG`
 
+### GAP: tests that poll until something happens give up on a wall-clock deadline of their own
+
+- **expected** — One test-kit wait-until helper that polls until its condition holds, bounded by the test's own timeout, which is what every such test means by 'soon'
+- **current** — Seven test files each carry their own poll loop with a deadline of 2 to 10 s (cli tests/surfaces.ts, server screens/channels/cross-process-sync/extension-reload, agent providers/bridge, workspace-fs extensions); each gives up and asserts at its deadline
+- **impact** — A loop gives up at its deadline whatever the machine's load. The events they wait for take milliseconds, so the margin is a hundred times or more and none has failed yet, but the loops are seven copies of one mechanism with seven deadlines
+- **closes** — Move the loop into @kb/test-kit, bounded by the test's timeout, and replace the seven copies with it
+- **node** — `01M7B3HX9R9DNDDTJY546W1HH3`
+
 ### GAP: the 3D gizmo shows over a locked selection
 
 - **expected** — What the selection shows follows what may be done to it: a locked item shows no transform gizmo, as 2D shows it no resize handles.

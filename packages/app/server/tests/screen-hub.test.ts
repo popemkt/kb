@@ -5,7 +5,8 @@
  * `screens.test.ts`.
  */
 import { describe, expect, test } from "bun:test";
-import { Effect } from "effect";
+import { Effect, Exit } from "effect";
+import { TestClock } from "effect/testing";
 import type { ScreenState, ServerMessage } from "@kb/contracts";
 import { FAKE_TAB_SCREEN } from "@kb/test-kit";
 import { ScreenHub, type KeepPicture } from "../src/screens.ts";
@@ -105,21 +106,22 @@ describe("ScreenHub", () => {
   test("a command whose socket will not take it is no-tab at once, not a timeout", async () => {
     const hub = new ScreenHub(keptAt);
     await run(hub.publish("c1", "tab.a", gone, at("/"), null));
-    const started = Date.now();
-    const receipt = await run(
-      hub.port.navigate(
-        {
-          pane: undefined,
-          timeoutMs: 5000,
-          node: undefined,
-          route: "/",
-          camera: undefined,
-        },
-        undefined,
-      ),
+    const timeoutMs = 5000;
+    const settled = await run(
+      Effect.gen(function* () {
+        const command = yield* Effect.forkChild(
+          hub.port.navigate(
+            { pane: undefined, timeoutMs, node: undefined, route: "/", camera: undefined },
+            undefined,
+          ),
+        );
+        // The test clock moves only when told: up to a millisecond short of
+        // the timeout, so a command still waiting on its tab has no answer.
+        yield* TestClock.adjust(timeoutMs - 1);
+        return command.pollUnsafe();
+      }).pipe(Effect.provide(TestClock.layer())),
     );
-    expect(receipt).toEqual({ outcome: "no-tab", tab: "tab.a" });
-    expect(Date.now() - started).toBeLessThan(1000);
+    expect(settled).toEqual(Exit.succeed({ outcome: "no-tab", tab: "tab.a" }));
   });
 
   test("a capture the tab answers with a picture is answered with the file it is kept in", async () => {

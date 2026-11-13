@@ -429,6 +429,29 @@ violated path_. Determinism is mandatory: no wall clock, no unseeded
 randomness, fixed seed in CI, and a failure prints seed plus counterexample. A
 pure function is not by itself a reason to write a property.
 
+**A test reads no wall clock it does not hold.** The default lane runs its
+files four at a time (the root `bunfig.toml`), so a file's wall time
+includes whatever the other files took from the machine. What a test means
+by time takes one of three forms:
+
+- **A cost budget is CPU time.** An operation held to a budget, such as the
+  canvas at D7's scale or a parse that must stay linear, is measured with
+  `@kb/test-kit`'s `cpuCost`, which counts the CPU time the test's own
+  thread spends and none of the time it waits for a core. A budget is set
+  well clear of both today's cost and the regression it guards against.
+- **"Before its timeout" is read off a clock the test drives.** A timeout
+  that runs on Effect's `Clock` runs on `TestClock`, and a host that takes
+  its timers (`RemoteIndex`'s `Timers`) gets the test's timers. A test then
+  moves time to just short of the timeout, or ends the budget at once, and
+  reads the result, so no outcome depends on load.
+- **Across real processes, the line is half the timeout.** Where the
+  timeout belongs to another process the test cannot reach, the test sets
+  it far above anything else the test waits for and asserts on half of it.
+  Waiting out the timeout still fails, and load does not.
+
+Bench-lane files (`bun run bench`) print wall time and are held to nothing
+but comparisons made within one run.
+
 **Coverage is a signal, never a gate.** It may be reported; there is no
 "fail below N%" check and there will not be one. Chasing a percentage
 manufactures exactly the noise this doctrine forbids.

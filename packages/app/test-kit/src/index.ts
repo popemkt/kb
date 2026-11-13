@@ -22,6 +22,7 @@ export { storeContract } from "./store-contract.ts";
 export { CONTRACT_AT, persist, scratchRoot } from "./store-session.ts";
 export type { StoreFactory } from "./store-session.ts";
 export { benchmarkEnabled } from "./bench.ts";
+export { cpuCost } from "./cpu-cost.ts";
 export { storeBenchmark } from "./store-benchmark.ts";
 export { SURFACE_CONTRACT_CELLS, surfaceContract } from "./surface-contract.ts";
 export type {
