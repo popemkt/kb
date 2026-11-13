@@ -173,10 +173,11 @@ the store and the actions), and one rule keeps them apart:
   person could run one-shot. A cache is keyed by the store's fingerprint,
   so deleting it costs only time.
 
-Which code a one-shot command may load is a module boundary, not a second
-rule. Its home is with the other boundaries in `harness/src/constraints.ts`,
-as a CLI row of the lazy fence, and a budget holds the size of the
-command's eager graph. Neither exists yet; a `#gap` holds the place. Where
+A one-shot command loads no host code, and no painter or engine it does
+not use. That is a module boundary, not a second rule. Its home is with the
+other boundaries in `harness/src/constraints.ts`, as the CLI row of
+`LAZY_FENCES`, and `harness/cli-closure-budgets.json` holds the size of the
+command's eager graph, which may only fall. Where
 the code bends the rule today, a `#gap` names it (`kb backlinks` on the
 rule lists them). The evidence, the topology and the migration plan are in
 `docs/research/2026-11-11-cli-host-modes.md`.

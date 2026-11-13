@@ -1,18 +1,41 @@
 # One-shot commands and long-running hosts: separating the two modes
 
-Status: **proposal, for the owner, revised 2026-11-12.** The owner approved
-the direction (one mode-neutral core, host services in their own modules,
-and the rule that a host only accelerates). The rule is stated once, in
-[AGENTS.md → Hosts are accelerators](../../AGENTS.md#hosts-are-accelerators),
-and today's drift is in `#gap` nodes (`kb backlinks` on the rule lists
-them). This record holds the evidence and the plan, and does not restate
-the rule. Nothing here changes code.
+Status: **proposal, revised 2026-11-12; D2–D4 decided 2026-11-13, D1 open
+(below).** The owner approved the direction (one mode-neutral core, host
+services in their own modules, and the rule that a host only accelerates).
+The rule is stated once, in [AGENTS.md → Hosts are
+accelerators](../../AGENTS.md#hosts-are-accelerators), and today's drift
+is in `#gap` nodes (`kb backlinks` on the rule lists them). This record
+holds the evidence and the plan, and does not restate the rule. Nothing
+here changes code.
 
 The revision answers the owner's feedback on the first version: which
 topology makes one-shot commands as fast as curl (§5), how a plugin's
 background work generalizes (§6), how routines recovers a deletion made
 while no host runs (§7), whether the second rule stays a rule (§8), and the
 storage-outside-the-store gap (§9). The decisions are in §10.
+
+**Decided 2026-11-13.** The owner delegated the module overhaul, of which
+this plan is lane A, "as long as functionality stays and it's not too much
+compromise". Under that delegation three of the questions this record raised
+are decided and one stays open; §10 marks each. The D-numbers are those of
+the module overhaul proposal's decisions (its §6; the proposal is kept
+outside the repository), which asked them again:
+
+- **D2, decided: one-shot commands load no host code**, as worded,
+  including painters and engines a command does not use. It is held as §8
+  folds it, by the lazy fence's CLI row and the closure budget, not as a
+  second `#rule` (§10, decision 7).
+- **D3, decided: the staged target.** `kb get` lands at about 300 ms after
+  steps 2–6, and under 100 ms after steps 7–8 (§10, decision 8).
+- **D4, decided: hosted families stay hosted.** The agent and routines
+  stay hosted by `kb ui`, and only routines sync may become one-shot. This
+  overrides §10's decision 9 and the parity bullet of §5.3, so
+  `HOSTED_FAMILIES` keeps both families.
+- **D1, open: routines' offline deletions** (§7; §10, decision 4). It
+  reverses the 2026-11-04 decision and so changes behaviour, which the
+  delegation does not cover. Nothing that depends on it is built: within
+  steps 9–10, only what holds with today's offline-deletion behaviour.
 
 Date: 2026-11-11, revised 2026-11-12.
 Inputs: kb `main` at `d94876c5` (revision: `0caabcc0`); host shared-server
@@ -873,7 +896,9 @@ This design's own files fall under it as follows:
 
 ## 10. For the owner
 
-Each decision has a recommendation.
+Each decision has a recommendation. Decisions 4, 7, 8 and 9 were put
+to the owner again as the module proposal's D1–D4; the status above records
+what was decided on 2026-11-13, and each is marked below.
 
 1. **Topology.** One `kb`, whose launcher forwards to the root's host over
    its owner-only socket and otherwise runs in-process. **Recommend yes.**
@@ -887,7 +912,8 @@ Each decision has a recommendation.
 4. **Routines' offline deletions.** This reverses the 2026-11-04 acceptance.
    The next sync recovers them from a ledger on the calendar node (§7), and
    retry counters and release holds become durable too.
-   **Recommend yes.**
+   **Recommend yes.** *Open (D1): it changes behaviour, so it waits for
+   the owner.*
 5. **Jobs.** `#job` nodes over `job: true` actions, run by any process, with
    `every` and `runs on` as data (§6). **Recommend yes.** Inbound Google
    Calendar is the second family, which the "general job contract" gap was
@@ -897,13 +923,18 @@ Each decision has a recommendation.
    runs. **Recommend yes.**
 7. **The second rule.** Fold it into the lazy fence's CLI row and the
    closure budget, and withdraw its `#rule` node (§8). **Recommend yes.**
+   *Decided (D2): adopted as worded, held by the fence and the budget.*
 8. **The 100 ms target for `get` without a host.** It is still staged
    (steps 2–8); curl-like times come only with a host. **Recommend
-   confirming the staged target.**
+   confirming the staged target.** *Decided (D3): about 300 ms after
+   steps 2–6, under 100 ms after 7–8.*
 9. **Hosted families.** Every family's actions and jobs load in every
    process, and only triggers and channels are host code. The agent chat
    stays a host feature with its truth in nodes. **Recommend yes.** This
    replaces the first version's "hosted families stay hosted".
+   *Decided otherwise (D4): the first version's answer stands. The agent
+   and routines stay hosted by `kb ui`, and only routines sync may become
+   one-shot.*
 10. **Storage outside the store** is a gap, not a rule, as the owner asked
     (§9). **Recommend revisiting** once the gcal and jobs work shows whether
     an allowed-file list is worth a check.
