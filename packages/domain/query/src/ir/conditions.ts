@@ -122,7 +122,7 @@ export type Condition = ConditionOf<never>;
  * cannot say "any field": the row has no lowering, and only the narrowing
  * placement holds it. GAP [[01M5E7S398F4GM2490R3RZ3ZPP]]
  */
-export type AnywhereContains = {
+type AnywhereContains = {
   readonly kind: "anywhere-contains";
   readonly text: string;
   readonly exactCase: boolean;

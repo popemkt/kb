@@ -3,14 +3,9 @@
  * point of parse-then-print on any text that parses (DESIGN.md → Query layer;
  * docs/brainstorms/2026-10-20-query-builder, properties 1 and 2).
  */
-import {
-  LIST_TAGS_QUERY,
-  isCanonicalIr,
-  parseEdn,
-  printEdn,
-  readsAsEdn,
-  type IrQuery,
-} from "@kb/query";
+import { LIST_TAGS_QUERY, parseEdn, printEdn, readsAsEdn } from "@kb/query";
+import { isCanonicalIr } from "../src/ir/canonical.ts";
+import type { IrQuery } from "../src/ir/ir.ts";
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
 import { readEdn, type Edn } from "../src/ir/edn.ts";

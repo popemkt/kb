@@ -9,7 +9,8 @@
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
 import type { KbNode, StoreTx } from "@kb/model";
-import { DatascriptIndex, derivedWith, NodeTable, type NodeIndex } from "@kb/query";
+import { DatascriptIndex, derivedWith, type NodeIndex } from "@kb/query";
+import { NodeTable } from "../src/index/node-table.ts";
 
 const IDS = ["a", "b", "c", "d", "e", "f"] as const;
 

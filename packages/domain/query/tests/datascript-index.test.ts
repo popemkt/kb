@@ -8,7 +8,9 @@
  */
 import { describe, expect, test } from "bun:test";
 import type { KbNode } from "@kb/model";
-import { BACKLINKS_IR, DatascriptIndex, derivedWith, type IrQuery } from "@kb/query";
+import { DatascriptIndex, derivedWith } from "@kb/query";
+import type { IrQuery } from "../src/ir/ir.ts";
+import { BACKLINKS_IR } from "../src/queries.ts";
 
 function node(id: string, over: Partial<KbNode> = {}): KbNode {
   return {

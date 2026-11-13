@@ -9,20 +9,17 @@
  */
 import {
   DatascriptIndex,
-  alphaEquivalent,
   canonicalConditions,
   derivedWith,
-  isCanonicalIr,
   lift,
   lowerIr,
   parseEdn,
   printEdn,
-  type Clause,
   type Condition,
-  type IrQuery,
-  type PredicateArg,
-  type Term,
 } from "@kb/query";
+import { alphaEquivalent } from "../src/ir/alpha.ts";
+import { isCanonicalIr } from "../src/ir/canonical.ts";
+import type { Clause, IrQuery, PredicateArg, Term } from "../src/ir/ir.ts";
 import type { ClockSample, KbNode, PropValue } from "@kb/model";
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";

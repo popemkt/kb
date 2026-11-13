@@ -9,13 +9,12 @@ import {
   DatalogError,
   DatascriptIndex,
   derivedWith,
-  compile,
-  isCanonicalIr,
   parseEdn,
   printEdn,
-  type Ir,
-  type IrQuery,
 } from "@kb/query";
+import { isCanonicalIr } from "../src/ir/canonical.ts";
+import { compile } from "../src/ir/compile.ts";
+import type { Ir, IrQuery } from "../src/ir/ir.ts";
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
 import type { KbNode } from "@kb/model";

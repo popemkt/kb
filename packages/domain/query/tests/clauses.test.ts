@@ -4,7 +4,8 @@
  * answer, run through `compile` on kb's index. Round trips cannot catch a
  * clause that compiles consistently wrong; these can.
  */
-import { DatascriptIndex, derivedWith, parseEdn, type Ir } from "@kb/query";
+import { DatascriptIndex, derivedWith, parseEdn } from "@kb/query";
+import type { Ir } from "../src/ir/ir.ts";
 import type { KbNode } from "@kb/model";
 import { describe, expect, test } from "bun:test";
 
