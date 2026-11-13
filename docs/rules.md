@@ -1072,14 +1072,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A clamp-with-expand on the outline's field value view, stated in DESIGN-UI → Long text, with a test on a long value; the canvas document under Show properties then shows a few clamped lines.
 - **node** — `01M6BAEDQ6NQTXPBY5VNTJ5KBN`
 
-### GAP: M3 intermediate interfaces exceed final model and appearance ceilings
-
-- **expected** — Model exposes at most 220 names and appearance at most 45, after the later API diets in M5/M7/M8.
-- **current** — M3b dropped every barrel name no package outside its owner imports: model 300 -> 265, appearance 64 -> 57. Every model file is now shared by two or more packages, so the rest is a split or a redesign of a concept, not a move. In appearance, the backdrop art reading (BackdropArt, backdropArtOf, the glyph types) is used only by backdrops-ui but DESIGN-UI.md makes it the art reading for every backdrop, and the knob and motion helpers that remain are used by seed and ui tests and the ext-sdk bridge test.
-- **impact** — Interfaces remain wider than the approved final ceilings. Explicit intermediate budgets admit relocation while retaining every existing consumer; no API redesign or behavior change is hidden in the move.
-- **closes** — An owner-decided redesign of the shared model concepts (split a file only where a concept has two owners), and a decision on whether the backdrop art reading stays core or moves to backdrops-ui; then ratchet model to 220 and appearance to 45, with importers updated and no re-export shims.
-- **node** — `01M78V3TNFF2XAVGZB6TXEAPR0`
-
 ### GAP: managed-field commit lock
 
 - **expected** — A field whose value mirrors something outside the store, which no constraint can check (routines' gcal sync fields: the event id, its status, synced at), is locked to its family: the commit admits its values only from that family's actions, on every surface, and the editor names the action to use instead of an Edit.
