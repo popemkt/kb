@@ -1,3 +1,4 @@
+import { VIEW_FAMILY_OPTIONS } from "@kb/model";
 import { GALLERY_POINT_DEFINITIONS } from "./point-definitions.ts";
 /**
  * The gallery family's declaration and its shared plugin (DESIGN.md →
@@ -20,6 +21,12 @@ export const galleryExtension = defineExtension({
   tags: ["gallery"],
   optional: { byDefault: "off" },
   seed: gallerySeedNodes,
+  declaredOptions: [
+    {
+      kind: VIEW_FAMILY_OPTIONS,
+      options: [{ id: "gallery.workflow", order: 3, label: "Gallery workflow" }],
+    },
+  ],
   views: [viewDef(GalleryView), ...GALLERY_WORKFLOWS.map((key) => viewDef(key))],
 });
 

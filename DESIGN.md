@@ -1186,6 +1186,9 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   twice, and the view contract holds every provided view's key to a seeded
   option in its own family. Core's declaration lists core's views only; a
   feature's views are its family's declaration's.
+  Each family declares its view-family options through `declaredOptions` of
+  `VIEW_FAMILY_OPTIONS`; the same option fold derives their nodes and ownership.
+  Core holds the field and id namespace, with no closed list of family keys.
   An unloaded plugin never deletes an option: the data outlives the code.
 - **The view catalog is the keys.** Every view's key — its id, option,
   label, family, its settings as an Effect `Schema` (annotated with what the view
@@ -3998,7 +4001,10 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
   (`SeedOption`, an id and a label) under its kind (`declaredOptions:
 [{kind, options}]`), and the fold derives one option node per key, owned
   by the family, under the field of its kind (`DeclaredOptions`: the field
-  and the prefix of its options' ids). A kind is owned by whoever seeds its
+  and the prefix of its options' ids). Options are collected across contributors
+  by ascending `SeedOption.order` (default zero); equal priorities retain source
+  and declaration order. Priority is declaration metadata, not a stored node
+  rank. A kind is owned by whoever seeds its
   field, which exports it:
   - `BACKDROP_OPTIONS` (core) → `sys.f.backdrop`, options
     `sys.backdrop.<id>`

@@ -22,6 +22,8 @@ import type { SeedRetirement } from "./seed-retirement.ts";
 export interface SeedOption {
   readonly id: string;
   readonly label: string;
+  /** Lower first across contributors; equal priorities retain declaration order. Defaults to zero. */
+  readonly order?: number;
   /**
    * Declared things of other kinds its option node chooses, as any node
    * chooses one: a ref to that thing's option under its kind's field. A

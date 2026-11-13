@@ -40,7 +40,7 @@
   },
   "@kb/model": {
     "limit": 294,
-    "reason": "M3 relocation; final ceiling 220 pending API redesign"
+    "reason": "M5 view-family option registry replaced by generic declared options."
   },
   "@kb/plugin": {
     "limit": 54

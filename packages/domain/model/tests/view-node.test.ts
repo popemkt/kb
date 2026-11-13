@@ -1,3 +1,4 @@
+import { declaredOptionId } from "../src/declared-option.ts";
 /**
  * View nodes as data (DESIGN.md → Kinds, roles and options → View nodes): a
  * view is an option under `sys.views`, a node carrying `sys.f.view` is a view
@@ -7,7 +8,7 @@ import { describe, expect, test } from "bun:test";
 import { SYSTEM_IDS, type KbNode, type PropValue } from "../src/model.ts";
 import { cardinalityOf, fieldTypeOf, targetQueryOf } from "../src/field-type.ts";
 import {
-  VIEW_FAMILY_VALUES,
+  VIEW_FAMILY_OPTIONS,
   VIEW_NODE_TARGET_QUERY,
   VIEW_OPTION_TARGET_QUERY,
   defaultViewIdOf,
@@ -18,7 +19,7 @@ import {
   viewOptionOf,
   viewsWithDefault,
 } from "../src/view-node.ts";
-import { bundledSeed } from "@kb/bundled";
+import { BUNDLED_DECLARATIONS, bundledSeed } from "@kb/bundled";
 
 const seed = new Map(bundledSeed().map((node) => [node.id, node]));
 const ref = (v: string): PropValue => ({ t: "ref", v });
@@ -39,7 +40,11 @@ describe("view options", () => {
   test("family is an option set: its field's own children; no placement is seeded yet", () => {
     expect(seed.has("sys.f.view.placement")).toBe(false);
     expect(seed.get(SYSTEM_IDS.viewFamilyField)?.children).toEqual(
-      Object.values(VIEW_FAMILY_VALUES).map((family) => family.id),
+      BUNDLED_DECLARATIONS.flatMap((declaration) => declaration.declaredOptions ?? [])
+        .filter((set) => set.kind.field === VIEW_FAMILY_OPTIONS.field)
+        .flatMap((set) => set.options)
+        .toSorted((a, b) => (a.order ?? 0) - (b.order ?? 0))
+        .map((option) => declaredOptionId(VIEW_FAMILY_OPTIONS, option.id)),
     );
   });
 });

@@ -11,6 +11,7 @@ import { SYSTEM_IDS, type NodeId, type PropValue } from "./model.ts";
 import { childrenTargetQuery } from "./field-type.ts";
 import { isValidWorkspaceName } from "./workspace-name.ts";
 import { kindsOf } from "./tag-kinds.ts";
+import { declaredOptionId, type DeclaredOptions } from "./declared-option.ts";
 
 /** What this module reads of a node: its props. */
 interface Carrier {
@@ -31,13 +32,14 @@ export function viewOptionId(viewId: string): string {
  * select a family's views (the renderers a graph lists) without a list per
  * family.
  */
-// GAP [[01M66RQ281GTJNACBJ572PHCJP]] the graph's and the gallery's families are listed here, in core
-export const VIEW_FAMILY_VALUES = {
-  "graph.renderer": { id: "sys.view-family.graph.renderer", label: "Graph renderer" },
-  "outline.frame": { id: "sys.view-family.outline.frame", label: "Frame view" },
-  "gallery.workflow": { id: "sys.view-family.gallery.workflow", label: "Gallery workflow" },
-} as const;
-export type ViewFamily = keyof typeof VIEW_FAMILY_VALUES;
+/** The field and id namespace of declared view-family options. */
+export const VIEW_FAMILY_OPTIONS: DeclaredOptions = {
+  field: SYSTEM_IDS.viewFamilyField,
+  prefix: "sys.view-family.",
+};
+
+/** A stable declared key, resolved to a node id through VIEW_FAMILY_OPTIONS. */
+export type ViewFamily = string;
 
 /** The view an option node names, back from its id, or null for any other node. */
 export function viewIdOfOption(option: NodeId): string | null {
@@ -147,7 +149,7 @@ export function familyViewIdOf(
   family: ViewFamily,
   lookup: (id: NodeId) => Carrier | undefined,
 ): NodeId | null {
-  const familyId = VIEW_FAMILY_VALUES[family].id;
+  const familyId = declaredOptionId(VIEW_FAMILY_OPTIONS, family);
   const inFamily = (id: NodeId): boolean => {
     const option = viewOptionOf(lookup(id));
     return option !== null && firstRefOf(lookup(option), SYSTEM_IDS.viewFamilyField) === familyId;
@@ -246,7 +248,7 @@ export function viewFamilyTargetQuery(family: ViewFamily): string {
     "[?p :node/child-order ?o]",
     "[?c :node/id ?id]",
     `[?c :f/${SYSTEM_IDS.viewFamilyField} ?f]`,
-    `[?f :node/id "${VIEW_FAMILY_VALUES[family].id}"]]`,
+    `[?f :node/id "${declaredOptionId(VIEW_FAMILY_OPTIONS, family)}"]]`,
   ].join(" ");
 }
 
@@ -259,7 +261,7 @@ export function familyViewNodesQuery(family: ViewFamily): string {
     "[:find ?id :where",
     `[?n :f/${SYSTEM_IDS.viewField} ?o]`,
     `[?o :f/${SYSTEM_IDS.viewFamilyField} ?f]`,
-    `[?f :node/id "${VIEW_FAMILY_VALUES[family].id}"]`,
+    `[?f :node/id "${declaredOptionId(VIEW_FAMILY_OPTIONS, family)}"]`,
     "[?n :node/id ?id]]",
   ].join(" ");
 }

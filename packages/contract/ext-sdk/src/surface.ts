@@ -300,7 +300,8 @@ export interface Plugin {
 }
 
 /** The families of views a host chooses between by config. */
-export type ViewFamily = "graph.renderer" | "outline.frame" | "gallery.workflow";
+/** A stable view-family key supplied by its declaration, rather than a closed core list. */
+export type ViewFamily = string;
 
 /** How a key stores its params on a view node: read from props, written back to them. */
 export interface ViewConfigCodec<P> {
@@ -437,6 +438,8 @@ export interface DeclaredRef {
 export interface SeedOption {
   readonly id: string;
   readonly label: string;
+  /** Lower first across contributors; equal priorities retain declaration order. Defaults to zero. */
+  readonly order?: number;
   /** Declared things of other kinds its option node chooses. */
   readonly chooses?: readonly DeclaredRef[];
   /** Settings its option node holds as its own. */

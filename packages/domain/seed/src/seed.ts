@@ -29,7 +29,6 @@ import {
   type FieldType,
   ONTOLOGY_TARGET_QUERY,
   ADDITIVE_FIELDS,
-  VIEW_FAMILY_VALUES,
   VIEW_NODE_TARGET_QUERY,
   VIEW_OPTION_TARGET_QUERY,
   seededField,
@@ -223,13 +222,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
    * is not core's to name either: the fold writes it from the one
    * declaration that provides it ({@link SeedSource.defaultView}).
    */
-  const viewFamilyOptions = Object.values(VIEW_FAMILY_VALUES).map((value) =>
-    mk(value.id, value.label),
-  );
-  const viewFamilyField: KbNode = {
-    ...singleField(SYSTEM_IDS.viewFamilyField, "view.family", "ref", HIDE),
-    children: viewFamilyOptions.map((option) => option.id),
-  };
+  const viewFamilyField = singleField(SYSTEM_IDS.viewFamilyField, "view.family", "ref", HIDE);
   const viewsRoot = mk(SYSTEM_IDS.viewsRoot, "View types");
 
   const refField = (id: string, text: string, targetTag?: string, opts: FieldOptions = {}) =>
@@ -581,7 +574,6 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     viewOutputField,
     viewSavedQueryField,
     viewFamilyField,
-    ...viewFamilyOptions,
     viewsRoot,
     lensQueryField,
     lensFocusField,

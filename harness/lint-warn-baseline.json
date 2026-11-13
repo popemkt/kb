@@ -90,7 +90,7 @@
       "contract/contracts/src/screen.ts": 3,
       "contract/ext-sdk/src/module.ts": 6,
       "contract/ext-sdk/src/page-surface.ts": 5,
-      "contract/ext-sdk/src/surface.ts": 5,
+      "contract/ext-sdk/src/surface.ts": 2,
       "contract/extension-source/src/marketplace.ts": 1,
       "contract/sandbox/src/digest.ts": 2,
       "contract/sandbox/src/grant.ts": 5,
@@ -103,7 +103,7 @@
       "domain/model/src/local-date.ts": 1,
       "domain/model/src/node-graph.ts": 3,
       "domain/model/src/resolve.ts": 9,
-      "domain/model/src/view-node.ts": 4,
+      "domain/model/src/view-node.ts": 1,
       "domain/query/src/ir/conditions.ts": 7,
       "domain/query/src/ir/edn.ts": 4,
       "domain/query/src/ir/evaluate.ts": 69,
@@ -153,7 +153,7 @@
       "packages/infrastructure/sandbox-quickjs/src/index.ts imports @jitl/quickjs-singlefile-browser-release-sync": 1
     },
     "cli-closure": {
-      "bytes": 5846878,
+      "bytes": 5847295,
       "modules": 1108
     },
     "single-family": {
