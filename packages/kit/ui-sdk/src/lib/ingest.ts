@@ -16,7 +16,6 @@
  * canvas card's keeps a dropped file.
  */
 import type { ContributionEntry } from "@kb/plugin";
-import { Schema } from "effect";
 import { browserHost } from "../host";
 import { toast } from "./toast";
 
@@ -40,11 +39,11 @@ export interface IngestSite {
 }
 
 /**
- * What a claimed gesture makes, which the page writes at the row: nodes, as
- * outline paste text (DESIGN.md → Outline paste), added after it in one
- * transaction; or a file, kept as an asset and linked from its text.
+ * What a claimed gesture makes, which the page writes at the row: a tree of
+ * nodes, as outline paste text (DESIGN.md → Outline paste), added after it
+ * in one transaction; or a file, kept as an asset and linked from its text.
  */
-export type IngestOutcome = { readonly outline: string } | { readonly attach: File };
+type IngestOutcome = { readonly tree: string } | { readonly attach: File };
 
 /** Which gestures a handler takes, as data: the gesture, the data's types, and a test of its text. */
 export interface IngestMatch {
@@ -151,9 +150,6 @@ export function claimOf(
   return null;
 }
 
-/** What `node.addTree` answers that a paste reads: the ids it made, in tree order. */
-const decodeAdded = Schema.decodeUnknownSync(Schema.Struct({ ids: Schema.Array(Schema.String) }));
-
 /**
  * Where the node `id` sits: its parent and its place among its parent's
  * children, or the top level (`parent: null`) for a root. The parent is
@@ -181,24 +177,20 @@ function holdsNothing(id: string, text: string): boolean {
 }
 
 /**
- * Add `outline` after the row `site` names, in one transaction, and put the
+ * Add `tree` after the row `site` names, in one transaction, and put the
  * caret at the end of the last node it made. A row that held nothing was
- * where the person meant the outline to go: it gives the outline its place,
- * and goes. A top-level row's outline goes to the top level, at its end,
- * never to the capture target.
+ * where the person meant the tree to go: it gives the tree its place, and
+ * goes. A top-level row's tree goes to the top level, at its end, never to
+ * the capture target.
  */
-async function addOutlineAt(outline: string, site: IngestSite): Promise<void> {
+async function addTreeAt(tree: string, site: IngestSite): Promise<void> {
   const host = browserHost();
   const empty = holdsNothing(site.nodeId, site.text);
   const { parent, position } = placeOf(site.nodeId);
-  const input = {
-    outline,
+  const ids = await host.writes.addTree(tree, {
     parent,
     ...(position === undefined ? {} : { position: empty ? position : position + 1 }),
-  };
-  const receipt = await host.invoke("node.addTree", input);
-  if (receipt.status === "failed") throw new Error(receipt.message);
-  const { ids } = decodeAdded(receipt.output);
+  });
   if (empty) await host.writes.deleteNode(site.nodeId);
   const last = ids.at(-1);
   if (last !== undefined) host.activateNode(last);
@@ -206,7 +198,7 @@ async function addOutlineAt(outline: string, site: IngestSite): Promise<void> {
 
 /** Write what a claim made at `site`. */
 async function commitIngest(outcome: IngestOutcome, site: IngestSite): Promise<void> {
-  if ("outline" in outcome) return addOutlineAt(outcome.outline, site);
+  if ("tree" in outcome) return addTreeAt(outcome.tree, site);
   await browserHost().writes.attachFileToNode(site.nodeId, outcome.attach);
 }
 
@@ -266,8 +258,8 @@ export function provideIngest(id: string, form: IngestForm): ContributionEntry<I
       priority: form.priority,
       ingest: ({ text }) => {
         // The transform runs here, in the page, at T3: GAP [[01M73WFP42V98AA4VRG8JBQQ2N]].
-        const outline = form.transform(text);
-        return outline === null ? null : { outline };
+        const tree = form.transform(text);
+        return tree === null ? null : { tree };
       },
     },
   };

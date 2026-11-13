@@ -104,17 +104,21 @@ describe("a pasted outline's place", () => {
     updatedAt: AT,
   });
   const added: unknown[] = [];
+  const base = testBrowserHost();
   const host = testBrowserHost({
     wireNodes: () => [wire("n.parent", ["n.first", "n.nested"]), wire("n.top", [])],
-    invoke: (id, input) => {
-      added.push({ id, input });
-      return Promise.resolve({ status: "succeeded", id, output: { ids: ["n.made"] } });
+    writes: {
+      ...base.writes,
+      addTree: (tree, place) => {
+        added.push({ tree, place });
+        return Promise.resolve(["n.made"]);
+      },
     },
   });
   const outline: IngestHandler = {
     match: { gestures: ["paste"], types: ["text/plain"] },
     priority: 0,
-    ingest: ({ text }) => ({ outline: text }),
+    ingest: ({ text }) => ({ tree: text }),
   };
 
   beforeAll(() => syncUiPlugins([testHostPlugin(host)]));
@@ -131,9 +135,7 @@ describe("a pasted outline's place", () => {
     expect(port.offer({ ...pasted, text: "- one" })).toBe(true);
     await expect
       .poll(() => added)
-      .toEqual([
-        { id: "node.addTree", input: { outline: "- one", parent: "n.parent", position: 2 } },
-      ]);
+      .toEqual([{ tree: "- one", place: { parent: "n.parent", position: 2 } }]);
   });
 
   it("is the top level for a top-level row, named as null, never the capture target", async () => {
@@ -142,8 +144,6 @@ describe("a pasted outline's place", () => {
       () => ({ nodeId: "n.top", text: "n.top" }),
     );
     expect(port.offer({ ...pasted, text: "- one" })).toBe(true);
-    await expect
-      .poll(() => added)
-      .toEqual([{ id: "node.addTree", input: { outline: "- one", parent: null } }]);
+    await expect.poll(() => added).toEqual([{ tree: "- one", place: { parent: null } }]);
   });
 });

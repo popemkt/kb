@@ -162,7 +162,8 @@
     "limit": 1
   },
   "@kb/outline": {
-    "limit": 3
+    "limit": 4,
+    "reason": "#173: the outline declares its own point, outline.ingest (OUTLINE_POINT_DEFINITIONS), which outline-ui reads."
   },
   "@kb/outline-ui": {
     "limit": 40
@@ -238,8 +239,8 @@
     "limit": 35
   },
   "@kb/ui-sdk": {
-    "limit": 514,
-    "reason": "M7b dropped the names nothing outside the kit imports and moved the backdrop pointer input to @kb/appearance-kit; the 380 ceiling waits on splitting the files @kb/ui and outline-ui share (GAP 01M79H9PY7XVHHVGAN1WA3VYAF)."
+    "limit": 520,
+    "reason": "#173: a row's paste and drop chain (ingestPort, ATTACH_FILE, provideIngest, Ingested, IngestHandler, IngestPort, the names outline-ui, canvas-ui and the page SDK import); M7b left 514, and the 380 ceiling waits on splitting the files @kb/ui and outline-ui share (GAP 01M79H9PY7XVHHVGAN1WA3VYAF)."
   },
   "@kb/ui-test-kit": {
     "limit": 26

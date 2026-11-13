@@ -455,11 +455,11 @@ export interface IngestSite {
 }
 
 /**
- * What a claimed gesture makes, which kb writes at the row: nodes, as
- * outline paste text, added after it in one transaction; or a file, kept as
- * an asset and linked from its text.
+ * What a claimed gesture makes, which kb writes at the row: a tree of nodes,
+ * as outline paste text, added after it in one transaction; or a file, kept
+ * as an asset and linked from its text.
  */
-export type IngestOutcome = { readonly outline: string } | { readonly attach: File };
+export type IngestOutcome = { readonly tree: string } | { readonly attach: File };
 
 /**
  * A row's paste and drop handler. The outline declares their point,

@@ -4,7 +4,7 @@
     "reason": "Shared shortcut commands add 1,082 bytes to the CLI static closure."
   },
   "modules": {
-    "limit": 1109,
-    "reason": "The outline-paste parser is a package of its own (@kb/outline-paste), so its barrel is one more module."
+    "limit": 1110,
+    "reason": "#173: the outline declares its own point (outline.ingest, in @kb/outline's point-definitions.ts), which its bundled extension loads; the outline-paste parser's package barrel (@kb/outline-paste) is the other module since 1108."
   }
 }

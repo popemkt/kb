@@ -22,9 +22,9 @@ const pasted = (text: string): Ingested => ({
 const file = new File(["x"], "photo.png", { type: "image/png" });
 const dropped: Ingested = { gesture: "drop", types: ["Files"], text: "", files: [file] };
 
-/** A handler that makes an outline of its own name, or declines when `declines`. */
+/** A handler that makes a tree of its own name, or declines when `declines`. */
 function handler(name: string, match: IngestMatch, priority = 0, declines = false): IngestHandler {
-  return { match, priority, ingest: () => (declines ? null : { outline: name }) };
+  return { match, priority, ingest: () => (declines ? null : { tree: name }) };
 }
 const lines = handler("lines", { gestures: ["paste"], types: ["text/plain"], pattern: "\\n" });
 const urls = handler(
@@ -34,11 +34,11 @@ const urls = handler(
 );
 const words = handler("words", { gestures: ["paste"], types: ["text/plain"] });
 const site = { nodeId: "n", text: "" };
-/** What claims `ingested` among `handlers`: the outline the claim makes, or null when none does. */
+/** What claims `ingested` among `handlers`: the tree the claim makes, or null when none does. */
 function claimed(handlers: readonly IngestHandler[], ingested: Ingested) {
   const claim = claimOf(handlers, ingested, site);
   if (claim === null) return null;
-  return "outline" in claim.outcome ? claim.outcome.outline : claim.outcome.attach;
+  return "tree" in claim.outcome ? claim.outcome.tree : claim.outcome.attach;
 }
 
 describe("who claims a paste or a drop", () => {
@@ -96,12 +96,12 @@ describe("a handler written as a transform", () => {
     transform: (text: string) => (text.includes("skip") ? null : text.toUpperCase()),
   } as const;
 
-  it("makes the outline its transform returns, and declines for null", () => {
+  it("makes the tree its transform returns, and declines for null", () => {
     const { id, value } = provideIngest("shout", form);
     expect(id).toBe("shout");
     expect(value.match).toBe(form.match);
     expect(value.priority).toBe(10);
-    expect(value.ingest(pasted("- a"), site)).toEqual({ outline: "- A" });
+    expect(value.ingest(pasted("- a"), site)).toEqual({ tree: "- A" });
     expect(value.ingest(pasted("- skip"), site)).toBeNull();
   });
 

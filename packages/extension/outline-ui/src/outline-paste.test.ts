@@ -3,7 +3,7 @@
  * list, as outline paste text; never prose.
  */
 import { describe, expect, it } from "vitest";
-import { parseOutline } from "@kb/model";
+import { parseOutline } from "@kb/outline-paste";
 import { outlineOfList, PASTED_LIST } from "./outline-paste";
 
 const claims = (text: string) => new RegExp(PASTED_LIST, "u").test(text);

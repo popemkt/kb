@@ -144,6 +144,7 @@ const INERT_WRITES: PageWrites = {
   makeSupertag: refused,
   togglePin: refused,
   attachFileToNode: refused,
+  addTree: () => Promise.reject(new Error("the test host adds no tree")),
   ontologyAddExtends: refused,
   createEmptyNode: none,
   createEmptyNodeBefore: none,
