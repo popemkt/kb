@@ -245,8 +245,8 @@
     "limit": 26
   },
   "@kb/appearance": {
-    "limit": 57,
-    "reason": "The honest stop, not 45: the art types stay here as every backdrop's vocabulary (DESIGN-UI.md → Page-head backdrops), and the five names no production code outside imports are read by seed's, ui's and the ext-sdk bridge's tests."
+    "limit": 60,
+    "reason": "The honest stop, not 45: the art types stay here as every backdrop's vocabulary (DESIGN-UI.md → Page-head backdrops), and the five names no production code outside imports are read by seed's, ui's and the ext-sdk bridge's tests. #197 adds the page head's style (BACKDROP_HEADS and BACKDROP_HEAD_OPTION_IDS, which core's seed reads, and BackdropHead, which the page's head reads)."
   },
   "@kb/seed": {
     "limit": 8,

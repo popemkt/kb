@@ -64,7 +64,7 @@ interface NotAClass {
 
 const NOT_CLASSES: readonly NotAClass[] = [
   {
-    file: "@kb/ui-sdk/src/components/page-backdrop.tsx",
+    file: "@kb/appearance-kit/src/components/page-backdrop.tsx",
     candidate: "shadow",
     context: 'head === "shadow"',
   },
