@@ -3581,7 +3581,11 @@ from "kb-ext-sdk"`. Types are generated from
   repository extension's knobs are decoded against the model's one knob
   schema (`KnobSchema`), whose types the knob types are. That is why `@kb/ext-sdk` is `scope:shared`, the strings and
   the surfaces alone; writing them into a root is the CLI's
-  (`sdk-files.ts`).
+  (`sdk-files.ts`). The surfaces are still a restatement held by the
+  bridge, not a derivation: generating them from their owners' types
+  waits on type-first schema types and named author-facing projections
+  (GAP [[01M79MBMJQKDBBGJ2HG8Z6QEG2]];
+  [the spike](docs/research/2026-11-13-ext-sdk-declaration-spike.md)).
   Schemas may be zod, Standard Schema v1, or a bare `{ parse }`.
   **Migrating to kb 0.2.0:** replace `mode: "read"` with `mode: { kind: "read" }`
   and `mode: "apply"` with `mode: { kind: "write" }` (add
