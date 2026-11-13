@@ -1,0 +1,16 @@
+#!/bin/sh
+# Builds kb's CLI into one directory, the lib/kb layout every package ships:
+#   <outdir>/cli.js       the entry the launchers run
+#   <outdir>/*-<hash>.js  one chunk per lazy edge (an `import()`) and per
+#                         module those chunks share
+# A command parses a chunk only when it imports it, so host code (`kb ui`,
+# `kb mcp`) costs a one-shot command nothing. This is kb's one CLI build:
+# bin/release-bundle, nix/package.nix and the KB startup contract all call
+# it. Usage: bin/build-cli <outdir>. Needs bun and installed deps.
+set -eu
+
+mkdir -p "$1"
+out=$(cd "$1" && pwd)
+cd "$(dirname "$0")/.."
+bun build packages/app/cli/src/main.ts --target=bun --splitting --sourcemap=none \
+  --outdir "$out" --entry-naming='cli.[ext]'
