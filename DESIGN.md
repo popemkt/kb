@@ -3929,9 +3929,10 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
   so the page folds the same seed), then each repository extension's. The
   bundled fold is:
   - core's nodes, then each `BUNDLED_FAMILIES` declaration's `seed`, in
-    bundled order, then each `HOSTED_FAMILIES` one's (a family a host
-    composes beside the registry, such as `kb ui`'s agent: its code is that
-    host's, its seed is every store's), with `sys.views` naming the default
+    bundled order, then each `HOSTED_FAMILIES` one's (a family whose
+    declaration has a host part, which a host composes beside the registry,
+    such as `kb ui`'s agent: its code is that host's, its seed is every
+    store's), with `sys.views` naming the default
     view type its one provider declares (`defaultView`), and each claimed
     tag naming the view its one claimant declares in each role
     (`TAG_VIEW_CLAIMS`: `tagDefaultViews` for the view type it opens in,
