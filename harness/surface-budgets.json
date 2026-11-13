@@ -41,7 +41,7 @@
   },
   "@kb/model": {
     "limit": 265,
-    "reason": "M3b dropped the names no package outside model imports; every model file is still shared by two or more packages, so 220 waits on an API redesign (GAP 01M78V3TNFF2XAVGZB6TXEAPR0)."
+    "reason": "The honest stop, not 220: M3b dropped every name no package outside model imports, and every model file is shared by two or more packages (the 16 names only @kb/cli reads sit in shared files), so narrowing further splits a concept across packages."
   },
   "@kb/outline-paste": {
     "limit": 3
@@ -55,7 +55,7 @@
   },
   "@kb/views": {
     "limit": 111,
-    "reason": "M6: planViewProposal, PlannedView and ViewProposal moved from @kb/operations beside viewNodeFor."
+    "reason": "The honest stop, not 85: every name has an importer outside views, every views file is shared by two or more packages, and the 55 names only @kb/ui reads sit in those shared files (layout, frame, node views)."
   },
   "@kb/agent": {
     "limit": 62,
@@ -246,7 +246,7 @@
   },
   "@kb/appearance": {
     "limit": 57,
-    "reason": "M3b dropped the names no package outside appearance imports; 45 waits on who owns the backdrop art reading and the knob and motion helpers seed's tests use (GAP 01M78V3TNFF2XAVGZB6TXEAPR0)."
+    "reason": "The honest stop, not 45: the art types stay here as every backdrop's vocabulary (DESIGN-UI.md → Page-head backdrops), and the five names no production code outside imports are read by seed's, ui's and the ext-sdk bridge's tests."
   },
   "@kb/seed": {
     "limit": 8,
