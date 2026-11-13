@@ -1080,14 +1080,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — per-item origins in the gizmo
 - **node** — `01M41W57GRNCMBJG1RYJQTA68P`
 
-### GAP: locations-fs writes the home store through @kb/operations
-
-- **expected** — locations-fs writes the home store's location registry through a capability-scoped home-registry write port in @kb/contracts, granted only to the locations family, so no extension package imports application
-- **current** — locations-fs src/actions.ts imports persistPlannedEffect from @kb/operations to commit to the home session with systemWrites: system; a sanctioned row in LAYER_BREACHES admits that one file
-- **impact** — the one extension edge to application left after M6: changing persistPlannedEffect edits a family, and P5 (extensions reach application only through ports) stays open for this site
-- **closes** — a home-registry write port in @kb/contracts, bound in @kb/operations and given only to locations-fs; then the LAYER_BREACHES row and the @kb/operations dependency go
-- **node** — `01M79FGTP0S14GPABE7ST2QCC1`
-
 ### GAP: long field values are drawn in full in the outline
 
 - **expected** — A field value longer than a few lines is clamped in the outline's field row, with an expand control to read it whole, as a row's own text is not (DESIGN-UI → Long text covers node text and pointer labels only).

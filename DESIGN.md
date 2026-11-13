@@ -4183,8 +4183,6 @@ Today's drift from this contract is marked where it sits:
   GAP [[01M43H3T8XEMTNBARC024PZD2W]];
 - the CLI's report bins, which import their family's output schema:
   GAP [[01M41H30Y60D3G9WJJX6NFQD2T]];
-- locations-fs, which writes the home store through core's use case
-  rather than a home-registry port: GAP [[01M79FGTP0S14GPABE7ST2QCC1]];
 - gallery-net's starter test, which reads core's outline-paste parser
   from `@kb/operations`: GAP [[01M79FGVEF9PKK9BB1998YTTGQ]];
 - the outline's canvas bullet, which the kit names by the canvas tag's
@@ -5620,8 +5618,8 @@ are `docs/brainstorms/2026-10-17-kb-locations/README.md`.
 - **Home writes land on what they read.** Registering and forgetting
   replace the list node whole, so a write planned from one state would
   merge over another process's write to it and lose it. Each is committed
-  through `persistPlannedEffect` (`@kb/operations`, GAP
-  [[01M79FGTP0S14GPABE7ST2QCC1]]): planned from the home
+  through `KbRoots.writeHome`, core's planned write path on the home store
+  and on no other root: planned from the home
   session as it has caught up, committed on the condition that the store
   is still in that state, and planned again when it is not, a few times
   before the `conflict` is the caller's.

@@ -6,10 +6,8 @@
  * `@kb/locations` and only committed here, in a session over the home store.
  */
 import { Effect } from "effect";
-import { KbCtx, KbRoots, KbStore, type KbContext, type KbRootsPort } from "@kb/contracts";
+import { KbCtx, KbRoots, type KbContext, type KbRootsPort } from "@kb/contracts";
 import { currentIso, domainError, freshId, type DomainError, type KbNode } from "@kb/model";
-// GAP [[01M79FGTP0S14GPABE7ST2QCC1]]: the home store is written through core's use case, not a port.
-import { persistPlannedEffect } from "@kb/operations";
 import {
   forgetWrites,
   locationEntries,
@@ -102,15 +100,14 @@ const homeEntry = Effect.fn("ext.locations.homeEntry")(function* (
  * Commit a write planned from the home store's nodes in its own session. A
  * write replaces the list node whole, so it lands only on the state it was
  * planned from, and is planned again when another process wrote home in
- * between (`persistPlannedEffect`).
+ * between (`KbRoots.writeHome`).
  */
 function commitHome(
+  roots: KbRootsPort,
   home: KbContext,
   plan: (nodes: readonly KbNode[]) => LocationWrite | null,
 ): Effect.Effect<LocationWrite | null, DomainError> {
-  return persistPlannedEffect(home, (nodes) => Effect.succeed(plan(nodes)), {
-    systemWrites: "system",
-  }).pipe(Effect.provideService(KbStore, home.store));
+  return roots.writeHome(home, (nodes) => Effect.succeed(plan(nodes)));
 }
 
 /** One warning for each well-formed location that names a root an earlier one already names. */
@@ -163,7 +160,9 @@ export const locationRegisterEffect = Effect.fn("ext.locations.register")(functi
     ...(input.label === undefined ? {} : { label: input.label }),
   };
   const at = yield* currentIso;
-  const write = yield* commitHome(home.session, (nodes) => registerWrites(nodes, request, at));
+  const write = yield* commitHome(roots, home.session, (nodes) =>
+    registerWrites(nodes, request, at),
+  );
   const entry = locationEntries(home.session.nodes).find(({ id }) => id === write?.id);
   if (entry === undefined)
     return yield* domainError("internal", `${target.path} was registered but is not listed`);
@@ -173,9 +172,10 @@ export const locationRegisterEffect = Effect.fn("ext.locations.register")(functi
 export const locationForgetEffect = Effect.fn("ext.locations.forget")(function* (input: {
   readonly id: string;
 }): Effect.fn.Return<{ id: string; label: string; path: string }, DomainError, KbRoots> {
-  const { home, entry } = yield* homeEntry(yield* KbRoots, input.id);
+  const roots = yield* KbRoots;
+  const { home, entry } = yield* homeEntry(roots, input.id);
   const at = yield* currentIso;
-  const write = yield* commitHome(home, (nodes) => forgetWrites(nodes, entry.id, at));
+  const write = yield* commitHome(roots, home, (nodes) => forgetWrites(nodes, entry.id, at));
   if (write === null)
     return yield* domainError("not_found", `no location ${input.id} in the home store`, {
       id: input.id,
