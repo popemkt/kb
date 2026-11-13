@@ -1,7 +1,7 @@
 {
   "bytes": {
-    "limit": 2737152,
-    "reason": "The action table lists its JSON Schemas on demand: 32 bytes of memo that keep every call from converting every schema."
+    "limit": 2737335,
+    "reason": "The node table reads every node's references on its first change, not at every build: 183 bytes that keep opening a store from restating each node twice."
   },
   "modules": {
     "limit": 721,

@@ -59,6 +59,12 @@ export class NodeTable implements NodeIndex {
   #refsFrom = new Map<NodeId, Set<NodeId>>();
   /** id → the nodes pointing at it, resolvable or not */
   #refsTo = new Map<NodeId, Set<NodeId>>();
+  /**
+   * Whether the two maps above are yet to be read from the nodes. Only a
+   * change reads them (its referrers), so a table that is built and only
+   * read never reads every node's references.
+   */
+  #refsStale = true;
   #storedCache: { generation: number; nodes: KbNode[] } | null = null;
   #derived: readonly DerivedRef[];
 
@@ -145,8 +151,16 @@ export class NodeTable implements NodeIndex {
     this.#holders = new Map();
     this.#keyReaders = new Map();
     this.#keysReadBy = new Map();
-    for (const node of merged) this.#restate(node);
+    this.#refsStale = true;
     this.#generation += 1;
+  }
+
+  /** Read every node's references, once after a rebuild, before a change needs its referrers. */
+  #readRefs(): void {
+    if (!this.#refsStale) return;
+    this.#refsStale = false;
+    for (const node of this.#nodes.values())
+      this.#setRefs(node.id, nodeRefs(node, this.#derived, this.readsOf(node.id)));
   }
 
   applyTx(tx: StoreTx): void {
@@ -158,6 +172,7 @@ export class NodeTable implements NodeIndex {
    * generation, when it changes nothing.
    */
   change(tx: StoreTx): NodeChange | null {
+    this.#readRefs();
     const created = tx.upserts.filter((n) => !this.#nodes.has(n.id)).map((n) => n.id);
     const removed = tx.deletes.filter((id) => this.#nodes.has(id));
     if (created.length === 0 && removed.length === 0 && tx.upserts.length === 0) return null;
