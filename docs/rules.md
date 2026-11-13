@@ -1876,6 +1876,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — After R1 settles, inventory the production UI import graph, remove unused permissions without touching the view-keys zone concurrently, and add a red fixture per removed edge.
 - **node** — `01M3F8EJSWHS38PMSSQ2BVN8DG`
 
+### GAP: ui-sdk interface above its 380 ceiling after the M7 split
+
+- **expected** — @kb/ui-sdk exports at most 380 names (later 300): page points, session, ports and shared primitives, with each export used by more than the shell
+- **current** — M7 split plugins.ts by point and moved the shell-only files and the backdrop budgets out, which leaves about 576 names. 29 files are shared only by @kb/ui and outline-ui (field rows, popovers, keybindings, md-edit, refs, pinned …), and many exports inside them have one consumer
+- **impact** — the kit stays the widest interface in the workspace, so a family half can lean on shell internals and the surface ledger shows no fall toward the proposal's ceiling
+- **closes** — M7b: a per-symbol diet of the shell-shared files (decide each by concept: kit primitive, shell-only to @kb/ui, or outline-only behind a point), and @kb/keybindings (#190) taking keychord/keybindings; then lower the ui-sdk budget
+- **node** — `01M79H9PY7XVHHVGAN1WA3VYAF`
+
 ### GAP: ui.capture hands an agent a file path, not the image
 
 - **expected** — the image inside the tool result

@@ -3,14 +3,8 @@ import { coreExtension } from "@kb/operations";
 import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import { SETTINGS_NAMESPACE, SettingsView } from "@kb/views";
-import {
-  ActionReviewPoint,
-  provideRoute,
-  provideView,
-  RoutePoint,
-  SETTINGS_PATH,
-  ViewPoint,
-} from "@kb/ui-sdk";
+import { ActionReviewPoint, provideRoute, provideView, RoutePoint, ViewPoint } from "@kb/ui-sdk";
+import { SETTINGS_PATH } from "@/lib/settings-trigger";
 import { LazySettingsPage } from "@/components/prefs/settings-lazy";
 import { PART_WORDS, settingsPartOf } from "@/lib/settings-parts";
 

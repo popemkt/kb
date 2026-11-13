@@ -13,13 +13,14 @@
  * header's gear, looks the same whatever the theme.
  */
 import { act, createElement } from "react";
+import { SettingsTrigger } from "@/lib/settings-trigger";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { BUNDLED_DECLARATIONS } from "@kb/bundled";
 import { MOTION_FIELD_IDS, motionChoice, motionOptionId } from "@kb/appearance";
 import { SYSTEM_IDS, extensionNodeId, present, settingsOf, type KbNode } from "@kb/model";
 import { foldSeed } from "@kb/seed";
-import { SettingsTrigger } from "@kb/ui-sdk";
+
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { useGraphStore } from "@/stores/graph.store";
 import { useMotionStore } from "@/stores/motion.store";

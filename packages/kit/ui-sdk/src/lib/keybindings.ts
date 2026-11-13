@@ -21,7 +21,7 @@ import { chordsOverlap, describeChord, matchesChord, parseChord } from "./keycho
 import type { Chord, KeyChordEvent } from "./keychord";
 import { browserHost } from "../host";
 import type { ActionCall } from "./action-call";
-import { pointReader } from "./plugins";
+import { pointReader } from "./plugins.ts";
 import { toast } from "./toast";
 
 /** What a key runs: an intent of its context, by name, or an action, through the invoke path. */

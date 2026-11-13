@@ -16,7 +16,7 @@
 import { writeRefusalOf, type NodeId, type WriteRefusal } from "@kb/model";
 import type { NodeIndex } from "@kb/query";
 import { BrowserHostService } from "../host";
-import { currentService } from "./plugins";
+import { currentService } from "./plugins.ts";
 import { FROM_SOURCE } from "./contextual-ref";
 
 /** The names a refusal is worded with, read from the graph. */

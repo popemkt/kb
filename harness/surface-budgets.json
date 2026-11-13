@@ -234,8 +234,8 @@
     "limit": 35
   },
   "@kb/ui-sdk": {
-    "limit": 584,
-    "reason": "M5 token reader port installation by the composition root."
+    "limit": 578,
+    "reason": "M7: shell-only files moved to @kb/ui; the 380 ceiling waits on M7b (GAP 01M79H9PY7XVHHVGAN1WA3VYAF)."
   },
   "@kb/ui-test-kit": {
     "limit": 26

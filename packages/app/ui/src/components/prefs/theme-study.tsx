@@ -1,5 +1,6 @@
 import { useLayoutEffect } from "react";
-import { ThemeIcon } from "@kb/ui-sdk";
+import { ThemeIcon } from "@/components/prefs/theme-icon";
+
 import { applyPrefs, usePrefsStore } from "@/stores/prefs.store";
 
 export function ThemeStudy() {

@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { ListIcon } from "@phosphor-icons/react";
-import { cn } from "../lib/cn";
+import { cn } from "@kb/ui-sdk";
 
 export interface SidebarToggleProps {
   open: boolean;

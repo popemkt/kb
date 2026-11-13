@@ -1,8 +1,7 @@
 import type { IconProps } from "@phosphor-icons/react";
-import { THEME_GLYPHS } from "../lib/theme-glyphs";
+import { THEME_GLYPHS } from "./theme-glyphs";
 import { forwardRef } from "react";
-import type { ThemePref } from "../lib/theme";
-import { cn } from "../lib/cn";
+import { cn, type ThemePref } from "@kb/ui-sdk";
 
 /** One glyph for the device theme, shared by settings and their entry points. */
 export const ThemeIcon = forwardRef<SVGSVGElement, IconProps & { theme: ThemePref }>(

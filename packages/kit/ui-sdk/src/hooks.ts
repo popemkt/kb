@@ -27,7 +27,9 @@ import type { Appearance, Prefs } from "./lib/theme";
 import { browserHost, type BrowserHost } from "./host";
 import { type FrameViewKey, isFrameViewKey } from "@kb/views";
 
-import { familyViews, useContributions, ViewPoint, type PageActivity } from "./lib/plugins.ts";
+import { familyViews, ViewPoint } from "./lib/view-point.ts";
+import { useContributions } from "./lib/plugins.ts";
+import type { PageActivity } from "./lib/page-activity.ts";
 
 import { type FrameView, frameViewNodeOf, frameViewThrough } from "./lib/frame-view";
 import type { FamilyView } from "./lib/view-key";

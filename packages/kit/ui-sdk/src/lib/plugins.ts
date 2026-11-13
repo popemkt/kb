@@ -1,5 +1,5 @@
 /**
- * The browser's plugin kernel and the points the UI is assembled from.
+ * The browser's plugin kernel, which the UI is assembled from.
  *
  * The same `@kb/plugin` kernel the server loads extensions into runs here, so
  * a page is a contribution, not a branch in the shell: a plugin (a shell
@@ -8,33 +8,17 @@
  * whatever is registered. Unloading a plugin removes all three, because the
  * kernel ties every contribution to the plugin's scope.
  *
- * The contract of `ViewPoint` and `RoutePoint` is stated once, in
- * DESIGN-UI.md → UI points: routes and views.
+ * Each point lives in its own module (`view-point.ts`, `route-point.ts`,
+ * `shell-points.ts`); their contract is stated once, in DESIGN-UI.md → UI
+ * points: routes and views.
  */
-import {
-  createElement,
-  useCallback,
-  useMemo,
-  useSyncExternalStore,
-  type ComponentType,
-  type FunctionComponent,
-  type ReactElement,
-  type ReactNode,
-} from "react";
-import type { Icon } from "@phosphor-icons/react";
+import { useCallback, useMemo, useSyncExternalStore, type ComponentType } from "react";
 import { Cause, Effect } from "effect";
+import { runtimeFootprint, type FamilyKernel, type FootprintRow } from "@kb/contracts";
 import {
-  CORE_POINT_DEFINITIONS,
-  runtimeFootprint,
-  type FamilyKernel,
-  type FootprintRow,
-} from "@kb/contracts";
-import {
-  Point,
   makeKernel,
   syncPlugins,
   type Contribution,
-  type ContributionEntry,
   type Kernel,
   type Plugin,
   type PointReference,
@@ -42,382 +26,12 @@ import {
   type RoleKey,
   roleCall,
 } from "@kb/plugin";
-import { usePath } from "./router";
-import type { FamilyView, ViewPicker } from "./view-key";
-import {
-  type FrameViewKey,
-  isFrameViewKey,
-  localIdOf,
-  type PlainViewKey,
-  type ViewKey,
-} from "@kb/views";
+import { isFrameViewKey, type FrameViewKey, type ViewKey } from "@kb/views";
+import { roleSelections, type KbNode } from "@kb/model";
 import { roleComponent } from "./roles";
 import { toast } from "./toast";
-import { present, roleSelections, type KbNode, type SeedOption } from "@kb/model";
-
-/**
- * Where a host renders a view: `page` fills the box the host gives it (the
- * shell's page, the graph's canvas); `inline` sits in the outline's flow,
- * under the row of the frame whose children it lays out; `preview` is a
- * compact, read-only picture of a node under its row, in a box of fixed
- * height, which a view offers exactly when its key says it draws one
- * (`ViewKey.preview`, {@link provideView}); `row` is a node's row itself, in
- * place of its text while no one edits it, where a tag names the view its
- * nodes are drawn as (`sys.f.view.row`), handed the row it draws
- * ({@link ViewHost.row}). The rest of the placements wait on their first
- * host: GAP [[01M3EZR20H0CDF5MD01M2S26C5]].
- */
-export type Placement = "page" | "inline" | "preview" | "row";
-
-/** The placements a contribution lists itself: `preview` is its key's to say. */
-type ListedPlacement = Exclude<Placement, "preview">;
-
-/**
- * The row a view at placement `row` draws (DESIGN-UI.md → Row views): the
- * node the row shows and its text, which is all of the graph such a view is
- * handed. `text` is that text as the outline draws it, references as pills,
- * and pressing it edits the row where it was pressed, so a view places it
- * rather than drawing the markdown itself.
- */
-export interface RowSubject {
-  readonly id: string;
-  /** The text as written: inline markdown, a reference as `[[id|label]]`. */
-  readonly markdown: string;
-  readonly text: ReactNode;
-}
-
-/**
- * Where a host draws a view, with what it hands the view there: at `row`,
- * the row it draws; at every other placement, no row. One union, so a slot
- * at `row` without its row, or a row handed to a page, does not type.
- */
-export type Drawn =
-  | { readonly placement: "row"; readonly row: RowSubject }
-  | { readonly placement: Exclude<Placement, "row">; readonly row?: undefined };
-
-/** What a host guarantees a view: never a store, never `ctx`. */
-export type ViewHost = Drawn & {
-  /**
-   * The view node the host draws the view from, when it draws one (the node
-   * route opening a view node): where a view that edits its own settings
-   * writes them. Absent for a view drawn from a view type or from code.
-   */
-  readonly viewNode?: string;
-};
-
-export interface ViewProps<P> {
-  readonly params: P;
-  readonly host: ViewHost;
-}
-
-export interface View<P> {
-  readonly key: ViewKey<P>;
-  readonly placements: readonly Placement[];
-  /** The params the view contract mounts this view with. */
-  readonly sample: P;
-  readonly Component: FunctionComponent<ViewProps<P>>;
-  /** How a picker names it, for a view of a family a host chooses between. */
-  readonly picker?: ViewPicker;
-  /**
-   * How a page it is the whole of is framed where no route opens it (a node
-   * opened in it, `/node/<id>`): a view a route opens is framed as that route
-   * frames it ({@link pageFrameOf}). Default: `fixed`, a page with its own
-   * viewport.
-   */
-  readonly frame?: RouteFrame;
-}
-
-/**
- * A view as the point holds it, its params erased so views of every `P` share
- * one point. Only {@link findView} reads one back as a `View<P>`.
- */
-export interface ProvidedView {
-  readonly key: ViewKey<unknown>;
-  readonly placements: readonly Placement[];
-  readonly sample: unknown;
-  readonly Component: FunctionComponent<ViewProps<never>>;
-  readonly picker?: ViewPicker;
-  readonly frame?: RouteFrame;
-}
-
-export const ViewPoint = Point<ProvidedView>()(
-  CORE_POINT_DEFINITIONS.view.name,
-  CORE_POINT_DEFINITIONS.view.spec,
-);
-
-/** What a view contribution says beside its key: its placements but `preview`, which the key says. */
-type ViewEntry<P> = Omit<View<P>, "key" | "placements"> & {
-  readonly placements: readonly ListedPlacement[];
-};
-
-/**
- * The `ViewPoint` contribution for `key`, under the key's own local id. A
- * view of a family (its key names a `family`) must say how a picker names
- * it: its pickers list it by nothing else. A view of no family may say so
- * too, for where a node is opened in it ("Open in …", "Open with…"). It is
- * offered at `preview` too when its key draws a preview (`ViewKey.preview`),
- * so its component is drawn there with `host.placement === "preview"`.
- */
-export function provideView<P>(
-  key: ViewKey<P> & { readonly family: string },
-  view: Omit<ViewEntry<P>, "picker"> & { readonly picker: ViewPicker },
-): ContributionEntry<ProvidedView>;
-export function provideView<P>(
-  key: PlainViewKey<P>,
-  view: ViewEntry<P>,
-): ContributionEntry<ProvidedView>;
-export function provideView<P>(
-  key: ViewKey<P>,
-  view: ViewEntry<P>,
-): ContributionEntry<ProvidedView> {
-  const placements: readonly Placement[] = key.preview
-    ? [...view.placements, "preview"]
-    : view.placements;
-  const provided: View<P> = { key, ...view, placements };
-  return { id: localIdOf(key), value: provided };
-}
-
-/**
- * How a page is framed in its pane, under the shell's header, which every
- * page is drawn under: `scroll`, a scroll region around it; `fixed`, a box
- * of the pane's size (a canvas owns its own viewport, so it does not
- * scroll); `full`, nothing, the page fills the pane and frames itself.
- */
-type RouteFrame = "scroll" | "fixed" | "full";
-
-/** A path resolved to a view and its params; it owns no page component. */
-export interface Route<P> {
-  readonly view: ViewKey<P>;
-  /**
-   * The params when this route owns the path, else `null`. A path no route
-   * owns is not found; no route takes "whatever is left".
-   */
-  readonly match: (path: string) => P | null;
-  readonly frame: (params: P) => RouteFrame;
-  /** Shown while the workspace loads under this route. */
-  readonly pendingTitle: (params: P) => string;
-  /** Rendered above the page, outside its scroll region (a scope bar). */
-  readonly Chrome?: ComponentType<{ readonly params: P }>;
-  /**
-   * The path that opens this route's view with nothing chosen (`/graph`,
-   * `/canvas`), for a route that has one: where a pane's view switcher sends
-   * a pane to show this view.
-   */
-  readonly entry?: string;
-}
-
-/** The page a path resolved to: which view, with what params. */
-export interface MatchedRoute {
-  readonly view: ViewKey<unknown>;
-  readonly params: unknown;
-}
-
-/** A matched route with what the shell frames it with, read off the route. */
-export interface ResolvedRoute extends MatchedRoute {
-  readonly frame: RouteFrame;
-  readonly pendingTitle: string;
-  readonly chrome: ReactElement | null;
-}
-
-/** A route as the point holds it: resolving a path keeps its params typed inside. */
-export interface ProvidedRoute {
-  readonly view: ViewKey<unknown>;
-  readonly resolve: (path: string) => ResolvedRoute | null;
-  /** How the route frames its view's page for `params`, which must be that view's. */
-  readonly frameOf: (params: unknown) => RouteFrame;
-  readonly entry?: string;
-}
-
-export const RoutePoint = Point<ProvidedRoute>()(
-  CORE_POINT_DEFINITIONS.route.name,
-  CORE_POINT_DEFINITIONS.route.spec,
-);
-
-/** The `RoutePoint` contribution for `route`, under its view's local id. */
-/**
- * `route`'s params for `path`, or null when it is not the route's — or when
- * the route cannot read it: a malformed escape (`/canvas/%E0%A4%A`) makes
- * `decodeURIComponent` throw, and a path no route can read is no route's,
- * never a crash of the shell that resolves it.
- */
-function matchPath<P>(route: Route<P>, path: string): P | null {
-  try {
-    return route.match(path);
-  } catch (error) {
-    if (error instanceof URIError) return null;
-    throw error;
-  }
-}
-
-export function provideRoute<P>(route: Route<P>): ContributionEntry<ProvidedRoute> {
-  const { Chrome } = route;
-  return {
-    id: localIdOf(route.view),
-    value: {
-      view: route.view,
-      frameOf: (params) => route.frame(asParamsOf(route.view, params)),
-      ...(route.entry === undefined ? {} : { entry: route.entry }),
-      resolve: (path) => {
-        const params = matchPath(route, path);
-        if (params === null) return null;
-        return {
-          view: route.view,
-          params,
-          frame: route.frame(params),
-          pendingTitle: route.pendingTitle(params),
-          chrome: Chrome === undefined ? null : createElement(Chrome, { params }),
-        };
-      },
-    },
-  };
-}
-
-export interface SidebarSection {
-  /** Lower first. */
-  readonly order: number;
-  readonly Component: ComponentType<{ readonly route: MatchedRoute | null }>;
-}
-
-export const SidebarSectionPoint = Point<SidebarSection>()(
-  CORE_POINT_DEFINITIONS.sidebarSection.name,
-  CORE_POINT_DEFINITIONS.sidebarSection.spec,
-);
-
-/**
- * A dock: a tool window at the workspace's right edge, beside every page
- * (the agent's chat is the first). The workspace header has one toggle per
- * dock, in `order`, and at most one dock is open.
- */
-export interface Dock {
-  /** Lower first. */
-  readonly order: number;
-  /** What its toggle and its header call it. */
-  readonly label: string;
-  readonly icon: Icon;
-  readonly Component: ComponentType<{ readonly onClose: () => void }>;
-}
-
-export const DockPoint = Point<Dock>()(
-  CORE_POINT_DEFINITIONS.dock.name,
-  CORE_POINT_DEFINITIONS.dock.spec,
-);
-
-/**
- * A page overlay: something a plugin mounts once for the whole page, beside
- * every pane, such as a popover host that portals to the document (the
- * outline's frame filter is the first). The shell mounts every overlay, in
- * `order`, and names none.
- */
-export interface Overlay {
-  /** Lower first. */
-  readonly order: number;
-  readonly Component: ComponentType;
-}
-
-export const OverlayPoint = Point<Overlay>()(
-  CORE_POINT_DEFINITIONS.overlay.name,
-  CORE_POINT_DEFINITIONS.overlay.spec,
-);
-
-/**
- * What a backdrop may spend drawing one frame (DESIGN-UI.md → Page-head
- * backdrops → The surface): milliseconds of the GPU's time for a GPU scene,
- * of the main thread's for a canvas one. A host that meters its frames
- * holds the backdrop to it, stepping its quality down while it runs over.
- */
-export interface BackdropBudget {
-  readonly frameMs: number;
-}
-
-/**
- * The page head's frame budget, by what draws a backdrop: a third of a 60 Hz
- * frame of the GPU's time for a GPU scene, 2 ms of the main thread for a
- * canvas scene, and 1 ms for one the page's own layout and CSS draw, which
- * no host meters (GAP [[01M6RT9R6AXGVYZWCSTG26EET8]]). A contribution names the one that
- * applies; one that needs less may declare less, never more.
- */
-export const BACKDROP_BUDGETS = {
-  gpu: { frameMs: 6 },
-  canvas: { frameMs: 2 },
-  dom: { frameMs: 1 },
-} as const satisfies Record<string, BackdropBudget>;
-
-/**
- * What has happened on the page, counted since it loaded: changes made
- * elsewhere that it has been shown (another tab, the CLI, the agent's
- * writes), errors it has told the owner of, and turns the sidebar's agent
- * has finished with an answer. The host counts them (`BrowserHost.events`).
- */
-export interface PageEvents {
-  readonly arrivals: number;
-  readonly errors: number;
-  readonly turns: number;
-}
-
-/**
- * What the owner is doing on the page, as a backdrop may read it
- * (DESIGN-UI.md → Page-head backdrops): whether a node's text is being
- * edited, how many writes the graph has taken, and what has happened on it
- * (`PageEvents`). A backdrop compares a count with the one it last saw, so
- * it needs no listener of its own for app events. Navigation is the `node`
- * it is handed changing.
- */
-export interface PageActivity extends PageEvents {
-  readonly editing: boolean;
-  readonly writes: number;
-}
-
-/**
- * A page where the owner does nothing: what art drawn where no owner acts is
- * handed (a backdrop's Appearance card; a veil on the plane that hears no
- * write).
- */
-export const QUIET_ACTIVITY: PageActivity = {
-  editing: false,
-  writes: 0,
-  arrivals: 0,
-  errors: 0,
-  turns: 0,
-};
-
-/**
- * A contribution its family names by a key (a backdrop, a design system, a
- * graph theme): it answers to the key's id, `<family>.<local id>`, so it is
- * contributed under the local id and the family's namespace restores the
- * rest, as a view answers to its key. A key of its kind's own owner (core's,
- * in the root namespace; the graph's own themes) has no family part and is
- * contributed as it is. One helper for every keyed point, a family's own
- * included.
- */
-interface Keyed {
-  readonly key: SeedOption;
-}
-
-export function provideDeclared<T extends Keyed>(value: T): ContributionEntry<T> {
-  return { id: declaredLocalId(value.key.id), value };
-}
-
-/**
- * The id a family contributes a thing it declares as `id` under: its local
- * id, so in the family's namespace the contribution answers to the declared
- * id (`<name>.<local id>`), as a view answers to its key.
- */
-export function declaredLocalId(id: string): string {
-  return id.slice(id.indexOf(".") + 1);
-}
-
-/**
- * The contribution `id` names among `contributed`; the first contributed
- * for null, or for an id nobody contributes now. Null only when nothing is
- * contributed. One reading for every keyed point, so a stale choice falls
- * through the same way for a backdrop and a design system.
- */
-export function chosenDeclared<T extends Keyed>(
-  contributed: readonly Contribution<T>[],
-  id: string | null,
-): Contribution<T> | null {
-  return contributed.find(({ value }) => value.key.id === id) ?? contributed[0] ?? null;
-}
+import type { FamilyView } from "./view-key";
+import { familyViews, findView, ViewPoint, type View } from "./view-point.ts";
 
 /** One kernel per page: everything the UI shows is contributed to it. */
 const uiKernel = makeKernel({ host: "page" });
@@ -530,34 +144,6 @@ export function currentService<S>(key: ServiceKey<S>): S | undefined {
   return uiKernel.service(key);
 }
 
-/**
- * The provided views of one family, as its pickers list them: each view whose
- * key `isFamily` admits and whose contribution names it (`picker`), in
- * `picker.order`. The one way a family is enumerated, so a picker, a decode
- * and a walk all see the same views.
- */
-export function familyViews<K extends ViewKey<unknown>>(
-  views: readonly Contribution<ProvidedView>[],
-  isFamily: (key: ViewKey<unknown>) => key is K,
-): readonly FamilyView<K>[] {
-  const listed: FamilyView<K>[] = [];
-  for (const { value } of views) {
-    if (!isFamily(value.key)) continue;
-    // `provideView` requires a family view's picker, so none is ever missing.
-    const picker = present(value.picker, `${value.key.id} is a family view with no picker`);
-    listed.push({ key: value.key, picker });
-  }
-  return listed.toSorted((a, b) => a.picker.order - b.picker.order);
-}
-
-/**
- * The frame views provided now, in their pickers' order: what a frame's row
- * walk lays its rows out by and the view commands offer (`familyViews`).
- */
-export function providedFrameViews(): readonly FamilyView<FrameViewKey>[] {
-  return familyViews(currentContributions(ViewPoint), isFrameViewKey);
-}
-
 /** A service as provided now, or undefined while none is; re-read whenever the kernel changes. */
 export function useService<S>(key: ServiceKey<S>): S | undefined {
   const read = useCallback(() => uiKernel.service(key), [key]);
@@ -568,34 +154,6 @@ export function useService<S>(key: ServiceKey<S>): S | undefined {
 export function useContributions<C>(point: PointReference<C>): readonly Contribution<C>[] {
   const read = useMemo(() => pointReader(point), [point]);
   return useSyncExternalStore(uiKernel.subscribe, read, read);
-}
-
-/*
- * The view points' one trust, in its two readings: an erased view, and a
- * matched route's params, read as the `P` their key stands for. Sound
- * because each was typed by this very key object on the way in
- * (`provideView`, `provideRoute`), and each caller has just checked that
- * identity — the trust `asKeyType` spends in the kernel.
- */
-function asViewOf<P>(_key: ViewKey<P>, view: ProvidedView): View<P> {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- typed by this very key in provideView; identity checked by the caller
-  return view as unknown as View<P>;
-}
-
-function asParamsOf<P>(_key: ViewKey<P>, params: unknown): P {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- typed by this very key in provideRoute; identity checked by the caller
-  return params as P;
-}
-
-/**
- * The view `kernel` provides under `key`; null when none is, or one made with
- * another key object. A view answers to its key's id through the kernel's
- * own lookup: the id it was contributed at, or, for a view whose frozen id
- * another family's namespace first stored, an alias.
- */
-export function findView<P>(kernel: Pick<Kernel, "lookup">, key: ViewKey<P>): View<P> | null {
-  const provided = kernel.lookup(ViewPoint, key.id)?.value;
-  return provided?.key === key ? asViewOf(key, provided) : null;
 }
 
 /** The view provided under `key` now, for a reader outside React. */
@@ -609,43 +167,35 @@ export function useView<P>(key: ViewKey<P>): View<P> | null {
   return useSyncExternalStore(uiKernel.subscribe, read, read);
 }
 
-/** The params of `route` when it renders `key`, else null. */
-export function paramsOf<P>(route: MatchedRoute | null, key: ViewKey<P>): P | null {
-  return route?.view === key ? asParamsOf(key, route.params) : null;
+/**
+ * The frame views provided now, in their pickers' order: what a frame's row
+ * walk lays its rows out by and the view commands offer (`familyViews`).
+ */
+export function providedFrameViews(): readonly FamilyView<FrameViewKey>[] {
+  return familyViews(currentContributions(ViewPoint), isFrameViewKey);
+}
+
+// GAP [[01M79H9PY7XVHHVGAN1WA3VYAF]]: belongs beside BackdropPoint in @kb/appearance-kit; its `canvas`
+// key reads as a family name there, and that debt may not move to a new file.
+/**
+ * What a backdrop may spend drawing one frame (DESIGN-UI.md → Page-head
+ * backdrops → The surface): milliseconds of the GPU's time for a GPU scene,
+ * of the main thread's for a canvas one. A host that meters its frames
+ * holds the backdrop to it, stepping its quality down while it runs over.
+ */
+export interface BackdropBudget {
+  readonly frameMs: number;
 }
 
 /**
- * How `key`'s page is framed when it shows `params`: as the route that opens
- * that view frames it, else as the view says a page it is the whole of is
- * framed (`View.frame`), or null when neither says. A host that shows a view
- * no route led to (a node opened in its default view) frames it so.
+ * The page head's frame budget, by what draws a backdrop: a third of a 60 Hz
+ * frame of the GPU's time for a GPU scene, 2 ms of the main thread for a
+ * canvas scene, and 1 ms for one the page's own layout and CSS draw, which
+ * no host meters (GAP [[01M6RT9R6AXGVYZWCSTG26EET8]]). A contribution names the one that
+ * applies; one that needs less may declare less, never more.
  */
-export function pageFrameOf<P>(
-  routes: readonly Contribution<ProvidedRoute>[],
-  views: readonly Contribution<ProvidedView>[],
-  key: ViewKey<P>,
-  params: P,
-): RouteFrame | null {
-  const route = routes.find(({ value }) => value.view === key);
-  if (route !== undefined) return route.value.frameOf(params);
-  return views.find(({ value }) => value.key === key)?.value.frame ?? null;
-}
-
-/** The route that owns `path`, or null when none does; the first match wins. */
-export function matchRoute(
-  routes: readonly Contribution<ProvidedRoute>[],
-  path: string,
-): ResolvedRoute | null {
-  for (const route of routes) {
-    const resolved = route.value.resolve(path);
-    if (resolved !== null) return resolved;
-  }
-  return null;
-}
-
-/** The current route, as the registered routes resolve it. */
-export function useRoute(): ResolvedRoute | null {
-  const path = usePath();
-  const routes = useContributions(RoutePoint);
-  return matchRoute(routes, path);
-}
+export const BACKDROP_BUDGETS = {
+  gpu: { frameMs: 6 },
+  canvas: { frameMs: 2 },
+  dom: { frameMs: 1 },
+} as const satisfies Record<string, BackdropBudget>;

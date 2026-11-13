@@ -9,7 +9,7 @@
 import { LANDING_ROLE } from "@kb/contracts";
 import { Role, Service } from "@kb/plugin";
 import { nodePath } from "@kb/views";
-import { callPageRole } from "./plugins";
+import { callPageRole } from "./plugins.ts";
 import { getPath, replacePath, subscribePath } from "./router";
 
 /** The node a page that loads at the root opens on, or null to stay home. */

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import type { ActionInvocation } from "@kb/contracts";
 import { ActionReviewPoint, type ActionReview, type ApprovalView } from "../lib/action-review";
 import { cn } from "../lib/cn";
-import { useContributions } from "../lib/plugins";
+import { useContributions } from "../lib/plugins.ts";
 
 const BUTTON = cn(
   "rounded-sm px-2 py-1 text-label font-medium outline-none transition duration-100",

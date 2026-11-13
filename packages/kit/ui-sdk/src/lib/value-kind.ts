@@ -22,7 +22,7 @@ import { declaredOptionId, FIELD_TYPE_OPTIONS, type NodeId, type ParsedValue } f
 import { Point, type ContributionEntry } from "@kb/plugin";
 import { componentSchema } from "./component-schema";
 import { iconOf, type IconName } from "./form-icons";
-import { declaredLocalId } from "./plugins";
+import { declaredLocalId } from "./declared.ts";
 import type { Follow, FollowTarget } from "./follow";
 import type { RefCreation } from "./refs";
 import type { FieldContext } from "./schema";

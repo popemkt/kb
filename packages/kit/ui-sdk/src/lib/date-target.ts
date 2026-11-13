@@ -8,7 +8,7 @@
  */
 import { DATE_TARGET_ROLE } from "@kb/contracts";
 import { Role, Service } from "@kb/plugin";
-import { callPageRole } from "./plugins";
+import { callPageRole } from "./plugins.ts";
 
 /** The node `date` (`YYYY-MM-DD`) opens, or null when it leads nowhere. */
 export type DateTarget = (date: string) => Promise<string | null>;

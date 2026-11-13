@@ -16,11 +16,11 @@ import {
   uiKernelReader,
   provideColorTokens,
   paletteStepsPlugin,
-  latestRead,
   configureUiRoles,
   logWarn,
   syncUiPlugins,
 } from "@kb/ui-sdk";
+import { latestRead } from "@/lib/latest-read";
 
 import { BUNDLED_DECLARATIONS, BUNDLED_FAMILIES, BUNDLED_CAPABILITIES } from "@kb/bundled";
 /**

@@ -7,10 +7,10 @@ import { useNodeSections, type NodeSection } from "./node-sections";
 import { schemaOf } from "./schema";
 import { wireToOutlineMap } from "./graph-view";
 import { useNodes, useSchema } from "../hooks";
-import { useContributions } from "./plugins";
+import { useContributions } from "./plugins.ts";
 
 vi.mock("../hooks", () => ({ useNodes: vi.fn(), useSchema: vi.fn() }));
-vi.mock("./plugins", () => ({ useContributions: vi.fn() }));
+vi.mock("./plugins.ts", () => ({ useContributions: vi.fn() }));
 
 const ref = (v: string) => [{ t: "ref" as const, v }];
 const node = (id: string, props: WireNode["props"] = {}): WireNode => ({

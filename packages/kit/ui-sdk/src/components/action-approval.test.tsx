@@ -8,7 +8,7 @@ import { ActionApproval } from "./action-approval";
 import { SandboxApprovalCard } from "./sandbox-approval-card";
 
 const contributions = vi.hoisted(() => ({ rows: [] as { id: string; value: ActionReview }[] }));
-vi.mock("../lib/plugins", () => ({ useContributions: () => contributions.rows }));
+vi.mock("../lib/plugins.ts", () => ({ useContributions: () => contributions.rows }));
 let dom: Window;
 let container: HTMLDivElement;
 let root: Root;

@@ -1,13 +1,8 @@
 import { Suspense, useContext, useMemo, type ReactElement } from "react";
 import { EnclosingSlots } from "./slot-chain";
 import { ViewErrorBoundary } from "./view-error-boundary";
-import {
-  useView,
-  type Drawn,
-  type Placement,
-  type RowSubject,
-  type ViewHost,
-} from "../lib/plugins.ts";
+import { useView } from "../lib/plugins.ts";
+import type { Drawn, Placement, RowSubject, ViewHost } from "../lib/view-point.ts";
 import { slotLink, slotRenders, type SlotChain } from "../lib/view-key";
 import type { ViewKey } from "@kb/views";
 

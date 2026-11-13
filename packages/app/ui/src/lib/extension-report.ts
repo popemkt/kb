@@ -24,13 +24,13 @@ import {
 import { extensionSwitchDef, extensionDiffDef, marketplaceListDef } from "@kb/operations";
 import {
   PAGE_FAMILY_KERNEL,
-  latestRead,
   pageFootprint,
   subscribeUiKernel,
   toast,
   uiKernelReader,
   failureText,
 } from "@kb/ui-sdk";
+import { latestRead } from "@/lib/latest-read";
 import { z } from "zod";
 import { loadManifest, subscribeManifest } from "@/lib/manifest";
 import { invoke } from "@/session/runtime";

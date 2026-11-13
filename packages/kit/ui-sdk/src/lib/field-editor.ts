@@ -15,7 +15,7 @@ import { useFieldWrite } from "./field-write";
 import { browserHost } from "../host";
 import { resolveFieldTypeById } from "./field-type";
 import { FIELD_EDITOR_ROLE } from "@kb/contracts";
-import { useRole } from "./plugins";
+import { useRole } from "./plugins.ts";
 import type { FieldContext } from "./schema";
 import type { PropValue } from "./types";
 

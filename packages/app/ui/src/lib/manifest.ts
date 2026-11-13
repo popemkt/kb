@@ -13,7 +13,8 @@ import type { ExtensionRow } from "@kb/contracts";
 import { kbManifestDef } from "@kb/operations";
 import type { ViewCatalogEntry } from "@kb/views";
 import { postAction } from "@/api/action";
-import { latestRead, logWarn } from "@kb/ui-sdk";
+import { logWarn } from "@kb/ui-sdk";
+import { latestRead } from "@/lib/latest-read";
 
 /** The part of `kb.manifest` the page follows. */
 export interface ServedManifest {

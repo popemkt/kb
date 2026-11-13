@@ -61,7 +61,6 @@ export { SandboxFrame } from "./components/sandbox-frame";
 export { ActionApproval } from "./components/action-approval";
 export { ActionReviewPoint, type ApprovalView } from "./lib/action-review";
 export { SandboxApprovalCard } from "./components/sandbox-approval-card";
-export { latestRead } from "./lib/latest-read";
 // A view's scripts: its event channel, and the host the family that keeps
 // scripts provides.
 export {
@@ -112,32 +111,8 @@ export {
   currentContributions,
   currentView,
   currentService,
-  chosenDeclared,
-  provideDeclared,
-  BACKDROP_BUDGETS,
-  type BackdropBudget,
-  type PageActivity,
-  type PageEvents,
-  QUIET_ACTIVITY,
-  type Dock,
-  DockPoint,
-  familyViews,
-  findView,
-  type MatchedRoute,
-  matchRoute,
-  type Overlay,
-  OverlayPoint,
-  pageFrameOf,
-  paramsOf,
-  type Placement,
   pointReader,
-  type ProvidedView,
   providedFrameViews,
-  provideRoute,
-  provideView,
-  type ResolvedRoute,
-  RoutePoint,
-  SidebarSectionPoint,
   pageFootprint,
   PAGE_FAMILY_KERNEL,
   subscribeUiKernel,
@@ -145,12 +120,42 @@ export {
   uiKernelReader,
   useContributions,
   useService,
-  useRoute,
+  useRole,
+  configureUiRoles,
+  replacementApproved,
+  BACKDROP_BUDGETS,
+  type BackdropBudget,
+} from "./lib/plugins.ts";
+export {
+  familyViews,
+  findView,
+  type Placement,
+  type ProvidedView,
+  provideView,
   ViewPoint,
   type Drawn,
   type RowSubject,
   type ViewProps,
-} from "./lib/plugins";
+} from "./lib/view-point.ts";
+export {
+  type MatchedRoute,
+  matchRoute,
+  pageFrameOf,
+  paramsOf,
+  provideRoute,
+  type ResolvedRoute,
+  RoutePoint,
+  useRoute,
+} from "./lib/route-point.ts";
+export {
+  type Dock,
+  DockPoint,
+  type Overlay,
+  OverlayPoint,
+  SidebarSectionPoint,
+} from "./lib/shell-points.ts";
+export { type PageActivity, type PageEvents, QUIET_ACTIVITY } from "./lib/page-activity.ts";
+export { chosenDeclared, provideDeclared } from "./lib/declared.ts";
 
 export {
   type FamilyView,
@@ -203,10 +208,7 @@ export { PrefFieldRow } from "./components/pref-field-row";
 export { POPOVER_VALUE_CLASS, PopoverShell } from "./components/popover-shell";
 export { OntologyPicker } from "./components/ontology-picker";
 export { type SidebarNavItem, SidebarRow, SidebarSection } from "./components/sidebar-row";
-export { SidebarToggle } from "./components/sidebar-toggle";
-export { SETTINGS_PATH, SettingsTrigger } from "./components/settings-trigger";
 export { OptionChip, TagChip, TagChipGroup, type TagChipAction } from "./components/tag-chip";
-export { ThemeIcon } from "./components/theme-icon";
 export { ViewOptionsGlyph } from "./components/view-options-glyph";
 export { useAnchoredPosition } from "./components/use-anchored-position";
 export { useDismiss, type DismissInside } from "./components/use-dismiss";
@@ -589,7 +591,6 @@ export {
   type WidthPref,
   WIDTHS,
 } from "./lib/theme";
-export { THEME_GLYPHS } from "./lib/theme-glyphs";
 
 export {
   OptionPreviewPoint,
@@ -638,7 +639,6 @@ export { BREAKOUT_CLASS, useBreakoutShift } from "./lib/breakout";
 export { useLoadSeed } from "./lib/load-seed";
 export { tagOpeningOf, tagRowViewOf, type KeyCatalog, type TagOpening } from "./lib/tag-opening";
 
-export { useRole, configureUiRoles, replacementApproved } from "./lib/plugins";
 export { NO_POINTER, coveringAncestor } from "./lib/pointer-over.ts";
 export { usePath } from "./lib/router.ts";
 export { componentSchema } from "./lib/component-schema.ts";
