@@ -759,7 +759,7 @@ set`, MCP and the UI all replace in one write), a many-valued field gains
   `--create` to mint). Resolution is dynamic at load — at our scale (\<\<100k
   nodes) caching is premature; revisit only if load profiling says so.
 - **A CLI value is parsed as its field's declared type**, never guessed from
-  its shape (`parseFieldValue` in `@kb/operations`' `map.ts`): `kb set <n>
+  its shape (`parseFieldValue` in `@kb/cli`'s `map.ts`): `kb set <n>
 <field> 42` writes the string `"42"` into a text field and the number `42`
   into a number field, a ref field takes the argument as a node id, and a
   checkbox takes `true`/`false`. An argument the type cannot read (`abc` for a
@@ -4183,8 +4183,6 @@ Today's drift from this contract is marked where it sits:
   GAP [[01M43H3T8XEMTNBARC024PZD2W]];
 - the CLI's report bins, which import their family's output schema:
   GAP [[01M41H30Y60D3G9WJJX6NFQD2T]];
-- gallery-net's starter test, which reads core's outline-paste parser
-  from `@kb/operations`: GAP [[01M79FGVEF9PKK9BB1998YTTGQ]];
 - the outline's canvas bullet, which the kit names by the canvas tag's
   frozen id: GAP [[01M436DVSEHKNYWSF2MR07HPMR]];
 - core's migration of graph data written before the graph was a family,
@@ -4763,8 +4761,9 @@ items go under `parent` (the forest roots when omitted) at `position`,
 `position + 1`, …, or at the end, where one `node.add` would put the first.
 The action declares itself a batch of `node.add` (`batchOf`), so approval
 decides it as `node.add` too ([Action registry](#action-registry)). The syntax
-is `@kb/model`'s `parseOutline` (`outline.ts`), a pure parser that resolves
-nothing. The action is in the isomorphic registry, so the CLI (`kb add
+is `@kb/outline-paste`'s `parseOutline`, a pure parser that resolves
+nothing, which the CLI reads too (to plan `--create` from an outline's field
+lines) and a family may check an outline it ships against. The action is in the isomorphic registry, so the CLI (`kb add
 --outline <file>`, `-` for stdin), MCP (`node_addTree`), WebMCP, the sidebar
 agent and the page's own invoke all reach the same handler.
 

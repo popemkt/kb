@@ -93,13 +93,10 @@ import {
   declaredTypes,
   parseFieldValue,
   parsePropArg,
-  persistEffect,
-  storeBackupDef,
-  storeBackupsDef,
-  storeRestoreDef,
   UsageError,
   type PlannedAction,
-} from "@kb/operations";
+} from "./map.ts";
+import { persistEffect, storeBackupDef, storeBackupsDef, storeRestoreDef } from "@kb/operations";
 
 /** `--store` / `--to`: one of {@link STORE_BACKENDS}, or a usage failure. */
 function parseStoreBackend(value: string, flag: string): StoreBackend {

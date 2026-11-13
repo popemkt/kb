@@ -78,6 +78,8 @@
         "@kb/mcp": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/operations": "workspace:*",
+        "@kb/outline-paste": "workspace:*",
+        "@kb/query": "workspace:*",
         "@kb/routines": "workspace:*",
         "@kb/routines-gcal": "workspace:*",
         "@kb/routines-host": "workspace:*",
@@ -356,6 +358,7 @@
         "@kb/contracts": "workspace:*",
         "@kb/extension-source": "workspace:*",
         "@kb/model": "workspace:*",
+        "@kb/outline-paste": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/query": "workspace:*",
         "@kb/sandbox": "workspace:*",
@@ -452,6 +455,16 @@
         "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
         "fast-check": "catalog:",
+      },
+    },
+    "packages/domain/outline-paste": {
+      "name": "@kb/outline-paste",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/model": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
       },
     },
     "packages/domain/plugin": {
@@ -924,7 +937,7 @@
         "zod": "catalog:",
       },
       "devDependencies": {
-        "@kb/operations": "workspace:*",
+        "@kb/outline-paste": "workspace:*",
         "@types/bun": "catalog:",
       },
     },
@@ -2015,6 +2028,8 @@
     "@kb/operations": ["@kb/operations@workspace:packages/application/operations"],
 
     "@kb/outline": ["@kb/outline@workspace:packages/extension/outline"],
+
+    "@kb/outline-paste": ["@kb/outline-paste@workspace:packages/domain/outline-paste"],
 
     "@kb/outline-ui": ["@kb/outline-ui@workspace:packages/extension/outline-ui"],
 

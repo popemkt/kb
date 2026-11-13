@@ -23,7 +23,7 @@ import {
   syncDomain,
   type PropEntry,
 } from "@kb/model";
-import { parseOutline, type OutlineItem } from "./outline.ts";
+import { parseOutline, type OutlineItem } from "@kb/outline-paste";
 import { forcedBy, nodeAddDef } from "./actions.ts";
 import { placedGraph, placeOf } from "./place.ts";
 import { persistPlannedEffect } from "./session.ts";

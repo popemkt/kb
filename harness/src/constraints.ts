@@ -216,10 +216,7 @@ export interface SanctionedImport {
  * the gap that closes it. A sanctioned file may import its target, and its
  * package may declare it; nothing else crosses the row.
  */
-export const LAYER_BREACHES: Readonly<Record<string, readonly SanctionedImport[]>> = {
-  // GAP [[01M79FGVEF9PKK9BB1998YTTGQ]]: the outline-paste parser has no home a family reaches.
-  "@kb/gallery-net": [{ target: "@kb/operations", files: ["tests/starter.test.ts"] }],
-};
+export const LAYER_BREACHES: Readonly<Record<string, readonly SanctionedImport[]>> = {};
 
 /** The row of {@link LAYER_BREACHES} that admits `source` → `target`, from `file` when one is named. */
 export function layerSanction(

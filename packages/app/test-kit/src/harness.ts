@@ -24,18 +24,8 @@ import {
   KbNodeSchema,
   nodeParseOptions,
 } from "@kb/model";
-import {
-  mapAdd,
-  mapSet,
-  mapUnset,
-  mapRm,
-  mapMv,
-  mapFieldDefine,
-  mapTagDefine,
-  type PlannedAction,
-} from "@kb/operations";
 import { bundledSeed } from "@kb/bundled";
-import { onWire, type KbContext } from "@kb/contracts";
+import { onWire, type ActionRequest, type KbContext } from "@kb/contracts";
 
 /**
  * Deterministic simulation testing (DST) harness (t2-dst).
@@ -192,13 +182,30 @@ function word(rng: Rng): string {
   return `${rng.choice(WORDS)}-${rng.choice(WORDS)}`;
 }
 
+/** A `node.add` of `text`, at the top level unless `parent` is given, tagged `tag` when given. */
+function nodeAdd(text: string, parent?: string, tag?: string): ActionRequest {
+  return {
+    id: "node.add",
+    input: {
+      text,
+      ...(parent === undefined ? {} : { parent }),
+      ...(tag === undefined ? {} : { tags: [tag] }),
+    },
+  };
+}
+
+/** A `node.update` of `id` with `change`: values set or unset, or a move. */
+function nodeUpdate(id: string, change: Record<string, unknown>): ActionRequest {
+  return { id: "node.update", input: { id, ...change } };
+}
+
 /**
- * Generate the next planned action. Biased toward valid operations but
- * exercising the store's failure tolerances (dangling name resolutions, root
- * reorder, delete of a random node) so the invariants are tested against real
- * edge cases, not a happy path.
+ * Generate the next action, as a request any surface could send. Biased
+ * toward valid operations but exercising the store's failure tolerances
+ * (dangling name resolutions, root reorder, delete of a random node) so the
+ * invariants are tested against real edge cases, not a happy path.
  */
-function planAdd(rng: Rng, live: Livestate, text: string): PlannedAction {
+function planAdd(rng: Rng, live: Livestate, text: string): ActionRequest {
   const parent =
     rng.nextDouble() < 0.4 && live.rootIds.length > 0 ? rng.choice(live.rootIds) : undefined;
   let body = text;
@@ -206,50 +213,38 @@ function planAdd(rng: Rng, live: Livestate, text: string): PlannedAction {
     const target = rng.choice(live.contentIds);
     body = `${text} [[${target}|ref]]`;
   }
-  return mapAdd({
-    text: body,
-    parent,
-    tags: rng.nextDouble() < 0.3 ? [rng.choice(TAG_NAMES)] : undefined,
-  });
+  return nodeAdd(body, parent, rng.nextDouble() < 0.3 ? rng.choice(TAG_NAMES) : undefined);
 }
 
-function planSet(rng: Rng, live: Livestate, text: string): PlannedAction {
-  if (live.contentIds.length === 0) return mapAdd({ text });
-  return mapSet({
-    id: rng.choice(live.contentIds),
-    field: live.fieldIds.length > 0 ? rng.choice(live.fieldIds) : "status",
-    value: { t: "str", v: word(rng) },
-  });
+function planSet(rng: Rng, live: Livestate, text: string): ActionRequest {
+  if (live.contentIds.length === 0) return nodeAdd(text);
+  const id = rng.choice(live.contentIds);
+  const field = live.fieldIds.length > 0 ? rng.choice(live.fieldIds) : "status";
+  return nodeUpdate(id, { setProps: [{ field, value: { t: "str", v: word(rng) } }] });
 }
 
-function planUnset(rng: Rng, live: Livestate, text: string): PlannedAction {
-  if (live.contentIds.length === 0) return mapAdd({ text });
-  return mapUnset({
-    id: rng.choice(live.contentIds),
-    field: live.fieldIds.length > 0 ? rng.choice(live.fieldIds) : "status",
-  });
+function planUnset(rng: Rng, live: Livestate, text: string): ActionRequest {
+  if (live.contentIds.length === 0) return nodeAdd(text);
+  const id = rng.choice(live.contentIds);
+  const field = live.fieldIds.length > 0 ? rng.choice(live.fieldIds) : "status";
+  return nodeUpdate(id, { unsetProps: [{ field }] });
 }
 
-function planMove(rng: Rng, live: Livestate, text: string): PlannedAction {
-  if (live.childIds.length === 0) return mapAdd({ text });
-  return mapMv({
-    id: rng.choice(live.childIds),
-    parent: rng.choice(live.allIds),
-  });
+function planMove(rng: Rng, live: Livestate, text: string): ActionRequest {
+  if (live.childIds.length === 0) return nodeAdd(text);
+  const id = rng.choice(live.childIds);
+  return nodeUpdate(id, { parent: rng.choice(live.allIds) });
 }
 
-function planReorder(rng: Rng, live: Livestate, text: string): PlannedAction {
-  if (live.rootIds.length === 0) return mapAdd({ text });
-  return mapMv({
-    id: rng.choice(live.rootIds),
-    parent: null,
-    position: Math.floor(rng.nextDouble() * 8),
-  });
+function planReorder(rng: Rng, live: Livestate, text: string): ActionRequest {
+  if (live.rootIds.length === 0) return nodeAdd(text);
+  const id = rng.choice(live.rootIds);
+  return nodeUpdate(id, { parent: null, position: Math.floor(rng.nextDouble() * 8) });
 }
 
-function planDelete(rng: Rng, live: Livestate, text: string): PlannedAction {
-  if (live.contentIds.length === 0) return mapAdd({ text });
-  return mapRm({ id: rng.choice(live.contentIds) });
+function planDelete(rng: Rng, live: Livestate, text: string): ActionRequest {
+  if (live.contentIds.length === 0) return nodeAdd(text);
+  return { id: "node.delete", input: { id: rng.choice(live.contentIds) } };
 }
 
 function cycleName(names: readonly string[], sequence: number): string {
@@ -260,7 +255,7 @@ function cycleName(names: readonly string[], sequence: number): string {
   return name;
 }
 
-function nextAction(rng: Rng, _ctx: KbContext, live: Livestate, sequence: number): PlannedAction {
+function nextAction(rng: Rng, _ctx: KbContext, live: Livestate, sequence: number): ActionRequest {
   const kind = rng.choice(OP_KINDS);
   const text = word(rng);
   switch (kind) {
@@ -277,9 +272,12 @@ function nextAction(rng: Rng, _ctx: KbContext, live: Livestate, sequence: number
     case "delete":
       return planDelete(rng, live, text);
     case "field":
-      return mapFieldDefine({ name: `${cycleName(FIELD_NAMES, sequence)}.${sequence}` });
+      return {
+        id: "field.define",
+        input: { name: `${cycleName(FIELD_NAMES, sequence)}.${sequence}` },
+      };
     case "tag":
-      return mapTagDefine({ name: `${cycleName(TAG_NAMES, sequence)}.${sequence}` });
+      return { id: "tag.define", input: { name: `${cycleName(TAG_NAMES, sequence)}.${sequence}` } };
     default: {
       const unhandled: never = kind;
       throw new Error(`unhandled DST op kind: ${JSON.stringify(unhandled)}`);
@@ -498,7 +496,7 @@ export const runScenario = Effect.fn("kb.runScenario")(function* (
     const tagIds: string[] = [];
 
     for (let i = 0; i < opsCount; i++) {
-      // Discover fields/tags from the live nodes so mapSet/mapUnset can target
+      // Discover fields/tags from the live nodes so planSet/planUnset can target
       // real, already-defined fields (never force-mint, so sys guards hold).
       if (fieldIds.length === 0) {
         const fields = ctx.nodes.filter((n) =>

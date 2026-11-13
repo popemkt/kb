@@ -22,8 +22,8 @@
     "limit": 12
   },
   "@kb/operations": {
-    "limit": 96,
-    "reason": "M8 dropped the 56 names nothing outside operations imports; the 90 ceiling waits on where four core-action families register (GAP 01M79JW3AJJZ8Q56KHN2RRNX0W)."
+    "limit": 66,
+    "reason": "Lane B moved the CLI's flag mappers (map.ts) to @kb/cli and the outline-paste parser to @kb/outline-paste; ui.*, render.*, procedure.* and store.* stay core actions every surface offers."
   },
   "@kb/contracts": {
     "limit": 379,
@@ -42,6 +42,9 @@
   "@kb/model": {
     "limit": 265,
     "reason": "M3b dropped the names no package outside model imports; every model file is still shared by two or more packages, so 220 waits on an API redesign (GAP 01M78V3TNFF2XAVGZB6TXEAPR0)."
+  },
+  "@kb/outline-paste": {
+    "limit": 3
   },
   "@kb/plugin": {
     "limit": 54
