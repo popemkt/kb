@@ -38,13 +38,8 @@ export const VIEW_FAMILY_OPTIONS: DeclaredOptions = {
   prefix: "sys.view-family.",
 };
 
-// GAP [[01M66RQ281GTJNACBJ572PHCJP]] the graph's and the gallery's families are listed here, in core
-export const VIEW_FAMILY_VALUES = {
-  "graph.renderer": { id: "sys.view-family.graph.renderer", label: "Graph renderer" },
-  "outline.frame": { id: "sys.view-family.outline.frame", label: "Frame view" },
-  "gallery.workflow": { id: "sys.view-family.gallery.workflow", label: "Gallery workflow" },
-} as const;
-export type ViewFamily = keyof typeof VIEW_FAMILY_VALUES;
+/** A stable declared key, resolved to a node id through VIEW_FAMILY_OPTIONS. */
+export type ViewFamily = string;
 
 /** The view an option node names, back from its id, or null for any other node. */
 export function viewIdOfOption(option: NodeId): string | null {

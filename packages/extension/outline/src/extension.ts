@@ -1,3 +1,4 @@
+import { VIEW_FAMILY_OPTIONS, DISPLAY_OPTIONS, seededField } from "@kb/model";
 /**
  * The outline family's declaration and its shared plugin (DESIGN.md →
  * Extension families). The outline is the default editing mode: its
@@ -15,7 +16,7 @@
  * another family's, which may not reach this package.
  */
 import { declarationPlugin, defineExtension, viewDef, FIELD_EDITOR_ROLE } from "@kb/contracts";
-import { DISPLAY_OPTIONS, seededField } from "@kb/model";
+
 import type { Plugin } from "@kb/plugin";
 import { OutlineListView, OutlineSnippetView, OutlineView } from "@kb/views";
 import { OUTLINE_IDS } from "./ids.ts";
@@ -30,6 +31,9 @@ export const outlineExtension = defineExtension({
   tags: ["outline"],
   roles: [FIELD_EDITOR_ROLE],
   defaultView: OutlineView,
+  declaredOptions: [
+    { kind: VIEW_FAMILY_OPTIONS, options: [{ id: "outline.frame", label: "Frame view" }] },
+  ],
   views: [viewDef(OutlineView), viewDef(OutlineListView), viewDef(OutlineSnippetView)],
   // A node's own display toggles: the editor's, never drawn as field rows.
   seed: (at) =>

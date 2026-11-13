@@ -1884,14 +1884,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — run QuickJS inside a blob Worker in the frame
 - **node** — `01M41DKVB5R21NRCE4T9R4KES1`
 
-### GAP: view families are a closed list in core's model; a family cannot declare its own
-
-- **expected** — a family's declaration names the view families it owns (as it names its views, viewDef), and the seed derives each family's option under sys.f.view.family from the declarations, so ViewFamily is a reading of what is declared
-- **current** — VIEW_FAMILY_VALUES in @kb/model (view-node.ts) lists every view family by hand, including the graph family's graph.renderer and the gallery's gallery.workflow, so core names concepts of optional families
-- **impact** — a new family of views, from a bundled family or a repository extension, must edit core; core seeds the family option of a family that may be off
-- **closes** — defineExtension takes viewFamilies; the bundled fold seeds their options; ViewKey.family is typed by a registry the declarations extend; VIEW_FAMILY_VALUES keeps core's own (outline.frame) only
-- **node** — `01M66RQ281GTJNACBJ572PHCJP`
-
 ### GAP: views.migrate keeps a second list of seeded ids it retires, beside the seed's retirement table
 
 - **expected** — Every seeded id a build retires is a row of the seed's retirement table, the views.migrate ones included: a row can name the migration that must read its values first, and opening retires it only once that migration has run.
@@ -2941,6 +2933,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — an agent asking to open a canvas, a graph view or a node with a non-outline default lands in the outline instead
 - **closes** — one open-node route that resolves the node's default view, shared by the UI's own links and ui.navigate
 - **node** — `01M3YMCVEHWN0REJ8M1857ZEYX`
+
+### GAP: view families are a closed list in core's model; a family cannot declare its own
+
+- **expected** — a family's declaration names the view families it owns (as it names its views, viewDef), and the seed derives each family's option under sys.f.view.family from the declarations, so ViewFamily is a reading of what is declared
+- **current** — Closed in M5: graph, outline and gallery declare their own view-family options through VIEW_FAMILY_OPTIONS and the shared declaredOptions fold. Core carries only the generic field/id contract; custom declarations can add families without editing core. Existing option ids stay unchanged.
+- **impact** — a new family of views, from a bundled family or a repository extension, must edit core; core seeds the family option of a family that may be off
+- **closes** — defineExtension takes viewFamilies; the bundled fold seeds their options; ViewKey.family is typed by a registry the declarations extend; VIEW_FAMILY_VALUES keeps core's own (outline.frame) only
+- **node** — `01M66RQ281GTJNACBJ572PHCJP`
 
 ### GAP: what an approved extension loads when it runs is not closed over
 

@@ -11,7 +11,7 @@ import { describe, expect, test } from "bun:test";
 import { BACKDROP_OPTIONS, DESIGN_SYSTEM_OPTIONS } from "@kb/appearance";
 import {
   SYSTEM_IDS,
-  VIEW_FAMILY_VALUES,
+  VIEW_FAMILY_OPTIONS,
   declaredOptionId,
   defaultViewTypeOf,
   type DeclaredOptions,
@@ -75,7 +75,7 @@ describe("bundled seed", () => {
       expect(option?.text).toBe(key.label);
       const family = option?.props[SYSTEM_IDS.viewFamilyField]?.[0];
       expect(family?.v).toBe(
-        key.family === undefined ? undefined : VIEW_FAMILY_VALUES[key.family].id,
+        key.family === undefined ? undefined : declaredOptionId(VIEW_FAMILY_OPTIONS, key.family),
       );
     }
   });

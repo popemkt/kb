@@ -1,3 +1,4 @@
+import { declaredOptionId, VIEW_FAMILY_OPTIONS } from "@kb/model";
 /**
  * The malformed-config-prop policy, for both node-backed configs.
  *
@@ -10,7 +11,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import { VIEW_FAMILY_VALUES } from "@kb/model";
+
 import {
   paletteStepsPlugin,
   familyViews,
@@ -140,7 +141,9 @@ describe("getViewConfig reporting", () => {
   it("reports a frame view node whose view is not provided, and shows no view in its place", () => {
     // A frame view whose plugin is not loaded: its option says it is one.
     const option = node("sys.view.outline.kanban", {
-      [SYSTEM_IDS.viewFamilyField]: [{ t: "ref", v: VIEW_FAMILY_VALUES["outline.frame"].id }],
+      [SYSTEM_IDS.viewFamilyField]: [
+        { t: "ref", v: declaredOptionId(VIEW_FAMILY_OPTIONS, "outline.frame") },
+      ],
     });
     const viewNode = node("v.kanban", {
       [SYSTEM_IDS.viewField]: [{ t: "ref", v: option.id }],

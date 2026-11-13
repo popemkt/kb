@@ -1,18 +1,20 @@
-/**
- * The view queries `@kb/model` declares, run on the seed: what `sys.f.view`
- * may name, what a family's options are, and which view nodes a family lists.
- */
-import { describe, expect, test } from "bun:test";
 import {
+  declaredOptionId,
   SYSTEM_IDS,
   VIEW_NODE_TARGET_QUERY,
   VIEW_OPTION_TARGET_QUERY,
-  VIEW_FAMILY_VALUES,
+  VIEW_FAMILY_OPTIONS,
   familyViewNodesQuery,
   viewFamilyTargetQuery,
   viewOptionId,
   type KbNode,
 } from "@kb/model";
+/**
+ * The view queries `@kb/model` declares, run on the seed: what `sys.f.view`
+ * may name, what a family's options are, and which view nodes a family lists.
+ */
+import { describe, expect, test } from "bun:test";
+
 import { DatascriptIndex, derivedWith, parseEdn } from "@kb/query";
 import { bundledSeed } from "@kb/bundled";
 
@@ -69,7 +71,7 @@ describe("view queries", () => {
       .filter(
         (option) =>
           option.props[SYSTEM_IDS.viewFamilyField]?.[0]?.v ===
-          VIEW_FAMILY_VALUES["graph.renderer"].id,
+          declaredOptionId(VIEW_FAMILY_OPTIONS, "graph.renderer"),
       )
       .map((option) => option.id)
       .toSorted();

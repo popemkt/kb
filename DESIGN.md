@@ -1186,6 +1186,9 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   twice, and the view contract holds every provided view's key to a seeded
   option in its own family. Core's declaration lists core's views only; a
   feature's views are its family's declaration's.
+  Each family declares its view-family options through `declaredOptions` of
+  `VIEW_FAMILY_OPTIONS`; the same option fold derives their nodes and ownership.
+  Core holds the field and id namespace, with no closed list of family keys.
   An unloaded plugin never deletes an option: the data outlives the code.
 - **The view catalog is the keys.** Every view's key — its id, option,
   label, family, its settings as an Effect `Schema` (annotated with what the view

@@ -1,3 +1,4 @@
+import { declaredOptionId, SYSTEM_IDS, VIEW_FAMILY_OPTIONS } from "@kb/model";
 /**
  * The view contract (DESIGN-UI.md → UI points: routes and views), run over
  * every view the core plugins and every browser entry contribute, and every
@@ -28,7 +29,7 @@ import {
   kernelHosts,
 } from "@kb/plugin";
 import { foldSeed } from "@kb/seed";
-import { SYSTEM_IDS, VIEW_FAMILY_VALUES } from "@kb/model";
+
 import {
   findView,
   keptLoad,
@@ -338,9 +339,10 @@ describe("view contract", () => {
       const option = SEED.get(view.key.option);
       expect(SEED.get(SYSTEM_IDS.viewsRoot)?.children).toContain(view.key.option);
       const family = option?.props[SYSTEM_IDS.viewFamilyField]?.[0];
-      const expected = Object.entries(VIEW_FAMILY_VALUES).find(
-        ([name]) => name === view.key.family,
-      )?.[1].id;
+      const expected =
+        view.key.family === undefined
+          ? undefined
+          : declaredOptionId(VIEW_FAMILY_OPTIONS, view.key.family);
       if (view.key.family !== undefined) expect(expected).toBeDefined();
       expect(family?.v).toBe(expected);
     });
