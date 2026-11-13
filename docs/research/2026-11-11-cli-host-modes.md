@@ -36,6 +36,10 @@ outside the repository), which asked them again:
   reverses the 2026-11-04 decision and so changes behaviour, which the
   delegation does not cover. Nothing that depends on it is built: within
   steps 9–10, only what holds with today's offline-deletion behaviour.
+- **Decided, owner may veto: a host entry declares its mode** (§12). The
+  owner asked that families "declare what functionality will be in host
+  mode, or even make the SDK clearly that way". The entry split decides
+  it, and the types enforce it.
 
 Date: 2026-11-11, revised 2026-11-12.
 Inputs: kb `main` at `d94876c5` (revision: `0caabcc0`); host shared-server
@@ -970,3 +974,58 @@ For §5 (2026-11-12):
   then the same call, which must answer `not_found`.
 - Each command is timed by spawning it N times from a Python harness and
   taking the minimum and median.
+
+## 12. Host entries declare their mode
+
+Decided 2026-11-13 under the owner's delegation; the owner may veto. It
+answers the owner's request that families "declare what functionality
+will be in host mode, or even make the SDK clearly that way". It builds on
+§6 (jobs are actions, schedules are `#job` nodes, a host adds triggers)
+and keeps D4: the agent and routines stay hosted, now as declared.
+
+**The entry split decides the mode.**
+
+- A family's shared and server entries contribute what runs in every
+  process: actions, jobs, schemas, seeds, guards and migrations.
+- Its host entry (today `@kb/routines-host`, and the agent's plugin as
+  `kb ui` composes it) is typed so it can contribute only two kinds of
+  thing:
+  - **triggers and channels**, which make a job due sooner or carry a
+    live connection (accelerators, §6.4);
+  - **host-only capabilities**, each named in the family's declaration
+    with a one-line reason and the action ids it serves. These are what
+    D4 keeps hosted: the agent's threads (until gap
+    `01M40WSVNKVH3ZY8QE0GN5DY8X` closes) and the routines engine (until D1
+    is decided).
+- A host entry cannot register an ordinary action or own store truth. Its
+  type has no member for either, so this is enforced by the compiler, not
+  by a convention, and a host entry that registers anything else fails
+  the build.
+
+**`HOSTED_FAMILIES` stops being a core list.** Today `@kb/bundled` names
+the agent and routines by hand, which is core enumerating families (P3).
+The list is derived instead: a family is hosted exactly when its
+declaration declares a host part.
+
+**The mode is visible.**
+
+- `kb ext list` and the trust sheet show, per extension, what works
+  without a host (its actions, and its jobs with their `every`) and what a
+  host adds (the triggers that make it faster, and each host-only
+  capability with its reason).
+- A host-only capability's actions are known to every process, because
+  their ids are declared data. Called with no host running, the CLI and
+  MCP answer "needs `kb ui` running: <reason>", never a missing action.
+
+**It is checked.** The hostless property of step 10 says every shared
+action and job gives the same result with and without a host. The host
+entry's type is the build-time half: a host entry that registers outside
+its allowed kinds does not compile.
+
+**Gate.** Today's actions stay on every surface where they are today.
+Hosted capabilities keep working as they do now, only now declared, and D1
+stays open.
+
+**Order.** It is built after steps 2–6, as one restructure (the declared
+host part, and the typed host entry that implements it, with no behaviour
+change), then the visibility and the message, then the derived list.
