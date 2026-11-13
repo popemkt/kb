@@ -61,8 +61,7 @@ their real ones (the log showed `PermissionDenied` while pruning). As a
 test run, the server never falls back to the person's home, data or cache,
 and with no cache it keeps no archive.
 
-**Two workers on CI.** The macos-15 runner has three cores, and one worker
-ran one test at a time on it. Per-runner load is still fixed, at two.
+**Two workers on CI, tried and reverted.** See "CI" under After.
 
 **Deferred.** `backdrop-load` and `backdrop-width` decide that a backdrop is
 not a GPU scene by waiting out an 8 s timeout, because a GPU backdrop
@@ -138,6 +137,23 @@ that the suite stays green.
 **Core.** Serial 634 s, then `--parallel=4` at 298, 246 and 265 s: 3817 of
 3817 passed in each run.
 
-**CI.** Render goes from one worker to two per shard, and core runs on
-four workers. The before and after numbers for CI are in the PR that made
-this change, from its own Validate run.
+**CI, run 43371012192** (render at two workers per shard, core at four):
+
+| Job | Before: test step | Before: tests summed | After: test step | After: tests summed |
+|---|---:|---:|---:|---:|
+| render (1/2) | 637 | 623 | 437 | 835 |
+| render (2/2) | 408 | 396 | 499 | 956 |
+| core | 466 | | 407 | |
+
+Two workers on the three-core macOS runner slowed every test. The GPU-heavy
+files more than doubled (lab 63 to 193 s, render 135 to 239 s,
+head-band-contrast 93 to 188 s), shard 2 took longer than at one worker,
+and `query-budget`'s frame-time assertion (the longest frame while the
+query worker runs, under 250 ms) failed at 370 ms. CI went back to one
+worker. The pool's saving and the closed backdrop timeout don't need a
+second worker: shard 1 comes to about 623 − 85 − 110 ≈ 430 s of tests at
+one worker, against 499 s for shard 2 at two.
+
+Core gained less on CI than locally (466 to 407 s, against 634 to about
+270 s here). The surface contract is the floor (`#gap`
+01M79GV5XZGH57HF5174KXYYAB), and this runner takes it longer.

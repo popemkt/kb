@@ -18,8 +18,8 @@ export default defineConfig({
   testDir: "./tests-render",
   testMatch: "**/*.e2e.ts",
   fullyParallel: true,
-  // Why two on CI: docs/ci.md → Scheduling and selection.
-  workers: isCI ? 2 : undefined,
+  // Why one on CI: docs/ci.md → Scheduling and selection.
+  workers: isCI ? 1 : undefined,
   forbidOnly: isCI,
   // A retry would hide exactly the order and timing faults this suite exists
   // to surface; a flaky spec is fixed, never retried into green.

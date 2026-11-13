@@ -101,8 +101,11 @@ individual tests by count with `fullyParallel: true`, taking contiguous
 slices in file order. All 60 backdrop tests currently land in shard 1:
 about 8.7 minutes of tests against an estimated 6.3 minutes in shard 2.
 This balances count, not duration, and remains sensitive to file order
-(a `#gap` names it). CI pins `workers: 2` to keep per-runner load fixed on
-the three-core macOS runner; local runs use the default. Each test still
+(a `#gap` names it). CI pins `workers: 1`; local runs use the default. Two
+workers on the three-core macOS runner were tried (run 43371012192): every
+test slowed, shard 2's tests summed 956 s against 396 s at one worker and
+the shard took longer, and a frame-time assertion failed under the load.
+Each test still
 gets its own harness process and scratch store; a worker starts the next
 test's while the current one runs (`HarnessPool` in
 `tests-render/harness-server.ts`), so a test no longer waits out a process

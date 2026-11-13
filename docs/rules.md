@@ -1408,7 +1408,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 - **expected** — CI render shards hold about equal test time, whatever the file order
 - **current** — Playwright cuts contiguous slices of equal test count in file order; the sixty backdrop-* tests sort first and take about 8 s each, so shard 1 summed 623 s of tests against 396 s in shard 2 (run 43354552275)
-- **impact** — render 1/2 finishes minutes after 2/2 and bounds Validate; two workers per shard (2026-11-13) shorten both and keep the ratio
+- **impact** — render 1/2 finishes minutes after 2/2 and bounds Validate
 - **closes** — a duration-balanced split (Playwright has no timing-based sharding; PWTEST_SHARD_WEIGHTS is internal and still count-based), or the backdrop timeout gap closing, which takes about 160 s out of shard 1
 - **node** — `01M79GV526E3V6ZPVW0D6752FK`
 
@@ -1613,7 +1613,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 - **expected** — no core test file dominates the run, so bun test --parallel scales with workers
 - **current** — packages/app/cli/tests/surface-contract.test.ts runs its whole governance x listener matrix (four cells) in one file and spawns a kb process per CLI call; it took 215 s of a 634 s serial run (2026-11-13), and bun parallelises files, not tests
-- **impact** — the core suite cannot drop below about 215 s locally however many workers it gets: four workers ran it in 298 s, sixteen in 239 s
+- **impact** — the core suite cannot drop below about 215 s locally however many workers it gets: four workers ran it in 298 s, sixteen in 239 s; on CI's Ubuntu runner four workers took 407 s against 466 s serial
 - **closes** — a test file per matrix cell over shared surface factories, or a cheaper one-shot CLI (the startup measurements in PR #189)
 - **node** — `01M79GV5XZGH57HF5174KXYYAB`
 
