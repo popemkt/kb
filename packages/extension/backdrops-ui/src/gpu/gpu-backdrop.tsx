@@ -30,6 +30,7 @@ import { readStagePalette } from "../scene/tokens";
 import { useTellOwner } from "../scene/owner";
 import { TintBackdrop } from "../tint-backdrop";
 import type { ContentBox } from "./framing";
+import { GpuHostElement, type SceneState } from "./host-element";
 import { inTurn } from "./sample-turns";
 import type { GpuBackdropInit, GpuBackdropMount, GpuBackdropScene, GpuLook } from "./gpu-scene";
 
@@ -85,8 +86,6 @@ function watchContent(el: HTMLElement, onChange: (content: ContentBox) => void):
   observer.observe(holder);
   return () => observer.disconnect();
 }
-
-type SceneState = "loading" | "ready" | "unavailable";
 
 /** What a scene mounted later starts from: the page as it is now. */
 interface Latest {
@@ -256,7 +255,7 @@ export default function GpuBackdrop({
     <>
       {/* The wash is the fallback, never a placeholder: a load's one change is the scene's fade-in. */}
       {state === "unavailable" ? <TintBackdrop color={color} opacity={opacity} /> : null}
-      <div ref={host} className="kb-gpu-backdrop" data-scene-state={state} />
+      <GpuHostElement ref={host} state={state} />
     </>
   );
 }
