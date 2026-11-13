@@ -55,7 +55,7 @@ import {
   type FigureUniforms,
   type V2,
   type V3,
-} from "./astral-shader";
+} from "./astral-shader.ts";
 
 /**
  * A small four-point glint in the sky at `off` from its centre, its long

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { BackdropStrength } from "@kb/model";
+import type { BackdropStrength } from "@kb/appearance";
 import { useBackdrops, usePageBackdrop } from "../hooks";
 import { cardWindowTop } from "../lib/backdrop-card-window";
 import { QUIET_ACTIVITY } from "../lib/plugins";

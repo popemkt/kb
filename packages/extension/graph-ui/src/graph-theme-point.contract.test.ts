@@ -13,7 +13,8 @@ import { Effect } from "effect";
 import { BUNDLED_DECLARATIONS } from "@kb/bundled";
 import { declarationPlugin, defineExtension } from "@kb/contracts";
 import { decodeLensConfig, GRAPH_THEME_OPTIONS, type LensTheme } from "@kb/graph";
-import { declaredOptionId, foldSeed, type SeedOption } from "@kb/model";
+import { declaredOptionId, type SeedOption } from "@kb/model";
+import { foldSeed } from "@kb/seed";
 import { definePlugin, makeKernel, syncPlugins, type Plugin } from "@kb/plugin";
 import { provideDeclared } from "@kb/ui-sdk";
 import { CONTRIBUTED_GRAPH_THEMES, contributedTheme } from "./contributed-themes";
@@ -23,7 +24,7 @@ import {
   graphThemesPlugin,
   shownGraphTheme,
   type GraphTheme,
-} from "./graph-themes";
+} from "./graph-themes.ts";
 
 const NEON_KEY: SeedOption = { id: "plain.neon", label: "Neon" };
 /** A family of the test's own: it declares a graph theme, and its page plugin contributes it. */

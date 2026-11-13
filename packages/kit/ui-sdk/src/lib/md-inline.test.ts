@@ -9,7 +9,7 @@ import {
   inlineSpanSource,
   parseInlineMd,
   parseInlineSource,
-} from "./md-inline";
+} from "./md-inline.ts";
 
 function literal(text: string): void {
   expect(parseInlineMd(text)).toEqual([{ t: "text", v: text }]);

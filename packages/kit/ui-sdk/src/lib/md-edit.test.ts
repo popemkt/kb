@@ -17,7 +17,7 @@ import {
   revealMarkupAtSelection,
   serializeEditable,
   setCaretSerializedOffset,
-} from "./md-edit";
+} from "./md-edit.ts";
 import { InlineMarkdown } from "../components/md-view";
 
 /** No graph behind the text: every reference keeps the default link colour. */

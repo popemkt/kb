@@ -10,7 +10,7 @@ import {
   layoutWeb,
   pieceBounds,
   placeSheets,
-} from "./web";
+} from "./web.ts";
 
 const AT = { x: 0.4, y: 0.05, scale: 1, lean: [0, 0] } as const;
 

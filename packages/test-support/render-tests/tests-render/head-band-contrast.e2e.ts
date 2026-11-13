@@ -7,7 +7,8 @@
 // light and in dark, the breadcrumbs' text is made transparent for a moment
 // and the band is photographed: each crumb's colour is held against every
 // pixel of its box, and the least contrast found must be at least 4.5:1.
-import { BACKDROP_STRENGTH_OPTION_IDS, SYSTEM_IDS } from "@kb/model";
+import { BACKDROP_STRENGTH_OPTION_IDS } from "@kb/appearance";
+import { SYSTEM_IDS } from "@kb/model";
 import type { APIRequestContext, Page } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
 import { backdropOptions } from "./backdrop-options.ts";

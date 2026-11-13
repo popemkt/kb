@@ -9,7 +9,7 @@ import {
   reloadForNewBuild,
   reloadNow,
   watchForNewBuild,
-} from "./stale-build";
+} from "./stale-build.ts";
 
 const missing = (url = "https://kb/static/composer-page-CSoHrcCV.js") =>
   new TypeError(`Failed to fetch dynamically imported module: ${url}`);

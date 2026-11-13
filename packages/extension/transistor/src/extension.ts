@@ -18,10 +18,10 @@ import { declarationPlugin, defineExtension } from "@kb/contracts";
 import {
   BACKDROP_OPTIONS,
   DESIGN_SYSTEM_OPTIONS,
-  retiredOption,
   themeBackdrop,
   themeSystem,
-} from "@kb/model";
+} from "@kb/appearance";
+import { retiredOption } from "@kb/model";
 import type { Plugin } from "@kb/plugin";
 
 /**

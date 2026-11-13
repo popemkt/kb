@@ -9,8 +9,8 @@
 import { describe, expect, test } from "bun:test";
 import { Effect } from "effect";
 import type { ActionGuard, CalledAction, Listener } from "@kb/contracts";
-import { matchSpecificity } from "@kb/model";
-import { interceptionOf } from "@kb/operations";
+import { matchSpecificity, interceptionOf } from "@kb/operations";
+
 import { benchmarkEnabled as enabled } from "@kb/test-kit";
 import { writeOut } from "../src/output.ts";
 

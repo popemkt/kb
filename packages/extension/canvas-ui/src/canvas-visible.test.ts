@@ -7,7 +7,7 @@ import {
   edgeScreenLines,
   placeBeside,
   visibleItemIds,
-} from "./canvas-visible";
+} from "./canvas-visible.ts";
 
 function item(id: string, x: number, y: number, width = 100, height = 50): CanvasNode {
   return { id, type: "text", text: id, x, y, width, height };

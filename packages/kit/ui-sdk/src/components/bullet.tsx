@@ -12,7 +12,7 @@ import {
   type BulletAppearance,
   type OutlineBulletOptions,
   type BulletShape,
-} from "../lib/bullet-mode";
+} from "../lib/bullet-mode.ts";
 import type { OutlineNode } from "../lib/types";
 
 interface BulletProps extends OutlineBulletOptions {

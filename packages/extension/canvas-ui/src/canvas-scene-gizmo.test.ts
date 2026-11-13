@@ -13,7 +13,7 @@ import {
   presetView,
   type CanvasView,
   type ScreenRect,
-} from "./canvas-camera";
+} from "./canvas-camera.ts";
 import { GizmoLayer } from "./canvas-scene-gizmo";
 import type { GizmoChoice } from "./canvas-gizmo";
 import { SWEEP_BUDGET_MS } from "./test-support/sweep-budget";

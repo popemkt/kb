@@ -23,7 +23,7 @@ import {
   type LoadedExtension,
   type NodeLookup,
 } from "@kb/contracts";
-import { foldSeed } from "@kb/model";
+import { foldSeed } from "@kb/seed";
 import { BUNDLED_EXTENSIONS } from "./bundled.ts";
 import { extensionStorageLayer, codeTrustLayer } from "@kb/workspace-fs";
 import { deploys, governanceMode } from "./deployment.ts";

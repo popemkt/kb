@@ -7,7 +7,7 @@ import {
   parseChord,
   type Chord,
   type KeyChordEvent,
-} from "./keychord";
+} from "./keychord.ts";
 
 describe("parseChord", () => {
   it.each([

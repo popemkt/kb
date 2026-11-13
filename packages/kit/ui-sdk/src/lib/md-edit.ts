@@ -18,7 +18,7 @@ import {
   parseInlineSource,
   type InlineSeg,
   type InlineSpan,
-} from "./md-inline";
+} from "./md-inline.ts";
 export const KB_REF_ATTR = "data-kb-ref";
 /** The id a rendered reference points at, read by click routing. */
 export const KB_REF_ID_ATTR = "data-kb-ref-id";

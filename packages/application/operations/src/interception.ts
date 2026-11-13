@@ -36,7 +36,8 @@ import {
   type Interception,
   type Listener,
 } from "@kb/contracts";
-import { domainError, matchSpecificity, type DomainError, type NodeId } from "@kb/model";
+import { domainError, type DomainError, type NodeId } from "@kb/model";
+import { matchSpecificity } from "./action-match.ts";
 import type { Contribution, Kernel } from "@kb/plugin";
 
 import { budgeted, whyFailed } from "./listener-budget.ts";

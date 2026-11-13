@@ -17,20 +17,21 @@ import { defineExtension, type ExtensionDeclaration } from "@kb/contracts";
 import {
   BACKDROP_OPTIONS,
   DESIGN_SYSTEM_OPTIONS,
-  SYSTEM_IDS,
   backdropOptionId,
+  designSystemOptionId,
+} from "@kb/appearance";
+import {
+  SYSTEM_IDS,
   declaredIdOf,
   declaredOptionId,
-  designSystemOptionId,
-  ensureSystemSeed,
   extensionNodeId,
-  foldSeed,
   mergeNodeSets,
   present,
   type DeclaredOptions,
   type KbNode,
   type SeedOption,
 } from "@kb/model";
+import { ensureSystemSeed, foldSeed } from "@kb/seed";
 import { BUNDLED_DECLARATIONS, bundledFold } from "@kb/bundled";
 import { themesExtension } from "@kb/themes";
 import { transistorExtension } from "@kb/transistor";

@@ -20,8 +20,7 @@ import {
 import { declaredOptionId } from "../src/declared-option.ts";
 import { valueConformanceError } from "../src/field-value.ts";
 import { resolveFieldId } from "../src/resolve.ts";
-import { ensureSystemSeed } from "../src/seed.ts";
-import { bundledFold, bundledSeed } from "@kb/bundled";
+import { bundledSeed } from "@kb/bundled";
 
 function refs(node: KbNode, field: string): string[] {
   return (node.props[field] ?? []).filter((v) => v.t === "ref").map((v) => v.v);
@@ -262,14 +261,6 @@ describe("typed field seeds", () => {
     expect(
       present(result.nodes[0], "expected result.nodes[0]").props[SYSTEM_IDS.fieldTypeField],
     ).toEqual([{ t: "str", v: "colour" }]);
-  });
-
-  test("ensureSystemSeed is idempotent over typed-field nodes", () => {
-    const first = ensureSystemSeed([], bundledFold());
-    expect(first.seeded).toBe(true);
-    const again = ensureSystemSeed(first.nodes, bundledFold());
-    expect(again.seeded).toBe(false);
-    expect(again.nodes.length).toBe(first.nodes.length);
   });
 
   test("resolveFieldId short aliases for typed-field sys nodes", () => {

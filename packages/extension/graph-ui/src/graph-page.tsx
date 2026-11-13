@@ -24,7 +24,7 @@ import {
   lensReport,
   listPerspectiveNodes,
   parsePerspective,
-} from "./graph-lens";
+} from "./graph-lens.ts";
 import {
   buildTreeForest,
   resolvePerspective,

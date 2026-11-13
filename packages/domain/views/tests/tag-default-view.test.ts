@@ -8,14 +8,13 @@ import { describe, expect, test } from "bun:test";
 import { Result } from "effect";
 import {
   SYSTEM_IDS,
-  foldSeed,
   isWritableField,
   present,
   viewOptionId,
   type KbNode,
   type NodeProps,
-  type SeedSource,
 } from "@kb/model";
+import { foldSeed, type SeedSource } from "@kb/seed";
 import { BUNDLED_DECLARATIONS, bundledSeed } from "@kb/bundled";
 import {
   HomeView,

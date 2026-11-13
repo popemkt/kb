@@ -21,7 +21,7 @@ import {
   type CanvasViewportControls,
   type FlatViewportControls,
   type ViewSize,
-} from "./canvas-camera";
+} from "./canvas-camera.ts";
 import { CanvasCameraRig } from "./canvas-camera-rig";
 import type { CanvasPointerEvent, PointerResult } from "./canvas-pointer";
 import { logError, prefersReducedMotion, readTiming } from "@kb/ui-sdk";

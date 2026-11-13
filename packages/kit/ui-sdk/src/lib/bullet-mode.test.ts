@@ -10,7 +10,7 @@ import {
   bulletPaintCss,
   resolveBulletKind,
   type BulletModeInput,
-} from "./bullet-mode";
+} from "./bullet-mode.ts";
 import { SYSTEM_IDS } from "./types";
 
 function base(partial: Partial<BulletModeInput> = {}): BulletModeInput {

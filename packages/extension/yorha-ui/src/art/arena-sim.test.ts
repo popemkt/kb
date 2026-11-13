@@ -8,7 +8,7 @@ import {
   VIEW_HOLD,
   VIEW_MOVE,
   viewAt,
-} from "./arena-sim";
+} from "./arena-sim.ts";
 
 const DT = 1 / 30;
 

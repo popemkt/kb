@@ -12,7 +12,7 @@ import {
   planMove,
   planSetProp,
   planSplit,
-} from "./plan";
+} from "./plan.ts";
 
 describe("outline action input builders", () => {
   it("split keeps the expanded-first-child decision in the UI", () => {

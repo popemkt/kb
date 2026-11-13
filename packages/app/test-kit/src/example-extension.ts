@@ -23,16 +23,7 @@ export const EXAMPLE = "example";
 
 /** Its files under `.kb/extensions/`, by path. */
 export const EXAMPLE_EXTENSION: Readonly<Record<string, string>> = {
-  "lib/declaration.ts": `import {
-  BACKDROP_OPTIONS,
-  FIELD_TYPE_OPTIONS,
-  NoParams,
-  defineExtension,
-  viewDef,
-  viewKey,
-  type KbNode,
-  type SeedBackdrop,
-} from "kb-ext-sdk";
+  "lib/declaration.ts": `import { BACKDROP_OPTIONS, FIELD_TYPE_OPTIONS, NoParams, defineExtension, viewDef, viewKey, type KbNode, type SeedBackdrop } from "kb-ext-sdk";
 import { STARS, STARS_TYPE } from "./stars.ts";
 
 /** The example's page: a board, which its page half draws. */
@@ -220,16 +211,7 @@ export interface GreeterService {
 /** The example's service: its server entry provides it, and its action injects it. */
 export const Greeter = Service<GreeterService>()("ext.example.greeter");
 `,
-  "example.ts": `import {
-  ActionPoint,
-  Effect,
-  declarationPlugin,
-  definePlugin,
-  extensionNamespace,
-  guardAction,
-  provideAction,
-  type ExtensionAction,
-} from "kb-ext-sdk";
+  "example.ts": `import { ActionPoint, Effect, declarationPlugin, definePlugin, extensionNamespace, guardAction, provideAction, type ExtensionAction } from "kb-ext-sdk";
 import { declaration } from "./lib/declaration.ts";
 import { Greeter } from "./lib/greeter.ts";
 import { starsRefusal } from "./lib/stars.ts";
@@ -295,26 +277,7 @@ export default definePlugin({
 });
 `,
   "example.page.tsx": `import { Effect, declarationPlugin, definePlugin } from "kb-ext-sdk";
-import {
-  BACKDROP_BUDGETS,
-  BackdropPoint,
-  CommandPoint,
-  KeybindingPoint,
-  PICKED,
-  PaletteStepPoint,
-  SidebarSectionPoint,
-  ViewPoint,
-  provideBackdrop,
-  provideCommand,
-  provideKeybinding,
-  providePaletteStep,
-  provideValueKind,
-  provideView,
-  ValueKindPoint,
-  type ValueKindSpec,
-  type ValueSurfaceProps,
-  type ViewProps,
-} from "kb-ext-sdk/page";
+import { BACKDROP_BUDGETS, BackdropPoint, CommandPoint, KeybindingPoint, PICKED, PaletteStepPoint, SidebarSectionPoint, ViewPoint, provideBackdrop, provideCommand, provideKeybinding, providePaletteStep, provideValueKind, provideView, ValueKindPoint, type ValueKindSpec, type ValueSurfaceProps, type ViewProps } from "kb-ext-sdk/page";
 import {
   BoardView,
   Glow,

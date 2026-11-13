@@ -18,7 +18,7 @@ import {
   BACKDROP_VARIANT_OPTIONS,
   backdropVariantOptions,
   type SeedBackdrop,
-} from "@kb/model";
+} from "@kb/appearance";
 import type { Plugin } from "@kb/plugin";
 import { MOVING_KNOBS } from "./knobs.ts";
 import { BackdropStudioView } from "./view.ts";

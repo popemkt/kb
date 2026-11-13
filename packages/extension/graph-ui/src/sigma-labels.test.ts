@@ -15,7 +15,7 @@ import {
   resetGraphLabels,
   setGraphLabelPaint,
   type GraphNodeBox,
-} from "./sigma-labels";
+} from "./sigma-labels.ts";
 import { contributedTheme } from "./contributed-themes";
 
 type LabelData = Parameters<Settings["defaultDrawNodeLabel"]>[1];

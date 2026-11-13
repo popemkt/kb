@@ -7,7 +7,7 @@ import {
   weekKey,
   weekTitle,
   yearKey,
-} from "../src/period";
+} from "../src/period.ts";
 
 describe("day keys", () => {
   test("a key names a real calendar date and nothing else", () => {

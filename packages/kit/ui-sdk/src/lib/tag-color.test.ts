@@ -10,7 +10,7 @@ import {
   type TagPalette,
   tagColorAlpha,
   tagColorFill,
-} from "./tag-color";
+} from "./tag-color.ts";
 import type { WireNode } from "@kb/contracts";
 import { wireToOutlineMap } from "./graph-view";
 import { SYSTEM_IDS, type TagBadge } from "./types";

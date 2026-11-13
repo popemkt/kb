@@ -21,7 +21,7 @@ import {
   type Force3dHover,
   type Force3dScene,
   type Force3dSettings,
-} from "./force3d-scene";
+} from "./force3d-scene.ts";
 
 export interface Force3dGraphProps extends GraphEmphasis {
   nodes: LensNode[];

@@ -1,11 +1,7 @@
 import { CORE_POINT_DEFINITIONS } from "./point-definitions.ts";
 import { Effect, Schema } from "effect";
-import {
-  BACKDROP_OPTIONS,
-  BACKDROP_VARIANT_OPTIONS,
-  backdropVariantOptions,
-  FIELD_TYPE_OPTIONS,
-} from "@kb/model";
+import { BACKDROP_OPTIONS, BACKDROP_VARIANT_OPTIONS, backdropVariantOptions } from "@kb/appearance";
+import { FIELD_TYPE_OPTIONS } from "@kb/model";
 import { NoParams, viewKey } from "@kb/views";
 import { Point, Service, definePlugin, namespaced, type ContributionEntry } from "@kb/plugin";
 import type { NodeIndex } from "@kb/query";

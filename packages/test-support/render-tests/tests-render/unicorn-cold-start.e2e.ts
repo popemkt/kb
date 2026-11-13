@@ -6,7 +6,8 @@
 // the file arrive. The runtime finishes starting the scene it was asked for,
 // kb destroys it once it has, and nothing throws. (The page's own backdrop
 // field shows a Unicorn card with a scene of its own, which stays.)
-import { SYSTEM_IDS, backdropOptionId } from "@kb/model";
+import { SYSTEM_IDS } from "@kb/model";
+import { backdropOptionId } from "@kb/appearance";
 import type { APIRequestContext } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
 

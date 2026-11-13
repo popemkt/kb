@@ -6,7 +6,8 @@
  * setting that did not move.
  */
 import { MOVING_KNOBS } from "@kb/backdrops";
-import type { BackdropDirection, BackdropStrength, KnobValues } from "@kb/model";
+import type { BackdropDirection, BackdropStrength } from "@kb/appearance";
+import type { KnobValues } from "@kb/model";
 import type { ScenePalette } from "./palette.ts";
 
 export interface Look {

@@ -9,6 +9,7 @@ import {
   type BaselineLanes,
 } from "../src/snapshot.ts";
 import {
+  renamedBaseLanes,
   ratchetMismatches,
   ratchetRises,
   unpromotedWarnRules,
@@ -80,6 +81,7 @@ describe("lint-warn-ratchet", () => {
         "rev-parse HEAD": "head",
         "merge-base HEAD main": "fork",
         "show fork:./lint-warn-baseline.json": ledger,
+        "diff --name-status -z --find-renames --diff-filter=R fork": "",
       }),
     );
     expect(onBranch.ok && onBranch.rev).toBe("fork");
@@ -89,6 +91,7 @@ describe("lint-warn-ratchet", () => {
         "merge-base HEAD main": "head",
         "rev-parse HEAD^": "parent",
         "show parent:./lint-warn-baseline.json": ledger,
+        "diff --name-status -z --find-renames --diff-filter=R parent": "",
       }),
     );
     expect(onMain.ok && onMain.rev).toBe("parent");
@@ -153,4 +156,37 @@ describe("lint-warn-ratchet", () => {
     // This collector starts a compiler per project. Budget for a nice-15 shared
     // host with bounded workers; the assertions and diagnostic scope are unchanged.
   }, 300000);
+});
+
+test("Git-detected moves carry path debt without admitting a new hit", () => {
+  const moved = renamedBaseLanes(
+    {
+      family: { "domain/model/src/backdrop.ts": 2 },
+      knip: { "exports:packages/domain/model/src/backdrop.ts:backdrop": 1 },
+    },
+    "R90\0packages/domain/model/src/backdrop.ts\0packages/domain/appearance/src/backdrop.ts\0",
+  );
+  expect(
+    ratchetRises(moved["family"], { "domain/appearance/src/backdrop.ts": 2 }, "family"),
+  ).toEqual([]);
+  expect(
+    ratchetRises(moved["family"], { "domain/appearance/src/backdrop.ts": 3 }, "family"),
+  ).toHaveLength(1);
+  expect(moved["knip"]).toEqual({
+    "exports:packages/domain/appearance/src/backdrop.ts:backdrop": 1,
+  });
+});
+
+test("the default base prefers fetched main over a stale checked-out local main", () => {
+  const ledger = JSON.stringify({ lanes: { blocking: {}, advisory: {}, knip: {} } });
+  const base = baselineAtRatchetBase(
+    scriptedGit({
+      "rev-parse HEAD": "head",
+      "merge-base HEAD origin/main": "fresh",
+      "merge-base HEAD main": "stale",
+      "show fresh:./lint-warn-baseline.json": ledger,
+      "diff --name-status -z --find-renames --diff-filter=R fresh": "",
+    }),
+  );
+  expect(base.ok && base.rev).toBe("fresh");
 });

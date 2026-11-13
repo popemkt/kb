@@ -37,7 +37,7 @@ import {
   type GpuBackdropScene,
   type GpuLook,
   groundsOf,
-} from "../gpu/gpu-scene";
+} from "../gpu/gpu-scene.ts";
 import { farField, glowAbout, type FieldReach } from "../gpu/dissolve";
 import { textScrim } from "../gpu/text-scrim";
 import {
@@ -46,7 +46,7 @@ import {
   glassUniforms,
   pieceFragment,
   type GlassUniforms,
-} from "./floating-geometry-shader";
+} from "./floating-geometry-shader.ts";
 import {
   fitPiece,
   glassLook,
@@ -56,7 +56,7 @@ import {
   placeSheets,
   type LampStrengths,
   type PieceBounds,
-} from "./web";
+} from "./web.ts";
 import type { Anchor } from "../gpu/framing";
 
 /** How strongly the light blooms on a dark page: the glints and the seams that meet there carry the frame. */

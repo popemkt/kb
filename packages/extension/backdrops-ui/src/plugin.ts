@@ -20,7 +20,7 @@ import {
   backdropsPlugin,
 } from "@kb/backdrops";
 import { definePlugin } from "@kb/plugin";
-import { BACKDROP_DIRECTIONS } from "@kb/model";
+import { BACKDROP_DIRECTIONS } from "@kb/appearance";
 import { SlidersHorizontalIcon } from "@phosphor-icons/react";
 import {
   BACKDROP_BUDGETS,
@@ -45,7 +45,7 @@ import {
   SilkBackdrop,
   ToonSeaBackdrop,
   WolfMedallionBackdrop,
-} from "./gpu/backdrops";
+} from "./gpu/backdrops.tsx";
 import { HEAD_HEIGHT } from "./gpu/head";
 import { RoostBackdrop } from "./roost/roost-backdrop";
 import { SkyBackdrop } from "./sky/sky-backdrop";

@@ -6,7 +6,8 @@
  * either and to the system painted. Until the graph has arrived it paints
  * nothing, so the page moves as its sheet and the OS say.
  */
-import { designSystemOptionId, extensionNodeId, motionChoice, type MotionChoice } from "@kb/model";
+import { designSystemOptionId, motionChoice, type MotionChoice } from "@kb/appearance";
+import { extensionNodeId } from "@kb/model";
 import { create } from "zustand";
 import { motionPaint } from "@/lib/motion-paint";
 import { useDesignSystemStore } from "@/stores/design-system.store";

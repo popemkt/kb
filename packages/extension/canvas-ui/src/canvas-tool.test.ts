@@ -21,7 +21,7 @@ import {
   toolTakes,
   type CanvasTool,
   type ToolState,
-} from "./canvas-tool";
+} from "./canvas-tool.ts";
 
 const createShapeNode = (kind: "rect" | "ellipse" | "diamond", x: number, y: number, id: string) =>
   presetItem(kind, { x, y }, id);

@@ -10,13 +10,8 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
-import {
-  BACKDROP_OPTIONS,
-  FIELD_TYPE_OPTION_IDS,
-  SYSTEM_IDS,
-  backdropOptionId,
-  extensionNodeId,
-} from "@kb/model";
+import { BACKDROP_OPTIONS, backdropOptionId } from "@kb/appearance";
+import { FIELD_TYPE_OPTION_IDS, SYSTEM_IDS, extensionNodeId } from "@kb/model";
 import {
   extensionContract,
   extensionModule,

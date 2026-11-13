@@ -21,7 +21,7 @@ import {
   SCOPE_OPTIONS,
   SCOPES,
   useExtensionAction,
-} from "./extension-actions";
+} from "./extension-actions.ts";
 
 const INPUT =
   "w-full rounded-sm border border-border bg-background px-2 py-1 text-ui text-foreground placeholder:text-faint-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring";

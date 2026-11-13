@@ -7,7 +7,7 @@ import {
   type CanvasIntent,
   type CanvasKeyEvent,
   type CanvasMenuName,
-} from "./canvas-keymap";
+} from "./canvas-keymap.ts";
 import { ZOOM_STEP } from "./canvas-camera";
 
 const withSelection = { selectionEmpty: false, transforming: false };

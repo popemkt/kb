@@ -5,19 +5,17 @@
  */
 import { type DependencyList, useContext, useMemo, useSyncExternalStore } from "react";
 import type { WireNode } from "@kb/contracts";
+import { assetUrl, extensionNodeId, type KnobValues } from "@kb/model";
 import {
-  assetUrl,
   backdropChoice,
   backdropKnobValues,
   backdropOptionId,
   backdropVariantOptionId,
   designSystemOptionId,
-  extensionNodeId,
   type BackdropDirection,
   type BackdropStrength,
-  type KnobValues,
   type SeedBackdrop,
-} from "@kb/model";
+} from "@kb/appearance";
 import type { NodeTextHostBinding } from "./components/node-text-host";
 import { useNodeTextBindingThrough } from "./components/node-text-port";
 import type { EdnRunner } from "./query";
@@ -27,7 +25,7 @@ import {
   useAnsweredThrough,
   useAnswersOf,
   useQueryReadThrough,
-} from "./lib/use-replica-queries";
+} from "./lib/use-replica-queries.ts";
 import { OpenNodeContext, useFollowThrough, type Follow } from "./lib/follow";
 import { useGraphReadThrough, type GraphRead } from "./lib/graph-read";
 import type { RefInk } from "./lib/md-edit";
@@ -50,7 +48,7 @@ import {
   ViewPoint,
   type Backdrop,
   type PageActivity,
-} from "./lib/plugins";
+} from "./lib/plugins.ts";
 import type { Contribution } from "@kb/plugin";
 import { readBackdrops, type ContributedBackdrops } from "./lib/backdrop-decode";
 import { type FrameView, frameViewNodeOf, frameViewThrough } from "./lib/frame-view";

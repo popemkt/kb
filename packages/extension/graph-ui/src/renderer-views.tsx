@@ -8,7 +8,7 @@ import {
   Force3dAdapter,
   TreeAdapter,
   type RendererProps,
-} from "./graph-adapters";
+} from "./graph-adapters.tsx";
 import { GraphCanvasErrorBoundary } from "./graph-canvas-error";
 import { useGraphFrame } from "./graph-frame";
 import { TreemapGraph } from "./treemap-graph";

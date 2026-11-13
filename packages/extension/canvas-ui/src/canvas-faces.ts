@@ -23,7 +23,7 @@ import {
   type CanvasPoint3,
   type CanvasView,
   type ViewSize,
-} from "./canvas-camera";
+} from "./canvas-camera.ts";
 
 /**
  * The plane an item's face is shown on as `view` sees it, as its frame: a

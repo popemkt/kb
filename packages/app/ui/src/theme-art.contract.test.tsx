@@ -22,15 +22,11 @@ import type { WireNode } from "@kb/contracts";
 import {
   BACKDROP_OPTIONS,
   DESIGN_SYSTEM_OPTIONS,
-  SYSTEM_IDS,
   backdropOptionId,
-  declaredIdOf,
   designSystemOptionId,
-  extensionNodeId,
-  firstRef,
-  foldSeed,
-  type KbNode,
-} from "@kb/model";
+} from "@kb/appearance";
+import { SYSTEM_IDS, declaredIdOf, extensionNodeId, firstRef, type KbNode } from "@kb/model";
+import { foldSeed } from "@kb/seed";
 import {
   BackdropPoint,
   DesignSystemPoint,

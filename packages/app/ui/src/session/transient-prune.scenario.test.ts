@@ -13,7 +13,7 @@ import {
   invokeLocal,
   resetPushLaneForTests,
   waitForBrowserPushes,
-} from "./runtime";
+} from "./runtime.ts";
 
 afterEach(() => {
   setPostAction(null);

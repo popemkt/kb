@@ -3,7 +3,8 @@
  * then the library, whose lines are the ones `node.addTree` answers ids by.
  */
 import { describe, expect, test } from "bun:test";
-import { SYSTEM_IDS, parseOutline, type OutlineItem } from "@kb/model";
+import { SYSTEM_IDS } from "@kb/model";
+import { parseOutline, type OutlineItem } from "@kb/operations";
 import { galleryExtension } from "@kb/gallery";
 import { NOTES_3D } from "../src/starter-3d.ts";
 import { STARTER_LIBRARY, starterOutline } from "../src/starter.ts";

@@ -23,7 +23,7 @@ import {
   Vector3,
   Color,
 } from "three/webgpu";
-import { MAX_BACKDROP_GLYPHS, type BackdropGlyphShape } from "@kb/model";
+import { MAX_BACKDROP_GLYPHS, type BackdropGlyphShape } from "@kb/appearance";
 import type { TslNode } from "@kb/scene-gpu";
 
 type F = TslNode<"float">;

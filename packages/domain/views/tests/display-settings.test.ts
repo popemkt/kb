@@ -15,15 +15,13 @@ import {
   displaySettingIds,
   displaySettingsOf,
   extensionNodeId,
-  foldSeed,
   isWritableField,
   present,
   settingsOf,
   type KbNode,
   type NodeProps,
-  type SeedSource,
-  type SeedView,
 } from "@kb/model";
+import { foldSeed, type SeedSource, type SeedView } from "@kb/seed";
 import { BUNDLED_DECLARATIONS, bundledSeed } from "@kb/bundled";
 
 const AT = "2026-11-01T00:00:00.000Z";

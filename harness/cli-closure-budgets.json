@@ -4,7 +4,7 @@
     "reason": "Shared shortcut commands add 1,082 bytes to the CLI static closure."
   },
   "modules": {
-    "limit": 1107,
-    "reason": "Initial emitted static closure module budget."
+    "limit": 1108,
+    "reason": "seed builders split from seed application"
   }
 }

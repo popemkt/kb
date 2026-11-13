@@ -88,7 +88,7 @@ import {
   type Engraving,
   type Metal,
   type StarTone,
-} from "./astral";
+} from "./astral.ts";
 import { TOOTH, type WheelLayout } from "./astral-geometry";
 
 export type F = TslNode<"float">;

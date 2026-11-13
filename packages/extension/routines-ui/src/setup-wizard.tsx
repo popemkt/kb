@@ -36,7 +36,7 @@ import {
   ConnectStep,
   ProjectStep,
   type StepProps,
-} from "./setup-steps";
+} from "./setup-steps.tsx";
 import { runCalls } from "./writes";
 
 const STEPS: Readonly<

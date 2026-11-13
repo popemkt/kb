@@ -40,7 +40,7 @@ import {
   screenToPlane,
   type CanvasView,
   type ViewSize,
-} from "../canvas-camera";
+} from "../canvas-camera.ts";
 import { CanvasCameraRig } from "../canvas-camera-rig";
 import { toneColor, type CardLook } from "../canvas-card-face";
 import { INK_PROPERTY } from "../canvas-dom-paint";

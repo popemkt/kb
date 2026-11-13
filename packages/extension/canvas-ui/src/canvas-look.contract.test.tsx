@@ -72,7 +72,7 @@ import {
   type DrawnLook,
   type LookProbe,
   type ProbeScene,
-} from "./test-support/projection-probes";
+} from "./test-support/projection-probes.ts";
 import type * as ThreeWebGpu from "three/webgpu";
 
 beforeAll(() => syncUiPlugins([testHostPlugin(testBrowserHost())]));

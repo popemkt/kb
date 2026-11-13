@@ -12,7 +12,7 @@ import {
   type CanvasTool,
   type ToolSpot,
   type ToolState,
-} from "./canvas-tool";
+} from "./canvas-tool.ts";
 import { selectNode as selNode } from "./canvas-selection";
 import type { CanvasSelection } from "./canvas-selection";
 import type {
@@ -20,7 +20,7 @@ import type {
   PointerResult,
   PointerState,
   ResizeCorner,
-} from "./canvas-pointer";
+} from "./canvas-pointer.ts";
 import { asElement } from "@kb/ui-sdk";
 import {
   clampZoom,
@@ -33,7 +33,7 @@ import {
   zoomViewAt,
   type CanvasHitItem,
   type FlatViewportControls,
-} from "./canvas-camera";
+} from "./canvas-camera.ts";
 
 interface CanvasGestureContext {
   docRef: RefObject<CanvasDoc>;

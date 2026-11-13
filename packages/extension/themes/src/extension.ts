@@ -14,7 +14,8 @@
  * falls to the default.
  */
 import { declarationPlugin, defineExtension } from "@kb/contracts";
-import { DESIGN_SYSTEM_OPTIONS, type SeedOption } from "@kb/model";
+import { DESIGN_SYSTEM_OPTIONS } from "@kb/appearance";
+import type { SeedOption } from "@kb/model";
 import type { Plugin } from "@kb/plugin";
 
 /** Warm off-white and ink, an ink-blue accent and the platform serif. */

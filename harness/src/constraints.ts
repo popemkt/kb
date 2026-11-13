@@ -616,6 +616,7 @@ export const CORE_NAME_LAYERS: readonly string[] = ["domain", "kit", "contract"]
 
 /** New packages begin with a narrow interface; existing ceilings change with reviewed reasons. */
 export const NEW_SURFACE_BUDGET = 60;
+// GAP [[01M78V3TNFF2XAVGZB6TXEAPR0]]: M3 retains intermediate model/appearance ceilings pending API redesign.
 export { default as SURFACE_BUDGETS } from "../surface-budgets.json";
 export { default as CLI_CLOSURE_BUDGETS } from "../cli-closure-budgets.json";
 

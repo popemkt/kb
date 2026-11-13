@@ -8,7 +8,8 @@
  * however long it rests on the way.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { knobFieldId, knobPropValue, type Knob, type KnobValue, type NodeId } from "@kb/model";
+import { knobFieldId, knobPropValue } from "@kb/appearance";
+import type { Knob, KnobValue, NodeId } from "@kb/model";
 import { browserHost } from "@kb/ui-sdk";
 
 /** Write `value` of `knob` to its field on `holder`; a value it holds none for (a seed each load) takes it out. */

@@ -7,7 +7,7 @@ import {
   DockPick,
   IconRow,
   type IconChoice,
-} from "./canvas-dock";
+} from "./canvas-dock.tsx";
 import { ColorSwatches, EdgeLookRows } from "./item-style-rows";
 
 export interface EdgeInspectorProps {

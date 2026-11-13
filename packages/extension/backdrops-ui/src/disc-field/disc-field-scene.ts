@@ -27,7 +27,7 @@ import {
   type GpuBackdropInit,
   type GpuBackdropScene,
   type GpuLook,
-} from "../gpu/gpu-scene";
+} from "../gpu/gpu-scene.ts";
 import type { Anchor } from "../gpu/framing";
 import { textScrim } from "../gpu/text-scrim";
 import { bakeVineyard, discTuning } from "./disc-field";

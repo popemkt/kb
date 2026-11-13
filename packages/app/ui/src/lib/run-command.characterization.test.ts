@@ -12,11 +12,11 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   SYSTEM_IDS,
   defaultViewIdOf,
-  designSystemOptionId,
   extensionNodeId,
   viewOptionId,
   viewOptionOf,
 } from "@kb/model";
+import { designSystemOptionId } from "@kb/appearance";
 import type { WireNode } from "@kb/contracts";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";

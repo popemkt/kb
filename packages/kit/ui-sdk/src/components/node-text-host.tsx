@@ -18,7 +18,7 @@ import {
   revealMarkupAtSelection,
   serializeEditable,
   setCaretSerializedOffset,
-} from "../lib/md-edit";
+} from "../lib/md-edit.ts";
 import { nodeTarget, routePointerClick, type Follow } from "../lib/follow";
 import { insertRefAtCursor, nodeCandidates, openRefQuery } from "../lib/refs";
 import { pickerRows } from "../lib/picker";

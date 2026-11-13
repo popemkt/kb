@@ -10,7 +10,8 @@
 // canvas reports (`data-hero`, heights from the content's centre) holds, the
 // frame always spans the region without scrolling the page sideways, the
 // canvas is never replaced and no frame it shows is blank.
-import { SYSTEM_IDS, backdropOptionId } from "@kb/model";
+import { SYSTEM_IDS } from "@kb/model";
+import { backdropOptionId } from "@kb/appearance";
 import type { APIRequestContext, Page } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
 import { backdropOptions } from "./backdrop-options.ts";

@@ -8,7 +8,7 @@ import {
   type CanvasTool,
   type CanvasToolFamily,
   type ToolState,
-} from "./canvas-tool";
+} from "./canvas-tool.ts";
 import { cn, useDismiss } from "@kb/ui-sdk";
 import { STRIP_BOTTOM } from "./canvas-stage-layout";
 import { CanvasToolSheet } from "./canvas-tool-sheet";

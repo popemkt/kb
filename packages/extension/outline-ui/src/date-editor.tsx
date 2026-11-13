@@ -8,7 +8,7 @@ import {
   monthLabel,
   todayLocal,
   weekdayInitials,
-} from "./date-display";
+} from "./date-display.ts";
 import { calendarWeeks, dateEditorIntent, sameDay } from "./date-calendar";
 
 export interface DateEditorProps {

@@ -39,6 +39,7 @@
     "@kb/query": "workspace:*",
     "@kb/sandbox": "workspace:*",
     "@kb/sandbox-quickjs": "workspace:*",
+    "@kb/seed": "workspace:*",
     "@kb/source-git": "workspace:*",
     "@kb/store-jsonl": "workspace:*",
     "@kb/store-sqlite": "workspace:*",
@@ -52,6 +53,7 @@
     "effect": "catalog:"
   },
   "devDependencies": {
+    "@kb/appearance": "workspace:*",
     "@kb/canvas": "workspace:*",
     "@kb/test-kit": "workspace:*",
     "@types/bun": "catalog:",

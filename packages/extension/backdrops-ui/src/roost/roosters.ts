@@ -7,7 +7,8 @@
  * the one body at every point between, never a swap.
  */
 import { ROOST_BATS_KNOB } from "@kb/backdrops";
-import { knobValue, type BackdropStrength, type KnobValues } from "@kb/model";
+import { knobValue, type KnobValues } from "@kb/model";
+import type { BackdropStrength } from "@kb/appearance";
 import { newFlier, type Flier } from "../scene/flier";
 import { damp, envelope, lerp } from "../scene/math";
 import type { Reactions } from "../scene/reactions";

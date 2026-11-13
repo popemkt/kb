@@ -10,7 +10,7 @@ import {
   GraphSurface,
   TreeRendererView,
   TreemapRendererView,
-} from "./surfaces";
+} from "./surfaces.tsx";
 import {
   DEFAULT_AUTOROTATE,
   DEFAULT_EDGE_LABELS,

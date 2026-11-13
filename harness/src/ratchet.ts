@@ -82,3 +82,36 @@ export function unpromotedWarnRules(
   }
   return unpromoted.toSorted();
 }
+
+/** Carry path-keyed debt with Git-detected renames; other identities stay unchanged. */
+export function renamedBaseLanes<Lanes extends { [Key in keyof Lanes]: Record<string, number> }>(
+  lanes: Lanes,
+  nameStatus: string,
+): { [Key in keyof Lanes]: Record<string, number> } {
+  const paths = new Map<string, string>();
+  const fields = nameStatus.split("\0");
+  for (let index = 0; index < fields.length; index++) {
+    const status = fields[index];
+    if (status === undefined || !status.startsWith("R")) continue;
+    const from = fields[++index];
+    const to = fields[++index];
+    if (from === undefined || to === undefined) throw new Error("incomplete Git rename record");
+    paths.set(from, to);
+    if (from.startsWith("packages/") && to.startsWith("packages/")) {
+      paths.set(from.slice("packages/".length), to.slice("packages/".length));
+    }
+  }
+  return Object.fromEntries(
+    Object.entries<Record<string, number>>(lanes).map(([lane, counts]) => {
+      const moved: Record<string, number> = {};
+      for (const [identity, count] of Object.entries(counts)) {
+        const key = identity
+          .split(/(:| imports )/)
+          .map((part) => paths.get(part) ?? part)
+          .join("");
+        moved[key] = (moved[key] ?? 0) + count;
+      }
+      return [lane, moved];
+    }),
+  ) as { [Key in keyof Lanes]: Record<string, number> };
+}

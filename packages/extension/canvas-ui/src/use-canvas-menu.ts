@@ -12,7 +12,7 @@ import {
   type CanvasIntent,
   type CanvasMenuCommand,
   type CanvasMenuName,
-} from "./canvas-keymap";
+} from "./canvas-keymap.ts";
 import { hasEditor } from "./canvas-face-overlay";
 import { selectForMenu, selectionEmpty, soleItem, type CanvasSelection } from "./canvas-selection";
 

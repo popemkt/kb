@@ -8,9 +8,9 @@ import {
   ResolveError,
   domainError,
   domainFromResolve,
-  sanitizeSvg,
   type DomainError,
 } from "@kb/model";
+import { sanitizeSvg } from "./svg-sanitize.ts";
 
 const SAFE_EXT = /^[a-z0-9]{1,12}$/i;
 

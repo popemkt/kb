@@ -8,18 +8,17 @@
  * is refused.
  */
 import { describe, expect, test } from "bun:test";
+import { BACKDROP_OPTIONS, DESIGN_SYSTEM_OPTIONS } from "@kb/appearance";
 import {
-  BACKDROP_OPTIONS,
-  DESIGN_SYSTEM_OPTIONS,
   SYSTEM_IDS,
   VIEW_FAMILY_VALUES,
   declaredOptionId,
   defaultViewTypeOf,
   type DeclaredOptions,
   extensionNodeId,
-  foldSeed,
   viewOptionId,
 } from "@kb/model";
+import { foldSeed } from "@kb/seed";
 import type { ExtensionDeclaration } from "@kb/contracts";
 import { BUNDLED_DECLARATIONS, bundledOwners, bundledSeed } from "@kb/bundled";
 

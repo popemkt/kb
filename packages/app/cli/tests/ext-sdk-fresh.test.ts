@@ -90,15 +90,7 @@ describe("scratch external extension against shipped SDK", () => {
 
     // Hand-rolled schema — no zod / no kb src imports (sanctioned runtime surface).
     const greet = `/// <reference path="../sdk.d.ts" />
-import {
-  ActionPoint,
-  Effect,
-  defineExtension,
-  definePlugin,
-  extensionNamespace,
-  provideAction,
-  type ExtensionAction,
-} from "kb-ext-sdk";
+import { ActionPoint, Effect, defineExtension, definePlugin, extensionNamespace, provideAction, type ExtensionAction } from "kb-ext-sdk";
 
 const inputSchema = {
   parse(input: unknown) {

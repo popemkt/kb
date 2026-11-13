@@ -10,7 +10,7 @@ import {
   zoomAboutCentre,
   zoomIn,
   zoomOut,
-} from "./framing";
+} from "./framing.ts";
 
 const viewport = { width: 1000, height: 600 };
 const presentation = { height: 240 };

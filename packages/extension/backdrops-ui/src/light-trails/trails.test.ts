@@ -9,7 +9,7 @@ import {
   strandAt,
   strandsShown,
   trailsLook,
-} from "./trails";
+} from "./trails.ts";
 
 describe("layoutTrails", () => {
   it("is the seed's, and lays out exactly the strands the shader reads", () => {

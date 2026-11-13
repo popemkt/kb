@@ -13,7 +13,7 @@ import {
   shiverOf,
   spawnRoosters,
   type RoostWorld,
-} from "./roosters";
+} from "./roosters.ts";
 
 const EAVE = 100;
 const SLOTS = [100, 160, 230, 300];

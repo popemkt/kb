@@ -27,7 +27,7 @@ import {
   type GpuBackdropInit,
   type GpuBackdropScene,
   type GpuLook,
-} from "../gpu/gpu-scene";
+} from "../gpu/gpu-scene.ts";
 import { GARGANTUA_LENS, gargantua } from "./gargantua";
 import { warp } from "./warp";
 import type { HoleLook, HoleLookBuild } from "./hole-rig";

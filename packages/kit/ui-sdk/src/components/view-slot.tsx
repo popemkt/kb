@@ -7,7 +7,7 @@ import {
   type Placement,
   type RowSubject,
   type ViewHost,
-} from "../lib/plugins";
+} from "../lib/plugins.ts";
 import { slotLink, slotRenders, type SlotChain } from "../lib/view-key";
 import type { ViewKey } from "@kb/views";
 

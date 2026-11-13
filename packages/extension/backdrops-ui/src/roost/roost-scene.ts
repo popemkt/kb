@@ -15,7 +15,7 @@ import {
   scatterMotes,
   type Mote,
   type Weather,
-} from "../scene/atmosphere";
+} from "../scene/atmosphere.ts";
 import { batFigure } from "../scene/bat";
 import { drawFigure, type Placement } from "../scene/draw-figure";
 import { featherOf, type Feather } from "../scene/feather";
@@ -43,7 +43,7 @@ import {
   stretchOf,
   type Rooster,
   type RoostWorld,
-} from "./roosters";
+} from "./roosters.ts";
 
 const MOTES = { subtle: 14, soft: 24, vivid: 34 } as const;
 

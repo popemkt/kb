@@ -32,16 +32,7 @@ export interface ExtensionModuleParts {
 export function extensionModule(name: string, parts: ExtensionModuleParts = {}): string {
   const declaration = parts.declaration ?? JSON.stringify({ name, label: name });
   return `${parts.prelude ?? ""}
-import {
-  ActionPoint,
-  Effect,
-  TemplatePoint,
-  defineExtension,
-  definePlugin,
-  extensionNamespace,
-  provideAction,
-  provideTemplate,
-} from "kb-ext-sdk";
+import { ActionPoint, Effect, TemplatePoint, defineExtension, definePlugin, extensionNamespace, provideAction, provideTemplate } from "kb-ext-sdk";
 export const declaration = defineExtension(${declaration});
 const actions = ${parts.actions ?? "[]"};
 const templates = ${parts.templates ?? "[]"};

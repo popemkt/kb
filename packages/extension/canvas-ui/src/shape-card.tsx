@@ -19,7 +19,7 @@ import {
   startLabelEdit,
   typeLabelDraft,
   type LabelEditState,
-} from "./shape-label-edit";
+} from "./shape-label-edit.ts";
 
 interface ShapeCardProps extends FaceLayout {
   card: CanvasShapeNode;

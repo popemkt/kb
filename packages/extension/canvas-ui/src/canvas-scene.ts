@@ -39,7 +39,7 @@ import {
   type CanvasPoint,
   type CanvasView,
   type ViewSize,
-} from "./canvas-camera";
+} from "./canvas-camera.ts";
 import type { CanvasPainter } from "./canvas-capture";
 import type { GizmoChoice, SceneGizmo } from "./canvas-gizmo";
 import { GizmoLayer } from "./canvas-scene-gizmo";

@@ -11,7 +11,7 @@ import {
   chordHint,
   type CanvasShortcut,
   type CanvasShortcutSection,
-} from "./canvas-keymap";
+} from "./canvas-keymap.ts";
 
 /** The sections, in the order the sheet lists them. */
 const SECTIONS: readonly CanvasShortcutSection[] = [

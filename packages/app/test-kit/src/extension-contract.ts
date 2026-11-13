@@ -63,19 +63,21 @@ import {
 } from "@kb/contracts";
 import {
   SYSTEM_IDS,
-  TAG_VIEW_CLAIMS,
   TAG_VIEWS,
-  claimedTagViews,
-  ensureSystemSeed,
   extensionNodeId,
-  foldSeed,
   isWritableField,
   present,
   settingsOf,
   viewOptionId,
+} from "@kb/model";
+import {
+  TAG_VIEW_CLAIMS,
+  claimedTagViews,
+  ensureSystemSeed,
+  foldSeed,
   type SeedSource,
   type SeedView,
-} from "@kb/model";
+} from "@kb/seed";
 import { extensionSettingsEffect, familyFootprint } from "@kb/operations";
 import { makeKernel, type Kernel, type Plugin } from "@kb/plugin";
 import { DatascriptIndex, type KbIndex } from "@kb/query";

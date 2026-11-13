@@ -5,7 +5,8 @@
  * out, advance by `dt`, paint. Sky and Roost differ in layout, actors and
  * behaviour, and in nothing else.
  */
-import type { BackdropDirection, BackdropStrength, KnobValues } from "@kb/model";
+import type { BackdropDirection, BackdropStrength } from "@kb/appearance";
+import type { KnobValues } from "@kb/model";
 import type { ScenePalette } from "./palette.ts";
 import type { Reactions } from "./reactions.ts";
 

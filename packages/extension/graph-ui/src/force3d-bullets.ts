@@ -64,7 +64,7 @@ import {
   bulletTableKey,
   PLAIN_BULLET,
   readBulletPage,
-} from "./bullet-gpu";
+} from "./bullet-gpu.ts";
 import { linearFromSrgb, NODE_OPS, type TslNode } from "@kb/scene-gpu";
 import type { Force3dTopology } from "./force3d-emphasis";
 import { shadeNode } from "./force3d-light";

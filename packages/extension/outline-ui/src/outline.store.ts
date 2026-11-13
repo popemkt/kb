@@ -51,7 +51,7 @@ import {
   collectVisibleInstances,
   neighborVisibleInstance,
   type VisibleInstance,
-} from "./visible-instances";
+} from "./visible-instances.ts";
 import type { FrameViewKey } from "@kb/views";
 import { outlineHostOf, outlineHostOfInstance as walkHostOf } from "./outline-hosts";
 

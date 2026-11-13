@@ -13,7 +13,7 @@ import {
   transformReadout,
   type TransformGuide,
   type TransformInput,
-} from "./canvas-transform-input";
+} from "./canvas-transform-input.ts";
 import { AXIS_INK } from "./canvas-gizmo";
 import { useShownCamera, type ShownCameraProps } from "./use-shown-camera";
 import { bottomBarClass } from "./canvas-stage-layout";

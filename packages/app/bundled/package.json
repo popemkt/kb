@@ -31,12 +31,14 @@
     "@kb/outline": "workspace:*",
     "@kb/query": "workspace:*",
     "@kb/routines": "workspace:*",
+    "@kb/seed": "workspace:*",
     "@kb/themes": "workspace:*",
     "@kb/transistor": "workspace:*",
     "@kb/yorha": "workspace:*",
     "@kb/zzz": "workspace:*"
   },
   "devDependencies": {
+    "@kb/appearance": "workspace:*",
     "@types/bun": "catalog:"
   },
   "nx": {

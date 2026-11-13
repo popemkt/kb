@@ -12,16 +12,15 @@ import { useCallback, useEffect, useState } from "react";
 import { ArrowLeftIcon, CheckIcon } from "@phosphor-icons/react";
 import {
   BACKDROP_STRENGTHS,
-  SYSTEM_IDS,
   backdropOptionId,
   backdropVariantId,
   backdropVariantOptionId,
   drawVariant,
-  extensionNodeId,
   shownStrength,
   shownVariants,
   type BackdropStrength,
-} from "@kb/model";
+} from "@kb/appearance";
+import { SYSTEM_IDS, extensionNodeId } from "@kb/model";
 import {
   BackdropFrame,
   browserHost,

@@ -5,14 +5,8 @@
  * (`knobValues`): what the panel writes is what every page head shows.
  */
 import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react";
-import {
-  knobFieldId,
-  knobValues,
-  type KbNode,
-  type Knob,
-  type KnobValue,
-  type NodeId,
-} from "@kb/model";
+import { knobFieldId, knobValues } from "@kb/appearance";
+import type { KbNode, Knob, KnobValue, NodeId } from "@kb/model";
 import { KnobControl, useNode, useNodes } from "@kb/ui-sdk";
 import { useKnobDrafts } from "./knob-writes";
 

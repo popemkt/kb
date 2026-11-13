@@ -4,7 +4,7 @@ import {
   capabilitiesFor,
   linkStyleNote,
   settingDisabledReason,
-} from "./graph-capabilities";
+} from "./graph-capabilities.ts";
 import { ClusterView, Force2dView, Force3dView, TreeView } from "@kb/graph";
 
 describe("renderer capabilities", () => {

@@ -1,4 +1,4 @@
-import type { BackdropDirection } from "@kb/model";
+import type { BackdropDirection } from "@kb/appearance";
 import type { BackdropPresentation } from "./plugins";
 
 /**

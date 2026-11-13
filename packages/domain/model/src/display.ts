@@ -16,7 +16,7 @@
  * store does not hold read as the defaults.
  */
 import { SYSTEM_IDS, extensionNodeId, type KbNode, type NodeId, type PropValue } from "./model.ts";
-import { seededField } from "./seed.ts";
+import { seededField } from "./seed-builders.ts";
 
 /** What this module reads of a node: its props. */
 interface Carrier {

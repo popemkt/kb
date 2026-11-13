@@ -11,7 +11,7 @@ import {
   type LayoutReply,
   type LayoutRequest,
   type LayoutSeed,
-} from "./force3d-layout";
+} from "./force3d-layout.ts";
 
 type Listener<T> = (event: { data: T }) => void;
 

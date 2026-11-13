@@ -13,7 +13,7 @@ import {
   springResponse,
   stepSpring,
   type Spring,
-} from "./timing";
+} from "./timing.ts";
 
 // The timing tokens are layer 1's (the default design system), in `@kb/ui`'s src.
 const LAYER1_CSS = readFileSync(

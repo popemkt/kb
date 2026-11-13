@@ -14,9 +14,9 @@
 import {
   BACKDROP_STRENGTHS,
   BACKDROP_STRENGTH_OPTION_IDS,
-  SYSTEM_IDS,
   type BackdropStrength,
-} from "@kb/model";
+} from "@kb/appearance";
+import { SYSTEM_IDS } from "@kb/model";
 import type { APIRequestContext, Page } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
 import { backdropOptions } from "./backdrop-options.ts";

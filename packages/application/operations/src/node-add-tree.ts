@@ -9,7 +9,6 @@ import {
   fieldTypeOf,
   freshId,
   mentionSpans,
-  parseOutline,
   parseTypedValue,
   present,
   replaceMentions,
@@ -19,9 +18,9 @@ import {
   type KbNode,
   type NodeId,
   type NodeGraph,
-  type OutlineItem,
   type ParsedValue,
 } from "@kb/model";
+import { parseOutline, type OutlineItem } from "./outline.ts";
 import { forcedBy, nodeAddDef, planNodeAdd, syncDomain } from "./actions.ts";
 import type { PropEntry } from "./prop-edits.ts";
 import { placedGraph, placeOf } from "./place.ts";

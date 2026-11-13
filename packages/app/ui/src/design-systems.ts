@@ -15,7 +15,7 @@
  */
 import { familyTags } from "@kb/contracts";
 import { Effect } from "effect";
-import { BACKDROP_OPTIONS, DESIGN_SYSTEM_OPTIONS } from "@kb/model";
+import { BACKDROP_OPTIONS, DESIGN_SYSTEM_OPTIONS } from "@kb/appearance";
 import { KB_DESIGN_SYSTEM, coreExtension } from "@kb/operations";
 import { definePlugin } from "@kb/plugin";
 import { DesignSystemPoint, OptionPreviewPoint, provideDesignSystem } from "@kb/ui-sdk";

@@ -9,7 +9,7 @@ import {
   setEmphasisTargets,
   topologyOf,
   type Force3dFades,
-} from "./force3d-emphasis";
+} from "./force3d-emphasis.ts";
 
 function node(id: string, degree = 1): LensNode {
   return { id, label: id, color: "#888", size: 3, clusterKey: "root", tags: [], degree };

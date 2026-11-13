@@ -5,13 +5,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   canonicalJson,
-  ensureSystemSeed,
   present,
   SYSTEM_IDS,
   txIntegrityError,
   viewOptionId,
   type KbNode,
 } from "@kb/model";
+import { ensureSystemSeed } from "@kb/seed";
 import { JsonlStore } from "@kb/store-jsonl";
 import { bunFileSystemLayer } from "../src/platform.ts";
 import { openKb } from "../src/session.ts";

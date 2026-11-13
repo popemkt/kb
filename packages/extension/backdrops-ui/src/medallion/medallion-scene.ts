@@ -33,11 +33,11 @@ import {
   type GpuBackdropScene,
   type GpuLook,
   groundsOf,
-} from "../gpu/gpu-scene";
+} from "../gpu/gpu-scene.ts";
 import { farField, glowAbout, type FieldReach } from "../gpu/dissolve";
 import { variation } from "../scene/seed";
 import { textScrim } from "../gpu/text-scrim";
-import { OWN_ART, type BackdropGlyph } from "@kb/model";
+import { OWN_ART, type BackdropGlyph } from "@kb/appearance";
 import { loadBackdropArt } from "../gpu/art";
 import { glyphAtlas, type GlyphAtlas, type GlyphPaint } from "../gpu/glyph-atlas";
 import { RUNES, TURN_SECONDS, medallionLook, swingOn, type Swing } from "./medallion";

@@ -151,3 +151,9 @@ export { sandboxTrustDef } from "./trust.ts";
 export { reactionsFrom } from "./reactions.ts";
 export { MAX_REACTION_DEPTH } from "./commit-frame.ts";
 export { personWriteRefusal } from "./write-refusal.ts";
+
+export { MODE_MATCHES, matchSpecificity } from "./action-match.ts";
+export { OUTLINE_HEADER, outlineFieldNames, parseOutline } from "./outline.ts";
+export type { OutlineField, OutlineItem, OutlineParse, OutlineValue } from "./outline.ts";
+export { isVocabulary } from "./vocabulary.ts";
+export { sanitizeSvg } from "./svg-sanitize.ts";

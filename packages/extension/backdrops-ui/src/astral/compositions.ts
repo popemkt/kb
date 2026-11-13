@@ -23,7 +23,7 @@ import {
   type Train,
   type Vec3,
   type WheelShape,
-} from "./astral";
+} from "./astral.ts";
 
 const wheel = (
   radius: number,

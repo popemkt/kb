@@ -267,6 +267,10 @@ file sets on purpose.
   committed lane, so both rises and partial improvements require an explicit
   `bun run harness:snapshot` update.
 
+Path-keyed debt follows renames detected by `git diff --find-renames` at its
+default similarity. The base count moves to the new path in every lane; a
+move that gains debt still fails, and an undetected rename fails as before.
+
 The module-design lanes share this ledger: `surface` counts distinct public
 barrel names (type exports included, aliases by their exported name, a
 namespace as one name); `family-names` counts AST string and identifier

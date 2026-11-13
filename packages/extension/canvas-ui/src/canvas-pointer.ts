@@ -37,7 +37,7 @@ import {
   type TransformInput,
   type TransformKey,
   type TransformMode,
-} from "./canvas-transform-input";
+} from "./canvas-transform-input.ts";
 import { pastSlop, type PointerKind } from "@kb/ui-sdk";
 import {
   EMPTY_SELECTION,
@@ -47,7 +47,7 @@ import {
   soleItem,
   type CanvasScope,
   type CanvasSelection,
-} from "./canvas-selection";
+} from "./canvas-selection.ts";
 import { hasEditor } from "./canvas-face-overlay";
 
 export interface Point {

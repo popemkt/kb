@@ -18,7 +18,7 @@ import {
   graphFocus,
   graphNeighborhood,
   type GraphEmphasis,
-} from "./graph-interaction";
+} from "./graph-interaction.ts";
 
 /** The graph as the scene indexes it: node order, link pairs, incidence. */
 export interface Force3dTopology {
