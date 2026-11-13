@@ -5,7 +5,8 @@
  * commit is one recorded transaction the session reads at once, a
  * transaction the graph refuses writes nothing, inside a call the commit is
  * decided as part of that call, and a plan is planned again over a store
- * that moved, so a write made in between is never lost.
+ * that moved, so a write made in between is never lost. They are the port's
+ * promises, not a backend's, so they hold over every store backend.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -16,7 +17,9 @@ import { GraphWrites, type GraphWritesPort, type KbContext } from "@kb/contracts
 import { present, type DomainError, type KbNode } from "@kb/model";
 import { persist } from "@kb/test-kit";
 import { kbRuntimeLayer } from "../src/layers.ts";
+import { bunFileSystemLayer } from "../src/platform.ts";
 import { openKb } from "../src/session.ts";
+import { STORE_BACKENDS, createStore } from "../src/store-selection.ts";
 
 const AT = "2026-10-04T00:00:00.000Z";
 
@@ -44,74 +47,78 @@ function failureOf<A>(
   return withWrites(ctx, (writes) => Effect.flip(use(writes)));
 }
 
-describe("GraphWrites, as kbRuntimeLayer binds it", () => {
-  let root: string;
-  beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), "kb-graph-writes-"));
-  });
-  afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
-  });
+describe.each([...STORE_BACKENDS])(
+  "GraphWrites, as kbRuntimeLayer binds it, over a %s store",
+  (backend) => {
+    let root: string;
+    beforeEach(async () => {
+      root = await mkdtemp(join(tmpdir(), "kb-graph-writes-"));
+      await Effect.runPromise(createStore(root, backend).pipe(Effect.provide(bunFileSystemLayer)));
+    });
+    afterEach(async () => {
+      await rm(root, { recursive: true, force: true });
+    });
 
-  test("a commit is one recorded transaction, read at once and after a reopen", async () => {
-    const ctx = await openKb(root);
-    const head = ctx.log.head;
-    const tx = {
-      upserts: [plainNode("n.parent", "parent", ["n.child"]), plainNode("n.child", "child")],
-      deletes: [],
-    };
-    await withWrites(ctx, (writes) => writes.commit(() => Effect.succeed(tx)));
-    expect(ctx.index.getNode("n.child")?.text).toBe("child");
-    expect(ctx.log.head).toBe(head + 1);
-    const reopened = await openKb(root);
-    expect(present(reopened.index.getNode("n.parent"), "parent").children).toEqual(["n.child"]);
-  });
+    test("a commit is one recorded transaction, read at once and after a reopen", async () => {
+      const ctx = await openKb(root);
+      const head = ctx.log.head;
+      const tx = {
+        upserts: [plainNode("n.parent", "parent", ["n.child"]), plainNode("n.child", "child")],
+        deletes: [],
+      };
+      await withWrites(ctx, (writes) => writes.commit(() => Effect.succeed(tx)));
+      expect(ctx.index.getNode("n.child")?.text).toBe("child");
+      expect(ctx.log.head).toBe(head + 1);
+      const reopened = await openKb(root);
+      expect(present(reopened.index.getNode("n.parent"), "parent").children).toEqual(["n.child"]);
+    });
 
-  test("a transaction the graph refuses is refused whole, and writes nothing", async () => {
-    const ctx = await openKb(root);
-    const head = ctx.log.head;
-    const broken = plainNode("n.orphan-parent", "parent", ["n.nowhere"]);
-    const failure = await failureOf(ctx, (writes) =>
-      writes.commit(() => Effect.succeed({ upserts: [broken], deletes: [] })),
-    );
-    expect(failure.code).toBe("invalid_input");
-    expect(ctx.index.getNode("n.orphan-parent")).toBeUndefined();
-    expect(ctx.log.head).toBe(head);
-  });
+    test("a transaction the graph refuses is refused whole, and writes nothing", async () => {
+      const ctx = await openKb(root);
+      const head = ctx.log.head;
+      const broken = plainNode("n.orphan-parent", "parent", ["n.nowhere"]);
+      const failure = await failureOf(ctx, (writes) =>
+        writes.commit(() => Effect.succeed({ upserts: [broken], deletes: [] })),
+      );
+      expect(failure.code).toBe("invalid_input");
+      expect(ctx.index.getNode("n.orphan-parent")).toBeUndefined();
+      expect(ctx.log.head).toBe(head);
+    });
 
-  test("a plan is planned again over a store that moved, so the write in between is kept", async () => {
-    const ctx = await openKb(root);
-    await withWrites(ctx, (writes) =>
-      writes.commit(() =>
-        Effect.succeed({ upserts: [plainNode("n.target", "target", [])], deletes: [] }),
-      ),
-    );
-    const other = await openKb(root);
-    let plans = 0;
-    await withWrites(ctx, (writes) =>
-      writes.commit((nodes) =>
-        Effect.gen(function* () {
-          plans += 1;
-          const target = present(
-            nodes.find((n) => n.id === "n.target"),
-            "the target",
-          );
-          // Another process renames the node after this plan read it.
-          if (plans === 1) {
-            yield* Effect.promise(() =>
-              persist(other, { upserts: [{ ...target, text: "renamed" }], deletes: [] }),
+    test("a plan is planned again over a store that moved, so the write in between is kept", async () => {
+      const ctx = await openKb(root);
+      await withWrites(ctx, (writes) =>
+        writes.commit(() =>
+          Effect.succeed({ upserts: [plainNode("n.target", "target", [])], deletes: [] }),
+        ),
+      );
+      const other = await openKb(root);
+      let plans = 0;
+      await withWrites(ctx, (writes) =>
+        writes.commit((nodes) =>
+          Effect.gen(function* () {
+            plans += 1;
+            const target = present(
+              nodes.find((n) => n.id === "n.target"),
+              "the target",
             );
-          }
-          return {
-            upserts: [{ ...target, props: { "n.mark": [{ t: "str", v: "x" }] } }],
-            deletes: [],
-          };
-        }),
-      ),
-    );
-    expect(plans).toBe(2);
-    const reopened = present((await openKb(root)).index.getNode("n.target"), "the target");
-    expect(reopened.text).toBe("renamed");
-    expect(reopened.props["n.mark"]).toEqual([{ t: "str", v: "x" }]);
-  });
-});
+            // Another process renames the node after this plan read it.
+            if (plans === 1) {
+              yield* Effect.promise(() =>
+                persist(other, { upserts: [{ ...target, text: "renamed" }], deletes: [] }),
+              );
+            }
+            return {
+              upserts: [{ ...target, props: { "n.mark": [{ t: "str", v: "x" }] } }],
+              deletes: [],
+            };
+          }),
+        ),
+      );
+      expect(plans).toBe(2);
+      const reopened = present((await openKb(root)).index.getNode("n.target"), "the target");
+      expect(reopened.text).toBe("renamed");
+      expect(reopened.props["n.mark"]).toEqual([{ t: "str", v: "x" }]);
+    });
+  },
+);
