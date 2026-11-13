@@ -17,8 +17,8 @@ import {
   lowerIr,
   type Condition,
   type ConditionValue,
-  type NarrowingCondition,
 } from "@kb/query";
+import type { NarrowingCondition } from "../src/ir/conditions.ts";
 import type { ClockSample, KbNode, PropValue } from "@kb/model";
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";

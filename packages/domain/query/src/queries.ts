@@ -4,49 +4,6 @@
  */
 import type { IrQuery } from "./ir/ir.ts";
 
-/** All field nodes: id + text, in engine-neutral form. */
-export const LIST_FIELDS_IR = {
-  kind: "query",
-  find: [
-    { kind: "var", name: "id", type: "node-ref" },
-    { kind: "var", name: "text", type: "scalar" },
-  ],
-  where: [
-    { kind: "pattern", entity: "n", attr: ":node/id", value: { t: "var", name: "id" } },
-    { kind: "pattern", entity: "n", attr: ":node/text", value: { t: "var", name: "text" } },
-    { kind: "pattern", entity: "n", attr: ":f/sys.f.type", value: { t: "var", name: "t" } },
-    { kind: "pattern", entity: "t", attr: ":node/id", value: { t: "str", value: "sys.field" } },
-  ],
-} satisfies IrQuery;
-
-/** All tag nodes: id + text, in engine-neutral form. */
-export const LIST_TAGS_IR = {
-  kind: "query",
-  find: [
-    { kind: "var", name: "id", type: "node-ref" },
-    { kind: "var", name: "text", type: "scalar" },
-  ],
-  where: [
-    { kind: "pattern", entity: "n", attr: ":node/id", value: { t: "var", name: "id" } },
-    { kind: "pattern", entity: "n", attr: ":node/text", value: { t: "var", name: "text" } },
-    { kind: "pattern", entity: "n", attr: ":f/sys.f.type", value: { t: "var", name: "t" } },
-    { kind: "pattern", entity: "t", attr: ":node/id", value: { t: "str", value: "sys.tag" } },
-  ],
-} satisfies IrQuery;
-
-/** All nodes with text, in engine-neutral form. */
-export const LIST_ALL_NODES_IR = {
-  kind: "query",
-  find: [
-    { kind: "var", name: "id", type: "node-ref" },
-    { kind: "var", name: "text", type: "scalar" },
-  ],
-  where: [
-    { kind: "pattern", entity: "n", attr: ":node/id", value: { t: "var", name: "id" } },
-    { kind: "pattern", entity: "n", attr: ":node/text", value: { t: "var", name: "text" } },
-  ],
-} satisfies IrQuery;
-
 /** Nodes that reference the `id` input, with id binding outside query text. */
 export const BACKLINKS_IR = {
   kind: "query",

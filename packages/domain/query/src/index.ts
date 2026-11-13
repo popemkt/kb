@@ -1,21 +1,9 @@
 export { DatalogError } from "./datalog-error.ts";
-export { datascriptExecutor, pull, query, queryRows, runIr } from "./datascript.ts";
-export type { ClockSampler, EdnExecutor } from "./datascript.ts";
 export { DatascriptIndex } from "./index/datascript-index.ts";
-export type { IndexOptions } from "./index/index.ts";
 export { derivedWith, nodeMentions } from "./index/derived.ts";
-export type {
-  DerivedRef,
-  DerivedSources,
-  FieldTypes,
-  GraphReads,
-  KeyRef,
-  ValueField,
-  ValueRefCarrier,
-} from "./index/derived.ts";
+export type { DerivedRef, KeyRef, ValueRefCarrier } from "./index/derived.ts";
 export { KbIndexService } from "./index/index.ts";
-export type { DatalogAnswer, KbIndex, NodeIndex } from "./index/index.ts";
-export { NodeTable } from "./index/node-table.ts";
+export type { KbIndex, NodeIndex } from "./index/index.ts";
 export {
   answered,
   classifyQueryError,
@@ -29,18 +17,13 @@ export { answerOf } from "./index/answer.ts";
 export type { QueryAnswer, QueryRequest, QueryTransport } from "./index/answer.ts";
 export { inThreadPort, RemoteIndex, serveIndex } from "./index/remote.ts";
 export type { EnginePort, FromEngine, Timers, ToEngine } from "./index/remote.ts";
-export type { NodeChange } from "./index/node-table.ts";
-export { compile, normalizeEdnQuery } from "./ir/compile.ts";
-export { findColumns, parseEdn } from "./ir/parse.ts";
+export { normalizeEdnQuery } from "./ir/compile.ts";
+export { parseEdn } from "./ir/parse.ts";
 export { readsAsEdn } from "./ir/edn.ts";
-export { isCanonicalIr } from "./ir/canonical.ts";
 export { printEdn } from "./ir/print.ts";
-export { alphaEquivalent } from "./ir/alpha.ts";
 export { canonicalConditions, lift, lowerIr } from "./ir/conditions.ts";
 export { conditionGraph, conditionsMatcher } from "./ir/evaluate.ts";
-export type { ConditionGraph } from "./ir/evaluate.ts";
 export type {
-  AnywhereContains,
   CompareOp,
   Condition,
   ConditionEdge,
@@ -49,32 +32,13 @@ export type {
   ConditionValue,
   GroupOf,
   Lifted,
-  NarrowingCondition,
-  PlacementRow,
 } from "./ir/conditions.ts";
 export { queryRecords } from "./records.ts";
 export type { QueryRecords } from "./records.ts";
-export { KB_FUNCTIONS, PREDICATES } from "./ir/ir.ts";
-export { kbFunctions } from "./ir/kb-functions.ts";
-export type {
-  Clause,
-  Ir,
-  IrQuery,
-  IrRaw,
-  KbFunctionName,
-  PredicateArg,
-  PredicateName,
-  Term,
-} from "./ir/ir.ts";
 export {
-  BACKLINKS_IR,
-  LIST_ALL_NODES_IR,
   LIST_ALL_NODES_QUERY,
-  LIST_FIELDS_IR,
   LIST_FIELDS_QUERY,
-  LIST_TAGS_IR,
   LIST_TAGS_QUERY,
   backlinksQuery,
   neighbourhoodQuery,
 } from "./queries.ts";
-export type { NeighbourhoodDirection } from "./queries.ts";

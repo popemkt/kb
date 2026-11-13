@@ -152,7 +152,7 @@ export type IrQuery = {
   where: Clause[];
 };
 
-export type IrRaw = {
+type IrRaw = {
   kind: "raw";
   edn: string;
 };

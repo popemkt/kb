@@ -6,7 +6,6 @@ import type { DatascriptDb, IdMap } from "./index/datoms.ts";
 import { compile, normalizeEdnQuery } from "./ir/compile.ts";
 import type { FindPos, Ir, IrQuery, KbFunctionName } from "./ir/ir.ts";
 import { holdsUntil, kbFunctions, readsClock } from "./ir/kb-functions.ts";
-import { parseEdn } from "./ir/parse.ts";
 import { outerClauses } from "./ir/scope.ts";
 import { DatalogError } from "./datalog-error.ts";
 
@@ -166,23 +165,11 @@ export function findWithRefAttrs(
 }
 
 /**
- * Raw-EDN entry: `compile(parseEdn(edn))` then execute. When the subset
- * parses, only node-ref find positions are revived, so a count or a number
- * field's value stays a number (`findWithRefAttrs`); a `{ kind: "raw" }`
- * query revives every eid-shaped integer, as it cannot tell them apart.
- */
-export function query(
-  db: DatascriptDb,
-  edn: string,
-  inputs: readonly unknown[] = [],
-  clock?: ClockSampler,
-): unknown {
-  return answerQuery(db, parseEdn(edn), inputs, clock).value;
-}
-
-/**
- * {@link query}'s value for a query already parsed (`parseEdn`), and until
- * when it holds (`holdsUntil`): null until the graph moves.
+ * A query already parsed (`parseEdn`), executed: its value, and until when it
+ * holds (`holdsUntil`), null until the graph moves. When the subset parses,
+ * only node-ref find positions are revived, so a count or a number field's
+ * value stays a number (`findWithRefAttrs`); a `{ kind: "raw" }` query
+ * revives every eid-shaped integer, as it cannot tell them apart.
  */
 export function answerQuery(
   db: DatascriptDb,
@@ -198,24 +185,6 @@ export function answerQuery(
     value: reviveTyped(raw, findWithRefAttrs(ir, find, db.refAttrs), db.ids),
     holdsUntilMs,
   };
-}
-
-/**
- * `:find` results as rows. `query` returns `unknown` because a datalog result
- * is whatever the query asked for; every row-shaped caller went through the
- * same cast, so the check lives here instead.
- */
-export function queryRows(
-  db: DatascriptDb,
-  edn: string,
-  inputs: readonly unknown[] = [],
-  clock?: ClockSampler,
-): unknown[][] {
-  const raw = query(db, edn, inputs, clock);
-  if (!Array.isArray(raw) || !raw.every((row) => Array.isArray(row))) {
-    throw new DatalogError(`datalog query did not return rows: ${edn}`);
-  }
-  return raw;
 }
 
 export function pull(db: DatascriptDb, pattern: string, id: NodeId | number): unknown {

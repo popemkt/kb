@@ -206,7 +206,7 @@ export const CORE_DERIVED: readonly DerivedRef[] = [
 ];
 
 /** The field a value is in, as a {@link ValueRefCarrier} reads it: its id and declared type. */
-export interface ValueField {
+interface ValueField {
   readonly id: NodeId;
   readonly type: FieldType;
 }

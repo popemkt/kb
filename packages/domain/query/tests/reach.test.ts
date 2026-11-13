@@ -4,7 +4,8 @@
  */
 import { describe, expect, test } from "bun:test";
 import type { KbNode, PropValue } from "@kb/model";
-import { DatalogError, DatascriptIndex, derivedWith, compile, parseEdn } from "@kb/query";
+import { DatalogError, DatascriptIndex, derivedWith, parseEdn } from "@kb/query";
+import { compile } from "../src/ir/compile.ts";
 
 const AT = "2026-01-01T00:00:00.000Z";
 

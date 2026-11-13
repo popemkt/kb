@@ -3,7 +3,8 @@
  * reads its data in.
  */
 import { describe, expect, test } from "bun:test";
-import { DatascriptIndex, derivedWith, findColumns, queryRecords } from "@kb/query";
+import { DatascriptIndex, derivedWith, queryRecords } from "@kb/query";
+import { findColumns } from "../src/ir/parse.ts";
 import { SYSTEM_IDS, type KbNode } from "@kb/model";
 
 const AT = "2026-01-01T00:00:00.000Z";

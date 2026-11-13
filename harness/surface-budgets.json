@@ -47,8 +47,8 @@
     "limit": 54
   },
   "@kb/query": {
-    "limit": 92,
-    "reason": "M6: datalogRows and classifyQueryError moved from @kb/operations; how a family reads the graph."
+    "limit": 53,
+    "reason": "Lane B dropped the 39 names nothing outside query imports, tests included; under the proposal's 60."
   },
   "@kb/views": {
     "limit": 111,

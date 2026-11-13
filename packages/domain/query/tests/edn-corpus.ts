@@ -8,7 +8,8 @@
  */
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { DatalogError, parseEdn, type IrQuery } from "@kb/query";
+import { DatalogError, parseEdn } from "@kb/query";
+import type { IrQuery } from "../src/ir/ir.ts";
 
 const ROOT = join(import.meta.dir, "../../../..");
 

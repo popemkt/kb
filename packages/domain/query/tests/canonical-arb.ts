@@ -11,7 +11,13 @@
  * only), `i…` inputs, `o…` children orders, `p…` children parents.
  */
 import fc from "fast-check";
-import { PREDICATES, type Clause, type IrQuery, type PredicateArg, type Term } from "@kb/query";
+import {
+  PREDICATES,
+  type Clause,
+  type IrQuery,
+  type PredicateArg,
+  type Term,
+} from "../src/ir/ir.ts";
 
 type FindPos = IrQuery["find"][number];
 type PullSpec = Extract<FindPos, { kind: "pull" }>["pattern"];

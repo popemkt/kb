@@ -6,7 +6,8 @@
 // oxlint-disable-next-line typescript/triple-slash-reference -- datascript ships no types; the shim lives beside the module that imports it
 /// <reference path="../src/datascript.d.ts" />
 import * as d from "datascript";
-import { DatalogError, DatascriptIndex, compile, derivedWith, parseEdn } from "@kb/query";
+import { DatalogError, DatascriptIndex, derivedWith, parseEdn } from "@kb/query";
+import { compile } from "../src/ir/compile.ts";
 import type { ClockSample, KbNode } from "@kb/model";
 import { describe, expect, test } from "bun:test";
 
