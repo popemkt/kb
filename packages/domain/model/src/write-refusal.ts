@@ -27,7 +27,7 @@
  */
 import { Schema } from "effect";
 
-export const SystemRefusalSchema = Schema.Union([
+const SystemRefusalSchema = Schema.Union([
   Schema.Struct({
     rule: Schema.Literals(["mint", "rank", "stamp", "children", "delete"]),
     id: Schema.String,
@@ -40,7 +40,7 @@ export const SystemRefusalSchema = Schema.Union([
 ]);
 export type SystemRefusal = typeof SystemRefusalSchema.Type;
 
-export const WriteRefusalSchema = Schema.Union([
+const WriteRefusalSchema = Schema.Union([
   SystemRefusalSchema,
   Schema.Struct({ rule: Schema.Literal("virtual"), id: Schema.String }),
 ]);

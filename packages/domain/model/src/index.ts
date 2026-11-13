@@ -13,10 +13,9 @@ export {
   syncDomain,
 } from "./errors.ts";
 export { extractMentions, mentionSpans, replaceMentions } from "./mention.ts";
-export type { MentionSpan } from "./mention.ts";
 
 export { mergeNodeSets } from "./merge.ts";
-export type { MergeConflict, MergeConflictReason, MergeResult } from "./merge.ts";
+
 export { present } from "./present.ts";
 
 export { FailureCodeSchema } from "./failure.ts";
@@ -41,29 +40,22 @@ export {
 } from "./field-type.ts";
 export type { Cardinality, FieldType } from "./field-type.ts";
 export { conformsToType, migrateDateValues, normalizeUrl, parseTypedValue } from "./field-value.ts";
-export type { NumberSeparators, ParseContext, ParsedValue } from "./field-value.ts";
+export type { NumberSeparators, ParsedValue } from "./field-value.ts";
 export {
   configures,
-  configuresAnExtension,
   isShipped,
   isWritableField,
   fieldWriting,
-  type FieldWriting,
   systemTxRefusal,
   systemWriteRefusal,
 } from "./system-write.ts";
 export { settingsOf } from "./settings.ts";
-export type { Setting, SettingOption } from "./settings.ts";
+export type { Setting } from "./settings.ts";
 export { formatSecretRef, parseSecretRef, secretRefLabel } from "./secret-ref.ts";
 export type { SecretRef } from "./secret-ref.ts";
 export type { NodeOf } from "./system-write.ts";
-export {
-  SystemRefusalSchema,
-  WriteRefusalSchema,
-  writeRefusalMessage,
-  writeRefusalOf,
-} from "./write-refusal.ts";
-export type { SystemRefusal, WriteRefusal } from "./write-refusal.ts";
+export { writeRefusalMessage, writeRefusalOf } from "./write-refusal.ts";
+export type { WriteRefusal } from "./write-refusal.ts";
 export {
   addDays,
   addMonths,
@@ -83,7 +75,6 @@ export {
   isoFromMillis,
   extensionNameOf,
   extensionNodeId,
-  isExtensionNodeId,
   freshId,
   isNodeIdShaped,
   isSysPrefixed,
@@ -93,7 +84,6 @@ export {
 } from "./model.ts";
 export type { ClockSample, KbNode, MigrationState, NodeId, PropValue } from "./model.ts";
 export {
-  allValues,
   decodeNodeConfig,
   encodeNodeConfig,
   encodeNodeSetting,
@@ -108,14 +98,7 @@ export {
   writeRef,
   writeStr,
 } from "./node-config.ts";
-export type {
-  ConfigReader,
-  ConfigSlot,
-  ConfigSlots,
-  NodeProps,
-  SlotWrite,
-  Writable,
-} from "./node-config.ts";
+export type { ConfigSlot, ConfigSlots, NodeProps, SlotWrite, Writable } from "./node-config.ts";
 export {
   KbNodeSchema,
   PropValueSchema,
@@ -142,10 +125,9 @@ export {
   tagAncestors,
   tagChains,
   templateFieldsOf,
-  type TagChains,
 } from "./tag-kinds.ts";
-export { closesCycle, refChain, type NodeLookup } from "./ref-chain.ts";
-export { IndexedNodes, ScannedNodes } from "./node-graph.ts";
+export { closesCycle, type NodeLookup } from "./ref-chain.ts";
+export { IndexedNodes } from "./node-graph.ts";
 export { StoreState } from "./store-state.ts";
 export type { NodeGraph } from "./node-graph.ts";
 export {
@@ -156,7 +138,7 @@ export {
   rankTx,
   siblingSlots,
 } from "./order.ts";
-export type { NodeRank, RankBase, RankSlot, SiblingGroups, Slots } from "./order.ts";
+export type { RankSlot, SiblingGroups, Slots } from "./order.ts";
 export {
   placedRank,
   planNodeAdd,
@@ -166,21 +148,14 @@ export {
 } from "./node-write.ts";
 export { hasQueryDef, isQueryNode, queryDefOf, queryTextOf } from "./query-node.ts";
 export type { QueryNodeDef } from "./query-node.ts";
-export {
-  ResolveError,
-  resolveFieldId,
-  resolveFieldIn,
-  resolveTagId,
-  resolveTagIn,
-} from "./resolve.ts";
-export type { NamedNodes } from "./resolve.ts";
+export { ResolveError, resolveFieldId, resolveFieldIn, resolveTagId } from "./resolve.ts";
+
 export {
   ActionSchemaError,
   isActionSchema,
   isStandardSchemaV1,
   isZodError,
   parseBySchema,
-  schemaFailure,
   schemaToJsonSchema,
 } from "./schema-seam.ts";
 export type { ActionSchema } from "./schema-seam.ts";
@@ -192,12 +167,8 @@ export {
   knobNumber,
   knobSchemaError,
   knobValue,
-  type BooleanKnob,
   type ColorKnob,
-  type EnumKnob,
   type Knob,
-  type KnobKind,
-  type KnobOption,
   type KnobValue,
   type KnobValues,
   type NumberKnob,
@@ -215,7 +186,6 @@ export {
   declaredOptionId,
   retiredOption,
   type DeclaredOptions,
-  type DeclaredRef,
   type DeclaredOptionSet,
   type SeedOption,
 } from "./declared-option.ts";
@@ -232,7 +202,6 @@ export {
   defaultViewTypeOf,
   TAG_VIEWS,
   tagViewsOf,
-  type TagView,
   type TagViewRole,
   familyViewIdOf,
   docsViewNameError,
@@ -258,14 +227,13 @@ export {
   legacyViewShapes,
   migrateToViewNodes,
 } from "./view-migration.ts";
-export type { LegacyDocsView, LegacyViews, ViewMigration } from "./view-migration.ts";
+export type { LegacyDocsView } from "./view-migration.ts";
 export { isValidWorkspaceName } from "./workspace-name.ts";
 export {
   relationFieldFit,
   relationFieldsFor,
   relationInverseOf,
   relationMisfit,
-  type RelationFieldFit,
 } from "./relation.ts";
 
 export {
@@ -274,10 +242,8 @@ export {
   assetUrl,
   assetEmbedsOf,
   isAssetPath,
-  mediaKindFromExt,
   mediaKindFromHref,
   textHasAssetRef,
-  type AssetEmbed,
   type AssetMediaKind,
 } from "./asset.ts";
 
@@ -291,10 +257,8 @@ export {
   displaySettingIds,
   displaySettingsOf,
   displaySettingValues,
-  type DisplayDefault,
   type DisplayOption,
   type DisplaySettings,
-  type DisplayView,
 } from "./display.ts";
 
 export { roleNodeId, roleSelections, type RoleDefinition } from "./roles.ts";

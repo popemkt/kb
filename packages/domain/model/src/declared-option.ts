@@ -48,7 +48,7 @@ export interface SeedOption {
 }
 
 /** A declared thing of `kind`, by its declared id. */
-export interface DeclaredRef {
+interface DeclaredRef {
   readonly kind: DeclaredOptions;
   readonly id: string;
 }

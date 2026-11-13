@@ -39,8 +39,8 @@
     "reason": "M6: script reach (callWithin, scriptRefusal, scriptWriteRefusal, readableNodes, readableQuery) moved from @kb/operations beside grants."
   },
   "@kb/model": {
-    "limit": 300,
-    "reason": "M6: planNodeAdd, placedRank, projectPropEdits, NodeAddPlanInput, PropEntry and syncDomain moved from @kb/operations; pure write meaning a capture planner can use."
+    "limit": 265,
+    "reason": "M3b dropped the names no package outside model imports; every model file is still shared by two or more packages, so 220 waits on an API redesign (GAP 01M78V3TNFF2XAVGZB6TXEAPR0)."
   },
   "@kb/plugin": {
     "limit": 54
@@ -241,8 +241,8 @@
     "limit": 26
   },
   "@kb/appearance": {
-    "limit": 64,
-    "reason": "M3 relocation; final ceiling 45 pending API redesign"
+    "limit": 57,
+    "reason": "M3b dropped the names no package outside appearance imports; 45 waits on who owns the backdrop art reading and the knob and motion helpers seed's tests use (GAP 01M78V3TNFF2XAVGZB6TXEAPR0)."
   },
   "@kb/seed": {
     "limit": 8,

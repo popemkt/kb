@@ -55,7 +55,7 @@ export function isZodError(err: unknown): err is Error & { issues: unknown } {
 }
 
 /** Name a schema failure: the one mapping from a thrown value to a typed one. */
-export function schemaFailure(err: unknown): ActionSchemaError | DomainError {
+function schemaFailure(err: unknown): ActionSchemaError | DomainError {
   if (err instanceof ActionSchemaError) return err;
   if (isZodError(err)) return new ActionSchemaError(err.message, [{ message: err.message }]);
   if (err instanceof ResolveError) return domainFromResolve(err);

@@ -20,7 +20,7 @@ import { typeRefsOf, type NodeLike } from "./node-like.ts";
 import { configures } from "./system-write.ts";
 
 /** One option of a setting whose values are its field's children. */
-export interface SettingOption {
+interface SettingOption {
   readonly id: NodeId;
   readonly label: string;
 }

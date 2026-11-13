@@ -10,7 +10,6 @@ import { Schema } from "effect";
 
 /** One choice of an enum knob: its id, the value the knob takes, and its label. */
 const KnobOptionSchema = Schema.Struct({ id: Schema.String, label: Schema.String });
-export type KnobOption = typeof KnobOptionSchema.Type;
 
 /** What every knob carries: an id local to whatever declares it, and its label. */
 const knobBase = { id: Schema.String, label: Schema.String };
@@ -78,7 +77,6 @@ export const KnobSchema = Schema.Union([
   SeedKnobSchema,
 ]);
 export type Knob = typeof KnobSchema.Type;
-export type KnobKind = Knob["kind"];
 export type KnobValue = Knob["default"];
 export type KnobValues = Readonly<Record<string, KnobValue>>;
 

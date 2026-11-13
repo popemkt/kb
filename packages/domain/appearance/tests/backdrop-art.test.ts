@@ -11,8 +11,8 @@ import {
   backdropArtOf,
   imageArt,
   isArtManifest,
-  isBackdropArt,
 } from "@kb/appearance";
+import { isBackdropArt } from "../src/backdrop-art.ts";
 
 const AT = "/assets/signs.json";
 

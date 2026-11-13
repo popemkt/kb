@@ -12,11 +12,11 @@
 import { SYSTEM_IDS, type KbNode, type NodeId } from "@kb/model";
 
 export const MOTION_MODES = ["system", "full", "reduced", "off"] as const;
-export type MotionMode = (typeof MOTION_MODES)[number];
+type MotionMode = (typeof MOTION_MODES)[number];
 export const MOTION_INTENSITIES = ["subtle", "lively", "bold"] as const;
 export type MotionIntensity = (typeof MOTION_INTENSITIES)[number];
 export const MOTION_STYLES = ["clean", "wobbly"] as const;
-export type MotionStyle = (typeof MOTION_STYLES)[number];
+type MotionStyle = (typeof MOTION_STYLES)[number];
 export const MOTION_SPEEDS = ["snappy", "normal", "relaxed"] as const;
 export type MotionSpeed = (typeof MOTION_SPEEDS)[number];
 

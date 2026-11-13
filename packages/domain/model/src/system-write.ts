@@ -77,22 +77,6 @@ export function configures(
 }
 
 /**
- * Whether the system node `id` (its node `node`) configures an extension:
- * its `sys.f.configures` names an extension's node or their list. A field
- * that does is a setting; a tag that does is a kind whose nodes are that
- * extension's configuration (the agent's `#agent-provider`).
- */
-export function configuresAnExtension(
-  id: NodeId,
-  node: Pick<NodeLike, "props"> | undefined,
-): boolean {
-  if (!isSysPrefixed(id)) return false;
-  return refValuesOf(node, SYSTEM_IDS.configuresField).some(
-    (target) => target === SYSTEM_IDS.extensionsRoot || isExtensionNodeId(target),
-  );
-}
-
-/**
  * How a person may write values of the field `fieldId` (its node
  * `fieldNode`) on `node`: `closed` without force (a system node's field
  * that is not one of its settings), `managed` deliberately (a family writes

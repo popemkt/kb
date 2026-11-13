@@ -7,10 +7,10 @@ import {
   assetEmbedsOf,
   assetMediaType,
   isAssetPath,
-  mediaKindFromExt,
   mediaKindFromHref,
   textHasAssetRef,
 } from "../src/index.ts";
+import { mediaKindFromExt } from "../src/asset.ts";
 
 describe("kb's media", () => {
   test("an extension names its kind, with or without its dot", () => {
