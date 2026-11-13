@@ -62,7 +62,7 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // reject that frame and show a server-message error, so they reload first.
 const RECORDED = {
   protocol: 9,
-  fingerprint: "0c71ed9566b055a68ab5cbe02703a58321e0c18953cc14a0a7d00de7fd219707",
+  fingerprint: "5cae6116dfd6a803bbf9cfc113db1eca40336b1fc1ae0016dd303ab6b0d60fdb",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

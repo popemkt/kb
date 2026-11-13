@@ -9,7 +9,8 @@
     "limit": 10
   },
   "@kb/runtime": {
-    "limit": 44
+    "limit": 46,
+    "reason": "#187: the server watches the root's own extension files (ownExtensionEdits, ownExtensionPath), beside extensionRuntimeChanges."
   },
   "@kb/server": {
     "limit": 12
@@ -26,8 +27,8 @@
     "reason": "Lane B moved the CLI's flag mappers (map.ts) to @kb/cli and the outline-paste parser to @kb/outline-paste; ui.*, render.*, procedure.* and store.* stay core actions every surface offers."
   },
   "@kb/contracts": {
-    "limit": 379,
-    "reason": "M6: node.update input and prop input schemas, shared by the action and days' untag interceptor."
+    "limit": 381,
+    "reason": "#187: the extension watch's setting node and its reading (EXTENSIONS_WATCH_NODE, extensionsWatched), which the server reads; M6 added node.update's input and prop input schemas, shared by the action and days' untag interceptor."
   },
   "@kb/ext-sdk": {
     "limit": 9
