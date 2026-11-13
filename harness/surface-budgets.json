@@ -91,7 +91,8 @@
     "limit": 1
   },
   "@kb/chart-vega": {
-    "limit": 6
+    "limit": 3,
+    "reason": ""
   },
   "@kb/check": {
     "limit": 1
