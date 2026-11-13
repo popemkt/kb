@@ -10,7 +10,12 @@
  * So this module always hands back `rgb()`/`rgba()` with integer channels.
  */
 
-import { COLOR_TOKEN_FALLBACKS, type ColorToken } from "@kb/contracts";
+import {
+  COLOR_TOKEN_FALLBACKS,
+  colorTokenReader,
+  type ColorTokenReader,
+  type ColorToken,
+} from "@kb/contracts";
 
 const CHANNEL = String.raw`-?[\d.]+%?`;
 
@@ -136,8 +141,15 @@ export function toRenderableColor(color: string, alphaOverride?: number): string
     : `rgba(${parsed.r}, ${parsed.g}, ${parsed.b}, ${alpha})`;
 }
 
+let tokenReader = colorTokenReader([COLOR_TOKEN_FALLBACKS]);
+
+/** The composition root supplies declared tokens through the same pure SSR reader. */
+export function provideColorTokens(reader: ColorTokenReader): void {
+  tokenReader = reader;
+}
+
 export function readTokenColor(varName: ColorToken, opts: { alpha?: number } = {}): string {
-  const fallback = COLOR_TOKEN_FALLBACKS[varName];
+  const fallback = tokenReader.fallback(varName);
   const unresolved = toRenderableColor(fallback, opts.alpha) ?? fallback;
   if (typeof document === "undefined") return unresolved;
   const probe = document.createElement("span");

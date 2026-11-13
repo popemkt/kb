@@ -11,7 +11,7 @@
  * own `<style>`, so it renders anywhere, and a page that defines the tokens
  * repaints it in its own system. A picture is referenced by its asset path.
  */
-import { COLOR_TOKEN_FALLBACKS } from "@kb/contracts";
+import { COLOR_TOKEN_FALLBACKS, colorTokenReader } from "@kb/contracts";
 import { boxBounds } from "./box.ts";
 import {
   isFileNode,
@@ -43,7 +43,7 @@ import {
   type Tone,
   type WordsPaint,
 } from "./paint.ts";
-import { paletteToken, toneCss } from "./paint-css.ts";
+import { CANVAS_COLOR_TOKENS, paletteToken, toneCss } from "./paint-css.ts";
 import { itemMarks, itemOutline } from "./paths.ts";
 import { svgPathData, topFace } from "./shapes.ts";
 import { CANVAS_PALETTE } from "./style.ts";
@@ -129,10 +129,11 @@ function style(declarations: Readonly<Record<string, string | undefined>>): stri
 // GAP [[01M54QTGRJYJZ7W5SXDP4356QW]] the export carries the default design system's tokens, not the one core's setting chooses
 /** Every token the painting says, with its default-system value, as the SVG's own rule. */
 function tokenRule(): string {
+  const tokens = colorTokenReader([COLOR_TOKEN_FALLBACKS, CANVAS_COLOR_TOKENS]);
   const colours = [
     ...Object.values(TONE_TOKENS),
     ...CANVAS_PALETTE.map(({ id }) => paletteToken(id)),
-  ].map((token) => `${token}: ${COLOR_TOKEN_FALLBACKS[token]};`);
+  ].map((token) => `${token}: ${tokens.fallback(token)};`);
   const steps = Object.values(TYPE_STEPS).map((step) => `${step}: ${TYPE_STEP_FALLBACKS[step]}px;`);
   const faces = CANVAS_FONTS.map((font) => `${FONT_FACES[font]}: ${FONT_FALLBACKS[font]};`);
   return `svg { ${[...colours, ...steps, `${CARD_BODY_STEP}: ${CARD_BODY_FALLBACK}px;`, ...faces].join(" ")} }`;

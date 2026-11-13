@@ -9,7 +9,7 @@
       "@kb/test-kit": 56,
       "@kb/webmcp": 12,
       "@kb/operations": 165,
-      "@kb/contracts": 374,
+      "@kb/contracts": 376,
       "@kb/ext-sdk": 9,
       "@kb/extension-source": 27,
       "@kb/sandbox": 89,
@@ -78,7 +78,7 @@
       "@kb/appearance-kit": 43,
       "@kb/scene": 13,
       "@kb/scene-gpu": 35,
-      "@kb/ui-sdk": 583,
+      "@kb/ui-sdk": 584,
       "@kb/ui-test-kit": 26
     },
     "family-names": {
@@ -153,7 +153,7 @@
       "packages/infrastructure/sandbox-quickjs/src/index.ts imports @jitl/quickjs-singlefile-browser-release-sync": 1
     },
     "cli-closure": {
-      "bytes": 5847295,
+      "bytes": 5848226,
       "modules": 1108
     },
     "single-family": {

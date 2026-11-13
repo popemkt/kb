@@ -12,8 +12,18 @@ import { declarationPlugin, defineExtension, viewDef } from "@kb/contracts";
 import type { Plugin } from "@kb/plugin";
 import { LabView } from "./view.ts";
 
+/** The family's pure colour-token declaration and SSR fallbacks. */
+const LAB_COLOR_TOKENS = {
+  "--lab-ground": "rgb(128, 128, 128)",
+  "--lab-edge": "rgb(128, 128, 128)",
+  "--lab-hue": "rgb(128, 128, 128)",
+  "--lab-ink": "rgb(128, 128, 128)",
+  "--lab-accent": "rgb(128, 128, 128)",
+} as const;
+
 export const labExtension = defineExtension({
   name: "lab",
+  colorTokens: LAB_COLOR_TOKENS,
   label: "Lab",
   points: Object.values(LAB_POINT_DEFINITIONS),
   manifest: { description: "A sketchbook of experimental scenes, off until you switch it on." },

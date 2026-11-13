@@ -22,7 +22,12 @@ export {
   type PointUse,
   type PageTier,
 } from "./extension-manifest.ts";
-export { COLOR_TOKEN_FALLBACKS, type ColorToken } from "./design-tokens.ts";
+export {
+  COLOR_TOKEN_FALLBACKS,
+  colorTokenReader,
+  type ColorTokenReader,
+  type ColorToken,
+} from "./design-tokens.ts";
 export {
   ActionCatalog,
   ActionRequestSchema,

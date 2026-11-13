@@ -19,36 +19,38 @@ const TOKEN_FALLBACK = {
   "--border": "#e5e5e5",
   "--popover": "#fff",
   "--popover-foreground": "#222",
-  // The design system's chart ramp, light to dark (`@kb/chart-ui`).
-  "--chart-1": "#fbd452",
-  "--chart-2": "#f49f1e",
-  "--chart-3": "#dc7702",
-  "--chart-4": "#b75301",
-  "--chart-5": "#8f4113",
   "--destructive": "#dc2626",
   "--graph-edge": "rgba(34, 34, 34, 0.4)",
-  // The canvas palette (`@kb/canvas` CANVAS_PALETTE, `@kb/canvas-ui`'s `canvas-color`): the
-  // JSON Canvas presets "1"–"6" and kb's named colours, which the 3D canvas paints into its
-  // card textures.
-  "--canvas-color-1": "#dc2626",
-  "--canvas-color-2": "#ea580c",
-  "--canvas-color-3": "#ca8a04",
-  "--canvas-color-4": "#16a34a",
-  "--canvas-color-5": "#0891b2",
-  "--canvas-color-6": "#9333ea",
-  "--canvas-color-blue": "#2563eb",
-  "--canvas-color-pink": "#db2777",
-  "--canvas-color-grey": "#808080",
-  // The lab palette: mid grey, so a missing token reads as missing rather
-  // than as a deliberate colour.
-  "--lab-ground": "rgb(128, 128, 128)",
-  "--lab-edge": "rgb(128, 128, 128)",
-  "--lab-hue": "rgb(128, 128, 128)",
-  "--lab-ink": "rgb(128, 128, 128)",
-  "--lab-accent": "rgb(128, 128, 128)",
 } as const;
 
-export type ColorToken = keyof typeof TOKEN_FALLBACK;
+export type ColorToken = `--${string}`;
 
-/** Every token a renderer may read, with its fallback. */
-export const COLOR_TOKEN_FALLBACKS: Readonly<Record<ColorToken, string>> = TOKEN_FALLBACK;
+/** Core-owned fallbacks; families supply their pure maps beside these. */
+export const COLOR_TOKEN_FALLBACKS: Readonly<Partial<Record<ColorToken, string>>> = TOKEN_FALLBACK;
+
+/** Pure token lookup port, also usable by server renderers without a host. */
+export interface ColorTokenReader {
+  readonly fallback: (token: ColorToken) => string;
+}
+
+/** Compose declarations once; identical repetitions are harmless, conflicts are refused. */
+export function colorTokenReader(
+  sources: readonly Readonly<Partial<Record<ColorToken, string>>>[],
+): ColorTokenReader {
+  const tokens = new Map<string, string>();
+  for (const source of sources)
+    for (const [name, value] of Object.entries(source)) {
+      if (value === undefined) continue;
+      const known = tokens.get(name);
+      if (known !== undefined && known !== value)
+        throw new Error(`conflicting colour token ${name}`);
+      tokens.set(name, value);
+    }
+  return {
+    fallback: (name) => {
+      const value = tokens.get(name);
+      if (value === undefined) throw new Error(`undeclared colour token ${name}`);
+      return value;
+    },
+  };
+}

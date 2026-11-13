@@ -18,8 +18,18 @@ function chartViews(painter: ChartPainter | null): readonly ViewDef<unknown>[] {
   return [viewDef(ChartView, chartText(painter))];
 }
 
+/** The family's pure colour-token declaration and SSR fallbacks. */
+const CHART_COLOR_TOKENS = {
+  "--chart-1": "#fbd452",
+  "--chart-2": "#f49f1e",
+  "--chart-3": "#dc7702",
+  "--chart-4": "#b75301",
+  "--chart-5": "#8f4113",
+} as const;
+
 export const chartExtension = defineExtension({
   name: "chart",
+  colorTokens: CHART_COLOR_TOKENS,
   label: "Chart",
   manifest: { description: "Charts drawn from query results." },
   tags: ["chart"],

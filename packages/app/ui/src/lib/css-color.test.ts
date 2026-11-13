@@ -1,3 +1,4 @@
+import { BUNDLED_DECLARATIONS } from "@kb/bundled";
 import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { COLOR_TOKEN_FALLBACKS } from "@kb/contracts";
@@ -90,7 +91,13 @@ describe("toRenderableColor", () => {
 });
 
 describe("the token fallbacks are bound to the stylesheets", () => {
-  for (const [token, fallback] of Object.entries(COLOR_TOKEN_FALLBACKS)) {
+  const fallbacks: Record<string, string> = {};
+  Object.assign(
+    fallbacks,
+    COLOR_TOKEN_FALLBACKS,
+    ...BUNDLED_DECLARATIONS.map((d) => d.colorTokens ?? {}),
+  );
+  for (const [token, fallback] of Object.entries(fallbacks)) {
     // A layer-1 token, so the design-system point's contract holds every
     // contributed system to setting it in both variants.
     it(`${token} is a layer-1 token, and its fallback renders`, () => {

@@ -4129,6 +4129,12 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
 
 ## Design tokens
 
+Families declare pure `colorTokens` fallback maps. The page supplies a composed
+`ColorTokenReader` through the rendering port, including installed families
+while disabled; server renderers can compose the same reader without a host.
+Conflicting fallback declarations are refused. Core owns only generic tokens
+and the reader contract.
+
 A whole design system (colour, type, faces, weights, radius, elevation,
 border width, density) can be swapped by redefining one set of custom
 properties. Components never carry a raw value, so nothing has to be edited

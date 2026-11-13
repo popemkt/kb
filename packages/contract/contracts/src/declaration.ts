@@ -32,6 +32,8 @@ import {
 import { ProcedurePoint } from "./procedure.ts";
 
 export interface ExtensionDeclaration {
+  /** Pure fallback values, available even while a family is disabled. */
+  readonly colorTokens?: Readonly<Record<`--${string}`, string>>;
   /** The family's name: the one home of it, which its plugins and its manifest row read. */
   readonly name: string;
   readonly label: string;
@@ -230,6 +232,7 @@ export interface ExtensionEntry {
  * family no store can switch off.
  */
 export const ExtensionRowSchema = z.object({
+  colorTokens: z.record(z.string().startsWith("--"), z.string()).optional(),
   ...ExtensionReviewSchema.shape,
   origin: ExtensionOriginSchema,
   name: z.string(),
@@ -290,6 +293,7 @@ export function extensionRow(
   return {
     name: declaration.name,
     label: declaration.label,
+    ...(declaration.colorTokens === undefined ? {} : { colorTokens: declaration.colorTokens }),
     ...(manifest === undefined ? {} : { manifest }),
     ...(declaration.required === undefined ? {} : { required: declaration.required }),
     enabled,

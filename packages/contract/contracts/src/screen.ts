@@ -29,6 +29,7 @@ const CanvasPoseSchema = z.object({
   fov: z.number(),
 });
 
+// GAP [[01M798BKRWRND50G4W3WXBRH2V]]: family-owned payload validation needs owner review of the agent wire API.
 export const CanvasScreenSchema = z.object({
   projection: z.enum(["2d", "3d"]),
   pose: CanvasPoseSchema,

@@ -25,8 +25,8 @@
     "reason": "M3 relocation; final ceiling 90 pending API redesign"
   },
   "@kb/contracts": {
-    "limit": 374,
-    "reason": "Initial measured interface; module migration will narrow it."
+    "limit": 376,
+    "reason": "M5 pure family token catalogue reader contract."
   },
   "@kb/ext-sdk": {
     "limit": 9
@@ -234,8 +234,8 @@
     "limit": 35
   },
   "@kb/ui-sdk": {
-    "limit": 583,
-    "reason": "M4 appearance host moved into appearance-kit; page SDK assembled by app/ui."
+    "limit": 584,
+    "reason": "M5 token reader port installation by the composition root."
   },
   "@kb/ui-test-kit": {
     "limit": 26
