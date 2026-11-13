@@ -6,13 +6,22 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DAYS_IDS } from "@kb/days";
-import { currentKeymap, setToastSink, syncUiPlugins, tellKeymaps } from "@kb/ui-sdk";
-import type { Plugin } from "@kb/plugin";
+import {
+  currentKeymap,
+  KeybindingPoint,
+  provideKeybinding,
+  setToastSink,
+  syncUiPlugins,
+  tellKeymaps,
+} from "@kb/ui-sdk";
+import { definePlugin, type Plugin } from "@kb/plugin";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { BROWSER_EXTENSIONS, CORE_UI_PLUGINS } from "@/ui-plugins";
 import { PAGE_CONTEXT_ID, paletteOpening } from "./page-keys";
 
 const told: string[] = [];
+/** Every plugin the main bundle carries, as the app loads them. */
+let bundled: readonly Plugin[] = [];
 
 beforeAll(async () => {
   setToastSink((message) => told.push(message));
@@ -21,7 +30,8 @@ beforeAll(async () => {
       entry === null ? [] : [entry.load()],
     ),
   );
-  syncPagePlugins([...CORE_UI_PLUGINS, ...families]);
+  bundled = [...CORE_UI_PLUGINS, ...families];
+  syncPagePlugins(bundled);
   tellKeymaps();
 });
 afterAll(() => syncUiPlugins([]));
@@ -52,6 +62,30 @@ describe("the page's own keys", () => {
 
   it("holds no key without ⌘ or Ctrl, so typing never reaches it", () => {
     expect(currentKeymap(PAGE_CONTEXT_ID).resolve({ key: "d", shiftKey: true })).toBeUndefined();
+  });
+
+  it("tells a binding whose context no plugin contributes, so a mistyped id is no silent key", () => {
+    const mistyped = definePlugin({
+      name: "mistyped",
+      apply: (ctx) =>
+        ctx.contribute(
+          KeybindingPoint,
+          provideKeybinding("split", {
+            context: "outline.editng",
+            chord: "Alt-s",
+            run: { intent: "split" },
+          }),
+        ),
+    });
+    syncPagePlugins([...bundled, mistyped]);
+    try {
+      tellKeymaps();
+      expect(told).toContain(
+        "Keybinding mistyped.split refused: there is no key context outline.editng",
+      );
+    } finally {
+      syncPagePlugins(bundled);
+    }
   });
 });
 

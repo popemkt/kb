@@ -5,8 +5,8 @@
  */
 import { describe, expect, it } from "vitest";
 import type { Contribution } from "@kb/plugin";
-import { admitKeymaps, type KeyContext, type Keybinding } from "./keybindings";
-import { PALETTE_CHORD, parseChord } from "./keychord";
+import { admitKeymaps, provideKeybinding, type KeyContext, type Keybinding } from "./keybindings";
+import { PALETTE_CHORD } from "./keychord";
 
 /** A host that approves every owner replacing what another holds. */
 const ANYONE = () => true;
@@ -19,11 +19,7 @@ const PAGE: KeyContext = {
   reserved: [{ mod: false }, PALETTE_CHORD],
 };
 
-/**
- * The row being edited: a surface context, named once. Admission reads any
- * context a plugin contributes, so the fixture's own plugin names it, not a
- * context core lists in KeyContextId. GAP [[01M7A4XKCMH09XC5WT6KEBFV4H]]
- */
+/** The row being edited: a surface context its owner, the fixture's notes plugin, contributes. */
 const EDITING = "notes.editing";
 
 const ROW: KeyContext = {
@@ -38,11 +34,9 @@ const ROW: KeyContext = {
 function binding(
   owner: string,
   id: string,
-  spec: Omit<Keybinding, "chord"> & { readonly chord: string },
+  spec: Parameters<typeof provideKeybinding>[1],
 ): Contribution<Keybinding> {
-  const chord = parseChord(spec.chord);
-  if (chord === null) throw new Error(`keybinding ${id}: "${spec.chord}" is not a chord`);
-  return { id: `${owner}.${id}`, aliases: [], owner, value: { ...spec, chord } };
+  return { id: `${owner}.${id}`, aliases: [], owner, value: provideKeybinding(id, spec).value };
 }
 
 const PALETTE = binding("core", "page.palette", {

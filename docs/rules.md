@@ -835,15 +835,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — the policies view opens in a core view type (the list, or the default view type), or core's policies view moves to a family that may depend on collections
 - **node** — `01M536CH4P48SXV9B0HH8B4XTG`
 
-### GAP: core's KeyContextId names outline's key contexts
-
-- **expected** — A binding names any context a plugin contributes to KeyContextPoint, as admission already reads it (admitKeymaps keys each keymap by a contributed context, and a context nobody contributes holds no key), so core names only its own context, core.page, and outline declares outline.editing and outline.selection where it contributes them.
-- **current** — KeyContextId in @kb/ui-sdk (lib/keybindings.ts) is a closed union of core.page, outline.editing and outline.selection, so provideKeybinding's type admits outline's contexts by name and no other plugin's.
-- **impact** — Core enumerates a plugin's contexts: a new context means editing the kit, and every file that names one counts on the family-names ratchet (keybindings.test.ts's EDITING constant is +1).
-- **closes** — provideKeybinding takes a context id as a string (a KeyContextSpec id), the union goes, and the contributed contexts are the only list of them, as for every other contribution that names another plugin's.
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M7A4XKCMH09XC5WT6KEBFV4H`
-
 ### GAP: core's screen protocol names the canvas
 
 - **expected** — core's screen protocol carries a pane's view state opaquely and the canvas family contributes its own part

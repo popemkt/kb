@@ -442,11 +442,15 @@ export interface Chord {
 }
 
 /**
- * Where a key means something: the page itself (`core.page`), offered every
- * key wherever focus is, before anything else is; the outline's row being
- * edited; or its selection (a row selected, none edited).
+ * Where a key means something, by the id its owner contributes it under:
+ * the page itself (`core.page`), offered every key wherever focus is,
+ * before anything else is; or a context a plugin contributes, such as the
+ * outline's row being edited (`outline.editing`) or its selection
+ * (`outline.selection`, a row selected, none edited). A binding naming a
+ * context no plugin contributes holds no key, and the person is told it
+ * was refused.
  */
-export type KeyContextId = "core.page" | "outline.editing" | "outline.selection";
+export type KeyContextId = string;
 
 /**
  * What a key runs: one of its context's intents by name (`core.page`:

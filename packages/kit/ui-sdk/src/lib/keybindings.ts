@@ -48,13 +48,6 @@ export const KeybindingPoint = Point<Keybinding>()(
 );
 
 /**
- * The contexts a binding may name: the page's own, and the outline's row
- * being edited and its selection. Core names outline's contexts here
- * rather than reading them from their owner. GAP [[01M7A4XKCMH09XC5WT6KEBFV4H]]
- */
-export type KeyContextId = "core.page" | "outline.editing" | "outline.selection";
-
-/**
  * A binding as data (its T0 form): a chord written as text
  * (`Alt-ArrowUp`, {@link parseChord}), the context it is a key of, what it
  * runs, and the binding it replaces, if it takes a held chord. A chord
@@ -64,7 +57,7 @@ export type KeyContextId = "core.page" | "outline.editing" | "outline.selection"
 export function provideKeybinding(
   id: string,
   binding: {
-    readonly context: KeyContextId;
+    readonly context: string;
     readonly chord: string;
     readonly run: KeyRun;
     readonly replaces?: string;
