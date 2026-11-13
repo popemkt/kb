@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
+  LAYER_BREACHES,
   RUNTIME_ONLY_SPECIFIERS,
   dependencyCycles,
   isIsomorphicScope,
   isTestWorldDevDependency,
+  layerSanction,
   matrixViolation,
   testMayImportTestWorld,
 } from "../src/constraints.ts";
@@ -58,11 +60,25 @@ describe("boundaries", () => {
     for (const edge of importEdges()) {
       if (testMayImportTestWorld(edge.file, edge.target)) continue;
       for (const axis of ["layer", "scope"] as const) {
+        if (axis === "layer" && layerSanction(edge.source, edge.target, edge.file)) continue;
         const problem = matrixViolation(axesOf, edge.source, edge.target, axis);
         if (problem !== undefined) violations.push(`${problem}  [${edge.file}]`);
       }
     }
     expect(violations, violations.join("\n")).toEqual([]);
+  });
+
+  test("no sanctioned layer breach outlives its import", () => {
+    // Red case: drop the `@kb/operations` import from a file LAYER_BREACHES names.
+    const live = new Set(
+      importEdges().map((edge) => `${edge.source} ${edge.file} -> ${edge.target}`),
+    );
+    const stale = Object.entries(LAYER_BREACHES)
+      .flatMap(([source, rows]) =>
+        rows.flatMap((row) => row.files.map((file) => `${source} ${file} -> ${row.target}`)),
+      )
+      .filter((site) => !live.has(site));
+    expect(stale, stale.join("\n")).toEqual([]);
   });
 
   test("scope:shared source imports no runtime-only module (the isomorphism fence)", () => {
@@ -86,6 +102,7 @@ describe("boundaries", () => {
     for (const edge of declaredEdges()) {
       if (isTestWorldDevDependency(edge.target)) continue;
       for (const axis of ["layer", "scope"] as const) {
+        if (axis === "layer" && layerSanction(edge.source, edge.target)) continue;
         const problem = matrixViolation(axesOf, edge.source, edge.target, axis);
         if (problem !== undefined) violations.push(`${problem}  [manifest]`);
       }

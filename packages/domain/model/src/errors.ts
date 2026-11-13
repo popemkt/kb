@@ -1,4 +1,4 @@
-import { Predicate, Schema } from "effect";
+import { Effect, Predicate, Schema } from "effect";
 import { FailureCodeSchema, type FailureCode } from "./failure.ts";
 import { ResolveError } from "./resolve.ts";
 
@@ -74,4 +74,19 @@ export function ensureDomainError(err: unknown): DomainError {
 /** Receipt code for domain/resolve failures — always a FailureCode. */
 export function receiptCodeOf(err: DomainError | ResolveError): FailureCode {
   return err.code;
+}
+
+/**
+ * Run a synchronous step that may throw, as a `DomainError`: a
+ * {@link ResolveError} as its own code, anything else `internal`. How a pure
+ * planner over a graph (`planNodeAdd`) becomes an effect.
+ */
+export function syncDomain<A>(f: () => A): Effect.Effect<A, DomainError> {
+  return Effect.try({
+    try: f,
+    catch: (err) => {
+      if (err instanceof ResolveError) return domainFromResolve(err);
+      return domainError("internal", err instanceof Error ? err.message : String(err));
+    },
+  });
 }

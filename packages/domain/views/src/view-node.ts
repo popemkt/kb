@@ -1,11 +1,28 @@
 /**
  * A proposed view node: a view, settings for it, and the node it is shown
- * for, checked and turned into the props a view node stores. DESIGN.md →
- * Kinds, roles and options → View nodes states what a proposal promises.
+ * for, checked and turned into the props a view node stores, and the write
+ * that files it. DESIGN.md → Kinds, roles and options → View nodes states
+ * what a proposal promises. Core's `view.propose` commits the write, and a
+ * family that writes a view node from settings inside a larger write (a
+ * canvas moving its camera onto one) plans it here too, so each writes what
+ * an agent's `view.propose` would.
  */
-import { Predicate, Result } from "effect";
-import { SYSTEM_IDS, canonicalJson, type NodeId, type PropValue } from "@kb/model";
-import { paramsIssues, type ViewIssue, type ViewKey } from "./view-key.ts";
+import { Effect, Predicate, Result } from "effect";
+import {
+  SYSTEM_IDS,
+  canonicalJson,
+  currentIso,
+  domainError,
+  freshId,
+  hostViewIds,
+  placedRank,
+  type DomainError,
+  type KbNode,
+  type NodeId,
+  type PropValue,
+  type SiblingGroups,
+} from "@kb/model";
+import { issueText, paramsIssues, type ViewIssue, type ViewKey } from "./view-key.ts";
 
 /** A proposal that checks out: the settings as decoded, and the props that hold them. */
 export interface ViewNodeProposal<P> {
@@ -81,3 +98,80 @@ function differences(key: ViewKey<unknown>, asked: unknown, back: unknown): View
         ],
   );
 }
+
+/** The host with `viewId` among its views: last, or first when it is to be the default. */
+function naming(host: KbNode, viewId: string, first: boolean, at: string): KbNode {
+  const others = hostViewIds(host);
+  const views = first ? [viewId, ...others] : [...others, viewId];
+  return {
+    ...host,
+    props: { ...host.props, [SYSTEM_IDS.viewsField]: views.map((v) => ({ t: "ref", v })) },
+    updatedAt: at,
+  };
+}
+
+/** What a view proposal asks for: the view's settings, the node it is shown for, and the node's own. */
+export interface ViewProposal {
+  readonly params: unknown;
+  readonly host?: string | undefined;
+  readonly text: string;
+  /** First among the host's views, so its default. */
+  readonly default: boolean;
+  readonly id?: string | undefined;
+}
+
+/** A planned view node: the node, what it checked as, and the tx that writes it. */
+export interface PlannedView {
+  readonly node: KbNode;
+  readonly host: KbNode | null;
+  readonly params: unknown;
+  readonly upserts: readonly KbNode[];
+}
+
+/**
+ * The write a view proposal makes over a graph as it reads now: nodes found
+ * by `nodeOf`, and the new node ranked among its siblings in `groups`. The
+ * view node is filed at the end of the Views list (a store without one files
+ * it at the forest roots), and the host names it among its views.
+ */
+export const planViewProposal = Effect.fn("view.propose.plan")(function* (
+  nodeOf: (id: NodeId) => KbNode | undefined,
+  groups: SiblingGroups<KbNode>,
+  key: ViewKey<unknown>,
+  proposal: ViewProposal,
+): Effect.fn.Return<PlannedView, DomainError> {
+  const hostId = proposal.host;
+  const host = hostId === undefined ? null : (nodeOf(hostId) ?? null);
+  if (hostId !== undefined && host === null)
+    return yield* domainError("not_found", `node not found: ${hostId}`, { id: hostId });
+  const checked = viewNodeFor(key, proposal.params, host?.id ?? null);
+  if (Result.isFailure(checked))
+    return yield* domainError(
+      "invalid_input",
+      `${key.id}: ${checked.failure.map(issueText).join("; ")}`,
+      { view: key.id, issues: checked.failure },
+    );
+
+  const at = yield* currentIso;
+  const id = proposal.id ?? (yield* freshId);
+  if (nodeOf(id) !== undefined)
+    return yield* domainError("ambiguous", `node id already exists: ${id}`, { id });
+  const list = nodeOf(SYSTEM_IDS.viewsList);
+  const draft: KbNode = {
+    id,
+    text: proposal.text,
+    props: checked.success.props,
+    children: [],
+    createdAt: at,
+    updatedAt: at,
+  };
+  const node: KbNode = {
+    ...draft,
+    order: placedRank(groups, list?.id ?? null, draft, undefined),
+  };
+  const upserts: KbNode[] = [node];
+  if (list !== undefined)
+    upserts.push({ ...list, children: [...list.children, id], updatedAt: at });
+  if (host !== null) upserts.push(naming(host, id, proposal.default, at));
+  return { node, host, params: checked.success.params, upserts };
+});

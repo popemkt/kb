@@ -5,11 +5,6 @@
  * The original deviations from the brief's table are recorded in
  * docs/waves/2026-09-03/reports/w1-workspace.md:
  *
- * - `layer:extension` may reach `application`. The bundled extensions are
- *   policy modules registered from inside the package, not sandboxed third
- *   party code; the fences that matter (extension ↛ infrastructure,
- *   extension ↛ app) still hold. Third-party `.kb/extensions/*.ts` are fenced
- *   by @kb/ext-sdk's ambient d.ts, which is not a package edge at all.
  * - `layer:extension` may reach `extension`, but only inside one family:
  *   @kb/ext-canvas reads its own family's @kb/canvas document, and
  *   {@link familyEdgeViolation} refuses an edge between two families.
@@ -41,8 +36,9 @@ export const LAYER_ALLOWS: Record<string, readonly string[]> = {
   infrastructure: ["domain", "contract", "infrastructure"],
   application: ["domain", "contract"],
   kit: ["domain", "contract", "kit"],
-  // Of its own family only: familyEdgeViolation.
-  extension: ["domain", "contract", "application", "kit", "extension"],
+  // Of its own family only: familyEdgeViolation. Core's use cases reach a
+  // family as contract services (GraphWrites, CoreInvoke), never as imports.
+  extension: ["domain", "contract", "kit", "extension"],
   // From a composition root only: EXTENSION_ROOTS.
   app: ["domain", "contract", "infrastructure", "application", "kit", "extension", "app"],
   // The UI test kit's scene contract holds the scene kit's handle.
@@ -204,10 +200,38 @@ export const HOSTS_BY_SCOPE: Readonly<Record<string, readonly ExtensionHost[]>> 
   shared: [],
 };
 
-/** Known imports of one extension package from outside every root: the exact files, each package-relative. */
-export interface SanctionedExtensionImport {
+/**
+ * Known imports of one package that a fence refuses: the exact files, each
+ * package-relative. A sanctioned row is frozen and can only shrink: a new
+ * file that imports the target fails, and a named file that no longer
+ * imports it fails too.
+ */
+export interface SanctionedImport {
   readonly target: string;
   readonly files: readonly string[];
+}
+
+/**
+ * The layer matrix's sanctioned breaches, by importing package, each with
+ * the gap that closes it. A sanctioned file may import its target, and its
+ * package may declare it; nothing else crosses the row.
+ */
+export const LAYER_BREACHES: Readonly<Record<string, readonly SanctionedImport[]>> = {
+  // GAP [[01M79FGTP0S14GPABE7ST2QCC1]]: home-registry writes need a capability-scoped port.
+  "@kb/locations-fs": [{ target: "@kb/operations", files: ["src/actions.ts"] }],
+  // GAP [[01M79FGVEF9PKK9BB1998YTTGQ]]: the outline-paste parser has no home a family reaches.
+  "@kb/gallery-net": [{ target: "@kb/operations", files: ["tests/starter.test.ts"] }],
+};
+
+/** The row of {@link LAYER_BREACHES} that admits `source` → `target`, from `file` when one is named. */
+export function layerSanction(
+  source: string,
+  target: string,
+  file?: string,
+): SanctionedImport | undefined {
+  return (LAYER_BREACHES[source] ?? []).find(
+    (row) => row.target === target && (file === undefined || row.files.includes(file)),
+  );
 }
 
 /**
@@ -218,9 +242,7 @@ export interface SanctionedExtensionImport {
  */
 // Every app import of an extension package is at a root now; the map stays
 // the place a deferred one would be named.
-export const EXTENSION_ROOT_BREACHES: Readonly<
-  Record<string, readonly SanctionedExtensionImport[]>
-> = {};
+export const EXTENSION_ROOT_BREACHES: Readonly<Record<string, readonly SanctionedImport[]>> = {};
 
 /**
  * A family's browser half is one package, `@kb/<family>-ui` (DESIGN.md →

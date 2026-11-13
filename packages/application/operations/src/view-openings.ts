@@ -8,9 +8,9 @@
 import { Effect } from "effect";
 import { z } from "zod";
 import { KbCtx, ViewCatalog, type ActionDefinition } from "@kb/contracts";
-import type { DomainError } from "@kb/model";
+import { syncDomain, type DomainError } from "@kb/model";
 import { nodeOpenings, nodePath } from "@kb/views";
-import { requireNode, syncDomain } from "./actions.ts";
+import { requireNode } from "./actions.ts";
 
 const OpeningSchema = z.object({
   /** What `/node/<id>/<view>` names: a view node's id, or a view type's option; absent, the default. */

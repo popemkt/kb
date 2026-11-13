@@ -100,6 +100,11 @@ export function callTargets(
   });
 }
 
+/** Whether `grant` reads every node: the one statement of the whole-graph read scope. */
+export function readsWholeGraph(grant: CodeGrant): boolean {
+  return grant.reads === "graph";
+}
+
 /** `id` as a call names it, the root as the root. */
 const named = (id: string) => (id === ROOT_TARGET ? "the outline's root" : id);
 
@@ -119,7 +124,7 @@ export function grantRefusal(
   targets: readonly string[] | undefined,
 ): string | null {
   if (action === NODE_READ) {
-    if (grant.reads === "graph") return null;
+    if (readsWholeGraph(grant)) return null;
     if (grant.reads === "none") return "this code's grant reads nothing (reads: none)";
     const id = Option.getOrUndefined(Option.map(decodeNodeId(args), (call) => call.id));
     if (id !== undefined && withinSubject(scope, id)) return null;
@@ -128,7 +133,7 @@ export function grantRefusal(
       : `${id ?? "(no id)"} is outside this code's subject ${scope.subject} (reads: subject)`;
   }
   if (GRAPH_READS.has(action)) {
-    return grant.reads === "graph" ? null : `${action} needs a grant that reads the graph`;
+    return readsWholeGraph(grant) ? null : `${action} needs a grant that reads the graph`;
   }
   if (!grant.actions.includes(action)) return `${action} is not in this code's grant`;
   if (targets === undefined) {

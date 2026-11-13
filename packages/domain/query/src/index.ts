@@ -16,7 +16,14 @@ export type {
 export { KbIndexService } from "./index/index.ts";
 export type { DatalogAnswer, KbIndex, NodeIndex } from "./index/index.ts";
 export { NodeTable } from "./index/node-table.ts";
-export { answered, engineOf, QueryEngineService, QueryError } from "./index/engine.ts";
+export {
+  answered,
+  classifyQueryError,
+  datalogRows,
+  engineOf,
+  QueryEngineService,
+  QueryError,
+} from "./index/engine.ts";
 export type { EdnRunner, QueryEngine } from "./index/engine.ts";
 export { answerOf } from "./index/answer.ts";
 export type { QueryAnswer, QueryRequest, QueryTransport } from "./index/answer.ts";

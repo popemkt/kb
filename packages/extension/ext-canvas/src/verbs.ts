@@ -18,9 +18,8 @@ import {
   KbCtx,
   Screens,
   type ExtensionAction,
-  type KbStore,
+  type GraphWrites,
 } from "@kb/contracts";
-import { planNodeAddEffect } from "@kb/operations";
 import type { KbIndexService } from "@kb/query";
 import { freshId, relationFieldFit, relationMisfit, resolveFieldId, type KbNode } from "@kb/model";
 import {
@@ -84,6 +83,7 @@ import {
   CanvasTxError,
   canvasStep,
   commitCanvasEffect,
+  planAddEffect,
   readableEffect,
   readableQueryEffect,
   readCanvasEffect,
@@ -92,7 +92,7 @@ import {
   type CanvasWrite,
 } from "./write.ts";
 
-type WriteEnv = KbCtx | KbStore | FileSystem | KbIndexService;
+type WriteEnv = KbCtx | GraphWrites | FileSystem | KbIndexService;
 
 /** An item as a write reports it: what it is and the box it now takes up. */
 const PlacedSchema = z.object({
@@ -725,12 +725,8 @@ const canvasPromoteEffect = Effect.fn("ext.canvas.promote")(function* (
   const text = yield* canvasStep(() => promotableText(before, input.id));
   // The node and the card that shows it are one transaction: a failed canvas
   // write leaves no node behind, and the pair is one step of history.
-  const planned = yield* planNodeAddEffect({
-    text,
-    parent: null,
-    ...(input.nodeId === undefined ? {} : { id: input.nodeId }),
-  });
-  const nodeId = planned.id;
+  const nodeId = input.nodeId ?? (yield* freshId);
+  const planned = yield* planAddEffect((yield* KbCtx).nodes, { text }, nodeId);
   const doc = yield* canvasStep(() => promoteItem(before, input.id, nodeId));
   const written = yield* commitCanvasEffect({
     canvasId: input.canvasId,

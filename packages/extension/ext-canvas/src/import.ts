@@ -9,22 +9,23 @@ import { isAbsolute, join } from "node:path";
 import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
-import { KbCtx, type ExtensionAction } from "@kb/contracts";
+import { GraphWrites, KbCtx, type ExtensionAction } from "@kb/contracts";
 import {
   IndexedNodes,
   SYSTEM_IDS,
   currentIso,
   freshId,
   isSysPrefixed,
+  planNodeAdd,
   present,
   FIELD_TYPE_OPTION_IDS,
   conformsToType,
   fieldTypeOf,
   type FieldType,
   type NodeId,
+  type PropEntry,
   type PropValue,
 } from "@kb/model";
-import { persistEffect, planNodeAdd, type PropEntry } from "@kb/operations";
 import {
   CANVAS_IDS,
   canvasWorld,
@@ -232,7 +233,7 @@ const canvasImportEffect = Effect.fn("ext.canvas.import")(function* (
   const upserts = [...written].map((id) =>
     present(graph.get(id), "a planned node is in the graph"),
   );
-  yield* persistEffect(ctx, { upserts, deletes: [] });
+  yield* (yield* GraphWrites).commit(() => Effect.succeed({ upserts, deletes: [] }));
   const world = canvasWorld([...ctx.nodes, ...upserts]);
   return {
     canvasId,

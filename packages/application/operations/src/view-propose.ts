@@ -6,35 +6,12 @@
  * `viewNodeFor`, the one check of a proposed view; this action only finds
  * the view and the host and writes what the check returns.
  */
-import type { NodeIndex } from "@kb/query";
-import { Effect, Result } from "effect";
+import { Effect } from "effect";
 import { z } from "zod";
-import {
-  KbCtx,
-  ViewCatalog,
-  type ActionDefinition,
-  type KbContext,
-  type KbStore,
-} from "@kb/contracts";
-import {
-  SYSTEM_IDS,
-  currentIso,
-  domainError,
-  freshId,
-  hostViewIds,
-  type DomainError,
-  type KbNode,
-  type PropValue,
-} from "@kb/model";
-import { issueText, viewNodeFor, type ViewKey } from "@kb/views";
-import {
-  cloneNode,
-  insertChild,
-  placedRank,
-  sessionGraph,
-  requireNode,
-  syncDomain,
-} from "./actions.ts";
+import { KbCtx, ViewCatalog, type ActionDefinition, type KbStore } from "@kb/contracts";
+import { domainError, type DomainError, type KbNode } from "@kb/model";
+import { planViewProposal } from "@kb/views";
+import { sessionGraph } from "./actions.ts";
 import { persistEffect } from "./session.ts";
 
 export const viewProposeDef = {
@@ -64,81 +41,6 @@ export const viewProposeDef = {
 
 type ViewProposeInput = z.infer<typeof viewProposeDef.inputSchema>;
 
-const ref = (v: string): PropValue => ({ t: "ref", v });
-
-/** The host with `viewId` among its views: last, or first when it is to be the default. */
-function naming(host: KbNode, viewId: string, first: boolean, at: string): KbNode {
-  const others = hostViewIds(host);
-  const views = first ? [viewId, ...others] : [...others, viewId];
-  const named = cloneNode(host);
-  named.props[SYSTEM_IDS.viewsField] = views.map(ref);
-  named.updatedAt = at;
-  return named;
-}
-
-/** What a view proposal asks for: the view's settings, the node it is shown for, and the node's own. */
-export interface ViewProposal {
-  readonly params: unknown;
-  readonly host?: string | undefined;
-  readonly text: string;
-  /** First among the host's views, so its default. */
-  readonly default: boolean;
-  readonly id?: string | undefined;
-}
-
-/** A planned view node: the node, what it checked as, and the tx that writes it. */
-export interface PlannedView {
-  readonly node: KbNode;
-  readonly host: KbNode | null;
-  readonly params: unknown;
-  readonly upserts: readonly KbNode[];
-}
-
-/**
- * The write a view proposal makes, planned over the session's graph as it
- * reads now: the view node `viewNodeFor` checks, filed at the end of the
- * Views list (a store without one files it at the forest roots), and the
- * host with it among its views. Every writer of a view node from settings
- * plans it here, so each writes what an agent's `view.propose` would.
- */
-export const planViewProposal = Effect.fn("view.propose.plan")(function* (
-  ctx: KbContext<NodeIndex>,
-  key: ViewKey<unknown>,
-  proposal: ViewProposal,
-): Effect.fn.Return<PlannedView, DomainError> {
-  const hostId = proposal.host;
-  const host = hostId === undefined ? null : yield* syncDomain(() => requireNode(ctx, hostId));
-  const checked = viewNodeFor(key, proposal.params, host?.id ?? null);
-  if (Result.isFailure(checked))
-    return yield* domainError(
-      "invalid_input",
-      `${key.id}: ${checked.failure.map(issueText).join("; ")}`,
-      { view: key.id, issues: checked.failure },
-    );
-
-  const at = yield* currentIso;
-  const id = proposal.id ?? (yield* freshId);
-  if (ctx.index.getNode(id) !== undefined)
-    return yield* domainError("ambiguous", `node id already exists: ${id}`, { id });
-  const list = ctx.index.getNode(SYSTEM_IDS.viewsList);
-  const draft: KbNode = {
-    id,
-    text: proposal.text,
-    props: checked.success.props,
-    children: [],
-    createdAt: at,
-    updatedAt: at,
-  };
-  const node: KbNode = {
-    ...draft,
-    order: placedRank(sessionGraph(ctx), list?.id ?? null, draft, undefined),
-  };
-  const upserts: KbNode[] = [node];
-  if (list !== undefined) upserts.push(insertChild(list, id, at));
-  if (host !== null) upserts.push(naming(host, id, proposal.default, at));
-  return { node, host, params: checked.success.params, upserts };
-});
-
 export const viewProposeEffect = Effect.fn("view.propose")(function* (
   input: ViewProposeInput,
 ): Effect.fn.Return<
@@ -154,7 +56,12 @@ export const viewProposeEffect = Effect.fn("view.propose")(function* (
       view: input.view,
       views: catalog.items.map((known) => known.key.id),
     });
-  const planned = yield* planViewProposal(ctx, key, input);
+  const planned = yield* planViewProposal(
+    (id) => ctx.index.getNode(id),
+    sessionGraph(ctx),
+    key,
+    input,
+  );
   yield* persistEffect(ctx, { upserts: [...planned.upserts], deletes: [] });
   return {
     id: planned.node.id,

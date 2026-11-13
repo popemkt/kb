@@ -8,12 +8,13 @@ import {
   currentIso,
   freshId,
   IndexedNodes,
+  planNodeAdd,
   present,
   SYSTEM_IDS,
   type KbNode,
   type NodeId,
+  type PropEntry,
 } from "@kb/model";
-import { planNodeAdd, type PropEntry } from "@kb/operations";
 import { DAYS_IDS } from "./ids.ts";
 import { planDay } from "./plan.ts";
 

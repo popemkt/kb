@@ -13,6 +13,7 @@
   "dependencies": {
     "@kb/contracts": "workspace:*",
     "@kb/model": "workspace:*",
+    "@kb/query": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {

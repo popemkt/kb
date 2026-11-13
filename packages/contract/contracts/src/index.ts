@@ -284,7 +284,7 @@ export type {
 export { KbCtx, KbStore, inProcess, kbCtxLayer, kbStoreLayer } from "./session.ts";
 export { NO_SECRETS, SecretError } from "./secrets.ts";
 export type { SecretSource, SecretSink, SecretStore } from "./secrets.ts";
-export { GraphWrites } from "./graph-writes.ts";
+export { GraphWrites, NodeUpdateInputSchema, PropInputSchema } from "./graph-writes.ts";
 export type { GraphPlan, GraphWritesPort } from "./graph-writes.ts";
 export {
   TX_TAIL_KEEP_ENTRIES,

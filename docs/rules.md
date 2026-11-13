@@ -902,14 +902,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Domain typing — one canonical schema
 - **node** — `01M1PJWF4G6W4122ZE4K67319V`
 
-### GAP: extensions reach core's use cases (@kb/operations)
-
-- **expected** — an extension package builds on domain, contract, kit and its own family only; core's write path and render backbone reach it as contract services (GraphWrites, ReadInvoke)
-- **current** — LAYER_ALLOWS.extension admits application; ext-canvas write.ts and verbs.ts import @kb/operations (ext-check and ext-docs left it at E15a)
-- **impact** — core's use cases are an extension API nobody declared: changing persistEffect edits a family, and a new extension can reach any use case
-- **closes** — E15b moves ext-canvas onto GraphWrites; E15c drops application from LAYER_ALLOWS.extension
-- **node** — `01M439W857BD9QQTBEQ5X5D06D`
-
 ### GAP: family halves' page tests run in the shell (outline, collections, graph)
 
 - **expected** — a family half's tests hold it to BrowserHost through the test host (DESIGN-UI → Extension UI halves)
@@ -933,6 +925,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Family-specific implementation remains in shared core packages.
 - **closes** — Move or generalize each flagged file by concept and lower the single-family ledger.
 - **node** — `01M78BBBXM8791SRARJFQ9TNW6`
+
+### GAP: gallery-net starter test reads core's outline parser from @kb/operations
+
+- **expected** — a family test checks its starter outline against the outline-paste parser without importing application: the parser has a home a family may reach, or the test runs node.addTree through the test kit
+- **current** — gallery-net tests/starter.test.ts imports parseOutline from @kb/operations; a sanctioned row in LAYER_BREACHES admits that one test file, and @kb/operations stays a devDependency
+- **impact** — a test-only edge from an extension to application; production code cannot follow it, but the fence carries a row
+- **closes** — move the outline-paste parser to a layer families reach, or rewrite the test over node.addTree in the DST harness; then the row and the devDependency go
+- **node** — `01M79FGVEF9PKK9BB1998YTTGQ`
 
 ### GAP: Git source failures do not distinguish unavailable repositories or refs
 
@@ -1062,6 +1062,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — multi-select Local rotations and scales differ from Blender
 - **closes** — per-item origins in the gizmo
 - **node** — `01M41W57GRNCMBJG1RYJQTA68P`
+
+### GAP: locations-fs writes the home store through @kb/operations
+
+- **expected** — locations-fs writes the home store's location registry through a capability-scoped home-registry write port in @kb/contracts, granted only to the locations family, so no extension package imports application
+- **current** — locations-fs src/actions.ts imports persistPlannedEffect from @kb/operations to commit to the home session with systemWrites: system; a sanctioned row in LAYER_BREACHES admits that one file
+- **impact** — the one extension edge to application left after M6: changing persistPlannedEffect edits a family, and P5 (extensions reach application only through ports) stays open for this site
+- **closes** — a home-registry write port in @kb/contracts, bound in @kb/operations and given only to locations-fs; then the LAYER_BREACHES row and the @kb/operations dependency go
+- **node** — `01M79FGTP0S14GPABE7ST2QCC1`
 
 ### GAP: long field values are drawn in full in the outline
 
@@ -2281,6 +2289,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A cross-extension dependency could pass boundaries and couple independently loadable plugins.
 - **closes** — Decide a canonical package-family identity and teach the import graph check to verify extension-to-extension edges against it, with a red cross-family fixture and a green canvas fixture.
 - **node** — `01M3F923QWH9HSAW61VNFWHANV`
+
+### GAP: extensions reach core's use cases (@kb/operations)
+
+- **expected** — an extension package builds on domain, contract, kit and its own family only; core's write path and render backbone reach it as contract services (GraphWrites, ReadInvoke)
+- **current** — LAYER_ALLOWS.extension admits application; ext-canvas write.ts and verbs.ts import @kb/operations (ext-check and ext-docs left it at E15a)
+- **impact** — core's use cases are an extension API nobody declared: changing persistEffect edits a family, and a new extension can reach any use case
+- **closes** — E15b moves ext-canvas onto GraphWrites; E15c drops application from LAYER_ALLOWS.extension
+- **node** — `01M439W857BD9QQTBEQ5X5D06D`
 
 ### GAP: feature view models live in core packages
 

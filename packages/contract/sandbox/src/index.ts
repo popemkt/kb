@@ -23,6 +23,13 @@ export {
   type GrantScope,
 } from "./grant.ts";
 export {
+  callWithin,
+  readableNodes,
+  readableQuery,
+  scriptRefusal,
+  scriptWriteRefusal,
+} from "./script-reach.ts";
+export {
   SANDBOX_ANCHOR_ATTR,
   SandboxAnchor,
   SandboxAnchors,

@@ -37,8 +37,8 @@ axis is stated in exactly one place:
 
 | Axis      | Where it lives                    | Values                                                                                    | Means                               |
 | --------- | --------------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------- |
-| layer     | the folder under `packages/`      | `domain`, `contract`, `infrastructure`, `application`, `app`, `extension`, `test-support` | which way dependencies may point    |
-| `scope:*` | one tag in the package's `nx` key | `shared`, `backend`, `browser`, `test-support`                                            | which runtime the code must survive |
+| layer     | the folder under `packages/`      | `domain`, `contract`, `infrastructure`, `application`, `kit`, `extension`, `app`, `test-support` | which way dependencies may point    |
+| `scope:*` | one tag in the package's `nx` key | `shared`, `backend`, `browser`, `test-support`                                                   | which runtime the code must survive |
 
 Placement carries the layer because the layer is the thing a reader wants to
 see without opening a manifest, and a `layer:*` tag beside the folder would be
@@ -50,12 +50,13 @@ not one, and on any manifest that still declares `layer:*`.
 
 ```
 packages/
-  domain/          model  plugin  query
-  contract/        contracts  ext-sdk
-  infrastructure/  store-jsonl  store-sqlite  tx-log  workspace-fs
+  domain/          model  appearance  seed  plugin  query  views
+  contract/        contracts  sandbox  extension-source  ext-sdk
+  infrastructure/  store-jsonl  store-sqlite  tx-log  workspace-fs  …
   application/     operations
-  extension/       canvas  ext-canvas  ext-check  ext-docs
-  app/             client  runtime  server  cli  mcp  webmcp  ui  test-kit
+  kit/             ui-sdk  appearance-kit  scene  scene-gpu
+  extension/       one package per family half: canvas  ext-canvas  canvas-ui  …
+  app/             bundled  client  runtime  server  cli  mcp  webmcp  ui  test-kit
   test-support/    render-tests  ui-test-kit
 ```
 
@@ -69,8 +70,9 @@ An extension's parts are separate workspace packages by runtime, colocated
 under `extension/`: `@kb/canvas` owns the shared JSON Canvas document,
 `@kb/ext-canvas` owns its backend plugin, and `@kb/canvas-ui` its browser
 half, built against `@kb/ui-sdk`. A package has one `scope:*` tag, never a
-per-entry scope. Extension packages can import another extension package's
-public barrel when their scope permits it. Third-party `.kb/extensions` use
+per-entry scope. An extension package builds on domain, contract and kit,
+and on another package's public barrel only inside its own family
+([Extension families](#extension-families)). Third-party `.kb/extensions` use
 the generated ambient `kb-ext-sdk` declaration, not workspace package imports.
 The layer and scope matrices admit only directions used by package imports;
 an empty compatibility edge is not a contract. `app` is the composition
@@ -4077,9 +4079,21 @@ figure?}`. `viewText` looks the view up in the catalog and falls back to
     between, so a node a family rewrites from what it read never loses a
     concurrent write. The transaction's integrity is checked, the approval
     resolver is asked again with what it writes when it runs inside a call,
-    and the index and the transaction log move with it.
+    and the index and the transaction log move with it. It answers the
+    write as the plan answered it, so a plan may carry what it decided (the
+    day it found) alongside the nodes.
 
-  `graph-writes.test.ts` (`app/runtime`) holds this over the binding.
+  `graph-writes.test.ts` (`app/runtime`) holds this over the binding. What
+  a write means is pure and below the port, so a family plans exactly what
+  core's action would, with or without services (a capture target, an
+  interceptor): one add is `planNodeAdd` and an update's props are
+  `projectPropEdits` (`@kb/model`), a view proposal is `planViewProposal`
+  (`@kb/views`), and `node.update`'s input is `NodeUpdateInputSchema`
+  (`@kb/contracts`). A family reads the graph through `datalogRows`
+  (`@kb/query`), and as a script's call may read it through `readableNodes`
+  and `readableQuery` (`@kb/sandbox`). So an extension package imports no
+  use case: `LAYER_ALLOWS.extension` names no `application`, and the
+  fence's sanctioned rows (`LAYER_BREACHES`) each name their gap.
 
 - **What stays core** is mechanism, plus the projections the shell is built
   from:
@@ -4162,8 +4176,10 @@ Today's drift from this contract is marked where it sits:
   GAP [[01M43H3T8XEMTNBARC024PZD2W]];
 - the CLI's report bins, which import their family's output schema:
   GAP [[01M41H30Y60D3G9WJJX6NFQD2T]];
-- extensions that still reach core's use cases (`@kb/operations`):
-  GAP [[01M439W857BD9QQTBEQ5X5D06D]];
+- locations-fs, which writes the home store through core's use case
+  rather than a home-registry port: GAP [[01M79FGTP0S14GPABE7ST2QCC1]];
+- gallery-net's starter test, which reads core's outline-paste parser
+  from `@kb/operations`: GAP [[01M79FGVEF9PKK9BB1998YTTGQ]];
 - the outline's canvas bullet, which the kit names by the canvas tag's
   frozen id: GAP [[01M436DVSEHKNYWSF2MR07HPMR]];
 - core's migration of graph data written before the graph was a family,
@@ -5597,7 +5613,8 @@ are `docs/brainstorms/2026-10-17-kb-locations/README.md`.
 - **Home writes land on what they read.** Registering and forgetting
   replace the list node whole, so a write planned from one state would
   merge over another process's write to it and lose it. Each is committed
-  through `persistPlannedEffect` (`@kb/operations`): planned from the home
+  through `persistPlannedEffect` (`@kb/operations`, GAP
+  [[01M79FGTP0S14GPABE7ST2QCC1]]): planned from the home
   session as it has caught up, committed on the condition that the store
   is still in that state, and planned again when it is not, a few times
   before the `conflict` is the caller's.
@@ -5876,7 +5893,7 @@ is `@kb/sandbox` (`packages/contract/sandbox`); the engines are
   call. The host stamps each call with its run's grant and
   subject (`ActionInvocation.script`, by `answerToolCall`, never the
   guest), and the invoke core decides it (`scriptRefusal` in
-  `@kb/operations`, asking `grantRefusal` with `callTargets`): one place,
+  `@kb/sandbox`, asking `grantRefusal` with `callTargets`): one place,
   which every script call reaches from the page and from the server alike.
   `sandboxContract` and `script-run.test.ts` pin it. What a call names is
   only where it starts; the bound holds on what it does, in three places:

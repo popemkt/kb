@@ -8,6 +8,7 @@
 import { Effect } from "effect";
 import { KbCtx, KbRoots, KbStore, type KbContext, type KbRootsPort } from "@kb/contracts";
 import { currentIso, domainError, freshId, type DomainError, type KbNode } from "@kb/model";
+// GAP [[01M79FGTP0S14GPABE7ST2QCC1]]: the home store is written through core's use case, not a port.
 import { persistPlannedEffect } from "@kb/operations";
 import {
   forgetWrites,

@@ -4,7 +4,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import { SYSTEM_IDS, type KbNode } from "@kb/model";
-import { isVocabulary } from "@kb/operations";
+import { isVocabulary } from "../src/vocabulary.ts";
 
 const typed = (kind: string): Pick<KbNode, "props"> => ({
   props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: kind }] },
