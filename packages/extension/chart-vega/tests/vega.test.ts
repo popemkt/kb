@@ -5,7 +5,7 @@
  */
 import { afterEach, describe, expect, test } from "bun:test";
 import { Effect, Exit } from "effect";
-import { chartSvg, vegaChartPainter } from "@kb/chart-vega";
+import { vegaChartPainter } from "@kb/chart-vega";
 
 const BAR = {
   mark: "bar",
@@ -45,7 +45,7 @@ describe("vega chart painter", () => {
       { preconnect: realFetch.preconnect },
     );
     const exit = await Effect.runPromiseExit(
-      chartSvg({ ...BAR, data: { url: "https://example.com/rows.json" } }),
+      vegaChartPainter.svg({ ...BAR, data: { url: "https://example.com/rows.json" } }),
     );
     expect(fetched).toEqual([]);
     if (Exit.isSuccess(exit)) expect(exit.value).not.toContain("doing");
@@ -62,7 +62,7 @@ describe("vega chart painter", () => {
     });
     globalThis.Function = forbidden;
     const svg = await Effect.runPromise(
-      chartSvg({
+      vegaChartPainter.svg({
         ...BAR,
         transform: [{ calculate: "upper(datum.status) + '!'", as: "shout" }],
         encoding: { ...BAR.encoding, x: { field: "shout", type: "nominal" } },

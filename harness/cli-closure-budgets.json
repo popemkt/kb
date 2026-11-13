@@ -1,10 +1,10 @@
 {
   "bytes": {
-    "limit": 5856973,
-    "reason": "Shared shortcut commands add 1,082 bytes to the CLI static closure."
+    "limit": 4604891,
+    "reason": "chart-vega loads Vega on first use, so the command path holds no painter."
   },
   "modules": {
-    "limit": 1110,
-    "reason": "The launcher and the command table share one module of version flags (version-option.ts), so kb --version loads no runtime."
+    "limit": 728,
+    "reason": "chart-vega loads Vega on first use, so the command path holds no painter."
   }
 }

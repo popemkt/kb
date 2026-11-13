@@ -30,7 +30,7 @@
       "@kb/canvas-ui": 1,
       "@kb/chart": 17,
       "@kb/chart-ui": 1,
-      "@kb/chart-vega": 6,
+      "@kb/chart-vega": 3,
       "@kb/check": 1,
       "@kb/code": 11,
       "@kb/code-ui": 1,
@@ -148,14 +148,11 @@
       "kit/ui-sdk/src/hooks.ts": 3
     },
     "lazy-fence": {
-      "packages/extension/chart-vega/src/index.ts imports vega": 1,
-      "packages/extension/chart-vega/src/index.ts imports vega-interpreter": 1,
-      "packages/extension/chart-vega/src/index.ts imports vega-lite": 1,
       "packages/infrastructure/sandbox-quickjs/src/index.ts imports @jitl/quickjs-singlefile-browser-release-sync": 1
     },
     "cli-closure": {
-      "bytes": 5849663,
-      "modules": 1110
+      "bytes": 4604891,
+      "modules": 728
     },
     "single-family": {
       "contract/sandbox/src/snapshot.ts": 1,

@@ -1,15 +1,18 @@
 /**
  * Where Vega draws: the chart's own chunk, the only module of the UI that
- * loads the chart stack (`@kb/chart-vega`, behind the lazy-chunk fence). It keeps
+ * loads the chart stack (`@kb/chart-vega`'s `loadVega`, behind the lazy-chunk
+ * fence, before the chunk is ready). It keeps
  * one Vega view per spec and appearance; new rows are swapped into that view
  * (`CHART_DATA`) and a new box resizes it, so a live update or a pane resize
  * never rebuilds the chart.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CHART_DATA, chartSpecWithData, fillsChartBox, type ChartSpec } from "@kb/chart";
-import { chartView } from "@kb/chart-vega";
+import { loadVega } from "@kb/chart-vega";
 import { logWarn } from "@kb/ui-sdk";
 import { chartTheme } from "./chart-theme";
+
+const { chartView } = await loadVega();
 
 type View = ReturnType<typeof chartView>;
 
