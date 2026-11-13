@@ -163,7 +163,8 @@ const DATASCRIPT = /cljs\.core/;
 // Canvas run field references and their shared commit guard measure 1,843,186 bytes.
 // Tracking the validator's actual graph dependencies measures 1,843,078 bytes.
 // Preserving absent versus present binding data measures 1,843,086 bytes.
-const EAGER_BUDGET_BYTES = 1_844_700;
+// browser color-token port
+const EAGER_BUDGET_BYTES = 1_845_000;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

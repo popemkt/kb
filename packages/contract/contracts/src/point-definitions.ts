@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { TxReactionSchema } from "./tx-match.ts";
 /** Shared host point metadata, consumed by the keys in every host. */
 import type { PointSpec } from "@kb/plugin";
@@ -13,6 +14,16 @@ export interface PointDefinition {
 export const CORE_POINT_NAMESPACES = ["kb", "ui", "action", "tx", "identity"] as const;
 
 export const CORE_POINT_DEFINITIONS = {
+  colorTokens: {
+    name: "ui.color-tokens",
+    spec: {
+      contract: z.record(z.string().startsWith("--"), z.string()),
+      cardinality: "keyed",
+      combine: "compose declared fallback maps; conflicting values are refused",
+      kernel: ["registry", "server", "page"],
+      tier: "T3",
+    },
+  },
   paletteStep: {
     declared: true,
     name: "ui.palette-steps",

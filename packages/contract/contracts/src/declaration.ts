@@ -1,3 +1,4 @@
+import { ColorTokenPoint } from "./design-tokens.ts";
 import type { PointDefinition } from "./point-definitions.ts";
 import type { ProviderRole } from "./roles.ts";
 import {
@@ -32,6 +33,8 @@ import {
 import { ProcedurePoint } from "./procedure.ts";
 
 export interface ExtensionDeclaration {
+  /** Pure fallback values, available even while a family is disabled. */
+  readonly colorTokens?: Readonly<Record<`--${string}`, string>>;
   /** The family's name: the one home of it, which its plugins and its manifest row read. */
   readonly name: string;
   readonly label: string;
@@ -177,6 +180,11 @@ export function declarationPlugin(declaration: ExtensionDeclaration): Plugin {
     apply: (ctx) =>
       Effect.all(
         [
+          Effect.forEach(
+            declaration.colorTokens === undefined ? [] : [declaration.colorTokens],
+            (value) => ctx.contribute(ColorTokenPoint, { id: declaration.name, value }),
+            { discard: true },
+          ),
           Effect.forEach(
             declaration.views ?? [],
             (view) => ctx.contribute(ViewKeyPoint, { id: view.key.id, value: view }),

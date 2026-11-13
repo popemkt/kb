@@ -362,6 +362,7 @@ export interface ViewDef<P> {
  * node under `sys.views`.
  */
 export interface ExtensionDeclaration {
+  readonly colorTokens?: Readonly<Record<`--${string}`, string>>;
   /** The module's file name without `.ts`: its `ext.<name>` namespace and its node's name. */
   readonly name: string;
   readonly label: string;

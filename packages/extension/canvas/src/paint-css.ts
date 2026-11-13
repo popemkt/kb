@@ -9,6 +9,19 @@
 import { TONE_TOKENS, type Tone, type ToneSource } from "./paint.ts";
 import type { CanvasPaint, CanvasPaletteId } from "./style.ts";
 
+/** The family's pure colour-token declaration and SSR fallbacks. */
+export const CANVAS_COLOR_TOKENS = {
+  "--canvas-color-1": "#dc2626",
+  "--canvas-color-2": "#ea580c",
+  "--canvas-color-3": "#ca8a04",
+  "--canvas-color-4": "#16a34a",
+  "--canvas-color-5": "#0891b2",
+  "--canvas-color-6": "#9333ea",
+  "--canvas-color-blue": "#2563eb",
+  "--canvas-color-pink": "#db2777",
+  "--canvas-color-grey": "#808080",
+} as const;
+
 /** The token a palette entry is drawn in, in every projection. */
 export function paletteToken(id: CanvasPaletteId) {
   return `--canvas-color-${id}` as const;

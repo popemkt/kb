@@ -1,3 +1,28 @@
+import {
+  ColorTokenPoint,
+  COLOR_TOKEN_FALLBACKS,
+  colorTokenReader,
+  EXTENSION_SDK,
+  bundledPlugin,
+  extensionAdmissionIssue,
+  NO_SWITCHES,
+  extensionRow,
+  familyOn,
+  installHostModules,
+  type ExtensionRow,
+} from "@kb/contracts";
+import {
+  currentContributions,
+  uiKernelReader,
+  provideColorTokens,
+  paletteStepsPlugin,
+  latestRead,
+  configureUiRoles,
+  logWarn,
+  syncUiPlugins,
+} from "@kb/ui-sdk";
+
+import { BUNDLED_DECLARATIONS, BUNDLED_FAMILIES, BUNDLED_CAPABILITIES } from "@kb/bundled";
 /**
  * The plugins the UI ships with, and which of them the page loads. The shell
  * starts them before it renders; each owns its pages and sidebar section, and
@@ -29,7 +54,7 @@ import type { AgentPorts, Standing } from "@kb/agent-ui";
 import { routinesExtension } from "@kb/routines";
 import { backdropsExtension } from "@kb/backdrops";
 import { backdropsUiPlugin } from "@kb/backdrops-ui";
-import { BUNDLED_FAMILIES, BUNDLED_CAPABILITIES } from "@kb/bundled";
+
 import { canvasExtension } from "@kb/canvas";
 import { chartExtension } from "@kb/chart";
 import { locationsExtension } from "@kb/locations";
@@ -45,16 +70,7 @@ import { zzzUiPlugin } from "@kb/zzz-ui";
 import { codeExtension } from "@kb/code";
 import { collectionsExtension } from "@kb/collections";
 import { collectionsUiPlugin } from "@kb/collections-ui";
-import {
-  EXTENSION_SDK,
-  bundledPlugin,
-  extensionAdmissionIssue,
-  NO_SWITCHES,
-  extensionRow,
-  familyOn,
-  installHostModules,
-  type ExtensionRow,
-} from "@kb/contracts";
+
 import { docsExtension } from "@kb/docs";
 import { galleryExtension } from "@kb/gallery";
 import { governanceExtension, governancePlugin } from "@kb/governance";
@@ -77,13 +93,7 @@ import { layoutUiPlugin } from "@/components/layout/plugin";
 import { ontologyUiPlugin } from "@/components/ontology/plugin";
 import { settingsUiPlugin } from "@/components/prefs/settings-plugin";
 import { PAGE_EXTENSION_SDK } from "./page-extension-sdk";
-import {
-  paletteStepsPlugin,
-  latestRead,
-  configureUiRoles,
-  logWarn,
-  syncUiPlugins,
-} from "@kb/ui-sdk";
+
 import { servedManifest, subscribeManifest } from "@/lib/manifest";
 import { screenUiPlugin } from "@/screen";
 import { invokeSettled } from "@/session/runtime";
@@ -261,6 +271,22 @@ function browserEntry(row: ExtensionRow): BrowserExtension | null {
  * as the page's own objects, and its one React.
  */
 function installPageModules(): void {
+  let version = -1;
+  let reader = colorTokenReader([COLOR_TOKEN_FALLBACKS]);
+  provideColorTokens({
+    fallback: (name) => {
+      const next = uiKernelReader.version();
+      if (next !== version) {
+        reader = colorTokenReader([
+          COLOR_TOKEN_FALLBACKS,
+          ...BUNDLED_DECLARATIONS.map((d) => d.colorTokens ?? {}),
+          ...currentContributions(ColorTokenPoint).map(({ value }) => value),
+        ]);
+        version = next;
+      }
+      return reader.fallback(name);
+    },
+  });
   installHostModules("page", {
     "kb-ext-sdk": EXTENSION_SDK,
     "kb-ext-sdk/page": PAGE_EXTENSION_SDK,
@@ -393,6 +419,7 @@ const selectRoles = () => configureUiRoles((id) => useGraphStore.getState().inde
  * server's report when its catalog changes. Returns the unsubscribe.
  */
 export function startUiPlugins(): () => void {
+  installPageModules();
   const sync = () => {
     settling = converge(followedExtensions());
   };

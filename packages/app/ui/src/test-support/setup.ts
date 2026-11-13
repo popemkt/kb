@@ -5,11 +5,25 @@ import { beforeAll } from "vitest";
 // Loaded once the file's module has been evaluated, as the host below is, so
 // a module the file mocks is mocked here too.
 beforeAll(async () => {
-  const [{ bundledDerived }, { inThreadPort }, { provideEngine }] = await Promise.all([
+  const [
+    { bundledDerived, BUNDLED_DECLARATIONS },
+    { inThreadPort },
+    { provideEngine },
+    { COLOR_TOKEN_FALLBACKS, colorTokenReader },
+    { provideColorTokens },
+  ] = await Promise.all([
     import("@kb/bundled"),
     import("@kb/ui-test-kit"),
     import("@/session/engine"),
+    import("@kb/contracts"),
+    import("@kb/ui-sdk"),
   ]);
+  provideColorTokens(
+    colorTokenReader([
+      COLOR_TOKEN_FALLBACKS,
+      ...BUNDLED_DECLARATIONS.map((d) => d.colorTokens ?? {}),
+    ]),
+  );
   provideEngine(() =>
     inThreadPort({ derived: bundledDerived() }, () => performance.now(), queueMicrotask),
   );

@@ -746,6 +746,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A WASM rasteriser in the catalog (e.g. resvg-wasm) behind the same action, or rasterising in the page.
 - **node** — `01M54EPF1QB5MKA6WRK9DF2X1Y`
 
+### GAP: canvas screen payloads remain in the core agent wire contract
+
+- **expected** — A family declares and validates its projection reports and command payload schemas. Core transports generic family-keyed payloads through screen reports and pane commands without naming canvas types.
+- **current** — CanvasScreen and CanvasViewTarget are embedded in PaneScreen, ScreenCommand navigate/capture, UiNavigate/UiCapture schemas, ui-sdk PaneReport/PaneCommand, and app/ui screen dispatch. Deferred from M5 because changing this contract affects the agent-facing wire API and needs owner review.
+- **impact** — Core still carries canvas vocabulary and cannot transport another family projection with equivalent typed validation. Those family-name ledger entries deliberately remain.
+- **closes** — Owner reviews a wire-compatible generic family payload design, then move schemas and validators to canvas declarations and update all channel consumers as one contract change.
+- **node** — `01M798BKRWRND50G4W3WXBRH2V`
+
 ### GAP: canvas script overlays take no gestures
 
 - **expected** — A control a script draws over a canvas (a button or an input anchored to an item) can be pressed, while presses anywhere else still reach the canvas under it.
