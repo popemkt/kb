@@ -40,6 +40,15 @@ function rows(index: DatascriptIndex, edn: string): string[][] {
 }
 
 /** Same nodes, built from scratch: the answer the incremental path owes. */
+/**
+ * The index with its DataScript db built (it is built on first use), so an
+ * edit after this meets a db and takes the incremental path.
+ */
+function built(index: DatascriptIndex): DatascriptIndex {
+  index.runDatalog("[:find ?id :where [?n :node/id ?id]]");
+  return index;
+}
+
 function fresh(nodes: KbNode[], edn: string): string[][] {
   return rows(new DatascriptIndex(nodes, { derived: derivedWith({}) }), edn);
 }
@@ -59,7 +68,7 @@ describe("DatascriptIndex", () => {
 
   test("an edit is incremental and matches a rebuild", () => {
     const before = [node("a", { text: "alpha" }), node("b", { text: "beta" })];
-    const index = new DatascriptIndex(before, { derived: derivedWith({}) });
+    const index = built(new DatascriptIndex(before, { derived: derivedWith({}) }));
     const builds = index.rebuilds;
     const generation = index.generation;
 
@@ -75,8 +84,8 @@ describe("DatascriptIndex", () => {
     const a = node("a", { text: "sees [[b]]", children: ["b"] });
     const b = node("b");
     const index = new DatascriptIndex([a, b], { derived: derivedWith({}) });
-    const builds = index.rebuilds;
     expect(rows(index, MENTIONS_QUERY)).toEqual([["a", "b"]]);
+    const builds = index.rebuilds;
 
     index.applyTx({ upserts: [], deletes: ["b"] });
 
@@ -182,22 +191,22 @@ describe("DatascriptIndex", () => {
 
   test("a first-seen field attr falls back to one rebuild", () => {
     const a = node("a");
-    const index = new DatascriptIndex([a, node("f")], { derived: derivedWith({}) });
+    const index = built(new DatascriptIndex([a, node("f")], { derived: derivedWith({}) }));
     const builds = index.rebuilds;
 
     const tagged = node("a", { props: { f: [{ t: "str", v: "x" }] } });
     index.applyTx({ upserts: [tagged], deletes: [] });
 
-    expect(index.rebuilds).toBe(builds + 1);
     const query = `[:find ?id ?v :where [?n :node/id ?id] [?n :f/f ?v]]`;
     expect(rows(index, query)).toEqual([["a", "x"]]);
+    expect(index.rebuilds).toBe(builds + 1);
   });
 
   test("a known attr turning into a ref stays incremental", () => {
     const a = node("a", { props: { f: [{ t: "str", v: "plain" }] } });
     const f = node("f");
     const t = node("t");
-    const index = new DatascriptIndex([a, f, t], { derived: derivedWith({}) });
+    const index = built(new DatascriptIndex([a, f, t], { derived: derivedWith({}) }));
     const builds = index.rebuilds;
 
     const reffed = node("a", { props: { f: [{ t: "ref", v: "t" }] } });
@@ -229,7 +238,7 @@ describe("DatascriptIndex", () => {
   test("a multi-valued prop keeps every value across an incremental edit", () => {
     const f = node("f");
     const a = node("a", { props: { f: [{ t: "str", v: "one" }] } });
-    const index = new DatascriptIndex([a, f], { derived: derivedWith({}) });
+    const index = built(new DatascriptIndex([a, f], { derived: derivedWith({}) }));
     const builds = index.rebuilds;
 
     const both = node("a", {
@@ -250,7 +259,7 @@ describe("DatascriptIndex", () => {
 
   test("child order survives an incremental reparent", () => {
     const nodes = [node("p", { children: ["a", "b"] }), node("a"), node("b")];
-    const index = new DatascriptIndex(nodes, { derived: derivedWith({}) });
+    const index = built(new DatascriptIndex(nodes, { derived: derivedWith({}) }));
     const builds = index.rebuilds;
 
     const reordered = node("p", { children: ["b", "a"] });

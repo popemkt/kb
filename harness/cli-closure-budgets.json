@@ -1,7 +1,7 @@
 {
   "bytes": {
-    "limit": 2736980,
-    "reason": "ext-canvas loads its tldraw file reader with the first import."
+    "limit": 2737120,
+    "reason": "DatascriptIndex builds its db on first datalog use: 140 bytes of deferral logic that keep kb get from building it."
   },
   "modules": {
     "limit": 721,

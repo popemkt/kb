@@ -56,10 +56,18 @@ interface Kept extends DatalogAnswer {
  * is counted in {@link rebuilds}. One that turns a known attr into a ref attr
  * changes how a run revives that attr's values, not the db, so it forgets
  * every remembered answer instead.
+ *
+ * The DataScript db is built on first use: the first datalog run, pull or
+ * IR run. Until then the node table answers everything else (a node, its
+ * references, search), so a command that reads no datalog never builds it,
+ * and the derived set a session sets after construction costs no second
+ * build. Once built, transactions keep it in step incrementally.
  */
 export class DatascriptIndex implements KbIndex {
   readonly #table: NodeTable;
   #db: unknown;
+  /** Whether {@link #db} lags the table and is built again on its next use. */
+  #stale = true;
   #rebuilds = 0;
   #ids: IdMap = { toEid: new Map(), toId: new Map() };
   #nextEid = 1;
@@ -82,14 +90,13 @@ export class DatascriptIndex implements KbIndex {
     this.#derived = options.derived;
     this.#clock = options.clock;
     this.#table = new NodeTable(nodes, options.derived);
-    this.#buildDatoms();
   }
 
   get generation(): number {
     return this.#table.generation;
   }
 
-  /** Full index builds since construction — the number Phase 4 gates on. */
+  /** Full builds of the DataScript db since construction (the first one included): the number Phase 4 gates on. */
   get rebuilds(): number {
     return this.#rebuilds;
   }
@@ -103,18 +110,25 @@ export class DatascriptIndex implements KbIndex {
   }
 
   #datascriptDb(): DatascriptDb {
+    if (this.#stale) this.#buildDatoms();
     return { db: this.#db, ids: this.#ids, refAttrs: this.#refAttrs };
   }
 
   rebuild(nodes: ReadonlyArray<KbNode>): void {
     this.#table.rebuild(nodes);
-    this.#buildDatoms();
+    this.#invalidate();
   }
 
   setDerived(derived: readonly DerivedRef[]): void {
     this.#derived = derived;
     this.#table.setDerived(derived);
-    this.#buildDatoms();
+    this.#invalidate();
+  }
+
+  /** The db no longer matches the table: it is built again when next used, and no answer holds. */
+  #invalidate(): void {
+    this.#stale = true;
+    this.#answers.clear();
   }
 
   /** Every datom from the table's nodes, at once: the build `d.db_with` cannot grow into. */
@@ -131,12 +145,18 @@ export class DatascriptIndex implements KbIndex {
       for (const attr of built.refAttrs) this.#refAttrs.add(attr);
     }
     this.#db = d.init_db(datoms, schemaFor(this.#attrs, this.#derived));
+    this.#stale = false;
     this.#rebuilds += 1;
     // A rebuild says nothing about which datoms moved: every answer is asked again.
     this.#answers.clear();
   }
 
   applyTx(tx: StoreTx): void {
+    // A db that is built on its next use is built from the table then: only the table moves.
+    if (this.#stale) {
+      this.#table.change(tx);
+      return;
+    }
     // Retractions name the eids as they stand, so they are collected before the
     // id map moves under them.
     const retracts: TxOp[] = tx.deletes
@@ -166,7 +186,7 @@ export class DatascriptIndex implements KbIndex {
     if (grown) {
       // The schema is fixed at `init_db`: a first-seen attr needs its
       // cardinality declared, and only a rebuild can declare it.
-      this.#buildDatoms();
+      this.#invalidate();
       return;
     }
     const changed = this.#changedBy(retracts, adds);
@@ -289,7 +309,7 @@ export class DatascriptIndex implements KbIndex {
 
   withVirtual(nodes: ReadonlyArray<KbNode>): void {
     this.#table.withVirtual(nodes);
-    this.#buildDatoms();
+    this.#invalidate();
   }
 
   /** Retract what this entity has and add what it should have — the difference only. */
