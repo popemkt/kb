@@ -246,6 +246,7 @@ describe("Effect-native action registry", () => {
     const dir = join(root, ".kb", "extensions");
     await mkdir(dir, { recursive: true });
     const marker = join(root, "finalized.marker");
+    const started = join(root, "started.marker");
     const late = join(root, "late.write");
     await writeTrustedExtension(
       root,
@@ -261,6 +262,7 @@ import { z } from "zod";`,
     mode: { kind: "write" },
     inputSchema: z.object({
       marker: z.string(),
+      started: z.string(),
       late: z.string(),
     }),
     outputSchema: z.object({ ok: z.boolean() }),
@@ -269,6 +271,7 @@ import { z } from "zod";`,
         yield* Effect.addFinalizer(() =>
           Effect.promise(() => writeFile(input.marker, "finalized")),
         );
+        yield* Effect.promise(() => writeFile(input.started, "started"));
         yield* Effect.sleep("30 seconds");
         yield* Effect.promise(() => writeFile(input.late, "should-not-land"));
         return { ok: true };
@@ -284,11 +287,17 @@ import { z } from "zod";`,
         ctx,
         onWire(IN_PROCESS_WIRE, {
           id: "ext.slow.sleep",
-          input: { marker, late },
+          input: { marker, started, late },
         }),
       ).pipe(Effect.provide(kbRuntimeLayer(ctx))),
     );
-    await Effect.runPromise(Effect.sleep("80 millis"));
+    // Interrupted once the handler says it is running, its finalizer added:
+    // interrupted before that, there is rightly no finalizer to run, and how
+    // long the extension takes to load is the host's, not the test's. A
+    // handler that ends before it gets there ends the wait too.
+    while (!(await Bun.file(started).exists()) && fiber.pollUnsafe() === undefined) {
+      await Bun.sleep(5);
+    }
     await Effect.runPromise(Fiber.interrupt(fiber));
     const exit = await Effect.runPromise(Fiber.await(fiber));
     expect(Exit.hasInterrupts(exit)).toBe(true);
