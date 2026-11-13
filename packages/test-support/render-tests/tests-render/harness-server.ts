@@ -83,12 +83,17 @@ export async function startHarness(options: HarnessOptions = {}): Promise<{
   // The port travels as an argument. The served UI travels through the
   // server's own override, `KB_UI_DIST` (packages/app/server/src/paths.ts):
   // this process runs under Node, so it cannot import that Bun module to
-  // name it, and the harness is the override's reason to exist.
+  // name it, and the harness is the override's reason to exist. The server
+  // is a test run (`NODE_ENV=test`), so it never falls back to the person's
+  // home, data or cache (@kb/workspace-fs's `home.ts`): it names its home
+  // and data in its scratch root, and keeps no build archive, where it would
+  // otherwise publish its test build among the person's kept builds and
+  // prune theirs.
   const args = [String(port), ...(options.example === true ? [EXAMPLE_ARG] : [])];
   const server = spawn("bun", ["tests-render/server/server.ts", ...args], {
     cwd: process.cwd(),
     stdio: ["ignore", "pipe", "inherit"],
-    env: { ...process.env, KB_UI_DIST: HARNESS_UI_DIST },
+    env: { ...process.env, KB_UI_DIST: HARNESS_UI_DIST, NODE_ENV: "test" },
   });
   const url = `http://127.0.0.1:${port}`;
   server.stdout.setEncoding("utf8");
