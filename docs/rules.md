@@ -901,6 +901,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — windowing for the outline list that keeps caret, focus, selection, pickers and jump-to-node working
 - **node** — `01M41062Z83M38GYHC276XJ8RF`
 
+### GAP: ext-sdk declarations are still a hand-kept mirror; generation needs type-first and author-facing contracts
+
+- **expected** — P6, one type, one source: surface.ts and page-surface.ts are export type { … } from lists beside EXTENSION_SDK and PAGE_EXTENSION_SDK, and scripts/generate.ts bundles the declarations into the ambient kb-ext-sdk modules; the ext-sdk-fresh fixture compiles and the emitted text is unchanged.
+- **current** — About 140 types are restated by hand in surface.ts and page-surface.ts, held to the host by the bridge tests. The M9 spike (docs/research/2026-11-13-ext-sdk-declaration-spike.md) found three kinds: exact copies (PluginContext), schema-derived types whose originals are z.infer<typeof …Schema> (ActionMode, FailureCode), and narrowed projections (the SDK's KbContext is {root, nodes}).
+- **impact** — Every change to a mirrored type is made twice; a bridge test catches drift but does not remove the copy. Bundling the originals today would put zod into the authors' ambient module and widen the author contract.
+- **closes** — Owner decision, then: type-first originals for schema-derived types (the schema satisfies the type); named author-facing types in @kb/contracts for each narrowed projection; @kb/query's datascript.ts/datascript.d.ts pair under one name; then the switch with tsdown/rolldown-plugin-dts in tsgo mode (oxc mode needs isolated declarations the workspace does not have).
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M79MBMJQKDBBGJ2HG8Z6QEG2`
+
 ### GAP: extension SDK mirror is not bidirectionally typed
 
 - **expected** — The dependency-free public SDK contract and runtime contract are generated from one canonical schema or proven exactly assignable in both directions.
