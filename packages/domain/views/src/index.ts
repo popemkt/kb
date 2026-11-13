@@ -137,3 +137,5 @@ export {
   type NodeViewTarget,
   type UnheldViewTarget,
 } from "./node-view.ts";
+
+export { ProcedureView, ProcedureParams } from "./procedure.ts";

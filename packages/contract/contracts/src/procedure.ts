@@ -40,6 +40,8 @@ export interface StepAction {
   readonly id: string;
   readonly title: string;
   readonly description?: string;
+  /** Presentation of an action whose effect is destructive. */
+  readonly tone?: "destructive";
   readonly call: ProcedureCall;
 }
 
@@ -89,6 +91,7 @@ export const StepStatusSchema = z.object({
     z.object({
       id: z.string(),
       title: z.string(),
+      tone: z.literal("destructive").optional(),
       description: z.string().optional(),
       call: ProcedureCallSchema,
     }),

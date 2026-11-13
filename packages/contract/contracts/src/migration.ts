@@ -128,6 +128,7 @@ export function migrationProcedure(
           { id: "keep", title: "Keep", call: { action: "migration.keep", input: on } },
           {
             id: "rollback",
+            tone: "destructive",
             title: "Roll back",
             call: { action: "migration.rollback", input: on },
           },
