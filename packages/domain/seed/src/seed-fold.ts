@@ -231,16 +231,25 @@ function viewOptionNode(view: SeedView, at: string): KbNode {
  * declared. A kind is its field: two kinds on one field with two prefixes
  * is a bundling defect, so it throws.
  */
-function declaredKinds(sources: readonly SeedSource[]): DeclaredOptions[] {
-  const kinds = new Map<NodeId, DeclaredOptions>();
-  for (const { kind } of sources.flatMap((source) => source.declaredOptions ?? [])) {
-    const known = kinds.get(kind.field);
-    if (known === undefined) kinds.set(kind.field, kind);
-    else if (known.prefix !== kind.prefix) {
+interface DeclaredKind {
+  readonly kind: DeclaredOptions;
+  readonly order: Map<NodeId, number>;
+}
+
+function declaredKinds(sources: readonly SeedSource[]): DeclaredKind[] {
+  const kinds = new Map<NodeId, DeclaredKind>();
+  for (const { kind, options } of sources.flatMap((source) => source.declaredOptions ?? [])) {
+    let known = kinds.get(kind.field);
+    if (known === undefined) {
+      known = { kind, order: new Map() };
+      kinds.set(kind.field, known);
+    } else if (known.kind.prefix !== kind.prefix) {
       throw new Error(
-        `${kind.field}'s options are declared under ${known.prefix} and ${kind.prefix}`,
+        `${kind.field}'s options are declared under ${known.kind.prefix} and ${kind.prefix}`,
       );
     }
+    for (const option of options)
+      known.order.set(declaredOptionId(kind, option.id), option.order ?? 0);
   }
   return [...kinds.values()];
 }
@@ -448,7 +457,7 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
     ],
     files: source.files,
     options: (source.views ?? []).map((view) => viewOptionNode(view.key, at)),
-    declared: kinds.map((kind) => declaredOf(source, kind, at)),
+    declared: kinds.map(({ kind }) => declaredOf(source, kind, at)),
     knobs: knobsOf(source, at),
     own: extensionNode(source, at),
   }));
@@ -464,11 +473,13 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
     parts.flatMap((part) => part.options),
   );
   const withDeclared = kinds.reduce(
-    (nodes, kind, row) =>
+    (nodes, { kind, order }, row) =>
       fileUnder(
         nodes,
         kind.field,
-        parts.flatMap((part) => part.declared[row] ?? []),
+        parts
+          .flatMap((part) => part.declared[row] ?? [])
+          .toSorted((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0)),
       ),
     withViews,
   );

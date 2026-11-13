@@ -64,7 +64,10 @@ export const graphExtension = defineExtension({
   // does not lock it.
   retires: [{ from: "sys.lens.all-mentions", to: GRAPH_IDS.lensAllMentions }],
   declaredOptions: [
-    { kind: VIEW_FAMILY_OPTIONS, options: [{ id: "graph.renderer", label: "Graph renderer" }] },
+    {
+      kind: VIEW_FAMILY_OPTIONS,
+      options: [{ id: "graph.renderer", order: 1, label: "Graph renderer" }],
+    },
     {
       kind: GRAPH_THEME_OPTIONS,
       options: [MATTE_THEME, CEL_THEME, FRESNEL_THEME, GLASS_THEME, BULLET_THEME, CUBE_THEME],

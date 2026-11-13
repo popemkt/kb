@@ -22,7 +22,10 @@ export const galleryExtension = defineExtension({
   optional: { byDefault: "off" },
   seed: gallerySeedNodes,
   declaredOptions: [
-    { kind: VIEW_FAMILY_OPTIONS, options: [{ id: "gallery.workflow", label: "Gallery workflow" }] },
+    {
+      kind: VIEW_FAMILY_OPTIONS,
+      options: [{ id: "gallery.workflow", order: 3, label: "Gallery workflow" }],
+    },
   ],
   views: [viewDef(GalleryView), ...GALLERY_WORKFLOWS.map((key) => viewDef(key))],
 });

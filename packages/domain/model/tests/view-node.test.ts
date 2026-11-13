@@ -42,9 +42,9 @@ describe("view options", () => {
     expect(seed.get(SYSTEM_IDS.viewFamilyField)?.children).toEqual(
       BUNDLED_DECLARATIONS.flatMap((declaration) => declaration.declaredOptions ?? [])
         .filter((set) => set.kind.field === VIEW_FAMILY_OPTIONS.field)
-        .flatMap((set) =>
-          set.options.map((option) => declaredOptionId(VIEW_FAMILY_OPTIONS, option.id)),
-        ),
+        .flatMap((set) => set.options)
+        .toSorted((a, b) => (a.order ?? 0) - (b.order ?? 0))
+        .map((option) => declaredOptionId(VIEW_FAMILY_OPTIONS, option.id)),
     );
   });
 });

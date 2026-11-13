@@ -4001,7 +4001,10 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
   (`SeedOption`, an id and a label) under its kind (`declaredOptions:
 [{kind, options}]`), and the fold derives one option node per key, owned
   by the family, under the field of its kind (`DeclaredOptions`: the field
-  and the prefix of its options' ids). A kind is owned by whoever seeds its
+  and the prefix of its options' ids). Options are collected across contributors
+  by ascending `SeedOption.order` (default zero); equal priorities retain source
+  and declaration order. Priority is declaration metadata, not a stored node
+  rank. A kind is owned by whoever seeds its
   field, which exports it:
   - `BACKDROP_OPTIONS` (core) → `sys.f.backdrop`, options
     `sys.backdrop.<id>`

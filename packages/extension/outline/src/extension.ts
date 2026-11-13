@@ -32,7 +32,10 @@ export const outlineExtension = defineExtension({
   roles: [FIELD_EDITOR_ROLE],
   defaultView: OutlineView,
   declaredOptions: [
-    { kind: VIEW_FAMILY_OPTIONS, options: [{ id: "outline.frame", label: "Frame view" }] },
+    {
+      kind: VIEW_FAMILY_OPTIONS,
+      options: [{ id: "outline.frame", order: 2, label: "Frame view" }],
+    },
   ],
   views: [viewDef(OutlineView), viewDef(OutlineListView), viewDef(OutlineSnippetView)],
   // A node's own display toggles: the editor's, never drawn as field rows.
