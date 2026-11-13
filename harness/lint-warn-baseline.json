@@ -83,11 +83,11 @@
       "@kb/ui-test-kit": 26
     },
     "family-names": {
-      "contract/contracts/src/actions.ts": 3,
       "contract/contracts/src/mcp-tool.ts": 2,
-      "contract/contracts/src/protocol.ts": 2,
+      "contract/contracts/src/actions.ts": 3,
       "contract/contracts/src/migration.ts": 7,
       "contract/contracts/src/procedure.ts": 2,
+      "contract/contracts/src/protocol.ts": 2,
       "contract/contracts/src/screen.ts": 3,
       "contract/ext-sdk/src/module.ts": 6,
       "contract/ext-sdk/src/surface.ts": 2,
@@ -105,10 +105,10 @@
       "domain/model/src/resolve.ts": 9,
       "domain/model/src/errors.ts": 8,
       "domain/model/src/view-node.ts": 1,
-      "domain/query/src/ir/conditions.ts": 7,
       "domain/query/src/ir/edn.ts": 4,
-      "domain/query/src/ir/evaluate.ts": 69,
       "domain/query/src/ir/kb-functions.ts": 3,
+      "domain/query/src/ir/conditions.ts": 7,
+      "domain/query/src/ir/evaluate.ts": 69,
       "domain/views/src/docs.ts": 7,
       "domain/views/src/frame.ts": 3,
       "domain/views/src/ontology.ts": 3,
@@ -117,8 +117,8 @@
       "kit/appearance-kit/src/lib/frame-meter.ts": 9,
       "kit/scene-gpu/src/rig.ts": 6,
       "kit/scene-gpu/src/stage.ts": 3,
-      "kit/ui-sdk/src/components/node-text-port.ts": 2,
       "kit/ui-sdk/src/components/view-error-boundary.test.tsx": 3,
+      "kit/ui-sdk/src/components/node-text-port.ts": 2,
       "kit/ui-sdk/src/lib/bullet-mode.ts": 6,
       "kit/ui-sdk/src/lib/form-icons.ts": 1,
       "kit/ui-sdk/src/lib/frame-view.ts": 1,
@@ -153,7 +153,7 @@
       "packages/infrastructure/sandbox-quickjs/src/index.ts imports @jitl/quickjs-singlefile-browser-release-sync": 1
     },
     "cli-closure": {
-      "bytes": 5850535,
+      "bytes": 5850930,
       "modules": 1109
     },
     "single-family": {
@@ -166,7 +166,6 @@
       "application/operations/src/interception.ts": 1,
       "extension/canvas-ui/src/canvas-camera.ts": 1,
       "extension/canvas-ui/src/canvas-card-face.ts": 1,
-      "extension/canvas-ui/src/canvas-keymap.ts": 1,
       "extension/canvas-ui/src/canvas-transform-input.ts": 1,
       "extension/graph-ui/src/graph-lens.ts": 1,
       "extension/graph/src/lens.ts": 1,

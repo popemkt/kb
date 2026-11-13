@@ -11,6 +11,19 @@ import {
   type KeyChordEvent,
 } from "./keychord.ts";
 
+/** A chord by place: the key `KeyboardEvent.code` names, and the modifiers it asks about. */
+const at = (place: string, modifiers: Omit<Chord, "key" | "code"> = {}): Chord => ({
+  ...modifiers,
+  code: place,
+});
+
+/** A key event: the character it types, the key's place, and the modifiers held. */
+const pressed = (
+  key: string,
+  place: string,
+  held: Omit<KeyChordEvent, "key" | "code"> = {},
+): KeyChordEvent => ({ ...held, key, code: place });
+
 describe("parseChord", () => {
   it.each([
     ["Alt-ArrowUp", { key: "ArrowUp", meta: false, ctrl: false, shift: false, alt: true }],
@@ -74,21 +87,21 @@ describe("chordsOverlap", () => {
 });
 
 describe("a chord by place", () => {
-  const numpad7: Chord = { code: "Numpad7", mod: false };
+  const numpad7 = at("Numpad7", { mod: false });
   const seven: Chord = { key: "7", mod: false };
 
   it("matches the key at its place, whatever character it types", () => {
-    expect(matchesChord({ key: "7", code: "Numpad7" }, numpad7)).toBe(true);
-    expect(matchesChord({ key: "Home", code: "Numpad7" }, numpad7)).toBe(true);
-    expect(matchesChord({ key: "7", code: "Digit7" }, numpad7)).toBe(false);
+    expect(matchesChord(pressed("7", "Numpad7"), numpad7)).toBe(true);
+    expect(matchesChord(pressed("Home", "Numpad7"), numpad7)).toBe(true);
+    expect(matchesChord(pressed("7", "Digit7"), numpad7)).toBe(false);
     expect(matchesChord({ key: "7" }, numpad7)).toBe(false);
   });
 
   it("protects a shared press across representations, and distinguishes physical places", () => {
     expect(chordsOverlap(numpad7, seven)).toBe(true);
-    expect(chordsOverlap(numpad7, { code: "Numpad7" })).toBe(true);
-    expect(chordsOverlap(numpad7, { code: "Numpad1", mod: false })).toBe(false);
-    expect(chordsOverlap(numpad7, { code: "Numpad7", mod: true })).toBe(false);
+    expect(chordsOverlap(numpad7, at("Numpad7"))).toBe(true);
+    expect(chordsOverlap(numpad7, at("Numpad1", { mod: false }))).toBe(false);
+    expect(chordsOverlap(numpad7, at("Numpad7", { mod: true }))).toBe(false);
   });
 
   it("is asked before a chord by character, wherever it is listed", () => {
@@ -96,12 +109,12 @@ describe("a chord by place", () => {
       { chord: seven, name: "frame tool" },
       { chord: numpad7, name: "look from the top" },
     ];
-    expect(lookupChord({ key: "7", code: "Numpad7" }, rows)?.name).toBe("look from the top");
-    expect(lookupChord({ key: "7", code: "Digit7" }, rows)?.name).toBe("frame tool");
+    expect(lookupChord(pressed("7", "Numpad7"), rows)?.name).toBe("look from the top");
+    expect(lookupChord(pressed("7", "Digit7"), rows)?.name).toBe("frame tool");
   });
 
   it("reads as its place", () => {
-    expect(describeChord({ code: "KeyH", alt: true, shift: true })).toBe("Shift-Alt-[KeyH]");
+    expect(describeChord(at("KeyH", { alt: true, shift: true }))).toBe("Shift-Alt-[KeyH]");
   });
 });
 
@@ -118,8 +131,8 @@ describe("chordIncludes", () => {
     );
   });
   it("requires the same physical place when the whole constrains it", () => {
-    expect(chordIncludes({ code: "NumpadEnter" }, { code: "NumpadEnter", mod: false })).toBe(true);
-    expect(chordIncludes({ code: "NumpadEnter" }, { key: "Enter" })).toBe(false);
-    expect(chordIncludes({ code: "NumpadEnter" }, { code: "Enter" })).toBe(false);
+    expect(chordIncludes(at("NumpadEnter"), at("NumpadEnter", { mod: false }))).toBe(true);
+    expect(chordIncludes(at("NumpadEnter"), { key: "Enter" })).toBe(false);
+    expect(chordIncludes(at("NumpadEnter"), at("Enter"))).toBe(false);
   });
 });

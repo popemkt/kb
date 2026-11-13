@@ -6,7 +6,20 @@
 import { describe, expect, it } from "vitest";
 import type { Contribution } from "@kb/plugin";
 import { admitKeymaps, provideKeybinding, type KeyContext, type Keybinding } from "./keybindings";
-import { PALETTE_CHORD } from "./keychord";
+import { PALETTE_CHORD, type Chord, type KeyChordEvent } from "./keychord";
+
+/** A chord by place: the key `KeyboardEvent.code` names, and the modifiers it asks about. */
+const at = (place: string, modifiers: Omit<Chord, "key" | "code"> = {}): Chord => ({
+  ...modifiers,
+  code: place,
+});
+
+/** A key event: the character it types, the key's place, and the modifiers held. */
+const pressed = (
+  key: string,
+  place: string,
+  held: Omit<KeyChordEvent, "key" | "code"> = {},
+): KeyChordEvent => ({ ...held, key, code: place });
 
 /** A host that approves every owner replacing what another holds. */
 const ANYONE = () => true;
@@ -135,13 +148,13 @@ describe("a keymap's chords by place", () => {
     // The numpad's ↵ by its place, beside the split's ↵ by character.
     const byPlace: Contribution<Keybinding> = {
       ...SPLIT,
-      id: "outline.numpad-enter",
-      value: { ...SPLIT.value, chord: { code: "NumpadEnter", mod: false } },
+      id: "notes.numpad-enter",
+      value: { ...SPLIT.value, chord: at("NumpadEnter", { mod: false }) },
     };
-    const keymap = admitKeymaps([ROW], [SPLIT, byPlace], ANYONE).get("outline.editing");
+    const keymap = admitKeymaps([ROW], [SPLIT, byPlace], ANYONE).get(EDITING);
     expect(keymap?.refused).toEqual([]);
-    expect(keymap?.resolve({ key: "Enter", code: "NumpadEnter" })?.id).toBe("outline.numpad-enter");
-    expect(keymap?.resolve({ key: "Enter", code: "Enter" })?.id).toBe("outline.split");
+    expect(keymap?.resolve(pressed("Enter", "NumpadEnter"))?.id).toBe("notes.numpad-enter");
+    expect(keymap?.resolve(pressed("Enter", "Enter"))?.id).toBe(SPLIT.id);
   });
 });
 
@@ -153,25 +166,25 @@ describe("reservations across character and physical chords", () => {
       aliases: [],
       value: {
         context: "core.page",
-        chord: { code: "KeyA", mod: false },
+        chord: at("KeyA", { mod: false }),
         run: { command: "x.go" },
       },
     };
     const km = admitKeymaps([PAGE], [PALETTE, typed], ANYONE).get("core.page");
     expect(km?.refused.map((b) => b.id)).toContain("x.typed");
-    expect(km?.resolve({ key: "a", code: "KeyA" })).toBeUndefined();
+    expect(km?.resolve(pressed("a", "KeyA"))).toBeUndefined();
   });
   it("keeps physical Escape reserved in a surface", () => {
     const surface: KeyContext = {
-      id: "canvas.transform",
-      owner: "canvas",
+      id: "sketch.transform",
+      owner: "sketch",
       reach: "surface",
       intents: ["cancel"],
       reserved: [{ key: "Escape" }],
     };
     const cancel: Contribution<Keybinding> = {
-      id: "canvas.cancel",
-      owner: "canvas",
+      id: "sketch.cancel",
+      owner: "sketch",
       aliases: [],
       value: { context: surface.id, chord: { key: "Escape" }, run: { intent: "cancel" } },
     };
@@ -179,11 +192,11 @@ describe("reservations across character and physical chords", () => {
       id: "x.trap",
       owner: "x",
       aliases: [],
-      value: { context: surface.id, chord: { code: "Escape" }, run: { command: "x.go" } },
+      value: { context: surface.id, chord: at("Escape"), run: { command: "x.go" } },
     };
     const km = admitKeymaps([surface], [cancel, trap], ANYONE).get(surface.id);
     expect(km?.refused.map((b) => b.id)).toContain("x.trap");
-    expect(km?.resolve({ key: "Escape", code: "Escape" })?.id).toBe("canvas.cancel");
+    expect(km?.resolve(pressed("Escape", "Escape"))?.id).toBe("sketch.cancel");
   });
 });
 
@@ -197,12 +210,12 @@ for (const physicalPage of [false, true]) {
     const page = physicalPage
       ? {
           ...characterPage,
-          value: { ...characterPage.value, chord: { code: "F2", mod: true } },
+          value: { ...characterPage.value, chord: at("F2", { mod: true }) },
         }
       : characterPage;
     const surface = physicalPage
       ? { ...INDENT, value: { ...INDENT.value, chord: { key: "F2", mod: true } } }
-      : { ...INDENT, value: { ...INDENT.value, chord: { code: "F2", mod: true } } };
+      : { ...INDENT, value: { ...INDENT.value, chord: at("F2", { mod: true }) } };
     const maps = admitKeymaps([PAGE, ROW], [PALETTE, surface, page], ANYONE);
     expect(maps.get(PAGE.id)?.refused.map((b) => b.id)).toContain("x.page");
   });
@@ -212,27 +225,23 @@ it("refuses a physical palette chord while retaining numpad precedence", () => {
     id: "x.palette",
     owner: "x",
     aliases: [],
-    value: { context: "core.page", chord: { code: "KeyK", mod: true }, run: { command: "x.go" } },
+    value: { context: "core.page", chord: at("KeyK", { mod: true }), run: { command: "x.go" } },
   };
   const numpad = {
     ...SPLIT,
-    id: "outline.numpad",
-    value: { ...SPLIT.value, chord: { code: "NumpadEnter", mod: false } },
+    id: "notes.numpad",
+    value: { ...SPLIT.value, chord: at("NumpadEnter", { mod: false }) },
   };
   const maps = admitKeymaps([PAGE, ROW], [PALETTE, physical, SPLIT, numpad], ANYONE);
   expect(maps.get(PAGE.id)?.refused.map((b) => b.id)).toContain("x.palette");
   expect(maps.get(ROW.id)?.refused).toEqual([]);
-  expect(maps.get(ROW.id)?.resolve({ key: "Enter", code: "NumpadEnter" })?.id).toBe(
-    "outline.numpad",
-  );
+  expect(maps.get(ROW.id)?.resolve(pressed("Enter", "NumpadEnter"))?.id).toBe("notes.numpad");
 });
 
 it("keeps the palette ahead of a physical surface-owner binding", () => {
-  const trap = { ...INDENT, value: { ...INDENT.value, chord: { code: "KeyK", mod: true } } };
+  const trap = { ...INDENT, value: { ...INDENT.value, chord: at("KeyK", { mod: true }) } };
   const maps = admitKeymaps([PAGE, ROW], [PALETTE, trap], ANYONE);
-  expect(maps.get(PAGE.id)?.resolve({ key: "k", code: "KeyK", metaKey: true })?.id).toBe(
-    PALETTE.id,
-  );
+  expect(maps.get(PAGE.id)?.resolve(pressed("k", "KeyK", { metaKey: true }))?.id).toBe(PALETTE.id);
   expect(maps.get(ROW.id)?.refused.map((b) => b.id)).toContain(INDENT.id);
 });
 
@@ -243,7 +252,7 @@ it("requires replacement approval when another owner takes a character chord by 
     aliases: [],
     value: {
       context: ROW.id,
-      chord: { code: "NumpadEnter", mod: false },
+      chord: at("NumpadEnter", { mod: false }),
       run: { command: "x.go" },
     },
   };
@@ -261,15 +270,15 @@ it("requires replacement approval when another owner takes a character chord by 
   expect(
     admitKeymaps([ROW], [SPLIT, replacement], ANYONE)
       .get(ROW.id)
-      ?.resolve({ key: "Enter", code: "NumpadEnter" })?.id,
+      ?.resolve(pressed("Enter", "NumpadEnter"))?.id,
   ).toBe(physical.id);
 });
 
 describe("replacements across precedence slots", () => {
   const numpad: Contribution<Keybinding> = {
     ...SPLIT,
-    id: "outline.numpad",
-    value: { ...SPLIT.value, chord: { code: "NumpadEnter", mod: false } },
+    id: "notes.numpad",
+    value: { ...SPLIT.value, chord: at("NumpadEnter", { mod: false }) },
   };
   it("lets an approved character replacement replace a physical holder", () => {
     const replacement: Contribution<Keybinding> = {
@@ -290,7 +299,7 @@ describe("replacements across precedence slots", () => {
         .get(ROW.id)
         ?.refused.map((b) => b.id),
     ).toContain(replacement.id);
-    expect(map?.resolve({ key: "Enter", code: "NumpadEnter" })?.id).toBe(replacement.id);
+    expect(map?.resolve(pressed("Enter", "NumpadEnter"))?.id).toBe(replacement.id);
   });
   it("lets an approved physical replacement replace its holder with a lower-priority fallback present", () => {
     const replacement: Contribution<Keybinding> = {
@@ -299,7 +308,7 @@ describe("replacements across precedence slots", () => {
       aliases: [],
       value: {
         context: ROW.id,
-        chord: { code: "NumpadEnter", mod: false },
+        chord: at("NumpadEnter", { mod: false }),
         run: { command: "x.go" },
         replaces: numpad.id,
       },
@@ -311,16 +320,16 @@ describe("replacements across precedence slots", () => {
         .get(ROW.id)
         ?.refused.map((b) => b.id),
     ).toContain(replacement.id);
-    expect(map?.resolve({ key: "Enter", code: "NumpadEnter" })?.id).toBe(replacement.id);
-    expect(map?.resolve({ key: "Enter", code: "Enter" })?.id).toBe(SPLIT.id);
+    expect(map?.resolve(pressed("Enter", "NumpadEnter"))?.id).toBe(replacement.id);
+    expect(map?.resolve(pressed("Enter", "Enter"))?.id).toBe(SPLIT.id);
   });
 });
 
 it("refuses a physical replacement that expands beyond its holder into a fallback", () => {
   const numpad = {
     ...SPLIT,
-    id: "outline.numpad",
-    value: { ...SPLIT.value, chord: { code: "NumpadEnter", mod: false, shift: false } },
+    id: "notes.numpad",
+    value: { ...SPLIT.value, chord: at("NumpadEnter", { mod: false, shift: false }) },
   };
   const replacement: Contribution<Keybinding> = {
     id: "x.numpad",
@@ -328,7 +337,7 @@ it("refuses a physical replacement that expands beyond its holder into a fallbac
     aliases: [],
     value: {
       context: ROW.id,
-      chord: { code: "NumpadEnter", mod: false },
+      chord: at("NumpadEnter", { mod: false }),
       run: { command: "x.go" },
       replaces: numpad.id,
     },
@@ -336,5 +345,5 @@ it("refuses a physical replacement that expands beyond its holder into a fallbac
   const fallback = { ...SPLIT, value: { ...SPLIT.value, chord: { key: "Enter", mod: false } } };
   const map = admitKeymaps([ROW], [fallback, numpad, replacement], ANYONE).get(ROW.id);
   expect(map?.refused.map((b) => b.id)).toContain(replacement.id);
-  expect(map?.resolve({ key: "Enter", code: "NumpadEnter", shiftKey: true })?.id).toBe(SPLIT.id);
+  expect(map?.resolve(pressed("Enter", "NumpadEnter", { shiftKey: true }))?.id).toBe(SPLIT.id);
 });
