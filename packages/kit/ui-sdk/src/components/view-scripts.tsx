@@ -3,7 +3,7 @@
  * that keeps scripts provides, or nothing while none does.
  */
 import { Suspense, createElement } from "react";
-import { useService } from "../lib/plugins";
+import { useService } from "../lib/plugins.ts";
 import { ScriptHostService, type ScriptHostProps } from "../view-scripts";
 
 /** The scripts of `subjects`, run for `view`; nothing while no family provides a host. */

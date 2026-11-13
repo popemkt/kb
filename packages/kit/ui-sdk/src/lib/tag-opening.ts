@@ -16,7 +16,7 @@ import {
 } from "@kb/model";
 import { heldTagViewOf, ignoreReport, type HeldTagView, type ViewKey } from "@kb/views";
 import type { Contribution } from "@kb/plugin";
-import type { ProvidedView } from "./plugins";
+import type { ProvidedView } from "./view-point.ts";
 import type { ViewPicker } from "./view-key";
 
 interface Carrier {

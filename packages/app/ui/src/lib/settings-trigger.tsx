@@ -1,7 +1,6 @@
 // oxlint-disable-next-line no-restricted-imports -- the gear is Settings' own, and this is its one way in
 import { GearSixIcon } from "@phosphor-icons/react";
-import { cn } from "../lib/cn";
-import { navigate } from "../lib/router";
+import { cn, navigate } from "@kb/ui-sdk";
 
 /** Where the Settings page is drawn (`SettingsView`, DESIGN-UI.md → Settings). */
 export const SETTINGS_PATH = "/settings";

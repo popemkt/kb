@@ -36,11 +36,11 @@ import {
   POPOVER_VALUE_CLASS,
   PrefFieldRow,
   replacePath,
-  THEME_GLYPHS,
   type ThemePref,
   useGraphRead,
   type WidthPref,
 } from "@kb/ui-sdk";
+import { THEME_GLYPHS } from "@/components/prefs/theme-glyphs";
 import { usePageBackdrop, type PageBackdropChoice, useShownDesignSystem } from "@kb/appearance-kit";
 import { SETTINGS_PARTS, type SettingsPart } from "@kb/views";
 import { ArrowsHorizontalIcon, SidebarSimpleIcon } from "@phosphor-icons/react";

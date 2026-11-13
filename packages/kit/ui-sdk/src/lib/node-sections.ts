@@ -12,7 +12,7 @@ import { CORE_POINT_DEFINITIONS } from "@kb/contracts";
 import { tagChains } from "@kb/model";
 import { Point, type Contribution } from "@kb/plugin";
 import { useSchema } from "../hooks";
-import { useContributions } from "./plugins";
+import { useContributions } from "./plugins.ts";
 import type { SchemaIndex } from "./schema";
 
 /** What a section is drawn for: the page's node. */

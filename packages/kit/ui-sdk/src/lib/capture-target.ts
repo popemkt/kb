@@ -9,7 +9,7 @@ import { Effect } from "effect";
 import { CAPTURE_TARGET_ROLE, type CapturePlanner } from "@kb/contracts";
 import { domainError } from "@kb/model";
 import { Role, Service } from "@kb/plugin";
-import { callPageRole } from "./plugins";
+import { callPageRole } from "./plugins.ts";
 
 /** The parent a capture goes under, or null for the top level. */
 export type PageCaptureTarget = () => Promise<string | null>;

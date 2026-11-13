@@ -69,7 +69,6 @@ import {
   NODE_MENU_GROUPS,
   nodePath,
   ontologyPath,
-  SETTINGS_PATH,
   type OutlineCommandApi,
   ViewPoint,
   SYSTEM_IDS,
@@ -78,6 +77,7 @@ import {
   toast,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
+import { SETTINGS_PATH } from "@/lib/settings-trigger";
 import { chooseDesignSystem, DesignSystemPoint, shownDesignSystem } from "@kb/appearance-kit";
 import { pageOpeningsOf } from "@/lib/node-openings";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";

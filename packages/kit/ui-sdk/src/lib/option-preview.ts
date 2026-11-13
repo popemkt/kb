@@ -16,7 +16,7 @@ import { CORE_POINT_DEFINITIONS } from "@kb/contracts";
 import { createElement, type ComponentType, type ReactNode } from "react";
 import { declaredIdOf, type DeclaredOptions, type NodeId } from "@kb/model";
 import { Point } from "@kb/plugin";
-import { useContributions } from "./plugins";
+import { useContributions } from "./plugins.ts";
 
 /** How large an option's preview is drawn. */
 export type PreviewSize = "chip" | "card";

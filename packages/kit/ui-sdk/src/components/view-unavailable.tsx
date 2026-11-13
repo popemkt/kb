@@ -1,4 +1,4 @@
-import type { Placement } from "../lib/plugins";
+import type { Placement } from "../lib/view-point.ts";
 import { WorkspaceState } from "./workspace-state";
 
 const TITLE = "This view cannot be shown here";

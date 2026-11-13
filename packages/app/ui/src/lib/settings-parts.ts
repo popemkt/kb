@@ -5,8 +5,9 @@
  * that holds what they showed, and the page replaces them with that part's
  * own path.
  */
-import { SETTINGS_PATH } from "@kb/ui-sdk";
+
 import { SETTINGS_PARTS, type SettingsPart } from "@kb/views";
+import { SETTINGS_PATH } from "@/lib/settings-trigger";
 
 /** How the rail names each part, and the line under the part's title. */
 export const PART_WORDS: Readonly<Record<SettingsPart, { label: string; lede: string }>> = {

@@ -1,14 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  cn,
-  hasText,
-  landOnce,
-  SettingsTrigger,
-  SidebarToggle,
-  useRoute,
-  ViewErrorBoundary,
-  WorkspaceBoundary,
-} from "@kb/ui-sdk";
+import { cn, hasText, landOnce, useRoute, ViewErrorBoundary, WorkspaceBoundary } from "@kb/ui-sdk";
+import { SettingsTrigger } from "@/lib/settings-trigger";
+import { SidebarToggle } from "@/components/sidebar/sidebar-toggle";
 import { ThemeArt } from "@kb/appearance-kit";
 import { fixturesForced, loadGraph } from "@/api/graph";
 import { ensureLiveConnection } from "@/api/live";
