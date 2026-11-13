@@ -23,7 +23,7 @@ export { CONTRACT_AT, persist, scratchRoot } from "./store-session.ts";
 export type { StoreFactory } from "./store-session.ts";
 export { benchmarkEnabled } from "./bench.ts";
 export { storeBenchmark } from "./store-benchmark.ts";
-export { surfaceContract } from "./surface-contract.ts";
+export { SURFACE_CONTRACT_CELLS, surfaceContract } from "./surface-contract.ts";
 export type {
   ActionSurface,
   ListedAction,

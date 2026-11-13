@@ -1,7 +1,7 @@
 /**
  * The WebMCP adapter's lifecycle: when it registers, when it unregisters, and
  * what a tool call returns. What it lists and answers for the real registry
- * is the surface contract's business (`packages/app/cli/tests/surface-contract.test.ts`).
+ * is the surface contract's business (`packages/app/cli/tests/surfaces.ts`).
  */
 import { describe, expect, test } from "bun:test";
 import { Effect } from "effect";

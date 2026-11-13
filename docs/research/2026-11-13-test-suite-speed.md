@@ -176,3 +176,19 @@ are GPU-budgeted but draw through their own runtimes, not the host.
 The two files, at two workers, locally: 294 s of test time before, 182 s
 after. The ten backdrops the host does not draw went from about 10 s each
 to 2–3 s.
+
+## Follow-up: the surface contract, a file per cell
+
+The CLI surface contract ran its four cells (governance `required` and
+`off`, over a TCP and a socket `kb ui`) from one file. Timed alone, the
+cells took 36, 36, 36 and 51 s, 140 s in all on this host (215 s under
+the load of the full serial run). Its properties, the longest 76 s across
+the four cells, are spread over every cell, so a split by property would
+balance worse than a split by cell.
+
+Each cell now runs from a file of its own (`surface-contract.<cell>.test.ts`
+over `surfaces.ts`). A test holds the files to `SURFACE_CONTRACT_CELLS`:
+a file for every cell, each running the cell it is named for. The same 32
+tests and assertions run. Side by side at `--parallel=4`, the four files
+took 58 s against 140 s for the one file. CI's before and after are in the
+PR that made the change.

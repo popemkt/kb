@@ -15,7 +15,8 @@
     "limit": 12
   },
   "@kb/test-kit": {
-    "limit": 56
+    "limit": 57,
+    "reason": "SURFACE_CONTRACT_CELLS: the surface contract's cells, by name, so the CLI runs each from a file of its own and a new listener kind fails to compile until it has its cells."
   },
   "@kb/webmcp": {
     "limit": 12

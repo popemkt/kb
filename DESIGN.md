@@ -2990,11 +2990,14 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
   and every surface writes an extension's setting on its node, and nothing
   else of that node (Extension families → configuration). These are
   properties of `surfaceContract` in `@kb/test-kit`
-  (`surface-contract.ts`). They run over all surfaces at once, from
-  `packages/app/cli/tests/surface-contract.test.ts`, and a new surface joins
-  that map. The suite runs once for each way the root's `kb ui` listens, a
-  TCP port and a Unix socket, so a surface that reaches the server through
-  presence keeps every promise over either.
+  (`surface-contract.ts`). They run over all surfaces at once, the map in
+  `packages/app/cli/tests/surfaces.ts`, and a new surface joins that map.
+  The suite runs in each governance mode over each way the root's `kb ui`
+  listens, a TCP port and a Unix socket, so a surface that reaches the
+  server through presence keeps every promise over either. Each of those
+  cells (`SURFACE_CONTRACT_CELLS`) runs from a test file of its own, so a
+  parallel run runs them side by side, and a test holds the files to the
+  cells.
 - `registryFor(root)` builds a handler table per kb root (cached for the
   process); `manifest(root)` + `invoke(ctx, invocation)` / `invokeReceiptEffect` dispatch through it.
 - Dispatch prefers `effect` and composes it under `Effect.scoped` (finalizers / interrupt). Legacy Promise `handler`s (third-party `.kb/extensions`) are the only path lifted via `tryPromise`.

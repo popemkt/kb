@@ -108,11 +108,6 @@ export interface LiveUi {
 /** How a `kb ui` listens: each kind of `UiListener`. */
 export type UiListenerKind = UiListener["kind"];
 
-/** Every kind of listener, each named once, so a new kind joins the suite or fails to compile. */
-const LISTENER_KINDS = { tcp: "tcp", socket: "socket" } as const satisfies {
-  readonly [K in UiListenerKind]: K;
-};
-
 /**
  * Start a `kb ui` over a root, listening the way `kind` says; the contract
  * stops it when the property ends.
@@ -654,34 +649,65 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
 ];
 
 /**
- * Run the contract over every surface at once, once for each way the root's
- * `kb ui` listens.
+ * One run of the contract: every property, under one governance mode, over
+ * a `kb ui` that listens one way.
+ */
+export interface SurfaceContractCell {
+  readonly governance: Governance;
+  readonly listener: UiListenerKind;
+}
+
+type Governance = "required" | "off";
+
+/**
+ * A cell's name: its listener, then its governance mode. Every listener
+ * kind with every mode, so a new kind of listener joins the contract's cells
+ * or fails to compile.
+ */
+export type SurfaceContractCellName = `${UiListenerKind}-${Governance}`;
+
+/**
+ * Every run the contract makes, by name: each governance mode over each way
+ * a root's `kb ui` listens. A suite runs each cell from a file of its own,
+ * so a runner that parallelises files runs the cells side by side; the
+ * suite holds itself to running every cell.
+ */
+export const SURFACE_CONTRACT_CELLS: Readonly<
+  Record<SurfaceContractCellName, SurfaceContractCell>
+> = {
+  "tcp-required": { listener: "tcp", governance: "required" },
+  "socket-required": { listener: "socket", governance: "required" },
+  "tcp-off": { listener: "tcp", governance: "off" },
+  "socket-off": { listener: "socket", governance: "off" },
+};
+
+/**
+ * Run the contract over every surface at once, in one of its cells
+ * ({@link SURFACE_CONTRACT_CELLS}).
  *
  * @param set - how a root is served, and each surface's factory by name. The
  *   map is the list of surfaces, so adding a surface means adding an entry,
  *   and it then has to meet every property here.
+ * @param cell - the governance mode and the way the root's `kb ui` listens.
  */
-export function surfaceContract(set: SurfaceSet): void {
+export function surfaceContract(set: SurfaceSet, cell: SurfaceContractCell): void {
   const names = Object.keys(set.surfaces).join(", ");
-  for (const mode of ["required", "off"] as const) {
-    for (const listener of Object.values(LISTENER_KINDS)) {
-      const run: OnListener = { ...set, listener };
-      describe(`action surfaces (${names}) on ${listener}, governance ${mode}`, () => {
-        for (const [title, property] of PROPERTIES)
-          test(
-            title,
-            () =>
-              Effect.runPromise(
-                Effect.acquireUseRelease(
-                  Effect.sync(() => deployGovernance(mode)),
-                  () => Effect.promise(() => property(run)),
-                  () => Effect.sync(() => deployGovernance("required")),
-                ),
-              ),
-            // Every property drives all transports, including many detached CLI processes.
-            120_000,
-          );
-      });
-    }
-  }
+  const { governance, listener } = cell;
+  const run: OnListener = { ...set, listener };
+  describe(`action surfaces (${names}) on ${listener}, governance ${governance}`, () => {
+    for (const [title, property] of PROPERTIES)
+      test(
+        title,
+        () =>
+          Effect.runPromise(
+            Effect.acquireUseRelease(
+              Effect.sync(() => deployGovernance(governance)),
+              () => Effect.promise(() => property(run)),
+              () => Effect.sync(() => deployGovernance("required")),
+            ),
+          ),
+        // Every property drives all transports, including many detached CLI processes.
+        120_000,
+      );
+  });
 }
