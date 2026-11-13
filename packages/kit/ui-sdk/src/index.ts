@@ -299,6 +299,7 @@ export { type Landing, LandingService, land, landOnce, stayHome } from "./lib/la
 export { type DateTarget, DateTargetService, dateTarget, leadsNowhere } from "./lib/date-target";
 export {
   type FieldEditorProps,
+  type FieldRowProps,
   FieldEditorService,
   provideFieldEditor,
   useFieldEditor,
