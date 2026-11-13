@@ -5,7 +5,7 @@ import { asElement, asInstance, isOutside } from "../lib/dom";
  * What a popover counts as itself, so a press there does not dismiss it: an
  * element, or a selector for the elements.
  */
-export type DismissInside = RefObject<Element | null> | string;
+type DismissInside = RefObject<Element | null> | string;
 
 /**
  * A popover's parts, as dismissing reads them: what it counts as itself

@@ -78,7 +78,7 @@ export interface KeyContext {
 }
 
 /** A binding the keymap did not admit, and why, in words. */
-export interface RefusedBinding {
+interface RefusedBinding {
   readonly id: string;
   readonly reason: string;
 }

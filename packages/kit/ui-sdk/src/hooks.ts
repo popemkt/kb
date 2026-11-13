@@ -65,7 +65,7 @@ export function useNodeTextBinding(instanceKey: string | undefined): NodeTextHos
 }
 
 /** Whether any node's text is being edited. */
-export function useEditing(): boolean {
+function useEditing(): boolean {
   return useHostValue((host) => host.editing());
 }
 
@@ -109,7 +109,7 @@ export function useAnswers(): number {
 }
 
 /** `edn`'s answer from the replica, kept live while this component is mounted. */
-export function useQueryAnswer(edn: string | null): QueryRead {
+function useQueryAnswer(edn: string | null): QueryRead {
   const host = browserHost();
   return useQueryReadThrough(useReplicaQueries(), edn, host.subscribe);
 }

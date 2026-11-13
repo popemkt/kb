@@ -24,8 +24,13 @@ import {
   type SeedBackdrop,
 } from "@kb/appearance";
 import { definePlugin } from "@kb/plugin";
-import { BACKDROP_BUDGETS, syncUiPlugins, type OutlineNode, type PointerSource } from "@kb/ui-sdk";
-import { BackdropPoint, provideBackdrop, type BackdropProps } from "@kb/appearance-kit";
+import { BACKDROP_BUDGETS, syncUiPlugins, type OutlineNode } from "@kb/ui-sdk";
+import {
+  BackdropPoint,
+  provideBackdrop,
+  type BackdropProps,
+  type PointerSource,
+} from "@kb/appearance-kit";
 import { testBrowserHost, testHostPlugin, type TestBrowserHost } from "@kb/ui-test-kit";
 import { budgetWarning } from "./budget-warning";
 import StudioPage from "./studio-page";

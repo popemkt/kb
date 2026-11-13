@@ -93,7 +93,7 @@ type EditorTextVerbs = Pick<
  * (`expandAncestors`, which a structural write asks before it lands the caret
  * on the row it moved); and opening or closing one row (`toggleCollapse`).
  */
-export interface PageEditorState extends EditorTextVerbs {
+interface PageEditorState extends EditorTextVerbs {
   readonly activeNodeId: string | null;
   readonly activeInstanceKey: string | null;
   readonly selectedNodeId: string | null;

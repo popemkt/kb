@@ -21,7 +21,7 @@ export interface NodeLinkNode {
 }
 
 /** One link of a node-link graph: from one of its nodes to another, drawn once. */
-export interface NodeLinkEdge {
+interface NodeLinkEdge {
   readonly source: string;
   readonly target: string;
 }

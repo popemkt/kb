@@ -69,7 +69,7 @@ export interface PaletteSurface {
 }
 
 /** What a palette step's candidates are drawn from. */
-export interface PaletteStepGraph {
+interface PaletteStepGraph {
   readonly nodes: NodeMap;
   readonly wireNodes: readonly WireNode[];
   /** The row the palette is anchored to: never its own candidate. */
@@ -77,7 +77,7 @@ export interface PaletteStepGraph {
 }
 
 /** What a palette step's pick writes: the row it is about, and the candidate picked or named. */
-export interface PaletteStepPick {
+interface PaletteStepPick {
   readonly targetNodeId: string;
   /** Where field definitions are read from: the whole graph (`lib/schema.ts`). */
   readonly schema: SchemaIndex;
@@ -161,7 +161,7 @@ export type NodeMenuGroup = (typeof NODE_MENU_GROUPS)[number];
  * `node`: the node menu, about its row, in its `group`, then by `order`
  * (lower first), then in the order the commands were contributed.
  */
-export type CommandMenu =
+type CommandMenu =
   | { readonly where: "global" }
   | { readonly where: "node"; readonly group: NodeMenuGroup; readonly order: number };
 
@@ -178,7 +178,7 @@ interface CommandBase {
 }
 
 /** A command ⌘K offers by its `sys.command` node, which names it. */
-export interface GlobalCommand extends CommandBase {
+interface GlobalCommand extends CommandBase {
   readonly menu: { readonly where: "global" };
 }
 

@@ -11,6 +11,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { drawVariant, shownStrength, shownVariants, type BackdropStrength } from "@kb/appearance";
+import { usePointerOver } from "../lib/pointer-over.ts";
 import {
   useAppearance,
   usePageActivity,
@@ -20,7 +21,6 @@ import {
   cn,
   useReducedMotion,
   readTiming,
-  usePointerOver,
   type OutlineNode,
 } from "@kb/ui-sdk";
 import {

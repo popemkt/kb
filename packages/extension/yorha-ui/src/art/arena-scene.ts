@@ -52,7 +52,8 @@ import {
 } from "three/tsl";
 import { colorUniform, mountScene, type PaletteUniforms, type SceneStage } from "@kb/scene-gpu";
 import type { SceneHandle, ScenePalette } from "@kb/scene";
-import type { PointerPlace, PointerSource, Timing } from "@kb/ui-sdk";
+import type { PointerPlace, PointerSource } from "@kb/appearance-kit";
+import type { Timing } from "@kb/ui-sdk";
 import {
   ArenaPlay,
   CAPACITY,

@@ -21,15 +21,8 @@ import {
   type BackdropStrength,
 } from "@kb/appearance";
 import { SYSTEM_IDS, extensionNodeId } from "@kb/model";
-import { BackdropFrame, type Backdrop, usePageBackdrop } from "@kb/appearance-kit";
-import {
-  browserHost,
-  navigate,
-  useAppearance,
-  useLoadSeed,
-  useNode,
-  usePointerOver,
-} from "@kb/ui-sdk";
+import { BackdropFrame, type Backdrop, usePageBackdrop, usePointerOver } from "@kb/appearance-kit";
+import { browserHost, navigate, useAppearance, useLoadSeed, useNode } from "@kb/ui-sdk";
 
 import { KnobPanel, type KnobGroup } from "./knob-panel";
 import { gatedPointer, useStudioActivity } from "./interact";
