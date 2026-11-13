@@ -8,7 +8,7 @@ test("a pure declaration catalogue resolves SSR fallbacks without a browser or h
   const reader = colorTokenReader([COLOR_TOKEN_FALLBACKS, { "--example-colour": "#123456" }]);
   expect(reader.fallback("--example-colour")).toBe("#123456");
   expect(reader.fallback("--foreground")).toBe("#222");
-  expect(() => reader.fallback("--missing")).toThrow("undeclared colour token");
+  expect(reader.fallback("--missing")).toBe("var(--missing, #737373)");
 });
 
 test("repeated identical tokens compose, but conflicting owners cannot silently override", () => {

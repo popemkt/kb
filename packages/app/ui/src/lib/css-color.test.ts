@@ -2,7 +2,7 @@ import { BUNDLED_DECLARATIONS } from "@kb/bundled";
 import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { COLOR_TOKEN_FALLBACKS } from "@kb/contracts";
-import { oklchToRgb, toRenderableColor } from "@kb/ui-sdk";
+import { readTokenColor, oklchToRgb, toRenderableColor } from "@kb/ui-sdk";
 import { PAGE_SHEETS } from "@/test-support/design-systems";
 
 /**
@@ -105,4 +105,8 @@ describe("the token fallbacks are bound to the stylesheets", () => {
       expect(toRenderableColor(fallback)).not.toBeNull();
     });
   }
+});
+
+it("an undeclared token stays a CSS variable with a neutral fallback at render time", () => {
+  expect(readTokenColor("--unprovided-test-token")).toBe("var(--unprovided-test-token, #737373)");
 });

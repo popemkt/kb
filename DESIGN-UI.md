@@ -4134,7 +4134,9 @@ Families declare pure `colorTokens` fallback maps. The page supplies a composed
 available even for disabled families; loaded declarations contribute through
 `ColorTokenPoint`, without adding metadata to the server registry rows or wire.
 Server renderers can compose the same reader without a host.
-Conflicting fallback declarations are refused. Core owns only generic tokens
+Undeclared tokens retain their CSS variable with a neutral fallback; page
+renderers warn in development. Conflicting fallback declarations are refused.
+Core owns only generic tokens
 and the reader contract.
 
 A whole design system (colour, type, faces, weights, radius, elevation,

@@ -17,6 +17,8 @@ import {
   type ColorToken,
 } from "@kb/contracts";
 
+import { logWarn } from "./log";
+
 const CHANNEL = String.raw`-?[\d.]+%?`;
 
 function clamp01(value: number): number {
@@ -150,6 +152,13 @@ export function provideColorTokens(reader: ColorTokenReader): void {
 
 export function readTokenColor(varName: ColorToken, opts: { alpha?: number } = {}): string {
   const fallback = tokenReader.fallback(varName);
+  if (fallback.startsWith("var(")) {
+    if (
+      (import.meta as ImportMeta & { readonly env?: { readonly DEV?: boolean } }).env?.DEV === true
+    )
+      logWarn(`undeclared colour token ${varName}`);
+    return fallback;
+  }
   const unresolved = toRenderableColor(fallback, opts.alpha) ?? fallback;
   if (typeof document === "undefined") return unresolved;
   const probe = document.createElement("span");

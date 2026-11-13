@@ -50,9 +50,7 @@ export function colorTokenReader(
     }
   return {
     fallback: (name) => {
-      const value = tokens.get(name);
-      if (value === undefined) throw new Error(`undeclared colour token ${name}`);
-      return value;
+      return tokens.get(name) ?? `var(${name}, #737373)`;
     },
   };
 }
