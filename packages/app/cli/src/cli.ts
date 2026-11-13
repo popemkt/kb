@@ -31,6 +31,7 @@ import {
 } from "@kb/model";
 import { exampleSeedNodes, isPristine } from "./example.ts";
 import { KB_SDK_VERSION } from "@kb/ext-sdk";
+import { VERSION_FLAGS } from "./version-option.ts";
 import { bundledSeed } from "@kb/bundled";
 import {
   EXIT_USAGE,
@@ -263,7 +264,7 @@ function buildProgram(): Command {
   program
     .name("kb")
     .description("Repo-native outliner datastore")
-    .version(KB_SDK_VERSION)
+    .version(KB_SDK_VERSION, VERSION_FLAGS)
     .option("--json", "machine-readable JSON output", false)
     .option("--root <path>", "repo root containing .kb/")
     .option(
