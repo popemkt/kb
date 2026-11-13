@@ -125,6 +125,7 @@ export {
   tagAncestors,
   tagChains,
   templateFieldsOf,
+  type TagChains,
 } from "./tag-kinds.ts";
 export { closesCycle, type NodeLookup } from "./ref-chain.ts";
 export { IndexedNodes } from "./node-graph.ts";

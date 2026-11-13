@@ -13,7 +13,7 @@ export {
   marketplaceListDef,
 } from "./extension-marketplace.ts";
 export { extensionDiffDef } from "./extension-review.ts";
-export { graphRunEffect, graphSearchEffect, nodeAddEffect } from "./actions.ts";
+export { graphChangesDef, graphRunEffect, graphSearchEffect, nodeAddEffect } from "./actions.ts";
 
 export { KB_DESIGN_SYSTEM, coreExtension } from "./core-extension.ts";
 export { nodeAddTreeEffect } from "./node-add-tree.ts";

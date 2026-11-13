@@ -1,13 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import {
-  SYSTEM_IDS,
-  foldSeed,
-  systemSeedNodes,
-  seededCommand,
-  type KbNode,
-  type NodeLike,
-  type PropValue,
-} from "@kb/model";
+import { foldSeed, systemSeedNodes } from "@kb/seed";
+import { SYSTEM_IDS, seededCommand, type KbNode, type NodeLike, type PropValue } from "@kb/model";
 import type { Contribution, ContributionEntry } from "@kb/plugin";
 import {
   admitKeymaps,

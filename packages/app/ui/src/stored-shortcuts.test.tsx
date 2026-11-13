@@ -7,7 +7,8 @@ import { sandboxTrustDef } from "@kb/operations";
 import { Effect } from "effect";
 import { defineExtension, KeyContextPoint, KeybindingPoint } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
-import { SYSTEM_IDS, present, foldSeed, systemSeedNodes, type KbNode } from "@kb/model";
+import { SYSTEM_IDS, present, type KbNode } from "@kb/model";
+import { foldSeed, systemSeedNodes } from "@kb/seed";
 import {
   keyboardNodes,
   keyboardSchemaNodes,

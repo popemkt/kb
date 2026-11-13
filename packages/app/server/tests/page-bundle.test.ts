@@ -174,7 +174,11 @@ const DATASCRIPT = /cljs\.core/;
 // camera's math, stay with the canvas scene. The budget keeps about 1.5 KB
 // over that. The keyboard model as its own package, chords as lossless data
 // and the one browser key boundary measure 1,851,917; the budget stays.
-const EAGER_BUDGET_BYTES = 1_852_800;
+// Shortcuts as ordinary nodes (every family's keyboard declared as data, the
+// shortcut catalog and its reader, a stored shortcut's confirmation and the
+// action review it shares) measure 1,885,527; the budget keeps about 1.5 KB
+// over that.
+const EAGER_BUDGET_BYTES = 1_887_000;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

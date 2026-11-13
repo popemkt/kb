@@ -22,12 +22,12 @@
     "limit": 12
   },
   "@kb/operations": {
-    "limit": 66,
-    "reason": "Lane B moved the CLI's flag mappers (map.ts) to @kb/cli and the outline-paste parser to @kb/outline-paste; ui.*, render.*, procedure.* and store.* stay core actions every surface offers."
+    "limit": 68,
+    "reason": "Lane B moved the CLI's flag mappers (map.ts) to @kb/cli and the outline-paste parser to @kb/outline-paste; ui.*, render.*, procedure.* and store.* stay core actions every surface offers. #191 adds core's page context id (PAGE_CONTEXT_ID), declared beside core's actions, and graphChangesDef, whose output the page checks when it names a shortcut's last writer."
   },
   "@kb/contracts": {
-    "limit": 350,
-    "reason": "#190 dropped the names no package outside contracts imports; M6 added node.update's input and prop input schemas, shared by the action and days' untag interceptor."
+    "limit": 352,
+    "reason": "#191: the keyboard points (KeybindingPoint, KeyContextPoint) are declared in contracts beside the other core points; #190 dropped the names no package outside contracts imports, and M6 added node.update's input and prop input schemas."
   },
   "@kb/ext-sdk": {
     "limit": 9
@@ -40,15 +40,15 @@
     "reason": "M6: script reach (callWithin, scriptRefusal, scriptWriteRefusal, readableNodes, readableQuery) moved from @kb/operations beside grants."
   },
   "@kb/model": {
-    "limit": 265,
-    "reason": "The honest stop, not 220: M3b dropped every name no package outside model imports, and every model file is shared by two or more packages (the 16 names only @kb/cli reads sit in shared files), so narrowing further splits a concept across packages."
+    "limit": 266,
+    "reason": "The honest stop, not 220: M3b dropped every name no package outside model imports, and every model file is shared by two or more packages (the 16 names only @kb/cli reads sit in shared files), so narrowing further splits a concept across packages. #191 adds TagChains, which @kb/keybindings' stored-shortcut reader names."
   },
   "@kb/outline-paste": {
     "limit": 3
   },
   "@kb/plugin": {
-    "limit": 41,
-    "reason": "#190 dropped the kernel's names no package outside plugin imports."
+    "limit": 43,
+    "reason": "#191: PluginHandle and rootPluginName, which a shortcut's provenance reads; #190 dropped the kernel's names no package outside plugin imports."
   },
   "@kb/query": {
     "limit": 53,
@@ -79,8 +79,8 @@
     "limit": 1
   },
   "@kb/canvas": {
-    "limit": 359,
-    "reason": "Initial measured interface; module migration will narrow it."
+    "limit": 336,
+    "reason": "#191: the canvas's keyboard as data (its contexts, shortcuts, tools and transform keys) joins the family's package, and the names nothing outside canvas imports leave its barrel."
   },
   "@kb/canvas-ui": {
     "limit": 1
@@ -259,7 +259,7 @@
     "reason": "M4 appearance host and theme art share one kit; M7b added the backdrop pointer input and dropped the names nothing outside the kit imports."
   },
   "@kb/keybindings": {
-    "limit": 23,
-    "reason": "#190: the keyboard model as one domain package (chords, their lossless data, bindings and admission), which ui-sdk and the shortcut nodes share."
+    "limit": 39,
+    "reason": "#191: shortcuts as nodes (stored bindings, chord text, keyboard definitions and the shortcut ids) join the keyboard model #190 made a domain package."
   }
 }

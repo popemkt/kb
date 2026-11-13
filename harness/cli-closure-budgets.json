@@ -1,10 +1,10 @@
 {
   "bytes": {
-    "limit": 5856973,
-    "reason": "Shared shortcut commands add 1,082 bytes to the CLI static closure."
+    "limit": 5886000,
+    "reason": "#191: every family's keyboard declared as data, and the shortcut nodes core's seed and declarations derive from it (@kb/keybindings), take the CLI's static closure to 5,878,042 bytes."
   },
   "modules": {
-    "limit": 1109,
-    "reason": "The outline-paste parser is a package of its own (@kb/outline-paste), so its barrel is one more module."
+    "limit": 1120,
+    "reason": "#191: the keyboard model, its stored shortcuts and chord text, and the canvas's and outline's keyboard data reach the CLI through core's declarations; the outline-paste parser's package barrel (@kb/outline-paste) is one more module since 1108."
   }
 }

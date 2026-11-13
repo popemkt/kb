@@ -18,6 +18,7 @@
     "fast-sha256": "catalog:"
   },
   "devDependencies": {
+    "@kb/seed": "workspace:*",
     "@types/bun": "catalog:",
     "fast-check": "catalog:"
   },
