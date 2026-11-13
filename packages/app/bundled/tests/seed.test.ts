@@ -87,10 +87,12 @@ describe("bundled seed", () => {
   });
 
   test.each(DECLARED_KINDS)(
-    "$kind.field lists one option per declared thing, labelled, in declaration order",
+    "$kind.field lists one option per declared thing, labelled, by priority then declaration order",
     ({ kind }) => {
       const seed = new Map(bundledSeed(AT).map((node) => [node.id, node]));
-      const declared = BUNDLED_DECLARATIONS.flatMap((declaration) => optionsOf(declaration, kind));
+      const declared = BUNDLED_DECLARATIONS.flatMap((declaration) =>
+        optionsOf(declaration, kind),
+      ).toSorted((a, b) => (a.order ?? 0) - (b.order ?? 0));
       expect(declared.length).toBeGreaterThan(0);
       expect(seed.get(kind.field)?.children).toEqual(
         declared.map((option) => declaredOptionId(kind, option.id)),
