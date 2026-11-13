@@ -25,7 +25,7 @@ import {
   bunFileSystemLayer,
 } from "@kb/runtime";
 import { type FailureCode, ResolveError, isDomainError, receiptCodeOf } from "@kb/model";
-import { UsageError } from "@kb/operations";
+import { UsageError } from "./map.ts";
 import { EXIT_USAGE } from "./arguments.ts";
 import { filledLines, formatReceipt } from "./format.ts";
 

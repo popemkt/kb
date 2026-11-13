@@ -20,36 +20,6 @@ export { nodeAddTreeEffect } from "./node-add-tree.ts";
 export { ASSET_MAX_BYTES, assetUploadEffect } from "./assets.ts";
 export { GENERATED_HEADER } from "./docs/docs.ts";
 export { DocsError } from "./docs/views.ts";
-export {
-  UsageError,
-  fieldsNeedingCreate,
-  mapActionInvoke,
-  mapAdd,
-  mapAddTree,
-  mapBacklinks,
-  mapChildren,
-  mapFieldDefine,
-  mapFieldList,
-  mapFieldTarget,
-  mapFieldTargetQuery,
-  mapFieldType,
-  mapGet,
-  mapMv,
-  mapOntologyList,
-  mapOntologyMembers,
-  mapQuery,
-  mapRm,
-  mapRun,
-  mapSearch,
-  mapSet,
-  mapTagDefine,
-  mapTagList,
-  mapUnset,
-  declaredTypes,
-  parseFieldValue,
-  parsePropArg,
-} from "./map.ts";
-export type { PlannedAction } from "./map.ts";
 export { extensionSettingsEffect, extensionSwitchDef, familyFootprint } from "./extensions.ts";
 export { kbManifestDef } from "./manifest.ts";
 export { ontologyMembersEffect } from "./ontology.ts";
@@ -94,5 +64,3 @@ export { MAX_REACTION_DEPTH } from "./commit-frame.ts";
 export { personWriteRefusal } from "./write-refusal.ts";
 
 export { matchSpecificity } from "./action-match.ts";
-export { parseOutline } from "./outline.ts";
-export type { OutlineItem } from "./outline.ts";

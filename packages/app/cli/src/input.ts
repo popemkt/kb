@@ -8,7 +8,7 @@ import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { text as readStream } from "node:stream/consumers";
 import { type DomainError, ensureDomainError } from "@kb/model";
-import { UsageError } from "@kb/operations";
+import { UsageError } from "./map.ts";
 
 /**
  * Parse action-invoke JSON text with native JSON.parse diagnostics, then leave

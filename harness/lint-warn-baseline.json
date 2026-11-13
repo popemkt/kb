@@ -8,13 +8,14 @@
       "@kb/server": 12,
       "@kb/test-kit": 57,
       "@kb/webmcp": 12,
-      "@kb/operations": 96,
+      "@kb/operations": 66,
       "@kb/contracts": 379,
       "@kb/ext-sdk": 9,
       "@kb/extension-source": 27,
       "@kb/sandbox": 94,
       "@kb/appearance": 57,
       "@kb/model": 265,
+      "@kb/outline-paste": 3,
       "@kb/plugin": 54,
       "@kb/query": 92,
       "@kb/seed": 8,
@@ -153,8 +154,8 @@
       "packages/infrastructure/sandbox-quickjs/src/index.ts imports @jitl/quickjs-singlefile-browser-release-sync": 1
     },
     "cli-closure": {
-      "bytes": 5849561,
-      "modules": 1108
+      "bytes": 5849559,
+      "modules": 1109
     },
     "single-family": {
       "contract/sandbox/src/snapshot.ts": 1,

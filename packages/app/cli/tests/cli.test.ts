@@ -23,7 +23,7 @@ import {
   parseFieldValue,
   parsePropArg,
   UsageError,
-} from "@kb/operations";
+} from "../src/map.ts";
 import { SYSTEM_IDS, fieldTypeValue, type FieldType, type KbNode } from "@kb/model";
 import { main } from "../src/cli.ts";
 import { bundledSeed } from "@kb/bundled";

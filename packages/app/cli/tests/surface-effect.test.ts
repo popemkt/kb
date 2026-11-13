@@ -18,7 +18,7 @@ import {
   IN_PROCESS_WIRE,
 } from "@kb/runtime";
 import { runPlanEffect } from "../src/cli.ts";
-import { mapAdd, mapGet } from "@kb/operations";
+import { mapAdd, mapGet } from "../src/map.ts";
 import { onWire, type ManifestEntry } from "@kb/contracts";
 import {
   callToolEffect,

@@ -41,7 +41,6 @@ import {
   type KbNode,
   type PropValue,
 } from "@kb/model";
-import { mapSet } from "@kb/operations";
 import { invokeReceiptEffect, IN_PROCESS_WIRE, kbRuntimeLayer } from "@kb/runtime";
 import {
   CONTRACT_AT,
@@ -821,11 +820,14 @@ function singleValuedFieldHoldsOne(makeStore: StoreFactory): Promise<void> {
         );
         const tailLength = () => makeStore(root).txTail.entries().length;
 
-        // `kb set` (mapSet) on a field that already holds a value: the field
-        // decides that "set" replaces, so it is one transaction and one value.
-        expect((yield* run(mapSet({ id, field, value: num(95) }))).status).toBe("succeeded");
+        // `kb set` on a field that already holds a value (the `node.update`
+        // it sends): the field decides that "set" replaces, so it is one
+        // transaction and one value.
+        const set = (value: PropValue) =>
+          run({ id: "node.update", input: { id, setProps: [{ field, value }] } });
+        expect((yield* set(num(95))).status).toBe("succeeded");
         const before = tailLength();
-        expect((yield* run(mapSet({ id, field, value: num(96) }))).status).toBe("succeeded");
+        expect((yield* set(num(96))).status).toBe("succeeded");
         expect(yield* held).toEqual([num(96)]);
         expect(tailLength()).toBe(before + 1);
 

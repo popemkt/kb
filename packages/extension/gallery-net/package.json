@@ -19,7 +19,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@kb/operations": "workspace:*",
+    "@kb/outline-paste": "workspace:*",
     "@types/bun": "catalog:"
   },
   "nx": {
