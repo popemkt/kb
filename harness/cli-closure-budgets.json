@@ -1,10 +1,10 @@
 {
   "bytes": {
-    "limit": 2740189,
-    "reason": "gallery-net loads its starter's outline and pictures when the starter runs."
+    "limit": 2739523,
+    "reason": "sandbox-quickjs imports QuickJS with its first run, so the lazy-fence ledger is empty."
   },
   "modules": {
-    "limit": 724,
-    "reason": "gallery-net loads its starter's outline and pictures when the starter runs."
+    "limit": 722,
+    "reason": "sandbox-quickjs imports QuickJS with its first run, so the lazy-fence ledger is empty."
   }
 }

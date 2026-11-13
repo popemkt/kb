@@ -147,12 +147,10 @@
       "kit/ui-sdk/src/sandbox-run.ts": 5,
       "kit/ui-sdk/src/hooks.ts": 3
     },
-    "lazy-fence": {
-      "packages/infrastructure/sandbox-quickjs/src/index.ts imports @jitl/quickjs-singlefile-browser-release-sync": 1
-    },
+    "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2740189,
-      "modules": 724
+      "bytes": 2739523,
+      "modules": 722
     },
     "single-family": {
       "contract/sandbox/src/snapshot.ts": 1,
