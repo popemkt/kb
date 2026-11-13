@@ -1593,6 +1593,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Move the phrase parser into @kb/model next to parseTypedValue and call it from CLI/MCP.
 - **node** — `01M3KA3AEEFG0E200V4D63G5SN`
 
+### GAP: the CLI surface contract is one file, so it bounds the parallel core suite
+
+- **expected** — no core test file dominates the run, so bun test --parallel scales with workers
+- **current** — packages/app/cli/tests/surface-contract.test.ts runs its whole governance x listener matrix (four cells) in one file and spawns a kb process per CLI call; it took 215 s of a 634 s serial run (2026-11-13), and bun parallelises files, not tests
+- **impact** — the core suite cannot drop below about 215 s locally however many workers it gets: four workers ran it in 298 s, sixteen in 239 s
+- **closes** — a test file per matrix cell over shared surface factories, or a cheaper one-shot CLI (the startup measurements in PR #189)
+- **node** — `01M79GV5XZGH57HF5174KXYYAB`
+
 ### GAP: the command palette draws every command the same way, so a theme cannot draw functions as cards
 
 - **expected** — the shown design system may present palette commands in its own form (Transistor: a function card with name(), a MEM cost and slots; ART-DIRECTION.md → Transistor)

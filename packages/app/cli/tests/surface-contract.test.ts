@@ -403,4 +403,5 @@ const agent: SurfaceFactory = async (_root, ui) => {
   } satisfies ActionSurface;
 };
 
+// GAP [[01M79GV5XZGH57HF5174KXYYAB]]
 surfaceContract({ serve, surfaces: { cli, mcp, http, page: pageWire, webmcp, agent } });
