@@ -27,7 +27,7 @@ import {
   displaySettingValues,
   type SeedRetirement,
   TAG_VIEWS,
-  VIEW_FAMILY_VALUES,
+  VIEW_FAMILY_OPTIONS,
   viewOptionId,
   type TagViewRole,
   type ViewFamily,
@@ -215,7 +215,11 @@ function viewOptionNode(view: SeedView, at: string): KbNode {
     props:
       view.family === undefined
         ? {}
-        : { [SYSTEM_IDS.viewFamilyField]: [{ t: "ref", v: VIEW_FAMILY_VALUES[view.family].id }] },
+        : {
+            [SYSTEM_IDS.viewFamilyField]: [
+              { t: "ref", v: declaredOptionId(VIEW_FAMILY_OPTIONS, view.family) },
+            ],
+          },
     children: [],
     createdAt: at,
     updatedAt: at,

@@ -218,6 +218,7 @@ export { recordedTx } from "./tx.ts";
 export {
   DOCS_VIEW_OPTION,
   VIEW_FAMILY_VALUES,
+  VIEW_FAMILY_OPTIONS,
   VIEW_NODE_TARGET_QUERY,
   VIEW_OPTION_TARGET_QUERY,
   defaultViewIdOf,

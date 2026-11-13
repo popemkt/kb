@@ -39,8 +39,8 @@
     "reason": "Initial measured interface; module migration will narrow it."
   },
   "@kb/model": {
-    "limit": 294,
-    "reason": "M3 relocation; final ceiling 220 pending API redesign"
+    "limit": 295,
+    "reason": "M5 generic declared view-family option contract; family registry removal follows."
   },
   "@kb/plugin": {
     "limit": 54
