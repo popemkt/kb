@@ -73,6 +73,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — every known root has run views.migrate; then delete LegacyDocsViewsPort and readLegacyDocsViews
 - **node** — `01M3YM5YCHGX6S04KN4G75B9RF`
 
+### GAP: @kb/operations barrel at 96, above its 90 ceiling, until four core-action families find their owners
+
+- **expected** — @kb/operations exports at most 90 names (proposal §3): the ui.* actions live with ext-canvas, render.* with @kb/mcp, procedure.* and store.backup/restore with @kb/cli, each registered by its owner.
+- **current** — M8 removed the 56 names no package outside operations imports (152 -> 96). ui.ts, render.ts, procedure.ts and store-backup.ts stay: coreActions registers all four as core actions, so moving them changes which surfaces offer those actions, a contract change rather than a move. 17 of the 96 are imported only by @kb/runtime tests.
+- **impact** — Six names over the ceiling; the surface budget sits at 96 with this gap as its reason.
+- **closes** — An owner decision on where ui.*, render.*, procedure.* and store.* register (core for every surface, or per-app), then the moves; or runtime tests that reach these effects through invoke() instead of the barrel.
+- **node** — `01M79JW3AJJZ8Q56KHN2RRNX0W`
+
 ### GAP: ⌘K "Open location…" opens the home store instead of listing locations in the palette
 
 - **expected** — ⌘K "Open location…" lists the location rows as a palette step and opens the one picked.

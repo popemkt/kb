@@ -28,10 +28,10 @@ import {
 import { persistEffect } from "./session.ts";
 
 /** How many backups a machine keeps of a store whose `backups kept` is unset. */
-export const DEFAULT_BACKUPS_KEPT = 3;
+const DEFAULT_BACKUPS_KEPT = 3;
 
 /** Core's `backups kept` on `nodes`' core node: a whole number from 1, else the default. */
-export function backupsKept(nodes: readonly KbNode[]): number {
+function backupsKept(nodes: readonly KbNode[]): number {
   const core = nodes.find((node) => node.id === extensionNodeId("core"));
   const [value] = core?.props[SYSTEM_IDS.backupsKeptField] ?? [];
   if (value?.t !== "num" || !Number.isFinite(value.v)) return DEFAULT_BACKUPS_KEPT;

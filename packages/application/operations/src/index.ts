@@ -1,58 +1,23 @@
 export {
   extensionUpdateDef,
-  extensionUpdateEffect,
   extensionOutdatedDef,
-  extensionOutdatedEffect,
   extensionRemoveDef,
-  extensionRemoveEffect,
   extensionLinkDef,
-  extensionLinkEffect,
   extensionUnlinkDef,
-  extensionUnlinkEffect,
   extensionGcDef,
-  extensionGcEffect,
 } from "./extension-lifecycle.ts";
 export {
   marketplaceAddDef,
-  marketplaceAddEffect,
   marketplaceRemoveDef,
-  marketplaceRemoveEffect,
   marketplaceUpdateDef,
-  marketplaceUpdateEffect,
   marketplaceListDef,
-  marketplaceListEffect,
 } from "./extension-marketplace.ts";
-export { extensionDiffDef, extensionDiffEffect } from "./extension-review.ts";
-export {
-  fieldDefineDef,
-  fieldDefineEffect,
-  graphQueryDef,
-  graphQueryEffect,
-  graphRunDef,
-  graphRunEffect,
-  graphSearchDef,
-  graphSearchEffect,
-  graphChangesDef,
-  graphChangesEffect,
-  nodeAddDef,
-  addNodeAtEffect,
-  nodeAddEffect,
-  planNodeAddEffect,
-  nodeGetDef,
-  nodeGetEffect,
-  nodeUpdateDef,
-  nodeUpdateEffect,
-  nodeDeleteDef,
-  nodeDeleteEffect,
-  nodeMergeDef,
-  nodeMergeEffect,
-  tagDefineDef,
-  tagDefineEffect,
-} from "./actions.ts";
-export type { PlacedAddInput } from "./actions.ts";
+export { extensionDiffDef } from "./extension-review.ts";
+export { graphRunEffect, graphSearchEffect, nodeAddEffect } from "./actions.ts";
+
 export { KB_DESIGN_SYSTEM, coreExtension } from "./core-extension.ts";
-export { nodeAddTreeDef, nodeAddTreeEffect, planNodeAddTreeEffect } from "./node-add-tree.ts";
-export { ASSET_MAX_BYTES, assetUploadDef, assetUploadEffect } from "./assets.ts";
+export { nodeAddTreeEffect } from "./node-add-tree.ts";
+export { ASSET_MAX_BYTES, assetUploadEffect } from "./assets.ts";
 export { GENERATED_HEADER } from "./docs/docs.ts";
 export { DocsError } from "./docs/views.ts";
 export {
@@ -84,15 +49,10 @@ export {
   parseFieldValue,
   parsePropArg,
 } from "./map.ts";
-export type { DeclaredTypes, PlannedAction } from "./map.ts";
-export {
-  extensionFootprintDef,
-  extensionSettingsEffect,
-  extensionSwitchDef,
-  familyFootprint,
-} from "./extensions.ts";
+export type { PlannedAction } from "./map.ts";
+export { extensionSettingsEffect, extensionSwitchDef, familyFootprint } from "./extensions.ts";
 export { kbManifestDef } from "./manifest.ts";
-export { ontologyMembersDef, ontologyMembersEffect } from "./ontology.ts";
+export { ontologyMembersEffect } from "./ontology.ts";
 export {
   listViewNamesEffect,
   mapRenderErr,
@@ -100,20 +60,9 @@ export {
   renderViewNodeEffect,
   type ViewRef,
   listViewRefsEffect,
-  renderViewActionEffect,
-  renderViewDef,
-  renderViewsActionEffect,
-  renderViewsDef,
 } from "./render.ts";
 export { graphWritesLayer } from "./graph-writes.ts";
-export {
-  noteStoreSynced,
-  persistEffect,
-  persistPlannedEffect,
-  reloadEffect,
-  type PersistOptions,
-  type SystemWrites,
-} from "./session.ts";
+export { noteStoreSynced, persistEffect, persistPlannedEffect, reloadEffect } from "./session.ts";
 export { uiCaptureDef, uiNavigateDef, uiScreenDef, uiSelectDef } from "./ui.ts";
 export {
   MAX_CALL_DEPTH,
@@ -124,16 +73,13 @@ export {
 } from "./invoke.ts";
 export type { RegisteredAction } from "./invoke.ts";
 export { interceptionFrom, interceptionOf } from "./interception.ts";
-export type { InterceptionOptions } from "./interception.ts";
 
-export { extensionInstallDef, extensionInstallEffect } from "./extension-install.ts";
+export { extensionInstallDef } from "./extension-install.ts";
 
 export { coreActions } from "./core-actions.ts";
 export { procedureListDef, procedureStatusDef, procedureStepDef } from "./procedure.ts";
 export { migrationListDef, migrationPlanDef } from "./migration.ts";
 export {
-  DEFAULT_BACKUPS_KEPT,
-  backupsKept,
   storeBackupDef,
   storeBackupsDef,
   storeRestoreDef,
@@ -147,7 +93,6 @@ export { reactionsFrom } from "./reactions.ts";
 export { MAX_REACTION_DEPTH } from "./commit-frame.ts";
 export { personWriteRefusal } from "./write-refusal.ts";
 
-export { MODE_MATCHES, matchSpecificity } from "./action-match.ts";
-export { OUTLINE_HEADER, outlineFieldNames, parseOutline } from "./outline.ts";
-export type { OutlineField, OutlineItem, OutlineParse, OutlineValue } from "./outline.ts";
-export { sanitizeSvg } from "./svg-sanitize.ts";
+export { matchSpecificity } from "./action-match.ts";
+export { parseOutline } from "./outline.ts";
+export type { OutlineItem } from "./outline.ts";

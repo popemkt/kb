@@ -10,10 +10,10 @@ import { mentionSpans } from "@kb/model";
  */
 
 /** The optional first line that marks Tana Paste. */
-export const OUTLINE_HEADER = "%%tana%%";
+const OUTLINE_HEADER = "%%tana%%";
 
 /** One value of a field line: inline after `::`, or one nested `- ` item. */
-export interface OutlineValue {
+interface OutlineValue {
   /** 1-based line in the source. */
   line: number;
   /** The value as written, trimmed; read as the field's type later. */
@@ -21,7 +21,7 @@ export interface OutlineValue {
 }
 
 /** A `name:: value` line, with its nested values. */
-export interface OutlineField {
+interface OutlineField {
   line: number;
   name: string;
   values: OutlineValue[];
