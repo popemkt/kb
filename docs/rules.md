@@ -1241,7 +1241,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: nothing proves a family correct when no host runs
 
 - **expected** — extensionContract (@kb/test-kit) has a hostless property, and every hosted family runs under it: for a family with a host loop, its catch-up action run one-shot after any sequence of writes, deletions included, reaches the store state and remote effects a host running throughout reaches.
-- **current** — The rule is prose. No suite runs a family without its host; of the hosted families only the agent runs under extensionContract (cli/tests/extension-contract.test.ts), and the routines engine is tested only as a running loop.
+- **current** — The rule is prose. Only the action catalogue is checked: kb ui reaches every action a hostless process does, and beyond them exactly the host capabilities its families declare (cli/tests/host-extensions.test.ts, over the host part of #189 §12). No suite runs a family's catch-up without its host; of the hosted families only the agent runs under extensionContract (cli/tests/extension-contract.test.ts), and the routines engine is tested only as a running loop. The one-shot property for routines waits on D1 (offline deletions), which is open.
 - **impact** — A new host loop, scheduler or in-memory map can become the only place a truth lives, and nothing goes red.
 - **closes** — The property in extensionContract, run over the routines memory Calendar; the rule's enforcement then moves to ci (docs/research/2026-11-11-cli-host-modes.md step 10).
 - **rule** — Hosts are accelerators: the store is the truth

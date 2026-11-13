@@ -20,9 +20,14 @@ import {
   scriptedRuntime,
 } from "@kb/agent";
 import { BUNDLED_FAMILIES, HOSTED_FAMILIES } from "@kb/bundled";
-import { NO_SECRETS, type ExtensionEntry, type ExtensionRow } from "@kb/contracts";
+import {
+  NO_SECRETS,
+  extensionActionId,
+  type ExtensionEntry,
+  type ExtensionRow,
+} from "@kb/contracts";
 import { kbManifestDef } from "@kb/operations";
-import { bunFileSystemLayer } from "@kb/runtime";
+import { bunFileSystemLayer, invoke, openKb } from "@kb/runtime";
 import { startUi } from "@kb/server";
 import { hostAgentAdapters, hostExtensions } from "../src/host-plugins.ts";
 
@@ -83,6 +88,39 @@ function reportedBy(
 ): Promise<readonly ExtensionRow[]> {
   return served(root, extensions, reportedAt);
 }
+
+/** The action ids `kb.manifest` lists, from a manifest receipt's body. */
+function listedIds(body: Record<string, unknown>): ReadonlySet<string> {
+  expect(body.status).toBe("succeeded");
+  return new Set(kbManifestDef.outputSchema.parse(body.output).actions.map(({ id }) => id));
+}
+
+describe("a host adds exactly what its families declare it hosts", () => {
+  test("kb ui reaches every action a hostless process does, and beyond them only declared host capabilities", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kb-hostless-"));
+    try {
+      const ctx = await openKb(root);
+      const hostless = listedIds(await invoke(ctx, { id: kbManifestDef.id, input: {} }));
+      const entries = await Effect.runPromise(hostExtensions(root));
+      const { hosted, rows } = await served(root, entries, async (page) => ({
+        hosted: listedIds(await call(page, kbManifestDef.id, {})),
+        rows: await reportedAt(page),
+      }));
+      const loaded = new Set(rows.filter((row) => row.enabled).map((row) => row.name));
+      const declared = HOSTED_FAMILIES.filter(({ name }) => loaded.has(name)).flatMap(
+        ({ name, host }) =>
+          (host?.capabilities ?? []).flatMap(({ actions }) =>
+            actions.map((id) => extensionActionId(name, id)),
+          ),
+      );
+      expect(declared.length).toBeGreaterThan(0);
+      expect([...hostless].filter((id) => !hosted.has(id))).toEqual([]);
+      expect([...hosted].filter((id) => !hostless.has(id)).toSorted()).toEqual(declared.toSorted());
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
 
 describe("what kb ui hosts is what the fold declares", () => {
   test("it hands over exactly the hosted families, so each one's seed is in every store", async () => {
