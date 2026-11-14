@@ -18,7 +18,7 @@ import { routeBends, withEnd, withHead, withRoute, type EdgeEnd } from "./edges.
 import { CanvasRelationError, facingSides } from "./relations.ts";
 import { canvasColor, withStyle, type CanvasLooksPatch } from "./style.ts";
 
-export interface CanvasConnection {
+interface CanvasConnection {
   /** The new edge's id, and the id of its binding. */
   readonly id: string;
   readonly bindingId: string;

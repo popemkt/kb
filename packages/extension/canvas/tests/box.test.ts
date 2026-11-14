@@ -1,3 +1,4 @@
+import type { CanvasBox } from "../src/box.ts";
 /**
  * An item's box: its frame (centre, half extents and turn), its eight corners,
  * its top, and points and directions carried between the canvas and the
@@ -24,7 +25,6 @@ import {
   stringifyCanvasDoc,
   withFlag,
   type CanvasAxes,
-  type CanvasBox,
   type CanvasNode,
 } from "../src/index.ts";
 

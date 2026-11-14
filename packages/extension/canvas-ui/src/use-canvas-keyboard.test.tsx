@@ -3,10 +3,10 @@ import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { syncUiPlugins } from "@kb/ui-sdk";
-import type { CanvasDoc, CanvasItemLink } from "@kb/canvas";
+import type { CanvasDoc, CanvasItemLink, CanvasIntent } from "@kb/canvas";
 import { EMPTY_SELECTION, selectNode, type CanvasSelection } from "./canvas-selection";
 import type { ToolState } from "./canvas-tool";
-import type { CanvasIntent } from "./canvas-keys";
+
 import { useCanvasKeyboard } from "./use-canvas-keyboard";
 import { canvasKeysPlugin } from "./test-support/canvas-keys";
 

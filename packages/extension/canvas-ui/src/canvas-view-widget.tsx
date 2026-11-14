@@ -13,11 +13,18 @@
  * frames, each a viewpoint to go to.
  */
 import { useRef } from "react";
-import type { CanvasGroupNode, CanvasProjectionKind } from "@kb/canvas";
+import {
+  type CanvasGroupNode,
+  type CanvasProjectionKind,
+  CANVAS_VIEW_PRESETS,
+  CANVAS_VIEW_COMMANDS,
+  type CanvasIntent,
+  type CanvasViewCommand,
+} from "@kb/canvas";
 import type { CanvasViewPresetName } from "@kb/contracts";
-import { CANVAS_VIEW_PRESETS } from "./canvas-camera-stops";
+
 import { lensOf, presetOf, screenAxes, type CanvasView } from "./canvas-camera";
-import { CANVAS_VIEW_COMMANDS, type CanvasIntent, type CanvasViewCommand } from "./canvas-keys";
+
 import { hintOf } from "./canvas-keymap";
 import { cn, MENU_ROW, MENU_SURFACE, MenuSeparator, useDismiss, useMenuKeys } from "@kb/ui-sdk";
 import { AXIS_INK } from "./canvas-gizmo";

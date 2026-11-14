@@ -25,12 +25,7 @@ Human chord text is a convenient entry form, not a replacement for those semanti
 First establish a lossless data representation for the shipped chords and bridge
 it into the existing matcher. Arbitrary callbacks must not be stringified.
 
-`where` references a context node derived from the context declaration. `runs`
-references a target with a stable command, action or context-intent identity;
-resolving it produces the existing KeyRun form. Any action still crosses the
-normal invoke and approval path. Context intents remain limited to those the
-owning context declares. The exact target-node and chord-field schemas must be
-proved against every shipped binding before the node reader is connected.
+The final seeded shape is specified in [DESIGN-UI.md → Outline editor](../../DESIGN-UI.md#outline-editor-i1): alternate keys live on one shortcut row, and execution targets are ordinary commands. Earlier context/intent option and separate-chord proposals are superseded by that shape.
 
 The node reader uses the unscoped graph/schema, so an ontology projection cannot
 silently switch off shortcuts. Graph and kernel generations both invalidate its
@@ -89,8 +84,18 @@ stay inert and are reconsidered on reload. Incremental and fresh reads must
 agree, including reversed graph enumeration and intermediate holder unloads.
 
 
-Module ledger on the #193 refresh:
+## Scope decision, 2026-11-12
 
-- `@kb/keybindings` (24 public names): the shared model/codec is imported by contracts, SDK and family definitions; it stays below the new-package cap of 60.
-- Existing contracts/plugin/SDK surfaces shrink after removing types and host adapters with no cross-package consumers; no existing surface ceiling rises.
-- Family-name entries remain at main's baseline. The module stack will refine property-name matching before this stack merges; generic physical-key `code` and graph vocabulary are not new ledger debt.
+The current authority policy is [DESIGN-UI.md](../../DESIGN-UI.md#outline-editor-i1).
+It supersedes the code-identity and authorship approval proposals above: the
+single-owner checkout uses one explicit canonical-content confirmation for any
+override, whoever wrote it; writer information is informational only.
+The held-image work is preserved unchanged on `bb/kb-held-image`; its parked
+status is recorded by [[01M76AZFNNGRS5P55CSCG93YJM]].
+
+
+Module surface review on the #193 refresh: internal-only barrel types and host adapters were removed first. Surfaces now measure operations 146, contracts 346, plugin 43, canvas 336 and UI SDK 576 (all below main). The new shared keybinding package has 39 names, below the 60-name cap. Outline is 3 → 9: shared editing/selection contexts moved from the browser package. Its six new names are consumed by outline-ui: `EDITING_CONTEXT`, `EDITING_CONTEXT_ID`, `EDITING_BINDINGS`, `SELECTION_CONTEXT`, `SELECTION_CONTEXT_ID`, and `SELECTION_BINDINGS`. The module stack owns the surface-budget reason mechanism and member-property matcher refinement; no family-name debt is added here.
+
+The generic chord property and normalized event now name physical positions `physicalKey`. The browser's native `KeyboardEvent.code` is translated by the SDK's one `keyChordEvent` adapter at page/outline/canvas input boundaries; stored data never uses the native DOM member name. Modifier text names are checked against the boolean fields derived from the chord schema.
+
+CLI closure on the completed node model measures 5,884,556 bytes / 1,118 modules. This includes the native keyboard catalog and lossless codec needed by seeded descriptions. Declaring the shared model side-effect-free removes 8,117 bytes and two unused decoder modules from the measured closure. The remaining cost is recorded as reviewed byte/module budgets; forbidden eager imports remain unchanged.

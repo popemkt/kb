@@ -29,7 +29,7 @@ export interface PlannedAction {
 }
 
 /** A field named on argv (by name or id) → the type its values are parsed as. */
-export type DeclaredTypes = (field: string) => FieldType;
+type DeclaredTypes = (field: string) => FieldType;
 
 /**
  * The declared types of the fields in `nodes`, looked up the way actions

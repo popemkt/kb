@@ -58,9 +58,10 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // A procedure step's status may name the action its check recommends and
 // carries its check's notes, fields a previous page ignores. The
 // `migration.*` actions are new actions a previous page never calls.
+// The manifest adds optional root and machine-local confirmation digests; older pages ignore them.
 const RECORDED = {
   protocol: 8,
-  fingerprint: "a3b0932b152e732db39ab20ab562d4c3cb2653c790434c9cb429e78972887186",
+  fingerprint: "b013b0491814526d51da8c188acba37d6b8e62e06c9f1698203d9e460a794ecb",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

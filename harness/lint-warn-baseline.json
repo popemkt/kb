@@ -8,15 +8,15 @@
       "@kb/server": 12,
       "@kb/test-kit": 58,
       "@kb/webmcp": 12,
-      "@kb/operations": 66,
-      "@kb/contracts": 350,
+      "@kb/operations": 68,
+      "@kb/contracts": 352,
       "@kb/ext-sdk": 9,
       "@kb/extension-source": 27,
       "@kb/sandbox": 94,
       "@kb/appearance": 57,
-      "@kb/model": 265,
+      "@kb/model": 266,
       "@kb/outline-paste": 3,
-      "@kb/plugin": 41,
+      "@kb/plugin": 43,
       "@kb/query": 53,
       "@kb/seed": 8,
       "@kb/views": 111,
@@ -26,7 +26,7 @@
       "@kb/agent-ui": 6,
       "@kb/backdrops": 71,
       "@kb/backdrops-ui": 1,
-      "@kb/canvas": 359,
+      "@kb/canvas": 336,
       "@kb/canvas-ui": 1,
       "@kb/chart": 17,
       "@kb/chart-ui": 1,
@@ -53,7 +53,7 @@
       "@kb/locations": 19,
       "@kb/locations-fs": 1,
       "@kb/locations-ui": 1,
-      "@kb/outline": 3,
+      "@kb/outline": 9,
       "@kb/outline-ui": 40,
       "@kb/routines": 110,
       "@kb/routines-gcal": 17,
@@ -81,7 +81,7 @@
       "@kb/scene-gpu": 35,
       "@kb/ui-sdk": 523,
       "@kb/ui-test-kit": 26,
-      "@kb/keybindings": 23
+      "@kb/keybindings": 39
     },
     "family-names": {
       "contract/contracts/src/mcp-tool.ts": 2,
@@ -149,8 +149,8 @@
     },
     "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2738713,
-      "modules": 721
+      "bytes": 2765972,
+      "modules": 732
     },
     "single-family": {
       "contract/sandbox/src/snapshot.ts": 1,

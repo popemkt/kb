@@ -6,7 +6,7 @@
  */
 import { useRef } from "react";
 import { useDismiss } from "@kb/ui-sdk";
-import { CANVAS_SHORTCUTS, type CanvasShortcut, type CanvasShortcutSection } from "./canvas-keys";
+import { CANVAS_SHORTCUTS, type CanvasShortcut, type CanvasShortcutSection } from "@kb/canvas";
 import { chordHint, heldChords, hintOf } from "./canvas-keymap";
 
 /** The sections, in the order the sheet lists them. */

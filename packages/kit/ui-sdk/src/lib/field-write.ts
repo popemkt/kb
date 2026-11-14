@@ -26,7 +26,7 @@ export interface ManagedWrite {
 }
 
 /** One field row's writing, now. */
-export interface FieldWrite {
+interface FieldWrite {
   /** Whether the row draws its values without editing them. */
   readonly readOnly: boolean;
   /** Set when a family manages the field; null for a field nobody manages. */

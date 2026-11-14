@@ -6,7 +6,7 @@
  */
 import { coreExtension } from "@kb/operations";
 import { familyTags, replacesWithoutApproval } from "@kb/contracts";
-import { definePlugin } from "@kb/plugin";
+import { definePlugin, rootPluginName } from "@kb/plugin";
 import { mutations } from "@/actions/mutations";
 import { listNodeCommands } from "@/lib/commands";
 import { servedManifest, subscribeManifest } from "@/lib/manifest";
@@ -41,7 +41,7 @@ const SOURCES = [usePrefsStore, useDesignSystemStore, useUiStore, useDebugFields
  * not name is the page's own build. With no server, every family is.
  */
 export function replacementApproved(owner: string): boolean {
-  const family = owner.split("/")[0] ?? owner;
+  const family = rootPluginName(owner);
   const row = servedManifest()?.extensions.find(({ name }) => name === family);
   return row === undefined || replacesWithoutApproval(row.origin);
 }

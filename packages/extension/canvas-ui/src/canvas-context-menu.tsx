@@ -5,8 +5,8 @@
  * the stage, the menu of what is done to the selection, or to the canvas
  * when nothing is selected (`menuCommands`).
  */
-import type { CanvasNode } from "@kb/canvas";
-import type { CanvasIntent } from "./canvas-keys";
+import type { CanvasNode, CanvasIntent } from "@kb/canvas";
+
 import { CommandMenu } from "./canvas-menu";
 import { selectionEmpty, type CanvasSelection } from "./canvas-selection";
 import { menuCommands } from "./use-canvas-menu";

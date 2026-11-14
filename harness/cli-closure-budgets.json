@@ -1,10 +1,10 @@
 {
   "bytes": {
-    "limit": 2738713,
-    "reason": "#176, #181 and #190 route page and canvas keys through one keybinding model the CLI's closure also loads (1378 bytes over the lazy-load floor of 2737335, where the node table reads every node's references on its first change)."
+    "limit": 2765972,
+    "reason": "#191: every family's keyboard declared as data, and the shortcut nodes core's seed derives from it (@kb/keybindings), reach the CLI through core's declarations: 27259 bytes over #176, #181 and #190's 2738713, which routed page and canvas keys through one keybinding model (the lazy-load floor is 2737335)."
   },
   "modules": {
-    "limit": 721,
-    "reason": "ext-canvas loads its tldraw file reader with the first import."
+    "limit": 732,
+    "reason": "#191: the keyboard model, its stored shortcuts and chord text, and the canvas's and outline's keyboard data reach the CLI through core's declarations (721 before; ext-canvas loads its tldraw file reader with the first import)."
   }
 }

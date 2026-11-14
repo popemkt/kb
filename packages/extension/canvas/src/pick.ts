@@ -19,7 +19,7 @@ import type { CanvasShapeKind } from "./doc.ts";
 import { CANVAS_SHAPES, footprintPolygon, insidePolygon, onFootprint } from "./shapes.ts";
 
 /** A ray in canvas space: where it starts and which way it runs. */
-export interface CanvasRay {
+interface CanvasRay {
   readonly origin: CanvasVec;
   readonly dir: CanvasVec;
 }

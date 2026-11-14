@@ -128,11 +128,13 @@ export function pointReader<C>(point: PointReference<C>): () => readonly Contrib
  * plugins it holds, and its version. What the page's own invoke reads its
  * guards and interceptors from.
  */
-export const uiKernelReader: Pick<Kernel, "contributions" | "plugins" | "version"> = {
-  contributions: (point) => uiKernel.contributions(point),
-  plugins: () => uiKernel.plugins(),
-  version: () => uiKernel.version(),
-};
+export const uiKernelReader: Pick<Kernel, "contributions" | "plugins" | "provenance" | "version"> =
+  {
+    contributions: (point) => uiKernel.contributions(point),
+    provenance: uiKernel.provenance,
+    plugins: () => uiKernel.plugins(),
+    version: () => uiKernel.version(),
+  };
 
 /** A point's contributions now, for a reader outside React (a port the shell wires). */
 export function currentContributions<C>(point: PointReference<C>): readonly Contribution<C>[] {

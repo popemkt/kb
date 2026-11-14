@@ -15,7 +15,7 @@ import {
 } from "./point-definitions.ts";
 import { declaredRoles, type DeclaredRole } from "./roles.ts";
 
-export interface HostCapabilities {
+interface HostCapabilities {
   readonly points: readonly PointDefinition[];
   readonly roles: readonly DeclaredRole[];
   readonly namespaces: readonly string[];

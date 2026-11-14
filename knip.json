@@ -25,7 +25,12 @@
       "entry": ["vite.sandbox.config.ts", "src/sandbox/frame.ts"]
     },
     "packages/app/test-kit": {
-      "entry": ["tests/*.test.ts", "tests/run-many.ts", "tests/gen-example-page.ts"]
+      "entry": [
+        "tests/*.test.ts",
+        "tests/run-many.ts",
+        "tests/gen-example-page.ts",
+        "tests/registry-keyboard.fixture.ts"
+      ]
     }
   },
   "ignore": [

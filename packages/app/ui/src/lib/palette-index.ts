@@ -2,6 +2,7 @@
  * Cmd+K palette index — built once per graph rev (DESIGN-REFINE §2 W3).
  * Fuzzy match runs over a prebuilt lowercase haystack; callers virtualize ≤20 rows.
  */
+import { SHORTCUT_IDS } from "@kb/keybindings";
 import type { WireNode } from "@kb/contracts";
 import { SYSTEM_IDS } from "@kb/ui-sdk";
 
@@ -29,11 +30,14 @@ function isCommandNode(node: WireNode): boolean {
   return types.some((v) => v.t === "ref" && v.v === SYSTEM_IDS.command);
 }
 
-/** Build searchable entries for every node (fields, tags, sys, commands). */
+/** Global discovery excludes commands that require a surface execution context. */
 export function buildPaletteIndex(nodes: WireNode[], rev: number): PaletteIndex {
+  const global = nodes.filter(
+    (node) => !isCommandNode(node) || node.props[SHORTCUT_IDS.commandContext] === undefined,
+  );
   // oxlint-disable-next-line unicorn/no-new-array -- GAP [[01M1MFJXAQ8NVBMA6E6CZ7CY9W]]
-  const entries: PaletteEntry[] = new Array(nodes.length);
-  for (const [i, n] of nodes.entries()) {
+  const entries: PaletteEntry[] = new Array(global.length);
+  for (const [i, n] of global.entries()) {
     entries[i] = entryOf(n.id, n.text || n.id, isCommandNode(n) ? "command" : "node");
   }
   // Commands first for empty-query browsing, then stable by text.

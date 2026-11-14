@@ -181,3 +181,8 @@ export function Role<C>(key: ServiceKey<C> | PointKey<C>, cell?: string): RoleKe
 export function namespaced(namespace: string, id: string): string {
   return namespace === "" ? id : `${namespace}.${id}`;
 }
+
+/** The top-level plugin a scoped owner belongs to; child ownership stays with its root. */
+export function rootPluginName(owner: string): string {
+  return owner.split("/")[0] ?? owner;
+}

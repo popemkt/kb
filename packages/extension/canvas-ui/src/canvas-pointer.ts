@@ -21,6 +21,9 @@ import {
   type CanvasTransform,
   type SnapGuide,
   type SnappedTransform,
+  type TransformConstraint,
+  type TransformKey,
+  type TransformMode,
 } from "@kb/canvas";
 import { screenToPlane, type CanvasView, type ViewSize } from "./canvas-camera";
 import { draftItem } from "./canvas-tool";
@@ -32,12 +35,10 @@ import {
   isTyped,
   keyInput,
   transformAt,
-  type TransformConstraint,
   type TransformGround,
   type TransformInput,
-  type TransformKey,
-  type TransformMode,
-} from "./canvas-transform-input.ts";
+} from "./canvas-transform-input";
+
 import { pastSlop, type PointerKind } from "@kb/ui-sdk";
 import {
   EMPTY_SELECTION,

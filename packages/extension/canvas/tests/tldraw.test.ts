@@ -1,3 +1,4 @@
+import type { TldrawPage } from "../src/tldraw.ts";
 /**
  * A tldraw board lowered to kb's canvas (`tldraw.ts`): pages in order,
  * frames as frames with their members on the canvas's coordinates, a card
@@ -6,7 +7,7 @@
  * draw reported.
  */
 import { describe, expect, test } from "bun:test";
-import { isKbNode, tldrawBoard, tldrawKeys, tldrawText, type TldrawPage } from "../src/index.ts";
+import { isKbNode, tldrawBoard, tldrawKeys, tldrawText } from "../src/index.ts";
 
 const rich = (...paragraphs: unknown[][]) => ({
   type: "doc",

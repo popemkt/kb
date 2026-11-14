@@ -6,7 +6,7 @@ import type { Plugin } from "./kernel.ts";
 export const DEFAULT_REPLACEMENT_PRIORITY = 50;
 
 /** Candidate approval is a host capability, never a field supplied by a plugin. */
-export interface RoleApproval {
+interface RoleApproval {
   readonly role: string;
   readonly priority?: number;
 }

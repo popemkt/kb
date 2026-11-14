@@ -15,8 +15,10 @@ export {
   admitKeybindings,
   admitKeymaps,
   keyContextOf,
+  keyboardIn,
   provideKeybinding,
   type KeyRun,
+  type KeyboardDefinition,
   type Keybinding,
   type KeyContextSpec,
   type KeyContext,
@@ -26,3 +28,23 @@ export {
 } from "./bindings.ts";
 
 export { ChordDataSchema } from "./chord-data.ts";
+
+export {
+  storedKeybindings,
+  shortcutConfirmation,
+  STORED_KEY_OWNER,
+  type StoredKeybinding,
+} from "./stored.ts";
+
+export {
+  SHORTCUT_IDS,
+  keyboardSchemaNodes,
+  keyboardNodes,
+  keyboardShortcutIds,
+  keyboardCommandIds,
+  chordData,
+  shortcutGroupId,
+  keyTargetNodeId,
+} from "./nodes.ts";
+
+export { chordFromText, chordToText } from "./chord-text.ts";

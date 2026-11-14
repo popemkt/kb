@@ -1,14 +1,13 @@
 import { useRef, useState } from "react";
 import { CaretRightIcon } from "@phosphor-icons/react";
-import type { CanvasProjectionKind } from "@kb/canvas";
 import {
+  type CanvasProjectionKind,
   TOOL_FAMILIES,
-  familyOf,
-  lastOf,
   type CanvasTool,
   type CanvasToolFamily,
-  type ToolState,
-} from "./canvas-tool.ts";
+} from "@kb/canvas";
+import { familyOf, lastOf, type ToolState } from "./canvas-tool";
+
 import { cn, useDismiss } from "@kb/ui-sdk";
 import { STRIP_BOTTOM } from "./canvas-stage-layout";
 import { CanvasToolSheet } from "./canvas-tool-sheet";

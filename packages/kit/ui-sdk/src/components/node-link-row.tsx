@@ -13,7 +13,7 @@ import { MdView } from "./md-view";
 import { NodeRow } from "./node-row";
 import { TagChipGroup } from "./tag-chip";
 
-export interface NodeLinkRowProps {
+interface NodeLinkRowProps {
   readonly id: string;
   /** The text it reads, as its row would draw it. */
   readonly text: string;

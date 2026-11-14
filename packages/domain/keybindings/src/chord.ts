@@ -23,7 +23,7 @@
  * must protect that shared press; within a context, a keymap asks its chords by place first ({@link placeFirst}).
  */
 
-import type { ChordData } from "./chord-data.ts";
+import { CHORD_MODIFIERS, type ChordData } from "./chord-data.ts";
 
 /** The parts of a keyboard event a chord is allowed to look at. */
 export interface KeyChordEvent {
@@ -218,7 +218,7 @@ export function printableExcept(chords: readonly Chord[], within: Chord): Printa
   return { kind: "printable", except: [...except].toSorted() };
 }
 
-const MODIFIER_TOKENS = ["Mod", "Meta", "Ctrl", "Shift", "Alt"] as const;
+const MODIFIER_TOKENS = Object.values(CHORD_MODIFIERS);
 type ModifierToken = (typeof MODIFIER_TOKENS)[number];
 
 function isModifierToken(token: string): token is ModifierToken {

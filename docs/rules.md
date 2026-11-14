@@ -814,6 +814,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Separate design question recorded in briefs/p1-persistence.md section 4: protocol, discovery, and fallback when no server is running.
 - **node** — `01M1M08WPQTB514E7JERKYEDWZ`
 
+### GAP: code-image identity parked for the single-owner shortcut model
+
+- **expected** — Revisit loaded-code image identity only if kb needs stronger authentication than its single-owner local trust/approval model.
+- **current** — Code-image identity, held loader, page history/lifetime and MIME work are parked unchanged on branch bb/kb-held-image at 1dfb15e8. Shortcuts instead use one explicit person confirmation of versioned canonical content, whoever wrote the node, in a normal checkout.
+- **impact** — Packaged image authentication is intentionally not required for shortcut overrides; extensions remain trust-gated and actions keep their own approvals.
+- **closes** — A concrete multi-owner or untrusted-code requirement justifies restoring and reviewing bb/kb-held-image and its code-image boundary.
+- **node** — `01M76AZFNNGRS5P55CSCG93YJM`
+
 ### GAP: cohesion calibration misses small groups in plugins and contract actions
 
 - **expected** — Cohesion measurement identifies independent concepts without filename exceptions.

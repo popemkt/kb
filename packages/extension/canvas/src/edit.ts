@@ -71,7 +71,7 @@ export function nudgeItems(doc: CanvasDoc, ids: Iterable<string>, by: CanvasVec)
  * inspector edits on a locked item too; its size is where it stands, so a
  * locked item keeps it.
  */
-export interface CanvasItemPatch {
+interface CanvasItemPatch {
   /** Its words: a text card's text, a shape's or a frame's label. */
   readonly text?: string;
   /** A palette name, a preset or a hex (`canvasColor`); null, its kind's own. */
@@ -168,7 +168,7 @@ export function editCanvas(doc: CanvasDoc, edit: CanvasEdit): CanvasDoc {
 }
 
 /** What `takeItems` takes off a canvas: the items with their members, and the edges among them. */
-export interface CanvasTaken {
+interface CanvasTaken {
   readonly left: CanvasDoc;
   readonly nodes: readonly CanvasNode[];
   readonly edges: CanvasDoc["edges"];

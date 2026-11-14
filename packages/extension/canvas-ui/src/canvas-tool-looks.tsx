@@ -36,8 +36,8 @@ import {
   TriangleIcon,
   WallIcon,
 } from "@phosphor-icons/react";
-import type { CanvasProjectionKind } from "@kb/canvas";
-import type { CanvasTool, CanvasToolFamily } from "./canvas-tool";
+import type { CanvasProjectionKind, CanvasTool, CanvasToolFamily } from "@kb/canvas";
+
 import { cn } from "@kb/ui-sdk";
 
 /**

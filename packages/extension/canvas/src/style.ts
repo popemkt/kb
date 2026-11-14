@@ -55,7 +55,7 @@ export type CanvasPaint =
   | { readonly kind: "literal"; readonly css: string };
 
 /** What an item or an edge looks like, every look given (its kind's default when unwritten). */
-export interface CanvasStyle extends Required<CanvasLooks> {
+interface CanvasStyle extends Required<CanvasLooks> {
   /** Its colour; absent, the renderer's own ink. */
   readonly color?: CanvasPaint;
 }

@@ -13,7 +13,7 @@ export {
   marketplaceListDef,
 } from "./extension-marketplace.ts";
 export { extensionDiffDef } from "./extension-review.ts";
-export { graphRunEffect, graphSearchEffect, nodeAddEffect } from "./actions.ts";
+export { graphChangesDef, graphRunEffect, graphSearchEffect, nodeAddEffect } from "./actions.ts";
 
 export { KB_DESIGN_SYSTEM, coreExtension } from "./core-extension.ts";
 export { nodeAddTreeEffect } from "./node-add-tree.ts";
@@ -64,3 +64,4 @@ export { MAX_REACTION_DEPTH } from "./commit-frame.ts";
 export { personWriteRefusal } from "./write-refusal.ts";
 
 export { matchSpecificity } from "./action-match.ts";
+export { PAGE_CONTEXT_ID } from "./keyboard.ts";

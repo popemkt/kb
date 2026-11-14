@@ -71,7 +71,7 @@ const OrderedRoleSchema = z.object({
     .readonly(),
 });
 
-export type OrderedRole = z.infer<typeof OrderedRoleSchema>;
+type OrderedRole = z.infer<typeof OrderedRoleSchema>;
 
 /** Effective roles, including faulted candidates, in each host's own order. */
 export function orderedRoles(kernels: readonly FamilyKernel[]): OrderedRole[] {
@@ -89,7 +89,7 @@ export const ExtensionReportSchema = z.object({
 });
 
 export type ExtensionReportRow = z.infer<typeof ExtensionReportRowSchema>;
-export type OrderedPoint = z.infer<typeof OrderedPointSchema>;
+type OrderedPoint = z.infer<typeof OrderedPointSchema>;
 export type ExtensionReport = z.infer<typeof ExtensionReportSchema>;
 
 /** The repository modules the host's discovery refused: what the report lists beside the rows. */

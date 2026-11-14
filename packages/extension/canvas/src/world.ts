@@ -34,7 +34,7 @@ export interface CanvasWorld {
 }
 
 /** What {@link canvasWorld} reads of a node: a store's `KbNode` and the page's outline node alike. */
-export type WorldNode = Pick<KbNode, "id" | "text" | "props" | "children">;
+type WorldNode = Pick<KbNode, "id" | "text" | "props" | "children">;
 
 /** The world `nodes` make; of two with one id, the later. */
 export function canvasWorld(nodes: Iterable<WorldNode>): CanvasWorld {

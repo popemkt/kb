@@ -48,7 +48,7 @@ export const ExtensionLockSchema = z.object({
 });
 export type ExtensionLock = z.infer<typeof ExtensionLockSchema>;
 export type ExtensionSelection = z.infer<typeof ExtensionSelectionSchema>;
-export interface ExtensionLockRead {
+interface ExtensionLockRead {
   readonly lock: ExtensionLock;
   readonly failures: readonly ExtensionFailure[];
 }
