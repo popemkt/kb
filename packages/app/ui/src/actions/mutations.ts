@@ -48,6 +48,8 @@ import {
 
 /** `asset.upload` answers with the repo-relative path it stored the bytes at. */
 const AssetUploadOutputSchema = z.object({ path: z.string() });
+/** What `node.addTree` answers that a write reads: the ids it made, in tree order. */
+const AddedTreeSchema = z.object({ ids: z.array(z.string()) });
 
 /** A size in whole megabytes, as a toast says it. */
 const mb = (bytes: number) => `${Math.round(bytes / (1024 * 1024))} MB`;
@@ -442,6 +444,12 @@ export const mutations: PageWrites = {
       toast(err instanceof Error ? err.message : String(err));
       return null;
     }
+  },
+
+  async addTree(tree, place) {
+    const receipt = await invoke("node.addTree", { outline: tree, ...place });
+    if (receipt.status === "failed") throw new Error(receipt.message);
+    return AddedTreeSchema.parse(receipt.output).ids;
   },
 
   async attachFileToNode(nodeId: string, file: File): Promise<boolean> {

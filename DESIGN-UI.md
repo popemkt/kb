@@ -444,9 +444,11 @@ re-entry into Mode A. Focus hand-offs are specified per operation (split → new
 node at 0; indent/outdent → same offset; merge → the join boundary; delete →
 neighbour) and tested.
 
-**Keybindings.** Each mode is a _context_, and its keys are contributions to
-`ui.keybindings` (`KeybindingPoint`, `@kb/ui-sdk`'s `lib/keybindings`), the
-outline's as any plugin's. A binding is data: a context, a chord, and what it
+**Keybindings.** Each mode is a _context_, a contribution to
+`ui.key-contexts` (`KeyContextPoint`) by the plugin that reads it, which owns
+it: its id is the contribution's (`outline.editing`, `outline.selection`). Its
+keys are contributions to `ui.keybindings` (`KeybindingPoint`, `@kb/ui-sdk`'s
+`lib/keybindings`), the outline's as any plugin's. A binding is data: a context, a chord, and what it
 runs, one of the context's _intents_ by name (`split`, `indent`, `move-up`,
 `line-down`, …; the selection's `up`, `create-after`, `append`, …). An intent
 answers which of a key's meanings applies on this row (the caret, the row's
@@ -456,22 +458,169 @@ The intents are each mode's table (`EDITING_INTENTS`, `SELECTION_INTENTS`);
 the guard that keeps a query-result row from being restructured is part of
 each structural intent, so it holds whatever chord runs it.
 
-The page's one keymap (`admitKeybindings`, read live as `currentKeymap`)
-decides a context's keys, and its rule is the point's `combine`:
+The shared declaration's `keyboard` supplies both page contributions and seeded
+`#shortcut` descriptions. The declaration publishes native defaults through the same keyboard points in
+both registry and page kernels; the runtime point is the sole source of default
+bindings, and the graph rows describe it. Existing extensions may still publish
+bindings directly from their page half through the SDK. Those stay in the page's
+live dispatch map. A stored override whose target the authority host cannot
+resolve is refused; writable graph descriptions never reconstruct a missing
+page-only registration. Shipped descriptions protect their
+structure and values like other defaults, while their labels remain cosmetic.
+A separate ordinary shortcut can name a default through `replaces`.
+Each native registration retains the shortcut reference supplied by its
+declaration. Alternate registrations share that reference; different families
+retain distinct description identities. The reader does not reconstruct this
+identity from diagnostic code provenance or writable descriptions.
 
-- a context's owner states it (`KeyContext`): its intents, and the chords
-  only it may bind (`reserved`). The outline reserves `Escape`, the text
-  host's history chord (`TEXT_HISTORY_CHORD`, ⌘Z and ⌘⇧Z) and the palette's
-  ⌘K (`PALETTE_CHORD`), so no binding can trap a person in a row;
+Context intents are ordinary command nodes, keyed by an unambiguous tuple of
+context id and intent id. Their context is recorded on the command. The complete
+registered intent list supplies these commands, including intents without default
+keys. Existing command targets keep their registered command node ids.
+
+An action target is an ordinary `#call` recipe: a registered action id and a
+JSON object input. Generated recipes belong to their declaring family and equal
+recipes within that declaration share one node; person-authored recipes retain
+their own identities. Object keys are normalized, and non-object or non-JSON
+inputs are refused, never coerced or partially discarded. The live ActionCatalog
+resolves the action and validates its input; a recipe, its label, and writable
+owner fields confer no authority. Normal invocation approval still applies.
+A shortcut confirmation includes the target id and complete normalized recipe,
+so changing either requires a new confirmation; actions retain their normal approval.
+
+One shortcut describes one action in one execution context. Its multi-valued
+text `keys` holds alternate chords, `runs` references an ordinary command node,
+and `enabled` is a checkbox. Commands with an intrinsic context carry it on the
+command; `where` selects the execution context for global commands or action
+recipes. Shipped shortcut descriptions sit under one **Shortcuts** parent; their command
+nodes remain under their declaring owners. No chord or intent-option helper
+nodes are created.
+Context commands are excluded from global palette browsing and search; they
+remain ordinary nodes in the outline and reference picker, without adding
+surface-only operations to the global command list.
+
+Key text bridges to the existing lossless chord codec. Canonical forms such as
+`Mod-K` and `Shift-Enter` name the schema’s positive constraints; `NoShift` or
+`NoMod` names an explicit false constraint, while omitted modifiers remain
+unconstrained. Physical positions use `[NumpadEnter]`, character sets use a text
+array, and the printable matcher names its exclusions. The existing exact SDK
+entry form keeps its default-up semantics. Both forms use the schema’s modifier
+names; arbitrary predicates have no text representation. Character sets, physical
+codes, printable exclusions and absent versus false modifiers survive the bridge.
+Malformed text refuses the row rather than broadening a chord; arbitrary
+executable predicates have no stored representation. Alternate keys are normalized,
+deduplicated and ordered for confirmation, so reordering equal key text does not
+change authority. Each key lowers to an ordinary atomic contribution, and all
+components share the row's one confirmation and activation lifetime. A replacement
+names another shortcut row; existing admission chooses the matching native or
+stored component without granting its other chords.
+
+The shared `storedKeybindings` decoder reads a complete unscoped snapshot and
+resolves targets through host-supplied live registrations. Descriptive rows,
+labels and writable provenance never authenticate code. Its candidates retain
+one fixed storage provider with a separate row scope, so two ordinary rows do
+not inherit a family's reserved keys or implicit physical-key precedence.
+Replacement dependencies determine order, with stable-id ties; ordinary
+admission still decides overlap, reservations and election. Review content
+includes normalized context/chord data, resolved target code and input recipe,
+and a SHA-256 dependency identity for the complete native/stored holder chain.
+Each local definition is hashed once with its parent identity, rather than
+embedding serialized reviews. Cycles hash their sorted component definitions
+and edges before deriving member identities; missing edges have explicit
+identities. Total review output grows with the binding data. A changed
+implementation or dependency therefore changes dependent reviews even if row
+IDs stay fixed. The decoder grants no authority; live approval and host integration are
+separate from reading definitions.
+
+Stored shortcuts use the existing admission and normal command/action runners.
+A binding on a free chord needs no replacement confirmation; reserved typing,
+Escape and palette keys remain protected by that admission. Taking a shipped
+or another family's held binding requires one explicit confirmation from the
+person in the UI, whoever wrote the shortcut node. Until then the override is
+pending and inactive, including untouched and ambiguous legacy rows.
+
+The confirmation is machine-local and keyed by versioned canonical binding
+content: its normalized alternate chords (including unconstrained versus false modifiers
+and matcher identity), context, target command or context-intent identity,
+normalized action input, and replacement identity. Labels and enable/disable are
+not authority. Changed content requires confirmation again; a delayed answer
+must still match the current content. The confirmation, not an authorship proof,
+is the authority. When known, the writer is shown from `KbTx.actor`/`via` as
+information only. It never grants or prevents a confirmation. No invocation or
+writer-provenance plumbing is required. A confirmation never bypasses admission
+or an action's own approval. Approval changes invalidate the admitted map even
+without a graph/plugin edit.
+
+The page lowers enabled ordinary rows into `KeybindingPoint` after native
+bindings, in replacement dependency order. It reads the complete replica even
+inside an ontology scope. Targets must exist in the live normal runner catalog;
+a writable command description alone creates no registration. `kb.manifest`
+reports the served root and machine-local confirmation digests, and its existing
+runtime-change signal refreshes them when trust changes without an extension
+load/unload.
+
+The shortcut node's ordinary menu offers **Shortcut status**, **Review shortcut
+override** while pending, and **Revoke shortcut confirmation** while an override
+is active. Review uses the shared action approval dialog and machine-local trust
+action. Its human line names the keys, context, target and replaced shortcut; a
+Details disclosure contains the canonical content without making labels authority. Editing keys, target, input or replacement while the dialog is open makes
+its answer stale; close it and review the current content. Shipped description
+rows remain descriptions of their declaration; a separate ordinary row supplies
+an override.
+
+kb is currently a single-owner local tool: installed code remains trust-gated,
+and shortcut confirmation does not authenticate a packaged code image. It works
+in a normal checkout. Code-image identity and its loader/delivery work are
+[[01M76AZFNNGRS5P55CSCG93YJM|parked on bb/kb-held-image]] for a future requirement;
+that branch is outside this feature. The inactive decoder's code/dependency
+review identities remain available for diagnostics; they are not the key of a
+person's content confirmation.
+
+The page itself is a context too, `core.page`, which core owns
+(`operations/src/keyboard.ts`). A context says where it is offered keys
+(`reach`): the outline's are `surface` contexts, offered the keys of what
+has focus, as the canvas's three are (`canvas.rest`, `canvas.transform`,
+`canvas.present`; [Canvas (i3)](#canvas-i3), its views), and the
+page's is `page`, offered every key first, wherever
+focus is (the shell answers it at the capture phase). Its one intent is
+`palette`, bound to ⌘K (`core.page.palette`): the anchored row's node
+palette when a row is selected or edited, the global search otherwise.
+It reserves every chord without ⌘ or Ctrl, so a page key never takes
+typing from a field, and ⌘K itself.
+
+The page's one keymap (`admitKeymaps`, every context's at once, read live
+as `currentKeymap(id)`) decides a context's keys, and its rule is the
+point's `combine`:
+
+- a context's owner states it (`KeyContextSpec`): its intents, and the
+  chords only it may bind (`reserved`). The outline reserves `Escape` and
+  the text host's history chord (`TEXT_HISTORY_CHORD`, ⌘Z and ⌘⇧Z), so no
+  binding can trap a person in a row; the palette's ⌘K is the page's;
 - the owner's bindings are held first, then the rest in load order;
-- **no two held chords overlap** (`chordsOverlap`: a common key, and a state
+- the page's contexts are decided first, and neither kind shadows the
+  other: a page binding over a chord a surface's owner binds in its surface
+  is refused, so the outline's own keys stand, and a surface binding over a
+  chord the page holds is refused, since no key would reach it;
+- **no two held chords in one precedence slot overlap** (`chordsOverlap`: a common key, and a state
   of the four modifiers both admit), but along a chain of replacements. So
   the order bindings are listed in means nothing, and each says exactly what
   it claims: the outline's split is `Enter` without Shift, its bare arrows
   are `mod: false`, and typing over a selected row is any printable key the
   selection's other bindings leave. Alt is a modifier like the others: an
   Alt-composed character (⌥o is ø) is no outline key, so it stays native
-  unless a binding claims its chord;
+  unless a binding claims its chord. A chord names its key by character
+  (`key`) or by place (`physicalKey`, `KeyboardEvent.code`: `Numpad7`, `KeyH`),
+  where the place is what counts. One press has both, and which character a
+  place types is the layout's, so a chord by place and one by character
+  can overlap: reservations and cross-context admission protect their shared
+  press. Inside one context, explicit replacement chains win first, then
+  chords by place (`byPlace`); the same owner may populate both precedence slots.
+  A replacement inherits its holder’s precedence over that owner’s fallback
+  only when the holder covers the replacement’s whole chord. Another owner still
+  needs replacement approval for any shared press. Layout-independent
+  keys, including numpad digits with NumLock on or off, narrow that overlap;
+  layout-dependent positions are checked conservatively. Reserved page-owner
+  bindings remain ahead of conflicting surface-owner claims;
 - a binding over a held chord is refused unless it names the holder in
   `replaces` (the record's §9 default 7: an occupied chord is never taken
   silently). A replacement takes exactly its own chord, and the holder keeps
@@ -493,23 +642,30 @@ decides a context's keys, and its rule is the point's `combine`:
   GAP [[01M6YFRJGV8MAF2AM34N567MBQ]];
 - a binding over a reserved chord is refused, even as a replacement, and so
   is one that replaces a binding holding no chord it overlaps, or names an
-  intent its context lacks. The outline reads both keymaps whenever the page kernel moves, so a
-  refusal is told when the binding arrives, once a page session, naming the
-  binding, the chord and its holder. The kernel admits a binding by its id
+  intent its context lacks. Core's page half reads every keymap whenever
+  the page kernel moves (`tellKeymaps`), so a refusal is told when the
+  binding arrives, once a page session, naming the binding, the chord and
+  its holder. The kernel admits a binding by its id
   alone, so a refused one stays contributed and inert:
   GAP [[01M6Y9H5FD9GVMK9N9QBT5DNTN]].
 
-A binding runs an intent of its context, or an **action**
+A binding runs an intent of its context; an **action**
 (`{ action, input }`), invoked through the page's one invoke path with the
 row's node as its input's `id`, so a key meets the guards every call meets
-and a failed call is told. Through `kb-ext-sdk/page` a binding is data, its
-T0 form: `provideKeybinding(id, { context, chord: "Alt-ArrowUp", run,
-replaces })`, the chord written as text (`parseChord`: modifiers, then the
-key as `KeyboardEvent.key` names it, joined by `-`; exact, so a modifier it
-does not name must be up; a letter matches in either case, since macOS
-reports ⌘⇧S as `s`). Only the outline's two contexts exist; the
-page's own ⌘K and the canvas's keymap are not contexts yet:
-GAP [[01M6Y9H6R5D9Y8TQKZJZVWX8PB]]. A key's action is the one shape a
+and a failed call is told; or a **command** (`{ command }`), run by id as
+⌘K runs it (`BrowserHost.runCommand`), about the row's node, or on
+`core.page` about what ⌘K's commands are about (the selected row, else the
+zoomed node). A command that would open a picker step tells the person it
+needs the node palette, since a key has none to open. Days binds
+`Mod-Shift-D` on `core.page` to "Go to today" this way. Through
+`kb-ext-sdk/page` a binding is data, its T0 form: `provideKeybinding(id,
+{ context, chord: "Alt-ArrowUp", run, replaces })`, the chord written as
+text (`parseChord`: modifiers, then the key as `KeyboardEvent.key` names
+it, joined by `-`; exact, so a modifier it does not name must be up; a
+letter matches in either case, since macOS reports ⌘⇧S as `s`). A binding
+that names no context is refused, and told. A canvas key's action or
+command is about what ⌘K's commands are about, since the canvas's
+selection is its items, not nodes. A key's action is the one shape a
 command's and a picker step's are as data (`ActionCall`, [The node
 menu](#the-node-menu)).
 
@@ -1797,7 +1953,7 @@ manipulation feel professional rather than merely functional.
   right-click on the 2D stage selects what it lands on unless it is
   selected already, and nothing on empty canvas (`selectForMenu`), and
   opens there, kept inside the stage, a menu of the keymap's own commands
-  with their keys (`CANVAS_MENUS`, `menuRows`, `canvas-keymap.ts`), sent through the
+  with their keys (each row's `menus`, read by `menuRows` in `canvas-keymap.ts`), sent through the
   keymap's applier, so a row and its key cannot mean different things. On
   the selection: edit its words and follow its link, cut, copy, duplicate
   and delete, group, ungroup and lock, front and back, the flips, and
@@ -1973,14 +2129,24 @@ the view node switches every page showing the canvas through it.
   orthographic lens, and the orthographic end of a dolly, with an exact
   orthographic projection, so it is the same picture as the DOM canvas.
 - **Views, the widget and the view menu.** The camera model names six
-  orientations (`CANVAS_VIEW_PRESETS`): top, front, right, back, left (each
+  orientations (`CANVAS_VIEW_PRESETS`, among the camera's stops in
+  `canvas/src/camera-stops.ts`, beside its zoom step and its tilt limit): top, front, right, back, left (each
   named for where the eye stands; front is the +y side) and the oblique look
   a canvas first opens at. The view commands (`CANVAS_VIEW_COMMANDS`) are
   rows of the canvas's one shortcut table (`CANVAS_SHORTCUTS`,
-  `canvas-ui/src/canvas-keymap.ts`), the single statement of its keys: the
-  keymap matches chords against it, and the view menu, the toolbar's key
-  hints and the shortcut sheet (`?`, `canvas-shortcuts-sheet.tsx`, every
-  named row by section) list from it. Its Arrange rows reach `@kb/canvas`'s
+  `canvas/src/keybindings.ts`). A row is an intent of one of the
+  canvas's three key contexts (`canvas.rest`, `canvas.transform`,
+  `canvas.present`) with the chords kb binds it to, which are canvas-ui's
+  bindings (`CANVAS_BINDINGS`), both contributed to the page kernel
+  ([Keybindings](#outline-editor-i1)): any plugin may bind a canvas key, or
+  take one by naming its holder. No two of a context's chords in the same precedence slot overlap, a
+  chord by place asked first. While frames are presented, present mode's
+  keys are asked before the canvas's at rest; a modal transform's are the
+  only ones asked while it runs, and it swallows a key they leave. The
+  context's keymap (`canvas-keymap.ts`) decides what a key runs, and the
+  view menu, the toolbar's key hints and the shortcut sheet (`?`,
+  `canvas-shortcuts-sheet.tsx`, every named row by section) list the
+  chords it holds. Its Arrange rows reach `@kb/canvas`'s
   arrangements, as the `arrange` verb does: `]` and `[` to the front and
   back, ⌥ with them one step; ⌥A, ⌥H, ⌥D align left, centres and right,
   ⌥W, ⌥V, ⌥S top, middles and bottom (⌥ letters match by physical key,
@@ -2274,13 +2440,15 @@ what it changed.
 
 The rules that hold everywhere, so no surface re-invents them:
 
-- **One captured global shortcut.** `lib/keyboard-shortcuts.ts`
-  `matchGlobalShortcut` owns ⌘/Ctrl-K and nothing else: `"node-palette"` when
-  an outline row anchors it (selected or edited), `"global-search"` otherwise
-  — ⌘S is deliberately left to the browser, because kb has no save action to
-  bind it to. App-level dispatch lives in `components/App.tsx`. Zooming never
-  leaves the selection on the zoom root, which is a header and not a row: it
-  moves to the first row under it, or clears.
+- **The page's keys are one captured context.** `components/App.tsx`
+  answers `core.page` (`lib/page-keys.ts`; [Outline editor →
+  Keybindings](#outline-editor-i1)) at the capture phase: ⌘/Ctrl-K opens
+  the node palette when an outline row anchors it (selected or edited) and
+  the global search otherwise, and a plugin's page key runs its action or
+  command. ⌘S is deliberately left to the browser, because kb has no save
+  action to bind it to. Zooming never leaves the selection on the zoom root,
+  which is a header and not a row: it moves to the first row under it, or
+  clears.
 - **The palette behaves like a dialog.** `components/palette/command-palette.tsx`
   records `document.activeElement` on open and restores focus on close, traps
   `Tab` inside itself, and keeps the active result scrolled into view.
@@ -2412,6 +2580,21 @@ contribution (`CommandPoint`). Each says where it is offered (`menu`):
   names a node command, so it names itself (`chrome`, a label and an
   icon).
 
+`commandsFor` is the ordered runner catalog behind both listing and dispatch.
+Each entry retains its implementation provenance: the actual `CommandPoint`
+registration for a contributed command, or the host handler's captured inputs
+and live view-key/provider dependencies for a generated command. These are code
+references, not authority inferred from writable descriptions. Contributed
+command and view providers retain the kernel's effective host-bound provenance
+([Declared point lifecycle](DESIGN.md#declared-point-lifecycle)); a reported
+provenance record still needs independent authentication by the authority host. A missing or
+ambiguous provider remains visible to an authority adapter; this metadata alone
+never authenticates it. Listing applies each command's `when` predicate, while
+the existing runner resolves the first matching id in catalog order. An adapter
+must check that elected entry's availability, rather than selecting a later
+same-id entry which happens to be offered. The catalog is read afresh, so target
+changes and plugin withdrawal/replacement do not require a shortcut-node edit.
+
 The groups, in the menu's order (`NODE_MENU_GROUPS`):
 
 | Group | What it holds | Its rows today |
@@ -2477,6 +2660,76 @@ guards every call meets, and a failed call is told (`invokeAction`). So a
 T0 command or step writes only what a person could write through that
 action, with no new action to add: a link is a ref value, and `node.update`
 already writes one.
+
+### Paste and drop
+
+What a paste or a drop brings into a row's text is offered to a chain, and
+the browser's own paste or drop runs only when every handler declines it
+(`lib/ingest`).
+
+- **The outline declares the chain.** `outline.ingest`, a point in the
+  outline family's point definitions (`OUTLINE_POINT_DEFINITIONS`), holds
+  handlers. A page half reaches it by name, through `uses` and
+  `ctx.point<IngestHandler>("outline.ingest")`.
+- **A handler's match is data.** It names the gestures it takes (`paste`,
+  `drop`) and the data's types (`text/plain`, `Files`). It may add a
+  regular expression its text must match. A pattern that does not compile
+  takes nothing.
+- **The first to make something claims.** Handlers are tried by priority,
+  higher first, and in the order contributed on a tie. Each whose match
+  holds is asked what the gesture makes, and the first that makes
+  something claims it, so the browser's own does not run. One that makes
+  nothing (null) declines, and the next is asked. So does one that throws,
+  and the person is told. A handler answers at once (`claimOf`), because
+  whether the browser's own runs is decided while the gesture's event
+  runs; only the write comes after. While data is dragged over a row, it
+  is accepted when some handler takes its types; its data cannot be read
+  until it is dropped.
+- **A handler never writes.** It says what the gesture makes, as data
+  (`IngestOutcome`), and the page writes it at the row: the node the
+  row's text is (`shownNodeId`). It makes one of two things:
+  - **Nodes**, as outline paste text (DESIGN.md → Outline paste). The page
+    adds them after the row through `node.addTree`, in one transaction,
+    under the guards every call meets, and puts the caret at the end of
+    the last. It always names their parent: a top-level row's go to the
+    top level (`parent: null`, at its end), never to the capture target
+    an omitted parent would mean. A row that held nothing (no text, fields, tags or children)
+    is where the person meant them to go: they take its place, and it is
+    deleted. That is a second write, so undo takes them back in two steps.
+  - **A file**, kept as an asset and linked from the row's text
+    (`attachFileToNode`).
+
+  A write that fails, such as an outline that names a tag the store does
+  not have, is told, and leaves nothing.
+- **The outline's own handlers are contributions.** It contributes two, as
+  any family would:
+  - the paste of a list (`PASTE_LIST`, `outline-paste`): Tana Paste
+    (`%%tana%%`), or two or more lines that are each a `-`, `*` or `+`
+    item, nesting by indent. Its items become nodes, every marker read as
+    `-`.
+  - the drop of a file (`ATTACH_FILE`).
+
+  Only a list is the outline's to claim. Outline paste reads `#tag`,
+  `field:: value` and `[[ref]]` in an item's text and refuses one that is
+  not there, and prose has no way to say that a `#` is only text. So a
+  paragraph is never read as an outline: it pastes as text into the row,
+  as before.
+- **A family's handler is a transform** (`provideIngest(id, { match,
+  priority, transform })`): its match as data, and its text as outline
+  paste text, or null to decline. What the outline makes of it is the
+  nodes it says.
+  A family claims before the outline's own list paste by a priority above
+  0; `checklist` in kb-extensions turns a Markdown checklist into rows with
+  a `done` checkbox.
+
+  The transform is page code: T3, labelled as page power on the trust
+  sheet as a page half is. Its shape is text in and outline out, so moving
+  it into the isolated frame (`connect-src 'none'`), where it can see the
+  clipboard but send it nowhere, will change where it runs and not what an
+  author writes. GAP [[01M73WFP42V98AA4VRG8JBQQ2N]].
+- **A text host offers each gesture through its port** (`IngestPort`,
+  bound by the surface that draws it). A row's port is the chain at that
+  row (`useRowIngest`). A canvas card's takes a dropped file alone.
 
 ### UI points: routes and views
 
@@ -2854,6 +3107,13 @@ until "Save workspace".
   is drawn under it, whatever its frame. A route's `frame` says only how its
   page fills its pane (`full`: the page frames itself), never whether the
   shell is drawn, so no contribution can hide or replace the shell's chrome.
+- **The header says what the server is doing.** Its connection word (_live_,
+  _connecting_, _offline_, _idle_) is followed by one quiet note while the
+  server watches the root's own extensions: _watching .kb/extensions_, the
+  folder as the server names it, with a title that says a save there must
+  be trusted again (DESIGN.md → Watching the root's own extensions). The
+  page holds only what the server last told it (`extensionWatch` in the ui
+  store), so a reconnect to a server that does not watch drops the note.
 - **A pane's body outlives its place on screen** (`pane-bodies.tsx`). Each
   body is drawn once, into an element of its own, under its pane id
   (`PaneContext`, `lib/pane`). The layout only places that element, so
@@ -3383,6 +3643,9 @@ the shell.
     option node: the outline's eight and a family's own types', which a
     page half contributes with `provideValueKind` ([Field
     values](#field-values-one-slot-grammar), DESIGN.md → Field types);
+  - `provideIngest`, a row's paste or drop handler written as a
+    transform, which a page half contributes to the outline's
+    `outline.ingest`, reached by name ([Paste and drop](#paste-and-drop));
   - the primitives and the design tokens;
   - `BrowserHost`, a kernel service the shell provides. Through it a half
     reaches what it would otherwise take from the shell's stores, actions
@@ -4104,9 +4367,11 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
 - **The Today row** sits under Home in the sidebar (`order: 5`) and opens
   today's node, making it if need be. It is the active row while today's
   node is open.
-- **⌘K "Go to today"** is the `sys.command` node the family seeds
-  (`sys.cmd.days.today`). A direct key waits on a global key context a
-  family can contribute to (GAP [[01M6Y9H6R5D9Y8TQKZJZVWX8PB]]).
+- **"Go to today"** is the `sys.command` node the family seeds
+  (`sys.cmd.days.today`), in ⌘K and on `Mod-Shift-D`, a binding on the
+  page's own key context (`core.page`; [Outline editor →
+  Keybindings](#outline-editor-i1)), so the key opens today wherever focus
+  is.
 - **Opening on today.** Where a page that loads at the root opens is the
   page role `ui.landing` (DESIGN.md → [Provider roles](./DESIGN.md#provider-roles)).
   Core owns it and stays home, and days replaces it. Days answers today's
@@ -4740,20 +5005,14 @@ A PR for a backdrop reports a score against each criterion.
   outline's home head and its zoomed head are the heads that render it
   today; canvas and graph pages have no head yet, so nothing renders it
   there (gap 01M54CEKJJXNDPYNT55AR6KEV8).
-- **The head's top row reads over any backdrop.** The rows the space holds
-  stand, as wide as they are, on a scrim that is the page's ground itself
-  (`HeadBand`): opaque, soft-edged by a blur, and reaching past the rows by
-  twice that blur, so under every glyph it is at least nine parts ground
-  and the backdrop shows all round it rather than under a band. Muted
-  breadcrumbs keep AA contrast that way on any picture, light or dark: a
-  thinner, translucent scrim does not, for the muted ink is near AA on the
-  bare ground already. `head-band-contrast.e2e.ts` photographs the band
-  with its text made transparent, for every contributed backdrop at its
-  strongest, on the home and a node's page, in light and in dark, and holds
-  each crumb's colour against every pixel of its box to at least 4.5:1.
-  Theme art composed to keep the band clear in a narrow head (the OVC
-  terminal, the broadcast sign) now reaches under it there
-  (gap 01M7355M039ESNZV6N85EV8BQ2).
+- **The head's top row reads over a backdrop.** `backdrop.head` chooses
+  `shadow` (default), a glyph-local text and icon halo, or `fade`, a
+  region-wide gradient of the page's ground (`HeadBand`). Like strength,
+  this is a node option, resolved from the page's node, then core's.
+  `head-band-contrast.e2e.ts` holds fade's breadcrumb colour against every
+  pixel of its box to at least 4.5:1 for each backdrop in both schemes.
+  Shadow was approved visually; a glyph-local contrast check is deferred
+  (GAP [[01M789X4HZ130RY16R7ASVVVF7]]).
 - **One backdrop across pages.** A pane's backdrop host
   (`PageBackdropHost`, in `PaneFrame`) is the one place a page-head
   backdrop is drawn, mounted once for the pane above the router, so moving

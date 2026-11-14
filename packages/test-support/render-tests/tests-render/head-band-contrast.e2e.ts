@@ -9,6 +9,7 @@
 // pixel of its box, and the least contrast found must be at least 4.5:1.
 import { BACKDROP_STRENGTH_OPTION_IDS } from "@kb/appearance";
 import { SYSTEM_IDS } from "@kb/model";
+import { bundledSeed } from "@kb/bundled";
 import type { APIRequestContext, Page } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
 import { backdropOptions } from "./backdrop-options.ts";
@@ -150,48 +151,61 @@ async function unreadable(page: Page, label: string): Promise<string[]> {
     .map(({ text, ratio }) => `${label}: "${text}" at ${ratio}:1`);
 }
 
-for (const option of backdropOptions) {
-  test(`head band ${option}: the breadcrumbs keep AA contrast over the backdrop`, async ({
-    browser,
-    request,
-    harness,
-  }) => {
-    test.setTimeout(300_000);
-    await action(request, "node.update", {
-      id: CORE,
-      setProps: [
-        { field: SYSTEM_IDS.backdropField, value: ref(option) },
-        {
-          field: SYSTEM_IDS.backdropStrengthField,
-          value: ref(BACKDROP_STRENGTH_OPTION_IDS.vivid),
-        },
-      ],
-    });
-    // One still frame a load (Reduced motion), so the band is photographed as it stays.
-    const context = await browser.newContext({
-      viewport: { width: 1280, height: 900 },
-      reducedMotion: "reduce",
-    });
-    const page = await context.newPage();
-    const failures: string[] = [];
-    try {
-      for (const { name, path } of PAGES) {
-        await page.goto(`${harness.url}${path}?backdrop-seed=1`);
-        await expect(page.locator(FRAME), `${option} ${name}: no backdrop`).toBeAttached();
-        for (const scheme of SCHEMES) {
-          await setScheme(page, scheme);
-          await expect(page.locator(`${FRAME} [data-scene-state="loading"]`)).toHaveCount(0, {
-            timeout: 20_000,
-          });
-          await page.waitForFunction(() =>
-            document.getAnimations().every((animation) => animation.playState !== "running"),
-          );
-          failures.push(...(await unreadable(page, `${option} ${name} ${scheme}`)));
+const heads =
+  bundledSeed("2026-01-01T00:00:00.000Z").find((node) => node.id === SYSTEM_IDS.backdropHeadField)
+    ?.children ?? [];
+expect(heads).toHaveLength(2);
+for (const head of heads) {
+  for (const option of backdropOptions) {
+    test(`head band ${head} ${option}: the breadcrumbs keep AA contrast over the backdrop`, async ({
+      browser,
+      request,
+      harness,
+    }) => {
+      // GAP [[01M789X4HZ130RY16R7ASVVVF7]]: the shadow halo is glyph-local;
+      // box-wide AA cannot measure it. The owner approved the prototype by eye.
+      test.skip(
+        head === "sys.backdrop-head.shadow",
+        "Glyph-local shadow contrast needs a different measurement",
+      );
+      test.setTimeout(300_000);
+      await action(request, "node.update", {
+        id: CORE,
+        setProps: [
+          { field: SYSTEM_IDS.backdropHeadField, value: ref(head) },
+          { field: SYSTEM_IDS.backdropField, value: ref(option) },
+          {
+            field: SYSTEM_IDS.backdropStrengthField,
+            value: ref(BACKDROP_STRENGTH_OPTION_IDS.vivid),
+          },
+        ],
+      });
+      // One still frame a load (Reduced motion), so the band is photographed as it stays.
+      const context = await browser.newContext({
+        viewport: { width: 1280, height: 900 },
+        reducedMotion: "reduce",
+      });
+      const page = await context.newPage();
+      const failures: string[] = [];
+      try {
+        for (const { name, path } of PAGES) {
+          await page.goto(`${harness.url}${path}?backdrop-seed=1`);
+          await expect(page.locator(FRAME), `${option} ${name}: no backdrop`).toBeAttached();
+          for (const scheme of SCHEMES) {
+            await setScheme(page, scheme);
+            await expect(page.locator(`${FRAME} [data-scene-state="loading"]`)).toHaveCount(0, {
+              timeout: 20_000,
+            });
+            await page.waitForFunction(() =>
+              document.getAnimations().every((animation) => animation.playState !== "running"),
+            );
+            failures.push(...(await unreadable(page, `${option} ${name} ${scheme}`)));
+          }
         }
+      } finally {
+        await context.close();
       }
-    } finally {
-      await context.close();
-    }
-    expect(failures, "breadcrumbs under AA contrast").toEqual([]);
-  });
+      expect(failures, "breadcrumbs under AA contrast").toEqual([]);
+    });
+  }
 }

@@ -44,7 +44,7 @@ export const CANVAS_LINT_RULES = [
   "outside-frame",
   "orphan-comment",
 ] as const;
-export type CanvasLintRule = (typeof CANVAS_LINT_RULES)[number];
+type CanvasLintRule = (typeof CANVAS_LINT_RULES)[number];
 
 /** One lint: its rule, the items or edges it is about, and what is wrong, in words. */
 export interface CanvasLint {

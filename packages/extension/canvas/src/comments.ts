@@ -28,7 +28,7 @@ export type CommentAnchor =
   | { readonly at: { readonly x: number; readonly y: number } };
 
 /** One comment of a thread: what it says, by its node. */
-export interface CanvasCommentText {
+interface CanvasCommentText {
   readonly id: NodeId;
   readonly text: string;
 }
@@ -156,7 +156,7 @@ export type CommentPlace =
   | { readonly replyTo: NodeId };
 
 /** A new comment as it is written: the node it goes under, its fields, and the thread it is in. */
-export interface CommentWrite {
+interface CommentWrite {
   readonly parent: NodeId;
   readonly props: Readonly<Record<NodeId, CommentValue>>;
   /** The thread it joins; null when it starts one, whose id is its own. */

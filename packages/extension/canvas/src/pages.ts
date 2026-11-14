@@ -50,7 +50,7 @@ export function nextPageName(taken: readonly string[]): string {
 }
 
 /** One way from a page to a page of its board: the item followed, and the item shown where it leads. */
-export interface PageLink {
+interface PageLink {
   /** The item on the page that leads there (`itemLead`). */
   readonly item: string;
   /** The page it leads to. */

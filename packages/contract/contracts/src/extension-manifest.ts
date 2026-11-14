@@ -44,14 +44,13 @@ export const ExtensionCapabilitiesSchema = z.strictObject({
   /** The actions of its own that ask a person before they run. */
   approvals: z.array(Words).optional(),
 });
-export type ExtensionCapabilities = z.infer<typeof ExtensionCapabilitiesSchema>;
 
 const RoleReplacementSchema = z.strictObject({
   role: RoleNameSchema,
   priority: z.number().optional(),
   why: Words,
 });
-export type RoleReplacement = z.infer<typeof RoleReplacementSchema>;
+
 const RoleReplacementsSchema = z
   .array(RoleReplacementSchema)
   .refine((claims) => new Set(claims.map(({ role }) => role)).size === claims.length, {
@@ -106,7 +105,7 @@ export function listingMissing(manifest: ExtensionManifest | undefined): readonl
 }
 
 /** One capability in plain words; `said` is false where the manifest does not declare it. */
-export interface CapabilityLine {
+interface CapabilityLine {
   readonly label: string;
   readonly text: string;
   readonly said: boolean;

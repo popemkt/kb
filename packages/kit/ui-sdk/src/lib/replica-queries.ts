@@ -38,7 +38,7 @@ export interface AnswerClock extends Timers {
 }
 
 /** A query the page asks, without the budget every run of it gets. */
-export type PageQuery = Omit<QueryRequest, "budgetMs">;
+type PageQuery = Omit<QueryRequest, "budgetMs">;
 
 /**
  * A query's answer as a reader finds it: the last one (null before any) and

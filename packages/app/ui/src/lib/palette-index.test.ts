@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { bundledSeed } from "@kb/bundled";
+import { SHORTCUT_IDS } from "@kb/keybindings";
 import { present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { buildPaletteIndex, searchPalette } from "@/lib/palette-index";
@@ -145,4 +147,18 @@ describe("palette index", () => {
         `\n| rebuilds | ${(keyMs / rebuildMs).toFixed(3)} |`,
     );
   });
+});
+
+it("keeps registered surface intents out of global browsing and search", () => {
+  const nodes = bundledSeed(ISO);
+  const commands = nodes.filter((row) => row.props[SHORTCUT_IDS.commandContext] !== undefined);
+  expect(commands).toHaveLength(117);
+  const index = buildPaletteIndex(nodes, 1);
+  const listed = new Set(index.entries.map(({ id }) => id));
+  for (const command of commands) {
+    expect(listed.has(command.id)).toBe(false);
+    expect(searchPalette(index, command.text).some((hit) => hit.id === command.id)).toBe(false);
+  }
+  expect(index.entries.find((entry) => entry.id === SYSTEM_IDS.cmdAddNode)?.kind).toBe("command");
+  expect(index.entries.find((entry) => entry.id === SYSTEM_IDS.cmdExpandAll)?.kind).toBe("command");
 });

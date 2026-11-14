@@ -244,6 +244,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Plugins migrate their own data, declared and previewed
 - **node** — `01M7342YFJC4B6DMAFD8MTSTD7`
 
+### GAP: a family's paste transform runs in the page at T3, not in the isolated frame at T1
+
+- **expected** — A provideIngest transform (text in, outline paste text out) runs in the extension's isolated frame (connect-src 'none') at T1: it sees the pasted text but can send it nowhere
+- **current** — The transform runs in the page as page code, labelled T3 (page power) on the trust sheet, as any page half is; the isolated frame (isolation steps 9–10) has not landed
+- **impact** — A page half that claims a paste reads the clipboard text with the page's full power, so trusting a paste handler means trusting its whole page half
+- **closes** — Run the transform in the isolated frame once it lands, keeping the form's shape (match as data, text in, outline out), and label the point T1 for a form-only contribution
+- **node** — `01M73WFP42V98AA4VRG8JBQQ2N`
+
 ### GAP: a flat item turned face-down shows its face mirrored in 2D
 
 - **expected** — 2D shows a face-down flat card's blank back, as 3D does
@@ -413,6 +421,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A wrongly picked reference must be deleted and recreated in the UI.
 - **closes** — A "Change reference target..." step in the node's ⌘K menu using the shared picker.
 - **node** — `01M3KA3AZTJVQNADZ12SDPE9X1`
+
+### GAP: a registry composed blind to the store's switches replaces the session's
+
+- **expected** — Composing a root's registry never retires one a live session still reads: every caller passes the store's switches, or a session's FamilyKernels and catalog read the root's current registry per call.
+- **current** — manifest(root) and registryFor(root) default to no switches, so in a store with a family switched from its default they compose a second registry and retire the session's; kbRuntimeLayer took FamilyKernels and ActionCatalog from the registry once, when it was built, so the session's next call meets a shut-down kernel. The CLI approval prompt was such a caller until 2026-11-14 (fixed in the visual batch); the surface contract in test-kit still calls manifest(root).
+- **impact** — A process that composes a switch-blind registry mid-session loses its repository families' contributions: their actions and procedures answer not_found.
+- **closes** — registryFor requires the store's switches (no default), or the runtime layer resolves FamilyKernels per call; a contract property that composing the manifest mid-session keeps every action and procedure reachable.
+- **node** — `01M7C87K56AJY519YZ51NPF06F`
 
 ### GAP: a remote root keeps no persisted mirror, so it cannot start or read offline
 
@@ -814,6 +830,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Separate design question recorded in briefs/p1-persistence.md section 4: protocol, discovery, and fallback when no server is running.
 - **node** — `01M1M08WPQTB514E7JERKYEDWZ`
 
+### GAP: code-image identity parked for the single-owner shortcut model
+
+- **expected** — Revisit loaded-code image identity only if kb needs stronger authentication than its single-owner local trust/approval model.
+- **current** — Code-image identity, held loader, page history/lifetime and MIME work are parked unchanged on branch bb/kb-held-image at 1dfb15e8. Shortcuts instead use one explicit person confirmation of versioned canonical content, whoever wrote the node, in a normal checkout.
+- **impact** — Packaged image authentication is intentionally not required for shortcut overrides; extensions remain trust-gated and actions keep their own approvals.
+- **closes** — A concrete multi-owner or untrusted-code requirement justifies restoring and reviewing bb/kb-held-image and its code-image boundary.
+- **node** — `01M76AZFNNGRS5P55CSCG93YJM`
+
 ### GAP: cohesion calibration misses small groups in plugins and contract actions
 
 - **expected** — Cohesion measurement identifies independent concepts without filename exceptions.
@@ -953,6 +977,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The marketplace UI and CLI give misleading recovery guidance for missing or inaccessible sources.
 - **closes** — Define and test a sanitized source-failure classification at the transport owner, including missing repository/ref, denied access, byte/count caps and connection failure; all adapters present that classification.
 - **node** — `01M6WXNJH2JJD9956VC408R386`
+
+### GAP: glyph-local head shadow contrast measurement
+
+- **expected** — Both head treatments have automated contrast evidence at the glyph edge.
+- **current** — Fade uses the box-wide AA check. Shadow is glyph-local and was approved visually from prototype shots.
+- **impact** — Shadow readability regressions need visual review.
+- **closes** — A glyph-local contrast check covering both schemes and contributed backdrops.
+- **node** — `01M789X4HZ130RY16R7ASVVVF7`
 
 ### GAP: GPU backdrops paint an opaque frame over the page's flat ground
 
@@ -1239,14 +1271,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — shapes show their node
 - **node** — `01M42Q9H3RA1FHZYYYP2M9QJ4V`
 
-### GAP: only the outline keymaps are keybinding contexts; the global Mod-K and the canvas keymap are fixed tables
-
-- **expected** — Every page surface whose keys mean something is a context on ui.keybindings (the parity record §3.3 names a global context), so a binding can rebind or extend it and the conflict rule covers it.
-- **current** — matchGlobalShortcut decides Mod-K in code, and canvas-ui reads its own CANVAS keymap table; both only reserve or ignore ui.keybindings.
-- **impact** — An extension cannot add a global key or a canvas key, and two mechanisms answer which key means what.
-- **closes** — A global context owned by the shell and a canvas context owned by canvas-ui, each with intents and reserved chords, read through currentKeymap.
-- **node** — `01M6Y9H6R5D9Y8TQKZJZVWX8PB`
-
 ### GAP: only view.propose checks a view node's settings against its key
 
 - **expected** — every write of a view node, from any action, is checked by its view key
@@ -1302,6 +1326,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — People can link to pages and nodes but in practice not to a single item.
 - **closes** — An item picker in the Link row, fed by the target canvas's document through world.docOf.
 - **node** — `01M5486YWGBMNG9G60EY4MPS0X`
+
+### GAP: physical shortcut hints must use the shared chord key domain
+
+- **expected** — Shortcut hints agree with actual election for chords that constrain both physical code and character key, deriving representative keys from the shared chord model.
+- **current** — PR #181 at 0e4fcc8c is approved but its canvas pressOf uses an empty key for code-only chords. A replacement of canvas.rest.pan using code Space and key space runs correctly while the old pan hint still advertises Space.
+- **impact** — A stale shortcut hint can advertise a key that runs another binding. Dispatch, reservations and approval remain correct; Sol classifies this as non-blocking P3.
+- **closes** — After #181 lands, derive physical representative key values from the shared chord model and retain the review181-r3-hint-probe regression as coverage.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M75H9VJT3C118T7DHK87PSFD`
 
 ### GAP: picking and stacking treat rounded corners as square
 
@@ -1653,6 +1686,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Dates are the one value kind that breaks the slot keyboard grammar.
 - **closes** — DateEditor delegates Enter/Tab to the ValueSlot keymap instead of handling them itself.
 - **node** — `01M3KA39ATBBJHPY4AWP7VKX8G`
+
+### GAP: the days landing gives up on a fixed budget and silently leaves the person at home
+
+- **expected** — The landing on today waits for readiness: the page's live connection and the day node reaching its replica, however long a slow machine takes, and says so if it truly cannot land, instead of a fixed budget that falls back without a word.
+- **current** — land() asks the landing role with a 5 s budget (LANDING_BUDGET_MS), and days' answer waits at most 3 s for the made day to reach the page (ARRIVAL_MS); past either, the page stays at / without telling the person. On macOS CI the render suite's page-load landing missed its budget, so the paste spec now opens a node page instead of depending on the landing.
+- **impact** — On a slow machine or connection a person with days on opens kb at home instead of today, with no sign that the landing failed; anything that relies on landing on today (the render paste spec did) is timing-dependent.
+- **closes** — The landing awaits a readiness signal the page owns (live connection up, the day in the replica) rather than wall-clock budgets, or tells the person when it falls back; a render spec that lands on today under a throttled page.
+- **node** — `01M7CC1GD0A1J314ZTAR54F8AD`
 
 ### GAP: the extension dependency graph has no command, view or reverse edges
 

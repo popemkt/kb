@@ -2,7 +2,7 @@ import { Effect, Exit, type Cause } from "effect";
 import type { Kernel, Plugin } from "./kernel.ts";
 
 /** One plugin {@link syncPlugins} could not move, and why. */
-export interface SyncFailure {
+interface SyncFailure {
   readonly name: string;
   readonly verb: "load" | "unload";
   readonly cause: Cause.Cause<unknown>;

@@ -64,6 +64,14 @@ for (const [position, source] of Object.entries({
   });
 }
 
+test("a family's id as an object key counts, a map keyed by a family included", () => {
+  const families = ["code", "canvas"];
+  expect(familyNameHits("x.ts", "const icons = { code: icon };", families)).toBe(1);
+  expect(
+    familyNameHits("x.ts", "const icons: Record<string, Icon> = { code: a, canvas: b };", families),
+  ).toBe(2);
+});
+
 test("object keys and shorthand preserve family vocabulary", () => {
   expect(
     familyNameHits(

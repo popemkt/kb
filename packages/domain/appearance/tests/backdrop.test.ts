@@ -1,3 +1,4 @@
+import { BACKDROP_HEAD_OPTION_IDS } from "../src/backdrop.ts";
 /**
  * A page head's backdrop as its settings choose it (DESIGN-UI.md → Page-head
  * backdrops): each setting from the nearest node that holds one, the page's
@@ -32,11 +33,16 @@ const art = (v: string): KbNode["props"] => ({
   [SYSTEM_IDS.backdropArtField]: [{ t: "str", v }],
 });
 
+const head = (v: string): KbNode["props"] => ({
+  [SYSTEM_IDS.backdropHeadField]: [{ t: "ref", v }],
+});
+
 describe("backdropChoice", () => {
   test("with no settings: the first contributed, no strength chosen, facing down", () => {
     expect(backdropChoice([undefined, {}], CONTRIBUTED)).toEqual({
       backdrop: null,
       strength: null,
+      head: "shadow",
       direction: "down",
       art: null,
       variants: [],
@@ -47,6 +53,7 @@ describe("backdropChoice", () => {
     expect(backdropChoice([undefined, core], CONTRIBUTED)).toEqual({
       backdrop: "backdrops.gradient",
       strength: "vivid",
+      head: "shadow",
       direction: "up",
       art: null,
       variants: [],
@@ -60,6 +67,7 @@ describe("backdropChoice", () => {
     expect(backdropChoice([page, core], CONTRIBUTED)).toEqual({
       backdrop: "backdrops.unicorn",
       strength: "vivid",
+      head: "shadow",
       direction: "up",
       art: null,
       variants: [],
@@ -74,6 +82,7 @@ describe("backdropChoice", () => {
     expect(backdropChoice([page, core], CONTRIBUTED)).toEqual({
       backdrop: "backdrops.gradient",
       strength: "vivid",
+      head: "shadow",
       direction: "up",
       art: null,
       variants: [],
@@ -86,6 +95,20 @@ describe("backdropChoice", () => {
     };
     expect(backdropChoice([page, core], CONTRIBUTED).backdrop).toBe("backdrops.gradient");
     expect(backdropChoice([page, core], ["backdrops.unicorn"]).backdrop).toBeNull();
+  });
+
+  test("head follows the nearest valid option, then defaults to shadow", () => {
+    expect(backdropChoice([head(BACKDROP_HEAD_OPTION_IDS.fade)], []).head).toBe("fade");
+    expect(
+      backdropChoice(
+        [head(BACKDROP_HEAD_OPTION_IDS.shadow), head(BACKDROP_HEAD_OPTION_IDS.fade)],
+        [],
+      ).head,
+    ).toBe("shadow");
+    expect(backdropChoice([head("unknown"), head(BACKDROP_HEAD_OPTION_IDS.fade)], []).head).toBe(
+      "fade",
+    );
+    expect(backdropChoice([head("unknown")], []).head).toBe("shadow");
   });
 
   test("art names an image or an art manifest of kb's assets, or it is none", () => {

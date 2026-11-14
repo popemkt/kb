@@ -18,7 +18,7 @@ export function mcpToolName(actionId: string): string {
 }
 
 /** MCP's behaviour hints, as plain data. */
-export interface McpToolHints {
+interface McpToolHints {
   readonly readOnlyHint: boolean;
   readonly destructiveHint: boolean;
   readonly idempotentHint: boolean;
@@ -47,7 +47,7 @@ export function mcpToolHints(mode: ActionMode): McpToolHints {
  * JSON. Mutable and a type literal, as the MCP SDK's own type is, so that
  * it is one.
  */
-export type McpToolResult = {
+type McpToolResult = {
   isError?: boolean;
   content: { type: "text"; text: string }[];
 };

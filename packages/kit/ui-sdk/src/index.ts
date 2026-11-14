@@ -56,6 +56,7 @@ export type { HostedFrame, SandboxEvents, SandboxPorts, SandboxRun } from "./san
 // waiting on a person, its frame, and the card a person answers them on.
 export { useSandboxPorts, useSandboxTrust, type SandboxTrust } from "./sandbox-run";
 export { SandboxFrame } from "./components/sandbox-frame";
+export { ActionReviewDialog } from "./components/action-review-dialog";
 export { ActionApproval } from "./components/action-approval";
 export { ActionReviewPoint, type ApprovalView } from "./lib/action-review";
 export { SandboxApprovalCard } from "./components/sandbox-approval-card";
@@ -154,6 +155,7 @@ export { type EnumOption, EnumSelect } from "./components/enum-select";
 export { FieldRow } from "./components/field-row";
 export { ManagedNote } from "./components/managed-field";
 export { useFieldWrite } from "./lib/field-write";
+export { Button } from "./components/button";
 export { IconButton } from "./components/icon-button";
 export { KnobControl } from "./components/deferred-parts";
 export { MENU_ROW, MENU_SURFACE, useMenuKeys } from "./components/menu";
@@ -439,21 +441,37 @@ export {
   chordsOverlap,
   isPrintableKey,
   type KeyChordEvent,
+  keyChordEvent,
   lookupChord,
   matchesChord,
   PALETTE_CHORD,
+  printableExcept,
   TEXT_HISTORY_CHORD,
 } from "./lib/keychord";
 export {
   admitKeybindings,
+  admitKeymaps,
   currentKeymap,
   type KeyContext,
+  keyContextOf,
+  KeyContextPoint,
+  type KeyCall,
+  keyCallOf,
   type Keybinding,
   KeybindingPoint,
   type Keymap,
-  type KeyRun,
   provideKeybinding,
+  runKeyCall,
+  tellKeymaps,
 } from "./lib/keybindings";
+export {
+  ATTACH_FILE,
+  ingestPort,
+  provideIngest,
+  type Ingested,
+  type IngestHandler,
+  type IngestPort,
+} from "./lib/ingest";
 export { logError, logWarn } from "./lib/log";
 export {
   getCaretSerializedOffset,

@@ -1,4 +1,5 @@
 import { VIEW_FAMILY_OPTIONS, DISPLAY_OPTIONS, seededField } from "@kb/model";
+import { OUTLINE_KEYBOARD } from "./keyboard.ts";
 /**
  * The outline family's declaration and its shared plugin (DESIGN.md →
  * Extension families). The outline is the default editing mode: its
@@ -20,9 +21,11 @@ import { declarationPlugin, defineExtension, viewDef, FIELD_EDITOR_ROLE } from "
 import type { Plugin } from "@kb/plugin";
 import { OutlineListView, OutlineSnippetView, OutlineView } from "@kb/views";
 import { OUTLINE_IDS } from "./ids.ts";
+import { OUTLINE_POINT_DEFINITIONS } from "./point-definitions.ts";
 
 export const outlineExtension = defineExtension({
   name: "outline",
+  keyboard: OUTLINE_KEYBOARD,
   label: "Outline",
   manifest: {
     description: "The outliner: the default way to read and edit a node and its children.",
@@ -38,6 +41,7 @@ export const outlineExtension = defineExtension({
     },
   ],
   views: [viewDef(OutlineView), viewDef(OutlineListView), viewDef(OutlineSnippetView)],
+  points: Object.values(OUTLINE_POINT_DEFINITIONS),
   // A node's own display toggles: the editor's, never drawn as field rows.
   seed: (at) =>
     DISPLAY_OPTIONS.map((option) =>

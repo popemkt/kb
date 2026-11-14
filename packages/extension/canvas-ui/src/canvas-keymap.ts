@@ -1,105 +1,34 @@
 /**
- * The canvas keymap: chord -> canvas intent, as one table of shortcuts
- * (`CANVAS_SHORTCUTS`), the single statement of the canvas's keys: the
- * keymap matches chords against it, and the view menu, the toolbar's hints
- * and the shortcut sheet list from it, so none of them can disagree.
+ * The canvas keymap: what a key does on the canvas, from its key table
+ * (`canvas-keys.ts`). Each of the canvas's three contexts has a keymap, as
+ * the page's one admission decides it from every plugin's bindings
+ * (DESIGN-UI.md → Keybindings, `currentKeymap`), which decides which chord
+ * runs which intent. The dispatch, the view menu, the toolbar's hints and
+ * the shortcut sheet all read those keymaps, and none of them can disagree
+ * with a key.
  *
- * Pure, like the outline's `selection-keymap.ts`: nothing here reads a store, a ref or
- * the DOM, so the whole table is reachable from a unit test. The appliers live
- * beside the hook that owns the effects (`use-canvas-keyboard`). The table's
- * order is load-bearing; `CANVAS_SHORTCUTS` says how.
+ * Like the outline's `selection-keymap.ts`, nothing here reads a document, a
+ * ref or the DOM: a unit test that contributes the canvas's keys
+ * (`test-support/canvas-keys.ts`) reaches the whole table. The appliers live
+ * beside the hook that owns the effects (`use-canvas-keyboard`).
  */
-import type {
-  CanvasAlignEdge,
-  CanvasFlipAxis,
-  CanvasOrder,
-  CanvasProjectionKind,
+import {
+  currentKeymap,
+  keyCallOf,
+  type Chord,
+  type KeyCall,
+  type KeyChordEvent,
+  type Keymap,
+} from "@kb/ui-sdk";
+import {
+  CANVAS_CONTEXT_IDS,
+  CANVAS_SHORTCUTS,
+  type CanvasIntent,
+  type CanvasKeyContextName,
+  type CanvasKeyEvent,
+  type CanvasMenuName,
+  type CanvasShortcut,
 } from "@kb/canvas";
-import type { CanvasToolPick } from "./canvas-tool";
-import type { CanvasViewPresetName } from "@kb/contracts";
-import { CANVAS_VIEW_PRESETS, ZOOM_STEP } from "./canvas-camera";
-import type { CanvasAxis, TransformKey, TransformMode } from "./canvas-transform-input";
-
-export interface CanvasKeyEvent {
-  key: string;
-  code?: string;
-  metaKey?: boolean;
-  ctrlKey?: boolean;
-  shiftKey?: boolean;
-  altKey?: boolean;
-  /** Held down: the browser repeating the key. */
-  repeat?: boolean;
-}
-
-export type CanvasIntent =
-  | { type: "undo" }
-  | { type: "redo" }
-  | { type: "delete" }
-  | { type: "selectAll" }
-  | { type: "copy" }
-  /** ⌘X: the selection copied, then deleted, as one change. */
-  | { type: "cut" }
-  | { type: "duplicate" }
-  /** ↵: the one item selected opened for typing, as a double-click opens it. */
-  | { type: "edit" }
-  | { type: "escape" }
-  | { type: "panModifier" }
-  | { type: "nudge"; dx: number; dy: number }
-  | { type: "tool"; tool: CanvasToolPick }
-  | { type: "zoomBy"; factor: number }
-  | { type: "zoomTo"; zoom: number }
-  | { type: "frame"; scope: "all" | "selection" }
-  | { type: "look"; preset: CanvasViewPresetName }
-  | { type: "toggleLens" }
-  | { type: "projection"; kind: CanvasProjectionKind }
-  /** The canvas page in full screen, landscape where the platform lets it (`toggleFullscreen`); or out again. */
-  | { type: "fullscreen" }
-  | { type: "viewMenu" }
-  /** The sheet that lists every shortcut. */
-  | { type: "shortcuts" }
-  | { type: "transform"; act: TransformAct }
-  /** ⌘G: gather the selection into a group, a frame round it. */
-  | { type: "group" }
-  /** ⌘⇧G: take the selected groups apart. */
-  | { type: "ungroup" }
-  /** Look at a frame face-on: a frame is a viewpoint (plan decision 7). */
-  | { type: "viewpoint"; id: string }
-  /** Present mode: step through the canvas's frames, one viewpoint each. */
-  | { type: "present"; act: PresentAct }
-  /** The selection locked where it is, or unlocked when all of it is locked. */
-  | { type: "lock" }
-  /** The selection moved in the paint order (`orderItems`). */
-  | { type: "order"; order: CanvasOrder }
-  /** The selection mirrored (`flipItems`). */
-  | { type: "flip"; axis: CanvasFlipAxis }
-  /** The selection lined up on an edge of the box round it. */
-  | { type: "align"; edge: CanvasAlignEdge }
-  /** The selection spread evenly along an axis. */
-  | { type: "distribute"; axis: CanvasFlipAxis }
-  /** Where the one item selected leads (its `link`), followed. */
-  | { type: "followLink" }
-  /** The board's next page (1) or the one before it (-1). */
-  | { type: "page"; step: 1 | -1 };
-
-/** What a key does to present mode. */
-export type PresentAct = "start" | "next" | "previous" | "stop";
-
-/** What a key does to a modal transform. */
-export type TransformAct =
-  /** Begin one on the selection: G grab, S scale, E extrude. */
-  | { kind: "begin"; mode: Exclude<TransformMode, "rotate"> }
-  /** During one: an axis, a typed value, or another mode. */
-  | { kind: "key"; key: TransformKey }
-  /** During one: ⌘ or Ctrl went down, which suspends snapping. */
-  | { kind: "free" }
-  | { kind: "confirm" }
-  | { kind: "cancel" };
-
-/** What the camera can be asked to do: the view commands. */
-type CanvasViewIntent = Extract<
-  CanvasIntent,
-  { type: "frame" | "look" | "toggleLens" | "projection" | "present" | "fullscreen" }
->;
 
 /**
  * A chord the canvas claims.
@@ -109,9 +38,13 @@ type CanvasViewIntent = Extract<
  * the chord is still consumed, and `preventDefault` still decides whether the
  * browser gets it. Delete, copy and duplicate swallow the default that way;
  * an arrow key does not, and neither does Escape.
+ *
+ * A binding another plugin contributes may run an action or a command
+ * instead of an intent (`call`), about what the page's commands are about.
  */
 export interface CanvasKeyBinding {
   intent: CanvasIntent | null;
+  call?: KeyCall;
   preventDefault: boolean;
 }
 
@@ -128,75 +61,6 @@ export interface CanvasKeyState {
    */
   acts?: (intent: CanvasIntent) => boolean;
 }
-
-/**
- * A key a shortcut is pressed by: matched by `code` where the key's place
- * is what counts (numpad keys, whatever NumLock and the layout say) or by
- * `key` (letters in either case, unless `cased`), with the modifiers it
- * names. ⌘ and Ctrl are one modifier (`mod`), absent meaning neither;
- * `ctrl` is Ctrl alone. Shift and ⌥ absent take either — but Shift absent
- * under ⌘ is not held, since ⌘⇧ makes a shortcut of its own (the
- * browser's, or another of the canvas's).
- */
-interface CanvasChord {
-  readonly code?: string;
-  readonly key?: string;
-  readonly cased?: boolean;
-  readonly mod?: boolean | "any";
-  readonly ctrl?: boolean;
-  readonly shift?: boolean;
-  readonly alt?: boolean;
-}
-
-/** Which state a shortcut acts in: the canvas at rest, a modal transform, present mode. */
-type ShortcutMode = "rest" | "transforming" | "presenting";
-
-/** Where a shortcut is listed. */
-export type CanvasShortcutSection =
-  | "Tools"
-  | "Edit"
-  | "Arrange"
-  | "Navigate"
-  | "View"
-  | "Transform"
-  | "Present";
-
-/**
- * One canvas shortcut: what it is called, where it is listed, the chords
- * that press it, and what it asks for — an intent, one read off the key
- * pressed, or null, a claim with nothing to do. Every chord the canvas
- * claims is one of these, so the keymap, the view menu, the toolbar's
- * hints and the shortcut sheet read one statement.
- */
-export interface CanvasShortcut {
-  readonly label: string;
-  readonly section: CanvasShortcutSection;
-  readonly chords: readonly CanvasChord[];
-  readonly intent: CanvasIntent | null | ((event: CanvasKeyEvent) => CanvasIntent);
-  /** The first chord in words, as a menu or a tooltip shows it; "" for none. */
-  readonly hint: string;
-  readonly mode: ShortcutMode;
-  /**
-   * Pressed with nothing selected, or nothing in it to act on (`acts`), it
-   * does nothing: swallowed, or passed to the browser.
-   */
-  readonly needsSelection?: "swallow" | "pass";
-  /** Whether the browser's default is prevented; Escape, for one, is left to it. */
-  readonly prevent: boolean;
-  /** In a modal transform, whether a held key acts again (Backspace); others act once. */
-  readonly repeats?: boolean;
-  /** The command menus that list it, and where (`menuRows`). */
-  readonly menus?: CanvasMenuPlaces;
-}
-
-/** The canvas's command menus: the context menu on the selection and on empty canvas, and the zoom menu. */
-export type CanvasMenuName = "selection" | "canvas" | "zoom";
-
-/** Where a shortcut stands in each command menu that lists it: its row, then its place in the row. */
-type CanvasMenuPlaces = Partial<Record<CanvasMenuName, readonly [row: number, at: number]>>;
-
-/** A view command: a shortcut whose intent the camera carries out, listed in the view menu. */
-export type CanvasViewCommand = CanvasShortcut & { readonly intent: CanvasViewIntent };
 
 /** What each key is called in a hint. */
 const KEY_NAMES: Record<string, string> = {
@@ -218,9 +82,17 @@ const KEY_NAMES: Record<string, string> = {
   PageDown: "PgDn",
 };
 
+/** The key a chord names, as one name: its place, or the first spelling of its character. */
+function namedKey(chord: Chord): string {
+  if (chord.physicalKey !== undefined) return chord.physicalKey;
+  if (typeof chord.key === "string") return chord.key;
+  if (Array.isArray(chord.key)) return chord.key[0] ?? "";
+  return "";
+}
+
 /** A chord in words: its modifiers, then its key as the keyboard shows it. */
-export function chordHint(chord: CanvasChord): string {
-  const named = chord.code ?? chord.key ?? "";
+export function chordHint(chord: Chord): string {
+  const named = namedKey(chord);
   const key =
     KEY_NAMES[named] ??
     (/^Numpad\d$/.test(named)
@@ -239,434 +111,85 @@ export function chordHint(chord: CanvasChord): string {
   return `${ctrl}${mod}${alt}${shift}${key}`;
 }
 
-/** A shortcut's row, its hint from its first chord unless it names one. */
-function shortcut(
-  section: CanvasShortcutSection,
-  label: string,
-  intent: CanvasShortcut["intent"],
-  chords: readonly CanvasChord[],
-  more: Partial<Omit<CanvasShortcut, "section" | "label" | "intent" | "chords">> = {},
-): CanvasShortcut {
-  const first = chords[0];
+/** The canvas's shortcuts, by the name a binding runs them by. */
+const SHORTCUTS_BY_NAME = new Map(CANVAS_SHORTCUTS.map((entry) => [entry.name, entry]));
+
+/** The keymap of the canvas's context `name`, as the page's admission decides it. */
+export function canvasKeymap(name: CanvasKeyContextName): Keymap {
+  return currentKeymap(CANVAS_CONTEXT_IDS[name]);
+}
+
+/** A press of `chord`: its key, or its place, with the modifiers it holds down and no others. */
+function pressOf(chord: Chord): KeyChordEvent | null {
+  const key =
+    typeof chord.key === "string" ? chord.key : Array.isArray(chord.key) ? chord.key[0] : "";
+  if (key === undefined || typeof chord.key === "function") return null;
   return {
-    section,
-    label,
-    intent,
-    chords,
-    hint: first === undefined ? "" : chordHint(first),
-    mode: "rest",
-    prevent: true,
-    ...more,
+    key,
+    ...(chord.physicalKey === undefined ? {} : { physicalKey: chord.physicalKey }),
+    metaKey: chord.meta === true || (chord.mod === true && chord.ctrl !== true),
+    ctrlKey: chord.ctrl === true,
+    shiftKey: chord.shift === true,
+    altKey: chord.alt === true,
   };
 }
 
-const view = (
-  label: string,
-  intent: CanvasViewIntent,
-  chords: readonly CanvasChord[],
-  more: Partial<CanvasShortcut> = {},
-): CanvasViewCommand => ({ ...shortcut("View", label, intent, chords, more), intent });
-
-const look = (preset: CanvasViewPresetName, chords: readonly CanvasChord[]) =>
-  view(CANVAS_VIEW_PRESETS[preset].label, { type: "look", preset }, chords);
-
 /**
- * The view commands, in the view menu's order: Blender's numpad views (⌃ for
- * the opposite side; there is no view from under the floor), the lens, the
- * projections, framing (⇧1 and ⇧2 are tldraw's, numpad `.` Blender's),
- * presenting, and full screen.
+ * The chords that press `entry` now: those its context's keymap holds for
+ * it whose own press still reaches it, so one another binding replaced is
+ * not named.
  */
-export const CANVAS_VIEW_COMMANDS: readonly CanvasViewCommand[] = [
-  look("top", [{ code: "Numpad7" }]),
-  look("front", [{ code: "Numpad1" }]),
-  look("right", [{ code: "Numpad3" }]),
-  look("back", [{ code: "Numpad1", ctrl: true }]),
-  look("left", [{ code: "Numpad3", ctrl: true }]),
-  look("oblique", []),
-  view("Orthographic", { type: "toggleLens" }, [{ code: "Numpad5" }]),
-  view("2D", { type: "projection", kind: "2d" }, []),
-  view("3D", { type: "projection", kind: "3d" }, []),
-  view(
-    "Frame all",
-    { type: "frame", scope: "all" },
-    [
-      { code: "Digit1", shift: true },
-      { key: "!", shift: true },
-    ],
-    { menus: { canvas: [2, 0], zoom: [1, 0] } },
-  ),
-  view(
-    "Frame selection",
-    { type: "frame", scope: "selection" },
-    [{ code: "Digit2", shift: true }, { key: "@", shift: true }, { code: "NumpadDecimal" }],
-    { needsSelection: "swallow", menus: { selection: [5, 0], zoom: [1, 1] } },
-  ),
-  view("Present frames", { type: "present", act: "start" }, []),
-  view("Full screen", { type: "fullscreen" }, []),
-];
+export function heldChords(entry: CanvasShortcut): readonly Chord[] {
+  const keymap = canvasKeymap(entry.context);
+  return keymap.held
+    .filter(({ id, value }) => {
+      if (!("intent" in value.run) || value.run.intent !== entry.name) return false;
+      const press = pressOf(value.chord);
+      return press !== null && keymap.resolve(press)?.id === id;
+    })
+    .map(({ value }) => value.chord);
+}
 
-/** A tool's shortcut: a key, or a chord where the key alone would claim another. G is not one: it grabs (plan decision 9). */
-const tool = (label: string, pick: CanvasToolPick, keys: readonly (string | CanvasChord)[]) =>
-  shortcut(
-    "Tools",
-    label,
-    { type: "tool", tool: pick },
-    keys.map((key) => (typeof key === "string" ? { key } : key)),
-  );
+/** `entry`'s keys in words, as a menu or a tooltip shows them: its first chord's; "" for none. */
+export function hintOf(entry: CanvasShortcut): string {
+  const held = heldChords(entry);
+  const [first] = held;
+  if (first === undefined) return "";
+  const hint = chordHint(first);
+  if (entry.hintStyle !== "arrows") return hint;
+  const prefix = hint.replace(/[←↑→↓]$/, "");
+  const keys = new Set(held.map(chordHint));
+  return prefix + ["←", "↑", "→", "↓"].filter((arrow) => keys.has(prefix + arrow)).join("");
+}
 
-/** An arrangement of the selection, pressed with ⌥ and a letter where the keyboard has it. */
-const arrange = (
-  label: string,
-  intent: CanvasIntent,
-  chords: readonly CanvasChord[],
-  menus?: CanvasMenuPlaces,
-) => shortcut("Arrange", label, intent, chords, { needsSelection: "swallow", menus });
-
-/** ⌥ and a letter, by its place: ⌥ makes another character of it on a Mac. */
-const altKey = (letter: string, shift = false): CanvasChord => ({
-  code: `Key${letter}`,
-  alt: true,
-  shift,
-});
-
-/** One canvas unit per arrow, ten with Shift held. */
-const NUDGE_UNITS: Record<string, { dx: number; dy: number }> = {
-  ArrowLeft: { dx: -1, dy: 0 },
-  ArrowRight: { dx: 1, dy: 0 },
-  ArrowUp: { dx: 0, dy: -1 },
-  ArrowDown: { dx: 0, dy: 1 },
+/** A command a menu lists: a shortcut whose intent is known before any key is pressed, and its key. */
+export type CanvasMenuCommand = CanvasShortcut & {
+  readonly intent: CanvasIntent;
+  readonly hint: string;
 };
 
-const nudge =
-  (step: number) =>
-  (event: CanvasKeyEvent): CanvasIntent => {
-    const unit = NUDGE_UNITS[event.key] ?? { dx: 0, dy: 0 };
-    return { type: "nudge", dx: unit.dx * step, dy: unit.dy * step };
-  };
-
-const ARROWS = Object.keys(NUDGE_UNITS);
-
-/** A modal transform's key act, as an intent. */
-const act = (key: TransformKey): CanvasIntent => ({
-  type: "transform",
-  act: { kind: "key", key },
-});
-
-const axis = (name: CanvasAxis, plane: boolean) =>
-  shortcut(
-    "Transform",
-    plane ? `Across the plane off ${name.toUpperCase()}` : `Along ${name.toUpperCase()}`,
-    act({ kind: "axis", axis: name, plane }),
-    [{ key: name, shift: plane }],
-    { mode: "transforming" },
-  );
-
-const switchTo = (mode: Exclude<TransformMode, "extrude">, key: string) =>
-  shortcut("Transform", `Switch to ${mode}`, act({ kind: "mode", mode }), [{ key }], {
-    mode: "transforming",
-  });
-
-/** What a key types into a modal transform's value. */
-const typed = (event: CanvasKeyEvent) => act({ kind: "type", key: event.key });
-
-const present = (label: string, presentAct: PresentAct, chords: readonly CanvasChord[]) =>
-  shortcut("Present", label, { type: "present", act: presentAct }, chords, {
-    mode: "presenting",
-    prevent: presentAct !== "stop",
-  });
-
-/**
- * Every canvas shortcut, in the order a chord is matched, which is
- * load-bearing: in a modal transform its own keys claim every chord (a
- * digit types a value rather than picking a tool, Escape cancels it); while
- * frames are presented their keys come next (the arrows step rather than
- * nudge); then ⌘ chords before plain ones (`⌘c` copies rather than picking
- * the ellipse), the view keys before Delete (numpad `.` frames the
- * selection) and before the tools (a numpad digit with a view looks from
- * it).
- */
-export const CANVAS_SHORTCUTS: readonly CanvasShortcut[] = [
-  shortcut(
-    "Transform",
-    "Cancel",
-    { type: "transform", act: { kind: "cancel" } },
-    [{ key: "Escape", mod: "any" }],
-    { mode: "transforming", prevent: false },
-  ),
-  shortcut(
-    "Transform",
-    "Confirm",
-    { type: "transform", act: { kind: "confirm" } },
-    [{ key: "Enter", mod: "any" }],
-    { mode: "transforming" },
-  ),
-  shortcut(
-    "Transform",
-    "Free of snapping (hold)",
-    { type: "transform", act: { kind: "free" } },
-    [
-      { key: "Meta", mod: "any" },
-      { key: "Control", mod: "any" },
-    ],
-    { mode: "transforming", prevent: false },
-  ),
-  axis("x", false),
-  axis("y", false),
-  axis("z", false),
-  axis("x", true),
-  axis("y", true),
-  axis("z", true),
-  switchTo("grab", "g"),
-  switchTo("rotate", "r"),
-  switchTo("scale", "s"),
-  shortcut(
-    "Transform",
-    "Type a value",
-    typed,
-    "0123456789.-".split("").map((key) => ({ key })),
-    { mode: "transforming" },
-  ),
-  shortcut("Transform", "Erase a typed digit", typed, [{ key: "Backspace" }], {
-    mode: "transforming",
-    repeats: true,
-  }),
-  present("Next frame", "next", [
-    { key: "ArrowRight" },
-    { key: "ArrowDown" },
-    { key: "PageDown" },
-    { key: " ", shift: false },
-  ]),
-  present("Previous frame", "previous", [
-    { key: "ArrowLeft" },
-    { key: "ArrowUp" },
-    { key: "PageUp" },
-    { key: " ", shift: true },
-  ]),
-  present("Stop presenting", "stop", [{ key: "Escape" }]),
-  shortcut(
-    "Edit",
-    "Redo",
-    { type: "redo" },
-    [
-      { key: "z", mod: true, shift: true },
-      { key: "Z", mod: true, cased: true },
-      { key: "y", mod: true },
-    ],
-    { menus: { canvas: [0, 1] } },
-  ),
-  shortcut("Edit", "Undo", { type: "undo" }, [{ key: "z", mod: true }], {
-    menus: { canvas: [0, 0] },
-  }),
-  ...CANVAS_VIEW_COMMANDS,
-  // ⌃numpad 7 would look from under the floor: there is no such view, so it does nothing.
-  shortcut("View", "", null, [{ code: "Numpad7", ctrl: true }]),
-  shortcut("View", "View menu", { type: "viewMenu" }, [{ code: "Backquote" }]),
-  shortcut("View", "Keyboard shortcuts", { type: "shortcuts" }, [{ key: "?" }]),
-  shortcut(
-    "Edit",
-    "Delete",
-    { type: "delete" },
-    [
-      { key: "Delete", mod: "any" },
-      { key: "Backspace", mod: "any" },
-    ],
-    { needsSelection: "swallow", menus: { selection: [1, 3] } },
-  ),
-  shortcut("Edit", "Select all", { type: "selectAll" }, [{ key: "a", mod: true }], {
-    menus: { canvas: [1, 0] },
-  }),
-  // ⌘V is not the canvas's: the browser's paste event carries what the clipboard holds.
-  shortcut("Edit", "Copy", { type: "copy" }, [{ key: "c", mod: true }], {
-    needsSelection: "swallow",
-    menus: { selection: [1, 1] },
-  }),
-  shortcut("Edit", "Cut", { type: "cut" }, [{ key: "x", mod: true }], {
-    needsSelection: "swallow",
-    menus: { selection: [1, 0] },
-  }),
-  shortcut("Edit", "Group into a frame", { type: "group" }, [{ key: "g", mod: true }], {
-    needsSelection: "swallow",
-    menus: { selection: [2, 0] },
-  }),
-  shortcut("Edit", "Ungroup", { type: "ungroup" }, [{ key: "g", mod: true, shift: true }], {
-    needsSelection: "swallow",
-    menus: { selection: [2, 1] },
-  }),
-  shortcut("Edit", "Duplicate", { type: "duplicate" }, [{ key: "d", mod: true }], {
-    needsSelection: "swallow",
-    menus: { selection: [1, 2] },
-  }),
-  shortcut("Edit", "Lock or unlock", { type: "lock" }, [{ key: "l", shift: true }], {
-    needsSelection: "swallow",
-    menus: { selection: [2, 2] },
-  }),
-  shortcut("Navigate", "Follow link", { type: "followLink" }, [{ key: "Enter", mod: true }], {
-    needsSelection: "swallow",
-    menus: { selection: [0, 1] },
-  }),
-  // tldraw's: ↵ types into what is selected, as a double-click does.
-  shortcut("Edit", "Edit its words", { type: "edit" }, [{ key: "Enter", shift: false }], {
-    needsSelection: "pass",
-    menus: { selection: [0, 0] },
-  }),
-  // tldraw's: ⌥ and an arrow turns the page, so it does not nudge.
-  shortcut("Navigate", "Next page", { type: "page", step: 1 }, [{ key: "ArrowRight", alt: true }]),
-  shortcut("Navigate", "Previous page", { type: "page", step: -1 }, [
-    { key: "ArrowLeft", alt: true },
-  ]),
-  arrange("Forward one step", { type: "order", order: "forward" }, [
-    { code: "BracketRight", alt: true },
-  ]),
-  arrange("Backward one step", { type: "order", order: "backward" }, [
-    { code: "BracketLeft", alt: true },
-  ]),
-  arrange("Bring to front", { type: "order", order: "front" }, [{ code: "BracketRight" }], {
-    selection: [3, 0],
-  }),
-  arrange("Send to back", { type: "order", order: "back" }, [{ code: "BracketLeft" }], {
-    selection: [3, 1],
-  }),
-  arrange("Spread across evenly", { type: "distribute", axis: "x" }, [altKey("H", true)]),
-  arrange("Spread down evenly", { type: "distribute", axis: "y" }, [altKey("V", true)]),
-  arrange("Align left", { type: "align", edge: "left" }, [altKey("A")]),
-  arrange("Align centres across", { type: "align", edge: "centre" }, [altKey("H")]),
-  arrange("Align right", { type: "align", edge: "right" }, [altKey("D")]),
-  arrange("Align top", { type: "align", edge: "top" }, [altKey("W")]),
-  arrange("Align middles down", { type: "align", edge: "middle" }, [altKey("V")]),
-  arrange("Align bottom", { type: "align", edge: "bottom" }, [altKey("S")]),
-  arrange(
-    "Flip left for right",
-    { type: "flip", axis: "x" },
-    [{ key: "h", shift: true, alt: false }],
-    {
-      selection: [4, 0],
-    },
-  ),
-  arrange(
-    "Flip top for bottom",
-    { type: "flip", axis: "y" },
-    [{ key: "v", shift: true, alt: false }],
-    {
-      selection: [4, 1],
-    },
-  ),
-  shortcut("Edit", "Step out", { type: "escape" }, [{ key: "Escape", mod: "any" }], {
-    prevent: false,
-  }),
-  shortcut("View", "Pan (hold)", { type: "panModifier" }, [{ code: "Space", mod: "any" }]),
-  shortcut(
-    "Edit",
-    "Nudge",
-    nudge(1),
-    ARROWS.map((key) => ({ key, mod: "any", shift: false })),
-    { needsSelection: "pass", hint: "←↑→↓" },
-  ),
-  shortcut(
-    "Edit",
-    "Nudge ten",
-    nudge(10),
-    ARROWS.map((key) => ({ key, mod: "any", shift: true })),
-    { needsSelection: "pass", hint: "⇧←↑→↓" },
-  ),
-  shortcut(
-    "Transform",
-    "Grab",
-    { type: "transform", act: { kind: "begin", mode: "grab" } },
-    [{ key: "g", shift: false }],
-    { needsSelection: "swallow" },
-  ),
-  shortcut(
-    "Transform",
-    "Scale",
-    { type: "transform", act: { kind: "begin", mode: "scale" } },
-    [{ key: "s", shift: false }],
-    { needsSelection: "swallow" },
-  ),
-  shortcut(
-    "Transform",
-    "Extrude",
-    { type: "transform", act: { kind: "begin", mode: "extrude" } },
-    [{ key: "e", shift: false }],
-    { needsSelection: "swallow" },
-  ),
-  tool("Select", "select", ["v", "1"]),
-  tool("Hand", "hand", ["h"]),
-  tool("Text", "text", ["t", "2"]),
-  tool("Rectangle", "rect", ["r", "3"]),
-  tool("Ellipse", "ellipse", ["o", "c", "4"]),
-  // ⇧D is the highlighter's, as tldraw's.
-  tool("Diamond", "diamond", [{ key: "d", shift: false }, "5"]),
-  tool("Draw", "draw", ["p"]),
-  tool("Highlight", "highlight", [{ key: "d", shift: true }]),
-  tool("Line", "line", ["l"]),
-  tool("Arrow", "arrow", ["a"]),
-  tool("Card for a node", "kb-node", ["n", "6"]),
-  tool("Frame", "group", ["f", "7"]),
-  tool("Solid (the last one made)", "solid", ["b", "8"]),
-  tool("Comment", "comment", ["m"]),
-  shortcut(
-    "View",
-    "Zoom in",
-    { type: "zoomBy", factor: ZOOM_STEP },
-    [
-      { key: "=", mod: true },
-      { key: "+", mod: true },
-    ],
-    { menus: { zoom: [0, 0] } },
-  ),
-  shortcut(
-    "View",
-    "Zoom out",
-    { type: "zoomBy", factor: 1 / ZOOM_STEP },
-    [{ key: "-", mod: true }],
-    {
-      menus: { zoom: [0, 1] },
-    },
-  ),
-  shortcut("View", "Zoom to 100%", { type: "zoomTo", zoom: 1 }, [{ key: "0", mod: true }], {
-    menus: { canvas: [2, 1], zoom: [0, 2] },
-  }),
-];
-
-/** A command a menu lists: a shortcut whose intent is known before any key is pressed. */
-export type CanvasMenuCommand = CanvasShortcut & { readonly intent: CanvasIntent };
-
-const isMenuCommand = (entry: CanvasShortcut): entry is CanvasMenuCommand =>
+const isKnown = (
+  entry: CanvasShortcut,
+): entry is CanvasShortcut & { readonly intent: CanvasIntent } =>
   entry.intent !== null && typeof entry.intent !== "function";
 
 /**
  * Menu `menu`'s rows of commands, tldraw's: the shortcuts the table places
- * in it (`menus`), so a row and its key cannot mean different things.
+ * in it (`menus`), each with its key, so a row and its key cannot mean
+ * different things.
  */
 export function menuRows(menu: CanvasMenuName): readonly (readonly CanvasMenuCommand[])[] {
-  const placed = CANVAS_SHORTCUTS.filter(isMenuCommand)
-    .flatMap((command) => {
-      const place = command.menus?.[menu];
-      return place === undefined ? [] : [{ command, row: place[0], at: place[1] }];
+  const placed = CANVAS_SHORTCUTS.filter(isKnown)
+    .flatMap((entry) => {
+      const place = entry.menus?.[menu];
+      return place === undefined
+        ? []
+        : [{ command: { ...entry, hint: hintOf(entry) }, row: place[0], at: place[1] }];
     })
     .toSorted((a, b) => a.row - b.row || a.at - b.at);
   const rows = new Map<number, CanvasMenuCommand[]>();
-  for (const { command, row } of placed) rows.set(row, [...(rows.get(row) ?? []), command]);
+  for (const { command: entry, row } of placed) rows.set(row, [...(rows.get(row) ?? []), entry]);
   return [...rows.values()];
-}
-
-const mod = (event: CanvasKeyEvent) => event.metaKey === true || event.ctrlKey === true;
-
-/** Whether `event` presses `chord`. */
-function presses(chord: CanvasChord, event: CanvasKeyEvent): boolean {
-  if (chord.code !== undefined ? event.code !== chord.code : !sameKey(chord, event.key)) {
-    return false;
-  }
-  const shift = chord.shift ?? (chord.mod === true ? false : undefined);
-  if (shift !== undefined && shift !== (event.shiftKey === true)) return false;
-  if (chord.alt !== undefined && chord.alt !== (event.altKey === true)) return false;
-  if (chord.ctrl === true) return event.ctrlKey === true && event.metaKey !== true;
-  return chord.mod === "any" || (chord.mod === true) === mod(event);
-}
-
-function sameKey(chord: CanvasChord, key: string): boolean {
-  if (chord.key === undefined) return false;
-  return chord.cased === true ? chord.key === key : chord.key.toLowerCase() === key.toLowerCase();
 }
 
 const claim = (intent: CanvasIntent | null, preventDefault = true): CanvasKeyBinding => ({
@@ -674,18 +197,14 @@ const claim = (intent: CanvasIntent | null, preventDefault = true): CanvasKeyBin
   preventDefault,
 });
 
-/** The mode a state puts the canvas in, for its shortcuts. */
-const modesOf = (state: CanvasKeyState): readonly ShortcutMode[] =>
-  state.transforming
-    ? ["transforming"]
-    : state.presenting === true
-      ? ["presenting", "rest"]
-      : ["rest"];
+/** The contexts a state offers a key to, in turn. */
+const contextsOf = (state: CanvasKeyState): readonly CanvasKeyContextName[] =>
+  state.transforming ? ["transform"] : state.presenting === true ? ["present", "rest"] : ["rest"];
 
 /** What pressing `found` in `state` claims. */
 function bindingOf(found: CanvasShortcut, event: CanvasKeyEvent, state: CanvasKeyState) {
   // A held key acts once in a modal transform: holding X would cycle the axes, a digit type dozens.
-  if (found.mode === "transforming" && event.repeat === true && found.repeats !== true) {
+  if (found.context === "transform" && event.repeat === true && found.repeats !== true) {
     return claim(null);
   }
   if (found.needsSelection !== undefined && state.selectionEmpty) {
@@ -700,17 +219,22 @@ function bindingOf(found: CanvasShortcut, event: CanvasKeyEvent, state: CanvasKe
 
 /**
  * The chord's binding, or null when the canvas does not claim the chord. A
- * modal transform claims every chord: any it has no shortcut for does
+ * modal transform claims every chord: any its keymap does not hold does
  * nothing, its browser default kept (a held one is swallowed).
  */
 export function mapCanvasKey(
   event: CanvasKeyEvent,
   state: CanvasKeyState,
 ): CanvasKeyBinding | null {
-  for (const mode of modesOf(state)) {
-    const found = CANVAS_SHORTCUTS.find(
-      (s) => s.mode === mode && s.chords.some((chord) => presses(chord, event)),
-    );
+  for (const name of contextsOf(state)) {
+    const run = canvasKeymap(name).resolve(event)?.value.run;
+    if (run === undefined) continue;
+    if (!("intent" in run)) {
+      const call = keyCallOf(run, null);
+      if (call !== null) return { intent: null, call, preventDefault: true };
+      continue;
+    }
+    const found = SHORTCUTS_BY_NAME.get(run.intent);
     if (found !== undefined) return bindingOf(found, event, state);
   }
   if (state.transforming) return claim(null, event.repeat === true);
@@ -720,5 +244,6 @@ export function mapCanvasKey(
 /** The hint of the shortcut that asks for `intent`, as a tooltip shows it; "" for none. */
 export function shortcutHint(intent: CanvasIntent): string {
   const wanted = JSON.stringify(intent);
-  return CANVAS_SHORTCUTS.find((s) => JSON.stringify(s.intent) === wanted)?.hint ?? "";
+  const found = CANVAS_SHORTCUTS.find((entry) => JSON.stringify(entry.intent) === wanted);
+  return found === undefined ? "" : hintOf(found);
 }

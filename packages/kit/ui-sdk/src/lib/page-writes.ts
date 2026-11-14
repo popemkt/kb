@@ -131,6 +131,16 @@ export interface PageWrites {
    * markdown to the node text.
    */
   readonly attachFileToNode: (nodeId: string, file: File) => Promise<boolean>;
+  /**
+   * Add a tree of nodes, written as outline paste text (DESIGN.md → Outline
+   * paste), through `node.addTree`, in one transaction: under `parent` (null,
+   * the top level) at `position` (omitted, the end). The ids it made, in tree
+   * order; a write that fails rejects with what failed.
+   */
+  readonly addTree: (
+    tree: string,
+    place: { readonly parent: string | null; readonly position?: number },
+  ) => Promise<readonly string[]>;
   /** W4: root node tagged #query with a starter sys.f.query definition. */
   readonly newQueryNode: (text?: string) => Promise<string | null>;
   /** Mint an ontology node (#ontology) and return its id. */

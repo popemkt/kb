@@ -2,17 +2,11 @@ export { PluginError, PluginErrorReason } from "./errors.ts";
 export { definePlugin, isPlugin, makeKernel } from "./kernel.ts";
 export type {
   Contribution,
-  Dependency,
-  RequirementState,
   ContributionEntry,
   Kernel,
   Plugin,
   PluginContext,
   PluginHandle,
-  PluginState,
-  PluginStatus,
-  PointContribution,
-  PointState,
 } from "./kernel.ts";
 export {
   PointName,
@@ -25,24 +19,15 @@ export {
   POINT_TIERS,
 } from "./keys.ts";
 export { syncPlugins } from "./sync.ts";
-export type { SyncFailure } from "./sync.ts";
-export type {
-  AnyServiceKey,
-  Key,
-  PointKey,
-  PointSpec,
-  PointReference,
-  KernelHost,
-  ServiceKey,
-} from "./keys.ts";
+
+export type { PointKey, PointSpec, PointReference, KernelHost, ServiceKey } from "./keys.ts";
 
 export {
   bindPluginAuthority,
   DEFAULT_REPLACEMENT_PRIORITY,
   type PluginAuthority,
-  type RoleApproval,
 } from "./authority.ts";
-export { type RoleCandidate, type RoleState, type RoleProvider } from "./roles.ts";
+export { type RoleCandidate } from "./roles.ts";
 export {
   Role,
   roleName,
@@ -54,7 +39,7 @@ export {
 
 export { roleCall } from "./role-call.ts";
 
-export { namespaced } from "./keys.ts";
+export { namespaced, rootPluginName } from "./keys.ts";
 
 export { roleSession, type RoleSession } from "./role-session.ts";
 

@@ -56,6 +56,7 @@ import {
   definePlugin,
   makeKernel,
   roleSession,
+  rootPluginName,
   type RoleSession,
   type Contribution,
   type Kernel,
@@ -194,13 +195,8 @@ function referencesOf(kernel: Pick<Kernel, "contributions">): ContextReferences 
   return contextReferencesOf(() => kernel.contributions(ContextReferencePoint));
 }
 
-/** The top-level plugin a contribution belongs to (a child answers for its parent). */
-function rootOwner(contribution: Contribution<unknown>): string {
-  return contribution.owner.split("/")[0] ?? contribution.owner;
-}
-
 function sourceOf(contribution: Contribution<unknown>): string {
-  const owner = rootOwner(contribution);
+  const owner = rootPluginName(contribution.owner);
   return owner === corePlugin.name ? "core" : `ext:${owner}`;
 }
 
@@ -398,7 +394,7 @@ export const unloadBrokenActions = Effect.fnUntraced(function* (
     const first = brokenAction(kernel.contributions(ActionPoint), referencesOf(kernel));
     if (first === null) return undefined;
     const { error } = first;
-    const owner = rootOwner(first.contribution);
+    const owner = rootPluginName(first.contribution.owner);
     if (owner === loaded.core) return yield* Effect.die(new Error(`core: ${error}`));
     const inside = (name: string) => name === owner || name.startsWith(`${owner}/`);
     const nested = kernel.plugins().filter((p) => p.name !== owner && inside(p.name));
@@ -536,6 +532,7 @@ const withRoleChoices = Effect.fnUntraced(function* (registry: Registry, nodeOf:
  */
 export const registryFor = Effect.fn("kb.registryFor")(function* (
   root: string | null,
+  // GAP [[01M7C87K56AJY519YZ51NPF06F]] blind to the store's switches by default, so it can replace a live session's registry.
   nodeOf: NodeLookup = NO_SWITCHES,
 ): Effect.fn.Return<Registry, never, FileSystem> {
   return yield* registryOf(root, yield* rootFamilies(root), nodeOf);

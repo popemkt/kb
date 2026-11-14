@@ -12,8 +12,10 @@ import {
   useIsActive,
   useNode,
   useNodeTextBinding,
+  ATTACH_FILE,
+  ingestPort,
 } from "@kb/ui-sdk";
-import { useCallback, useEffect, useEffectEvent, useRef } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef } from "react";
 import { type CanvasKbNode, type CanvasTextNode, itemPaint, withBox } from "@kb/canvas";
 import type { FaceLayout } from "./canvas-face";
 import { ItemOutline } from "./canvas-item-outline";
@@ -32,6 +34,9 @@ interface KbCardProps extends FaceLayout {
 }
 
 /** Canvas text editing excludes structural outline operations; Enter leaves the text (its blur does). */
+/** What a card's text takes in: a dropped file, as a row's does. */
+const CARD_INGESTS = () => [ATTACH_FILE];
+
 function handleCanvasNodeKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
   if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
@@ -89,6 +94,12 @@ export function KbNodeCard({
   const instanceKey = canvasInstanceKey(projection, card.id, card.nodeId);
   const isActive = useIsActive(card.nodeId, instanceKey);
   const binding = useNodeTextBinding(instanceKey);
+  // A card's text keeps a dropped file, as a row's does; a paste is the browser's.
+  const shownText = node?.text ?? "";
+  const ingest = useMemo(
+    () => ingestPort(CARD_INGESTS, () => ({ nodeId: card.nodeId, text: shownText })),
+    [card.nodeId, shownText],
+  );
 
   const handleActivate = useCallback(
     (cursorPos?: number) => {
@@ -166,9 +177,7 @@ export function KbNodeCard({
             onChange={(text) => {
               void browserHost().writes.updateNodeContent(card.nodeId, text);
             }}
-            onAttachFile={(file) => {
-              void browserHost().writes.attachFileToNode(card.nodeId, file);
-            }}
+            ingest={ingest}
             onRemoveTag={(tagId) => {
               void browserHost().writes.removeTag(card.nodeId, tagId);
             }}

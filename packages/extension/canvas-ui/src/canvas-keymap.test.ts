@@ -1,14 +1,22 @@
-import { describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { Effect } from "effect";
+import { definePlugin } from "@kb/plugin";
+import { KeybindingPoint, provideKeybinding, syncUiPlugins } from "@kb/ui-sdk";
+import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
 import {
   CANVAS_SHORTCUTS,
   CANVAS_VIEW_COMMANDS,
-  menuRows,
-  mapCanvasKey,
   type CanvasIntent,
   type CanvasKeyEvent,
   type CanvasMenuName,
-} from "./canvas-keymap.ts";
-import { ZOOM_STEP } from "./canvas-camera";
+  ZOOM_STEP,
+} from "@kb/canvas";
+import { canvasKeymap, hintOf, menuRows, mapCanvasKey } from "./canvas-keymap";
+
+import { canvasKeysPlugin } from "./test-support/canvas-keys";
+
+beforeAll(() => syncUiPlugins([canvasKeysPlugin]));
+afterAll(() => syncUiPlugins([]));
 
 const withSelection = { selectionEmpty: false, transforming: false };
 const empty = { selectionEmpty: true, transforming: false };
@@ -33,7 +41,7 @@ describe("with something selected", () => {
     [chord("Enter"), { type: "edit" }],
     [chord("d", { metaKey: true }), { type: "duplicate" }],
     [chord("Escape"), { type: "escape" }],
-    [chord(" ", { code: "Space" }), { type: "panModifier" }],
+    [chord(" ", { physicalKey: "Space" }), { type: "panModifier" }],
     [chord("ArrowLeft"), { type: "nudge", dx: -1, dy: 0 }],
     [chord("ArrowRight"), { type: "nudge", dx: 1, dy: 0 }],
     [chord("ArrowUp"), { type: "nudge", dx: 0, dy: -1 }],
@@ -58,31 +66,43 @@ describe("with something selected", () => {
     [chord("-", { metaKey: true }), { type: "zoomBy", factor: 1 / ZOOM_STEP }],
     [chord("0", { metaKey: true }), { type: "zoomTo", zoom: 1 }],
     [chord("!", { shiftKey: true }), { type: "frame", scope: "all" }],
-    [chord("@", { code: "Digit2", shiftKey: true }), { type: "frame", scope: "selection" }],
-    [chord("Delete", { code: "NumpadDecimal" }), { type: "frame", scope: "selection" }],
-    [chord("Home", { code: "Numpad7" }), { type: "look", preset: "top" }],
-    [chord("End", { code: "Numpad1", ctrlKey: true }), { type: "look", preset: "back" }],
-    [chord("5", { code: "Numpad5" }), { type: "toggleLens" }],
-    [chord("`", { code: "Backquote" }), { type: "viewMenu" }],
+    [chord("@", { physicalKey: "Digit2", shiftKey: true }), { type: "frame", scope: "selection" }],
+    [chord("Delete", { physicalKey: "NumpadDecimal" }), { type: "frame", scope: "selection" }],
+    [chord("Home", { physicalKey: "Numpad7" }), { type: "look", preset: "top" }],
+    [chord("End", { physicalKey: "Numpad1", ctrlKey: true }), { type: "look", preset: "back" }],
+    [chord("5", { physicalKey: "Numpad5" }), { type: "toggleLens" }],
+    [chord("`", { physicalKey: "Backquote" }), { type: "viewMenu" }],
     [chord("?", { shiftKey: true }), { type: "shortcuts" }],
     [chord("L", { shiftKey: true }), { type: "lock" }],
     [chord("h"), { type: "tool", tool: "hand" }],
     [chord("l"), { type: "tool", tool: "line" }],
-    [chord("]", { code: "BracketRight" }), { type: "order", order: "front" }],
-    [chord("[", { code: "BracketLeft" }), { type: "order", order: "back" }],
-    [chord("‘", { code: "BracketRight", altKey: true }), { type: "order", order: "forward" }],
-    [chord("“", { code: "BracketLeft", altKey: true }), { type: "order", order: "backward" }],
+    [chord("]", { physicalKey: "BracketRight" }), { type: "order", order: "front" }],
+    [chord("[", { physicalKey: "BracketLeft" }), { type: "order", order: "back" }],
+    [
+      chord("‘", { physicalKey: "BracketRight", altKey: true }),
+      { type: "order", order: "forward" },
+    ],
+    [
+      chord("“", { physicalKey: "BracketLeft", altKey: true }),
+      { type: "order", order: "backward" },
+    ],
     [chord("H", { shiftKey: true }), { type: "flip", axis: "x" }],
     [chord("V", { shiftKey: true }), { type: "flip", axis: "y" }],
     // ⌥ makes another character of a letter on a Mac: the place on the keyboard decides.
-    [chord("å", { code: "KeyA", altKey: true }), { type: "align", edge: "left" }],
-    [chord("˙", { code: "KeyH", altKey: true }), { type: "align", edge: "centre" }],
-    [chord("∂", { code: "KeyD", altKey: true }), { type: "align", edge: "right" }],
-    [chord("∑", { code: "KeyW", altKey: true }), { type: "align", edge: "top" }],
-    [chord("√", { code: "KeyV", altKey: true }), { type: "align", edge: "middle" }],
-    [chord("ß", { code: "KeyS", altKey: true }), { type: "align", edge: "bottom" }],
-    [chord("Ó", { code: "KeyH", altKey: true, shiftKey: true }), { type: "distribute", axis: "x" }],
-    [chord("◊", { code: "KeyV", altKey: true, shiftKey: true }), { type: "distribute", axis: "y" }],
+    [chord("å", { physicalKey: "KeyA", altKey: true }), { type: "align", edge: "left" }],
+    [chord("˙", { physicalKey: "KeyH", altKey: true }), { type: "align", edge: "centre" }],
+    [chord("∂", { physicalKey: "KeyD", altKey: true }), { type: "align", edge: "right" }],
+    [chord("∑", { physicalKey: "KeyW", altKey: true }), { type: "align", edge: "top" }],
+    [chord("√", { physicalKey: "KeyV", altKey: true }), { type: "align", edge: "middle" }],
+    [chord("ß", { physicalKey: "KeyS", altKey: true }), { type: "align", edge: "bottom" }],
+    [
+      chord("Ó", { physicalKey: "KeyH", altKey: true, shiftKey: true }),
+      { type: "distribute", axis: "x" },
+    ],
+    [
+      chord("◊", { physicalKey: "KeyV", altKey: true, shiftKey: true }),
+      { type: "distribute", axis: "y" },
+    ],
   ];
 
   test.each(table)("%o maps to %o", (event, intent) => {
@@ -144,7 +164,7 @@ describe("a modal transform (G, S, E)", () => {
       { type: "transform", act: { kind: "key", key: { kind: "type", key: "Backspace" } } },
     ],
     [
-      chord("4", { code: "Numpad4" }),
+      chord("4", { physicalKey: "Numpad4" }),
       { type: "transform", act: { kind: "key", key: { kind: "type", key: "4" } } },
     ],
     [chord("Enter"), { type: "transform", act: { kind: "confirm" } }],
@@ -191,9 +211,9 @@ describe("what the browser still gets", () => {
 
   test("an empty selection swallows the arrange keys, and flip is not the hand", () => {
     for (const event of [
-      chord("]", { code: "BracketRight" }),
+      chord("]", { physicalKey: "BracketRight" }),
       chord("H", { shiftKey: true }),
-      chord("å", { code: "KeyA", altKey: true }),
+      chord("å", { physicalKey: "KeyA", altKey: true }),
     ]) {
       expect(mapCanvasKey(event, empty)).toEqual({ intent: null, preventDefault: true });
     }
@@ -304,3 +324,152 @@ describe("the command menus", () => {
     expect(cut?.hint).toBe("⌘X");
   });
 });
+
+describe("the canvas's key contexts", () => {
+  test.each(["rest", "transform", "present"] as const)(
+    "%s holds every chord kb binds in it: none overlaps another",
+    (name) => {
+      const keymap = canvasKeymap(name);
+      expect(keymap.refused).toEqual([]);
+      const bound = CANVAS_SHORTCUTS.filter(({ context }) => context === name).flatMap(
+        ({ chords }) => chords,
+      );
+      expect(keymap.held.map(({ value }) => value.chord)).toEqual(bound);
+    },
+  );
+
+  test("a numpad digit looks from a view, by its place, before the tool its character picks", () => {
+    expect(mapCanvasKey(chord("7", { physicalKey: "Numpad7" }), withSelection)?.intent).toEqual({
+      type: "look",
+      preset: "top",
+    });
+    expect(mapCanvasKey(chord("7", { physicalKey: "Digit7" }), withSelection)?.intent).toEqual({
+      type: "tool",
+      tool: "group",
+    });
+  });
+});
+
+/** A plugin binding `bindings`, beside the canvas's own. */
+const keys = (...bindings: ReturnType<typeof provideKeybinding>[]) =>
+  definePlugin({
+    name: "keys",
+    apply: (ctx) =>
+      Effect.all(
+        bindings.map((binding) => ctx.contribute(KeybindingPoint, binding)),
+        { discard: true },
+      ),
+  });
+
+/** The canvas's keys with `plugin`'s beside them, while `run` runs, under a host that approves replacements. */
+function withKeys(plugin: ReturnType<typeof keys>, run: () => void): void {
+  syncUiPlugins([testHostPlugin(testBrowserHost()), canvasKeysPlugin, plugin]);
+  try {
+    run();
+  } finally {
+    syncUiPlugins([canvasKeysPlugin]);
+  }
+}
+
+describe("another plugin's canvas keys", () => {
+  test("bind a free chord to an action, which the key runs", () => {
+    withKeys(
+      keys(
+        provideKeybinding("stamp", {
+          context: "canvas.rest",
+          chord: "Mod-Shift-y",
+          run: { action: "keys.stamp" },
+        }),
+      ),
+      () => {
+        expect(canvasKeymap("rest").refused).toEqual([]);
+        expect(mapCanvasKey(chord("Y", { metaKey: true, shiftKey: true }), withSelection)).toEqual({
+          intent: null,
+          call: { type: "runAction", action: "keys.stamp", input: {} },
+          preventDefault: true,
+        });
+      },
+    );
+  });
+
+  test("take a held chord only by naming its holder, and the hints follow the keymap", () => {
+    const copy = CANVAS_SHORTCUTS.find(({ name }) => name === "copy");
+    expect(copy && hintOf(copy)).toBe("⌘C");
+    withKeys(
+      keys(
+        provideKeybinding("draw", {
+          context: "canvas.rest",
+          chord: "Alt-p",
+          run: { intent: "tool.draw" },
+        }),
+        provideKeybinding("copy", {
+          context: "canvas.rest",
+          chord: "Mod-c",
+          run: { action: "keys.copy-as-link" },
+          replaces: "canvas.rest.copy",
+        }),
+      ),
+      () => {
+        expect(canvasKeymap("rest").refused).toEqual([
+          {
+            id: "keys.draw",
+            reason:
+              'Alt-p in canvas.rest is held by canvas.rest.tool.draw; a binding that takes it says replaces: "canvas.rest.tool.draw"',
+          },
+        ]);
+        expect(mapCanvasKey(chord("c", { metaKey: true }), withSelection)?.call).toEqual({
+          type: "runAction",
+          action: "keys.copy-as-link",
+          input: {},
+        });
+        // Copy holds no chord now, so no menu or tooltip names one for it.
+        expect(copy && hintOf(copy)).toBe("");
+      },
+    );
+  });
+
+  test("may not take Escape, so no key traps a person in a transform", () => {
+    withKeys(
+      keys(
+        provideKeybinding("out", {
+          context: "canvas.transform",
+          chord: "Escape",
+          run: { intent: "transform.confirm" },
+        }),
+      ),
+      () => {
+        expect(canvasKeymap("transform").refused).toEqual([
+          { id: "keys.out", reason: "Escape is reserved in canvas.transform" },
+        ]);
+      },
+    );
+  });
+});
+
+for (const name of ["nudge", "nudge.ten"]) {
+  for (const all of [false, true]) {
+    test(`${name} hints follow ${all ? "full" : "partial"} replacement`, () => {
+      const entry = CANVAS_SHORTCUTS.find((e) => e.name === name);
+      if (entry === undefined) throw new Error("missing shortcut");
+      const replacements = entry.chords.flatMap((bindingChord, index) =>
+        all || bindingChord.key === "ArrowUp"
+          ? [
+              {
+                id: `nudge-${index}`,
+                value: {
+                  context: "canvas.rest",
+                  chord: bindingChord,
+                  run: { action: "keys.nudge" },
+                  replaces: `canvas.rest.${name}${index === 0 ? "" : `.${index + 1}`}`,
+                },
+              },
+            ]
+          : [],
+      );
+      withKeys(keys(...replacements), () => {
+        expect(canvasKeymap("rest").refused).toEqual([]);
+        expect(hintOf(entry)).toBe(all ? "" : `${name === "nudge.ten" ? "⇧" : ""}←→↓`);
+      });
+    });
+  }
+}

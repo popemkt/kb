@@ -1,3 +1,5 @@
+import { keyboardSchemaNodes, SHORTCUT_IDS } from "@kb/keybindings";
+import { CORE_KEYBOARD } from "./keyboard.ts";
 /**
  * Core declared as the families are (DESIGN.md → Extension families): its
  * own system nodes, the views the shell is built from, in the order the
@@ -30,6 +32,7 @@ import {
   OntologyListView,
   OntologyScopeView,
   SettingsView,
+  ProcedureView,
 } from "@kb/views";
 
 /**
@@ -47,7 +50,8 @@ export const coreExtension = defineExtension({
   },
   tags: ["core"],
   required: "Everything else is built on it; without it there is no graph to extend.",
-  seed: systemSeedNodes,
+  seed: (at) => [...systemSeedNodes(at), ...keyboardSchemaNodes(at)],
+  keyboard: CORE_KEYBOARD,
   views: [
     viewDef(OntologyListView),
     viewDef(OntologyScopeView),
@@ -55,12 +59,13 @@ export const coreExtension = defineExtension({
     viewDef(LayoutView),
     viewDef(NodeView),
     viewDef(SettingsView),
+    viewDef(ProcedureView),
     viewDef(HomeView),
     viewDef(NodeReadView),
   ],
   declaredOptions: [{ kind: DESIGN_SYSTEM_OPTIONS, options: [KB_DESIGN_SYSTEM] }],
   // Its own lists it files under its node: the families' migration records.
-  files: { [extensionNodeId("core")]: [SYSTEM_IDS.migrationsList] },
+  files: { [extensionNodeId("core")]: [SYSTEM_IDS.migrationsList, SHORTCUT_IDS.parent] },
   // Where a node made with no chosen place goes, and where a page that
   // loads at the root opens: core's page half answers the top level and
   // home, and a family may replace either (days answers today). Where a

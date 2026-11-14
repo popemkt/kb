@@ -10,10 +10,15 @@ import { createInterface } from "node:readline/promises";
 import { type Command, CommanderError } from "commander";
 import { Cause, Effect, Option } from "effect";
 import type { FileSystem } from "effect/FileSystem";
-import type { ActionReceipt, ActionInvocation, KbContext, SurfaceWire } from "@kb/contracts";
+import {
+  ActionCatalog,
+  type ActionReceipt,
+  type ActionInvocation,
+  type KbContext,
+  type SurfaceWire,
+} from "@kb/contracts";
 import {
   invokeReceiptEffect,
-  manifest,
   kbRuntimeLayer,
   openKbEffect,
   processVia,
@@ -236,8 +241,11 @@ export const invokeCliEffect = Effect.fn("invokeCliEffect")(function* (
   if (receipt.status !== "failed" || receipt.code !== "approval_required") return receipt;
   const approved = yield* askTerminal(
     Effect.gen(function* () {
+      // The session's own catalog: composing a registry apart from it, blind
+      // to the store's extension switches, would replace the session's and
+      // unload the families the approved retry runs on.
       const title =
-        (yield* manifest(ctx.root)).find((entry) => entry.id === call.id)?.title ?? call.id;
+        (yield* ActionCatalog)().find((entry) => entry.id === call.id)?.title ?? call.id;
       return `${typeof call.actor === "string" ? call.actor : JSON.stringify(call.actor)}: ${title} (${call.id}) ${JSON.stringify(call.input)}\n${receipt.message}\n`;
     }),
     "Approve this call?",

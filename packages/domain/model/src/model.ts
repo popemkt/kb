@@ -293,6 +293,7 @@ export const SYSTEM_IDS = {
    * Settings of core's node, and on any node, of that node's page.
    */
   backdropField: "sys.f.backdrop",
+  backdropHeadField: "sys.f.backdrop.head",
   backdropStrengthField: "sys.f.backdrop.strength",
   backdropDirectionField: "sys.f.backdrop.direction",
   backdropArtField: "sys.f.backdrop.art",
@@ -344,6 +345,13 @@ export const SYSTEM_IDS = {
   motionIntensityField: "sys.f.motion.intensity",
   motionStyleField: "sys.f.motion.style",
   motionSpeedField: "sys.f.motion.speed",
+  /**
+   * Whether a `kb ui` server watches the root's own `.kb/extensions/`
+   * (checkbox, one): a setting of core's node, read by `extensionsWatched`
+   * (`@kb/contracts`). Absent is off (DESIGN.md → Watching the root's own
+   * extensions).
+   */
+  extensionsWatchField: "sys.f.extensions.watch",
 } as const;
 
 /**

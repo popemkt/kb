@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
-import { cn, hasText, landOnce, useRoute, ViewErrorBoundary, WorkspaceBoundary } from "@kb/ui-sdk";
+import {
+  cn,
+  currentKeymap,
+  keyChordEvent,
+  hasText,
+  keyCallOf,
+  landOnce,
+  runKeyCall,
+  useRoute,
+  ViewErrorBoundary,
+  WorkspaceBoundary,
+} from "@kb/ui-sdk";
 import { SettingsTrigger } from "@/lib/settings-trigger";
 import { SidebarToggle } from "@/components/sidebar/sidebar-toggle";
 import { ThemeArt } from "@kb/appearance-kit";
@@ -11,11 +22,13 @@ import { DockHost, DockToggles } from "@/docks";
 import { Overlays } from "@/overlays";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { Workspace } from "@/components/layout/workspace";
-import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
+import { PAGE_CONTEXT_ID } from "@kb/operations";
+import { paletteOpening } from "@/lib/page-keys";
 import { loadManifest, readManifest } from "@/lib/manifest";
 import { startWorkspace } from "@/stores/workspace.store";
 import { extensionsSettled, startUiPlugins } from "@/ui-plugins";
 import { startOutlineLocation, useGraphStore } from "@/stores/graph.store";
+import { pageCommandTarget } from "@/stores/page-commands";
 import { pageEditor } from "@/stores/page-editor";
 import { useSidebarToggle } from "@/stores/prefs.store";
 import type { WsStatus } from "@/api/ws";
@@ -63,6 +76,24 @@ function ConnectionDot() {
         data-status={wsStatus}
       />
       {dot.label}
+    </span>
+  );
+}
+
+/**
+ * A quiet note while the server watches the root's own extensions, so a
+ * person developing one knows a save there is followed, and trusted again.
+ */
+function ExtensionWatchNote() {
+  const folder = useUiStore((s) => s.extensionWatch);
+  if (folder === null) return null;
+  return (
+    <span
+      className="text-label text-faint-foreground"
+      title={`kb follows edits under ${folder}; each save is a new digest to trust again`}
+      data-extension-watch={folder}
+    >
+      watching {folder}
     </span>
   );
 }
@@ -145,6 +176,7 @@ function WorkspaceHeader({ status }: { status: "loading" | "ready" | "error" }) 
         <span className="text-label text-faint-foreground">loading…</span>
       ) : null}
       <ConnectionDot />
+      <ExtensionWatchNote />
       <div className="flex-1" />
       <PaletteTrigger onOpen={() => setGlobalPaletteOpen(true)} />
       <DockToggles />
@@ -230,14 +262,10 @@ export function App() {
   }, [reload]);
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
+    const openPalette = () => {
       const o = pageEditor().getState();
-      const action = matchGlobalShortcut(e, {
-        rowAnchored: o.activeNodeId !== null || o.selectedNodeId !== null,
-      });
-      if (action === null) return;
-      e.preventDefault();
-      if (action === "node-palette") {
+      const rowAnchored = o.activeNodeId !== null || o.selectedNodeId !== null;
+      if (paletteOpening(rowAnchored) === "node-palette") {
         // An edited row is demoted to selected, so the palette anchors on it.
         if (o.activeNodeId !== null && o.activeInstanceKey !== null) {
           o.selectNode(o.activeNodeId, o.activeInstanceKey);
@@ -246,6 +274,19 @@ export function App() {
         return;
       }
       setGlobalPaletteOpen(!useUiStore.getState().globalPaletteOpen);
+    };
+    // The page's own keys (`core.page`): offered every key first, so captured.
+    const handler = (e: KeyboardEvent) => {
+      const binding = currentKeymap(PAGE_CONTEXT_ID).resolve(keyChordEvent(e));
+      if (binding === undefined) return;
+      e.preventDefault();
+      const { run } = binding.value;
+      if ("intent" in run) {
+        if (run.intent === "palette") openPalette();
+        return;
+      }
+      const call = keyCallOf(run, pageCommandTarget().nodeId);
+      if (call !== null) void runKeyCall(call);
     };
     window.addEventListener("keydown", handler, true);
     return () => window.removeEventListener("keydown", handler, true);

@@ -54,7 +54,7 @@ export function Breadcrumbs({ root }: { readonly root?: string | undefined }) {
         type="button"
         className={cn(
           "flex items-center gap-1 rounded-sm px-1.5 py-0.5",
-          "text-muted-foreground hover:text-foreground hover:bg-foreground/5",
+          "text-foreground/65 hover:text-foreground hover:bg-foreground/5",
           "transition-colors duration-100",
           isAtRoot && "text-foreground",
         )}
@@ -67,13 +67,13 @@ export function Breadcrumbs({ root }: { readonly root?: string | undefined }) {
 
       {crumbs.map((item) => (
         <div key={item.id} className="flex items-center gap-1">
-          <CaretRightIcon size={10} weight="bold" className="text-foreground/25" />
+          <CaretRightIcon size={10} weight="bold" className="text-foreground/40" />
           <button
             type="button"
             title={item.text}
             className={cn(
               "max-w-[12rem] truncate rounded-sm px-1.5 py-0.5",
-              "text-muted-foreground hover:text-foreground hover:bg-foreground/5",
+              "text-foreground/65 hover:text-foreground hover:bg-foreground/5",
               "transition-colors duration-100",
               item.id === rootNodeId && "text-foreground font-medium",
             )}

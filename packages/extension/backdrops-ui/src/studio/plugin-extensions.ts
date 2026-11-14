@@ -34,10 +34,7 @@ function pluginExtensionsOf(report: unknown): PluginExtensions {
   };
 }
 
-/** The family a contribution's owner belongs to: the plugin's own name, or the family that loaded it. */
-export function familyOf(owner: string): string {
-  return owner.split("/")[0] ?? owner;
-}
+export { rootPluginName as familyOf } from "@kb/plugin";
 
 /** Where the report says an extension comes from: what was installed, else its kind of folder. */
 export function sourceOf(row: ExtensionReportRow): string {

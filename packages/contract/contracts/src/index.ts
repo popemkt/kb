@@ -15,12 +15,7 @@ export {
   PAGE_TIERS,
   capabilityLines,
   listingMissing,
-  type CapabilityLine,
-  type ExtensionCapabilities,
   type ExtensionManifest,
-  type RoleReplacement,
-  type PointUse,
-  type PageTier,
 } from "./extension-manifest.ts";
 export {
   COLOR_TOKEN_FALLBACKS,
@@ -72,7 +67,6 @@ export type {
   CalledAction,
   DecidedEntry,
   RunningCall,
-  ShownConfiguration,
   SurfaceWire,
 } from "./approval.ts";
 export type {
@@ -87,7 +81,6 @@ export type {
   FilledInput,
   ManifestEntry,
   CoreInvoker,
-  InvokeScope,
 } from "./actions.ts";
 export { ChannelPoint, UiHost } from "./channel.ts";
 export {
@@ -99,13 +92,9 @@ export {
   extensionFrom,
   extensionRow,
 } from "./declaration.ts";
-export type {
-  ExtensionDeclaration,
-  ExtensionEntry,
-  ExtensionFrom,
-  ExtensionRow,
-} from "./declaration.ts";
+export type { ExtensionDeclaration, ExtensionEntry, ExtensionRow } from "./declaration.ts";
 export { NO_SWITCHES, familyOn, switchWrites } from "./extension-switch.ts";
+export { EXTENSIONS_WATCH_NODE, extensionsWatched } from "./extension-watch.ts";
 export {
   FOOTPRINT_SOURCES,
   FamilyKernels,
@@ -120,7 +109,7 @@ export {
   orderedPoints,
   organisationOf,
 } from "./extension-report.ts";
-export type { ExtensionReport, ExtensionReportRow, OrderedPoint } from "./extension-report.ts";
+export type { ExtensionReport, ExtensionReportRow } from "./extension-report.ts";
 export { ExtensionSettingsSchema } from "./extension-settings.ts";
 export type { ExtensionSettings } from "./extension-settings.ts";
 export type { NodeLookup } from "./extension-switch.ts";
@@ -145,7 +134,7 @@ export { uiAddressOf, uiListenerName } from "./ui-listener.ts";
 export type { UiListener } from "./ui-listener.ts";
 export { mcpToolHints, mcpToolName, mcpToolResult } from "./mcp-tool.ts";
 export { JSON_RPC_VERSION, MCP_APP_MIME, MCP_APPS_METHODS, MCP_APPS_VERSION } from "./mcp-apps.ts";
-export type { McpToolHints, McpToolResult } from "./mcp-tool.ts";
+
 export type {
   ActionContribution,
   ExtensionAction,
@@ -177,6 +166,7 @@ export {
   ProcedureCallSchema,
   ProcedurePoint,
   ProcedureStatusSchema,
+  ProcedureStepOutputSchema,
   StepCheckSchema,
   StepStatusSchema,
   isDecision,
@@ -188,18 +178,11 @@ export {
   migrationProcedure,
   migrationProcedureId,
 } from "./migration.ts";
-export type {
-  ExtensionMigration,
-  MigrationGraph,
-  MigrationPlan,
-  MigrationStep,
-} from "./migration.ts";
+export type { ExtensionMigration, MigrationGraph, MigrationStep } from "./migration.ts";
 export type {
   ProcedureCall,
   ProcedureContribution,
   ProcedureStatus,
-  ProcedureStep,
-  StepAction,
   StepStatus,
 } from "./procedure.ts";
 export {
@@ -212,7 +195,7 @@ export {
 } from "./context.ts";
 export type { ContextReference, ContextReferences } from "./context.ts";
 export { IdentityPoint, PersonSchema } from "./person.ts";
-export type { IdentityAnswer, Identification, IdentityProvider, Person } from "./person.ts";
+export type { Identification, IdentityProvider, Person } from "./person.ts";
 export {
   ActionResponseSchema,
   ClientMessageSchema,
@@ -265,7 +248,6 @@ export type {
   CanvasScreen,
   CanvasViewPresetName,
   CanvasViewTarget,
-  NavigateTarget,
   PaneScreen,
   ScreenAck,
   ScreenCapture,
@@ -299,7 +281,7 @@ export type { ExtensionTemplate, TemplateContext, TemplateFn } from "./template.
 export type { KbContext } from "./session.ts";
 export { KeptState, staleCommitError } from "./store.ts";
 export { STORE_CHANGES_POLL, directorySignals, fingerprintChanges } from "./store-changes.ts";
-export type { DirectoryWatcher, WatchDirectory } from "./store-changes.ts";
+
 export type { EffectStore, StoreCommit, StoreFingerprint } from "./store.ts";
 export {
   Assets,
@@ -311,16 +293,8 @@ export {
   isValidWorkspaceName,
 } from "./workspace.ts";
 export { KbRoots } from "./roots.ts";
-export type { BackupTaken, KbRootsPort, RootProbe, RootState, StoreBackup } from "./roots.ts";
-export type {
-  AssetsPort,
-  CodeTrustPort,
-  CodeTrustRecord,
-  TrustProvenance,
-  LegacyDocsViewFiles,
-  LegacyDocsViewsPort,
-  SavedQueriesPort,
-} from "./workspace.ts";
+export type { BackupTaken, KbRootsPort, RootProbe, StoreBackup } from "./roots.ts";
+export type { TrustProvenance, LegacyDocsViewFiles } from "./workspace.ts";
 
 export {
   CachedSourceSchema,
@@ -346,8 +320,6 @@ export type {
   SourceAddress,
   SourceSelection,
   ExtensionTransaction,
-  ExtensionCollection,
-  ExtensionLockRead,
 } from "./extension-install.ts";
 
 export {
@@ -357,7 +329,6 @@ export {
   DATE_TARGET_ROLE,
   declaredRoles,
   FIELD_EDITOR_ROLE,
-  type ProviderRole,
 } from "./roles.ts";
 
 export {
@@ -369,7 +340,7 @@ export {
   type CapturePlanner,
 } from "./capture-target.ts";
 
-export { orderedRoles, type OrderedRole } from "./extension-report.ts";
+export { orderedRoles } from "./extension-report.ts";
 
 export { TxAfterPoint, onCommit, CurrentReactions } from "./reactions.ts";
 export type { ReactionFailure, TxChange, ReactionHost, Reactions } from "./reactions.ts";
@@ -382,7 +353,9 @@ export {
 
 export { TxMatchSchema, describeTxMatch, type TxMatch, type TxReaction } from "./tx-match.ts";
 
-export { hostCapabilities, extensionAdmissionIssue, type HostCapabilities } from "./admission.ts";
+export { hostCapabilities, extensionAdmissionIssue } from "./admission.ts";
 export { waitingForPoint, PointNamesSchema } from "./point-names.ts";
 
 export { manifestAuthority } from "./manifest-authority.ts";
+
+export { KeybindingPoint, KeyContextPoint } from "./keybindings.ts";

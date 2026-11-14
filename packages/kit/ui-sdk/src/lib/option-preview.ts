@@ -26,7 +26,7 @@ export type PreviewSize = "chip" | "card";
  * id and a size among `sizes`, and draws nothing for an id it cannot show
  * (a thing nobody contributes now).
  */
-export interface OptionPreview {
+interface OptionPreview {
   readonly kind: DeclaredOptions;
   /** The sizes it draws: `chip` always, `card` where the kind is chosen by sight. */
   readonly sizes: readonly ["chip", ...PreviewSize[]];

@@ -26,7 +26,7 @@ export interface MigrationGraph {
 }
 
 /** What a migration plans: the nodes it writes, whole, and the ids it deletes. */
-export interface MigrationPlan {
+interface MigrationPlan {
   readonly upserts: readonly KbNode[];
   readonly deletes: readonly NodeId[];
 }
@@ -128,6 +128,7 @@ export function migrationProcedure(
           { id: "keep", title: "Keep", call: { action: "migration.keep", input: on } },
           {
             id: "rollback",
+            tone: "destructive",
             title: "Roll back",
             call: { action: "migration.rollback", input: on },
           },

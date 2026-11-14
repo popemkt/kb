@@ -3139,6 +3139,12 @@ it would be on its own. An action needing approval needs it on the call
 that walks it: `callWithin` lends the nested call only its caller's
 approval. MCP, which carries no approval, is refused there as it is anywhere.
 
+The browser route `/procedure/<id>` is the same walker: it reads
+`procedure.status`, offers only the current step’s actions, shows recommendations
+and notes without choosing for the person, and invokes `procedure.step` through
+the page’s normal approval path. It shows the nested action receipt’s result or
+failure, and never automatically repeats a step whose check did not advance.
+
 `kb procedure [id]` lists the procedures or shows one's status.
 `--run` walks a procedure from its current step, asking before each step;
 `--yes` skips that question but not an approval. `--run` stops at a
@@ -3324,6 +3330,34 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   Admission imports only own code; it checks lock
   schemas, bundled names, store-relative links and present tree integrity
   without fetching, importing or executing installed/linked code.
+- **Watching the root's own extensions.** A lock moves when a selection does,
+  so the readings above follow every installed and linked extension. The
+  root's own `.kb/extensions/` has no lock: its files are read once per root
+  reading, and an edit to one is seen when something else invalidates that
+  reading, or at the next start. A `kb ui` server can also watch the folder.
+  It watches while `kb ui --watch-extensions` asked it to, or while core's
+  setting `sys.f.extensions.watch` (a checkbox, `extensionsWatched` in
+  `@kb/contracts`) is on, so a person can leave it on. The flag is per run and
+  the setting is the store's, committed with it.
+  - **What watching does.** `ownExtensionEdits` (`app/runtime`) watches the
+    folder and every folder under it, creating it when it is initially missing.
+    Its parent-directory signal follows removal and recreation, replacing the
+    scoped recursive watch when the directory identity changes. Disabling
+    watching or stopping the server closes both watches. After
+    each burst of edits it drops the root's reading, and the server's follower
+    then announces a changed manifest, as it does for a lock.
+  - **Trust is not skipped.** Saving a file gives its closure a new digest, so
+    the extension is untrusted until a person trusts it again, and the page
+    shows it refused with that digest. No flag, setting or agent path imports
+    unreviewed bytes.
+  - **Module instances accumulate.** A module cannot be un-imported, so each
+    trusted save leaves the previous instance in the process until it
+    restarts. That is why watching is opt-in, for a person developing an
+    extension, and not the default.
+  - **The page is told.** The server says whether it watches, and which
+    folder, in an `extension-watch` message: once when a connection is
+    greeted, and again whenever that changes. The page shows the note
+    (DESIGN-UI.md → Panes and layouts).
 - **Pinned extension sources.** `SourceReader` (`@kb/extension-source`) resolves
   GitHub sources to full 40-hex commits and reads regular files from that pin.
   The reader returns a checked, sorted file set independent of product
@@ -3584,7 +3618,8 @@ from "kb-ext-sdk"`. Types are generated from
   are always the host's. A page half's types are `.kb/sdk-page.d.ts`
   (module `kb-ext-sdk/page`, from `page-surface.ts`: the UI points —
   views, routes, sidebar sections, docks, overlays, commands, picker
-  steps, field types' value kinds, keybindings, design systems, backdrops
+  steps, field types' value kinds, paste and drop handlers, keybindings,
+  design systems, backdrops
   with their budgets and the kit's frame meter — and
   React's own types), written beside it. `kb-ext-sdk` carries the
   declared-option kinds a declaration names its backdrops and field types
@@ -6069,6 +6104,8 @@ sends it more than 400 messages a second.
   approved atomically attaches its verified source provenance; this operation
   cannot grant trust or revive a revoked digest. Explicit untrust withdraws all this machine's records
   for the digest.
+  The same ledger holds [shortcut confirmations](DESIGN-UI.md#outline-editor-i1);
+  their canonical content and interaction policy live there.
   Repository bytes are never a source of authority: `CodeTrust` has no root
   parameter, reads only the per-user file, and a read never writes or deletes.
   `extension.list` reports the old file as ignored when present.
@@ -6365,6 +6402,17 @@ counterfeit or retired keys are refused. Other plugins list its full name in
 until it exists, and return to pending when its owner leaves.
 `ctx.contributions(point)` reads through the kernel's normal visibility rules,
 so installed declarers can consume contributions without a kernel reference.
+`Kernel.provenance(owner)` reads the visible owner's effective host-bound
+code origin: its actual root plugin (following loaded parent links, never
+parsing owner-name prefixes), bundled/extension source and, when bound, closure
+digest. Children inherit the root authority even when their contribution
+namespace differs; plugin object fields cannot manufacture it. The reading
+uses the same whole-activation visibility as contributions, so applying,
+pending, failed, closing or unloaded scopes supply no provenance. This is code
+origin inspection, not proof that a particular target is registered and not a
+replacement grant. A native source without an implementation digest does not
+by itself authenticate an implementation for a persistent grant.
+
 Typed point-name references resolve through that same reader. A declaration's
 Standard Schema contract decodes contributions before admission; a failure
 refuses the plugin atomically. The extension report shows declarations, their

@@ -77,7 +77,7 @@ function asRecord(raw: unknown): TlRecord | undefined {
 export type TldrawValue = string | number | boolean;
 
 /** A record node an imported card stands for: its words as markdown, and its meta keys as fields. */
-export interface TldrawRecordNode {
+interface TldrawRecordNode {
   /** The shape it came from. */
   readonly key: string;
   /** The page it is on. */
@@ -93,7 +93,7 @@ export interface TldrawPage {
   readonly doc: CanvasDoc;
 }
 
-export interface TldrawBoard {
+interface TldrawBoard {
   /** The board first, then its pages, in tldraw's page order. */
   readonly pages: readonly TldrawPage[];
   readonly records: readonly TldrawRecordNode[];
@@ -102,7 +102,7 @@ export interface TldrawBoard {
 }
 
 /** The node ids a lowering writes: one per page, one per record shape. */
-export interface TldrawIds {
+interface TldrawIds {
   readonly page: (key: string) => NodeId;
   readonly record: (key: string) => NodeId;
 }

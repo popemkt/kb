@@ -36,10 +36,12 @@ export const StepCheckSchema = z
   .loose();
 
 /** One action a step offers: its name in the step, and the call it makes. */
-export interface StepAction {
+interface StepAction {
   readonly id: string;
   readonly title: string;
   readonly description?: string;
+  /** Presentation of an action whose effect is destructive. */
+  readonly tone?: "destructive";
   readonly call: ProcedureCall;
 }
 
@@ -89,6 +91,7 @@ export const StepStatusSchema = z.object({
     z.object({
       id: z.string(),
       title: z.string(),
+      tone: z.literal("destructive").optional(),
       description: z.string().optional(),
       call: ProcedureCallSchema,
     }),
@@ -137,3 +140,9 @@ export function walkedSteps(checks: readonly boolean[]): {
   const current = done.indexOf(false);
   return { done, current: current === -1 ? null : current };
 }
+
+/** The result of one step: its nested action receipt and freshly read progress. */
+export const ProcedureStepOutputSchema = z.object({
+  receipt: z.unknown(),
+  status: ProcedureStatusSchema,
+});

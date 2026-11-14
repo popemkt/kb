@@ -144,6 +144,7 @@ const INERT_WRITES: PageWrites = {
   makeSupertag: refused,
   togglePin: refused,
   attachFileToNode: refused,
+  addTree: () => Promise.reject(new Error("the test host adds no tree")),
   ontologyAddExtends: refused,
   createEmptyNode: none,
   createEmptyNodeBefore: none,
@@ -240,6 +241,7 @@ export function testBrowserHost(overrides: Partial<BrowserHost> = {}): TestBrows
     viewCatalog: () => ({ keyOf: () => null }),
     writes: INERT_WRITES,
     invoke: (id) => noCall(id),
+    runCommand: () => Promise.resolve(),
     replacementApproved: () => true,
     subscribeManifest: () => () => {},
     screen: {

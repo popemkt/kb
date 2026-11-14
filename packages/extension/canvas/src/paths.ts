@@ -166,7 +166,7 @@ export function isOpenLine(item: CanvasNode): item is CanvasPathNode {
  * A mark an item wears in its outline's ink, beyond its outline: filled in
  * that ink, or stroked in it as heavy as the outline (at least 1).
  */
-export interface CanvasMark {
+interface CanvasMark {
   readonly path: readonly CanvasPathCommand[];
   readonly filled: boolean;
 }

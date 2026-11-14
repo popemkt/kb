@@ -11,7 +11,7 @@ import type { CanvasNode } from "./doc.ts";
 import { ancestorsOf, canvasMembership, heldPerItems } from "./membership.ts";
 
 /** A point of the canvas floor: across, then down. */
-export type CanvasFloorPoint = readonly [x: number, y: number];
+type CanvasFloorPoint = readonly [x: number, y: number];
 
 /**
  * A region of the canvas floor seen from above: a convex polygon, its

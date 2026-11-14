@@ -1,8 +1,7 @@
 /**
- * ⌘K "Go to today", the `sys.command` node the family seeds. A direct key
- * waits on a global key context a family can contribute to.
+ * "Go to today", the `sys.command` node the family seeds: in ⌘K, and on
+ * Mod-Shift-D, a key the page answers wherever focus is (`core.page`).
  */
-// GAP [[01M6Y9H6R5D9Y8TQKZJZVWX8PB]] no global key context, so "Go to today" is a command and not a key
 import { DAYS_IDS } from "@kb/days";
 import type { Command } from "@kb/ui-sdk";
 import { openToday } from "./today";

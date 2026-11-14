@@ -28,6 +28,7 @@ import {
   ActionCatalog,
   CurrentCall,
   CurrentInterception,
+  CodeTrust,
   DecidedEntrySchema,
   ExtensionCatalog,
   ExtensionRowSchema,
@@ -35,6 +36,7 @@ import {
   ViewCatalog,
   type ActionDefinition,
 } from "@kb/contracts";
+import type { DomainError } from "@kb/model";
 import { guardBefore } from "./interception.ts";
 
 /** One view of the catalog on the wire: `@kb/views`' `ViewCatalogEntry`. */
@@ -55,6 +57,8 @@ export const kbManifestDef = {
   mode: { kind: "read" } as const,
   inputSchema: z.object({}),
   outputSchema: z.object({
+    root: z.string().optional(),
+    trusted: z.array(z.string()).optional(),
     actions: z.array(DecidedEntrySchema),
     views: z.array(ViewCatalogEntrySchema),
     extensions: z.array(ExtensionRowSchema),
@@ -63,8 +67,8 @@ export const kbManifestDef = {
 
 export const kbManifestEffect = Effect.fn("kb.manifest")(function* (): Effect.fn.Return<
   z.infer<typeof kbManifestDef.outputSchema>,
-  never,
-  ActionCatalog | ExtensionCatalog | KbCtx | ViewCatalog
+  DomainError,
+  ActionCatalog | ExtensionCatalog | KbCtx | ViewCatalog | CodeTrust
 > {
   const ctx = yield* KbCtx;
   // What it decides is about the call it answers, and the invoke core runs every handler in one.
@@ -80,6 +84,8 @@ export const kbManifestEffect = Effect.fn("kb.manifest")(function* (): Effect.fn
     }).pipe(Effect.map(({ decision }) => ({ ...entry, decision }))),
   );
   return {
+    root: ctx.root,
+    trusted: (yield* (yield* CodeTrust).records).map(({ digest }) => digest),
     actions,
     views: [...(yield* ViewCatalog).entries()],
     extensions: [...(yield* ExtensionCatalog)],

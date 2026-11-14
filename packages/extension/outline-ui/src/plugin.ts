@@ -1,25 +1,23 @@
-import { Effect } from "effect";
 import { familyTags } from "@kb/contracts";
+import { OUTLINE_POINT_DEFINITIONS, outlineExtension, outlinePlugin } from "@kb/outline";
+import { Effect } from "effect";
+
 import { definePlugin } from "@kb/plugin";
 import { ListFrameView } from "./frame-views";
 import { OutlineSurface, PinnedSection } from "./surfaces";
 import { ViewSettingsPopoverHost } from "./view-settings-popover";
-import { outlineExtension, outlinePlugin } from "@kb/outline";
 import { OutlineListView, OutlineSnippetView, OutlineView, DEFAULT_VIEW_CONFIG } from "@kb/views";
 import { OutlineSnippet } from "./outline-snippet";
 import {
   BrowserHostService,
   CommandPoint,
-  currentKeymap,
   FieldEditorService,
-  KeybindingPoint,
   OverlayPoint,
   PageEditorService,
   PaletteStepPoint,
   PageProjectionService,
   provideView,
   SidebarSectionPoint,
-  subscribeUiKernel,
   SYSTEM_IDS,
   ViewPoint,
 } from "@kb/ui-sdk";
@@ -29,16 +27,9 @@ import { outlineValueKindsPlugin } from "./slot-kind";
 import { outlineProjection, useOutlineStore } from "./outline.store";
 import { OUTLINE_COMMANDS } from "./outline-commands";
 import { OUTLINE_STEPS } from "./outline-steps";
-import { EDITING_BINDINGS, EDITING_CONTEXT } from "./editing-keymap";
-import { SELECTION_BINDINGS, SELECTION_CONTEXT } from "./selection-keymap";
+import { IngestPoint, OUTLINE_INGESTS } from "./ingest";
 
 const { filters } = DEFAULT_VIEW_CONFIG;
-
-/** Read both of the outline's keymaps, which tells any refusal (`currentKeymap`). */
-function readKeymaps(): void {
-  currentKeymap(EDITING_CONTEXT);
-  currentKeymap(SELECTION_CONTEXT);
-}
 
 /**
  * The outline's views: its page, its list frame view — shown inline, under
@@ -96,6 +87,8 @@ export const outlineUiPlugin = definePlugin({
   apply: (ctx) =>
     Effect.gen(function* () {
       const paletteSteps = yield* ctx.point(PaletteStepPoint);
+      // Its rows' pastes and drops: a chain it declares, its own handlers first in it.
+      const ingests = yield* ctx.declare(IngestPoint, OUTLINE_POINT_DEFINITIONS.ingest.spec);
       yield* Effect.all(
         [
           ctx.plugin(outlinePlugin()),
@@ -123,18 +116,7 @@ export const outlineUiPlugin = definePlugin({
             ctx.contribute(CommandPoint, { id: command.id, value: command }),
           ),
           ...OUTLINE_STEPS.map((step) => ctx.contribute(paletteSteps, step)),
-          // Its two keymaps, the editing row's and the selection's: bindings
-          // like any other plugin's, which the page's keymap holds first.
-          ...[...EDITING_BINDINGS, ...SELECTION_BINDINGS].map((binding) =>
-            ctx.contribute(KeybindingPoint, binding),
-          ),
-          // It reads its two keymaps whenever the page kernel moves, so a
-          // binding another plugin brings that its keymaps refuse is told
-          // then, not at the first key pressed in its context.
-          Effect.acquireRelease(
-            Effect.sync(() => subscribeUiKernel(readKeymaps)),
-            (unsubscribe) => Effect.sync(unsubscribe),
-          ),
+          ...OUTLINE_INGESTS.map((handler) => ctx.contribute(ingests, handler)),
           ctx.contribute(OverlayPoint, {
             id: "view-filter",
             value: { order: 0, Component: ViewSettingsPopoverHost },

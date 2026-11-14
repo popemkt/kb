@@ -6,13 +6,15 @@
 import { useState, type MouseEvent } from "react";
 import { isTyping } from "@kb/ui-sdk";
 import { cardIdAt, edgeIdAt } from "./card-pointer";
-import { isGroupNode, itemLead, type CanvasNode } from "@kb/canvas";
 import {
-  menuRows,
+  isGroupNode,
+  itemLead,
+  type CanvasNode,
   type CanvasIntent,
-  type CanvasMenuCommand,
   type CanvasMenuName,
-} from "./canvas-keymap.ts";
+} from "@kb/canvas";
+
+import { menuRows, type CanvasMenuCommand } from "./canvas-keymap";
 import { hasEditor } from "./canvas-face-overlay";
 import { selectForMenu, selectionEmpty, soleItem, type CanvasSelection } from "./canvas-selection";
 

@@ -1,6 +1,8 @@
 export {
   BACKDROP_DIRECTIONS,
   BACKDROP_DIRECTION_OPTION_IDS,
+  BACKDROP_HEADS,
+  BACKDROP_HEAD_OPTION_IDS,
   BACKDROP_STRENGTHS,
   BACKDROP_STRENGTH_OPTION_IDS,
   BACKDROP_OPTIONS,
@@ -18,6 +20,7 @@ export {
   type BackdropVariant,
   type SeedBackdrop,
   type BackdropDirection,
+  type BackdropHead,
   type BackdropStrength,
 } from "./backdrop.ts";
 export {

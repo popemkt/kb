@@ -22,6 +22,7 @@ const LandingRole = Role(LandingService);
 /** Core's answer, the role's default: the page stays home. */
 export const stayHome: Landing = () => Promise.resolve(null);
 
+// GAP [[01M7CC1GD0A1J314ZTAR54F8AD]] a fixed budget, past which the page stays home without a word.
 /** How long the elected provider may take before the next candidate answers. */
 const LANDING_BUDGET_MS = 5_000;
 

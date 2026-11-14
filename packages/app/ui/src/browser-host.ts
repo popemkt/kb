@@ -6,7 +6,7 @@
  */
 import { coreExtension } from "@kb/operations";
 import { familyTags, replacesWithoutApproval } from "@kb/contracts";
-import { definePlugin } from "@kb/plugin";
+import { definePlugin, rootPluginName } from "@kb/plugin";
 import { mutations } from "@/actions/mutations";
 import { listNodeCommands } from "@/lib/commands";
 import { servedManifest, subscribeManifest } from "@/lib/manifest";
@@ -19,7 +19,7 @@ import { reachedState, useGraphStore } from "@/stores/graph.store";
 import { pageRows, subscribePage } from "@/stores/page";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useDesignSystemStore } from "@/stores/design-system.store";
-import { pageCommandContext } from "@/stores/page-commands";
+import { pageCommandContext, runKeyCommand } from "@/stores/page-commands";
 import { pageEditor } from "@/stores/page-editor";
 import { appearanceIn, usePrefsStore } from "@/stores/prefs.store";
 import { nodeTextPort } from "@/stores/node-text-port";
@@ -41,7 +41,7 @@ const SOURCES = [usePrefsStore, useDesignSystemStore, useUiStore, useDebugFields
  * not name is the page's own build. With no server, every family is.
  */
 export function replacementApproved(owner: string): boolean {
-  const family = owner.split("/")[0] ?? owner;
+  const family = rootPluginName(owner);
   const row = servedManifest()?.extensions.find(({ name }) => name === family);
   return row === undefined || replacesWithoutApproval(row.origin);
 }
@@ -104,6 +104,7 @@ const host: BrowserHost = {
   replacementApproved,
   writes: mutations,
   invoke,
+  runCommand: runKeyCommand,
   subscribeManifest,
   screen: paneScreenPort,
   proposeView,

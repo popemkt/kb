@@ -14,7 +14,7 @@ import { useEffect, useRef } from "react";
 import { LONG_PRESS_MS, pastSlop, pointerKind } from "./pointer-slop";
 
 /** The handlers an element spreads to hear the gesture. */
-export interface MenuGesture {
+interface MenuGesture {
   readonly onContextMenu: (e: React.MouseEvent) => void;
   readonly onPointerDown: (e: React.PointerEvent) => void;
   readonly onPointerMove: (e: React.PointerEvent) => void;

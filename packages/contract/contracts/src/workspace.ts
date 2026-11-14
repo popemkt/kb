@@ -27,7 +27,7 @@ import type { SavedQuery } from "./protocol.ts";
  */
 export { isValidWorkspaceName } from "@kb/model";
 
-export interface SavedQueriesPort {
+interface SavedQueriesPort {
   /** Every readable, well-named `.edn` under the queries directory, by name. */
   readonly list: Effect.Effect<readonly SavedQuery[], DomainError>;
   /** The query's edn, or null when there is none by that name. */
@@ -50,7 +50,7 @@ export interface LegacyDocsViewFiles {
  * `views.migrate` imports, then retires. Nothing else reads them.
  * GAP [[01M3YM5YCHGX6S04KN4G75B9RF]]
  */
-export interface LegacyDocsViewsPort {
+interface LegacyDocsViewsPort {
   readonly read: Effect.Effect<LegacyDocsViewFiles, DomainError>;
   /** Remove the spec files of `names`, which an import has made view nodes of. */
   retire(names: readonly string[]): Effect.Effect<void, DomainError>;
@@ -60,7 +60,7 @@ export class LegacyDocsViews extends Context.Service<LegacyDocsViews, LegacyDocs
   "kb/LegacyDocsViews",
 ) {}
 
-export interface AssetsPort {
+interface AssetsPort {
   /**
    * Store `bytes` as the asset `<id>.<ext>` and return the path node text and
    * markdown reference it by (`assets/<id>.<ext>`) — the caller names the
@@ -88,14 +88,14 @@ export interface TrustProvenance {
   readonly name: string;
   readonly files: string;
 }
-export interface CodeTrustRecord {
+interface CodeTrustRecord {
   readonly digest: string;
   readonly machine: string;
   readonly at: string;
   readonly name?: string;
   readonly files?: string;
 }
-export interface CodeTrustPort {
+interface CodeTrustPort {
   /** Initial armed state, then shared-ledger changes from any process; never creates or rewrites state. */
   readonly changes: Stream.Stream<void>;
   /** This machine's independent approval records; several provenances may share a digest. Reads never write. */

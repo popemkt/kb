@@ -164,7 +164,26 @@ const DATASCRIPT = /cljs\.core/;
 // Tracking the validator's actual graph dependencies measures 1,843,078 bytes.
 // Preserving absent versus present binding data measures 1,843,086 bytes.
 // browser color-token port
-const EAGER_BUDGET_BYTES = 1_845_000;
+// The page's own key context (`core.page`, its ⌘K a binding the page
+// answers), keys that run commands, and days' Mod-Shift-D, on main after
+// chunk 2, measure 1,841,254 bytes.
+// The canvas's key table (`canvas-keys.ts`: its contexts and bindings,
+// contributed when canvas-ui applies, so the page's admission sees them),
+// the camera's stops it names, chords by place, and hints derived from the
+// elected bindings take it to 1,851,283; the keymap that reads them, and the
+// camera's math, stay with the canvas scene. The budget keeps about 1.5 KB
+// over that. The keyboard model as its own package, chords as lossless data
+// and the one browser key boundary measure 1,851,917; the budget stays.
+// Shortcuts as ordinary nodes (every family's keyboard declared as data, the
+// shortcut catalog and its reader, a stored shortcut's confirmation and the
+// action review it shares) measure 1,885,527; the budget keeps about 1.5 KB
+// over that. A row's paste and drop as one chain (the outline's ingest
+// point, each row's port onto it, a pasted list becoming nodes, and the
+// SDK's provideIngest) measure 1,887,619; the budget keeps about 1.4 KB over
+// that. The procedure page (its route, the lazy page behind it, and one
+// shared Button for the action review and the page) measures 1,890,119; the
+// budget keeps about 1.4 KB over that.
+const EAGER_BUDGET_BYTES = 1_891_500;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

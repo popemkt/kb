@@ -10,7 +10,13 @@ import {
   type Ref,
 } from "react";
 import { createPortal } from "react-dom";
-import { drawVariant, shownStrength, shownVariants, type BackdropStrength } from "@kb/appearance";
+import {
+  drawVariant,
+  shownStrength,
+  shownVariants,
+  type BackdropHead,
+  type BackdropStrength,
+} from "@kb/appearance";
 import { usePointerOver } from "../lib/pointer-over.ts";
 import {
   useAppearance,
@@ -176,29 +182,39 @@ export function PageBackdrop({
       }
     >
       {children === undefined ? null : (
-        <HeadBand scrim={presentation !== undefined}>{children}</HeadBand>
+        <HeadBand scrim={presentation !== undefined} head={choice.head}>
+          {children}
+        </HeadBand>
       )}
     </div>
   );
 }
 
-/**
- * The rows a head's space holds, as wide as they are, on a scrim of the
- * page's ground when a backdrop lies under them. The scrim is the ground
- * itself, reaching past the rows by twice its blur, so under every glyph it
- * is at least nine parts ground: muted text keeps AA contrast over any
- * backdrop, light or dark (`head-band-contrast.e2e.ts`), and the backdrop
- * shows all round it, through soft edges rather than a band's. It stands in
- * the region's negative layer, over the backdrop and under every box of the
- * page.
- */
-function HeadBand({ scrim, children }: { readonly scrim: boolean; readonly children: ReactNode }) {
+/** The head's chosen contrast treatment, over its backdrop. */
+function HeadBand({
+  scrim,
+  head,
+  children,
+}: {
+  readonly scrim: boolean;
+  readonly head: BackdropHead;
+  readonly children: ReactNode;
+}) {
+  const breakout = useBreakoutShift(scrim && head === "fade");
   return (
-    <div className="relative w-fit max-w-full" data-head-band="true">
-      {scrim ? (
+    <div
+      className={cn("relative w-fit max-w-full", scrim && head === "shadow" && "kb-head-halo")}
+      data-head-band="true"
+      data-head-style={head}
+    >
+      {scrim && head === "fade" ? (
         <div
+          ref={breakout}
           aria-hidden="true"
-          className="pointer-events-none absolute -inset-x-4 -inset-y-1 -z-1 rounded-full bg-background blur-sm"
+          className={cn(
+            BREAKOUT_CLASS,
+            "kb-head-fade pointer-events-none absolute top-0 left-0 -z-1",
+          )}
           data-head-scrim="true"
         />
       ) : null}
@@ -206,7 +222,6 @@ function HeadBand({ scrim, children }: { readonly scrim: boolean; readonly child
     </div>
   );
 }
-
 /**
  * A pane's backdrop host (DESIGN-UI.md → Page-head backdrops → One
  * backdrop across pages): the one place a page-head backdrop is drawn,

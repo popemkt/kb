@@ -50,7 +50,7 @@ import { CANVAS_PALETTE } from "./style.ts";
 import { CANVAS_FONTS, type CanvasFont } from "./style-fields.ts";
 
 /** What the painter reads beyond the document: a card's words, and whether an edge's link holds. */
-export interface SvgSource {
+interface SvgSource {
   /** The words of the node a `kb-node` card shows; none when the store has no such node. */
   readonly textOf: (nodeId: string) => string | undefined;
   /** Whether an edge's native link still holds (`isNativeEdgeBound`); one that does not is faint. */

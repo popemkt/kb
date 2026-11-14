@@ -1,4 +1,5 @@
 import { CANVAS_COLOR_TOKENS } from "./paint-css.ts";
+import { CANVAS_KEYBOARD } from "./keybindings.ts";
 /**
  * The canvas family's declaration and its shared plugin (DESIGN.md →
  * Extension families). The declaration is the one home of the family's
@@ -32,6 +33,7 @@ import { CanvasListView, CanvasView } from "./view.ts";
 export const canvasExtension = defineExtension({
   name: "canvas",
   colorTokens: CANVAS_COLOR_TOKENS,
+  keyboard: CANVAS_KEYBOARD,
   label: "Canvas",
   manifest: { description: "Free-form canvases of cards, links and frames." },
   tags: ["canvas"],

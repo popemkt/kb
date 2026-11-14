@@ -143,7 +143,6 @@ export const ShownConfigurationSchema = z.object({
     z.object({ field: z.string(), label: z.string(), values: z.array(z.string()) }),
   ),
 });
-export type ShownConfiguration = z.infer<typeof ShownConfigurationSchema>;
 
 /**
  * Why a call waits for a person, as a surface shows the ask: the refusal's

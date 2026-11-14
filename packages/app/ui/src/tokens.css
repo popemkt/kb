@@ -127,6 +127,41 @@
   }
 
   /*
+   * A page head's fade (`HeadBand`): the page's ground behind the head's
+   * rows, strongest at the top of the region and gone a little below them,
+   * so the rows read over a backdrop without a shape of their own. The alpha
+   * eases out, so the fade has no line where it ends.
+   */
+  .kb-head-fade {
+    height: calc(100% + 2.5rem);
+    background-image: linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--background) 70%, transparent) 0%,
+      color-mix(in srgb, var(--background) 62%, transparent) 30%,
+      color-mix(in srgb, var(--background) 42%, transparent) 55%,
+      color-mix(in srgb, var(--background) 18%, transparent) 78%,
+      color-mix(in srgb, var(--background) 5%, transparent) 92%,
+      transparent 100%
+    );
+  }
+  /*
+   * A page head's halo (`HeadBand`): the page's ground hugging each glyph
+   * of the head's rows over a backdrop. A tight ring keeps the letter's
+   * edge, a wider soft one quiets the backdrop just behind the word. Text
+   * inherits the shadow; icons take the same ring as a filter.
+   */
+  .kb-head-halo {
+    --head-halo-ring: color-mix(in srgb, var(--background) 85%, transparent);
+    --head-halo-glow: color-mix(in srgb, var(--background) 55%, transparent);
+    text-shadow:
+      0 0 1px var(--head-halo-ring),
+      0 0 4px var(--head-halo-ring),
+      0 0 14px var(--head-halo-glow);
+  }
+  .kb-head-halo svg {
+    filter: drop-shadow(0 0 1.5px var(--head-halo-ring)) drop-shadow(0 0 6px var(--head-halo-glow));
+  }
+  /*
    * Trailing chips ride the first line of the node text and let later lines
    * run full width (Tana). A float — not a flex sibling — is what makes that
    * true: a flex sibling narrows every line of a wrapped node, including the

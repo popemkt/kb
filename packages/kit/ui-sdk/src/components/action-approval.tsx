@@ -1,14 +1,14 @@
 /** One action review and its decision controls, independent of the asking surface. */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ActionInvocation } from "@kb/contracts";
-import { ActionReviewPoint, type ActionReview, type ApprovalView } from "../lib/action-review";
-import { cn } from "../lib/cn";
+import {
+  ActionReviewPoint,
+  readActionReviews,
+  type ActionReview,
+  type ApprovalView,
+} from "../lib/action-review";
+import { Button } from "./button";
 import { useContributions } from "../lib/plugins.ts";
-
-const BUTTON = cn(
-  "rounded-sm px-2 py-1 text-label font-medium outline-none transition duration-100",
-  "focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-default disabled:opacity-40",
-);
 
 interface ActionApprovalProps {
   readonly invocation: ActionInvocation;
@@ -40,22 +40,12 @@ function ApprovalDecision({ answer, approveLabel, disabled = false }: DecisionPr
         </p>
       )}
       <div className="mt-2 flex justify-end gap-1">
-        <button
-          type="button"
-          disabled={pending}
-          className={cn(BUTTON, "text-foreground/60 hover:bg-foreground/[0.06]")}
-          onClick={() => void decide(false)}
-        >
+        <Button disabled={pending} variant="ghost" onClick={() => void decide(false)}>
           Decline
-        </button>
-        <button
-          type="button"
-          disabled={disabled || pending}
-          className={cn(BUTTON, "bg-primary text-primary-foreground hover:bg-primary/90")}
-          onClick={() => void decide(true)}
-        >
+        </Button>
+        <Button disabled={disabled || pending} variant="primary" onClick={() => void decide(true)}>
           {approveLabel}
-        </button>
+        </Button>
       </div>
     </>
   );
@@ -74,37 +64,37 @@ function DefaultActionApproval({ invocation, answer }: ActionApprovalProps) {
 
 interface Reading {
   readonly invocation: ActionInvocation;
-  readonly review: ActionReview;
+  readonly reviews: readonly ActionReview[];
   readonly result: { readonly view: ApprovalView | null } | { readonly problem: string };
 }
 
 function ContributedApproval({
   invocation,
   answer,
-  review,
-}: ActionApprovalProps & { readonly review: ActionReview }) {
+  reviews,
+}: ActionApprovalProps & { readonly reviews: readonly ActionReview[] }) {
   const [reading, setReading] = useState<Reading | null>(null);
   useEffect(() => {
     let live = true;
     void Promise.resolve()
-      .then(() => review.read(invocation))
+      .then(() => readActionReviews(reviews, invocation))
       .then((view) => {
-        if (live) setReading({ invocation, review, result: { view } });
+        if (live) setReading({ invocation, reviews, result: { view } });
       })
       .catch((error: unknown) => {
         if (live)
           setReading({
             invocation,
-            review,
+            reviews,
             result: { problem: error instanceof Error ? error.message : String(error) },
           });
       });
     return () => {
       live = false;
     };
-  }, [invocation, review]);
+  }, [invocation, reviews]);
   const result =
-    reading?.invocation === invocation && reading.review === review ? reading.result : undefined;
+    reading?.invocation === invocation && reading.reviews === reviews ? reading.result : undefined;
   if (result !== undefined && "view" in result && result.view === null)
     return <DefaultActionApproval invocation={invocation} answer={answer} />;
   const view = result !== undefined && "view" in result ? result.view : null;
@@ -132,12 +122,17 @@ function ContributedApproval({
 
 /** A review must finish successfully before approval; lookup failures never become generic approval. */
 export function ActionApproval(props: ActionApprovalProps) {
-  const review = useContributions(ActionReviewPoint).find(
-    ({ value }) => value.action === props.invocation.id,
-  )?.value;
-  return review === undefined ? (
+  const contributions = useContributions(ActionReviewPoint);
+  const reviews = useMemo(
+    () =>
+      contributions
+        .filter(({ value }) => value.action === props.invocation.id)
+        .map(({ value }) => value),
+    [contributions, props.invocation.id],
+  );
+  return reviews.length === 0 ? (
     <DefaultActionApproval {...props} />
   ) : (
-    <ContributedApproval {...props} review={review} />
+    <ContributedApproval {...props} reviews={reviews} />
   );
 }

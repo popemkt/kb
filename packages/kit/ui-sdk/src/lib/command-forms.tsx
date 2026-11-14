@@ -36,7 +36,7 @@ function drawn(icon: Icon | null, size: number): ReactNode {
 }
 
 /** A node command as data. */
-export interface CommandForm {
+interface CommandForm {
   readonly label: string;
   readonly icon?: IconName;
   /** Where the node menu lists it: its group, then `order` in it (lower first). */
@@ -88,7 +88,7 @@ export function provideCommand(id: string, form: CommandForm): ContributionEntry
 }
 
 /** A picker step as data. */
-export interface PaletteStepForm {
+interface PaletteStepForm {
   readonly label: string;
   readonly placeholder: string;
   readonly icon?: IconName;

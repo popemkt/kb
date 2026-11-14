@@ -9,7 +9,8 @@
     "limit": 10
   },
   "@kb/runtime": {
-    "limit": 44
+    "limit": 46,
+    "reason": "#187: the server watches the root's own extension files (ownExtensionEdits, ownExtensionPath), beside extensionRuntimeChanges."
   },
   "@kb/server": {
     "limit": 12
@@ -22,12 +23,12 @@
     "limit": 12
   },
   "@kb/operations": {
-    "limit": 66,
-    "reason": "Lane B moved the CLI's flag mappers (map.ts) to @kb/cli and the outline-paste parser to @kb/outline-paste; ui.*, render.*, procedure.* and store.* stay core actions every surface offers."
+    "limit": 68,
+    "reason": "Lane B moved the CLI's flag mappers (map.ts) to @kb/cli and the outline-paste parser to @kb/outline-paste; ui.*, render.*, procedure.* and store.* stay core actions every surface offers. #191 adds core's page context id (PAGE_CONTEXT_ID), declared beside core's actions, and graphChangesDef, whose output the page checks when it names a shortcut's last writer."
   },
   "@kb/contracts": {
-    "limit": 379,
-    "reason": "M6: node.update input and prop input schemas, shared by the action and days' untag interceptor."
+    "limit": 355,
+    "reason": "#191: the keyboard points (KeybindingPoint, KeyContextPoint) are declared in contracts beside the other core points; #187: the extension watch's setting node and its reading (EXTENSIONS_WATCH_NODE, extensionsWatched), which the server reads; #203: a procedure step's output schema (ProcedureStepOutputSchema), shared by the procedure action and the page that shows it; #190 dropped the names no package outside contracts imports, and M6 added node.update's input and prop input schemas."
   },
   "@kb/ext-sdk": {
     "limit": 9
@@ -40,22 +41,23 @@
     "reason": "M6: script reach (callWithin, scriptRefusal, scriptWriteRefusal, readableNodes, readableQuery) moved from @kb/operations beside grants."
   },
   "@kb/model": {
-    "limit": 265,
-    "reason": "The honest stop, not 220: M3b dropped every name no package outside model imports, and every model file is shared by two or more packages (the 16 names only @kb/cli reads sit in shared files), so narrowing further splits a concept across packages."
+    "limit": 266,
+    "reason": "The honest stop, not 220: M3b dropped every name no package outside model imports, and every model file is shared by two or more packages (the 16 names only @kb/cli reads sit in shared files), so narrowing further splits a concept across packages. #191 adds TagChains, which @kb/keybindings' stored-shortcut reader names."
   },
   "@kb/outline-paste": {
     "limit": 3
   },
   "@kb/plugin": {
-    "limit": 54
+    "limit": 43,
+    "reason": "#191: PluginHandle and rootPluginName, which a shortcut's provenance reads; #190 dropped the kernel's names no package outside plugin imports."
   },
   "@kb/query": {
     "limit": 53,
     "reason": "Lane B dropped the 39 names nothing outside query imports, tests included; under the proposal's 60."
   },
   "@kb/views": {
-    "limit": 111,
-    "reason": "The honest stop, not 85: every name has an importer outside views, every views file is shared by two or more packages, and the 55 names only @kb/ui reads sit in those shared files (layout, frame, node views)."
+    "limit": 113,
+    "reason": "The honest stop, not 85: every name has an importer outside views, every views file is shared by two or more packages, and the 55 names only @kb/ui reads sit in those shared files (layout, frame, node views). #203 adds the procedure page's view key and params (ProcedureView, ProcedureParams), shared by core's declaration and the browser route."
   },
   "@kb/agent": {
     "limit": 62,
@@ -78,8 +80,8 @@
     "limit": 1
   },
   "@kb/canvas": {
-    "limit": 359,
-    "reason": "Initial measured interface; module migration will narrow it."
+    "limit": 336,
+    "reason": "#191: the canvas's keyboard as data (its contexts, shortcuts, tools and transform keys) joins the family's package, and the names nothing outside canvas imports leave its barrel."
   },
   "@kb/canvas-ui": {
     "limit": 1
@@ -163,7 +165,8 @@
     "limit": 1
   },
   "@kb/outline": {
-    "limit": 3
+    "limit": 10,
+    "reason": "Shared editing/selection contexts moved from the browser package; #173: the outline declares its own point, outline.ingest (OUTLINE_POINT_DEFINITIONS), which outline-ui reads."
   },
   "@kb/outline-ui": {
     "limit": 40
@@ -239,15 +242,15 @@
     "limit": 35
   },
   "@kb/ui-sdk": {
-    "limit": 514,
-    "reason": "M7b dropped the names nothing outside the kit imports and moved the backdrop pointer input to @kb/appearance-kit; the 380 ceiling waits on splitting the files @kb/ui and outline-ui share (GAP 01M79H9PY7XVHHVGAN1WA3VYAF)."
+    "limit": 530,
+    "reason": "#173: a row's paste and drop chain (ingestPort, ATTACH_FILE, provideIngest, Ingested, IngestHandler, IngestPort, the names outline-ui, canvas-ui and the page SDK import); #190: the browser's one key boundary (keyChordEvent) and the printable-key set (printableExcept) join, and KeyRun leaves for @kb/keybindings; #203: one shared Button, which the action review and the procedure page use; #176 took M7b's 514 to 522; the 380 ceiling waits on splitting the files @kb/ui and outline-ui share (GAP 01M79H9PY7XVHHVGAN1WA3VYAF)."
   },
   "@kb/ui-test-kit": {
     "limit": 26
   },
   "@kb/appearance": {
-    "limit": 57,
-    "reason": "The honest stop, not 45: the art types stay here as every backdrop's vocabulary (DESIGN-UI.md → Page-head backdrops), and the five names no production code outside imports are read by seed's, ui's and the ext-sdk bridge's tests."
+    "limit": 60,
+    "reason": "The honest stop, not 45: the art types stay here as every backdrop's vocabulary (DESIGN-UI.md → Page-head backdrops), and the five names no production code outside imports are read by seed's, ui's and the ext-sdk bridge's tests. #197 adds the page head's style (BACKDROP_HEADS and BACKDROP_HEAD_OPTION_IDS, which core's seed reads, and BackdropHead, which the page's head reads)."
   },
   "@kb/seed": {
     "limit": 8,
@@ -256,5 +259,9 @@
   "@kb/appearance-kit": {
     "limit": 41,
     "reason": "M4 appearance host and theme art share one kit; M7b added the backdrop pointer input and dropped the names nothing outside the kit imports."
+  },
+  "@kb/keybindings": {
+    "limit": 39,
+    "reason": "#191: shortcuts as nodes (stored bindings, chord text, keyboard definitions and the shortcut ids) join the keyboard model #190 made a domain package."
   }
 }

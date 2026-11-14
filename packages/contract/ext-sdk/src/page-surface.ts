@@ -427,13 +427,86 @@ export declare function provideValueKind(
   },
 ): ContributionEntry<FieldTypeKind>;
 
+/** How data came into a row's text. */
+export type IngestGesture = "paste" | "drop";
+
+/** Which gestures a paste or drop handler takes, as data: the gesture, the data's types, and a test of its text. */
+export interface IngestMatch {
+  readonly gestures: readonly IngestGesture[];
+  /** The data carries one of these types (`text/plain`, `Files`). */
+  readonly types: readonly string[];
+  /** Its `text/plain` matches this regular expression's source (read with the `u` flag), when given. */
+  readonly pattern?: string;
+}
+
+/** What a paste or a drop carries. */
+export interface Ingested {
+  readonly gesture: IngestGesture;
+  readonly types: readonly string[];
+  /** Its `text/plain`; empty when it has none. */
+  readonly text: string;
+  readonly files: readonly File[];
+}
+
+/** The row a gesture lands on: the node its text is, and that text. */
+export interface IngestSite {
+  readonly nodeId: string;
+  readonly text: string;
+}
+
+/**
+ * What a claimed gesture makes, which kb writes at the row: a tree of nodes,
+ * as outline paste text, added after it in one transaction; or a file, kept
+ * as an asset and linked from its text.
+ */
+export type IngestOutcome = { readonly tree: string } | { readonly attach: File };
+
+/**
+ * A row's paste and drop handler. The outline declares their point,
+ * `outline.ingest`, so a plugin that contributes one names it in `uses` and
+ * reaches it with `ctx.point<IngestHandler>("outline.ingest")`. By
+ * priority, each whose match holds is asked what the gesture makes, and the
+ * first to make something claims it; what every one declines is the
+ * browser's.
+ */
+export interface IngestHandler {
+  readonly match: IngestMatch;
+  /** Higher claims first; kb's own sit at 0, and a tie goes to the first contributed. */
+  readonly priority: number;
+  /**
+   * What the gesture makes at `site`, or null to decline it, so the next
+   * handler is asked. It answers at once, while the gesture's event runs.
+   */
+  readonly ingest: (ingested: Ingested, site: IngestSite) => IngestOutcome | null;
+}
+
+/**
+ * The `outline.ingest` contribution for a handler whose transform is
+ * text in, outline out: what it makes is the nodes its outline says
+ * (kb's outline paste, DESIGN.md → Outline paste), which kb adds after the
+ * row through `node.addTree`. A pattern that is no regular expression
+ * throws where the plugin applies.
+ */
+export declare function provideIngest(
+  id: string,
+  form: {
+    readonly match: IngestMatch;
+    readonly priority: number;
+    /** The gesture's text as outline paste text, or null to decline it: the next handler is asked. */
+    readonly transform: (text: string) => string | null;
+  },
+): ContributionEntry<IngestHandler>;
+
 /**
  * A key as a binding states it: a key name as `KeyboardEvent.key` names
- * it (or several, or a test of the name), and the modifiers it asks about.
- * A modifier left out is not asked about. `mod` is ⌘ or Ctrl.
+ * it (or several, or a test of the name), or its place as
+ * `KeyboardEvent.code` names it (`Numpad7`), and the modifiers it asks
+ * about. A modifier left out is not asked about. `mod` is ⌘ or Ctrl. A
+ * chord by place is asked before one by character.
  */
 export interface Chord {
   key?: string | readonly string[] | ((key: string) => boolean);
+  physicalKey?: string;
   mod?: boolean;
   meta?: boolean;
   ctrl?: boolean;
@@ -442,18 +515,28 @@ export interface Chord {
 }
 
 /**
- * Where a key means something: the outline's row being edited, or its
- * selection (a row selected, none edited).
+ * Where a key means something, by the id its owner contributes it under:
+ * the page itself (`core.page`), offered every key wherever focus is,
+ * before anything else is; or a context a plugin contributes, such as the
+ * outline's row being edited (`outline.editing`) or its selection
+ * (`outline.selection`, a row selected, none edited), or the canvas at
+ * rest, in a modal transform, or presenting its frames (`canvas.rest`,
+ * `canvas.transform`, `canvas.present`). A binding naming a context no
+ * plugin contributes holds no key, and the person is told it was refused.
  */
-export type KeyContextId = "outline.editing" | "outline.selection";
+export type KeyContextId = string;
 
 /**
- * What a key runs: one of its context's intents by name (`outline.editing`:
- * `split`, `indent`, `move-up`, `line-down`, …; `outline.selection`: `up`,
- * `move-down`, `create-after`, `zoom`, …), or an action through the page's
- * invoke path, with the row's node as its input's `id`.
+ * What a key runs: one of its context's intents by name (`core.page`:
+ * `palette`; `outline.editing`: `split`, `indent`, `move-up`, `line-down`,
+ * …; `outline.selection`: `up`, `move-down`, `create-after`, `zoom`, …;
+ * `canvas.rest`: `tool.draw`, `copy`, `nudge`, `align.left`, …); an
+ * action through the page's invoke path, with the row's node as its input's
+ * `id`; or a command by id, as ⌘K runs it, about the row's node (on
+ * `core.page`, about what ⌘K's commands are about: the selected row, else
+ * the zoomed node).
  */
-export type KeyRun = { readonly intent: string } | ActionCall;
+export type KeyRun = { readonly intent: string } | ActionCall | { readonly command: string };
 
 /** A key in a context, and what it runs; the binding whose held chord it takes, if any. */
 export interface Keybinding {
@@ -464,12 +547,15 @@ export interface Keybinding {
 }
 
 /**
- * Every key of the outline's contexts. One binding per chord per context:
- * the outline's own are held first (`outline.editing.split`,
- * `outline.selection.up`, …). A binding over a held chord is refused, and
- * the person told why, unless it names the holder in `replaces`; it then
- * takes exactly its own chord, and the holder keeps the rest. `Escape`,
- * ⌘Z, ⌘⇧Z and ⌘K are never a binding's.
+ * Every key of every context. One binding per chord per context: the
+ * context's owner's own are held first (`core.page.palette`,
+ * `outline.editing.split`, `outline.selection.up`,
+ * `canvas.rest.tool.draw`, …). A binding over a held
+ * chord is refused, and the person told why, unless it names the holder in
+ * `replaces`; it then takes exactly its own chord, and the holder keeps the
+ * rest. A `core.page` key holds ⌘ or Ctrl, may not take a chord the outline
+ * binds in its own contexts, and holds its chord in every one of them.
+ * `Escape`, ⌘Z, ⌘⇧Z and ⌘K are never a binding's.
  */
 export declare const KeybindingPoint: PointKey<Keybinding>;
 

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { canonicalJsonl, present } from "@kb/model";
+import { allowedRefIdsOf, canonicalJsonl, present, SYSTEM_IDS } from "@kb/model";
+import { DatascriptIndex, derivedWith } from "@kb/query";
 import { Effect } from "effect";
 import { ACTOR_OPTION_IDS, GOVERNANCE_IDS } from "@kb/governance";
 import { STORE_BACKENDS, createStore, bunFileSystemLayer } from "@kb/runtime";
@@ -60,3 +61,34 @@ for (const backend of STORE_BACKENDS) {
       ),
     ));
 }
+
+describe("shortcut target choices", () => {
+  test("offers unbound commands and ordinary action recipes alongside registered intents", () => {
+    const at = "2026-11-11T00:00:00.000Z";
+    const seed = bundledSeed(at);
+    const make = (id: string, tag: string) => ({
+      id,
+      text: id,
+      props: { "sys.f.type": [{ t: "ref" as const, v: tag }] },
+      children: [],
+      createdAt: at,
+      updatedAt: at,
+    });
+    const graph = new Map(
+      [...seed, make("unbound-command", "sys.command"), make("unbound-call", "sys.call")].map(
+        (node) => [node.id, node],
+      ),
+    );
+    const field = present(
+      seed.find(({ id }) => id === "sys.f.shortcut.runs"),
+      "runs field",
+    );
+    expect(field.props[SYSTEM_IDS.targetQueryField]?.[0]?.t).toBe("str");
+    const index = new DatascriptIndex([...graph.values()], { derived: derivedWith({}) });
+    const choices = [...(allowedRefIdsOf(field, graph, (query) => index.runDatalog(query)) ?? [])];
+    expect(choices).toContain("unbound-command");
+    expect(choices).toContain("unbound-call");
+    expect(choices.some((id) => id.startsWith("sys.cmd.keyboard."))).toBe(true);
+    expect(choices).not.toContain("sys.f.shortcut.keys");
+  });
+});

@@ -12,20 +12,14 @@
  * is caret geometry: {@link VerticalNavDecision} belongs to `./caret`, and a
  * leaf module may not reach up here for it.
  */
-import type { ContributionEntry } from "@kb/plugin";
-import { outlineExtension } from "@kb/outline";
 import {
-  PALETTE_CHORD,
-  TEXT_HISTORY_CHORD,
-  type Chord,
   type KeyChordEvent,
-  type KeyContext,
-  type Keybinding,
+  keyCallOf,
+  type KeyCall,
   type Keymap,
   type VerticalNavDecision,
 } from "@kb/ui-sdk";
 import type { VisibleInstance } from "./visible-instances";
-import { runActionOf, type RunAction } from "./key-action";
 
 /** What the row looks like to the keymap. Offsets are SERIALIZED offsets. */
 export interface EditingKeyContext {
@@ -103,7 +97,7 @@ export type EditingIntent =
   | { type: "select"; nodeId: string; instanceKey: string }
   /** Onto a row's field values: its first going down, its last coming up. */
   | { type: "enterFields"; instanceKey: string; which: "first" | "last" }
-  | RunAction;
+  | KeyCall;
 
 /** An intent as its binding runs it: what it means on this row, or null to leave the key native. */
 type IntentOf = (ctx: EditingKeyContext) => EditingIntent | null;
@@ -262,64 +256,8 @@ const EDITING_INTENTS = new Map<string, IntentOf>([
 ]);
 
 /**
- * The editing row's keys: what the row's text host hands its keydown, the
- * text host having kept composition and its own history first. Owned by
- * the outline, so its bindings are held first and Escape is its alone, with
- * the history chords and the palette's ⌘K, which other bindings may never take.
- */
-export const EDITING_CONTEXT: KeyContext = {
-  id: "outline.editing",
-  owner: outlineExtension.name,
-  intents: [...EDITING_INTENTS.keys()],
-  reserved: [{ key: "Escape" }, TEXT_HISTORY_CHORD, PALETTE_CHORD],
-};
-
-function editingBinding(id: string, chord: Chord, intent: string): ContributionEntry<Keybinding> {
-  return { id: `editing.${id}`, value: { context: EDITING_CONTEXT.id, chord, run: { intent } } };
-}
-
-/**
- * The outline's editing keys, as its contributions to `ui.keybindings`.
- * No two chords overlap, so each says exactly which keys it claims. The
- * arrows are where that matters: ⌘⇧ reorders, any other command-modified
- * arrow reveals (two chords: ⌘ without ⇧, and ⌃ without ⌘), and the bare
- * arrow navigates.
- */
-export const EDITING_BINDINGS: readonly ContributionEntry<Keybinding>[] = [
-  editingBinding("soft-break", { key: "Enter", shift: true }, "soft-break"),
-  editingBinding("split", { key: "Enter", shift: false }, "split"),
-  editingBinding("outdent", { key: "Tab", shift: true }, "outdent"),
-  editingBinding("indent", { key: "Tab", shift: false }, "indent"),
-  editingBinding(
-    "delete-subtree-at-start",
-    { key: "Backspace", mod: true },
-    "delete-subtree-at-start",
-  ),
-  editingBinding("backspace", { key: "Backspace", mod: false }, "backspace"),
-  editingBinding("delete-subtree", { key: "Delete", mod: true }, "delete-subtree"),
-  editingBinding("delete-forward", { key: "Delete", mod: false }, "delete-forward"),
-  editingBinding("move-up", { key: "ArrowUp", meta: true, shift: true }, "move-up"),
-  editingBinding("move-down", { key: "ArrowDown", meta: true, shift: true }, "move-down"),
-  editingBinding(
-    "collapse-or-leave",
-    { key: "ArrowUp", meta: true, shift: false },
-    "collapse-or-leave",
-  ),
-  editingBinding(
-    "collapse-or-leave-ctrl",
-    { key: "ArrowUp", meta: false, ctrl: true },
-    "collapse-or-leave",
-  ),
-  editingBinding("expand", { key: "ArrowDown", meta: true, shift: false }, "expand"),
-  editingBinding("expand-ctrl", { key: "ArrowDown", meta: false, ctrl: true }, "expand"),
-  editingBinding("line-up", { key: "ArrowUp", mod: false }, "line-up"),
-  editingBinding("line-down", { key: "ArrowDown", mod: false }, "line-down"),
-  editingBinding("select", { key: "Escape" }, "select"),
-];
-
-/**
  * The intent a chord means on this row under `keymap` (the editing
- * context's, `currentKeymap(EDITING_CONTEXT)`), or null to leave the key to
+ * context's, `currentKeymap(EDITING_CONTEXT_ID)`), or null to leave the key to
  * the browser. A non-null intent is always claimed with `preventDefault`.
  */
 export function mapEditingKey(
@@ -330,6 +268,6 @@ export function mapEditingKey(
   const binding = keymap.resolve(ev);
   if (binding === undefined) return null;
   const { run } = binding.value;
-  if ("action" in run) return runActionOf(run, ctx.nodeId);
+  if (!("intent" in run)) return keyCallOf(run, ctx.nodeId);
   return EDITING_INTENTS.get(run.intent)?.(ctx) ?? null;
 }

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@kb/contracts": "workspace:*",
+    "@kb/keybindings": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/plugin": "workspace:*",
     "@kb/query": "workspace:*",
@@ -27,7 +28,6 @@
     "@types/bun": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "fast-check": "catalog:",
     "happy-dom": "catalog:",
     "react-dom": "catalog:",
     "vite-plus": "catalog:",

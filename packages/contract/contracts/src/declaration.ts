@@ -1,4 +1,14 @@
 import { ColorTokenPoint } from "./design-tokens.ts";
+import {
+  SHORTCUT_IDS,
+  keyboardNodes,
+  shortcutGroupId,
+  keyTargetNodeId,
+  keyboardIn,
+  keyboardShortcutIds,
+  keyboardCommandIds,
+  type KeyboardDefinition,
+} from "@kb/keybindings";
 import type { PointDefinition } from "./point-definitions.ts";
 import type { ProviderRole } from "./roles.ts";
 import {
@@ -18,11 +28,18 @@ import type { ExtensionManifest } from "./extension-manifest.ts";
  */
 import { Context, Effect } from "effect";
 import { z } from "zod";
-import type { DeclaredOptionSet, KbNode, NodeId, SeedRetirement } from "@kb/model";
+import {
+  extensionNodeId,
+  type DeclaredOptionSet,
+  type KbNode,
+  type NodeId,
+  type SeedRetirement,
+} from "@kb/model";
 import type { ValueRefCarrier } from "@kb/query";
 import type { ViewKey } from "@kb/views";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { ViewKeyPoint, type ViewDef } from "./view-catalog.ts";
+import { contributeKeyboard } from "./keybindings.ts";
 import { ContextReferencePoint, type ContextReference } from "./context.ts";
 import {
   MigrationPoint,
@@ -75,6 +92,8 @@ export interface ExtensionDeclaration {
    * plugin contributes none.
    */
   readonly seed?: (at: string) => readonly KbNode[];
+  /** One keyboard definition supplies default graph descriptions and the page contributions. */
+  readonly keyboard?: KeyboardDefinition;
   /** Bundled role nodes derived by the same seed fold as views and options. */
   readonly roles?: readonly ProviderRole[];
   /** Bundled point metadata, read before any page implementation loads. */
@@ -151,7 +170,40 @@ export interface ExtensionDeclaration {
 
 /** A family's declaration, as written in its shared package. */
 export function defineExtension(declaration: ExtensionDeclaration): ExtensionDeclaration {
-  return declaration;
+  const keyboard = declaration.keyboard;
+  if (keyboard === undefined) return declaration;
+  return {
+    ...declaration,
+    keyboard: {
+      ...keyboard,
+      bindings: (keyboard.bindings ?? []).map((entry) => ({
+        ...entry,
+        value: {
+          ...entry.value,
+          shortcut: shortcutGroupId(
+            declaration.name,
+            entry.value.context,
+            keyTargetNodeId(declaration.name, entry.value.context, entry.value.run),
+          ),
+        },
+      })),
+    },
+    seed: (at) => [
+      ...(declaration.seed?.(at) ?? []),
+      ...keyboardNodes(declaration.name, keyboard, at),
+    ],
+    files: {
+      ...declaration.files,
+      [extensionNodeId(declaration.name)]: [
+        ...(declaration.files?.[extensionNodeId(declaration.name)] ?? []),
+        ...keyboardCommandIds(declaration.name, keyboard),
+      ],
+      [SHORTCUT_IDS.parent]: [
+        ...(declaration.files?.[SHORTCUT_IDS.parent] ?? []),
+        ...keyboardShortcutIds(declaration.name, keyboard),
+      ],
+    },
+  };
 }
 
 /**
@@ -180,6 +232,7 @@ export function declarationPlugin(declaration: ExtensionDeclaration): Plugin {
     apply: (ctx) =>
       Effect.all(
         [
+          contributeKeyboard(ctx, keyboardIn(declaration.name, declaration.keyboard ?? {})),
           Effect.forEach(
             declaration.colorTokens === undefined ? [] : [declaration.colorTokens],
             (value) => ctx.contribute(ColorTokenPoint, { id: declaration.name, value }),
@@ -257,7 +310,7 @@ export type ExtensionRow = z.infer<typeof ExtensionRowSchema>;
  * Where a host composes a family from: kb's build (`bundled`), the `kb ui`
  * host (`host`), or a module path with the origin that selected it.
  */
-export type ExtensionFrom =
+type ExtensionFrom =
   | "bundled"
   | "host"
   | { readonly source: string; readonly origin: ExtensionOrigin };

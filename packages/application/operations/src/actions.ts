@@ -384,7 +384,7 @@ function pullSubtree(ctx: KbContext<NodeIndex>, id: NodeId, depth: number): unkn
 }
 
 /** `node.add`'s input with its place decided: under `parent`, or the top level for null. */
-export type PlacedAddInput = Omit<z.infer<typeof nodeAddDef.inputSchema>, "parent"> & {
+type PlacedAddInput = Omit<z.infer<typeof nodeAddDef.inputSchema>, "parent"> & {
   readonly parent: NodeId | null;
 };
 

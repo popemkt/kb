@@ -15,6 +15,7 @@ export function pageDay(): string {
   return dayKeyAt(sample.nowMs, sample.timeZone) ?? "";
 }
 
+// GAP [[01M7CC1GD0A1J314ZTAR54F8AD]] a fixed wait for the made day, not the page's readiness.
 /** How long a made day may take to reach the page's replica. */
 const ARRIVAL_MS = 3_000;
 

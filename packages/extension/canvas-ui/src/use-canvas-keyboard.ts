@@ -1,8 +1,11 @@
-import { useEffect } from "react";
-import type { Dispatch, RefObject, SetStateAction } from "react";
+import { useEffect, type Dispatch, type RefObject, type SetStateAction } from "react";
+
 import { ulid } from "ulid";
-import type { CanvasDoc, CanvasItemLink, CanvasNode, CanvasProjectionKind } from "@kb/canvas";
 import {
+  type CanvasDoc,
+  type CanvasItemLink,
+  type CanvasNode,
+  type CanvasProjectionKind,
   GRID_STEP,
   CanvasRelationError,
   arrangeItems,
@@ -16,7 +19,12 @@ import {
   pasteItems,
   stringifyCanvasDoc,
   ungroupItems,
+  type CanvasIntent,
+  type PresentAct,
+  type TransformAct,
+  type CanvasToolPick,
 } from "@kb/canvas";
+
 import {
   type CanvasScope,
   type CanvasSelection,
@@ -26,23 +34,14 @@ import {
   selectNode,
   selectionEmpty,
   soleItem,
-} from "./canvas-selection.ts";
-import {
-  mapCanvasKey,
-  type CanvasIntent,
-  type PresentAct,
-  type TransformAct,
-} from "./canvas-keymap.ts";
-import {
-  pickTool,
-  reduceCanvasTool,
-  type CanvasChooser,
-  type CanvasToolPick,
-  type ToolState,
-} from "./canvas-tool.ts";
+} from "./canvas-selection";
+
+import { mapCanvasKey } from "./canvas-keymap";
+import { pickTool, reduceCanvasTool, type CanvasChooser, type ToolState } from "./canvas-tool";
+
 import type { CanvasViewportControls } from "./canvas-camera";
 import type { CanvasPointerEvent } from "./canvas-pointer";
-import { isTextEntry } from "@kb/ui-sdk";
+import { isTextEntry, runKeyCall, keyChordEvent } from "@kb/ui-sdk";
 import { readPastedText } from "./canvas-paste";
 import { hasEditor } from "./canvas-face-overlay";
 import { intentApplies } from "./use-canvas-menu";
@@ -386,14 +385,18 @@ export function useCanvasKeyboard(context: CanvasKeyboardContext): (intent: Canv
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (isTextEntry(event.target)) return;
-      const binding = mapCanvasKey(event, {
-        selectionEmpty: selectionEmpty(context.selRef.current),
-        transforming: context.transforming(),
-        presenting: context.presenting(),
-        acts: (intent) => intentApplies(intent, context.selRef.current, context.byId),
-      });
+      const binding = mapCanvasKey(
+        { ...keyChordEvent(event), repeat: event.repeat },
+        {
+          selectionEmpty: selectionEmpty(context.selRef.current),
+          transforming: context.transforming(),
+          presenting: context.presenting(),
+          acts: (intent) => intentApplies(intent, context.selRef.current, context.byId),
+        },
+      );
       if (binding === null) return;
       if (binding.intent !== null) applyCanvasIntent(context, binding.intent);
+      if (binding.call !== undefined) void runKeyCall(binding.call);
       if (binding.preventDefault) event.preventDefault();
     };
     const onKeyUp = (event: KeyboardEvent) => {

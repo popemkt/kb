@@ -10,6 +10,7 @@ import {
   shownNodeId,
   useNodeTextBinding,
 } from "@kb/ui-sdk";
+import { useRowIngest } from "./ingest";
 import { RowView } from "./row-view";
 
 /** The text host's `display`: the row's text, placed by the row view `view`. */
@@ -23,8 +24,9 @@ function drawnAs(view: ViewKey<unknown>, nodeId: string, markdown: string) {
  * Outline surface binding of the shared node text host.
  *
  * It owns the row's text channel, so no surface can wire it differently: the
- * text shown is `rowText`, and every write — typing, `[[` completion, a
- * dropped file — goes to `shownNodeId`, the node that text belongs to. For an
+ * text shown is `rowText`, and every write — typing, `[[` completion, what a
+ * paste or a drop makes (`useRowIngest`) — goes to `shownNodeId`, the node
+ * that text belongs to. For an
  * ordinary row that is the row itself; for a contextual reference it is the
  * target, which is what makes a reference edit the original in place. The
  * tag chips are the shown node's too (the surface passes `shownNode(…).tags`),
@@ -37,7 +39,7 @@ export function NodeContent({
   ...props
 }: Omit<
   NodeTextHostProps,
-  keyof NodeTextHostBinding | "nodeId" | "content" | "onChange" | "onAttachFile" | "onRemoveTag"
+  keyof NodeTextHostBinding | "nodeId" | "content" | "onChange" | "ingest" | "onRemoveTag"
 > & {
   /** The row's node, as the surface renders it (a projection may pass its own map). */
   node: OutlineNode;
@@ -48,6 +50,7 @@ export function NodeContent({
   const binding = useNodeTextBinding(props.instanceKey);
   const content = rowText(node, binding.schema);
   const textNodeId = shownNodeId(node);
+  const ingest = useRowIngest(textNodeId, content);
   return (
     <NodeTextHost
       {...hostProps}
@@ -62,9 +65,7 @@ export function NodeContent({
       onChange={(next) => {
         if (next !== content) void browserHost().writes.updateNodeContent(textNodeId, next);
       }}
-      onAttachFile={(file) => {
-        void browserHost().writes.attachFileToNode(textNodeId, file);
-      }}
+      ingest={ingest}
       onRemoveTag={(tagId) => {
         void browserHost().writes.removeTag(textNodeId, tagId);
       }}

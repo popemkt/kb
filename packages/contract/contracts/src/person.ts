@@ -19,7 +19,7 @@ export type Person = z.infer<typeof PersonSchema>;
  * or it is refused, because it presents a credential that is not good here
  * and so must not quietly be taken as nobody's.
  */
-export type IdentityAnswer = { readonly person: Person } | { readonly refused: string };
+type IdentityAnswer = { readonly person: Person } | { readonly refused: string };
 
 /** Who a request is, all providers asked: an answer, or nobody's (`person: null`) when every one passed. */
 export type Identification = IdentityAnswer | { readonly person: null };
