@@ -870,7 +870,9 @@ filters: a Query button (`data-query-toggle`, `aria-expanded`,
 within, and stays while anything it opened is open; on a zoomed query page it
 sits in the header, one click from the query, never behind the plain list's
 gear. A zoomed query page draws the query's results as its rows, as under a
-query row, and offers no create strip. Open or closed is the outline's
+query row, and ends in "+ Add" rather than the create strip: what it adds
+is a node the query answers, not a child of the query (Frame views →
+_Adding to a frame_). Open or closed is the outline's
 screen state per node (`queryBuilders`), kept for the session and never
 written to the graph. A query that says nothing yet — no EDN, or no
 conditions, as a new one starts — opens its builder; one that says something
@@ -2948,6 +2950,37 @@ how the stored name resolves to the key among them.
   one node however many hosts name it, so editing it — from any host's
   toolbar or its own row — edits it for every host that names it; a host
   that should differ names a view node of its own.
+  The store's row walk (`visible-instances`) and the command registry read
+  the same enumeration from the UI kernel (`@kb/ui-sdk`'s
+  `providedFrameViews`, the frame views `ViewPoint` holds now), so a frame
+  view a plugin provides is walked and offered while it is loaded and not
+  after. The frame a view shows (its id, instance key, query rows
+  and depth) is not config, so it travels in the host's `FrameSubject`
+  context (`@kb/ui-sdk`'s `lib/frame-subject.ts`). The subject also carries
+  what the host draws each row with: a view lays the rows out, and the host
+  edits each row's text (`RowText`) and keeps how many pages of them are
+  revealed (`pages`, `revealMorePages`). The children a row shows, in
+  their own frame view, the host draws as it draws them under a row in a
+  list (`RowChildren`, the children and the create strip that adds one):
+  it is the one way a frame view asks its host for a row's children, as
+  `addRow` is the one way it asks for a new row (_Adding to a frame_).
+  The outline's own rows draw their children with the same component, and
+  a lane draws its rows with it. A row's fields are drawn with the
+  page's field editor (`useFieldEditor`, the `FieldEditorService` the
+  outline provides while it is loaded), the one editor every surface that
+  shows a field draws it with, a frame view's cells and cards and the
+  agent's settings in its dock alike. So a frame view of
+  any family lays out rows the outline edits, and draws exactly the rows the
+  keyboard walk reaches. Its row chrome reads the page's selection and the
+  rows' expansion through `BrowserHost` (`useIsActive`, `useIsSelected`,
+  `selectNode`, `toggleCollapse`). The outline builds the subject once
+  (`outlineFrameSubject`). Every outline host (the outline's root, a row of the list, a
+  query's projected results) renders a frame view through `FrameViewSlot`,
+  with the frame's id as the slot's `subject`, so a list of lists is a chain
+  of links for other frames, never a cycle (promise 6). A query's results
+  in the list view are the one rows
+  the list draws itself, as references, through the query row's
+  `renderNode`.
 - _Groups._ A view whose params declare `groupFieldId` (the board) draws
   a group for each value of that field. A field that declares its option
   set (its children; DESIGN.md → Field types) has a group per option, in
@@ -3009,35 +3042,34 @@ how the stored name resolves to the key among them.
   column over the calculations it offers, and "None", as every other
   setting is chosen. A stored calculation its column no longer offers
   shows nothing, and stays.
-  The store's row walk (`visible-instances`) and the command registry read
-  the same enumeration from the UI kernel (`@kb/ui-sdk`'s
-  `providedFrameViews`, the frame views `ViewPoint` holds now), so a frame
-  view a plugin provides is walked and offered while it is loaded and not
-  after. The frame a view shows (its id, instance key, query rows
-  and depth) is not config, so it travels in the host's `FrameSubject`
-  context (`@kb/ui-sdk`'s `lib/frame-subject.ts`). The subject also carries
-  what the host draws each row with: a view lays the rows out, and the host
-  edits each row's text (`RowText`) and keeps how many pages of them are
-  revealed (`pages`, `revealMorePages`). The children a row shows, in
-  their own frame view, the host draws as it draws them under a row in a
-  list (`RowChildren`): it is the one way a frame view asks its host for a
-  row's children. The outline's own rows draw their children with the same
-  component, and a lane draws its rows with it. A row's fields are drawn with the
-  page's field editor (`useFieldEditor`, the `FieldEditorService` the
-  outline provides while it is loaded), the one editor every surface that
-  shows a field draws it with, a frame view's cells and cards and the
-  agent's settings in its dock alike. So a frame view of
-  any family lays out rows the outline edits, and draws exactly the rows the
-  keyboard walk reaches. Its row chrome reads the page's selection and the
-  rows' expansion through `BrowserHost` (`useIsActive`, `useIsSelected`,
-  `selectNode`, `toggleCollapse`). The outline builds the subject once
-  (`outlineFrameSubject`). Every outline host (the outline's root, a row of the list, a
-  query's projected results) renders a frame view through `FrameViewSlot`,
-  with the frame's id as the slot's `subject`, so a list of lists is a chain
-  of links for other frames, never a cycle (promise 6). A query's results
-  in the list view are the one rows
-  the list draws itself, as references, through the query row's
-  `renderNode`.
+- _Adding to a frame._ Where a frame's rows are drawn by something other
+  than the list's own rows, its "+ Add" makes a row that belongs there, so
+  it shows where it was asked for:
+  - a query's results, in the list or a projected view, end in "+ Add";
+    the node it makes carries what the query requires (`node.add`'s
+    `matching`, DESIGN.md → Query layer → What a match requires) and goes
+    where the query places it (`child-of`), else where captures go;
+  - a projected view of a node's own children (a board, cards, a table,
+    lanes, where the row is a new lane) adds a child of that node;
+  - a group of a board adds its value too, the "No <field>" group none;
+  - the view's own filter adds what it requires, read the same way
+    (`requirementsOf`);
+  - a lane ends in its head's create strip, as the head's rows do in the
+    list: `RowChildren` draws a row's children and the strip that adds
+    one, wherever it is drawn.
+
+  A view asks its host for the row with the conditions of where it was
+  asked (`FrameSubject.addRow`: its filter, and a group's value as
+  `field-is`); the host adds the frame's own part (`matching` the query, or
+  the frame as parent), so it is the one way a frame view adds a row, as
+  `RowChildren` is the one way it draws a row's children. The node is made empty, with its caret in its text where the view draws
+  it, and is transient (Outline editor): left empty, it is pruned. One
+  write makes it with everything it carries, so one undo removes it. When
+  something the query or filter asks cannot be written (a negation, a
+  choice, a range: unmet), the node is made anyway and a toast says it may
+  not show here. "+ Add" is a button reached by Tab and pressed with
+  Enter or Space, named for where it adds ("Add to Doing", "Add to
+  Research", "Add a result").
 
 **The contract.** `src/view-contract.test.tsx` runs over every view that the
 built-in and optional UI plugins contribute. A new view joins it by being
