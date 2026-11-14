@@ -2902,17 +2902,18 @@ how the stored name resolves to the key among them.
   prefetched when the graph page loads; a renderer view suspends in its own
   slot until the chunk arrives, and a failed load is tried again from that
   slot's error.
-- _Frame views._ A frame's children are shown by one of five frame views,
+- _Frame views._ A frame's children are shown by one of six frame views,
   each a view at placement `inline`: the outline's list, which nests them,
-  and the collections family's table, board, cards and list with detail
-  (`@kb/collections-ui`), which lay them out as a node set inside the
+  and the collections family's table, board, cards, list with detail and
+  calendar (`@kb/collections-ui`), which lay them out as a node set inside the
   outline that hosts the frame. Every frame view's key is made by
   `frameViewKey` (`@kb/views`, `outline.ts`): its page is the outline at its
   frame, and the first four keep the id they were first stored under, in
   the `outline.` namespace, so a collection view answers to that id as an
   alias of the one its plugin contributes it at. The keys carry the one trait the row walk needs
   beside the params: how the view lays rows out (`outline`, nested; `rows`;
-  `columns`; `detail`, a run with one row's page beside it). The frame's first frame view node (DESIGN.md → View nodes)
+  `columns`; `detail`, a run with one row's page beside it; `days`, a run
+  grouped by the days it shows). The frame's first frame view node (DESIGN.md → View nodes)
   names the view, and `frameViewOf` (`@kb/ui-sdk`'s `lib/frame-view.ts`)
   looks that node up in the schema (`frameViewNodeOf`, the one test of what
   a frame's view node is, which every reader shares), resolves its view
@@ -2968,8 +2969,9 @@ how the stored name resolves to the key among them.
   walk and a new row's caret name a row alike. The subject also carries
   what the host draws each row with: a view lays the rows out, and the host
   edits each row's text (`RowText`) and keeps how many pages of them are
-  revealed (`pages`, `revealMorePages`) and which row a detail view shows
-  (`detail`, `showDetail`). The children a row shows, in
+  revealed (`pages`, `revealMorePages`), which row a detail view shows
+  (`detail`, `showDetail`) and which day a calendar is open at (`day`,
+  `showDay`). The children a row shows, in
   their own frame view, the host draws as it draws them under a row in a
   list (`RowChildren`, the children and the create strip that adds one):
   it is the one way a frame view asks its host for a row's children, as
@@ -3013,6 +3015,17 @@ how the stored name resolves to the key among them.
   button with `aria-expanded`: Tab reaches it, and Enter or Space folds or
   unfolds the group. The fold is written to the view node, so it holds in
   every host that names that view node and after a reload.
+
+  A row moves to another group by its value: dragged onto the group, or
+  with ⌘⇧← and ⌘⇧→ on the selected row, to the group before or after its
+  own as the view draws them, skipping folded ones, and nowhere past either
+  end. The move is one page write (`moveBoardCard`): the row's values of the
+  field are replaced by the group's value, or removed for "No <field>", so
+  one undo puts it back, and the selection stays on the row. Rows of a
+  query's results do not move, as they do not drag, since the value may be
+  what the query matched. The walk says which groups are beside a row's
+  (`VisibleInstance.group`), from the groups `frameRows` lays out, so the
+  keys move a row only where the view draws one.
 - _Lanes._ A view that declares `groupFieldId` and has none set lays its
   rows out as lanes, side by side (`laysOutLanes`, `@kb/views`). Each row
   heads a column: its text, as a card's is drawn, over the rows under it,
@@ -3101,6 +3114,59 @@ how the stored name resolves to the key among them.
   to a frame_). In a frame narrower than 480px the page stacks under the
   list. ⌘K offers it as "View as: List with detail", as the other frame
   views are offered.
+- _Calendar._ The calendar view (`collections.calendar`) lays a frame's
+  rows out by a date field, over a day, a week or a month, with the rows
+  holding no date in a list beside it. It is a grouping (_Groups_) whose
+  groups are days: the days it shows, in order, each holding the rows whose
+  date field's first value is that day, then "No <field>" for the rows
+  with none (an empty or unreadable date counts as none). A row dated on a
+  day it does not show is not drawn, and the row walk does not reach it.
+  Two settings sit on the view node beside the filters:
+  - `dateFieldId` (`sys.f.view.dateField`), the field the rows are dated
+    by. The view settings popover offers the rows' fields of type date. With
+    none chosen, every row waits in the list and the calendar says to choose
+    one, with a button that opens the popover.
+  - `span` (`sys.f.view.span`): `day`, `week` or `month`, a month when
+    none is stored. The calendar's own header switches it, a segmented
+    control as the routines calendar's.
+
+  Which days it shows is the outline's screen state per frame, as the row a
+  detail view shows is: the day it is open at, today until one is chosen
+  (`FrameSubject.day`, `showDay`), kept for the session and never written.
+  A week starts on Monday, and a month shows the weeks that hold its days.
+  The header's ‹ and › step a span back and on, and "Today" opens at today;
+  its title names the range. `frameRows` lays out the days from the span and
+  the open day (`daysOf`, the one statement of a calendar's days, which the
+  routines calendar reads too), so the view and the walk show the same
+  rows: the days in order, each day's rows in the frame's order, then the
+  undated ones.
+
+  A day draws its number, today's on the primary fill, and a chip per row:
+  the row's text as the host edits it (`RowText`), drawn as the routines
+  calendar draws an instance (`calendarChipClass`, the one class list both
+  chips are drawn with: radius, inked edge, label type and density), so the
+  two calendars read as one family.
+  A week lays its days side by side, and a month in a grid of weeks, the
+  routines calendar's month grid (`MonthGrid`); a cell lists all its rows.
+  In a frame narrower than 480px a week stacks its days, and the list goes
+  under the days.
+
+  A row is dated by moving it to a day's group: dragged from the list or
+  another day onto a day, which sets the date field to that day in one
+  page write, so one undo puts it back; dragged onto the list, its date is
+  removed. On the keyboard, ⌘⇧← and ⌘⇧→ move the selected row a day back
+  or on (_Groups_), and past the days shown the calendar opens at the row's
+  new day, so the row stays drawn and selected; ⌘⇧← on a row in the list
+  moves it onto the day the calendar is open at. Each day has "+ Add"
+  ("Add to Fri, Nov 14"), shown while the pointer is over the day or focus
+  is in it, and always on a touch screen, which adds a row holding that day (_Adding to a frame_, the
+  day's value as `field-is`); the list ends in "+ Add" too, adding a row
+  with no date. ⌘K offers the view as "View as: Calendar".
+
+  Open: the routines calendar's synced events (#194, Google Calendar) are
+  dated nodes too. Whether a calendar over a date field should show them,
+  or the routines calendar should become this view over their dates, is
+  the owner's call later; nothing here is designed for either.
 
 **The contract.** `src/view-contract.test.tsx` runs over every view that the
 built-in and optional UI plugins contribute. A new view joins it by being
