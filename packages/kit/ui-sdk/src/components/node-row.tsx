@@ -25,6 +25,43 @@ export interface NodeRowProps {
 
 const ROW_SELECTOR = '[data-node-row="true"]';
 
+/**
+ * What a row says of itself: selected, edited, and, when it can be
+ * activated, its tree role and whether Tab reaches it.
+ */
+function rowState(interactive: boolean, selected: boolean, active: boolean) {
+  return {
+    "data-selected": selected ? "true" : undefined,
+    "data-active": active ? "true" : undefined,
+    role: interactive ? "treeitem" : undefined,
+    "aria-selected": interactive ? selected || active : undefined,
+    tabIndex: interactive ? (selected || active ? 0 : -1) : undefined,
+  };
+}
+
+/** Enter and Space activate the row, unless a nested editor or button is where they were pressed. */
+function activatedByKeys(
+  onRowClick: (e: React.SyntheticEvent) => void,
+): (e: React.KeyboardEvent) => void {
+  return (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    // Don't steal keys from nested editors / buttons.
+    const t = asInstance(e.target, HTMLElement);
+    if (
+      t !== undefined &&
+      (t.isContentEditable ||
+        t.tagName === "INPUT" ||
+        t.tagName === "TEXTAREA" ||
+        t.tagName === "BUTTON" ||
+        t.closest("button,[contenteditable='true'],input,textarea") !== null)
+    ) {
+      return;
+    }
+    e.preventDefault();
+    onRowClick(e);
+  };
+}
+
 /** DESIGN-RESKIN §1.3 — the one node row everywhere. */
 export function NodeRow({
   depth,
@@ -74,34 +111,9 @@ export function NodeRow({
       data-instance-key={instanceKey}
       {...(instanceKey === undefined ? {} : menuAnchor(instanceKey))}
       data-node-row="true"
-      data-selected={isSelected ? "true" : undefined}
-      data-active={isActive ? "true" : undefined}
-      role={interactive ? "treeitem" : undefined}
-      aria-selected={interactive ? isSelected || isActive : undefined}
-      tabIndex={interactive ? (isSelected || isActive ? 0 : -1) : undefined}
+      {...rowState(interactive, isSelected, isActive)}
       onClick={onRowClick}
-      onKeyDown={
-        interactive
-          ? (e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                // Don't steal keys from nested editors / buttons.
-                const t = asInstance(e.target, HTMLElement);
-                if (
-                  t !== undefined &&
-                  (t.isContentEditable ||
-                    t.tagName === "INPUT" ||
-                    t.tagName === "TEXTAREA" ||
-                    t.tagName === "BUTTON" ||
-                    t.closest("button,[contenteditable='true'],input,textarea") !== null)
-                ) {
-                  return;
-                }
-                e.preventDefault();
-                onRowClick?.(e);
-              }
-            }
-          : undefined
-      }
+      onKeyDown={onRowClick === undefined ? undefined : activatedByKeys(onRowClick)}
     >
       {bullet}
       <div
