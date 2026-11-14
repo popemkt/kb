@@ -25,7 +25,7 @@ async function run(seed: string, opts?: { ops?: number }): Promise<ScenarioResul
 }
 
 /**
- * How long a DST scenario may take.
+ * How long a DST test may take: one scenario, or a replay's two.
  *
  * A scenario replays a whole seeded history through the real plan/apply path —
  * seconds of work, not milliseconds — so bun's 5000 ms default gates on how
@@ -33,13 +33,17 @@ async function run(seed: string, opts?: { ops?: number }): Promise<ScenarioResul
  * quiet machine "fixes" it. That is the lesson closed gap
  * [[01M1R19NXBMTVQG6AH0S7VTC7D]] was filed to unteach.
  *
- * Sized from measurement, not from taste: `bun test packages` run three times
- * beside a concurrent `bun run test:ui`, the shape of a loaded CI or dev box.
- * The slowest scenario is "same seed replays to a byte-identical store", which
- * runs every committed seed twice; it took 8.0 s, 5.2 s and 5.9 s. Every other
- * scenario stayed under 5.4 s. The budget is that maximum times four: enough
- * for a host several times slower than this one, still short enough that a
- * genuine hang fails inside half a minute rather than sitting there.
+ * Sized from measurement, not from taste. On CI's four-worker `bun test
+ * packages`, one scenario takes 1.5 to 7.2 s, so a replay's pair is under
+ * 15 s at the worst seen; the budget is about twice that. It holds because no
+ * test runs more than two scenarios: each committed seed is its own test. A
+ * test that looped over every seed ran eight scenarios under this one budget,
+ * took 17 to 30 s on CI, and once overran it.
+ *
+ * An overrun is not only a red test. Bun goes on to the next test while the
+ * overrun body keeps running, and the next test's preload moves `KB_DATA`
+ * under it, where commits keep their backups: the body then diverges from its
+ * replay for a reason outside the store (GAP [[01M740E2KPGXWP4WKTE2XZ6N56]]).
  */
 const SCENARIO_TIMEOUT_MS = 32_000;
 
@@ -52,27 +56,26 @@ function scenarioTest(name: string, body: () => Promise<void>): void {
 }
 
 describe("DST — seeded histories over the real plan/apply path", () => {
-  scenarioTest(
-    "committed seeds produce a legal store with zero structural violations",
-    async () => {
-      for (const seed of COMMITTED_SEEDS) {
+  for (const seed of COMMITTED_SEEDS) {
+    scenarioTest(
+      `committed seed ${seed} produces a legal store with zero structural violations`,
+      async () => {
         const r = await run(seed);
         expect(r.violations, `${seed}: ${r.violations.join("; ")}`).toEqual([]);
         expect(r.ops).toBe(60);
         expect(r.nodes.length).toBeGreaterThan(0);
-      }
-    },
-  );
+      },
+    );
+  }
 
-  // Diverged once under load, not reproduced since: GAP [[01M740E2KPGXWP4WKTE2XZ6N56]].
-  scenarioTest("same seed replays to a byte-identical store", async () => {
-    for (const seed of COMMITTED_SEEDS) {
+  for (const seed of COMMITTED_SEEDS) {
+    scenarioTest(`committed seed ${seed} replays to a byte-identical store`, async () => {
       const a = await run(seed);
       const b = await run(seed);
       expect(a.json, `seed ${seed} replay diverged`).toBe(b.json);
       expect(a.nodes.length).toBe(b.nodes.length);
-    }
-  });
+    });
+  }
 
   scenarioTest("the on-disk store round-trips to identical canonical bytes", async () => {
     const a = await run("dst-0");

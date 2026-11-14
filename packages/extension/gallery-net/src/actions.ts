@@ -21,8 +21,6 @@ import {
   type gallerySearchDef,
 } from "@kb/gallery";
 import { SOURCE_ADAPTERS, type SearchPage, type SourceAdapter } from "./adapters.ts";
-import { starterOutline } from "./starter.ts";
-import { STARTER_VISUALS } from "./starter-visuals.ts";
 import { ANY_HOST, boundedBytes, getFrom, getJson, reachable, type SourceFetch } from "./http.ts";
 
 /** Asset uploads are capped at 25 MiB (`asset.upload`); a larger download is refused before it is held. */
@@ -287,12 +285,20 @@ function idsOf(output: unknown): string[] {
   return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === "string") : [];
 }
 
+/**
+ * The starter's outline and pictures (1.8 MB of JPEG), loaded the first time
+ * the starter runs, so no other command parses them.
+ */
+const loadStarter = () =>
+  Effect.promise(() => Promise.all([import("./starter.ts"), import("./starter-visuals.ts")]));
+
 /** `ext.gallery.starter`: the starter outline, its `Library` as the gallery's `save into`, then its pictures there. */
 export const starterEffect = Effect.fn("ext.gallery.starter")(function* (): Effect.fn.Return<
   { library: string; ids: string[]; visuals: string[] },
   DomainError,
   KbCtx
 > {
+  const [{ starterOutline }, { STARTER_VISUALS }] = yield* loadStarter();
   const outline = starterOutline();
   const added = yield* call({ id: "node.addTree", input: { outline: outline.text, parent: null } });
   const library = idAtLine(added, outline.library);
