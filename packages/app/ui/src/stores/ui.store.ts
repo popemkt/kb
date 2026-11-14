@@ -154,6 +154,6 @@ export const useUiStore = create<UiState>((set) => ({
  * reach a store, and every code path that can render a toast has already
  * imported this module — App renders `<Toasts/>` from it.
  */
-setToastSink((message) => {
-  useUiStore.getState().pushToast("error", message);
+setToastSink((message, kind) => {
+  useUiStore.getState().pushToast(kind, message);
 });
