@@ -13,6 +13,7 @@ import {
   FamilyKernels,
   ProcedurePoint,
   ProcedureStatusSchema,
+  ProcedureStepOutputSchema,
   StepCheckSchema,
   isDecision,
   walkedSteps,
@@ -177,10 +178,7 @@ export const procedureStepDef = {
     /** Which of the step's actions: needed when the step is a decision, else its one. */
     action: z.string().min(1).optional(),
   }),
-  outputSchema: z.object({
-    receipt: z.unknown(),
-    status: ProcedureStatusSchema,
-  }),
+  outputSchema: ProcedureStepOutputSchema,
 } satisfies ActionDefinition;
 
 export const procedureStepEffect = Effect.fn("procedure.step")(function* (input: {

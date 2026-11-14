@@ -91,6 +91,7 @@ import { chartUiPlugin } from "@kb/chart-ui";
 import { codeUiPlugin } from "@kb/code-ui";
 import { layoutUiPlugin } from "@/components/layout/plugin";
 import { ontologyUiPlugin } from "@/components/ontology/plugin";
+import { procedureUiPlugin } from "@/components/procedure/plugin";
 import { settingsUiPlugin } from "@/components/prefs/settings-plugin";
 import { PAGE_EXTENSION_SDK } from "./page-extension-sdk";
 
@@ -113,6 +114,7 @@ export const CORE_UI_PLUGINS: readonly Plugin[] = [
   designSystemsUiPlugin,
   ontologyUiPlugin,
   settingsUiPlugin,
+  procedureUiPlugin,
   layoutUiPlugin,
   webMcpUiPlugin,
   screenUiPlugin,

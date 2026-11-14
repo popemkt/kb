@@ -9,7 +9,7 @@
       "@kb/test-kit": 58,
       "@kb/webmcp": 12,
       "@kb/operations": 68,
-      "@kb/contracts": 354,
+      "@kb/contracts": 355,
       "@kb/ext-sdk": 9,
       "@kb/extension-source": 27,
       "@kb/sandbox": 94,
@@ -19,7 +19,7 @@
       "@kb/plugin": 43,
       "@kb/query": 53,
       "@kb/seed": 8,
-      "@kb/views": 111,
+      "@kb/views": 113,
       "@kb/agent": 62,
       "@kb/agent-claude": 3,
       "@kb/agent-openai": 3,
@@ -79,7 +79,7 @@
       "@kb/appearance-kit": 41,
       "@kb/scene": 13,
       "@kb/scene-gpu": 35,
-      "@kb/ui-sdk": 529,
+      "@kb/ui-sdk": 530,
       "@kb/ui-test-kit": 26,
       "@kb/keybindings": 39
     },
@@ -149,8 +149,8 @@
     },
     "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2771849,
-      "modules": 734
+      "bytes": 2772208,
+      "modules": 735
     },
     "single-family": {
       "contract/sandbox/src/snapshot.ts": 1,

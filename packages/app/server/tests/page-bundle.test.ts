@@ -180,8 +180,10 @@ const DATASCRIPT = /cljs\.core/;
 // over that. A row's paste and drop as one chain (the outline's ingest
 // point, each row's port onto it, a pasted list becoming nodes, and the
 // SDK's provideIngest) measure 1,887,619; the budget keeps about 1.4 KB over
-// that.
-const EAGER_BUDGET_BYTES = 1_889_000;
+// that. The procedure page (its route, the lazy page behind it, and one
+// shared Button for the action review and the page) measures 1,890,119; the
+// budget keeps about 1.4 KB over that.
+const EAGER_BUDGET_BYTES = 1_891_500;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

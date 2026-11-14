@@ -61,9 +61,10 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // The manifest adds optional root and machine-local confirmation digests; older pages ignore them.
 // Protocol 9 adds the extension-watch greeting and live state; earlier pages
 // reject that frame and show a server-message error, so they reload first.
+// Procedure actions may carry an optional destructive tone; prior pages ignore it.
 const RECORDED = {
   protocol: 9,
-  fingerprint: "7a9db883d3a1d4b561198857f33895c999209989eeb5c4c39cd1520c314ca3f9",
+  fingerprint: "abe0e85fff935751001cd51a610168fd1c18a780e880dfda9858ffddd4a6c392",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

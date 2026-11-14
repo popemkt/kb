@@ -3139,6 +3139,12 @@ it would be on its own. An action needing approval needs it on the call
 that walks it: `callWithin` lends the nested call only its caller's
 approval. MCP, which carries no approval, is refused there as it is anywhere.
 
+The browser route `/procedure/<id>` is the same walker: it reads
+`procedure.status`, offers only the current step’s actions, shows recommendations
+and notes without choosing for the person, and invokes `procedure.step` through
+the page’s normal approval path. It shows the nested action receipt’s result or
+failure, and never automatically repeats a step whose check did not advance.
+
 `kb procedure [id]` lists the procedures or shows one's status.
 `--run` walks a procedure from its current step, asking before each step;
 `--yes` skips that question but not an approval. `--run` stops at a

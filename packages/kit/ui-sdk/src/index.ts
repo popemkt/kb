@@ -155,6 +155,7 @@ export { type EnumOption, EnumSelect } from "./components/enum-select";
 export { FieldRow } from "./components/field-row";
 export { ManagedNote } from "./components/managed-field";
 export { useFieldWrite } from "./lib/field-write";
+export { Button } from "./components/button";
 export { IconButton } from "./components/icon-button";
 export { KnobControl } from "./components/deferred-parts";
 export { MENU_ROW, MENU_SURFACE, useMenuKeys } from "./components/menu";
