@@ -589,7 +589,9 @@ function HiddenFieldsFold({
   };
   const label = `${count} hidden ${count === 1 ? "field" : "fields"}`;
   return (
-    <div className="flex py-0.5" style={indentStyle(depth + 1)}>
+    // A field row's geometry (FieldRow): its height, the chevron centred in
+    // the glyph column and the label where field labels start.
+    <div className="flex border-y border-transparent py-1" style={indentStyle(depth + 1)}>
       <button
         ref={ref}
         type="button"
@@ -597,7 +599,7 @@ function HiddenFieldsFold({
         data-hidden-fields-fold={count}
         aria-expanded={open}
         className={cn(
-          "kb-text flex items-center gap-1 rounded-sm px-1 text-caption text-faint-foreground",
+          "kb-text flex h-6 items-center rounded-sm pr-1 text-caption text-faint-foreground",
           "hover:text-foreground/70",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
         )}
@@ -614,8 +616,14 @@ function HiddenFieldsFold({
           }
         }}
       >
-        {open ? <CaretDownIcon size={10} aria-hidden /> : <CaretRightIcon size={10} aria-hidden />}
-        {label}
+        <span className="flex size-6 shrink-0 items-center justify-center">
+          {open ? (
+            <CaretDownIcon size={10} aria-hidden />
+          ) : (
+            <CaretRightIcon size={10} aria-hidden />
+          )}
+        </span>
+        <span className="ml-1">{label}</span>
       </button>
     </div>
   );

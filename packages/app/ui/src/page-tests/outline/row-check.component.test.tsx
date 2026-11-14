@@ -135,6 +135,21 @@ describe("a tag's box", () => {
     expect(outlineNodes().get("n.ship")?.props["f.status"] ?? []).toEqual([]);
   });
 
+  it("a checked row's text reads as done, in the muted text colour only", async () => {
+    const key = await render("n.ship");
+    const text = () =>
+      present(
+        container.querySelector<HTMLElement>(`[data-instance-key="${key}"] .kb-text-row`),
+        "the row's text",
+      );
+    expect(text().classList.contains("text-muted-foreground")).toBe(false);
+    await act(async () => click(boxOf(key)));
+    await settle();
+    await render("n.ship");
+    expect(text().classList.contains("text-muted-foreground")).toBe(true);
+    expect(text().className).not.toContain("line-through");
+  });
+
   it("is one undo step", async () => {
     const key = await render("n.ship");
     await act(async () => click(boxOf(key)));

@@ -17,7 +17,10 @@ export function rowCheckOf(shown: OutlineNode, schema: SchemaIndex) {
   return { checked: check.checked, label: textOr(schema.get(check.field)?.text, check.field) };
 }
 
-/** The ink of a checked row's text: faint, a colour only, so nothing moves. */
+/**
+ * The ink of a checked row's text: the muted secondary text, so it reads as
+ * done. A colour only, so nothing moves.
+ */
 export function checkedTextClass(shown: OutlineNode, schema: SchemaIndex): string | undefined {
-  return rowCheckOf(shown, schema)?.checked === true ? "text-faint-foreground" : undefined;
+  return rowCheckOf(shown, schema)?.checked === true ? "text-muted-foreground" : undefined;
 }

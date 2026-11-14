@@ -1131,7 +1131,9 @@ display), and `resolveVisibleProps` (`@kb/ui-sdk`) is the one answer every
 surface's field rows take: the rows drawn, pinned ones first, and the
 **folded** ones, a field shown *when filled* that this node templates and
 does not fill. The outline draws the folded ones as one row after the
-others, "N hidden fields" (`FieldsSection`): a button in the values'
+others, "N hidden fields" (`FieldsSection`), drawn on a field row's
+geometry (its height, the chevron in the glyph column, the label where
+field labels start): a button in the values'
 keyboard path (↑/↓ reach it as they reach a value, Escape hands the
 keyboard back to the row), opened by a click, Enter or Space, which then
 draws them as empty slots to fill, and closes the same way. Whether a fold
@@ -3266,7 +3268,8 @@ until "Save workspace".
   check" (`sys.cmd.toggle-check`) toggles the target row's box, and the
   node menu offers "Check" or "Uncheck" on a row that has one. Each is
   the one page write, `toggleCheck`, which says so when the row has no
-  box. A checked row's text is drawn faint, in colour only, so nothing
+  box. A checked row's text reads as done: drawn in the muted secondary
+  text (`--muted-foreground`), a colour only, no strikethrough, so nothing
   moves; the box's own change is a colour change of at most 150ms, none
   under reduced motion.
 - **The zoom is a location.** The page's home is `/`, and zoomed to a node
