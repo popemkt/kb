@@ -162,7 +162,7 @@ test("a frame's group, fields and page size are set from its view settings", asy
 test.describe("in a narrow pane", () => {
   test.use({ viewport: { width: 360, height: 780 } });
 
-  test("a page head's view toolbar wraps under its title, its settings in reach", async ({
+  test("a page head's view toolbar stays one row of glyphs, its settings in reach", async ({
     page,
     request,
   }) => {
@@ -183,8 +183,20 @@ test.describe("in a narrow pane", () => {
     const title = await settledBox(page.locator('[data-zoom-title="true"]').first());
     const settings = await settledBox(toolbar.locator('[data-view-settings-button="true"]'));
     const bar = await settledBox(toolbar);
-    // The title keeps its line, the toolbar goes under it, and nothing leaves the pane.
-    expect(bar.y).toBeGreaterThanOrEqual(title.y + title.height - 1);
+    // The title keeps its words whole (never a letter a line), and nothing leaves the pane.
+    expect(title.width).toBeGreaterThan(60);
+    // One row of glyphs, each still named: the control never splits.
+    const modes = toolbar.locator("[data-mode-button]");
+    const tops = new Set<number>();
+    for (const mode of await modes.all()) {
+      tops.add(Math.round((await settledBox(mode)).y));
+      expect(await mode.getAttribute("aria-label")).not.toBe("");
+    }
+    expect(tops.size).toBe(1);
+    // The gear is on that row too (it is a little taller than a mode button).
+    const [top = Number.NaN] = tops;
+    expect(Math.abs(settings.y - top)).toBeLessThan(4);
+    await expect(toolbar.locator('[data-mode-button="table"]')).toHaveAccessibleName("Table");
     expect(bar.x + bar.width).toBeLessThanOrEqual(360);
     expect(settings.x + settings.width).toBeLessThanOrEqual(360);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
