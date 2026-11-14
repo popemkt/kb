@@ -970,6 +970,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Define and test a sanitized source-failure classification at the transport owner, including missing repository/ref, denied access, byte/count caps and connection failure; all adapters present that classification.
 - **node** — `01M6WXNJH2JJD9956VC408R386`
 
+### GAP: glyph-local head shadow contrast measurement
+
+- **expected** — Both head treatments have automated contrast evidence at the glyph edge.
+- **current** — Fade uses the box-wide AA check. Shadow is glyph-local and was approved visually from prototype shots.
+- **impact** — Shadow readability regressions need visual review.
+- **closes** — A glyph-local contrast check covering both schemes and contributed backdrops.
+- **node** — `01M789X4HZ130RY16R7ASVVVF7`
+
 ### GAP: GPU backdrops paint an opaque frame over the page's flat ground
 
 - **expected** — The scene stage has an alpha mode: a backdrop's canvas is transparent where its scene is absent (the feather, the veil), so the page's own ground, flat or a theme's ground art, shows through around it.

@@ -253,7 +253,7 @@ describe("Settings", () => {
     ).toEqual([SYSTEM_IDS.backdropStrengthField]);
     expect(container.querySelector('[data-settings-section="device"]')).toBeNull();
     await filter("page head");
-    expect(section("page-head").querySelectorAll("[data-setting]").length).toBe(5);
+    expect(section("page-head").querySelectorAll("[data-setting]").length).toBe(6);
     await filter("no setting is called this");
     expect(container.textContent).toContain("No setting matches.");
     const input = await filter("width");

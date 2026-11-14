@@ -7,6 +7,7 @@ import {
   backdropVariantOptionId,
   designSystemOptionId,
   type BackdropDirection,
+  type BackdropHead,
   type BackdropStrength,
   type SeedBackdrop,
 } from "@kb/appearance";
@@ -38,6 +39,7 @@ import { readBackdrops, type ContributedBackdrops } from "./lib/backdrop-decode.
  */
 export interface PageBackdropChoice {
   readonly backdrop: Contribution<Backdrop> | null;
+  readonly head: BackdropHead;
   readonly strength: BackdropStrength | null;
   readonly direction: BackdropDirection;
   readonly art: string | null;
@@ -105,6 +107,7 @@ export function usePageBackdrop(node?: OutlineNode): PageBackdropChoice {
     );
     return {
       backdrop: chosenDeclared(contributions, choice.backdrop),
+      head: choice.head,
       strength: choice.strength,
       direction: choice.direction,
       art: choice.art === null ? null : assetUrl(choice.art),
