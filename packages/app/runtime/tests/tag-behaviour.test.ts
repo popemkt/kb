@@ -10,7 +10,15 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fieldTypeValue, SYSTEM_IDS, type KbNode, type PropValue } from "@kb/model";
+import {
+  checkEdits,
+  checkOf,
+  fieldTypeValue,
+  present,
+  SYSTEM_IDS,
+  type KbNode,
+  type PropValue,
+} from "@kb/model";
 import { DAYS_IDS } from "@kb/days";
 import { invoke } from "../src/invoke.ts";
 import type { KbContext } from "@kb/contracts";
@@ -112,4 +120,41 @@ test("the settings are a person's to write on a family's tag and field", async (
       { field: SYSTEM_IDS.fillFromField, value: ref(DAYS_IDS.keyField) },
     ],
   });
+});
+
+test("a tag's box is its field: a value set anywhere checks it, and its edit is node.update's", async () => {
+  const ctx = await openKb(root);
+  const done = await add(ctx, {
+    text: "done",
+    props: [
+      { field: SYSTEM_IDS.typeField, value: ref(SYSTEM_IDS.field) },
+      { field: SYSTEM_IDS.fieldTypeField, value: fieldTypeValue("checkbox") },
+      { field: SYSTEM_IDS.cardinalityField, value: ref(SYSTEM_IDS.cardinalityOne) },
+    ],
+  });
+  const item = await add(ctx, {
+    text: "item",
+    props: [
+      { field: SYSTEM_IDS.typeField, value: ref(SYSTEM_IDS.tag) },
+      { field: SYSTEM_IDS.tagCheckField, value: ref(done.id) },
+    ],
+  });
+  const milk = await add(ctx, { text: "milk", tags: [item.id] });
+  const nodeOf = (id: string) => ctx.index.getNode(id);
+  expect(checkOf(milk, nodeOf)?.checked).toBe(false);
+
+  // The field set the way `kb set` and an agent set it checks the box…
+  const set = await ok<{ node: KbNode }>(ctx, "node.update", {
+    id: milk.id,
+    setProps: [{ field: done.id, value: { t: "bool", v: true } }],
+  });
+  const check = checkOf(set.node, nodeOf);
+  expect(check?.checked).toBe(true);
+  // …and the box's own edit is a node.update any surface can send.
+  const unchecked = await ok<{ node: KbNode }>(ctx, "node.update", {
+    id: milk.id,
+    ...checkEdits(present(check, "a box")),
+  });
+  expect(unchecked.node.props[done.id]).toEqual([{ t: "bool", v: false }]);
+  expect(checkOf(unchecked.node, nodeOf)?.checked).toBe(false);
 });

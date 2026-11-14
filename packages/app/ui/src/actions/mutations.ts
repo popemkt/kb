@@ -26,6 +26,7 @@ import {
   planRemoveTag,
   planSetProp,
   planSplit,
+  planToggleCheck,
   planUnsetProp,
   planUpdateText,
   type FrameViewEdit,
@@ -397,6 +398,15 @@ export const mutations: PageWrites = {
     const plan = planPinNode(wire(), nodeId, ulid());
     if (plan === null) {
       toast("Pinned list is missing from this graph");
+      return false;
+    }
+    return applyPlan(plan);
+  },
+
+  async toggleCheck(nodeId: string): Promise<boolean> {
+    const plan = planToggleCheck(wire(), nodeId);
+    if (plan === null) {
+      toast("This node has no check: none of its tags names one");
       return false;
     }
     return applyPlan(plan);

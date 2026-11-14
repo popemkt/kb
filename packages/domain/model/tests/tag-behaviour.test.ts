@@ -8,6 +8,8 @@ import { describe, expect, test } from "bun:test";
 import {
   IndexedNodes,
   SYSTEM_IDS,
+  checkEdits,
+  checkOf,
   nodeTitleOf,
   planNodeAdd,
   present,
@@ -149,5 +151,73 @@ describe("title", () => {
     const b = node("b", "B", { [SYSTEM_IDS.typeField]: [ref("t.task")], "f.owner": [ref("a")] });
     const lookup = (id: string) => (id === "a" ? a : id === "b" ? b : nodeOf(id));
     expect(nodeTitleOf("a", a, lookup)).toBe("A — B — A");
+  });
+});
+
+describe("check", () => {
+  const boxes = () =>
+    IndexedNodes.of([
+      seededField("f.done", "done", "checkbox", AT, { one: true }),
+      seededField("f.status", "status", "ref", AT, { one: true }),
+      seededField("f.note", "note", "text", AT, { one: true }),
+      node("opt.done", "Done"),
+      node("opt.open", "Open"),
+      tagWith("t.item", [], { [SYSTEM_IDS.tagCheckField]: [ref("f.done")] }),
+      tagWith("t.task", [], {
+        [SYSTEM_IDS.tagCheckField]: [ref("f.status")],
+        [SYSTEM_IDS.tagCheckedValueField]: [ref("opt.done")],
+      }),
+      tagWith("t.bad", [], { [SYSTEM_IDS.tagCheckField]: [ref("f.note")] }),
+    ]);
+  const lookup = (id: string) => boxes().get(id);
+  const tagged = (tag: string, props: KbNode["props"] = {}) =>
+    node("n", "n", { [SYSTEM_IDS.typeField]: [ref(tag)], ...props });
+
+  test("a checkbox field's box is checked by true, and toggles between true and false", () => {
+    const open = checkOf(tagged("t.item"), lookup);
+    expect(open).toEqual({ field: "f.done", value: { t: "bool", v: true }, checked: false });
+    expect(checkEdits(present(open, "a box"))).toEqual({
+      setProps: [{ field: "f.done", value: { t: "bool", v: true } }],
+    });
+    const done = checkOf(tagged("t.item", { "f.done": [{ t: "bool", v: true }] }), lookup);
+    expect(done?.checked).toBe(true);
+    expect(checkEdits(present(done, "a box"))).toEqual({
+      setProps: [{ field: "f.done", value: { t: "bool", v: false } }],
+    });
+  });
+
+  test("an option field's box is checked by its checked value, which unchecking unsets", () => {
+    const open = checkOf(tagged("t.task", { "f.status": [ref("opt.open")] }), lookup);
+    expect(open?.checked).toBe(false);
+    expect(checkEdits(present(open, "a box"))).toEqual({
+      setProps: [{ field: "f.status", value: ref("opt.done") }],
+    });
+    const done = checkOf(tagged("t.task", { "f.status": [ref("opt.done")] }), lookup);
+    expect(done?.checked).toBe(true);
+    expect(checkEdits(present(done, "a box"))).toEqual({
+      unsetProps: [{ field: "f.status", value: ref("opt.done") }],
+    });
+    // Asked for a state, the edit leaves it whatever it was.
+    expect(checkEdits(present(done, "a box"), true)).toEqual({
+      setProps: [{ field: "f.status", value: ref("opt.done") }],
+    });
+  });
+
+  test("no box without a check, nor for a field that is no checkbox and names no checked value", () => {
+    expect(checkOf(node("n", "n"), lookup)).toBeNull();
+    expect(checkOf(tagged("t.bad"), lookup)).toBeNull();
+  });
+
+  test("the edit, applied by node.update's projection, checks the box", () => {
+    const g = boxes();
+    g.put(tagged("t.task", { "f.status": [ref("opt.open")] }));
+    const n = present(g.get("n"), "n");
+    const before = present(
+      checkOf(n, (id) => g.get(id)),
+      "a box",
+    );
+    const props = projectPropEdits(g, n, checkEdits(before));
+    expect(props["f.status"]).toEqual([ref("opt.done")]);
+    expect(checkOf({ props }, (id) => g.get(id))?.checked).toBe(true);
   });
 });

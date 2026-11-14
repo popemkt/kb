@@ -1,11 +1,12 @@
 /**
  * How a tag shapes the nodes it is on (DESIGN.md → Data model → tag
  * behaviours): the child tags a node added under one of its nodes gets, the
- * fields a gained tag fills from the node's ancestors, and the title a node
- * is named by. Each is a field read along a node's kinds, nearest first, and
- * this module is the one reader of all three: the write plans call the first
- * two inside the write that makes or tags a node, and every surface that
- * names a node asks the third.
+ * fields a gained tag fills from the node's ancestors, the title a node is
+ * named by, and the box it shows. Each is a field read along a node's
+ * kinds, nearest first, and this module is the one reader of them all: the
+ * write plans call the first two inside the write that makes or tags a
+ * node, every surface that names a node asks the third, and every surface
+ * that draws or toggles a box the fourth.
  */
 import { cardinalityOf, fieldTypeOf } from "./field-type.ts";
 import { conformsToType } from "./field-value.ts";
@@ -13,6 +14,7 @@ import { replaceMentions } from "./mention.ts";
 import { SYSTEM_IDS, type NodeId, type PropValue } from "./model.ts";
 import type { NodeLike } from "./node-like.ts";
 import { refValuesOf, typeRefsOf } from "./node-like.ts";
+import type { PropEdits } from "./node-write.ts";
 import type { NodeLookup } from "./ref-chain.ts";
 import { kindsOf, templateFieldsOf } from "./tag-kinds.ts";
 
@@ -150,4 +152,54 @@ export function nodeTitleOf(
   nodeOf: (id: NodeId) => Titled | undefined,
 ): string {
   return titleWithin(id, node, nodeOf, new Set());
+}
+
+/**
+ * A node's box: the field it is tied to, the value that checks it, and
+ * whether the node holds that value. The box holds nothing of its own.
+ */
+export interface NodeCheck {
+  readonly field: NodeId;
+  readonly value: PropValue;
+  readonly checked: boolean;
+}
+
+const CHECKED: PropValue = { t: "bool", v: true };
+const UNCHECKED: PropValue = { t: "bool", v: false };
+
+const sameValue = (a: PropValue, b: PropValue) => a.t === b.t && a.v === b.v;
+
+/**
+ * The box of a node (`sys.f.tag.check`), or null when none of its kinds
+ * names one: the nearest kind that does, its checked value
+ * (`sys.f.tag.checkedValue`), else `true` for a checkbox field. A kind
+ * that names a field of another type and no checked value draws no box.
+ */
+export function checkOf(node: Pick<NodeLike, "props">, nodeOf: NodeLookup): NodeCheck | null {
+  for (const kind of kindsOf(node, nodeOf)) {
+    const tag = nodeOf(kind);
+    const field = refValuesOf(tag, SYSTEM_IDS.tagCheckField)[0];
+    if (field === undefined) continue;
+    const named = refValuesOf(tag, SYSTEM_IDS.tagCheckedValueField)[0];
+    const checkbox = fieldTypeOf(nodeOf(field)?.props, nodeOf) === "checkbox";
+    const value: PropValue | null =
+      named !== undefined ? { t: "ref", v: named } : checkbox ? CHECKED : null;
+    if (value === null) return null;
+    const checked = (node.props[field] ?? []).some((held) => sameValue(held, value));
+    return { field, value, checked };
+  }
+  return null;
+}
+
+/**
+ * The `node.update` edit that leaves the box `box` `checked` (the other
+ * state when absent): the checked value set; unchecked, `false` for a
+ * checkbox, as its own toggle writes, and the checked value unset for any
+ * other field.
+ */
+export function checkEdits(box: NodeCheck, checked = !box.checked): PropEdits {
+  if (checked) return { setProps: [{ field: box.field, value: box.value }] };
+  return sameValue(box.value, CHECKED)
+    ? { setProps: [{ field: box.field, value: UNCHECKED }] }
+    : { unsetProps: [{ field: box.field, value: box.value }] };
 }

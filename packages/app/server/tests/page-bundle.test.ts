@@ -186,8 +186,11 @@ const DATASCRIPT = /cljs\.core/;
 // hidden-fields fold and pinned fields first) measures 1,893,610, and tag
 // behaviours (a row drawn by its title, ref labels and picker rows by it,
 // and the model's one reader of child tags, fill from and titles the page's
-// write plans run) 1,896,009; the budget keeps about 1.4 KB over that.
-const EAGER_BUDGET_BYTES = 1_897_400;
+// write plans run) 1,896,009. A tag's box (the row's box, its ⌘Enter
+// intents, the Toggle check command and the model's checkOf and checkEdits)
+// measures 1,899,675 with the palette listing nodes by title; the budget
+// keeps about 1.4 KB over that.
+const EAGER_BUDGET_BYTES = 1_901_100;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

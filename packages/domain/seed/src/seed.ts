@@ -121,6 +121,14 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const titleField = singleField(SYSTEM_IDS.tagTitleField, "title", "text", {
     props: configuresTags,
   });
+  // The box a tag's nodes show: the field it is tied to and the value
+  // that checks it, an option of that field (none for a checkbox).
+  const checkField = singleField(SYSTEM_IDS.tagCheckField, "checkbox", "ref", {
+    props: { ...configuresTags, [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: SYSTEM_IDS.field }] },
+  });
+  const checkedValueField = singleField(SYSTEM_IDS.tagCheckedValueField, "checked value", "ref", {
+    props: configuresTags,
+  });
   const fillFromField = singleField(SYSTEM_IDS.fillFromField, "fill from", "ref", {
     props: {
       ...configuresFields,
@@ -183,6 +191,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
       { t: "ref", v: SYSTEM_IDS.extendsField },
       { t: "ref", v: SYSTEM_IDS.tagChildTagField },
       { t: "ref", v: SYSTEM_IDS.tagTitleField },
+      { t: "ref", v: SYSTEM_IDS.tagCheckField },
+      { t: "ref", v: SYSTEM_IDS.tagCheckedValueField },
     ],
   });
 
@@ -202,6 +212,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     cmd(SYSTEM_IDS.cmdSwitchDesignSystem, "Switch design system"),
     cmd(SYSTEM_IDS.cmdToggleWidth, "Toggle width"),
     cmd(SYSTEM_IDS.cmdDebugShowFields, "Debug: show all fields"),
+    cmd(SYSTEM_IDS.cmdToggleCheck, "Toggle check"),
     cmd(SYSTEM_IDS.cmdExpandAll, "Expand all"),
     cmd(SYSTEM_IDS.cmdCollapseAll, "Collapse all"),
     // W7.1 view mode + filter commands. The view-as commands name the
@@ -600,6 +611,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     pinnedField,
     childTagField,
     titleField,
+    checkField,
+    checkedValueField,
     fillFromField,
     fieldTypeField,
     ...fieldTypeOptions,

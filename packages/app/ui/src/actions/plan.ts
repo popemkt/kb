@@ -1,5 +1,7 @@
 import type { ActionRequest, WireNode } from "@kb/contracts";
 import {
+  checkEdits,
+  checkOf,
   closesCycle,
   familyViewIdOf,
   fieldTypeValue,
@@ -226,6 +228,17 @@ export function planNewQueryNode(
  * pinning is a sidebar gesture, and stealing the caret from the row the user is
  * on would be a surprise the tag version never had.
  */
+/**
+ * Toggle the box of `id` (DESIGN.md → Data model → tag behaviours, check):
+ * the one `node.update` its check plans, or null when no tag of it names one.
+ */
+export function planToggleCheck(nodes: WireNode[], id: string): PlannedMutation | null {
+  const byId = wireById(nodes);
+  const node = byId.get(id);
+  const check = node === undefined ? null : checkOf(node, (nodeId) => byId.get(nodeId));
+  return check === null ? null : update(id, { ...checkEdits(check) });
+}
+
 export function planPinNode(
   nodes: WireNode[],
   targetId: string,

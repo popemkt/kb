@@ -108,6 +108,12 @@ export interface PageWrites {
    */
   readonly defineTag: (name: string, parents?: readonly string[]) => Promise<string | null>;
   /**
+   * Toggle the box of `nodeId` (DESIGN.md → Data model → tag behaviours,
+   * check): the one field write its box plans. False, said with a toast,
+   * when no tag of the node names a check.
+   */
+  readonly toggleCheck: (nodeId: string) => Promise<boolean>;
+  /**
    * Pin / unpin a node for the sidebar's Pinned section.
    *
    * Pinning is *listing* (see lib/pinned): the toggle adds or removes a

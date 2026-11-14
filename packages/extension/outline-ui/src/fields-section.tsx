@@ -24,6 +24,7 @@ import {
   useOptionPreview,
   type FieldHandle,
 } from "@kb/ui-sdk";
+import { backToRow } from "./back-to-row";
 import { outlineSource, useOutlineStore } from "./outline.store";
 import { ValueSlot } from "./value-slot";
 import { FieldPicker } from "./field-picker";
@@ -200,8 +201,9 @@ function valueKeys(values: readonly PropValue[]): Array<{ key: string; value: Pr
 
 /**
  * The keyboard leaves a node's fields for its row (`FieldHandle.leave`):
- * `back` selects the row, `up` edits its text at the end, `down` edits the
- * next row. Drawn under no row instance (a story, a test), it stays.
+ * `back` goes back to the row from the focused value (`backToRow`), `up`
+ * edits its text at the end, `down` edits the next row. Drawn under no row
+ * instance (a story, a test), it stays.
  */
 function leaveFields(
   nodeId: string,
@@ -210,7 +212,7 @@ function leaveFields(
 ): void {
   if (instanceKey === undefined) return;
   const s = useOutlineStore.getState();
-  if (way === "back") s.selectNode(nodeId, instanceKey);
+  if (way === "back") backToRow(document.activeElement, nodeId, instanceKey);
   else if (way === "up")
     s.activateNode(nodeId, rowTextOf(outlineSource(), nodeId).text.length, instanceKey);
   else {

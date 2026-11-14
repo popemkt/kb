@@ -3255,10 +3255,12 @@ until "Save workspace".
   [Data model](DESIGN.md#data-model--everything-is-a-node), tag
   behaviours, `checkOf`) draws a box between its bullet and its text:
   a button with `role="checkbox"`, `aria-checked`, and the check field's
-  name as its accessible name. Pressing it, a click or a tap, writes
+  name as its accessible name, drawn as a checkbox field's value is
+  (`CheckMark`). Pressing it, a click or a tap, writes
   the field (`checkEdits`, one `node.update`, so one undo step), and
   leaves focus, the caret and the scroll where they were; it never edits
-  the text. ⌘Enter (Ctrl+Enter) toggles the box of the row being edited
+  the text. Reached by Tab, it answers Enter and Space, and Escape goes
+  back to its row, selected. ⌘Enter (Ctrl+Enter) toggles the box of the row being edited
   or selected (`editing.toggle-check`, `selection.toggle-check`;
   `split` and `edit` claim Enter without the command key). ⌘K's "Toggle
   check" (`sys.cmd.toggle-check`) toggles the target row's box, and the

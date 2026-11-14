@@ -187,6 +187,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Per-surface invocation grammars: command lines of the hook and workflow run steps, &&-segments of package.json scripts, rule keys of .oxlintrc.json; an invocation matches one whole.
 - **node** — `01M56TFECRSQN243PAEB6XGHRY`
 
+### GAP: a checklist row shows no box until a tag ties one to its done field
+
+- **expected** — A row the checklist family makes from a pasted Markdown checklist shows its done as a box, as Tana draws a task (DESIGN-UI.md → A tag's box).
+- **current** — A box is a tag's (sys.f.tag.check), and checklist rows carry checklist.f.done but no tag, so they show done as a field row until a person tags them with a tag whose check is done.
+- **impact** — Pasting a checklist gives rows with a checkbox field rather than boxed rows; a person tags them, or adds the check to a tag of their own, to see boxes.
+- **closes** — The checklist family (kb-extensions) declares a checklist-item tag whose check is its done field, and tags the rows its paste makes; no change in core.
+- **node** — `01M7CZXE92JQP5495R9XJPMM8N`
+
 ### GAP: a clipped frame member's 2D selection handles are cut with it
 
 - **expected** — A frame clips what it holds, but the selection chrome of a selected member (outline halo, resize and rotate handles, ports) is drawn whole over the frame edge, in its own overlay.

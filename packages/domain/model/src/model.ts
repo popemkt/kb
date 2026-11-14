@@ -79,6 +79,11 @@ export const SYSTEM_IDS = {
   tagChildTagField: "sys.f.tag.childTag",
   tagTitleField: "sys.f.tag.title",
   fillFromField: "sys.f.fillFrom",
+  /** The field a tag's nodes' box is tied to, and the value that checks it, on a tag. */
+  tagCheckField: "sys.f.tag.check",
+  tagCheckedValueField: "sys.f.tag.checkedValue",
+  /** ⌘K: toggle the target row's box. */
+  cmdToggleCheck: "sys.cmd.toggle-check",
   /** Declared value type on field nodes — a ref to one of the option nodes below. */
   fieldTypeField: "sys.f.fieldType",
   /**

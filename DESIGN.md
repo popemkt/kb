@@ -639,7 +639,7 @@ type PropValue =
     editing a row edits it. A row draws the title while no one edits it, a
     reference to the node is labelled by it, and search finds a node by
     its text or its title and answers with the title (`graph.search`,
-    every index implementation alike; DESIGN-UI.md → Outline editor →
+    every index implementation alike; DESIGN-UI.md → Panes and layouts →
     titles from fields). A reference names a field by id, so renaming the
     field changes no title's meaning.
   - **checkbox** (`sys.f.tag.check`, on a tag; one, its value a field) and
