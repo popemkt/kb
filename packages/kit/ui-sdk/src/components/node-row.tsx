@@ -7,6 +7,13 @@ import { menuAnchor } from "../lib/menu-anchor";
 export interface NodeRowProps {
   depth: number;
   isSelected?: boolean;
+  /**
+   * A row of a range of several selected rows, the head among them
+   * (DESIGN-UI.md → Outline editor, "A selection is a range of rows"):
+   * drawn selected, square where it meets its neighbours so the range reads
+   * as one band. The focus stays on the head (`isSelected`).
+   */
+  inRange?: boolean;
   isActive?: boolean;
   /**
    * Row activation — click or Enter/Space. `SyntheticEvent`, not
@@ -26,16 +33,17 @@ export interface NodeRowProps {
 const ROW_SELECTOR = '[data-node-row="true"]';
 
 /**
- * What a row says of itself: selected, edited, and, when it can be
- * activated, its tree role and whether Tab reaches it.
+ * What a row says of itself: selected (the head, or a row of the range),
+ * edited, and, when it can be activated, its tree role and whether Tab
+ * reaches it (the head and the row being edited only).
  */
-function rowState(interactive: boolean, selected: boolean, active: boolean) {
+function rowState(interactive: boolean, head: boolean, inRange: boolean, active: boolean) {
   return {
-    "data-selected": selected ? "true" : undefined,
+    "data-selected": head || inRange ? "true" : undefined,
     "data-active": active ? "true" : undefined,
     role: interactive ? "treeitem" : undefined,
-    "aria-selected": interactive ? selected || active : undefined,
-    tabIndex: interactive ? (selected || active ? 0 : -1) : undefined,
+    "aria-selected": interactive ? head || inRange || active : undefined,
+    tabIndex: interactive ? (head || active ? 0 : -1) : undefined,
   };
 }
 
@@ -66,6 +74,7 @@ function activatedByKeys(
 export function NodeRow({
   depth,
   isSelected = false,
+  inRange = false,
   isActive = false,
   onRowClick,
   bullet,
@@ -77,6 +86,7 @@ export function NodeRow({
   const interactive = Boolean(onRowClick);
   const ref = useRef<HTMLDivElement>(null);
   const holdsSelection = interactive && isSelected && !isActive;
+  const drawnSelected = (isSelected || inRange) && !isActive;
   // Focus follows the selection. A row that becomes selected — Escape out of
   // its editor, arrow navigation, a zoom — takes focus when it would otherwise
   // fall to <body>, is still inside the row, or sits on the row the selection
@@ -98,7 +108,8 @@ export function NodeRow({
       className={cn(
         "node-row group/node flex items-start",
         "rounded-sm transition-colors duration-75",
-        isSelected && !isActive && "bg-primary/5",
+        drawnSelected && "bg-primary/5",
+        inRange && "rounded-none",
         interactive &&
           "outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
         className,
@@ -111,7 +122,7 @@ export function NodeRow({
       data-instance-key={instanceKey}
       {...(instanceKey === undefined ? {} : menuAnchor(instanceKey))}
       data-node-row="true"
-      {...rowState(interactive, isSelected, isActive)}
+      {...rowState(interactive, isSelected, inRange, isActive)}
       onClick={onRowClick}
       onKeyDown={onRowClick === undefined ? undefined : activatedByKeys(onRowClick)}
     >
@@ -119,7 +130,8 @@ export function NodeRow({
       <div
         className={cn(
           "node-content flex min-h-6 min-w-0 flex-1 items-start gap-1.5 rounded-sm px-1",
-          isSelected && !isActive && "bg-primary/8",
+          drawnSelected && "bg-primary/8",
+          inRange && "rounded-none",
         )}
       >
         {content}

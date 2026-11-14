@@ -7,7 +7,7 @@
  * from the node's text, the node palette from its own input. Passing it in is
  * what lets all of them read this one hook.
  */
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { lookupChord, type Chord, type KeyChordEvent } from "@kb/keybindings";
 import type { PickerRow } from "./picker";
 
@@ -117,4 +117,18 @@ export function usePickerKeys({
       return true;
     },
   };
+}
+
+/**
+ * A picker that opens over the page takes the focus while it is open and
+ * gives it back where it was when it closes: the row, or the editor, it was
+ * opened from. Call it before the effect that focuses the picker's input,
+ * so the origin is read first.
+ */
+export function useFocusReturn(open: boolean): void {
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    const origin = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    return () => origin?.focus({ preventScroll: true });
+  }, [open]);
 }

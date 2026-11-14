@@ -406,6 +406,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — An isolated backdrop host behind BackdropPoint for repository extensions, with the frame meter and knob values passed across, held by the shared backdrop contract
 - **node** — `01M6WVFMGB5PP2AANF0E5R921V`
 
+### GAP: A range of rows cannot be selected by touch
+
+- **expected** — A finger selects a range of outline rows as Shift+arrow and Shift-click do: a long press on a row starts a selection there, and a tap on another row while it lasts moves its head
+- **current** — A range is made with Shift+Up/Down or Shift-click only; the outline rows have no long-press recognizer (the canvas's LONG_PRESS_MS recognizer is the canvas stage's)
+- **impact** — On a phone or tablet the bulk commands (tag, untag, set field, pin, delete, block moves) reach one row at a time
+- **closes** — The outline row touch recognizer the row drag and drop brings (item 2 of the Tana outline-editor line), its long press ending in extendSelection
+- **node** — `01M7CY02KHSSAAENWJ67EA1EPH`
+
 ### GAP: a ref value's bullet follows instead of expanding the target inline
 
 - **expected** — A ref value's bullet expands the target's children inline under the field, the way a reference row's bullet expands its target.
@@ -1515,6 +1523,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Search cost grows linearly with the graph and no ranking is possible.
 - **closes** — Gate on Bun's FTS5 close() segfault (oven-sh/bun#37044); adopt once a SQLite index exists.
 - **node** — `01M1M08X7037FH9Z0Y5G1RFRXX`
+
+### GAP: Set field… offers only fields that declare an option set
+
+- **expected** — Set field… over one row or a range offers every field and writes a value of the field's own type to each row: an option picked from a set, or a typed value (text, number, date, a node) read once and written to every row
+- **current** — The outline.set-field step lists only the options of fields that declare an option set (declaresOptionSet), as 'field: option'; any other field is set row by row through Add field
+- **impact** — Bulk-setting a date, a number or a reference across a selection takes one gesture per row
+- **closes** — A Set field step that, after the field is picked, opens the field's own value editor once (the field row's editor, through the picker step) and writes its value to every target in one asOneWrite
+- **node** — `01M7CY0205F8GSDTNMSSG35S97`
 
 ### GAP: Shift-drag on empty space in 3D does not marquee-select
 

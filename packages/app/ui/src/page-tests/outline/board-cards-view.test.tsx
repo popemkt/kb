@@ -23,7 +23,7 @@ import { framedAs, viewFieldNodes, type FrameViewName } from "@/fixtures/view-fi
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 import { useGraphStore } from "@/stores/graph.store";
-import { pageCommandApi } from "@/stores/page-commands";
+import { pageCommandApi, pageCommandTarget } from "@/stores/page-commands";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import type { WireNode } from "@kb/contracts";
@@ -377,7 +377,7 @@ describe("Filter… host visibility", () => {
     const { createRoot } = await import("react-dom/client");
     const { act } = await import("react");
     const { ViewSettingsPopoverHost } = await import("@kb/outline-ui");
-    const { runCommand, commandTargetNodeId, viewTargetFrameId } = await import("@/lib/commands");
+    const { runCommand } = await import("@/lib/commands");
 
     const win = new Window({ url: "https://kb.test/" });
     const g = globalThis as typeof globalThis & {
@@ -408,7 +408,7 @@ describe("Filter… host visibility", () => {
     await act(async () => {
       const outline = pageCommandApi();
       await runCommand(SYSTEM_IDS.cmdViewFilter, {
-        target: { nodeId: commandTargetNodeId(outline), frameId: viewTargetFrameId(outline) },
+        target: pageCommandTarget(),
         outline,
         prefs: usePrefsStore.getState(),
         ui: useUiStore.getState(),

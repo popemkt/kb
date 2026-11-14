@@ -1,7 +1,9 @@
 /**
  * The outline's own node-palette steps, contributed through
- * `PaletteStepPoint` as any family's are: add a tag, add a field, turn a row
- * into a reference. They are the same gesture over different node kinds, and
+ * `PaletteStepPoint` as any family's are: add or remove a tag, add or set a
+ * field, turn a row into a reference. A step a command that acts on many
+ * opens writes its pick to every row it is about (`targetNodeIds`), what it
+ * mints made once. They are the same gesture over different node kinds, and
  * the same gesture as every other node picker (lib/picker): only the
  * candidate source, whether a new one may be minted, and the write vary. A
  * reference draws its candidates from `nodeCandidates`, the source the `[[`
@@ -18,7 +20,7 @@ import {
   type PickerCandidate,
   resolveFieldTypeById,
 } from "@kb/ui-sdk";
-import { SYSTEM_IDS } from "@kb/model";
+import { declaresOptionSet, isSysPrefixed, SYSTEM_IDS, typeRefsOf } from "@kb/model";
 
 /**
  * Nodes whose kind slot points at `kind`, by name: the tags (`sys.tag`) the
@@ -38,9 +40,39 @@ const addTag: PaletteStep = {
   icon: <HashIcon size={12} weight="bold" />,
   createLabel: (name) => `Create tag "${name}"`,
   candidates: (graph) => nodesOfKind(graph.wireNodes, SYSTEM_IDS.tag),
-  commit: async ({ targetNodeId, pickedId, creating, name }) => {
-    const tagId = creating ? await browserHost().writes.defineTag(name) : pickedId;
-    if (tagId !== null) await browserHost().writes.addTag(targetNodeId, tagId);
+  commit: async ({ targetNodeIds, pickedId, creating, name }) => {
+    const { writes } = browserHost();
+    const tagId = creating ? await writes.defineTag(name) : pickedId;
+    if (tagId !== null) await Promise.all(targetNodeIds.map((id) => writes.addTag(id, tagId)));
+  },
+};
+
+/** The tags the rows carry, by id: their kind slot, less the kinds themselves. */
+function tagsCarried(wireNodes: readonly WireNode[], rows: readonly string[]): Set<string> {
+  const held = new Set(rows);
+  return new Set(
+    wireNodes
+      .filter((n) => held.has(n.id))
+      .flatMap((n) => typeRefsOf(n).filter((id) => !isSysPrefixed(id))),
+  );
+}
+
+const removeTag: PaletteStep = {
+  label: "Remove tag",
+  placeholder: "Search the tags these carry...",
+  icon: <HashIcon size={12} weight="regular" />,
+  candidates: (graph) => {
+    const carried = tagsCarried(graph.wireNodes, graph.targetNodeIds);
+    return nodesOfKind(graph.wireNodes, SYSTEM_IDS.tag).filter((tag) => carried.has(tag.id));
+  },
+  commit: async ({ targetNodeIds, pickedId }) => {
+    const { writes } = browserHost();
+    const graph = browserHost().graph.state().wireNodes;
+    await Promise.all(
+      targetNodeIds
+        .filter((id) => tagsCarried(graph, [id]).has(pickedId))
+        .map((id) => writes.removeTag(id, pickedId)),
+    );
   },
 };
 
@@ -50,16 +82,49 @@ const addField: PaletteStep = {
   icon: <TextTIcon size={12} weight="bold" />,
   createLabel: (name) => `Create field "${name}"`,
   candidates: (graph) => nodesOfKind(graph.wireNodes, SYSTEM_IDS.field),
-  commit: async ({ targetNodeId, schema, pickedId, creating, name }) => {
-    const fieldId = creating ? await browserHost().writes.defineField(name) : pickedId;
+  commit: async ({ targetNodeIds, schema, pickedId, creating, name }) => {
+    const { writes } = browserHost();
+    const fieldId = creating ? await writes.defineField(name) : pickedId;
     if (fieldId === null) return;
     // An empty typed value is what makes the row appear and focusable; the
     // field's own declared type decides which editor that row gets.
-    await browserHost().writes.updateProp(
-      targetNodeId,
-      fieldId,
-      emptyValueForType(resolveFieldTypeById(fieldId, schema)),
-    );
+    const empty = emptyValueForType(resolveFieldTypeById(fieldId, schema));
+    await Promise.all(targetNodeIds.map((id) => writes.updateProp(id, fieldId, empty)));
+  },
+};
+
+/**
+ * Every option of every field that declares an option set, as "field:
+ * option": what Set field offers. An option is its field's child, so the
+ * option picked names its field.
+ */
+function fieldOptions(wireNodes: readonly WireNode[]): PickerCandidate[] {
+  const byId = new Map(wireNodes.map((n) => [n.id, n]));
+  return nodesOfKind(wireNodes, SYSTEM_IDS.field).flatMap((field) => {
+    const node = byId.get(field.id);
+    if (!declaresOptionSet(node)) return [];
+    return (node?.children ?? []).flatMap((optionId) => {
+      const option = byId.get(optionId);
+      return option === undefined
+        ? []
+        : [{ id: optionId, label: `${field.label}: ${option.text || optionId}` }];
+    });
+  });
+}
+
+// GAP [[01M7CY0205F8GSDTNMSSG35S97]]: only fields that declare an option set.
+const setField: PaletteStep = {
+  label: "Set field",
+  placeholder: "Search a field's options...",
+  icon: <TextTIcon size={12} weight="regular" />,
+  candidates: (graph) => fieldOptions(graph.wireNodes),
+  commit: async ({ targetNodeIds, pickedId }) => {
+    const { writes, graph } = browserHost();
+    const field = graph.state().wireNodes.find((n) => n.children.includes(pickedId));
+    if (field === undefined) return;
+    // A field that holds one value has it replaced; one that holds many gains it.
+    const value = { t: "ref", v: pickedId } as const;
+    await Promise.all(targetNodeIds.map((id) => writes.updateProp(id, field.id, value)));
   },
 };
 
@@ -86,6 +151,8 @@ const addRef: PaletteStep = {
  */
 export const OUTLINE_STEPS: readonly ContributionEntry<PaletteStep>[] = [
   { id: "add-tag", value: addTag },
+  { id: "remove-tag", value: removeTag },
   { id: "add-field", value: addField },
+  { id: "set-field", value: setField },
   { id: "add-ref", value: addRef },
 ];

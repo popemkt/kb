@@ -16,6 +16,7 @@ import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { present, fieldTypeValue, SYSTEM_IDS } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
+import { bundledSeed } from "@kb/bundled";
 import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import {
   browserHost,
@@ -51,7 +52,16 @@ function wire(partial: Pick<WireNode, "id" | "text"> & Partial<WireNode>): WireN
   return { props: {}, children: [], createdAt: ISO, updatedAt: ISO, ...partial };
 }
 
-/** A plain row, a supertag, and the seed the pin gesture writes through. */
+/** A node as the seed declares it, less its children. */
+function seeded(id: string): WireNode {
+  const declared = present(
+    bundledSeed(ISO).find((n) => n.id === id),
+    id,
+  );
+  return wire({ id, text: declared.text, props: declared.props });
+}
+
+/** A plain row, a supertag, and the seed the pin and tag gestures write through. */
 function graph(): WireNode[] {
   return [
     wire({ id: SYSTEM_IDS.tag, text: "sys.tag" }),
@@ -63,6 +73,8 @@ function graph(): WireNode[] {
     }),
     ...REF_SEED_WIRES,
     wire({ id: SYSTEM_IDS.pinnedRoot, text: "Pinned" }),
+    // The kind slot as the seed declares it: what tagging a row writes.
+    seeded(SYSTEM_IDS.typeField),
     // The field "Turn into query" writes, as the seed declares it.
     wire({
       id: SYSTEM_IDS.queryField,
@@ -80,6 +92,12 @@ function graph(): WireNode[] {
     ctxRefWire("n.ref", "n.plain"),
   ];
 }
+
+/** The kinds a row carries, by id. */
+const typesOf = (id: string) =>
+  (
+    useGraphStore.getState().wireNodes.find((n) => n.id === id)?.props[SYSTEM_IDS.typeField] ?? []
+  ).map((v) => v.v);
 
 function seed() {
   resetOutlineStore();
@@ -166,10 +184,72 @@ describe("node command palette", () => {
     await act(async () => {
       present(pin, "pin").click();
     });
-    const nodes = outlineNodes();
-    expect(isPinned(nodes, "n.plain")).toBe(true);
+    // The pin lands once the command's one write commits.
+    await vi.waitFor(() => expect(isPinned(outlineNodes(), "n.plain")).toBe(true));
 
     await open("n.plain");
+    expect(labels()).toContain("Unpin");
+  });
+
+  /** Open the menu over a range of rows, anchored at its head, the last. */
+  async function openOver(nodeIds: readonly string[]) {
+    // Closed first, so it opens on its commands, as a fresh ⌘. does.
+    await act(async () => root.render(<NodeCommandPalette open={false} onClose={() => {}} />));
+    const head = nodeIds.at(-1) ?? "";
+    anchor(head);
+    useOutlineStore.setState({
+      selectedNodeId: head,
+      selectedInstanceKey: `row/${head}`,
+      selectedNodeIds: nodeIds,
+    });
+    await act(async () => {
+      root.render(<NodeCommandPalette open onClose={() => {}} />);
+    });
+  }
+
+  async function pick(label: string) {
+    const row = [...dom.document.querySelectorAll('[data-palette-list="true"] button')].find(
+      (b) => b.textContent.trim() === label,
+    ) as HTMLElement | undefined;
+    await act(async () => present(row, label).click());
+  }
+
+  it("over a range, offers only the commands that act on each row", async () => {
+    await openOver(["n.plain", "n.query"]);
+    expect(labels()).toEqual(["Add tag", "Add field", "Set field…", "Pin", "Delete nodes"]);
+  });
+
+  it("tags every row of a range with the tag picked, as one undo step", async () => {
+    await openOver(["n.plain", "n.query"]);
+    await pick("Add tag");
+    await pick("project");
+    await vi.waitFor(() => expect(typesOf("n.query")).toContain("t.super"));
+    expect(typesOf("n.plain")).toContain("t.super");
+    expect(useGraphStore.getState().undoStack).toHaveLength(1);
+  });
+
+  it("removes a tag from the rows of a range that carry it", async () => {
+    await openOver(["n.plain", "n.query"]);
+    await pick("Add tag");
+    await pick("project");
+    await vi.waitFor(() => expect(typesOf("n.query")).toContain("t.super"));
+    await openOver(["n.plain", "n.query"]);
+    expect(labels()).toContain("Remove tag…");
+    await pick("Remove tag…");
+    expect(labels()).toEqual(["project"]);
+    await pick("project");
+    await vi.waitFor(() => expect(typesOf("n.query")).not.toContain("t.super"));
+    expect(typesOf("n.plain")).not.toContain("t.super");
+    expect(useGraphStore.getState().undoStack).toHaveLength(2);
+  });
+
+  it("pins every row of a range, and then offers to unpin them all", async () => {
+    await openOver(["n.plain", "n.query"]);
+    await pick("Pin");
+    await vi.waitFor(() => expect(isPinned(outlineNodes(), "n.query")).toBe(true));
+    expect(isPinned(outlineNodes(), "n.plain")).toBe(true);
+    expect(useGraphStore.getState().undoStack).toHaveLength(1);
+    await openOver(["n.plain", "n.query"]);
     expect(labels()).toContain("Unpin");
   });
 
@@ -202,6 +282,7 @@ describe("node command palette", () => {
       "Turn into query",
       "Turn into reference…",
       "Add field",
+      "Set field…",
       "Make supertag",
       "Search everything… ⌘S",
       "Open in panel",
@@ -228,6 +309,7 @@ describe("node command palette", () => {
       "Turn into query",
       "Turn into reference…",
       "Add field",
+      "Set field…",
       "Search everything… ⌘S",
       "Open in panel",
       "Open with: Outline",

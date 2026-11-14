@@ -63,15 +63,31 @@ export interface PageWrites {
    */
   readonly mergeWithPrevious: (id: string, previousId?: string | null) => Promise<void>;
   /**
-   * Tab-indent. The target parent is auto-expanded BEFORE focus restore so
-   * the reparented row never vanishes into a collapsed container (r1 D05),
-   * and the caret returns to its exact character offset (spec §3.1).
+   * Tab-indent a block: `ids`, one run of siblings in order (a row is a
+   * block of one), under the sibling before it. The target parent is
+   * auto-expanded BEFORE focus restore so the reparented row never vanishes
+   * into a collapsed container (r1 D05), and the caret returns to its exact
+   * character offset in the block's first row (spec §3.1). A block that is
+   * not one run of siblings is told so and left.
    */
-  readonly indentNode: (id: string, cursor?: number) => Promise<void>;
-  /** Shift+Tab outdent; caret stays at its exact offset (spec §3.1). */
-  readonly outdentNode: (id: string, cursor?: number) => Promise<void>;
-  readonly moveNodeUp: (id: string) => Promise<void>;
-  readonly moveNodeDown: (id: string) => Promise<void>;
+  readonly indentNodes: (ids: readonly string[], cursor?: number) => Promise<void>;
+  /** Shift+Tab outdent a block, after its parent; the caret stays at its exact offset (spec §3.1). */
+  readonly outdentNodes: (ids: readonly string[], cursor?: number) => Promise<void>;
+  /** Move a block one step up: the sibling above it goes below it. */
+  readonly moveNodesUp: (ids: readonly string[]) => Promise<void>;
+  /** Move a block one step down: the sibling below it goes above it. */
+  readonly moveNodesDown: (ids: readonly string[]) => Promise<void>;
+  /**
+   * Make the writes `gesture` makes one write (DESIGN-UI.md → Outline
+   * editor, "A selection is a range of rows"): each is planned when it is
+   * made, against the graph as the gesture found it, and they are sent
+   * together as one `node.batch` call when it ends, recorded as one undo
+   * step. A write inside answers that it was taken (`true`, or the id it
+   * will make) before it lands; the batch says why if it is refused. Only
+   * the writes the gesture waits for are part of it, and a `together`
+   * inside another is part of the outer one.
+   */
+  readonly together: <T>(gesture: () => Promise<T>) => Promise<T>;
   /** D19: undo through inverse invocations of the same shared actions. */
   readonly undo: () => Promise<boolean>;
   /** D19: redo the last undone mutation. */

@@ -75,6 +75,7 @@ export { ViewScripts } from "./components/view-scripts";
 // The UI points: routes, views, sidebar sections, docks, node commands and
 // palette steps, and the slot one view embeds another through.
 export {
+  asOneWrite,
   type Command,
   type CommandContext,
   CommandPoint,
@@ -250,6 +251,7 @@ export {
   queryResultInstanceKey,
 } from "./lib/instance-key";
 export { isPinned, listPinnedNavItems, pinnedRefIds, pinnedRefIdsFor } from "./lib/pinned";
+export { rowsAbout, selectionRoots } from "./lib/selection";
 export {
   closesCycleOf,
   nodeCandidates,
@@ -551,7 +553,7 @@ export {
   TIMING_FALLBACK,
 } from "./lib/timing";
 export { setToastSink, toast } from "./lib/toast";
-export { usePickerKeys } from "./lib/use-picker";
+export { useFocusReturn, usePickerKeys } from "./lib/use-picker";
 export { useNarrowViewport } from "./lib/viewport";
 export { BREAKOUT_CLASS, useBreakoutShift } from "./lib/breakout";
 export { useLoadSeed } from "./lib/load-seed";

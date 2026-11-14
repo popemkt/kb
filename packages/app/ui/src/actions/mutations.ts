@@ -6,7 +6,7 @@ import { ulid } from "ulid";
 import { z } from "zod";
 import type { FrameViewKey, SortSpec, ViewConfig, ViewFilter } from "@kb/views";
 import type { FieldType, KbNode, StoreTx } from "@kb/model";
-import { runOptimistic } from "@/actions/optimistic";
+import { oneWrite, runOptimistic } from "@/actions/optimistic";
 import {
   planAddChild,
   planAddRootNode,
@@ -32,7 +32,6 @@ import {
   type PlannedMutation,
 } from "@/actions/plan";
 import {
-  forestRootIds,
   type PageWrites,
   pinnedRefIdsFor,
   type PropValue,
@@ -55,7 +54,7 @@ const mb = (bytes: number) => `${Math.round(bytes / (1024 * 1024))} MB`;
 
 import { findParentWire } from "@/lib/tx";
 import { restoreInvocations } from "@/actions/restore";
-import type { WireNode } from "@kb/contracts";
+import type { ActionRequest, WireNode } from "@kb/contracts";
 import { typeRefsOf, SYSTEM_IDS } from "@kb/model";
 import { shownNodes, useGraphStore } from "@/stores/graph.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { pageRows } from "@/stores/page"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
@@ -64,6 +63,15 @@ import { invoke, invokeCoalesced, invokeLocal } from "@/session/runtime";
 
 /** The page's editor's state now: where a write lands the caret. */
 const editor = () => pageEditor().getState();
+
+/**
+ * Say why a block of several rows was not moved: only one run of siblings
+ * moves as one. A row on its own that cannot move (the first row, a root)
+ * is left without a word, as it always was.
+ */
+function toldNotARun(ids: readonly string[]): void {
+  if (ids.length > 1) toast("Only rows next to each other under one parent move together");
+}
 
 function wire(): WireNode[] {
   return useGraphStore.getState().wireNodes;
@@ -97,9 +105,15 @@ function recordHistory(preWire: WireNode[], plan: PlannedMutation): void {
   });
 }
 
+/**
+ * The gesture being made (`together`): the actions its writes planned, in
+ * order, sent as one write when it ends. Null while no gesture is open.
+ */
+let gesture: { actions: ActionRequest[] } | null = null;
+
 async function invokeAll(actions: Array<{ id: string; input: unknown }>): Promise<boolean> {
   const localOnly = useGraphStore.getState().loadSource !== "api";
-  for (const action of actions) {
+  for (const action of oneWrite(actions)) {
     // oxlint-disable-next-line eslint/no-await-in-loop -- history is ordered for structural dependencies
     const receipt = localOnly ? await invokeLocal(action) : await invoke(action.id, action.input);
     if (receipt.status === "failed") {
@@ -110,8 +124,17 @@ async function invokeAll(actions: Array<{ id: string; input: unknown }>): Promis
   return true;
 }
 
+/**
+ * Run `plan` as one write and record it as one undo step; inside a gesture
+ * (`together`), add its actions to the gesture's instead, and answer that
+ * it was taken.
+ */
 async function applyPlan(plan: PlannedMutation | null): Promise<boolean> {
   if (!plan) return false;
+  if (gesture !== null) {
+    gesture.actions.push(...plan.actions);
+    return true;
+  }
   const preWire = useGraphStore.getState().wireNodes;
   const result = await runOptimistic(plan);
   if (result.ok) recordHistory(preWire, plan);
@@ -287,46 +310,55 @@ export const mutations: PageWrites = {
     await applyPlan(plan);
   },
 
-  async indentNode(id: string, cursor?: number): Promise<void> {
-    const store = useGraphStore.getState();
-    const parent = findParentWire(store.wireNodes, id);
-    const siblings = parent ? parent.children : forestRootIds(store.wireNodes);
-    const idx = siblings.indexOf(id);
-    if (idx <= 0) return;
-    const prevId = siblings[idx - 1];
-    if (prevId === undefined) return;
-
-    const preWire = store.wireNodes;
-    const plan = planIndent(preWire, id);
-    if (!plan) return;
-    const result = await runOptimistic(plan);
-    if (!result.ok) return;
-    recordHistory(preWire, plan);
-
+  async indentNodes(ids: readonly string[], cursor?: number): Promise<void> {
+    const plan = planIndent(wire(), ids);
+    if (!plan) {
+      toldNotARun(ids);
+      return;
+    }
+    if (!(await applyPlan(plan)) || gesture !== null) return;
+    const [head] = ids;
+    if (head === undefined) return;
     // D05: reveal the new parent chain before caret restore so the row is
     // guaranteed visible; focusSeq bump re-places the caret post-remount.
-    editor().expandAncestors(id);
-    // Its row where the page is being edited, under its new parent.
-    editor().activateNode(id, cursor ?? 0);
+    editor().expandAncestors(head);
+    // A row's own indent edits it where the page is being edited, under its
+    // new parent; a block's leaves its selection to its caller.
+    if (ids.length === 1) editor().activateNode(head, cursor ?? 0);
   },
 
-  async outdentNode(id: string, cursor?: number): Promise<void> {
-    const store = useGraphStore.getState();
-    const plan = planOutdent(store.wireNodes, id);
-    if (!plan) return;
-    const preWire = store.wireNodes;
-    const result = await runOptimistic(plan);
-    if (!result.ok) return;
-    recordHistory(preWire, plan);
-    editor().activateNode(id, cursor ?? 0);
+  async outdentNodes(ids: readonly string[], cursor?: number): Promise<void> {
+    const plan = planOutdent(wire(), ids);
+    if (!plan) {
+      toldNotARun(ids);
+      return;
+    }
+    if (!(await applyPlan(plan)) || gesture !== null) return;
+    const [head] = ids;
+    if (head !== undefined && ids.length === 1) editor().activateNode(head, cursor ?? 0);
   },
 
-  async moveNodeUp(id: string): Promise<void> {
-    await applyPlan(planMove(wire(), id, "up"));
+  async moveNodesUp(ids: readonly string[]): Promise<void> {
+    await applyPlan(planMove(wire(), ids, "up"));
   },
 
-  async moveNodeDown(id: string): Promise<void> {
-    await applyPlan(planMove(wire(), id, "down"));
+  async moveNodesDown(ids: readonly string[]): Promise<void> {
+    await applyPlan(planMove(wire(), ids, "down"));
+  },
+
+  async together<T>(made: () => Promise<T>): Promise<T> {
+    // A gesture inside another is part of it.
+    if (gesture !== null) return made();
+    const open = { actions: [] as ActionRequest[] };
+    gesture = open;
+    let result: T;
+    try {
+      result = await made();
+    } finally {
+      gesture = null;
+    }
+    if (open.actions.length > 0) await applyPlan({ actions: open.actions });
+    return result;
   },
 
   async undo(): Promise<boolean> {
@@ -393,10 +425,8 @@ export const mutations: PageWrites = {
   async togglePin(nodeId: string): Promise<boolean> {
     const pins = pinnedRefIdsFor(shownNodes(), nodeId);
     if (pins.length > 0) {
-      for (const refId of pins) {
-        // oxlint-disable-next-line eslint/no-await-in-loop -- Sequential by contract: each delete reads the store the last wrote
-        await mutations.deleteNode(refId);
-      }
+      // Every pin of the node goes, as one write.
+      await mutations.together(() => Promise.all(pins.map((refId) => mutations.deleteNode(refId))));
       return true;
     }
     const plan = planPinNode(wire(), nodeId, ulid());

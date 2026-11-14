@@ -82,6 +82,12 @@ export const NodeBlock = memo(function NodeBlock({
   const isSelected = useOutlineStore(
     (s) => s.selectedNodeId === nodeId && s.selectedInstanceKey === instanceKey,
   );
+  // A row of a range the selection's head is elsewhere in.
+  // A row of a range of several rows, the head among them: drawn as one band.
+  const inRange = useOutlineStore(
+    (s) => s.selectedKeys.size > 1 && s.selectedKeys.has(instanceKey),
+  );
+  const extendSelection = useOutlineStore((s) => s.extendSelection);
   const nodePaletteOpen = useNodePaletteOpen();
   const isPaletteAnchor = nodePaletteOpen && (isSelected || isActive);
 
@@ -122,6 +128,24 @@ export const NodeBlock = memo(function NodeBlock({
 
   const handleKeyDown = useNodeKeyDown({ nodeId, instanceKey });
 
+  // GAP [[01M7CY02KHSSAAENWJ67EA1EPH]]: no touch gesture makes a range yet.
+  // Shift-click on a row moves the selection's head to it: a range. The
+  // bullet's and a pointer's Shift-click open beside, and the row being
+  // edited keeps Shift-click to select its text.
+  const handleShiftClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (!e.shiftKey || isActive) return;
+      // A control's own Shift-click is the control's: an icon inside one is
+      // drawn, not HTML, and is left to it as well.
+      const target = e.target instanceof HTMLElement ? e.target : null;
+      if (target === null || target.closest("button, a, [data-kb-ref-id]") !== null) return;
+      e.preventDefault();
+      e.stopPropagation();
+      extendSelection({ instanceKey });
+    },
+    [extendSelection, instanceKey, isActive],
+  );
+
   // The view the shown node's children are shown in: the frame is the shown node.
   const frameView = useFrameView(shown);
   const frameViewKey = frameView?.key ?? null;
@@ -149,13 +173,14 @@ export const NodeBlock = memo(function NodeBlock({
       data-node-id={nodeId}
       data-instance-key={instanceKey}
     >
-      <div className="relative flex items-center">
+      <div className="relative flex items-center" onClickCapture={handleShiftClick}>
         <div className="flex-1 min-w-0">
           <NodeRow
             depth={depth}
             nodeId={nodeId}
             instanceKey={instanceKey}
             isSelected={isSelected || isPaletteAnchor}
+            inRange={inRange}
             isActive={isActive}
             onRowClick={handleRowSelect}
             bullet={

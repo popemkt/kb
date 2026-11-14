@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { PlusIcon } from "@phosphor-icons/react";
 import {
+  asOneWrite,
   asInstance,
   browserHost,
   cn,
@@ -14,10 +15,12 @@ import {
   PickerList,
   type PickerRow,
   pickerRows,
+  rowsAbout,
   schemaOf,
   useContributions,
   useAnswers,
   useDebugFieldIds,
+  useFocusReturn,
   usePageGraph,
   usePickerKeys,
 } from "@kb/ui-sdk";
@@ -61,6 +64,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
 
   const selectedNodeId = useOutlineStore((s) => s.selectedNodeId);
+  const selectedNodeIds = useOutlineStore((s) => s.selectedNodeIds);
   const activeNodeId = useOutlineStore((s) => s.activeNodeId);
   // The instance it was opened on: a row, or the page's title.
   const targetInstanceKey = useOutlineStore((s) => s.activeInstanceKey ?? s.selectedInstanceKey);
@@ -69,6 +73,9 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
   const wireNodes = usePageGraph((s) => s.wireNodes);
 
   const targetNodeId = activeNodeId ?? selectedNodeId;
+  // Every row the menu is about: the selection's, anchored at its head
+  // (DESIGN-UI.md → Outline editor, "A selection is a range of rows").
+  const targetNodeIds = rowsAbout(targetNodeId, selectedNodeIds);
 
   /*
    * Anchor, reset and focus all run as layout effects, in the commit that
@@ -91,6 +98,8 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
     }
   }, [open]);
 
+  // Closed, it gives the focus back to the row or editor it opened from.
+  useFocusReturn(open);
   useLayoutEffect(() => {
     if (open && anchorRect) inputRef.current?.focus();
   }, [open, anchorRect]);
@@ -108,7 +117,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
   useDebugFieldIds();
   useAnswers();
   const commands = browserHost().nodeCommands(
-    { nodeId: targetNodeId, frameId: targetNodeId },
+    { nodeId: targetNodeId, frameId: targetNodeId, nodeIds: targetNodeIds },
     palette,
   );
   const picker = stepOf(steps, step);
@@ -118,7 +127,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
   const candidates: PickerCandidate[] =
     picker === null
       ? commands.map((c) => ({ id: c.id, label: c.label }))
-      : picker.candidates({ nodes, wireNodes, anchorId: targetNodeId });
+      : picker.candidates({ nodes, wireNodes, anchorId: targetNodeId, targetNodeIds });
   const rows = pickerRows(candidates, {
     query,
     canCreate: picker?.createLabel !== undefined,
@@ -132,13 +141,16 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
       return;
     }
     if (targetNodeId === null) return;
-    void picker.commit({
+    const pick = {
       targetNodeId,
+      targetNodeIds,
       schema,
       pickedId: row.id,
       creating: row.id === CREATE_ROW_ID,
       name: query.trim(),
-    });
+    };
+    // What the step writes to every row is one write.
+    void asOneWrite(targetNodeIds, () => picker.commit(pick));
     onClose();
   };
 

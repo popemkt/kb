@@ -86,7 +86,11 @@ function graph(extra: Record<string, WireNode["props"]> = {}): WireNode[] {
 function context(): CommandContext {
   const outline = pageCommandApi();
   return {
-    target: { nodeId: commandTargetNodeId(outline), frameId: viewTargetFrameId(outline) },
+    target: {
+      nodeId: commandTargetNodeId(outline),
+      frameId: viewTargetFrameId(outline),
+      nodeIds: [commandTargetNodeId(outline)].filter((id) => id !== null),
+    },
     outline,
     prefs: usePrefsStore.getState(),
     ui: useUiStore.getState(),
@@ -309,6 +313,42 @@ const conditionalProvider = (run: () => void) =>
         },
       }),
   });
+
+/** The kinds a row carries. */
+const kinds = (id: string) =>
+  useGraphStore.getState().wireNodes.find((n) => n.id === id)?.props[SYSTEM_IDS.typeField] ?? [];
+
+describe("a node command over a range of rows", () => {
+  let dom: InstalledDom;
+  beforeEach(() => {
+    dom = installDomGlobals();
+    resetOutlineStore();
+    useGraphStore.getState().hydrateFromWire(graph(), 1, "fixtures");
+    syncUiPlugins([paletteStepsPlugin, browserHostUiPlugin, outlineUiPlugin, layoutUiPlugin]);
+  });
+  afterEach(() => {
+    syncUiPlugins([]);
+    dom.restore();
+  });
+
+  /** The context with `rows` selected, anchored at the last. */
+  const over = (rows: readonly string[]): CommandContext => {
+    const ctx = context();
+    return { ...ctx, target: { ...ctx.target, nodeId: rows.at(-1) ?? null, nodeIds: rows } };
+  };
+
+  it("lists only the commands that act on each row", () => {
+    const ids = listNodeCommands(over(["n.board", "n.plain"])).map((c) => c.id);
+    expect(ids).not.toContain("make-supertag");
+    expect(ids).toEqual(expect.arrayContaining(["add-tag", "toggle-pin", "delete"]));
+  });
+
+  it("runs a command that acts on one row, from its shortcut, on the head alone", async () => {
+    await runCommand("make-supertag", over(["n.board", "n.plain"]));
+    await vi.waitFor(() => expect(kinds("n.plain")).toEqual([{ t: "ref", v: SYSTEM_IDS.tag }]));
+    expect(kinds("n.board")).toEqual([{ t: "ref", v: CANVAS_TAG }]);
+  });
+});
 
 describe("runner catalog provenance", () => {
   let dom: InstalledDom;
