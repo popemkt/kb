@@ -46,8 +46,8 @@ export interface SelectionKeyContext {
   getNode?: (id: string) => SelectionNodeInfo | undefined;
   /** How many field values a row instance shows; a vertical move passes through them. */
   fieldSlotsOf: (instanceKey: string) => number;
-  /** The lane a row instance sits in, when its frame lays rows out as lanes. */
-  laneOf?: (instanceKey: string) => VisibleLane | null;
+  /** Where the walk reaches a row instance: the lane it sits in, when its frame lays rows out as lanes. */
+  instanceAt?: (instanceKey: string) => VisibleInstance | null;
 }
 
 /** True when the event target is a text field / contentEditable (skip map). */
@@ -96,12 +96,17 @@ function upOrIntoFields({ ctx, instanceKey }: SelectionTarget): SelectionKeyActi
   return selectInstance(above);
 }
 
+/** The lane a row instance sits in, or null. */
+function laneOf(ctx: SelectionKeyContext, instanceKey: string): VisibleLane | null {
+  return ctx.instanceAt?.(instanceKey)?.lane ?? null;
+}
+
 /**
  * The lane the selection heads, when it is a lane's head (DESIGN-UI.md →
  * Lanes): there, the horizontal keys move between lanes and Enter goes in.
  */
 function headedLane({ ctx, instanceKey }: SelectionTarget): VisibleLane | null {
-  const lane = ctx.laneOf?.(instanceKey) ?? null;
+  const lane = laneOf(ctx, instanceKey);
   return lane !== null && lane.head.instanceKey === instanceKey ? lane : null;
 }
 
@@ -130,7 +135,7 @@ function editOrEnterLane(target: SelectionTarget): SelectionKeyAction | null {
   const { ctx, nodeId, instanceKey } = target;
   if (headedLane(target) !== null) {
     const first = ctx.getNextVisibleInstance(instanceKey);
-    if (first !== null && ctx.laneOf?.(first.instanceKey)?.head.instanceKey === instanceKey)
+    if (first !== null && laneOf(ctx, first.instanceKey)?.head.instanceKey === instanceKey)
       return selectInstance(first);
   }
   return { type: "edit", nodeId, instanceKey };
@@ -138,7 +143,7 @@ function editOrEnterLane(target: SelectionTarget): SelectionKeyAction | null {
 
 /** Escape: out to the lane's head, on a row inside a lane; else clear the selection. */
 function clearOrLeaveLane({ ctx, instanceKey }: SelectionTarget): SelectionKeyAction | null {
-  const lane = ctx.laneOf?.(instanceKey) ?? null;
+  const lane = laneOf(ctx, instanceKey);
   if (lane !== null && lane.head.instanceKey !== instanceKey) return selectInstance(lane.head);
   return { type: "clear" };
 }
