@@ -324,14 +324,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The stage fades a light page's darks in display space (or takes the fade space per look, as it takes bloom), measured on both black hole looks and Lens.
 - **node** — `01M69N1WB5WSN86NWTBH0JEA93`
 
-### GAP: a live preview stands in the one preview height every family starts from (180px), which an event card outgrows
-
-- **expected** — A family whose preview is its own controls says how tall it starts (the events card about 212px, more when its instance shows a state), so its last line is in view without a person setting the height
-- **current** — DISPLAY_DEFAULTS.height (180) is seeded for every view that previews; the events card at that height scrolls its Edit event / Open in outline line inside the box until a person raises sys.f.display.routines.event.preview.height
-- **impact** — A first look at an event preview shows its last line cut; the controls stay reachable by scrolling and by Tab, and one setting fixes it per store
-- **closes** — A view key or declaration states its preview default height and displaySettingValues seeds it; or the live preview box sizes to its content within the held bounds
-- **node** — `01M7CHAFY5WMRYR4QKXGN26TS3`
-
 ### GAP: a location cannot be added from the editor
 
 - **expected** — A location (another kb root this machine opens) is added, opened and forgotten from the editor.
@@ -2206,6 +2198,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — On a hosted kb ui behind a socket, the CLI and kb mcp cannot drive the person's tabs (ui.screen and its commands) or find the running server; the browser, through the proxy, is unaffected
 - **closes** — A presence record that is a loopback origin or a socket path (validated as the origin is), with servingUi and the screen relay fetching over the socket
 - **node** — `01M5CMVS78WRBD760MNSS3BMJJ`
+
+### GAP: a live preview stands in the one preview height every family starts from (180px), which an event card outgrows
+
+- **expected** — A family whose preview is its own controls says how tall it starts (the events card about 212px, more when its instance shows a state), so its last line is in view without a person setting the height
+- **current** — DISPLAY_DEFAULTS.height (180) is seeded for every view that previews; the events card at that height scrolls its Edit event / Open in outline line inside the box until a person raises sys.f.display.routines.event.preview.height
+- **impact** — A first look at an event preview shows its last line cut; the controls stay reachable by scrolling and by Tab, and one setting fixes it per store
+- **closes** — A view key or declaration states its preview default height and displaySettingValues seeds it; or the live preview box sizes to its content within the held bounds
+- **node** — `01M7CHAFY5WMRYR4QKXGN26TS3`
 
 ### GAP: a node can be moved only one step at a time
 

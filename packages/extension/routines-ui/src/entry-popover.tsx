@@ -4,8 +4,8 @@
  */
 import { useRef } from "react";
 import type { CalendarEntry } from "@kb/routines";
-import { useAnchoredPosition, useDismiss } from "@kb/ui-sdk";
-import { EventCard, type EventCardActions } from "./event-card";
+import { cn, useAnchoredPosition, useDismiss } from "@kb/ui-sdk";
+import { EVENT_BOX_WIDTH, EventCard, type EventCardActions } from "./event-card";
 import type { CalendarGraph } from "./model";
 
 export function EntryPopover({
@@ -36,7 +36,7 @@ export function EntryPopover({
       role="dialog"
       aria-label={entry.title}
       data-testid="entry-popover"
-      className="fixed z-40 w-80 overflow-y-auto rounded-lg shadow-overlay"
+      className={cn("fixed z-40 overflow-y-auto rounded-lg shadow-overlay", EVENT_BOX_WIDTH)}
       style={style}
     >
       <EventCard

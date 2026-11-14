@@ -19,6 +19,7 @@ import {
 } from "@kb/routines";
 import { cn } from "@kb/ui-sdk";
 import { BUTTON_CLASS, Dialog, PRIMARY_BUTTON_CLASS } from "./dialog";
+import { useCalendarClock } from "./clock";
 import type { CalendarGraph } from "./model";
 import { DateField } from "./date-field";
 import { FIELD_CLASS, RepeatPicker } from "./repeat-picker";
@@ -94,13 +95,16 @@ function SyncRow({
   const node = model.nodes.get(id);
   const status = node === undefined ? null : readSyncStatus(node);
   const mode = model.calendars.get(calendar)?.mode;
+  const { zone } = useCalendarClock();
   return (
     <div
       className="flex flex-wrap items-center gap-2 rounded-md bg-muted px-2 py-1.5 text-meta"
       data-routine-sync=""
     >
       <StatusDot status={status} calendarMode={mode} className="h-2 w-2" />
-      <span className="min-w-0 flex-1 text-muted-foreground">{syncShown(status, mode).text}</span>
+      <span className="min-w-0 flex-1 text-muted-foreground">
+        {syncShown(status, mode, zone).text}
+      </span>
       {status?.url === undefined ? null : (
         <a
           className="inline-flex items-center gap-1 text-primary hover:underline"

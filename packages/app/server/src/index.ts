@@ -24,3 +24,4 @@ export { HTTP_WIRE } from "./guard.ts";
 export { composeHosted } from "./plugins.ts";
 export type { HostedExtensions } from "./plugins.ts";
 export { kbDataRoot } from "./paths.ts";
+export { markUiBuilt } from "./build.ts";

@@ -7,11 +7,12 @@
  * edited the same way wherever its box is.
  */
 import { useMemo } from "react";
+import { cn } from "@kb/ui-sdk";
 import { nextEntry } from "@kb/routines";
 import { useCalendarActions } from "./actions";
 import { useCalendarClock } from "./clock";
 import { todayIn } from "./dates";
-import { EventCard } from "./event-card";
+import { EVENT_BOX_WIDTH, EventCard } from "./event-card";
 import { useCalendarGraph } from "./model";
 import { RoutineEditor } from "./routine-editor";
 
@@ -26,7 +27,7 @@ export function EventView({ id, preview }: { readonly id: string; readonly previ
     [node, graph.nodes, today],
   );
   return (
-    <div className={preview ? "h-full" : "mx-auto w-full max-w-sm p-6"} data-event-view={id}>
+    <div className={preview ? undefined : "mx-auto w-full max-w-sm p-6"} data-event-view={id}>
       {node === undefined ? (
         <p className="text-meta text-muted-foreground">This event is not in the graph.</p>
       ) : (
@@ -37,9 +38,9 @@ export function EventView({ id, preview }: { readonly id: string; readonly previ
           zone={clock.zone}
           today={today}
           actions={actions}
-          // Under its row the box fills the preview's frame, which draws the edge; the frame
-          // starts at every family's preview height. GAP [[01M7CHAFY5WMRYR4QKXGN26TS3]]
-          className={preview ? "min-h-full rounded-none border-0" : undefined}
+          // Under its row the box is the popover's width, and the preview's frame, which
+          // stands as tall and wide as the box, draws its edge.
+          className={preview ? cn(EVENT_BOX_WIDTH, "rounded-none border-0") : undefined}
         />
       )}
       {actions.editor === null ? null : (
