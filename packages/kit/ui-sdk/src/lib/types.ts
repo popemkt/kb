@@ -3,9 +3,6 @@ import type { WireNode } from "@kb/contracts";
 /** Virtual forest root — not present in the graph snapshot. */
 export const WORKSPACE_ROOT_ID = "__kb_root__";
 
-import { SYSTEM_IDS } from "@kb/model";
-export { SYSTEM_IDS };
-
 /**
  * Any reserved / seeded id under the `sys.` prefix — the browser's single owner
  * of "this id is infrastructure" (core's is `isSysPrefixed` in

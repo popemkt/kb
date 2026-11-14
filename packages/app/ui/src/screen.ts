@@ -36,13 +36,13 @@ import {
   resolveDefaultViewType,
   resolveNodeView,
   type LayoutPane,
+  nodePath,
 } from "@kb/views";
 import {
   currentContributions,
   getPath,
   logWarn,
   matchRoute,
-  nodePath,
   paramsOf,
   RoutePoint,
   schemaOf,

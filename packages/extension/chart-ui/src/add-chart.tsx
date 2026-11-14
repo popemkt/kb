@@ -10,11 +10,11 @@ import {
   browserHost,
   nodeAction,
   nodeMenu,
-  nodePath,
   queryRecords,
   toast,
   type NodeCommand,
 } from "@kb/ui-sdk";
+import { nodePath } from "@kb/views";
 
 export const addChartCommand: NodeCommand = {
   id: "add-chart",

@@ -37,7 +37,6 @@ import {
   pinnedRefIdsFor,
   type PropValue,
   type RefCreation,
-  SYSTEM_IDS,
   toast,
   WORKSPACE_ROOT_ID,
   captureTarget,
@@ -57,7 +56,7 @@ const mb = (bytes: number) => `${Math.round(bytes / (1024 * 1024))} MB`;
 import { findParentWire } from "@/lib/tx";
 import { restoreInvocations } from "@/actions/restore";
 import type { WireNode } from "@kb/contracts";
-import { typeRefsOf } from "@kb/model";
+import { typeRefsOf, SYSTEM_IDS } from "@kb/model";
 import { shownNodes, useGraphStore } from "@/stores/graph.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { pageRows } from "@/stores/page"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { pageEditor } from "@/stores/page-editor"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]

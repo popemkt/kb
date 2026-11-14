@@ -9,11 +9,10 @@ import { Suspense, lazy, useMemo, useState } from "react";
 import { Result } from "effect";
 import { BracketsCurlyIcon, ChartBarIcon } from "@phosphor-icons/react";
 import { CHART_IDS, ChartView, type ChartParams, type ChartSpec } from "@kb/chart";
-import { viewNodeFor } from "@kb/views";
+import { viewNodeFor, nodePath } from "@kb/views";
 import {
   browserHost,
   IconButton,
-  nodePath,
   toast,
   useAppearance,
   useNode,

@@ -14,16 +14,14 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { present } from "@kb/model";
+import { present, fieldTypeValue, SYSTEM_IDS } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import {
   browserHost,
-  fieldTypeValue,
   isPinned,
   pageTitleInstanceKey,
   syncUiPlugins,
-  SYSTEM_IDS,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
 import { CommandPalette } from "@/components/palette/command-palette";

@@ -12,9 +12,9 @@ import {
   type OutlineNode,
   type SchemaIndex,
   schemaOfGraph,
-  SYSTEM_IDS,
   ViewPoint,
 } from "@kb/ui-sdk";
+import { SYSTEM_IDS } from "@kb/model";
 import { Effect, Schema } from "effect";
 import { makeKernel } from "@kb/plugin";
 import { browserHostUiPlugin } from "@/browser-host";

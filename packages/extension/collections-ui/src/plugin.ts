@@ -9,7 +9,8 @@ import {
   collectionsPlugin,
 } from "@kb/collections";
 import { DEFAULT_VIEW_CONFIG } from "@kb/views";
-import { BrowserHostService, provideView, SYSTEM_IDS, ViewPoint } from "@kb/ui-sdk";
+import { BrowserHostService, provideView, ViewPoint } from "@kb/ui-sdk";
+import { SYSTEM_IDS } from "@kb/model";
 import { SquaresFourIcon, TableIcon } from "@phosphor-icons/react";
 import { BoardFrameView, CardsFrameView, TableFrameView } from "./frame-views";
 

@@ -18,8 +18,8 @@ import {
   type SchemaIndex,
   schemaOfGraph,
   sortChildrenForTable,
-  SYSTEM_IDS,
 } from "@kb/ui-sdk";
+import { SYSTEM_IDS } from "@kb/model";
 import { describe, expect, it } from "vitest";
 import { stubOutlineNode } from "@/catalog/fixtures";
 import { DEFAULT_VIEW_CONFIG, type SortSpec } from "@kb/views";

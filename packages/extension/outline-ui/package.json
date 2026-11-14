@@ -13,6 +13,7 @@
   "dependencies": {
     "@kb/appearance-kit": "workspace:*",
     "@kb/contracts": "workspace:*",
+    "@kb/keybindings": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/outline": "workspace:*",
     "@kb/plugin": "workspace:*",

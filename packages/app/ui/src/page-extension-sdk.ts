@@ -5,8 +5,6 @@ import {
   CommandPoint,
   PaletteStepPoint,
   provideFieldEditor,
-  KeybindingPoint,
-  provideKeybinding,
   provideIngest,
   useReducedMotion,
   provideValueKind,
@@ -20,6 +18,8 @@ import {
   provideRoute,
   provideView,
 } from "@kb/ui-sdk";
+import { KeybindingPoint } from "@kb/contracts";
+import { provideKeybinding } from "@kb/keybindings";
 
 import {
   meterFrames,

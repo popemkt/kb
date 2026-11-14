@@ -8,13 +8,8 @@ import {
   CheckSquareIcon,
   KeyIcon,
 } from "@phosphor-icons/react";
-import {
-  FIELD_TYPE_OPTION_IDS,
-  FIELD_TYPES,
-  type FieldType,
-  type FieldTypeKind,
-  type ValueView,
-} from "@kb/ui-sdk";
+import type { FieldTypeKind, ValueView } from "@kb/ui-sdk";
+import { FIELD_TYPE_OPTION_IDS, FIELD_TYPES, type FieldType } from "@kb/model";
 import {
   CheckboxSurface,
   ColorSurface,

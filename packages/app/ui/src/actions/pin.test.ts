@@ -6,17 +6,11 @@
  * the sidebar reads it in list order, and toggling again deletes that row.
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import { present } from "@kb/model";
+import { present, SYSTEM_IDS } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { REF_SEED_WIRES } from "@/fixtures/contextual-ref";
 import { fixtureGraph } from "@/api/fixture-graph";
-import {
-  contextualTargetOf,
-  isPinned,
-  listPinnedNavItems,
-  pinnedRefIds,
-  SYSTEM_IDS,
-} from "@kb/ui-sdk";
+import { contextualTargetOf, isPinned, listPinnedNavItems, pinnedRefIds } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { outlineNodes } from "@kb/outline-ui";

@@ -7,7 +7,7 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { present } from "@kb/model";
+import { present, fieldTypeValue, SYSTEM_IDS } from "@kb/model";
 import {
   answersOver,
   DatascriptIndex,
@@ -18,8 +18,6 @@ import {
   derivedWith,
   resolveAllowedRefIds,
   fieldContextOf,
-  fieldTypeValue,
-  SYSTEM_IDS,
   TAG_PALETTE,
   wireToOutlineMap,
   type FollowHow,

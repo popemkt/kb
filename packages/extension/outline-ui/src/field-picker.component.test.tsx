@@ -6,7 +6,7 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { present } from "@kb/model";
+import { present, fieldTypeValue, SYSTEM_IDS } from "@kb/model";
 import { definePlugin } from "@kb/plugin";
 import type { WireNode } from "@kb/contracts";
 import {
@@ -18,12 +18,10 @@ import {
 import {
   derivedWith,
   fieldContextOf,
-  fieldTypeValue,
   OptionPreviewPoint,
   resolveAllowedRefIds,
   schemaOfGraph,
   syncUiPlugins,
-  SYSTEM_IDS,
   wireToOutlineMap,
   type FieldContext,
   type PropValue,

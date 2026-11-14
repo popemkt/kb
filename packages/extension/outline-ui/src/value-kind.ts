@@ -12,9 +12,7 @@
  */
 import {
   nodeTarget,
-  SYSTEM_IDS,
   type EditorMode,
-  type FieldType,
   type FollowTarget,
   type PropValue,
   type ValueKindSpec,
@@ -25,6 +23,8 @@ import {
   parseTypedValue,
   type NodeLike,
   type ParsedValue,
+  SYSTEM_IDS,
+  type FieldType,
 } from "@kb/model";
 import { todayLocal } from "./date-display";
 import { numberEditText, numberSeparators } from "./number-format";

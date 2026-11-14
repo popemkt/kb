@@ -9,7 +9,8 @@
  */
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { lookOf, looksOf, nameOf, type GraphNode, type WorkflowParams } from "@kb/gallery";
-import { navigate, nodePath, useNodes } from "@kb/ui-sdk";
+import { navigate, useNodes } from "@kb/ui-sdk";
+import { nodePath } from "@kb/views";
 import { openLook, updateDraft, useDraft } from "../draft";
 import { useComposer, type ComposerFrame } from "../frame";
 import { findNodes, isPickable, looksFor, plainOf, seedOf } from "./node-model";

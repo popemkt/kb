@@ -12,11 +12,11 @@ import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { GraphSnapshot, WireNode } from "@kb/contracts";
 import { bundledSeed } from "@kb/bundled";
-import { present } from "@kb/model";
+import { present, SYSTEM_IDS } from "@kb/model";
 import { setFetchGraphSnapshot } from "@/api/graph";
 import { setPostAction } from "@/api/action";
 import { App } from "@/components/App";
-import { navigate, SYSTEM_IDS } from "@kb/ui-sdk";
+import { navigate } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
 import { outlineNodes, useOutlineStore } from "@kb/outline-ui";
 

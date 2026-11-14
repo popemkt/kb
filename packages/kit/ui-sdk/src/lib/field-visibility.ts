@@ -1,7 +1,6 @@
-import { templateFieldsOf, typeRefsOf } from "@kb/model";
+import { templateFieldsOf, typeRefsOf, SYSTEM_IDS } from "@kb/model";
 import type { SchemaIndex } from "./schema";
 import type { OutlineNode, PropValue, ResolvedProp } from "./types";
-import { SYSTEM_IDS } from "./types";
 
 /** Where field nodes are read: the schema, or any map of nodes by id. */
 export interface FieldNodes {

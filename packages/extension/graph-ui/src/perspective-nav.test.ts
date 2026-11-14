@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import { derivedWith, type EdnRunner, SYSTEM_IDS } from "@kb/ui-sdk";
+import { derivedWith, type EdnRunner } from "@kb/ui-sdk";
+import { SYSTEM_IDS } from "@kb/model";
 import { DatascriptIndex } from "@kb/ui-test-kit";
 import { bundledSeed } from "@kb/bundled";
 import { listPerspectiveNavItems } from "./perspective-nav";

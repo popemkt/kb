@@ -4,9 +4,8 @@
  * sizes it offers. Lives outside the popover component so the popover file
  * exports components only, and so each answer is a function of the graph.
  */
-import { typeRefsOf } from "@kb/model";
+import { typeRefsOf, SYSTEM_IDS } from "@kb/model";
 import {
-  SYSTEM_IDS,
   isFieldHidden,
   isSysPrefixed,
   resolveTableColumns,

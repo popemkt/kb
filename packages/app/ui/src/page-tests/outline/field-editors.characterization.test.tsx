@@ -18,22 +18,19 @@
  */
 import {
   emptyValueForType,
-  FIELD_TYPES,
   type FieldContext,
   fieldContextOf,
   FieldRow,
-  type FieldType,
   type QueryAnswers,
   type NodeMap,
   type PropValue,
   schemaOfGraph,
-  SYSTEM_IDS,
 } from "@kb/ui-sdk";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { present } from "@kb/model";
+import { present, FIELD_TYPES, type FieldType, SYSTEM_IDS } from "@kb/model";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { stubOutlineNode } from "@/catalog/fixtures";
 import { fieldGlyphOf, longDateLabel, relativeDateLabel, ValueSlot } from "@kb/outline-ui";

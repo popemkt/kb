@@ -1,4 +1,5 @@
-import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@kb/ui-sdk";
+import type { NodeMap, OutlineNode } from "@kb/ui-sdk";
+import { SYSTEM_IDS } from "@kb/model";
 import { describe, expect, test } from "vitest";
 import {
   CANVAS_IDS,

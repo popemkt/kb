@@ -14,11 +14,9 @@
 import { answersOver, DatascriptIndex } from "@kb/ui-test-kit";
 import {
   derivedWith,
-  FIELD_TYPE_OPTION_IDS,
   fieldContextOf,
   nodeCandidates,
   resolveAllowedRefIds,
-  SYSTEM_IDS,
   wireToOutlineMap,
   WORKSPACE_ROOT_ID,
   type FieldContext,
@@ -29,7 +27,7 @@ import {
   syncUiPlugins,
 } from "@kb/ui-sdk";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { present } from "@kb/model";
+import { present, FIELD_TYPE_OPTION_IDS, SYSTEM_IDS } from "@kb/model";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { WireNode } from "@kb/contracts";

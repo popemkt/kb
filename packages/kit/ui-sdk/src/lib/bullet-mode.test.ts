@@ -11,7 +11,7 @@ import {
   resolveBulletKind,
   type BulletModeInput,
 } from "./bullet-mode.ts";
-import { SYSTEM_IDS } from "./types";
+import { SYSTEM_IDS } from "@kb/model";
 
 function base(partial: Partial<BulletModeInput> = {}): BulletModeInput {
   return {

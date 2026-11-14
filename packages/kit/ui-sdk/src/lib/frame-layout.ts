@@ -6,10 +6,10 @@
  * in, and the settings its view node holds, are `frameViewOf` and
  * `frameConfigOf`.
  */
-import { templateFieldsOf } from "@kb/model";
+import { templateFieldsOf, SYSTEM_IDS } from "@kb/model";
 import { conditionGraph, conditionsMatcher, derivedWith } from "../query";
 import type { SortSpec, ViewFilter } from "@kb/views";
-import { type OutlineNode, type PropValue, SYSTEM_IDS } from "./types";
+import type { OutlineNode, PropValue } from "./types";
 import { textOr } from "./text";
 import type { SchemaIndex } from "./schema";
 import { isFieldHidden } from "./field-visibility";

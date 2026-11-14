@@ -1,14 +1,13 @@
 import { Option, Schema } from "effect";
 import type { SchemaIndex } from "./schema";
 import type { WireNode } from "@kb/contracts";
-import { compareRootOrder, hasQueryDef, typeRefsOf } from "@kb/model";
+import { compareRootOrder, hasQueryDef, typeRefsOf, SYSTEM_IDS } from "@kb/model";
 import { tagColorOf, tagPalette, type TagPalette } from "./tag-color";
 import { resolveVisibleProps, isFieldHidden, type ResolvePropsOptions } from "./field-visibility";
 import { hasText, textOr } from "./text";
 import {
   EXPANDED_STORAGE_KEY,
   EXPANSION_STORAGE_KEY,
-  SYSTEM_IDS,
   WORKSPACE_ROOT_ID,
   isSysPrefixed,
   type NodeMap,

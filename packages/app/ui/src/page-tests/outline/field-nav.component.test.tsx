@@ -6,16 +6,11 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { present } from "@kb/model";
+import { present, SYSTEM_IDS } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
-import {
-  outlineInstanceKey,
-  setCaretSerializedOffset,
-  syncUiPlugins,
-  SYSTEM_IDS,
-} from "@kb/ui-sdk";
+import { outlineInstanceKey, setCaretSerializedOffset, syncUiPlugins } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { NodeBlock, outlineNodes, useOutlineStore } from "@kb/outline-ui";

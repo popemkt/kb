@@ -1,5 +1,5 @@
 import { beforeAll, afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
-import { present } from "@kb/model";
+import { present, SYSTEM_IDS } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { viewFieldNodes } from "@/fixtures/view-fields";
 import {
@@ -8,7 +8,6 @@ import {
   queryResultInstanceKey,
   slotLink,
   syncUiPlugins,
-  SYSTEM_IDS,
 } from "@kb/ui-sdk";
 import type { WireNode } from "@kb/contracts";
 import { useGraphStore } from "@/stores/graph.store";

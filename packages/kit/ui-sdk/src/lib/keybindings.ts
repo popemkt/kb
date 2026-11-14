@@ -18,7 +18,6 @@
  * by name, once a page session.
  */
 import { KeybindingPoint, KeyContextPoint } from "@kb/contracts";
-export { KeybindingPoint, KeyContextPoint } from "@kb/contracts";
 import type { Contribution } from "@kb/plugin";
 import { browserHost, BrowserHostService } from "../host";
 import { callInput, invokeAction } from "./action-call";
@@ -31,15 +30,6 @@ import {
   type KeyRun,
   type Keybinding,
   type KeyContextSpec,
-  type Keymap,
-} from "@kb/keybindings";
-export {
-  admitKeybindings,
-  admitKeymaps,
-  keyContextOf,
-  provideKeybinding,
-  type Keybinding,
-  type KeyContext,
   type Keymap,
 } from "@kb/keybindings";
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import { SYSTEM_IDS } from "@kb/ui-sdk";
+import { SYSTEM_IDS } from "@kb/model";
 import { planAddTagField, planRemoveTag, planSetTagColor } from "./plan";
 
 const tag: WireNode = {

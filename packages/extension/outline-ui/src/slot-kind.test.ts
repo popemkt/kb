@@ -7,15 +7,13 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { StarIcon } from "@phosphor-icons/react";
 import {
   currentContributions,
-  FIELD_TYPE_OPTION_IDS,
-  FIELD_TYPES,
   schemaOfGraph,
   syncUiPlugins,
-  SYSTEM_IDS,
   ValueKindPoint,
   type FieldTypeKind,
   type OutlineNode,
 } from "@kb/ui-sdk";
+import { FIELD_TYPE_OPTION_IDS, FIELD_TYPES, SYSTEM_IDS } from "@kb/model";
 import { outlineValueKindsPlugin, slotKindOf } from "./slot-kind";
 import { VALUE_KINDS } from "./value-kind";
 import { VALUE_VIEWS } from "./value-views";

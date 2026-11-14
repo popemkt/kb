@@ -3,7 +3,8 @@
  * through its write port (`browserHost().writes`), a new view node through
  * `proposeView`, so the graph names no shell module to write.
  */
-import { browserHost, type PropValue, SYSTEM_IDS } from "@kb/ui-sdk";
+import { browserHost, type PropValue } from "@kb/ui-sdk";
+import { SYSTEM_IDS } from "@kb/model";
 import { rendererParamsOf, type LensPerspective, type RendererKey } from "@kb/graph";
 
 /**

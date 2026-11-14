@@ -41,12 +41,11 @@ import {
   schemaOf,
   type ScopeSource,
   shownNodesOf,
-  SYSTEM_IDS,
   toast,
   withExpansion,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
-import { isQueryNode } from "@kb/model";
+import { isQueryNode, SYSTEM_IDS } from "@kb/model";
 import {
   collectVisibleInstances,
   neighborVisibleInstance,

@@ -15,8 +15,8 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import { LEGACY_PERSPECTIVE_TAG, migrateToViewNodes, present } from "@kb/model";
-import { getViewConfig, type PropValue, SYSTEM_IDS } from "@kb/ui-sdk";
+import { LEGACY_PERSPECTIVE_TAG, migrateToViewNodes, present, SYSTEM_IDS } from "@kb/model";
+import { getViewConfig, type PropValue } from "@kb/ui-sdk";
 import { lensConfig, parsePerspective } from "@kb/graph-ui";
 import type { ViewConfig } from "@kb/views";
 import { DEFAULT_RENDERER, type LensPerspective, GRAPH_IDS } from "@kb/graph";

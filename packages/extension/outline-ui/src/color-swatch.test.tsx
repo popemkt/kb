@@ -3,7 +3,6 @@
  */
 import {
   fieldContextOf,
-  SYSTEM_IDS,
   TAG_PALETTE,
   type FieldContext,
   type QueryAnswers,
@@ -11,7 +10,7 @@ import {
   schemaOfGraph,
 } from "@kb/ui-sdk";
 import { describe, expect, it } from "vitest";
-import { fieldTypeOf } from "@kb/model";
+import { fieldTypeOf, SYSTEM_IDS } from "@kb/model";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ColorSwatchEditor } from "./field-value";

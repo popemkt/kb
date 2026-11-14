@@ -7,11 +7,11 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { present } from "@kb/model";
+import { present, SYSTEM_IDS } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
-import { fieldContextOf, setCaretSerializedOffset, SYSTEM_IDS } from "@kb/ui-sdk";
+import { fieldContextOf, setCaretSerializedOffset } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
 import { FieldValueStack, outlineNodes, outlineSource } from "@kb/outline-ui";
 

@@ -8,6 +8,7 @@ import {
   resolveOntology,
   strValueOf,
   typeRefsOf,
+  SYSTEM_IDS,
 } from "@kb/model";
 import {
   browserHost,
@@ -16,7 +17,6 @@ import {
   hasText,
   navigate,
   NotFound,
-  SYSTEM_IDS,
   tagChipColors,
   tagColorOf,
   tagPalette,

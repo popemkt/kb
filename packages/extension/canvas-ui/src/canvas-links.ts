@@ -5,7 +5,7 @@
  * item on this canvas, which is shown and selected.
  */
 import { isLinkUrl, type CanvasItemLink, type CanvasWorld } from "@kb/canvas";
-import { nodePath } from "@kb/ui-sdk";
+import { nodePath } from "@kb/views";
 import { canvasPath } from "./routes";
 
 export type LinkStep =

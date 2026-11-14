@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
-import { defaultViewIdOf, present, viewOptionOf } from "@kb/model";
+import { defaultViewIdOf, present, viewOptionOf, SYSTEM_IDS } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { framedAs, viewFieldNodes } from "@/fixtures/view-fields";
@@ -12,7 +12,6 @@ import {
   outlineInstanceKey,
   schemaOf,
   syncUiPlugins,
-  SYSTEM_IDS,
 } from "@kb/ui-sdk";
 import { OutlineListView, paramsFrom } from "@kb/views";
 import { Result } from "effect";

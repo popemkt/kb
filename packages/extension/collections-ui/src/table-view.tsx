@@ -20,7 +20,6 @@ import {
   resolveTableColumns,
   shownNode,
   shownNodeId,
-  SYSTEM_IDS,
   type TableColumnSpec,
   useDebugFields,
   useFieldEditor,
@@ -34,6 +33,7 @@ import {
   BREAKOUT_CLASS,
   useBreakoutShift,
 } from "@kb/ui-sdk";
+import { SYSTEM_IDS } from "@kb/model";
 import type { ParamsOf, SortSpec } from "@kb/views";
 import { CollectionTableView } from "@kb/collections";
 

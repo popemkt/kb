@@ -5,7 +5,6 @@
  */
 import {
   fieldContextOf,
-  SYSTEM_IDS,
   type FieldContext,
   type QueryAnswers,
   type NodeMap,
@@ -13,6 +12,7 @@ import {
   schemaOfGraph,
   syncUiPlugins,
 } from "@kb/ui-sdk";
+import { SYSTEM_IDS } from "@kb/model";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Window } from "happy-dom";

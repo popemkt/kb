@@ -3,7 +3,7 @@
  * `date-editor`).
  */
 import { addDays, addMonths, weekday, type LocalDate } from "@kb/model";
-import { lookupChord, type Chord, type KeyChordEvent } from "@kb/ui-sdk";
+import { lookupChord, type Chord, type KeyChordEvent } from "@kb/keybindings";
 
 /** Six weeks covering `month`'s month, each starting on `firstDay` (0 = Sunday). */
 export function calendarWeeks(month: LocalDate, firstDay: number): LocalDate[][] {

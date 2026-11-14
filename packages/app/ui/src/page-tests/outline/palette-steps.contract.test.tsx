@@ -17,14 +17,13 @@ import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { GRAPH_IDS } from "@kb/graph";
-import { extensionNodeId, fieldTypeValue, present } from "@kb/model";
+import { extensionNodeId, fieldTypeValue, present, SYSTEM_IDS } from "@kb/model";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import {
   CommandPoint,
   nodeMenu,
   currentContributions,
   PaletteStepPoint,
-  SYSTEM_IDS,
   syncUiPlugins,
 } from "@kb/ui-sdk";
 import { NodeCommandPalette, useOutlineStore } from "@kb/outline-ui";

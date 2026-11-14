@@ -12,7 +12,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { XIcon } from "@phosphor-icons/react";
 import type { WireNode } from "@kb/contracts";
-import { declaresOptionSet, templateFieldsOf } from "@kb/model";
+import { declaresOptionSet, templateFieldsOf, SYSTEM_IDS } from "@kb/model";
 import type { ConditionEdge, ConditionRow } from "@kb/query";
 import {
   cn,
@@ -26,7 +26,6 @@ import {
   type PickerCandidate,
   type PropValue,
   resolveFieldTypeById,
-  SYSTEM_IDS,
   TagChip,
   tagColorOf,
   tagPalette,

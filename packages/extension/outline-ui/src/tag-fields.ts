@@ -5,8 +5,8 @@
  * can be exercised without a store or a live component, and so the config
  * component's module exports components only.
  */
-import { typeRefsOf } from "@kb/model";
-import { SYSTEM_IDS, type SchemaIndex } from "@kb/ui-sdk";
+import { typeRefsOf, SYSTEM_IDS } from "@kb/model";
+import type { SchemaIndex } from "@kb/ui-sdk";
 
 export interface TagFieldRef {
   id: string;

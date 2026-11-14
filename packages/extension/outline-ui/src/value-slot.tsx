@@ -5,13 +5,12 @@ import {
   type EditHandle,
   type FieldContext,
   type FieldHandle,
-  type FieldType,
   type Follow,
   type PropValue,
   type RejectedInput,
   type ValueKindSpec,
 } from "@kb/ui-sdk";
-import type { ParsedValue } from "@kb/model";
+import type { FieldType, ParsedValue } from "@kb/model";
 import { useSlotKind } from "./slot-kind";
 import { EDITOR_MODES, toggledValue } from "./value-kind";
 import { valueSlotIntent, type ValueSlotIntent } from "./value-slot-keymap";

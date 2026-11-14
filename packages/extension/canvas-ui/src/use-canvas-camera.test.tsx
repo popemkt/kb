@@ -15,7 +15,8 @@ import {
   type CanvasCamera,
   type CanvasPose,
 } from "@kb/canvas";
-import { SYSTEM_IDS, syncUiPlugins, type OutlineNode, type PropValue } from "@kb/ui-sdk";
+import { syncUiPlugins, type OutlineNode, type PropValue } from "@kb/ui-sdk";
+import { SYSTEM_IDS } from "@kb/model";
 import {
   installDomGlobals,
   testBrowserHost,

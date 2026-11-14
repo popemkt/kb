@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { withExpansion, wireToOutlineMap } from "./graph-view";
 import { schemaOf, schemaOfGraph } from "./schema";
-import { SYSTEM_IDS } from "./types";
+import { SYSTEM_IDS } from "@kb/model";
 
 const ISO = "2026-10-16T00:00:00.000Z";
 

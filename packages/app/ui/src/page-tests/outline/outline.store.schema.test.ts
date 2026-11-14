@@ -5,7 +5,7 @@
  */
 import { beforeAll, afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import { cardinalityOf, present } from "@kb/model";
+import { cardinalityOf, present, SYSTEM_IDS } from "@kb/model";
 import { bundledSeed } from "@kb/bundled";
 import {
   formatPropValue,
@@ -17,7 +17,6 @@ import {
   rowText,
   schemaOf,
   syncUiPlugins,
-  SYSTEM_IDS,
 } from "@kb/ui-sdk";
 import { setPostAction } from "@/api/action";
 import { useGraphStore } from "@/stores/graph.store";

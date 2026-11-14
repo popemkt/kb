@@ -5,7 +5,8 @@
  */
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import { SYSTEM_IDS, schemaOfGraph, wireToOutlineMap } from "@kb/ui-sdk";
+import { schemaOfGraph, wireToOutlineMap } from "@kb/ui-sdk";
+import { SYSTEM_IDS } from "@kb/model";
 import { frameColumns, frameFieldCandidates, pageSizeOptions } from "./view-settings-fields";
 
 const ref = (v: string) => [{ t: "ref" as const, v }];

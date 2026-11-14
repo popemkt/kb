@@ -80,7 +80,7 @@
       "@kb/appearance-kit": 41,
       "@kb/scene": 13,
       "@kb/scene-gpu": 35,
-      "@kb/ui-sdk": 530,
+      "@kb/ui-sdk": 504,
       "@kb/ui-test-kit": 26
     },
     "family-names": {
