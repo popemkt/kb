@@ -4,11 +4,13 @@
  * record cards whose nodes carry 10 fields, 200 pictures, 500 edges, and
  * drill links joining every page. The board is brought in as the owner's
  * was, by `ext.canvas.import` of a generated `.tldr`, and every operation
- * an agent or the page leans on is timed against a stated budget. The
- * budgets are four to ten times what a loaded shared machine measures,
- * so a failure is a regression of an order, not noise: `describe` took
- * 877 ms here before its near-neighbour search went through a grid. `KB_BENCH=1` prints the
- * table.
+ * an agent or the page leans on is held to a stated budget of the CPU time
+ * it spends (`cpuCost`), so a run that parallelises files, whose other
+ * files take the cores, does not count against it. The budgets are four to
+ * ten times what a loaded shared machine measures, so a failure is a
+ * regression of an order, not noise: `describe` took 877 ms here before
+ * its near-neighbour search went through a grid. `KB_BENCH=1` prints the
+ * table, with each phase's wall time beside it.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -17,7 +19,7 @@ import { join } from "node:path";
 import { CANVAS_IDS, parseCanvasDoc, stringifyCanvasDoc, type CanvasDoc } from "@kb/canvas";
 import type { ActionReceipt } from "@kb/contracts";
 import { present } from "@kb/model";
-import { benchmarkEnabled } from "@kb/test-kit";
+import { benchmarkEnabled, cpuCost } from "@kb/test-kit";
 import { invoke } from "../src/invoke.ts";
 import { writeOut } from "../src/output.ts";
 import { resetRegistryCache } from "../src/registry.ts";
@@ -174,18 +176,12 @@ function output(receipt: ActionReceipt): Record<string, unknown> {
   return receipt.output as Record<string, unknown>;
 }
 
-async function timed<T>(run: () => Promise<T> | T): Promise<{ ms: number; value: T }> {
-  const start = performance.now();
-  const value = await run();
-  return { ms: performance.now() - start, value };
-}
-
-/** Each phase's milliseconds and its budget, printed under `KB_BENCH=1`. */
-const table: [string, number, number][] = [];
+/** Each phase's CPU and wall milliseconds and its budget, printed under `KB_BENCH=1`. */
+const table: [string, number, number, number][] = [];
 async function within<T>(phase: string, budget: number, run: () => Promise<T> | T): Promise<T> {
-  const { ms, value } = await timed(run);
-  table.push([phase, ms, budget]);
-  expect(ms).toBeLessThan(budget);
+  const { cpuMs, wallMs, value } = await cpuCost(run);
+  table.push([phase, cpuMs, wallMs, budget]);
+  expect(cpuMs, `${phase}: CPU ms`).toBeLessThan(budget);
   return value;
 }
 
@@ -211,11 +207,11 @@ beforeAll(async () => {
 afterAll(async () => {
   if (benchmarkEnabled) {
     writeOut(
-      `| canvas at scale (${String(PAGES)} pages, 2,000 items, ${String(RECORDS)} records) | ms | budget |`,
+      `| canvas at scale (${String(PAGES)} pages, 2,000 items, ${String(RECORDS)} records) | CPU ms | wall ms | budget |`,
     );
-    writeOut("|---|---:|---:|");
-    for (const [phase, ms, budget] of table)
-      writeOut(`| ${phase} | ${ms.toFixed(1)} | ${String(budget)} |`);
+    writeOut("|---|---:|---:|---:|");
+    for (const [phase, cpuMs, wallMs, budget] of table)
+      writeOut(`| ${phase} | ${cpuMs.toFixed(1)} | ${wallMs.toFixed(1)} | ${String(budget)} |`);
   }
   await rm(root, { recursive: true, force: true });
   resetRegistryCache();

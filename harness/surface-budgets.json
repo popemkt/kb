@@ -15,8 +15,8 @@
     "limit": 12
   },
   "@kb/test-kit": {
-    "limit": 57,
-    "reason": "SURFACE_CONTRACT_CELLS: the surface contract's cells, by name, so the CLI runs each from a file of its own and a new listener kind fails to compile until it has its cells."
+    "limit": 58,
+    "reason": "cpuCost: the CPU time an operation spends, which a test holds a cost budget to, so a run that parallelises files does not count its load against the code (DESIGN.md → Testing doctrine)."
   },
   "@kb/webmcp": {
     "limit": 12

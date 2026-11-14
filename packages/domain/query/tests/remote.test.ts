@@ -230,6 +230,17 @@ for (const [name, spawn] of Object.entries(PORTS)) {
 
 test("over a worker an overrun is stopped, and the engine is started again", async () => {
   const chain = Array.from({ length: 220 }, (_, i) => node(`n${i}`, i < 219 ? [`n${i + 1}`] : []));
+  // The run's clock runs out the moment the engine says the run began: a
+  // microtask, so it fires before the engine's answer, a later message, can
+  // arrive, however loaded the machine. The engine is stopped mid-walk.
+  const clocks: number[] = [];
+  const outAtOnce: Timers = {
+    set: (run, ms) => {
+      clocks.push(ms);
+      queueMicrotask(run);
+      return () => undefined;
+    },
+  };
   const remote = new RemoteIndex(
     chain,
     derivedWith({}),
@@ -237,16 +248,17 @@ test("over a worker an overrun is stopped, and the engine is started again", asy
       (() => {
         throw new Error("no worker port");
       }),
-    timers,
+    outAtOnce,
   );
   open.push(remote);
-  const asked = performance.now();
   const slow = await remote.transport.run({
     edn: "[:find ?a ?b :where [?x :node/id ?a] (reach ?x :node/child ?y) [?y :node/id ?b]]",
     budgetMs: 50,
   });
   expect(slow.kind).toBe("over-budget");
-  // Stopped at its budget, not when the walk would have ended.
-  expect(performance.now() - asked).toBeLessThan(2_000);
+  // The host set the run's clock to its budget, and it was the host that
+  // stopped the run: an engine that finished and judged itself over budget
+  // answers the same kind but starts nothing again.
+  expect(clocks).toEqual([50]);
   expect(remote.restarts).toBe(1);
 });

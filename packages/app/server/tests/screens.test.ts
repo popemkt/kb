@@ -64,6 +64,15 @@ async function eventually<A>(read: () => Promise<A>, done: (value: A) => boolean
   return value;
 }
 
+/**
+ * How long a command whose presence file names no live server for this
+ * root would wait for its tab, were it sent. The probe settles such a file
+ * at once or within its own half second, so a command answered in half of
+ * this wait was answered by the probe, however loaded the machine, and one
+ * that waited it out still reaches its assertion inside the test's 30 s.
+ */
+const COMMAND_WAIT_MS = 20_000;
+
 /** A presence file for `root`, as a server listening `at` in this process would write it. */
 async function writePresence(root: string, at: UiListener): Promise<void> {
   const presence = { at, pid: process.pid, root: await realpath(root) };
@@ -335,13 +344,14 @@ describe("screen state with no kb ui", () => {
     void probe.stop(true);
     await writePresence(root, at);
     const started = Date.now();
-    expect(await invoke(ctx, { id: "ui.navigate", input: { node: "n.x" } })).toEqual({
+    expect(
+      await invoke(ctx, { id: "ui.navigate", input: { node: "n.x", timeoutMs: COMMAND_WAIT_MS } }),
+    ).toEqual({
       status: "succeeded",
       id: "ui.navigate",
       output: { outcome: "no-tab" },
     });
-    // Answered by the probe, not by waiting out the command's own timeout.
-    expect(Date.now() - started).toBeLessThan(2000);
+    expect(Date.now() - started).toBeLessThan(COMMAND_WAIT_MS / 2);
   });
 
   test("a presence file whose port another root's kb ui now holds names no tabs", async () => {
@@ -376,12 +386,17 @@ describe("screen state with no kb ui", () => {
     try {
       await writePresence(root, { kind: "tcp", hostname: "127.0.0.1", port: silent.port ?? 0 });
       const started = Date.now();
-      expect(await invoke(ctx, { id: "ui.select", input: { focus: "n.x" } })).toEqual({
+      expect(
+        await invoke(ctx, {
+          id: "ui.select",
+          input: { focus: "n.x", timeoutMs: COMMAND_WAIT_MS },
+        }),
+      ).toEqual({
         status: "succeeded",
         id: "ui.select",
         output: { outcome: "no-tab" },
       });
-      expect(Date.now() - started).toBeLessThan(2000);
+      expect(Date.now() - started).toBeLessThan(COMMAND_WAIT_MS / 2);
     } finally {
       void silent.stop(true);
     }

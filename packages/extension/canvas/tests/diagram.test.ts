@@ -6,6 +6,7 @@
  * spec, what kb has no equivalent for drawn as its nearest or reported.
  */
 import { describe, expect, test } from "bun:test";
+import { cpuCost } from "@kb/test-kit";
 import {
   DIAGRAM_LIMITS,
   MERMAID_TEXT_LIMIT,
@@ -180,14 +181,14 @@ describe("mermaidDiagram", () => {
 });
 
 describe("reading mermaid stays linear", () => {
-  test("a labelled link that never closes, then a long run of space, is read in time", () => {
-    const started = performance.now();
+  test("a labelled link that never closes, then a long run of space, is read in time", async () => {
     const text = `flowchart TD\nB\nA -- x${" ".repeat(50_000)}y`;
-    expect(mermaidDiagram(text).reported).toEqual([
+    const { value, cpuMs } = await cpuCost(() => mermaidDiagram(text));
+    expect(value.reported).toEqual([
       expect.objectContaining({ line: 3, note: expect.stringContaining("could not read") }),
     ]);
     // Read by lazy splitting, this took seconds; read in place, a millisecond or two.
-    expect(performance.now() - started).toBeLessThan(100);
+    expect(cpuMs).toBeLessThan(100);
   });
 });
 

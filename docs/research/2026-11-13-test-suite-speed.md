@@ -192,3 +192,48 @@ a file for every cell, each running the cell it is named for. The same 32
 tests and assertions run. Side by side at `--parallel=4`, the four files
 took 58 s against 140 s for the one file. CI's before and after are in the
 PR that made the change.
+
+## Follow-up: no wall-clock budget in a parallel run
+
+With four files at a time, a file's wall time includes what the other
+three took from the runner. On CI, `canvas-scale`'s describe of the
+2,000-item page took 616 ms against a 600 ms budget (run 43466422235).
+This is the same kind of failure as the interrupt race.
+
+The core suite had six wall-clock assertions. Each now reads a clock the
+test holds (DESIGN.md → Testing doctrine, "A test reads no wall clock it
+does not hold"):
+
+| Test | Asserted | Now |
+|---|---|---|
+| `canvas-scale`, nine phases | wall ms under a budget | CPU ms of the test's thread under the same budget (`cpuCost`) |
+| `diagram`, mermaid read stays linear | wall under 100 ms | CPU under 100 ms |
+| `screen-hub`, no-tab at once | wall under 1 s, against a 5 s timeout | `TestClock` moved 1 ms short of the timeout, so the command has settled |
+| `remote`, an overrun is stopped | wall under 2 s, against a 50 ms budget | the test's `Timers` end the budget the moment the run starts; the host set it to 50 ms and restarted the engine |
+| `screens`, two stale presence files | wall under 2 s, against a 4 s wait | 20 s command timeout, asserted under 10 s |
+
+Process-wide CPU (`process.cpuUsage`) was tried first and dropped. The
+engine's collector and compiler threads doubled it: describe took 339 ms
+of process CPU against 176 ms of wall. `process.threadCpuUsage` counts the
+test's own thread, which equalled wall time on an idle machine. The
+canvas test was then pinned to two cores beside six busy loops:
+
+| Phase | Idle: CPU / wall | Contended: CPU / wall | Budget |
+|---|---:|---:|---:|
+| describe the page | 175 / 178 | 269 / 564 | 600 |
+| reopen the store | 361 / 368 | 437 / 974 | 1,500 |
+| import the `.tldr` | 681 / 701 | 877 / 1,844 | 5,000 |
+
+The budgets are unchanged. A thread's CPU time never exceeds its wall
+time, so no run that passed before can fail now.
+
+Each new form was checked against the bug it guards, by breaking the code
+on purpose:
+
+- A send failure the hub ignores, so the command waits out its timeout:
+  the `screen-hub` test fails.
+- A host that never sets the run's clock: the `remote` test fails.
+- A 12 s identity probe: the silent-server `screens` test fails.
+
+The seven poll-until loops with their own 2 to 10 s deadlines are left as
+they are (`#gap`).
