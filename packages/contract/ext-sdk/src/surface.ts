@@ -328,8 +328,12 @@ export interface ViewKey<P> {
   readonly option: string;
   readonly config: ViewConfigCodec<P>;
   readonly events: readonly string[];
-  /** The view draws a preview of a node it opens, under the node's row in the outline. */
-  readonly preview: boolean;
+  /**
+   * What preview the view draws of a node it opens, under the node's row in
+   * the outline: `still`, a picture that pressing opens; `live`, the view's
+   * controls acting in place; null, none.
+   */
+  readonly preview: "still" | "live" | null;
 }
 
 /**
@@ -736,7 +740,7 @@ export declare function viewKey<P>(
   label: string,
   params: effect.Schema.Decoder<P>,
   config?: ViewConfigCodec<P>,
-  declares?: { readonly events?: readonly string[]; readonly preview?: boolean },
+  declares?: { readonly events?: readonly string[]; readonly preview?: "still" | "live" },
 ): PlainViewKey<P>;
 export declare function viewDef<P>(key: ViewKey<P>, text?: ViewText<P>): ViewDef<P>;
 export declare const NoParams: effect.Schema.Decoder<NoParams>;

@@ -3187,9 +3187,23 @@ until "Save workspace".
     below by that much and nothing moves after. The view mounts only once
     the box comes within 200px of the viewport (`useSeen`), so a long
     outline pays for the previews it shows, not for the ones it holds.
-    Pressing it, or Enter on it, opens the node in the opening's view. It
-    takes the content column's width, so it fits both width modes.
-    (`row-preview.tsx`, `@kb/outline-ui`)
+    It takes the content column's width, so it fits both width modes. Its
+    box is the view key's kind of preview (`ViewKey.preview`, DESIGN.md →
+    a tag's view sets how its nodes show), and no view draws a box of its
+    own (`row-preview.tsx`, `@kb/outline-ui`):
+    - **A still preview** is one button: pressing it, or Enter or Space on
+      it, opens the node in the opening's view.
+    - **A live preview** is a region (`role="group"`, named "<view>
+      preview") of the view's own controls, which act in place, so the tag
+      chip's ↗ and the menu's "Open in …" open the node. Its controls are
+      the page's Tab stops after the row's own, and it scrolls when they
+      stand taller than the box, so every one stays reachable. Focus
+      entering it takes the keyboard from the outline
+      (`releaseOutlineKeyboard`, as a field's value does): the selected
+      or edited row lets go, so the outline's Tab (indent) and arrows act
+      on no row while a control of the view holds focus. It traps nothing:
+      Tab and Shift+Tab leave it as they leave any control, and since it
+      is no row, the arrows that move between rows pass over it.
   - **The properties** are the node's field rows as a plain node's: the
     row's fields section, and the zoomed node's, reveal the fields of the
     tag that opens it, drawn as any other field (`RowOpening.revealed`).

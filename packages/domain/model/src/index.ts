@@ -260,6 +260,7 @@ export {
   displaySettingValues,
   type DisplayOption,
   type DisplaySettings,
+  type PreviewKind,
 } from "./display.ts";
 
 export { roleNodeId, roleSelections, type RoleDefinition } from "./roles.ts";

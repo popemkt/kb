@@ -14,7 +14,7 @@
       "@kb/extension-source": 27,
       "@kb/sandbox": 94,
       "@kb/appearance": 60,
-      "@kb/model": 266,
+      "@kb/model": 267,
       "@kb/outline-paste": 3,
       "@kb/plugin": 43,
       "@kb/query": 53,
@@ -149,7 +149,7 @@
     },
     "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2772240,
+      "bytes": 2772467,
       "modules": 735
     },
     "single-family": {

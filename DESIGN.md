@@ -1368,14 +1368,23 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   outline it is a row like any other, and a small set of *display options*
   says what more its row shows (`@kb/model` `display.ts`, the one home of
   the options, their settings' ids, values and defaults):
-  - **`preview`**: the view draws the node small under its row, a compact,
-    read-only picture. It is a placement of the view the family already
-    provides (`preview`), never a second renderer; the canvas's is a still
-    picture of its board (`canvasSvg`, the export's painter), which goes
-    live only when the canvas is opened. Only a view whose key says so
-    offers it: `ViewKey.preview` (`viewKey(…, { preview: true })`) is the
-    one statement, and a page contribution of the view is offered at
-    placement `preview` because of it (`provideView`), never by listing it.
+  - **`preview`**: the view draws the node small under its row. It is a
+    placement of the view the family already provides (`preview`), never a
+    second renderer. Only a view whose key says so offers it, and the key
+    says which kind: `ViewKey.preview` (`viewKey(…, { preview: "still" })`
+    or `"live"`) is the one statement, and a page contribution of the view
+    is offered at placement `preview` because of it (`provideView`), never
+    by listing it.
+    - **Still**: a compact picture that pressing opens the node in the
+      view. The canvas's is a still picture of its board (`canvasSvg`, the
+      export's painter), which goes live only when the canvas is opened.
+    - **Live**: the view's own controls at work under the row, acting
+      through the family's actions as they do where the view is opened.
+      Since a press is the view's, the node opens through its tag's
+      "Open in …" instead.
+
+    The row's host draws the preview's box by its kind, so no view asks
+    for a box of its own (DESIGN-UI → Opening a node).
   - **`properties`**: the node's fields show as a plain node's do, the ones
     its tag hides because its view draws them included: the fields the
     tag templates (`sys.f.fields`) are revealed through the field-hiding
