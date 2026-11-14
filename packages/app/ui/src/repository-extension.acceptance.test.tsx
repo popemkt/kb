@@ -113,8 +113,8 @@ describe("a repository extension's page half (acceptance)", () => {
       ["ui.views", "example.board"],
       ["ui.views", "example.note"],
       ["ui.sidebar", "example.section"],
-      ["outline.ingest", "example.ratings"],
       ["ui.commands", "example.link"],
+      ["outline.ingest", "example.ratings"],
       ["ui.backdrops", "example.glow"],
     ]);
   });
