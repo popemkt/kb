@@ -10,6 +10,8 @@ import {
   planInsertSibling,
   planMergeInto,
   planMove,
+  planMoveToGroup,
+  planReplaceField,
   planSetProp,
   planSplit,
 } from "./plan.ts";
@@ -155,5 +157,25 @@ describe("editing a frame's view", () => {
         },
       },
     ]);
+  });
+});
+
+describe("moving a row to a group", () => {
+  const doing = ref("o.doing");
+  const done = ref("o.done");
+  const card = wire("c", { "f.status": [doing, ref("o.blocked")] });
+
+  it("replaces every value of the field with the group's, or removes them for No <field>", () => {
+    expect(planMoveToGroup([card], "c", "f.status", done)).toEqual(
+      planReplaceField([card], "c", "f.status", [done]),
+    );
+    expect(planMoveToGroup([card], "c", "f.status", null)).toEqual(
+      planReplaceField([card], "c", "f.status", []),
+    );
+  });
+
+  it("writes nothing for the group the row is in, by its first value", () => {
+    expect(planMoveToGroup([card], "c", "f.status", doing)).toBeNull();
+    expect(planMoveToGroup([wire("c", {})], "c", "f.status", null)).toBeNull();
   });
 });

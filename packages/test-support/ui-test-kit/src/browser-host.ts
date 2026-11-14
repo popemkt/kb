@@ -133,7 +133,7 @@ const INERT_WRITES: PageWrites = {
   setFrameSetting: done,
   addViewFilter: done,
   removeViewFilter: done,
-  moveBoardCard: done,
+  moveToGroup: done,
   captureNode: refused,
   addChildNode: refused,
   undo: refused,

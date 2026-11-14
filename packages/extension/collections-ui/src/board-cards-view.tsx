@@ -5,7 +5,6 @@ import {
   Bullet,
   bulletClickIntent,
   cn,
-  EMPTY_GROUP_KEY,
   type FieldContext,
   type FieldEditorProps,
   frameRows,
@@ -116,19 +115,12 @@ export function BoardCardsView({
   }, []);
 
   const handleDropOnColumn = useCallback(
-    (columnKey: string, columnValue: PropValue | null) => {
+    (columnValue: PropValue | null) => {
       if (dragNodeId === null || groupFieldId === null || isQuerySource) return;
-      const node = nodes.get(dragNodeId);
-      if (!node) return;
-      const oldVal = node.props[groupFieldId]?.[0] ?? null;
-      if (columnKey === EMPTY_GROUP_KEY && !oldVal) return;
-      if (oldVal && columnValue && JSON.stringify(oldVal) === JSON.stringify(columnValue)) {
-        return;
-      }
-      void browserHost().writes.moveBoardCard(dragNodeId, groupFieldId, oldVal, columnValue);
+      void browserHost().writes.moveToGroup(dragNodeId, groupFieldId, columnValue);
       setDragNodeId(null);
     },
-    [dragNodeId, groupFieldId, isQuerySource, nodes],
+    [dragNodeId, groupFieldId, isQuerySource],
   );
 
   // A fold is a view setting: it is written to the view node, so every host
@@ -220,7 +212,7 @@ export function BoardCardsView({
               }}
               onDrop={(e) => {
                 e.preventDefault();
-                handleDropOnColumn(col.key, col.value);
+                handleDropOnColumn(col.value);
               }}
             >
               <GroupHeader

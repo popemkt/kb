@@ -278,12 +278,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     );
     useGraphStore.getState().hydrateFromWire(multi, 3, "fixtures");
     const before = [...present(outlineNodes().get("frame1"), "frame1").children];
-    await mutations.moveBoardCard(
-      "c1",
-      "f_status",
-      { t: "str", v: "doing" },
-      { t: "str", v: "done" },
-    );
+    await mutations.moveToGroup("c1", "f_status", { t: "str", v: "done" });
     const after = outlineNodes();
     const c1 = present(after.get("c1"), "c1");
     expect(c1.props.f_status).toEqual([{ t: "str", v: "done" }]);

@@ -3019,7 +3019,7 @@ how the stored name resolves to the key among them.
   A row moves to another group by its value: dragged onto the group, or
   with ⌘⇧← and ⌘⇧→ on the selected row, to the group before or after its
   own as the view draws them, skipping folded ones, and nowhere past either
-  end. The move is one page write (`moveBoardCard`): the row's values of the
+  end. The move is one page write (`moveToGroup`): the row's values of the
   field are replaced by the group's value, or removed for "No <field>", so
   one undo puts it back, and the selection stays on the row. Rows of a
   query's results do not move, as they do not drag, since the value may be

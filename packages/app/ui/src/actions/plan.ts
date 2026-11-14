@@ -533,10 +533,19 @@ export function planEditFrameView(
   ]);
   return { actions: [...made.actions, ...named.actions] };
 }
-export const planMoveBoardCard = (
+/**
+ * Move a row to a group (DESIGN-UI.md → Groups): its values of `field` become
+ * `value`, or none for "No <field>". A row already in that group (its first
+ * value is `value`, or it holds none and `value` is null) is left as it is,
+ * so nothing is written (null).
+ */
+export function planMoveToGroup(
   n: WireNode[],
   id: string,
   field: string,
-  _old: PropValue | null,
   value: PropValue | null,
-) => planReplaceField(n, id, field, value ? [value] : []);
+): PlannedMutation | null {
+  const first = requireNode(n, id).props[field]?.[0] ?? null;
+  if (JSON.stringify(first) === JSON.stringify(value)) return null;
+  return planReplaceField(n, id, field, value === null ? [] : [value]);
+}

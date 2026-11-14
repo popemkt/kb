@@ -193,10 +193,11 @@ export interface PageWrites {
   readonly setColumnWidth: (frameId: string, fieldId: string, widthPx: number) => Promise<void>;
   readonly addViewFilter: (frameId: string, filter: ViewFilter) => Promise<void>;
   readonly removeViewFilter: (frameId: string, filter: ViewFilter) => Promise<void>;
-  readonly moveBoardCard: (
-    nodeId: string,
-    fieldId: string,
-    oldValue: PropValue | null,
-    newValue: PropValue | null,
-  ) => Promise<void>;
+  /**
+   * Move a row to a group of a grouped view (DESIGN-UI.md → Groups): its
+   * values of `fieldId` become `value`, or none for "No <field>", in one
+   * write; a row already in that group is left as it is. The one way a
+   * drag or a key moves a row between groups.
+   */
+  readonly moveToGroup: (nodeId: string, fieldId: string, value: PropValue | null) => Promise<void>;
 }

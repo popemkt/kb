@@ -623,13 +623,8 @@ export const mutations: PageWrites = {
     await mutations.setFrameSetting(frameId, "filters", next);
   },
 
-  async moveBoardCard(
-    nodeId: string,
-    fieldId: string,
-    oldValue: PropValue | null,
-    newValue: PropValue | null,
-  ): Promise<void> {
-    const { planMoveBoardCard } = await import("@/actions/plan");
-    await applyPlan(planMoveBoardCard(wire(), nodeId, fieldId, oldValue, newValue));
+  async moveToGroup(nodeId: string, fieldId: string, value: PropValue | null): Promise<void> {
+    const { planMoveToGroup } = await import("@/actions/plan");
+    await applyPlan(planMoveToGroup(wire(), nodeId, fieldId, value));
   },
 };
