@@ -7,12 +7,8 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  ExtensionManifestSchema,
-  capabilityLines,
-  listingMissing,
-  type ExtensionManifest,
-} from "@kb/contracts";
+import { ExtensionManifestSchema, capabilityLines, type ExtensionManifest } from "@kb/contracts";
+import { listingMissing } from "../src/extension-manifest.ts";
 
 const FULL: ExtensionManifest = {
   description: "Says hello",

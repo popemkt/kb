@@ -136,7 +136,7 @@ export function hasPerson(invocation: ActionInvocation): boolean {
  * approve it is shown it: each of its settings, with the values it holds
  * after the write.
  */
-export const ShownConfigurationSchema = z.object({
+const ShownConfigurationSchema = z.object({
   node: z.string(),
   label: z.string(),
   settings: z.array(

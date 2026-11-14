@@ -58,7 +58,7 @@ export function installMarketplace(origin: ExtensionOrigin): string | undefined 
     return undefined;
   }
 }
-export const ExtensionReachSchema = z.object({
+const ExtensionReachSchema = z.object({
   files: z.array(z.object({ path: z.string(), bytes: z.number().int().nonnegative() })),
   page: z.boolean(),
   host: z.object({ server: z.array(z.string()), page: z.array(z.string()) }),

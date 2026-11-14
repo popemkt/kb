@@ -272,7 +272,7 @@ export interface ActionDefinition<
  * author its transaction records.
  */
 /** The longest `via` a call may state: a label, not a payload. */
-export const VIA_MAX = 256;
+const VIA_MAX = 256;
 
 /**
  * The `via` a process was started with: `KB_VIA` from its environment, when
@@ -385,7 +385,7 @@ export function sessionOfMeta(meta: unknown): string | undefined {
 export type ActionInvocation = ActionRequest & { readonly actor: Actor };
 
 /** One input a session filled: the reference it was read from, and the value it read. */
-export const FilledInputSchema = z.object({ from: z.string(), value: z.unknown() });
+const FilledInputSchema = z.object({ from: z.string(), value: z.unknown() });
 export type FilledInput = z.infer<typeof FilledInputSchema>;
 
 export const SucceededReceiptSchema = z.object({

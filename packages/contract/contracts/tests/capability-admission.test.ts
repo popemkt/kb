@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import {
   CORE_POINT_DEFINITIONS,
-  CORE_POINT_NAMESPACES,
   ExtensionManifestSchema,
   capabilityLines,
   extensionAdmissionIssue,
@@ -9,6 +8,7 @@ import {
   waitingForPoint,
   type ExtensionManifest,
 } from "../src/index.ts";
+import { CORE_POINT_NAMESPACES } from "../src/point-definitions.ts";
 
 const catalog = hostCapabilities([
   {

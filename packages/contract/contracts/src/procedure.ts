@@ -15,7 +15,7 @@ import { Point } from "@kb/plugin";
 import { CORE_POINT_DEFINITIONS } from "./point-definitions.ts";
 
 /** An action call a procedure makes: an action id and its input. */
-export const ProcedureCallSchema = z.object({
+const ProcedureCallSchema = z.object({
   action: z.string().min(1),
   input: z.unknown(),
 });
@@ -83,7 +83,7 @@ export const ProcedurePoint = Point<ProcedureContribution>()(
 );
 
 /** One step as a procedure's status reads it. */
-export const StepStatusSchema = z.object({
+const StepStatusSchema = z.object({
   id: z.string(),
   title: z.string(),
   description: z.string().optional(),

@@ -131,7 +131,7 @@ export interface Interception {
 export const DEFAULT_BUDGET_MS = { guard: 2000, intercept: 2000 } as const;
 
 /** No listeners: every call proceeds as made. */
-export const NO_INTERCEPTION: Interception = {
+const NO_INTERCEPTION: Interception = {
   guards: () => [],
   interceptors: () => [],
   missing: () => [],
