@@ -9,7 +9,7 @@ import {
 import { ROUTINE_TAGS, type CalendarIssue, type CalendarMode } from "@kb/routines";
 import { nodesOfKind } from "@kb/model";
 import { cn, navigate } from "@kb/ui-sdk";
-import { titleOf } from "./dates";
+import { titleOf } from "@kb/calendar-kit";
 import { BUTTON_CLASS, ICON_BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from "./dialog";
 import type { CalendarModel } from "./model";
 import { syncPath } from "./routes";

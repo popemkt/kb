@@ -5,8 +5,11 @@
  * focus leaves it still empty (Tana, r1 §3.3), and "the row above" is the one
  * the outline draws above (r1 D09).
  */
+import { queryDefOf } from "@kb/model";
+import { requirementsOf } from "@kb/query";
+import type { ViewFilter } from "@kb/views";
 import { outlineNodes, useOutlineStore } from "./outline.store";
-import { browserHost } from "@kb/ui-sdk";
+import { browserHost, schemaOf, toast, type FrameSubject, type RowCondition } from "@kb/ui-sdk";
 
 /** The minted id, marked transient; null when the write was refused. */
 function transient(id: string | null): string | null {
@@ -51,4 +54,53 @@ export async function mergeWithPrevious(id: string, instanceKey?: string): Promi
       ? null
       : (useOutlineStore.getState().getPreviousVisibleInstance(instanceKey)?.nodeId ?? null);
   await browserHost().writes.mergeWithPrevious(id, previous);
+}
+
+/**
+ * Once the query `queryId` has answered the graph as it is now: a result is
+ * drawn only then, so a row just added is opened after it, not before.
+ */
+async function answered(queryId: string): Promise<void> {
+  const edn = queryDefOf(outlineNodes().get(queryId))?.edn;
+  const queries = browserHost().graph.state().queries;
+  if (edn !== undefined && queries !== null) await queries.ask(edn);
+}
+
+/** The one narrowing row a view's filter adds to the query vocabulary. */
+type AnywhereFilter = Extract<ViewFilter, { kind: "anywhere-contains" }>;
+
+/**
+ * A row where a frame view asks for one (`FrameSubject.addRow`, DESIGN-UI.md
+ * → Adding to a frame): empty, carrying what `where` requires
+ * (`requirementsOf`, read over the whole graph's fields and options) and the
+ * frame's own part: the query it matches, or the frame as its parent. It is
+ * transient like any row the outline mints, and opens its text at the
+ * instance the frame draws it at (`rowKey`): a query's result shows once the
+ * query answers it, so the bare id names no row drawn yet. A toast says when
+ * something asked could not be written, so the row may not show where it was
+ * asked.
+ */
+export async function addFrameRow(
+  frame: Pick<FrameSubject, "frameId" | "isQuerySource" | "rowKey">,
+  where: readonly RowCondition[],
+): Promise<string | null> {
+  const schema = schemaOf(browserHost().graph.state());
+  const req = requirementsOf<AnywhereFilter>(where, (id) => schema.get(id));
+  const parent = req.parent ?? (frame.isQuerySource ? undefined : frame.frameId);
+  const added = await browserHost().writes.addMatchingNode({
+    tags: req.tags,
+    props: req.props,
+    ...(parent === undefined ? {} : { parent }),
+    ...(frame.isQuerySource ? { matching: frame.frameId } : {}),
+  });
+  if (added === null) return null;
+  useOutlineStore.getState().markTransient(added.id);
+  if (frame.isQuerySource) await answered(frame.frameId);
+  useOutlineStore.getState().activateNode(added.id, 0, frame.rowKey(added.id));
+  if (added.unmet + req.unmet.length > 0) {
+    toast(
+      "Added, but not everything this view asks for could be filled in, so it may not show here",
+    );
+  }
+  return added.id;
 }

@@ -282,6 +282,7 @@ export {
   groupChildrenForBoard,
   resolveTableColumns,
   sortChildrenForTable,
+  type GroupSteps,
   type TableColumnSpec,
 } from "./lib/frame-layout";
 export { frameRows, type FrameRowsInput } from "./lib/frame-rows";
@@ -303,12 +304,14 @@ export {
   useFieldEditor,
 } from "./lib/field-editor";
 export {
+  type FrameRowProps,
   type FrameRowTextProps,
   type FrameSubject,
   FrameSubjectContext,
+  type RowCondition,
   useFrameSubject,
 } from "./lib/frame-subject";
-export { isReferenceRow, resolveRowChrome } from "./lib/row-chrome";
+export { isReferenceRow, resolveRowChrome, resolveRowRows } from "./lib/row-chrome";
 export { type GraphRead, type GraphSource } from "./lib/graph-read";
 export {
   type GraphChange,
@@ -328,7 +331,7 @@ export {
   type PageProjection,
   PageProjectionService,
 } from "./lib/page-ports";
-export type { PageWrites } from "./lib/page-writes";
+export type { MatchingAdd, PageWrites } from "./lib/page-writes";
 export {
   type FieldContext,
   fieldContextOf,
@@ -551,6 +554,7 @@ export {
   TIMING_FALLBACK,
 } from "./lib/timing";
 export { setToastSink, toast } from "./lib/toast";
+export { copyText } from "./lib/copy";
 export { usePickerKeys } from "./lib/use-picker";
 export { useNarrowViewport } from "./lib/viewport";
 export { BREAKOUT_CLASS, useBreakoutShift } from "./lib/breakout";

@@ -11,6 +11,7 @@
     "test": "vp test"
   },
   "dependencies": {
+    "@kb/calendar-kit": "workspace:*",
     "@kb/collections": "workspace:*",
     "@kb/contracts": "workspace:*",
     "@kb/model": "workspace:*",

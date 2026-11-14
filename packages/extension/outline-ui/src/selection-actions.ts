@@ -126,6 +126,12 @@ const SELECTION_STEPS: SelectionSteps = {
   outdent: ({ nodeId }) => void browserHost().writes.outdentNode(nodeId),
   moveUp: ({ nodeId }) => void browserHost().writes.moveNodeUp(nodeId),
   moveDown: ({ nodeId }) => void browserHost().writes.moveNodeDown(nodeId),
+  // The selection stays on the row: its instance does not name its group.
+  moveToGroup: ({ nodeId, fieldId, value, frameId, opens }) => {
+    void browserHost().writes.moveToGroup(nodeId, fieldId, value);
+    if (opens !== undefined) useOutlineStore.getState().showDay(frameId, opens);
+    scrollRowIntoView(nodeId);
+  },
   zoom,
   createAfter,
   createBefore: ({ nodeId }) => void createNodeBefore(nodeId),

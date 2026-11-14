@@ -6,7 +6,6 @@ import {
   bulletClickIntent,
   cn,
   guideLineStyle,
-  indentStyle,
   NodeRow,
   nodeTarget,
   outlineInstanceKey,
@@ -21,11 +20,10 @@ import {
   useNodePaletteOpen,
   usePane,
 } from "@kb/ui-sdk";
-import { useOutlineStore, outlineNodes } from "./outline.store";
-import { createTransientNode } from "./editing-writes";
+import { useOutlineStore } from "./outline.store";
 
 import { FieldsSection } from "./fields-section";
-import { FrameViewSlot } from "./frame-view-slot";
+import { RowChildren } from "./frame-view-slot";
 import { NodeContent } from "./node-content";
 import { RowPreview } from "./row-preview";
 import { openIn, useRowOpening, useRowView } from "./row-opening";
@@ -236,78 +234,9 @@ export const NodeBlock = memo(function NodeBlock({
             />
           )}
 
-          {chrome.showsChildren && (
-            <RowChildren
-              frameId={shownId}
-              instanceKey={instanceKey}
-              depth={depth + 1}
-              projected={chrome.projected}
-            />
-          )}
-
-          {chrome.showsCreateChild && <CreateChildStrip parentId={shownId} depth={depth} />}
+          <RowChildren nodeId={nodeId} instanceKey={instanceKey} depth={depth + 1} />
         </div>
       )}
     </div>
   );
 });
-
-/**
- * Tana whitespace-create: the strip under a row's children mints a transient
- * child, last, under `parentId` — the node the row shows.
- */
-function CreateChildStrip({ parentId, depth }: { parentId: string; depth: number }) {
-  const handleCreateChild = useCallback(() => {
-    const parent = outlineNodes().get(parentId);
-    const lastChild = parent?.children.at(-1) ?? null;
-    void createTransientNode(parentId, lastChild);
-  }, [parentId]);
-
-  return (
-    <div
-      data-create-child-zone={parentId}
-      role="button"
-      tabIndex={0}
-      aria-label="New child node"
-      className={cn(
-        "group/create relative flex h-6 cursor-pointer items-center rounded-sm",
-        "outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
-      )}
-      style={indentStyle(depth + 1)}
-      onClick={handleCreateChild}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          handleCreateChild();
-        }
-      }}
-      title="New child node"
-    >
-      <span
-        className="flex h-6 w-6 items-center justify-center text-ui leading-none text-foreground/0 transition-colors duration-150 group-hover/create:text-foreground/25 group-focus-visible/create:text-foreground/25"
-        aria-hidden
-      >
-        +
-      </span>
-    </div>
-  );
-}
-
-/**
- * A row's children, shown by their frame's view. A projected view is one
- * block, indented under the row; a list's rows indent themselves.
- */
-function RowChildren({
-  frameId,
-  instanceKey,
-  depth,
-  projected,
-}: {
-  readonly frameId: string;
-  readonly instanceKey: string;
-  readonly depth: number;
-  readonly projected: boolean;
-}) {
-  const slot = <FrameViewSlot frameId={frameId} instanceKey={instanceKey} depth={depth} />;
-  return projected ? <div style={indentStyle(depth)}>{slot}</div> : slot;
-}

@@ -94,7 +94,7 @@ export function ViewToolbar({ frameId, view, className, tucked = false }: ViewTo
   return (
     <div
       className={cn(
-        "view-toolbar relative inline-flex items-center gap-0.5 rounded-md bg-foreground/[0.04] p-0.5 border border-foreground/[0.06] select-none",
+        "view-toolbar relative inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-md bg-foreground/[0.04] p-0.5 border border-foreground/[0.06] select-none",
         className,
       )}
       data-view-toolbar="true"
@@ -107,16 +107,19 @@ export function ViewToolbar({ frameId, view, className, tucked = false }: ViewTo
           key={option.id}
           type="button"
           className={cn(
-            "flex items-center gap-1 rounded-xs px-2 py-0.5 text-label font-medium transition-colors cursor-pointer",
+            "flex shrink-0 items-center gap-1 rounded-xs px-2 py-0.5 text-label font-medium transition-colors cursor-pointer",
             view === option
               ? "bg-background text-foreground shadow-edge font-semibold"
               : "text-foreground/50 hover:bg-foreground/[0.04] hover:text-foreground/80",
           )}
           data-mode-button={localIdOf(option)}
+          aria-label={option.label}
+          title={option.label}
           onClick={(e) => handleSelect(option, e)}
         >
-          <span>{picker.glyph}</span>
-          <span>{option.label}</span>
+          <span aria-hidden="true">{picker.glyph}</span>
+          {/* In a host with little room (its `viewbar` container), glyphs only: one row, never split. */}
+          <span className="whitespace-nowrap @max-[30rem]/viewbar:hidden">{option.label}</span>
         </button>
       ))}
       {query !== null && <QueryToggle frameId={frameId} open={queryOpen} />}

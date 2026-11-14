@@ -2,9 +2,10 @@
  * Selection-mode keymap (nxus / DESIGN-REFINE §2 W1; r1 §3.2 Mode B).
  * Active only when a node is selected and not being edited.
  */
+import type { PropValue } from "@kb/model";
 import { keyCallOf, type KeyCall } from "@kb/ui-sdk";
 import type { KeyChordEvent, Keymap } from "@kb/keybindings";
-import type { VisibleInstance } from "./visible-instances";
+import type { InstanceRef, VisibleInstance, VisibleLane } from "./visible-instances";
 
 /** Selection mode reads the same event shape every keymap reads. */
 export type SelectionKeyEvent = KeyChordEvent;
@@ -22,6 +23,18 @@ export type SelectionKeyAction =
   | { type: "outdent"; nodeId: string }
   | { type: "moveUp"; nodeId: string }
   | { type: "moveDown"; nodeId: string }
+  /**
+   * Into the group of `value` by its field (DESIGN-UI.md → Groups); a
+   * calendar's frame then opens at `opens`, so the row stays drawn.
+   */
+  | {
+      type: "moveToGroup";
+      nodeId: string;
+      fieldId: string;
+      value: PropValue | null;
+      frameId: string;
+      opens?: string;
+    }
   | { type: "zoom"; nodeId: string; instanceKey: string }
   | { type: "createAfter"; nodeId: string }
   | { type: "createBefore"; nodeId: string }
@@ -46,6 +59,8 @@ export interface SelectionKeyContext {
   getNode?: (id: string) => SelectionNodeInfo | undefined;
   /** How many field values a row instance shows; a vertical move passes through them. */
   fieldSlotsOf: (instanceKey: string) => number;
+  /** Where the walk reaches a row instance: the lane it sits in, when its frame lays rows out as lanes. */
+  instanceAt?: (instanceKey: string) => VisibleInstance | null;
 }
 
 /** True when the event target is a text field / contentEditable (skip map). */
@@ -69,7 +84,7 @@ interface SelectionTarget {
 /** An intent as its binding runs it: the action it means for the selection, or null. */
 type IntentOf = (target: SelectionTarget) => SelectionKeyAction | null;
 
-function selectInstance(instance: VisibleInstance | null): SelectionKeyAction | null {
+function selectInstance(instance: InstanceRef | null): SelectionKeyAction | null {
   return instance === null
     ? null
     : { type: "select", nodeId: instance.nodeId, instanceKey: instance.instanceKey };
@@ -94,37 +109,93 @@ function upOrIntoFields({ ctx, instanceKey }: SelectionTarget): SelectionKeyActi
   return selectInstance(above);
 }
 
-/** ArrowLeft: close what is open, else climb to the parent. */
-function closeOrClimb({ nodeId, info }: SelectionTarget): SelectionKeyAction | null {
+/** The lane a row instance sits in, or null. */
+function laneOf(ctx: SelectionKeyContext, instanceKey: string): VisibleLane | null {
+  return ctx.instanceAt?.(instanceKey)?.lane ?? null;
+}
+
+/**
+ * The lane the selection heads, when it is a lane's head (DESIGN-UI.md →
+ * Lanes): there, the horizontal keys move between lanes and Enter goes in.
+ */
+function headedLane({ ctx, instanceKey }: SelectionTarget): VisibleLane | null {
+  const lane = laneOf(ctx, instanceKey);
+  return lane !== null && lane.head.instanceKey === instanceKey ? lane : null;
+}
+
+/** ArrowLeft: the lane before, on a lane's head; else close what is open, else climb to the parent. */
+function closeOrClimb(target: SelectionTarget): SelectionKeyAction | null {
+  const lane = headedLane(target);
+  if (lane !== null) return selectInstance(lane.before);
+  const { nodeId, info } = target;
   if (!info) return null;
   if (!info.collapsed && info.childIds.length > 0) return { type: "collapse", nodeId };
   return info.parentId !== null ? { type: "selectParent", nodeId } : null;
 }
 
-/** ArrowRight: open what is closed, else descend into the first child. */
-function openOrDescend({ nodeId, instanceKey, info }: SelectionTarget): SelectionKeyAction | null {
+/** ArrowRight: the lane after, on a lane's head; else open what is closed, else descend into the first child. */
+function openOrDescend(target: SelectionTarget): SelectionKeyAction | null {
+  const lane = headedLane(target);
+  if (lane !== null) return selectInstance(lane.after);
+  const { nodeId, instanceKey, info } = target;
   if (!info) return null;
   if (info.collapsed && info.childIds.length > 0) return { type: "expand", nodeId };
   return info.childIds.length > 0 ? { type: "selectFirstChild", nodeId, instanceKey } : null;
+}
+
+/** Enter: into a lane's first row, on the head of a lane that shows rows; else edit the row. */
+function editOrEnterLane(target: SelectionTarget): SelectionKeyAction | null {
+  const { ctx, nodeId, instanceKey } = target;
+  if (headedLane(target) !== null) {
+    const first = ctx.getNextVisibleInstance(instanceKey);
+    if (first !== null && laneOf(ctx, first.instanceKey)?.head.instanceKey === instanceKey)
+      return selectInstance(first);
+  }
+  return { type: "edit", nodeId, instanceKey };
+}
+
+/** Escape: out to the lane's head, on a row inside a lane; else clear the selection. */
+function clearOrLeaveLane({ ctx, instanceKey }: SelectionTarget): SelectionKeyAction | null {
+  const lane = laneOf(ctx, instanceKey);
+  if (lane !== null && lane.head.instanceKey !== instanceKey) return selectInstance(lane.head);
+  return { type: "clear" };
+}
+
+/**
+ * ⌘⇧← and ⌘⇧→: the row into the group before or after its own, as its
+ * frame draws them (DESIGN-UI.md → Groups); nothing past either end, or for
+ * a row in no group.
+ */
+function toGroup(side: "before" | "after"): IntentOf {
+  return ({ ctx, nodeId, instanceKey }) => {
+    const group = ctx.instanceAt?.(instanceKey)?.group;
+    const step = group?.[side] ?? null;
+    if (group === undefined || step === null) return null;
+    const { frameId, fieldId } = group;
+    const move = { type: "moveToGroup", nodeId, fieldId, value: step.value, frameId } as const;
+    return step.opens === undefined ? move : { ...move, opens: step.opens };
+  };
 }
 
 /** The selection's intents, by the name a binding runs them by. */
 const SELECTION_INTENTS = new Map<string, IntentOf>([
   ["move-up", ({ nodeId }) => ({ type: "moveUp", nodeId })],
   ["move-down", ({ nodeId }) => ({ type: "moveDown", nodeId })],
+  ["move-to-group-before", toGroup("before")],
+  ["move-to-group-after", toGroup("after")],
   ["zoom", ({ nodeId, instanceKey }) => ({ type: "zoom", nodeId, instanceKey })],
   ["up", upOrIntoFields],
   ["down", downOrIntoFields],
   ["close-or-climb", closeOrClimb],
   ["open-or-descend", openOrDescend],
-  ["edit", ({ nodeId, instanceKey }) => ({ type: "edit", nodeId, instanceKey })],
+  ["edit", editOrEnterLane],
   ["toggle-collapse", ({ nodeId }) => ({ type: "toggleCollapse", nodeId })],
   ["outdent", ({ nodeId }) => ({ type: "outdent", nodeId })],
   ["indent", ({ nodeId }) => ({ type: "indent", nodeId })],
   ["create-after", ({ nodeId }) => ({ type: "createAfter", nodeId })],
   ["create-before", ({ nodeId }) => ({ type: "createBefore", nodeId })],
   ["delete", ({ nodeId, instanceKey }) => ({ type: "delete", nodeId, instanceKey })],
-  ["clear", () => ({ type: "clear" })],
+  ["clear", clearOrLeaveLane],
   [
     "append",
     ({ nodeId, instanceKey, key }) => ({ type: "append", nodeId, instanceKey, char: key }),

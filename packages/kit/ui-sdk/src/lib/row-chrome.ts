@@ -19,7 +19,15 @@ import { resolveProps } from "./graph-view";
 import type { OutlineNode } from "./types";
 import type { SchemaIndex } from "./schema";
 
-export interface RowChrome {
+/** What a row draws under it: its query's results, or its children and the strip that adds one. */
+export interface RowRows {
+  showsQueryResults: boolean;
+  showsChildren: boolean;
+  /** Whether this row offers the whitespace-create strip under its children. */
+  showsCreateChild: boolean;
+}
+
+export interface RowChrome extends RowRows {
   /**
    * A contextual reference row IS a reference, so it takes the dashed ref ring
    * the outline already uses for query-result rows. It is only the *bullet*
@@ -30,8 +38,6 @@ export interface RowChrome {
    */
   bulletIsRef: boolean;
   hasFields: boolean;
-  showsQueryResults: boolean;
-  showsChildren: boolean;
   /** Children or query results — the rows a frame's chrome belongs to. */
   hasFrameRows: boolean;
   /** What the bullet's toggle affordance promises. */
@@ -43,8 +49,6 @@ export interface RowChrome {
   showToolbar: boolean;
   /** The view renders a flat projection, so rows are the projection's business. */
   projected: boolean;
-  /** Whether this row offers the whitespace-create strip under its children. */
-  showsCreateChild: boolean;
   /** The guide-line strip and everything under the row. */
   showsChildContainer: boolean;
 }
@@ -77,6 +81,33 @@ export interface RowChromeInput {
 }
 
 /**
+ * The rows a row draws under it, wherever it is drawn (a list's row, a lane's
+ * head; `RowChildren`): a query's results, unless the row is itself a result
+ * or repeats one above it; else its shown node's children; and the strip that
+ * adds a child, unless its place is computed (a query result) or its rows are
+ * a projection's business.
+ */
+export function resolveRowRows({
+  node,
+  schema,
+  view,
+  instanceKey,
+}: Pick<RowChromeInput, "node" | "schema" | "view" | "instanceKey">): RowRows {
+  const shown = shownNode(node, schema);
+  const isQueryResult = isQueryResultInstance(instanceKey);
+  // A row that repeats one above it draws no rows under it (`showsAncestor`).
+  const repeats = showsAncestor(instanceKey, node, schema);
+  const isQuery = isQueryNode(shown);
+  return {
+    // A query node projects results instead of children, and a result row does
+    // not re-run a nested query.
+    showsQueryResults: isQuery && !isQueryResult && !repeats,
+    showsChildren: !isQuery && shown.children.length > 0 && !repeats,
+    showsCreateChild: !isQueryResult && !projectsRows(view),
+  };
+}
+
+/**
  * What the row draws is its shown node's (`shownNode`): children, query,
  * fields. Whether it is open is the row's own (`node.collapsed`), and so is
  * the reference ring.
@@ -89,31 +120,21 @@ export function resolveRowChrome({
   showDebugFields,
   revealed,
 }: RowChromeInput): RowChrome {
-  const shown = shownNode(node, schema);
-  const isQueryResult = isQueryResultInstance(instanceKey);
-  // A row that repeats one above it draws no rows under it (`showsAncestor`).
-  const repeats = showsAncestor(instanceKey, node, schema);
-  const hasChildren = shown.children.length > 0 && !repeats;
-  const isQuery = isQueryNode(shown);
-  // A query node projects results instead of children, and a result row does
-  // not re-run a nested query.
-  const showsQueryResults = isQuery && !isQueryResult && !repeats;
-  const showsChildren = !isQuery && hasChildren;
-  const hasFrameRows = showsChildren || showsQueryResults;
-  const hasFields = resolveProps(shown, schema, { showDebugFields, revealed }).length > 0;
+  const rows = resolveRowRows({ node, schema, view, instanceKey });
+  const hasFrameRows = rows.showsChildren || rows.showsQueryResults;
+  const hasFields =
+    resolveProps(shownNode(node, schema), schema, { showDebugFields, revealed }).length > 0;
   const isExpandable = hasFrameRows || hasFields;
   const projected = projectsRows(view);
 
   return {
-    bulletIsRef: isReferenceRow(node, isQueryResult),
+    ...rows,
+    bulletIsRef: isReferenceRow(node, isQueryResultInstance(instanceKey)),
     hasFields,
-    showsQueryResults,
-    showsChildren,
     hasFrameRows,
     isExpandable,
-    showToolbar: hasFrameRows && !node.collapsed && (projected || showsQueryResults),
+    showToolbar: hasFrameRows && !node.collapsed && (projected || rows.showsQueryResults),
     projected,
-    showsCreateChild: !isQueryResult && !projected,
     showsChildContainer: isExpandable && !node.collapsed,
   };
 }

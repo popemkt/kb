@@ -17,7 +17,14 @@ import { CollectionBoardView } from "@kb/collections";
 
 const FRAME = "n.propose-frame";
 const STATUS = "f.propose-status";
-const BOARD = { filters: [], sort: [], display: [], groupFieldId: STATUS };
+const BOARD = {
+  filters: [],
+  sort: [],
+  display: [],
+  groupFieldId: STATUS,
+  collapsed: [],
+  hideEmpty: false,
+};
 
 let root: string;
 let ctx: KbContext;
@@ -64,7 +71,7 @@ describe("view.propose", () => {
   });
 
   test("names a view first in its host when it is to be the default", async () => {
-    const table = { filters: [], sort: [], display: [], colwidth: {}, pagesize: 50 };
+    const table = { filters: [], sort: [], display: [], colwidth: {}, pagesize: 50, calc: {} };
     await mustInvoke("view.propose", {
       view: "outline.table",
       params: table,

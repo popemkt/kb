@@ -1,5 +1,6 @@
 import type { CSSProperties, KeyboardEvent, MouseEvent, PointerEvent } from "react";
 import { CheckIcon } from "@phosphor-icons/react";
+import { calendarChipClass } from "@kb/calendar-kit";
 import type { CalendarEntry } from "@kb/routines";
 import { cn } from "@kb/ui-sdk";
 import { displayTimes } from "./layout";
@@ -63,8 +64,7 @@ export function EntryChip({
       onClick={onClick}
       onKeyDown={onKeyDown}
       className={cn(
-        "flex w-full min-w-0 cursor-pointer touch-none select-none gap-1 overflow-hidden rounded-sm border-l-2 px-1 text-left text-label leading-tight text-foreground",
-        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+        calendarChipClass,
         block ? "flex-col items-start py-0.5" : "items-center py-px",
         inkOf(calendar),
         STATES[entry.state],

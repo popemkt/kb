@@ -5,10 +5,11 @@ import { ASSET_MAX_BYTES, personWriteRefusal } from "@kb/operations";
 import { ulid } from "ulid";
 import { z } from "zod";
 import type { FrameViewKey, SortSpec, ViewConfig, ViewFilter } from "@kb/views";
-import type { FieldType, KbNode, StoreTx } from "@kb/model";
-import { runOptimistic } from "@/actions/optimistic";
+import type { FieldType, KbNode, StoreTx, Writable } from "@kb/model";
+import { runOptimistic, type RunOptimisticResult } from "@/actions/optimistic";
 import {
   planAddChild,
+  planAddMatching,
   planAddRootNode,
   planAddTag,
   planDefineField,
@@ -49,6 +50,8 @@ import {
 const AssetUploadOutputSchema = z.object({ path: z.string() });
 /** What `node.addTree` answers that a write reads: the ids it made, in tree order. */
 const AddedTreeSchema = z.object({ ids: z.array(z.string()) });
+/** `node.add`'s answer, as far as a matching add reads it. */
+const AddedSchema = z.object({ unmet: z.number().optional() });
 
 /** A size in whole megabytes, as a toast says it. */
 const mb = (bytes: number) => `${Math.round(bytes / (1024 * 1024))} MB`;
@@ -110,12 +113,16 @@ async function invokeAll(actions: Array<{ id: string; input: unknown }>): Promis
   return true;
 }
 
-async function applyPlan(plan: PlannedMutation | null): Promise<boolean> {
-  if (!plan) return false;
+/** Run `plan` as one undo step: what each of its actions answered, when all succeeded. */
+async function runPlan(plan: PlannedMutation): Promise<RunOptimisticResult> {
   const preWire = useGraphStore.getState().wireNodes;
   const result = await runOptimistic(plan);
   if (result.ok) recordHistory(preWire, plan);
-  return result.ok;
+  return result;
+}
+
+async function applyPlan(plan: PlannedMutation | null): Promise<boolean> {
+  return plan === null ? false : (await runPlan(plan)).ok;
 }
 
 /**
@@ -200,6 +207,14 @@ export const mutations: PageWrites = {
     if (!ok) return null;
     // F4: single activation via runOptimistic — no post-await re-activation.
     return newId;
+  },
+
+  async addMatchingNode(add) {
+    const id = ulid();
+    const result = await runPlan(planAddMatching(id, add));
+    if (!result.ok) return null;
+    const added = AddedSchema.safeParse(result.outputs?.[0]);
+    return { id, unmet: added.success ? (added.data.unmet ?? 0) : 0 };
   },
 
   async createEmptyNodeBefore(beforeId: string): Promise<string | null> {
@@ -565,9 +580,13 @@ export const mutations: PageWrites = {
   // A frame's view settings are its frame view node's params: each edit
   // below writes that node (`editFrameView`), never the frame's own props.
 
-  async setViewSort(frameId: string, sortSpecs: SortSpec[]): Promise<void> {
-    const { frameViewSort } = await import("@/actions/plan");
-    await editFrameView(frameId, frameViewSort(sortSpecs));
+  async setFrameSetting<K extends keyof ViewConfig>(
+    frameId: string,
+    key: K,
+    value: Writable<ViewConfig[K]>,
+  ): Promise<void> {
+    const { frameSettingEdit } = await import("@/actions/plan");
+    await editFrameView(frameId, frameSettingEdit(key, value));
   },
 
   async toggleViewSort(frameId: string, fieldId: string): Promise<void> {
@@ -582,36 +601,17 @@ export const mutations: PageWrites = {
     } else {
       nextSort = current.filter((s) => s.fieldId !== fieldId);
     }
-
-    const { frameViewSort } = await import("@/actions/plan");
-    await editFrameView(frameId, frameViewSort(nextSort));
-  },
-
-  async setViewDisplay(frameId: string, displayFieldIds: string[]): Promise<void> {
-    const { frameViewDisplay } = await import("@/actions/plan");
-    await editFrameView(frameId, frameViewDisplay(displayFieldIds));
+    await mutations.setFrameSetting(frameId, "sort", nextSort);
   },
 
   async setColumnWidth(frameId: string, fieldId: string, widthPx: number): Promise<void> {
     const nextColwidth = { ...(await frameConfig(frameId)).colwidth, [fieldId]: widthPx };
-    const { frameViewColwidth } = await import("@/actions/plan");
-    await editFrameView(frameId, frameViewColwidth(nextColwidth));
-  },
-
-  async setViewPagesize(frameId: string, pagesize: number): Promise<void> {
-    const { frameViewPagesize } = await import("@/actions/plan");
-    await editFrameView(frameId, frameViewPagesize(pagesize));
-  },
-
-  async setViewGroup(frameId: string, fieldId: string | null): Promise<void> {
-    const { frameViewGroup } = await import("@/actions/plan");
-    await editFrameView(frameId, frameViewGroup(fieldId));
+    await mutations.setFrameSetting(frameId, "colwidth", nextColwidth);
   },
 
   async addViewFilter(frameId: string, filter: ViewFilter): Promise<void> {
     const next = [...(await frameConfig(frameId)).filters, filter];
-    const { frameViewFilters } = await import("@/actions/plan");
-    await editFrameView(frameId, frameViewFilters(next));
+    await mutations.setFrameSetting(frameId, "filters", next);
   },
 
   async removeViewFilter(frameId: string, filter: ViewFilter): Promise<void> {
@@ -620,17 +620,11 @@ export const mutations: PageWrites = {
     const next = (await frameConfig(frameId)).filters.filter(
       (f) => serializeViewFilter(f) !== gone,
     );
-    const { frameViewFilters } = await import("@/actions/plan");
-    await editFrameView(frameId, frameViewFilters(next));
+    await mutations.setFrameSetting(frameId, "filters", next);
   },
 
-  async moveBoardCard(
-    nodeId: string,
-    fieldId: string,
-    oldValue: PropValue | null,
-    newValue: PropValue | null,
-  ): Promise<void> {
-    const { planMoveBoardCard } = await import("@/actions/plan");
-    await applyPlan(planMoveBoardCard(wire(), nodeId, fieldId, oldValue, newValue));
+  async moveToGroup(nodeId: string, fieldId: string, value: PropValue | null): Promise<void> {
+    const { planMoveToGroup } = await import("@/actions/plan");
+    await applyPlan(planMoveToGroup(wire(), nodeId, fieldId, value));
   },
 };

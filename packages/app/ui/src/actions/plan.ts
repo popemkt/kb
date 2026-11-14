@@ -11,14 +11,8 @@ import {
   type Writable,
   SYSTEM_IDS,
 } from "@kb/model";
-import { forestRootIds, type PropValue } from "@kb/ui-sdk";
-import {
-  FRAME_VIEW_FAMILY,
-  frameSettingWrite,
-  type SortSpec,
-  type ViewConfig,
-  type ViewFilter,
-} from "@kb/views";
+import { forestRootIds, type MatchingAdd, type PropValue } from "@kb/ui-sdk";
+import { FRAME_VIEW_FAMILY, frameSettingWrite, type ViewConfig } from "@kb/views";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { findParentWire, wireById } from "@/lib/tx";
 
@@ -385,6 +379,30 @@ export const planAddChild = (n: WireNode[], parent: string, id: string, text = "
 export const planPrependChild = (_n: WireNode[], parent: string, id: string, text = "") =>
   addNode(id, text, { parent, position: 0 });
 
+/**
+ * An empty node that carries what `add` asks (DESIGN-UI.md → Adding to a
+ * frame), as one `node.add`, its caret in its text. A place it does not
+ * name is `node.add`'s to choose: where `matching` puts it, else where
+ * captures go.
+ */
+export function planAddMatching(id: string, add: MatchingAdd): PlannedMutation {
+  return {
+    actions: [
+      {
+        id: "node.add",
+        input: {
+          id,
+          text: "",
+          ...(add.parent !== undefined ? { parent: add.parent } : {}),
+          ...(add.matching !== undefined ? { matching: add.matching } : {}),
+          ...(add.tags.length > 0 ? { tags: add.tags } : {}),
+          ...(add.props.length > 0 ? { props: add.props } : {}),
+        },
+      },
+    ],
+  };
+}
+
 export const planAddTagField = (n: WireNode[], id: string, field: string) =>
   refProp(n, id, SYSTEM_IDS.fieldsField, field);
 export const planRemoveTagField = (n: WireNode[], id: string, field: string) =>
@@ -454,7 +472,7 @@ export const frameViewIs = (option: string): FrameViewEdit => [
 ];
 
 /** One frame setting's edit: what its slot writes (`frameSettingWrite`), field by field. */
-function frameSettingEdit<K extends keyof ViewConfig>(
+export function frameSettingEdit<K extends keyof ViewConfig>(
   key: K,
   value: Writable<ViewConfig[K]>,
 ): FrameViewEdit {
@@ -463,14 +481,6 @@ function frameSettingEdit<K extends keyof ViewConfig>(
     values: [...values],
   }));
 }
-
-export const frameViewSort = (specs: SortSpec[]) => frameSettingEdit("sort", specs);
-export const frameViewDisplay = (fields: string[]) => frameSettingEdit("display", fields);
-export const frameViewColwidth = (widths: Record<string, number>) =>
-  frameSettingEdit("colwidth", widths);
-export const frameViewPagesize = (size: number) => frameSettingEdit("pagesize", size);
-export const frameViewGroup = (field: string | null) => frameSettingEdit("groupFieldId", field);
-export const frameViewFilters = (filters: ViewFilter[]) => frameSettingEdit("filters", filters);
 
 /**
  * Make `viewId` `hostId`'s default view: move it first in the host's
@@ -523,10 +533,19 @@ export function planEditFrameView(
   ]);
   return { actions: [...made.actions, ...named.actions] };
 }
-export const planMoveBoardCard = (
+/**
+ * Move a row to a group (DESIGN-UI.md → Groups): its values of `field` become
+ * `value`, or none for "No <field>". A row already in that group (its first
+ * value is `value`, or it holds none and `value` is null) is left as it is,
+ * so nothing is written (null).
+ */
+export function planMoveToGroup(
   n: WireNode[],
   id: string,
   field: string,
-  _old: PropValue | null,
   value: PropValue | null,
-) => planReplaceField(n, id, field, value ? [value] : []);
+): PlannedMutation | null {
+  const first = requireNode(n, id).props[field]?.[0] ?? null;
+  if (JSON.stringify(first) === JSON.stringify(value)) return null;
+  return planReplaceField(n, id, field, value === null ? [] : [value]);
+}

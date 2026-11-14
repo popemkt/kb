@@ -54,6 +54,11 @@ export const viewFieldNodes = [
     SYSTEM_IDS.viewColwidthField,
     SYSTEM_IDS.viewPagesizeField,
     SYSTEM_IDS.viewGroupField,
+    SYSTEM_IDS.viewCollapsedField,
+    SYSTEM_IDS.viewHideEmptyField,
+    SYSTEM_IDS.viewCalcField,
+    SYSTEM_IDS.viewDateField,
+    SYSTEM_IDS.viewSpanField,
     SYSTEM_IDS.viewFilterField,
     SYSTEM_IDS.nodeTextField,
   ].map(field),
@@ -61,8 +66,18 @@ export const viewFieldNodes = [
   { ...field(SYSTEM_IDS.viewsList), text: "Views" },
 ];
 
-/** A frame view, by the name its key goes by in the outline plugin. */
-export type FrameViewName = "list" | "table" | "board" | "cards";
+/** The frame views, each by a short name and its key's id. */
+const FRAME_VIEW_IDS = {
+  list: "outline.list",
+  table: "outline.table",
+  board: "outline.board",
+  cards: "outline.cards",
+  detail: "collections.detail",
+  calendar: "collections.calendar",
+} as const;
+
+/** A frame view, by its short name. */
+export type FrameViewName = keyof typeof FRAME_VIEW_IDS;
 
 /**
  * `frame` shown as `view` with `settings`, the way a store holds it: the
@@ -82,7 +97,7 @@ export function framedAs<N extends WireNode>(
       id,
       text: "",
       props: {
-        [SYSTEM_IDS.viewField]: [{ t: "ref", v: viewOptionId(`outline.${view}`) }],
+        [SYSTEM_IDS.viewField]: [{ t: "ref", v: viewOptionId(FRAME_VIEW_IDS[view]) }],
         ...settings,
       },
       children: [],
