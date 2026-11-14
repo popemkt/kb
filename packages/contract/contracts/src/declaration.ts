@@ -37,9 +37,17 @@ import {
 } from "@kb/model";
 import type { ValueRefCarrier } from "@kb/query";
 import type { ViewKey } from "@kb/views";
-import { definePlugin, type Plugin } from "@kb/plugin";
+import {
+  definePlugin,
+  kernelHosts,
+  type ContributionEntry,
+  type KernelHost,
+  type KernelSpec,
+  type Plugin,
+  type PointKey,
+} from "@kb/plugin";
 import { ViewKeyPoint, type ViewDef } from "./view-catalog.ts";
-import { contributeKeyboard } from "./keybindings.ts";
+import { KeyContextPoint, KeybindingPoint, contributeKeyboard } from "./keybindings.ts";
 import { ContextReferencePoint, type ContextReference } from "./context.ts";
 import {
   MigrationPoint,
@@ -241,57 +249,77 @@ export function familyTags(
   return [...(declaration.tags ?? []), ...own];
 }
 
+/** Whether a kernel of `host` accepts contributions to every point of `points`, by their own specs. */
+function accepts(host: KernelHost, ...points: readonly { readonly spec: KernelSpec }[]): boolean {
+  return points.every((point) => kernelHosts(point.spec).includes(host));
+}
+
 /**
- * What both hosts load of a declaration: its views, each contributed to
+ * What every host loads of a declaration: its views, each contributed to
  * {@link ViewKeyPoint} under its view id, its context references, and each
  * migration with the procedure that runs it. A view id already carries its
  * namespace (`<namespace>.<local id>`), so the plugin sits in the root
  * namespace. A host's entry plugin loads it as a child, or loads it as is.
+ *
+ * Each part goes only to a kernel its point accepts, read from the point's
+ * own spec (`kernelHosts`): migrations and their procedures are the
+ * registry's and the server's, keys the registry's and the page's, so each
+ * host loads what its kernel holds of the same declaration (DESIGN.md →
+ * Point specifications).
  */
 export function declarationPlugin(declaration: ExtensionDeclaration): Plugin {
   return definePlugin({
     name: declaration.name,
     tags: familyTags(declaration),
     namespace: "",
-    apply: (ctx) =>
-      Effect.all(
+    apply: (ctx) => {
+      /** `entries` contributed to `point` where this kernel accepts it, and nowhere else. */
+      const contributeEach = <C>(point: PointKey<C>, entries: readonly ContributionEntry<C>[]) =>
+        Effect.forEach(
+          accepts(ctx.host, point) ? entries : [],
+          (entry) => ctx.contribute(point, entry),
+          {
+            discard: true,
+          },
+        );
+      const migrations = (declaration.migrations ?? []).map((migration) => ({
+        id: `${declaration.name}.${migration.id}`,
+        migration,
+      }));
+      return Effect.all(
         [
-          contributeKeyboard(ctx, keyboardIn(declaration.name, declaration.keyboard ?? {})),
-          Effect.forEach(
-            declaration.colorTokens === undefined ? [] : [declaration.colorTokens],
-            (value) => ctx.contribute(ColorTokenPoint, { id: declaration.name, value }),
-            { discard: true },
+          accepts(ctx.host, KeybindingPoint, KeyContextPoint)
+            ? contributeKeyboard(ctx, keyboardIn(declaration.name, declaration.keyboard ?? {}))
+            : Effect.void,
+          contributeEach(
+            ColorTokenPoint,
+            declaration.colorTokens === undefined
+              ? []
+              : [{ id: declaration.name, value: declaration.colorTokens }],
           ),
-          Effect.forEach(
-            declaration.views ?? [],
-            (view) => ctx.contribute(ViewKeyPoint, { id: view.key.id, value: view }),
-            { discard: true },
+          contributeEach(
+            ViewKeyPoint,
+            (declaration.views ?? []).map((view) => ({ id: view.key.id, value: view })),
           ),
-          Effect.forEach(
-            Object.entries(declaration.context ?? {}),
-            ([id, value]) => ctx.contribute(ContextReferencePoint, { id, value }),
-            { discard: true },
+          contributeEach(
+            ContextReferencePoint,
+            Object.entries(declaration.context ?? {}).map(([id, value]) => ({ id, value })),
           ),
-          Effect.forEach(
-            declaration.migrations ?? [],
-            (migration) => {
-              const id = `${declaration.name}.${migration.id}`;
-              return Effect.all(
-                [
-                  ctx.contribute(MigrationPoint, { id, value: migration }),
-                  ctx.contribute(ProcedurePoint, {
-                    id: migrationProcedureId(id),
-                    value: migrationProcedure(id, migration),
-                  }),
-                ],
-                { discard: true },
-              );
-            },
-            { discard: true },
+          contributeEach(
+            MigrationPoint,
+            migrations.map(({ id, migration }) => ({ id, value: migration })),
+          ),
+          contributeEach(
+            ProcedurePoint,
+            migrations.map(({ id, migration }) => ({
+              id: migrationProcedureId(id),
+              value: migrationProcedure(id, migration),
+            })),
           ),
         ],
         { discard: true },
-      ),
+      );
+    },
   });
 }
 

@@ -10,7 +10,7 @@ import { SYSTEM_IDS } from "@kb/model";
 import { frameColumns, frameFieldCandidates, pageSizeOptions } from "./view-settings-fields";
 
 const ref = (v: string) => [{ t: "ref" as const, v }];
-const hidden = [{ t: "bool" as const, v: true }];
+const hidden = [{ t: "ref" as const, v: SYSTEM_IDS.showNever }];
 
 function node(id: string, text: string, props: WireNode["props"] = {}, children: string[] = []) {
   return { id, text, props, children, createdAt: "", updatedAt: "" };
@@ -19,22 +19,20 @@ function node(id: string, text: string, props: WireNode["props"] = {}, children:
 const field = (id: string, text: string, props: WireNode["props"] = {}) =>
   node(id, text, { [SYSTEM_IDS.typeField]: ref(SYSTEM_IDS.field), ...props });
 
-const nodes = wireToOutlineMap(
-  [
-    field("f.status", "status"),
-    field("f.zeta", "zeta"),
-    field("f.alpha", "alpha"),
-    field("f.secret", "secret", { [SYSTEM_IDS.hiddenField]: hidden }),
-    field("sys.f.untemplated", "untemplated"),
-    node("t.task", "task", {
-      [SYSTEM_IDS.typeField]: ref(SYSTEM_IDS.tag),
-      [SYSTEM_IDS.fieldsField]: [...ref("f.status"), ...ref("f.secret")],
-    }),
-    node("frame", "Sprint", {}, ["r1"]),
-    node("r1", "row", { [SYSTEM_IDS.typeField]: ref("t.task") }),
-  ],
-  new Set(),
-);
+const wires: WireNode[] = [
+  field("f.status", "status"),
+  field("f.zeta", "zeta"),
+  field("f.alpha", "alpha"),
+  field("f.secret", "secret", { [SYSTEM_IDS.showField]: hidden }),
+  field("sys.f.untemplated", "untemplated"),
+  node("t.task", "task", {
+    [SYSTEM_IDS.typeField]: ref(SYSTEM_IDS.tag),
+    [SYSTEM_IDS.fieldsField]: [...ref("f.status"), ...ref("f.secret")],
+  }),
+  node("frame", "Sprint", {}, ["r1"]),
+  node("r1", "row", { [SYSTEM_IDS.typeField]: ref("t.task") }),
+];
+const nodes = wireToOutlineMap(wires, new Set());
 const schema = schemaOfGraph(nodes);
 
 describe("the view settings' fields", () => {
@@ -43,6 +41,21 @@ describe("the view settings' fields", () => {
       "f.status",
       "f.alpha",
       "f.zeta",
+    ]);
+  });
+
+  it("offers a pinned field first, before the rows' templated ones", () => {
+    const pinned = wireToOutlineMap(
+      [
+        ...wires.filter((n) => n.id !== "f.zeta"),
+        field("f.zeta", "zeta", { [SYSTEM_IDS.pinnedField]: [{ t: "bool", v: true }] }),
+      ],
+      new Set(),
+    );
+    expect(frameFieldCandidates("frame", pinned, schemaOfGraph(pinned)).map((c) => c.id)).toEqual([
+      "f.zeta",
+      "f.status",
+      "f.alpha",
     ]);
   });
 

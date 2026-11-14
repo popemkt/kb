@@ -5,8 +5,8 @@
  * focus leaves it still empty (Tana, r1 §3.3), and "the row above" is the one
  * the outline draws above (r1 D09).
  */
-import { outlineNodes, useOutlineStore } from "./outline.store";
-import { browserHost } from "@kb/ui-sdk";
+import { outlineNodes, outlineSource, useOutlineStore } from "./outline.store";
+import { browserHost, rowTextOf } from "@kb/ui-sdk";
 
 /** The minted id, marked transient; null when the write was refused. */
 function transient(id: string | null): string | null {
@@ -51,4 +51,14 @@ export async function mergeWithPrevious(id: string, instanceKey?: string): Promi
       ? null
       : (useOutlineStore.getState().getPreviousVisibleInstance(instanceKey)?.nodeId ?? null);
   await browserHost().writes.mergeWithPrevious(id, previous);
+}
+
+/**
+ * Toggle the box of the row `nodeId` (DESIGN-UI.md → A tag's box): the box
+ * of the node its text is, a reference's target for a reference. Every
+ * gesture that toggles a row's box comes here: its click, ⌘Enter while
+ * editing or selected.
+ */
+export function toggleRowCheck(nodeId: string): Promise<boolean> {
+  return browserHost().writes.toggleCheck(rowTextOf(outlineSource(), nodeId).textNodeId);
 }

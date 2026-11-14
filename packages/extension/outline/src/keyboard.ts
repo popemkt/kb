@@ -31,7 +31,8 @@ function editingBinding(id: string, chord: Chord, intent: string): ContributionE
  */
 export const EDITING_BINDINGS: readonly ContributionEntry<Keybinding>[] = [
   editingBinding("soft-break", { key: "Enter", shift: true }, "soft-break"),
-  editingBinding("split", { key: "Enter", shift: false }, "split"),
+  editingBinding("split", { key: "Enter", shift: false, mod: false }, "split"),
+  editingBinding("toggle-check", { key: "Enter", shift: false, mod: true }, "toggle-check"),
   editingBinding("outdent", { key: "Tab", shift: true }, "outdent"),
   editingBinding("indent", { key: "Tab", shift: false }, "indent"),
   editingBinding(
@@ -110,6 +111,7 @@ const SELECTION_KEYS: readonly ContributionEntry<Keybinding>[] = [
   selectionBinding("close-or-climb", { key: "ArrowLeft", mod: false }),
   selectionBinding("open-or-descend", { key: "ArrowRight", mod: false }),
   selectionBinding("edit", { key: "Enter", mod: false }),
+  selectionBinding("toggle-check", { key: "Enter", mod: true, shift: false }),
   selectionBinding("toggle-collapse", { key: SPACE_KEYS, mod: false, alt: false }),
   selectionBinding("outdent", { key: "Tab", shift: true, mod: false }),
   selectionBinding("indent", { key: "Tab", shift: false, mod: false }),

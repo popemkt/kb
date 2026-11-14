@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { browserHost, currentKeymap, keyChordEvent, shownNode } from "@kb/ui-sdk";
-import { isEditableTarget, mapSelectionKey } from "./selection-keymap";
+import { mapSelectionKey, ownsItsKeys } from "./selection-keymap";
 import { SELECTION_CONTEXT_ID } from "@kb/outline";
 import { useOutlineStore, outlineNodes } from "./outline.store";
 import { applySelectionAction } from "./selection-actions";
@@ -17,7 +17,7 @@ export function useSelectionKeymap(): void {
       return undefined;
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (isEditableTarget(e.target)) return;
+      if (ownsItsKeys(e.target)) return;
       // A key the focused element already handled (the selected row's own
       // Enter/Space) is not a selection key a second time.
       if (e.defaultPrevented) return;

@@ -96,6 +96,8 @@ export interface PluginContext {
   readonly name: string;
   /** Prefix of this plugin's contribution ids; `""` is the root namespace. */
   readonly namespace: string;
+  /** The host this plugin is applied in (DESIGN.md → Point specifications). */
+  readonly host: KernelHost;
   declare<C>(name: string | PointName<C>, spec: PointSpec): Effect.Effect<PointKey<C>, PluginError>;
   point<C>(name: string | PointName<C>): Effect.Effect<PointKey<C>, PluginError>;
   contributions<C>(point: PointKey<C>): readonly Contribution<C>[];
@@ -603,6 +605,7 @@ function contextFor(state: State, active: Activation): PluginContext {
   return {
     name: entry.name,
     namespace: entry.namespace,
+    host: state.host,
     declare: (name, spec) => declarePoint(state, active, name, spec),
     point: (name) => namedPoint(state, active, name),
     contributions: (point) =>

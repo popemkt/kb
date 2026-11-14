@@ -19,7 +19,7 @@ const snapshot = (): WireNode[] => [
   wire("f.status", [], { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }] }),
   wire("f.secret", [], {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
-    [SYSTEM_IDS.hiddenField]: [{ t: "bool", v: true }],
+    [SYSTEM_IDS.showField]: [{ t: "ref", v: SYSTEM_IDS.showNever }],
   }),
   wire("n.a", ["n.a1", "n.a2"]),
   wire("n.a1"),

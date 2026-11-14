@@ -36,6 +36,7 @@ import {
 } from "@kb/ui-sdk";
 import { followProvided, portSlot } from "@/stores/port-slot";
 import type { ActionRequest, WireNode } from "@kb/contracts";
+import { nodeTitleOf } from "@kb/model";
 import { resolveScope } from "@/lib/ontology-scope";
 import { mergeTx } from "@/lib/tx";
 import { pageClock, replicaOver } from "@/session/engine";
@@ -518,10 +519,12 @@ function search(query: string): Array<{ id: string; text: string }> {
   if (st.index === null) return [];
   const q = query.trim();
   if (!q) return [];
-  return st.index
+  const { index } = st;
+  // A hit answers with its title (DESIGN-UI.md → Titles from fields).
+  return index
     .search(q, 50)
     .filter((n) => inScope(st, n.id))
-    .map((n) => ({ id: n.id, text: n.text }));
+    .map((n) => ({ id: n.id, text: nodeTitleOf(n.id, n, (id) => index.getNode(id)) }));
 }
 
 // The write history.

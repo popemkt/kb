@@ -7,6 +7,7 @@ import {
   type NodeTextHostProps,
   type OutlineNode,
   rowText,
+  rowTitle,
   shownNodeId,
   useNodeTextBinding,
 } from "@kb/ui-sdk";
@@ -24,7 +25,8 @@ function drawnAs(view: ViewKey<unknown>, nodeId: string, markdown: string) {
  * Outline surface binding of the shared node text host.
  *
  * It owns the row's text channel, so no surface can wire it differently: the
- * text shown is `rowText`, and every write — typing, `[[` completion, what a
+ * text edited is `rowText`, the text drawn at rest `rowTitle` (the node's
+ * title where its tag builds one, DESIGN-UI.md → Titles from fields), and every write — typing, `[[` completion, what a
  * paste or a drop makes (`useRowIngest`) — goes to `shownNodeId`, the node
  * that text belongs to. For an
  * ordinary row that is the row itself; for a contextual reference it is the
@@ -57,6 +59,7 @@ export function NodeContent({
       {...binding}
       nodeId={node.id}
       content={content}
+      shown={rowTitle(node, binding.schema)}
       display={
         rowView === undefined || rowView === null
           ? undefined

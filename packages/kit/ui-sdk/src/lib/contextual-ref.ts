@@ -37,7 +37,7 @@
 import { instanceAncestorIds } from "./instance-key";
 import type { RowSource, SchemaIndex } from "./schema";
 import type { OutlineNode } from "./types";
-import { SYSTEM_IDS } from "@kb/model";
+import { SYSTEM_IDS, nodeTitleOf } from "@kb/model";
 
 /**
  * Where a node the index serves from a file (a saved query's `.edn`) is
@@ -120,6 +120,19 @@ export function rowText(node: OutlineNode, schema: SchemaIndex): string {
   // renders — as the `[[id]]` token — rather than as a blank row.
   if (shownId !== node.id && schema.get(shownId) === undefined) return `[[${shownId}]]`;
   return shownNode(node, schema).text;
+}
+
+/**
+ * What a row draws while no one edits it: the title of the node its text
+ * belongs to (`nodeTitleOf`, DESIGN-UI.md → Titles from fields), which is
+ * {@link rowText} itself unless that node's tag builds one from its fields.
+ */
+// GAP [[01M7CYP03QT4AWT994NSXQV35B]] breadcrumbs, page titles and graph labels still name a node by its text
+export function rowTitle(node: OutlineNode, schema: SchemaIndex): string {
+  const text = rowText(node, schema);
+  const shownId = shownNodeId(node);
+  if (shownId !== node.id && schema.get(shownId) === undefined) return text;
+  return nodeTitleOf(shownId, shownNode(node, schema), (id) => schema.get(id));
 }
 
 /**

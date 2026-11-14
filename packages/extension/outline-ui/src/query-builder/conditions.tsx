@@ -12,7 +12,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { XIcon } from "@phosphor-icons/react";
 import type { WireNode } from "@kb/contracts";
-import { declaresOptionSet, templateFieldsOf, SYSTEM_IDS } from "@kb/model";
+import { declaresOptionSet, pinnedFirst, templateFieldsOf, SYSTEM_IDS } from "@kb/model";
 import type { ConditionEdge, ConditionRow } from "@kb/query";
 import {
   cn,
@@ -105,9 +105,10 @@ function subjectFromId(id: string): Subject {
 }
 
 /**
- * What a row may be about, in the order a person reaches for it: the fields
- * of the tags the query already names (`sys.f.fields`), then the
- * vocabulary's own sentences, then every other field. Fields are the
+ * What a row may be about, in the order a person reaches for it: the
+ * pinned fields (`pinnedFirst`), the fields of the tags the query already
+ * names (`sys.f.fields`), then the vocabulary's own sentences, then every
+ * other field. Fields are the
  * add-field step's candidates (`nodesOfKind`); a `sys.*` field is not
  * offered, the type field among them: "has tag" is the sentence for it.
  */
@@ -121,11 +122,15 @@ function subjectCandidates(builder: Builder): PickerCandidate[] {
     id: `${ATTRIBUTE_ID}${attr}`,
     label: ATTRIBUTE_LABELS[attr],
   }));
-  return [
-    ...fields.filter((f) => templated.has(f.id)),
-    ...attributes,
-    ...fields.filter((f) => !templated.has(f.id)),
-  ];
+  return pinnedFirst(
+    [
+      ...fields.filter((f) => templated.has(f.id)),
+      ...attributes,
+      ...fields.filter((f) => !templated.has(f.id)),
+    ],
+    (candidate) => candidate.id,
+    (id) => schema.get(id),
+  );
 }
 
 function labelOf(read: GraphRead, id: string): string {

@@ -80,6 +80,7 @@ export type EditingIntent =
     }
   | { type: "moveUp"; nodeId: string }
   | { type: "moveDown"; nodeId: string }
+  | { type: "toggleCheck"; nodeId: string }
   | { type: "toggleCollapse"; nodeId: string }
   | { type: "zoomToParent"; parentId: string; instanceKey: string }
   | {
@@ -242,6 +243,8 @@ const EDITING_INTENTS = new Map<string, IntentOf>([
   ["delete-forward", structural(deleteIntent, (ctx) => ctx.cursor === ctx.text.length)],
   ["move-up", structural((ctx) => ({ type: "moveUp", nodeId: ctx.nodeId }))],
   ["move-down", structural((ctx) => ({ type: "moveDown", nodeId: ctx.nodeId }))],
+  // The row's box (DESIGN-UI.md → A tag's box); a row with none says so.
+  ["toggle-check", (ctx) => ({ type: "toggleCheck", nodeId: ctx.nodeId })],
   ["collapse-or-leave", (ctx) => revealIntent(ctx, "ArrowUp")],
   ["expand", (ctx) => revealIntent(ctx, "ArrowDown")],
   ["line-up", (ctx) => crossRowIntent(ctx, "ArrowUp")],

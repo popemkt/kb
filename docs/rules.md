@@ -187,6 +187,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Per-surface invocation grammars: command lines of the hook and workflow run steps, &&-segments of package.json scripts, rule keys of .oxlintrc.json; an invocation matches one whole.
 - **node** — `01M56TFECRSQN243PAEB6XGHRY`
 
+### GAP: a checklist row shows no box until a tag ties one to its done field
+
+- **expected** — A row the checklist family makes from a pasted Markdown checklist shows its done as a box, as Tana draws a task (DESIGN-UI.md → A tag's box).
+- **current** — A box is a tag's (sys.f.tag.check), and checklist rows carry checklist.f.done but no tag, so they show done as a field row until a person tags them with a tag whose check is done.
+- **impact** — Pasting a checklist gives rows with a checkbox field rather than boxed rows; a person tags them, or adds the check to a tag of their own, to see boxes.
+- **closes** — The checklist family (kb-extensions) declares a checklist-item tag whose check is its done field, and tags the rows its paste makes; no change in core.
+- **node** — `01M7CZXE92JQP5495R9XJPMM8N`
+
 ### GAP: a clipped frame member's 2D selection handles are cut with it
 
 - **expected** — A frame clips what it holds, but the selection chrome of a selected member (outline halo, resize and rotate handles, ports) is drawn whole over the frame edge, in its own overlay.
@@ -357,6 +365,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A 'Move to…' palette step that picks the new parent, and row drag and drop, both through node.move.
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYPQ3CGJKP20TQFADPRH1`
+
+### GAP: a node's title reaches its row, ref values, search and the picker, not every place the page names a node
+
+- **expected** — Every surface that names a node (breadcrumbs, the zoomed page's title, tab and pane titles, graph and canvas labels, backlinks) names it by nodeTitleOf, as rows, ref values, search and the node picker do (DESIGN-UI.md → Titles from fields).
+- **current** — Those surfaces read the node's stored text: a node whose tag builds a title is drawn by its title in its row and named by its text in the breadcrumb above it.
+- **impact** — A titled node reads two ways on one screen; nothing is written wrongly, since a title is display only.
+- **closes** — One page-side name reader (rowTitle's reader by id) that every naming surface takes in place of node.text, and the graph and canvas label paths moved onto it.
+- **node** — `01M7CYP03QT4AWT994NSXQV35B`
 
 ### GAP: a number knob's range is the declaration's, not data on its field node
 

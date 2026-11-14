@@ -709,7 +709,7 @@ function buildProgram(): Command {
 
   program
     .command("search")
-    .description("Search node text (case-insensitive substring)")
+    .description("Search node text and titles (case-insensitive substring)")
     .argument("<text>", "search text")
     .action(
       kbAction((ctx, globals, [text]: [string]) =>

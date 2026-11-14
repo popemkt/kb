@@ -75,7 +75,8 @@ describe("typed field seeds", () => {
     expect(undeclared).toEqual([]);
     const byId = new Map(fields.map((n) => [n.id, n]));
     expect(fieldTypeOf(byId.get(SYSTEM_IDS.typeField)?.props, () => undefined)).toBe("ref");
-    expect(fieldTypeOf(byId.get(SYSTEM_IDS.hiddenField)?.props, () => undefined)).toBe("checkbox");
+    expect(fieldTypeOf(byId.get(SYSTEM_IDS.pinnedField)?.props, () => undefined)).toBe("checkbox");
+    expect(fieldTypeOf(byId.get(SYSTEM_IDS.showField)?.props, () => undefined)).toBe("ref");
     expect(fieldTypeOf(byId.get(SYSTEM_IDS.queryLimitField)?.props, () => undefined)).toBe(
       "number",
     );
@@ -129,6 +130,9 @@ describe("typed field seeds", () => {
       SYSTEM_IDS.targetQueryField,
       SYSTEM_IDS.relationInverseField,
       SYSTEM_IDS.acyclicField,
+      SYSTEM_IDS.showField,
+      SYSTEM_IDS.pinnedField,
+      SYSTEM_IDS.fillFromField,
     ]);
   });
 

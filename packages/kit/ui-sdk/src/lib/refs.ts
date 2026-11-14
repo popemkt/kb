@@ -2,6 +2,7 @@ import {
   closesCycle,
   declaresOptionSet,
   isAcyclicField,
+  nodeTitleOf,
   targetQueryOf,
   targetTagsOf,
 } from "@kb/model";
@@ -121,7 +122,12 @@ function candidatesInLabelOrder(
 ): readonly PickerCandidate[] {
   const cached = labelOrdered.get(nodes);
   if (cached !== undefined) return cached;
-  const all = Array.from(nodes.values(), (n) => ({ id: n.id, label: n.text || n.id }));
+  // A node is offered by its title (DESIGN-UI.md → Titles from fields).
+  const nodeOf = (id: string) => nodes.get(id);
+  const all = Array.from(nodes.values(), (n) => ({
+    id: n.id,
+    label: nodeTitleOf(n.id, n, nodeOf) || n.id,
+  }));
   const sorted = all.toSorted((a, b) => a.label.localeCompare(b.label));
   labelOrdered.set(nodes, sorted);
   return sorted;

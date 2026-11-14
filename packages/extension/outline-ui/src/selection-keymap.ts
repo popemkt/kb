@@ -14,6 +14,7 @@ export type SelectionKeyAction =
   | { type: "clear" }
   | { type: "edit"; nodeId: string; instanceKey: string }
   | { type: "toggleCollapse"; nodeId: string }
+  | { type: "toggleCheck"; nodeId: string }
   | { type: "collapse"; nodeId: string }
   | { type: "expand"; nodeId: string }
   | { type: "selectParent"; nodeId: string }
@@ -48,13 +49,23 @@ export interface SelectionKeyContext {
   fieldSlotsOf: (instanceKey: string) => number;
 }
 
-/** True when the event target is a text field / contentEditable (skip map). */
-export function isEditableTarget(target: EventTarget | null): boolean {
+/** The controls that answer their own keys: Enter and Space press them, Tab leaves. */
+const CONTROL = "button, a[href], [role='button'], [role='checkbox'], [role='switch']";
+
+/**
+ * True when the key's target owns its keys, so the selection does not take
+ * them (DESIGN-UI.md → Two keymaps, one row): a text entry, or a control the
+ * keyboard stops at, such as a tag's box or the hidden-fields fold. Chrome
+ * the keyboard skips (the bullet, `tabIndex` -1) and the selected row itself
+ * leave their keys to the selection.
+ */
+export function ownsItsKeys(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName;
   if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
-  if (target.isContentEditable) return true;
-  return Boolean(target.closest("[contenteditable='true']"));
+  if (target.isContentEditable || target.closest("[contenteditable='true']") !== null) return true;
+  const control = target.closest<HTMLElement>(CONTROL);
+  return control !== null && control.tabIndex >= 0;
 }
 
 /** What a binding is handed: the selection, the pressed key, and the context. */
@@ -119,6 +130,7 @@ const SELECTION_INTENTS = new Map<string, IntentOf>([
   ["open-or-descend", openOrDescend],
   ["edit", ({ nodeId, instanceKey }) => ({ type: "edit", nodeId, instanceKey })],
   ["toggle-collapse", ({ nodeId }) => ({ type: "toggleCollapse", nodeId })],
+  ["toggle-check", ({ nodeId }) => ({ type: "toggleCheck", nodeId })],
   ["outdent", ({ nodeId }) => ({ type: "outdent", nodeId })],
   ["indent", ({ nodeId }) => ({ type: "indent", nodeId })],
   ["create-after", ({ nodeId }) => ({ type: "createAfter", nodeId })],

@@ -4,7 +4,7 @@
  * sizes it offers. Lives outside the popover component so the popover file
  * exports components only, and so each answer is a function of the graph.
  */
-import { typeRefsOf, SYSTEM_IDS } from "@kb/model";
+import { pinnedFirst, typeRefsOf, SYSTEM_IDS } from "@kb/model";
 import {
   isFieldHidden,
   isSysPrefixed,
@@ -40,8 +40,8 @@ export function frameColumns(
 /**
  * The fields a frame's rows may be filtered, grouped or shown by, one list
  * for every section of the popover, in the order a
- * person reaches for them: those the rows' tags template first, then every
- * other field a person made. A field its node hides is offered by neither,
+ * person reaches for them: pinned ones first (`pinnedFirst`), then those the
+ * rows' tags template, then every other field a person made. A field its node hides is offered by neither,
  * as it has no row on the page (`isFieldHidden`); a system field is offered
  * only where a row's tag templates it, as the query builder offers fields.
  */
@@ -63,7 +63,11 @@ export function frameFieldCandidates(
     if (isFieldHidden(node.id, schema)) continue;
     others.push({ id: node.id, label: node.text === "" ? node.id : node.text });
   }
-  return [...templated, ...others.toSorted((a, b) => a.label.localeCompare(b.label))];
+  return pinnedFirst(
+    [...templated, ...others.toSorted((a, b) => a.label.localeCompare(b.label))],
+    (candidate) => candidate.id,
+    (id) => schema.get(id),
+  );
 }
 
 /** The page sizes offered, with the one a view node holds when it is none of them. */

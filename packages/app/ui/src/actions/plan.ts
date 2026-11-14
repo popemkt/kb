@@ -1,5 +1,7 @@
 import type { ActionRequest, WireNode } from "@kb/contracts";
 import {
+  checkEdits,
+  checkOf,
   closesCycle,
   familyViewIdOf,
   fieldTypeValue,
@@ -226,6 +228,17 @@ export function planNewQueryNode(
  * pinning is a sidebar gesture, and stealing the caret from the row the user is
  * on would be a surprise the tag version never had.
  */
+/**
+ * Toggle the box of `id` (DESIGN.md → Data model → tag behaviours, check):
+ * the one `node.update` its check plans, or null when no tag of it names one.
+ */
+export function planToggleCheck(nodes: WireNode[], id: string): PlannedMutation | null {
+  const byId = wireById(nodes);
+  const node = byId.get(id);
+  const check = node === undefined ? null : checkOf(node, (nodeId) => byId.get(nodeId));
+  return check === null ? null : update(id, { ...checkEdits(check) });
+}
+
 export function planPinNode(
   nodes: WireNode[],
   targetId: string,
@@ -389,13 +402,6 @@ export const planAddTagField = (n: WireNode[], id: string, field: string) =>
   refProp(n, id, SYSTEM_IDS.fieldsField, field);
 export const planRemoveTagField = (n: WireNode[], id: string, field: string) =>
   unrefProp(n, id, SYSTEM_IDS.fieldsField, field);
-export function planSetFieldHidden(n: WireNode[], id: string, hidden: boolean) {
-  // One setting (`cardinality: one`), so showing it again replaces a stored
-  // `false` rather than appending beside it.
-  return hidden
-    ? planReplaceField(n, id, SYSTEM_IDS.hiddenField, [{ t: "bool", v: true }])
-    : planUnsetProp(n, id, SYSTEM_IDS.hiddenField, { t: "bool", v: true });
-}
 export function planSetTagColor(n: WireNode[], id: string, color: string | null) {
   const value = color?.trim() ?? "";
   const old = requireNode(n, id).props[SYSTEM_IDS.colorField]?.[0];

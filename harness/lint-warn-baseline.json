@@ -15,7 +15,7 @@
       "@kb/sandbox": 94,
       "@kb/appearance": 60,
       "@kb/keybindings": 39,
-      "@kb/model": 267,
+      "@kb/model": 273,
       "@kb/outline-paste": 3,
       "@kb/plugin": 41,
       "@kb/query": 53,
@@ -80,7 +80,7 @@
       "@kb/appearance-kit": 41,
       "@kb/scene": 13,
       "@kb/scene-gpu": 35,
-      "@kb/ui-sdk": 504,
+      "@kb/ui-sdk": 505,
       "@kb/ui-test-kit": 26
     },
     "family-names": {
@@ -104,8 +104,8 @@
       "domain/model/src/errors.ts": 8,
       "domain/model/src/local-date.ts": 1,
       "domain/model/src/node-graph.ts": 3,
-      "domain/model/src/resolve.ts": 9,
       "domain/model/src/view-node.ts": 1,
+      "domain/model/src/resolve.ts": 9,
       "domain/query/src/ir/conditions.ts": 7,
       "domain/query/src/ir/edn.ts": 4,
       "domain/query/src/ir/evaluate.ts": 69,
@@ -130,7 +130,6 @@
       "kit/ui-sdk/src/lib/graph-label.ts": 3,
       "kit/ui-sdk/src/lib/graph-read.component.test.tsx": 5,
       "kit/ui-sdk/src/lib/graph-read.ts": 2,
-      "kit/ui-sdk/src/lib/graph-view.ts": 5,
       "kit/ui-sdk/src/lib/md-edit.ts": 3,
       "kit/ui-sdk/src/lib/md-inline.test.ts": 5,
       "kit/ui-sdk/src/lib/md-inline.ts": 3,
@@ -145,12 +144,13 @@
       "kit/ui-sdk/src/lib/schema.ts": 4,
       "kit/ui-sdk/src/lib/tag-color.test.ts": 5,
       "kit/ui-sdk/src/lib/tag-color.ts": 6,
+      "kit/ui-sdk/src/lib/graph-view.ts": 5,
       "kit/ui-sdk/src/sandbox-run.ts": 5
     },
     "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2775200,
-      "modules": 735
+      "bytes": 2784190,
+      "modules": 738
     },
     "single-family": {
       "contract/sandbox/src/snapshot.ts": 1,

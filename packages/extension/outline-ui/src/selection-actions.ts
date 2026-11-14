@@ -10,7 +10,7 @@
  * no row here fails the build, so adding an action adds a row rather than a
  * branch.
  */
-import { createNodeBefore, createTransientNode } from "./editing-writes";
+import { createNodeBefore, createTransientNode, toggleRowCheck } from "./editing-writes";
 import {
   browserHost,
   childInstanceKey,
@@ -118,6 +118,7 @@ const SELECTION_STEPS: SelectionSteps = {
   // Three chords, one gesture: ArrowLeft and ArrowRight only reach these rows
   // when the toggle would move in their direction.
   toggleCollapse: ({ nodeId }) => useOutlineStore.getState().toggleCollapse(nodeId),
+  toggleCheck: ({ nodeId }) => void toggleRowCheck(nodeId),
   collapse: ({ nodeId }) => useOutlineStore.getState().toggleCollapse(nodeId),
   expand: ({ nodeId }) => useOutlineStore.getState().toggleCollapse(nodeId),
   selectParent,

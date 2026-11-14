@@ -28,6 +28,7 @@ import {
   ArrowBendUpLeftIcon,
   ArrowRightIcon,
   ArrowSquareOutIcon,
+  CheckSquareIcon,
   EyeIcon,
   EyeSlashIcon,
   HashIcon,
@@ -36,12 +37,14 @@ import {
   PushPinIcon,
   PushPinSlashIcon,
   SidebarSimpleIcon,
+  SquareIcon,
   SquaresFourIcon,
   StarIcon,
   TextTIcon,
   TrashIcon,
 } from "@phosphor-icons/react";
 import {
+  checkOf,
   extensionNodeId,
   hostViewIds,
   isQueryNode,
@@ -96,6 +99,12 @@ import {
 } from "@kb/views";
 import { Result } from "effect";
 import type { Contribution, Kernel } from "@kb/plugin";
+
+/** The target row's box, or null (DESIGN.md → Data model → tag behaviours, check). */
+function rowCheck(ctx: CommandContext) {
+  const node = ctx.target.nodeId === null ? undefined : ctx.outline.nodes.get(ctx.target.nodeId);
+  return node === undefined ? null : checkOf(node, (id) => ctx.outline.nodes.get(id));
+}
 
 const GLOBAL = { where: "global" } as const;
 
@@ -266,6 +275,20 @@ const GLOBAL_COMMANDS: readonly Command[] = [
         return;
       }
       ctx.debugFields.toggle(nodeId);
+    },
+  },
+  {
+    // The target row's box (DESIGN-UI.md → A tag's box); the write says
+    // when it has none.
+    id: SYSTEM_IDS.cmdToggleCheck,
+    menu: GLOBAL,
+    run: (ctx) => {
+      const nodeId = ctx.target.nodeId;
+      if (nodeId === null) {
+        toast("select a node first");
+        return;
+      }
+      void browserHost().writes.toggleCheck(nodeId);
     },
   },
   {
@@ -458,6 +481,22 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
       };
     },
     run: (ctx) => nodeAction(ctx, (nodeId) => void browserHost().writes.togglePin(nodeId)),
+  },
+  {
+    // The node's box, offered where it has one, labelled by what pressing
+    // it does; ⌘K's "Toggle check" is the same act on its target.
+    id: "toggle-check",
+    menu: nodeMenu("mark", 5),
+    faceOf: SYSTEM_IDS.cmdToggleCheck,
+    when: (ctx) => rowCheck(ctx) !== null,
+    chrome: (ctx) => {
+      const checked = rowCheck(ctx)?.checked === true;
+      return {
+        label: checked ? "Uncheck" : "Check",
+        icon: checked ? <SquareIcon size={14} /> : <CheckSquareIcon size={14} />,
+      };
+    },
+    run: (ctx) => nodeAction(ctx, (nodeId) => void browserHost().writes.toggleCheck(nodeId)),
   },
   {
     // Per node: the answer is about the node you are looking at; ⌘K's "Debug:

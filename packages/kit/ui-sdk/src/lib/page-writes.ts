@@ -41,7 +41,6 @@ export interface PageWrites {
   readonly addTagField: (tagId: string, fieldId: string) => Promise<void>;
   readonly removeTagField: (tagId: string, fieldId: string) => Promise<void>;
   readonly setTagColor: (tagId: string, color: string | null) => Promise<void>;
-  readonly setFieldHidden: (fieldId: string, hidden: boolean) => Promise<void>;
   readonly setFieldType: (fieldId: string, fieldType: FieldType) => Promise<void>;
   readonly addFieldTargetTag: (fieldId: string, tagId: string) => Promise<void>;
   readonly removeFieldTargetTag: (fieldId: string, tagId: string) => Promise<void>;
@@ -108,6 +107,12 @@ export interface PageWrites {
    * as one write: its id, or null when the write did not land.
    */
   readonly defineTag: (name: string, parents?: readonly string[]) => Promise<string | null>;
+  /**
+   * Toggle the box of `nodeId` (DESIGN.md → Data model → tag behaviours,
+   * check): the one field write its box plans. False, said with a toast,
+   * when no tag of the node names a check.
+   */
+  readonly toggleCheck: (nodeId: string) => Promise<boolean>;
   /**
    * Pin / unpin a node for the sidebar's Pinned section.
    *

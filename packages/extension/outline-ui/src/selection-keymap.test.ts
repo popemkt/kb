@@ -247,7 +247,9 @@ describe("mapSelectionKey chord table (characterization)", () => {
     // 4. Every other modified chord is unhandled — the cutoff, not a default.
     ["Meta+k", key("k", { metaKey: true }), "b", null],
     ["Meta+ArrowUp", key("ArrowUp", { metaKey: true }), "b", null],
-    ["Meta+Enter", key("Enter", { metaKey: true }), "b", null],
+    // ⌘Enter and Ctrl+Enter toggle the row's box (DESIGN-UI.md → A tag's box).
+    ["Meta+Enter", key("Enter", { metaKey: true }), "b", { type: "toggleCheck", nodeId: "b" }],
+    ["Ctrl+Enter", key("Enter", { ctrlKey: true }), "b", { type: "toggleCheck", nodeId: "b" }],
     ["Meta+Backspace", key("Backspace", { metaKey: true }), "b", null],
     ["Ctrl+Tab", key("Tab", { ctrlKey: true }), "b", null],
     // 5. Bare vertical movement, by instance key.

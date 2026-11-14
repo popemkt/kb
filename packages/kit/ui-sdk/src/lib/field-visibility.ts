@@ -1,4 +1,4 @@
-import { templateFieldsOf, typeRefsOf, SYSTEM_IDS } from "@kb/model";
+import { fieldShowOf, pinnedFirst, templateFieldsOf, typeRefsOf } from "@kb/model";
 import type { SchemaIndex } from "./schema";
 import type { OutlineNode, PropValue, ResolvedProp } from "./types";
 
@@ -9,16 +9,15 @@ export interface FieldNodes {
 
 /**
  * Whether a field's rows are left out unless a node asks for its debug
- * fields: its field node carries `sys.f.hidden` = true. The field node is
- * the one place that says it, a system field's as much as a person's
- * (DESIGN.md → Data model → field visibility), and every surface reads it
+ * fields: its field node's show is never. The field node is the one place
+ * that says it, a system field's as much as a person's (DESIGN.md → Data
+ * model → field display, read by `fieldShowOf`), and every surface reads it
  * here: the field rows, a row's collapse default and a table's columns.
  * Whether a shown row may be written is the system-write rule's
  * (`isWritableField`), never this.
  */
 export function isFieldHidden(fieldId: string, fields: FieldNodes): boolean {
-  const hidden = fields.get(fieldId)?.props[SYSTEM_IDS.hiddenField]?.[0];
-  return hidden?.t === "bool" && hidden.v;
+  return fieldShowOf(fields.get(fieldId)?.props) === "never";
 }
 
 export interface ResolvePropsOptions {
@@ -44,6 +43,12 @@ export type VisibleProp = ResolvedProp & {
   debug?: boolean;
   /** Template slot with no value yet (still editable). */
   empty?: boolean;
+  /**
+   * An empty template slot of a field shown when filled: drawn in the node's
+   * "N hidden fields" fold, not as a row of its own (DESIGN-UI.md → Field
+   * values → hidden fields fold).
+   */
+  folded?: boolean;
 };
 
 /**
@@ -64,7 +69,11 @@ function templatedFieldIds(node: OutlineNode, schema: SchemaIndex): string[] {
 
 const NONE: ReadonlySet<string> = new Set();
 
-/** Resolve node props for FieldRow display with visibility filtering. */
+/**
+ * Resolve node props for FieldRow display with visibility filtering: the
+ * fields drawn, pinned ones first (`pinnedFirst`), each a row unless it is
+ * `folded`.
+ */
 export function resolveVisibleProps(
   node: OutlineNode,
   schema: SchemaIndex,
@@ -103,9 +112,15 @@ export function resolveVisibleProps(
       fieldName: fieldNode?.text ?? fieldId,
       values: [] as PropValue[],
       empty: true,
+      // Debug fields draw every field, so nothing folds while they show.
+      folded: !showAll && fieldShowOf(fieldNode?.props) === "filled",
     });
     seen.add(fieldId);
   }
 
-  return out;
+  return pinnedFirst(
+    out,
+    (prop) => prop.fieldId,
+    (id) => schema.get(id),
+  );
 }
