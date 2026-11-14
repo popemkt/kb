@@ -59,13 +59,17 @@ const GRAPH: WireNode[] = [
     },
     ["o.open", "o.doing"],
   ),
+  row("f.points", "points", {
+    [SYSTEM_IDS.typeField]: [ref(SYSTEM_IDS.field)],
+    [SYSTEM_IDS.fieldTypeField]: [ref(SYSTEM_IDS.ftNumber)],
+  }),
   row("o.open", "Open"),
   row("o.doing", "Doing"),
   // A board grouped by status, its one row open.
   ...framedAs(row("groups", "Groups", {}, ["r1"]), "board", {
     [SYSTEM_IDS.viewGroupField]: [ref("f.status")],
   }),
-  row("r1", "Open thing", { "f.status": [ref("o.open")] }),
+  row("r1", "Open thing", { "f.status": [ref("o.open")], "f.points": [{ t: "num", v: 3 }] }),
   // A table filtered to status Doing.
   ...framedAs(row("doing", "Doing table"), "table", {
     [SYSTEM_IDS.viewFilterField]: [{ t: "str", v: '{:field f.status :eq "Doing"}' }],
@@ -129,7 +133,8 @@ describe("+ Add where a frame's rows are drawn", () => {
       childrenOf("groups").find((id) => id !== "r1"),
       "the row the group added",
     );
-    expect(nodeOf(added)?.props["f.status"]).toEqual([ref("o.doing")]);
+    // Only what the group asks: no other field's value, however the rows show it empty.
+    expect(nodeOf(added)?.props).toEqual({ "f.status": [ref("o.doing")] });
     // Its text opens where the board draws it.
     expect(useOutlineStore.getState().activeNodeId).toBe(added);
     expect(useOutlineStore.getState().activeInstanceKey).toBe(

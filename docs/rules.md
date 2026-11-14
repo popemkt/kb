@@ -123,6 +123,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A frame meter over the DOM backdrops (a PerformanceObserver over long animation frames under the head) and over the Unicorn runtime's loop, reporting data-frame-ms as the GPU host does.
 - **node** — `01M6RT9R6AXGVYZWCSTG26EET8`
 
+### GAP: a board wider than its pane cuts its last columns off with no sign that it scrolls
+
+- **expected** — a board whose columns run past the pane shows that more lie beyond it: an edge fade or a scroll hint on the side that scrolls, gone at the end
+- **current** — the board scrolls sideways (overflow-x-auto) and cuts the last column at the pane edge with nothing showing more is there; main does this too, and every option now having a column (Tana views line) makes it more often
+- **impact** — at 1280px the Blocked and No Status columns of a four-option board are cut off and look missing
+- **closes** — one edge-fade mechanism for horizontal scrollers in the kit, read by the board (and lanes and cards)
+- **node** — `01M7DAJSTW3PP7375FECAA2DHS`
+
 ### GAP: a call's actor and approval are declared by the caller, not proven
 
 - **expected** — each surface authenticates its caller, so actor and approved are facts kb checks, and policies are a boundary rather than a guard against accidents
@@ -659,6 +667,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — browser agents cannot use approval-required actions
 - **closes** — an in-page approval prompt shared with the sidebar agent (roadmap step 5)
 - **node** — `01M3S5DDJ7MP2VZ4WJB007RRR5`
+
+### GAP: an empty number slot draws its editor starter, 0, as if it were a value
+
+- **expected** — an empty number field reads as empty (the italic "Empty" a status or text slot shows), and the editor opens on a blank input
+- **current** — the number kind starts its editor from {t:num, v:0} (FIELD_TYPE_SPEC in ui-sdk lib/field-type.ts) and its isBlank reads that as filled, so every empty number slot shows 0; the Add field palette step also writes that 0 to make the row appear
+- **impact** — a card or row reads Points 0 where nothing is stored; a reviewer took a new board card for one with a value set
+- **closes** — split the starter an editor shows from the value Add field writes: the number slot draws blank when no value is stored, and the Add field step writes what makes an empty row appear without a number
+- **node** — `01M7DAJCF878DEPVQHE6R7FJT9`
 
 ### GAP: an exported canvas SVG carries the default design system's tokens
 

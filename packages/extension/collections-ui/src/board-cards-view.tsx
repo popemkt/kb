@@ -169,6 +169,7 @@ export function BoardCardsView({
       ref={breakoutRef}
       className={cn(
         "board-cards-view my-2",
+        // GAP [[01M7DAJSTW3PP7375FECAA2DHS]] nothing shows that the columns scroll on past the edge
         view.key === CollectionBoardView && "overflow-x-auto",
         breakout && [BREAKOUT_CLASS, "px-4"],
       )}
