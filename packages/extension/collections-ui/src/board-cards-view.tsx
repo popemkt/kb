@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState, type ComponentType } from "react";
+import { memo, useCallback, useMemo, useState, type ComponentType, type Ref } from "react";
 import { CaretDownIcon, CaretRightIcon } from "@phosphor-icons/react";
 import {
   browserHost,
@@ -37,7 +37,7 @@ import {
   BREAKOUT_CLASS,
   useBreakoutShift,
 } from "@kb/ui-sdk";
-import { localIdOf, type ParamsOf } from "@kb/views";
+import { laysOutLanes, localIdOf, type ParamsOf } from "@kb/views";
 import { CollectionBoardView, CollectionCardsView } from "@kb/collections";
 
 /**
@@ -159,43 +159,22 @@ export function BoardCardsView({
 
   const breakout = view.key === CollectionBoardView && widthPref === "centered";
   const breakoutRef = useBreakoutShift(
-    breakout && groupFieldId !== null && (frameNode !== undefined || rowIds !== undefined),
+    breakout && (frameNode !== undefined || rowIds !== undefined),
   );
 
   if (!frameNode && !rowIds) return null;
 
-  if (view.key === CollectionBoardView && groupFieldId === null) {
+  if (laysOutLanes(view)) {
     return (
-      <div
-        className="board-cards-view my-2 rounded-md border border-dashed border-foreground/15 px-3 py-4 text-ui text-foreground/45"
-        data-board-cards-view="true"
-        data-view-mode="board"
-        data-board-empty="true"
-        data-frame-id={frameId}
-      >
-        <p>A board has a column per value of one field. Choose which.</p>
-        <div className="mt-2 flex items-center gap-1.5">
-          <button
-            type="button"
-            className="rounded-md bg-foreground/[0.06] px-2 py-1 text-meta font-medium text-foreground/70 hover:bg-foreground/[0.1]"
-            data-choose-group="true"
-            onClick={(e) => {
-              e.stopPropagation();
-              browserHost().setViewSettingsFrame(frameId);
-            }}
-          >
-            Group by a field…
-          </button>
-          <button
-            type="button"
-            className="rounded-md px-2 py-1 text-meta font-medium text-foreground/50 hover:bg-foreground/[0.06]"
-            data-switch-to-cards="true"
-            onClick={() => void browserHost().writes.setFrameView(frameId, CollectionCardsView)}
-          >
-            Switch to cards
-          </button>
-        </div>
-      </div>
+      <Lanes
+        frameId={frameId}
+        rows={rows.rendered}
+        keyFor={instanceKeyFor}
+        frame={frame}
+        context={context}
+        breakout={breakout}
+        breakoutRef={breakoutRef}
+      />
     );
   }
 
@@ -282,6 +261,119 @@ export function BoardCardsView({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * A frame's rows as lanes (DESIGN-UI.md → Lanes): side by side, each the
+ * row's own text over the rows under it, which the host draws as it draws
+ * them under a row in a list (`RowChildren`), so a lane edits, nests and
+ * walks as the list does.
+ */
+function Lanes({
+  frameId,
+  rows,
+  keyFor,
+  frame,
+  context,
+  breakout,
+  breakoutRef,
+}: {
+  frameId: string;
+  rows: readonly OutlineNode[];
+  keyFor: (nodeId: string) => string;
+  frame: FrameSubject;
+  context: FieldContext;
+  breakout: boolean;
+  breakoutRef: Ref<HTMLDivElement>;
+}) {
+  return (
+    <div
+      ref={breakoutRef}
+      className={cn("board-cards-view my-2 overflow-x-auto", breakout && [BREAKOUT_CLASS, "px-4"])}
+      data-board-cards-view="true"
+      data-view-mode="board"
+      data-lanes="true"
+      data-frame-id={frameId}
+      data-breakout={breakout ? "centered" : undefined}
+    >
+      {rows.length === 0 ? (
+        <p className="rounded-md border border-dashed border-foreground/15 px-3 py-4 text-ui text-foreground/45">
+          Each child of this node gets a lane here. Add one to start.
+        </p>
+      ) : (
+        <div className="flex items-start gap-3 min-w-max pb-2">
+          {rows.map((row) => (
+            <Lane
+              key={row.id}
+              row={row}
+              instanceKey={keyFor(row.id)}
+              frame={frame}
+              context={context}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** One lane: its head row, then the rows under it, always shown. */
+function Lane({
+  row,
+  instanceKey,
+  frame,
+  context,
+}: {
+  row: OutlineNode;
+  instanceKey: string;
+  frame: FrameSubject;
+  context: FieldContext;
+}) {
+  const isActive = useIsActive(row.id, instanceKey);
+  const isSelected = useIsSelected(row.id, instanceKey);
+  const follow = useFollow();
+  const shown = shownNode(row, context.schema);
+  const { RowText, RowChildren } = frame;
+  return (
+    <div
+      className="w-72 shrink-0 rounded-md border border-foreground/[0.06] bg-foreground/[0.02] pb-1"
+      data-lane={row.id}
+    >
+      <div
+        className="border-b border-foreground/[0.06] px-1 py-0.5 font-medium"
+        data-lane-head="true"
+      >
+        <NodeRow
+          depth={0}
+          nodeId={row.id}
+          instanceKey={instanceKey}
+          isSelected={isSelected}
+          isActive={isActive}
+          onRowClick={() => browserHost().selectNode(row.id, instanceKey)}
+          bullet={
+            <Bullet
+              node={shown}
+              collapsed={false}
+              collapsible={false}
+              isRef={isReferenceRow(row, isQueryResultInstance(instanceKey))}
+              onClick={(e) => {
+                e.stopPropagation();
+                // A lane always shows its rows, so its bullet opens it rather than folding.
+                const intent = bulletClickIntent(e, false);
+                if (intent !== "toggle") follow(nodeTarget(shownNodeId(row)), intent);
+              }}
+            />
+          }
+          content={
+            <RowText node={row} instanceKey={instanceKey} isActive={isActive} tags={shown.tags} />
+          }
+        />
+      </div>
+      <div className="pt-1 pr-1">
+        <RowChildren nodeId={row.id} instanceKey={instanceKey} depth={0} />
+      </div>
     </div>
   );
 }

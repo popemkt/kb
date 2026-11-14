@@ -34,6 +34,7 @@ export {
   encodeFrameConfig,
   frameSettingWrite,
   isFrameViewKey,
+  laysOutLanes,
   parseViewFilterEdn,
   projectsRows,
   serializeViewFilter,

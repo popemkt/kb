@@ -50,6 +50,7 @@ import {
   collectVisibleInstances,
   neighborVisibleInstance,
   type VisibleInstance,
+  type VisibleLane,
 } from "./visible-instances.ts";
 import type { FrameViewKey } from "@kb/views";
 import { outlineHostOf, outlineHostOfInstance as walkHostOf } from "./outline-hosts";
@@ -124,6 +125,8 @@ interface OutlineState {
   getVisibleNodes: () => string[];
   getPreviousVisibleInstance: (instanceKey: string) => VisibleInstance | null;
   getNextVisibleInstance: (instanceKey: string) => VisibleInstance | null;
+  /** The lane a row instance sits in (DESIGN-UI.md → Lanes), or null. */
+  laneOf: (instanceKey: string) => VisibleLane | null;
   getBreadcrumbs: () => Array<{ id: string; text: string }>;
   /** Register a session-minted transient node id (auto-prune candidate). */
   markTransient: (ids: string | string[]) => void;
@@ -573,6 +576,11 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
 
     getNextVisibleInstance: (instanceKey) =>
       neighborVisibleInstance(get().getVisibleInstances(walkHostOf(instanceKey)), instanceKey, 1),
+
+    laneOf: (instanceKey) =>
+      get()
+        .getVisibleInstances(walkHostOf(instanceKey))
+        .find((instance) => instance.instanceKey === instanceKey)?.lane ?? null,
 
     getBreadcrumbs: () => {
       const nodes = outlineNodes();

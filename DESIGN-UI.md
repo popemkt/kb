@@ -2972,18 +2972,19 @@ how the stored name resolves to the key among them.
   every host that names that view node and after a reload.
 - _Lanes._ A view that declares `groupFieldId` and has none set lays its
   rows out as lanes, side by side (`laysOutLanes`, `@kb/views`). Each row
-  heads a column, drawn by the host as the list draws it (`Row`), so the
-  lane holds the row and its children in the row's own frame view: they
-  are editable and nest as in the list, and a lane whose head is collapsed
-  shows its head alone. Choosing a group field turns the lanes into
-  columns. The row walk nests a frame in lanes as it nests a list: each
-  lane's head, then its rows, then the next lane. The keys follow that
-  nesting, with the lane as the outer level:
+  heads a column: its text, as a card's is drawn, over the rows under it,
+  which the host draws as it draws them under a row in a list
+  (`RowChildren`), in the row's own frame view, so they edit and nest as in
+  the list. A lane always shows its rows: its head does not fold, and its
+  bullet opens it. Choosing a group field turns the lanes into columns. The
+  row walk nests a frame in lanes as it nests a list: each lane's head,
+  then its rows, then the next lane. The keys follow that nesting, with the
+  lane as the outer level:
   - ↑ and ↓ walk a lane's rows, and on into the next lane;
   - ← and → on a lane's head select the lane before or after it, and do
     nothing at either end;
   - Enter on a lane's head selects its first row; on a lane with no rows
-    shown it edits the head's text, as Enter does on any row;
+    it edits the head's text, as Enter does on any row;
   - Esc on a row inside a lane selects that lane's head;
   - on a row inside a lane, ← and → close, open, climb and descend as in
     the list, and climbing from a top row reaches the lane's head.

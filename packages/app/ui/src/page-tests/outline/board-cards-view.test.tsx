@@ -235,25 +235,6 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     expect(html).toContain("node-row");
   });
 
-  it("board with null group asks for a group field, or offers cards", () => {
-    useGraphStore.getState().hydrateFromWire(withFrame1("board", {}), 2, "fixtures");
-    const html = renderToStaticMarkup(
-      createElement(BoardCardsView, {
-        frame: outlineFrameSubject(
-          { RowChildren: NoRowChildren, frameId: "frame1", isQuerySource: false, depth: 0 },
-          1,
-        ),
-        view: columnsView(),
-        nodes: outlineNodes(),
-        context: fieldContextOf(outlineSource()),
-      }),
-    );
-    expect(html).toContain('data-board-empty="true"');
-    expect(html).toContain('data-choose-group="true"');
-    expect(html).toContain('data-switch-to-cards="true"');
-    expect(html).not.toContain('data-view-card="true"');
-  });
-
   it("cards mode renders ungrouped CSS grid (no board columns)", () => {
     // The view is the frame's own, resolved the way its host resolves it.
     useGraphStore.getState().hydrateFromWire(withFrame1("cards", GROUPED), 3, "fixtures");

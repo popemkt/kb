@@ -20,7 +20,7 @@
       "@kb/plugin": 41,
       "@kb/query": 53,
       "@kb/seed": 8,
-      "@kb/views": 117,
+      "@kb/views": 118,
       "@kb/agent": 62,
       "@kb/agent-claude": 3,
       "@kb/agent-openai": 3,

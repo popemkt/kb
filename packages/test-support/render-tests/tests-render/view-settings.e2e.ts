@@ -101,17 +101,17 @@ test("a frame's group, fields and page size are set from its view settings", asy
   if (await gear.isVisible()) await gear.click();
   await toolbar.locator('[data-mode-button="board"]').click();
 
-  // A board with no group field asks for one, and the popover sets it.
+  // A board with no group field lays its rows out as lanes; the popover groups it.
   const board = page.locator(`[data-board-cards-view][data-frame-id="${FRAME}"]`).first();
-  await expect(board).toHaveAttribute("data-board-empty", "true");
-  await board.locator('[data-choose-group="true"]').click();
+  await expect(board).toHaveAttribute("data-lanes", "true");
+  await toolbar.locator('[data-view-settings-button="true"]').click();
   const popover = page.getByTestId("view-settings-popover");
   const sections = popover.locator(`[data-view-settings-sections="${FRAME}"]`);
   await expect(sections).toBeVisible();
   // A board declares a group field and fields, and no page size.
   await expect(sections.locator('[data-qb-slot="page size"]')).toHaveCount(0);
   await pick(sections, page, "group by", "status");
-  await expect(board).not.toHaveAttribute("data-board-empty", "true");
+  await expect(board).not.toHaveAttribute("data-lanes", "true");
   await expect(sections.locator('[data-qb-slot="group by"]')).toHaveAttribute(
     "aria-label",
     "group by: status",

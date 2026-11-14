@@ -328,6 +328,23 @@ export function projectsRows(view: FrameViewKey | null): boolean {
   return view !== null && view.rows !== "outline";
 }
 
+/**
+ * Whether a view lays its rows out as lanes (DESIGN-UI.md → Lanes): it
+ * declares a group field and has none set, so each row heads a column of its
+ * own, holding its children as the list does. Its rows nest in the row walk
+ * as a list's do.
+ */
+export function laysOutLanes(view: {
+  readonly key: FrameViewKey;
+  readonly params: FrameViewParams;
+}): boolean {
+  return (
+    view.key.rows === "columns" &&
+    Object.hasOwn(view.params, "groupFieldId") &&
+    view.params.groupFieldId === null
+  );
+}
+
 const VIEW_SLOTS: ConfigSlots<ViewConfig> = {
   sort: manyOf<SortSpec>({
     fields: [SYSTEM_IDS.viewSortField, SYSTEM_IDS.viewSortDirField],

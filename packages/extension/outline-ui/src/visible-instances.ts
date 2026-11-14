@@ -3,7 +3,8 @@
  *
  * Row order is not decided here — every frame's rows come from
  * {@link frameRows}, the function the renderers call, as each frame's view
- * ({@link frameViewOf}) lays them out. This walk only assigns instance keys and recurses.
+ * ({@link frameViewOf}) lays them out. This walk only assigns instance keys and recurses,
+ * and says which lane a row sits in when its frame lays rows out as lanes.
  */
 import {
   childInstanceKey,
@@ -27,11 +28,28 @@ import {
   slotRenders,
 } from "@kb/ui-sdk";
 import { isQueryNode, queryDefOf } from "@kb/model";
-import { projectsRows, type FrameViewKey } from "@kb/views";
+import { laysOutLanes, projectsRows, type FrameViewKey } from "@kb/views";
 
-export type VisibleInstance = {
+/** A row the walk reaches: which node, and under which instance. */
+export interface InstanceRef {
   nodeId: string;
   instanceKey: string;
+}
+
+/**
+ * The lane a row sits in, when its frame lays rows out as lanes
+ * (DESIGN-UI.md → Lanes): the lane's head, and the heads of the lanes
+ * before and after it. A head's own lane names itself.
+ */
+export interface VisibleLane {
+  head: InstanceRef;
+  before: InstanceRef | null;
+  after: InstanceRef | null;
+}
+
+export type VisibleInstance = InstanceRef & {
+  /** Set when the row sits in a lane; the innermost lane when lanes nest. */
+  lane?: VisibleLane;
 };
 
 /** Pages revealed per frame in paginating modes, keyed by frame node id. */
@@ -77,6 +95,49 @@ function emitProjectedRows(
   }
 }
 
+/** A frame laid out as lanes: which, in which view, over which rows, keyed how. */
+interface LanedFrame {
+  frameId: string;
+  view: FrameView;
+  rowIds: string[] | undefined;
+  keyFor: (nodeId: string) => string;
+}
+
+/**
+ * A frame's rows laid out as lanes, each walked as a list row is, so its
+ * children nest under it; every row a lane yields is marked with that lane,
+ * unless a lane deeper in it marked it first.
+ */
+function walkLanes(ctx: WalkContext, lanes: LanedFrame, chain: SlotChain): void {
+  const { frameId, view, rowIds, keyFor } = lanes;
+  const { nodes, schema, pages, out } = ctx;
+  const heads = frameRows({
+    frameId,
+    nodes,
+    schema,
+    view,
+    rowIds,
+    pages: pages[frameId],
+  }).rendered.map((row) => ({ nodeId: row.id, instanceKey: keyFor(row.id) }));
+  heads.forEach((head, at) => {
+    const from = out.length;
+    // A lane always shows its rows, whatever its head's own open state.
+    const node = nodes.get(head.nodeId);
+    if (node === undefined) return;
+    out.push(head);
+    walkRowChildren(ctx, node, head.instanceKey, chain);
+    const lane: VisibleLane = {
+      head,
+      before: heads[at - 1] ?? null,
+      after: heads[at + 1] ?? null,
+    };
+    for (let i = from; i < out.length; i++) {
+      const row = out[i];
+      if (row !== undefined && row.lane === undefined) out[i] = { ...row, lane };
+    }
+  });
+}
+
 /**
  * The chain under a frame's slot, or null when the slot would not render it —
  * the one rule the slot itself applies (`slotRenders`), so a frame whose rows
@@ -109,8 +170,10 @@ function walkQueryResults(
   }
   const keyFor = (id: string) => queryResultInstanceKey(frame.id, id);
   if (projectsRows(view.key)) {
-    if (underSlot(chain, view, frame.id) !== null)
-      emitProjectedRows(ctx, frame.id, view, ids, keyFor);
+    const inner = underSlot(chain, view, frame.id);
+    if (inner === null) return;
+    if (laysOutLanes(view)) walkLanes(ctx, { frameId: frame.id, view, rowIds: ids, keyFor }, inner);
+    else emitProjectedRows(ctx, frame.id, view, ids, keyFor);
     return;
   }
   for (const id of ids) walkVisibleInstances(ctx, id, keyFor(id), chain);
@@ -122,13 +185,27 @@ function walkVisibleInstances(
   instanceKey: string,
   chain: SlotChain,
 ): void {
-  const { nodes, schema, out } = ctx;
+  const { nodes, out } = ctx;
   const node = nodes.get(nodeId);
   if (!node) return;
   out.push({ nodeId, instanceKey });
-  // Open or closed is the row's own; what is under it is its shown node's
-  // (`lib/contextual-ref`), unless that node is already shown above it.
-  if (node.collapsed || showsAncestor(instanceKey, node, schema)) return;
+  // Open or closed is the row's own.
+  if (node.collapsed) return;
+  walkRowChildren(ctx, node, instanceKey, chain);
+}
+
+/**
+ * The rows under a row: its shown node's (`lib/contextual-ref`), unless that
+ * node is already shown above it, as its frame's view lays them out.
+ */
+function walkRowChildren(
+  ctx: WalkContext,
+  node: OutlineNode,
+  instanceKey: string,
+  chain: SlotChain,
+): void {
+  const { nodes, schema } = ctx;
+  if (showsAncestor(instanceKey, node, schema)) return;
   const frame = shownNode(node, schema);
   const frameId = frame.id;
 
@@ -148,7 +225,9 @@ function walkVisibleInstances(
   const inner = underSlot(chain, view, frameId);
   if (inner === null) return;
   if (projected) {
-    emitProjectedRows(ctx, frameId, view, undefined, (id) => childInstanceKey(instanceKey, id));
+    const keyFor = (id: string) => childInstanceKey(instanceKey, id);
+    if (laysOutLanes(view)) walkLanes(ctx, { frameId, view, rowIds: undefined, keyFor }, inner);
+    else emitProjectedRows(ctx, frameId, view, undefined, keyFor);
     return;
   }
 
@@ -189,9 +268,10 @@ export function collectVisibleInstances(
   const inner = underSlot(source.chain, view, rootNodeId);
   if (inner === null) return out;
   if (projectsRows(view.key)) {
-    emitProjectedRows(ctx, rootNodeId, view, undefined, (id) =>
-      outlineInstanceKey(id, nodes, host),
-    );
+    const keyFor = (id: string) => outlineInstanceKey(id, nodes, host);
+    if (laysOutLanes(view))
+      walkLanes(ctx, { frameId: rootNodeId, view, rowIds: undefined, keyFor }, inner);
+    else emitProjectedRows(ctx, rootNodeId, view, undefined, keyFor);
     return out;
   }
 
