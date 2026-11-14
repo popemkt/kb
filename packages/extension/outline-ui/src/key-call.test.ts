@@ -2,13 +2,19 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { admitKeybindings, provideKeybinding, setToastSink, syncUiPlugins } from "@kb/ui-sdk";
 import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
 import { applySelectionAction } from "./selection-actions";
-import { mapSelectionKey, SELECTION_CONTEXT } from "./selection-keymap";
-import { outlineKeybindings } from "./test-support/keybindings";
+import { mapSelectionKey } from "./selection-keymap";
+import { outlineKeybindings, SELECTION_KEY_CONTEXT } from "./test-support/keybindings";
 
-/** The calls the host was asked to make, and what it answers each: the action's own failure for `stamp`. */
+/** The calls the host was asked to make, and what it answers each: the action's own failure for `fail`. */
 const calls: { readonly id: string; readonly input: unknown }[] = [];
+/** The commands the host was asked to run, and about which node. */
+const commands: { readonly command: string; readonly nodeId: string | null }[] = [];
 const told: string[] = [];
 const host = testBrowserHost({
+  runCommand: (command, nodeId) => {
+    commands.push({ command, nodeId });
+    return Promise.resolve();
+  },
   invoke: (id, input) => {
     calls.push({ id, input });
     return Promise.resolve(
@@ -29,7 +35,7 @@ afterAll(() => syncUiPlugins([]));
 const ANYONE = () => true;
 
 const keymap = admitKeybindings(
-  SELECTION_CONTEXT,
+  SELECTION_KEY_CONTEXT,
   outlineKeybindings({
     name: "keys",
     bindings: [
@@ -42,6 +48,11 @@ const keymap = admitKeybindings(
         context: "outline.selection",
         chord: "Mod-Shift-u",
         run: { action: "keys.fail" },
+      }),
+      provideKeybinding("archive", {
+        context: "outline.selection",
+        chord: "Mod-Shift-o",
+        run: { command: "keys.cmd.archive" },
       }),
     ],
   }),
@@ -73,5 +84,12 @@ describe("a key that runs an action", () => {
   it("tells the person when the call fails", async () => {
     await press("U");
     expect(told).toEqual(["keys.fail failed: nothing to stamp"]);
+  });
+});
+
+describe("a key that runs a command", () => {
+  it("runs it through the host's command runner, about the selected row", async () => {
+    await press("O");
+    expect(commands).toEqual([{ command: "keys.cmd.archive", nodeId: "n1" }]);
   });
 });

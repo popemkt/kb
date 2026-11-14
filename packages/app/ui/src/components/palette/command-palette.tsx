@@ -10,12 +10,7 @@ import {
   schemaZoomKind,
   textOr,
 } from "@kb/ui-sdk";
-import {
-  commandTargetNodeId,
-  listNodeCommands,
-  runCommand,
-  viewTargetFrameId,
-} from "@/lib/commands";
+import { listNodeCommands, runCommand } from "@/lib/commands";
 import {
   buildPaletteIndex,
   searchPalette,
@@ -23,7 +18,7 @@ import {
   type PaletteHit,
 } from "@/lib/palette-index";
 import { pageProjection, shownNodes, useGraphStore } from "@/stores/graph.store";
-import { pageCommandApi, pageCommandContext } from "@/stores/page-commands";
+import { pageCommandContext, pageCommandTarget } from "@/stores/page-commands";
 import { pageEditor } from "@/stores/page-editor";
 import { useUiStore } from "@/stores/ui.store";
 
@@ -57,17 +52,14 @@ function openNodeMenuAt(nodeId: string, step: string): void {
  * the step, as the node menu would have shown it.
  */
 function commandContext(onClose: () => void): CommandContext {
-  const outline = pageCommandApi();
-  const nodeId = commandTargetNodeId(outline);
-  return pageCommandContext(
-    { nodeId, frameId: viewTargetFrameId(outline) },
-    {
-      close: onClose,
-      openStep: (step) => {
-        if (nodeId !== null) openNodeMenuAt(nodeId, step);
-      },
+  const target = pageCommandTarget();
+  const nodeId = target.nodeId;
+  return pageCommandContext(target, {
+    close: onClose,
+    openStep: (step) => {
+      if (nodeId !== null) openNodeMenuAt(nodeId, step);
     },
-  );
+  });
 }
 
 const ROW_LIMIT = 20;
@@ -118,7 +110,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     return nodeId === null || menuInstanceOf(nodeId) === null ? [] : listNodeCommands(ctx);
   }, [open, onClose]);
   const index = useMemo(() => {
-    const nodeId = commandTargetNodeId(pageCommandApi());
+    const nodeId = pageCommandTarget().nodeId;
     if (nodeId === null || nodeCommands.length === 0) return graphIndex;
     const label = textOr(shownNodes().get(nodeId)?.text.trim(), nodeId);
     return withNodeCommands(graphIndex, nodeCommands, label);

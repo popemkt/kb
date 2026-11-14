@@ -194,7 +194,7 @@ export function describeChord(chord: Chord): string {
  */
 export const TEXT_HISTORY_CHORD: Chord = { key: ["z", "Z"], mod: true, alt: false };
 
-/** The palette's ⌘K (`matchGlobalShortcut`): one key the whole page answers. */
+/** The palette's ⌘K: the page's own key (`core.page`), which no other key context may take. */
 export const PALETTE_CHORD: Chord = { key: ["k", "K"], mod: true };
 
 /** Anything a keymap table holds: a chord, plus whatever the map does with it. */

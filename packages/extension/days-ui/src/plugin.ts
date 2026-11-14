@@ -10,12 +10,13 @@ import {
   CaptureTargetService,
   CommandPoint,
   DateTargetService,
+  KeybindingPoint,
   LandingService,
   NodeSectionPoint,
   SidebarSectionPoint,
   type NodeMap,
 } from "@kb/ui-sdk";
-import { goToTodayCommand } from "./command";
+import { goToTodayCommand, goToTodayKey } from "./command";
 import { TodaySection } from "./section";
 import { dayNode, todayNode } from "./today";
 
@@ -91,6 +92,7 @@ export const daysUiPlugin = definePlugin({
           value: { order: 5, Component: TodaySection },
         }),
         ctx.contribute(CommandPoint, { id: goToTodayCommand.id, value: goToTodayCommand }),
+        ctx.contribute(KeybindingPoint, goToTodayKey),
         ctx.provide(CaptureTargetService, captureIntoToday),
         ctx.provide(LandingService, landOnToday),
         ctx.provide(DateTargetService, dayNode),

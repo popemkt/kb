@@ -444,9 +444,11 @@ re-entry into Mode A. Focus hand-offs are specified per operation (split → new
 node at 0; indent/outdent → same offset; merge → the join boundary; delete →
 neighbour) and tested.
 
-**Keybindings.** Each mode is a _context_, and its keys are contributions to
-`ui.keybindings` (`KeybindingPoint`, `@kb/ui-sdk`'s `lib/keybindings`), the
-outline's as any plugin's. A binding is data: a context, a chord, and what it
+**Keybindings.** Each mode is a _context_, a contribution to
+`ui.key-contexts` (`KeyContextPoint`) by the plugin that reads it, which owns
+it: its id is the contribution's (`outline.editing`, `outline.selection`). Its
+keys are contributions to `ui.keybindings` (`KeybindingPoint`, `@kb/ui-sdk`'s
+`lib/keybindings`), the outline's as any plugin's. A binding is data: a context, a chord, and what it
 runs, one of the context's _intents_ by name (`split`, `indent`, `move-up`,
 `line-down`, …; the selection's `up`, `create-after`, `append`, …). An intent
 answers which of a key's meanings applies on this row (the caret, the row's
@@ -456,14 +458,29 @@ The intents are each mode's table (`EDITING_INTENTS`, `SELECTION_INTENTS`);
 the guard that keeps a query-result row from being restructured is part of
 each structural intent, so it holds whatever chord runs it.
 
-The page's one keymap (`admitKeybindings`, read live as `currentKeymap`)
-decides a context's keys, and its rule is the point's `combine`:
+The page itself is a context too, `core.page`, which core owns
+(`app/ui` `lib/page-keys.ts`). A context says where it is offered keys
+(`reach`): the outline's are `surface` contexts, offered the keys of what
+has focus, and the page's is `page`, offered every key first, wherever
+focus is (the shell answers it at the capture phase). Its one intent is
+`palette`, bound to ⌘K (`core.page.palette`): the anchored row's node
+palette when a row is selected or edited, the global search otherwise.
+It reserves every chord without ⌘ or Ctrl, so a page key never takes
+typing from a field, and ⌘K itself.
 
-- a context's owner states it (`KeyContext`): its intents, and the chords
-  only it may bind (`reserved`). The outline reserves `Escape`, the text
-  host's history chord (`TEXT_HISTORY_CHORD`, ⌘Z and ⌘⇧Z) and the palette's
-  ⌘K (`PALETTE_CHORD`), so no binding can trap a person in a row;
+The page's one keymap (`admitKeymaps`, every context's at once, read live
+as `currentKeymap(id)`) decides a context's keys, and its rule is the
+point's `combine`:
+
+- a context's owner states it (`KeyContextSpec`): its intents, and the
+  chords only it may bind (`reserved`). The outline reserves `Escape` and
+  the text host's history chord (`TEXT_HISTORY_CHORD`, ⌘Z and ⌘⇧Z), so no
+  binding can trap a person in a row; the palette's ⌘K is the page's;
 - the owner's bindings are held first, then the rest in load order;
+- the page's contexts are decided first, and neither kind shadows the
+  other: a page binding over a chord a surface's owner binds in its surface
+  is refused, so the outline's own keys stand, and a surface binding over a
+  chord the page holds is refused, since no key would reach it;
 - **no two held chords overlap** (`chordsOverlap`: a common key, and a state
   of the four modifiers both admit), but along a chain of replacements. So
   the order bindings are listed in means nothing, and each says exactly what
@@ -493,23 +510,30 @@ decides a context's keys, and its rule is the point's `combine`:
   GAP [[01M6YFRJGV8MAF2AM34N567MBQ]];
 - a binding over a reserved chord is refused, even as a replacement, and so
   is one that replaces a binding holding no chord it overlaps, or names an
-  intent its context lacks. The outline reads both keymaps whenever the page kernel moves, so a
-  refusal is told when the binding arrives, once a page session, naming the
-  binding, the chord and its holder. The kernel admits a binding by its id
+  intent its context lacks. Core's page half reads every keymap whenever
+  the page kernel moves (`tellKeymaps`), so a refusal is told when the
+  binding arrives, once a page session, naming the binding, the chord and
+  its holder. The kernel admits a binding by its id
   alone, so a refused one stays contributed and inert:
   GAP [[01M6Y9H5FD9GVMK9N9QBT5DNTN]].
 
-A binding runs an intent of its context, or an **action**
+A binding runs an intent of its context; an **action**
 (`{ action, input }`), invoked through the page's one invoke path with the
 row's node as its input's `id`, so a key meets the guards every call meets
-and a failed call is told. Through `kb-ext-sdk/page` a binding is data, its
-T0 form: `provideKeybinding(id, { context, chord: "Alt-ArrowUp", run,
-replaces })`, the chord written as text (`parseChord`: modifiers, then the
-key as `KeyboardEvent.key` names it, joined by `-`; exact, so a modifier it
-does not name must be up; a letter matches in either case, since macOS
-reports ⌘⇧S as `s`). Only the outline's two contexts exist; the
-page's own ⌘K and the canvas's keymap are not contexts yet:
-GAP [[01M6Y9H6R5D9Y8TQKZJZVWX8PB]]. A key's action is the one shape a
+and a failed call is told; or a **command** (`{ command }`), run by id as
+⌘K runs it (`BrowserHost.runCommand`), about the row's node, or on
+`core.page` about what ⌘K's commands are about (the selected row, else the
+zoomed node). A command that would open a picker step tells the person it
+needs the node palette, since a key has none to open. Days binds
+`Mod-Shift-D` on `core.page` to "Go to today" this way. Through
+`kb-ext-sdk/page` a binding is data, its T0 form: `provideKeybinding(id,
+{ context, chord: "Alt-ArrowUp", run, replaces })`, the chord written as
+text (`parseChord`: modifiers, then the key as `KeyboardEvent.key` names
+it, joined by `-`; exact, so a modifier it does not name must be up; a
+letter matches in either case, since macOS reports ⌘⇧S as `s`). A binding
+that names no context is refused, and told. The canvas's keymap is not a
+context yet, so its keys are no binding's and admission cannot see them:
+GAP [[01M74A3DT90MGHYGK1TAXZT9WZ]]. A key's action is the one shape a
 command's and a picker step's are as data (`ActionCall`, [The node
 menu](#the-node-menu)).
 
@@ -2274,13 +2298,15 @@ what it changed.
 
 The rules that hold everywhere, so no surface re-invents them:
 
-- **One captured global shortcut.** `lib/keyboard-shortcuts.ts`
-  `matchGlobalShortcut` owns ⌘/Ctrl-K and nothing else: `"node-palette"` when
-  an outline row anchors it (selected or edited), `"global-search"` otherwise
-  — ⌘S is deliberately left to the browser, because kb has no save action to
-  bind it to. App-level dispatch lives in `components/App.tsx`. Zooming never
-  leaves the selection on the zoom root, which is a header and not a row: it
-  moves to the first row under it, or clears.
+- **The page's keys are one captured context.** `components/App.tsx`
+  answers `core.page` (`lib/page-keys.ts`; [Outline editor →
+  Keybindings](#outline-editor-i1)) at the capture phase: ⌘/Ctrl-K opens
+  the node palette when an outline row anchors it (selected or edited) and
+  the global search otherwise, and a plugin's page key runs its action or
+  command. ⌘S is deliberately left to the browser, because kb has no save
+  action to bind it to. Zooming never leaves the selection on the zoom root,
+  which is a header and not a row: it moves to the first row under it, or
+  clears.
 - **The palette behaves like a dialog.** `components/palette/command-palette.tsx`
   records `document.activeElement` on open and restores focus on close, traps
   `Tab` inside itself, and keeps the active result scrolled into view.
@@ -4104,9 +4130,11 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
 - **The Today row** sits under Home in the sidebar (`order: 5`) and opens
   today's node, making it if need be. It is the active row while today's
   node is open.
-- **⌘K "Go to today"** is the `sys.command` node the family seeds
-  (`sys.cmd.days.today`). A direct key waits on a global key context a
-  family can contribute to (GAP [[01M6Y9H6R5D9Y8TQKZJZVWX8PB]]).
+- **"Go to today"** is the `sys.command` node the family seeds
+  (`sys.cmd.days.today`), in ⌘K and on `Mod-Shift-D`, a binding on the
+  page's own key context (`core.page`; [Outline editor →
+  Keybindings](#outline-editor-i1)), so the key opens today wherever focus
+  is.
 - **Opening on today.** Where a page that loads at the root opens is the
   page role `ui.landing` (DESIGN.md → [Provider roles](./DESIGN.md#provider-roles)).
   Core owns it and stays home, and days replaces it. Days answers today's

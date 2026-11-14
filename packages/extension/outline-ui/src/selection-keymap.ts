@@ -7,16 +7,16 @@ import { outlineExtension } from "@kb/outline";
 import {
   chordsOverlap,
   isPrintableKey,
-  PALETTE_CHORD,
   TEXT_HISTORY_CHORD,
   type Chord,
   type KeyChordEvent,
-  type KeyContext,
+  type KeyContextSpec,
+  keyCallOf,
+  type KeyCall,
   type Keybinding,
   type Keymap,
 } from "@kb/ui-sdk";
 import type { VisibleInstance } from "./visible-instances";
-import { runActionOf, type RunAction } from "./key-action";
 
 /** Selection mode reads the same event shape every keymap reads. */
 export type SelectionKeyEvent = KeyChordEvent;
@@ -41,7 +41,7 @@ export type SelectionKeyAction =
   | { type: "append"; nodeId: string; instanceKey: string; char: string }
   /** Onto a row's field values: its first going down, its last coming up. */
   | { type: "enterFields"; instanceKey: string; which: "first" | "last" }
-  | RunAction;
+  | KeyCall;
 
 export interface SelectionNodeInfo {
   collapsed: boolean;
@@ -149,14 +149,19 @@ const SELECTION_INTENTS = new Map<string, IntentOf>([
 /**
  * The selection's keys, read while a row is selected and none is edited.
  * Owned by the outline, so its bindings are held first and Escape is its
- * alone, with the history chords and the palette's ⌘K.
+ * alone, with the history chords. The page's keys (⌘K) are offered first.
  */
-export const SELECTION_CONTEXT: KeyContext = {
-  id: "outline.selection",
-  owner: outlineExtension.name,
-  intents: [...SELECTION_INTENTS.keys()],
-  reserved: [{ key: "Escape" }, TEXT_HISTORY_CHORD, PALETTE_CHORD],
+export const SELECTION_CONTEXT: ContributionEntry<KeyContextSpec> = {
+  id: "selection",
+  value: {
+    reach: "surface",
+    intents: [...SELECTION_INTENTS.keys()],
+    reserved: [{ key: "Escape" }, TEXT_HISTORY_CHORD],
+  },
 };
+
+/** The context's id, as bindings name it: the outline's namespace, then its own. */
+export const SELECTION_CONTEXT_ID = `${outlineExtension.name}.${SELECTION_CONTEXT.id}`;
 
 function selectionBinding(
   id: string,
@@ -165,7 +170,7 @@ function selectionBinding(
 ): ContributionEntry<Keybinding> {
   return {
     id: `selection.${id}`,
-    value: { context: SELECTION_CONTEXT.id, chord, run: { intent } },
+    value: { context: SELECTION_CONTEXT_ID, chord, run: { intent } },
   };
 }
 
@@ -220,7 +225,7 @@ export const SELECTION_BINDINGS: readonly ContributionEntry<Keybinding>[] = [
 
 /**
  * Map a keydown to a selection action under `keymap` (the selection
- * context's, `currentKeymap(SELECTION_CONTEXT)`), or null if not handled.
+ * context's, `currentKeymap(SELECTION_CONTEXT_ID)`), or null if not handled.
  * Caller should preventDefault when a non-null action is returned.
  */
 export function mapSelectionKey(
@@ -234,7 +239,7 @@ export function mapSelectionKey(
   const binding = keymap.resolve(ev);
   if (binding === undefined) return null;
   const { run } = binding.value;
-  if ("action" in run) return runActionOf(run, selectedNodeId);
+  if (!("intent" in run)) return keyCallOf(run, selectedNodeId);
   const intent = SELECTION_INTENTS.get(run.intent);
   if (intent === undefined) return null;
   return intent({

@@ -1,7 +1,7 @@
 {
   "bytes": {
-    "limit": 2737335,
-    "reason": "The node table reads every node's references on its first change, not at every build: 183 bytes that keep opening a store from restating each node twice."
+    "limit": 2738107,
+    "reason": "#176 routes the page's keys through key contexts the CLI's closure also loads (772 bytes over the lazy-load floor of 2737335, where the node table reads every node's references on its first change)."
   },
   "modules": {
     "limit": 721,
