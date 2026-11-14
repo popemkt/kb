@@ -121,11 +121,8 @@ const planCall = Effect.fn("node.batch.call")(function* (
     const { write } = yield* planNodeUpdate(nodes, call.input, at, (id) => byId.get(id));
     return { id: call.input.id, write };
   }
-  const { id } = call.input;
-  if (!nodes.some((node) => node.id === id)) {
-    return yield* domainError("not_found", `node not found: ${id}`, { id });
-  }
-  return { id, write: planNodeDelete(nodes, call.input, at) };
+  // A node already gone is deleted already: nothing to write, as `node.delete`.
+  return { id: call.input.id, write: planNodeDelete(nodes, call.input, at) };
 });
 
 /**

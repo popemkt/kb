@@ -99,6 +99,25 @@ describe.each([...STORE_BACKENDS])("node.batch over a %s store", (backend) => {
     expect(node("n.a")?.text).toBe("a");
   });
 
+  test("deletes nothing more for a node an earlier call already deleted, as node.delete does", async () => {
+    const { ctx, node } = await opened();
+    const head = ctx.log.head;
+    const receipt = await invoke(ctx, {
+      id: "node.batch",
+      input: {
+        calls: [
+          // The parent takes its subtree with it; the child's own delete finds it gone.
+          { action: "node.delete", input: { id: "n.b" } },
+          { action: "node.delete", input: { id: "n.c" } },
+        ],
+      },
+    });
+    expect(receipt).toMatchObject({ status: "succeeded", output: { ids: ["n.b", "n.c"] } });
+    expect(ctx.log.head).toBe(head + 1);
+    expect(node("n.b")).toBeUndefined();
+    expect(node("n.c")).toBeUndefined();
+  });
+
   test("is refused whole when the commit refuses any part of it", async () => {
     const { ctx, node } = await opened();
     const head = ctx.log.head;

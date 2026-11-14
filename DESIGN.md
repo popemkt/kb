@@ -4812,7 +4812,8 @@ the same functions the three actions commit through), and each call's writes
 are applied to the copy before the next is planned, so a later call sees an
 earlier one: two moves into one parent at `position` and `position + 1` land
 in that order, and an update of a node an earlier call deleted is refused
-as `not_found`. A failure names its call (`call N:` in the message,
+as `not_found`, while a delete of a node already gone deletes nothing, as
+`node.delete` does. A failure names its call (`call N:` in the message,
 `details.call`, 0-based), and any failure writes nothing. The result is
 committed once (`persistPlannedEffect`): one integrity check, one approval
 and guard decision over all of it, one transaction-tail record, one undo
