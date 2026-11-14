@@ -93,12 +93,14 @@ describe("UI datalog on DatascriptIndex", () => {
       // family (+10); the routines calendar's view option (+1); Backdrop
       // Studio's view option (+1); the routines sync services view option (+1);
       // the days family's day view option (+1), retired when a day opened in
-      // the node page (-1); the procedure page view option (+1).
-      ["queries.list-all", 98],
+      // the node page (-1); the procedure page view option (+1); the
+      // routines event view option (+1); the calendar and detail view
+      // options and their View as commands (+4).
+      ["queries.list-all", 103],
       ["queries.list-fields", 30],
       ["queries.list-tags", 2],
       ["queries.backlinks-n.root-a", 0],
-      ["query-node.default", 98],
+      ["query-node.default", 103],
       ["schema-zoom.tagged-todo", 2],
       ["schema-zoom.field-status", 2],
       ["graph-lens.todo-via-id", 2],

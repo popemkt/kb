@@ -119,11 +119,15 @@ test("past a row's text start, a row lands as its first child, the row opening t
 }) => {
   const moving = await add(request, "Row to file away");
   const shelf = await add(request, "Shelf row");
+  await page.goto(`/node/${ROOT}`);
+  // A child the shelf gains in view keeps it open (a row with children opens
+  // closed only when it had them when the page loaded).
+  await expect(row(page, shelf)).toBeVisible();
   const kept = await invoke<{ id: string }>(request, "node.add", {
     text: "Already on the shelf",
     parent: shelf,
   });
-  await page.goto(`/node/${ROOT}`);
+  await expect(row(page, kept.id)).toBeVisible();
   // The shelf collapsed: its children not drawn.
   await bullet(page, shelf).click();
   await expect(row(page, kept.id)).toHaveCount(0);
@@ -143,11 +147,13 @@ test("Escape puts a dragged row down where it was, and its press is not a click"
 }) => {
   const ids = [await add(request, "Stays first"), await add(request, "Stays second")];
   const [first = "", second = ""] = ids;
+  await page.goto(`/node/${ROOT}`);
+  // A child the row gains in view keeps it open, its child drawn.
+  await expect(row(page, second)).toBeVisible();
   const child = await invoke<{ id: string }>(request, "node.add", {
     text: "A child of the second",
     parent: second,
   });
-  await page.goto(`/node/${ROOT}`);
   await expect(row(page, child.id)).toBeVisible();
 
   await pickUp(page, second, () => onRow(page, first, -12, 4));
