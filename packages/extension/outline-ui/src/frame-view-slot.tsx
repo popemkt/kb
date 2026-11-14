@@ -1,5 +1,6 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import {
+  cn,
   frameViewLabelOf,
   type FrameRowProps,
   FrameSubjectContext,
@@ -14,26 +15,78 @@ import {
   ViewNotLoaded,
   ViewSlot,
   ViewUnavailable,
+  resolveRowRows,
 } from "@kb/ui-sdk";
 import { projectsRows } from "@kb/views";
 import { outlineFrameSubject } from "./outline-frame";
-import { useOutlineStore } from "./outline.store";
+import { createTransientNode } from "./editing-writes";
+import { outlineNodes, useOutlineStore } from "./outline.store";
 
 /**
  * The children a row shows — its shown node's (`lib/contextual-ref`) — by
- * their frame's view, under the row's instance: the outline's own rows and
- * any frame view that asks (`FrameSubject.RowChildren`) draw them with this.
- * A projected view is one block, indented under the row; a list's rows
- * indent themselves.
+ * their frame's view, under the row's instance, and the strip that adds one
+ * (`resolveRowRows`): the outline's own rows and any frame view that asks
+ * (`FrameSubject.RowChildren`) draw them with this. A projected view is one
+ * block, indented under the row; a list's rows indent themselves.
  */
 export function RowChildren({ nodeId, instanceKey, depth }: FrameRowProps) {
   const { outline, schema } = useGraphRead();
   const node = outline.get(nodeId);
   const shown = node === undefined ? undefined : shownNode(node, schema);
   const view = useFrameView(shown);
-  if (shown === undefined) return null;
+  if (node === undefined || shown === undefined) return null;
+  const key = view?.key ?? null;
+  const rows = resolveRowRows({ node, schema, view: key, instanceKey });
   const slot = <FrameViewSlot frameId={shown.id} instanceKey={instanceKey} depth={depth} />;
-  return projectsRows(view?.key ?? null) ? <div style={indentStyle(depth)}>{slot}</div> : slot;
+  return (
+    <>
+      {rows.showsChildren &&
+        (projectsRows(key) ? <div style={indentStyle(depth)}>{slot}</div> : slot)}
+      {rows.showsCreateChild && <CreateChildStrip parentId={shown.id} depth={depth} />}
+    </>
+  );
+}
+
+/**
+ * Tana whitespace-create: the strip under a row's children mints a transient
+ * child, last, under `parentId` — the node the row shows — at the children's
+ * `depth`.
+ */
+function CreateChildStrip({ parentId, depth }: { parentId: string; depth: number }) {
+  const handleCreateChild = useCallback(() => {
+    const parent = outlineNodes().get(parentId);
+    const lastChild = parent?.children.at(-1) ?? null;
+    void createTransientNode(parentId, lastChild);
+  }, [parentId]);
+
+  return (
+    <div
+      data-create-child-zone={parentId}
+      role="button"
+      tabIndex={0}
+      aria-label="New child node"
+      className={cn(
+        "group/create relative flex h-6 cursor-pointer items-center rounded-sm",
+        "outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+      )}
+      style={indentStyle(depth)}
+      onClick={handleCreateChild}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleCreateChild();
+        }
+      }}
+      title="New child node"
+    >
+      <span
+        className="flex h-6 w-6 items-center justify-center text-ui leading-none text-foreground/0 transition-colors duration-150 group-hover/create:text-foreground/25 group-focus-visible/create:text-foreground/25"
+        aria-hidden
+      >
+        +
+      </span>
+    </div>
+  );
 }
 
 /**

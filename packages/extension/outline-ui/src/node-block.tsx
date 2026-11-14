@@ -6,7 +6,6 @@ import {
   bulletClickIntent,
   cn,
   guideLineStyle,
-  indentStyle,
   NodeRow,
   nodeTarget,
   outlineInstanceKey,
@@ -21,8 +20,7 @@ import {
   useNodePaletteOpen,
   usePane,
 } from "@kb/ui-sdk";
-import { useOutlineStore, outlineNodes } from "./outline.store";
-import { createTransientNode } from "./editing-writes";
+import { useOutlineStore } from "./outline.store";
 
 import { FieldsSection } from "./fields-section";
 import { RowChildren } from "./frame-view-slot";
@@ -236,54 +234,9 @@ export const NodeBlock = memo(function NodeBlock({
             />
           )}
 
-          {chrome.showsChildren && (
-            <RowChildren nodeId={nodeId} instanceKey={instanceKey} depth={depth + 1} />
-          )}
-
-          {chrome.showsCreateChild && <CreateChildStrip parentId={shownId} depth={depth} />}
+          <RowChildren nodeId={nodeId} instanceKey={instanceKey} depth={depth + 1} />
         </div>
       )}
     </div>
   );
 });
-
-/**
- * Tana whitespace-create: the strip under a row's children mints a transient
- * child, last, under `parentId` — the node the row shows.
- */
-function CreateChildStrip({ parentId, depth }: { parentId: string; depth: number }) {
-  const handleCreateChild = useCallback(() => {
-    const parent = outlineNodes().get(parentId);
-    const lastChild = parent?.children.at(-1) ?? null;
-    void createTransientNode(parentId, lastChild);
-  }, [parentId]);
-
-  return (
-    <div
-      data-create-child-zone={parentId}
-      role="button"
-      tabIndex={0}
-      aria-label="New child node"
-      className={cn(
-        "group/create relative flex h-6 cursor-pointer items-center rounded-sm",
-        "outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
-      )}
-      style={indentStyle(depth + 1)}
-      onClick={handleCreateChild}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          handleCreateChild();
-        }
-      }}
-      title="New child node"
-    >
-      <span
-        className="flex h-6 w-6 items-center justify-center text-ui leading-none text-foreground/0 transition-colors duration-150 group-hover/create:text-foreground/25 group-focus-visible/create:text-foreground/25"
-        aria-hidden
-      >
-        +
-      </span>
-    </div>
-  );
-}

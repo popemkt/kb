@@ -309,7 +309,7 @@ export {
   FrameSubjectContext,
   useFrameSubject,
 } from "./lib/frame-subject";
-export { isReferenceRow, resolveRowChrome } from "./lib/row-chrome";
+export { isReferenceRow, resolveRowChrome, resolveRowRows } from "./lib/row-chrome";
 export { type GraphRead, type GraphSource } from "./lib/graph-read";
 export {
   type GraphChange,
