@@ -291,16 +291,17 @@ describe("palette command routing (characterization)", () => {
     expect(node("n.root-a")?.collapsed).toBe(true);
   });
 
-  it("the four view-as commands write the view onto the zoomed frame's view node", async () => {
+  it("the five view-as commands write the view onto the zoomed frame's view node", async () => {
     useGraphStore.setState({ rootNodeId: "n.root-a" });
-    for (const [commandId, mode] of [
-      [SYSTEM_IDS.cmdViewAsList, "list"],
-      [SYSTEM_IDS.cmdViewAsTable, "table"],
-      [SYSTEM_IDS.cmdViewAsBoard, "board"],
-      [SYSTEM_IDS.cmdViewAsCards, "cards"],
+    for (const [commandId, view] of [
+      [SYSTEM_IDS.cmdViewAsList, "outline.list"],
+      [SYSTEM_IDS.cmdViewAsTable, "outline.table"],
+      [SYSTEM_IDS.cmdViewAsBoard, "outline.board"],
+      [SYSTEM_IDS.cmdViewAsCards, "outline.cards"],
+      [SYSTEM_IDS.cmdViewAsDetail, "collections.detail"],
     ] as const) {
       await run(commandId);
-      expect(shownAs("n.root-a")).toBe(viewOptionId(`outline.${mode}`));
+      expect(shownAs("n.root-a")).toBe(viewOptionId(view));
     }
   });
 

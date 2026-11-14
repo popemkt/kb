@@ -52,6 +52,13 @@ export interface FrameSubject {
   readonly pages: number;
   /** Reveal one more page of the frame's rows. */
   readonly revealMorePages: () => void;
+  /**
+   * The row a detail view last chose to show, as the host keeps it for the
+   * frame; null while none is (DESIGN-UI.md → List with detail).
+   */
+  readonly detail: string | null;
+  /** Show the row `nodeId` in the frame's detail, as the host keeps it. */
+  readonly showDetail: (nodeId: string) => void;
   readonly RowText: ComponentType<FrameRowTextProps>;
   /**
    * The children a row shows, in their own frame view, as the host draws

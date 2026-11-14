@@ -128,13 +128,15 @@ export function FrameViewSlot({
   // The pages revealed are the outline's, so the rows a view draws are the
   // rows its keyboard walk reaches.
   const pages = useOutlineStore((s) => s.framePages[frameId] ?? 1);
+  const detail = useOutlineStore((s) => s.frameDetails[frameId] ?? null);
   const subject = useMemo(
     () =>
       outlineFrameSubject(
         { frameId, isQuerySource, depth, instanceKey, rowIds, RowChildren },
         pages,
+        detail,
       ),
-    [frameId, instanceKey, rowIds, isQuerySource, depth, pages],
+    [frameId, instanceKey, rowIds, isQuerySource, depth, pages, detail],
   );
   return (
     <FrameSubjectContext.Provider value={subject}>

@@ -4,4 +4,9 @@
  * entries from. The browser half is `@kb/collections-ui`.
  */
 export { collectionsExtension, collectionsPlugin } from "./extension.ts";
-export { CollectionBoardView, CollectionCardsView, CollectionTableView } from "./view.ts";
+export {
+  CollectionBoardView,
+  CollectionCardsView,
+  CollectionDetailView,
+  CollectionTableView,
+} from "./view.ts";

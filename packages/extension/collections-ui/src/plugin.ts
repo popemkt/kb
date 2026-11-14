@@ -4,6 +4,7 @@ import { definePlugin } from "@kb/plugin";
 import {
   CollectionBoardView,
   CollectionCardsView,
+  CollectionDetailView,
   CollectionTableView,
   collectionsExtension,
   collectionsPlugin,
@@ -11,8 +12,8 @@ import {
 import { DEFAULT_VIEW_CONFIG } from "@kb/views";
 import { BrowserHostService, provideView, ViewPoint } from "@kb/ui-sdk";
 import { SYSTEM_IDS } from "@kb/model";
-import { SquaresFourIcon, TableIcon } from "@phosphor-icons/react";
-import { BoardFrameView, CardsFrameView, TableFrameView } from "./frame-views";
+import { SidebarSimpleIcon, SquaresFourIcon, TableIcon } from "@phosphor-icons/react";
+import { BoardFrameView, CardsFrameView, DetailFrameView, TableFrameView } from "./frame-views";
 
 const { filters, sort, display, colwidth, pagesize, groupFieldId, collapsed, hideEmpty, calc } =
   DEFAULT_VIEW_CONFIG;
@@ -59,10 +60,22 @@ const COLLECTION_VIEWS = [
       command: SYSTEM_IDS.cmdViewAsCards,
     },
   }),
+  provideView(CollectionDetailView, {
+    placements: ["inline"],
+    sample: { filters, sort },
+    Component: DetailFrameView,
+    picker: {
+      order: 4,
+      glyph: "◧",
+      icon: SidebarSimpleIcon,
+      iconWeight: "regular",
+      command: SYSTEM_IDS.cmdViewAsDetail,
+    },
+  }),
 ];
 
 /**
- * The collections family's page entry: its three frame views. It loads the
+ * The collections family's page entry: its four frame views. It loads the
  * family's shared plugin as a child, so the views' keys reach the page
  * kernel's catalog from the family, as the server's do, and it applies after
  * the host, through which its views read the page.

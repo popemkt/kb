@@ -848,8 +848,8 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 ### GAP: core seeds the view-as command nodes for every family's views
 
-- **expected** — each family seeds the node commands for its own views (the outline its list, collections its table, board and cards)
-- **current** — core's seed declares sys.cmd.view-as-{list,table,board,cards}
+- **expected** — each family seeds the node commands for its own views (the outline its list, collections its table, board, cards and list with detail)
+- **current** — core's seed declares sys.cmd.view-as-{list,table,board,cards,detail}
 - **impact** — core names the outline's and the collections family's views; with collections off its view-as commands are still seeded
 - **closes** — each family's declaration seeds its view-as commands, and core's seed drops them
 - **node** — `01M536CGS8JJ7XMG3F738WSNYK`

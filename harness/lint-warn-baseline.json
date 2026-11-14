@@ -20,7 +20,7 @@
       "@kb/plugin": 41,
       "@kb/query": 56,
       "@kb/seed": 8,
-      "@kb/views": 118,
+      "@kb/views": 119,
       "@kb/agent": 62,
       "@kb/agent-claude": 3,
       "@kb/agent-openai": 3,
@@ -35,7 +35,7 @@
       "@kb/check": 1,
       "@kb/code": 11,
       "@kb/code-ui": 1,
-      "@kb/collections": 5,
+      "@kb/collections": 6,
       "@kb/collections-ui": 3,
       "@kb/days": 36,
       "@kb/days-ui": 1,
@@ -149,7 +149,7 @@
     },
     "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2784688,
+      "bytes": 2785133,
       "modules": 736
     },
     "single-family": {

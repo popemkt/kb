@@ -4,9 +4,11 @@ import type { ParamsOf } from "@kb/views";
 import {
   CollectionBoardView,
   CollectionCardsView,
+  type CollectionDetailView,
   type CollectionTableView,
 } from "@kb/collections";
 import { BoardCardsView } from "./board-cards-view";
+import { DetailView } from "./detail-view";
 import { TableView } from "./table-view";
 
 /** The table view: the frame's rows as one sorted, paged run, a column per field. */
@@ -30,4 +32,11 @@ export function CardsFrameView({ params }: ViewProps<ParamsOf<typeof CollectionC
   const view = useMemo(() => ({ key: CollectionCardsView, params }), [params]);
   if (subject === null) return <NoFrame />;
   return <BoardCardsView frame={subject} view={view} />;
+}
+
+/** The detail view: the frame's rows as a list beside one row's page. */
+export function DetailFrameView({ params }: ViewProps<ParamsOf<typeof CollectionDetailView>>) {
+  const subject = useFrameSubject();
+  if (subject === null) return <NoFrame />;
+  return <DetailView frame={subject} params={params} />;
 }

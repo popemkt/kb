@@ -215,6 +215,7 @@ describe("node command palette", () => {
       "View as: Table",
       "View as: Board",
       "View as: Cards",
+      "View as: List with detail",
       "Filter…",
       "Delete node",
     ]);
@@ -240,6 +241,7 @@ describe("node command palette", () => {
       "View as: Table",
       "View as: Board",
       "View as: Cards",
+      "View as: List with detail",
       "Filter…",
       "Delete node",
     ]);

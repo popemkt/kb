@@ -115,6 +115,9 @@ interface OutlineState {
   /** Pages revealed per frame in paginating view modes (frame id -> pages). */
   framePages: Record<string, number>;
   revealMorePages: (frameId: string) => void;
+  /** The row each frame's detail view shows (frame id -> node id; DESIGN-UI.md → List with detail). */
+  frameDetails: Readonly<Record<string, string>>;
+  showDetail: (frameId: string, nodeId: string) => void;
   /** Each query node's builder as this screen left it (query node id -> screen state). */
   queryBuilders: Readonly<Record<string, QueryBuilderScreen>>;
   setQueryBuilder: (queryNodeId: string, patch: QueryBuilderScreen) => void;
@@ -142,6 +145,7 @@ export type OutlineStateData = {
 export const initialOutlineState: OutlineStateData = {
   expansion: new Map(),
   framePages: {},
+  frameDetails: {},
   queryBuilders: {},
   activeNodeId: null,
   activeInstanceKey: null,
@@ -565,6 +569,12 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
           [frameId]: (s.framePages[frameId] ?? 1) + 1,
         },
       })),
+    showDetail: (frameId, nodeId) =>
+      set((s) =>
+        s.frameDetails[frameId] === nodeId
+          ? s
+          : { frameDetails: { ...s.frameDetails, [frameId]: nodeId } },
+      ),
 
     getVisibleNodes: () =>
       get()
@@ -776,6 +786,7 @@ function visibleInstancesOf(
       views,
       chain: outline.chain,
       pages: useOutlineStore.getState().framePages,
+      details: useOutlineStore.getState().frameDetails,
     },
     host,
   );

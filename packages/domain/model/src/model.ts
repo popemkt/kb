@@ -202,6 +202,7 @@ export const SYSTEM_IDS = {
   cmdViewAsTable: "sys.cmd.view-as-table",
   cmdViewAsBoard: "sys.cmd.view-as-board",
   cmdViewAsCards: "sys.cmd.view-as-cards",
+  cmdViewAsDetail: "sys.cmd.view-as-detail",
   cmdViewFilter: "sys.cmd.view-filter",
   /** Virtual root for saved queries (.kb/queries/*.edn); never in jsonl. */
   queriesRoot: "sys.queries",

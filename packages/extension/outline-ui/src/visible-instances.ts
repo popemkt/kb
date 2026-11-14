@@ -28,7 +28,7 @@ import {
   slotRenders,
 } from "@kb/ui-sdk";
 import { isQueryNode, queryDefOf } from "@kb/model";
-import { laysOutLanes, projectsRows, type FrameViewKey } from "@kb/views";
+import { detailRowOf, laysOutLanes, projectsRows, type FrameViewKey } from "@kb/views";
 
 /** A row the walk reaches: which node, and under which instance. */
 export interface InstanceRef {
@@ -71,6 +71,8 @@ interface WalkContext {
   /** The slots around the outline's root frame, as its host renders it (`useSlotChain`). */
   chain: SlotChain;
   pages: FramePagesMap;
+  /** The row each frame's detail view shows, as the outline keeps it (frame id -> node id). */
+  details: Readonly<Record<string, string>>;
   out: VisibleInstance[];
 }
 
@@ -139,7 +141,30 @@ function walkLanes(ctx: WalkContext, lanes: ProjectedFrame, chain: SlotChain): v
  */
 function walkProjectedRows(ctx: WalkContext, frame: ProjectedFrame, chain: SlotChain): void {
   if (laysOutLanes(frame.view)) walkLanes(ctx, frame, chain);
+  else if (frame.view.key.rows === "detail") walkDetail(ctx, frame, chain);
   else emitProjectedRows(ctx, frame);
+}
+
+/**
+ * A frame laid out as a list with detail (DESIGN-UI.md → List with detail):
+ * its rows, and after the row its detail shows (`detailRowOf`) that row's
+ * children, as a list nests an open row's, since its page draws them.
+ */
+function walkDetail(ctx: WalkContext, frame: ProjectedFrame, chain: SlotChain): void {
+  const from = ctx.out.length;
+  emitProjectedRows(ctx, frame);
+  const rows = ctx.out.slice(from);
+  const shown = detailRowOf(
+    rows.map((row) => row.nodeId),
+    ctx.details[frame.frameId] ?? null,
+  );
+  const at = rows.findIndex((row) => row.nodeId === shown);
+  const row = rows[at];
+  const node = shown === null ? undefined : ctx.nodes.get(shown);
+  if (row === undefined || node === undefined) return;
+  const after = ctx.out.splice(from + at + 1);
+  walkRowChildren(ctx, node, row.instanceKey, chain);
+  ctx.out.push(...after);
 }
 
 /**
@@ -240,7 +265,8 @@ function walkRowChildren(
 
 /**
  * What the walk reads: the graph, the query db, the frame views provided, the
- * slots around the outline's root and the pages revealed.
+ * slots around the outline's root, the pages revealed and the rows detail
+ * views show.
  */
 type WalkSource = Omit<WalkContext, "out">;
 

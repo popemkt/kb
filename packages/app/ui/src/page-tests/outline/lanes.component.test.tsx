@@ -116,6 +116,7 @@ describe("a board's lanes", () => {
       views: providedFrameViews().map((view) => view.key),
       chain: [],
       pages: {},
+      details: {},
     });
     expect(walked.map((i) => i.nodeId)).toEqual(["L1", "a1", "a2", "L2", "b1", "L3"]);
     expect(walked.find((i) => i.nodeId === "a2")?.instanceKey).toBe(under("L1", "a2"));

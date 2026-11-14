@@ -31,6 +31,7 @@ export {
   FRAME_SETTINGS,
   FRAME_VIEW_FAMILY,
   decodeFrameConfig,
+  detailRowOf,
   encodeFrameConfig,
   frameSettingWrite,
   isFrameViewKey,

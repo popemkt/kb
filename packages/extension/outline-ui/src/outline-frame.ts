@@ -19,14 +19,20 @@ type OutlineFrame = Pick<
  * `pages` of its rows revealed: the outline edits each row's text and fields,
  * draws a row's children when the view asks (`RowChildren`), adds the rows
  * it asks for (`addRow`, `addFrameRow`), and keeps how
- * many pages are revealed, so the rows a view draws are the rows the
+ * many pages are revealed and which row a detail view shows, so the rows a view draws are the rows the
  * outline's keyboard walk reaches.
  */
-export function outlineFrameSubject(frame: OutlineFrame, pages: number): FrameSubject {
+export function outlineFrameSubject(
+  frame: OutlineFrame,
+  pages: number,
+  detail: string | null = null,
+): FrameSubject {
   return {
     ...frame,
     pages,
     revealMorePages: () => useOutlineStore.getState().revealMorePages(frame.frameId),
+    detail,
+    showDetail: (nodeId) => useOutlineStore.getState().showDetail(frame.frameId, nodeId),
     RowText: FrameRowText,
     addRow: (where) => void addFrameRow(frame, where),
   };

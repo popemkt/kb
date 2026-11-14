@@ -56,8 +56,8 @@
     "reason": "Lane B dropped the 39 names nothing outside query imports, tests included; under the proposal's 60. The Tana views line adds what a match requires (requirementsOf and its Requirements), which node.add's matching and the page's \"+ Add\" both read, and readQuery, moved from the outline's query builder so both read a query as the builder does."
   },
   "@kb/views": {
-    "limit": 118,
-    "reason": "The honest stop, not 85: every name has an importer outside views, every views file is shared by two or more packages, and the 55 names only @kb/ui reads sit in those shared files (layout, frame, node views). #203 adds the procedure page's view key and params (ProcedureView, ProcedureParams), shared by core's declaration and the browser route. The Tana views line adds a table's calculations (calculate, calculationsFor, CALCULATION_LABELS and the Calculation type), read by the table that draws a result and the view settings that offer a choice; and laysOutLanes, which the board's renderer and the outline's row walk both ask."
+    "limit": 119,
+    "reason": "The honest stop, not 85: every name has an importer outside views, every views file is shared by two or more packages, and the 55 names only @kb/ui reads sit in those shared files (layout, frame, node views). #203 adds the procedure page's view key and params (ProcedureView, ProcedureParams), shared by core's declaration and the browser route. The Tana views line adds a table's calculations (calculate, calculationsFor, CALCULATION_LABELS and the Calculation type), read by the table that draws a result and the view settings that offer a choice; and laysOutLanes, which the board's renderer and the outline's row walk both ask; and detailRowOf, the row a list with detail shows, which its renderer and the outline's row walk both read."
   },
   "@kb/agent": {
     "limit": 62,
@@ -106,7 +106,8 @@
     "limit": 1
   },
   "@kb/collections": {
-    "limit": 5
+    "limit": 6,
+    "reason": "Its four frame view keys (table, board, cards, list with detail), the family's declaration and its plugin: the page's renderers and core's seed each read them."
   },
   "@kb/collections-ui": {
     "limit": 3

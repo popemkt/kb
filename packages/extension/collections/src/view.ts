@@ -59,3 +59,21 @@ export const CollectionCardsView = frameViewKey(
   }),
   "columns",
 );
+
+/**
+ * A frame's rows as a list beside one row's page (DESIGN-UI.md → List with
+ * detail). Born in the family's own namespace, unlike the three before it.
+ */
+export const CollectionDetailView = frameViewKey(
+  "collections.detail",
+  "List with detail",
+  Schema.Struct({
+    filters: FRAME_SETTINGS.filters,
+    sort: FRAME_SETTINGS.sort,
+  }).annotate({
+    description:
+      "A frame's rows as a list beside the page of the row the selection last chose (the first, until one is)." +
+      FRAME_HOST,
+  }),
+  "detail",
+);

@@ -309,14 +309,15 @@ export interface FrameViewParams {
  * A frame view's key: data only, the trait the row walk needs beside the
  * params. `rows` is how it lays out the frame's rows: `outline` nests, each
  * row hosting its own children in turn; `rows` is one flat run; `columns`
- * groups flat rows into columns. What happens to the rows follows from the
+ * groups flat rows into columns; `detail` is one flat run beside one row's
+ * page (DESIGN-UI.md → List with detail). What happens to the rows follows from the
  * params: it sorts when they declare `sort`, pages when they declare
  * `pagesize`, and groups its columns by a field when they declare
  * `groupFieldId`.
  */
 export interface FrameViewKey<P extends FrameViewParams = FrameViewParams> extends ViewKey<P> {
   readonly family: typeof FRAME_VIEW_FAMILY;
-  readonly rows: "outline" | "rows" | "columns";
+  readonly rows: "outline" | "rows" | "columns" | "detail";
 }
 
 export function isFrameViewKey(key: ViewKey<unknown>): key is FrameViewKey {
@@ -343,6 +344,16 @@ export function laysOutLanes(view: {
     Object.hasOwn(view.params, "groupFieldId") &&
     view.params.groupFieldId === null
   );
+}
+
+/**
+ * The row a detail view shows (DESIGN-UI.md → List with detail): the one
+ * its host holds while the frame still shows it, else the first; null for
+ * a frame with no rows. The view draws it and the row walk nests its
+ * children, so both read this.
+ */
+export function detailRowOf(rowIds: readonly string[], held: string | null): string | null {
+  return held !== null && rowIds.includes(held) ? held : (rowIds[0] ?? null);
 }
 
 const VIEW_SLOTS: ConfigSlots<ViewConfig> = {
