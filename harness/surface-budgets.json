@@ -48,8 +48,8 @@
     "limit": 3
   },
   "@kb/plugin": {
-    "limit": 43,
-    "reason": "#191: PluginHandle and rootPluginName, which a shortcut's provenance reads; #190 dropped the kernel's names no package outside plugin imports."
+    "limit": 41,
+    "reason": "#191: PluginHandle and rootPluginName, which a shortcut's provenance reads; #190 and lane B dropped the kernel's names no package outside plugin imports, tests included."
   },
   "@kb/query": {
     "limit": 53,
