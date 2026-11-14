@@ -35,6 +35,7 @@ import {
   BREAKOUT_CLASS,
   useBreakoutShift,
 } from "@kb/ui-sdk";
+import { AddRow } from "./add-row";
 import { fieldTypeOf, SYSTEM_IDS } from "@kb/model";
 import {
   CALCULATION_LABELS,
@@ -278,6 +279,9 @@ export function TableView({
           </button>
         </div>
       )}
+      <div className="p-1">
+        <AddRow frame={frame} filters={settings.filters} label="Add a row" />
+      </div>
     </div>
   );
 }

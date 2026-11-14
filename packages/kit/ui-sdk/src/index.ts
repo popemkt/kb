@@ -307,6 +307,7 @@ export {
   type FrameRowTextProps,
   type FrameSubject,
   FrameSubjectContext,
+  type RowCondition,
   useFrameSubject,
 } from "./lib/frame-subject";
 export { isReferenceRow, resolveRowChrome, resolveRowRows } from "./lib/row-chrome";
@@ -329,7 +330,7 @@ export {
   type PageProjection,
   PageProjectionService,
 } from "./lib/page-ports";
-export type { PageWrites } from "./lib/page-writes";
+export type { MatchingAdd, PageWrites } from "./lib/page-writes";
 export {
   type FieldContext,
   fieldContextOf,

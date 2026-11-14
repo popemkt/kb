@@ -5,8 +5,10 @@
  * focus leaves it still empty (Tana, r1 §3.3), and "the row above" is the one
  * the outline draws above (r1 D09).
  */
+import { requirementsOf } from "@kb/query";
+import type { ViewFilter } from "@kb/views";
 import { outlineNodes, useOutlineStore } from "./outline.store";
-import { browserHost } from "@kb/ui-sdk";
+import { browserHost, schemaOf, toast, type FrameSubject, type RowCondition } from "@kb/ui-sdk";
 
 /** The minted id, marked transient; null when the write was refused. */
 function transient(id: string | null): string | null {
@@ -51,4 +53,38 @@ export async function mergeWithPrevious(id: string, instanceKey?: string): Promi
       ? null
       : (useOutlineStore.getState().getPreviousVisibleInstance(instanceKey)?.nodeId ?? null);
   await browserHost().writes.mergeWithPrevious(id, previous);
+}
+
+/** The one narrowing row a view's filter adds to the query vocabulary. */
+type AnywhereFilter = Extract<ViewFilter, { kind: "anywhere-contains" }>;
+
+/**
+ * A row where a frame view asks for one (`FrameSubject.addRow`, DESIGN-UI.md
+ * → Adding to a frame): empty, carrying what `where` requires
+ * (`requirementsOf`, read over the whole graph's fields and options) and the
+ * frame's own part: the query it matches, or the frame as its parent. It is
+ * transient like any row the outline mints, and a toast says when something
+ * asked could not be written, so the row may not show where it was asked.
+ */
+export async function addFrameRow(
+  frame: Pick<FrameSubject, "frameId" | "isQuerySource">,
+  where: readonly RowCondition[],
+): Promise<string | null> {
+  const schema = schemaOf(browserHost().graph.state());
+  const req = requirementsOf<AnywhereFilter>(where, (id) => schema.get(id));
+  const parent = req.parent ?? (frame.isQuerySource ? undefined : frame.frameId);
+  const added = await browserHost().writes.addMatchingNode({
+    tags: req.tags,
+    props: req.props,
+    ...(parent === undefined ? {} : { parent }),
+    ...(frame.isQuerySource ? { matching: frame.frameId } : {}),
+  });
+  if (added === null) return null;
+  useOutlineStore.getState().markTransient(added.id);
+  if (added.unmet + req.unmet.length > 0) {
+    toast(
+      "Added, but not everything this view asks for could be filled in, so it may not show here",
+    );
+  }
+  return added.id;
 }

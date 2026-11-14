@@ -95,6 +95,8 @@ export function mapAdd(opts: {
   position?: number;
   tags?: string[];
   props?: { field: string; value: PropValue }[];
+  /** A query node whose requirements the node takes (DESIGN.md → What a match requires). */
+  matching?: string;
   id?: string;
   force?: boolean;
 }): PlannedAction {
@@ -107,6 +109,7 @@ export function mapAdd(opts: {
       ...(opts.position !== undefined ? { position: opts.position } : {}),
       ...(opts.tags && opts.tags.length > 0 ? { tags: opts.tags } : {}),
       ...(props.length > 0 ? { props } : {}),
+      ...(opts.matching !== undefined ? { matching: opts.matching } : {}),
       ...(opts.id !== undefined ? { id: opts.id } : {}),
       ...(opts.force === true ? { force: true } : {}),
     },

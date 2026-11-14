@@ -13,7 +13,15 @@
  * its host edits.
  */
 import { createContext, useContext, type ComponentType } from "react";
+import type { Condition } from "@kb/query";
+import type { ViewFilter } from "@kb/views";
 import type { OutlineNode, TagBadge } from "./types";
+
+/**
+ * A condition a new row holds where a view asks for it: the view's filter,
+ * or a group's value as `field-is` (DESIGN-UI.md → Adding to a frame).
+ */
+export type RowCondition = Condition | ViewFilter;
 
 /** A row's text, as the host edits it, inside the view's own row chrome. */
 export interface FrameRowTextProps {
@@ -51,6 +59,13 @@ export interface FrameSubject {
    * view asks its host for a row's children.
    */
   readonly RowChildren: ComponentType<FrameRowProps>;
+  /**
+   * Add a row where the view asks for one, holding `where` (DESIGN-UI.md →
+   * Adding to a frame): the host adds the frame's own part, the query it
+   * matches or the frame as parent, and opens the row's text. The one way a
+   * view asks its host for a new row.
+   */
+  readonly addRow: (where: readonly RowCondition[]) => void;
 }
 
 /** Only a frame's host provides it; a frame view outside one has no frame to show. */

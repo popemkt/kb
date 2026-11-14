@@ -1,4 +1,5 @@
 import type { FrameSubject } from "@kb/ui-sdk";
+import { addFrameRow } from "./editing-writes";
 import { FrameRowText } from "./frame-row-text";
 import { useOutlineStore } from "./outline.store";
 
@@ -16,7 +17,8 @@ type OutlineFrame = Pick<
 /**
  * A frame as the outline hands it to the frame view that lays it out, with
  * `pages` of its rows revealed: the outline edits each row's text and fields,
- * draws a row's children when the view asks (`RowChildren`), and keeps how
+ * draws a row's children when the view asks (`RowChildren`), adds the rows
+ * it asks for (`addRow`, `addFrameRow`), and keeps how
  * many pages are revealed, so the rows a view draws are the rows the
  * outline's keyboard walk reaches.
  */
@@ -26,5 +28,6 @@ export function outlineFrameSubject(frame: OutlineFrame, pages: number): FrameSu
     pages,
     revealMorePages: () => useOutlineStore.getState().revealMorePages(frame.frameId),
     RowText: FrameRowText,
+    addRow: (where) => void addFrameRow(frame, where),
   };
 }

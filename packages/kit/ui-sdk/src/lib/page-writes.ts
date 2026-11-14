@@ -14,6 +14,15 @@ import type { FrameViewKey, ViewConfig, ViewFilter } from "@kb/views";
 import type { RefCreation } from "./refs";
 import type { PropValue } from "./types";
 
+/** What `addMatchingNode` gives the node it mints: `node.add`'s place and carriers. */
+export interface MatchingAdd {
+  readonly parent?: string;
+  /** A query node whose requirements it takes (`node.add`'s `matching`). */
+  readonly matching?: string;
+  readonly tags: readonly string[];
+  readonly props: readonly { readonly field: string; readonly value: PropValue }[];
+}
+
 export interface PageWrites {
   /** Local text action first; coalesce its ordered remote confirmation. */
   readonly updateNodeContent: (id: string, content: string) => Promise<void>;
@@ -38,6 +47,14 @@ export interface PageWrites {
   ) => Promise<string | null>;
   /** Mint an empty sibling directly ABOVE the anchor and activate it ('O' key). */
   readonly createEmptyNodeBefore: (beforeId: string) => Promise<string | null>;
+  /**
+   * Mint a real empty node that carries what it was asked for, as one
+   * `node.add` (one undo step), and activate it: under `parent`, else where
+   * `matching`'s query places it, else where captures go (DESIGN-UI.md →
+   * Adding to a frame). Its id and how many of the query's conditions it
+   * does not hold, or null when refused.
+   */
+  readonly addMatchingNode: (add: MatchingAdd) => Promise<{ id: string; unmet: number } | null>;
   readonly addTagField: (tagId: string, fieldId: string) => Promise<void>;
   readonly removeTagField: (tagId: string, fieldId: string) => Promise<void>;
   readonly setTagColor: (tagId: string, color: string | null) => Promise<void>;

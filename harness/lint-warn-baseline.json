@@ -18,7 +18,7 @@
       "@kb/model": 266,
       "@kb/outline-paste": 3,
       "@kb/plugin": 41,
-      "@kb/query": 53,
+      "@kb/query": 56,
       "@kb/seed": 8,
       "@kb/views": 118,
       "@kb/agent": 62,
@@ -80,7 +80,7 @@
       "@kb/appearance-kit": 41,
       "@kb/scene": 13,
       "@kb/scene-gpu": 35,
-      "@kb/ui-sdk": 507,
+      "@kb/ui-sdk": 509,
       "@kb/ui-test-kit": 26
     },
     "family-names": {
@@ -149,7 +149,7 @@
     },
     "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2775371,
+      "bytes": 2784688,
       "modules": 736
     },
     "single-family": {

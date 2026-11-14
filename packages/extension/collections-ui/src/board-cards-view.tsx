@@ -21,6 +21,7 @@ import {
   type OutlineNode,
   type PropValue,
   queryResultInstanceKey,
+  type RowCondition,
   resolveTableColumns,
   shownNode,
   shownNodeId,
@@ -37,8 +38,9 @@ import {
   BREAKOUT_CLASS,
   useBreakoutShift,
 } from "@kb/ui-sdk";
-import { laysOutLanes, localIdOf, type ParamsOf } from "@kb/views";
+import { laysOutLanes, localIdOf, type ParamsOf, type ViewFilter } from "@kb/views";
 import { CollectionBoardView, CollectionCardsView } from "@kb/collections";
+import { AddRow } from "./add-row";
 
 /**
  * The two column views over one component: the board groups its cards into a
@@ -167,10 +169,10 @@ export function BoardCardsView({
   if (laysOutLanes(view)) {
     return (
       <Lanes
-        frameId={frameId}
         rows={rows.rendered}
         keyFor={instanceKeyFor}
         frame={frame}
+        filters={view.params.filters}
         context={context}
         breakout={breakout}
         breakoutRef={breakoutRef}
@@ -211,6 +213,9 @@ export function BoardCardsView({
               draggable={false}
             />
           ))}
+          <div className="self-start">
+            <AddRow frame={frame} filters={view.params.filters} label="Add a card" />
+          </div>
         </div>
       ) : (
         <div className="flex items-start gap-3 min-w-max pb-2">
@@ -255,6 +260,12 @@ export function BoardCardsView({
                       onDragEnd={handleCardDragEnd}
                     />
                   ))}
+                  <AddRow
+                    frame={frame}
+                    filters={view.params.filters}
+                    where={groupWhere(groupFieldId, col.value)}
+                    label={`Add to ${col.label || "All"}`}
+                  />
                 </div>
               )}
             </div>
@@ -265,6 +276,14 @@ export function BoardCardsView({
   );
 }
 
+/** The condition a group's rows hold: its field is its value; the "No <field>" group asks none. */
+function groupWhere(field: string | null, value: PropValue | null): RowCondition[] {
+  if (field === null || value === null) return [];
+  // A date value is a legacy text form (`migrateDateValues`), asked for as its text.
+  const asked = value.t === "date" ? { t: "str" as const, v: value.v } : value;
+  return [{ kind: "field-is", field, values: [asked] }];
+}
+
 /**
  * A frame's rows as lanes (DESIGN-UI.md → Lanes): side by side, each the
  * row's own text over the rows under it, which the host draws as it draws
@@ -272,18 +291,18 @@ export function BoardCardsView({
  * walks as the list does.
  */
 function Lanes({
-  frameId,
   rows,
   keyFor,
   frame,
+  filters,
   context,
   breakout,
   breakoutRef,
 }: {
-  frameId: string;
   rows: readonly OutlineNode[];
   keyFor: (nodeId: string) => string;
   frame: FrameSubject;
+  filters: readonly ViewFilter[];
   context: FieldContext;
   breakout: boolean;
   breakoutRef: Ref<HTMLDivElement>;
@@ -295,26 +314,28 @@ function Lanes({
       data-board-cards-view="true"
       data-view-mode="board"
       data-lanes="true"
-      data-frame-id={frameId}
+      data-frame-id={frame.frameId}
       data-breakout={breakout ? "centered" : undefined}
     >
-      {rows.length === 0 ? (
-        <p className="rounded-md border border-dashed border-foreground/15 px-3 py-4 text-ui text-foreground/45">
-          Each child of this node gets a lane here. Add one to start.
-        </p>
-      ) : (
-        <div className="flex items-start gap-3 min-w-max pb-2">
-          {rows.map((row) => (
-            <Lane
-              key={row.id}
-              row={row}
-              instanceKey={keyFor(row.id)}
-              frame={frame}
-              context={context}
-            />
-          ))}
+      <div className="flex items-start gap-3 min-w-max pb-2">
+        {rows.length === 0 && (
+          <p className="w-64 rounded-md border border-dashed border-foreground/15 px-3 py-4 text-ui text-foreground/45">
+            Each child of this node gets a lane here.
+          </p>
+        )}
+        {rows.map((row) => (
+          <Lane
+            key={row.id}
+            row={row}
+            instanceKey={keyFor(row.id)}
+            frame={frame}
+            context={context}
+          />
+        ))}
+        <div className="w-40 shrink-0">
+          <AddRow frame={frame} filters={filters} label="Add a lane" />
         </div>
-      )}
+      </div>
     </div>
   );
 }

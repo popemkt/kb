@@ -145,6 +145,7 @@ const INERT_WRITES: PageWrites = {
   ontologyAddExtends: refused,
   createEmptyNode: none,
   createEmptyNodeBefore: none,
+  addMatchingNode: () => Promise.resolve(null),
   createRefTarget: none,
   defineField: none,
   defineTag: none,

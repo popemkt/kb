@@ -11,7 +11,7 @@ import {
   type Writable,
   SYSTEM_IDS,
 } from "@kb/model";
-import { forestRootIds, type PropValue } from "@kb/ui-sdk";
+import { forestRootIds, type MatchingAdd, type PropValue } from "@kb/ui-sdk";
 import { FRAME_VIEW_FAMILY, frameSettingWrite, type ViewConfig } from "@kb/views";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { findParentWire, wireById } from "@/lib/tx";
@@ -378,6 +378,32 @@ export const planAddChild = (n: WireNode[], parent: string, id: string, text = "
   addNode(id, text, { parent, position: requireNode(n, parent).children.length });
 export const planPrependChild = (_n: WireNode[], parent: string, id: string, text = "") =>
   addNode(id, text, { parent, position: 0 });
+
+/**
+ * An empty node that carries what `add` asks (DESIGN-UI.md → Adding to a
+ * frame), as one `node.add`, its caret in its text. A place it does not
+ * name is `node.add`'s to choose: where `matching` puts it, else where
+ * captures go.
+ */
+export function planAddMatching(id: string, add: MatchingAdd): PlannedMutation {
+  return {
+    actions: [
+      {
+        id: "node.add",
+        input: {
+          id,
+          text: "",
+          ...(add.parent !== undefined ? { parent: add.parent } : {}),
+          ...(add.matching !== undefined ? { matching: add.matching } : {}),
+          ...(add.tags.length > 0 ? { tags: add.tags } : {}),
+          ...(add.props.length > 0 ? { props: add.props } : {}),
+        },
+      },
+    ],
+    focusId: id,
+    focusCursor: 0,
+  };
+}
 
 export const planAddTagField = (n: WireNode[], id: string, field: string) =>
   refProp(n, id, SYSTEM_IDS.fieldsField, field);
