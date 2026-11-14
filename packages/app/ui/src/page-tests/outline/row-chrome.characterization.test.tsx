@@ -12,7 +12,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { queryResultInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
+import { projectedRowKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { SYSTEM_IDS } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
@@ -153,7 +153,7 @@ describe("row chrome", () => {
 
   it("a query node rendered as a reference does not re-run its query", async () => {
     await expand("n.query");
-    await render("n.query", { instanceKey: queryResultInstanceKey("n.other", "n.query") });
+    await render("n.query", { instanceKey: projectedRowKey("n.other", "n.query") });
     expect(has('[data-query-results-for="n.query"]')).toBe(false);
     // …and a reference row is never offered the create-child strip.
     expect(has('[data-create-child-zone="n.query"]')).toBe(false);
@@ -178,7 +178,7 @@ describe("row chrome", () => {
   });
 
   it("a reference row's bullet takes the dashed ring", async () => {
-    await render("n.parent", { instanceKey: queryResultInstanceKey("n.other", "n.parent") });
+    await render("n.parent", { instanceKey: projectedRowKey("n.other", "n.parent") });
     expect(has('[data-bullet-ref="true"]')).toBe(true);
   });
 

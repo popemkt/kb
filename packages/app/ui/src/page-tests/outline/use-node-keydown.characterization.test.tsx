@@ -22,7 +22,7 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import {
   outlineInstanceKey,
-  queryResultInstanceKey,
+  projectedRowKey,
   renderInlineMarkdown,
   rowTextOf,
   setCaretSerializedOffset,
@@ -159,8 +159,8 @@ describe("outline editing keymap (characterization)", () => {
    * `cursor`. The row is activated because that is the only state this handler
    * runs in: an outline row that is being edited.
    */
-  function mount(nodeId: string, cursor: number, isQueryResult = false): HTMLElement {
-    const instanceKey = isQueryResult ? queryResultInstanceKey("n.q", nodeId) : keyOf(nodeId);
+  function mount(nodeId: string, cursor: number, projectedRow = false): HTMLElement {
+    const instanceKey = projectedRow ? projectedRowKey("n.q", nodeId) : keyOf(nodeId);
     act(() => {
       useOutlineStore.getState().activateNode(nodeId, cursor, instanceKey);
     });

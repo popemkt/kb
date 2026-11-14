@@ -243,12 +243,12 @@ export {
   childInstanceKey,
   hostOfInstance,
   isProjectedInstance,
-  isQueryResultInstance,
+  isProjectedRow,
   MAIN_OUTLINE_HOST,
   outlineHostOfPane,
   outlineInstanceKey,
   pageTitleInstanceKey,
-  queryResultInstanceKey,
+  projectedRowKey,
 } from "./lib/instance-key";
 export { isPinned, listPinnedNavItems, pinnedRefIds, pinnedRefIdsFor } from "./lib/pinned";
 export { rowsAbout, selectionRoots } from "./lib/selection";

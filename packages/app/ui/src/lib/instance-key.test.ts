@@ -4,9 +4,9 @@ import {
   canvasInstanceKey,
   childInstanceKey,
   isProjectedInstance,
-  isQueryResultInstance,
+  isProjectedRow,
   outlineInstanceKey,
-  queryResultInstanceKey,
+  projectedRowKey,
   syncUiPlugins,
 } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
@@ -31,20 +31,20 @@ describe("render-instance identity", () => {
   it("builds distinct keys for outline vs query-result instances", () => {
     const nodes = outlineNodes();
     const treeKey = outlineInstanceKey("n.root-a", nodes);
-    const refKey = queryResultInstanceKey("n.q1", "n.root-a");
+    const refKey = projectedRowKey("n.q1", "n.root-a");
     expect(treeKey).toBe("tree/n.root-a");
-    expect(refKey).toBe("ref:query:n.q1/n.root-a");
+    expect(refKey).toBe("ref:row:n.q1/n.root-a");
     expect(treeKey).not.toBe(refKey);
     expect(childInstanceKey(treeKey, "n.child-a1")).toBe("tree/n.root-a/n.child-a1");
   });
 
   it("reads query-result-ness from the key: the result row, not its descendants", () => {
-    const result = queryResultInstanceKey("n.q1", "n.root-a");
+    const result = projectedRowKey("n.q1", "n.root-a");
     const nested = childInstanceKey(result, "n.child-a1");
     const tree = outlineInstanceKey("n.root-a", outlineNodes());
-    expect(isQueryResultInstance(result)).toBe(true);
-    expect(isQueryResultInstance(nested)).toBe(false);
-    expect(isQueryResultInstance(tree)).toBe(false);
+    expect(isProjectedRow(result)).toBe(true);
+    expect(isProjectedRow(nested)).toBe(false);
+    expect(isProjectedRow(tree)).toBe(false);
     // …but the whole projected subtree is inside the query's results.
     expect(isProjectedInstance(result)).toBe(true);
     expect(isProjectedInstance(nested)).toBe(true);
@@ -56,7 +56,7 @@ describe("render-instance identity", () => {
     const deep = canvasInstanceKey("3d", "card", "n.root-a");
     expect(flat).not.toBe(deep);
     expect(isProjectedInstance(flat)).toBe(true);
-    expect(isQueryResultInstance(flat)).toBe(false);
+    expect(isProjectedRow(flat)).toBe(false);
     useOutlineStore.getState().activateNode("n.root-a", 0, deep);
     expect(useOutlineStore.getState().activeInstanceKey).toBe(deep);
     expect(useOutlineStore.getState().activeNodeId).toBe("n.root-a");
@@ -64,7 +64,7 @@ describe("render-instance identity", () => {
 
   it("activate binds editing to one instance when the same nodeId appears twice", () => {
     const treeKey = "tree/n.root-a";
-    const refKey = queryResultInstanceKey("n.q1", "n.root-a");
+    const refKey = projectedRowKey("n.q1", "n.root-a");
 
     useOutlineStore.getState().activateNode("n.root-a", 2, treeKey);
     let s = useOutlineStore.getState();

@@ -7,7 +7,7 @@ import {
   groupChildrenForBoard,
   type NodeMap,
   providedFrameViews,
-  queryResultInstanceKey,
+  projectedRowKey,
   type SchemaIndex,
   schemaOf,
   schemaOfGraph,
@@ -297,7 +297,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     expect(present(after.get("frame1"), "frame1").children).toEqual(before);
   });
 
-  it("query-source board uses ref:query instance keys", () => {
+  it("query-source board uses ref:row instance keys", () => {
     const html = renderToStaticMarkup(
       createElement(BoardCardsView, {
         frame: outlineFrameSubject(
@@ -310,8 +310,8 @@ describe("W7.1 BoardCardsView + toolbar", () => {
         widthPref: "full",
       }),
     );
-    expect(html).toContain(`data-instance-key="${queryResultInstanceKey("frame1", "c1")}"`);
-    expect(html).toContain(`data-instance-key="${queryResultInstanceKey("frame1", "c2")}"`);
+    expect(html).toContain(`data-instance-key="${projectedRowKey("frame1", "c1")}"`);
+    expect(html).toContain(`data-instance-key="${projectedRowKey("frame1", "c2")}"`);
   });
 
   it("setFrameView board/cards persists on the frame's view node", async () => {

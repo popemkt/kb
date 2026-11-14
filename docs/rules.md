@@ -1403,7 +1403,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: query-result rows are not keyed per pane
 
 - **expected** — query-result rows carry their outline host in their instance key, like other rows
-- **current** — ref:query: keys carry no host, and the keyboard walks them in the main pane's outline
+- **current** — ref:row: keys name their source, not their host, and the keyboard walks them in the main pane's outline
 - **impact** — the same query open in two panes shares row instances; keyboard navigation in query results goes to the main pane
 - **closes** — put the host in the query-row instance key
 - **node** — `01M411FPC839XBJJ873V1VYYYD`

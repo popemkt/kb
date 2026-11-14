@@ -12,7 +12,7 @@
  * moves many times a frame, and no row renders again while it does.
  */
 import {
-  isQueryResultInstance,
+  isProjectedRow,
   LONG_PRESS_MS,
   type MovePlace,
   type NodeMap,
@@ -105,7 +105,7 @@ const ROW = '[data-node-row="true"]';
 /** A block's own row: not a field's, nor a query's result, which stand elsewhere in the graph. */
 function ownRow(row: Element): string | null {
   const key = row.getAttribute("data-instance-key");
-  if (key === null || isQueryResultInstance(key)) return null;
+  if (key === null || isProjectedRow(key)) return null;
   const block = row.closest("[data-node-block]");
   return block?.getAttribute("data-instance-key") === key ? key : null;
 }

@@ -39,7 +39,7 @@ interface NodeBlockProps {
   depth: number;
   /**
    * Stable render-instance id (parent-path or ref-container + nodeId). Whether
-   * the row is a query result is read from it (`isQueryResultInstance`).
+   * the row is a projected row is read from it (`isProjectedRow`).
    */
   instanceKey?: string;
 }

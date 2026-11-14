@@ -56,7 +56,7 @@ export function outlineInstanceKey(
  * and so does everything nested under one (`childInstanceKey` appends to it).
  */
 const PROJECTION_PREFIX = "ref:";
-const QUERY_RESULT_PREFIX = `${PROJECTION_PREFIX}query:`;
+const PROJECTED_ROW_PREFIX = `${PROJECTION_PREFIX}row:`;
 const CANVAS_PREFIX = `${PROJECTION_PREFIX}canvas:`;
 const TITLE_PREFIX = `${PROJECTION_PREFIX}title:`;
 
@@ -80,12 +80,14 @@ export function canvasInstanceKey(projection: string, cardId: string, nodeId: st
 }
 
 /**
- * Query-result / reference-container instance. It names its query, not its
- * outline host, so one query open in two panes draws rows under the same keys,
- * and the keyboard walks them in the main pane's outline. GAP [[01M411FPC839XBJJ873V1VYYYD]]
+ * A projected row: node `nodeId` drawn under the row of `sourceId` because
+ * that row computes it (DESIGN-UI.md → Projected rows), not because it is
+ * a child. It names its source, not its outline host, so one source open in
+ * two panes draws rows under the same keys, and the keyboard walks them in
+ * the main pane's outline. GAP [[01M411FPC839XBJJ873V1VYYYD]]
  */
-export function queryResultInstanceKey(queryNodeId: string, nodeId: string): string {
-  return `${QUERY_RESULT_PREFIX}${queryNodeId}/${nodeId}`;
+export function projectedRowKey(sourceId: string, nodeId: string): string {
+  return `${PROJECTED_ROW_PREFIX}${sourceId}/${nodeId}`;
 }
 
 /**
@@ -99,28 +101,28 @@ export function isProjectedInstance(instanceKey: string): boolean {
 }
 
 /**
- * The instance IS a query result: its place under the query is computed, not
- * a child edge, so there is no structural edge for Tab, Enter or a move to
- * operate on. Its descendants are ordinary child edges of the result and are
- * not results themselves.
+ * The instance IS a projected row: its place under its source is computed,
+ * not a child edge, so there is no structural edge for Tab, Enter or a move
+ * to operate on. Its descendants are ordinary child edges of the row and
+ * are not projected rows themselves.
  *
  * Read from the key because the key is the row's identity: whatever renders
  * the row, the answer cannot disagree with where the row actually is.
  */
-export function isQueryResultInstance(instanceKey: string): boolean {
-  if (!instanceKey.startsWith(QUERY_RESULT_PREFIX)) return false;
-  // `ref:query:<queryId>/<resultId>` — one separator; a descendant adds more.
-  return instanceKey.slice(QUERY_RESULT_PREFIX.length).split("/").length === 2;
+export function isProjectedRow(instanceKey: string): boolean {
+  if (!instanceKey.startsWith(PROJECTED_ROW_PREFIX)) return false;
+  // `ref:row:<sourceId>/<nodeId>` — one separator; a descendant adds more.
+  return instanceKey.slice(PROJECTED_ROW_PREFIX.length).split("/").length === 2;
 }
 
 /**
  * The node ids of the rows an instance is drawn under, outermost first — the
- * query node for a projected row, then every row on the path down to (not
+ * source of a projected row, then every row on the path down to (not
  * including) the instance itself.
  */
 export function instanceAncestorIds(instanceKey: string): string[] {
-  const path = instanceKey.startsWith(QUERY_RESULT_PREFIX)
-    ? instanceKey.slice(QUERY_RESULT_PREFIX.length)
+  const path = instanceKey.startsWith(PROJECTED_ROW_PREFIX)
+    ? instanceKey.slice(PROJECTED_ROW_PREFIX.length)
     : instanceKey.slice(instanceKey.indexOf("/") + 1);
   return path.split("/").slice(0, -1);
 }

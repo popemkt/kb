@@ -455,8 +455,25 @@ answers which of a key's meanings applies on this row (the caret, the row's
 shape); the chord that runs it is its binding's, so a built-in has an id
 (`outline.editing.split`, `outline.selection.up`) another binding can name.
 The intents are each mode's table (`EDITING_INTENTS`, `SELECTION_INTENTS`);
-the guard that keeps a query-result row from being restructured is part of
+the guard that keeps a projected row from being restructured is part of
 each structural intent, so it holds whatever chord runs it.
+
+**Projected rows.** A projected row is a node drawn under a row because
+that row computes it, not because it is a child: a query's results are
+the projected rows of the query's row. Its instance key names its source
+and the node, `ref:row:<source>/<node>` (`projectedRowKey`,
+`isProjectedRow` in `lib/instance-key.ts`), and is read from the key
+wherever the answer matters, so what a projected row can do is the same
+on every surface (list row, table row, card):
+
+- It has no child edge to its source, so no structural chord acts on it:
+  Tab, Shift-Tab, a move, a split that would make a sibling, and the joins
+  are claimed inert (the guard in each structural intent), and a drag
+  never drops beside or into it.
+- Its text, tags, fields and children are its node's, edited in place like
+  any row's, and the rows under it are ordinary child rows of that node.
+- It wears the dashed reference ring (`isReferenceRow`), offers no
+  create-child strip, and does not draw a query's results again.
 
 The shared declaration's `keyboard` supplies both page contributions and seeded
 `#shortcut` descriptions. The declaration publishes native defaults through the same keyboard points in
@@ -1069,14 +1086,15 @@ schema)` is the one answer to "which node does this row show" — the target
   render as bare text; the owner's rule since is that a reference row renders
   exactly as its target would, the dashed bullet being the only difference.
 - **The bullet reuses the existing reference treatment** (dashed ring). Only the
-  bullet: a _query-result_ row — read from its instance key by
-  `isQueryResultInstance` (`lib/instance-key.ts`), never passed as a flag —
-  keeps suppressing nested query results, the create-child strip and the
-  structural chords, because its place under the query is computed rather than
-  a child edge. A contextual reference is a real child whose children **are**
-  its own, and creating them is the whole point. `isReferenceRow(node,
-isQueryResult)` in the kit's `lib/row-chrome.ts` is the one answer, read by the list
-  row's chrome and by table and card rows alike. Apart from those gates a
+  bullet: a projected row ([Projected rows](#outline-editor-i1)) — read
+  from its instance key by `isProjectedRow` (`lib/instance-key.ts`), never
+  passed as a flag — keeps suppressing nested query results, the
+  create-child strip and the structural chords, because its place under its
+  source is computed rather than a child edge. A contextual reference is a
+  real child whose children **are** its own, and creating them is the whole
+  point. `isReferenceRow(node, projectedRow)` in the kit's
+  `lib/row-chrome.ts` is the one answer, read by the list row's chrome and
+  by table and card rows alike. Apart from those gates a
   result row is clicked like any row in every view: a row click selects, a
   text click edits, a bullet click toggles and ⌘-click opens the node.
 

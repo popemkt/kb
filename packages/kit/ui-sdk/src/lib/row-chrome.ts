@@ -14,7 +14,7 @@
 import { isQueryNode } from "@kb/model";
 import { projectsRows, type FrameViewKey } from "@kb/views";
 import { isContextualRef, shownNode, showsAncestor } from "./contextual-ref";
-import { isQueryResultInstance } from "./instance-key";
+import { isProjectedRow } from "./instance-key";
 import { resolveProps } from "./graph-view";
 import type { OutlineNode } from "./types";
 import type { SchemaIndex } from "./schema";
@@ -22,11 +22,11 @@ import type { SchemaIndex } from "./schema";
 export interface RowChrome {
   /**
    * A contextual reference row IS a reference, so it takes the dashed ref ring
-   * the outline already uses for query-result rows. It is only the *bullet*
-   * that is shared: a query-result row's place is computed rather than a child
+   * the outline already uses for projected rows. It is only the *bullet*
+   * that is shared: a projected row's place is computed rather than a child
    * edge, which suppresses nested results and the create-child strip. A
    * contextual reference is a real child with children of its own, so those
-   * gates keep reading `isQueryResult`, not this.
+   * gates keep reading `projectedRow`, not this.
    */
   bulletIsRef: boolean;
   hasFields: boolean;
@@ -50,12 +50,12 @@ export interface RowChrome {
 }
 
 /**
- * The row stands for a node whose place or text lives elsewhere — a query
- * result, or a contextual reference — and so wears the dashed ref ring. One
+ * The row stands for a node whose place or text lives elsewhere — a
+ * projected row, or a contextual reference — and so wears the dashed ref ring. One
  * answer for every surface that draws a row (list, table, card).
  */
-export function isReferenceRow(node: OutlineNode, isQueryResult: boolean): boolean {
-  return isQueryResult || isContextualRef(node);
+export function isReferenceRow(node: OutlineNode, projectedRow: boolean): boolean {
+  return projectedRow || isContextualRef(node);
 }
 
 export interface RowChromeInput {
@@ -66,8 +66,8 @@ export interface RowChromeInput {
   /** The view the children of the node the row shows are shown in. */
   view: FrameViewKey | null;
   /**
-   * This render instance. Whether the row is a query result
-   * (`isQueryResultInstance`) and whether it repeats a row above it
+   * This render instance. Whether the row is a projected row
+   * (`isProjectedRow`) and whether it repeats a row above it
    * (`showsAncestor`) are read from it.
    */
   instanceKey: string;
@@ -90,14 +90,14 @@ export function resolveRowChrome({
   revealed,
 }: RowChromeInput): RowChrome {
   const shown = shownNode(node, schema);
-  const isQueryResult = isQueryResultInstance(instanceKey);
+  const projectedRow = isProjectedRow(instanceKey);
   // A row that repeats one above it draws no rows under it (`showsAncestor`).
   const repeats = showsAncestor(instanceKey, node, schema);
   const hasChildren = shown.children.length > 0 && !repeats;
   const isQuery = isQueryNode(shown);
   // A query node projects results instead of children, and a result row does
   // not re-run a nested query.
-  const showsQueryResults = isQuery && !isQueryResult && !repeats;
+  const showsQueryResults = isQuery && !projectedRow && !repeats;
   const showsChildren = !isQuery && hasChildren;
   const hasFrameRows = showsChildren || showsQueryResults;
   const hasFields = resolveProps(shown, schema, { showDebugFields, revealed }).length > 0;
@@ -105,7 +105,7 @@ export function resolveRowChrome({
   const projected = projectsRows(view);
 
   return {
-    bulletIsRef: isReferenceRow(node, isQueryResult),
+    bulletIsRef: isReferenceRow(node, projectedRow),
     hasFields,
     showsQueryResults,
     showsChildren,
@@ -113,7 +113,7 @@ export function resolveRowChrome({
     isExpandable,
     showToolbar: hasFrameRows && !node.collapsed && (projected || showsQueryResults),
     projected,
-    showsCreateChild: !isQueryResult && !projected,
+    showsCreateChild: !projectedRow && !projected,
     showsChildContainer: isExpandable && !node.collapsed,
   };
 }

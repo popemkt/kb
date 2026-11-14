@@ -1,5 +1,5 @@
 /**
- * Render-order visible outline instances (tree + query-result rows).
+ * Render-order visible outline instances (tree + projected rows).
  *
  * Row order is not decided here — every frame's rows come from
  * {@link frameRows}, the function the renderers call, as each frame's view
@@ -11,13 +11,13 @@ import {
   type FrameView,
   frameViewOf,
   hasText,
-  isQueryResultInstance,
+  isProjectedRow,
   type EdnRunner,
   MAIN_OUTLINE_HOST,
   type NodeMap,
   outlineInstanceKey,
   type OutlineNode,
-  queryResultInstanceKey,
+  projectedRowKey,
   resultNodeIds,
   type SchemaIndex,
   shownNode,
@@ -107,7 +107,7 @@ function walkQueryResults(
   } catch {
     return;
   }
-  const keyFor = (id: string) => queryResultInstanceKey(frame.id, id);
+  const keyFor = (id: string) => projectedRowKey(frame.id, id);
   if (projectsRows(view.key)) {
     if (underSlot(chain, view, frame.id) !== null)
       emitProjectedRows(ctx, frame.id, view, ids, keyFor);
@@ -138,7 +138,7 @@ function walkVisibleInstances(
   const projected = projectsRows(view.key);
 
   // A result row does not re-run its own query (`resolveRowChrome` agrees).
-  if (!isQueryResultInstance(instanceKey) && isQueryNode(frame)) {
+  if (!isProjectedRow(instanceKey) && isQueryNode(frame)) {
     walkQueryResults(ctx, frame, view, chain);
     // Non-projected query: also walk structural children below results.
   }
