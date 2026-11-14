@@ -1067,6 +1067,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P0 and P1 of docs/research/2026-10-31-offline-first.md §7: the pure reconcile, the agent, the convergence property test, kb sync and the server lane.
 - **node** — `01M69E3P6ADBBDTGRP4F6ZSR81`
 
+### GAP: kb get without a host stops above D3's 100 ms target, inside the gate
+
+- **expected** — kb get, run one-shot with no host, answers in under 100 ms (D3, decided 2026-11-13: about 300 ms after #189 steps 2-6, under 100 ms after 7-8).
+- **current** — After steps 2-5 and 7 (#216-#228) a scratch-store get spends about 145 ms importing and 112 ms in the command. What is left, and what removing each would change: zod schemas built at module load by every action definition (lazy schemas change the action SDK's types, so sdk-dts); DataScript, about 0.46 MB, imported eagerly although the db is built on first datalog use (deferring the import makes the index API asynchronous); the tx tail decoded in full at open, about 12 ms (decoding only its last record changes the crash story, which truncates the tail at its first unreadable record); the schema reconcile at open, about 29 ms (rootFamilies, the seed fold and the open-time migration check, which a fingerprint-keyed cache would skip); the registry build, about 17 ms (applying every family's plugin; a lazy per-family registry changes the plugin kernel); and Effect itself, about 35 ms of import.
+- **impact** — One-shot commands stay near 250-300 ms; under 100 ms comes only with a host forwarding (topology, §10.1) or one of the changes above, each outside the chunk 3 gate.
+- **closes** — The owner chooses which of the changes above to take, or accepts the host-forwarding path for curl-like times (docs/research/2026-11-11-cli-host-modes.md §10.1, §10.8).
+- **rule** — Hosts are accelerators: the store is the truth
+- **node** — `01M7B2SRJ6NAQB5ZSAJNDWPY5A`
+
 ### GAP: kb has no online store; two machines share a graph only through git
 
 - **expected** — A RemoteStore behind EffectStore over a RemoteAuthority port (a Durable Object first, Turso second), joined to the shared store, log and tail contract suites (docs/research/2026-10-31-online-stores.md §4, §7).
@@ -1241,7 +1250,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: nothing proves a family correct when no host runs
 
 - **expected** — extensionContract (@kb/test-kit) has a hostless property, and every hosted family runs under it: for a family with a host loop, its catch-up action run one-shot after any sequence of writes, deletions included, reaches the store state and remote effects a host running throughout reaches.
-- **current** — The rule is prose. No suite runs a family without its host; of the hosted families only the agent runs under extensionContract (cli/tests/extension-contract.test.ts), and the routines engine is tested only as a running loop.
+- **current** — The rule is prose. Only the action catalogue is checked: kb ui reaches every action a hostless process does, and beyond them exactly the host capabilities its families declare (cli/tests/host-extensions.test.ts, over the host part of #189 §12). No suite runs a family's catch-up without its host; of the hosted families only the agent runs under extensionContract (cli/tests/extension-contract.test.ts), and the routines engine is tested only as a running loop. The one-shot property for routines waits on D1 (offline deletions), which is open.
 - **impact** — A new host loop, scheduler or in-memory map can become the only place a truth lives, and nothing goes red.
 - **closes** — The property in extensionContract, run over the routines memory Calendar; the rule's enforcement then moves to ci (docs/research/2026-11-11-cli-host-modes.md step 10).
 - **rule** — Hosts are accelerators: the store is the truth
