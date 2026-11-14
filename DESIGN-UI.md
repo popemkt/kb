@@ -757,7 +757,8 @@ in the same write. The CLI and MCP make the same moves with `node.update`
   menu (`useMenuGesture`). A finger drags as a mouse does: the bullet is
   `touch-action: none`, so the page does not scroll under it. While it
   lasts, a ghost of the row (and how many rows go with it) follows the
-  pointer, and a drop line shows where the rows will land: above or below
+  pointer, right of it and below the row aimed at so that row stays
+  readable (`ghostAt`), and a drop line shows where the rows will land: above or below
   the row under the pointer, as its sibling, or, with the pointer past that
   row's text start or below a row whose children are shown, as its first
   child, a collapsed row opening to show them. Near the top or bottom of the
@@ -813,6 +814,11 @@ derives compensating shared-action invocations. The graph store keeps bounded
 the same local invocation + ordered push lane — there is **no** server-authoritative
 undo journal, and rapid same-node text edits are not coalesced. Structural
 operations (split, merge, indent, outdent, delete, move) are the covered case.
+A text has two writes, told apart by who writes it: a keystroke's
+(`PageWrites.updateNodeContent`), which records no step because the row's
+own text undo covers it (below), and a command's, written whole from
+outside the editor (`PageWrites.setNodeText`, Remove reference…), which is
+one undo step as every command's write is.
 
 **Node text is one surface, read or edited.** There is no raw-source edit
 mode. `lib/md-edit.ts` `inlineNodes` is the one description of what inline
@@ -1168,13 +1174,15 @@ reference. A reference opens only under a row of the outline's own tree.
 Under a projected row, or a row inside one, Alt-click follows as a plain
 click does, so two references that name each other cannot open into
 each other forever. The same node in two places shares its open
-references, as a query's results do (GAP [[01M411FPC839XBJJ873V1VYYYD]]).
+references, as a query's results do (GAP [[01M411FPC839XBJJ873V1VYYYD]]). An opened reference draws its target open or closed as the target's own
+choice is, since a choice is per node, rather than open one level by
+default (GAP [[01M7D8AP4A4W6S2X5T1DSE9D77]]).
 
 **Remove reference…** (⌘K, the node menu's make group) turns a reference
 in the row's text back into plain text: its label, or the target's text
 for a bare `[[id]]`. It is a step that lists the text's references, and
 a pick turns every reference to that node in the text back, in one text
-write, which is undone as typing is (the row's own text undo, above). Both steps are offered
+write that is one undo step (`setNodeText`, below). Both steps are offered
 only on a row whose text names a node, and only on one row.
 
 **Named gaps.** The reference node's own props — its target among them — are
@@ -1404,7 +1412,8 @@ then write.
 - `@` opens at the start of the text or after a space, before a character
   that is not a space. When what follows reads as a date (`parseDateInput`,
   the grammar a date slot reads) and dates lead somewhere, that date is the
-  first row, and the nodes `[[` offers follow. A date leads somewhere when a
+  first row, and the nodes `[[` offers follow, less the row being typed in
+  and every node it sits under. A date leads somewhere when a
   provider other than core's is elected for `ui.date-target` (DESIGN.md →
   [Provider roles](./DESIGN.md#provider-roles)): with days on, the date's
   day. A pick inserts a reference to the node, or to the date's node, made

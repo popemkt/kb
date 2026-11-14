@@ -21,8 +21,18 @@ export interface MovePlace {
 }
 
 export interface PageWrites {
-  /** Local text action first; coalesce its ordered remote confirmation. */
+  /**
+   * A keystroke's text: local text action first; coalesce its ordered remote
+   * confirmation. It records no undo step: while a row is edited, its text
+   * undo is the editor's own.
+   */
   readonly updateNodeContent: (id: string, content: string) => Promise<void>;
+  /**
+   * A command's text, written whole outside the editor (Remove reference…):
+   * one write and one undo step, as every other command's write is. Answers
+   * whether it was written.
+   */
+  readonly setNodeText: (id: string, text: string) => Promise<boolean>;
   readonly createNodeAfter: (afterId: string) => Promise<void>;
   /**
    * Add a node made with no chosen place (⌘K "Add node" with nothing

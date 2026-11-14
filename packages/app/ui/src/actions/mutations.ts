@@ -190,6 +190,13 @@ export const mutations: PageWrites = {
     if (receipt.status === "failed") toast(failureText(receipt));
   },
 
+  setNodeText(id: string, text: string): Promise<boolean> {
+    if (!useGraphStore.getState().wireNodes.some((node) => node.id === id)) {
+      return Promise.resolve(false);
+    }
+    return applyPlan(planUpdateText(wire(), id, text));
+  },
+
   async createNodeAfter(afterId: string): Promise<void> {
     await applyPlan(planInsertSibling(wire(), afterId, "after", ulid()));
   },

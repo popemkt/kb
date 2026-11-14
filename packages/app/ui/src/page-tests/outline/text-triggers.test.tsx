@@ -72,13 +72,13 @@ describe("triggers in the text", () => {
     container.remove();
   });
 
-  /** Edit the row with `text` in it, the caret at its end. */
-  async function typed(text: string): Promise<HTMLElement> {
-    await act(async () => mutations.updateNodeContent(ROW, text));
-    const key = outlineInstanceKey(ROW, outlineNodes());
-    act(() => useOutlineStore.getState().activateNode(ROW, text.length, key));
+  /** Edit row `row` with `text` in it, the caret at its end. */
+  async function typed(text: string, row = ROW): Promise<HTMLElement> {
+    await act(async () => mutations.updateNodeContent(row, text));
+    const key = outlineInstanceKey(row, outlineNodes());
+    act(() => useOutlineStore.getState().activateNode(row, text.length, key));
     await act(async () => {
-      root.render(<NodeBlock nodeId={ROW} instanceKey={key} depth={0} />);
+      root.render(<NodeBlock nodeId={row} instanceKey={key} depth={0} />);
     });
     return present(
       container.querySelector<HTMLElement>(`[data-instance-key="${key}"] [contenteditable]`),
@@ -181,6 +181,16 @@ describe("triggers in the text", () => {
     it("does not offer the row it is typed in", async () => {
       await typed("Quokka notes @Quokka");
       expect(listed().filter((label) => label.includes("Quokka notes"))).toEqual([]);
+    });
+
+    it("does not offer a node the row sits under, and offers it to a row elsewhere", async () => {
+      // n.grandchild sits under "Render outline…", under "Ship kb ui shell".
+      await typed("Ask @Ship", "n.grandchild");
+      expect(listed().filter((label) => label.includes("Ship kb ui shell"))).toEqual([]);
+      await typed("Ask @Render", "n.grandchild");
+      expect(listed().filter((label) => label.includes("Render outline"))).toEqual([]);
+      await typed("Ask @Render");
+      expect(listed()[0]).toContain("Render outline");
     });
 
     it("with days off, offers no date: a date leads nowhere", async () => {

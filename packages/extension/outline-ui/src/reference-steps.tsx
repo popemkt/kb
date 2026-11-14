@@ -85,6 +85,7 @@ export const removeReference: PaletteStep = {
         ? textOr(span.label?.trim(), label)
         : text.text.slice(span.start, span.end),
     );
-    await browserHost().writes.updateNodeContent(text.id, next);
+    // A command's write, not a keystroke's: one undo step (`setNodeText`).
+    await browserHost().writes.setNodeText(text.id, next);
   },
 };

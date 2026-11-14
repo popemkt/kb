@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { NodeMap, OutlineNode } from "@kb/ui-sdk";
-import { dropOver, type DropRow, edgeStep, underMoved } from "./row-drag";
+import { dropOver, type DropRow, edgeStep, ghostAt, underMoved } from "./row-drag";
 
 const row = (over: Partial<DropRow> = {}): DropRow => ({
   id: "n.row",
@@ -92,5 +92,21 @@ describe("scrolling while a row is dragged", () => {
     expect(edgeStep(560, 0, 600)).toBeGreaterThan(0);
     expect(edgeStep(2, 0, 600)).toBeLessThan(edgeStep(40, 0, 600));
     expect(edgeStep(598, 0, 600)).toBeGreaterThan(edgeStep(560, 0, 600));
+  });
+});
+
+describe("the ghost of the rows dragged", () => {
+  const aimed = { box: { top: 100, bottom: 124, left: 0, right: 600, textLeft: 28 } };
+
+  it("sits right of the pointer and below the row aimed at, so that row stays readable", () => {
+    const at = ghostAt({ x: 40, y: 104 }, aimed);
+    expect(at.x).toBeGreaterThan(40);
+    expect(at.y).toBeGreaterThan(aimed.box.bottom);
+  });
+
+  it("over no row, sits just below the pointer", () => {
+    const at = ghostAt({ x: 40, y: 300 }, null);
+    expect(at.y).toBeGreaterThan(300);
+    expect(at.y).toBeLessThan(324);
   });
 });

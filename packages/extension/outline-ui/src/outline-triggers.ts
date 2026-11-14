@@ -11,6 +11,7 @@ import {
   dateTarget,
   datesLead,
   nodeCandidates,
+  type NodeMap,
   type PaletteStep,
   type PickerRow,
   pickerRows,
@@ -108,10 +109,22 @@ function dateRow(query: string): PickerRow[] {
 /** Where `@` opens: its query may run to a few words ("next fri"), never past two spaces. */
 const mentionAt = openedAfterSpace("@", "[^\\s@][^\\n@]{0,39}|");
 
+/** `nodeId` and every node above it in `nodes`, nearest first. */
+function selfAndAbove(nodes: NodeMap, nodeId: string): Set<string> {
+  const held = new Set<string>();
+  let id: string | null = nodeId;
+  while (id !== null && !held.has(id)) {
+    held.add(id);
+    id = nodes.get(id)?.parentId ?? null;
+  }
+  return held;
+}
+
 /**
  * `@` in the text of row `nodeId`: a reference to the date its query names
  * (its day, made if need be, through `ui.date-target`), else to a node, as
- * `[[` makes. The row itself is not offered: its text holds the query.
+ * `[[` makes. Neither the row, whose text holds the query, nor a node it
+ * sits under is offered.
  */
 const mentionTrigger = (nodeId: string): TextTrigger => ({
   id: "mention",
@@ -121,7 +134,8 @@ const mentionTrigger = (nodeId: string): TextTrigger => ({
   },
   rows: (query, nodes) => {
     const date = dateRow(query);
-    const others = nodeCandidates(nodes, { exclude: (id) => id === nodeId });
+    const own = selfAndAbove(nodes, nodeId);
+    const others = nodeCandidates(nodes, { exclude: (id) => own.has(id) });
     return [...date, ...pickerRows(others, { query, limit: LIMIT - date.length })];
   },
   pick: async (row, typed) => {

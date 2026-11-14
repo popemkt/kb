@@ -11,6 +11,8 @@
  * that did nothing.
  */
 import { act } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { TextTIcon } from "@phosphor-icons/react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -233,6 +235,23 @@ describe("node command palette", () => {
       "Count words",
       "Delete nodes",
     ]);
+  });
+
+  it("draws Set field… with an icon of its own, not Add field's", async () => {
+    await openOver(["n.plain", "n.query"]);
+    const icon = (label: string) =>
+      [...dom.document.querySelectorAll('[data-palette-list="true"] button')]
+        .find((b) => b.textContent.trim() === label)
+        ?.querySelector("svg")?.innerHTML;
+    // Add field's glyph in any weight: drawn apart, not one glyph lighter.
+    const textT = (["bold", "regular"] as const).map((weight) => {
+      const host = dom.document.createElement("div");
+      host.innerHTML = renderToStaticMarkup(<TextTIcon weight={weight} />);
+      return host.querySelector("svg")?.innerHTML;
+    });
+    expect(icon("Add field")).toBe(textT[0]);
+    expect(icon("Set field…")).toBeDefined();
+    expect(textT).not.toContain(icon("Set field…"));
   });
 
   it("tags every row of a range with the tag picked, as one undo step", async () => {

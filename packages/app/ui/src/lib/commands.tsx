@@ -37,6 +37,7 @@ import {
   LinkBreakIcon,
   LinkSimpleIcon,
   MagnifyingGlassIcon,
+  PencilSimpleLineIcon,
   PushPinIcon,
   PushPinSlashIcon,
   SidebarSimpleIcon,
@@ -435,7 +436,7 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     id: "set-field",
     menu: nodeMenu("make", 45),
     many: true,
-    chrome: () => ({ label: "Set field…", icon: <TextTIcon size={14} weight="regular" /> }),
+    chrome: () => ({ label: "Set field…", icon: <PencilSimpleLineIcon size={14} /> }),
     run: (ctx) => ctx.palette.openStep("outline.set-field"),
   },
   {

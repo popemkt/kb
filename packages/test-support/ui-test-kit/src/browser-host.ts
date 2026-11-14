@@ -95,6 +95,7 @@ const none = (): Promise<string | null> => Promise.resolve(null);
 
 const INERT_WRITES: PageWrites = {
   updateNodeContent: done,
+  setNodeText: refused,
   createNodeAfter: done,
   addTagField: done,
   removeTagField: done,

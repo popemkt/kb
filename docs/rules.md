@@ -429,6 +429,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — An instance key for a value slot so the target's children can render under it, then the bullet toggles expansion like a row bullet.
 - **node** — `01M3KA38YPZZFKQRZM9ZP6C99F`
 
+### GAP: a reference opened in place shows its target as the target's own open or closed choice
+
+- **expected** — Opening a reference in place shows its target open one level by default, as screen state of that open reference alone, never stored
+- **current** — The outline's expansion is one choice per node (toggleCollapse, withExpansion): the opened reference draws its target open or closed as every row of that node is, so a target closed in the tree opens closed (visible-instances.ts)
+- **impact** — To read or edit what the target holds, the reader opens it once more, and that opens it in the tree too, and is saved as the node's choice
+- **closes** — Expansion keyed by row instance where a row's choice can differ from its node's (projected rows first), so an opened reference can default open without touching the node's choice
+- **node** — `01M7D8AP4A4W6S2X5T1DSE9D77`
+
 ### GAP: a reference's target cannot be changed from the UI
 
 - **expected** — A reference row can be repointed from the UI.

@@ -108,7 +108,9 @@ export function NodeRow({
       className={cn(
         "node-row group/node flex items-start",
         "rounded-sm transition-colors duration-75",
-        drawnSelected && "bg-primary/5",
+        // One surface: the row's box holds the tint, bullet and text alike,
+        // and the focus ring is drawn on the same box.
+        drawnSelected && "bg-primary/8",
         inRange && "rounded-none",
         interactive &&
           "outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
@@ -130,8 +132,6 @@ export function NodeRow({
       <div
         className={cn(
           "node-content flex min-h-6 min-w-0 flex-1 items-start gap-1.5 rounded-sm px-1",
-          drawnSelected && "bg-primary/8",
-          inRange && "rounded-none",
         )}
       >
         {content}

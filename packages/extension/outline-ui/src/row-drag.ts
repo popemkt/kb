@@ -203,6 +203,24 @@ const GHOST =
   "pointer-events-none fixed top-0 left-0 z-50 flex max-w-[280px] items-center gap-1.5 rounded-md border border-border bg-popover px-2 py-1 text-ui text-foreground shadow-modal";
 const LINE = "pointer-events-none fixed z-50 h-0.5 -translate-y-1/2 rounded-full bg-primary";
 
+/** How far the ghost keeps from the pointer, and from the row aimed at, in px. */
+const GHOST_GAP = 8;
+
+/**
+ * Where the ghost's corner sits for a pointer at `pointer`: right of it, and
+ * below the row aimed at (`row`), so the row and the drop line at its edge
+ * stay readable; just below the pointer over no row.
+ */
+export function ghostAt(
+  pointer: { readonly x: number; readonly y: number },
+  row: Pick<DropRow, "box"> | null,
+): { readonly x: number; readonly y: number } {
+  return {
+    x: pointer.x + 2 * GHOST_GAP,
+    y: Math.max(pointer.y, row?.box.bottom ?? pointer.y) + GHOST_GAP,
+  };
+}
+
 /** The ghost of the rows picked up: the first row's text, and how many go with it. */
 function ghostOf(ids: readonly string[]): HTMLElement {
   const ghost = document.createElement("div");
@@ -345,9 +363,12 @@ class RowDrag {
   /** Move the ghost to the pointer, and the line to where a drop there lands. */
   private follow(): void {
     const { x, y } = this.pointer;
-    if (this.ghost !== null) this.ghost.style.transform = `translate(${x + 12}px, ${y + 8}px)`;
     const nodes = outlineNodes();
     const row = rowAt(x, y, nodes, this.moved);
+    if (this.ghost !== null) {
+      const at = ghostAt(this.pointer, row);
+      this.ghost.style.transform = `translate(${at.x}px, ${at.y}px)`;
+    }
     const drop = row === null ? null : dropOver(row, x, y);
     const lands =
       drop !== null &&

@@ -3,7 +3,8 @@
  * references): Alt-click opens the target under its row as a projected row
  * and the pill says so; the keyboard walks it; it is the tab's alone, never
  * stored, and dropped once the text no longer names it. Expand reference…
- * and Remove reference… act on the references the row's text names.
+ * and Remove reference… act on the references the row's text names, and a
+ * removal is one undo step.
  */
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -202,13 +203,27 @@ describe("a reference in the text opens in place", () => {
       expect(labels()[0]).toContain("Expanded");
     });
 
-    it("Remove reference… turns the reference picked into its label, in one text write", async () => {
+    it("Remove reference… turns the reference picked into its label, as one undo step", async () => {
+      // Earlier page history, which the removal's undo must not take instead.
+      await act(async () => void (await mutations.addChildNode("n.root-a", "Earlier write")));
+      // That write focused the row it made; the menu opens on this row again.
+      useOutlineStore.setState({ activeNodeId: null, activeInstanceKey: null });
+      const before = useGraphStore.getState().undoStack.length;
       await openMenu();
       await pick("Remove reference…");
       await pick("Search jumps");
       await vi.waitFor(() =>
         expect(outlineNodes().get(ROW)?.text).toBe("See Search and [[n.root-a]]"),
       );
+      expect(useGraphStore.getState().undoStack).toHaveLength(before + 1);
+
+      await act(async () => void (await mutations.undo()));
+      expect(outlineNodes().get(ROW)?.text).toBe(TEXT);
+      // The earlier write is still there: the undo took the removal, not it.
+      expect(useGraphStore.getState().undoStack).toHaveLength(before);
+
+      await act(async () => void (await mutations.redo()));
+      expect(outlineNodes().get(ROW)?.text).toBe("See Search and [[n.root-a]]");
     });
 
     it("Remove reference… gives a bare reference its target's text", async () => {

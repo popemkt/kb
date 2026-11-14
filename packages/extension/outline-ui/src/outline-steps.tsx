@@ -9,7 +9,13 @@
  * reference draws its candidates from `nodeCandidates`, the source the `[[`
  * autocomplete and the field picker share.
  */
-import { ArrowBendDownRightIcon, HashIcon, LinkSimpleIcon, TextTIcon } from "@phosphor-icons/react";
+import {
+  ArrowBendDownRightIcon,
+  HashIcon,
+  LinkSimpleIcon,
+  PencilSimpleLineIcon,
+  TextTIcon,
+} from "@phosphor-icons/react";
 import type { WireNode } from "@kb/contracts";
 import type { ContributionEntry } from "@kb/plugin";
 import {
@@ -125,7 +131,7 @@ function fieldOptions(wireNodes: readonly WireNode[]): PickerCandidate[] {
 const setField: PaletteStep = {
   label: "Set field",
   placeholder: "Search a field's options...",
-  icon: <TextTIcon size={12} weight="regular" />,
+  icon: <PencilSimpleLineIcon size={12} weight="regular" />,
   candidates: (graph) => fieldOptions(graph.wireNodes),
   commit: async ({ targetNodeIds, pickedId }) => {
     const { writes, graph } = browserHost();

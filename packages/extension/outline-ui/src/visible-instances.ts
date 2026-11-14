@@ -136,6 +136,8 @@ function walkVisibleInstances(
   const frame = shownNode(node, schema);
   const frameId = frame.id;
   // The references its text opens in place come first, open or closed the row.
+  // Each draws its target open or closed as the target's own choice is, not
+  // open by default: a choice is per node. GAP [[01M7D8AP4A4W6S2X5T1DSE9D77]]
   if (opensInPlace(instanceKey)) {
     for (const id of openReferencesOf(ctx.expansion, frameId, frame.text)) {
       walkVisibleInstances(ctx, id, openReferenceKey(frameId, id), chain);
