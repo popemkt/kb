@@ -822,14 +822,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Drain the cohesion ledger through module restructuring; reconsider the predicate only when an approved requirement needs the missed cases.
 - **node** — `01M787F34W9DSYPD544DRS5S4H`
 
-### GAP: command dispatcher eagerly reaches chart engines and QuickJS
-
-- **expected** — The command dispatcher reaches host-only engines only across dynamic imports; its static closure shrinks.
-- **current** — The lazy-fence ledger holds one eager import: sandbox-quickjs imports its QuickJS engine. chart-vega loads Vega on first use.
-- **impact** — One-shot commands load unused engine code; the measured static closure is 2739582 bytes and 723 modules.
-- **closes** — Move each engine behind first use and drain the lazy-fence ledger, then lower the static closure budget.
-- **node** — `01M75MA3QTAABRAE6N0069CB8R`
-
 ### GAP: core seeds the view-as command nodes for every family's views
 
 - **expected** — each family seeds the node commands for its own views (the outline its list, collections its table, board and cards)
@@ -2309,6 +2301,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The full core gate can fail outside the extension UI, and the original trace cannot distinguish a child crash from a transport failure.
 - **closes** — Use process.exitCode and natural shutdown for every CLI exit path; prove multi-MB receipts and errors survive delayed pipe readers byte-exactly, and the surface contract passes repeatedly under parallel load.
 - **node** — `01M6WW0WE9QD8W2KCRM1NW8SHB`
+
+### GAP: command dispatcher eagerly reaches chart engines and QuickJS
+
+- **expected** — The command dispatcher reaches host-only engines only across dynamic imports; its static closure shrinks.
+- **current** — The lazy-fence ledger is empty: chart-vega loads Vega and sandbox-quickjs loads QuickJS on first use.
+- **impact** — One-shot commands load unused engine code; the measured static closure is 2739582 bytes and 723 modules.
+- **closes** — Move each engine behind first use and drain the lazy-fence ledger, then lower the static closure budget.
+- **node** — `01M75MA3QTAABRAE6N0069CB8R`
 
 ### GAP: core action definitions and handlers are hand-paired
 

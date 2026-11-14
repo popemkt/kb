@@ -618,7 +618,6 @@ export const CLI_LAUNCHER = {
 
 /** One policy table, independent of emitted chunk names or host topology. */
 export const LAZY_FENCES = {
-  // GAP [[01M75MA3QTAABRAE6N0069CB8R]]: current engine breaches are held in the ledger.
   cli: {
     // main.ts already imports this dispatcher dynamically for launch validation.
     // Measure the code every command actually loads, not that thin launcher.

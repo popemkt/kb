@@ -7,15 +7,11 @@
  * ends a turn that outlives `turnMs`, the runtime refuses an allocation past
  * `memoryBytes` and a frame past `stackBytes`. The variant embeds its
  * WebAssembly in the module, so a page whose CSP allows no connection still
- * loads it, and a bundle carries it with no separate asset.
+ * loads it, and a bundle carries it with no separate asset. It loads with
+ * the first run, so a process that runs no untrusted code parses none of it.
  */
 import { Clock, Effect, Option, Schema, type Scope } from "effect";
-import variant from "@jitl/quickjs-singlefile-browser-release-sync";
-import {
-  newQuickJSWASMModuleFromVariant,
-  type QuickJSContext,
-  type QuickJSHandle,
-} from "quickjs-emscripten-core";
+import type { QuickJSContext, QuickJSHandle } from "quickjs-emscripten-core";
 import {
   endOf,
   endOfFailure,
@@ -47,12 +43,19 @@ function errorText(context: QuickJSContext, handle: QuickJSHandle): string {
   }
 }
 
+/** A fresh QuickJS instance; the engine and its WebAssembly are imported with the first. */
+const newQuickJS = () =>
+  Promise.all([
+    import("@jitl/quickjs-singlefile-browser-release-sync"),
+    import("quickjs-emscripten-core"),
+  ]).then(([variant, core]) => core.newQuickJSWASMModuleFromVariant(variant.default));
+
 const start = Effect.fn("sandbox.quickjs.start")(function* (
   spec: GuestSpec,
 ): Effect.fn.Return<GuestSession, never, Scope.Scope> {
   const core = yield* makeSessionCore(spec.limits);
   const clock = yield* Clock.Clock;
-  const module = yield* Effect.promise(() => newQuickJSWASMModuleFromVariant(variant));
+  const module = yield* Effect.promise(newQuickJS);
   const runtime = module.newRuntime();
   if (spec.limits.memoryBytes !== null) runtime.setMemoryLimit(spec.limits.memoryBytes);
   runtime.setMaxStackSize(spec.limits.stackBytes);
