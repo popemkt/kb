@@ -54,11 +54,14 @@ export async function mergeWithPrevious(id: string, instanceKey?: string): Promi
 }
 
 /**
- * Toggle the box of the row `nodeId` (DESIGN-UI.md → A tag's box): the box
- * of the node its text is, a reference's target for a reference. Every
- * gesture that toggles a row's box comes here: its click, ⌘Enter while
- * editing or selected.
+ * Toggle the boxes of the rows `nodeIds` together (DESIGN-UI.md → A tag's
+ * box): each row's box is the node its text is, a reference's target for a
+ * reference. Every gesture that toggles a row's box comes here: its click,
+ * ⌘Enter on the row being edited, or on the rows selected.
  */
-export function toggleRowCheck(nodeId: string): Promise<boolean> {
-  return browserHost().writes.toggleCheck(rowTextOf(outlineSource(), nodeId).textNodeId);
+export function toggleRowChecks(nodeIds: readonly string[]): Promise<boolean> {
+  const source = outlineSource();
+  return browserHost().writes.toggleChecks(
+    nodeIds.map((nodeId) => rowTextOf(source, nodeId).textNodeId),
+  );
 }

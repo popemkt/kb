@@ -2,12 +2,12 @@
  * A tag's box on its row (DESIGN-UI.md → A tag's box). It is drawn from
  * the field it is tied to (`checkOf`) and holds no state of its own, and
  * pressing it toggles that field through the row's one write
- * (`toggleRowCheck`), as ⌘Enter does. Focused, it answers its own keys, and
+ * (`toggleRowChecks`), as ⌘Enter does. Focused, it answers its own keys, and
  * Escape goes back to its row, selected.
  */
 import type { OutlineNode, SchemaIndex } from "@kb/ui-sdk";
 import { CheckMark } from "./check-mark";
-import { toggleRowCheck } from "./editing-writes";
+import { toggleRowChecks } from "./editing-writes";
 import { backToRow } from "./back-to-row";
 import { rowCheckOf } from "./row-check-state";
 
@@ -18,7 +18,7 @@ export function RowCheck({
   shown,
   schema,
 }: {
-  /** The row's node: its box is the node its text is (`toggleRowCheck`). */
+  /** The row's node: its box is the node its text is (`toggleRowChecks`). */
   nodeId: string;
   /** The row instance Escape goes back to. */
   instanceKey: string;
@@ -41,7 +41,7 @@ export function RowCheck({
       onMouseDown={(e) => e.preventDefault()}
       onClick={(e) => {
         e.stopPropagation();
-        void toggleRowCheck(nodeId);
+        void toggleRowChecks([nodeId]);
       }}
       onKeyDown={(e) => {
         if (e.key !== "Escape") return;

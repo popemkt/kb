@@ -16,6 +16,7 @@ import {
   projectPropEdits,
   seededField,
   seededTag,
+  togglesChecked,
   type KbNode,
   type PropValue,
 } from "../src/index.ts";
@@ -69,6 +70,13 @@ const graph = () =>
     ),
     node("plain", "plain"),
   ]);
+
+/** A checkbox field's box, checked or not. */
+const checkbox = (checked: boolean) => ({
+  field: "f.done",
+  value: { t: "bool" as const, v: true },
+  checked,
+});
 
 describe("child tag", () => {
   test("a node added under a node of the tag gets its child tags, after its own, each once", () => {
@@ -201,6 +209,14 @@ describe("check", () => {
     expect(checkEdits(present(done, "a box"), true)).toEqual({
       setProps: [{ field: "f.status", value: ref("opt.done") }],
     });
+  });
+
+  test("boxes toggled together are checked while any is unchecked, unchecked once all are", () => {
+    expect(togglesChecked([checkbox(true), checkbox(false), checkbox(true)])).toBe(true);
+    expect(togglesChecked([checkbox(true), checkbox(true)])).toBe(false);
+    // One box goes to its other state, as it would alone.
+    expect(togglesChecked([checkbox(false)])).toBe(true);
+    expect(togglesChecked([checkbox(true)])).toBe(false);
   });
 
   test("no box without a check, nor for a field that is no checkbox and names no checked value", () => {

@@ -708,7 +708,7 @@ node menu anchors on the head; closed, it gives the focus back to the head
 What a gesture over a range acts on is said once, by the selection:
 
 - **Each selected row** for what marks or fills a node: tagging, untagging,
-  setting a field, pinning. A command or a picker step is handed every row
+  setting a field, pinning, checking. A command or a picker step is handed every row
   it is about (`CommandTarget.nodeIds`; a step's `targetNodeIds`), and acts
   on each.
 - **The top rows** for what moves or removes a node: Delete, Tab, Shift-Tab
@@ -731,7 +731,7 @@ what it makes is there once `together` returns. A gesture about one row
 is not gathered, its write being one write already, so a command that reads
 what its write made (Make your own tag opens the tag) reads it landed. Over a range, the node menu lists only the commands that act on many
 rows (`NodeCommand.many`): Add tag, Remove tag…, Add field, Set field…,
-Pin / Unpin, Move to…, Copy node ID, Count words and Delete. Any other node command, run over a range from its
+Pin / Unpin, Check / Uncheck, Move to…, Copy node ID, Count words and Delete. Any other node command, run over a range from its
 shortcut, acts on the head alone (`runCommand`). A picker step it opens is
 handed every row (`targetNodeIds`), mints what it creates once, and writes
 the pick to each row as one write (`asOneWrite`), so what it does once the
@@ -3505,8 +3505,13 @@ until "Save workspace".
   `split` and `edit` claim Enter without the command key). ⌘K's "Toggle
   check" (`sys.cmd.toggle-check`) toggles the target row's box, and the
   node menu offers "Check" or "Uncheck" on a row that has one. Each is
-  the one page write, `toggleCheck`, which says so when the row has no
-  box. A checked row's text reads as done: drawn in the muted secondary
+  the one page write, `toggleChecks`, which says so when the row has no
+  box. Over a range of rows, ⌘Enter, ⌘K's "Toggle check" and the node
+  menu act on each selected row's box together (`togglesChecked`): if any
+  is unchecked, every one is checked; if every one is checked, every one
+  is unchecked, and the menu says which ("Check" or "Uncheck"). A row with
+  no box is left out. The boxes that change are one `node.update` each in
+  one `node.batch`, so one undo step. A checked row's text reads as done: drawn in the muted secondary
   text (`--muted-foreground`), a colour only, no strikethrough, so nothing
   moves; the box's own change is a colour change of at most 150ms, none
   under reduced motion.

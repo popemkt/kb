@@ -9,7 +9,7 @@
  * Exhaustiveness is the mapped type: a new `EditingIntent` variant with no row
  * here fails the build.
  */
-import { mergeWithPrevious, toggleRowCheck } from "./editing-writes";
+import { mergeWithPrevious, toggleRowChecks } from "./editing-writes";
 import {
   browserHost,
   runKeyCall,
@@ -114,7 +114,7 @@ const EDITING_STEPS: EditingSteps = {
   mergeNextIn,
   moveUp: ({ nodeId }) => void browserHost().writes.moveNodesUp([nodeId]),
   moveDown: ({ nodeId }) => void browserHost().writes.moveNodesDown([nodeId]),
-  toggleCheck: ({ nodeId }) => void toggleRowCheck(nodeId),
+  toggleCheck: ({ nodeId }) => void toggleRowChecks([nodeId]),
   toggleCollapse: ({ nodeId }) => useOutlineStore.getState().toggleCollapse(nodeId),
   // Collapsed / leaf: open the enclosing page, as the row's outline opens one.
   zoomToParent: ({ parentId, instanceKey }) => openFromRow(instanceKey, parentId),
