@@ -282,6 +282,7 @@ export {
   groupChildrenForBoard,
   resolveTableColumns,
   sortChildrenForTable,
+  type GroupSteps,
   type TableColumnSpec,
 } from "./lib/frame-layout";
 export { frameRows, type FrameRowsInput } from "./lib/frame-rows";

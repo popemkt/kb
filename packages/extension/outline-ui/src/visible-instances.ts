@@ -14,6 +14,7 @@ import {
   hasText,
   isQueryResultInstance,
   type EdnRunner,
+  type GroupSteps,
   MAIN_OUTLINE_HOST,
   type NodeMap,
   outlineInstanceKey,
@@ -47,9 +48,19 @@ export interface VisibleLane {
   after: InstanceRef | null;
 }
 
+/**
+ * The groups beside a row's own, when its frame groups rows by a field
+ * (DESIGN-UI.md → Groups): where ⌘⇧← and ⌘⇧→ move it, by `fieldId`.
+ */
+interface VisibleGroup extends GroupSteps {
+  readonly fieldId: string;
+}
+
 export type VisibleInstance = InstanceRef & {
   /** Set when the row sits in a lane; the innermost lane when lanes nest. */
   lane?: VisibleLane;
+  /** Set when the row sits in a group it can move out of by key. */
+  group?: VisibleGroup;
 };
 
 /** Pages revealed per frame in paginating modes, keyed by frame node id. */
@@ -79,7 +90,7 @@ interface WalkContext {
 function emitProjectedRows(ctx: WalkContext, frame: ProjectedFrame): void {
   const { frameId, view, rowIds, keyFor } = frame;
   const { nodes, schema, pages, out } = ctx;
-  const { rendered } = frameRows({
+  const { rendered, steps, groupFieldId } = frameRows({
     frameId,
     nodes,
     schema,
@@ -88,7 +99,13 @@ function emitProjectedRows(ctx: WalkContext, frame: ProjectedFrame): void {
     pages: pages[frameId],
   });
   for (const child of rendered) {
-    out.push({ nodeId: child.id, instanceKey: keyFor(child.id) });
+    const step = steps.get(child.id);
+    const row = { nodeId: child.id, instanceKey: keyFor(child.id) };
+    out.push(
+      step === undefined || groupFieldId === null
+        ? row
+        : { ...row, group: { fieldId: groupFieldId, ...step } },
+    );
   }
 }
 

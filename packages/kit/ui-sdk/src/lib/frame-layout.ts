@@ -303,6 +303,37 @@ export function shownGroups(columns: readonly BoardColumn[], display: GroupDispl
     .map((column) => (folded.has(column.key) ? { ...column, collapsed: true } : column));
 }
 
+/** A group a row of a grouped view moves to by key: its value, null for "No <field>". */
+interface GroupStep {
+  readonly value: PropValue | null;
+}
+
+/** The groups beside a row's own, where ⌘⇧← and ⌘⇧→ move it (DESIGN-UI.md → Groups). */
+export interface GroupSteps {
+  readonly before: GroupStep | null;
+  readonly after: GroupStep | null;
+}
+
+/**
+ * Where each row of the groups a view shows moves by key, by row id: the
+ * unfolded groups before and after its own, none past either end. A folded
+ * group draws no rows, so a row neither sits in one nor moves into one.
+ */
+export function groupSteps(columns: readonly BoardColumn[]): Map<string, GroupSteps> {
+  const open = columns.filter((column) => !column.collapsed);
+  const steps = new Map<string, GroupSteps>();
+  open.forEach((column, at) => {
+    const before = open[at - 1];
+    const after = open[at + 1];
+    const step: GroupSteps = {
+      before: before === undefined ? null : { value: before.value },
+      after: after === undefined ? null : { value: after.value },
+    };
+    for (const node of column.nodes) steps.set(node.id, step);
+  });
+  return steps;
+}
+
 /** Flatten board columns to render-order node list (visible-instances); a folded one draws none. */
 export function flattenBoardOrder(columns: BoardColumn[]): OutlineNode[] {
   const out: OutlineNode[] = [];

@@ -80,7 +80,7 @@
       "@kb/appearance-kit": 41,
       "@kb/scene": 13,
       "@kb/scene-gpu": 35,
-      "@kb/ui-sdk": 509,
+      "@kb/ui-sdk": 510,
       "@kb/ui-test-kit": 26
     },
     "family-names": {
@@ -149,7 +149,7 @@
     },
     "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2785133,
+      "bytes": 2785291,
       "modules": 736
     },
     "single-family": {

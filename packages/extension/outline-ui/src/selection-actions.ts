@@ -126,6 +126,11 @@ const SELECTION_STEPS: SelectionSteps = {
   outdent: ({ nodeId }) => void browserHost().writes.outdentNode(nodeId),
   moveUp: ({ nodeId }) => void browserHost().writes.moveNodeUp(nodeId),
   moveDown: ({ nodeId }) => void browserHost().writes.moveNodeDown(nodeId),
+  // The selection stays on the row: its instance does not name its group.
+  moveToGroup: ({ nodeId, fieldId, value }) => {
+    void browserHost().writes.moveToGroup(nodeId, fieldId, value);
+    scrollRowIntoView(nodeId);
+  },
   zoom,
   createAfter,
   createBefore: ({ nodeId }) => void createNodeBefore(nodeId),

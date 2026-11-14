@@ -438,8 +438,8 @@ split is what matters here:
 
 Mode A owns split/merge/indent/outdent, soft line break (`Shift+Enter`),
 vertical caret motion, and autocomplete interception. Mode B owns
-`ArrowLeft/Right` collapse-expand-parent-firstchild, `o` / `Shift+O`
-create-below/above, `Space` toggle, `Cmd+.` zoom, and printable-character
+`ArrowLeft/Right` collapse-expand-parent-firstchild, `Cmd+Shift+ArrowLeft/Right`
+a row to the group beside its own (_Groups_), `o` / `Shift+O` create-below/above, `Space` toggle, `Cmd+.` zoom, and printable-character
 re-entry into Mode A. Focus hand-offs are specified per operation (split → new
 node at 0; indent/outdent → same offset; merge → the join boundary; delete →
 neighbour) and tested.

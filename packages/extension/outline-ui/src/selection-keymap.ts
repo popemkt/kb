@@ -2,6 +2,7 @@
  * Selection-mode keymap (nxus / DESIGN-REFINE §2 W1; r1 §3.2 Mode B).
  * Active only when a node is selected and not being edited.
  */
+import type { PropValue } from "@kb/model";
 import { keyCallOf, type KeyCall } from "@kb/ui-sdk";
 import type { KeyChordEvent, Keymap } from "@kb/keybindings";
 import type { InstanceRef, VisibleInstance, VisibleLane } from "./visible-instances";
@@ -22,6 +23,8 @@ export type SelectionKeyAction =
   | { type: "outdent"; nodeId: string }
   | { type: "moveUp"; nodeId: string }
   | { type: "moveDown"; nodeId: string }
+  /** Into the group of `value` by its field (DESIGN-UI.md → Groups). */
+  | { type: "moveToGroup"; nodeId: string; fieldId: string; value: PropValue | null }
   | { type: "zoom"; nodeId: string; instanceKey: string }
   | { type: "createAfter"; nodeId: string }
   | { type: "createBefore"; nodeId: string }
@@ -148,10 +151,26 @@ function clearOrLeaveLane({ ctx, instanceKey }: SelectionTarget): SelectionKeyAc
   return { type: "clear" };
 }
 
+/**
+ * ⌘⇧← and ⌘⇧→: the row into the group before or after its own, as its
+ * frame draws them (DESIGN-UI.md → Groups); nothing past either end, or for
+ * a row in no group.
+ */
+function toGroup(side: "before" | "after"): IntentOf {
+  return ({ ctx, nodeId, instanceKey }) => {
+    const group = ctx.instanceAt?.(instanceKey)?.group;
+    const step = group?.[side] ?? null;
+    if (group === undefined || step === null) return null;
+    return { type: "moveToGroup", nodeId, fieldId: group.fieldId, value: step.value };
+  };
+}
+
 /** The selection's intents, by the name a binding runs them by. */
 const SELECTION_INTENTS = new Map<string, IntentOf>([
   ["move-up", ({ nodeId }) => ({ type: "moveUp", nodeId })],
   ["move-down", ({ nodeId }) => ({ type: "moveDown", nodeId })],
+  ["move-to-group-before", toGroup("before")],
+  ["move-to-group-after", toGroup("after")],
   ["zoom", ({ nodeId, instanceKey }) => ({ type: "zoom", nodeId, instanceKey })],
   ["up", upOrIntoFields],
   ["down", downOrIntoFields],

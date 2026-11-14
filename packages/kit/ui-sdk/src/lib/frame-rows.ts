@@ -13,6 +13,8 @@ import {
   type BoardColumn,
   flattenBoardOrder,
   groupChildrenForBoard,
+  groupSteps,
+  type GroupSteps,
   shownGroups,
   sortChildrenForTable,
 } from "./frame-layout.ts";
@@ -41,6 +43,11 @@ export interface FrameRows {
   columns: BoardColumn[];
   /** Field the columns are grouped by (null when the view declares none, or none is set). */
   groupFieldId: string | null;
+  /**
+   * Where each row moves by key, by row id (DESIGN-UI.md → Groups): empty
+   * for a view without groups, and for a query's results, which do not move.
+   */
+  steps: ReadonlyMap<string, GroupSteps>;
   /** Rows actually rendered — pagination applied for a paginating view. */
   rendered: OutlineNode[];
   hasMore: boolean;
@@ -71,6 +78,7 @@ export function frameRows({
     ordered: [],
     columns: [],
     groupFieldId: null,
+    steps: new Map(),
     rendered: [],
     hasMore: false,
   };
@@ -90,6 +98,7 @@ export function frameRows({
       })
     : [];
   const ordered = grouped ? flattenBoardOrder(columns) : sorted;
+  const moves = grouped && groupFieldId !== null && rowIds === undefined;
 
   // Pages, not an absolute row count: a pagesize change re-derives the limit
   // instead of leaving a stale reveal count behind.
@@ -100,6 +109,7 @@ export function frameRows({
     ordered,
     columns,
     groupFieldId,
+    steps: moves ? groupSteps(columns) : new Map(),
     rendered,
     hasMore: limit !== null && ordered.length > limit,
   };
