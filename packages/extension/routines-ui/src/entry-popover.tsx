@@ -40,6 +40,7 @@ export function EntryPopover({
       style={style}
     >
       <EventCard
+        routine={entry.routine}
         entry={entry}
         model={model}
         zone={zone}

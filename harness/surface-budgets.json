@@ -172,8 +172,8 @@
     "limit": 40
   },
   "@kb/routines": {
-    "limit": 110,
-    "reason": "Initial measured interface; module migration will narrow it."
+    "limit": 113,
+    "reason": "Initial measured interface; module migration will narrow it. An event's own view adds RoutinesEventView and EventParams, which the declaration and the page half share, and nextEntry, the instance its box acts on."
   },
   "@kb/routines-gcal": {
     "limit": 17

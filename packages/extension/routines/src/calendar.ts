@@ -7,7 +7,7 @@
  * would not.
  */
 import { DateTime, Option } from "effect";
-import { firstRef, formatDay, nodesOfKind, parseDay, type NodeLike } from "@kb/model";
+import { addDays, firstRef, formatDay, nodesOfKind, parseDay, type NodeLike } from "@kb/model";
 import { readRoutine, readSyncStatus, routineOccurrences, routineZone } from "./config.ts";
 import { SyncError, type Occurrence, type Routine, type SyncStatus } from "./model.ts";
 import { instancePlace, project, recurrence } from "./projection.ts";
@@ -148,6 +148,9 @@ export function knownZone(zone: string): boolean {
   return Option.isSome(DateTime.zoneMakeNamed(zone));
 }
 
+/** Whether a routine repeats; one that does not is a one-off, its one instance the routine itself. */
+const repeats = (routine: Routine) => routine.rrule.trim() !== "";
+
 function entry(
   node: NodeLike,
   routine: Routine,
@@ -162,7 +165,7 @@ function entry(
     routine: node.id,
     title: routine.title,
     on,
-    series: routine.rrule.trim() !== "",
+    series: repeats(routine),
     day,
     at,
     start,
@@ -220,6 +223,37 @@ const byPlace = (a: CalendarEntry, b: CalendarEntry) =>
   (a.start ?? -Infinity) - (b.start ?? -Infinity) ||
   a.title.localeCompare(b.title) ||
   a.key.localeCompare(b.key);
+
+/** How far ahead an event's next instance is looked for: two years, past any yearly rule. */
+const NEXT_HORIZON_DAYS = 731;
+
+/**
+ * The instance of one routine its box acts on (`EventCard`): a series' first
+ * shown on or after `today` (a local day) within two years, or null once it
+ * has ended; a one-off's one instance, whenever it is. Null too for a
+ * routine the calendar cannot show.
+ */
+export function nextEntry(
+  node: NodeLike,
+  nodes: ReadonlyMap<string, NodeLike>,
+  today: string,
+): CalendarEntry | null {
+  const start = parseDay(today);
+  if (start === null) return null;
+  const read = oneOff(node, nodes)
+    ? routineEntries(node, nodes, "0001-01-01", "9999-12-31")
+    : routineEntries(node, nodes, today, formatDay(addDays(start, NEXT_HORIZON_DAYS)));
+  return "issue" in read ? null : (read.entries.toSorted(byPlace)[0] ?? null);
+}
+
+/** Whether the routine happens once: no repeat. One it cannot read is not. */
+function oneOff(node: NodeLike, nodes: ReadonlyMap<string, NodeLike>): boolean {
+  try {
+    return !repeats(readRoutine(node, routineZone(node, nodes)).routine);
+  } catch {
+    return false;
+  }
+}
 
 /** Every routine's instances shown on a local day in `from`…`to` (`routineEntries`), in order. */
 export function calendarEntries(

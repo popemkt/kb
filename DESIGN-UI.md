@@ -4253,6 +4253,23 @@ as they are, since a person's Cloud project registered them.
 - **One-offs tick like series.** A one-off's one instance is its event, so
   its `#occurrence` on its start day is that event's own state: done sends
   it ✅ and grey, skipped cancels it.
+- **One box per instance.** What the calendar floats over a pressed
+  instance is its box (`EventCard`, `event-card.tsx`): when it is and how
+  it repeats, its state and sync state, Done, Skip, Move this one, Edit
+  event, Open in Google Calendar and Open in outline. The popover only
+  places it and puts it away (`EntryPopover`, with its Close button).
+- **An event on its own.** An `#event` node opens in its own view
+  (`RoutinesEventView`, `routines.event`, the tag's default view, DESIGN.md
+  → a tag's view sets how its nodes show): that same box, for the event's
+  next instance (`nextEntry`: a series' first on or after today, within two
+  years; a one-off's one instance, whenever it is). Its preview under the
+  node's row is the box live (`preview: "live"`), so a person ticks, skips,
+  moves or edits an event from the outline as from the calendar, through
+  the same actions, and Edit event opens the calendar's editor. A series
+  that has ended, or one the calendar cannot show, says it has no instance
+  and can still be edited and opened. Under its row the box fills the
+  preview's frame, whose height is the family's `preview height`
+  (GAP [[01M7CHAFY5WMRYR4QKXGN26TS3]]).
 
 ### Sync services
 

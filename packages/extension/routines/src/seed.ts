@@ -9,7 +9,7 @@ import {
   type FieldType,
   type KbNode,
 } from "@kb/model";
-import { RoutinesCalendarView, RoutinesSyncView } from "./view.ts";
+import { RoutinesCalendarView, RoutinesEventView, RoutinesSyncView } from "./view.ts";
 
 function field(
   label: string,
@@ -194,7 +194,9 @@ export const routinesExtension = defineExtension({
     { from: ROUTINE_TAGS.routine, to: ROUTINE_TAGS.routine, text: "routine" },
     { from: ROUTINE_FIELDS.rrule, to: ROUTINE_FIELDS.rrule, text: "rrule" },
   ],
-  views: [viewDef(RoutinesCalendarView), viewDef(RoutinesSyncView)],
+  views: [viewDef(RoutinesCalendarView), viewDef(RoutinesSyncView), viewDef(RoutinesEventView)],
+  // An event opens in its own box, the calendar's, and previews it live.
+  tagDefaultViews: { [ROUTINE_TAGS.routine]: RoutinesEventView },
 });
 
 /** The family's shared plugin: its declaration's view, which both hosts' entries load. */

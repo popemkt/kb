@@ -1326,7 +1326,8 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   settings from the tag.
   - **Who names it.** A family claims a tag in its declaration
     (`tagDefaultViews`: by the tag's id, one of its own views' keys; the
-    canvas claims `#canvas` for its canvas view), and the fold writes the
+    canvas claims `#canvas` for its canvas view, the events `#event` for
+    an event's own box), and the fold writes the
     claim as the tag node's `sys.f.view.default`, as it writes the store's
     on `sys.views` (one claim per carrier node). A tag two declarations
     claim, a claim on a tag no source seeds, or one naming a view its
@@ -1379,9 +1380,10 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
       view. The canvas's is a still picture of its board (`canvasSvg`, the
       export's painter), which goes live only when the canvas is opened.
     - **Live**: the view's own controls at work under the row, acting
-      through the family's actions as they do where the view is opened.
-      Since a press is the view's, the node opens through its tag's
-      "Open in …" instead.
+      through the family's actions as they do where the view is opened;
+      an event's box is one (DESIGN-UI → The routines calendar). Since a
+      press is the view's, the node opens through its tag's "Open in …"
+      instead.
 
     The row's host draws the preview's box by its kind, so no view asks
     for a box of its own (DESIGN-UI → Opening a node).

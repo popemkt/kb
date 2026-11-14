@@ -73,7 +73,7 @@ export interface CalendarGraph {
 }
 
 /** The calendar graph of `nodes`, read by this component: once per change. */
-function useCalendarGraph(): CalendarGraph {
+export function useCalendarGraph(): CalendarGraph {
   const nodes = useNodes();
   return useMemo(
     () => ({

@@ -27,6 +27,10 @@ export interface EventCardActions {
   readonly edit: (routine: string) => void;
 }
 
+/** The box's own look, wherever it is drawn. */
+const EVENT_BOX_CLASS =
+  "flex flex-col gap-2 rounded-lg border border-border bg-popover p-3 text-popover-foreground";
+
 const STATE_TEXT = { scheduled: "", moved: "Moved", done: "Done", skipped: "Skipped" } as const;
 
 function MoveForm({
@@ -118,46 +122,26 @@ function InstanceActions({
   );
 }
 
-export function EventCard({
+/** The instance the box acts on: when it is, its state and sync state, and what can be done to it. */
+function InstanceDetails({
   entry,
   model,
   zone,
   today,
   actions,
-  onClose,
-  className,
 }: {
   readonly entry: CalendarEntry;
   readonly model: CalendarGraph;
   readonly zone: string;
-  /** Today on the page's clock, which the move's date picker marks. */
   readonly today: string;
   readonly actions: EventCardActions;
-  /** Where the box floats, how it is put away: drawn as its Close button. */
-  readonly onClose?: () => void;
-  readonly className?: string;
 }) {
-  const openNode = useOpenNode();
   const node = model.nodes.get(entry.routine);
   const settings = node === undefined ? null : routineSettings(node).settings;
   const times = displayTimes(entry, zone);
   const calendar = model.calendars.get(entry.calendar);
   return (
-    <div
-      data-event-card={entry.key}
-      className={cn(
-        "flex flex-col gap-2 rounded-lg border border-border bg-popover p-3 text-popover-foreground",
-        className,
-      )}
-    >
-      <div className="flex items-start gap-2">
-        <h2 className="min-w-0 flex-1 text-lead text-foreground">
-          {entry.title === "" ? "Untitled" : entry.title}
-        </h2>
-        {onClose === undefined ? null : (
-          <IconButton label="Close" icon={XIcon} size="md" onClick={onClose} />
-        )}
-      </div>
+    <>
       {calendar === undefined ? null : (
         <p
           className="flex items-center gap-1.5 text-meta text-muted-foreground"
@@ -198,18 +182,67 @@ export function EventCard({
         </a>
       )}
       <InstanceActions entry={entry} today={today} actions={actions} />
+    </>
+  );
+}
+
+/**
+ * The box for the event `routine` and the instance `entry` it acts on; an
+ * event with none to act on (a series that has ended, one the calendar
+ * cannot show) says so, and can still be edited and opened.
+ */
+export function EventCard({
+  routine,
+  entry,
+  model,
+  zone,
+  today,
+  actions,
+  onClose,
+  className,
+}: {
+  readonly routine: string;
+  readonly entry: CalendarEntry | null;
+  readonly model: CalendarGraph;
+  readonly zone: string;
+  /** Today on the page's clock, which the move's date picker marks. */
+  readonly today: string;
+  readonly actions: EventCardActions;
+  /** Where the box floats, how it is put away: drawn as its Close button. */
+  readonly onClose?: () => void;
+  readonly className?: string;
+}) {
+  const openNode = useOpenNode();
+  const title = entry?.title ?? model.nodes.get(routine)?.text ?? "";
+  return (
+    <div data-event-card={entry?.key ?? routine} className={cn(EVENT_BOX_CLASS, className)}>
+      <div className="flex items-start gap-2">
+        <h2 className="min-w-0 flex-1 text-lead text-foreground">
+          {title === "" ? "Untitled" : title}
+        </h2>
+        {onClose === undefined ? null : (
+          <IconButton label="Close" icon={XIcon} size="md" onClick={onClose} />
+        )}
+      </div>
+      {entry === null ? (
+        <p className="text-meta text-muted-foreground" data-event-no-instance="">
+          No instance from today on, or none the calendar can show.
+        </p>
+      ) : (
+        <InstanceDetails entry={entry} model={model} zone={zone} today={today} actions={actions} />
+      )}
       <div className="flex gap-3 border-t border-border pt-2 text-meta">
         <button
           type="button"
           className="text-primary hover:underline"
-          onClick={() => actions.edit(entry.routine)}
+          onClick={() => actions.edit(routine)}
         >
           Edit event
         </button>
         <button
           type="button"
           className="text-primary hover:underline"
-          onClick={() => openNode(entry.routine)}
+          onClick={() => openNode(routine)}
         >
           Open in outline
         </button>
