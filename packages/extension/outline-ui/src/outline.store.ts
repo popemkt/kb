@@ -795,6 +795,17 @@ function arrive(at: "zoom" | "home", to: PageGraphState): void {
 }
 
 /**
+ * A control inside the outline that is not a row took the keyboard (a
+ * field's value, a live preview's controls): the outline lets go of its
+ * selected and its edited row, so the selection keymap and the row's
+ * editing keys stop acting on keys meant for that control.
+ */
+export function releaseOutlineKeyboard(): void {
+  const s = useOutlineStore.getState();
+  if (s.selectedNodeId !== null || s.activeNodeId !== null) s.selectNode(null);
+}
+
+/**
  * The outline as the projection the page stands in: installed by the outline
  * plugin while it is loaded (`PageProjectionService`), beside this store as
  * the page's editor (`PageEditorService`).

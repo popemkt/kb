@@ -41,8 +41,8 @@
     "reason": "M6: script reach (callWithin, scriptRefusal, scriptWriteRefusal, readableNodes, readableQuery) moved from @kb/operations beside grants."
   },
   "@kb/model": {
-    "limit": 266,
-    "reason": "The honest stop, not 220: M3b dropped every name no package outside model imports, and every model file is shared by two or more packages (the 16 names only @kb/cli reads sit in shared files), so narrowing further splits a concept across packages. #191 adds TagChains, which @kb/keybindings' stored-shortcut reader names."
+    "limit": 267,
+    "reason": "The honest stop, not 220: M3b dropped every name no package outside model imports, and every model file is shared by two or more packages (the 16 names only @kb/cli reads sit in shared files), so narrowing further splits a concept across packages. #191 adds TagChains, which @kb/keybindings' stored-shortcut reader names. The event preview adds PreviewKind, the still or live preview a view key states and the seed's and display settings' views carry."
   },
   "@kb/outline-paste": {
     "limit": 3
@@ -172,8 +172,8 @@
     "limit": 40
   },
   "@kb/routines": {
-    "limit": 110,
-    "reason": "Initial measured interface; module migration will narrow it."
+    "limit": 113,
+    "reason": "Initial measured interface; module migration will narrow it. An event's own view adds RoutinesEventView and EventParams, which the declaration and the page half share, and nextEntry, the instance its box acts on."
   },
   "@kb/routines-gcal": {
     "limit": 17

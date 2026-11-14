@@ -19,7 +19,7 @@ import {
 } from "@kb/routines";
 import { cn } from "@kb/ui-sdk";
 import { BUTTON_CLASS, Dialog, PRIMARY_BUTTON_CLASS } from "./dialog";
-import type { CalendarModel } from "./model";
+import type { CalendarGraph } from "./model";
 import { DateField } from "./date-field";
 import { FIELD_CLASS, RepeatPicker } from "./repeat-picker";
 import { StatusDot } from "./status-dot";
@@ -68,7 +68,7 @@ function sendable(title: string, settings: RoutineSettings, zone: string): boole
   }
 }
 
-function startOf(target: EditorTarget, model: CalendarModel) {
+function startOf(target: EditorTarget, model: CalendarGraph) {
   if (target.kind === "new") {
     const only = model.calendars.size === 1 ? [...model.calendars.keys()][0] : undefined;
     return {
@@ -88,7 +88,7 @@ function SyncRow({
   calendar,
 }: {
   readonly id: string;
-  readonly model: CalendarModel;
+  readonly model: CalendarGraph;
   readonly calendar: string;
 }) {
   const node = model.nodes.get(id);
@@ -300,7 +300,7 @@ function CalendarField({
   value,
   onChange,
 }: {
-  readonly model: CalendarModel;
+  readonly model: CalendarGraph;
   readonly value: string;
   readonly onChange: (calendar: string) => void;
 }) {
@@ -330,7 +330,7 @@ export function RoutineEditor({
   onClose,
 }: {
   readonly target: EditorTarget;
-  readonly model: CalendarModel;
+  readonly model: CalendarGraph;
   /** Today on the page's clock, which the date picker marks. */
   readonly today: string;
   readonly onClose: () => void;

@@ -8,6 +8,7 @@ import {
   instantOf,
   moveEntry,
   type MovePlan,
+  nextEntry,
   readRepeat,
   readSyncStatus,
   repeatPresets,
@@ -298,6 +299,41 @@ describe("calendar entries", () => {
     );
     expect(only(graph, "2026-11-02").status?.state).toBe("synced");
     expect(only(graph, "2026-11-03").status).toEqual(status);
+  });
+});
+
+describe("an event's next instance", () => {
+  const timed = {
+    [F.starts]: [str("2026-11-02")],
+    [F.at]: [str("07:00")],
+    [F.duration]: [{ t: "num", v: 60 } as const],
+  };
+  const next = (graph: Graph, today: string) => nextEntry(must(graph.get("r")), graph, today);
+
+  test("a series' first instance on or after today, today's own included", () => {
+    const graph = graphOf(
+      routineNode("r", { ...timed, [F.rrule]: [str("FREQ=WEEKLY;BYDAY=MO,WE")] }),
+    );
+    expect(next(graph, "2026-11-04")?.key).toBe("r/2026-11-04");
+    expect(next(graph, "2026-11-05")?.key).toBe("r/2026-11-09");
+  });
+
+  test("a yearly series a year away is found", () => {
+    const graph = graphOf(routineNode("r", { ...timed, [F.rrule]: [str("FREQ=YEARLY")] }));
+    expect(next(graph, "2026-11-03")?.key).toBe("r/2027-11-02");
+  });
+
+  test("a series that has ended has none; a one-off is its one instance, past or not", () => {
+    const ended = graphOf(routineNode("r", { ...timed, [F.rrule]: [str("FREQ=DAILY;COUNT=3")] }));
+    expect(next(ended, "2026-11-10")).toBeNull();
+    const once = graphOf(routineNode("r", timed));
+    expect(next(once, "2026-11-10")?.key).toBe("r/2026-11-02");
+    expect(next(once, "2026-10-01")?.key).toBe("r/2026-11-02");
+  });
+
+  test("an event the calendar cannot show has none", () => {
+    const graph = graphOf(routineNode("r", { ...timed, [F.rrule]: [str("FREQ=NOPE")] }));
+    expect(next(graph, "2026-11-02")).toBeNull();
   });
 });
 

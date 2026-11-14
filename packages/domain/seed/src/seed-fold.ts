@@ -31,6 +31,7 @@ import {
   viewOptionId,
   type TagViewRole,
   type ViewFamily,
+  type PreviewKind,
 } from "@kb/model";
 
 import { knobFields } from "@kb/appearance";
@@ -45,11 +46,12 @@ export interface SeedView {
   readonly label: string;
   readonly family?: ViewFamily | undefined;
   /**
-   * The view draws a preview of a node it opens (`ViewKey.preview`): where
-   * its source claims it as a tag's default view, the display settings the
-   * fold derives for it (`displaySettingFields`) offer the preview.
+   * What preview the view draws of a node it opens (`ViewKey.preview`):
+   * where it draws one and its source claims it as a tag's default view,
+   * the display settings the fold derives for it (`displaySettingFields`)
+   * offer the preview.
    */
-  readonly preview?: boolean | undefined;
+  readonly preview?: PreviewKind | null | undefined;
 }
 
 /**

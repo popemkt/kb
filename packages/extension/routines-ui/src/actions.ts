@@ -17,7 +17,7 @@ import {
 import { toast } from "@kb/ui-sdk";
 import type { Spot } from "./drag";
 import { elapsed, instantAfter, placeAt } from "./layout";
-import type { CalendarModel } from "./model";
+import type { CalendarGraph } from "./model";
 import type { EditorTarget } from "./routine-editor";
 import { mintId, runCalls } from "./writes";
 
@@ -27,12 +27,12 @@ export interface PendingMove {
 }
 
 /** The zone a routine made now keeps its times in: its calendar's when there is one choice. */
-function newRoutineZone(model: CalendarModel): string {
+function newRoutineZone(model: CalendarGraph): string {
   const [only, ...others] = [...model.calendars.values()];
   return only !== undefined && others.length === 0 ? only.zone : DEFAULT_ROUTINE_ZONE;
 }
 
-export function useCalendarActions(model: CalendarModel, zone: string) {
+export function useCalendarActions(model: CalendarGraph, zone: string) {
   const [opened, setOpened] = useState<{ key: string; element: HTMLElement } | null>(null);
   const [editor, setEditor] = useState<EditorTarget | null>(null);
   const [pending, setPending] = useState<PendingMove | null>(null);
