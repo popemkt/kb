@@ -1,10 +1,11 @@
 import { watch } from "node:fs";
 import { join, relative, resolve } from "node:path";
-import { Cause, Effect, Exit, Queue, Scope, Stream, type Layer } from "effect";
+import { Cause, Effect, Exit, Layer, Queue, Scope, Stream } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import type { PlatformError } from "effect/PlatformError";
 import {
   IdentityPoint,
+  CodeTrust,
   EXTENSIONS_WATCH_NODE,
   NO_EMBEDDING,
   UI_DEFAULT_PORT,
@@ -33,7 +34,13 @@ import {
   writeErr,
 } from "@kb/runtime";
 import { makeKernel, type Kernel, type Plugin } from "@kb/plugin";
-import { clearUiPresence, currentCache, queriesDir, writeUiPresence } from "@kb/workspace-fs";
+import {
+  clearUiPresence,
+  codeTrustLayer,
+  currentCache,
+  queriesDir,
+  writeUiPresence,
+} from "@kb/workspace-fs";
 import { ensureUiBuilt, type UiBuildError, type UiEnsureResult } from "./build.ts";
 import {
   UI_DEV_DEFAULT_PORT,
@@ -411,10 +418,24 @@ const observeExtensions = Effect.fn("kb.observeExtensions")(function* (
     );
   });
   // Runtime changes include machine-local trust even when the loaded extension set is unchanged.
-  // That state is part of kb.manifest too, and pages must withdraw revoked confirmations.
+  // That state is part of kb.manifest too, and pages must withdraw revoked confirmations. What
+  // kb.manifest reports is the composition and the machine's trusted digests, so a signal that
+  // moved neither (a watcher's first reading at start, a rewrite of the same bytes) tells nobody;
+  // a trust reading that fails reads as moved.
+  const trusted = Effect.gen(function* () {
+    const records = yield* (yield* CodeTrust).records;
+    return JSON.stringify(records.map(({ digest }) => digest).toSorted());
+  }).pipe(
+    Effect.orElseSucceed(() => null),
+    Effect.provide(codeTrustLayer().pipe(Layer.provide(bunFileSystemLayer))),
+  );
+  let told = yield* trusted;
   const refresh = Effect.gen(function* () {
     const next = yield* sessionRegistry(ctx);
+    const reading = yield* trusted;
+    if (next === composition && reading !== null && reading === told) return;
     composition = next;
+    told = reading;
     yield* hub.manifestChanged();
   }).pipe(Effect.provide(bunFileSystemLayer));
   return { refresh, unsubscribe };

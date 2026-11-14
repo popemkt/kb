@@ -160,6 +160,33 @@ test("watching, an edit to an own extension is followed, and its new bytes wait 
   expect(await call(handle, "ext.live.version")).toMatchObject({ output: { version: 2 } });
 }, 30_000);
 
+test("a runtime change that moves nothing tells no page; the edit after it is told once", async () => {
+  const root = await bareRoot();
+  const source = extensionModule("live", { declaration, actions: actions(1) });
+  await writeExtension(root, "live.ts", source);
+  const first = await trustExtension(root, "live.ts");
+  const handle = await serve(root, true);
+  const frames = await connect(handle.url);
+  await until(() => (watched(frames) === FOLDER ? true : undefined), "the watch to be told");
+
+  // The watchers' first readings at start, then a save of the same bytes:
+  // neither moves the composition or the trusted digests. The edit after
+  // them does, and one connection's frames arrive in the order the server
+  // refreshed, so whatever those two told arrives before the edit's.
+  await writeExtension(root, "live.ts", source);
+  await writeExtension(
+    root,
+    "live.ts",
+    extensionModule("live", { declaration, actions: actions(2) }),
+  );
+  await settled(async () => {
+    const row = await liveRow(handle);
+    return row !== undefined && row.digest !== first ? row : undefined;
+  }, "the edit to be followed");
+  await until(() => frames.find((frame) => frame.op === "manifest-changed"), "manifest-changed");
+  expect(frames.filter((frame) => frame.op === "manifest-changed")).toHaveLength(1);
+}, 30_000);
+
 test("without the flag, core's setting turns watching on and off, and the page is told each time", async () => {
   const root = await bareRoot();
   const handle = await serve(root);
