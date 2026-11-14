@@ -26,11 +26,9 @@ import {
   useGraphRead,
   useIsActive,
   useIsSelected,
-  usePrefs,
-  BREAKOUT_CLASS,
-  useBreakoutShift,
 } from "@kb/ui-sdk";
 import { AddRow } from "./add-row";
+import { useViewBreakout } from "./breakout";
 import { fieldTypeOf, SYSTEM_IDS } from "@kb/model";
 import {
   CALCULATION_LABELS,
@@ -72,8 +70,6 @@ export function TableView({
   // Columns are a property of the FRAME, not of any row: one header serves
   // every row, so the frame node is the only thing "per-node" can mean here.
   const debugColumns = useDebugFields(frameId);
-  const storeWidth = usePrefs((prefs) => prefs.width);
-  const widthPref = widthPrefProp ?? storeWidth;
 
   // Column names and every field shown are schema, read from the whole graph
   // (`lib/schema.ts`), whatever projection the rows come from.
@@ -147,24 +143,29 @@ export function TableView({
     [frameId],
   );
 
-  const breakoutCentered = widthPref === "centered";
-  const breakoutRef = useBreakoutShift(
-    breakoutCentered && (frameNode !== undefined || rowIds !== undefined),
-  );
+  const {
+    attach,
+    className: breakoutClass,
+    data: breakoutData,
+  } = useViewBreakout({
+    wants: true,
+    widthPref: widthPrefProp,
+    mounted: frameNode !== undefined || rowIds !== undefined,
+  });
 
   if (!frameNode && !rowIds) return null;
 
   return (
     <div
-      ref={breakoutRef}
+      ref={attach}
       className={cn(
         "table-view kb-text overflow-x-auto my-2 rounded-md border border-foreground/[0.06] bg-background",
         // w-full is a utility, so it would beat the breakout's width.
-        breakoutCentered ? [BREAKOUT_CLASS, "px-4"] : "w-full",
+        breakoutClass ?? "w-full",
       )}
       data-table-view="true"
       data-frame-id={frameId}
-      data-breakout={breakoutCentered ? "centered" : undefined}
+      data-breakout={breakoutData}
     >
       <table className="w-full text-left border-collapse" style={{ minWidth: "max-content" }}>
         <thead>

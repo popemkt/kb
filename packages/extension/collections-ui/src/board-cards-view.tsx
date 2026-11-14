@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState, type ComponentType, type Ref } from "react";
+import { memo, useCallback, useMemo, useState, type ComponentType } from "react";
 import { CaretDownIcon, CaretRightIcon } from "@phosphor-icons/react";
 import {
   browserHost,
@@ -27,13 +27,11 @@ import {
   useIsActive,
   useIsSelected,
   usePageGraph,
-  usePrefs,
-  BREAKOUT_CLASS,
-  useBreakoutShift,
 } from "@kb/ui-sdk";
 import { laysOutLanes, localIdOf, type ParamsOf, type ViewFilter } from "@kb/views";
 import { CollectionBoardView, CollectionCardsView } from "@kb/collections";
 import { AddRow } from "./add-row";
+import { useViewBreakout, type ViewBreakout } from "./breakout";
 import { groupWhere } from "./group-where";
 
 /**
@@ -82,8 +80,6 @@ export function BoardCardsView({
   const frameNode = nodes.get(frameId);
   // Same rule as the table: displayed columns belong to the frame.
   const debugColumns = useDebugFields(frameId);
-  const storeWidth = usePrefs((prefs) => prefs.width);
-  const widthPref = widthPrefProp ?? storeWidth;
 
   // Column names and every field shown are schema, read from the whole graph
   // (`lib/schema.ts`), whatever projection the rows come from.
@@ -135,10 +131,12 @@ export function BoardCardsView({
     [folded, frameId],
   );
 
-  const breakout = view.key === CollectionBoardView && widthPref === "centered";
-  const breakoutRef = useBreakoutShift(
-    breakout && (frameNode !== undefined || rowIds !== undefined),
-  );
+  const breakout = useViewBreakout({
+    wants: view.key === CollectionBoardView,
+    widthPref: widthPrefProp,
+    mounted: frameNode !== undefined || rowIds !== undefined,
+  });
+  const { attach, className: breakoutClass, data: breakoutData } = breakout;
 
   if (!frameNode && !rowIds) return null;
 
@@ -151,24 +149,23 @@ export function BoardCardsView({
         filters={view.params.filters}
         context={context}
         breakout={breakout}
-        breakoutRef={breakoutRef}
       />
     );
   }
 
   return (
     <div
-      ref={breakoutRef}
+      ref={attach}
       className={cn(
         "board-cards-view my-2",
         // GAP [[01M7DAJSTW3PP7375FECAA2DHS]] nothing shows that the columns scroll on past the edge
         view.key === CollectionBoardView && "overflow-x-auto",
-        breakout && [BREAKOUT_CLASS, "px-4"],
+        breakoutClass,
       )}
       data-board-cards-view="true"
       data-view-mode={mode}
       data-frame-id={frameId}
-      data-breakout={breakout ? "centered" : undefined}
+      data-breakout={breakoutData}
     >
       {view.key === CollectionCardsView ? (
         <div
@@ -265,26 +262,24 @@ function Lanes({
   frame,
   filters,
   context,
-  breakout,
-  breakoutRef,
+  breakout: { attach, className, data },
 }: {
   rows: readonly OutlineNode[];
   keyFor: (nodeId: string) => string;
   frame: FrameSubject;
   filters: readonly ViewFilter[];
   context: FieldContext;
-  breakout: boolean;
-  breakoutRef: Ref<HTMLDivElement>;
+  breakout: ViewBreakout;
 }) {
   return (
     <div
-      ref={breakoutRef}
-      className={cn("board-cards-view my-2 overflow-x-auto", breakout && [BREAKOUT_CLASS, "px-4"])}
+      ref={attach}
+      className={cn("board-cards-view my-2 overflow-x-auto", className)}
       data-board-cards-view="true"
       data-view-mode="board"
       data-lanes="true"
       data-frame-id={frame.frameId}
-      data-breakout={breakout ? "centered" : undefined}
+      data-breakout={data}
     >
       <div className="flex items-start gap-3 min-w-max pb-2">
         {rows.length === 0 && (
