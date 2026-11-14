@@ -36,9 +36,18 @@ test("Mod-Shift-D opens today's page, even from a row being edited", async ({ pa
   await expect(page.locator(`[data-node-id="${ROW}"][data-active="true"]`)).toBeVisible();
 
   await page.keyboard.press("ControlOrMeta+Shift+D");
-  // The page's local day, YYYY-MM-DD, as the page names today.
+  // Today's node opens in the node page, like any node: the page leaves the
+  // row's node for another, and that one is the day the page names today
+  // (its local day, YYYY-MM-DD), which the key made, so asking for it again
+  // finds it and makes nothing.
+  await expect.poll(() => page.url()).not.toContain(ROOT);
   const today = await page.evaluate(() => new Date().toLocaleDateString("en-CA"));
-  await expect(page.locator(`[data-day-page="${today}"]`)).toBeVisible();
+  const day = (await call(request, "ext.days.today", { day: today })) as {
+    id: string;
+    made: string[];
+  };
+  expect(day.made).toEqual([]);
+  await expect(page).toHaveURL(new RegExp(`/node/${encodeURIComponent(day.id)}$`, "u"));
 
   // The row took no letter from the key: its text is as it was.
   await page.goBack();
