@@ -21,9 +21,15 @@ import {
   setCaretSerializedOffset,
 } from "../lib/md-edit.ts";
 import { nodeTarget, routePointerClick, type Follow } from "../lib/follow";
-import { insertRefAtCursor, nodeCandidates, openRefQuery } from "../lib/refs";
-import { pickerRows } from "../lib/picker";
 import { usePickerKeys } from "../lib/use-picker";
+import type { PickerRow } from "../lib/picker";
+import {
+  openTriggerAt,
+  refTrigger,
+  type OpenTrigger,
+  type TextTrigger,
+  type TriggerPick,
+} from "../lib/text-triggers";
 import { rowTextReadOnlyReason } from "../lib/contextual-ref";
 import { refInkOf } from "../lib/tag-color";
 import type { SchemaIndex } from "../lib/schema";
@@ -126,6 +132,9 @@ function historyChord(e: React.KeyboardEvent): "undo" | "redo" | null {
 /** A row drawn as its text alone: what the host shows while no row view draws it. */
 const shownAsText = (text: ReactElement): ReactNode => text;
 
+/** The triggers every text offers (DESIGN-UI.md → Triggers in the text). */
+const TRIGGERS: readonly TextTrigger[] = [refTrigger];
+
 export function NodeTextHost({
   nodeId,
   instanceKey,
@@ -168,6 +177,11 @@ export function NodeTextHost({
    * While one is pending, `content` is behind the DOM, not ahead of it.
    */
   const pendingEcho = useRef<string | null>(null);
+  /** The text as last rendered: what a pick that resolves later is laid into. */
+  const latest = useRef(content);
+  useLayoutEffect(() => {
+    latest.current = content;
+  }, [content]);
   /** Query captured at dismissal time; a different query re-opens (D14). */
   const acDismissedQuery = useRef<string | null>(null);
   /** D14: Escape dismisses the popup without blurring or leaving edit mode. */
@@ -187,19 +201,22 @@ export function NodeTextHost({
     [content, onChange],
   );
 
-  const rawRefOpen = useMemo(() => {
+  const rawOpen = useMemo(() => {
     if (!isActive || readOnly) return null;
-    return openRefQuery(content, cursor);
+    return openTriggerAt(TRIGGERS, content, cursor);
   }, [isActive, readOnly, content, cursor]);
 
   // Dismissal survives until the query itself changes or typing resumes.
-  const refOpen = acDismissed && rawRefOpen?.query === acDismissedQuery.current ? null : rawRefOpen;
+  const typed = acDismissed && rawOpen?.open.query === acDismissedQuery.current ? null : rawOpen;
 
-  // Candidates exist only while the `[[` popup is open: a closed row asks for none.
+  // Rows exist only while a trigger is typed: a closed row asks for none.
   const rows = useMemo(
-    () => (refOpen ? pickerRows(nodeCandidates(nodes), { query: refOpen.query, limit: 12 }) : []),
-    [refOpen, nodes],
+    () => (typed === null ? [] : typed.trigger.rows(typed.open.query, nodes)),
+    [typed, nodes],
   );
+  // A trigger with nothing to offer is closed, unless it answers Enter then.
+  const triggered = typed !== null && (rows.length > 0 || typed.trigger.none !== undefined);
+  const open = triggered ? typed : null;
 
   useLayoutEffect(() => {
     if (!isActive || instanceKey === undefined) return undefined;
@@ -257,49 +274,48 @@ export function NodeTextHost({
 
   useRevealMarkup(editorRef, editing);
 
-  const applyRef = useCallback(
-    (id: string, label: string) => {
-      const pos = cursor;
-      const inserted = insertRefAtCursor(content, pos, id, label);
-      if (!inserted) return;
-      emit(inserted.text);
+  /**
+   * Lay a pick into the text: what it inserts replaces the trigger's span,
+   * the caret after it, then its write. A pick that resolves later is laid
+   * into the text as it is then, unless the span has changed meanwhile.
+   */
+  const applyPick = useCallback(
+    async (made: TriggerPick | Promise<TriggerPick>, span: OpenTrigger) => {
+      const was = content.slice(span.start, span.end);
+      const pick = await made;
+      const text = latest.current;
+      if (text.slice(span.start, span.end) !== was) return;
+      const next = text.slice(0, span.start) + pick.insert + text.slice(span.end);
+      const caret = span.start + pick.insert.length;
+      emit(next);
       if (editorRef.current) {
-        renderInlineMarkdown(editorRef.current, inserted.text, ink);
-        setCaretSerializedOffset(editorRef.current, inserted.cursor);
+        renderInlineMarkdown(editorRef.current, next, ink);
+        setCaretSerializedOffset(editorRef.current, caret);
         revealMarkupAtSelection(editorRef.current);
       }
-      setCursor(inserted.cursor);
-      if (instanceKey !== undefined) placeCaret(instanceKey, inserted.cursor);
+      setCursor(caret);
+      if (instanceKey !== undefined) placeCaret(instanceKey, caret);
+      await pick.write?.();
     },
-    [content, cursor, instanceKey, emit, placeCaret, ink],
+    [content, instanceKey, emit, placeCaret, ink],
   );
 
-  /**
-   * D15: Enter/Tab with an open popup and zero candidates completes the
-   * bracket (`]]`) instead of falling through to a destructive split.
-   */
-  const completeBracket = useCallback(() => {
-    if (!editorRef.current) return;
-    const next = content.slice(0, cursor) + "]]" + content.slice(cursor);
-    emit(next);
-    renderInlineMarkdown(editorRef.current, next, ink);
-    setCaretSerializedOffset(editorRef.current, cursor + 2);
-    revealMarkupAtSelection(editorRef.current);
-    setCursor(cursor + 2);
-    if (instanceKey !== undefined) placeCaret(instanceKey, cursor + 2);
-  }, [content, cursor, instanceKey, emit, placeCaret, ink]);
+  /** A row picked, or (Enter with none) what the trigger does then. */
+  const pickRow = (row: PickerRow | null) => {
+    if (open === null) return;
+    const made = row === null ? open.trigger.none?.(open.open) : open.trigger.pick(row, open.open);
+    if (made !== undefined) void applyPick(made, open.open);
+  };
 
-  // The `[[` completion is the one node picker; its keys run before the row's.
+  // The text's triggers open the one node picker; its keys run before the row's.
   const picker = usePickerKeys({
     rows,
-    query: refOpen?.query ?? "",
+    query: open?.open.query ?? "",
+    scope: open?.trigger.id,
     pickOnTab: true,
-    onPick: (row) => {
-      if (row?.kind === "item") applyRef(row.id, row.label);
-      else completeBracket();
-    },
+    onPick: pickRow,
     onCancel: () => {
-      acDismissedQuery.current = refOpen?.query ?? null;
+      acDismissedQuery.current = open?.open.query ?? null;
       setAcDismissed(true);
     },
   });
@@ -405,7 +421,7 @@ export function NodeTextHost({
         return;
       }
 
-      if (refOpen && picker.handleKeyDown(e)) {
+      if (open !== null && picker.handleKeyDown(e)) {
         // D14: Escape dismisses the popover only — stay editing, keep caret.
         if (e.key === "Escape") e.stopPropagation();
         return;
@@ -415,7 +431,7 @@ export function NodeTextHost({
       onKeyDown(e);
     },
     [
-      refOpen,
+      open,
       picker,
       onKeyDown,
       content,
@@ -500,14 +516,14 @@ export function NodeTextHost({
           )
         )}
 
-        {refOpen && (
+        {open !== null && (
           <PickerList
             placement="popover"
             anchorRef={editorRef}
             rows={rows}
             activeIndex={picker.activeIndex}
             onHover={picker.setActiveIndex}
-            onPick={(row) => applyRef(row.id, row.kind === "item" ? row.label : row.name)}
+            onPick={pickRow}
           />
         )}
       </div>
