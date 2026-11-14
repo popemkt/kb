@@ -679,9 +679,10 @@ and keep the anchor: `extend-up` and `extend-down`, bound to Shift+↑ and
 Shift+↓ (`outline.selection.extend-up` / `extend-down`). Shift-click on a
 row moves the head to it, the anchor staying where the selection was, or on
 the row being edited. Any other move of the selection (an arrow, a click,
-Escape, editing a row) collapses the range to the row it lands on. Every
-selected row is drawn as the selected row is, and the node menu anchors on
-the head.
+Escape, editing a row) collapses the range to the row it lands on. The
+rows of a range are drawn as one band, the head holding the focus, and the
+node menu anchors on the head; closed, it gives the focus back to the head
+(`useFocusReturn`, as ⌘K gives it back to where it was opened).
 
 What a gesture over a range acts on is said once, by the selection:
 
@@ -697,17 +698,22 @@ What a gesture over a range acts on is said once, by the selection:
   parent, or past the sibling beside it. A range that is not one run is told
   so and left as it is.
 
-A gesture over several rows is one write: the writes it makes inside
-`PageWrites.together` are sent as one `node.batch` call (DESIGN.md →
-[Batches of writes](DESIGN.md#batches-of-writes--nodebatch)), so the commit
-takes or refuses all of it and undo takes it back in one step. A write
-inside `together` is planned against the graph as it stood when the gesture
-began, so a gesture whose parts depend on each other plans them as one write
-(the block moves). Over a range, the node menu lists only the
-commands that act on many rows (`NodeCommand.many`): Add tag, Remove tag…,
-Add field, Set field…, Pin / Unpin and Delete; a picker step it
-opens mints what it creates once (`PaletteStep.create`), then commits the
-pick to each row.
+A gesture over several rows is one write. Every plan of several node writes
+is sent as one `node.batch` call (DESIGN.md →
+[Batches of writes](DESIGN.md#batches-of-writes--nodebatch)), and so are the
+writes a gesture over several rows makes inside `PageWrites.together`
+(`asOneWrite`), so the commit takes or refuses all of it and undo takes it
+back, and redoes it, in one step. A write inside `together` is planned
+against the graph as it stood when the gesture began, so a gesture whose
+parts depend on each other plans them as one write (the block moves), and
+what it makes is there once `together` returns. A gesture about one row
+is not gathered, its write being one write already, so a command that reads
+what its write made (Make your own tag opens the tag) reads it landed. Over a range, the node menu lists only the commands that act on many
+rows (`NodeCommand.many`): Add tag, Remove tag…, Add field, Set field…,
+Pin / Unpin and Delete. Any other node command, run over a range from its
+shortcut, acts on the head alone (`runCommand`). A picker step it opens is
+handed every row (`targetNodeIds`), mints what it creates once, and writes
+the pick to each row; the palette runs its commit as one write (`asOneWrite`).
 
 **Caret geometry is measured, not guessed.** `lib/caret.ts`
 exposes `readCaretGeometry` (range rects → real line detection),
