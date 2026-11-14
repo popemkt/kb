@@ -1,4 +1,5 @@
 import { memo, useCallback, useMemo, useState, type ComponentType } from "react";
+import { CaretDownIcon, CaretRightIcon } from "@phosphor-icons/react";
 import {
   browserHost,
   Bullet,
@@ -144,6 +145,18 @@ export function BoardCardsView({
     [dragNodeId, groupFieldId, isQuerySource, nodes],
   );
 
+  // A fold is a view setting: it is written to the view node, so every host
+  // that names it shows the group folded (DESIGN-UI.md → Groups).
+  const folded = "collapsed" in view.params ? view.params.collapsed : undefined;
+  const toggleFold = useCallback(
+    (key: string) => {
+      if (folded === undefined) return;
+      const next = folded.includes(key) ? folded.filter((held) => held !== key) : [...folded, key];
+      void browserHost().writes.setFrameSetting(frameId, "collapsed", next);
+    },
+    [folded, frameId],
+  );
+
   const breakout = view.key === CollectionBoardView && widthPref === "centered";
   const breakoutRef = useBreakoutShift(
     breakout && groupFieldId !== null && (frameNode !== undefined || rowIds !== undefined),
@@ -225,8 +238,12 @@ export function BoardCardsView({
           {columns.map((col) => (
             <div
               key={col.key}
-              className="w-64 shrink-0 rounded-md border border-foreground/[0.06] bg-foreground/[0.02]"
+              className={cn(
+                "shrink-0 rounded-md border border-foreground/[0.06] bg-foreground/[0.02]",
+                col.collapsed ? "w-auto" : "w-64",
+              )}
               data-board-column={col.key}
+              data-collapsed={col.collapsed ? "true" : undefined}
               onDragOver={(e) => {
                 if (isQuerySource || groupFieldId === null) return;
                 e.preventDefault();
@@ -237,31 +254,77 @@ export function BoardCardsView({
                 handleDropOnColumn(col.key, col.value);
               }}
             >
-              <div className="px-2 py-1.5 text-label font-medium text-foreground/35 border-b border-foreground/[0.06]">
-                {col.label || "All"}
-                <span className="ml-1 text-foreground/25">{col.nodes.length}</span>
-              </div>
-              <div className="flex flex-col gap-2 p-2 min-h-16">
-                {col.nodes.map((child) => (
-                  <ViewCard
-                    key={instanceKeyFor(child.id)}
-                    child={child}
-                    instanceKey={instanceKeyFor(child.id)}
-                    displayCols={displayCols}
-                    context={context}
-                    RowText={RowText}
-                    Field={Field}
-                    draggable={!isQuerySource && groupFieldId !== null}
-                    onDragStart={handleCardDragStart}
-                    onDragEnd={handleCardDragEnd}
-                  />
-                ))}
-              </div>
+              <GroupHeader
+                label={col.label || "All"}
+                count={col.nodes.length}
+                collapsed={col.collapsed}
+                onToggle={() => toggleFold(col.key)}
+              />
+              {col.collapsed ? null : (
+                <div className="flex flex-col gap-2 p-2 min-h-16">
+                  {col.nodes.map((child) => (
+                    <ViewCard
+                      key={instanceKeyFor(child.id)}
+                      child={child}
+                      instanceKey={instanceKeyFor(child.id)}
+                      displayCols={displayCols}
+                      context={context}
+                      RowText={RowText}
+                      Field={Field}
+                      draggable={!isQuerySource && groupFieldId !== null}
+                      onDragStart={handleCardDragStart}
+                      onDragEnd={handleCardDragEnd}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * A group's header: its label and row count, as the one button that folds
+ * and unfolds it, so Tab reaches it and Enter or Space toggles it.
+ */
+function GroupHeader({
+  label,
+  count,
+  collapsed,
+  onToggle,
+}: {
+  label: string;
+  count: number;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  const Caret = collapsed ? CaretRightIcon : CaretDownIcon;
+  return (
+    <button
+      type="button"
+      className={cn(
+        "flex w-full items-center gap-1 px-2 py-1.5 text-left text-label font-medium text-foreground/35",
+        "rounded-t-md outline-none hover:text-foreground/60 focus-visible:ring-2 focus-visible:ring-primary/60",
+        !collapsed && "border-b border-foreground/[0.06]",
+      )}
+      aria-expanded={!collapsed}
+      aria-label={`${label}, ${count} ${count === 1 ? "row" : "rows"}`}
+      title={collapsed ? `Unfold ${label}` : `Fold ${label}`}
+      data-group-header="true"
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle();
+      }}
+    >
+      <Caret size={10} weight="bold" aria-hidden="true" />
+      <span className="truncate">{label}</span>
+      <span className="text-foreground/25" data-group-count="true">
+        {count}
+      </span>
+    </button>
   );
 }
 

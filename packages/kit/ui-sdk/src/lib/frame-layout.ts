@@ -6,7 +6,7 @@
  * in, and the settings its view node holds, are `frameViewOf` and
  * `frameConfigOf`.
  */
-import { templateFieldsOf, SYSTEM_IDS } from "@kb/model";
+import { declaresOptionSet, templateFieldsOf, SYSTEM_IDS } from "@kb/model";
 import { conditionGraph, conditionsMatcher, derivedWith } from "../query";
 import type { SortSpec, ViewFilter } from "@kb/views";
 import type { OutlineNode, PropValue } from "./types";
@@ -224,16 +224,26 @@ export function sortChildrenForTable(
 export const EMPTY_GROUP_KEY = "__empty__";
 
 export interface BoardColumn {
+  /** The group's key, which a view's `collapsed` names it by (DESIGN-UI.md → Groups). */
   key: string;
   label: string;
   /** Prop value for this column; null = "No <field>" empty column. */
   value: PropValue | null;
   nodes: OutlineNode[];
+  /** Folded: its header and count are drawn, its rows are not. */
+  collapsed: boolean;
+}
+
+function group(key: string, label: string, value: PropValue | null): BoardColumn {
+  return { key, label, value, nodes: [], collapsed: false };
 }
 
 /**
- * Group direct children by view.group field values.
- * When groupFieldId is null (cards), returns a single unlabeled column.
+ * Group rows by a field's values (DESIGN-UI.md → Groups): a group per option
+ * of a field that declares its option set, in the field's order, held or
+ * not; then each other value held, by label; then "No <field>". A row falls
+ * in the group of its first value. When groupFieldId is null (cards),
+ * returns a single unlabeled column.
  */
 export function groupChildrenForBoard(
   children: OutlineNode[],
@@ -241,58 +251,63 @@ export function groupChildrenForBoard(
   schema: SchemaIndex,
 ): BoardColumn[] {
   if (groupFieldId === null) {
-    return [
-      {
-        key: "__all__",
-        label: "",
-        value: null,
-        nodes: [...children],
-      },
-    ];
+    return [{ ...group("__all__", "", null), nodes: [...children] }];
   }
 
-  const fieldLabel = textOr(schema.get(groupFieldId)?.text, groupFieldId);
-  const columns = new Map<string, BoardColumn>();
-  const empty: BoardColumn = {
-    key: EMPTY_GROUP_KEY,
-    label: `No ${fieldLabel}`,
-    value: null,
-    nodes: [],
-  };
+  const fieldNode = schema.get(groupFieldId);
+  const fieldLabel = textOr(fieldNode?.text, groupFieldId);
+  const options = new Map<string, BoardColumn>();
+  if (declaresOptionSet(fieldNode)) {
+    for (const optionId of fieldNode?.children ?? []) {
+      const value: PropValue = { t: "ref", v: optionId };
+      options.set(
+        propValueKey(value, schema),
+        group(propValueKey(value, schema), propValueLabel(value, schema), value),
+      );
+    }
+  }
+  const others = new Map<string, BoardColumn>();
+  const empty = group(EMPTY_GROUP_KEY, `No ${fieldLabel}`, null);
 
   for (const child of children) {
-    const vals = child.props[groupFieldId] ?? [];
-    if (vals.length === 0) {
+    // Display: first value wins. Drag clears all values then sets one.
+    const [v] = child.props[groupFieldId] ?? [];
+    if (v === undefined) {
       empty.nodes.push(child);
       continue;
     }
-    // Display: first value wins. Drag clears all values then sets one.
-    const [v] = vals;
-    if (v === undefined) continue;
     const key = propValueKey(v, schema);
-    let col = columns.get(key);
+    let col = options.get(key) ?? others.get(key);
     if (!col) {
-      col = {
-        key,
-        label: propValueLabel(v, schema),
-        value: v,
-        nodes: [],
-      };
-      columns.set(key, col);
+      col = group(key, propValueLabel(v, schema), v);
+      others.set(key, col);
     }
     col.nodes.push(child);
   }
 
-  const ordered = [...columns.values()].toSorted((a, b) => a.label.localeCompare(b.label));
-  ordered.push(empty);
-  return ordered;
+  const held = [...others.values()].toSorted((a, b) => a.label.localeCompare(b.label));
+  return [...options.values(), ...held, empty];
 }
 
-/** Flatten board columns to render-order node list (visible-instances). */
+/** How a grouped view shows its groups: the ones it folds, and whether it drops the empty ones. */
+export interface GroupDisplay {
+  readonly collapsed: readonly string[];
+  readonly hideEmpty: boolean;
+}
+
+/** The groups a view shows, each folded when its key is in `collapsed`. */
+export function shownGroups(columns: readonly BoardColumn[], display: GroupDisplay): BoardColumn[] {
+  const folded = new Set(display.collapsed);
+  return columns
+    .filter((column) => !display.hideEmpty || column.nodes.length > 0)
+    .map((column) => (folded.has(column.key) ? { ...column, collapsed: true } : column));
+}
+
+/** Flatten board columns to render-order node list (visible-instances); a folded one draws none. */
 export function flattenBoardOrder(columns: BoardColumn[]): OutlineNode[] {
   const out: OutlineNode[] = [];
   for (const col of columns) {
-    out.push(...col.nodes);
+    if (!col.collapsed) out.push(...col.nodes);
   }
   return out;
 }

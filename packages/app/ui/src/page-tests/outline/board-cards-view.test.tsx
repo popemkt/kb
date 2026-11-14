@@ -15,7 +15,7 @@ import {
 } from "@kb/ui-sdk";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeAll, afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defaultViewIdOf, present, viewOptionOf, SYSTEM_IDS } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
@@ -471,5 +471,131 @@ describe("Filter… host visibility", () => {
     g.window = prev.window;
     g.document = prev.document;
     g.CSS = prev.CSS;
+  });
+});
+
+/** frame1's view node's props now. */
+function viewNodeProps(): WireNode["props"] {
+  const nodes = outlineNodes();
+  return present(nodes.get(defaultViewIdOf(nodes.get("frame1")) ?? ""), "view node").props;
+}
+
+describe("a board's groups (DESIGN-UI.md → Groups)", () => {
+  beforeEach(() => {
+    useGraphStore.getState().hydrateFromWire(mockWire, 1, "fixtures");
+  });
+
+  afterEach(() => {
+    useGraphStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
+  });
+
+  const board = () =>
+    createElement(BoardCardsView, {
+      frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
+      view: columnsView(),
+      nodes: outlineNodes(),
+      context: fieldContextOf(outlineSource()),
+      widthPref: "full",
+    });
+
+  it("a header is the button that folds its group, written to the view node", async () => {
+    const { Window } = await import("happy-dom");
+    const { createRoot } = await import("react-dom/client");
+    const { act } = await import("react");
+    const win = new Window({ url: "https://kb.test/" });
+    const g = globalThis as typeof globalThis & { window: Window; document: Document };
+    const prev = { window: g.window, document: g.document };
+    g.window = win as unknown as Window & typeof globalThis.window;
+    g.document = win.document as unknown as Document;
+    const host = win.document.createElement("div");
+    win.document.body.appendChild(host);
+    const root = createRoot(host as unknown as Element);
+    try {
+      await act(async () => root.render(board()));
+      const header = () =>
+        present(
+          host.querySelector('[data-board-column="str:doing"] [data-group-header="true"]'),
+          "doing's header",
+        );
+      expect(header().tagName).toBe("BUTTON");
+      expect(header().getAttribute("aria-expanded")).toBe("true");
+      expect(header().getAttribute("aria-label")).toBe("doing, 1 row");
+
+      await act(async () => (header() as unknown as HTMLElement).click());
+      await vi.waitFor(() =>
+        expect(viewNodeProps()[SYSTEM_IDS.viewCollapsedField]).toEqual([
+          { t: "str", v: "str:doing" },
+        ]),
+      );
+
+      await act(async () => root.render(board()));
+      const column = present(host.querySelector('[data-board-column="str:doing"]'), "doing");
+      expect(column.getAttribute("data-collapsed")).toBe("true");
+      expect(column.querySelector('[data-view-card="true"]')).toBeNull();
+      expect(header().getAttribute("aria-expanded")).toBe("false");
+      expect(header().querySelector('[data-group-count="true"]')?.textContent).toBe("1");
+
+      await act(async () => (header() as unknown as HTMLElement).click());
+      await vi.waitFor(() =>
+        expect(viewNodeProps()[SYSTEM_IDS.viewCollapsedField] ?? []).toEqual([]),
+      );
+    } finally {
+      await act(async () => root.unmount());
+      g.window = prev.window;
+      g.document = prev.document;
+    }
+  });
+
+  it("the view settings offer to hide empty groups, and hiding drops No status", async () => {
+    const { Window } = await import("happy-dom");
+    const { createRoot } = await import("react-dom/client");
+    const { act } = await import("react");
+    const { ViewSettingsPopoverHost } = await import("@kb/outline-ui");
+    const win = new Window({ url: "https://kb.test/" });
+    const g = globalThis as typeof globalThis & {
+      window: Window;
+      document: Document;
+      CSS: typeof CSS;
+    };
+    const prev = { window: g.window, document: g.document, CSS: g.CSS };
+    g.window = win as unknown as Window & typeof globalThis.window;
+    g.document = win.document as unknown as Document;
+    Object.assign(g, { CSS: { ...g.CSS, escape: (s: string) => s.replace(/"/g, '\\"') } });
+    const host = win.document.createElement("div");
+    win.document.body.appendChild(host);
+    const anchor = win.document.createElement("div");
+    anchor.setAttribute("data-node-block", "true");
+    anchor.setAttribute("data-node-id", "frame1");
+    win.document.body.appendChild(anchor);
+    const root = createRoot(host as unknown as Element);
+    try {
+      await act(async () => root.render(createElement(ViewSettingsPopoverHost)));
+      await act(async () => useUiStore.getState().setViewSettingsFrameId("frame1"));
+      const sections = present(
+        win.document.querySelector('[data-view-settings-sections="frame1"]'),
+        "the board's settings",
+      );
+      expect(sections.textContent).toContain("empty groups");
+    } finally {
+      await act(async () => root.unmount());
+      useUiStore.setState({ viewSettingsFrameId: null, toasts: [] });
+      g.window = prev.window;
+      g.document = prev.document;
+      g.CSS = prev.CSS;
+    }
+
+    // Every row holds a status, so "No status" is empty, and hiding drops it.
+    const hiding = withFrame1("board", {
+      ...GROUPED,
+      [SYSTEM_IDS.viewHideEmptyField]: [{ t: "bool", v: true }],
+    }).map((n) =>
+      n.id === "c3"
+        ? { ...n, props: { ...n.props, f_status: [{ t: "str" as const, v: "done" }] } }
+        : n,
+    );
+    useGraphStore.getState().hydrateFromWire(hiding, 2, "fixtures");
+    const html = renderToStaticMarkup(board());
+    expect(html).not.toContain("No status");
+    expect(html).toContain('data-board-column="str:done"');
   });
 });

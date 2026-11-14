@@ -34,6 +34,8 @@ const CONFIGS: readonly ViewConfig[] = [
     colwidth: { "f.status": 120 },
     pagesize: 25,
     groupFieldId: "f.status",
+    collapsed: ["ref:o.done", "__empty__"],
+    hideEmpty: true,
     filters: [eq, text].flatMap((f) => (f === null ? [] : [f])),
   },
 ];
@@ -50,6 +52,8 @@ function propsOf(config: ViewConfig): Record<string, PropValue[]> {
   write(frameSettingWrite("colwidth", config.colwidth));
   write(frameSettingWrite("pagesize", config.pagesize));
   write(frameSettingWrite("groupFieldId", config.groupFieldId));
+  write(frameSettingWrite("collapsed", config.collapsed));
+  write(frameSettingWrite("hideEmpty", config.hideEmpty));
   write(frameSettingWrite("filters", config.filters));
   return props;
 }

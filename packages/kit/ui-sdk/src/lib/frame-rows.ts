@@ -13,6 +13,7 @@ import {
   type BoardColumn,
   flattenBoardOrder,
   groupChildrenForBoard,
+  shownGroups,
   sortChildrenForTable,
 } from "./frame-layout.ts";
 import type { FrameView } from "./frame-view";
@@ -34,9 +35,9 @@ export interface FrameRowsInput {
 }
 
 export interface FrameRows {
-  /** Filtered + sorted rows before pagination; board order is column-major. */
+  /** Filtered + sorted rows before pagination; board order is column-major, folded groups left out. */
   ordered: OutlineNode[];
-  /** Column grouping over the same ordered rows; empty for a view without columns. */
+  /** The groups the view shows, folded ones included; empty for a view without columns. */
   columns: BoardColumn[];
   /** Field the columns are grouped by (null when the view declares none, or none is set). */
   groupFieldId: string | null;
@@ -53,8 +54,9 @@ function nodesByIds(ids: readonly string[], nodes: NodeMap): OutlineNode[] {
  * A frame's rows, as its view lays them out. What happens to them follows from
  * the settings the view's params declare, so nav and render agree by
  * construction: every view filters; a view sorts when it declares `sort`,
- * groups its columns by a field when it declares `groupFieldId`, and pages when
- * it declares `pagesize`.
+ * groups its columns by a field when it declares `groupFieldId` (folding and
+ * dropping groups as its `collapsed` and `hideEmpty` say), and pages when it
+ * declares `pagesize`.
  */
 export function frameRows({
   frameId,
@@ -81,7 +83,12 @@ export function frameRows({
 
   const grouped = key.rows === "columns";
   const groupFieldId = params.groupFieldId ?? null;
-  const columns = grouped ? groupChildrenForBoard(sorted, groupFieldId, schema) : [];
+  const columns = grouped
+    ? shownGroups(groupChildrenForBoard(sorted, groupFieldId, schema), {
+        collapsed: params.collapsed ?? [],
+        hideEmpty: params.hideEmpty ?? false,
+      })
+    : [];
   const ordered = grouped ? flattenBoardOrder(columns) : sorted;
 
   // Pages, not an absolute row count: a pagesize change re-derives the limit

@@ -2,13 +2,19 @@
  * The settings a frame's view reads, each drawn with the query builder's
  * slot (`ChoiceSlot`: a button that opens the one node picker over its
  * candidates). Which are drawn is the view's to say: a section is drawn when
- * the view's params declare its setting (`groupFieldId`, `display`,
- * `pagesize`), as the frame's row walk groups, shows and pages by the same
+ * the view's params declare its setting (`groupFieldId`, `hideEmpty`,
+ * `display`, `pagesize`), as the frame's row walk groups, shows and pages by the same
  * declaration (`frameRows`). Each pick writes the frame's view node through
  * the page's writes, one setting at a time.
  */
 import { useMemo } from "react";
-import { ColumnsIcon, ListNumbersIcon, SquaresFourIcon, XIcon } from "@phosphor-icons/react";
+import {
+  ColumnsIcon,
+  EyeSlashIcon,
+  ListNumbersIcon,
+  SquaresFourIcon,
+  XIcon,
+} from "@phosphor-icons/react";
 import {
   browserHost,
   IconButton,
@@ -155,6 +161,30 @@ function PageSizeSetting({ frameId, pagesize }: { frameId: string; pagesize: num
   );
 }
 
+/** Whether a grouped view leaves out the groups no row falls in. */
+function HideEmptySetting({ frameId, hideEmpty }: { frameId: string; hideEmpty: boolean }) {
+  return (
+    <PrefFieldRow icon={EyeSlashIcon} label="empty groups">
+      <ChoiceSlot
+        name="empty groups"
+        label={hideEmpty ? "Hide" : "Show"}
+        tone="value"
+        candidates={EMPTY_GROUP_CHOICES}
+        chosen={hideEmpty ? "hide" : "show"}
+        pickLabel="Empty groups"
+        onPick={(id) =>
+          void browserHost().writes.setFrameSetting(frameId, "hideEmpty", id === "hide")
+        }
+      />
+    </PrefFieldRow>
+  );
+}
+
+const EMPTY_GROUP_CHOICES = [
+  { id: "show", label: "Show" },
+  { id: "hide", label: "Hide" },
+];
+
 /** The sections the frame's view declares a setting for, in the order they are reached for. */
 export function ViewSettingsSections({ frameId }: { frameId: string }) {
   const view = useFrameView(useOutlineNode(frameId));
@@ -163,6 +193,9 @@ export function ViewSettingsSections({ frameId }: { frameId: string }) {
   const sections = [
     params.groupFieldId !== undefined ? (
       <GroupSetting key="group" frameId={frameId} groupFieldId={params.groupFieldId} />
+    ) : null,
+    params.hideEmpty !== undefined ? (
+      <HideEmptySetting key="hideEmpty" frameId={frameId} hideEmpty={params.hideEmpty} />
     ) : null,
     params.display !== undefined ? (
       <ColumnsSetting key="display" frameId={frameId} display={params.display} />

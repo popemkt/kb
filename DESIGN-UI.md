@@ -2937,7 +2937,8 @@ how the stored name resolves to the key among them.
   "Filter…") opens the frame's one view settings popover
   (`ViewSettingsPopoverHost`): above the filters every view reads, a section
   for each setting the view's params declare, group by (`groupFieldId`),
-  fields (`display`) and page size (`pagesize`), so which controls a view
+  empty groups (`hideEmpty`), fields (`display`) and page size
+  (`pagesize`), so which controls a view
   offers is its declaration, as what `frameRows` does is. Each is drawn
   with the query builder's slot (`ChoiceSlot` over the one node picker):
   a field is picked from the rows' fields, those their tags template first;

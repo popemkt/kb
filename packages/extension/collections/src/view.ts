@@ -33,9 +33,12 @@ export const CollectionBoardView = frameViewKey(
     sort: FRAME_SETTINGS.sort,
     display: FRAME_SETTINGS.display,
     groupFieldId: FRAME_SETTINGS.groupFieldId,
+    collapsed: FRAME_SETTINGS.collapsed,
+    hideEmpty: FRAME_SETTINGS.hideEmpty,
   }).annotate({
     description:
-      "A frame's rows as cards, a column per value of its group field (groupFieldId)." + FRAME_HOST,
+      "A frame's rows as cards, a column per value of its group field (groupFieldId); collapsed names the folded columns by group key, hideEmpty leaves out the empty ones." +
+      FRAME_HOST,
   }),
   "columns",
 );

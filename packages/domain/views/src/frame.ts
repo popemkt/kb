@@ -10,9 +10,11 @@ import {
   decodeNodeConfig,
   encodeNodeConfig,
   encodeNodeSetting,
+  firstBool,
   firstStr,
   manyOf,
   oneOf,
+  writeBool,
   writeNum,
   writeRef,
   type ConfigSlots,
@@ -42,6 +44,10 @@ export interface ViewConfig {
   pagesize: number;
   /** Board group-by field id (null = ungrouped / cards). */
   groupFieldId: string | null;
+  /** The keys of the groups folded (DESIGN-UI.md → Groups). */
+  collapsed: string[];
+  /** Whether the groups no row falls in are left out. */
+  hideEmpty: boolean;
   /** The view's narrowing of its frame's rows, ANDed. */
   filters: ViewFilter[];
 }
@@ -52,6 +58,8 @@ export const DEFAULT_VIEW_CONFIG: ViewConfig = {
   colwidth: {},
   pagesize: 100,
   groupFieldId: null,
+  collapsed: [],
+  hideEmpty: false,
   filters: [],
 };
 
@@ -262,6 +270,8 @@ export const FRAME_SETTINGS = {
   colwidth: WidthsSchema,
   pagesize: PositiveSchema,
   groupFieldId: Schema.NullOr(Schema.NonEmptyString),
+  collapsed: Schema.Array(Schema.NonEmptyString),
+  hideEmpty: Schema.Boolean,
 };
 
 /** The settings any frame view's params may carry; filters are every view's. */
@@ -272,6 +282,8 @@ export interface FrameViewParams {
   readonly colwidth?: Readonly<Record<string, number>>;
   readonly pagesize?: number;
   readonly groupFieldId?: string | null;
+  readonly collapsed?: readonly string[];
+  readonly hideEmpty?: boolean;
 }
 
 /**
@@ -336,6 +348,21 @@ const VIEW_SLOTS: ConfigSlots<ViewConfig> = {
     write: writeRef(SYSTEM_IDS.viewGroupField),
     fallback: DEFAULT_VIEW_CONFIG.groupFieldId,
   }),
+  collapsed: manyOf<string>({
+    fields: [SYSTEM_IDS.viewCollapsedField],
+    read: (props) =>
+      props[SYSTEM_IDS.viewCollapsedField]?.map((value) => (value.t === "str" ? value.v : value)),
+    write: (keys) => ({ [SYSTEM_IDS.viewCollapsedField]: keys.map(strValue) }),
+    schema: Schema.NonEmptyString,
+    fallback: DEFAULT_VIEW_CONFIG.collapsed,
+  }),
+  hideEmpty: oneOf({
+    fields: [SYSTEM_IDS.viewHideEmptyField],
+    read: firstBool(SYSTEM_IDS.viewHideEmptyField),
+    write: writeBool(SYSTEM_IDS.viewHideEmptyField),
+    schema: Schema.Boolean,
+    fallback: DEFAULT_VIEW_CONFIG.hideEmpty,
+  }),
   filters: manyOf<ViewFilter>({
     fields: [SYSTEM_IDS.viewFilterField],
     read: filterValues,
@@ -377,6 +404,8 @@ export function decodeFrameConfig(props: NodeProps | undefined, report: ConfigRe
     colwidth: slot("colwidth"),
     pagesize: slot("pagesize"),
     groupFieldId: slot("groupFieldId"),
+    collapsed: slot("collapsed"),
+    hideEmpty: slot("hideEmpty"),
     filters: slot("filters"),
   };
 }

@@ -154,6 +154,10 @@ export const SYSTEM_IDS = {
   viewPagesizeField: "sys.f.view.pagesize",
   /** W7.1 board group-by field (ref → field node). */
   viewGroupField: "sys.f.view.group",
+  /** A grouped view's folded groups, one group key each (str, multi). */
+  viewCollapsedField: "sys.f.view.collapsed",
+  /** Whether a grouped view leaves out the groups no row falls in (bool). */
+  viewHideEmptyField: "sys.f.view.hideEmpty",
   /** W7.1 filter clauses (str EDN, multi). */
   viewFilterField: "sys.f.view.filter",
   /**

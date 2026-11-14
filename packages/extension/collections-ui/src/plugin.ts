@@ -14,7 +14,8 @@ import { SYSTEM_IDS } from "@kb/model";
 import { SquaresFourIcon, TableIcon } from "@phosphor-icons/react";
 import { BoardFrameView, CardsFrameView, TableFrameView } from "./frame-views";
 
-const { filters, sort, display, colwidth, pagesize, groupFieldId } = DEFAULT_VIEW_CONFIG;
+const { filters, sort, display, colwidth, pagesize, groupFieldId, collapsed, hideEmpty } =
+  DEFAULT_VIEW_CONFIG;
 
 /**
  * The collection views: each shown inline, under the row of the frame whose
@@ -36,7 +37,7 @@ const COLLECTION_VIEWS = [
   }),
   provideView(CollectionBoardView, {
     placements: ["inline"],
-    sample: { filters, sort, display, groupFieldId },
+    sample: { filters, sort, display, groupFieldId, collapsed, hideEmpty },
     Component: BoardFrameView,
     picker: {
       order: 2,

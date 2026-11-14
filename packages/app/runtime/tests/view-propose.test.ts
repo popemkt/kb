@@ -17,7 +17,14 @@ import { CollectionBoardView } from "@kb/collections";
 
 const FRAME = "n.propose-frame";
 const STATUS = "f.propose-status";
-const BOARD = { filters: [], sort: [], display: [], groupFieldId: STATUS };
+const BOARD = {
+  filters: [],
+  sort: [],
+  display: [],
+  groupFieldId: STATUS,
+  collapsed: [],
+  hideEmpty: false,
+};
 
 let root: string;
 let ctx: KbContext;

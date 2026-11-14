@@ -19,7 +19,14 @@ import { invoke } from "../src/invoke.ts";
 
 const FRAME = "n.render-frame";
 const STATUS = "f.render-status";
-const BOARD = { filters: [], sort: [], display: [], groupFieldId: STATUS };
+const BOARD = {
+  filters: [],
+  sort: [],
+  display: [],
+  groupFieldId: STATUS,
+  collapsed: [],
+  hideEmpty: false,
+};
 
 let root: string;
 let ctx: KbContext;

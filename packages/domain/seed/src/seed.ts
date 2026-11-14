@@ -209,6 +209,18 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     HIDE,
   );
   const viewGroupField = singleField(SYSTEM_IDS.viewGroupField, "view.group", "ref", HIDE);
+  const viewCollapsedField = typedField(
+    SYSTEM_IDS.viewCollapsedField,
+    "view.collapsed",
+    "text",
+    HIDE,
+  );
+  const viewHideEmptyField = singleField(
+    SYSTEM_IDS.viewHideEmptyField,
+    "view.hideEmpty",
+    "checkbox",
+    HIDE,
+  );
   const viewFilterField = typedField(SYSTEM_IDS.viewFilterField, "view.filter", "text", HIDE);
   const nodeTextField = typedField(SYSTEM_IDS.nodeTextField, "node.text", "text");
 
@@ -579,6 +591,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     viewColwidthField,
     viewPagesizeField,
     viewGroupField,
+    viewCollapsedField,
+    viewHideEmptyField,
     viewFilterField,
     nodeTextField,
     viewField,

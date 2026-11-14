@@ -286,6 +286,8 @@ const VIEW_DEFAULTS: ViewConfig = {
   colwidth: {},
   pagesize: 100,
   groupFieldId: null,
+  collapsed: [],
+  hideEmpty: false,
   filters: [],
 };
 

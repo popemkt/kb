@@ -59,6 +59,8 @@ const SETTINGS = {
   colwidth: {},
   pagesize: 100,
   groupFieldId: null,
+  collapsed: [],
+  hideEmpty: false,
 };
 
 function node(
@@ -172,6 +174,73 @@ describe("frameRows grouping", () => {
     expect(rows.groupFieldId).toBeNull();
     expect(rows.columns).toHaveLength(1);
     expect(rows.ordered).toHaveLength(5);
+  });
+});
+
+const stage = (id: string | null): OutlineNode["props"] =>
+  id === null ? {} : { f_stage: [{ t: "ref", v: id }] };
+
+/**
+ * A board grouped by an option field (todo, doing, done): row r0 is done,
+ * r1 todo, r2 holds none; nothing is doing. Its view node adds `settings`.
+ */
+function optionBoard(settings: OutlineNode["props"] = {}): Map<string, OutlineNode> {
+  const nodes = new Map(
+    graph("board", { [SYSTEM_IDS.viewGroupField]: [{ t: "ref", v: "f_stage" }], ...settings }, 3),
+  );
+  nodes.set("f_stage", node("f_stage", "stage", {}, ["o_todo", "o_doing", "o_done"]));
+  for (const id of ["o_todo", "o_doing", "o_done"]) nodes.set(id, node(id, id.slice(2)));
+  nodes.set("r0", node("r0", "row 0", stage("o_done")));
+  nodes.set("r1", node("r1", "row 1", stage("o_todo")));
+  nodes.set("r2", node("r2", "row 2", stage(null)));
+  return nodes;
+}
+
+/** Each group as `key:count`, `+` when folded. */
+const groupsOf = (nodes: NodeMap) =>
+  frameRows(input(nodes)).columns.map((c) => `${c.key}:${c.nodes.length}${c.collapsed ? "+" : ""}`);
+
+describe("a grouped view's groups (DESIGN-UI.md → Groups)", () => {
+  it("has a group per option, in the field's order, held or not, then No <field>", () => {
+    expect(groupsOf(optionBoard())).toEqual([
+      "ref:o_todo:1",
+      "ref:o_doing:0",
+      "ref:o_done:1",
+      "__empty__:1",
+    ]);
+  });
+
+  it("leaves out the groups no row falls in when it hides empty groups", () => {
+    const nodes = optionBoard({ [SYSTEM_IDS.viewHideEmptyField]: [{ t: "bool", v: true }] });
+    expect(groupsOf(nodes)).toEqual(["ref:o_todo:1", "ref:o_done:1", "__empty__:1"]);
+  });
+
+  it("keeps a folded group's count and leaves its rows out of the walk", () => {
+    const nodes = optionBoard({
+      [SYSTEM_IDS.viewCollapsedField]: [
+        { t: "str", v: "ref:o_todo" },
+        { t: "str", v: "ref:o_gone" },
+      ],
+    });
+    expect(groupsOf(nodes)).toEqual([
+      "ref:o_todo:1+",
+      "ref:o_doing:0",
+      "ref:o_done:1",
+      "__empty__:1",
+    ]);
+    const rows = frameRows(input(nodes));
+    expect(rows.ordered.map((n) => n.id)).toEqual(["r0", "r2"]);
+    expect(rows.rendered.map((n) => n.id)).toEqual(["r0", "r2"]);
+  });
+
+  it("keeps a renamed option folded: the group is named by the option's id", () => {
+    const nodes = optionBoard({
+      [SYSTEM_IDS.viewCollapsedField]: [{ t: "str", v: "ref:o_todo" }],
+    });
+    nodes.set("o_todo", node("o_todo", "to do"));
+    const todo = frameRows(input(nodes)).columns[0];
+    expect(todo?.label).toBe("to do");
+    expect(todo?.collapsed).toBe(true);
   });
 });
 
