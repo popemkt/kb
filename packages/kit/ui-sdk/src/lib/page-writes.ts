@@ -41,7 +41,6 @@ export interface PageWrites {
   readonly addTagField: (tagId: string, fieldId: string) => Promise<void>;
   readonly removeTagField: (tagId: string, fieldId: string) => Promise<void>;
   readonly setTagColor: (tagId: string, color: string | null) => Promise<void>;
-  readonly setFieldHidden: (fieldId: string, hidden: boolean) => Promise<void>;
   readonly setFieldType: (fieldId: string, fieldType: FieldType) => Promise<void>;
   readonly addFieldTargetTag: (fieldId: string, tagId: string) => Promise<void>;
   readonly removeFieldTargetTag: (fieldId: string, tagId: string) => Promise<void>;

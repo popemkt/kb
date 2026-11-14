@@ -236,11 +236,6 @@ export const mutations: PageWrites = {
     await applyPlan(planSetTagColor(wire(), tagId, color));
   },
 
-  async setFieldHidden(fieldId: string, hidden: boolean): Promise<void> {
-    const { planSetFieldHidden } = await import("@/actions/plan");
-    await applyPlan(planSetFieldHidden(wire(), fieldId, hidden));
-  },
-
   async setFieldType(fieldId: string, fieldType: FieldType): Promise<void> {
     const { planSetFieldType } = await import("@/actions/plan");
     await applyPlan(planSetFieldType(wire(), fieldId, fieldType));

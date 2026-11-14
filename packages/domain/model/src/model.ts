@@ -60,8 +60,16 @@ export const SYSTEM_IDS = {
   fieldsField: "sys.f.fields",
   /** Optional chip color on tag definition nodes (DESIGN-RESKIN §1.8). */
   colorField: "sys.f.color",
-  /** Per-field visibility: when true, field rows are hidden unless debug mode. */
-  hiddenField: "sys.f.hidden",
+  /**
+   * Where a field's rows are drawn (DESIGN.md → Data model → field display):
+   * a ref to one of its own three children below; absent reads always.
+   */
+  showField: "sys.f.show",
+  showAlways: "sys.show.always",
+  showFilled: "sys.show.filled",
+  showNever: "sys.show.never",
+  /** A pinned field comes first wherever a node's or a frame's fields are listed (checkbox). */
+  pinnedField: "sys.f.pinned",
   /** Declared value type on field nodes — a ref to one of the option nodes below. */
   fieldTypeField: "sys.f.fieldType",
   /**

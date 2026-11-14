@@ -99,7 +99,6 @@ const INERT_WRITES: PageWrites = {
   addTagField: done,
   removeTagField: done,
   setTagColor: done,
-  setFieldHidden: done,
   setFieldType: done,
   addFieldTargetTag: done,
   removeFieldTargetTag: done,

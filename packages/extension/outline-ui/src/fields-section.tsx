@@ -1,6 +1,6 @@
 import { Suspense, lazy, useLayoutEffect, useRef, useState } from "react";
 import { cardinalityOf, declaresOptionSet, type FieldType } from "@kb/model";
-import { PlusIcon, XIcon } from "@phosphor-icons/react";
+import { CaretDownIcon, CaretRightIcon, PlusIcon, XIcon } from "@phosphor-icons/react";
 import {
   browserHost,
   cn,
@@ -9,6 +9,7 @@ import {
   type Follow,
   formatPropValue,
   IconButton,
+  indentStyle,
   isValueMismatch,
   ManagedNote,
   type PropValue,
@@ -27,7 +28,7 @@ import { outlineSource, useOutlineStore } from "./outline.store";
 import { ValueSlot } from "./value-slot";
 import { FieldPicker } from "./field-picker";
 import { useSlotKind } from "./slot-kind";
-import { arriveAt, slotAt } from "./value-slot-nav";
+import { arriveAt, neighbourSlot, registerSlot, slotAt } from "./value-slot-nav";
 import { useRowOpening } from "./row-opening";
 
 /**
@@ -513,26 +514,107 @@ export function FieldsSection({ nodeId, depth, instanceKey }: FieldsSectionProps
   // so are the fields its tag opening's view draws, while its properties show.
   const showDebugFields = useDebugFields(nodeId);
   const revealed = useRowOpening(node)?.revealed;
+  // The fold's openness is this drawn row's passing state, written nowhere.
+  const [unfolded, setUnfolded] = useState(false);
 
   if (!node) return null;
   const props = resolveProps(node, context.schema, { showDebugFields, revealed });
   if (props.length === 0) return null;
+  const folded = props.filter((p) => "folded" in p && p.folded === true);
+  const rows = props.filter((p) => !folded.includes(p));
+  const field = (p: (typeof props)[number]) => (
+    <Field
+      key={p.fieldId}
+      nodeId={nodeId}
+      fieldId={p.fieldId}
+      label={p.fieldName}
+      values={p.values}
+      context={context}
+      depth={depth}
+      instanceKey={instanceKey}
+      debug={"debug" in p ? Boolean(p.debug) : false}
+    />
+  );
 
   return (
     <div className="fields-section" data-fields-for={nodeId}>
-      {props.map((p) => (
-        <Field
-          key={p.fieldId}
-          nodeId={nodeId}
-          fieldId={p.fieldId}
-          label={p.fieldName}
-          values={p.values}
-          context={context}
+      {rows.map(field)}
+      {folded.length > 0 && (
+        <HiddenFieldsFold
+          count={folded.length}
+          open={unfolded}
           depth={depth}
-          instanceKey={instanceKey}
-          debug={"debug" in p ? Boolean(p.debug) : false}
+          onToggle={() => setUnfolded((open) => !open)}
+          onLeave={(way) => leaveFields(nodeId, instanceKey, way)}
         />
-      ))}
+      )}
+      {unfolded && folded.map(field)}
+    </div>
+  );
+}
+
+/**
+ * The fields a node folds, as one row (DESIGN-UI.md → Field values →
+ * hidden fields fold): "N hidden fields", a button in the values' keyboard
+ * path, whose click, Enter or Space opens or closes the fold.
+ */
+function HiddenFieldsFold({
+  count,
+  open,
+  depth,
+  onToggle,
+  onLeave,
+}: {
+  count: number;
+  open: boolean;
+  depth: number;
+  onToggle: () => void;
+  onLeave: (way: "up" | "down" | "back") => void;
+}) {
+  const ref = useRef<HTMLButtonElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el === null) return undefined;
+    const focus = () => el.focus();
+    return registerSlot(el, { focus, editAtEnd: focus });
+  }, []);
+  /** On from the fold: the neighbouring value at rest, or out of the fields to the row. */
+  const moveOn = (delta: -1 | 1) => {
+    const el = ref.current;
+    const neighbour = el === null ? null : neighbourSlot(el, delta);
+    if (neighbour !== null) arriveAt(neighbour, "rest");
+    else onLeave(delta === -1 ? "up" : "down");
+  };
+  const label = `${count} hidden ${count === 1 ? "field" : "fields"}`;
+  return (
+    <div className="flex py-0.5" style={indentStyle(depth + 1)}>
+      <button
+        ref={ref}
+        type="button"
+        data-value-slot="true"
+        data-hidden-fields-fold={count}
+        aria-expanded={open}
+        className={cn(
+          "kb-text flex items-center gap-1 rounded-sm px-1 text-caption text-faint-foreground",
+          "hover:text-foreground/70",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
+        )}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Escape") {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.key === "Escape") onLeave("back");
+            else moveOn(e.key === "ArrowDown" ? 1 : -1);
+          }
+        }}
+      >
+        {open ? <CaretDownIcon size={10} aria-hidden /> : <CaretRightIcon size={10} aria-hidden />}
+        {label}
+      </button>
     </div>
   );
 }

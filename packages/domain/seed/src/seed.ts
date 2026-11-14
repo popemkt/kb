@@ -27,6 +27,7 @@ import {
   nowIso,
   FIELD_TYPES,
   FIELD_TYPE_OPTION_IDS,
+  seededShowField,
   childrenTargetQuery,
   type FieldType,
   ONTOLOGY_TARGET_QUERY,
@@ -83,14 +84,20 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
       { t: "ref", v: SYSTEM_IDS.targetTagField },
       { t: "ref", v: SYSTEM_IDS.targetQueryField },
       { t: "ref", v: SYSTEM_IDS.relationInverseField },
-      // Last, where the seed's union puts it in a store seeded before it.
       { t: "ref", v: SYSTEM_IDS.acyclicField },
+      // Last, where the seed's union puts them in a store seeded before them.
+      { t: "ref", v: SYSTEM_IDS.showField },
+      { t: "ref", v: SYSTEM_IDS.pinnedField },
     ],
   });
   const typeField = typedField(SYSTEM_IDS.typeField, "type", "ref", HIDE);
   const fieldsField = typedField(SYSTEM_IDS.fieldsField, "fields", "ref", HIDE);
   const colorField = singleField(SYSTEM_IDS.colorField, "color", "text");
-  const hiddenField = singleField(SYSTEM_IDS.hiddenField, "hidden", "checkbox");
+  // Where a field's rows are drawn: one of its own children (the option-set
+  // shape), and whether it leads the lists of fields (DESIGN.md → Data model
+  // → field display).
+  const showNodes = seededShowField(at);
+  const pinnedField = singleField(SYSTEM_IDS.pinnedField, "pinned", "checkbox");
   /*
    * Field types are nodes, and they are the type field's **children** — the
    * option-set shape (DESIGN → Kinds, roles and options). A `field-type`
@@ -141,7 +148,6 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const tag = mk(SYSTEM_IDS.tag, "sys.tag", {
     [SYSTEM_IDS.fieldsField]: [
       { t: "ref", v: SYSTEM_IDS.colorField },
-      { t: "ref", v: SYSTEM_IDS.hiddenField },
       { t: "ref", v: SYSTEM_IDS.viewDefaultField },
       { t: "ref", v: SYSTEM_IDS.viewRowField },
       // Last, where the seed's union puts it in a store seeded before it.
@@ -559,7 +565,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     typeField,
     fieldsField,
     colorField,
-    hiddenField,
+    ...showNodes,
+    pinnedField,
     fieldTypeField,
     ...fieldTypeOptions,
     cardinalityField,

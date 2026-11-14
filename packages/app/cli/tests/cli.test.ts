@@ -180,7 +180,7 @@ describe("arg → invocation mapping", () => {
     expect(typeOf("estimate")).toBe("number");
     expect(typeOf("f.estimate")).toBe("number");
     expect(typeOf("type")).toBe("ref");
-    expect(typeOf("sys.f.hidden")).toBe("checkbox");
+    expect(typeOf("sys.f.pinned")).toBe("checkbox");
     expect(typeOf("not-yet-minted")).toBe("text");
     expect(parsePropArg("estimate=3", typeOf)).toEqual({
       field: "estimate",

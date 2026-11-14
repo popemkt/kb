@@ -389,13 +389,6 @@ export const planAddTagField = (n: WireNode[], id: string, field: string) =>
   refProp(n, id, SYSTEM_IDS.fieldsField, field);
 export const planRemoveTagField = (n: WireNode[], id: string, field: string) =>
   unrefProp(n, id, SYSTEM_IDS.fieldsField, field);
-export function planSetFieldHidden(n: WireNode[], id: string, hidden: boolean) {
-  // One setting (`cardinality: one`), so showing it again replaces a stored
-  // `false` rather than appending beside it.
-  return hidden
-    ? planReplaceField(n, id, SYSTEM_IDS.hiddenField, [{ t: "bool", v: true }])
-    : planUnsetProp(n, id, SYSTEM_IDS.hiddenField, { t: "bool", v: true });
-}
 export function planSetTagColor(n: WireNode[], id: string, color: string | null) {
   const value = color?.trim() ?? "";
   const old = requireNode(n, id).props[SYSTEM_IDS.colorField]?.[0];
