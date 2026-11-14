@@ -197,6 +197,7 @@ describe("a picker step as data", () => {
       schema: host.schema(),
       pickedId: "n.alpha",
       creating: false,
+      alternate: false,
       name: "",
     });
     expect(calls).toEqual([
@@ -220,6 +221,7 @@ describe("a picker step as data", () => {
       schema: host.schema(),
       pickedId: "n.alpha",
       creating: false,
+      alternate: false,
       name: "",
     });
     expect(present(told[0], "a toast")).toBe("node.fail failed: no such field");

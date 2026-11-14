@@ -94,6 +94,8 @@ interface PaletteStepPick {
   readonly pickedId: string;
   readonly creating: boolean;
   readonly name: string;
+  /** Picked the step's alternate way (`PaletteStep.alternate`): Alt+Enter, or an Alt-click. */
+  readonly alternate: boolean;
 }
 
 /**
@@ -110,6 +112,11 @@ export interface PaletteStep {
   readonly candidates: (graph: PaletteStepGraph) => PickerCandidate[];
   /** At most this many rows; absent, every match. */
   readonly limit?: number;
+  /**
+   * What a pick made with Alt does, said under the list ("Move and leave a
+   * reference"); absent, Alt picks as Enter does.
+   */
+  readonly alternate?: string;
   readonly commit: (pick: PaletteStepPick) => Promise<void>;
 }
 

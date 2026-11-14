@@ -19,6 +19,7 @@ import {
   planMergeInto,
   planMergeWithPrevious,
   planMove,
+  planMoveNodes,
   planNewQueryNode,
   planOutdent,
   planPinNode,
@@ -344,6 +345,13 @@ export const mutations: PageWrites = {
 
   async moveNodesDown(ids: readonly string[]): Promise<void> {
     await applyPlan(planMove(wire(), ids, "down"));
+  },
+
+  async moveNodes(ids, place, leaveReferences = false) {
+    const references = leaveReferences ? ids.map(() => ulid()) : [];
+    const plan = planMoveNodes(wire(), ids, place, references);
+    if (plan === null || !(await applyPlan(plan))) return null;
+    return { references };
   },
 
   async together<T>(made: () => Promise<T>): Promise<T> {

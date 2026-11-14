@@ -26,6 +26,7 @@ import {
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
 import { CommandPalette } from "@/components/palette/command-palette";
+import { mutations } from "@/actions/mutations";
 import { pageEditor } from "@/stores/page-editor";
 import { useUiStore } from "@/stores/ui.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
@@ -90,6 +91,8 @@ function graph(): WireNode[] {
       props: { [SYSTEM_IDS.queryField]: [{ t: "str", v: "[:find ?e :where [?e]]" }] },
     }),
     ctxRefWire("n.ref", "n.plain"),
+    // Where Move to… puts rows.
+    wire({ id: "n.inbox", text: "Inbox" }),
   ];
 }
 
@@ -98,6 +101,10 @@ const typesOf = (id: string) =>
   (
     useGraphStore.getState().wireNodes.find((n) => n.id === id)?.props[SYSTEM_IDS.typeField] ?? []
   ).map((v) => v.v);
+
+/** The children of `id`, in order, as the store holds them. */
+const childrenOf = (id: string) =>
+  useGraphStore.getState().wireNodes.find((n) => n.id === id)?.children ?? [];
 
 function seed() {
   resetOutlineStore();
@@ -216,7 +223,14 @@ describe("node command palette", () => {
 
   it("over a range, offers only the commands that act on each row", async () => {
     await openOver(["n.plain", "n.query"]);
-    expect(labels()).toEqual(["Add tag", "Add field", "Set field…", "Pin", "Delete nodes"]);
+    expect(labels()).toEqual([
+      "Add tag",
+      "Add field",
+      "Set field…",
+      "Move to…",
+      "Pin",
+      "Delete nodes",
+    ]);
   });
 
   it("tags every row of a range with the tag picked, as one undo step", async () => {
@@ -251,6 +265,42 @@ describe("node command palette", () => {
     expect(useGraphStore.getState().undoStack).toHaveLength(1);
     await openOver(["n.plain", "n.query"]);
     expect(labels()).toContain("Unpin");
+  });
+
+  it("moves every row of a range under the node picked, as one undo step", async () => {
+    await openOver(["n.plain", "n.query"]);
+    await pick("Move to…");
+    // Not the rows themselves, nor anywhere under them.
+    expect(labels()).toContain("Inbox");
+    expect(labels()).not.toContain("Plain node");
+    expect(labels()).not.toContain("A saved query");
+    expect(dom.document.body.textContent).toContain("⌥↵ leave a reference");
+    await pick("Inbox");
+    await vi.waitFor(() => expect(childrenOf("n.inbox")).toEqual(["n.plain", "n.query"]));
+    expect(useGraphStore.getState().undoStack).toHaveLength(1);
+    await act(async () => void (await mutations.undo()));
+    expect(childrenOf("n.inbox")).toEqual([]);
+  });
+
+  it("picked with Alt, leaves a reference where each row was", async () => {
+    await openOver(["n.query"]);
+    await pick("Move to…");
+    const inbox = [...dom.document.querySelectorAll('[data-palette-list="true"] button')].find(
+      (b) => b.textContent.trim() === "Inbox",
+    );
+    await act(async () => {
+      present(inbox, "Inbox").dispatchEvent(
+        new dom.MouseEvent("click", { bubbles: true, altKey: true }),
+      );
+    });
+    await vi.waitFor(() => expect(childrenOf("n.inbox")).toEqual(["n.query"]));
+    const left = useGraphStore
+      .getState()
+      .wireNodes.find(
+        (n) => n.props[SYSTEM_IDS.refTargetField]?.[0]?.v === "n.query" && n.id !== "n.query",
+      );
+    expect(left).toBeDefined();
+    expect(useGraphStore.getState().undoStack).toHaveLength(1);
   });
 
   it("labels the debug row from this node's own flag", async () => {
@@ -290,6 +340,7 @@ describe("node command palette", () => {
       "Open with: Chart",
       "Indent",
       "Outdent",
+      "Move to…",
       "Pin",
       "Show debug fields",
       "View as: List",
@@ -316,6 +367,7 @@ describe("node command palette", () => {
       "Open with: Chart",
       "Indent",
       "Outdent",
+      "Move to…",
       "Pin",
       "Show debug fields",
       "View as: List",
@@ -511,6 +563,20 @@ describe("the global palette on a page", () => {
 
   it("lists a global command once, as the node's face of it", async () => {
     await openPalette();
+    // Searched for: the palette shows its first rows only.
+    const input = present(
+      dom.document.querySelector('[aria-label="Search and open"] input'),
+      "palette input",
+    ) as unknown as HTMLInputElement;
+    await act(async () => {
+      input.focus();
+      Object.getOwnPropertyDescriptor(dom.HTMLInputElement.prototype, "value")?.set?.call(
+        input,
+        "Filter",
+      );
+      // React met no DOM when it loaded, so it reads a text change on a key.
+      input.dispatchEvent(new dom.KeyboardEvent("keyup", { bubbles: true }) as unknown as Event);
+    });
     const filters = [...dom.document.querySelectorAll("[data-palette-row]")].filter(
       (b) => b.querySelector(".flex-1")?.textContent === "Filter…",
     );

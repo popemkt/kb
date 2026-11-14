@@ -1,25 +1,30 @@
 /**
  * The outline's own node-palette steps, contributed through
  * `PaletteStepPoint` as any family's are: add or remove a tag, add or set a
- * field, turn a row into a reference. A step a command that acts on many
- * opens writes its pick to every row it is about (`targetNodeIds`), what it
- * mints made once. They are the same gesture over different node kinds, and
+ * field, turn a row into a reference, move rows to another node. A step a
+ * command that acts on many opens writes its pick to every row it is about
+ * (`targetNodeIds`) as one write (`asOneWrite`), what it mints made once. They are the same gesture over different node kinds, and
  * the same gesture as every other node picker (lib/picker): only the
  * candidate source, whether a new one may be minted, and the write vary. A
  * reference draws its candidates from `nodeCandidates`, the source the `[[`
  * autocomplete and the field picker share.
  */
-import { HashIcon, LinkSimpleIcon, TextTIcon } from "@phosphor-icons/react";
+import { ArrowBendDownRightIcon, HashIcon, LinkSimpleIcon, TextTIcon } from "@phosphor-icons/react";
 import type { WireNode } from "@kb/contracts";
 import type { ContributionEntry } from "@kb/plugin";
 import {
+  asOneWrite,
   browserHost,
   emptyValueForType,
   nodeCandidates,
+  type NodeMap,
   type PaletteStep,
   type PickerCandidate,
   resolveFieldTypeById,
+  selectionRoots,
 } from "@kb/ui-sdk";
+import { outlineNodes, useOutlineStore } from "./outline.store";
+import { moveRows } from "./row-moves";
 import { declaresOptionSet, isSysPrefixed, SYSTEM_IDS, typeRefsOf } from "@kb/model";
 
 /**
@@ -42,8 +47,10 @@ const addTag: PaletteStep = {
   candidates: (graph) => nodesOfKind(graph.wireNodes, SYSTEM_IDS.tag),
   commit: async ({ targetNodeIds, pickedId, creating, name }) => {
     const { writes } = browserHost();
-    const tagId = creating ? await writes.defineTag(name) : pickedId;
-    if (tagId !== null) await Promise.all(targetNodeIds.map((id) => writes.addTag(id, tagId)));
+    await asOneWrite(targetNodeIds, async () => {
+      const tagId = creating ? await writes.defineTag(name) : pickedId;
+      if (tagId !== null) await Promise.all(targetNodeIds.map((id) => writes.addTag(id, tagId)));
+    });
   },
 };
 
@@ -68,10 +75,9 @@ const removeTag: PaletteStep = {
   commit: async ({ targetNodeIds, pickedId }) => {
     const { writes } = browserHost();
     const graph = browserHost().graph.state().wireNodes;
-    await Promise.all(
-      targetNodeIds
-        .filter((id) => tagsCarried(graph, [id]).has(pickedId))
-        .map((id) => writes.removeTag(id, pickedId)),
+    const carrying = targetNodeIds.filter((id) => tagsCarried(graph, [id]).has(pickedId));
+    await asOneWrite(carrying, () =>
+      Promise.all(carrying.map((id) => writes.removeTag(id, pickedId))),
     );
   },
 };
@@ -84,12 +90,14 @@ const addField: PaletteStep = {
   candidates: (graph) => nodesOfKind(graph.wireNodes, SYSTEM_IDS.field),
   commit: async ({ targetNodeIds, schema, pickedId, creating, name }) => {
     const { writes } = browserHost();
-    const fieldId = creating ? await writes.defineField(name) : pickedId;
-    if (fieldId === null) return;
-    // An empty typed value is what makes the row appear and focusable; the
-    // field's own declared type decides which editor that row gets.
-    const empty = emptyValueForType(resolveFieldTypeById(fieldId, schema));
-    await Promise.all(targetNodeIds.map((id) => writes.updateProp(id, fieldId, empty)));
+    await asOneWrite(targetNodeIds, async () => {
+      const fieldId = creating ? await writes.defineField(name) : pickedId;
+      if (fieldId === null) return;
+      // An empty typed value is what makes the row appear and focusable; the
+      // field's own declared type decides which editor that row gets.
+      const empty = emptyValueForType(resolveFieldTypeById(fieldId, schema));
+      await Promise.all(targetNodeIds.map((id) => writes.updateProp(id, fieldId, empty)));
+    });
   },
 };
 
@@ -124,7 +132,9 @@ const setField: PaletteStep = {
     if (field === undefined) return;
     // A field that holds one value has it replaced; one that holds many gains it.
     const value = { t: "ref", v: pickedId } as const;
-    await Promise.all(targetNodeIds.map((id) => writes.updateProp(id, field.id, value)));
+    await asOneWrite(targetNodeIds, () =>
+      Promise.all(targetNodeIds.map((id) => writes.updateProp(id, field.id, value))),
+    );
   },
 };
 
@@ -145,6 +155,46 @@ const addRef: PaletteStep = {
   },
 };
 
+/** Whether `id` is one of `rows` or under one of them: where no row of them can move. */
+function within(nodes: NodeMap, rows: ReadonlySet<string>, id: string): boolean {
+  const seen = new Set<string>();
+  for (
+    let at: string | null = id;
+    at !== null && !seen.has(at);
+    at = nodes.get(at)?.parentId ?? null
+  ) {
+    if (rows.has(at)) return true;
+    seen.add(at);
+  }
+  return false;
+}
+
+/**
+ * Move to… (DESIGN-UI.md → Outline editor, "A row moves anywhere"): the
+ * rows go to the end of the node picked; picked with Alt, each leaves a
+ * reference where it was. One write, through the outline's one move.
+ */
+const moveTo: PaletteStep = {
+  label: "Move to",
+  placeholder: "Search for where to move it...",
+  icon: <ArrowBendDownRightIcon size={12} weight="bold" />,
+  alternate: "leave a reference",
+  candidates: (graph) => {
+    const rows = new Set(graph.targetNodeIds);
+    return nodeCandidates(graph.nodes, { exclude: (id) => within(graph.nodes, rows, id) });
+  },
+  limit: 12,
+  commit: async ({ targetNodeIds, pickedId, alternate }) => {
+    const store = useOutlineStore.getState();
+    const drawn = store.selectedRows();
+    const firstKey =
+      drawn[0]?.instanceKey ?? store.activeInstanceKey ?? store.selectedInstanceKey ?? "";
+    const lastKey = drawn.at(-1)?.instanceKey ?? firstKey;
+    const ids = selectionRoots(targetNodeIds, outlineNodes());
+    await moveRows(ids, { firstKey, lastKey }, { parent: pickedId }, alternate);
+  },
+};
+
 /**
  * The outline's steps. Each is opened by its id in the outline's namespace,
  * `outline.add-tag` and so on, as any contribution is named.
@@ -155,4 +205,5 @@ export const OUTLINE_STEPS: readonly ContributionEntry<PaletteStep>[] = [
   { id: "add-field", value: addField },
   { id: "set-field", value: setField },
   { id: "add-ref", value: addRef },
+  { id: "move-to", value: moveTo },
 ];

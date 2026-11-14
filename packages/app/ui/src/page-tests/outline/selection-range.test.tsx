@@ -9,14 +9,14 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import type { WireNode } from "@kb/contracts";
-import { present, ranksFor, siblingSlots } from "@kb/model";
+import { present } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { outlineInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { installDomGlobals } from "@kb/ui-test-kit";
 import { mutations } from "@/actions/mutations";
 import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
+import { rankedFixture } from "@/test-support/ranked-fixture";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { NodeBlock, outlineNodes, useOutlineStore, useSelectionKeymap } from "@kb/outline-ui";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
@@ -37,18 +37,6 @@ const roots = () =>
     ["n.root-a", "n.root-b", "n.root-c"].includes(id),
   );
 
-/**
- * The fixture graph with every row ranked, as a store ranks it: a restored
- * row takes a rank, and among unranked siblings it would sort first.
- */
-function ranked(): WireNode[] {
-  const nodes = structuredClone(fixtureGraph.nodes);
-  const ranks = ranksFor(siblingSlots(nodes, null).map((n) => n.id));
-  for (const parent of nodes)
-    for (const [id, rank] of ranksFor(parent.children)) ranks.set(id, rank);
-  return nodes.map((n) => ({ ...n, order: ranks.get(n.id) ?? n.order }));
-}
-
 describe("a selection is a range of rows", () => {
   let dom: Window;
   let restore: (() => void) | undefined;
@@ -64,7 +52,7 @@ describe("a selection is a range of rows", () => {
 
   beforeEach(() => {
     resetOutlineStore();
-    useGraphStore.getState().hydrateFromWire(ranked(), fixtureGraph.rev, "fixtures");
+    useGraphStore.getState().hydrateFromWire(rankedFixture(), fixtureGraph.rev, "fixtures");
     container = dom.document.createElement("div") as unknown as HTMLDivElement;
     dom.document.body.appendChild(container as unknown as never);
     root = createRoot(container);

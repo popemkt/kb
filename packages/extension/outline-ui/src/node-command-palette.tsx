@@ -2,7 +2,6 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { PlusIcon } from "@phosphor-icons/react";
 import {
-  asOneWrite,
   asInstance,
   browserHost,
   cn,
@@ -134,7 +133,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
     limit: picker?.limit,
   });
 
-  const handleSelect = (row: PickerRow | null) => {
+  const handleSelect = (row: PickerRow | null, alternate = false) => {
     if (row === null) return;
     if (picker === null) {
       commands.find((c) => c.id === row.id)?.run();
@@ -148,9 +147,10 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
       pickedId: row.id,
       creating: row.id === CREATE_ROW_ID,
       name: query.trim(),
+      alternate: alternate && picker.alternate !== undefined,
     };
-    // What the step writes to every row is one write.
-    void asOneWrite(targetNodeIds, () => picker.commit(pick));
+    // The step writes to every row as one write itself (`asOneWrite`).
+    void picker.commit(pick);
     onClose();
   };
 
@@ -256,13 +256,21 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
           />
         </div>
 
-        <div className="flex items-center gap-3 border-t border-foreground/[0.06] px-3 py-1.5 text-caption text-foreground/20">
-          <span>↑↓ navigate</span>
-          <span>↵ select</span>
-          <span>esc {picker === null ? "close" : "back"}</span>
-        </div>
+        <PaletteKeys step={picker} />
       </div>
     </>,
     document.body,
+  );
+}
+
+/** The keys the menu answers, under its list: a step's alternate pick among them. */
+function PaletteKeys({ step }: { readonly step: PaletteStep | null }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 border-t border-foreground/[0.06] px-3 py-1.5 text-caption text-foreground/20">
+      <span>↑↓ navigate</span>
+      <span>↵ select</span>
+      {step?.alternate !== undefined && <span>⌥↵ {step.alternate}</span>}
+      <span>esc {step === null ? "close" : "back"}</span>
+    </div>
   );
 }

@@ -112,6 +112,8 @@ const INERT_WRITES: PageWrites = {
   outdentNodes: done,
   moveNodesUp: done,
   moveNodesDown: done,
+  // This host moves nothing.
+  moveNodes: () => Promise.resolve(null),
   // A gesture's writes are this host's: it makes none of them, so the gesture runs as it is.
   together: (gesture) => gesture(),
   updateProp: done,

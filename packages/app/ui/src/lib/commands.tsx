@@ -25,6 +25,7 @@
  */
 import { ulid } from "ulid";
 import {
+  ArrowBendDownRightIcon,
   ArrowBendUpLeftIcon,
   ArrowRightIcon,
   ArrowSquareOutIcon,
@@ -468,6 +469,14 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     menu: nodeMenu("arrange", 20),
     chrome: () => ({ label: "Outdent", icon: <ArrowBendUpLeftIcon size={14} /> }),
     run: (ctx) => nodeAction(ctx, (nodeId) => browserHost().writes.outdentNodes([nodeId])),
+  },
+  {
+    // DESIGN-UI.md → Outline editor, "A row moves anywhere".
+    id: "move-to",
+    menu: nodeMenu("arrange", 30),
+    many: true,
+    chrome: () => ({ label: "Move to…", icon: <ArrowBendDownRightIcon size={14} /> }),
+    run: (ctx) => ctx.palette.openStep("outline.move-to"),
   },
   {
     // Pinning is listing (lib/pinned); the label is the current state so the

@@ -14,6 +14,12 @@ import type { FrameViewKey, SortSpec, ViewFilter } from "@kb/views";
 import type { RefCreation } from "./refs";
 import type { PropValue } from "./types";
 
+/** Where moved rows land: under `parent` (null: the top level), after the sibling `after` (null: first; absent: at the end). */
+export interface MovePlace {
+  readonly parent: string | null;
+  readonly after?: string | null;
+}
+
 export interface PageWrites {
   /** Local text action first; coalesce its ordered remote confirmation. */
   readonly updateNodeContent: (id: string, content: string) => Promise<void>;
@@ -77,6 +83,19 @@ export interface PageWrites {
   readonly moveNodesUp: (ids: readonly string[]) => Promise<void>;
   /** Move a block one step down: the sibling below it goes above it. */
   readonly moveNodesDown: (ids: readonly string[]) => Promise<void>;
+  /**
+   * Move rows anywhere (DESIGN-UI.md → Outline editor, "A row moves
+   * anywhere"): `ids`, in order, under `place.parent`, after `place.after`
+   * (null: first; absent: at the end), as one write. With
+   * `leaveReferences`, a reference to each row stays where it was. Answers
+   * the references made, or null when nothing moved (the place is under a
+   * row moved, or the rows are there already).
+   */
+  readonly moveNodes: (
+    ids: readonly string[],
+    place: MovePlace,
+    leaveReferences?: boolean,
+  ) => Promise<{ readonly references: readonly string[] } | null>;
   /**
    * Make the writes `gesture` makes one write (DESIGN-UI.md → Outline
    * editor, "A selection is a range of rows"): each is planned when it is
