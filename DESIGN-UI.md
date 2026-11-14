@@ -1280,8 +1280,9 @@ reason, and the next edit starts from it.
 **The one node picker.** Every "which node?" in the UI is one engine
 (`lib/picker.ts`: candidates in, ranked rows out; `usePickerKeys`) and one
 list (`components/ui/picker-list.tsx`): the field picker (`FieldPicker`), the
-`[[` completion, every node-palette step (`PaletteStepPoint`; the outline's
-add-tag, add-field, reference and move-to steps among them),
+text's triggers (`[[`, `@`, `#`, `>`), every node-palette step
+(`PaletteStepPoint`; the outline's add-tag, add-field, reference and move-to
+steps among them),
 the ontology page's include/extends, the canvas's "add existing node" and the
 tag page's add-field. A query matches fuzzily (prefix, substring, id, word
 initials, a compact subsequence) and the matched letters are marked; with
@@ -1306,6 +1307,41 @@ that carries a tag; never a raw id. The list is anchored to its input, flipped a
 clamped to the viewport (`useAnchoredPosition`), so a cell or a column never
 clips it. The global ⌘K palette is a different gesture — search and open —
 and keeps its own index.
+
+**Triggers in the text.** Typing a trigger in a row's text opens that
+picker at the caret, without leaving the text. The triggers are one table
+on the text host (`TextTrigger`, `lib/text-triggers.ts`). Each row of it
+says where a trigger opens, what it offers and what a pick does; the host
+runs every row with the one picker engine and the one list. A pick
+replaces what was typed for the trigger, the opener and its query, and may
+then write.
+
+- `[[` opens anywhere and offers every node (`nodeCandidates`). A pick
+  inserts a reference, `[[id|label]]`, and Enter with nothing to pick
+  closes the brackets.
+- `@` opens at the start of the text or after a space, before a character
+  that is not a space. When what follows reads as a date (`parseDateInput`,
+  the grammar a date slot reads) and dates lead somewhere, that date is the
+  first row, and the nodes `[[` offers follow. A date leads somewhere when a
+  provider other than core's is elected for `ui.date-target` (DESIGN.md →
+  [Provider roles](./DESIGN.md#provider-roles)): with days on, the date's
+  day. A pick inserts a reference to the node, or to the date's node, made
+  if need be.
+- `#` opens at the start of the text or after a space, its query one word.
+  It is the Add tag step (`outline.add-tag`): it offers the tags, and a new
+  one by name, and a pick takes `#` and the query out of the text and tags
+  the row.
+- `>` opens on a row whose whole text is `>` and a query. It is the Add
+  field step (`outline.add-field`): a pick empties the text, adds the field
+  to the row as Add field does from the menu, and puts the caret in its
+  value.
+
+`[[` is every text host's. `@`, `#` and `>` are the outline's: its rows
+pass them to their text host beside `[[`. A trigger with nothing to offer is
+closed, so its keys stay the text's: `@` or `#` in prose and `> ` starting a
+quote are typed as text. Escape closes the picker and keeps the text, until
+the query changes. The table is the text host's own, not a plugin point;
+when a second family needs a trigger of its own, it becomes one.
 
 **Named gaps.** A ref value's bullet follows on a plain click (a value's
 bullet has no children of its own to expand) rather than expanding the

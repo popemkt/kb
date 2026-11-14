@@ -6579,7 +6579,10 @@ and stays home, and days replaces it with today (DESIGN-UI.md →
 [Days](./DESIGN-UI.md#days)). The fourth is `ui.date-target`, the node a
 followed date value opens (a `date` follow target, DESIGN-UI.md → Field
 values). Core owns it and leads nowhere, and days replaces it with the
-date's day, made if need be.
+date's day, made if need be. A text's `@` trigger asks it too
+(DESIGN-UI.md → Triggers in the text): it offers a date only while a
+provider other than core's is elected, and a pick references the node the
+role answers.
 
 ### Transaction reactions
 
