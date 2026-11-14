@@ -9,8 +9,8 @@
  * A write that cannot be made says why itself (a toast) and resolves; none
  * rejects for a refusal.
  */
-import type { FieldType } from "@kb/model";
-import type { FrameViewKey, SortSpec, ViewFilter } from "@kb/views";
+import type { FieldType, Writable } from "@kb/model";
+import type { FrameViewKey, ViewConfig, ViewFilter } from "@kb/views";
 import type { RefCreation } from "./refs";
 import type { PropValue } from "./types";
 
@@ -162,12 +162,17 @@ export interface PageWrites {
   /** Show a frame's children in `view`: its frame view node names the view's option. */
   readonly setFrameView: (frameId: string, view: FrameViewKey) => Promise<void>;
   readonly replaceField: (nodeId: string, fieldId: string, values: PropValue[]) => Promise<void>;
-  readonly setViewSort: (frameId: string, sortSpecs: SortSpec[]) => Promise<void>;
+  /**
+   * Store one of a frame's view settings on its frame view node, written by
+   * the setting's slot (`frameSettingWrite`), so it reads back as written.
+   */
+  readonly setFrameSetting: <K extends keyof ViewConfig>(
+    frameId: string,
+    key: K,
+    value: Writable<ViewConfig[K]>,
+  ) => Promise<void>;
   readonly toggleViewSort: (frameId: string, fieldId: string) => Promise<void>;
-  readonly setViewDisplay: (frameId: string, displayFieldIds: string[]) => Promise<void>;
   readonly setColumnWidth: (frameId: string, fieldId: string, widthPx: number) => Promise<void>;
-  readonly setViewPagesize: (frameId: string, pagesize: number) => Promise<void>;
-  readonly setViewGroup: (frameId: string, fieldId: string | null) => Promise<void>;
   readonly addViewFilter: (frameId: string, filter: ViewFilter) => Promise<void>;
   readonly removeViewFilter: (frameId: string, filter: ViewFilter) => Promise<void>;
   readonly moveBoardCard: (

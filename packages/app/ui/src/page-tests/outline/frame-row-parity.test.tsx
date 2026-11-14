@@ -66,7 +66,7 @@ describe("frame row parity (render vs nav)", () => {
     useOutlineStore.getState().toggleCollapse("n.root-a");
 
     await mutations.setFrameView("n.root-a", CollectionTableView);
-    await mutations.setViewPagesize("n.root-a", 1);
+    await mutations.setFrameSetting("n.root-a", "pagesize", 1);
 
     await act(async () => {
       root.render(<NodeBlock nodeId="n.root-a" depth={0} />);

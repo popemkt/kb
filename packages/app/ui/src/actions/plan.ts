@@ -12,13 +12,7 @@ import {
   SYSTEM_IDS,
 } from "@kb/model";
 import { forestRootIds, type PropValue } from "@kb/ui-sdk";
-import {
-  FRAME_VIEW_FAMILY,
-  frameSettingWrite,
-  type SortSpec,
-  type ViewConfig,
-  type ViewFilter,
-} from "@kb/views";
+import { FRAME_VIEW_FAMILY, frameSettingWrite, type ViewConfig } from "@kb/views";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { findParentWire, wireById } from "@/lib/tx";
 
@@ -454,7 +448,7 @@ export const frameViewIs = (option: string): FrameViewEdit => [
 ];
 
 /** One frame setting's edit: what its slot writes (`frameSettingWrite`), field by field. */
-function frameSettingEdit<K extends keyof ViewConfig>(
+export function frameSettingEdit<K extends keyof ViewConfig>(
   key: K,
   value: Writable<ViewConfig[K]>,
 ): FrameViewEdit {
@@ -463,14 +457,6 @@ function frameSettingEdit<K extends keyof ViewConfig>(
     values: [...values],
   }));
 }
-
-export const frameViewSort = (specs: SortSpec[]) => frameSettingEdit("sort", specs);
-export const frameViewDisplay = (fields: string[]) => frameSettingEdit("display", fields);
-export const frameViewColwidth = (widths: Record<string, number>) =>
-  frameSettingEdit("colwidth", widths);
-export const frameViewPagesize = (size: number) => frameSettingEdit("pagesize", size);
-export const frameViewGroup = (field: string | null) => frameSettingEdit("groupFieldId", field);
-export const frameViewFilters = (filters: ViewFilter[]) => frameSettingEdit("filters", filters);
 
 /**
  * Make `viewId` `hostId`'s default view: move it first in the host's

@@ -56,7 +56,11 @@ function GroupSetting({ frameId, groupFieldId }: { frameId: string; groupFieldId
         placeholder="None"
         pickLabel="Group by field"
         onPick={(id) =>
-          void browserHost().writes.setViewGroup(frameId, id === NO_GROUP ? null : id)
+          void browserHost().writes.setFrameSetting(
+            frameId,
+            "groupFieldId",
+            id === NO_GROUP ? null : id,
+          )
         }
       />
     </PrefFieldRow>
@@ -84,7 +88,8 @@ function ColumnsSetting({ frameId, display }: { frameId: string; display: readon
   // fields shown: a name the table does not draw now (its node hides it)
   // is kept, never dropped by a remove or an add beside it.
   const named = display.length > 0 ? [...display] : shown;
-  const write = (next: string[]) => void browserHost().writes.setViewDisplay(frameId, next);
+  const write = (next: string[]) =>
+    void browserHost().writes.setFrameSetting(frameId, "display", next);
   return (
     <PrefFieldRow icon={ColumnsIcon} label="fields">
       <div className="flex flex-wrap items-center gap-1" data-view-columns={frameId}>
@@ -144,7 +149,7 @@ function PageSizeSetting({ frameId, pagesize }: { frameId: string; pagesize: num
         candidates={candidates}
         chosen={String(pagesize)}
         pickLabel="Rows per page"
-        onPick={(id) => void browserHost().writes.setViewPagesize(frameId, Number(id))}
+        onPick={(id) => void browserHost().writes.setFrameSetting(frameId, "pagesize", Number(id))}
       />
     </PrefFieldRow>
   );
