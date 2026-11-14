@@ -1687,6 +1687,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — DateEditor delegates Enter/Tab to the ValueSlot keymap instead of handling them itself.
 - **node** — `01M3KA39ATBBJHPY4AWP7VKX8G`
 
+### GAP: the days landing gives up on a fixed budget and silently leaves the person at home
+
+- **expected** — The landing on today waits for readiness: the page's live connection and the day node reaching its replica, however long a slow machine takes, and says so if it truly cannot land, instead of a fixed budget that falls back without a word.
+- **current** — land() asks the landing role with a 5 s budget (LANDING_BUDGET_MS), and days' answer waits at most 3 s for the made day to reach the page (ARRIVAL_MS); past either, the page stays at / without telling the person. On macOS CI the render suite's page-load landing missed its budget, so the paste spec now opens a node page instead of depending on the landing.
+- **impact** — On a slow machine or connection a person with days on opens kb at home instead of today, with no sign that the landing failed; anything that relies on landing on today (the render paste spec did) is timing-dependent.
+- **closes** — The landing awaits a readiness signal the page owns (live connection up, the day in the replica) rather than wall-clock budgets, or tells the person when it falls back; a render spec that lands on today under a throttled page.
+- **node** — `01M7CC1GD0A1J314ZTAR54F8AD`
+
 ### GAP: the extension dependency graph has no command, view or reverse edges
 
 - **expected** — extension.graph returns every derived edge {from, to, key, kind, optional, source} and data edges between families; kb ext graph prints it (and --dot), kb ext why <plugin> says why a plugin is not active, extension.list rows carry dependants, and the graph view has a lens over sys.extensions drawing the same edges

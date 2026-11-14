@@ -143,9 +143,12 @@ test("a top-level row's pasted list stays at the top level with days on, not in 
   const { id } = (await call(request, "node.add", { text: "Loose row", parent: null })) as {
     id: string;
   };
-  // With days on the root lands on today's node; Home is the top level.
-  await page.goto("/");
-  await page.waitForURL(/\/node\//u);
+  // Days is on in the page once its Today row shows. The page opens on a
+  // node rather than the root, so no landing on today is pending to move it
+  // after Home is chosen (one only answers a load at the root, in its own
+  // time); Home is the top level.
+  await page.goto(`/node/${ROOT}`);
+  await expect(page.getByRole("button", { name: "Today" }).first()).toBeVisible();
   await page.getByRole("button", { name: "Home" }).first().click();
   await page.locator(`[data-node-id="${id}"] .node-content`).first().click();
   await expect(page.locator(`[data-node-id="${id}"][data-active="true"]`)).toBeVisible();

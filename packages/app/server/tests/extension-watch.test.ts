@@ -76,6 +76,23 @@ async function until<T>(read: () => T | undefined, what: string): Promise<T> {
   throw new Error(`timed out waiting for ${what}`);
 }
 
+/**
+ * Ask `read` until it answers, as a page asks `kb.manifest` again after it
+ * is told the manifest moved: the state is the signal, never which frame
+ * came first, since a server also tells a page each runtime change (a
+ * trust or lock reading, its first one at start included) whether or not
+ * the composition moved.
+ */
+async function settled<T>(read: () => Promise<T | undefined>, what: string): Promise<T> {
+  const end = Date.now() + 10_000;
+  while (Date.now() < end) {
+    const found = await read();
+    if (found !== undefined) return found;
+    await Bun.sleep(25);
+  }
+  throw new Error(`timed out waiting for ${what}`);
+}
+
 /** What the server last told this connection of its watch. */
 function watched(frames: readonly ServerMessage[]): string | null | undefined {
   const told = frames.filter((frame) => frame.op === "extension-watch");
@@ -123,16 +140,22 @@ test("watching, an edit to an own extension is followed, and its new bytes wait 
       prelude: `import {writeFileSync} from "node:fs";writeFileSync(${JSON.stringify(marker)},"ran");`,
     }),
   );
+  const edited = await settled(async () => {
+    const row = await liveRow(handle);
+    return row !== undefined && row.digest !== first ? row : undefined;
+  }, "the edit to be followed");
   await until(() => frames.find((frame) => frame.op === "manifest-changed"), "manifest-changed");
-  const edited = present(await liveRow(handle), "the edited extension's row");
   expect(edited.trusted).toBe(false);
-  expect(edited.digest).not.toBe(first);
   expect(await call(handle, "ext.live.version")).toMatchObject({ code: "unknown_action" });
   expect(await Bun.file(marker).exists()).toBe(false);
 
   // Trusted again, the new bytes run.
   frames.length = 0;
-  await trustExtension(root, "live.ts");
+  const second = await trustExtension(root, "live.ts");
+  await settled(async () => {
+    const row = await liveRow(handle);
+    return row?.trusted === true && row.digest === second ? row : undefined;
+  }, "the new bytes to be trusted");
   await until(() => frames.find((frame) => frame.op === "manifest-changed"), "manifest-changed");
   expect(await call(handle, "ext.live.version")).toMatchObject({ output: { version: 2 } });
 }, 30_000);
