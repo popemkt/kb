@@ -21,6 +21,7 @@ import { declarationPlugin, defineExtension, viewDef, FIELD_EDITOR_ROLE } from "
 import type { Plugin } from "@kb/plugin";
 import { OutlineListView, OutlineSnippetView, OutlineView } from "@kb/views";
 import { OUTLINE_IDS } from "./ids.ts";
+import { OUTLINE_POINT_DEFINITIONS } from "./point-definitions.ts";
 
 export const outlineExtension = defineExtension({
   name: "outline",
@@ -40,6 +41,7 @@ export const outlineExtension = defineExtension({
     },
   ],
   views: [viewDef(OutlineView), viewDef(OutlineListView), viewDef(OutlineSnippetView)],
+  points: Object.values(OUTLINE_POINT_DEFINITIONS),
   // A node's own display toggles: the editor's, never drawn as field rows.
   seed: (at) =>
     DISPLAY_OPTIONS.map((option) =>

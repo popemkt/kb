@@ -244,6 +244,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Plugins migrate their own data, declared and previewed
 - **node** — `01M7342YFJC4B6DMAFD8MTSTD7`
 
+### GAP: a family's paste transform runs in the page at T3, not in the isolated frame at T1
+
+- **expected** — A provideIngest transform (text in, outline paste text out) runs in the extension's isolated frame (connect-src 'none') at T1: it sees the pasted text but can send it nowhere
+- **current** — The transform runs in the page as page code, labelled T3 (page power) on the trust sheet, as any page half is; the isolated frame (isolation steps 9–10) has not landed
+- **impact** — A page half that claims a paste reads the clipboard text with the page's full power, so trusting a paste handler means trusting its whole page half
+- **closes** — Run the transform in the isolated frame once it lands, keeping the form's shape (match as data, text in, outline out), and label the point T1 for a form-only contribution
+- **node** — `01M73WFP42V98AA4VRG8JBQQ2N`
+
 ### GAP: a flat item turned face-down shows its face mirrored in 2D
 
 - **expected** — 2D shows a face-down flat card's blank back, as 3D does

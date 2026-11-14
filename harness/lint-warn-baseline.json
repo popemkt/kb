@@ -53,7 +53,7 @@
       "@kb/locations": 19,
       "@kb/locations-fs": 1,
       "@kb/locations-ui": 1,
-      "@kb/outline": 9,
+      "@kb/outline": 10,
       "@kb/outline-ui": 40,
       "@kb/routines": 110,
       "@kb/routines-gcal": 17,
@@ -79,7 +79,7 @@
       "@kb/appearance-kit": 41,
       "@kb/scene": 13,
       "@kb/scene-gpu": 35,
-      "@kb/ui-sdk": 523,
+      "@kb/ui-sdk": 529,
       "@kb/ui-test-kit": 26,
       "@kb/keybindings": 39
     },
@@ -149,8 +149,8 @@
     },
     "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2765972,
-      "modules": 732
+      "bytes": 2769066,
+      "modules": 733
     },
     "single-family": {
       "contract/sandbox/src/snapshot.ts": 1,

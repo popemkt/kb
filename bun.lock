@@ -1175,6 +1175,7 @@
       },
       "devDependencies": {
         "@kb/bundled": "workspace:*",
+        "@kb/outline-paste": "workspace:*",
         "@kb/ui-test-kit": "workspace:*",
         "@storybook/react-vite": "catalog:",
         "@types/bun": "catalog:",

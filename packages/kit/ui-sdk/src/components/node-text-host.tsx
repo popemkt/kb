@@ -9,6 +9,7 @@ import {
 } from "react";
 import { LockSimpleIcon } from "@phosphor-icons/react";
 import { cn } from "../lib/cn";
+import { ingestedOf, type IngestPort } from "../lib/ingest";
 import { matchesChord, TEXT_HISTORY_CHORD } from "../lib/keychord";
 import { KB_TEXT_CLASS } from "../lib/md-inline";
 import {
@@ -87,8 +88,12 @@ export interface NodeTextHostProps extends NodeTextHostBinding {
   onActivate: (cursorPos?: number) => void;
   onChange: (content: string) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
+  /**
+   * Where a paste or a drop into the text is offered (`lib/ingest`): the
+   * surface's, which names the row. What it does not claim is the browser's.
+   */
+  ingest: IngestPort;
   /** The surface's writes: the text's node is the surface's to name (`shownNodeId`). */
-  onAttachFile: (file: File) => void;
   onRemoveTag: (tagId: string) => void;
 }
 
@@ -147,7 +152,7 @@ export function NodeTextHost({
   registerTextHost,
   unregisterTextHost,
   setNodePaletteOpen,
-  onAttachFile,
+  ingest,
   onRemoveTag,
 }: NodeTextHostProps) {
   /**
@@ -331,23 +336,32 @@ export function NodeTextHost({
     [isActive, onActivate, onFollow, content],
   );
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    if (![...e.dataTransfer.types].includes("Files")) return;
-    e.preventDefault();
-    e.stopPropagation();
-    e.dataTransfer.dropEffect = "copy";
-  }, []);
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      if (!ingest.accepts("drop", [...e.dataTransfer.types])) return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = "copy";
+    },
+    [ingest],
+  );
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
-      const files = e.dataTransfer.files;
-      if (files.length === 0) return;
+      if (!ingest.offer(ingestedOf("drop", e.dataTransfer))) return;
       e.preventDefault();
       e.stopPropagation();
-      const file = files[0];
-      if (file) onAttachFile(file);
     },
-    [onAttachFile],
+    [ingest],
+  );
+
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent) => {
+      if (!ingest.offer(ingestedOf("paste", e.clipboardData))) return;
+      e.preventDefault();
+      e.stopPropagation();
+    },
+    [ingest],
   );
 
   const handleCompositionStart = useCallback(() => {
@@ -472,6 +486,7 @@ export function NodeTextHost({
             onKeyUp={() => setCursor(getCaretSerializedOffset(editorRef.current))}
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
+            onPaste={handlePaste}
             onBlur={onBlur}
             role="textbox"
             data-zoom-title-editor={zoomTitleEditor === true ? "true" : undefined}

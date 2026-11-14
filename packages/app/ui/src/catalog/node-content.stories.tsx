@@ -41,7 +41,7 @@ const meta = {
     onActivate: noopActivate,
     onChange: noop,
     onKeyDown: noop,
-    onAttachFile: noop,
+    ingest: { accepts: () => false, offer: () => false },
     onRemoveTag: noop,
     ...binding,
   },

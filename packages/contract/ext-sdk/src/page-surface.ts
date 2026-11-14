@@ -427,6 +427,76 @@ export declare function provideValueKind(
   },
 ): ContributionEntry<FieldTypeKind>;
 
+/** How data came into a row's text. */
+export type IngestGesture = "paste" | "drop";
+
+/** Which gestures a paste or drop handler takes, as data: the gesture, the data's types, and a test of its text. */
+export interface IngestMatch {
+  readonly gestures: readonly IngestGesture[];
+  /** The data carries one of these types (`text/plain`, `Files`). */
+  readonly types: readonly string[];
+  /** Its `text/plain` matches this regular expression's source (read with the `u` flag), when given. */
+  readonly pattern?: string;
+}
+
+/** What a paste or a drop carries. */
+export interface Ingested {
+  readonly gesture: IngestGesture;
+  readonly types: readonly string[];
+  /** Its `text/plain`; empty when it has none. */
+  readonly text: string;
+  readonly files: readonly File[];
+}
+
+/** The row a gesture lands on: the node its text is, and that text. */
+export interface IngestSite {
+  readonly nodeId: string;
+  readonly text: string;
+}
+
+/**
+ * What a claimed gesture makes, which kb writes at the row: a tree of nodes,
+ * as outline paste text, added after it in one transaction; or a file, kept
+ * as an asset and linked from its text.
+ */
+export type IngestOutcome = { readonly tree: string } | { readonly attach: File };
+
+/**
+ * A row's paste and drop handler. The outline declares their point,
+ * `outline.ingest`, so a plugin that contributes one names it in `uses` and
+ * reaches it with `ctx.point<IngestHandler>("outline.ingest")`. By
+ * priority, each whose match holds is asked what the gesture makes, and the
+ * first to make something claims it; what every one declines is the
+ * browser's.
+ */
+export interface IngestHandler {
+  readonly match: IngestMatch;
+  /** Higher claims first; kb's own sit at 0, and a tie goes to the first contributed. */
+  readonly priority: number;
+  /**
+   * What the gesture makes at `site`, or null to decline it, so the next
+   * handler is asked. It answers at once, while the gesture's event runs.
+   */
+  readonly ingest: (ingested: Ingested, site: IngestSite) => IngestOutcome | null;
+}
+
+/**
+ * The `outline.ingest` contribution for a handler whose transform is
+ * text in, outline out: what it makes is the nodes its outline says
+ * (kb's outline paste, DESIGN.md → Outline paste), which kb adds after the
+ * row through `node.addTree`. A pattern that is no regular expression
+ * throws where the plugin applies.
+ */
+export declare function provideIngest(
+  id: string,
+  form: {
+    readonly match: IngestMatch;
+    readonly priority: number;
+    /** The gesture's text as outline paste text, or null to decline it: the next handler is asked. */
+    readonly transform: (text: string) => string | null;
+  },
+): ContributionEntry<IngestHandler>;
+
 /**
  * A key as a binding states it: a key name as `KeyboardEvent.key` names
  * it (or several, or a test of the name), or its place as

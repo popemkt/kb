@@ -463,6 +463,14 @@ export {
   runKeyCall,
   tellKeymaps,
 } from "./lib/keybindings";
+export {
+  ATTACH_FILE,
+  ingestPort,
+  provideIngest,
+  type Ingested,
+  type IngestHandler,
+  type IngestPort,
+} from "./lib/ingest";
 export { logError, logWarn } from "./lib/log";
 export {
   getCaretSerializedOffset,

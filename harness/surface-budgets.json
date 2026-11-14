@@ -164,8 +164,8 @@
     "limit": 1
   },
   "@kb/outline": {
-    "limit": 9,
-    "reason": "Shared editing/selection contexts moved from the browser package."
+    "limit": 10,
+    "reason": "Shared editing/selection contexts moved from the browser package; #173: the outline declares its own point, outline.ingest (OUTLINE_POINT_DEFINITIONS), which outline-ui reads."
   },
   "@kb/outline-ui": {
     "limit": 40
@@ -241,8 +241,8 @@
     "limit": 35
   },
   "@kb/ui-sdk": {
-    "limit": 523,
-    "reason": "#190: the browser's one key boundary (keyChordEvent) and the printable-key set (printableExcept) join, and KeyRun leaves for @kb/keybindings; #176 took it to 522, and the 380 ceiling waits on splitting the files @kb/ui and outline-ui share (GAP 01M79H9PY7XVHHVGAN1WA3VYAF)."
+    "limit": 529,
+    "reason": "#173: a row's paste and drop chain (ingestPort, ATTACH_FILE, provideIngest, Ingested, IngestHandler, IngestPort, the names outline-ui, canvas-ui and the page SDK import); #190: the browser's one key boundary (keyChordEvent) and the printable-key set (printableExcept) join, and KeyRun leaves for @kb/keybindings; #176 took M7b's 514 to 522; the 380 ceiling waits on splitting the files @kb/ui and outline-ui share (GAP 01M79H9PY7XVHHVGAN1WA3VYAF)."
   },
   "@kb/ui-test-kit": {
     "limit": 26
