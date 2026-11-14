@@ -2902,17 +2902,17 @@ how the stored name resolves to the key among them.
   prefetched when the graph page loads; a renderer view suspends in its own
   slot until the chunk arrives, and a failed load is tried again from that
   slot's error.
-- _Frame views._ A frame's children are shown by one of four frame views,
+- _Frame views._ A frame's children are shown by one of five frame views,
   each a view at placement `inline`: the outline's list, which nests them,
-  and the collections family's table, board and cards
+  and the collections family's table, board, cards and list with detail
   (`@kb/collections-ui`), which lay them out as a node set inside the
   outline that hosts the frame. Every frame view's key is made by
   `frameViewKey` (`@kb/views`, `outline.ts`): its page is the outline at its
-  frame, and its id is frozen in the `outline.` namespace it was first
-  stored under, so a collection view answers to that id as an alias of the
-  one its plugin contributes it at. The keys carry the one trait the row walk needs
+  frame, and the first four keep the id they were first stored under, in
+  the `outline.` namespace, so a collection view answers to that id as an
+  alias of the one its plugin contributes it at. The keys carry the one trait the row walk needs
   beside the params: how the view lays rows out (`outline`, nested; `rows`;
-  `columns`). The frame's first frame view node (DESIGN.md → View nodes)
+  `columns`; `detail`, a run with one row's page beside it). The frame's first frame view node (DESIGN.md → View nodes)
   names the view, and `frameViewOf` (`@kb/ui-sdk`'s `lib/frame-view.ts`)
   looks that node up in the schema (`frameViewNodeOf`, the one test of what
   a frame's view node is, which every reader shares), resolves its view
@@ -2959,7 +2959,8 @@ how the stored name resolves to the key among them.
   context (`@kb/ui-sdk`'s `lib/frame-subject.ts`). The subject also carries
   what the host draws each row with: a view lays the rows out, and the host
   edits each row's text (`RowText`) and keeps how many pages of them are
-  revealed (`pages`, `revealMorePages`). The children a row shows, in
+  revealed (`pages`, `revealMorePages`) and which row a detail view shows
+  (`detail`, `showDetail`). The children a row shows, in
   their own frame view, the host draws as it draws them under a row in a
   list (`RowChildren`, the children and the create strip that adds one):
   it is the one way a frame view asks its host for a row's children, as
@@ -3070,6 +3071,27 @@ how the stored name resolves to the key among them.
   not show here. "+ Add" is a button reached by Tab and pressed with
   Enter or Space, named for where it adds ("Add to Doing", "Add to
   Research", "Add a result").
+- _List with detail._ The detail view (`collections.detail`) lays a
+  frame's rows out as a list beside one row's page: the list on the left,
+  each row its bullet and text as the host edits them (`RowText`), and on
+  the right the row it shows, as its page shows it: its text as the title,
+  its fields with the page's field editor, and its children with their
+  create strip, as the host draws them under a row (`RowChildren`). The
+  row it shows follows the selection: selecting or editing a row of the
+  list shows it, and it stays shown while the selection moves into its
+  page or off the frame. Which row is shown is the outline's screen state
+  per frame, kept for the session and never written to the graph, as the
+  pages a frame has revealed are: the host keeps it and hands it to the
+  view (`FrameSubject.detail`, `showDetail`). A row it holds that the
+  frame no longer shows, or none, shows the first (`detailRowOf`,
+  `@kb/views`), which the view and the walk both read. The row walk nests
+  the shown row's children after it, as a list nests an open row's, so ↓
+  from the shown row walks into its page and on to the next row of the
+  list, and ← from a top row of the page climbs back to it. The view
+  declares filters and sort, as the cards do, and ends in "+ Add" (_Adding
+  to a frame_). In a frame narrower than 480px the page stacks under the
+  list. ⌘K offers it as "View as: List with detail", as the other frame
+  views are offered.
 
 **The contract.** `src/view-contract.test.tsx` runs over every view that the
 built-in and optional UI plugins contribute. A new view joins it by being

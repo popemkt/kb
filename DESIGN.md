@@ -1435,7 +1435,7 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   into it). Being a view node is its `sys.f.view`, never membership in that
   list; a view node filed anywhere else is as much one.
 - **A frame's view is the first frame view node it names.** Which of the
-  frame views (list, table, board, cards) shows a frame's children, and with
+  frame views (list, table, board, cards, list with detail) shows a frame's children, and with
   which settings (`sys.f.view.sort`, `…display`, `…colwidth`, `…pagesize`,
   `…group`, `…collapsed`, `…hideEmpty`, `…calc`, `…filter`), is the first view node in its `sys.f.views` whose
   view is of the frame family (`familyViewIdOf`, read from the option's
@@ -3823,7 +3823,7 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
   half. There is never a second switch in the browser.
   - **Which families can be switched.** Every family but a required one.
     The outline, the collections (the
-    table, board and cards frame views), canvas, chart, code, the page-head
+    table, board, cards and list-with-detail frame views), canvas, chart, code, the page-head
     backdrops (DESIGN-UI.md → Page-head backdrops), the themes (DESIGN-UI.md
     → Design tokens → Design systems) and the agent are
     on by default; the lab and the gallery
