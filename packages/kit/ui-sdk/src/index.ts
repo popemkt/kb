@@ -551,6 +551,7 @@ export {
   TIMING_FALLBACK,
 } from "./lib/timing";
 export { setToastSink, toast } from "./lib/toast";
+export { copyText } from "./lib/copy";
 export { usePickerKeys } from "./lib/use-picker";
 export { useNarrowViewport } from "./lib/viewport";
 export { BREAKOUT_CLASS, useBreakoutShift } from "./lib/breakout";
