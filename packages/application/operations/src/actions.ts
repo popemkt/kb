@@ -453,30 +453,57 @@ export function forcedBy(input: { readonly force?: boolean | undefined }): Persi
   return input.force === true ? { systemWrites: "forced" } : {};
 }
 
+/** What a node write plans over the nodes it reads: the nodes it upserts and the ids it deletes. */
+interface PlannedNodeWrite {
+  readonly upserts: KbNode[];
+  readonly deletes: NodeId[];
+}
+
+/**
+ * What one `node.delete` writes over `nodes`, stated once for the action and
+ * a batch of it (`node.batch`): the node gone, with its subtree unless
+ * `descendants: "reparent"`, and detached from every parent.
+ */
+function planNodeDelete(
+  nodes: KbNode[],
+  input: z.infer<typeof nodeDeleteDef.inputSchema>,
+  at: string,
+): PlannedNodeWrite {
+  const deletes =
+    input.descendants === "reparent" ? [input.id] : collectSubtreeIds(nodes, input.id);
+  return { upserts: detachFromParents(nodes, input.id, at), deletes };
+}
+
 export const nodeDeleteEffect = Effect.fn("node.delete")(function* (
   input: z.infer<typeof nodeDeleteDef.inputSchema>,
 ): Effect.fn.Return<{ id: string; deleted: true }, DomainError, KbWriteEnv> {
   const ctx = yield* KbCtx;
   const at = yield* currentIso;
-  const deleteIds =
-    input.descendants === "reparent" ? [input.id] : collectSubtreeIds(ctx.nodes, input.id);
-  const upserts = detachFromParents(ctx.nodes, input.id, at);
-  yield* persistEffect(ctx, { upserts, deletes: deleteIds }, forcedBy(input));
+  yield* persistEffect(ctx, planNodeDelete(ctx.nodes, input, at), forcedBy(input));
   return { id: input.id, deleted: true };
 });
 
-export const nodeUpdateEffect = Effect.fn("node.update")(function* (
+/**
+ * What one `node.update` writes over `nodes`, stated once for the action and
+ * a batch of it (`node.batch`): the node as it becomes, and every node the
+ * write touches. `nodeOf` reads the node edited (the session's index, for
+ * the action), and the graph a prop or a placement reads is indexed at most
+ * once, only when one needs it: a text edit reads no graph.
+ */
+const planNodeUpdate = Effect.fn("node.update.plan")(function* (
+  nodes: KbNode[],
   input: z.infer<typeof nodeUpdateDef.inputSchema>,
-): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbWriteEnv> {
-  const ctx = yield* KbCtx;
-  const at = yield* currentIso;
-
-  const node = yield* syncDomain(() => cloneNode(requireNode(ctx, input.id)));
+  at: string,
+  nodeOf: (id: NodeId) => KbNode | undefined,
+): Effect.fn.Return<{ node: KbNode; write: PlannedNodeWrite }, DomainError> {
+  const node = yield* syncDomain(() => {
+    const held = nodeOf(input.id);
+    if (!held) throw new ResolveError("not_found", `node not found: ${input.id}`, { id: input.id });
+    return cloneNode(held);
+  });
   const upserts: KbNode[] = [];
-  // Indexed at most once, and only when a prop or a placement needs it: a
-  // text edit reads no graph.
   let built: IndexedNodes | undefined;
-  const graph = (): IndexedNodes => (built ??= sessionGraph(ctx));
+  const graph = (): IndexedNodes => (built ??= IndexedNodes.of(nodes));
 
   yield* syncDomain(() => {
     if (input.text !== undefined) node.text = input.text;
@@ -492,10 +519,10 @@ export const nodeUpdateEffect = Effect.fn("node.update")(function* (
     input.parent !== undefined
       ? input.parent
       : input.position !== undefined
-        ? (ctx.nodes.find((n) => n.children.includes(input.id))?.id ?? null)
+        ? (nodes.find((n) => n.children.includes(input.id))?.id ?? null)
         : undefined;
   if (placement !== undefined) {
-    if (placement !== null && isInSubtree(ctx.nodes, input.id, placement)) {
+    if (placement !== null && isInSubtree(nodes, input.id, placement)) {
       return yield* domainError(
         "invalid_move",
         `cannot move ${input.id} under itself or its own descendant ${placement}`,
@@ -503,11 +530,15 @@ export const nodeUpdateEffect = Effect.fn("node.update")(function* (
       );
     }
     node.order = placedRank(graph(), placement, node, input.position);
-    upserts.push(...detachFromParents(ctx.nodes, input.id, at));
+    upserts.push(...detachFromParents(nodes, input.id, at));
     if (placement !== null) {
-      const parent = yield* syncDomain(
-        () => upserts.find((n) => n.id === placement) ?? cloneNode(requireNode(ctx, placement)),
-      );
+      const parent = yield* syncDomain(() => {
+        const held = upserts.find((n) => n.id === placement) ?? nodeOf(placement);
+        if (!held) {
+          throw new ResolveError("not_found", `node not found: ${placement}`, { id: placement });
+        }
+        return cloneNode(held);
+      });
       const updated = insertChild(parent, input.id, at, input.position);
       const idx = upserts.findIndex((n) => n.id === parent.id);
       if (idx >= 0) upserts[idx] = updated;
@@ -517,7 +548,16 @@ export const nodeUpdateEffect = Effect.fn("node.update")(function* (
 
   node.updatedAt = at;
   upserts.push(node);
-  yield* persistEffect(ctx, { upserts, deletes: [] }, forcedBy(input));
+  return { node, write: { upserts, deletes: [] } };
+});
+
+export const nodeUpdateEffect = Effect.fn("node.update")(function* (
+  input: z.infer<typeof nodeUpdateDef.inputSchema>,
+): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbWriteEnv> {
+  const ctx = yield* KbCtx;
+  const at = yield* currentIso;
+  const { node, write } = yield* planNodeUpdate(ctx.nodes, input, at, (id) => nodeById(ctx, id));
+  yield* persistEffect(ctx, write, forcedBy(input));
   return { id: input.id, node };
 });
 
