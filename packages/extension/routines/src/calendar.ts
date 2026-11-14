@@ -178,10 +178,50 @@ function entry(
 }
 
 /**
- * Every routine's instances shown on a local day in `from`…`to`, in their
- * routines' zones: a series day keeps its place unless its occurrence moved it,
- * and an instance moved in from outside the range is shown where it went.
+ * One routine's instances shown on a local day in `from`…`to`, in its zone,
+ * or the issue that keeps the calendar from showing it: a series day keeps
+ * its place unless its occurrence moved it, and an instance moved in from
+ * outside the range is shown where it went.
  */
+function routineEntries(
+  node: NodeLike,
+  nodes: ReadonlyMap<string, NodeLike>,
+  from: string,
+  to: string,
+): { readonly entries: readonly CalendarEntry[] } | { readonly issue: CalendarIssue } {
+  try {
+    const { routine } = readRoutine(node, routineZone(node, nodes));
+    // What the engine would refuse to send, the calendar does not show.
+    project(routine, "", 0);
+    const facts = routineOccurrences(node, nodes);
+    const days = new Set(seriesDays(routine, from, to));
+    for (const [on, fact] of facts)
+      if (fact.occurrence.movedTo !== null && fact.occurrence.state !== "skipped") days.add(on);
+    const entries: CalendarEntry[] = [];
+    for (const on of days) {
+      const shown = entry(node, routine, on, facts.get(on));
+      if (shown.day >= from && shown.day <= to) entries.push(shown);
+    }
+    return { entries };
+  } catch (error) {
+    return {
+      issue: {
+        routine: node.id,
+        title: node.text,
+        code: error instanceof SyncError ? error.code : "invalid_rule",
+      },
+    };
+  }
+}
+
+/** Instances in the calendar's order: by day, then start, then title. */
+const byPlace = (a: CalendarEntry, b: CalendarEntry) =>
+  a.day.localeCompare(b.day) ||
+  (a.start ?? -Infinity) - (b.start ?? -Infinity) ||
+  a.title.localeCompare(b.title) ||
+  a.key.localeCompare(b.key);
+
+/** Every routine's instances shown on a local day in `from`…`to` (`routineEntries`), in order. */
 export function calendarEntries(
   nodes: ReadonlyMap<string, NodeLike>,
   from: string,
@@ -190,32 +230,10 @@ export function calendarEntries(
   const entries: CalendarEntry[] = [];
   const issues: CalendarIssue[] = [];
   for (const node of nodesOfKind(nodes, T.routine)) {
-    try {
-      const { routine } = readRoutine(node, routineZone(node, nodes));
-      // What the engine would refuse to send, the calendar does not show.
-      project(routine, "", 0);
-      const facts = routineOccurrences(node, nodes);
-      const days = new Set(seriesDays(routine, from, to));
-      for (const [on, fact] of facts)
-        if (fact.occurrence.movedTo !== null && fact.occurrence.state !== "skipped") days.add(on);
-      for (const on of days) {
-        const shown = entry(node, routine, on, facts.get(on));
-        if (shown.day >= from && shown.day <= to) entries.push(shown);
-      }
-    } catch (error) {
-      issues.push({
-        routine: node.id,
-        title: node.text,
-        code: error instanceof SyncError ? error.code : "invalid_rule",
-      });
-    }
+    const read = routineEntries(node, nodes, from, to);
+    if ("issue" in read) issues.push(read.issue);
+    else entries.push(...read.entries);
   }
-  entries.sort(
-    (a, b) =>
-      a.day.localeCompare(b.day) ||
-      (a.start ?? -Infinity) - (b.start ?? -Infinity) ||
-      a.title.localeCompare(b.title) ||
-      a.key.localeCompare(b.key),
-  );
+  entries.sort(byPlace);
   return { entries, issues };
 }
