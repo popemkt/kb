@@ -1149,7 +1149,7 @@ references, as a query's results do (GAP [[01M411FPC839XBJJ873V1VYYYD]]).
 in the row's text back into plain text: its label, or the target's text
 for a bare `[[id]]`. It is a step that lists the text's references, and
 a pick turns every reference to that node in the text back, in one text
-write that one ⌘Z undoes. Both steps are offered
+write, which is undone as typing is (the row's own text undo, above). Both steps are offered
 only on a row whose text names a node, and only on one row.
 
 **Named gaps.** The reference node's own props — its target among them — are

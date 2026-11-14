@@ -27,6 +27,7 @@ import {
   BULLET_QUERY_ICON,
   bulletRingDash,
   queryIconPath,
+  outlineInstanceKey,
   projectedRowKey,
   WORKSPACE_ROOT_ID,
   type OutlineNode,
@@ -258,6 +259,9 @@ function seedRefRow() {
 /** Dispatch `event` on `bullet`, inside `act`. */
 const fire = (bullet: HTMLElement, event: Event) => act(() => void bullet.dispatchEvent(event));
 
+/** n.root-a drawn as a row of the outline's tree, which has a place a drag can leave. */
+const treeKey = () => outlineInstanceKey("n.root-a", outlineNodes());
+
 /** Whether the node menu is open on the reference row's node. */
 const isOpenOnRow = () =>
   useUiStore.getState().nodePaletteOpen && useOutlineStore.getState().selectedNodeId === "n.root-a";
@@ -293,14 +297,14 @@ describe("reference-row bullet click parity", () => {
     container.remove();
   });
 
-  async function renderRefRow(): Promise<HTMLElement> {
+  async function renderRefRow(key = refKey): Promise<HTMLElement> {
     await act(async () => {
-      root.render(<NodeBlock nodeId="n.root-a" instanceKey={refKey} depth={1} />);
+      root.render(<NodeBlock nodeId="n.root-a" instanceKey={key} depth={1} />);
     });
     const bullet = container.querySelector(
-      `[data-instance-key="${refKey}"] [data-bullet-ref="true"]`,
+      `[data-instance-key="${key}"] [data-bullet-kind]`,
     ) as HTMLElement | null;
-    return present(bullet, "ref bullet");
+    return present(bullet, "bullet");
   }
 
   function clickBullet(bullet: HTMLElement, modifier = false): void {
@@ -402,7 +406,7 @@ describe("reference-row bullet click parity", () => {
     });
 
     it("a finger that travels before it is held picks the row up, and lifts with no tap", async () => {
-      const bullet = await renderRefRow();
+      const bullet = await renderRefRow(treeKey());
       vi.useFakeTimers();
       const press = { bubbles: true, cancelable: true, pointerType: "touch", button: 0 };
       fire(
@@ -421,6 +425,24 @@ describe("reference-row bullet click parity", () => {
       act(() => void vi.advanceTimersByTime(500));
       expect(useUiStore.getState().nodePaletteOpen).toBe(false);
       expect(present(outlineNodes().get("n.root-a"), "n.root-a").collapsed).toBe(true);
+    });
+
+    it("a projected row's bullet picks nothing up: it has no place of its own to leave", async () => {
+      const bullet = await renderRefRow();
+      const press = { bubbles: true, cancelable: true, pointerType: "mouse", button: 0 };
+      fire(
+        bullet,
+        new dom.PointerEvent("pointerdown", { ...press, clientX: 4, clientY: 4 }) as never,
+      );
+      fire(
+        bullet,
+        new dom.PointerEvent("pointermove", { ...press, clientX: 4, clientY: 60 }) as never,
+      );
+      expect(dom.document.querySelector('[data-row-drag-ghost="true"]')).toBeNull();
+      fire(
+        bullet,
+        new dom.PointerEvent("pointerup", { ...press, clientX: 4, clientY: 60 }) as never,
+      );
     });
 
     it("a finger lifted sooner is a tap", async () => {

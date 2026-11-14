@@ -337,6 +337,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
       views: frameViewKeys(),
       chain: [],
       pages: {},
+      expansion: new Map(),
     });
     // zoomed root itself + projected cards in board order
     const projected = visible.filter((v) => v.nodeId !== "frame1").map((v) => v.nodeId);

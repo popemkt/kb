@@ -25,6 +25,7 @@ import {
 } from "@kb/ui-sdk";
 import { outlineNodes, useOutlineStore } from "./outline.store";
 import { moveRows } from "./row-moves";
+import { expandReference, removeReference } from "./reference-steps";
 import { declaresOptionSet, isSysPrefixed, SYSTEM_IDS, typeRefsOf } from "@kb/model";
 
 /**
@@ -206,4 +207,6 @@ export const OUTLINE_STEPS: readonly ContributionEntry<PaletteStep>[] = [
   { id: "set-field", value: setField },
   { id: "add-ref", value: addRef },
   { id: "move-to", value: moveTo },
+  { id: "expand-reference", value: expandReference },
+  { id: "remove-reference", value: removeReference },
 ];

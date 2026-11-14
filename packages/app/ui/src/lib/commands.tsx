@@ -28,10 +28,12 @@ import {
   ArrowBendDownRightIcon,
   ArrowBendUpLeftIcon,
   ArrowRightIcon,
+  ArrowsOutLineVerticalIcon,
   ArrowSquareOutIcon,
   EyeIcon,
   EyeSlashIcon,
   HashIcon,
+  LinkBreakIcon,
   LinkSimpleIcon,
   MagnifyingGlassIcon,
   PushPinIcon,
@@ -44,6 +46,7 @@ import {
 } from "@phosphor-icons/react";
 import {
   extensionNodeId,
+  extractMentions,
   hostViewIds,
   isQueryNode,
   isViewNode,
@@ -63,6 +66,7 @@ import {
   isPinned,
   isSysPrefixed,
   selectionRoots,
+  shownNode,
   listOntologyItems,
   navigate,
   nodeAction,
@@ -138,6 +142,14 @@ export function viewTargetFrameId(outline: OutlineCommandApi): string | null {
 function targetNode(ctx: CommandContext) {
   const id = ctx.target.nodeId;
   return id === null ? undefined : ctx.outline.nodes.get(id);
+}
+
+/** Whether the text the target row shows names a node (DESIGN-UI.md → Contextual references). */
+function namesANode(ctx: CommandContext): boolean {
+  const node = targetNode(ctx);
+  return (
+    node !== undefined && extractMentions(shownNode(node, browserHost().schema()).text).length > 0
+  );
 }
 
 /** The frame a view command edits, or a toast saying there is none. */
@@ -392,6 +404,14 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     run: (ctx) => ctx.palette.openStep("outline.add-ref"),
   },
   {
+    // DESIGN-UI.md → Contextual references, "A reference in the text opens in place".
+    id: "remove-reference",
+    menu: nodeMenu("make", 35),
+    chrome: () => ({ label: "Remove reference…", icon: <LinkBreakIcon size={14} /> }),
+    when: namesANode,
+    run: (ctx) => ctx.palette.openStep("outline.remove-reference"),
+  },
+  {
     id: "add-field",
     menu: nodeMenu("make", 40),
     many: true,
@@ -538,6 +558,17 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
         browserHost().writes.deleteNode(nodeId),
       );
     },
+  },
+  {
+    // DESIGN-UI.md → Contextual references, "A reference in the text opens in place".
+    id: "expand-reference",
+    menu: nodeMenu("view", 5),
+    chrome: () => ({
+      label: "Expand reference…",
+      icon: <ArrowsOutLineVerticalIcon size={14} />,
+    }),
+    when: namesANode,
+    run: (ctx) => ctx.palette.openStep("outline.expand-reference"),
   },
   {
     id: "view-filter",

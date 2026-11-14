@@ -7,6 +7,7 @@
  */
 import {
   childInstanceKey,
+  type Expansion,
   frameRows,
   type FrameView,
   frameViewOf,
@@ -28,6 +29,7 @@ import {
 } from "@kb/ui-sdk";
 import { isQueryNode, queryDefOf } from "@kb/model";
 import { projectsRows, type FrameViewKey } from "@kb/views";
+import { openReferenceKey, openReferencesOf, opensInPlace } from "./open-references";
 
 export type VisibleInstance = {
   nodeId: string;
@@ -53,6 +55,8 @@ interface WalkContext {
   /** The slots around the outline's root frame, as its host renders it (`useSlotChain`). */
   chain: SlotChain;
   pages: FramePagesMap;
+  /** The reader's expansion: here, the references opened in place (`open-references`). */
+  expansion: Expansion;
   out: VisibleInstance[];
 }
 
@@ -126,11 +130,19 @@ function walkVisibleInstances(
   const node = nodes.get(nodeId);
   if (!node) return;
   out.push({ nodeId, instanceKey });
-  // Open or closed is the row's own; what is under it is its shown node's
-  // (`lib/contextual-ref`), unless that node is already shown above it.
-  if (node.collapsed || showsAncestor(instanceKey, node, schema)) return;
+  // What is under a row is its shown node's (`lib/contextual-ref`), unless
+  // that node is already shown above it.
+  if (showsAncestor(instanceKey, node, schema)) return;
   const frame = shownNode(node, schema);
   const frameId = frame.id;
+  // The references its text opens in place come first, open or closed the row.
+  if (opensInPlace(instanceKey)) {
+    for (const id of openReferencesOf(ctx.expansion, frameId, frame.text)) {
+      walkVisibleInstances(ctx, id, openReferenceKey(frameId, id), chain);
+    }
+  }
+  // Open or closed is the row's own.
+  if (node.collapsed) return;
 
   // A frame whose view is not provided shows no rows, so it offers none.
   const view = frameViewOf(frame, schema, ctx.views);

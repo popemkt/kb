@@ -110,9 +110,19 @@ export function isProjectedInstance(instanceKey: string): boolean {
  * the row, the answer cannot disagree with where the row actually is.
  */
 export function isProjectedRow(instanceKey: string): boolean {
-  if (!instanceKey.startsWith(PROJECTED_ROW_PREFIX)) return false;
+  return projectedRowOf(instanceKey) !== null;
+}
+
+/** The source and node of projected row `instanceKey` (`projectedRowKey`), or null when it is not one. */
+export function projectedRowOf(
+  instanceKey: string,
+): { readonly sourceId: string; readonly nodeId: string } | null {
+  if (!instanceKey.startsWith(PROJECTED_ROW_PREFIX)) return null;
   // `ref:row:<sourceId>/<nodeId>` — one separator; a descendant adds more.
-  return instanceKey.slice(PROJECTED_ROW_PREFIX.length).split("/").length === 2;
+  const [sourceId, nodeId, ...below] = instanceKey.slice(PROJECTED_ROW_PREFIX.length).split("/");
+  return sourceId === undefined || nodeId === undefined || below.length > 0
+    ? null
+    : { sourceId, nodeId };
 }
 
 /**

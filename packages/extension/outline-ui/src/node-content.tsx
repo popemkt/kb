@@ -1,7 +1,8 @@
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement, useCallback, useMemo } from "react";
 import type { ViewKey } from "@kb/views";
 import {
   browserHost,
+  type Follow,
   NodeTextHost,
   type NodeTextHostBinding,
   type NodeTextHostProps,
@@ -12,6 +13,8 @@ import {
 } from "@kb/ui-sdk";
 import { useRowIngest } from "./ingest";
 import { outlineTriggers } from "./outline-triggers";
+import { openReferencesOf, opensInPlace } from "./open-references";
+import { useOutlineStore } from "./outline.store";
 import { RowView } from "./row-view";
 
 /** The text host's `display`: the row's text, placed by the row view `view`. */
@@ -34,7 +37,9 @@ function drawnAs(view: ViewKey<unknown>, nodeId: string, markdown: string) {
  * tag chips are the shown node's too (the surface passes `shownNode(…).tags`),
  * so removing one removes it from the node it is drawn on. Where the shown
  * node's tag names a row view (`useRowView`), the text is drawn inside it
- * while no one edits the row.
+ * while no one edits the row. A follow that shows in place (Alt-click)
+ * opens the reference under the row, or closes it, where the row opens
+ * references in place (`open-references`).
  */
 export function NodeContent({
   node,
@@ -54,10 +59,24 @@ export function NodeContent({
   const textNodeId = shownNodeId(node);
   const ingest = useRowIngest(textNodeId, content);
   const { instanceKey } = props;
-  const { schema } = binding;
+  const { schema, onFollow } = binding;
   const triggers = useMemo(
     () => outlineTriggers(textNodeId, instanceKey, schema),
     [textNodeId, instanceKey, schema],
+  );
+  const inPlace = instanceKey !== undefined && opensInPlace(instanceKey);
+  const expansion = useOutlineStore((s) => s.expansion);
+  const open = useMemo(
+    () => new Set(inPlace ? openReferencesOf(expansion, textNodeId, content) : []),
+    [inPlace, expansion, textNodeId, content],
+  );
+  const follow = useCallback<Follow>(
+    (target, how) => {
+      if (how === "in-place" && inPlace && target.kind === "node") {
+        useOutlineStore.getState().toggleReference(textNodeId, target.id);
+      } else onFollow(target, how);
+    },
+    [inPlace, textNodeId, onFollow],
   );
   return (
     <NodeTextHost
@@ -75,6 +94,8 @@ export function NodeContent({
       }}
       ingest={ingest}
       triggers={triggers}
+      onFollow={follow}
+      openReferences={open}
       onRemoveTag={(tagId) => {
         void browserHost().writes.removeTag(textNodeId, tagId);
       }}

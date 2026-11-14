@@ -14,6 +14,7 @@ import { matchesChord, TEXT_HISTORY_CHORD } from "@kb/keybindings";
 import { KB_TEXT_CLASS } from "../lib/md-inline";
 import {
   getCaretSerializedOffset,
+  KB_REF_ID_ATTR,
   readInlineInput,
   renderInlineMarkdown,
   revealMarkupAtSelection,
@@ -106,6 +107,11 @@ export interface NodeTextHostProps extends NodeTextHostBinding {
    * (DESIGN-UI.md → Triggers in the text), first open first.
    */
   triggers?: readonly TextTrigger[] | undefined;
+  /**
+   * The references the surface shows open in place (DESIGN-UI.md →
+   * Contextual references): their pills say so (`aria-expanded`).
+   */
+  openReferences?: ReadonlySet<string> | undefined;
 }
 
 /**
@@ -136,6 +142,25 @@ function historyChord(e: React.KeyboardEvent): "undo" | "redo" | null {
 
 /** A row drawn as its text alone: what the host shows while no row view draws it. */
 const shownAsText = (text: ReactElement): ReactNode => text;
+
+/**
+ * Mark the pills of the references open in place, after every render:
+ * the text is drawn by React at rest and by the editor while edited, and
+ * either may have redrawn it.
+ */
+function useOpenPills(
+  editorRef: React.RefObject<HTMLDivElement | null>,
+  open: ReadonlySet<string> | undefined,
+): void {
+  useLayoutEffect(() => {
+    const pills = editorRef.current?.querySelectorAll<HTMLElement>(`[${KB_REF_ID_ATTR}]`) ?? [];
+    for (const pill of pills) {
+      const id = pill.getAttribute(KB_REF_ID_ATTR) ?? "";
+      if (open?.has(id) === true) pill.setAttribute("aria-expanded", "true");
+      else pill.removeAttribute("aria-expanded");
+    }
+  });
+}
 
 /** A surface with no triggers of its own. */
 const NONE: readonly TextTrigger[] = [];
@@ -198,6 +223,7 @@ export function NodeTextHost({
   ingest,
   onRemoveTag,
   triggers: own = NONE,
+  openReferences,
 }: NodeTextHostProps) {
   /**
    * The row's one text element. It shows the same inline DOM whether the row
@@ -298,6 +324,7 @@ export function NodeTextHost({
   });
 
   useRevealMarkup(editorRef, editing);
+  useOpenPills(editorRef, openReferences);
 
   /**
    * Lay a pick into the text: what it inserts replaces the trigger's span,

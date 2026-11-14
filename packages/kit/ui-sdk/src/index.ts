@@ -249,6 +249,7 @@ export {
   outlineInstanceKey,
   pageTitleInstanceKey,
   projectedRowKey,
+  projectedRowOf,
 } from "./lib/instance-key";
 export { isPinned, listPinnedNavItems, pinnedRefIds, pinnedRefIdsFor } from "./lib/pinned";
 export { rowsAbout, selectionRoots } from "./lib/selection";

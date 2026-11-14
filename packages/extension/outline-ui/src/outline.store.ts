@@ -53,6 +53,7 @@ import {
 } from "./visible-instances.ts";
 import type { FrameViewKey } from "@kb/views";
 import { outlineHostOf, outlineHostOfInstance as walkHostOf } from "./outline-hosts";
+import { isReferenceKey, openReferenceHolds, openReferenceKey } from "./open-references";
 
 export type { VisibleInstance };
 
@@ -130,6 +131,8 @@ interface OutlineState {
   /** The selected rows, in the order they are drawn. */
   selectedRows: () => VisibleInstance[];
   toggleCollapse: (id: string) => void;
+  /** Open the reference to `targetId` in the text of `sourceId` under its row, or close it. */
+  toggleReference: (sourceId: string, targetId: string) => void;
   expandAllInScope: () => void;
   collapseAllInScope: () => void;
   expandAncestors: (id: string) => void;
@@ -196,9 +199,12 @@ function schemaNow(): SchemaIndex {
  * Whether the reader can still undo choosing `open` for row `id`: the row can
  * expand and `open` is not its default. A row the graph does not hold now
  * keeps its choice, so a row deleted and restored (an undo) comes back as the
- * reader left it.
+ * reader left it. A reference opened in place holds while it is open and its
+ * row's text names it (`openReferenceHolds`).
  */
 function isUndoable(id: string, open: boolean, schema: SchemaIndex): boolean {
+  const reference = openReferenceHolds(id, open, schema);
+  if (reference !== null) return reference;
   // GAP [[01M52E0177292798G5908A74GG]]
   const node = schema.get(id);
   // A row's default is `node.collapsed`: a choice to open is one to change it.
@@ -236,7 +242,8 @@ function changesOf(before: Expansion, after: Expansion): ExpansionChanges {
  */
 function keptExpansion(current: Expansion, next: Expansion, schema: SchemaIndex): Expansion {
   const kept = undoable(next, schema);
-  const changes = changesOf(current, kept);
+  // The references opened in place are this tab's alone: storage holds rows' choices.
+  const changes = new Map([...changesOf(current, kept)].filter(([id]) => !isReferenceKey(id)));
   // GAP [[01M52E01JB6CFKT2M8CAS171EJ]]
   if (changes.size > 0) {
     saveExpansionChanges(changes, (id, open) => isUndoable(id, open, schema));
@@ -631,6 +638,11 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
       choose([[id, node.collapsed]]);
     },
 
+    toggleReference: (sourceId, targetId) => {
+      const key = openReferenceKey(sourceId, targetId);
+      choose([[key, get().expansion.get(key) !== true]]);
+    },
+
     expandAllInScope: () => {
       const nodes = outlineNodes();
       const schema = schemaNow();
@@ -896,6 +908,7 @@ function visibleInstancesOf(
       views,
       chain: outline.chain,
       pages: useOutlineStore.getState().framePages,
+      expansion,
     },
     host,
   );

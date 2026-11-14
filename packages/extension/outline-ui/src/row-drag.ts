@@ -409,7 +409,8 @@ class RowDrag {
 /**
  * A press on the bullet of the row at `instanceKey`, showing `nodeId`: a
  * drag once it travels, else the click it was. A modifier press is a
- * click's (it follows), and only the primary button drags.
+ * click's (it follows), and only the primary button drags. A projected row
+ * has no place of its own to leave, so its bullet only clicks.
  */
 export function pressRowBullet(
   e: React.PointerEvent<HTMLElement>,
@@ -417,5 +418,6 @@ export function pressRowBullet(
   instanceKey: string,
 ): void {
   if (e.button !== 0 || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  if (isProjectedRow(instanceKey)) return;
   new RowDrag(e, nodeId, instanceKey).listen();
 }

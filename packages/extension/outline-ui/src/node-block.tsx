@@ -14,6 +14,7 @@ import {
   resolveRowChrome,
   type SchemaIndex,
   shownNode,
+  showsAncestor,
   useDebugFields,
   useFollow,
   useFrameView,
@@ -32,6 +33,7 @@ import { RowPreview } from "./row-preview";
 import { openIn, useRowOpening, useRowView } from "./row-opening";
 import { QueryResultsSection } from "./query-results";
 import { useNodeKeyDown } from "./use-node-keydown";
+import { openReferenceKey, openReferencesOf, opensInPlace } from "./open-references";
 import { ViewToolbar } from "./view-toolbar";
 
 interface NodeBlockProps {
@@ -238,6 +240,14 @@ export const NodeBlock = memo(function NodeBlock({
         )}
       </div>
 
+      <OpenReferences
+        node={node}
+        shown={shown}
+        schema={schema}
+        instanceKey={instanceKey}
+        depth={depth}
+      />
+
       {opening !== null && <RowPreview nodeId={shownId} opening={opening} depth={depth} />}
 
       {chrome.showsChildContainer && (
@@ -284,6 +294,33 @@ export const NodeBlock = memo(function NodeBlock({
     </div>
   );
 });
+
+/**
+ * The references the row's text opens in place (DESIGN-UI.md → Contextual
+ * references, "A reference in the text opens in place"), each its target's
+ * projected row, first under the row and drawn whether the row is open or
+ * not. A row that repeats one above it draws none, as it draws no children.
+ */
+function OpenReferences({
+  node,
+  shown,
+  schema,
+  instanceKey,
+  depth,
+}: {
+  node: OutlineNode;
+  shown: OutlineNode;
+  schema: SchemaIndex;
+  instanceKey: string;
+  depth: number;
+}) {
+  const expansion = useOutlineStore((s) => s.expansion);
+  if (!opensInPlace(instanceKey) || showsAncestor(instanceKey, node, schema)) return null;
+  return openReferencesOf(expansion, shown.id, shown.text).map((id) => {
+    const key = openReferenceKey(shown.id, id);
+    return <NodeBlock key={key} nodeId={id} instanceKey={key} depth={depth + 1} />;
+  });
+}
 
 /**
  * Tana whitespace-create: the strip under a row's children mints a transient
