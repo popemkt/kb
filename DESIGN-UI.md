@@ -2944,7 +2944,7 @@ how the stored name resolves to the key among them.
   a field is picked from the rows' fields, those their tags template first;
   the fields shown are chips, removed one by one and added from the same
   candidates, and "tags' fields" names none again. A board with no group
-  field says so and opens the popover. A view node is
+  field lays its rows out as lanes (_Lanes_, below). A view node is
   one node however many hosts name it, so editing it — from any host's
   toolbar or its own row — edits it for every host that names it; a host
   that should differ names a view node of its own.
@@ -2970,6 +2970,41 @@ how the stored name resolves to the key among them.
   button with `aria-expanded`: Tab reaches it, and Enter or Space folds or
   unfolds the group. The fold is written to the view node, so it holds in
   every host that names that view node and after a reload.
+- _Lanes._ A view that declares `groupFieldId` and has none set lays its
+  rows out as lanes, side by side (`laysOutLanes`, `@kb/views`). Each row
+  heads a column, drawn by the host as the list draws it (`Row`), so the
+  lane holds the row and its children in the row's own frame view: they
+  are editable and nest as in the list, and a lane whose head is collapsed
+  shows its head alone. Choosing a group field turns the lanes into
+  columns. The row walk nests a frame in lanes as it nests a list: each
+  lane's head, then its rows, then the next lane. The keys follow that
+  nesting, with the lane as the outer level:
+  - ↑ and ↓ walk a lane's rows, and on into the next lane;
+  - ← and → on a lane's head select the lane before or after it, and do
+    nothing at either end;
+  - Enter on a lane's head selects its first row; on a lane with no rows
+    shown it edits the head's text, as Enter does on any row;
+  - Esc on a row inside a lane selects that lane's head;
+  - on a row inside a lane, ← and → close, open, climb and descend as in
+    the list, and climbing from a top row reaches the lane's head.
+
+  The walk says which lane an instance is in (`VisibleInstance.lane`: its
+  head and the heads before and after it), and the selection's intents
+  read that.
+- _Calculations._ A view whose params declare `calc` (the table) ends in a
+  calculation row, a cell under each field column. `calc`
+  (`sys.f.view.calc`) is one JSON text of field id → calculation, as
+  `colwidth` holds widths. `count` (the rows holding a value of the field)
+  is offered under every field column. `sum`, `average`, `median`, `min`
+  and `max` are offered under a number column (the field's type is
+  number), over each row's first number value, as sorting and display read
+  the first value. A calculation counts every row the view's filter
+  leaves, on every page, not only the page drawn. A cell with none shows a
+  quiet "Calculate" button. A cell with one shows the calculation's name,
+  the button that changes it, and its result, the button that copies the
+  number as shown (`copyText`). Changing opens the one node picker over
+  the calculations the column offers, and "None". A stored calculation
+  its column no longer offers shows nothing, and stays.
   The store's row walk (`visible-instances`) and the command registry read
   the same enumeration from the UI kernel (`@kb/ui-sdk`'s
   `providedFrameViews`, the frame views `ViewPoint` holds now), so a frame
@@ -2979,7 +3014,11 @@ how the stored name resolves to the key among them.
   context (`@kb/ui-sdk`'s `lib/frame-subject.ts`). The subject also carries
   what the host draws each row with: a view lays the rows out, and the host
   edits each row's text (`RowText`) and keeps how many pages of them are
-  revealed (`pages`, `revealMorePages`). A row's fields are drawn with the
+  revealed (`pages`, `revealMorePages`). When a view wants a whole row as
+  the list draws it, with its text, fields and children nested under it in
+  their own frame view, the host draws it (`Row`): it is the one way a
+  frame view asks its host for a row's children. The list draws every row
+  with it, and a lane draws its head with it. A row's fields are drawn with the
   page's field editor (`useFieldEditor`, the `FieldEditorService` the
   outline provides while it is loaded), the one editor every surface that
   shows a field draws it with, a frame view's cells and cards and the
