@@ -4,7 +4,7 @@
  * already made for it.
  */
 import { GALLERY_IDS, isTagged, lookOf, type GraphNode } from "@kb/gallery";
-import { replaceMentions } from "@kb/model";
+import { plainText } from "@kb/ui-sdk";
 
 /** What a look can be for: any node a person made, not the gallery's own looks and visuals. */
 export function isPickable(node: GraphNode): boolean {
@@ -44,28 +44,17 @@ export function findNodes(
   return found;
 }
 
-/** A node's text as plain words: references by their labels, media and markup dropped. */
-export function plainOf(text: string, get: (id: string) => GraphNode | undefined): string {
-  const named = replaceMentions(text, (span) => span.label ?? get(span.id)?.text ?? "");
-  return named
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/[*_`~]+/g, "")
-    .replace(/^\s*(?:#+|[-*+]|\d+\.)\s+/, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 /** How many of a node's children seed the brief. */
 const SEED_CHILDREN = 4;
 
 /** The brief a node seeds: its text, then its first children's, one line each. */
 export function seedOf(node: GraphNode, get: (id: string) => GraphNode | undefined): string {
-  const lines = [plainOf(node.text, get)];
+  const textOf = (id: string) => get(id)?.text;
+  const lines = [plainText(node.text, textOf)];
   for (const id of node.children) {
     if (lines.length > SEED_CHILDREN) break;
     const child = get(id);
-    const line = child === undefined ? "" : plainOf(child.text, get);
+    const line = child === undefined ? "" : plainText(child.text, textOf);
     if (line !== "") lines.push(line);
   }
   return lines.filter((line) => line !== "").join("\n");

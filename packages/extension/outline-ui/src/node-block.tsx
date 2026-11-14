@@ -14,6 +14,7 @@ import {
   resolveRowChrome,
   type SchemaIndex,
   shownNode,
+  showsAncestor,
   useDebugFields,
   useFollow,
   useFrameView,
@@ -22,6 +23,7 @@ import {
   usePane,
 } from "@kb/ui-sdk";
 import { useOutlineStore, outlineNodes } from "./outline.store";
+import { pressRowBullet } from "./row-drag";
 import { createTransientNode } from "./editing-writes";
 
 import { FieldsSection } from "./fields-section";
@@ -31,6 +33,7 @@ import { RowPreview } from "./row-preview";
 import { openIn, useRowOpening, useRowView } from "./row-opening";
 import { QueryResultsSection } from "./query-results";
 import { useNodeKeyDown } from "./use-node-keydown";
+import { openReferenceKey, openReferencesOf, opensInPlace } from "./open-references";
 import { ViewToolbar } from "./view-toolbar";
 
 interface NodeBlockProps {
@@ -38,7 +41,7 @@ interface NodeBlockProps {
   depth: number;
   /**
    * Stable render-instance id (parent-path or ref-container + nodeId). Whether
-   * the row is a query result is read from it (`isQueryResultInstance`).
+   * the row is a projected row is read from it (`isProjectedRow`).
    */
   instanceKey?: string;
 }
@@ -82,6 +85,12 @@ export const NodeBlock = memo(function NodeBlock({
   const isSelected = useOutlineStore(
     (s) => s.selectedNodeId === nodeId && s.selectedInstanceKey === instanceKey,
   );
+  // A row of a range the selection's head is elsewhere in.
+  // A row of a range of several rows, the head among them: drawn as one band.
+  const inRange = useOutlineStore(
+    (s) => s.selectedKeys.size > 1 && s.selectedKeys.has(instanceKey),
+  );
+  const extendSelection = useOutlineStore((s) => s.extendSelection);
   const nodePaletteOpen = useNodePaletteOpen();
   const isPaletteAnchor = nodePaletteOpen && (isSelected || isActive);
 
@@ -104,6 +113,12 @@ export const NodeBlock = memo(function NodeBlock({
     browserHost().setNodePaletteOpen(true);
   }, [selectNode, nodeId, instanceKey]);
 
+  // A press on the bullet that travels drags the row (`row-drag`).
+  const handleBulletPress = useCallback(
+    (e: React.PointerEvent<HTMLElement>) => pressRowBullet(e, nodeId, instanceKey),
+    [nodeId, instanceKey],
+  );
+
   const handleActivate = useCallback(
     (cursorPos?: number) => {
       activateNode(nodeId, cursorPos, instanceKey);
@@ -121,6 +136,24 @@ export const NodeBlock = memo(function NodeBlock({
   );
 
   const handleKeyDown = useNodeKeyDown({ nodeId, instanceKey });
+
+  // GAP [[01M7CY02KHSSAAENWJ67EA1EPH]]: no touch gesture makes a range yet.
+  // Shift-click on a row moves the selection's head to it: a range. The
+  // bullet's and a pointer's Shift-click open beside, and the row being
+  // edited keeps Shift-click to select its text.
+  const handleShiftClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (!e.shiftKey || isActive) return;
+      // A control's own Shift-click is the control's: an icon inside one is
+      // drawn, not HTML, and is left to it as well.
+      const target = e.target instanceof HTMLElement ? e.target : null;
+      if (target === null || target.closest("button, a, [data-kb-ref-id]") !== null) return;
+      e.preventDefault();
+      e.stopPropagation();
+      extendSelection({ instanceKey });
+    },
+    [extendSelection, instanceKey, isActive],
+  );
 
   // The view the shown node's children are shown in: the frame is the shown node.
   const frameView = useFrameView(shown);
@@ -149,13 +182,14 @@ export const NodeBlock = memo(function NodeBlock({
       data-node-id={nodeId}
       data-instance-key={instanceKey}
     >
-      <div className="relative flex items-center">
+      <div className="relative flex items-center" onClickCapture={handleShiftClick}>
         <div className="flex-1 min-w-0">
           <NodeRow
             depth={depth}
             nodeId={nodeId}
             instanceKey={instanceKey}
             isSelected={isSelected || isPaletteAnchor}
+            inRange={inRange}
             isActive={isActive}
             onRowClick={handleRowSelect}
             bullet={
@@ -166,6 +200,7 @@ export const NodeBlock = memo(function NodeBlock({
                 isRef={chrome.bulletIsRef}
                 onClick={handleBulletClick}
                 onMenu={handleBulletMenu}
+                onPress={handleBulletPress}
               />
             }
             content={
@@ -204,6 +239,14 @@ export const NodeBlock = memo(function NodeBlock({
           </div>
         )}
       </div>
+
+      <OpenReferences
+        node={node}
+        shown={shown}
+        schema={schema}
+        instanceKey={instanceKey}
+        depth={depth}
+      />
 
       {opening !== null && <RowPreview nodeId={shownId} opening={opening} depth={depth} />}
 
@@ -251,6 +294,33 @@ export const NodeBlock = memo(function NodeBlock({
     </div>
   );
 });
+
+/**
+ * The references the row's text opens in place (DESIGN-UI.md → Contextual
+ * references, "A reference in the text opens in place"), each its target's
+ * projected row, first under the row and drawn whether the row is open or
+ * not. A row that repeats one above it draws none, as it draws no children.
+ */
+function OpenReferences({
+  node,
+  shown,
+  schema,
+  instanceKey,
+  depth,
+}: {
+  node: OutlineNode;
+  shown: OutlineNode;
+  schema: SchemaIndex;
+  instanceKey: string;
+  depth: number;
+}) {
+  const expansion = useOutlineStore((s) => s.expansion);
+  if (!opensInPlace(instanceKey) || showsAncestor(instanceKey, node, schema)) return null;
+  return openReferencesOf(expansion, shown.id, shown.text).map((id) => {
+    const key = openReferenceKey(shown.id, id);
+    return <NodeBlock key={key} nodeId={id} instanceKey={key} depth={depth + 1} />;
+  });
+}
 
 /**
  * Tana whitespace-create: the strip under a row's children mints a transient

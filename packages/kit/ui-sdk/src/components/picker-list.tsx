@@ -8,7 +8,8 @@ export interface PickerListProps {
   rows: readonly PickerRow[];
   /** The highlighted row (`usePickerKeys`). */
   activeIndex: number;
-  onPick: (row: PickerRow) => void;
+  /** A row clicked, and whether Alt was held: the picker's alternate pick (`usePickerKeys`). */
+  onPick: (row: PickerRow, alternate: boolean) => void;
   /** Hovering a row moves the highlight to it. */
   onHover?: (index: number) => void;
   /**
@@ -91,7 +92,7 @@ export function PickerList({
             lead={leadOf?.(row)}
             createLabel={createLabel}
             onHover={() => onHover?.(i)}
-            onPick={() => onPick(row)}
+            onPick={(alternate) => onPick(row, alternate)}
           />
         ))
       )}
@@ -119,7 +120,7 @@ function PickerRowButton({
   lead: ReactNode;
   createLabel: (name: string) => string;
   onHover: () => void;
-  onPick: () => void;
+  onPick: (alternate: boolean) => void;
 }) {
   const disabled = row.kind === "item" && row.disabled;
   return (
@@ -141,8 +142,8 @@ function PickerRowButton({
             : "text-foreground/75 hover:bg-foreground/[0.04]",
       )}
       onMouseEnter={onHover}
-      onClick={() => {
-        if (!disabled) onPick();
+      onClick={(e) => {
+        if (!disabled) onPick(e.altKey);
       }}
     >
       {checks && row.kind === "item" && (

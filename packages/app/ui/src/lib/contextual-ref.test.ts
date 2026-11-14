@@ -172,7 +172,7 @@ describe("the shown node", () => {
     const schema = schemaFor(nodes);
     const ref = present(nodes.get("n.ctx"), "n.ctx");
     expect(showsAncestor("tree/n.root-a/n.ctx", ref, schema)).toBe(true);
-    expect(showsAncestor("ref:query:n.root-a/n.ctx", ref, schema)).toBe(true);
+    expect(showsAncestor("ref:row:n.root-a/n.ctx", ref, schema)).toBe(true);
     // Another reference to the same target above it counts: it shows that node too.
     expect(showsAncestor("tree/n.ctx/n.child-a1/n.ctx", ref, schema)).toBe(true);
     expect(showsAncestor("tree/n.ctx", ref, schema)).toBe(false);

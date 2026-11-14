@@ -53,6 +53,7 @@ import {
 } from "./visible-instances.ts";
 import type { FrameViewKey } from "@kb/views";
 import { outlineHostOf, outlineHostOfInstance as walkHostOf } from "./outline-hosts";
+import { isReferenceKey, openReferenceHolds, openReferenceKey } from "./open-references";
 
 export type { VisibleInstance };
 
@@ -84,8 +85,19 @@ interface OutlineState {
   activeNodeId: string | null;
   /** Render-instance key for the active editor (disambiguates duplicates). */
   activeInstanceKey: string | null;
+  /** The selection's head: the row a single selection is, and where a range's moving end is. */
   selectedNodeId: string | null;
   selectedInstanceKey: string | null;
+  /**
+   * The selection's anchor, the instance a range stays at while its head
+   * moves (DESIGN-UI.md → Outline editor, "A selection is a range of rows");
+   * null while the selection is one row.
+   */
+  selectionAnchorKey: string | null;
+  /** The instance keys of every selected row: read per row, as `selectionOf` derives them. */
+  selectedKeys: ReadonlySet<string>;
+  /** The nodes of every selected row, in the order they are drawn (`PageEditor`). */
+  selectedNodeIds: readonly string[];
   /**
    * Consumable placement command. Unlike the legacy cursor fields below this
    * is not editor state: ordinary store writes cannot make a host move.
@@ -105,7 +117,22 @@ interface OutlineState {
   unregisterTextHost: (instanceKey: string) => void;
   deactivateNode: () => void;
   selectNode: (id: string | null, instanceKey?: string) => void;
+  /**
+   * Move the selection's head and keep its anchor: one row up or down, or to
+   * the row at `instanceKey` (a Shift-click), in the outline the selection is in.
+   */
+  extendSelection: (to: "up" | "down" | { readonly instanceKey: string }) => void;
+  /**
+   * Select the range from `anchorId` to `headId`, each at its row in the
+   * outline the selection is in: where a block lands after it moved, its
+   * rows' instances being new.
+   */
+  selectRange: (anchorId: string, headId: string) => void;
+  /** The selected rows, in the order they are drawn. */
+  selectedRows: () => VisibleInstance[];
   toggleCollapse: (id: string) => void;
+  /** Open the reference to `targetId` in the text of `sourceId` under its row, or close it. */
+  toggleReference: (sourceId: string, targetId: string) => void;
   expandAllInScope: () => void;
   collapseAllInScope: () => void;
   expandAncestors: (id: string) => void;
@@ -144,6 +171,9 @@ export const initialOutlineState: OutlineStateData = {
   activeInstanceKey: null,
   selectedNodeId: null,
   selectedInstanceKey: null,
+  selectionAnchorKey: null,
+  selectedKeys: new Set<string>(),
+  selectedNodeIds: [],
   pendingCaret: null,
   focusSeq: 0,
   focusX: null,
@@ -169,9 +199,12 @@ function schemaNow(): SchemaIndex {
  * Whether the reader can still undo choosing `open` for row `id`: the row can
  * expand and `open` is not its default. A row the graph does not hold now
  * keeps its choice, so a row deleted and restored (an undo) comes back as the
- * reader left it.
+ * reader left it. A reference opened in place holds while it is open and its
+ * row's text names it (`openReferenceHolds`).
  */
 function isUndoable(id: string, open: boolean, schema: SchemaIndex): boolean {
+  const reference = openReferenceHolds(id, open, schema);
+  if (reference !== null) return reference;
   // GAP [[01M52E0177292798G5908A74GG]]
   const node = schema.get(id);
   // A row's default is `node.collapsed`: a choice to open is one to change it.
@@ -209,7 +242,8 @@ function changesOf(before: Expansion, after: Expansion): ExpansionChanges {
  */
 function keptExpansion(current: Expansion, next: Expansion, schema: SchemaIndex): Expansion {
   const kept = undoable(next, schema);
-  const changes = changesOf(current, kept);
+  // The references opened in place are this tab's alone: storage holds rows' choices.
+  const changes = new Map([...changesOf(current, kept)].filter(([id]) => !isReferenceKey(id)));
   // GAP [[01M52E01JB6CFKT2M8CAS171EJ]]
   if (changes.size > 0) {
     saveExpansionChanges(changes, (id, open) => isUndoable(id, open, schema));
@@ -323,12 +357,56 @@ export function useOutlineNode(id: string | null): OutlineNode | undefined {
   return useSyncExternalStore(subscribeOutline, read, read);
 }
 
+/** The selection's members, as `OutlineState` holds them. */
+type Selection = Pick<
+  OutlineStateData,
+  | "selectedNodeId"
+  | "selectedInstanceKey"
+  | "selectionAnchorKey"
+  | "selectedKeys"
+  | "selectedNodeIds"
+>;
+
+/**
+ * The selection whose head is `nodeId` at `instanceKey` and whose anchor is
+ * `anchorKey`: every row from one to the other in `rows`, the order the
+ * outline draws them. An anchor that is the head, or that `rows` does not
+ * draw, makes it the head alone.
+ */
+function selectionOf(
+  nodeId: string | null,
+  instanceKey: string | null,
+  anchorKey: string | null = null,
+  rows: () => readonly VisibleInstance[] = () => [],
+): Selection {
+  const one = (): Selection => ({
+    selectedNodeId: nodeId,
+    selectedInstanceKey: nodeId === null ? null : instanceKey,
+    selectionAnchorKey: null,
+    selectedKeys: nodeId === null || instanceKey === null ? new Set() : new Set([instanceKey]),
+    selectedNodeIds: nodeId === null ? [] : [nodeId],
+  });
+  if (nodeId === null || instanceKey === null || anchorKey === null || anchorKey === instanceKey)
+    return one();
+  const drawn = rows();
+  const head = drawn.findIndex((row) => row.instanceKey === instanceKey);
+  const anchor = drawn.findIndex((row) => row.instanceKey === anchorKey);
+  if (head < 0 || anchor < 0) return one();
+  const range = drawn.slice(Math.min(head, anchor), Math.max(head, anchor) + 1);
+  return {
+    selectedNodeId: nodeId,
+    selectedInstanceKey: instanceKey,
+    selectionAnchorKey: anchorKey,
+    selectedKeys: new Set(range.map((row) => row.instanceKey)),
+    selectedNodeIds: range.map((row) => row.nodeId),
+  };
+}
+
 /** No row edited, none selected, no caret pending. */
 const NO_FOCUS = {
   activeNodeId: null,
   activeInstanceKey: null,
-  selectedNodeId: null,
-  selectedInstanceKey: null,
+  ...selectionOf(null, null),
 } as const;
 
 /**
@@ -414,8 +492,7 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
         );
         pruneOutgoingTransient(id);
         set({
-          selectedNodeId: id,
-          selectedInstanceKey: roKey,
+          ...selectionOf(id, roKey),
           activeNodeId: null,
           activeInstanceKey: null,
         });
@@ -446,8 +523,7 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
       set({
         activeNodeId: id,
         activeInstanceKey: key,
-        selectedNodeId: id,
-        selectedInstanceKey: key,
+        ...selectionOf(id, key),
         pendingCaret: { instanceKey: key, at },
         focusX: null,
       });
@@ -500,18 +576,71 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
       const key = resolveActivateKey(id, instanceKey, nodes, selectedInstanceKey);
       pruneOutgoingTransient(id);
       set({
-        selectedNodeId: id,
-        selectedInstanceKey: key,
+        ...selectionOf(id, key),
         activeNodeId: null,
         activeInstanceKey: null,
         pendingCaret: null,
       });
     },
 
+    extendSelection: (to) => {
+      const st = get();
+      // A row being edited is where a Shift-click's range starts; with
+      // nothing selected, the row clicked is.
+      const fromKey =
+        st.activeInstanceKey ??
+        st.selectedInstanceKey ??
+        (typeof to === "object" ? to.instanceKey : null);
+      if (fromKey === null) return;
+      const rows = st.getVisibleInstances(walkHostOf(fromKey));
+      const at = rows.findIndex((row) => row.instanceKey === fromKey);
+      const head =
+        typeof to === "object"
+          ? rows.find((row) => row.instanceKey === to.instanceKey)
+          : rows[at + (to === "up" ? -1 : 1)];
+      if (head === undefined || at < 0) return;
+      pruneOutgoingTransient(head.nodeId);
+      set({
+        ...selectionOf(head.nodeId, head.instanceKey, st.selectionAnchorKey ?? fromKey, () => rows),
+        activeNodeId: null,
+        activeInstanceKey: null,
+        pendingCaret: null,
+      });
+    },
+
+    selectRange: (anchorId, headId) => {
+      const nodes = outlineNodes();
+      const working = get().selectedInstanceKey;
+      if (!nodes.has(anchorId) || !nodes.has(headId)) return;
+      const headKey = resolveActivateKey(headId, undefined, nodes, working);
+      const anchorKey = resolveActivateKey(anchorId, undefined, nodes, working);
+      set({
+        ...selectionOf(headId, headKey, anchorKey, () =>
+          get().getVisibleInstances(walkHostOf(headKey)),
+        ),
+        activeNodeId: null,
+        activeInstanceKey: null,
+        pendingCaret: null,
+      });
+    },
+
+    selectedRows: () => {
+      const { selectedInstanceKey, selectedKeys } = get();
+      if (selectedInstanceKey === null) return [];
+      return get()
+        .getVisibleInstances(walkHostOf(selectedInstanceKey))
+        .filter((row) => selectedKeys.has(row.instanceKey));
+    },
+
     toggleCollapse: (id) => {
       const node = outlineNodes().get(id);
       if (!node || !isExpandableOutlineNode(node, schemaNow())) return;
       choose([[id, node.collapsed]]);
+    },
+
+    toggleReference: (sourceId, targetId) => {
+      const key = openReferenceKey(sourceId, targetId);
+      choose([[key, get().expansion.get(key) !== true]]);
     },
 
     expandAllInScope: () => {
@@ -659,8 +788,9 @@ function keptFocus(prev: OutlineStateData, nodes: NodeMap): Partial<OutlineState
   const { selectedNodeId, activeNodeId } = keptIds(prev, nodes);
   const kept = [...prev.transientIds].filter((id) => nodes.has(id));
   return {
-    selectedNodeId,
-    selectedInstanceKey: selectedNodeId !== null ? prev.selectedInstanceKey : null,
+    // A range is drawn again over the moved graph (`follow`); here it is its head.
+    ...selectionOf(selectedNodeId, prev.selectedInstanceKey),
+    selectionAnchorKey: selectedNodeId !== null ? prev.selectionAnchorKey : null,
     activeNodeId,
     activeInstanceKey: activeNodeId !== null ? prev.activeInstanceKey : null,
     // The caret is the active row's: it goes with it.
@@ -720,9 +850,19 @@ function follow(change: GraphChange, prev: PageGraphState, next: PageGraphState)
   }
   const to = shownNodesOf(next);
   const open = keptOpen(outline.expansion, shownNodesOf(prev), to);
+  const expansion = keptExpansion(outline.expansion, open, schema);
+  const kept = KEPT_FOCUS[change](outline, to);
+  const focus = { ...outline, ...kept };
   useOutlineStore.setState({
-    expansion: keptExpansion(outline.expansion, open, schema),
-    ...KEPT_FOCUS[change](outline, to),
+    expansion,
+    ...kept,
+    // A range keeps its anchor and its head where the moved graph still
+    // draws both, and the rows between them are read again.
+    ...selectionOf(focus.selectedNodeId, focus.selectedInstanceKey, focus.selectionAnchorKey, () =>
+      focus.selectedInstanceKey === null
+        ? []
+        : visibleInstancesOf(walkHostOf(focus.selectedInstanceKey), next, expansion),
+    ),
   });
 }
 
@@ -768,6 +908,7 @@ function visibleInstancesOf(
       views,
       chain: outline.chain,
       pages: useOutlineStore.getState().framePages,
+      expansion,
     },
     host,
   );
@@ -789,8 +930,7 @@ function arrive(at: "zoom" | "home", to: PageGraphState): void {
   useOutlineStore.setState({
     activeNodeId: null,
     activeInstanceKey: null,
-    selectedNodeId: first?.nodeId ?? null,
-    selectedInstanceKey: first?.instanceKey ?? null,
+    ...selectionOf(first?.nodeId ?? null, first?.instanceKey ?? null),
   });
 }
 

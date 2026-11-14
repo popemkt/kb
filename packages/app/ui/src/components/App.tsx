@@ -108,6 +108,7 @@ function Toasts() {
         <button
           key={t.id}
           type="button"
+          data-kind={t.kind}
           onClick={() => dismiss(t.id)}
           aria-label={`Dismiss notification: ${t.text}`}
           className={cn(

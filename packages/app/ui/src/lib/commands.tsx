@@ -25,24 +25,31 @@
  */
 import { ulid } from "ulid";
 import {
+  ArrowBendDownRightIcon,
   ArrowBendUpLeftIcon,
   ArrowRightIcon,
+  ArrowsOutLineVerticalIcon,
   ArrowSquareOutIcon,
   EyeIcon,
   EyeSlashIcon,
   HashIcon,
+  IdentificationCardIcon,
+  LinkBreakIcon,
   LinkSimpleIcon,
   MagnifyingGlassIcon,
+  PencilSimpleLineIcon,
   PushPinIcon,
   PushPinSlashIcon,
   SidebarSimpleIcon,
   SquaresFourIcon,
   StarIcon,
+  TextAaIcon,
   TextTIcon,
   TrashIcon,
 } from "@phosphor-icons/react";
 import {
   extensionNodeId,
+  extractMentions,
   hostViewIds,
   isQueryNode,
   isViewNode,
@@ -57,10 +64,14 @@ import {
   type Command,
   type CommandContext,
   CommandPoint,
+  copyText,
   currentContributions,
   isContextualRef,
   isPinned,
   isSysPrefixed,
+  selectionRoots,
+  shownNode,
+  shownNodeId,
   listOntologyItems,
   navigate,
   nodeAction,
@@ -81,6 +92,7 @@ import {
 import { SETTINGS_PATH } from "@/lib/settings-trigger";
 import { chooseDesignSystem, DesignSystemPoint, shownDesignSystem } from "@kb/appearance-kit";
 import { pageOpeningsOf } from "@/lib/node-openings";
+import { countWords, sayCount } from "@/lib/word-count";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { pageCatalog } from "@/lib/view-catalog";
 import { settingsPath } from "@/lib/settings-parts";
@@ -114,6 +126,17 @@ export function commandTargetNodeId(outline: OutlineCommandApi): string | null {
   return null;
 }
 
+/** Whether every row the command is about is pinned: what Pin / Unpin says it will do. */
+function allPinned(ctx: CommandContext): boolean {
+  const { nodeIds } = ctx.target;
+  return nodeIds.length > 0 && nodeIds.every((id) => isPinned(ctx.outline.nodes, id));
+}
+
+/** The tags a row carries, by id (its kind slot, less the kinds themselves). */
+function tagsOf(ctx: Pick<CommandContext, "outline">, nodeId: string): string[] {
+  return typeRefsOf(ctx.outline.nodes.get(nodeId)).filter((id) => !isSysPrefixed(id));
+}
+
 /** Zoomed root, else selected non-sys row — "which frame owns the view config". */
 export function viewTargetFrameId(outline: OutlineCommandApi): string | null {
   if (outline.rootNodeId && outline.rootNodeId !== WORKSPACE_ROOT_ID) return outline.rootNodeId;
@@ -125,6 +148,22 @@ export function viewTargetFrameId(outline: OutlineCommandApi): string | null {
 function targetNode(ctx: CommandContext) {
   const id = ctx.target.nodeId;
   return id === null ? undefined : ctx.outline.nodes.get(id);
+}
+
+/** The ids of the nodes the rows a command is about show (`shownNodeId`), in the rows' order. */
+function shownIdsOf(ctx: CommandContext): string[] {
+  return ctx.target.nodeIds.map((id) => {
+    const row = ctx.outline.nodes.get(id);
+    return row === undefined ? id : shownNodeId(row);
+  });
+}
+
+/** Whether the text the target row shows names a node (DESIGN-UI.md → Contextual references). */
+function namesANode(ctx: CommandContext): boolean {
+  const node = targetNode(ctx);
+  return (
+    node !== undefined && extractMentions(shownNode(node, browserHost().schema()).text).length > 0
+  );
 }
 
 /** The frame a view command edits, or a toast saying there is none. */
@@ -311,8 +350,17 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
   {
     id: "add-tag",
     menu: nodeMenu("make", 10),
+    many: true,
     chrome: () => ({ label: "Add tag", icon: <HashIcon size={14} weight="bold" /> }),
     run: (ctx) => ctx.palette.openStep("outline.add-tag"),
+  },
+  {
+    id: "remove-tag",
+    menu: nodeMenu("make", 12),
+    many: true,
+    chrome: () => ({ label: "Remove tag…", icon: <HashIcon size={14} weight="regular" /> }),
+    when: (ctx) => ctx.target.nodeIds.some((id) => tagsOf(ctx, id).length > 0),
+    run: (ctx) => ctx.palette.openStep("outline.remove-tag"),
   },
   {
     // A tag's own fields, views and place are its owner's; a person makes
@@ -370,10 +418,26 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     run: (ctx) => ctx.palette.openStep("outline.add-ref"),
   },
   {
+    // DESIGN-UI.md → Contextual references, "A reference in the text opens in place".
+    id: "remove-reference",
+    menu: nodeMenu("make", 35),
+    chrome: () => ({ label: "Remove reference…", icon: <LinkBreakIcon size={14} /> }),
+    when: namesANode,
+    run: (ctx) => ctx.palette.openStep("outline.remove-reference"),
+  },
+  {
     id: "add-field",
     menu: nodeMenu("make", 40),
+    many: true,
     chrome: () => ({ label: "Add field", icon: <TextTIcon size={14} weight="bold" /> }),
     run: (ctx) => ctx.palette.openStep("outline.add-field"),
+  },
+  {
+    id: "set-field",
+    menu: nodeMenu("make", 45),
+    many: true,
+    chrome: () => ({ label: "Set field…", icon: <PencilSimpleLineIcon size={14} /> }),
+    run: (ctx) => ctx.palette.openStep("outline.set-field"),
   },
   {
     // Kind slot, not badges: `resolveTags` never emits `sys.tag`, so reading
@@ -429,25 +493,48 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     },
   },
   {
+    // DESIGN-UI.md → Outline editor, "What rows hold, read and copied".
+    id: "copy-node-id",
+    menu: nodeMenu("open", 90),
+    many: true,
+    chrome: (ctx) => ({
+      label: ctx.target.nodeIds.length > 1 ? "Copy node IDs" : "Copy node ID",
+      icon: <IdentificationCardIcon size={14} />,
+    }),
+    run: (ctx) => {
+      const ids = [...new Set(shownIdsOf(ctx))];
+      copyText(ids.join("\n"), ids.length > 1 ? `${ids.length} node IDs` : "Node ID");
+      ctx.palette.close();
+    },
+  },
+  {
     id: "indent",
     menu: nodeMenu("arrange", 10),
     chrome: () => ({ label: "Indent", icon: <ArrowRightIcon size={14} /> }),
-    run: (ctx) => nodeAction(ctx, (nodeId) => void browserHost().writes.indentNode(nodeId)),
+    run: (ctx) => nodeAction(ctx, (nodeId) => browserHost().writes.indentNodes([nodeId])),
   },
   {
     id: "outdent",
     menu: nodeMenu("arrange", 20),
     chrome: () => ({ label: "Outdent", icon: <ArrowBendUpLeftIcon size={14} /> }),
-    run: (ctx) => nodeAction(ctx, (nodeId) => void browserHost().writes.outdentNode(nodeId)),
+    run: (ctx) => nodeAction(ctx, (nodeId) => browserHost().writes.outdentNodes([nodeId])),
+  },
+  {
+    // DESIGN-UI.md → Outline editor, "A row moves anywhere".
+    id: "move-to",
+    menu: nodeMenu("arrange", 30),
+    many: true,
+    chrome: () => ({ label: "Move to…", icon: <ArrowBendDownRightIcon size={14} /> }),
+    run: (ctx) => ctx.palette.openStep("outline.move-to"),
   },
   {
     // Pinning is listing (lib/pinned); the label is the current state so the
     // row reads as a toggle rather than as a fire-and-hope command.
     id: "toggle-pin",
     menu: nodeMenu("mark", 10),
+    many: true,
     chrome: (ctx) => {
-      const nodeId = ctx.target.nodeId;
-      const pinned = nodeId !== null && isPinned(ctx.outline.nodes, nodeId);
+      const pinned = allPinned(ctx);
       return {
         label: pinned ? "Unpin" : "Pin",
         icon: pinned ? (
@@ -457,7 +544,16 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
         ),
       };
     },
-    run: (ctx) => nodeAction(ctx, (nodeId) => void browserHost().writes.togglePin(nodeId)),
+    // Over several rows it pins the ones not pinned, or unpins them all
+    // when every one is: the label says which.
+    run: (ctx) => {
+      const unpin = allPinned(ctx);
+      nodeAction(ctx, (nodeId) =>
+        isPinned(ctx.outline.nodes, nodeId) === unpin
+          ? browserHost().writes.togglePin(nodeId)
+          : undefined,
+      );
+    },
   },
   {
     // Per node: the answer is about the node you are looking at; ⌘K's "Debug:
@@ -479,8 +575,41 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
   {
     id: "delete",
     menu: nodeMenu("remove", 10),
-    chrome: () => ({ label: "Delete node", icon: <TrashIcon size={14} /> }),
-    run: (ctx) => nodeAction(ctx, (nodeId) => void browserHost().writes.deleteNode(nodeId)),
+    many: true,
+    chrome: (ctx) => ({
+      label: ctx.target.nodeIds.length > 1 ? "Delete nodes" : "Delete node",
+      icon: <TrashIcon size={14} />,
+    }),
+    // A selected row under another selected row goes with it.
+    run: (ctx) => {
+      const roots = selectionRoots(ctx.target.nodeIds, ctx.outline.nodes);
+      nodeAction({ ...ctx, target: { ...ctx.target, nodeIds: roots } }, (nodeId) =>
+        browserHost().writes.deleteNode(nodeId),
+      );
+    },
+  },
+  {
+    // DESIGN-UI.md → Contextual references, "A reference in the text opens in place".
+    id: "expand-reference",
+    menu: nodeMenu("view", 5),
+    chrome: () => ({
+      label: "Expand reference…",
+      icon: <ArrowsOutLineVerticalIcon size={14} />,
+    }),
+    when: namesANode,
+    run: (ctx) => ctx.palette.openStep("outline.expand-reference"),
+  },
+  {
+    // DESIGN-UI.md → Outline editor, "What rows hold, read and copied".
+    id: "count-words",
+    menu: nodeMenu("view", 95),
+    many: true,
+    chrome: () => ({ label: "Count words", icon: <TextAaIcon size={14} /> }),
+    run: (ctx) => {
+      const roots = selectionRoots(ctx.target.nodeIds, ctx.outline.nodes);
+      toast(sayCount(countWords(roots, browserHost().schema())), "info");
+      ctx.palette.close();
+    },
   },
   {
     id: "view-filter",
@@ -702,6 +831,9 @@ function menuRank(menu: NodeCommand["menu"]): readonly [number, number] {
   return [NODE_MENU_GROUPS.indexOf(menu.group), menu.order];
 }
 
+/** A command the node menu offers: one about a node. */
+const isNodeCommand = (command: Command): command is NodeCommand => command.menu.where === "node";
+
 /**
  * The commands this node offers, in the node menu's order: by group, then
  * by order in the group, then in the order they were listed, contributions
@@ -710,9 +842,11 @@ function menuRank(menu: NodeCommand["menu"]): readonly [number, number] {
 export function listNodeCommands(ctx: CommandContext): NodeCommandListing[] {
   return commandsFor(ctx)
     .map(({ command }) => command)
+    .filter(isNodeCommand)
     .filter(
-      (command): command is NodeCommand =>
-        command.menu.where === "node" && (command.when?.(ctx) ?? true),
+      (command) =>
+        // Over several rows, only the commands that act on each.
+        (command.many === true || ctx.target.nodeIds.length <= 1) && (command.when?.(ctx) ?? true),
     )
     .toSorted((a, b) => {
       const [groupA, orderA] = menuRank(a.menu);
@@ -738,5 +872,16 @@ export async function runCommand(commandId: string, ctx: CommandContext): Promis
     toast(`Unknown command: ${commandId}`);
     return;
   }
-  await command.run(ctx);
+  await command.run(aboutItsRows(command, ctx));
+}
+
+/**
+ * `ctx` as `command` reads it: a node command that acts on one row, run over
+ * a range, is about the head alone (DESIGN-UI.md → Outline editor, "A
+ * selection is a range of rows").
+ */
+function aboutItsRows(command: Command, ctx: CommandContext): CommandContext {
+  if (!isNodeCommand(command) || command.many === true) return ctx;
+  const { nodeId } = ctx.target;
+  return { ...ctx, target: { ...ctx.target, nodeIds: nodeId === null ? [] : [nodeId] } };
 }

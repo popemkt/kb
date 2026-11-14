@@ -243,6 +243,17 @@
   text-decoration: underline;
 }
 
+/*
+ * A reference opened in place under its row (DESIGN-UI → Contextual
+ * references): a tint of its own ink behind it, so the pill says it is open
+ * without moving a letter.
+ */
+.kb-md-ref[aria-expanded="true"] {
+  background-color: color-mix(in oklab, currentColor 14%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in oklab, currentColor 14%, transparent);
+  @apply rounded-xs;
+}
+
 /* W6a inline media in inactive rows */
 .kb-md-media {
   display: block;

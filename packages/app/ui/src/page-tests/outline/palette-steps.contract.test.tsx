@@ -38,12 +38,16 @@ function wire(partial: Pick<WireNode, "id" | "text"> & Partial<WireNode>): WireN
   return { props: {}, children: [], createdAt: ISO, updatedAt: ISO, ...partial };
 }
 
-/** A row mentioning n.b, a ref field that allows it, a tag, and the graph's setting on. */
+/** A tagged row mentioning n.b, a ref field that allows it, a field of options, and the graph's setting on. */
 function graph(suggesting = true): WireNode[] {
   return [
     wire({ id: SYSTEM_IDS.tag, text: "sys.tag" }),
     wire({ id: SYSTEM_IDS.field, text: "sys.field" }),
-    wire({ id: "n.a", text: "A mentions [[n.b]]" }),
+    wire({
+      id: "n.a",
+      text: "A mentions [[n.b]]",
+      props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: "t.topic" }] },
+    }),
     wire({ id: "n.b", text: "B" }),
     wire({
       id: "t.topic",
@@ -58,6 +62,13 @@ function graph(suggesting = true): WireNode[] {
         [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")],
       },
     }),
+    wire({
+      id: "f.status",
+      text: "status",
+      children: ["o.done"],
+      props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }] },
+    }),
+    wire({ id: "o.done", text: "done" }),
     wire({
       id: extensionNodeId("graph"),
       text: "graph",

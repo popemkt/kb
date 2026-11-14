@@ -52,11 +52,16 @@ export function SidebarRow({
   );
 }
 
+/** A titled list of sidebar rows, named by its title for assistive technology. */
 export function SidebarSection({ title, children }: { title?: string; children: ReactNode }) {
+  const named = hasText(title);
   return (
-    <div className="mb-3">
-      {hasText(title) ? (
-        <div className="mb-1 px-2 text-caption font-medium kb-label text-faint-foreground">
+    <div className="mb-3" {...(named ? { role: "group", "aria-label": title } : {})}>
+      {named ? (
+        <div
+          aria-hidden
+          className="mb-1 px-2 text-caption font-medium kb-label text-faint-foreground"
+        >
           {title}
         </div>
       ) : null}

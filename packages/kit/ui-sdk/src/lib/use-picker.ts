@@ -7,7 +7,7 @@
  * from the node's text, the node palette from its own input. Passing it in is
  * what lets all of them read this one hook.
  */
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { lookupChord, type Chord, type KeyChordEvent } from "@kb/keybindings";
 import type { PickerRow } from "./picker";
 
@@ -18,9 +18,10 @@ export interface PickerKeysInput {
   /**
    * Enter (and Tab, when `pickOnTab`): the highlighted row, or null when there
    * is none. A disabled row is not picked: the key is claimed, and nothing
-   * happens, as a click on it does nothing.
+   * happens, as a click on it does nothing. Alt+Enter picks it too, as the
+   * picker's alternate (`alternate`); a picker with none reads it as Enter.
    */
-  onPick: (row: PickerRow | null) => void;
+  onPick: (row: PickerRow | null, alternate: boolean) => void;
   /** Escape. */
   onCancel: () => void;
   /** Backspace on an empty query: take back the last value picked. */
@@ -43,7 +44,7 @@ export interface PickerKeys {
   handleKeyDown: (event: KeyChordEvent & { preventDefault: () => void }) => boolean;
 }
 
-type PickerIntent = "next" | "previous" | "pick" | "cancel" | "removeLast";
+type PickerIntent = "next" | "previous" | "pick" | "pickAlternate" | "cancel" | "removeLast";
 
 interface PickerBinding {
   readonly chord: Chord;
@@ -58,6 +59,7 @@ interface PickerBinding {
 const PICKER_KEYS: readonly PickerBinding[] = [
   { chord: { key: "ArrowDown" }, intent: "next" },
   { chord: { key: "ArrowUp" }, intent: "previous" },
+  { chord: { key: "Enter", alt: true }, intent: "pickAlternate" },
   { chord: { key: "Enter" }, intent: "pick" },
   { chord: { key: "Tab" }, intent: "pick" },
   { chord: { key: "Escape" }, intent: "cancel" },
@@ -87,13 +89,16 @@ export function usePickerKeys({
   const moveTo = (index: number) => setAnchor({ key, index });
   const wrap = (delta: number) => moveTo((activeIndex + delta + rows.length) % rows.length);
 
+  const pick = (alternate: boolean) => {
+    const row = rows[activeIndex] ?? null;
+    if (row?.kind !== "item" || !row.disabled) onPick(row, alternate);
+  };
+
   const APPLY: Readonly<Record<PickerIntent, () => void>> = {
     next: () => wrap(1),
     previous: () => wrap(-1),
-    pick: () => {
-      const row = rows[activeIndex] ?? null;
-      if (row?.kind !== "item" || !row.disabled) onPick(row);
-    },
+    pick: () => pick(false),
+    pickAlternate: () => pick(true),
     cancel: onCancel,
     removeLast: () => onRemoveLast?.(),
   };
@@ -102,6 +107,7 @@ export function usePickerKeys({
     next: () => rows.length > 0,
     previous: () => rows.length > 0,
     pick: (pressed) => pressed !== "Tab" || pickOnTab,
+    pickAlternate: () => true,
     cancel: () => true,
     removeLast: () => onRemoveLast !== undefined && query === "",
   };
@@ -117,4 +123,18 @@ export function usePickerKeys({
       return true;
     },
   };
+}
+
+/**
+ * A picker that opens over the page takes the focus while it is open and
+ * gives it back where it was when it closes: the row, or the editor, it was
+ * opened from. Call it before the effect that focuses the picker's input,
+ * so the origin is read first.
+ */
+export function useFocusReturn(open: boolean): void {
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    const origin = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    return () => origin?.focus({ preventScroll: true });
+  }, [open]);
 }
