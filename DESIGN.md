@@ -1437,7 +1437,7 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
 - **A frame's view is the first frame view node it names.** Which of the
   frame views (list, table, board, cards) shows a frame's children, and with
   which settings (`sys.f.view.sort`, `…display`, `…colwidth`, `…pagesize`,
-  `…group`, `…filter`), is the first view node in its `sys.f.views` whose
+  `…group`, `…collapsed`, `…hideEmpty`, `…filter`), is the first view node in its `sys.f.views` whose
   view is of the frame family (`familyViewIdOf`, read from the option's
   `sys.f.view.family`): its `sys.f.view` and its params. That is the
   frame's default unless it names a view of another kind first (a snippet,

@@ -2947,6 +2947,28 @@ how the stored name resolves to the key among them.
   one node however many hosts name it, so editing it — from any host's
   toolbar or its own row — edits it for every host that names it; a host
   that should differ names a view node of its own.
+- _Groups._ A view whose params declare `groupFieldId` (the board) draws
+  a group for each value of that field. A field that declares its option
+  set (its children; DESIGN.md → Field types) has a group per option, in
+  the field's order, whether any row holds it or not. Each other value a
+  row holds follows, by label, and "No <field>" comes last, for the rows
+  that hold none. A group's header shows how many rows it holds after the
+  view's filter. Two more settings sit beside `groupFieldId` on the view
+  node, and the view declares them with it:
+  - `collapsed` (`sys.f.view.collapsed`) lists the folded groups, one text
+    per group, the group's key: `ref:<id>` for a node, so a renamed option
+    stays folded; `str:`, `num:` or `bool:` and the value for a literal;
+    `__empty__` for "No <field>". A key for a value no group has now does
+    nothing and stays.
+  - `hideEmpty` (`sys.f.view.hideEmpty`) leaves out the groups no row
+    falls in. The view settings popover draws it as a section, because the
+    params declare it.
+
+  A folded group keeps its header and count and draws none of its rows, so
+  the row walk (`frameRows`) skips them too. The header's chevron is a
+  button with `aria-expanded`: Tab reaches it, and Enter or Space folds or
+  unfolds the group. The fold is written to the view node, so it holds in
+  every host that names that view node and after a reload.
   The store's row walk (`visible-instances`) and the command registry read
   the same enumeration from the UI kernel (`@kb/ui-sdk`'s
   `providedFrameViews`, the frame views `ViewPoint` holds now), so a frame
