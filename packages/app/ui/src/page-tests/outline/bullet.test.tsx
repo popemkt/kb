@@ -382,6 +382,47 @@ describe("reference-row bullet click parity", () => {
       expect(later.defaultPrevented).toBe(false);
     });
 
+    it("a finger held still, then moved, keeps the menu and picks nothing up", async () => {
+      const bullet = await renderRefRow();
+      vi.useFakeTimers();
+      const press = { bubbles: true, cancelable: true, pointerType: "touch", button: 0 };
+      fire(
+        bullet,
+        new dom.PointerEvent("pointerdown", { ...press, clientX: 4, clientY: 4 }) as never,
+      );
+      act(() => void vi.advanceTimersByTime(500));
+      expect(isOpenOnRow()).toBe(true);
+      const travelled = { ...press, clientX: 4, clientY: 60 };
+      // A touch is captured by what it pressed: its moves and its lift go to the bullet.
+      fire(bullet, new dom.PointerEvent("pointermove", travelled) as never);
+      expect(dom.document.querySelector('[data-row-drag-ghost="true"]')).toBeNull();
+      fire(bullet, new dom.PointerEvent("pointerup", travelled) as never);
+      // The menu's hold on the lift's click ends.
+      act(() => void vi.advanceTimersByTime(400));
+    });
+
+    it("a finger that travels before it is held picks the row up, and lifts with no tap", async () => {
+      const bullet = await renderRefRow();
+      vi.useFakeTimers();
+      const press = { bubbles: true, cancelable: true, pointerType: "touch", button: 0 };
+      fire(
+        bullet,
+        new dom.PointerEvent("pointerdown", { ...press, clientX: 4, clientY: 4 }) as never,
+      );
+      act(() => void vi.advanceTimersByTime(100));
+      const travelled = { ...press, clientX: 4, clientY: 60 };
+      // A touch is captured by what it pressed: its moves and its lift go to the bullet.
+      fire(bullet, new dom.PointerEvent("pointermove", travelled) as never);
+      expect(dom.document.querySelector('[data-row-drag-ghost="true"]')).not.toBeNull();
+      fire(bullet, new dom.PointerEvent("pointerup", travelled) as never);
+      expect(dom.document.querySelector('[data-row-drag-ghost="true"]')).toBeNull();
+      // Its lift's click is the drag's: it toggles nothing, and no menu opened.
+      clickBullet(bullet);
+      act(() => void vi.advanceTimersByTime(500));
+      expect(useUiStore.getState().nodePaletteOpen).toBe(false);
+      expect(present(outlineNodes().get("n.root-a"), "n.root-a").collapsed).toBe(true);
+    });
+
     it("a finger lifted sooner is a tap", async () => {
       const bullet = await renderRefRow();
       vi.useFakeTimers();

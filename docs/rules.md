@@ -219,6 +219,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P4 of docs/research/2026-10-29-plugin-codependency.md, after the owner chooses between resolving against the catalog the invoke core reaches and composing a needed family beside its caller
 - **node** — `01M63C0M1WRKY0Q09AGK9NK7NJ`
 
+### GAP: a drag's drop line ignores a frame view's sort
+
+- **expected** — A row dragged over the rows of a frame whose view sorts or groups them shows where the sort will put it: a line on the frame, not between rows, and a drop that joins the frame.
+- **current** — row-drag reads the row under the pointer and its sibling before it in the graph, so in a sorted frame the line is drawn between two rows and the row lands in graph order, then is drawn where the sort puts it.
+- **impact** — In a sorted frame a drop does not land where its line was; the move is still one write, and undo takes it back.
+- **closes** — dropOver takes the frame's view (frameViewOf, its sort and group), and a drop over a sorted or grouped frame's rows lands in the frame with the line on the frame's own row.
+- **node** — `01M7D25CX9D6V64G19PYJJYCXM`
+
 ### GAP: a DST scenario is not hermetic: KB_DATA moved under it changes its store
 
 - **expected** — A seeded DST history replays to a byte-identical store every time (dst.test.ts, each committed seed replays to a byte-identical store), on any machine and under any load, whatever else the process does meanwhile
@@ -348,15 +356,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — One large file can grow a shard past its budget and, past ~2.5x, past the job's timeout, so that shard is cancelled and its files are retested every run.
 - **closes** — packageShards packs mutants by line range instead of by file, emitting file:start-end entries in a shard's mutate.
 - **node** — `01M558MRWHR92991GYFRC5WWXY`
-
-### GAP: a node can be moved only one step at a time
-
-- **expected** — A node is moved anywhere in the graph from the editor: to another parent picked by name, or by dragging the row.
-- **current** — Move up/down and indent/outdent move a row one step (editing-intents.ts); rows are not draggable, and the only drop handler takes files.
-- **impact** — Moving a node to a distant parent takes many keystrokes, or kb mv from the CLI.
-- **closes** — A 'Move to…' palette step that picks the new parent, and row drag and drop, both through node.move.
-- **rule** — Editor first (the editor is the main human editing surface)
-- **node** — `01M5CRYPQ3CGJKP20TQFADPRH1`
 
 ### GAP: a number knob's range is the declaration's, not data on its field node
 
@@ -2159,6 +2158,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — On a hosted kb ui behind a socket, the CLI and kb mcp cannot drive the person's tabs (ui.screen and its commands) or find the running server; the browser, through the proxy, is unaffected
 - **closes** — A presence record that is a loopback origin or a socket path (validated as the origin is), with servingUi and the screen relay fetching over the socket
 - **node** — `01M5CMVS78WRBD760MNSS3BMJJ`
+
+### GAP: a node can be moved only one step at a time
+
+- **expected** — A node is moved anywhere in the graph from the editor: to another parent picked by name, or by dragging the row.
+- **current** — Move up/down and indent/outdent move a row one step (editing-intents.ts); rows are not draggable, and the only drop handler takes files.
+- **impact** — Moving a node to a distant parent takes many keystrokes, or kb mv from the CLI.
+- **closes** — A 'Move to…' palette step that picks the new parent, and row drag and drop, both through node.move.
+- **rule** — Editor first (the editor is the main human editing surface)
+- **node** — `01M5CRYPQ3CGJKP20TQFADPRH1`
 
 ### GAP: a one-off routine cannot be ticked done or skipped in the calendar
 

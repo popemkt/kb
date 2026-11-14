@@ -112,7 +112,6 @@ const EDITING_STEPS: EditingSteps = {
   deleteEmptyRow,
   mergeIntoPrevious: ({ nodeId, instanceKey }) => void mergeWithPrevious(nodeId, instanceKey),
   mergeNextIn,
-  // GAP [[01M5CRYPQ3CGJKP20TQFADPRH1]] a row moves one step at a time; there is no move-to and no drag
   moveUp: ({ nodeId }) => void browserHost().writes.moveNodesUp([nodeId]),
   moveDown: ({ nodeId }) => void browserHost().writes.moveNodesDown([nodeId]),
   toggleCollapse: ({ nodeId }) => useOutlineStore.getState().toggleCollapse(nodeId),

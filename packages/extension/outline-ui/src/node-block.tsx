@@ -22,6 +22,7 @@ import {
   usePane,
 } from "@kb/ui-sdk";
 import { useOutlineStore, outlineNodes } from "./outline.store";
+import { pressRowBullet } from "./row-drag";
 import { createTransientNode } from "./editing-writes";
 
 import { FieldsSection } from "./fields-section";
@@ -110,6 +111,12 @@ export const NodeBlock = memo(function NodeBlock({
     browserHost().setNodePaletteOpen(true);
   }, [selectNode, nodeId, instanceKey]);
 
+  // A press on the bullet that travels drags the row (`row-drag`).
+  const handleBulletPress = useCallback(
+    (e: React.PointerEvent<HTMLElement>) => pressRowBullet(e, nodeId, instanceKey),
+    [nodeId, instanceKey],
+  );
+
   const handleActivate = useCallback(
     (cursorPos?: number) => {
       activateNode(nodeId, cursorPos, instanceKey);
@@ -191,6 +198,7 @@ export const NodeBlock = memo(function NodeBlock({
                 isRef={chrome.bulletIsRef}
                 onClick={handleBulletClick}
                 onMenu={handleBulletMenu}
+                onPress={handleBulletPress}
               />
             }
             content={
