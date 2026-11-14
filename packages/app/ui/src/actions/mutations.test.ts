@@ -25,7 +25,7 @@ describe("mutations invoke shared actions", () => {
   });
 
   it("indent sends one node.update and changes the local tree", async () => {
-    await mutations.indentNode("n.child-a2");
+    await mutations.indentNodes(["n.child-a2"]);
     expect(outlineNodes().get("n.child-a1")?.children).toContain("n.child-a2");
     await waitForBrowserPushes();
     expect(post).toHaveBeenCalledWith({

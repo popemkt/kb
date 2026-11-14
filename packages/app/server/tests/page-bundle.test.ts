@@ -182,8 +182,24 @@ const DATASCRIPT = /cljs\.core/;
 // SDK's provideIngest) measure 1,887,619; the budget keeps about 1.4 KB over
 // that. The procedure page (its route, the lazy page behind it, and one
 // shared Button for the action review and the page) measures 1,890,119; the
+// budget keeps about 1.4 KB over that. Field display (the show reader, the
+// hidden-fields fold and pinned fields first) measures 1,893,610, and tag
+// behaviours (a row drawn by its title, ref labels and picker rows by it,
+// and the model's one reader of child tags, fill from and titles the page's
+// write plans run) 1,896,009. A tag's box (the row's box, its ⌘Enter
+// intents, the Toggle check command and the model's checkOf and checkEdits)
+// measures 1,899,675 with the palette listing nodes by title; the budget
+// keeps about 1.4 KB over that. The outline editor line (a range of rows and
+// its one-write gestures, Move to… and the row drag, the text's `#`, `>` and
+// `@` triggers, references opened in place and Remove reference, Count
+// words, Copy node ID and Recent, and the seven icons their commands show)
+// measures 1,948,778 with them; the budget keeps about 1.4 KB over that.
+// The views line (the field calendar, the table's calculation row and
+// detail view, board lanes and the ⌘⇧←/→ group move in collections-ui and
+// outline-ui, the shared calendar kit, and the query parser `requirementsOf`
+// reads to fill a row a view adds) measures 1,986,130 with them; the
 // budget keeps about 1.4 KB over that.
-const EAGER_BUDGET_BYTES = 1_891_500;
+const EAGER_BUDGET_BYTES = 1_987_600;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

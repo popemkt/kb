@@ -30,6 +30,7 @@ export type { RoutineSettings, OccurrenceSettings } from "./config.ts";
 export { instancePlace } from "./projection.ts";
 export {
   calendarEntries,
+  nextEntry,
   seriesDays,
   instantOf,
   wallClock,
@@ -64,6 +65,8 @@ export {
   CALENDAR_MODES,
   CalendarParams,
   RoutinesCalendarView,
+  EventParams,
+  RoutinesEventView,
   SyncParams,
   RoutinesSyncView,
   SYNC_PATH,

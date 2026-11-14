@@ -89,7 +89,7 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
     });
 
     await act(async () => {
-      await mutations.indentNode("n.root-b");
+      await mutations.indentNodes(["n.root-b"]);
     });
 
     const s1 = useOutlineStore.getState();

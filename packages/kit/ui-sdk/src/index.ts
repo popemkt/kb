@@ -75,6 +75,7 @@ export { ViewScripts } from "./components/view-scripts";
 // The UI points: routes, views, sidebar sections, docks, node commands and
 // palette steps, and the slot one view embeds another through.
 export {
+  asOneWrite,
   type Command,
   type CommandContext,
   CommandPoint,
@@ -195,6 +196,7 @@ export {
   contextualTargetOf,
   isContextualRef,
   rowText,
+  rowTitle,
   rowTextOf,
   rowTextReadOnlyReason,
   shownNode,
@@ -242,14 +244,16 @@ export {
   childInstanceKey,
   hostOfInstance,
   isProjectedInstance,
-  isQueryResultInstance,
+  isProjectedRow,
   MAIN_OUTLINE_HOST,
   outlineHostOfPane,
   outlineInstanceKey,
   pageTitleInstanceKey,
-  queryResultInstanceKey,
+  projectedRowKey,
+  projectedRowOf,
 } from "./lib/instance-key";
 export { isPinned, listPinnedNavItems, pinnedRefIds, pinnedRefIdsFor } from "./lib/pinned";
+export { rowsAbout, selectionRoots } from "./lib/selection";
 export {
   closesCycleOf,
   nodeCandidates,
@@ -282,6 +286,7 @@ export {
   groupChildrenForBoard,
   resolveTableColumns,
   sortChildrenForTable,
+  type GroupSteps,
   type TableColumnSpec,
 } from "./lib/frame-layout";
 export { frameRows, type FrameRowsInput } from "./lib/frame-rows";
@@ -294,7 +299,14 @@ export {
   topLevelCapture,
 } from "./lib/capture-target";
 export { type Landing, LandingService, land, landOnce, stayHome } from "./lib/landing";
-export { type DateTarget, DateTargetService, dateTarget, leadsNowhere } from "./lib/date-target";
+export {
+  type DateTarget,
+  DateTargetService,
+  dateTarget,
+  datesLead,
+  leadsNowhere,
+} from "./lib/date-target";
+export { refTrigger, type TextTrigger } from "./lib/text-triggers";
 export {
   type FieldEditorProps,
   type FieldRowProps,
@@ -303,12 +315,14 @@ export {
   useFieldEditor,
 } from "./lib/field-editor";
 export {
+  type FrameRowProps,
   type FrameRowTextProps,
   type FrameSubject,
   FrameSubjectContext,
+  type RowCondition,
   useFrameSubject,
 } from "./lib/frame-subject";
-export { isReferenceRow, resolveRowChrome } from "./lib/row-chrome";
+export { isReferenceRow, resolveRowChrome, resolveRowRows } from "./lib/row-chrome";
 export { type GraphRead, type GraphSource } from "./lib/graph-read";
 export {
   type GraphChange,
@@ -328,7 +342,7 @@ export {
   type PageProjection,
   PageProjectionService,
 } from "./lib/page-ports";
-export type { PageWrites } from "./lib/page-writes";
+export type { MatchingAdd, MovePlace, PageWrites } from "./lib/page-writes";
 export {
   type FieldContext,
   fieldContextOf,
@@ -512,6 +526,7 @@ export {
   UNTAGGED_COLOR,
 } from "./lib/tag-color";
 export { hasText, textOr } from "./lib/text";
+export { plainText } from "./lib/plain-text";
 export {
   type Appearance,
   appearanceOf,
@@ -551,7 +566,8 @@ export {
   TIMING_FALLBACK,
 } from "./lib/timing";
 export { setToastSink, toast } from "./lib/toast";
-export { usePickerKeys } from "./lib/use-picker";
+export { copyText } from "./lib/copy";
+export { useFocusReturn, usePickerKeys } from "./lib/use-picker";
 export { useNarrowViewport } from "./lib/viewport";
 export { BREAKOUT_CLASS, useBreakoutShift } from "./lib/breakout";
 export { useLoadSeed } from "./lib/load-seed";

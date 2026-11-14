@@ -107,6 +107,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Draw links as screen-space quads (three's Line2NodeMaterial / LineSegments2 with a per-instance width updated in place, or a TSL quad strip), sized by the square root of weight, keeping the one-draw batch and no per-frame allocation.
 - **node** — `01M3AZSFJ9A8K8FYGHF5ADEAPT`
 
+### GAP: a # or > pick in the text is two writes, the text's and the step's
+
+- **expected** — A trigger pick that writes (# tags the row, > adds a field) is one write with the text it takes out, so one undo takes back both (DESIGN-UI.md → Triggers in the text; asOneWrite).
+- **current** — The text host lays the pick into the text through its own text write, then the step commits its own one write (stepTrigger in outline-triggers.ts); undo takes the tag or field back first, and the text second.
+- **impact** — Undoing a # or > pick takes two steps, and the first leaves #query or >query back in the row without its picker.
+- **closes** — TriggerPick.write returns a planned mutation the host applies together with its text write (mutations.together), or the text host's write joins the step's plan.
+- **node** — `01M7D4AYQFJGZQGJZ3KD7M388R`
+
 ### GAP: a 3D capture briefly shows two frames
 
 - **expected** — no visible flash
@@ -122,6 +130,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Such a backdrop could cost the page more than it declares and nothing would say so; the studio shows its readout as not metered.
 - **closes** — A frame meter over the DOM backdrops (a PerformanceObserver over long animation frames under the head) and over the Unicorn runtime's loop, reporting data-frame-ms as the GPU host does.
 - **node** — `01M6RT9R6AXGVYZWCSTG26EET8`
+
+### GAP: a board wider than its pane cuts its last columns off with no sign that it scrolls
+
+- **expected** — a board whose columns run past the pane shows that more lie beyond it: an edge fade or a scroll hint on the side that scrolls, gone at the end
+- **current** — the board scrolls sideways (overflow-x-auto) and cuts the last column at the pane edge with nothing showing more is there; main does this too, and every option now having a column (Tana views line) makes it more often
+- **impact** — at 1280px the Blocked and No Status columns of a four-option board are cut off and look missing
+- **closes** — one edge-fade mechanism for horizontal scrollers in the kit, read by the board (and lanes and cards)
+- **node** — `01M7DAJSTW3PP7375FECAA2DHS`
 
 ### GAP: a call's actor and approval are declared by the caller, not proven
 
@@ -187,6 +203,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Per-surface invocation grammars: command lines of the hook and workflow run steps, &&-segments of package.json scripts, rule keys of .oxlintrc.json; an invocation matches one whole.
 - **node** — `01M56TFECRSQN243PAEB6XGHRY`
 
+### GAP: a checklist row shows no box until a tag ties one to its done field
+
+- **expected** — A row the checklist family makes from a pasted Markdown checklist shows its done as a box, as Tana draws a task (DESIGN-UI.md → A tag's box).
+- **current** — A box is a tag's (sys.f.tag.check), and checklist rows carry checklist.f.done but no tag, so they show done as a field row until a person tags them with a tag whose check is done.
+- **impact** — Pasting a checklist gives rows with a checkbox field rather than boxed rows; a person tags them, or adds the check to a tag of their own, to see boxes.
+- **closes** — The checklist family (kb-extensions) declares a checklist-item tag whose check is its done field, and tags the rows its paste makes; no change in core.
+- **node** — `01M7CZXE92JQP5495R9XJPMM8N`
+
 ### GAP: a clipped frame member's 2D selection handles are cut with it
 
 - **expected** — A frame clips what it holds, but the selection chrome of a selected member (outline halo, resize and rotate handles, ports) is drawn whole over the frame edge, in its own overlay.
@@ -218,6 +242,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — even with contribution keys in inject, this edge would read as missing in the registry while the call would succeed through kb ui
 - **closes** — P4 of docs/research/2026-10-29-plugin-codependency.md, after the owner chooses between resolving against the catalog the invoke core reaches and composing a needed family beside its caller
 - **node** — `01M63C0M1WRKY0Q09AGK9NK7NJ`
+
+### GAP: a drag's drop line ignores a frame view's sort
+
+- **expected** — A row dragged over the rows of a frame whose view sorts or groups them shows where the sort will put it: a line on the frame, not between rows, and a drop that joins the frame.
+- **current** — row-drag reads the row under the pointer and its sibling before it in the graph, so in a sorted frame the line is drawn between two rows and the row lands in graph order, then is drawn where the sort puts it.
+- **impact** — In a sorted frame a drop does not land where its line was; the move is still one write, and undo takes it back.
+- **closes** — dropOver takes the frame's view (frameViewOf, its sort and group), and a drop over a sorted or grouped frame's rows lands in the frame with the line on the frame's own row.
+- **node** — `01M7D25CX9D6V64G19PYJJYCXM`
 
 ### GAP: a DST scenario is not hermetic: KB_DATA moved under it changes its store
 
@@ -349,14 +381,13 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — packageShards packs mutants by line range instead of by file, emitting file:start-end entries in a shard's mutate.
 - **node** — `01M558MRWHR92991GYFRC5WWXY`
 
-### GAP: a node can be moved only one step at a time
+### GAP: a node's title reaches its row, ref values, search and the picker, not every place the page names a node
 
-- **expected** — A node is moved anywhere in the graph from the editor: to another parent picked by name, or by dragging the row.
-- **current** — Move up/down and indent/outdent move a row one step (editing-intents.ts); rows are not draggable, and the only drop handler takes files.
-- **impact** — Moving a node to a distant parent takes many keystrokes, or kb mv from the CLI.
-- **closes** — A 'Move to…' palette step that picks the new parent, and row drag and drop, both through node.move.
-- **rule** — Editor first (the editor is the main human editing surface)
-- **node** — `01M5CRYPQ3CGJKP20TQFADPRH1`
+- **expected** — Every surface that names a node (breadcrumbs, the zoomed page's title, tab and pane titles, graph and canvas labels, backlinks) names it by nodeTitleOf, as rows, ref values, search and the node picker do (DESIGN-UI.md → Titles from fields).
+- **current** — Those surfaces read the node's stored text: a node whose tag builds a title is drawn by its title in its row and named by its text in the breadcrumb above it.
+- **impact** — A titled node reads two ways on one screen; nothing is written wrongly, since a title is display only.
+- **closes** — One page-side name reader (rowTitle's reader by id) that every naming surface takes in place of node.text, and the graph and canvas label paths moved onto it.
+- **node** — `01M7CYP03QT4AWT994NSXQV35B`
 
 ### GAP: a number knob's range is the declaration's, not data on its field node
 
@@ -406,6 +437,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — An isolated backdrop host behind BackdropPoint for repository extensions, with the frame meter and knob values passed across, held by the shared backdrop contract
 - **node** — `01M6WVFMGB5PP2AANF0E5R921V`
 
+### GAP: A range of rows cannot be selected by touch
+
+- **expected** — A finger selects a range of outline rows as Shift+arrow and Shift-click do: a long press on a row starts a selection there, and a tap on another row while it lasts moves its head
+- **current** — A range is made with Shift+Up/Down or Shift-click only; the outline rows have no long-press recognizer (the canvas's LONG_PRESS_MS recognizer is the canvas stage's)
+- **impact** — On a phone or tablet the bulk commands (tag, untag, set field, pin, delete, block moves) reach one row at a time
+- **closes** — The outline row touch recognizer the row drag and drop brings (item 2 of the Tana outline-editor line), its long press ending in extendSelection
+- **node** — `01M7CY02KHSSAAENWJ67EA1EPH`
+
 ### GAP: a ref value's bullet follows instead of expanding the target inline
 
 - **expected** — A ref value's bullet expands the target's children inline under the field, the way a reference row's bullet expands its target.
@@ -413,6 +452,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Reading a referenced node's content from a field means leaving the page; the outline's expand gesture does not apply to values.
 - **closes** — An instance key for a value slot so the target's children can render under it, then the bullet toggles expansion like a row bullet.
 - **node** — `01M3KA38YPZZFKQRZM9ZP6C99F`
+
+### GAP: a reference opened in place shows its target as the target's own open or closed choice
+
+- **expected** — Opening a reference in place shows its target open one level by default, as screen state of that open reference alone, never stored
+- **current** — The outline's expansion is one choice per node (toggleCollapse, withExpansion): the opened reference draws its target open or closed as every row of that node is, so a target closed in the tree opens closed (visible-instances.ts)
+- **impact** — To read or edit what the target holds, the reader opens it once more, and that opens it in the tree too, and is saved as the node's choice
+- **closes** — Expansion keyed by row instance where a row's choice can differ from its node's (projected rows first), so an opened reference can default open without touching the node's choice
+- **node** — `01M7D8AP4A4W6S2X5T1DSE9D77`
 
 ### GAP: a reference's target cannot be changed from the UI
 
@@ -660,6 +707,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — an in-page approval prompt shared with the sidebar agent (roadmap step 5)
 - **node** — `01M3S5DDJ7MP2VZ4WJB007RRR5`
 
+### GAP: an empty number slot draws its editor starter, 0, as if it were a value
+
+- **expected** — an empty number field reads as empty (the italic "Empty" a status or text slot shows), and the editor opens on a blank input
+- **current** — the number kind starts its editor from {t:num, v:0} (FIELD_TYPE_SPEC in ui-sdk lib/field-type.ts) and its isBlank reads that as filled, so every empty number slot shows 0; the Add field palette step also writes that 0 to make the row appear
+- **impact** — a card or row reads Points 0 where nothing is stored; a reviewer took a new board card for one with a value set
+- **closes** — split the starter an editor shows from the value Add field writes: the number slot draws blank when no value is stored, and the Add field step writes what makes an empty row appear without a number
+- **node** — `01M7DAJCF878DEPVQHE6R7FJT9`
+
 ### GAP: an exported canvas SVG carries the default design system's tokens
 
 - **expected** — An exported SVG carries the token values of the design system core's setting chooses.
@@ -848,8 +903,8 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 ### GAP: core seeds the view-as command nodes for every family's views
 
-- **expected** — each family seeds the node commands for its own views (the outline its list, collections its table, board and cards)
-- **current** — core's seed declares sys.cmd.view-as-{list,table,board,cards}
+- **expected** — each family seeds the node commands for its own views (the outline its list, collections its table, board, cards and list with detail)
+- **current** — core's seed declares sys.cmd.view-as-{list,table,board,cards,detail}
 - **impact** — core names the outline's and the collections family's views; with collections off its view-as commands are still seeded
 - **closes** — each family's declaration seeds its view-as commands, and core's seed drops them
 - **node** — `01M536CGS8JJ7XMG3F738WSNYK`
@@ -1388,7 +1443,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: query-result rows are not keyed per pane
 
 - **expected** — query-result rows carry their outline host in their instance key, like other rows
-- **current** — ref:query: keys carry no host, and the keyboard walks them in the main pane's outline
+- **current** — ref:row: keys name their source, not their host, and the keyboard walks them in the main pane's outline
 - **impact** — the same query open in two panes shares row instances; keyboard navigation in query results goes to the main pane
 - **closes** — put the host in the query-row instance key
 - **node** — `01M411FPC839XBJJ873V1VYYYD`
@@ -1416,6 +1471,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Each site can render stale values or cascade renders. The ratchet stops new ones, but the existing 59 stay until drained.
 - **closes** — Drain per component with the UI suite (bun run test:ui) as the guard, re-snapshot the ledger, and promote each rule to error when its count reaches 0.
 - **node** — `01M35NJQPKW5YVNVFFAFAYXPFH`
+
+### GAP: Recent nodes are one browser's, not a person's
+
+- **expected** — Recent follows the person: the nodes they last stood at on any device, if cross-device recents come to matter
+- **current** — The sidebar's Recent section reads localStorage kb-recent (outline-ui recents.ts), per browser, screen state like the expansion and the zoom; the store, the CLI and MCP never see it
+- **impact** — Another device, browser or profile starts with an empty Recent; clearing site data forgets it
+- **closes** — A per-person screen-state home that syncs (not the graph: viewing must not write the store), read by the section in place of localStorage
+- **node** — `01M7D6DPTPPKEY515V7J3FJDM4`
 
 ### GAP: relations read world-aligned bounds, not volumes
 
@@ -1515,6 +1578,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Search cost grows linearly with the graph and no ranking is possible.
 - **closes** — Gate on Bun's FTS5 close() segfault (oven-sh/bun#37044); adopt once a SQLite index exists.
 - **node** — `01M1M08X7037FH9Z0Y5G1RFRXX`
+
+### GAP: Set field… offers only fields that declare an option set
+
+- **expected** — Set field… over one row or a range offers every field and writes a value of the field's own type to each row: an option picked from a set, or a typed value (text, number, date, a node) read once and written to every row
+- **current** — The outline.set-field step lists only the options of fields that declare an option set (declaresOptionSet), as 'field: option'; any other field is set row by row through Add field
+- **impact** — Bulk-setting a date, a number or a reference across a selection takes one gesture per row
+- **closes** — A Set field step that, after the field is picked, opens the field's own value editor once (the field row's editor, through the picker step) and writes its value to every target in one asOneWrite
+- **node** — `01M7CY0205F8GSDTNMSSG35S97`
 
 ### GAP: Shift-drag on empty space in 3D does not marquee-select
 
@@ -2055,6 +2126,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — an Origin/Host check on /api/action and /ws, with an allow-list for local tools
 - **node** — `01M3R2KDKN1EFE87R1K8CG3NPE`
 
+### GAP: ⌘⇧←/→ moves only the selection's head to the next group, not a range's rows
+
+- **expected** — Over a range, the group move acts on the rows as DESIGN-UI.md → A selection is a range of rows says: it sets a field, so on each selected row (or, as a move, on the top rows), in one write
+- **current** — selection-actions' moveToGroup writes PageWrites.moveToGroup(nodeId, …) for the head alone; the other rows of the range stay in their groups
+- **impact** — A range on a board or calendar moved with ⌘⇧←/→ splits: the head moves and the rest stay, unlike Tab, the moves up and down, and Check
+- **closes** — Decide each-row vs top-rows for the group move; PageWrites.moveToGroup takes ids, as moveNodesUp did, planned as one node.batch; a range test through the keymap
+- **node** — `01M7DNQY8PGW8XKYKMTQT45DEQ`
+
 ### GAP: 23 ui test files hand-copy the outline store reset literal
 
 - **expected** — One shared reset fixture — resetOutlineStore() in @kb/ui's test support — that every suite calls, so the store's shape is stated once.
@@ -2143,6 +2222,23 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — On a hosted kb ui behind a socket, the CLI and kb mcp cannot drive the person's tabs (ui.screen and its commands) or find the running server; the browser, through the proxy, is unaffected
 - **closes** — A presence record that is a loopback origin or a socket path (validated as the origin is), with servingUi and the screen relay fetching over the socket
 - **node** — `01M5CMVS78WRBD760MNSS3BMJJ`
+
+### GAP: a live preview stands in the one preview height every family starts from (180px), which an event card outgrows
+
+- **expected** — A family whose preview is its own controls says how tall it starts (the events card about 212px, more when its instance shows a state), so its last line is in view without a person setting the height
+- **current** — DISPLAY_DEFAULTS.height (180) is seeded for every view that previews; the events card at that height scrolls its Edit event / Open in outline line inside the box until a person raises sys.f.display.routines.event.preview.height
+- **impact** — A first look at an event preview shows its last line cut; the controls stay reachable by scrolling and by Tab, and one setting fixes it per store
+- **closes** — A view key or declaration states its preview default height and displaySettingValues seeds it; or the live preview box sizes to its content within the held bounds
+- **node** — `01M7CHAFY5WMRYR4QKXGN26TS3`
+
+### GAP: a node can be moved only one step at a time
+
+- **expected** — A node is moved anywhere in the graph from the editor: to another parent picked by name, or by dragging the row.
+- **current** — Move up/down and indent/outdent move a row one step (editing-intents.ts); rows are not draggable, and the only drop handler takes files.
+- **impact** — Moving a node to a distant parent takes many keystrokes, or kb mv from the CLI.
+- **closes** — A 'Move to…' palette step that picks the new parent, and row drag and drop, both through node.move.
+- **rule** — Editor first (the editor is the main human editing surface)
+- **node** — `01M5CRYPQ3CGJKP20TQFADPRH1`
 
 ### GAP: a one-off routine cannot be ticked done or skipped in the calendar
 

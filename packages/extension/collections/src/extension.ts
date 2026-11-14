@@ -1,7 +1,7 @@
 /**
  * The collections family's declaration and its shared plugin (DESIGN.md →
  * Extension families). A collection view lays a frame's rows out as a node
- * set (a table, a board, cards) inside the outline, which hosts the frame
+ * set (a table, a board, cards, a list with detail, a calendar) inside the outline, which hosts the frame
  * and edits its rows. The family is optional and on by default: switched
  * off, a frame whose view node names one of its views shows that it cannot
  * be shown here, and its view nodes stay. Both hosts' entries are
@@ -10,17 +10,30 @@
  */
 import { declarationPlugin, defineExtension, viewDef } from "@kb/contracts";
 import type { Plugin } from "@kb/plugin";
-import { CollectionBoardView, CollectionCardsView, CollectionTableView } from "./view.ts";
+import {
+  CollectionBoardView,
+  CollectionCalendarView,
+  CollectionCardsView,
+  CollectionDetailView,
+  CollectionTableView,
+} from "./view.ts";
 
 export const collectionsExtension = defineExtension({
   name: "collections",
   label: "Collections",
   manifest: {
-    description: "Table, board and card views of a node's children, inside the outline.",
+    description:
+      "Table, board, card, list-with-detail and calendar views of a node's children, inside the outline.",
   },
   tags: ["collections"],
   optional: { byDefault: "on" },
-  views: [viewDef(CollectionTableView), viewDef(CollectionBoardView), viewDef(CollectionCardsView)],
+  views: [
+    viewDef(CollectionTableView),
+    viewDef(CollectionBoardView),
+    viewDef(CollectionCardsView),
+    viewDef(CollectionDetailView),
+    viewDef(CollectionCalendarView),
+  ],
 });
 
 /** The collections family's shared plugin: its declaration's views, on either host. */

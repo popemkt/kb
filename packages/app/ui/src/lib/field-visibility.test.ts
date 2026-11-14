@@ -7,11 +7,9 @@ import {
   schemaOfGraph,
 } from "@kb/ui-sdk";
 import { describe, expect, it } from "vitest";
-import { present } from "@kb/model";
+import { present, type PropValue } from "@kb/model";
 import { bundledSeed } from "@kb/bundled";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { planSetFieldHidden } from "@/actions/plan";
-import { useGraphStore } from "@/stores/graph.store";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {
@@ -21,6 +19,11 @@ function schemaFor(nodes: NodeMap): SchemaIndex {
 function mapFromFixture() {
   return wireToOutlineMap(fixtureGraph.nodes, new Set());
 }
+
+/** A field node's show option, as props. */
+const show = (option: string): Record<string, PropValue[]> => ({
+  "sys.f.show": [{ t: "ref", v: option }],
+});
 
 describe("field visibility", () => {
   it("hides the fields whose nodes say hidden, a system field's as much as a person's", () => {
@@ -163,45 +166,88 @@ describe("field visibility", () => {
     );
   });
 
-  it("surfaces color/hidden template slots on tag nodes even when unset", () => {
+  it("surfaces the color template slot on tag nodes even when unset", () => {
     const nodes = mapFromFixture();
     const tag = present(nodes.get("tag.todo"), "tag.todo");
     const visible = resolveVisibleProps(tag, schemaFor(nodes));
-    expect(visible.map((p) => p.fieldId)).toEqual(
-      expect.arrayContaining(["sys.f.color", "sys.f.hidden"]),
-    );
-    const color = visible.find((p) => p.fieldId === "sys.f.color");
-    expect(color?.empty === true || (color?.values.length ?? 0) >= 0).toBe(true);
+    expect(visible.map((p) => p.fieldId)).toEqual(expect.arrayContaining(["sys.f.color"]));
   });
 
-  it("planSetFieldHidden sets and unsets sys.f.hidden on field nodes", () => {
-    useGraphStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
-    const wire = useGraphStore.getState().wireNodes;
+  describe("show and pinned (DESIGN.md → Data model → field display)", () => {
+    const at = "";
+    const fieldNode = (id: string, props: Record<string, PropValue[]> = {}) => ({
+      id,
+      text: id,
+      children: [],
+      props: { "sys.f.type": [{ t: "ref" as const, v: "sys.field" }], ...props },
+      createdAt: at,
+      updatedAt: at,
+    });
+    const pinned: Record<string, PropValue[]> = { "sys.f.pinned": [{ t: "bool", v: true }] };
+    const graph = (member: Record<string, PropValue[]>) =>
+      wireToOutlineMap(
+        [
+          fieldNode("sys.f.type", show("sys.show.never")),
+          fieldNode("f.plain"),
+          fieldNode("f.filled", show("sys.show.filled")),
+          fieldNode("f.never", show("sys.show.never")),
+          fieldNode("f.pinned", pinned),
+          {
+            id: "t.task",
+            text: "task",
+            children: [],
+            props: {
+              "sys.f.type": [{ t: "ref" as const, v: "sys.tag" }],
+              "sys.f.fields": ["f.plain", "f.filled", "f.never", "f.pinned"].map((v) => ({
+                t: "ref" as const,
+                v,
+              })),
+            },
+            createdAt: at,
+            updatedAt: at,
+          },
+          {
+            id: "n.task",
+            text: "a task",
+            children: [],
+            props: { "sys.f.type": [{ t: "ref" as const, v: "t.task" }], ...member },
+            createdAt: at,
+            updatedAt: at,
+          },
+        ],
+        new Set(),
+      );
+    const resolve = (member: Record<string, PropValue[]>, debug = false) => {
+      const nodes = graph(member);
+      return resolveVisibleProps(present(nodes.get("n.task"), "n.task"), schemaFor(nodes), {
+        showDebugFields: debug,
+      });
+    };
 
-    const hide = planSetFieldHidden(wire, "field.status", true);
-    expect(hide.actions[0]).toEqual({
-      id: "node.update",
-      input: {
-        id: "field.status",
-        setProps: [{ field: "sys.f.hidden", value: { t: "bool", v: true } }],
-      },
+    it("puts pinned fields first, the rest in template order, and leaves out never", () => {
+      expect(resolve({}).map((p) => p.fieldId)).toEqual(["f.pinned", "f.plain", "f.filled"]);
     });
 
-    const hidden = present(
-      wire.find((node) => node.id === "field.status"),
-      "field.status",
-    );
-    const merged = [
-      ...wire.filter((node) => node.id !== "field.status"),
-      { ...hidden, props: { ...hidden.props, "sys.f.hidden": [{ t: "bool" as const, v: true }] } },
-    ];
-    const show = planSetFieldHidden(merged, "field.status", false);
-    expect(show.actions[0]).toEqual({
-      id: "node.update",
-      input: {
-        id: "field.status",
-        unsetProps: [{ field: "sys.f.hidden", value: { t: "bool", v: true } }],
-      },
+    it("folds an empty field shown when filled, and draws it once it holds a value", () => {
+      expect(resolve({}).find((p) => p.fieldId === "f.filled")?.folded).toBe(true);
+      const filled = resolve({ "f.filled": [{ t: "str", v: "x" }] }).find(
+        (p) => p.fieldId === "f.filled",
+      );
+      expect(filled?.folded).toBeUndefined();
+      expect(filled?.values).toEqual([{ t: "str", v: "x" }]);
+    });
+
+    it("folds nothing while debug fields show, and draws never as a debug row", () => {
+      const debug = resolve({ "f.never": [{ t: "str", v: "y" }] }, true);
+      expect(debug.some((p) => p.folded === true)).toBe(false);
+      expect(debug.find((p) => p.fieldId === "f.never")?.debug).toBe(true);
+    });
+
+    it("reads hidden as show never, and an absent or unknown show as always", () => {
+      const nodes = graph({});
+      expect(isFieldHidden("f.never", schemaFor(nodes))).toBe(true);
+      expect(isFieldHidden("f.filled", schemaFor(nodes))).toBe(false);
+      expect(isFieldHidden("f.plain", schemaFor(nodes))).toBe(false);
     });
   });
 });

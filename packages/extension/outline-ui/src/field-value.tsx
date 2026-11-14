@@ -33,7 +33,8 @@ import {
 } from "@kb/ui-sdk";
 import { useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import { parseDateInput, parseDay } from "@kb/model";
-import { CheckIcon, WarningIcon } from "@phosphor-icons/react";
+import { WarningIcon } from "@phosphor-icons/react";
+import { CheckMark } from "./check-mark";
 import { FieldPicker } from "./field-picker";
 import { longDateLabel, relativeDateLabel } from "./date-display";
 import { formatNumber } from "./number-format";
@@ -416,16 +417,9 @@ export function CheckboxSurface({ value }: ValueSurfaceProps) {
         role="checkbox"
         aria-checked={on}
         aria-label={on ? "Checked" : "Unchecked"}
-        className={cn(
-          "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-xs border",
-          "transition-colors duration-100 outline-none",
-          "focus-visible:ring-2 focus-visible:ring-primary/60",
-          on
-            ? "border-primary/70 bg-primary/10 text-primary"
-            : "border-foreground/25 hover:border-foreground/45",
-        )}
+        className="group/check flex shrink-0 rounded-xs outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
       >
-        {on && <CheckIcon size={10} weight="bold" aria-hidden />}
+        <CheckMark checked={on} />
       </button>
     </span>
   );

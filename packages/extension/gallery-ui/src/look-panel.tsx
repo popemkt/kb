@@ -25,8 +25,7 @@ import {
   type ComposeTarget,
   type LookDraft,
 } from "@kb/gallery";
-import { assetSrcUrl, cn, navigate, toast } from "@kb/ui-sdk";
-import { copyText } from "./copy";
+import { assetSrcUrl, cn, copyText, navigate, toast } from "@kb/ui-sdk";
 import { currentDraft, openLook, toggleDraftStyle, updateDraft, useDraft } from "./draft";
 import type { ComposerFrame } from "./frame";
 import { MODEL_NEEDS } from "./model";
@@ -59,7 +58,7 @@ function Head({
           type="button"
           disabled={text === ""}
           className={LINK}
-          onClick={() => copyText(text, label)}
+          onClick={() => void copyText(text, label)}
         >
           Copy
         </button>
@@ -314,7 +313,7 @@ function Palette({ draft, frame }: { readonly draft: LookDraft; readonly frame: 
               aria-label={hex}
               className="size-7 rounded-md border border-border"
               style={{ background: hex }}
-              onClick={() => copyText(hex, "Colour")}
+              onClick={() => void copyText(hex, "Colour")}
             />
           ))}
         </div>

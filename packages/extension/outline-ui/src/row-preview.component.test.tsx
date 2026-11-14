@@ -3,9 +3,11 @@
  * opening): whether a display option is on for a node — its own toggle,
  * else its view's family's setting, and never where the opening does not
  * offer it; the preview, the opening's view at placement `preview` in a
- * box of its family's height, drawn when it is turned on after its row
- * mounted too; and "Open in …" as a segment of the tag's chip, which costs
- * the row nothing.
+ * box of its family's height (at least that, when it is live), drawn when it is turned on after its row
+ * mounted too, a button that opens the node when it is still and a region
+ * of the view's own controls, which take the keyboard from the outline,
+ * when it is live; and "Open in …" as a segment of the tag's chip, which
+ * costs the row nothing.
  */
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -28,24 +30,50 @@ import {
   type OutlineNode,
   type TagOpening,
 } from "@kb/ui-sdk";
-import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
+import {
+  installDomGlobals,
+  testBrowserHost,
+  testHostPlugin,
+  type InstalledDom,
+} from "@kb/ui-test-kit";
+import { useOutlineStore } from "./outline.store";
 import { RowPreview } from "./row-preview";
 import { displayShownOf, type RowOpening } from "./row-opening";
 
-const PreviewedView = viewKey("test.previewed", "Board", NoParams, undefined, { preview: true });
+const PreviewedView = viewKey("test.previewed", "Board", NoParams, undefined, {
+  preview: "still",
+});
+const LiveView = viewKey("test.live", "Card", NoParams, undefined, { preview: "live" });
+const pressedInLive = vi.fn();
 
 const previewPlugin = definePlugin({
   name: "test",
   apply: (ctx) =>
-    Effect.asVoid(
-      ctx.contribute(
-        ViewPoint,
-        provideView(PreviewedView, {
-          placements: ["page"],
-          sample: {},
-          Component: () => createElement("span", { "data-test-preview": true }),
-        }),
-      ),
+    Effect.all(
+      [
+        ctx.contribute(
+          ViewPoint,
+          provideView(PreviewedView, {
+            placements: ["page"],
+            sample: {},
+            Component: () => createElement("span", { "data-test-preview": true }),
+          }),
+        ),
+        ctx.contribute(
+          ViewPoint,
+          provideView(LiveView, {
+            placements: ["page"],
+            sample: {},
+            Component: () =>
+              createElement(
+                "button",
+                { type: "button", "data-test-live": true, onClick: pressedInLive },
+                "Done",
+              ),
+          }),
+        ),
+      ],
+      { discard: true },
     ),
 });
 
@@ -63,10 +91,11 @@ function node(own?: boolean): OutlineNode {
 function tagOpening(
   settings: Partial<DisplaySettings>,
   options: readonly DisplayOption[] = DISPLAY_OPTIONS,
+  key: TagOpening["key"] = PreviewedView,
 ): TagOpening {
   return {
     tag: "sys.tag.board",
-    key: PreviewedView,
+    key,
     picker: undefined,
     options,
     settings: { ...DISPLAY_DEFAULTS, ...settings },
@@ -74,11 +103,15 @@ function tagOpening(
 }
 
 /** The board's row opening, as `useRowOpening` reads it for `node(own)`. */
-function opening(own?: boolean, settings: Partial<DisplaySettings> = {}): RowOpening {
-  const base = tagOpening(settings);
+function opening(
+  own?: boolean,
+  settings: Partial<DisplaySettings> = {},
+  key: TagOpening["key"] = PreviewedView,
+): RowOpening {
+  const base = tagOpening(settings, DISPLAY_OPTIONS, key);
   return {
     ...base,
-    label: PreviewedView.label,
+    label: key.label,
     icon: null,
     shown: {
       preview: displayShownOf(node(own), base, "preview"),
@@ -110,7 +143,7 @@ describe("a row's preview", () => {
   beforeAll(() => {
     dom = installDomGlobals();
     (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
-    syncUiPlugins([previewPlugin]);
+    syncUiPlugins([testHostPlugin(testBrowserHost()), previewPlugin]);
   });
 
   afterAll(() => {
@@ -130,10 +163,18 @@ describe("a row's preview", () => {
     container.remove();
   });
 
-  async function draw(own: boolean | undefined, settings: Partial<DisplaySettings> = {}) {
+  async function draw(
+    own: boolean | undefined,
+    settings: Partial<DisplaySettings> = {},
+    key: TagOpening["key"] = PreviewedView,
+  ) {
     await act(async () => {
       root.render(
-        createElement(RowPreview, { nodeId: "n.board", opening: opening(own, settings), depth: 0 }),
+        createElement(RowPreview, {
+          nodeId: "n.board",
+          opening: opening(own, settings, key),
+          depth: 0,
+        }),
       );
     });
   }
@@ -158,6 +199,34 @@ describe("a row's preview", () => {
     await draw(true, { height: 240 });
     const box = container.querySelector<HTMLElement>("[data-row-preview] [role=button]");
     expect(box?.style.height).toBe("240px");
+  });
+
+  it("is the view's own controls when it is live: a region, not a button, at least that tall and never scrolling", async () => {
+    await draw(true, { height: 240 }, LiveView);
+    expect(container.querySelector("[data-row-preview] [role=button]")).toBeNull();
+    const region = container.querySelector<HTMLElement>("[data-row-preview] [role=group]");
+    expect(region?.getAttribute("aria-label")).toBe("Card preview");
+    // As tall as the controls, at least the family's height, so it never scrolls inside itself.
+    expect([region?.style.minHeight, region?.style.height]).toEqual(["240px", ""]);
+    expect(region?.className).not.toMatch(/overflow-(y-)?(auto|scroll)/);
+    const control = container.querySelector<HTMLElement>("[data-test-live]");
+    await act(async () => control?.click());
+    expect(pressedInLive).toHaveBeenCalledTimes(1);
+  });
+
+  it("takes the keyboard from the outline when focus enters a live preview", async () => {
+    await draw(true, {}, LiveView);
+    act(() =>
+      useOutlineStore.setState({ selectedNodeId: "n.board", selectedInstanceKey: "n.board" }),
+    );
+    expect(useOutlineStore.getState().selectedNodeId).toBe("n.board");
+    const control = container.querySelector<HTMLElement>("[data-test-live]");
+    await act(async () => {
+      control?.dispatchEvent(
+        new dom.window.FocusEvent("focusin", { bubbles: true }) as unknown as Event,
+      );
+    });
+    expect(useOutlineStore.getState().selectedNodeId).toBeNull();
   });
 });
 

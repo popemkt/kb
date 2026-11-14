@@ -11,11 +11,14 @@
  * that did nothing.
  */
 import { act } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { TextTIcon } from "@phosphor-icons/react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { present, fieldTypeValue, SYSTEM_IDS } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
+import { bundledSeed } from "@kb/bundled";
 import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import {
   browserHost,
@@ -25,6 +28,7 @@ import {
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
 import { CommandPalette } from "@/components/palette/command-palette";
+import { mutations } from "@/actions/mutations";
 import { pageEditor } from "@/stores/page-editor";
 import { useUiStore } from "@/stores/ui.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
@@ -51,7 +55,16 @@ function wire(partial: Pick<WireNode, "id" | "text"> & Partial<WireNode>): WireN
   return { props: {}, children: [], createdAt: ISO, updatedAt: ISO, ...partial };
 }
 
-/** A plain row, a supertag, and the seed the pin gesture writes through. */
+/** A node as the seed declares it, less its children. */
+function seeded(id: string): WireNode {
+  const declared = present(
+    bundledSeed(ISO).find((n) => n.id === id),
+    id,
+  );
+  return wire({ id, text: declared.text, props: declared.props });
+}
+
+/** A plain row, a supertag, and the seed the pin and tag gestures write through. */
 function graph(): WireNode[] {
   return [
     wire({ id: SYSTEM_IDS.tag, text: "sys.tag" }),
@@ -63,6 +76,8 @@ function graph(): WireNode[] {
     }),
     ...REF_SEED_WIRES,
     wire({ id: SYSTEM_IDS.pinnedRoot, text: "Pinned" }),
+    // The kind slot as the seed declares it: what tagging a row writes.
+    seeded(SYSTEM_IDS.typeField),
     // The field "Turn into query" writes, as the seed declares it.
     wire({
       id: SYSTEM_IDS.queryField,
@@ -78,8 +93,20 @@ function graph(): WireNode[] {
       props: { [SYSTEM_IDS.queryField]: [{ t: "str", v: "[:find ?e :where [?e]]" }] },
     }),
     ctxRefWire("n.ref", "n.plain"),
+    // Where Move to… puts rows.
+    wire({ id: "n.inbox", text: "Inbox" }),
   ];
 }
+
+/** The kinds a row carries, by id. */
+const typesOf = (id: string) =>
+  (
+    useGraphStore.getState().wireNodes.find((n) => n.id === id)?.props[SYSTEM_IDS.typeField] ?? []
+  ).map((v) => v.v);
+
+/** The children of `id`, in order, as the store holds them. */
+const childrenOf = (id: string) =>
+  useGraphStore.getState().wireNodes.find((n) => n.id === id)?.children ?? [];
 
 function seed() {
   resetOutlineStore();
@@ -166,11 +193,135 @@ describe("node command palette", () => {
     await act(async () => {
       present(pin, "pin").click();
     });
-    const nodes = outlineNodes();
-    expect(isPinned(nodes, "n.plain")).toBe(true);
+    // The pin lands once the command's one write commits.
+    await vi.waitFor(() => expect(isPinned(outlineNodes(), "n.plain")).toBe(true));
 
     await open("n.plain");
     expect(labels()).toContain("Unpin");
+  });
+
+  /** Open the menu over a range of rows, anchored at its head, the last. */
+  async function openOver(nodeIds: readonly string[]) {
+    // Closed first, so it opens on its commands, as a fresh ⌘. does.
+    await act(async () => root.render(<NodeCommandPalette open={false} onClose={() => {}} />));
+    const head = nodeIds.at(-1) ?? "";
+    anchor(head);
+    useOutlineStore.setState({
+      selectedNodeId: head,
+      selectedInstanceKey: `row/${head}`,
+      selectedNodeIds: nodeIds,
+    });
+    await act(async () => {
+      root.render(<NodeCommandPalette open onClose={() => {}} />);
+    });
+  }
+
+  async function pick(label: string) {
+    const row = [...dom.document.querySelectorAll('[data-palette-list="true"] button')].find(
+      (b) => b.textContent.trim() === label,
+    ) as HTMLElement | undefined;
+    await act(async () => present(row, label).click());
+  }
+
+  it("over a range, offers only the commands that act on each row", async () => {
+    await openOver(["n.plain", "n.query"]);
+    expect(labels()).toEqual([
+      "Add tag",
+      "Add field",
+      "Set field…",
+      "Copy node IDs",
+      "Move to…",
+      "Pin",
+      "Count words",
+      "Delete nodes",
+    ]);
+  });
+
+  it("draws Set field… with an icon of its own, not Add field's", async () => {
+    await openOver(["n.plain", "n.query"]);
+    const icon = (label: string) =>
+      [...dom.document.querySelectorAll('[data-palette-list="true"] button')]
+        .find((b) => b.textContent.trim() === label)
+        ?.querySelector("svg")?.innerHTML;
+    // Add field's glyph in any weight: drawn apart, not one glyph lighter.
+    const textT = (["bold", "regular"] as const).map((weight) => {
+      const host = dom.document.createElement("div");
+      host.innerHTML = renderToStaticMarkup(<TextTIcon weight={weight} />);
+      return host.querySelector("svg")?.innerHTML;
+    });
+    expect(icon("Add field")).toBe(textT[0]);
+    expect(icon("Set field…")).toBeDefined();
+    expect(textT).not.toContain(icon("Set field…"));
+  });
+
+  it("tags every row of a range with the tag picked, as one undo step", async () => {
+    await openOver(["n.plain", "n.query"]);
+    await pick("Add tag");
+    await pick("project");
+    await vi.waitFor(() => expect(typesOf("n.query")).toContain("t.super"));
+    expect(typesOf("n.plain")).toContain("t.super");
+    expect(useGraphStore.getState().undoStack).toHaveLength(1);
+  });
+
+  it("removes a tag from the rows of a range that carry it", async () => {
+    await openOver(["n.plain", "n.query"]);
+    await pick("Add tag");
+    await pick("project");
+    await vi.waitFor(() => expect(typesOf("n.query")).toContain("t.super"));
+    await openOver(["n.plain", "n.query"]);
+    expect(labels()).toContain("Remove tag…");
+    await pick("Remove tag…");
+    expect(labels()).toEqual(["project"]);
+    await pick("project");
+    await vi.waitFor(() => expect(typesOf("n.query")).not.toContain("t.super"));
+    expect(typesOf("n.plain")).not.toContain("t.super");
+    expect(useGraphStore.getState().undoStack).toHaveLength(2);
+  });
+
+  it("pins every row of a range, and then offers to unpin them all", async () => {
+    await openOver(["n.plain", "n.query"]);
+    await pick("Pin");
+    await vi.waitFor(() => expect(isPinned(outlineNodes(), "n.query")).toBe(true));
+    expect(isPinned(outlineNodes(), "n.plain")).toBe(true);
+    expect(useGraphStore.getState().undoStack).toHaveLength(1);
+    await openOver(["n.plain", "n.query"]);
+    expect(labels()).toContain("Unpin");
+  });
+
+  it("moves every row of a range under the node picked, as one undo step", async () => {
+    await openOver(["n.plain", "n.query"]);
+    await pick("Move to…");
+    // Not the rows themselves, nor anywhere under them.
+    expect(labels()).toContain("Inbox");
+    expect(labels()).not.toContain("Plain node");
+    expect(labels()).not.toContain("A saved query");
+    expect(dom.document.body.textContent).toContain("⌥↵ leave a reference");
+    await pick("Inbox");
+    await vi.waitFor(() => expect(childrenOf("n.inbox")).toEqual(["n.plain", "n.query"]));
+    expect(useGraphStore.getState().undoStack).toHaveLength(1);
+    await act(async () => void (await mutations.undo()));
+    expect(childrenOf("n.inbox")).toEqual([]);
+  });
+
+  it("picked with Alt, leaves a reference where each row was", async () => {
+    await openOver(["n.query"]);
+    await pick("Move to…");
+    const inbox = [...dom.document.querySelectorAll('[data-palette-list="true"] button')].find(
+      (b) => b.textContent.trim() === "Inbox",
+    );
+    await act(async () => {
+      present(inbox, "Inbox").dispatchEvent(
+        new dom.MouseEvent("click", { bubbles: true, altKey: true }),
+      );
+    });
+    await vi.waitFor(() => expect(childrenOf("n.inbox")).toEqual(["n.query"]));
+    const left = useGraphStore
+      .getState()
+      .wireNodes.find(
+        (n) => n.props[SYSTEM_IDS.refTargetField]?.[0]?.v === "n.query" && n.id !== "n.query",
+      );
+    expect(left).toBeDefined();
+    expect(useGraphStore.getState().undoStack).toHaveLength(1);
   });
 
   it("labels the debug row from this node's own flag", async () => {
@@ -202,20 +353,26 @@ describe("node command palette", () => {
       "Turn into query",
       "Turn into reference…",
       "Add field",
+      "Set field…",
       "Make supertag",
       "Search everything… ⌘S",
       "Open in panel",
       "Open with: Outline",
       "Open with: Chart",
+      "Copy node ID",
       "Indent",
       "Outdent",
+      "Move to…",
       "Pin",
       "Show debug fields",
       "View as: List",
       "View as: Table",
       "View as: Board",
       "View as: Cards",
+      "View as: List with detail",
+      "View as: Calendar",
       "Filter…",
+      "Count words",
       "Delete node",
     ]);
   });
@@ -228,19 +385,25 @@ describe("node command palette", () => {
       "Turn into query",
       "Turn into reference…",
       "Add field",
+      "Set field…",
       "Search everything… ⌘S",
       "Open in panel",
       "Open with: Outline",
       "Open with: Chart",
+      "Copy node ID",
       "Indent",
       "Outdent",
+      "Move to…",
       "Pin",
       "Show debug fields",
       "View as: List",
       "View as: Table",
       "View as: Board",
       "View as: Cards",
+      "View as: List with detail",
+      "View as: Calendar",
       "Filter…",
+      "Count words",
       "Delete node",
     ]);
   });
@@ -429,6 +592,20 @@ describe("the global palette on a page", () => {
 
   it("lists a global command once, as the node's face of it", async () => {
     await openPalette();
+    // Searched for: the palette shows its first rows only.
+    const input = present(
+      dom.document.querySelector('[aria-label="Search and open"] input'),
+      "palette input",
+    ) as unknown as HTMLInputElement;
+    await act(async () => {
+      input.focus();
+      Object.getOwnPropertyDescriptor(dom.HTMLInputElement.prototype, "value")?.set?.call(
+        input,
+        "Filter",
+      );
+      // React met no DOM when it loaded, so it reads a text change on a key.
+      input.dispatchEvent(new dom.KeyboardEvent("keyup", { bubbles: true }) as unknown as Event);
+    });
     const filters = [...dom.document.querySelectorAll("[data-palette-row]")].filter(
       (b) => b.querySelector(".flex-1")?.textContent === "Filter…",
     );

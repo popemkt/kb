@@ -27,6 +27,7 @@ import {
   nowIso,
   FIELD_TYPES,
   FIELD_TYPE_OPTION_IDS,
+  seededShowField,
   childrenTargetQuery,
   type FieldType,
   ONTOLOGY_TARGET_QUERY,
@@ -83,14 +84,57 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
       { t: "ref", v: SYSTEM_IDS.targetTagField },
       { t: "ref", v: SYSTEM_IDS.targetQueryField },
       { t: "ref", v: SYSTEM_IDS.relationInverseField },
-      // Last, where the seed's union puts it in a store seeded before it.
       { t: "ref", v: SYSTEM_IDS.acyclicField },
+      // Last, where the seed's union puts them in a store seeded before them.
+      { t: "ref", v: SYSTEM_IDS.showField },
+      { t: "ref", v: SYSTEM_IDS.pinnedField },
+      { t: "ref", v: SYSTEM_IDS.fillFromField },
     ],
   });
   const typeField = typedField(SYSTEM_IDS.typeField, "type", "ref", HIDE);
   const fieldsField = typedField(SYSTEM_IDS.fieldsField, "fields", "ref", HIDE);
   const colorField = singleField(SYSTEM_IDS.colorField, "color", "text");
-  const hiddenField = singleField(SYSTEM_IDS.hiddenField, "hidden", "checkbox");
+  // Where a field's rows are drawn: one of its own children (the option-set
+  // shape), and whether it leads the lists of fields (DESIGN.md → Data model
+  // → field display).
+  // Settings of every field (they configure the kind `sys.field`), so a
+  // person shows, pins or fills a seeded field as they do their own.
+  const configuresFields: KbNode["props"] = {
+    [SYSTEM_IDS.configuresField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+  };
+  const showNodes = seededShowField(at, configuresFields);
+  const pinnedField = singleField(SYSTEM_IDS.pinnedField, "pinned", "checkbox", {
+    props: configuresFields,
+  });
+  /*
+   * How a tag shapes the nodes it is on (DESIGN.md → Data model → tag
+   * behaviours): the tags a node added under one of its nodes gets and the
+   * title its nodes are named by, settings of every tag; and the field a
+   * field fills from when a tag of it is gained, a setting of every field.
+   */
+  const configuresTags: KbNode["props"] = {
+    [SYSTEM_IDS.configuresField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
+  };
+  const childTagField = typedField(SYSTEM_IDS.tagChildTagField, "child tag", "ref", {
+    props: { ...configuresTags, [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: SYSTEM_IDS.tag }] },
+  });
+  const titleField = singleField(SYSTEM_IDS.tagTitleField, "title", "text", {
+    props: configuresTags,
+  });
+  // The box a tag's nodes show: the field it is tied to and the value
+  // that checks it, an option of that field (none for a checkbox).
+  const checkField = singleField(SYSTEM_IDS.tagCheckField, "checkbox", "ref", {
+    props: { ...configuresTags, [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: SYSTEM_IDS.field }] },
+  });
+  const checkedValueField = singleField(SYSTEM_IDS.tagCheckedValueField, "checked value", "ref", {
+    props: configuresTags,
+  });
+  const fillFromField = singleField(SYSTEM_IDS.fillFromField, "fill from", "ref", {
+    props: {
+      ...configuresFields,
+      [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+    },
+  });
   /*
    * Field types are nodes, and they are the type field's **children** — the
    * option-set shape (DESIGN → Kinds, roles and options). A `field-type`
@@ -141,11 +185,14 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const tag = mk(SYSTEM_IDS.tag, "sys.tag", {
     [SYSTEM_IDS.fieldsField]: [
       { t: "ref", v: SYSTEM_IDS.colorField },
-      { t: "ref", v: SYSTEM_IDS.hiddenField },
       { t: "ref", v: SYSTEM_IDS.viewDefaultField },
       { t: "ref", v: SYSTEM_IDS.viewRowField },
-      // Last, where the seed's union puts it in a store seeded before it.
+      // Last, where the seed's union puts them in a store seeded before them.
       { t: "ref", v: SYSTEM_IDS.extendsField },
+      { t: "ref", v: SYSTEM_IDS.tagChildTagField },
+      { t: "ref", v: SYSTEM_IDS.tagTitleField },
+      { t: "ref", v: SYSTEM_IDS.tagCheckField },
+      { t: "ref", v: SYSTEM_IDS.tagCheckedValueField },
     ],
   });
 
@@ -165,6 +212,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     cmd(SYSTEM_IDS.cmdSwitchDesignSystem, "Switch design system"),
     cmd(SYSTEM_IDS.cmdToggleWidth, "Toggle width"),
     cmd(SYSTEM_IDS.cmdDebugShowFields, "Debug: show all fields"),
+    cmd(SYSTEM_IDS.cmdToggleCheck, "Toggle check"),
     cmd(SYSTEM_IDS.cmdExpandAll, "Expand all"),
     cmd(SYSTEM_IDS.cmdCollapseAll, "Collapse all"),
     // W7.1 view mode + filter commands. The view-as commands name the
@@ -174,6 +222,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     cmd(SYSTEM_IDS.cmdViewAsTable, "View as: Table"),
     cmd(SYSTEM_IDS.cmdViewAsBoard, "View as: Board"),
     cmd(SYSTEM_IDS.cmdViewAsCards, "View as: Cards"),
+    cmd(SYSTEM_IDS.cmdViewAsDetail, "View as: List with detail"),
+    cmd(SYSTEM_IDS.cmdViewAsCalendar, "View as: Calendar"),
     cmd(SYSTEM_IDS.cmdViewFilter, "Filter…"),
     // r5 ontology commands
     cmd(SYSTEM_IDS.cmdNewOntology, "New ontology"),
@@ -209,6 +259,21 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     HIDE,
   );
   const viewGroupField = singleField(SYSTEM_IDS.viewGroupField, "view.group", "ref", HIDE);
+  const viewCollapsedField = typedField(
+    SYSTEM_IDS.viewCollapsedField,
+    "view.collapsed",
+    "text",
+    HIDE,
+  );
+  const viewCalcField = singleField(SYSTEM_IDS.viewCalcField, "view.calc", "text", HIDE);
+  const viewDateField = singleField(SYSTEM_IDS.viewDateField, "view.dateField", "ref", HIDE);
+  const viewSpanField = singleField(SYSTEM_IDS.viewSpanField, "view.span", "text", HIDE);
+  const viewHideEmptyField = singleField(
+    SYSTEM_IDS.viewHideEmptyField,
+    "view.hideEmpty",
+    "checkbox",
+    HIDE,
+  );
   const viewFilterField = typedField(SYSTEM_IDS.viewFilterField, "view.filter", "text", HIDE);
   const nodeTextField = typedField(SYSTEM_IDS.nodeTextField, "node.text", "text");
 
@@ -559,7 +624,13 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     typeField,
     fieldsField,
     colorField,
-    hiddenField,
+    ...showNodes,
+    pinnedField,
+    childTagField,
+    titleField,
+    checkField,
+    checkedValueField,
+    fillFromField,
     fieldTypeField,
     ...fieldTypeOptions,
     cardinalityField,
@@ -579,6 +650,11 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     viewColwidthField,
     viewPagesizeField,
     viewGroupField,
+    viewCollapsedField,
+    viewHideEmptyField,
+    viewCalcField,
+    viewDateField,
+    viewSpanField,
     viewFilterField,
     nodeTextField,
     viewField,

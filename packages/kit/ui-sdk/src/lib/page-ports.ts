@@ -98,6 +98,12 @@ interface PageEditorState extends EditorTextVerbs {
   readonly activeInstanceKey: string | null;
   readonly selectedNodeId: string | null;
   readonly selectedInstanceKey: string | null;
+  /**
+   * The nodes of every selected row, in the order they are drawn, the
+   * selected one among them: a range's rows (DESIGN-UI.md → Outline editor,
+   * "A selection is a range of rows"), else the one, else none.
+   */
+  readonly selectedNodeIds: readonly string[];
   readonly pendingCaret: CaretIntent | null;
   /** Start editing a node's text in one instance, with the caret at `cursorPos`. */
   readonly activateNode: (nodeId: string, cursorPos?: number, instanceKey?: string) => void;
@@ -120,6 +126,7 @@ const IDLE: PageEditorState = {
   activeInstanceKey: null,
   selectedNodeId: null,
   selectedInstanceKey: null,
+  selectedNodeIds: [],
   pendingCaret: null,
   placeCaret: () => undefined,
   consumeCaret: () => null,

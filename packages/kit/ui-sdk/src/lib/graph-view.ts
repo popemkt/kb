@@ -1,7 +1,7 @@
 import { Option, Schema } from "effect";
 import type { SchemaIndex } from "./schema";
 import type { WireNode } from "@kb/contracts";
-import { compareRootOrder, hasQueryDef, typeRefsOf, SYSTEM_IDS } from "@kb/model";
+import { compareRootOrder, hasQueryDef, nodeTitleOf, typeRefsOf, SYSTEM_IDS } from "@kb/model";
 import { tagColorOf, tagPalette, type TagPalette } from "./tag-color";
 import { resolveVisibleProps, isFieldHidden, type ResolvePropsOptions } from "./field-visibility";
 import { hasText, textOr } from "./text";
@@ -326,7 +326,8 @@ export function resolveProps(
 function resolveRefLabel(refId: string, schema: SchemaIndex): string | null {
   const n = schema.get(refId);
   if (!n) return null;
-  return n.text || refId;
+  // A ref value is labelled by its target's title (DESIGN-UI.md → Titles from fields).
+  return nodeTitleOf(refId, n, (id) => schema.get(id)) || refId;
 }
 
 export function formatPropValue(

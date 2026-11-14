@@ -13,6 +13,7 @@ import {
   currentContributions,
   providedFrameViews,
   RoutePoint,
+  rowsAbout,
   toast,
   type CommandContext,
   type CommandTarget,
@@ -78,7 +79,12 @@ export function pageCommandContext(target: CommandTarget, palette: PaletteSurfac
  */
 export function pageCommandTarget(nodeId: string | null = null): CommandTarget {
   const outline = pageCommandApi();
-  return { nodeId: nodeId ?? commandTargetNodeId(outline), frameId: viewTargetFrameId(outline) };
+  const target = nodeId ?? commandTargetNodeId(outline);
+  // The page's own target is the selection, every row of it, when it is one;
+  // a node named is that node alone.
+  const nodeIds =
+    nodeId === null ? rowsAbout(target, pageEditor().getState().selectedNodeIds) : [nodeId];
+  return { nodeId: target, frameId: viewTargetFrameId(outline), nodeIds };
 }
 
 /**

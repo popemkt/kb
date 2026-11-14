@@ -1,6 +1,6 @@
 import { Suspense, lazy, useLayoutEffect, useRef, useState } from "react";
 import { cardinalityOf, declaresOptionSet, type FieldType } from "@kb/model";
-import { PlusIcon, XIcon } from "@phosphor-icons/react";
+import { CaretDownIcon, CaretRightIcon, PlusIcon, XIcon } from "@phosphor-icons/react";
 import {
   browserHost,
   cn,
@@ -9,6 +9,7 @@ import {
   type Follow,
   formatPropValue,
   IconButton,
+  indentStyle,
   isValueMismatch,
   ManagedNote,
   type PropValue,
@@ -23,11 +24,12 @@ import {
   useOptionPreview,
   type FieldHandle,
 } from "@kb/ui-sdk";
-import { outlineSource, useOutlineStore } from "./outline.store";
+import { backToRow } from "./back-to-row";
+import { outlineSource, releaseOutlineKeyboard, useOutlineStore } from "./outline.store";
 import { ValueSlot } from "./value-slot";
 import { FieldPicker } from "./field-picker";
 import { useSlotKind } from "./slot-kind";
-import { arriveAt, slotAt } from "./value-slot-nav";
+import { arriveAt, neighbourSlot, registerSlot, slotAt } from "./value-slot-nav";
 import { useRowOpening } from "./row-opening";
 
 /**
@@ -198,6 +200,28 @@ function valueKeys(values: readonly PropValue[]): Array<{ key: string; value: Pr
 }
 
 /**
+ * The keyboard leaves a node's fields for its row (`FieldHandle.leave`):
+ * `back` goes back to the row from the focused value (`backToRow`), `up`
+ * edits its text at the end, `down` edits the next row. Drawn under no row
+ * instance (a story, a test), it stays.
+ */
+function leaveFields(
+  nodeId: string,
+  instanceKey: string | undefined,
+  way: "up" | "down" | "back",
+): void {
+  if (instanceKey === undefined) return;
+  const s = useOutlineStore.getState();
+  if (way === "back") backToRow(document.activeElement, nodeId, instanceKey);
+  else if (way === "up")
+    s.activateNode(nodeId, rowTextOf(outlineSource(), nodeId).text.length, instanceKey);
+  else {
+    const next = s.getNextVisibleInstance(instanceKey);
+    if (next !== null) s.activateNode(next.nodeId, 0, next.instanceKey);
+  }
+}
+
+/**
  * The field as a whole, as its slots see it (`FieldHandle`): writes, the
  * picker and new slots, and the keyboard's way in and out — out of the field
  * to the row it is drawn under, and back onto a value once it redraws.
@@ -237,7 +261,6 @@ function useFieldHandle({
     if (values !== landing.values) landed.current = landing;
   }, [landing, values]);
 
-  const store = useOutlineStore.getState;
   const field: FieldHandle = {
     holder: nodeId,
     values,
@@ -247,21 +270,8 @@ function useFieldHandle({
     create: (creation, name) => browserHost().writes.createRefTarget(creation, name),
     openPicker: (query = "") => setPicker({ query }),
     addSlot: () => setPending((ids) => [...ids, (nextPending.current += 1)]),
-    leave: (way) => {
-      if (instanceKey === undefined) return;
-      const s = store();
-      if (way === "back") s.selectNode(nodeId, instanceKey);
-      else if (way === "up")
-        s.activateNode(nodeId, rowTextOf(outlineSource(), nodeId).text.length, instanceKey);
-      else {
-        const next = s.getNextVisibleInstance(instanceKey);
-        if (next !== null) s.activateNode(next.nodeId, 0, next.instanceKey);
-      }
-    },
-    claimKeyboard: () => {
-      const s = store();
-      if (s.selectedNodeId !== null || s.activeNodeId !== null) s.selectNode(null);
-    },
+    leave: (way) => leaveFields(nodeId, instanceKey, way),
+    claimKeyboard: releaseOutlineKeyboard,
     focusSlot: (index) => setLanding({ index, values }),
   };
   return {
@@ -502,26 +512,115 @@ export function FieldsSection({ nodeId, depth, instanceKey }: FieldsSectionProps
   // so are the fields its tag opening's view draws, while its properties show.
   const showDebugFields = useDebugFields(nodeId);
   const revealed = useRowOpening(node)?.revealed;
+  // The fold's openness is this drawn row's passing state, written nowhere.
+  const [unfolded, setUnfolded] = useState(false);
 
   if (!node) return null;
   const props = resolveProps(node, context.schema, { showDebugFields, revealed });
   if (props.length === 0) return null;
+  const folded = props.filter((p) => "folded" in p && p.folded === true);
+  const rows = props.filter((p) => !folded.includes(p));
+  const field = (p: (typeof props)[number]) => (
+    <Field
+      key={p.fieldId}
+      nodeId={nodeId}
+      fieldId={p.fieldId}
+      label={p.fieldName}
+      values={p.values}
+      context={context}
+      depth={depth}
+      instanceKey={instanceKey}
+      debug={"debug" in p ? Boolean(p.debug) : false}
+    />
+  );
 
   return (
     <div className="fields-section" data-fields-for={nodeId}>
-      {props.map((p) => (
-        <Field
-          key={p.fieldId}
-          nodeId={nodeId}
-          fieldId={p.fieldId}
-          label={p.fieldName}
-          values={p.values}
-          context={context}
+      {rows.map(field)}
+      {folded.length > 0 && (
+        <HiddenFieldsFold
+          count={folded.length}
+          open={unfolded}
           depth={depth}
-          instanceKey={instanceKey}
-          debug={"debug" in p ? Boolean(p.debug) : false}
+          onToggle={() => setUnfolded((open) => !open)}
+          onLeave={(way) => leaveFields(nodeId, instanceKey, way)}
         />
-      ))}
+      )}
+      {unfolded && folded.map(field)}
+    </div>
+  );
+}
+
+/**
+ * The fields a node folds, as one row (DESIGN-UI.md → Field values →
+ * hidden fields fold): "N hidden fields", a button in the values' keyboard
+ * path, whose click, Enter or Space opens or closes the fold.
+ */
+function HiddenFieldsFold({
+  count,
+  open,
+  depth,
+  onToggle,
+  onLeave,
+}: {
+  count: number;
+  open: boolean;
+  depth: number;
+  onToggle: () => void;
+  onLeave: (way: "up" | "down" | "back") => void;
+}) {
+  const ref = useRef<HTMLButtonElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el === null) return undefined;
+    const focus = () => el.focus();
+    return registerSlot(el, { focus, editAtEnd: focus });
+  }, []);
+  /** On from the fold: the neighbouring value at rest, or out of the fields to the row. */
+  const moveOn = (delta: -1 | 1) => {
+    const el = ref.current;
+    const neighbour = el === null ? null : neighbourSlot(el, delta);
+    if (neighbour !== null) arriveAt(neighbour, "rest");
+    else onLeave(delta === -1 ? "up" : "down");
+  };
+  const label = `${count} hidden ${count === 1 ? "field" : "fields"}`;
+  return (
+    // A field row's geometry (FieldRow): its height, the chevron centred in
+    // the glyph column and the label where field labels start.
+    <div className="flex border-y border-transparent py-1" style={indentStyle(depth + 1)}>
+      <button
+        ref={ref}
+        type="button"
+        data-value-slot="true"
+        data-hidden-fields-fold={count}
+        aria-expanded={open}
+        className={cn(
+          "kb-text flex h-6 items-center rounded-sm pr-1 text-caption text-faint-foreground",
+          "hover:text-foreground/70",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
+        )}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Escape") {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.key === "Escape") onLeave("back");
+            else moveOn(e.key === "ArrowDown" ? 1 : -1);
+          }
+        }}
+      >
+        <span className="flex size-6 shrink-0 items-center justify-center">
+          {open ? (
+            <CaretDownIcon size={10} aria-hidden />
+          ) : (
+            <CaretRightIcon size={10} aria-hidden />
+          )}
+        </span>
+        <span className="ml-1">{label}</span>
+      </button>
     </div>
   );
 }

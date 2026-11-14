@@ -28,6 +28,7 @@ import {
 } from "@kb/ui-test-kit";
 import { CalendarPage } from "./calendar-page";
 import { CalendarClockContext } from "./clock";
+import { EventView } from "./event-view";
 import { HOUR_PX } from "./layout";
 import { matchCalendar } from "./routes";
 
@@ -587,7 +588,8 @@ describe("sync status", () => {
     open("/calendar/week/2026-11-02", [CALENDAR, synced, failed]);
     const monday = chip("gym/2026-11-02").querySelector<HTMLElement>("[data-sync-status]");
     expect(monday?.dataset["syncStatus"]).toBe("synced");
-    expect(monday?.title).toBe("Synced to Google Calendar at 2026-11-04T02:00:00Z");
+    // When it synced, on the page's wall clock (Ho Chi Minh City), as the box says its times.
+    expect(monday?.title).toBe("Synced to Google Calendar at Nov 4, 09:00");
     const wednesday = chip("gym/2026-11-04").querySelector<HTMLElement>("[data-sync-status]");
     expect(wednesday?.dataset["syncStatus"]).toBe("error");
     expect(wednesday?.title).toBe("Sync failed — quota_exceeded");
@@ -738,5 +740,108 @@ describe("the page", () => {
     }
     open("/calendar", [CALENDAR, GYM]);
     expect($('[data-testid="routines-calendar"]').dataset["calendarMode"]).toBe("week");
+  });
+});
+
+/** One event in its own view, on the test's clock. */
+function OwnEvent({ id, preview }: { readonly id: string; readonly preview: boolean }) {
+  const clock = useMemo(() => ({ zone, now: () => NOW }), []);
+  return (
+    <CalendarClockContext.Provider value={clock}>
+      <EventView id={id} preview={preview} />
+    </CalendarClockContext.Provider>
+  );
+}
+
+/** A box as it reads, its Close button aside: what the popover adds to float it. */
+function boxHtml(card: HTMLElement): string {
+  const copy = card.cloneNode(true) as HTMLElement;
+  copy.querySelector('button[aria-label="Close"]')?.remove();
+  return copy.outerHTML;
+}
+
+describe("an event on its own", () => {
+  /** The event `id` opened in its own view, as a page or as its row's preview. */
+  function openEvent(id: string, nodes: readonly OutlineNode[], preview = false): void {
+    graph = new Map(nodes.map((node) => [node.id, node]));
+    act(() => host.setNodes(graph.values()));
+    act(() => root.render(<OwnEvent id={id} preview={preview} />));
+  }
+
+  test("is the box the calendar floats over its next instance", async () => {
+    open("/calendar/week/2026-11-04", [CALENDAR, GYM]);
+    pointer("pointerdown", chip("gym/2026-11-04"), y(7) + 10);
+    pointer("pointerup", chip("gym/2026-11-04"), y(7) + 10);
+    const floated = boxHtml($('[data-testid="entry-popover"] [data-event-card]'));
+    openEvent("gym", [CALENDAR, GYM]);
+    const own = $("[data-event-view] [data-event-card]");
+    expect(own.dataset["eventCard"]).toBe("gym/2026-11-04");
+    expect(boxHtml(own)).toBe(floated);
+  });
+
+  test("ticks its instance done through the calendar's actions, and draws it done", async () => {
+    openEvent("gym", [CALENDAR, GYM]);
+    await click(button("Done"));
+    const [add] = writes();
+    expect([propOf(add, F.on), propOf(add, F.state)]).toEqual([
+      ["2026-11-04"],
+      [routineOption("state", "done")],
+    ]);
+    expect($("[data-event-card] [data-entry-state]").dataset["entryState"]).toBe("done");
+    expect(button("Not done")).toBeDefined();
+  });
+
+  test("Edit event opens the calendar's editor on the event", async () => {
+    openEvent("gym", [CALENDAR, GYM]);
+    await click(button("Edit event"));
+    expect(valueOf('input[aria-label="Title"]')).toBe("Gym");
+    expect($("[data-repeat-summary]").textContent).toBe("Every week on Mon, Wed");
+  });
+
+  test("a series that has ended says it has no instance, and can still be edited", async () => {
+    const ended = routine("old", "Old class", {
+      [F.starts]: [str("2026-10-01")],
+      [F.at]: [str("07:00")],
+      [F.duration]: [num(60)],
+      [F.rrule]: [str("FREQ=DAILY;COUNT=2")],
+    });
+    openEvent("old", [CALENDAR, ended]);
+    expect($("[data-event-card] [data-event-no-instance]")).toBeDefined();
+    expect(document.querySelector("[data-event-card] [data-move-form]")).toBeNull();
+    await click(button("Edit event"));
+    expect(valueOf('input[aria-label="Title"]')).toBe("Old class");
+  });
+
+  test("as its row's preview it is the popover's width, and the preview's frame draws the edge", () => {
+    open("/calendar/week/2026-11-04", [CALENDAR, GYM]);
+    pointer("pointerdown", chip("gym/2026-11-04"), y(7) + 10);
+    pointer("pointerup", chip("gym/2026-11-04"), y(7) + 10);
+    const popover = $('[data-testid="entry-popover"]').className;
+    openEvent("gym", [CALENDAR, GYM], true);
+    const card = $("[data-event-view] [data-event-card]");
+    expect(card.className).toContain("border-0");
+    // EVENT_BOX_WIDTH, on the popover and on the preview's box alike.
+    for (const width of ["w-80", "max-w-full"]) {
+      expect(popover.split(" ")).toContain(width);
+      expect(card.className.split(" ")).toContain(width);
+    }
+    expect(button("Done")).toBeDefined();
+  });
+
+  test("says when it synced as it says its times, never as an ISO instant", () => {
+    const synced = {
+      ...GYM,
+      props: {
+        ...GYM.props,
+        ...status({ state: "synced", message: "", at: "2026-11-10T14:43:19.684Z" }),
+      },
+    };
+    openEvent("gym", [CALENDAR, synced], true);
+    const card = $("[data-event-view] [data-event-card]");
+    expect(card.textContent).toContain("Synced to Google Calendar at Nov 10, 21:43");
+    expect(card.textContent).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
+    expect(card.querySelector<HTMLElement>("[data-sync-status]")?.title).toBe(
+      "Synced to Google Calendar at Nov 10, 21:43",
+    );
   });
 });

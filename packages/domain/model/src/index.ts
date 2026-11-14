@@ -260,7 +260,11 @@ export {
   displaySettingValues,
   type DisplayOption,
   type DisplaySettings,
+  type PreviewKind,
 } from "./display.ts";
+
+export { fieldShowOf, pinnedFirst, seededShowField } from "./field-display.ts";
+export { checkEdits, checkOf, nodeTitleOf, togglesChecked } from "./tag-behaviour.ts";
 
 export { roleNodeId, roleSelections, type RoleDefinition } from "./roles.ts";
 export { ADDITIVE_FIELDS } from "./system-write.ts";

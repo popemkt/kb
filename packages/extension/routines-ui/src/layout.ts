@@ -12,11 +12,18 @@ import {
   type CalendarEntry,
   type Place,
 } from "@kb/routines";
+import { shortDay } from "@kb/calendar-kit";
 
 /** How tall an hour of the week grid is, in pixels; every drag reads minutes off it. */
 export const HOUR_PX = 48;
 /** What a drag snaps to, in minutes. */
 export const SNAP_MINUTES = 15;
+
+/** An instant on the wall clock of `zone`, as the box says when something happened: `Nov 10, 14:43`. */
+export function momentText(ms: number, zone: string): string {
+  const at = wallClock(ms, zone);
+  return `${shortDay(at.day)}, ${clockText(at.minutes)}`;
+}
 
 /** The day an instance shows on, in `zone`. */
 export function displayDay(entry: CalendarEntry, zone: string): string {

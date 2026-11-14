@@ -5,10 +5,11 @@ import { ASSET_MAX_BYTES, personWriteRefusal } from "@kb/operations";
 import { ulid } from "ulid";
 import { z } from "zod";
 import type { FrameViewKey, SortSpec, ViewConfig, ViewFilter } from "@kb/views";
-import type { FieldType, KbNode, StoreTx } from "@kb/model";
-import { runOptimistic } from "@/actions/optimistic";
+import type { FieldType, KbNode, StoreTx, Writable } from "@kb/model";
+import { oneWrite, runOptimistic, type RunOptimisticResult } from "@/actions/optimistic";
 import {
   planAddChild,
+  planAddMatching,
   planAddRootNode,
   planAddTag,
   planDefineField,
@@ -19,6 +20,7 @@ import {
   planMergeInto,
   planMergeWithPrevious,
   planMove,
+  planMoveNodes,
   planNewQueryNode,
   planOutdent,
   planPinNode,
@@ -26,13 +28,13 @@ import {
   planRemoveTag,
   planSetProp,
   planSplit,
+  planToggleChecks,
   planUnsetProp,
   planUpdateText,
   type FrameViewEdit,
   type PlannedMutation,
 } from "@/actions/plan";
 import {
-  forestRootIds,
   type PageWrites,
   pinnedRefIdsFor,
   type PropValue,
@@ -49,13 +51,15 @@ import {
 const AssetUploadOutputSchema = z.object({ path: z.string() });
 /** What `node.addTree` answers that a write reads: the ids it made, in tree order. */
 const AddedTreeSchema = z.object({ ids: z.array(z.string()) });
+/** `node.add`'s answer, as far as a matching add reads it. */
+const AddedSchema = z.object({ unmet: z.number().optional() });
 
 /** A size in whole megabytes, as a toast says it. */
 const mb = (bytes: number) => `${Math.round(bytes / (1024 * 1024))} MB`;
 
 import { findParentWire } from "@/lib/tx";
 import { restoreInvocations } from "@/actions/restore";
-import type { WireNode } from "@kb/contracts";
+import type { ActionRequest, WireNode } from "@kb/contracts";
 import { typeRefsOf, SYSTEM_IDS } from "@kb/model";
 import { shownNodes, useGraphStore } from "@/stores/graph.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { pageRows } from "@/stores/page"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
@@ -64,6 +68,15 @@ import { invoke, invokeCoalesced, invokeLocal } from "@/session/runtime";
 
 /** The page's editor's state now: where a write lands the caret. */
 const editor = () => pageEditor().getState();
+
+/**
+ * Say why a block of several rows was not moved: only one run of siblings
+ * moves as one. A row on its own that cannot move (the first row, a root)
+ * is left without a word, as it always was.
+ */
+function toldNotARun(ids: readonly string[]): void {
+  if (ids.length > 1) toast("Only rows next to each other under one parent move together");
+}
 
 function wire(): WireNode[] {
   return useGraphStore.getState().wireNodes;
@@ -97,9 +110,15 @@ function recordHistory(preWire: WireNode[], plan: PlannedMutation): void {
   });
 }
 
+/**
+ * The gesture being made (`together`): the actions its writes planned, in
+ * order, sent as one write when it ends. Null while no gesture is open.
+ */
+let gesture: { actions: ActionRequest[] } | null = null;
+
 async function invokeAll(actions: Array<{ id: string; input: unknown }>): Promise<boolean> {
   const localOnly = useGraphStore.getState().loadSource !== "api";
-  for (const action of actions) {
+  for (const action of oneWrite(actions)) {
     // oxlint-disable-next-line eslint/no-await-in-loop -- history is ordered for structural dependencies
     const receipt = localOnly ? await invokeLocal(action) : await invoke(action.id, action.input);
     if (receipt.status === "failed") {
@@ -110,12 +129,24 @@ async function invokeAll(actions: Array<{ id: string; input: unknown }>): Promis
   return true;
 }
 
-async function applyPlan(plan: PlannedMutation | null): Promise<boolean> {
-  if (!plan) return false;
+/**
+ * Run `plan` as one write and record it as one undo step: what each write
+ * answered, when all succeeded. Inside a gesture (`together`), add its
+ * actions to the gesture's instead, and answer that it was taken.
+ */
+async function runPlan(plan: PlannedMutation): Promise<RunOptimisticResult> {
+  if (gesture !== null) {
+    gesture.actions.push(...plan.actions);
+    return { ok: true };
+  }
   const preWire = useGraphStore.getState().wireNodes;
   const result = await runOptimistic(plan);
   if (result.ok) recordHistory(preWire, plan);
-  return result.ok;
+  return result;
+}
+
+async function applyPlan(plan: PlannedMutation | null): Promise<boolean> {
+  return plan === null ? false : (await runPlan(plan)).ok;
 }
 
 /**
@@ -166,6 +197,13 @@ export const mutations: PageWrites = {
     if (receipt.status === "failed") toast(failureText(receipt));
   },
 
+  setNodeText(id: string, text: string): Promise<boolean> {
+    if (!useGraphStore.getState().wireNodes.some((node) => node.id === id)) {
+      return Promise.resolve(false);
+    }
+    return applyPlan(planUpdateText(wire(), id, text));
+  },
+
   async createNodeAfter(afterId: string): Promise<void> {
     await applyPlan(planInsertSibling(wire(), afterId, "after", ulid()));
   },
@@ -202,6 +240,14 @@ export const mutations: PageWrites = {
     return newId;
   },
 
+  async addMatchingNode(add) {
+    const id = ulid();
+    const result = await runPlan(planAddMatching(id, add));
+    if (!result.ok) return null;
+    const added = AddedSchema.safeParse(result.outputs?.[0]);
+    return { id, unmet: added.success ? (added.data.unmet ?? 0) : 0 };
+  },
+
   async createEmptyNodeBefore(beforeId: string): Promise<string | null> {
     const parent = findParentWire(wire(), beforeId);
     if (!parent) {
@@ -234,11 +280,6 @@ export const mutations: PageWrites = {
   async setTagColor(tagId: string, color: string | null): Promise<void> {
     const { planSetTagColor } = await import("@/actions/plan");
     await applyPlan(planSetTagColor(wire(), tagId, color));
-  },
-
-  async setFieldHidden(fieldId: string, hidden: boolean): Promise<void> {
-    const { planSetFieldHidden } = await import("@/actions/plan");
-    await applyPlan(planSetFieldHidden(wire(), fieldId, hidden));
   },
 
   async setFieldType(fieldId: string, fieldType: FieldType): Promise<void> {
@@ -287,46 +328,62 @@ export const mutations: PageWrites = {
     await applyPlan(plan);
   },
 
-  async indentNode(id: string, cursor?: number): Promise<void> {
-    const store = useGraphStore.getState();
-    const parent = findParentWire(store.wireNodes, id);
-    const siblings = parent ? parent.children : forestRootIds(store.wireNodes);
-    const idx = siblings.indexOf(id);
-    if (idx <= 0) return;
-    const prevId = siblings[idx - 1];
-    if (prevId === undefined) return;
-
-    const preWire = store.wireNodes;
-    const plan = planIndent(preWire, id);
-    if (!plan) return;
-    const result = await runOptimistic(plan);
-    if (!result.ok) return;
-    recordHistory(preWire, plan);
-
+  async indentNodes(ids: readonly string[], cursor?: number): Promise<void> {
+    const plan = planIndent(wire(), ids);
+    if (!plan) {
+      toldNotARun(ids);
+      return;
+    }
+    if (!(await applyPlan(plan)) || gesture !== null) return;
+    const [head] = ids;
+    if (head === undefined) return;
     // D05: reveal the new parent chain before caret restore so the row is
     // guaranteed visible; focusSeq bump re-places the caret post-remount.
-    editor().expandAncestors(id);
-    // Its row where the page is being edited, under its new parent.
-    editor().activateNode(id, cursor ?? 0);
+    editor().expandAncestors(head);
+    // A row's own indent edits it where the page is being edited, under its
+    // new parent; a block's leaves its selection to its caller.
+    if (ids.length === 1) editor().activateNode(head, cursor ?? 0);
   },
 
-  async outdentNode(id: string, cursor?: number): Promise<void> {
-    const store = useGraphStore.getState();
-    const plan = planOutdent(store.wireNodes, id);
-    if (!plan) return;
-    const preWire = store.wireNodes;
-    const result = await runOptimistic(plan);
-    if (!result.ok) return;
-    recordHistory(preWire, plan);
-    editor().activateNode(id, cursor ?? 0);
+  async outdentNodes(ids: readonly string[], cursor?: number): Promise<void> {
+    const plan = planOutdent(wire(), ids);
+    if (!plan) {
+      toldNotARun(ids);
+      return;
+    }
+    if (!(await applyPlan(plan)) || gesture !== null) return;
+    const [head] = ids;
+    if (head !== undefined && ids.length === 1) editor().activateNode(head, cursor ?? 0);
   },
 
-  async moveNodeUp(id: string): Promise<void> {
-    await applyPlan(planMove(wire(), id, "up"));
+  async moveNodesUp(ids: readonly string[]): Promise<void> {
+    await applyPlan(planMove(wire(), ids, "up"));
   },
 
-  async moveNodeDown(id: string): Promise<void> {
-    await applyPlan(planMove(wire(), id, "down"));
+  async moveNodesDown(ids: readonly string[]): Promise<void> {
+    await applyPlan(planMove(wire(), ids, "down"));
+  },
+
+  async moveNodes(ids, place, leaveReferences = false) {
+    const references = leaveReferences ? ids.map(() => ulid()) : [];
+    const plan = planMoveNodes(wire(), ids, place, references);
+    if (plan === null || !(await applyPlan(plan))) return null;
+    return { references };
+  },
+
+  async together<T>(made: () => Promise<T>): Promise<T> {
+    // A gesture inside another is part of it.
+    if (gesture !== null) return made();
+    const open = { actions: [] as ActionRequest[] };
+    gesture = open;
+    let result: T;
+    try {
+      result = await made();
+    } finally {
+      gesture = null;
+    }
+    if (open.actions.length > 0) await applyPlan({ actions: open.actions });
+    return result;
   },
 
   async undo(): Promise<boolean> {
@@ -393,15 +450,26 @@ export const mutations: PageWrites = {
   async togglePin(nodeId: string): Promise<boolean> {
     const pins = pinnedRefIdsFor(shownNodes(), nodeId);
     if (pins.length > 0) {
-      for (const refId of pins) {
-        // oxlint-disable-next-line eslint/no-await-in-loop -- Sequential by contract: each delete reads the store the last wrote
-        await mutations.deleteNode(refId);
-      }
+      // Every pin of the node goes, as one write.
+      await mutations.together(() => Promise.all(pins.map((refId) => mutations.deleteNode(refId))));
       return true;
     }
     const plan = planPinNode(wire(), nodeId, ulid());
     if (plan === null) {
       toast("Pinned list is missing from this graph");
+      return false;
+    }
+    return applyPlan(plan);
+  },
+
+  async toggleChecks(nodeIds: readonly string[]): Promise<boolean> {
+    const plan = planToggleChecks(wire(), nodeIds);
+    if (plan === null) {
+      toast(
+        nodeIds.length > 1
+          ? "None of these nodes has a check: none of their tags names one"
+          : "This node has no check: none of its tags names one",
+      );
       return false;
     }
     return applyPlan(plan);
@@ -565,9 +633,13 @@ export const mutations: PageWrites = {
   // A frame's view settings are its frame view node's params: each edit
   // below writes that node (`editFrameView`), never the frame's own props.
 
-  async setViewSort(frameId: string, sortSpecs: SortSpec[]): Promise<void> {
-    const { frameViewSort } = await import("@/actions/plan");
-    await editFrameView(frameId, frameViewSort(sortSpecs));
+  async setFrameSetting<K extends keyof ViewConfig>(
+    frameId: string,
+    key: K,
+    value: Writable<ViewConfig[K]>,
+  ): Promise<void> {
+    const { frameSettingEdit } = await import("@/actions/plan");
+    await editFrameView(frameId, frameSettingEdit(key, value));
   },
 
   async toggleViewSort(frameId: string, fieldId: string): Promise<void> {
@@ -582,36 +654,17 @@ export const mutations: PageWrites = {
     } else {
       nextSort = current.filter((s) => s.fieldId !== fieldId);
     }
-
-    const { frameViewSort } = await import("@/actions/plan");
-    await editFrameView(frameId, frameViewSort(nextSort));
-  },
-
-  async setViewDisplay(frameId: string, displayFieldIds: string[]): Promise<void> {
-    const { frameViewDisplay } = await import("@/actions/plan");
-    await editFrameView(frameId, frameViewDisplay(displayFieldIds));
+    await mutations.setFrameSetting(frameId, "sort", nextSort);
   },
 
   async setColumnWidth(frameId: string, fieldId: string, widthPx: number): Promise<void> {
     const nextColwidth = { ...(await frameConfig(frameId)).colwidth, [fieldId]: widthPx };
-    const { frameViewColwidth } = await import("@/actions/plan");
-    await editFrameView(frameId, frameViewColwidth(nextColwidth));
-  },
-
-  async setViewPagesize(frameId: string, pagesize: number): Promise<void> {
-    const { frameViewPagesize } = await import("@/actions/plan");
-    await editFrameView(frameId, frameViewPagesize(pagesize));
-  },
-
-  async setViewGroup(frameId: string, fieldId: string | null): Promise<void> {
-    const { frameViewGroup } = await import("@/actions/plan");
-    await editFrameView(frameId, frameViewGroup(fieldId));
+    await mutations.setFrameSetting(frameId, "colwidth", nextColwidth);
   },
 
   async addViewFilter(frameId: string, filter: ViewFilter): Promise<void> {
     const next = [...(await frameConfig(frameId)).filters, filter];
-    const { frameViewFilters } = await import("@/actions/plan");
-    await editFrameView(frameId, frameViewFilters(next));
+    await mutations.setFrameSetting(frameId, "filters", next);
   },
 
   async removeViewFilter(frameId: string, filter: ViewFilter): Promise<void> {
@@ -620,17 +673,11 @@ export const mutations: PageWrites = {
     const next = (await frameConfig(frameId)).filters.filter(
       (f) => serializeViewFilter(f) !== gone,
     );
-    const { frameViewFilters } = await import("@/actions/plan");
-    await editFrameView(frameId, frameViewFilters(next));
+    await mutations.setFrameSetting(frameId, "filters", next);
   },
 
-  async moveBoardCard(
-    nodeId: string,
-    fieldId: string,
-    oldValue: PropValue | null,
-    newValue: PropValue | null,
-  ): Promise<void> {
-    const { planMoveBoardCard } = await import("@/actions/plan");
-    await applyPlan(planMoveBoardCard(wire(), nodeId, fieldId, oldValue, newValue));
+  async moveToGroup(nodeId: string, fieldId: string, value: PropValue | null): Promise<void> {
+    const { planMoveToGroup } = await import("@/actions/plan");
+    await applyPlan(planMoveToGroup(wire(), nodeId, fieldId, value));
   },
 };

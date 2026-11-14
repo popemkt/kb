@@ -59,6 +59,10 @@ describe("arg → invocation mapping", () => {
     expect(mapAdd({ text: "captured" }).input).toEqual({ text: "captured" });
   });
 
+  test("mapAdd passes --matching through as node.add's matching query", () => {
+    expect(mapAdd({ text: "x", matching: "q1" }).input).toEqual({ text: "x", matching: "q1" });
+  });
+
   test("mapSet / mapUnset / mapRm / mapMv", () => {
     expect(mapSet({ id: "n1", field: "status", value: { t: "str", v: "done" } }).input).toEqual({
       id: "n1",
@@ -180,7 +184,7 @@ describe("arg → invocation mapping", () => {
     expect(typeOf("estimate")).toBe("number");
     expect(typeOf("f.estimate")).toBe("number");
     expect(typeOf("type")).toBe("ref");
-    expect(typeOf("sys.f.hidden")).toBe("checkbox");
+    expect(typeOf("sys.f.pinned")).toBe("checkbox");
     expect(typeOf("not-yet-minted")).toBe("text");
     expect(parsePropArg("estimate=3", typeOf)).toEqual({
       field: "estimate",

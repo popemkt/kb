@@ -148,6 +148,7 @@ interface FieldTypeSpec {
 
 const FIELD_TYPE_SPEC: Record<FieldType, FieldTypeSpec> = {
   text: { empty: { t: "str", v: "" } },
+  // GAP [[01M7DAJCF878DEPVQHE6R7FJT9]] an empty number slot draws this 0 as if it were stored
   number: { empty: { t: "num", v: 0 } },
   time: { empty: { t: "str", v: "" } },
   date: { empty: { t: "str", v: "" } },

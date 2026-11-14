@@ -66,15 +66,12 @@ export const fixtureGraph: GraphSnapshot = {
       id: "sys.tag",
       text: "sys.tag",
       props: {
-        "sys.f.fields": [
-          { t: "ref", v: "sys.f.color" },
-          { t: "ref", v: "sys.f.hidden" },
-        ],
+        "sys.f.fields": [{ t: "ref", v: "sys.f.color" }],
       },
     }),
     seedField("sys.f.type"),
     seedField("sys.f.fields"),
-    seedField("sys.f.hidden"),
+    seedField("sys.f.show"),
     seedField("sys.f.color"),
     seedField("sys.f.fieldType"),
     seedField("sys.f.targetTag"),
@@ -141,6 +138,16 @@ export const fixtureGraph: GraphSnapshot = {
       props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
     }),
     node({
+      id: "sys.cmd.view-as-detail",
+      text: "View as: List with detail",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
+    }),
+    node({
+      id: "sys.cmd.view-as-calendar",
+      text: "View as: Calendar",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
+    }),
+    node({
       id: "sys.cmd.view-filter",
       text: "Filter…",
       props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
@@ -192,7 +199,7 @@ export const fixtureGraph: GraphSnapshot = {
       text: "noisy",
       props: {
         "sys.f.type": [{ t: "ref", v: "sys.field" }],
-        "sys.f.hidden": [{ t: "bool", v: true }],
+        "sys.f.show": [{ t: "ref", v: "sys.show.never" }],
       },
     }),
     node({

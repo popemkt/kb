@@ -98,7 +98,7 @@ describe("a view's display settings", () => {
 
 /** A source whose family is `name`, providing one view, `previews` or not, claimed for a tag when `claims`. */
 function source(name: string, previews: boolean, claims: boolean): SeedSource {
-  const view: SeedView = { id: `${name}.page`, label: name, preview: previews };
+  const view: SeedView = { id: `${name}.page`, label: name, preview: previews ? "still" : null };
   const tag: KbNode = {
     id: `sys.tag.${name}`,
     text: name,

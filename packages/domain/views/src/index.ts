@@ -27,16 +27,20 @@ export {
   type ViewPage,
 } from "./view-key.ts";
 export {
+  CALENDAR_SPANS,
   DEFAULT_VIEW_CONFIG,
   FRAME_SETTINGS,
   FRAME_VIEW_FAMILY,
   decodeFrameConfig,
+  detailRowOf,
   encodeFrameConfig,
   frameSettingWrite,
   isFrameViewKey,
+  laysOutLanes,
   parseViewFilterEdn,
   projectsRows,
   serializeViewFilter,
+  type CalendarViewSpan,
   type FrameViewKey,
   type FrameViewParams,
   type SortDir,
@@ -44,6 +48,7 @@ export {
   type ViewConfig,
   type ViewFilter,
 } from "./frame.ts";
+export { CALCULATION_LABELS, calculate, calculationsFor, type Calculation } from "./calculation.ts";
 export {
   FRAME_HOST,
   frameViewKey,

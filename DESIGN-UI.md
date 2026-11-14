@@ -438,9 +438,13 @@ split is what matters here:
 
 Mode A owns split/merge/indent/outdent, soft line break (`Shift+Enter`),
 vertical caret motion, and autocomplete interception. Mode B owns
-`ArrowLeft/Right` collapse-expand-parent-firstchild, `o` / `Shift+O`
-create-below/above, `Space` toggle, `Cmd+.` zoom, and printable-character
-re-entry into Mode A. Focus hand-offs are specified per operation (split → new
+`ArrowLeft/Right` collapse-expand-parent-firstchild, `Cmd+Shift+ArrowLeft/Right`
+a row to the group beside its own (_Groups_), `o` / `Shift+O` create-below/above, `Space` toggle, `Cmd+.` zoom, and printable-character
+re-entry into Mode A. Mode B's keys are the selected row's: a key pressed
+while focus is on a control the keyboard stops at (a text entry, or a button
+such as a tag's box or the hidden-fields fold) is that control's, so Tab
+moves focus on and Enter or Space presses it (`ownsItsKeys`). Chrome the
+keyboard skips, such as the bullet, leaves its keys to the selection. Focus hand-offs are specified per operation (split → new
 node at 0; indent/outdent → same offset; merge → the join boundary; delete →
 neighbour) and tested.
 
@@ -455,8 +459,25 @@ answers which of a key's meanings applies on this row (the caret, the row's
 shape); the chord that runs it is its binding's, so a built-in has an id
 (`outline.editing.split`, `outline.selection.up`) another binding can name.
 The intents are each mode's table (`EDITING_INTENTS`, `SELECTION_INTENTS`);
-the guard that keeps a query-result row from being restructured is part of
+the guard that keeps a projected row from being restructured is part of
 each structural intent, so it holds whatever chord runs it.
+
+**Projected rows.** A projected row is a node drawn under a row because
+that row computes it, not because it is a child: a query's results are
+the projected rows of the query's row. Its instance key names its source
+and the node, `ref:row:<source>/<node>` (`projectedRowKey`,
+`isProjectedRow` in `lib/instance-key.ts`), and is read from the key
+wherever the answer matters, so what a projected row can do is the same
+on every surface (list row, table row, card):
+
+- It has no child edge to its source, so no structural chord acts on it:
+  Tab, Shift-Tab, a move, a split that would make a sibling, and the joins
+  are claimed inert (the guard in each structural intent), its bullet
+  does not start a drag, and a drag never drops beside or into it.
+- Its text, tags, fields and children are its node's, edited in place like
+  any row's, and the rows under it are ordinary child rows of that node.
+- It wears the dashed reference ring (`isReferenceRow`), offers no
+  create-child strip, and does not draw a query's results again.
 
 The shared declaration's `keyboard` supplies both page contributions and seeded
 `#shortcut` descriptions. The declaration publishes native defaults through the same keyboard points in
@@ -669,6 +690,116 @@ selection is its items, not nodes. A key's action is the one shape a
 command's and a picker step's are as data (`ActionCall`, [The node
 menu](#the-node-menu)).
 
+**A selection is a range of rows.** Mode B's selection is an _anchor_ and
+a _head_, two row instances of one outline host. The selected rows are the
+visible instances from one to the other, inclusive, in the order the outline
+draws them (`selectedRows` in `outline-ui/src/outline.store.ts`). A single
+selected row is the range whose anchor is its head, so every gesture that
+knew one selected row knows it as before. Two selection intents move the head
+and keep the anchor: `extend-up` and `extend-down`, bound to Shift+↑ and
+Shift+↓ (`outline.selection.extend-up` / `extend-down`). Shift-click on a
+row moves the head to it, the anchor staying where the selection was, or on
+the row being edited. Any other move of the selection (an arrow, a click,
+Escape, editing a row) collapses the range to the row it lands on. The
+rows of a range are drawn as one band, the head holding the focus, and the
+node menu anchors on the head; closed, it gives the focus back to the head
+(`useFocusReturn`, as ⌘K gives it back to where it was opened).
+
+What a gesture over a range acts on is said once, by the selection:
+
+- **Each selected row** for what marks or fills a node: tagging, untagging,
+  setting a field, pinning, checking, and moving to the group beside its own
+  (⌘⇧←/→, _Groups_). A command or a picker step is handed every row
+  it is about (`CommandTarget.nodeIds`; a step's `targetNodeIds`), and acts
+  on each.
+- **The top rows** for what moves or removes a node: Delete, Tab, Shift-Tab
+  and the moves up and down. A selected row under another selected
+  row goes with it (`selectionRoots`). Tab, Shift-Tab and the moves act on
+  the top rows as one block when they are one run of siblings (one parent,
+  none skipped): the block goes under the sibling before it, after its
+  parent, or past the sibling beside it. A range that is not one run is told
+  so and left as it is.
+
+A gesture over several rows is one write. Every plan of several node writes
+is sent as one `node.batch` call (DESIGN.md →
+[Batches of writes](DESIGN.md#batches-of-writes--nodebatch)), and so are the
+writes a gesture over several rows makes inside `PageWrites.together`
+(`asOneWrite`), so the commit takes or refuses all of it and undo takes it
+back, and redoes it, in one step. A write inside `together` is planned
+against the graph as it stood when the gesture began, so a gesture whose
+parts depend on each other plans them as one write (the block moves), and
+what it makes is there once `together` returns. A gesture about one row
+is not gathered, its write being one write already, so a command that reads
+what its write made (Make your own tag opens the tag) reads it landed. Over a range, the node menu lists only the commands that act on many
+rows (`NodeCommand.many`): Add tag, Remove tag…, Add field, Set field…,
+Pin / Unpin, Check / Uncheck, Move to…, Copy node ID, Count words and Delete. Any other node command, run over a range from its
+shortcut, acts on the head alone (`runCommand`). A picker step it opens is
+handed every row (`targetNodeIds`), mints what it creates once, and writes
+the pick to each row as one write (`asOneWrite`), so what it does once the
+write lands (where the selection goes after a move) reads it landed.
+
+**A row moves anywhere: Move to…, and a drag.** Two gestures, one write
+(`PageWrites.moveNodes`): the rows a gesture moves, the selection's top
+rows or the one row, go under a parent at a position, in order, as one
+`node.update` each in one `node.batch` (DESIGN.md →
+[Batches of writes](DESIGN.md#batches-of-writes--nodebatch)), one undo
+step. A move may leave a reference behind: a reference row
+(`sys.f.ref.target`, a contextual reference) at the place each row left,
+in the same write. The CLI and MCP make the same moves with `node.update`
+(`kb mv`) and, with the references, `node.batch`.
+
+- **Move to…** is a node command of the `arrange` group that acts on many
+  rows. It opens the `outline.move-to` picker step, whose candidates are
+  every node (`nodeCandidates`) less the rows moved and what is under
+  them. Enter moves the rows to the end of the node picked; Alt+Enter, or
+  an Alt-click on it, moves them and leaves a reference in each place. A
+  step names its alternate pick (`PaletteStep.alternate`), the picker says
+  it under the list, and the pick says which one it was
+  (`PaletteStepPick.alternate`).
+- **A drag** starts on a row's bullet: a press that travels past its
+  pointer's slop (`POINTER_SLOPS`) before a long press is a drag; a press
+  that does not stays a click (zoom), and a finger held still stays the
+  menu (`useMenuGesture`). A finger drags as a mouse does: the bullet is
+  `touch-action: none`, so the page does not scroll under it. While it
+  lasts, a ghost of the row (and how many rows go with it) follows the
+  pointer, right of it and below the row aimed at so that row stays
+  readable (`ghostAt`), and a drop line shows where the rows will land: above or below
+  the row under the pointer, as its sibling, or, with the pointer past that
+  row's text start or below a row whose children are shown, as its first
+  child, a collapsed row opening to show them. Near the top or bottom of the
+  scroller the page scrolls. Escape cancels it. Over a row being moved, or
+  one under it, no line is shown and a drop moves nothing. Each drop lands
+  where its line was.
+- After a move, the rows moved stay selected where they landed when they
+  are drawn there, else the selection goes to the row before where they
+  were, as after Delete, and a toast says where they went; a move that
+  left references selects them.
+
+**What rows hold, read and copied: Count words and Copy node ID.** Two
+node commands that act on many rows and write nothing.
+
+- **Count words** (the `view` group) counts what the selection's top rows
+  (`selectionRoots`), the one row, or the page's title show, and every
+  node under them, shown or collapsed: each node once, its text read as
+  plain words (`plainText`, `@kb/ui-sdk`: a reference reads as its label,
+  else its target's text, and markup and media are dropped), a row counted
+  by the node it shows (`shownNode`), and a reference not followed below
+  it. A toast says the words, the characters and the nodes ("120 words ·
+  643 characters · 9 nodes"). Words and characters are counted as
+  `Intl.Segmenter` splits the text, so a language written without spaces
+  counts its words and an emoji is one character; nothing is counted
+  between two nodes.
+- **Copy node ID** (the `open` group) puts the id of the node each row
+  shows (`shownNode`) on the clipboard, one per line in the selection's
+  order, and a toast says it did, or that it could not (`copyText`,
+  `@kb/ui-sdk`). The id is what `kb get <id>` and a `[[<id>]]` in any text
+  reach.
+
+A toast says what kind it is (`toast(message, kind)`): `info` for what was
+done, such as a count, a copy or where a move put rows, and `error`, the
+default, for what failed or was refused. Only an error is drawn as a
+failure and counted as one (`PageEvents.errors`).
+
 **Caret geometry is measured, not guessed.** `lib/caret.ts`
 exposes `readCaretGeometry` (range rects → real line detection),
 `verticalArrowDecision` (pure: is this arrow a line move or a row move?) and
@@ -688,6 +819,11 @@ derives compensating shared-action invocations. The graph store keeps bounded
 the same local invocation + ordered push lane — there is **no** server-authoritative
 undo journal, and rapid same-node text edits are not coalesced. Structural
 operations (split, merge, indent, outdent, delete, move) are the covered case.
+A text has two writes, told apart by who writes it: a keystroke's
+(`PageWrites.updateNodeContent`), which records no step because the row's
+own text undo covers it (below), and a command's, written whole from
+outside the editor (`PageWrites.setNodeText`, Remove reference…), which is
+one undo step as every command's write is.
 
 **Node text is one surface, read or edited.** There is no raw-source edit
 mode. `lib/md-edit.ts` `inlineNodes` is the one description of what inline
@@ -762,11 +898,13 @@ node. `Bullet` renders that record and decides nothing; the graph's bullet
 theme paints the same record (Graph → The themes), so the two cannot drift.
 
 **Expansion is the reader's, per tab.** `expansion` holds a choice per row,
-open or closed, only while the reader can undo it: a choice that equals the
-row's default, or names a row that can no longer expand, is dropped
-(`undoable`), so no row is held collapsed with no gesture to open it. A row
-the graph does not hold now keeps its choice, so a row restored by an undo
-comes back as the reader left it. A row shown open stays open when the graph
+open or closed, and the references opened in place (Contextual references
+→ A reference in the text opens in place), a row's choice only while the
+reader can undo it: a choice that equals the row's default, or names a row
+that can no longer expand, is dropped (`undoable`), so no row is held
+collapsed with no gesture to open it. A row the graph does not hold now
+keeps its choice, so a row restored by an undo comes back as the reader
+left it. A row shown open stays open when the graph
 gives it children or fields. Each tab keeps its own expansion while it is
 open, and storage seeds it at load: another tab's choices are read at the
 next load, never merged in by a graph move. Storage is shared, so a save
@@ -870,7 +1008,9 @@ filters: a Query button (`data-query-toggle`, `aria-expanded`,
 within, and stays while anything it opened is open; on a zoomed query page it
 sits in the header, one click from the query, never behind the plain list's
 gear. A zoomed query page draws the query's results as its rows, as under a
-query row, and offers no create strip. Open or closed is the outline's
+query row, and ends in "+ Add" rather than the create strip: what it adds
+is a node the query answers, not a child of the query (Frame views →
+_Adding to a frame_). Open or closed is the outline's
 screen state per node (`queryBuilders`), kept for the session and never
 written to the graph. A query that says nothing yet — no EDN, or no
 conditions, as a new one starts — opens its builder; one that says something
@@ -986,14 +1126,15 @@ schema)` is the one answer to "which node does this row show" — the target
   render as bare text; the owner's rule since is that a reference row renders
   exactly as its target would, the dashed bullet being the only difference.
 - **The bullet reuses the existing reference treatment** (dashed ring). Only the
-  bullet: a _query-result_ row — read from its instance key by
-  `isQueryResultInstance` (`lib/instance-key.ts`), never passed as a flag —
-  keeps suppressing nested query results, the create-child strip and the
-  structural chords, because its place under the query is computed rather than
-  a child edge. A contextual reference is a real child whose children **are**
-  its own, and creating them is the whole point. `isReferenceRow(node,
-isQueryResult)` in the kit's `lib/row-chrome.ts` is the one answer, read by the list
-  row's chrome and by table and card rows alike. Apart from those gates a
+  bullet: a projected row ([Projected rows](#outline-editor-i1)) — read
+  from its instance key by `isProjectedRow` (`lib/instance-key.ts`), never
+  passed as a flag — keeps suppressing nested query results, the
+  create-child strip and the structural chords, because its place under its
+  source is computed rather than a child edge. A contextual reference is a
+  real child whose children **are** its own, and creating them is the whole
+  point. `isReferenceRow(node, projectedRow)` in the kit's
+  `lib/row-chrome.ts` is the one answer, read by the list row's chrome and
+  by table and card rows alike. Apart from those gates a
   result row is clicked like any row in every view: a row click selects, a
   text click edits, a bullet click toggles and ⌘-click opens the node.
 
@@ -1011,6 +1152,45 @@ engine (→ [Field values](#field-values-one-slot-grammar)), so no fourth node
 picker was added. The gesture itself is `mutations.addTag` +
 `mutations.updateProp`, i.e. plain `node.update` — no new registry action, and
 the CLI/MCP form is in DESIGN.md.
+
+**A reference in the text opens in place.** An inline reference in a
+row's text (`[[id|label]]`) shows its target under the row, without
+leaving the page and without making a node. The reference is open while
+its target is drawn as a projected row of the row
+([Projected rows](#outline-editor-i1)), keyed
+`ref:row:<the row's node>/<target>`. It is the row a contextual reference
+draws: the target's text, tags, fields and children, edited in place.
+Open references come first under the row, before its fields and
+children, in the order the text names them, and they show while the row
+is collapsed. The pill of an open reference says so (`aria-expanded`
+and its own tint).
+
+- **Alt-click** a reference opens it, and Alt-click on it again closes
+  it. A plain click still follows it.
+- **⌘K → Expand reference…** (the node menu's view group) does the same
+  from the keyboard. It is a step that lists the references in the row's
+  text, the open ones noted "Expanded", and a pick opens or closes that
+  one.
+
+Which references are open is the reader's, held in the outline's
+expansion (Outline editor → Expansion is the reader's, per tab) beside
+each row's open or closed choice, under the projected row's key. Like
+those choices, it is one tab's and never undone. Unlike them, it is not
+stored, and it is dropped once the row's text no longer names the
+reference. A reference opens only under a row of the outline's own tree.
+Under a projected row, or a row inside one, Alt-click follows as a plain
+click does, so two references that name each other cannot open into
+each other forever. The same node in two places shares its open
+references, as a query's results do (GAP [[01M411FPC839XBJJ873V1VYYYD]]). An opened reference draws its target open or closed as the target's own
+choice is, since a choice is per node, rather than open one level by
+default (GAP [[01M7D8AP4A4W6S2X5T1DSE9D77]]).
+
+**Remove reference…** (⌘K, the node menu's make group) turns a reference
+in the row's text back into plain text: its label, or the target's text
+for a bare `[[id]]`. It is a step that lists the text's references, and
+a pick turns every reference to that node in the text back, in one text
+write that is one undo step (`setNodeText`, below). Both steps are offered
+only on a row whose text names a node, and only on one row.
 
 **Named gaps.** The reference node's own props — its target among them — are
 not drawn by its row, since every field row is the target's; the target is
@@ -1120,6 +1300,26 @@ empty slot closes it. A typed value emptied is taken out, not kept blank.
 Picked values are added in the picker. A one-valued field — and a checkbox,
 which holds one value by its type (`cardinalityOf`) — offers no add.
 
+**Hidden fields fold; pinned fields lead.** Which of a node's fields are
+drawn and in what order is the field nodes' to say (show and pinned,
+DESIGN.md → [Data model](DESIGN.md#data-model--everything-is-a-node), field
+display), and `resolveVisibleProps` (`@kb/ui-sdk`) is the one answer every
+surface's field rows take: the rows drawn, pinned ones first, and the
+**folded** ones, a field shown *when filled* that this node templates and
+does not fill. The outline draws the folded ones as one row after the
+others, "N hidden fields" (`FieldsSection`), drawn on a field row's
+geometry (its height, the chevron in the glyph column, the label where
+field labels start): a button in the values'
+keyboard path (↑/↓ reach it as they reach a value, Escape hands the
+keyboard back to the row), opened by a click, Enter or Space, which then
+draws them as empty slots to fill, and closes the same way. Whether a fold
+is open is the drawn row's own passing state, as a picker's openness is,
+and is written nowhere: what a person would expect to keep, which fields
+fold, is the field nodes'. A filled field is no longer folded; emptied, it
+folds again. A row whose only fields are folded is still expandable, since
+it has a row to draw. Debug fields draw every field, the folded ones
+among them as empty slots.
+
 **Per kind.**
 
 - **text** is node text: it renders and edits through the same live preview
@@ -1197,8 +1397,9 @@ reason, and the next edit starts from it.
 **The one node picker.** Every "which node?" in the UI is one engine
 (`lib/picker.ts`: candidates in, ranked rows out; `usePickerKeys`) and one
 list (`components/ui/picker-list.tsx`): the field picker (`FieldPicker`), the
-`[[` completion, every node-palette step (`PaletteStepPoint`; the outline's
-add-tag, add-field and reference steps among them),
+text's triggers (`[[`, `@`, `#`, `>`), every node-palette step
+(`PaletteStepPoint`; the outline's add-tag, add-field, reference and move-to
+steps among them),
 the ontology page's include/extends, the canvas's "add existing node" and the
 tag page's add-field. A query matches fuzzily (prefix, substring, id, word
 initials, a compact subsequence) and the matched letters are marked; with
@@ -1210,7 +1411,10 @@ field a pick replaces and closes. A value that would close a cycle through a fie
 that declares itself acyclic (a tag's `extends`; `closesCycleOf`) is shown,
 noted "would cycle", and refused as an addition only: a value the field
 already holds stays checked and can be taken back, however the cycle came to
-be. No picker picks a disabled row, by click or by Enter. Its last row
+be. No picker picks a disabled row, by click or by Enter. A node-palette
+step may name an alternate pick (`PaletteStep.alternate`, its label): Alt+Enter,
+or an Alt-click, picks the row that way, and the picker shows the key and
+the label under its list. Its last row
 creates the query as a node where the field's declaration says a target goes
 (`refCreationOf`: an option under the field, a node with the field's target
 tag, a top-level node) — never for a query-constrained field — and names
@@ -1220,6 +1424,42 @@ that carries a tag; never a raw id. The list is anchored to its input, flipped a
 clamped to the viewport (`useAnchoredPosition`), so a cell or a column never
 clips it. The global ⌘K palette is a different gesture — search and open —
 and keeps its own index.
+
+**Triggers in the text.** Typing a trigger in a row's text opens that
+picker at the caret, without leaving the text. The triggers are one table
+on the text host (`TextTrigger`, `lib/text-triggers.ts`). Each row of it
+says where a trigger opens, what it offers and what a pick does; the host
+runs every row with the one picker engine and the one list. A pick
+replaces what was typed for the trigger, the opener and its query, and may
+then write.
+
+- `[[` opens anywhere and offers every node (`nodeCandidates`). A pick
+  inserts a reference, `[[id|label]]`, and Enter with nothing to pick
+  closes the brackets.
+- `@` opens at the start of the text or after a space, before a character
+  that is not a space. When what follows reads as a date (`parseDateInput`,
+  the grammar a date slot reads) and dates lead somewhere, that date is the
+  first row, and the nodes `[[` offers follow, less the row being typed in
+  and every node it sits under. A date leads somewhere when a
+  provider other than core's is elected for `ui.date-target` (DESIGN.md →
+  [Provider roles](./DESIGN.md#provider-roles)): with days on, the date's
+  day. A pick inserts a reference to the node, or to the date's node, made
+  if need be.
+- `#` opens at the start of the text or after a space, its query one word.
+  It is the Add tag step (`outline.add-tag`): it offers the tags, and a new
+  one by name, and a pick takes `#` and the query out of the text and tags
+  the row.
+- `>` opens on a row whose whole text is `>` and a query. It is the Add
+  field step (`outline.add-field`): a pick empties the text, adds the field
+  to the row as Add field does from the menu, and puts the caret in its
+  value.
+
+`[[` is every text host's. `@`, `#` and `>` are the outline's: its rows
+pass them to their text host beside `[[`. A trigger with nothing to offer is
+closed, so its keys stay the text's: `@` or `#` in prose and `> ` starting a
+quote are typed as text. Escape closes the picker and keeps the text, until
+the query changes. The table is the text host's own, not a plugin point;
+when a second family needs a trigger of its own, it becomes one.
 
 **Named gaps.** A ref value's bullet follows on a plain click (a value's
 bullet has no children of its own to expand) rather than expanding the
@@ -1254,7 +1494,7 @@ on the wire-snapshot array (inner key `rev` + ontology id), which is exact
 under optimistic local edits where `rev` does not move.
 
 **Scope filters content, never meaning.** A member's field and tag
-definitions — field name, type, cardinality, hidden flag, option set, tag
+definitions — field name, type, cardinality, show and pinned, option set, tag
 name and template, the label of a ref value — are schema, and schema is
 resolved against the whole graph whatever the scope. It is a type of its own:
 `lib/schema.ts`'s `SchemaIndex`, which only `schemaOf` produces, and every
@@ -2510,7 +2750,7 @@ Two questions that look like settings are actually questions about one node, and
 both are answered from the node ⌘K menu rather than from a device switch.
 
 - **Debug fields are per node.** "Show me the hidden props" (the fields whose
-  nodes say hidden, [DESIGN.md → Data model](DESIGN.md#data-model--everything-is-a-node))
+  nodes say show *never*, [DESIGN.md → Data model](DESIGN.md#data-model--everything-is-a-node))
   is asked of the node you are inspecting; a debug row is written wherever the
   system-write rule lets a person write it. `stores/debug-fields.store.ts` owns the set of
   node ids that answer yes, persisted with the same `loadIdSet`/`saveIdSet`
@@ -2558,6 +2798,16 @@ both are answered from the node ⌘K menu rather than from a device switch.
   - **Naming collision, deliberately not merged:** an _ontology's_ pins are
     `sys.f.onto.member` props with their own Unpin control on the ontology
     page. Same English word, different field, different mechanism.
+- **Recent is screen state.** The sidebar's Recent section, after Pinned
+  (`order: 105`), lists the nodes an outline last stood at, a zoom or a
+  node opened in a pane, newest first and ten at most, and a row zooms to
+  its node as a Pinned row does. It is this browser's, as the expansion
+  and the zoom are: kept in `localStorage` (`kb-recent`, in the
+  `loadIdSet` encoding, in order), never written to the store, so the CLI
+  and MCP never read it and viewing a node writes nothing to the graph. An
+  id the graph no longer holds is not drawn, and the next visit drops it.
+  Recents do not follow a person to another device
+  (GAP [[01M7D6DPTPPKEY515V7J3FJDM4]]).
 
 ### The node menu
 
@@ -2600,11 +2850,11 @@ The groups, in the menu's order (`NODE_MENU_GROUPS`):
 | Group | What it holds | Its rows today |
 | --- | --- | --- |
 | `lead` | how the node itself opens and shows | "Open in …" for its tag's view; "Show/Hide preview", "Show/Hide properties" |
-| `make` | what the node is and holds | Add tag, Make your own tag that extends this, Turn into query, Turn into reference…, Add field, Make supertag, Type this reference… |
-| `open` | where it opens | Search everything…, Open in panel, Open as workspace, Open with: … |
-| `arrange` | where it sits | Indent, Outdent |
+| `make` | what the node is and holds | Add tag, Remove tag…, Make your own tag that extends this, Turn into query, Turn into reference…, Add field, Set field…, Make supertag, Type this reference…, Remove reference… |
+| `open` | where it opens | Search everything…, Open in panel, Open as workspace, Open with: …, Copy node ID |
+| `arrange` | where it sits | Indent, Outdent, Move to… |
 | `mark` | what marks it | Pin / Unpin, Show / Hide debug fields |
-| `view` | how its views show it | View as: …, Make default view: …, Edit query, Add chart, Filter… |
+| `view` | how its views show it | View as: …, Make default view: …, Edit query, Add chart, Filter…, Expand reference…, Count words |
 | `remove` | removing it | Delete node |
 
 So a family's command takes a place among the shell's by naming it, and
@@ -2634,8 +2884,9 @@ one on the node).
 **A command and a picker step as data.** A node command may hand the
 palette to a picker step (`palette.openStep(id)`, `PaletteStepPoint`,
 below). Through `kb-ext-sdk/page` both come in two forms. The T3 form is
-the one above, with functions, handed only the row (`CommandContext.target`,
-a step's anchor and pick). The T0 form is data, which the page interprets,
+the one above, with functions, handed the rows it is about
+(`CommandContext.target`, a step's anchor and pick; [Outline editor](#outline-editor-i1),
+"A selection is a range of rows"). The T0 form is data, which the page interprets,
 so no author code runs when a person picks (`lib/command-forms`):
 
 - `provideCommand(id, { label, icon, group, order, when, run })`. `icon`
@@ -2648,7 +2899,7 @@ so no author code runs when a person picks (`lib/command-forms`):
 - `providePaletteStep(id, { label, placeholder, icon, candidates, limit,
   commit })`. `candidates` is a query node: the picker offers the nodes in
   its answer's first column, each named by its text, less the row itself.
-  Nothing is minted from it. `commit` is an action about the row, and the
+  Nothing is minted from it. `commit` is an action about each row, and the
   pick fills each `PICKED` in its input: `{ action: "node.update", input:
   { setProps: [{ field, value: { t: "ref", v: PICKED } }] } }` links the
   row to the node picked.
@@ -2900,17 +3151,18 @@ how the stored name resolves to the key among them.
   prefetched when the graph page loads; a renderer view suspends in its own
   slot until the chunk arrives, and a failed load is tried again from that
   slot's error.
-- _Frame views._ A frame's children are shown by one of four frame views,
+- _Frame views._ A frame's children are shown by one of six frame views,
   each a view at placement `inline`: the outline's list, which nests them,
-  and the collections family's table, board and cards
-  (`@kb/collections-ui`), which lay them out as a node set inside the
+  and the collections family's table, board, cards, list with detail and
+  calendar (`@kb/collections-ui`), which lay them out as a node set inside the
   outline that hosts the frame. Every frame view's key is made by
   `frameViewKey` (`@kb/views`, `outline.ts`): its page is the outline at its
-  frame, and its id is frozen in the `outline.` namespace it was first
-  stored under, so a collection view answers to that id as an alias of the
-  one its plugin contributes it at. The keys carry the one trait the row walk needs
+  frame, and the first four keep the id they were first stored under, in
+  the `outline.` namespace, so a collection view answers to that id as an
+  alias of the one its plugin contributes it at. The keys carry the one trait the row walk needs
   beside the params: how the view lays rows out (`outline`, nested; `rows`;
-  `columns`). The frame's first frame view node (DESIGN.md → View nodes)
+  `columns`; `detail`, a run with one row's page beside it; `calendar`, a run
+  grouped by the days it shows). The frame's first frame view node (DESIGN.md → View nodes)
   names the view, and `frameViewOf` (`@kb/ui-sdk`'s `lib/frame-view.ts`)
   looks that node up in the schema (`frameViewNodeOf`, the one test of what
   a frame's view node is, which every reader shares), resolves its view
@@ -2928,7 +3180,13 @@ how the stored name resolves to the key among them.
   narrows them by its filter (DESIGN.md → View nodes), and a view sorts, groups its columns by a field, or pages exactly
   when its params declare `sort`, `groupFieldId` or `pagesize`. The
   toolbar, the node menu and the `view-as` commands list the provided frame
-  views by their pickers, and every one of them, the toolbar's settings
+  views by their pickers. On a page head the toolbar sits beside the title
+  while both fit, the title keeping a few words' width (8rem), and on its
+  own line under it when they do not. It stays
+  one row: in a head narrower than 30rem (its `viewbar` container) each view
+  shows its glyph only, named by its label (`aria-label`, tooltip), and a
+  toolbar that still does not fit scrolls sideways, so its gear stays in a
+  narrow pane. Every one of them, the toolbar's settings
   included, writes the frame's view node (`planEditFrameView`), making it on
   the first edit; none writes the frame's own props. A view node's
   settings are fields its seed hides from field rows (DESIGN.md → Data
@@ -2937,13 +3195,14 @@ how the stored name resolves to the key among them.
   "Filter…") opens the frame's one view settings popover
   (`ViewSettingsPopoverHost`): above the filters every view reads, a section
   for each setting the view's params declare, group by (`groupFieldId`),
-  fields (`display`) and page size (`pagesize`), so which controls a view
+  empty groups (`hideEmpty`), fields (`display`) and page size
+  (`pagesize`), so which controls a view
   offers is its declaration, as what `frameRows` does is. Each is drawn
   with the query builder's slot (`ChoiceSlot` over the one node picker):
   a field is picked from the rows' fields, those their tags template first;
   the fields shown are chips, removed one by one and added from the same
   candidates, and "tags' fields" names none again. A board with no group
-  field says so and opens the popover. A view node is
+  field lays its rows out as lanes (_Lanes_, below). A view node is
   one node however many hosts name it, so editing it — from any host's
   toolbar or its own row — edits it for every host that names it; a host
   that should differ names a view node of its own.
@@ -2953,10 +3212,21 @@ how the stored name resolves to the key among them.
   view a plugin provides is walked and offered while it is loaded and not
   after. The frame a view shows (its id, instance key, query rows
   and depth) is not config, so it travels in the host's `FrameSubject`
-  context (`@kb/ui-sdk`'s `lib/frame-subject.ts`). The subject also carries
+  context (`@kb/ui-sdk`'s `lib/frame-subject.ts`). The host says which
+  instance each of the frame's rows is drawn at (`rowKey`: a query's result
+  under the query, a child under the frame's instance), so every view, the
+  walk and a new row's caret name a row alike. The subject also carries
   what the host draws each row with: a view lays the rows out, and the host
   edits each row's text (`RowText`) and keeps how many pages of them are
-  revealed (`pages`, `revealMorePages`). A row's fields are drawn with the
+  revealed (`pages`, `revealMorePages`), which row a detail view shows
+  (`detail`, `showDetail`) and which day a calendar is open at (`day`,
+  `showDay`). The children a row shows, in
+  their own frame view, the host draws as it draws them under a row in a
+  list (`RowChildren`, the children and the create strip that adds one):
+  it is the one way a frame view asks its host for a row's children, as
+  `addRow` is the one way it asks for a new row (_Adding to a frame_).
+  The outline's own rows draw their children with the same component, and
+  a lane draws its rows with it. A row's fields are drawn with the
   page's field editor (`useFieldEditor`, the `FieldEditorService` the
   outline provides while it is loaded), the one editor every surface that
   shows a field draws it with, a frame view's cells and cards and the
@@ -2972,6 +3242,204 @@ how the stored name resolves to the key among them.
   in the list view are the one rows
   the list draws itself, as references, through the query row's
   `renderNode`.
+- _Groups._ A view whose params declare `groupFieldId` (the board) draws
+  a group for each value of that field. A field that declares its option
+  set (its children; DESIGN.md → Field types) has a group per option, in
+  the field's order, whether any row holds it or not. Each other value a
+  row holds follows, by label, and "No <field>" comes last, for the rows
+  that hold none. A group's header shows how many rows it holds after the
+  view's filter. Two more settings sit beside `groupFieldId` on the view
+  node, and the view declares them with it:
+  - `collapsed` (`sys.f.view.collapsed`) lists the folded groups, one text
+    per group, the group's key: `ref:<id>` for a node, so a renamed option
+    stays folded; `str:`, `num:` or `bool:` and the value for a literal;
+    `__empty__` for "No <field>". A key for a value no group has now does
+    nothing and stays.
+  - `hideEmpty` (`sys.f.view.hideEmpty`) leaves out the groups no row
+    falls in. The view settings popover draws it as a section, because the
+    params declare it.
+
+  A folded group keeps its header and count and draws none of its rows, so
+  the row walk (`frameRows`) skips them too. The header's chevron is a
+  button with `aria-expanded`: Tab reaches it, and Enter or Space folds or
+  unfolds the group. The fold is written to the view node, so it holds in
+  every host that names that view node and after a reload.
+
+  A row moves to another group by its value: dragged onto the group, or
+  with ⌘⇧← and ⌘⇧→ on the selected row, to the group before or after its
+  own as the view draws them, skipping folded ones, and nowhere past either
+  end. The move is one page write (`moveToGroup`): the row's values of the
+  field are replaced by the group's value, or removed for "No <field>", so
+  one undo puts it back, and the selection stays on the row. Over a range
+  the keys move every selected row one group over from its own, a block
+  shift: on a calendar each row moves a day. A row with no group on that
+  side, past the last one or in no group, stays where it is. The moves are
+  one write, so one undo, and the selection stays on the same rows, since a
+  row's instance does not name its group. Rows of a
+  query's results do not move, as they do not drag, since the value may be
+  what the query matched. The walk says which groups are beside a row's
+  (`VisibleInstance.group`), from the groups `frameRows` lays out, so the
+  keys move a row only where the view draws one.
+- _Lanes._ A view that declares `groupFieldId` and has none set lays its
+  rows out as lanes, side by side (`laysOutLanes`, `@kb/views`). Each row
+  heads a column: its text, as a card's is drawn, over the rows under it,
+  which the host draws as it draws them under a row in a list
+  (`RowChildren`), in the row's own frame view, so they edit and nest as in
+  the list. A lane always shows its rows: its head does not fold, and its
+  bullet opens it. Choosing a group field turns the lanes into columns. The
+  row walk nests a frame in lanes as it nests a list: each lane's head,
+  then its rows, then the next lane. The keys follow that nesting, with the
+  lane as the outer level:
+  - ↑ and ↓ walk a lane's rows, and on into the next lane;
+  - ← and → on a lane's head select the lane before or after it, and do
+    nothing at either end;
+  - Enter on a lane's head selects its first row; on a lane with no rows
+    it edits the head's text, as Enter does on any row;
+  - Esc on a row inside a lane selects that lane's head;
+  - on a row inside a lane, ← and → close, open, climb and descend as in
+    the list, and climbing from a top row reaches the lane's head.
+
+  The walk says which lane an instance is in (`VisibleInstance.lane`: its
+  head and the heads before and after it), and the selection's intents
+  read that.
+- _Calculations._ A view whose params declare `calc` (the table) ends in a
+  calculation row, a cell under each field column. `calc`
+  (`sys.f.view.calc`) is one JSON text of field id → calculation, as
+  `colwidth` holds widths. `count` (the rows holding a value of the field)
+  is offered under every field column. `sum`, `average`, `median`, `min`
+  and `max` are offered under a number column (the field's type is
+  number), over each row's first number value, as sorting and display read
+  the first value. A calculation counts every row the view's filter
+  leaves, on every page, not only the page drawn. A cell with none shows a
+  quiet "Calculate" button. A cell with one shows the calculation's name,
+  the button that changes it, and its result, the button that copies the
+  number as shown (`copyText`). Choosing is a view setting, so both
+  buttons open the frame's view settings popover, whose calculations
+  section (drawn because the params declare `calc`) holds a slot per field
+  column over the calculations it offers, and "None", as every other
+  setting is chosen. A stored calculation its column no longer offers
+  shows nothing, and stays.
+- _Adding to a frame._ Where a frame's rows are drawn by something other
+  than the list's own rows, its "+ Add" makes a row that belongs there, so
+  it shows where it was asked for:
+  - a query's results, in the list or a projected view, end in "+ Add";
+    the node it makes carries what the query requires (`node.add`'s
+    `matching`, DESIGN.md → Query layer → What a match requires) and goes
+    where the query places it (`child-of`), else where captures go;
+  - a projected view of a node's own children (a board, cards, a table,
+    lanes, where the row is a new lane) adds a child of that node;
+  - a group of a board adds its value too, the "No <field>" group none;
+  - the view's own filter adds what it requires, read the same way
+    (`requirementsOf`);
+  - a lane ends in its head's create strip, as the head's rows do in the
+    list: `RowChildren` draws a row's children and the strip that adds
+    one, wherever it is drawn.
+
+  A view asks its host for the row with the conditions of where it was
+  asked (`FrameSubject.addRow`: its filter, and a group's value as
+  `field-is`); the host adds the frame's own part (`matching` the query, or
+  the frame as parent), so it is the one way a frame view adds a row, as
+  `RowChildren` is the one way it draws a row's children. The node is made empty, with its caret in its text where the view draws
+  it (`rowKey`; a query's result once the query has answered it), and is transient (Outline editor): left empty, it is pruned. One
+  write makes it with everything it carries, so one undo removes it. When
+  something the query or filter asks cannot be written (a negation, a
+  choice, a range: unmet), the node is made anyway and a toast says it may
+  not show here. "+ Add" is a button reached by Tab and pressed with
+  Enter or Space, named for where it adds ("Add to Doing", "Add to
+  Research", "Add a result").
+- _List with detail._ The detail view (`collections.detail`) lays a
+  frame's rows out as a list beside one row's page: the list on the left,
+  each row its bullet and text as the host edits them (`RowText`), and on
+  the right the row it shows, as its page shows it: its text as the title,
+  its fields with the page's field editor, and its children with their
+  create strip, as the host draws them under a row (`RowChildren`). The
+  row it shows follows the selection: selecting or editing a row of the
+  list shows it, and it stays shown while the selection moves into its
+  page or off the frame. Which row is shown is the outline's screen state
+  per frame, kept for the session and never written to the graph, as the
+  pages a frame has revealed are: the host keeps it and hands it to the
+  view (`FrameSubject.detail`, `showDetail`). A row it holds that the
+  frame no longer shows, or none, shows the first (`detailRowOf`,
+  `@kb/views`), which the view and the walk both read. The row walk nests
+  the shown row's children after it, as a list nests an open row's, so ↓
+  from the shown row walks into its page and on to the next row of the
+  list, and ← from a top row of the page climbs back to it. The view
+  declares filters and sort, as the cards do, and ends in "+ Add" (_Adding
+  to a frame_). In a frame narrower than 480px the page stacks under the
+  list. ⌘K offers it as "View as: List with detail", as the other frame
+  views are offered.
+- _Calendar._ The calendar view (`collections.calendar`) lays a frame's
+  rows out by a date field, over a day, a week or a month, with the rows
+  holding no date in a list beside it. It is a grouping (_Groups_) whose
+  groups are days: the days it shows, in order, each holding the rows whose
+  date field's first value is that day, then "No <field>" for the rows
+  with none (an empty or unreadable date counts as none). A row dated on a
+  day it does not show is not drawn, and the row walk does not reach it.
+  Two settings sit on the view node beside the filters:
+  - `dateFieldId` (`sys.f.view.dateField`), the field the rows are dated
+    by. The view settings popover offers the rows' fields of type date. With
+    none chosen, every row waits in the list and the calendar says to choose
+    one, with a button that opens the popover.
+  - `span` (`sys.f.view.span`): `day`, `week` or `month`, a month when
+    none is stored. The calendar's own header switches it, a segmented
+    control as the routines calendar's.
+
+  Which days it shows is the outline's screen state per frame, as the row a
+  detail view shows is: the day it is open at, today until one is chosen
+  (`FrameSubject.day`, `showDay`), kept for the session and never written.
+  A week starts on Monday, and a month shows the weeks that hold its days.
+  The header's ‹ and › step a span back and on, and "Today" opens at today;
+  its title names the range. `frameRows` lays out the days from the span and
+  the open day (`daysOf`, the one statement of a calendar's days, which the
+  routines calendar reads too), so the view and the walk show the same
+  rows: the days in order, each day's rows in the frame's order, then the
+  undated ones.
+
+  On a centered page a calendar takes the room a board does, spanning the
+  scroll region (`useViewBreakout`). The list sits beside the days in a
+  calendar at least 900px wide, and under them otherwise.
+
+  A day draws its number, today's on the primary fill, and a chip per row:
+  the row's text as the host edits it (`RowText`), drawn as the routines
+  calendar draws an instance (`calendarChipClass`, the one class list both
+  chips are drawn with: radius, inked edge, label type and density), so the
+  two calendars read as one family.
+  A month lays its days in a grid of weeks, the routines calendar's month
+  grid (`MonthGrid`). Every cell is one height, so a busy day never grows
+  its week: a chip's text takes two lines at most, cut unless it is being
+  edited, and a cell with more rows than it shows scrolls, every row still
+  drawn, so the rows the walk reaches are the rows drawn.
+  A week lays its days as seven tall columns side by side, and a day as one
+  column the calendar's width; a column lists its rows whole, wrapping, and
+  ends in "+ Add". In a frame narrower than 480px a week stacks its days.
+  A date field holds a day and no time (a local `YYYY-MM-DD`, DESIGN.md →
+  Data model), so a calendar has no hours to lay out; the routines
+  calendar's time grid is for its timed instances.
+  On a phone (the narrow viewport, `useNarrowViewport`) a month is too
+  narrow for chips: each day is a button with its number and a dot per row,
+  three at most, that opens the calendar at that day, and the open day's
+  rows list under the grid, whole, ending in "+ Add". Only that day's rows
+  are drawn, so when the keys select a row on another day the calendar
+  opens at its day, and the selected row is drawn; the first row an arrival
+  selects is not followed, and the calendar opens at today.
+
+  A row is dated by moving it to a day's group: dragged from the list or
+  another day onto a day, which sets the date field to that day in one
+  page write, so one undo puts it back; dragged onto the list, its date is
+  removed. On the keyboard, ⌘⇧← and ⌘⇧→ move the selected rows a day back
+  or on, each from its own day (_Groups_), and past the days shown the
+  calendar opens at the head row's new day, so it stays drawn and selected; ⌘⇧← on a row in the list
+  moves it onto the day the calendar is open at. Each day has "+ Add"
+  ("Add to Fri, Nov 14"), which adds a row holding that day (_Adding to a
+  frame_, the day's value as `field-is`): at the foot of a column, and in a
+  month's cell a "+" shown while the pointer is over the day or focus is in
+  it, and always on a touch screen. The list ends in "+ Add" too, adding a
+  row with no date. ⌘K offers the view as "View as: Calendar".
+
+  Open: the routines calendar's synced events (#194, Google Calendar) are
+  dated nodes too. Whether a calendar over a date field should show them,
+  or the routines calendar should become this view over their dates, is
+  the owner's call later; nothing here is designed for either.
 
 **The contract.** `src/view-contract.test.tsx` runs over every view that the
 built-in and optional UI plugins contribute. A new view joins it by being
@@ -3182,14 +3650,31 @@ until "Save workspace".
   preview, where the page draws the view at placement `preview`, and the
   properties. Each is the node's own toggle; where the node says nothing,
   its family's setting ("when a node asks" or "always") decides.
-  - **The preview** stands under the row at the row's indent plus one, in
-    a box of the family's `preview height`, so showing it moves what is
-    below by that much and nothing moves after. The view mounts only once
+  - **The preview** stands under the row at the row's indent plus one. A
+    still preview's box is the family's `preview height`, so showing it
+    moves what is below by that much and nothing moves after; a live
+    preview's box is as tall and as wide as its controls draw, at least
+    the family's `preview height` and never wider than the column. The view mounts only once
     the box comes within 200px of the viewport (`useSeen`), so a long
     outline pays for the previews it shows, not for the ones it holds.
-    Pressing it, or Enter on it, opens the node in the opening's view. It
-    takes the content column's width, so it fits both width modes.
-    (`row-preview.tsx`, `@kb/outline-ui`)
+    A still preview takes the content column's width, so it fits both
+    width modes. Its
+    box is the view key's kind of preview (`ViewKey.preview`, DESIGN.md →
+    a tag's view sets how its nodes show), and no view draws a box of its
+    own (`row-preview.tsx`, `@kb/outline-ui`):
+    - **A still preview** is one button: pressing it, or Enter or Space on
+      it, opens the node in the opening's view.
+    - **A live preview** is a region (`role="group"`, named "<view>
+      preview") of the view's own controls, which act in place, so the tag
+      chip's ↗ and the menu's "Open in …" open the node. Its controls are
+      the page's Tab stops after the row's own, and since its box stands as
+      tall as they do, it never scrolls inside itself: every one is in view. Focus
+      entering it takes the keyboard from the outline
+      (`releaseOutlineKeyboard`, as a field's value does): the selected
+      or edited row lets go, so the outline's Tab (indent) and arrows act
+      on no row while a control of the view holds focus. It traps nothing:
+      Tab and Shift+Tab leave it as they leave any control, and since it
+      is no row, the arrows that move between rows pass over it.
   - **The properties** are the node's field rows as a plain node's: the
     row's fields section, and the zoomed node's, reveal the fields of the
     tag that opens it, drawn as any other field (`RowOpening.revealed`).
@@ -3219,6 +3704,40 @@ until "Save workspace".
     decode, an owner switched off, a view still loading. A view that throws
     is contained by its slot, as every view is (promise 3).
   - (`row-view.tsx`, `@kb/outline-ui`)
+- **Titles from fields.** A tagged node whose tag builds a title from
+  its fields (DESIGN.md → [Data model](DESIGN.md#data-model--everything-is-a-node),
+  tag behaviours, `nodeTitleOf`) is drawn by that title wherever the page
+  names it: its row while no one edits it (`NodeTextHost`'s `shown`, the
+  text drawn at rest; pressing it edits the stored text, the caret at its
+  end), a ref value's label, and the rows search and the node picker
+  answer. A `[[ref]]` pill draws the label written into the text, so one
+  the picker makes is labelled by the title it offered. Editing the row shows the stored text, the
+  person's, and the title follows what was typed once the row is left.
+  A row view draws over the title as it would over the text.
+- **A tag's box.** A node whose tag names a check (DESIGN.md →
+  [Data model](DESIGN.md#data-model--everything-is-a-node), tag
+  behaviours, `checkOf`) draws a box between its bullet and its text:
+  a button with `role="checkbox"`, `aria-checked`, and the check field's
+  name as its accessible name, drawn as a checkbox field's value is
+  (`CheckMark`). Pressing it, a click or a tap, writes
+  the field (`checkEdits`, one `node.update`, so one undo step), and
+  leaves focus, the caret and the scroll where they were; it never edits
+  the text. Reached by Tab, it answers Enter and Space, and Escape goes
+  back to its row, selected. ⌘Enter (Ctrl+Enter) toggles the box of the row being edited
+  or selected (`editing.toggle-check`, `selection.toggle-check`;
+  `split` and `edit` claim Enter without the command key). ⌘K's "Toggle
+  check" (`sys.cmd.toggle-check`) toggles the target row's box, and the
+  node menu offers "Check" or "Uncheck" on a row that has one. Each is
+  the one page write, `toggleChecks`, which says so when the row has no
+  box. Over a range of rows, ⌘Enter, ⌘K's "Toggle check" and the node
+  menu act on each selected row's box together (`togglesChecked`): if any
+  is unchecked, every one is checked; if every one is checked, every one
+  is unchecked, and the menu says which ("Check" or "Uncheck"). A row with
+  no box is left out. The boxes that change are one `node.update` each in
+  one `node.batch`, so one undo step. A checked row's text reads as done: drawn in the muted secondary
+  text (`--muted-foreground`), a colour only, no strikethrough, so nothing
+  moves; the box's own change is a colour change of at most 150ms, none
+  under reduced motion.
 - **The zoom is a location.** The page's home is `/`, and zoomed to a node
   it is `/outline/<id>`; in an ontology's scope they are
   `/o/<s>/outline` and `/o/<s>/outline/<id>` (`outlinePath`,
@@ -4239,6 +4758,26 @@ as they are, since a person's Cloud project registered them.
 - **One-offs tick like series.** A one-off's one instance is its event, so
   its `#occurrence` on its start day is that event's own state: done sends
   it ✅ and grey, skipped cancels it.
+- **One box per instance.** What the calendar floats over a pressed
+  instance is its box (`EventCard`, `event-card.tsx`): when it is and how
+  it repeats, its state and sync state, Done, Skip, Move this one, Edit
+  event, Open in Google Calendar and Open in outline. The popover only
+  places it and puts it away (`EntryPopover`, with its Close button).
+- **An event on its own.** An `#event` node opens in its own view
+  (`RoutinesEventView`, `routines.event`, the tag's default view, DESIGN.md
+  → a tag's view sets how its nodes show): that same box, for the event's
+  next instance (`nextEntry`: a series' first on or after today, within two
+  years; a one-off's one instance, whenever it is). Its preview under the
+  node's row is the box live (`preview: "live"`), so a person ticks, skips,
+  moves or edits an event from the outline as from the calendar, through
+  the same actions, and Edit event opens the calendar's editor. A series
+  that has ended, or one the calendar cannot show, says it has no instance
+  and can still be edited and opened. Under its row the box is the
+  popover's width (`EVENT_BOX_WIDTH`), at the row's indent, and as tall as
+  what it shows, so its preview never scrolls. The box says when an
+  instance synced as it says its other times, on the page's wall clock
+  ("Synced to Google Calendar at Nov 10, 14:43"), in the box and in a sync
+  dot's tooltip alike (`syncShown`).
 
 ### Sync services
 

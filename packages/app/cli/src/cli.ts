@@ -192,6 +192,7 @@ interface AddOpts extends IdOpts, ForceOpts {
   position?: number;
   tag: string[];
   prop: string[];
+  matching?: string;
   create?: boolean;
   outline?: string;
 }
@@ -226,6 +227,7 @@ function addEffect(
         position: opts.position,
         tags: opts.tag,
         props: opts.prop.map((arg) => parsePropArg(arg, declaredTypes(ctx.nodes))),
+        matching: opts.matching,
         id: opts.id,
         force: opts.force === true,
       });
@@ -235,10 +237,12 @@ function addEffect(
       text !== undefined ||
       opts.tag.length > 0 ||
       opts.prop.length > 0 ||
+      opts.matching !== undefined ||
       opts.id !== undefined
     ) {
       return yield* new UsageError({
-        message: "kb add --outline takes text, tags, fields and ids from the outline itself",
+        message:
+          "kb add --outline takes text, tags, fields and ids from the outline itself, and matches no query",
       });
     }
     const outline = yield* readTextArgEffect("--outline", opts.outline);
@@ -473,6 +477,10 @@ function buildProgram(): Command {
     .option("--position <n>", "child index", toInt)
     .option("--tag <name>", "tag name (repeatable)", collect, [])
     .option("--prop <field=value>", "prop (repeatable)", collect, [])
+    .option(
+      "--matching <query-id>",
+      "give it what the query's conditions require (tags, values, a child-of's parent)",
+    )
     .option("--id <id>", "explicit node id")
     .option("--create", "mint missing fields", false)
     .option("--force", "allow minting or parenting under sys.* nodes", false)
@@ -709,7 +717,7 @@ function buildProgram(): Command {
 
   program
     .command("search")
-    .description("Search node text (case-insensitive substring)")
+    .description("Search node text and titles (case-insensitive substring)")
     .argument("<text>", "search text")
     .action(
       kbAction((ctx, globals, [text]: [string]) =>

@@ -55,6 +55,8 @@ async function freePort(): Promise<number> {
 
 /** The argument that asks `tests-render/server/server.ts` to install the example extension. */
 export const EXAMPLE_ARG = "--example";
+/** The argument that asks `tests-render/server/server.ts` to serve the store with `kb ui`. */
+export const HOSTED_ARG = "--hosted";
 
 export interface HarnessOptions {
   /**
@@ -63,6 +65,12 @@ export interface HarnessOptions {
    * trust it, so a spec drives what a trusted repository extension adds.
    */
   readonly example?: boolean;
+  /**
+   * Serve the scratch store with `kb ui` itself, the process a person runs,
+   * rather than `startUi` alone, so the families only `kb ui` hosts (the
+   * agent, routines: DESIGN.md → Plugin channels) are there to switch on.
+   */
+  readonly hosted?: boolean;
 }
 
 /** A running harness: where it serves, and how to stop it and remove its scratch root. */
@@ -95,7 +103,11 @@ async function startHarness(options: HarnessOptions = {}): Promise<Harness> {
   // and data in its scratch root, and keeps no build archive, where it would
   // otherwise publish its test build among the person's kept builds and
   // prune theirs.
-  const args = [String(port), ...(options.example === true ? [EXAMPLE_ARG] : [])];
+  const args = [
+    String(port),
+    ...(options.example === true ? [EXAMPLE_ARG] : []),
+    ...(options.hosted === true ? [HOSTED_ARG] : []),
+  ];
   const server = spawn("bun", ["tests-render/server/server.ts", ...args], {
     cwd: process.cwd(),
     stdio: ["ignore", "pipe", "inherit"],
