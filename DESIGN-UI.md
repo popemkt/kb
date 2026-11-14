@@ -468,8 +468,8 @@ on every surface (list row, table row, card):
 
 - It has no child edge to its source, so no structural chord acts on it:
   Tab, Shift-Tab, a move, a split that would make a sibling, and the joins
-  are claimed inert (the guard in each structural intent), and a drag
-  never drops beside or into it.
+  are claimed inert (the guard in each structural intent), its bullet
+  does not start a drag, and a drag never drops beside or into it.
 - Its text, tags, fields and children are its node's, edited in place like
   any row's, and the rows under it are ordinary child rows of that node.
 - It wears the dashed reference ring (`isReferenceRow`), offers no
@@ -862,11 +862,13 @@ node. `Bullet` renders that record and decides nothing; the graph's bullet
 theme paints the same record (Graph → The themes), so the two cannot drift.
 
 **Expansion is the reader's, per tab.** `expansion` holds a choice per row,
-open or closed, only while the reader can undo it: a choice that equals the
-row's default, or names a row that can no longer expand, is dropped
-(`undoable`), so no row is held collapsed with no gesture to open it. A row
-the graph does not hold now keeps its choice, so a row restored by an undo
-comes back as the reader left it. A row shown open stays open when the graph
+open or closed, and the references opened in place (Contextual references
+→ A reference in the text opens in place), a row's choice only while the
+reader can undo it: a choice that equals the row's default, or names a row
+that can no longer expand, is dropped (`undoable`), so no row is held
+collapsed with no gesture to open it. A row the graph does not hold now
+keeps its choice, so a row restored by an undo comes back as the reader
+left it. A row shown open stays open when the graph
 gives it children or fields. Each tab keeps its own expansion while it is
 open, and storage seeds it at load: another tab's choices are read at the
 next load, never merged in by a graph move. Storage is shared, so a save
@@ -1112,6 +1114,43 @@ engine (→ [Field values](#field-values-one-slot-grammar)), so no fourth node
 picker was added. The gesture itself is `mutations.addTag` +
 `mutations.updateProp`, i.e. plain `node.update` — no new registry action, and
 the CLI/MCP form is in DESIGN.md.
+
+**A reference in the text opens in place.** An inline reference in a
+row's text (`[[id|label]]`) shows its target under the row, without
+leaving the page and without making a node. The reference is open while
+its target is drawn as a projected row of the row
+([Projected rows](#outline-editor-i1)), keyed
+`ref:row:<the row's node>/<target>`. It is the row a contextual reference
+draws: the target's text, tags, fields and children, edited in place.
+Open references come first under the row, before its fields and
+children, in the order the text names them, and they show while the row
+is collapsed. The pill of an open reference says so (`aria-expanded`
+and its own tint).
+
+- **Alt-click** a reference opens it, and Alt-click on it again closes
+  it. A plain click still follows it.
+- **⌘K → Expand reference…** (the node menu's view group) does the same
+  from the keyboard. It is a step that lists the references in the row's
+  text, the open ones noted "Expanded", and a pick opens or closes that
+  one.
+
+Which references are open is the reader's, held in the outline's
+expansion (Outline editor → Expansion is the reader's, per tab) beside
+each row's open or closed choice, under the projected row's key. Like
+those choices, it is one tab's and never undone. Unlike them, it is not
+stored, and it is dropped once the row's text no longer names the
+reference. A reference opens only under a row of the outline's own tree.
+Under a projected row, or a row inside one, Alt-click follows as a plain
+click does, so two references that name each other cannot open into
+each other forever. The same node in two places shares its open
+references, as a query's results do (GAP [[01M411FPC839XBJJ873V1VYYYD]]).
+
+**Remove reference…** (⌘K, the node menu's make group) turns a reference
+in the row's text back into plain text: its label, or the target's text
+for a bare `[[id]]`. It is a step that lists the text's references, and
+a pick turns every reference to that node in the text back, in one text
+write that one ⌘Z undoes. Both steps are offered
+only on a row whose text names a node, and only on one row.
 
 **Named gaps.** The reference node's own props — its target among them — are
 not drawn by its row, since every field row is the target's; the target is
