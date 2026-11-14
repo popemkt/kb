@@ -532,6 +532,7 @@ const withRoleChoices = Effect.fnUntraced(function* (registry: Registry, nodeOf:
  */
 export const registryFor = Effect.fn("kb.registryFor")(function* (
   root: string | null,
+  // GAP [[01M7C87K56AJY519YZ51NPF06F]] blind to the store's switches by default, so it can replace a live session's registry.
   nodeOf: NodeLookup = NO_SWITCHES,
 ): Effect.fn.Return<Registry, never, FileSystem> {
   return yield* registryOf(root, yield* rootFamilies(root), nodeOf);

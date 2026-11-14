@@ -422,6 +422,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A "Change reference target..." step in the node's ⌘K menu using the shared picker.
 - **node** — `01M3KA3AZTJVQNADZ12SDPE9X1`
 
+### GAP: a registry composed blind to the store's switches replaces the session's
+
+- **expected** — Composing a root's registry never retires one a live session still reads: every caller passes the store's switches, or a session's FamilyKernels and catalog read the root's current registry per call.
+- **current** — manifest(root) and registryFor(root) default to no switches, so in a store with a family switched from its default they compose a second registry and retire the session's; kbRuntimeLayer took FamilyKernels and ActionCatalog from the registry once, when it was built, so the session's next call meets a shut-down kernel. The CLI approval prompt was such a caller until 2026-11-14 (fixed in the visual batch); the surface contract in test-kit still calls manifest(root).
+- **impact** — A process that composes a switch-blind registry mid-session loses its repository families' contributions: their actions and procedures answer not_found.
+- **closes** — registryFor requires the store's switches (no default), or the runtime layer resolves FamilyKernels per call; a contract property that composing the manifest mid-session keeps every action and procedure reachable.
+- **node** — `01M7C87K56AJY519YZ51NPF06F`
+
 ### GAP: a remote root keeps no persisted mirror, so it cannot start or read offline
 
 - **expected** — A remote store persists its last mirror (nodes and tail head) so a restart offline reads it, and a quota stop leaves something to read (docs/research/2026-10-31-online-stores.md §3.4).
