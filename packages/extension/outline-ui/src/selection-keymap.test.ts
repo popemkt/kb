@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
-import { admitKeybindings } from "@kb/ui-sdk";
+import { admitKeybindings } from "@kb/keybindings";
 import { outlineKeybindings, SELECTION_KEY_CONTEXT } from "./test-support/keybindings";
 import {
   mapSelectionKey as mapUnder,

@@ -14,13 +14,9 @@ import { createRoot, type Root } from "react-dom/client";
 import type { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { fixtureGraph } from "@/api/fixture-graph";
-import {
-  KeybindingPoint,
-  outlineInstanceKey,
-  provideKeybinding,
-  syncUiPlugins,
-  WORKSPACE_ROOT_ID,
-} from "@kb/ui-sdk";
+import { outlineInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
+import { KeybindingPoint } from "@kb/contracts";
+import { provideKeybinding } from "@kb/keybindings";
 import { useGraphStore } from "@/stores/graph.store";
 import { installDomGlobals } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";

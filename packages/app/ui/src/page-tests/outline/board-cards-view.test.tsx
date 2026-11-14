@@ -12,12 +12,11 @@ import {
   schemaOf,
   schemaOfGraph,
   syncUiPlugins,
-  SYSTEM_IDS,
 } from "@kb/ui-sdk";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
-import { defaultViewIdOf, present, viewOptionOf } from "@kb/model";
+import { defaultViewIdOf, present, viewOptionOf, SYSTEM_IDS } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { framedAs, viewFieldNodes, type FrameViewName } from "@/fixtures/view-fields";

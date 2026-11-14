@@ -27,8 +27,8 @@
     "reason": "Lane B moved the CLI's flag mappers (map.ts) to @kb/cli and the outline-paste parser to @kb/outline-paste; ui.*, render.*, procedure.* and store.* stay core actions every surface offers. #191 adds core's page context id (PAGE_CONTEXT_ID), declared beside core's actions, and graphChangesDef, whose output the page checks when it names a shortcut's last writer."
   },
   "@kb/contracts": {
-    "limit": 356,
-    "reason": "#191: the keyboard points (KeybindingPoint, KeyContextPoint) are declared in contracts beside the other core points; #187: the extension watch's setting node and its reading (EXTENSIONS_WATCH_NODE, extensionsWatched), which the server reads; #203: a procedure step's output schema (ProcedureStepOutputSchema), shared by the procedure action and the page that shows it; #190 dropped the names no package outside contracts imports, and M6 added node.update's input and prop input schemas; #189 §12 adds hostEntry, the one constructor of a family's host entry, which the agent and routines build theirs with."
+    "limit": 321,
+    "reason": "#189 §12 added hostEntry, the one constructor of a family's host entry. Lane B dropped the 33 names no package imports, tests included, and moved the extension watch's setting and its reading (EXTENSIONS_WATCH_NODE, extensionsWatched) to @kb/server, their one reader. It stops above the proposal's 280: the canvas screen schemas are part of the ui.* actions' input, which every surface validates, so they stay core's (a family-contributed screen schema would be new machinery), and the family tokens already left. Each name left is a port, a port's type, a core point or a wire schema, or a name packages share; the ones with one importer sit with the port, point or schema they belong to."
   },
   "@kb/ext-sdk": {
     "limit": 9
@@ -48,8 +48,8 @@
     "limit": 3
   },
   "@kb/plugin": {
-    "limit": 43,
-    "reason": "#191: PluginHandle and rootPluginName, which a shortcut's provenance reads; #190 dropped the kernel's names no package outside plugin imports."
+    "limit": 41,
+    "reason": "#191: PluginHandle and rootPluginName, which a shortcut's provenance reads; #190 and lane B dropped the kernel's names no package outside plugin imports, tests included."
   },
   "@kb/query": {
     "limit": 53,
@@ -242,8 +242,8 @@
     "limit": 35
   },
   "@kb/ui-sdk": {
-    "limit": 530,
-    "reason": "#173: a row's paste and drop chain (ingestPort, ATTACH_FILE, provideIngest, Ingested, IngestHandler, IngestPort, the names outline-ui, canvas-ui and the page SDK import); #190: the browser's one key boundary (keyChordEvent) and the printable-key set (printableExcept) join, and KeyRun leaves for @kb/keybindings; #203: one shared Button, which the action review and the procedure page use; #176 took M7b's 514 to 522; the 380 ceiling waits on splitting the files @kb/ui and outline-ui share (GAP 01M79H9PY7XVHHVGAN1WA3VYAF)."
+    "limit": 504,
+    "reason": "Lane B: the barrel stops re-exporting @kb/keybindings, @kb/contracts, @kb/model and @kb/views (importers take those names from their owners) and drops callInput and invokeAction; its @kb/query names stay as the page's query seam (only @kb/ui's engine zone may import @kb/query). #173 added a row's paste and drop chain, #190 the browser's one key boundary (keyChordEvent), #203 one shared Button. The 380 ceiling waits on splitting the files @kb/ui and outline-ui share (GAP 01M79H9PY7XVHHVGAN1WA3VYAF)."
   },
   "@kb/ui-test-kit": {
     "limit": 26

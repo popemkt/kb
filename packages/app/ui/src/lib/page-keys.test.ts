@@ -7,14 +7,9 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DAYS_IDS } from "@kb/days";
-import {
-  currentKeymap,
-  KeybindingPoint,
-  provideKeybinding,
-  setToastSink,
-  syncUiPlugins,
-  tellKeymaps,
-} from "@kb/ui-sdk";
+import { currentKeymap, setToastSink, syncUiPlugins, tellKeymaps } from "@kb/ui-sdk";
+import { KeybindingPoint } from "@kb/contracts";
+import { provideKeybinding } from "@kb/keybindings";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { BROWSER_EXTENSIONS, CORE_UI_PLUGINS } from "@/ui-plugins";

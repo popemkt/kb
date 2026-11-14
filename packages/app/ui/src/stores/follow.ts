@@ -4,11 +4,11 @@ import {
   type FollowHow,
   type FollowTarget,
   dateTarget,
-  nodePath,
   nodeTarget,
   toast,
   useFollowThrough,
 } from "@kb/ui-sdk";
+import { nodePath } from "@kb/views";
 import { pageProjection, useGraphStore } from "@/stores/graph.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 

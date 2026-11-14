@@ -7,11 +7,11 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { isQueryNode, present } from "@kb/model";
+import { isQueryNode, present, fieldTypeValue, SYSTEM_IDS } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { bundledSeed } from "@kb/bundled";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
-import { browserHost, fieldTypeValue, syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
+import { browserHost, syncUiPlugins } from "@kb/ui-sdk";
 import { OutlineListView } from "@kb/views";
 import { outlineNodes, QueryResultsSection, useOutlineStore, ViewToolbar } from "@kb/outline-ui";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";

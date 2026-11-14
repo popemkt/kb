@@ -15,7 +15,7 @@ import {
   writeBool,
   type ConfigSlots,
 } from "@kb/model";
-import type { NodeLookup } from "./extension-switch.ts";
+import type { NodeLookup } from "@kb/contracts";
 
 const WATCH = SYSTEM_IDS.extensionsWatchField;
 

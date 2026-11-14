@@ -18,7 +18,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { present } from "@kb/model";
+import { present, SYSTEM_IDS } from "@kb/model";
 import { stubOutlineNode } from "@/catalog/fixtures";
 import { fixtureGraph } from "@/api/fixture-graph";
 import {
@@ -28,7 +28,6 @@ import {
   bulletRingDash,
   queryIconPath,
   queryResultInstanceKey,
-  SYSTEM_IDS,
   WORKSPACE_ROOT_ID,
   type OutlineNode,
   type TagBadge,

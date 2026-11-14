@@ -1,14 +1,8 @@
 import { answersOver, DatascriptIndex } from "@kb/ui-test-kit";
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import { present, resolveOntology } from "@kb/model";
-import {
-  derivedWith,
-  listOntologyItems,
-  type QueryAnswers,
-  SYSTEM_IDS,
-  wireToOutlineMap,
-} from "@kb/ui-sdk";
+import { present, resolveOntology, SYSTEM_IDS } from "@kb/model";
+import { derivedWith, listOntologyItems, type QueryAnswers, wireToOutlineMap } from "@kb/ui-sdk";
 import { excludedRows, memberRows, resolveScope } from "@/lib/ontology-scope";
 
 /** The replica's answers over `wire`, with the ontology's queries already answered. */

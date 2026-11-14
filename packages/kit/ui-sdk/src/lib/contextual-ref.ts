@@ -37,7 +37,7 @@
 import { instanceAncestorIds } from "./instance-key";
 import type { RowSource, SchemaIndex } from "./schema";
 import type { OutlineNode } from "./types";
-import { SYSTEM_IDS } from "./types";
+import { SYSTEM_IDS } from "@kb/model";
 
 /**
  * Where a node the index serves from a file (a saved query's `.edn`) is

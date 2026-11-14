@@ -3,14 +3,12 @@ import {
   clearAllowedRefIdsCache,
   derivedWith,
   emptyValueForType,
-  fieldTypeValue,
   isSysPrefixed,
   isValueMismatch,
   nodeCandidates,
   resolveAllowedRefIds,
   resolveAllowedRefIdsCached,
   resolveFieldTypeById,
-  SYSTEM_IDS,
   wireToOutlineMap,
   WORKSPACE_ROOT_ID,
   type NodeMap,
@@ -20,7 +18,14 @@ import {
 } from "@kb/ui-sdk";
 import { describe, expect, it } from "vitest";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { allowedRefIdsOf, present, typeRefsOf, type NodeLike } from "@kb/model";
+import {
+  allowedRefIdsOf,
+  present,
+  typeRefsOf,
+  type NodeLike,
+  fieldTypeValue,
+  SYSTEM_IDS,
+} from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { planAddFieldTargetTag, planSetFieldTargetQuery, planSetFieldType } from "@/actions/plan";
 

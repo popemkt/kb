@@ -1,12 +1,11 @@
 import { Suspense, lazy, useLayoutEffect, useRef, useState } from "react";
-import { cardinalityOf, declaresOptionSet } from "@kb/model";
+import { cardinalityOf, declaresOptionSet, type FieldType } from "@kb/model";
 import { PlusIcon, XIcon } from "@phosphor-icons/react";
 import {
   browserHost,
   cn,
   type FieldContext,
   FieldRow,
-  type FieldType,
   type Follow,
   formatPropValue,
   IconButton,

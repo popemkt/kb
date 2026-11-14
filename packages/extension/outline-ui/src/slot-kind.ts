@@ -10,14 +10,19 @@
  * built-in eight (`outlineValueKindsPlugin`), and a family its own types'.
  */
 import { useMemo } from "react";
-import { declaredIdOf, fieldTypeOptionOf, FIELD_TYPE_OPTIONS, type NodeId } from "@kb/model";
+import {
+  declaredIdOf,
+  fieldTypeOptionOf,
+  FIELD_TYPE_OPTIONS,
+  type NodeId,
+  FIELD_TYPE_OPTION_IDS,
+  type FieldType,
+} from "@kb/model";
 import { definePlugin } from "@kb/plugin";
 import { Effect } from "effect";
 import {
-  FIELD_TYPE_OPTION_IDS,
   useContributions,
   ValueKindPoint,
-  type FieldType,
   type FieldTypeKind,
   type SchemaIndex,
   type ValueKindSpec,

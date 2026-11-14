@@ -29,7 +29,7 @@ export interface SourceSelection {
   readonly kind: z.infer<typeof SourceKindSchema>;
   readonly pin: PinnedSource;
 }
-export const LockedSourceSchema = pinnedSchema.extend({ files: SourceHashSchema });
+const LockedSourceSchema = pinnedSchema.extend({ files: SourceHashSchema });
 export const CachedSourceSchema = SourceAddressSchema.extend({
   version: z.literal(1),
   pin: pinnedSchema,

@@ -6,11 +6,9 @@ import type { PlatformError } from "effect/PlatformError";
 import {
   IdentityPoint,
   CodeTrust,
-  EXTENSIONS_WATCH_NODE,
   NO_EMBEDDING,
   UI_DEFAULT_PORT,
   directorySignals,
-  extensionsWatched,
   type ActionHandlerEnv,
   type Embedding,
   type ExtensionEntry,
@@ -42,6 +40,7 @@ import {
   writeUiPresence,
 } from "@kb/workspace-fs";
 import { ensureUiBuilt, type UiBuildError, type UiEnsureResult } from "./build.ts";
+import { EXTENSIONS_WATCH_NODE, extensionsWatched } from "./extension-watch.ts";
 import {
   UI_DEV_DEFAULT_PORT,
   bunSpawnDev,

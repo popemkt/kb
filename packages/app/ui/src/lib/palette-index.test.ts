@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { bundledSeed } from "@kb/bundled";
 import { SHORTCUT_IDS } from "@kb/keybindings";
-import { present } from "@kb/model";
+import { present, SYSTEM_IDS } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { buildPaletteIndex, searchPalette } from "@/lib/palette-index";
-import { SYSTEM_IDS } from "@kb/ui-sdk";
 
 const ISO = "2026-08-08T00:00:00.000Z";
 

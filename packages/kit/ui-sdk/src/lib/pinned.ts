@@ -34,7 +34,8 @@
  */
 import type { SidebarNavItem } from "../components/sidebar-row";
 import { contextualTargetOf } from "./contextual-ref";
-import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "./types";
+import type { NodeMap, OutlineNode } from "./types";
+import { SYSTEM_IDS } from "@kb/model";
 
 /** Child ids of the Pinned list, in stored order. Empty when it is unseeded. */
 export function pinnedRefIds(nodes: NodeMap): string[] {

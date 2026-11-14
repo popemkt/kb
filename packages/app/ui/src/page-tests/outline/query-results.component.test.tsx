@@ -11,7 +11,7 @@ import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { SYSTEM_IDS } from "@kb/ui-sdk";
+import { SYSTEM_IDS } from "@kb/model";
 import { useGraphStore } from "@/stores/graph.store";
 import { useUiStore } from "@/stores/ui.store";
 import { resetOutlineStore } from "@/test-support/outline-store";

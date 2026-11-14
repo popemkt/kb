@@ -3,7 +3,8 @@
  * the vocabulary (what a mode may say) and its one MCP projection.
  */
 import { describe, expect, test } from "bun:test";
-import { isActionMode, mcpToolHints } from "../src/index.ts";
+import { mcpToolHints } from "../src/index.ts";
+import { isActionMode } from "../src/actions.ts";
 
 describe("action mode", () => {
   test("either kind may say it reaches outside its root; nothing else is added", () => {

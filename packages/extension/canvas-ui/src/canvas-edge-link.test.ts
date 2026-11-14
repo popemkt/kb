@@ -1,11 +1,11 @@
 import {
-  SYSTEM_IDS,
   wireToOutlineMap,
   type NodeMap,
   type OutlineNode,
   type SchemaIndex,
   schemaOfGraph,
 } from "@kb/ui-sdk";
+import { SYSTEM_IDS } from "@kb/model";
 import { describe, expect, test } from "vitest";
 import type { CanvasEdge, CanvasNode } from "@kb/canvas";
 import type { WireNode } from "@kb/contracts";

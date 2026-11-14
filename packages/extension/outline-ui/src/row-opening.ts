@@ -18,7 +18,6 @@ import { OUTLINE_IDS } from "@kb/outline";
 import type { HeldTagView, ViewKey } from "@kb/views";
 import {
   browserHost,
-  nodePath,
   tagOpeningOf,
   tagRowViewOf,
   useContributions,
@@ -27,6 +26,7 @@ import {
   type OutlineNode,
   type TagOpening,
 } from "@kb/ui-sdk";
+import { nodePath } from "@kb/views";
 
 /**
  * A row's tag opening (`tagOpeningOf`), with its label and its icon drawn,

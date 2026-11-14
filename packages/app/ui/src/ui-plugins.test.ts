@@ -26,7 +26,14 @@ import {
 import { describe, expect, it } from "vitest";
 import { definePlugin, makeKernel, syncPlugins, type Contribution } from "@kb/plugin";
 import { BUNDLED_FAMILIES, HOSTED_FAMILIES, bundledSeed } from "@kb/bundled";
-import { NO_SWITCHES, extensionRow, familyOn, type ExtensionRow } from "@kb/contracts";
+import {
+  NO_SWITCHES,
+  extensionRow,
+  familyOn,
+  type ExtensionRow,
+  KeybindingPoint,
+  KeyContextPoint,
+} from "@kb/contracts";
 import { agentExtension } from "@kb/agent";
 import { LAB_SCENE_IDS, labExtension } from "@kb/lab";
 import { LAB_STUDIES, LabStudyPoint } from "@kb/lab-ui";
@@ -36,8 +43,6 @@ import {
   pageFootprint,
   ontologyPath,
   RoutePoint,
-  KeybindingPoint,
-  KeyContextPoint,
   SidebarSectionPoint,
 } from "@kb/ui-sdk";
 import { NoParams, viewKey, type OntologyView } from "@kb/views";

@@ -18,9 +18,9 @@ import {
   bulletAppearance,
   bulletRingDash,
   queryHandleStart,
-  SYSTEM_IDS,
   type BulletAppearanceInput,
 } from "@kb/ui-sdk";
+import { SYSTEM_IDS } from "@kb/model";
 import {
   BULLET_MARKS,
   BULLET_TABLE_COLUMNS,

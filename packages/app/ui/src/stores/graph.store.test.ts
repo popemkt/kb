@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { create } from "zustand";
 import type { ActionRequest, WireNode } from "@kb/contracts";
-import { present } from "@kb/model";
+import { present, SYSTEM_IDS } from "@kb/model";
 import {
   EMPTY_PROJECTION,
   type GraphChange,
@@ -16,7 +16,6 @@ import {
   type PageGraphState,
   type PageProjection,
   scopedWireOf,
-  SYSTEM_IDS,
   UNDO_DEPTH,
   wireToOutlineMap,
   WORKSPACE_ROOT_ID,

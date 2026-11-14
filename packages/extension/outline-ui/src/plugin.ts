@@ -18,9 +18,9 @@ import {
   PageProjectionService,
   provideView,
   SidebarSectionPoint,
-  SYSTEM_IDS,
   ViewPoint,
 } from "@kb/ui-sdk";
+import { SYSTEM_IDS } from "@kb/model";
 import { ListBulletsIcon } from "@phosphor-icons/react";
 import { NodeField } from "./fields-section";
 import { outlineValueKindsPlugin } from "./slot-kind";

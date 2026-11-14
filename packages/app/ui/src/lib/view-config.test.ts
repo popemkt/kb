@@ -12,12 +12,11 @@ import {
   type SchemaIndex,
   schemaOfGraph,
   sortChildrenForTable,
-  SYSTEM_IDS,
   ViewPoint,
   wireToOutlineMap,
 } from "@kb/ui-sdk";
 import { describe, expect, it } from "vitest";
-import { present } from "@kb/model";
+import { present, SYSTEM_IDS } from "@kb/model";
 import { Effect } from "effect";
 import { makeKernel } from "@kb/plugin";
 import { browserHostUiPlugin } from "@/browser-host";

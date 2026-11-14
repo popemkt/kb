@@ -4,7 +4,7 @@
  */
 import { SHORTCUT_IDS } from "@kb/keybindings";
 import type { WireNode } from "@kb/contracts";
-import { SYSTEM_IDS } from "@kb/ui-sdk";
+import { SYSTEM_IDS } from "@kb/model";
 
 export type PaletteEntryKind = "command" | "node";
 

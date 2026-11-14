@@ -9,8 +9,9 @@ import {
   viewOptionId,
   type FieldType,
   type Writable,
+  SYSTEM_IDS,
 } from "@kb/model";
-import { forestRootIds, SYSTEM_IDS, type PropValue } from "@kb/ui-sdk";
+import { forestRootIds, type PropValue } from "@kb/ui-sdk";
 import {
   FRAME_VIEW_FAMILY,
   frameSettingWrite,

@@ -340,7 +340,7 @@ type ExtensionFrom =
   | { readonly source: string; readonly origin: ExtensionOrigin };
 
 /** A family's source and origin, from where a host composes it. */
-export function extensionFrom(from: ExtensionFrom): {
+function extensionFrom(from: ExtensionFrom): {
   readonly source: string;
   readonly origin: ExtensionOrigin;
 } {

@@ -12,14 +12,8 @@
  * (`test-support/canvas-keys.ts`) reaches the whole table. The appliers live
  * beside the hook that owns the effects (`use-canvas-keyboard`).
  */
-import {
-  currentKeymap,
-  keyCallOf,
-  type Chord,
-  type KeyCall,
-  type KeyChordEvent,
-  type Keymap,
-} from "@kb/ui-sdk";
+import { currentKeymap, keyCallOf, type KeyCall } from "@kb/ui-sdk";
+import type { Chord, KeyChordEvent, Keymap } from "@kb/keybindings";
 import {
   CANVAS_CONTEXT_IDS,
   CANVAS_SHORTCUTS,

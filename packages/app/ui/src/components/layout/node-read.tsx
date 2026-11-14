@@ -4,7 +4,6 @@ import {
   cn,
   MdView,
   NotFound,
-  nodePath,
   rowText,
   schemaOf,
   shownNodesOf,
@@ -13,6 +12,7 @@ import {
   WORKSPACE_ROOT_ID,
   type ViewProps,
 } from "@kb/ui-sdk";
+import { nodePath } from "@kb/views";
 import { readRows } from "@/lib/read-rows";
 import { useFollow } from "@/stores/follow";
 import { useGraphStore } from "@/stores/graph.store";

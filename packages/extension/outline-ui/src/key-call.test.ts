@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { admitKeybindings, provideKeybinding, setToastSink, syncUiPlugins } from "@kb/ui-sdk";
+import { setToastSink, syncUiPlugins } from "@kb/ui-sdk";
+import { admitKeybindings, provideKeybinding } from "@kb/keybindings";
 import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
 import { applySelectionAction } from "./selection-actions";
 import { mapSelectionKey } from "./selection-keymap";

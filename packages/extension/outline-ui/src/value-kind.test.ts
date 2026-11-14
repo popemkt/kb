@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseTypedValue } from "@kb/model";
-import { FIELD_TYPES, SYSTEM_IDS } from "@kb/ui-sdk";
+import { parseTypedValue, FIELD_TYPES, SYSTEM_IDS } from "@kb/model";
 import { EDITOR_MODES, toggledValue, VALUE_KINDS, valueKindOf } from "./value-kind";
 
 describe("value kinds", () => {

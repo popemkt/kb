@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  fieldContextOf,
-  fieldTypeValue,
-  refCreationOf,
-  refUses,
-  SYSTEM_IDS,
-  type NodeMap,
-  schemaOfGraph,
-} from "@kb/ui-sdk";
+import { fieldContextOf, refCreationOf, refUses, type NodeMap, schemaOfGraph } from "@kb/ui-sdk";
+import { fieldTypeValue, SYSTEM_IDS } from "@kb/model";
 import { stubOutlineNode } from "@/catalog/fixtures";
 
 const ref = { [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")] };

@@ -30,7 +30,7 @@ const CanvasPoseSchema = z.object({
 });
 
 // GAP [[01M798BKRWRND50G4W3WXBRH2V]]: family-owned payload validation needs owner review of the agent wire API.
-export const CanvasScreenSchema = z.object({
+const CanvasScreenSchema = z.object({
   projection: z.enum(["2d", "3d"]),
   pose: CanvasPoseSchema,
   visible: z.array(z.string()),
@@ -80,7 +80,7 @@ export type CanvasViewTarget = z.infer<typeof CanvasViewTargetSchema>;
  * One pane of a tab: the workspace's panes (Tana-style panels, splits and
  * tabs), every one in the record, and the active one named beside them.
  */
-export const PaneScreenSchema = z.object({
+const PaneScreenSchema = z.object({
   id: z.string().min(1),
   /** Where the pane is: the kb location it shows (the URL's, for the active pane). */
   route: z.string().startsWith("/"),
@@ -142,7 +142,7 @@ export type ScreenState = z.infer<typeof ScreenStateSchema>;
  * tab's id, and whose tab it is: the person's, as their connection was
  * authenticated, or nobody's (`null`), which any connection may publish.
  */
-export const TabScreenSchema = z
+const TabScreenSchema = z
   .object({ tab: z.string().min(1), person: PersonSchema.nullable(), ...screenShape })
   .superRefine(panesAgree);
 export type TabScreen = z.infer<typeof TabScreenSchema>;
@@ -154,7 +154,7 @@ export type ScreenList = z.infer<typeof ScreenListSchema>;
 // ── commands: what the server asks a tab to do ──────────────────────────
 
 /** Where a navigate goes: a node, opened in the pane's view of it, or a route. */
-export const NavigateTargetSchema = z.union([
+const NavigateTargetSchema = z.union([
   z.strictObject({ node: z.string().min(1) }),
   z.strictObject({ route: z.string().startsWith("/") }),
 ]);
@@ -258,7 +258,7 @@ export function noTabReceipt(tab: string | undefined): ScreenReceipt {
 
 /** How long a command waits for its tab by default, and at most. */
 export const SCREEN_COMMAND_TIMEOUT_MS = 2000;
-export const SCREEN_COMMAND_TIMEOUT_MAX_MS = 30_000;
+const SCREEN_COMMAND_TIMEOUT_MAX_MS = 30_000;
 /** How long a capture waits by default: a tab showing 2D starts its 3D scene to draw it. */
 const SCREEN_CAPTURE_TIMEOUT_MS = 10_000;
 

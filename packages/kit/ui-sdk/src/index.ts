@@ -90,7 +90,7 @@ export {
   paletteStepsPlugin,
   type PaletteSurface,
 } from "./lib/command-point";
-export { callInput, invokeAction, PICKED } from "./lib/action-call";
+export { PICKED } from "./lib/action-call";
 export { provideCommand, providePaletteStep } from "./lib/command-forms";
 
 export {
@@ -205,10 +205,6 @@ export { failureText, personRefusal, refusalNames } from "./lib/refusal";
 export {
   clearAllowedRefIdsCache,
   emptyValueForType,
-  FIELD_TYPE_OPTION_IDS,
-  FIELD_TYPES,
-  type FieldType,
-  fieldTypeValue,
   isValueMismatch,
   resolveAllowedRefIds,
   resolveAllowedRefIdsCached,
@@ -349,7 +345,6 @@ export {
   type NodeMap,
   type OutlineNode,
   type PropValue,
-  SYSTEM_IDS,
   type TagBadge,
   WORKSPACE_ROOT_ID,
 } from "./lib/types";
@@ -436,34 +431,8 @@ export {
 } from "./lib/graph-label";
 export { guideLineStyle, indentStyle } from "./lib/indent";
 export { keptLoad } from "./lib/kept-load";
-export {
-  type Chord,
-  chordsOverlap,
-  isPrintableKey,
-  type KeyChordEvent,
-  keyChordEvent,
-  lookupChord,
-  matchesChord,
-  PALETTE_CHORD,
-  printableExcept,
-  TEXT_HISTORY_CHORD,
-} from "./lib/keychord";
-export {
-  admitKeybindings,
-  admitKeymaps,
-  currentKeymap,
-  type KeyContext,
-  keyContextOf,
-  KeyContextPoint,
-  type KeyCall,
-  keyCallOf,
-  type Keybinding,
-  KeybindingPoint,
-  type Keymap,
-  provideKeybinding,
-  runKeyCall,
-  tellKeymaps,
-} from "./lib/keybindings";
+export { keyChordEvent } from "./lib/keychord";
+export { currentKeymap, type KeyCall, keyCallOf, runKeyCall, tellKeymaps } from "./lib/keybindings";
 export {
   ATTACH_FILE,
   ingestPort,
@@ -514,7 +483,6 @@ export {
 export {
   getPath,
   navigate,
-  nodePath,
   ontologyPath,
   outlineLocationOf,
   type OutlineLocation,

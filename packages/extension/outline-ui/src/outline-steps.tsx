@@ -17,8 +17,8 @@ import {
   type PaletteStep,
   type PickerCandidate,
   resolveFieldTypeById,
-  SYSTEM_IDS,
 } from "@kb/ui-sdk";
+import { SYSTEM_IDS } from "@kb/model";
 
 /**
  * Nodes whose kind slot points at `kind`, by name: the tags (`sys.tag`) the

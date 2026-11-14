@@ -20,11 +20,11 @@ import {
   cn,
   pickerRows,
   type FieldContext,
-  type FieldType,
   type PickerCandidate,
   type PropValue,
   type FieldHandle,
 } from "@kb/ui-sdk";
+import type { FieldType } from "@kb/model";
 import { FieldPicker, PickerInput } from "../field-picker";
 import { ValueSlot } from "../value-slot";
 import { toggledValue } from "../value-kind";

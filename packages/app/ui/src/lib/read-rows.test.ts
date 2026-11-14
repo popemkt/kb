@@ -4,7 +4,8 @@
  */
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import { schemaOfGraph, SYSTEM_IDS, WORKSPACE_ROOT_ID, wireToOutlineMap } from "@kb/ui-sdk";
+import { schemaOfGraph, WORKSPACE_ROOT_ID, wireToOutlineMap } from "@kb/ui-sdk";
+import { SYSTEM_IDS } from "@kb/model";
 import { READ_DEPTH, readRows } from "@/lib/read-rows";
 
 const ISO = "2026-10-24T00:00:00.000Z";

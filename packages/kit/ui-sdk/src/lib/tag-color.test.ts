@@ -13,7 +13,8 @@ import {
 } from "./tag-color.ts";
 import type { WireNode } from "@kb/contracts";
 import { wireToOutlineMap } from "./graph-view";
-import { SYSTEM_IDS, type TagBadge } from "./types";
+import type { TagBadge } from "./types";
+import { SYSTEM_IDS } from "@kb/model";
 
 function tagNode(
   id: string,

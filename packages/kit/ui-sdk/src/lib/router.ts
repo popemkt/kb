@@ -59,7 +59,6 @@ export function usePath(): string {
 }
 
 /** A node's location (`NodeView`'s, in `@kb/views`), where the page navigates to it. */
-export { nodePath } from "@kb/views";
 
 /** `/o/<id>` (page) · `/o/<id>/outline` · `/o/<id>/graph`. */
 export function ontologyPath(id: string, view: OntologyView = "page"): string {

@@ -49,11 +49,21 @@ import type { KbRoots } from "./roots.ts";
  * `outsideRoot`: it reaches past the root, to another store on this machine
  * or a process it starts. Either kind can, so it sits on both arms.
  *
- * The extension loader decodes a contribution's mode through
- * {@link isActionMode}. The SDK's `ActionMode` restates it for authors, and a
- * type-level test keeps the two equal.
+ * The type is written out first, in the form the extension SDK declares
+ * it in, and its schema is held to it both ways: `satisfies` refuses a mode
+ * the type does not allow, and `tests/type-first.test.ts` one the schema
+ * does not read. The extension loader decodes a contribution's mode through
+ * {@link isActionMode}.
  */
-const ActionModeSchema = z.discriminatedUnion("kind", [
+export type ActionMode =
+  | { readonly kind: "read"; readonly outsideRoot?: true }
+  | {
+      readonly kind: "write";
+      readonly approval?: "required" | "delegated";
+      readonly outsideRoot?: true;
+    };
+
+export const ActionModeSchema = z.discriminatedUnion("kind", [
   // Strict, so a read that claims an approval is rejected, not stripped.
   z.strictObject({ kind: z.literal("read"), outsideRoot: z.literal(true).optional() }),
   z.strictObject({
@@ -61,8 +71,7 @@ const ActionModeSchema = z.discriminatedUnion("kind", [
     approval: z.enum(["required", "delegated"]).optional(),
     outsideRoot: z.literal(true).optional(),
   }),
-]);
-export type ActionMode = z.infer<typeof ActionModeSchema>;
+]) satisfies z.ZodType<ActionMode>;
 
 export function isActionMode(value: unknown): value is ActionMode {
   return ActionModeSchema.safeParse(value).success;
@@ -272,7 +281,7 @@ export interface ActionDefinition<
  * author its transaction records.
  */
 /** The longest `via` a call may state: a label, not a payload. */
-export const VIA_MAX = 256;
+const VIA_MAX = 256;
 
 /**
  * The `via` a process was started with: `KB_VIA` from its environment, when
@@ -385,7 +394,7 @@ export function sessionOfMeta(meta: unknown): string | undefined {
 export type ActionInvocation = ActionRequest & { readonly actor: Actor };
 
 /** One input a session filled: the reference it was read from, and the value it read. */
-export const FilledInputSchema = z.object({ from: z.string(), value: z.unknown() });
+const FilledInputSchema = z.object({ from: z.string(), value: z.unknown() });
 export type FilledInput = z.infer<typeof FilledInputSchema>;
 
 export const SucceededReceiptSchema = z.object({

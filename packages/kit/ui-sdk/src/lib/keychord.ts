@@ -1,16 +1,7 @@
-/** Browser callers use the shared chord model. */
-export {
-  chordsOverlap,
-  isPrintableKey,
-  lookupChord,
-  matchesChord,
-  printableExcept,
-  PALETTE_CHORD,
-  TEXT_HISTORY_CHORD,
-  type Chord,
-  type KeyChordEvent,
-} from "@kb/keybindings";
-
+/**
+ * The page's one keyboard boundary: a browser press becomes the shared chord
+ * model's event (`@kb/keybindings`) here, once.
+ */
 import type { KeyChordEvent } from "@kb/keybindings";
 
 /** Translate a browser press once at the page/surface keyboard boundary. */

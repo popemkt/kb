@@ -8,8 +8,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import { present } from "@kb/model";
-import { SYSTEM_IDS } from "@kb/ui-sdk";
+import { present, SYSTEM_IDS } from "@kb/model";
 import { useGraphStore } from "@/stores/graph.store";
 import { OntologyPage } from "./ontology-page";
 

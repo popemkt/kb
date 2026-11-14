@@ -24,7 +24,7 @@ export type PageTier = (typeof PAGE_TIERS)[number];
 /** The tiers that run code in the page: an extension with a page half declares one of them. */
 export const PAGE_CODE_TIERS: readonly PageTier[] = ["drawing", "scene", "full"];
 
-export const ExtensionCapabilitiesSchema = z.strictObject({
+const ExtensionCapabilitiesSchema = z.strictObject({
   /** The hosts it reaches over the network; empty for none. */
   network: z.strictObject({ hosts: z.array(Words) }).optional(),
   /** What it keeps outside kb's graph, and where: its own files, a database, a service. */

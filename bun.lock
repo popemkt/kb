@@ -671,6 +671,7 @@
       "dependencies": {
         "@kb/canvas": "workspace:*",
         "@kb/contracts": "workspace:*",
+        "@kb/keybindings": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/scene": "workspace:*",
@@ -816,6 +817,7 @@
       "dependencies": {
         "@kb/collections": "workspace:*",
         "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/ui-sdk": "workspace:*",
         "@kb/views": "workspace:*",
@@ -1161,6 +1163,7 @@
       "dependencies": {
         "@kb/appearance-kit": "workspace:*",
         "@kb/contracts": "workspace:*",
+        "@kb/keybindings": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/outline": "workspace:*",
         "@kb/plugin": "workspace:*",

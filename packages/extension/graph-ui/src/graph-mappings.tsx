@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { browserHost, SYSTEM_IDS, useWireNodes } from "@kb/ui-sdk";
+import { browserHost, useWireNodes } from "@kb/ui-sdk";
+import { SYSTEM_IDS } from "@kb/model";
 import { graphBindingOptions, type GraphBindingOption } from "./graph-bindings";
 import {
   sourceValue,

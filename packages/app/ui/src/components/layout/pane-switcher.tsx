@@ -9,13 +9,13 @@ import { Predicate } from "effect";
 import {
   cn,
   matchRoute,
-  nodePath,
   RoutePoint,
   useAnchoredPosition,
   useContributions,
   ViewPoint,
   useDismiss,
 } from "@kb/ui-sdk";
+import { nodePath } from "@kb/views";
 import { pageOpeningsOf } from "@/lib/node-openings";
 import { usePageCatalog } from "@/lib/view-catalog";
 import { useGraphStore, useShownNodes } from "@/stores/graph.store";

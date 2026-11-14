@@ -9,7 +9,8 @@
 import type { ReactNode } from "react";
 import type { Icon } from "@phosphor-icons/react";
 import type { ContributionEntry } from "@kb/plugin";
-import { callInput, invokeAction, type ActionCall } from "./action-call";
+import { callInput, invokeAction } from "./action-call";
+import type { ActionCall } from "@kb/keybindings";
 import { iconOf, type IconName } from "./form-icons";
 import {
   NODE_MENU_GROUPS,

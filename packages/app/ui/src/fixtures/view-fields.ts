@@ -1,6 +1,5 @@
 import type { WireNode } from "@kb/contracts";
-import { frameViewNodeId, viewOptionId } from "@kb/model";
-import { SYSTEM_IDS } from "@kb/ui-sdk";
+import { frameViewNodeId, viewOptionId, SYSTEM_IDS } from "@kb/model";
 import { bundledSeed } from "@kb/bundled";
 
 const at = "2026-09-06T00:00:00.000Z";

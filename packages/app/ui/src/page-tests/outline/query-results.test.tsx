@@ -8,17 +8,10 @@
  */
 import { answersOver, DatascriptIndex } from "@kb/ui-test-kit";
 import { describe, expect, it } from "vitest";
-import { present } from "@kb/model";
+import { present, SYSTEM_IDS } from "@kb/model";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import {
-  Bullet,
-  derivedWith,
-  type OutlineNode,
-  resultNodeIds,
-  SYSTEM_IDS,
-  wireToOutlineMap,
-} from "@kb/ui-sdk";
+import { Bullet, derivedWith, type OutlineNode, resultNodeIds, wireToOutlineMap } from "@kb/ui-sdk";
 import { fixtureGraph } from "@/api/fixture-graph";
 import type { WireNode } from "@kb/contracts";
 

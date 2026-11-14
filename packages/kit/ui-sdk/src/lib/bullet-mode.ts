@@ -1,5 +1,5 @@
-import { textHasAssetRef, typeRefsOf } from "@kb/model";
-import { isSysPrefixed, SYSTEM_IDS, type OutlineNode } from "./types";
+import { textHasAssetRef, typeRefsOf, SYSTEM_IDS } from "@kb/model";
+import { isSysPrefixed, type OutlineNode } from "./types";
 import { nodeTagColors, tagColorFill } from "./tag-color";
 import { hasText } from "./text";
 

@@ -3,13 +3,8 @@
  * it to that host (a test host), not to the shell's mutations.
  */
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import {
-  type PageWrites,
-  type PropValue,
-  SYSTEM_IDS,
-  syncUiPlugins,
-  type ViewProposal,
-} from "@kb/ui-sdk";
+import { type PageWrites, type PropValue, syncUiPlugins, type ViewProposal } from "@kb/ui-sdk";
+import { SYSTEM_IDS } from "@kb/model";
 import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
 import { decodePerspective, TreeView } from "@kb/graph";
 import { saveGraphPerspective, setGraphRenderer, setLensProp } from "./lens-writes";

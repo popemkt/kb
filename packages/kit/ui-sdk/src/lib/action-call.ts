@@ -11,7 +11,6 @@ import { toast } from "./toast";
 import { failureText } from "./refusal";
 
 import type { ActionCall } from "@kb/keybindings";
-export type { ActionCall } from "@kb/keybindings";
 
 /** Where a picker step's input takes the node the person picked. */
 interface Picked {

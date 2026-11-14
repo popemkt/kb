@@ -1,20 +1,10 @@
-export {
-  ExtensionOriginSchema,
-  ExtensionReachSchema,
-  ExtensionReviewSchema,
-  installMarketplace,
-  isKbOrigin,
-  replacesWithoutApproval,
-} from "./extension-review.ts";
+export { installMarketplace, isKbOrigin, replacesWithoutApproval } from "./extension-review.ts";
 export type { ExtensionOrigin, ExtensionReach } from "./extension-review.ts";
 export {
-  ExtensionCapabilitiesSchema,
   ExtensionManifestSchema,
   MANIFEST_SUFFIX,
   PAGE_CODE_TIERS,
-  PAGE_TIERS,
   capabilityLines,
-  listingMissing,
   type ExtensionManifest,
 } from "./extension-manifest.ts";
 export {
@@ -30,19 +20,16 @@ export {
   envelopeOf,
   SESSION_META_KEY,
   sessionOfMeta,
-  VIA_MAX,
   viaOn,
   viaWithin,
   requestOf,
   ActionReceiptSchema,
-  FilledInputSchema,
   ManifestEntrySchema,
   CoreInvoke,
   actionToManifestEntry,
   approvalSubject,
   toolInputSchema,
   failed,
-  isActionMode,
   requiresApproval,
   succeeded,
 } from "./actions.ts";
@@ -51,7 +38,6 @@ export {
   ApprovalAskSchema,
   CurrentCall,
   DecidedEntrySchema,
-  ShownConfigurationSchema,
   approvalAsk,
   hasPerson,
   madeBy,
@@ -89,20 +75,12 @@ export {
   declarationPlugin,
   familyTags,
   defineExtension,
-  extensionFrom,
   extensionRow,
 } from "./declaration.ts";
 export type { ExtensionDeclaration, ExtensionEntry, ExtensionRow } from "./declaration.ts";
 export { hostEntry } from "./host-entry.ts";
 export { NO_SWITCHES, familyOn, switchWrites } from "./extension-switch.ts";
-export { EXTENSIONS_WATCH_NODE, extensionsWatched } from "./extension-watch.ts";
-export {
-  FOOTPRINT_SOURCES,
-  FamilyKernels,
-  FootprintRowSchema,
-  holdsFamily,
-  runtimeFootprint,
-} from "./footprint.ts";
+export { FamilyKernels, FootprintRowSchema, holdsFamily, runtimeFootprint } from "./footprint.ts";
 export type { FamilyKernel, FootprintRow, HostedFamilies } from "./footprint.ts";
 export {
   ExtensionFailures,
@@ -149,7 +127,6 @@ export {
   ActionInterceptorPoint,
   CurrentInterception,
   DEFAULT_BUDGET_MS,
-  NO_INTERCEPTION,
   guardAction,
   onAction,
 } from "./interception.ts";
@@ -164,21 +141,14 @@ export type {
   Listener,
 } from "./interception.ts";
 export {
-  ProcedureCallSchema,
   ProcedurePoint,
   ProcedureStatusSchema,
   ProcedureStepOutputSchema,
   StepCheckSchema,
-  StepStatusSchema,
   isDecision,
   walkedSteps,
 } from "./procedure.ts";
-export {
-  MIGRATION_STEPS,
-  MigrationPoint,
-  migrationProcedure,
-  migrationProcedureId,
-} from "./migration.ts";
+export { MIGRATION_STEPS, MigrationPoint, migrationProcedureId } from "./migration.ts";
 export type { ExtensionMigration, MigrationGraph, MigrationStep } from "./migration.ts";
 export type {
   ProcedureCall,
@@ -188,21 +158,19 @@ export type {
 } from "./procedure.ts";
 export {
   CORE_CONTEXT_REFERENCES,
-  NO_CONTEXT,
   ContextReferencePoint,
   CurrentContextReferences,
   contextReferencesOf,
   contextRefusal,
 } from "./context.ts";
 export type { ContextReference, ContextReferences } from "./context.ts";
-export { IdentityPoint, PersonSchema } from "./person.ts";
+export { IdentityPoint } from "./person.ts";
 export type { Identification, IdentityProvider, Person } from "./person.ts";
 export {
   ActionResponseSchema,
   ClientMessageSchema,
   GraphSnapshotSchema,
   SavedQuerySchema,
-  EmbeddingSchema,
   NO_EMBEDDING,
   ServerIdentitySchema,
   ServerMessageSchema,
@@ -221,20 +189,13 @@ export type {
   WireNode,
 } from "./protocol.ts";
 export {
-  CanvasScreenSchema,
-  NavigateTargetSchema,
-  PaneScreenSchema,
   SCREEN_APPLIED,
-  SCREEN_COMMAND_TIMEOUT_MAX_MS,
   SCREEN_COMMAND_TIMEOUT_MS,
-  ScreenAckSchema,
-  ScreenCommandSchema,
   ScreenListSchema,
   CANVAS_VIEW_PRESET_NAMES,
   ScreenReceiptSchema,
   ScreenStateSchema,
   Screens,
-  TabScreenSchema,
   UiNavigateInputSchema,
   UiScreenInputSchema,
   UiCaptureInputSchema,
@@ -268,7 +229,7 @@ export { KbCtx, KbStore, inProcess, kbCtxLayer, kbStoreLayer } from "./session.t
 export { NO_SECRETS, SecretError } from "./secrets.ts";
 export type { SecretSource, SecretSink, SecretStore } from "./secrets.ts";
 export { GraphWrites, NodeUpdateInputSchema, PropInputSchema } from "./graph-writes.ts";
-export type { GraphPlan, GraphWritesPort } from "./graph-writes.ts";
+export type { GraphWritesPort } from "./graph-writes.ts";
 export {
   TX_TAIL_KEEP_ENTRIES,
   TX_TAIL_MAX_ENTRIES,
@@ -277,7 +238,7 @@ export {
   pageLength,
 } from "./tx-log.ts";
 export type { KbTxLog, TxPage, TxRecord, TxTail } from "./tx-log.ts";
-export { TemplateRegistry, renderText, templateRegistryLayer } from "./template.ts";
+export { TemplateRegistry, renderText } from "./template.ts";
 export type { ExtensionTemplate, TemplateContext, TemplateFn } from "./template.ts";
 export type { KbContext } from "./session.ts";
 export { KeptState, staleCommitError } from "./store.ts";
@@ -309,7 +270,6 @@ export {
   SourceHashSchema,
   SourceKindSchema,
   SourceAddressSchema,
-  LockedSourceSchema,
   ExtensionSelectionSchema,
   ExtensionLockSchema,
 } from "./extension-install.ts";
@@ -328,7 +288,6 @@ export {
   CAPTURE_TARGET_ROLE,
   LANDING_ROLE,
   DATE_TARGET_ROLE,
-  declaredRoles,
   FIELD_EDITOR_ROLE,
 } from "./roles.ts";
 
@@ -346,13 +305,9 @@ export { orderedRoles } from "./extension-report.ts";
 export { TxAfterPoint, onCommit, CurrentReactions } from "./reactions.ts";
 export type { ReactionFailure, TxChange, ReactionHost, Reactions } from "./reactions.ts";
 
-export {
-  CORE_POINT_NAMESPACES,
-  CORE_POINT_DEFINITIONS,
-  type PointDefinition,
-} from "./point-definitions.ts";
+export { CORE_POINT_DEFINITIONS, type PointDefinition } from "./point-definitions.ts";
 
-export { TxMatchSchema, describeTxMatch, type TxMatch, type TxReaction } from "./tx-match.ts";
+export { type TxMatch, type TxReaction } from "./tx-match.ts";
 
 export { hostCapabilities, extensionAdmissionIssue } from "./admission.ts";
 export { waitingForPoint, PointNamesSchema } from "./point-names.ts";

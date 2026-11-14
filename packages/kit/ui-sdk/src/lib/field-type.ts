@@ -13,12 +13,9 @@
  */
 import type { FieldContext, SchemaIndex } from "./schema";
 import {
-  FIELD_TYPES,
-  FIELD_TYPE_OPTION_IDS,
   allowedRefIdsOf,
   conformsToType,
   fieldTypeOf,
-  fieldTypeValue,
   targetQueryOf,
   targetTagsOf,
   type FieldType,
@@ -27,8 +24,6 @@ import { hasText } from "./text";
 import type { EdnRunner } from "../query";
 import type { QueryAnswers } from "./replica-queries";
 import type { OutlineNode, PropValue } from "./types";
-
-export { FIELD_TYPES, FIELD_TYPE_OPTION_IDS, fieldTypeValue, type FieldType };
 
 /**
  * The type `fieldId`'s values are held to (`fieldTypeOf`): its declared

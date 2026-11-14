@@ -18,11 +18,11 @@
  *    target's first tag colour, inked as a chip's text is.
  */
 import type { WireNode } from "@kb/contracts";
-import { present, typeRefsOf } from "@kb/model";
+import { present, typeRefsOf, SYSTEM_IDS } from "@kb/model";
 import type { RefInk } from "./md-edit";
 import type { SchemaIndex } from "./schema";
 import { hasText } from "./text";
-import { SYSTEM_IDS, type TagBadge } from "./types";
+import type { TagBadge } from "./types";
 
 /** Deterministic 12-color hash (djb2 % 12). */
 export const TAG_PALETTE = [

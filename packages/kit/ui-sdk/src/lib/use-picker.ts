@@ -8,7 +8,7 @@
  * what lets all of them read this one hook.
  */
 import { useState } from "react";
-import { lookupChord, type Chord, type KeyChordEvent } from "./keychord";
+import { lookupChord, type Chord, type KeyChordEvent } from "@kb/keybindings";
 import type { PickerRow } from "./picker";
 
 export interface PickerKeysInput {

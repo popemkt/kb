@@ -1,4 +1,4 @@
-import { declaredOptionId, VIEW_FAMILY_OPTIONS } from "@kb/model";
+import { declaredOptionId, VIEW_FAMILY_OPTIONS, SYSTEM_IDS } from "@kb/model";
 /**
  * The malformed-config-prop policy, for both node-backed configs.
  *
@@ -19,7 +19,6 @@ import {
   getViewConfig,
   type PropValue,
   schemaOfGraph,
-  SYSTEM_IDS,
   ViewPoint,
   wireToOutlineMap,
 } from "@kb/ui-sdk";

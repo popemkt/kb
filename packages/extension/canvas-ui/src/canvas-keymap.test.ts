@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { Effect } from "effect";
 import { definePlugin } from "@kb/plugin";
-import { KeybindingPoint, provideKeybinding, syncUiPlugins } from "@kb/ui-sdk";
+import { syncUiPlugins } from "@kb/ui-sdk";
+import { KeybindingPoint } from "@kb/contracts";
+import { provideKeybinding } from "@kb/keybindings";
 import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
 import {
   CANVAS_SHORTCUTS,

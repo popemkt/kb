@@ -10,7 +10,7 @@ import {
 import { LockSimpleIcon } from "@phosphor-icons/react";
 import { cn } from "../lib/cn";
 import { ingestedOf, type IngestPort } from "../lib/ingest";
-import { matchesChord, TEXT_HISTORY_CHORD } from "../lib/keychord";
+import { matchesChord, TEXT_HISTORY_CHORD } from "@kb/keybindings";
 import { KB_TEXT_CLASS } from "../lib/md-inline";
 import {
   getCaretSerializedOffset,

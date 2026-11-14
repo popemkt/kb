@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { CANVAS_IDS, canvasWorld } from "@kb/canvas";
 import { SYSTEM_IDS } from "@kb/model";
-import { nodePath } from "@kb/ui-sdk";
+import { nodePath } from "@kb/views";
 import { linkStep } from "./canvas-links";
 import { canvasPath } from "./routes";
 

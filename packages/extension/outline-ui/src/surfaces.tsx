@@ -2,12 +2,11 @@ import { useMemo } from "react";
 import { PushPinIcon } from "@phosphor-icons/react";
 import { OutlineColumn } from "./outline-column";
 import { useOutlineScreen } from "./use-outline-screen";
-import { HomeView, type OutlineParams } from "@kb/views";
+import { HomeView, type OutlineParams, nodePath } from "@kb/views";
 import {
   browserHost,
   listPinnedNavItems,
   type MatchedRoute,
-  nodePath,
   OpenNodeContext,
   paramsOf,
   SidebarRow,

@@ -14,13 +14,8 @@ import {
   SELECTION_CONTEXT,
   SELECTION_CONTEXT_ID,
 } from "@kb/outline";
-import {
-  KeybindingPoint,
-  keyContextOf,
-  KeyContextPoint,
-  type KeyContext,
-  type Keybinding,
-} from "@kb/ui-sdk";
+import { KeybindingPoint, KeyContextPoint } from "@kb/contracts";
+import { keyContextOf, type KeyContext, type Keybinding } from "@kb/keybindings";
 
 /** The outline's context of id `id`, as a page kernel holding the outline's two reads it. */
 function outlineKeyContext(id: string): KeyContext {

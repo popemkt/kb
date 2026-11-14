@@ -148,7 +148,7 @@ export type ClientMessage = z.infer<typeof ClientMessageSchema>;
  * `scripts` are the URLs of classic scripts a framed page loads for them
  * (`kb ui --embed-script`), each told the origins as `data-parent-origins`.
  */
-export const EmbeddingSchema = z.object({
+const EmbeddingSchema = z.object({
   origins: z.array(z.string()).readonly(),
   scripts: z.array(z.string()).readonly(),
 });

@@ -9,7 +9,7 @@
       "@kb/test-kit": 58,
       "@kb/webmcp": 12,
       "@kb/operations": 68,
-      "@kb/contracts": 356,
+      "@kb/contracts": 321,
       "@kb/ext-sdk": 9,
       "@kb/extension-source": 27,
       "@kb/sandbox": 94,
@@ -17,7 +17,7 @@
       "@kb/keybindings": 39,
       "@kb/model": 266,
       "@kb/outline-paste": 3,
-      "@kb/plugin": 43,
+      "@kb/plugin": 41,
       "@kb/query": 53,
       "@kb/seed": 8,
       "@kb/views": 113,
@@ -80,7 +80,7 @@
       "@kb/appearance-kit": 41,
       "@kb/scene": 13,
       "@kb/scene-gpu": 35,
-      "@kb/ui-sdk": 530,
+      "@kb/ui-sdk": 504,
       "@kb/ui-test-kit": 26
     },
     "family-names": {
@@ -149,8 +149,8 @@
     },
     "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2773904,
-      "modules": 736
+      "bytes": 2773512,
+      "modules": 735
     },
     "single-family": {
       "contract/sandbox/src/snapshot.ts": 1,

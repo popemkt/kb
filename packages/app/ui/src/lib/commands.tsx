@@ -49,6 +49,7 @@ import {
   present,
   typeRefsOf,
   viewOptionOf,
+  SYSTEM_IDS,
 } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import {
@@ -67,13 +68,11 @@ import {
   type NodeCommandListing,
   nodeMenu,
   NODE_MENU_GROUPS,
-  nodePath,
   ontologyPath,
   type OutlineCommandApi,
   type ProvidedView,
   ViewPoint,
   uiKernelReader,
-  SYSTEM_IDS,
   textOr,
   type ThemePref,
   toast,
@@ -93,6 +92,7 @@ import {
   type FrameViewKey,
   type LayoutTree,
   type ViewKey,
+  nodePath,
 } from "@kb/views";
 import { Result } from "effect";
 import type { Contribution, Kernel } from "@kb/plugin";

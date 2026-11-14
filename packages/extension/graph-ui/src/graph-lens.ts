@@ -30,12 +30,12 @@ import {
   type NodeLinkGraphs,
   type NodeLinkNode,
   queryFamilyViewNodes,
-  SYSTEM_IDS,
   tagColorOf,
   tagPalette,
   type TagPalette,
   UNTAGGED_COLOR,
 } from "@kb/ui-sdk";
+import { SYSTEM_IDS } from "@kb/model";
 
 /**
  * A node as the graph draws it: the kit's node-link node (`NodeLinkNode`),

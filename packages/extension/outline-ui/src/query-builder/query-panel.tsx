@@ -19,15 +19,8 @@
 import { useState } from "react";
 import type { WireNode } from "@kb/contracts";
 import { readsAsEdn } from "@kb/query";
-import {
-  browserHost,
-  cn,
-  EdnEditor,
-  type GraphRead,
-  indentStyle,
-  SYSTEM_IDS,
-  usePageGraph,
-} from "@kb/ui-sdk";
+import { browserHost, cn, EdnEditor, type GraphRead, indentStyle, usePageGraph } from "@kb/ui-sdk";
+import { SYSTEM_IDS } from "@kb/model";
 import { NodeField } from "../fields-section";
 import { outlineNodes, useOutlineStore, type QueryTab } from "../outline.store";
 import { ConditionsEditor } from "./conditions";

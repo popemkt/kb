@@ -13,6 +13,7 @@
   "dependencies": {
     "@kb/collections": "workspace:*",
     "@kb/contracts": "workspace:*",
+    "@kb/model": "workspace:*",
     "@kb/plugin": "workspace:*",
     "@kb/ui-sdk": "workspace:*",
     "@kb/views": "workspace:*",

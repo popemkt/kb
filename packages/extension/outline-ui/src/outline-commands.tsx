@@ -15,13 +15,12 @@ import {
   RowsIcon,
 } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
-import { DISPLAY_OPTIONS, queryTextOf, type DisplayOption } from "@kb/model";
+import { DISPLAY_OPTIONS, queryTextOf, type DisplayOption, SYSTEM_IDS } from "@kb/model";
 import {
   browserHost,
   currentContributions,
   nodeAction,
   nodeMenu,
-  SYSTEM_IDS,
   tagOpeningOf,
   ViewPoint,
   type Command,

@@ -1,4 +1,4 @@
-import { Context, Layer } from "effect";
+import { Context } from "effect";
 import { replaceMentions, type KbNode, type NodeId } from "@kb/model";
 
 /**
@@ -46,9 +46,3 @@ export class TemplateRegistry extends Context.Service<
   TemplateRegistry,
   ReadonlyMap<string, TemplateFn>
 >()("kb/TemplateRegistry") {}
-
-export function templateRegistryLayer(
-  templates: ReadonlyMap<string, TemplateFn>,
-): Layer.Layer<TemplateRegistry> {
-  return Layer.succeed(TemplateRegistry, templates);
-}

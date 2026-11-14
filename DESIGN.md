@@ -3337,7 +3337,7 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   reading, or at the next start. A `kb ui` server can also watch the folder.
   It watches while `kb ui --watch-extensions` asked it to, or while core's
   setting `sys.f.extensions.watch` (a checkbox, `extensionsWatched` in
-  `@kb/contracts`) is on, so a person can leave it on. The flag is per run and
+  `@kb/server`) is on, so a person can leave it on. The flag is per run and
   the setting is the store's, committed with it.
   - **What watching does.** `ownExtensionEdits` (`app/runtime`) watches the
     folder and every folder under it, creating it when it is initially missing.

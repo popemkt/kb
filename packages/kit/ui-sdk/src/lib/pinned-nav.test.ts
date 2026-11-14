@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { listPinnedNavItems } from "./pinned";
-import { SYSTEM_IDS, type OutlineNode } from "./types";
+import type { OutlineNode } from "./types";
+import { SYSTEM_IDS } from "@kb/model";
 
 function outline(partial: Partial<OutlineNode> & Pick<OutlineNode, "id" | "text">): OutlineNode {
   return {

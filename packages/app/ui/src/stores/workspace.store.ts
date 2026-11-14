@@ -25,12 +25,12 @@ import {
   withPanePath,
   LayoutView,
   type LayoutTree,
+  nodePath,
 } from "@kb/views";
 import {
   getPath,
   MAIN_PANE,
   navigate,
-  nodePath,
   outlineLocationOf,
   replacePath,
   subscribePath,

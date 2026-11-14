@@ -2,13 +2,12 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { present } from "@kb/model";
+import { present, SYSTEM_IDS } from "@kb/model";
 import { CANVAS_IDS, CanvasView, stringifyCanvasDoc, type CanvasDoc } from "@kb/canvas";
 import { definePlugin } from "@kb/plugin";
 import {
   ScriptHostService,
   syncUiPlugins,
-  SYSTEM_IDS,
   type OutlineNode,
   type ScriptHostProps,
 } from "@kb/ui-sdk";
