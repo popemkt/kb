@@ -38,7 +38,6 @@ import {
   type TldrawValue,
 } from "@kb/canvas";
 import { LintSchema } from "./lints.ts";
-import { tldrawRecords } from "./tldraw-file.ts";
 import { CanvasTxError, canvasStep, type CanvasFail, type CanvasWriteEnv } from "./write.ts";
 
 const importInput = z.object({
@@ -153,6 +152,8 @@ const canvasImportEffect = Effect.fn("ext.canvas.import")(function* (
   const bytes = yield* fs
     .readFile(path)
     .pipe(Effect.mapError((err) => new CanvasTxError(`cannot read ${input.path}: ${err.message}`)));
+  // The reader (a ZIP inflater and SQLite) loads with the first import, not with every command.
+  const { tldrawRecords } = yield* Effect.promise(() => import("./tldraw-file.ts"));
   const records = yield* canvasStep(() => tldrawRecords(bytes));
   const keys = tldrawKeys(records);
   if (keys.pages.length === 0) {

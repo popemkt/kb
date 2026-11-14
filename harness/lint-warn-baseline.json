@@ -149,8 +149,8 @@
     },
     "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2739523,
-      "modules": 722
+      "bytes": 2736980,
+      "modules": 721
     },
     "single-family": {
       "contract/sandbox/src/snapshot.ts": 1,

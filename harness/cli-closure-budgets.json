@@ -1,10 +1,10 @@
 {
   "bytes": {
-    "limit": 2739523,
-    "reason": "sandbox-quickjs imports QuickJS with its first run, so the lazy-fence ledger is empty."
+    "limit": 2736980,
+    "reason": "ext-canvas loads its tldraw file reader with the first import."
   },
   "modules": {
-    "limit": 722,
-    "reason": "sandbox-quickjs imports QuickJS with its first run, so the lazy-fence ledger is empty."
+    "limit": 721,
+    "reason": "ext-canvas loads its tldraw file reader with the first import."
   }
 }
