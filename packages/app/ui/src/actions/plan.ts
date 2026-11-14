@@ -400,8 +400,6 @@ export function planAddMatching(id: string, add: MatchingAdd): PlannedMutation {
         },
       },
     ],
-    focusId: id,
-    focusCursor: 0,
   };
 }
 

@@ -5,6 +5,7 @@
  * focus leaves it still empty (Tana, r1 §3.3), and "the row above" is the one
  * the outline draws above (r1 D09).
  */
+import { queryDefOf } from "@kb/model";
 import { requirementsOf } from "@kb/query";
 import type { ViewFilter } from "@kb/views";
 import { outlineNodes, useOutlineStore } from "./outline.store";
@@ -55,6 +56,16 @@ export async function mergeWithPrevious(id: string, instanceKey?: string): Promi
   await browserHost().writes.mergeWithPrevious(id, previous);
 }
 
+/**
+ * Once the query `queryId` has answered the graph as it is now: a result is
+ * drawn only then, so a row just added is opened after it, not before.
+ */
+async function answered(queryId: string): Promise<void> {
+  const edn = queryDefOf(outlineNodes().get(queryId))?.edn;
+  const queries = browserHost().graph.state().queries;
+  if (edn !== undefined && queries !== null) await queries.ask(edn);
+}
+
 /** The one narrowing row a view's filter adds to the query vocabulary. */
 type AnywhereFilter = Extract<ViewFilter, { kind: "anywhere-contains" }>;
 
@@ -63,11 +74,14 @@ type AnywhereFilter = Extract<ViewFilter, { kind: "anywhere-contains" }>;
  * → Adding to a frame): empty, carrying what `where` requires
  * (`requirementsOf`, read over the whole graph's fields and options) and the
  * frame's own part: the query it matches, or the frame as its parent. It is
- * transient like any row the outline mints, and a toast says when something
- * asked could not be written, so the row may not show where it was asked.
+ * transient like any row the outline mints, and opens its text at the
+ * instance the frame draws it at (`rowKey`): a query's result shows once the
+ * query answers it, so the bare id names no row drawn yet. A toast says when
+ * something asked could not be written, so the row may not show where it was
+ * asked.
  */
 export async function addFrameRow(
-  frame: Pick<FrameSubject, "frameId" | "isQuerySource">,
+  frame: Pick<FrameSubject, "frameId" | "isQuerySource" | "rowKey">,
   where: readonly RowCondition[],
 ): Promise<string | null> {
   const schema = schemaOf(browserHost().graph.state());
@@ -81,6 +95,8 @@ export async function addFrameRow(
   });
   if (added === null) return null;
   useOutlineStore.getState().markTransient(added.id);
+  if (frame.isQuerySource) await answered(frame.frameId);
+  useOutlineStore.getState().activateNode(added.id, 0, frame.rowKey(added.id));
   if (added.unmet + req.unmet.length > 0) {
     toast(
       "Added, but not everything this view asks for could be filled in, so it may not show here",

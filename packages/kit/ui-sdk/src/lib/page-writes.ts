@@ -49,10 +49,11 @@ export interface PageWrites {
   readonly createEmptyNodeBefore: (beforeId: string) => Promise<string | null>;
   /**
    * Mint a real empty node that carries what it was asked for, as one
-   * `node.add` (one undo step), and activate it: under `parent`, else where
+   * `node.add` (one undo step): under `parent`, else where
    * `matching`'s query places it, else where captures go (DESIGN-UI.md →
    * Adding to a frame). Its id and how many of the query's conditions it
-   * does not hold, or null when refused.
+   * does not hold, or null when refused. The caller opens it where it draws
+   * it, which only the caller knows.
    */
   readonly addMatchingNode: (add: MatchingAdd) => Promise<{ id: string; unmet: number } | null>;
   readonly addTagField: (tagId: string, fieldId: string) => Promise<void>;

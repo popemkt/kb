@@ -3067,7 +3067,7 @@ how the stored name resolves to the key among them.
   `field-is`); the host adds the frame's own part (`matching` the query, or
   the frame as parent), so it is the one way a frame view adds a row, as
   `RowChildren` is the one way it draws a row's children. The node is made empty, with its caret in its text where the view draws
-  it, and is transient (Outline editor): left empty, it is pruned. One
+  it (`rowKey`; a query's result once the query has answered it), and is transient (Outline editor): left empty, it is pruned. One
   write makes it with everything it carries, so one undo removes it. When
   something the query or filter asks cannot be written (a negation, a
   choice, a range: unmet), the node is made anyway and a toast says it may

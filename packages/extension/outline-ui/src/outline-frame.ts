@@ -36,21 +36,19 @@ export function outlineFrameSubject(
   host: string = MAIN_OUTLINE_HOST,
 ): FrameSubject {
   const { frameId, instanceKey, isQuerySource } = frame;
+  // Read when asked, so a frame that moved names its rows where it is now.
+  const rowKey = (nodeId: string) =>
+    isQuerySource
+      ? queryResultInstanceKey(frameId, nodeId)
+      : childInstanceKey(instanceKey ?? outlineInstanceKey(frameId, outlineNodes(), host), nodeId);
   return {
     ...frame,
-    // Read when asked, so a frame that moved names its rows where it is now.
-    rowKey: (nodeId) =>
-      isQuerySource
-        ? queryResultInstanceKey(frameId, nodeId)
-        : childInstanceKey(
-            instanceKey ?? outlineInstanceKey(frameId, outlineNodes(), host),
-            nodeId,
-          ),
+    rowKey,
     pages,
     revealMorePages: () => useOutlineStore.getState().revealMorePages(frame.frameId),
     detail,
     showDetail: (nodeId) => useOutlineStore.getState().showDetail(frame.frameId, nodeId),
     RowText: FrameRowText,
-    addRow: (where) => void addFrameRow(frame, where),
+    addRow: (where) => void addFrameRow({ frameId, isQuerySource, rowKey }, where),
   };
 }

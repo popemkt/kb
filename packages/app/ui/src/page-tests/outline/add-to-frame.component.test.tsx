@@ -3,18 +3,24 @@
  * Adding to a frame): a board's group adds its value, a view's filter adds
  * what it requires, lanes add a lane and end in their heads' create strips,
  * and a query's results add a node the query answers. Each is one write, so
- * one undo removes it, and the row opens its text and is transient.
+ * one undo removes it, and the row opens its text where the frame draws it
+ * and is transient.
  */
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { syncUiPlugins } from "@kb/ui-sdk";
+import {
+  childInstanceKey,
+  outlineInstanceKey,
+  queryResultInstanceKey,
+  syncUiPlugins,
+} from "@kb/ui-sdk";
 import type { WireNode } from "@kb/contracts";
 import { present, SYSTEM_IDS, type PropValue } from "@kb/model";
 import { installDomGlobals } from "@kb/ui-test-kit";
-import { FrameViewSlot, QueryResultsSection, useOutlineStore } from "@kb/outline-ui";
+import { FrameViewSlot, outlineNodes, QueryResultsSection, useOutlineStore } from "@kb/outline-ui";
 import { collectionsUiPlugin } from "@kb/collections-ui";
 import { OutlineListView } from "@kb/views";
 import { fixtureGraph } from "@/api/fixture-graph";
@@ -124,7 +130,11 @@ describe("+ Add where a frame's rows are drawn", () => {
       "the row the group added",
     );
     expect(nodeOf(added)?.props["f.status"]).toEqual([ref("o.doing")]);
+    // Its text opens where the board draws it.
     expect(useOutlineStore.getState().activeNodeId).toBe(added);
+    expect(useOutlineStore.getState().activeInstanceKey).toBe(
+      childInstanceKey(outlineInstanceKey("groups", outlineNodes()), added),
+    );
     expect(useOutlineStore.getState().transientIds.has(added)).toBe(true);
 
     // One write, one undo.
@@ -190,5 +200,10 @@ describe("+ Add where a frame's rows are drawn", () => {
     await vi.waitFor(() => expect(tagged()).toHaveLength(1));
     // Not a child of the query: where captures go.
     expect(childrenOf("q")).toEqual([]);
+    // Its text opens as the query's result, the one instance that draws it.
+    const [added] = tagged();
+    expect(useOutlineStore.getState().activeInstanceKey).toBe(
+      queryResultInstanceKey("q", present(added, "the added result").id),
+    );
   });
 });

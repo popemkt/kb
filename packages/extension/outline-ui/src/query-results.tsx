@@ -65,7 +65,17 @@ function AddResult({ queryId, style }: { queryId: string; style: CSSProperties }
         className="text-meta font-normal text-foreground/50"
         data-add-row={queryId}
         aria-label="Add a result"
-        onClick={() => void addFrameRow({ frameId: queryId, isQuerySource: true }, [])}
+        onClick={() =>
+          void addFrameRow(
+            {
+              frameId: queryId,
+              isQuerySource: true,
+              // As the list draws a result, below.
+              rowKey: (id) => queryResultInstanceKey(queryId, id),
+            },
+            [],
+          )
+        }
       >
         + Add
       </Button>
