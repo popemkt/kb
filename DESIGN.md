@@ -701,35 +701,61 @@ type PropValue =
 - **Every seeded field declares its value type** (`sys.f.fieldType`), text
   ones included. `fieldTypeOf` reads an absent type as text, which is the
   right default for a user's untyped field and the wrong one for nearly every
-  system field (`sys.f.type` holds refs, `sys.f.hidden` a bool), so no system
+  system field (`sys.f.type` holds refs, `sys.f.pinned` a bool), so no system
   field leans on it. The seed's fill-absent pass carries a declaration added
   later to stores seeded before it.
-- **Whether a field is drawn is its field node's to say** (field visibility).
-  A field's rows are left out when its node carries `sys.f.hidden` = true,
-  a system field's as much as a person's, and `isFieldHidden` in
-  `@kb/ui-sdk`'s `field-visibility.ts` is the one reader: the field rows, a
-  row's collapse default and a table's columns all ask it. No list in the
-  page names which system fields a person sees. A seed declares `hidden`
-  (`seededField`'s option) on two kinds of field only: one that is a node's
-  structure (`sys.f.type`, `sys.f.fields`, which option set a node belongs
-  to) and one a surface of its own draws and writes (a query node's builder,
-  a view's toolbar, a view's subject and the graph's lens settings, a layout
-  view's arrangement, a canvas, a chart, an ontology's page, a reference
-  row). Every other field, a system one included, is drawn and edited like
-  any field: a field's cardinality and inverse, an agent provider's adapter
+- **Whether and where a field is drawn is its field node's to say** (field
+  display). Two settings of every field (`sys.field`'s template) say it,
+  and `@kb/model`'s `field-display.ts` is their one reader:
+  - **show** (`sys.f.show`, one, an option set of its own children:
+    `sys.show.always`, `sys.show.filled`, `sys.show.never`; absent reads
+    *always*). *Always*: a node draws the field's row wherever it holds a
+    value or a tag of it templates the field, empty slot included. *When
+    filled*: the row is drawn where the node holds a value, and an empty
+    templated slot is folded (DESIGN-UI.md → Field values → hidden fields
+    fold). *Never*: the row is left out unless the node asks for its debug
+    fields. `fieldShowOf` reads it, and `isFieldHidden` in `@kb/ui-sdk`'s
+    `field-visibility.ts` (*never*) is what the field rows, a row's
+    collapse default and a table's columns all ask; a table's columns and
+    the view settings' field lists leave out *never* only, since a column
+    serves every row and some rows are filled.
+  - **pinned** (`sys.f.pinned`, a checkbox, one). A pinned field comes
+    first wherever fields are listed for a node or a frame: a node's field
+    rows, the query builder's subjects and the view settings' fields
+    (filter, group, display). `pinnedFirst` is the one order: pinned
+    fields keep their order among themselves, as do the rest.
+
+  Both apply to a system field as much as a person's. No list in the page
+  names which system fields a person sees. A seed declares `hidden`
+  (`seededField`'s option, which writes show *never*) on two kinds of
+  field only: one that is a node's structure (`sys.f.type`,
+  `sys.f.fields`, which option set a node belongs to) and one a surface of
+  its own draws and writes (a query node's builder, a view's toolbar, a
+  view's subject and the graph's lens settings, a layout view's
+  arrangement, a canvas, a chart, an ontology's page, a reference row).
+  Every other field, a system one included, is drawn and edited like any
+  field: a field's cardinality and inverse, an agent provider's adapter
   and endpoint, a docs view's template. A prop whose field node the graph
   does not hold has nothing to say it is hidden, so it is drawn, named by
   its id: a store seeds every bundled family's fields, and the seed moves
   or drops the values of a field it retires (Extension families → the
   seed retires what it renames), so this is a family a build leaves out
-  entirely, whose values then show as what they are. A setting (`sys.f.configures`) is a row on the node
-  it configures however many other places draw it with the same field
-  editor (the Settings page). A table that names no columns
-  derives them from its rows' tag templates by the same rule, so a table of
-  field nodes or of agent providers shows their settings as columns.
-  Whether a drawn row may be written is the system-write rule's
-  (`isWritableField`), never visibility's; a node's debug fields reveal its
-  hidden rows, and they are written under the same rule.
+  entirely, whose values then show as what they are. A setting
+  (`sys.f.configures`) is a row on the node it configures however many
+  other places draw it with the same field editor (the Settings page). A
+  table that names no columns derives them from its rows' tag templates
+  by the same rule, so a table of field nodes or of agent providers shows
+  their settings as columns. Whether a drawn row may be written is the
+  system-write rule's (`isWritableField`), never display's; a node's debug
+  fields reveal its hidden rows, and they are written under the same rule.
+
+  Show replaced a checkbox, `sys.f.hidden`, which the seed no longer
+  holds. A field a person hid with it moves to show *never* through core's
+  migration `core.field-show` ([Plugin data migrations](#plugin-data-migrations)),
+  which also drops the old field node and its place in any template. Until
+  a store runs it, such a field is drawn, and `kb migrate` lists it as
+  pending; the seed's own fields carry show on the next open, as any prop
+  the seed adds.
 - **A node's own text is a field a view can name** — `sys.f.node.text`, the
   table's Name column. It holds no values (text is `KbNode.text`, not a prop);
   it exists so a view that sorts or sizes by name refers to a node, exactly as

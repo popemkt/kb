@@ -1120,6 +1120,24 @@ empty slot closes it. A typed value emptied is taken out, not kept blank.
 Picked values are added in the picker. A one-valued field — and a checkbox,
 which holds one value by its type (`cardinalityOf`) — offers no add.
 
+**Hidden fields fold; pinned fields lead.** Which of a node's fields are
+drawn and in what order is the field nodes' to say (show and pinned,
+DESIGN.md → [Data model](DESIGN.md#data-model--everything-is-a-node), field
+display), and `resolveVisibleProps` (`@kb/ui-sdk`) is the one answer every
+surface's field rows take: the rows drawn, pinned ones first, and the
+**folded** ones, a field shown *when filled* that this node templates and
+does not fill. The outline draws the folded ones as one row after the
+others, "N hidden fields" (`FieldsSection`): a button in the values'
+keyboard path (↑/↓ reach it as they reach a value, Escape hands the
+keyboard back to the row), opened by a click, Enter or Space, which then
+draws them as empty slots to fill, and closes the same way. Whether a fold
+is open is the drawn row's own passing state, as a picker's openness is,
+and is written nowhere: what a person would expect to keep, which fields
+fold, is the field nodes'. A filled field is no longer folded; emptied, it
+folds again. A row whose only fields are folded is still expandable, since
+it has a row to draw. Debug fields draw every field, the folded ones
+among them as empty slots.
+
 **Per kind.**
 
 - **text** is node text: it renders and edits through the same live preview
@@ -1254,7 +1272,7 @@ on the wire-snapshot array (inner key `rev` + ontology id), which is exact
 under optimistic local edits where `rev` does not move.
 
 **Scope filters content, never meaning.** A member's field and tag
-definitions — field name, type, cardinality, hidden flag, option set, tag
+definitions — field name, type, cardinality, show and pinned, option set, tag
 name and template, the label of a ref value — are schema, and schema is
 resolved against the whole graph whatever the scope. It is a type of its own:
 `lib/schema.ts`'s `SchemaIndex`, which only `schemaOf` produces, and every
@@ -2510,7 +2528,7 @@ Two questions that look like settings are actually questions about one node, and
 both are answered from the node ⌘K menu rather than from a device switch.
 
 - **Debug fields are per node.** "Show me the hidden props" (the fields whose
-  nodes say hidden, [DESIGN.md → Data model](DESIGN.md#data-model--everything-is-a-node))
+  nodes say show *never*, [DESIGN.md → Data model](DESIGN.md#data-model--everything-is-a-node))
   is asked of the node you are inspecting; a debug row is written wherever the
   system-write rule lets a person write it. `stores/debug-fields.store.ts` owns the set of
   node ids that answer yes, persisted with the same `loadIdSet`/`saveIdSet`
