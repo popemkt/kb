@@ -89,7 +89,7 @@
       "contract/contracts/src/protocol.ts": 2,
       "contract/contracts/src/screen.ts": 3,
       "contract/contracts/src/actions.ts": 3,
-      "contract/ext-sdk/src/page-surface.ts": 5,
+      "contract/ext-sdk/src/page-surface.ts": 3,
       "contract/ext-sdk/src/surface.ts": 2,
       "contract/ext-sdk/src/module.ts": 6,
       "contract/extension-source/src/marketplace.ts": 1,
@@ -137,7 +137,6 @@
       "kit/ui-sdk/src/lib/command-forms.tsx": 3,
       "kit/ui-sdk/src/lib/command-point.ts": 1,
       "kit/ui-sdk/src/lib/graph-view.ts": 5,
-      "kit/ui-sdk/src/lib/keybindings.ts": 2,
       "kit/ui-sdk/src/lib/md-edit.ts": 3,
       "kit/ui-sdk/src/lib/md-inline.test.ts": 5,
       "kit/ui-sdk/src/lib/node-sections-scope.test.ts": 4,
@@ -149,7 +148,7 @@
     },
     "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2738107,
+      "bytes": 2738706,
       "modules": 721
     },
     "single-family": {
@@ -162,7 +161,6 @@
       "application/operations/src/interception.ts": 1,
       "extension/canvas-ui/src/canvas-camera.ts": 1,
       "extension/canvas-ui/src/canvas-card-face.ts": 1,
-      "extension/canvas-ui/src/canvas-keymap.ts": 1,
       "extension/canvas-ui/src/canvas-transform-input.ts": 1,
       "extension/graph-ui/src/graph-lens.ts": 1,
       "extension/graph/src/lens.ts": 1,

@@ -4,9 +4,10 @@
  *
  * A context is a place keys mean something, a contribution to
  * {@link KeyContextPoint} by the plugin that reads it, which owns it: the
- * page's own (`core.page`), offered every key first, and the outline's
- * editing row (`outline.editing`) and its selection (`outline.selection`),
- * offered the keys of what has focus. Its owner states its bindings as every other
+ * page's own (`core.page`), offered every key first; and the outline's
+ * editing row (`outline.editing`) and its selection (`outline.selection`)
+ * and the canvas's three (`canvas.rest`, `canvas.transform`,
+ * `canvas.present`), offered the keys of what has focus. Its owner states its bindings as every other
  * plugin does, as contributions to {@link KeybindingPoint}, so a built-in
  * has an id another binding can name. The keymap a context reads is
  * decided here, once, for every context: the owner's bindings first,
@@ -19,7 +20,14 @@
 import { CORE_POINT_DEFINITIONS } from "@kb/contracts";
 import type { ContributionEntry, Contribution } from "@kb/plugin";
 import { Point } from "@kb/plugin";
-import { chordsOverlap, describeChord, matchesChord, parseChord } from "./keychord";
+import {
+  byPlace,
+  chordIncludes,
+  chordsOverlap,
+  describeChord,
+  matchesChord,
+  parseChord,
+} from "./keychord";
 import type { Chord, KeyChordEvent } from "./keychord";
 import { browserHost } from "../host";
 import { callInput, invokeAction, type ActionCall } from "./action-call";
@@ -48,13 +56,6 @@ export const KeybindingPoint = Point<Keybinding>()(
 );
 
 /**
- * The contexts a binding may name: the page's own, and the outline's row
- * being edited and its selection. Core names outline's contexts here
- * rather than reading them from their owner. GAP [[01M7A4XKCMH09XC5WT6KEBFV4H]]
- */
-export type KeyContextId = "core.page" | "outline.editing" | "outline.selection";
-
-/**
  * A binding as data (its T0 form): a chord written as text
  * (`Alt-ArrowUp`, {@link parseChord}), the context it is a key of, what it
  * runs, and the binding it replaces, if it takes a held chord. A chord
@@ -64,7 +65,7 @@ export type KeyContextId = "core.page" | "outline.editing" | "outline.selection"
 export function provideKeybinding(
   id: string,
   binding: {
-    readonly context: KeyContextId;
+    readonly context: string;
     readonly chord: string;
     readonly run: KeyRun;
     readonly replaces?: string;
@@ -141,11 +142,21 @@ function chainOf(id: string | undefined, held: readonly Contribution<Keybinding>
   return chain;
 }
 
+/** Replacement wins before physical precedence; the remaining slots belong to one owner. */
+function precedes(
+  a: Contribution<Keybinding>,
+  b: Contribution<Keybinding>,
+  held: readonly Contribution<Keybinding>[],
+): boolean {
+  if (chainOf(a.value.replaces, held).has(b.id)) return true;
+  if (chainOf(b.value.replaces, held).has(a.id)) return false;
+  return byPlace(a.value.chord) && !byPlace(b.value.chord);
+}
+
 /**
  * Why `binding` may not join `held`, or null when it may. Every held
- * binding its chord overlaps must be the one it replaces or one that
- * binding stands on ({@link chainOf}), so the bindings any one key event
- * matches are always one chain, each newer than the one it replaces.
+ * binding its chord competes with must be in its replacement chain, or a
+ * fallback its holder already precedes throughout the replacement’s chord.
  */
 function refusal(
   context: KeyContext,
@@ -176,8 +187,19 @@ function refusal(
     return `it replaces ${value.replaces}, which holds no chord overlapping ${chord} in ${context.id}`;
   }
   const chain = chainOf(value.replaces, held);
-  // The newest binding it overlaps outside its chain: the one a key would reach.
-  const taken = overlapping.findLast(({ id }) => !chain.has(id));
+  // A replacement may inherit its holder's precedence over that owner's
+  // fallback, but only where the holder covers the replacement's whole chord.
+  const taken = overlapping.findLast((other) => {
+    if (chain.has(other.id)) return false;
+    if (other.owner === owner && byPlace(other.value.chord) !== byPlace(value.chord)) return false;
+    return !held.some(
+      (holder) =>
+        chain.has(holder.id) &&
+        holder.owner === other.owner &&
+        precedes(holder, other, held) &&
+        chordIncludes(holder.value.chord, value.chord),
+    );
+  });
   if (taken !== undefined) {
     return `${chord} in ${context.id} is held by ${taken.id}; a binding that takes it says replaces: "${taken.id}"`;
   }
@@ -188,10 +210,10 @@ function refusal(
  * The keymap of `context` over the contributions to {@link KeybindingPoint}:
  * those naming it, the owner's first, each admitted unless its chord
  * overlaps one held or reserved outside the chain of the binding it
- * replaces. A key resolves to the newest admitted binding it matches: the
- * bindings one key matches are one chain ({@link refusal}), so that is the
- * replacement furthest down it, and a replacement takes exactly the chord
- * it names while each binding it stands on keeps the rest. A replacement
+ * replaces, or a fallback its holder precedes. A key resolves by the same
+ * precedence ({@link precedes}): replacements before their holders, then
+ * physical bindings before character fallbacks. A replacement takes exactly
+ * the chord it names while each binding it stands on keeps the rest. A replacement
  * whose holder leaves is refused until it names the binding that holds the
  * chord then, so a key never moves to a binding no one chose for it.
  * `elsewhere` holds the chords another context holds first
@@ -220,7 +242,12 @@ export function admitKeybindings(
   return {
     refused,
     held,
-    resolve: (ev) => held.findLast(({ value }) => matchesChord(ev, value.chord)),
+    resolve: (ev) => {
+      const matching = held.filter(({ value }) => matchesChord(ev, value.chord));
+      return matching.findLast(
+        (binding) => !matching.some((other) => precedes(other, binding, held)),
+      );
+    },
   };
 }
 
@@ -238,8 +265,19 @@ export function admitKeymaps(
   approved: (owner: string) => boolean,
 ): ReadonlyMap<string, Keymap> {
   const surfaces = contexts.filter(({ reach }) => reach === "surface");
-  const surfacesOwn = bindings.filter(({ owner, value }) =>
-    surfaces.some((surface) => surface.id === value.context && surface.owner === owner),
+  const pagesOwn = bindings.filter(({ owner, value }) =>
+    contexts.some(
+      (context) =>
+        context.reach === "page" &&
+        context.id === value.context &&
+        context.owner === owner &&
+        context.reserved.some((chord) => chordsOverlap(chord, value.chord)),
+    ),
+  );
+  const surfacesOwn = bindings.filter(
+    ({ owner, value }) =>
+      surfaces.some((surface) => surface.id === value.context && surface.owner === owner) &&
+      !pagesOwn.some((page) => chordsOverlap(page.value.chord, value.chord)),
   );
   const keymaps = new Map<string, Keymap>();
   for (const context of contexts.filter(({ reach }) => reach === "page")) {

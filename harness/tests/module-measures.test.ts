@@ -64,6 +64,40 @@ for (const [position, source] of Object.entries({
   });
 }
 
+test("the DOM's key name `code` in a chord or key event is vocabulary, and only there", () => {
+  const families = ["code", "canvas"];
+  expect(
+    familyNameHits("x.ts", 'const at: Chord = { code: "Numpad7", mod: false };', families),
+  ).toBe(0);
+  expect(
+    familyNameHits("x.ts", 'const e = { key: "7", code: "x" } satisfies KeyChordEvent;', families),
+  ).toBe(0);
+  expect(
+    familyNameHits("x.ts", 'const e = { key: "7", code: "x" } as KeyChordEvent;', families),
+  ).toBe(0);
+  expect(
+    familyNameHits(
+      "x.ts",
+      "const byPlace = (place: string): Chord => ({ code: place });",
+      families,
+    ),
+  ).toBe(0);
+  // A map keyed by a family, a family's value in a chord, and a key no DOM type names still count.
+  expect(familyNameHits("x.ts", "const icons = { code: icon };", families)).toBe(1);
+  expect(
+    familyNameHits("x.ts", "const icons: Record<string, Icon> = { code: a, canvas: b };", families),
+  ).toBe(2);
+  expect(
+    familyNameHits("x.ts", 'const at: Chord = { key: "canvas", canvas: true };', families),
+  ).toBe(2);
+  expect(
+    familyNameHits("x.ts", 'const e = { key: "7", code: "x" } satisfies Other;', families),
+  ).toBe(1);
+  expect(
+    familyNameHits("x.ts", "const byPlace = (code: string): Chord => ({ code });", families),
+  ).toBe(1);
+});
+
 test("object keys and shorthand preserve family vocabulary", () => {
   expect(
     familyNameHits(

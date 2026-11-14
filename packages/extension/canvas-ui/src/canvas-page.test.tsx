@@ -14,6 +14,7 @@ import {
 } from "@kb/ui-sdk";
 import type { KbEvent, SandboxAnchors } from "@kb/sandbox";
 import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
+import { canvasKeysPlugin } from "./test-support/canvas-keys";
 
 const { persistCanvasDoc, createCanvasNode } = vi.hoisted(() => ({
   persistCanvasDoc: vi
@@ -31,7 +32,7 @@ import { CanvasPage } from "./canvas-page";
 
 // The canvas reads its node through the page's host: here, a test host.
 const host = testBrowserHost();
-beforeAll(() => syncUiPlugins([testHostPlugin(host)]));
+beforeAll(() => syncUiPlugins([testHostPlugin(host), canvasKeysPlugin]));
 afterAll(() => syncUiPlugins([]));
 
 const initialDoc: CanvasDoc = {
@@ -151,7 +152,7 @@ describe("CanvasPage pointer interactions", () => {
           return null;
         }),
     });
-    act(() => syncUiPlugins([testHostPlugin(host), scripts]));
+    act(() => syncUiPlugins([testHostPlugin(host), canvasKeysPlugin, scripts]));
     try {
       await act(async () => {
         root.render(<CanvasPage canvasId="canvas" />);
@@ -185,7 +186,7 @@ describe("CanvasPage pointer interactions", () => {
       expect(after.left).toBeGreaterThan(before.left);
       expect(after.right - after.left).toBeCloseTo(before.right - before.left, 3);
     } finally {
-      act(() => syncUiPlugins([testHostPlugin(host)]));
+      act(() => syncUiPlugins([testHostPlugin(host), canvasKeysPlugin]));
     }
   });
 

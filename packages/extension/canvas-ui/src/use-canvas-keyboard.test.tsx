@@ -1,12 +1,14 @@
 import { act, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
-import { afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { syncUiPlugins } from "@kb/ui-sdk";
 import type { CanvasDoc, CanvasItemLink } from "@kb/canvas";
 import { EMPTY_SELECTION, selectNode, type CanvasSelection } from "./canvas-selection";
 import type { ToolState } from "./canvas-tool";
-import type { CanvasIntent } from "./canvas-keymap";
+import type { CanvasIntent } from "./canvas-keys";
 import { useCanvasKeyboard } from "./use-canvas-keyboard";
+import { canvasKeysPlugin } from "./test-support/canvas-keys";
 
 /**
  * The canvas keydown table, recorded through the hook (gap
@@ -93,6 +95,7 @@ let container: HTMLElement;
 let clipboard: { writes: string[] };
 
 beforeAll(() => {
+  syncUiPlugins([canvasKeysPlugin]);
   dom = new Window({ url: "https://kb.test/" });
   Object.assign(globalThis, {
     window: dom,
@@ -117,6 +120,7 @@ beforeAll(() => {
     },
   });
 });
+afterAll(() => syncUiPlugins([]));
 
 beforeEach(() => {
   clipboard = { writes: [] };

@@ -1,13 +1,28 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
+  chordIncludes,
   chordsOverlap,
   describeChord,
+  lookupChord,
   matchesChord,
   parseChord,
   type Chord,
   type KeyChordEvent,
 } from "./keychord.ts";
+
+/** A chord by place: the key `KeyboardEvent.code` names, and the modifiers it asks about. */
+const at = (place: string, modifiers: Omit<Chord, "key" | "code"> = {}): Chord => ({
+  ...modifiers,
+  code: place,
+});
+
+/** A key event: the character it types, the key's place, and the modifiers held. */
+const pressed = (
+  key: string,
+  place: string,
+  held: Omit<KeyChordEvent, "key" | "code"> = {},
+): KeyChordEvent => ({ ...held, key, code: place });
 
 describe("parseChord", () => {
   it.each([
@@ -68,5 +83,56 @@ describe("chordsOverlap", () => {
         expect(chordsOverlap(a, b)).toBe(both);
       }),
     );
+  });
+});
+
+describe("a chord by place", () => {
+  const numpad7 = at("Numpad7", { mod: false });
+  const seven: Chord = { key: "7", mod: false };
+
+  it("matches the key at its place, whatever character it types", () => {
+    expect(matchesChord(pressed("7", "Numpad7"), numpad7)).toBe(true);
+    expect(matchesChord(pressed("Home", "Numpad7"), numpad7)).toBe(true);
+    expect(matchesChord(pressed("7", "Digit7"), numpad7)).toBe(false);
+    expect(matchesChord({ key: "7" }, numpad7)).toBe(false);
+  });
+
+  it("protects a shared press across representations, and distinguishes physical places", () => {
+    expect(chordsOverlap(numpad7, seven)).toBe(true);
+    expect(chordsOverlap(numpad7, at("Numpad7"))).toBe(true);
+    expect(chordsOverlap(numpad7, at("Numpad1", { mod: false }))).toBe(false);
+    expect(chordsOverlap(numpad7, at("Numpad7", { mod: true }))).toBe(false);
+  });
+
+  it("is asked before a chord by character, wherever it is listed", () => {
+    const rows = [
+      { chord: seven, name: "frame tool" },
+      { chord: numpad7, name: "look from the top" },
+    ];
+    expect(lookupChord(pressed("7", "Numpad7"), rows)?.name).toBe("look from the top");
+    expect(lookupChord(pressed("7", "Digit7"), rows)?.name).toBe("frame tool");
+  });
+
+  it("reads as its place", () => {
+    expect(describeChord(at("KeyH", { alt: true, shift: true }))).toBe("Shift-Alt-[KeyH]");
+  });
+});
+
+describe("chordIncludes", () => {
+  it("proves every modifier and character admitted by the part belongs to the whole", () => {
+    fc.assert(
+      fc.property(chordArb, chordArb, (whole, part) => {
+        if (chordIncludes(whole, part)) {
+          expect(events.every((ev) => !matchesChord(ev, part) || matchesChord(ev, whole))).toBe(
+            true,
+          );
+        }
+      }),
+    );
+  });
+  it("requires the same physical place when the whole constrains it", () => {
+    expect(chordIncludes(at("NumpadEnter"), at("NumpadEnter", { mod: false }))).toBe(true);
+    expect(chordIncludes(at("NumpadEnter"), { key: "Enter" })).toBe(false);
+    expect(chordIncludes(at("NumpadEnter"), at("Enter"))).toBe(false);
   });
 });

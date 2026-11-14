@@ -15,14 +15,10 @@
 import { useRef } from "react";
 import type { CanvasGroupNode, CanvasProjectionKind } from "@kb/canvas";
 import type { CanvasViewPresetName } from "@kb/contracts";
-import {
-  CANVAS_VIEW_PRESETS,
-  lensOf,
-  presetOf,
-  screenAxes,
-  type CanvasView,
-} from "./canvas-camera.ts";
-import { CANVAS_VIEW_COMMANDS, type CanvasIntent, type CanvasViewCommand } from "./canvas-keymap";
+import { CANVAS_VIEW_PRESETS } from "./canvas-camera-stops";
+import { lensOf, presetOf, screenAxes, type CanvasView } from "./canvas-camera";
+import { CANVAS_VIEW_COMMANDS, type CanvasIntent, type CanvasViewCommand } from "./canvas-keys";
+import { hintOf } from "./canvas-keymap";
 import { cn, MENU_ROW, MENU_SURFACE, MenuSeparator, useDismiss, useMenuKeys } from "@kb/ui-sdk";
 import { AXIS_INK } from "./canvas-gizmo";
 import { frameName } from "./canvas-frame-name";
@@ -258,7 +254,7 @@ function ViewMenu({
                 aria-hidden
               />
               <span className="truncate">{command.label}</span>
-              <MenuHint hint={command.hint} />
+              <MenuHint hint={hintOf(command)} />
             </button>
           </div>
         );

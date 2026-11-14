@@ -5,7 +5,7 @@
  */
 import { useRef, useState, type RefObject } from "react";
 import type { CanvasNode } from "@kb/canvas";
-import type { CanvasIntent } from "./canvas-keymap";
+import type { CanvasIntent } from "./canvas-keys";
 import { CommandMenu } from "./canvas-menu";
 import type { CanvasSelection } from "./canvas-selection";
 import { menuCommands } from "./use-canvas-menu";

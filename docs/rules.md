@@ -838,15 +838,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — the policies view opens in a core view type (the list, or the default view type), or core's policies view moves to a family that may depend on collections
 - **node** — `01M536CH4P48SXV9B0HH8B4XTG`
 
-### GAP: core's KeyContextId names outline's key contexts
-
-- **expected** — A binding names any context a plugin contributes to KeyContextPoint, as admission already reads it (admitKeymaps keys each keymap by a contributed context, and a context nobody contributes holds no key), so core names only its own context, core.page, and outline declares outline.editing and outline.selection where it contributes them.
-- **current** — KeyContextId in @kb/ui-sdk (lib/keybindings.ts) is a closed union of core.page, outline.editing and outline.selection, so provideKeybinding's type admits outline's contexts by name and no other plugin's.
-- **impact** — Core enumerates a plugin's contexts: a new context means editing the kit, and every file that names one counts on the family-names ratchet (keybindings.test.ts's EDITING constant is +1).
-- **closes** — provideKeybinding takes a context id as a string (a KeyContextSpec id), the union goes, and the contributed contexts are the only list of them, as for every other contribution that names another plugin's.
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M7A4XKCMH09XC5WT6KEBFV4H`
-
 ### GAP: core's screen protocol names the canvas
 
 - **expected** — core's screen protocol carries a pane's view state opaquely and the canvas family contributes its own part
@@ -1606,14 +1597,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Either @kb/ui-sdk's query seam exports the index layer the session runtime builds and the query constants the page runs, or the seam moves to session/ and the kit's query module becomes its caller — one of the two, decided when the browser store's ownership settles.
 - **rule** — UI import matrix
 - **node** — `01M1RXNP3EMV1ES85BVE9CXMYE`
-
-### GAP: the canvas keymap is a fixed table, not a key context
-
-- **expected** — canvas-ui contributes a canvas key context to ui.key-contexts, with its intents and reserved chords, and reads its keys through currentKeymap, as the outline and the page do.
-- **current** — canvas-ui reads its own CANVAS keymap table; it neither offers ui.keybindings a context nor reads one.
-- **impact** — An extension cannot bind or rebind a canvas key, and the canvas answers which key means what by a mechanism of its own, beside the one the page and the outline share. Admission cannot see the canvas's chords, so a page key (core.page) is not refused over one: it would take that key on a canvas.
-- **closes** — A canvas context (reach surface) whose intents are the canvas keymap's actions, its chords contributed as canvas-ui's bindings, and the canvas's dispatch reading currentKeymap.
-- **node** — `01M74A3DT90MGHYGK1TAXZT9WZ`
 
 ### GAP: the canvas's 60fps bar is measured on a scratch benchmark, not gated
 

@@ -13,11 +13,21 @@
  * Every keymap reads this module rather than testing `event.metaKey`
  * itself: "does this event match this chord" is one question, so it has one
  * answer.
+ *
+ * A chord names its key by character (`key`, as `KeyboardEvent.key` names
+ * it) or by place (`code`, as `KeyboardEvent.code` names it: `Numpad7`,
+ * `KeyH`, `BracketLeft`), where the place is what counts: a numpad digit is
+ * not the row's, and ⌥ makes another character of a letter on a Mac. One
+ * press has both, and which character a place types is the layout's, so a
+ * chord by place may overlap a character chord under some layout. Reservations
+ * must protect that shared press; within a context, a keymap asks its chords by place first ({@link placeFirst}).
  */
 
 /** The parts of a keyboard event a chord is allowed to look at. */
 export interface KeyChordEvent {
   key: string;
+  /** The key's place on the keyboard (`KeyboardEvent.code`); absent, no chord by place matches. */
+  code?: string;
   metaKey?: boolean;
   ctrlKey?: boolean;
   shiftKey?: boolean;
@@ -30,6 +40,8 @@ type KeyMatch = string | readonly string[] | ((key: string) => boolean);
 export interface Chord {
   /** Absent ⇒ any key; the modifier constraints then carry the whole chord. */
   key?: KeyMatch;
+  /** The key's place (`KeyboardEvent.code`): a chord that names one is a chord by place. */
+  code?: string;
   /**
    * `metaKey || ctrlKey` — the platform-agnostic "command" modifier.
    *
@@ -79,9 +91,15 @@ function modifiersMatch(chord: Chord, mods: Modifiers): boolean {
   );
 }
 
+/** Whether `chord` names its key by place (`code`) rather than by character. */
+export function byPlace(chord: Chord): boolean {
+  return chord.code !== undefined;
+}
+
 /** True when `ev` satisfies every constraint the chord states. */
 export function matchesChord(ev: KeyChordEvent, chord: Chord): boolean {
   return (
+    (chord.code === undefined || chord.code === ev.code) &&
     keyMatches(chord.key, ev.key) &&
     modifiersMatch(chord, {
       meta: ev.metaKey === true,
@@ -120,15 +138,75 @@ function keysOverlap(a: KeyMatch | undefined, b: KeyMatch | undefined): boolean 
   return true;
 }
 
+/** Layout-independent numpad meanings; NumLock changes the same physical digit's key. */
+const NUMPAD_KEYS: Readonly<Record<string, readonly string[]>> = {
+  Numpad0: ["0", "Insert"],
+  Numpad1: ["1", "End"],
+  Numpad2: ["2", "ArrowDown"],
+  Numpad3: ["3", "PageDown"],
+  Numpad4: ["4", "ArrowLeft"],
+  Numpad5: ["5", "Clear"],
+  Numpad6: ["6", "ArrowRight"],
+  Numpad7: ["7", "Home"],
+  Numpad8: ["8", "ArrowUp"],
+  Numpad9: ["9", "PageUp"],
+  NumpadDecimal: [".", ",", "Delete"],
+  NumpadEnter: ["Enter"],
+  NumpadAdd: ["+"],
+  NumpadSubtract: ["-"],
+  NumpadMultiply: ["*"],
+  NumpadDivide: ["/"],
+};
+
+const layoutCharacter = (key: string) =>
+  isPrintableKey(key) || key === "Dead" || key === "Unidentified";
+
+/** A known code narrows its key domain; layout-dependent positions remain conservative. */
+function keyDomain(chord: Chord): KeyMatch | undefined {
+  if (chord.key !== undefined || chord.code === undefined) return chord.key;
+  const numpad = NUMPAD_KEYS[chord.code];
+  if (numpad !== undefined) return numpad;
+  if (chord.code === "Space") return " ";
+  if (
+    /^(Key[A-Z]|Digit[0-9]|BracketLeft|BracketRight|Backslash|IntlBackslash|IntlRo|IntlYen|Minus|Equal|Semicolon|Quote|Backquote|Comma|Period|Slash)$/.test(
+      chord.code,
+    )
+  )
+    return layoutCharacter;
+  if (
+    /^(Escape|Enter|Tab|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Arrow(Up|Down|Left|Right)|F[0-9]+)$/.test(
+      chord.code,
+    )
+  )
+    return chord.code;
+  return undefined;
+}
+
 /**
  * Whether one key event could match both chords: they admit a common key,
  * and some state of the four modifiers satisfies both. A keymap whose
- * chords never overlap means the same in any order.
+ * chords never overlap means the same in any order. Unknown layout mappings
+ * are conservative: a code constraint cannot prove a character disjoint.
  */
 export function chordsOverlap(a: Chord, b: Chord): boolean {
+  if (a.code !== undefined && b.code !== undefined && a.code !== b.code) return false;
   return (
-    keysOverlap(a.key, b.key) &&
+    keysOverlap(keyDomain(a), keyDomain(b)) &&
     MODIFIER_STATES.some((mods) => modifiersMatch(a, mods) && modifiersMatch(b, mods))
+  );
+}
+
+/** Whether every press of `part` is also claimed by `whole`; unknown predicates stay conservative. */
+export function chordIncludes(whole: Chord, part: Chord): boolean {
+  const keys = listedKeys(part.key);
+  const includesKeys =
+    whole.key === undefined ||
+    whole.key === part.key ||
+    (keys !== null && keys.every((key) => keyMatches(whole.key, key)));
+  return (
+    (whole.code === undefined || whole.code === part.code) &&
+    includesKeys &&
+    MODIFIER_STATES.every((mods) => !modifiersMatch(part, mods) || modifiersMatch(whole, mods))
   );
 }
 
@@ -185,7 +263,7 @@ export function describeChord(chord: Chord): string {
   if (chord.ctrl === true) flags.push("Ctrl");
   if (chord.shift === true) flags.push("Shift");
   if (chord.alt === true) flags.push("Alt");
-  return [...flags, keyName(chord.key)].join("-");
+  return [...flags, chord.code === undefined ? keyName(chord.key) : `[${chord.code}]`].join("-");
 }
 
 /**
@@ -203,7 +281,8 @@ interface ChordBinding {
 }
 
 /**
- * The first binding whose chord matches, or undefined.
+ * The first binding whose chord matches, or undefined: the first by place,
+ * else the first by character.
  *
  * `accepts` is the second half of a row's condition for maps whose rows depend
  * on more than the event — the editing map's reference guard asks about the
@@ -215,5 +294,10 @@ export function lookupChord<B extends ChordBinding>(
   bindings: readonly B[],
   accepts: (binding: B) => boolean = () => true,
 ): B | undefined {
-  return bindings.find((binding) => matchesChord(ev, binding.chord) && accepts(binding));
+  const asked = (place: boolean) =>
+    bindings.find(
+      (binding) =>
+        byPlace(binding.chord) === place && matchesChord(ev, binding.chord) && accepts(binding),
+    );
+  return asked(true) ?? asked(false);
 }

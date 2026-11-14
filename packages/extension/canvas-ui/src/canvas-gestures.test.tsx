@@ -8,10 +8,11 @@ import { CanvasPage } from "./canvas-page";
 import type * as CanvasApi from "./canvas-api";
 import { syncUiPlugins, type OutlineNode } from "@kb/ui-sdk";
 import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
+import { canvasKeysPlugin } from "./test-support/canvas-keys";
 
 // The canvas reads its node through the page's host: here, a test host.
 const host = testBrowserHost();
-beforeAll(() => syncUiPlugins([testHostPlugin(host)]));
+beforeAll(() => syncUiPlugins([testHostPlugin(host), canvasKeysPlugin]));
 afterAll(() => syncUiPlugins([]));
 
 const doc: CanvasDoc = {
