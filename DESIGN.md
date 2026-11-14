@@ -600,14 +600,15 @@ type PropValue =
   copied, so a field a family adds to its tag reaches every subtype at once
   (the seed unions what it ships into a seeded tag's additive lists, after
   the person's).
-- **A tag shapes the nodes it is on** (tag behaviours). Three settings,
-  fields like any other, say how; two are on every tag (`sys.tag`'s
+- **A tag shapes the nodes it is on** (tag behaviours). Five settings,
+  fields like any other, say how; four are on every tag (`sys.tag`'s
   template) and one on every field (`sys.field`'s). Each is read along a
   node's kinds, nearest first (`kindsOf`), as templates are, by
-  `@kb/model`'s `tag-behaviour.ts`, the one reader, and each acts inside
-  the write that makes the node or tags it, so it lands in the same
-  transaction and undoes with it. No rule engine runs them: they are part
-  of what an add and a tagging mean.
+  `@kb/model`'s `tag-behaviour.ts`, the one reader. Child tag and fill
+  from act inside the write that makes the node or tags it, so they land
+  in the same transaction and undo with it; title and check are read
+  where the node is drawn. No rule engine runs them: they are part of
+  what an add, a tagging and a field's value mean.
   - **child tag** (`sys.f.tag.childTag`, on a tag; many, its values tags).
     A node added under a node of the tag also gets these tags, after the
     ones the add names, each once. It is part of `planNodeAdd`, so every
@@ -641,6 +642,22 @@ type PropValue =
     every index implementation alike; DESIGN-UI.md → Outline editor →
     titles from fields). A reference names a field by id, so renaming the
     field changes no title's meaning.
+  - **checkbox** (`sys.f.tag.check`, on a tag; one, its value a field) and
+    **checked value** (`sys.f.tag.checkedValue`, on a tag; one, its value
+    a node, an option of that field). A node of the tag shows a box tied
+    to that field: the box is checked when the node holds the checked
+    value, or `true` for a checkbox field, which needs no checked value
+    (`checkOf`, the nearest kind that names a check). The box is drawn
+    from the field and holds no state of its own, so a value set
+    anywhere (`kb set`, an agent, the field's own row, a family) checks
+    it, and checking it writes the field: one `node.update` whose edit
+    `checkEdits` plans (the checked value set; unchecked, `false` for a
+    checkbox, which is what the checkbox's own toggle and the checklist
+    family's `done` write, and the checked value unset for any other
+    field). There is no check action: the box is the field's, and the
+    field's write is `node.update`, which every surface reaches. A
+    checkbox field of a family, such as checklist's `done`, is a box
+    once a tag names it.
 - **Ref targets are declared on the field node**, by exactly one of three
   carriers: `sys.f.targetQuery` (general form — parameter-free EDN whose rows
   name node ids), `sys.f.targetTag` (sugar — union of the listed tags'

@@ -440,7 +440,11 @@ Mode A owns split/merge/indent/outdent, soft line break (`Shift+Enter`),
 vertical caret motion, and autocomplete interception. Mode B owns
 `ArrowLeft/Right` collapse-expand-parent-firstchild, `o` / `Shift+O`
 create-below/above, `Space` toggle, `Cmd+.` zoom, and printable-character
-re-entry into Mode A. Focus hand-offs are specified per operation (split → new
+re-entry into Mode A. Mode B's keys are the selected row's: a key pressed
+while focus is on a control the keyboard stops at (a text entry, or a button
+such as a tag's box or the hidden-fields fold) is that control's, so Tab
+moves focus on and Enter or Space presses it (`ownsItsKeys`). Chrome the
+keyboard skips, such as the bullet, leaves its keys to the selection. Focus hand-offs are specified per operation (split → new
 node at 0; indent/outdent → same offset; merge → the join boundary; delete →
 neighbour) and tested.
 
@@ -3247,6 +3251,22 @@ until "Save workspace".
   the picker makes is labelled by the title it offered. Editing the row shows the stored text, the
   person's, and the title follows what was typed once the row is left.
   A row view draws over the title as it would over the text.
+- **A tag's box.** A node whose tag names a check (DESIGN.md →
+  [Data model](DESIGN.md#data-model--everything-is-a-node), tag
+  behaviours, `checkOf`) draws a box between its bullet and its text:
+  a button with `role="checkbox"`, `aria-checked`, and the check field's
+  name as its accessible name. Pressing it, a click or a tap, writes
+  the field (`checkEdits`, one `node.update`, so one undo step), and
+  leaves focus, the caret and the scroll where they were; it never edits
+  the text. ⌘Enter (Ctrl+Enter) toggles the box of the row being edited
+  or selected (`editing.toggle-check`, `selection.toggle-check`;
+  `split` and `edit` claim Enter without the command key). ⌘K's "Toggle
+  check" (`sys.cmd.toggle-check`) toggles the target row's box, and the
+  node menu offers "Check" or "Uncheck" on a row that has one. Each is
+  the one page write, `toggleCheck`, which says so when the row has no
+  box. A checked row's text is drawn faint, in colour only, so nothing
+  moves; the box's own change is a colour change of at most 150ms, none
+  under reduced motion.
 - **The zoom is a location.** The page's home is `/`, and zoomed to a node
   it is `/outline/<id>`; in an ontology's scope they are
   `/o/<s>/outline` and `/o/<s>/outline/<id>` (`outlinePath`,
