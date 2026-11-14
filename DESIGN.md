@@ -4757,6 +4757,7 @@ answers `{canvasId, items, edges, reported}`.
 | ---------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `node.add`                                                                   | write | create (text, props by field name/id, parent, position, tags)                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `node.addTree`                                                               | write | create a whole outline from outline paste text in one transaction (`kb add --outline`; [Outline paste](#outline-paste--nodeaddtree))                                                                                                                                                                                                                                                                                                                                                        |
+| `node.batch`                                                                 | write | several `node.add` / `node.update` / `node.delete` calls as one transaction, each planned over what the ones before it wrote ([Batches of writes](#batches-of-writes--nodebatch)) |
 | `node.update`                                                                | write | edit text / set-unset props / move                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `node.delete`                                                                | write | delete a node, its descendants with it unless `descendants: "reparent"` (`kb rm`)                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `node.get`                                                                   | read  | pull subtree to depth N                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -4791,6 +4792,41 @@ answers `{canvasId, items, edges, reported}`.
 its output always carries the node. Deleting is its own action because it is
 the write a caller most needs to name on its own: a guard matches an action
 by its id ([Action registry](#action-registry) → Interception).
+
+### Batches of writes — `node.batch`
+
+`node.batch` takes `{calls, force?}`: a list of calls, each `{action, input}`
+naming `node.add`, `node.update` or `node.delete`, and commits them as one
+transaction. It is how one gesture over several nodes is one write: a person
+tagging, moving or deleting a multi-row selection in the outline
+(DESIGN-UI.md → Outline editor, "A selection is a range of rows"), an agent
+retagging what a query found, `kb action-invoke` from a script. Each call's
+input is that action's own input, read by its own schema, less `force`,
+which the batch states once for the whole commit; a `node.add` names its
+`parent` (`null` for the top level), since a batch decides every place
+itself and never asks the capture target.
+
+The calls are planned in order over one working copy of the nodes, each by
+its action's own planner (`planNodeAdd`, `planNodeUpdate`, `planNodeDelete`,
+the same functions the three actions commit through), and each call's writes
+are applied to the copy before the next is planned, so a later call sees an
+earlier one: two moves into one parent at `position` and `position + 1` land
+in that order, and an update of a node an earlier call deleted is refused
+as `not_found`. A failure names its call (`call N:` in the message,
+`details.call`, 0-based), and any failure writes nothing. The result is
+committed once (`persistPlannedEffect`): one integrity check, one approval
+and guard decision over all of it, one transaction-tail record, one undo
+step. Over a store that moved while it was planned, the whole batch is
+planned again, as `node.addTree` is.
+
+The output is `{ ids }`, each call's node in call order (the node added,
+updated or deleted). The action declares itself a batch of its three parts
+(`batchOf`), so a guard on any of them governs it, decided with each part's
+own mode ([Action registry](#action-registry)). It declares no `targets`,
+since its nodes are inside its calls, so a script cannot call it (Sandbox →
+Grants). It is in the isomorphic registry: the page's invoke, the CLI
+(`kb action-invoke`), MCP (`node_batch`), WebMCP and the sidebar agent reach
+the same handler.
 
 ### Outline paste — `node.addTree`
 

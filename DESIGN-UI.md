@@ -669,6 +669,46 @@ selection is its items, not nodes. A key's action is the one shape a
 command's and a picker step's are as data (`ActionCall`, [The node
 menu](#the-node-menu)).
 
+**A selection is a range of rows.** Mode B's selection is an _anchor_ and
+a _head_, two row instances of one outline host. The selected rows are the
+visible instances from one to the other, inclusive, in the order the outline
+draws them (`selectedRows` in `outline-ui/src/outline.store.ts`). A single
+selected row is the range whose anchor is its head, so every gesture that
+knew one selected row knows it as before. Two selection intents move the head
+and keep the anchor: `extend-up` and `extend-down`, bound to Shift+↑ and
+Shift+↓ (`outline.selection.extend-up` / `extend-down`). Shift-click on a
+row moves the head to it, the anchor staying where the selection was, or on
+the row being edited. Any other move of the selection (an arrow, a click,
+Escape, editing a row) collapses the range to the row it lands on. Every
+selected row is drawn as the selected row is, and the node menu anchors on
+the head.
+
+What a gesture over a range acts on is said once, by the selection:
+
+- **Each selected row** for what marks or fills a node: tagging, untagging,
+  setting a field, pinning. A command or a picker step is handed every row
+  it is about (`CommandTarget.nodeIds`; a step's `targetNodeIds`), and acts
+  on each.
+- **The top rows** for what moves or removes a node: Delete, Tab, Shift-Tab
+  and the moves up and down. A selected row under another selected
+  row goes with it (`selectionRoots`). Tab, Shift-Tab and the moves act on
+  the top rows as one block when they are one run of siblings (one parent,
+  none skipped): the block goes under the sibling before it, after its
+  parent, or past the sibling beside it. A range that is not one run is told
+  so and left as it is.
+
+A gesture over several rows is one write: the writes it makes inside
+`PageWrites.together` are sent as one `node.batch` call (DESIGN.md →
+[Batches of writes](DESIGN.md#batches-of-writes--nodebatch)), so the commit
+takes or refuses all of it and undo takes it back in one step. A write
+inside `together` is planned against the graph as it stood when the gesture
+began, so a gesture whose parts depend on each other plans them as one write
+(the block moves). Over a range, the node menu lists only the
+commands that act on many rows (`NodeCommand.many`): Add tag, Remove tag…,
+Add field, Set field…, Pin / Unpin and Delete; a picker step it
+opens mints what it creates once (`PaletteStep.create`), then commits the
+pick to each row.
+
 **Caret geometry is measured, not guessed.** `lib/caret.ts`
 exposes `readCaretGeometry` (range rects → real line detection),
 `verticalArrowDecision` (pure: is this arrow a line move or a row move?) and
@@ -2634,8 +2674,9 @@ one on the node).
 **A command and a picker step as data.** A node command may hand the
 palette to a picker step (`palette.openStep(id)`, `PaletteStepPoint`,
 below). Through `kb-ext-sdk/page` both come in two forms. The T3 form is
-the one above, with functions, handed only the row (`CommandContext.target`,
-a step's anchor and pick). The T0 form is data, which the page interprets,
+the one above, with functions, handed the rows it is about
+(`CommandContext.target`, a step's anchor and pick; [Outline editor](#outline-editor-i1),
+"A selection is a range of rows"). The T0 form is data, which the page interprets,
 so no author code runs when a person picks (`lib/command-forms`):
 
 - `provideCommand(id, { label, icon, group, order, when, run })`. `icon`
@@ -2648,7 +2689,7 @@ so no author code runs when a person picks (`lib/command-forms`):
 - `providePaletteStep(id, { label, placeholder, icon, candidates, limit,
   commit })`. `candidates` is a query node: the picker offers the nodes in
   its answer's first column, each named by its text, less the row itself.
-  Nothing is minted from it. `commit` is an action about the row, and the
+  Nothing is minted from it. `commit` is an action about each row, and the
   pick fills each `PICKED` in its input: `{ action: "node.update", input:
   { setProps: [{ field, value: { t: "ref", v: PICKED } }] } }` links the
   row to the node picked.
