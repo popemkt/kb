@@ -899,7 +899,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: every one-shot command rebuilds the whole index, derived sets and manifest
 
 - **expected** — A command pays for what it reads: manifest JSON Schemas are built for kb.manifest and MCP tools/list only, the DataScript index on first datalog use, and derived sets on demand, or from a snapshot keyed by the store fingerprint.
-- **current** — The DataScript db is built on first datalog use (DatascriptIndex), so kb get builds none. Opening a root still computes every derived set (the node table restates every node when the session sets the declared derived set), reads the transaction tail, and the action table converts every action's schema to JSON Schema, even for kb get.
+- **current** — The DataScript db is built on first datalog use (DatascriptIndex), and the action table converts schemas to JSON Schema only when a call lists them (kb.manifest, MCP tools/list), so kb get does neither. Opening a root still computes every derived set (the node table restates every node when the session sets the declared derived set) and reads the transaction tail.
 - **impact** — kb get and kb search stay above about 200 ms whatever the module split does, and the cost grows with the store.
 - **closes** — docs/research/2026-11-11-cli-host-modes.md step 7.
 - **node** — `01M75MA4HB3NFDXGGKG0RE45H5`

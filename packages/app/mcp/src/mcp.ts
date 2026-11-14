@@ -258,7 +258,7 @@ export const createMcpServer = Effect.fn("kb.createMcpServer")(function* (
   // oxlint-disable-next-line typescript/no-deprecated -- registry-built tool list; McpServer cannot express it (SDK docs)
 ): Effect.fn.Return<Server, DomainError, FileSystem> {
   const ctx = yield* openKbEffect(root);
-  const actions = (yield* sessionRegistry(ctx)).manifestEntries;
+  const actions = (yield* sessionRegistry(ctx)).manifestEntries();
   const byToolName = new Map(actions.map((a) => [mcpToolName(a.id), a] as const));
   return bindMcpHandlers(ctx, { byToolName }, options);
 }, Effect.provide(bunFileSystemLayer));

@@ -1,7 +1,7 @@
 {
   "bytes": {
-    "limit": 2737120,
-    "reason": "DatascriptIndex builds its db on first datalog use: 140 bytes of deferral logic that keep kb get from building it."
+    "limit": 2737152,
+    "reason": "The action table lists its JSON Schemas on demand: 32 bytes of memo that keep every call from converting every schema."
   },
   "modules": {
     "limit": 721,

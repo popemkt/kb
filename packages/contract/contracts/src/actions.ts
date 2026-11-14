@@ -514,9 +514,11 @@ export function actionToManifestEntry(
 /**
  * The manifest of the registry an invocation runs in, provided at the invoke
  * tip like the templates are. It is how `kb.manifest` lists the registry it is
- * itself a member of, without an action reaching the registry.
+ * itself a member of, without an action reaching the registry. It is listed
+ * when called: its JSON Schemas are built for a call that lists them, not for
+ * every call the tip serves.
  */
-export class ActionCatalog extends Context.Service<ActionCatalog, readonly ManifestEntry[]>()(
+export class ActionCatalog extends Context.Service<ActionCatalog, () => readonly ManifestEntry[]>()(
   "kb/ActionCatalog",
 ) {}
 

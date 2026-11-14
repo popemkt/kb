@@ -148,7 +148,7 @@ describe("a batch's parts are registered actions that are not batches", () => {
       registryFor(null).pipe(Effect.provide(bunFileSystemLayer)),
     );
     expect(registry.failures).toEqual([]);
-    expect(registry.manifestEntries.find((e) => e.id === "node.addTree")?.batchOf).toEqual([
+    expect(registry.manifestEntries().find((e) => e.id === "node.addTree")?.batchOf).toEqual([
       { id: "node.add", mode: { kind: "write" } },
     ]);
   });

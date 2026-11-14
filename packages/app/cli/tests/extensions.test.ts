@@ -84,7 +84,7 @@ describe("extension loading", () => {
     const registry = await Effect.runPromise(
       registryFor(root).pipe(Effect.provide(bunFileSystemLayer)),
     );
-    const ids = registry.manifestEntries.map((e) => e.id);
+    const ids = registry.manifestEntries().map((e) => e.id);
     expect(ids).toContain("ext.hello.greet");
     const hello = registry.extensions.find((e) => e.name === "hello");
     expect(hello?.actions.map((a) => a.def.id)).toEqual(["ext.hello.greet"]);
@@ -214,7 +214,7 @@ describe("bundled docs extension", () => {
     const registry = await Effect.runPromise(
       registryFor(root).pipe(Effect.provide(bunFileSystemLayer)),
     );
-    const alias = registry.manifestEntries.find((e) => e.id === "docs.check");
+    const alias = registry.manifestEntries().find((e) => e.id === "docs.check");
     expect(alias?.aliasOf).toBe("ext.docs.check");
   });
 });
