@@ -3237,6 +3237,15 @@ until "Save workspace".
     decode, an owner switched off, a view still loading. A view that throws
     is contained by its slot, as every view is (promise 3).
   - (`row-view.tsx`, `@kb/outline-ui`)
+- **Titles from fields.** A tagged node whose tag builds a title from
+  its fields (DESIGN.md → [Data model](DESIGN.md#data-model--everything-is-a-node),
+  tag behaviours, `nodeTitleOf`) is drawn by that title wherever the page
+  names it: its row while no one edits it (`NodeTextHost`'s `shown`, the
+  text drawn at rest; pressing it edits the stored text, the caret at its
+  end), a `[[ref]]` pill and a ref value's label, and the rows search and
+  the node picker answer. Editing the row shows the stored text, the
+  person's, and the title follows what was typed once the row is left.
+  A row view draws over the title as it would over the text.
 - **The zoom is a location.** The page's home is `/`, and zoomed to a node
   it is `/outline/<id>`; in an ontology's scope they are
   `/o/<s>/outline` and `/o/<s>/outline/<id>` (`outlinePath`,

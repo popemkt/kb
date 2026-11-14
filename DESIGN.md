@@ -600,6 +600,47 @@ type PropValue =
   copied, so a field a family adds to its tag reaches every subtype at once
   (the seed unions what it ships into a seeded tag's additive lists, after
   the person's).
+- **A tag shapes the nodes it is on** (tag behaviours). Three settings,
+  fields like any other, say how; two are on every tag (`sys.tag`'s
+  template) and one on every field (`sys.field`'s). Each is read along a
+  node's kinds, nearest first (`kindsOf`), as templates are, by
+  `@kb/model`'s `tag-behaviour.ts`, the one reader, and each acts inside
+  the write that makes the node or tags it, so it lands in the same
+  transaction and undoes with it. No rule engine runs them: they are part
+  of what an add and a tagging mean.
+  - **child tag** (`sys.f.tag.childTag`, on a tag; many, its values tags).
+    A node added under a node of the tag also gets these tags, after the
+    ones the add names, each once. It is part of `planNodeAdd`, so every
+    add gets it: `node.add`, `node.addTree` (an outline paste), a family
+    planning its own (a day's periods, a canvas import) and the outline's
+    Enter. Moving a node under one adds nothing.
+  - **fill from** (`sys.f.fillFrom`, on a field; one, its value a field).
+    When a node gains a tag, on an add or a `node.update` whose
+    `sys.f.type` gains it, each field the gained tags template (their
+    chains included, `templateFieldsOf`) that the node holds no value of
+    and whose field node names a field to fill from takes the values of
+    the nearest ancestor, parent first, that holds values of that field the
+    field can hold (`conformsToType`: its kind and form), the first only
+    for a one-valued field. A field that names itself copies its own value
+    down; a date field that names days' period field
+    (`sys.f.days.key`) takes the day the node sits under, since a week's
+    or year's key is not a date and the walk goes on past it. Core names
+    no family: it reads the field it is told to.
+  - **title** (`sys.f.tag.title`, on a tag; one, text). How a node of the
+    tag is named on the page: a template whose `[[id]]` references name
+    fields (`[[sys.f.node.text]]` is the node's own text) and whose other
+    text is literal. A node's title (`nodeTitleOf`) is the template of its
+    nearest kind that has one, each reference replaced by the node's
+    values of that field as text (a ref value by its target's title, the
+    values joined by ", "), once every field it names holds a value;
+    until then, and with no template, it is the node's text. It is a
+    display rule, never a write: the stored text stays the person's, and
+    editing a row edits it. A row draws the title while no one edits it, a
+    reference to the node is labelled by it, and search finds a node by
+    its text or its title and answers with the title (`graph.search`,
+    every index implementation alike; DESIGN-UI.md → Outline editor →
+    titles from fields). A reference names a field by id, so renaming the
+    field changes no title's meaning.
 - **Ref targets are declared on the field node**, by exactly one of three
   carriers: `sys.f.targetQuery` (general form — parameter-free EDN whose rows
   name node ids), `sys.f.targetTag` (sugar — union of the listed tags'
