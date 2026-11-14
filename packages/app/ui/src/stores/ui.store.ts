@@ -37,6 +37,12 @@ interface UiState {
    * (`null`), or not told yet (`undefined`).
    */
   person: Person | null | undefined;
+  /**
+   * The folder of the root's own extensions the server watches, as it last
+   * told this tab's connection, or null: it does not, or no connection is
+   * open (DESIGN-UI.md → Panes and layouts).
+   */
+  extensionWatch: string | null;
   toasts: Toast[];
   /**
    * Where a reload into a newer build stands, which the reload chip says:
@@ -64,6 +70,7 @@ interface UiState {
 
   setWsStatus: (status: WsStatus) => void;
   setPerson: (person: Person | null) => void;
+  setExtensionWatch: (folder: string | null) => void;
   setReload: (state: ReloadState) => void;
   setSidebarOverlayOpen: (open: boolean) => void;
   setGlobalPaletteOpen: (open: boolean) => void;
@@ -92,6 +99,7 @@ let toastSeq = 0;
 export const useUiStore = create<UiState>((set) => ({
   wsStatus: "idle",
   person: undefined,
+  extensionWatch: null,
   toasts: [],
   reload: "none",
   sidebarOverlayOpen: false,
@@ -102,10 +110,12 @@ export const useUiStore = create<UiState>((set) => ({
   openDock: null,
   events: NO_EVENTS,
 
-  // Whose a connection is, it is told after it opens; a closed one is no one's yet.
+  // Whose a connection is, and what its server watches, it is told after it
+  // opens; a closed one is no one's yet, and watches nothing.
   setWsStatus: (wsStatus) =>
-    set(wsStatus === "open" ? { wsStatus } : { wsStatus, person: undefined }),
+    set(wsStatus === "open" ? { wsStatus } : { wsStatus, person: undefined, extensionWatch: null }),
   setPerson: (person) => set({ person }),
+  setExtensionWatch: (extensionWatch) => set({ extensionWatch }),
   setReload: (reload) => set({ reload }),
   setSidebarOverlayOpen: (sidebarOverlayOpen) => set({ sidebarOverlayOpen }),
   setGlobalPaletteOpen: (globalPaletteOpen) =>

@@ -73,6 +73,7 @@ interface Harness {
   graph: GraphMessage[];
   errors: Array<{ id?: string; code: string; message: string }>;
   protocols: Array<number | undefined>;
+  watches: Array<string | null>;
 }
 
 function makeHarness(): Harness {
@@ -80,16 +81,18 @@ function makeHarness(): Harness {
   const graph: GraphMessage[] = [];
   const errors: Array<{ id?: string; code: string; message: string }> = [];
   const protocols: Array<number | undefined> = [];
+  const watches: Array<string | null> = [];
   const client = new KbWsClient({
     url: "ws://test/ws",
     makeSocket: server.makeSocket,
     onGraph: (msg) => graph.push(msg),
     onServerError: (err) => errors.push(err),
     onProtocol: (protocol) => protocols.push(protocol),
+    onExtensionWatch: (folder) => watches.push(folder),
     backoffInitialMs: 100,
     backoffMaxMs: 1000,
   });
-  return { server, client, graph, errors, protocols };
+  return { server, client, graph, errors, protocols, watches };
 }
 
 describe("KbWsClient", () => {
@@ -124,6 +127,17 @@ describe("KbWsClient", () => {
       { op: "snapshot-required", head: 9 },
     ]);
     expect(h.server.received("since")).toEqual([]);
+  });
+
+  it("follows the server's extension watch state", () => {
+    const h = makeHarness();
+    h.client.connect();
+    h.server.accept(0);
+    h.server.push({ op: "extension-watch", folder: ".kb/extensions" });
+    h.server.push({ op: "extension-watch", folder: null });
+    expect(h.watches).toEqual([".kb/extensions", null]);
+    expect(h.errors).toEqual([]);
+    h.client.disconnect();
   });
 
   it("tells the protocol the server speaks on every connect, the one after a release included", () => {

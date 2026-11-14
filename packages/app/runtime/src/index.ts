@@ -1,4 +1,8 @@
-export { extensionRuntimeChanges } from "./extension-changes.ts";
+export {
+  extensionRuntimeChanges,
+  ownExtensionEdits,
+  ownExtensionPath,
+} from "./extension-changes.ts";
 export { childProcessEnv, type ChildKind } from "./child-env.ts";
 export { closureOf } from "./extension-loader.ts";
 export type { DigestedClosure } from "./extension-closure.ts";

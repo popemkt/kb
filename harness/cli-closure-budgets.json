@@ -1,10 +1,10 @@
 {
   "bytes": {
-    "limit": 2769066,
-    "reason": "#173: a row's paste and drop chain reaches the CLI through the outline's declared ingest point and the page SDK's provideIngest types (3094 bytes); #191: every family's keyboard declared as data, and the shortcut nodes core's seed derives from it (@kb/keybindings), reach the CLI through core's declarations (27259 bytes over #176, #181 and #190's 2738713, which routed page and canvas keys through one keybinding model; the lazy-load floor is 2737335)."
+    "limit": 2771400,
+    "reason": "#187: the server's watch of the root's own extension files (2334 bytes); #173: a row's paste and drop chain, through the outline's declared ingest point and the page SDK's provideIngest types (3094 bytes); #191: every family's keyboard declared as data, and the shortcut nodes core's seed derives from it (@kb/keybindings), reach the CLI through core's declarations (27259 bytes over #176, #181 and #190's 2738713, which routed page and canvas keys through one keybinding model; the lazy-load floor is 2737335)."
   },
   "modules": {
-    "limit": 733,
-    "reason": "#173: the outline's point definitions are one more module; #191: the keyboard model, its stored shortcuts and chord text, and the canvas's and outline's keyboard data reach the CLI through core's declarations (721 before; ext-canvas loads its tldraw file reader with the first import)."
+    "limit": 734,
+    "reason": "#187: the extension watch is one more module; #173: the outline's point definitions are one more; #191: the keyboard model, its stored shortcuts and chord text, and the canvas's and outline's keyboard data reach the CLI through core's declarations (721 before; ext-canvas loads its tldraw file reader with the first import)."
   }
 }

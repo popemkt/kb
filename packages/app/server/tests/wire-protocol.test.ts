@@ -59,9 +59,11 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // carries its check's notes, fields a previous page ignores. The
 // `migration.*` actions are new actions a previous page never calls.
 // The manifest adds optional root and machine-local confirmation digests; older pages ignore them.
+// Protocol 9 adds the extension-watch greeting and live state; earlier pages
+// reject that frame and show a server-message error, so they reload first.
 const RECORDED = {
-  protocol: 8,
-  fingerprint: "b013b0491814526d51da8c188acba37d6b8e62e06c9f1698203d9e460a794ecb",
+  protocol: 9,
+  fingerprint: "7a9db883d3a1d4b561198857f33895c999209989eeb5c4c39cd1520c314ca3f9",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

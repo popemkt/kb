@@ -4,12 +4,12 @@
       "@kb/bundled": 9,
       "@kb/client": 8,
       "@kb/mcp": 10,
-      "@kb/runtime": 44,
+      "@kb/runtime": 46,
       "@kb/server": 12,
       "@kb/test-kit": 58,
       "@kb/webmcp": 12,
       "@kb/operations": 68,
-      "@kb/contracts": 352,
+      "@kb/contracts": 354,
       "@kb/ext-sdk": 9,
       "@kb/extension-source": 27,
       "@kb/sandbox": 94,
@@ -149,8 +149,8 @@
     },
     "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2769066,
-      "modules": 733
+      "bytes": 2771400,
+      "modules": 734
     },
     "single-family": {
       "contract/sandbox/src/snapshot.ts": 1,

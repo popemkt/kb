@@ -80,6 +80,24 @@ function ConnectionDot() {
   );
 }
 
+/**
+ * A quiet note while the server watches the root's own extensions, so a
+ * person developing one knows a save there is followed, and trusted again.
+ */
+function ExtensionWatchNote() {
+  const folder = useUiStore((s) => s.extensionWatch);
+  if (folder === null) return null;
+  return (
+    <span
+      className="text-label text-faint-foreground"
+      title={`kb follows edits under ${folder}; each save is a new digest to trust again`}
+      data-extension-watch={folder}
+    >
+      watching {folder}
+    </span>
+  );
+}
+
 function Toasts() {
   const toasts = useUiStore((s) => s.toasts);
   const dismiss = useUiStore((s) => s.dismissToast);
@@ -158,6 +176,7 @@ function WorkspaceHeader({ status }: { status: "loading" | "ready" | "error" }) 
         <span className="text-label text-faint-foreground">loading…</span>
       ) : null}
       <ConnectionDot />
+      <ExtensionWatchNote />
       <div className="flex-1" />
       <PaletteTrigger onOpen={() => setGlobalPaletteOpen(true)} />
       <DockToggles />

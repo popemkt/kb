@@ -537,6 +537,14 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
       singleField(motionEffectFieldId(effect), `motion.${effect}`, "checkbox", configuresCore),
     ),
   ];
+  // Whether a `kb ui` server watches the root's own extensions (DESIGN.md →
+  // Watching the root's own extensions): a setting of core's node, off unset.
+  const extensionsWatchField = singleField(
+    SYSTEM_IDS.extensionsWatchField,
+    "extensions.watch",
+    "checkbox",
+    configuresCore,
+  );
 
   return [
     field,
@@ -609,6 +617,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     migrationTag,
     migrationsList,
     ...motionFields,
+    extensionsWatchField,
   ];
 }
 
