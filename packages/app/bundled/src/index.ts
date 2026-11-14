@@ -3,8 +3,9 @@
  * every bundled family, and the seed they fold to (DESIGN.md → Extension
  * families → the seed is the bundled fold).
  *
- * This is the one list of bundled families, and of the families a host
- * composes itself. The server's registry pairs
+ * This is the one list of kb's families. Which of them a host composes
+ * itself is read from each declaration (its host part), not listed. The
+ * server's registry pairs
  * each declaration here with its server entry (`runtime/src/bundled.ts`),
  * and fails at load on a family with no entry or an entry with no family,
  * so the two hosts cannot disagree on what is bundled. It is a composition
@@ -42,11 +43,11 @@ import { zzzExtension } from "@kb/zzz";
 import { derivedWith, type DerivedRef } from "@kb/query";
 
 /**
- * Every bundled family, in the order the registry loads them. The order is
- * data a fresh store keeps: it orders the families' view types under
- * `sys.views`, after core's.
+ * Every family kb's build declares, in order. The order is data a fresh
+ * store keeps: it orders the families' view types under `sys.views`, after
+ * core's.
  */
-export const BUNDLED_FAMILIES: readonly ExtensionDeclaration[] = [
+const FAMILIES: readonly ExtensionDeclaration[] = [
   governanceExtension,
   outlineExtension,
   collectionsExtension,
@@ -65,16 +66,26 @@ export const BUNDLED_FAMILIES: readonly ExtensionDeclaration[] = [
   yorhaExtension,
   galleryExtension,
   daysExtension,
+  agentExtension,
+  routinesExtension,
 ];
 
+/** The families the registry loads, in order: each one whose declaration has no host part. */
+export const BUNDLED_FAMILIES: readonly ExtensionDeclaration[] = FAMILIES.filter(
+  (family) => family.host === undefined,
+);
+
 /**
- * The families a host composes beside the registry rather than in it: the
- * agent, which `kb ui` alone hosts (`cli/src/host-plugins.ts`, whose test
- * holds it to this list). Their code is that host's, but their seed is the
- * fold's, so every store holds the nodes their settings are written with,
- * whichever process opens it.
+ * The families a host composes beside the registry rather than in it: each
+ * one whose declaration has a host part (`ExtensionDeclaration.host`), which
+ * `kb ui` alone hosts (`cli/src/host-plugins.ts`, whose test holds it to
+ * this list). Their code is that host's, but their seed is the fold's, so
+ * every store holds the nodes their settings are written with, whichever
+ * process opens it.
  */
-export const HOSTED_FAMILIES: readonly ExtensionDeclaration[] = [agentExtension, routinesExtension];
+export const HOSTED_FAMILIES: readonly ExtensionDeclaration[] = FAMILIES.filter(
+  (family) => family.host !== undefined,
+);
 
 /** Core's declaration first, then each bundled family's, then each hosted one's: what the seed folds. */
 export const BUNDLED_DECLARATIONS: readonly ExtensionDeclaration[] = [

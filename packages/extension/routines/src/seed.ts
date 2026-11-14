@@ -195,6 +195,29 @@ export const routinesExtension = defineExtension({
     { from: ROUTINE_FIELDS.rrule, to: ROUTINE_FIELDS.rrule, text: "rrule" },
   ],
   views: [viewDef(RoutinesCalendarView), viewDef(RoutinesSyncView)],
+  host: {
+    capabilities: [
+      {
+        name: "sync",
+        reason:
+          "event sync, and connecting its Google accounts, keep their state in the kb ui process",
+        actions: [
+          "preview",
+          "status",
+          "setup",
+          "binding",
+          "automate",
+          "client",
+          "connect",
+          "finish",
+          "provision",
+          "remove",
+          "sync",
+          "release",
+        ],
+      },
+    ],
+  },
 });
 
 /** The family's shared plugin: its declaration's view, which both hosts' entries load. */

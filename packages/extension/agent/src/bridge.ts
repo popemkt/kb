@@ -1,7 +1,7 @@
 import { Cause, Deferred, Effect, Exit, Fiber, Stream, type Scope } from "effect";
 import {
-  ChannelPoint,
   UiHost,
+  hostEntry,
   failed,
   approvalAsk,
   listingOf,
@@ -12,10 +12,9 @@ import {
   type ManifestEntry,
   type SecretSource,
   type UiHostService,
-  familyTags,
 } from "@kb/contracts";
-import { definePlugin, type Plugin } from "@kb/plugin";
-import { agentActionsPlugin } from "./complete.ts";
+import type { Plugin } from "@kb/plugin";
+import { agentActions } from "./complete.ts";
 import { agentExtension } from "./extension.ts";
 import { AGENT_SYSTEM_PROMPT, screenContext } from "./prompt.ts";
 import {
@@ -312,33 +311,31 @@ function turnEnd(conversation: string, exit: Exit.Exit<unknown, unknown>): Agent
 }
 
 /**
- * The agent plugin over the host's `adapters`: a channel, `agent.chat`, in a
- * `kb ui` server that provides {@link UiHost}. Each turn runs on the
+ * The agent's host entry over the host's `adapters`: a channel, `agent.chat`,
+ * in a `kb ui` server that provides {@link UiHost}. Each turn runs on the
  * provider the agent's node selects (`sys.f.agent.provider`), read at the
  * start of the turn, or on the default adapter where none is selected; a
- * key it refers to is read through `secrets`. Its child contributes the
- * family's actions (`ext.agent.complete`) over the same adapters and keys.
- * Anywhere else it waits, pending, and does nothing.
+ * key it refers to is read through `secrets`. It serves the family's
+ * `threads` capability (`ext.agent.complete`, `ext.agent.sight`) over the
+ * same adapters and keys. Anywhere else it waits, pending, and does nothing.
  */
 export function agentPlugin(options: {
   readonly adapters: readonly AgentAdapter[];
   readonly secrets: SecretSource;
 }): Plugin {
-  return definePlugin({
-    name: agentExtension.name,
-    tags: familyTags(agentExtension),
+  return hostEntry(agentExtension, {
     inject: [UiHost],
-    apply: (ctx) =>
+    apply: (host) =>
       Effect.gen(function* () {
-        const host = yield* ctx.get(UiHost);
+        const ui = yield* host.get(UiHost);
         const backends: Backends = {
           adapters: new Map(options.adapters.map((adapter) => [adapter.id, adapter])),
           secrets: options.secrets,
         };
-        const bridge = new Bridge(host, backends, yield* Effect.scope);
-        yield* ctx.contribute(ChannelPoint, { id: AGENT_CHANNEL_ID, value: bridge.channel });
+        const bridge = new Bridge(ui, backends, yield* Effect.scope);
+        yield* host.channel(AGENT_CHANNEL_ID, bridge.channel);
         // Its actions run on the same adapters and keys, where the server reaches them.
-        yield* ctx.plugin(agentActionsPlugin(backends));
+        yield* host.serve("threads", agentActions(backends));
       }),
   });
 }

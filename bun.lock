@@ -1221,7 +1221,6 @@
       "dependencies": {
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
-        "@kb/plugin": "workspace:*",
         "@kb/routines": "workspace:*",
         "@kb/sandbox": "workspace:*",
         "effect": "catalog:",
