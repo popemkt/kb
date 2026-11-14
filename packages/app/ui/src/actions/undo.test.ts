@@ -60,7 +60,7 @@ describe("undo / redo (D19)", () => {
     act(() => {
       useOutlineStore.getState().toggleCollapse("n.root-a");
     });
-    await mutations.indentNode("n.root-b");
+    await mutations.indentNodes(["n.root-b"]);
     expect(outlineNodes().get("n.root-b")?.parentId).toBe("n.root-a");
 
     await mutations.undo();
@@ -112,7 +112,7 @@ describe("undo / redo (D19)", () => {
     await mutations.undo();
     expect(useGraphStore.getState().redoStack.length).toBeGreaterThan(0);
 
-    await mutations.indentNode("n.root-c");
+    await mutations.indentNodes(["n.root-c"]);
     expect(useGraphStore.getState().redoStack.length).toBe(0);
   });
 

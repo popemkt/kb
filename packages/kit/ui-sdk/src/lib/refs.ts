@@ -155,30 +155,10 @@ export function nodeCandidates(
   );
 }
 
-/** Build the wiki-link token inserted on autocomplete select. */
-function formatRefToken(id: string, label: string): string {
+/** The reference token a `[[` pick inserts. */
+export function formatRefToken(id: string, label: string): string {
   const clean = label.replace(/[[\]]/g, "").trim() || id;
   return `[[${id}|${clean}]]`;
-}
-
-/**
- * Replace an open `[[query` (or bare `[[`) at `cursor` with a completed ref.
- * Returns null if no open ref trigger is found.
- */
-export function insertRefAtCursor(
-  text: string,
-  cursor: number,
-  id: string,
-  label: string,
-): { text: string; cursor: number } | null {
-  const before = text.slice(0, cursor);
-  const after = text.slice(cursor);
-  const m = before.match(/\[\[([^\][]*?)$/);
-  if (!m) return null;
-  const start = before.length - m[0].length;
-  const token = formatRefToken(id, label);
-  const next = text.slice(0, start) + token + after;
-  return { text: next, cursor: start + token.length };
 }
 
 /** Detect open `[[query` at cursor for autocomplete UI. */

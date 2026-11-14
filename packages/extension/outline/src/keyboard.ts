@@ -106,8 +106,11 @@ const SELECTION_KEYS: readonly ContributionEntry<Keybinding>[] = [
   selectionBinding("move-up", { key: "ArrowUp", mod: true, shift: true }),
   selectionBinding("move-down", { key: "ArrowDown", mod: true, shift: true }),
   selectionBinding("zoom", { key: ".", mod: true }),
-  selectionBinding("up", { key: "ArrowUp", mod: false }),
-  selectionBinding("down", { key: "ArrowDown", mod: false }),
+  selectionBinding("up", { key: "ArrowUp", mod: false, shift: false }),
+  selectionBinding("down", { key: "ArrowDown", mod: false, shift: false }),
+  // Shift moves the selection's head and keeps its anchor: a range of rows.
+  selectionBinding("extend-up", { key: "ArrowUp", mod: false, shift: true }),
+  selectionBinding("extend-down", { key: "ArrowDown", mod: false, shift: true }),
   selectionBinding("close-or-climb", { key: "ArrowLeft", mod: false }),
   selectionBinding("open-or-descend", { key: "ArrowRight", mod: false }),
   selectionBinding("edit", { key: "Enter", mod: false }),

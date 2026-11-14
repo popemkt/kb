@@ -11,7 +11,7 @@ import { logError } from "./log";
  * `stores/ui.store` registers itself when it loads, which is the direction
  * every other row of the matrix states.
  */
-export type ToastSink = (message: string) => void;
+export type ToastSink = (message: string, kind: "error" | "info") => void;
 
 let sink: ToastSink | null = null;
 
@@ -20,13 +20,14 @@ export function setToastSink(next: ToastSink): void {
 }
 
 /**
- * Show `message` to the user. Loud rather than silent with no sink: a dropped
+ * Show `message` to the user: an `error`, what went wrong or was refused,
+ * or `info`, what was done. Loud rather than silent with no sink: a dropped
  * error toast is a real hole, so it is at least visible in the console.
  */
-export function toast(message: string): void {
+export function toast(message: string, kind: "error" | "info" = "error"): void {
   if (sink === null) {
     logError("[kb/toast] no sink registered; message dropped:", message);
     return;
   }
-  sink(message);
+  sink(message, kind);
 }

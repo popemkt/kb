@@ -15,7 +15,7 @@ import {
   outlineHostOfPane,
   outlineInstanceKey,
   type OutlineNode,
-  queryResultInstanceKey,
+  projectedRowKey,
   resolveRowChrome,
   resolveTableColumns,
   shownNode,
@@ -226,7 +226,7 @@ export function TableView({
         <tbody>
           {displayedChildren.map((child) => {
             const childKey = isQuerySource
-              ? queryResultInstanceKey(frameId, child.id)
+              ? projectedRowKey(frameId, child.id)
               : childInstanceKey(baseInstanceKey, child.id);
             return (
               <TableRow

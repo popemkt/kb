@@ -95,6 +95,7 @@ const none = (): Promise<string | null> => Promise.resolve(null);
 
 const INERT_WRITES: PageWrites = {
   updateNodeContent: done,
+  setNodeText: refused,
   createNodeAfter: done,
   addTagField: done,
   removeTagField: done,
@@ -107,10 +108,14 @@ const INERT_WRITES: PageWrites = {
   deleteNode: refused,
   mergeNextIntoThis: done,
   mergeWithPrevious: done,
-  indentNode: done,
-  outdentNode: done,
-  moveNodeUp: done,
-  moveNodeDown: done,
+  indentNodes: done,
+  outdentNodes: done,
+  moveNodesUp: done,
+  moveNodesDown: done,
+  // This host moves nothing.
+  moveNodes: () => Promise.resolve(null),
+  // A gesture's writes are this host's: it makes none of them, so the gesture runs as it is.
+  together: (gesture) => gesture(),
   updateProp: done,
   removeProp: done,
   addTag: done,

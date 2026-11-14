@@ -86,7 +86,11 @@ function graph(extra: Record<string, WireNode["props"]> = {}): WireNode[] {
 function context(): CommandContext {
   const outline = pageCommandApi();
   return {
-    target: { nodeId: commandTargetNodeId(outline), frameId: viewTargetFrameId(outline) },
+    target: {
+      nodeId: commandTargetNodeId(outline),
+      frameId: viewTargetFrameId(outline),
+      nodeIds: [commandTargetNodeId(outline)].filter((id) => id !== null),
+    },
     outline,
     prefs: usePrefsStore.getState(),
     ui: useUiStore.getState(),
@@ -95,6 +99,8 @@ function context(): CommandContext {
     palette: { close: () => {}, openStep: () => {} },
   };
 }
+
+const toasts = () => useUiStore.getState().toasts.map((t) => t.text);
 
 function offered(nodeId: string, prefix = "open-with:") {
   useOutlineStore.setState({ selectedNodeId: nodeId });
@@ -309,6 +315,74 @@ const conditionalProvider = (run: () => void) =>
         },
       }),
   });
+
+/** The kinds a row carries. */
+const kinds = (id: string) =>
+  useGraphStore.getState().wireNodes.find((n) => n.id === id)?.props[SYSTEM_IDS.typeField] ?? [];
+
+describe("a node command over a range of rows", () => {
+  let dom: InstalledDom;
+  beforeEach(() => {
+    dom = installDomGlobals();
+    resetOutlineStore();
+    useGraphStore.getState().hydrateFromWire(graph(), 1, "fixtures");
+    syncUiPlugins([paletteStepsPlugin, browserHostUiPlugin, outlineUiPlugin, layoutUiPlugin]);
+  });
+  afterEach(() => {
+    syncUiPlugins([]);
+    dom.restore();
+  });
+
+  /** The context with `rows` selected, anchored at the last. */
+  const over = (rows: readonly string[]): CommandContext => {
+    const ctx = context();
+    return { ...ctx, target: { ...ctx.target, nodeId: rows.at(-1) ?? null, nodeIds: rows } };
+  };
+
+  it("lists only the commands that act on each row", () => {
+    const ids = listNodeCommands(over(["n.board", "n.plain"])).map((c) => c.id);
+    expect(ids).not.toContain("make-supertag");
+    expect(ids).toEqual(expect.arrayContaining(["add-tag", "toggle-pin", "delete"]));
+  });
+
+  it("offers Count words and Copy node ID over the range, read from every row", () => {
+    const listed = listNodeCommands(over(["n.board", "n.plain"]));
+    expect(listed.map((c) => c.id)).toEqual(
+      expect.arrayContaining(["count-words", "copy-node-id", "move-to"]),
+    );
+    expect(listed.find((c) => c.id === "copy-node-id")?.label).toBe("Copy node IDs");
+  });
+
+  it("Copy node ID puts each row's id on the clipboard, one per line, and says so", async () => {
+    const written: string[] = [];
+    vi.stubGlobal("navigator", {
+      clipboard: { writeText: (text: string) => Promise.resolve(void written.push(text)) },
+    });
+    try {
+      await runCommand("copy-node-id", over(["n.board", "n.plain"]));
+      await vi.waitFor(() => expect(toasts()).toContain("2 node IDs copied"));
+      expect(written).toEqual(["n.board\nn.plain"]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("Count words says the words, characters and nodes of the rows, and writes nothing", async () => {
+    const before = useGraphStore.getState().wireNodes;
+    await runCommand("count-words", over(["n.board", "n.plain"]));
+    expect(useUiStore.getState().toasts.at(-1)).toMatchObject({
+      kind: "info",
+      text: "2 words · 14 characters · 2 nodes",
+    });
+    expect(useGraphStore.getState().wireNodes).toBe(before);
+  });
+
+  it("runs a command that acts on one row, from its shortcut, on the head alone", async () => {
+    await runCommand("make-supertag", over(["n.board", "n.plain"]));
+    await vi.waitFor(() => expect(kinds("n.plain")).toEqual([{ t: "ref", v: SYSTEM_IDS.tag }]));
+    expect(kinds("n.board")).toEqual([{ t: "ref", v: CANVAS_TAG }]);
+  });
+});
 
 describe("runner catalog provenance", () => {
   let dom: InstalledDom;

@@ -51,7 +51,11 @@ function graph(): WireNode[] {
 function context(): CommandContext {
   const outline = pageCommandApi();
   return {
-    target: { nodeId: commandTargetNodeId(outline), frameId: viewTargetFrameId(outline) },
+    target: {
+      nodeId: commandTargetNodeId(outline),
+      frameId: viewTargetFrameId(outline),
+      nodeIds: [commandTargetNodeId(outline)].filter((id) => id !== null),
+    },
     outline,
     prefs: usePrefsStore.getState(),
     ui: useUiStore.getState(),

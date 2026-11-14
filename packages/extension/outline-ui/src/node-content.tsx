@@ -1,7 +1,8 @@
-import type { ReactElement } from "react";
+import { type ReactElement, useCallback, useMemo } from "react";
 import type { ViewKey } from "@kb/views";
 import {
   browserHost,
+  type Follow,
   NodeTextHost,
   type NodeTextHostBinding,
   type NodeTextHostProps,
@@ -12,6 +13,9 @@ import {
   useNodeTextBinding,
 } from "@kb/ui-sdk";
 import { useRowIngest } from "./ingest";
+import { outlineTriggers } from "./outline-triggers";
+import { openReferencesOf, opensInPlace } from "./open-references";
+import { useOutlineStore } from "./outline.store";
 import { RowView } from "./row-view";
 
 /** The text host's `display`: the row's text, placed by the row view `view`. */
@@ -26,7 +30,8 @@ function drawnAs(view: ViewKey<unknown>, nodeId: string, markdown: string) {
  *
  * It owns the row's text channel, so no surface can wire it differently: the
  * text edited is `rowText`, the text drawn at rest `rowTitle` (the node's
- * title where its tag builds one, DESIGN-UI.md → Titles from fields), and every write — typing, `[[` completion, what a
+ * title where its tag builds one, DESIGN-UI.md → Titles from fields), and
+ * every write — typing, the text's triggers (`outlineTriggers`), what a
  * paste or a drop makes (`useRowIngest`) — goes to `shownNodeId`, the node
  * that text belongs to. For an
  * ordinary row that is the row itself; for a contextual reference it is the
@@ -34,7 +39,9 @@ function drawnAs(view: ViewKey<unknown>, nodeId: string, markdown: string) {
  * tag chips are the shown node's too (the surface passes `shownNode(…).tags`),
  * so removing one removes it from the node it is drawn on. Where the shown
  * node's tag names a row view (`useRowView`), the text is drawn inside it
- * while no one edits the row.
+ * while no one edits the row. A follow that shows in place (Alt-click)
+ * opens the reference under the row, or closes it, where the row opens
+ * references in place (`open-references`).
  */
 export function NodeContent({
   node,
@@ -53,6 +60,26 @@ export function NodeContent({
   const content = rowText(node, binding.schema);
   const textNodeId = shownNodeId(node);
   const ingest = useRowIngest(textNodeId, content);
+  const { instanceKey } = props;
+  const { schema, onFollow } = binding;
+  const triggers = useMemo(
+    () => outlineTriggers(textNodeId, instanceKey, schema),
+    [textNodeId, instanceKey, schema],
+  );
+  const inPlace = instanceKey !== undefined && opensInPlace(instanceKey);
+  const expansion = useOutlineStore((s) => s.expansion);
+  const open = useMemo(
+    () => new Set(inPlace ? openReferencesOf(expansion, textNodeId, content) : []),
+    [inPlace, expansion, textNodeId, content],
+  );
+  const follow = useCallback<Follow>(
+    (target, how) => {
+      if (how === "in-place" && inPlace && target.kind === "node") {
+        useOutlineStore.getState().toggleReference(textNodeId, target.id);
+      } else onFollow(target, how);
+    },
+    [inPlace, textNodeId, onFollow],
+  );
   return (
     <NodeTextHost
       {...hostProps}
@@ -69,6 +96,9 @@ export function NodeContent({
         if (next !== content) void browserHost().writes.updateNodeContent(textNodeId, next);
       }}
       ingest={ingest}
+      triggers={triggers}
+      onFollow={follow}
+      openReferences={open}
       onRemoveTag={(tagId) => {
         void browserHost().writes.removeTag(textNodeId, tagId);
       }}

@@ -18,6 +18,7 @@ import type { PickerCandidate } from "./picker";
 import type { SchemaIndex } from "./schema";
 import type { NodeMap } from "./types";
 import type { FamilyView } from "./view-key";
+import { browserHost } from "../host";
 
 /** What commands read and drive on the outline store. */
 export interface OutlineCommandApi {
@@ -74,16 +75,27 @@ interface PaletteStepGraph {
   readonly wireNodes: readonly WireNode[];
   /** The row the palette is anchored to: never its own candidate. */
   readonly anchorId: string | null;
+  /** Every row the step is about, the anchored one among them: none is its own candidate. */
+  readonly targetNodeIds: readonly string[];
 }
 
-/** What a palette step's pick writes: the row it is about, and the candidate picked or named. */
+/** What a palette step's pick writes: the rows it is about, and the candidate picked or named. */
 interface PaletteStepPick {
+  /** The row the palette is anchored to. */
   readonly targetNodeId: string;
+  /**
+   * Every row the step is about, the anchored one among them: a selection's
+   * rows (DESIGN-UI.md → Outline editor, "A selection is a range of rows").
+   * A step a command that acts on many opens writes the pick to each.
+   */
+  readonly targetNodeIds: readonly string[];
   /** Where field definitions are read from: the whole graph (`lib/schema.ts`). */
   readonly schema: SchemaIndex;
   readonly pickedId: string;
   readonly creating: boolean;
   readonly name: string;
+  /** Picked the step's alternate way (`PaletteStep.alternate`): Alt+Enter, or an Alt-click. */
+  readonly alternate: boolean;
 }
 
 /**
@@ -100,6 +112,11 @@ export interface PaletteStep {
   readonly candidates: (graph: PaletteStepGraph) => PickerCandidate[];
   /** At most this many rows; absent, every match. */
   readonly limit?: number;
+  /**
+   * What a pick made with Alt does, said under the list ("Move and leave a
+   * reference"); absent, Alt picks as Enter does.
+   */
+  readonly alternate?: string;
   readonly commit: (pick: PaletteStepPick) => Promise<void>;
 }
 
@@ -120,6 +137,12 @@ export const PaletteStepPoint = PointName<PaletteStep>()(CORE_POINT_DEFINITIONS.
 export interface CommandTarget {
   readonly nodeId: string | null;
   readonly frameId: string | null;
+  /**
+   * Every row the command is about, `nodeId` among them: a selection's rows
+   * (DESIGN-UI.md → Outline editor, "A selection is a range of rows"), the
+   * one row otherwise, none with no node.
+   */
+  readonly nodeIds: readonly string[];
 }
 
 export interface CommandContext {
@@ -187,6 +210,11 @@ export interface NodeCommand extends CommandBase {
   readonly menu: Extract<CommandMenu, { readonly where: "node" }>;
   readonly chrome: (ctx: CommandContext) => CommandChrome;
   /**
+   * Offered over a selection of several rows, and run on each
+   * (`nodeAction`); absent, only on one row.
+   */
+  readonly many?: true;
+  /**
    * The global command (its `sys.command` id) this is the node menu's face
    * of: the one act, there on the page's frame, here on this node. Where ⌘K
    * lists a node's commands, it lists this row in that one's place.
@@ -216,16 +244,21 @@ export interface NodeCommandListing {
   readonly run: () => void;
 }
 
-/** Run `body` with the target row's id, or do nothing when there is none. */
-function onTarget(ctx: CommandContext, body: (nodeId: string) => void): void {
-  const nodeId = ctx.target.nodeId;
-  if (nodeId === null) return;
-  body(nodeId);
+/**
+ * Run `gesture`, the writes of a gesture about `rows`, as one write
+ * (DESIGN-UI.md → Outline editor, "A selection is a range of rows"): over
+ * several rows gathered by `PageWrites.together`; over one row as it is,
+ * that row's write being one write already, so a write whose result the
+ * gesture reads has landed when it reads it.
+ */
+export function asOneWrite<T>(rows: readonly string[], gesture: () => Promise<T>): Promise<T> {
+  return rows.length > 1 ? browserHost().writes.together(gesture) : gesture();
 }
 
-/** A node command that acts and dismisses the menu. */
-export function nodeAction(ctx: CommandContext, body: (nodeId: string) => void): void {
-  onTarget(ctx, body);
+/** A node command that acts on each row it is about (`target.nodeIds`), as one write (`asOneWrite`), and dismisses the menu. */
+export function nodeAction(ctx: CommandContext, body: (nodeId: string) => unknown): void {
+  const { nodeIds } = ctx.target;
+  void asOneWrite(nodeIds, () => Promise.all(nodeIds.map((nodeId) => body(nodeId))));
   ctx.palette.close();
 }
 

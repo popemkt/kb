@@ -11,6 +11,8 @@ export type SelectionKeyEvent = KeyChordEvent;
 
 export type SelectionKeyAction =
   | { type: "select"; nodeId: string; instanceKey: string }
+  /** Move the selection's head a row, keeping its anchor: a range. */
+  | { type: "extend"; direction: "up" | "down" }
   | { type: "clear" }
   | { type: "edit"; nodeId: string; instanceKey: string }
   | { type: "toggleCollapse"; nodeId: string }
@@ -125,6 +127,8 @@ const SELECTION_INTENTS = new Map<string, IntentOf>([
   ["move-down", ({ nodeId }) => ({ type: "moveDown", nodeId })],
   ["zoom", ({ nodeId, instanceKey }) => ({ type: "zoom", nodeId, instanceKey })],
   ["up", upOrIntoFields],
+  ["extend-up", () => ({ type: "extend", direction: "up" })],
+  ["extend-down", () => ({ type: "extend", direction: "down" })],
   ["down", downOrIntoFields],
   ["close-or-climb", closeOrClimb],
   ["open-or-descend", openOrDescend],

@@ -91,7 +91,7 @@ export function shownNode(node: OutlineNode, schema: SchemaIndex): OutlineNode {
 
 /**
  * The row's shown node is already shown by a row above it on its instance
- * path (`tree/a/b/…`, `ref:query:<q>/…`), so expanding it would repeat that
+ * path (`tree/a/b/…`, `ref:row:<q>/…`), so expanding it would repeat that
  * row's rows inside themselves. Such a row is a leaf.
  */
 export function showsAncestor(

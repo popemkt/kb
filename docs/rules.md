@@ -107,6 +107,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Draw links as screen-space quads (three's Line2NodeMaterial / LineSegments2 with a per-instance width updated in place, or a TSL quad strip), sized by the square root of weight, keeping the one-draw batch and no per-frame allocation.
 - **node** — `01M3AZSFJ9A8K8FYGHF5ADEAPT`
 
+### GAP: a # or > pick in the text is two writes, the text's and the step's
+
+- **expected** — A trigger pick that writes (# tags the row, > adds a field) is one write with the text it takes out, so one undo takes back both (DESIGN-UI.md → Triggers in the text; asOneWrite).
+- **current** — The text host lays the pick into the text through its own text write, then the step commits its own one write (stepTrigger in outline-triggers.ts); undo takes the tag or field back first, and the text second.
+- **impact** — Undoing a # or > pick takes two steps, and the first leaves #query or >query back in the row without its picker.
+- **closes** — TriggerPick.write returns a planned mutation the host applies together with its text write (mutations.together), or the text host's write joins the step's plan.
+- **node** — `01M7D4AYQFJGZQGJZ3KD7M388R`
+
 ### GAP: a 3D capture briefly shows two frames
 
 - **expected** — no visible flash
@@ -226,6 +234,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — even with contribution keys in inject, this edge would read as missing in the registry while the call would succeed through kb ui
 - **closes** — P4 of docs/research/2026-10-29-plugin-codependency.md, after the owner chooses between resolving against the catalog the invoke core reaches and composing a needed family beside its caller
 - **node** — `01M63C0M1WRKY0Q09AGK9NK7NJ`
+
+### GAP: a drag's drop line ignores a frame view's sort
+
+- **expected** — A row dragged over the rows of a frame whose view sorts or groups them shows where the sort will put it: a line on the frame, not between rows, and a drop that joins the frame.
+- **current** — row-drag reads the row under the pointer and its sibling before it in the graph, so in a sorted frame the line is drawn between two rows and the row lands in graph order, then is drawn where the sort puts it.
+- **impact** — In a sorted frame a drop does not land where its line was; the move is still one write, and undo takes it back.
+- **closes** — dropOver takes the frame's view (frameViewOf, its sort and group), and a drop over a sorted or grouped frame's rows lands in the frame with the line on the frame's own row.
+- **node** — `01M7D25CX9D6V64G19PYJJYCXM`
 
 ### GAP: a DST scenario is not hermetic: KB_DATA moved under it changes its store
 
@@ -365,15 +381,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — packageShards packs mutants by line range instead of by file, emitting file:start-end entries in a shard's mutate.
 - **node** — `01M558MRWHR92991GYFRC5WWXY`
 
-### GAP: a node can be moved only one step at a time
-
-- **expected** — A node is moved anywhere in the graph from the editor: to another parent picked by name, or by dragging the row.
-- **current** — Move up/down and indent/outdent move a row one step (editing-intents.ts); rows are not draggable, and the only drop handler takes files.
-- **impact** — Moving a node to a distant parent takes many keystrokes, or kb mv from the CLI.
-- **closes** — A 'Move to…' palette step that picks the new parent, and row drag and drop, both through node.move.
-- **rule** — Editor first (the editor is the main human editing surface)
-- **node** — `01M5CRYPQ3CGJKP20TQFADPRH1`
-
 ### GAP: a node's title reaches its row, ref values, search and the picker, not every place the page names a node
 
 - **expected** — Every surface that names a node (breadcrumbs, the zoomed page's title, tab and pane titles, graph and canvas labels, backlinks) names it by nodeTitleOf, as rows, ref values, search and the node picker do (DESIGN-UI.md → Titles from fields).
@@ -430,6 +437,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — An isolated backdrop host behind BackdropPoint for repository extensions, with the frame meter and knob values passed across, held by the shared backdrop contract
 - **node** — `01M6WVFMGB5PP2AANF0E5R921V`
 
+### GAP: A range of rows cannot be selected by touch
+
+- **expected** — A finger selects a range of outline rows as Shift+arrow and Shift-click do: a long press on a row starts a selection there, and a tap on another row while it lasts moves its head
+- **current** — A range is made with Shift+Up/Down or Shift-click only; the outline rows have no long-press recognizer (the canvas's LONG_PRESS_MS recognizer is the canvas stage's)
+- **impact** — On a phone or tablet the bulk commands (tag, untag, set field, pin, delete, block moves) reach one row at a time
+- **closes** — The outline row touch recognizer the row drag and drop brings (item 2 of the Tana outline-editor line), its long press ending in extendSelection
+- **node** — `01M7CY02KHSSAAENWJ67EA1EPH`
+
 ### GAP: a ref value's bullet follows instead of expanding the target inline
 
 - **expected** — A ref value's bullet expands the target's children inline under the field, the way a reference row's bullet expands its target.
@@ -437,6 +452,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Reading a referenced node's content from a field means leaving the page; the outline's expand gesture does not apply to values.
 - **closes** — An instance key for a value slot so the target's children can render under it, then the bullet toggles expansion like a row bullet.
 - **node** — `01M3KA38YPZZFKQRZM9ZP6C99F`
+
+### GAP: a reference opened in place shows its target as the target's own open or closed choice
+
+- **expected** — Opening a reference in place shows its target open one level by default, as screen state of that open reference alone, never stored
+- **current** — The outline's expansion is one choice per node (toggleCollapse, withExpansion): the opened reference draws its target open or closed as every row of that node is, so a target closed in the tree opens closed (visible-instances.ts)
+- **impact** — To read or edit what the target holds, the reader opens it once more, and that opens it in the tree too, and is saved as the node's choice
+- **closes** — Expansion keyed by row instance where a row's choice can differ from its node's (projected rows first), so an opened reference can default open without touching the node's choice
+- **node** — `01M7D8AP4A4W6S2X5T1DSE9D77`
 
 ### GAP: a reference's target cannot be changed from the UI
 
@@ -1412,7 +1435,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: query-result rows are not keyed per pane
 
 - **expected** — query-result rows carry their outline host in their instance key, like other rows
-- **current** — ref:query: keys carry no host, and the keyboard walks them in the main pane's outline
+- **current** — ref:row: keys name their source, not their host, and the keyboard walks them in the main pane's outline
 - **impact** — the same query open in two panes shares row instances; keyboard navigation in query results goes to the main pane
 - **closes** — put the host in the query-row instance key
 - **node** — `01M411FPC839XBJJ873V1VYYYD`
@@ -1440,6 +1463,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Each site can render stale values or cascade renders. The ratchet stops new ones, but the existing 59 stay until drained.
 - **closes** — Drain per component with the UI suite (bun run test:ui) as the guard, re-snapshot the ledger, and promote each rule to error when its count reaches 0.
 - **node** — `01M35NJQPKW5YVNVFFAFAYXPFH`
+
+### GAP: Recent nodes are one browser's, not a person's
+
+- **expected** — Recent follows the person: the nodes they last stood at on any device, if cross-device recents come to matter
+- **current** — The sidebar's Recent section reads localStorage kb-recent (outline-ui recents.ts), per browser, screen state like the expansion and the zoom; the store, the CLI and MCP never see it
+- **impact** — Another device, browser or profile starts with an empty Recent; clearing site data forgets it
+- **closes** — A per-person screen-state home that syncs (not the graph: viewing must not write the store), read by the section in place of localStorage
+- **node** — `01M7D6DPTPPKEY515V7J3FJDM4`
 
 ### GAP: relations read world-aligned bounds, not volumes
 
@@ -1539,6 +1570,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Search cost grows linearly with the graph and no ranking is possible.
 - **closes** — Gate on Bun's FTS5 close() segfault (oven-sh/bun#37044); adopt once a SQLite index exists.
 - **node** — `01M1M08X7037FH9Z0Y5G1RFRXX`
+
+### GAP: Set field… offers only fields that declare an option set
+
+- **expected** — Set field… over one row or a range offers every field and writes a value of the field's own type to each row: an option picked from a set, or a typed value (text, number, date, a node) read once and written to every row
+- **current** — The outline.set-field step lists only the options of fields that declare an option set (declaresOptionSet), as 'field: option'; any other field is set row by row through Add field
+- **impact** — Bulk-setting a date, a number or a reference across a selection takes one gesture per row
+- **closes** — A Set field step that, after the field is picked, opens the field's own value editor once (the field row's editor, through the picker step) and writes its value to every target in one asOneWrite
+- **node** — `01M7CY0205F8GSDTNMSSG35S97`
 
 ### GAP: Shift-drag on empty space in 3D does not marquee-select
 
@@ -2167,6 +2206,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — On a hosted kb ui behind a socket, the CLI and kb mcp cannot drive the person's tabs (ui.screen and its commands) or find the running server; the browser, through the proxy, is unaffected
 - **closes** — A presence record that is a loopback origin or a socket path (validated as the origin is), with servingUi and the screen relay fetching over the socket
 - **node** — `01M5CMVS78WRBD760MNSS3BMJJ`
+
+### GAP: a node can be moved only one step at a time
+
+- **expected** — A node is moved anywhere in the graph from the editor: to another parent picked by name, or by dragging the row.
+- **current** — Move up/down and indent/outdent move a row one step (editing-intents.ts); rows are not draggable, and the only drop handler takes files.
+- **impact** — Moving a node to a distant parent takes many keystrokes, or kb mv from the CLI.
+- **closes** — A 'Move to…' palette step that picks the new parent, and row drag and drop, both through node.move.
+- **rule** — Editor first (the editor is the main human editing surface)
+- **node** — `01M5CRYPQ3CGJKP20TQFADPRH1`
 
 ### GAP: a one-off routine cannot be ticked done or skipped in the calendar
 

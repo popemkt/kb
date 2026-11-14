@@ -13,9 +13,8 @@ import {
   type GraphNode,
   type Library,
 } from "@kb/gallery";
-import { assetSrcUrl, cn, navigate } from "@kb/ui-sdk";
+import { assetSrcUrl, cn, copyText, navigate } from "@kb/ui-sdk";
 import { nodePath } from "@kb/views";
-import { copyText } from "./copy";
 
 function CopyLine({ label, text }: { readonly label: string; readonly text: string }) {
   if (text === "") return null;

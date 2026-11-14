@@ -25,8 +25,7 @@ import {
   type ComposeTarget,
   type LookDraft,
 } from "@kb/gallery";
-import { assetSrcUrl, cn, navigate, toast } from "@kb/ui-sdk";
-import { copyText } from "./copy";
+import { assetSrcUrl, cn, copyText, navigate, toast } from "@kb/ui-sdk";
 import { currentDraft, openLook, toggleDraftStyle, updateDraft, useDraft } from "./draft";
 import type { ComposerFrame } from "./frame";
 import { MODEL_NEEDS } from "./model";
