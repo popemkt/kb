@@ -65,6 +65,15 @@ export interface FrameSubject {
   readonly detail: string | null;
   /** Show the row `nodeId` in the frame's detail, as the host keeps it. */
   readonly showDetail: (nodeId: string) => void;
+  /**
+   * The day a calendar is open at, as the host keeps it for the frame:
+   * today until one is chosen (DESIGN-UI.md → Calendar).
+   */
+  readonly day: string;
+  /** The day it is now, as the host reads it. */
+  readonly today: string;
+  /** Open the frame's calendar at `day`, as the host keeps it. */
+  readonly showDay: (day: string) => void;
   readonly RowText: ComponentType<FrameRowTextProps>;
   /**
    * The children a row shows, in their own frame view, as the host draws

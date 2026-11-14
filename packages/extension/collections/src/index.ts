@@ -6,6 +6,7 @@
 export { collectionsExtension, collectionsPlugin } from "./extension.ts";
 export {
   CollectionBoardView,
+  CollectionCalendarView,
   CollectionCardsView,
   CollectionDetailView,
   CollectionTableView,

@@ -8,7 +8,7 @@ import { ArrowSquareOutIcon, XIcon } from "@phosphor-icons/react";
 import { describeRepeat, routineSettings, type CalendarEntry, type Place } from "@kb/routines";
 import { cn, IconButton, useAnchoredPosition, useDismiss, useOpenNode } from "@kb/ui-sdk";
 import { DateField } from "./date-field";
-import { longDay } from "./dates";
+import { longDay } from "@kb/calendar-kit";
 import { BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from "./dialog";
 import { displayDay, displayTimes } from "./layout";
 import { inkOf, type CalendarModel } from "./model";

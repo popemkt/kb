@@ -80,6 +80,8 @@ function walk() {
     chain: [],
     pages: {},
     details: {},
+    days: {},
+    today: "2026-11-14",
   });
 }
 
@@ -119,12 +121,14 @@ describe("a row's group keys", () => {
   it("are walked from the groups the board draws, past folded ones, none past an end", () => {
     const group = (id: string) => walk().find((i) => i.nodeId === id)?.group;
     expect(group("c1")).toEqual({
+      frameId: "board",
       fieldId: "f.status",
       before: null,
       after: { value: ref("o.doing") },
     });
     // Done is folded, so Doing's next group is Blocked.
     expect(group("c2")).toEqual({
+      frameId: "board",
       fieldId: "f.status",
       before: { value: ref("o.todo") },
       after: { value: ref("o.blocked") },

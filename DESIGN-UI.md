@@ -2912,7 +2912,7 @@ how the stored name resolves to the key among them.
   the `outline.` namespace, so a collection view answers to that id as an
   alias of the one its plugin contributes it at. The keys carry the one trait the row walk needs
   beside the params: how the view lays rows out (`outline`, nested; `rows`;
-  `columns`; `detail`, a run with one row's page beside it; `days`, a run
+  `columns`; `detail`, a run with one row's page beside it; `calendar`, a run
   grouped by the days it shows). The frame's first frame view node (DESIGN.md → View nodes)
   names the view, and `frameViewOf` (`@kb/ui-sdk`'s `lib/frame-view.ts`)
   looks that node up in the schema (`frameViewNodeOf`, the one test of what
@@ -3145,7 +3145,8 @@ how the stored name resolves to the key among them.
   the row's text as the host edits it (`RowText`), drawn as the routines
   calendar draws an instance (`calendarChipClass`, the one class list both
   chips are drawn with: radius, inked edge, label type and density), so the
-  two calendars read as one family.
+  two calendars read as one family. The text is one line, cut with an
+  ellipsis, unless it is being edited, so a busy day never grows its week.
   A week lays its days side by side, and a month in a grid of weeks, the
   routines calendar's month grid (`MonthGrid`); a cell lists all its rows.
   In a frame narrower than 480px a week stacks its days, and the list goes

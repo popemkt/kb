@@ -216,6 +216,7 @@ describe("node command palette", () => {
       "View as: Board",
       "View as: Cards",
       "View as: List with detail",
+      "View as: Calendar",
       "Filter…",
       "Delete node",
     ]);
@@ -242,6 +243,7 @@ describe("node command palette", () => {
       "View as: Board",
       "View as: Cards",
       "View as: List with detail",
+      "View as: Calendar",
       "Filter…",
       "Delete node",
     ]);
@@ -431,6 +433,15 @@ describe("the global palette on a page", () => {
 
   it("lists a global command once, as the node's face of it", async () => {
     await openPalette();
+    // The empty palette lists its first rows only; asking for the command lists every match.
+    const input = present(dom.document.activeElement, "the palette's focused input");
+    await act(async () => {
+      // React reads a change past the value it last set through the prototype's setter,
+      // on keyup where it found no input event.
+      Reflect.set(Object.getPrototypeOf(input) as object, "value", "Filter", input);
+      input.dispatchEvent(new dom.Event("input", { bubbles: true }));
+      input.dispatchEvent(new dom.KeyboardEvent("keyup", { bubbles: true }));
+    });
     const filters = [...dom.document.querySelectorAll("[data-palette-row]")].filter(
       (b) => b.querySelector(".flex-1")?.textContent === "Filter…",
     );

@@ -12,6 +12,7 @@
  * one snapshot beside another: there is one copy of the graph, and the rows
  * are a view of it.
  */
+import { todayIn } from "@kb/calendar-kit";
 import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 import {
@@ -117,6 +118,11 @@ interface OutlineState {
   /** The row each frame's detail view shows (frame id -> node id; DESIGN-UI.md → List with detail). */
   frameDetails: Readonly<Record<string, string>>;
   showDetail: (frameId: string, nodeId: string) => void;
+  /** The day each frame's calendar is open at (frame id -> day; DESIGN-UI.md → Calendar). */
+  frameDays: Readonly<Record<string, string>>;
+  showDay: (frameId: string, day: string) => void;
+  /** The day it is now, when pinned (a test, a story); null reads the browser's clock (`todayNow`). */
+  today: string | null;
   /** Each query node's builder as this screen left it (query node id -> screen state). */
   queryBuilders: Readonly<Record<string, QueryBuilderScreen>>;
   setQueryBuilder: (queryNodeId: string, patch: QueryBuilderScreen) => void;
@@ -145,6 +151,8 @@ export const initialOutlineState: OutlineStateData = {
   expansion: new Map(),
   framePages: {},
   frameDetails: {},
+  frameDays: {},
+  today: null,
   queryBuilders: {},
   activeNodeId: null,
   activeInstanceKey: null,
@@ -155,6 +163,15 @@ export const initialOutlineState: OutlineStateData = {
   focusX: null,
   transientIds: new Set<string>(),
 };
+
+/**
+ * The day it is now: the store's pinned day, else the browser's, in its
+ * zone. A calendar that has not been opened at a day shows this one.
+ */
+export function todayNow(): string {
+  const pinned = useOutlineStore.getState().today;
+  return pinned ?? todayIn(new Intl.DateTimeFormat().resolvedOptions().timeZone, Date.now());
+}
 
 /** The page's graph state now, as the shell holds it. */
 function graphNow(): PageGraphState {
@@ -575,6 +592,11 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
           : { frameDetails: { ...s.frameDetails, [frameId]: nodeId } },
       ),
 
+    showDay: (frameId, day) =>
+      set((s) =>
+        s.frameDays[frameId] === day ? s : { frameDays: { ...s.frameDays, [frameId]: day } },
+      ),
+
     getVisibleNodes: () =>
       get()
         .getVisibleInstances()
@@ -786,6 +808,8 @@ function visibleInstancesOf(
       chain: outline.chain,
       pages: useOutlineStore.getState().framePages,
       details: useOutlineStore.getState().frameDetails,
+      days: useOutlineStore.getState().frameDays,
+      today: todayNow(),
     },
     host,
   );

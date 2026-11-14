@@ -332,6 +332,8 @@ describe("W7.1 BoardCardsView + toolbar", () => {
       chain: [],
       pages: {},
       details: {},
+      days: {},
+      today: "2026-11-14",
     });
     // zoomed root itself + projected cards in board order
     const projected = visible.filter((v) => v.nodeId !== "frame1").map((v) => v.nodeId);

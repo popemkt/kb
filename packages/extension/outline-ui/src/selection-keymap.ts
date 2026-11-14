@@ -23,8 +23,18 @@ export type SelectionKeyAction =
   | { type: "outdent"; nodeId: string }
   | { type: "moveUp"; nodeId: string }
   | { type: "moveDown"; nodeId: string }
-  /** Into the group of `value` by its field (DESIGN-UI.md → Groups). */
-  | { type: "moveToGroup"; nodeId: string; fieldId: string; value: PropValue | null }
+  /**
+   * Into the group of `value` by its field (DESIGN-UI.md → Groups); a
+   * calendar's frame then opens at `opens`, so the row stays drawn.
+   */
+  | {
+      type: "moveToGroup";
+      nodeId: string;
+      fieldId: string;
+      value: PropValue | null;
+      frameId: string;
+      opens?: string;
+    }
   | { type: "zoom"; nodeId: string; instanceKey: string }
   | { type: "createAfter"; nodeId: string }
   | { type: "createBefore"; nodeId: string }
@@ -161,7 +171,9 @@ function toGroup(side: "before" | "after"): IntentOf {
     const group = ctx.instanceAt?.(instanceKey)?.group;
     const step = group?.[side] ?? null;
     if (group === undefined || step === null) return null;
-    return { type: "moveToGroup", nodeId, fieldId: group.fieldId, value: step.value };
+    const { frameId, fieldId } = group;
+    const move = { type: "moveToGroup", nodeId, fieldId, value: step.value, frameId } as const;
+    return step.opens === undefined ? move : { ...move, opens: step.opens };
   };
 }
 

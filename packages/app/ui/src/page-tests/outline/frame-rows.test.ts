@@ -62,6 +62,8 @@ const SETTINGS = {
   collapsed: [],
   hideEmpty: false,
   calc: {},
+  dateFieldId: null,
+  span: "month",
 };
 
 function node(

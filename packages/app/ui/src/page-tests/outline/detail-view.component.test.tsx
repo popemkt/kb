@@ -75,6 +75,8 @@ function walk(): string[] {
     chain: [],
     pages: {},
     details: useOutlineStore.getState().frameDetails,
+    days: {},
+    today: "2026-11-14",
   }).map((i) => i.nodeId);
 }
 

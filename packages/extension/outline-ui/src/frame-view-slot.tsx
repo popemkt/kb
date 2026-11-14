@@ -22,7 +22,7 @@ import {
 import { projectsRows } from "@kb/views";
 import { outlineFrameSubject } from "./outline-frame";
 import { createTransientNode } from "./editing-writes";
-import { outlineNodes, useOutlineStore } from "./outline.store";
+import { outlineNodes, todayNow, useOutlineStore } from "./outline.store";
 
 /**
  * The children a row shows — its shown node's (`lib/contextual-ref`) — by
@@ -131,6 +131,8 @@ export function FrameViewSlot({
   // rows its keyboard walk reaches.
   const pages = useOutlineStore((s) => s.framePages[frameId] ?? 1);
   const detail = useOutlineStore((s) => s.frameDetails[frameId] ?? null);
+  const day = useOutlineStore((s) => s.frameDays[frameId] ?? null);
+  const today = useOutlineStore((s) => s.today) ?? todayNow();
   const host = outlineHostOfPane(usePane());
   const subject = useMemo(
     () =>
@@ -138,9 +140,9 @@ export function FrameViewSlot({
         { frameId, isQuerySource, depth, instanceKey, rowIds, RowChildren },
         pages,
         detail,
-        host,
+        { host, day, today },
       ),
-    [frameId, instanceKey, rowIds, isQuerySource, depth, pages, detail, host],
+    [frameId, instanceKey, rowIds, isQuerySource, depth, pages, detail, host, day, today],
   );
   return (
     <FrameSubjectContext.Provider value={subject}>

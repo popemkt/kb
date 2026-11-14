@@ -6,7 +6,15 @@
  * in, and the settings its view node holds, are `frameViewOf` and
  * `frameConfigOf`.
  */
-import { declaresOptionSet, templateFieldsOf, SYSTEM_IDS } from "@kb/model";
+import { longDay } from "@kb/calendar-kit";
+import {
+  addDays,
+  declaresOptionSet,
+  formatDay,
+  parseDay,
+  templateFieldsOf,
+  SYSTEM_IDS,
+} from "@kb/model";
 import { conditionGraph, conditionsMatcher, derivedWith } from "../query";
 import type { SortSpec, ViewFilter } from "@kb/views";
 import type { OutlineNode, PropValue } from "./types";
@@ -306,6 +314,8 @@ export function shownGroups(columns: readonly BoardColumn[], display: GroupDispl
 /** A group a row of a grouped view moves to by key: its value, null for "No <field>". */
 interface GroupStep {
   readonly value: PropValue | null;
+  /** The day a calendar opens at so the row stays drawn, when the move leaves the days shown. */
+  readonly opens?: string;
 }
 
 /** The groups beside a row's own, where ⌘⇧← and ⌘⇧→ move it (DESIGN-UI.md → Groups). */
@@ -331,6 +341,77 @@ export function groupSteps(columns: readonly BoardColumn[]): Map<string, GroupSt
     };
     for (const node of column.nodes) steps.set(node.id, step);
   });
+  return steps;
+}
+
+/** A row's day by a date field: its first value's, when that is a day; else none. */
+function dayOf(row: OutlineNode, fieldId: string): string | null {
+  const [first] = row.props[fieldId] ?? [];
+  if (first?.t !== "str") return null;
+  const day = parseDay(first.v);
+  return day === null ? null : formatDay(day);
+}
+
+/**
+ * Group rows by the days a calendar shows (DESIGN-UI.md → Calendar): a
+ * group per day of `shown`, in order, held or not, each holding the rows
+ * whose date field's first value is that day, then "No <field>" for the
+ * rows with none (an empty or unreadable date is none). A row dated on a
+ * day not shown is in no group. With no field chosen, every row waits in
+ * "No date".
+ */
+export function groupRowsByDay(
+  rows: readonly OutlineNode[],
+  fieldId: string | null,
+  shown: readonly string[],
+  schema: SchemaIndex,
+): BoardColumn[] {
+  const label = fieldId === null ? "date" : textOr(schema.get(fieldId)?.text, fieldId);
+  const empty = group(EMPTY_GROUP_KEY, `No ${label}`, null);
+  const byDay = new Map(
+    shown.map((day) => {
+      const value: PropValue = { t: "str", v: day };
+      return [day, group(propValueKey(value, schema), longDay(day), value)] as const;
+    }),
+  );
+  for (const row of rows) {
+    const day = fieldId === null ? null : dayOf(row, fieldId);
+    if (day === null) empty.nodes.push(row);
+    else byDay.get(day)?.nodes.push(row);
+  }
+  return [...byDay.values(), empty];
+}
+
+/** The day `n` days from `day`. */
+function shiftDay(day: string, n: number): string {
+  const local = parseDay(day);
+  return local === null ? day : formatDay(addDays(local, n));
+}
+
+/**
+ * Where each row of a calendar's groups moves by key, by row id
+ * (DESIGN-UI.md → Calendar): a day back or on, past the days shown too,
+ * where the calendar opens at the row's new day (`opens`); a row with no
+ * date, from the list beside the days, back onto the day it is open at.
+ */
+export function daySteps(
+  columns: readonly BoardColumn[],
+  shown: readonly string[],
+  openDay: string,
+): Map<string, GroupSteps> {
+  const step = (day: string): GroupStep => ({
+    value: { t: "str", v: day },
+    ...(shown.includes(day) ? {} : { opens: day }),
+  });
+  const steps = new Map<string, GroupSteps>();
+  for (const column of columns) {
+    const day = column.value?.t === "str" ? column.value.v : null;
+    const at: GroupSteps =
+      day === null
+        ? { before: step(openDay), after: null }
+        : { before: step(shiftDay(day, -1)), after: step(shiftDay(day, 1)) };
+    for (const node of column.nodes) steps.set(node.id, at);
+  }
   return steps;
 }
 

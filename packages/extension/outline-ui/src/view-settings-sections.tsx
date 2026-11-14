@@ -2,8 +2,8 @@
  * The settings a frame's view reads, each drawn with the query builder's
  * slot (`ChoiceSlot`: a button that opens the one node picker over its
  * candidates). Which are drawn is the view's to say: a section is drawn when
- * the view's params declare its setting (`groupFieldId`, `hideEmpty`,
- * `display`, `calc`, `pagesize`), as the frame's row walk groups, shows and pages by the same
+ * the view's params declare its setting (`groupFieldId`, `dateFieldId`,
+ * `hideEmpty`, `display`, `calc`, `pagesize`), as the frame's row walk groups, shows and pages by the same
  * declaration (`frameRows`). Each pick writes the frame's view node through
  * the page's writes, one setting at a time.
  */
@@ -11,6 +11,7 @@ import { useMemo } from "react";
 import { fieldTypeOf } from "@kb/model";
 import { CALCULATION_LABELS, calculationsFor, type Calculation } from "@kb/views";
 import {
+  CalendarBlankIcon,
   CalculatorIcon,
   ColumnsIcon,
   EyeSlashIcon,
@@ -69,6 +70,52 @@ function GroupSetting({ frameId, groupFieldId }: { frameId: string; groupFieldId
             frameId,
             "groupFieldId",
             id === NO_GROUP ? null : id,
+          )
+        }
+      />
+    </PrefFieldRow>
+  );
+}
+
+/** The date field slot's choice that dates by nothing. Never a node id. */
+const NO_DATE = "\u0000none";
+
+/**
+ * Which date field a calendar places its rows by (DESIGN-UI.md → Calendar):
+ * one of the rows' fields of type date, or none.
+ */
+function DateFieldSetting({
+  frameId,
+  dateFieldId,
+}: {
+  frameId: string;
+  dateFieldId: string | null;
+}) {
+  const schema = browserHost().schema();
+  const fields = useFieldCandidates(frameId).filter(
+    (field) => fieldTypeOf(schema.get(field.id)?.props, (id) => schema.get(id)) === "date",
+  );
+  const label =
+    dateFieldId === null
+      ? ""
+      : (fields.find((f) => f.id === dateFieldId)?.label ??
+        schema.get(dateFieldId)?.text ??
+        dateFieldId);
+  return (
+    <PrefFieldRow icon={CalendarBlankIcon} label="date field">
+      <ChoiceSlot
+        name="date field"
+        label={label}
+        tone="value"
+        candidates={[{ id: NO_DATE, label: "None" }, ...fields]}
+        chosen={dateFieldId ?? NO_DATE}
+        placeholder="None"
+        pickLabel="Place rows by date field"
+        onPick={(id) =>
+          void browserHost().writes.setFrameSetting(
+            frameId,
+            "dateFieldId",
+            id === NO_DATE ? null : id,
           )
         }
       />
@@ -258,6 +305,9 @@ export function ViewSettingsSections({ frameId }: { frameId: string }) {
   const sections = [
     params.groupFieldId !== undefined ? (
       <GroupSetting key="group" frameId={frameId} groupFieldId={params.groupFieldId} />
+    ) : null,
+    params.dateFieldId !== undefined ? (
+      <DateFieldSetting key="dateField" frameId={frameId} dateFieldId={params.dateFieldId} />
     ) : null,
     params.hideEmpty !== undefined ? (
       <HideEmptySetting key="hideEmpty" frameId={frameId} hideEmpty={params.hideEmpty} />

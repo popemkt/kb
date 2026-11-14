@@ -175,6 +175,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     cmd(SYSTEM_IDS.cmdViewAsBoard, "View as: Board"),
     cmd(SYSTEM_IDS.cmdViewAsCards, "View as: Cards"),
     cmd(SYSTEM_IDS.cmdViewAsDetail, "View as: List with detail"),
+    cmd(SYSTEM_IDS.cmdViewAsCalendar, "View as: Calendar"),
     cmd(SYSTEM_IDS.cmdViewFilter, "Filter…"),
     // r5 ontology commands
     cmd(SYSTEM_IDS.cmdNewOntology, "New ontology"),
@@ -217,6 +218,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     HIDE,
   );
   const viewCalcField = singleField(SYSTEM_IDS.viewCalcField, "view.calc", "text", HIDE);
+  const viewDateField = singleField(SYSTEM_IDS.viewDateField, "view.dateField", "ref", HIDE);
+  const viewSpanField = singleField(SYSTEM_IDS.viewSpanField, "view.span", "text", HIDE);
   const viewHideEmptyField = singleField(
     SYSTEM_IDS.viewHideEmptyField,
     "view.hideEmpty",
@@ -596,6 +599,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     viewCollapsedField,
     viewHideEmptyField,
     viewCalcField,
+    viewDateField,
+    viewSpanField,
     viewFilterField,
     nodeTextField,
     viewField,

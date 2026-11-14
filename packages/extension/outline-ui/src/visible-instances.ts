@@ -53,6 +53,8 @@ export interface VisibleLane {
  * (DESIGN-UI.md → Groups): where ⌘⇧← and ⌘⇧→ move it, by `fieldId`.
  */
 interface VisibleGroup extends GroupSteps {
+  /** The frame the row is laid out in, whose calendar opens at a step's `opens`. */
+  readonly frameId: string;
   readonly fieldId: string;
 }
 
@@ -84,12 +86,16 @@ interface WalkContext {
   pages: FramePagesMap;
   /** The row each frame's detail view shows, as the outline keeps it (frame id -> node id). */
   details: Readonly<Record<string, string>>;
+  /** The day each frame's calendar is open at, as the outline keeps it (frame id -> day). */
+  days: Readonly<Record<string, string>>;
+  /** The day a calendar not opened at one shows. */
+  today: string;
   out: VisibleInstance[];
 }
 
 function emitProjectedRows(ctx: WalkContext, frame: ProjectedFrame): void {
   const { frameId, view, rowIds, keyFor } = frame;
-  const { nodes, schema, pages, out } = ctx;
+  const { nodes, schema, pages, days, today, out } = ctx;
   const { rendered, steps, groupFieldId } = frameRows({
     frameId,
     nodes,
@@ -97,6 +103,7 @@ function emitProjectedRows(ctx: WalkContext, frame: ProjectedFrame): void {
     view,
     rowIds,
     pages: pages[frameId],
+    day: days[frameId] ?? today,
   });
   for (const child of rendered) {
     const step = steps.get(child.id);
@@ -104,7 +111,7 @@ function emitProjectedRows(ctx: WalkContext, frame: ProjectedFrame): void {
     out.push(
       step === undefined || groupFieldId === null
         ? row
-        : { ...row, group: { fieldId: groupFieldId, ...step } },
+        : { ...row, group: { frameId, fieldId: groupFieldId, ...step } },
     );
   }
 }
@@ -282,8 +289,8 @@ function walkRowChildren(
 
 /**
  * What the walk reads: the graph, the query db, the frame views provided, the
- * slots around the outline's root, the pages revealed and the rows detail
- * views show.
+ * slots around the outline's root, the pages revealed, the rows detail
+ * views show and the days calendars are open at.
  */
 type WalkSource = Omit<WalkContext, "out">;
 

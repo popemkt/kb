@@ -57,6 +57,8 @@ export const viewFieldNodes = [
     SYSTEM_IDS.viewCollapsedField,
     SYSTEM_IDS.viewHideEmptyField,
     SYSTEM_IDS.viewCalcField,
+    SYSTEM_IDS.viewDateField,
+    SYSTEM_IDS.viewSpanField,
     SYSTEM_IDS.viewFilterField,
     SYSTEM_IDS.nodeTextField,
   ].map(field),
@@ -71,6 +73,7 @@ const FRAME_VIEW_IDS = {
   board: "outline.board",
   cards: "outline.cards",
   detail: "collections.detail",
+  calendar: "collections.calendar",
 } as const;
 
 /** A frame view, by its short name. */

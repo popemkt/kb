@@ -77,3 +77,22 @@ export const CollectionDetailView = frameViewKey(
   }),
   "detail",
 );
+
+/**
+ * A frame's rows by a date field over a day, a week or a month, the undated
+ * ones in a list beside it (DESIGN-UI.md → Calendar).
+ */
+export const CollectionCalendarView = frameViewKey(
+  "collections.calendar",
+  "Calendar",
+  Schema.Struct({
+    filters: FRAME_SETTINGS.filters,
+    dateFieldId: FRAME_SETTINGS.dateFieldId,
+    span: FRAME_SETTINGS.span,
+  }).annotate({
+    description:
+      "A frame's rows placed on the days of a date field (dateFieldId) over a day, a week or a month (span), the rows with no date in a list beside it." +
+      FRAME_HOST,
+  }),
+  "calendar",
+);

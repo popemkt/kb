@@ -27,6 +27,7 @@ export {
   type ViewPage,
 } from "./view-key.ts";
 export {
+  CALENDAR_SPANS,
   DEFAULT_VIEW_CONFIG,
   FRAME_SETTINGS,
   FRAME_VIEW_FAMILY,
@@ -39,6 +40,7 @@ export {
   parseViewFilterEdn,
   projectsRows,
   serializeViewFilter,
+  type CalendarViewSpan,
   type FrameViewKey,
   type FrameViewParams,
   type SortDir,

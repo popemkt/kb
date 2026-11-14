@@ -146,6 +146,11 @@ export const fixtureGraph: GraphSnapshot = {
       props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
     }),
     node({
+      id: "sys.cmd.view-as-calendar",
+      text: "View as: Calendar",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
+    }),
+    node({
       id: "sys.cmd.view-filter",
       text: "Filter…",
       props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },

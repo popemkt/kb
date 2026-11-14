@@ -289,6 +289,8 @@ const VIEW_DEFAULTS: ViewConfig = {
   collapsed: [],
   hideEmpty: false,
   calc: {},
+  dateFieldId: null,
+  span: "month",
   filters: [],
 };
 

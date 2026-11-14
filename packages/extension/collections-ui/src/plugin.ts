@@ -3,6 +3,7 @@ import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import {
   CollectionBoardView,
+  CollectionCalendarView,
   CollectionCardsView,
   CollectionDetailView,
   CollectionTableView,
@@ -12,11 +13,33 @@ import {
 import { DEFAULT_VIEW_CONFIG } from "@kb/views";
 import { BrowserHostService, provideView, ViewPoint } from "@kb/ui-sdk";
 import { SYSTEM_IDS } from "@kb/model";
-import { SidebarSimpleIcon, SquaresFourIcon, TableIcon } from "@phosphor-icons/react";
-import { BoardFrameView, CardsFrameView, DetailFrameView, TableFrameView } from "./frame-views";
+import {
+  CalendarBlankIcon,
+  SidebarSimpleIcon,
+  SquaresFourIcon,
+  TableIcon,
+} from "@phosphor-icons/react";
+import {
+  BoardFrameView,
+  CalendarFrameView,
+  CardsFrameView,
+  DetailFrameView,
+  TableFrameView,
+} from "./frame-views";
 
-const { filters, sort, display, colwidth, pagesize, groupFieldId, collapsed, hideEmpty, calc } =
-  DEFAULT_VIEW_CONFIG;
+const {
+  filters,
+  sort,
+  display,
+  colwidth,
+  pagesize,
+  groupFieldId,
+  collapsed,
+  hideEmpty,
+  calc,
+  dateFieldId,
+  span,
+} = DEFAULT_VIEW_CONFIG;
 
 /**
  * The collection views: each shown inline, under the row of the frame whose
@@ -72,10 +95,22 @@ const COLLECTION_VIEWS = [
       command: SYSTEM_IDS.cmdViewAsDetail,
     },
   }),
+  provideView(CollectionCalendarView, {
+    placements: ["inline"],
+    sample: { filters, dateFieldId, span },
+    Component: CalendarFrameView,
+    picker: {
+      order: 5,
+      glyph: "▦",
+      icon: CalendarBlankIcon,
+      iconWeight: "regular",
+      command: SYSTEM_IDS.cmdViewAsCalendar,
+    },
+  }),
 ];
 
 /**
- * The collections family's page entry: its four frame views. It loads the
+ * The collections family's page entry: its five frame views. It loads the
  * family's shared plugin as a child, so the views' keys reach the page
  * kernel's catalog from the family, as the server's do, and it applies after
  * the host, through which its views read the page.

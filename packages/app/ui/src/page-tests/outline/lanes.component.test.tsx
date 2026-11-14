@@ -117,6 +117,8 @@ describe("a board's lanes", () => {
       chain: [],
       pages: {},
       details: {},
+      days: {},
+      today: "2026-11-14",
     });
     expect(walked.map((i) => i.nodeId)).toEqual(["L1", "a1", "a2", "L2", "b1", "L3"]);
     expect(walked.find((i) => i.nodeId === "a2")?.instanceKey).toBe(under("L1", "a2"));

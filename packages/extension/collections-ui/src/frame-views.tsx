@@ -3,11 +3,13 @@ import { NoFrame, useFrameSubject, type ViewProps } from "@kb/ui-sdk";
 import type { ParamsOf } from "@kb/views";
 import {
   CollectionBoardView,
+  type CollectionCalendarView,
   CollectionCardsView,
   type CollectionDetailView,
   type CollectionTableView,
 } from "@kb/collections";
 import { BoardCardsView } from "./board-cards-view";
+import { CalendarView } from "./calendar-view";
 import { DetailView } from "./detail-view";
 import { TableView } from "./table-view";
 
@@ -39,4 +41,11 @@ export function DetailFrameView({ params }: ViewProps<ParamsOf<typeof Collection
   const subject = useFrameSubject();
   if (subject === null) return <NoFrame />;
   return <DetailView frame={subject} params={params} />;
+}
+
+/** The calendar view: the frame's rows on the days of a date field, the undated ones beside them. */
+export function CalendarFrameView({ params }: ViewProps<ParamsOf<typeof CollectionCalendarView>>) {
+  const subject = useFrameSubject();
+  if (subject === null) return <NoFrame />;
+  return <CalendarView frame={subject} params={params} />;
 }

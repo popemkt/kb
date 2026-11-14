@@ -28,6 +28,10 @@ import type { ConfigReport, ViewKey } from "./view-key.ts";
 
 export type SortDir = "asc" | "desc";
 
+/** The days a calendar lays its rows out over (DESIGN-UI.md → Calendar). */
+export const CALENDAR_SPANS = ["day", "week", "month"] as const;
+export type CalendarViewSpan = (typeof CALENDAR_SPANS)[number];
+
 export interface SortSpec {
   fieldId: string;
   dir: SortDir;
@@ -51,6 +55,10 @@ export interface ViewConfig {
   hideEmpty: boolean;
   /** A table's calculation per column, by field id (DESIGN-UI.md → Calculations). */
   calc: Record<string, Calculation>;
+  /** The date field a calendar places its rows by (DESIGN-UI.md → Calendar); null = none chosen. */
+  dateFieldId: string | null;
+  /** The days a calendar shows around the day it is open at. */
+  span: CalendarViewSpan;
   /** The view's narrowing of its frame's rows, ANDed. */
   filters: ViewFilter[];
 }
@@ -64,6 +72,8 @@ export const DEFAULT_VIEW_CONFIG: ViewConfig = {
   collapsed: [],
   hideEmpty: false,
   calc: {},
+  dateFieldId: null,
+  span: "month",
   filters: [],
 };
 
@@ -290,6 +300,8 @@ export const FRAME_SETTINGS = {
   collapsed: Schema.Array(Schema.NonEmptyString),
   hideEmpty: Schema.Boolean,
   calc: CalcSchema,
+  dateFieldId: Schema.NullOr(Schema.NonEmptyString),
+  span: Schema.Literals(CALENDAR_SPANS),
 };
 
 /** The settings any frame view's params may carry; filters are every view's. */
@@ -303,6 +315,8 @@ export interface FrameViewParams {
   readonly collapsed?: readonly string[];
   readonly hideEmpty?: boolean;
   readonly calc?: Readonly<Record<string, Calculation>>;
+  readonly dateFieldId?: string | null;
+  readonly span?: CalendarViewSpan;
 }
 
 /**
@@ -310,14 +324,15 @@ export interface FrameViewParams {
  * params. `rows` is how it lays out the frame's rows: `outline` nests, each
  * row hosting its own children in turn; `rows` is one flat run; `columns`
  * groups flat rows into columns; `detail` is one flat run beside one row's
- * page (DESIGN-UI.md → List with detail). What happens to the rows follows from the
+ * page (DESIGN-UI.md → List with detail); `calendar` groups flat rows by the days
+ * a calendar shows (DESIGN-UI.md → Calendar). What happens to the rows follows from the
  * params: it sorts when they declare `sort`, pages when they declare
  * `pagesize`, and groups its columns by a field when they declare
  * `groupFieldId`.
  */
 export interface FrameViewKey<P extends FrameViewParams = FrameViewParams> extends ViewKey<P> {
   readonly family: typeof FRAME_VIEW_FAMILY;
-  readonly rows: "outline" | "rows" | "columns" | "detail";
+  readonly rows: "outline" | "rows" | "columns" | "detail" | "calendar";
 }
 
 export function isFrameViewKey(key: ViewKey<unknown>): key is FrameViewKey {
@@ -417,6 +432,23 @@ const VIEW_SLOTS: ConfigSlots<ViewConfig> = {
     schema: CalcSchema,
     fallback: DEFAULT_VIEW_CONFIG.calc,
   }),
+  dateFieldId: oneOf<string | null>({
+    fields: [SYSTEM_IDS.viewDateField],
+    read: (props) => {
+      const first = props[SYSTEM_IDS.viewDateField]?.[0];
+      return first?.t === "ref" ? first.v : undefined;
+    },
+    schema: Schema.NonEmptyString,
+    write: writeRef(SYSTEM_IDS.viewDateField),
+    fallback: DEFAULT_VIEW_CONFIG.dateFieldId,
+  }),
+  span: oneOf({
+    fields: [SYSTEM_IDS.viewSpanField],
+    read: firstStr(SYSTEM_IDS.viewSpanField),
+    write: (span) => ({ [SYSTEM_IDS.viewSpanField]: [strValue(span)] }),
+    schema: Schema.Literals(CALENDAR_SPANS),
+    fallback: DEFAULT_VIEW_CONFIG.span,
+  }),
   filters: manyOf<ViewFilter>({
     fields: [SYSTEM_IDS.viewFilterField],
     read: filterValues,
@@ -461,6 +493,8 @@ export function decodeFrameConfig(props: NodeProps | undefined, report: ConfigRe
     collapsed: slot("collapsed"),
     hideEmpty: slot("hideEmpty"),
     calc: slot("calc"),
+    dateFieldId: slot("dateFieldId"),
+    span: slot("span"),
     filters: slot("filters"),
   };
 }

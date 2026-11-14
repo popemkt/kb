@@ -36,6 +36,8 @@ const CONFIGS: readonly ViewConfig[] = [
     groupFieldId: "f.status",
     collapsed: ["ref:o.done", "__empty__"],
     hideEmpty: true,
+    dateFieldId: "f.due",
+    span: "week",
     calc: { "f.points": "sum", "f.status": "count" },
     filters: [eq, text].flatMap((f) => (f === null ? [] : [f])),
   },
@@ -55,6 +57,8 @@ function propsOf(config: ViewConfig): Record<string, PropValue[]> {
   write(frameSettingWrite("groupFieldId", config.groupFieldId));
   write(frameSettingWrite("collapsed", config.collapsed));
   write(frameSettingWrite("hideEmpty", config.hideEmpty));
+  write(frameSettingWrite("dateFieldId", config.dateFieldId));
+  write(frameSettingWrite("span", config.span));
   write(frameSettingWrite("calc", config.calc));
   write(frameSettingWrite("filters", config.filters));
   return props;

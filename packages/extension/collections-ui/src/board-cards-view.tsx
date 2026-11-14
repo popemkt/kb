@@ -16,7 +16,6 @@ import {
   nodeTarget,
   type OutlineNode,
   type PropValue,
-  type RowCondition,
   resolveTableColumns,
   shownNode,
   shownNodeId,
@@ -35,6 +34,7 @@ import {
 import { laysOutLanes, localIdOf, type ParamsOf, type ViewFilter } from "@kb/views";
 import { CollectionBoardView, CollectionCardsView } from "@kb/collections";
 import { AddRow } from "./add-row";
+import { groupWhere } from "./group-where";
 
 /**
  * The two column views over one component: the board groups its cards into a
@@ -251,14 +251,6 @@ export function BoardCardsView({
       )}
     </div>
   );
-}
-
-/** The condition a group's rows hold: its field is its value; the "No <field>" group asks none. */
-function groupWhere(field: string | null, value: PropValue | null): RowCondition[] {
-  if (field === null || value === null) return [];
-  // A date value is a legacy text form (`migrateDateValues`), asked for as its text.
-  const asked = value.t === "date" ? { t: "str" as const, v: value.v } : value;
-  return [{ kind: "field-is", field, values: [asked] }];
 }
 
 /**

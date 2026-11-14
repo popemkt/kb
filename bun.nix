@@ -638,6 +638,7 @@
   "@kb/backdrops" = copyPathToStore ./packages/extension/backdrops;
   "@kb/backdrops-ui" = copyPathToStore ./packages/extension/backdrops-ui;
   "@kb/bundled" = copyPathToStore ./packages/app/bundled;
+  "@kb/calendar-kit" = copyPathToStore ./packages/kit/calendar-kit;
   "@kb/canvas" = copyPathToStore ./packages/extension/canvas;
   "@kb/canvas-ui" = copyPathToStore ./packages/extension/canvas-ui;
   "@kb/chart" = copyPathToStore ./packages/extension/chart;
