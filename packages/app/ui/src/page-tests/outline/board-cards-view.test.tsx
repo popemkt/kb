@@ -43,6 +43,9 @@ import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { CollectionBoardView, CollectionCardsView } from "@kb/collections";
 import { BoardCardsView, collectionsUiPlugin } from "@kb/collections-ui";
 
+/** These views draw no row's children, so the host's are never asked for. */
+const NoRowChildren = () => null;
+
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.
 beforeAll(() => syncPagePlugins([outlineUiPlugin, collectionsUiPlugin]));
@@ -212,7 +215,10 @@ describe("W7.1 BoardCardsView + toolbar", () => {
   it("board groups by view.group field with No status column", () => {
     const html = renderToStaticMarkup(
       createElement(BoardCardsView, {
-        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
+        frame: outlineFrameSubject(
+          { RowChildren: NoRowChildren, frameId: "frame1", isQuerySource: false, depth: 0 },
+          1,
+        ),
         view: columnsView(),
         nodes: outlineNodes(),
         context: fieldContextOf(outlineSource()),
@@ -233,7 +239,10 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     useGraphStore.getState().hydrateFromWire(withFrame1("board", {}), 2, "fixtures");
     const html = renderToStaticMarkup(
       createElement(BoardCardsView, {
-        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
+        frame: outlineFrameSubject(
+          { RowChildren: NoRowChildren, frameId: "frame1", isQuerySource: false, depth: 0 },
+          1,
+        ),
         view: columnsView(),
         nodes: outlineNodes(),
         context: fieldContextOf(outlineSource()),
@@ -250,7 +259,10 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     useGraphStore.getState().hydrateFromWire(withFrame1("cards", GROUPED), 3, "fixtures");
     const html = renderToStaticMarkup(
       createElement(BoardCardsView, {
-        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
+        frame: outlineFrameSubject(
+          { RowChildren: NoRowChildren, frameId: "frame1", isQuerySource: false, depth: 0 },
+          1,
+        ),
         view: columnsView(),
         nodes: outlineNodes(),
         context: fieldContextOf(outlineSource()),
@@ -301,7 +313,13 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     const html = renderToStaticMarkup(
       createElement(BoardCardsView, {
         frame: outlineFrameSubject(
-          { frameId: "frame1", rowIds: ["c1", "c2"], isQuerySource: true, depth: 0 },
+          {
+            RowChildren: NoRowChildren,
+            frameId: "frame1",
+            rowIds: ["c1", "c2"],
+            isQuerySource: true,
+            depth: 0,
+          },
           1,
         ),
         view: columnsView(),
@@ -491,7 +509,10 @@ describe("a board's groups (DESIGN-UI.md → Groups)", () => {
 
   const board = () =>
     createElement(BoardCardsView, {
-      frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
+      frame: outlineFrameSubject(
+        { RowChildren: NoRowChildren, frameId: "frame1", isQuerySource: false, depth: 0 },
+        1,
+      ),
       view: columnsView(),
       nodes: outlineNodes(),
       context: fieldContextOf(outlineSource()),

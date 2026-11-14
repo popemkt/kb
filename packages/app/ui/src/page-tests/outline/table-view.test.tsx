@@ -30,6 +30,9 @@ import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { CollectionTableView } from "@kb/collections";
 import { collectionsUiPlugin, TableView } from "@kb/collections-ui";
 
+/** These views draw no row's children, so the host's are never asked for. */
+const NoRowChildren = () => null;
+
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.
 beforeAll(() => syncPagePlugins([outlineUiPlugin, collectionsUiPlugin]));
@@ -158,7 +161,10 @@ describe("W7 TableView & ViewToolbar", () => {
   it("renders TableView with fallback columns from tag fields and asserts NodeRow reuse via data-instance-key", () => {
     const html = renderToStaticMarkup(
       createElement(TableView, {
-        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
+        frame: outlineFrameSubject(
+          { RowChildren: NoRowChildren, frameId: "frame1", isQuerySource: false, depth: 0 },
+          1,
+        ),
         settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(outlineSource()),
@@ -178,7 +184,10 @@ describe("W7 TableView & ViewToolbar", () => {
   it("field cells render through shared FieldRow (valueOnly)", () => {
     const html = renderToStaticMarkup(
       createElement(TableView, {
-        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
+        frame: outlineFrameSubject(
+          { RowChildren: NoRowChildren, frameId: "frame1", isQuerySource: false, depth: 0 },
+          1,
+        ),
         settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(outlineSource()),
@@ -191,7 +200,10 @@ describe("W7 TableView & ViewToolbar", () => {
   it("a cell is the outline's value stack, remove affordance and all", () => {
     const html = renderToStaticMarkup(
       createElement(TableView, {
-        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
+        frame: outlineFrameSubject(
+          { RowChildren: NoRowChildren, frameId: "frame1", isQuerySource: false, depth: 0 },
+          1,
+        ),
         settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(outlineSource()),
@@ -207,7 +219,10 @@ describe("W7 TableView & ViewToolbar", () => {
   it("auto-full-width breakout when width pref is centered", () => {
     const centered = renderToStaticMarkup(
       createElement(TableView, {
-        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
+        frame: outlineFrameSubject(
+          { RowChildren: NoRowChildren, frameId: "frame1", isQuerySource: false, depth: 0 },
+          1,
+        ),
         settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(outlineSource()),
@@ -219,7 +234,10 @@ describe("W7 TableView & ViewToolbar", () => {
 
     const full = renderToStaticMarkup(
       createElement(TableView, {
-        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
+        frame: outlineFrameSubject(
+          { RowChildren: NoRowChildren, frameId: "frame1", isQuerySource: false, depth: 0 },
+          1,
+        ),
         settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(outlineSource()),
@@ -235,7 +253,10 @@ describe("W7 TableView & ViewToolbar", () => {
 
     const html = renderToStaticMarkup(
       createElement(TableView, {
-        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
+        frame: outlineFrameSubject(
+          { RowChildren: NoRowChildren, frameId: "frame1", isQuerySource: false, depth: 0 },
+          1,
+        ),
         settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(outlineSource()),
@@ -257,7 +278,10 @@ describe("W7 TableView & ViewToolbar", () => {
 
     const html = renderToStaticMarkup(
       createElement(TableView, {
-        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
+        frame: outlineFrameSubject(
+          { RowChildren: NoRowChildren, frameId: "frame1", isQuerySource: false, depth: 0 },
+          1,
+        ),
         settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(outlineSource()),
@@ -384,7 +408,10 @@ const calcOf = (calc: Record<string, string>): WireNode["props"] => ({
 function tableHtml(): string {
   return renderToStaticMarkup(
     createElement(TableView, {
-      frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
+      frame: outlineFrameSubject(
+        { RowChildren: NoRowChildren, frameId: "frame1", isQuerySource: false, depth: 0 },
+        1,
+      ),
       settings: tableSettings(),
       nodes: getStoreNodes(),
       context: fieldContextOf(outlineSource()),
@@ -463,7 +490,10 @@ describe("a table's calculation row (DESIGN-UI.md → Calculations)", () => {
       await act(async () =>
         root.render(
           createElement(TableView, {
-            frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
+            frame: outlineFrameSubject(
+              { RowChildren: NoRowChildren, frameId: "frame1", isQuerySource: false, depth: 0 },
+              1,
+            ),
             settings: tableSettings(),
             nodes: getStoreNodes(),
             context: fieldContextOf(outlineSource()),

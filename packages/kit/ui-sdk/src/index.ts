@@ -303,6 +303,7 @@ export {
   useFieldEditor,
 } from "./lib/field-editor";
 export {
+  type FrameRowProps,
   type FrameRowTextProps,
   type FrameSubject,
   FrameSubjectContext,

@@ -160,7 +160,10 @@ describe("a projected view under an ontology scope", () => {
   /** Open the picker on the rendered "Done" value, and return what it offers. */
   async function pickerOnDone(): Promise<string[]> {
     const label = present(
-      [...container.querySelectorAll("span")].find((s) => s.textContent === "Done"),
+      // A value's label, not a board column's header, which names the option too.
+      [...container.querySelectorAll("[data-value-slot] span")].find(
+        (s) => s.textContent === "Done",
+      ),
       "option label",
     );
     // The label itself is a pointer (it follows); the slot around it edits.

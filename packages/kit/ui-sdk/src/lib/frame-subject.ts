@@ -24,6 +24,13 @@ export interface FrameRowTextProps {
   readonly tags: TagBadge[];
 }
 
+/** A row whose children a view asks its host to draw: which node, under which instance, how deep. */
+export interface FrameRowProps {
+  readonly nodeId: string;
+  readonly instanceKey: string;
+  readonly depth: number;
+}
+
 export interface FrameSubject {
   readonly frameId: string;
   /** The frame's render instance; absent at the host's root. */
@@ -38,6 +45,12 @@ export interface FrameSubject {
   /** Reveal one more page of the frame's rows. */
   readonly revealMorePages: () => void;
   readonly RowText: ComponentType<FrameRowTextProps>;
+  /**
+   * The children a row shows, in their own frame view, as the host draws
+   * them under a row in a list (DESIGN-UI.md → Frame views): the one way a
+   * view asks its host for a row's children.
+   */
+  readonly RowChildren: ComponentType<FrameRowProps>;
 }
 
 /** Only a frame's host provides it; a frame view outside one has no frame to show. */

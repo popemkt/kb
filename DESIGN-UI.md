@@ -3017,11 +3017,11 @@ how the stored name resolves to the key among them.
   context (`@kb/ui-sdk`'s `lib/frame-subject.ts`). The subject also carries
   what the host draws each row with: a view lays the rows out, and the host
   edits each row's text (`RowText`) and keeps how many pages of them are
-  revealed (`pages`, `revealMorePages`). When a view wants a whole row as
-  the list draws it, with its text, fields and children nested under it in
-  their own frame view, the host draws it (`Row`): it is the one way a
-  frame view asks its host for a row's children. The list draws every row
-  with it, and a lane draws its head with it. A row's fields are drawn with the
+  revealed (`pages`, `revealMorePages`). The children a row shows, in
+  their own frame view, the host draws as it draws them under a row in a
+  list (`RowChildren`): it is the one way a frame view asks its host for a
+  row's children. The outline's own rows draw their children with the same
+  component, and a lane draws its rows with it. A row's fields are drawn with the
   page's field editor (`useFieldEditor`, the `FieldEditorService` the
   outline provides while it is loaded), the one editor every surface that
   shows a field draws it with, a frame view's cells and cards and the

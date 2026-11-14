@@ -1,9 +1,12 @@
 import { useMemo } from "react";
 import {
   frameViewLabelOf,
+  type FrameRowProps,
   FrameSubjectContext,
+  indentStyle,
   type OutlineNode,
   schemaOf,
+  shownNode,
   useFrameView,
   useFrameViewNode,
   useGraphRead,
@@ -12,8 +15,26 @@ import {
   ViewSlot,
   ViewUnavailable,
 } from "@kb/ui-sdk";
+import { projectsRows } from "@kb/views";
 import { outlineFrameSubject } from "./outline-frame";
 import { useOutlineStore } from "./outline.store";
+
+/**
+ * The children a row shows — its shown node's (`lib/contextual-ref`) — by
+ * their frame's view, under the row's instance: the outline's own rows and
+ * any frame view that asks (`FrameSubject.RowChildren`) draw them with this.
+ * A projected view is one block, indented under the row; a list's rows
+ * indent themselves.
+ */
+export function RowChildren({ nodeId, instanceKey, depth }: FrameRowProps) {
+  const { outline, schema } = useGraphRead();
+  const node = outline.get(nodeId);
+  const shown = node === undefined ? undefined : shownNode(node, schema);
+  const view = useFrameView(shown);
+  if (shown === undefined) return null;
+  const slot = <FrameViewSlot frameId={shown.id} instanceKey={instanceKey} depth={depth} />;
+  return projectsRows(view?.key ?? null) ? <div style={indentStyle(depth)}>{slot}</div> : slot;
+}
 
 /**
  * A frame whose view node names a view not provided here: the kit's "cannot be
@@ -55,7 +76,11 @@ export function FrameViewSlot({
   // rows its keyboard walk reaches.
   const pages = useOutlineStore((s) => s.framePages[frameId] ?? 1);
   const subject = useMemo(
-    () => outlineFrameSubject({ frameId, isQuerySource, depth, instanceKey, rowIds }, pages),
+    () =>
+      outlineFrameSubject(
+        { frameId, isQuerySource, depth, instanceKey, rowIds, RowChildren },
+        pages,
+      ),
     [frameId, instanceKey, rowIds, isQuerySource, depth, pages],
   );
   return (

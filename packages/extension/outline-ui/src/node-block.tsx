@@ -25,7 +25,7 @@ import { useOutlineStore, outlineNodes } from "./outline.store";
 import { createTransientNode } from "./editing-writes";
 
 import { FieldsSection } from "./fields-section";
-import { FrameViewSlot } from "./frame-view-slot";
+import { RowChildren } from "./frame-view-slot";
 import { NodeContent } from "./node-content";
 import { RowPreview } from "./row-preview";
 import { openIn, useRowOpening, useRowView } from "./row-opening";
@@ -237,12 +237,7 @@ export const NodeBlock = memo(function NodeBlock({
           )}
 
           {chrome.showsChildren && (
-            <RowChildren
-              frameId={shownId}
-              instanceKey={instanceKey}
-              depth={depth + 1}
-              projected={chrome.projected}
-            />
+            <RowChildren nodeId={nodeId} instanceKey={instanceKey} depth={depth + 1} />
           )}
 
           {chrome.showsCreateChild && <CreateChildStrip parentId={shownId} depth={depth} />}
@@ -291,23 +286,4 @@ function CreateChildStrip({ parentId, depth }: { parentId: string; depth: number
       </span>
     </div>
   );
-}
-
-/**
- * A row's children, shown by their frame's view. A projected view is one
- * block, indented under the row; a list's rows indent themselves.
- */
-function RowChildren({
-  frameId,
-  instanceKey,
-  depth,
-  projected,
-}: {
-  readonly frameId: string;
-  readonly instanceKey: string;
-  readonly depth: number;
-  readonly projected: boolean;
-}) {
-  const slot = <FrameViewSlot frameId={frameId} instanceKey={instanceKey} depth={depth} />;
-  return projected ? <div style={indentStyle(depth)}>{slot}</div> : slot;
 }
