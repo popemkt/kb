@@ -74,13 +74,8 @@ interface WalkContext {
   out: VisibleInstance[];
 }
 
-function emitProjectedRows(
-  ctx: WalkContext,
-  frameId: string,
-  view: FrameView,
-  rowIds: string[] | undefined,
-  keyFor: (nodeId: string) => string,
-): void {
+function emitProjectedRows(ctx: WalkContext, frame: ProjectedFrame): void {
+  const { frameId, view, rowIds, keyFor } = frame;
   const { nodes, schema, pages, out } = ctx;
   const { rendered } = frameRows({
     frameId,
@@ -95,8 +90,8 @@ function emitProjectedRows(
   }
 }
 
-/** A frame laid out as lanes: which, in which view, over which rows, keyed how. */
-interface LanedFrame {
+/** A frame a projected view lays out: which, in which view, over which rows, keyed how. */
+interface ProjectedFrame {
   frameId: string;
   view: FrameView;
   rowIds: string[] | undefined;
@@ -108,7 +103,7 @@ interface LanedFrame {
  * children nest under it; every row a lane yields is marked with that lane,
  * unless a lane deeper in it marked it first.
  */
-function walkLanes(ctx: WalkContext, lanes: LanedFrame, chain: SlotChain): void {
+function walkLanes(ctx: WalkContext, lanes: ProjectedFrame, chain: SlotChain): void {
   const { frameId, view, rowIds, keyFor } = lanes;
   const { nodes, schema, pages, out } = ctx;
   const heads = frameRows({
@@ -136,6 +131,15 @@ function walkLanes(ctx: WalkContext, lanes: LanedFrame, chain: SlotChain): void 
       if (row !== undefined && row.lane === undefined) out[i] = { ...row, lane };
     }
   });
+}
+
+/**
+ * A frame's rows as its projected view lays them out, inside the frame's
+ * slot (`chain`): as lanes, each nesting its rows, or one flat run.
+ */
+function walkProjectedRows(ctx: WalkContext, frame: ProjectedFrame, chain: SlotChain): void {
+  if (laysOutLanes(frame.view)) walkLanes(ctx, frame, chain);
+  else emitProjectedRows(ctx, frame);
 }
 
 /**
@@ -172,8 +176,7 @@ function walkQueryResults(
   if (projectsRows(view.key)) {
     const inner = underSlot(chain, view, frame.id);
     if (inner === null) return;
-    if (laysOutLanes(view)) walkLanes(ctx, { frameId: frame.id, view, rowIds: ids, keyFor }, inner);
-    else emitProjectedRows(ctx, frame.id, view, ids, keyFor);
+    walkProjectedRows(ctx, { frameId: frame.id, view, rowIds: ids, keyFor }, inner);
     return;
   }
   for (const id of ids) walkVisibleInstances(ctx, id, keyFor(id), chain);
@@ -226,8 +229,7 @@ function walkRowChildren(
   if (inner === null) return;
   if (projected) {
     const keyFor = (id: string) => childInstanceKey(instanceKey, id);
-    if (laysOutLanes(view)) walkLanes(ctx, { frameId, view, rowIds: undefined, keyFor }, inner);
-    else emitProjectedRows(ctx, frameId, view, undefined, keyFor);
+    walkProjectedRows(ctx, { frameId, view, rowIds: undefined, keyFor }, inner);
     return;
   }
 
@@ -269,9 +271,7 @@ export function collectVisibleInstances(
   if (inner === null) return out;
   if (projectsRows(view.key)) {
     const keyFor = (id: string) => outlineInstanceKey(id, nodes, host);
-    if (laysOutLanes(view))
-      walkLanes(ctx, { frameId: rootNodeId, view, rowIds: undefined, keyFor }, inner);
-    else emitProjectedRows(ctx, rootNodeId, view, undefined, keyFor);
+    walkProjectedRows(ctx, { frameId: rootNodeId, view, rowIds: undefined, keyFor }, inner);
     return out;
   }
 
