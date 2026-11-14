@@ -88,6 +88,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
       // Last, where the seed's union puts them in a store seeded before them.
       { t: "ref", v: SYSTEM_IDS.showField },
       { t: "ref", v: SYSTEM_IDS.pinnedField },
+      { t: "ref", v: SYSTEM_IDS.fillFromField },
     ],
   });
   const typeField = typedField(SYSTEM_IDS.typeField, "type", "ref", HIDE);
@@ -96,8 +97,36 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   // Where a field's rows are drawn: one of its own children (the option-set
   // shape), and whether it leads the lists of fields (DESIGN.md → Data model
   // → field display).
-  const showNodes = seededShowField(at);
-  const pinnedField = singleField(SYSTEM_IDS.pinnedField, "pinned", "checkbox");
+  // Settings of every field (they configure the kind `sys.field`), so a
+  // person shows, pins or fills a seeded field as they do their own.
+  const configuresFields: KbNode["props"] = {
+    [SYSTEM_IDS.configuresField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+  };
+  const showNodes = seededShowField(at, configuresFields);
+  const pinnedField = singleField(SYSTEM_IDS.pinnedField, "pinned", "checkbox", {
+    props: configuresFields,
+  });
+  /*
+   * How a tag shapes the nodes it is on (DESIGN.md → Data model → tag
+   * behaviours): the tags a node added under one of its nodes gets and the
+   * title its nodes are named by, settings of every tag; and the field a
+   * field fills from when a tag of it is gained, a setting of every field.
+   */
+  const configuresTags: KbNode["props"] = {
+    [SYSTEM_IDS.configuresField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
+  };
+  const childTagField = typedField(SYSTEM_IDS.tagChildTagField, "child tag", "ref", {
+    props: { ...configuresTags, [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: SYSTEM_IDS.tag }] },
+  });
+  const titleField = singleField(SYSTEM_IDS.tagTitleField, "title", "text", {
+    props: configuresTags,
+  });
+  const fillFromField = singleField(SYSTEM_IDS.fillFromField, "fill from", "ref", {
+    props: {
+      ...configuresFields,
+      [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+    },
+  });
   /*
    * Field types are nodes, and they are the type field's **children** — the
    * option-set shape (DESIGN → Kinds, roles and options). A `field-type`
@@ -150,8 +179,10 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
       { t: "ref", v: SYSTEM_IDS.colorField },
       { t: "ref", v: SYSTEM_IDS.viewDefaultField },
       { t: "ref", v: SYSTEM_IDS.viewRowField },
-      // Last, where the seed's union puts it in a store seeded before it.
+      // Last, where the seed's union puts them in a store seeded before them.
       { t: "ref", v: SYSTEM_IDS.extendsField },
+      { t: "ref", v: SYSTEM_IDS.tagChildTagField },
+      { t: "ref", v: SYSTEM_IDS.tagTitleField },
     ],
   });
 
@@ -567,6 +598,9 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     colorField,
     ...showNodes,
     pinnedField,
+    childTagField,
+    titleField,
+    fillFromField,
     fieldTypeField,
     ...fieldTypeOptions,
     cardinalityField,

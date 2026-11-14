@@ -8,7 +8,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
-import type { KbNode, StoreTx } from "@kb/model";
+import { SYSTEM_IDS, type KbNode, type StoreTx } from "@kb/model";
 import { DatascriptIndex, derivedWith, type NodeIndex } from "@kb/query";
 import { NodeTable } from "../src/index/node-table.ts";
 
@@ -160,5 +160,39 @@ describe("NodeIndex contract", () => {
     const before = table.generation;
     table.applyTx({ upserts: [], deletes: ["missing"] });
     expect(table.generation).toBe(before);
+  });
+
+  test("search finds a node by its text or its title, alike in every implementation", () => {
+    const at = "2026-11-14T00:00:00.000Z";
+    const node = (id: string, text: string, props: KbNode["props"] = {}): KbNode => ({
+      id,
+      text,
+      props,
+      children: [],
+      createdAt: at,
+      updatedAt: at,
+    });
+    const nodes = [
+      node("t.task", "task", {
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
+        [SYSTEM_IDS.tagTitleField]: [{ t: "str", v: "[[sys.f.node.text]] for [[f.who]]" }],
+      }),
+      node("ann", "Ann"),
+      node("t1", "ship", {
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: "t.task" }],
+        "f.who": [{ t: "ref", v: "ann" }],
+      }),
+    ];
+    const derived = derivedWith({ owners: OWNERS });
+    const indexes: NodeIndex[] = [
+      new NodeTable(nodes, derived),
+      new DatascriptIndex(nodes, { derived }),
+    ];
+    for (const index of indexes) {
+      expect(index.search("SHIP").map((n) => n.id)).toEqual(["t1"]);
+      // "ann" is Ann's text, and t1's title is "ship for Ann".
+      expect(index.search("for ann").map((n) => n.id)).toEqual(["t1"]);
+      expect(index.search("ann").map((n) => n.id)).toEqual(["ann", "t1"]);
+    }
   });
 });

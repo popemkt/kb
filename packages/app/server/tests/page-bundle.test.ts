@@ -182,8 +182,12 @@ const DATASCRIPT = /cljs\.core/;
 // SDK's provideIngest) measure 1,887,619; the budget keeps about 1.4 KB over
 // that. The procedure page (its route, the lazy page behind it, and one
 // shared Button for the action review and the page) measures 1,890,119; the
-// budget keeps about 1.4 KB over that.
-const EAGER_BUDGET_BYTES = 1_891_500;
+// budget keeps about 1.4 KB over that. Field display (the show reader, the
+// hidden-fields fold and pinned fields first) measures 1,893,610, and tag
+// behaviours (a row drawn by its title, ref labels and picker rows by it,
+// and the model's one reader of child tags, fill from and titles the page's
+// write plans run) 1,896,009; the budget keeps about 1.4 KB over that.
+const EAGER_BUDGET_BYTES = 1_897_400;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

@@ -9,13 +9,16 @@
  * A prop edit is `node.update`'s: the unsets first (a field's every value, or
  * the values equal to the one named), then the sets, where a single-valued
  * field's first set replaces what it held and a later one in the same edit
- * adds.
+ * adds. A tag the edit gains fills its fields from the node's ancestors
+ * (`fillOnTagging`), and an add takes its parent's child tags (DESIGN.md →
+ * Data model → tag behaviours).
  */
 import { cardinalityOf } from "./field-type.ts";
 import { SYSTEM_IDS, type KbNode, type NodeId, type PropValue } from "./model.ts";
 import type { NodeGraph } from "./node-graph.ts";
 import { rankForInsert, type SiblingGroups } from "./order.ts";
 import { ResolveError, resolveFieldIn, resolveTagIn } from "./resolve.ts";
+import { childTagsOf, fillOnTagging, gainedTags } from "./tag-behaviour.ts";
 
 /** One value set on a field, the field by name or id. */
 export interface PropEntry {
@@ -75,7 +78,7 @@ export function projectPropEdits(
   }
   // Remove old values before adding replacements in the same update.
   if (edits.setProps) applyProps(nodes, out, edits.setProps);
-  return out;
+  return fillOnTagging(nodes, out, nodes.parentOf(node.id), gainedTags(node.props, out));
 }
 
 /**
@@ -136,8 +139,24 @@ export function planNodeAdd(
     }
   }
 
-  const draft: KbNode = { id, text: input.text, props, children: [], createdAt: at, updatedAt: at };
   const parentId = input.parent;
+  // A tag shapes what is added under its nodes and what its tags fill
+  // (DESIGN.md → Data model → tag behaviours), in this same write.
+  const parent = parentId === undefined ? undefined : nodes.get(parentId);
+  const tagged = props[SYSTEM_IDS.typeField] ?? [];
+  for (const tag of childTagsOf(parent, (nodeId) => nodes.get(nodeId)))
+    if (!tagged.some((value) => value.t === "ref" && value.v === tag))
+      tagged.push({ t: "ref", v: tag });
+  if (tagged.length > 0) props[SYSTEM_IDS.typeField] = tagged;
+  const filled = fillOnTagging(nodes, props, parentId, gainedTags({}, props));
+  const draft: KbNode = {
+    id,
+    text: input.text,
+    props: filled,
+    children: [],
+    createdAt: at,
+    updatedAt: at,
+  };
   const node: KbNode = {
     ...draft,
     order: placedRank(nodes, parentId ?? null, draft, input.position),

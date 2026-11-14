@@ -31,9 +31,9 @@ const FIELD_SHOW_LABELS: Readonly<Record<FieldShow, string>> = {
 /**
  * The show field as core's seed declares it, stamped `at`: one value, a ref
  * to one of its own children, which are its options (the option-set shape),
- * followed by those options.
+ * followed by those options. `props` adds to the field's own.
  */
-export function seededShowField(at: string): KbNode[] {
+export function seededShowField(at: string, props: KbNode["props"] = {}): KbNode[] {
   const options = FIELD_SHOWS.map(
     (show): KbNode => ({
       id: FIELD_SHOW_OPTION_IDS[show],
@@ -44,7 +44,7 @@ export function seededShowField(at: string): KbNode[] {
       updatedAt: at,
     }),
   );
-  const field = seededField(SYSTEM_IDS.showField, "show", "ref", at, { one: true });
+  const field = seededField(SYSTEM_IDS.showField, "show", "ref", at, { one: true, props });
   return [{ ...field, children: options.map((option) => option.id) }, ...options];
 }
 

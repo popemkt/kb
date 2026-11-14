@@ -4,7 +4,7 @@
  */
 import { SHORTCUT_IDS } from "@kb/keybindings";
 import type { WireNode } from "@kb/contracts";
-import { SYSTEM_IDS } from "@kb/model";
+import { SYSTEM_IDS, nodeTitleOf } from "@kb/model";
 
 export type PaletteEntryKind = "command" | "node";
 
@@ -12,7 +12,7 @@ export interface PaletteEntry {
   id: string;
   text: string;
   kind: PaletteEntryKind;
-  /** Prebuilt lowercase match string (text + id). */
+  /** Prebuilt lowercase match string (title, text and id). */
   haystack: string;
   textLower: string;
   idLower: string;
@@ -30,15 +30,22 @@ function isCommandNode(node: WireNode): boolean {
   return types.some((v) => v.t === "ref" && v.v === SYSTEM_IDS.command);
 }
 
-/** Global discovery excludes commands that require a surface execution context. */
+/**
+ * Global discovery excludes commands that require a surface execution context.
+ * A node is listed by its title and found by its title or its text
+ * (DESIGN.md → tag behaviours, title).
+ */
 export function buildPaletteIndex(nodes: WireNode[], rev: number): PaletteIndex {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const nodeOf = (id: string) => byId.get(id);
   const global = nodes.filter(
     (node) => !isCommandNode(node) || node.props[SHORTCUT_IDS.commandContext] === undefined,
   );
   // oxlint-disable-next-line unicorn/no-new-array -- GAP [[01M1MFJXAQ8NVBMA6E6CZ7CY9W]]
   const entries: PaletteEntry[] = new Array(global.length);
   for (const [i, n] of global.entries()) {
-    entries[i] = entryOf(n.id, n.text || n.id, isCommandNode(n) ? "command" : "node");
+    const title = nodeTitleOf(n.id, n, nodeOf);
+    entries[i] = entryOf(n.id, title || n.id, isCommandNode(n) ? "command" : "node", n.text);
   }
   // Commands first for empty-query browsing, then stable by text.
   entries.sort((a, b) => {
@@ -48,11 +55,22 @@ export function buildPaletteIndex(nodes: WireNode[], rev: number): PaletteIndex 
   return { rev, entries };
 }
 
-/** `entry` as the index holds it: its match strings built once. */
-function entryOf(id: string, text: string, kind: PaletteEntryKind): PaletteEntry {
+/**
+ * `entry` as the index holds it: its match strings built once. `written` is
+ * the node's own text where it is shown by another (its title).
+ */
+function entryOf(id: string, text: string, kind: PaletteEntryKind, written = text): PaletteEntry {
   const textLower = text.toLowerCase();
   const idLower = id.toLowerCase();
-  return { id, text, kind, haystack: `${textLower}\0${idLower}`, textLower, idLower };
+  const writtenLower = written === text ? "" : `${written.toLowerCase()}\0`;
+  return {
+    id,
+    text,
+    kind,
+    haystack: `${textLower}\0${writtenLower}${idLower}`,
+    textLower,
+    idLower,
+  };
 }
 
 /**

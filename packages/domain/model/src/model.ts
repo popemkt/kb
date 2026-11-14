@@ -70,6 +70,15 @@ export const SYSTEM_IDS = {
   showNever: "sys.show.never",
   /** A pinned field comes first wherever a node's or a frame's fields are listed (checkbox). */
   pinnedField: "sys.f.pinned",
+  /**
+   * How a tag shapes its nodes (DESIGN.md → Data model → tag behaviours):
+   * the tags a node added under one of its nodes gets, and the title
+   * template its nodes are named by, on a tag; the field a field fills from
+   * when a tag of it is gained, on a field.
+   */
+  tagChildTagField: "sys.f.tag.childTag",
+  tagTitleField: "sys.f.tag.title",
+  fillFromField: "sys.f.fillFrom",
   /** Declared value type on field nodes — a ref to one of the option nodes below. */
   fieldTypeField: "sys.f.fieldType",
   /**

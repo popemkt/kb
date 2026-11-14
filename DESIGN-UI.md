@@ -3242,8 +3242,9 @@ until "Save workspace".
   tag behaviours, `nodeTitleOf`) is drawn by that title wherever the page
   names it: its row while no one edits it (`NodeTextHost`'s `shown`, the
   text drawn at rest; pressing it edits the stored text, the caret at its
-  end), a `[[ref]]` pill and a ref value's label, and the rows search and
-  the node picker answer. Editing the row shows the stored text, the
+  end), a ref value's label, and the rows search and the node picker
+  answer. A `[[ref]]` pill draws the label written into the text, so one
+  the picker makes is labelled by the title it offered. Editing the row shows the stored text, the
   person's, and the title follows what was typed once the row is left.
   A row view draws over the title as it would over the text.
 - **The zoom is a location.** The page's home is `/`, and zoomed to a node

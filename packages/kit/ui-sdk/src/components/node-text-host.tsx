@@ -82,6 +82,13 @@ export interface NodeTextHostProps extends NodeTextHostBinding {
    * so pressing it still edits where it was pressed. Absent: the text.
    */
   display?: (text: ReactElement) => ReactNode;
+  /**
+   * The text drawn while no one edits the row, where it is not `content`:
+   * the node's title (DESIGN-UI.md → Titles from fields). Editing shows
+   * `content`, and pressing the drawn title edits at its end. Absent:
+   * `content`.
+   */
+  shown?: string | undefined;
   textClassName?: string;
   onBlur?: () => void;
   zoomTitleEditor?: boolean;
@@ -135,6 +142,7 @@ export function NodeTextHost({
   tagAction,
   initialCaret,
   display,
+  shown = content,
   textClassName,
   onBlur,
   zoomTitleEditor,
@@ -323,9 +331,10 @@ export function NodeTextHost({
       if (!isActive) {
         // F16: caret at click, not at end. The text is already the tree the
         // editor edits, so the point under the click is the offset to edit at.
+        // A drawn title is not the text it edits: no point in it is an offset.
         let at = content.length;
         const host = editorRef.current;
-        if (host) {
+        if (host && shown === content) {
           const probed = offsetFromPoint(host, e.clientX, e.clientY);
           if (probed !== null) at = Math.max(0, Math.min(probed, content.length));
         }
@@ -333,7 +342,7 @@ export function NodeTextHost({
       }
       e.stopPropagation();
     },
-    [isActive, onActivate, onFollow, content],
+    [isActive, onActivate, onFollow, content, shown],
   );
 
   const handleDragOver = useCallback(
@@ -495,7 +504,7 @@ export function NodeTextHost({
           (display ?? shownAsText)(
             // The same element and tree, owned by React while nothing edits it.
             <div ref={editorRef} key="view" className={textClass} role="presentation">
-              {content ? <InlineMarkdown text={content} ink={ink} /> : "\u200B"}
+              {shown ? <InlineMarkdown text={shown} ink={ink} /> : "\u200B"}
             </div>,
           )
         )}

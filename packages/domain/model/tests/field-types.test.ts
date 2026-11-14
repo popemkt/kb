@@ -132,6 +132,7 @@ describe("typed field seeds", () => {
       SYSTEM_IDS.acyclicField,
       SYSTEM_IDS.showField,
       SYSTEM_IDS.pinnedField,
+      SYSTEM_IDS.fillFromField,
     ]);
   });
 

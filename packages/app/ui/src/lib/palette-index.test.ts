@@ -94,6 +94,25 @@ describe("palette index", () => {
     expect(many).toHaveLength(20);
   });
 
+  it("lists a node by its title and finds it by its title or its text", () => {
+    const nodes = [
+      node("f.who", "who", { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }] }),
+      node("t.task", "task", {
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
+        [SYSTEM_IDS.tagTitleField]: [{ t: "str", v: "[[sys.f.node.text]] for [[f.who]]" }],
+      }),
+      node("n.ann", "Ann"),
+      node("n.notes", "Write the notes", {
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: "t.task" }],
+        "f.who": [{ t: "ref", v: "n.ann" }],
+      }),
+    ];
+    const index = buildPaletteIndex(nodes, 1);
+    const titled = (query: string) => searchPalette(index, query).find((h) => h.id === "n.notes");
+    expect(titled("for ann")?.text).toBe("Write the notes for Ann");
+    expect(titled("write the notes")?.text).toBe("Write the notes for Ann");
+  });
+
   it("keystroke search stays a single linear pass at 50k nodes", () => {
     const N = 50_000;
     const nodes: WireNode[] = [

@@ -32,6 +32,7 @@ import {
   placedRank,
   planNodeAdd,
   projectPropEdits,
+  nodeTitleOf,
 } from "@kb/model";
 import { persistEffect, persistPlannedEffect, type PersistOptions } from "./session.ts";
 import { placedGraph, placeOf } from "./place.ts";
@@ -213,7 +214,8 @@ export const graphRunDef = {
 export const graphSearchDef = {
   id: "graph.search",
   title: "Search nodes",
-  description: "Case-insensitive substring search over node text (id + text rows)",
+  description:
+    "Case-insensitive substring search over node text and title (id + title rows; a title is the node's tag's template over its fields, else its text)",
   mode: { kind: "read" } as const,
   inputSchema: z.object({
     text: z.string(),
@@ -701,5 +703,8 @@ export const graphSearchEffect = Effect.fn("graph.search")(function* (
   input: z.infer<typeof graphSearchDef.inputSchema>,
 ): Effect.fn.Return<{ rows: unknown[][] }, DomainError, KbCtx> {
   const { index } = yield* KbCtx;
-  return { rows: index.search(input.text, input.limit).map((n) => [n.id, n.text]) };
+  const nodeOf = (id: string) => index.getNode(id);
+  return {
+    rows: index.search(input.text, input.limit).map((n) => [n.id, nodeTitleOf(n.id, n, nodeOf)]),
+  };
 });

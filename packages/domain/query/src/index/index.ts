@@ -100,7 +100,10 @@ export interface NodeIndex {
    */
   isVirtual(id: NodeId): boolean;
 
-  /** Case-insensitive substring scan over node text, sorted by id. */
+  /**
+   * Case-insensitive substring scan over node text and node title
+   * (`nodeTitleOf`: DESIGN.md → Data model → tag behaviours), sorted by id.
+   */
   search(text: string, limit?: number): Array<KbNode>;
 
   /**
