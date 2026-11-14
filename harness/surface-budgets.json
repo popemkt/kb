@@ -26,8 +26,8 @@
     "reason": "Lane B moved the CLI's flag mappers (map.ts) to @kb/cli and the outline-paste parser to @kb/outline-paste; ui.*, render.*, procedure.* and store.* stay core actions every surface offers."
   },
   "@kb/contracts": {
-    "limit": 379,
-    "reason": "M6: node.update input and prop input schemas, shared by the action and days' untag interceptor."
+    "limit": 350,
+    "reason": "#190 dropped the names no package outside contracts imports; M6 added node.update's input and prop input schemas, shared by the action and days' untag interceptor."
   },
   "@kb/ext-sdk": {
     "limit": 9
@@ -47,7 +47,8 @@
     "limit": 3
   },
   "@kb/plugin": {
-    "limit": 54
+    "limit": 41,
+    "reason": "#190 dropped the kernel's names no package outside plugin imports."
   },
   "@kb/query": {
     "limit": 53,
@@ -239,8 +240,8 @@
     "limit": 35
   },
   "@kb/ui-sdk": {
-    "limit": 522,
-    "reason": "#176: key contexts are a point (KeyContextPoint, keyContextOf, admitKeymaps, tellKeymaps) and keys run commands (KeyCall, keyCallOf, runKeyCall); M7b left 514, and the 380 ceiling waits on splitting the files @kb/ui and outline-ui share (GAP 01M79H9PY7XVHHVGAN1WA3VYAF)."
+    "limit": 523,
+    "reason": "#190: the browser's one key boundary (keyChordEvent) and the printable-key set (printableExcept) join, and KeyRun leaves for @kb/keybindings; #176 took it to 522, and the 380 ceiling waits on splitting the files @kb/ui and outline-ui share (GAP 01M79H9PY7XVHHVGAN1WA3VYAF)."
   },
   "@kb/ui-test-kit": {
     "limit": 26
@@ -256,5 +257,9 @@
   "@kb/appearance-kit": {
     "limit": 41,
     "reason": "M4 appearance host and theme art share one kit; M7b added the backdrop pointer input and dropped the names nothing outside the kit imports."
+  },
+  "@kb/keybindings": {
+    "limit": 23,
+    "reason": "#190: the keyboard model as one domain package (chords, their lossless data, bindings and admission), which ui-sdk and the shortcut nodes share."
   }
 }

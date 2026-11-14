@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import {
   browserHost,
   currentKeymap,
+  keyChordEvent,
   getCaretSerializedOffset,
   isQueryResultInstance,
   readCaretGeometry,
@@ -74,13 +75,7 @@ export function useNodeKeyDown({ nodeId, instanceKey }: UseNodeKeyDownArgs) {
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       const editable = e.currentTarget;
       const intent = mapEditingKey(
-        {
-          key: e.key,
-          metaKey: e.metaKey,
-          ctrlKey: e.ctrlKey,
-          shiftKey: e.shiftKey,
-          altKey: e.altKey,
-        },
+        keyChordEvent(e),
         readEditingContext({ nodeId, instanceKey, editable }),
         currentKeymap(EDITING_CONTEXT_ID),
       );

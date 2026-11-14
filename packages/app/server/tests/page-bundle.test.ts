@@ -172,7 +172,8 @@ const DATASCRIPT = /cljs\.core/;
 // the camera's stops it names, chords by place, and hints derived from the
 // elected bindings take it to 1,851,283; the keymap that reads them, and the
 // camera's math, stay with the canvas scene. The budget keeps about 1.5 KB
-// over that.
+// over that. The keyboard model as its own package, chords as lossless data
+// and the one browser key boundary measure 1,851,917; the budget stays.
 const EAGER_BUDGET_BYTES = 1_852_800;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */

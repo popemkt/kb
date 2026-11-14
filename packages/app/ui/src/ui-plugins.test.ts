@@ -4,7 +4,8 @@
  * `lib/router`, now asserted over the contributions that replaced it — and
  * which families' browser entries the page loads for what the server reports.
  */
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
+import { ChordDataSchema, matchesChord, type KeyChordEvent } from "@kb/keybindings";
 import { describe, expect, it } from "vitest";
 import { makeKernel, syncPlugins } from "@kb/plugin";
 import { BUNDLED_FAMILIES, HOSTED_FAMILIES } from "@kb/bundled";
@@ -18,6 +19,7 @@ import {
   pageFootprint,
   ontologyPath,
   RoutePoint,
+  KeybindingPoint,
   SidebarSectionPoint,
 } from "@kb/ui-sdk";
 import { NoParams, viewKey, type OntologyView } from "@kb/views";
@@ -42,6 +44,54 @@ function route(path: string): { surface: string; params: unknown } | null {
   const matched = matchRoute(kernelWithBuiltins().contributions(RoutePoint), path);
   return matched === null ? null : { surface: matched.view.id, params: matched.params };
 }
+
+describe("shipped keybinding data", () => {
+  it("round-trips every loaded binding without losing constraints or matching behavior", () => {
+    const bindings = kernelWithBuiltins().contributions(KeybindingPoint);
+    expect(bindings.length).toBeGreaterThan(100);
+    const read = Schema.decodeUnknownSync(ChordDataSchema);
+    for (const {
+      id,
+      value: { chord },
+    } of bindings) {
+      const stored: unknown = JSON.parse(JSON.stringify(chord));
+      const decoded = read(stored);
+      // Matching alone cannot notice a callback JSON serialization discarded.
+      expect(decoded, id).toEqual(chord);
+      const keys = new Set([
+        "a",
+        "A",
+        "o",
+        "O",
+        " ",
+        "ø",
+        "Enter",
+        "Escape",
+        "ArrowUp",
+        ...(typeof chord.key === "string"
+          ? [chord.key]
+          : Array.isArray(chord.key)
+            ? chord.key
+            : []),
+      ]);
+      for (const key of keys) {
+        for (const physicalKey of new Set(["KeyA", "Enter", "NumpadEnter", chord.physicalKey])) {
+          for (let flags = 0; flags < 16; flags++) {
+            const event: KeyChordEvent = {
+              key,
+              ...(physicalKey === undefined ? {} : { physicalKey }),
+              metaKey: (flags & 1) !== 0,
+              ctrlKey: (flags & 2) !== 0,
+              shiftKey: (flags & 4) !== 0,
+              altKey: (flags & 8) !== 0,
+            };
+            expect(matchesChord(event, decoded), id).toBe(matchesChord(event, chord));
+          }
+        }
+      }
+    }
+  });
+});
 
 describe("built-in routes", () => {
   it("match the canvas, graph and home paths", () => {

@@ -36,7 +36,7 @@ export const StepCheckSchema = z
   .loose();
 
 /** One action a step offers: its name in the step, and the call it makes. */
-export interface StepAction {
+interface StepAction {
   readonly id: string;
   readonly title: string;
   readonly description?: string;

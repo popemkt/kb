@@ -18,7 +18,7 @@ import type { GraphPlan, GraphWrite } from "./graph-writes.ts";
 import type { KbContext } from "./session.ts";
 
 /** What a path holds, read from the directory alone: nothing there is opened or written. */
-export type RootState =
+type RootState =
   | { readonly kind: "store"; readonly backend: string }
   | { readonly kind: "missing"; readonly reason: string }
   | { readonly kind: "not-a-store"; readonly reason: string };

@@ -32,64 +32,6 @@ function span(node: Record<string, unknown>): string {
   return `${String(node["start"])}:${String(node["end"])}`;
 }
 
-/**
- * The DOM's key vocabulary: `KeyboardEvent.code` names a key by its place,
- * and kb's chords and key events carry it under that standard name. The
- * key `code` of an object literal typed as one of these (annotated,
- * `satisfies`, `as`, or the body of an arrow declaring it) is that word,
- * not the code family; every other key and every value still counts.
- */
-const DOM_KEY_TYPES: ReadonlySet<string> = new Set(["Chord", "KeyChordEvent"]);
-const DOM_KEY = "code";
-
-/** Whether `annotation` (a type, or its annotation wrapper) names a DOM key type. */
-function typedAsDomKey(annotation: unknown): boolean {
-  const type =
-    isAstNode(annotation) && annotation.type === "TSTypeAnnotation"
-      ? annotation["typeAnnotation"]
-      : annotation;
-  if (!isAstNode(type) || type.type !== "TSTypeReference") return false;
-  const name = type["typeName"];
-  return isAstNode(name) && typeof name["name"] === "string" && DOM_KEY_TYPES.has(name["name"]);
-}
-
-/**
- * The DOM key `node` types, if it types an object literal as a DOM key
- * type: a declarator's annotation, `satisfies` or `as`, or an arrow's
- * declared return over its expression body.
- */
-function typedDomKey(node: Record<string, unknown>): unknown {
-  const id = node["id"];
-  if (node.type === "VariableDeclarator" && isAstNode(id)) {
-    return typedAsDomKey(id["typeAnnotation"]) ? domKeyOf(node["init"]) : undefined;
-  }
-  if (node.type === "TSSatisfiesExpression" || node.type === "TSAsExpression") {
-    return typedAsDomKey(node["typeAnnotation"]) ? domKeyOf(node["expression"]) : undefined;
-  }
-  if (node.type === "ArrowFunctionExpression") {
-    return typedAsDomKey(node["returnType"]) ? domKeyOf(node["body"]) : undefined;
-  }
-  return undefined;
-}
-
-/** The `code` key of `value`, an object literal (parenthesized or not), if it has one. */
-function domKeyOf(value: unknown): unknown {
-  let object = value;
-  while (isAstNode(object) && object.type === "ParenthesizedExpression")
-    object = object["expression"];
-  if (!isAstNode(object) || object.type !== "ObjectExpression") return undefined;
-  const properties = object["properties"];
-  if (!Array.isArray(properties)) return undefined;
-  for (const property of properties) {
-    if (!isAstNode(property) || property.type !== "Property" || property["computed"] === true) {
-      continue;
-    }
-    const key = property["key"];
-    if (isAstNode(key) && (key["name"] ?? stringLiteral(key)) === DOM_KEY) return key;
-  }
-  return undefined;
-}
-
 /** Family ids and identifiers in semantic positions, once per source occurrence. */
 export function familyNameHits(file: string, source: string, families: readonly string[]): number {
   const program = parseModule(file, source).program;
@@ -104,7 +46,6 @@ export function familyNameHits(file: string, source: string, families: readonly 
   };
   walkAst(program, (node) => {
     if (node.type === "MemberExpression" && node["computed"] !== true) exclude(node["property"]);
-    exclude(typedDomKey(node));
     if (
       typeof node.type === "string" &&
       [

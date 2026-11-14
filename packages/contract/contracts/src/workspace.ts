@@ -88,7 +88,7 @@ export interface TrustProvenance {
   readonly name: string;
   readonly files: string;
 }
-export interface CodeTrustRecord {
+interface CodeTrustRecord {
   readonly digest: string;
   readonly machine: string;
   readonly at: string;

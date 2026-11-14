@@ -44,14 +44,13 @@ export const ExtensionCapabilitiesSchema = z.strictObject({
   /** The actions of its own that ask a person before they run. */
   approvals: z.array(Words).optional(),
 });
-export type ExtensionCapabilities = z.infer<typeof ExtensionCapabilitiesSchema>;
 
 const RoleReplacementSchema = z.strictObject({
   role: RoleNameSchema,
   priority: z.number().optional(),
   why: Words,
 });
-export type RoleReplacement = z.infer<typeof RoleReplacementSchema>;
+
 const RoleReplacementsSchema = z
   .array(RoleReplacementSchema)
   .refine((claims) => new Set(claims.map(({ role }) => role)).size === claims.length, {

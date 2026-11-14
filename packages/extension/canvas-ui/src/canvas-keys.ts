@@ -6,7 +6,7 @@
  * intent: what it is called, where it is listed, what it asks for, and the
  * chords kb binds it to, which are canvas-ui's bindings (`CANVAS_BINDINGS`).
  * No two of a context's chords overlap, so their order means nothing; a
- * chord by place (`code`) is asked before one by character.
+ * chord by place (`physicalKey`) is asked before one by character.
  *
  * canvas-ui contributes the contexts and the bindings to the page kernel
  * (`contributeCanvasKeys`), so any plugin may bind a canvas key as it binds
@@ -197,11 +197,11 @@ const command = (key: string, more: Chord = {}): Chord => ({
 /** `key` with or without ⌘ or Ctrl. */
 const anyMod = (key: string, more: Chord = {}): Chord => ({ key: anyCase(key), ...more });
 
-/** The key at the place `code`, without ⌘ or Ctrl. */
-const at = (code: string, more: Chord = {}): Chord => ({ code, mod: false, ...more });
+/** The key at the place `physicalKey`, without ⌘ or Ctrl. */
+const at = (physicalKey: string, more: Chord = {}): Chord => ({ physicalKey, mod: false, ...more });
 
-/** The key at the place `code` with Ctrl alone. */
-const ctrlAt = (code: string): Chord => ({ code, ctrl: true, meta: false });
+/** The key at the place `physicalKey` with Ctrl alone. */
+const ctrlAt = (physicalKey: string): Chord => ({ physicalKey, ctrl: true, meta: false });
 
 /** A shortcut of `section` in the canvas at rest, its defaults filled in. */
 const inSection =
@@ -536,7 +536,7 @@ export const CANVAS_SHORTCUTS: readonly CanvasShortcut[] = [
   edit("step-out", "Step out", { type: "escape" }, [anyMod("Escape")], {
     prevent: false,
   }),
-  viewRow("pan", "Pan (hold)", { type: "panModifier" }, [{ code: "Space" }]),
+  viewRow("pan", "Pan (hold)", { type: "panModifier" }, [{ physicalKey: "Space" }]),
   edit("nudge", "Nudge", nudge(1), nudgeChords(false), {
     needsSelection: "pass",
     hintStyle: "arrows",

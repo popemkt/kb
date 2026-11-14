@@ -83,7 +83,7 @@ export interface Contribution<C> {
  * was made to, by name, and the contribution with its value left out, since
  * one list spans every point and so every value type.
  */
-export interface PointContribution extends Omit<Contribution<unknown>, "value"> {
+interface PointContribution extends Omit<Contribution<unknown>, "value"> {
   readonly point: string;
 }
 
@@ -157,7 +157,7 @@ export function isPlugin(value: unknown): value is Plugin {
  */
 export type PluginStatus = "pending" | "active" | "failed";
 
-export interface PluginState {
+interface PluginState {
   readonly name: string;
   readonly namespace: string;
   readonly tags: readonly string[];
@@ -185,14 +185,14 @@ export interface RequirementState {
   readonly from: string | null;
 }
 
-export interface Dependency {
+interface Dependency {
   readonly from: string;
   readonly to: string;
   readonly kind: RequirementState["kind"];
   readonly name: string;
 }
 
-export interface PluginHandle {
+interface PluginHandle {
   readonly name: string;
   /** Unload the plugin; unloading one that is already gone does nothing. */
   readonly unload: Effect.Effect<void>;
@@ -251,7 +251,7 @@ export interface Kernel {
   readonly version: () => number;
 }
 
-export interface PointState {
+interface PointState {
   readonly key: PointKey<unknown>;
   readonly owner: string | null;
 }

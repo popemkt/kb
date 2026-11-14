@@ -439,9 +439,11 @@ export {
   chordsOverlap,
   isPrintableKey,
   type KeyChordEvent,
+  keyChordEvent,
   lookupChord,
   matchesChord,
   PALETTE_CHORD,
+  printableExcept,
   TEXT_HISTORY_CHORD,
 } from "./lib/keychord";
 export {
@@ -457,7 +459,6 @@ export {
   type Keybinding,
   KeybindingPoint,
   type Keymap,
-  type KeyRun,
   provideKeybinding,
   runKeyCall,
   tellKeymaps,

@@ -3,23 +3,28 @@
  * offered every key before any surface is, so the two are decided together
  * and neither shadows the other.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import type { Contribution } from "@kb/plugin";
-import { admitKeymaps, provideKeybinding, type KeyContext, type Keybinding } from "./keybindings";
-import { PALETTE_CHORD, type Chord, type KeyChordEvent } from "./keychord";
+import {
+  admitKeymaps,
+  provideKeybinding,
+  type KeyContext,
+  type Keybinding,
+} from "../src/bindings.ts";
+import { PALETTE_CHORD, type Chord, type KeyChordEvent } from "../src/chord.ts";
 
 /** A chord by place: the key `KeyboardEvent.code` names, and the modifiers it asks about. */
-const at = (place: string, modifiers: Omit<Chord, "key" | "code"> = {}): Chord => ({
+const at = (place: string, modifiers: Omit<Chord, "key" | "physicalKey"> = {}): Chord => ({
   ...modifiers,
-  code: place,
+  physicalKey: place,
 });
 
 /** A key event: the character it types, the key's place, and the modifiers held. */
 const pressed = (
   key: string,
   place: string,
-  held: Omit<KeyChordEvent, "key" | "code"> = {},
-): KeyChordEvent => ({ ...held, key, code: place });
+  held: Omit<KeyChordEvent, "key" | "physicalKey"> = {},
+): KeyChordEvent => ({ ...held, key, physicalKey: place });
 
 /** A host that approves every owner replacing what another holds. */
 const ANYONE = () => true;
@@ -245,7 +250,7 @@ it("keeps the palette ahead of a physical surface-owner binding", () => {
   expect(maps.get(ROW.id)?.refused.map((b) => b.id)).toContain(INDENT.id);
 });
 
-it("requires replacement approval when another owner takes a character chord by code", () => {
+it("requires replacement approval when another owner takes a character chord by physicalKey", () => {
   const physical: Contribution<Keybinding> = {
     id: "x.enter",
     owner: "x",

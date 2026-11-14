@@ -9,14 +9,14 @@
       "@kb/test-kit": 58,
       "@kb/webmcp": 12,
       "@kb/operations": 66,
-      "@kb/contracts": 379,
+      "@kb/contracts": 350,
       "@kb/ext-sdk": 9,
       "@kb/extension-source": 27,
       "@kb/sandbox": 94,
       "@kb/appearance": 57,
       "@kb/model": 265,
       "@kb/outline-paste": 3,
-      "@kb/plugin": 54,
+      "@kb/plugin": 41,
       "@kb/query": 53,
       "@kb/seed": 8,
       "@kb/views": 111,
@@ -79,8 +79,9 @@
       "@kb/appearance-kit": 41,
       "@kb/scene": 13,
       "@kb/scene-gpu": 35,
-      "@kb/ui-sdk": 522,
-      "@kb/ui-test-kit": 26
+      "@kb/ui-sdk": 523,
+      "@kb/ui-test-kit": 26,
+      "@kb/keybindings": 23
     },
     "family-names": {
       "contract/contracts/src/mcp-tool.ts": 2,
@@ -148,7 +149,7 @@
     },
     "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2738706,
+      "bytes": 2738713,
       "modules": 721
     },
     "single-family": {

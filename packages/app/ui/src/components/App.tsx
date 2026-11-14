@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   cn,
   currentKeymap,
+  keyChordEvent,
   hasText,
   keyCallOf,
   landOnce,
@@ -256,7 +257,7 @@ export function App() {
     };
     // The page's own keys (`core.page`): offered every key first, so captured.
     const handler = (e: KeyboardEvent) => {
-      const binding = currentKeymap(PAGE_CONTEXT_ID).resolve(e);
+      const binding = currentKeymap(PAGE_CONTEXT_ID).resolve(keyChordEvent(e));
       if (binding === undefined) return;
       e.preventDefault();
       const { run } = binding.value;

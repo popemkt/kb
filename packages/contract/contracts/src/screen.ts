@@ -158,7 +158,7 @@ export const NavigateTargetSchema = z.union([
   z.strictObject({ node: z.string().min(1) }),
   z.strictObject({ route: z.string().startsWith("/") }),
 ]);
-export type NavigateTarget = z.infer<typeof NavigateTargetSchema>;
+type NavigateTarget = z.infer<typeof NavigateTargetSchema>;
 
 /** A command a tab carries out. `pane` absent means the tab's active pane. */
 export const ScreenCommandSchema = z.discriminatedUnion("kind", [
