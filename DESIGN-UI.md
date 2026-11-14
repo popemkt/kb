@@ -713,7 +713,44 @@ rows (`NodeCommand.many`): Add tag, Remove tag…, Add field, Set field…,
 Pin / Unpin and Delete. Any other node command, run over a range from its
 shortcut, acts on the head alone (`runCommand`). A picker step it opens is
 handed every row (`targetNodeIds`), mints what it creates once, and writes
-the pick to each row; the palette runs its commit as one write (`asOneWrite`).
+the pick to each row as one write (`asOneWrite`), so what it does once the
+write lands (where the selection goes after a move) reads it landed.
+
+**A row moves anywhere: Move to…, and a drag.** Two gestures, one write
+(`PageWrites.moveNodes`): the rows a gesture moves, the selection's top
+rows or the one row, go under a parent at a position, in order, as one
+`node.update` each in one `node.batch` (DESIGN.md →
+[Batches of writes](DESIGN.md#batches-of-writes--nodebatch)), one undo
+step. A move may leave a reference behind: a reference row
+(`sys.f.ref.target`, a contextual reference) at the place each row left,
+in the same write. The CLI and MCP make the same moves with `node.update`
+(`kb mv`) and, with the references, `node.batch`.
+
+- **Move to…** is a node command of the `arrange` group that acts on many
+  rows. It opens the `outline.move-to` picker step, whose candidates are
+  every node (`nodeCandidates`) less the rows moved and what is under
+  them. Enter moves the rows to the end of the node picked; Alt+Enter, or
+  an Alt-click on it, moves them and leaves a reference in each place. A
+  step names its alternate pick (`PaletteStep.alternate`), the picker says
+  it under the list, and the pick says which one it was
+  (`PaletteStepPick.alternate`).
+- **A drag** starts on a row's bullet: a press that travels past its
+  pointer's slop (`POINTER_SLOPS`) before a long press is a drag; a press
+  that does not stays a click (zoom), and a finger held still stays the
+  menu (`useMenuGesture`). A finger drags as a mouse does: the bullet is
+  `touch-action: none`, so the page does not scroll under it. While it
+  lasts, a ghost of the row (and how many rows go with it) follows the
+  pointer, and a drop line shows where the rows will land: above or below
+  the row under the pointer, as its sibling, or, with the pointer past that
+  row's text start or below a row whose children are shown, as its first
+  child, a collapsed row opening to show them. Near the top or bottom of the
+  scroller the page scrolls. Escape cancels it. Over a row being moved, or
+  one under it, no line is shown and a drop moves nothing. Each drop lands
+  where its line was.
+- After a move, the rows moved stay selected where they landed when they
+  are drawn there, else the selection goes to the row before where they
+  were, as after Delete, and a toast says where they went; a move that
+  left references selects them.
 
 **Caret geometry is measured, not guessed.** `lib/caret.ts`
 exposes `readCaretGeometry` (range rects → real line detection),
@@ -1244,7 +1281,7 @@ reason, and the next edit starts from it.
 (`lib/picker.ts`: candidates in, ranked rows out; `usePickerKeys`) and one
 list (`components/ui/picker-list.tsx`): the field picker (`FieldPicker`), the
 `[[` completion, every node-palette step (`PaletteStepPoint`; the outline's
-add-tag, add-field and reference steps among them),
+add-tag, add-field, reference and move-to steps among them),
 the ontology page's include/extends, the canvas's "add existing node" and the
 tag page's add-field. A query matches fuzzily (prefix, substring, id, word
 initials, a compact subsequence) and the matched letters are marked; with
@@ -1256,7 +1293,10 @@ field a pick replaces and closes. A value that would close a cycle through a fie
 that declares itself acyclic (a tag's `extends`; `closesCycleOf`) is shown,
 noted "would cycle", and refused as an addition only: a value the field
 already holds stays checked and can be taken back, however the cycle came to
-be. No picker picks a disabled row, by click or by Enter. Its last row
+be. No picker picks a disabled row, by click or by Enter. A node-palette
+step may name an alternate pick (`PaletteStep.alternate`, its label): Alt+Enter,
+or an Alt-click, picks the row that way, and the picker shows the key and
+the label under its list. Its last row
 creates the query as a node where the field's declaration says a target goes
 (`refCreationOf`: an option under the field, a node with the field's target
 tag, a top-level node) — never for a query-constrained field — and names
@@ -2646,9 +2686,9 @@ The groups, in the menu's order (`NODE_MENU_GROUPS`):
 | Group | What it holds | Its rows today |
 | --- | --- | --- |
 | `lead` | how the node itself opens and shows | "Open in …" for its tag's view; "Show/Hide preview", "Show/Hide properties" |
-| `make` | what the node is and holds | Add tag, Make your own tag that extends this, Turn into query, Turn into reference…, Add field, Make supertag, Type this reference… |
+| `make` | what the node is and holds | Add tag, Remove tag…, Make your own tag that extends this, Turn into query, Turn into reference…, Add field, Set field…, Make supertag, Type this reference… |
 | `open` | where it opens | Search everything…, Open in panel, Open as workspace, Open with: … |
-| `arrange` | where it sits | Indent, Outdent |
+| `arrange` | where it sits | Indent, Outdent, Move to… |
 | `mark` | what marks it | Pin / Unpin, Show / Hide debug fields |
 | `view` | how its views show it | View as: …, Make default view: …, Edit query, Add chart, Filter… |
 | `remove` | removing it | Delete node |
