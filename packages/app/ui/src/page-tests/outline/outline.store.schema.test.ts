@@ -250,7 +250,7 @@ describe("transient prune reads content, not template slots", () => {
       node("f.due", "due", { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }] }),
       node("f.secret", "secret", {
         [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
-        [SYSTEM_IDS.hiddenField]: [{ t: "bool", v: true }],
+        [SYSTEM_IDS.showField]: [{ t: "ref", v: SYSTEM_IDS.showNever }],
       }),
       node("n.anchor", "anchor"),
     ];

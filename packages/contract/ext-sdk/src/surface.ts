@@ -262,6 +262,8 @@ export interface PluginContext {
   readonly name: string;
   /** Prefix of this plugin's contribution ids; `""` is the root namespace. */
   readonly namespace: string;
+  /** The host this plugin is applied in. */
+  readonly host: KernelHost;
   declare<C>(
     name: string | PointName<C>,
     spec: PointSpec,

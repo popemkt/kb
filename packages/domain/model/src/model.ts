@@ -60,8 +60,30 @@ export const SYSTEM_IDS = {
   fieldsField: "sys.f.fields",
   /** Optional chip color on tag definition nodes (DESIGN-RESKIN §1.8). */
   colorField: "sys.f.color",
-  /** Per-field visibility: when true, field rows are hidden unless debug mode. */
-  hiddenField: "sys.f.hidden",
+  /**
+   * Where a field's rows are drawn (DESIGN.md → Data model → field display):
+   * a ref to one of its own three children below; absent reads always.
+   */
+  showField: "sys.f.show",
+  showAlways: "sys.show.always",
+  showFilled: "sys.show.filled",
+  showNever: "sys.show.never",
+  /** A pinned field comes first wherever a node's or a frame's fields are listed (checkbox). */
+  pinnedField: "sys.f.pinned",
+  /**
+   * How a tag shapes its nodes (DESIGN.md → Data model → tag behaviours):
+   * the tags a node added under one of its nodes gets, and the title
+   * template its nodes are named by, on a tag; the field a field fills from
+   * when a tag of it is gained, on a field.
+   */
+  tagChildTagField: "sys.f.tag.childTag",
+  tagTitleField: "sys.f.tag.title",
+  fillFromField: "sys.f.fillFrom",
+  /** The field a tag's nodes' box is tied to, and the value that checks it, on a tag. */
+  tagCheckField: "sys.f.tag.check",
+  tagCheckedValueField: "sys.f.tag.checkedValue",
+  /** ⌘K: toggle the target row's box. */
+  cmdToggleCheck: "sys.cmd.toggle-check",
   /** Declared value type on field nodes — a ref to one of the option nodes below. */
   fieldTypeField: "sys.f.fieldType",
   /**

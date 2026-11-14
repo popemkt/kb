@@ -65,10 +65,10 @@ describe("ColorSwatchEditor (i10 item 4)", () => {
     expect(() => readFileSync(path.join(outlineDir, "tag-config-panel.tsx"), "utf8")).toThrow();
     const fields = readFileSync(path.join(outlineDir, "fields-section.tsx"), "utf8");
     expect(fields).toContain("fieldId={p.fieldId}");
-    // The hidden flag is a checkbox because its seeded field node says so,
+    // The pinned setting is a checkbox because its seeded field node says so,
     // not because the field section special-cases its id.
-    expect(fields).not.toContain("SYSTEM_IDS.hiddenField");
-    const hidden = bundledSeed().find((n) => n.id === SYSTEM_IDS.hiddenField);
-    expect(fieldTypeOf(hidden?.props, () => undefined)).toBe("checkbox");
+    expect(fields).not.toContain("SYSTEM_IDS.pinnedField");
+    const pinned = bundledSeed().find((n) => n.id === SYSTEM_IDS.pinnedField);
+    expect(fieldTypeOf(pinned?.props, () => undefined)).toBe("checkbox");
   });
 });

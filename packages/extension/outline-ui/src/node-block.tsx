@@ -27,6 +27,8 @@ import { createTransientNode } from "./editing-writes";
 import { FieldsSection } from "./fields-section";
 import { FrameViewSlot } from "./frame-view-slot";
 import { NodeContent } from "./node-content";
+import { RowCheck } from "./row-check";
+import { checkedTextClass } from "./row-check-state";
 import { RowPreview } from "./row-preview";
 import { openIn, useRowOpening, useRowView } from "./row-opening";
 import { QueryResultsSection } from "./query-results";
@@ -159,14 +161,17 @@ export const NodeBlock = memo(function NodeBlock({
             isActive={isActive}
             onRowClick={handleRowSelect}
             bullet={
-              <Bullet
-                node={shown}
-                collapsed={node.collapsed}
-                collapsible={chrome.isExpandable}
-                isRef={chrome.bulletIsRef}
-                onClick={handleBulletClick}
-                onMenu={handleBulletMenu}
-              />
+              <>
+                <Bullet
+                  node={shown}
+                  collapsed={node.collapsed}
+                  collapsible={chrome.isExpandable}
+                  isRef={chrome.bulletIsRef}
+                  onClick={handleBulletClick}
+                  onMenu={handleBulletMenu}
+                />
+                <RowCheck nodeId={nodeId} instanceKey={instanceKey} shown={shown} schema={schema} />
+              </>
             }
             content={
               <NodeContent
@@ -175,6 +180,7 @@ export const NodeBlock = memo(function NodeBlock({
                 isActive={isActive}
                 tags={shown.tags}
                 rowView={rowView?.key ?? null}
+                textClassName={checkedTextClass(shown, schema)}
                 tagAction={
                   opening === null
                     ? undefined

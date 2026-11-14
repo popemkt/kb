@@ -16,7 +16,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { present } from "@kb/model";
+import { fieldTypeValue, present, SYSTEM_IDS } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
@@ -319,6 +319,41 @@ describe("outline editing keymap (characterization)", () => {
       expect(await press(mount("n.root-c", 4, false), "Enter")).toBe(true);
       expect(node("n.root-c")?.text).toBe("Read");
       expect(useGraphStore.getState().wireNodes.length).toBe(before + 1);
+    });
+
+    it("⌘Enter toggles the box a row's tag ties to a field, and splits nothing", async () => {
+      // #todo's box is a `done` checkbox (DESIGN-UI.md → A tag's box).
+      const wires = structuredClone(fixtureGraph.nodes).map((w) =>
+        w.id === "tag.todo"
+          ? {
+              ...w,
+              props: {
+                ...w.props,
+                [SYSTEM_IDS.tagCheckField]: [{ t: "ref" as const, v: "f.done" }],
+              },
+            }
+          : w,
+      );
+      const done = {
+        id: "f.done",
+        text: "done",
+        props: {
+          [SYSTEM_IDS.typeField]: [{ t: "ref" as const, v: SYSTEM_IDS.field }],
+          [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("checkbox")],
+        },
+        children: [],
+        createdAt: "2026-11-14T00:00:00.000Z",
+        updatedAt: "2026-11-14T00:00:00.000Z",
+      };
+      resetOutlineStore();
+      useGraphStore.getState().hydrateFromWire([...wires, done], fixtureGraph.rev, "fixtures");
+      const before = useGraphStore.getState().wireNodes.length;
+      expect(await press(mount("n.root-b", 4, false), "Enter", { metaKey: true })).toBe(true);
+      expect(node("n.root-b")?.props["f.done"]).toEqual([{ t: "bool", v: true }]);
+      expect(node("n.root-b")?.text).toBe("Search jumps to matching nodes");
+      expect(useGraphStore.getState().wireNodes.length).toBe(before);
+      expect(await press(mount("n.root-b", 4, false), "Enter", { ctrlKey: true })).toBe(true);
+      expect(node("n.root-b")?.props["f.done"]).toEqual([{ t: "bool", v: false }]);
     });
   });
 

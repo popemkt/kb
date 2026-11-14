@@ -440,7 +440,11 @@ Mode A owns split/merge/indent/outdent, soft line break (`Shift+Enter`),
 vertical caret motion, and autocomplete interception. Mode B owns
 `ArrowLeft/Right` collapse-expand-parent-firstchild, `o` / `Shift+O`
 create-below/above, `Space` toggle, `Cmd+.` zoom, and printable-character
-re-entry into Mode A. Focus hand-offs are specified per operation (split → new
+re-entry into Mode A. Mode B's keys are the selected row's: a key pressed
+while focus is on a control the keyboard stops at (a text entry, or a button
+such as a tag's box or the hidden-fields fold) is that control's, so Tab
+moves focus on and Enter or Space presses it (`ownsItsKeys`). Chrome the
+keyboard skips, such as the bullet, leaves its keys to the selection. Focus hand-offs are specified per operation (split → new
 node at 0; indent/outdent → same offset; merge → the join boundary; delete →
 neighbour) and tested.
 
@@ -1120,6 +1124,26 @@ empty slot closes it. A typed value emptied is taken out, not kept blank.
 Picked values are added in the picker. A one-valued field — and a checkbox,
 which holds one value by its type (`cardinalityOf`) — offers no add.
 
+**Hidden fields fold; pinned fields lead.** Which of a node's fields are
+drawn and in what order is the field nodes' to say (show and pinned,
+DESIGN.md → [Data model](DESIGN.md#data-model--everything-is-a-node), field
+display), and `resolveVisibleProps` (`@kb/ui-sdk`) is the one answer every
+surface's field rows take: the rows drawn, pinned ones first, and the
+**folded** ones, a field shown *when filled* that this node templates and
+does not fill. The outline draws the folded ones as one row after the
+others, "N hidden fields" (`FieldsSection`), drawn on a field row's
+geometry (its height, the chevron in the glyph column, the label where
+field labels start): a button in the values'
+keyboard path (↑/↓ reach it as they reach a value, Escape hands the
+keyboard back to the row), opened by a click, Enter or Space, which then
+draws them as empty slots to fill, and closes the same way. Whether a fold
+is open is the drawn row's own passing state, as a picker's openness is,
+and is written nowhere: what a person would expect to keep, which fields
+fold, is the field nodes'. A filled field is no longer folded; emptied, it
+folds again. A row whose only fields are folded is still expandable, since
+it has a row to draw. Debug fields draw every field, the folded ones
+among them as empty slots.
+
 **Per kind.**
 
 - **text** is node text: it renders and edits through the same live preview
@@ -1254,7 +1278,7 @@ on the wire-snapshot array (inner key `rev` + ontology id), which is exact
 under optimistic local edits where `rev` does not move.
 
 **Scope filters content, never meaning.** A member's field and tag
-definitions — field name, type, cardinality, hidden flag, option set, tag
+definitions — field name, type, cardinality, show and pinned, option set, tag
 name and template, the label of a ref value — are schema, and schema is
 resolved against the whole graph whatever the scope. It is a type of its own:
 `lib/schema.ts`'s `SchemaIndex`, which only `schemaOf` produces, and every
@@ -2510,7 +2534,7 @@ Two questions that look like settings are actually questions about one node, and
 both are answered from the node ⌘K menu rather than from a device switch.
 
 - **Debug fields are per node.** "Show me the hidden props" (the fields whose
-  nodes say hidden, [DESIGN.md → Data model](DESIGN.md#data-model--everything-is-a-node))
+  nodes say show *never*, [DESIGN.md → Data model](DESIGN.md#data-model--everything-is-a-node))
   is asked of the node you are inspecting; a debug row is written wherever the
   system-write rule lets a person write it. `stores/debug-fields.store.ts` owns the set of
   node ids that answer yes, persisted with the same `loadIdSet`/`saveIdSet`
@@ -3233,6 +3257,35 @@ until "Save workspace".
     decode, an owner switched off, a view still loading. A view that throws
     is contained by its slot, as every view is (promise 3).
   - (`row-view.tsx`, `@kb/outline-ui`)
+- **Titles from fields.** A tagged node whose tag builds a title from
+  its fields (DESIGN.md → [Data model](DESIGN.md#data-model--everything-is-a-node),
+  tag behaviours, `nodeTitleOf`) is drawn by that title wherever the page
+  names it: its row while no one edits it (`NodeTextHost`'s `shown`, the
+  text drawn at rest; pressing it edits the stored text, the caret at its
+  end), a ref value's label, and the rows search and the node picker
+  answer. A `[[ref]]` pill draws the label written into the text, so one
+  the picker makes is labelled by the title it offered. Editing the row shows the stored text, the
+  person's, and the title follows what was typed once the row is left.
+  A row view draws over the title as it would over the text.
+- **A tag's box.** A node whose tag names a check (DESIGN.md →
+  [Data model](DESIGN.md#data-model--everything-is-a-node), tag
+  behaviours, `checkOf`) draws a box between its bullet and its text:
+  a button with `role="checkbox"`, `aria-checked`, and the check field's
+  name as its accessible name, drawn as a checkbox field's value is
+  (`CheckMark`). Pressing it, a click or a tap, writes
+  the field (`checkEdits`, one `node.update`, so one undo step), and
+  leaves focus, the caret and the scroll where they were; it never edits
+  the text. Reached by Tab, it answers Enter and Space, and Escape goes
+  back to its row, selected. ⌘Enter (Ctrl+Enter) toggles the box of the row being edited
+  or selected (`editing.toggle-check`, `selection.toggle-check`;
+  `split` and `edit` claim Enter without the command key). ⌘K's "Toggle
+  check" (`sys.cmd.toggle-check`) toggles the target row's box, and the
+  node menu offers "Check" or "Uncheck" on a row that has one. Each is
+  the one page write, `toggleCheck`, which says so when the row has no
+  box. A checked row's text reads as done: drawn in the muted secondary
+  text (`--muted-foreground`), a colour only, no strikethrough, so nothing
+  moves; the box's own change is a colour change of at most 150ms, none
+  under reduced motion.
 - **The zoom is a location.** The page's home is `/`, and zoomed to a node
   it is `/outline/<id>`; in an ontology's scope they are
   `/o/<s>/outline` and `/o/<s>/outline/<id>` (`outlinePath`,
