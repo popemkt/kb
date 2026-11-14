@@ -16,7 +16,7 @@
  */
 import { Effect } from "effect";
 import { NodeUpdateInputSchema, type ActionInterceptor, type InterceptedCall } from "@kb/contracts";
-import { IndexedNodes, projectPropEdits, type KbNode, type NodeLookup } from "@kb/model";
+import { IndexedNodes, projectPropEdits, type KbNode } from "@kb/model";
 import { DAYS_IDS } from "./ids.ts";
 import { keyValues, periodsOf } from "./period-key.ts";
 
@@ -28,7 +28,7 @@ import { keyValues, periodsOf } from "./period-key.ts";
 export function untaggedInput(
   input: unknown,
   nodes: readonly KbNode[],
-  nodeOf: NodeLookup,
+  nodeOf: (id: string) => KbNode | undefined,
 ): unknown {
   const parsed = NodeUpdateInputSchema.safeParse(input);
   // An input the action will refuse is the action's to refuse.
@@ -39,7 +39,7 @@ export function untaggedInput(
   const graph = IndexedNodes.of(nodes);
   let props: KbNode["props"];
   try {
-    props = projectPropEdits(graph, node.props, parsed.data);
+    props = projectPropEdits(graph, node, parsed.data);
   } catch {
     // A field the update names and the graph does not hold: the action fails on its own.
     return input;

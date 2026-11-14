@@ -481,7 +481,7 @@ export const nodeUpdateEffect = Effect.fn("node.update")(function* (
   yield* syncDomain(() => {
     if (input.text !== undefined) node.text = input.text;
     if (input.unsetProps !== undefined || input.setProps !== undefined)
-      node.props = projectPropEdits(graph(), node.props, input);
+      node.props = projectPropEdits(graph(), node, input);
   });
 
   // A placement is a move to `parent` (null: the forest roots), or — with

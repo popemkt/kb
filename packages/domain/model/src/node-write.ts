@@ -52,14 +52,17 @@ function applyProps(
   }
 }
 
-/** The props `props` become under `edits`, fields resolved in `nodes`; `props` is left as it was. */
+/**
+ * The props `node` holds under `edits`, fields resolved in `nodes`, the
+ * graph `node` sits in; `node` is left as it was.
+ */
 export function projectPropEdits(
   nodes: NodeGraph,
-  props: Readonly<Record<NodeId, readonly PropValue[]>>,
+  node: { readonly id: NodeId; readonly props: Readonly<Record<NodeId, readonly PropValue[]>> },
   edits: PropEdits,
 ): Record<NodeId, PropValue[]> {
   const out = Object.fromEntries(
-    Object.entries(props).map(([field, values]) => [field, [...values]]),
+    Object.entries(node.props).map(([field, values]) => [field, [...values]]),
   );
   for (const u of edits.unsetProps ?? []) {
     const fieldId = resolveFieldIn(nodes, u.field);
