@@ -5220,7 +5220,10 @@ A plugin can hold its own conversation with the connections of `kb ui`
   it lists no hosted family. A hosted action keeps every rule a registry
   action keeps: an id or alias the registry holds stays the registry's, and
   one that breaks a batch's or a context's rule is left out, each said on
-  stderr. `hosted-actions.test.ts` (`@kb/server`) holds it.
+  stderr. Its views are its host's the same way: the view catalog is every
+  family kernel's `ViewKeyPoint` (`familyViews`, `@kb/runtime`), so
+  `kb.manifest` lists a hosted family's views (the events' calendar) and
+  the page resolves and opens them as it does the registry's. `hosted-actions.test.ts` (`@kb/server`) holds both.
 - In the browser, `KbWsClient.listen` and `sendChannel` carry a channel. A
   frame sent while the socket is down is dropped rather than replayed,
   because the plugin forgets a connection that closes.
