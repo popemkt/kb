@@ -198,6 +198,27 @@ function valueKeys(values: readonly PropValue[]): Array<{ key: string; value: Pr
 }
 
 /**
+ * The keyboard leaves a node's fields for its row (`FieldHandle.leave`):
+ * `back` selects the row, `up` edits its text at the end, `down` edits the
+ * next row. Drawn under no row instance (a story, a test), it stays.
+ */
+function leaveFields(
+  nodeId: string,
+  instanceKey: string | undefined,
+  way: "up" | "down" | "back",
+): void {
+  if (instanceKey === undefined) return;
+  const s = useOutlineStore.getState();
+  if (way === "back") s.selectNode(nodeId, instanceKey);
+  else if (way === "up")
+    s.activateNode(nodeId, rowTextOf(outlineSource(), nodeId).text.length, instanceKey);
+  else {
+    const next = s.getNextVisibleInstance(instanceKey);
+    if (next !== null) s.activateNode(next.nodeId, 0, next.instanceKey);
+  }
+}
+
+/**
  * The field as a whole, as its slots see it (`FieldHandle`): writes, the
  * picker and new slots, and the keyboard's way in and out — out of the field
  * to the row it is drawn under, and back onto a value once it redraws.
@@ -247,17 +268,7 @@ function useFieldHandle({
     create: (creation, name) => browserHost().writes.createRefTarget(creation, name),
     openPicker: (query = "") => setPicker({ query }),
     addSlot: () => setPending((ids) => [...ids, (nextPending.current += 1)]),
-    leave: (way) => {
-      if (instanceKey === undefined) return;
-      const s = store();
-      if (way === "back") s.selectNode(nodeId, instanceKey);
-      else if (way === "up")
-        s.activateNode(nodeId, rowTextOf(outlineSource(), nodeId).text.length, instanceKey);
-      else {
-        const next = s.getNextVisibleInstance(instanceKey);
-        if (next !== null) s.activateNode(next.nodeId, 0, next.instanceKey);
-      }
-    },
+    leave: (way) => leaveFields(nodeId, instanceKey, way),
     claimKeyboard: () => {
       const s = store();
       if (s.selectedNodeId !== null || s.activeNodeId !== null) s.selectNode(null);
