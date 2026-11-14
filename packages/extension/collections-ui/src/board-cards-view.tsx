@@ -4,7 +4,6 @@ import {
   browserHost,
   Bullet,
   bulletClickIntent,
-  childInstanceKey,
   cn,
   EMPTY_GROUP_KEY,
   type FieldContext,
@@ -16,11 +15,8 @@ import {
   type NodeMap,
   NodeRow,
   nodeTarget,
-  outlineHostOfPane,
-  outlineInstanceKey,
   type OutlineNode,
   type PropValue,
-  queryResultInstanceKey,
   type RowCondition,
   resolveTableColumns,
   shownNode,
@@ -33,7 +29,6 @@ import {
   useIsActive,
   useIsSelected,
   usePageGraph,
-  usePane,
   usePrefs,
   BREAKOUT_CLASS,
   useBreakoutShift,
@@ -75,7 +70,7 @@ export function BoardCardsView({
   context: contextProp,
   widthPref: widthPrefProp,
 }: BoardCardsViewProps) {
-  const { frameId, instanceKey: frameInstanceKey, rowIds, isQuerySource, RowText } = frame;
+  const { frameId, rowIds, isQuerySource, RowText, rowKey: instanceKeyFor } = frame;
   const Field = useFieldEditor();
   const generation = usePageGraph((s) => s.index?.generation ?? 0);
   const graph = useGraphRead();
@@ -90,9 +85,6 @@ export function BoardCardsView({
   const debugColumns = useDebugFields(frameId);
   const storeWidth = usePrefs((prefs) => prefs.width);
   const widthPref = widthPrefProp ?? storeWidth;
-
-  const host = outlineHostOfPane(usePane());
-  const baseInstanceKey = frameInstanceKey ?? outlineInstanceKey(frameId, nodes, host);
 
   // Column names and every field shown are schema, read from the whole graph
   // (`lib/schema.ts`), whatever projection the rows come from.
@@ -113,14 +105,6 @@ export function BoardCardsView({
   const displayCols = useMemo(
     () => resolveTableColumns(view.params, sorted, schema, debugColumns),
     [view.params, sorted, schema, debugColumns],
-  );
-
-  const instanceKeyFor = useCallback(
-    (nodeId: string) =>
-      isQuerySource
-        ? queryResultInstanceKey(frameId, nodeId)
-        : childInstanceKey(baseInstanceKey, nodeId),
-    [isQuerySource, frameId, baseInstanceKey],
   );
 
   const [dragNodeId, setDragNodeId] = useState<string | null>(null);

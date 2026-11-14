@@ -46,6 +46,12 @@ export interface FrameSubject {
   /** Query-result rows, which replace the frame's children. */
   readonly rowIds?: readonly string[] | undefined;
   readonly isQuerySource: boolean;
+  /**
+   * The instance the frame's row `nodeId` is drawn at: a query's result under
+   * the query, a child under the frame's instance. The one place a view, the
+   * walk and a new row's caret read a row's instance from.
+   */
+  readonly rowKey: (nodeId: string) => string;
   /** The indent level of the frame's rows. */
   readonly depth: number;
   /** How many pages of the frame's rows are revealed (`frameRows`' `pages`). */

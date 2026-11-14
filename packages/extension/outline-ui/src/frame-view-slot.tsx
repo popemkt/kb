@@ -5,6 +5,7 @@ import {
   type FrameRowProps,
   FrameSubjectContext,
   indentStyle,
+  outlineHostOfPane,
   type OutlineNode,
   schemaOf,
   shownNode,
@@ -12,6 +13,7 @@ import {
   useFrameViewNode,
   useGraphRead,
   usePageGraph,
+  usePane,
   ViewNotLoaded,
   ViewSlot,
   ViewUnavailable,
@@ -129,14 +131,16 @@ export function FrameViewSlot({
   // rows its keyboard walk reaches.
   const pages = useOutlineStore((s) => s.framePages[frameId] ?? 1);
   const detail = useOutlineStore((s) => s.frameDetails[frameId] ?? null);
+  const host = outlineHostOfPane(usePane());
   const subject = useMemo(
     () =>
       outlineFrameSubject(
         { frameId, isQuerySource, depth, instanceKey, rowIds, RowChildren },
         pages,
         detail,
+        host,
       ),
-    [frameId, instanceKey, rowIds, isQuerySource, depth, pages, detail],
+    [frameId, instanceKey, rowIds, isQuerySource, depth, pages, detail, host],
   );
   return (
     <FrameSubjectContext.Provider value={subject}>

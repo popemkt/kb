@@ -11,7 +11,6 @@ import {
   browserHost,
   Bullet,
   bulletClickIntent,
-  childInstanceKey,
   cn,
   type FieldContext,
   frameRows,
@@ -20,10 +19,7 @@ import {
   isReferenceRow,
   NodeRow,
   nodeTarget,
-  outlineHostOfPane,
-  outlineInstanceKey,
   type OutlineNode,
-  queryResultInstanceKey,
   resolveProps,
   shownNode,
   shownNodeId,
@@ -35,7 +31,6 @@ import {
   useIsActive,
   useIsSelected,
   usePageGraph,
-  usePane,
 } from "@kb/ui-sdk";
 import { detailRowOf, type ParamsOf } from "@kb/views";
 import { CollectionDetailView } from "@kb/collections";
@@ -48,7 +43,7 @@ export function DetailView({
   readonly frame: FrameSubject;
   readonly params: ParamsOf<typeof CollectionDetailView>;
 }) {
-  const { frameId, rowIds, isQuerySource } = frame;
+  const { frameId, rowIds } = frame;
   const graph = useGraphRead();
   const generation = usePageGraph((s) => s.index?.generation ?? 0);
   const nodes = graph.outline;
@@ -58,10 +53,7 @@ export function DetailView({
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- generation gates the store map's identity
     [frameId, nodes, graph.schema, view, rowIds, generation],
   );
-  const host = outlineHostOfPane(usePane());
-  const base = frame.instanceKey ?? outlineInstanceKey(frameId, nodes, host);
-  const keyFor = (id: string) =>
-    isQuerySource ? queryResultInstanceKey(frameId, id) : childInstanceKey(base, id);
+  const keyFor = frame.rowKey;
   const shownId = detailRowOf(
     rows.map((row) => row.id),
     frame.detail,

@@ -4,7 +4,6 @@ import {
   Bullet,
   copyText,
   bulletClickIntent,
-  childInstanceKey,
   cn,
   type FieldContext,
   type FieldEditorProps,
@@ -13,10 +12,7 @@ import {
   type NodeMap,
   NodeRow,
   nodeTarget,
-  outlineHostOfPane,
-  outlineInstanceKey,
   type OutlineNode,
-  queryResultInstanceKey,
   type SchemaIndex,
   resolveRowChrome,
   resolveTableColumns,
@@ -30,7 +26,6 @@ import {
   useGraphRead,
   useIsActive,
   useIsSelected,
-  usePane,
   usePrefs,
   BREAKOUT_CLASS,
   useBreakoutShift,
@@ -69,15 +64,7 @@ export function TableView({
   context: contextProp,
   widthPref: widthPrefProp,
 }: TableViewProps) {
-  const {
-    frameId,
-    instanceKey: frameInstanceKey,
-    rowIds,
-    isQuerySource,
-    pages,
-    revealMorePages,
-    RowText,
-  } = frame;
+  const { frameId, rowKey, rowIds, pages, revealMorePages, RowText } = frame;
   const Field = useFieldEditor();
   const graph = useGraphRead();
   const nodes = nodesProp ?? graph.outline;
@@ -87,9 +74,6 @@ export function TableView({
   const debugColumns = useDebugFields(frameId);
   const storeWidth = usePrefs((prefs) => prefs.width);
   const widthPref = widthPrefProp ?? storeWidth;
-
-  const host = outlineHostOfPane(usePane());
-  const baseInstanceKey = frameInstanceKey ?? outlineInstanceKey(frameId, nodes, host);
 
   // Column names and every field shown are schema, read from the whole graph
   // (`lib/schema.ts`), whatever projection the rows come from.
@@ -235,9 +219,7 @@ export function TableView({
         </thead>
         <tbody>
           {displayedChildren.map((child) => {
-            const childKey = isQuerySource
-              ? queryResultInstanceKey(frameId, child.id)
-              : childInstanceKey(baseInstanceKey, child.id);
+            const childKey = rowKey(child.id);
             return (
               <TableRow
                 key={childKey}

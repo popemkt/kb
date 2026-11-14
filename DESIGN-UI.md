@@ -2956,7 +2956,10 @@ how the stored name resolves to the key among them.
   view a plugin provides is walked and offered while it is loaded and not
   after. The frame a view shows (its id, instance key, query rows
   and depth) is not config, so it travels in the host's `FrameSubject`
-  context (`@kb/ui-sdk`'s `lib/frame-subject.ts`). The subject also carries
+  context (`@kb/ui-sdk`'s `lib/frame-subject.ts`). The host says which
+  instance each of the frame's rows is drawn at (`rowKey`: a query's result
+  under the query, a child under the frame's instance), so every view, the
+  walk and a new row's caret name a row alike. The subject also carries
   what the host draws each row with: a view lays the rows out, and the host
   edits each row's text (`RowText`) and keeps how many pages of them are
   revealed (`pages`, `revealMorePages`) and which row a detail view shows
