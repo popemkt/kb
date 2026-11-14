@@ -7,7 +7,7 @@
 // and over a table are written beside the run.
 import { FIELD_TYPE_OPTION_IDS } from "@kb/model";
 import type { Locator, Page } from "playwright/test";
-import { expect, test } from "./harness-test.ts";
+import { expect, settledBox, test } from "./harness-test.ts";
 
 const ROOT = "render.fixture.root";
 const FRAME = "vs.frame";
@@ -101,17 +101,17 @@ test("a frame's group, fields and page size are set from its view settings", asy
   if (await gear.isVisible()) await gear.click();
   await toolbar.locator('[data-mode-button="board"]').click();
 
-  // A board with no group field asks for one, and the popover sets it.
+  // A board with no group field lays its rows out as lanes; the popover groups it.
   const board = page.locator(`[data-board-cards-view][data-frame-id="${FRAME}"]`).first();
-  await expect(board).toHaveAttribute("data-board-empty", "true");
-  await board.locator('[data-choose-group="true"]').click();
+  await expect(board).toHaveAttribute("data-lanes", "true");
+  await toolbar.locator('[data-view-settings-button="true"]').click();
   const popover = page.getByTestId("view-settings-popover");
   const sections = popover.locator(`[data-view-settings-sections="${FRAME}"]`);
   await expect(sections).toBeVisible();
   // A board declares a group field and fields, and no page size.
   await expect(sections.locator('[data-qb-slot="page size"]')).toHaveCount(0);
   await pick(sections, page, "group by", "status");
-  await expect(board).not.toHaveAttribute("data-board-empty", "true");
+  await expect(board).not.toHaveAttribute("data-lanes", "true");
   await expect(sections.locator('[data-qb-slot="group by"]')).toHaveAttribute(
     "aria-label",
     "group by: status",
@@ -157,4 +157,50 @@ test("a frame's group, fields and page size are set from its view settings", asy
   const stored = JSON.stringify(await response.json());
   expect(stored).toContain("vs.f.owner");
   expect(errors).toEqual([]);
+});
+
+test.describe("in a narrow pane", () => {
+  test.use({ viewport: { width: 360, height: 780 } });
+
+  test("a page head's view toolbar stays one row of glyphs, its settings in reach", async ({
+    page,
+    request,
+  }) => {
+    const response = await request.post("/api/action", {
+      data: {
+        id: "node.add",
+        input: { id: FRAME, text: "Reading notes", parent: ROOT, position: 0 },
+      },
+    });
+    expect((await response.json()).status).toBe("succeeded");
+    await page.goto(`/node/${FRAME}`);
+    const toolbar = page.locator(`[data-view-toolbar][data-frame-id="${FRAME}"]`).first();
+    const gear = page.locator(`[data-view-toolbar-gear][data-frame-id="${FRAME}"]`).first();
+    await expect(toolbar.or(gear)).toBeVisible();
+    if (await gear.isVisible()) await gear.click();
+    await toolbar.locator('[data-mode-button="table"]').click();
+
+    const title = await settledBox(page.locator('[data-zoom-title="true"]').first());
+    const settings = await settledBox(toolbar.locator('[data-view-settings-button="true"]'));
+    const bar = await settledBox(toolbar);
+    // The title keeps its words whole (never a letter a line), and nothing leaves the pane.
+    expect(title.width).toBeGreaterThan(60);
+    // One row of glyphs, each still named: the control never splits.
+    const modes = toolbar.locator("[data-mode-button]");
+    const tops = new Set<number>();
+    for (const mode of await modes.all()) {
+      tops.add(Math.round((await settledBox(mode)).y));
+      expect(await mode.getAttribute("aria-label")).not.toBe("");
+    }
+    expect(tops.size).toBe(1);
+    // The gear is on that row too (it is a little taller than a mode button).
+    const [top = Number.NaN] = tops;
+    expect(Math.abs(settings.y - top)).toBeLessThan(4);
+    await expect(toolbar.locator('[data-mode-button="table"]')).toHaveAccessibleName("Table");
+    expect(bar.x + bar.width).toBeLessThanOrEqual(360);
+    expect(settings.x + settings.width).toBeLessThanOrEqual(360);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      360,
+    );
+  });
 });

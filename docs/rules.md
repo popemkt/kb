@@ -74,6 +74,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — every known root has run views.migrate; then delete LegacyDocsViewsPort and readLegacyDocsViews
 - **node** — `01M3YM5YCHGX6S04KN4G75B9RF`
 
+### GAP: ⌘⇧←/→ moves only the selection's head to the next group, not a range's rows
+
+- **expected** — Over a range, the group move acts on the rows as DESIGN-UI.md → A selection is a range of rows says: it sets a field, so on each selected row (or, as a move, on the top rows), in one write
+- **current** — selection-actions' moveToGroup writes PageWrites.moveToGroup(nodeId, …) for the head alone; the other rows of the range stay in their groups
+- **impact** — A range on a board or calendar moved with ⌘⇧←/→ splits: the head moves and the rest stay, unlike Tab, the moves up and down, and Check
+- **closes** — Decide each-row vs top-rows for the group move; PageWrites.moveToGroup takes ids, as moveNodesUp did, planned as one node.batch; a range test through the keymap
+- **node** — `01M7DNQY8PGW8XKYKMTQT45DEQ`
+
 ### GAP: ⌘K "Open location…" opens the home store instead of listing locations in the palette
 
 - **expected** — ⌘K "Open location…" lists the location rows as a palette step and opens the one picked.
@@ -130,6 +138,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Such a backdrop could cost the page more than it declares and nothing would say so; the studio shows its readout as not metered.
 - **closes** — A frame meter over the DOM backdrops (a PerformanceObserver over long animation frames under the head) and over the Unicorn runtime's loop, reporting data-frame-ms as the GPU host does.
 - **node** — `01M6RT9R6AXGVYZWCSTG26EET8`
+
+### GAP: a board wider than its pane cuts its last columns off with no sign that it scrolls
+
+- **expected** — a board whose columns run past the pane shows that more lie beyond it: an edge fade or a scroll hint on the side that scrolls, gone at the end
+- **current** — the board scrolls sideways (overflow-x-auto) and cuts the last column at the pane edge with nothing showing more is there; main does this too, and every option now having a column (Tana views line) makes it more often
+- **impact** — at 1280px the Blocked and No Status columns of a four-option board are cut off and look missing
+- **closes** — one edge-fade mechanism for horizontal scrollers in the kit, read by the board (and lanes and cards)
+- **node** — `01M7DAJSTW3PP7375FECAA2DHS`
 
 ### GAP: a call's actor and approval are declared by the caller, not proven
 
@@ -699,6 +715,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — an in-page approval prompt shared with the sidebar agent (roadmap step 5)
 - **node** — `01M3S5DDJ7MP2VZ4WJB007RRR5`
 
+### GAP: an empty number slot draws its editor starter, 0, as if it were a value
+
+- **expected** — an empty number field reads as empty (the italic "Empty" a status or text slot shows), and the editor opens on a blank input
+- **current** — the number kind starts its editor from {t:num, v:0} (FIELD_TYPE_SPEC in ui-sdk lib/field-type.ts) and its isBlank reads that as filled, so every empty number slot shows 0; the Add field palette step also writes that 0 to make the row appear
+- **impact** — a card or row reads Points 0 where nothing is stored; a reviewer took a new board card for one with a value set
+- **closes** — split the starter an editor shows from the value Add field writes: the number slot draws blank when no value is stored, and the Add field step writes what makes an empty row appear without a number
+- **node** — `01M7DAJCF878DEPVQHE6R7FJT9`
+
 ### GAP: an exported canvas SVG carries the default design system's tokens
 
 - **expected** — An exported SVG carries the token values of the design system core's setting chooses.
@@ -887,8 +911,8 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 ### GAP: core seeds the view-as command nodes for every family's views
 
-- **expected** — each family seeds the node commands for its own views (the outline its list, collections its table, board and cards)
-- **current** — core's seed declares sys.cmd.view-as-{list,table,board,cards}
+- **expected** — each family seeds the node commands for its own views (the outline its list, collections its table, board, cards and list with detail)
+- **current** — core's seed declares sys.cmd.view-as-{list,table,board,cards,detail}
 - **impact** — core names the outline's and the collections family's views; with collections off its view-as commands are still seeded
 - **closes** — each family's declaration seeds its view-as commands, and core's seed drops them
 - **node** — `01M536CGS8JJ7XMG3F738WSNYK`

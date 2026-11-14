@@ -105,6 +105,8 @@ function selectionBinding(
 const SELECTION_KEYS: readonly ContributionEntry<Keybinding>[] = [
   selectionBinding("move-up", { key: "ArrowUp", mod: true, shift: true }),
   selectionBinding("move-down", { key: "ArrowDown", mod: true, shift: true }),
+  selectionBinding("move-to-group-before", { key: "ArrowLeft", mod: true, shift: true }),
+  selectionBinding("move-to-group-after", { key: "ArrowRight", mod: true, shift: true }),
   selectionBinding("zoom", { key: ".", mod: true }),
   selectionBinding("up", { key: "ArrowUp", mod: false, shift: false }),
   selectionBinding("down", { key: "ArrowDown", mod: false, shift: false }),
@@ -129,7 +131,7 @@ const SELECTION_KEYS: readonly ContributionEntry<Keybinding>[] = [
 /**
  * The outline's selection keys, as its contributions to `ui.keybindings`
  * (DESIGN-REFINE §2 W1; r1 §3.2 Mode B). No two chords overlap. Every
- * binding but ⌘⇧↑/↓ and ⌘. says `mod: false`, so any other command chord
+ * binding but ⌘⇧↑/↓, ⌘⇧←/→ and ⌘. says `mod: false`, so any other command chord
  * resolves to nothing and stays the browser's or the shell's. Typing over a
  * selected row edits it with the character appended: any printable key but
  * those the bindings above claim, with Alt excluded so Alt-composed glyphs

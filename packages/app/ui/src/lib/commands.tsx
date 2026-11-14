@@ -534,7 +534,7 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     }),
     run: (ctx) => {
       const ids = [...new Set(shownIdsOf(ctx))];
-      copyText(ids.join("\n"), ids.length > 1 ? `${ids.length} node IDs` : "Node ID");
+      void copyText(ids.join("\n"), ids.length > 1 ? `${ids.length} node IDs` : "Node ID");
       ctx.palette.close();
     },
   },

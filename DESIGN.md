@@ -1530,9 +1530,9 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   into it). Being a view node is its `sys.f.view`, never membership in that
   list; a view node filed anywhere else is as much one.
 - **A frame's view is the first frame view node it names.** Which of the
-  frame views (list, table, board, cards) shows a frame's children, and with
+  frame views (list, table, board, cards, list with detail) shows a frame's children, and with
   which settings (`sys.f.view.sort`, `…display`, `…colwidth`, `…pagesize`,
-  `…group`, `…filter`), is the first view node in its `sys.f.views` whose
+  `…group`, `…collapsed`, `…hideEmpty`, `…calc`, `…filter`), is the first view node in its `sys.f.views` whose
   view is of the frame family (`familyViewIdOf`, read from the option's
   `sys.f.view.family`): its `sys.f.view` and its params. That is the
   frame's default unless it names a view of another kind first (a snippet,
@@ -2413,6 +2413,27 @@ same lane. One path to a client, whatever a node's provenance.
   `compile(lowerIr(…))` on generated graphs, node for node. The design and
   its review:
   [`docs/brainstorms/2026-10-20-query-builder`](docs/brainstorms/2026-10-20-query-builder/README.md).
+- **What a match requires** (`ir/requirements.ts`, `requirementsOf`) is
+  the conditions read the other way: not which nodes hold them, but what a
+  new node must carry to hold them. It reads the canonical list's top-level
+  rows, ANDed, and nothing else, because only those say one thing a write
+  can do: `has-tag` gives the tag; `field-is` with one value gives the
+  value (a node or a literal as it is; a `label` read by the field: one of
+  its options or a node whose id it is, for a field that holds nodes, else
+  the literal of the field's type); `child-of` gives the parent. Every
+  other row and group (a negation, a choice between values or branches, a
+  range, a text match, a reach) is a condition a write cannot choose for a
+  person: it is counted as `unmet` and left alone, never guessed at. Two
+  rows that ask for different single values of a one-value field, or two
+  parents, are unmet too. `requirementsOf` is pure; its law, in
+  `requirements.test.ts`, is that a node made with what it gives holds
+  every condition it did not count unmet (`conditionsMatcher`).
+  `node.add`'s `matching` (a query node) adds what its query requires,
+  so `kb add "…" --matching <query>`, an MCP call and the page's "+ Add"
+  in a query's results or a view's group make one node one way
+  (DESIGN-UI.md → Adding to a frame). The receipt says how many
+  conditions were left unmet; a query that does not lift requires nothing
+  and is one unmet condition, so a caller can say the node may not show.
 - **A number stays a number when the query parses.** A ref prop and a number
   prop are both stored as a bare number (GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]),
   so a result value that equals a live eid could be either. For a query in
@@ -3897,7 +3918,7 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
   half. There is never a second switch in the browser.
   - **Which families can be switched.** Every family but a required one.
     The outline, the collections (the
-    table, board and cards frame views), canvas, chart, code, the page-head
+    table, board, cards and list-with-detail frame views), canvas, chart, code, the page-head
     backdrops (DESIGN-UI.md → Page-head backdrops), the themes (DESIGN-UI.md
     → Design tokens → Design systems) and the agent are
     on by default; the lab and the gallery
@@ -4850,7 +4871,7 @@ answers `{canvasId, items, edges, reported}`.
 
 | Action                                                                       | Mode  | Does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | ---------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `node.add`                                                                   | write | create (text, props by field name/id, parent, position, tags)                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `node.add`                                                                   | write | create (text, props by field name/id, parent, position, tags, and `matching`: what a query node requires, [What a match requires](#query-layer-horizontal))                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `node.addTree`                                                               | write | create a whole outline from outline paste text in one transaction (`kb add --outline`; [Outline paste](#outline-paste--nodeaddtree))                                                                                                                                                                                                                                                                                                                                                        |
 | `node.batch`                                                                 | write | several `node.add` / `node.update` / `node.delete` calls as one transaction, each planned over what the ones before it wrote ([Batches of writes](#batches-of-writes--nodebatch)) |
 | `node.update`                                                                | write | edit text / set-unset props / move                                                                                                                                                                                                                                                                                                                                                                                                                                                          |

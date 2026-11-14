@@ -816,6 +816,7 @@
       "name": "@kb/collections-ui",
       "version": "0.0.0",
       "dependencies": {
+        "@kb/calendar-kit": "workspace:*",
         "@kb/collections": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
@@ -1163,6 +1164,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/appearance-kit": "workspace:*",
+        "@kb/calendar-kit": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/keybindings": "workspace:*",
         "@kb/model": "workspace:*",
@@ -1238,6 +1240,7 @@
       "name": "@kb/routines-ui",
       "version": "0.0.0",
       "dependencies": {
+        "@kb/calendar-kit": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
@@ -1528,6 +1531,20 @@
         "vitest": "catalog:",
       },
     },
+    "packages/kit/calendar-kit": {
+      "name": "@kb/calendar-kit",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/model": "workspace:*",
+        "react": "catalog:",
+      },
+      "devDependencies": {
+        "@types/react": "catalog:",
+        "happy-dom": "catalog:",
+        "vite-plus": "catalog:",
+        "vitest": "catalog:",
+      },
+    },
     "packages/kit/scene": {
       "name": "@kb/scene",
       "version": "0.0.0",
@@ -1559,6 +1576,7 @@
       "name": "@kb/ui-sdk",
       "version": "0.0.0",
       "dependencies": {
+        "@kb/calendar-kit": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/keybindings": "workspace:*",
         "@kb/model": "workspace:*",
@@ -1979,6 +1997,8 @@
     "@kb/backdrops-ui": ["@kb/backdrops-ui@workspace:packages/extension/backdrops-ui"],
 
     "@kb/bundled": ["@kb/bundled@workspace:packages/app/bundled"],
+
+    "@kb/calendar-kit": ["@kb/calendar-kit@workspace:packages/kit/calendar-kit"],
 
     "@kb/canvas": ["@kb/canvas@workspace:packages/extension/canvas"],
 

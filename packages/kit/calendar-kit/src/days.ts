@@ -1,7 +1,8 @@
 /**
- * The calendar's days: the range each layout shows around the day it is open
+ * A calendar's days: the range each layout shows around the day it is open
  * at, a step back or on, and how a range is titled. Pure arithmetic on local
- * days (`@kb/model`'s civil calendar); weeks start on Monday.
+ * days (`@kb/model`'s civil calendar); weeks start on Monday. The one
+ * statement of them every calendar reads (DESIGN-UI.md → Calendar).
  */
 import {
   addDays,
@@ -13,7 +14,6 @@ import {
   weekday,
   type LocalDate,
 } from "@kb/model";
-import type { CalendarMode } from "@kb/routines";
 
 export const WEEKDAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 const MONTH_SHORT = [
@@ -44,6 +44,9 @@ const MONTH_LONG = [
   "November",
   "December",
 ];
+/** The ranges a calendar lays its days out over. */
+export type CalendarSpan = "day" | "week" | "month" | "agenda";
+
 /** How many days the agenda lists from the day it is open at. */
 const AGENDA_DAYS = 14;
 
@@ -64,8 +67,9 @@ export function weekStartOf(day: string): string {
 }
 
 /** The days a layout shows when open at `anchor`, first to last. */
-export function daysOf(mode: CalendarMode, anchor: string): readonly string[] {
+export function daysOf(mode: CalendarSpan, anchor: string): readonly string[] {
   const local = date(anchor);
+  if (mode === "day") return [formatDay(local)];
   if (mode === "agenda")
     return Array.from({ length: AGENDA_DAYS }, (_, i) => formatDay(addDays(local, i)));
   if (mode === "week") {
@@ -79,11 +83,14 @@ export function daysOf(mode: CalendarMode, anchor: string): readonly string[] {
   return Array.from({ length: weeks * 7 }, (_, i) => formatDay(addDays(start, i)));
 }
 
+/** How many days a step moves a layout that is not a month. */
+const STEP_DAYS = { day: 1, week: 7, agenda: AGENDA_DAYS } as const;
+
 /** The day a step back (-1) or on (1) opens at. */
-export function stepAnchor(mode: CalendarMode, anchor: string, direction: 1 | -1): string {
+export function stepAnchor(mode: CalendarSpan, anchor: string, direction: 1 | -1): string {
   const local = date(anchor);
   if (mode === "month") return formatDay(addMonths({ ...local, day: 1 }, direction));
-  return formatDay(addDays(local, direction * (mode === "week" ? 7 : AGENDA_DAYS)));
+  return formatDay(addDays(local, direction * STEP_DAYS[mode]));
 }
 
 /** A day as `Nov 4`. */
@@ -108,12 +115,13 @@ export function sameMonth(day: string, anchor: string): boolean {
 }
 
 /** What the toolbar calls the range a layout shows at `anchor`. */
-export function titleOf(mode: CalendarMode, anchor: string): string {
+export function titleOf(mode: CalendarSpan, anchor: string): string {
   const local = date(anchor);
   if (mode === "month") return `${MONTH_LONG[local.month - 1] ?? ""} ${String(local.year)}`;
-  const days = daysOf(mode, anchor);
-  const first = days[0] ?? anchor;
-  const last = days[days.length - 1] ?? anchor;
+  if (mode === "day") return `${longDay(anchor)}, ${String(local.year)}`;
+  const range = daysOf(mode, anchor);
+  const first = range[0] ?? anchor;
+  const last = range[range.length - 1] ?? anchor;
   const end = sameMonth(first, last) ? String(dayOfMonth(last)) : shortDay(last);
   return `${shortDay(first)} – ${end}, ${last.slice(0, 4)}`;
 }

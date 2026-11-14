@@ -9,8 +9,8 @@
  * A write that cannot be made says why itself (a toast) and resolves; none
  * rejects for a refusal.
  */
-import type { FieldType } from "@kb/model";
-import type { FrameViewKey, SortSpec, ViewFilter } from "@kb/views";
+import type { FieldType, Writable } from "@kb/model";
+import type { FrameViewKey, ViewConfig, ViewFilter } from "@kb/views";
 import type { RefCreation } from "./refs";
 import type { PropValue } from "./types";
 
@@ -18,6 +18,15 @@ import type { PropValue } from "./types";
 export interface MovePlace {
   readonly parent: string | null;
   readonly after?: string | null;
+}
+
+/** What `addMatchingNode` gives the node it mints: `node.add`'s place and carriers. */
+export interface MatchingAdd {
+  readonly parent?: string;
+  /** A query node whose requirements it takes (`node.add`'s `matching`). */
+  readonly matching?: string;
+  readonly tags: readonly string[];
+  readonly props: readonly { readonly field: string; readonly value: PropValue }[];
 }
 
 export interface PageWrites {
@@ -54,6 +63,15 @@ export interface PageWrites {
   ) => Promise<string | null>;
   /** Mint an empty sibling directly ABOVE the anchor and activate it ('O' key). */
   readonly createEmptyNodeBefore: (beforeId: string) => Promise<string | null>;
+  /**
+   * Mint a real empty node that carries what it was asked for, as one
+   * `node.add` (one undo step): under `parent`, else where
+   * `matching`'s query places it, else where captures go (DESIGN-UI.md →
+   * Adding to a frame). Its id and how many of the query's conditions it
+   * does not hold, or null when refused. The caller opens it where it draws
+   * it, which only the caller knows.
+   */
+  readonly addMatchingNode: (add: MatchingAdd) => Promise<{ id: string; unmet: number } | null>;
   readonly addTagField: (tagId: string, fieldId: string) => Promise<void>;
   readonly removeTagField: (tagId: string, fieldId: string) => Promise<void>;
   readonly setTagColor: (tagId: string, color: string | null) => Promise<void>;
@@ -213,18 +231,24 @@ export interface PageWrites {
   /** Show a frame's children in `view`: its frame view node names the view's option. */
   readonly setFrameView: (frameId: string, view: FrameViewKey) => Promise<void>;
   readonly replaceField: (nodeId: string, fieldId: string, values: PropValue[]) => Promise<void>;
-  readonly setViewSort: (frameId: string, sortSpecs: SortSpec[]) => Promise<void>;
+  /**
+   * Store one of a frame's view settings on its frame view node, written by
+   * the setting's slot (`frameSettingWrite`), so it reads back as written.
+   */
+  readonly setFrameSetting: <K extends keyof ViewConfig>(
+    frameId: string,
+    key: K,
+    value: Writable<ViewConfig[K]>,
+  ) => Promise<void>;
   readonly toggleViewSort: (frameId: string, fieldId: string) => Promise<void>;
-  readonly setViewDisplay: (frameId: string, displayFieldIds: string[]) => Promise<void>;
   readonly setColumnWidth: (frameId: string, fieldId: string, widthPx: number) => Promise<void>;
-  readonly setViewPagesize: (frameId: string, pagesize: number) => Promise<void>;
-  readonly setViewGroup: (frameId: string, fieldId: string | null) => Promise<void>;
   readonly addViewFilter: (frameId: string, filter: ViewFilter) => Promise<void>;
   readonly removeViewFilter: (frameId: string, filter: ViewFilter) => Promise<void>;
-  readonly moveBoardCard: (
-    nodeId: string,
-    fieldId: string,
-    oldValue: PropValue | null,
-    newValue: PropValue | null,
-  ) => Promise<void>;
+  /**
+   * Move a row to a group of a grouped view (DESIGN-UI.md → Groups): its
+   * values of `fieldId` become `value`, or none for "No <field>", in one
+   * write; a row already in that group is left as it is. The one way a
+   * drag or a key moves a row between groups.
+   */
+  readonly moveToGroup: (nodeId: string, fieldId: string, value: PropValue | null) => Promise<void>;
 }

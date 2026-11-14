@@ -11,7 +11,7 @@ import { cn } from "@kb/ui-sdk";
 import { nextEntry } from "@kb/routines";
 import { useCalendarActions } from "./actions";
 import { useCalendarClock } from "./clock";
-import { todayIn } from "./dates";
+import { todayIn } from "@kb/calendar-kit";
 import { EVENT_BOX_WIDTH, EventCard } from "./event-card";
 import { useCalendarGraph } from "./model";
 import { RoutineEditor } from "./routine-editor";

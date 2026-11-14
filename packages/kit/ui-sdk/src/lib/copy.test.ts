@@ -25,16 +25,16 @@ describe("a copy said in a toast", () => {
       written.push(text);
       return Promise.resolve();
     });
-    copyText("01ABC", "Node ID");
-    await vi.waitFor(() => expect(said).toEqual(["Node ID copied"]));
+    expect(await copyText("01ABC", "Node ID")).toBe(true);
+    expect(said).toEqual(["Node ID copied"]);
     expect(kinds).toEqual(["info"]);
     expect(written).toEqual(["01ABC"]);
   });
 
-  it("says it could not, naming what mid-sentence with its initialism kept", async () => {
+  it("says it could not and what to do, naming what mid-sentence with its initialism kept", async () => {
     stubClipboard(() => Promise.reject(new Error("denied")));
-    copyText("01ABC", "Node ID");
-    await vi.waitFor(() => expect(said).toEqual(["Could not copy the node ID"]));
+    expect(await copyText("01ABC", "Node ID")).toBe(false);
+    expect(said).toEqual(["Couldn't copy the node ID: select it and copy it by hand"]);
     expect(kinds).toEqual(["error"]);
   });
 });

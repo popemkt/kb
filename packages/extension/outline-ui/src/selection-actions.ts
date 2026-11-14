@@ -179,6 +179,13 @@ const SELECTION_STEPS: SelectionSteps = {
   outdent: ({ nodeId }) => arrange((ids) => browserHost().writes.outdentNodes(ids), nodeId),
   moveUp: ({ nodeId }) => arrange((ids) => browserHost().writes.moveNodesUp(ids), nodeId),
   moveDown: ({ nodeId }) => arrange((ids) => browserHost().writes.moveNodesDown(ids), nodeId),
+  // The selection stays on the row: its instance does not name its group.
+  // The head alone, not a range's rows. GAP [[01M7DNQY8PGW8XKYKMTQT45DEQ]]
+  moveToGroup: ({ nodeId, fieldId, value, frameId, opens }) => {
+    void browserHost().writes.moveToGroup(nodeId, fieldId, value);
+    if (opens !== undefined) useOutlineStore.getState().showDay(frameId, opens);
+    scrollRowIntoView(nodeId);
+  },
   zoom,
   createAfter,
   createBefore: ({ nodeId }) => void createNodeBefore(nodeId),

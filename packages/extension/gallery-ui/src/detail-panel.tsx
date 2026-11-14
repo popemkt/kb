@@ -25,7 +25,7 @@ function CopyLine({ label, text }: { readonly label: string; readonly text: stri
         <button
           type="button"
           className="text-label text-foreground/55 hover:text-foreground/85"
-          onClick={() => copyText(text, label)}
+          onClick={() => void copyText(text, label)}
         >
           Copy
         </button>

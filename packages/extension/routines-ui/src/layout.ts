@@ -12,7 +12,7 @@ import {
   type CalendarEntry,
   type Place,
 } from "@kb/routines";
-import { shortDay } from "./dates";
+import { shortDay } from "@kb/calendar-kit";
 
 /** How tall an hour of the week grid is, in pixels; every drag reads minutes off it. */
 export const HOUR_PX = 48;

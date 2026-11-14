@@ -64,9 +64,10 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // Procedure actions may carry an optional destructive tone; prior pages ignore it.
 // `node.batch` is a new action: a previous page never calls it, and writes a
 // selection's rows one call at a time, as it did.
+// node.add takes an optional `matching` query and may answer `unmet`; older pages send neither.
 const RECORDED = {
   protocol: 9,
-  fingerprint: "0f3f0eacf3704d580219a0e5d0ccfe6341712233388a133f48eaa9a443adfb2e",
+  fingerprint: "d75d608b2eb6a172c88d53843848d397bf99f515859c56c88305a5444bcfa578",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

@@ -286,6 +286,7 @@ export {
   groupChildrenForBoard,
   resolveTableColumns,
   sortChildrenForTable,
+  type GroupSteps,
   type TableColumnSpec,
 } from "./lib/frame-layout";
 export { frameRows, type FrameRowsInput } from "./lib/frame-rows";
@@ -314,12 +315,14 @@ export {
   useFieldEditor,
 } from "./lib/field-editor";
 export {
+  type FrameRowProps,
   type FrameRowTextProps,
   type FrameSubject,
   FrameSubjectContext,
+  type RowCondition,
   useFrameSubject,
 } from "./lib/frame-subject";
-export { isReferenceRow, resolveRowChrome } from "./lib/row-chrome";
+export { isReferenceRow, resolveRowChrome, resolveRowRows } from "./lib/row-chrome";
 export { type GraphRead, type GraphSource } from "./lib/graph-read";
 export {
   type GraphChange,
@@ -339,7 +342,7 @@ export {
   type PageProjection,
   PageProjectionService,
 } from "./lib/page-ports";
-export type { MovePlace, PageWrites } from "./lib/page-writes";
+export type { MatchingAdd, MovePlace, PageWrites } from "./lib/page-writes";
 export {
   type FieldContext,
   fieldContextOf,

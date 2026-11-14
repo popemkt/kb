@@ -3,7 +3,9 @@ import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import {
   CollectionBoardView,
+  CollectionCalendarView,
   CollectionCardsView,
+  CollectionDetailView,
   CollectionTableView,
   collectionsExtension,
   collectionsPlugin,
@@ -11,10 +13,33 @@ import {
 import { DEFAULT_VIEW_CONFIG } from "@kb/views";
 import { BrowserHostService, provideView, ViewPoint } from "@kb/ui-sdk";
 import { SYSTEM_IDS } from "@kb/model";
-import { SquaresFourIcon, TableIcon } from "@phosphor-icons/react";
-import { BoardFrameView, CardsFrameView, TableFrameView } from "./frame-views";
+import {
+  CalendarBlankIcon,
+  SidebarSimpleIcon,
+  SquaresFourIcon,
+  TableIcon,
+} from "@phosphor-icons/react";
+import {
+  BoardFrameView,
+  CalendarFrameView,
+  CardsFrameView,
+  DetailFrameView,
+  TableFrameView,
+} from "./frame-views";
 
-const { filters, sort, display, colwidth, pagesize, groupFieldId } = DEFAULT_VIEW_CONFIG;
+const {
+  filters,
+  sort,
+  display,
+  colwidth,
+  pagesize,
+  groupFieldId,
+  collapsed,
+  hideEmpty,
+  calc,
+  dateFieldId,
+  span,
+} = DEFAULT_VIEW_CONFIG;
 
 /**
  * The collection views: each shown inline, under the row of the frame whose
@@ -24,7 +49,7 @@ const { filters, sort, display, colwidth, pagesize, groupFieldId } = DEFAULT_VIE
 const COLLECTION_VIEWS = [
   provideView(CollectionTableView, {
     placements: ["inline"],
-    sample: { filters, sort, display, colwidth, pagesize },
+    sample: { filters, sort, display, colwidth, pagesize, calc },
     Component: TableFrameView,
     picker: {
       order: 1,
@@ -36,7 +61,7 @@ const COLLECTION_VIEWS = [
   }),
   provideView(CollectionBoardView, {
     placements: ["inline"],
-    sample: { filters, sort, display, groupFieldId },
+    sample: { filters, sort, display, groupFieldId, collapsed, hideEmpty },
     Component: BoardFrameView,
     picker: {
       order: 2,
@@ -58,10 +83,34 @@ const COLLECTION_VIEWS = [
       command: SYSTEM_IDS.cmdViewAsCards,
     },
   }),
+  provideView(CollectionDetailView, {
+    placements: ["inline"],
+    sample: { filters, sort },
+    Component: DetailFrameView,
+    picker: {
+      order: 4,
+      glyph: "◧",
+      icon: SidebarSimpleIcon,
+      iconWeight: "regular",
+      command: SYSTEM_IDS.cmdViewAsDetail,
+    },
+  }),
+  provideView(CollectionCalendarView, {
+    placements: ["inline"],
+    sample: { filters, dateFieldId, span },
+    Component: CalendarFrameView,
+    picker: {
+      order: 5,
+      glyph: "▦",
+      icon: CalendarBlankIcon,
+      iconWeight: "regular",
+      command: SYSTEM_IDS.cmdViewAsCalendar,
+    },
+  }),
 ];
 
 /**
- * The collections family's page entry: its three frame views. It loads the
+ * The collections family's page entry: its five frame views. It loads the
  * family's shared plugin as a child, so the views' keys reach the page
  * kernel's catalog from the family, as the server's do, and it applies after
  * the host, through which its views read the page.

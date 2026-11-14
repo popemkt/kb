@@ -1,7 +1,7 @@
 import { ArrowArcRightIcon, CheckIcon } from "@phosphor-icons/react";
 import type { CalendarEntry } from "@kb/routines";
 import { cn, IconButton } from "@kb/ui-sdk";
-import { longDay } from "./dates";
+import { longDay } from "@kb/calendar-kit";
 import { displayTimes } from "./layout";
 import { inkOf } from "./model";
 import { StatusDot } from "./status-dot";
