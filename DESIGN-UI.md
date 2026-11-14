@@ -727,7 +727,7 @@ what it makes is there once `together` returns. A gesture about one row
 is not gathered, its write being one write already, so a command that reads
 what its write made (Make your own tag opens the tag) reads it landed. Over a range, the node menu lists only the commands that act on many
 rows (`NodeCommand.many`): Add tag, Remove tag…, Add field, Set field…,
-Pin / Unpin and Delete. Any other node command, run over a range from its
+Pin / Unpin, Move to…, Copy node ID, Count words and Delete. Any other node command, run over a range from its
 shortcut, acts on the head alone (`runCommand`). A picker step it opens is
 handed every row (`targetNodeIds`), mints what it creates once, and writes
 the pick to each row as one write (`asOneWrite`), so what it does once the
@@ -768,6 +768,26 @@ in the same write. The CLI and MCP make the same moves with `node.update`
   are drawn there, else the selection goes to the row before where they
   were, as after Delete, and a toast says where they went; a move that
   left references selects them.
+
+**What rows hold, read and copied: Count words and Copy node ID.** Two
+node commands that act on many rows and write nothing.
+
+- **Count words** (the `view` group) counts what the selection's top rows
+  (`selectionRoots`), the one row, or the page's title show, and every
+  node under them, shown or collapsed: each node once, its text read as
+  plain words (`plainText`, `@kb/ui-sdk`: a reference reads as its label,
+  else its target's text, and markup and media are dropped), a row counted
+  by the node it shows (`shownNode`), and a reference not followed below
+  it. A toast says the words, the characters and the nodes ("120 words ·
+  643 characters · 9 nodes"). Words and characters are counted as
+  `Intl.Segmenter` splits the text, so a language written without spaces
+  counts its words and an emoji is one character; nothing is counted
+  between two nodes.
+- **Copy node ID** (the `open` group) puts the id of the node each row
+  shows (`shownNode`) on the clipboard, one per line in the selection's
+  order, and a toast says it did, or that it could not (`copyText`,
+  `@kb/ui-sdk`). The id is what `kb get <id>` and a `[[<id>]]` in any text
+  reach.
 
 **Caret geometry is measured, not guessed.** `lib/caret.ts`
 exposes `readCaretGeometry` (range rects → real line detection),
@@ -2737,6 +2757,15 @@ both are answered from the node ⌘K menu rather than from a device switch.
   - **Naming collision, deliberately not merged:** an _ontology's_ pins are
     `sys.f.onto.member` props with their own Unpin control on the ontology
     page. Same English word, different field, different mechanism.
+- **Recent is screen state.** The sidebar's Recent section, after Pinned
+  (`order: 105`), lists the nodes an outline last stood at, a zoom or a
+  node opened in a pane, newest first and ten at most, and a row zooms to
+  its node as a Pinned row does. It is this browser's, as the expansion
+  and the zoom are: kept in `localStorage` (`kb-recent`, in the
+  `loadIdSet` encoding, in order), never written to the store, so the CLI
+  and MCP never read it and viewing a node writes nothing to the graph. An
+  id the graph no longer holds is not drawn, and the next visit drops it.
+  Recents do not follow a person to another device (a gap).
 
 ### The node menu
 
@@ -2779,11 +2808,11 @@ The groups, in the menu's order (`NODE_MENU_GROUPS`):
 | Group | What it holds | Its rows today |
 | --- | --- | --- |
 | `lead` | how the node itself opens and shows | "Open in …" for its tag's view; "Show/Hide preview", "Show/Hide properties" |
-| `make` | what the node is and holds | Add tag, Remove tag…, Make your own tag that extends this, Turn into query, Turn into reference…, Add field, Set field…, Make supertag, Type this reference… |
-| `open` | where it opens | Search everything…, Open in panel, Open as workspace, Open with: … |
+| `make` | what the node is and holds | Add tag, Remove tag…, Make your own tag that extends this, Turn into query, Turn into reference…, Add field, Set field…, Make supertag, Type this reference…, Remove reference… |
+| `open` | where it opens | Search everything…, Open in panel, Open as workspace, Open with: …, Copy node ID |
 | `arrange` | where it sits | Indent, Outdent, Move to… |
 | `mark` | what marks it | Pin / Unpin, Show / Hide debug fields |
-| `view` | how its views show it | View as: …, Make default view: …, Edit query, Add chart, Filter… |
+| `view` | how its views show it | View as: …, Make default view: …, Edit query, Add chart, Filter…, Expand reference…, Count words |
 | `remove` | removing it | Delete node |
 
 So a family's command takes a place among the shell's by naming it, and
