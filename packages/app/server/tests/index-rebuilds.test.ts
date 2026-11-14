@@ -31,6 +31,15 @@ function rebuildsOf(index: KbIndex): number {
   return index.rebuilds;
 }
 
+/**
+ * Builds counted as a reader meets them: the index builds its DataScript db
+ * on first use, so a query is what pays for a build that is owed.
+ */
+function rebuildsByAQuery(index: KbIndex): number {
+  index.runDatalog("[:find ?id :where [?n :node/id ?id]]");
+  return rebuildsOf(index);
+}
+
 function node(id: string, text = id): KbNode {
   return {
     id,
@@ -55,7 +64,7 @@ describe("index rebuilds on the interactive path", () => {
       const ctx = await openKb(dir);
       const hub = new SubscriptionHub(ctx);
       const deps = { root: dir, page: "http://127.0.0.1:4321", ctx, hub };
-      const before = rebuildsOf(ctx.index);
+      const before = rebuildsByAQuery(ctx.index);
 
       const res = await handleHttpRequest(
         new Request("http://127.0.0.1/api/action", {
@@ -72,7 +81,7 @@ describe("index rebuilds on the interactive path", () => {
       expect(((await res.json()) as { status: string }).status).toBe("succeeded");
 
       expect(ctx.index.getNode("n.edit")?.text).toBe("edited");
-      expect(rebuildsOf(ctx.index)).toBe(before);
+      expect(rebuildsByAQuery(ctx.index)).toBe(before);
 
       // …and the watcher firing on the write this session just made adds
       // none: the store file is the one the session last wrote, so there is
@@ -85,7 +94,7 @@ describe("index rebuilds on the interactive path", () => {
       );
       expect(storedNodes).not.toHaveBeenCalled();
       storedNodes.mockRestore();
-      expect(rebuildsOf(ctx.index)).toBe(before);
+      expect(rebuildsByAQuery(ctx.index)).toBe(before);
       expect(ctx.log.head).toBe(revAfterAction);
       expect(ctx.index.getNode("n.edit")?.text).toBe("edited");
     } finally {
@@ -97,7 +106,7 @@ describe("index rebuilds on the interactive path", () => {
     const dir = await root();
     try {
       const ctx = await openKb(dir);
-      const before = rebuildsOf(ctx.index);
+      const before = rebuildsByAQuery(ctx.index);
 
       const external = new JsonlStore(dir);
       const onDisk = await Effect.runPromise(external.loadEffect);
@@ -115,7 +124,7 @@ describe("index rebuilds on the interactive path", () => {
         ) as Effect.Effect<void>,
       );
       expect(ctx.index.getNode("n.external")).toBeDefined();
-      expect(rebuildsOf(ctx.index)).toBe(before + 1);
+      expect(rebuildsByAQuery(ctx.index)).toBe(before + 1);
 
       // A second reload with nothing new does not build again.
       await Effect.runPromise(
@@ -124,7 +133,7 @@ describe("index rebuilds on the interactive path", () => {
           Effect.provide(kbRuntimeLayer(ctx)),
         ) as Effect.Effect<void>,
       );
-      expect(rebuildsOf(ctx.index)).toBe(before + 1);
+      expect(rebuildsByAQuery(ctx.index)).toBe(before + 1);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

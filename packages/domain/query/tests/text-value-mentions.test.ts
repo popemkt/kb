@@ -61,6 +61,8 @@ describe("mentions in text values", () => {
       [node("a", { props: { f_note: [{ t: "str", v: "[[b]]" }] } }), node("b"), node("c")],
       { derived: derivedWith({}) },
     );
+    // Built on first use: the edit below then meets a db and is applied incrementally.
+    expect(mentions(index)).toEqual([["a", "b"]]);
     const builds = index.rebuilds;
     index.applyTx({
       upserts: [node("a", { props: { f_note: [{ t: "str", v: "now [[c]]" }] } })],
