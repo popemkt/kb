@@ -219,12 +219,12 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P4 of docs/research/2026-10-29-plugin-codependency.md, after the owner chooses between resolving against the catalog the invoke core reaches and composing a needed family beside its caller
 - **node** — `01M63C0M1WRKY0Q09AGK9NK7NJ`
 
-### GAP: a DST replay of seed dst-2 diverged once: four stamps 46 s apart
+### GAP: a DST scenario is not hermetic: KB_DATA moved under it changes its store
 
-- **expected** — A seeded DST history replays to a byte-identical store every time (dst.test.ts 'same seed replays to a byte-identical store'), on any machine and under any load
-- **current** — Once, under heavy load, the two runs of dst-2 differed in four nodes only: the same ids' random parts, text and order, with createdAt, updatedAt and the id's time part 46 s earlier in the second run. The seeded clock steps 1 s per read, so the first run read the clock 46 more times before them: something on the plan/apply path reads the clock a number of times that depends on scheduling. It happened while the test ran past its 32 s timeout (unit gate of 23d6f999, 2026-11-11). Not reproduced since: 12 sequential replays, 4 pairs of concurrent dst-2 runs, 4 runs beside dst-3 and 3 full dst.test.ts runs under load were all identical. No bundled family contributes a budgeted tx/after, guard or interceptor, so budgeted's race against the seeded clock's instant sleep is ruled out as the source
-- **impact** — A rare DST failure that a rerun hides, and a store whose stamps may depend on timing outside the simulation
-- **closes** — Make the next divergence name its op: the harness records the seeded clock's read count after each op, and a replay mismatch reports the first op whose count differs. Then fix the reader it names (or give the seeded clock a sleep that never fires on its own, if a sleep race is it)
+- **expected** — A seeded DST history replays to a byte-identical store every time (dst.test.ts, each committed seed replays to a byte-identical store), on any machine and under any load, whatever else the process does meanwhile
+- **current** — A scenario reads where kb keeps its data (KB_DATA, through currentData) each time a commit keeps its backup, and that work reads the seeded clock. So moving KB_DATA while a scenario runs changes its stamps from there on (23 of 543 lines, reproduced 2026-11-14). The test preload moves KB_DATA in every beforeEach, and a test that overruns its budget keeps running beside the next one, so an overrun replay diverges: CI run 43497638157 (seed dst-3, after the looped replay test overran 32 s) and, likely, the dst-2 divergence once under load (four stamps 46 s apart). Each committed seed is now its own test, inside the budget, so only a genuine hang overruns.
+- **impact** — A DST replay depends on process-global state outside the simulation: whatever moves KB_DATA mid-run, an overrun included, makes it diverge, and the failure reads as nondeterminism in the store
+- **closes** — A scenario pins its own data directory: currentData read from a provided service whose default is the environment, so runScenario provides one it owns and nothing outside can move it
 - **node** — `01M740E2KPGXWP4WKTE2XZ6N56`
 
 ### GAP: a family a host composes is switched only where that host runs
