@@ -789,6 +789,11 @@ node commands that act on many rows and write nothing.
   `@kb/ui-sdk`). The id is what `kb get <id>` and a `[[<id>]]` in any text
   reach.
 
+A toast says what kind it is (`toast(message, kind)`): `info` for what was
+done, such as a count, a copy or where a move put rows, and `error`, the
+default, for what failed or was refused. Only an error is drawn as a
+failure and counted as one (`PageEvents.errors`).
+
 **Caret geometry is measured, not guessed.** `lib/caret.ts`
 exposes `readCaretGeometry` (range rects → real line detection),
 `verticalArrowDecision` (pure: is this arrow a line move or a row move?) and
@@ -2765,7 +2770,8 @@ both are answered from the node ⌘K menu rather than from a device switch.
   `loadIdSet` encoding, in order), never written to the store, so the CLI
   and MCP never read it and viewing a node writes nothing to the graph. An
   id the graph no longer holds is not drawn, and the next visit drops it.
-  Recents do not follow a person to another device (a gap).
+  Recents do not follow a person to another device
+  (GAP [[01M7D6DPTPPKEY515V7J3FJDM4]]).
 
 ### The node menu
 

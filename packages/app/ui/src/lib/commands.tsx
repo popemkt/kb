@@ -33,6 +33,7 @@ import {
   EyeIcon,
   EyeSlashIcon,
   HashIcon,
+  IdentificationCardIcon,
   LinkBreakIcon,
   LinkSimpleIcon,
   MagnifyingGlassIcon,
@@ -41,6 +42,7 @@ import {
   SidebarSimpleIcon,
   SquaresFourIcon,
   StarIcon,
+  TextAaIcon,
   TextTIcon,
   TrashIcon,
 } from "@phosphor-icons/react";
@@ -61,12 +63,14 @@ import {
   type Command,
   type CommandContext,
   CommandPoint,
+  copyText,
   currentContributions,
   isContextualRef,
   isPinned,
   isSysPrefixed,
   selectionRoots,
   shownNode,
+  shownNodeId,
   listOntologyItems,
   navigate,
   nodeAction,
@@ -87,6 +91,7 @@ import {
 import { SETTINGS_PATH } from "@/lib/settings-trigger";
 import { chooseDesignSystem, DesignSystemPoint, shownDesignSystem } from "@kb/appearance-kit";
 import { pageOpeningsOf } from "@/lib/node-openings";
+import { countWords, sayCount } from "@/lib/word-count";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { pageCatalog } from "@/lib/view-catalog";
 import { settingsPath } from "@/lib/settings-parts";
@@ -142,6 +147,14 @@ export function viewTargetFrameId(outline: OutlineCommandApi): string | null {
 function targetNode(ctx: CommandContext) {
   const id = ctx.target.nodeId;
   return id === null ? undefined : ctx.outline.nodes.get(id);
+}
+
+/** The ids of the nodes the rows a command is about show (`shownNodeId`), in the rows' order. */
+function shownIdsOf(ctx: CommandContext): string[] {
+  return ctx.target.nodeIds.map((id) => {
+    const row = ctx.outline.nodes.get(id);
+    return row === undefined ? id : shownNodeId(row);
+  });
 }
 
 /** Whether the text the target row shows names a node (DESIGN-UI.md → Contextual references). */
@@ -479,6 +492,21 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     },
   },
   {
+    // DESIGN-UI.md → Outline editor, "What rows hold, read and copied".
+    id: "copy-node-id",
+    menu: nodeMenu("open", 90),
+    many: true,
+    chrome: (ctx) => ({
+      label: ctx.target.nodeIds.length > 1 ? "Copy node IDs" : "Copy node ID",
+      icon: <IdentificationCardIcon size={14} />,
+    }),
+    run: (ctx) => {
+      const ids = [...new Set(shownIdsOf(ctx))];
+      copyText(ids.join("\n"), ids.length > 1 ? `${ids.length} node IDs` : "Node ID");
+      ctx.palette.close();
+    },
+  },
+  {
     id: "indent",
     menu: nodeMenu("arrange", 10),
     chrome: () => ({ label: "Indent", icon: <ArrowRightIcon size={14} /> }),
@@ -569,6 +597,18 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     }),
     when: namesANode,
     run: (ctx) => ctx.palette.openStep("outline.expand-reference"),
+  },
+  {
+    // DESIGN-UI.md → Outline editor, "What rows hold, read and copied".
+    id: "count-words",
+    menu: nodeMenu("view", 95),
+    many: true,
+    chrome: () => ({ label: "Count words", icon: <TextAaIcon size={14} /> }),
+    run: (ctx) => {
+      const roots = selectionRoots(ctx.target.nodeIds, ctx.outline.nodes);
+      toast(sayCount(countWords(roots, browserHost().schema())), "info");
+      ctx.palette.close();
+    },
   },
   {
     id: "view-filter",

@@ -3,7 +3,8 @@
 // A row moves anywhere (DESIGN-UI.md → Outline editor), end to end in a
 // browser: Move to… from the node menu puts a range of rows under the node
 // picked as one write the server stores, the range still selected where it
-// went; one undo takes it back; Alt+Enter leaves a reference where each was.
+// went; one undo takes it back; Alt+Enter leaves a reference where each was;
+// and a row moved where it is not drawn is said, in a toast that is news.
 import type { APIRequestContext, Page } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
 
@@ -108,4 +109,30 @@ test("Alt+Enter in Move to… leaves a reference where the row was", async ({ pa
   expect(reference.props["sys.f.ref.target"]?.[0]?.v).toBe(moving);
   // The reference is what is selected, where the row was.
   await expect(row(page, left)).toHaveAttribute("aria-selected", "true");
+});
+
+test("Move to… a closed node says where the row went, as news", async ({ page, request }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const moving = await add(request, "Row for the closed box");
+  const box = await add(request, "Closed box");
+  const inside = (
+    await invoke<{ id: string }>(request, "node.add", { text: "Old letter", parent: box })
+  ).id;
+  await page.goto(`/node/${ROOT}`);
+
+  // Close the box, open as a row with children is, so the row it takes is not drawn there.
+  await row(page, box).scrollIntoViewIfNeeded();
+  await expect(row(page, inside)).toBeVisible();
+  await row(page, box).locator(".node-content").click();
+  await page.keyboard.press("ControlOrMeta+ArrowUp");
+  await expect(row(page, inside)).toBeHidden();
+  await page.keyboard.press("Escape");
+
+  await selectDown(page, moving, 0);
+  await moveTo(page, "Closed box");
+  await page.keyboard.press("Enter");
+  await expect.poll(() => childrenOf(request, box)).toEqual([inside, moving]);
+  await expect(
+    page.locator('[data-kind="info"]', { hasText: "Moved to Closed box" }),
+  ).toBeVisible();
 });

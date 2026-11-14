@@ -227,8 +227,10 @@ describe("node command palette", () => {
       "Add tag",
       "Add field",
       "Set field…",
+      "Copy node IDs",
       "Move to…",
       "Pin",
+      "Count words",
       "Delete nodes",
     ]);
   });
@@ -338,6 +340,7 @@ describe("node command palette", () => {
       "Open in panel",
       "Open with: Outline",
       "Open with: Chart",
+      "Copy node ID",
       "Indent",
       "Outdent",
       "Move to…",
@@ -348,6 +351,7 @@ describe("node command palette", () => {
       "View as: Board",
       "View as: Cards",
       "Filter…",
+      "Count words",
       "Delete node",
     ]);
   });
@@ -365,6 +369,7 @@ describe("node command palette", () => {
       "Open in panel",
       "Open with: Outline",
       "Open with: Chart",
+      "Copy node ID",
       "Indent",
       "Outdent",
       "Move to…",
@@ -375,6 +380,7 @@ describe("node command palette", () => {
       "View as: Board",
       "View as: Cards",
       "Filter…",
+      "Count words",
       "Delete node",
     ]);
   });

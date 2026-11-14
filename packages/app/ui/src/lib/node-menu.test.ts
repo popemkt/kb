@@ -100,6 +100,8 @@ function context(): CommandContext {
   };
 }
 
+const toasts = () => useUiStore.getState().toasts.map((t) => t.text);
+
 function offered(nodeId: string, prefix = "open-with:") {
   useOutlineStore.setState({ selectedNodeId: nodeId });
   return listNodeCommands(context()).filter((c) => c.id.startsWith(prefix));
@@ -341,6 +343,38 @@ describe("a node command over a range of rows", () => {
     const ids = listNodeCommands(over(["n.board", "n.plain"])).map((c) => c.id);
     expect(ids).not.toContain("make-supertag");
     expect(ids).toEqual(expect.arrayContaining(["add-tag", "toggle-pin", "delete"]));
+  });
+
+  it("offers Count words and Copy node ID over the range, read from every row", () => {
+    const listed = listNodeCommands(over(["n.board", "n.plain"]));
+    expect(listed.map((c) => c.id)).toEqual(
+      expect.arrayContaining(["count-words", "copy-node-id", "move-to"]),
+    );
+    expect(listed.find((c) => c.id === "copy-node-id")?.label).toBe("Copy node IDs");
+  });
+
+  it("Copy node ID puts each row's id on the clipboard, one per line, and says so", async () => {
+    const written: string[] = [];
+    vi.stubGlobal("navigator", {
+      clipboard: { writeText: (text: string) => Promise.resolve(void written.push(text)) },
+    });
+    try {
+      await runCommand("copy-node-id", over(["n.board", "n.plain"]));
+      await vi.waitFor(() => expect(toasts()).toContain("2 node IDs copied"));
+      expect(written).toEqual(["n.board\nn.plain"]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("Count words says the words, characters and nodes of the rows, and writes nothing", async () => {
+    const before = useGraphStore.getState().wireNodes;
+    await runCommand("count-words", over(["n.board", "n.plain"]));
+    expect(useUiStore.getState().toasts.at(-1)).toMatchObject({
+      kind: "info",
+      text: "2 words · 14 characters · 2 nodes",
+    });
+    expect(useGraphStore.getState().wireNodes).toBe(before);
   });
 
   it("runs a command that acts on one row, from its shortcut, on the head alone", async () => {

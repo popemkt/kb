@@ -48,5 +48,5 @@ export async function moveRows(
     place.parent === null
       ? "the top level"
       : textOr(outlineNodes().get(place.parent)?.text.trim(), "a node");
-  toast(`${ids.length === 1 ? "Moved" : `Moved ${ids.length} nodes`} to ${where}`);
+  toast(`${ids.length === 1 ? "Moved" : `Moved ${ids.length} nodes`} to ${where}`, "info");
 }

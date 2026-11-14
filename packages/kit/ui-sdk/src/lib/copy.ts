@@ -13,6 +13,6 @@ export function copyText(text: string, what: string): void {
   const named = what.charAt(0).toLowerCase() + what.slice(1);
   navigator.clipboard
     .writeText(text)
-    .then(() => toast(`${what} copied`))
+    .then(() => toast(`${what} copied`, "info"))
     .catch(() => toast(`Could not copy the ${named}`));
 }

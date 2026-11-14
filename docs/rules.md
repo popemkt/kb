@@ -1432,6 +1432,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Drain per component with the UI suite (bun run test:ui) as the guard, re-snapshot the ledger, and promote each rule to error when its count reaches 0.
 - **node** — `01M35NJQPKW5YVNVFFAFAYXPFH`
 
+### GAP: Recent nodes are one browser's, not a person's
+
+- **expected** — Recent follows the person: the nodes they last stood at on any device, if cross-device recents come to matter
+- **current** — The sidebar's Recent section reads localStorage kb-recent (outline-ui recents.ts), per browser, screen state like the expansion and the zoom; the store, the CLI and MCP never see it
+- **impact** — Another device, browser or profile starts with an empty Recent; clearing site data forgets it
+- **closes** — A per-person screen-state home that syncs (not the graph: viewing must not write the store), read by the section in place of localStorage
+- **node** — `01M7D6DPTPPKEY515V7J3FJDM4`
+
 ### GAP: relations read world-aligned bounds, not volumes
 
 - **expected** — volume-exact relations (oriented boxes)

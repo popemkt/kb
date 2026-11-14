@@ -4,14 +4,19 @@ import { setToastSink } from "./toast";
 
 describe("a copy said in a toast", () => {
   const said: string[] = [];
+  const kinds: string[] = [];
   afterEach(() => {
     said.length = 0;
+    kinds.length = 0;
     vi.unstubAllGlobals();
   });
 
   function stubClipboard(writeText: (text: string) => Promise<void>): void {
     vi.stubGlobal("navigator", { clipboard: { writeText } });
-    setToastSink((message) => said.push(message));
+    setToastSink((message, kind) => {
+      said.push(message);
+      kinds.push(kind);
+    });
   }
 
   it("puts the text on the clipboard and says what was copied", async () => {
@@ -22,6 +27,7 @@ describe("a copy said in a toast", () => {
     });
     copyText("01ABC", "Node ID");
     await vi.waitFor(() => expect(said).toEqual(["Node ID copied"]));
+    expect(kinds).toEqual(["info"]);
     expect(written).toEqual(["01ABC"]);
   });
 
@@ -29,5 +35,6 @@ describe("a copy said in a toast", () => {
     stubClipboard(() => Promise.reject(new Error("denied")));
     copyText("01ABC", "Node ID");
     await vi.waitFor(() => expect(said).toEqual(["Could not copy the node ID"]));
+    expect(kinds).toEqual(["error"]);
   });
 });
