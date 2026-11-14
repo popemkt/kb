@@ -86,6 +86,15 @@ function walked(): string[] {
 const chipsIn = (el: Element) =>
   [...el.querySelectorAll("[data-calendar-chip]")].map((c) => c.getAttribute("data-calendar-chip"));
 
+/** A phone's viewport, as the page reads it (`useNarrowViewport`). */
+const phone = (query: string) =>
+  ({
+    matches: query.includes("max-width"),
+    media: query,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }) as unknown as MediaQueryList;
+
 function Host() {
   useSelectionKeymap();
   return createElement(FrameViewSlot, { frameId: "plan", depth: 0 });
@@ -233,6 +242,40 @@ describe("a calendar over a date field", () => {
       "the added row",
     );
     expect(dueOf(added)).toEqual([day("2026-11-10")]);
+  });
+
+  it("on a phone, dots a month's days, lists the open day's rows, and opens the day a selected row is on", async () => {
+    Object.defineProperty(dom, "matchMedia", { value: phone, configurable: true });
+    try {
+      await show(
+        graph({
+          [SYSTEM_IDS.viewDateField]: [ref("f.due")],
+          [SYSTEM_IDS.viewSpanField]: [{ t: "str", v: "month" }],
+        }),
+      );
+      const tuesday = cell("2026-11-10");
+      expect(tuesday.tagName).toBe("BUTTON");
+      expect(tuesday.getAttribute("aria-label")).toBe("Tue, Nov 10, 1 row");
+      const openDay = () =>
+        present(container.querySelector("[data-calendar-open-day]"), "the open day's list");
+      expect(openDay().getAttribute("data-calendar-open-day")).toBe(TODAY);
+      expect(chipsIn(openDay())).toEqual(["a2"]);
+      expect(container.querySelector('[data-calendar-chip="a1"]')).toBeNull();
+
+      await act(async () => (tuesday as HTMLElement).click());
+      expect(useOutlineStore.getState().frameDays["plan"]).toBe("2026-11-10");
+      expect(chipsIn(openDay())).toEqual(["a1"]);
+
+      // A row the keys reach on another day is drawn once it is selected.
+      act(() =>
+        useOutlineStore.getState().selectNode("a3", outlineInstanceKey("a3", outlineNodes())),
+      );
+      await act(async () => {});
+      expect(useOutlineStore.getState().frameDays["plan"]).toBe("2026-11-20");
+      expect(chipsIn(openDay())).toEqual(["a3"]);
+    } finally {
+      Reflect.deleteProperty(dom, "matchMedia");
+    }
   });
 
   it("with no date field, holds every row in the list and asks for one", async () => {

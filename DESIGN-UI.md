@@ -3141,16 +3141,33 @@ how the stored name resolves to the key among them.
   rows: the days in order, each day's rows in the frame's order, then the
   undated ones.
 
+  On a centered page a calendar takes the room a board does, spanning the
+  scroll region (`useViewBreakout`). The list sits beside the days in a
+  calendar at least 900px wide, and under them otherwise.
+
   A day draws its number, today's on the primary fill, and a chip per row:
   the row's text as the host edits it (`RowText`), drawn as the routines
   calendar draws an instance (`calendarChipClass`, the one class list both
   chips are drawn with: radius, inked edge, label type and density), so the
-  two calendars read as one family. The text is one line, cut with an
-  ellipsis, unless it is being edited, so a busy day never grows its week.
-  A week lays its days side by side, and a month in a grid of weeks, the
-  routines calendar's month grid (`MonthGrid`); a cell lists all its rows.
-  In a frame narrower than 480px a week stacks its days, and the list goes
-  under the days.
+  two calendars read as one family.
+  A month lays its days in a grid of weeks, the routines calendar's month
+  grid (`MonthGrid`). Every cell is one height, so a busy day never grows
+  its week: a chip's text takes two lines at most, cut unless it is being
+  edited, and a cell with more rows than it shows scrolls, every row still
+  drawn, so the rows the walk reaches are the rows drawn.
+  A week lays its days as seven tall columns side by side, and a day as one
+  column the calendar's width; a column lists its rows whole, wrapping, and
+  ends in "+ Add". In a frame narrower than 480px a week stacks its days.
+  A date field holds a day and no time (a local `YYYY-MM-DD`, DESIGN.md →
+  Data model), so a calendar has no hours to lay out; the routines
+  calendar's time grid is for its timed instances.
+  On a phone (the narrow viewport, `useNarrowViewport`) a month is too
+  narrow for chips: each day is a button with its number and a dot per row,
+  three at most, that opens the calendar at that day, and the open day's
+  rows list under the grid, whole, ending in "+ Add". Only that day's rows
+  are drawn, so when the keys select a row on another day the calendar
+  opens at its day, and the selected row is drawn; the first row an arrival
+  selects is not followed, and the calendar opens at today.
 
   A row is dated by moving it to a day's group: dragged from the list or
   another day onto a day, which sets the date field to that day in one
@@ -3159,10 +3176,11 @@ how the stored name resolves to the key among them.
   or on (_Groups_), and past the days shown the calendar opens at the row's
   new day, so the row stays drawn and selected; ⌘⇧← on a row in the list
   moves it onto the day the calendar is open at. Each day has "+ Add"
-  ("Add to Fri, Nov 14"), shown while the pointer is over the day or focus
-  is in it, and always on a touch screen, which adds a row holding that day (_Adding to a frame_, the
-  day's value as `field-is`); the list ends in "+ Add" too, adding a row
-  with no date. ⌘K offers the view as "View as: Calendar".
+  ("Add to Fri, Nov 14"), which adds a row holding that day (_Adding to a
+  frame_, the day's value as `field-is`): at the foot of a column, and in a
+  month's cell a "+" shown while the pointer is over the day or focus is in
+  it, and always on a touch screen. The list ends in "+ Add" too, adding a
+  row with no date. ⌘K offers the view as "View as: Calendar".
 
   Open: the routines calendar's synced events (#194, Google Calendar) are
   dated nodes too. Whether a calendar over a date field should show them,

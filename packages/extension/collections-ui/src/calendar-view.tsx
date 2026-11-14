@@ -7,7 +7,16 @@
  * (`moveToGroup`), dragged here or by ⌘⇧←/→ in the selection's keys, and
  * its chip is drawn with the routines calendar's class list.
  */
-import { memo, useCallback, useMemo, useState, type DragEvent, type ReactNode } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+  type ReactNode,
+} from "react";
 import { CaretLeftIcon, CaretRightIcon, PlusIcon } from "@phosphor-icons/react";
 import {
   calendarChipClass,
@@ -33,11 +42,13 @@ import {
   useGraphRead,
   useIsActive,
   useIsSelected,
+  useNarrowViewport,
   usePageGraph,
 } from "@kb/ui-sdk";
 import { CALENDAR_SPANS, type CalendarViewSpan, type ParamsOf } from "@kb/views";
 import { CollectionCalendarView } from "@kb/collections";
 import { AddRow } from "./add-row";
+import { useViewBreakout } from "./breakout";
 import { groupWhere } from "./group-where";
 
 type CalendarParams = ParamsOf<typeof CollectionCalendarView>;
@@ -101,43 +112,45 @@ export function CalendarView({
     fieldId,
     drag: { start: setDragged, end: () => setDragged(null), drop },
   };
+  const drawn = nodes.get(frameId) !== undefined || rowIds !== undefined;
+  // A calendar wants the room a board does: on a centered page it spans the scroll region.
+  const {
+    attach,
+    className: breakoutClass,
+    data: breakoutData,
+  } = useViewBreakout({
+    wants: true,
+    widthPref: undefined,
+    mounted: drawn,
+  });
+  // On a phone a month is too narrow for chips: its days carry dots, and the open day's rows list under them.
+  const narrow = useNarrowViewport();
 
-  if (nodes.get(frameId) === undefined && rowIds === undefined) return null;
+  if (!drawn) return null;
   const days = rows.columns.filter((column) => column.value !== null);
   const undated = rows.columns.find((column) => column.value === null);
   return (
     <div
-      className="@container my-2"
+      ref={attach}
+      className={cn("@container my-2", breakoutClass)}
       data-calendar-view="true"
       data-frame-id={frameId}
       data-span={params.span}
+      data-breakout={breakoutData}
     >
       <CalendarHeader frame={frame} span={params.span} />
-      <div className="grid items-start gap-3 @min-[480px]:grid-cols-[minmax(0,1fr)_minmax(9rem,14rem)]">
+      <div className="grid items-start gap-3 @min-[900px]:grid-cols-[minmax(0,1fr)_minmax(10rem,14rem)]">
         <div className="min-w-0 rounded-md border-t border-border">
-          {params.span === "month" ? (
+          {params.span !== "month" ? (
+            <DayColumns calendar={calendar} days={days} span={params.span} />
+          ) : narrow ? (
+            <PhoneMonth calendar={calendar} days={days} />
+          ) : (
             <MonthGrid>
               {days.map((column) => (
-                <DayCell key={column.key} calendar={calendar} column={column} layout="month" />
+                <MonthCell key={column.key} calendar={calendar} column={column} />
               ))}
             </MonthGrid>
-          ) : (
-            <div
-              className={cn(
-                "grid border-r border-border",
-                params.span === "week" && "@min-[480px]:grid-cols-7",
-              )}
-              data-calendar-layout={params.span}
-            >
-              {days.map((column) => (
-                <DayCell
-                  key={column.key}
-                  calendar={calendar}
-                  column={column}
-                  layout={params.span}
-                />
-              ))}
-            </div>
           )}
         </div>
         {undated === undefined ? null : <UndatedList calendar={calendar} column={undated} />}
@@ -236,19 +249,45 @@ function useDropTarget(
   };
 }
 
-/** A day: its number, "+ Add" while the pointer or focus is in it, and a chip per row. */
-function DayCell({
+/** The day a column of a calendar's groups holds; the open day for the list's. */
+const dayIn = (column: BoardColumn, frame: FrameSubject): string =>
+  column.value?.t === "str" ? column.value.v : frame.day;
+
+/** A day's "+ Add", a row holding that day; none while no date field is chosen. */
+function AddToDay({
   calendar,
   column,
-  layout,
 }: {
   readonly calendar: CalendarFrame;
   readonly column: BoardColumn;
-  readonly layout: CalendarViewSpan;
 }) {
   const { frame, params, fieldId } = calendar;
-  const day = column.value?.t === "str" ? column.value.v : frame.day;
-  const muted = layout === "month" && !sameMonth(day, frame.day);
+  if (fieldId === null) return null;
+  return (
+    <AddRow
+      frame={frame}
+      filters={params.filters}
+      where={groupWhere(fieldId, column.value)}
+      label={`Add to ${longDay(dayIn(column, frame))}`}
+    />
+  );
+}
+
+/**
+ * A day of a month: its number, "+" while the pointer or focus is in it,
+ * and a chip per row, two lines each. Every cell is one height, so a busy
+ * day never grows its week; its chips scroll in it, every one still drawn.
+ */
+function MonthCell({
+  calendar,
+  column,
+}: {
+  readonly calendar: CalendarFrame;
+  readonly column: BoardColumn;
+}) {
+  const { frame, params, fieldId } = calendar;
+  const day = dayIn(column, frame);
+  const muted = !sameMonth(day, frame.day);
   const { over, handlers } = useDropTarget(calendar, column.value);
   const named = longDay(day);
   return (
@@ -256,16 +295,14 @@ function DayCell({
       data-calendar-day={day}
       className={cn(
         monthCellClass,
-        "group/day",
-        layout === "day" && "min-h-32",
+        "group/day h-28 overflow-y-auto",
         muted && "bg-muted/40",
         over && "bg-accent/60",
       )}
       {...handlers}
     >
       <div className="flex items-center justify-between gap-1">
-        <span className="flex items-center gap-1 text-label text-muted-foreground">
-          {layout === "week" ? <span>{named.slice(0, 3)}</span> : null}
+        <span className="text-label text-muted-foreground">
           <DayNumber day={day} today={frame.today} muted={muted} />
         </span>
         {fieldId === null ? null : (
@@ -278,9 +315,181 @@ function DayCell({
           />
         )}
       </div>
-      <Chips calendar={calendar} rows={column.nodes} />
+      <Chips calendar={calendar} rows={column.nodes} lines={2} />
     </div>
   );
+}
+
+/**
+ * A week's days as seven tall columns side by side, or a day's as one, each
+ * listing its rows whole and ending in "+ Add". In a frame narrower than
+ * 480px a week stacks its days.
+ */
+function DayColumns({
+  calendar,
+  days,
+  span,
+}: {
+  readonly calendar: CalendarFrame;
+  readonly days: readonly BoardColumn[];
+  readonly span: CalendarViewSpan;
+}) {
+  return (
+    <div
+      className={cn("grid border-r border-border", span === "week" && "@min-[480px]:grid-cols-7")}
+      data-calendar-layout={span}
+    >
+      {days.map((column) => (
+        <DayColumn key={column.key} calendar={calendar} column={column} span={span} />
+      ))}
+    </div>
+  );
+}
+
+function DayColumn({
+  calendar,
+  column,
+  span,
+}: {
+  readonly calendar: CalendarFrame;
+  readonly column: BoardColumn;
+  readonly span: CalendarViewSpan;
+}) {
+  const { frame } = calendar;
+  const day = dayIn(column, frame);
+  const { over, handlers } = useDropTarget(calendar, column.value);
+  return (
+    <section
+      aria-label={longDay(day)}
+      data-calendar-day={day}
+      className={cn(
+        "flex min-w-0 flex-col gap-px border-b border-l border-border p-0.5",
+        span === "week" ? "@min-[480px]:min-h-80" : "min-h-80",
+        over && "bg-accent/60",
+      )}
+      {...handlers}
+    >
+      <h4 className="flex items-center gap-1 px-0.5 text-label text-muted-foreground">
+        <span>{span === "week" ? longDay(day).slice(0, 3) : longDay(day)}</span>
+        {span === "week" ? <DayNumber day={day} today={frame.today} /> : null}
+      </h4>
+      <Chips calendar={calendar} rows={column.nodes} lines="all" />
+      <AddToDay calendar={calendar} column={column} />
+    </section>
+  );
+}
+
+/**
+ * A month on a phone: each day a button with its number and a dot per row
+ * (three at most), opening that day; the open day's rows list under the
+ * grid, whole. Selecting a row the keys reach on another day opens that
+ * day, so the selected row is always drawn.
+ */
+function PhoneMonth({
+  calendar,
+  days,
+}: {
+  readonly calendar: CalendarFrame;
+  readonly days: readonly BoardColumn[];
+}) {
+  const { frame } = calendar;
+  const open = days.find((column) => dayIn(column, frame) === frame.day);
+  return (
+    <div className="flex flex-col gap-2">
+      <MonthGrid>
+        {days.map((column) => (
+          <DayDot key={column.key} calendar={calendar} column={column} />
+        ))}
+      </MonthGrid>
+      {open === undefined ? null : (
+        <section
+          aria-label={longDay(frame.day)}
+          className="flex min-w-0 flex-col gap-px rounded-md border border-border p-1"
+          data-calendar-open-day={frame.day}
+        >
+          <h4 className="flex items-center justify-between px-1 text-label text-muted-foreground">
+            {longDay(frame.day)}
+            <span className="tabular-nums">{open.nodes.length}</span>
+          </h4>
+          <Chips calendar={calendar} rows={open.nodes} lines="all" />
+          <AddToDay calendar={calendar} column={open} />
+        </section>
+      )}
+    </div>
+  );
+}
+
+function DayDot({
+  calendar,
+  column,
+}: {
+  readonly calendar: CalendarFrame;
+  readonly column: BoardColumn;
+}) {
+  const { frame } = calendar;
+  const day = dayIn(column, frame);
+  const muted = !sameMonth(day, frame.day);
+  const { over, handlers } = useDropTarget(calendar, column.value);
+  const count = column.nodes.length;
+  return (
+    <button
+      type="button"
+      data-calendar-day={day}
+      aria-pressed={day === frame.day}
+      aria-label={`${longDay(day)}, ${count === 1 ? "1 row" : `${count} rows`}`}
+      onClick={() => frame.showDay(day)}
+      className={cn(
+        monthCellClass,
+        "min-h-12 items-center text-label outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring",
+        muted && "bg-muted/40",
+        day === frame.day && "bg-accent",
+        over && "bg-accent/60",
+      )}
+      {...handlers}
+    >
+      <DayNumber day={day} today={frame.today} muted={muted} />
+      <span className="flex h-2 items-center gap-0.5" aria-hidden="true">
+        {column.nodes.slice(0, 3).map((row) => (
+          <span key={row.id} className="size-1 rounded-full bg-primary" />
+        ))}
+      </span>
+      {column.nodes.map((row) => (
+        <FollowSelection
+          key={row.id}
+          rowId={row.id}
+          instanceKey={frame.rowKey(row.id)}
+          day={day}
+          showDay={frame.showDay}
+        />
+      ))}
+    </button>
+  );
+}
+
+/**
+ * Opens a row's day when it becomes selected, or when the selected row
+ * moves to another day; draws nothing. A selection already there when the
+ * day is drawn is not followed: arriving at a page selects its first row,
+ * and the calendar opens at today all the same.
+ */
+function FollowSelection({
+  rowId,
+  instanceKey,
+  day,
+  showDay,
+}: {
+  readonly rowId: string;
+  readonly instanceKey: string;
+  readonly day: string;
+  readonly showDay: (day: string) => void;
+}) {
+  const selected = useIsSelected(rowId, instanceKey);
+  const followed = useRef<string | null>(selected ? day : null);
+  useEffect(() => {
+    if (selected && followed.current !== day) showDay(day);
+    followed.current = selected ? day : null;
+  }, [selected, day, showDay]);
+  return null;
 }
 
 /** The rows with no date: a list beside the days, which a dragged row leaves its date in. */
@@ -319,18 +528,23 @@ function UndatedList({
           </button>
         </p>
       ) : null}
-      <Chips calendar={calendar} rows={column.nodes} />
+      <Chips calendar={calendar} rows={column.nodes} lines="all" />
       <AddRow frame={frame} filters={params.filters} label={`Add to ${column.label}`} />
     </section>
   );
 }
 
+/** How many lines a chip's text takes: two in a month's cell, all of it elsewhere. */
+type ChipLines = 2 | "all";
+
 function Chips({
   calendar,
   rows,
+  lines,
 }: {
   readonly calendar: CalendarFrame;
   readonly rows: readonly OutlineNode[];
+  readonly lines: ChipLines;
 }): ReactNode {
   const { frame, movesBy, drag } = calendar;
   return rows.map((row) => (
@@ -339,6 +553,7 @@ function Chips({
       row={row}
       instanceKey={frame.rowKey(row.id)}
       RowText={frame.RowText}
+      lines={lines}
       draggable={movesBy !== null}
       onDragStart={drag.start}
       onDragEnd={drag.end}
@@ -355,6 +570,7 @@ const CalendarChip = memo(function CalendarChip({
   row,
   instanceKey,
   RowText,
+  lines,
   draggable,
   onDragStart,
   onDragEnd,
@@ -362,6 +578,7 @@ const CalendarChip = memo(function CalendarChip({
   readonly row: OutlineNode;
   readonly instanceKey: string;
   readonly RowText: FrameSubject["RowText"];
+  readonly lines: ChipLines;
   readonly draggable: boolean;
   readonly onDragStart: (nodeId: string) => void;
   readonly onDragEnd: () => void;
@@ -390,10 +607,11 @@ const CalendarChip = memo(function CalendarChip({
         className={cn(
           calendarChipClass,
           calendarChipInk,
-          // The row's text at the chip's density: its label type, one line unless edited.
+          // The row's text at the chip's density: its label type, clamped in a month's cell unless edited.
           "!min-h-0 touch-auto py-px [&>.node-content]:min-h-0 [&>.node-content]:px-0",
           "[&>.node-content_*]:min-h-0 [&_.kb-text-row]:text-label [&_.kb-text-row]:leading-tight",
-          isActive ? "select-text" : "[&_.kb-text-row]:truncate",
+          isActive && "select-text",
+          !isActive && lines === 2 && "[&_.kb-text-row]:line-clamp-2",
         )}
         content={<RowText node={row} instanceKey={instanceKey} isActive={isActive} tags={[]} />}
       />
