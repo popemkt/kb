@@ -94,7 +94,7 @@ export function ViewToolbar({ frameId, view, className, tucked = false }: ViewTo
   return (
     <div
       className={cn(
-        "view-toolbar relative inline-flex items-center gap-0.5 rounded-md bg-foreground/[0.04] p-0.5 border border-foreground/[0.06] select-none",
+        "view-toolbar relative inline-flex max-w-full flex-wrap items-center gap-0.5 rounded-md bg-foreground/[0.04] p-0.5 border border-foreground/[0.06] select-none",
         className,
       )}
       data-view-toolbar="true"

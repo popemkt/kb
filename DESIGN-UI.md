@@ -2930,7 +2930,9 @@ how the stored name resolves to the key among them.
   narrows them by its filter (DESIGN.md → View nodes), and a view sorts, groups its columns by a field, or pages exactly
   when its params declare `sort`, `groupFieldId` or `pagesize`. The
   toolbar, the node menu and the `view-as` commands list the provided frame
-  views by their pickers, and every one of them, the toolbar's settings
+  views by their pickers. On a page head the toolbar sits beside the title
+  while both fit, and on its own line under it, wrapping, when they do not,
+  so its gear stays in a narrow pane. Every one of them, the toolbar's settings
   included, writes the frame's view node (`planEditFrameView`), making it on
   the first edit; none writes the frame's own props. A view node's
   settings are fields its seed hides from field rows (DESIGN.md → Data

@@ -191,7 +191,7 @@ export function ZoomedRootHeader({
       {/* Under the head's space (`PageBackdrop`, the outline editor's), whose backdrop reaches behind it. */}
       <div className="relative pl-7">
         <div
-          className="group/header flex min-h-9 items-start justify-between gap-2"
+          className="group/header flex min-h-9 flex-wrap items-start justify-between gap-x-2"
           {...menuAnchor(pageTitleInstanceKey(node.id))}
         >
           <EditableTitle
@@ -205,7 +205,8 @@ export function ZoomedRootHeader({
               toolbar outright. */}
           <span
             className={cn(
-              "flex h-9 shrink-0 items-center transition-opacity duration-100",
+              // Beside the title while both fit; on a line of its own, wrapping, when not.
+              "flex min-h-9 max-w-full items-center transition-opacity duration-100",
               isList &&
                 "opacity-0 focus-within:opacity-100 group-hover/header:opacity-100 has-[[aria-expanded=true]]:opacity-100",
               tucked && "has-[[data-view-toolbar]]:opacity-100",

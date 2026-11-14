@@ -7,7 +7,7 @@
 // and over a table are written beside the run.
 import { FIELD_TYPE_OPTION_IDS } from "@kb/model";
 import type { Locator, Page } from "playwright/test";
-import { expect, test } from "./harness-test.ts";
+import { expect, settledBox, test } from "./harness-test.ts";
 
 const ROOT = "render.fixture.root";
 const FRAME = "vs.frame";
@@ -157,4 +157,38 @@ test("a frame's group, fields and page size are set from its view settings", asy
   const stored = JSON.stringify(await response.json());
   expect(stored).toContain("vs.f.owner");
   expect(errors).toEqual([]);
+});
+
+test.describe("in a narrow pane", () => {
+  test.use({ viewport: { width: 360, height: 780 } });
+
+  test("a page head's view toolbar wraps under its title, its settings in reach", async ({
+    page,
+    request,
+  }) => {
+    const response = await request.post("/api/action", {
+      data: {
+        id: "node.add",
+        input: { id: FRAME, text: "Reading notes", parent: ROOT, position: 0 },
+      },
+    });
+    expect((await response.json()).status).toBe("succeeded");
+    await page.goto(`/node/${FRAME}`);
+    const toolbar = page.locator(`[data-view-toolbar][data-frame-id="${FRAME}"]`).first();
+    const gear = page.locator(`[data-view-toolbar-gear][data-frame-id="${FRAME}"]`).first();
+    await expect(toolbar.or(gear)).toBeVisible();
+    if (await gear.isVisible()) await gear.click();
+    await toolbar.locator('[data-mode-button="table"]').click();
+
+    const title = await settledBox(page.locator('[data-zoom-title="true"]').first());
+    const settings = await settledBox(toolbar.locator('[data-view-settings-button="true"]'));
+    const bar = await settledBox(toolbar);
+    // The title keeps its line, the toolbar goes under it, and nothing leaves the pane.
+    expect(bar.y).toBeGreaterThanOrEqual(title.y + title.height - 1);
+    expect(bar.x + bar.width).toBeLessThanOrEqual(360);
+    expect(settings.x + settings.width).toBeLessThanOrEqual(360);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      360,
+    );
+  });
 });
