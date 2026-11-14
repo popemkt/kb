@@ -101,6 +101,11 @@ export interface NodeTextHostProps extends NodeTextHostBinding {
   ingest: IngestPort;
   /** The surface's writes: the text's node is the surface's to name (`shownNodeId`). */
   onRemoveTag: (tagId: string) => void;
+  /**
+   * The surface's own triggers, beside the `[[` every text has
+   * (DESIGN-UI.md → Triggers in the text), first open first.
+   */
+  triggers?: readonly TextTrigger[] | undefined;
 }
 
 /**
@@ -132,8 +137,37 @@ function historyChord(e: React.KeyboardEvent): "undo" | "redo" | null {
 /** A row drawn as its text alone: what the host shows while no row view draws it. */
 const shownAsText = (text: ReactElement): ReactNode => text;
 
-/** The triggers every text offers (DESIGN-UI.md → Triggers in the text). */
-const TRIGGERS: readonly TextTrigger[] = [refTrigger];
+/** A surface with no triggers of its own. */
+const NONE: readonly TextTrigger[] = [];
+
+/**
+ * The trigger typed at the caret while the text is edited, and its rows:
+ * every text's `[[`, then the surface's `own`. Escape dismisses it until
+ * its query changes or typing resumes (D14), and a trigger with nothing to
+ * offer is closed, unless it answers Enter then.
+ */
+function useOpenTrigger(
+  own: readonly TextTrigger[],
+  editing: boolean,
+  content: string,
+  cursor: number,
+  nodes: NodeMap,
+) {
+  const triggers = useMemo(() => [refTrigger, ...own], [own]);
+  /** The query Escape dismissed the picker at, or null. */
+  const [dismissed, setDismissed] = useState<string | null>(null);
+  const typed = useMemo(() => {
+    const at = editing ? openTriggerAt(triggers, content, cursor) : null;
+    return at !== null && at.open.query === dismissed ? null : at;
+  }, [editing, triggers, content, cursor, dismissed]);
+  // Rows exist only while a trigger is typed: a closed row asks for none.
+  const rows = useMemo(
+    () => (typed === null ? [] : typed.trigger.rows(typed.open.query, nodes)),
+    [typed, nodes],
+  );
+  const triggered = typed !== null && (rows.length > 0 || typed.trigger.none !== undefined);
+  return { open: triggered ? typed : null, rows, setDismissed };
+}
 
 export function NodeTextHost({
   nodeId,
@@ -163,6 +197,7 @@ export function NodeTextHost({
   setNodePaletteOpen,
   ingest,
   onRemoveTag,
+  triggers: own = NONE,
 }: NodeTextHostProps) {
   /**
    * The row's one text element. It shows the same inline DOM whether the row
@@ -182,10 +217,6 @@ export function NodeTextHost({
   useLayoutEffect(() => {
     latest.current = content;
   }, [content]);
-  /** Query captured at dismissal time; a different query re-opens (D14). */
-  const acDismissedQuery = useRef<string | null>(null);
-  /** D14: Escape dismisses the popup without blurring or leaving edit mode. */
-  const [acDismissed, setAcDismissed] = useState(false);
   const [cursor, setCursor] = useState(0);
   const readOnlyReason = rowTextReadOnlyReason(nodeId, nodes.get(nodeId), schema, isVirtual);
   /** How the text's references are inked, from the graph they point into. */
@@ -201,22 +232,7 @@ export function NodeTextHost({
     [content, onChange],
   );
 
-  const rawOpen = useMemo(() => {
-    if (!isActive || readOnly) return null;
-    return openTriggerAt(TRIGGERS, content, cursor);
-  }, [isActive, readOnly, content, cursor]);
-
-  // Dismissal survives until the query itself changes or typing resumes.
-  const typed = acDismissed && rawOpen?.open.query === acDismissedQuery.current ? null : rawOpen;
-
-  // Rows exist only while a trigger is typed: a closed row asks for none.
-  const rows = useMemo(
-    () => (typed === null ? [] : typed.trigger.rows(typed.open.query, nodes)),
-    [typed, nodes],
-  );
-  // A trigger with nothing to offer is closed, unless it answers Enter then.
-  const triggered = typed !== null && (rows.length > 0 || typed.trigger.none !== undefined);
-  const open = triggered ? typed : null;
+  const { open, rows, setDismissed } = useOpenTrigger(own, editing, content, cursor, nodes);
 
   useLayoutEffect(() => {
     if (!isActive || instanceKey === undefined) return undefined;
@@ -249,13 +265,22 @@ export function NodeTextHost({
       const placedCursor = seatCaret(el, placement.at, content.length);
       setCursor(placedCursor);
       if (intent) consumeCaret(intent.instanceKey);
-      setAcDismissed(false);
-      acDismissedQuery.current = null;
+      setDismissed(null);
     } else if (!editing) {
       wasActive.current = false;
       pendingEcho.current = null;
     }
-  }, [editing, isActive, content, initialCaret, instanceKey, pendingCaret, consumeCaret, ink]);
+  }, [
+    editing,
+    isActive,
+    content,
+    initialCaret,
+    instanceKey,
+    pendingCaret,
+    consumeCaret,
+    ink,
+    setDismissed,
+  ]);
 
   const restoreText = useCallback(
     (state: { text: string; caret: number }) => {
@@ -314,10 +339,8 @@ export function NodeTextHost({
     scope: open?.trigger.id,
     pickOnTab: true,
     onPick: pickRow,
-    onCancel: () => {
-      acDismissedQuery.current = open?.open.query ?? null;
-      setAcDismissed(true);
-    },
+    // D14: Escape dismisses the picker without blurring or leaving edit mode.
+    onCancel: () => setDismissed(open?.open.query ?? null),
   });
 
   const handleInput = useCallback(() => {
@@ -325,11 +348,10 @@ export function NodeTextHost({
     if (el && !isComposing.current) {
       const { text, caret } = readInlineInput(el, ink);
       setCursor(caret);
-      acDismissedQuery.current = null;
-      setAcDismissed(false);
+      setDismissed(null);
       emit(text);
     }
-  }, [emit, ink]);
+  }, [emit, ink, setDismissed]);
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -524,6 +546,9 @@ export function NodeTextHost({
             activeIndex={picker.activeIndex}
             onHover={picker.setActiveIndex}
             onPick={pickRow}
+            {...(open.trigger.createLabel === undefined
+              ? {}
+              : { createLabel: open.trigger.createLabel })}
           />
         )}
       </div>

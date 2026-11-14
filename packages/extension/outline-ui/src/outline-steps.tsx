@@ -39,7 +39,7 @@ export function nodesOfKind(wireNodes: readonly WireNode[], kind: string): Picke
     .toSorted((a, b) => a.label.localeCompare(b.label));
 }
 
-const addTag: PaletteStep = {
+export const addTag: PaletteStep = {
   label: "Add tag",
   placeholder: "Search or name a tag...",
   icon: <HashIcon size={12} weight="bold" />,
@@ -82,7 +82,7 @@ const removeTag: PaletteStep = {
   },
 };
 
-const addField: PaletteStep = {
+export const addField: PaletteStep = {
   label: "Add field",
   placeholder: "Search or name a field...",
   icon: <TextTIcon size={12} weight="bold" />,

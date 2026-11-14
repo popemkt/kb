@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { type ReactElement, useMemo } from "react";
 import type { ViewKey } from "@kb/views";
 import {
   browserHost,
@@ -11,6 +11,7 @@ import {
   useNodeTextBinding,
 } from "@kb/ui-sdk";
 import { useRowIngest } from "./ingest";
+import { outlineTriggers } from "./outline-triggers";
 import { RowView } from "./row-view";
 
 /** The text host's `display`: the row's text, placed by the row view `view`. */
@@ -24,8 +25,9 @@ function drawnAs(view: ViewKey<unknown>, nodeId: string, markdown: string) {
  * Outline surface binding of the shared node text host.
  *
  * It owns the row's text channel, so no surface can wire it differently: the
- * text shown is `rowText`, and every write — typing, `[[` completion, what a
- * paste or a drop makes (`useRowIngest`) — goes to `shownNodeId`, the node
+ * text shown is `rowText`, and every write — typing, the text's triggers
+ * (`outlineTriggers`), what a paste or a drop makes (`useRowIngest`) — goes
+ * to `shownNodeId`, the node
  * that text belongs to. For an
  * ordinary row that is the row itself; for a contextual reference it is the
  * target, which is what makes a reference edit the original in place. The
@@ -51,6 +53,12 @@ export function NodeContent({
   const content = rowText(node, binding.schema);
   const textNodeId = shownNodeId(node);
   const ingest = useRowIngest(textNodeId, content);
+  const { instanceKey } = props;
+  const { schema } = binding;
+  const triggers = useMemo(
+    () => outlineTriggers(textNodeId, instanceKey, schema),
+    [textNodeId, instanceKey, schema],
+  );
   return (
     <NodeTextHost
       {...hostProps}
@@ -66,6 +74,7 @@ export function NodeContent({
         if (next !== content) void browserHost().writes.updateNodeContent(textNodeId, next);
       }}
       ingest={ingest}
+      triggers={triggers}
       onRemoveTag={(tagId) => {
         void browserHost().writes.removeTag(textNodeId, tagId);
       }}

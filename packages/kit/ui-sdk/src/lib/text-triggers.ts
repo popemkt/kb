@@ -1,6 +1,6 @@
 /**
  * Triggers in the text (DESIGN-UI.md → Triggers in the text): what typing
- * `[[` opens at the caret. Each trigger
+ * `[[` (and the outline's `@`, `#` and `>`) opens at the caret. Each trigger
  * says where it opens in the text, what it offers there, and what a pick
  * does; the text host runs them all with the one picker engine
  * (`lib/picker`, `usePickerKeys`) and the one list.
@@ -32,6 +32,8 @@ export interface TextTrigger {
   readonly open: (text: string, cursor: number) => OpenTrigger | null;
   /** What it offers for `query`, read from `nodes`. */
   readonly rows: (query: string, nodes: NodeMap) => PickerRow[];
+  /** How a row that makes a new node by the query's name reads ("Create tag “x”"). */
+  readonly createLabel?: (name: string) => string;
   /** A row picked (by Enter, Tab or a click). */
   readonly pick: (row: PickerRow, open: OpenTrigger) => TriggerPick | Promise<TriggerPick>;
   /**

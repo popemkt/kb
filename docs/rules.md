@@ -107,6 +107,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Draw links as screen-space quads (three's Line2NodeMaterial / LineSegments2 with a per-instance width updated in place, or a TSL quad strip), sized by the square root of weight, keeping the one-draw batch and no per-frame allocation.
 - **node** — `01M3AZSFJ9A8K8FYGHF5ADEAPT`
 
+### GAP: a # or > pick in the text is two writes, the text's and the step's
+
+- **expected** — A trigger pick that writes (# tags the row, > adds a field) is one write with the text it takes out, so one undo takes back both (DESIGN-UI.md → Triggers in the text; asOneWrite).
+- **current** — The text host lays the pick into the text through its own text write, then the step commits its own one write (stepTrigger in outline-triggers.ts); undo takes the tag or field back first, and the text second.
+- **impact** — Undoing a # or > pick takes two steps, and the first leaves #query or >query back in the row without its picker.
+- **closes** — TriggerPick.write returns a planned mutation the host applies together with its text write (mutations.together), or the text host's write joins the step's plan.
+- **node** — `01M7D4AYQFJGZQGJZ3KD7M388R`
+
 ### GAP: a 3D capture briefly shows two frames
 
 - **expected** — no visible flash

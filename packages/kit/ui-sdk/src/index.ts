@@ -296,7 +296,14 @@ export {
   topLevelCapture,
 } from "./lib/capture-target";
 export { type Landing, LandingService, land, landOnce, stayHome } from "./lib/landing";
-export { type DateTarget, DateTargetService, dateTarget, leadsNowhere } from "./lib/date-target";
+export {
+  type DateTarget,
+  DateTargetService,
+  dateTarget,
+  datesLead,
+  leadsNowhere,
+} from "./lib/date-target";
+export { refTrigger, type TextTrigger } from "./lib/text-triggers";
 export {
   type FieldEditorProps,
   type FieldRowProps,
