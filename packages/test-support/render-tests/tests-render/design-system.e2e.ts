@@ -18,12 +18,19 @@ import { expect, test } from "./harness-test.ts";
 const TOKENS = ["--background", "--primary"] as const;
 const GALLERY = '[data-option-gallery="sys.f.design-system"]';
 
-/** The design-system field's gallery in Settings → Appearance: its cards. */
+/**
+ * The design-system field's gallery in Settings → Appearance: its cards,
+ * once every one has drawn its sample. A card's sample loads in its own
+ * lazy boundary, so the cards arrive before their samples, and one drawn
+ * sample says nothing of the rest; a list read then holds only the samples
+ * drawn so far.
+ */
 async function cards(page: Page) {
   const gallery = page.locator(GALLERY);
   await expect(gallery).toBeVisible();
-  const found = gallery.locator('[role="radio"]:has([data-option-preview])');
+  const found = gallery.locator('[role="radio"]');
   await expect(found.first()).toBeVisible();
+  await expect(found.filter({ hasNot: page.locator("[data-option-preview]") })).toHaveCount(0);
   return found;
 }
 
