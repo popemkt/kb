@@ -215,6 +215,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     "text",
     HIDE,
   );
+  const viewCalcField = singleField(SYSTEM_IDS.viewCalcField, "view.calc", "text", HIDE);
   const viewHideEmptyField = singleField(
     SYSTEM_IDS.viewHideEmptyField,
     "view.hideEmpty",
@@ -593,6 +594,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     viewGroupField,
     viewCollapsedField,
     viewHideEmptyField,
+    viewCalcField,
     viewFilterField,
     nodeTextField,
     viewField,

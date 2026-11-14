@@ -56,6 +56,7 @@ export const viewFieldNodes = [
     SYSTEM_IDS.viewGroupField,
     SYSTEM_IDS.viewCollapsedField,
     SYSTEM_IDS.viewHideEmptyField,
+    SYSTEM_IDS.viewCalcField,
     SYSTEM_IDS.viewFilterField,
     SYSTEM_IDS.nodeTextField,
   ].map(field),

@@ -44,6 +44,7 @@ export {
   type ViewConfig,
   type ViewFilter,
 } from "./frame.ts";
+export { CALCULATION_LABELS, calculate, calculationsFor, type Calculation } from "./calculation.ts";
 export {
   FRAME_HOST,
   frameViewKey,

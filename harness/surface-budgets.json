@@ -56,8 +56,8 @@
     "reason": "Lane B dropped the 39 names nothing outside query imports, tests included; under the proposal's 60."
   },
   "@kb/views": {
-    "limit": 113,
-    "reason": "The honest stop, not 85: every name has an importer outside views, every views file is shared by two or more packages, and the 55 names only @kb/ui reads sit in those shared files (layout, frame, node views). #203 adds the procedure page's view key and params (ProcedureView, ProcedureParams), shared by core's declaration and the browser route."
+    "limit": 117,
+    "reason": "The honest stop, not 85: every name has an importer outside views, every views file is shared by two or more packages, and the 55 names only @kb/ui reads sit in those shared files (layout, frame, node views). #203 adds the procedure page's view key and params (ProcedureView, ProcedureParams), shared by core's declaration and the browser route. The Tana views line adds a table's calculations (calculate, calculationsFor, CALCULATION_LABELS and the Calculation type), read by the table that draws a result and the view settings that offer a choice."
   },
   "@kb/agent": {
     "limit": 62,

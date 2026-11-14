@@ -288,6 +288,7 @@ const VIEW_DEFAULTS: ViewConfig = {
   groupFieldId: null,
   collapsed: [],
   hideEmpty: false,
+  calc: {},
   filters: [],
 };
 

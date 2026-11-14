@@ -71,7 +71,7 @@ describe("view.propose", () => {
   });
 
   test("names a view first in its host when it is to be the default", async () => {
-    const table = { filters: [], sort: [], display: [], colwidth: {}, pagesize: 50 };
+    const table = { filters: [], sort: [], display: [], colwidth: {}, pagesize: 50, calc: {} };
     await mustInvoke("view.propose", {
       view: "outline.table",
       params: table,

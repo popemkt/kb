@@ -18,8 +18,11 @@ export const CollectionTableView = frameViewKey(
     display: FRAME_SETTINGS.display,
     colwidth: FRAME_SETTINGS.colwidth,
     pagesize: FRAME_SETTINGS.pagesize,
+    calc: FRAME_SETTINGS.calc,
   }).annotate({
-    description: "A frame's rows as one sorted, paged run, a column per field." + FRAME_HOST,
+    description:
+      "A frame's rows as one sorted, paged run, a column per field; calc names a calculation per field column (count, sum, average, median, min, max)." +
+      FRAME_HOST,
   }),
   "rows",
 );

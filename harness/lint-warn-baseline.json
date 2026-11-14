@@ -20,7 +20,7 @@
       "@kb/plugin": 41,
       "@kb/query": 53,
       "@kb/seed": 8,
-      "@kb/views": 113,
+      "@kb/views": 117,
       "@kb/agent": 62,
       "@kb/agent-claude": 3,
       "@kb/agent-openai": 3,
@@ -149,8 +149,8 @@
     },
     "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2774632,
-      "modules": 735
+      "bytes": 2775371,
+      "modules": 736
     },
     "single-family": {
       "contract/sandbox/src/snapshot.ts": 1,

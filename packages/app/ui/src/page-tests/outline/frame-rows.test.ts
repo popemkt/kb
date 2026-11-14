@@ -61,6 +61,7 @@ const SETTINGS = {
   groupFieldId: null,
   collapsed: [],
   hideEmpty: false,
+  calc: {},
 };
 
 function node(

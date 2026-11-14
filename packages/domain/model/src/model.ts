@@ -158,6 +158,8 @@ export const SYSTEM_IDS = {
   viewCollapsedField: "sys.f.view.collapsed",
   /** Whether a grouped view leaves out the groups no row falls in (bool). */
   viewHideEmptyField: "sys.f.view.hideEmpty",
+  /** A table's calculation per column: one JSON text of field id → calculation. */
+  viewCalcField: "sys.f.view.calc",
   /** W7.1 filter clauses (str EDN, multi). */
   viewFilterField: "sys.f.view.filter",
   /**

@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_VIEW_CONFIG } from "@kb/views";
 import { BoardFrameView, CardsFrameView, TableFrameView } from "./frame-views";
 
-const { filters, sort, display, colwidth, pagesize, groupFieldId, collapsed, hideEmpty } =
+const { filters, sort, display, colwidth, pagesize, groupFieldId, collapsed, hideEmpty, calc } =
   DEFAULT_VIEW_CONFIG;
 const host = { placement: "inline" as const };
 
@@ -17,7 +17,7 @@ describe("the collection views outside a frame's host", () => {
   it("each say there is no frame to show", () => {
     const shown = [
       createElement(TableFrameView, {
-        params: { filters, sort, display, colwidth, pagesize },
+        params: { filters, sort, display, colwidth, pagesize, calc },
         host,
       }),
       createElement(BoardFrameView, {

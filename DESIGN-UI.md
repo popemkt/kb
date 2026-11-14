@@ -3002,9 +3002,12 @@ how the stored name resolves to the key among them.
   leaves, on every page, not only the page drawn. A cell with none shows a
   quiet "Calculate" button. A cell with one shows the calculation's name,
   the button that changes it, and its result, the button that copies the
-  number as shown (`copyText`). Changing opens the one node picker over
-  the calculations the column offers, and "None". A stored calculation
-  its column no longer offers shows nothing, and stays.
+  number as shown (`copyText`). Choosing is a view setting, so both
+  buttons open the frame's view settings popover, whose calculations
+  section (drawn because the params declare `calc`) holds a slot per field
+  column over the calculations it offers, and "None", as every other
+  setting is chosen. A stored calculation its column no longer offers
+  shows nothing, and stays.
   The store's row walk (`visible-instances`) and the command registry read
   the same enumeration from the UI kernel (`@kb/ui-sdk`'s
   `providedFrameViews`, the frame views `ViewPoint` holds now), so a frame

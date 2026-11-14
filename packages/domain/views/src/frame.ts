@@ -23,6 +23,7 @@ import {
   type SlotWrite,
   type Writable,
 } from "@kb/model";
+import { CALCULATIONS, type Calculation } from "./calculation.ts";
 import type { ConfigReport, ViewKey } from "./view-key.ts";
 
 export type SortDir = "asc" | "desc";
@@ -48,6 +49,8 @@ export interface ViewConfig {
   collapsed: string[];
   /** Whether the groups no row falls in are left out. */
   hideEmpty: boolean;
+  /** A table's calculation per column, by field id (DESIGN-UI.md → Calculations). */
+  calc: Record<string, Calculation>;
   /** The view's narrowing of its frame's rows, ANDed. */
   filters: ViewFilter[];
 }
@@ -60,6 +63,7 @@ export const DEFAULT_VIEW_CONFIG: ViewConfig = {
   groupFieldId: null,
   collapsed: [],
   hideEmpty: false,
+  calc: {},
   filters: [],
 };
 
@@ -223,6 +227,19 @@ const PositiveSchema = Schema.Finite.check(Schema.isGreaterThan(0));
 
 const WidthsSchema = Schema.Record(Schema.String, PositiveSchema);
 
+const CalcSchema = Schema.Record(Schema.String, Schema.Literals(CALCULATIONS));
+
+/** `sys.f.view.calc` stores a JSON object of field id → calculation, as colwidth stores widths. */
+const calcValue = (props: NodeProps): unknown => {
+  const raw = firstStr(SYSTEM_IDS.viewCalcField)(props);
+  if (raw === undefined) return undefined;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+};
+
 /**
  * A filter is stored as EDN text, so reading the clause out of the text is the
  * carrier step and the schema validates the clause it produced.
@@ -272,6 +289,7 @@ export const FRAME_SETTINGS = {
   groupFieldId: Schema.NullOr(Schema.NonEmptyString),
   collapsed: Schema.Array(Schema.NonEmptyString),
   hideEmpty: Schema.Boolean,
+  calc: CalcSchema,
 };
 
 /** The settings any frame view's params may carry; filters are every view's. */
@@ -284,6 +302,7 @@ export interface FrameViewParams {
   readonly groupFieldId?: string | null;
   readonly collapsed?: readonly string[];
   readonly hideEmpty?: boolean;
+  readonly calc?: Readonly<Record<string, Calculation>>;
 }
 
 /**
@@ -363,6 +382,13 @@ const VIEW_SLOTS: ConfigSlots<ViewConfig> = {
     schema: Schema.Boolean,
     fallback: DEFAULT_VIEW_CONFIG.hideEmpty,
   }),
+  calc: oneOf({
+    fields: [SYSTEM_IDS.viewCalcField],
+    read: calcValue,
+    write: (calc) => ({ [SYSTEM_IDS.viewCalcField]: [strValue(JSON.stringify(calc))] }),
+    schema: CalcSchema,
+    fallback: DEFAULT_VIEW_CONFIG.calc,
+  }),
   filters: manyOf<ViewFilter>({
     fields: [SYSTEM_IDS.viewFilterField],
     read: filterValues,
@@ -406,6 +432,7 @@ export function decodeFrameConfig(props: NodeProps | undefined, report: ConfigRe
     groupFieldId: slot("groupFieldId"),
     collapsed: slot("collapsed"),
     hideEmpty: slot("hideEmpty"),
+    calc: slot("calc"),
     filters: slot("filters"),
   };
 }
