@@ -8,10 +8,11 @@
  * [[01M1RXMQPVJKREGDS7D37J1MWN]] moves the state from the runner's own imports
  * to an argument.
  */
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   SYSTEM_IDS,
   defaultViewIdOf,
+  fieldTypeValue,
   extensionNodeId,
   viewOptionId,
   viewOptionOf,
@@ -282,6 +283,41 @@ describe("palette command routing (characterization)", () => {
     resetOutlineStore();
     await run(SYSTEM_IDS.cmdDebugShowFields);
     expect(toasts()).toEqual(["select a node first"]);
+  });
+
+  it("toggle-check toggles the selected row's box, and says when it has none", async () => {
+    // #todo's box is a `done` checkbox (DESIGN-UI.md → A tag's box).
+    const graph = seedGraph().map((w) =>
+      w.id === "tag.todo"
+        ? {
+            ...w,
+            props: { ...w.props, [SYSTEM_IDS.tagCheckField]: [{ t: "ref" as const, v: "f.done" }] },
+          }
+        : w,
+    );
+    graph.push({
+      id: "f.done",
+      text: "done",
+      props: {
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+        [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("checkbox")],
+      },
+      children: [],
+      createdAt: "2026-08-08T05:00:00.000Z",
+      updatedAt: "2026-08-08T05:00:00.000Z",
+    });
+    useGraphStore.getState().hydrateFromWire(graph, fixtureGraph.rev, "fixtures");
+    useOutlineStore.setState({ selectedNodeId: "n.root-b" });
+    await run(SYSTEM_IDS.cmdToggleCheck);
+    await vi.waitFor(() =>
+      expect(node("n.root-b")?.props["f.done"]).toEqual([{ t: "bool", v: true }]),
+    );
+
+    useOutlineStore.setState({ selectedNodeId: "n.root-c" });
+    await run(SYSTEM_IDS.cmdToggleCheck);
+    await vi.waitFor(() =>
+      expect(toasts()).toEqual(["This node has no check: none of its tags names one"]),
+    );
   });
 
   it("expand-all and collapse-all move every expandable row in scope", async () => {

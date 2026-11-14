@@ -15,7 +15,7 @@
       "@kb/sandbox": 94,
       "@kb/appearance": 60,
       "@kb/keybindings": 39,
-      "@kb/model": 266,
+      "@kb/model": 272,
       "@kb/outline-paste": 3,
       "@kb/plugin": 41,
       "@kb/query": 53,
@@ -80,7 +80,7 @@
       "@kb/appearance-kit": 41,
       "@kb/scene": 13,
       "@kb/scene-gpu": 35,
-      "@kb/ui-sdk": 504,
+      "@kb/ui-sdk": 505,
       "@kb/ui-test-kit": 26
     },
     "family-names": {
@@ -149,8 +149,8 @@
     },
     "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2773512,
-      "modules": 735
+      "bytes": 2782502,
+      "modules": 738
     },
     "single-family": {
       "contract/sandbox/src/snapshot.ts": 1,

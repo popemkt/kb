@@ -195,6 +195,7 @@ export {
   contextualTargetOf,
   isContextualRef,
   rowText,
+  rowTitle,
   rowTextOf,
   rowTextReadOnlyReason,
   shownNode,

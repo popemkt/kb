@@ -41,8 +41,8 @@
     "reason": "M6: script reach (callWithin, scriptRefusal, scriptWriteRefusal, readableNodes, readableQuery) moved from @kb/operations beside grants."
   },
   "@kb/model": {
-    "limit": 266,
-    "reason": "The honest stop, not 220: M3b dropped every name no package outside model imports, and every model file is shared by two or more packages (the 16 names only @kb/cli reads sit in shared files), so narrowing further splits a concept across packages. #191 adds TagChains, which @kb/keybindings' stored-shortcut reader names."
+    "limit": 272,
+    "reason": "The honest stop, not 220: M3b dropped every name no package outside model imports, and every model file is shared by two or more packages (the 16 names only @kb/cli reads sit in shared files), so narrowing further splits a concept across packages. #191 adds TagChains, which @kb/keybindings' stored-shortcut reader names. Field display adds fieldShowOf (ui-sdk's visibility), pinnedFirst (the one order of a list of fields, read by ui-sdk and outline-ui) and seededShowField (the seed's show field with its options). Tag behaviours add nodeTitleOf (the one reader of a node's title, read by ui-sdk, query and operations). A tag's box adds checkOf (a node's box, read by app/ui's plan and commands and outline-ui's row) and checkEdits (the one edit a toggle writes, read by the same)."
   },
   "@kb/outline-paste": {
     "limit": 3
@@ -242,8 +242,8 @@
     "limit": 35
   },
   "@kb/ui-sdk": {
-    "limit": 504,
-    "reason": "Lane B: the barrel stops re-exporting @kb/keybindings, @kb/contracts, @kb/model and @kb/views (importers take those names from their owners) and drops callInput and invokeAction; its @kb/query names stay as the page's query seam (only @kb/ui's engine zone may import @kb/query). #173 added a row's paste and drop chain, #190 the browser's one key boundary (keyChordEvent), #203 one shared Button. The 380 ceiling waits on splitting the files @kb/ui and outline-ui share (GAP 01M79H9PY7XVHHVGAN1WA3VYAF)."
+    "limit": 505,
+    "reason": "Lane B: the barrel stops re-exporting @kb/keybindings, @kb/contracts, @kb/model and @kb/views (importers take those names from their owners) and drops callInput and invokeAction; its @kb/query names stay as the page's query seam (only @kb/ui's engine zone may import @kb/query). #173 added a row's paste and drop chain, #190 the browser's one key boundary (keyChordEvent), #203 one shared Button. The 380 ceiling waits on splitting the files @kb/ui and outline-ui share (GAP 01M79H9PY7XVHHVGAN1WA3VYAF). Tag behaviours add rowTitle (what a row draws at rest, beside rowText, read by outline-ui's NodeContent)."
   },
   "@kb/ui-test-kit": {
     "limit": 26
