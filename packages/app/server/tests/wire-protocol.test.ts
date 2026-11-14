@@ -62,9 +62,11 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // Protocol 9 adds the extension-watch greeting and live state; earlier pages
 // reject that frame and show a server-message error, so they reload first.
 // Procedure actions may carry an optional destructive tone; prior pages ignore it.
+// `node.batch` is a new action: a previous page never calls it, and writes a
+// selection's rows one call at a time, as it did.
 const RECORDED = {
   protocol: 9,
-  fingerprint: "abe0e85fff935751001cd51a610168fd1c18a780e880dfda9858ffddd4a6c392",
+  fingerprint: "0f3f0eacf3704d580219a0e5d0ccfe6341712233388a133f48eaa9a443adfb2e",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

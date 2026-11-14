@@ -454,7 +454,7 @@ export function forcedBy(input: { readonly force?: boolean | undefined }): Persi
 }
 
 /** What a node write plans over the nodes it reads: the nodes it upserts and the ids it deletes. */
-interface PlannedNodeWrite {
+export interface PlannedNodeWrite {
   readonly upserts: KbNode[];
   readonly deletes: NodeId[];
 }
@@ -464,7 +464,7 @@ interface PlannedNodeWrite {
  * a batch of it (`node.batch`): the node gone, with its subtree unless
  * `descendants: "reparent"`, and detached from every parent.
  */
-function planNodeDelete(
+export function planNodeDelete(
   nodes: KbNode[],
   input: z.infer<typeof nodeDeleteDef.inputSchema>,
   at: string,
@@ -490,7 +490,7 @@ export const nodeDeleteEffect = Effect.fn("node.delete")(function* (
  * the action), and the graph a prop or a placement reads is indexed at most
  * once, only when one needs it: a text edit reads no graph.
  */
-const planNodeUpdate = Effect.fn("node.update.plan")(function* (
+export const planNodeUpdate = Effect.fn("node.update.plan")(function* (
   nodes: KbNode[],
   input: z.infer<typeof nodeUpdateDef.inputSchema>,
   at: string,
