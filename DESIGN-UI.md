@@ -708,7 +708,8 @@ node menu anchors on the head; closed, it gives the focus back to the head
 What a gesture over a range acts on is said once, by the selection:
 
 - **Each selected row** for what marks or fills a node: tagging, untagging,
-  setting a field, pinning, checking. A command or a picker step is handed every row
+  setting a field, pinning, checking, and moving to the group beside its own
+  (⌘⇧←/→, _Groups_). A command or a picker step is handed every row
   it is about (`CommandTarget.nodeIds`; a step's `targetNodeIds`), and acts
   on each.
 - **The top rows** for what moves or removes a node: Delete, Tab, Shift-Tab
@@ -3269,7 +3270,12 @@ how the stored name resolves to the key among them.
   own as the view draws them, skipping folded ones, and nowhere past either
   end. The move is one page write (`moveToGroup`): the row's values of the
   field are replaced by the group's value, or removed for "No <field>", so
-  one undo puts it back, and the selection stays on the row. Rows of a
+  one undo puts it back, and the selection stays on the row. Over a range
+  the keys move every selected row one group over from its own, a block
+  shift: on a calendar each row moves a day. A row with no group on that
+  side, past the last one or in no group, stays where it is. The moves are
+  one write, so one undo, and the selection stays on the same rows, since a
+  row's instance does not name its group. Rows of a
   query's results do not move, as they do not drag, since the value may be
   what the query matched. The walk says which groups are beside a row's
   (`VisibleInstance.group`), from the groups `frameRows` lays out, so the
@@ -3420,9 +3426,9 @@ how the stored name resolves to the key among them.
   A row is dated by moving it to a day's group: dragged from the list or
   another day onto a day, which sets the date field to that day in one
   page write, so one undo puts it back; dragged onto the list, its date is
-  removed. On the keyboard, ⌘⇧← and ⌘⇧→ move the selected row a day back
-  or on (_Groups_), and past the days shown the calendar opens at the row's
-  new day, so the row stays drawn and selected; ⌘⇧← on a row in the list
+  removed. On the keyboard, ⌘⇧← and ⌘⇧→ move the selected rows a day back
+  or on, each from its own day (_Groups_), and past the days shown the
+  calendar opens at the head row's new day, so it stays drawn and selected; ⌘⇧← on a row in the list
   moves it onto the day the calendar is open at. Each day has "+ Add"
   ("Add to Fri, Nov 14"), which adds a row holding that day (_Adding to a
   frame_, the day's value as `field-is`): at the foot of a column, and in a

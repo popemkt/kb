@@ -136,6 +136,34 @@ function arrange(write: (ids: readonly string[]) => Promise<void>, nodeId: strin
 }
 
 /**
+ * ⌘⇧← and ⌘⇧→ (DESIGN-UI.md → Groups): every selected row one group over
+ * from its own, as its frame draws them, a block shift; a row with no group
+ * on that side stays where it is. It is one write. The selection stays on
+ * its rows, since a row's instance does not name its group, and a calendar
+ * pages to where the head lands when that leaves the days it shows.
+ */
+function moveToGroup({ instanceKey, side }: ActionOf<"moveToGroup">): void {
+  const store = useOutlineStore.getState();
+  const head = store.instanceAt(instanceKey);
+  const seen = new Set<string>();
+  const moves = store.selectedRows().flatMap(({ nodeId, group }) => {
+    const step = group?.[side] ?? null;
+    if (group === undefined || step === null || seen.has(nodeId)) return [];
+    seen.add(nodeId);
+    return [{ nodeId, fieldId: group.fieldId, value: step.value }];
+  });
+  const { writes } = browserHost();
+  void asOneWrite(
+    moves.map((move) => move.nodeId),
+    () =>
+      Promise.all(moves.map((move) => writes.moveToGroup(move.nodeId, move.fieldId, move.value))),
+  );
+  const opens = head?.group?.[side]?.opens;
+  if (head?.group !== undefined && opens !== undefined) store.showDay(head.group.frameId, opens);
+  if (head !== null) scrollRowIntoView(head.nodeId);
+}
+
+/**
  * Delete the rows the selection acts on, as one write, then take the focus
  * to the visible row before them, else the one after. A refused delete
  * leaves the rows where they were, and the selection on them.
@@ -179,13 +207,7 @@ const SELECTION_STEPS: SelectionSteps = {
   outdent: ({ nodeId }) => arrange((ids) => browserHost().writes.outdentNodes(ids), nodeId),
   moveUp: ({ nodeId }) => arrange((ids) => browserHost().writes.moveNodesUp(ids), nodeId),
   moveDown: ({ nodeId }) => arrange((ids) => browserHost().writes.moveNodesDown(ids), nodeId),
-  // The selection stays on the row: its instance does not name its group.
-  // The head alone, not a range's rows. GAP [[01M7DNQY8PGW8XKYKMTQT45DEQ]]
-  moveToGroup: ({ nodeId, fieldId, value, frameId, opens }) => {
-    void browserHost().writes.moveToGroup(nodeId, fieldId, value);
-    if (opens !== undefined) useOutlineStore.getState().showDay(frameId, opens);
-    scrollRowIntoView(nodeId);
-  },
+  moveToGroup,
   zoom,
   createAfter,
   createBefore: ({ nodeId }) => void createNodeBefore(nodeId),

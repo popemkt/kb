@@ -1,7 +1,8 @@
 /**
  * A row moves to the group beside its own with ⌘⇧← and ⌘⇧→ (DESIGN-UI.md →
  * Groups): the walk says which groups are beside a row's, skipping folded
- * ones, the move is one page write, and the selection stays on the row. A
+ * ones, the move is one page write, and the selection stays on the row. Over a
+ * range every selected row moves one group over from its own, in one write. A
  * query's results do not move.
  */
 import { act, createElement } from "react";
@@ -28,6 +29,7 @@ import {
 import { collectionsUiPlugin } from "@kb/collections-ui";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { framedAs, viewFieldNodes } from "@/fixtures/view-fields";
+import { mutations } from "@/actions/mutations";
 import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
@@ -60,14 +62,17 @@ const GRAPH: WireNode[] = [
   row("o.doing", "Doing"),
   row("o.done", "Done"),
   row("o.blocked", "Blocked"),
-  ...framedAs(row("board", "Board", {}, ["c1", "c2"]), "board", {
+  ...framedAs(row("board", "Board", {}, ["c1", "c3", "c2"]), "board", {
     [SYSTEM_IDS.viewGroupField]: [ref("f.status")],
     [SYSTEM_IDS.viewCollapsedField]: [{ t: "str", v: "ref:o.done" }],
   }),
   row("c1", "First", { "f.status": [ref("o.todo")] }),
   row("c2", "Second", { "f.status": [ref("o.doing")] }),
+  row("c3", "Third", { "f.status": [ref("o.todo")] }),
 ];
 
+/** The instance key of the row `id` is drawn at. */
+const keyOf = (id: string) => outlineInstanceKey(id, outlineNodes());
 const statusOf = (id: string) =>
   useGraphStore.getState().wireNodes.find((n) => n.id === id)?.props["f.status"];
 
@@ -139,6 +144,10 @@ describe("a row's group keys", () => {
   async function pressOn(id: string, keyName: string): Promise<void> {
     const at = outlineInstanceKey(id, outlineNodes());
     act(() => useOutlineStore.getState().selectNode(id, at));
+    await press(keyName);
+  }
+
+  async function press(keyName: string): Promise<void> {
     act(() => root.render(createElement(Host)));
     await act(async () => {
       dom.document.body.dispatchEvent(
@@ -165,6 +174,21 @@ describe("a row's group keys", () => {
     expect(statusOf("c2")).toEqual([ref("o.todo")]);
   });
 
+  it("move every row of a range in one column to the next group, in one undo step, the range staying", async () => {
+    act(() => useOutlineStore.getState().selectNode("c1", keyOf("c1")));
+    act(() => useOutlineStore.getState().extendSelection({ instanceKey: keyOf("c3") }));
+    expect(useOutlineStore.getState().selectedNodeIds).toEqual(["c1", "c3"]);
+    await press("ArrowRight");
+    expect(statusOf("c1")).toEqual([ref("o.doing")]);
+    expect(statusOf("c3")).toEqual([ref("o.doing")]);
+    expect(statusOf("c2")).toEqual([ref("o.doing")]);
+    expect(useGraphStore.getState().undoStack).toHaveLength(1);
+    expect(useOutlineStore.getState().selectedNodeIds).toEqual(["c1", "c3"]);
+    await act(() => mutations.undo());
+    expect(statusOf("c1")).toEqual([ref("o.todo")]);
+    expect(statusOf("c3")).toEqual([ref("o.todo")]);
+  });
+
   it("do nothing past the first group", async () => {
     await pressOn("c1", "ArrowLeft");
     expect(statusOf("c1")).toEqual([ref("o.todo")]);
@@ -177,7 +201,7 @@ describe("a row's group keys", () => {
     const view = present(frameViewOf(present(nodes.get("board"), "board"), schema, views), "view");
     const rows = (rowIds?: string[]) =>
       frameRows({ frameId: "board", nodes, schema, view, rowIds });
-    expect(rows().steps.size).toBe(2);
+    expect(rows().steps.size).toBe(3);
     expect(rows(["c1", "c2"]).steps.size).toBe(0);
   });
 });
