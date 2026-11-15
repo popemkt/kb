@@ -320,23 +320,55 @@ const inked = (color: string) =>
   still(`color: ${color} !important; text-shadow: none !important; filter: none !important;`);
 const LOOK_ID = "kb-head-band-look";
 
-/** The clip photographed under `css`, once the look is painted (two frames), never the look before it. */
-async function shotUnder(page: Page, clip: Box, css: string): Promise<string> {
+/** The grey of a look's marker pixel, at the clip's top left, one per look. */
+const MARKS = [16, 80, 144, 208] as const;
+
+/** The grey at the top left pixel of a PNG (base64), decoded by the page's canvas. */
+async function markIn(png: string): Promise<number> {
+  const image = new Image();
+  image.src = `data:image/png;base64,${png}`;
+  await image.decode();
+  const canvas = document.createElement("canvas");
+  canvas.width = 1;
+  canvas.height = 1;
+  const pen = canvas.getContext("2d", { willReadFrequently: true });
+  if (pen === null) return -1;
+  pen.drawImage(image, 0, 0);
+  return pen.getImageData(0, 0, 1, 1).data[0] ?? -1;
+}
+
+/**
+ * The clip photographed under `css`, once it holds still. The look also
+ * paints a marker pixel of grey `mark` at the clip's top left, outside
+ * every measured row. A shot counts once it holds that grey and is the same
+ * as the shot before it: a layer can still show the look before (its tiles
+ * are drawn apart from the frame that carries the marker), so a shot is
+ * asked again until the whole frame has moved and settled.
+ */
+async function shotUnder(page: Page, clip: Box, css: string, mark: number): Promise<string> {
+  const marker = `body::after { content: ""; position: fixed; left: 0; top: 0; width: 2px; height: 2px; z-index: 2147483647; background: rgb(${mark} ${mark} ${mark}); }`;
   await page.evaluate(
     ({ id, rules }) => {
       const style = document.createElement("style");
       style.id = id;
       style.textContent = rules;
       document.head.append(style);
-      return new Promise<void>((done) => {
-        requestAnimationFrame(() => requestAnimationFrame(() => done()));
-      });
     },
-    { id: LOOK_ID, rules: css },
+    { id: LOOK_ID, rules: `${css}\n${marker}` },
   );
-  const png = await page.screenshot({ clip });
+  let png = "";
+  await expect
+    .poll(
+      async () => {
+        const last = png;
+        png = (await page.screenshot({ clip })).toString("base64");
+        return png === last && Math.abs((await page.evaluate(markIn, png)) - mark) <= 2;
+      },
+      { message: `the look marked ${mark} never held still`, intervals: [50, 100, 250] },
+    )
+    .toBe(true);
   await page.evaluate((id) => document.getElementById(id)?.remove(), LOOK_ID);
-  return png.toString("base64");
+  return png;
 }
 
 /** The page's ground, `--background`, in sRGB 0–255. */
@@ -360,10 +392,10 @@ async function bandOf(page: Page): Promise<Band> {
   const clip = { x: 0, y: 0, width: 1280, height: bottom + 8 };
   const pngs = [
     // A transparent text paints no shadow: the ink is all but transparent, so the halo stays.
-    await shotUnder(page, clip, still("color: rgb(128 128 128 / 0.005) !important;")),
-    await shotUnder(page, clip, inked("#000")),
-    await shotUnder(page, clip, inked("#fff")),
-    await shotUnder(page, clip, "[data-head-band] { visibility: hidden !important; }"),
+    await shotUnder(page, clip, still("color: rgb(128 128 128 / 0.005) !important;"), MARKS[0]),
+    await shotUnder(page, clip, inked("#000"), MARKS[1]),
+    await shotUnder(page, clip, inked("#fff"), MARKS[2]),
+    await shotUnder(page, clip, "[data-head-band] { visibility: hidden !important; }", MARKS[3]),
   ];
   const [ground, black, white, bare] = (await page.evaluate(decodedInPage, pngs)).map(
     ({ width, height, rgba }) => ({
