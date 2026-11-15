@@ -1,6 +1,8 @@
 import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
-import { KbCtx } from "@kb/contracts";
+import { KbCtx, SavedQueries } from "@kb/contracts";
+import { SYSTEM_IDS, type KbNode, type NodeId } from "@kb/model";
+import { parseViewFilterEdn } from "@kb/views";
 import {
   auditOutput,
   buildCheckModel,
@@ -14,6 +16,7 @@ import {
   type Finding,
 } from "./model.ts";
 import { isFile, pathInRoot } from "./repo-files.ts";
+import { textMatchesOf } from "./text-matches.ts";
 
 const surfaceFiles = Effect.fn("ext.check.surfaceFiles")(function* (
   root: string,
@@ -228,6 +231,75 @@ const findHomeBroken = Effect.fn("ext.check.findHomeBroken")(function* (
   return homeBroken;
 });
 
+/** What a query names by text: the literals it matches node text against by equality. */
+function queryTextRef(edn: string): string | undefined {
+  const texts = textMatchesOf(edn);
+  return texts.length === 0
+    ? undefined
+    : `matches node text against ${texts.map((text) => JSON.stringify(text)).join(", ")}`;
+}
+
+/**
+ * What a view filter names by text: its field, when that is not a field
+ * node's id, or its value, when the field holds references and the value is
+ * not a node's id. Matching by contains (`{:text …}`) is search.
+ */
+function filterTextRef(nodesById: ReadonlyMap<NodeId, KbNode>, edn: string): string | undefined {
+  const filter = parseViewFilterEdn(edn);
+  if (filter?.kind !== "field-is") return undefined;
+  const field = nodesById.get(filter.field);
+  const isField = (field?.props[SYSTEM_IDS.typeField] ?? []).some(
+    (value) => value.t === "ref" && value.v === SYSTEM_IDS.field,
+  );
+  if (field === undefined || !isField) return `names its field by text: ${filter.field}`;
+  const holdsRefs = (field.props[SYSTEM_IDS.fieldTypeField] ?? []).some(
+    (value) => value.t === "ref" && value.v === SYSTEM_IDS.ftRef,
+  );
+  const value = filter.values[0].v;
+  return holdsRefs && !nodesById.has(value)
+    ? `names a value of ${field.id} by text: ${JSON.stringify(value)}`
+    : undefined;
+}
+
+/**
+ * Every stored reference that names a node by its text: a query held in any
+ * node's value (a query node's, a lens's, an ontology's, a check's — a value
+ * that reads as one datalog query is one, whichever field holds it), a saved
+ * query, and a view's filter.
+ */
+const findRefByText = Effect.fn("ext.check.findRefByText")(function* (nodes: readonly KbNode[]) {
+  const nodesById = new Map(nodes.map((node) => [node.id, node]));
+  const refByText: Finding[] = [];
+  for (const node of nodes) {
+    for (const [field, values] of Object.entries(node.props)) {
+      for (const value of values) {
+        if (value.t !== "str") continue;
+        const named =
+          field === SYSTEM_IDS.viewFilterField
+            ? filterTextRef(nodesById, value.v)
+            : queryTextRef(value.v);
+        if (named === undefined) continue;
+        refByText.push({
+          kind: "ref-by-text",
+          at: node.id,
+          message: `${field} on ${node.id} ${named}; name the node by :node/id`,
+        });
+      }
+    }
+  }
+  for (const query of yield* (yield* SavedQueries).list) {
+    const named = queryTextRef(query.edn);
+    if (named === undefined) continue;
+    const at = `.kb/queries/${query.name}.edn`;
+    refByText.push({
+      kind: "ref-by-text",
+      at,
+      message: `${at} ${named}; name the node by :node/id`,
+    });
+  }
+  return refByText;
+});
+
 export const checkAuditEffect = Effect.fn("ext.check.audit")(function* (_input: EmptyInput) {
   const ctx = yield* KbCtx;
   const model = buildCheckModel(ctx.nodes);
@@ -237,6 +309,7 @@ export const checkAuditEffect = Effect.fn("ext.check.audit")(function* (_input: 
   const enforcementStale = findEnforcementStale(model);
   const gateAndCheck = findGateAndCheck(model);
   const homeBroken = yield* findHomeBroken(ctx.root, model);
+  const refByText = yield* findRefByText(ctx.nodes);
 
   const findings = [
     ...checkMissing,
@@ -245,6 +318,7 @@ export const checkAuditEffect = Effect.fn("ext.check.audit")(function* (_input: 
     ...enforcementStale,
     ...gateAndCheck,
     ...homeBroken,
+    ...refByText,
   ];
   return auditOutput.parse({ clean: findings.length === 0, findings });
 });

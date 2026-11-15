@@ -76,7 +76,11 @@ function auditLines(output: unknown): string[] {
   const findings = Predicate.isObject(output) ? listOf(output.findings) : [];
   return findings.map((finding) => {
     const subject =
-      typeof finding.rule === "string" ? `rule ${finding.rule}` : `check ${String(finding.check)}`;
+      typeof finding.rule === "string"
+        ? `rule ${finding.rule}`
+        : typeof finding.check === "string"
+          ? `check ${finding.check}`
+          : `at ${String(finding.at)}`;
     return `${String(finding.kind)} — ${String(finding.message)} (${subject})`;
   });
 }

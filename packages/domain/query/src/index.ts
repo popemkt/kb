@@ -19,7 +19,7 @@ export { inThreadPort, RemoteIndex, serveIndex } from "./index/remote.ts";
 export type { EnginePort, FromEngine, Timers, ToEngine } from "./index/remote.ts";
 export { normalizeEdnQuery } from "./ir/compile.ts";
 export { parseEdn } from "./ir/parse.ts";
-export { readsAsEdn } from "./ir/edn.ts";
+export { readEdn, readsAsEdn, type Edn } from "./ir/edn.ts";
 export { printEdn } from "./ir/print.ts";
 export { canonicalConditions, lift, lowerIr } from "./ir/conditions.ts";
 export { readQuery, requirementsOf, type Requirements } from "./ir/requirements.ts";

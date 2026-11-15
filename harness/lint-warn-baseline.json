@@ -18,7 +18,7 @@
       "@kb/model": 274,
       "@kb/outline-paste": 3,
       "@kb/plugin": 41,
-      "@kb/query": 56,
+      "@kb/query": 58,
       "@kb/seed": 8,
       "@kb/views": 121,
       "@kb/agent": 62,
@@ -150,8 +150,8 @@
     },
     "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2801156,
-      "modules": 740
+      "bytes": 2804480,
+      "modules": 741
     },
     "single-family": {
       "contract/sandbox/src/snapshot.ts": 1,

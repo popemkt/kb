@@ -65,9 +65,11 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // `node.batch` is a new action: a previous page never calls it, and writes a
 // selection's rows one call at a time, as it did.
 // node.add takes an optional `matching` query and may answer `unmet`; older pages send neither.
+// `ext.check.audit` may answer a `ref-by-text` finding; a page never runs the
+// audit, which reads the repository's files, so a previous page is unaffected.
 const RECORDED = {
   protocol: 9,
-  fingerprint: "d75d608b2eb6a172c88d53843848d397bf99f515859c56c88305a5444bcfa578",
+  fingerprint: "a27f1dc59200ef656dfcbd321f102ab034770c722b98bea356044165a8fde59c",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */
