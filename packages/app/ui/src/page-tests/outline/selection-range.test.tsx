@@ -2,14 +2,15 @@
  * A selection is a range of rows (DESIGN-UI.md → Outline editor): Shift+↑/↓
  * moves its head and keeps its anchor, any other move collapses it, and a
  * structural key acts on its top rows as one block, one write and one undo
- * step. Driven through the window keymap the way the app does; every
+ * step, and ⌘Enter checks or unchecks each row's box together. Driven through the window keymap the way the app does; every
  * assertion waits on the state it reads.
  */
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { present } from "@kb/model";
+import { fieldTypeValue, present, SYSTEM_IDS } from "@kb/model";
+import type { WireNode } from "@kb/contracts";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { outlineInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { installDomGlobals } from "@kb/ui-test-kit";
@@ -36,6 +37,47 @@ const roots = () =>
   (node(WORKSPACE_ROOT_ID)?.children ?? []).filter((id) =>
     ["n.root-a", "n.root-b", "n.root-c"].includes(id),
   );
+
+const ref = (v: string) => ({ t: "ref" as const, v });
+const wire = (id: string, props: WireNode["props"]): WireNode => ({
+  id,
+  text: id,
+  props,
+  children: [],
+  createdAt: "2026-11-14T00:00:00.000Z",
+  updatedAt: "2026-11-14T00:00:00.000Z",
+});
+/** A #task row's props, its box checked or not. */
+const boxed = (box: boolean): WireNode["props"] => ({
+  [SYSTEM_IDS.typeField]: [ref("t.task")],
+  "f.done": [{ t: "bool", v: box }],
+});
+
+/**
+ * The ranked fixture, with #task's box a checkbox field, `done`, on
+ * n.root-a and n.root-c, checked where `checked` says; n.root-b has none.
+ */
+function withBoxes(checked: { readonly a: boolean; readonly c: boolean }): WireNode[] {
+  return [
+    ...rankedFixture().map((n) =>
+      n.id === "n.root-a" || n.id === "n.root-c"
+        ? { ...n, props: { ...n.props, ...boxed(n.id === "n.root-a" ? checked.a : checked.c) } }
+        : n,
+    ),
+    wire("f.done", {
+      [SYSTEM_IDS.typeField]: [ref(SYSTEM_IDS.field)],
+      [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("checkbox")],
+      [SYSTEM_IDS.cardinalityField]: [ref(SYSTEM_IDS.cardinalityOne)],
+    }),
+    wire("t.task", {
+      [SYSTEM_IDS.typeField]: [ref(SYSTEM_IDS.tag)],
+      [SYSTEM_IDS.tagCheckField]: [ref("f.done")],
+    }),
+  ];
+}
+const done = (id: string) => node(id)?.props["f.done"];
+const TRUE = [{ t: "bool", v: true }];
+const FALSE = [{ t: "bool", v: false }];
 
 describe("a selection is a range of rows", () => {
   let dom: Window;
@@ -183,5 +225,39 @@ describe("a selection is a range of rows", () => {
     expect(node("n.child-a2")?.parentId).toBe("n.root-a");
     expect(node("n.root-b")?.parentId).not.toBe("n.child-a1");
     expect(useGraphStore.getState().undoStack).toHaveLength(0);
+  });
+
+  /** n.root-a to n.root-c selected: three rows, n.root-a closed over its children. */
+  async function selectThreeRows(): Promise<void> {
+    selectAndMount("n.root-a");
+    await press("ArrowDown", { shiftKey: true });
+    await press("ArrowDown", { shiftKey: true });
+    expect(selection().selectedNodeIds).toEqual(["n.root-a", "n.root-b", "n.root-c"]);
+  }
+
+  it("⌘Enter over a range with an unchecked box checks every box, a row with none left out, in one undo step", async () => {
+    // The head, n.root-c, is checked: the range is checked, not flipped row by row.
+    useGraphStore.getState().hydrateFromWire(withBoxes({ a: false, c: true }), 1, "fixtures");
+    await selectThreeRows();
+    await press("Enter", { metaKey: true });
+    await vi.waitFor(() => expect(done("n.root-a")).toEqual(TRUE));
+    expect(done("n.root-c")).toEqual(TRUE);
+    expect(done("n.root-b")).toBeUndefined();
+    expect(useGraphStore.getState().undoStack).toHaveLength(1);
+    await act(() => mutations.undo());
+    await vi.waitFor(() => expect(done("n.root-a")).toEqual(FALSE));
+    expect(done("n.root-c")).toEqual(TRUE);
+  });
+
+  it("⌘Enter over a range whose boxes are all checked unchecks every one, in one undo step", async () => {
+    useGraphStore.getState().hydrateFromWire(withBoxes({ a: true, c: true }), 1, "fixtures");
+    await selectThreeRows();
+    await press("Enter", { metaKey: true });
+    await vi.waitFor(() => expect(done("n.root-a")).toEqual(FALSE));
+    expect(done("n.root-c")).toEqual(FALSE);
+    expect(done("n.root-b")).toBeUndefined();
+    expect(useGraphStore.getState().undoStack).toHaveLength(1);
+    await act(() => mutations.undo());
+    await vi.waitFor(() => expect([done("n.root-a"), done("n.root-c")]).toEqual([TRUE, TRUE]));
   });
 });

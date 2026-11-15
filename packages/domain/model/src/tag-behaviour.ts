@@ -192,6 +192,15 @@ export function checkOf(node: Pick<NodeLike, "props">, nodeOf: NodeLookup): Node
 }
 
 /**
+ * The state boxes toggled together go to (DESIGN-UI.md → A tag's box): checked
+ * while any of them is unchecked, unchecked once every one is. One box goes to
+ * its other state, as it would alone.
+ */
+export function togglesChecked(boxes: readonly NodeCheck[]): boolean {
+  return boxes.some((box) => !box.checked);
+}
+
+/**
  * The `node.update` edit that leaves the box `box` `checked` (the other
  * state when absent): the checked value set; unchecked, `false` for a
  * checkbox, as its own toggle writes, and the checked value unset for any

@@ -57,6 +57,7 @@ import {
   isQueryNode,
   isViewNode,
   present,
+  togglesChecked,
   typeRefsOf,
   viewOptionOf,
   SYSTEM_IDS,
@@ -112,10 +113,18 @@ import {
 import { Result } from "effect";
 import type { Contribution, Kernel } from "@kb/plugin";
 
-/** The target row's box, or null (DESIGN.md → Data model → tag behaviours, check). */
-function rowCheck(ctx: CommandContext) {
-  const node = ctx.target.nodeId === null ? undefined : ctx.outline.nodes.get(ctx.target.nodeId);
-  return node === undefined ? null : checkOf(node, (id) => ctx.outline.nodes.get(id));
+/**
+ * The boxes of the rows a command is about, each the box of the node its row
+ * shows, as the row draws it; rows with none are left out (DESIGN.md → Data
+ * model → tag behaviours, check).
+ */
+function rowChecks(ctx: CommandContext) {
+  return shownIdsOf(ctx).flatMap((id) => {
+    const node = ctx.outline.nodes.get(id);
+    const check =
+      node === undefined ? null : checkOf(node, (nodeId) => ctx.outline.nodes.get(nodeId));
+    return check === null ? [] : [check];
+  });
 }
 
 const GLOBAL = { where: "global" } as const;
@@ -322,12 +331,11 @@ const GLOBAL_COMMANDS: readonly Command[] = [
     id: SYSTEM_IDS.cmdToggleCheck,
     menu: GLOBAL,
     run: (ctx) => {
-      const nodeId = ctx.target.nodeId;
-      if (nodeId === null) {
+      if (ctx.target.nodeIds.length === 0) {
         toast("select a node first");
         return;
       }
-      void browserHost().writes.toggleCheck(nodeId);
+      void browserHost().writes.toggleChecks(shownIdsOf(ctx));
     },
   },
   {
@@ -579,20 +587,25 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     },
   },
   {
-    // The node's box, offered where it has one, labelled by what pressing
-    // it does; ⌘K's "Toggle check" is the same act on its target.
+    // The rows' boxes, offered where one has a box, labelled by what pressing
+    // it does: over several rows, Check while any is unchecked, else Uncheck
+    // (`togglesChecked`). ⌘K's "Toggle check" is the same act on its target.
     id: "toggle-check",
     menu: nodeMenu("mark", 5),
+    many: true,
     faceOf: SYSTEM_IDS.cmdToggleCheck,
-    when: (ctx) => rowCheck(ctx) !== null,
+    when: (ctx) => rowChecks(ctx).length > 0,
     chrome: (ctx) => {
-      const checked = rowCheck(ctx)?.checked === true;
+      const checks = togglesChecked(rowChecks(ctx));
       return {
-        label: checked ? "Uncheck" : "Check",
-        icon: checked ? <SquareIcon size={14} /> : <CheckSquareIcon size={14} />,
+        label: checks ? "Check" : "Uncheck",
+        icon: checks ? <CheckSquareIcon size={14} /> : <SquareIcon size={14} />,
       };
     },
-    run: (ctx) => nodeAction(ctx, (nodeId) => void browserHost().writes.toggleCheck(nodeId)),
+    run: (ctx) => {
+      void browserHost().writes.toggleChecks(shownIdsOf(ctx));
+      ctx.palette.close();
+    },
   },
   {
     // Per node: the answer is about the node you are looking at; ⌘K's "Debug:

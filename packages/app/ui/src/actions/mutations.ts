@@ -27,7 +27,7 @@ import {
   planRemoveTag,
   planSetProp,
   planSplit,
-  planToggleCheck,
+  planToggleChecks,
   planUnsetProp,
   planUpdateText,
   type FrameViewEdit,
@@ -448,10 +448,14 @@ export const mutations: PageWrites = {
     return applyPlan(plan);
   },
 
-  async toggleCheck(nodeId: string): Promise<boolean> {
-    const plan = planToggleCheck(wire(), nodeId);
+  async toggleChecks(nodeIds: readonly string[]): Promise<boolean> {
+    const plan = planToggleChecks(wire(), nodeIds);
     if (plan === null) {
-      toast("This node has no check: none of its tags names one");
+      toast(
+        nodeIds.length > 1
+          ? "None of these nodes has a check: none of their tags names one"
+          : "This node has no check: none of its tags names one",
+      );
       return false;
     }
     return applyPlan(plan);

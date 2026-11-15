@@ -10,7 +10,7 @@
  * no row here fails the build, so adding an action adds a row rather than a
  * branch.
  */
-import { createNodeBefore, createTransientNode, toggleRowCheck } from "./editing-writes";
+import { createNodeBefore, createTransientNode, toggleRowChecks } from "./editing-writes";
 import {
   asOneWrite,
   browserHost,
@@ -107,6 +107,16 @@ function topRows(nodeId: string): { readonly ids: readonly string[]; readonly ra
   };
 }
 
+/**
+ * The rows what marks a node acts on (DESIGN-UI.md → Outline editor, "A
+ * selection is a range of rows"): each row of a range, in order, else the
+ * row the action names.
+ */
+function eachRow(nodeId: string): readonly string[] {
+  const rows = useOutlineStore.getState().selectedRows();
+  return rows.length <= 1 ? [nodeId] : rows.map((row) => row.nodeId);
+}
+
 /** The node an instance key ends at. */
 const nodeOfKey = (instanceKey: string): string =>
   instanceKey.slice(instanceKey.lastIndexOf("/") + 1);
@@ -160,7 +170,7 @@ const SELECTION_STEPS: SelectionSteps = {
   // Three chords, one gesture: ArrowLeft and ArrowRight only reach these rows
   // when the toggle would move in their direction.
   toggleCollapse: ({ nodeId }) => useOutlineStore.getState().toggleCollapse(nodeId),
-  toggleCheck: ({ nodeId }) => void toggleRowCheck(nodeId),
+  toggleCheck: ({ nodeId }) => void toggleRowChecks(eachRow(nodeId)),
   collapse: ({ nodeId }) => useOutlineStore.getState().toggleCollapse(nodeId),
   expand: ({ nodeId }) => useOutlineStore.getState().toggleCollapse(nodeId),
   selectParent,

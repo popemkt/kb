@@ -10,6 +10,7 @@ import {
   siblingSlots,
   viewOptionId,
   type FieldType,
+  togglesChecked,
   type Writable,
   SYSTEM_IDS,
 } from "@kb/model";
@@ -381,21 +382,36 @@ export function planNewQueryNode(
   };
 }
 /**
+ * Toggle the boxes of `ids` together (DESIGN.md → Data model → tag
+ * behaviours, check; DESIGN-UI.md → A tag's box): each node with a box goes
+ * to the one state `togglesChecked` names, a `node.update` for each box that
+ * changes, so several are one `node.batch`; a node with no box is left out.
+ * Null when none of them has one.
+ */
+export function planToggleChecks(
+  nodes: WireNode[],
+  ids: readonly string[],
+): PlannedMutation | null {
+  const byId = wireById(nodes);
+  const boxes = [...new Set(ids)].flatMap((id) => {
+    const node = byId.get(id);
+    const check = node === undefined ? null : checkOf(node, (nodeId) => byId.get(nodeId));
+    return check === null ? [] : [{ id, check }];
+  });
+  if (boxes.length === 0) return null;
+  const checked = togglesChecked(boxes.map(({ check }) => check));
+  return plan(
+    ...boxes
+      .filter(({ check }) => check.checked !== checked)
+      .map(({ id, check }) => updateOf(id, { ...checkEdits(check, checked) })),
+  );
+}
+
+/**
  * Pin: one contextual reference appended to the Pinned list. No focus move —
  * pinning is a sidebar gesture, and stealing the caret from the row the user is
  * on would be a surprise the tag version never had.
  */
-/**
- * Toggle the box of `id` (DESIGN.md → Data model → tag behaviours, check):
- * the one `node.update` its check plans, or null when no tag of it names one.
- */
-export function planToggleCheck(nodes: WireNode[], id: string): PlannedMutation | null {
-  const byId = wireById(nodes);
-  const node = byId.get(id);
-  const check = node === undefined ? null : checkOf(node, (nodeId) => byId.get(nodeId));
-  return check === null ? null : update(id, { ...checkEdits(check) });
-}
-
 export function planPinNode(
   nodes: WireNode[],
   targetId: string,

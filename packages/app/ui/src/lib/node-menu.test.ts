@@ -15,6 +15,7 @@ import {
   SYSTEM_IDS,
   displayDefaultId,
   displaySettingIds,
+  fieldTypeValue,
   present,
   type PropValue,
 } from "@kb/model";
@@ -320,6 +321,12 @@ const conditionalProvider = (run: () => void) =>
 const kinds = (id: string) =>
   useGraphStore.getState().wireNodes.find((n) => n.id === id)?.props[SYSTEM_IDS.typeField] ?? [];
 
+/** A checkbox value. */
+const box = (v: boolean): PropValue[] => [{ t: "bool", v }];
+/** A row's `done` values as the graph holds them. */
+const done = (id: string) =>
+  useGraphStore.getState().wireNodes.find((n) => n.id === id)?.props["f.done"];
+
 describe("a node command over a range of rows", () => {
   let dom: InstalledDom;
   beforeEach(() => {
@@ -351,6 +358,44 @@ describe("a node command over a range of rows", () => {
       expect.arrayContaining(["count-words", "copy-node-id", "move-to"]),
     );
     expect(listed.find((c) => c.id === "copy-node-id")?.label).toBe("Copy node IDs");
+  });
+
+  it("offers Check over a range with an unchecked box, and checks every box as one write", async () => {
+    const node = (id: string, props: WireNode["props"]): WireNode => ({
+      id,
+      text: id,
+      props,
+      children: [],
+      createdAt: AT,
+      updatedAt: AT,
+    });
+    useGraphStore.getState().hydrateFromWire(
+      [
+        ...graph({
+          "n.board": { ...tagged("t.task"), "f.done": box(true) },
+          "n.plain": { ...tagged("t.task"), "f.done": box(false) },
+        }),
+        node("f.done", {
+          ...tagged(SYSTEM_IDS.field),
+          [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("checkbox")],
+        }),
+        node("t.task", {
+          ...tagged(SYSTEM_IDS.tag),
+          [SYSTEM_IDS.tagCheckField]: [{ t: "ref", v: "f.done" }],
+        }),
+      ],
+      1,
+      "fixtures",
+    );
+    const range = over(["n.board", "n.plain"]);
+    expect(listNodeCommands(range).find((c) => c.id === "toggle-check")?.label).toBe("Check");
+    await runCommand("toggle-check", range);
+    await vi.waitFor(() => expect(done("n.plain")).toEqual(box(true)));
+    expect(done("n.board")).toEqual(box(true));
+    expect(useGraphStore.getState().undoStack).toHaveLength(1);
+    // Every box checked now: the same command unchecks them all.
+    const after = over(["n.board", "n.plain"]);
+    expect(listNodeCommands(after).find((c) => c.id === "toggle-check")?.label).toBe("Uncheck");
   });
 
   it("Copy node ID puts each row's id on the clipboard, one per line, and says so", async () => {
