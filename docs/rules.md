@@ -1237,6 +1237,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Lab principles
 - **node** — `01M3A8QG4PEQK0A9N3KPQ3K98X`
 
+### GAP: no sensors watch Rule 1 (Phase 4)
+
+- **expected** — A zero-consumer-exports ratchet (P7) gates a public name nobody imports, and advisory sensors report token clones (P7b), restated statements across the docs (P9) and surface-budget moves without a DESIGN edit (P13), guarded by advisory-signals so they never block (docs/research/2026-11-13-philosophy-as-checks.md, Phase 4).
+- **current** — symbol-consumers.ts joins public names to their importers, but no lane counts the names nobody imports; no clone, restatement or spec-first sensor exists.
+- **impact** — Dead seams and mirrors reach review with nothing pointing at them, so Rule 1 rests on a reviewer noticing.
+- **closes** — Phase 4 of the note: the P7 ratchet lane, and the three advisory sensors, each deleted rather than tuned forever if its top results are mostly false after one calibration pass.
+- **node** — `01M7EY3P9H59TT421C7NE4326F`
+
 ### GAP: no staged edit to preview, so Turn() cannot be a plan mode
 
 - **expected** — Turn() queues structural edits (moves, retags, deletes) without applying them, draws them as a plan over the outline, and releases them as one transaction (ART-DIRECTION.md → Transistor)
@@ -1390,6 +1398,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — People can link to pages and nodes but in practice not to a single item.
 - **closes** — An item picker in the Link row, fed by the target canvas's document through world.docOf.
 - **node** — `01M5486YWGBMNG9G60EY4MPS0X`
+
+### GAP: philosophy checks bind a rule as a whole file, with no clauses, staleness or test-level citation (Phase 2)
+
+- **expected** — The core-philosophy rules (about 12) are bound by clause: each clause is a child #rule with its own check or gate, a #check records a digest of the principle it was bound to and ext.check.audit reports evidence-stale when the principle changes, and evidence may cite a test by file and title, which the audit resolves (docs/research/2026-11-13-philosophy-as-checks.md, Phase 2).
+- **current** — A #rule is one block of text proved by one file-level #check. Editing a rule's principle leaves its check looking current, and a rule that is half checked reads as wholly checked or wholly prose.
+- **impact** — Partial coverage of a philosophy rule is invisible, and a check can quietly stop proving the claim it is bound to.
+- **closes** — Phase 2 of the note: child #rule clauses for the core-philosophy subset, evidence-stale from a bound digest, and resolved file#test citation, all in @kb/ext-check.
+- **node** — `01M7EY3MTKXJQQT4XGJYF3J88A`
 
 ### GAP: physical shortcut hints must use the shared chord key domain
 
@@ -1759,6 +1775,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — axesOf reads facets of facets from the library (a facet's nearest #facet ancestor), the starter groups its facets that way, AXIS_SPECS is deleted, and Reflect keys its JSON by an axis's name. Articulate, Remix and Scene keep calling axesOf, so all three follow.
 - **node** — `01M6BYQEZ6BC91MBTXM9NF1ZVX`
 
+### GAP: the data-plane promises are not properties over the store (Phase 3)
+
+- **expected** — Referential closure (P1b), rename invariance (P2) and constrain-before-lock (P5) are storeContract properties, run over every store backend and each stated from its rejecting side (docs/research/2026-11-13-philosophy-as-checks.md, Phase 3).
+- **current** — The seed is pinned and the label half of rename safety is proved for the seed, but no property over generated transactions proves that every prop key resolves to a field, that a relabelling leaves query results and audits unchanged, or that the managed-field lock holds.
+- **impact** — The philosophy is checked for code shape but not for data: a commit can leave the store holding references that resolve to nothing, and nothing proves a rename never changes what a query means.
+- **closes** — Phase 3 of the note: the three properties in storeContract over JSONL and SQLite, each with a falsifying case.
+- **node** — `01M7EY3NJJZMRTXJEM0TMKJCH4`
+
 ### GAP: the date editor's Enter and Tab skip the value keymap
 
 - **expected** — Enter at the end of a date value opens the next value and Tab moves on, as in every other value kind.
@@ -1993,6 +2017,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Map each onto a step (xs 4px or sm 6px, a 1-2px visible change), or add a step if the size is a real role. That is a visible change, so it lands outside the no-visual-change token restructure (wave 2026-09-24 f1).
 - **rule** — Design tokens: no bypass
 - **node** — `01M3AF8G4N9JHJB8YYEWF8F5SZ`
+
+### GAP: three philosophy checks wait on their prerequisites (Phase 5)
+
+- **expected** — Families migrate their own data has a migration-runner contract (P6); one contract, every implementation has a check over one registry form every port declares (P8); and weakening a philosophy rule (deleting its check, editing its principle) passes a governance door (docs/research/2026-11-13-philosophy-as-checks.md, Phase 5).
+- **current** — There is no migration runner, half the ports are object-literal registries a check cannot discover, and an action's actor is declared rather than proven, so none of the three can be built without a dead seam.
+- **impact** — Those rules stay prose, and a philosophy rule can be weakened by an ordinary edit.
+- **closes** — Each starts after its prerequisite: the migration runner, one registry form for every port, and a proven actor in @kb/governance.
+- **node** — `01M7EY3Q03CN36M4Q2X591X8Y2`
 
 ### GAP: top view paints cones and spheres by their point, not their true height
 
