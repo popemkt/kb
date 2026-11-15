@@ -205,7 +205,11 @@ const DATASCRIPT = /cljs\.core/;
 // migrations (its one reading of `migration.list`, through the contracts'
 // `MigrationListSchema` rather than the operations module, and the line
 // itself) measures 1,992,246 with it; the budget keeps about 1.4 KB over that.
-const EAGER_BUDGET_BYTES = 1_993_600;
+// The outline's polish (Move and leave reference…, a second step from the
+// one move step maker, with its ArrowsSplit icon, about 2.2 KB of the
+// rise, and the row's reading of the show child counts setting) measures
+// 1,995,529 with it; the budget keeps about 1.4 KB over that.
+const EAGER_BUDGET_BYTES = 1_996_883;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

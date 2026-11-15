@@ -115,6 +115,12 @@ function seed() {
   useDebugFieldsStore.setState({ ids: new Set() });
 }
 
+/** The reference rows that point at `id`. */
+const references = (id: string) =>
+  useGraphStore
+    .getState()
+    .wireNodes.filter((n) => n.props[SYSTEM_IDS.refTargetField]?.[0]?.v === id && n.id !== id);
+
 describe("node command palette", () => {
   let dom: Window;
   let container: HTMLDivElement;
@@ -231,6 +237,7 @@ describe("node command palette", () => {
       "Set field…",
       "Copy node IDs",
       "Move to…",
+      "Move and leave reference…",
       "Pin",
       "Count words",
       "Delete nodes",
@@ -324,6 +331,37 @@ describe("node command palette", () => {
     expect(useGraphStore.getState().undoStack).toHaveLength(1);
   });
 
+  it("Move and leave reference… leaves a reference on Enter, and moves only with Alt", async () => {
+    // What the fixture already holds, so the test counts what the move leaves.
+    const before = { plain: references("n.plain").length, query: references("n.query").length };
+    await openOver(["n.plain", "n.query"]);
+    await pick("Move and leave reference…");
+    expect(labels()).toContain("Inbox");
+    expect(labels()).not.toContain("Plain node");
+    expect(dom.document.body.textContent).toContain("⌥↵ move only");
+    await pick("Inbox");
+    await vi.waitFor(() => expect(childrenOf("n.inbox")).toEqual(["n.plain", "n.query"]));
+    expect(references("n.plain")).toHaveLength(before.plain + 1);
+    expect(references("n.query")).toHaveLength(before.query + 1);
+    expect(useGraphStore.getState().undoStack).toHaveLength(1);
+    await act(async () => void (await mutations.undo()));
+    expect(childrenOf("n.inbox")).toEqual([]);
+    expect(references("n.query")).toHaveLength(before.query);
+
+    await openOver(["n.query"]);
+    await pick("Move and leave reference…");
+    const inbox = [...dom.document.querySelectorAll('[data-palette-list="true"] button')].find(
+      (b) => b.textContent.trim() === "Inbox",
+    );
+    await act(async () => {
+      present(inbox, "Inbox").dispatchEvent(
+        new dom.MouseEvent("click", { bubbles: true, altKey: true }),
+      );
+    });
+    await vi.waitFor(() => expect(childrenOf("n.inbox")).toEqual(["n.query"]));
+    expect(references("n.query")).toHaveLength(before.query);
+  });
+
   it("labels the debug row from this node's own flag", async () => {
     await open("n.plain");
     expect(labels()).toContain("Show debug fields");
@@ -363,6 +401,7 @@ describe("node command palette", () => {
       "Indent",
       "Outdent",
       "Move to…",
+      "Move and leave reference…",
       "Pin",
       "Show debug fields",
       "View as: List",
@@ -394,6 +433,7 @@ describe("node command palette", () => {
       "Indent",
       "Outdent",
       "Move to…",
+      "Move and leave reference…",
       "Pin",
       "Show debug fields",
       "View as: List",

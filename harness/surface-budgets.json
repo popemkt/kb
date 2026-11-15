@@ -167,8 +167,8 @@
     "limit": 1
   },
   "@kb/outline": {
-    "limit": 10,
-    "reason": "Shared editing/selection contexts moved from the browser package; #173: the outline declares its own point, outline.ingest (OUTLINE_POINT_DEFINITIONS), which outline-ui reads."
+    "limit": 11,
+    "reason": "Shared editing/selection contexts moved from the browser package; #173: the outline declares its own point, outline.ingest (OUTLINE_POINT_DEFINITIONS), which outline-ui reads. The show child counts setting's reader, showsChildCounts, which outline-ui's row reads."
   },
   "@kb/outline-ui": {
     "limit": 40

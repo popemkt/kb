@@ -14,4 +14,10 @@ export const OUTLINE_IDS = {
     preview: "sys.f.outline.preview",
     properties: "sys.f.outline.properties",
   } satisfies Readonly<Record<DisplayOption, NodeId>>,
+  /**
+   * Whether a collapsed parent's bullet shows how many children it has: a
+   * setting of the family's node, off when it says nothing
+   * (`showsChildCounts`).
+   */
+  childCountsField: "sys.f.outline.child-counts",
 } as const;

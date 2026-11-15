@@ -176,31 +176,53 @@ function within(nodes: NodeMap, rows: ReadonlySet<string>, id: string): boolean 
   return false;
 }
 
+/** A move step's words: its title, and what its other pick (Alt) does. */
+interface MoveWords {
+  readonly label: string;
+  readonly alternate: string;
+}
+
 /**
- * Move to… (DESIGN-UI.md → Outline editor, "A row moves anywhere"): the
- * rows go to the end of the node picked; picked with Alt, each leaves a
- * reference where it was. One write, through the outline's one move.
+ * A move step (DESIGN-UI.md → Outline editor, "A row moves anywhere"): the
+ * rows go to the end of the node picked, through the outline's one move, as
+ * one write. `leavesReference` names the pick that leaves a reference where
+ * each row was: Enter's, or Alt's (Alt+Enter, or an Alt-click).
  */
-const moveTo: PaletteStep = {
-  label: "Move to",
-  placeholder: "Search for where to move it...",
-  icon: <ArrowBendDownRightIcon size={12} weight="bold" />,
-  alternate: "leave a reference",
-  candidates: (graph) => {
-    const rows = new Set(graph.targetNodeIds);
-    return nodeCandidates(graph.nodes, { exclude: (id) => within(graph.nodes, rows, id) });
-  },
-  limit: 12,
-  commit: async ({ targetNodeIds, pickedId, alternate }) => {
-    const store = useOutlineStore.getState();
-    const drawn = store.selectedRows();
-    const firstKey =
-      drawn[0]?.instanceKey ?? store.activeInstanceKey ?? store.selectedInstanceKey ?? "";
-    const lastKey = drawn.at(-1)?.instanceKey ?? firstKey;
-    const ids = selectionRoots(targetNodeIds, outlineNodes());
-    await moveRows(ids, { firstKey, lastKey }, { parent: pickedId }, alternate);
-  },
-};
+function moveStep(words: MoveWords, leavesReference: "enter" | "alt"): PaletteStep {
+  return {
+    ...words,
+    placeholder: "Search for where to move it...",
+    icon: <ArrowBendDownRightIcon size={12} weight="bold" />,
+    candidates: (graph) => {
+      const rows = new Set(graph.targetNodeIds);
+      return nodeCandidates(graph.nodes, { exclude: (id) => within(graph.nodes, rows, id) });
+    },
+    limit: 12,
+    commit: async ({ targetNodeIds, pickedId, alternate }) => {
+      const store = useOutlineStore.getState();
+      const drawn = store.selectedRows();
+      const firstKey =
+        drawn[0]?.instanceKey ?? store.activeInstanceKey ?? store.selectedInstanceKey ?? "";
+      const lastKey = drawn.at(-1)?.instanceKey ?? firstKey;
+      const ids = selectionRoots(targetNodeIds, outlineNodes());
+      await moveRows(
+        ids,
+        { firstKey, lastKey },
+        { parent: pickedId },
+        alternate === (leavesReference === "alt"),
+      );
+    },
+  };
+}
+
+/** Move to…: Enter moves the rows; Alt+Enter leaves a reference where each was. */
+const moveTo = moveStep({ label: "Move to", alternate: "leave a reference" }, "alt");
+
+/** Move and leave reference…: the same move, the reference left on Enter; Alt+Enter moves only. */
+const moveLeavingReference = moveStep(
+  { label: "Move and leave reference", alternate: "move only" },
+  "enter",
+);
 
 /**
  * The outline's steps. Each is opened by its id in the outline's namespace,
@@ -213,6 +235,7 @@ export const OUTLINE_STEPS: readonly ContributionEntry<PaletteStep>[] = [
   { id: "set-field", value: setField },
   { id: "add-ref", value: addRef },
   { id: "move-to", value: moveTo },
+  { id: "move-leaving-reference", value: moveLeavingReference },
   { id: "expand-reference", value: expandReference },
   { id: "remove-reference", value: removeReference },
 ];

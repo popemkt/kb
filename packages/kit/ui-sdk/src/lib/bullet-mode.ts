@@ -224,6 +224,11 @@ export interface BulletAppearanceInput extends BulletModeInput {
   collapsible?: boolean;
   /** The node's resolved tag colors, in order (see lib/tag-color). */
   tagColors?: readonly string[];
+  /**
+   * Whether a collapsed parent shows how many children it has beside its
+   * halo. Only the outline's row asks, with its family's setting.
+   */
+  countChildren?: boolean;
 }
 
 /** DESIGN-RESKIN §1.3 — collapsed halo is the tag color at 12.5% (was `20`). */
@@ -329,7 +334,7 @@ export function bulletAppearance(input: BulletAppearanceInput): BulletAppearance
     childCount: input.childCount,
     collapsible,
     showHalo,
-    showCount: showHalo && input.childCount > 0,
+    showCount: showHalo && input.countChildren === true && input.childCount > 0,
     tinted: tagColors.length > 0,
     ...resolvePaints(shape, tagColors, input.hasChildren),
     dotSize: input.hasChildren ? BULLET_GEOMETRY.dot.parent : BULLET_GEOMETRY.dot.leaf,
@@ -354,6 +359,8 @@ export interface OutlineBulletOptions {
   readonly collapsed?: boolean;
   /** W6 stubs: force media/canvas glyph before those tags exist. */
   readonly kindOverride?: BulletKindOverride | null;
+  /** Whether a collapsed parent shows its child count (`BulletAppearanceInput.countChildren`). */
+  readonly countChildren?: boolean;
 }
 
 /**
@@ -377,6 +384,7 @@ export function outlineBulletAppearance(
     childCount: node.children.length,
     isRef: options.isRef ?? false,
     ...(options.collapsible === undefined ? {} : { collapsible: options.collapsible }),
+    ...(options.countChildren === undefined ? {} : { countChildren: options.countChildren }),
     tagColors: nodeTagColors(node),
   });
 }

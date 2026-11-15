@@ -732,7 +732,7 @@ what it makes is there once `together` returns. A gesture about one row
 is not gathered, its write being one write already, so a command that reads
 what its write made (Make your own tag opens the tag) reads it landed. Over a range, the node menu lists only the commands that act on many
 rows (`NodeCommand.many`): Add tag, Remove tag…, Add field, Set field…,
-Pin / Unpin, Check / Uncheck, Move to…, Copy node ID, Count words and Delete. Any other node command, run over a range from its
+Pin / Unpin, Check / Uncheck, Move to…, Move and leave reference…, Copy node ID, Count words and Delete. Any other node command, run over a range from its
 shortcut, acts on the head alone (`runCommand`). A picker step it opens is
 handed every row (`targetNodeIds`), mints what it creates once, and writes
 the pick to each row as one write (`asOneWrite`), so what it does once the
@@ -756,6 +756,15 @@ in the same write. The CLI and MCP make the same moves with `node.update`
   step names its alternate pick (`PaletteStep.alternate`), the picker says
   it under the list, and the pick says which one it was
   (`PaletteStepPick.alternate`).
+- **Move and leave reference…** is the same move with its picks the other
+  way round, so leaving a reference is found by name and not only by
+  knowing Alt. It is a node command of the `arrange` group, right after
+  Move to…, that acts on many rows. It opens `outline.move-leaving-reference`:
+  the same candidates, the same write and one undo step, where Enter moves
+  the rows and leaves a reference in each place and Alt+Enter moves them
+  only. The footer names that alternate pick (⌥↵ move only). Both steps are
+  made by one function from which pick leaves a reference, so the two
+  cannot drift apart.
 - **A drag** starts on a row's bullet: a press that travels past its
   pointer's slop (`POINTER_SLOPS`) before a long press is a drag; a press
   that does not stays a click (zoom), and a finger held still stays the
@@ -896,6 +905,17 @@ a handle rather than a copied path) — as one record,
 `BulletAppearance`, and `outlineBulletAppearance` reads it off an outline
 node. `Bullet` renders that record and decides nothing; the graph's bullet
 theme paints the same record (Graph → The themes), so the two cannot drift.
+
+**A collapsed parent's halo says it is closed; its count is a setting.**
+The halo stays on every collapsed bullet that opens. The number of
+children beside it is the outline family's `show child counts` setting
+(`sys.f.outline.child-counts`), a checkbox that configures the family's
+node. It is off by default, it shows in Settings with the family's other
+settings, and the CLI and MCP set it as any field is set. The record
+carries the count only when the caller asks for it (`countChildren`).
+The outline's row asks with the setting's value, and every other view
+that draws a bullet (a card, a table cell, a link row) never asks, because
+its rows do not open in place.
 
 **Expansion is the reader's, per tab.** `expansion` holds a choice per row,
 open or closed, and the references opened in place (Contextual references
@@ -2877,7 +2897,7 @@ The groups, in the menu's order (`NODE_MENU_GROUPS`):
 | `lead` | how the node itself opens and shows | "Open in …" for its tag's view; "Show/Hide preview", "Show/Hide properties" |
 | `make` | what the node is and holds | Add tag, Remove tag…, Make your own tag that extends this, Turn into query, Turn into reference…, Add field, Set field…, Make supertag, Type this reference…, Remove reference… |
 | `open` | where it opens | Search everything…, Open in panel, Open as workspace, Open with: …, Copy node ID |
-| `arrange` | where it sits | Indent, Outdent, Move to… |
+| `arrange` | where it sits | Indent, Outdent, Move to…, Move and leave reference… |
 | `mark` | what marks it | Pin / Unpin, Show / Hide debug fields |
 | `view` | how its views show it | View as: …, Make default view: …, Edit query, Add chart, Filter…, Expand reference…, Count words |
 | `remove` | removing it | Delete node |

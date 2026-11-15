@@ -30,12 +30,16 @@ function typed(id: string, typeId: string, extra: Partial<OutlineNode> = {}): Ou
   });
 }
 
-function html(node: OutlineNode, opts: { isRef?: boolean; collapsible?: boolean } = {}): string {
+function html(
+  node: OutlineNode,
+  opts: { isRef?: boolean; collapsible?: boolean; countChildren?: boolean } = {},
+): string {
   return renderToStaticMarkup(
     createElement(Bullet, {
       node,
       isRef: opts.isRef ?? false,
       collapsible: opts.collapsible,
+      countChildren: opts.countChildren,
       onClick: () => undefined,
     }),
   );
@@ -148,16 +152,23 @@ function parent(collapsed: boolean, children: string[]): OutlineNode {
 }
 
 describe("halo, count and the affordance it promises", () => {
-  it("collapsed with children: halo plus the child count", () => {
-    const out = html(parent(true, ["a", "b", "c"]));
+  it("collapsed with children, the count asked for: halo plus the child count", () => {
+    const out = html(parent(true, ["a", "b", "c"]), { countChildren: true });
     expect(out).toContain("data-bullet-halo");
     expect(out).toContain("data-bullet-count");
     expect(out).toContain(">3</span>");
     expect(out).toContain('aria-label="Expand (3 children)"');
   });
 
+  it("collapsed with children, the count not asked for: the halo alone", () => {
+    const out = html(parent(true, ["a", "b", "c"]));
+    expect(out).toContain("data-bullet-halo");
+    expect(out).not.toContain("data-bullet-count");
+    expect(out).toContain('aria-label="Expand (3 children)"');
+  });
+
   it("expanded with children: neither halo nor count", () => {
-    const out = html(parent(false, ["a"]));
+    const out = html(parent(false, ["a"]), { countChildren: true });
     expect(out).not.toContain("data-bullet-halo");
     expect(out).not.toContain("data-bullet-count");
     expect(out).toContain('aria-label="Collapse"');
