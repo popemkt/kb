@@ -5626,12 +5626,21 @@ A PR for a backdrop reports a score against each criterion.
   there (gap 01M54CEKJJXNDPYNT55AR6KEV8).
 - **The head's top row reads over a backdrop.** `backdrop.head` chooses
   `shadow` (default), a glyph-local text and icon halo, or `fade`, a
-  region-wide gradient of the page's ground (`HeadBand`). Like strength,
-  this is a node option, resolved from the page's node, then core's.
-  `head-band-contrast.e2e.ts` holds fade's breadcrumb colour against every
-  pixel of its box to at least 4.5:1 for each backdrop in both schemes.
-  Shadow was approved visually; a glyph-local contrast check is deferred
-  (GAP [[01M789X4HZ130RY16R7ASVVVF7]]).
+  region-wide gradient of the page's ground (`HeadBand`). Neither puts a
+  shape of its own behind the rows. Like strength, this is a node option,
+  resolved from the page's node, then core's. The halo reaches every
+  glyph of the rows, a control's text included (a browser's own stylesheet
+  gives a button no text shadow). A backdrop's art leaves the crumb row
+  clear: under the breadcrumbs (their own box, the 44px at the space's
+  top), it draws no stroke the letters would cross, and art that a head
+  would show there stands below it. `head-band-contrast.e2e.ts` holds the
+  row for every contributed backdrop, under both heads, in both schemes,
+  on the outline's home and a node's page:
+  - each crumb's ink, mixed at its alpha over the ground at its glyphs
+    (the band's halo or fade included), keeps 4.5:1;
+  - the band mixes no more of the page's ground in just around the rows
+    than far from them at the same height (no backing);
+  - the art under the crumbs' glyphs has no sharp edge.
 - **One backdrop across pages.** A pane's backdrop host
   (`PageBackdropHost`, in `PaneFrame`) is the one place a page-head
   backdrop is drawn, mounted once for the pane above the router, so moving

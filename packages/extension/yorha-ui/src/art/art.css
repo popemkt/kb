@@ -349,9 +349,10 @@
   border-color: color-mix(in oklab, var(--foreground) 55%, transparent);
 }
 
+/* Below the head's crumb row (its top 44px), which the art leaves clear. */
 .kb-bunker-label {
   position: absolute;
-  top: 22px;
+  top: 46px;
   left: 30px;
   display: flex;
   flex-direction: column;
@@ -375,7 +376,7 @@
 .kb-bunker-staff {
   left: 30px;
   right: 200px;
-  top: 76px;
+  top: 88px;
   mask-image: linear-gradient(90deg, var(--foreground) 60%, transparent);
 }
 
@@ -416,7 +417,7 @@
   position: absolute;
   left: 30px;
   right: 200px;
-  top: 122px;
+  top: 132px;
   height: 8px;
   border-top: 1px solid color-mix(in oklab, var(--foreground) 35%, transparent);
   background: repeating-linear-gradient(

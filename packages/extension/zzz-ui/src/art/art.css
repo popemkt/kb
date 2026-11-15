@@ -340,10 +340,11 @@
   transform: skewX(-16deg);
 }
 
+/* Below the head's crumb row (its top 44px), which the art leaves clear. */
 .kb-broadcast-tv {
   position: absolute;
   left: 7%;
-  top: 22px;
+  top: 46px;
   width: 172px;
   height: 124px;
   padding: 11px 30px 11px 11px;
@@ -487,10 +488,11 @@
 .kb-broadcast-antenna::after {
   content: "";
   position: absolute;
-  top: -30px;
+  /* Short enough that its tips stay under the crumbs' letters. */
+  top: -14px;
   left: 50%;
   width: 3px;
-  height: 34px;
+  height: 18px;
   border-radius: 2px;
   background: var(--scrim);
   transform-origin: bottom;
