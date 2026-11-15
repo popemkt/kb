@@ -230,6 +230,61 @@ test("Articulate names an idea by hand and by reacting, and the look saves with 
   expect(look.node.children.some((child) => "sys.f.canvas" in child.props)).toBe(true);
 });
 
+/**
+ * Wheel over the grid until it scrolls no further; the tile lowest in its
+ * layout is then on screen, whole, above the window's bottom edge.
+ */
+async function scrollGridToEnd(page: Page): Promise<void> {
+  const grid = page.getByTestId("gallery-grid");
+  await expect(grid.locator("[data-gallery-tile]").first()).toBeVisible();
+  await grid.hover({ position: { x: 40, y: 40 } });
+  await expect(async () => {
+    await page.mouse.wheel(0, 4000);
+    // The grid and every scroller around it, the ones the wheel reaches.
+    const end = await grid.evaluate((el) => {
+      const chain: Element[] = [];
+      for (let at: Element | null = el; at !== null; at = at.parentElement) chain.push(at);
+      return chain
+        .filter((at) => /(auto|scroll)/.test(getComputedStyle(at).overflowY))
+        .filter((at) => at.scrollHeight > at.clientHeight + 1)
+        .every((at) => at.scrollTop + at.clientHeight >= at.scrollHeight - 1);
+    });
+    expect(end, "the grid's scrollers at their end").toBe(true);
+  }).toPass();
+  const lowest = await page.evaluate(() => {
+    const tiles = [...document.querySelectorAll("[data-gallery-tile]")].map((el) =>
+      el.getBoundingClientRect(),
+    );
+    return Math.max(...tiles.map((r) => r.bottom));
+  });
+  expect(lowest, "the lowest tile ends inside the window").toBeLessThanOrEqual(
+    page.viewportSize()?.height ?? 0,
+  );
+}
+
+test("the Compose and Reference grids scroll to their last tile, wide and on a phone", async ({
+  page,
+  request,
+}) => {
+  await starter(page);
+  for (let i = 0; i < 12; i++) await addVisual(request, `Tall ${i + 1}`);
+  for (const width of [1280, 360]) {
+    await page.setViewportSize({ width, height: 800 });
+    for (const workflow of ["know", "reference"]) {
+      await page.goto(`/gallery/${workflow}`);
+      const grid = page.getByTestId("gallery-grid");
+      await expect(grid).toBeVisible();
+      if (width === 1280) {
+        // Wide, the grid is its own scroller: as tall as its slot, never its content.
+        const box = await grid.boundingBox();
+        expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(800);
+        expect(await grid.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+      }
+      await scrollGridToEnd(page);
+    }
+  }
+});
+
 test("a phone shows one pane at a time, the look a tab of its own", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await starter(page);
