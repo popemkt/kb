@@ -20,6 +20,7 @@ import {
   KbRoots,
   KbStore,
   MIGRATION_STEPS,
+  MigrationListSchema,
   MigrationPoint,
   type ActionDefinition,
   type ExtensionMigration,
@@ -99,16 +100,22 @@ const text = (node: KbNode | undefined, field: string): string | undefined => {
   return value?.t === "str" ? value.v : undefined;
 };
 
+/** The state the record of `id` in `nodes` holds, rolled back included; none without a record. */
+function recordedState(nodes: readonly KbNode[], id: string): MigrationState | undefined {
+  const node = nodes.find((held) => held.id === migrationRecordId(id));
+  const [ref] = node?.props[SYSTEM_IDS.migrationStateField] ?? [];
+  return MIGRATION_STATES.find(
+    (candidate) => ref?.t === "ref" && ref.v === migrationStateId(candidate),
+  );
+}
+
 /**
  * The record of `id` in `nodes`, unless there is none or the migration was
  * rolled back: a rolled-back migration is offered again, as one never run.
  */
 function liveRecord(nodes: readonly KbNode[], id: string): MigrationRecord | undefined {
   const node = nodes.find((held) => held.id === migrationRecordId(id));
-  const [ref] = node?.props[SYSTEM_IDS.migrationStateField] ?? [];
-  const state = MIGRATION_STATES.find(
-    (candidate) => ref?.t === "ref" && ref.v === migrationStateId(candidate),
-  );
+  const state = recordedState(nodes, id);
   if (state === undefined || state === "rolled-back") return undefined;
   return {
     state,
@@ -276,23 +283,10 @@ export const migrationListDef = {
   id: "migration.list",
   title: "List migrations",
   description:
-    "The data migrations the loaded families ship, each with its state (null when never run, or rolled back) and whether it is pending: not kept, and either under way or planning a change",
+    "The data migrations the loaded families ship, each with its recorded state (null when never run) and whether it is pending: not kept, and either under way or planning a change. A rolled-back migration is planned as one never run, so it is pending again when it would change something",
   mode: { kind: "read" } as const,
   inputSchema: z.object({}),
-  outputSchema: z.object({
-    migrations: z.array(
-      z.object({
-        id: z.string(),
-        title: z.string(),
-        state: STATE.nullable(),
-        pending: z.boolean(),
-        /** How many nodes it would write or delete now. */
-        changes: z.number(),
-        /** Why it could not be planned, when it could not. */
-        problem: z.string().optional(),
-      }),
-    ),
-  }),
+  outputSchema: MigrationListSchema,
 } satisfies ActionDefinition;
 
 export const migrationListEffect = Effect.fn("migration.list")(function* (): Effect.fn.Return<
@@ -309,7 +303,7 @@ export const migrationListEffect = Effect.fn("migration.list")(function* (): Eff
     migrations: yield* Effect.forEach(all, ([id, migration]) =>
       Effect.gen(function* () {
         const record = liveRecord(nodes, id);
-        const state = record?.state ?? null;
+        const state = recordedState(nodes, id) ?? null;
         const planned = yield* planOf(id, migration, nodes, record?.at ?? now).pipe(
           Effect.map((plan) => ({ changes: plan.upserts.length + plan.deletes.length })),
           // One migration that cannot plan does not hide the others; it is pending until it can.
@@ -320,7 +314,7 @@ export const migrationListEffect = Effect.fn("migration.list")(function* (): Eff
           title: migration.title,
           state,
           pending:
-            state !== "kept" &&
+            record?.state !== "kept" &&
             (record !== undefined || planned.changes > 0 || "problem" in planned),
           ...planned,
         };

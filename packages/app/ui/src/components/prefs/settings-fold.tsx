@@ -48,6 +48,8 @@ export interface Section {
  */
 export interface SectionGroup {
   readonly id: string;
+  /** A titled group's address, as a section's: what a Settings link's `#` lands on. */
+  readonly anchor?: string;
   readonly title?: string;
   readonly caption?: ReactNode;
   readonly cards?: boolean;
@@ -83,6 +85,7 @@ export function Groups({ groups }: { readonly groups: readonly SectionGroup[] })
       <Disclosure
         key={group.id}
         id={`group:${group.id}`}
+        anchor={group.anchor}
         title={group.title}
         caption={group.caption}
         level="group"

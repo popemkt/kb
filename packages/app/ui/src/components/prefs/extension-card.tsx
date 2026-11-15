@@ -29,6 +29,7 @@ import {
 } from "@/lib/extension-report";
 import { BUTTON, PRIMARY_BUTTON, SCOPES, useExtensionAction } from "./extension-actions";
 import { ExtensionAbout, TERM_LIST } from "./extension-approval";
+import { Pill, type PillFace } from "./pill";
 import { Disclosure } from "./settings-fold";
 
 /**
@@ -40,7 +41,7 @@ const STATUS: Readonly<
   Record<
     ExtensionStatus,
     {
-      pill: { word: string; tone: string; dot: string } | null;
+      pill: PillFace | null;
       idle: string;
       review: string | null;
     }
@@ -82,21 +83,7 @@ const STATUS: Readonly<
 /** The status an extension leads with, as a pill; nothing for one of kb's build that is on. */
 export function StatusPill({ status }: { readonly status: ExtensionStatus }) {
   const shown = STATUS[status].pill;
-  if (shown === null) return null;
-  return (
-    <span
-      data-extension-status={status}
-      // The word in the text colour, the status's colour on a dot and a tint: a status colour
-      // as text on its own tint falls below AA in the light themes.
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2 py-px text-label font-medium text-foreground/80",
-        shown.tone,
-      )}
-    >
-      <span aria-hidden className={cn("h-1.5 w-1.5 flex-none rounded-full", shown.dot)} />
-      {shown.word}
-    </span>
-  );
+  return shown === null ? null : <Pill face={shown} data={{ "data-extension-status": status }} />;
 }
 
 /** A required family's lock, saying why in its declaration's words. */

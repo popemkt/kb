@@ -35,9 +35,16 @@ const FORMER_PATHS: Readonly<Record<string, SettingsPart>> = {
   "/preferences": "appearance",
 };
 
-/** The path of `part`: `/settings` for the first, `/settings/<part>` for the rest. */
-export function settingsPath(part: SettingsPart): string {
-  return part === SETTINGS_PARTS[0] ? SETTINGS_PATH : `${SETTINGS_PATH}/${part}`;
+/** The address of Extensions' Migrations group, which the header's pending line links to. */
+export const MIGRATIONS_ANCHOR = "migrations";
+
+/**
+ * The path of `part`: `/settings` for the first, `/settings/<part>` for the
+ * rest; with `anchor`, `#<anchor>` after it, which the page lands on.
+ */
+export function settingsPath(part: SettingsPart, anchor?: string): string {
+  const path = part === SETTINGS_PARTS[0] ? SETTINGS_PATH : `${SETTINGS_PATH}/${part}`;
+  return anchor === undefined ? path : `${path}#${anchor}`;
 }
 
 /** The part `path` opens, a former path's included, or null where it opens none. */

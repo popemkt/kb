@@ -8,8 +8,9 @@
  * trusted); what it plans is applied by kb's `migration.*` actions, as one
  * transaction, never by the script itself.
  */
+import { z } from "zod";
 import { Point } from "@kb/plugin";
-import type { KbNode, NodeId } from "@kb/model";
+import { MIGRATION_STATES, type KbNode, type NodeId } from "@kb/model";
 import { CORE_POINT_DEFINITIONS } from "./point-definitions.ts";
 import type { ProcedureContribution, ProcedureStep } from "./procedure.ts";
 
@@ -52,6 +53,28 @@ export const MigrationPoint = Point<ExtensionMigration>()(
   CORE_POINT_DEFINITIONS.migration.name,
   CORE_POINT_DEFINITIONS.migration.spec,
 );
+
+/**
+ * What `migration.list` answers: every migration the loaded families
+ * declare, each with its state, whether it is pending, how many nodes it
+ * would write now, and why it could not be planned, when it could not. The
+ * CLI prints it and the page draws it, so it is the contract's, not one
+ * surface's.
+ */
+export const MigrationListSchema = z.object({
+  migrations: z.array(
+    z.object({
+      id: z.string(),
+      title: z.string(),
+      state: z.enum(MIGRATION_STATES).nullable(),
+      pending: z.boolean(),
+      /** How many nodes it would write or delete now. */
+      changes: z.number(),
+      /** Why it could not be planned, when it could not. */
+      problem: z.string().optional(),
+    }),
+  ),
+});
 
 /** The procedure that runs the migration `id` (`<family>.<id>`). */
 export function migrationProcedureId(id: string): string {

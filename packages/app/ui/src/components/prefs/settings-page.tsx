@@ -9,6 +9,14 @@
 import { BUNDLED_DECLARATIONS } from "@kb/bundled";
 import { ExtensionAdd, RetainedExtension } from "./extension-controls";
 import { ExtensionDetails } from "./extension-card";
+import { migrationPill } from "./migration-pill";
+import {
+  MigrationLine,
+  MigrationPill,
+  MigrationsEmpty,
+  MigrationsUnread,
+  OpenProcedure,
+} from "./settings-migrations";
 import {
   DEFAULT_BACKDROP_STRENGTH,
   MOTION_EFFECTS,
@@ -36,6 +44,7 @@ import {
   POPOVER_VALUE_CLASS,
   PrefFieldRow,
   replacePath,
+  subscribePath,
   type ThemePref,
   useGraphRead,
   type WidthPref,
@@ -44,7 +53,7 @@ import { THEME_GLYPHS } from "@/components/prefs/theme-glyphs";
 import { usePageBackdrop, type PageBackdropChoice, useShownDesignSystem } from "@kb/appearance-kit";
 import { SETTINGS_PARTS, type SettingsPart } from "@kb/views";
 import { ArrowsHorizontalIcon, SidebarSimpleIcon } from "@phosphor-icons/react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import {
   extensionShelf,
   useExtensionReport,
@@ -53,7 +62,13 @@ import {
   type PanelExtension,
   type PanelReport,
 } from "@/lib/extension-report";
-import { PART_WORDS, settingsPartOf, settingsPath } from "@/lib/settings-parts";
+import { MIGRATIONS_ANCHOR, PART_WORDS, settingsPartOf, settingsPath } from "@/lib/settings-parts";
+import {
+  pendingOf,
+  readMigrations,
+  useMigrationsStore,
+  type MigrationsReading,
+} from "@/stores/migrations.store";
 import { useMotionStore } from "@/stores/motion.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import {
@@ -226,6 +241,31 @@ function usePart(part: SettingsPart | undefined): SettingsPart {
   return shown;
 }
 
+/**
+ * A link into a part lands on its section: the address's `#` scrolls that
+ * section or group into view and opens its fold. It lands when the address
+ * changes, and again once the server's report is in (`read`), since the
+ * cards that report adds above the section move it.
+ */
+function useLandOnAnchor(read: boolean): void {
+  const hash = useSyncExternalStore(subscribePath, readHash, () => "");
+  const setFold = usePrefsStore((s) => s.setSettingsFold);
+  /** The address landed on before the report was in, so the report's arrival lands it once more. */
+  const landed = useRef<string | null>(null);
+  useEffect(() => {
+    if (landed.current === hash && !read) return;
+    landed.current = read ? null : hash;
+    const target =
+      hash.length > 1 ? document.getElementById(decodeURIComponent(hash.slice(1))) : null;
+    if (target === null) return;
+    const fold = target.dataset["settingsSection"];
+    if (fold !== undefined) setFold(fold, true);
+    target.scrollIntoView({ block: "start" });
+  }, [hash, read, setFold]);
+}
+
+const readHash = (): string => window.location.hash;
+
 export function SettingsPage({ part }: { readonly part?: SettingsPart }) {
   const shown = usePart(part);
   const [query, setQuery] = useState("");
@@ -235,10 +275,15 @@ export function SettingsPage({ part }: { readonly part?: SettingsPart }) {
   const nodes = useExtensionNodes(graph);
   const coreSettings = nodes.find((node) => node.id === CORE)?.settings ?? [];
   const coreRow = useCoreRow(graph, coreSettings);
+  const migrations = useMigrationsStore((state) => state.reading);
+  useEffect(() => {
+    if (shown === "extensions") void readMigrations();
+  }, [shown]);
+  useLandOnAnchor(report !== null);
   const groups: Readonly<Record<SettingsPart, readonly SectionGroup[]>> = {
     general: [{ id: "general", sections: generalSections(graph, coreSettings, coreRow) }],
     appearance: [{ id: "appearance", sections: appearanceSections(graph, coreRow) }],
-    extensions: extensionGroups(graph, nodes, report, markets),
+    extensions: [...extensionGroups(graph, nodes, report, markets), migrationsGroup(migrations)],
     advanced: [{ id: "advanced", sections: advancedSections(report) }],
   };
   const flat = (of: SettingsPart) => groups[of].flatMap((group) => group.sections);
@@ -752,6 +797,47 @@ function extensionGroups(
       sections: builtin,
     },
   ];
+}
+
+/**
+ * The Migrations group: one card per migration, in `migration.list`'s
+ * order, its caption counting them and those ready to review. An unread
+ * or failed list says so, never an empty one.
+ */
+function migrationsGroup(reading: MigrationsReading): SectionGroup {
+  const read = typeof reading === "object" && reading !== null ? reading : null;
+  const pending = pendingOf(reading).length;
+  return {
+    id: MIGRATIONS_ANCHOR,
+    anchor: MIGRATIONS_ANCHOR,
+    title: "Migrations",
+    caption:
+      read === null
+        ? undefined
+        : `${read.length}${pending > 0 ? ` · ${pending} ready to review` : ""}`,
+    cards: true,
+    sections: (read ?? []).map((migration) => {
+      const row: Row = {
+        key: migration.id,
+        words: `migration ${migration.title} ${migration.id} ${migrationPill(migration).word}`,
+        node: <MigrationLine migration={migration} />,
+      };
+      return {
+        id: `migration:${migration.id}`,
+        title: migration.title,
+        caption: <MigrationPill migration={migration} />,
+        aside: <OpenProcedure migration={migration} />,
+        testId: `migration-${migration.id}`,
+        rows: [row],
+      };
+    }),
+    empty:
+      read === null ? (
+        <MigrationsUnread problem={typeof reading === "string" ? reading : null} />
+      ) : (
+        <MigrationsEmpty />
+      ),
+  };
 }
 
 /** Roles are ordinary nodes; this reading links to their provider field. */

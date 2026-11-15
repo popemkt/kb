@@ -201,8 +201,11 @@ const DATASCRIPT = /cljs\.core/;
 // budget keeps about 1.4 KB over that. Hidden fields as chips (the line of
 // chips that replaced the fold, its "…" for tucked fields, the fields opened
 // from it, and the show reader's two new levels) measure 1,989,853; the
-// budget keeps about 1.4 KB over that.
-const EAGER_BUDGET_BYTES = 1_991_300;
+// budget keeps about 1.4 KB over that. The header's line for pending data
+// migrations (its one reading of `migration.list`, through the contracts'
+// `MigrationListSchema` rather than the operations module, and the line
+// itself) measures 1,992,246 with it; the budget keeps about 1.4 KB over that.
+const EAGER_BUDGET_BYTES = 1_993_600;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

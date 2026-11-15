@@ -4087,6 +4087,50 @@ the settings. The record of why is
   The switch is a load decision: switched off, the extension's actions,
   views and MCP tools leave and its nodes stay, which the part's lede
   says.
+  - **Migrations**, after the shelves, is every data migration the loaded
+    families declare
+    ([DESIGN → Plugin data migrations](DESIGN.md#plugin-data-migrations)),
+    one card each, in the order `migration.list` returns them. A card's
+    heading is the migration's title and one state pill (the extension
+    cards' pill face): its record's
+    state (_previewed_, _applied_, _verified_, _failed_, _kept_, _rolled
+    back_). With no record it says _pending_ when the migration would
+    change something now, and _nothing to do_ when it would not. A pill
+    on a pending migration is the warning tone, and _failed_ or one that
+    cannot plan is the destructive tone. Under the heading the card gives
+    its id (`<family>.<id>`) and how many nodes it would write now, or why
+    it cannot plan. Beside the pill is one button that opens its
+    procedure page (`/procedure/migration.<family>.<id>`, where every step
+    is taken). It says _Review_ while the migration is pending, else
+    _Open_. Nothing is run from the card. The group's caption counts the
+    migrations, and how many are ready to review. With none declared it
+    says so. While the list is being read, or when it could not be read,
+    it says that and offers to read it again; it never draws an
+    unread list as an empty one. The group's address is `#migrations`.
+- **Migrations ready to review.** While any migration is pending, the
+  header carries one quiet line beside the connection dot: _1 migration
+  ready to review_ (or _N migrations_). It stays on one line: a narrow
+  header shows only the count, and the link's name still says it whole.
+  The line is a link to Settings → Extensions → Migrations, and beside it
+  is a button that dismisses it.
+  A dismissal holds for this session, never in `kb-prefs` or the graph.
+  It covers only the migrations that were pending when the person
+  dismissed it, so one that becomes pending later brings the line back.
+  Nothing opens by itself: the line is never a modal, a toast or a
+  focus steal. It is the header's because the header is on every page,
+  like the extension-watch note beside it.
+- **One list of migrations.** The group and the header line read one
+  reading of `migration.list`, the action `kb migrate` prints and MCP
+  calls, so the page shows the set the CLI lists, with the same states
+  and the same pending (`stores/migrations.store.ts`). It is read when
+  the page loads, when the families change (the manifest is read again)
+  and when Extensions opens. While any family declares a migration, it is
+  also read after each write, so a step taken on any surface moves both.
+  With none declared, a write costs no reading.
+- **A link into a part lands on its section.** A Settings path with a
+  `#<address>` scrolls that section or group into view and opens its
+  fold. The Migrations line uses it, as does the banner's link to a
+  card.
 - **Advanced** holds the points whose listeners are asked in turn
   (identity providers, interceptors, guards), per kernel and in that
   order; the repository extensions refused, where an untrusted one names
@@ -4122,7 +4166,14 @@ the settings. The record of why is
   settings_, the motion reset, a fold remembered on this device, the
   filter and the former paths each have a case.
   `components/prefs/settings-extensions.acceptance.test.tsx` drives the
-  Extensions and Advanced parts through the real App. The design-system
+  Extensions and Advanced parts through the real App.
+  `components/prefs/migrations.test.tsx` draws the Migrations group and
+  the header line from `migration.list`'s output. It checks one card per
+  migration, its pill, and the link to its procedure. It also checks the
+  line's count, its link landing on `#migrations`, and its dismissal,
+  which a new pending migration undoes. `runtime/tests/migration-contract.test.ts`
+  holds the list itself, the set and the states the page draws, over every
+  store backend. The design-system
   and backdrop contracts choose through Appearance, each by a card of its
   gallery.
 - The page's body loads when it is first opened, not with the shell.
