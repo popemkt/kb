@@ -126,6 +126,7 @@ export function CalendarPage({ params }: { readonly params: CalendarParams }) {
       {mode === "agenda" ? <AgendaView layout={layout} actions={actions} /> : null}
       {opened !== null && openedEntry !== undefined ? (
         <EntryPopover
+          routine={openedEntry.routine}
           entry={openedEntry}
           element={opened.element}
           model={model}

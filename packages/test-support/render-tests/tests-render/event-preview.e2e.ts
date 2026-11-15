@@ -1,8 +1,9 @@
 // An event's live preview under its row (DESIGN-UI.md → The routines calendar →
-// an event on its own): the calendar's own box, at the popover's width, and as
-// tall as what it shows, so it never scrolls inside itself. How the box words
-// a sync time is the calendar page's component test's: here the family's engine
-// runs, and owns a routine's sync status.
+// an event's preview is one line): one muted line at the row's indent, whose
+// choices show on hover, which floats the calendar's own box at the popover's
+// width when pressed, and which wraps after the time on a phone. What the line
+// says is the calendar page's component test's: here the family's engine runs,
+// and the page lays it out.
 import type { APIRequestContext, Locator, Page } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
 
@@ -29,9 +30,10 @@ const props = (all: Props) =>
 
 /**
  * The routines family on, its event preview shown always, a calendar in
- * preview (so the engine sends nothing), and a daily Gym under the fixture root.
+ * preview (so the engine sends nothing), and a Gym repeating by `rrule` (daily,
+ * unless a test says otherwise) under the fixture root.
  */
-async function seedEvent(request: APIRequestContext): Promise<string> {
+async function seedEvent(request: APIRequestContext, rrule = "FREQ=DAILY"): Promise<string> {
   await invoke(request, "extension.switch", { name: "routines", on: true });
   await invoke(request, "node.update", {
     id: "sys.extension.routines",
@@ -59,7 +61,7 @@ async function seedEvent(request: APIRequestContext): Promise<string> {
       [F("starts")]: [str("2026-11-01")],
       [F("at")]: [str("07:00")],
       [F("duration")]: [num(60)],
-      [F("rrule")]: [str("FREQ=DAILY")],
+      [F("rrule")]: [str(rrule)],
     }),
   });
   return gym.id;
@@ -68,58 +70,75 @@ async function seedEvent(request: APIRequestContext): Promise<string> {
 /** The box's width, in CSS pixels. */
 const widthOf = async (box: Locator) => (await box.boundingBox())?.width ?? 0;
 
-async function previewOf(page: Page, id: string) {
-  const frame = page.locator(`[data-row-preview="${id}"] [role="group"]`);
+/** The event's line under its row, once the row's preview has mounted it. */
+async function lineOf(page: Page, id: string): Promise<Locator> {
+  const region = page.locator(`[data-row-preview="${id}"] [role="group"]`);
   // The view mounts once its box comes near the viewport (`useSeen`).
-  await frame.scrollIntoViewIfNeeded();
-  await expect(frame).toBeVisible();
-  const card = frame.locator("[data-event-card]");
-  await expect(card.getByRole("button", { name: "Done" })).toBeVisible();
-  return { frame, card };
+  await region.scrollIntoViewIfNeeded();
+  const line = region.locator("[data-event-line]");
+  await expect(line).toBeVisible();
+  return line;
 }
 
-test("an event's preview is as tall as its box, never scrolls, and every action is inside it", async ({
+test("an event's preview is one line at the row's indent, its choices on hover, and pressing it floats the calendar's box", async ({
   page,
   request,
 }) => {
+  await page.clock.setFixedTime(new Date("2026-11-14T10:00:00"));
   await page.emulateMedia({ reducedMotion: "reduce" });
   const id = await seedEvent(request);
   await page.goto(`/node/${ROOT}`);
-  const { frame, card } = await previewOf(page, id);
-  const sizes = await frame.evaluate((el) => ({
-    scroll: el.scrollHeight,
-    client: el.clientHeight,
-    overflow: getComputedStyle(el).overflowY,
-  }));
-  expect(sizes.scroll).toBeLessThanOrEqual(sizes.client);
-  expect(["auto", "scroll"]).not.toContain(sizes.overflow);
-  const edge = await frame.boundingBox();
-  for (const name of ["Done", "Skip", "Move this one…", "Edit event", "Open in outline"]) {
-    const button = await card.getByRole("button", { name, exact: true }).boundingBox();
-    expect(button, name).not.toBeNull();
-    expect(edge).not.toBeNull();
-    if (button === null || edge === null) continue;
-    expect(button.y, name).toBeGreaterThanOrEqual(edge.y);
-    expect(button.y + button.height, name).toBeLessThanOrEqual(edge.y + edge.height + 0.5);
-  }
-  // Every time on it is worded, none an ISO instant.
-  expect((await card.textContent()) ?? "").not.toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/);
-});
-
-test("it is the calendar popover's width, at the row's indent rather than the whole row", async ({
-  page,
-  request,
-}) => {
-  const id = await seedEvent(request);
-  await page.goto(`/node/${ROOT}`);
-  const { frame, card } = await previewOf(page, id);
+  const line = await lineOf(page, id);
   const row = page.locator(`[data-node-block="true"][data-node-id="${id}"]`).first();
-  expect(await widthOf(frame)).toBeLessThan(await widthOf(row));
-  const preview = await widthOf(card);
+  const [lineBox, rowBox] = [await line.boundingBox(), await row.boundingBox()];
+  expect(lineBox).not.toBeNull();
+  expect(rowBox).not.toBeNull();
+  if (lineBox === null || rowBox === null) return;
+  // One line, at the row's indent rather than under the whole row.
+  expect(lineBox.height).toBeLessThan(32);
+  expect(lineBox.x).toBeGreaterThan(rowBox.x);
+  expect((await line.textContent()) ?? "").not.toContain("Gym");
 
-  await page.goto("/calendar/week");
+  const done = line.locator('[data-event-line-choice="done"]');
+  await page.mouse.move(0, 0);
+  await expect(done).toBeHidden();
+  await line.hover();
+  await expect(done).toBeVisible();
+
+  await line.locator("[data-event-line-open]").click();
+  const floated = page.getByTestId("entry-popover");
+  await expect(floated.getByRole("button", { name: "Done", exact: true })).toBeVisible();
+  const preview = await widthOf(floated);
+  await page.keyboard.press("Escape");
+  await expect(floated).toBeHidden();
+
+  await page.goto("/calendar/week/2026-11-14");
   await page.locator(`[data-entry^="${id}/"]`).first().click();
   const popover = page.getByTestId("entry-popover");
   await expect(popover).toBeVisible();
   expect(Math.abs(preview - (await widthOf(popover)))).toBeLessThanOrEqual(1);
+});
+
+test("on a phone the line wraps after the time, and the time stays whole", async ({
+  page,
+  request,
+}) => {
+  await page.setViewportSize({ width: 360, height: 740 });
+  await page.clock.setFixedTime(new Date("2026-11-14T10:00:00"));
+  // A repeat long enough that the line is wider than a phone's column.
+  const id = await seedEvent(request, "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE,FR,SA");
+  await page.goto(`/node/${ROOT}`);
+  const line = await lineOf(page, id);
+  const when = await line.locator("[data-event-line-when]").boundingBox();
+  const repeat = await line.locator("[data-event-line-repeat]").boundingBox();
+  const lineBox = await line.boundingBox();
+  await expect(line.locator("[data-event-line-repeat]")).toContainText("Every 2 weeks");
+  expect(when).not.toBeNull();
+  expect(repeat).not.toBeNull();
+  expect(lineBox).not.toBeNull();
+  if (when === null || repeat === null || lineBox === null) return;
+  // The time is one line, and what follows it starts below it.
+  expect(when.height).toBeLessThan(24);
+  expect(repeat.y).toBeGreaterThanOrEqual(when.y + when.height - 1);
+  expect(lineBox.x + lineBox.width).toBeLessThanOrEqual(360);
 });

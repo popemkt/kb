@@ -71,6 +71,7 @@ function Chip() {
       </button>
       {element === null ? null : (
         <EntryPopover
+          routine={ENTRY.routine}
           entry={ENTRY}
           element={element}
           model={MODEL}
