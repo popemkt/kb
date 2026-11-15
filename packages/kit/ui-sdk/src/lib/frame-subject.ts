@@ -13,7 +13,15 @@
  * its host edits.
  */
 import { createContext, useContext, type ComponentType } from "react";
+import type { Condition } from "@kb/query";
+import type { ViewFilter } from "@kb/views";
 import type { OutlineNode, TagBadge } from "./types";
+
+/**
+ * A condition a new row holds where a view asks for it: the view's filter,
+ * or a group's value as `field-is` (DESIGN-UI.md → Adding to a frame).
+ */
+export type RowCondition = Condition | ViewFilter;
 
 /** A row's text, as the host edits it, inside the view's own row chrome. */
 export interface FrameRowTextProps {
@@ -24,6 +32,13 @@ export interface FrameRowTextProps {
   readonly tags: TagBadge[];
 }
 
+/** A row whose children a view asks its host to draw: which node, under which instance, how deep. */
+export interface FrameRowProps {
+  readonly nodeId: string;
+  readonly instanceKey: string;
+  readonly depth: number;
+}
+
 export interface FrameSubject {
   readonly frameId: string;
   /** The frame's render instance; absent at the host's root. */
@@ -31,13 +46,48 @@ export interface FrameSubject {
   /** Query-result rows, which replace the frame's children. */
   readonly rowIds?: readonly string[] | undefined;
   readonly isQuerySource: boolean;
+  /**
+   * The instance the frame's row `nodeId` is drawn at: a query's result under
+   * the query, a child under the frame's instance. The one place a view, the
+   * walk and a new row's caret read a row's instance from.
+   */
+  readonly rowKey: (nodeId: string) => string;
   /** The indent level of the frame's rows. */
   readonly depth: number;
   /** How many pages of the frame's rows are revealed (`frameRows`' `pages`). */
   readonly pages: number;
   /** Reveal one more page of the frame's rows. */
   readonly revealMorePages: () => void;
+  /**
+   * The row a detail view last chose to show, as the host keeps it for the
+   * frame; null while none is (DESIGN-UI.md → List with detail).
+   */
+  readonly detail: string | null;
+  /** Show the row `nodeId` in the frame's detail, as the host keeps it. */
+  readonly showDetail: (nodeId: string) => void;
+  /**
+   * The day a calendar is open at, as the host keeps it for the frame:
+   * today until one is chosen (DESIGN-UI.md → Calendar).
+   */
+  readonly day: string;
+  /** The day it is now, as the host reads it. */
+  readonly today: string;
+  /** Open the frame's calendar at `day`, as the host keeps it. */
+  readonly showDay: (day: string) => void;
   readonly RowText: ComponentType<FrameRowTextProps>;
+  /**
+   * The children a row shows, in their own frame view, as the host draws
+   * them under a row in a list (DESIGN-UI.md → Frame views): the one way a
+   * view asks its host for a row's children.
+   */
+  readonly RowChildren: ComponentType<FrameRowProps>;
+  /**
+   * Add a row where the view asks for one, holding `where` (DESIGN-UI.md →
+   * Adding to a frame): the host adds the frame's own part, the query it
+   * matches or the frame as parent, and opens the row's text. The one way a
+   * view asks its host for a new row.
+   */
+  readonly addRow: (where: readonly RowCondition[]) => void;
 }
 
 /** Only a frame's host provides it; a frame view outside one has no frame to show. */

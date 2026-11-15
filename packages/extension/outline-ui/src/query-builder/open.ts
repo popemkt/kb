@@ -14,7 +14,7 @@
  *   into must not fold away under the caret.
  */
 import { useOutlineStore } from "../outline.store";
-import { readQuery } from "./model";
+import { readQuery } from "@kb/query";
 
 /** The builder's element id, which the control that opens it points at (`aria-controls`). */
 export const queryBuilderId = (nodeId: string): string => `query-builder-${nodeId}`;

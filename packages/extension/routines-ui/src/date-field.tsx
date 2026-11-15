@@ -10,7 +10,7 @@ import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { CalendarBlankIcon, CaretLeftIcon, CaretRightIcon } from "@phosphor-icons/react";
 import { addDays, formatDay, parseDay } from "@kb/model";
 import { cn, IconButton, useAnchoredPosition, useDismiss } from "@kb/ui-sdk";
-import { daysOf, longDay, sameMonth, stepAnchor, titleOf, WEEKDAY_SHORT } from "./dates";
+import { daysOf, longDay, sameMonth, stepAnchor, titleOf, WEEKDAY_SHORT } from "@kb/calendar-kit";
 import { FIELD_CLASS } from "./repeat-picker";
 
 const shift = (day: string, days: number) => {

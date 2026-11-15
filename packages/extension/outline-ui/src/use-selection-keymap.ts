@@ -31,6 +31,7 @@ export function useSelectionKeymap(): void {
           activeNodeId: store.activeNodeId,
           getPreviousVisibleInstance: store.getPreviousVisibleInstance,
           getNextVisibleInstance: store.getNextVisibleInstance,
+          instanceAt: store.instanceAt,
           fieldSlotsOf: fieldSlotCount,
           getNode: (id) => {
             const n = outlineNodes().get(id);

@@ -6,7 +6,15 @@
  * in, and the settings its view node holds, are `frameViewOf` and
  * `frameConfigOf`.
  */
-import { templateFieldsOf, SYSTEM_IDS } from "@kb/model";
+import { longDay } from "@kb/calendar-kit";
+import {
+  addDays,
+  declaresOptionSet,
+  formatDay,
+  parseDay,
+  templateFieldsOf,
+  SYSTEM_IDS,
+} from "@kb/model";
 import { conditionGraph, conditionsMatcher, derivedWith } from "../query";
 import type { SortSpec, ViewFilter } from "@kb/views";
 import type { OutlineNode, PropValue } from "./types";
@@ -224,16 +232,26 @@ export function sortChildrenForTable(
 export const EMPTY_GROUP_KEY = "__empty__";
 
 export interface BoardColumn {
+  /** The group's key, which a view's `collapsed` names it by (DESIGN-UI.md → Groups). */
   key: string;
   label: string;
   /** Prop value for this column; null = "No <field>" empty column. */
   value: PropValue | null;
   nodes: OutlineNode[];
+  /** Folded: its header and count are drawn, its rows are not. */
+  collapsed: boolean;
+}
+
+function group(key: string, label: string, value: PropValue | null): BoardColumn {
+  return { key, label, value, nodes: [], collapsed: false };
 }
 
 /**
- * Group direct children by view.group field values.
- * When groupFieldId is null (cards), returns a single unlabeled column.
+ * Group rows by a field's values (DESIGN-UI.md → Groups): a group per option
+ * of a field that declares its option set, in the field's order, held or
+ * not; then each other value held, by label; then "No <field>". A row falls
+ * in the group of its first value. When groupFieldId is null (cards),
+ * returns a single unlabeled column.
  */
 export function groupChildrenForBoard(
   children: OutlineNode[],
@@ -241,58 +259,167 @@ export function groupChildrenForBoard(
   schema: SchemaIndex,
 ): BoardColumn[] {
   if (groupFieldId === null) {
-    return [
-      {
-        key: "__all__",
-        label: "",
-        value: null,
-        nodes: [...children],
-      },
-    ];
+    return [{ ...group("__all__", "", null), nodes: [...children] }];
   }
 
-  const fieldLabel = textOr(schema.get(groupFieldId)?.text, groupFieldId);
-  const columns = new Map<string, BoardColumn>();
-  const empty: BoardColumn = {
-    key: EMPTY_GROUP_KEY,
-    label: `No ${fieldLabel}`,
-    value: null,
-    nodes: [],
-  };
+  const fieldNode = schema.get(groupFieldId);
+  const fieldLabel = textOr(fieldNode?.text, groupFieldId);
+  const options = new Map<string, BoardColumn>();
+  if (declaresOptionSet(fieldNode)) {
+    for (const optionId of fieldNode?.children ?? []) {
+      const value: PropValue = { t: "ref", v: optionId };
+      options.set(
+        propValueKey(value, schema),
+        group(propValueKey(value, schema), propValueLabel(value, schema), value),
+      );
+    }
+  }
+  const others = new Map<string, BoardColumn>();
+  const empty = group(EMPTY_GROUP_KEY, `No ${fieldLabel}`, null);
 
   for (const child of children) {
-    const vals = child.props[groupFieldId] ?? [];
-    if (vals.length === 0) {
+    // Display: first value wins. Drag clears all values then sets one.
+    const [v] = child.props[groupFieldId] ?? [];
+    if (v === undefined) {
       empty.nodes.push(child);
       continue;
     }
-    // Display: first value wins. Drag clears all values then sets one.
-    const [v] = vals;
-    if (v === undefined) continue;
     const key = propValueKey(v, schema);
-    let col = columns.get(key);
+    let col = options.get(key) ?? others.get(key);
     if (!col) {
-      col = {
-        key,
-        label: propValueLabel(v, schema),
-        value: v,
-        nodes: [],
-      };
-      columns.set(key, col);
+      col = group(key, propValueLabel(v, schema), v);
+      others.set(key, col);
     }
     col.nodes.push(child);
   }
 
-  const ordered = [...columns.values()].toSorted((a, b) => a.label.localeCompare(b.label));
-  ordered.push(empty);
-  return ordered;
+  const held = [...others.values()].toSorted((a, b) => a.label.localeCompare(b.label));
+  return [...options.values(), ...held, empty];
 }
 
-/** Flatten board columns to render-order node list (visible-instances). */
+/** How a grouped view shows its groups: the ones it folds, and whether it drops the empty ones. */
+export interface GroupDisplay {
+  readonly collapsed: readonly string[];
+  readonly hideEmpty: boolean;
+}
+
+/** The groups a view shows, each folded when its key is in `collapsed`. */
+export function shownGroups(columns: readonly BoardColumn[], display: GroupDisplay): BoardColumn[] {
+  const folded = new Set(display.collapsed);
+  return columns
+    .filter((column) => !display.hideEmpty || column.nodes.length > 0)
+    .map((column) => (folded.has(column.key) ? { ...column, collapsed: true } : column));
+}
+
+/** A group a row of a grouped view moves to by key: its value, null for "No <field>". */
+interface GroupStep {
+  readonly value: PropValue | null;
+  /** The day a calendar opens at so the row stays drawn, when the move leaves the days shown. */
+  readonly opens?: string;
+}
+
+/** The groups beside a row's own, where ⌘⇧← and ⌘⇧→ move it (DESIGN-UI.md → Groups). */
+export interface GroupSteps {
+  readonly before: GroupStep | null;
+  readonly after: GroupStep | null;
+}
+
+/**
+ * Where each row of the groups a view shows moves by key, by row id: the
+ * unfolded groups before and after its own, none past either end. A folded
+ * group draws no rows, so a row neither sits in one nor moves into one.
+ */
+export function groupSteps(columns: readonly BoardColumn[]): Map<string, GroupSteps> {
+  const open = columns.filter((column) => !column.collapsed);
+  const steps = new Map<string, GroupSteps>();
+  open.forEach((column, at) => {
+    const before = open[at - 1];
+    const after = open[at + 1];
+    const step: GroupSteps = {
+      before: before === undefined ? null : { value: before.value },
+      after: after === undefined ? null : { value: after.value },
+    };
+    for (const node of column.nodes) steps.set(node.id, step);
+  });
+  return steps;
+}
+
+/** A row's day by a date field: its first value's, when that is a day; else none. */
+function dayOf(row: OutlineNode, fieldId: string): string | null {
+  const [first] = row.props[fieldId] ?? [];
+  if (first?.t !== "str") return null;
+  const day = parseDay(first.v);
+  return day === null ? null : formatDay(day);
+}
+
+/**
+ * Group rows by the days a calendar shows (DESIGN-UI.md → Calendar): a
+ * group per day of `shown`, in order, held or not, each holding the rows
+ * whose date field's first value is that day, then "No <field>" for the
+ * rows with none (an empty or unreadable date is none). A row dated on a
+ * day not shown is in no group. With no field chosen, every row waits in
+ * "No date".
+ */
+export function groupRowsByDay(
+  rows: readonly OutlineNode[],
+  fieldId: string | null,
+  shown: readonly string[],
+  schema: SchemaIndex,
+): BoardColumn[] {
+  const label = fieldId === null ? "date" : textOr(schema.get(fieldId)?.text, fieldId);
+  const empty = group(EMPTY_GROUP_KEY, `No ${label}`, null);
+  const byDay = new Map(
+    shown.map((day) => {
+      const value: PropValue = { t: "str", v: day };
+      return [day, group(propValueKey(value, schema), longDay(day), value)] as const;
+    }),
+  );
+  for (const row of rows) {
+    const day = fieldId === null ? null : dayOf(row, fieldId);
+    if (day === null) empty.nodes.push(row);
+    else byDay.get(day)?.nodes.push(row);
+  }
+  return [...byDay.values(), empty];
+}
+
+/** The day `n` days from `day`. */
+function shiftDay(day: string, n: number): string {
+  const local = parseDay(day);
+  return local === null ? day : formatDay(addDays(local, n));
+}
+
+/**
+ * Where each row of a calendar's groups moves by key, by row id
+ * (DESIGN-UI.md → Calendar): a day back or on, past the days shown too,
+ * where the calendar opens at the row's new day (`opens`); a row with no
+ * date, from the list beside the days, back onto the day it is open at.
+ */
+export function daySteps(
+  columns: readonly BoardColumn[],
+  shown: readonly string[],
+  openDay: string,
+): Map<string, GroupSteps> {
+  const step = (day: string): GroupStep => ({
+    value: { t: "str", v: day },
+    ...(shown.includes(day) ? {} : { opens: day }),
+  });
+  const steps = new Map<string, GroupSteps>();
+  for (const column of columns) {
+    const day = column.value?.t === "str" ? column.value.v : null;
+    const at: GroupSteps =
+      day === null
+        ? { before: step(openDay), after: null }
+        : { before: step(shiftDay(day, -1)), after: step(shiftDay(day, 1)) };
+    for (const node of column.nodes) steps.set(node.id, at);
+  }
+  return steps;
+}
+
+/** Flatten board columns to render-order node list (visible-instances); a folded one draws none. */
 export function flattenBoardOrder(columns: BoardColumn[]): OutlineNode[] {
   const out: OutlineNode[] = [];
   for (const col of columns) {
-    out.push(...col.nodes);
+    if (!col.collapsed) out.push(...col.nodes);
   }
   return out;
 }

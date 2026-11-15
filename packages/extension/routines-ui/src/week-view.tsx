@@ -1,8 +1,7 @@
 import { useLayoutEffect, useRef, type PointerEvent } from "react";
 import { wallClock, type CalendarEntry } from "@kb/routines";
 import { cn } from "@kb/ui-sdk";
-import { WEEKDAY_SHORT } from "./dates";
-import { DayNumber } from "./day-number";
+import { DayNumber, WEEKDAY_SHORT } from "@kb/calendar-kit";
 import type { Drag, Spot } from "./drag";
 import { EntryChip } from "./entry-chip";
 import { HOUR_PX, placeDay, type Placed } from "./layout";

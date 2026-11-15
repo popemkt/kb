@@ -170,7 +170,7 @@ describe("palette index", () => {
 it("keeps registered surface intents out of global browsing and search", () => {
   const nodes = bundledSeed(ISO);
   const commands = nodes.filter((row) => row.props[SHORTCUT_IDS.commandContext] !== undefined);
-  expect(commands).toHaveLength(121);
+  expect(commands).toHaveLength(123);
   const index = buildPaletteIndex(nodes, 1);
   const listed = new Set(index.entries.map(({ id }) => id));
   for (const command of commands) {

@@ -15,7 +15,14 @@ function problems(key: ViewKey<unknown>, input: unknown, host: string | null = n
   return Result.isFailure(result) ? result.failure.map(issueText) : [];
 }
 
-const BOARD = { filters: [], sort: [], display: [], groupFieldId: "f.status" };
+const BOARD = {
+  filters: [],
+  sort: [],
+  display: [],
+  groupFieldId: "f.status",
+  collapsed: [],
+  hideEmpty: false,
+};
 
 describe("the collection views' keys", () => {
   test("a proposal's props name its view, then hold its settings", () => {

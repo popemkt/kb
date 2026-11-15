@@ -438,8 +438,8 @@ split is what matters here:
 
 Mode A owns split/merge/indent/outdent, soft line break (`Shift+Enter`),
 vertical caret motion, and autocomplete interception. Mode B owns
-`ArrowLeft/Right` collapse-expand-parent-firstchild, `o` / `Shift+O`
-create-below/above, `Space` toggle, `Cmd+.` zoom, and printable-character
+`ArrowLeft/Right` collapse-expand-parent-firstchild, `Cmd+Shift+ArrowLeft/Right`
+a row to the group beside its own (_Groups_), `o` / `Shift+O` create-below/above, `Space` toggle, `Cmd+.` zoom, and printable-character
 re-entry into Mode A. Mode B's keys are the selected row's: a key pressed
 while focus is on a control the keyboard stops at (a text entry, or a button
 such as a tag's box or the hidden-fields fold) is that control's, so Tab
@@ -1007,7 +1007,9 @@ filters: a Query button (`data-query-toggle`, `aria-expanded`,
 within, and stays while anything it opened is open; on a zoomed query page it
 sits in the header, one click from the query, never behind the plain list's
 gear. A zoomed query page draws the query's results as its rows, as under a
-query row, and offers no create strip. Open or closed is the outline's
+query row, and ends in "+ Add" rather than the create strip: what it adds
+is a node the query answers, not a child of the query (Frame views →
+_Adding to a frame_). Open or closed is the outline's
 screen state per node (`queryBuilders`), kept for the session and never
 written to the graph. A query that says nothing yet — no EDN, or no
 conditions, as a new one starts — opens its builder; one that says something
@@ -3148,17 +3150,18 @@ how the stored name resolves to the key among them.
   prefetched when the graph page loads; a renderer view suspends in its own
   slot until the chunk arrives, and a failed load is tried again from that
   slot's error.
-- _Frame views._ A frame's children are shown by one of four frame views,
+- _Frame views._ A frame's children are shown by one of six frame views,
   each a view at placement `inline`: the outline's list, which nests them,
-  and the collections family's table, board and cards
-  (`@kb/collections-ui`), which lay them out as a node set inside the
+  and the collections family's table, board, cards, list with detail and
+  calendar (`@kb/collections-ui`), which lay them out as a node set inside the
   outline that hosts the frame. Every frame view's key is made by
   `frameViewKey` (`@kb/views`, `outline.ts`): its page is the outline at its
-  frame, and its id is frozen in the `outline.` namespace it was first
-  stored under, so a collection view answers to that id as an alias of the
-  one its plugin contributes it at. The keys carry the one trait the row walk needs
+  frame, and the first four keep the id they were first stored under, in
+  the `outline.` namespace, so a collection view answers to that id as an
+  alias of the one its plugin contributes it at. The keys carry the one trait the row walk needs
   beside the params: how the view lays rows out (`outline`, nested; `rows`;
-  `columns`). The frame's first frame view node (DESIGN.md → View nodes)
+  `columns`; `detail`, a run with one row's page beside it; `calendar`, a run
+  grouped by the days it shows). The frame's first frame view node (DESIGN.md → View nodes)
   names the view, and `frameViewOf` (`@kb/ui-sdk`'s `lib/frame-view.ts`)
   looks that node up in the schema (`frameViewNodeOf`, the one test of what
   a frame's view node is, which every reader shares), resolves its view
@@ -3176,7 +3179,13 @@ how the stored name resolves to the key among them.
   narrows them by its filter (DESIGN.md → View nodes), and a view sorts, groups its columns by a field, or pages exactly
   when its params declare `sort`, `groupFieldId` or `pagesize`. The
   toolbar, the node menu and the `view-as` commands list the provided frame
-  views by their pickers, and every one of them, the toolbar's settings
+  views by their pickers. On a page head the toolbar sits beside the title
+  while both fit, the title keeping a few words' width (8rem), and on its
+  own line under it when they do not. It stays
+  one row: in a head narrower than 30rem (its `viewbar` container) each view
+  shows its glyph only, named by its label (`aria-label`, tooltip), and a
+  toolbar that still does not fit scrolls sideways, so its gear stays in a
+  narrow pane. Every one of them, the toolbar's settings
   included, writes the frame's view node (`planEditFrameView`), making it on
   the first edit; none writes the frame's own props. A view node's
   settings are fields its seed hides from field rows (DESIGN.md → Data
@@ -3185,13 +3194,14 @@ how the stored name resolves to the key among them.
   "Filter…") opens the frame's one view settings popover
   (`ViewSettingsPopoverHost`): above the filters every view reads, a section
   for each setting the view's params declare, group by (`groupFieldId`),
-  fields (`display`) and page size (`pagesize`), so which controls a view
+  empty groups (`hideEmpty`), fields (`display`) and page size
+  (`pagesize`), so which controls a view
   offers is its declaration, as what `frameRows` does is. Each is drawn
   with the query builder's slot (`ChoiceSlot` over the one node picker):
   a field is picked from the rows' fields, those their tags template first;
   the fields shown are chips, removed one by one and added from the same
   candidates, and "tags' fields" names none again. A board with no group
-  field says so and opens the popover. A view node is
+  field lays its rows out as lanes (_Lanes_, below). A view node is
   one node however many hosts name it, so editing it — from any host's
   toolbar or its own row — edits it for every host that names it; a host
   that should differ names a view node of its own.
@@ -3201,10 +3211,21 @@ how the stored name resolves to the key among them.
   view a plugin provides is walked and offered while it is loaded and not
   after. The frame a view shows (its id, instance key, query rows
   and depth) is not config, so it travels in the host's `FrameSubject`
-  context (`@kb/ui-sdk`'s `lib/frame-subject.ts`). The subject also carries
+  context (`@kb/ui-sdk`'s `lib/frame-subject.ts`). The host says which
+  instance each of the frame's rows is drawn at (`rowKey`: a query's result
+  under the query, a child under the frame's instance), so every view, the
+  walk and a new row's caret name a row alike. The subject also carries
   what the host draws each row with: a view lays the rows out, and the host
   edits each row's text (`RowText`) and keeps how many pages of them are
-  revealed (`pages`, `revealMorePages`). A row's fields are drawn with the
+  revealed (`pages`, `revealMorePages`), which row a detail view shows
+  (`detail`, `showDetail`) and which day a calendar is open at (`day`,
+  `showDay`). The children a row shows, in
+  their own frame view, the host draws as it draws them under a row in a
+  list (`RowChildren`, the children and the create strip that adds one):
+  it is the one way a frame view asks its host for a row's children, as
+  `addRow` is the one way it asks for a new row (_Adding to a frame_).
+  The outline's own rows draw their children with the same component, and
+  a lane draws its rows with it. A row's fields are drawn with the
   page's field editor (`useFieldEditor`, the `FieldEditorService` the
   outline provides while it is loaded), the one editor every surface that
   shows a field draws it with, a frame view's cells and cards and the
@@ -3220,6 +3241,199 @@ how the stored name resolves to the key among them.
   in the list view are the one rows
   the list draws itself, as references, through the query row's
   `renderNode`.
+- _Groups._ A view whose params declare `groupFieldId` (the board) draws
+  a group for each value of that field. A field that declares its option
+  set (its children; DESIGN.md → Field types) has a group per option, in
+  the field's order, whether any row holds it or not. Each other value a
+  row holds follows, by label, and "No <field>" comes last, for the rows
+  that hold none. A group's header shows how many rows it holds after the
+  view's filter. Two more settings sit beside `groupFieldId` on the view
+  node, and the view declares them with it:
+  - `collapsed` (`sys.f.view.collapsed`) lists the folded groups, one text
+    per group, the group's key: `ref:<id>` for a node, so a renamed option
+    stays folded; `str:`, `num:` or `bool:` and the value for a literal;
+    `__empty__` for "No <field>". A key for a value no group has now does
+    nothing and stays.
+  - `hideEmpty` (`sys.f.view.hideEmpty`) leaves out the groups no row
+    falls in. The view settings popover draws it as a section, because the
+    params declare it.
+
+  A folded group keeps its header and count and draws none of its rows, so
+  the row walk (`frameRows`) skips them too. The header's chevron is a
+  button with `aria-expanded`: Tab reaches it, and Enter or Space folds or
+  unfolds the group. The fold is written to the view node, so it holds in
+  every host that names that view node and after a reload.
+
+  A row moves to another group by its value: dragged onto the group, or
+  with ⌘⇧← and ⌘⇧→ on the selected row, to the group before or after its
+  own as the view draws them, skipping folded ones, and nowhere past either
+  end. The move is one page write (`moveToGroup`): the row's values of the
+  field are replaced by the group's value, or removed for "No <field>", so
+  one undo puts it back, and the selection stays on the row. Rows of a
+  query's results do not move, as they do not drag, since the value may be
+  what the query matched. The walk says which groups are beside a row's
+  (`VisibleInstance.group`), from the groups `frameRows` lays out, so the
+  keys move a row only where the view draws one.
+- _Lanes._ A view that declares `groupFieldId` and has none set lays its
+  rows out as lanes, side by side (`laysOutLanes`, `@kb/views`). Each row
+  heads a column: its text, as a card's is drawn, over the rows under it,
+  which the host draws as it draws them under a row in a list
+  (`RowChildren`), in the row's own frame view, so they edit and nest as in
+  the list. A lane always shows its rows: its head does not fold, and its
+  bullet opens it. Choosing a group field turns the lanes into columns. The
+  row walk nests a frame in lanes as it nests a list: each lane's head,
+  then its rows, then the next lane. The keys follow that nesting, with the
+  lane as the outer level:
+  - ↑ and ↓ walk a lane's rows, and on into the next lane;
+  - ← and → on a lane's head select the lane before or after it, and do
+    nothing at either end;
+  - Enter on a lane's head selects its first row; on a lane with no rows
+    it edits the head's text, as Enter does on any row;
+  - Esc on a row inside a lane selects that lane's head;
+  - on a row inside a lane, ← and → close, open, climb and descend as in
+    the list, and climbing from a top row reaches the lane's head.
+
+  The walk says which lane an instance is in (`VisibleInstance.lane`: its
+  head and the heads before and after it), and the selection's intents
+  read that.
+- _Calculations._ A view whose params declare `calc` (the table) ends in a
+  calculation row, a cell under each field column. `calc`
+  (`sys.f.view.calc`) is one JSON text of field id → calculation, as
+  `colwidth` holds widths. `count` (the rows holding a value of the field)
+  is offered under every field column. `sum`, `average`, `median`, `min`
+  and `max` are offered under a number column (the field's type is
+  number), over each row's first number value, as sorting and display read
+  the first value. A calculation counts every row the view's filter
+  leaves, on every page, not only the page drawn. A cell with none shows a
+  quiet "Calculate" button. A cell with one shows the calculation's name,
+  the button that changes it, and its result, the button that copies the
+  number as shown (`copyText`). Choosing is a view setting, so both
+  buttons open the frame's view settings popover, whose calculations
+  section (drawn because the params declare `calc`) holds a slot per field
+  column over the calculations it offers, and "None", as every other
+  setting is chosen. A stored calculation its column no longer offers
+  shows nothing, and stays.
+- _Adding to a frame._ Where a frame's rows are drawn by something other
+  than the list's own rows, its "+ Add" makes a row that belongs there, so
+  it shows where it was asked for:
+  - a query's results, in the list or a projected view, end in "+ Add";
+    the node it makes carries what the query requires (`node.add`'s
+    `matching`, DESIGN.md → Query layer → What a match requires) and goes
+    where the query places it (`child-of`), else where captures go;
+  - a projected view of a node's own children (a board, cards, a table,
+    lanes, where the row is a new lane) adds a child of that node;
+  - a group of a board adds its value too, the "No <field>" group none;
+  - the view's own filter adds what it requires, read the same way
+    (`requirementsOf`);
+  - a lane ends in its head's create strip, as the head's rows do in the
+    list: `RowChildren` draws a row's children and the strip that adds
+    one, wherever it is drawn.
+
+  A view asks its host for the row with the conditions of where it was
+  asked (`FrameSubject.addRow`: its filter, and a group's value as
+  `field-is`); the host adds the frame's own part (`matching` the query, or
+  the frame as parent), so it is the one way a frame view adds a row, as
+  `RowChildren` is the one way it draws a row's children. The node is made empty, with its caret in its text where the view draws
+  it (`rowKey`; a query's result once the query has answered it), and is transient (Outline editor): left empty, it is pruned. One
+  write makes it with everything it carries, so one undo removes it. When
+  something the query or filter asks cannot be written (a negation, a
+  choice, a range: unmet), the node is made anyway and a toast says it may
+  not show here. "+ Add" is a button reached by Tab and pressed with
+  Enter or Space, named for where it adds ("Add to Doing", "Add to
+  Research", "Add a result").
+- _List with detail._ The detail view (`collections.detail`) lays a
+  frame's rows out as a list beside one row's page: the list on the left,
+  each row its bullet and text as the host edits them (`RowText`), and on
+  the right the row it shows, as its page shows it: its text as the title,
+  its fields with the page's field editor, and its children with their
+  create strip, as the host draws them under a row (`RowChildren`). The
+  row it shows follows the selection: selecting or editing a row of the
+  list shows it, and it stays shown while the selection moves into its
+  page or off the frame. Which row is shown is the outline's screen state
+  per frame, kept for the session and never written to the graph, as the
+  pages a frame has revealed are: the host keeps it and hands it to the
+  view (`FrameSubject.detail`, `showDetail`). A row it holds that the
+  frame no longer shows, or none, shows the first (`detailRowOf`,
+  `@kb/views`), which the view and the walk both read. The row walk nests
+  the shown row's children after it, as a list nests an open row's, so ↓
+  from the shown row walks into its page and on to the next row of the
+  list, and ← from a top row of the page climbs back to it. The view
+  declares filters and sort, as the cards do, and ends in "+ Add" (_Adding
+  to a frame_). In a frame narrower than 480px the page stacks under the
+  list. ⌘K offers it as "View as: List with detail", as the other frame
+  views are offered.
+- _Calendar._ The calendar view (`collections.calendar`) lays a frame's
+  rows out by a date field, over a day, a week or a month, with the rows
+  holding no date in a list beside it. It is a grouping (_Groups_) whose
+  groups are days: the days it shows, in order, each holding the rows whose
+  date field's first value is that day, then "No <field>" for the rows
+  with none (an empty or unreadable date counts as none). A row dated on a
+  day it does not show is not drawn, and the row walk does not reach it.
+  Two settings sit on the view node beside the filters:
+  - `dateFieldId` (`sys.f.view.dateField`), the field the rows are dated
+    by. The view settings popover offers the rows' fields of type date. With
+    none chosen, every row waits in the list and the calendar says to choose
+    one, with a button that opens the popover.
+  - `span` (`sys.f.view.span`): `day`, `week` or `month`, a month when
+    none is stored. The calendar's own header switches it, a segmented
+    control as the routines calendar's.
+
+  Which days it shows is the outline's screen state per frame, as the row a
+  detail view shows is: the day it is open at, today until one is chosen
+  (`FrameSubject.day`, `showDay`), kept for the session and never written.
+  A week starts on Monday, and a month shows the weeks that hold its days.
+  The header's ‹ and › step a span back and on, and "Today" opens at today;
+  its title names the range. `frameRows` lays out the days from the span and
+  the open day (`daysOf`, the one statement of a calendar's days, which the
+  routines calendar reads too), so the view and the walk show the same
+  rows: the days in order, each day's rows in the frame's order, then the
+  undated ones.
+
+  On a centered page a calendar takes the room a board does, spanning the
+  scroll region (`useViewBreakout`). The list sits beside the days in a
+  calendar at least 900px wide, and under them otherwise.
+
+  A day draws its number, today's on the primary fill, and a chip per row:
+  the row's text as the host edits it (`RowText`), drawn as the routines
+  calendar draws an instance (`calendarChipClass`, the one class list both
+  chips are drawn with: radius, inked edge, label type and density), so the
+  two calendars read as one family.
+  A month lays its days in a grid of weeks, the routines calendar's month
+  grid (`MonthGrid`). Every cell is one height, so a busy day never grows
+  its week: a chip's text takes two lines at most, cut unless it is being
+  edited, and a cell with more rows than it shows scrolls, every row still
+  drawn, so the rows the walk reaches are the rows drawn.
+  A week lays its days as seven tall columns side by side, and a day as one
+  column the calendar's width; a column lists its rows whole, wrapping, and
+  ends in "+ Add". In a frame narrower than 480px a week stacks its days.
+  A date field holds a day and no time (a local `YYYY-MM-DD`, DESIGN.md →
+  Data model), so a calendar has no hours to lay out; the routines
+  calendar's time grid is for its timed instances.
+  On a phone (the narrow viewport, `useNarrowViewport`) a month is too
+  narrow for chips: each day is a button with its number and a dot per row,
+  three at most, that opens the calendar at that day, and the open day's
+  rows list under the grid, whole, ending in "+ Add". Only that day's rows
+  are drawn, so when the keys select a row on another day the calendar
+  opens at its day, and the selected row is drawn; the first row an arrival
+  selects is not followed, and the calendar opens at today.
+
+  A row is dated by moving it to a day's group: dragged from the list or
+  another day onto a day, which sets the date field to that day in one
+  page write, so one undo puts it back; dragged onto the list, its date is
+  removed. On the keyboard, ⌘⇧← and ⌘⇧→ move the selected row a day back
+  or on (_Groups_), and past the days shown the calendar opens at the row's
+  new day, so the row stays drawn and selected; ⌘⇧← on a row in the list
+  moves it onto the day the calendar is open at. Each day has "+ Add"
+  ("Add to Fri, Nov 14"), which adds a row holding that day (_Adding to a
+  frame_, the day's value as `field-is`): at the foot of a column, and in a
+  month's cell a "+" shown while the pointer is over the day or focus is in
+  it, and always on a touch screen. The list ends in "+ Add" too, adding a
+  row with no date. ⌘K offers the view as "View as: Calendar".
+
+  Open: the routines calendar's synced events (#194, Google Calendar) are
+  dated nodes too. Whether a calendar over a date field should show them,
+  or the routines calendar should become this view over their dates, is
+  the owner's call later; nothing here is designed for either.
 
 **The contract.** `src/view-contract.test.tsx` runs over every view that the
 built-in and optional UI plugins contribute. A new view joins it by being

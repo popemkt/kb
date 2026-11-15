@@ -12,6 +12,11 @@ export type RunOptimisticResult = {
   ok: boolean;
   focusId?: string;
   focusCursor?: number;
+  /**
+   * Each write's output, in order, when every one succeeded: a run of node
+   * writes is one write (`oneWrite`), answering as one `node.batch`.
+   */
+  outputs?: unknown[];
 };
 
 /** The actions a batch of node writes is made of (DESIGN.md → Batches of writes). */
@@ -55,6 +60,7 @@ export async function runOptimistic(
 ): Promise<RunOptimisticResult> {
   const skipRemote = opts?.skipRemote === true || useGraphStore.getState().loadSource !== "api";
 
+  const outputs: unknown[] = [];
   for (const action of oneWrite(plan.actions)) {
     // oxlint-disable-next-line eslint/no-await-in-loop -- plans are deliberately ordered (split and merge depend on prior writes)
     const receipt = await (skipRemote ? invokeLocal(action) : invoke(action.id, action.input));
@@ -62,11 +68,12 @@ export async function runOptimistic(
       toast(failureText(receipt));
       return { ok: false };
     }
+    outputs.push(receipt.output);
   }
 
   if (plan.focusId !== undefined) {
     // Its row where the page is being edited: the editor resolves the instance.
     editor().activateNode(plan.focusId, plan.focusCursor ?? 0);
   }
-  return { ok: true, focusId: plan.focusId, focusCursor: plan.focusCursor };
+  return { ok: true, focusId: plan.focusId, focusCursor: plan.focusCursor, outputs };
 }

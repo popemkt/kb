@@ -22,6 +22,7 @@ export { parseEdn } from "./ir/parse.ts";
 export { readsAsEdn } from "./ir/edn.ts";
 export { printEdn } from "./ir/print.ts";
 export { canonicalConditions, lift, lowerIr } from "./ir/conditions.ts";
+export { readQuery, requirementsOf, type Requirements } from "./ir/requirements.ts";
 export { conditionGraph, conditionsMatcher } from "./ir/evaluate.ts";
 export type {
   CompareOp,

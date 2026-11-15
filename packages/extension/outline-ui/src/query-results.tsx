@@ -13,8 +13,9 @@
  * builder can be opened on every query node, one whose EDN is empty (a
  * query being written) included; only a definition (`queryDefOf`) runs.
  */
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import {
+  Button,
   hasText,
   indentStyle,
   projectedRowKey,
@@ -24,6 +25,7 @@ import {
 } from "@kb/ui-sdk";
 import { queryDefOf, queryTextOf } from "@kb/model";
 import { projectsRows, type FrameViewKey } from "@kb/views";
+import { addFrameRow } from "./editing-writes";
 import { useOutlineNode, useOutlineNodes } from "./outline.store";
 import { FrameViewSlot } from "./frame-view-slot";
 import { QueryPanel } from "./query-builder/query-panel";
@@ -48,6 +50,37 @@ interface QueryResultsSectionProps {
   /** How to render one result node. Inverted from QueryResultsSection so the
    * recursive node <-> query-results pair is not a static import cycle. */
   renderNode: (item: QueryResultItem) => ReactNode;
+}
+
+/**
+ * "+ Add" at the end of a query's results: a node the query answers, not a
+ * child of the query (DESIGN-UI.md → Adding to a frame). A projected view
+ * with rows draws its own, where its rows are.
+ */
+function AddResult({ queryId, style }: { queryId: string; style: CSSProperties }) {
+  return (
+    <div style={style}>
+      <Button
+        variant="ghost"
+        className="text-meta font-normal text-foreground/50"
+        data-add-row={queryId}
+        aria-label="Add a result"
+        onClick={() =>
+          void addFrameRow(
+            {
+              frameId: queryId,
+              isQuerySource: true,
+              // As the list draws a result, below.
+              rowKey: (id) => projectedRowKey(queryId, id),
+            },
+            [],
+          )
+        }
+      >
+        + Add
+      </Button>
+    </div>
+  );
 }
 
 export function QueryResultsSection({
@@ -131,7 +164,10 @@ export function QueryResultsSection({
         {panel}
         <div style={indent}>
           {ids.length === 0 ? (
-            <p className="px-1 py-0.5 text-meta text-foreground/50">No results yet</p>
+            <>
+              <p className="px-1 py-0.5 text-meta text-foreground/50">No results yet</p>
+              <AddResult queryId={nodeId} style={{}} />
+            </>
           ) : (
             <FrameViewSlot
               frameId={nodeId}
@@ -163,6 +199,7 @@ export function QueryResultsSection({
           });
         })
       )}
+      <AddResult queryId={nodeId} style={indent} />
     </div>
   );
 }

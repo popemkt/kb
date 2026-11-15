@@ -18,9 +18,9 @@
       "@kb/model": 274,
       "@kb/outline-paste": 3,
       "@kb/plugin": 41,
-      "@kb/query": 53,
+      "@kb/query": 56,
       "@kb/seed": 8,
-      "@kb/views": 113,
+      "@kb/views": 121,
       "@kb/agent": 62,
       "@kb/agent-claude": 3,
       "@kb/agent-openai": 3,
@@ -35,7 +35,7 @@
       "@kb/check": 1,
       "@kb/code": 11,
       "@kb/code-ui": 1,
-      "@kb/collections": 5,
+      "@kb/collections": 7,
       "@kb/collections-ui": 3,
       "@kb/days": 36,
       "@kb/days-ui": 1,
@@ -78,9 +78,10 @@
       "@kb/tx-log": 2,
       "@kb/workspace-fs": 30,
       "@kb/appearance-kit": 41,
+      "@kb/calendar-kit": 14,
       "@kb/scene": 13,
       "@kb/scene-gpu": 35,
-      "@kb/ui-sdk": 516,
+      "@kb/ui-sdk": 521,
       "@kb/ui-test-kit": 26
     },
     "family-names": {
@@ -111,9 +112,9 @@
       "domain/query/src/ir/evaluate.ts": 69,
       "domain/query/src/ir/kb-functions.ts": 3,
       "domain/views/src/docs.ts": 7,
-      "domain/views/src/frame.ts": 3,
       "domain/views/src/ontology.ts": 3,
       "domain/views/src/outline.ts": 2,
+      "domain/views/src/frame.ts": 3,
       "kit/appearance-kit/src/lib/frame-meter.test.ts": 19,
       "kit/appearance-kit/src/lib/frame-meter.ts": 9,
       "kit/scene-gpu/src/rig.ts": 6,
@@ -149,8 +150,8 @@
     },
     "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2787917,
-      "modules": 739
+      "bytes": 2801156,
+      "modules": 740
     },
     "single-family": {
       "contract/sandbox/src/snapshot.ts": 1,

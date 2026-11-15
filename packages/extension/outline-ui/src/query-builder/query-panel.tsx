@@ -18,14 +18,14 @@
  */
 import { useState } from "react";
 import type { WireNode } from "@kb/contracts";
-import { readsAsEdn } from "@kb/query";
+import { readQuery, readsAsEdn } from "@kb/query";
 import { browserHost, cn, EdnEditor, type GraphRead, indentStyle, usePageGraph } from "@kb/ui-sdk";
 import { SYSTEM_IDS } from "@kb/model";
 import { NodeField } from "../fields-section";
 import { outlineNodes, useOutlineStore, type QueryTab } from "../outline.store";
 import { ConditionsEditor } from "./conditions";
 import { CountChip, type QueryCount } from "./count-chip";
-import { readQuery, writtenEdn, type BuilderTree } from "./model";
+import { writtenEdn, type BuilderTree } from "./model";
 import { keepOpen, queryBuilderId } from "./open";
 
 /** Replace the node's query with `text`, as typed: its one value, whatever it is now. */

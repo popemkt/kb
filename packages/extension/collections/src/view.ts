@@ -18,8 +18,11 @@ export const CollectionTableView = frameViewKey(
     display: FRAME_SETTINGS.display,
     colwidth: FRAME_SETTINGS.colwidth,
     pagesize: FRAME_SETTINGS.pagesize,
+    calc: FRAME_SETTINGS.calc,
   }).annotate({
-    description: "A frame's rows as one sorted, paged run, a column per field." + FRAME_HOST,
+    description:
+      "A frame's rows as one sorted, paged run, a column per field; calc names a calculation per field column (count, sum, average, median, min, max)." +
+      FRAME_HOST,
   }),
   "rows",
 );
@@ -33,9 +36,12 @@ export const CollectionBoardView = frameViewKey(
     sort: FRAME_SETTINGS.sort,
     display: FRAME_SETTINGS.display,
     groupFieldId: FRAME_SETTINGS.groupFieldId,
+    collapsed: FRAME_SETTINGS.collapsed,
+    hideEmpty: FRAME_SETTINGS.hideEmpty,
   }).annotate({
     description:
-      "A frame's rows as cards, a column per value of its group field (groupFieldId)." + FRAME_HOST,
+      "A frame's rows as cards, a column per value of its group field (groupFieldId); collapsed names the folded columns by group key, hideEmpty leaves out the empty ones." +
+      FRAME_HOST,
   }),
   "columns",
 );
@@ -52,4 +58,41 @@ export const CollectionCardsView = frameViewKey(
     description: "A frame's rows as cards in one grid." + FRAME_HOST,
   }),
   "columns",
+);
+
+/**
+ * A frame's rows as a list beside one row's page (DESIGN-UI.md → List with
+ * detail). Born in the family's own namespace, unlike the three before it.
+ */
+export const CollectionDetailView = frameViewKey(
+  "collections.detail",
+  "List with detail",
+  Schema.Struct({
+    filters: FRAME_SETTINGS.filters,
+    sort: FRAME_SETTINGS.sort,
+  }).annotate({
+    description:
+      "A frame's rows as a list beside the page of the row the selection last chose (the first, until one is)." +
+      FRAME_HOST,
+  }),
+  "detail",
+);
+
+/**
+ * A frame's rows by a date field over a day, a week or a month, the undated
+ * ones in a list beside it (DESIGN-UI.md → Calendar).
+ */
+export const CollectionCalendarView = frameViewKey(
+  "collections.calendar",
+  "Calendar",
+  Schema.Struct({
+    filters: FRAME_SETTINGS.filters,
+    dateFieldId: FRAME_SETTINGS.dateFieldId,
+    span: FRAME_SETTINGS.span,
+  }).annotate({
+    description:
+      "A frame's rows placed on the days of a date field (dateFieldId) over a day, a week or a month (span), the rows with no date in a list beside it." +
+      FRAME_HOST,
+  }),
+  "calendar",
 );

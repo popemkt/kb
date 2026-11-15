@@ -222,6 +222,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     cmd(SYSTEM_IDS.cmdViewAsTable, "View as: Table"),
     cmd(SYSTEM_IDS.cmdViewAsBoard, "View as: Board"),
     cmd(SYSTEM_IDS.cmdViewAsCards, "View as: Cards"),
+    cmd(SYSTEM_IDS.cmdViewAsDetail, "View as: List with detail"),
+    cmd(SYSTEM_IDS.cmdViewAsCalendar, "View as: Calendar"),
     cmd(SYSTEM_IDS.cmdViewFilter, "Filter…"),
     // r5 ontology commands
     cmd(SYSTEM_IDS.cmdNewOntology, "New ontology"),
@@ -257,6 +259,21 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     HIDE,
   );
   const viewGroupField = singleField(SYSTEM_IDS.viewGroupField, "view.group", "ref", HIDE);
+  const viewCollapsedField = typedField(
+    SYSTEM_IDS.viewCollapsedField,
+    "view.collapsed",
+    "text",
+    HIDE,
+  );
+  const viewCalcField = singleField(SYSTEM_IDS.viewCalcField, "view.calc", "text", HIDE);
+  const viewDateField = singleField(SYSTEM_IDS.viewDateField, "view.dateField", "ref", HIDE);
+  const viewSpanField = singleField(SYSTEM_IDS.viewSpanField, "view.span", "text", HIDE);
+  const viewHideEmptyField = singleField(
+    SYSTEM_IDS.viewHideEmptyField,
+    "view.hideEmpty",
+    "checkbox",
+    HIDE,
+  );
   const viewFilterField = typedField(SYSTEM_IDS.viewFilterField, "view.filter", "text", HIDE);
   const nodeTextField = typedField(SYSTEM_IDS.nodeTextField, "node.text", "text");
 
@@ -633,6 +650,11 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     viewColwidthField,
     viewPagesizeField,
     viewGroupField,
+    viewCollapsedField,
+    viewHideEmptyField,
+    viewCalcField,
+    viewDateField,
+    viewSpanField,
     viewFilterField,
     nodeTextField,
     viewField,

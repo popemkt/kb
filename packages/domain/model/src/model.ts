@@ -176,6 +176,16 @@ export const SYSTEM_IDS = {
   viewPagesizeField: "sys.f.view.pagesize",
   /** W7.1 board group-by field (ref → field node). */
   viewGroupField: "sys.f.view.group",
+  /** A grouped view's folded groups, one group key each (str, multi). */
+  viewCollapsedField: "sys.f.view.collapsed",
+  /** Whether a grouped view leaves out the groups no row falls in (bool). */
+  viewHideEmptyField: "sys.f.view.hideEmpty",
+  /** A table's calculation per column: one JSON text of field id → calculation. */
+  viewCalcField: "sys.f.view.calc",
+  /** The field a calendar dates its rows by (ref → a date field). */
+  viewDateField: "sys.f.view.dateField",
+  /** The days a calendar lays out: day, week or month (str). */
+  viewSpanField: "sys.f.view.span",
   /** W7.1 filter clauses (str EDN, multi). */
   viewFilterField: "sys.f.view.filter",
   /**
@@ -218,6 +228,8 @@ export const SYSTEM_IDS = {
   cmdViewAsTable: "sys.cmd.view-as-table",
   cmdViewAsBoard: "sys.cmd.view-as-board",
   cmdViewAsCards: "sys.cmd.view-as-cards",
+  cmdViewAsDetail: "sys.cmd.view-as-detail",
+  cmdViewAsCalendar: "sys.cmd.view-as-calendar",
   cmdViewFilter: "sys.cmd.view-filter",
   /** Virtual root for saved queries (.kb/queries/*.edn); never in jsonl. */
   queriesRoot: "sys.queries",

@@ -34,6 +34,11 @@ const CONFIGS: readonly ViewConfig[] = [
     colwidth: { "f.status": 120 },
     pagesize: 25,
     groupFieldId: "f.status",
+    collapsed: ["ref:o.done", "__empty__"],
+    hideEmpty: true,
+    dateFieldId: "f.due",
+    span: "week",
+    calc: { "f.points": "sum", "f.status": "count" },
     filters: [eq, text].flatMap((f) => (f === null ? [] : [f])),
   },
 ];
@@ -50,6 +55,11 @@ function propsOf(config: ViewConfig): Record<string, PropValue[]> {
   write(frameSettingWrite("colwidth", config.colwidth));
   write(frameSettingWrite("pagesize", config.pagesize));
   write(frameSettingWrite("groupFieldId", config.groupFieldId));
+  write(frameSettingWrite("collapsed", config.collapsed));
+  write(frameSettingWrite("hideEmpty", config.hideEmpty));
+  write(frameSettingWrite("dateFieldId", config.dateFieldId));
+  write(frameSettingWrite("span", config.span));
+  write(frameSettingWrite("calc", config.calc));
   write(frameSettingWrite("filters", config.filters));
   return props;
 }

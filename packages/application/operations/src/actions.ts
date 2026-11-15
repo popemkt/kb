@@ -46,7 +46,7 @@ export const nodeAddDef = {
   id: "node.add",
   title: "Add node",
   description:
-    "Create a node with optional props, parent, position (index in its sibling group; the end when omitted), and tags. An omitted parent puts it where captures go, the capture target (today's node while days is on and its captures setting says today); pass parent: null for the top level.",
+    "Create a node with optional props, parent, position (index in its sibling group; the end when omitted), and tags. An omitted parent puts it where captures go, the capture target (today's node while days is on and its captures setting says today); pass parent: null for the top level. matching names a query node: the node also gets the tags and values its conditions require and goes under the parent a child-of names, and unmet says how many conditions could not be written for it.",
   mode: { kind: "write" } as const,
   targets: ["parent"],
   inputSchema: z.object({
@@ -61,6 +61,12 @@ export const nodeAddDef = {
       ),
     position: z.number().int().nonnegative().optional(),
     tags: z.array(z.string()).optional(),
+    matching: z
+      .string()
+      .optional()
+      .describe(
+        "a query node's id: the node gets what its conditions require (DESIGN.md → What a match requires)",
+      ),
     id: z.string().optional(),
     /** Bypass sys.* write-guard (browse yes / break no). */
     force: z.boolean().optional(),
@@ -68,6 +74,8 @@ export const nodeAddDef = {
   outputSchema: z.object({
     id: z.string(),
     node: z.record(z.string(), z.unknown()),
+    /** With `matching`: how many of the query's conditions the node was not made to hold. */
+    unmet: z.number().int().nonnegative().optional(),
   }),
 } satisfies ActionDefinition;
 
@@ -435,9 +443,19 @@ const commitAddEffect = Effect.fn("node.add.commit")(function* <R>(
 
 /** `node.add`: one node at the place its input names ({@link placeOf}), the capture target's when it names none. */
 export const nodeAddEffect = Effect.fn("node.add")(function* (
-  input: z.infer<typeof nodeAddDef.inputSchema>,
-): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbCaptureEnv> {
-  return yield* commitAddEffect(input, (nodes) => placeOf(input.parent, nodes));
+  asked: z.infer<typeof nodeAddDef.inputSchema>,
+): Effect.fn.Return<{ id: string; node: KbNode; unmet?: number }, DomainError, KbCaptureEnv> {
+  // The query's reading loads with the first matching add, so a `kb add` that
+  // matches nothing parses no EDN (harness/cli-closure-budgets.json).
+  const { matching } = asked;
+  const { input, unmet } =
+    matching === undefined
+      ? { input: asked, unmet: undefined }
+      : yield* Effect.promise(() => import("./node-add-matching.ts")).pipe(
+          Effect.flatMap(({ withMatchingEffect }) => withMatchingEffect(asked, matching)),
+        );
+  const added = yield* commitAddEffect(input, (nodes) => placeOf(input.parent, nodes));
+  return unmet === undefined ? added : { ...added, unmet };
 });
 
 /** One node at a place its caller decided, as `node.add` writes it: the capture target is never asked. */

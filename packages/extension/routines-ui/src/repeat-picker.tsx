@@ -18,7 +18,7 @@ import {
   type Repeat,
 } from "@kb/routines";
 import { cn } from "@kb/ui-sdk";
-import { WEEKDAY_SHORT } from "./dates";
+import { WEEKDAY_SHORT } from "@kb/calendar-kit";
 
 export interface RepeatValue {
   readonly rrule: string;

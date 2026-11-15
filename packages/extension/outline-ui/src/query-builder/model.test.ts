@@ -10,7 +10,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import type { PropValue } from "@kb/model";
-import { canonicalConditions, type ConditionEdge, type ConditionRow } from "@kb/query";
+import { canonicalConditions, readQuery, type ConditionEdge, type ConditionRow } from "@kb/query";
 import {
   allPaths,
   ATTRIBUTES,
@@ -21,7 +21,6 @@ import {
   isGroupCondition,
   newGroup,
   OPERATORS,
-  readQuery,
   regroup,
   removeAt,
   replaceAt,

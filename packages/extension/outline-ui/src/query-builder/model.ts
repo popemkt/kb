@@ -17,9 +17,7 @@
  */
 import type { FieldType, PropValue } from "@kb/model";
 import {
-  lift,
   lowerIr,
-  parseEdn,
   printEdn,
   type CompareOp,
   type Condition,
@@ -28,7 +26,6 @@ import {
   type ConditionRow,
   type ConditionValue,
   type GroupOf,
-  type Lifted,
 } from "@kb/query";
 
 /**
@@ -114,18 +111,6 @@ export function writable(tree: BuilderTree): Condition[] {
  */
 export function writtenEdn(tree: BuilderTree): string {
   return printEdn(lowerIr(writable(tree)));
-}
-
-/**
- * The conditions stored text is, or why it is not any: parsed, then lifted
- * all or nothing (`lift`). Reading never writes.
- */
-export function readQuery(edn: string): Lifted {
-  try {
-    return lift(parseEdn(edn));
-  } catch (error) {
-    return { lifted: false, reason: error instanceof Error ? error.message : String(error) };
-  }
 }
 
 /* -------------------------------------------------------------------------- */

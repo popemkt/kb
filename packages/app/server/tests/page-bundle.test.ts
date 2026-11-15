@@ -194,7 +194,12 @@ const DATASCRIPT = /cljs\.core/;
 // `@` triggers, references opened in place and Remove reference, Count
 // words, Copy node ID and Recent, and the seven icons their commands show)
 // measures 1,948,778 with them; the budget keeps about 1.4 KB over that.
-const EAGER_BUDGET_BYTES = 1_950_200;
+// The views line (the field calendar, the table's calculation row and
+// detail view, board lanes and the ⌘⇧←/→ group move in collections-ui and
+// outline-ui, the shared calendar kit, and the query parser `requirementsOf`
+// reads to fill a row a view adds) measures 1,986,130 with them; the
+// budget keeps about 1.4 KB over that.
+const EAGER_BUDGET_BYTES = 1_987_600;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

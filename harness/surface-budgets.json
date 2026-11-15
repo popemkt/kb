@@ -53,12 +53,12 @@
     "reason": "#191: PluginHandle and rootPluginName, which a shortcut's provenance reads; #190 and lane B dropped the kernel's names no package outside plugin imports, tests included."
   },
   "@kb/query": {
-    "limit": 53,
-    "reason": "Lane B dropped the 39 names nothing outside query imports, tests included; under the proposal's 60."
+    "limit": 56,
+    "reason": "Lane B dropped the 39 names nothing outside query imports, tests included; under the proposal's 60. The Tana views line adds what a match requires (requirementsOf and its Requirements), which node.add's matching and the page's \"+ Add\" both read, and readQuery, moved from the outline's query builder so both read a query as the builder does."
   },
   "@kb/views": {
-    "limit": 113,
-    "reason": "The honest stop, not 85: every name has an importer outside views, every views file is shared by two or more packages, and the 55 names only @kb/ui reads sit in those shared files (layout, frame, node views). #203 adds the procedure page's view key and params (ProcedureView, ProcedureParams), shared by core's declaration and the browser route."
+    "limit": 121,
+    "reason": "The honest stop, not 85: every name has an importer outside views, every views file is shared by two or more packages, and the 55 names only @kb/ui reads sit in those shared files (layout, frame, node views). #203 adds the procedure page's view key and params (ProcedureView, ProcedureParams), shared by core's declaration and the browser route. The Tana views line adds a table's calculations (calculate, calculationsFor, CALCULATION_LABELS and the Calculation type), read by the table that draws a result and the view settings that offer a choice; and laysOutLanes, which the board's renderer and the outline's row walk both ask; and detailRowOf, the row a list with detail shows, which its renderer and the outline's row walk both read; and CALENDAR_SPANS with CalendarViewSpan, the spans a calendar's span setting holds, which its header offers (DESIGN-UI.md → Calendar)."
   },
   "@kb/agent": {
     "limit": 62,
@@ -107,7 +107,8 @@
     "limit": 1
   },
   "@kb/collections": {
-    "limit": 5
+    "limit": 7,
+    "reason": "Its five frame view keys (table, board, cards, list with detail, calendar), the family's declaration and its plugin: the page's renderers and core's seed each read them."
   },
   "@kb/collections-ui": {
     "limit": 3
@@ -243,8 +244,8 @@
     "limit": 35
   },
   "@kb/ui-sdk": {
-    "limit": 516,
-    "reason": "Lane B: the barrel stops re-exporting @kb/keybindings, @kb/contracts, @kb/model and @kb/views (importers take those names from their owners) and drops callInput and invokeAction; its @kb/query names stay as the page's query seam (only @kb/ui's engine zone may import @kb/query). #173 added a row's paste and drop chain, #190 the browser's one key boundary (keyChordEvent), #203 one shared Button; the Tana outline-editor line a range of rows' three names, read by the page and the outline alike (rowsAbout, selectionRoots, asOneWrite), and the one focus return both palettes give (useFocusReturn, the global palette's own copy gone), and the place a move of rows names (MovePlace), which PageWrites.moveNodes takes; and the text's triggers (TextTrigger, and refTrigger, the `[[` row the outline's `@` picks a node through) with datesLead, whether ui.date-target leads anywhere, which `@` reads before it offers a date; and projectedRowOf, the inverse of projectedRowKey, which the outline reads to drop a reference opened in place once its row's text no longer names it; and plainText, a node's text as plain words, which the gallery's brief and the outline's word count read alike, and copyText, the one copy said in a toast, the gallery's and Copy node ID's. The 380 ceiling waits on splitting the files @kb/ui and outline-ui share (GAP 01M79H9PY7XVHHVGAN1WA3VYAF). Tag behaviours add rowTitle (what a row draws at rest, beside rowText, read by outline-ui's NodeContent)."
+    "limit": 521,
+    "reason": "Lane B: the barrel stops re-exporting @kb/keybindings, @kb/contracts, @kb/model and @kb/views (importers take those names from their owners) and drops callInput and invokeAction; its @kb/query names stay as the page's query seam (only @kb/ui's engine zone may import @kb/query). #173 added a row's paste and drop chain, #190 the browser's one key boundary (keyChordEvent), #203 one shared Button; the Tana outline-editor line a range of rows' three names, read by the page and the outline alike (rowsAbout, selectionRoots, asOneWrite), and the one focus return both palettes give (useFocusReturn, the global palette's own copy gone), and the place a move of rows names (MovePlace), which PageWrites.moveNodes takes; and the text's triggers (TextTrigger, and refTrigger, the `[[` row the outline's `@` picks a node through) with datesLead, whether ui.date-target leads anywhere, which `@` reads before it offers a date; and projectedRowOf, the inverse of projectedRowKey, which the outline reads to drop a reference opened in place once its row's text no longer names it; and plainText, a node's text as plain words, which the gallery's brief and the outline's word count read alike, and copyText, the one copy said in a toast, the gallery's and Copy node ID's; and the Tana views line's names: copyText is the same one, which routines-ui and the table's calculation row read too, and FrameRowProps, what a frame subject's RowChildren (the one way a view asks its host for a row's children) takes, and resolveRowRows, the rows a row draws under it, which a list's row and RowChildren both read; and RowCondition and MatchingAdd, what a frame view's addRow asks its host for and the page write that mints it (DESIGN-UI.md → Adding to a frame); and GroupSteps, where frameRows says a grouped view's row moves by key, which the outline's walk hands its group keys (DESIGN-UI.md → Groups). The 380 ceiling waits on splitting the files @kb/ui and outline-ui share (GAP 01M79H9PY7XVHHVGAN1WA3VYAF). Tag behaviours add rowTitle (what a row draws at rest, beside rowText, read by outline-ui's NodeContent)."
   },
   "@kb/ui-test-kit": {
     "limit": 26

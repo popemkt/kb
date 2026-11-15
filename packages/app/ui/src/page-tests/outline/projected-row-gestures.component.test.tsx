@@ -22,6 +22,9 @@ import { outlineFrameSubject, outlineNodes, outlineSource, useOutlineStore } fro
 import { CollectionCardsView, CollectionTableView } from "@kb/collections";
 import { BoardCardsView, TableView } from "@kb/collections-ui";
 
+/** These views draw no row's children, so the host's are never asked for. */
+const NoRowChildren = () => null;
+
 const RESULTS = ["n.root-b", "n.root-c"];
 
 /** What the view named `key` reads of n.root-a's config, decoded the way its host decodes it. */
@@ -77,7 +80,13 @@ describe("projected query-result rows behave like owned rows", () => {
       root.render(
         <TableView
           frame={outlineFrameSubject(
-            { frameId: "n.root-a", rowIds: RESULTS, isQuerySource: true, depth: 0 },
+            {
+              RowChildren: NoRowChildren,
+              frameId: "n.root-a",
+              rowIds: RESULTS,
+              isQuerySource: true,
+              depth: 0,
+            },
             1,
           )}
           settings={settingsOf(CollectionTableView)}
@@ -118,7 +127,13 @@ describe("projected query-result rows behave like owned rows", () => {
       root.render(
         <BoardCardsView
           frame={outlineFrameSubject(
-            { frameId: "n.root-a", rowIds: RESULTS, isQuerySource: true, depth: 0 },
+            {
+              RowChildren: NoRowChildren,
+              frameId: "n.root-a",
+              rowIds: RESULTS,
+              isQuerySource: true,
+              depth: 0,
+            },
             1,
           )}
           view={{ key: CollectionCardsView, params: settingsOf(CollectionCardsView) }}
