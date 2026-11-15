@@ -64,7 +64,7 @@ const CONTROL = "button, a[href], [role='button'], [role='checkbox'], [role='swi
 /**
  * True when the key's target owns its keys, so the selection does not take
  * them (DESIGN-UI.md → Two keymaps, one row): a text entry, or a control the
- * keyboard stops at, such as a tag's box or the hidden-fields fold. Chrome
+ * keyboard stops at, such as a tag's box or a hidden field's chip. Chrome
  * the keyboard skips (the bullet, `tabIndex` -1) and the selected row itself
  * leave their keys to the selection.
  */

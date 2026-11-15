@@ -137,7 +137,7 @@ describe("selection-mode dispatcher (characterization)", () => {
   it("a focused control keeps its keys: Tab moves on and Enter presses it", async () => {
     selectAndMount("n.root-b");
     const parent = node("n.root-b")?.parentId;
-    // A tag's box, the hidden-fields fold: a control the keyboard stops at.
+    // A tag's box, a hidden field's chip: a control the keyboard stops at.
     const box = dom.document.createElement("div");
     box.setAttribute("role", "checkbox");
     box.tabIndex = 0;

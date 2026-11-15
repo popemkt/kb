@@ -1,6 +1,15 @@
-import { Suspense, lazy, useLayoutEffect, useRef, useState } from "react";
+import {
+  Suspense,
+  createContext,
+  lazy,
+  useCallback,
+  useContext,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { cardinalityOf, declaresOptionSet, type FieldType } from "@kb/model";
-import { CaretDownIcon, CaretRightIcon, PlusIcon, XIcon } from "@phosphor-icons/react";
+import { PlusIcon, XIcon } from "@phosphor-icons/react";
 import {
   browserHost,
   cn,
@@ -9,7 +18,6 @@ import {
   type Follow,
   formatPropValue,
   IconButton,
-  indentStyle,
   isValueMismatch,
   ManagedNote,
   type PropValue,
@@ -29,7 +37,8 @@ import { outlineSource, releaseOutlineKeyboard, useOutlineStore } from "./outlin
 import { ValueSlot } from "./value-slot";
 import { FieldPicker } from "./field-picker";
 import { useSlotKind } from "./slot-kind";
-import { arriveAt, neighbourSlot, registerSlot, slotAt } from "./value-slot-nav";
+import { arriveAt, fieldSlot, slotAt } from "./value-slot-nav";
+import { HiddenFieldsChips } from "./hidden-fields-chips";
 import { useRowOpening } from "./row-opening";
 
 /**
@@ -41,6 +50,14 @@ import { useRowOpening } from "./row-opening";
 const OptionGallery = lazy(() =>
   import("./option-gallery").then((m) => ({ default: m.OptionGallery })),
 );
+
+/**
+ * Close a field opened from its node's hidden fields back into them
+ * (DESIGN-UI.md → Field values → hidden fields chips): the way back from
+ * such a field while it is empty. True when `fieldId` was one, and closed.
+ * Absent, no field under it was opened from a chip.
+ */
+const CloseOpenedField = createContext<((fieldId: string) => boolean) | null>(null);
 
 interface FieldsSectionProps {
   nodeId: string;
@@ -252,6 +269,7 @@ function useFieldHandle({
   /** The landing already made: it is made until the field has redrawn, then once more. */
   const landed = useRef<typeof landing>(null);
   const stackRef = useRef<HTMLDivElement>(null);
+  const closeOpened = useContext(CloseOpenedField);
 
   useLayoutEffect(() => {
     const stack = stackRef.current;
@@ -270,7 +288,12 @@ function useFieldHandle({
     create: (creation, name) => browserHost().writes.createRefTarget(creation, name),
     openPicker: (query = "") => setPicker({ query }),
     addSlot: () => setPending((ids) => [...ids, (nextPending.current += 1)]),
-    leave: (way) => leaveFields(nodeId, instanceKey, way),
+    // Back from an empty field opened from its chip closes it into the chips;
+    // from any other field, back is to the row.
+    leave: (way) => {
+      if (way === "back" && values.length === 0 && closeOpened?.(fieldId) === true) return;
+      leaveFields(nodeId, instanceKey, way);
+    },
     claimKeyboard: releaseOutlineKeyboard,
     focusSlot: (index) => setLanding({ index, values }),
   };
@@ -501,7 +524,7 @@ export function NodeField({
   );
 }
 
-/** Inline field rows under a node (DESIGN-RESKIN §1.4). */
+/** Inline field rows under a node (DESIGN-RESKIN §1.4), then its hidden fields' chips. */
 export function FieldsSection({ nodeId, depth, instanceKey }: FieldsSectionProps) {
   const Field = useFieldEditor();
   // Field definitions come from the whole graph, never the scoped projection;
@@ -512,115 +535,71 @@ export function FieldsSection({ nodeId, depth, instanceKey }: FieldsSectionProps
   // so are the fields its tag opening's view draws, while its properties show.
   const showDebugFields = useDebugFields(nodeId);
   const revealed = useRowOpening(node)?.revealed;
-  // The fold's openness is this drawn row's passing state, written nowhere.
-  const [unfolded, setUnfolded] = useState(false);
+  // The fields opened from a chip are this drawn row's passing state, written nowhere.
+  const [opened, setOpened] = useState<ReadonlySet<string>>(() => new Set());
+  /** Where the keyboard lands once the section redraws: an opened field's value, or a closed one's chip. */
+  const [landing, setLanding] = useState<{ on: "field" | "chip"; fieldId: string } | null>(null);
+  const section = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (landing?.on !== "field" || section.current === null) return;
+    const slot = fieldSlot(section.current, landing.fieldId);
+    if (slot !== null) arriveAt(slot, "rest");
+    setLanding(null);
+  }, [landing]);
+
+  const close = useCallback(
+    (fieldId: string) => {
+      if (!opened.has(fieldId)) return false;
+      setOpened((ids) => new Set([...ids].filter((id) => id !== fieldId)));
+      setLanding({ on: "chip", fieldId });
+      return true;
+    },
+    [opened],
+  );
 
   if (!node) return null;
   const props = resolveVisibleProps(node, context.schema, { showDebugFields, revealed });
   if (props.length === 0) return null;
-  const folded = props.filter((p) => p.placement === "chip");
-  const rows = props.filter((p) => p.placement === "row");
-  const field = (p: (typeof props)[number]) => (
-    <Field
-      key={p.fieldId}
-      nodeId={nodeId}
-      fieldId={p.fieldId}
-      label={p.fieldName}
-      values={p.values}
-      context={context}
-      depth={depth}
-      instanceKey={instanceKey}
-      debug={p.debug ?? false}
-    />
-  );
+  const rows = props.filter((p) => p.placement === "row" || opened.has(p.fieldId));
+  const closed = (placement: "chip" | "tucked") =>
+    props.filter((p) => p.placement === placement && !opened.has(p.fieldId));
+  const chips = closed("chip");
+  const tucked = closed("tucked");
+  const open = (fieldId: string) => {
+    setOpened((ids) => new Set([...ids, fieldId]));
+    setLanding({ on: "field", fieldId });
+  };
 
   return (
-    <div className="fields-section" data-fields-for={nodeId}>
-      {rows.map(field)}
-      {folded.length > 0 && (
-        <HiddenFieldsFold
-          count={folded.length}
-          open={unfolded}
+    <div className="fields-section" data-fields-for={nodeId} ref={section}>
+      <CloseOpenedField.Provider value={close}>
+        {rows.map((p) => (
+          <Field
+            key={p.fieldId}
+            nodeId={nodeId}
+            fieldId={p.fieldId}
+            label={p.fieldName}
+            values={p.values}
+            context={context}
+            depth={depth}
+            instanceKey={instanceKey}
+            debug={p.debug ?? false}
+          />
+        ))}
+      </CloseOpenedField.Provider>
+      {chips.length + tucked.length > 0 && (
+        <HiddenFieldsChips
+          chips={chips}
+          tucked={tucked}
           depth={depth}
-          onToggle={() => setUnfolded((open) => !open)}
+          schema={context.schema}
+          landing={landing?.on === "chip" ? landing.fieldId : null}
+          onLanded={() => setLanding(null)}
+          onOpen={open}
           onLeave={(way) => leaveFields(nodeId, instanceKey, way)}
         />
       )}
-      {unfolded && folded.map(field)}
-    </div>
-  );
-}
-
-/**
- * The fields a node folds, as one row (DESIGN-UI.md → Field values →
- * hidden fields fold): "N hidden fields", a button in the values' keyboard
- * path, whose click, Enter or Space opens or closes the fold.
- */
-function HiddenFieldsFold({
-  count,
-  open,
-  depth,
-  onToggle,
-  onLeave,
-}: {
-  count: number;
-  open: boolean;
-  depth: number;
-  onToggle: () => void;
-  onLeave: (way: "up" | "down" | "back") => void;
-}) {
-  const ref = useRef<HTMLButtonElement>(null);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (el === null) return undefined;
-    const focus = () => el.focus();
-    return registerSlot(el, { focus, editAtEnd: focus });
-  }, []);
-  /** On from the fold: the neighbouring value at rest, or out of the fields to the row. */
-  const moveOn = (delta: -1 | 1) => {
-    const el = ref.current;
-    const neighbour = el === null ? null : neighbourSlot(el, delta);
-    if (neighbour !== null) arriveAt(neighbour, "rest");
-    else onLeave(delta === -1 ? "up" : "down");
-  };
-  const label = `${count} hidden ${count === 1 ? "field" : "fields"}`;
-  return (
-    // A field row's geometry (FieldRow): its height, the chevron centred in
-    // the glyph column and the label where field labels start.
-    <div className="flex border-y border-transparent py-1" style={indentStyle(depth + 1)}>
-      <button
-        ref={ref}
-        type="button"
-        data-value-slot="true"
-        data-hidden-fields-fold={count}
-        aria-expanded={open}
-        className={cn(
-          "kb-text flex h-6 items-center rounded-sm pr-1 text-caption text-faint-foreground",
-          "hover:text-foreground/70",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
-        )}
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggle();
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Escape") {
-            e.preventDefault();
-            e.stopPropagation();
-            if (e.key === "Escape") onLeave("back");
-            else moveOn(e.key === "ArrowDown" ? 1 : -1);
-          }
-        }}
-      >
-        <span className="flex size-6 shrink-0 items-center justify-center">
-          {open ? (
-            <CaretDownIcon size={10} aria-hidden />
-          ) : (
-            <CaretRightIcon size={10} aria-hidden />
-          )}
-        </span>
-        <span className="ml-1">{label}</span>
-      </button>
     </div>
   );
 }

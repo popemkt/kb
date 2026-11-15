@@ -20,6 +20,10 @@ function mapFromFixture() {
   return wireToOutlineMap(fixtureGraph.nodes, new Set());
 }
 
+/** Each field's placement, by field id. */
+const placed = (props: readonly { fieldId: string; placement: string }[]) =>
+  Object.fromEntries(props.map((p) => [p.fieldId, p.placement]));
+
 /** A field node's show option, as props. */
 const show = (option: string): Record<string, PropValue[]> => ({
   "sys.f.show": [{ t: "ref", v: option }],
@@ -192,13 +196,22 @@ describe("field visibility", () => {
           fieldNode("f.filled", show("sys.show.filled")),
           fieldNode("f.never", show("sys.show.never")),
           fieldNode("f.pinned", pinned),
+          fieldNode("f.hidden", show("sys.show.hidden")),
+          fieldNode("f.tucked", show("sys.show.tucked")),
           {
             id: "t.task",
             text: "task",
             children: [],
             props: {
               "sys.f.type": [{ t: "ref" as const, v: "sys.tag" }],
-              "sys.f.fields": ["f.plain", "f.filled", "f.never", "f.pinned"].map((v) => ({
+              "sys.f.fields": [
+                "f.plain",
+                "f.filled",
+                "f.never",
+                "f.pinned",
+                "f.hidden",
+                "f.tucked",
+              ].map((v) => ({
                 t: "ref" as const,
                 v,
               })),
@@ -217,15 +230,42 @@ describe("field visibility", () => {
         ],
         new Set(),
       );
-    const resolve = (member: Record<string, PropValue[]>, debug = false) => {
+    const resolve = (
+      member: Record<string, PropValue[]>,
+      debug = false,
+      revealed?: ReadonlySet<string>,
+    ) => {
       const nodes = graph(member);
       return resolveVisibleProps(present(nodes.get("n.task"), "n.task"), schemaFor(nodes), {
         showDebugFields: debug,
+        revealed,
       });
     };
 
     it("puts pinned fields first, the rest in template order, and leaves out never", () => {
-      expect(resolve({}).map((p) => p.fieldId)).toEqual(["f.pinned", "f.plain", "f.filled"]);
+      expect(resolve({}).map((p) => p.fieldId)).toEqual([
+        "f.pinned",
+        "f.plain",
+        "f.filled",
+        "f.hidden",
+        "f.tucked",
+      ]);
+    });
+
+    it("places hidden as a chip and tucked as tucked, filled or not", () => {
+      const empty = { "f.pinned": "row", "f.plain": "row", "f.filled": "chip" };
+      expect(placed(resolve({}))).toEqual({ ...empty, "f.hidden": "chip", "f.tucked": "tucked" });
+      const x: PropValue[] = [{ t: "str", v: "x" }];
+      expect(placed(resolve({ "f.hidden": x, "f.tucked": x }))).toEqual({
+        ...empty,
+        "f.hidden": "chip",
+        "f.tucked": "tucked",
+      });
+    });
+
+    it("draws a field the node's display reveals as a row, whatever its show", () => {
+      const props = placed(resolve({}, false, new Set(["f.hidden", "f.tucked", "f.never"])));
+      expect(props).toMatchObject({ "f.hidden": "row", "f.tucked": "row", "f.never": "row" });
     });
 
     it("places an empty field shown when filled as a chip, and a row once it holds a value", () => {

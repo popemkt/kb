@@ -1322,12 +1322,14 @@ fields in its place as chips, with the keyboard on the first. When a node
 has only tucked fields, the line holds only "…".
 
 A chip's click, Enter or Space opens its field: the field is drawn as a row
-in its place among the rows, with the keyboard in its value's editor. Show
-is not written; the field is open only on this drawn row. Escape on the
-field's value while it is empty, at rest, closes it back into the line with
-the keyboard on its chip. While editing, Escape first leaves the editor at
-rest, as it does on every value. A field filled while open stays a row until
-the row is drawn again, when show places it afresh.
+in its place among the rows, with the keyboard on its value, where typing
+or Enter edits it as on any value. It lands at rest, not editing, so a
+checkbox opened is not toggled by the opening. Show is not written; the
+field is open only on this drawn row. Escape on the value while the field
+is empty closes it back into the line, with the keyboard on its chip;
+while editing, Escape first leaves the editor at rest, as it does on every
+value. A field filled while open stays a row until the row is drawn again,
+when show places it afresh.
 
 The line is one stop in the values' keyboard path. ↑/↓ reach it as they
 reach a value, and the keyboard lands on the chip it last stood on. ←/→

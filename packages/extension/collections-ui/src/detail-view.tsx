@@ -159,6 +159,7 @@ function DetailPage({
   const Field = useFieldEditor();
   const follow = useFollow();
   const shown = shownNode(row, context.schema);
+  // Every field as a row, chips and tucked ones included. GAP [[01M7EY5YQKG919B47FD255B34B]]
   const fields = resolveProps(shown, context.schema);
   const title = textOr(shown.text, "Untitled");
   const { RowChildren } = frame;

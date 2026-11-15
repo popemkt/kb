@@ -55,6 +55,13 @@ export function slotAt(section: Element, index: number): HTMLElement | null {
   return first === null ? null : (sectionSlots(first)[index] ?? null);
 }
 
+/** The first value slot of field `fieldId`'s row in the fields section `section`, or null. */
+export function fieldSlot(section: Element, fieldId: string): HTMLElement | null {
+  const row = section.querySelector(`[data-field="${CSS.escape(fieldId)}"]`);
+  const slot = row?.querySelector(SLOT);
+  return slot === null || slot === undefined ? null : (asInstance(slot, HTMLElement) ?? null);
+}
+
 /** The slot `delta` places from `slot` in its section, or null past either end. */
 export function neighbourSlot(slot: Element, delta: -1 | 1): HTMLElement | null {
   const slots = sectionSlots(slot);
