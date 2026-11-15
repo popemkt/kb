@@ -20,7 +20,7 @@ import {
 import { designSystemOptionId } from "@kb/appearance";
 import type { WireNode } from "@kb/contracts";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
+import { syncUiPlugins, WORKSPACE_ROOT_ID, type CommandContext } from "@kb/ui-sdk";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 import { useGraphStore } from "@/stores/graph.store";
@@ -29,7 +29,7 @@ import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { installDomGlobals } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
-import { runCommand } from "@/lib/commands";
+import { declinedCommands, runCommand } from "@/lib/commands";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { bundledSeed } from "@kb/bundled";
 import { syncPagePlugins } from "@/test-support/page-plugins";
@@ -62,16 +62,20 @@ afterAll(() => syncUiPlugins([]));
  * argument now. Every assertion below is unchanged.
  */
 async function run(commandId: string): Promise<void> {
-  const outline = pageCommandApi();
-  await runCommand(commandId, {
+  await runCommand(commandId, context());
+}
+
+/** The page's command context as it stands. */
+function context(): CommandContext {
+  return {
     target: pageCommandTarget(),
-    outline,
+    outline: pageCommandApi(),
     prefs: usePrefsStore.getState(),
     ui: useUiStore.getState(),
     debugFields: useDebugFieldsStore.getState(),
     workspace: useWorkspaceStore.getState(),
     palette: { close: () => {}, openStep: () => {} },
-  });
+  };
 }
 
 /** The real `sys.*` seed plus the fixture's outline rows: commands zoom to
@@ -285,7 +289,7 @@ describe("palette command routing (characterization)", () => {
     expect(toasts()).toEqual(["select a node first"]);
   });
 
-  it("toggle-check toggles the selected row's box, and says when it has none", async () => {
+  it("toggle-check toggles the selected row's box, and does nothing visible where it has none", async () => {
     // #todo's box is a `done` checkbox (DESIGN-UI.md → A tag's box).
     const graph = seedGraph().map((w) =>
       w.id === "tag.todo"
@@ -313,11 +317,17 @@ describe("palette command routing (characterization)", () => {
       expect(node("n.root-b")?.props["f.done"]).toEqual([{ t: "bool", v: true }]),
     );
 
+    // ⌘K offers it here, where the row has a box.
+    expect(declinedCommands(context()).has(SYSTEM_IDS.cmdToggleCheck)).toBe(false);
+
+    // The box is opt-in and off: a row without one takes no write and no toast,
+    // and ⌘K does not offer the command.
     useOutlineStore.setState({ selectedNodeId: "n.root-c" });
+    const before = node("n.root-c")?.props;
     await run(SYSTEM_IDS.cmdToggleCheck);
-    await vi.waitFor(() =>
-      expect(toasts()).toEqual(["This node has no check: none of its tags names one"]),
-    );
+    expect(toasts()).toEqual([]);
+    expect(node("n.root-c")?.props).toEqual(before);
+    expect(declinedCommands(context()).has(SYSTEM_IDS.cmdToggleCheck)).toBe(true);
   });
 
   it("expand-all and collapse-all move every expandable row in scope", async () => {

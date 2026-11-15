@@ -11,11 +11,12 @@ import {
   textOr,
   useFocusReturn,
 } from "@kb/ui-sdk";
-import { listNodeCommands, runCommand } from "@/lib/commands";
+import { declinedCommands, listNodeCommands, runCommand } from "@/lib/commands";
 import {
   buildPaletteIndex,
   searchPalette,
   withNodeCommands,
+  withoutEntries,
   type PaletteHit,
 } from "@/lib/palette-index";
 import { pageProjection, shownNodes, useGraphStore } from "@/stores/graph.store";
@@ -52,6 +53,8 @@ function openNodeMenuAt(nodeId: string, step: string): void {
  * that asks for a picker step hands over to the node menu on that node, at
  * the step, as the node menu would have shown it.
  */
+const NONE: ReadonlySet<string> = new Set();
+
 function commandContext(onClose: () => void): CommandContext {
   const target = pageCommandTarget();
   const nodeId = target.nodeId;
@@ -102,19 +105,24 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
    * else the page's node), read as it opens: a node's commands are found here
    * too, beside the graph's, each marked with the node it acts on.
    */
-  const nodeCommands = useMemo(() => {
-    if (!open) return [];
+  const { nodeCommands, declined } = useMemo(() => {
+    if (!open) return { nodeCommands: [], declined: NONE };
     const ctx = commandContext(onClose);
     const nodeId = ctx.target.nodeId;
-    // Only where the node's menu can open: a step it hands over opens there.
-    return nodeId === null || menuInstanceOf(nodeId) === null ? [] : listNodeCommands(ctx);
+    return {
+      // Only where the node's menu can open: a step it hands over opens there.
+      nodeCommands: nodeId === null || menuInstanceOf(nodeId) === null ? [] : listNodeCommands(ctx),
+      // A global command whose `when` declines here is not offered.
+      declined: declinedCommands(ctx),
+    };
   }, [open, onClose]);
   const index = useMemo(() => {
+    const offered = withoutEntries(graphIndex, declined);
     const nodeId = pageCommandTarget().nodeId;
-    if (nodeId === null || nodeCommands.length === 0) return graphIndex;
+    if (nodeId === null || nodeCommands.length === 0) return offered;
     const label = textOr(shownNodes().get(nodeId)?.text.trim(), nodeId);
-    return withNodeCommands(graphIndex, nodeCommands, label);
-  }, [graphIndex, nodeCommands]);
+    return withNodeCommands(offered, nodeCommands, label);
+  }, [graphIndex, nodeCommands, declined]);
 
   const hits = useMemo(() => searchPalette(index, query, ROW_LIMIT), [index, query]);
 

@@ -96,6 +96,12 @@ export function withNodeCommands(
   };
 }
 
+/** `index` without the entries of `ids`: the commands ⌘K does not offer here (`declinedCommands`). */
+export function withoutEntries(index: PaletteIndex, ids: ReadonlySet<string>): PaletteIndex {
+  if (ids.size === 0) return index;
+  return { rev: index.rev, entries: index.entries.filter((entry) => !ids.has(entry.id)) };
+}
+
 function fuzzySubsequence(hay: string, q: string): boolean {
   let i = 0;
   for (let h = 0; h < hay.length && i < q.length; h++) {

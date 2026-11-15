@@ -326,17 +326,12 @@ const GLOBAL_COMMANDS: readonly Command[] = [
     },
   },
   {
-    // The target row's box (DESIGN-UI.md → A tag's box); the write says
-    // when it has none.
+    // The target rows' boxes (DESIGN-UI.md → A tag's box), offered only
+    // where one has a box: the box is opt-in and off by default.
     id: SYSTEM_IDS.cmdToggleCheck,
     menu: GLOBAL,
-    run: (ctx) => {
-      if (ctx.target.nodeIds.length === 0) {
-        toast("select a node first");
-        return;
-      }
-      void browserHost().writes.toggleChecks(shownIdsOf(ctx));
-    },
+    when: (ctx) => rowChecks(ctx).length > 0,
+    run: (ctx) => void browserHost().writes.toggleChecks(shownIdsOf(ctx)),
   },
   {
     // Portal host (the outline's ViewSettingsPopoverHost overlay) anchors to
@@ -876,6 +871,19 @@ export function commandsFor(ctx: CommandContext): readonly CommandRegistration[]
       source: { kind: "contribution" as const, ...codeRegistration(registration) },
     })),
   ];
+}
+
+/**
+ * The global commands `ctx` declines (`when`), which ⌘K leaves out: a
+ * command node is offered unless its command says otherwise.
+ */
+export function declinedCommands(ctx: CommandContext): ReadonlySet<string> {
+  return new Set(
+    commandsFor(ctx)
+      .map(({ command }) => command)
+      .filter((command) => !isNodeCommand(command) && command.when?.(ctx) === false)
+      .map((command) => command.id),
+  );
 }
 
 /** Where `menu` lists a command: its group's place, then its order in the group. */
