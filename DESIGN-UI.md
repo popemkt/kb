@@ -3736,7 +3736,9 @@ until "Save workspace".
   the picker makes is labelled by the title it offered. Editing the row shows the stored text, the
   person's, and the title follows what was typed once the row is left.
   A row view draws over the title as it would over the text.
-- **A tag's box.** A node whose tag names a check (DESIGN.md →
+- **A tag's box.** The box is opt-in and off: no seeded tag names a
+  check, so a default store and the demo draw no box, and nothing offers
+  one until a person sets a tag's checkbox. A node whose tag names a check (DESIGN.md →
   [Data model](DESIGN.md#data-model--everything-is-a-node), tag
   behaviours, `checkOf`) draws a box between its bullet and its text:
   a button with `role="checkbox"`, `aria-checked`, and the check field's
@@ -3747,11 +3749,13 @@ until "Save workspace".
   the text. Reached by Tab, it answers Enter and Space, and Escape goes
   back to its row, selected. ⌘Enter (Ctrl+Enter) toggles the box of the row being edited
   or selected (`editing.toggle-check`, `selection.toggle-check`;
-  `split` and `edit` claim Enter without the command key). ⌘K's "Toggle
-  check" (`sys.cmd.toggle-check`) toggles the target row's box, and the
-  node menu offers "Check" or "Uncheck" on a row that has one. Each is
-  the one page write, `toggleChecks`, which says so when the row has no
-  box. Over a range of rows, ⌘Enter, ⌘K's "Toggle check" and the node
+  `split` and `edit` claim Enter without the command key). ⌘K offers
+  "Toggle check" (`sys.cmd.toggle-check`) and the node menu "Check" or
+  "Uncheck" only where a target row has a box: ⌘K leaves out a command
+  node whose command's `when` declines (`declinedCommands`). Each is the
+  one page write, `toggleChecks`, which does nothing visible where no row
+  has a box (no toast, no write), so ⌘Enter on a row without one is
+  silent. Over a range of rows, ⌘Enter, ⌘K's "Toggle check" and the node
   menu act on each selected row's box together (`togglesChecked`): if any
   is unchecked, every one is checked; if every one is checked, every one
   is unchecked, and the menu says which ("Check" or "Uncheck"). A row with
