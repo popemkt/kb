@@ -62,6 +62,15 @@ async function moveTo(page: Page, where: string): Promise<void> {
   await expect(step.getByRole("option").first()).toContainText(where);
 }
 
+test.beforeEach(async ({ page }) => {
+  // The fixture's tab opens at the harness's URL and goes live there. Left
+  // there, it watches the rows a test writes before its own load, and a row
+  // that gains a child in its view stays open, a choice it stores for the
+  // page the test loads next. Away from the app, no page watches the setup,
+  // and a row loads with the children it has: closed.
+  await page.goto("about:blank");
+});
+
 test("Move to… puts a range of rows under the node picked, as one write and one undo", async ({
   page,
   request,
@@ -115,19 +124,13 @@ test("Move to… a closed node says where the row went, as news", async ({ page,
   await page.emulateMedia({ reducedMotion: "reduce" });
   const moving = await add(request, "Row for the closed box");
   const box = await add(request, "Closed box");
-  await page.goto(`/node/${ROOT}`);
-  // A child the box gains in view keeps it open.
-  await row(page, box).scrollIntoViewIfNeeded();
   const inside = (
     await invoke<{ id: string }>(request, "node.add", { text: "Old letter", parent: box })
   ).id;
-
-  // Close the box, so the row it takes is not drawn there.
-  await expect(row(page, inside)).toBeVisible();
-  await row(page, box).locator(".node-content").click();
-  await page.keyboard.press("ControlOrMeta+ArrowUp");
+  await page.goto(`/node/${ROOT}`);
+  // The box had its letter when the page loaded, so it opens closed: the row it takes is not drawn there.
+  await expect(row(page, box)).toBeVisible();
   await expect(row(page, inside)).toBeHidden();
-  await page.keyboard.press("Escape");
 
   await selectDown(page, moving, 0);
   await moveTo(page, "Closed box");

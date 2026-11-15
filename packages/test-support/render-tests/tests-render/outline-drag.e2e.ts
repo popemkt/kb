@@ -76,6 +76,12 @@ const ghost = (page: Page) => page.locator('[data-row-drag-ghost="true"]');
 const line = (page: Page) => page.locator('[data-row-drop-line="true"]');
 
 test.beforeEach(async ({ page }) => {
+  // The fixture's tab opens at the harness's URL and goes live there. Left
+  // there, it watches the rows a test writes before its own load, and a row
+  // that gains a child in its view stays open, a choice it stores for the
+  // page the test loads next. Away from the app, no page watches the setup,
+  // and a row loads with the children it has: closed.
+  await page.goto("about:blank");
   // Tall enough that the rows stand clear of the edges a drag scrolls at.
   await page.setViewportSize({ width: 1280, height: 1400 });
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -119,17 +125,13 @@ test("past a row's text start, a row lands as its first child, the row opening t
 }) => {
   const moving = await add(request, "Row to file away");
   const shelf = await add(request, "Shelf row");
-  await page.goto(`/node/${ROOT}`);
-  // A child the shelf gains in view keeps it open (a row with children opens
-  // closed only when it had them when the page loaded).
-  await expect(row(page, shelf)).toBeVisible();
   const kept = await invoke<{ id: string }>(request, "node.add", {
     text: "Already on the shelf",
     parent: shelf,
   });
-  await expect(row(page, kept.id)).toBeVisible();
-  // The shelf collapsed: its children not drawn.
-  await bullet(page, shelf).click();
+  await page.goto(`/node/${ROOT}`);
+  // The shelf had its child when the page loaded, so it opens closed: its child not drawn.
+  await expect(row(page, shelf)).toBeVisible();
   await expect(row(page, kept.id)).toHaveCount(0);
 
   await pickUp(page, moving, () => onRow(page, shelf, 40, 20));
@@ -147,13 +149,13 @@ test("Escape puts a dragged row down where it was, and its press is not a click"
 }) => {
   const ids = [await add(request, "Stays first"), await add(request, "Stays second")];
   const [first = "", second = ""] = ids;
-  await page.goto(`/node/${ROOT}`);
-  // A child the row gains in view keeps it open, its child drawn.
-  await expect(row(page, second)).toBeVisible();
   const child = await invoke<{ id: string }>(request, "node.add", {
     text: "A child of the second",
     parent: second,
   });
+  await page.goto(`/node/${ROOT}`);
+  // The row had its child when the page loaded, so it opens closed; a click on its bullet opens it.
+  await bullet(page, second).click();
   await expect(row(page, child.id)).toBeVisible();
 
   await pickUp(page, second, () => onRow(page, first, -12, 4));
