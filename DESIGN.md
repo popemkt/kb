@@ -3355,12 +3355,18 @@ migration is for what a person wrote.
   (`systemWrites: "system"`), and a script never sees it. Until the
   migration is kept or rolled back, the record **pins** its backup
   (`backup pin`, [Backups](#backups)), so retention cannot remove what a roll
-  back needs. A rolled-back record counts as never run. So does a store
-  opened from a backup taken before the migration: there the migration is
-  pending again.
+  back needs. To planning, a rolled-back record counts as never run, so
+  the migration is pending again whenever it would change something. So
+  does a store opened from a backup taken before the migration. The list
+  (`migration.list`) still reports a rolled-back migration's state as
+  _rolled back_, so every surface can say why it is offered again; its
+  state is null only when it was never run.
 
-The surfaces are `kb migrate`, which lists pending migrations, and
-`kb migrate <id>`, which walks one. `--status` shows where a migration
+The surfaces are `kb migrate`, which lists the migrations with their
+states and whether each is pending, and `kb migrate <id>`, which walks
+one. The page lists the same `migration.list` in Settings → Extensions →
+Migrations and says in the header when any is pending; each opens its
+procedure page ([DESIGN-UI → Settings](DESIGN-UI.md#settings)). `--status` shows where a migration
 stands and `--plan` shows what it would write. `--keep` and `--rollback`
 take the decision, and `--yes` runs every step but that decision. MCP and
 agents call the same actions, and the steps that need approval are refused
