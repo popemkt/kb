@@ -68,21 +68,29 @@ describe("the push lane keeps local commit order", () => {
   const refused: string[] = [];
   /** A server that, like the real one, refuses a write to a node it does not hold. */
   const held = new Set<string>(fixtureGraph.nodes.map((node) => node.id));
-  const post = vi.fn(async (invocation: ActionRequest): Promise<ActionResponse> => {
-    const input = invocation.input as { id: string; text?: string };
-    pushed.push(`${invocation.id} ${input.id}`);
-    if (invocation.id === "node.update" && input.text !== undefined)
-      texts.push(`${input.id} ${input.text}`);
-    if (invocation.id === "node.add") held.add(input.id);
+  /** One node write as the server takes it: the reason it refuses it, or null. */
+  const take = (id: string, input: { id: string; text?: string }): string | null => {
+    if (id === "node.update" && input.text !== undefined) texts.push(`${input.id} ${input.text}`);
+    if (id === "node.add") held.add(input.id);
     else if (!held.has(input.id)) {
-      refused.push(`${invocation.id} ${input.id}`);
-      return {
-        status: "failed",
-        id: invocation.id,
-        code: "not_found",
-        message: `node not found: ${input.id}`,
-      };
-    } else if (invocation.id === "node.delete") held.delete(input.id);
+      refused.push(`${id} ${input.id}`);
+      return `node not found: ${input.id}`;
+    } else if (id === "node.delete") held.delete(input.id);
+    return null;
+  };
+  type Call = { action: string; input: { id: string; text?: string } };
+  const post = vi.fn(async (invocation: ActionRequest): Promise<ActionResponse> => {
+    // A batch is its calls, taken in order (DESIGN.md → Batches of writes).
+    const calls: Call[] =
+      invocation.id === "node.batch"
+        ? (invocation.input as { calls: Call[] }).calls
+        : [{ action: invocation.id, input: invocation.input as Call["input"] }];
+    const said = calls.map(({ action, input }) => `${action} ${input.id}`);
+    pushed.push(invocation.id === "node.batch" ? `node.batch [${said.join(", ")}]` : said.join(""));
+    const reason = calls.map(({ action, input }) => take(action, input)).find((r) => r !== null);
+    if (reason !== undefined) {
+      return { status: "failed", id: invocation.id, code: "not_found", message: reason };
+    }
     return succeeded(invocation);
   });
 
@@ -110,11 +118,9 @@ describe("the push lane keeps local commit order", () => {
     await vi.advanceTimersByTimeAsync(280);
     await waitForBrowserPushes();
     expect(pushed).toEqual([
-      "node.update n.root-b",
-      `node.add ${row}`,
+      `node.batch [node.update n.root-b, node.add ${row}]`,
       `node.update ${row}`,
-      `node.delete ${row}`,
-      "node.update n.root-b",
+      `node.batch [node.delete ${row}, node.update n.root-b]`,
     ]);
     expect(refused).toEqual([]);
   });
@@ -146,6 +152,9 @@ describe("the push lane keeps local commit order", () => {
 
     answer.resolve(succeeded({ id: "node.update", input: {} }));
     await waitForBrowserPushes();
-    expect(pushed).toEqual(["node.update n.root-b", "node.update n.root-b", `node.add ${row}`]);
+    expect(pushed).toEqual([
+      "node.update n.root-b",
+      `node.batch [node.update n.root-b, node.add ${row}]`,
+    ]);
   });
 });

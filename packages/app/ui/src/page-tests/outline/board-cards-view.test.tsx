@@ -7,7 +7,7 @@ import {
   groupChildrenForBoard,
   type NodeMap,
   providedFrameViews,
-  queryResultInstanceKey,
+  projectedRowKey,
   type SchemaIndex,
   schemaOf,
   schemaOfGraph,
@@ -23,7 +23,7 @@ import { framedAs, viewFieldNodes, type FrameViewName } from "@/fixtures/view-fi
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 import { useGraphStore } from "@/stores/graph.store";
-import { pageCommandApi } from "@/stores/page-commands";
+import { pageCommandApi, pageCommandTarget } from "@/stores/page-commands";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import type { WireNode } from "@kb/contracts";
@@ -297,7 +297,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     expect(present(after.get("frame1"), "frame1").children).toEqual(before);
   });
 
-  it("query-source board uses ref:query instance keys", () => {
+  it("query-source board uses ref:row instance keys", () => {
     const html = renderToStaticMarkup(
       createElement(BoardCardsView, {
         frame: outlineFrameSubject(
@@ -310,8 +310,8 @@ describe("W7.1 BoardCardsView + toolbar", () => {
         widthPref: "full",
       }),
     );
-    expect(html).toContain(`data-instance-key="${queryResultInstanceKey("frame1", "c1")}"`);
-    expect(html).toContain(`data-instance-key="${queryResultInstanceKey("frame1", "c2")}"`);
+    expect(html).toContain(`data-instance-key="${projectedRowKey("frame1", "c1")}"`);
+    expect(html).toContain(`data-instance-key="${projectedRowKey("frame1", "c2")}"`);
   });
 
   it("setFrameView board/cards persists on the frame's view node", async () => {
@@ -337,6 +337,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
       views: frameViewKeys(),
       chain: [],
       pages: {},
+      expansion: new Map(),
     });
     // zoomed root itself + projected cards in board order
     const projected = visible.filter((v) => v.nodeId !== "frame1").map((v) => v.nodeId);
@@ -377,7 +378,7 @@ describe("Filter… host visibility", () => {
     const { createRoot } = await import("react-dom/client");
     const { act } = await import("react");
     const { ViewSettingsPopoverHost } = await import("@kb/outline-ui");
-    const { runCommand, commandTargetNodeId, viewTargetFrameId } = await import("@/lib/commands");
+    const { runCommand } = await import("@/lib/commands");
 
     const win = new Window({ url: "https://kb.test/" });
     const g = globalThis as typeof globalThis & {
@@ -408,7 +409,7 @@ describe("Filter… host visibility", () => {
     await act(async () => {
       const outline = pageCommandApi();
       await runCommand(SYSTEM_IDS.cmdViewFilter, {
-        target: { nodeId: commandTargetNodeId(outline), frameId: viewTargetFrameId(outline) },
+        target: pageCommandTarget(),
         outline,
         prefs: usePrefsStore.getState(),
         ui: useUiStore.getState(),

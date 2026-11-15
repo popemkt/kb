@@ -39,10 +39,13 @@ export type FollowTarget =
 /**
  * How far a node follow goes. `open` makes the node the pane's page (the
  * zoom, or the pane's location); `reveal` jumps to it in place; `beside`
- * opens it in a new pane to the right of this one (Tana's panels). A
+ * opens it in a new pane to the right of this one (Tana's panels);
+ * `in-place` shows it where the pointer is, without going anywhere, where
+ * the surface can (an outline row opens the reference under itself,
+ * DESIGN-UI.md → Contextual references), and opens it elsewhere. A
  * location outside the graph only opens.
  */
-export type FollowHow = "open" | "reveal" | "beside";
+export type FollowHow = "open" | "reveal" | "beside" | "in-place";
 
 /** Carry out a follow. The one handler every surface is handed. */
 export type Follow = (target: FollowTarget, how: FollowHow) => void;
@@ -93,13 +96,18 @@ function pointerAt(el: Element | null): PointerHit | null {
   return null;
 }
 
-/** A Shift-click opens beside; a ⌘/Ctrl-click reveals where a plain click opens. */
+/**
+ * A Shift-click opens beside, an Alt-click shows in place, and a
+ * ⌘/Ctrl-click reveals where a plain click opens.
+ */
 export function followHowOf(e: {
   metaKey: boolean;
   ctrlKey: boolean;
   shiftKey: boolean;
+  altKey: boolean;
 }): FollowHow {
   if (e.shiftKey) return "beside";
+  if (e.altKey) return "in-place";
   return e.metaKey || e.ctrlKey ? "reveal" : "open";
 }
 

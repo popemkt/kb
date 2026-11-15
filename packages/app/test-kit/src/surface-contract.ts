@@ -194,6 +194,16 @@ const CALLS: readonly ActionRequest[] = [
   // An outline kb refuses writes nothing: a line that does not parse, a ref nothing names.
   { id: "node.addTree", input: { outline: "- a\n    - b\n  - c" } },
   { id: "node.addTree", input: { outline: "- see [[n.surface-contract-missing]]" } },
+  // A batch kb refuses writes nothing, and names the call it refused.
+  {
+    id: "node.batch",
+    input: {
+      calls: [
+        { action: "node.update", input: { id: "sys.tag", text: "tag" } },
+        { action: "node.update", input: { id: "n.surface-contract-missing", text: "x" } },
+      ],
+    },
+  },
   // A proposal kb refuses writes nothing, so every surface sees the same refusal.
   { id: "view.propose", input: { view: "outline.nope" } },
   { id: "view.propose", input: { view: "outline.board", params: { groupFieldId: 7 } } },

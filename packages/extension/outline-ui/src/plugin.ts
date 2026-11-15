@@ -4,7 +4,7 @@ import { Effect } from "effect";
 
 import { definePlugin } from "@kb/plugin";
 import { ListFrameView } from "./frame-views";
-import { OutlineSurface, PinnedSection } from "./surfaces";
+import { OutlineSurface, PinnedSection, RecentSection } from "./surfaces";
 import { ViewSettingsPopoverHost } from "./view-settings-popover";
 import { OutlineListView, OutlineSnippetView, OutlineView, DEFAULT_VIEW_CONFIG } from "@kb/views";
 import { OutlineSnippet } from "./outline-snippet";
@@ -111,6 +111,10 @@ export const outlineUiPlugin = definePlugin({
           ctx.contribute(SidebarSectionPoint, {
             id: "pinned",
             value: { order: 100, Component: PinnedSection },
+          }),
+          ctx.contribute(SidebarSectionPoint, {
+            id: "recent",
+            value: { order: 105, Component: RecentSection },
           }),
           ...OUTLINE_COMMANDS.map((command) =>
             ctx.contribute(CommandPoint, { id: command.id, value: command }),

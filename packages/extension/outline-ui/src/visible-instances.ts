@@ -1,5 +1,5 @@
 /**
- * Render-order visible outline instances (tree + query-result rows).
+ * Render-order visible outline instances (tree + projected rows).
  *
  * Row order is not decided here — every frame's rows come from
  * {@link frameRows}, the function the renderers call, as each frame's view
@@ -7,17 +7,18 @@
  */
 import {
   childInstanceKey,
+  type Expansion,
   frameRows,
   type FrameView,
   frameViewOf,
   hasText,
-  isQueryResultInstance,
+  isProjectedRow,
   type EdnRunner,
   MAIN_OUTLINE_HOST,
   type NodeMap,
   outlineInstanceKey,
   type OutlineNode,
-  queryResultInstanceKey,
+  projectedRowKey,
   resultNodeIds,
   type SchemaIndex,
   shownNode,
@@ -28,6 +29,7 @@ import {
 } from "@kb/ui-sdk";
 import { isQueryNode, queryDefOf } from "@kb/model";
 import { projectsRows, type FrameViewKey } from "@kb/views";
+import { openReferenceKey, openReferencesOf, opensInPlace } from "./open-references";
 
 export type VisibleInstance = {
   nodeId: string;
@@ -53,6 +55,8 @@ interface WalkContext {
   /** The slots around the outline's root frame, as its host renders it (`useSlotChain`). */
   chain: SlotChain;
   pages: FramePagesMap;
+  /** The reader's expansion: here, the references opened in place (`open-references`). */
+  expansion: Expansion;
   out: VisibleInstance[];
 }
 
@@ -107,7 +111,7 @@ function walkQueryResults(
   } catch {
     return;
   }
-  const keyFor = (id: string) => queryResultInstanceKey(frame.id, id);
+  const keyFor = (id: string) => projectedRowKey(frame.id, id);
   if (projectsRows(view.key)) {
     if (underSlot(chain, view, frame.id) !== null)
       emitProjectedRows(ctx, frame.id, view, ids, keyFor);
@@ -126,11 +130,21 @@ function walkVisibleInstances(
   const node = nodes.get(nodeId);
   if (!node) return;
   out.push({ nodeId, instanceKey });
-  // Open or closed is the row's own; what is under it is its shown node's
-  // (`lib/contextual-ref`), unless that node is already shown above it.
-  if (node.collapsed || showsAncestor(instanceKey, node, schema)) return;
+  // What is under a row is its shown node's (`lib/contextual-ref`), unless
+  // that node is already shown above it.
+  if (showsAncestor(instanceKey, node, schema)) return;
   const frame = shownNode(node, schema);
   const frameId = frame.id;
+  // The references its text opens in place come first, open or closed the row.
+  // Each draws its target open or closed as the target's own choice is, not
+  // open by default: a choice is per node. GAP [[01M7D8AP4A4W6S2X5T1DSE9D77]]
+  if (opensInPlace(instanceKey)) {
+    for (const id of openReferencesOf(ctx.expansion, frameId, frame.text)) {
+      walkVisibleInstances(ctx, id, openReferenceKey(frameId, id), chain);
+    }
+  }
+  // Open or closed is the row's own.
+  if (node.collapsed) return;
 
   // A frame whose view is not provided shows no rows, so it offers none.
   const view = frameViewOf(frame, schema, ctx.views);
@@ -138,7 +152,7 @@ function walkVisibleInstances(
   const projected = projectsRows(view.key);
 
   // A result row does not re-run its own query (`resolveRowChrome` agrees).
-  if (!isQueryResultInstance(instanceKey) && isQueryNode(frame)) {
+  if (!isProjectedRow(instanceKey) && isQueryNode(frame)) {
     walkQueryResults(ctx, frame, view, chain);
     // Non-projected query: also walk structural children below results.
   }

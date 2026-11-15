@@ -10,7 +10,7 @@ import {
   type FieldEditorProps,
   frameRows,
   type FrameSubject,
-  isQueryResultInstance,
+  isProjectedRow,
   isReferenceRow,
   type NodeMap,
   NodeRow,
@@ -19,7 +19,7 @@ import {
   outlineInstanceKey,
   type OutlineNode,
   type PropValue,
-  queryResultInstanceKey,
+  projectedRowKey,
   resolveTableColumns,
   shownNode,
   shownNodeId,
@@ -114,9 +114,7 @@ export function BoardCardsView({
 
   const instanceKeyFor = useCallback(
     (nodeId: string) =>
-      isQuerySource
-        ? queryResultInstanceKey(frameId, nodeId)
-        : childInstanceKey(baseInstanceKey, nodeId),
+      isQuerySource ? projectedRowKey(frameId, nodeId) : childInstanceKey(baseInstanceKey, nodeId),
     [isQuerySource, frameId, baseInstanceKey],
   );
 
@@ -323,7 +321,7 @@ const ViewCard = memo(function ViewCard({
             node={shown}
             collapsed={child.collapsed}
             collapsible={false}
-            isRef={isReferenceRow(child, isQueryResultInstance(instanceKey))}
+            isRef={isReferenceRow(child, isProjectedRow(instanceKey))}
             onClick={(e) => {
               e.stopPropagation();
               // A card's bullet cannot toggle: its children are not drawn.

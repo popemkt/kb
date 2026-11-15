@@ -459,8 +459,25 @@ answers which of a key's meanings applies on this row (the caret, the row's
 shape); the chord that runs it is its binding's, so a built-in has an id
 (`outline.editing.split`, `outline.selection.up`) another binding can name.
 The intents are each mode's table (`EDITING_INTENTS`, `SELECTION_INTENTS`);
-the guard that keeps a query-result row from being restructured is part of
+the guard that keeps a projected row from being restructured is part of
 each structural intent, so it holds whatever chord runs it.
+
+**Projected rows.** A projected row is a node drawn under a row because
+that row computes it, not because it is a child: a query's results are
+the projected rows of the query's row. Its instance key names its source
+and the node, `ref:row:<source>/<node>` (`projectedRowKey`,
+`isProjectedRow` in `lib/instance-key.ts`), and is read from the key
+wherever the answer matters, so what a projected row can do is the same
+on every surface (list row, table row, card):
+
+- It has no child edge to its source, so no structural chord acts on it:
+  Tab, Shift-Tab, a move, a split that would make a sibling, and the joins
+  are claimed inert (the guard in each structural intent), its bullet
+  does not start a drag, and a drag never drops beside or into it.
+- Its text, tags, fields and children are its node's, edited in place like
+  any row's, and the rows under it are ordinary child rows of that node.
+- It wears the dashed reference ring (`isReferenceRow`), offers no
+  create-child strip, and does not draw a query's results again.
 
 The shared declaration's `keyboard` supplies both page contributions and seeded
 `#shortcut` descriptions. The declaration publishes native defaults through the same keyboard points in
@@ -673,6 +690,115 @@ selection is its items, not nodes. A key's action is the one shape a
 command's and a picker step's are as data (`ActionCall`, [The node
 menu](#the-node-menu)).
 
+**A selection is a range of rows.** Mode B's selection is an _anchor_ and
+a _head_, two row instances of one outline host. The selected rows are the
+visible instances from one to the other, inclusive, in the order the outline
+draws them (`selectedRows` in `outline-ui/src/outline.store.ts`). A single
+selected row is the range whose anchor is its head, so every gesture that
+knew one selected row knows it as before. Two selection intents move the head
+and keep the anchor: `extend-up` and `extend-down`, bound to Shift+↑ and
+Shift+↓ (`outline.selection.extend-up` / `extend-down`). Shift-click on a
+row moves the head to it, the anchor staying where the selection was, or on
+the row being edited. Any other move of the selection (an arrow, a click,
+Escape, editing a row) collapses the range to the row it lands on. The
+rows of a range are drawn as one band, the head holding the focus, and the
+node menu anchors on the head; closed, it gives the focus back to the head
+(`useFocusReturn`, as ⌘K gives it back to where it was opened).
+
+What a gesture over a range acts on is said once, by the selection:
+
+- **Each selected row** for what marks or fills a node: tagging, untagging,
+  setting a field, pinning. A command or a picker step is handed every row
+  it is about (`CommandTarget.nodeIds`; a step's `targetNodeIds`), and acts
+  on each.
+- **The top rows** for what moves or removes a node: Delete, Tab, Shift-Tab
+  and the moves up and down. A selected row under another selected
+  row goes with it (`selectionRoots`). Tab, Shift-Tab and the moves act on
+  the top rows as one block when they are one run of siblings (one parent,
+  none skipped): the block goes under the sibling before it, after its
+  parent, or past the sibling beside it. A range that is not one run is told
+  so and left as it is.
+
+A gesture over several rows is one write. Every plan of several node writes
+is sent as one `node.batch` call (DESIGN.md →
+[Batches of writes](DESIGN.md#batches-of-writes--nodebatch)), and so are the
+writes a gesture over several rows makes inside `PageWrites.together`
+(`asOneWrite`), so the commit takes or refuses all of it and undo takes it
+back, and redoes it, in one step. A write inside `together` is planned
+against the graph as it stood when the gesture began, so a gesture whose
+parts depend on each other plans them as one write (the block moves), and
+what it makes is there once `together` returns. A gesture about one row
+is not gathered, its write being one write already, so a command that reads
+what its write made (Make your own tag opens the tag) reads it landed. Over a range, the node menu lists only the commands that act on many
+rows (`NodeCommand.many`): Add tag, Remove tag…, Add field, Set field…,
+Pin / Unpin, Move to…, Copy node ID, Count words and Delete. Any other node command, run over a range from its
+shortcut, acts on the head alone (`runCommand`). A picker step it opens is
+handed every row (`targetNodeIds`), mints what it creates once, and writes
+the pick to each row as one write (`asOneWrite`), so what it does once the
+write lands (where the selection goes after a move) reads it landed.
+
+**A row moves anywhere: Move to…, and a drag.** Two gestures, one write
+(`PageWrites.moveNodes`): the rows a gesture moves, the selection's top
+rows or the one row, go under a parent at a position, in order, as one
+`node.update` each in one `node.batch` (DESIGN.md →
+[Batches of writes](DESIGN.md#batches-of-writes--nodebatch)), one undo
+step. A move may leave a reference behind: a reference row
+(`sys.f.ref.target`, a contextual reference) at the place each row left,
+in the same write. The CLI and MCP make the same moves with `node.update`
+(`kb mv`) and, with the references, `node.batch`.
+
+- **Move to…** is a node command of the `arrange` group that acts on many
+  rows. It opens the `outline.move-to` picker step, whose candidates are
+  every node (`nodeCandidates`) less the rows moved and what is under
+  them. Enter moves the rows to the end of the node picked; Alt+Enter, or
+  an Alt-click on it, moves them and leaves a reference in each place. A
+  step names its alternate pick (`PaletteStep.alternate`), the picker says
+  it under the list, and the pick says which one it was
+  (`PaletteStepPick.alternate`).
+- **A drag** starts on a row's bullet: a press that travels past its
+  pointer's slop (`POINTER_SLOPS`) before a long press is a drag; a press
+  that does not stays a click (zoom), and a finger held still stays the
+  menu (`useMenuGesture`). A finger drags as a mouse does: the bullet is
+  `touch-action: none`, so the page does not scroll under it. While it
+  lasts, a ghost of the row (and how many rows go with it) follows the
+  pointer, right of it and below the row aimed at so that row stays
+  readable (`ghostAt`), and a drop line shows where the rows will land: above or below
+  the row under the pointer, as its sibling, or, with the pointer past that
+  row's text start or below a row whose children are shown, as its first
+  child, a collapsed row opening to show them. Near the top or bottom of the
+  scroller the page scrolls. Escape cancels it. Over a row being moved, or
+  one under it, no line is shown and a drop moves nothing. Each drop lands
+  where its line was.
+- After a move, the rows moved stay selected where they landed when they
+  are drawn there, else the selection goes to the row before where they
+  were, as after Delete, and a toast says where they went; a move that
+  left references selects them.
+
+**What rows hold, read and copied: Count words and Copy node ID.** Two
+node commands that act on many rows and write nothing.
+
+- **Count words** (the `view` group) counts what the selection's top rows
+  (`selectionRoots`), the one row, or the page's title show, and every
+  node under them, shown or collapsed: each node once, its text read as
+  plain words (`plainText`, `@kb/ui-sdk`: a reference reads as its label,
+  else its target's text, and markup and media are dropped), a row counted
+  by the node it shows (`shownNode`), and a reference not followed below
+  it. A toast says the words, the characters and the nodes ("120 words ·
+  643 characters · 9 nodes"). Words and characters are counted as
+  `Intl.Segmenter` splits the text, so a language written without spaces
+  counts its words and an emoji is one character; nothing is counted
+  between two nodes.
+- **Copy node ID** (the `open` group) puts the id of the node each row
+  shows (`shownNode`) on the clipboard, one per line in the selection's
+  order, and a toast says it did, or that it could not (`copyText`,
+  `@kb/ui-sdk`). The id is what `kb get <id>` and a `[[<id>]]` in any text
+  reach.
+
+A toast says what kind it is (`toast(message, kind)`): `info` for what was
+done, such as a count, a copy or where a move put rows, and `error`, the
+default, for what failed or was refused. Only an error is drawn as a
+failure and counted as one (`PageEvents.errors`).
+
 **Caret geometry is measured, not guessed.** `lib/caret.ts`
 exposes `readCaretGeometry` (range rects → real line detection),
 `verticalArrowDecision` (pure: is this arrow a line move or a row move?) and
@@ -692,6 +818,11 @@ derives compensating shared-action invocations. The graph store keeps bounded
 the same local invocation + ordered push lane — there is **no** server-authoritative
 undo journal, and rapid same-node text edits are not coalesced. Structural
 operations (split, merge, indent, outdent, delete, move) are the covered case.
+A text has two writes, told apart by who writes it: a keystroke's
+(`PageWrites.updateNodeContent`), which records no step because the row's
+own text undo covers it (below), and a command's, written whole from
+outside the editor (`PageWrites.setNodeText`, Remove reference…), which is
+one undo step as every command's write is.
 
 **Node text is one surface, read or edited.** There is no raw-source edit
 mode. `lib/md-edit.ts` `inlineNodes` is the one description of what inline
@@ -766,11 +897,13 @@ node. `Bullet` renders that record and decides nothing; the graph's bullet
 theme paints the same record (Graph → The themes), so the two cannot drift.
 
 **Expansion is the reader's, per tab.** `expansion` holds a choice per row,
-open or closed, only while the reader can undo it: a choice that equals the
-row's default, or names a row that can no longer expand, is dropped
-(`undoable`), so no row is held collapsed with no gesture to open it. A row
-the graph does not hold now keeps its choice, so a row restored by an undo
-comes back as the reader left it. A row shown open stays open when the graph
+open or closed, and the references opened in place (Contextual references
+→ A reference in the text opens in place), a row's choice only while the
+reader can undo it: a choice that equals the row's default, or names a row
+that can no longer expand, is dropped (`undoable`), so no row is held
+collapsed with no gesture to open it. A row the graph does not hold now
+keeps its choice, so a row restored by an undo comes back as the reader
+left it. A row shown open stays open when the graph
 gives it children or fields. Each tab keeps its own expansion while it is
 open, and storage seeds it at load: another tab's choices are read at the
 next load, never merged in by a graph move. Storage is shared, so a save
@@ -990,14 +1123,15 @@ schema)` is the one answer to "which node does this row show" — the target
   render as bare text; the owner's rule since is that a reference row renders
   exactly as its target would, the dashed bullet being the only difference.
 - **The bullet reuses the existing reference treatment** (dashed ring). Only the
-  bullet: a _query-result_ row — read from its instance key by
-  `isQueryResultInstance` (`lib/instance-key.ts`), never passed as a flag —
-  keeps suppressing nested query results, the create-child strip and the
-  structural chords, because its place under the query is computed rather than
-  a child edge. A contextual reference is a real child whose children **are**
-  its own, and creating them is the whole point. `isReferenceRow(node,
-isQueryResult)` in the kit's `lib/row-chrome.ts` is the one answer, read by the list
-  row's chrome and by table and card rows alike. Apart from those gates a
+  bullet: a projected row ([Projected rows](#outline-editor-i1)) — read
+  from its instance key by `isProjectedRow` (`lib/instance-key.ts`), never
+  passed as a flag — keeps suppressing nested query results, the
+  create-child strip and the structural chords, because its place under its
+  source is computed rather than a child edge. A contextual reference is a
+  real child whose children **are** its own, and creating them is the whole
+  point. `isReferenceRow(node, projectedRow)` in the kit's
+  `lib/row-chrome.ts` is the one answer, read by the list row's chrome and
+  by table and card rows alike. Apart from those gates a
   result row is clicked like any row in every view: a row click selects, a
   text click edits, a bullet click toggles and ⌘-click opens the node.
 
@@ -1015,6 +1149,45 @@ engine (→ [Field values](#field-values-one-slot-grammar)), so no fourth node
 picker was added. The gesture itself is `mutations.addTag` +
 `mutations.updateProp`, i.e. plain `node.update` — no new registry action, and
 the CLI/MCP form is in DESIGN.md.
+
+**A reference in the text opens in place.** An inline reference in a
+row's text (`[[id|label]]`) shows its target under the row, without
+leaving the page and without making a node. The reference is open while
+its target is drawn as a projected row of the row
+([Projected rows](#outline-editor-i1)), keyed
+`ref:row:<the row's node>/<target>`. It is the row a contextual reference
+draws: the target's text, tags, fields and children, edited in place.
+Open references come first under the row, before its fields and
+children, in the order the text names them, and they show while the row
+is collapsed. The pill of an open reference says so (`aria-expanded`
+and its own tint).
+
+- **Alt-click** a reference opens it, and Alt-click on it again closes
+  it. A plain click still follows it.
+- **⌘K → Expand reference…** (the node menu's view group) does the same
+  from the keyboard. It is a step that lists the references in the row's
+  text, the open ones noted "Expanded", and a pick opens or closes that
+  one.
+
+Which references are open is the reader's, held in the outline's
+expansion (Outline editor → Expansion is the reader's, per tab) beside
+each row's open or closed choice, under the projected row's key. Like
+those choices, it is one tab's and never undone. Unlike them, it is not
+stored, and it is dropped once the row's text no longer names the
+reference. A reference opens only under a row of the outline's own tree.
+Under a projected row, or a row inside one, Alt-click follows as a plain
+click does, so two references that name each other cannot open into
+each other forever. The same node in two places shares its open
+references, as a query's results do (GAP [[01M411FPC839XBJJ873V1VYYYD]]). An opened reference draws its target open or closed as the target's own
+choice is, since a choice is per node, rather than open one level by
+default (GAP [[01M7D8AP4A4W6S2X5T1DSE9D77]]).
+
+**Remove reference…** (⌘K, the node menu's make group) turns a reference
+in the row's text back into plain text: its label, or the target's text
+for a bare `[[id]]`. It is a step that lists the text's references, and
+a pick turns every reference to that node in the text back, in one text
+write that is one undo step (`setNodeText`, below). Both steps are offered
+only on a row whose text names a node, and only on one row.
 
 **Named gaps.** The reference node's own props — its target among them — are
 not drawn by its row, since every field row is the target's; the target is
@@ -1221,8 +1394,9 @@ reason, and the next edit starts from it.
 **The one node picker.** Every "which node?" in the UI is one engine
 (`lib/picker.ts`: candidates in, ranked rows out; `usePickerKeys`) and one
 list (`components/ui/picker-list.tsx`): the field picker (`FieldPicker`), the
-`[[` completion, every node-palette step (`PaletteStepPoint`; the outline's
-add-tag, add-field and reference steps among them),
+text's triggers (`[[`, `@`, `#`, `>`), every node-palette step
+(`PaletteStepPoint`; the outline's add-tag, add-field, reference and move-to
+steps among them),
 the ontology page's include/extends, the canvas's "add existing node" and the
 tag page's add-field. A query matches fuzzily (prefix, substring, id, word
 initials, a compact subsequence) and the matched letters are marked; with
@@ -1234,7 +1408,10 @@ field a pick replaces and closes. A value that would close a cycle through a fie
 that declares itself acyclic (a tag's `extends`; `closesCycleOf`) is shown,
 noted "would cycle", and refused as an addition only: a value the field
 already holds stays checked and can be taken back, however the cycle came to
-be. No picker picks a disabled row, by click or by Enter. Its last row
+be. No picker picks a disabled row, by click or by Enter. A node-palette
+step may name an alternate pick (`PaletteStep.alternate`, its label): Alt+Enter,
+or an Alt-click, picks the row that way, and the picker shows the key and
+the label under its list. Its last row
 creates the query as a node where the field's declaration says a target goes
 (`refCreationOf`: an option under the field, a node with the field's target
 tag, a top-level node) — never for a query-constrained field — and names
@@ -1244,6 +1421,42 @@ that carries a tag; never a raw id. The list is anchored to its input, flipped a
 clamped to the viewport (`useAnchoredPosition`), so a cell or a column never
 clips it. The global ⌘K palette is a different gesture — search and open —
 and keeps its own index.
+
+**Triggers in the text.** Typing a trigger in a row's text opens that
+picker at the caret, without leaving the text. The triggers are one table
+on the text host (`TextTrigger`, `lib/text-triggers.ts`). Each row of it
+says where a trigger opens, what it offers and what a pick does; the host
+runs every row with the one picker engine and the one list. A pick
+replaces what was typed for the trigger, the opener and its query, and may
+then write.
+
+- `[[` opens anywhere and offers every node (`nodeCandidates`). A pick
+  inserts a reference, `[[id|label]]`, and Enter with nothing to pick
+  closes the brackets.
+- `@` opens at the start of the text or after a space, before a character
+  that is not a space. When what follows reads as a date (`parseDateInput`,
+  the grammar a date slot reads) and dates lead somewhere, that date is the
+  first row, and the nodes `[[` offers follow, less the row being typed in
+  and every node it sits under. A date leads somewhere when a
+  provider other than core's is elected for `ui.date-target` (DESIGN.md →
+  [Provider roles](./DESIGN.md#provider-roles)): with days on, the date's
+  day. A pick inserts a reference to the node, or to the date's node, made
+  if need be.
+- `#` opens at the start of the text or after a space, its query one word.
+  It is the Add tag step (`outline.add-tag`): it offers the tags, and a new
+  one by name, and a pick takes `#` and the query out of the text and tags
+  the row.
+- `>` opens on a row whose whole text is `>` and a query. It is the Add
+  field step (`outline.add-field`): a pick empties the text, adds the field
+  to the row as Add field does from the menu, and puts the caret in its
+  value.
+
+`[[` is every text host's. `@`, `#` and `>` are the outline's: its rows
+pass them to their text host beside `[[`. A trigger with nothing to offer is
+closed, so its keys stay the text's: `@` or `#` in prose and `> ` starting a
+quote are typed as text. Escape closes the picker and keeps the text, until
+the query changes. The table is the text host's own, not a plugin point;
+when a second family needs a trigger of its own, it becomes one.
 
 **Named gaps.** A ref value's bullet follows on a plain click (a value's
 bullet has no children of its own to expand) rather than expanding the
@@ -2582,6 +2795,16 @@ both are answered from the node ⌘K menu rather than from a device switch.
   - **Naming collision, deliberately not merged:** an _ontology's_ pins are
     `sys.f.onto.member` props with their own Unpin control on the ontology
     page. Same English word, different field, different mechanism.
+- **Recent is screen state.** The sidebar's Recent section, after Pinned
+  (`order: 105`), lists the nodes an outline last stood at, a zoom or a
+  node opened in a pane, newest first and ten at most, and a row zooms to
+  its node as a Pinned row does. It is this browser's, as the expansion
+  and the zoom are: kept in `localStorage` (`kb-recent`, in the
+  `loadIdSet` encoding, in order), never written to the store, so the CLI
+  and MCP never read it and viewing a node writes nothing to the graph. An
+  id the graph no longer holds is not drawn, and the next visit drops it.
+  Recents do not follow a person to another device
+  (GAP [[01M7D6DPTPPKEY515V7J3FJDM4]]).
 
 ### The node menu
 
@@ -2624,11 +2847,11 @@ The groups, in the menu's order (`NODE_MENU_GROUPS`):
 | Group | What it holds | Its rows today |
 | --- | --- | --- |
 | `lead` | how the node itself opens and shows | "Open in …" for its tag's view; "Show/Hide preview", "Show/Hide properties" |
-| `make` | what the node is and holds | Add tag, Make your own tag that extends this, Turn into query, Turn into reference…, Add field, Make supertag, Type this reference… |
-| `open` | where it opens | Search everything…, Open in panel, Open as workspace, Open with: … |
-| `arrange` | where it sits | Indent, Outdent |
+| `make` | what the node is and holds | Add tag, Remove tag…, Make your own tag that extends this, Turn into query, Turn into reference…, Add field, Set field…, Make supertag, Type this reference…, Remove reference… |
+| `open` | where it opens | Search everything…, Open in panel, Open as workspace, Open with: …, Copy node ID |
+| `arrange` | where it sits | Indent, Outdent, Move to… |
 | `mark` | what marks it | Pin / Unpin, Show / Hide debug fields |
-| `view` | how its views show it | View as: …, Make default view: …, Edit query, Add chart, Filter… |
+| `view` | how its views show it | View as: …, Make default view: …, Edit query, Add chart, Filter…, Expand reference…, Count words |
 | `remove` | removing it | Delete node |
 
 So a family's command takes a place among the shell's by naming it, and
@@ -2658,8 +2881,9 @@ one on the node).
 **A command and a picker step as data.** A node command may hand the
 palette to a picker step (`palette.openStep(id)`, `PaletteStepPoint`,
 below). Through `kb-ext-sdk/page` both come in two forms. The T3 form is
-the one above, with functions, handed only the row (`CommandContext.target`,
-a step's anchor and pick). The T0 form is data, which the page interprets,
+the one above, with functions, handed the rows it is about
+(`CommandContext.target`, a step's anchor and pick; [Outline editor](#outline-editor-i1),
+"A selection is a range of rows"). The T0 form is data, which the page interprets,
 so no author code runs when a person picks (`lib/command-forms`):
 
 - `provideCommand(id, { label, icon, group, order, when, run })`. `icon`
@@ -2672,7 +2896,7 @@ so no author code runs when a person picks (`lib/command-forms`):
 - `providePaletteStep(id, { label, placeholder, icon, candidates, limit,
   commit })`. `candidates` is a query node: the picker offers the nodes in
   its answer's first column, each named by its text, less the row itself.
-  Nothing is minted from it. `commit` is an action about the row, and the
+  Nothing is minted from it. `commit` is an action about each row, and the
   pick fills each `PICKED` in its input: `{ action: "node.update", input:
   { setProps: [{ field, value: { t: "ref", v: PICKED } }] } }` links the
   row to the node picked.

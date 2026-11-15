@@ -64,7 +64,7 @@ const opened: string[] = [];
 let closed = 0;
 function context(nodeId: string): CommandContext {
   return {
-    target: { nodeId, frameId: nodeId },
+    target: { nodeId, frameId: nodeId, nodeIds: [nodeId] },
     outline: pageCommandApi(),
     prefs: usePrefsStore.getState(),
     ui: useUiStore.getState(),
@@ -172,7 +172,12 @@ describe("a picker step as data", () => {
       input: { setProps: [{ field, value: { t: "ref", v: PICKED } }] },
     },
   }).value;
-  const graph = (anchorId: string) => ({ nodes: host.nodes(), wireNodes: GRAPH, anchorId });
+  const graph = (anchorId: string) => ({
+    nodes: host.nodes(),
+    wireNodes: GRAPH,
+    anchorId,
+    targetNodeIds: [anchorId],
+  });
 
   it("offers the nodes its query answers, by their text, less the row it is about", async () => {
     expect(step.candidates(graph("n.row"))).toEqual([]);
@@ -188,9 +193,11 @@ describe("a picker step as data", () => {
   it("calls its action about the row, the pick where the input says PICKED", async () => {
     await step.commit({
       targetNodeId: "n.row",
+      targetNodeIds: ["n.row"],
       schema: host.schema(),
       pickedId: "n.alpha",
       creating: false,
+      alternate: false,
       name: "",
     });
     expect(calls).toEqual([
@@ -210,9 +217,11 @@ describe("a picker step as data", () => {
     }).value;
     await failing.commit({
       targetNodeId: "n.row",
+      targetNodeIds: ["n.row"],
       schema: host.schema(),
       pickedId: "n.alpha",
       creating: false,
+      alternate: false,
       name: "",
     });
     expect(present(told[0], "a toast")).toBe("node.fail failed: no such field");

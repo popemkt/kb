@@ -8,7 +8,7 @@
  */
 import { DATE_TARGET_ROLE } from "@kb/contracts";
 import { Role, Service } from "@kb/plugin";
-import { callPageRole } from "./plugins.ts";
+import { callPageRole, defaultElected } from "./plugins.ts";
 
 /** The node `date` (`YYYY-MM-DD`) opens, or null when it leads nowhere. */
 export type DateTarget = (date: string) => Promise<string | null>;
@@ -25,6 +25,15 @@ export const leadsNowhere: DateTarget = () => Promise.resolve(null);
 
 /** How long the elected provider may take before the next candidate answers. */
 const DATE_TARGET_BUDGET_MS = 5_000;
+
+/**
+ * Whether a date leads anywhere: a provider other than core's, whose dates
+ * lead nowhere, is elected. What offers a date as a place to go (the
+ * text's `@`) offers none while this is false.
+ */
+export function datesLead(): boolean {
+  return !defaultElected(DateTargetRole);
+}
 
 /**
  * The node `date` leads to now, or null. Rejects when no candidate

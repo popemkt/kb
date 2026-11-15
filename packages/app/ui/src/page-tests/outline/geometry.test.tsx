@@ -178,7 +178,9 @@ describe("Row decorations start at the indent, not the container edge", () => {
         content: createElement("div", { className: "kb-text" }, "text"),
       }),
     );
-    expect(html).toContain("bg-primary/5");
+    // One surface: the tint is the row's alone, on the box its focus ring is
+    // drawn on, so the bullet and the text sit on one tone.
+    expect(html.match(/bg-primary\/\d+/g)).toEqual(["bg-primary/8"]);
     expect(html).toContain("focus-visible:ring-2");
     expect(html).toMatch(/margin-left:\s*calc\(2 \* var\(--kb-indent\)\)/);
     expect(html).not.toMatch(/padding-left/);

@@ -9,6 +9,7 @@ import {
   pageTitleInstanceKey,
   schemaZoomKind,
   textOr,
+  useFocusReturn,
 } from "@kb/ui-sdk";
 import { listNodeCommands, runCommand } from "@/lib/commands";
 import {
@@ -82,7 +83,6 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
-  const restoreFocusRef = useRef<HTMLElement | null>(null);
   /*
    * Index once per graph load — not per keystroke.
    *
@@ -123,17 +123,12 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
    * handles another event. Deferring it a frame lost whatever was typed right
    * after ⌘K to the element that had focus before.
    */
+  useFocusReturn(open);
   useLayoutEffect(() => {
-    if (!open) return undefined;
-    restoreFocusRef.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (!open) return;
     setQuery("");
     setActive(0);
     inputRef.current?.focus();
-    return () => {
-      restoreFocusRef.current?.focus();
-      restoreFocusRef.current = null;
-    };
   }, [open]);
 
   useEffect(() => {

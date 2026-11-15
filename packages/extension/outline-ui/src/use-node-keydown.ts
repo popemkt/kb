@@ -4,7 +4,7 @@ import {
   currentKeymap,
   keyChordEvent,
   getCaretSerializedOffset,
-  isQueryResultInstance,
+  isProjectedRow,
   readCaretGeometry,
   rowTextOf,
   shownNode,
@@ -37,7 +37,7 @@ function readEditingContext(args: {
   const parentId = live?.parentId ?? null;
   const parent = parentId === null ? undefined : outlineNodes().get(parentId);
   return {
-    isQueryResult: isQueryResultInstance(instanceKey),
+    projectedRow: isProjectedRow(instanceKey),
     nodeId,
     instanceKey,
     // Serialized caret offset — robust across element boundaries and atomic

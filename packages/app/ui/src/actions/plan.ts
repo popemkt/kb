@@ -13,7 +13,7 @@ import {
   type Writable,
   SYSTEM_IDS,
 } from "@kb/model";
-import { forestRootIds, type PropValue } from "@kb/ui-sdk";
+import { forestRootIds, type MovePlace, type PropValue } from "@kb/ui-sdk";
 import {
   FRAME_VIEW_FAMILY,
   frameSettingWrite,
@@ -36,8 +36,13 @@ function requireNode(nodes: WireNode[], id: string): WireNode {
   if (!node) throw new Error(`node not found: ${id}`);
   return node;
 }
+/** One `node.update` of `id`. */
+const updateOf = (id: string, input: Record<string, unknown>): ActionRequest => ({
+  id: "node.update",
+  input: { id, ...input },
+});
 const update = (id: string, input: Record<string, unknown>): PlannedMutation =>
-  plan({ id: "node.update", input: { id, ...input } });
+  plan(updateOf(id, input));
 
 /**
  * Replace fields' values as one `node.update`: `node.update` removes before it
@@ -134,39 +139,191 @@ export function planMergeWithPrevious(nodes: WireNode[], id: string): PlannedMut
   const previous = index > 0 ? parent.children[index - 1] : undefined;
   return previous === undefined ? null : planMergeInto(nodes, id, previous);
 }
-export function planIndent(nodes: WireNode[], id: string): PlannedMutation | null {
-  const parent = findParentWire(nodes, id);
+/**
+ * Where a block sits: `ids`, in order, as one run of siblings — one parent
+ * (null: the forest roots) and none skipped between them. Null when they
+ * are not one.
+ */
+function runOf(
+  nodes: WireNode[],
+  ids: readonly string[],
+): { parent: WireNode | null; siblings: string[]; first: number; last: number } | null {
+  const [head] = ids;
+  if (head === undefined) return null;
+  const parent = findParentWire(nodes, head);
   const siblings = parent?.children ?? forestRootIds(nodes);
-  const index = siblings.indexOf(id);
-  const previous = index > 0 ? siblings[index - 1] : undefined;
-  return previous === undefined
-    ? null
-    : update(id, { parent: previous, position: requireNode(nodes, previous).children.length });
+  const first = siblings.indexOf(head);
+  if (first < 0) return null;
+  const run = ids.every((id, j) => siblings[first + j] === id);
+  return run ? { parent, siblings, first, last: first + ids.length - 1 } : null;
 }
-export function planOutdent(nodes: WireNode[], id: string): PlannedMutation | null {
-  const parent = findParentWire(nodes, id);
-  if (!parent) return null;
-  const grand = findParentWire(nodes, parent.id)?.id ?? null;
-  return update(id, {
-    parent: grand,
-    position: groupIds(nodes, grand, id).indexOf(parent.id) + 1,
-  });
+
+/**
+ * Indent a block (`runOf`) under the sibling before it, after that
+ * sibling's own children, in order: one `node.update` per row, each placed
+ * after the one before it.
+ */
+export function planIndent(nodes: WireNode[], ids: readonly string[]): PlannedMutation | null {
+  const run = runOf(nodes, ids);
+  if (run === null) return null;
+  const previous = run.siblings[run.first - 1];
+  if (previous === undefined) return null;
+  const base = requireNode(nodes, previous).children.length;
+  return plan(...ids.map((id, j) => updateOf(id, { parent: previous, position: base + j })));
 }
+
+/** Outdent a block (`runOf`) to just after its parent, in order. */
+export function planOutdent(nodes: WireNode[], ids: readonly string[]): PlannedMutation | null {
+  const run = runOf(nodes, ids);
+  const [head] = ids;
+  if (run === null || run.parent === null || head === undefined) return null;
+  const grand = findParentWire(nodes, run.parent.id)?.id ?? null;
+  const base = groupIds(nodes, grand, head).indexOf(run.parent.id) + 1;
+  return plan(...ids.map((id, j) => updateOf(id, { parent: grand, position: base + j })));
+}
+
+/**
+ * Move a block (`runOf`) one step: past the sibling above it, or below it.
+ * Visible roots are a subsequence of the root group (fields, tags and
+ * `sys.*` roots sit in it unseen), so a position is an index in the whole
+ * group. Going up, each row takes the neighbour's place, in order; going
+ * down, each takes the place after it, last row first, so every row is
+ * planned over the ones placed before it (`node.batch`).
+ */
 export function planMove(
   nodes: WireNode[],
-  id: string,
+  ids: readonly string[],
   direction: "up" | "down",
 ): PlannedMutation | null {
-  const parent = findParentWire(nodes, id);
-  const siblings = parent?.children ?? forestRootIds(nodes);
-  const index = siblings.indexOf(id);
-  const neighbour = siblings[direction === "up" ? index - 1 : index + 1];
-  if (index < 0 || neighbour === undefined) return null;
-  // Visible roots are a subsequence of the root group (fields, tags and
-  // `sys.*` roots sit in it unseen), so the position is the neighbour's index
-  // in the whole group: before it going up, after it going down.
-  const group = groupIds(nodes, parent?.id ?? null, id);
-  return update(id, { position: group.indexOf(neighbour) + (direction === "up" ? 0 : 1) });
+  const run = runOf(nodes, ids);
+  const head = ids[0];
+  const tail = ids.at(-1);
+  if (run === null || head === undefined || tail === undefined) return null;
+  const parent = run.parent?.id ?? null;
+  if (direction === "up") {
+    const neighbour = run.siblings[run.first - 1];
+    if (neighbour === undefined) return null;
+    const at = groupIds(nodes, parent, head).indexOf(neighbour);
+    return plan(...ids.map((id, j) => updateOf(id, { position: at + j })));
+  }
+  const neighbour = run.siblings[run.last + 1];
+  if (neighbour === undefined) return null;
+  const after = groupIds(nodes, parent, tail).indexOf(neighbour) + 1;
+  return plan(...ids.toReversed().map((id, i) => updateOf(id, { position: after - i })));
+}
+
+/**
+ * The sibling groups a plan of moves walks, as each write in it finds them
+ * (`node.batch` plans its calls in order): a node leaves its group and joins
+ * another at a position counted in the group as it stands then. A group is
+ * its parent's whole child list, or the whole root group (fields, tags and
+ * `sys.*` roots among it), as a position counts it.
+ */
+class Groups {
+  private readonly lists = new Map<string | null, string[]>();
+  private readonly parents = new Map<string, string | null>();
+  private readonly nodes: WireNode[];
+  constructor(nodes: WireNode[]) {
+    this.nodes = nodes;
+  }
+
+  of(parent: string | null): string[] {
+    const held = this.lists.get(parent);
+    if (held !== undefined) return held;
+    const list = siblingSlots(this.nodes, parent).map((node) => node.id);
+    this.lists.set(parent, list);
+    return list;
+  }
+
+  parentOf(id: string): string | null {
+    const known = this.parents.get(id);
+    return known !== undefined ? known : (findParentWire(this.nodes, id)?.id ?? null);
+  }
+
+  /** Take `id` out of its group: its place in it before. */
+  leave(id: string): { parent: string | null; at: number } {
+    const parent = this.parentOf(id);
+    const list = this.of(parent);
+    const at = list.indexOf(id);
+    if (at >= 0) list.splice(at, 1);
+    return { parent, at };
+  }
+
+  join(id: string, parent: string | null, at: number): void {
+    this.of(parent).splice(at, 0, id);
+    this.parents.set(id, parent);
+  }
+}
+
+/** Whether `place` is `ids` or under one of them: no row moves under itself. */
+function underAny(nodes: WireNode[], ids: readonly string[], place: string | null): boolean {
+  const moved = new Set(ids);
+  for (let at: string | null = place; at !== null; at = findParentWire(nodes, at)?.id ?? null) {
+    if (moved.has(at)) return true;
+  }
+  return false;
+}
+
+/** Where the first row moved goes in `into`: after `after` (null: first; absent: the end); null when `after` is not there. */
+function firstSlot(into: readonly string[], after: string | null | undefined): number | null {
+  if (after === undefined) return into.length;
+  if (after === null) return 0;
+  const i = into.indexOf(after);
+  return i < 0 ? null : i + 1;
+}
+
+/**
+ * Move `ids`, in order, under `place.parent`, after `place.after` (null:
+ * first; absent: at the end), one `node.update` each, so the batch they go
+ * in places each after the one before it (DESIGN-UI.md → Outline editor,
+ * "A row moves anywhere"). With `referenceIds`, each row leaves a
+ * reference (`sys.f.ref.target`) where it was, made in the same write.
+ * Null when the place is under a row moved, its `after` is not in it, or
+ * the rows are there already.
+ */
+export function planMoveNodes(
+  nodes: WireNode[],
+  ids: readonly string[],
+  place: MovePlace,
+  referenceIds: readonly string[] = [],
+): PlannedMutation | null {
+  if (ids.length === 0 || underAny(nodes, ids, place.parent)) return null;
+  const groups = new Groups(nodes);
+  const before = [...groups.of(place.parent)];
+  const actions: ActionRequest[] = [];
+  let next: number | null = null;
+  for (const [j, id] of ids.entries()) {
+    const left = groups.leave(id);
+    const into = groups.of(place.parent);
+    const at0 = next ?? firstSlot(into, place.after);
+    if (at0 === null) return null;
+    let at: number = at0;
+    groups.join(id, place.parent, at);
+    actions.push(updateOf(id, { parent: place.parent, position: at }));
+    const reference = referenceIds[j];
+    if (reference !== undefined) {
+      // The place it left, counted again if it was in the group it joined.
+      const slot = left.parent === place.parent && at <= left.at ? left.at + 1 : left.at;
+      groups.join(reference, left.parent, slot);
+      actions.push({
+        id: "node.add",
+        input: {
+          id: reference,
+          text: "",
+          parent: left.parent,
+          position: slot,
+          props: [{ field: SYSTEM_IDS.refTargetField, value: { t: "ref", v: id } }],
+        },
+      });
+      at = groups.of(place.parent).indexOf(id);
+    }
+    next = at + 1;
+  }
+  const unmoved =
+    referenceIds.length === 0 &&
+    ids.every((id) => before.includes(id)) &&
+    groups.of(place.parent).every((id, i) => id === before[i]);
+  return unmoved ? null : plan(...actions);
 }
 
 /** Add `value`, replacing `oldValue` in the same `node.update` when given. */
@@ -253,8 +410,8 @@ export function planPinNode(
         input: {
           id,
           text: "",
+          // At the end: two pins planned over one graph land in order.
           parent: SYSTEM_IDS.pinnedRoot,
-          position: list.children.length,
           props: [{ field: SYSTEM_IDS.refTargetField, value: { t: "ref", v: targetId } }],
         },
       },

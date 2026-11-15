@@ -14,10 +14,12 @@ import {
   PickerList,
   type PickerRow,
   pickerRows,
+  rowsAbout,
   schemaOf,
   useContributions,
   useAnswers,
   useDebugFieldIds,
+  useFocusReturn,
   usePageGraph,
   usePickerKeys,
 } from "@kb/ui-sdk";
@@ -61,6 +63,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
 
   const selectedNodeId = useOutlineStore((s) => s.selectedNodeId);
+  const selectedNodeIds = useOutlineStore((s) => s.selectedNodeIds);
   const activeNodeId = useOutlineStore((s) => s.activeNodeId);
   // The instance it was opened on: a row, or the page's title.
   const targetInstanceKey = useOutlineStore((s) => s.activeInstanceKey ?? s.selectedInstanceKey);
@@ -69,6 +72,9 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
   const wireNodes = usePageGraph((s) => s.wireNodes);
 
   const targetNodeId = activeNodeId ?? selectedNodeId;
+  // Every row the menu is about: the selection's, anchored at its head
+  // (DESIGN-UI.md → Outline editor, "A selection is a range of rows").
+  const targetNodeIds = rowsAbout(targetNodeId, selectedNodeIds);
 
   /*
    * Anchor, reset and focus all run as layout effects, in the commit that
@@ -91,6 +97,8 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
     }
   }, [open]);
 
+  // Closed, it gives the focus back to the row or editor it opened from.
+  useFocusReturn(open);
   useLayoutEffect(() => {
     if (open && anchorRect) inputRef.current?.focus();
   }, [open, anchorRect]);
@@ -108,7 +116,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
   useDebugFieldIds();
   useAnswers();
   const commands = browserHost().nodeCommands(
-    { nodeId: targetNodeId, frameId: targetNodeId },
+    { nodeId: targetNodeId, frameId: targetNodeId, nodeIds: targetNodeIds },
     palette,
   );
   const picker = stepOf(steps, step);
@@ -118,27 +126,31 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
   const candidates: PickerCandidate[] =
     picker === null
       ? commands.map((c) => ({ id: c.id, label: c.label }))
-      : picker.candidates({ nodes, wireNodes, anchorId: targetNodeId });
+      : picker.candidates({ nodes, wireNodes, anchorId: targetNodeId, targetNodeIds });
   const rows = pickerRows(candidates, {
     query,
     canCreate: picker?.createLabel !== undefined,
     limit: picker?.limit,
   });
 
-  const handleSelect = (row: PickerRow | null) => {
+  const handleSelect = (row: PickerRow | null, alternate = false) => {
     if (row === null) return;
     if (picker === null) {
       commands.find((c) => c.id === row.id)?.run();
       return;
     }
     if (targetNodeId === null) return;
-    void picker.commit({
+    const pick = {
       targetNodeId,
+      targetNodeIds,
       schema,
       pickedId: row.id,
       creating: row.id === CREATE_ROW_ID,
       name: query.trim(),
-    });
+      alternate: alternate && picker.alternate !== undefined,
+    };
+    // The step writes to every row as one write itself (`asOneWrite`).
+    void picker.commit(pick);
     onClose();
   };
 
@@ -244,13 +256,21 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
           />
         </div>
 
-        <div className="flex items-center gap-3 border-t border-foreground/[0.06] px-3 py-1.5 text-caption text-foreground/20">
-          <span>↑↓ navigate</span>
-          <span>↵ select</span>
-          <span>esc {picker === null ? "close" : "back"}</span>
-        </div>
+        <PaletteKeys step={picker} />
       </div>
     </>,
     document.body,
+  );
+}
+
+/** The keys the menu answers, under its list: a step's alternate pick among them. */
+function PaletteKeys({ step }: { readonly step: PaletteStep | null }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 border-t border-foreground/[0.06] px-3 py-1.5 text-caption text-foreground/20">
+      <span>↑↓ navigate</span>
+      <span>↵ select</span>
+      {step?.alternate !== undefined && <span>⌥↵ {step.alternate}</span>}
+      <span>esc {step === null ? "close" : "back"}</span>
+    </div>
   );
 }

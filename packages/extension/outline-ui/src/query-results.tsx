@@ -17,7 +17,7 @@ import type { ReactNode } from "react";
 import {
   hasText,
   indentStyle,
-  queryResultInstanceKey,
+  projectedRowKey,
   resultNodeIds,
   useGraphRead,
   useQueryRows,
@@ -155,7 +155,7 @@ export function QueryResultsSection({
         </p>
       ) : (
         ids.map((id) => {
-          const key = queryResultInstanceKey(nodeId, id);
+          const key = projectedRowKey(nodeId, id);
           return renderNode({
             nodeId: id,
             instanceKey: key,

@@ -80,7 +80,7 @@
       "@kb/appearance-kit": 41,
       "@kb/scene": 13,
       "@kb/scene-gpu": 35,
-      "@kb/ui-sdk": 505,
+      "@kb/ui-sdk": 516,
       "@kb/ui-test-kit": 26
     },
     "family-names": {
@@ -124,7 +124,6 @@
       "kit/ui-sdk/src/lib/bullet-mode.test.ts": 4,
       "kit/ui-sdk/src/lib/bullet-mode.ts": 6,
       "kit/ui-sdk/src/lib/command-forms.tsx": 3,
-      "kit/ui-sdk/src/lib/command-point.ts": 1,
       "kit/ui-sdk/src/lib/form-icons.ts": 1,
       "kit/ui-sdk/src/lib/frame-view.ts": 1,
       "kit/ui-sdk/src/lib/graph-label.ts": 3,
@@ -135,22 +134,23 @@
       "kit/ui-sdk/src/lib/md-inline.ts": 3,
       "kit/ui-sdk/src/lib/node-sections-scope.test.ts": 4,
       "kit/ui-sdk/src/lib/page-graph.test.ts": 7,
-      "kit/ui-sdk/src/lib/page-ports.ts": 3,
       "kit/ui-sdk/src/lib/pinned-nav.test.ts": 6,
       "kit/ui-sdk/src/lib/pinned.test.ts": 16,
-      "kit/ui-sdk/src/lib/plugins.ts": 1,
       "kit/ui-sdk/src/lib/refusal.test.ts": 3,
       "kit/ui-sdk/src/lib/router.ts": 1,
       "kit/ui-sdk/src/lib/schema.ts": 4,
       "kit/ui-sdk/src/lib/tag-color.test.ts": 5,
       "kit/ui-sdk/src/lib/tag-color.ts": 6,
       "kit/ui-sdk/src/lib/graph-view.ts": 5,
+      "kit/ui-sdk/src/lib/command-point.ts": 1,
+      "kit/ui-sdk/src/lib/page-ports.ts": 3,
+      "kit/ui-sdk/src/lib/plugins.ts": 1,
       "kit/ui-sdk/src/sandbox-run.ts": 5
     },
     "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2784190,
-      "modules": 738
+      "bytes": 2787830,
+      "modules": 739
     },
     "single-family": {
       "contract/sandbox/src/snapshot.ts": 1,
@@ -172,7 +172,7 @@
       "react/exhaustive-effect-dependencies": 7,
       "react/globals": 1,
       "react/memo-dependencies": 2,
-      "react/refs": 9,
+      "react/refs": 7,
       "react/set-state-in-effect": 11
     },
     "advisory": {},

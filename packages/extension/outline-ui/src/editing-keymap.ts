@@ -19,11 +19,11 @@ import type { VisibleInstance } from "./visible-instances";
 /** What the row looks like to the keymap. Offsets are SERIALIZED offsets. */
 export interface EditingKeyContext {
   /**
-   * The row is a query result (`isQueryResultInstance`): its place under the
-   * query is computed, so there is no child edge for a structural chord to
+   * The row is a projected row (`isProjectedRow`): its place under its
+   * source is computed, so there is no child edge for a structural chord to
    * move, split or merge.
    */
-  readonly isQueryResult: boolean;
+  readonly projectedRow: boolean;
   readonly nodeId: string;
   readonly instanceKey: string;
   readonly cursor: number;
@@ -101,8 +101,8 @@ type IntentOf = (ctx: EditingKeyContext) => EditingIntent | null;
 const CLAIM: EditingIntent = { type: "claim" };
 
 /**
- * An intent that restructures the outline, which a query-result row
- * swallows where `swallows` holds. A result's place under the query is
+ * An intent that restructures the outline, which a projected row
+ * swallows where `swallows` holds. Its place under its source is
  * computed, not a child edge, so a structural edit would restructure the
  * node's real home — rows the user is not looking at.
  */
@@ -110,7 +110,7 @@ function structural(
   intent: IntentOf,
   swallows: (ctx: EditingKeyContext) => boolean = () => true,
 ): IntentOf {
-  return (ctx) => (ctx.isQueryResult && swallows(ctx) ? CLAIM : intent(ctx));
+  return (ctx) => (ctx.projectedRow && swallows(ctx) ? CLAIM : intent(ctx));
 }
 
 /** Delete the subtree and hand focus to a surviving neighbour. */

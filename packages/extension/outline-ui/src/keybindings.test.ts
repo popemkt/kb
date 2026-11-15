@@ -128,8 +128,9 @@ describe("a binding that replaces a held one", () => {
     expect(keymap.refused).toEqual([]);
     expect(keymap.resolve({ key: "ArrowUp", altKey: true })?.id).toBe("keys.move-up");
     expect(keymap.resolve({ key: "ArrowUp" })?.id).toBe("outline.selection.up");
+    // With Shift held, the chord is extend-up's, which it does not replace.
     expect(keymap.resolve({ key: "ArrowUp", altKey: true, shiftKey: true })?.id).toBe(
-      "outline.selection.up",
+      "outline.selection.extend-up",
     );
   });
 
@@ -223,7 +224,10 @@ describe("a binding that replaces a held one", () => {
     ]);
     const right = admitKeybindings(
       SELECTION_KEY_CONTEXT,
-      outlineKeybindings(moveWithAlt, replace("wide", "Alt-Shift-ArrowUp", "outline.selection.up")),
+      outlineKeybindings(
+        moveWithAlt,
+        replace("wide", "Alt-Shift-ArrowUp", "outline.selection.extend-up"),
+      ),
       ANYONE,
     );
     expect(right.refused).toEqual([]);

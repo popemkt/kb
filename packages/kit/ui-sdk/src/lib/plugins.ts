@@ -65,6 +65,11 @@ export function replacementApproved(owner: string, role: string): boolean {
   return uiKernel.replacementApproved(owner, role);
 }
 
+/** Whether a page role's elected provider is its owner's default, no replacement standing in. */
+export function defaultElected(role: RoleKey<unknown>): boolean {
+  return uiKernel.role(role)?.default ?? true;
+}
+
 /** Role consumers get a stable boundary rather than the unguarded implementation. */
 export function useRole<P extends object>(role: RoleKey<ComponentType<P>>): ComponentType<P> {
   return roleComponent(uiKernel, role);
