@@ -4902,8 +4902,10 @@ as they are, since a person's Cloud project registered them.
   - **still** would be the line as said, with no actions of its own and
     nothing that changes as time passes;
   - **live** is the view's controls acting in place: Done, Skip and Move…
-    show at the line's end while it is hovered or holds focus, as the
-    box's own choices (`instanceChoices`, one list for both), and Move…
+    show over the line's end while it is hovered or holds focus, on its
+    own ground faded in from the left, so showing them never makes the
+    line taller or moves what is below it. They are the box's own choices
+    (`instanceChoices`, one list for both) in their short words, and Move…
     floats the box with its move fields open. On a screen that cannot
     hover they stay in the box. Before the instance starts, within a day,
     the line leads with how soon ("in 20 min"); while it runs, with how

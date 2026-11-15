@@ -11,6 +11,8 @@ import type { CalendarEntry } from "@kb/routines";
 export interface InstanceChoice {
   readonly id: "done" | "skip" | "move";
   readonly label: string;
+  /** What it says where there is little room, as on the event's line: the same, or shorter. */
+  readonly short: string;
   readonly primary: boolean;
 }
 
@@ -19,12 +21,27 @@ export function instanceChoices(entry: CalendarEntry): readonly InstanceChoice[]
   const done = entry.state === "done";
   const skipped = entry.state === "skipped";
   return [
-    { id: "done", label: done ? "Not done" : "Done", primary: !done },
-    { id: "skip", label: skipped ? "Bring back" : "Skip", primary: false },
+    {
+      id: "done",
+      label: done ? "Not done" : "Done",
+      short: done ? "Not done" : "Done",
+      primary: !done,
+    },
+    {
+      id: "skip",
+      label: skipped ? "Bring back" : "Skip",
+      short: skipped ? "Bring back" : "Skip",
+      primary: false,
+    },
     ...(skipped
       ? []
       : [
-          { id: "move", label: entry.series ? "Move this one…" : "Move…", primary: false } as const,
+          {
+            id: "move",
+            label: entry.series ? "Move this one…" : "Move…",
+            short: "Move…",
+            primary: false,
+          } as const,
         ]),
   ];
 }

@@ -105,7 +105,8 @@ test("an event's preview is one line at the row's indent, its choices on hover, 
   await line.hover();
   await expect(done).toBeVisible();
 
-  await line.locator("[data-event-line-open]").click();
+  // Pressed at its start, where its choices never lie.
+  await line.getByText("Personal", { exact: true }).click();
   const floated = page.getByTestId("entry-popover");
   await expect(floated.getByRole("button", { name: "Done", exact: true })).toBeVisible();
   const preview = await widthOf(floated);
@@ -145,3 +146,38 @@ test("on a phone the line wraps after the time, and the time stays whole", async
   const start = await line.locator("[data-event-line-part] > span").first().boundingBox();
   expect(Math.abs((start?.x ?? 0) - repeat.x)).toBeLessThanOrEqual(1);
 });
+
+// The choices lie over the line's end, so showing them, on hover or on focus,
+// never makes the line taller or moves what is below it, however long the
+// repeat and however narrow the page.
+for (const [name, width, scheme] of [
+  ["light", 1100, "light"],
+  ["dark", 1100, "dark"],
+  ["a phone", 360, "light"],
+] as const) {
+  test(`in ${name}, showing the line's choices keeps its height`, async ({ page, request }) => {
+    await page.setViewportSize({ width, height: 740 });
+    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+    await page.clock.setFixedTime(new Date("2026-11-14T10:00:00"));
+    const id = await seedEvent(request, "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR,SA,SU");
+    await page.goto(`/node/${ROOT}`);
+    const line = await lineOf(page, id);
+    await expect(line.locator("[data-event-line-repeat]")).toContainText(
+      "Every week on Mon, Tue, Wed, Thu, Fri, Sat, Sun",
+    );
+    const choices = line.locator("[data-event-line-choice]");
+    await expect(choices.first()).toBeHidden();
+    const height = (await line.boundingBox())?.height;
+    expect(height).toBeGreaterThan(0);
+
+    await line.hover();
+    await expect(choices.last()).toBeVisible();
+    expect(await choices.allTextContents()).toEqual(["Done", "Skip", "Move…"]);
+    expect((await line.boundingBox())?.height).toBe(height);
+
+    await page.mouse.move(0, 0);
+    await line.locator("[data-event-line-open]").focus();
+    await expect(choices.last()).toBeVisible();
+    expect((await line.boundingBox())?.height).toBe(height);
+  });
+}

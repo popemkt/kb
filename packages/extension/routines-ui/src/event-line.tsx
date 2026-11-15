@@ -23,7 +23,7 @@ const STATE_TEXT = { moved: "Moved", done: "Done", skipped: "Skipped" } as const
 
 /** The line's look: muted, in the label type, lit while it is hovered. */
 const LINE_CLASS =
-  "group/line relative flex max-w-full cursor-pointer flex-wrap items-center gap-x-1.5 rounded-md px-1.5 py-0.5 text-label text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground";
+  "group/line relative flex max-w-full cursor-pointer flex-wrap items-center gap-x-1.5 rounded-md px-1.5 py-0.5 text-label text-muted-foreground focus-within:bg-foreground/[0.04] hover:bg-foreground/[0.04] hover:text-foreground";
 
 /**
  * One of the line's parts, which keeps whole and brings the separator before
@@ -110,6 +110,51 @@ function Described({
   );
 }
 
+/**
+ * A live line's choices, in their short words, over the end of its last row
+ * while the line is hovered or holds focus. They lie over the line rather
+ * than in it, so showing them never moves a part or the rows below: the
+ * line's own ground, faded in from the left, hides what they cover.
+ */
+function Choices({
+  entry,
+  actions,
+  onMove,
+}: {
+  readonly entry: CalendarEntry;
+  readonly actions: EventCardActions;
+  readonly onMove: () => void;
+}) {
+  return (
+    <span
+      className="absolute right-0 bottom-0 isolate hidden h-full max-h-5 items-center gap-1 pl-4 group-focus-within/line:flex group-hover/line:flex"
+      data-event-line-choices=""
+    >
+      <span
+        aria-hidden
+        className="absolute inset-0 -z-10 bg-background [mask-image:linear-gradient(to_right,transparent,var(--foreground)_1rem)]"
+      >
+        <span className="absolute inset-0 bg-foreground/[0.04]" />
+      </span>
+      {instanceChoices(entry).map((choice) => (
+        <button
+          key={choice.id}
+          type="button"
+          data-event-line-choice={choice.id}
+          className="h-5 shrink-0 rounded-sm border border-border px-1.5 text-caption text-foreground hover:bg-foreground/[0.06]"
+          onClick={(event) => {
+            event.stopPropagation();
+            if (choice.id === "move") onMove();
+            else actions.setState(entry, chosenState(entry, choice.id));
+          }}
+        >
+          {choice.short}
+        </button>
+      ))}
+    </span>
+  );
+}
+
 export function EventLine({
   routine,
   entry,
@@ -148,18 +193,23 @@ export function EventLine({
     >
       {/* The link keeps to the line's last row, as the sync state does inside the press. */}
       <span className="inline-flex max-w-full min-w-0 items-end gap-x-1.5">
-        <button
-          type="button"
-          aria-haspopup="dialog"
-          className="flex min-w-0 flex-wrap items-center gap-x-1.5 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-          data-event-line-open=""
-        >
-          {entry === null ? (
-            <span data-event-no-instance="">No instance from today on</span>
-          ) : (
-            <Described entry={entry} model={model} zone={zone} lead={moment?.text ?? null} />
+        <span className="relative min-w-0">
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            className="flex min-w-0 flex-wrap items-center gap-x-1.5 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+            data-event-line-open=""
+          >
+            {entry === null ? (
+              <span data-event-no-instance="">No instance from today on</span>
+            ) : (
+              <Described entry={entry} model={model} zone={zone} lead={moment?.text ?? null} />
+            )}
+          </button>
+          {!live || entry === null ? null : (
+            <Choices entry={entry} actions={actions} onMove={() => open(true)} />
           )}
-        </button>
+        </span>
         {entry?.status?.url === undefined ? null : (
           <a
             className="shrink-0 pb-0.5 text-faint-foreground hover:text-primary"
@@ -174,25 +224,6 @@ export function EventLine({
           </a>
         )}
       </span>
-      {!live || entry === null ? null : (
-        <span className="ml-1 hidden items-center gap-1 group-hover/line:inline-flex group-focus-within/line:inline-flex">
-          {instanceChoices(entry).map((choice) => (
-            <button
-              key={choice.id}
-              type="button"
-              data-event-line-choice={choice.id}
-              className="h-5 rounded-sm border border-border px-1.5 text-caption text-foreground hover:bg-background"
-              onClick={(event) => {
-                event.stopPropagation();
-                if (choice.id === "move") open(true);
-                else actions.setState(entry, chosenState(entry, choice.id));
-              }}
-            >
-              {choice.label}
-            </button>
-          ))}
-        </span>
-      )}
       {moment?.progress === null || moment === null ? null : (
         <span
           aria-hidden

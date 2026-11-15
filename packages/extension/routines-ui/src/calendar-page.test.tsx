@@ -860,7 +860,8 @@ describe("an event on its own", () => {
 
   test("live, the box's own choices act in place on the line, and Move… floats the box ready to move", async () => {
     openEvent("gym", [CALENDAR, GYM], true);
-    expect(lineChoices()).toEqual(["Done", "Skip", "Move this one…"]);
+    // The line says the list's short words; the box says "Move this one…" of a series.
+    expect(lineChoices()).toEqual(["Done", "Skip", "Move…"]);
     await click($('[data-event-line-choice="done"]'));
     const [add] = writes();
     expect([propOf(add, F.on), propOf(add, F.state)]).toEqual([
@@ -868,7 +869,7 @@ describe("an event on its own", () => {
       [routineOption("state", "done")],
     ]);
     expect($("[data-event-line] [data-entry-state]").textContent).toBe("Done");
-    expect(lineChoices()).toEqual(["Not done", "Skip", "Move this one…"]);
+    expect(lineChoices()).toEqual(["Not done", "Skip", "Move…"]);
     expect(document.querySelector('[data-testid="entry-popover"]')).toBeNull();
     await click($('[data-event-line-choice="move"]'));
     expect($('[data-testid="entry-popover"] [data-move-form]')).toBeDefined();
