@@ -26,6 +26,7 @@
 import { ulid } from "ulid";
 import {
   ArrowBendDownRightIcon,
+  ArrowsSplitIcon,
   ArrowBendUpLeftIcon,
   ArrowRightIcon,
   ArrowsOutLineVerticalIcon,
@@ -552,6 +553,14 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     many: true,
     chrome: () => ({ label: "Move to…", icon: <ArrowBendDownRightIcon size={14} /> }),
     run: (ctx) => ctx.palette.openStep("outline.move-to"),
+  },
+  {
+    // The same move, leaving a reference by name rather than by Alt.
+    id: "move-leaving-reference",
+    menu: nodeMenu("arrange", 35),
+    many: true,
+    chrome: () => ({ label: "Move and leave reference…", icon: <ArrowsSplitIcon size={14} /> }),
+    run: (ctx) => ctx.palette.openStep("outline.move-leaving-reference"),
   },
   {
     // Pinning is listing (lib/pinned); the label is the current state so the

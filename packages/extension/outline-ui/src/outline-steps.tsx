@@ -218,6 +218,12 @@ function moveStep(words: MoveWords, leavesReference: "enter" | "alt"): PaletteSt
 /** Move to…: Enter moves the rows; Alt+Enter leaves a reference where each was. */
 const moveTo = moveStep({ label: "Move to", alternate: "leave a reference" }, "alt");
 
+/** Move and leave reference…: the same move, the reference left on Enter; Alt+Enter moves only. */
+const moveLeavingReference = moveStep(
+  { label: "Move and leave reference", alternate: "move only" },
+  "enter",
+);
+
 /**
  * The outline's steps. Each is opened by its id in the outline's namespace,
  * `outline.add-tag` and so on, as any contribution is named.
@@ -229,6 +235,7 @@ export const OUTLINE_STEPS: readonly ContributionEntry<PaletteStep>[] = [
   { id: "set-field", value: setField },
   { id: "add-ref", value: addRef },
   { id: "move-to", value: moveTo },
+  { id: "move-leaving-reference", value: moveLeavingReference },
   { id: "expand-reference", value: expandReference },
   { id: "remove-reference", value: removeReference },
 ];

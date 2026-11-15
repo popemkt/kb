@@ -3,8 +3,9 @@
 // A row moves anywhere (DESIGN-UI.md → Outline editor), end to end in a
 // browser: Move to… from the node menu puts a range of rows under the node
 // picked as one write the server stores, the range still selected where it
-// went; one undo takes it back; Alt+Enter leaves a reference where each was;
-// and a row moved where it is not drawn is said, in a toast that is news.
+// went; one undo takes it back; Alt+Enter leaves a reference where each was,
+// as Enter does in Move and leave reference…; and a row moved where it is
+// not drawn is said, in a toast that is news.
 import type { APIRequestContext, Page } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
 
@@ -118,6 +119,38 @@ test("Alt+Enter in Move to… leaves a reference where the row was", async ({ pa
   expect(reference.props["sys.f.ref.target"]?.[0]?.v).toBe(moving);
   // The reference is what is selected, where the row was.
   await expect(row(page, left)).toHaveAttribute("aria-selected", "true");
+});
+
+test("Move and leave reference… leaves one on Enter, one undo taking both back", async ({
+  page,
+  request,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const moving = await add(request, "Row moved by name");
+  const after = await add(request, "Row after the named move");
+  const shelf = await add(request, "Shelf for named moves");
+  await page.goto(`/node/${ROOT}`);
+
+  await selectDown(page, moving, 0);
+  await page.keyboard.press("ControlOrMeta+k");
+  const menu = page.getByRole("dialog", { name: "Node commands" });
+  await expect(menu.getByRole("option", { name: "Move and leave reference…" })).toBeVisible();
+  await page.keyboard.type("leave reference");
+  await page.keyboard.press("Enter");
+  const step = page.getByRole("dialog", { name: "Move and leave reference" });
+  await expect(step).toContainText("⌥↵ move only");
+  await page.keyboard.type("Shelf for named moves");
+  await expect(step.getByRole("option").first()).toContainText("Shelf for named moves");
+  await page.keyboard.press("Enter");
+  await expect.poll(() => childrenOf(request, shelf)).toEqual([moving]);
+  const top = await childrenOf(request, ROOT);
+  const left = top[top.indexOf(after) - 1] ?? "";
+  expect((await get(request, left)).props["sys.f.ref.target"]?.[0]?.v).toBe(moving);
+
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect.poll(() => childrenOf(request, shelf)).toEqual([]);
+  const back = await childrenOf(request, ROOT);
+  expect(back[back.indexOf(after) - 1]).toBe(moving);
 });
 
 test("Move to… a closed node says where the row went, as news", async ({ page, request }) => {

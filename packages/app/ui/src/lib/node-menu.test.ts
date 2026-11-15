@@ -355,7 +355,7 @@ describe("a node command over a range of rows", () => {
   it("offers Count words and Copy node ID over the range, read from every row", () => {
     const listed = listNodeCommands(over(["n.board", "n.plain"]));
     expect(listed.map((c) => c.id)).toEqual(
-      expect.arrayContaining(["count-words", "copy-node-id", "move-to"]),
+      expect.arrayContaining(["count-words", "copy-node-id", "move-to", "move-leaving-reference"]),
     );
     expect(listed.find((c) => c.id === "copy-node-id")?.label).toBe("Copy node IDs");
   });
