@@ -1309,12 +1309,15 @@ each with its **placement**: a row, a **chip** (shown *when filled* and
 empty, or *hidden*) or **tucked**.
 
 The outline draws a node's chips as one line after its rows
-(`FieldsSection`). Each chip is the field's type icon and its name, muted,
-so a hidden field's name shows without a click. The line stands on a field
-row's geometry: as tall as a field row, the first chip's icon centred in
-the glyph column and its name where field labels start. On a narrow pane
-it wraps onto more lines, and nothing in it changes size on hover or focus,
-so the rows below never move.
+(`FieldsSection`). Each chip is the field's type icon and its name, so a
+hidden field's name shows without a click. It reads as a chip, not a row:
+the secondary rows' muted small text (`text-meta`) on a subtle pill
+(`rounded-md`, `--foreground` at 5%, 10% on hover), 20px tall and tighter
+than a row's line. "…" is the last pill, square around its glyph. The line
+stands on a field row's geometry: as tall as a field row, the first chip's
+icon centred in the glyph column and its name where field labels start. On
+a narrow pane it wraps onto more lines, and nothing in it changes size on
+hover or focus, so the rows below never move.
 
 The node's tucked fields are not chips. One trailing "…" chip stands for
 them, named "N more fields". Its click, Enter or Space puts the tucked

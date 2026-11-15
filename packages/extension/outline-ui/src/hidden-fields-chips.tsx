@@ -38,10 +38,15 @@ interface HiddenFieldsChipsProps {
   onLeave: (way: "up" | "down" | "back") => void;
 }
 
-/** The chip classes: a field row's label ink, on the row's 24px line. */
+/**
+ * The chip classes: a pill of the secondary rows' muted small text, 20px
+ * tall and centred in the row's 24px line, so a line of chips is as tall as
+ * a field row and reads as something to open rather than as a row.
+ */
 const CHIP = cn(
-  "kb-text flex h-6 shrink-0 items-start rounded-sm pr-1 whitespace-nowrap touch-manipulation",
-  "text-faint-foreground hover:text-foreground/70",
+  "my-0.5 flex h-5 shrink-0 items-center rounded-md pr-2 whitespace-nowrap touch-manipulation",
+  "bg-foreground/5 text-meta leading-none text-muted-foreground",
+  "hover:bg-foreground/10 hover:text-foreground",
   "transition-colors duration-100 motion-reduce:transition-none",
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
 );
@@ -130,7 +135,7 @@ export function HiddenFieldsChips({
       aria-label={names.length > 0 ? `Hidden fields: ${names.join(", ")}` : "Hidden fields"}
       data-value-slot="true"
       data-hidden-fields={names.length}
-      className="flex flex-wrap items-start gap-x-3 border-y border-transparent py-1"
+      className="flex flex-wrap items-start gap-x-1.5 border-y border-transparent py-1"
       // A field row's geometry (FieldRow): the first chip's icon in the
       // glyph column, its name where field labels start.
       style={indentStyle(depth + 1)}
@@ -189,7 +194,8 @@ function MoreChip({
     <button
       ref={buttonRef}
       type="button"
-      className={CHIP}
+      // Its glyph box alone, so the pill is square around "…".
+      className={cn(CHIP, "pr-0")}
       tabIndex={tabIndex}
       aria-label={moreLabel(count)}
       title={moreLabel(count)}
@@ -241,15 +247,19 @@ function FieldChip({
       }}
     >
       <ChipGlyph icon={icon} />
-      <span className="ml-1 pt-px">{chip.fieldName}</span>
+      <span className="ml-1">{chip.fieldName}</span>
     </button>
   );
 }
 
-/** A chip's glyph, in a field row's glyph box, in a field glyph's ink unless `ink` says otherwise. */
-function ChipGlyph({ icon: Glyph, ink = "text-foreground/25" }: { icon: Icon; ink?: string }) {
+/**
+ * A chip's glyph, as wide as a field row's glyph box so the first one is
+ * centred in the glyph column, in the chip's ink at rest unless `ink` says
+ * otherwise.
+ */
+function ChipGlyph({ icon: Glyph, ink = "text-faint-foreground" }: { icon: Icon; ink?: string }) {
   return (
-    <span className={cn("flex size-6 shrink-0 items-center justify-center", ink)}>
+    <span className={cn("flex h-5 w-6 shrink-0 items-center justify-center", ink)}>
       <Glyph size={13} aria-hidden />
     </span>
   );
