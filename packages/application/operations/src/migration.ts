@@ -20,6 +20,7 @@ import {
   KbRoots,
   KbStore,
   MIGRATION_STEPS,
+  MigrationListSchema,
   MigrationPoint,
   type ActionDefinition,
   type ExtensionMigration,
@@ -279,20 +280,7 @@ export const migrationListDef = {
     "The data migrations the loaded families ship, each with its state (null when never run, or rolled back) and whether it is pending: not kept, and either under way or planning a change",
   mode: { kind: "read" } as const,
   inputSchema: z.object({}),
-  outputSchema: z.object({
-    migrations: z.array(
-      z.object({
-        id: z.string(),
-        title: z.string(),
-        state: STATE.nullable(),
-        pending: z.boolean(),
-        /** How many nodes it would write or delete now. */
-        changes: z.number(),
-        /** Why it could not be planned, when it could not. */
-        problem: z.string().optional(),
-      }),
-    ),
-  }),
+  outputSchema: MigrationListSchema,
 } satisfies ActionDefinition;
 
 export const migrationListEffect = Effect.fn("migration.list")(function* (): Effect.fn.Return<
