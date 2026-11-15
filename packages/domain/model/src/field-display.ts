@@ -10,14 +10,20 @@ import { seededField } from "./seed-builders.ts";
 /** What this module reads of a field node: its props. */
 type FieldProps = Readonly<Record<string, readonly PropValue[]>> | undefined;
 
-/** Where a field's rows are drawn: on every node that has it, where filled, or nowhere but debug. */
-const FIELD_SHOWS = ["always", "filled", "never"] as const;
+/**
+ * Where a field is drawn on a node that has it: a row always, a row where
+ * filled (a chip where empty), a chip, tucked behind the chips' "…", or
+ * nowhere but debug.
+ */
+const FIELD_SHOWS = ["always", "filled", "hidden", "tucked", "never"] as const;
 type FieldShow = (typeof FIELD_SHOWS)[number];
 
 /** Each show's option node: a child of `sys.f.show`. */
 const FIELD_SHOW_OPTION_IDS: Readonly<Record<FieldShow, NodeId>> = {
   always: SYSTEM_IDS.showAlways,
   filled: SYSTEM_IDS.showFilled,
+  hidden: SYSTEM_IDS.showHidden,
+  tucked: SYSTEM_IDS.showTucked,
   never: SYSTEM_IDS.showNever,
 };
 
@@ -25,13 +31,18 @@ const FIELD_SHOW_OPTION_IDS: Readonly<Record<FieldShow, NodeId>> = {
 const FIELD_SHOW_LABELS: Readonly<Record<FieldShow, string>> = {
   always: "always",
   filled: "when filled",
+  hidden: "hidden",
+  tucked: "tucked",
   never: "never",
 };
 
 /**
  * The show field as core's seed declares it, stamped `at`: one value, a ref
  * to one of its own children, which are its options (the option-set shape),
- * followed by those options. `props` adds to the field's own.
+ * followed by those options. `props` adds to the field's own. Then the
+ * checkbox show took over from, `sys.f.hidden`: owned (show never) and on no
+ * template, so a store seeded before show stops drawing its row, while the
+ * values it holds still count (`fieldShowOf`).
  */
 export function seededShowField(at: string, props: KbNode["props"] = {}): KbNode[] {
   const options = FIELD_SHOWS.map(
@@ -45,14 +56,26 @@ export function seededShowField(at: string, props: KbNode["props"] = {}): KbNode
     }),
   );
   const field = seededField(SYSTEM_IDS.showField, "show", "ref", at, { one: true, props });
-  return [{ ...field, children: options.map((option) => option.id) }, ...options];
+  const retired = seededField(SYSTEM_IDS.hiddenField, "hidden", "checkbox", at, {
+    one: true,
+    owned: true,
+  });
+  return [{ ...field, children: options.map((option) => option.id) }, ...options, retired];
 }
 
-/** A field node's show: the option its `sys.f.show` names, else always. */
+/**
+ * A field node's show: the option its `sys.f.show` names; else hidden where
+ * the checkbox show took over from (`sys.f.hidden`) holds `true`, so a store
+ * written before show reads as it is, with nothing to migrate; else always.
+ */
 export function fieldShowOf(props: FieldProps): FieldShow {
   const raw = props?.[SYSTEM_IDS.showField]?.[0];
-  if (raw?.t !== "ref") return "always";
-  return FIELD_SHOWS.find((show) => FIELD_SHOW_OPTION_IDS[show] === raw.v) ?? "always";
+  const named = FIELD_SHOWS.find(
+    (show) => raw?.t === "ref" && FIELD_SHOW_OPTION_IDS[show] === raw.v,
+  );
+  if (named !== undefined) return named;
+  const hid = props?.[SYSTEM_IDS.hiddenField]?.some((value) => value.t === "bool" && value.v);
+  return hid === true ? "hidden" : "always";
 }
 
 /** Whether a field node says it is pinned. */

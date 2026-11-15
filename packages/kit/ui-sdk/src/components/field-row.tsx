@@ -140,6 +140,7 @@ export function FieldRow({
       )}
       style={valueOnly ? undefined : indentStyle(depth + 1)}
       data-field-row="true"
+      data-field={fieldId}
       data-field-value-only={valueOnly ? "true" : undefined}
       data-debug-field={debug ? "true" : undefined}
       data-field-mismatch={mismatch ? "true" : undefined}

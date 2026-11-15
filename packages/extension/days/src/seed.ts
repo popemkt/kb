@@ -32,11 +32,11 @@ export function daysSeed(at: string): readonly KbNode[] {
     props: CONFIGURES_DAYS,
   });
   return [
-    // The family's identity data: hidden, managed (a person's edit is a
+    // The family's identity data: owned, managed (a person's edit is a
     // deliberate step), and kept to a real period by its guards.
     seededField(DAYS_IDS.keyField, "period", "text", at, {
       one: true,
-      hidden: true,
+      owned: true,
       props: { [SYSTEM_IDS.managedByField]: ref(DAYS_IDS.family) },
     }),
     seededTag(DAYS_IDS.dayTag, "day", [DAYS_IDS.keyField], at),

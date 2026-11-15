@@ -71,7 +71,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     opts: FieldOptions = {},
   ): KbNode => seededField(id, text, type, at, { ...opts, one: true });
   // A field whose values a node's structure or a surface of its own holds.
-  const HIDE = { hidden: true } as const;
+  const OWNED = { owned: true } as const;
 
   // A field node's own configuration is a field template, exactly like a tag's.
   // That is what lets one rule — "surface the fields your kinds and tags
@@ -91,8 +91,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
       { t: "ref", v: SYSTEM_IDS.fillFromField },
     ],
   });
-  const typeField = typedField(SYSTEM_IDS.typeField, "type", "ref", HIDE);
-  const fieldsField = typedField(SYSTEM_IDS.fieldsField, "fields", "ref", HIDE);
+  const typeField = typedField(SYSTEM_IDS.typeField, "type", "ref", OWNED);
+  const fieldsField = typedField(SYSTEM_IDS.fieldsField, "fields", "ref", OWNED);
   const colorField = singleField(SYSTEM_IDS.colorField, "color", "text");
   // Where a field's rows are drawn: one of its own children (the option-set
   // shape), and whether it leads the lists of fields (DESIGN.md → Data model
@@ -238,43 +238,43 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   // `sys.f.query`; the field is the kind, so no `#query` supertag is seeded —
   // strip the field and the node is a plain node (DESIGN → Kinds, roles and
   // options).
-  const queryField = singleField(SYSTEM_IDS.queryField, "query", "text", HIDE);
-  const queryLimitField = singleField(SYSTEM_IDS.queryLimitField, "limit", "number", HIDE);
+  const queryField = singleField(SYSTEM_IDS.queryField, "query", "text", OWNED);
+  const queryLimitField = singleField(SYSTEM_IDS.queryLimitField, "limit", "number", OWNED);
 
   // A frame view's settings (W7.0), held by its view node. The sort, display and group slots
   // name field nodes; colwidth is a JSON object held as one string.
-  const viewSortField = typedField(SYSTEM_IDS.viewSortField, "view.sort", "ref", HIDE);
-  const viewSortDirField = typedField(SYSTEM_IDS.viewSortDirField, "view.sort.dir", "text", HIDE);
-  const viewDisplayField = typedField(SYSTEM_IDS.viewDisplayField, "view.display", "ref", HIDE);
+  const viewSortField = typedField(SYSTEM_IDS.viewSortField, "view.sort", "ref", OWNED);
+  const viewSortDirField = typedField(SYSTEM_IDS.viewSortDirField, "view.sort.dir", "text", OWNED);
+  const viewDisplayField = typedField(SYSTEM_IDS.viewDisplayField, "view.display", "ref", OWNED);
   const viewColwidthField = singleField(
     SYSTEM_IDS.viewColwidthField,
     "view.colwidth",
     "text",
-    HIDE,
+    OWNED,
   );
   const viewPagesizeField = singleField(
     SYSTEM_IDS.viewPagesizeField,
     "view.pagesize",
     "number",
-    HIDE,
+    OWNED,
   );
-  const viewGroupField = singleField(SYSTEM_IDS.viewGroupField, "view.group", "ref", HIDE);
+  const viewGroupField = singleField(SYSTEM_IDS.viewGroupField, "view.group", "ref", OWNED);
   const viewCollapsedField = typedField(
     SYSTEM_IDS.viewCollapsedField,
     "view.collapsed",
     "text",
-    HIDE,
+    OWNED,
   );
-  const viewCalcField = singleField(SYSTEM_IDS.viewCalcField, "view.calc", "text", HIDE);
-  const viewDateField = singleField(SYSTEM_IDS.viewDateField, "view.dateField", "ref", HIDE);
-  const viewSpanField = singleField(SYSTEM_IDS.viewSpanField, "view.span", "text", HIDE);
+  const viewCalcField = singleField(SYSTEM_IDS.viewCalcField, "view.calc", "text", OWNED);
+  const viewDateField = singleField(SYSTEM_IDS.viewDateField, "view.dateField", "ref", OWNED);
+  const viewSpanField = singleField(SYSTEM_IDS.viewSpanField, "view.span", "text", OWNED);
   const viewHideEmptyField = singleField(
     SYSTEM_IDS.viewHideEmptyField,
     "view.hideEmpty",
     "checkbox",
-    HIDE,
+    OWNED,
   );
-  const viewFilterField = typedField(SYSTEM_IDS.viewFilterField, "view.filter", "text", HIDE);
+  const viewFilterField = typedField(SYSTEM_IDS.viewFilterField, "view.filter", "text", OWNED);
   const nodeTextField = typedField(SYSTEM_IDS.nodeTextField, "node.text", "text");
 
   /*
@@ -289,7 +289,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
    * is not core's to name either: the fold writes it from the one
    * declaration that provides it ({@link SeedSource.defaultView}).
    */
-  const viewFamilyField = singleField(SYSTEM_IDS.viewFamilyField, "view.family", "ref", HIDE);
+  const viewFamilyField = singleField(SYSTEM_IDS.viewFamilyField, "view.family", "ref", OWNED);
   const viewsRoot = mk(SYSTEM_IDS.viewsRoot, "View types");
 
   const refField = (id: string, text: string, targetTag?: string, opts: FieldOptions = {}) =>
@@ -316,9 +316,9 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   // The view a node is (one option), and the view nodes a host names (many, in order).
   const viewField = refQueryField(SYSTEM_IDS.viewField, "view", VIEW_OPTION_TARGET_QUERY, {
     one: true,
-    hidden: true,
+    owned: true,
   });
-  const viewsField = refQueryField(SYSTEM_IDS.viewsField, "views", VIEW_NODE_TARGET_QUERY, HIDE);
+  const viewsField = refQueryField(SYSTEM_IDS.viewsField, "views", VIEW_NODE_TARGET_QUERY, OWNED);
   /*
    * The view type a node that names no view opens in (one option): the
    * store's, held by `sys.views`, and a tag's, held by the tag node, which
@@ -364,12 +364,12 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
 
   // A view's subject (`lens.query`, `lens.focus`): every view's, so core's,
   // and written by the view that reads it (the graph's lens settings).
-  const lensQueryField = singleField(SYSTEM_IDS.lensQueryField, "lens.query", "text", HIDE);
-  const lensFocusField = singleField(SYSTEM_IDS.lensFocusField, "lens.focus", "ref", HIDE);
+  const lensQueryField = singleField(SYSTEM_IDS.lensQueryField, "lens.query", "text", OWNED);
+  const lensFocusField = singleField(SYSTEM_IDS.lensFocusField, "lens.focus", "ref", OWNED);
 
   // A layout view's arrangement (`layout.grid`): its pane tree as JSON text,
   // written by the layout view, never as a row.
-  const layoutField = singleField(SYSTEM_IDS.layoutField, "layout", "text", HIDE);
+  const layoutField = singleField(SYSTEM_IDS.layoutField, "layout", "text", OWNED);
 
   // Ontologies (r5 core): #ontology tag templating the sys.f.onto.* algebra.
   // No default ontology is seeded — an empty ontology list is a legitimate
@@ -378,19 +378,19 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     SYSTEM_IDS.ontoIncludeField,
     "onto.include",
     SYSTEM_IDS.tag,
-    HIDE,
+    OWNED,
   );
-  const ontoMemberField = refField(SYSTEM_IDS.ontoMemberField, "onto.member", undefined, HIDE);
-  const ontoExcludeField = refField(SYSTEM_IDS.ontoExcludeField, "onto.exclude", undefined, HIDE);
+  const ontoMemberField = refField(SYSTEM_IDS.ontoMemberField, "onto.member", undefined, OWNED);
+  const ontoExcludeField = refField(SYSTEM_IDS.ontoExcludeField, "onto.exclude", undefined, OWNED);
   // targetQuery (not targetTag) so the ref picker offers only #ontology nodes.
   const ontoExtendsField = refQueryField(
     SYSTEM_IDS.ontoExtendsField,
     "onto.extends",
     ONTOLOGY_TARGET_QUERY,
-    { ...HIDE, props: ACYCLIC },
+    { ...OWNED, props: ACYCLIC },
   );
-  const ontoQueryField = singleField(SYSTEM_IDS.ontoQueryField, "onto.query", "text", HIDE);
-  const ontoClosureField = singleField(SYSTEM_IDS.ontoClosureField, "onto.closure", "text", HIDE);
+  const ontoQueryField = singleField(SYSTEM_IDS.ontoQueryField, "onto.query", "text", OWNED);
+  const ontoClosureField = singleField(SYSTEM_IDS.ontoClosureField, "onto.closure", "text", OWNED);
   /*
    * Contextual references: one ref-typed field and nothing else. Same anatomy
    * as a query node — the field is the kind — so a contextual reference is an
@@ -403,7 +403,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
    */
   const refTargetField = refField(SYSTEM_IDS.refTargetField, "ref.target", undefined, {
     one: true,
-    hidden: true,
+    owned: true,
   });
 
   /*

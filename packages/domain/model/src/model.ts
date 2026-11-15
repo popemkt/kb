@@ -62,12 +62,19 @@ export const SYSTEM_IDS = {
   colorField: "sys.f.color",
   /**
    * Where a field's rows are drawn (DESIGN.md → Data model → field display):
-   * a ref to one of its own three children below; absent reads always.
+   * a ref to one of its own five children below; absent reads always.
    */
   showField: "sys.f.show",
   showAlways: "sys.show.always",
   showFilled: "sys.show.filled",
+  showHidden: "sys.show.hidden",
+  showTucked: "sys.show.tucked",
   showNever: "sys.show.never",
+  /**
+   * The checkbox show took over from: read, never written. Its `true` is
+   * show hidden on a field whose show names no option (`fieldShowOf`).
+   */
+  hiddenField: "sys.f.hidden",
   /** A pinned field comes first wherever a node's or a frame's fields are listed (checkbox). */
   pinnedField: "sys.f.pinned",
   /**

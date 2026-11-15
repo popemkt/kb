@@ -464,15 +464,9 @@ export const mutations: PageWrites = {
 
   async toggleChecks(nodeIds: readonly string[]): Promise<boolean> {
     const plan = planToggleChecks(wire(), nodeIds);
-    if (plan === null) {
-      toast(
-        nodeIds.length > 1
-          ? "None of these nodes has a check: none of their tags names one"
-          : "This node has no check: none of its tags names one",
-      );
-      return false;
-    }
-    return applyPlan(plan);
+    // No row here has a box: the box is opt-in and off by default
+    // (DESIGN-UI.md → A tag's box), so the gesture does nothing visible.
+    return plan === null ? false : applyPlan(plan);
   },
 
   async uploadAsset(file: File): Promise<string | null> {

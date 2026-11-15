@@ -228,6 +228,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — an in-view editor that writes through the code view key's check
 - **node** — `01M41DKW6PFA4FX6FRNWBV03ED`
 
+### GAP: a collection's detail view draws a node's chip and tucked fields as rows
+
+- **expected** — Every surface that lists a node's fields draws its chip and tucked fields as the outline does: one line of chips after the rows, the tucked ones behind its …
+- **current** — The detail view (collections-ui detail-view.tsx) draws every field resolveVisibleProps gives as a row, whatever its placement; only the outline's FieldsSection draws the chips line
+- **impact** — A field shown hidden or tucked takes a full row on a list-with-detail page, as it did before show had levels; no data is lost or unreachable
+- **closes** — The chips line moves to a shared field-list component (or the detail view draws FieldsSection) so both surfaces take one placement
+- **node** — `01M7EY5YQKG919B47FD255B34B`
+
 ### GAP: a dashboard's inner panes are not in the screen state
 
 - **expected** — every pane on screen, including those inside a dashboard, is listed in the screen state and can be targeted

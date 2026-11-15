@@ -198,8 +198,11 @@ const DATASCRIPT = /cljs\.core/;
 // detail view, board lanes and the ⌘⇧←/→ group move in collections-ui and
 // outline-ui, the shared calendar kit, and the query parser `requirementsOf`
 // reads to fill a row a view adds) measures 1,986,130 with them; the
+// budget keeps about 1.4 KB over that. Hidden fields as chips (the line of
+// chips that replaced the fold, its "…" for tucked fields, the fields opened
+// from it, and the show reader's two new levels) measure 1,989,853; the
 // budget keeps about 1.4 KB over that.
-const EAGER_BUDGET_BYTES = 1_987_600;
+const EAGER_BUDGET_BYTES = 1_991_300;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

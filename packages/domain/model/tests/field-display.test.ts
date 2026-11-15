@@ -10,9 +10,19 @@ describe("field display", () => {
   test("show reads its option, and anything else as always", () => {
     expect(fieldShowOf(show(SYSTEM_IDS.showNever))).toBe("never");
     expect(fieldShowOf(show(SYSTEM_IDS.showFilled))).toBe("filled");
+    expect(fieldShowOf(show(SYSTEM_IDS.showHidden))).toBe("hidden");
+    expect(fieldShowOf(show(SYSTEM_IDS.showTucked))).toBe("tucked");
     expect(fieldShowOf(show("sys.show.unknown"))).toBe("always");
     expect(fieldShowOf({})).toBe("always");
     expect(fieldShowOf(undefined)).toBe("always");
+  });
+
+  test("the old hidden checkbox reads as hidden where show names no option, and show beats it", () => {
+    const hid = { [SYSTEM_IDS.hiddenField]: [{ t: "bool" as const, v: true }] };
+    expect(fieldShowOf(hid)).toBe("hidden");
+    expect(fieldShowOf({ ...hid, ...show(SYSTEM_IDS.showNever) })).toBe("never");
+    expect(fieldShowOf({ ...hid, ...show("sys.show.unknown") })).toBe("hidden");
+    expect(fieldShowOf({ [SYSTEM_IDS.hiddenField]: [{ t: "bool", v: false }] })).toBe("always");
   });
 
   test("pinned fields come first, each part keeping its order", () => {

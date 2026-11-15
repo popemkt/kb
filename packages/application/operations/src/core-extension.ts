@@ -23,7 +23,6 @@ import {
 import { DESIGN_SYSTEM_OPTIONS } from "@kb/appearance";
 import { SYSTEM_IDS, extensionNodeId, type SeedOption } from "@kb/model";
 import { systemSeedNodes } from "@kb/seed";
-import { fieldShowMigration } from "./field-show-migration.ts";
 import {
   DocsMarkdownView,
   HomeView,
@@ -82,6 +81,4 @@ export const coreExtension = defineExtension({
     { from: SYSTEM_IDS.cmdAddTag, to: SYSTEM_IDS.cmdAddTag, text: "Add tag" },
   ],
   context: CORE_CONTEXT_REFERENCES,
-  // What a person wrote in a shape core has since changed.
-  migrations: [fieldShowMigration],
 });

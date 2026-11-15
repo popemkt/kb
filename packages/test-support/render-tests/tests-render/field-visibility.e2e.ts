@@ -4,10 +4,12 @@
 // model → field visibility): on a real page, a field's own cardinality and
 // inverse, which `sys.field` templates, are rows a person edits, and an
 // agent provider's adapter and endpoint are rows on the provider's page,
-// while the type and template fields, whose seeded nodes say hidden, are not.
+// while the type and template fields, whose seeded nodes say hidden, are not;
+// and a node's hidden fields are one line of chips after its rows (DESIGN-UI.md
+// → Field values → hidden fields chips).
 // Screenshots of both pages are written beside the run.
 import { FIELD_TYPE_OPTION_IDS } from "@kb/model";
-import type { Locator, Page } from "playwright/test";
+import type { APIRequestContext, Locator, Page } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
 
 const ROOT = "render.fixture.root";
@@ -99,16 +101,29 @@ test("a system field its node does not hide is a row a person edits", async ({
   expect(errors).toEqual([]);
 });
 
-test("the hidden-fields fold stands on a field row's geometry", async ({ page, request }) => {
+/**
+ * A tag `<p>.t.item` templating `area` (always), `note` (when filled),
+ * `source` and `archived` (hidden), and `budget` and `venue` (tucked), and
+ * a node `<p>.n.item` holding `area`: two chips and a "…" for two.
+ */
+async function seedItem(request: APIRequestContext, p: string) {
   const action = async (id: string, input: Record<string, unknown>) => {
     const response = await request.post("/api/action", { data: { id, input } });
     const receipt = await response.json();
     expect(receipt.status, JSON.stringify(receipt)).toBe("succeeded");
   };
-  const textField = (id: string, text: string, show?: string) =>
-    action("node.add", {
-      id,
-      text,
+  const fields = [
+    ["area", undefined],
+    ["note", "sys.show.filled"],
+    ["source", "sys.show.hidden"],
+    ["archived", "sys.show.hidden"],
+    ["budget", "sys.show.tucked"],
+    ["venue", "sys.show.tucked"],
+  ] as const;
+  for (const [name, show] of fields)
+    await action("node.add", {
+      id: `${p}.f.${name}`,
+      text: name,
       parent: ROOT,
       props: [
         { field: "sys.f.type", value: ref("sys.field") },
@@ -116,42 +131,121 @@ test("the hidden-fields fold stands on a field row's geometry", async ({ page, r
         ...(show === undefined ? [] : [{ field: "sys.f.show", value: ref(show) }]),
       ],
     });
-  await textField("fv.f.area", "area");
-  await textField("fv.f.note", "note", "sys.show.filled");
   await action("node.add", {
-    id: "fv.t.item",
+    id: `${p}.t.item`,
     text: "item",
     parent: ROOT,
     props: [
       { field: "sys.f.type", value: ref("sys.tag") },
-      { field: "sys.f.fields", value: ref("fv.f.area") },
-      { field: "sys.f.fields", value: ref("fv.f.note") },
+      ...fields.map(([name]) => ({ field: "sys.f.fields", value: ref(`${p}.f.${name}`) })),
     ],
   });
   await action("node.add", {
-    id: "fv.n.item",
+    id: `${p}.n.item`,
     text: "an item",
     parent: ROOT,
     props: [
-      { field: "sys.f.type", value: ref("fv.t.item") },
-      { field: "fv.f.area", value: { t: "str", v: "ops" } },
+      { field: "sys.f.type", value: ref(`${p}.t.item`) },
+      { field: `${p}.f.area`, value: { t: "str", v: "ops" } },
     ],
   });
+}
 
-  await page.goto(`/node/fv.n.item`);
-  const fields = page.locator(`[data-fields-for="fv.n.item"]`).first();
-  const fold = fields.locator("[data-hidden-fields-fold]").first();
-  await expect(fold).toHaveText("1 hidden field");
+test("hidden fields are one line of chips on a field row's geometry", async ({
+  page,
+  request,
+}, testInfo) => {
+  await seedItem(request, "hc1");
+  await page.goto(`/node/hc1.n.item`);
+  const fields = page.locator(`[data-fields-for="hc1.n.item"]`).first();
+  const line = fields.locator("[data-hidden-fields]").first();
+  await expect(line).toHaveAttribute("aria-label", "Hidden fields: note, source, archived");
+  await expect(line.locator("[data-field-chip]")).toHaveText(["note", "source", "archived"]);
+  await expect(line.locator("[data-tucked-fields]")).toHaveAttribute("aria-label", "2 more fields");
   const row = fields.locator("[data-field-row]").filter({ hasText: "area" }).first();
   const rowBox = await box(row);
-  const foldRowBox = await box(fold.locator(".."));
+  const lineBox = await box(line);
+  const first = line.locator("[data-field-chip]").first();
   const glyph = await box(row.locator("svg").first());
-  const chevron = await box(fold.locator("svg").first());
+  const chipGlyph = await box(first.locator("svg").first());
   const label = await box(row.getByText("area", { exact: true }).first());
-  const foldLabel = await box(fold.getByText("1 hidden field", { exact: true }));
-  // As tall as a field row, the chevron centred in the glyph column, and the
-  // label where field labels start.
-  expect(foldRowBox.height).toBeCloseTo(rowBox.height, 0);
-  expect(chevron.x + chevron.width / 2).toBeCloseTo(glyph.x + glyph.width / 2, 0);
-  expect(foldLabel.x).toBeCloseTo(label.x, 0);
+  const chipName = await box(first.getByText("note", { exact: true }));
+  // As tall as a field row, the first chip's icon centred in the glyph
+  // column, and its name where field labels start.
+  expect(lineBox.height).toBeCloseTo(rowBox.height, 0);
+  expect(chipGlyph.x + chipGlyph.width / 2).toBeCloseTo(glyph.x + glyph.width / 2, 0);
+  expect(chipName.x).toBeCloseTo(label.x, 0);
+  await settled(page);
+  await fields.screenshot({ path: testInfo.outputPath("hidden-fields-chips.png") });
+});
+
+test("a chip opens its field with the keyboard on its value, and Escape closes it again", async ({
+  page,
+  request,
+}) => {
+  await seedItem(request, "hc2");
+  await page.goto(`/node/hc2.n.item`);
+  const fields = page.locator(`[data-fields-for="hc2.n.item"]`).first();
+  const chip = (name: string) => fields.locator("[data-field-chip]").filter({ hasText: name });
+  await chip("source").click();
+  const value = fields.locator(`[data-field-values="hc2.f.source"] [data-value-slot]`).first();
+  await expect(value).toBeFocused();
+  await expect(fields.locator("[data-field-chip]")).toHaveText(["note", "archived"]);
+  await page.keyboard.press("Escape");
+  await expect(fields.locator(`[data-field-values="hc2.f.source"]`)).toHaveCount(0);
+  await expect(fields.locator("[data-field-chip]")).toHaveText(["note", "source", "archived"]);
+  await expect(chip("source")).toBeFocused();
+});
+
+test("the keyboard walks the chips with ←/→ and opens … in place", async ({ page, request }) => {
+  await seedItem(request, "hc3");
+  await page.goto(`/node/hc3.n.item`);
+  const fields = page.locator(`[data-fields-for="hc3.n.item"]`).first();
+  const chip = (name: string) => fields.locator("[data-field-chip]").filter({ hasText: name });
+  const more = fields.locator("[data-tucked-fields]");
+  await chip("note").focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(chip("source")).toBeFocused();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+  await expect(more).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(more).toHaveCount(0);
+  await expect(fields.locator("[data-field-chip]")).toHaveText([
+    "note",
+    "source",
+    "archived",
+    "budget",
+    "venue",
+  ]);
+  await expect(chip("budget")).toBeFocused();
+  // ↑ leaves the line for the value above it.
+  await page.keyboard.press("ArrowUp");
+  await expect(
+    fields.locator(`[data-field-values="hc3.f.area"] [data-value-slot]`).first(),
+  ).toBeFocused();
+});
+
+test("at 360px the chips wrap inside the pane, and nothing overflows", async ({
+  page,
+  request,
+}, testInfo) => {
+  await seedItem(request, "hc4");
+  await page.setViewportSize({ width: 360, height: 760 });
+  await page.goto(`/node/hc4.n.item`);
+  const fields = page.locator(`[data-fields-for="hc4.n.item"]`).first();
+  const line = fields.locator("[data-hidden-fields]").first();
+  await line.locator("[data-tucked-fields]").click();
+  const row = fields.locator("[data-field-row]").filter({ hasText: "area" }).first();
+  const lineBox = await box(line);
+  // More than one line, each a field row's height.
+  expect(lineBox.height).toBeGreaterThan((await box(row)).height * 1.5);
+  const overflow = await line.evaluate((el) => {
+    const right = el.getBoundingClientRect().right;
+    return [...el.children].some((chip) => chip.getBoundingClientRect().right > right + 0.5);
+  });
+  expect(overflow).toBe(false);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
+  await settled(page);
+  await fields.screenshot({ path: testInfo.outputPath("hidden-fields-chips-360.png") });
 });

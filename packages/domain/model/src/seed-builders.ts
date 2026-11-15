@@ -5,15 +5,18 @@ import { cardinalityValue, fieldTypeValue, type FieldType } from "./field-type.t
 /** What a field that holds one value declares: its cardinality. */
 const SINGLE: KbNode["props"] = { [SYSTEM_IDS.cardinalityField]: [cardinalityValue("one")] };
 
-/** What a field whose values are not drawn as field rows declares: show never. */
-const HIDDEN: KbNode["props"] = { [SYSTEM_IDS.showField]: [{ t: "ref", v: SYSTEM_IDS.showNever }] };
+/** What a field a node's structure or a surface of its own owns declares: show never. */
+const OWNED: KbNode["props"] = { [SYSTEM_IDS.showField]: [{ t: "ref", v: SYSTEM_IDS.showNever }] };
 
 /** What a seed says of a field beside its id, name and type. */
 export interface FieldOptions {
   /** It holds one value, not a list. */
   readonly one?: boolean;
-  /** Its values are not drawn as field rows (`sys.f.show` never). */
-  readonly hidden?: boolean;
+  /**
+   * A node's structure or a surface of its own owns it, so it is never a
+   * field row (`sys.f.show` never).
+   */
+  readonly owned?: boolean;
   /** Any other declaration it carries. */
   readonly props?: KbNode["props"];
 }
@@ -33,7 +36,7 @@ export interface FieldOptions {
  * many, so only the single-valued ones carry the declaration — and the
  * fill-absent pass carries it to stores seeded before it existed.
  *
- * A field whose values are not drawn as field rows says so too (`hidden`,
+ * A field whose values are not drawn as field rows says so too (`owned`,
  * which writes `sys.f.show` never): one that is a node's structure (its kind, its template,
  * which option set it belongs to) or one a surface of its own draws and
  * writes (a query node's builder, a view's toolbar, the graph's lens
@@ -45,7 +48,7 @@ export function seededField(
   text: string,
   type: FieldType,
   at: string,
-  { one = false, hidden = false, props = {} }: FieldOptions = {},
+  { one = false, owned = false, props = {} }: FieldOptions = {},
 ): KbNode {
   return {
     id,
@@ -54,7 +57,7 @@ export function seededField(
       [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
       [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue(type)],
       ...(one ? SINGLE : {}),
-      ...(hidden ? HIDDEN : {}),
+      ...(owned ? OWNED : {}),
       ...props,
     },
     children: [],

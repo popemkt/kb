@@ -45,6 +45,14 @@ async function ok<T>(ctx: KbContext, id: string, input: Record<string, unknown>)
 const add = async (ctx: KbContext, input: Record<string, unknown>) =>
   (await ok<{ id: string; node: KbNode }>(ctx, "node.add", input)).node;
 
+test("a default store draws no box: no tag names a check until a person sets one", async () => {
+  // A tag's box is opt-in and off (DESIGN-UI.md → A tag's box).
+  const ctx = await openKb(root);
+  const nodeOf = (id: string) => ctx.nodes.find((node) => node.id === id);
+  expect(ctx.nodes.filter((node) => SYSTEM_IDS.tagCheckField in node.props)).toEqual([]);
+  expect(ctx.nodes.filter((node) => checkOf(node, nodeOf) !== null)).toEqual([]);
+});
+
 test("a child added under a tagged node takes its child tag and fills, and search answers the title", async () => {
   const ctx = await openKb(root);
   // A field that copies its own value down, and the tags that use it.
