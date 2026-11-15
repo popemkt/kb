@@ -231,8 +231,11 @@ test("Articulate names an idea by hand and by reacting, and the look saves with 
 });
 
 /**
- * Wheel over the grid until it scrolls no further; the tile lowest in its
- * layout is then on screen, whole, above the window's bottom edge.
+ * Wheel over the grid until it scrolls no further and the tile lowest in its
+ * layout is on screen, whole, above the window's bottom edge. Both are read
+ * in one moment and retried together: a wheel lands after it returns, and the
+ * page may still grow under it, so an end read before the tiles are is not
+ * the end they are drawn at. A grid clipped by its slot never passes.
  */
 async function scrollGridToEnd(page: Page): Promise<void> {
   const grid = page.getByTestId("gallery-grid");
@@ -240,26 +243,24 @@ async function scrollGridToEnd(page: Page): Promise<void> {
   await grid.hover({ position: { x: 40, y: 40 } });
   await expect(async () => {
     await page.mouse.wheel(0, 4000);
-    // The grid and every scroller around it, the ones the wheel reaches.
-    const end = await grid.evaluate((el) => {
+    const at = await grid.evaluate((el) => {
+      // The grid and every scroller around it, the ones the wheel reaches.
       const chain: Element[] = [];
-      for (let at: Element | null = el; at !== null; at = at.parentElement) chain.push(at);
-      return chain
-        .filter((at) => /(auto|scroll)/.test(getComputedStyle(at).overflowY))
-        .filter((at) => at.scrollHeight > at.clientHeight + 1)
-        .every((at) => at.scrollTop + at.clientHeight >= at.scrollHeight - 1);
+      for (let up: Element | null = el; up !== null; up = up.parentElement) chain.push(up);
+      const end = chain
+        .filter((up) => /(auto|scroll)/.test(getComputedStyle(up).overflowY))
+        .filter((up) => up.scrollHeight > up.clientHeight + 1)
+        .every((up) => up.scrollTop + up.clientHeight >= up.scrollHeight - 1);
+      const bottoms = [...el.querySelectorAll("[data-gallery-tile]")].map(
+        (tile) => tile.getBoundingClientRect().bottom,
+      );
+      return { end, lowest: Math.max(...bottoms) };
     });
-    expect(end, "the grid's scrollers at their end").toBe(true);
-  }).toPass();
-  const lowest = await page.evaluate(() => {
-    const tiles = [...document.querySelectorAll("[data-gallery-tile]")].map((el) =>
-      el.getBoundingClientRect(),
+    expect(at.end, "the grid's scrollers at their end").toBe(true);
+    expect(at.lowest, "the lowest tile ends inside the window").toBeLessThanOrEqual(
+      page.viewportSize()?.height ?? 0,
     );
-    return Math.max(...tiles.map((r) => r.bottom));
-  });
-  expect(lowest, "the lowest tile ends inside the window").toBeLessThanOrEqual(
-    page.viewportSize()?.height ?? 0,
-  );
+  }).toPass();
 }
 
 test("the Compose and Reference grids scroll to their last tile, wide and on a phone", async ({
