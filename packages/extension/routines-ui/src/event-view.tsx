@@ -7,7 +7,6 @@
  * edited the same way wherever its box is.
  */
 import { useMemo } from "react";
-import { cn } from "@kb/ui-sdk";
 import { nextEntry } from "@kb/routines";
 import { useCalendarActions } from "./actions";
 import { useCalendarClock } from "./clock";
@@ -38,9 +37,8 @@ export function EventView({ id, preview }: { readonly id: string; readonly previ
           zone={clock.zone}
           today={today}
           actions={actions}
-          // Under its row the box is the popover's width, and the preview's frame, which
-          // stands as tall and wide as the box, draws its edge.
-          className={preview ? cn(EVENT_BOX_WIDTH, "rounded-none border-0") : undefined}
+          // Under its row the box is the popover's width.
+          className={preview ? EVENT_BOX_WIDTH : undefined}
         />
       )}
       {actions.editor === null ? null : (

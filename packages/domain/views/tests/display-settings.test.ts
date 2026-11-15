@@ -2,7 +2,7 @@
  * Display settings as data (DESIGN.md → View nodes → a tag's view sets how
  * its nodes show): a view a family claims as a tag's default view gets one
  * setting per display option it offers — "when a node asks" or "always" —
- * and, where it previews, the preview's height, derived by the fold as
+ * and, where it previews still, the preview's height, derived by the fold as
  * fields configuring the family's node and seeded with their defaults
  * there. They are read off the node those fields configure, so no name is
  * guessed, and settings the store does not hold read as the defaults.
@@ -20,6 +20,7 @@ import {
   settingsOf,
   type KbNode,
   type NodeProps,
+  type PreviewKind,
 } from "@kb/model";
 import { foldSeed, type SeedSource, type SeedView } from "@kb/seed";
 import { BUNDLED_DECLARATIONS, bundledSeed } from "@kb/bundled";
@@ -96,9 +97,9 @@ describe("a view's display settings", () => {
   });
 });
 
-/** A source whose family is `name`, providing one view, `previews` or not, claimed for a tag when `claims`. */
-function source(name: string, previews: boolean, claims: boolean): SeedSource {
-  const view: SeedView = { id: `${name}.page`, label: name, preview: previews ? "still" : null };
+/** A source whose family is `name`, providing one view with the preview `preview`, claimed for a tag when `claims`. */
+function source(name: string, preview: PreviewKind | null, claims: boolean): SeedSource {
+  const view: SeedView = { id: `${name}.page`, label: name, preview };
   const tag: KbNode = {
     id: `sys.tag.${name}`,
     text: name,
@@ -122,7 +123,7 @@ describe("the fold derives them from the views a family claims for a tag", () =>
     new Map(foldSeed([...core, of], AT).nodes.map((node) => [node.id, node]));
 
   test("a claimed view's settings configure the node of the family that provides it", () => {
-    const folded = fold(source("boards", true, true));
+    const folded = fold(source("boards", "still", true));
     const field = present(folded.get(displaySettingIds("boards.page").preview), "derived");
     expect(field.props[SYSTEM_IDS.configuresField]).toEqual([
       { t: "ref", v: extensionNodeId("boards") },
@@ -131,15 +132,28 @@ describe("the fold derives them from the views a family claims for a tag", () =>
   });
 
   test("a claimed view that draws no preview offers only its properties", () => {
-    const folded = fold(source("boards", false, true));
+    const folded = fold(source("boards", null, true));
     const settings = displaySettingIds("boards.page");
     expect(folded.has(settings.properties)).toBe(true);
     expect(folded.has(settings.preview)).toBe(false);
     expect(folded.has(settings.height)).toBe(false);
   });
 
+  test("a live preview is as tall as its controls: it has no height, and the fold retires one a store holds", () => {
+    const settings = displaySettingIds("boards.page");
+    const folded = foldSeed([...core, source("boards", "live", true)], AT);
+    const byFolded = new Map(folded.nodes.map((node) => [node.id, node]));
+    expect(byFolded.has(settings.preview)).toBe(true);
+    expect(byFolded.has(settings.height)).toBe(false);
+    expect(byFolded.get(extensionNodeId("boards"))?.props[settings.height]).toBeUndefined();
+    expect(folded.retired).toContainEqual({ from: settings.height });
+    expect(foldSeed([...core, source("boards", "still", true)], AT).retired).not.toContainEqual({
+      from: settings.height,
+    });
+  });
+
   test("a view no tag is claimed for gets none", () => {
-    const folded = fold(source("boards", true, false));
+    const folded = fold(source("boards", "still", false));
     expect(folded.has(displaySettingIds("boards.page").properties)).toBe(false);
     expect(folded.get(extensionNodeId("boards"))?.props).toEqual({});
   });

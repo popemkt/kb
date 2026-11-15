@@ -812,14 +812,14 @@ describe("an event on its own", () => {
     expect(valueOf('input[aria-label="Title"]')).toBe("Old class");
   });
 
-  test("as its row's preview it is the popover's width, and the preview's frame draws the edge", () => {
+  test("as its row's preview it is the popover's box, at the popover's width", () => {
     open("/calendar/week/2026-11-04", [CALENDAR, GYM]);
     pointer("pointerdown", chip("gym/2026-11-04"), y(7) + 10);
     pointer("pointerup", chip("gym/2026-11-04"), y(7) + 10);
     const popover = $('[data-testid="entry-popover"]').className;
     openEvent("gym", [CALENDAR, GYM], true);
     const card = $("[data-event-view] [data-event-card]");
-    expect(card.className).toContain("border-0");
+    expect(card.className).not.toContain("border-0");
     // EVENT_BOX_WIDTH, on the popover and on the preview's box alike.
     for (const width of ["w-80", "max-w-full"]) {
       expect(popover.split(" ")).toContain(width);
