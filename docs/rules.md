@@ -732,6 +732,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — split the starter an editor shows from the value Add field writes: the number slot draws blank when no value is stored, and the Add field step writes what makes an empty row appear without a number
 - **node** — `01M7DAJCF878DEPVQHE6R7FJT9`
 
+### GAP: an event line's choices overlay its end, and their fade assumes the page's background
+
+- **expected** — Showing a live line's Done, Skip and Move… never moves the line, never takes a click aimed at the line's text, and sits on whatever surface the line is drawn on (page, selected row, card).
+- **current** — The choices overlay the end of the line's last row (about 150px) on hover or focus, over a fade drawn in the page background plus the hover tint (event-line.tsx, Choices).
+- **impact** — A click aimed at the repeat or the calendar name can land on Done instead of opening the box (undo is Not done; the line's start always opens it). On a selected row or a card the fade shows as a lighter box.
+- **closes** — Choices that take a place of their own without a reflow (a reserved slot, or a line laid out so they fit beside the text), or a fade that reads the surface under the line instead of naming the page's background.
+- **node** — `01M7FCAK9J8CW07B0W958HDWYR`
+
 ### GAP: an exported canvas SVG carries the default design system's tokens
 
 - **expected** — An exported SVG carries the token values of the design system core's setting chooses.

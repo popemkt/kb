@@ -116,6 +116,8 @@ function Described({
  * than in it, so showing them never moves a part or the rows below: the
  * line's own ground, faded in from the left, hides what they cover.
  */
+// GAP [[01M7FCAK9J8CW07B0W958HDWYR]] the overlay can take a click aimed at the
+// line's text, and its fade names the page's background, not the line's surface.
 function Choices({
   entry,
   actions,
