@@ -4627,6 +4627,13 @@ which also lists the workflows judged and not built.
   square when it records none). Only the tiles within one viewport of the
   window, either way, are elements; the window's tiles are found per column
   by binary search, so a scroll frame costs what it shows, not the library.
+  The grid is its own scroller. It fills the slot it is placed in, whether
+  that slot is a flex child or a block with a height of its own. The slot
+  never has to be laid out a particular way to make it scroll. A grid sized
+  to its content instead would scroll nothing and draw every tile. Every
+  workflow gives its grid such a slot, wide and narrow: a narrow pane's
+  scrolling column is a flex item, so the workflow inside it still has a
+  height for the slot to take.
 - **The gallery's workflows**, each a view of the family, in the tabs'
   order:
   - _I know what I want_ (`know`): a term typed is completed from the
