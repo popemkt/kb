@@ -770,17 +770,28 @@ type PropValue =
   display). Two settings of every field (`sys.field`'s template) say it,
   and `@kb/model`'s `field-display.ts` is their one reader:
   - **show** (`sys.f.show`, one, an option set of its own children:
-    `sys.show.always`, `sys.show.filled`, `sys.show.never`; absent reads
-    *always*). *Always*: a node draws the field's row wherever it holds a
-    value or a tag of it templates the field, empty slot included. *When
-    filled*: the row is drawn where the node holds a value, and an empty
-    templated slot is folded (DESIGN-UI.md → Field values → hidden fields
-    fold). *Never*: the row is left out unless the node asks for its debug
-    fields. `fieldShowOf` reads it, and `isFieldHidden` in `@kb/ui-sdk`'s
-    `field-visibility.ts` (*never*) is what the field rows, a row's
-    collapse default and a table's columns all ask; a table's columns and
-    the view settings' field lists leave out *never* only, since a column
-    serves every row and some rows are filled.
+    `sys.show.always`, `sys.show.filled`, `sys.show.hidden`,
+    `sys.show.tucked`, `sys.show.never`; absent reads *always*). It places
+    the field on a node that holds a value of it or has a tag that templates
+    it:
+    - *Always*: a row, the empty slot included.
+    - *When filled*: a row where the node holds a value; empty, a chip.
+    - *Hidden*: a chip, filled or not. A chip names the field in the
+      node's one line of hidden fields, so its name shows without a click
+      (DESIGN-UI.md → Field values → hidden fields chips).
+    - *Tucked*: one step further. The field stays out of that line, grouped
+      with the node's other tucked fields behind its one "…" chip.
+    - *Never*: left out, unless the node asks for its debug fields. The
+      seed writes it for a field that a node's structure or a surface of
+      its own owns (below).
+
+    Debug fields draw every field as a row, and so does a node's display
+    for the fields it reveals. `fieldShowOf` reads show, and
+    `resolveVisibleProps` in `@kb/ui-sdk`'s `field-visibility.ts` turns it
+    into each field's place on a node. `isFieldHidden` (*never*) is what a
+    row's collapse default and a table's columns ask. A table's columns
+    and the view settings' field lists leave out *never* only, since a
+    column serves every row and some rows are filled.
   - **pinned** (`sys.f.pinned`, a checkbox, one). A pinned field comes
     first wherever fields are listed for a node or a frame: a node's field
     rows, the query builder's subjects and the view settings' fields
@@ -788,7 +799,7 @@ type PropValue =
     fields keep their order among themselves, as do the rest.
 
   Both apply to a system field as much as a person's. No list in the page
-  names which system fields a person sees. A seed declares `hidden`
+  names which system fields a person sees. A seed declares `owned`
   (`seededField`'s option, which writes show *never*) on two kinds of
   field only: one that is a node's structure (`sys.f.type`,
   `sys.f.fields`, which option set a node belongs to) and one a surface of
@@ -809,15 +820,20 @@ type PropValue =
   by the same rule, so a table of field nodes or of agent providers shows
   their settings as columns. Whether a drawn row may be written is the
   system-write rule's (`isWritableField`), never display's; a node's debug
-  fields reveal its hidden rows, and they are written under the same rule.
+  fields reveal the rows show leaves out, and they are written under the
+  same rule.
 
   Show replaced a checkbox, `sys.f.hidden`, which the seed no longer
-  holds. A field a person hid with it moves to show *never* through core's
-  migration `core.field-show` ([Plugin data migrations](#plugin-data-migrations)),
-  which also drops the old field node and its place in any template. Until
-  a store runs it, such a field is drawn, and `kb migrate` lists it as
-  pending; the seed's own fields carry show on the next open, as any prop
-  the seed adds.
+  holds. A field a person hid with it moves to show *hidden* through
+  core's migration `core.field-show` ([Plugin data migrations](#plugin-data-migrations)),
+  which also drops the old field node and its place in any template.
+  *Hidden* is the nearest fit: the checkbox kept a field off the rows, and
+  a chip keeps it off them while its name stays in view. *Never* stays
+  what the seed writes for the fields it owns. Until a store runs the migration,
+  such a field is drawn, and `kb migrate` lists it as pending. The seed's
+  own fields carry show on the next open, as any prop the seed adds, and
+  a store seeded before *hidden* and *tucked* gains the two options as
+  children appended to `sys.f.show`.
 - **A node's own text is a field a view can name** — `sys.f.node.text`, the
   table's Name column. It holds no values (text is `KbNode.text`, not a prop);
   it exists so a view that sorts or sizes by name refers to a node, exactly as

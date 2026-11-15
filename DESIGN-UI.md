@@ -442,7 +442,7 @@ vertical caret motion, and autocomplete interception. Mode B owns
 a row to the group beside its own (_Groups_), `o` / `Shift+O` create-below/above, `Space` toggle, `Cmd+.` zoom, and printable-character
 re-entry into Mode A. Mode B's keys are the selected row's: a key pressed
 while focus is on a control the keyboard stops at (a text entry, or a button
-such as a tag's box or the hidden-fields fold) is that control's, so Tab
+such as a tag's box or a hidden field's chip) is that control's, so Tab
 moves focus on and Enter or Space presses it (`ownsItsKeys`). Chrome the
 keyboard skips, such as the bullet, leaves its keys to the selection. Focus hand-offs are specified per operation (split → new
 node at 0; indent/outdent → same offset; merge → the join boundary; delete →
@@ -1300,25 +1300,45 @@ empty slot closes it. A typed value emptied is taken out, not kept blank.
 Picked values are added in the picker. A one-valued field — and a checkbox,
 which holds one value by its type (`cardinalityOf`) — offers no add.
 
-**Hidden fields fold; pinned fields lead.** Which of a node's fields are
-drawn and in what order is the field nodes' to say (show and pinned,
-DESIGN.md → [Data model](DESIGN.md#data-model--everything-is-a-node), field
-display), and `resolveVisibleProps` (`@kb/ui-sdk`) is the one answer every
-surface's field rows take: the rows drawn, pinned ones first, and the
-**folded** ones, a field shown *when filled* that this node templates and
-does not fill. The outline draws the folded ones as one row after the
-others, "N hidden fields" (`FieldsSection`), drawn on a field row's
-geometry (its height, the chevron in the glyph column, the label where
-field labels start): a button in the values'
-keyboard path (↑/↓ reach it as they reach a value, Escape hands the
-keyboard back to the row), opened by a click, Enter or Space, which then
-draws them as empty slots to fill, and closes the same way. Whether a fold
-is open is the drawn row's own passing state, as a picker's openness is,
-and is written nowhere: what a person would expect to keep, which fields
-fold, is the field nodes'. A filled field is no longer folded; emptied, it
-folds again. A row whose only fields are folded is still expandable, since
-it has a row to draw. Debug fields draw every field, the folded ones
-among them as empty slots.
+**Hidden fields chips; pinned fields lead.** Which of a node's fields
+are drawn, where, and in what order is the field nodes' to say (show and
+pinned, DESIGN.md → [Data model](DESIGN.md#data-model--everything-is-a-node),
+field display). `resolveVisibleProps` (`@kb/ui-sdk`) is the one answer
+every surface's fields take. It lists the fields drawn, pinned ones first,
+each with its **placement**: a row, a **chip** (shown *when filled* and
+empty, or *hidden*) or **tucked**.
+
+The outline draws a node's chips as one line after its rows
+(`FieldsSection`). Each chip is the field's type icon and its name, muted,
+so a hidden field's name shows without a click. The line stands on a field
+row's geometry: as tall as a field row, the first chip's icon centred in
+the glyph column and its name where field labels start. On a narrow pane
+it wraps onto more lines, and nothing in it changes size on hover or focus,
+so the rows below never move.
+
+The node's tucked fields are not chips. One trailing "…" chip stands for
+them, named "N more fields". Its click, Enter or Space puts the tucked
+fields in its place as chips, with the keyboard on the first. When a node
+has only tucked fields, the line holds only "…".
+
+A chip's click, Enter or Space opens its field: the field is drawn as a row
+in its place among the rows, with the keyboard in its value's editor. Show
+is not written; the field is open only on this drawn row. Escape on the
+field's value while it is empty, at rest, closes it back into the line with
+the keyboard on its chip. While editing, Escape first leaves the editor at
+rest, as it does on every value. A field filled while open stays a row until
+the row is drawn again, when show places it afresh.
+
+The line is one stop in the values' keyboard path. ↑/↓ reach it as they
+reach a value, and the keyboard lands on the chip it last stood on. ←/→
+move between its chips, "…" last, and stop at either end. Escape hands the
+keyboard back to the row (`backToRow`). The line is a group named "Hidden
+fields: " followed by its chips' names; each chip is a button named by its
+field. The open fields and whether "…" is expanded are the drawn row's own
+passing state, like whether a picker is open, and are written nowhere: what
+a person would expect to keep, which fields hide, is the field nodes'. A
+row whose only fields are chips or tucked is still expandable, since it has
+a line to draw. Debug fields draw every field as a row, and no line.
 
 **Per kind.**
 
