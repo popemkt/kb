@@ -823,17 +823,19 @@ type PropValue =
   fields reveal the rows show leaves out, and they are written under the
   same rule.
 
-  Show replaced a checkbox, `sys.f.hidden`, which the seed no longer
-  holds. A field a person hid with it moves to show *hidden* through
-  core's migration `core.field-show` ([Plugin data migrations](#plugin-data-migrations)),
-  which also drops the old field node and its place in any template.
-  *Hidden* is the nearest fit: the checkbox kept a field off the rows, and
-  a chip keeps it off them while its name stays in view. *Never* stays
-  what the seed writes for the fields it owns. Until a store runs the migration,
-  such a field is drawn, and `kb migrate` lists it as pending. The seed's
-  own fields carry show on the next open, as any prop the seed adds, and
-  a store seeded before *hidden* and *tucked* gains the two options as
-  children appended to `sys.f.show`.
+  Show took over from a checkbox, `sys.f.hidden`, and reads it rather
+  than migrating it. `fieldShowOf` takes the field's show when it names
+  one of its options, else the checkbox's `true` as *hidden*, else
+  *always*. So a store a person never touches works as it is: a field
+  they hid is a chip, with no step pending. *Hidden* is the nearest fit:
+  the checkbox kept a field off the rows, and a chip keeps it off them
+  while its name stays in view. The seed keeps `sys.f.hidden` as an
+  `owned` field (show *never*) on no template, so its row leaves the
+  field pages of a store seeded before show, and show is the one setting
+  drawn. The seed's own fields carry show from the next open, as any
+  prop the seed adds, and show beats the checkbox. A store seeded before
+  *hidden* and *tucked* gains the two options as children appended to
+  `sys.f.show`.
 - **A node's own text is a field a view can name** — `sys.f.node.text`, the
   table's Name column. It holds no values (text is `KbNode.text`, not a prop);
   it exists so a view that sorts or sizes by name refers to a node, exactly as
