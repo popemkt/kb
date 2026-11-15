@@ -18,9 +18,12 @@ import {
   useFollow,
   useFrameView,
   useGraphRead,
+  useNode,
   useNodePaletteOpen,
   usePane,
 } from "@kb/ui-sdk";
+import { extensionNodeId } from "@kb/model";
+import { showsChildCounts } from "@kb/outline";
 import { useOutlineStore } from "./outline.store";
 import { pressRowBullet } from "./row-drag";
 
@@ -66,6 +69,8 @@ export const NodeBlock = memo(function NodeBlock({
   // definitions its fields and tags name — not on the whole graph.
   const { outline, schema } = useGraphRead();
   const node = outline.get(nodeId);
+  // The outline family's own setting: whether a closed parent says how many children it has.
+  const countChildren = showsChildCounts(useNode(extensionNodeId("outline")));
   const activateNode = useOutlineStore((s) => s.activateNode);
   const selectNode = useOutlineStore((s) => s.selectNode);
   const toggleCollapse = useOutlineStore((s) => s.toggleCollapse);
@@ -198,6 +203,7 @@ export const NodeBlock = memo(function NodeBlock({
                   node={shown}
                   collapsed={node.collapsed}
                   collapsible={chrome.isExpandable}
+                  countChildren={countChildren}
                   isRef={chrome.bulletIsRef}
                   onClick={handleBulletClick}
                   onMenu={handleBulletMenu}

@@ -1,4 +1,10 @@
-import { VIEW_FAMILY_OPTIONS, DISPLAY_OPTIONS, seededField } from "@kb/model";
+import {
+  VIEW_FAMILY_OPTIONS,
+  DISPLAY_OPTIONS,
+  SYSTEM_IDS,
+  extensionNodeId,
+  seededField,
+} from "@kb/model";
 import { OUTLINE_KEYBOARD } from "./keyboard.ts";
 /**
  * The outline family's declaration and its shared plugin (DESIGN.md →
@@ -42,14 +48,20 @@ export const outlineExtension = defineExtension({
   ],
   views: [viewDef(OutlineView), viewDef(OutlineListView), viewDef(OutlineSnippetView)],
   points: Object.values(OUTLINE_POINT_DEFINITIONS),
-  // A node's own display toggles: the editor's, never drawn as field rows.
-  seed: (at) =>
-    DISPLAY_OPTIONS.map((option) =>
+  seed: (at) => [
+    // A node's own display toggles: the editor's, never drawn as field rows.
+    ...DISPLAY_OPTIONS.map((option) =>
       seededField(OUTLINE_IDS.displayFields[option], `shows ${option}`, "checkbox", at, {
         one: true,
         owned: true,
       }),
     ),
+    // A setting of the family's own node: written like any field, read where a row draws its bullet.
+    seededField(OUTLINE_IDS.childCountsField, "show child counts", "checkbox", at, {
+      one: true,
+      props: { [SYSTEM_IDS.configuresField]: [{ t: "ref", v: extensionNodeId("outline") }] },
+    }),
+  ],
 });
 
 /** The outline family's shared plugin: its declaration's views, on either host. */

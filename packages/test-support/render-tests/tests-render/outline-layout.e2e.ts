@@ -6,6 +6,22 @@
 import type { Page } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
 
+// Each child count is drawn only when the outline's setting asks for it
+// (DESIGN-UI.md → "A collapsed parent's halo says it is closed; its count is
+// a setting"), so every page here shows them.
+test.beforeEach(async ({ request }) => {
+  const response = await request.post("/api/action", {
+    data: {
+      id: "node.update",
+      input: {
+        id: "sys.extension.outline",
+        setProps: [{ field: "sys.f.outline.child-counts", value: { t: "bool", v: true } }],
+      },
+    },
+  });
+  expect((await response.json()).status).toBe("succeeded");
+});
+
 async function home(page: Page, width: number) {
   await page.setViewportSize({ width, height: 900 });
   await page.goto("/");

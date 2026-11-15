@@ -1159,6 +1159,9 @@
         "@kb/plugin": "workspace:*",
         "@kb/views": "workspace:*",
       },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
     },
     "packages/extension/outline-ui": {
       "name": "@kb/outline-ui",

@@ -54,7 +54,7 @@
       "@kb/locations": 19,
       "@kb/locations-fs": 1,
       "@kb/locations-ui": 1,
-      "@kb/outline": 10,
+      "@kb/outline": 11,
       "@kb/outline-ui": 40,
       "@kb/routines": 113,
       "@kb/routines-gcal": 17,
@@ -150,7 +150,7 @@
     },
     "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2803544,
+      "bytes": 2803763,
       "modules": 740
     },
     "single-family": {
