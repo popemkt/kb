@@ -18,6 +18,7 @@ import { displayDay, displayTimes } from "./layout";
 import { inkOf, type CalendarGraph } from "./model";
 import { StatusDot } from "./status-dot";
 import { syncShown } from "./sync-shown";
+import { chosenState, instanceChoices } from "./instance-choices";
 import { TimeField } from "./time-field";
 
 export interface EventCardActions {
@@ -80,7 +81,7 @@ function MoveForm({
   );
 }
 
-/** What can be done to the one instance: tick it, skip it, or move it. */
+/** What can be done to the one instance (`instanceChoices`): tick it, skip it, or move it. */
 function InstanceActions({
   entry,
   today,
@@ -91,35 +92,24 @@ function InstanceActions({
   readonly actions: EventCardActions;
 }) {
   const [moving, setMoving] = useState(false);
-  const done = entry.state === "done";
-  const skipped = entry.state === "skipped";
   return (
     <>
       <div className="flex flex-wrap gap-1.5">
-        <button
-          type="button"
-          className={done ? BUTTON_CLASS : PRIMARY_BUTTON_CLASS}
-          onClick={() => actions.setState(entry, done ? null : "done")}
-        >
-          {done ? "Not done" : "Done"}
-        </button>
-        <button
-          type="button"
-          className={BUTTON_CLASS}
-          onClick={() => actions.setState(entry, skipped ? null : "skipped")}
-        >
-          {skipped ? "Bring back" : "Skip"}
-        </button>
-        {skipped ? null : (
+        {instanceChoices(entry).map((choice) => (
           <button
+            key={choice.id}
             type="button"
-            className={BUTTON_CLASS}
-            aria-expanded={moving}
-            onClick={() => setMoving(!moving)}
+            className={choice.primary ? PRIMARY_BUTTON_CLASS : BUTTON_CLASS}
+            aria-expanded={choice.id === "move" ? moving : undefined}
+            onClick={() =>
+              choice.id === "move"
+                ? setMoving(!moving)
+                : actions.setState(entry, chosenState(entry, choice.id))
+            }
           >
-            {entry.series ? "Move this one…" : "Move…"}
+            {choice.label}
           </button>
-        )}
+        ))}
       </div>
       {moving ? (
         <MoveForm entry={entry} today={today} onMove={(to) => actions.moveOne(entry, to)} />
