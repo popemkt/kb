@@ -74,14 +74,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — every known root has run views.migrate; then delete LegacyDocsViewsPort and readLegacyDocsViews
 - **node** — `01M3YM5YCHGX6S04KN4G75B9RF`
 
-### GAP: ⌘⇧←/→ moves only the selection's head to the next group, not a range's rows
-
-- **expected** — Over a range, the group move acts on the rows as DESIGN-UI.md → A selection is a range of rows says: it sets a field, so on each selected row (or, as a move, on the top rows), in one write
-- **current** — selection-actions' moveToGroup writes PageWrites.moveToGroup(nodeId, …) for the head alone; the other rows of the range stay in their groups
-- **impact** — A range on a board or calendar moved with ⌘⇧←/→ splits: the head moves and the rest stay, unlike Tab, the moves up and down, and Check
-- **closes** — Decide each-row vs top-rows for the group move; PageWrites.moveToGroup takes ids, as moveNodesUp did, planned as one node.batch; a range test through the keymap
-- **node** — `01M7DNQY8PGW8XKYKMTQT45DEQ`
-
 ### GAP: ⌘K "Open location…" opens the home store instead of listing locations in the palette
 
 - **expected** — ⌘K "Open location…" lists the location rows as a palette step and opens the one picked.
@@ -2133,6 +2125,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a malicious page can write to the local kb
 - **closes** — an Origin/Host check on /api/action and /ws, with an allow-list for local tools
 - **node** — `01M3R2KDKN1EFE87R1K8CG3NPE`
+
+### GAP: ⌘⇧←/→ moves only the selection's head to the next group, not a range's rows
+
+- **expected** — Over a range, the group move acts on the rows as DESIGN-UI.md → A selection is a range of rows says: it sets a field, so on each selected row (or, as a move, on the top rows), in one write
+- **current** — selection-actions' moveToGroup writes PageWrites.moveToGroup(nodeId, …) for the head alone; the other rows of the range stay in their groups
+- **impact** — A range on a board or calendar moved with ⌘⇧←/→ splits: the head moves and the rest stay, unlike Tab, the moves up and down, and Check
+- **closes** — Decide each-row vs top-rows for the group move; PageWrites.moveToGroup takes ids, as moveNodesUp did, planned as one node.batch; a range test through the keymap
+- **node** — `01M7DNQY8PGW8XKYKMTQT45DEQ`
 
 ### GAP: 23 ui test files hand-copy the outline store reset literal
 

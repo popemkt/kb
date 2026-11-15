@@ -2,7 +2,6 @@
  * Selection-mode keymap (nxus / DESIGN-REFINE §2 W1; r1 §3.2 Mode B).
  * Active only when a node is selected and not being edited.
  */
-import type { PropValue } from "@kb/model";
 import { keyCallOf, type KeyCall } from "@kb/ui-sdk";
 import type { KeyChordEvent, Keymap } from "@kb/keybindings";
 import type { InstanceRef, VisibleInstance, VisibleLane } from "./visible-instances";
@@ -27,17 +26,10 @@ export type SelectionKeyAction =
   | { type: "moveUp"; nodeId: string }
   | { type: "moveDown"; nodeId: string }
   /**
-   * Into the group of `value` by its field (DESIGN-UI.md → Groups); a
-   * calendar's frame then opens at `opens`, so the row stays drawn.
+   * Each row the selection marks one group over from its own, on `side`
+   * (DESIGN-UI.md → Groups); the head, `instanceKey`, is in a group.
    */
-  | {
-      type: "moveToGroup";
-      nodeId: string;
-      fieldId: string;
-      value: PropValue | null;
-      frameId: string;
-      opens?: string;
-    }
+  | { type: "moveToGroup"; nodeId: string; instanceKey: string; side: "before" | "after" }
   | { type: "zoom"; nodeId: string; instanceKey: string }
   | { type: "createAfter"; nodeId: string }
   | { type: "createBefore"; nodeId: string }
@@ -175,19 +167,15 @@ function clearOrLeaveLane({ ctx, instanceKey }: SelectionTarget): SelectionKeyAc
 }
 
 /**
- * ⌘⇧← and ⌘⇧→: the row into the group before or after its own, as its
- * frame draws them (DESIGN-UI.md → Groups); nothing past either end, or for
- * a row in no group.
+ * ⌘⇧← and ⌘⇧→: the rows into the group before or after their own, as their
+ * frame draws them (DESIGN-UI.md → Groups), on a head in a group; which rows
+ * move, and how far, is the selection's (`selection-actions`).
  */
 function toGroup(side: "before" | "after"): IntentOf {
-  return ({ ctx, nodeId, instanceKey }) => {
-    const group = ctx.instanceAt?.(instanceKey)?.group;
-    const step = group?.[side] ?? null;
-    if (group === undefined || step === null) return null;
-    const { frameId, fieldId } = group;
-    const move = { type: "moveToGroup", nodeId, fieldId, value: step.value, frameId } as const;
-    return step.opens === undefined ? move : { ...move, opens: step.opens };
-  };
+  return ({ ctx, nodeId, instanceKey }) =>
+    ctx.instanceAt?.(instanceKey)?.group === undefined
+      ? null
+      : { type: "moveToGroup", nodeId, instanceKey, side };
 }
 
 /** The selection's intents, by the name a binding runs them by. */

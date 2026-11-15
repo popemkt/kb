@@ -2,7 +2,7 @@
  * A frame shown as a calendar (DESIGN-UI.md → Calendar): its rows on the days
  * of a date field, the undated ones in a list beside them, the walk reaching
  * exactly the rows drawn. A row moves to a day by drag or by ⌘⇧←/→, one write
- * each, and the calendar opens at a day the keys move a row past the days
+ * each, a range's rows each a day from their own, and the calendar opens at a day the keys move a row past the days
  * shown. "+ Add" in a day adds a row holding that day. Today is pinned, so no
  * test reads the wall clock.
  */
@@ -24,6 +24,7 @@ import {
 import { collectionsUiPlugin } from "@kb/collections-ui";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { framedAs, viewFieldNodes } from "@/fixtures/view-fields";
+import { mutations } from "@/actions/mutations";
 import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
@@ -65,6 +66,8 @@ const WEEK = graph({
   [SYSTEM_IDS.viewSpanField]: [{ t: "str", v: "week" }],
 });
 
+/** The instance key of the row `id` is drawn at. */
+const keyOf = (id: string) => outlineInstanceKey(id, outlineNodes());
 const wire = () => useGraphStore.getState().wireNodes;
 const dueOf = (id: string) => wire().find((n) => n.id === id)?.props["f.due"];
 
@@ -196,6 +199,34 @@ describe("a calendar over a date field", () => {
     expect(useOutlineStore.getState().frameDays["plan"]).toBe("2026-11-16");
     expect(walked()).toContain("a2");
     expect(useOutlineStore.getState().selectedNodeId).toBe("a2");
+  });
+
+  it("moves a range across two days a day on with ⌘⇧→, each from its own day, in one undo step", async () => {
+    await show(WEEK);
+    act(() => useOutlineStore.getState().selectNode("a1", keyOf("a1")));
+    // Tuesday's, Saturday's, and the undated row, which has no day after it.
+    act(() => useOutlineStore.getState().extendSelection({ instanceKey: keyOf("a4") }));
+    expect(useOutlineStore.getState().selectedNodeIds).toEqual(["a1", "a2", "a4"]);
+    await act(async () => {
+      dom.document.body.dispatchEvent(
+        new dom.KeyboardEvent("keydown", {
+          key: "ArrowRight",
+          metaKey: true,
+          ctrlKey: true,
+          shiftKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+    expect(dueOf("a1")).toEqual([day("2026-11-11")]);
+    expect(dueOf("a2")).toEqual([day("2026-11-15")]);
+    expect(dueOf("a4")).toBeUndefined();
+    expect(useGraphStore.getState().undoStack).toHaveLength(1);
+    expect(useOutlineStore.getState().selectedNodeIds).toEqual(["a1", "a2", "a4"]);
+    await act(() => mutations.undo());
+    expect(dueOf("a1")).toEqual([day("2026-11-10")]);
+    expect(dueOf("a2")).toEqual([day("2026-11-14")]);
   });
 
   it("moves an undated row onto the day it is open at with ⌘⇧←, and a day back", async () => {
