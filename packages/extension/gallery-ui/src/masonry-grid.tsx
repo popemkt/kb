@@ -100,7 +100,10 @@ export function MasonryGrid({
       ref={setScroller}
       data-testid="gallery-grid"
       data-gallery-shown={visuals.length}
-      className="min-h-0 flex-1 overflow-y-auto px-3 pb-6"
+      // Its own scroller, filling its slot whether the slot is a flex child
+      // (flex-1) or a block with a height of its own (h-full): sized to its
+      // content instead, it would scroll nothing and draw every tile.
+      className="h-full min-h-0 flex-1 overflow-y-auto px-3 pb-6"
       onScroll={onScroll}
     >
       <div className="relative w-full" style={{ height: layout.height }}>
