@@ -416,7 +416,11 @@ function migrationContract(backend: StoreBackend): void {
           });
           // The store as it was before the migration: the edit made since is in the restore's own backup.
           expect(texts()).toEqual(["old a", "old b"]);
-          expect(yield* listed("fam.rename")).toMatchObject({ state: null, pending: true });
+          // Planned as never run, so pending again, and listed as rolled back, so every surface says why.
+          expect(yield* listed("fam.rename")).toMatchObject({
+            state: "rolled-back",
+            pending: true,
+          });
           expect((yield* status()).current).toBe("backup");
           expect(yield* pinned()).toEqual([]);
         }),

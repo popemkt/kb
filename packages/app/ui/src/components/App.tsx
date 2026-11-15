@@ -33,6 +33,8 @@ import { pageEditor } from "@/stores/page-editor";
 import { useSidebarToggle } from "@/stores/prefs.store";
 import type { WsStatus } from "@/api/ws";
 import { useUiStore } from "@/stores/ui.store";
+import { useFollowMigrations } from "@/stores/migrations.store";
+import { MigrationsNote } from "@/components/prefs/migrations-note";
 
 // Every page is a route to a plugin's view, and the sidebar section that
 // leads to it is a contribution too; the shell only frames whichever route
@@ -168,6 +170,8 @@ function SharedChrome() {
 function WorkspaceHeader({ status }: { status: "loading" | "ready" | "error" }) {
   const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
   const sidebar = useSidebarToggle();
+  // The header is on every page, so it keeps the one reading of the migrations current.
+  useFollowMigrations();
 
   return (
     <header className="kb-chrome flex h-11 shrink-0 items-center gap-3 border-b border-foreground/[0.06] px-4">
@@ -178,6 +182,7 @@ function WorkspaceHeader({ status }: { status: "loading" | "ready" | "error" }) 
       ) : null}
       <ConnectionDot />
       <ExtensionWatchNote />
+      <MigrationsNote />
       <div className="flex-1" />
       <PaletteTrigger onOpen={() => setGlobalPaletteOpen(true)} />
       <DockToggles />

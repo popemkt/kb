@@ -4109,8 +4109,10 @@ the settings. The record of why is
     unread list as an empty one. The group's address is `#migrations`.
 - **Migrations ready to review.** While any migration is pending, the
   header carries one quiet line beside the connection dot: _1 migration
-  ready to review_ (or _N migrations_). The line is a link to Settings →
-  Extensions → Migrations, and beside it is a button that dismisses it.
+  ready to review_ (or _N migrations_). It stays on one line: a narrow
+  header shows only the count, and the link's name still says it whole.
+  The line is a link to Settings → Extensions → Migrations, and beside it
+  is a button that dismisses it.
   A dismissal holds for this session, never in `kb-prefs` or the graph.
   It covers only the migrations that were pending when the person
   dismissed it, so one that becomes pending later brings the line back.
