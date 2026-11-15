@@ -228,18 +228,18 @@ describe("field visibility", () => {
       expect(resolve({}).map((p) => p.fieldId)).toEqual(["f.pinned", "f.plain", "f.filled"]);
     });
 
-    it("folds an empty field shown when filled, and draws it once it holds a value", () => {
-      expect(resolve({}).find((p) => p.fieldId === "f.filled")?.folded).toBe(true);
+    it("places an empty field shown when filled as a chip, and a row once it holds a value", () => {
+      expect(resolve({}).find((p) => p.fieldId === "f.filled")?.placement).toBe("chip");
       const filled = resolve({ "f.filled": [{ t: "str", v: "x" }] }).find(
         (p) => p.fieldId === "f.filled",
       );
-      expect(filled?.folded).toBeUndefined();
+      expect(filled?.placement).toBe("row");
       expect(filled?.values).toEqual([{ t: "str", v: "x" }]);
     });
 
-    it("folds nothing while debug fields show, and draws never as a debug row", () => {
+    it("draws every field as a row while debug fields show, never as a debug row", () => {
       const debug = resolve({ "f.never": [{ t: "str", v: "y" }] }, true);
-      expect(debug.some((p) => p.folded === true)).toBe(false);
+      expect(debug.every((p) => p.placement === "row")).toBe(true);
       expect(debug.find((p) => p.fieldId === "f.never")?.debug).toBe(true);
     });
 

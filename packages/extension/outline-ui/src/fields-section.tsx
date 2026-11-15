@@ -14,7 +14,7 @@ import {
   ManagedNote,
   type PropValue,
   resolveFieldTypeById,
-  resolveProps,
+  resolveVisibleProps,
   rowTextOf,
   useDebugFields,
   useFollow,
@@ -516,10 +516,10 @@ export function FieldsSection({ nodeId, depth, instanceKey }: FieldsSectionProps
   const [unfolded, setUnfolded] = useState(false);
 
   if (!node) return null;
-  const props = resolveProps(node, context.schema, { showDebugFields, revealed });
+  const props = resolveVisibleProps(node, context.schema, { showDebugFields, revealed });
   if (props.length === 0) return null;
-  const folded = props.filter((p) => "folded" in p && p.folded === true);
-  const rows = props.filter((p) => !folded.includes(p));
+  const folded = props.filter((p) => p.placement === "chip");
+  const rows = props.filter((p) => p.placement === "row");
   const field = (p: (typeof props)[number]) => (
     <Field
       key={p.fieldId}
@@ -530,7 +530,7 @@ export function FieldsSection({ nodeId, depth, instanceKey }: FieldsSectionProps
       context={context}
       depth={depth}
       instanceKey={instanceKey}
-      debug={"debug" in p ? Boolean(p.debug) : false}
+      debug={p.debug ?? false}
     />
   );
 

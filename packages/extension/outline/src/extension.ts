@@ -47,7 +47,7 @@ export const outlineExtension = defineExtension({
     DISPLAY_OPTIONS.map((option) =>
       seededField(OUTLINE_IDS.displayFields[option], `shows ${option}`, "checkbox", at, {
         one: true,
-        hidden: true,
+        owned: true,
       }),
     ),
 });

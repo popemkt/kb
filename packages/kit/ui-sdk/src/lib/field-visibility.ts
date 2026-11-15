@@ -44,11 +44,12 @@ export type VisibleProp = ResolvedProp & {
   /** Template slot with no value yet (still editable). */
   empty?: boolean;
   /**
-   * An empty template slot of a field shown when filled: drawn in the node's
-   * "N hidden fields" fold, not as a row of its own (DESIGN-UI.md → Field
-   * values → hidden fields fold).
+   * Where the node draws the field (DESIGN-UI.md → Field values → hidden
+   * fields chips): a row of its own, or folded in with the node's hidden
+   * fields (`chip`), as an empty template slot of a field shown when
+   * filled is.
    */
-  folded?: boolean;
+  placement: "row" | "chip";
 };
 
 /**
@@ -71,8 +72,8 @@ const NONE: ReadonlySet<string> = new Set();
 
 /**
  * Resolve node props for FieldRow display with visibility filtering: the
- * fields drawn, pinned ones first (`pinnedFirst`), each a row unless it is
- * `folded`.
+ * fields drawn, pinned ones first (`pinnedFirst`), each with its
+ * `placement`.
  */
 export function resolveVisibleProps(
   node: OutlineNode,
@@ -97,6 +98,7 @@ export function resolveVisibleProps(
       fieldName: fieldNode?.text ?? fieldId,
       values,
       debug: showAll && hiddenByDefault,
+      placement: "row",
     });
   }
 
@@ -112,8 +114,8 @@ export function resolveVisibleProps(
       fieldName: fieldNode?.text ?? fieldId,
       values: [] as PropValue[],
       empty: true,
-      // Debug fields draw every field, so nothing folds while they show.
-      folded: !showAll && fieldShowOf(fieldNode?.props) === "filled",
+      // Debug fields draw every field as a row.
+      placement: !showAll && fieldShowOf(fieldNode?.props) === "filled" ? "chip" : "row",
     });
     seen.add(fieldId);
   }
