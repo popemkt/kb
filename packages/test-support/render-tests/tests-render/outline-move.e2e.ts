@@ -115,13 +115,14 @@ test("Move to… a closed node says where the row went, as news", async ({ page,
   await page.emulateMedia({ reducedMotion: "reduce" });
   const moving = await add(request, "Row for the closed box");
   const box = await add(request, "Closed box");
+  await page.goto(`/node/${ROOT}`);
+  // A child the box gains in view keeps it open.
+  await row(page, box).scrollIntoViewIfNeeded();
   const inside = (
     await invoke<{ id: string }>(request, "node.add", { text: "Old letter", parent: box })
   ).id;
-  await page.goto(`/node/${ROOT}`);
 
-  // Close the box, open as a row with children is, so the row it takes is not drawn there.
-  await row(page, box).scrollIntoViewIfNeeded();
+  // Close the box, so the row it takes is not drawn there.
   await expect(row(page, inside)).toBeVisible();
   await row(page, box).locator(".node-content").click();
   await page.keyboard.press("ControlOrMeta+ArrowUp");
