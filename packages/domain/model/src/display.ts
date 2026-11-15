@@ -9,14 +9,15 @@
  *
  * A family's settings are derived by the fold for each view it claims as a
  * tag's default view: per option, one option field — "when a node asks" or
- * "always" — and for the preview its height, each configuring the family's
- * node. This module is the one home of their ids, their options, their
+ * "always" — and for a still preview its height, each configuring the
+ * family's node. This module is the one home of their ids, their options, their
  * defaults and how they are read; which node holds them is read off the
  * fields (`sys.f.configures`), never guessed from a name, and settings a
  * store does not hold read as the defaults.
  */
 import { SYSTEM_IDS, extensionNodeId, type KbNode, type NodeId, type PropValue } from "./model.ts";
 import { seededField } from "./seed-builders.ts";
+import type { SeedRetirement } from "./seed-retirement.ts";
 
 /** What this module reads of a node: its props. */
 interface Carrier {
@@ -62,6 +63,14 @@ export interface DisplayView {
 /** Whether `view` draws a preview of a node it opens, of either kind. */
 function previews(view: DisplayView): boolean {
   return view.preview !== null && view.preview !== undefined;
+}
+
+/**
+ * Whether `view`'s preview stands at a height of its own: a still one does;
+ * a live one is as tall as its controls draw.
+ */
+function previewsStill(view: DisplayView): boolean {
+  return view.preview === "still";
 }
 
 /** The options `view` offers: the preview only where it draws one. */
@@ -112,7 +121,7 @@ const LABELS: Readonly<Record<DisplayOption, string>> = {
 /**
  * The setting fields the fold derives for `view`, a view `family` claims as
  * a tag's default view: one option field per option it offers, its options
- * its children, and the preview's height where it previews; each holds one
+ * its children, and the preview's height where it previews still; each holds one
  * value and configures the family's node, so it is set where the family's
  * other settings are.
  */
@@ -141,7 +150,7 @@ export function displaySettingFields(view: DisplayView, family: string, at: stri
       ...values,
     ];
   });
-  return previews(view)
+  return previewsStill(view)
     ? [...options, seededField(ids.height, "preview height", "number", at, setting)]
     : options;
 }
@@ -159,9 +168,18 @@ export function displaySettingValues(view: DisplayView): KbNode["props"] {
       [{ t: "ref", v: displayDefaultId(ids[option], DISPLAY_DEFAULTS[option]) }],
     ]),
   );
-  return previews(view)
+  return previewsStill(view)
     ? { ...props, [ids.height]: [{ t: "num", v: DISPLAY_DEFAULTS.height }] }
     : props;
+}
+
+/**
+ * What the fold retires for `view`: a live preview stands as tall as its
+ * controls draw, so the height a store was seeded for it before is no
+ * setting of anything, and opening the store drops it and its value.
+ */
+export function displaySettingRetirements(view: DisplayView): SeedRetirement[] {
+  return view.preview === "live" ? [{ from: displaySettingIds(view.id).height }] : [];
 }
 
 /** The default `node` holds for the setting `field`; absent or foreign, none. */

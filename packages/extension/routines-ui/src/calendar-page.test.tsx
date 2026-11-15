@@ -9,9 +9,10 @@
  */
 import { act, useMemo, useSyncExternalStore } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
-import { SYSTEM_IDS, type PropValue } from "@kb/model";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
+import { present, SYSTEM_IDS, type PropValue } from "@kb/model";
 import {
+  nextEntry,
   routineOption,
   ROUTINE_FIELDS as F,
   ROUTINE_TAGS as T,
@@ -28,8 +29,10 @@ import {
 } from "@kb/ui-test-kit";
 import { CalendarPage } from "./calendar-page";
 import { CalendarClockContext } from "./clock";
+import { EventLine } from "./event-line";
 import { EventView } from "./event-view";
 import { HOUR_PX } from "./layout";
+import { useCalendarGraph } from "./model";
 import { matchCalendar } from "./routes";
 
 interface Call {
@@ -743,9 +746,18 @@ describe("the page", () => {
   });
 });
 
+/** The choices an event's line offers, as they read. */
+const lineChoices = () =>
+  [...document.querySelectorAll<HTMLElement>("[data-event-line-choice]")].map(
+    (each) => each.textContent,
+  );
+
+/** What the clock of an event opened on its own says; a test moves it on. */
+let ownNow = NOW;
+
 /** One event in its own view, on the test's clock. */
 function OwnEvent({ id, preview }: { readonly id: string; readonly preview: boolean }) {
-  const clock = useMemo(() => ({ zone, now: () => NOW }), []);
+  const clock = useMemo(() => ({ zone, now: () => ownNow }), []);
   return (
     <CalendarClockContext.Provider value={clock}>
       <EventView id={id} preview={preview} />
@@ -812,20 +824,140 @@ describe("an event on its own", () => {
     expect(valueOf('input[aria-label="Title"]')).toBe("Old class");
   });
 
-  test("as its row's preview it is the popover's width, and the preview's frame draws the edge", () => {
+  test("as its row's preview it is one line for its next instance, never its title or its box", () => {
+    openEvent("gym", [CALENDAR, GYM], true);
+    const line = $("[data-event-view] [data-event-line]");
+    expect(line.dataset["eventLine"]).toBe("gym/2026-11-04");
+    expect(line.dataset["eventLineKind"]).toBe("live");
+    const parts = [...document.querySelectorAll("[data-event-line-part]")];
+    expect(parts.map((part) => part.textContent)).toEqual([
+      "Personal",
+      "Wed, Nov 4, 07:00–08:00",
+      "Every week on Mon, Wed",
+    ]);
+    expect(document.querySelector("[data-event-card]")).toBeNull();
+    // Each part keeps whole, so narrower than the line it wraps after the time.
+    for (const part of parts) expect(part.className).toContain("whitespace-nowrap");
+  });
+
+  test("pressing the line floats the calendar's own box over it, at the popover's width", async () => {
     open("/calendar/week/2026-11-04", [CALENDAR, GYM]);
     pointer("pointerdown", chip("gym/2026-11-04"), y(7) + 10);
     pointer("pointerup", chip("gym/2026-11-04"), y(7) + 10);
-    const popover = $('[data-testid="entry-popover"]').className;
+    const floated = $('[data-testid="entry-popover"]');
+    const calendarBox = {
+      html: boxHtml($('[data-testid="entry-popover"] [data-event-card]')),
+      className: floated.className,
+    };
     openEvent("gym", [CALENDAR, GYM], true);
-    const card = $("[data-event-view] [data-event-card]");
-    expect(card.className).toContain("border-0");
-    // EVENT_BOX_WIDTH, on the popover and on the preview's box alike.
-    for (const width of ["w-80", "max-w-full"]) {
-      expect(popover.split(" ")).toContain(width);
-      expect(card.className.split(" ")).toContain(width);
+    await click($("[data-event-line-open]"));
+    const popover = $('[data-testid="entry-popover"]');
+    expect(popover.className).toBe(calendarBox.className);
+    expect(boxHtml($('[data-testid="entry-popover"] [data-event-card]'))).toBe(calendarBox.html);
+    await click(button("Close"));
+    expect(document.querySelector('[data-testid="entry-popover"]')).toBeNull();
+  });
+
+  test("live, the box's own choices act in place on the line, and Move… floats the box ready to move", async () => {
+    openEvent("gym", [CALENDAR, GYM], true);
+    // The line says the list's short words; the box says "Move this one…" of a series.
+    expect(lineChoices()).toEqual(["Done", "Skip", "Move…"]);
+    await click($('[data-event-line-choice="done"]'));
+    const [add] = writes();
+    expect([propOf(add, F.on), propOf(add, F.state)]).toEqual([
+      ["2026-11-04"],
+      [routineOption("state", "done")],
+    ]);
+    expect($("[data-event-line] [data-entry-state]").textContent).toBe("Done");
+    expect(lineChoices()).toEqual(["Not done", "Skip", "Move…"]);
+    expect(document.querySelector('[data-testid="entry-popover"]')).toBeNull();
+    await click($('[data-event-line-choice="move"]'));
+    expect($('[data-testid="entry-popover"] [data-move-form]')).toBeDefined();
+  });
+
+  test("live, it says how soon it starts, then how much is left over a progress line, as the clock moves", async () => {
+    const standup = routine("standup", "Standup", {
+      [F.starts]: [str("2026-11-04")],
+      [F.at]: [str("10:20")],
+      [F.duration]: [num(30)],
+    });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      ownNow = NOW;
+      openEvent("standup", [CALENDAR, standup], true);
+      expect($("[data-event-line-moment]").textContent).toBe("in 20 min");
+      // How soon says the day, so the line shows only the time.
+      expect($("[data-event-line-when]").textContent).toBe("10:20–10:50");
+      expect(document.querySelector("[data-event-line-progress]")).toBeNull();
+      // 10:32, twelve minutes into it: the next whole minute draws it again.
+      ownNow = NOW + 32 * 60_000;
+      act(() => {
+        vi.advanceTimersByTime(60_000);
+      });
+      expect($("[data-event-line-moment]").textContent).toBe("now · 18 min left");
+      expect($("[data-event-line-progress]").dataset["eventLineProgress"]).toBe("0.40");
+      // Ended, it says neither.
+      ownNow = NOW + 60 * 60_000;
+      act(() => {
+        vi.advanceTimersByTime(60_000);
+      });
+      expect(document.querySelector("[data-event-line-moment]")).toBeNull();
+      expect($("[data-event-line-when]").textContent).toBe("Wed, Nov 4, 10:20–10:50");
+    } finally {
+      vi.useRealTimers();
+      ownNow = NOW;
     }
-    expect(button("Done")).toBeDefined();
+  });
+
+  test("still, the line is the picture alone: no choices, and nothing that follows the clock", async () => {
+    const standup = routine("standup", "Standup", {
+      [F.starts]: [str("2026-11-04")],
+      [F.at]: [str("10:20")],
+      [F.duration]: [num(30)],
+    });
+    openEvent("standup", [CALENDAR, standup], true);
+    const opened: boolean[] = [];
+    function Still() {
+      const model = useCalendarGraph();
+      const entry = nextEntry(
+        present(model.nodes.get("standup"), "standup"),
+        model.nodes,
+        "2026-11-04",
+      );
+      return (
+        <EventLine
+          routine="standup"
+          entry={entry}
+          model={model}
+          zone={zone}
+          now={NOW}
+          live={false}
+          actions={{ setState: () => undefined, moveOne: () => undefined, edit: () => undefined }}
+          onOpen={(_line, moving) => opened.push(moving)}
+        />
+      );
+    }
+    act(() => root.render(<Still />));
+    expect($("[data-event-line]").dataset["eventLineKind"]).toBe("still");
+    expect(document.querySelector("[data-event-line-choice]")).toBeNull();
+    expect(document.querySelector("[data-event-line-moment]")).toBeNull();
+    await click($("[data-event-line-open]"));
+    expect(opened).toEqual([false]);
+  });
+
+  test("a series that has ended says so on its line, which still floats its box", async () => {
+    const ended = routine("old", "Old class", {
+      [F.starts]: [str("2026-10-01")],
+      [F.at]: [str("07:00")],
+      [F.duration]: [num(60)],
+      [F.rrule]: [str("FREQ=DAILY;COUNT=2")],
+    });
+    openEvent("old", [CALENDAR, ended], true);
+    expect($("[data-event-line] [data-event-no-instance]").textContent).toBe(
+      "No instance from today on",
+    );
+    await click($("[data-event-line-open]"));
+    expect($('[data-testid="entry-popover"] [data-event-no-instance]')).toBeDefined();
   });
 
   test("says when it synced as it says its times, never as an ISO instant", () => {
@@ -837,6 +969,10 @@ describe("an event on its own", () => {
       },
     };
     openEvent("gym", [CALENDAR, synced], true);
+    expect($("[data-event-line] [data-sync-status]").title).toBe(
+      "Synced to Google Calendar at Nov 10, 21:43",
+    );
+    openEvent("gym", [CALENDAR, synced]);
     const card = $("[data-event-view] [data-event-card]");
     expect(card.textContent).toContain("Synced to Google Calendar at Nov 10, 21:43");
     expect(card.textContent).not.toMatch(/\d{4}-\d{2}-\d{2}T/);

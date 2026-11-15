@@ -24,6 +24,7 @@ import {
   roleNodeId,
   type RoleDefinition,
   displaySettingFields,
+  displaySettingRetirements,
   displaySettingValues,
   type SeedRetirement,
   TAG_VIEWS,
@@ -377,7 +378,11 @@ function fileUnder(nodes: readonly KbNode[], rootId: string, derived: readonly K
 export interface FoldedSeed {
   readonly nodes: KbNode[];
   readonly owners: ReadonlyMap<NodeId, string>;
-  /** Every source's retirement rows, in source order (`retiredRows`). */
+  /**
+   * Every source's retirement rows, in source order (`retiredRows`), then
+   * the display settings the fold derived once and derives no more
+   * (`displaySettingRetirements`).
+   */
   readonly retired: readonly SeedRetirement[];
 }
 
@@ -498,7 +503,10 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
   // Read once every id is known to have one owner, so a doubled source is
   // refused for its ids first.
   const claimed = viewClaimProps(sources, seen);
-  const retired = retiredRows(sources, seen);
+  const retired = [
+    ...retiredRows(sources, seen),
+    ...sources.flatMap((source) => tagOpened(source).flatMap(displaySettingRetirements)),
+  ];
   return {
     nodes: folded.map((node) => {
       const props = claimed.get(node.id);

@@ -10,15 +10,15 @@
  *
  * It is cheap: a still one stands in a box of its family's `preview height`,
  * so a long outline never shifts, and a live one stands as tall and as wide
- * as its controls draw, at least that height, so it never scrolls inside
- * itself; either mounts only once on screen, so it pays for no preview it
- * never shows.
+ * as its controls draw, with no edge or ground of its own, so it never
+ * scrolls inside itself and a one-line view is one line; either mounts only
+ * once on screen, so it pays for no preview it never shows.
  */
 import { useEffect, useState } from "react";
 import { Result } from "effect";
 import type { NodeId } from "@kb/model";
 import { ignoreReport, paramsFromProps } from "@kb/views";
-import { cn, indentStyle, usePane, ViewSlot } from "@kb/ui-sdk";
+import { indentStyle, usePane, ViewSlot } from "@kb/ui-sdk";
 import { releaseOutlineKeyboard } from "./outline.store";
 import { openIn, type RowOpening } from "./row-opening";
 
@@ -48,10 +48,10 @@ function useSeen(): readonly [(el: HTMLElement | null) => void, boolean] {
 /**
  * The preview under the row, when it is on: the opening's view at placement
  * `preview`, mounted once on screen. A still preview is a box of its
- * family's height, pressed, or Enter or Space on it, to open the node in
- * that view; a live one is the view's to press, in a box as tall and as
- * wide as its controls (at least its family's height, at most the column's
- * width), so every control is in view without scrolling.
+ * family's height, with its edge, pressed, or Enter or Space on it, to open
+ * the node in that view; a live one is the view's to press, in a box as
+ * tall and as wide as its controls (at most the column's width) that draws
+ * nothing itself, so every control is in view without scrolling.
  */
 export function RowPreview({
   nodeId,
@@ -68,8 +68,6 @@ export function RowPreview({
   const params = paramsFromProps(opening.key, {}, nodeId, ignoreReport);
   if (Result.isFailure(params)) return null;
   const open = () => openIn(pane, nodeId, opening.key);
-  const frame = "relative rounded-md border border-border bg-foreground/[0.02]";
-  const height = opening.settings.height;
   const slot = seen ? (
     <ViewSlot
       view={opening.key}
@@ -91,8 +89,7 @@ export function RowPreview({
           ref={box}
           role="group"
           aria-label={`${opening.label} preview`}
-          className={cn(frame, "w-fit max-w-full")}
-          style={{ minHeight: height }}
+          className="relative w-fit max-w-full"
           onFocus={releaseOutlineKeyboard}
         >
           {slot}
@@ -104,11 +101,8 @@ export function RowPreview({
           tabIndex={0}
           aria-label={`Open in ${opening.label}`}
           title={`Open in ${opening.label}`}
-          className={cn(
-            frame,
-            "w-full cursor-pointer overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
-          )}
-          style={{ height }}
+          className="relative w-full cursor-pointer overflow-hidden rounded-md border border-border bg-foreground/[0.02] outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          style={{ height: opening.settings.height }}
           onClick={open}
           onKeyDown={(e) => {
             if (e.key !== "Enter" && e.key !== " ") return;

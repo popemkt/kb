@@ -2,9 +2,9 @@
  * The calendar's box for one instance: when it is and how it repeats, its
  * state and its sync state, and what can be done to it here: tick it done,
  * skip it, move just this one, edit its event, open it in Google Calendar or
- * in the outline. The calendar floats it over the instance pressed
- * (`EntryPopover`); an event opened on its own, and its row's preview, draw
- * it in place. One box, so every surface edits an event the same way,
+ * in the outline. The calendar floats it over the instance pressed, and an
+ * event's line under its row over the line (`EntryPopover`); an event
+ * opened on its own draws it in place. One box, so every surface edits an event the same way,
  * through the family's actions.
  */
 import { useState } from "react";
@@ -18,6 +18,7 @@ import { displayDay, displayTimes } from "./layout";
 import { inkOf, type CalendarGraph } from "./model";
 import { StatusDot } from "./status-dot";
 import { syncShown } from "./sync-shown";
+import { chosenState, instanceChoices } from "./instance-choices";
 import { TimeField } from "./time-field";
 
 export interface EventCardActions {
@@ -28,8 +29,9 @@ export interface EventCardActions {
 }
 
 /**
- * How wide the box is, wherever it is drawn: the calendar's popover and an
- * event's preview under its row are the one box, the same width.
+ * How wide the box is, wherever it is drawn: floated over a chip on the
+ * calendar or over an event's line under its row, it is the one box, the
+ * same width.
  */
 export const EVENT_BOX_WIDTH = "w-80 max-w-full";
 
@@ -80,46 +82,37 @@ function MoveForm({
   );
 }
 
-/** What can be done to the one instance: tick it, skip it, or move it. */
+/** What can be done to the one instance (`instanceChoices`): tick it, skip it, or move it. */
 function InstanceActions({
   entry,
   today,
   actions,
+  moving: startMoving,
 }: {
   readonly entry: CalendarEntry;
   readonly today: string;
   readonly actions: EventCardActions;
+  readonly moving: boolean;
 }) {
-  const [moving, setMoving] = useState(false);
-  const done = entry.state === "done";
-  const skipped = entry.state === "skipped";
+  const [moving, setMoving] = useState(startMoving);
   return (
     <>
       <div className="flex flex-wrap gap-1.5">
-        <button
-          type="button"
-          className={done ? BUTTON_CLASS : PRIMARY_BUTTON_CLASS}
-          onClick={() => actions.setState(entry, done ? null : "done")}
-        >
-          {done ? "Not done" : "Done"}
-        </button>
-        <button
-          type="button"
-          className={BUTTON_CLASS}
-          onClick={() => actions.setState(entry, skipped ? null : "skipped")}
-        >
-          {skipped ? "Bring back" : "Skip"}
-        </button>
-        {skipped ? null : (
+        {instanceChoices(entry).map((choice) => (
           <button
+            key={choice.id}
             type="button"
-            className={BUTTON_CLASS}
-            aria-expanded={moving}
-            onClick={() => setMoving(!moving)}
+            className={choice.primary ? PRIMARY_BUTTON_CLASS : BUTTON_CLASS}
+            aria-expanded={choice.id === "move" ? moving : undefined}
+            onClick={() =>
+              choice.id === "move"
+                ? setMoving(!moving)
+                : actions.setState(entry, chosenState(entry, choice.id))
+            }
           >
-            {entry.series ? "Move this one…" : "Move…"}
+            {choice.label}
           </button>
-        )}
+        ))}
       </div>
       {moving ? (
         <MoveForm entry={entry} today={today} onMove={(to) => actions.moveOne(entry, to)} />
@@ -135,12 +128,14 @@ function InstanceDetails({
   zone,
   today,
   actions,
+  moving,
 }: {
   readonly entry: CalendarEntry;
   readonly model: CalendarGraph;
   readonly zone: string;
   readonly today: string;
   readonly actions: EventCardActions;
+  readonly moving: boolean;
 }) {
   const node = model.nodes.get(entry.routine);
   const settings = node === undefined ? null : routineSettings(node).settings;
@@ -187,7 +182,7 @@ function InstanceDetails({
           Open in Google Calendar <ArrowSquareOutIcon size={12} />
         </a>
       )}
-      <InstanceActions entry={entry} today={today} actions={actions} />
+      <InstanceActions entry={entry} today={today} actions={actions} moving={moving} />
     </>
   );
 }
@@ -204,6 +199,7 @@ export function EventCard({
   zone,
   today,
   actions,
+  moving = false,
   onClose,
   className,
 }: {
@@ -214,6 +210,8 @@ export function EventCard({
   /** Today on the page's clock, which the move's date picker marks. */
   readonly today: string;
   readonly actions: EventCardActions;
+  /** Whether the move's fields are open when the box is drawn: its line's Move… opens it so. */
+  readonly moving?: boolean;
   /** Where the box floats, how it is put away: drawn as its Close button. */
   readonly onClose?: () => void;
   readonly className?: string;
@@ -235,7 +233,14 @@ export function EventCard({
           No instance from today on, or none the calendar can show.
         </p>
       ) : (
-        <InstanceDetails entry={entry} model={model} zone={zone} today={today} actions={actions} />
+        <InstanceDetails
+          entry={entry}
+          model={model}
+          zone={zone}
+          today={today}
+          actions={actions}
+          moving={moving}
+        />
       )}
       <div className="flex gap-3 border-t border-border pt-2 text-meta">
         <button

@@ -1,6 +1,7 @@
 /**
- * One instance opened on the calendar: its box (`EventCard`), floated over
- * the chip that was pressed, and put away as every popover is.
+ * One event's box (`EventCard`), floated over what was pressed — an
+ * instance's chip on the calendar, an event's line under its row — and put
+ * away as every popover is.
  */
 import { useRef } from "react";
 import type { CalendarEntry } from "@kb/routines";
@@ -9,7 +10,9 @@ import { EVENT_BOX_WIDTH, EventCard, type EventCardActions } from "./event-card"
 import type { CalendarGraph } from "./model";
 
 export function EntryPopover({
+  routine,
   entry,
+  moving,
   element,
   model,
   zone,
@@ -17,7 +20,11 @@ export function EntryPopover({
   actions,
   onClose,
 }: {
-  readonly entry: CalendarEntry;
+  readonly routine: string;
+  /** The instance it acts on; none for an event with no instance to show. */
+  readonly entry: CalendarEntry | null;
+  /** Whether the move's fields are open when it floats. */
+  readonly moving?: boolean;
   readonly element: HTMLElement;
   readonly model: CalendarGraph;
   readonly zone: string;
@@ -34,14 +41,15 @@ export function EntryPopover({
     <div
       ref={panel}
       role="dialog"
-      aria-label={entry.title}
+      aria-label={entry?.title ?? model.nodes.get(routine)?.text ?? "Event"}
       data-testid="entry-popover"
       className={cn("fixed z-40 overflow-y-auto rounded-lg shadow-overlay", EVENT_BOX_WIDTH)}
       style={style}
     >
       <EventCard
-        routine={entry.routine}
+        routine={routine}
         entry={entry}
+        moving={moving}
         model={model}
         zone={zone}
         today={today}

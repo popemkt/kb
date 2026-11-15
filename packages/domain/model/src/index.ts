@@ -256,6 +256,7 @@ export {
   displayOptionsOf,
   displaySettingFields,
   displaySettingIds,
+  displaySettingRetirements,
   displaySettingsOf,
   displaySettingValues,
   type DisplayOption,
