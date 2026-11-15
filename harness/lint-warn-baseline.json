@@ -177,6 +177,7 @@
       "extension/ext-docs/src/index.ts": 1,
       "extension/gallery-ui/src/draft.ts": 2,
       "extension/graph-ui/src/graph-page.tsx": 2,
+      "extension/outline-ui/src/recents.ts": 1,
       "kit/ui-sdk/src/lib/graph-view.ts": 4,
       "kit/ui-sdk/src/lib/stale-build.ts": 1
     },
