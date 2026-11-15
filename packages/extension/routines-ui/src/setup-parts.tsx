@@ -11,7 +11,7 @@ import {
   CopyIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react";
-import { cn, IconButton, toast } from "@kb/ui-sdk";
+import { cn, copyText, IconButton } from "@kb/ui-sdk";
 
 /**
  * A value to paste somewhere else, shown whole, with a button that copies it:
@@ -21,14 +21,9 @@ export function CopyValue({ label, value }: { readonly label: string; readonly v
   const text = value.includes("\n");
   const [copied, setCopied] = useState(false);
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      toast(`${label} copied`);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      toast(`Couldn't copy: select the ${label.toLowerCase()} and copy it by hand`);
-    }
+    if (!(await copyText(value, label))) return;
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
   };
   return (
     <div

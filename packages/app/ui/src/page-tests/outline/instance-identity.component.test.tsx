@@ -8,7 +8,7 @@ import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present, SYSTEM_IDS } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { outlineInstanceKey, queryResultInstanceKey, syncUiPlugins } from "@kb/ui-sdk";
+import { outlineInstanceKey, projectedRowKey, syncUiPlugins } from "@kb/ui-sdk";
 import type { WireNode } from "@kb/contracts";
 import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
@@ -81,7 +81,7 @@ describe("instance identity (component)", () => {
   it("clicking the tree instance activates only that data-instance-key", async () => {
     const nodes = outlineNodes();
     const treeKey = outlineInstanceKey("n.root-a", nodes);
-    const refKey = queryResultInstanceKey("n.q1", "n.root-a");
+    const refKey = projectedRowKey("n.q1", "n.root-a");
 
     await act(async () => {
       root.render(
@@ -131,8 +131,8 @@ describe("instance identity (component)", () => {
   });
 
   it("arrow from query-result instance stays in the query region", async () => {
-    const refA = queryResultInstanceKey("n.q1", "n.root-a");
-    const refB = queryResultInstanceKey("n.q1", "n.root-b");
+    const refA = projectedRowKey("n.q1", "n.root-a");
+    const refB = projectedRowKey("n.q1", "n.root-b");
     // The results are the replica's answer: the first walk asks for them, the next has them.
     useOutlineStore.getState().getVisibleInstances();
     await present(useGraphStore.getState().queries, "replica queries").ask(TODO_EDN);
@@ -178,7 +178,7 @@ describe("instance identity (component)", () => {
   });
 
   it("expanded ref children render non-ref bullets", async () => {
-    const refKey = queryResultInstanceKey("n.q1", "n.root-a");
+    const refKey = projectedRowKey("n.q1", "n.root-a");
     // Expand the result node so children mount under the ref instance.
     useOutlineStore.setState((s) => ({ expansion: new Map(s.expansion).set("n.root-a", true) }));
 

@@ -1,4 +1,4 @@
-import { dayOfMonth } from "./dates";
+import { dayOfMonth } from "./days";
 
 /**
  * A day's number in a layout's header or cell: today's on the primary fill,

@@ -1,7 +1,7 @@
 /**
  * A picker's keys (`usePickerKeys`): Enter picks the highlighted row, but
  * never a disabled one — the key is claimed, and nothing is picked, as a
- * click on it picks nothing.
+ * click on it picks nothing. Alt+Enter picks it as the picker's alternate.
  */
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -16,7 +16,7 @@ function Host({
   hold,
 }: {
   candidates: readonly PickerCandidate[];
-  onPick: (row: PickerRow | null) => void;
+  onPick: (row: PickerRow | null, alternate: boolean) => void;
   hold: (keys: PickerKeys) => void;
 }) {
   const rows = pickerRows(candidates, { query: "" });
@@ -27,18 +27,23 @@ function Host({
 /** The keys a picker over `candidates` answers, as first drawn, and what they picked. */
 function keysOver(candidates: readonly PickerCandidate[]) {
   const picked: Array<PickerRow | null> = [];
+  const alternates: boolean[] = [];
   const held: { keys?: PickerKeys } = {};
   renderToStaticMarkup(
     createElement(Host, {
       candidates,
-      onPick: (row) => picked.push(row),
+      onPick: (row, alternate) => {
+        picked.push(row);
+        alternates.push(alternate);
+      },
       hold: (keys) => {
         held.keys = keys;
       },
     }),
   );
-  const enter = () => held.keys?.handleKeyDown({ key: "Enter", preventDefault: () => {} });
-  return { picked, enter };
+  const enter = (alt = false) =>
+    held.keys?.handleKeyDown({ key: "Enter", altKey: alt, preventDefault: () => {} });
+  return { picked, alternates, enter };
 }
 
 describe("a picker's Enter", () => {
@@ -58,5 +63,13 @@ describe("a picker's Enter", () => {
     const { picked, enter } = keysOver([]);
     expect(enter()).toBe(true);
     expect(picked).toEqual([null]);
+  });
+
+  it("picks it as the alternate with Alt", () => {
+    const { picked, alternates, enter } = keysOver([{ id: "a", label: "alpha" }]);
+    expect(enter(true)).toBe(true);
+    expect(enter()).toBe(true);
+    expect(picked.map((row) => row?.id)).toEqual(["a", "a"]);
+    expect(alternates).toEqual([true, false]);
   });
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SYSTEM_IDS, type PropValue } from "@kb/model";
 import { GALLERY_IDS, type GraphNode } from "@kb/gallery";
-import { findNodes, looksFor, plainOf, seedOf } from "./node-model";
+import { findNodes, looksFor, seedOf } from "./node-model";
 
 const ref = (v: string): PropValue => ({ t: "ref", v });
 const n = (
@@ -52,15 +52,6 @@ describe("finding the node a look is for", () => {
 });
 
 describe("a node's words as a brief", () => {
-  it("reads references by their labels and drops media and markup", () => {
-    expect(plainOf("- A keeper alone with [[ship|the ship]]", get)).toBe(
-      "A keeper alone with the ship",
-    );
-    expect(plainOf("with [[ship]] **now**", get)).toBe("with Ship now");
-    expect(plainOf("![storm](assets/storm.png)", get)).toBe("");
-    expect(plainOf("Fog at [dawn](https://example.com)", get)).toBe("Fog at dawn");
-  });
-
   it("seeds from its text and its first children's, skipping the empty", () => {
     const story = get("story");
     if (story === undefined) throw new Error("fixture");

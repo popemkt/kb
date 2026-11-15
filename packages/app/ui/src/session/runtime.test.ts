@@ -119,14 +119,14 @@ describe("browser action runtime", () => {
     const post = vi.fn();
     setPostAction(post);
 
-    // `sys.f.hidden` is a checkbox field; the local replica commits through
+    // `sys.f.show` is a ref field; the local replica commits through
     // the same integrity check the server does.
     const receipt = await invoke("node.update", {
       id: "n.root-a",
-      setProps: [{ field: "sys.f.hidden", value: { t: "str", v: "yes" } }],
+      setProps: [{ field: "sys.f.show", value: { t: "str", v: "yes" } }],
     });
     expect(receipt).toMatchObject({ status: "failed", code: "invalid_input" });
-    expect(useGraphStore.getState().index?.getNode("n.root-a")?.props["sys.f.hidden"]).toBe(
+    expect(useGraphStore.getState().index?.getNode("n.root-a")?.props["sys.f.show"]).toBe(
       undefined,
     );
     await waitForBrowserPushes();

@@ -349,6 +349,7 @@ describe("built-in routes", () => {
       "ontology.section",
       "canvas.section",
       "outline.pinned",
+      "outline.recent",
       "locations.section",
     ]);
   });

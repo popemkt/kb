@@ -96,7 +96,8 @@ describe("cardinality: one", () => {
       SYSTEM_IDS.lensFocusField,
       SYSTEM_IDS.viewPagesizeField,
       SYSTEM_IDS.viewField,
-      SYSTEM_IDS.hiddenField,
+      SYSTEM_IDS.showField,
+      SYSTEM_IDS.pinnedField,
       SYSTEM_IDS.refTargetField,
     ]) {
       expect(cardinalityOf(byId.get(id)?.props, () => undefined)).toBe("one");

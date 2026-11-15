@@ -177,25 +177,17 @@ describe("i8 Phase 1 regressions (R9 B-table)", () => {
     // No further bump — the duplicate activation is gone
   });
 
-  it("F11: indent/outdent guard uses result.ok not object truthiness", async () => {
-    // Source-level invariant: the fix is if (!result.ok) not if (!ok)
+  it("F11: indent/outdent guard on whether the write landed, not object truthiness", async () => {
+    // Source-level invariant: the guard reads applyPlan's boolean, never a truthy object.
     const src = fs.readFileSync(
       new URL("../../actions/mutations.ts", import.meta.url).pathname,
       "utf8",
     );
-    // indentNode and outdentNode must use result.ok
-    const indentSection = src.slice(
-      src.indexOf("async indentNode"),
-      src.indexOf("async indentNode") + 800,
-    );
-    const outdentSection = src.slice(
-      src.indexOf("async outdentNode"),
-      src.indexOf("async outdentNode") + 800,
-    );
-    expect(indentSection).toContain("if (!result.ok)");
-    expect(outdentSection).toContain("if (!result.ok)");
-    expect(indentSection).not.toMatch(/if\s*\(\s*!ok\s*\)/);
-    expect(outdentSection).not.toMatch(/if\s*\(\s*!ok\s*\)/);
+    const section = (name: string) => src.slice(src.indexOf(name), src.indexOf(name) + 800);
+    for (const name of ["async indentNodes", "async outdentNodes"]) {
+      expect(section(name)).toContain("if (!(await applyPlan(plan))");
+      expect(section(name)).not.toMatch(/if\s*\(\s*!ok\s*\)/);
+    }
   });
 
   it("F9: inactive MdView with 'a\nb' has pre-wrap and not collapsed to one line", async () => {

@@ -11,7 +11,7 @@ import type { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { fieldContextOf, frameConfigOf, queryResultInstanceKey, schemaOf } from "@kb/ui-sdk";
+import { fieldContextOf, frameConfigOf, projectedRowKey, schemaOf } from "@kb/ui-sdk";
 import { paramsFrom } from "@kb/views";
 import { Result } from "effect";
 import { useGraphStore } from "@/stores/graph.store";
@@ -21,6 +21,9 @@ import { framedAs } from "@/fixtures/view-fields";
 import { outlineFrameSubject, outlineNodes, outlineSource, useOutlineStore } from "@kb/outline-ui";
 import { CollectionCardsView, CollectionTableView } from "@kb/collections";
 import { BoardCardsView, TableView } from "@kb/collections-ui";
+
+/** These views draw no row's children, so the host's are never asked for. */
+const NoRowChildren = () => null;
 
 const RESULTS = ["n.root-b", "n.root-c"];
 
@@ -66,7 +69,7 @@ describe("projected query-result rows behave like owned rows", () => {
     );
   }
 
-  const key = queryResultInstanceKey("n.root-a", "n.root-b");
+  const key = projectedRowKey("n.root-a", "n.root-b");
   const row = () =>
     present(container.querySelector(`[data-node-row="true"][data-instance-key="${key}"]`), "row");
   const bullet = () =>
@@ -77,7 +80,13 @@ describe("projected query-result rows behave like owned rows", () => {
       root.render(
         <TableView
           frame={outlineFrameSubject(
-            { frameId: "n.root-a", rowIds: RESULTS, isQuerySource: true, depth: 0 },
+            {
+              RowChildren: NoRowChildren,
+              frameId: "n.root-a",
+              rowIds: RESULTS,
+              isQuerySource: true,
+              depth: 0,
+            },
             1,
           )}
           settings={settingsOf(CollectionTableView)}
@@ -118,7 +127,13 @@ describe("projected query-result rows behave like owned rows", () => {
       root.render(
         <BoardCardsView
           frame={outlineFrameSubject(
-            { frameId: "n.root-a", rowIds: RESULTS, isQuerySource: true, depth: 0 },
+            {
+              RowChildren: NoRowChildren,
+              frameId: "n.root-a",
+              rowIds: RESULTS,
+              isQuerySource: true,
+              depth: 0,
+            },
             1,
           )}
           view={{ key: CollectionCardsView, params: settingsOf(CollectionCardsView) }}

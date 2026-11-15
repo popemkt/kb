@@ -5,6 +5,7 @@
  * the days of the person's zone (`CalendarModel`).
  */
 import { useMemo } from "react";
+import { calendarChipInk } from "@kb/calendar-kit";
 import { addDays, formatDay, nodesOfKind, parseDay, type NodeLike } from "@kb/model";
 import {
   calendarEntries,
@@ -38,7 +39,7 @@ const CALENDAR_INKS = [
   "border-chart-5 bg-chart-5/15",
 ] as const;
 /** A routine on no calendar. */
-const NO_CALENDAR_INK = "border-primary bg-primary/10";
+const NO_CALENDAR_INK = calendarChipInk;
 
 export function inkOf(calendar: CalendarChoice | undefined): string {
   return calendar === undefined

@@ -315,7 +315,7 @@ describe("stored shortcuts through the real page keyboard point", () => {
       ({ value }) => value.id === "shortcut.review",
     )?.value;
     const context = pageCommandContext(
-      { nodeId: "override", frameId: null },
+      { nodeId: "override", frameId: null, nodeIds: ["override"] },
       { close: () => {}, openStep: () => {} },
     );
     expect(review?.when?.(context)).toBe(true);
@@ -497,7 +497,7 @@ it("shows exact content in the ordinary approval dialog and requires a fresh cli
     if (overlay === undefined || review === undefined) throw new Error("missing review surface");
     const Overlay = overlay.Component;
     const context = pageCommandContext(
-      { nodeId: "override", frameId: null },
+      { nodeId: "override", frameId: null, nodeIds: ["override"] },
       { close: () => {}, openStep: () => {} },
     );
     const button = (label: string) => {

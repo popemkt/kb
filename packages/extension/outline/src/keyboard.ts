@@ -31,7 +31,8 @@ function editingBinding(id: string, chord: Chord, intent: string): ContributionE
  */
 export const EDITING_BINDINGS: readonly ContributionEntry<Keybinding>[] = [
   editingBinding("soft-break", { key: "Enter", shift: true }, "soft-break"),
-  editingBinding("split", { key: "Enter", shift: false }, "split"),
+  editingBinding("split", { key: "Enter", shift: false, mod: false }, "split"),
+  editingBinding("toggle-check", { key: "Enter", shift: false, mod: true }, "toggle-check"),
   editingBinding("outdent", { key: "Tab", shift: true }, "outdent"),
   editingBinding("indent", { key: "Tab", shift: false }, "indent"),
   editingBinding(
@@ -104,12 +105,18 @@ function selectionBinding(
 const SELECTION_KEYS: readonly ContributionEntry<Keybinding>[] = [
   selectionBinding("move-up", { key: "ArrowUp", mod: true, shift: true }),
   selectionBinding("move-down", { key: "ArrowDown", mod: true, shift: true }),
+  selectionBinding("move-to-group-before", { key: "ArrowLeft", mod: true, shift: true }),
+  selectionBinding("move-to-group-after", { key: "ArrowRight", mod: true, shift: true }),
   selectionBinding("zoom", { key: ".", mod: true }),
-  selectionBinding("up", { key: "ArrowUp", mod: false }),
-  selectionBinding("down", { key: "ArrowDown", mod: false }),
+  selectionBinding("up", { key: "ArrowUp", mod: false, shift: false }),
+  selectionBinding("down", { key: "ArrowDown", mod: false, shift: false }),
+  // Shift moves the selection's head and keeps its anchor: a range of rows.
+  selectionBinding("extend-up", { key: "ArrowUp", mod: false, shift: true }),
+  selectionBinding("extend-down", { key: "ArrowDown", mod: false, shift: true }),
   selectionBinding("close-or-climb", { key: "ArrowLeft", mod: false }),
   selectionBinding("open-or-descend", { key: "ArrowRight", mod: false }),
   selectionBinding("edit", { key: "Enter", mod: false }),
+  selectionBinding("toggle-check", { key: "Enter", mod: true, shift: false }),
   selectionBinding("toggle-collapse", { key: SPACE_KEYS, mod: false, alt: false }),
   selectionBinding("outdent", { key: "Tab", shift: true, mod: false }),
   selectionBinding("indent", { key: "Tab", shift: false, mod: false }),
@@ -124,7 +131,7 @@ const SELECTION_KEYS: readonly ContributionEntry<Keybinding>[] = [
 /**
  * The outline's selection keys, as its contributions to `ui.keybindings`
  * (DESIGN-REFINE §2 W1; r1 §3.2 Mode B). No two chords overlap. Every
- * binding but ⌘⇧↑/↓ and ⌘. says `mod: false`, so any other command chord
+ * binding but ⌘⇧↑/↓, ⌘⇧←/→ and ⌘. says `mod: false`, so any other command chord
  * resolves to nothing and stays the browser's or the shell's. Typing over a
  * selected row edits it with the character appended: any printable key but
  * those the bindings above claim, with Alt excluded so Alt-composed glyphs

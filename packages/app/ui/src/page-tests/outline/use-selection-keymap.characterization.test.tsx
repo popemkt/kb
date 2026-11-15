@@ -106,8 +106,12 @@ describe("selection-mode dispatcher (characterization)", () => {
     });
   }
 
-  /** Press `key`; whether the page took it (`defaultPrevented`). */
-  async function press(key: string, mods: Mods = {}): Promise<boolean> {
+  /** Press `key` on `target` (the page); whether the page took it (`defaultPrevented`). */
+  async function press(
+    key: string,
+    mods: Mods = {},
+    target: { dispatchEvent: (event: never) => boolean } = dom.document.body,
+  ): Promise<boolean> {
     const ev = new dom.KeyboardEvent("keydown", {
       key,
       bubbles: true,
@@ -115,7 +119,7 @@ describe("selection-mode dispatcher (characterization)", () => {
       ...mods,
     });
     await act(async () => {
-      dom.document.body.dispatchEvent(ev);
+      target.dispatchEvent(ev as never);
     });
     await settle();
     return ev.defaultPrevented;
@@ -128,6 +132,38 @@ describe("selection-mode dispatcher (characterization)", () => {
     expect(useOutlineStore.getState().selectedInstanceKey).toBe(
       outlineInstanceKey("n.root-c", outlineNodes()),
     );
+  });
+
+  it("a focused control keeps its keys: Tab moves on and Enter presses it", async () => {
+    selectAndMount("n.root-b");
+    const parent = node("n.root-b")?.parentId;
+    // A tag's box, the hidden-fields fold: a control the keyboard stops at.
+    const box = dom.document.createElement("div");
+    box.setAttribute("role", "checkbox");
+    box.tabIndex = 0;
+    const mark = dom.document.createElement("span");
+    box.appendChild(mark);
+    dom.document.body.appendChild(box);
+    expect(await press("Tab", { shiftKey: true }, box)).toBe(false);
+    expect(await press("Tab", {}, mark)).toBe(false);
+    expect(await press("Enter", {}, box)).toBe(false);
+    expect(await press(" ", {}, box)).toBe(false);
+    expect(node("n.root-b")?.parentId).toBe(parent);
+    expect(useOutlineStore.getState().activeNodeId).toBeNull();
+    expect(useOutlineStore.getState().selectedNodeId).toBe("n.root-b");
+    box.remove();
+  });
+
+  it("chrome the keyboard skips leaves its keys to the selection", async () => {
+    selectAndMount("n.root-b");
+    // The bullet: a button, but not a tab stop, so a click leaves focus on it.
+    const bullet = dom.document.createElement("div");
+    bullet.setAttribute("role", "button");
+    bullet.tabIndex = -1;
+    dom.document.body.appendChild(bullet);
+    expect(await press("ArrowDown", {}, bullet)).toBe(true);
+    expect(useOutlineStore.getState().selectedNodeId).toBe("n.root-c");
+    bullet.remove();
   });
 
   it("clear: Escape drops the selection", async () => {

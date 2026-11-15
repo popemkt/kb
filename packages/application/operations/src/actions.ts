@@ -32,6 +32,7 @@ import {
   placedRank,
   planNodeAdd,
   projectPropEdits,
+  nodeTitleOf,
 } from "@kb/model";
 import { persistEffect, persistPlannedEffect, type PersistOptions } from "./session.ts";
 import { placedGraph, placeOf } from "./place.ts";
@@ -45,7 +46,7 @@ export const nodeAddDef = {
   id: "node.add",
   title: "Add node",
   description:
-    "Create a node with optional props, parent, position (index in its sibling group; the end when omitted), and tags. An omitted parent puts it where captures go, the capture target (today's node while days is on and its captures setting says today); pass parent: null for the top level.",
+    "Create a node with optional props, parent, position (index in its sibling group; the end when omitted), and tags. An omitted parent puts it where captures go, the capture target (today's node while days is on and its captures setting says today); pass parent: null for the top level. matching names a query node: the node also gets the tags and values its conditions require and goes under the parent a child-of names, and unmet says how many conditions could not be written for it.",
   mode: { kind: "write" } as const,
   targets: ["parent"],
   inputSchema: z.object({
@@ -60,6 +61,12 @@ export const nodeAddDef = {
       ),
     position: z.number().int().nonnegative().optional(),
     tags: z.array(z.string()).optional(),
+    matching: z
+      .string()
+      .optional()
+      .describe(
+        "a query node's id: the node gets what its conditions require (DESIGN.md → What a match requires)",
+      ),
     id: z.string().optional(),
     /** Bypass sys.* write-guard (browse yes / break no). */
     force: z.boolean().optional(),
@@ -67,6 +74,8 @@ export const nodeAddDef = {
   outputSchema: z.object({
     id: z.string(),
     node: z.record(z.string(), z.unknown()),
+    /** With `matching`: how many of the query's conditions the node was not made to hold. */
+    unmet: z.number().int().nonnegative().optional(),
   }),
 } satisfies ActionDefinition;
 
@@ -213,7 +222,8 @@ export const graphRunDef = {
 export const graphSearchDef = {
   id: "graph.search",
   title: "Search nodes",
-  description: "Case-insensitive substring search over node text (id + text rows)",
+  description:
+    "Case-insensitive substring search over node text and title (id + title rows; a title is the node's tag's template over its fields, else its text)",
   mode: { kind: "read" } as const,
   inputSchema: z.object({
     text: z.string(),
@@ -433,9 +443,19 @@ const commitAddEffect = Effect.fn("node.add.commit")(function* <R>(
 
 /** `node.add`: one node at the place its input names ({@link placeOf}), the capture target's when it names none. */
 export const nodeAddEffect = Effect.fn("node.add")(function* (
-  input: z.infer<typeof nodeAddDef.inputSchema>,
-): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbCaptureEnv> {
-  return yield* commitAddEffect(input, (nodes) => placeOf(input.parent, nodes));
+  asked: z.infer<typeof nodeAddDef.inputSchema>,
+): Effect.fn.Return<{ id: string; node: KbNode; unmet?: number }, DomainError, KbCaptureEnv> {
+  // The query's reading loads with the first matching add, so a `kb add` that
+  // matches nothing parses no EDN (harness/cli-closure-budgets.json).
+  const { matching } = asked;
+  const { input, unmet } =
+    matching === undefined
+      ? { input: asked, unmet: undefined }
+      : yield* Effect.promise(() => import("./node-add-matching.ts")).pipe(
+          Effect.flatMap(({ withMatchingEffect }) => withMatchingEffect(asked, matching)),
+        );
+  const added = yield* commitAddEffect(input, (nodes) => placeOf(input.parent, nodes));
+  return unmet === undefined ? added : { ...added, unmet };
 });
 
 /** One node at a place its caller decided, as `node.add` writes it: the capture target is never asked. */
@@ -453,35 +473,62 @@ export function forcedBy(input: { readonly force?: boolean | undefined }): Persi
   return input.force === true ? { systemWrites: "forced" } : {};
 }
 
+/** What a node write plans over the nodes it reads: the nodes it upserts and the ids it deletes. */
+export interface PlannedNodeWrite {
+  readonly upserts: KbNode[];
+  readonly deletes: NodeId[];
+}
+
+/**
+ * What one `node.delete` writes over `nodes`, stated once for the action and
+ * a batch of it (`node.batch`): the node gone, with its subtree unless
+ * `descendants: "reparent"`, and detached from every parent.
+ */
+export function planNodeDelete(
+  nodes: KbNode[],
+  input: z.infer<typeof nodeDeleteDef.inputSchema>,
+  at: string,
+): PlannedNodeWrite {
+  const deletes =
+    input.descendants === "reparent" ? [input.id] : collectSubtreeIds(nodes, input.id);
+  return { upserts: detachFromParents(nodes, input.id, at), deletes };
+}
+
 export const nodeDeleteEffect = Effect.fn("node.delete")(function* (
   input: z.infer<typeof nodeDeleteDef.inputSchema>,
 ): Effect.fn.Return<{ id: string; deleted: true }, DomainError, KbWriteEnv> {
   const ctx = yield* KbCtx;
   const at = yield* currentIso;
-  const deleteIds =
-    input.descendants === "reparent" ? [input.id] : collectSubtreeIds(ctx.nodes, input.id);
-  const upserts = detachFromParents(ctx.nodes, input.id, at);
-  yield* persistEffect(ctx, { upserts, deletes: deleteIds }, forcedBy(input));
+  yield* persistEffect(ctx, planNodeDelete(ctx.nodes, input, at), forcedBy(input));
   return { id: input.id, deleted: true };
 });
 
-export const nodeUpdateEffect = Effect.fn("node.update")(function* (
+/**
+ * What one `node.update` writes over `nodes`, stated once for the action and
+ * a batch of it (`node.batch`): the node as it becomes, and every node the
+ * write touches. `nodeOf` reads the node edited (the session's index, for
+ * the action), and the graph a prop or a placement reads is indexed at most
+ * once, only when one needs it: a text edit reads no graph.
+ */
+export const planNodeUpdate = Effect.fn("node.update.plan")(function* (
+  nodes: KbNode[],
   input: z.infer<typeof nodeUpdateDef.inputSchema>,
-): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbWriteEnv> {
-  const ctx = yield* KbCtx;
-  const at = yield* currentIso;
-
-  const node = yield* syncDomain(() => cloneNode(requireNode(ctx, input.id)));
+  at: string,
+  nodeOf: (id: NodeId) => KbNode | undefined,
+): Effect.fn.Return<{ node: KbNode; write: PlannedNodeWrite }, DomainError> {
+  const node = yield* syncDomain(() => {
+    const held = nodeOf(input.id);
+    if (!held) throw new ResolveError("not_found", `node not found: ${input.id}`, { id: input.id });
+    return cloneNode(held);
+  });
   const upserts: KbNode[] = [];
-  // Indexed at most once, and only when a prop or a placement needs it: a
-  // text edit reads no graph.
   let built: IndexedNodes | undefined;
-  const graph = (): IndexedNodes => (built ??= sessionGraph(ctx));
+  const graph = (): IndexedNodes => (built ??= IndexedNodes.of(nodes));
 
   yield* syncDomain(() => {
     if (input.text !== undefined) node.text = input.text;
     if (input.unsetProps !== undefined || input.setProps !== undefined)
-      node.props = projectPropEdits(graph(), node.props, input);
+      node.props = projectPropEdits(graph(), node, input);
   });
 
   // A placement is a move to `parent` (null: the forest roots), or — with
@@ -492,10 +539,10 @@ export const nodeUpdateEffect = Effect.fn("node.update")(function* (
     input.parent !== undefined
       ? input.parent
       : input.position !== undefined
-        ? (ctx.nodes.find((n) => n.children.includes(input.id))?.id ?? null)
+        ? (nodes.find((n) => n.children.includes(input.id))?.id ?? null)
         : undefined;
   if (placement !== undefined) {
-    if (placement !== null && isInSubtree(ctx.nodes, input.id, placement)) {
+    if (placement !== null && isInSubtree(nodes, input.id, placement)) {
       return yield* domainError(
         "invalid_move",
         `cannot move ${input.id} under itself or its own descendant ${placement}`,
@@ -503,11 +550,15 @@ export const nodeUpdateEffect = Effect.fn("node.update")(function* (
       );
     }
     node.order = placedRank(graph(), placement, node, input.position);
-    upserts.push(...detachFromParents(ctx.nodes, input.id, at));
+    upserts.push(...detachFromParents(nodes, input.id, at));
     if (placement !== null) {
-      const parent = yield* syncDomain(
-        () => upserts.find((n) => n.id === placement) ?? cloneNode(requireNode(ctx, placement)),
-      );
+      const parent = yield* syncDomain(() => {
+        const held = upserts.find((n) => n.id === placement) ?? nodeOf(placement);
+        if (!held) {
+          throw new ResolveError("not_found", `node not found: ${placement}`, { id: placement });
+        }
+        return cloneNode(held);
+      });
       const updated = insertChild(parent, input.id, at, input.position);
       const idx = upserts.findIndex((n) => n.id === parent.id);
       if (idx >= 0) upserts[idx] = updated;
@@ -517,7 +568,16 @@ export const nodeUpdateEffect = Effect.fn("node.update")(function* (
 
   node.updatedAt = at;
   upserts.push(node);
-  yield* persistEffect(ctx, { upserts, deletes: [] }, forcedBy(input));
+  return { node, write: { upserts, deletes: [] } };
+});
+
+export const nodeUpdateEffect = Effect.fn("node.update")(function* (
+  input: z.infer<typeof nodeUpdateDef.inputSchema>,
+): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbWriteEnv> {
+  const ctx = yield* KbCtx;
+  const at = yield* currentIso;
+  const { node, write } = yield* planNodeUpdate(ctx.nodes, input, at, (id) => nodeById(ctx, id));
+  yield* persistEffect(ctx, write, forcedBy(input));
   return { id: input.id, node };
 });
 
@@ -701,5 +761,8 @@ export const graphSearchEffect = Effect.fn("graph.search")(function* (
   input: z.infer<typeof graphSearchDef.inputSchema>,
 ): Effect.fn.Return<{ rows: unknown[][] }, DomainError, KbCtx> {
   const { index } = yield* KbCtx;
-  return { rows: index.search(input.text, input.limit).map((n) => [n.id, n.text]) };
+  const nodeOf = (id: string) => index.getNode(id);
+  return {
+    rows: index.search(input.text, input.limit).map((n) => [n.id, nodeTitleOf(n.id, n, nodeOf)]),
+  };
 });

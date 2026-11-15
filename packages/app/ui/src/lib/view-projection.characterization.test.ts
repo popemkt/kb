@@ -33,7 +33,7 @@ function field(id: string, text: string, hidden = false): OutlineNode {
   return stubOutlineNode({
     id,
     text,
-    props: hidden ? { [SYSTEM_IDS.hiddenField]: [{ t: "bool", v: true }] } : {},
+    props: hidden ? { [SYSTEM_IDS.showField]: [{ t: "ref", v: SYSTEM_IDS.showNever }] } : {},
   });
 }
 
@@ -60,8 +60,8 @@ const nodes: NodeMap = new Map(
     field("f.status", "status"),
     field("f.due", "due"),
     field("f.secret", "secret", true),
-    field(SYSTEM_IDS.hiddenField, "hidden"),
-    tagNode("t.todo", ["f.status", "f.secret", SYSTEM_IDS.hiddenField]),
+    field(SYSTEM_IDS.showField, "show"),
+    tagNode("t.todo", ["f.status", "f.secret", SYSTEM_IDS.showField]),
     tagNode("t.dated", ["f.due", "f.status"]),
   ].map((n) => [n.id, n] as const),
 );
@@ -103,11 +103,11 @@ describe("table columns", () => {
 
   it("a named sys field is kept: naming one is a choice", () => {
     const cols = resolveTableColumns(
-      { ...DEFAULT_VIEW_CONFIG, display: [SYSTEM_IDS.hiddenField] },
+      { ...DEFAULT_VIEW_CONFIG, display: [SYSTEM_IDS.showField] },
       [row("r1", ["t.todo"])],
       schemaFor(nodes),
     );
-    expect(columnIds(cols)).toEqual([SYSTEM_IDS.hiddenField]);
+    expect(columnIds(cols)).toEqual([SYSTEM_IDS.showField]);
   });
 
   it("derivation skips the fields whose nodes say hidden, and only those", () => {
@@ -117,7 +117,7 @@ describe("table columns", () => {
       [row("r1", ["t.todo"])],
       schemaFor(nodes),
     );
-    expect(columnIds(cols)).toEqual(["f.status", SYSTEM_IDS.hiddenField]);
+    expect(columnIds(cols)).toEqual(["f.status", SYSTEM_IDS.showField]);
   });
 
   it("derivation walks every row's tags once, in first-seen order", () => {
@@ -126,7 +126,7 @@ describe("table columns", () => {
       [row("r1", ["t.dated"]), row("r2", ["t.todo"])],
       schemaFor(nodes),
     );
-    expect(columnIds(cols)).toEqual(["f.due", "f.status", SYSTEM_IDS.hiddenField]);
+    expect(columnIds(cols)).toEqual(["f.due", "f.status", SYSTEM_IDS.showField]);
   });
 
   it("an unresolvable tag contributes nothing", () => {
@@ -145,7 +145,7 @@ describe("table columns", () => {
       schemaFor(nodes),
       true,
     );
-    expect(columnIds(cols)).toEqual(["f.status", "f.secret", SYSTEM_IDS.hiddenField]);
+    expect(columnIds(cols)).toEqual(["f.status", "f.secret", SYSTEM_IDS.showField]);
   });
 
   it("a column label falls back to the field id when the field has no text", () => {

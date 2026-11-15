@@ -9,14 +9,39 @@
  * A write that cannot be made says why itself (a toast) and resolves; none
  * rejects for a refusal.
  */
-import type { FieldType } from "@kb/model";
-import type { FrameViewKey, SortSpec, ViewFilter } from "@kb/views";
+import type { FieldType, Writable } from "@kb/model";
+import type { FrameViewKey, ViewConfig, ViewFilter } from "@kb/views";
 import type { RefCreation } from "./refs";
 import type { PropValue } from "./types";
 
+/** Where moved rows land: under `parent` (null: the top level), after the sibling `after` (null: first; absent: at the end). */
+export interface MovePlace {
+  readonly parent: string | null;
+  readonly after?: string | null;
+}
+
+/** What `addMatchingNode` gives the node it mints: `node.add`'s place and carriers. */
+export interface MatchingAdd {
+  readonly parent?: string;
+  /** A query node whose requirements it takes (`node.add`'s `matching`). */
+  readonly matching?: string;
+  readonly tags: readonly string[];
+  readonly props: readonly { readonly field: string; readonly value: PropValue }[];
+}
+
 export interface PageWrites {
-  /** Local text action first; coalesce its ordered remote confirmation. */
+  /**
+   * A keystroke's text: local text action first; coalesce its ordered remote
+   * confirmation. It records no undo step: while a row is edited, its text
+   * undo is the editor's own.
+   */
   readonly updateNodeContent: (id: string, content: string) => Promise<void>;
+  /**
+   * A command's text, written whole outside the editor (Remove reference…):
+   * one write and one undo step, as every other command's write is. Answers
+   * whether it was written.
+   */
+  readonly setNodeText: (id: string, text: string) => Promise<boolean>;
   readonly createNodeAfter: (afterId: string) => Promise<void>;
   /**
    * Add a node made with no chosen place (⌘K "Add node" with nothing
@@ -38,10 +63,18 @@ export interface PageWrites {
   ) => Promise<string | null>;
   /** Mint an empty sibling directly ABOVE the anchor and activate it ('O' key). */
   readonly createEmptyNodeBefore: (beforeId: string) => Promise<string | null>;
+  /**
+   * Mint a real empty node that carries what it was asked for, as one
+   * `node.add` (one undo step): under `parent`, else where
+   * `matching`'s query places it, else where captures go (DESIGN-UI.md →
+   * Adding to a frame). Its id and how many of the query's conditions it
+   * does not hold, or null when refused. The caller opens it where it draws
+   * it, which only the caller knows.
+   */
+  readonly addMatchingNode: (add: MatchingAdd) => Promise<{ id: string; unmet: number } | null>;
   readonly addTagField: (tagId: string, fieldId: string) => Promise<void>;
   readonly removeTagField: (tagId: string, fieldId: string) => Promise<void>;
   readonly setTagColor: (tagId: string, color: string | null) => Promise<void>;
-  readonly setFieldHidden: (fieldId: string, hidden: boolean) => Promise<void>;
   readonly setFieldType: (fieldId: string, fieldType: FieldType) => Promise<void>;
   readonly addFieldTargetTag: (fieldId: string, tagId: string) => Promise<void>;
   readonly removeFieldTargetTag: (fieldId: string, tagId: string) => Promise<void>;
@@ -63,15 +96,44 @@ export interface PageWrites {
    */
   readonly mergeWithPrevious: (id: string, previousId?: string | null) => Promise<void>;
   /**
-   * Tab-indent. The target parent is auto-expanded BEFORE focus restore so
-   * the reparented row never vanishes into a collapsed container (r1 D05),
-   * and the caret returns to its exact character offset (spec §3.1).
+   * Tab-indent a block: `ids`, one run of siblings in order (a row is a
+   * block of one), under the sibling before it. The target parent is
+   * auto-expanded BEFORE focus restore so the reparented row never vanishes
+   * into a collapsed container (r1 D05), and the caret returns to its exact
+   * character offset in the block's first row (spec §3.1). A block that is
+   * not one run of siblings is told so and left.
    */
-  readonly indentNode: (id: string, cursor?: number) => Promise<void>;
-  /** Shift+Tab outdent; caret stays at its exact offset (spec §3.1). */
-  readonly outdentNode: (id: string, cursor?: number) => Promise<void>;
-  readonly moveNodeUp: (id: string) => Promise<void>;
-  readonly moveNodeDown: (id: string) => Promise<void>;
+  readonly indentNodes: (ids: readonly string[], cursor?: number) => Promise<void>;
+  /** Shift+Tab outdent a block, after its parent; the caret stays at its exact offset (spec §3.1). */
+  readonly outdentNodes: (ids: readonly string[], cursor?: number) => Promise<void>;
+  /** Move a block one step up: the sibling above it goes below it. */
+  readonly moveNodesUp: (ids: readonly string[]) => Promise<void>;
+  /** Move a block one step down: the sibling below it goes above it. */
+  readonly moveNodesDown: (ids: readonly string[]) => Promise<void>;
+  /**
+   * Move rows anywhere (DESIGN-UI.md → Outline editor, "A row moves
+   * anywhere"): `ids`, in order, under `place.parent`, after `place.after`
+   * (null: first; absent: at the end), as one write. With
+   * `leaveReferences`, a reference to each row stays where it was. Answers
+   * the references made, or null when nothing moved (the place is under a
+   * row moved, or the rows are there already).
+   */
+  readonly moveNodes: (
+    ids: readonly string[],
+    place: MovePlace,
+    leaveReferences?: boolean,
+  ) => Promise<{ readonly references: readonly string[] } | null>;
+  /**
+   * Make the writes `gesture` makes one write (DESIGN-UI.md → Outline
+   * editor, "A selection is a range of rows"): each is planned when it is
+   * made, against the graph as the gesture found it, and they are sent
+   * together as one `node.batch` call when it ends, recorded as one undo
+   * step. A write inside answers that it was taken (`true`, or the id it
+   * will make) before it lands; the batch says why if it is refused. Only
+   * the writes the gesture waits for are part of it, and a `together`
+   * inside another is part of the outer one.
+   */
+  readonly together: <T>(gesture: () => Promise<T>) => Promise<T>;
   /** D19: undo through inverse invocations of the same shared actions. */
   readonly undo: () => Promise<boolean>;
   /** D19: redo the last undone mutation. */
@@ -108,6 +170,13 @@ export interface PageWrites {
    * as one write: its id, or null when the write did not land.
    */
   readonly defineTag: (name: string, parents?: readonly string[]) => Promise<string | null>;
+  /**
+   * Toggle the boxes of `nodeIds` together (DESIGN-UI.md → A tag's box):
+   * every one checked while any is unchecked, else every one unchecked, as
+   * one write; a node with no box is left out. False, said with a toast,
+   * when none of them has a box.
+   */
+  readonly toggleChecks: (nodeIds: readonly string[]) => Promise<boolean>;
   /**
    * Pin / unpin a node for the sidebar's Pinned section.
    *
@@ -162,18 +231,24 @@ export interface PageWrites {
   /** Show a frame's children in `view`: its frame view node names the view's option. */
   readonly setFrameView: (frameId: string, view: FrameViewKey) => Promise<void>;
   readonly replaceField: (nodeId: string, fieldId: string, values: PropValue[]) => Promise<void>;
-  readonly setViewSort: (frameId: string, sortSpecs: SortSpec[]) => Promise<void>;
+  /**
+   * Store one of a frame's view settings on its frame view node, written by
+   * the setting's slot (`frameSettingWrite`), so it reads back as written.
+   */
+  readonly setFrameSetting: <K extends keyof ViewConfig>(
+    frameId: string,
+    key: K,
+    value: Writable<ViewConfig[K]>,
+  ) => Promise<void>;
   readonly toggleViewSort: (frameId: string, fieldId: string) => Promise<void>;
-  readonly setViewDisplay: (frameId: string, displayFieldIds: string[]) => Promise<void>;
   readonly setColumnWidth: (frameId: string, fieldId: string, widthPx: number) => Promise<void>;
-  readonly setViewPagesize: (frameId: string, pagesize: number) => Promise<void>;
-  readonly setViewGroup: (frameId: string, fieldId: string | null) => Promise<void>;
   readonly addViewFilter: (frameId: string, filter: ViewFilter) => Promise<void>;
   readonly removeViewFilter: (frameId: string, filter: ViewFilter) => Promise<void>;
-  readonly moveBoardCard: (
-    nodeId: string,
-    fieldId: string,
-    oldValue: PropValue | null,
-    newValue: PropValue | null,
-  ) => Promise<void>;
+  /**
+   * Move a row to a group of a grouped view (DESIGN-UI.md → Groups): its
+   * values of `fieldId` become `value`, or none for "No <field>", in one
+   * write; a row already in that group is left as it is. The one way a
+   * drag or a key moves a row between groups.
+   */
+  readonly moveToGroup: (nodeId: string, fieldId: string, value: PropValue | null) => Promise<void>;
 }

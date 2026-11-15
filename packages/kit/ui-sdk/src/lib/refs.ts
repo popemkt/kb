@@ -2,6 +2,7 @@ import {
   closesCycle,
   declaresOptionSet,
   isAcyclicField,
+  nodeTitleOf,
   targetQueryOf,
   targetTagsOf,
 } from "@kb/model";
@@ -121,7 +122,12 @@ function candidatesInLabelOrder(
 ): readonly PickerCandidate[] {
   const cached = labelOrdered.get(nodes);
   if (cached !== undefined) return cached;
-  const all = Array.from(nodes.values(), (n) => ({ id: n.id, label: n.text || n.id }));
+  // A node is offered by its title (DESIGN-UI.md → Titles from fields).
+  const nodeOf = (id: string) => nodes.get(id);
+  const all = Array.from(nodes.values(), (n) => ({
+    id: n.id,
+    label: nodeTitleOf(n.id, n, nodeOf) || n.id,
+  }));
   const sorted = all.toSorted((a, b) => a.label.localeCompare(b.label));
   labelOrdered.set(nodes, sorted);
   return sorted;
@@ -149,30 +155,10 @@ export function nodeCandidates(
   );
 }
 
-/** Build the wiki-link token inserted on autocomplete select. */
-function formatRefToken(id: string, label: string): string {
+/** The reference token a `[[` pick inserts. */
+export function formatRefToken(id: string, label: string): string {
   const clean = label.replace(/[[\]]/g, "").trim() || id;
   return `[[${id}|${clean}]]`;
-}
-
-/**
- * Replace an open `[[query` (or bare `[[`) at `cursor` with a completed ref.
- * Returns null if no open ref trigger is found.
- */
-export function insertRefAtCursor(
-  text: string,
-  cursor: number,
-  id: string,
-  label: string,
-): { text: string; cursor: number } | null {
-  const before = text.slice(0, cursor);
-  const after = text.slice(cursor);
-  const m = before.match(/\[\[([^\][]*?)$/);
-  if (!m) return null;
-  const start = before.length - m[0].length;
-  const token = formatRefToken(id, label);
-  const next = text.slice(0, start) + token + after;
-  return { text: next, cursor: start + token.length };
 }
 
 /** Detect open `[[query` at cursor for autocomplete UI. */

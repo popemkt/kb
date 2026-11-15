@@ -30,6 +30,9 @@ import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { CollectionTableView } from "@kb/collections";
 import { collectionsUiPlugin, TableView } from "@kb/collections-ui";
 
+/** These views draw no row's children, so the host's are never asked for. */
+const NoRowChildren = () => null;
+
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.
 beforeAll(() => syncPagePlugins([outlineUiPlugin, collectionsUiPlugin]));
@@ -158,7 +161,10 @@ describe("W7 TableView & ViewToolbar", () => {
   it("renders TableView with fallback columns from tag fields and asserts NodeRow reuse via data-instance-key", () => {
     const html = renderToStaticMarkup(
       createElement(TableView, {
-        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
+        frame: outlineFrameSubject(
+          { RowChildren: NoRowChildren, frameId: "frame1", isQuerySource: false, depth: 0 },
+          1,
+        ),
         settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(outlineSource()),
@@ -178,7 +184,10 @@ describe("W7 TableView & ViewToolbar", () => {
   it("field cells render through shared FieldRow (valueOnly)", () => {
     const html = renderToStaticMarkup(
       createElement(TableView, {
-        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
+        frame: outlineFrameSubject(
+          { RowChildren: NoRowChildren, frameId: "frame1", isQuerySource: false, depth: 0 },
+          1,
+        ),
         settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(outlineSource()),
@@ -191,7 +200,10 @@ describe("W7 TableView & ViewToolbar", () => {
   it("a cell is the outline's value stack, remove affordance and all", () => {
     const html = renderToStaticMarkup(
       createElement(TableView, {
-        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
+        frame: outlineFrameSubject(
+          { RowChildren: NoRowChildren, frameId: "frame1", isQuerySource: false, depth: 0 },
+          1,
+        ),
         settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(outlineSource()),
@@ -207,7 +219,10 @@ describe("W7 TableView & ViewToolbar", () => {
   it("auto-full-width breakout when width pref is centered", () => {
     const centered = renderToStaticMarkup(
       createElement(TableView, {
-        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
+        frame: outlineFrameSubject(
+          { RowChildren: NoRowChildren, frameId: "frame1", isQuerySource: false, depth: 0 },
+          1,
+        ),
         settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(outlineSource()),
@@ -219,7 +234,10 @@ describe("W7 TableView & ViewToolbar", () => {
 
     const full = renderToStaticMarkup(
       createElement(TableView, {
-        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
+        frame: outlineFrameSubject(
+          { RowChildren: NoRowChildren, frameId: "frame1", isQuerySource: false, depth: 0 },
+          1,
+        ),
         settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(outlineSource()),
@@ -231,11 +249,14 @@ describe("W7 TableView & ViewToolbar", () => {
   });
 
   it("renders TableView columns from explicit display refs when set", async () => {
-    await mutations.setViewDisplay("frame1", ["f_score"]);
+    await mutations.setFrameSetting("frame1", "display", ["f_score"]);
 
     const html = renderToStaticMarkup(
       createElement(TableView, {
-        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
+        frame: outlineFrameSubject(
+          { RowChildren: NoRowChildren, frameId: "frame1", isQuerySource: false, depth: 0 },
+          1,
+        ),
         settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(outlineSource()),
@@ -251,11 +272,16 @@ describe("W7 TableView & ViewToolbar", () => {
     const initialChildren = [...present(outlineNodes().get("frame1"), "frame1").children];
     expect(initialChildren).toEqual(["child1", "child2"]);
 
-    await mutations.setViewSort("frame1", [{ fieldId: SYSTEM_IDS.nodeTextField, dir: "asc" }]);
+    await mutations.setFrameSetting("frame1", "sort", [
+      { fieldId: SYSTEM_IDS.nodeTextField, dir: "asc" },
+    ]);
 
     const html = renderToStaticMarkup(
       createElement(TableView, {
-        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
+        frame: outlineFrameSubject(
+          { RowChildren: NoRowChildren, frameId: "frame1", isQuerySource: false, depth: 0 },
+          1,
+        ),
         settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(outlineSource()),
@@ -273,7 +299,9 @@ describe("W7 TableView & ViewToolbar", () => {
   });
 
   it("Enter split-at-cursor inserts after the edited node (visual row) and focuses with table instanceKey", async () => {
-    await mutations.setViewSort("frame1", [{ fieldId: SYSTEM_IDS.nodeTextField, dir: "asc" }]);
+    await mutations.setFrameSetting("frame1", "sort", [
+      { fieldId: SYSTEM_IDS.nodeTextField, dir: "asc" },
+    ]);
     // Visual first row is Apple (child2); split mid-text.
     await mutations.splitNode("child2", "Apple".length);
 
@@ -335,5 +363,202 @@ describe("W7 TableView & ViewToolbar", () => {
       [SYSTEM_IDS.viewColwidthField]: [{ t: "str", v: JSON.stringify({ a: "x", b: 0, c: 120 }) }],
     });
     expect(bad.colwidth).toEqual({});
+  });
+});
+
+/**
+ * frame1 as a table whose view node holds `settings`, with score a number
+ * field and a third row that holds no score.
+ */
+function calcGraph(settings: WireNode["props"]): WireNode[] {
+  const frame = present(
+    mockWireNodes.find((n) => n.id === "frame1"),
+    "frame1",
+  );
+  const shown = framedAs({ ...frame, children: ["child1", "child2", "child3"] }, "table", settings);
+  return [
+    ...mockWireNodes.flatMap((n) => {
+      if (n.id === "frame1") return shown;
+      if (n.id !== "f_score") return [n];
+      return [
+        {
+          ...n,
+          props: {
+            ...n.props,
+            [SYSTEM_IDS.fieldTypeField]: [{ t: "ref" as const, v: SYSTEM_IDS.ftNumber }],
+          },
+        },
+      ];
+    }),
+    {
+      id: "child3",
+      text: "Cherry Task",
+      props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: "tag_todo" }] },
+      children: [],
+      createdAt: "",
+      updatedAt: "",
+    },
+  ];
+}
+
+const calcOf = (calc: Record<string, string>): WireNode["props"] => ({
+  [SYSTEM_IDS.viewCalcField]: [{ t: "str", v: JSON.stringify(calc) }],
+});
+
+function tableHtml(): string {
+  return renderToStaticMarkup(
+    createElement(TableView, {
+      frame: outlineFrameSubject(
+        { RowChildren: NoRowChildren, frameId: "frame1", isQuerySource: false, depth: 0 },
+        1,
+      ),
+      settings: tableSettings(),
+      nodes: getStoreNodes(),
+      context: fieldContextOf(outlineSource()),
+      widthPref: "full",
+    }),
+  );
+}
+
+describe("a table's calculation row (DESIGN-UI.md → Calculations)", () => {
+  afterEach(() => {
+    useGraphStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
+  });
+
+  it("offers Calculate under every field column that has none", () => {
+    useGraphStore.getState().hydrateFromWire(calcGraph({}), 1, "fixtures");
+    const html = tableHtml();
+    expect(html).toContain('data-calc-row="true"');
+    expect(html).toContain('aria-label="Calculate status"');
+    expect(html).toContain('aria-label="Calculate score"');
+  });
+
+  it("calculates over every row the filter leaves, past the page drawn", () => {
+    useGraphStore.getState().hydrateFromWire(
+      calcGraph({
+        ...calcOf({ f_score: "sum", f_status: "count" }),
+        [SYSTEM_IDS.viewPagesizeField]: [{ t: "num", v: 1 }],
+      }),
+      1,
+      "fixtures",
+    );
+    const html = tableHtml();
+    // One row is drawn; the sum is of both scores, the count of both statuses.
+    expect(html.match(/<tr[^>]*data-node-id="child/g)?.length).toBe(1);
+    expect(html).toContain('aria-label="Sum of score: 60, copy"');
+    expect(html).toContain('aria-label="Count of status: 2, copy"');
+  });
+
+  it("reads each row's number: average and median of 10 and 50", () => {
+    useGraphStore
+      .getState()
+      .hydrateFromWire(calcGraph(calcOf({ f_score: "average" })), 1, "fixtures");
+    expect(tableHtml()).toContain('aria-label="Average of score: 30, copy"');
+    useGraphStore
+      .getState()
+      .hydrateFromWire(calcGraph(calcOf({ f_score: "median" })), 2, "fixtures");
+    expect(tableHtml()).toContain('aria-label="Median of score: 30, copy"');
+  });
+
+  it("shows nothing for a calculation its column does not offer, and keeps it", () => {
+    useGraphStore.getState().hydrateFromWire(calcGraph(calcOf({ f_status: "sum" })), 1, "fixtures");
+    const html = tableHtml();
+    expect(html).toMatch(/<td[^>]*data-calc-cell="f_status"[^>]*><\/td>/);
+    expect(tableSettings().calc).toEqual({ f_status: "sum" });
+  });
+
+  it("copies a result as shown, and its name opens the view settings", async () => {
+    useGraphStore.getState().hydrateFromWire(calcGraph(calcOf({ f_score: "sum" })), 1, "fixtures");
+    const { Window } = await import("happy-dom");
+    const { createRoot } = await import("react-dom/client");
+    const { act } = await import("react");
+    const { useUiStore } = await import("@/stores/ui.store");
+    const win = new Window({ url: "https://kb.test/" });
+    const g = globalThis as typeof globalThis & { window: Window; document: Document };
+    const prev = { window: g.window, document: g.document, clipboard: navigator.clipboard };
+    g.window = win as unknown as Window & typeof globalThis.window;
+    g.document = win.document as unknown as Document;
+    const writes: string[] = [];
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: async (text: string) => void writes.push(text) },
+    });
+    const host = win.document.createElement("div");
+    win.document.body.appendChild(host);
+    const root = createRoot(host as unknown as Element);
+    try {
+      await act(async () =>
+        root.render(
+          createElement(TableView, {
+            frame: outlineFrameSubject(
+              { RowChildren: NoRowChildren, frameId: "frame1", isQuerySource: false, depth: 0 },
+              1,
+            ),
+            settings: tableSettings(),
+            nodes: getStoreNodes(),
+            context: fieldContextOf(outlineSource()),
+            widthPref: "full",
+          }),
+        ),
+      );
+      const cell = present(host.querySelector('[data-calc-cell="f_score"]'), "score's cell");
+      const result = present(cell.querySelector('[data-calc-result="true"]'), "the result");
+      await act(async () => (result as unknown as HTMLElement).click());
+      expect(writes).toEqual(["60"]);
+      expect(useUiStore.getState().toasts.some((t) => t.text === "Sum copied")).toBe(true);
+
+      const name = present(cell.querySelector("button"), "the calculation's name");
+      await act(async () => (name as unknown as HTMLElement).click());
+      expect(useUiStore.getState().viewSettingsFrameId).toBe("frame1");
+    } finally {
+      await act(async () => root.unmount());
+      useUiStore.setState({ viewSettingsFrameId: null, toasts: [] });
+      Object.defineProperty(navigator, "clipboard", { configurable: true, value: prev.clipboard });
+      g.window = prev.window;
+      g.document = prev.document;
+    }
+  });
+
+  it("the view settings hold a calculation slot per field column", async () => {
+    useGraphStore.getState().hydrateFromWire(calcGraph(calcOf({ f_score: "max" })), 1, "fixtures");
+    const { Window } = await import("happy-dom");
+    const { createRoot } = await import("react-dom/client");
+    const { act } = await import("react");
+    const { useUiStore } = await import("@/stores/ui.store");
+    const { ViewSettingsPopoverHost } = await import("@kb/outline-ui");
+    const win = new Window({ url: "https://kb.test/" });
+    const g = globalThis as typeof globalThis & {
+      window: Window;
+      document: Document;
+      CSS: typeof CSS;
+    };
+    const prev = { window: g.window, document: g.document, CSS: g.CSS };
+    g.window = win as unknown as Window & typeof globalThis.window;
+    g.document = win.document as unknown as Document;
+    Object.assign(g, { CSS: { ...g.CSS, escape: (s: string) => s.replace(/"/g, '\\"') } });
+    const host = win.document.createElement("div");
+    win.document.body.appendChild(host);
+    const anchor = win.document.createElement("div");
+    anchor.setAttribute("data-node-block", "true");
+    anchor.setAttribute("data-node-id", "frame1");
+    win.document.body.appendChild(anchor);
+    const root = createRoot(host as unknown as Element);
+    try {
+      await act(async () => root.render(createElement(ViewSettingsPopoverHost)));
+      await act(async () => useUiStore.getState().setViewSettingsFrameId("frame1"));
+      const calc = present(
+        win.document.querySelector('[data-view-calc="frame1"]'),
+        "the calculations section",
+      );
+      expect(calc.textContent).toContain("status");
+      expect(calc.textContent).toContain("score");
+      expect(calc.textContent).toContain("Max");
+    } finally {
+      await act(async () => root.unmount());
+      useUiStore.setState({ viewSettingsFrameId: null, toasts: [] });
+      g.window = prev.window;
+      g.document = prev.document;
+      g.CSS = prev.CSS;
+    }
   });
 });

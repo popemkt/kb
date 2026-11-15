@@ -5,7 +5,7 @@ import { viewFieldNodes } from "@/fixtures/view-fields";
 import {
   MAIN_OUTLINE_HOST,
   MAX_VIEW_DEPTH,
-  queryResultInstanceKey,
+  projectedRowKey,
   slotLink,
   syncUiPlugins,
 } from "@kb/ui-sdk";
@@ -91,8 +91,8 @@ describe("visible instances", () => {
       .getVisibleInstances()
       .map((i) => i.instanceKey);
     expect(keys).toContain("tree/n.q1");
-    expect(keys).toContain(queryResultInstanceKey("n.q1", "n.root-a"));
-    expect(keys).toContain(queryResultInstanceKey("n.q1", "n.root-b"));
+    expect(keys).toContain(projectedRowKey("n.q1", "n.root-a"));
+    expect(keys).toContain(projectedRowKey("n.q1", "n.root-b"));
   });
 
   it("arrow neighbors move from tree into query results and across refs", async () => {
@@ -100,9 +100,9 @@ describe("visible instances", () => {
     await resultsAnswered();
     const store = useOutlineStore.getState();
     const fromQuery = present(store.getNextVisibleInstance("tree/n.q1"), "next from query");
-    expect(fromQuery.instanceKey).toBe(queryResultInstanceKey("n.q1", "n.root-a"));
+    expect(fromQuery.instanceKey).toBe(projectedRowKey("n.q1", "n.root-a"));
     const across = store.getNextVisibleInstance(fromQuery.instanceKey);
-    expect(across?.instanceKey).toBe(queryResultInstanceKey("n.q1", "n.root-b"));
+    expect(across?.instanceKey).toBe(projectedRowKey("n.q1", "n.root-b"));
   });
 
   it("a zoomed query node offers its results, as the rows its page draws", async () => {
@@ -113,8 +113,8 @@ describe("visible instances", () => {
       .getVisibleInstances()
       .map((i) => i.instanceKey);
     expect(keys).toEqual([
-      queryResultInstanceKey("n.q1", "n.root-a"),
-      queryResultInstanceKey("n.q1", "n.root-b"),
+      projectedRowKey("n.q1", "n.root-a"),
+      projectedRowKey("n.q1", "n.root-b"),
     ]);
   });
 
@@ -140,7 +140,9 @@ describe("visible instances", () => {
     useOutlineStore.getState().toggleCollapse("n.child-a2");
 
     await mutations.setFrameView("n.root-a", CollectionTableView);
-    await mutations.setViewSort("n.root-a", [{ fieldId: SYSTEM_IDS.nodeTextField, dir: "asc" }]);
+    await mutations.setFrameSetting("n.root-a", "sort", [
+      { fieldId: SYSTEM_IDS.nodeTextField, dir: "asc" },
+    ]);
 
     const keys = useOutlineStore
       .getState()

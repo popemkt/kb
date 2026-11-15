@@ -2,8 +2,8 @@ import { memo, useCallback, useEffect, useMemo, useState, type ComponentType } f
 import {
   browserHost,
   Bullet,
+  copyText,
   bulletClickIntent,
-  childInstanceKey,
   cn,
   type FieldContext,
   type FieldEditorProps,
@@ -12,10 +12,8 @@ import {
   type NodeMap,
   NodeRow,
   nodeTarget,
-  outlineHostOfPane,
-  outlineInstanceKey,
   type OutlineNode,
-  queryResultInstanceKey,
+  type SchemaIndex,
   resolveRowChrome,
   resolveTableColumns,
   shownNode,
@@ -28,13 +26,18 @@ import {
   useGraphRead,
   useIsActive,
   useIsSelected,
-  usePane,
-  usePrefs,
-  BREAKOUT_CLASS,
-  useBreakoutShift,
 } from "@kb/ui-sdk";
-import { SYSTEM_IDS } from "@kb/model";
-import type { ParamsOf, SortSpec } from "@kb/views";
+import { AddRow } from "./add-row";
+import { useViewBreakout } from "./breakout";
+import { fieldTypeOf, SYSTEM_IDS } from "@kb/model";
+import {
+  CALCULATION_LABELS,
+  calculate,
+  calculationsFor,
+  type Calculation,
+  type ParamsOf,
+  type SortSpec,
+} from "@kb/views";
 import { CollectionTableView } from "@kb/collections";
 
 /** The Name column is the node-text field, so sorting by it names a node like any other column. */
@@ -59,15 +62,7 @@ export function TableView({
   context: contextProp,
   widthPref: widthPrefProp,
 }: TableViewProps) {
-  const {
-    frameId,
-    instanceKey: frameInstanceKey,
-    rowIds,
-    isQuerySource,
-    pages,
-    revealMorePages,
-    RowText,
-  } = frame;
+  const { frameId, rowKey, rowIds, pages, revealMorePages, RowText } = frame;
   const Field = useFieldEditor();
   const graph = useGraphRead();
   const nodes = nodesProp ?? graph.outline;
@@ -75,11 +70,6 @@ export function TableView({
   // Columns are a property of the FRAME, not of any row: one header serves
   // every row, so the frame node is the only thing "per-node" can mean here.
   const debugColumns = useDebugFields(frameId);
-  const storeWidth = usePrefs((prefs) => prefs.width);
-  const widthPref = widthPrefProp ?? storeWidth;
-
-  const host = outlineHostOfPane(usePane());
-  const baseInstanceKey = frameInstanceKey ?? outlineInstanceKey(frameId, nodes, host);
 
   // Column names and every field shown are schema, read from the whole graph
   // (`lib/schema.ts`), whatever projection the rows come from.
@@ -153,24 +143,29 @@ export function TableView({
     [frameId],
   );
 
-  const breakoutCentered = widthPref === "centered";
-  const breakoutRef = useBreakoutShift(
-    breakoutCentered && (frameNode !== undefined || rowIds !== undefined),
-  );
+  const {
+    attach,
+    className: breakoutClass,
+    data: breakoutData,
+  } = useViewBreakout({
+    wants: true,
+    widthPref: widthPrefProp,
+    mounted: frameNode !== undefined || rowIds !== undefined,
+  });
 
   if (!frameNode && !rowIds) return null;
 
   return (
     <div
-      ref={breakoutRef}
+      ref={attach}
       className={cn(
         "table-view kb-text overflow-x-auto my-2 rounded-md border border-foreground/[0.06] bg-background",
         // w-full is a utility, so it would beat the breakout's width.
-        breakoutCentered ? [BREAKOUT_CLASS, "px-4"] : "w-full",
+        breakoutClass ?? "w-full",
       )}
       data-table-view="true"
       data-frame-id={frameId}
-      data-breakout={breakoutCentered ? "centered" : undefined}
+      data-breakout={breakoutData}
     >
       <table className="w-full text-left border-collapse" style={{ minWidth: "max-content" }}>
         <thead>
@@ -225,9 +220,7 @@ export function TableView({
         </thead>
         <tbody>
           {displayedChildren.map((child) => {
-            const childKey = isQuerySource
-              ? queryResultInstanceKey(frameId, child.id)
-              : childInstanceKey(baseInstanceKey, child.id);
+            const childKey = rowKey(child.id);
             return (
               <TableRow
                 key={childKey}
@@ -241,6 +234,21 @@ export function TableView({
             );
           })}
         </tbody>
+        <tfoot>
+          <tr className="border-t border-foreground/[0.06]" data-calc-row="true">
+            <td />
+            {columns.map((col) => (
+              <CalcCell
+                key={col.fieldId}
+                frameId={frameId}
+                column={col}
+                calc={settings.calc[col.fieldId]}
+                rows={rows.ordered}
+                schema={schema}
+              />
+            ))}
+          </tr>
+        </tfoot>
       </table>
 
       {hasMore && (
@@ -254,6 +262,9 @@ export function TableView({
           </button>
         </div>
       )}
+      <div className="p-1">
+        <AddRow frame={frame} filters={settings.filters} label="Add a row" />
+      </div>
     </div>
   );
 }
@@ -340,6 +351,83 @@ const TableRow = memo(function TableRow({
     </tr>
   );
 });
+
+/** A result as the row shows it, and as it is copied: at most two decimals. */
+function shownResult(result: number): string {
+  return String(Math.round(result * 100) / 100);
+}
+
+/**
+ * A column's cell of the calculation row (DESIGN-UI.md → Calculations), over
+ * every row the view's filter leaves. Choosing a calculation is a view
+ * setting, so it opens the frame's view settings, where each column's is a
+ * slot; the result copies.
+ */
+function CalcCell({
+  frameId,
+  column,
+  calc,
+  rows,
+  schema,
+}: {
+  frameId: string;
+  column: TableColumnSpec;
+  calc: Calculation | undefined;
+  rows: readonly OutlineNode[];
+  schema: SchemaIndex;
+}) {
+  const offered = calculationsFor(
+    fieldTypeOf(schema.get(column.fieldId)?.props, (id) => schema.get(id)),
+  );
+  const choose = () => browserHost().setViewSettingsFrame(frameId);
+  const cell = "px-2 py-1 align-top text-meta";
+  if (calc === undefined) {
+    return (
+      <td className={cell} data-calc-cell={column.fieldId}>
+        <button
+          type="button"
+          className="rounded-xs px-1 text-foreground/0 outline-none transition-colors hover:text-foreground/45 focus-visible:text-foreground/45 focus-visible:ring-2 focus-visible:ring-primary/60"
+          aria-label={`Calculate ${column.label}`}
+          onClick={choose}
+        >
+          Calculate
+        </button>
+      </td>
+    );
+  }
+  // A stored calculation the column no longer offers shows nothing, and stays.
+  if (!offered.includes(calc)) return <td className={cell} data-calc-cell={column.fieldId} />;
+  const result = calculate(
+    calc,
+    rows.map((row) => shownNode(row, schema).props[column.fieldId]?.[0]),
+  );
+  const shown = result === null ? "–" : shownResult(result);
+  return (
+    <td className={cell} data-calc-cell={column.fieldId} data-calc={calc}>
+      <span className="inline-flex items-baseline gap-1">
+        <button
+          type="button"
+          className="rounded-xs px-0.5 text-foreground/35 outline-none hover:text-foreground/60 focus-visible:ring-2 focus-visible:ring-primary/60"
+          aria-label={`${CALCULATION_LABELS[calc]} of ${column.label}: change`}
+          onClick={choose}
+        >
+          {CALCULATION_LABELS[calc]}
+        </button>
+        <button
+          type="button"
+          className="rounded-xs px-0.5 font-medium text-foreground/75 tabular-nums outline-none hover:bg-foreground/[0.06] focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-default disabled:hover:bg-transparent"
+          aria-label={`${CALCULATION_LABELS[calc]} of ${column.label}: ${shown}, copy`}
+          title="Copy"
+          data-calc-result="true"
+          disabled={result === null}
+          onClick={() => void copyText(shown, CALCULATION_LABELS[calc])}
+        >
+          {shown}
+        </button>
+      </span>
+    </td>
+  );
+}
 
 function SortIndicator({ sort, fieldId }: { sort: readonly SortSpec[]; fieldId: string }) {
   const spec = sort.find((s) => s.fieldId === fieldId);

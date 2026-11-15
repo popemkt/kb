@@ -27,7 +27,8 @@ import {
   BULLET_QUERY_ICON,
   bulletRingDash,
   queryIconPath,
-  queryResultInstanceKey,
+  outlineInstanceKey,
+  projectedRowKey,
   WORKSPACE_ROOT_ID,
   type OutlineNode,
   type TagBadge,
@@ -258,6 +259,9 @@ function seedRefRow() {
 /** Dispatch `event` on `bullet`, inside `act`. */
 const fire = (bullet: HTMLElement, event: Event) => act(() => void bullet.dispatchEvent(event));
 
+/** n.root-a drawn as a row of the outline's tree, which has a place a drag can leave. */
+const treeKey = () => outlineInstanceKey("n.root-a", outlineNodes());
+
 /** Whether the node menu is open on the reference row's node. */
 const isOpenOnRow = () =>
   useUiStore.getState().nodePaletteOpen && useOutlineStore.getState().selectedNodeId === "n.root-a";
@@ -267,7 +271,7 @@ describe("reference-row bullet click parity", () => {
   let container: HTMLDivElement;
   let root: Root;
 
-  const refKey = queryResultInstanceKey("n.q1", "n.root-a");
+  const refKey = projectedRowKey("n.q1", "n.root-a");
 
   beforeAll(() => {
     dom = new Window();
@@ -293,14 +297,14 @@ describe("reference-row bullet click parity", () => {
     container.remove();
   });
 
-  async function renderRefRow(): Promise<HTMLElement> {
+  async function renderRefRow(key = refKey): Promise<HTMLElement> {
     await act(async () => {
-      root.render(<NodeBlock nodeId="n.root-a" instanceKey={refKey} depth={1} />);
+      root.render(<NodeBlock nodeId="n.root-a" instanceKey={key} depth={1} />);
     });
     const bullet = container.querySelector(
-      `[data-instance-key="${refKey}"] [data-bullet-ref="true"]`,
+      `[data-instance-key="${key}"] [data-bullet-kind]`,
     ) as HTMLElement | null;
-    return present(bullet, "ref bullet");
+    return present(bullet, "bullet");
   }
 
   function clickBullet(bullet: HTMLElement, modifier = false): void {
@@ -380,6 +384,65 @@ describe("reference-row bullet click parity", () => {
       const later = new dom.MouseEvent("click", { bubbles: true, cancelable: true });
       container.dispatchEvent(later as unknown as Event);
       expect(later.defaultPrevented).toBe(false);
+    });
+
+    it("a finger held still, then moved, keeps the menu and picks nothing up", async () => {
+      const bullet = await renderRefRow();
+      vi.useFakeTimers();
+      const press = { bubbles: true, cancelable: true, pointerType: "touch", button: 0 };
+      fire(
+        bullet,
+        new dom.PointerEvent("pointerdown", { ...press, clientX: 4, clientY: 4 }) as never,
+      );
+      act(() => void vi.advanceTimersByTime(500));
+      expect(isOpenOnRow()).toBe(true);
+      const travelled = { ...press, clientX: 4, clientY: 60 };
+      // A touch is captured by what it pressed: its moves and its lift go to the bullet.
+      fire(bullet, new dom.PointerEvent("pointermove", travelled) as never);
+      expect(dom.document.querySelector('[data-row-drag-ghost="true"]')).toBeNull();
+      fire(bullet, new dom.PointerEvent("pointerup", travelled) as never);
+      // The menu's hold on the lift's click ends.
+      act(() => void vi.advanceTimersByTime(400));
+    });
+
+    it("a finger that travels before it is held picks the row up, and lifts with no tap", async () => {
+      const bullet = await renderRefRow(treeKey());
+      vi.useFakeTimers();
+      const press = { bubbles: true, cancelable: true, pointerType: "touch", button: 0 };
+      fire(
+        bullet,
+        new dom.PointerEvent("pointerdown", { ...press, clientX: 4, clientY: 4 }) as never,
+      );
+      act(() => void vi.advanceTimersByTime(100));
+      const travelled = { ...press, clientX: 4, clientY: 60 };
+      // A touch is captured by what it pressed: its moves and its lift go to the bullet.
+      fire(bullet, new dom.PointerEvent("pointermove", travelled) as never);
+      expect(dom.document.querySelector('[data-row-drag-ghost="true"]')).not.toBeNull();
+      fire(bullet, new dom.PointerEvent("pointerup", travelled) as never);
+      expect(dom.document.querySelector('[data-row-drag-ghost="true"]')).toBeNull();
+      // Its lift's click is the drag's: it toggles nothing, and no menu opened.
+      clickBullet(bullet);
+      act(() => void vi.advanceTimersByTime(500));
+      expect(useUiStore.getState().nodePaletteOpen).toBe(false);
+      expect(present(outlineNodes().get("n.root-a"), "n.root-a").collapsed).toBe(true);
+    });
+
+    it("a projected row's bullet picks nothing up: it has no place of its own to leave", async () => {
+      const bullet = await renderRefRow();
+      const press = { bubbles: true, cancelable: true, pointerType: "mouse", button: 0 };
+      fire(
+        bullet,
+        new dom.PointerEvent("pointerdown", { ...press, clientX: 4, clientY: 4 }) as never,
+      );
+      fire(
+        bullet,
+        new dom.PointerEvent("pointermove", { ...press, clientX: 4, clientY: 60 }) as never,
+      );
+      expect(dom.document.querySelector('[data-row-drag-ghost="true"]')).toBeNull();
+      fire(
+        bullet,
+        new dom.PointerEvent("pointerup", { ...press, clientX: 4, clientY: 60 }) as never,
+      );
     });
 
     it("a finger lifted sooner is a tap", async () => {

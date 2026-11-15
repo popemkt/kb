@@ -23,6 +23,12 @@ interface BulletProps extends OutlineBulletOptions {
    * it (`useMenuGesture`). A surface with no menu for the node passes none.
    */
   onMenu?: (() => void) | undefined;
+  /**
+   * A press on the bullet, which its surface may make a drag of (the
+   * outline's rows move by it). A surface that hears one gets the bullet
+   * `touch-action: none`, so a finger drags it rather than scrolling the page.
+   */
+  onPress?: ((e: React.PointerEvent<HTMLButtonElement>) => void) | undefined;
 }
 
 /**
@@ -143,20 +149,27 @@ const BULLET_SHAPES: Record<BulletShape, (props: { a: BulletAppearance }) => Rea
 
 const noMenu = () => {};
 
-export function Bullet({ node, onClick, onMenu, ...options }: BulletProps) {
+export function Bullet({ node, onClick, onMenu, onPress, ...options }: BulletProps) {
   const appearance = outlineBulletAppearance(node, options);
   const Shape = BULLET_SHAPES[appearance.shape];
   const menu = useMenuGesture(onMenu ?? noMenu);
+  // The menu's gesture, on a bullet that has a menu.
+  const heard = onMenu === undefined ? null : menu;
 
   const bullet = (
     <button
       type="button"
       onClick={onClick}
-      {...(onMenu === undefined ? {} : menu)}
+      {...heard}
+      onPointerDown={(e) => {
+        heard?.onPointerDown(e);
+        onPress?.(e);
+      }}
       className={cn(
         "bullet-container group/bullet relative flex h-6 w-6 shrink-0 items-center justify-center",
         "rounded-sm hover:bg-foreground/5 transition-colors duration-100",
         "cursor-pointer [-webkit-touch-callout:none]",
+        onPress !== undefined && "touch-none",
       )}
       style={appearance.isSys ? { opacity: BULLET_SYS_OPACITY } : undefined}
       tabIndex={-1}

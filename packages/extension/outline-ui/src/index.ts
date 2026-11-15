@@ -19,11 +19,11 @@ export { longDateLabel, relativeDateLabel } from "./date-display";
 export { createTransientNode, mergeWithPrevious } from "./editing-writes";
 export { FieldsSection, FieldValueStack } from "./fields-section";
 export { FrameViewSlot } from "./frame-view-slot";
+export { outlineFrameSubject } from "./outline-frame";
 export { NodeBlock } from "./node-block";
 export { NodeCommandPalette } from "./node-command-palette";
 export { formatNumber, numberEditText } from "./number-format";
 export { OutlineEditor } from "./outline-editor";
-export { outlineFrameSubject } from "./outline-frame";
 export { setOutlineHost } from "./outline-hosts";
 export {
   initialOutlineState,

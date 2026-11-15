@@ -1,4 +1,11 @@
-import { tagAncestors, type FieldType, type KbNode, type NodeId, type StoreTx } from "@kb/model";
+import {
+  nodeTitleOf,
+  tagAncestors,
+  type FieldType,
+  type KbNode,
+  type NodeId,
+  type StoreTx,
+} from "@kb/model";
 import { derivedTargets, nodeRefs, referenceFields } from "./datoms.ts";
 import {
   fieldTypesIn,
@@ -263,8 +270,10 @@ export class NodeTable implements NodeIndex {
   search(text: string, limit?: number): Array<KbNode> {
     const needle = text.toLowerCase();
     const hits: KbNode[] = [];
+    const nodeOf = (id: NodeId) => this.#nodes.get(id);
     for (const node of this.#nodes.values()) {
       if (node.text.toLowerCase().includes(needle)) hits.push(node);
+      else if (nodeTitleOf(node.id, node, nodeOf).toLowerCase().includes(needle)) hits.push(node);
     }
     hits.sort(byId);
     return limit !== undefined && hits.length > limit ? hits.slice(0, limit) : hits;

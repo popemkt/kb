@@ -10,10 +10,12 @@
  * no row here fails the build, so adding an action adds a row rather than a
  * branch.
  */
-import { createNodeBefore, createTransientNode } from "./editing-writes";
+import { createNodeBefore, createTransientNode, toggleRowChecks } from "./editing-writes";
 import {
+  asOneWrite,
   browserHost,
   childInstanceKey,
+  selectionRoots,
   runKeyCall,
   rowTextOf,
   shownNode,
@@ -89,28 +91,106 @@ function zoom({ nodeId, instanceKey }: ActionOf<"zoom">): void {
 }
 
 /**
- * Delete, then take the focus to the previous visible row, else the next.
- * A refused delete leaves the row where it was, and the selection on it.
+ * The rows a move or a delete acts on (DESIGN-UI.md → Outline editor, "A
+ * selection is a range of rows"): a range's top rows, in order, else the
+ * row the action names.
+ */
+function topRows(nodeId: string): { readonly ids: readonly string[]; readonly range: boolean } {
+  const rows = useOutlineStore.getState().selectedRows();
+  if (rows.length <= 1) return { ids: [nodeId], range: false };
+  return {
+    ids: selectionRoots(
+      rows.map((row) => row.nodeId),
+      outlineNodes(),
+    ),
+    range: true,
+  };
+}
+
+/**
+ * The rows what marks a node acts on (DESIGN-UI.md → Outline editor, "A
+ * selection is a range of rows"): each row of a range, in order, else the
+ * row the action names.
+ */
+function eachRow(nodeId: string): readonly string[] {
+  const rows = useOutlineStore.getState().selectedRows();
+  return rows.length <= 1 ? [nodeId] : rows.map((row) => row.nodeId);
+}
+
+/** The node an instance key ends at. */
+const nodeOfKey = (instanceKey: string): string =>
+  instanceKey.slice(instanceKey.lastIndexOf("/") + 1);
+
+/**
+ * Move the rows the selection acts on as one block (`write`), then select
+ * the range again at their new rows, its anchor and head where they were.
+ */
+function arrange(write: (ids: readonly string[]) => Promise<void>, nodeId: string): void {
+  const { ids, range } = topRows(nodeId);
+  const { selectionAnchorKey } = useOutlineStore.getState();
+  void write(ids).then(() => {
+    if (range && selectionAnchorKey !== null) {
+      useOutlineStore.getState().selectRange(nodeOfKey(selectionAnchorKey), nodeId);
+    }
+  });
+}
+
+/**
+ * ⌘⇧← and ⌘⇧→ (DESIGN-UI.md → Groups): every selected row one group over
+ * from its own, as its frame draws them, a block shift; a row with no group
+ * on that side stays where it is. It is one write. The selection stays on
+ * its rows, since a row's instance does not name its group, and a calendar
+ * pages to where the head lands when that leaves the days it shows.
+ */
+function moveToGroup({ instanceKey, side }: ActionOf<"moveToGroup">): void {
+  const store = useOutlineStore.getState();
+  const head = store.instanceAt(instanceKey);
+  const seen = new Set<string>();
+  const moves = store.selectedRows().flatMap(({ nodeId, group }) => {
+    const step = group?.[side] ?? null;
+    if (group === undefined || step === null || seen.has(nodeId)) return [];
+    seen.add(nodeId);
+    return [{ nodeId, fieldId: group.fieldId, value: step.value }];
+  });
+  const { writes } = browserHost();
+  void asOneWrite(
+    moves.map((move) => move.nodeId),
+    () =>
+      Promise.all(moves.map((move) => writes.moveToGroup(move.nodeId, move.fieldId, move.value))),
+  );
+  const opens = head?.group?.[side]?.opens;
+  if (head?.group !== undefined && opens !== undefined) store.showDay(head.group.frameId, opens);
+  if (head !== null) scrollRowIntoView(head.nodeId);
+}
+
+/**
+ * Delete the rows the selection acts on, as one write, then take the focus
+ * to the visible row before them, else the one after. A refused delete
+ * leaves the rows where they were, and the selection on them.
  */
 function deleteRow({ nodeId, instanceKey }: ActionOf<"delete">): void {
   const store = useOutlineStore.getState();
-  const prev = store.getPreviousVisibleInstance(instanceKey);
-  const next = store.getNextVisibleInstance(instanceKey);
-  void browserHost()
-    .writes.deleteNode(nodeId)
-    .then((landed) => {
-      if (!landed) return;
-      const pick = prev ?? next;
-      if (pick) {
-        useOutlineStore.getState().selectNode(pick.nodeId, pick.instanceKey);
-        return;
-      }
-      useOutlineStore.getState().selectNode(null);
-    });
+  const rows = store.selectedRows();
+  const first = rows[0]?.instanceKey ?? instanceKey;
+  const last = rows.at(-1)?.instanceKey ?? instanceKey;
+  const prev = store.getPreviousVisibleInstance(first);
+  const next = store.getNextVisibleInstance(last);
+  const { ids } = topRows(nodeId);
+  const { writes } = browserHost();
+  void asOneWrite(ids, () => Promise.all(ids.map((id) => writes.deleteNode(id)))).then(() => {
+    if (ids.some((id) => outlineNodes().has(id))) return;
+    const pick = prev ?? next;
+    if (pick) {
+      useOutlineStore.getState().selectNode(pick.nodeId, pick.instanceKey);
+      return;
+    }
+    useOutlineStore.getState().selectNode(null);
+  });
 }
 
 const SELECTION_STEPS: SelectionSteps = {
   select: ({ nodeId, instanceKey }) => useOutlineStore.getState().selectNode(nodeId, instanceKey),
+  extend: ({ direction }) => useOutlineStore.getState().extendSelection(direction),
   enterFields: ({ instanceKey, which }) => void enterFields(instanceKey, which),
   clear: () => useOutlineStore.getState().selectNode(null),
   edit: ({ nodeId, instanceKey }) =>
@@ -118,14 +198,16 @@ const SELECTION_STEPS: SelectionSteps = {
   // Three chords, one gesture: ArrowLeft and ArrowRight only reach these rows
   // when the toggle would move in their direction.
   toggleCollapse: ({ nodeId }) => useOutlineStore.getState().toggleCollapse(nodeId),
+  toggleCheck: ({ nodeId }) => void toggleRowChecks(eachRow(nodeId)),
   collapse: ({ nodeId }) => useOutlineStore.getState().toggleCollapse(nodeId),
   expand: ({ nodeId }) => useOutlineStore.getState().toggleCollapse(nodeId),
   selectParent,
   selectFirstChild,
-  indent: ({ nodeId }) => void browserHost().writes.indentNode(nodeId),
-  outdent: ({ nodeId }) => void browserHost().writes.outdentNode(nodeId),
-  moveUp: ({ nodeId }) => void browserHost().writes.moveNodeUp(nodeId),
-  moveDown: ({ nodeId }) => void browserHost().writes.moveNodeDown(nodeId),
+  indent: ({ nodeId }) => arrange((ids) => browserHost().writes.indentNodes(ids), nodeId),
+  outdent: ({ nodeId }) => arrange((ids) => browserHost().writes.outdentNodes(ids), nodeId),
+  moveUp: ({ nodeId }) => arrange((ids) => browserHost().writes.moveNodesUp(ids), nodeId),
+  moveDown: ({ nodeId }) => arrange((ids) => browserHost().writes.moveNodesDown(ids), nodeId),
+  moveToGroup,
   zoom,
   createAfter,
   createBefore: ({ nodeId }) => void createNodeBefore(nodeId),

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@kb/appearance-kit": "workspace:*",
+    "@kb/calendar-kit": "workspace:*",
     "@kb/contracts": "workspace:*",
     "@kb/keybindings": "workspace:*",
     "@kb/model": "workspace:*",

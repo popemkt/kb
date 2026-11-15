@@ -231,6 +231,12 @@ describe("procedure contract", () => {
         const listed = yield* invoke("procedure.list", {});
         expect(listed.status === "succeeded" && listed.output).toEqual({
           procedures: [
+            // Core's own declared migration, with nothing to move in this store.
+            {
+              id: "migration.core.field-show",
+              title: "Hidden fields become show: never",
+              current: null,
+            },
             { id: "t.advised.drop", title: "an advised decision", current: "decide" },
             { id: "t.advised.maybe", title: "an advised decision", current: "decide" },
             { id: "t.proc", title: "a procedure", current: "one" },

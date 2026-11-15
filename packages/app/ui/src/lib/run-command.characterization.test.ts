@@ -8,10 +8,11 @@
  * [[01M1RXMQPVJKREGDS7D37J1MWN]] moves the state from the runner's own imports
  * to an argument.
  */
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   SYSTEM_IDS,
   defaultViewIdOf,
+  fieldTypeValue,
   extensionNodeId,
   viewOptionId,
   viewOptionOf,
@@ -23,12 +24,12 @@ import { syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 import { useGraphStore } from "@/stores/graph.store";
-import { pageCommandApi } from "@/stores/page-commands";
+import { pageCommandApi, pageCommandTarget } from "@/stores/page-commands";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { installDomGlobals } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
-import { commandTargetNodeId, runCommand, viewTargetFrameId } from "@/lib/commands";
+import { runCommand } from "@/lib/commands";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { bundledSeed } from "@kb/bundled";
 import { syncPagePlugins } from "@/test-support/page-plugins";
@@ -63,7 +64,7 @@ afterAll(() => syncUiPlugins([]));
 async function run(commandId: string): Promise<void> {
   const outline = pageCommandApi();
   await runCommand(commandId, {
-    target: { nodeId: commandTargetNodeId(outline), frameId: viewTargetFrameId(outline) },
+    target: pageCommandTarget(),
     outline,
     prefs: usePrefsStore.getState(),
     ui: useUiStore.getState(),
@@ -284,6 +285,41 @@ describe("palette command routing (characterization)", () => {
     expect(toasts()).toEqual(["select a node first"]);
   });
 
+  it("toggle-check toggles the selected row's box, and says when it has none", async () => {
+    // #todo's box is a `done` checkbox (DESIGN-UI.md → A tag's box).
+    const graph = seedGraph().map((w) =>
+      w.id === "tag.todo"
+        ? {
+            ...w,
+            props: { ...w.props, [SYSTEM_IDS.tagCheckField]: [{ t: "ref" as const, v: "f.done" }] },
+          }
+        : w,
+    );
+    graph.push({
+      id: "f.done",
+      text: "done",
+      props: {
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+        [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("checkbox")],
+      },
+      children: [],
+      createdAt: "2026-08-08T05:00:00.000Z",
+      updatedAt: "2026-08-08T05:00:00.000Z",
+    });
+    useGraphStore.getState().hydrateFromWire(graph, fixtureGraph.rev, "fixtures");
+    useOutlineStore.setState({ selectedNodeId: "n.root-b" });
+    await run(SYSTEM_IDS.cmdToggleCheck);
+    await vi.waitFor(() =>
+      expect(node("n.root-b")?.props["f.done"]).toEqual([{ t: "bool", v: true }]),
+    );
+
+    useOutlineStore.setState({ selectedNodeId: "n.root-c" });
+    await run(SYSTEM_IDS.cmdToggleCheck);
+    await vi.waitFor(() =>
+      expect(toasts()).toEqual(["This node has no check: none of its tags names one"]),
+    );
+  });
+
   it("expand-all and collapse-all move every expandable row in scope", async () => {
     await run(SYSTEM_IDS.cmdExpandAll);
     expect(node("n.root-a")?.collapsed).toBe(false);
@@ -291,16 +327,18 @@ describe("palette command routing (characterization)", () => {
     expect(node("n.root-a")?.collapsed).toBe(true);
   });
 
-  it("the four view-as commands write the view onto the zoomed frame's view node", async () => {
+  it("the six view-as commands write the view onto the zoomed frame's view node", async () => {
     useGraphStore.setState({ rootNodeId: "n.root-a" });
-    for (const [commandId, mode] of [
-      [SYSTEM_IDS.cmdViewAsList, "list"],
-      [SYSTEM_IDS.cmdViewAsTable, "table"],
-      [SYSTEM_IDS.cmdViewAsBoard, "board"],
-      [SYSTEM_IDS.cmdViewAsCards, "cards"],
+    for (const [commandId, view] of [
+      [SYSTEM_IDS.cmdViewAsList, "outline.list"],
+      [SYSTEM_IDS.cmdViewAsTable, "outline.table"],
+      [SYSTEM_IDS.cmdViewAsBoard, "outline.board"],
+      [SYSTEM_IDS.cmdViewAsCards, "outline.cards"],
+      [SYSTEM_IDS.cmdViewAsDetail, "collections.detail"],
+      [SYSTEM_IDS.cmdViewAsCalendar, "collections.calendar"],
     ] as const) {
       await run(commandId);
-      expect(shownAs("n.root-a")).toBe(viewOptionId(`outline.${mode}`));
+      expect(shownAs("n.root-a")).toBe(viewOptionId(view));
     }
   });
 

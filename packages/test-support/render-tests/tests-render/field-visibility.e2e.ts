@@ -7,7 +7,7 @@
 // while the type and template fields, whose seeded nodes say hidden, are not.
 // Screenshots of both pages are written beside the run.
 import { FIELD_TYPE_OPTION_IDS } from "@kb/model";
-import type { Page } from "playwright/test";
+import type { Locator, Page } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
 
 const ROOT = "render.fixture.root";
@@ -15,6 +15,13 @@ const FIELD = "fv.f.influences";
 const PROVIDER = "fv.provider";
 
 const ref = (v: string) => ({ t: "ref", v });
+
+/** Where `locator` is drawn; a test fails when it is not drawn at all. */
+async function box(locator: Locator) {
+  const rect = await locator.boundingBox();
+  expect(rect).not.toBeNull();
+  return rect ?? { x: 0, y: 0, width: 0, height: 0 };
+}
 
 /** Wait out the page's enter transition, so a screenshot shows it settled. */
 const settled = (page: Page) =>
@@ -90,4 +97,61 @@ test("a system field its node does not hide is a row a person edits", async ({
   await page.screenshot({ path: testInfo.outputPath("agent-provider-page.png") });
 
   expect(errors).toEqual([]);
+});
+
+test("the hidden-fields fold stands on a field row's geometry", async ({ page, request }) => {
+  const action = async (id: string, input: Record<string, unknown>) => {
+    const response = await request.post("/api/action", { data: { id, input } });
+    const receipt = await response.json();
+    expect(receipt.status, JSON.stringify(receipt)).toBe("succeeded");
+  };
+  const textField = (id: string, text: string, show?: string) =>
+    action("node.add", {
+      id,
+      text,
+      parent: ROOT,
+      props: [
+        { field: "sys.f.type", value: ref("sys.field") },
+        { field: "sys.f.fieldType", value: ref(FIELD_TYPE_OPTION_IDS.text) },
+        ...(show === undefined ? [] : [{ field: "sys.f.show", value: ref(show) }]),
+      ],
+    });
+  await textField("fv.f.area", "area");
+  await textField("fv.f.note", "note", "sys.show.filled");
+  await action("node.add", {
+    id: "fv.t.item",
+    text: "item",
+    parent: ROOT,
+    props: [
+      { field: "sys.f.type", value: ref("sys.tag") },
+      { field: "sys.f.fields", value: ref("fv.f.area") },
+      { field: "sys.f.fields", value: ref("fv.f.note") },
+    ],
+  });
+  await action("node.add", {
+    id: "fv.n.item",
+    text: "an item",
+    parent: ROOT,
+    props: [
+      { field: "sys.f.type", value: ref("fv.t.item") },
+      { field: "fv.f.area", value: { t: "str", v: "ops" } },
+    ],
+  });
+
+  await page.goto(`/node/fv.n.item`);
+  const fields = page.locator(`[data-fields-for="fv.n.item"]`).first();
+  const fold = fields.locator("[data-hidden-fields-fold]").first();
+  await expect(fold).toHaveText("1 hidden field");
+  const row = fields.locator("[data-field-row]").filter({ hasText: "area" }).first();
+  const rowBox = await box(row);
+  const foldRowBox = await box(fold.locator(".."));
+  const glyph = await box(row.locator("svg").first());
+  const chevron = await box(fold.locator("svg").first());
+  const label = await box(row.getByText("area", { exact: true }).first());
+  const foldLabel = await box(fold.getByText("1 hidden field", { exact: true }));
+  // As tall as a field row, the chevron centred in the glyph column, and the
+  // label where field labels start.
+  expect(foldRowBox.height).toBeCloseTo(rowBox.height, 0);
+  expect(chevron.x + chevron.width / 2).toBeCloseTo(glyph.x + glyph.width / 2, 0);
+  expect(foldLabel.x).toBeCloseTo(label.x, 0);
 });

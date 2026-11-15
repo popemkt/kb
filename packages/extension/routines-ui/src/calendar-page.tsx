@@ -10,8 +10,8 @@ import { CALENDAR_MODES, wallClock, type CalendarMode, type CalendarParams } fro
 import { navigate, useNarrowViewport } from "@kb/ui-sdk";
 import { useCalendarActions } from "./actions";
 import { AgendaView } from "./agenda-view";
+import { daysOf, stepAnchor, todayIn } from "@kb/calendar-kit";
 import { useCalendarClock } from "./clock";
-import { daysOf, stepAnchor, todayIn } from "./dates";
 import { useCalendarDrag } from "./drag";
 import { EntryPopover } from "./entry-popover";
 import { useCalendarModel } from "./model";
