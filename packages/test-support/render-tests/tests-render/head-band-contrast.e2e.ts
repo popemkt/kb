@@ -22,6 +22,7 @@ import { expect, test } from "./harness-test.ts";
 import { backdropOptions } from "./backdrop-options.ts";
 
 const CORE = "sys.extension.core";
+// Home and one level: a long path's row is not held yet. GAP [[01M7FAKNVRP32XMNHK3D98SAW8]]
 const PAGES = [
   { name: "home", path: "/" },
   { name: "node", path: "/node/render.fixture.root" },
