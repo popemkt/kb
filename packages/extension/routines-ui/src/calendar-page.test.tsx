@@ -829,12 +829,15 @@ describe("an event on its own", () => {
     const line = $("[data-event-view] [data-event-line]");
     expect(line.dataset["eventLine"]).toBe("gym/2026-11-04");
     expect(line.dataset["eventLineKind"]).toBe("live");
-    expect($("[data-event-line-open]").textContent).toBe(
-      "Personal·Wed, Nov 4, 07:00–08:00·Every week on Mon, Wed",
-    );
+    const parts = [...document.querySelectorAll("[data-event-line-part]")];
+    expect(parts.map((part) => part.textContent)).toEqual([
+      "Personal",
+      "Wed, Nov 4, 07:00–08:00",
+      "Every week on Mon, Wed",
+    ]);
     expect(document.querySelector("[data-event-card]")).toBeNull();
-    // Up to the time it holds together, so narrower than the line it wraps after the time.
-    expect($("[data-event-line-when]").parentElement?.className).toContain("whitespace-nowrap");
+    // Each part keeps whole, so narrower than the line it wraps after the time.
+    for (const part of parts) expect(part.className).toContain("whitespace-nowrap");
   });
 
   test("pressing the line floats the calendar's own box over it, at the popover's width", async () => {
@@ -882,6 +885,8 @@ describe("an event on its own", () => {
       ownNow = NOW;
       openEvent("standup", [CALENDAR, standup], true);
       expect($("[data-event-line-moment]").textContent).toBe("in 20 min");
+      // How soon says the day, so the line shows only the time.
+      expect($("[data-event-line-when]").textContent).toBe("10:20–10:50");
       expect(document.querySelector("[data-event-line-progress]")).toBeNull();
       // 10:32, twelve minutes into it: the next whole minute draws it again.
       ownNow = NOW + 32 * 60_000;
@@ -896,6 +901,7 @@ describe("an event on its own", () => {
         vi.advanceTimersByTime(60_000);
       });
       expect(document.querySelector("[data-event-line-moment]")).toBeNull();
+      expect($("[data-event-line-when]").textContent).toBe("Wed, Nov 4, 10:20–10:50");
     } finally {
       vi.useRealTimers();
       ownNow = NOW;

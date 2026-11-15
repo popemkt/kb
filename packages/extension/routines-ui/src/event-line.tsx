@@ -25,16 +25,20 @@ const STATE_TEXT = { moved: "Moved", done: "Done", skipped: "Skipped" } as const
 const LINE_CLASS =
   "group/line relative flex max-w-full cursor-pointer flex-wrap items-center gap-x-1.5 rounded-md px-1.5 py-0.5 text-label text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground";
 
-/** What separates the line's parts. */
-function Dot() {
-  return (
-    <span className="text-faint-foreground" aria-hidden>
-      ·
-    </span>
-  );
-}
+/**
+ * One of the line's parts, which keeps whole and brings the separator before
+ * it. The parts' row starts a separator to the left of the line's edge, so
+ * the line's first part, and the first on every row it wraps to, shows none.
+ */
+const PART_CLASS =
+  "inline-flex max-w-full min-w-0 items-center whitespace-nowrap before:w-4 before:shrink-0 before:text-center before:text-faint-foreground before:content-['·']";
 
-/** The instance's own parts, which the press opens the box from: when, where, and how it repeats. */
+/**
+ * The instance's own parts, which the press opens the box from: how soon, the
+ * calendar, when, how it repeats and its state, ending in its sync state,
+ * which keeps to the last of them. Each is whole, so a line narrower than
+ * them wraps after the time.
+ */
 function Described({
   entry,
   model,
@@ -44,60 +48,65 @@ function Described({
   readonly entry: CalendarEntry;
   readonly model: CalendarGraph;
   readonly zone: string;
+  /** How soon or how much is left, which says the day, so the line then shows only the time. */
   readonly lead: string | null;
 }) {
   const calendar = model.calendars.get(entry.calendar);
   const node = model.nodes.get(entry.routine);
   const settings = node === undefined ? null : routineSettings(node).settings;
   const times = displayTimes(entry, zone);
+  const repeat =
+    settings === null ? null : describeRepeat(settings.rrule, settings.until, settings.starts);
+  const sync = (
+    <StatusDot
+      status={entry.status}
+      calendarMode={calendar?.mode}
+      className="ml-1.5 h-2 w-2 shrink-0"
+    />
+  );
+  const last = entry.state !== "scheduled" ? "state" : repeat === null ? "when" : "repeat";
   return (
-    <>
-      {/* Up to the time, the line holds together; narrower than it, it wraps after the time. */}
-      <span className="inline-flex items-center gap-x-1.5 whitespace-nowrap">
+    <span className="block min-w-0 overflow-hidden">
+      <span className="-ml-4 flex flex-wrap items-center">
         {lead === null ? null : (
-          <>
-            <span className="font-medium text-primary" data-event-line-moment="">
-              {lead}
-            </span>
-            <Dot />
-          </>
+          <span className={cn(PART_CLASS, "font-medium text-primary")} data-event-line-part="">
+            <span data-event-line-moment="">{lead}</span>
+          </span>
         )}
         {calendar === undefined ? null : (
-          <>
+          <span className={PART_CLASS} data-event-line-part="">
             <span
-              className={cn("h-2 w-2 shrink-0 rounded-full border-[1.5px]", inkOf(calendar))}
+              className={cn("mr-1.5 h-2 w-2 shrink-0 rounded-full border-[1.5px]", inkOf(calendar))}
               aria-hidden
             />
-            {calendar.name}
-            <Dot />
-          </>
+            <span className="min-w-0 truncate">{calendar.name}</span>
+          </span>
         )}
-        <span data-event-line-when="">
-          {longDay(displayDay(entry, zone))}
-          {times === null ? ", all day" : `, ${times.start}–${times.end}`}
+        <span className={PART_CLASS} data-event-line-part="">
+          <span data-event-line-when="">
+            {lead === null ? `${longDay(displayDay(entry, zone))}, ` : null}
+            {times === null ? "all day" : `${times.start}–${times.end}`}
+          </span>
+          {last === "when" ? sync : null}
         </span>
+        {repeat === null ? null : (
+          <span className={PART_CLASS} data-event-line-part="">
+            <span className="min-w-0 truncate" title={repeat} data-event-line-repeat="">
+              {repeat}
+            </span>
+            {last === "repeat" ? sync : null}
+          </span>
+        )}
+        {entry.state === "scheduled" ? null : (
+          <span className={PART_CLASS} data-event-line-part="">
+            <span className="text-foreground" data-entry-state={entry.state}>
+              {STATE_TEXT[entry.state]}
+            </span>
+            {sync}
+          </span>
+        )}
       </span>
-      {settings === null && entry.state === "scheduled" ? null : (
-        <span className="inline-flex items-center gap-x-1.5">
-          {settings === null ? null : (
-            <>
-              <Dot />
-              <span data-event-line-repeat="">
-                {describeRepeat(settings.rrule, settings.until, settings.starts)}
-              </span>
-            </>
-          )}
-          {entry.state === "scheduled" ? null : (
-            <>
-              <Dot />
-              <span className="text-foreground" data-entry-state={entry.state}>
-                {STATE_TEXT[entry.state]}
-              </span>
-            </>
-          )}
-        </span>
-      )}
-    </>
+    </span>
   );
 }
 
@@ -128,7 +137,6 @@ export function EventLine({
     if (line.current !== null) onOpen(line.current, moving);
   };
   const moment = live && entry !== null ? eventMoment(entry, now) : null;
-  const calendar = entry === null ? undefined : model.calendars.get(entry.calendar);
   return (
     <div
       ref={line}
@@ -138,34 +146,34 @@ export function EventLine({
       // Anywhere on the line opens the box; its link and its choices keep their press.
       onClick={() => open(false)}
     >
-      <button
-        type="button"
-        aria-haspopup="dialog"
-        className="flex min-w-0 flex-wrap items-center gap-x-1.5 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-        data-event-line-open=""
-      >
-        {entry === null ? (
-          <span data-event-no-instance="">No instance from today on</span>
-        ) : (
-          <Described entry={entry} model={model} zone={zone} lead={moment?.text ?? null} />
-        )}
-      </button>
-      {entry === null ? null : (
-        <StatusDot status={entry.status} calendarMode={calendar?.mode} className="h-2 w-2" />
-      )}
-      {entry?.status?.url === undefined ? null : (
-        <a
-          className="text-faint-foreground hover:text-primary"
-          href={entry.status.url}
-          target="_blank"
-          rel="noreferrer"
-          title="Open in Google Calendar"
-          aria-label="Open in Google Calendar"
-          onClick={(event) => event.stopPropagation()}
+      {/* The link keeps to the line's last row, as the sync state does inside the press. */}
+      <span className="inline-flex max-w-full min-w-0 items-end gap-x-1.5">
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          className="flex min-w-0 flex-wrap items-center gap-x-1.5 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          data-event-line-open=""
         >
-          <ArrowSquareOutIcon size={12} />
-        </a>
-      )}
+          {entry === null ? (
+            <span data-event-no-instance="">No instance from today on</span>
+          ) : (
+            <Described entry={entry} model={model} zone={zone} lead={moment?.text ?? null} />
+          )}
+        </button>
+        {entry?.status?.url === undefined ? null : (
+          <a
+            className="shrink-0 pb-0.5 text-faint-foreground hover:text-primary"
+            href={entry.status.url}
+            target="_blank"
+            rel="noreferrer"
+            title="Open in Google Calendar"
+            aria-label="Open in Google Calendar"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <ArrowSquareOutIcon size={12} />
+          </a>
+        )}
+      </span>
       {!live || entry === null ? null : (
         <span className="ml-1 hidden items-center gap-1 group-hover/line:inline-flex group-focus-within/line:inline-flex">
           {instanceChoices(entry).map((choice) => (

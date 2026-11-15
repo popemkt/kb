@@ -141,4 +141,7 @@ test("on a phone the line wraps after the time, and the time stays whole", async
   expect(when.height).toBeLessThan(24);
   expect(repeat.y).toBeGreaterThanOrEqual(when.y + when.height - 1);
   expect(lineBox.x + lineBox.width).toBeLessThanOrEqual(360);
+  // The row it wraps to starts where the line does, with no separator before it.
+  const start = await line.locator("[data-event-line-part] > span").first().boundingBox();
+  expect(Math.abs((start?.x ?? 0) - repeat.x)).toBeLessThanOrEqual(1);
 });

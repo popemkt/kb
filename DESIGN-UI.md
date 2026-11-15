@@ -4908,7 +4908,8 @@ as they are, since a person's Cloud project registered them.
     hover they stay in the box. Before the instance starts, within a day,
     the line leads with how soon ("in 20 min"); while it runs, with how
     much is left ("now · 12 min left"), over a thin progress line along
-    its foot. Both follow the page's clock on their own, a minute at a
+    its foot. Either says the day, so the line then shows only the time.
+    Both follow the page's clock on their own, a minute at a
     time.
 
 ### Sync services
