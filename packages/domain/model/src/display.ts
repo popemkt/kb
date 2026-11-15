@@ -43,16 +43,30 @@ const DEFAULT_LABELS: Readonly<Record<DisplayDefault, string>> = {
   always: "always",
 };
 
+/**
+ * What a view's preview of a node is, where it draws one: `still`, a
+ * compact picture that pressing opens the node in the view (the canvas's
+ * board); or `live`, the view's own controls at work under the row, which
+ * act in place, so the node is opened by its tag's "Open in …" instead
+ * (DESIGN.md → View nodes → a tag's view sets how its nodes show).
+ */
+export type PreviewKind = "still" | "live";
+
 /** What a view in the role of a tag's default view offers its nodes, as one view key says it. */
 export interface DisplayView {
   readonly id: string;
-  /** The view draws a preview of a node it opens (`ViewKey.preview`). */
-  readonly preview?: boolean | undefined;
+  /** What preview the view draws of a node it opens, if any (`ViewKey.preview`). */
+  readonly preview?: PreviewKind | null | undefined;
+}
+
+/** Whether `view` draws a preview of a node it opens, of either kind. */
+function previews(view: DisplayView): boolean {
+  return view.preview !== null && view.preview !== undefined;
 }
 
 /** The options `view` offers: the preview only where it draws one. */
 export function displayOptionsOf(view: DisplayView): readonly DisplayOption[] {
-  return DISPLAY_OPTIONS.filter((option) => option !== "preview" || view.preview === true);
+  return DISPLAY_OPTIONS.filter((option) => option !== "preview" || previews(view));
 }
 
 /** The setting field ids for the view `viewId`, derived from it. */
@@ -127,7 +141,7 @@ export function displaySettingFields(view: DisplayView, family: string, at: stri
       ...values,
     ];
   });
-  return view.preview === true
+  return previews(view)
     ? [...options, seededField(ids.height, "preview height", "number", at, setting)]
     : options;
 }
@@ -145,7 +159,7 @@ export function displaySettingValues(view: DisplayView): KbNode["props"] {
       [{ t: "ref", v: displayDefaultId(ids[option], DISPLAY_DEFAULTS[option]) }],
     ]),
   );
-  return view.preview === true
+  return previews(view)
     ? { ...props, [ids.height]: [{ t: "num", v: DISPLAY_DEFAULTS.height }] }
     : props;
 }

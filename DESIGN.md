@@ -1326,7 +1326,8 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   settings from the tag.
   - **Who names it.** A family claims a tag in its declaration
     (`tagDefaultViews`: by the tag's id, one of its own views' keys; the
-    canvas claims `#canvas` for its canvas view), and the fold writes the
+    canvas claims `#canvas` for its canvas view, the events `#event` for
+    an event's own box), and the fold writes the
     claim as the tag node's `sys.f.view.default`, as it writes the store's
     on `sys.views` (one claim per carrier node). A tag two declarations
     claim, a claim on a tag no source seeds, or one naming a view its
@@ -1368,14 +1369,24 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   outline it is a row like any other, and a small set of *display options*
   says what more its row shows (`@kb/model` `display.ts`, the one home of
   the options, their settings' ids, values and defaults):
-  - **`preview`**: the view draws the node small under its row, a compact,
-    read-only picture. It is a placement of the view the family already
-    provides (`preview`), never a second renderer; the canvas's is a still
-    picture of its board (`canvasSvg`, the export's painter), which goes
-    live only when the canvas is opened. Only a view whose key says so
-    offers it: `ViewKey.preview` (`viewKey(…, { preview: true })`) is the
-    one statement, and a page contribution of the view is offered at
-    placement `preview` because of it (`provideView`), never by listing it.
+  - **`preview`**: the view draws the node small under its row. It is a
+    placement of the view the family already provides (`preview`), never a
+    second renderer. Only a view whose key says so offers it, and the key
+    says which kind: `ViewKey.preview` (`viewKey(…, { preview: "still" })`
+    or `"live"`) is the one statement, and a page contribution of the view
+    is offered at placement `preview` because of it (`provideView`), never
+    by listing it.
+    - **Still**: a compact picture that pressing opens the node in the
+      view. The canvas's is a still picture of its board (`canvasSvg`, the
+      export's painter), which goes live only when the canvas is opened.
+    - **Live**: the view's own controls at work under the row, acting
+      through the family's actions as they do where the view is opened;
+      an event's box is one (DESIGN-UI → The routines calendar). Since a
+      press is the view's, the node opens through its tag's "Open in …"
+      instead.
+
+    The row's host draws the preview's box by its kind, so no view asks
+    for a box of its own (DESIGN-UI → Opening a node).
   - **`properties`**: the node's fields show as a plain node's do, the ones
     its tag hides because its view draws them included: the fields the
     tag templates (`sys.f.fields`) are revealed through the field-hiding
@@ -5212,7 +5223,10 @@ A plugin can hold its own conversation with the connections of `kb ui`
   it lists no hosted family. A hosted action keeps every rule a registry
   action keeps: an id or alias the registry holds stays the registry's, and
   one that breaks a batch's or a context's rule is left out, each said on
-  stderr. `hosted-actions.test.ts` (`@kb/server`) holds it.
+  stderr. Its views are its host's the same way: the view catalog is every
+  family kernel's `ViewKeyPoint` (`familyViews`, `@kb/runtime`), so
+  `kb.manifest` lists a hosted family's views (the events' calendar) and
+  the page resolves and opens them as it does the registry's. `hosted-actions.test.ts` (`@kb/server`) holds both.
 - **A host entry declares what it hosts.** A family's declaration says
   what a running host adds to it (`host`): each capability only a host
   can serve, with a one-line reason and the actions it serves, by local

@@ -126,9 +126,8 @@ export function provideView<P>(
   key: ViewKey<P>,
   view: ViewEntry<P>,
 ): ContributionEntry<ProvidedView> {
-  const placements: readonly Placement[] = key.preview
-    ? [...view.placements, "preview"]
-    : view.placements;
+  const placements: readonly Placement[] =
+    key.preview !== null ? [...view.placements, "preview"] : view.placements;
   const provided: View<P> = { key, ...view, placements };
   return { id: localIdOf(key), value: provided };
 }

@@ -27,6 +27,7 @@
     "@kb/seed": "workspace:*",
     "@kb/store-jsonl": "workspace:*",
     "@kb/test-kit": "workspace:*",
+    "@kb/views": "workspace:*",
     "@types/bun": "catalog:"
   },
   "nx": {

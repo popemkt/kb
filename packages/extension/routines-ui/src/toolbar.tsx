@@ -9,6 +9,7 @@ import {
 import { ROUTINE_TAGS, type CalendarIssue, type CalendarMode } from "@kb/routines";
 import { nodesOfKind } from "@kb/model";
 import { cn, navigate } from "@kb/ui-sdk";
+import { useCalendarClock } from "./clock";
 import { titleOf } from "./dates";
 import { BUTTON_CLASS, ICON_BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from "./dialog";
 import type { CalendarModel } from "./model";
@@ -23,10 +24,13 @@ const MODE_LABELS: Readonly<Record<CalendarMode, string>> = {
 };
 
 /** How the instances shown stand with Google: the worst state among them, counted. */
-function syncSummary(model: CalendarModel): { readonly state: SyncShown; readonly text: string } {
+function syncSummary(
+  model: CalendarModel,
+  zone: string,
+): { readonly state: SyncShown; readonly text: string } {
   const shown = [...model.byDay.values()]
     .flat()
-    .map((entry) => syncShown(entry.status, model.calendars.get(entry.calendar)?.mode).state);
+    .map((entry) => syncShown(entry.status, model.calendars.get(entry.calendar)?.mode, zone).state);
   const failed = shown.filter((state) => state === "error").length;
   const waiting = shown.filter((state) => state === "pending").length;
   if (failed > 0) return { state: "error", text: `${String(failed)} failed` };
@@ -159,7 +163,7 @@ export function CalendarToolbar({
   readonly onToday: () => void;
   readonly onNew: () => void;
 }) {
-  const summary = syncSummary(model);
+  const summary = syncSummary(model, useCalendarClock().zone);
   const hasService = nodesOfKind(model.nodes, ROUTINE_TAGS.account).length > 0;
   return (
     <div

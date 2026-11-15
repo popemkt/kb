@@ -4,6 +4,7 @@ import {
   RoutinesCalendarView,
   RoutinesSyncView,
   type CalendarParams,
+  type EventParams,
   type SyncParams,
 } from "@kb/routines";
 import {
@@ -29,6 +30,18 @@ export function CalendarSurface({ params }: ViewProps<CalendarParams>) {
       resetKey={`calendar|${params.mode ?? ""}|${params.date ?? ""}`}
     >
       <CalendarPage params={params} />
+    </ViewErrorBoundary>
+  );
+}
+
+/** An event's own box stays in its own chunk, with the calendar's editor it opens. */
+const EventView = lazy(() => import("./event-view").then((m) => ({ default: m.EventView })));
+
+/** One event: its box as a page, and live under its row as its preview. */
+export function EventSurface({ params, host }: ViewProps<EventParams>) {
+  return (
+    <ViewErrorBoundary title="Event crashed" resetKey={`event|${params.id}`}>
+      <EventView id={params.id} preview={host.placement === "preview"} />
     </ViewErrorBoundary>
   );
 }

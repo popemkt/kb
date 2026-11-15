@@ -28,6 +28,33 @@ export const RoutinesCalendarView = viewKey(
   }),
 );
 
+export const EventParams = Schema.Struct({
+  /** The `#event` node: the node the view is shown for. */
+  id: Schema.String,
+}).annotate({
+  description:
+    "One event, as the calendar's box draws it (`id`, the #event node it is shown for): its next instance's time, repeat, state and sync state, with Done, Skip, Move this one and Edit event acting on it.",
+});
+export type EventParams = typeof EventParams.Type;
+
+/**
+ * One event on its own: the box the calendar floats over a pressed
+ * instance, drawn for the event's next instance. A `#event` node opens in
+ * it, and its preview under the node's row is that box live, so it is
+ * edited there as on the calendar. The event is the node it is shown for,
+ * so nothing is stored.
+ */
+export const RoutinesEventView = viewKey(
+  "routines.event",
+  "Event",
+  EventParams,
+  {
+    read: (_props, host) => (host === null ? {} : { id: host }),
+    write: () => ({}),
+  },
+  { preview: "live" },
+);
+
 export const SyncParams = Schema.Struct({
   /** The sync service (a `#google-account` node) whose setup is open; the list when none. */
   account: Schema.optional(Schema.String),

@@ -2,7 +2,9 @@ import { Effect, Option, Schema } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import type { PlatformError } from "effect/PlatformError";
 import { dirname, join, relative, resolve } from "node:path";
+import { bunFileSystemLayer } from "@kb/runtime";
 import { containedDirectory } from "@kb/workspace-fs";
+import { UI_ROOT } from "./paths.ts";
 
 /**
  * Fresh-checkout lifecycle for the built UI (`packages/app/ui/dist`).
@@ -177,6 +179,15 @@ export const writeBuildMarker = Effect.fn("kb.writeBuildMarker")(function* (
   yield* fs.makeDirectory(distDir, { recursive: true });
   yield* fs.writeFileString(buildMarkerPath(distDir), fingerprint);
 });
+
+/**
+ * Record `distDir` as built from the UI source as it is now, so `kb ui`
+ * serves it as it is rather than building it again ({@link needsUiBuild}):
+ * for a build made another way, as the render harness makes its own.
+ */
+export const markUiBuilt = Effect.fn("kb.markUiBuilt")(function* (distDir: string) {
+  yield* writeBuildMarker(distDir, yield* uiSourceFingerprint(UI_ROOT));
+}, Effect.provide(bunFileSystemLayer));
 
 /** Why the cached build (if any) cannot be served as-is. */
 export type UiBuildState = "missing" | "stale" | "fresh";

@@ -68,7 +68,7 @@ export function tagOpeningOf(
     picker: provided.picker,
     options: displayOptionsOf({
       id: held.key.id,
-      preview: provided.placements.includes("preview"),
+      preview: provided.placements.includes("preview") ? held.key.preview : null,
     }),
     settings: displaySettingsOf(held.key.id, lookup),
   };

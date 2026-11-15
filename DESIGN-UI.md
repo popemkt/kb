@@ -3182,14 +3182,31 @@ until "Save workspace".
   preview, where the page draws the view at placement `preview`, and the
   properties. Each is the node's own toggle; where the node says nothing,
   its family's setting ("when a node asks" or "always") decides.
-  - **The preview** stands under the row at the row's indent plus one, in
-    a box of the family's `preview height`, so showing it moves what is
-    below by that much and nothing moves after. The view mounts only once
+  - **The preview** stands under the row at the row's indent plus one. A
+    still preview's box is the family's `preview height`, so showing it
+    moves what is below by that much and nothing moves after; a live
+    preview's box is as tall and as wide as its controls draw, at least
+    the family's `preview height` and never wider than the column. The view mounts only once
     the box comes within 200px of the viewport (`useSeen`), so a long
     outline pays for the previews it shows, not for the ones it holds.
-    Pressing it, or Enter on it, opens the node in the opening's view. It
-    takes the content column's width, so it fits both width modes.
-    (`row-preview.tsx`, `@kb/outline-ui`)
+    A still preview takes the content column's width, so it fits both
+    width modes. Its
+    box is the view key's kind of preview (`ViewKey.preview`, DESIGN.md →
+    a tag's view sets how its nodes show), and no view draws a box of its
+    own (`row-preview.tsx`, `@kb/outline-ui`):
+    - **A still preview** is one button: pressing it, or Enter or Space on
+      it, opens the node in the opening's view.
+    - **A live preview** is a region (`role="group"`, named "<view>
+      preview") of the view's own controls, which act in place, so the tag
+      chip's ↗ and the menu's "Open in …" open the node. Its controls are
+      the page's Tab stops after the row's own, and since its box stands as
+      tall as they do, it never scrolls inside itself: every one is in view. Focus
+      entering it takes the keyboard from the outline
+      (`releaseOutlineKeyboard`, as a field's value does): the selected
+      or edited row lets go, so the outline's Tab (indent) and arrows act
+      on no row while a control of the view holds focus. It traps nothing:
+      Tab and Shift+Tab leave it as they leave any control, and since it
+      is no row, the arrows that move between rows pass over it.
   - **The properties** are the node's field rows as a plain node's: the
     row's fields section, and the zoomed node's, reveal the fields of the
     tag that opens it, drawn as any other field (`RowOpening.revealed`).
@@ -4239,6 +4256,26 @@ as they are, since a person's Cloud project registered them.
 - **One-offs tick like series.** A one-off's one instance is its event, so
   its `#occurrence` on its start day is that event's own state: done sends
   it ✅ and grey, skipped cancels it.
+- **One box per instance.** What the calendar floats over a pressed
+  instance is its box (`EventCard`, `event-card.tsx`): when it is and how
+  it repeats, its state and sync state, Done, Skip, Move this one, Edit
+  event, Open in Google Calendar and Open in outline. The popover only
+  places it and puts it away (`EntryPopover`, with its Close button).
+- **An event on its own.** An `#event` node opens in its own view
+  (`RoutinesEventView`, `routines.event`, the tag's default view, DESIGN.md
+  → a tag's view sets how its nodes show): that same box, for the event's
+  next instance (`nextEntry`: a series' first on or after today, within two
+  years; a one-off's one instance, whenever it is). Its preview under the
+  node's row is the box live (`preview: "live"`), so a person ticks, skips,
+  moves or edits an event from the outline as from the calendar, through
+  the same actions, and Edit event opens the calendar's editor. A series
+  that has ended, or one the calendar cannot show, says it has no instance
+  and can still be edited and opened. Under its row the box is the
+  popover's width (`EVENT_BOX_WIDTH`), at the row's indent, and as tall as
+  what it shows, so its preview never scrolls. The box says when an
+  instance synced as it says its other times, on the page's wall clock
+  ("Synced to Google Calendar at Nov 10, 14:43"), in the box and in a sync
+  dot's tooltip alike (`syncShown`).
 
 ### Sync services
 

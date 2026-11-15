@@ -5,6 +5,7 @@ import { extensionCompilerLayer } from "./installed-extensions.ts";
 import { Cause, Effect, Layer } from "effect";
 import { bunFileSystemLayer } from "./platform.ts";
 import { engineOf, KbIndexService, QueryEngineService } from "@kb/query";
+import { viewCatalogOf } from "@kb/views";
 import {
   ActionCatalog,
   CaptureTarget,
@@ -26,6 +27,7 @@ import {
   kernelCaptureTarget,
   TemplateRegistry,
   ViewCatalog,
+  ViewKeyPoint,
 } from "@kb/contracts";
 import { UntrustedEngine, callWithin } from "@kb/sandbox";
 import { quickjsEngine } from "@kb/sandbox-quickjs";
@@ -74,8 +76,9 @@ import { remoteScreensLayer } from "./screens.ts";
  * server's agent): the extension catalog reports its rows, read at each
  * call, after the registry's families, and its kernel is one of the
  * `FamilyKernels` beside the registry's, so the actions it contributes are
- * listed and reached with the registry's (`reachableActions`). A process
- * that hosts nothing reports none.
+ * listed and reached with the registry's (`reachableActions`), and the
+ * views it contributes are in the view catalog with the registry's
+ * (`familyViews`). A process that hosts nothing reports none.
  */
 export function kbRuntimeLayer(
   ctx: KbContext,
@@ -104,7 +107,7 @@ export function kbRuntimeLayer(
     kbRootsLayer(registeredLocationPaths).pipe(Layer.provide(bunFileSystemLayer)),
     screens,
     Layer.effect(TemplateRegistry, registry.pipe(Effect.map(({ templates }) => templates))),
-    Layer.effect(ViewCatalog, registry.pipe(Effect.map(({ views }) => views))),
+    Layer.effect(ViewCatalog, registry.pipe(Effect.map((held) => familyViews(held, hosted)))),
     Layer.effect(
       CaptureTarget,
       registry.pipe(Effect.map(({ kernel }) => kernelCaptureTarget(kernel))),
@@ -140,6 +143,20 @@ function familyKernels(registry: Registry, hosted: HostedFamilies | undefined): 
     { source: "registry", kernel: registry.kernel },
     ...(hosted === undefined ? [] : [{ source: "host" as const, kernel: hosted.kernel }]),
   ];
+}
+
+/**
+ * The view catalog of every kernel a host holds families in
+ * (`familyKernels`): the views their plugins contributed to `ViewKeyPoint`,
+ * so a view of a family the host composes beside the registry (the events'
+ * calendar) is listed, opened and resolved as the registry's are.
+ */
+function familyViews(registry: Registry, hosted: HostedFamilies | undefined) {
+  return viewCatalogOf(
+    familyKernels(registry, hosted).flatMap(({ kernel }) =>
+      kernel.contributions(ViewKeyPoint).map(({ value }) => value),
+    ),
+  );
 }
 
 /**

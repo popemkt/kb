@@ -7,7 +7,7 @@
  * would not.
  */
 import { DateTime, Option } from "effect";
-import { firstRef, formatDay, nodesOfKind, parseDay, type NodeLike } from "@kb/model";
+import { addDays, firstRef, formatDay, nodesOfKind, parseDay, type NodeLike } from "@kb/model";
 import { readRoutine, readSyncStatus, routineOccurrences, routineZone } from "./config.ts";
 import { SyncError, type Occurrence, type Routine, type SyncStatus } from "./model.ts";
 import { instancePlace, project, recurrence } from "./projection.ts";
@@ -148,6 +148,9 @@ export function knownZone(zone: string): boolean {
   return Option.isSome(DateTime.zoneMakeNamed(zone));
 }
 
+/** Whether a routine repeats; one that does not is a one-off, its one instance the routine itself. */
+const repeats = (routine: Routine) => routine.rrule.trim() !== "";
+
 function entry(
   node: NodeLike,
   routine: Routine,
@@ -162,7 +165,7 @@ function entry(
     routine: node.id,
     title: routine.title,
     on,
-    series: routine.rrule.trim() !== "",
+    series: repeats(routine),
     day,
     at,
     start,
@@ -178,10 +181,81 @@ function entry(
 }
 
 /**
- * Every routine's instances shown on a local day in `from`…`to`, in their
- * routines' zones: a series day keeps its place unless its occurrence moved it,
- * and an instance moved in from outside the range is shown where it went.
+ * One routine's instances shown on a local day in `from`…`to`, in its zone,
+ * or the issue that keeps the calendar from showing it: a series day keeps
+ * its place unless its occurrence moved it, and an instance moved in from
+ * outside the range is shown where it went.
  */
+function routineEntries(
+  node: NodeLike,
+  nodes: ReadonlyMap<string, NodeLike>,
+  from: string,
+  to: string,
+): { readonly entries: readonly CalendarEntry[] } | { readonly issue: CalendarIssue } {
+  try {
+    const { routine } = readRoutine(node, routineZone(node, nodes));
+    // What the engine would refuse to send, the calendar does not show.
+    project(routine, "", 0);
+    const facts = routineOccurrences(node, nodes);
+    const days = new Set(seriesDays(routine, from, to));
+    for (const [on, fact] of facts)
+      if (fact.occurrence.movedTo !== null && fact.occurrence.state !== "skipped") days.add(on);
+    const entries: CalendarEntry[] = [];
+    for (const on of days) {
+      const shown = entry(node, routine, on, facts.get(on));
+      if (shown.day >= from && shown.day <= to) entries.push(shown);
+    }
+    return { entries };
+  } catch (error) {
+    return {
+      issue: {
+        routine: node.id,
+        title: node.text,
+        code: error instanceof SyncError ? error.code : "invalid_rule",
+      },
+    };
+  }
+}
+
+/** Instances in the calendar's order: by day, then start, then title. */
+const byPlace = (a: CalendarEntry, b: CalendarEntry) =>
+  a.day.localeCompare(b.day) ||
+  (a.start ?? -Infinity) - (b.start ?? -Infinity) ||
+  a.title.localeCompare(b.title) ||
+  a.key.localeCompare(b.key);
+
+/** How far ahead an event's next instance is looked for: two years, past any yearly rule. */
+const NEXT_HORIZON_DAYS = 731;
+
+/**
+ * The instance of one routine its box acts on (`EventCard`): a series' first
+ * shown on or after `today` (a local day) within two years, or null once it
+ * has ended; a one-off's one instance, whenever it is. Null too for a
+ * routine the calendar cannot show.
+ */
+export function nextEntry(
+  node: NodeLike,
+  nodes: ReadonlyMap<string, NodeLike>,
+  today: string,
+): CalendarEntry | null {
+  const start = parseDay(today);
+  if (start === null) return null;
+  const read = oneOff(node, nodes)
+    ? routineEntries(node, nodes, "0001-01-01", "9999-12-31")
+    : routineEntries(node, nodes, today, formatDay(addDays(start, NEXT_HORIZON_DAYS)));
+  return "issue" in read ? null : (read.entries.toSorted(byPlace)[0] ?? null);
+}
+
+/** Whether the routine happens once: no repeat. One it cannot read is not. */
+function oneOff(node: NodeLike, nodes: ReadonlyMap<string, NodeLike>): boolean {
+  try {
+    return !repeats(readRoutine(node, routineZone(node, nodes)).routine);
+  } catch {
+    return false;
+  }
+}
+
+/** Every routine's instances shown on a local day in `from`…`to` (`routineEntries`), in order. */
 export function calendarEntries(
   nodes: ReadonlyMap<string, NodeLike>,
   from: string,
@@ -190,32 +264,10 @@ export function calendarEntries(
   const entries: CalendarEntry[] = [];
   const issues: CalendarIssue[] = [];
   for (const node of nodesOfKind(nodes, T.routine)) {
-    try {
-      const { routine } = readRoutine(node, routineZone(node, nodes));
-      // What the engine would refuse to send, the calendar does not show.
-      project(routine, "", 0);
-      const facts = routineOccurrences(node, nodes);
-      const days = new Set(seriesDays(routine, from, to));
-      for (const [on, fact] of facts)
-        if (fact.occurrence.movedTo !== null && fact.occurrence.state !== "skipped") days.add(on);
-      for (const on of days) {
-        const shown = entry(node, routine, on, facts.get(on));
-        if (shown.day >= from && shown.day <= to) entries.push(shown);
-      }
-    } catch (error) {
-      issues.push({
-        routine: node.id,
-        title: node.text,
-        code: error instanceof SyncError ? error.code : "invalid_rule",
-      });
-    }
+    const read = routineEntries(node, nodes, from, to);
+    if ("issue" in read) issues.push(read.issue);
+    else entries.push(...read.entries);
   }
-  entries.sort(
-    (a, b) =>
-      a.day.localeCompare(b.day) ||
-      (a.start ?? -Infinity) - (b.start ?? -Infinity) ||
-      a.title.localeCompare(b.title) ||
-      a.key.localeCompare(b.key),
-  );
+  entries.sort(byPlace);
   return { entries, issues };
 }

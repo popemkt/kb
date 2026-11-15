@@ -87,7 +87,7 @@ export function stepAnchor(mode: CalendarMode, anchor: string, direction: 1 | -1
 }
 
 /** A day as `Nov 4`. */
-function shortDay(day: string): string {
+export function shortDay(day: string): string {
   const local = date(day);
   return `${MONTH_SHORT[local.month - 1] ?? ""} ${String(local.day)}`;
 }

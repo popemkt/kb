@@ -10,6 +10,7 @@ import {
   viewOptionId,
   type NodeId,
   type NodeProps,
+  type PreviewKind,
   type PropValue,
   type ViewFamily,
 } from "@kb/model";
@@ -70,23 +71,25 @@ export interface ViewKey<P> {
    */
   readonly events: readonly string[];
   /**
-   * The view draws a preview of a node it opens: a compact, read-only
-   * picture of it, which the editor shows under the node's row when a tag
-   * opens the node in this view (DESIGN.md → View nodes → a tag's view sets
-   * how its nodes show). The one statement of it: the seed derives the
-   * view's preview settings from it, and a page contribution of the view
-   * offers placement `preview` because of it.
+   * What preview the view draws of a node it opens, which the editor shows
+   * under the node's row when a tag opens the node in this view (DESIGN.md
+   * → View nodes → a tag's view sets how its nodes show): `still`, a
+   * compact picture that pressing opens; `live`, the view's own controls,
+   * acting in place; null, none. The one statement of it: the seed derives
+   * the view's preview settings from it, a page contribution of the view
+   * offers placement `preview` because of it, and the row's host draws
+   * the preview's box by its kind.
    */
-  readonly preview: boolean;
+  readonly preview: PreviewKind | null;
 }
 
 /**
  * What a key declares beyond its settings: the events it tells code run for
- * it (`ViewKey.events`), and whether it draws a preview (`ViewKey.preview`).
+ * it (`ViewKey.events`), and what preview it draws (`ViewKey.preview`).
  */
 export interface ViewDeclares {
   readonly events?: readonly string[];
-  readonly preview?: boolean;
+  readonly preview?: PreviewKind;
 }
 
 /**
@@ -151,7 +154,7 @@ export function viewKey<P>(
   declares: ViewDeclares = {},
 ): PlainViewKey<P> {
   const events = declares.events ?? [];
-  const preview = declares.preview ?? false;
+  const preview = declares.preview ?? null;
   return { kind: "view", id, label, params, option: viewOptionId(id), config, events, preview };
 }
 

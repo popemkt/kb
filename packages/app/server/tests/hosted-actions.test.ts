@@ -4,7 +4,8 @@
  * contributes to `ActionPoint` in the server's kernel is listed by
  * `kb.manifest` and invoked over the API like any other action, a call an
  * action makes reaches it as a call from outside does, and an id the
- * registry already holds stays the registry's.
+ * registry already holds stays the registry's. The views its declaration
+ * names are in the view catalog `kb.manifest` lists, beside the registry's.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -14,13 +15,16 @@ import { Effect, Schema } from "effect";
 import {
   ActionPoint,
   CoreInvoke,
+  declarationPlugin,
   defineExtension,
   extensionNamespace,
   provideAction,
+  viewDef,
   type ExtensionEntry,
 } from "@kb/contracts";
 import { kbManifestDef } from "@kb/operations";
 import { definePlugin } from "@kb/plugin";
+import { NoParams, viewKey } from "@kb/views";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
 const echo = defineExtension({ name: "echo", label: "Echo" });
@@ -100,13 +104,21 @@ const SHADOW: ExtensionEntry = {
   }),
 };
 
+/** A hosted family whose declaration names a view: what its entry loads, as every family's does. */
+const shownView = viewKey("shown.page", "Shown", NoParams);
+const shown = defineExtension({ name: "shown", label: "Shown", views: [viewDef(shownView)] });
+const SHOWN: ExtensionEntry = {
+  declaration: shown,
+  entry: definePlugin({ name: shown.name, apply: (ctx) => ctx.plugin(declarationPlugin(shown)) }),
+};
+
 let root = "";
 let handle: UiServerHandle;
 
 beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), "kb-hosted-actions-"));
   handle = await Effect.runPromise(
-    startUi({ root, port: 0, openBrowser: false, extensions: [ECHO, SHADOW] }),
+    startUi({ root, port: 0, openBrowser: false, extensions: [ECHO, SHADOW, SHOWN] }),
   );
 });
 afterAll(async () => {
@@ -155,5 +167,13 @@ describe("a hosted family's actions", () => {
   test("never take an id the registry holds", async () => {
     const receipt = await call("node.get", { id: "sys.tag", depth: 0 });
     expect(receipt).toMatchObject({ status: "succeeded", output: { node: { id: "sys.tag" } } });
+  });
+});
+
+describe("a hosted family's views", () => {
+  test("are in the view catalog kb.manifest lists, beside the registry's", async () => {
+    const receipt = await call(kbManifestDef.id, {});
+    const ids = kbManifestDef.outputSchema.parse(receipt.output).views.map(({ id }) => id);
+    expect(ids).toEqual(expect.arrayContaining(["outline.main", "shown.page"]));
   });
 });

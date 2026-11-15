@@ -85,7 +85,7 @@ export const CanvasView = viewKey(
           : { projection, ...(pose === undefined ? {} : { pose }) },
       ),
   },
-  { events: [...Object.values(CANVAS_EVENTS), DATA_EVENT], preview: true },
+  { events: [...Object.values(CANVAS_EVENTS), DATA_EVENT], preview: "still" },
 );
 
 /**

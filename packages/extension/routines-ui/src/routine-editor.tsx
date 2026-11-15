@@ -19,7 +19,8 @@ import {
 } from "@kb/routines";
 import { cn } from "@kb/ui-sdk";
 import { BUTTON_CLASS, Dialog, PRIMARY_BUTTON_CLASS } from "./dialog";
-import type { CalendarModel } from "./model";
+import { useCalendarClock } from "./clock";
+import type { CalendarGraph } from "./model";
 import { DateField } from "./date-field";
 import { FIELD_CLASS, RepeatPicker } from "./repeat-picker";
 import { StatusDot } from "./status-dot";
@@ -68,7 +69,7 @@ function sendable(title: string, settings: RoutineSettings, zone: string): boole
   }
 }
 
-function startOf(target: EditorTarget, model: CalendarModel) {
+function startOf(target: EditorTarget, model: CalendarGraph) {
   if (target.kind === "new") {
     const only = model.calendars.size === 1 ? [...model.calendars.keys()][0] : undefined;
     return {
@@ -88,19 +89,22 @@ function SyncRow({
   calendar,
 }: {
   readonly id: string;
-  readonly model: CalendarModel;
+  readonly model: CalendarGraph;
   readonly calendar: string;
 }) {
   const node = model.nodes.get(id);
   const status = node === undefined ? null : readSyncStatus(node);
   const mode = model.calendars.get(calendar)?.mode;
+  const { zone } = useCalendarClock();
   return (
     <div
       className="flex flex-wrap items-center gap-2 rounded-md bg-muted px-2 py-1.5 text-meta"
       data-routine-sync=""
     >
       <StatusDot status={status} calendarMode={mode} className="h-2 w-2" />
-      <span className="min-w-0 flex-1 text-muted-foreground">{syncShown(status, mode).text}</span>
+      <span className="min-w-0 flex-1 text-muted-foreground">
+        {syncShown(status, mode, zone).text}
+      </span>
       {status?.url === undefined ? null : (
         <a
           className="inline-flex items-center gap-1 text-primary hover:underline"
@@ -300,7 +304,7 @@ function CalendarField({
   value,
   onChange,
 }: {
-  readonly model: CalendarModel;
+  readonly model: CalendarGraph;
   readonly value: string;
   readonly onChange: (calendar: string) => void;
 }) {
@@ -330,7 +334,7 @@ export function RoutineEditor({
   onClose,
 }: {
   readonly target: EditorTarget;
-  readonly model: CalendarModel;
+  readonly model: CalendarGraph;
   /** Today on the page's clock, which the date picker marks. */
   readonly today: string;
   readonly onClose: () => void;

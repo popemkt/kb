@@ -23,7 +23,7 @@ import {
   useOptionPreview,
   type FieldHandle,
 } from "@kb/ui-sdk";
-import { outlineSource, useOutlineStore } from "./outline.store";
+import { outlineSource, releaseOutlineKeyboard, useOutlineStore } from "./outline.store";
 import { ValueSlot } from "./value-slot";
 import { FieldPicker } from "./field-picker";
 import { useSlotKind } from "./slot-kind";
@@ -258,10 +258,7 @@ function useFieldHandle({
         if (next !== null) s.activateNode(next.nodeId, 0, next.instanceKey);
       }
     },
-    claimKeyboard: () => {
-      const s = store();
-      if (s.selectedNodeId !== null || s.activeNodeId !== null) s.selectNode(null);
-    },
+    claimKeyboard: releaseOutlineKeyboard,
     focusSlot: (index) => setLanding({ index, values }),
   };
   return {
