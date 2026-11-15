@@ -350,6 +350,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYNGRHH8HHBHV2KQ3MNAV`
 
+### GAP: a long breadcrumb path runs over the Broadcast's ON AIR tab
+
+- **expected** — Every backdrop's art leaves the whole 44px crumb row clear, as wide as the breadcrumbs can run, so a deep path reads as clearly as Home (DESIGN-UI.md → Page-head backdrops)
+- **current** — Bunker and Broadcast keep the row clear where a short path stands (home, one level). Broadcast's ON AIR tab (top 6px) and striped back slab (top 12px) still sit in the row's right half, under the later crumbs of a long path (Home › Daily notes › 2026 › Week 46 › day › node). head-band-contrast.e2e.ts checks home and one level only.
+- **impact** — On a deep page over Broadcast, the last crumbs cross black-outlined art; nothing goes red
+- **closes** — Recompose Broadcast's top band below the row (and any other family art found there), and add a deep-path page to head-band-contrast.e2e.ts so the clear-row check covers the row's full width
+- **node** — `01M7FAKNVRP32XMNHK3D98SAW8`
+
 ### GAP: a merge's conflicts are returned to a git driver and have no place in the graph
 
 - **expected** — A conflict the merge reports (modified-both-position, deleted-and-modified, modified-both-same-stamp) becomes a node a person reads, naming the node, the reason and the side kept (docs/research/2026-10-31-offline-first.md §3.3).
@@ -1041,14 +1049,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The marketplace UI and CLI give misleading recovery guidance for missing or inaccessible sources.
 - **closes** — Define and test a sanitized source-failure classification at the transport owner, including missing repository/ref, denied access, byte/count caps and connection failure; all adapters present that classification.
 - **node** — `01M6WXNJH2JJD9956VC408R386`
-
-### GAP: glyph-local head shadow contrast measurement
-
-- **expected** — Both head treatments have automated contrast evidence at the glyph edge.
-- **current** — Fade uses the box-wide AA check. Shadow is glyph-local and was approved visually from prototype shots.
-- **impact** — Shadow readability regressions need visual review.
-- **closes** — A glyph-local contrast check covering both schemes and contributed backdrops.
-- **node** — `01M789X4HZ130RY16R7ASVVVF7`
 
 ### GAP: GPU backdrops paint an opaque frame over the page's flat ground
 
@@ -2629,6 +2629,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — precise placement in 3D needs the inspector
 - **closes** — 3D plan step 5: modal G/S/E with snapping
 - **node** — `01M41W56TR6V8H0ZQVRWRFV24K`
+
+### GAP: glyph-local head shadow contrast measurement
+
+- **expected** — Both head treatments have automated contrast evidence at the glyph edge.
+- **current** — Fade uses the box-wide AA check. Shadow is glyph-local and was approved visually from prototype shots.
+- **impact** — Shadow readability regressions need visual review.
+- **closes** — A glyph-local contrast check covering both schemes and contributed backdrops.
+- **node** — `01M789X4HZ130RY16R7ASVVVF7`
 
 ### GAP: governance's policy vocabulary, resolver and seed still live in core packages
 
