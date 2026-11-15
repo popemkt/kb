@@ -10,6 +10,7 @@
 
 import type { ActionRequest } from "@kb/contracts";
 
+// off-graph: fine — the tab's own session id, which names this tab to the server and means nothing outside it
 const STORAGE_KEY = "kb.tab-session";
 
 /** The id this load holds, once it is minted or read back. */

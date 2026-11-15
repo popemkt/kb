@@ -8,6 +8,7 @@
 import { useSyncExternalStore } from "react";
 import { EMPTY_LOOK, lookOf, nameOf, type GraphNode, type LookDraft } from "@kb/gallery";
 
+// off-graph: GAP [[01M7F15HTEG3R3KRT6DD9GV611]]
 const DRAFT_KEY = "kb-gallery-draft";
 const WORKFLOW_KEY = "kb-gallery-workflow";
 

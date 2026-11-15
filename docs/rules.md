@@ -19,6 +19,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Coverage is a signal | DESIGN.md#testing-doctrine | repo | Coverage is reported and never a threshold; chasing a percentage manufactures exactly the noise the testing doctrine forbids. | harness | — |
 | Design tokens: every class is live | DESIGN-UI.md#design-tokens | packages/app/ui | Every class the UI writes emits CSS under kb's stylesheet. The token bridge resets Tailwind's own scales, so a default step (text-sm, shadow-xl, rounded-3xl) reads like a class and compiles to nothing; Tailwind itself, not a pattern list, decides which classes are dead. | harness | — |
 | Drift markers | AGENTS.md#drift-markers-and-gaps | repo | A deferred clean shape carries a GAP marker at the deferral site and a matching gap node naming expected, current, impact and closes. An unlabelled workaround is drift. | harness | — |
+| Everything references by id | AGENTS.md#data-plane-freedom | repo | A stored reference, a saved query, a lens, a view's filter and a check name nodes by id, never by text. A name a person types resolves to an id once, at the entry point (kb add --tag todo). | harness | — |
 | Isomorphism fence | docs/waves/2026-09-03/plan.md | shared packages | Shared packages run in the browser too: no runtime-only imports. Platform access belongs to an infrastructure or app package. | harness | — |
 | Lazy 3D chunk | harness/src/constraints.ts | packages/app/ui | three loads only in a chunk of its own: every path from the UI entry to a three import — direct, through the scene kit's GPU modules, or through require() — crosses two dynamic import()s, the surface's route chunk and the 3D view's own, so no surface lists which of its files may import three. | harness | — |
 | Lint scope coverage | docs/waves/2026-09-03/briefs/g2-strict-stack.md | repo | Every TS file, tracked or merely untracked-and-not-ignored, falls in exactly one lint scope. A second severity tier for the same rules is a second quality stack wearing a disguise. | harness | — |
@@ -26,6 +27,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Module boundaries | harness/src/constraints.ts | repo | Layer and scope direction are enforced mechanically from package folders, manifest scope tags, and source imports; shared packages remain runtime-isomorphic. | harness | — |
 | Mutation score is advisory | DESIGN.md#testing-doctrine | repo | The kill score is a sensor a human reads to find a missing test; it never blocks a merge. The weekly run is seeded, so the survivor list it reports is reproducible. | harness | — |
 | No conflict markers | docs/waves/2026-09-03/briefs/g2-strict-stack.md | repo | A committed merge-conflict marker fails the build. | harness | — |
+| Off-graph state is named | AGENTS.md#rule-1--abstraction-before-addition | repo | State kept outside the store is off-graph: browser storage in any production code, and a file write in a feature layer (domain, application, kit, extension). Infrastructure and app packages are left out because they are the persistence layer, so their writes are the store's own artifacts. Each file that keeps off-graph state carries one marker with its reason: device-local, a GAP naming what belongs in the store, or fine; its count of uses cannot rise. | harness | — |
 | Public surface | docs/waves/2026-09-03/briefs/w1-workspace.md | packages | Every package exposes exactly one barrel of named exports; no star re-exports and no deep imports past it. | harness | — |
 | Rule checks are nodes | AGENTS.md#extensions | kb rule index | A machine-enforced rule references its check node; enforcement is derived from the check surface, and the obsolete gate is removed. | harness | — |
 | Skip pairing | AGENTS.md#drift-markers-and-gaps | tests | Every test kept from running — skipped, skipped on a condition, run only on a condition, left todo or fixme — names a GAP node within three lines. A skipped test is a debt, not a solved problem. | harness | — |
@@ -46,7 +48,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Domain typing — one canonical schema | DESIGN.md#domain-typing--effect-schema | repo | A shared shape is declared once and referenced; an inline re-declaration of it is a divergence waiting to drop a field. | prose | — |
 | Editor first (the editor is the main human editing surface) | DESIGN-UI.md#decisions-from-qa | repo | Every core concept is creatable and editable in the editor (outline + outline-ui); a concept writable only through the CLI or MCP, or only as a raw sys.* value, is a recorded gap. The CLI and MCP are equal agent surfaces, not the editor's fallback. | prose | an editor-surface test that walks every seeded field a person may set and asserts the editor draws a writable widget for it (none yet) |
 | Effect v4 idiom | AGENTS.md#effect | repo | Read the shipped Effect AGENTS.md before writing Effect code; the v4 non-negotiables listed there are not optional and v3 memory is wrong. | prose | effect-tsgo's effectFnOpportunity, promoted to error in the src/ lane of tsconfig.iso.json. Today it is off, and switching it on does not help yet: in effect-tsgo 0.40.0 it reports nothing through tsc, not even at error on a probe function that only returns an Effect.gen, so it has no sites to count. The other non-negotiables are partly held by errors that already run (outdatedApi, missingReturnYieldStar), which does not make the rule checked. |
-| Everything references by id | AGENTS.md#data-plane-freedom | repo | A stored reference, a saved query, a lens, a view's filter and a check name nodes by id, never by text. A name a person types resolves to an id once, at the entry point (kb add --tag todo). | prose | A check that no stored query, lens or filter matches :node/text against a literal. |
 | Hosts are accelerators: the store is the truth | AGENTS.md#hosts-are-accelerators | repo | A long-running process (kb ui, kb mcp) only makes a result arrive sooner. Every feature is correct when only one-shot commands ever run against a store, and a command gives the same answer whether a host serves it or it runs in-process: what is due, retained, rolled over or synced is computed from the store when asked, state that outlives a call is in the store under its lock, and a host loop, scheduler or webhook only triggers the same action a one-shot command can run. | prose | A hostless property in extensionContract (@kb/test-kit), which every hosted family joins (routines does not yet): a family's catch-up action run one-shot after any sequence of writes, deletions included, reaches the store state and remote effects a host running throughout reaches. |
 | Kinds, roles and options | DESIGN.md#kinds-roles-and-options | repo | A supertag says what a node is; a behaviour is a field; an option set is children. Strip the behaviour and ask whether the node is still that thing. | prose | A lint rejecting a new supertag that templates no fields would close the option-set clause (@kb/model kinds.test.ts pins it for the seed); the strip test itself stays a reviewer judgement. |
 | Lab principles | DESIGN-UI.md#lab-principles | packages/extension/lab-ui packages/kit lab scene graph | Every lab study follows the motion (M1–M7), light and colour (L1–L5), composition (P1–P5) and technology (T1: WebGPU plus TSL only) principles and is built from the one scene kit (@kb/scene and @kb/scene-gpu), which the 3D graph stands on too; a study's info card cites the principles by id and never restates them. | prose | The measured bounds are their own rule (Lab principles: measured bounds). What is left is judgement: a render-lane frame-budget and reduced-motion-still check would close P3 and M7; composition and light stay a review verdict. |
@@ -1237,6 +1238,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Lab principles
 - **node** — `01M3A8QG4PEQK0A9N3KPQ3K98X`
 
+### GAP: no sensors watch Rule 1 (Phase 4)
+
+- **expected** — A zero-consumer-exports ratchet (P7) gates a public name nobody imports, and advisory sensors report token clones (P7b), restated statements across the docs (P9) and surface-budget moves without a DESIGN edit (P13), guarded by advisory-signals so they never block (docs/research/2026-11-13-philosophy-as-checks.md, Phase 4).
+- **current** — symbol-consumers.ts joins public names to their importers, but no lane counts the names nobody imports; no clone, restatement or spec-first sensor exists.
+- **impact** — Dead seams and mirrors reach review with nothing pointing at them, so Rule 1 rests on a reviewer noticing.
+- **closes** — Phase 4 of the note: the P7 ratchet lane, and the three advisory sensors, each deleted rather than tuned forever if its top results are mostly false after one calibration pass.
+- **node** — `01M7EY3P9H59TT421C7NE4326F`
+
 ### GAP: no staged edit to preview, so Turn() cannot be a plan mode
 
 - **expected** — Turn() queues structural edits (moves, retags, deletes) without applying them, draws them as a plan over the outline, and releases them as one transaction (ART-DIRECTION.md → Transistor)
@@ -1390,6 +1399,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — People can link to pages and nodes but in practice not to a single item.
 - **closes** — An item picker in the Link row, fed by the target canvas's document through world.docOf.
 - **node** — `01M5486YWGBMNG9G60EY4MPS0X`
+
+### GAP: philosophy checks bind a rule as a whole file, with no clauses, staleness or test-level citation (Phase 2)
+
+- **expected** — The core-philosophy rules (about 12) are bound by clause: each clause is a child #rule with its own check or gate, a #check records a digest of the principle it was bound to and ext.check.audit reports evidence-stale when the principle changes, and evidence may cite a test by file and title, which the audit resolves (docs/research/2026-11-13-philosophy-as-checks.md, Phase 2).
+- **current** — A #rule is one block of text proved by one file-level #check. Editing a rule's principle leaves its check looking current, and a rule that is half checked reads as wholly checked or wholly prose.
+- **impact** — Partial coverage of a philosophy rule is invisible, and a check can quietly stop proving the claim it is bound to.
+- **closes** — Phase 2 of the note: child #rule clauses for the core-philosophy subset, evidence-stale from a bound digest, and resolved file#test citation, all in @kb/ext-check.
+- **node** — `01M7EY3MTKXJQQT4XGJYF3J88A`
 
 ### GAP: physical shortcut hints must use the shared chord key domain
 
@@ -1606,9 +1623,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: stored queries may match a node by its text
 
 - **expected** — Every stored query, lens and view filter names nodes by id; a label a person picks in the query builder is written as the id it resolves to.
-- **current** — The query IR's label atom compiles to a match on the node's id or its text, and nothing checks stored queries; tests and research records use [?t :node/text "todo"] as the standard example.
+- **current** — The query IR's label atom compiles to a match on the node's id or its text, so a label the query builder could resolve to an id is stored as text. ext.check.audit's ref-by-text refuses a stored query, lens, saved query or view filter that names a node by its text, so a stored one cannot land.
 - **impact** — A saved query or a view filter that matched a tag or an option by its text silently returns nothing after a person renames it, which makes cosmetic renames unsafe.
-- **closes** — The builder resolves a label to a ref atom when it names a node, and a check refuses a stored query, lens or filter that matches :node/text against a literal.
+- **closes** — The builder resolves a label to a ref atom when it names a node.
 - **rule** — Everything references by id
 - **node** — `01M7342XMGCJ1J68JHT38EZ7XE`
 
@@ -1759,6 +1776,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — axesOf reads facets of facets from the library (a facet's nearest #facet ancestor), the starter groups its facets that way, AXIS_SPECS is deleted, and Reflect keys its JSON by an axis's name. Articulate, Remix and Scene keep calling axesOf, so all three follow.
 - **node** — `01M6BYQEZ6BC91MBTXM9NF1ZVX`
 
+### GAP: the data-plane promises are not properties over the store (Phase 3)
+
+- **expected** — Referential closure (P1b), rename invariance (P2) and constrain-before-lock (P5) are storeContract properties, run over every store backend and each stated from its rejecting side (docs/research/2026-11-13-philosophy-as-checks.md, Phase 3).
+- **current** — The seed is pinned and the label half of rename safety is proved for the seed, but no property over generated transactions proves that every prop key resolves to a field, that a relabelling leaves query results and audits unchanged, or that the managed-field lock holds.
+- **impact** — The philosophy is checked for code shape but not for data: a commit can leave the store holding references that resolve to nothing, and nothing proves a rename never changes what a query means.
+- **closes** — Phase 3 of the note: the three properties in storeContract over JSONL and SQLite, each with a falsifying case.
+- **node** — `01M7EY3NJJZMRTXJEM0TMKJCH4`
+
 ### GAP: the date editor's Enter and Tab skip the value keymap
 
 - **expected** — Enter at the end of a date value opens the next value and Tab moves on, as in every other value kind.
@@ -1783,6 +1808,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P0 (command, rows) and P6 (graph lens) of docs/research/2026-10-29-plugin-codependency.md
 - **node** — `01M63C0KBWMK32SCH1E7AN7BWH`
 
+### GAP: the gallery keeps the look being made in session storage
+
+- **expected** — The look being made is a node in the store, a draft #look the gallery edits, so a closed tab, another device or an agent sees the same draft, and saving it is a change of state rather than a copy.
+- **current** — draft.ts keeps the draft in sessionStorage['kb-gallery-draft'] and writes a #look node only on save; the last workflow chosen is kept in localStorage['kb-gallery-workflow'].
+- **impact** — A draft is lost with its tab and cannot be seen or continued from the CLI, MCP or another device, and the page holds a second shape of a look beside the node's.
+- **closes** — The gallery creates and edits a draft #look node and the session key is deleted; the workflow choice stays device-local or becomes a setting.
+- **rule** — Off-graph state is named
+- **node** — `01M7F15HTEG3R3KRT6DD9GV611`
+
 ### GAP: the graph legend overlays a renderer that cannot pan
 
 - **expected** — A renderer that cannot move its content (treemap: no zoom, no pan) lays out around the legend, so an open legend covers nothing for good
@@ -1797,6 +1831,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **current** — graph-page.tsx reads and writes localStorage['kb-graph-include-sys'] directly, beside the prefs store.
 - **impact** — A second persistence path for a device preference: it escapes the prefs store's parsing, fallbacks and cross-tab sync.
 - **closes** — Add the switch to the prefs store (and its tests) once the wave's outline/prefs package has landed, and delete the direct reads and writes.
+- **rule** — Off-graph state is named
 - **node** — `01M3EH8SRZ2NN7QZJY88CGY0T3`
 
 ### GAP: the graph renderer contract suite cannot mount the 2D (sigma) renderers
@@ -1862,6 +1897,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — On a root with repository extensions, nodes those extensions seed have an owner on the server but not on the page or in clients, and fields they declare as refCarriers feed References on the server only.
 - **closes** — The manifest or snapshot carries the root's declarations or owners, and both hosts derive from it.
 - **node** — `01M549TK1WP4E6T4QHNDRSDYQA`
+
+### GAP: the page paints its design system from a copy in localStorage
+
+- **expected** — The first paint reads the chosen design system from the store, inlined into index.html by the host that serves it, so no copy of the setting lives on the device.
+- **current** — design-system.store.ts records the id and sheet it last painted in localStorage['kb-design-system'], and index.html's blocking script paints from that record before the graph loads.
+- **impact** — A copy of core's setting kept in step by hand: after the choice changes on another device, or on a new one, the first paint shows the stale or default system and then crossfades.
+- **closes** — The server writes the chosen system's id and sheet into the page it serves, the blocking script reads that, and the localStorage record is removed.
+- **rule** — Off-graph state is named
+- **node** — `01M7F15JDXWWE5K8Y3KGA8ESME`
 
 ### GAP: the page's offline family list reads only the bundled families
 
@@ -1993,6 +2037,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Map each onto a step (xs 4px or sm 6px, a 1-2px visible change), or add a step if the size is a real role. That is a visible change, so it lands outside the no-visual-change token restructure (wave 2026-09-24 f1).
 - **rule** — Design tokens: no bypass
 - **node** — `01M3AF8G4N9JHJB8YYEWF8F5SZ`
+
+### GAP: three philosophy checks wait on their prerequisites (Phase 5)
+
+- **expected** — Families migrate their own data has a migration-runner contract (P6); one contract, every implementation has a check over one registry form every port declares (P8); and weakening a philosophy rule (deleting its check, editing its principle) passes a governance door (docs/research/2026-11-13-philosophy-as-checks.md, Phase 5).
+- **current** — There is no migration runner, half the ports are object-literal registries a check cannot discover, and an action's actor is declared rather than proven, so none of the three can be built without a dead seam.
+- **impact** — Those rules stay prose, and a philosophy rule can be weakened by an ordinary edit.
+- **closes** — Each starts after its prerequisite: the migration runner, one registry form for every port, and a proven actor in @kb/governance.
+- **node** — `01M7EY3Q03CN36M4Q2X591X8Y2`
 
 ### GAP: top view paints cones and spheres by their point, not their true height
 

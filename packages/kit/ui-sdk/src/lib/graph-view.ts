@@ -350,6 +350,7 @@ export function formatPropValue(
       return JSON.stringify(value);
   }
 }
+// off-graph: device-local — which rows are open and which nodes show their debug fields are this screen's view of the graph, not facts about it
 /**
  * Persisted set of node ids in localStorage — the one storage shape for
  * "which nodes has the user flagged for this?" (expanded rows, per-node debug

@@ -53,8 +53,8 @@
     "reason": "#191: PluginHandle and rootPluginName, which a shortcut's provenance reads; #190 and lane B dropped the kernel's names no package outside plugin imports, tests included."
   },
   "@kb/query": {
-    "limit": 56,
-    "reason": "Lane B dropped the 39 names nothing outside query imports, tests included; under the proposal's 60. The Tana views line adds what a match requires (requirementsOf and its Requirements), which node.add's matching and the page's \"+ Add\" both read, and readQuery, moved from the outline's query builder so both read a query as the builder does."
+    "limit": 58,
+    "reason": "Lane B dropped the 39 names nothing outside query imports, tests included; under the proposal's 60. The Tana views line adds what a match requires (requirementsOf and its Requirements), which node.add's matching and the page's \"+ Add\" both read, and readQuery, moved from the outline's query builder so both read a query as the builder does. Phase 1 of the philosophy-as-checks note exports the EDN reader (readEdn, Edn), which ext-check's ref-by-text reads a stored query with."
   },
   "@kb/views": {
     "limit": 121,

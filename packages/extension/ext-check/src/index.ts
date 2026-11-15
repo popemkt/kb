@@ -17,7 +17,8 @@ const actions: ExtensionAction[] = [
   {
     id: "audit",
     title: "Audit checks",
-    description: "Prove rule check references, evidence, wiring, enforcement, gates, and homes",
+    description:
+      "Prove rule check references, evidence, wiring, enforcement, gates and homes, and that stored references name nodes by id",
     mode: { kind: "read" },
     inputSchema: emptyInput,
     outputSchema: auditOutput,

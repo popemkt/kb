@@ -46,7 +46,7 @@ import { graphPath } from "./routes";
 
 const EMPTY_LENS: GraphLens = { nodes: [], edges: [], dropped: 0, queryError: null };
 
-// GAP [[01M3EH8SRZ2NN7QZJY88CGY0T3]]
+// off-graph: GAP [[01M3EH8SRZ2NN7QZJY88CGY0T3]]
 const SYS_STORAGE_KEY = "kb-graph-include-sys";
 
 export interface GraphPageProps {

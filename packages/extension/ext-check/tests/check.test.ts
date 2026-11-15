@@ -2,11 +2,13 @@ import { describe, expect, test } from "bun:test";
 import { Effect, Layer, Option, Stream } from "effect";
 import * as FileSystem from "effect/FileSystem";
 import { DatascriptIndex, derivedWith } from "@kb/query";
-import { canonicalJsonl, fieldTypeValue, writesOf } from "@kb/model";
+import { canonicalJsonl, fieldTypeValue, SYSTEM_IDS, writesOf } from "@kb/model";
 import {
   kbCtxLayer,
+  SavedQueries,
   type EffectStore,
   type KbContext,
+  type SavedQuery,
   type KbTxLog,
   type TxRecord,
   type TxTail,
@@ -197,6 +199,22 @@ function fileLayer(files: ReadonlyMap<string, string>): Layer.Layer<FileSystem.F
 interface Fixture {
   readonly nodes: KbNode[];
   readonly files: Map<string, string>;
+  /** The saved queries under `.kb/queries`. */
+  readonly queries: SavedQuery[];
+}
+
+function savedQueriesLayer(queries: readonly SavedQuery[]): Layer.Layer<SavedQueries> {
+  return Layer.succeed(
+    SavedQueries,
+    SavedQueries.of({
+      list: Effect.succeed(queries),
+      read: (name) => Effect.succeed(queries.find((query) => query.name === name)?.edn ?? null),
+    }),
+  );
+}
+
+function auditLayer(ctx: KbContext, input: Fixture) {
+  return Layer.mergeAll(kbCtxLayer(ctx), fileLayer(input.files), savedQueriesLayer(input.queries));
 }
 
 function fixture(): Fixture {
@@ -240,6 +258,7 @@ function fixture(): Fixture {
       ["harness/tests/check.test.ts", "test"],
       ["package.json", '"verify": "bun run harness"'],
     ]),
+    queries: [],
   };
 }
 
@@ -251,11 +270,9 @@ function updateNode(nodes: KbNode[], id: string, update: (node: KbNode) => KbNod
 
 function audit(input: Fixture): Promise<readonly Finding[]> {
   const { ctx } = fixtureContext(input.nodes);
-  return Effect.runPromise(
-    checkAuditEffect({}).pipe(
-      Effect.provide(Layer.mergeAll(kbCtxLayer(ctx), fileLayer(input.files))),
-    ),
-  ).then((output) => output.findings);
+  return Effect.runPromise(checkAuditEffect({}).pipe(Effect.provide(auditLayer(ctx, input)))).then(
+    (output) => output.findings,
+  );
 }
 
 describe("ext.check.audit", () => {
@@ -427,14 +444,77 @@ describe("ext.check.audit", () => {
     expect(enforcementSyncs(buildCheckModel(input.nodes), AT)).toEqual([]);
   });
 
+  test("a saved query that matches node text is ref-by-text: the red case the repo is proved against", async () => {
+    const input = fixture();
+    input.queries.push({ name: "todos", edn: '[:find ?n :where [?n :node/text "todo"]]' });
+    input.queries.push({
+      name: "by-id",
+      edn: '[:find ?n :where [?n :f/sys.f.type ?t] [?t :node/id "tag.check"]]',
+    });
+    expect(await audit(input)).toEqual([
+      {
+        kind: "ref-by-text",
+        at: ".kb/queries/todos.edn",
+        message: `.kb/queries/todos.edn matches node text against "todo"; name the node by :node/id`,
+      },
+    ]);
+  });
+
+  test("a query held in any node's value is read, a query node's and a check's alike", async () => {
+    const input = fixture();
+    input.nodes.push(
+      node("q.todo", "Todos", {
+        "sys.f.query": [{ t: "str", v: '[:find ?n :where [?n :node/text ?t] [(= ?t "todo")]]' }],
+      }),
+    );
+    updateNode(input.nodes, "check.harness", (check) => ({
+      ...check,
+      props: {
+        ...check.props,
+        "f.invocation": [{ t: "str", v: '[:find ?n :where [?n :node/text "done"]]' }],
+      },
+    }));
+    const found = (await audit(input)).filter((finding) => finding.kind === "ref-by-text");
+    expect(found.map((finding) => finding.at)).toEqual(["check.harness", "q.todo"]);
+  });
+
+  test("search, ids, and prose that quotes a clause are not ref-by-text", async () => {
+    const input = fixture();
+    input.nodes.push(
+      node("q.search", "Search", {
+        "sys.f.query": [
+          {
+            t: "str",
+            v: '[:find ?n :where [?n :node/text ?t] [(clojure.string/includes? ?t "todo")]]',
+          },
+        ],
+        "f.home": [{ t: "str", v: 'it used [?n :node/text "todo"] once' }],
+      }),
+    );
+    expect(await audit(input)).toEqual([]);
+  });
+
+  test("a view filter that names its field, or a reference field's value, by text is ref-by-text", async () => {
+    const input = fixture();
+    const filtered = (edn: string, id: string) =>
+      node(id, id, { [SYSTEM_IDS.viewFilterField]: [{ t: "str", v: edn }] });
+    input.nodes.push(
+      filtered('{:field surface :eq "v.harness"}', "frame.field-text"),
+      filtered('{:field f.surface :eq "harness"}', "frame.value-text"),
+      filtered('{:field f.surface :eq "v.harness"}', "frame.by-id"),
+      filtered('{:field f.evidence :eq "harness/tests/check.test.ts"}', "frame.plain-value"),
+      filtered('{:text "harness"}', "frame.contains"),
+    );
+    const found = (await audit(input)).filter((finding) => finding.kind === "ref-by-text");
+    expect(found.map((finding) => finding.at)).toEqual(["frame.field-text", "frame.value-text"]);
+  });
+
   test("audit is pure", () => {
     const input = fixture();
     const { ctx, log } = fixtureContext(input.nodes);
     const before = canonicalJsonl(ctx.nodes);
     return Effect.runPromise(
-      checkAuditEffect({}).pipe(
-        Effect.provide(Layer.mergeAll(kbCtxLayer(ctx), fileLayer(input.files))),
-      ),
+      checkAuditEffect({}).pipe(Effect.provide(auditLayer(ctx, input))),
     ).then(() => {
       expect(canonicalJsonl(ctx.nodes)).toBe(before);
       expect(log.head).toBe(0);

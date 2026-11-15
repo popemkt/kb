@@ -308,6 +308,10 @@ current findings in the ledger. This is a calibrated heuristic, not a
 semantic verdict: it passes stage/verbs and flags operations/actions, while
 plugins/contracts-actions fall below its group threshold. That limitation
 and the current flagged files are recorded as a gap.
+The `off-graph` lane counts, per production file, the uses of the APIs
+`OFF_GRAPH` names, read from the parsed module by `harness/src/off-graph.ts`.
+What is off-graph, why the boundary stops at infrastructure, and the marker
+each such file carries are stated in AGENTS.md → Rule 1.
 
 The lazy-import policy is one entry-to-forbidden-closure table, `LAZY_FENCES`
 in `harness/src/constraints.ts`. The UI row fences the issuer's chunk;

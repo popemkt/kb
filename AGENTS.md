@@ -66,6 +66,20 @@ tag; a field is a node; a field's allowed values are nodes. If a feature needs
 its own widget, its own storage shape, or its own editing gesture, that is the
 signal the model is wrong, not that the widget is needed.
 
+**State kept outside the store is off-graph, and each place that keeps it
+says why, once.** Off-graph is browser storage (`localStorage`,
+`sessionStorage`, `indexedDB`) in any production code, and a file write in
+a feature layer (`domain`, `application`, `kit`, `extension`).
+Infrastructure and app packages are left out on purpose: they are the
+persistence layer, and what they write (backups, secrets, assets, the trust
+ledger, build output, a socket) is the store's own machinery, not a second
+store beside it. A file that keeps off-graph state carries one marker with
+its reason: `// off-graph: device-local — <why>` for screen state or a
+device preference, `// off-graph: GAP [[<node-id>]]` when it should be
+nodes, or `// off-graph: fine — <why>` for anything else, which should stay
+rare. `harness/tests/off-graph-persistence.test.ts` holds every file to its
+marker, and the per-file count, kept in the ratchet ledger, cannot rise.
+
 **kb is a graph of everything.** Relationships are the core model. Fields are
 relationships we choose to display as fields; field definitions, tags, and their
 allowed values are themselves nodes. Outlines, tables, task boards, canvases,
@@ -359,7 +373,7 @@ once, in `DESIGN.md` →
 
 ## Extensions
 
-`@kb/ext-check` owns the `ext.check.audit` read action and `ext.check.sync` apply action: it proves that every `rule.check` points to a `#check` whose evidence exists and whose invocation is wired into its declared surface (a surface's files are the `files` of its `enforcement` option node, so each repository says where its hook and CI live), rejects stale enforcement, simultaneous `gate` and `check`, and broken rule homes (a home is a file in this repository, with an optional heading anchor, or an `https:` URL into another one, which is checked for its form only), and derives `rule.enforcement` from the check surface. To remove it, delete `packages/extension/ext-check` and `packages/extension/check`, the family's `BUNDLED_FAMILIES` entry in `packages/app/bundled/src/index.ts` (`checkExtension`) and its server entry in `packages/app/runtime/src/bundled.ts` (`checkPlugin`), `kb check audit` in `packages/app/cli/src/gates.ts`, and the `check:audit` script plus its `verify` mention; remove the `@kb/ext-check` and `@kb/check` manifest dependencies and refresh `bun.lock`; the `check` tag, the `enforcement` field's option children and `rule.check` refs are data and may stay or be removed with `kb rm`, after which the rules index is hand-typed again.
+`@kb/ext-check` owns the `ext.check.audit` read action and `ext.check.sync` apply action: it proves that every `rule.check` points to a `#check` whose evidence exists and whose invocation is wired into its declared surface (a surface's files are the `files` of its `enforcement` option node, so each repository says where its hook and CI live), rejects stale enforcement, simultaneous `gate` and `check`, broken rule homes (a home is a file in this repository, with an optional heading anchor, or an `https:` URL into another one, which is checked for its form only), and a stored reference by text (`ref-by-text`: a stored query, lens query or saved query with a clause that matches `:node/text` against a literal, by pattern or by `=`/`not=`, or a view filter that names its field, or a reference field's value, by text instead of id; matching by contains, starts-with or ends-with is search and is allowed), and derives `rule.enforcement` from the check surface. To remove it, delete `packages/extension/ext-check` and `packages/extension/check`, the family's `BUNDLED_FAMILIES` entry in `packages/app/bundled/src/index.ts` (`checkExtension`) and its server entry in `packages/app/runtime/src/bundled.ts` (`checkPlugin`), `kb check audit` in `packages/app/cli/src/gates.ts`, and the `check:audit` script plus its `verify` mention; remove the `@kb/ext-check` and `@kb/check` manifest dependencies and refresh `bun.lock`; the `check` tag, the `enforcement` field's option children and `rule.check` refs are data and may stay or be removed with `kb rm`, after which the rules index is hand-typed again.
 
 ### Effect
 

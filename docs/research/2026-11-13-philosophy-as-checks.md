@@ -1,7 +1,11 @@
 # Philosophy as checks, and where harman sits
 
 Research note, 2026-11-13. Status: **proposal**. Nothing here is adopted until
-the owner decisions at the end are made. The rules it talks about have their
+the owner decisions at the end are made.
+
+**Decided 2026-11-15: recommendations adopted.** The owner adopted D1–D8 as
+written. D6's sites, and the boundary P1 checks, are recorded under Phase 1
+(§5); Phases 2–5 are tracked as `#gap` nodes. The rules it talks about have their
 homes in `AGENTS.md`; this note links to those homes and does not restate them.
 
 ![Principles to checks to harman](assets/2026-11-13-philosophy-as-checks.png)
@@ -230,6 +234,34 @@ signal that would show it was wrong.
   reason (owner decision D6).
 - Each check gets a `#check` node bound to its rule, so `rules.md` moves two
   rows from `prose` to `harness` through derivation, not by hand.
+
+**P1's boundary (decided 2026-11-15).** The first cut, "fs writes outside
+the store and file-write packages", tripped this phase's own fail signal:
+about 18 production sites, nearly all legitimate writes that are not data
+(secrets, backups, build output, the listener's socket, the git merge
+driver, assets, the trust ledger). So the lane counts browser storage in
+any production code, and fs writes only in the feature layers (`domain`,
+`application`, `kit`, `extension`). Infrastructure and app are the
+persistence layer, and their writes are its own artifacts. At that boundary
+there are 12 sites in 11 files, each decided once (D6):
+
+- **device-local:** outline expansion and node-id sets (ui-sdk
+  `graph-view.ts`), which also hold the debug-field toggles
+  (`debug-fields.store` keeps them through `graph-view.ts`'s id sets, so
+  that file carries the marker), pane layout (`workspace.store`), and theme,
+  width and sidebar prefs (`prefs.store`), and #236's Recent list
+  (`outline-ui` `recents.ts`).
+- **GAP, should be nodes:** the gallery draft (`gallery-ui` `draft.ts`), the
+  graph page's "show system nodes" toggle (`graph-page.tsx`), and the
+  design-system paint cache (`design-system.store`), which mirrors core's
+  setting. The graph page's toggle already had its gap
+  (`01M3EH8SRZ2NN7QZJY88CGY0T3`); the other two are new.
+- **fine:** carrying scroll and caret across a reload (`reload.ts`), the
+  reload-loop guard (`stale-build.ts`), the tab's session id
+  (`tab-session.ts`), and the generated docs `ext-docs` writes, the
+  projection a docs view node declares.
+
+Four "fine" reasons are under the signal's bound of about 5.
 
 **Proves:** philosophy can be mechanized with what kb has today, with no
 new concept and no harman. **Fails if:** a seeded red case (a saved query

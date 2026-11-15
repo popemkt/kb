@@ -34,6 +34,16 @@ const homeBroken = z.object({
   rule: z.string(),
   message: z.string(),
 });
+/**
+ * A stored reference that names a node by its text (AGENTS.md → Data-plane
+ * freedom, "Everything references by id"). `at` is the node holding it, or
+ * the saved query's file under `.kb/queries`.
+ */
+const refByText = z.object({
+  kind: z.literal("ref-by-text"),
+  at: z.string(),
+  message: z.string(),
+});
 
 export const findingSchema = z.discriminatedUnion("kind", [
   checkMissing,
@@ -42,6 +52,7 @@ export const findingSchema = z.discriminatedUnion("kind", [
   enforcementStale,
   gateAndCheck,
   homeBroken,
+  refByText,
 ]);
 export type Finding = z.infer<typeof findingSchema>;
 

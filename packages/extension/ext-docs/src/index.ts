@@ -130,6 +130,7 @@ export const docsMaterializeEffect = Effect.fn("ext.docs.materialize")(function*
     yield* fs
       .makeDirectory(dirname(path), { recursive: true })
       .pipe(Effect.mapError((err) => mapDocsFs(err, `mkdir ${dirname(path)}`)));
+    // off-graph: fine — a generated doc is a projection of the store, rebuilt from it and held to it by kb docs check
     yield* fs
       .writeFileString(path, content)
       .pipe(Effect.mapError((err) => mapDocsFs(err, `write ${path}`)));

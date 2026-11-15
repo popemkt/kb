@@ -15,11 +15,12 @@
     "@kb/contracts": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/plugin": "workspace:*",
+    "@kb/query": "workspace:*",
+    "@kb/views": "workspace:*",
     "effect": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@kb/query": "workspace:*",
     "@types/bun": "catalog:"
   },
   "nx": {

@@ -662,6 +662,28 @@ export { default as CLI_CLOSURE_BUDGETS } from "../cli-closure-budgets.json";
 // GAP [[01M78BBBXM8791SRARJFQ9TNW6]]: existing family-only core files are frozen in the ledger.
 export const SINGLE_FAMILY_LAYERS: readonly string[] = ["domain", "contract", "kit", "application"];
 
+/**
+ * Where state kept outside the store is off-graph (AGENTS.md → Rule 1, "State
+ * kept outside the store is off-graph"): browser storage in any production
+ * code, and a file write in a feature layer. Infrastructure and app packages
+ * write files as the persistence layer itself (the store, its backups and
+ * locks, the server's build output), so their writes are the store's own
+ * artifacts, not state beside it. `off-graph.ts` counts the uses; every file
+ * that has one carries its marker.
+ */
+export const OFF_GRAPH = {
+  browserStorage: ["localStorage", "sessionStorage", "indexedDB"],
+  fileWrites: [
+    "writeFile",
+    "writeFileSync",
+    "writeFileString",
+    "appendFile",
+    "appendFileSync",
+    "createWriteStream",
+  ],
+  fileWriteLayers: ["domain", "application", "kit", "extension"],
+} as const;
+
 /** Cohesion calibration: ignore small satellite groups, never special-case a file. */
 export const COHESION_MIN_LINES = 400;
 export const COHESION_MIN_IMPORTERS = 2;

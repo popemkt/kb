@@ -8,6 +8,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { browserHost, loadIdSet, saveIdSet, useSchema, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 
+// off-graph: device-local — the nodes this browser last stood at are screen state, like the expansion; viewing never writes the store
 export const RECENT_STORAGE_KEY = "kb-recent";
 export const RECENT_LIMIT = 10;
 

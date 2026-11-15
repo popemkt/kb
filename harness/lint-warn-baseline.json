@@ -18,7 +18,7 @@
       "@kb/model": 274,
       "@kb/outline-paste": 3,
       "@kb/plugin": 41,
-      "@kb/query": 56,
+      "@kb/query": 58,
       "@kb/seed": 8,
       "@kb/views": 121,
       "@kb/agent": 62,
@@ -150,8 +150,8 @@
     },
     "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2801156,
-      "modules": 740
+      "bytes": 2804480,
+      "modules": 741
     },
     "single-family": {
       "contract/sandbox/src/snapshot.ts": 1,
@@ -167,6 +167,19 @@
       "extension/graph-ui/src/graph-lens.ts": 1,
       "extension/graph/src/lens.ts": 1,
       "extension/outline-ui/src/fields-section.tsx": 1
+    },
+    "off-graph": {
+      "app/ui/src/api/tab-session.ts": 2,
+      "app/ui/src/stores/design-system.store.ts": 1,
+      "app/ui/src/stores/prefs.store.ts": 4,
+      "app/ui/src/stores/reload.ts": 2,
+      "app/ui/src/stores/workspace.store.ts": 2,
+      "extension/ext-docs/src/index.ts": 1,
+      "extension/gallery-ui/src/draft.ts": 2,
+      "extension/graph-ui/src/graph-page.tsx": 2,
+      "extension/outline-ui/src/recents.ts": 1,
+      "kit/ui-sdk/src/lib/graph-view.ts": 4,
+      "kit/ui-sdk/src/lib/stale-build.ts": 1
     },
     "blocking": {
       "eslint/max-lines-per-function": 21,
