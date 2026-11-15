@@ -75,6 +75,7 @@ function whenIdle(): Promise<void> {
   });
 }
 
+// off-graph: fine — where panes are scrolled and where the caret is, carried across one reload, read once and removed
 /** Write down where each pane is scrolled and where the caret is, for the next page. */
 export function carryPage(storage: Pick<Storage, "setItem"> = sessionStorage): void {
   const scroll = [...document.querySelectorAll<HTMLElement>(SCROLL_REGIONS)].map((region) => ({

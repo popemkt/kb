@@ -243,16 +243,19 @@ driver, assets, the trust ledger). So the lane counts browser storage in
 any production code, and fs writes only in the feature layers (`domain`,
 `application`, `kit`, `extension`). Infrastructure and app are the
 persistence layer, and their writes are its own artifacts. At that boundary
-there are 11 sites, each decided once (D6):
+there are 11 sites in 10 files, each decided once (D6):
 
 - **device-local:** outline expansion and node-id sets (ui-sdk
-  `graph-view.ts`), pane layout (`workspace.store`), debug-field toggles
-  (`debug-fields.store`), theme, width and sidebar prefs (`prefs.store`);
-  #236's Recent list joins them when it lands.
+  `graph-view.ts`), which also hold the debug-field toggles
+  (`debug-fields.store` keeps them through `graph-view.ts`'s id sets, so
+  that file carries the marker), pane layout (`workspace.store`), and theme,
+  width and sidebar prefs (`prefs.store`); #236's Recent list joins them
+  when it lands.
 - **GAP, should be nodes:** the gallery draft (`gallery-ui` `draft.ts`), the
   graph page's "show system nodes" toggle (`graph-page.tsx`), and the
   design-system paint cache (`design-system.store`), which mirrors core's
-  setting.
+  setting. The graph page's toggle already had its gap
+  (`01M3EH8SRZ2NN7QZJY88CGY0T3`); the other two are new.
 - **fine:** carrying scroll and caret across a reload (`reload.ts`), the
   reload-loop guard (`stale-build.ts`), the tab's session id
   (`tab-session.ts`), and the generated docs `ext-docs` writes, the

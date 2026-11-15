@@ -1,6 +1,7 @@
 import { renamedBaseLanes } from "./ratchet.ts";
 import { collectCohesion } from "./cohesion.ts";
 import { collectSingleFamily } from "./symbol-consumers.ts";
+import { collectOffGraph, offGraphCounts } from "./off-graph.ts";
 import { collectCliFence, collectStaticClosure } from "./cli-closure.ts";
 /**
  * Generates the lint-warn-baseline.json ratchet ledger (plan A.9 #2 / spec 11).
@@ -47,6 +48,7 @@ export interface BaselineLanes {
     "cli-closure": Record<string, number>;
     "single-family": Record<string, number>;
     cohesion: Record<string, number>;
+    "off-graph": Record<string, number>;
   };
 }
 
@@ -64,13 +66,18 @@ export type BaseLedger =
       rev: string;
       lanes: Omit<
         BaselineLanes["lanes"],
-        keyof ModuleMeasures | "lazy-fence" | "cli-closure" | "single-family" | "cohesion"
+        | keyof ModuleMeasures
+        | "lazy-fence"
+        | "cli-closure"
+        | "single-family"
+        | "cohesion"
+        | "off-graph"
       > &
         Partial<
           ModuleMeasures &
             Pick<
               BaselineLanes["lanes"],
-              "lazy-fence" | "cli-closure" | "single-family" | "cohesion"
+              "lazy-fence" | "cli-closure" | "single-family" | "cohesion" | "off-graph"
             >
         >;
     }
@@ -473,6 +480,7 @@ function buildBaseline(
       "cli-closure": collectStaticClosure(LAZY_FENCES.cli.entry),
       "single-family": sortedRecord(collectSingleFamily()),
       cohesion: sortedRecord(collectCohesion()),
+      "off-graph": offGraphCounts(collectOffGraph()),
       blocking,
       advisory,
       knip: sortedRecord(knipFindings),

@@ -84,6 +84,7 @@ const NO_PAGE: BuildEnv = {
   announce: () => {},
 };
 
+// off-graph: fine — the tab's note of the build it last reloaded for, so a stale tab reloads once and not in a loop
 /**
  * The page's own build, its entry module script as `index.html` names it,
  * reloaded at once with nothing carried: what the shell builds its own on.

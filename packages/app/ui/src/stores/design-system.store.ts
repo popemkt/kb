@@ -25,6 +25,7 @@ import { DesignSystemPoint, shownDesignSystem, type DesignSystem } from "@kb/app
 import { transitionTheme } from "@/lib/theme-transition";
 import { useGraphStore } from "@/stores/graph.store";
 
+// off-graph: GAP [[01M7F15JDXWWE5K8Y3KGA8ESME]]
 export const PAINTED_STORAGE_KEY = "kb-design-system";
 /** The attribute that names the system a `<style>` element is the sheet of. */
 export const SHEET_ATTRIBUTE = "data-design-system";

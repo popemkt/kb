@@ -22,6 +22,7 @@ import { transitionTheme } from "@/lib/theme-transition";
  * index.html carries a blocking script that reads the same key pre-paint.
  */
 
+// off-graph: device-local — theme, width, the sidebar and which Settings sections are open belong to the device a person reads on
 export const PREFS_STORAGE_KEY = "kb-prefs";
 
 /**

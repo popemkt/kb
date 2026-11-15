@@ -39,6 +39,7 @@ import {
 import { proposeView } from "@/lib/propose-view";
 import { useUiStore } from "@/stores/ui.store";
 
+// off-graph: device-local — the arrangement of panes is this screen's; "Save workspace" writes one to the store as a node
 export const WORKSPACE_STORAGE_KEY = "kb-workspace";
 
 interface Workspace {

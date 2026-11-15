@@ -27,6 +27,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Module boundaries | harness/src/constraints.ts | repo | Layer and scope direction are enforced mechanically from package folders, manifest scope tags, and source imports; shared packages remain runtime-isomorphic. | harness | — |
 | Mutation score is advisory | DESIGN.md#testing-doctrine | repo | The kill score is a sensor a human reads to find a missing test; it never blocks a merge. The weekly run is seeded, so the survivor list it reports is reproducible. | harness | — |
 | No conflict markers | docs/waves/2026-09-03/briefs/g2-strict-stack.md | repo | A committed merge-conflict marker fails the build. | harness | — |
+| Off-graph state is named | AGENTS.md#rule-1--abstraction-before-addition | repo | State kept outside the store is off-graph: browser storage in any production code, and a file write in a feature layer (domain, application, kit, extension). Infrastructure and app packages are left out because they are the persistence layer, so their writes are the store's own artifacts. Each file that keeps off-graph state carries one marker with its reason: device-local, a GAP naming what belongs in the store, or fine; its count of uses cannot rise. | harness | — |
 | Public surface | docs/waves/2026-09-03/briefs/w1-workspace.md | packages | Every package exposes exactly one barrel of named exports; no star re-exports and no deep imports past it. | harness | — |
 | Rule checks are nodes | AGENTS.md#extensions | kb rule index | A machine-enforced rule references its check node; enforcement is derived from the check surface, and the obsolete gate is removed. | harness | — |
 | Skip pairing | AGENTS.md#drift-markers-and-gaps | tests | Every test kept from running — skipped, skipped on a condition, run only on a condition, left todo or fixme — names a GAP node within three lines. A skipped test is a debt, not a solved problem. | harness | — |
@@ -1807,6 +1808,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P0 (command, rows) and P6 (graph lens) of docs/research/2026-10-29-plugin-codependency.md
 - **node** — `01M63C0KBWMK32SCH1E7AN7BWH`
 
+### GAP: the gallery keeps the look being made in session storage
+
+- **expected** — The look being made is a node in the store, a draft #look the gallery edits, so a closed tab, another device or an agent sees the same draft, and saving it is a change of state rather than a copy.
+- **current** — draft.ts keeps the draft in sessionStorage['kb-gallery-draft'] and writes a #look node only on save; the last workflow chosen is kept in localStorage['kb-gallery-workflow'].
+- **impact** — A draft is lost with its tab and cannot be seen or continued from the CLI, MCP or another device, and the page holds a second shape of a look beside the node's.
+- **closes** — The gallery creates and edits a draft #look node and the session key is deleted; the workflow choice stays device-local or becomes a setting.
+- **rule** — Off-graph state is named
+- **node** — `01M7F15HTEG3R3KRT6DD9GV611`
+
 ### GAP: the graph legend overlays a renderer that cannot pan
 
 - **expected** — A renderer that cannot move its content (treemap: no zoom, no pan) lays out around the legend, so an open legend covers nothing for good
@@ -1821,6 +1831,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **current** — graph-page.tsx reads and writes localStorage['kb-graph-include-sys'] directly, beside the prefs store.
 - **impact** — A second persistence path for a device preference: it escapes the prefs store's parsing, fallbacks and cross-tab sync.
 - **closes** — Add the switch to the prefs store (and its tests) once the wave's outline/prefs package has landed, and delete the direct reads and writes.
+- **rule** — Off-graph state is named
 - **node** — `01M3EH8SRZ2NN7QZJY88CGY0T3`
 
 ### GAP: the graph renderer contract suite cannot mount the 2D (sigma) renderers
@@ -1886,6 +1897,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — On a root with repository extensions, nodes those extensions seed have an owner on the server but not on the page or in clients, and fields they declare as refCarriers feed References on the server only.
 - **closes** — The manifest or snapshot carries the root's declarations or owners, and both hosts derive from it.
 - **node** — `01M549TK1WP4E6T4QHNDRSDYQA`
+
+### GAP: the page paints its design system from a copy in localStorage
+
+- **expected** — The first paint reads the chosen design system from the store, inlined into index.html by the host that serves it, so no copy of the setting lives on the device.
+- **current** — design-system.store.ts records the id and sheet it last painted in localStorage['kb-design-system'], and index.html's blocking script paints from that record before the graph loads.
+- **impact** — A copy of core's setting kept in step by hand: after the choice changes on another device, or on a new one, the first paint shows the stale or default system and then crossfades.
+- **closes** — The server writes the chosen system's id and sheet into the page it serves, the blocking script reads that, and the localStorage record is removed.
+- **rule** — Off-graph state is named
+- **node** — `01M7F15JDXWWE5K8Y3KGA8ESME`
 
 ### GAP: the page's offline family list reads only the bundled families
 
