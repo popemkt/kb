@@ -5,7 +5,7 @@
       "@kb/client": 8,
       "@kb/mcp": 10,
       "@kb/runtime": 46,
-      "@kb/server": 12,
+      "@kb/server": 13,
       "@kb/test-kit": 58,
       "@kb/webmcp": 12,
       "@kb/operations": 68,

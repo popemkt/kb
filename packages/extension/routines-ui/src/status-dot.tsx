@@ -1,5 +1,6 @@
 import type { SyncStatus } from "@kb/routines";
 import { cn } from "@kb/ui-sdk";
+import { useCalendarClock } from "./clock";
 import { SYNC_DOTS, syncShown } from "./sync-shown";
 
 /** A routine instance's sync state as a small dot, what it means as the tooltip. */
@@ -12,7 +13,7 @@ export function StatusDot({
   readonly calendarMode: string | undefined;
   readonly className?: string;
 }) {
-  const shown = syncShown(status, calendarMode);
+  const shown = syncShown(status, calendarMode, useCalendarClock().zone);
   return (
     <span
       role="img"

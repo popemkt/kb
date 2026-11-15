@@ -27,6 +27,12 @@ export interface EventCardActions {
   readonly edit: (routine: string) => void;
 }
 
+/**
+ * How wide the box is, wherever it is drawn: the calendar's popover and an
+ * event's preview under its row are the one box, the same width.
+ */
+export const EVENT_BOX_WIDTH = "w-80 max-w-full";
+
 /** The box's own look, wherever it is drawn. */
 const EVENT_BOX_CLASS =
   "flex flex-col gap-2 rounded-lg border border-border bg-popover p-3 text-popover-foreground";
@@ -169,7 +175,7 @@ function InstanceDetails({
       )}
       <p className="flex items-center gap-2 text-meta text-muted-foreground">
         <StatusDot status={entry.status} calendarMode={calendar?.mode} className="h-2 w-2" />
-        <span className="min-w-0 flex-1">{syncShown(entry.status, calendar?.mode).text}</span>
+        <span className="min-w-0 flex-1">{syncShown(entry.status, calendar?.mode, zone).text}</span>
       </p>
       {entry.status?.url === undefined ? null : (
         <a

@@ -8,9 +8,11 @@
  * the node instead, and focus entering it takes the keyboard from the
  * outline (`releaseOutlineKeyboard`).
  *
- * It is cheap: it stands in a box of its family's `preview height`, so a
- * long outline never shifts, and mounts only once on screen, so it pays for
- * no preview it never shows.
+ * It is cheap: a still one stands in a box of its family's `preview height`,
+ * so a long outline never shifts, and a live one stands as tall and as wide
+ * as its controls draw, at least that height, so it never scrolls inside
+ * itself; either mounts only once on screen, so it pays for no preview it
+ * never shows.
  */
 import { useEffect, useState } from "react";
 import { Result } from "effect";
@@ -45,10 +47,11 @@ function useSeen(): readonly [(el: HTMLElement | null) => void, boolean] {
 
 /**
  * The preview under the row, when it is on: the opening's view at placement
- * `preview`, in a box of its family's height, mounted once on screen. A
- * still preview is pressed, or Enter or Space on it, to open the node in
- * that view; a live one is the view's to press, and scrolls when its
- * controls stand taller than the box, so every one stays reachable.
+ * `preview`, mounted once on screen. A still preview is a box of its
+ * family's height, pressed, or Enter or Space on it, to open the node in
+ * that view; a live one is the view's to press, in a box as tall and as
+ * wide as its controls (at least its family's height, at most the column's
+ * width), so every control is in view without scrolling.
  */
 export function RowPreview({
   nodeId,
@@ -65,8 +68,8 @@ export function RowPreview({
   const params = paramsFromProps(opening.key, {}, nodeId, ignoreReport);
   if (Result.isFailure(params)) return null;
   const open = () => openIn(pane, nodeId, opening.key);
-  const frame = "relative w-full rounded-md border border-border bg-foreground/[0.02]";
-  const style = { height: opening.settings.height };
+  const frame = "relative rounded-md border border-border bg-foreground/[0.02]";
+  const height = opening.settings.height;
   const slot = seen ? (
     <ViewSlot
       view={opening.key}
@@ -88,8 +91,8 @@ export function RowPreview({
           ref={box}
           role="group"
           aria-label={`${opening.label} preview`}
-          className={cn(frame, "overflow-y-auto")}
-          style={style}
+          className={cn(frame, "w-fit max-w-full")}
+          style={{ minHeight: height }}
           onFocus={releaseOutlineKeyboard}
         >
           {slot}
@@ -103,9 +106,9 @@ export function RowPreview({
           title={`Open in ${opening.label}`}
           className={cn(
             frame,
-            "cursor-pointer overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+            "w-full cursor-pointer overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
           )}
-          style={style}
+          style={{ height }}
           onClick={open}
           onKeyDown={(e) => {
             if (e.key !== "Enter" && e.key !== " ") return;

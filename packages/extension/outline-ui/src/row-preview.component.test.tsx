@@ -3,7 +3,7 @@
  * opening): whether a display option is on for a node — its own toggle,
  * else its view's family's setting, and never where the opening does not
  * offer it; the preview, the opening's view at placement `preview` in a
- * box of its family's height, drawn when it is turned on after its row
+ * box of its family's height (at least that, when it is live), drawn when it is turned on after its row
  * mounted too, a button that opens the node when it is still and a region
  * of the view's own controls, which take the keyboard from the outline,
  * when it is live; and "Open in …" as a segment of the tag's chip, which
@@ -201,12 +201,14 @@ describe("a row's preview", () => {
     expect(box?.style.height).toBe("240px");
   });
 
-  it("is the view's own controls when it is live: a region, not a button, of the same height", async () => {
+  it("is the view's own controls when it is live: a region, not a button, at least that tall and never scrolling", async () => {
     await draw(true, { height: 240 }, LiveView);
     expect(container.querySelector("[data-row-preview] [role=button]")).toBeNull();
     const region = container.querySelector<HTMLElement>("[data-row-preview] [role=group]");
     expect(region?.getAttribute("aria-label")).toBe("Card preview");
-    expect(region?.style.height).toBe("240px");
+    // As tall as the controls, at least the family's height, so it never scrolls inside itself.
+    expect([region?.style.minHeight, region?.style.height]).toEqual(["240px", ""]);
+    expect(region?.className).not.toMatch(/overflow-(y-)?(auto|scroll)/);
     const control = container.querySelector<HTMLElement>("[data-test-live]");
     await act(async () => control?.click());
     expect(pressedInLive).toHaveBeenCalledTimes(1);

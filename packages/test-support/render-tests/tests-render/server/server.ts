@@ -2,12 +2,12 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
-import { startUi } from "@kb/server";
+import { markUiBuilt, startUi } from "@kb/server";
 import { FIXTURE_TIMESTAMP, renderFixtureNodes } from "../fixture.ts";
 import { bundledSeed } from "@kb/bundled";
 import { extensionNodeId, SYSTEM_IDS, type KbNode } from "@kb/model";
 import { writeTrustedExample } from "@kb/test-kit";
-import { EXAMPLE_ARG } from "../harness-server.ts";
+import { EXAMPLE_ARG, HOSTED_ARG } from "../harness-server.ts";
 
 /*
  * The harness's server, run by Bun (`harness-server.ts` spawns it), so it
@@ -50,19 +50,41 @@ process.env.KB_DATA = join(scratchRoot, "data");
 // repository extension, trusted in this scratch home's trust store.
 if (process.argv.includes(EXAMPLE_ARG)) await writeTrustedExample(scratchRoot);
 
-const server = await Effect.runPromise(
-  startUi({
-    root: scratchRoot,
-    // Per-spec port: a spec that writes must not share a store with one that
-    // counts (see harness-server.ts).
-    port: Number(process.argv[2] ?? 4323),
-    openBrowser: false,
-  }),
-);
-console.log(`render harness UI: ${server.url} (scratch root: ${scratchRoot})`);
+// Per-spec port: a spec that writes must not share a store with one that
+// counts (see harness-server.ts).
+const port = process.argv[2] ?? "4323";
+/** How the store is served, and how serving it stops. */
+const serve = async (): Promise<() => Promise<void>> => {
+  if (process.argv.includes(HOSTED_ARG)) {
+    // The checkout's own `kb ui`, which composes the families it hosts
+    // (`cli/src/host-plugins.ts`) as it does for a person. It serves the
+    // suite's build (`KB_UI_DIST`, as every spec does), marked as built from
+    // the source as it is, so it does not build its own over it.
+    const dist = process.env["KB_UI_DIST"];
+    if (dist !== undefined) await Effect.runPromise(markUiBuilt(dist));
+    const kb = join(import.meta.dir, "../../../../../bin/kb");
+    const child = Bun.spawn([kb, "--root", scratchRoot, "ui", "--port", port, "--no-open"], {
+      stdout: "inherit",
+      stderr: "inherit",
+      // The scratch home and data set above, which a spawn does not pass on unasked.
+      env: { ...process.env },
+    });
+    console.log(`render harness UI (kb ui): port ${port} (scratch root: ${scratchRoot})`);
+    return async () => {
+      child.kill();
+      await child.exited;
+    };
+  }
+  const server = await Effect.runPromise(
+    startUi({ root: scratchRoot, port: Number(port), openBrowser: false }),
+  );
+  console.log(`render harness UI: ${server.url} (scratch root: ${scratchRoot})`);
+  return () => Effect.runPromise(server.stop);
+};
+const stopServing = await serve();
 
 const stop = async () => {
-  await Effect.runPromise(server.stop);
+  await stopServing();
   await rm(scratchRoot, { recursive: true, force: true });
   process.exit(0);
 };

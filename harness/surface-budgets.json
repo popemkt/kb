@@ -13,7 +13,8 @@
     "reason": "#187: the server watches the root's own extension files (ownExtensionEdits, ownExtensionPath), beside extensionRuntimeChanges."
   },
   "@kb/server": {
-    "limit": 12
+    "limit": 13,
+    "reason": "markUiBuilt: the render harness marks its own UI build as built from the source as it is, so a hosted harness's kb ui (HarnessOptions.hosted, for the families only kb ui hosts) serves that build rather than building over it."
   },
   "@kb/test-kit": {
     "limit": 58,
