@@ -1487,7 +1487,7 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
       export's painter), which goes live only when the canvas is opened.
     - **Live**: the view's own controls at work under the row, acting
       through the family's actions as they do where the view is opened;
-      an event's box is one (DESIGN-UI → The routines calendar). Since a
+      an event's line is one (DESIGN-UI → The routines calendar). Since a
       press is the view's, the node opens through its tag's "Open in …"
       instead.
 
@@ -1507,8 +1507,10 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
     tag's default view (`tagDefaultViews`), the fold derives one option
     field per option the view offers, `sys.f.display.<view>.<option>`,
     whose values are its children, `….asked` and `….always`; and, where it
-    previews, `sys.f.display.<view>.preview.height` (CSS pixels, held to
-    60–600; seeded 180). Each configures the family's node, so it is drawn
+    previews still, `sys.f.display.<view>.preview.height` (CSS pixels, held
+    to 60–600; seeded 180). A live preview stands as tall as its controls
+    draw, so its view has no height, and the fold retires the one a store
+    seeded for it before (`displaySettingRetirements`). Each configures the family's node, so it is drawn
     and edited with the family's other settings (Settings → Extensions),
     and the fold seeds their values there, so the rows show what is in
     effect. They are read off the node their fields configure

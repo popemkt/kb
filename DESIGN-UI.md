@@ -3697,9 +3697,11 @@ until "Save workspace".
   its family's setting ("when a node asks" or "always") decides.
   - **The preview** stands under the row at the row's indent plus one. A
     still preview's box is the family's `preview height`, so showing it
-    moves what is below by that much and nothing moves after; a live
-    preview's box is as tall and as wide as its controls draw, at least
-    the family's `preview height` and never wider than the column. The view mounts only once
+    moves what is below by that much and nothing moves after, and it
+    draws the box's edge. A live preview's box is as tall and as wide as
+    its controls draw, never wider than the column, and draws no edge or
+    ground: the view's controls are what shows, so a one-line view is one
+    line under the row. The view mounts only once
     the box comes within 200px of the viewport (`useSeen`), so a long
     outline pays for the previews it shows, not for the ones it holds.
     A still preview takes the content column's width, so it fits both
@@ -4874,17 +4876,40 @@ as they are, since a person's Cloud project registered them.
   (`RoutinesEventView`, `routines.event`, the tag's default view, DESIGN.md
   → a tag's view sets how its nodes show): that same box, for the event's
   next instance (`nextEntry`: a series' first on or after today, within two
-  years; a one-off's one instance, whenever it is). Its preview under the
-  node's row is the box live (`preview: "live"`), so a person ticks, skips,
-  moves or edits an event from the outline as from the calendar, through
-  the same actions, and Edit event opens the calendar's editor. A series
-  that has ended, or one the calendar cannot show, says it has no instance
-  and can still be edited and opened. Under its row the box is the
-  popover's width (`EVENT_BOX_WIDTH`), at the row's indent, and as tall as
-  what it shows, so its preview never scrolls. The box says when an
+  years; a one-off's one instance, whenever it is), so a person ticks,
+  skips, moves or edits an event as from the calendar, through the same
+  actions, and Edit event opens the calendar's editor. A series that has
+  ended, or one the calendar cannot show, says it has no instance and can
+  still be edited and opened. The box says when an
   instance synced as it says its other times, on the page's wall clock
   ("Synced to Google Calendar at Nov 10, 14:43"), in the box and in a sync
   dot's tooltip alike (`syncShown`).
+- **An event's preview is one line.** Under the node's row its preview
+  is one muted line for the same instance (`EventLine`,
+  `event-line.tsx`), in the label type at the row's indent plus one: the
+  calendar's dot and name, the day and time ("Fri, Nov 6, 08:30–09:30"),
+  how it repeats, its state when it is not scheduled (Done, Skipped,
+  Moved), then its sync state and, when Google holds the event, Open in
+  Google Calendar, as icons whose tooltips say what they mean. It never
+  repeats the title the row already shows; an event with no instance to
+  show says so on the line. Pressing the line, or Enter or
+  Space on it, floats the box over it as the calendar does
+  (`EntryPopover`, at `EVENT_BOX_WIDTH`), so every action is one press
+  away on any screen. Narrower than the line, it wraps after the time.
+  Which line it is follows the view key's kind of preview
+  (`ViewKey.preview`, DESIGN.md → a tag's view sets how its nodes show),
+  and the event's key says live:
+  - **still** would be the line as said, with no actions of its own and
+    nothing that changes as time passes;
+  - **live** is the view's controls acting in place: Done, Skip and Move…
+    show at the line's end while it is hovered or holds focus, as the
+    box's own choices (`instanceChoices`, one list for both), and Move…
+    floats the box with its move fields open. On a screen that cannot
+    hover they stay in the box. Before the instance starts, within a day,
+    the line leads with how soon ("in 20 min"); while it runs, with how
+    much is left ("now · 12 min left"), over a thin progress line along
+    its foot. Both follow the page's clock on their own, a minute at a
+    time.
 
 ### Sync services
 
