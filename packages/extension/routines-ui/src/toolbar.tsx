@@ -14,7 +14,7 @@ import { useCalendarClock } from "./clock";
 import { BUTTON_CLASS, ICON_BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from "./buttons";
 import type { CalendarModel } from "./model";
 import { syncPath } from "./routes";
-import { SYNC_DOTS, syncShown, type SyncShown } from "./sync-shown";
+import { SYNC_DOTS, syncSummary } from "./sync-shown";
 import { syncNow } from "./writes";
 
 const MODE_LABELS: Readonly<Record<CalendarMode, string>> = {
@@ -22,23 +22,6 @@ const MODE_LABELS: Readonly<Record<CalendarMode, string>> = {
   week: "Week",
   agenda: "Agenda",
 };
-
-/** How the instances shown stand with Google: the worst state among them, counted. */
-function syncSummary(
-  model: CalendarModel,
-  zone: string,
-): { readonly state: SyncShown; readonly text: string } {
-  const shown = [...model.byDay.values()]
-    .flat()
-    .map((entry) => syncShown(entry.status, model.calendars.get(entry.calendar)?.mode, zone).state);
-  const failed = shown.filter((state) => state === "error").length;
-  const waiting = shown.filter((state) => state === "pending").length;
-  if (failed > 0) return { state: "error", text: `${String(failed)} failed` };
-  if (waiting > 0) return { state: "pending", text: `${String(waiting)} waiting` };
-  if ([...model.calendars.values()].some((calendar) => calendar.mode === "on"))
-    return { state: "synced", text: "Synced" };
-  return { state: "none", text: "Not syncing" };
-}
 
 /** Where the calendar stands with Google, as text with its dot: read, not pressed. */
 function SyncStatus({ summary }: { readonly summary: ReturnType<typeof syncSummary> }) {

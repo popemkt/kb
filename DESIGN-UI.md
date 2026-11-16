@@ -5187,9 +5187,17 @@ as they are, since a person's Cloud project registered them.
 - **Sync status.** Every instance carries a dot for its routine's status,
   or its occurrence's own when it has one: synced, pending or error, with
   the message as its tooltip. A calendar in preview or paused says it is not
-  sent. The toolbar groups its controls: Today and the steps, the title,
+  sent. A status belongs to the node a write is for: the engine sends what
+  changed since its last send (the series' event when the series changed,
+  an instance when its fact did), and says pending, then synced or failed,
+  on that node alone, so ticking one instance Done never says its series
+  waits. A change taken back before it is sent writes nothing and is
+  synced again. A day whose fact is removed goes back to its series'
+  default with no node of its own, so its write says nothing. The toolbar groups its controls: Today and the steps, the title,
   the layouts, then sync, then New, all one height. Sync's group reads the
-  worst state showing as text with its dot (a status, not a button), beside
+  worst state showing as text with its dot (a status, not a button), counted
+  in writes (each node the instances shown read their status from is one,
+  however many of one series' instances a week shows), beside
   Sync now (`ext.routines.sync`) and Sync services as icon buttons; with no
   account yet it offers Set up sync instead.
 - **Time zones.** Instances are drawn on the browser's clock, and a drop is

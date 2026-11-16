@@ -44,6 +44,7 @@ function timed(key: string, at: string, minutes: number): CalendarEntry {
     occurrence: null,
     calendar: "",
     status: null,
+    statusNode: key,
   };
 }
 

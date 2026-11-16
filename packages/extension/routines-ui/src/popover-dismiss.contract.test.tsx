@@ -43,6 +43,7 @@ const ENTRY: CalendarEntry = {
   occurrence: null,
   calendar: "",
   status: null,
+  statusNode: "gym",
 };
 const MODEL: CalendarModel = {
   nodes: new Map(),

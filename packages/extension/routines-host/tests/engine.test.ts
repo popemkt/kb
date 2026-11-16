@@ -5,6 +5,7 @@ import { SYSTEM_IDS, type NodeLike } from "@kb/model";
 import {
   makeFakeCalendar,
   routineOption,
+  syncStatusProps,
   ROUTINE_FIELDS as F,
   ROUTINE_TAGS as T,
   SyncError,
@@ -45,7 +46,21 @@ const fixture = Effect.gen(function* () {
     origin: "https://kb.test",
     runner: "test",
     host: {
-      read: Effect.sync(() => new Map(nodes)),
+      // As the host stores it: a node's status is in its own fields.
+      read: Effect.sync(
+        () =>
+          new Map(
+            [...nodes].map(([id, n]) => {
+              const status = statuses.get(id);
+              if (status === undefined) return [id, n];
+              const props = { ...n.props };
+              for (const [field, value] of Object.entries(syncStatusProps(status)))
+                if (value === null) delete props[field];
+                else props[field] = [value];
+              return [id, { ...n, props }];
+            }),
+          ),
+      ),
       changes: () =>
         Effect.succeed({
           head: 1,
@@ -171,6 +186,61 @@ scenario("done and skipped occurrence nodes push opaque instance IDs", (f) =>
     expect(f.statuses.get("done")?.at).toBeDefined();
     expect([...f.fake.events.values()].some((fields) => fields.done)).toBe(true);
     expect([...f.fake.events.values()].some((fields) => fields.status === "cancelled")).toBe(true);
+  }),
+);
+/** `f`'s routine with one done occurrence on `on`, as marking that one instance Done writes it. */
+function markDone(f: Effect.Success<typeof fixture>, on: string) {
+  const parent = f.nodes.get("routine");
+  if (parent === undefined) throw new Error("missing routine");
+  f.nodes.set(parent.id, { ...parent, children: [...parent.children, "done-" + on] });
+  f.nodes.set(
+    "done-" + on,
+    node("done-" + on, T.occurrence, {
+      [F.on]: str(on),
+      [F.state]: ref(routineOption("state", "done")),
+    }),
+  );
+}
+scenario("one instance marked done waits alone, and sends one write", (f) =>
+  Effect.gen(function* () {
+    yield* f.flush;
+    expect(f.calls()).toBe(1);
+    expect(f.statuses.get("routine")?.state).toBe("synced");
+    markDone(f, "2026-11-05");
+    yield* f.engine.tail;
+    // Only the instance that changed waits; its series stays as it was sent.
+    expect(f.statuses.get("done-2026-11-05")?.state).toBe("pending");
+    expect(f.statuses.get("routine")?.state).toBe("synced");
+    yield* f.flush;
+    expect(f.calls()).toBe(2);
+    expect(f.statuses.get("done-2026-11-05")?.state).toBe("synced");
+    expect(f.statuses.get("routine")?.state).toBe("synced");
+  }),
+);
+scenario("an instance's failed write fails that instance, not its series", (f) =>
+  Effect.gen(function* () {
+    yield* f.flush;
+    markDone(f, "2026-11-05");
+    yield* f.engine.tail;
+    f.fail(1);
+    yield* f.flush;
+    expect(f.statuses.get("done-2026-11-05")?.state).toBe("error");
+    expect(f.statuses.get("routine")?.state).toBe("synced");
+  }),
+);
+scenario("a change taken back before it is sent writes nothing and waits no more", (f) =>
+  Effect.gen(function* () {
+    yield* f.flush;
+    const sent = f.nodes.get("routine");
+    if (sent === undefined) throw new Error("missing routine");
+    f.nodes.set(sent.id, { ...sent, text: "renamed" });
+    yield* f.engine.tail;
+    expect(f.statuses.get("routine")?.state).toBe("pending");
+    f.nodes.set(sent.id, sent);
+    yield* f.engine.tail;
+    yield* f.flush;
+    expect(f.calls()).toBe(1);
+    expect(f.statuses.get("routine")?.state).toBe("synced");
   }),
 );
 scenario("a one-off's fact on its day is its one event's own state", (f) =>
