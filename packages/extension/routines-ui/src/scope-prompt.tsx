@@ -1,5 +1,6 @@
 import type { CalendarEntry } from "@kb/routines";
-import { BUTTON_CLASS, Dialog, PRIMARY_BUTTON_CLASS } from "./dialog";
+import { BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from "./buttons";
+import { Dialog } from "@kb/ui-sdk";
 
 /** A repeating instance dragged somewhere: move just this one, or every one of its series? */
 export function ScopePrompt({

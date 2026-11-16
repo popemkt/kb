@@ -17,8 +17,8 @@ import {
   routineSettings,
   type RoutineSettings,
 } from "@kb/routines";
-import { cn } from "@kb/ui-sdk";
-import { BUTTON_CLASS, Dialog, PRIMARY_BUTTON_CLASS } from "./dialog";
+import { cn, Dialog } from "@kb/ui-sdk";
+import { BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from "./buttons";
 import { useCalendarClock } from "./clock";
 import type { CalendarGraph } from "./model";
 import { DateField } from "./date-field";

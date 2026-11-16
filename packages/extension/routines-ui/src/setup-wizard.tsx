@@ -20,8 +20,8 @@ import {
   type AccountSetup,
   type SetupStep,
 } from "@kb/routines";
-import { cn, navigate, useNarrowViewport, useNodes } from "@kb/ui-sdk";
-import { BUTTON_CLASS, Dialog, PRIMARY_BUTTON_CLASS } from "./dialog";
+import { cn, navigate, useNarrowViewport, useNodes, Dialog } from "@kb/ui-sdk";
+import { BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from "./buttons";
 import { syncPath } from "./routes";
 import { Schema } from "effect";
 import { consolePage, setupCall, startConnect, useSetupInfo, type SetupInfo } from "./setup-calls";

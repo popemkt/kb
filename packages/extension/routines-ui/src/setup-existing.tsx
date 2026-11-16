@@ -8,7 +8,7 @@
 import { useState, type ReactNode } from "react";
 import { chooseProject, PROJECT_ID, type AccountSetup, type ProjectSource } from "@kb/routines";
 import { cn } from "@kb/ui-sdk";
-import { PRIMARY_BUTTON_CLASS } from "./dialog";
+import { PRIMARY_BUTTON_CLASS } from "./buttons";
 import { FIELD_CLASS } from "./repeat-picker";
 import { consolePage } from "./setup-calls";
 import { ConsoleLink, Field, Pick, WhatYouSee } from "./setup-parts";

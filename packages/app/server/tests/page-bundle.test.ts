@@ -225,7 +225,11 @@ const DATASCRIPT = /cljs\.core/;
 // shownWalk and shownNodeOf, the rows some rows show as a reader meets them,
 // in @kb/model, with Count words reading them, measure 1,998,110; the budget
 // rises by their 125.
-const EAGER_BUDGET_BYTES = 1_999_510;
+// One modal component in @kb/ui-sdk, which the action review the page draws
+// eagerly now shares with the routines and extension removal dialogs (its
+// focus handling and frame, where the review drew a native dialog), measures
+// 1,998,956; the budget rises by its 846.
+const EAGER_BUDGET_BYTES = 2_000_356;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

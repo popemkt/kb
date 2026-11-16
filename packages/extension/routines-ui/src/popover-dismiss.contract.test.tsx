@@ -1,14 +1,14 @@
 /**
  * The calendar's popovers, each run through the dismiss contract
  * (`dismissContract`, DESIGN-UI.md → Cross-surface polish → Popovers dismiss
- * one way): the modal every dialog is (the editor, the move prompt), an
+ * one way): the shared modal every dialog is (the editor, the move prompt), an
  * instance's popover, which its chip toggles, and the editor's day and time
  * pickers, which their fields toggle.
  */
 import { useState } from "react";
 import { afterAll, beforeAll } from "vitest";
 import { instantOf, type CalendarEntry } from "@kb/routines";
-import { syncUiPlugins } from "@kb/ui-sdk";
+import { Dialog, syncUiPlugins } from "@kb/ui-sdk";
 import {
   UntilDismissed,
   dismissContract,
@@ -17,7 +17,6 @@ import {
   testHostPlugin,
 } from "@kb/ui-test-kit";
 import { DateField } from "./date-field";
-import { Dialog } from "./dialog";
 import { EntryPopover } from "./entry-popover";
 import type { CalendarModel } from "./model";
 import { TimeField } from "./time-field";
@@ -86,7 +85,7 @@ function Chip() {
 }
 
 dismissContract({
-  "packages/extension/routines-ui/src/dialog.tsx": (host) =>
+  "packages/kit/ui-sdk/src/components/dialog.tsx": (host) =>
     renderPopover(
       host,
       <UntilDismissed>
