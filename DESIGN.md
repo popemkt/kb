@@ -1982,24 +1982,60 @@ file is the format git already understands.
     pid wraps the _whole_ commit via `Effect.acquireRelease` inside
     `Effect.scoped`, so reload → merge → replace is one critical section and
     concurrent CLI / MCP / `kb ui` writers cannot silently clobber each other
-    (previously last-writer-wins). Contention spins on `Effect.sleep`
-    (25ms, `MAX_WAIT_MS` 15s — never a loop-blocking sleep), and only
-    exhausting the ceiling fails, with a `conflict` error naming the holder
-    pid. The lock is the kernel's: the holder opens `<file>.lock` and
-    takes `flock(2)` on it (`LOCK_EX | LOCK_NB`, retried on the spin), and
-    the kernel releases it when the holder unlocks, closes it or dies. So
-    a dead holder's lock is free the moment it dies, and there is no stale
-    detection and no takeover. The holder removes the file while it
-    still holds it, so no lock file outlives a write; an acquirer that
-    locked a file then finds it is no longer the one at the path (by
-    device and inode) lets it go and tries again, so two writers never
-    lock two different files. A dead holder leaves its file behind,
-    unlocked, for the next writer to lock and remove. The file carries the
-    holder's pid only for the `conflict` error. `flock` comes from libc
-    through `bun:ffi`, which every writer can reach: the CLI, `kb mcp`,
-    `kb ui` and the test harness's servers all run on Bun, on Linux and
-    macOS. Two acquirers in one process conflict too, since each opens
-    its own file description.
+    (previously last-writer-wins). Contention spins on `Effect.sleep` (25ms,
+    `MAX_WAIT_MS` 15s — never a loop-blocking sleep), and only exhausting the
+    ceiling fails, with a `conflict` error naming the holder pid. The lock is
+    the kernel's: the holder opens `<file>.lock` and takes `flock(2)` on it
+    (`LOCK_EX | LOCK_NB`, retried on the spin), and the kernel releases it
+    when the holder unlocks, closes it or dies. So a dead holder's lock is
+    free the moment it dies, and among writers that take it there is no stale
+    detection and no takeover. The holder removes the file while it still
+    holds it, so no lock file outlives a write; an acquirer that locked a file
+    then finds it is no longer the one at the path (by device and inode) lets
+    it go and tries again, so two writers never lock two different files. A
+    dead holder leaves its file behind, unlocked, for the next writer to lock
+    and remove. The file carries the holder's pid, for the `conflict` error
+    and for an older kb (below). `flock` comes from libc through `bun:ffi`,
+    which every writer can reach: the CLI, `kb mcp`, `kb ui` and the test
+    harness's servers all run on Bun, on Linux and macOS. Two acquirers in one
+    process conflict too, since each opens its own file description.
+
+    _Older writers._ A kb from before the kernel lock is still running
+    for hours after an update (a shared host and a laptop run different
+    releases), and it takes no `flock`. It holds the lock by keeping its
+    pid in the file, waits while that pid is alive, and takes a file
+    whose pid is dead or missing. So the two exclude each other through
+    the pid, both ways, and fail closed:
+    - _A writer toward an older kb:_ the file always has a live pid in it.
+      It is created whole: the pid goes into a temp file that is
+      hard-linked to the path, failing if a file is there. A holder writes
+      its pid over the one in the file without emptying it first. The
+      older kb reads a live pid and waits.
+    - _An older kb toward a writer:_ holding the `flock` is not enough to
+      enter, because the older kb never takes it. A writer stores its pid
+      right-aligned in a fixed 12-character field. The older kb writes
+      its pid bare, so a pid in any other form is the older kb's.
+      - A live pid in that form is a holder the `flock` cannot see. The
+        writer lets the `flock` go and spins.
+      - An empty file younger than 2 s is an older writer between creating
+        the file and writing its pid. The writer spins.
+      - A dead pid, or an empty file older than that, is a lock nobody
+        holds. The writer writes its own pid over it and never removes it.
+        It then checks that the file is still the one at the path, and
+        only then enters.
+
+      A writer that times out on an older kb's lock says so: it names the
+      pid and asks for that process to be stopped.
+    - _What remains:_ the older kb's own takeover window. An older writer
+      may judge a lock stale because its holder died. If a writer takes
+      that lock in the same moment, both may enter, just as two older
+      writers could before. This needs a crash and that coincidence. It
+      ends with the older kb.
+    - _Removal:_ this is transitional. When one release with the kernel
+      lock has shipped, and no older kb can still be writing a store, the
+      field form, the empty-file grace and the pid check go. The pid is
+      then only for the `conflict` error again. The todo
+      `01M7K50TFYFRWRJBTQ8V76489P` holds it.
   - `durable-replace.ts` — write the candidate to a tmp fd + `fsync`, copy the
     live file to `nodes.jsonl.bak` (+fsync), `rename` tmp → live, best-effort
     parent-directory fsync. Ordering-safe; **not** crash-injection tested
