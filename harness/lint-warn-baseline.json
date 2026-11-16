@@ -15,7 +15,7 @@
       "@kb/sandbox": 94,
       "@kb/appearance": 60,
       "@kb/keybindings": 39,
-      "@kb/model": 289,
+      "@kb/model": 292,
       "@kb/outline-paste": 3,
       "@kb/plugin": 41,
       "@kb/query": 58,
@@ -140,14 +140,14 @@
       "kit/ui-sdk/src/lib/schema.ts": 4,
       "kit/ui-sdk/src/lib/tag-color.test.ts": 5,
       "kit/ui-sdk/src/lib/tag-color.ts": 6,
-      "kit/ui-sdk/src/lib/graph-view.ts": 5,
       "kit/ui-sdk/src/lib/md-edit.ts": 2,
+      "kit/ui-sdk/src/lib/graph-view.ts": 5,
       "kit/ui-sdk/src/hooks.ts": 3,
       "kit/ui-sdk/src/sandbox-run.ts": 5
     },
     "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2812908,
+      "bytes": 2813457,
       "modules": 745
     },
     "single-family": {

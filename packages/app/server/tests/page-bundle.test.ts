@@ -229,7 +229,10 @@ const DATASCRIPT = /cljs\.core/;
 // eagerly now shares with the routines and extension removal dialogs (its
 // focus handling and frame, where the review drew a native dialog), measures
 // 1,998,956; the budget rises by its 846.
-const EAGER_BUDGET_BYTES = 2_000_356;
+// The three reference forms and markupWords in @kb/model's display text, and
+// chipTagsOf, the chips' tags the graph view now reads, measure 1,999,081;
+// the budget rises by their 125.
+const EAGER_BUDGET_BYTES = 2_000_481;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

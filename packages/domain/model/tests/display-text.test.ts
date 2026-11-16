@@ -6,6 +6,7 @@ import { describe, expect, test } from "bun:test";
 import {
   IndexedNodes,
   SYSTEM_IDS,
+  markupWords,
   nodeName,
   plainWords,
   refName,
@@ -96,5 +97,32 @@ describe("a node's name", () => {
   test("is empty for a node with no words or no node", () => {
     expect(nodeName("empty", nodeOf)).toBe("");
     expect(nodeName("gone", nodeOf)).toBe("");
+  });
+});
+
+describe("reference forms", () => {
+  const nodes = new Map([
+    ["n1", { text: "Ada **L**", props: {} }],
+    ["n2", { text: "a ] b", props: {} }],
+  ]);
+  const formsOf = (id: string) => nodes.get(id);
+
+  test("markupWords keeps the markup and writes each reference the grammar reads in its form", () => {
+    const text = "see **x** [[n1]] and [[n1|the one]], not `[[n1]]`";
+    expect(markupWords(text, formsOf)).toBe("see **x** Ada L and the one, not `[[n1]]`");
+    expect(markupWords(text, formsOf, "link")).toBe(
+      "see **x** [[Ada L]] and [[the one]], not `[[n1]]`",
+    );
+    expect(markupWords(text, formsOf, "id")).toBe(text);
+  });
+
+  test("a link cannot hold brackets or a bar, so such words are written as words", () => {
+    expect(markupWords("[[n2]]", formsOf, "link")).toBe("a ] b");
+    expect(markupWords("[[n1|x|y]]", formsOf, "link")).toBe("x|y");
+  });
+
+  test("plainWords takes the form too", () => {
+    expect(plainWords("**hi** [[n1]]", formsOf, "link")).toBe("hi [[Ada L]]");
+    expect(plainWords("**hi** [[n1]]", formsOf, "id")).toBe("hi [[n1]]");
   });
 });

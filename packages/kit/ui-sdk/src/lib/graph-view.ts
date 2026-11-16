@@ -1,7 +1,14 @@
 import { Option, Schema } from "effect";
 import type { SchemaIndex } from "./schema";
 import type { WireNode } from "@kb/contracts";
-import { compareRootOrder, hasQueryDef, nodeName, typeRefsOf, SYSTEM_IDS } from "@kb/model";
+import {
+  chipTagsOf,
+  compareRootOrder,
+  hasQueryDef,
+  nodeName,
+  typeRefsOf,
+  SYSTEM_IDS,
+} from "@kb/model";
 import { nameIn } from "./contextual-ref";
 import { tagColorOf, tagPalette, type TagPalette } from "./tag-color";
 import { resolveVisibleProps, isFieldHidden, type ResolvePropsOptions } from "./field-visibility";
@@ -25,29 +32,13 @@ function isFieldNode(node: WireNode | OutlineNode | undefined): boolean {
   return typeRefsOf(node).includes(SYSTEM_IDS.field);
 }
 
-/**
- * DISPLAY: the `#tag` chips a row shows.
- *
- * Derived from the kind slot (`typeRefsOf` — the truth reader) minus the kind
- * refs themselves: `sys.f.type → sys.tag` means "this node IS a supertag", so
- * rendering it as a `#tag` chip on the tag's own page would be nonsense, and
- * `sys.field` likewise. That subtraction is the whole reason this list is not
- * the graph: read it back as membership and every supertag looks untagged. Any
- * decision about what a node *is* must call `typeRefsOf` directly.
- */
+/** DISPLAY: the `#tag` chips a row shows (`chipTagsOf`), each with its name and colour. */
 function resolveTags(wire: WireNode, byId: Map<string, WireNode>, palette: TagPalette): TagBadge[] {
-  const tags: TagBadge[] = [];
-  for (const typeId of typeRefsOf(wire)) {
-    if (typeId === SYSTEM_IDS.tag || typeId === SYSTEM_IDS.field) continue;
-    const target = byId.get(typeId);
-    if (!isTagNode(target)) continue;
-    tags.push({
-      id: typeId,
-      name: nodeName(typeId, (id) => byId.get(id)) || typeId,
-      color: tagColorOf(typeId, palette),
-    });
-  }
-  return tags;
+  return chipTagsOf(wire, (id) => byId.get(id)).map((typeId) => ({
+    id: typeId,
+    name: nodeName(typeId, (id) => byId.get(id)) || typeId,
+    color: tagColorOf(typeId, palette),
+  }));
 }
 
 /** Nodes that appear in some parent's children list. */
