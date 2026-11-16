@@ -12,7 +12,7 @@ import {
   useAnswered,
   useFollow,
   useOpenNode,
-  useRefInk,
+  useRefLook,
 } from "@kb/ui-sdk";
 import { TagFieldsConfig } from "./tag-fields-config";
 
@@ -78,7 +78,7 @@ function SchemaInstanceRow({
 }) {
   const nodes = useOutlineNodes();
   const follow = useFollow();
-  const ink = useRefInk();
+  const refs = useRefLook();
   const node = nodes.get(hit.id);
   const tags = node?.tags ?? [];
 
@@ -117,7 +117,7 @@ function SchemaInstanceRow({
               text={hit.text || "(empty)"}
               className="min-w-0 flex-1 text-foreground/85"
               onFollow={follow}
-              ink={ink}
+              refs={refs}
             />
             {tags.length > 0 && (
               <TagChipGroup

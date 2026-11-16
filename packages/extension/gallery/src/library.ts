@@ -15,7 +15,7 @@ import { GALLERY_IDS } from "./ids.ts";
 export interface GraphNode {
   readonly id: string;
   readonly text: string;
-  readonly props: Readonly<Record<string, readonly PropValue[] | undefined>>;
+  readonly props: Readonly<Record<string, readonly PropValue[]>>;
   readonly children: readonly string[];
 }
 

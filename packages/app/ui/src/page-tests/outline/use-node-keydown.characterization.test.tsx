@@ -28,6 +28,7 @@ import {
   setCaretSerializedOffset,
   syncUiPlugins,
   WORKSPACE_ROOT_ID,
+  type RefLook,
 } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
 import { mountActiveTextHost } from "@/test-support/active-text-host";
@@ -49,7 +50,7 @@ beforeAll(() => syncPagePlugins([outlineUiPlugin]));
 afterAll(() => syncUiPlugins([]));
 
 /** No graph behind the text: every reference keeps the default link colour. */
-const PLAIN_INK = (): string | null => null;
+const PLAIN_INK: RefLook = { ink: () => null, name: (id, label) => label ?? id };
 
 interface Mods {
   metaKey?: boolean;

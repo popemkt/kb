@@ -1,6 +1,5 @@
-import { fieldTypeOf, SYSTEM_IDS } from "@kb/model";
+import { fieldTypeOf, nodeName, SYSTEM_IDS } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
-import { graphDisplayText } from "@kb/ui-sdk";
 import { GRAPH_SOURCE_VALUES, type GraphSourceKind } from "@kb/graph";
 
 export interface GraphBindingOption {
@@ -41,7 +40,7 @@ export function graphBindingOptions(
     })
     .map(([id]) => ({
       value: `prop:${id}`,
-      label: graphDisplayText(byId.get(id)?.text ?? "") || "Unnamed field",
+      label: nodeName(id, (ref) => byId.get(ref)) || "Unnamed field",
     }))
     .toSorted((a, b) => a.label.localeCompare(b.label) || a.value.localeCompare(b.value));
   return [...options, ...fieldOptions];

@@ -39,7 +39,7 @@ export {
   usePaneScreen,
   usePrefs,
   useQueryRows,
-  useRefInk,
+  useRefLook,
   useSchema,
   useWireNodes,
 } from "./hooks";
@@ -197,6 +197,8 @@ export {
   isContextualRef,
   rowText,
   rowTitle,
+  rowName,
+  nameIn,
   rowTextOf,
   rowTextReadOnlyReason,
   shownNode,
@@ -437,12 +439,7 @@ export {
   routePointerClick,
   useFollowThrough,
 } from "./lib/follow";
-export {
-  graphDisplayText,
-  type GraphLabelFace,
-  graphLabelFont,
-  wrapGraphLabel,
-} from "./lib/graph-label";
+export { type GraphLabelFace, graphLabelFont, wrapGraphLabel } from "./lib/graph-label";
 export { guideLineStyle, indentStyle } from "./lib/indent";
 export { keptLoad } from "./lib/kept-load";
 export { isCompositionKey, keyChordEvent } from "./lib/keychord";
@@ -461,7 +458,7 @@ export {
   INLINE_TEXT_CLASSES,
   KB_REF_ID_ATTR,
   readInlineInput,
-  type RefInk,
+  type RefLook,
   renderInlineMarkdown,
   revealMarkupAtSelection,
   serializeEditable,
@@ -516,7 +513,6 @@ export {
   hashTagColor,
   nodeTagColors,
   optionColorOf,
-  refInkOf,
   TAG_PALETTE,
   tagChipColors,
   tagColorAlpha,
@@ -525,8 +521,8 @@ export {
   type TagPalette,
   UNTAGGED_COLOR,
 } from "./lib/tag-color";
+export { refLookOf } from "./lib/ref-look";
 export { hasText, textOr } from "./lib/text";
-export { plainText } from "./lib/plain-text";
 export {
   type Appearance,
   appearanceOf,

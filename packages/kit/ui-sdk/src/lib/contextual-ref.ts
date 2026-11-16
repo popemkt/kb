@@ -37,7 +37,7 @@
 import { instanceAncestorIds } from "./instance-key";
 import type { RowSource, SchemaIndex } from "./schema";
 import type { OutlineNode } from "./types";
-import { SYSTEM_IDS, nodeTitleOf } from "@kb/model";
+import { SYSTEM_IDS, nodeTitleOf, plainWords } from "@kb/model";
 
 /**
  * Where a node the index serves from a file (a saved query's `.edn`) is
@@ -133,6 +133,22 @@ export function rowTitle(node: OutlineNode, schema: SchemaIndex): string {
   const shownId = shownNodeId(node);
   if (shownId !== node.id && schema.get(shownId) === undefined) return text;
   return nodeTitleOf(shownId, shownNode(node, schema), (id) => schema.get(id));
+}
+
+/**
+ * A row's name: what it draws at rest ({@link rowTitle}) in plain words
+ * (DESIGN.md → Display text), "" when it has none. Every surface that names
+ * a node where only a string fits reads it: a breadcrumb, a pane's title, a
+ * list, a picker, a chip, a toast.
+ */
+export function rowName(node: OutlineNode, schema: SchemaIndex): string {
+  return plainWords(rowTitle(node, schema), (id) => schema.get(id));
+}
+
+/** The name of the node `id` names in `schema` ({@link rowName}), "" when it holds none. */
+export function nameIn(schema: SchemaIndex, id: string): string {
+  const node = schema.get(id);
+  return node === undefined ? "" : rowName(node, schema);
 }
 
 /**

@@ -16,7 +16,7 @@ import { nodePath } from "@kb/views";
 import { readRows } from "@/lib/read-rows";
 import { useFollow } from "@/stores/follow";
 import { useGraphStore } from "@/stores/graph.store";
-import { useRefInk } from "@/stores/ref-ink";
+import { useRefLook } from "@/stores/ref-look";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 
 /** A row's indent by its depth below the root, one step per level the view lays out. */
@@ -41,7 +41,7 @@ export function NodeReadSurface({ params }: ViewProps<NodeReadParams>) {
   );
   const pane = usePane();
   const follow = useFollow();
-  const ink = useRefInk();
+  const refs = useRefLook();
   const rootId = params.root ?? zoom;
   const root = nodes.get(rootId);
   const schema = useGraphStore(schemaOf);
@@ -61,7 +61,7 @@ export function NodeReadSurface({ params }: ViewProps<NodeReadParams>) {
       )}
       {rootId === WORKSPACE_ROOT_ID ? null : (
         <h1 className="kb-display text-title font-medium text-foreground/85">
-          <MdView text={textOr(rowText(root, schema), "Untitled")} onFollow={follow} ink={ink} />
+          <MdView text={textOr(rowText(root, schema), "Untitled")} onFollow={follow} refs={refs} />
         </h1>
       )}
       {rows.length === 0 ? (
@@ -82,7 +82,7 @@ export function NodeReadSurface({ params }: ViewProps<NodeReadParams>) {
                 className="min-w-0 text-left text-foreground/80 hover:text-foreground"
                 onClick={() => open(row.opens)}
               >
-                <MdView text={textOr(row.text, "Untitled")} onFollow={follow} ink={ink} />
+                <MdView text={textOr(row.text, "Untitled")} onFollow={follow} refs={refs} />
               </button>
               {row.hidden === 0 ? null : (
                 <span className="text-label text-foreground/30">+{row.hidden}</span>

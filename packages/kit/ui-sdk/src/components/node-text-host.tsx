@@ -33,7 +33,7 @@ import {
   type TriggerPick,
 } from "../lib/text-triggers";
 import { rowTextReadOnlyReason } from "../lib/contextual-ref";
-import { refInkOf } from "../lib/tag-color";
+import { refLookOf } from "../lib/ref-look";
 import type { SchemaIndex } from "../lib/schema";
 import type { NodeMap, TagBadge } from "../lib/types";
 import { InlineMarkdown } from "./md-view";
@@ -255,7 +255,7 @@ export function NodeTextHost({
   const [cursor, setCursor] = useState(0);
   const readOnlyReason = rowTextReadOnlyReason(nodeId, nodes.get(nodeId), schema, isVirtual);
   /** How the text's references are inked, from the graph they point into. */
-  const ink = refInkOf(schema);
+  const refs = refLookOf(schema);
   const readOnly = readOnlyReason !== null;
   const editing = isActive && !readOnly;
   /** Every write this editor makes goes through here (see `pendingEcho`). */
@@ -293,7 +293,7 @@ export function NodeTextHost({
       // own — a merge wrote this row — never from a `content` that has not
       // caught up with this editor's own writes yet.
       const movedOnItsOwn = pendingEcho.current === null && serializeEditable(el) !== content;
-      if (!wasActive.current || movedOnItsOwn) renderInlineMarkdown(el, content, ink);
+      if (!wasActive.current || movedOnItsOwn) renderInlineMarkdown(el, content, refs);
       wasActive.current = true;
 
       el.focus();
@@ -313,7 +313,7 @@ export function NodeTextHost({
     instanceKey,
     pendingCaret,
     consumeCaret,
-    ink,
+    refs,
     setDismissed,
   ]);
 
@@ -328,7 +328,7 @@ export function NodeTextHost({
     editorRef,
     editing,
     content,
-    ink,
+    refs,
     onRestore: restoreText,
   });
 
@@ -350,7 +350,7 @@ export function NodeTextHost({
       const caret = span.start + pick.insert.length;
       emit(next);
       if (editorRef.current) {
-        renderInlineMarkdown(editorRef.current, next, ink);
+        renderInlineMarkdown(editorRef.current, next, refs);
         setCaretSerializedOffset(editorRef.current, caret);
         revealMarkupAtSelection(editorRef.current);
       }
@@ -358,7 +358,7 @@ export function NodeTextHost({
       if (instanceKey !== undefined) placeCaret(instanceKey, caret);
       await pick.write?.();
     },
-    [content, instanceKey, emit, placeCaret, ink],
+    [content, instanceKey, emit, placeCaret, refs],
   );
 
   /** A row picked, or (Enter with none) what the trigger does then. */
@@ -382,12 +382,12 @@ export function NodeTextHost({
   const handleInput = useCallback(() => {
     const el = editorRef.current;
     if (el && !isComposing.current) {
-      const { text, caret } = readInlineInput(el, ink);
+      const { text, caret } = readInlineInput(el, refs);
       setCursor(caret);
       setDismissed(null);
       emit(text);
     }
-  }, [emit, ink, setDismissed]);
+  }, [emit, refs, setDismissed]);
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -570,7 +570,7 @@ export function NodeTextHost({
           (display ?? shownAsText)(
             // The same element and tree, owned by React while nothing edits it.
             <div ref={editorRef} key="view" className={textClass} role="presentation">
-              {shown ? <InlineMarkdown text={shown} ink={ink} /> : "\u200B"}
+              {shown ? <InlineMarkdown text={shown} refs={refs} /> : "\u200B"}
             </div>,
           )
         )}

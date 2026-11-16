@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { wrapGraphLabel, graphDisplayText } from "./graph-label";
+import { wrapGraphLabel } from "./graph-label";
 const measure = (text: string) =>
   Array.from(text).reduce((width, char) => width + (char === "W" ? 12 : 6), 0);
 describe("graph label space", () => {
@@ -9,24 +9,4 @@ describe("graph label space", () => {
     expect(lines.every((line) => measure(line) <= 110)).toBe(true);
     expect(lines.join("").replace(/\s/g, "")).toBe(text.replace(/\s/g, ""));
   });
-});
-
-it("graph text displays reference labels and resolves bare references without exposing ids", () => {
-  expect(
-    graphDisplayText("See [[n.topic|Topic]] and [[n.other]]", (id) =>
-      id === "n.other" ? "**Other idea**" : undefined,
-    ),
-  ).toBe("See Topic and Other idea");
-  expect(graphDisplayText("")).toBe("Untitled");
-});
-
-it("graph text round-trips text that holds no emphasis, underscores included", () => {
-  for (const text of [
-    "a_b_c",
-    "snake_case_name",
-    "Review reconcile_claude_direct_routing.py",
-    "2 * 3 * 4",
-  ])
-    expect(graphDisplayText(text)).toBe(text);
-  expect(graphDisplayText("_em_ and **strong**")).toBe("em and strong");
 });

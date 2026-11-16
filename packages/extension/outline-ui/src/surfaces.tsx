@@ -9,7 +9,6 @@ import {
   type MatchedRoute,
   OpenNodeContext,
   paramsOf,
-  plainText,
   SidebarRow,
   SidebarSection,
   usePageGraph,
@@ -18,6 +17,7 @@ import {
   ViewErrorBoundary,
   type ViewProps,
 } from "@kb/ui-sdk";
+import { nodeName } from "@kb/model";
 import { useOutlineNodes } from "./outline.store";
 import { useRecent, useRecordRecent } from "./recents";
 
@@ -89,7 +89,7 @@ export function RecentSection({ route }: { readonly route: MatchedRoute | null }
   const rows = recent.flatMap((id) => {
     const node = schema.get(id);
     if (node === undefined) return [];
-    return [{ id, label: plainText(node.text, (other) => schema.get(other)?.text) || id }];
+    return [{ id, label: nodeName(id, (other) => schema.get(other)) || id }];
   });
   return (
     <SidebarSection title="Recent">

@@ -9,7 +9,7 @@
  * actions (`graph.trace`, `graph.suggest`) and the page's local read run
  * these same functions, so both hosts give one answer.
  */
-import { relationInverseOf, replaceMentions } from "@kb/model";
+import { nodeName, relationInverseOf } from "@kb/model";
 import { collectEdges, type LensEdge, type LensSource } from "./edges.ts";
 import { explainHop, hopLabel, relationOfEdge, type HopLabels } from "./explain.ts";
 import type { EdgeKind } from "./lens.ts";
@@ -155,18 +155,13 @@ export function edgesAmong(nodes: readonly LensSource[], request: EdgesRequest):
 }
 
 /**
- * The labels a node set gives a hop: a node by its text, with each reference
- * token read as its label (or its target's text), and a relation by its
+ * The labels a node set gives a hop: a node by its name (`nodeName`, else
+ * its id), and a relation by its
  * field node's text, read back by the field's inverse label when it has one.
  */
 export function hopLabelsOf(nodes: readonly LensSource[]): HopLabels {
   const byId = new Map(nodes.map((n) => [n.id, n]));
-  const textOf = (id: string): string => {
-    const text = byId.get(id)?.text;
-    if (text === undefined) return id;
-    const plain = replaceMentions(text, (span) => span.label ?? byId.get(span.id)?.text ?? span.id);
-    return plain.trim() === "" ? id : plain.trim();
-  };
+  const textOf = (id: string): string => nodeName(id, (ref) => byId.get(ref)) || id;
   return {
     textOf,
     relationOf: (fieldId) => ({

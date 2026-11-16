@@ -18,7 +18,7 @@ import {
 } from "./lib/use-replica-queries.ts";
 import { OpenNodeContext, useFollowThrough, type Follow } from "./lib/follow";
 import { useGraphReadThrough, type GraphRead } from "./lib/graph-read";
-import type { RefInk } from "./lib/md-edit";
+import type { RefLook } from "./lib/md-edit";
 import { usePaneScreenThrough, type PaneCarryOut, type PaneReport } from "./lib/pane-screen";
 import { schemaOf, type SchemaIndex } from "./lib/schema";
 import type { NodeMap, OutlineNode } from "./lib/types";
@@ -157,9 +157,9 @@ export function useQueryRows(edn: string | null): QueryNodeRows {
     : { rows: null, error: answerMessage(answer), overBudget: answer.kind === "over-budget" };
 }
 
-/** How references in rendered text are inked, for `MdView`'s `ink`. */
-export function useRefInk(): RefInk {
-  return useHostValue((host) => host.refInk());
+/** How references in rendered text read, for `MdView`'s `refs`. */
+export function useRefLook(): RefLook {
+  return useHostValue((host) => host.refLook());
 }
 
 /** How a pointer in rendered text is followed from where the caller is drawn, for `MdView`'s `onFollow`. */

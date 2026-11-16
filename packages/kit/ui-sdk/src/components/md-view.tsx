@@ -1,7 +1,7 @@
 import { createElement, memo, useMemo, type ReactNode } from "react";
 import { cn } from "../lib/cn";
 import { routePointerClick, type Follow } from "../lib/follow";
-import { inlineNodes, type InlineNode, type RefInk } from "../lib/md-edit";
+import { inlineNodes, type InlineNode, type RefLook } from "../lib/md-edit";
 import { KB_TEXT_CLASS } from "../lib/md-inline";
 
 /** DOM attribute names whose React prop is spelled differently. */
@@ -30,13 +30,13 @@ function toReact(node: InlineNode, key: number): ReactNode {
  */
 export const InlineMarkdown = memo(function InlineMarkdown({
   text,
-  ink,
+  refs,
 }: {
   text: string;
-  /** How a reference is inked (`RefInk`); the surface reads the graph. */
-  ink: RefInk;
+  /** How a reference reads (`RefLook`); the surface reads the graph. */
+  refs: RefLook;
 }) {
-  const nodes = useMemo(() => inlineNodes(text, ink), [text, ink]);
+  const nodes = useMemo(() => inlineNodes(text, refs), [text, refs]);
   return <>{nodes.map(toReact)}</>;
 });
 
@@ -50,12 +50,18 @@ interface MdViewProps {
    * handler every caller uses.
    */
   onFollow: Follow;
-  /** How a reference is inked (`RefInk`), for the same reason. */
-  ink: RefInk;
+  /** How a reference reads (`RefLook`), for the same reason. */
+  refs: RefLook;
 }
 
 /** Read-only inline markdown: inked refs, marked links, tinted code, media. */
-export const MdView = memo(function MdView({ text, className, clamp, onFollow, ink }: MdViewProps) {
+export const MdView = memo(function MdView({
+  text,
+  className,
+  clamp,
+  onFollow,
+  refs,
+}: MdViewProps) {
   if (!text) {
     return (
       <div
@@ -85,7 +91,7 @@ export const MdView = memo(function MdView({ text, className, clamp, onFollow, i
         routePointerClick(e, onFollow);
       }}
     >
-      <InlineMarkdown text={text} ink={ink} />
+      <InlineMarkdown text={text} refs={refs} />
     </div>
   );
 });

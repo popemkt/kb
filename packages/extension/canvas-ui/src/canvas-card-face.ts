@@ -57,7 +57,6 @@ import {
 import type { FacePicture } from "./canvas-face-pictures";
 import {
   assetSrcUrl,
-  graphDisplayText,
   graphLabelFont,
   hasText,
   readTokenColor,
@@ -66,6 +65,7 @@ import {
   type OutlineNode,
 } from "@kb/ui-sdk";
 import type { ColorToken } from "@kb/contracts";
+import { nodeName } from "@kb/model";
 
 /** What a card shows, independent of how it is drawn; `style` is how its look paints it. */
 export type CardFace =
@@ -110,7 +110,7 @@ export function cardFaceOf(
   if (isKbNode(item)) {
     const node = nodes.get(item.nodeId);
     if (node === undefined) return { kind: "missing", label: `missing ${item.nodeId}` };
-    const text = graphDisplayText(node.text, (id) => nodes.get(id)?.text);
+    const text = nodeName(item.nodeId, (id) => nodes.get(id)) || "Untitled";
     const tags = node.tags.map((t) => ({ name: t.name, color: t.color }));
     return { kind: "note", text, tags, style: itemPaint(item) };
   }

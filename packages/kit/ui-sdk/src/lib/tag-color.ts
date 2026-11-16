@@ -14,12 +14,11 @@
  *    `tagColorFill`, `tagInk`, `tagChipColors`) — because an explicit `sys.f.color` prop comes back from
  *    `tagColorOf` verbatim, so the value may be `red`, `#f00` or
  *    `oklch(…)`, and appending hex-alpha digits to those produces garbage.
- * 4. **Which ink a reference to a node wears in text** (`refInkOf`): its
+ * 4. **Which ink a reference to a node wears in text** (`refInkIn`): its
  *    target's first tag colour, inked as a chip's text is.
  */
 import type { WireNode } from "@kb/contracts";
 import { present, typeRefsOf, SYSTEM_IDS } from "@kb/model";
-import type { RefInk } from "./md-edit";
 import type { SchemaIndex } from "./schema";
 import { hasText } from "./text";
 import type { TagBadge } from "./types";
@@ -206,23 +205,14 @@ function tagInk(color: string): string {
   return `color-mix(in oklab, ${color}, var(--foreground) var(--tag-ink-mix))`;
 }
 
-const refInks = new WeakMap<SchemaIndex, RefInk>();
-
 /**
- * How references into `schema` are inked in text (`RefInk`): a reference to
- * a tagged node wears its first tag's colour (Tana's), and one to an
- * untagged or missing node the default link colour. One function per schema,
- * so a memo keyed on it survives until the graph changes.
+ * The ink a reference to `id` wears in text: its first tag's colour
+ * (Tana's), inked as a chip's text is, or null — an untagged or missing
+ * target — for the default link colour.
  */
-export function refInkOf(schema: SchemaIndex): RefInk {
-  const cached = refInks.get(schema);
-  if (cached !== undefined) return cached;
-  const ink: RefInk = (id) => {
-    const [color] = nodeTagColors(schema.get(id));
-    return color === undefined ? null : tagInk(color);
-  };
-  refInks.set(schema, ink);
-  return ink;
+export function refInkIn(schema: SchemaIndex, id: string): string | null {
+  const [color] = nodeTagColors(schema.get(id));
+  return color === undefined ? null : tagInk(color);
 }
 
 /** Trim float noise out of generated gradient stops (100/3 → `33.333%`). */

@@ -13,6 +13,14 @@ export {
   syncDomain,
 } from "./errors.ts";
 export { extractMentions, mentionSpans, replaceMentions } from "./mention.ts";
+export {
+  inlineSpanSource,
+  isSafeHref,
+  parseInlineSource,
+  type InlineSeg,
+  type InlineSpan,
+} from "./inline.ts";
+export { nodeName, plainWords, refName } from "./display-text.ts";
 
 export { mergeNodeSets } from "./merge.ts";
 

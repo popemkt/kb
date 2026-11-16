@@ -4,7 +4,7 @@
  * already made for it.
  */
 import { GALLERY_IDS, isTagged, lookOf, type GraphNode } from "@kb/gallery";
-import { plainText } from "@kb/ui-sdk";
+import { plainWords } from "@kb/model";
 
 /** What a look can be for: any node a person made, not the gallery's own looks and visuals. */
 export function isPickable(node: GraphNode): boolean {
@@ -49,12 +49,11 @@ const SEED_CHILDREN = 4;
 
 /** The brief a node seeds: its text, then its first children's, one line each. */
 export function seedOf(node: GraphNode, get: (id: string) => GraphNode | undefined): string {
-  const textOf = (id: string) => get(id)?.text;
-  const lines = [plainText(node.text, textOf)];
+  const lines = [plainWords(node.text, get)];
   for (const id of node.children) {
     if (lines.length > SEED_CHILDREN) break;
     const child = get(id);
-    const line = child === undefined ? "" : plainText(child.text, textOf);
+    const line = child === undefined ? "" : plainWords(child.text, get);
     if (line !== "") lines.push(line);
   }
   return lines.filter((line) => line !== "").join("\n");

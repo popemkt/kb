@@ -3,7 +3,7 @@ import { describeReason } from "@kb/model";
 import { cn, IconButton, MdView } from "@kb/ui-sdk";
 import type { MemberRowModel } from "@/lib/ontology-scope";
 import { useFollow } from "@/stores/follow";
-import { useRefInk } from "@/stores/ref-ink";
+import { useRefLook } from "@/stores/ref-look";
 
 export interface MemberRowProps {
   row: MemberRowModel;
@@ -37,7 +37,7 @@ export function MemberRow({
   excluded = false,
 }: MemberRowProps) {
   const follow = useFollow();
-  const ink = useRefInk();
+  const refs = useRefLook();
   const provenance = excluded
     ? "excluded"
     : row.reasons.map((r) => describeReason(r, labelOf)).join(" · ") || "member";
@@ -76,7 +76,7 @@ export function MemberRow({
         {/* Same renderer as the outline: a member row showed its node text as
             raw source, so bold markers and [[id|label]] refs leaked verbatim
             into the list. Clamped, because these rows are one line tall. */}
-        <MdView text={row.label} className="min-w-0 flex-1" clamp onFollow={follow} ink={ink} />
+        <MdView text={row.label} className="min-w-0 flex-1" clamp onFollow={follow} refs={refs} />
       </button>
 
       <span

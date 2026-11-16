@@ -1,4 +1,5 @@
-import { graphDisplayText, type NodeMap } from "@kb/ui-sdk";
+import { nodeName } from "@kb/model";
+import type { NodeMap } from "@kb/ui-sdk";
 import type { OutlineSnippetParams } from "@kb/views";
 
 export interface SnippetRow {
@@ -14,8 +15,7 @@ export interface SnippetRow {
 export function snippetRows(nodes: NodeMap, params: OutlineSnippetParams): SnippetRow[] {
   const rows: SnippetRow[] = [];
   const seen = new Set<string>();
-  const label = (id: string) =>
-    graphDisplayText(nodes.get(id)?.text ?? "", (ref) => nodes.get(ref)?.text);
+  const label = (id: string) => nodeName(id, (ref) => nodes.get(ref)) || "Untitled";
   const visit = (id: string, depth: number) => {
     if (rows.length >= params.maxRows || seen.has(id) || !nodes.has(id)) return;
     seen.add(id);

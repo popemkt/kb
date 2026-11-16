@@ -17,14 +17,18 @@ import {
   revealMarkupAtSelection,
   serializeEditable,
   setCaretSerializedOffset,
+  type RefLook,
 } from "./md-edit.ts";
 import { InlineMarkdown } from "../components/md-view";
 
-/** No graph behind the text: every reference keeps the default link colour. */
-const PLAIN_INK = (): string | null => null;
+/** No graph behind the text: every reference keeps the default link colour, named by its label, else its id. */
+const PLAIN_INK: RefLook = { ink: () => null, name: (id, label) => label ?? id };
 
 /** One tagged target, `n.tagged`, inked red. */
-const TAGGED_RED = (id: string): string | null => (id === "n.tagged" ? "red" : null);
+const TAGGED_RED: RefLook = {
+  ink: (id) => (id === "n.tagged" ? "red" : null),
+  name: (id, label) => label ?? id,
+};
 
 /** The ink each reference under `root` carries, in order. */
 function refInks(root: HTMLElement): string[] {
@@ -172,17 +176,17 @@ describe("renderInlineMarkdown — one DOM for reading and editing", () => {
       renderInlineMarkdown(el, text, PLAIN_INK);
       const probe = makeEl();
       probe.innerHTML = renderToStaticMarkup(
-        createElement(InlineMarkdown, { text, ink: PLAIN_INK }),
+        createElement(InlineMarkdown, { text, refs: PLAIN_INK }),
       );
       expect(el.innerHTML).toBe(probe.innerHTML);
     }
   });
 
   it("inks a reference by its target, on both builds alike, and leaves links alone", () => {
-    const ink = TAGGED_RED;
+    const refs = TAGGED_RED;
     const text = "[[n.tagged|Tagged]] [[n.plain|Plain]] [x](https://ex.test) https://ex.test";
     const el = makeEl();
-    renderInlineMarkdown(el, text, ink);
+    renderInlineMarkdown(el, text, refs);
     const [tagged, plain] = [...el.querySelectorAll("a.kb-md-ref")];
     expect((tagged as HTMLElement | undefined)?.style.getPropertyValue("--kb-ref-ink")).toBe("red");
     expect(plain?.hasAttribute("style")).toBe(false);
@@ -192,9 +196,9 @@ describe("renderInlineMarkdown — one DOM for reading and editing", () => {
     ]);
     // Inking is part of the tree, so it reads back as the same text.
     expect(serializeEditable(el)).toBe(text);
-    expect(isCanonicalInline(el, text, ink)).toBe(true);
+    expect(isCanonicalInline(el, text, refs)).toBe(true);
     const probe = makeEl();
-    probe.innerHTML = renderToStaticMarkup(createElement(InlineMarkdown, { text, ink }));
+    probe.innerHTML = renderToStaticMarkup(createElement(InlineMarkdown, { text, refs }));
     expect(refInks(probe)).toEqual(refInks(el));
   });
 });
