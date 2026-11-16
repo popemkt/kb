@@ -59,6 +59,7 @@ import {
   isQueryNode,
   isViewNode,
   present,
+  selectionRoots,
   togglesChecked,
   typeRefsOf,
   viewOptionOf,
@@ -74,7 +75,6 @@ import {
   currentContributions,
   isPinned,
   isSysPrefixed,
-  selectionRoots,
   shownNode,
   shownNodeId,
   listOntologyItems,
@@ -638,7 +638,7 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     }),
     // A selected row under another selected row goes with it.
     run: (ctx) => {
-      const roots = selectionRoots(ctx.target.nodeIds, ctx.outline.nodes);
+      const roots = selectionRoots(ctx.target.nodeIds, (id) => ctx.outline.nodes.get(id)?.parentId);
       nodeAction({ ...ctx, target: { ...ctx.target, nodeIds: roots } }, (nodeId) =>
         browserHost().writes.deleteNode(nodeId),
       );
@@ -662,7 +662,7 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     many: true,
     chrome: () => ({ label: "Count words", icon: <TextAaIcon size={14} /> }),
     run: (ctx) => {
-      const roots = selectionRoots(ctx.target.nodeIds, ctx.outline.nodes);
+      const roots = selectionRoots(ctx.target.nodeIds, (id) => ctx.outline.nodes.get(id)?.parentId);
       toast(sayCount(countWords(roots, browserHost().schema())), "info");
       ctx.palette.close();
     },

@@ -127,6 +127,7 @@ export {
 export type { MemberReason, OntologyResolution } from "./ontology.ts";
 export { refValuesOf, strValueOf, typeRefsOf, type NodeLike } from "./node-like.ts";
 export { contextualTargetOf, isContextualRef } from "./contextual-ref.ts";
+export { selectionRoots } from "./selection.ts";
 export {
   isA,
   kindsOf,

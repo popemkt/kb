@@ -27,12 +27,18 @@ import {
   type PaletteStep,
   type PickerCandidate,
   resolveFieldTypeById,
-  selectionRoots,
 } from "@kb/ui-sdk";
 import { outlineNodes, useOutlineStore } from "./outline.store";
 import { moveRows } from "./row-moves";
 import { expandReference, removeReference } from "./reference-steps";
-import { declaresOptionSet, isSysPrefixed, nodeName, SYSTEM_IDS, typeRefsOf } from "@kb/model";
+import {
+  declaresOptionSet,
+  isSysPrefixed,
+  nodeName,
+  selectionRoots,
+  SYSTEM_IDS,
+  typeRefsOf,
+} from "@kb/model";
 
 /**
  * Nodes whose kind slot points at `kind`, by name: the tags (`sys.tag`) the
@@ -211,7 +217,8 @@ function moveStep(words: MoveWords, leavesReference: "enter" | "alt"): PaletteSt
       const firstKey =
         drawn[0]?.instanceKey ?? store.activeInstanceKey ?? store.selectedInstanceKey ?? "";
       const lastKey = drawn.at(-1)?.instanceKey ?? firstKey;
-      const ids = selectionRoots(targetNodeIds, outlineNodes());
+      const nodes = outlineNodes();
+      const ids = selectionRoots(targetNodeIds, (id) => nodes.get(id)?.parentId);
       await moveRows(
         ids,
         { firstKey, lastKey },

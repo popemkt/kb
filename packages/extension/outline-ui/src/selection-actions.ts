@@ -15,13 +15,13 @@ import {
   asOneWrite,
   browserHost,
   childInstanceKey,
-  selectionRoots,
   runKeyCall,
   rowTextOf,
   shownNode,
   shownNodeId,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
+import { selectionRoots } from "@kb/model";
 import type { SelectionKeyAction } from "./selection-keymap";
 import { outlineSource, useOutlineStore, outlineNodes } from "./outline.store";
 import { enterFields } from "./value-slot-nav";
@@ -98,10 +98,11 @@ function zoom({ nodeId, instanceKey }: ActionOf<"zoom">): void {
 function topRows(nodeId: string): { readonly ids: readonly string[]; readonly range: boolean } {
   const rows = useOutlineStore.getState().selectedRows();
   if (rows.length <= 1) return { ids: [nodeId], range: false };
+  const nodes = outlineNodes();
   return {
     ids: selectionRoots(
       rows.map((row) => row.nodeId),
-      outlineNodes(),
+      (id) => nodes.get(id)?.parentId,
     ),
     range: true,
   };

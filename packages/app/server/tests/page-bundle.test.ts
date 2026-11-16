@@ -219,7 +219,10 @@ const DATASCRIPT = /cljs\.core/;
 // The contextual reference's target reader, moved from ui-sdk into @kb/model
 // so an export reads a row as the node it shows, measures 1,997,897; the
 // budget rises by its 43.
-const EAGER_BUDGET_BYTES = 1_999_297;
+// A selection's top rows, moved from ui-sdk into @kb/model so an export
+// picks the rows a move does, measure 1,997,985; the budget rises by their
+// 88.
+const EAGER_BUDGET_BYTES = 1_999_385;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {
