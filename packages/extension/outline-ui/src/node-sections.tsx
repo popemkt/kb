@@ -6,12 +6,13 @@
  */
 import { Suspense } from "react";
 import { useNodeSections } from "@kb/ui-sdk";
+import { SectionHeading } from "./section-heading";
 
 export function NodeSections({ nodeId }: { readonly nodeId: string }) {
   const sections = useNodeSections(nodeId);
   return sections.map(({ id, title, Component }) => (
     <section key={id} className="node-section" data-node-section={id}>
-      <h2 className="mb-1 mt-3 text-meta kb-label text-foreground/30">{title}</h2>
+      <SectionHeading>{title}</SectionHeading>
       <Suspense fallback={null}>
         <Component id={nodeId} />
       </Suspense>

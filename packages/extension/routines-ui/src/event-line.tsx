@@ -22,8 +22,13 @@ import { StatusDot } from "./status-dot";
 const STATE_TEXT = { moved: "Moved", done: "Done", skipped: "Skipped" } as const;
 
 /** The line's look: muted, in the label type, lit while it is hovered. */
+// Its hover ground reaches past its words by its padding on the left as
+// well, so the words start where the row's text column puts the line
+// (DESIGN-UI.md → Outline layout). It is moved there (`-left-1.5`), not
+// pulled by a margin: in the preview's fit-content box a negative margin
+// takes the padding off the width the line is given, and it wraps.
 const LINE_CLASS =
-  "group/line relative flex max-w-full cursor-pointer flex-wrap items-center gap-x-1.5 rounded-md px-1.5 py-0.5 text-label text-muted-foreground focus-within:bg-foreground/[0.04] hover:bg-foreground/[0.04] hover:text-foreground";
+  "group/line relative -left-1.5 flex max-w-full cursor-pointer flex-wrap items-center gap-x-1.5 rounded-md px-1.5 py-0.5 text-label text-muted-foreground focus-within:bg-foreground/[0.04] hover:bg-foreground/[0.04] hover:text-foreground";
 
 /**
  * One of the line's parts, which keeps whole and brings the separator before
@@ -65,6 +70,7 @@ function Described({
     />
   );
   const last = entry.state !== "scheduled" ? "state" : repeat === null ? "when" : "repeat";
+  // GAP [[01M7JJWQH1DFYE2SKW018N1P46]] the calendar's dot is drawn among the words, not in the line's glyph column
   return (
     <span className="block min-w-0 overflow-hidden">
       <span className="-ml-4 flex flex-wrap items-center">

@@ -1,7 +1,6 @@
 import { useCallback, useContext, useEffect } from "react";
 import {
   browserHost,
-  cn,
   isTextEntry,
   nodeTagColors,
   OpenNodeContext,
@@ -32,6 +31,7 @@ import { useRowCopy } from "./row-copy";
 import { setOutlineHost } from "./outline-hosts";
 import { useLeadsOutlines, useOutlineHost } from "./outline-host";
 import { takesRows } from "./takes-rows";
+import { GhostRow } from "./ghost-row";
 
 /**
  * The root's rows. The root is a frame like any other: its view shows its
@@ -53,10 +53,10 @@ function RootRows({ root, view }: { root: OutlineNode; view: FrameViewKey | null
 }
 
 /**
- * The strip under a page's rows that adds one at the end. The page's
- * background is not a create target, only the strip is (F14), and the
- * strip's handler is its own, with no guard (F1). On a page with no rows
- * yet it is the first row's place, and says so without a hover.
+ * The ghost row under a page's rows, which adds one at the end. The page's
+ * background is not a create target, only the row is (F14), and its handler
+ * is its own, with no guard (F1). On a page with no rows yet it is the first
+ * row's place, and says so at rest.
  */
 function CreateStrip({ parentId }: { readonly parentId: string }) {
   const empty = useOutlineNode(parentId)?.children.length === 0;
@@ -64,33 +64,14 @@ function CreateStrip({ parentId }: { readonly parentId: string }) {
     void createTransientNode(parentId, outlineNodes().get(parentId)?.children.slice(-1)[0] ?? null);
   }, [parentId]);
   return (
-    <div
+    <GhostRow
+      depth={0}
+      label="New node"
+      atRest={empty}
+      onAdd={create}
       data-create-child-zone={parentId}
-      role="button"
-      tabIndex={0}
-      aria-label="New node"
-      className="group/create flex h-8 cursor-pointer items-center rounded-sm pl-6 outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-      onClick={create}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          create();
-        }
-      }}
-      title="New node"
       data-create-empty={empty || undefined}
-    >
-      <span
-        className={cn(
-          "text-ui leading-none transition-colors duration-150",
-          empty
-            ? "text-foreground/30 group-hover/create:text-foreground/50"
-            : "text-foreground/0 group-hover/create:text-foreground/25 group-focus-visible/create:text-foreground/25",
-        )}
-      >
-        {empty ? "+ New node" : "+"}
-      </span>
-    </div>
+    />
   );
 }
 

@@ -261,14 +261,24 @@ function classLiterals(
   );
 }
 
-function layerOf(element: AstNode): { layer: Layer; classes: readonly string[] } {
+/** An element's JSX attribute called `name`, if it has one. */
+function attributeOf(element: AstNode, name: string): AstNode | undefined {
   const opening = element["openingElement"] as AstNode;
-  const attr = (opening["attributes"] as unknown[])
+  return (opening["attributes"] as unknown[])
     .filter(isNode)
-    .find(
-      (a) => a.type === "JSXAttribute" && (a["name"] as { name?: string }).name === "className",
-    );
-  const value = attr?.["value"];
+    .find((a) => a.type === "JSXAttribute" && (a["name"] as { name?: string }).name === name);
+}
+
+/**
+ * The layer an element's class attribute paints: `className` for the element
+ * itself, `textClassName` for the text column a line (`OutlineLine`) draws
+ * around its `text`.
+ */
+function layerOf(
+  element: AstNode,
+  name: "className" | "textClassName" = "className",
+): { layer: Layer; classes: readonly string[] } {
+  const value = attributeOf(element, name)?.["value"];
   const grounds: Paint[] = [];
   const texts: Paint[] = [];
   const unresolved: string[] = [];
@@ -336,7 +346,26 @@ function scanModule(file: string, source: string) {
     for (const c of classes) if (!hosts.has(c)) hosts.set(c, own);
     for (const u of layer.unresolved) unresolved.push(`${at}: ${u}`);
     if (holdsText(node)) sites.push({ at, texts, chain: own });
-    for (const child of childrenOf(node)) walk(child, own, texts);
+    // A line's text column is a layer inside the line, and its `text` is
+    // drawn there: walked under that layer, everything else under the line.
+    const column =
+      attributeOf(node, "textClassName") === undefined ? null : layerOf(node, "textClassName");
+    const textValue = attributeOf(node, "text");
+    if (column === null || textValue === undefined) {
+      for (const child of childrenOf(node)) walk(child, own, texts);
+      return;
+    }
+    const inColumn = [...own, column.layer];
+    for (const c of column.classes) if (!hosts.has(c)) hosts.set(c, inColumn);
+    for (const u of column.layer.unresolved) unresolved.push(`${at}: ${u}`);
+    walk(textValue, inColumn, textsOf(column.layer.texts, texts));
+    for (const child of childrenOf(node)) {
+      if (child.type !== "JSXOpeningElement") {
+        walk(child, own, texts);
+        continue;
+      }
+      for (const part of childrenOf(child)) if (part !== textValue) walk(part, own, texts);
+    }
   };
   walk(parseSync(file, source).program as unknown as AstNode, [], ROOT_TEXT);
   return { sites, hosts, unresolved };

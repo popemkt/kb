@@ -1,10 +1,9 @@
 import { WarningIcon, type Icon } from "@phosphor-icons/react";
 import { cn } from "../lib/cn";
 import { followHowOf, nodeTarget, type Follow } from "../lib/follow";
-import { indentStyle } from "../lib/indent";
+import { FIELD_LABEL } from "../lib/indent";
 import { IconButton } from "./icon-button";
-
-const FIELD_LABEL_WIDTH = 120;
+import { OutlineLine } from "./outline-line";
 
 export interface FieldRowProps {
   depth?: number;
@@ -32,65 +31,65 @@ export interface FieldRowProps {
 }
 
 /**
- * The label column: the field's type glyph and its name.
- *
- * A value-only row (a table cell) has no label column at all, so this is one
- * slot the row either fills or does not — not four `!valueOnly &&` guards
- * spread through one component.
+ * The field's type glyph, for the row's glyph column. Given a field node and
+ * a follow, it is the field's own button: the field is a node, and its page
+ * is where it is configured, so the glyph opens it (⌘/Ctrl-click reveals it
+ * in place). A row that stands for no field node (a preference) has nothing
+ * to open, and draws it still.
  */
-function FieldLabel({
+function FieldGlyph({
   icon: Glyph,
+  fieldId,
+  label,
+  onFollow,
+}: Pick<FieldRowProps, "icon" | "fieldId" | "label" | "onFollow">) {
+  if (fieldId === undefined || onFollow === undefined) return <InertGlyph icon={Glyph} />;
+  return (
+    <IconButton
+      size="md"
+      weight="regular"
+      icon={Glyph}
+      label={`Configure field ${label}`}
+      data-field-configure={fieldId}
+      onClick={(e) => {
+        e.stopPropagation();
+        onFollow(nodeTarget(fieldId), followHowOf(e));
+      }}
+    />
+  );
+}
+
+/** The field's name, on the text column, as wide as the label column. */
+function FieldName({
   fieldId,
   label,
   labelTitle,
   debug,
-  onFollow,
-}: Pick<FieldRowProps, "icon" | "fieldId" | "label" | "labelTitle" | "debug" | "onFollow"> & {
-  debug: boolean;
-}) {
+}: Pick<FieldRowProps, "fieldId" | "label" | "labelTitle"> & { debug: boolean }) {
   return (
-    <>
-      {fieldId !== undefined && onFollow !== undefined ? (
-        <IconButton
-          size="md"
-          weight="regular"
-          icon={Glyph}
-          label={`Configure field ${label}`}
-          className="self-start"
-          data-field-configure={fieldId}
-          onClick={(e) => {
-            e.stopPropagation();
-            onFollow(nodeTarget(fieldId), followHowOf(e));
-          }}
-        />
-      ) : (
-        // A row that stands for no field node (a preference) has nothing to open.
-        <InertGlyph icon={Glyph} />
+    <span
+      className={cn(
+        "flex h-6 shrink-0 items-start self-start truncate pt-px",
+        // Same type scale as node text — only the tint differs (Tana).
+        "kb-text",
+        debug ? "text-foreground/25" : "text-faint-foreground",
       )}
-
-      <span
-        className={cn(
-          "flex h-6 shrink-0 items-start self-start truncate pl-1 pt-px",
-          // Same type scale as node text — only the tint differs (Tana).
-          "kb-text",
-          debug ? "text-foreground/25" : "text-faint-foreground",
-        )}
-        style={{ width: `${FIELD_LABEL_WIDTH}px` }}
-        title={labelTitle ?? (fieldId !== undefined ? `${label} (${fieldId})` : label)}
-      >
-        <span className="truncate">{label}</span>
-        {debug && fieldId !== undefined && (
-          <span className="ml-1 truncate font-mono text-caption text-foreground/25">{fieldId}</span>
-        )}
-      </span>
-    </>
+      style={FIELD_LABEL}
+      data-field-name=""
+      title={labelTitle ?? (fieldId !== undefined ? `${label} (${fieldId})` : label)}
+    >
+      <span className="truncate">{label}</span>
+      {debug && fieldId !== undefined && (
+        <span className="ml-1 truncate font-mono text-caption text-foreground/25">{fieldId}</span>
+      )}
+    </span>
   );
 }
 
 /** The glyph of a row with no field node behind it: the icon button's box, drawn still. */
 function InertGlyph({ icon: Glyph }: { icon: Icon }) {
   return (
-    <span className="flex h-6 w-6 shrink-0 items-center justify-center self-start text-foreground/25">
+    <span className="flex h-6 w-6 items-center justify-center text-foreground/25">
       <Glyph size={13} aria-hidden />
     </span>
   );
@@ -110,8 +109,9 @@ function MismatchWarning() {
 }
 
 /** DESIGN-RESKIN §1.4 — the one field row everywhere (outline, prefs, …).
- * Single source of alignment: label col top-aligned to first value line.
- * Icon + label slots use h-6 baseline; value slot is first-line-flex via items-start.
+ * It is the outline's line (`OutlineLine`): the type glyph in the glyph
+ * column, the name from the text column, the value after the label column.
+ * Label and glyph are top-aligned to the value's first line.
  */
 export function FieldRow({
   depth = 0,
@@ -126,39 +126,55 @@ export function FieldRow({
   children,
   className,
 }: FieldRowProps) {
+  const attributes = {
+    "data-field-row": "true",
+    "data-field": fieldId,
+    "data-field-value-only": valueOnly ? "true" : undefined,
+    "data-debug-field": debug ? "true" : undefined,
+    "data-field-mismatch": mismatch ? "true" : undefined,
+  };
+  const value = (
+    <>
+      {mismatch && <MismatchWarning />}
+      <div
+        className={cn("min-w-0 flex-1 self-start", valueOnly ? "px-0" : "px-1")}
+        data-field-value-column=""
+      >
+        {children}
+      </div>
+    </>
+  );
+  // A table cell is the value alone: no line, so no columns.
+  if (valueOnly) {
+    return (
+      <div
+        className={cn("field-row group/field flex items-start gap-0 py-0", className)}
+        {...attributes}
+      >
+        {value}
+      </div>
+    );
+  }
   return (
-    <div
+    <OutlineLine
+      depth={depth + 1}
+      glyph={<FieldGlyph icon={icon} fieldId={fieldId} label={label} onFollow={onFollow} />}
+      text={
+        <>
+          <FieldName fieldId={fieldId} label={label} labelTitle={labelTitle} debug={debug} />
+          {value}
+        </>
+      }
+      textClassName="flex items-start"
       className={cn(
-        "field-row group/field flex items-start gap-0 py-1",
+        "field-row group/field gap-0 py-1",
         // Tana's field separators appear on hover only. The border is always
         // present and merely transparent, so revealing it cannot shift the row.
-        !valueOnly &&
-          "border-y border-transparent transition-colors hover:border-foreground/[0.07]",
+        "border-y border-transparent transition-colors hover:border-foreground/[0.07]",
         debug && "opacity-90",
-        valueOnly && "py-0",
         className,
       )}
-      style={valueOnly ? undefined : indentStyle(depth + 1)}
-      data-field-row="true"
-      data-field={fieldId}
-      data-field-value-only={valueOnly ? "true" : undefined}
-      data-debug-field={debug ? "true" : undefined}
-      data-field-mismatch={mismatch ? "true" : undefined}
-    >
-      {!valueOnly && (
-        <FieldLabel
-          icon={icon}
-          fieldId={fieldId}
-          label={label}
-          labelTitle={labelTitle}
-          debug={debug}
-          onFollow={onFollow}
-        />
-      )}
-
-      {mismatch && <MismatchWarning />}
-
-      <div className={cn("min-w-0 flex-1 self-start", valueOnly ? "px-0" : "px-1")}>{children}</div>
-    </div>
+      {...attributes}
+    />
   );
 }

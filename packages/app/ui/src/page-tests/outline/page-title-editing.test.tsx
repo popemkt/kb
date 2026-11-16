@@ -135,7 +135,7 @@ describe("the page title's edit", () => {
     });
     const strip = container.querySelector(`[data-create-child-zone="${EMPTY}"]`);
     expect(strip?.getAttribute("data-create-empty")).toBe("true");
-    expect(strip?.textContent).toBe("+ New node");
+    expect(strip?.textContent).toBe("New node");
 
     const title = container.querySelector<HTMLElement>('[data-zoom-title="true"]');
     await act(async () => {

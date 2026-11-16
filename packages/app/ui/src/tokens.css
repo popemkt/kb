@@ -21,6 +21,11 @@
   /* Row metrics scale with the design system's density (24px at density 1). */
   --kb-indent: calc(24px * var(--density));
   --kb-row-h: calc(24px * var(--density));
+  /* The outline grid (DESIGN-UI.md → Outline layout): a line's lead glyph is
+   * centred in a box this wide, and its text starts this far after the box.
+   * Read only by `@kb/ui-sdk`'s lib/indent.ts, the grid's one owner. */
+  --kb-glyph: 24px;
+  --kb-text-inset: 4px;
 
   --kb-text-leading: 1.6;
   --kb-text-weight: var(--font-weight-body, 400);
@@ -33,6 +38,7 @@
   --tag-h: calc(var(--kb-text-line) - 4px);
   --tag-line: var(--tag-h);
   --tag-weight: var(--font-weight-ui, 500);
+  /* A field row's label column, from the text column to the value column. */
   --kb-field-label: 120px;
 }
 
@@ -222,20 +228,22 @@
  * Two kinds of link, told apart the Tana way (DESIGN-UI → Links are two
  * kinds). A reference stays in the graph: no mark, and its target's tag ink
  * when it has one (`--kb-ref-ink`, set per reference by `RefInk`). A link
- * leaves it: the external-link mark before its label, drawn in the link's
- * own colour. The mark is a pseudo-element, so it is never text — the
- * editor's serialized string and caret offsets cannot see it.
+ * leaves it: the external-link mark after its label, drawn in the link's
+ * own colour. After, so a row or a value that starts with a link starts its
+ * words on the text column (DESIGN-UI.md → Outline layout). The mark is a
+ * pseudo-element, so it is never text — the editor's serialized string and
+ * caret offsets cannot see it.
  */
 .kb-md-ref {
   color: var(--kb-ref-ink, var(--primary));
 }
 
-.kb-md-link::before {
+.kb-md-link::after {
   content: "";
   display: inline-block;
   width: 0.8em;
   height: 0.8em;
-  margin-inline-end: 0.2em;
+  margin-inline-start: 0.2em;
   vertical-align: -0.05em;
   background-color: currentColor;
   /* Phosphor's arrow-square-out, the outward mark the app's icons already use. */

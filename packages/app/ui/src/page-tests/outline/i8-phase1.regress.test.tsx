@@ -80,16 +80,13 @@ describe("i8 Phase 1 regressions (R9 B-table)", () => {
     resetPushLaneForTests();
   });
 
-  it("F1/B1: clicking the '+' strip mints exactly one node (glyph bubble-safe)", async () => {
-    await act(async () => {
-      root.render(<OutlineEditor />);
-    });
-    act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
+  it("F1/B1: clicking the ghost row mints exactly one node (glyph bubble-safe)", async () => {
     await act(async () => {
       root.render(<OutlineEditor />);
     });
     const before = useGraphStore.getState().wireNodes.length;
-    const strip = container.querySelector('[data-create-child-zone="n.root-a"]') as HTMLElement;
+    // The page's own ghost row, under its rows (DESIGN-UI.md → "A ghost row is an add row").
+    const strip = [...container.querySelectorAll('[data-ghost-row="true"]')].at(-1) as HTMLElement;
     expect(strip).toBeTruthy();
     // Dispatch on the glyph to prove guard-free: glyph bubble reaches strip handler
     const glyph = strip.querySelector("span") as HTMLElement;

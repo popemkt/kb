@@ -166,6 +166,7 @@ export { InlineMarkdown, MdView } from "./components/md-view";
 export { NodeLinkRow } from "./components/node-link-row";
 export { NodeSectionPoint, useNodeSections, type NodeSectionProps } from "./lib/node-sections";
 export { NodeRow } from "./components/node-row";
+export { OutlineLine } from "./components/outline-line";
 export { menuAnchor, menuAnchorOf } from "./lib/menu-anchor";
 export {
   type CaretIntent,
@@ -439,7 +440,7 @@ export {
   useFollowThrough,
 } from "./lib/follow";
 export { type GraphLabelFace, graphLabelFont, wrapGraphLabel } from "./lib/graph-label";
-export { guideLineStyle, indentStyle } from "./lib/indent";
+export { guideLineStyle, HANGING_GLYPH, indentStyle } from "./lib/indent";
 export { keptLoad } from "./lib/kept-load";
 export { isCompositionKey, keyChordEvent } from "./lib/keychord";
 export { currentKeymap, type KeyCall, keyCallOf, runKeyCall, tellKeymaps } from "./lib/keybindings";

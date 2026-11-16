@@ -4,6 +4,7 @@ import {
   Bullet,
   MdView,
   NodeRow,
+  OutlineLine,
   queryFieldCarriers,
   queryTaggedInstances,
   type SchemaHit,
@@ -14,6 +15,7 @@ import {
   useOpenNode,
   useRefLook,
 } from "@kb/ui-sdk";
+import { SectionHeading } from "./section-heading";
 import { TagFieldsConfig } from "./tag-fields-config";
 
 /**
@@ -40,16 +42,17 @@ export function SchemaSection({ nodeId }: { nodeId: string }) {
   const title = kind === "tag" ? "Tagged instances" : "Nodes with this field";
 
   return (
-    <section className="mt-6 border-t border-foreground/[0.06] px-1 pt-4">
+    <section className="mt-6 border-t border-foreground/[0.06] pt-4">
       {kind === "tag" && <TagFieldsConfig tagId={nodeId} />}
-      <h2 className="mb-2 px-1 text-meta kb-label text-foreground/30">
-        {title}
-        <span className="ml-1.5 font-normal normal-case tracking-normal">({hits.length})</span>
-      </h2>
+      <SectionHeading count={hits.length}>{title}</SectionHeading>
       {hits.length === 0 ? (
-        <p className="px-1 text-ui text-foreground/50" role="status" aria-busy={!settled}>
-          {settled ? "None yet" : "Loading…"}
-        </p>
+        <OutlineLine
+          depth={0}
+          role="status"
+          aria-busy={!settled}
+          textClassName="text-ui text-foreground/50"
+          text={settled ? "None yet" : "Loading…"}
+        />
       ) : (
         hits.map((hit) => (
           <SchemaInstanceRow

@@ -31,6 +31,7 @@ import {
   type RejectedInput,
   type ValueSurfaceProps,
   nameIn,
+  HANGING_GLYPH,
 } from "@kb/ui-sdk";
 import { useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import { parseDateInput, parseDay } from "@kb/model";
@@ -581,51 +582,55 @@ function ResolvedRefRow({
   name: string;
   onFollow: Follow;
 }) {
+  // A row on the value column, its bullet hung in the label's last glyph
+  // column, so its words start where every value's do.
   return (
-    <NodeRow
-      depth={0}
-      nodeId={refId}
-      className="cursor-pointer"
-      bullet={
-        <Bullet
-          node={{ ...target, collapsed: true }}
-          isRef
-          onClick={(e) => {
-            e.stopPropagation();
-            // A value's bullet has nothing of its own to expand, so it follows.
-            const intent = bulletClickIntent(e, false);
-            if (intent !== "toggle") onFollow(nodeTarget(refId), intent);
-          }}
-        />
-      }
-      content={
-        <>
-          {/* The label is a pointer segment: a plain click follows it, the
+    <div style={HANGING_GLYPH}>
+      <NodeRow
+        depth={0}
+        nodeId={refId}
+        className="cursor-pointer"
+        bullet={
+          <Bullet
+            node={{ ...target, collapsed: true }}
+            isRef
+            onClick={(e) => {
+              e.stopPropagation();
+              // A value's bullet has nothing of its own to expand, so it follows.
+              const intent = bulletClickIntent(e, false);
+              if (intent !== "toggle") onFollow(nodeTarget(refId), intent);
+            }}
+          />
+        }
+        content={
+          <>
+            {/* The label is a pointer segment: a plain click follows it, the
               way a `[[ref]]` pill does. The rest of the row edits the value.
               A resolved target's name is the label; the caller's
               `display` is only ever a fallback for an *un*resolved id. */}
-          <span
-            className={cn(
-              KB_TEXT_CLASS,
-              "min-w-0 cursor-pointer truncate text-foreground/70 hover:underline",
-              "decoration-foreground/25 underline-offset-2",
+            <span
+              className={cn(
+                KB_TEXT_CLASS,
+                "min-w-0 cursor-pointer truncate text-foreground/70 hover:underline",
+                "decoration-foreground/25 underline-offset-2",
+              )}
+              {...{ [KB_REF_ID_ATTR]: refId }}
+            >
+              {name || "​"}
+            </span>
+            {target.tags.length > 0 && (
+              <TagChipGroup
+                tags={target.tags}
+                onTagClick={(tag, e) => {
+                  e.stopPropagation();
+                  onFollow(nodeTarget(tag.id), "open");
+                }}
+              />
             )}
-            {...{ [KB_REF_ID_ATTR]: refId }}
-          >
-            {name || "​"}
-          </span>
-          {target.tags.length > 0 && (
-            <TagChipGroup
-              tags={target.tags}
-              onTagClick={(tag, e) => {
-                e.stopPropagation();
-                onFollow(nodeTarget(tag.id), "open");
-              }}
-            />
-          )}
-        </>
-      }
-    />
+          </>
+        }
+      />
+    </div>
   );
 }
 
