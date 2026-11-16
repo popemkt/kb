@@ -21,6 +21,9 @@
         "tests-render/server/server.ts"
       ]
     },
+    "packages/infrastructure/file-write": {
+      "entry": ["tests/*.test.ts", "tests/older/*.ts"]
+    },
     "packages/app/ui": {
       "entry": ["vite.sandbox.config.ts", "src/sandbox/frame.ts"]
     },

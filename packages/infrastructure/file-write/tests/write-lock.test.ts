@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Cause, Effect, Exit, Fiber } from "effect";
@@ -15,20 +15,53 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-/** A Bun process's argv that executes `body` with the lock API imported. */
-const lockArgv = (body: string) => [
+/**
+ * A Bun process's argv that executes `body` with a lock API imported: this
+ * one, or an older kb's.
+ */
+const lockArgv = (body: string, lockModule = "./src/index.ts") => [
   process.execPath,
   "-e",
   `
       import { Effect } from "effect";
       import { readFileSync, writeFileSync } from "node:fs";
-      import { acquireFileWriteLockEffect, releaseFileWriteLock } from "./src/index.ts";
+      import { acquireFileWriteLockEffect, releaseFileWriteLock } from ${JSON.stringify(lockModule)};
       const file = ${JSON.stringify(file)};
       ${body}
     `,
 ];
-/** Run from this package, so `./src/index.ts` resolves. */
+/** Run from this package, so the lock modules resolve. */
 const PACKAGE_DIR = join(import.meta.dir, "..");
+
+/** Read the counter, yield, and write it back plus one: a second holder loses an increment. */
+const increments = (each: number) => `
+      for (let i = 0; i < ${each}; i++) {
+        await Effect.runPromise(Effect.acquireUseRelease(
+          acquireFileWriteLockEffect(file),
+          () => Effect.promise(async () => {
+            const n = Number(readFileSync(file, "utf8"));
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            writeFileSync(file, String(n + 1));
+          }),
+          (lock) => Effect.sync(() => releaseFileWriteLock(lock)),
+        ));
+      }`;
+
+/** A child's stdout as it arrives, so a test can wait for a line or see it has not come. */
+function watchOutput(stdout: ReadableStream<Uint8Array>) {
+  let text = "";
+  void (async () => {
+    const decoder = new TextDecoder();
+    for await (const chunk of stdout) text += decoder.decode(chunk, { stream: true });
+  })();
+  const seen = (line: string) => text.split("\n").includes(line);
+  return {
+    seen,
+    until: async (line: string) => {
+      while (!seen(line)) await Bun.sleep(10);
+    },
+  };
+}
 
 describe("file write lock", () => {
   /*
@@ -40,21 +73,11 @@ describe("file write lock", () => {
     const processes = 6;
     const each = 25;
     const children = Array.from({ length: processes }, () =>
-      Bun.spawn(
-        lockArgv(`
-      for (let i = 0; i < ${each}; i++) {
-        await Effect.runPromise(Effect.acquireUseRelease(
-          acquireFileWriteLockEffect(file),
-          () => Effect.promise(async () => {
-            const n = Number(readFileSync(file, "utf8"));
-            await new Promise((resolve) => setTimeout(resolve, 0));
-            writeFileSync(file, String(n + 1));
-          }),
-          (lock) => Effect.sync(() => releaseFileWriteLock(lock)),
-        ));
-      }`),
-        { cwd: PACKAGE_DIR, stdout: "ignore", stderr: "pipe" },
-      ),
+      Bun.spawn(lockArgv(increments(each)), {
+        cwd: PACKAGE_DIR,
+        stdout: "ignore",
+        stderr: "pipe",
+      }),
     );
     for (const child of children) expect(await child.exited).toBe(0);
     expect(Number(readFileSync(file, "utf8"))).toBe(processes * each);
@@ -124,5 +147,124 @@ describe("file write lock", () => {
     expect(readFileSync(lock, "utf8").trim()).toBe(String(process.pid));
     releaseFileWriteLock(lock);
     expect(existsSync(lock)).toBe(false);
+  });
+
+  test("an empty lock file is an older kb writing its pid while young, and nobody's once old", async () => {
+    // The released lock creates its file empty and writes its pid after.
+    writeFileSync(lockPathFor(file), "");
+    const waiter = Effect.runFork(acquireFileWriteLockEffect(file));
+    await Bun.sleep(300);
+    expect(waiter.pollUnsafe()).toBeUndefined();
+    await Effect.runPromise(Fiber.interrupt(waiter));
+    utimesSync(lockPathFor(file), 0, 0);
+    const lock = await Effect.runPromise(acquireFileWriteLockEffect(file));
+    expect(readFileSync(lock, "utf8").trim()).toBe(String(process.pid));
+    releaseFileWriteLock(lock);
+  });
+});
+
+/*
+ * During an update an older kb, which takes no flock and holds the lock by
+ * its pid in the file, runs beside this one. Each is run here as a real
+ * process against the other. Goes with the older-writer reading (todo
+ * 01M7K50TFYFRWRJBTQ8V76489P).
+ */
+describe.each([
+  { kb: "the released pid-file lock", lockModule: "./tests/older/released.ts" },
+  { kb: "#267's linked pid-file lock", lockModule: "./tests/older/linked.ts" },
+])("an older kb beside this one ($kb)", ({ lockModule }) => {
+  test("an older kb holding the lock keeps this one out until it lets go", async () => {
+    const older = Bun.spawn(
+      lockArgv(
+        `
+      const lock = await Effect.runPromise(acquireFileWriteLockEffect(file));
+      console.log("held");
+      await Bun.stdin.text();
+      releaseFileWriteLock(lock);`,
+        lockModule,
+      ),
+      { cwd: PACKAGE_DIR, stdin: "pipe", stdout: "pipe", stderr: "pipe" },
+    );
+    await watchOutput(older.stdout).until("held");
+    const waiter = Effect.runFork(acquireFileWriteLockEffect(file));
+    await Bun.sleep(300);
+    expect(waiter.pollUnsafe()).toBeUndefined();
+    await older.stdin.end();
+    expect(await older.exited).toBe(0);
+    const lock = await Effect.runPromise(Fiber.join(waiter));
+    expect(readFileSync(lock, "utf8").trim()).toBe(String(process.pid));
+    releaseFileWriteLock(lock);
+  });
+
+  test("this one holding the lock keeps an older kb out until it lets go", async () => {
+    const lock = await Effect.runPromise(acquireFileWriteLockEffect(file));
+    const older = Bun.spawn(
+      lockArgv(
+        `
+      console.log("waiting");
+      const lock = await Effect.runPromise(acquireFileWriteLockEffect(file));
+      console.log("held");
+      releaseFileWriteLock(lock);`,
+        lockModule,
+      ),
+      { cwd: PACKAGE_DIR, stdout: "pipe", stderr: "pipe" },
+    );
+    const output = watchOutput(older.stdout);
+    await output.until("waiting");
+    await Bun.sleep(300);
+    expect(output.seen("held")).toBe(false);
+    releaseFileWriteLock(lock);
+    await output.until("held");
+    expect(await older.exited).toBe(0);
+  });
+
+  test("an older kb's live lock times this one out, naming it", async () => {
+    const older = Bun.spawn(
+      lockArgv(
+        `
+      await Effect.runPromise(acquireFileWriteLockEffect(file));
+      console.log("held");
+      await Bun.stdin.text();`,
+        lockModule,
+      ),
+      { cwd: PACKAGE_DIR, stdin: "pipe", stdout: "pipe", stderr: "pipe" },
+    );
+    await watchOutput(older.stdout).until("held");
+    const exit = await Effect.runPromise(
+      Effect.gen(function* () {
+        const waiter = yield* Effect.forkChild(acquireFileWriteLockEffect(file));
+        yield* TestClock.adjust(15_100);
+        return yield* Fiber.await(waiter);
+      }).pipe(Effect.provide(TestClock.layer())),
+    );
+    await older.stdin.end();
+    await older.exited;
+    expect(Exit.isFailure(exit)).toBe(true);
+    if (Exit.isFailure(exit)) {
+      expect(String(Cause.squash(exit.cause))).toContain(
+        `held by pid ${older.pid}, an older kb that does not take the kernel lock`,
+      );
+    }
+  });
+
+  // One older writer: two of them could still race each other, as before.
+  test("writers of both kinds never lose a write", async () => {
+    const each = 20;
+    const children = [
+      Bun.spawn(lockArgv(increments(each), lockModule), {
+        cwd: PACKAGE_DIR,
+        stdout: "ignore",
+        stderr: "pipe",
+      }),
+      ...Array.from({ length: 3 }, () =>
+        Bun.spawn(lockArgv(increments(each)), {
+          cwd: PACKAGE_DIR,
+          stdout: "ignore",
+          stderr: "pipe",
+        }),
+      ),
+    ];
+    for (const child of children) expect(await child.exited).toBe(0);
+    expect(Number(readFileSync(file, "utf8"))).toBe(children.length * each);
   });
 });

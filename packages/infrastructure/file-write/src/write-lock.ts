@@ -9,8 +9,16 @@
  * there is no stale detection and no takeover. The holder removes the file
  * while it still holds it; an acquirer that locked a file no longer at the
  * path lets it go and tries again, so two writers never lock two different
- * files. The file holds the holder's pid only to name it in a timeout.
- * DESIGN.md → JSONL store → write hardening.
+ * files. The file holds the holder's pid, to name it in a timeout and for
+ * an older kb (below). DESIGN.md → JSONL store → write hardening.
+ *
+ * An older kb, from before this lock, takes no flock: it holds the lock by
+ * keeping its live pid in the file, and takes a file whose pid is dead or
+ * missing. So the file is never without a live pid (created whole, by a
+ * hard link, and overwritten in place), and a writer holding the flock
+ * still waits on a live pid that an older kb wrote. Ours is right-aligned
+ * in a fixed field, so theirs is any other form. That reading goes one
+ * release after this ships (todo 01M7K50TFYFRWRJBTQ8V76489P).
  *
  * Acquisition takes the lock without blocking and sleeps via Effect.sleep
  * between tries (never Bun.sleepSync), so concurrent commits on the same
@@ -21,20 +29,34 @@ import {
   closeSync,
   fstatSync,
   ftruncateSync,
+  linkSync,
   mkdirSync,
   openSync,
   readFileSync,
+  readSync,
   statSync,
   unlinkSync,
+  writeFileSync,
   writeSync,
 } from "node:fs";
 import { dirname } from "node:path";
-import { Clock, Duration, Effect } from "effect";
+import { Clock, Duration, Effect, Predicate } from "effect";
 import { domainError, type DomainError } from "@kb/model";
 
 const LOCK_SUFFIX = ".lock";
 const SPIN_MS = 25;
 const MAX_WAIT_MS = 15_000;
+/**
+ * How long an empty lock file is an older kb's that has yet to write its
+ * pid. Ours is never empty; an older kb writes its pid within microseconds
+ * of creating the file, or crashed doing so.
+ */
+const UNWRITTEN_GRACE_MS = 2_000;
+/** A holder's pid is right-aligned in this many characters, then a newline. */
+const RECORD_WIDTH = 12;
+
+/** Temp names are pid + sequence, unique without the clock or randomness (as durable-replace's). */
+let tmpSeq = 0;
 
 const LOCK_EX = 2;
 const LOCK_NB = 4;
@@ -117,24 +139,125 @@ function isAtPath(fd: number, lockPath: string): boolean {
   }
 }
 
-const openLock = (lockPath: string): number => {
-  mkdirSync(dirname(lockPath), { recursive: true });
-  return openSync(lockPath, "a+", 0o600);
-};
+/** The `code` of a thrown node fs/process error, when it carries one. */
+function errnoCode(err: unknown): string | undefined {
+  return Predicate.hasProperty(err, "code") && typeof err.code === "string" ? err.code : undefined;
+}
 
-function readLockPid(lockPath: string): number | null {
+function pidAlive(pid: number): boolean {
   try {
-    const pid = Number(readFileSync(lockPath, "utf8").trim());
-    return Number.isInteger(pid) && pid > 0 ? pid : null;
-  } catch {
-    return null;
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    // EPERM: the process exists but this one may not signal it.
+    return errnoCode(err) === "EPERM";
   }
 }
 
-/** Record this process as the holder, for a waiter's timeout to name. */
+/** This process as the file names its holder: an older kb reads it as a pid. */
+const holderRecord = (pid: number): string => `${String(pid).padStart(RECORD_WIDTH)}\n`;
+
+/** Whether a holder that takes the flock wrote this, rather than an older kb. */
+const isHolderRecord = (text: string): boolean =>
+  text.length === RECORD_WIDTH + 1 && /^ +[1-9][0-9]*\n$/.test(text);
+
+/**
+ * Open the lock file at the path, creating it whole when there is none: the
+ * pid is in it from the moment it exists, so an older kb never reads an
+ * empty lock as a dead holder's.
+ */
+function openLock(lockPath: string): number {
+  mkdirSync(dirname(lockPath), { recursive: true });
+  for (;;) {
+    try {
+      return openSync(lockPath, "r+");
+    } catch (err) {
+      if (errnoCode(err) !== "ENOENT") throw err;
+    }
+    // Overwrite, not exclusive: a temp at this name is a dead process's that had this pid.
+    const tmp = `${lockPath}.${process.pid}.${tmpSeq++}.tmp`;
+    writeFileSync(tmp, holderRecord(process.pid), { mode: 0o600 });
+    try {
+      linkSync(tmp, lockPath);
+    } catch (err) {
+      if (errnoCode(err) !== "EEXIST") throw err;
+    } finally {
+      unlinkSync(tmp);
+    }
+  }
+}
+
+function readLockText(fd: number): string {
+  const buffer = Buffer.alloc(64);
+  return buffer.toString("utf8", 0, readSync(fd, buffer, 0, buffer.length, 0));
+}
+
+/** The pid an older kb's lock names, alive or not; null when it names none. */
+function olderPid(text: string): number | null {
+  const pid = Number(text.trim());
+  return Number.isInteger(pid) && pid > 0 ? pid : null;
+}
+
+/**
+ * Whether an older kb holds the lock this fd has the flock on: its live pid
+ * is in the file, or it has just created the file and not yet written one.
+ */
+function olderKbHolds(fd: number, nowMs: number): boolean {
+  const text = readLockText(fd);
+  if (isHolderRecord(text)) return false;
+  if (text === "") return nowMs - fstatSync(fd).mtimeMs <= UNWRITTEN_GRACE_MS;
+  const pid = olderPid(text);
+  return pid !== null && pid !== process.pid && pidAlive(pid);
+}
+
+/**
+ * Record this process as the holder, over whatever pid is there and without
+ * emptying the file first, so an older kb never sees it without a live pid.
+ */
 function writeHolder(fd: number): void {
-  ftruncateSync(fd, 0);
-  writeSync(fd, `${process.pid}\n`, 0);
+  const record = holderRecord(process.pid);
+  writeSync(fd, record, 0);
+  ftruncateSync(fd, record.length);
+}
+
+/**
+ * Try once to enter on this file: take the flock, then make sure no older kb
+ * holds the file, then record this process and check the file is still the
+ * one at the path. Lets the flock go unless it enters.
+ */
+function tryEnter(fd: number, lockPath: string, nowMs: number): boolean {
+  if (!tryLock(fd)) return false;
+  if (!olderKbHolds(fd, nowMs)) {
+    writeHolder(fd);
+    if (isAtPath(fd, lockPath)) return true;
+  }
+  flockOf().flock(fd, LOCK_UN);
+  return false;
+}
+
+/** Who a waiter that gave up was waiting on, for its error. */
+function describeHolder(lockPath: string): {
+  readonly holder: number | null;
+  readonly note: string;
+} {
+  let text: string;
+  try {
+    text = readFileSync(lockPath, "utf8");
+  } catch {
+    return { holder: null, note: "" };
+  }
+  if (isHolderRecord(text)) {
+    const holder = Number(text.trim());
+    return { holder, note: ` (held by pid ${holder})` };
+  }
+  const holder = olderPid(text);
+  return {
+    holder,
+    note:
+      holder === null
+        ? ""
+        : ` (held by pid ${holder}, an older kb that does not take the kernel lock: stop it to write)`,
+  };
 }
 
 const lockFailure = (lockPath: string, step: string) => (err: unknown) =>
@@ -158,31 +281,27 @@ export const acquireFileWriteLockEffect = Effect.fn("kb.acquireWriteLock")(funct
   const spin = Effect.gen(function* () {
     const started = yield* Clock.currentTimeMillis;
     for (;;) {
+      const now = yield* Clock.currentTimeMillis;
       const got = yield* Effect.try({
         try: () => {
-          if (!tryLock(fd)) return false;
-          if (isAtPath(fd, lockPath)) return true;
-          // The holder before removed this file as it let go: lock the one there now.
+          if (tryEnter(fd, lockPath, now)) return true;
+          if (isAtPath(fd, lockPath)) return false;
+          // The holder before removed this file as it let go: try the one there now.
           closeSync(fd);
           fd = openLock(lockPath);
-          return tryLock(fd) && isAtPath(fd, lockPath);
+          return tryEnter(fd, lockPath, now);
         },
         catch: lockFailure(lockPath, "acquire"),
       });
       if (got) {
-        yield* Effect.try({
-          try: () => writeHolder(fd),
-          catch: lockFailure(lockPath, "record the holder of"),
-        });
         held.set(lockPath, fd);
         return lockPath;
       }
-      if ((yield* Clock.currentTimeMillis) - started > MAX_WAIT_MS) {
-        const holder = readLockPid(lockPath);
+      if (now - started > MAX_WAIT_MS) {
+        const { holder, note } = describeHolder(lockPath);
         return yield* domainError(
           "conflict",
-          `timed out waiting for write lock ${lockPath}` +
-            (holder !== null ? ` (held by pid ${holder})` : ""),
+          `timed out waiting for write lock ${lockPath}${note}`,
           { lockPath, holder },
         );
       }

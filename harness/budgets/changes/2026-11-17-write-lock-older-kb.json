@@ -1,0 +1,9 @@
+{
+  "reason": "The write lock's pid kept live for an older kb that takes no flock during an update: the lock file created whole by a hard link, the holder's pid overwritten in place in a fixed field, and an older kb's live pid read before entering.",
+  "pr": "#268",
+  "raise": {
+    "cli-closure": {
+      "bytes": 1560
+    }
+  }
+}
