@@ -4374,6 +4374,42 @@ available. A contribution may return null for an input it does not describe,
 which retains the default action review. Core Settings contributes the extension
 review for `sandbox.trust`; its diff must match the reviewed file-set digest.
 
+### Procedure page
+
+`/procedure/<id>` walks a procedure
+([DESIGN → Procedures](DESIGN.md#procedures)): each step a card, done,
+current or pending, the current one offering its actions. When the current
+step names `changes`, its card draws that plan reading under its actions:
+
+- **Counts first.** One line: how many nodes it creates, changes and
+  deletes, and when the reading is the plan a preview recorded, _as
+  previewed_.
+- **Grouped by what each write does.** Changes, then creates, then
+  deletes, each group headed by its count. A group shows its first 25
+  writes and a _Show all N_ button; showing all is this page's state only,
+  and the reading is never asked for again to show more.
+- **A write is its node and its parts.** Its name (`nodeName`, _Untitled_
+  for none) is a link that opens the node in this pane, except for a
+  delete, whose node will be gone. Its id is beside it, small. Under it,
+  each part is a row: the part's label, then the before and after drawn by
+  `textDiff` and `visibleText`, the shared text plain, the removed struck
+  through on the destructive tint, the added on the success tint, each
+  named _removed_ or _added_ for a screen reader. `⏎`, `⇥` and `·` draw in
+  the faint foreground, so a mark reads as a mark and not as text. A long
+  shared text is cut to its last and first words around the change, with
+  `…`.
+- **Read with the status.** The reading is read when the current step
+  changes and when the store does, as the status is. While it is being
+  read the card says so; when it cannot be read it says why, and the
+  step's actions stay as they are. A plan with nothing in it says
+  _Nothing to write_.
+- **At 360 px** a part's label sits above its before and after, and long
+  text wraps anywhere rather than widening the card.
+
+`procedure-page.component.test.tsx` holds it: the grouped writes, the cap
+and its _Show all_, the link that opens a node, and a trailing line break
+drawn as `⏎`.
+
 ### Extension UI halves
 
 A family's browser half ([DESIGN → Extension families](DESIGN.md#extension-families))
