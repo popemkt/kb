@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Cause, Effect, Exit, Fiber } from "effect";
@@ -147,6 +155,18 @@ describe("file write lock", () => {
     expect(readFileSync(lock, "utf8").trim()).toBe(String(process.pid));
     releaseFileWriteLock(lock);
     expect(existsSync(lock)).toBe(false);
+  });
+
+  test("a symbolic link at the lock path fails the write and leaves the file it names alone", async () => {
+    const named = join(dir, "someone-elses-file");
+    writeFileSync(named, "keep me\n");
+    symlinkSync(named, lockPathFor(file));
+    const exit = await Effect.runPromiseExit(acquireFileWriteLockEffect(file));
+    expect(Exit.isFailure(exit)).toBe(true);
+    if (Exit.isFailure(exit)) {
+      expect(String(Cause.squash(exit.cause))).toContain("is a symbolic link, not a lock file");
+    }
+    expect(readFileSync(named, "utf8")).toBe("keep me\n");
   });
 
   test("an empty lock file is an older kb writing its pid while young, and nobody's once old", async () => {

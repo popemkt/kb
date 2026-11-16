@@ -27,16 +27,16 @@
 import { dlopen, FFIType, read } from "bun:ffi";
 import {
   closeSync,
+  constants,
   fstatSync,
   ftruncateSync,
   linkSync,
+  lstatSync,
   mkdirSync,
   openSync,
   readFileSync,
   readSync,
-  statSync,
   unlinkSync,
-  writeFileSync,
   writeSync,
 } from "node:fs";
 import { dirname } from "node:path";
@@ -132,7 +132,7 @@ function tryLock(fd: number): boolean {
 function isAtPath(fd: number, lockPath: string): boolean {
   const open = fstatSync(fd);
   try {
-    const now = statSync(lockPath);
+    const now = lstatSync(lockPath);
     return now.ino === open.ino && now.dev === open.dev;
   } catch {
     return false;
@@ -170,13 +170,19 @@ function openLock(lockPath: string): number {
   mkdirSync(dirname(lockPath), { recursive: true });
   for (;;) {
     try {
-      return openSync(lockPath, "r+");
+      return openSync(lockPath, constants.O_RDWR | constants.O_NOFOLLOW);
     } catch (err) {
-      if (errnoCode(err) !== "ENOENT") throw err;
+      const code = errnoCode(err);
+      if (code === "ELOOP") {
+        throw new Error(`${lockPath} is a symbolic link, not a lock file: remove it`, {
+          cause: err,
+        });
+      }
+      if (code !== "ENOENT") throw err;
     }
     // Overwrite, not exclusive: a temp at this name is a dead process's that had this pid.
     const tmp = `${lockPath}.${process.pid}.${tmpSeq++}.tmp`;
-    writeFileSync(tmp, holderRecord(process.pid), { mode: 0o600 });
+    writeNoFollow(tmp, holderRecord(process.pid));
     try {
       linkSync(tmp, lockPath);
     } catch (err) {
@@ -184,6 +190,20 @@ function openLock(lockPath: string): number {
     } finally {
       unlinkSync(tmp);
     }
+  }
+}
+
+/** Write a whole file, refusing a symbolic link at its path (ELOOP) rather than writing through it. */
+function writeNoFollow(path: string, text: string): void {
+  const fd = openSync(
+    path,
+    constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW,
+    0o600,
+  );
+  try {
+    writeSync(fd, text);
+  } finally {
+    closeSync(fd);
   }
 }
 
