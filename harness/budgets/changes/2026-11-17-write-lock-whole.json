@@ -1,0 +1,9 @@
+{
+  "reason": "The write lock created whole and stolen by rename-and-check, so a lock is never read without its holder and two processes never both hold it, in @kb/file-write, which every store write in the CLI takes.",
+  "pr": "#267",
+  "raise": {
+    "cli-closure": {
+      "bytes": 796
+    }
+  }
+}
