@@ -1070,9 +1070,17 @@ sys.extension.<name>` answers it.
   edited or read back. That covers the editor, and what the CLI and MCP
   print of a node (`kb get`, `kb children`, `kb search`, `--json`). Their
   output is pasted back (`kb add --outline`), and an id is how an agent
-  names a node, so markup and ids stay intact. A docs template writes
-  markdown, so `renderText` reads each reference as `refName` says and
-  keeps the rest of the markup.
+  names a node, so markup and ids stay intact.
+
+  Text written out of kb names a reference in one of three forms
+  (`RefForm`): its words (`label`, `refName`), a `[[words]]` link
+  (`link`; words holding `[`, `]` or `|` cannot sit in one and are written
+  as words), or its token as stored (`id`). A writer that keeps the markup,
+  a docs template's `renderText` or a markdown export, reads the source
+  with each reference in its form and the rest as written
+  (`markupWords`); plain text is the plain reading with each reference in
+  its form. Both live in `display-text.ts`, so no writer names a
+  reference itself ([Outline formats](#outline-formats--one-tree-one-codec-each)).
 
 - Datom mapping: `[id :node/text v]`, `[id :node/child child]` (+order),
   `[id :f/<fieldId> v]` with ref values as entity refs → native datalog joins
@@ -4968,7 +4976,8 @@ answers `{canvasId, items, edges, reported}`.
 | Action                                                                       | Mode  | Does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | ---------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `node.add`                                                                   | write | create (text, props by field name/id, parent, position, tags, and `matching`: what a query node requires, [What a match requires](#query-layer-horizontal))                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| `node.addTree`                                                               | write | create a whole outline from outline paste text in one transaction (`kb add --outline`; [Outline paste](#outline-paste--nodeaddtree))                                                                                                                                                                                                                                                                                                                                                        |
+| `node.addTree`                                                               | write | create a whole outline from text in an outline format (Tana Paste unless `format` says otherwise) in one transaction (`kb add --outline [--format]`; [Outline paste](#outline-paste--nodeaddtree)) |
+| `node.export`                                                                | read  | write nodes, and what is under them, as text in an outline format (`kb export`; [Outline formats](#outline-formats--one-tree-one-codec-each)) |
 | `node.batch`                                                                 | write | several `node.add` / `node.update` / `node.delete` calls as one transaction, each planned over what the ones before it wrote ([Batches of writes](#batches-of-writes--nodebatch)) |
 | `node.update`                                                                | write | edit text / set-unset props / move                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `node.delete`                                                                | write | delete a node, its descendants with it unless `descendants: "reparent"` (`kb rm`)                                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -5043,9 +5052,13 @@ the same handler.
 
 ### Outline paste — `node.addTree`
 
-`node.addTree` takes `{outline, parent?, position?, force?}` and creates every
-item of the outline as one transaction. Each item is planned by `node.add`'s
-own planner (`planNodeAdd`): the same tag and field resolvers, value parser
+`node.addTree` takes `{outline, format?, parent?, position?, force?}` and
+creates every item of the outline as one transaction. The text is read by
+the reader of `format` (`tana`, Tana Paste, when omitted), and every format
+that reads makes the same tree
+([Outline formats](#outline-formats--one-tree-one-codec-each)), so what
+follows holds whatever the text was written in. Each item is planned by
+`node.add`'s own planner (`planNodeAdd`): the same tag and field resolvers, value parser
 (`parseTypedValue`), cardinality, placement and sys.* guard. The plans fold
 over one working graph ([The plan graph](#the-plan-graph): `IndexedNodes`,
 indexed once and kept current as each step puts its upserts in), so each add
@@ -5068,14 +5081,15 @@ children) and `lines` (each item's 1-based source line → its id). Top-level
 items go under `parent` (the forest roots when omitted) at `position`,
 `position + 1`, …, or at the end, where one `node.add` would put the first.
 The action declares itself a batch of `node.add` (`batchOf`), so approval
-decides it as `node.add` too ([Action registry](#action-registry)). The syntax
-is `@kb/outline-paste`'s `parseOutline`, a pure parser that resolves
+decides it as `node.add` too ([Action registry](#action-registry)). The
+syntax is the format's reader in `@kb/outline-paste`, pure and resolving
 nothing, which the CLI reads too (to plan `--create` from an outline's field
-lines) and a family may check an outline it ships against. The action is in the isomorphic registry, so the CLI (`kb add
---outline <file>`, `-` for stdin), MCP (`node_addTree`), WebMCP, the sidebar
-agent and the page's own invoke all reach the same handler.
+lines) and a family may check an outline it ships against. The action is in
+the isomorphic registry, so the CLI (`kb add --outline <file> [--format
+<id>]`, `-` for stdin), MCP (`node_addTree`), WebMCP, the sidebar agent and
+the page's own invoke all reach the same handler.
 
-The format is a subset of Tana Paste:
+The grammar is Tana Paste's format, a subset of Tana Paste:
 
 - An optional first line `%%tana%%`. Blank lines are skipped. CRLF reads as LF.
 - Every other line is a `- ` item (a bare `-` is an empty item). Indentation
@@ -5101,8 +5115,12 @@ The format is a subset of Tana Paste:
   node's id is kept as written. Otherwise it must be the exact text (tags
   removed) of one item of the same outline, earlier or later, and it is
   rewritten to `[[<new id>|label]]`. A ref field's value is one ref: a token
-  on its own, or a bare id or item text (`owner:: Ada`). Text around a token
-  is refused. **An unresolved ref fails the whole outline** (`not_found`), and
+  on its own, or a bare id or item text (`owner:: Ada`). A field whose
+  options are its children (an option set, [Kinds, roles and
+  options](#kinds-roles-and-options)) also takes an option's text
+  (`status:: doing`), as its picker names it, since the set is the field's
+  own and closed; a text two of its options share is `ambiguous`. Text
+  around a token is refused. **An unresolved ref fails the whole outline** (`not_found`), and
   a name two items share fails it (`ambiguous`). No ref is guessed by
   searching existing nodes' text, and no ref creates a node.
 
@@ -5123,22 +5141,136 @@ Refused at their line:
   does not.
 
 Prior art. **Logseq and Roam** markdown outlines share this grammar's core
-(`- ` nesting, `#tag`, `#[[tag]]`, `key:: value`, `[[ref]]`), so they paste
-through this parser and are not a second format. Where they differ, the
-difference is refused or kept as text, never translated. Logseq's property
-lines without a bullet are refused. `((block-uuid))` refs and Roam
-`{{macros}}` stay text, except that a macro wrapping a ref, like
-`{{[[TODO]]}}`, is refused as an unresolved ref. A page ref that names no
-item is refused instead of creating a page. **OPML** is parked: it needs an
-XML parser in the isomorphic domain, and its attributes map to nothing past
-`text`. When it is wanted, it should be a converter to outline paste, not a
-second write path.
+(`- ` nesting, `#tag`, `#[[tag]]`, `key:: value`, `[[ref]]`), so Markdown and
+Logseq read it loosened rather than as a second grammar ([Outline
+formats](#outline-formats--one-tree-one-codec-each)). Where they differ
+beyond that, the difference is refused or kept as text, never translated.
+`((block-uuid))` refs and Roam `{{macros}}` stay text, except that a macro
+wrapping a ref, like `{{[[TODO]]}}`, is refused as an unresolved ref. A page
+ref that names no item is refused instead of creating a page. **OPML** is
+parked: it needs an XML parser in the isomorphic domain, and its attributes
+map to nothing past `text`. When it is wanted, it is one more codec over the
+same tree, not a second write path.
 
 `--create` mints missing fields through `field.define` before the outline's
 own transaction, as it does for `kb add`. An outline that then fails keeps
 those fields. The all-or-nothing promise therefore covers the outline's nodes
 and props, but not fields minted on the command line
 (GAP [[01M52F7X4YQ7W3TJHVPBBXARGP]]).
+
+### Outline formats — one tree, one codec each
+
+An outline leaves and enters kb as text in one of six formats. They share
+one interchange tree, `@kb/outline-paste`'s `OutlineItem`: an item's text
+as stored (markup and ref tokens kept), its tags, its fields with each
+value as raw text, and its children. Each format is one codec over that
+tree, stated as data in `OUTLINE_FORMATS`: `{id, label, mediaType, read?,
+write}`. `node.addTree` reads through a codec, `node.export` writes through
+one, and the page's paste, copy and Copy as… use the same codecs
+(DESIGN-UI.md → [Outline editor](./DESIGN-UI.md#outline-editor-i1), "Copy,
+cut and Copy as…"). A format with no reader has no `read`, and reading it is
+refused by name. No parser stands beside a codec, and no writer.
+
+| `id`     | Label      | Media type         | Reads                                                                                         | Writes                                                                                                                                   |
+| -------- | ---------- | ------------------ | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `tana`   | Tana Paste | `text/plain`       | the grammar above, strictly                                                                   | `%%tana%%`, then `- ` items; a field is a `- name:: value` child, several values nested under `- name::`                                 |
+| `md`     | Markdown   | `text/markdown`    | the grammar loosened (below): all Tana Paste reads, and more                                  | `- ` items; fields as Tana Paste writes them                                                                                             |
+| `logseq` | Logseq     | `text/markdown`    | as Markdown                                                                                   | `- ` blocks; a field is a property line `name:: value` under the block's first line, without a bullet, several values comma-separated   |
+| `plain`  | Plain text | `text/plain`       | every non-blank line an item, nested by indent as in the grammar; nothing in it is a tag or a field | indented text, no bullets, no tags or fields                                                                                             |
+| `html`   | Rich text  | `text/html`        | nothing: no HTML reader runs in the isomorphic domain                                         | a nested `<ul>`; a field is an item `name: value` before the children, tags follow the text                                             |
+| `json`   | JSON       | `application/json` | the tree as JSON                                                                              | the tree as JSON: `[{"text", "tags", "fields": [{"name", "values"}], "children"}]`                                                      |
+
+- **The loosened grammar** adds two things to the strict one. A bullet may be
+  `-`, `*` or `+`. A line with no bullet, indented deeper than the item
+  above it, belongs to that item: `name:: value` is one of its fields with
+  one value (Logseq's property line), and any other line is a further line
+  of its text (a markdown list item's continuation). Tana Paste has neither,
+  and still refuses both.
+- **JSON** holds the same strings the grammar formats hold, so a value is
+  read by its field's type as theirs are. On read every key but `text` may
+  be left out. A JSON item has no source line, so a failure names the item
+  by its place in tree order (1-based) as its `line`, and text that is not
+  JSON of this shape is refused at line 1.
+- **Writing takes options.** `refs` says how a reference is written, in
+  one of three forms that Display text states once
+  ([Data model](#data-model--everything-is-a-node) → Display text): its
+  words (`label`), a `[[words]]` link that Tana, Logseq and Obsidian read
+  (`link`), or its token as stored, `[[id]]` or `[[id|label]]` (`id`), which
+  kb reads back to the same node. `indent` is two spaces a level or a tab,
+  and JSON indents by it too. What goes in the tree is the projection's
+  (below).
+- **Text is written through the inline grammar**, walked segment by
+  segment. The grammar formats and JSON keep the markup as written, so
+  markdown stays markdown, and read each reference in its form. Plain text
+  is Display text's plain reading, a reference in its form. Rich text draws
+  emphasis and code as the editor's element tree draws them (one table,
+  `INLINE_ELEMENTS` in `@kb/model`), and a safe absolute link
+  (`http(s):`, `mailto:`) as a link. Media and any other link are written as
+  their words: an asset path means nothing outside the store. A line break
+  in a text is a further line of its item in Markdown and Logseq, kept in
+  JSON, a `<br>` in rich text, and a space in Tana Paste and plain text,
+  which cannot say one.
+- **What reads back.** For Markdown, Logseq, Tana Paste and JSON, reading
+  what was written gives the tree written, when it was written with refs as
+  `id`, and plain text gives its texts and their nesting. The grammar has no
+  escape, so the formats built on it lose what it cannot say: a text with a
+  `#word` at a word's start, a text that reads as `name:: value` or starts
+  with `%%`, a line break in Tana Paste, and several values in Logseq, which
+  come back as one. JSON loses nothing, which is why kb's own clipboard
+  flavour is JSON.
+
+**The projection: from nodes to the tree.** `outlineOfNodes(rows, graph,
+{children, fieldsAndTags, names})` in `@kb/outline-paste`, pure and
+isomorphic, is the one way nodes become the tree. `node.export` reads it, and
+so does the page. It walks the graph, not a screen: a collapsed row's
+children are written, and a node's children are its own, never what a view
+or a query draws under it.
+
+- **Children.** With children, the top rows of `rows` are written, each with
+  every node under it. A row under another row in `rows` goes with it, by
+  the rule that picks a selection's top rows (`selectionRoots`), whose one
+  home is `@kb/model`. Without children, each row is written alone, flat,
+  in the order given.
+- **Names.** `labels` writes what a person reads. A row is the node it
+  shows: a contextual reference is its target, and is written as a leaf, as
+  Count words counts it (DESIGN-UI.md → Outline editor, "What rows hold,
+  read and copied"). Its tags are the ones its chips show, and its fields
+  the ones it draws (`fieldShowOf` not `never`), pinned first, each by its
+  name (`#name`, `#[[two words]]`, `name:: value`). `ids` writes the source:
+  each node as stored, a contextual reference as the reference it is (its
+  `sys.f.ref.target` included), and every tag and field by id (`#[[id]]`,
+  `id:: value`). The two are one choice with `refs`: `ids` exactly when
+  `refs` is `id`.
+- **Values** are written in the text form `parseTypedValue` reads back
+  (`valueSource`, beside it in `field-value.ts`), so a value written is the
+  value read. A ref value is written as a ref token, which the writer then
+  writes in its form.
+- Without fields and tags, an item is its text and its children.
+
+**`node.export`** `{ids, format?, children?, fieldsAndTags?, refs?,
+indent?}` answers `{format, mediaType, text}`: the projection of `ids`,
+written by the format's codec. It is a read in the isomorphic registry, so
+the CLI (`kb export <id…> [--format <id>] [--refs label|link|id] [--indent
+spaces|tabs] [--no-children] [--no-fields]`, the text to stdout), MCP
+(`node_export`), WebMCP and the page reach the same handler. An id the store
+does not hold is refused (`not_found`). Writing the text to a file is the
+caller's, as with `ext.canvas.export`. Every option left out reads as
+`EXPORT_DEFAULTS` (Markdown, children, fields and tags, refs as words, two
+spaces): one statement, which the action's schema, the page's copy and the
+Copy as… settings all read. The defaults are not the remembered Copy as…
+choice: a command gives the same answer wherever it runs.
+
+**A paste back makes copies.** An exported tree that `node.addTree` reads
+makes new nodes with new ids. A ref to a node the store holds is kept as
+written (Outline paste, above), so a ref between two copied nodes still
+names the original, not its copy. A family's commit guard may refuse a
+value a copy carries, such as a period key only one day may hold; the
+paste then makes nothing and says why, as any outline does.
+
+Other text kb writes is not an outline format. `kb get` prints a node with
+its id and its raw props for an agent to read, and reads back nowhere.
+`render.view` and the docs views write whole markdown documents of a view's
+rows. A canvas exports its own document (`ext.canvas.export`).
 
 ## Materialization
 
