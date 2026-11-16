@@ -99,11 +99,13 @@ test("module ledger equals reality, surfaces fit budgets, and family debt cannot
   expect(base.ok, base.ok ? "" : base.reason).toBe(true);
   if (!base.ok) return;
   const problems = budgetExceeded(measured.surface, currentLedger(), "surface");
-  for (const lane of ["surface", "family-names"] as const) {
-    problems.push(...ratchetMismatches(ledger[lane], measured[lane], lane));
-    if (lane === "family-names" && base.lanes[lane] !== undefined) {
-      problems.push(...ratchetRises(base.lanes[lane], measured[lane], lane));
-    }
+  problems.push(
+    ...ratchetMismatches(ledger["family-names"], measured["family-names"], "family-names"),
+  );
+  if (base.lanes["family-names"] !== undefined) {
+    problems.push(
+      ...ratchetRises(base.lanes["family-names"], measured["family-names"], "family-names"),
+    );
   }
   expect(problems, problems.join("\n")).toEqual([]);
 });

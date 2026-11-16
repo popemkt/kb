@@ -2,7 +2,7 @@ import { renamedBaseLanes } from "./ratchet.ts";
 import { collectCohesion } from "./cohesion.ts";
 import { collectSingleFamily } from "./symbol-consumers.ts";
 import { collectOffGraph, offGraphCounts } from "./off-graph.ts";
-import { collectCliFence, collectStaticClosure } from "./cli-closure.ts";
+import { collectCliFence } from "./cli-closure.ts";
 /**
  * Generates the lint-warn-baseline.json ratchet ledger (plan A.9 #2 / spec 11).
  *
@@ -22,7 +22,7 @@ import { collectModuleMeasures, type ModuleMeasures } from "./module-measures.ts
 import { execFileSync, execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { LAZY_FENCES, RUNTIME_PRESET_BY_SCOPE } from "./constraints.ts";
+import { RUNTIME_PRESET_BY_SCOPE } from "./constraints.ts";
 import { projectDirOf, typecheckProjects } from "./scopes.ts";
 import {
   HARNESS_ROOT,
@@ -40,12 +40,11 @@ export const BASELINE_PATH = join(HARNESS_ROOT, "lint-warn-baseline.json");
 const ADVISORY_RULES = new Set(["typescript/no-deprecated"]);
 
 export interface BaselineLanes {
-  lanes: ModuleMeasures & {
+  lanes: Pick<ModuleMeasures, "family-names"> & {
     blocking: Record<string, number>;
     advisory: Record<string, number>;
     knip: Record<string, number>;
     "lazy-fence": Record<string, number>;
-    "cli-closure": Record<string, number>;
     "single-family": Record<string, number>;
     cohesion: Record<string, number>;
     "off-graph": Record<string, number>;
@@ -66,19 +65,13 @@ export type BaseLedger =
       rev: string;
       lanes: Omit<
         BaselineLanes["lanes"],
-        | keyof ModuleMeasures
-        | "lazy-fence"
-        | "cli-closure"
-        | "single-family"
-        | "cohesion"
-        | "off-graph"
+        "family-names" | "lazy-fence" | "single-family" | "cohesion" | "off-graph"
       > &
         Partial<
-          ModuleMeasures &
-            Pick<
-              BaselineLanes["lanes"],
-              "lazy-fence" | "cli-closure" | "single-family" | "cohesion" | "off-graph"
-            >
+          Pick<
+            BaselineLanes["lanes"],
+            "family-names" | "lazy-fence" | "single-family" | "cohesion" | "off-graph"
+          >
         >;
     }
   | { ok: false; reason: string };
@@ -475,9 +468,8 @@ function buildBaseline(
 
   return {
     lanes: {
-      ...collectModuleMeasures(),
+      "family-names": collectModuleMeasures()["family-names"],
       "lazy-fence": sortedRecord(collectCliFence()),
-      "cli-closure": collectStaticClosure(LAZY_FENCES.cli.entry),
       "single-family": sortedRecord(collectSingleFamily()),
       cohesion: sortedRecord(collectCohesion()),
       "off-graph": offGraphCounts(collectOffGraph()),

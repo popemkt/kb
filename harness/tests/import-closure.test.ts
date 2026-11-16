@@ -78,19 +78,14 @@ test("CLI measurements match the ledger, fit budgets and retain the lazy fence",
   const base = baselineAtRatchetBase();
   expect(base.ok, base.ok ? "" : base.reason).toBe(true);
   if (!base.ok) return;
-  const current = {
-    "lazy-fence": collectCliFence(),
-    "cli-closure": collectStaticClosure(LAZY_FENCES.cli.entry),
-  };
-  const problems: string[] = [];
-  for (const lane of ["lazy-fence", "cli-closure"] as const) {
-    problems.push(...ratchetMismatches(ledger[lane], current[lane], lane));
-    const previous = base.lanes[lane];
-    // Only the introducing commit may have a base without these lanes.
-    if (lane === "lazy-fence" && previous !== undefined)
-      problems.push(...ratchetRises(previous, current[lane], lane));
-  }
-  problems.push(...budgetExceeded(current["cli-closure"], currentLedger(), "cli-closure"));
+  const cliFence = collectCliFence();
+  const problems = ratchetMismatches(ledger["lazy-fence"], cliFence, "lazy-fence");
+  // Only the introducing commit may have a base without the lane.
+  if (base.lanes["lazy-fence"] !== undefined)
+    problems.push(...ratchetRises(base.lanes["lazy-fence"], cliFence, "lazy-fence"));
+  problems.push(
+    ...budgetExceeded(collectStaticClosure(LAZY_FENCES.cli.entry), currentLedger(), "cli-closure"),
+  );
   expect(problems, problems.join("\n")).toEqual([]);
 }, 30000);
 
