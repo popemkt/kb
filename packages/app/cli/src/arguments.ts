@@ -28,7 +28,8 @@ export const toSessionMode = (value: string): "follow" => {
     `--session takes follow (each call in the person's most recently active tab), not ${value}`,
   );
 };
-export const toOrigin = (value: string): string => {
+/** `option`'s value as a bare HTTP(S) origin, or a usage error naming `option`. */
+const originOf = (option: string, value: string): string => {
   try {
     const url = new URL(value);
     if (
@@ -47,9 +48,10 @@ export const toOrigin = (value: string): string => {
   throw new CommanderError(
     EXIT_USAGE,
     "commander.invalidArgument",
-    "--public-origin must be an HTTP(S) origin, e.g. https://kb.example.com",
+    `${option} must be an HTTP(S) origin, e.g. https://kb.example.com`,
   );
 };
+export const toPublicOrigin = (value: string): string => originOf("--public-origin", value);
 
 /**
  * One `--identity-header <header>=<login>`: a header a trusted reverse proxy
@@ -98,9 +100,15 @@ export const collectScripts = (value: string, held: readonly string[] = []): rea
 ];
 
 /** Every `--embed-origin` given, each an origin. */
-export const collectOrigins = (value: string, held: readonly string[] = []): readonly string[] => [
+export const collectEmbedOrigins = (value: string, held: readonly string[] = []) => [
   ...held,
-  toOrigin(value),
+  originOf("--embed-origin", value),
+];
+
+/** Every `--alias-origin` given. */
+export const collectAliasOrigins = (value: string, held: readonly string[] = []) => [
+  ...held,
+  originOf("--alias-origin", value),
 ];
 
 /** Every `--identity-header` given, as the one header they name and its logins. */

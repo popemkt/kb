@@ -37,11 +37,12 @@ import {
   EXIT_USAGE,
   checkUiListen,
   collectIdentity,
-  collectOrigins,
+  collectAliasOrigins,
+  collectEmbedOrigins,
   collectScripts,
   toGovernance,
   toInt,
-  toOrigin,
+  toPublicOrigin,
   toPort,
   toSessionMode,
 } from "./arguments.ts";
@@ -303,6 +304,7 @@ function buildProgram(): Command {
       ),
     );
 
+  // GAP [[01M7HDP52RY5R2WJPXMMD30R8C]] kb ui's options load with every command.
   program
     .command("ui")
     .description("Serve the kb browser UI + subscription backend")
@@ -313,11 +315,20 @@ function buildProgram(): Command {
     )
     .option("--dev", "spawn the Vite dev server (HMR) and proxy to the backend", false)
     .option("--dev-port <n>", "Vite dev server port (default 5173)", toPort)
-    .option("--public-origin <url>", "browser origin when served through a reverse proxy", toOrigin)
+    .option(
+      "--public-origin <url>",
+      "browser origin when served through a reverse proxy",
+      toPublicOrigin,
+    )
+    .option(
+      "--alias-origin <url>",
+      "another origin the proxy serves the UI at; links keep --public-origin (repeatable)",
+      collectAliasOrigins,
+    )
     .option(
       "--embed-origin <url>",
       "let the page at this origin frame kb, and tell it the tab's session (repeatable)",
-      collectOrigins,
+      collectEmbedOrigins,
     )
     .option(
       "--embed-script <url>",
@@ -345,6 +356,7 @@ function buildProgram(): Command {
               dev?: boolean;
               devPort?: number;
               publicOrigin?: string;
+              aliasOrigin?: readonly string[];
               embedOrigin?: readonly string[];
               embedScript?: readonly string[];
               identityHeader?: { header: string; people: readonly string[] };
@@ -367,6 +379,7 @@ function buildProgram(): Command {
               dev: opts.dev === true,
               devPort: opts.devPort,
               publicOrigin: opts.publicOrigin,
+              aliasOrigins: opts.aliasOrigin ?? [],
               embedding: { origins: opts.embedOrigin ?? [], scripts: opts.embedScript ?? [] },
               // The page is the server's owner; a hosted deployment may name
               // the person by the proxy it trusts instead.

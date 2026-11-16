@@ -22,6 +22,7 @@ import { identityHeaderIdentity, startUi, type UiServerHandle } from "../src/ind
 const HEADER = "Tailscale-User-Login";
 const OWNER = "owner@example.com";
 const PUBLIC = "https://kb.tailnet.ts.net";
+const ALIAS = "https://kb.localhost";
 
 let dir = "";
 let root = "";
@@ -34,6 +35,7 @@ function serve(socket: string, at = root) {
     root: at,
     socket,
     publicOrigin: PUBLIC,
+    aliasOrigins: [ALIAS],
     openBrowser: false,
     identity: [identityHeaderIdentity({ header: HEADER, people: [OWNER] })],
   });
@@ -74,6 +76,16 @@ describe("kb ui on a Unix socket", () => {
     expect((await viaSocket("/api/manifest", { headers: { Host: "evil.example" } })).status).toBe(
       403,
     );
+  });
+
+  test("an alias the proxy also serves is the page's, exactly, and the page stays the public origin", async () => {
+    const status = async (host: string, origin: string) =>
+      (await viaSocket("/api/manifest", { headers: { Host: host, Origin: origin } })).status;
+    expect(await status("kb.localhost", ALIAS)).toBe(200);
+    expect(await status("kb.localhost", "http://kb.localhost")).toBe(403);
+    expect(await status("kb.localhost:8443", "https://kb.localhost:8443")).toBe(403);
+    expect(await status("kb.localhost", "http://evil.example")).toBe(403);
+    expect(handle.url).toBe(PUBLIC);
   });
 
   test("its presence names the socket, and a process on this machine reaches it there", async () => {

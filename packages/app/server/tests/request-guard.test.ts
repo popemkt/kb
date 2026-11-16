@@ -164,6 +164,77 @@ describe("kb ui request guard", () => {
     }
   });
 
+  test("each declared alias origin is the page's, exactly as declared, and the public origin stays", async () => {
+    const aliasRoot = await mkdtemp(join(tmpdir(), "kb-guard-alias-"));
+    const publicOrigin = "https://kb.example.test";
+    const alias = "https://kb.localhost";
+    const second = "https://kb.lan.test:8443";
+    const aliased = await Effect.runPromise(
+      startUi({
+        root: aliasRoot,
+        port: 0,
+        openBrowser: false,
+        publicOrigin,
+        aliasOrigins: [alias, `${second}/`],
+      }),
+    );
+    try {
+      const status = (host: string, origin?: string) =>
+        rawGet(`${aliased.url}/api/manifest`, {
+          Host: host,
+          ...(origin === undefined ? {} : { Origin: origin }),
+        });
+      for (const origin of [publicOrigin, alias, second]) {
+        const { host } = new URL(origin);
+        expect(await status(host, origin)).toBe(200);
+        expect(await handshake(aliased.url, origin, host)).toBe("open");
+        expect(await handshake(aliased.url, EVIL, host)).toBe("refused");
+        expect(await status(host, EVIL)).toBe(403);
+      }
+      // Scheme, port and name are matched exactly; no other localhost name is admitted.
+      expect(await status("kb.localhost", "http://kb.localhost")).toBe(403);
+      expect(await status("kb.localhost:8443", "https://kb.localhost:8443")).toBe(403);
+      expect(await status("kb.lan.test", "https://kb.lan.test")).toBe(403);
+      expect(await status("other.localhost", "https://other.localhost")).toBe(403);
+      expect(await handshake(aliased.url, "https://other.localhost", "other.localhost")).toBe(
+        "refused",
+      );
+      // An alias's Origin does not admit another Host.
+      expect(await status("evil.example", alias)).toBe(403);
+      // The page is still the listener's: an alias is never kb's address.
+      const identity = (await (await fetch(`${aliased.url}/api/identity`)).json()) as {
+        page: string;
+      };
+      expect(identity.page).toBe(aliased.url);
+    } finally {
+      await Effect.runPromise(aliased.stop);
+      await rm(aliasRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("an alias origin needs no public origin, and admits nothing more than itself", async () => {
+    const aliasRoot = await mkdtemp(join(tmpdir(), "kb-guard-alias-only-"));
+    const alias = "https://kb.localhost";
+    const aliased = await Effect.runPromise(
+      startUi({ root: aliasRoot, port: 0, openBrowser: false, aliasOrigins: [alias] }),
+    );
+    try {
+      expect(
+        await rawGet(`${aliased.url}/api/manifest`, { Host: "kb.localhost", Origin: alias }),
+      ).toBe(200);
+      expect(await handshake(aliased.url, alias, "kb.localhost")).toBe("open");
+      expect(
+        await rawGet(`${aliased.url}/api/manifest`, {
+          Host: "kb.example.test",
+          Origin: "https://kb.example.test",
+        }),
+      ).toBe(403);
+    } finally {
+      await Effect.runPromise(aliased.stop);
+      await rm(aliasRoot, { recursive: true, force: true });
+    }
+  });
+
   test("the rest of the site is not the API, and is not guarded", async () => {
     const res = await fetch(`${handle.url}/`, { headers: { Origin: EVIL } });
     expect(res.status).not.toBe(403);

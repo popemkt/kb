@@ -9,7 +9,7 @@
  *
  * - **Host** must name this server (`127.0.0.1:<port>`, `localhost:<port>`,
  *   or the host it was bound to; `localhost` for a socket, as its proxy
- *   names it; the public origin's host behind a proxy). A page on another
+ *   names it; the host of each origin a proxy serves it at). A page on another
  *   site that rebinds its own DNS name to 127.0.0.1 sends its own name
  *   here, so this is what stops DNS rebinding.
  * - **Origin**, when there is one, must be the UI's own. A browser always
@@ -57,8 +57,12 @@ export interface GuardSite {
    * Vite dev server's). Default: the TCP listener's own.
    */
   readonly uiPort?: number;
-  /** Browser origin when a reverse proxy serves this UI. */
-  readonly publicOrigin?: string;
+  /**
+   * Every browser origin a reverse proxy serves this UI at: the public
+   * origin and its aliases (`UiServerOptions`). Which one is canonical is
+   * not the guard's business; each is admitted alike. Default: none.
+   */
+  readonly proxyOrigins?: readonly string[];
   /** Who a request is, by every identity provider the server holds (`identifyBy`). */
   readonly identify: (req: Request) => Identification;
   /** Who the page is when no provider names them (`serverOwner`). */
@@ -101,8 +105,8 @@ function isJson(contentType: string | null): boolean {
  * it is reached by, on its own port and the UI's, and a page loaded from
  * any of them is the UI's. A socket is reached through its proxy alone,
  * which names it `localhost` (`tailscale serve` rewrites `Host` so for a
- * `unix:` target), and its page is the proxy's public origin. A public
- * origin is a host too.
+ * `unix:` target), and its page is the proxy's public origin. Each origin a
+ * proxy serves the UI at is the UI's too, and its host is a host.
  */
 function addressesOf(site: GuardSite): { origins: Set<string>; hosts: Set<string> } {
   const { at } = site;
@@ -115,8 +119,10 @@ function addressesOf(site: GuardSite): { origins: Set<string>; hosts: Set<string
           hosts: [],
         }
       : { origins: [at.origin], hosts: ["localhost"] };
-  const origins = new Set(own.origins);
-  if (site.publicOrigin !== undefined) origins.add(new URL(site.publicOrigin).origin);
+  const origins = new Set([
+    ...own.origins,
+    ...(site.proxyOrigins ?? []).map((origin) => new URL(origin).origin),
+  ]);
   const hosts = new Set([...own.hosts, ...[...origins].map((origin) => new URL(origin).host)]);
   return { origins, hosts };
 }
