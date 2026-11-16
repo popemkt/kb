@@ -1998,7 +1998,12 @@ file is the format git already understands.
     and for an older kb (below). `flock` comes from libc through `bun:ffi`,
     which every writer can reach: the CLI, `kb mcp`, `kb ui` and the test
     harness's servers all run on Bun, on Linux and macOS. Two acquirers in one
-    process conflict too, since each opens its own file description.
+    process conflict too, since each opens its own file description. No step
+    follows a symbolic link: the lock file and the temp file it is created
+    from open with `O_NOFOLLOW`, and the path is compared by `lstat`. A
+    repository can ship a link at the lock path, and a write would otherwise
+    put a pid into the file it names; instead the write fails, saying to
+    remove the link.
 
     _Older writers._ A kb from before the kernel lock is still running
     for hours after an update (a shared host and a laptop run different
