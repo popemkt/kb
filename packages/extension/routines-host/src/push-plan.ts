@@ -66,11 +66,27 @@ function published(
 }
 
 /**
+ * What `previous`, the snapshot last sent, left published where the plan
+ * sends: nothing when none was sent, or its series is retired (a removal
+ * sent, then taken back, publishes everything again, as does a move to a
+ * new destination, whose old series this plan retires).
+ */
+function remote(
+  previous: Snapshot | undefined,
+  retiring: boolean,
+  origin: string,
+): ReadonlyMap<string, Omit<PushOperation, "retiresSeries">> {
+  return previous === undefined || previous.removed || retiring
+    ? new Map()
+    : published(previous, origin);
+}
+
+/**
  * One plan owns retirement of previous remote identities and publication of
  * current ones. It sends what changed since `previous`, the snapshot last
  * sent: the parent when the series' own event changed, a day whose fact is
  * new or changed, and a day whose fact is gone, back to the series' default.
- * With no `previous`, or a new destination, it sends everything.
+ * With no `previous`, a removed one or a new destination, it sends everything.
  */
 export function pushPlan(
   current: Snapshot,
@@ -104,10 +120,7 @@ export function pushPlan(
   }
   if (current.removed) return operations;
   const desired = published(current, origin);
-  const before =
-    previous === undefined || retire !== null
-      ? new Map<string, Omit<PushOperation, "retiresSeries">>()
-      : published(previous, origin);
+  const before = remote(previous, retire !== null, origin);
   const sent = (key: string, fields: EventFields) => {
     const was = before.get(key);
     return was !== undefined && canonicalJson(was.fields) === canonicalJson(fields);

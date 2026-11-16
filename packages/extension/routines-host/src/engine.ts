@@ -60,6 +60,23 @@ function syncedStatus(
       : { at: DateTime.formatIso(DateTime.makeUnsafe(at)) }),
   };
 }
+/**
+ * What a send says of the nodes its work marked: each node a write of its
+ * plan is for takes its outcome in `outcomes`, synced or failed, and a node
+ * said to wait whose write the plan no longer holds (its change was taken
+ * back before it was sent) is as it was sent, synced again, whatever the
+ * plan's own writes met.
+ */
+const settle = Effect.fn("routines.engine.settle")(function* (
+  options: EngineOptions,
+  work: Work,
+  outcomes: ReadonlyMap<string, SyncStatus>,
+) {
+  for (const [id, status] of outcomes) yield* options.host.status(id, status);
+  for (const [id, had] of work.marked)
+    if (had && !outcomes.has(id) && work.nodes.has(id))
+      yield* options.host.status(id, { state: "synced", message: "" });
+});
 const pushOne = Effect.fn("routines.engine.pushOne")(function* (
   options: EngineOptions,
   work: Work,
@@ -93,17 +110,17 @@ const pushOne = Effect.fn("routines.engine.pushOne")(function* (
     if (operation.node !== null) receipts.push({ node: operation.node, response });
   }
   if (queue.get(node.id) === work) {
-    for (const receipt of receipts)
-      yield* options.host.status(
-        receipt.node.id,
-        syncedStatus(work, receipt.node, receipt.response, yield* Clock.currentTimeMillis),
-      );
-    // A node said to wait whose write the plan no longer holds (its change
-    // was taken back before it was sent) is as it was sent: synced again.
-    const written = new Set(receipts.map((receipt) => receipt.node.id));
-    for (const [id, had] of work.marked)
-      if (had && !written.has(id) && work.nodes.has(id))
-        yield* options.host.status(id, { state: "synced", message: "" });
+    const at = yield* Clock.currentTimeMillis;
+    yield* settle(
+      options,
+      work,
+      new Map(
+        receipts.map(({ node: written, response }) => [
+          written.id,
+          syncedStatus(work, written, response, at),
+        ]),
+      ),
+    );
   }
   applied.set(node.id, work);
   return true;
@@ -174,8 +191,14 @@ const pushQueue = Effect.fn("routines.engine.pushQueue")(function* (
                 error.retryAfter,
               ),
           });
-          for (const marked of work.marked.size === 0 ? [id] : work.marked.keys())
-            yield* options.host.status(marked, { state: "error", message: error.code });
+          // The writes that failed are the plan's; one with no node fails its series.
+          const failed = planNodes(work, applied.get(id), at, options.origin);
+          const status: SyncStatus = { state: "error", message: error.code };
+          yield* settle(
+            options,
+            work,
+            new Map((failed.length === 0 ? [work.node] : failed).map((n) => [n.id, status])),
+          );
         }),
       }),
     );

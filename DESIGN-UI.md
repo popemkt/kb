@@ -5192,7 +5192,9 @@ as they are, since a person's Cloud project registered them.
   an instance when its fact did), and says pending, then synced or failed,
   on that node alone, so ticking one instance Done never says its series
   waits. A change taken back before it is sent writes nothing and is
-  synced again. A day whose fact is removed goes back to its series'
+  synced again, whatever another write in the same send meets. A deletion
+  sent, then undone, publishes the event and its facts again, since its
+  series was retired. A day whose fact is removed goes back to its series'
   default with no node of its own, so its write says nothing. The toolbar groups its controls: Today and the steps, the title,
   the layouts, then sync, then New, all one height. Sync's group reads the
   worst state showing as text with its dot (a status, not a button), counted
