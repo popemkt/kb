@@ -799,16 +799,39 @@ type PropValue =
     fields keep their order among themselves, as do the rest.
 
   Both apply to a system field as much as a person's. No list in the page
-  names which system fields a person sees. A seed declares `owned`
-  (`seededField`'s option, which writes show *never*) on two kinds of
-  field only: one that is a node's structure (`sys.f.type`,
-  `sys.f.fields`, which option set a node belongs to) and one a surface of
-  its own draws and writes (a query node's builder, a view's toolbar, a
-  view's subject and the graph's lens settings, a layout view's
-  arrangement, a canvas, a chart, an ontology's page, a reference row).
-  Every other field, a system one included, is drawn and edited like any
-  field: a field's cardinality and inverse, an agent provider's adapter
-  and endpoint, a docs view's template. A prop whose field node the graph
+  names which system fields a person sees: a seed declares each field's
+  show (`seededField`'s `show` option) by what the field holds, so a
+  node's rows are what a person reads or edits there, and the node's text
+  stays first.
+  - *Always* (the option left out) for what a person reads or edits on
+    that node. That is the configuration of a field or a tag (a field's
+    type, cardinality and inverse, a tag's child tag and title), a setting
+    on the node it configures, a docs view's template, and the values that
+    say what a node of a kind is: an event's start and time, an
+    occurrence's day, a policy's match, actor and decision, a script's
+    code and its grant.
+  - *When filled* for a value a node of the kind may or may not carry: an
+    event's repeat, duration, until and calendar, an occurrence's state, a
+    visual's prompt, credit and source, a canvas's run fields, where a
+    shortcut applies. Empty, it is a chip, one press from a value.
+  - *Tucked* for machine and sync state, which kb writes and a person looks
+    at only when something is wrong: a synced event's provider id, link,
+    status, message and time, a calendar's adapter and calendar id, a
+    migration record's id, digest, instant and backup, a backup's pin,
+    which node a setting configures, which family manages a field, a
+    command's context. It is left out of the chip line, behind "…", and
+    stays a column of a table.
+  - *Never* on two kinds of field only. One is a node's structure
+    (`sys.f.type`, `sys.f.fields`, which option set a node belongs to). The
+    other is a field a surface of its own draws and writes: a query node's
+    builder, a view's toolbar, a view's subject and the graph's lens
+    settings, a layout view's arrangement, a canvas, a chart, an
+    ontology's page, a reference row, and a Google account's secrets,
+    project and setup, which the calendar's Sync services page writes.
+
+  A level a family changes reaches a store seeded before it through the
+  fill-absent pass, since a seeded field carried no show there before.
+  A show a person chose is theirs and the seed never rewrites it. A prop whose field node the graph
   does not hold has nothing to say it is hidden, so it is drawn, named by
   its id: a store seeds every bundled family's fields, and the seed moves
   or drops the values of a field it retires (Extension families → the
@@ -829,8 +852,8 @@ type PropValue =
   *always*. So a store a person never touches works as it is: a field
   they hid is a chip, with no step pending. *Hidden* is the nearest fit:
   the checkbox kept a field off the rows, and a chip keeps it off them
-  while its name stays in view. The seed keeps `sys.f.hidden` as an
-  `owned` field (show *never*) on no template, so its row leaves the
+  while its name stays in view. The seed keeps `sys.f.hidden` as a
+  field shown *never* on no template, so its row leaves the
   field pages of a store seeded before show, and show is the one setting
   drawn. The seed's own fields carry show from the next open, as any
   prop the seed adds, and show beats the checkbox. A store seeded before
