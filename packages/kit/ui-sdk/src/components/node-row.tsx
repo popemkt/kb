@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 import { cn } from "../lib/cn";
 import { asInstance } from "../lib/dom";
-import { indentStyle } from "../lib/indent";
 import { menuAnchor } from "../lib/menu-anchor";
+import { OutlineLine } from "./outline-line";
 
 export interface NodeRowProps {
   depth: number;
@@ -22,6 +22,11 @@ export interface NodeRowProps {
    */
   onRowClick?: (e: React.SyntheticEvent) => void;
   bullet: React.ReactNode;
+  /**
+   * The row's one lead mark, a tag's box (`OutlineLine`'s `lead`): drawn
+   * after the bullet, and the text starts one step further in.
+   */
+  lead?: React.ReactNode;
   /** Full node-content area (text + optional trailing chips). */
   content: React.ReactNode;
   className?: string;
@@ -78,6 +83,7 @@ export function NodeRow({
   isActive = false,
   onRowClick,
   bullet,
+  lead,
   content,
   className,
   nodeId,
@@ -103,10 +109,15 @@ export function NodeRow({
     }
   }, [holdsSelection]);
   return (
-    <div
+    <OutlineLine
       ref={ref}
+      depth={depth}
+      glyph={bullet}
+      lead={lead}
+      text={content}
+      textClassName="node-content flex min-h-6 items-start gap-1.5 rounded-sm pr-1"
       className={cn(
-        "node-row group/node flex items-start",
+        "node-row group/node",
         "rounded-sm transition-colors duration-75",
         // One surface: the row's box holds the tint, bullet and text alike,
         // and the focus ring is drawn on the same box.
@@ -116,10 +127,7 @@ export function NodeRow({
           "outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
         className,
       )}
-      style={{
-        ...indentStyle(depth),
-        minHeight: "var(--kb-row-h)",
-      }}
+      style={{ minHeight: "var(--kb-row-h)" }}
       data-node-id={nodeId}
       data-instance-key={instanceKey}
       {...(instanceKey === undefined ? {} : menuAnchor(instanceKey))}
@@ -127,15 +135,6 @@ export function NodeRow({
       {...rowState(interactive, isSelected, inRange, isActive)}
       onClick={onRowClick}
       onKeyDown={onRowClick === undefined ? undefined : activatedByKeys(onRowClick)}
-    >
-      {bullet}
-      <div
-        className={cn(
-          "node-content flex min-h-6 min-w-0 flex-1 items-start gap-1.5 rounded-sm px-1",
-        )}
-      >
-        {content}
-      </div>
-    </div>
+    />
   );
 }

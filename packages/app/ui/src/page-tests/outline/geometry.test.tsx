@@ -74,11 +74,12 @@ describe("One-Row Metric Invariant (§5.2)", () => {
     }
   });
 
-  it("content padding comes from the single px-1 container slot", () => {
+  it("the text starts one text inset after the glyph column (DESIGN-UI.md → Outline layout)", () => {
     const html = renderNodeRowAtDepth(2);
-    // exactly one horizontal padding declaration on node-content
-    expect(html.match(/px-1/g)?.length ?? 0).toBe(1);
-    expect(html).not.toContain("ghost-row");
+    // One glyph column, one text inset, and no padding of the content's own.
+    expect(html.match(/width:\s*var\(--kb-glyph\)/g)?.length).toBe(1);
+    expect(html.match(/padding-left:\s*var\(--kb-text-inset\)/g)?.length).toBe(1);
+    expect(html).not.toMatch(/\bp[xl]-1\b/);
   });
 
   it("bullet slot is the fixed 24px hit area", () => {
@@ -148,6 +149,11 @@ describe("Field value placeholder (D17, §5.2)", () => {
  * edge, over the guide lines, and the node row's selection fill / focus ring
  * did the same.
  */
+/** The style of a rendered row's own box, its outermost element: where its decorations are drawn. */
+function rowBoxStyle(html: string): string {
+  return /^<div[^>]*?style="([^"]*)"/.exec(html)?.[1] ?? "";
+}
+
 describe("Row decorations start at the indent, not the container edge", () => {
   it("FieldRow hover separators do not span the indent gutter", () => {
     const html = renderToStaticMarkup(
@@ -163,8 +169,8 @@ describe("Row decorations start at the indent, not the container edge", () => {
     expect(html).toContain("border-y border-transparent");
     expect(html).toContain("hover:border-foreground/[0.07]");
     // … so the indent has to sit outside that box.
-    expect(html).toMatch(/margin-left:\s*calc\(3 \* var\(--kb-indent\)\)/);
-    expect(html).not.toMatch(/padding-left/);
+    expect(rowBoxStyle(html)).toMatch(/margin-left:\s*calc\(3 \* var\(--kb-indent\)\)/);
+    expect(rowBoxStyle(html)).not.toMatch(/padding-left/);
   });
 
   it("NodeRow selection fill and focus ring do not span the indent gutter", () => {
@@ -182,8 +188,8 @@ describe("Row decorations start at the indent, not the container edge", () => {
     // drawn on, so the bullet and the text sit on one tone.
     expect(html.match(/bg-primary\/\d+/g)).toEqual(["bg-primary/8"]);
     expect(html).toContain("focus-visible:ring-2");
-    expect(html).toMatch(/margin-left:\s*calc\(2 \* var\(--kb-indent\)\)/);
-    expect(html).not.toMatch(/padding-left/);
+    expect(rowBoxStyle(html)).toMatch(/margin-left:\s*calc\(2 \* var\(--kb-indent\)\)/);
+    expect(rowBoxStyle(html)).not.toMatch(/padding-left/);
   });
 
   it("every indented surface reads the one indent owner", () => {
@@ -192,8 +198,10 @@ describe("Row decorations start at the indent, not the container edge", () => {
         /\b(?:indentStyle|guideLineStyle)\b[^;]*from "@kb\/ui-sdk"/,
       );
     }
+    // Both rows are the one line, and the line reads the grid's owner.
     for (const name of ["node-row.tsx", "field-row.tsx"]) {
-      expect(readPrimitiveSource(name)).toMatch(/from "\.\.\/lib\/indent"/);
+      expect(readPrimitiveSource(name)).toMatch(/<OutlineLine\b/);
     }
+    expect(readPrimitiveSource("outline-line.tsx")).toMatch(/from "\.\.\/lib\/indent"/);
   });
 });

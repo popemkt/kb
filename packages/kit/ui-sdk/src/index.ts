@@ -166,6 +166,7 @@ export { InlineMarkdown, MdView } from "./components/md-view";
 export { NodeLinkRow } from "./components/node-link-row";
 export { NodeSectionPoint, useNodeSections, type NodeSectionProps } from "./lib/node-sections";
 export { NodeRow } from "./components/node-row";
+export { OutlineLine } from "./components/outline-line";
 export { menuAnchor, menuAnchorOf } from "./lib/menu-anchor";
 export {
   type CaretIntent,

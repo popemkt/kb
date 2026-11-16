@@ -190,10 +190,14 @@ describe("kb tokens", () => {
     expect(values).toEqual([...scale.names]);
   });
 
-  it("indent geometry has exactly one owner (lib/indent.ts reads --kb-indent)", () => {
+  it("the outline grid has exactly one owner (lib/indent.ts reads its tokens)", () => {
     // A token nothing reads is worse than no token. Every indent number in the
     // UI — row indent and guide-line offset alike — is computed in one module
-    // from --kb-indent; nothing else multiplies the step or reads the var.
+    // from --kb-indent; nothing else multiplies the step or reads the var. The
+    // grid's other columns (the glyph box, the text inset, the field label)
+    // are read there too (DESIGN-UI.md → Outline layout).
+    const grid = ["--kb-indent", "--kb-glyph", "--kb-text-inset", "--kb-field-label"];
+    for (const token of grid) expect(tokens).toContain(`${token}:`);
     const offenders: string[] = [];
     for (const { file, rel } of pageSourceFiles()) {
       if (rel === path.join("@kb/ui-sdk", "lib", "indent.ts")) continue;
@@ -202,8 +206,9 @@ describe("kb tokens", () => {
       if (/\*\s*24\b|\b24\s*\*/.test(text)) {
         offenders.push(`${rel}: hardcoded 24px indent step`);
       }
-      if (/var\(--kb-indent\)/.test(text)) {
-        offenders.push(`${rel}: reads --kb-indent outside lib/indent.ts`);
+      for (const token of grid) {
+        if (text.includes(`var(${token})`))
+          offenders.push(`${rel}: reads ${token} outside lib/indent.ts`);
       }
     }
     expect(offenders).toEqual([]);

@@ -31,7 +31,7 @@ import { FieldsSection } from "./fields-section";
 import { RowChildren } from "./frame-view-slot";
 import { NodeContent } from "./node-content";
 import { RowCheck } from "./row-check";
-import { checkedTextClass } from "./row-check-state";
+import { checkedTextClass, rowCheckOf } from "./row-check-state";
 import { RowPreview } from "./row-preview";
 import { openIn, useRowOpening, useRowView } from "./row-opening";
 import { QueryResultsSection } from "./query-results";
@@ -171,6 +171,7 @@ export const NodeBlock = memo(function NodeBlock({
 
   if (!node || !shown) return null;
 
+  const check = rowCheckOf(shown, schema);
   const chrome = resolveRowChrome({
     node,
     schema,
@@ -198,19 +199,21 @@ export const NodeBlock = memo(function NodeBlock({
             isActive={isActive}
             onRowClick={handleRowSelect}
             bullet={
-              <>
-                <Bullet
-                  node={shown}
-                  collapsed={node.collapsed}
-                  collapsible={chrome.isExpandable}
-                  countChildren={countChildren}
-                  isRef={chrome.bulletIsRef}
-                  onClick={handleBulletClick}
-                  onMenu={handleBulletMenu}
-                  onPress={handleBulletPress}
-                />
-                <RowCheck nodeId={nodeId} instanceKey={instanceKey} shown={shown} schema={schema} />
-              </>
+              <Bullet
+                node={shown}
+                collapsed={node.collapsed}
+                collapsible={chrome.isExpandable}
+                countChildren={countChildren}
+                isRef={chrome.bulletIsRef}
+                onClick={handleBulletClick}
+                onMenu={handleBulletMenu}
+                onPress={handleBulletPress}
+              />
+            }
+            lead={
+              check === null ? undefined : (
+                <RowCheck nodeId={nodeId} instanceKey={instanceKey} check={check} />
+              )
             }
             content={
               <NodeContent
@@ -219,7 +222,7 @@ export const NodeBlock = memo(function NodeBlock({
                 isActive={isActive}
                 tags={shown.tags}
                 rowView={rowView?.key ?? null}
-                textClassName={checkedTextClass(shown, schema)}
+                textClassName={checkedTextClass(check)}
                 tagAction={
                   opening === null
                     ? undefined

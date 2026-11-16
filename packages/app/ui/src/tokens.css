@@ -21,6 +21,11 @@
   /* Row metrics scale with the design system's density (24px at density 1). */
   --kb-indent: calc(24px * var(--density));
   --kb-row-h: calc(24px * var(--density));
+  /* The outline grid (DESIGN-UI.md → Outline layout): a line's lead glyph is
+   * centred in a box this wide, and its text starts this far after the box.
+   * Read only by `@kb/ui-sdk`'s lib/indent.ts, the grid's one owner. */
+  --kb-glyph: 24px;
+  --kb-text-inset: 4px;
 
   --kb-text-leading: 1.6;
   --kb-text-weight: var(--font-weight-body, 400);
@@ -33,6 +38,7 @@
   --tag-h: calc(var(--kb-text-line) - 4px);
   --tag-line: var(--tag-h);
   --tag-weight: var(--font-weight-ui, 500);
+  /* A field row's label column, from the text column to the value column. */
   --kb-field-label: 120px;
 }
 

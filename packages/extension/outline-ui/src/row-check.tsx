@@ -5,28 +5,26 @@
  * (`toggleRowChecks`), as ⌘Enter does. Focused, it answers its own keys, and
  * Escape goes back to its row, selected.
  */
-import type { OutlineNode, SchemaIndex } from "@kb/ui-sdk";
 import { CheckMark } from "./check-mark";
 import { toggleRowChecks } from "./editing-writes";
 import { backToRow } from "./back-to-row";
-import { rowCheckOf } from "./row-check-state";
+import type { RowCheckState } from "./row-check-state";
 
-/** The box of the row `nodeId`, which draws `shown`; nothing when no tag of it names one. */
+/**
+ * The box of the row `nodeId`, as its tag names it (`rowCheckOf`): the
+ * row's lead mark (`NodeRow`'s `lead`), drawn only where a tag names one.
+ */
 export function RowCheck({
   nodeId,
   instanceKey,
-  shown,
-  schema,
+  check,
 }: {
   /** The row's node: its box is the node its text is (`toggleRowChecks`). */
   nodeId: string;
   /** The row instance Escape goes back to. */
   instanceKey: string;
-  shown: OutlineNode;
-  schema: SchemaIndex;
+  check: RowCheckState;
 }) {
-  const check = rowCheckOf(shown, schema);
-  if (check === null) return null;
   const { checked, label } = check;
   return (
     <button
