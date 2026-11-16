@@ -1,0 +1,29 @@
+#!/bin/sh
+# The repository's own store opens without a write: the committed
+# .kb/nodes.jsonl already holds the seed fold the code ships.
+#
+# Opening a store folds the bundled seed into it (DESIGN.md → Extension
+# families → the seed is the bundled fold), so a change to a seed is a change
+# to this file too. A commit that changes a seed and leaves the file behind
+# makes every later open, verify's included, rewrite it, and every checkout's
+# tree goes dirty. Run before the other kb checks in `verify`, so this is the
+# open that sees it.
+#
+# When it fails, the open has already written the refresh: review it and
+# commit .kb/nodes.jsonl with the seed change.
+set -eu
+
+cd "$(dirname "$0")/.."
+
+store=.kb/nodes.jsonl
+before="$(mktemp)"
+trap 'rm -f "$before"' EXIT
+cp "$store" "$before"
+
+bin/kb get sys.tag > /dev/null
+
+if ! cmp -s "$before" "$store"; then
+  echo "error: opening the repository's store rewrote $store: it lacks the seed fold the code ships." >&2
+  echo "       The refresh is now in the working tree; commit $store with the seed change." >&2
+  exit 1
+fi
