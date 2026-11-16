@@ -242,7 +242,11 @@ const DATASCRIPT = /cljs\.core/;
 // (the shared Dialog's footer slot, and Copy as…, the routine editor and the
 // confirmations moved into it) measures 2,017,030; the budget rises by its
 // 271.
-const EAGER_BUDGET_BYTES = 2_018_430;
+// The show vocabulary seededField and the show reader share (field-show.ts)
+// and the field visibility round's show level on each seeded field, in the
+// seeds the page's declarations carry, measure 2,017,695 from 2,017,039; the
+// budget rises by their 656.
+const EAGER_BUDGET_BYTES = 2_019_086;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

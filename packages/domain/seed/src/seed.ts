@@ -457,7 +457,9 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     SYSTEM_IDS.configuresField,
     "configures",
     childrenTargetQuery(SYSTEM_IDS.extensionsRoot),
-    { one: true },
+    // Which node a setting configures is kb's wiring, not what a person
+    // reads on the field: tucked.
+    { one: true, show: "tucked" },
   );
   // A field whose values a family writes names it, so the page shows them at
   // rest and a person's edit is a deliberate step.
@@ -465,7 +467,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     SYSTEM_IDS.managedByField,
     "managed by",
     childrenTargetQuery(SYSTEM_IDS.extensionsRoot),
-    { one: true },
+    // Which family manages a field is kb's wiring: tucked.
+    { one: true, show: "tucked" },
   );
   const roleTag = seededTag(SYSTEM_IDS.roleTag, "role", [SYSTEM_IDS.providerField], at);
   const providerField = refQueryField(
@@ -556,7 +559,9 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
    * The backups a node keeps out of retention (DESIGN.md → Storage →
    * Backups): held by whatever needs a backup kept, many values.
    */
-  const backupPinField = seededField(SYSTEM_IDS.backupPinField, "backup pin", "text", at);
+  const backupPinField = seededField(SYSTEM_IDS.backupPinField, "backup pin", "text", at, {
+    show: "tucked",
+  });
   /*
    * A family's data migration is recorded on a node tagged `migration`
    * (DESIGN.md → Action registry → Plugin data migrations), filed under the
@@ -564,16 +569,19 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
    * Only kb's `migration.*` actions write one; its state is an option set.
    */
   const migrationStates = MIGRATION_STATES.map((state) => mk(migrationStateId(state), state));
+  // A record reads as its state and its problems; what kb keeps to run
+  // it (which migration, the plan's digest and instant, the backup) is
+  // tucked.
   const migrationFields = [
-    singleField(SYSTEM_IDS.migrationField, "migration", "text"),
+    singleField(SYSTEM_IDS.migrationField, "migration", "text", { show: "tucked" }),
     {
       ...singleField(SYSTEM_IDS.migrationStateField, "migration state", "ref"),
       children: migrationStates.map((option) => option.id),
     },
-    singleField(SYSTEM_IDS.migrationDigestField, "plan digest", "text"),
-    singleField(SYSTEM_IDS.migrationAtField, "planned at", "text"),
-    singleField(SYSTEM_IDS.migrationBackupField, "backup before", "text"),
-    typedField(SYSTEM_IDS.migrationProblemsField, "problems", "text"),
+    singleField(SYSTEM_IDS.migrationDigestField, "plan digest", "text", { show: "tucked" }),
+    singleField(SYSTEM_IDS.migrationAtField, "planned at", "text", { show: "tucked" }),
+    singleField(SYSTEM_IDS.migrationBackupField, "backup before", "text", { show: "tucked" }),
+    typedField(SYSTEM_IDS.migrationProblemsField, "problems", "text", { show: "filled" }),
   ];
   const migrationTag = seededTag(
     SYSTEM_IDS.migrationTag,

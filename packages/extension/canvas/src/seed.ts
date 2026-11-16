@@ -32,8 +32,11 @@ export function canvasSeedNodes(at: string): readonly KbNode[] {
   return [
     seededField(CANVAS_IDS.canvasField, "canvas", "text", at, { one: true, show: "never" }),
     ...Object.values(CANVAS_RUN_FIELDS).map(({ field, legacyName }) =>
+      // Which field a script canvas reads and writes: a canvas that runs one
+      // carries them, one that does not leaves them out. Shown when filled.
       seededField(field, `run ${legacyName} field`, "ref", at, {
         one: true,
+        show: "filled",
         props: { [SYSTEM_IDS.targetTagField]: ref(SYSTEM_IDS.field) },
       }),
     ),
