@@ -3414,6 +3414,22 @@ migration is for what a person wrote.
   _rolled back_, so every surface can say why it is offered again; its
   state is null only when it was never run.
 
+**Core's own migration** is `core.trim-trailing-breaks`, "Trim stray
+trailing line breaks". Until kb read a `<br>` that ends node text as
+nothing ([DESIGN-UI → Outline editor](DESIGN-UI.md#outline-editor-i1), "Node text is one surface"),
+and until a paste dropped the break a copied line carries
+([DESIGN-UI → Paste and drop](DESIGN-UI.md#paste-and-drop)), the editor
+stored line breaks nobody typed at the end of a node's text, and each
+drew an empty last line. The migration takes every line break off the end
+of every node's text. Inner line breaks stay, and a text that is only line
+breaks becomes empty. Its check names any node whose text still ends in
+one. It rewrites what a person's node holds, which a migration otherwise
+leaves alone ([Data-plane freedom](CLAUDE.md#data-plane-freedom)), because
+the editor wrote those breaks, not the person. Before anything is
+applied, the preview counts what it changes, and `kb migrate
+core.trim-trailing-breaks --plan` names each node. A store with no such text plans
+nothing, so the migration is not pending there.
+
 The surfaces are `kb migrate`, which lists the migrations with their
 states and whether each is pending, and `kb migrate <id>`, which walks
 one. The page lists the same `migration.list` in Settings → Extensions →
