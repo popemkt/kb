@@ -1040,6 +1040,40 @@ sys.extension.<name>` answers it.
     "props":[{"field":"sys.f.ref.target","value":{"t":"ref","v":"<target>"}}]}}'
   ```
 
+- **Display text** is how a node's words reach a page, a list or a
+  document. It is one projection, `@kb/model`'s `display-text.ts`, and
+  every surface that shows a node's words reads it. Its source is the
+  node's title (`nodeTitleOf`, under tag behaviours above), which still
+  holds markup. That markup is the inline grammar of node text, and
+  `@kb/model`'s `inline.ts` is its one home: emphasis, code, links, bare
+  urls, `assets/` media and references. The editor and every reader parse
+  with it. The source has two readings:
+  - **Rich**: the source drawn through the grammar, a reference as a
+    pill. A surface uses it where it has room for a line of text: a row,
+    the page's title, a text field's value.
+  - **Plain** (`plainWords`, `nodeName`): words with no markup. Text and
+    emphasis read as their words, code as its content, a link as its
+    label, media as its alt text, and a run of whitespace (line breaks
+    too) as one space. A surface uses it wherever only a string fits: a
+    breadcrumb, the tab's title, a list (Recent, Pinned, ⌘K, search, a
+    picker), a graph or canvas label, a tooltip, a toast, an accessible
+    name.
+
+  A reference reads the same in both (`refName`). It reads as its label,
+  trimmed, when it has one; else as its target's name (the target's own
+  plain reading); else, its target gone, as its id. A target with no words
+  reads as "Untitled", and a bare reference that loops back to itself
+  through its targets' text reads as its id. So a pill and the words
+  beside it never disagree.
+
+  The stored text takes no reading where it is source, meaning it is
+  edited or read back. That covers the editor, and what the CLI and MCP
+  print of a node (`kb get`, `kb children`, `kb search`, `--json`). Their
+  output is pasted back (`kb add --outline`), and an id is how an agent
+  names a node, so markup and ids stay intact. A docs template writes
+  markdown, so `renderText` reads each reference as `refName` says and
+  keeps the rest of the markup.
+
 - Datom mapping: `[id :node/text v]`, `[id :node/child child]` (+order),
   `[id :f/<fieldId> v]` with ref values as entity refs → native datalog joins
   and graph traversal.
