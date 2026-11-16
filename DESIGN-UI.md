@@ -850,6 +850,14 @@ selection touches shows its delimiters, faint (Obsidian-style live preview;
 second `*` of `**`, breaking a link — rebuilds the tree around the caret
 (`isCanonicalInline`); typing inside a segment leaves the browser's DOM alone. A
 boundary caret rests outside hidden markup, so typing after `**b**` is plain.
+A line break is a `\n` in the text. A `<br>` reads as one only where a line
+follows it, and one that ends the text reads as nothing, in the text and in
+caret offsets alike, because it opens no line. That covers the box the tree
+gives a trailing `\n` and the placeholder a browser leaves in a row it
+emptied (Backspace on the last character, or select all and delete), which
+typing then goes in front of. Read as `\n`, that placeholder would store a
+newline nobody typed, and Enter at the end would carry it into every row it
+opens.
 While editing, the DOM is the text: it is rebuilt from `content` on mount and
 when `content` moved on its own (a merge), never from a `content` still behind
 the editor's own writes. Text undo inside the row is the host's
