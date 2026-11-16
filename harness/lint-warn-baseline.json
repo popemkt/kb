@@ -15,7 +15,7 @@
       "@kb/sandbox": 94,
       "@kb/appearance": 60,
       "@kb/keybindings": 39,
-      "@kb/model": 293,
+      "@kb/model": 295,
       "@kb/outline-paste": 17,
       "@kb/plugin": 41,
       "@kb/query": 58,
@@ -81,7 +81,7 @@
       "@kb/calendar-kit": 14,
       "@kb/scene": 13,
       "@kb/scene-gpu": 35,
-      "@kb/ui-sdk": 525,
+      "@kb/ui-sdk": 526,
       "@kb/ui-test-kit": 26
     },
     "family-names": {
@@ -92,8 +92,8 @@
       "contract/contracts/src/protocol.ts": 2,
       "contract/contracts/src/screen.ts": 3,
       "contract/ext-sdk/src/module.ts": 6,
-      "contract/ext-sdk/src/surface.ts": 2,
       "contract/ext-sdk/src/page-surface.ts": 3,
+      "contract/ext-sdk/src/surface.ts": 2,
       "contract/extension-source/src/marketplace.ts": 1,
       "contract/sandbox/src/digest.ts": 2,
       "contract/sandbox/src/grant.ts": 4,
@@ -121,6 +121,7 @@
       "kit/scene-gpu/src/stage.ts": 3,
       "kit/ui-sdk/src/components/node-text-port.ts": 2,
       "kit/ui-sdk/src/components/view-error-boundary.test.tsx": 3,
+      "kit/ui-sdk/src/hooks.ts": 3,
       "kit/ui-sdk/src/lib/bullet-mode.test.ts": 4,
       "kit/ui-sdk/src/lib/bullet-mode.ts": 6,
       "kit/ui-sdk/src/lib/command-point.ts": 1,
@@ -129,6 +130,8 @@
       "kit/ui-sdk/src/lib/graph-label.ts": 3,
       "kit/ui-sdk/src/lib/graph-read.component.test.tsx": 5,
       "kit/ui-sdk/src/lib/graph-read.ts": 2,
+      "kit/ui-sdk/src/lib/graph-view.ts": 5,
+      "kit/ui-sdk/src/lib/md-edit.ts": 2,
       "kit/ui-sdk/src/lib/node-sections-scope.test.ts": 4,
       "kit/ui-sdk/src/lib/page-graph.test.ts": 7,
       "kit/ui-sdk/src/lib/page-ports.ts": 3,
@@ -140,14 +143,11 @@
       "kit/ui-sdk/src/lib/schema.ts": 4,
       "kit/ui-sdk/src/lib/tag-color.test.ts": 5,
       "kit/ui-sdk/src/lib/tag-color.ts": 6,
-      "kit/ui-sdk/src/lib/graph-view.ts": 5,
-      "kit/ui-sdk/src/lib/md-edit.ts": 2,
-      "kit/ui-sdk/src/hooks.ts": 3,
       "kit/ui-sdk/src/sandbox-run.ts": 5
     },
     "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2829921,
+      "bytes": 2830524,
       "modules": 754
     },
     "single-family": {

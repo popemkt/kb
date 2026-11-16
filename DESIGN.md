@@ -1636,6 +1636,18 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   filed in the Views list — and names it first; every later edit writes
   that node. Its text is empty: it is found from its frame and in the Views
   list, and a text naming its view or its frame would go stale.
+- **A view node with no text is named by what it is**, derived on every
+  read and never stored: its view's name and, as a reference, the node that
+  names it among its views, `Table · [[library]]` (`nodeTitleOf`, so every
+  reading of Display text takes it, and the reference is a pill that opens
+  the frame). Who names a view node is the reverse of `sys.f.views`, read
+  once per graph (`viewHostsOf`, `@kb/ui-sdk`'s `viewHostsIn` per schema)
+  and handed to the title as `hostOf`. A surface without that read (a
+  lookup by id alone) names it by its view alone; a view node no host names
+  is named so too. Text written on a view node is its name and wins, as a
+  docs view's does. So the Views list is a list of named links to the
+  frames whose views it files, not of empty bullets, and stays an ordinary
+  outline of nodes, as the Pinned list is.
 - **A view's filter is a narrowing of its frame's rows by conditions** of
   the query layer's one model ([Query layer](#query-layer-horizontal) →
   Conditions), ANDed: the second placement of the vocabulary a query's

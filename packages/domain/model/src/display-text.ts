@@ -23,6 +23,7 @@ import { inlineSpanSource, parseInlineSource, type InlineSeg, type InlineSpan } 
 import type { NodeId } from "./model.ts";
 import type { NodeLike } from "./node-like.ts";
 import { nodeTitleOf } from "./tag-behaviour.ts";
+import type { ViewHostOf } from "./view-node.ts";
 
 /** What a reading needs of a node: its text and its props, by id. */
 type DisplayLookup = (id: NodeId) => Pick<NodeLike, "text" | "props"> | undefined;
@@ -139,9 +140,11 @@ export function markupWords(text: string, nodeOf: DisplayLookup, form: RefForm =
 
 /**
  * A node's name: its display text's plain reading, or "" when it has no
- * words (a surface says {@link UNTITLED} or its id, as fits it).
+ * words (a surface says {@link UNTITLED} or its id, as fits it). A surface
+ * that can read who names a view node passes `hostOf`, so a view node is
+ * named with what it is a view of (`nodeTitleOf`).
  */
-export function nodeName(id: NodeId, nodeOf: DisplayLookup): string {
+export function nodeName(id: NodeId, nodeOf: DisplayLookup, hostOf?: ViewHostOf): string {
   const node = nodeOf(id);
-  return node === undefined ? "" : plainWords(nodeTitleOf(id, node, nodeOf), nodeOf);
+  return node === undefined ? "" : plainWords(nodeTitleOf(id, node, nodeOf, hostOf), nodeOf);
 }

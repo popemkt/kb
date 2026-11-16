@@ -67,6 +67,25 @@ export function hostViewIds(node: Carrier | undefined): NodeId[] {
 }
 
 /**
+ * Which node names a view node among its views: the reverse of
+ * `sys.f.views`, the read a view node's title takes to say what it is a
+ * view of (`nodeTitleOf`). Undefined for a view node no host names.
+ */
+export type ViewHostOf = (view: NodeId) => NodeId | undefined;
+
+/**
+ * The hosts of every view node in `nodes`, read once: each view node to the
+ * first node, in `nodes`' order, whose `sys.f.views` names it. Hold it for
+ * one read of a graph and drop it: it does not see the graph change.
+ */
+export function viewHostsOf(nodes: Iterable<Carrier & { readonly id: NodeId }>): ViewHostOf {
+  const hosts = new Map<NodeId, NodeId>();
+  for (const node of nodes)
+    for (const view of hostViewIds(node)) if (!hosts.has(view)) hosts.set(view, node.id);
+  return (view) => hosts.get(view);
+}
+
+/**
  * A host's default view: the first view node its `sys.f.views` names. Order
  * is the one mechanism — making another view the default is moving it first,
  * so a default that is not among the host's views cannot be written.

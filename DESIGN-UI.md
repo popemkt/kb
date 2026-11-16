@@ -3395,6 +3395,17 @@ how the stored name resolves to the key among them.
   one node however many hosts name it, so editing it — from any host's
   toolbar or its own row — edits it for every host that names it; a host
   that should differ names a view node of its own.
+  _A view under a row._ A frame view drawn under a row is a child of the
+  row, so its box starts where a child row's box starts (`indentStyle` at
+  the children's depth), and its parent's guide line, in the parent's glyph
+  column, runs beside it and never through its card or rows. A view that
+  takes the room on a centered page (a table, a board, a calendar;
+  `useViewBreakout`) breaks out by where it sits (`BreakoutReach`): the
+  page's own frame (depth 0) spans the scroll region, a gutter on each
+  side; a view under a row (`FrameSubject.depth` above 0) keeps its left
+  edge on its box and reaches only to the region's right edge
+  (`trailing`), so a list's rows, a cards grid, a table and a board under
+  the same row start at one left edge.
   The store's row walk (`visible-instances`) and the command registry read
   the same enumeration from the UI kernel (`@kb/ui-sdk`'s
   `providedFrameViews`, the frame views `ViewPoint` holds now), so a frame

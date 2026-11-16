@@ -4,7 +4,7 @@
  */
 import { SHORTCUT_IDS } from "@kb/keybindings";
 import type { WireNode } from "@kb/contracts";
-import { SYSTEM_IDS, nodeName } from "@kb/model";
+import { SYSTEM_IDS, nodeName, viewHostsOf } from "@kb/model";
 
 export type PaletteEntryKind = "command" | "node";
 
@@ -38,13 +38,14 @@ function isCommandNode(node: WireNode): boolean {
 export function buildPaletteIndex(nodes: WireNode[], rev: number): PaletteIndex {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const nodeOf = (id: string) => byId.get(id);
+  const hostOf = viewHostsOf(nodes);
   const global = nodes.filter(
     (node) => !isCommandNode(node) || node.props[SHORTCUT_IDS.commandContext] === undefined,
   );
   // oxlint-disable-next-line unicorn/no-new-array -- GAP [[01M1MFJXAQ8NVBMA6E6CZ7CY9W]]
   const entries: PaletteEntry[] = new Array(global.length);
   for (const [i, n] of global.entries()) {
-    const name = nodeName(n.id, nodeOf);
+    const name = nodeName(n.id, nodeOf, hostOf);
     entries[i] = entryOf(n.id, name || n.id, isCommandNode(n) ? "command" : "node", n.text);
   }
   // Commands first for empty-query browsing, then stable by text.

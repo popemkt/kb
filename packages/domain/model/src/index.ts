@@ -239,8 +239,9 @@ export {
   viewIdOfOption,
   viewOptionId,
   viewOptionOf,
+  viewHostsOf,
 } from "./view-node.ts";
-export type { DocsViewSpec, ViewFamily } from "./view-node.ts";
+export type { DocsViewSpec, ViewFamily, ViewHostOf } from "./view-node.ts";
 export {
   LEGACY_PERSPECTIVE_TAG,
   LEGACY_VIEW_MODE_FIELD,
