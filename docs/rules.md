@@ -1009,6 +1009,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — docs/research/2026-11-11-cli-host-modes.md step 7.
 - **node** — `01M75MA4HB3NFDXGGKG0RE45H5`
 
+### GAP: ext-canvas keeps its own copy of requireNode
+
+- **expected** — One reader of the node an action names, or its not_found refusal, in a package both @kb/operations' actions and an extension's actions may import (beside KbContext in @kb/contracts), which every action that reads one node by id calls.
+- **current** — @kb/operations has requireNode in require-node.ts, reading the session's index; ext-canvas's write.ts keeps a private requireNode that scans ctx.nodes, because an extension may not import @kb/operations.
+- **impact** — Two refusals of the same missing node, kept alike by hand: a change to one (its message, its code, or reading the index rather than scanning) leaves canvas writes answering the other way.
+- **closes** — requireNode moves to a package an extension may import (@kb/contracts beside KbContext), and both @kb/operations and ext-canvas import it; the canvas copy is deleted.
+- **node** — `01M7HXJDTBECGJN4RYGB5JENGF`
+
 ### GAP: ext-sdk declarations are still a hand-kept mirror; generation needs type-first and author-facing contracts
 
 - **expected** — P6, one type, one source: surface.ts and page-surface.ts are export type { … } from lists beside EXTENSION_SDK and PAGE_EXTENSION_SDK, and scripts/generate.ts bundles the declarations into the ambient kb-ext-sdk modules; the ext-sdk-fresh fixture compiles and the emitted text is unchanged.

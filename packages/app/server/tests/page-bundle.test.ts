@@ -232,7 +232,9 @@ const DATASCRIPT = /cljs\.core/;
 // The three reference forms and markupWords in @kb/model's display text, and
 // chipTagsOf, the chips' tags the graph view now reads, measure 1,999,081;
 // the budget rises by their 125.
-const EAGER_BUDGET_BYTES = 2_000_481;
+// requireNode in its own @kb/operations module, which the page's replica of
+// the actions loads, measures 1,999,092; the budget rises by its 11.
+const EAGER_BUDGET_BYTES = 2_000_492;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

@@ -66,6 +66,7 @@ function cloneNode(n: KbNode): KbNode {
   };
 }
 
+// GAP [[01M7HXJDTBECGJN4RYGB5JENGF]]: @kb/operations' requireNode, which an extension may not import.
 function requireNode(ctx: KbContext<NodeIndex>, id: NodeId): KbNode {
   const n = ctx.nodes.find((x) => x.id === id);
   if (!n) throw new ResolveError("not_found", `node not found: ${id}`, { id });
