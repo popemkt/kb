@@ -230,7 +230,27 @@ describe("W7 TableView & ViewToolbar", () => {
       }),
     );
     expect(centered).toContain("kb-breakout");
-    expect(centered).toContain('data-breakout="centered"');
+    // The page's own frame spans the scroll region, a gutter on both sides.
+    expect(centered).toContain('data-breakout="region"');
+    expect(centered).toContain("px-4");
+
+    // Under a row it keeps its left edge on its own box, the child column,
+    // so its parent's guide line runs beside it: it reaches rightward only.
+    const underRow = renderToStaticMarkup(
+      createElement(TableView, {
+        frame: outlineFrameSubject(
+          { RowChildren: NoRowChildren, frameId: "frame1", isQuerySource: false, depth: 1 },
+          1,
+        ),
+        settings: tableSettings(),
+        nodes: getStoreNodes(),
+        context: fieldContextOf(outlineSource()),
+        widthPref: "centered",
+      }),
+    );
+    expect(underRow).toContain("kb-breakout");
+    expect(underRow).toContain('data-breakout="trailing"');
+    expect(underRow).not.toContain("px-4");
 
     const full = renderToStaticMarkup(
       createElement(TableView, {
@@ -245,7 +265,7 @@ describe("W7 TableView & ViewToolbar", () => {
       }),
     );
     expect(full).not.toContain("kb-breakout");
-    expect(full).not.toContain('data-breakout="centered"');
+    expect(full).not.toContain("data-breakout");
   });
 
   it("renders TableView columns from explicit display refs when set", async () => {

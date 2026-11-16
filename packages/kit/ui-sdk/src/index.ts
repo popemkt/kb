@@ -566,7 +566,7 @@ export { setToastSink, toast } from "./lib/toast";
 export { copyText, putFlavours, writeFlavours, type ClipboardFlavours } from "./lib/copy";
 export { useFocusReturn, usePickerKeys } from "./lib/use-picker";
 export { useNarrowViewport } from "./lib/viewport";
-export { BREAKOUT_CLASS, useBreakoutShift } from "./lib/breakout";
+export { BREAKOUT_CLASS, type BreakoutReach, useBreakoutShift } from "./lib/breakout";
 export { useLoadSeed } from "./lib/load-seed";
 export { tagOpeningOf, tagRowViewOf, type TagOpening } from "./lib/tag-opening";
 

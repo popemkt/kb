@@ -345,6 +345,14 @@
     margin-left: calc(-1 * var(--breakout-shift, 0px));
     box-sizing: border-box;
   }
+  /* A `trailing` breakout (`BreakoutReach`) keeps its left edge where it
+   * stands, so it reaches only rightward: a view under an outline row stays in
+   * its child column and its parent's guide line runs beside it. */
+  .kb-breakout[data-breakout="trailing"] {
+    width: calc(100cqw - var(--breakout-shift, 0px));
+    max-width: calc(100cqw - var(--breakout-shift, 0px));
+    margin-left: 0;
+  }
 }
 /* State changes remain visible without motion; this also covers shared chrome
  * transitions, palette scrolling, and every projected view consistently. The

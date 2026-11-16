@@ -8,6 +8,15 @@ import { useLayoutEffect, useState } from "react";
 export const BREAKOUT_CLASS = "kb-breakout";
 
 /**
+ * How far an element that breaks out reaches, its `data-breakout`:
+ * `region` spans the scroll region's visible width, both sides; `trailing`
+ * keeps its left edge where it stands and reaches to the region's right
+ * edge, for an element drawn inside something whose left gutter it must
+ * not cover (a view under an outline row, beside its parent's guide line).
+ */
+export type BreakoutReach = "region" | "trailing";
+
+/**
  * A centered table or board breaks out of the shell's column to span the
  * scroll region's visible width (`BREAKOUT_CLASS`). CSS cannot know how far the element sits right of the region's
  * content edge: an indented outline child's parent is not centered on the

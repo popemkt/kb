@@ -132,6 +132,7 @@ export function BoardCardsView({
   );
 
   const breakout = useViewBreakout({
+    frame,
     wants: view.key === CollectionBoardView,
     widthPref: widthPrefProp,
     mounted: frameNode !== undefined || rowIds !== undefined,

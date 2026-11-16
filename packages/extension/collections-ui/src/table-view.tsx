@@ -148,6 +148,7 @@ export function TableView({
     className: breakoutClass,
     data: breakoutData,
   } = useViewBreakout({
+    frame,
     wants: true,
     widthPref: widthPrefProp,
     mounted: frameNode !== undefined || rowIds !== undefined,

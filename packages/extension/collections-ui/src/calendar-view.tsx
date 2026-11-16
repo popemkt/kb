@@ -119,6 +119,7 @@ export function CalendarView({
     className: breakoutClass,
     data: breakoutData,
   } = useViewBreakout({
+    frame,
     wants: true,
     widthPref: undefined,
     mounted: drawn,
