@@ -345,6 +345,19 @@ export interface PlacementResolver<A> {
 - **Purity of `plan`** is what makes re-planning on conflict, the page's
   optimistic commit and the server's commit agree. A resolver that needs
   I/O is not placement (§10).
+- **Deterministic allocation.** Purity covers the ids a plan makes as
+  well. Every node in `upserts` takes an id derived from the resolver,
+  its args and the store it is planned over, never a minted one, so the
+  tab, the server, a re-plan and a script's call-time check (§6.5) all name
+  the same nodes. Days already derives `days.<key>` (`periodNodeId`), but
+  `today-plan.ts` pre-mints random fallbacks (`freshId`, `MOST_MADE`) for
+  when another node holds that id. Under this contract the fallback is
+  derived too: `days.<key>~2`, `~3`, … taken in order, the first id no
+  node holds. Two writers that collide still meet one key, through the
+  conditional commit and `ext.days.unique-key`, exactly as now. The store
+  contract suite states this as a property over every resolver: "planning
+  the same (nodes, args, subject) twice answers equal plans, ids
+  included". P1 moves days' fallback onto it.
 
 ### 6.2 Where a creator takes it
 
@@ -376,13 +389,29 @@ Everything is a node, so:
   (`sys.tag.placement`), with id `placement.<resolver-id>`
   (`placement.days.today`, `placement.core.top-level`), seeded by the
   family that contributes it, as days seeds its tags. It carries
-  `sys.f.placement.resolver` (text, the id).
+  `sys.f.placement.resolver`: **text**, the resolver's id, hidden and
+  managed by the family (`sys.f.managedBy`).
 - A **configured** placement, one whose args are fixed, is a person's or a
-  family's `#placement` node whose `resolver` refs the seeded one and whose
-  args are its props, read by the resolver's `args` schema. For example,
-  *day of: starts* is `{resolver → placement.days.day-of, field → starts}`.
-  A configured placement can be renamed, reused across tags, and found with
-  `kb backlinks`.
+  family's `#placement` node. Its `sys.f.placement.of` is a **ref** to the
+  seeded node, and its args are its props, read by the resolver's `args`
+  schema. For example, *day of: starts* is
+  `{of → placement.days.day-of, field → starts}`, where `field` is a ref to
+  the field node. A configured placement can be renamed, reused across
+  tags, and found with `kb backlinks`.
+- **Text once, refs everywhere else.** A resolver is code, not a node, so
+  exactly one value names it as text: `sys.f.placement.resolver` on its
+  seeded node, the one bridge from data to the point, set by the family
+  that contributes it. Everything a person or another family stores is a
+  ref: `goes into` refs a seeded or configured `#placement` node (or a
+  plain destination), and a configured placement refs its seeded node
+  through `of`. So renaming a resolver's label, or the node it is seeded
+  as, breaks nothing; `kb backlinks placement.days.today` lists every
+  setting that uses it; and "the family is off" shows up as the seeded
+  node's `resolver` naming an id the point does not hold. That is the
+  dangling case in §6.6, read at one place. On the wire a `PlacementCall`
+  carries the id as text (`{resolver: "days.day"}`), since a call is not
+  stored. The CLI's `@<node-id>` form is the ref form, resolved through
+  the node's `resolver` or `of` before the call runs.
 - **`goes into`** (`sys.f.placement`, ref, one value) is the one field that
   stores a placement. Its value is a node: a `#placement` node means
   "resolve this", and any other node means "there". It sits on:
@@ -410,7 +439,9 @@ For a node being made, the first of these that answers wins:
 6. the top level.
 
 `node.placement` (read, isomorphic) takes `node.add`'s input less `text`
-and answers `{parent, via, resolver?, skipped[]}`. Here `via` names the step
+and answers `{parent, makes[], via, resolver?, skipped[]}`, where `makes`
+lists the nodes the placement would create, with their deterministic ids
+(§6.1). Here `via` names the step
 that answered and `skipped` names any dangling value it read past, so a
 person and an agent see the same reason. The node menu's "Lands in…"
 hint, `kb add --dry-run` and an MCP agent all read it.
@@ -425,12 +456,29 @@ hint, `kb add --dry-run` and an MCP agent all read it.
   plus the session's fill. The commit-time checks see the resolved parent.
   An approval guard that cares where a node lands reads the commit, as the
   script bound already does.
-- **Scripts:** a grant bounds a call by the nodes its `targets` name
-  (`callTargets` in `@kb/sandbox`). A `PlacementCall` names no node, so a
-  script's `node.add` with one is refused at the call, as an omitted
-  parent is today. The commit-time bound (`scriptWriteRefusal`) holds
-  regardless. A script that wants today passes an id it resolved through
-  `node.placement`.
+- **Scripts.** A grant bounds a call by the nodes its `targets` name
+  (`callTargets` in `@kb/sandbox`). A plain id or `null` is checked as
+  today. A `PlacementCall` is not refused just because it is not an id.
+  Because `plan` is pure and its ids are deterministic (§6.1), the
+  call-time check resolves it over the call's view of the store and checks
+  what it would do: the resolved parent, and the parent of every node in
+  `upserts`, must be the grant's subject or under it. So:
+  - **today's day already exists** under the subject: admitted, one
+    write;
+  - **today's day does not exist yet**: the plan would make the day (and
+    perhaps its week and year) under the journal root. That is admitted
+    only when the grant's subject is the journal root or above it. A
+    script bounded to a project node cannot make a day there; it is
+    refused at the call with `placement_outside_grant`, naming the nodes
+    the placement would make. It is never quietly filed somewhere else;
+  - in every case the commit-time bound (`scriptWriteRefusal`) checks the
+    write as planned, so a store that moved between the call and the
+    commit cannot widen it.
+
+  `node.placement` answers the same plan as data
+  (`{parent, makes: [{id, parent}], via, skipped}`), with the ids the
+  commit would use, so a script or an agent can see "this would make
+  `days.2026-11-17` under `days.2026-W47`" before it asks.
 - **No interceptor** takes part in placement. The days interceptor
   `ext.days.untag-period` is unaffected.
 
