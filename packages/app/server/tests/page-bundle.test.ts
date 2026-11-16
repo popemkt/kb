@@ -212,8 +212,11 @@ const DATASCRIPT = /cljs\.core/;
 // Every paste of text as the chain's (PASTE_TEXT, its normaliser, and the
 // text host's insertion at the caret, which must answer while the paste's
 // event runs, so none of it can load lazily) measures 1,997,295 with it,
-// from 1,996,615; the budget keeps about 1.4 KB over that.
-const EAGER_BUDGET_BYTES = 1_998_695;
+// from 1,996,615; the budget keeps about 1.4 KB over that. Core's declared
+// migration core.trim-trailing-breaks, which core's declaration carries to
+// the page as it carried core.field-show, measures 1,997,854 with it; the
+// budget keeps about 1.4 KB over that.
+const EAGER_BUDGET_BYTES = 1_999_254;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {
