@@ -778,6 +778,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Parity step 8: replacement approval on the trust sheet, checked at kernel admission through the role cell Sol is building (step 7), then replacementApproved reads that approval and the origin rule goes.
 - **node** — `01M6YFRJGV8MAF2AM34N567MBQ`
 
+### GAP: an older kb taking a crashed holder's lock can collide with a writer taking it in place
+
+- **expected** — Two processes never hold a store's write lock at once, an older kb's included: once no kb from before the kernel lock can write a store, the lock is flock(2) alone and nothing judges a pid stale.
+- **current** — During an update an older kb steals a lock whose pid is dead. A writer holding the flock writes its pid over that same dead pid in place. If the older kb read the dead pid just before the writer wrote, it removes or renames the file after the writer checked it, and both enter.
+- **impact** — After a crash of a lock holder while an older kb is still running, a narrow race can let one older and one new writer commit at once, and one write is lost. Two older writers have the same race between themselves.
+- **closes** — Removing the older-writer reading one release after the kernel lock ships (todo 01M7K50TFYFRWRJBTQ8V76489P), once no older kb can still write a store.
+- **node** — `01M7K7RWGW47P9WY09SZTAEP4B`
+
 ### GAP: an optional family's seeded tags and fields are offered in every store's pickers while it is off
 
 - **expected** — a family switched off keeps its seeded nodes (the data outlives the code, DESIGN.md → seed) but the tag and field pickers offer only the vocabulary of loaded families, or mark an off family's as such, as a view of an off family opens as 'cannot be shown here'

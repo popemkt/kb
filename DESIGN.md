@@ -2035,7 +2035,7 @@ file is the format git already understands.
       may judge a lock stale because its holder died. If a writer takes
       that lock in the same moment, both may enter, just as two older
       writers could before. This needs a crash and that coincidence. It
-      ends with the older kb.
+      ends with the older kb, and the gap `01M7K7RWGW47P9WY09SZTAEP4B` records it.
     - _Removal:_ this is transitional. When one release with the kernel
       lock has shipped, and no older kb can still be writing a store, the
       field form, the empty-file grace and the pid check go. The pid is

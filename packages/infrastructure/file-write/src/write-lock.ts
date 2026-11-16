@@ -222,6 +222,7 @@ function olderPid(text: string): number | null {
  * Whether an older kb holds the lock this fd has the flock on: its live pid
  * is in the file, or it has just created the file and not yet written one.
  */
+// GAP [[01M7K7RWGW47P9WY09SZTAEP4B]] an older kb stealing a dead pid can collide with an in-place take.
 function olderKbHolds(fd: number, nowMs: number): boolean {
   const text = readLockText(fd);
   if (isHolderRecord(text)) return false;
