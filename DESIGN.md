@@ -273,7 +273,7 @@ Path-keyed debt follows renames detected by `git diff --find-renames` at its
 default similarity. The base count moves to the new path in every lane; a
 move that gains debt still fails, and an undetected rename fails as before.
 
-The module-design lanes share this ledger: `surface` counts distinct public
+The module-design measures are two: `surface` counts distinct public
 barrel names (type exports included, aliases by their exported name, a
 namespace as one name); `family-names` counts AST string and identifier
 occurrences equal to a declared family id or beginning with its dotted
@@ -282,12 +282,9 @@ Property access names and property declarations/signatures do not count.
 Object-literal keys and shorthand remain counted, preserving family vocabulary. String types used as indexed-access keys, Pick/Omit keys or the
 excluded keys of an Exclude over keyof do not count; value strings still do. Family ids come from the same
 declaration reader as `extension-families`.
-`SURFACE_BUDGETS` in `harness/surface-budgets.json` sets reviewed width ceilings;
-packages without an entry use `NEW_SURFACE_BUDGET`. The surface ledger equals
-measured width, which may grow within its budget. Raising a budget requires a
-new or updated nonempty reason on that entry compared with the fork point.
-The shared budget policy in `harness/src/budgets.ts` compares effective ceilings,
-so removing an entry for a measured package cannot silently raise its limit.
+`surface` is a size, not debt, so it is not a ledger lane: a package's width
+fits the `surface` budget ([Budgets](#budgets)), whose default for a package
+without an entry is the budget's declared default.
 `family-names` is debt: once present in the fork-point ledger, its counts may
 only fall, with no exceptions. The introducing commit initializes debt lanes
 against a base without them.
@@ -320,17 +317,50 @@ The CLI row measures the command dispatcher (`cli.ts`): `main.ts` already
 loads that dispatcher dynamically for launch validation, so using the launcher
 would hide the command's eager imports. The CLI row fences the dependency
 itself. Its current violations form the `lazy-fence` ledger lane, keyed by
-importing file and specifier. `cli-closure` holds total emitted bytes and
+importing file and specifier. The `cli-closure` budget
+([Budgets](#budgets)) holds total emitted bytes and
 distinct source modules across the dispatcher's entire static output closure,
 including shared chunks and excluding dynamic imports. A measurement build
 uses Bun splitting, whitespace minification (removing path-bearing comments)
-and its metafile; output filenames are not policy. Both lanes must match
-reality. The lazy-fence debt may only fall after its introducing commit. CLI
-modules and bytes instead fit the reviewed limits in
-`harness/cli-closure-budgets.json`, through the same budget policy as surface
-widths: raising a ceiling requires a new or updated reason in the same diff.
-`harness:snapshot` regenerates them; an unresolvable source import or missing
+and its metafile; output filenames are not policy. The lazy-fence lane must
+match reality, and its debt may only fall after its introducing commit.
+`harness:snapshot` regenerates it; an unresolvable source import or missing
 metafile output fails the collector. This check does not change release layout.
+
+### Budgets
+
+A budget is a reviewed ceiling on a size that may grow: a package's public
+surface (`surface`), the CLI's eager graph (`cli-closure`), the page's eager
+bundle (`page-eager`). It is not debt, so it is not a ratchet lane, and the
+ledger holds no copy of what it measures; the measure is computed where it
+is checked, and the ceiling is the one statement of the limit.
+
+A ceiling is a sum, so that two changes that each raise it compose by
+addition and merge by construction, with no merge driver and no setup in a
+clone or in CI:
+
+- `BUDGETS` in `harness/src/constraints.ts` names every budget and its
+  default, the ceiling of a key with no base entry.
+- `harness/budgets/<budget>.json` is the base: per key, a `limit` and the
+  `reason` for it.
+- `harness/budgets/changes/<date>-<slug>.json` is one change: a nonempty
+  `reason`, an optional `pr`, and `raise`, the nonzero integer delta it adds
+  per budget and key. Each change is its own file, so parallel changes add
+  different files and never touch the same line.
+- A key's limit is its base limit (or the default) plus the sum of every
+  change's delta for it. `harness/src/budgets.ts` is the one reader;
+  `bun harness/src/budgets.ts limit <budget> <key>` answers it for a
+  measurement that runs outside the harness (`page-bundle.test.ts`).
+
+The test that measures a size fails when the measure passes its limit. The
+ledger does not read at all, and so fails every reader, when a base or
+change file does not decode (a base entry is an integer `limit` and an
+optional string `reason`) or a change names a budget `BUDGETS` does not
+declare. The harness's `budgets` check also fails when a limit is higher than at the
+ratchet's fork point by more than the changes added since: a ceiling rises
+only through a new change file, never by editing the base or an earlier
+change, and removing an entry cannot silently restore a higher default.
+Folding changes into the base keeps every limit and so passes.
 
 Rejected rules are recorded here with their measured count, like rejected
 compiler flags: `oxc/no-map-spread` (14 sites) — a micro-optimisation for

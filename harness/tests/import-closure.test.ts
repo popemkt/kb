@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { lazyDepths, lazyFenceBreaches } from "../src/import-closure.ts";
 import { readFileSync } from "node:fs";
-import { budgetProblems, budgetsAtBase } from "../src/budgets.ts";
-import { CLI_CLOSURE_BUDGETS, CLI_LAUNCHER, LAZY_FENCES } from "../src/constraints.ts";
+import { budgetExceeded, currentLedger } from "../src/budgets.ts";
+import { CLI_LAUNCHER, LAZY_FENCES } from "../src/constraints.ts";
 import { ratchetMismatches, ratchetRises } from "../src/ratchet.ts";
 import { BASELINE_PATH, baselineAtRatchetBase, type BaselineLanes } from "../src/snapshot.ts";
 import {
@@ -78,44 +78,18 @@ test("CLI measurements match the ledger, fit budgets and retain the lazy fence",
   const base = baselineAtRatchetBase();
   expect(base.ok, base.ok ? "" : base.reason).toBe(true);
   if (!base.ok) return;
-  const current = {
-    "lazy-fence": collectCliFence(),
-    "cli-closure": collectStaticClosure(LAZY_FENCES.cli.entry),
-  };
-  const problems: string[] = [];
-  for (const lane of ["lazy-fence", "cli-closure"] as const) {
-    problems.push(...ratchetMismatches(ledger[lane], current[lane], lane));
-    const previous = base.lanes[lane];
-    // Only the introducing commit may have a base without these lanes.
-    if (lane === "lazy-fence" && previous !== undefined)
-      problems.push(...ratchetRises(previous, current[lane], lane));
-  }
+  const cliFence = collectCliFence();
+  const problems = ratchetMismatches(ledger["lazy-fence"], cliFence, "lazy-fence");
+  // Only the introducing commit may have a base without the lane.
+  if (base.lanes["lazy-fence"] !== undefined)
+    problems.push(...ratchetRises(base.lanes["lazy-fence"], cliFence, "lazy-fence"));
   problems.push(
-    ...budgetProblems(
-      current["cli-closure"],
-      CLI_CLOSURE_BUDGETS,
-      budgetsAtBase(base.rev, "harness/cli-closure-budgets.json", base.lanes["cli-closure"]),
-      0,
-      "cli-closure",
-    ),
+    ...budgetExceeded(collectStaticClosure(LAZY_FENCES.cli.entry), currentLedger(), "cli-closure"),
   );
   expect(problems, problems.join("\n")).toEqual([]);
 }, 30000);
 
-test("a CLI closure budget increase needs a changed reason; forbidden imports remain debt", () => {
-  const previous = { modules: { limit: 1107 } };
-  expect(
-    budgetProblems(
-      { modules: 1108 },
-      { modules: { limit: 1108, reason: "seed builders split from seed application" } },
-      previous,
-      0,
-      "cli-closure",
-    ),
-  ).toEqual([]);
-  expect(
-    budgetProblems({ modules: 1108 }, { modules: { limit: 1108 } }, previous, 0, "cli-closure"),
-  ).toHaveLength(1);
+test("forbidden imports remain debt", () => {
   expect(ratchetRises({}, { "file imports forbidden engine": 1 }, "lazy-fence")).toHaveLength(1);
 });
 

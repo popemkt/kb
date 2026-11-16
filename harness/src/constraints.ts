@@ -653,10 +653,16 @@ export function isUiTestFile(file: string): boolean {
 /** Core vocabulary fence: application is measured in the subsequent module steps. */
 export const CORE_NAME_LAYERS: readonly string[] = ["domain", "kit", "contract"];
 
-/** New packages begin with a narrow interface; existing ceilings change with reviewed reasons. */
-export const NEW_SURFACE_BUDGET = 60;
-export { default as SURFACE_BUDGETS } from "../surface-budgets.json";
-export { default as CLI_CLOSURE_BUDGETS } from "../cli-closure-budgets.json";
+/**
+ * Every budget (DESIGN.md → Budgets) and its default: the ceiling of a key
+ * with no base entry. A new package begins with a narrow surface.
+ */
+export const BUDGETS = {
+  surface: { default: 60 },
+  "cli-closure": { default: 0 },
+  "page-eager": { default: 0 },
+} as const satisfies Readonly<Record<string, { readonly default: number }>>;
+export type BudgetName = keyof typeof BUDGETS;
 
 /** Layers whose mechanisms must serve more than one extension family. */
 // GAP [[01M78BBBXM8791SRARJFQ9TNW6]]: existing family-only core files are frozen in the ledger.
