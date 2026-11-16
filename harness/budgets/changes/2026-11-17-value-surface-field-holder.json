@@ -1,0 +1,5 @@
+{
+  "reason": "A value surface's field holder, the node that holds the field's values, declared in the page SDK types `kb ext sdk` writes.",
+  "pr": "#266",
+  "raise": { "cli-closure": { "bytes": 292 } }
+}

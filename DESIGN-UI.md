@@ -1491,7 +1491,11 @@ contract (`PointSpec.contract`: a type, a spec whose editor is one of the
 five and whose `text`, `parse`, `isBlank` and `follow` are functions, a
 layout, and a glyph and surface React draws), so a page half's malformed kind
 is refused where it is contributed, its plugin with it, and never reaches a
-slot: its type draws as the type it stores as.
+slot: its type draws as the type it stores as. A surface is handed its
+field whole as well as its value: `field.holder` is the node that holds the
+field's values (the row's, a table row's, a card's; none for a query's
+slot), so a kind whose value reads by its node's other fields reads them
+from there, through the page's hooks, as every surface reads a node.
 
 **The label column belongs to the field, not to its values.** The type glyph
 is the field's own button (`FieldRow`, labelled "Configure field <name>"). A
