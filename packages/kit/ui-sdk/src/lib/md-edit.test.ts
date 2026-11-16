@@ -11,6 +11,7 @@ import { present } from "@kb/model";
 import { isTextNode } from "./dom";
 import {
   getCaretSerializedOffset,
+  insertAtSelection,
   isCanonicalInline,
   readInlineInput,
   renderInlineMarkdown,
@@ -388,5 +389,50 @@ describe("a line break the browser wrote", () => {
     setCaretSerializedOffset(inner, 1);
     expect(getCaretSerializedOffset(inner)).toBe(1);
     inner.remove();
+  });
+});
+
+describe("text put in at the selection", () => {
+  /** An editor showing `text`, in the document, its selection from `start` to `end`. */
+  function editing(text: string, start: number, end = start): HTMLDivElement {
+    const el = makeEl();
+    document.body.appendChild(el);
+    renderInlineMarkdown(el, text, PLAIN_INK);
+    setCaretSerializedOffset(el, end);
+    const caret = document.getSelection()?.getRangeAt(0);
+    setCaretSerializedOffset(el, start);
+    const anchor = document.getSelection()?.getRangeAt(0);
+    if (caret !== undefined && anchor !== undefined) {
+      const range = document.createRange();
+      range.setStart(anchor.startContainer, anchor.startOffset);
+      range.setEnd(caret.startContainer, caret.startOffset);
+      document.getSelection()?.removeAllRanges();
+      document.getSelection()?.addRange(range);
+    }
+    return el;
+  }
+
+  it("goes in at the caret, which ends after it, and reads back as typing does", () => {
+    const el = editing("ab", 1);
+    expect(insertAtSelection(el, "x\ny")).toBe(true);
+    expect(readInlineInput(el, PLAIN_INK)).toEqual({ text: "ax\nyb", caret: 4 });
+    el.remove();
+  });
+
+  it("replaces what is selected", () => {
+    const el = editing("one two", 4, 7);
+    expect(insertAtSelection(el, "three")).toBe(true);
+    expect(readInlineInput(el, PLAIN_INK)).toEqual({ text: "one three", caret: 9 });
+    el.remove();
+  });
+
+  it("leaves the text alone when the selection is elsewhere", () => {
+    const el = editing("ab", 1);
+    const other = makeEl();
+    document.body.appendChild(other);
+    expect(insertAtSelection(other, "x")).toBe(false);
+    expect(serializeEditable(el)).toBe("ab");
+    el.remove();
+    other.remove();
   });
 });

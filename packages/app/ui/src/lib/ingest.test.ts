@@ -7,6 +7,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   ATTACH_FILE,
   ingestPort,
+  PASTE_TEXT,
   setToastSink,
   syncUiPlugins,
   type Ingested,
@@ -20,6 +21,10 @@ const pasted: Ingested = { gesture: "paste", types: ["text/plain"], text: "a", f
 
 /** The row every gesture here lands on. */
 const site = () => ({ nodeId: "n.row", text: "a row" });
+/** A text host's insertion where no claim here makes text. */
+const refuseText = (text: string) => {
+  throw new Error(`no text was to go in, but ${JSON.stringify(text)} did`);
+};
 
 describe("a text host's port", () => {
   const attached: { nodeId: string; file: File }[] = [];
@@ -59,30 +64,38 @@ describe("a text host's port", () => {
   const declining: IngestHandler = { ...ATTACH_FILE, priority: 9, ingest: () => null };
 
   it("leaves to the browser what nothing claims", () => {
-    expect(ingestPort(() => [ATTACH_FILE], site).offer(pasted)).toBe(false);
-    expect(ingestPort(() => [], site).offer(dropped)).toBe(false);
+    expect(ingestPort(() => [ATTACH_FILE], site).offer(pasted, refuseText)).toBe(false);
+    expect(ingestPort(() => [], site).offer(dropped, refuseText)).toBe(false);
   });
 
   it("leaves to the browser what every handler declines, and writes nothing", async () => {
-    expect(ingestPort(() => [declining], site).offer(dropped)).toBe(false);
+    expect(ingestPort(() => [declining], site).offer(dropped, refuseText)).toBe(false);
     await Promise.resolve();
     expect(attached).toEqual([]);
     expect(told).toEqual([]);
   });
 
   it("asks the next handler when one before it declines", async () => {
-    expect(ingestPort(() => [declining, ATTACH_FILE], site).offer(dropped)).toBe(true);
+    expect(ingestPort(() => [declining, ATTACH_FILE], site).offer(dropped, refuseText)).toBe(true);
     await expect.poll(() => attached).toEqual([{ nodeId: "n.row", file }]);
   });
 
   it("writes what the claim makes at the row: a dropped file, attached", async () => {
-    expect(ingestPort(() => [ATTACH_FILE], site).offer(dropped)).toBe(true);
+    expect(ingestPort(() => [ATTACH_FILE], site).offer(dropped, refuseText)).toBe(true);
     await expect.poll(() => attached).toEqual([{ nodeId: "n.row", file }]);
+  });
+
+  it("puts text a claim makes in through the text host, while the gesture runs", () => {
+    const inserted: string[] = [];
+    const port = ingestPort(() => [ATTACH_FILE, PASTE_TEXT], site);
+    expect(port.offer({ ...pasted, text: "hello\n" }, (text) => inserted.push(text))).toBe(true);
+    expect(inserted).toEqual(["hello"]);
+    expect(attached).toEqual([]);
   });
 
   it("tells the person when the write fails", async () => {
     refuses = true;
-    expect(ingestPort(() => [ATTACH_FILE], site).offer(dropped)).toBe(true);
+    expect(ingestPort(() => [ATTACH_FILE], site).offer(dropped, refuseText)).toBe(true);
     await expect.poll(() => told).toEqual(["Nothing was made of that drop: no"]);
     expect(attached).toEqual([]);
   });
@@ -132,7 +145,7 @@ describe("a pasted outline's place", () => {
       () => [outline],
       () => ({ nodeId: "n.nested", text: "n.nested" }),
     );
-    expect(port.offer({ ...pasted, text: "- one" })).toBe(true);
+    expect(port.offer({ ...pasted, text: "- one" }, refuseText)).toBe(true);
     await expect
       .poll(() => added)
       .toEqual([{ tree: "- one", place: { parent: "n.parent", position: 2 } }]);
@@ -143,7 +156,7 @@ describe("a pasted outline's place", () => {
       () => [outline],
       () => ({ nodeId: "n.top", text: "n.top" }),
     );
-    expect(port.offer({ ...pasted, text: "- one" })).toBe(true);
+    expect(port.offer({ ...pasted, text: "- one" }, refuseText)).toBe(true);
     await expect.poll(() => added).toEqual([{ tree: "- one", place: { parent: null } }]);
   });
 });

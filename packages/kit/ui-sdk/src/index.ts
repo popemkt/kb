@@ -447,6 +447,7 @@ export { currentKeymap, type KeyCall, keyCallOf, runKeyCall, tellKeymaps } from 
 export {
   ATTACH_FILE,
   ingestPort,
+  PASTE_TEXT,
   provideIngest,
   type Ingested,
   type IngestHandler,

@@ -15,6 +15,7 @@ import {
   useNodeTextBinding,
   ATTACH_FILE,
   ingestPort,
+  PASTE_TEXT,
 } from "@kb/ui-sdk";
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef } from "react";
 import { type CanvasKbNode, type CanvasTextNode, itemPaint, withBox } from "@kb/canvas";
@@ -36,7 +37,7 @@ interface KbCardProps extends FaceLayout {
 
 /** Canvas text editing excludes structural outline operations; Enter leaves the text (its blur does). */
 /** What a card's text takes in: a dropped file, as a row's does. */
-const CARD_INGESTS = () => [ATTACH_FILE];
+const CARD_INGESTS = () => [ATTACH_FILE, PASTE_TEXT];
 
 function handleCanvasNodeKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
   if (event.key === "Enter" && !event.shiftKey) {

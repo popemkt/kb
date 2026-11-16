@@ -15,6 +15,7 @@ import { matchesChord, TEXT_HISTORY_CHORD } from "@kb/keybindings";
 import { KB_TEXT_CLASS } from "../lib/md-inline";
 import {
   getCaretSerializedOffset,
+  insertAtSelection,
   KB_REF_ID_ATTR,
   readInlineInput,
   renderInlineMarkdown,
@@ -411,6 +412,15 @@ export function NodeTextHost({
     [isActive, onActivate, onFollow, content, shown],
   );
 
+  /** Text a paste or a drop makes, put in at the caret and read back as typing is. */
+  const insertText = useCallback(
+    (text: string) => {
+      const el = editorRef.current;
+      if (el && insertAtSelection(el, text)) handleInput();
+    },
+    [handleInput],
+  );
+
   const handleDragOver = useCallback(
     (e: React.DragEvent) => {
       if (!ingest.accepts("drop", [...e.dataTransfer.types])) return;
@@ -423,20 +433,20 @@ export function NodeTextHost({
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
-      if (!ingest.offer(ingestedOf("drop", e.dataTransfer))) return;
+      if (!ingest.offer(ingestedOf("drop", e.dataTransfer), insertText)) return;
       e.preventDefault();
       e.stopPropagation();
     },
-    [ingest],
+    [ingest, insertText],
   );
 
   const handlePaste = useCallback(
     (e: React.ClipboardEvent) => {
-      if (!ingest.offer(ingestedOf("paste", e.clipboardData))) return;
+      if (!ingest.offer(ingestedOf("paste", e.clipboardData), insertText)) return;
       e.preventDefault();
       e.stopPropagation();
     },
-    [ingest],
+    [ingest, insertText],
   );
 
   const handleCompositionStart = useCallback(() => {

@@ -209,7 +209,11 @@ const DATASCRIPT = /cljs\.core/;
 // one move step maker, with its ArrowsSplit icon, about 2.2 KB of the
 // rise, and the row's reading of the show child counts setting) measures
 // 1,995,529 with it; the budget keeps about 1.4 KB over that.
-const EAGER_BUDGET_BYTES = 1_996_883;
+// Every paste of text as the chain's (PASTE_TEXT, its normaliser, and the
+// text host's insertion at the caret, which must answer while the paste's
+// event runs, so none of it can load lazily) measures 1,997,295 with it,
+// from 1,996,615; the budget keeps about 1.4 KB over that.
+const EAGER_BUDGET_BYTES = 1_998_695;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

@@ -6,7 +6,8 @@
 // first by the test kit's example extension, installed and trusted in the
 // scratch root, whose handler sits before the outline's: each item becomes
 // a node rated as it says, its guard holding the ratings to their form.
-// Prose is the browser's. A top-level row's outline stays at the top level
+// Anything else goes into the row as text at the caret, normalised
+// (`PASTE_TEXT`). A top-level row's outline stays at the top level
 // with days on, never landing in today, the capture target. The store is
 // read back over the API.
 import type { APIRequestContext, Page } from "playwright/test";
@@ -111,12 +112,48 @@ test("an extension's handler claims its own pastes first, and kb writes what it 
   expect(ratings).toEqual([[{ t: "num", v: 4 }], [{ t: "num", v: 5 }]]);
 });
 
-test("prose is the browser's: no node is made of it", async ({ page, request }) => {
-  const row = await editNewRow(page, request, "Notes");
+/** Edit a new row of `text` with the caret at its end. */
+async function editAtEnd(page: Page, request: APIRequestContext, text: string): Promise<string> {
+  const row = await editNewRow(page, request, text);
+  await page.keyboard.press("End");
+  return row;
+}
+
+test("prose goes into the row as text, each line kept, and no node is made of it", async ({
+  page,
+  request,
+}) => {
+  const row = await editAtEnd(page, request, "Notes ");
   const before = (await stored(request, ROOT)).children.length;
   await paste(page, row, "Issue #12\nis fixed");
-  await page.keyboard.press("Escape");
+  await expect
+    .poll(async () => (await stored(request, row)).text)
+    .toBe("Notes Issue #12\nis fixed");
   expect((await stored(request, ROOT)).children.length).toBe(before);
+});
+
+test("a copied line's trailing break goes nowhere: typing goes on on the same line", async ({
+  page,
+  request,
+}) => {
+  const row = await editAtEnd(page, request, "x");
+  await paste(page, row, "hello\r\n");
+  await page.keyboard.type("!");
+  await expect.poll(async () => (await stored(request, row)).text).toBe("xhello!");
+});
+
+test("a non-breaking space pastes as a space", async ({ page, request }) => {
+  const row = await editAtEnd(page, request, "x");
+  await paste(page, row, "bold\u00A0and plain");
+  await expect.poll(async () => (await stored(request, row)).text).toBe("xbold and plain");
+});
+
+test("text undo takes a paste back", async ({ page, request }) => {
+  const row = await editAtEnd(page, request, "kept");
+  await paste(page, row, " pasted");
+  await expect.poll(async () => (await stored(request, row)).text).toBe("kept pasted");
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect.poll(async () => (await stored(request, row)).text).toBe("kept");
 });
 
 /** The ids of the nodes whose text is `text`, and of each one's parent, if any. */

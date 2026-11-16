@@ -81,7 +81,7 @@
       "@kb/calendar-kit": 14,
       "@kb/scene": 13,
       "@kb/scene-gpu": 35,
-      "@kb/ui-sdk": 522,
+      "@kb/ui-sdk": 523,
       "@kb/ui-test-kit": 26
     },
     "family-names": {
@@ -147,7 +147,7 @@
     },
     "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2810918,
+      "bytes": 2811050,
       "modules": 742
     },
     "single-family": {
