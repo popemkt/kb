@@ -1,0 +1,9 @@
+{
+  "reason": "The write lock as flock(2) through bun:ffi, the kernel's lock released on a holder's death, with the open file checked against the path, over the pid-file lock it replaces.",
+  "pr": "#268",
+  "raise": {
+    "cli-closure": {
+      "bytes": 249
+    }
+  }
+}

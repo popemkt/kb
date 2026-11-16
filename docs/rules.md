@@ -549,14 +549,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — upgrade to three r187, which fixes GTAO with MSAA depth (mrdoob/three.js#34598, #34609), and drop the single-sample branch
 - **node** — `01M416DT1SEWS5P3J28JT4R6YG`
 
-### GAP: a stale write lock's takeover can remove a live replacement lock, letting a third writer in
-
-- **expected** — Two processes never hold a store's write lock at once, a holder's death included: an OS file lock (flock) on the lock file, released by the kernel when its holder dies, so there is no stale detection and no takeover.
-- **current** — @kb/file-write's lock is a pid file. A dead holder's lock is taken over by renaming it aside and checking it; a thief that moved a live replacement links it back, and a writer arriving while the path is empty in between also takes the lock.
-- **impact** — After a holder dies mid-write, two writers can hold the lock for one commit and the last replace drops the other's change. It needs a dead holder, a second thief and a third writer within microseconds.
-- **closes** — flock(2) on the lock fd through bun:ffi (libc on Linux and macOS) in write-lock.ts, behind the same API, with the cross-process stress as its acceptance test.
-- **node** — `01M7K2VAAGPW224QFP6QG8NARD`
-
 ### GAP: a store has no identity of its own, so a backdrop cannot be unique per store
 
 - **expected** — Each kb store carries a stable identity (a system node or store-level field) that a backdrop's variation mixes into its seed, so two stores open on two different skies while one store keeps its own across loads (the owner's ask for Astral: a sky unique to each store).
