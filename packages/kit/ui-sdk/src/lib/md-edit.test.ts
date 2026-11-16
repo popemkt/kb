@@ -331,3 +331,58 @@ describe("editing in place", () => {
     el.remove();
   });
 });
+
+describe("a line break the browser wrote", () => {
+  /** An editor holding `html` as a browser left it, in the document. */
+  function browserLeft(html: string): HTMLDivElement {
+    const el = makeEl();
+    el.innerHTML = html;
+    document.body.appendChild(el);
+    return el;
+  }
+
+  it("reads a break that ends the text as nothing: the placeholder an emptied row keeps", () => {
+    // Backspacing a row's last character, or selecting it all and deleting,
+    // leaves `<br>` in the editor; typing then goes in front of it.
+    for (const [html, text] of [
+      ["<br>", ""],
+      ["bb<br>", "bb"],
+      ["a<strong>b<br></strong>", "ab"],
+      ["tiếng<br>", "tiếng"],
+    ] as const) {
+      const el = browserLeft(html);
+      expect(serializeEditable(el), html).toBe(text);
+      expect(readInlineInput(el, PLAIN_INK).text, html).toBe(text);
+      el.remove();
+    }
+  });
+
+  it("reads a break a line follows as a line break", () => {
+    for (const [html, text] of [
+      ["a<br>b", "a\nb"],
+      ["a<br><br>", "a\n"],
+      ["<span>a<br></span>b", "a\nb"],
+    ] as const) {
+      const el = browserLeft(html);
+      expect(serializeEditable(el), html).toBe(text);
+      el.remove();
+    }
+  });
+
+  it("counts each break in caret offsets as the text does", () => {
+    const placeholder = browserLeft("bb<br>");
+    selectAt(placeholder, placeholder, placeholder.childNodes.length);
+    expect(getCaretSerializedOffset(placeholder)).toBe(2);
+    placeholder.remove();
+
+    const inner = browserLeft("a<br>b");
+    const b = present(inner.lastChild, "the second line");
+    selectAt(inner, b, 1);
+    expect(getCaretSerializedOffset(inner)).toBe(3);
+    setCaretSerializedOffset(inner, 2);
+    expect(getCaretSerializedOffset(inner)).toBe(2);
+    setCaretSerializedOffset(inner, 1);
+    expect(getCaretSerializedOffset(inner)).toBe(1);
+    inner.remove();
+  });
+});

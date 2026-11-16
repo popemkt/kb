@@ -48,9 +48,6 @@ export const INLINE_TEXT_CLASSES = {
   mark: "kb-md-mark",
 } as const;
 
-/** The line box after a trailing newline: layout only, it reads back as nothing. */
-const TRAILING_BREAK_ATTR = "data-kb-trailing-break";
-
 /** A formatted segment's wrapper: its marks and its formatted element. */
 const INLINE_SEG_CLASS = "kb-md-seg";
 
@@ -171,7 +168,8 @@ export function inlineNodes(text: string, ink: RefInk): InlineNode[] {
     .map((span) => spanNode(span, ink));
   // A trailing line break opens a line only if something follows it; this
   // gives that line its box, so a caret after the break has a place to be.
-  return text.endsWith("\n") ? [...nodes, h("br", { [TRAILING_BREAK_ATTR]: "" })] : nodes;
+  // Ending the text, it reads back as nothing ({@link breakSource}).
+  return text.endsWith("\n") ? [...nodes, h("br", {})] : nodes;
 }
 
 function toDom(node: InlineNode): Node {
@@ -287,14 +285,43 @@ export function revealMarkupAtSelection(el: HTMLElement): void {
   }
 }
 
-function serializeNode(node: Node): string {
+function isBreak(element: Element): boolean {
+  return element.tagName === "BR";
+}
+
+/** Whether `node` holds anything the text has: a character, a reference or a break. */
+function holdsText(node: Node): boolean {
+  if (isTextNode(node)) return node.data !== "";
+  if (!isElementNode(node)) return false;
+  if (isBreak(node) || node.hasAttribute(KB_REF_ATTR)) return true;
+  return Array.from(node.childNodes).some(holdsText);
+}
+
+/**
+ * The source a `<br>` in `root` stands for: a line break where a line follows
+ * it, and nothing where it ends the text, since a break there opens no line.
+ * The one reading of a break, for the text and for caret offsets alike. It
+ * covers the box {@link inlineNodes} gives a trailing `\n` and the
+ * placeholder a browser leaves in an editor it emptied, which typing then
+ * goes in front of (DESIGN-UI.md → Outline editor, "Node text is one surface").
+ */
+function breakSource(br: Element, root: Node): string {
+  for (let at: Node | null = br; at !== null && at !== root; at = at.parentNode) {
+    for (let next = at.nextSibling; next !== null; next = next.nextSibling) {
+      if (holdsText(next)) return "\n";
+    }
+  }
+  return "";
+}
+
+function serializeNode(node: Node, root: Node): string {
   if (isTextNode(node)) return node.data;
   if (isElementNode(node)) {
     const token = node.getAttribute(KB_REF_ATTR);
     if (token !== null) return token;
-    if (node.tagName === "BR") return node.hasAttribute(TRAILING_BREAK_ATTR) ? "" : "\n";
+    if (isBreak(node)) return breakSource(node, root);
     let out = "";
-    for (const child of Array.from(node.childNodes)) out += serializeNode(child);
+    for (const child of Array.from(node.childNodes)) out += serializeNode(child, root);
     return out;
   }
   return "";
@@ -303,11 +330,12 @@ function serializeNode(node: Node): string {
 /** Canonical markdown for the editor's current DOM. */
 export function serializeEditable(el: HTMLElement): string {
   let out = "";
-  for (const child of Array.from(el.childNodes)) out += serializeNode(child);
+  for (const child of Array.from(el.childNodes)) out += serializeNode(child, el);
   return out;
 }
 
 interface MeasureState {
+  root: Node;
   target: Node | null;
   offset: number;
   done: boolean;
@@ -346,6 +374,10 @@ function measureUpTo(node: Node, state: MeasureState): void {
       state.total += tokenLengthOf(node);
       return;
     }
+    if (isBreak(node)) {
+      state.total += breakSource(node, state.root).length;
+      return;
+    }
     for (const kid of Array.from(node.childNodes)) measureUpTo(kid, state);
   }
 }
@@ -364,7 +396,7 @@ export function serializedOffsetOfBoundary(
   container: Node,
   offset: number,
 ): number | null {
-  const state: MeasureState = { target: container, offset, done: false, total: 0 };
+  const state: MeasureState = { root: el, target: container, offset, done: false, total: 0 };
   // From `el` itself, so a boundary between its own children is reached too.
   measureUpTo(el, state);
   return state.done ? state.total : null;
@@ -415,6 +447,22 @@ export function setCaretSerializedOffset(el: HTMLElement, pos: number): void {
       return;
     }
     if (!isElementNode(node)) return;
+    if (isBreak(node)) {
+      // A break a line follows is one character, with a caret place on either
+      // side; one that ends the text is none, and the caret never rests past it.
+      const parent = node.parentNode;
+      if (parent === null || breakSource(node, el) === "") return;
+      const index = Array.from(parent.childNodes).indexOf(node);
+      if (state.remaining === 0) {
+        candidates.push({ container: parent, offset: index, plain: true });
+        state.stop = true;
+        return;
+      }
+      state.remaining -= 1;
+      if (state.remaining === 0)
+        candidates.push({ container: parent, offset: index + 1, plain: true });
+      return;
+    }
     if (node.getAttribute(KB_REF_ATTR) === null) {
       for (const kid of Array.from(node.childNodes)) visit(kid);
       return;
