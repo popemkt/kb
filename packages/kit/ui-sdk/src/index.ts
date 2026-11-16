@@ -445,7 +445,7 @@ export {
 } from "./lib/graph-label";
 export { guideLineStyle, indentStyle } from "./lib/indent";
 export { keptLoad } from "./lib/kept-load";
-export { keyChordEvent } from "./lib/keychord";
+export { isCompositionKey, keyChordEvent } from "./lib/keychord";
 export { currentKeymap, type KeyCall, keyCallOf, runKeyCall, tellKeymaps } from "./lib/keybindings";
 export {
   ATTACH_FILE,

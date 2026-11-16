@@ -8,7 +8,7 @@ import {
   WarningIcon,
   XIcon,
 } from "@phosphor-icons/react";
-import { IconButton } from "@kb/ui-sdk";
+import { IconButton, isCompositionKey } from "@kb/ui-sdk";
 import { decideCall, restartChat, sendToAgent, stopAgent, useChat } from "./chat";
 import { Entry } from "./entries";
 import { AgentSettings } from "./settings";
@@ -52,7 +52,7 @@ function Composer() {
     }
   };
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) submit(e);
+    if (e.key === "Enter" && !e.shiftKey && !isCompositionKey(e.nativeEvent)) submit(e);
   };
 
   return (

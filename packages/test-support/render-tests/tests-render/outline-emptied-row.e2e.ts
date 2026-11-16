@@ -91,3 +91,40 @@ test("an IME composition in an emptied row stores the word it commits, and nothi
   await cdp.send("Input.insertText", { text: "tiếng" });
   await expect.poll(() => textsFrom(request, id)).toEqual(["tiếng"]);
 });
+
+test("Enter that commits an IME word, sent after the composition ends as WebKit does, splits no row", async ({
+  page,
+  request,
+}) => {
+  const id = await add(request, "Tiếng");
+  await add(request, "next");
+  await page.goto(`/node/${ROOT}`);
+  await editAtEnd(page, id);
+  const cdp = await page.context().newCDPSession(page);
+  for (const text of [" V", " Vi", " Việt"]) {
+    await cdp.send("Input.imeSetComposition", {
+      text,
+      selectionStart: text.length,
+      selectionEnd: text.length,
+    });
+  }
+  // The IME commits the word (compositionend), then WebKit sends the Enter
+  // that committed it, with keyCode 229.
+  await cdp.send("Input.insertText", { text: " Việt" });
+  await cdp.send("Input.dispatchKeyEvent", {
+    type: "rawKeyDown",
+    key: "Enter",
+    code: "Enter",
+    windowsVirtualKeyCode: 229,
+  });
+  await cdp.send("Input.dispatchKeyEvent", {
+    type: "keyUp",
+    key: "Enter",
+    code: "Enter",
+    windowsVirtualKeyCode: 229,
+  });
+  // What is typed next lands in the row that has the caret: a split would
+  // leave it in a new, empty row.
+  await page.keyboard.type("!");
+  await expect.poll(() => textsFrom(request, id)).toEqual(["Tiếng Việt!", "next"]);
+});

@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import {
   emptyValueForType,
+  isCompositionKey,
   routePointerClick,
   type EditHandle,
   type FieldContext,
@@ -379,7 +380,7 @@ function useSlotGestures(args: SlotArgs) {
       const intent = valueSlotIntent(e, {
         editing,
         keys: mode.keys,
-        composing: composing.current || e.nativeEvent.isComposing,
+        composing: isCompositionKey(e.nativeEvent, composing.current),
         canFollow: target !== null,
         toggles: spec.editor === "toggle",
         addsOnEnter: () => field.many && handle.current?.atEnd() === true,
