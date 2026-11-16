@@ -13,11 +13,12 @@
  * builder can be opened on every query node, one whose EDN is empty (a
  * query being written) included; only a definition (`queryDefOf`) runs.
  */
-import type { CSSProperties, ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 import {
-  Button,
+  cn,
   hasText,
   indentStyle,
+  OutlineLine,
   projectedRowKey,
   resultNodeIds,
   useGraphRead,
@@ -28,6 +29,7 @@ import { projectsRows, type FrameViewKey } from "@kb/views";
 import { addFrameRow } from "./editing-writes";
 import { useOutlineNode, useOutlineNodes } from "./outline.store";
 import { FrameViewSlot } from "./frame-view-slot";
+import { GhostRow } from "./ghost-row";
 import { QueryPanel } from "./query-builder/query-panel";
 import { setQueryBuilderOpen, useQueryBuilderOpen } from "./query-builder/open";
 import type { QueryCount } from "./query-builder/count-chip";
@@ -53,33 +55,90 @@ interface QueryResultsSectionProps {
 }
 
 /**
- * "+ Add" at the end of a query's results: a node the query answers, not a
- * child of the query (DESIGN-UI.md → Adding to a frame). A projected view
- * with rows draws its own, where its rows are.
+ * The ghost row at the end of a query's results: it adds a node the query
+ * answers, not a child of the query (DESIGN-UI.md → Adding to a frame). A
+ * projected view with rows draws its own, where its rows are.
  */
-function AddResult({ queryId, style }: { queryId: string; style: CSSProperties }) {
+function AddResult({
+  queryId,
+  depth,
+  atRest,
+}: {
+  queryId: string;
+  depth: number;
+  atRest: boolean;
+}) {
   return (
-    <div style={style}>
-      <Button
-        variant="ghost"
-        className="text-meta font-normal text-foreground/50"
-        data-add-row={queryId}
-        aria-label="Add a result"
-        onClick={() =>
-          void addFrameRow(
-            {
-              frameId: queryId,
-              isQuerySource: true,
-              // As the list draws a result, below.
-              rowKey: (id) => projectedRowKey(queryId, id),
-            },
-            [],
-          )
-        }
-      >
-        + Add
-      </Button>
-    </div>
+    <GhostRow
+      depth={depth}
+      label="Add a result"
+      atRest={atRest}
+      data-add-row={queryId}
+      onAdd={() =>
+        void addFrameRow(
+          {
+            frameId: queryId,
+            isQuerySource: true,
+            // As the list draws a result, below.
+            rowKey: (id) => projectedRowKey(queryId, id),
+          },
+          [],
+        )
+      }
+    />
+  );
+}
+
+/** A line that says where the results are, on the results' text column. */
+function StatusLine({
+  depth,
+  children,
+  className,
+  ...rest
+}: { depth: number; children: ReactNode; className?: string } & HTMLAttributes<HTMLDivElement>) {
+  return (
+    <OutlineLine
+      {...rest}
+      depth={depth}
+      textClassName={cn("py-0.5 text-meta", className)}
+      text={children}
+    />
+  );
+}
+
+/**
+ * Why a query has no results to show. A query that fails is the one most in
+ * need of its editor, so while the builder is tucked away the error is the
+ * way to it.
+ */
+function QueryError({
+  nodeId,
+  depth,
+  error,
+  open,
+}: {
+  nodeId: string;
+  depth: number;
+  error: string;
+  open: boolean;
+}) {
+  return (
+    <StatusLine depth={depth} className="text-destructive">
+      {error}
+      {!open && (
+        <button
+          type="button"
+          className="ml-2 rounded-xs text-foreground/60 underline underline-offset-2 hover:text-foreground"
+          data-query-edit-from-error={nodeId}
+          onClick={(e) => {
+            e.stopPropagation();
+            setQueryBuilderOpen(nodeId, true);
+          }}
+        >
+          Edit query
+        </button>
+      )}
+    </StatusLine>
   );
 }
 
@@ -125,24 +184,7 @@ export function QueryResultsSection({
     return (
       <div className="query-results" data-query-results-for={nodeId}>
         {panel}
-        <p className="px-1 py-0.5 text-meta text-destructive" style={indent}>
-          {error}
-          {/* A query that fails is the one most in need of its editor: the
-              error is the way to it while the builder is tucked away. */}
-          {!open && (
-            <button
-              type="button"
-              className="ml-2 rounded-xs text-foreground/60 underline underline-offset-2 hover:text-foreground"
-              data-query-edit-from-error={nodeId}
-              onClick={(e) => {
-                e.stopPropagation();
-                setQueryBuilderOpen(nodeId, true);
-              }}
-            >
-              Edit query
-            </button>
-          )}
-        </p>
+        <QueryError nodeId={nodeId} depth={depth + 1} error={error} open={open} />
       </div>
     );
   }
@@ -151,9 +193,9 @@ export function QueryResultsSection({
     return (
       <div className="query-results" data-query-results-for={nodeId} aria-busy="true">
         {panel}
-        <p className="px-1 py-0.5 text-meta text-foreground/50" style={indent} aria-live="polite">
+        <StatusLine depth={depth + 1} className="text-foreground/50" aria-live="polite">
           Loading results…
-        </p>
+        </StatusLine>
       </div>
     );
   }
@@ -162,13 +204,15 @@ export function QueryResultsSection({
     return (
       <div className="query-results" data-query-results-for={nodeId}>
         {panel}
-        <div style={indent}>
-          {ids.length === 0 ? (
-            <>
-              <p className="px-1 py-0.5 text-meta text-foreground/50">No results yet</p>
-              <AddResult queryId={nodeId} style={{}} />
-            </>
-          ) : (
+        {ids.length === 0 ? (
+          <>
+            <StatusLine depth={depth + 1} className="text-foreground/50">
+              No results yet
+            </StatusLine>
+            <AddResult queryId={nodeId} depth={depth + 1} atRest />
+          </>
+        ) : (
+          <div style={indent}>
             <FrameViewSlot
               frameId={nodeId}
               instanceKey={frameInstanceKey}
@@ -176,8 +220,8 @@ export function QueryResultsSection({
               isQuerySource
               depth={depth + 1}
             />
-          )}
-        </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -186,9 +230,9 @@ export function QueryResultsSection({
     <div className="query-results" data-query-results-for={nodeId}>
       {panel}
       {ids.length === 0 ? (
-        <p className="px-1 py-0.5 text-meta text-foreground/50" style={indent}>
+        <StatusLine depth={depth + 1} className="text-foreground/50">
           No results
-        </p>
+        </StatusLine>
       ) : (
         ids.map((id) => {
           const key = projectedRowKey(nodeId, id);
@@ -199,7 +243,7 @@ export function QueryResultsSection({
           });
         })
       )}
-      <AddResult queryId={nodeId} style={indent} />
+      <AddResult queryId={nodeId} depth={depth + 1} atRest={ids.length === 0} />
     </div>
   );
 }

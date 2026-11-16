@@ -57,8 +57,21 @@ export const TEXT_INSET: CSSProperties = { paddingLeft: "var(--kb-text-inset)" }
 
 /**
  * A field row's label, from the text column to where its value starts
- * (`--kb-field-label`), the value's own inset taken out.
+ * (`--kb-field-label`), the value's own inset taken out. Its last glyph
+ * column is the value's: the name truncates before it, and a value that
+ * leads with a glyph (a reference's bullet) hangs it there
+ * (`HANGING_GLYPH`), so every value's words start on one column.
  */
 export const FIELD_LABEL: CSSProperties = {
   width: "calc(var(--kb-field-label) - var(--kb-text-inset))",
+  paddingRight: "var(--kb-glyph)",
 };
+
+/**
+ * A line whose glyph column hangs before the box it is set in: a value that
+ * is a reference, drawn as a row in a field's value column, puts its bullet
+ * in the label's last glyph column. A value's words start a text inset into
+ * the value column, as a line's start a text inset after its glyph column,
+ * so the reference's words land where every value's do.
+ */
+export const HANGING_GLYPH: CSSProperties = { marginLeft: "calc(-1 * var(--kb-glyph))" };

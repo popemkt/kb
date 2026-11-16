@@ -12,6 +12,7 @@ import {
   usePageGraph,
   usePickerKeys,
 } from "@kb/ui-sdk";
+import { SectionHeading } from "./section-heading";
 import { PlusIcon, XIcon } from "@phosphor-icons/react";
 import { isShipped } from "@kb/model";
 import { fieldGlyphOf } from "./value-views";
@@ -86,10 +87,7 @@ export function TagFieldsConfigView({
 
   return (
     <div className="mb-4" data-tag-fields-config="true">
-      <h2 className="mb-2 px-1 text-meta kb-label text-foreground/30">
-        Fields
-        <span className="ml-1.5 font-normal normal-case tracking-normal">({template.length})</span>
-      </h2>
+      <SectionHeading count={template.length}>Fields</SectionHeading>
 
       {template.length === 0 && (
         <p className="px-1 pb-1 text-ui text-foreground/50" role="status">

@@ -6,6 +6,7 @@ import {
   nodeTagColors,
   OptionChip,
   menuAnchor,
+  OutlineLine,
   pageTitleInstanceKey,
   type OutlineNode,
   routePointerClick,
@@ -137,14 +138,12 @@ function EditableTitle({
  * The page heading wraps, every line of it, in view and in edit alike: it is
  * row text (`kb-text-row`, pre-wrap) at the title step. Truncation belongs to
  * the places that are short of room — breadcrumbs, the sidebar — which keep
- * the full text in a tooltip. One line is the height of the side controls'
- * box (`h-9`), so they sit level with the first line however many follow.
- * It asks for a few words' width (`basis-32`) before it grows, so a head too
- * narrow for that beside the controls wraps them under it rather than
- * squeeze the title to a letter a line.
+ * the full text in a tooltip. It owns its line (DESIGN-UI.md → Outline
+ * layout, the page's title): nothing sits beside it, so it wraps only where
+ * the column ends. Its text starts on the text column, as a row's does.
  */
 const TITLE_CLASS = cn(
-  "kb-display kb-text-row min-h-9 min-w-0 grow basis-32 px-1 py-1",
+  "kb-display kb-text-row min-h-9 min-w-0 py-1",
   "text-title font-semibold leading-[1.4]",
 );
 
@@ -154,7 +153,7 @@ const TITLE_CLASS = cn(
  * What the owner ships of the node stays as it shipped it; the label, a
  * person's children and fields, and its settings are the person's.
  */
-function OwnedBy({ id }: { id: string }) {
+function useOwner(id: string) {
   // The owner is named as a ref value is, against the whole graph: a scope
   // that lists this node need not list the family that seeds it.
   const { ownerOf, schema } = useGraphRead();
@@ -181,7 +180,13 @@ function OwnedBy({ id }: { id: string }) {
   );
 }
 
-/** Zoomed root title + fields at depth −1 (DESIGN-RESKIN §1.5), under the page head's space. */
+/**
+ * The page's head, under its space (DESIGN-UI.md → Outline layout, the
+ * page's title): the title, its tags and owner, and its view control, each
+ * a line of the outline at depth 0 with an empty glyph column, so each
+ * starts on the text column the page's rows start on. Its fields follow as
+ * depth-0 field rows (DESIGN-RESKIN §1.5).
+ */
 export function ZoomedRootHeader({
   node,
   view,
@@ -194,33 +199,61 @@ export function ZoomedRootHeader({
   const isList = !projectsRows(view);
   // A query page's control holds its query, one click away: never behind the gear.
   const tucked = isList && !isQueryNode(node);
+  const owner = useOwner(node.id);
 
   return (
     <div
-      className="zoomed-root-header px-2 pb-2"
+      className="zoomed-root-header group/header pb-2"
       data-zoomed-root-header="true"
       data-frame-id={node.id}
     >
       {/* Under the head's space (`PageBackdrop`, the outline editor's), whose backdrop reaches behind it. */}
-      {/* The head's width is its toolbar's room (`@container/viewbar`): narrow, its views show glyphs only. */}
-      <div className="relative @container/viewbar pl-7">
-        <div
-          className="group/header flex min-h-9 flex-wrap items-start justify-between gap-x-2"
-          {...menuAnchor(pageTitleInstanceKey(node.id))}
-        >
+      <OutlineLine
+        depth={0}
+        text={
           <EditableTitle
             node={node}
             onEnter={takesRows(node, view) ? () => void createFirstChild(node.id) : undefined}
           />
-          {/* A list frame keeps its view control quiet: it shows on hover or
-              keyboard focus, and stays while something it opened is open. A
-              plain list tucks it behind one gear; a query's shows its toolbar,
-              whose Query button opens the builder. A projected view shows its
-              toolbar outright. */}
+        }
+        {...menuAnchor(pageTitleInstanceKey(node.id))}
+      />
+
+      {/* Its tags and its owner: no line when it has neither. */}
+      {(node.tags.length > 0 || owner !== null) && (
+        <OutlineLine
+          depth={0}
+          textClassName="flex flex-wrap items-center gap-x-3 gap-y-1 pb-1"
+          text={
+            <>
+              {node.tags.length > 0 && (
+                <TagChipGroup
+                  tags={node.tags}
+                  onTagClick={(tag, e) => {
+                    e.stopPropagation();
+                    zoomTo(tag.id);
+                  }}
+                />
+              )}
+              {owner}
+            </>
+          }
+        />
+      )}
+
+      {/* Its view control, on a line of its own. A list page keeps it quiet,
+          one gear that shows on hover or keyboard focus and stays while
+          something it opened is open; a query's shows its toolbar, whose
+          Query button opens the builder, and a projected view shows its
+          toolbar outright. The toolbar's width is its line's
+          (`@container/viewbar`): narrow, its views show glyphs only. */}
+      <OutlineLine
+        depth={0}
+        textClassName="@container/viewbar"
+        text={
           <span
             className={cn(
-              // Beside the title while both fit; on a line of its own when not.
-              "flex min-h-9 max-w-full items-center transition-opacity duration-100",
+              "flex min-h-6 max-w-full items-center transition-opacity duration-100",
               isList &&
                 "opacity-0 focus-within:opacity-100 group-hover/header:opacity-100 has-[[aria-expanded=true]]:opacity-100",
               tucked && "has-[[data-view-toolbar]]:opacity-100",
@@ -229,22 +262,8 @@ export function ZoomedRootHeader({
           >
             <ViewToolbar frameId={node.id} view={view} tucked={tucked} />
           </span>
-        </div>
-
-        {/* Its tags and its owner: hidden when it has neither. */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pb-2 empty:hidden">
-          {node.tags.length > 0 && (
-            <TagChipGroup
-              tags={node.tags}
-              onTagClick={(tag, e) => {
-                e.stopPropagation();
-                zoomTo(tag.id);
-              }}
-            />
-          )}
-          <OwnedBy id={node.id} />
-        </div>
-      </div>
+        }
+      />
 
       <FieldsSection nodeId={node.id} depth={-1} instanceKey={`title/${node.id}`} />
     </div>

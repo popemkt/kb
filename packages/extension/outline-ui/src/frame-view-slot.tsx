@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from "react";
 import {
-  cn,
   frameViewLabelOf,
   type FrameRowProps,
   FrameSubjectContext,
@@ -22,6 +21,7 @@ import {
 import { projectsRows } from "@kb/views";
 import { outlineFrameSubject } from "./outline-frame";
 import { createTransientNode } from "./editing-writes";
+import { GhostRow } from "./ghost-row";
 import { outlineNodes, todayNow, useOutlineStore } from "./outline.store";
 
 /**
@@ -50,9 +50,9 @@ export function RowChildren({ nodeId, instanceKey, depth }: FrameRowProps) {
 }
 
 /**
- * Tana whitespace-create: the strip under a row's children mints a transient
- * child, last, under `parentId` — the node the row shows — at the children's
- * `depth`.
+ * Tana whitespace-create: the ghost row under an open row with no rows yet
+ * mints a transient child, last, under `parentId` — the node the row
+ * shows — at the children's `depth`.
  */
 function CreateChildStrip({ parentId, depth }: { parentId: string; depth: number }) {
   const handleCreateChild = useCallback(() => {
@@ -60,34 +60,13 @@ function CreateChildStrip({ parentId, depth }: { parentId: string; depth: number
     const lastChild = parent?.children.at(-1) ?? null;
     void createTransientNode(parentId, lastChild);
   }, [parentId]);
-
   return (
-    <div
+    <GhostRow
+      depth={depth}
+      label="New child node"
+      onAdd={handleCreateChild}
       data-create-child-zone={parentId}
-      role="button"
-      tabIndex={0}
-      aria-label="New child node"
-      className={cn(
-        "group/create relative flex h-6 cursor-pointer items-center rounded-sm",
-        "outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
-      )}
-      style={indentStyle(depth)}
-      onClick={handleCreateChild}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          handleCreateChild();
-        }
-      }}
-      title="New child node"
-    >
-      <span
-        className="flex h-6 w-6 items-center justify-center text-ui leading-none text-foreground/0 transition-colors duration-150 group-hover/create:text-foreground/25 group-focus-visible/create:text-foreground/25"
-        aria-hidden
-      >
-        +
-      </span>
-    </div>
+    />
   );
 }
 

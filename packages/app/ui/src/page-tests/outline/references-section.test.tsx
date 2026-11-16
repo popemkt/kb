@@ -50,7 +50,7 @@ describe("inline References (W8a)", () => {
         ],
       }),
     );
-    expect(html).toContain("References (2)");
+    expect(html).toMatch(/>References<span[^>]*>\(2\)<\/span>/);
     expect(html).toContain('data-references-for="n.root-a"');
     expect(html).toContain('data-node-id="n.referrer"');
     // A typed relation reads from this node's side, by its inverse label.

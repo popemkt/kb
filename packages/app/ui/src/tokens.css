@@ -228,20 +228,22 @@
  * Two kinds of link, told apart the Tana way (DESIGN-UI → Links are two
  * kinds). A reference stays in the graph: no mark, and its target's tag ink
  * when it has one (`--kb-ref-ink`, set per reference by `RefInk`). A link
- * leaves it: the external-link mark before its label, drawn in the link's
- * own colour. The mark is a pseudo-element, so it is never text — the
- * editor's serialized string and caret offsets cannot see it.
+ * leaves it: the external-link mark after its label, drawn in the link's
+ * own colour. After, so a row or a value that starts with a link starts its
+ * words on the text column (DESIGN-UI.md → Outline layout). The mark is a
+ * pseudo-element, so it is never text — the editor's serialized string and
+ * caret offsets cannot see it.
  */
 .kb-md-ref {
   color: var(--kb-ref-ink, var(--primary));
 }
 
-.kb-md-link::before {
+.kb-md-link::after {
   content: "";
   display: inline-block;
   width: 0.8em;
   height: 0.8em;
-  margin-inline-end: 0.2em;
+  margin-inline-start: 0.2em;
   vertical-align: -0.05em;
   background-color: currentColor;
   /* Phosphor's arrow-square-out, the outward mark the app's icons already use. */

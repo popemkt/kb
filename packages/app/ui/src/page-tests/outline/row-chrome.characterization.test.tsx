@@ -116,12 +116,13 @@ describe("row chrome", () => {
     expect(toggles()).toBe(false);
   });
 
-  it("an expanded parent: children, guide line, create-child strip, no toolbar", async () => {
+  it("an expanded parent: children, guide line, no ghost row under them, no toolbar", async () => {
     await expand("n.parent");
     await render("n.parent");
     expect(has(".children-container")).toBe(true);
     expect(has('[data-node-id="n.leaf"]')).toBe(true);
-    expect(has('[data-create-child-zone="n.parent"]')).toBe(true);
+    // Enter at the end of the last child adds the next (DESIGN-UI.md → "A ghost row is an add row").
+    expect(has('[data-create-child-zone="n.parent"]')).toBe(false);
     expect(has('[data-view-toolbar="true"]')).toBe(false);
     expect(toggles()).toBe(true);
   });

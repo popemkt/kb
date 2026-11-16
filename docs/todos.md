@@ -34,7 +34,6 @@
 - Study AI Hardware Accelerators: Training vs Inference (Prefill & Decode bottlenecks)
 
 ![AI Hardware Accelerators: Training vs Inference (Prefill & Decode)](assets/01M18ESWBQ9RMEMJ6HFKPA0R43.png)
-- views: toolbar tucked in hover/settings gear — never always-visible
 
 ### done
 
@@ -60,6 +59,7 @@
 - kb refine W6a: inline media (.kb/assets, md images, asset.upload) — DESIGN-REFINE.md
 - kb reskin W8a: nxus tokens + shell (styles port, dark/light, prefs popover, kill panel+query tab, centered/full modes, References inline) — DESIGN-RESKIN.md
 - kb reskin W8b: unified NodeRow/TagChip/FieldRow + borderless field editors + tag colors + selection states — DESIGN-RESKIN.md
+- views: toolbar tucked in hover/settings gear — never always-visible
 
 ### dropped
 

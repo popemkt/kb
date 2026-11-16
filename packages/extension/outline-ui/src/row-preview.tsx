@@ -18,7 +18,7 @@ import { useEffect, useState } from "react";
 import { Result } from "effect";
 import type { NodeId } from "@kb/model";
 import { ignoreReport, paramsFromProps } from "@kb/views";
-import { indentStyle, usePane, ViewSlot } from "@kb/ui-sdk";
+import { indentStyle, OutlineLine, usePane, ViewSlot } from "@kb/ui-sdk";
 import { releaseOutlineKeyboard } from "./outline.store";
 import { openIn, type RowOpening } from "./row-opening";
 
@@ -77,42 +77,52 @@ export function RowPreview({
       fallback={<span className="sr-only">No preview</span>}
     />
   ) : null;
+  const attributes = {
+    "data-row-preview": nodeId,
+    "data-preview-kind": opening.key.preview ?? undefined,
+  };
+  // A live preview is a line of the outline under the row: its words start
+  // on the child's text column (DESIGN-UI.md → Outline layout). A still one
+  // is a box, which starts where a child row's box does.
+  if (opening.key.preview === "live") {
+    return (
+      <OutlineLine
+        {...attributes}
+        depth={depth + 1}
+        className="pr-2 pb-1"
+        text={
+          <div
+            ref={box}
+            role="group"
+            aria-label={`${opening.label} preview`}
+            className="relative w-fit max-w-full"
+            onFocus={releaseOutlineKeyboard}
+          >
+            {slot}
+          </div>
+        }
+      />
+    );
+  }
   return (
-    <div
-      className="pr-2 pb-1"
-      style={indentStyle(depth + 1)}
-      data-row-preview={nodeId}
-      data-preview-kind={opening.key.preview ?? undefined}
-    >
-      {opening.key.preview === "live" ? (
-        <div
-          ref={box}
-          role="group"
-          aria-label={`${opening.label} preview`}
-          className="relative w-fit max-w-full"
-          onFocus={releaseOutlineKeyboard}
-        >
-          {slot}
-        </div>
-      ) : (
-        <div
-          ref={box}
-          role="button"
-          tabIndex={0}
-          aria-label={`Open in ${opening.label}`}
-          title={`Open in ${opening.label}`}
-          className="relative w-full cursor-pointer overflow-hidden rounded-md border border-border bg-foreground/[0.02] outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-          style={{ height: opening.settings.height }}
-          onClick={open}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter" && e.key !== " ") return;
-            e.preventDefault();
-            open();
-          }}
-        >
-          {slot}
-        </div>
-      )}
+    <div {...attributes} className="pr-2 pb-1" style={indentStyle(depth + 1)}>
+      <div
+        ref={box}
+        role="button"
+        tabIndex={0}
+        aria-label={`Open in ${opening.label}`}
+        title={`Open in ${opening.label}`}
+        className="relative w-full cursor-pointer overflow-hidden rounded-md border border-border bg-foreground/[0.02] outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+        style={{ height: opening.settings.height }}
+        onClick={open}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" && e.key !== " ") return;
+          e.preventDefault();
+          open();
+        }}
+      >
+        {slot}
+      </div>
     </div>
   );
 }

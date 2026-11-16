@@ -1,5 +1,6 @@
 import { backlinkRows, type BacklinkRow } from "./backlinks";
 import { NodeLinkRow, schemaOf, useAnswered, usePageGraph } from "@kb/ui-sdk";
+import { SectionHeading } from "./section-heading";
 
 /**
  * Inline "References (N)" at the bottom of a zoomed view (DESIGN-RESKIN §1.5).
@@ -26,9 +27,7 @@ export function ReferencesView({
 
   return (
     <section className="references-section" data-references-for={nodeId}>
-      <h2 className="mb-1 mt-3 text-meta kb-label text-foreground/30">
-        References ({backlinks.length})
-      </h2>
+      <SectionHeading count={backlinks.length}>References</SectionHeading>
       {backlinks.map((row) => (
         <ShallowBacklinkRow key={row.id} row={row} />
       ))}

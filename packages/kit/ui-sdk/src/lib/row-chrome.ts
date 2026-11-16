@@ -84,8 +84,9 @@ export interface RowChromeInput {
  * The rows a row draws under it, wherever it is drawn (a list's row, a lane's
  * head; `RowChildren`): a query's results, unless the row is itself a
  * projected row or repeats one above it; else its shown node's children; and
- * the strip that adds a child, unless its place is computed (a projected row)
- * or its rows are a projection's business.
+ * the ghost row that adds a child, while it has none (DESIGN-UI.md → Outline
+ * layout, "A ghost row is an add row"), unless its place is computed (a
+ * projected row) or its rows are a projection's business.
  */
 export function resolveRowRows({
   node,
@@ -103,7 +104,8 @@ export function resolveRowRows({
     // does not re-run a nested query.
     showsQueryResults: isQuery && !projectedRow && !repeats,
     showsChildren: !isQuery && shown.children.length > 0 && !repeats,
-    showsCreateChild: !projectedRow && !projectsRows(view),
+    showsCreateChild:
+      !isQuery && shown.children.length === 0 && !projectedRow && !projectsRows(view),
   };
 }
 
