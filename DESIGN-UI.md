@@ -422,9 +422,9 @@ the end of a list: `GhostNodeRow`, with its async character buffering and
 the outline's `createTransientNode` (`outline-ui/src/editing-writes.ts`)
 mints a _real_ node synchronously through the write path's `createEmptyNode`,
 the normal optimistic path, which activates it at offset 0, and marks it in the
-outline store's `transientIds`. The click-to-create affordance is a whitespace strip
-(`data-create-child-zone`) rendered at the end of every expanded container and
-at zoom-root level. `pruneOutgoingTransient` silently drops a session-transient
+outline store's `transientIds`. The click-to-create affordance is the ghost
+row (`data-create-child-zone`), drawn under a page's rows and under an open
+row that has no rows yet ([Outline layout](#a-ghost-row-is-an-add-row)). `pruneOutgoingTransient` silently drops a session-transient
 node when focus leaves it while it is still empty; a node that existed before
 this session is never pruned, so committed content cannot evaporate.
 
@@ -971,9 +971,11 @@ field's own text is never autolinked while it is typed.
 its target's first tag colour, inked the way a tag chip's text is (`refInkOf`
 and `tagInk` in `lib/tag-color.ts`), or in the link colour when the target is
 untagged. A link — `[label](url)`, a bare url, a url field's value — leaves
-the graph and wears the external-link mark before its label
-(`.kb-md-link::before` in `tokens.css`: a pseudo-element, so it is never text
-the editor serializes or a caret offset counts). The kind is decided once, in
+the graph and wears the external-link mark after its label
+(`.kb-md-link::after` in `tokens.css`: a pseudo-element, so it is never text
+the editor serializes or a caret offset counts). After, not before, so a row
+or a value that starts with a link starts its words on the text column
+([Outline layout](#outline-layout)). The kind is decided once, in
 the inline tree: `inlineNodes(text, ink)` takes a `RefInk` — how a reference's
 target is inked — from the surface, because `lib/md-edit.ts` knows no graph,
 and carries it on the reference as the `--kb-ref-ink` custom property. Every
@@ -1116,8 +1118,8 @@ filters: a Query button (`data-query-toggle`, `aria-expanded`,
 within, and stays while anything it opened is open; on a zoomed query page it
 sits in the header, one click from the query, never behind the plain list's
 gear. A zoomed query page draws the query's results as its rows, as under a
-query row, and ends in "+ Add" rather than the create strip: what it adds
-is a node the query answers, not a child of the query (Frame views →
+query row, and ends in a ghost row that adds a result, not a child: what it
+adds is a node the query answers, not a child of the query (Frame views →
 _Adding to a frame_). Open or closed is the outline's
 screen state per node (`queryBuilders`), kept for the session and never
 written to the graph. A query that says nothing yet — no EDN, or no
@@ -1128,6 +1130,134 @@ with an "Edit query" button beside it, the way to its editor while it is
 tucked. From the keyboard: Tab reaches the
 button, and the node menu offers "Edit query" / "Hide query", opening a
 closed row to show it (`outline-ui/src/outline-commands.tsx`).
+
+### Outline layout
+
+The outline lays every line out on one grid, whatever the line is: a node
+row, a field row, the page's title, a ghost row, a hidden fields line, a
+section's heading, a row's line preview. Each line kind is
+`OutlineLine` (`@kb/ui-sdk`) with its own content, and its places are
+`lib/indent.ts`'s, the grid's one owner. The rules below are `#rule`
+nodes, and the grid walk in `outline-layout.e2e.ts` measures every one of
+them in a real engine at a desktop and a phone width.
+
+#### The grid
+
+A line at depth d stands d indent steps (`--kb-indent`, 24px at density
+1) from the outline's origin, the left edge of the page's head. It has two
+places:
+
+- **The glyph column** is a `--kb-glyph` box (24px) at the line's start.
+  Its centre is d × step + 12.
+- **The text column** starts `--kb-text-inset` (4px) after that box, at
+  d × step + 28.
+
+A child's columns are one step in from its parent's, and the parent's
+guide line runs down the parent's glyph column.
+
+#### One glyph column
+
+Every line's lead glyph is centred in its glyph column:
+
+- a node's bullet;
+- a field's type icon;
+- a ghost row's "+";
+- a hidden fields line's first chip icon.
+
+**A tag's box is the one lead mark.** It is a second glyph column after the
+bullet (`OutlineLine`'s `lead`), so the row's text starts one step further
+in, on the next text column. Why: the box and the bullet are both the row's
+own controls, and neither can give up its place. The bullet zooms, drags,
+opens the menu and shows that a row is closed. The box toggles. A row with
+a box moves its text by exactly one step, so the text stays on the grid,
+as Tana's does. No other mark moves a line's text.
+
+#### One text column
+
+Every line's first letter starts on its text column:
+
+- a row's text, and the placeholder of a ghost row;
+- a field's name, and a hidden fields line's first chip name;
+- a section's heading (`SectionHeading`: References, Schema, a family's
+  section, a tag's fields);
+- a query's status line ("No results", "Loading results…");
+- a row's line preview, such as an event's line.
+
+An inline mark never moves it:
+
+- **A link's outward mark follows its label.** A row or a value that starts
+  with a link starts its words on the column
+  ([Links are two kinds](#outline-editor-i1)).
+- **A field's values start on one value column.** That column starts
+  `--kb-field-label` after the text column. The label column's last glyph
+  column belongs to the value: the name truncates before it. A value that
+  leads with a glyph, such as a reference's bullet, hangs that glyph there
+  (`HANGING_GLYPH`). So a reference, a link, a date and a number all start
+  their words on one column. Why: a value's lead glyph is part of the value,
+  not a column of its own, and giving every value an empty glyph slot would
+  move plain values a step to the right.
+
+A block, such as a table, a board or a still preview's box, starts where a
+child row's box does, on the child's glyph column. Its rows, if it draws
+any, take that depth's columns.
+
+#### The page's title
+
+The page's head stacks three lines at depth 0, each with an empty glyph
+column, so each starts on the text column the page's rows start on:
+
+1. **The title**, which owns its whole line. It wraps only where the
+   column ends, and keeps its box while it is edited
+   ([Long text](#long-text)).
+2. **Its tags and owner**, a line drawn only when it has either.
+3. **Its view control**, on a line of its own.
+   - On a list page it is the one quiet gear, shown on hover or keyboard
+     focus of the head.
+   - On a projected view or a query page it is the whole toolbar. The view
+     is that page's content, and the toolbar holds its filters and query.
+
+Its fields follow as depth-0 field rows, and its hidden fields line as
+depth-0 chips. Why: a title squeezed beside the toolbar wrapped to three
+lines in a narrow column while the toolbar took the rest. The toolbar
+beside it also moved where the title started. The toolbar is the page's
+control, not its name, so it gets a line of its own. A list page tucks the
+toolbar behind its gear, because a list is the default and the gear is
+enough to change it. A projected view shows the toolbar, because there the
+view is what the page is.
+
+#### A ghost row is an add row
+
+The ghost row (`GhostRow`) is the only add affordance an outline list
+draws: a faint "+" in the glyph column and the placeholder "New node" on
+the text column. The two are always drawn together, and the row is one row
+tall. It stands in three places:
+
+- under a page's rows;
+- under a query's results;
+- under an open row that has no rows yet.
+
+It never stands under rows that are already there: Enter at the end of the
+last one adds the next. It is drawn faint at rest only where it is the
+first row of an empty page or of a query's empty results. Elsewhere it shows
+on hover or focus, and holds its line either way, so showing it moves
+nothing.
+
+Why: an add strip under every open row stacked up, an empty line per level
+of nesting, and showed a "+" with no words beside it in one place and
+"+ New node" in another. One row with one look leaves no gaps and no
+guessing. Adding the first row still has a place, and adding the next is
+Enter.
+
+#### One rhythm
+
+- A line's glyph is level with its first line of text, however many lines
+  the text wraps to.
+- A node row is `--kb-row-h` tall for one line of text. A field row and a
+  hidden fields line are a row plus 4px above and below, inside hairline
+  borders that show on hover.
+- A ghost row is one row tall.
+- A section's heading has 12px above it and 4px below.
+- No line draws empty height of its own.
 
 ### Node pages
 
@@ -1142,10 +1272,11 @@ then its References.
   - **Enter in its title** ends the title's edit and opens a first row
     above whatever the page holds, as Tana's title does: a transient row
     (Outline editor), pruned if left empty.
-  - **Its create strip** adds a row at the end. While the page holds no
-    rows, as a new day does, the strip is the first row's place and says
-    so without a hover ("+ New node"); once it holds one, it is the quiet
-    strip again. Nothing is written until the person asks.
+  - **Its ghost row** adds a row at the end. While the page holds no
+    rows, as a new day does, it is the first row's place and says so
+    without a hover; once the page holds one, it shows on hover
+    ([A ghost row is an add row](#a-ghost-row-is-an-add-row)). Nothing is
+    written until the person asks.
 - **Sections below the outline, contributed per tag.** A family that
   shows something on the page of a node that is one of its tags
   contributes a section to the core point `ui.node-sections` (page
@@ -3422,7 +3553,7 @@ how the stored name resolves to the key among them.
   (`detail`, `showDetail`) and which day a calendar is open at (`day`,
   `showDay`). The children a row shows, in
   their own frame view, the host draws as it draws them under a row in a
-  list (`RowChildren`, the children and the create strip that adds one):
+  list (`RowChildren`, the children and the ghost row that adds the first):
   it is the one way a frame view asks its host for a row's children, as
   `addRow` is the one way it asks for a new row (_Adding to a frame_).
   The outline's own rows draw their children with the same component, and
@@ -3531,9 +3662,9 @@ how the stored name resolves to the key among them.
   - a group of a board adds its value too, the "No <field>" group none;
   - the view's own filter adds what it requires, read the same way
     (`requirementsOf`);
-  - a lane ends in its head's create strip, as the head's rows do in the
-    list: `RowChildren` draws a row's children and the strip that adds
-    one, wherever it is drawn.
+  - a lane's head adds its first row as the head's rows do in the list:
+    `RowChildren` draws a row's children, and the ghost row that adds one
+    while it has none, wherever it is drawn.
 
   A view asks its host for the row with the conditions of where it was
   asked (`FrameSubject.addRow`: its filter, and a group's value as
@@ -3551,8 +3682,9 @@ how the stored name resolves to the key among them.
   frame's rows out as a list beside one row's page: the list on the left,
   each row its bullet and text as the host edits them (`RowText`), and on
   the right the row it shows, as its page shows it: its text as the title,
-  its fields with the page's field editor, and its children with their
-  create strip, as the host draws them under a row (`RowChildren`). The
+  its fields with the page's field editor, and its children with the
+  ghost row that adds the first, as the host draws them under a row
+  (`RowChildren`). The
   row it shows follows the selection: selecting or editing a row of the
   list shows it, and it stays shown while the selection moves into its
   page or off the frame. Which row is shown is the outline's screen state
