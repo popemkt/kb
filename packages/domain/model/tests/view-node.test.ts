@@ -17,8 +17,11 @@ import {
   isViewNode,
   viewOptionId,
   viewOptionOf,
+  viewHostsOf,
   viewsWithDefault,
 } from "../src/view-node.ts";
+import { nodeTitleOf } from "../src/tag-behaviour.ts";
+import { nodeName } from "../src/display-text.ts";
 import { BUNDLED_DECLARATIONS, bundledSeed } from "@kb/bundled";
 
 const seed = new Map(bundledSeed().map((node) => [node.id, node]));
@@ -84,5 +87,51 @@ describe("a view node and its host", () => {
     expect(familyViewIdOf(host, "outline.frame", lookup)).toBe("v.table");
     expect(familyViewIdOf(host, "graph.renderer", lookup)).toBeNull();
     expect(familyViewIdOf(carrying({}), "outline.frame", lookup)).toBeNull();
+  });
+});
+
+const node = (id: string, text: string, props: KbNode["props"] = {}): KbNode => ({
+  id,
+  text,
+  props,
+  children: [],
+  createdAt: "",
+  updatedAt: "",
+});
+
+describe("a view node's name", () => {
+  const table = node("v.table", "", {
+    [SYSTEM_IDS.viewField]: [ref(viewOptionId("outline.table"))],
+  });
+  const library = node("library", "Library", { [SYSTEM_IDS.viewsField]: [ref("v.table")] });
+  const graph = new Map([...seed.values(), table, library].map((n) => [n.id, n] as const));
+  const nodeOf = (id: string) => graph.get(id);
+  const hostOf = viewHostsOf(graph.values());
+
+  test("a view node with no text is named by its view and the node it is a view of, derived", () => {
+    expect(nodeTitleOf(table.id, table, nodeOf, hostOf)).toBe("Table · [[library]]");
+    expect(nodeName(table.id, nodeOf, hostOf)).toBe("Table · Library");
+    // The stored text is never written: renaming the host renames the view.
+    graph.set("library", { ...library, text: "Books" });
+    expect(nodeName(table.id, nodeOf, hostOf)).toBe("Table · Books");
+    graph.set("library", library);
+  });
+
+  test("without a reverse read, or with no host, it is named by its view alone", () => {
+    expect(nodeName(table.id, nodeOf)).toBe("Table");
+    expect(nodeName(table.id, nodeOf, () => undefined)).toBe("Table");
+  });
+
+  test("a view node's own text wins, and a node that is no view node keeps its empty text", () => {
+    const named = { ...table, text: "Reading list" };
+    expect(nodeTitleOf(named.id, named, nodeOf, hostOf)).toBe("Reading list");
+    const plain = node("plain", "");
+    expect(nodeTitleOf(plain.id, plain, nodeOf, hostOf)).toBe("");
+  });
+
+  test("the reverse read names the first host that names the view", () => {
+    const other = node("other", "Other", { [SYSTEM_IDS.viewsField]: [ref("v.table")] });
+    expect(viewHostsOf([library, other])("v.table")).toBe("library");
+    expect(viewHostsOf([library])("nothing")).toBeUndefined();
   });
 });

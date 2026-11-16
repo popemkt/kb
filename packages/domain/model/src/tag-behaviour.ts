@@ -17,6 +17,7 @@ import { refValuesOf, typeRefsOf } from "./node-like.ts";
 import type { PropEdits } from "./node-write.ts";
 import type { NodeLookup } from "./ref-chain.ts";
 import { kindsOf, templateFieldsOf } from "./tag-kinds.ts";
+import { viewIdOfOption, viewOptionOf, type ViewHostOf } from "./view-node.ts";
 
 /** The first value `field` holds on the first of `kinds` that holds one, nearest first. */
 function nearestSetting(kinds: readonly NodeId[], field: NodeId, nodeOf: NodeLookup) {
@@ -112,22 +113,47 @@ type Titled = Pick<NodeLike, "text" | "props">;
 function valueText(
   value: PropValue,
   nodeOf: (id: NodeId) => Titled | undefined,
+  hostOf: ViewHostOf | undefined,
   seen: ReadonlySet<NodeId>,
 ): string {
   if (value.t !== "ref") return String(value.v);
   const target = nodeOf(value.v);
   if (target === undefined || seen.has(value.v)) return target?.text ?? value.v;
-  return titleWithin(value.v, target, nodeOf, seen);
+  return titleWithin(value.v, target, nodeOf, hostOf, seen);
+}
+
+/**
+ * The words a node holds as its own: its text, or, for a view node with
+ * none, its view's name and the node it is a view of, as a reference
+ * (`<view> · [[host]]`), or its view's name alone when no host names it or
+ * `hostOf` cannot say. Derived on every read: a stored name would go stale
+ * when the view or the host changes (DESIGN.md → View nodes).
+ */
+function ownWords(
+  id: NodeId,
+  node: Titled,
+  nodeOf: (id: NodeId) => Titled | undefined,
+  hostOf: ViewHostOf | undefined,
+): string {
+  if (node.text !== "") return node.text;
+  const option = viewOptionOf(node);
+  if (option === null) return node.text;
+  const named = nodeOf(option)?.text ?? "";
+  const view = named !== "" ? named : (viewIdOfOption(option) ?? option);
+  const host = hostOf?.(id);
+  return host === undefined ? view : `${view} · [[${host}]]`;
 }
 
 function titleWithin(
   id: NodeId,
   node: Titled,
   nodeOf: (id: NodeId) => Titled | undefined,
+  hostOf: ViewHostOf | undefined,
   seen: ReadonlySet<NodeId>,
 ): string {
+  const own = ownWords(id, node, nodeOf, hostOf);
   const template = nearestSetting(kindsOf(node, nodeOf), SYSTEM_IDS.tagTitleField, nodeOf);
-  if (template?.t !== "str") return node.text;
+  if (template?.t !== "str") return own;
   const within = new Set([...seen, id]);
   // The fields the template names that the node holds no value of.
   const empty: NodeId[] = [];
@@ -135,23 +161,26 @@ function titleWithin(
     if (span.id === SYSTEM_IDS.nodeTextField) return node.text;
     const values = node.props[span.id] ?? [];
     if (values.length === 0) empty.push(span.id);
-    return values.map((value) => valueText(value, nodeOf, within)).join(", ");
+    return values.map((value) => valueText(value, nodeOf, hostOf, within)).join(", ");
   });
-  return empty.length === 0 ? title : node.text;
+  return empty.length === 0 ? title : own;
 }
 
 /**
  * The name a node is shown by (`sys.f.tag.title`): its nearest kind's title
  * template with each field it names replaced by the node's values of it,
- * once every one holds a value; else, and with no template, its text. A
- * display rule: the stored text is never written by it.
+ * once every one holds a value; else, and with no template, its own words:
+ * its text, or a view node's derived name (DESIGN.md → View nodes), which
+ * names its host when `hostOf` reads who names it. A display rule: the
+ * stored text is never written by it.
  */
 export function nodeTitleOf(
   id: NodeId,
   node: Titled,
   nodeOf: (id: NodeId) => Titled | undefined,
+  hostOf?: ViewHostOf,
 ): string {
-  return titleWithin(id, node, nodeOf, new Set());
+  return titleWithin(id, node, nodeOf, hostOf, new Set());
 }
 
 /**

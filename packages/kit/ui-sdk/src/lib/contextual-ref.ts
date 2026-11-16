@@ -36,6 +36,7 @@
  */
 import { instanceAncestorIds } from "./instance-key";
 import type { RowSource, SchemaIndex } from "./schema";
+import { viewHostsIn } from "./view-hosts";
 import type { OutlineNode } from "./types";
 import { contextualTargetOf, nodeTitleOf, plainWords, shownNodeOf } from "@kb/model";
 
@@ -102,7 +103,7 @@ export function rowTitle(node: OutlineNode, schema: SchemaIndex): string {
   const text = rowText(node, schema);
   const shownId = shownNodeId(node);
   if (shownId !== node.id && schema.get(shownId) === undefined) return text;
-  return nodeTitleOf(shownId, shownNode(node, schema), (id) => schema.get(id));
+  return nodeTitleOf(shownId, shownNode(node, schema), (id) => schema.get(id), viewHostsIn(schema));
 }
 
 /**
