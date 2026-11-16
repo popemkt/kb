@@ -3,27 +3,13 @@ import { CaretRightIcon, HouseIcon } from "@phosphor-icons/react";
 import {
   browserHost,
   cn,
-  type NodeMap,
   OpenNodeContext,
   usePageGraph,
+  useSchema,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
+import { crumbsTo } from "./crumbs";
 import { useOutlineStore, useOutlineNodes } from "./outline.store";
-
-/** The path from home down to `root`, home left out: a rooted outline's crumbs. */
-function pathTo(root: string, nodes: NodeMap): Array<{ id: string; text: string }> {
-  const chain: Array<{ id: string; text: string }> = [];
-  const seen = new Set<string>();
-  let id: string | null = root;
-  while (id !== null && id !== WORKSPACE_ROOT_ID && !seen.has(id)) {
-    seen.add(id);
-    const node = nodes.get(id);
-    if (node === undefined) break;
-    chain.unshift({ id, text: node.text });
-    id = node.parentId;
-  }
-  return chain;
-}
 
 /**
  * Where the outline is: home, then each node down to its root. The zoomed
@@ -36,10 +22,14 @@ export function Breadcrumbs({ root }: { readonly root?: string | undefined }) {
   // getBreadcrumbs builds a fresh array; selecting it directly makes the
   // uSES snapshot unstable (infinite rerender). Derive it with useMemo.
   const nodes = useOutlineNodes();
+  const schema = useSchema();
   const crumbs = useMemo(
-    () => (root === undefined ? useOutlineStore.getState().getBreadcrumbs() : pathTo(root, nodes)),
+    () =>
+      root === undefined
+        ? useOutlineStore.getState().getBreadcrumbs()
+        : crumbsTo(root, WORKSPACE_ROOT_ID, nodes, schema),
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- getBreadcrumbs is read off getState(), so its real inputs are named here by hand
-    [nodes, rootNodeId, root],
+    [nodes, schema, rootNodeId, root],
   );
   const open = useContext(OpenNodeContext);
   const zoomHomeInStore = browserHost().zoomHome;

@@ -5,6 +5,7 @@
  * ext.canvas.tx.apply; afterward the edge does not track/own the prop.
  * Bound vs unbound is computed at render time only (no reconciler writes).
  */
+import { nodeName } from "@kb/model";
 import {
   browserHost,
   logError,
@@ -60,7 +61,7 @@ export function listCanvasNavItems(
 ): Array<{ readonly id: string; readonly label: string }> {
   return listCanvasNodes(nodes).map((n) => ({
     id: n.id,
-    label: n.text || "Untitled canvas",
+    label: nodeName(n.id, (id) => nodes.get(id)) || "Untitled canvas",
   }));
 }
 

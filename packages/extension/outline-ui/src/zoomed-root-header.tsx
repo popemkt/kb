@@ -9,7 +9,10 @@ import {
   pageTitleInstanceKey,
   type OutlineNode,
   routePointerClick,
-  rowText,
+  InlineMarkdown,
+  refLookOf,
+  rowName,
+  rowTitle,
   rowTextReadOnlyReason,
   schemaOf,
   TagChipGroup,
@@ -44,7 +47,11 @@ function EditableTitle({
   // The same text channel as a row: what it shows and whether it can be
   // written are the row rules (`lib/contextual-ref`), not a second copy.
   const readOnly = rowTextReadOnlyReason(node.id, node, schema, isVirtual) !== null;
-  const text = rowText(node, schema);
+  // At rest the title is the row's display text, rich: what a row draws at
+  // rest, its references as pills (DESIGN.md → Display text).
+  const title = rowTitle(node, schema);
+  const name = rowName(node, schema);
+  const follow = useFollow();
   // Its edit is the page editor's, as a row's is: activated under its own
   // instance, so the page (and every backdrop reading `editing()`) knows the
   // owner is typing, and ended when that instance stops being the active one.
@@ -63,11 +70,12 @@ function EditableTitle({
   if (readOnly) {
     return (
       <h1
-        title={`${text || "Untitled"} (system, read-only)`}
+        title={`${name || "Untitled"} (system, read-only)`}
         className={cn(TITLE_CLASS, "text-foreground/60")}
         data-zoom-title-readonly="true"
+        onClick={(e) => routePointerClick(e, follow)}
       >
-        {text || "Untitled"}
+        {title ? <InlineMarkdown text={title} refs={refLookOf(schema)} /> : "Untitled"}
       </h1>
     );
   }
@@ -101,6 +109,8 @@ function EditableTitle({
       role="button"
       tabIndex={0}
       onClick={(e) => {
+        // A reference in the title is followed, as in a row; the rest edits.
+        if (routePointerClick(e, follow)) return;
         e.stopPropagation();
         startEditing();
       }}
@@ -114,11 +124,11 @@ function EditableTitle({
         TITLE_CLASS,
         "cursor-text text-foreground/90",
         "rounded-sm transition-colors duration-100 hover:text-foreground",
-        !text && 'empty:before:content-["Untitled"]',
+        !title && 'empty:before:content-["Untitled"]',
       )}
       data-zoom-title="true"
     >
-      {text || <br />}
+      {title ? <InlineMarkdown text={title} refs={refLookOf(schema)} /> : <br />}
     </div>
   );
 }

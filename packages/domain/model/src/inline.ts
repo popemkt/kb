@@ -287,7 +287,7 @@ function parseOnce(text: string): InlineSpan[] {
       }
     }
 
-    // [[id|label]] or [[id]]
+    // [[id|label]] or [[id]]; GAP [[01M7HCW3N0TSYGSXVNQS2K8H0Y]] a second statement of mention.ts's token
     if (text[i] === "[" && text[i + 1] === "[") {
       const end = text.indexOf("]]", i + 2);
       if (end > i) {

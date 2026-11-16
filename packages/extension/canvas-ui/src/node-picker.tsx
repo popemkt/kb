@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { SYSTEM_IDS, typeRefsOf } from "@kb/model";
+import { SYSTEM_IDS, typeRefsOf, nodeName } from "@kb/model";
 import {
   isSysPrefixed,
   PickerList,
@@ -33,7 +33,11 @@ export function NodePicker({ onPick, onClose }: NodePickerProps) {
       if (isSysPrefixed(n.id)) continue;
       const types = typeRefsOf(n);
       if (types.includes(SYSTEM_IDS.tag) || types.includes(SYSTEM_IDS.field)) continue;
-      out.push({ id: n.id, label: n.text || "∅", note: n.id.slice(0, 8) });
+      out.push({
+        id: n.id,
+        label: nodeName(n.id, (id) => nodes.get(id)) || "∅",
+        note: n.id.slice(0, 8),
+      });
     }
     return out;
   }, [nodes]);

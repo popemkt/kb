@@ -4,7 +4,7 @@ import {
   cn,
   MdView,
   NotFound,
-  rowText,
+  rowTitle,
   schemaOf,
   shownNodesOf,
   textOr,
@@ -61,7 +61,7 @@ export function NodeReadSurface({ params }: ViewProps<NodeReadParams>) {
       )}
       {rootId === WORKSPACE_ROOT_ID ? null : (
         <h1 className="kb-display text-title font-medium text-foreground/85">
-          <MdView text={textOr(rowText(root, schema), "Untitled")} onFollow={follow} refs={refs} />
+          <MdView text={textOr(rowTitle(root, schema), "Untitled")} onFollow={follow} refs={refs} />
         </h1>
       )}
       {rows.length === 0 ? (

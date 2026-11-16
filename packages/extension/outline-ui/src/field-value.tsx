@@ -30,6 +30,7 @@ import {
   type RefLook,
   type RejectedInput,
   type ValueSurfaceProps,
+  nameIn,
 } from "@kb/ui-sdk";
 import { useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import { parseDateInput, parseDay } from "@kb/model";
@@ -571,10 +572,13 @@ export function ColorSwatchEditor({
 function ResolvedRefRow({
   refId,
   target,
+  name,
   onFollow,
 }: {
   refId: string;
   target: OutlineNode;
+  /** The target's name (`nameIn`, DESIGN.md → Display text). */
+  name: string;
   onFollow: Follow;
 }) {
   return (
@@ -598,7 +602,7 @@ function ResolvedRefRow({
         <>
           {/* The label is a pointer segment: a plain click follows it, the
               way a `[[ref]]` pill does. The rest of the row edits the value.
-              A resolved target's own text is the label; the caller's
+              A resolved target's name is the label; the caller's
               `display` is only ever a fallback for an *un*resolved id. */}
           <span
             className={cn(
@@ -608,7 +612,7 @@ function ResolvedRefRow({
             )}
             {...{ [KB_REF_ID_ATTR]: refId }}
           >
-            {target.text || "​"}
+            {name || "​"}
           </span>
           {target.tags.length > 0 && (
             <TagChipGroup
@@ -692,7 +696,10 @@ export function RefSurface({
     );
   }
   const target = context.schema.get(refId);
-  if (target) return <ResolvedRefRow refId={refId} target={target} onFollow={onFollow} />;
+  if (target) {
+    const name = nameIn(context.schema, refId);
+    return <ResolvedRefRow refId={refId} target={target} name={name} onFollow={onFollow} />;
+  }
   if (refId) return <UnresolvedRefChip refId={refId} display={display} />;
   return (
     <span
@@ -741,7 +748,7 @@ export function OptionSurface({
         {preview?.(optionId)}
         <OptionChip
           id={optionId}
-          label={option.text || optionId}
+          label={nameIn(context.schema, optionId) || optionId}
           color={optionColorOf(option, context.schema.get(fieldId))}
         />
       </span>

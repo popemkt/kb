@@ -1,4 +1,5 @@
 import { fieldShowOf, pinnedFirst, templateFieldsOf, typeRefsOf } from "@kb/model";
+import { nameIn } from "./contextual-ref";
 import type { SchemaIndex } from "./schema";
 import type { OutlineNode, PropValue, ResolvedProp } from "./types";
 
@@ -120,7 +121,7 @@ export function resolveVisibleProps(
     seen.add(fieldId);
     out.push({
       fieldId,
-      fieldName: fieldNode?.text ?? fieldId,
+      fieldName: nameIn(schema, fieldId) || fieldId,
       values,
       debug: showAll && hiddenByDefault,
       placement: place(fieldId, fieldNode, true),
@@ -136,7 +137,7 @@ export function resolveVisibleProps(
     const fieldNode = schema.get(fieldId);
     out.push({
       fieldId,
-      fieldName: fieldNode?.text ?? fieldId,
+      fieldName: nameIn(schema, fieldId) || fieldId,
       values: [] as PropValue[],
       empty: true,
       placement: place(fieldId, fieldNode, false),

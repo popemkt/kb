@@ -127,7 +127,6 @@ export function rowText(node: OutlineNode, schema: SchemaIndex): string {
  * belongs to (`nodeTitleOf`, DESIGN-UI.md → Titles from fields), which is
  * {@link rowText} itself unless that node's tag builds one from its fields.
  */
-// GAP [[01M7CYP03QT4AWT994NSXQV35B]] breadcrumbs, page titles and graph labels still name a node by its text
 export function rowTitle(node: OutlineNode, schema: SchemaIndex): string {
   const text = rowText(node, schema);
   const shownId = shownNodeId(node);
@@ -141,6 +140,7 @@ export function rowTitle(node: OutlineNode, schema: SchemaIndex): string {
  * a node where only a string fits reads it: a breadcrumb, a pane's title, a
  * list, a picker, a chip, a toast.
  */
+// GAP [[01M7HCW0W60M9G3R2QCF8FZJW1]] some naming surfaces still read node.text
 export function rowName(node: OutlineNode, schema: SchemaIndex): string {
   return plainWords(rowTitle(node, schema), (id) => schema.get(id));
 }

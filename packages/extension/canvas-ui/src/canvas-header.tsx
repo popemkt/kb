@@ -1,6 +1,7 @@
+import { nodeName } from "@kb/model";
 import type { ReactNode } from "react";
 import { ArrowLeftIcon } from "@phosphor-icons/react";
-import { Bullet, NodeRow, navigate, type OutlineNode } from "@kb/ui-sdk";
+import { Bullet, NodeRow, navigate, useSchema, type OutlineNode } from "@kb/ui-sdk";
 import { CANVAS_LIST_PATH } from "./routes";
 
 /**
@@ -24,6 +25,7 @@ export function CanvasHeader({
   readonly onAddNode: () => void;
   readonly zoom: ReactNode;
 }) {
+  const schema = useSchema();
   return (
     <>
       <div className="kb-chrome flex h-10 shrink-0 items-center gap-2 border-b border-foreground/[0.06] px-3">
@@ -45,7 +47,7 @@ export function CanvasHeader({
               bullet={<Bullet node={canvasNode} onClick={() => {}} />}
               content={
                 <span className="kb-display truncate text-ui text-foreground/70">
-                  {canvasNode.text}
+                  {nodeName(canvasNode.id, (id) => schema.get(id))}
                 </span>
               }
               className="min-w-0 flex-1"

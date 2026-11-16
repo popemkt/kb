@@ -8,6 +8,8 @@ import {
   menuAnchorOf,
   pageTitleInstanceKey,
   schemaZoomKind,
+  rowName,
+  schemaOf,
   textOr,
   useFocusReturn,
 } from "@kb/ui-sdk";
@@ -81,6 +83,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const wireNodes = useGraphStore((s) => s.wireNodes);
   const generation = useGraphStore((s) => s.index?.generation ?? 0);
   const zoomTo = useGraphStore((s) => s.zoomTo);
+  const schema = useGraphStore(schemaOf);
 
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
@@ -120,9 +123,10 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     const offered = withoutEntries(graphIndex, declined);
     const nodeId = pageCommandTarget().nodeId;
     if (nodeId === null || nodeCommands.length === 0) return offered;
-    const label = textOr(shownNodes().get(nodeId)?.text.trim(), nodeId);
+    const node = shownNodes().get(nodeId);
+    const label = textOr(node && rowName(node, schema), nodeId);
     return withNodeCommands(offered, nodeCommands, label);
-  }, [graphIndex, nodeCommands, declined]);
+  }, [graphIndex, nodeCommands, declined, schema]);
 
   const hits = useMemo(() => searchPalette(index, query, ROW_LIMIT), [index, query]);
 

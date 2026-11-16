@@ -35,7 +35,7 @@
 import type { SidebarNavItem } from "../components/sidebar-row";
 import { contextualTargetOf } from "./contextual-ref";
 import type { NodeMap, OutlineNode } from "./types";
-import { SYSTEM_IDS } from "@kb/model";
+import { nodeName, SYSTEM_IDS } from "@kb/model";
 
 /** Child ids of the Pinned list, in stored order. Empty when it is unseeded. */
 export function pinnedRefIds(nodes: NodeMap): string[] {
@@ -77,8 +77,9 @@ export function listPinnedNodes(nodes: NodeMap): OutlineNode[] {
 
 /** Targets of the Pinned list, in list order, as the Pinned section lists them. */
 export function listPinnedNavItems(nodes: NodeMap): SidebarNavItem[] {
+  const nodeOf = (id: string) => nodes.get(id);
   return listPinnedNodes(nodes).map((n) => ({
     id: n.id,
-    label: n.text || n.id,
+    label: nodeName(n.id, nodeOf) || n.id,
   }));
 }

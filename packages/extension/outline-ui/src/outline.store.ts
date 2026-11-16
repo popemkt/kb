@@ -55,6 +55,7 @@ import {
 import type { FrameViewKey } from "@kb/views";
 import { outlineHostOf, outlineHostOfInstance as walkHostOf } from "./outline-hosts";
 import { isReferenceKey, openReferenceHolds, openReferenceKey } from "./open-references";
+import { crumbsTo, type Crumb } from "./crumbs";
 
 export type { VisibleInstance };
 
@@ -162,7 +163,7 @@ interface OutlineState {
   getNextVisibleInstance: (instanceKey: string) => VisibleInstance | null;
   /** Where the walk reaches a row instance (its lane, DESIGN-UI.md → Lanes), or null. */
   instanceAt: (instanceKey: string) => VisibleInstance | null;
-  getBreadcrumbs: () => Array<{ id: string; text: string }>;
+  getBreadcrumbs: () => Crumb[];
   /** Register a session-minted transient node id (auto-prune candidate). */
   markTransient: (ids: string | string[]) => void;
 }
@@ -743,17 +744,8 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
         .find((instance) => instance.instanceKey === instanceKey) ?? null,
 
     getBreadcrumbs: () => {
-      const nodes = outlineNodes();
       const { rootNodeId, homeRootId } = graphNow();
-      const chain: Array<{ id: string; text: string }> = [];
-      let currentId: string | null = rootNodeId;
-      while (currentId !== null && currentId !== homeRootId) {
-        const n = nodes.get(currentId);
-        if (!n) break;
-        chain.unshift({ id: n.id, text: n.text || "Untitled" });
-        currentId = n.parentId;
-      }
-      return chain;
+      return crumbsTo(rootNodeId, homeRootId, outlineNodes(), browserHost().schema());
     },
 
     markTransient: (ids) => {

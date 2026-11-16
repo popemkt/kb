@@ -12,8 +12,10 @@
  * moves many times a frame, and no row renders again while it does.
  */
 import {
+  browserHost,
   isProjectedRow,
   LONG_PRESS_MS,
+  nameIn,
   type MovePlace,
   type NodeMap,
   pastSlop,
@@ -228,12 +230,7 @@ function ghostOf(ids: readonly string[]): HTMLElement {
   ghost.setAttribute("data-row-drag-ghost", "true");
   const text = document.createElement("span");
   text.className = "min-w-0 truncate";
-  text.textContent = textOr(
-    outlineNodes()
-      .get(ids[0] ?? "")
-      ?.text.trim(),
-    "(empty)",
-  );
+  text.textContent = textOr(nameIn(browserHost().schema(), ids[0] ?? ""), "(empty)");
   ghost.append(text);
   if (ids.length > 1) {
     const count = document.createElement("span");

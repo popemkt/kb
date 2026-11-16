@@ -14,6 +14,8 @@ import {
   useContributions,
   ViewPoint,
   useDismiss,
+  rowName,
+  schemaOf,
 } from "@kb/ui-sdk";
 import { nodePath } from "@kb/views";
 import { pageOpeningsOf } from "@/lib/node-openings";
@@ -47,13 +49,14 @@ function useSections(path: string): readonly Section[] {
   const catalog = usePageCatalog();
   const nodes = useShownNodes();
   const zoom = useGraphStore((s) => s.rootNodeId);
+  const schema = useGraphStore(schemaOf);
   const route = matchRoute(routes, path);
   const host = route === null ? null : (hostOf(route.params) ?? shownZoomAt(path, zoom) ?? null);
   const sections: Section[] = [];
   const hostNode = host === null ? undefined : nodes.get(host);
   if (host !== null && hostNode !== undefined) {
     sections.push({
-      title: hostNode.text.trim() === "" ? "This node" : hostNode.text.trim(),
+      title: rowName(hostNode, schema) || "This node",
       choices: pageOpeningsOf(host, catalog, views, (id) => nodes.get(id)).map(
         ({ view, label }) => ({ path: nodePath(host, view), label }),
       ),

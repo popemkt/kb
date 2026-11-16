@@ -6,7 +6,7 @@
 import { useMemo } from "react";
 import { Effect } from "effect";
 import { clockSampler } from "@kb/model";
-import { NodeLinkRow, rowText, useNodes, useSchema, type NodeSectionProps } from "@kb/ui-sdk";
+import { NodeLinkRow, rowTitle, useNodes, useSchema, type NodeSectionProps } from "@kb/ui-sdk";
 import { keyOf, touchedIn } from "./touched";
 
 function pageZone(): string {
@@ -23,7 +23,7 @@ export function TouchedSection({ id }: NodeSectionProps) {
     const node = nodes.get(touched);
     if (node === undefined) return [];
     return [
-      <NodeLinkRow key={touched} id={touched} text={rowText(node, schema)} tags={node.tags} />,
+      <NodeLinkRow key={touched} id={touched} text={rowTitle(node, schema)} tags={node.tags} />,
     ];
   });
 }

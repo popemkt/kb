@@ -5,8 +5,8 @@
  * they are drawn, to the references they left, or else to the row before
  * where they were, as after Delete, a toast saying where they went.
  */
-import { browserHost, type MovePlace, textOr, toast } from "@kb/ui-sdk";
-import { outlineNodes, useOutlineStore } from "./outline.store";
+import { browserHost, type MovePlace, nameIn, textOr, toast } from "@kb/ui-sdk";
+import { useOutlineStore } from "./outline.store";
 
 /**
  * Move `ids`, whose rows run from instance `firstKey` to `lastKey`, to
@@ -47,6 +47,6 @@ export async function moveRows(
   const where =
     place.parent === null
       ? "the top level"
-      : textOr(outlineNodes().get(place.parent)?.text.trim(), "a node");
+      : textOr(nameIn(browserHost().schema(), place.parent), "a node");
   toast(`${ids.length === 1 ? "Moved" : `Moved ${ids.length} nodes`} to ${where}`, "info");
 }

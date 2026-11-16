@@ -32,7 +32,7 @@ import {
 import { outlineNodes, useOutlineStore } from "./outline.store";
 import { moveRows } from "./row-moves";
 import { expandReference, removeReference } from "./reference-steps";
-import { declaresOptionSet, isSysPrefixed, SYSTEM_IDS, typeRefsOf } from "@kb/model";
+import { declaresOptionSet, isSysPrefixed, nodeName, SYSTEM_IDS, typeRefsOf } from "@kb/model";
 
 /**
  * Nodes whose kind slot points at `kind`, by name: the tags (`sys.tag`) the
@@ -40,9 +40,11 @@ import { declaresOptionSet, isSysPrefixed, SYSTEM_IDS, typeRefsOf } from "@kb/mo
  * and the same candidates wherever else a tag or a field is picked.
  */
 export function nodesOfKind(wireNodes: readonly WireNode[], kind: string): PickerCandidate[] {
+  const byId = new Map(wireNodes.map((n) => [n.id, n]));
+  const nodeOf = (id: string) => byId.get(id);
   return wireNodes
     .filter((n) => (n.props[SYSTEM_IDS.typeField] ?? []).some((v) => v.t === "ref" && v.v === kind))
-    .map((n) => ({ id: n.id, label: n.text || n.id }))
+    .map((n) => ({ id: n.id, label: nodeName(n.id, nodeOf) || n.id }))
     .toSorted((a, b) => a.label.localeCompare(b.label));
 }
 
@@ -122,7 +124,12 @@ function fieldOptions(wireNodes: readonly WireNode[]): PickerCandidate[] {
       const option = byId.get(optionId);
       return option === undefined
         ? []
-        : [{ id: optionId, label: `${field.label}: ${option.text || optionId}` }];
+        : [
+            {
+              id: optionId,
+              label: `${field.label}: ${nodeName(optionId, (id) => byId.get(id)) || optionId}`,
+            },
+          ];
     });
   });
 }

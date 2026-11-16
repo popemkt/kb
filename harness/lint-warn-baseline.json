@@ -138,11 +138,10 @@
       "kit/ui-sdk/src/lib/router.ts": 1,
       "kit/ui-sdk/src/lib/schema.ts": 4,
       "kit/ui-sdk/src/lib/tag-color.test.ts": 5,
-      "kit/ui-sdk/src/lib/command-forms.tsx": 3,
-      "kit/ui-sdk/src/lib/graph-view.ts": 5,
       "kit/ui-sdk/src/lib/graph-label.ts": 3,
       "kit/ui-sdk/src/lib/md-edit.ts": 2,
       "kit/ui-sdk/src/lib/tag-color.ts": 6,
+      "kit/ui-sdk/src/lib/graph-view.ts": 5,
       "kit/ui-sdk/src/sandbox-run.ts": 5,
       "kit/ui-sdk/src/hooks.ts": 3
     },

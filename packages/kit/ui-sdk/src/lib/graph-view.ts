@@ -1,10 +1,11 @@
 import { Option, Schema } from "effect";
 import type { SchemaIndex } from "./schema";
 import type { WireNode } from "@kb/contracts";
-import { compareRootOrder, hasQueryDef, nodeTitleOf, typeRefsOf, SYSTEM_IDS } from "@kb/model";
+import { compareRootOrder, hasQueryDef, nodeName, typeRefsOf, SYSTEM_IDS } from "@kb/model";
+import { nameIn } from "./contextual-ref";
 import { tagColorOf, tagPalette, type TagPalette } from "./tag-color";
 import { resolveVisibleProps, isFieldHidden, type ResolvePropsOptions } from "./field-visibility";
-import { hasText, textOr } from "./text";
+import { hasText } from "./text";
 import {
   EXPANDED_STORAGE_KEY,
   EXPANSION_STORAGE_KEY,
@@ -42,7 +43,7 @@ function resolveTags(wire: WireNode, byId: Map<string, WireNode>, palette: TagPa
     if (!isTagNode(target)) continue;
     tags.push({
       id: typeId,
-      name: textOr(target?.text, typeId),
+      name: nodeName(typeId, (id) => byId.get(id)) || typeId,
       color: tagColorOf(typeId, palette),
     });
   }
@@ -322,12 +323,11 @@ export function resolveProps(
   return resolveVisibleProps(node, schema, opts);
 }
 
-/** Resolve a ref prop to a label: target text when present, otherwise raw id fallback. */
+/** Resolve a ref prop to a label: its target's name when present, otherwise null. */
 function resolveRefLabel(refId: string, schema: SchemaIndex): string | null {
-  const n = schema.get(refId);
-  if (!n) return null;
-  // A ref value is labelled by its target's title (DESIGN-UI.md → Titles from fields).
-  return nodeTitleOf(refId, n, (id) => schema.get(id)) || refId;
+  if (!schema.has(refId)) return null;
+  // A ref value is labelled by its target's name (DESIGN.md → Display text).
+  return nameIn(schema, refId) || refId;
 }
 
 export function formatPropValue(
