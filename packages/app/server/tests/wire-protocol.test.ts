@@ -70,9 +70,15 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // `node.export` is a new action a previous page never calls; node.addTree
 // takes an optional `format`, which a previous page never sends and which
 // reads as Tana Paste, the one format it pasted in.
+// `migration.plan` and `migration.preview` answer a plan reading node by node
+// (`writes`, `more`) in place of `samples`, and take an optional `limit`; a
+// procedure step may name its `changes`. A previous page never calls
+// `migration.plan`, ignores `changes` and shows a preview's output as values.
+// A plan reading's part holds its values typed and by id ({value, name?}) in
+// place of words, which only this release's page and CLI read.
 const RECORDED = {
   protocol: 9,
-  fingerprint: "18c556f674d81b445bc02d38497f7a3a552fef6c52fd2f6f45bf08a26c2c534f",
+  fingerprint: "969810c8c057cae8d573b0773dcd8a9a17f8da4f13c9f66a0289bf4721dd9c66",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

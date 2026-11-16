@@ -7,6 +7,7 @@ import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import type { ProcedureStatus } from "@kb/contracts";
 import { ProcedurePage } from "@/components/procedure/procedure-page";
 import { useGraphStore } from "@/stores/graph.store";
+import { useWorkspaceStore } from "@/stores/workspace.store";
 
 const invoke = vi.hoisted(() => vi.fn());
 vi.mock("@kb/ui-sdk", async (original) => ({
@@ -200,4 +201,91 @@ it("summarizes output and leaves raw data in a closed Details disclosure", async
   expect(summary?.textContent).toContain("12");
   expect(summary?.textContent).toContain("No problems");
   expect(summary?.textContent).not.toContain('"state"');
+});
+
+/** A write that takes a trailing line break off note `at`. */
+const change = (at: number) => ({
+  id: `n${at}`,
+  name: `Note ${at}`,
+  kind: "change",
+  parts: [
+    {
+      part: "text",
+      label: "Text",
+      before: [{ value: { t: "str", v: `Note ${at}\n` } }],
+      after: [{ value: { t: "str", v: `Note ${at}` } }],
+    },
+  ],
+});
+it("draws a step's changes before it is reached: grouped, capped, each node a link, a trailing break as ⏎", async () => {
+  const plan = { action: "migration.plan", input: { migration: "core.trim" } };
+  const preview = {
+    ...present(status.steps[0], "test decision"),
+    id: "preview",
+    title: "Preview",
+    decision: false,
+    recommended: undefined,
+    notes: [],
+    actions: [
+      { id: "preview", title: "Preview", call: { action: "migration.preview", input: {} } },
+    ],
+    changes: plan,
+  };
+  const backup = {
+    ...preview,
+    id: "backup",
+    title: "Back up",
+    actions: [{ id: "backup", title: "Back up", call: { action: "store.backup", input: {} } }],
+    changes: undefined,
+  };
+  const apply = { ...preview, id: "apply", title: "Apply" };
+  const reading = {
+    creates: 1,
+    changes: 30,
+    deletes: 0,
+    writes: [
+      ...Array.from({ length: 30 }, (_, at) => change(at)),
+      {
+        id: "new",
+        name: "",
+        kind: "create",
+        parts: [
+          { part: "text", label: "Text", before: [], after: [{ value: { t: "str", v: "" } }] },
+        ],
+      },
+    ],
+    more: 0,
+  };
+  invoke.mockImplementation(async (id: string) =>
+    id === "migration.plan"
+      ? success(id, reading)
+      : success(id, { ...status, current: "backup", steps: [backup, preview, apply] }),
+  );
+  const navigatePane = vi.fn();
+  useWorkspaceStore.setState({ navigatePane });
+  await show();
+  expect(invoke).toHaveBeenCalledWith("migration.plan", plan.input);
+  // Shown once, on the first step not done that names it: the Preview card, before the backup.
+  const cards = [...container.querySelectorAll('[aria-label="Procedure steps"] > li')];
+  expect(cards.map((card) => card.querySelector("[data-plan-changes]") !== null)).toEqual([
+    false,
+    true,
+    false,
+  ]);
+  expect(container.textContent).toContain("Creates 1, changes 30, deletes 0");
+  const groups = [...container.querySelectorAll("[data-plan-group]")];
+  expect(groups.map((group) => group.getAttribute("data-plan-group"))).toEqual([
+    "change",
+    "create",
+  ]);
+  expect(groups[0]?.querySelectorAll("[data-plan-write]")).toHaveLength(25);
+  expect(groups[1]?.textContent).toContain("Untitled");
+  // An empty text added still shows: as "".
+  expect(groups[1]?.querySelector('[data-plan-span="added"]')?.textContent).toBe('added: ""');
+  const removed = present(container.querySelector('[data-plan-span="removed"]'), "removed span");
+  expect(removed.textContent).toBe("removed: ⏎");
+  await click("Show all 30");
+  expect(groups[0]?.querySelectorAll("[data-plan-write]")).toHaveLength(30);
+  await click("Note 3");
+  expect(navigatePane).toHaveBeenCalledWith(expect.anything(), "/node/n3");
 });

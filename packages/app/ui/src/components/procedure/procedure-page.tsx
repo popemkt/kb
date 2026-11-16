@@ -7,6 +7,7 @@ import {
 } from "@kb/contracts";
 import { Button, cn, browserHost, failureText, hasText, type ViewProps } from "@kb/ui-sdk";
 import type { ProcedureParams } from "@kb/views";
+import { PlanChanges } from "./plan-reading";
 import { ProcedureResult } from "./result-summary";
 import { useGraphStore } from "@/stores/graph.store";
 
@@ -119,6 +120,8 @@ function StepState({ done, current }: { readonly done: boolean; readonly current
 function ProcedureBody({ id }: ProcedureParams) {
   const state = useProcedure(id);
   const status = state.status?.id === id ? state.status : undefined;
+  // One list of changes: on the first step not done that names them, so it shows before it is reached.
+  const shows = status?.steps.find((step) => !step.done && step.changes !== undefined)?.id;
   return (
     <main className="mx-auto w-full max-w-3xl space-y-6 p-6">
       <header className="space-y-2">
@@ -180,6 +183,9 @@ function ProcedureBody({ id }: ProcedureParams) {
                     </div>
                   ))}
                 </div>
+              )}
+              {shows === step.id && step.changes !== undefined && (
+                <PlanChanges call={step.changes} />
               )}
             </li>
           ))}

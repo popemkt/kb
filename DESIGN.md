@@ -3365,6 +3365,15 @@ actions, contributed to `ProcedurePoint` (`kb.procedures`, keyed):
   later step done means this one was passed, whatever its check reads now
   (a migration's backup step stays behind it after the apply changes the
   store). The **current** step is the first one not done.
+- **A step may show the changes it is about.** A step may name a
+  `changes` call: a read action whose output is a **plan reading**
+  (`PlanReadingSchema`, [Plugin data migrations](#plugin-data-migrations)),
+  what a write the step leads to would do, node by node. A migration's
+  preview and apply steps name `migration.plan`. `procedure.status`
+  passes the call through and never runs it, so reading a status costs no
+  plan. A surface reads it for one step, the first not done that names it,
+  so the person sees the changes before reaching the step and before
+  running it.
 
 The core actions are `procedure.list` and `procedure.status` (read), and
 `procedure.step {procedure, step, action?}`. `procedure.step` refuses any
@@ -3377,14 +3386,17 @@ approval. MCP, which carries no approval, is refused there as it is anywhere.
 The browser route `/procedure/<id>` is the same walker: it reads
 `procedure.status`, offers only the current step’s actions, shows recommendations
 and notes without choosing for the person, and invokes `procedure.step` through
-the page’s normal approval path. It shows the nested action receipt’s result or
+the page’s normal approval path. It draws the `changes` of the first step
+not done that names them, in that step's card
+([DESIGN-UI → Procedure page](DESIGN-UI.md#procedure-page)). It shows the nested action receipt’s result or
 failure, and never automatically repeats a step whose check did not advance.
 
 `kb procedure [id]` lists the procedures or shows one's status.
 `--run` walks a procedure from its current step, asking before each step;
 `--yes` skips that question but not an approval. `--run` stops at a
-decision, so `--yes` never takes one. `--action <id>` is the person's
-decision at the current step. `procedure-contract.test.ts` proves this
+decision, so `--yes` never takes one. Before it asks to run a step that
+names `changes`, it prints that reading, capped as `--plan` caps it.
+`--action <id>` is the person's decision at the current step. `procedure-contract.test.ts` proves this
 through the invoke core. The routines Google setup wizard predates the
 primitive and keeps its own walker for now (`#gap`
 01M74NN86YC7HP65R2JVYMM27F).
@@ -3431,7 +3443,37 @@ migration is for what a person wrote.
      offered again.
 
   Every step's done-ness is `migration.progress`, read from the record and
-  the machine's backups.
+  the machine's backups. The preview and apply steps show the plan
+  (`changes`: `migration.plan`).
+- **A plan is read node by node, and exactly.** `migration.plan` and
+  `migration.preview` answer one **plan reading** (`PlanReadingSchema`):
+  how many nodes the plan creates, changes and deletes, and each write
+  (`writes`, all of them unless the call gives a `limit`, with `more`
+  counting the rest). A write is its node's id, its **name** (the plain
+  display text, `nodeName`, as the node will read, or as it read for a
+  delete), what it does (create, change, delete), and its **parts**: the
+  text, each field whose values differ, and the children, each with its
+  label and its values before and after (none on the side where it has
+  none). A value is the value the store holds, typed and by id
+  (`PropValue`: the text is a `str`, a child a `ref`), and a reference
+  carries its target's name beside its id. A reading never reduces a value
+  to words, so two values that read alike (two nodes named Alex, the number
+  3 and the text "3") stay two values for an agent as for a person. The
+  node's timestamps are bookkeeping and are not parts. The reading is `@kb/model`'s `writeChange` over a `NodeWrite`, so
+  every surface reads the same write; none builds a second diff.
+- **A change is drawn so every difference shows.** `partDiff` reads a
+  part as what it keeps, removes and adds. One text on each side is diffed
+  by character, its shared runs cut around the change; any other part is
+  diffed value by value in order, the values joined by `, `. A value reads
+  as its words (a reference its target's name, an empty text `""`), and
+  where two different values in the part read alike, each says what tells
+  it apart: a reference its id, any other value its kind. So a reference
+  moved between two nodes of one name, or children of one name reordered,
+  still shows what moved. `visibleText` draws a line break as `⏎`, a tab as `⇥`, and,
+  in what is removed or added, a space as `·`, so a change that is only
+  whitespace still shows. The CLI marks what changes `[-removed-]`
+  and `{+added+}`; the page marks it with colour and a strike, and names
+  it for a screen reader.
 - **A failed verify is never left silently applied.** When verify finds
   problems, the migration is recorded `failed` and the procedure stops at the
   decision. The decision's check recommends roll back and lists the problems
@@ -3471,8 +3513,9 @@ breaks becomes empty. Its check names any node whose text still ends in
 one. It rewrites what a person's node holds, which a migration otherwise
 leaves alone ([Data-plane freedom](CLAUDE.md#data-plane-freedom)), because
 the editor wrote those breaks, not the person. Before anything is
-applied, the preview counts what it changes, and `kb migrate
-core.trim-trailing-breaks --plan` names each node. A store with no such text plans
+applied, its preview shows each node it changes and the break that
+comes off it (`⏎`), as `kb migrate core.trim-trailing-breaks --plan`
+does. A store with no such text plans
 nothing, so the migration is not pending there.
 
 The surfaces are `kb migrate`, which lists the migrations with their
@@ -3480,7 +3523,8 @@ states and whether each is pending, and `kb migrate <id>`, which walks
 one. The page lists the same `migration.list` in Settings → Extensions →
 Migrations and says in the header when any is pending; each opens its
 procedure page ([DESIGN-UI → Settings](DESIGN-UI.md#settings)). `--status` shows where a migration
-stands and `--plan` shows what it would write. `--keep` and `--rollback`
+stands and `--plan` shows what it would write: the counts, then each
+write and its parts, the first 20 unless `--all`. `--keep` and `--rollback`
 take the decision, and `--yes` runs every step but that decision. MCP and
 agents call the same actions, and the steps that need approval are refused
 there as anywhere a call carries none.

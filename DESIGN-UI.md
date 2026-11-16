@@ -4374,6 +4374,46 @@ available. A contribution may return null for an input it does not describe,
 which retains the default action review. Core Settings contributes the extension
 review for `sandbox.trust`; its diff must match the reviewed file-set digest.
 
+### Procedure page
+
+`/procedure/<id>` walks a procedure
+([DESIGN → Procedures](DESIGN.md#procedures)): each step a card, done,
+current or pending, the current one offering its actions. The first step
+not done that names `changes` draws that plan reading in its card, under
+its actions, so a migration's Preview card shows the plan from the first
+visit, before the backup is taken; once it is done, the Apply card does:
+
+- **Counts first.** One line: how many nodes it creates, changes and
+  deletes. A reading its call capped (`more`) says how many it left out.
+- **Grouped by what each write does.** Changes, then creates, then
+  deletes, each group headed by its count. A group shows its first 25
+  writes and a _Show all N_ button; showing all is this page's state only,
+  and the reading is never asked for again to show more.
+- **A write is its node and its parts.** Its name (`nodeName`, _Untitled_
+  for none) is a link that opens the node in this pane, except for a
+  delete, whose node will be gone. Its id is beside it, small. Under it,
+  each part is a row: the part's label, then its change drawn by
+  `partDiff` and `visibleText`, the shared text plain, the removed struck
+  through on the destructive tint, the added on the success tint, both in
+  the foreground colour (a tint's own colour on it fails AA), each
+  named _removed_ or _added_ for a screen reader. In shared text `⏎`, `⇥`
+  and `·` draw in the faint foreground, so a mark reads as a mark and not
+  as text; in a removed or added run they are as strong as its text, since
+  a mark may be all a change is. A long
+  shared text is cut to its last and first words around the change, with
+  `…`.
+- **Read with the status.** The reading is read when the step that draws
+  it changes and when the store does, as the status is. While it is being
+  read the card says so; when it cannot be read it says why, and the
+  step's actions stay as they are. A plan with nothing in it says
+  _Nothing to write_.
+- **At 360 px** a part's label sits above its before and after, and long
+  text wraps anywhere rather than widening the card.
+
+`procedure-page.component.test.tsx` holds it: the grouped writes, the cap
+and its _Show all_, the link that opens a node, and a trailing line break
+drawn as `⏎`.
+
 ### Extension UI halves
 
 A family's browser half ([DESIGN → Extension families](DESIGN.md#extension-families))

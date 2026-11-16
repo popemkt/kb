@@ -9,7 +9,7 @@ import { domainError } from "@kb/model";
 import { definePlugin, makeKernel } from "@kb/plugin";
 import { kbRuntimeLayer, openKbEffect, bunFileSystemLayer } from "@kb/runtime";
 import { KB_SOURCE_BIN, writeTrustedExtension } from "@kb/test-kit";
-import { walk } from "../src/procedures.ts";
+import { planLines, walk } from "../src/procedures.ts";
 
 for (const mode of ["failure", "stalled", "wrong-action"] as const) {
   test(`CLI walk stops once for ${mode}`, async () => {
@@ -163,4 +163,56 @@ test("a terminal approval mid-walk keeps a repository family's procedure, whatev
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+const changed = (id: string, before: string, after: string) => ({
+  id,
+  name: after,
+  kind: "change" as const,
+  parts: [
+    {
+      part: "text",
+      label: "Text",
+      before: [{ value: { t: "str" as const, v: before } }],
+      after: [{ value: { t: "str" as const, v: after } }],
+    },
+  ],
+});
+
+test("a plan reads as lines: each write, its parts' diffs with whitespace drawn, and what the cap left out", () => {
+  const reading = {
+    creates: 0,
+    changes: 3,
+    deletes: 0,
+    writes: [changed("a", "one\n", "one"), changed("b", "two  ", "two")],
+    more: 1,
+  };
+  expect(planLines(reading, 1, "--all shows every one")).toEqual([
+    "creates 0, changes 3, deletes 0",
+    "  change one  (a)",
+    "      Text: one[-⏎-]",
+    "  … and 2 more (--all shows every one)",
+  ]);
+  expect(planLines({ ...reading, more: 0 }, Infinity, "")[4]).toBe("      Text: two[-··-]");
+});
+
+/** A reference to `v`, a node named Alex. */
+const alex = (v: string) => ({ value: { t: "ref" as const, v }, name: "Alex" });
+
+test("a plan line tells two values of one name apart: a reference by its id", () => {
+  const reading = {
+    creates: 0,
+    changes: 1,
+    deletes: 0,
+    writes: [
+      {
+        id: "m",
+        name: "Meeting",
+        kind: "change" as const,
+        parts: [{ part: "f.who", label: "Who", before: [alex("p.1")], after: [alex("p.2")] }],
+      },
+    ],
+    more: 0,
+  };
+  expect(planLines(reading, Infinity, "")[2]).toBe("      Who: [-Alex·(p.1)-], {+Alex·(p.2)+}");
 });

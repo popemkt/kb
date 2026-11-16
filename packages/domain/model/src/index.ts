@@ -215,6 +215,7 @@ export {
 export { applyTx, changedFields, diffTx, txIntegrityError, writesOf } from "./tx.ts";
 export type { KbTx, StoreTx, NodeWrite } from "./tx.ts";
 export { recordedTx } from "./tx.ts";
+export { WRITE_KINDS, graphemes, partDiff, visibleText, writeChange } from "./write-change.ts";
 
 export {
   DOCS_VIEW_OPTION,
