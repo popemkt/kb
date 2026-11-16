@@ -316,12 +316,12 @@ function buildProgram(): Command {
     .option("--dev-port <n>", "Vite dev server port (default 5173)", toPort)
     .option(
       "--public-origin <url>",
-      "browser origin when served through a reverse proxy; links that leave the page name it",
+      "browser origin when served through a reverse proxy",
       toPublicOrigin,
     )
     .option(
       "--alias-origin <url>",
-      "another browser origin a reverse proxy serves this UI at, admitted as the page's; links keep the public origin (repeatable)",
+      "another origin the proxy serves the UI at; links keep --public-origin (repeatable)",
       collectAliasOrigins,
     )
     .option(
