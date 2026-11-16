@@ -445,6 +445,8 @@ export interface Ingested {
   readonly types: readonly string[];
   /** Its `text/plain`; empty when it has none. */
   readonly text: string;
+  /** The data of each other type it carries as a string (`text/html`, kb's own flavours), keyed by type. */
+  readonly data: Readonly<Record<string, string>>;
   readonly files: readonly File[];
 }
 
@@ -454,14 +456,17 @@ export interface IngestSite {
   readonly text: string;
 }
 
+/** The outline formats kb reads and writes (DESIGN.md → Outline formats), by id. */
+export type OutlineFormatId = "md" | "plain" | "html" | "tana" | "logseq" | "json";
+
 /**
  * What a claimed gesture makes, which kb writes at the row: a tree of nodes,
- * as outline paste text, added after it in one transaction; a file, kept as
- * an asset and linked from its text; or text, put in at the caret the way
- * typing is.
+ * as text in an outline format, with that format, added after it in one
+ * transaction; a file, kept as an asset and linked from its text; or text,
+ * put in at the caret the way typing is.
  */
 export type IngestOutcome =
-  | { readonly tree: string }
+  | { readonly tree: string; readonly format: OutlineFormatId }
   | { readonly attach: File }
   | { readonly text: string };
 

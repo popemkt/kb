@@ -24,6 +24,7 @@ import {
 } from "./actions.ts";
 import { nodeAddTreeDef, nodeAddTreeEffect } from "./node-add-tree.ts";
 import { nodeBatchDef, nodeBatchEffect } from "./node-batch.ts";
+import { nodeExportDef, nodeExportEffect } from "./node-export.ts";
 import { viewProposeDef, viewProposeEffect } from "./view-propose.ts";
 import { viewOpeningsDef, viewOpeningsEffect } from "./view-openings.ts";
 import { ontologyMembersDef, ontologyMembersEffect } from "./ontology.ts";
@@ -37,6 +38,7 @@ export const isomorphicActions: readonly RegisteredAction<IsomorphicActionEnv>[]
   coreNative(nodeDeleteDef, nodeDeleteEffect),
   coreNative(nodeMergeDef, nodeMergeEffect),
   coreNative(nodeGetDef, nodeGetEffect),
+  coreNative(nodeExportDef, nodeExportEffect),
   coreNative(fieldDefineDef, fieldDefineEffect),
   coreNative(tagDefineDef, tagDefineEffect),
   coreNative(graphQueryDef, graphQueryEffect),

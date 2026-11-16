@@ -12,6 +12,26 @@ import { mentionSpans } from "@kb/model";
 /** The optional first line that marks Tana Paste. */
 const OUTLINE_HEADER = "%%tana%%";
 
+/**
+ * How strictly a format reads the grammar (DESIGN.md → Outline formats).
+ * `bullets` are the marks an item may start with ("" for none: every line
+ * is an item); `bareLines` lets a line with no bullet, indented under an
+ * item, be one of its property lines or a further line of its text; `marks`
+ * says whether `#tag` and `name:: value` mean anything at all.
+ */
+export interface OutlineDialect {
+  readonly bullets: readonly string[];
+  readonly bareLines: boolean;
+  readonly marks: boolean;
+}
+
+/** Tana Paste: `- ` items only, every line one. */
+const STRICT: OutlineDialect = { bullets: ["-"], bareLines: false, marks: true };
+/** Markdown and Logseq: `-`, `*` or `+`, and the lines under an item that have none. */
+export const LOOSE: OutlineDialect = { bullets: ["-", "*", "+"], bareLines: true, marks: true };
+/** Plain text: every line an item, nested by indent, its words only. */
+export const PLAIN: OutlineDialect = { bullets: [], bareLines: false, marks: false };
+
 /** One value of a field line: inline after `::`, or one nested `- ` item. */
 interface OutlineValue {
   /** 1-based line in the source. */
@@ -134,7 +154,19 @@ function placeLine(stack: Open[], indent: string, rootIndent: string, line: numb
   return parent;
 }
 
-function openItem(content: string, indent: string, line: number): Open & { kind: "item" } {
+function openItem(
+  content: string,
+  indent: string,
+  line: number,
+  dialect: OutlineDialect,
+): Open & { kind: "item" } {
+  if (!dialect.marks) {
+    return {
+      kind: "item",
+      indent,
+      item: { line, text: content.trim(), tags: [], fields: [], children: [] },
+    };
+  }
   if (content.startsWith("%%")) {
     throw new OutlineSyntaxError(
       line,
@@ -154,7 +186,98 @@ function openField(match: RegExpExecArray, indent: string, line: number): Open &
   return { kind: "field", indent, field };
 }
 
-function parseLines(source: string): OutlineItem[] {
+/** The item a bare line belongs to: the nearest open line above it with a shorter indent, which must be an item. */
+function bareLineOwner(stack: readonly Open[], indent: string, line: number): OutlineItem {
+  const owner = stack.findLast(
+    (open) => open.indent.length < indent.length && indent.startsWith(open.indent),
+  );
+  if (owner === undefined)
+    throw new OutlineSyntaxError(line, 'expected an item starting with "- "');
+  if (owner.kind !== "item") {
+    throw new OutlineSyntaxError(line, "a line without a bullet cannot belong to a field");
+  }
+  return owner.item;
+}
+
+/** The item mark `body` starts with, among the dialect's, or null when it has none. */
+function bulletOf(body: string, dialect: OutlineDialect): string | null {
+  return dialect.bullets.find((bullet) => body === bullet || body.startsWith(`${bullet} `)) ?? null;
+}
+
+/**
+ * A line with no bullet, under an item (the loosened grammar): one of its
+ * property lines, `name:: value`, else a further line of its text.
+ */
+function readBareLine(
+  stack: readonly Open[],
+  indent: string,
+  body: string,
+  line: number,
+  fields: OutlineField[],
+): void {
+  const owner = bareLineOwner(stack, indent, line);
+  const property = FIELD_RE.exec(body);
+  if (property === null) {
+    owner.text = owner.text === "" ? body : `${owner.text}\n${body}`;
+    return;
+  }
+  const { field } = openField(property, indent, line);
+  owner.fields.push(field);
+  fields.push(field);
+}
+
+/** A `- value` line under a field line: one more of its values. */
+function readFieldValue(
+  parent: Open & { kind: "field" },
+  content: string,
+  isField: boolean,
+  line: number,
+): void {
+  if (isField) throw new OutlineSyntaxError(line, "a field value cannot itself be a field");
+  const value = content.trim();
+  if (value === "") throw new OutlineSyntaxError(line, "a field value cannot be empty");
+  rejectDates(value, line);
+  parent.field.values.push({ line, raw: value });
+}
+
+/**
+ * A bulleted line under `parent` (null at the top level): a value of the
+ * field above it, a field of the item above it, or an item. Answers the
+ * line, open for the lines under it.
+ */
+function readBulletLine(
+  parent: Open | null,
+  {
+    content,
+    indent,
+    line,
+  }: { readonly content: string; readonly indent: string; readonly line: number },
+  dialect: OutlineDialect,
+  into: { readonly items: OutlineItem[]; readonly fields: OutlineField[] },
+): Open {
+  if (parent?.kind === "value") {
+    throw new OutlineSyntaxError(line, "a field value cannot have children");
+  }
+  const fieldMatch = dialect.marks ? FIELD_RE.exec(content) : null;
+  if (parent?.kind === "field") {
+    readFieldValue(parent, content, fieldMatch !== null, line);
+    return { kind: "value", indent };
+  }
+  if (fieldMatch !== null) {
+    if (parent === null) {
+      throw new OutlineSyntaxError(line, "a field line needs an item above it to belong to");
+    }
+    const open = openField(fieldMatch, indent, line);
+    parent.item.fields.push(open.field);
+    into.fields.push(open.field);
+    return open;
+  }
+  const open = openItem(content, indent, line, dialect);
+  (parent === null ? into.items : parent.item.children).push(open.item);
+  return open;
+}
+
+function parseLines(source: string, dialect: OutlineDialect): OutlineItem[] {
   const items: OutlineItem[] = [];
   const fields: OutlineField[] = [];
   const stack: Open[] = [];
@@ -163,51 +286,26 @@ function parseLines(source: string): OutlineItem[] {
   for (const [index, raw] of source.split(/\r?\n/).entries()) {
     const line = index + 1;
     if (raw.trim() === "") continue;
-    if (raw.trim() === OUTLINE_HEADER) {
-      if (seenContent) {
-        throw new OutlineSyntaxError(line, `${OUTLINE_HEADER} may only be the first line`);
-      }
-      seenContent = true;
-      continue;
+    const header = dialect.marks && raw.trim() === OUTLINE_HEADER;
+    if (header && seenContent) {
+      throw new OutlineSyntaxError(line, `${OUTLINE_HEADER} may only be the first line`);
     }
     seenContent = true;
+    if (header) continue;
     const indent = INDENT_RE.exec(raw)?.[0] ?? "";
     const body = raw.slice(indent.length).trimEnd();
-    if (body !== "-" && !body.startsWith("- ")) {
-      throw new OutlineSyntaxError(line, 'expected an item starting with "- "');
+    const bullet = dialect.bullets.length === 0 ? "" : bulletOf(body, dialect);
+    if (bullet === null) {
+      if (!dialect.bareLines || rootIndent === undefined) {
+        throw new OutlineSyntaxError(line, 'expected an item starting with "- "');
+      }
+      readBareLine(stack, indent, body, line, fields);
+      continue;
     }
-    const content = body.slice(2);
     rootIndent ??= indent;
     const parent = placeLine(stack, indent, rootIndent, line);
-
-    if (parent?.kind === "value") {
-      throw new OutlineSyntaxError(line, "a field value cannot have children");
-    }
-    const fieldMatch = FIELD_RE.exec(content);
-    if (parent?.kind === "field") {
-      if (fieldMatch !== null) {
-        throw new OutlineSyntaxError(line, "a field value cannot itself be a field");
-      }
-      const value = content.trim();
-      if (value === "") throw new OutlineSyntaxError(line, "a field value cannot be empty");
-      rejectDates(value, line);
-      parent.field.values.push({ line, raw: value });
-      stack.push({ kind: "value", indent });
-      continue;
-    }
-    if (fieldMatch !== null) {
-      if (parent === null) {
-        throw new OutlineSyntaxError(line, "a field line needs an item above it to belong to");
-      }
-      const open = openField(fieldMatch, indent, line);
-      parent.item.fields.push(open.field);
-      fields.push(open.field);
-      stack.push(open);
-      continue;
-    }
-    const open = openItem(content, indent, line);
-    (parent === null ? items : parent.item.children).push(open.item);
-    stack.push(open);
+    const content = bullet === "" ? body : body.slice(bullet.length + 1);
+    stack.push(readBulletLine(parent, { content, indent, line }, dialect, { items, fields }));
   }
   const empty = fields.find((field) => field.values.length === 0);
   if (empty !== undefined) {
@@ -220,11 +318,12 @@ function parseLines(source: string): OutlineItem[] {
  * Read outline paste text into a tree of items, or say which line is wrong
  * and why. Blank lines are skipped; a line's indent (spaces, tabs, or both)
  * nests it under the nearest line above with a shorter indent that it
- * extends, and every child of one line shares one indent.
+ * extends, and every child of one line shares one indent. `dialect` says how
+ * strictly (Tana Paste's, by default).
  */
-export function parseOutline(source: string): OutlineParse {
+export function parseOutline(source: string, dialect: OutlineDialect = STRICT): OutlineParse {
   try {
-    return { ok: true, items: parseLines(source) };
+    return { ok: true, items: parseLines(source, dialect) };
   } catch (err) {
     if (err instanceof OutlineSyntaxError)
       return { ok: false, line: err.line, reason: err.message };

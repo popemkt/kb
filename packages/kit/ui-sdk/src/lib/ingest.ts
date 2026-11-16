@@ -17,7 +17,9 @@
  * canvas card's keeps a dropped file and pastes text.
  */
 import type { ContributionEntry } from "@kb/plugin";
+import type { OutlineFormatId } from "@kb/outline-paste";
 import { browserHost } from "../host";
+import { KB_TEXT_TYPE } from "./text-copy";
 import { toast } from "./toast";
 
 /** How data came into the text. */
@@ -30,6 +32,11 @@ export interface Ingested {
   readonly types: readonly string[];
   /** Its `text/plain`; empty when it has none. */
   readonly text: string;
+  /**
+   * The data of each other type it carries as a string (`text/html`, kb's
+   * own flavours), keyed by type, read while its event runs.
+   */
+  readonly data: Readonly<Record<string, string>>;
   readonly files: readonly File[];
 }
 
@@ -41,12 +48,13 @@ export interface IngestSite {
 
 /**
  * What a claimed gesture makes, which is written at the row: a tree of
- * nodes, as outline paste text (DESIGN.md → Outline paste), added after it
- * in one transaction; a file, kept as an asset and linked from its text; or
- * text, which the text host puts in at its caret the way typing is.
+ * nodes, as text in an outline format, with that format (DESIGN.md →
+ * Outline formats), added after it in one transaction; a file, kept as an
+ * asset and linked from its text; or text, which the text host puts in at
+ * its caret the way typing is.
  */
 type IngestOutcome =
-  | { readonly tree: string }
+  | { readonly tree: string; readonly format: OutlineFormatId }
   | { readonly attach: File }
   | { readonly text: string };
 
@@ -92,13 +100,20 @@ export interface IngestPort {
   readonly offer: (ingested: Ingested, insertText: InsertText) => boolean;
 }
 
-/** A gesture's data, read once: its text and files are gone once its event returns. */
+/** The types `data` leaves out: files, which are no string, and `text/plain`, which is `text`. */
+const NOT_A_STRING = new Set(["Files", "text/plain"]);
+
+/** A gesture's data, read once: its text, data and files are gone once its event returns. */
 export function ingestedOf(gesture: IngestGesture, data: DataTransfer | null): Ingested {
-  if (data === null) return { gesture, types: [], text: "", files: [] };
+  if (data === null) return { gesture, types: [], text: "", data: {}, files: [] };
+  const types = [...data.types];
   return {
     gesture,
-    types: [...data.types],
+    types,
     text: data.getData("text/plain"),
+    data: Object.fromEntries(
+      types.filter((type) => !NOT_A_STRING.has(type)).map((type) => [type, data.getData(type)]),
+    ),
     files: [...data.files],
   };
 }
@@ -198,11 +213,11 @@ function holdsNothing(id: string, text: string): boolean {
  * goes. A top-level row's tree goes to the top level, at its end, never to
  * the capture target.
  */
-async function addTreeAt(tree: string, site: IngestSite): Promise<void> {
+async function addTreeAt(tree: string, format: OutlineFormatId, site: IngestSite): Promise<void> {
   const host = browserHost();
   const empty = holdsNothing(site.nodeId, site.text);
   const { parent, position } = placeOf(site.nodeId);
-  const ids = await host.writes.addTree(tree, {
+  const ids = await host.writes.addTree(tree, format, {
     parent,
     ...(position === undefined ? {} : { position: empty ? position : position + 1 }),
   });
@@ -221,7 +236,7 @@ async function commitIngest(
   insertText: InsertText,
 ): Promise<void> {
   if ("text" in outcome) return insertText(outcome.text);
-  if ("tree" in outcome) return addTreeAt(outcome.tree, site);
+  if ("tree" in outcome) return addTreeAt(outcome.tree, outcome.format, site);
   await browserHost().writes.attachFileToNode(site.nodeId, outcome.attach);
 }
 
@@ -282,7 +297,7 @@ export function provideIngest(id: string, form: IngestForm): ContributionEntry<I
       ingest: ({ text }) => {
         // The transform runs here, in the page, at T3: GAP [[01M73WFP42V98AA4VRG8JBQQ2N]].
         const tree = form.transform(text);
-        return tree === null ? null : { tree };
+        return tree === null ? null : { tree, format: "tana" };
       },
     },
   };
@@ -310,4 +325,20 @@ export const PASTE_TEXT: IngestHandler = {
   match: { gestures: ["paste"], types: ["text/plain"] },
   priority: -1,
   ingest: ({ text }) => ({ text: pastedText(text) }),
+};
+
+/**
+ * kb's own text pasted: the source a text selection's copy put
+ * (`KB_TEXT_TYPE`), references as tokens, put in at the caret as any pasted
+ * text is, so a reference copied out of a row is a reference again. It is
+ * kb's own source, so it is not normalised as {@link pastedText} reads a
+ * paste; above every family's handler, since it is exactly what was copied.
+ */
+export const PASTE_KB_TEXT: IngestHandler = {
+  match: { gestures: ["paste"], types: [KB_TEXT_TYPE] },
+  priority: 100,
+  ingest: ({ data }) => {
+    const source = data[KB_TEXT_TYPE];
+    return source === undefined ? null : { text: source };
+  },
 };

@@ -15,8 +15,8 @@
       "@kb/sandbox": 94,
       "@kb/appearance": 60,
       "@kb/keybindings": 39,
-      "@kb/model": 292,
-      "@kb/outline-paste": 3,
+      "@kb/model": 293,
+      "@kb/outline-paste": 17,
       "@kb/plugin": 41,
       "@kb/query": 58,
       "@kb/seed": 8,
@@ -54,7 +54,7 @@
       "@kb/locations": 19,
       "@kb/locations-fs": 1,
       "@kb/locations-ui": 1,
-      "@kb/outline": 11,
+      "@kb/outline": 13,
       "@kb/outline-ui": 40,
       "@kb/routines": 113,
       "@kb/routines-gcal": 17,
@@ -81,7 +81,7 @@
       "@kb/calendar-kit": 14,
       "@kb/scene": 13,
       "@kb/scene-gpu": 35,
-      "@kb/ui-sdk": 521,
+      "@kb/ui-sdk": 525,
       "@kb/ui-test-kit": 26
     },
     "family-names": {
@@ -140,15 +140,15 @@
       "kit/ui-sdk/src/lib/schema.ts": 4,
       "kit/ui-sdk/src/lib/tag-color.test.ts": 5,
       "kit/ui-sdk/src/lib/tag-color.ts": 6,
-      "kit/ui-sdk/src/lib/md-edit.ts": 2,
       "kit/ui-sdk/src/lib/graph-view.ts": 5,
+      "kit/ui-sdk/src/lib/md-edit.ts": 2,
       "kit/ui-sdk/src/hooks.ts": 3,
       "kit/ui-sdk/src/sandbox-run.ts": 5
     },
     "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2813462,
-      "modules": 746
+      "bytes": 2829295,
+      "modules": 753
     },
     "single-family": {
       "contract/sandbox/src/snapshot.ts": 1,

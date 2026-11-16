@@ -5,10 +5,12 @@ import {
   ResolveError,
   cardinalityOf,
   currentIso,
+  declaresOptionSet,
   domainError,
   fieldTypeOf,
   freshId,
   mentionSpans,
+  nodeName,
   parseTypedValue,
   present,
   replaceMentions,
@@ -23,7 +25,7 @@ import {
   syncDomain,
   type PropEntry,
 } from "@kb/model";
-import { parseOutline, type OutlineItem } from "@kb/outline-paste";
+import { OUTLINE_FORMAT_IDS, outlineFormat, type OutlineItem } from "@kb/outline-paste";
 import { forcedBy, nodeAddDef } from "./actions.ts";
 import { placedGraph, placeOf } from "./place.ts";
 import { persistPlannedEffect } from "./session.ts";
@@ -32,7 +34,11 @@ export const nodeAddTreeDef = {
   id: "node.addTree",
   title: "Add outline",
   description:
-    "Create a whole outline in one transaction from outline paste (Tana Paste) text: " +
+    "Create a whole outline in one transaction from text in an outline format: tana (Tana " +
+    "Paste, the default), md (Markdown, read as Tana Paste loosened: * and + bullets, and " +
+    "unbulleted lines under an item as its property lines or further text), logseq (as md), " +
+    "plain (each line an item, nested by indent, nothing in it a tag or a field) or json (the " +
+    "tree node.export writes). The grammar: " +
     "nested `- ` items (indent nests), `#tag` / `#[[multi word tag]]`, `field:: value` " +
     "(or `field::` with nested `- value` items for several values), and `[[ref]]` / " +
     "`[[id|label]]` naming a node id or another item of the same outline by its text. " +
@@ -47,6 +53,8 @@ export const nodeAddTreeDef = {
   batchOf: [nodeAddDef.id],
   inputSchema: z.object({
     outline: z.string(),
+    /** The format the outline is written in; html has no reader. */
+    format: z.enum(OUTLINE_FORMAT_IDS).optional(),
     parent: z
       .string()
       .nullable()
@@ -143,18 +151,59 @@ function linkText(text: string, resolve: Resolve): string {
   });
 }
 
+/** A field's own options, when its options are its children (an option set), each with its name. */
+interface FieldOption {
+  readonly id: NodeId;
+  readonly name: string;
+}
+
+function optionsOf(fieldId: NodeId, graph: NodeGraph): readonly FieldOption[] {
+  const field = graph.get(fieldId);
+  if (!declaresOptionSet(field)) return [];
+  const nodeOf = (id: NodeId) => graph.get(id);
+  return (field?.children ?? []).map((id) => ({ id, name: nodeName(id, nodeOf) }));
+}
+
+/**
+ * A bare ref value: an id the graph holds; else, for a field whose options
+ * are its children, exactly one option's name, as its picker shows it (a
+ * name a person types resolves to an id once, here); else an item of the
+ * outline, by its text. A name two options share is refused.
+ */
+function bareRef(raw: string, resolve: Resolve, graph: NodeGraph, options: readonly FieldOption[]) {
+  if (graph.has(raw)) return raw;
+  const named = options.filter((option) => option.name === raw.trim());
+  const [only] = named;
+  if (named.length > 1) {
+    throw new ResolveError(
+      "ambiguous",
+      `${named.length} options are named ${raw.trim()}; name one by its id instead`,
+      { option: raw.trim(), ids: named.map((option) => option.id) },
+    );
+  }
+  return only === undefined ? resolve(raw) : only.id;
+}
+
 /**
  * One field value read as its field's type. A ref field's value is one ref:
- * a whole `[[id]]` / `[[item text]]` token, or a bare id or item text,
- * resolved like any ref; text around a token is refused, since a ref holds
- * no prose. Every other type reads the text, its refs linked, through the
- * one `parseTypedValue`.
+ * a whole `[[id]]` / `[[item text]]` token, or a bare id, option name or
+ * item text (`bareRef`), resolved like any ref; text around a token is
+ * refused, since a ref holds no prose. Every other type reads the text, its
+ * refs linked, through the one `parseTypedValue`.
  */
-function readValue(raw: string, type: FieldType, resolve: Resolve): ParsedValue {
+function readValue(
+  raw: string,
+  type: FieldType,
+  resolve: Resolve,
+  graph: NodeGraph,
+  options: readonly FieldOption[],
+): ParsedValue {
   if (type !== "ref") return parseTypedValue(linkText(raw, resolve), type);
   const spans = mentionSpans(raw);
   const [only] = spans;
-  if (only === undefined) return { ok: true, value: { t: "ref", v: resolve(raw) } };
+  if (only === undefined) {
+    return { ok: true, value: { t: "ref", v: bareRef(raw, resolve, graph, options) } };
+  }
   if (spans.length === 1 && only.start === 0 && only.end === raw.length) {
     return { ok: true, value: { t: "ref", v: resolve(only.id) } };
   }
@@ -212,6 +261,7 @@ const itemProps = Effect.fnUntraced(function* (
     const nodeOf = (id: NodeId) => graph.get(id);
     const type = fieldTypeOf(props, nodeOf);
     const single = cardinalityOf(props, nodeOf) === "one";
+    const options = type === "ref" ? optionsOf(fieldId, graph) : [];
     for (const { line, raw } of field.values) {
       if (single && held.has(fieldId)) {
         return yield* domainError(
@@ -221,7 +271,7 @@ const itemProps = Effect.fnUntraced(function* (
         );
       }
       held.add(fieldId);
-      const read = yield* syncDomain(() => readValue(raw, type, resolve)).pipe(
+      const read = yield* syncDomain(() => readValue(raw, type, resolve, graph, options)).pipe(
         Effect.mapError(atLine(line)),
       );
       if (!read.ok) {
@@ -254,7 +304,14 @@ export const planNodeAddTreeEffect = Effect.fn("node.addTree.plan")(function* (
   z.infer<typeof nodeAddTreeDef.outputSchema> & { upserts: KbNode[] },
   DomainError
 > {
-  const parsed = parseOutline(input.outline);
+  const format = outlineFormat(input.format ?? "tana");
+  if (format.read === undefined) {
+    return yield* domainError(
+      "invalid_input",
+      `${format.label} (${format.id}) has no reader: it is written for other programs, never read back`,
+    );
+  }
+  const parsed = format.read(input.outline);
   if (!parsed.ok) {
     return yield* domainError("invalid_input", `outline line ${parsed.line}: ${parsed.reason}`, {
       line: parsed.line,

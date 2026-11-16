@@ -6,9 +6,11 @@
  * view control opens; and for a node a tag opens in a view, "Show …" /
  * "Hide …" for each display option its opening offers (the preview, the
  * properties), the node's own toggle of it, leading the menu after "Open
- * in …". The registry finds them by id like any other.
+ * in …"; and "Copy as…", which opens its dialog over the rows. The registry
+ * finds them by id like any other.
  */
 import {
+  CopyIcon,
   EyeSlashIcon,
   ListBulletsIcon,
   MagnifyingGlassIcon,
@@ -16,6 +18,7 @@ import {
 } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { DISPLAY_OPTIONS, queryTextOf, type DisplayOption, SYSTEM_IDS } from "@kb/model";
+import { OUTLINE_IDS } from "@kb/outline";
 import {
   browserHost,
   currentContributions,
@@ -27,6 +30,7 @@ import {
   type CommandContext,
   type TagOpening,
 } from "@kb/ui-sdk";
+import { openCopyAs } from "./copy-as-state";
 import { outlineNodes, useOutlineStore } from "./outline.store";
 import { queryBuilderOpen, setQueryBuilderOpen } from "./query-builder/open";
 import { displayShownOf, setDisplayShown } from "./row-opening";
@@ -111,4 +115,16 @@ export const OUTLINE_COMMANDS: readonly Command[] = [
       }),
   },
   ...DISPLAY_OPTIONS.map(displayCommand),
+  {
+    // DESIGN-UI.md → Outline editor, "Copy, cut and Copy as…": after Copy node ID, and on Mod-Shift-C.
+    id: OUTLINE_IDS.copyAsCommand,
+    menu: nodeMenu("open", 95),
+    many: true,
+    chrome: () => ({ label: "Copy as…", icon: <CopyIcon size={14} /> }),
+    when: (ctx) => ctx.target.nodeIds.length > 0,
+    run: (ctx) => {
+      openCopyAs(ctx.target.nodeIds);
+      ctx.palette.close();
+    },
+  },
 ];

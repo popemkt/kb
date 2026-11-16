@@ -3069,10 +3069,11 @@ handler takes it as text.
   handlers. A page half reaches it by name, through `uses` and
   `ctx.point<IngestHandler>("outline.ingest")`.
 - **What a gesture carries is read once.** `Ingested` holds the gesture,
-  the data's types, the data of each type that is a string (`text/plain`,
-  `text/html`, kb's own flavours), keyed by type, and the files: read from
-  the event's `DataTransfer` while it runs, since they are gone once it
-  returns.
+  the data's types, its `text/plain` (`text`, which every handler and a
+  match's pattern read), the data of each other type it carries as a string
+  (`data`: `text/html`, kb's own flavours, keyed by type) and the files:
+  read from the event's `DataTransfer` while it runs, since they are gone
+  once it returns.
 - **A handler's match is data.** It names the gestures it takes (`paste`,
   `drop`) and the data's types (`text/plain`, `Files`). It may add a
   regular expression its `text/plain` must match. A pattern that does not

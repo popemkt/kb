@@ -47,7 +47,13 @@ export {
   targetTagsOf,
 } from "./field-type.ts";
 export type { Cardinality, FieldType } from "./field-type.ts";
-export { conformsToType, migrateDateValues, normalizeUrl, parseTypedValue } from "./field-value.ts";
+export {
+  conformsToType,
+  migrateDateValues,
+  normalizeUrl,
+  parseTypedValue,
+  valueSource,
+} from "./field-value.ts";
 export type { NumberSeparators, ParsedValue } from "./field-value.ts";
 export {
   configures,

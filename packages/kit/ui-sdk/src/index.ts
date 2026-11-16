@@ -446,6 +446,7 @@ export { currentKeymap, type KeyCall, keyCallOf, runKeyCall, tellKeymaps } from 
 export {
   ATTACH_FILE,
   ingestPort,
+  PASTE_KB_TEXT,
   PASTE_TEXT,
   provideIngest,
   type Ingested,
@@ -562,7 +563,7 @@ export {
   TIMING_FALLBACK,
 } from "./lib/timing";
 export { setToastSink, toast } from "./lib/toast";
-export { copyText } from "./lib/copy";
+export { copyText, putFlavours, writeFlavours, type ClipboardFlavours } from "./lib/copy";
 export { useFocusReturn, usePickerKeys } from "./lib/use-picker";
 export { useNarrowViewport } from "./lib/viewport";
 export { BREAKOUT_CLASS, useBreakoutShift } from "./lib/breakout";

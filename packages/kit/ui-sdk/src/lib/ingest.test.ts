@@ -9,24 +9,28 @@ import {
   type Ingested,
   type IngestHandler,
   type IngestMatch,
+  PASTE_KB_TEXT,
   PASTE_TEXT,
   pastedText,
+  ingestedOf,
   provideIngest,
 } from "./ingest";
+import { KB_TEXT_TYPE } from "./text-copy";
 import { setToastSink } from "./toast";
 
 const pasted = (text: string): Ingested => ({
   gesture: "paste",
   types: ["text/plain"],
   text,
+  data: {},
   files: [],
 });
 const file = new File(["x"], "photo.png", { type: "image/png" });
-const dropped: Ingested = { gesture: "drop", types: ["Files"], text: "", files: [file] };
+const dropped: Ingested = { gesture: "drop", types: ["Files"], text: "", data: {}, files: [file] };
 
 /** A handler that makes a tree of its own name, or declines when `declines`. */
 function handler(name: string, match: IngestMatch, priority = 0, declines = false): IngestHandler {
-  return { match, priority, ingest: () => (declines ? null : { tree: name }) };
+  return { match, priority, ingest: () => (declines ? null : { tree: name, format: "tana" }) };
 }
 const lines = handler("lines", { gestures: ["paste"], types: ["text/plain"], pattern: "\\n" });
 const urls = handler(
@@ -105,7 +109,7 @@ describe("a handler written as a transform", () => {
     expect(id).toBe("shout");
     expect(value.match).toBe(form.match);
     expect(value.priority).toBe(10);
-    expect(value.ingest(pasted("- a"), site)).toEqual({ tree: "- A" });
+    expect(value.ingest(pasted("- a"), site)).toEqual({ tree: "- A", format: "tana" });
     expect(value.ingest(pasted("- skip"), site)).toBeNull();
   });
 
@@ -137,5 +141,45 @@ describe("a paste of text", () => {
     expect(claimed([PASTE_TEXT, words], pasted("a"))).toBe("words");
     expect(claimed([PASTE_TEXT, declining], pasted("a\n"))).toBe("a");
     expect(claimed([PASTE_TEXT], dropped)).toBeNull();
+  });
+});
+
+describe("ingestedOf", () => {
+  it("reads text/plain as its text and every other string type as data, never files", () => {
+    const transfer = {
+      types: ["text/plain", "text/html", "application/x-kb-outline", "Files"],
+      files: [file],
+      getData: (type: string) => `<${type}>`,
+    } as unknown as DataTransfer;
+    expect(ingestedOf("paste", transfer)).toEqual({
+      gesture: "paste",
+      types: ["text/plain", "text/html", "application/x-kb-outline", "Files"],
+      text: "<text/plain>",
+      data: {
+        "text/html": "<text/html>",
+        "application/x-kb-outline": "<application/x-kb-outline>",
+      },
+      files: [file],
+    });
+  });
+});
+
+/** A paste of what a text selection's copy put: its words, and its source as kb's own flavour. */
+const copied = (source: string): Ingested => ({
+  gesture: "paste",
+  types: ["text/plain", KB_TEXT_TYPE],
+  text: "Ask Ada about it\n",
+  data: { [KB_TEXT_TYPE]: source },
+  files: [],
+});
+
+describe("a paste of kb's own text", () => {
+  it("goes in as the source it copied, references as tokens, unnormalised", () => {
+    const source = "Ask [[n.ada|Ada]] about it\n";
+    expect(claimed([PASTE_TEXT, PASTE_KB_TEXT], copied(source))).toBe(source);
+  });
+
+  it("leaves any other paste to the text paste", () => {
+    expect(claimed([PASTE_TEXT, PASTE_KB_TEXT], pasted("Ask Ada\n"))).toBe("Ask Ada");
   });
 });

@@ -234,7 +234,11 @@ const DATASCRIPT = /cljs\.core/;
 // the budget rises by their 125.
 // requireNode in its own @kb/operations module, which the page's replica of
 // the actions loads, measures 1,999,092; the budget rises by its 11.
-const EAGER_BUDGET_BYTES = 2_000_492;
+// Copying out (the outline formats' readers and writers, the projection of
+// rows into a tree, and ⌘C's handler for rows and for a text selection,
+// eager since a copy must answer in the event; the Copy as… dialog stays
+// lazy) measures 2,016,759; the budget rises by its 17,667.
+const EAGER_BUDGET_BYTES = 2_018_159;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

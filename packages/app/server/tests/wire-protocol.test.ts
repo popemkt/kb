@@ -67,9 +67,12 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // node.add takes an optional `matching` query and may answer `unmet`; older pages send neither.
 // `ext.check.audit` may answer a `ref-by-text` finding; a page never runs the
 // audit, which reads the repository's files, so a previous page is unaffected.
+// `node.export` is a new action a previous page never calls; node.addTree
+// takes an optional `format`, which a previous page never sends and which
+// reads as Tana Paste, the one format it pasted in.
 const RECORDED = {
   protocol: 9,
-  fingerprint: "a27f1dc59200ef656dfcbd321f102ab034770c722b98bea356044165a8fde59c",
+  fingerprint: "18c556f674d81b445bc02d38497f7a3a552fef6c52fd2f6f45bf08a26c2c534f",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

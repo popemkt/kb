@@ -1076,11 +1076,13 @@ sys.extension.<name>` answers it.
   (`RefForm`): its words (`label`, `refName`), a `[[words]]` link
   (`link`; words holding `[`, `]` or `|` cannot sit in one and are written
   as words), or its token as stored (`id`). A writer that keeps the markup,
-  a docs template's `renderText` or a markdown export, reads the source
-  with each reference in its form and the rest as written
-  (`markupWords`); plain text is the plain reading with each reference in
-  its form. Both live in `display-text.ts`, so no writer names a
-  reference itself ([Outline formats](#outline-formats--one-tree-one-codec-each)).
+  such as a markdown export, reads the source with each reference in its
+  form and the rest as written (`markupWords`); plain text is the plain
+  reading with each reference in its form. Both live in `display-text.ts`,
+  so no writer names a reference itself ([Outline formats](#outline-formats--one-tree-one-codec-each)).
+  A docs template's `renderText` still reads every token as
+  `:node/mentions` does, one inside code or emphasis included, where the
+  inline grammar sees text (GAP [[01M7HCW3N0TSYGSXVNQS2K8H0Y]]).
 
 - Datom mapping: `[id :node/text v]`, `[id :node/child child]` (+order),
   `[id :f/<fieldId> v]` with ref values as entity refs → native datalog joins
@@ -5203,8 +5205,9 @@ refused by name. No parser stands beside a codec, and no writer.
   segment. The grammar formats and JSON keep the markup as written, so
   markdown stays markdown, and read each reference in its form. Plain text
   is Display text's plain reading, a reference in its form. Rich text draws
-  emphasis and code as the editor's element tree draws them (one table,
-  `INLINE_ELEMENTS` in `@kb/model`), and a safe absolute link
+  emphasis and code as the editor's element tree draws them (the writer
+  keeps its own table beside the editor's, held to the same answer by a
+  test; GAP [[01M7HSNPHW2Z613ZR7CC8CM5TW]]), and a safe absolute link
   (`http(s):`, `mailto:`) as a link. Media and any other link are written as
   their words: an asset path means nothing outside the store. A line break
   in a text is a further line of its item in Markdown and Logseq, kept in

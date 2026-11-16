@@ -1580,6 +1580,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The same @kb/ui-sdk the canvas browser plugin needs, published as an ambient d.ts like kb-ext-sdk, plus the server route, the shims and a loader test. The browser half is built and loaded as its own module, the repository-extension form of the backend-plugin/browser-plugin split canvas takes, not a second entry of the backend module.
 - **node** — `01M39F3N04WNEVCGHX428H8TKN`
 
+### GAP: rich text copy names emphasis and code elements beside the editor's element tree
+
+- **expected** — One table of the element each emphasis and code span is drawn as, in @kb/model beside the inline grammar, which ui-sdk's md-edit element tree and @kb/outline-paste's rich text writer both read.
+- **current** — md-edit's contentNode names strong, em and code in its switch, and outline-paste's html.ts holds its own open and close tags for the same three spans; a ui-sdk test proves the two agree.
+- **impact** — A change to how the editor draws emphasis or code can leave rich text copies drawing the old element until the bridge test goes red. The table could not move into @kb/model because the family-names sensor reads the string literal code, the HTML element, as the code family's name in a core file.
+- **closes** — The family-names sensor tells an HTML element name from a family id (or scopes itself to ids it can resolve), so the shared table can live in @kb/model and both readers import it.
+- **node** — `01M7HSNPHW2Z613ZR7CC8CM5TW`
+
 ### GAP: routine background runner placement has no general job contract
 
 - **expected** — Jobs: a job is an action marked job: true (idempotent catch-up, state in the store, no approval, a no-op run commits nothing), named by a #job node whose every, runs on and paused are data; any process runs due jobs through jobs.run (the host's scheduler, kb jobs run --due from cron or launchd, or one call); a host adds only triggers (writes, webhooks, watchers).

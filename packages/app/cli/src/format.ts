@@ -98,6 +98,7 @@ function formatSuccess(actionId: string, output: unknown, command?: string): str
   }
   if (actionId === "node.add") return formatNodeAdd(output);
   if (actionId === "node.addTree") return formatNodeAddTree(output);
+  if (actionId === "node.export") return asString(asObject(output)?.text);
   if (actionId === "node.update") return formatNodeUpdate(output);
   if (actionId === "field.define" || actionId === "tag.define")
     return formatDefine(actionId, output);

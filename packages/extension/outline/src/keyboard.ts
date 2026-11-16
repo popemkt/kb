@@ -1,8 +1,10 @@
 /** The outline's key definitions; handlers stay in its page half. */
+import { OUTLINE_IDS } from "./ids.ts";
 import type { ContributionEntry } from "@kb/plugin";
 import {
   TEXT_HISTORY_CHORD,
   printableExcept,
+  provideKeybinding,
   type Chord,
   type Keybinding,
   type KeyContextSpec,
@@ -165,7 +167,19 @@ export const SELECTION_CONTEXT: ContributionEntry<KeyContextSpec> = {
   },
 };
 
+/**
+ * Copy as… on Mod-Shift-C, a key the page answers wherever focus is
+ * (`core.page`), about what ⌘K's commands are about: the selected rows,
+ * else the page's node. A page key is offered before the browser's
+ * inspector takes the chord.
+ */
+const COPY_AS_BINDING = provideKeybinding("copy-as", {
+  context: "core.page",
+  chord: "Mod-Shift-C",
+  run: { command: OUTLINE_IDS.copyAsCommand },
+});
+
 export const OUTLINE_KEYBOARD = {
   contexts: [EDITING_CONTEXT, SELECTION_CONTEXT],
-  bindings: [...EDITING_BINDINGS, ...SELECTION_BINDINGS],
+  bindings: [...EDITING_BINDINGS, ...SELECTION_BINDINGS, COPY_AS_BINDING],
 };

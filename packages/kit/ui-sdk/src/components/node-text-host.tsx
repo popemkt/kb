@@ -9,7 +9,9 @@ import {
 } from "react";
 import { LockSimpleIcon } from "@phosphor-icons/react";
 import { cn } from "../lib/cn";
+import { putFlavours } from "../lib/copy";
 import { ingestedOf, type IngestPort } from "../lib/ingest";
+import { textFlavours } from "../lib/text-copy";
 import { isCompositionKey } from "../lib/keychord";
 import { matchesChord, TEXT_HISTORY_CHORD } from "@kb/keybindings";
 import { KB_TEXT_CLASS } from "../lib/md-inline";
@@ -20,6 +22,7 @@ import {
   readInlineInput,
   renderInlineMarkdown,
   revealMarkupAtSelection,
+  selectedSpan,
   serializeEditable,
   setCaretSerializedOffset,
 } from "../lib/md-edit.ts";
@@ -449,6 +452,27 @@ export function NodeTextHost({
     [ingest, insertText],
   );
 
+  /**
+   * A text selection copied: its source as words, rich text and itself; a
+   * cut then takes it out as typing would, through the one insertion.
+   */
+  const copySelection = useCallback(
+    (e: React.ClipboardEvent, cut: boolean) => {
+      const el = editorRef.current;
+      const span = el === null ? null : selectedSpan(el);
+      if (el === null || span === null) return;
+      const source = serializeEditable(el).slice(span.start, span.end);
+      putFlavours(
+        e.clipboardData,
+        textFlavours(source, (id) => schema.get(id)),
+      );
+      e.preventDefault();
+      e.stopPropagation();
+      if (cut) insertText("");
+    },
+    [insertText, schema],
+  );
+
   const handleCompositionStart = useCallback(() => {
     isComposing.current = true;
   }, []);
@@ -572,6 +596,8 @@ export function NodeTextHost({
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
             onPaste={handlePaste}
+            onCopy={(e) => copySelection(e, false)}
+            onCut={(e) => copySelection(e, true)}
             onBlur={onBlur}
             role="textbox"
             data-zoom-title-editor={zoomTitleEditor === true ? "true" : undefined}
