@@ -222,7 +222,10 @@ const DATASCRIPT = /cljs\.core/;
 // A selection's top rows, moved from ui-sdk into @kb/model so an export
 // picks the rows a move does, measure 1,997,985; the budget rises by their
 // 88.
-const EAGER_BUDGET_BYTES = 1_999_385;
+// shownWalk and shownNodeOf, the rows some rows show as a reader meets them,
+// in @kb/model, with Count words reading them, measure 1,998,110; the budget
+// rises by their 125.
+const EAGER_BUDGET_BYTES = 1_999_510;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

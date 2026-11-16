@@ -15,7 +15,7 @@
       "@kb/sandbox": 94,
       "@kb/appearance": 60,
       "@kb/keybindings": 39,
-      "@kb/model": 286,
+      "@kb/model": 289,
       "@kb/outline-paste": 3,
       "@kb/plugin": 41,
       "@kb/query": 58,
@@ -147,7 +147,7 @@
     },
     "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2812467,
+      "bytes": 2812908,
       "modules": 745
     },
     "single-family": {

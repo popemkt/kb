@@ -26,3 +26,49 @@ export function contextualTargetOf(node: Pick<NodeLike, "props"> | undefined): N
 export function isContextualRef(node: Pick<NodeLike, "props"> | undefined): boolean {
   return contextualTargetOf(node) !== null;
 }
+
+/**
+ * The node a row shows: the target of a contextual reference, and the row
+ * itself otherwise, a dangling reference included, which has nothing else
+ * to show. `nodeOf` is the whole graph, so a reference to a node outside a
+ * page's scope still shows it.
+ */
+export function shownNodeOf<N extends Pick<NodeLike, "props">>(
+  row: N,
+  nodeOf: (id: NodeId) => N | undefined,
+): N {
+  const target = contextualTargetOf(row);
+  return target === null ? row : (nodeOf(target) ?? row);
+}
+
+/** A row met by {@link shownWalk}: the row, the node it shows, and the rows under it. */
+export interface ShownRow<N> {
+  readonly row: N;
+  /** Its target for a contextual reference whose target is there; the row itself otherwise. */
+  readonly shown: N;
+  readonly children: readonly ShownRow<N>[];
+}
+
+/**
+ * The rows `rowIds` name and every row under them, as a reader of what rows
+ * show meets them (DESIGN-UI.md → Outline editor, "What rows hold, read and
+ * copied"): each row reads as the node it shows, and a contextual reference
+ * is a leaf, its target's children not followed. A row is met once; an id
+ * `nodeOf` does not know is left out. Count words counts these rows, and an
+ * export's projection writes them.
+ */
+export function shownWalk<N extends Pick<NodeLike, "props" | "children">>(
+  rowIds: readonly NodeId[],
+  nodeOf: (id: NodeId) => N | undefined,
+): ShownRow<N>[] {
+  const met = new Set<NodeId>();
+  const walk = (ids: readonly NodeId[]): ShownRow<N>[] =>
+    ids.flatMap((id) => {
+      const row = nodeOf(id);
+      if (row === undefined || met.has(id)) return [];
+      met.add(id);
+      const leaf = isContextualRef(row);
+      return [{ row, shown: shownNodeOf(row, nodeOf), children: leaf ? [] : walk(row.children) }];
+    });
+  return walk(rowIds);
+}

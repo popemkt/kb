@@ -37,7 +37,7 @@
 import { instanceAncestorIds } from "./instance-key";
 import type { RowSource, SchemaIndex } from "./schema";
 import type { OutlineNode } from "./types";
-import { contextualTargetOf, nodeTitleOf, plainWords } from "@kb/model";
+import { contextualTargetOf, nodeTitleOf, plainWords, shownNodeOf } from "@kb/model";
 
 /**
  * Where a node the index serves from a file (a saved query's `.edn`) is
@@ -55,17 +55,9 @@ export function shownNodeId(node: OutlineNode): string {
   return contextualTargetOf(node) ?? node.id;
 }
 
-/**
- * The node a row shows, as a node: the target of a contextual reference, the
- * row itself otherwise — and the row itself for a dangling reference, which
- * has nothing else to show.
- *
- * Read from the schema, the whole graph, so a reference to a node outside the
- * current scope still shows it.
- */
+/** The node a row shows (`shownNodeOf`), read from the schema, the whole graph. */
 export function shownNode(node: OutlineNode, schema: SchemaIndex): OutlineNode {
-  const shownId = shownNodeId(node);
-  return shownId === node.id ? node : (schema.get(shownId) ?? node);
+  return shownNodeOf(node, (id) => schema.get(id));
 }
 
 /**
