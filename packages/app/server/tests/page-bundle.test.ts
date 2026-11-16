@@ -238,7 +238,11 @@ const DATASCRIPT = /cljs\.core/;
 // rows into a tree, and ⌘C's handler for rows and for a text selection,
 // eager since a copy must answer in the event; the Copy as… dialog stays
 // lazy) measures 2,016,759; the budget rises by its 17,667.
-const EAGER_BUDGET_BYTES = 2_018_159;
+// A dialog's header and actions held in view while only its body scrolls
+// (the shared Dialog's footer slot, and Copy as…, the routine editor and the
+// confirmations moved into it) measures 2,017,030; the budget rises by its
+// 271.
+const EAGER_BUDGET_BYTES = 2_018_430;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

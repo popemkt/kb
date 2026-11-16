@@ -173,24 +173,29 @@ function RemoveDialog({
   readonly onRemove: () => void;
 }) {
   return (
-    <Dialog title="Remove this sync service?" onClose={onCancel}>
+    <Dialog
+      title="Remove this sync service?"
+      onClose={onCancel}
+      actions={
+        <>
+          <button type="button" className={BUTTON_CLASS} onClick={onCancel}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className={cn(BUTTON_CLASS, "text-destructive hover:bg-destructive/10")}
+            disabled={busy}
+            onClick={onRemove}
+          >
+            Remove
+          </button>
+        </>
+      }
+    >
       <p className="text-ui text-foreground">
         kb revokes its access at Google and erases the client and token it kept on this host. Its
         calendars stay in kb, paused, and their Google calendars stay in your account.
       </p>
-      <div className="flex justify-end gap-2">
-        <button type="button" className={BUTTON_CLASS} onClick={onCancel}>
-          Cancel
-        </button>
-        <button
-          type="button"
-          className={cn(BUTTON_CLASS, "text-destructive hover:bg-destructive/10")}
-          disabled={busy}
-          onClick={onRemove}
-        >
-          Remove
-        </button>
-      </div>
     </Dialog>
   );
 }

@@ -13,6 +13,7 @@ export function ActionReviewDialog({
   readonly close: () => void;
 }) {
   return (
+    // GAP [[01M7HY51KS03P1CFM90JH4CS8Z]]: the review draws its answer buttons in its body, not the dialog's actions.
     <Dialog title="Review & trust" onClose={close} className="sm:max-w-3xl">
       <ActionApproval invocation={invocation} answer={answer} />
     </Dialog>

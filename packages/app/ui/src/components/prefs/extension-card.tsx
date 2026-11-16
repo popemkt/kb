@@ -237,7 +237,25 @@ function RemoveConfirm({
   readonly onCancel: () => void;
 }) {
   return (
-    <Dialog title={`Remove ${row.label}?`} onClose={onCancel} testId={`remove-${row.name}`}>
+    <Dialog
+      title={`Remove ${row.label}?`}
+      onClose={onCancel}
+      testId={`remove-${row.name}`}
+      actions={
+        <>
+          <button type="button" className={BUTTON} onClick={onCancel} autoFocus>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className={cn(BUTTON, "border-destructive/40 text-destructive hover:bg-destructive/10")}
+            onClick={onRemove}
+          >
+            Remove
+          </button>
+        </>
+      }
+    >
       <ul className="list-disc space-y-1 pl-5 text-ui text-muted-foreground">
         <li>{leaving}</li>
         <li>Its nodes stay, with everything you wrote on them.</li>
@@ -246,18 +264,6 @@ function RemoveConfirm({
           can install it again.
         </li>
       </ul>
-      <div className="flex justify-end gap-2">
-        <button type="button" className={BUTTON} onClick={onCancel} autoFocus>
-          Cancel
-        </button>
-        <button
-          type="button"
-          className={cn(BUTTON, "border-destructive/40 text-destructive hover:bg-destructive/10")}
-          onClick={onRemove}
-        >
-          Remove
-        </button>
-      </div>
     </Dialog>
   );
 }

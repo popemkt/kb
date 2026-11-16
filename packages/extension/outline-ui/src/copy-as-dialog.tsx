@@ -209,60 +209,49 @@ export default function CopyAsDialog({
   };
 
   return (
-    <Dialog title="Copy as…" onClose={onClose} testId="copy-as" className="sm:max-w-2xl">
-      <div className="flex flex-col gap-4 sm:flex-row">
-        <div className="flex flex-col gap-4 sm:w-64 sm:shrink-0">
-          <Section title="Format">
-            <div role="radiogroup" aria-label="Format" className="flex flex-col gap-0.5">
-              {OUTLINE_FORMATS.map((candidate) => (
-                <button
-                  key={candidate.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={candidate.id === choice.format}
-                  data-format={candidate.id}
-                  onClick={() => set({ format: candidate.id })}
-                  className={cn(
-                    "flex flex-col items-start rounded-md px-2 py-1 text-left transition-colors duration-100",
-                    candidate.id === choice.format
-                      ? "bg-foreground/[0.08]"
-                      : "hover:bg-foreground/[0.04]",
-                  )}
-                >
-                  <span className="text-ui font-medium text-foreground">{candidate.label}</span>
-                  <span className="text-meta text-foreground/50">{WHERE[candidate.id]}</span>
-                </button>
-              ))}
-            </div>
-          </Section>
-          <Section title="Options">
-            <Check
-              label="Include children"
-              checked={choice.children}
-              onChange={(children) => set({ children })}
-            />
-            <Check
-              label="Include fields and tags"
-              checked={choice.fieldsAndTags}
-              onChange={(fieldsAndTags) => set({ fieldsAndTags })}
-              disabled={ignoredBy(choice.format, "fieldsAndTags")}
-            />
-            <Segmented
-              label="References as"
-              options={REF_FORMS}
-              value={choice.refs}
-              onChange={(refs) => set({ refs })}
-            />
-            <Segmented
-              label="Indent with"
-              options={INDENTS}
-              value={choice.indent}
-              onChange={(indent) => set({ indent })}
-              disabled={ignoredBy(choice.format, "indent")}
-            />
-          </Section>
-        </div>
-        <Section title="Preview" className="min-w-0 flex-1">
+    <Dialog
+      title="Copy as…"
+      onClose={onClose}
+      testId="copy-as"
+      className="sm:max-w-2xl"
+      actions={
+        <>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button variant="primary" onClick={() => void copy()}>
+            Copy
+          </Button>
+        </>
+      }
+    >
+      {/* On a phone the preview follows the format it shows; beside it on a wider screen. */}
+      <div className="grid gap-4 sm:grid-cols-5">
+        <Section title="Format" className="sm:col-span-2 sm:col-start-1 sm:row-start-1">
+          <div role="radiogroup" aria-label="Format" className="flex flex-col gap-0.5">
+            {OUTLINE_FORMATS.map((candidate) => (
+              <button
+                key={candidate.id}
+                type="button"
+                role="radio"
+                aria-checked={candidate.id === choice.format}
+                data-format={candidate.id}
+                onClick={() => set({ format: candidate.id })}
+                className={cn(
+                  "flex flex-col items-start rounded-md px-2 py-1 text-left transition-colors duration-100",
+                  candidate.id === choice.format
+                    ? "bg-foreground/[0.08]"
+                    : "hover:bg-foreground/[0.04]",
+                )}
+              >
+                <span className="text-ui font-medium text-foreground">{candidate.label}</span>
+                <span className="text-meta text-foreground/50">{WHERE[candidate.id]}</span>
+              </button>
+            ))}
+          </div>
+        </Section>
+        <Section
+          title="Preview"
+          className="min-w-0 sm:col-span-3 sm:col-start-3 sm:row-span-2 sm:row-start-1"
+        >
           {html === undefined ? (
             <pre
               data-testid="copy-as-preview"
@@ -274,12 +263,32 @@ export default function CopyAsDialog({
             <RichPreview html={html} />
           )}
         </Section>
-      </div>
-      <div className="flex justify-end gap-2">
-        <Button onClick={onClose}>Cancel</Button>
-        <Button variant="primary" onClick={() => void copy()}>
-          Copy
-        </Button>
+        <Section title="Options" className="sm:col-span-2 sm:col-start-1 sm:row-start-2">
+          <Check
+            label="Include children"
+            checked={choice.children}
+            onChange={(children) => set({ children })}
+          />
+          <Check
+            label="Include fields and tags"
+            checked={choice.fieldsAndTags}
+            onChange={(fieldsAndTags) => set({ fieldsAndTags })}
+            disabled={ignoredBy(choice.format, "fieldsAndTags")}
+          />
+          <Segmented
+            label="References as"
+            options={REF_FORMS}
+            value={choice.refs}
+            onChange={(refs) => set({ refs })}
+          />
+          <Segmented
+            label="Indent with"
+            options={INDENTS}
+            value={choice.indent}
+            onChange={(indent) => set({ indent })}
+            disabled={ignoredBy(choice.format, "indent")}
+          />
+        </Section>
       </div>
     </Dialog>
   );

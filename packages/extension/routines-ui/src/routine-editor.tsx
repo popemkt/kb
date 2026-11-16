@@ -4,7 +4,7 @@
  * fields that changed (`editRoutine`) or makes the routine (`addRoutine`) in
  * one call. What the engine could not send is said before it is saved.
  */
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { ArrowSquareOutIcon } from "@phosphor-icons/react";
 import {
   addRoutine,
@@ -261,12 +261,15 @@ function problemOf(
   return null;
 }
 
+/** The editor's buttons, in the dialog's footer; Save submits the form `form` names. */
 function EditorButtons({
+  form,
   existing,
   ok,
   onDelete,
   onClose,
 }: {
+  readonly form: string;
   readonly existing: boolean;
   readonly ok: boolean;
   readonly onDelete: () => void;
@@ -274,7 +277,7 @@ function EditorButtons({
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   return (
-    <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+    <>
       {existing ? (
         <button
           type="button"
@@ -291,10 +294,10 @@ function EditorButtons({
       <button type="button" className={BUTTON_CLASS} onClick={onClose}>
         Cancel
       </button>
-      <button type="submit" className={PRIMARY_BUTTON_CLASS} disabled={!ok}>
+      <button type="submit" form={form} className={PRIMARY_BUTTON_CLASS} disabled={!ok}>
         Save
       </button>
-    </div>
+    </>
   );
 }
 
@@ -366,13 +369,24 @@ export function RoutineEditor({
     )
       onClose();
   };
+  const formId = useId();
   return (
     <Dialog
       title={target.kind === "new" ? "New event" : "Edit event"}
       onClose={onClose}
       testId="routine-editor"
+      actions={
+        <EditorButtons
+          form={formId}
+          existing={target.kind === "routine"}
+          ok={ok}
+          onDelete={() => void remove()}
+          onClose={onClose}
+        />
+      }
     >
       <form
+        id={formId}
         className="flex flex-col gap-3"
         onSubmit={(event) => {
           event.preventDefault();
@@ -427,12 +441,6 @@ export function RoutineEditor({
             {problem}
           </p>
         )}
-        <EditorButtons
-          existing={target.kind === "routine"}
-          ok={ok}
-          onDelete={() => void remove()}
-          onClose={onClose}
-        />
       </form>
     </Dialog>
   );

@@ -2825,7 +2825,10 @@ The rules that hold everywhere, so no surface re-invents them:
 - **A modal is one component.** `Dialog` (`@kb/ui-sdk`) is a panel over
   the scrim, with its title and a close button, Tab kept inside it,
   dismissed as every popover is (`useDismiss`, below), and a sheet from the
-  bottom on a phone. It is not the native `<dialog>`, whose top layer would
+  bottom on a phone. Its header and its `actions` (the buttons it is for)
+  stay in view and only its body scrolls, so a dialog's primary action is
+  never below the fold; the action review still draws its answer buttons in
+  its body (GAP [[01M7HY51KS03P1CFM90JH4CS8Z]]). It is not the native `<dialog>`, whose top layer would
   leave the popovers and pickers a modal opens, which render outside it,
   inert behind it. The routines' editors, the action review, an
   extension's removal confirmation and Copy as… are all it.

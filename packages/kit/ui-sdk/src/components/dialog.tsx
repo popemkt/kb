@@ -2,7 +2,9 @@
  * The one modal (DESIGN-UI.md → Cross-surface polish, "A modal is one
  * component"): a panel over the scrim, dismissed as every popover is
  * (Escape, or a press outside it), with its title and a close button, and
- * Tab kept inside it. On a phone it is a sheet from the bottom. It is not the
+ * Tab kept inside it. Its header and its actions stay in view and only its
+ * body scrolls, so the action it is for is never below the fold. On a phone
+ * it is a sheet from the bottom. It is not the
  * native `<dialog>`: that one's top layer would leave the pickers and
  * popovers a modal opens, which render outside it, inert behind it.
  */
@@ -36,12 +38,16 @@ export function Dialog({
   title,
   onClose,
   children,
+  actions,
   testId,
   className,
 }: {
   readonly title: string;
   readonly onClose: () => void;
+  /** The body, which scrolls when the panel cannot hold it. */
   readonly children: ReactNode;
+  /** The dialog's buttons, in a footer that stays in view below the body. */
+  readonly actions?: ReactNode;
   readonly testId?: string;
   /** The panel's own classes, its width above all (`sm:max-w-md` by default). */
   readonly className?: string;
@@ -58,15 +64,22 @@ export function Dialog({
         data-testid={testId}
         onKeyDown={keepFocusIn}
         className={cn(
-          "flex max-h-[90vh] w-full flex-col gap-3 overflow-y-auto rounded-t-xl border border-border bg-popover p-4 text-popover-foreground shadow-modal sm:max-w-md sm:rounded-xl",
+          "flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-xl border border-border bg-popover text-popover-foreground shadow-modal sm:max-w-md sm:rounded-xl",
           className,
         )}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2 px-4 pt-4 pb-3">
           <h2 className="min-w-0 flex-1 text-heading text-foreground">{title}</h2>
           <IconButton label="Close" icon={XIcon} size="md" onClick={onClose} />
         </div>
-        {children}
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 pb-4">
+          {children}
+        </div>
+        {actions === undefined ? null : (
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border px-4 py-3">
+            {actions}
+          </div>
+        )}
       </div>
     </div>
   );

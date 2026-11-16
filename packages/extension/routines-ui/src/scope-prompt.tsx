@@ -17,26 +17,28 @@ export function ScopePrompt({
       title={`Move “${entry.title === "" ? "Untitled" : entry.title}”`}
       onClose={onCancel}
       testId="scope-prompt"
+      actions={
+        <>
+          <button type="button" className={BUTTON_CLASS} onClick={onCancel}>
+            Cancel
+          </button>
+          <button type="button" className={BUTTON_CLASS} onClick={() => onChoose("series")}>
+            The whole series
+          </button>
+          <button
+            type="button"
+            autoFocus
+            className={PRIMARY_BUTTON_CLASS}
+            onClick={() => onChoose("one")}
+          >
+            Just this one
+          </button>
+        </>
+      }
     >
       <p className="text-ui text-muted-foreground">
         It repeats. Move just this one, or the whole series?
       </p>
-      <div className="flex flex-wrap justify-end gap-2">
-        <button type="button" className={BUTTON_CLASS} onClick={onCancel}>
-          Cancel
-        </button>
-        <button type="button" className={BUTTON_CLASS} onClick={() => onChoose("series")}>
-          The whole series
-        </button>
-        <button
-          type="button"
-          autoFocus
-          className={PRIMARY_BUTTON_CLASS}
-          onClick={() => onChoose("one")}
-        >
-          Just this one
-        </button>
-      </div>
     </Dialog>
   );
 }

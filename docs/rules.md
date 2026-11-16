@@ -1753,6 +1753,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Hold the kernel as the session's live registry instead of a derived snapshot: the watcher calls kernel.unload/load, and byId/manifest read the points on demand.
 - **node** — `01M39F3N7TS10VJ881RNC0Z4X3`
 
+### GAP: the action review's answer buttons scroll with its body
+
+- **expected** — Every Dialog's primary action sits in its actions footer, which stays in view while the body scrolls; the action review's Approve and Deny included.
+- **current** — The action review is a Dialog whose body is ActionApproval, and ActionApproval, or a review a family contributes at the ActionReviewPoint, draws its own answer buttons at the end of what it shows, inside the body, so a long review scrolls them out of view on a phone.
+- **impact** — On a small screen a person scrolls a long review to reach Approve or Deny; the header and the scroll region keep the title and the close button in view, so the review is never stuck, only slower.
+- **closes** — The ActionReviewPoint contract splits a review into what it shows and how it is answered: a review returns its body, and the dialog draws the answer buttons in its actions footer from one shared answer (approve, deny, and a review's own extra choices).
+- **node** — `01M7HY51KS03P1CFM90JH4CS8Z`
+
 ### GAP: the agent family offers no model suggestions and no provider check
 
 - **expected** — ext.agent.models lists a provider's model ids as suggestions for its model field, and ext.agent.check says whether a provider can run (its binary, its endpoint, its credential's reference): read actions of the hosted agent family
