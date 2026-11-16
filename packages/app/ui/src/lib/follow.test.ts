@@ -7,10 +7,11 @@ import {
   routePointerClick,
   type FollowHow,
   type FollowTarget,
+  type RefLook,
 } from "@kb/ui-sdk";
 
 /** No graph behind the text: every reference keeps the default link colour. */
-const PLAIN_INK = (): string | null => null;
+const PLAIN_INK: RefLook = { ink: () => null, name: (id, label) => label ?? id };
 
 describe("the one bullet rule", () => {
   const plain = { metaKey: false, ctrlKey: false, shiftKey: false };

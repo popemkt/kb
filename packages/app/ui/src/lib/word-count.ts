@@ -3,7 +3,8 @@
  * read and copied"): the nodes some rows show and every node under them,
  * each once, read as plain words.
  */
-import { contextualTargetOf, plainText, type SchemaIndex, shownNode } from "@kb/ui-sdk";
+import { plainWords } from "@kb/model";
+import { contextualTargetOf, type SchemaIndex, shownNode } from "@kb/ui-sdk";
 
 export interface WordCount {
   readonly words: number;
@@ -28,7 +29,6 @@ function measure(text: string): { readonly words: number; readonly characters: n
  * a reference is not followed below it; a node met twice counts once.
  */
 export function countWords(rowIds: readonly string[], schema: SchemaIndex): WordCount {
-  const textOf = (id: string) => schema.get(id)?.text;
   const counted = new Set<string>();
   const met = new Set<string>();
   let words = 0;
@@ -41,7 +41,7 @@ export function countWords(rowIds: readonly string[], schema: SchemaIndex): Word
     const shown = shownNode(row, schema);
     if (!counted.has(shown.id)) {
       counted.add(shown.id);
-      const measured = measure(plainText(shown.text, textOf));
+      const measured = measure(plainWords(shown.text, (other) => schema.get(other)));
       words += measured.words;
       characters += measured.characters;
     }

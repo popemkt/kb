@@ -398,14 +398,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — packageShards packs mutants by line range instead of by file, emitting file:start-end entries in a shard's mutate.
 - **node** — `01M558MRWHR92991GYFRC5WWXY`
 
-### GAP: a node's title reaches its row, ref values, search and the picker, not every place the page names a node
-
-- **expected** — Every surface that names a node (breadcrumbs, the zoomed page's title, tab and pane titles, graph and canvas labels, backlinks) names it by nodeTitleOf, as rows, ref values, search and the node picker do (DESIGN-UI.md → Titles from fields).
-- **current** — Those surfaces read the node's stored text: a node whose tag builds a title is drawn by its title in its row and named by its text in the breadcrumb above it.
-- **impact** — A titled node reads two ways on one screen; nothing is written wrongly, since a title is display only.
-- **closes** — One page-side name reader (rowTitle's reader by id) that every naming surface takes in place of node.text, and the graph and canvas label paths moved onto it.
-- **node** — `01M7CYP03QT4AWT994NSXQV35B`
-
 ### GAP: a number knob's range is the declaration's, not data on its field node
 
 - **expected** — A knob field carries its own range and step as data, so every surface that writes it (kb set, node.update, the field editor) refuses a value outside them, as it refuses a value of the wrong type.
@@ -1629,6 +1621,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Gate on Bun's FTS5 close() segfault (oven-sh/bun#37044); adopt once a SQLite index exists.
 - **node** — `01M1M08X7037FH9Z0Y5G1RFRXX`
 
+### GAP: search matches a node's stored text and title, not the words it reads as
+
+- **expected** — graph.search (kb search, MCP, the page's index search) finds a node by its plain display text too, so 'with Rob' finds 'Check up with Rob', as ⌘K does.
+- **current** — node-table search matches the stored text and nodeTitleOf (domain/query/src/index/node-table.ts), markup and ids included; ⌘K matches the name and the stored text.
+- **impact** — A search for the words a person reads beside a reference misses the node; searching an id or a label still finds it.
+- **closes** — Match plainWords(nodeTitleOf(...)) beside the text in every index implementation, a property in the shared index contract.
+- **node** — `01M7HCW2CRPCQ04SSRNG2FHSNS`
+
 ### GAP: Set field… offers only fields that declare an option set
 
 - **expected** — Set field… over one row or a range offers every field and writes a value of the field's own type to each row: an option picked from a set, or a typed value (text, number, date, a node) read once and written to every row
@@ -1677,6 +1677,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Cost now grows with the number of distinct queries on screen rather than with clients times subscriptions, but it is still every query on every edit: a board view with a dozen query nodes re-runs all twelve per keystroke, most of them answering the same rows.
 - **closes** — Skip a subscription the transaction cannot affect. @kb/query's IR names what a compiled query reads (PatternClause.attr, ReachClause.edge, children), but a StoreTx does not name what a write touched: it carries whole nodes as they are after the write, so a removed prop and every attribute of a deleted node are absent from it. Gating on that read set would silently drop those changes. Needs the tx log to carry before-images (or the store to report a per-tx attribute set), and a fallback that always re-runs an IrRaw query, which exposes no read set at all.
 - **node** — `01M1QZNM17MTGGPE517NVZYJT0`
+
+### GAP: surfaces outside the audit's list still name a node by its stored text
+
+- **expected** — Every surface that names a node where only a string fits reads its plain display text (nameIn / nodeName, DESIGN.md → Display text), and every rich one is fed its title (rowTitle).
+- **current** — Gallery names (tiles, styles, facets, sources, workflows), settings (extension groups, design-system card, stored shortcuts, agent settings), code script labels and the code and chart view titles, the ontology page's title, scope bar and member chips, query builder labels, view settings and tag-fields pickers, the field picker's create row, option gallery cards, a row box's accessible name, a backlink's relation chip, the related list's Link as…, the canvas edge inspector, days' refusal messages, the node menu's Make default view labels and Extend tag's name, the graph perspective picker, location labels, the sync page title and the Owned by chip read node.text; Tagged instances, Nodes with this field and ontology member rows draw the stored text rich, not the title.
+- **impact** — Markup shows where a field, tag, option or system node's name holds it (rare: these are mostly schema names), and a titled node is named by its text there.
+- **closes** — Route each through nameIn or nodeName (rowTitle for the rich ones); the e2e node-display-text walks each surface it gains.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M7HCW0W60M9G3R2QCF8FZJW1`
 
 ### GAP: switching a family off says nothing about what depends on it
 
@@ -1963,6 +1972,23 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Two pinpoint disables of a rule that is error everywhere else, on the one ui path with a measured latency bar.
 - **closes** — palette-index.test.ts asserts open <50ms and keystroke <10ms at 50k nodes. A standalone benchmark puts Array.from({length:n}) about 40% behind new Array(n) at that size, and the push variant flipped that test red on three of four full-suite runs on a loaded machine. Close it by making the 50k path fast enough that the allocation shape stops mattering (incremental or worker-side palette search), then delete both disables.
 - **node** — `01M1MFJXAQ8NVBMA6E6CZ7CY9W`
+
+### GAP: the reference token has two grammars, mention.ts and the inline parser
+
+- **expected** — One statement of the label token: the inline grammar (inline.ts) and :node/mentions extraction (mention.ts) read the same tokens.
+- **current** — mention.ts scans with MENTION_RE and inline.ts parses refs in its own branch. They differ on a token inside inline code (mention extracts it, the parser leaves it text) and on a label that holds '['.
+- **impact** — A ref written in code is a backlink the page does not draw as a pill; rare, and nothing is lost.
+- **closes** — mentionSpans derived from parseInlineSource's ref spans (or the reverse), with the mention property test and the inline tests over one grammar; a store-wide check that the mentions it derives are unchanged, or a declared change.
+- **node** — `01M7HCW3N0TSYGSXVNQS2K8H0Y`
+
+### GAP: the routines calendar names an event by its synced title, the node's stored text, so its chips show markup
+
+- **expected** — An event reads as its node's display text (DESIGN.md → Display text): plain in a calendar chip, an agenda row, the event box heading, its popover, the move prompt and a sync issue; and what is synced to Google Calendar is said, not left to the stored text.
+- **current** — Routine.title is node.text (routines/src/config.ts readRoutine), and both the page (entry-chip, agenda-view, event-card, entry-popover, scope-prompt, toolbar) and the sync (project → EventFields.title; calendar-edits writes an external title back as text) use it. A routine named 'Check up with Rob' shows the token on the calendar and in Google Calendar.
+- **impact** — Raw ref markup on every calendar surface and in the synced event; nothing is written wrongly, since a title edited in Google Calendar comes back as text.
+- **closes** — Split the title the calendar draws from the title it syncs: the page reads nodeName for an entry's node; the family decides (and specs) whether the synced title is plain words, with its edit-back rule, as a declared change to what it syncs.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M7HCVZ2NX70JCJ8481B9PRA5`
 
 ### GAP: the routines Google setup wizard keeps its own steps beside the core procedure
 
@@ -2332,6 +2358,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A 'Move to…' palette step that picks the new parent, and row drag and drop, both through node.move.
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYPQ3CGJKP20TQFADPRH1`
+
+### GAP: a node's title reaches its row, ref values, search and the picker, not every place the page names a node
+
+- **expected** — Every surface that names a node (breadcrumbs, the zoomed page's title, tab and pane titles, graph and canvas labels, backlinks) names it by nodeTitleOf, as rows, ref values, search and the node picker do (DESIGN-UI.md → Titles from fields).
+- **current** — Those surfaces read the node's stored text: a node whose tag builds a title is drawn by its title in its row and named by its text in the breadcrumb above it.
+- **impact** — A titled node reads two ways on one screen; nothing is written wrongly, since a title is display only.
+- **closes** — One page-side name reader (rowTitle's reader by id) that every naming surface takes in place of node.text, and the graph and canvas label paths moved onto it.
+- **node** — `01M7CYP03QT4AWT994NSXQV35B`
 
 ### GAP: a one-off routine cannot be ticked done or skipped in the calendar
 

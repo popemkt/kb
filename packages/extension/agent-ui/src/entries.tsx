@@ -9,7 +9,7 @@ import {
 } from "@phosphor-icons/react";
 import type { ToolEntry, TranscriptEntry } from "@kb/agent";
 import type { ApprovalAsk } from "@kb/contracts";
-import { ActionApproval, cn, MdView, useFollow, useRefInk } from "@kb/ui-sdk";
+import { ActionApproval, cn, MdView, useFollow, useRefLook } from "@kb/ui-sdk";
 
 /** A value as the cards show it: JSON, two-space indented. */
 function shown(value: unknown): string {
@@ -19,8 +19,8 @@ function shown(value: unknown): string {
 /** Text the person or the agent wrote: inline markdown, `[[id|label]]` refs followable. */
 function Prose({ text, className }: { text: string; className?: string }) {
   const follow = useFollow();
-  const ink = useRefInk();
-  return <MdView text={text} onFollow={follow} ink={ink} className={cn("text-ui", className)} />;
+  const refs = useRefLook();
+  return <MdView text={text} onFollow={follow} refs={refs} className={cn("text-ui", className)} />;
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {

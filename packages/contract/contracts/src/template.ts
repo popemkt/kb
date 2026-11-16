@@ -1,5 +1,5 @@
 import { Context } from "effect";
-import { replaceMentions, type KbNode, type NodeId } from "@kb/model";
+import { refName, replaceMentions, type KbNode, type NodeId } from "@kb/model";
 
 /**
  * Render templates: named functions (query rows → markdown). No
@@ -23,14 +23,12 @@ export type TemplateFn = (rows: unknown[][], ctx: TemplateContext) => string;
  * Render-backbone text helper. Templates themselves are policy and live in
  * extensions; resolving `[[id|label]]` mentions against the graph is
  * mechanism, so it ships beside {@link TemplateContext} and is offered to
- * template authors. The token's grammar is `@kb/model`'s (`replaceMentions`).
+ * template authors. `text` as markdown with each reference read as `refName` says (DESIGN.md →
+ * Display text): its label, else its target's name, else its id. The rest
+ * of the markup stays, since a template writes markdown.
  */
-/** Render [[id|label]] as label, [[id]] as the target node's text (or the id). */
 export function renderText(text: string, ctx: TemplateContext): string {
-  return replaceMentions(text, ({ id, label }) => {
-    if (label !== undefined && label.length > 0) return label;
-    return ctx.nodes.get(id)?.text ?? id;
-  });
+  return replaceMentions(text, ({ id, label }) => refName(id, label, (ref) => ctx.nodes.get(ref)));
 }
 
 export interface ExtensionTemplate {

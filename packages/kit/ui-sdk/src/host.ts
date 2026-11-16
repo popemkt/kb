@@ -16,7 +16,7 @@ import type { ActionInvocation, ActionReceipt, WireNode } from "@kb/contracts";
 import type { CommandTarget, NodeCommandListing, PaletteSurface } from "./lib/command-point";
 import type { ViewKey } from "@kb/views";
 import type { NodeTextPort } from "./components/node-text-port";
-import type { RefInk } from "./lib/md-edit";
+import type { RefLook } from "./lib/md-edit";
 import type { PageGraphPort } from "./lib/page-graph";
 import type { PageWrites } from "./lib/page-writes";
 import type { PaneScreenPort } from "./lib/pane-screen";
@@ -63,8 +63,8 @@ export interface BrowserHost extends NodeTextPort {
   readonly appearance: () => Appearance;
   /** The device-level preferences now. */
   readonly prefs: () => Prefs;
-  /** How references in rendered text are inked. */
-  readonly refInk: () => RefInk;
+  /** How references in rendered text read: their ink and their names. */
+  readonly refLook: () => RefLook;
   /** Zoom the outline to a node. */
   readonly zoomTo: (id: string) => void;
   /** Zoom home: to the workspace, or to the ontology while scoped. */

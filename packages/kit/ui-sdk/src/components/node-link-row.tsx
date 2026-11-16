@@ -6,7 +6,7 @@
  * is not the node's place: clicking it opens the node.
  */
 import type { ReactNode } from "react";
-import { useFollow, useNodes, useOpenNode, useRefInk } from "../hooks";
+import { useFollow, useNodes, useOpenNode, useRefLook } from "../hooks";
 import type { OutlineNode, TagBadge } from "../lib/types";
 import { Bullet } from "./bullet";
 import { MdView } from "./md-view";
@@ -25,7 +25,7 @@ interface NodeLinkRowProps {
 export function NodeLinkRow({ id, text, tags, leading }: NodeLinkRowProps) {
   const open = useOpenNode();
   const follow = useFollow();
-  const ink = useRefInk();
+  const refs = useRefLook();
   const node = useNodes().get(id);
   // A node outside the page's scope is still named: its bullet is drawn from the row.
   const bulletNode: OutlineNode = node ?? {
@@ -63,7 +63,7 @@ export function NodeLinkRow({ id, text, tags, leading }: NodeLinkRowProps) {
             text={text}
             className="min-w-0 flex-1 text-foreground/85"
             onFollow={follow}
-            ink={ink}
+            refs={refs}
           />
           {tags.length > 0 && (
             <TagChipGroup

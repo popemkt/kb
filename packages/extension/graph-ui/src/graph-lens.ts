@@ -21,7 +21,6 @@ import {
   type TraceAnswer,
 } from "@kb/graph";
 import {
-  graphDisplayText,
   hashTagColor,
   type BulletAppearance,
   type EdnRunner,
@@ -35,7 +34,7 @@ import {
   type TagPalette,
   UNTAGGED_COLOR,
 } from "@kb/ui-sdk";
-import { SYSTEM_IDS } from "@kb/model";
+import { nodeName, SYSTEM_IDS } from "@kb/model";
 
 /**
  * A node as the graph draws it: the kit's node-link node (`NodeLinkNode`),
@@ -73,6 +72,11 @@ function isTagNode(node: WireNode | undefined): boolean {
   if (!node) return false;
   const types = node.props[SYSTEM_IDS.typeField] ?? [];
   return types.some((v) => v.t === "ref" && v.v === SYSTEM_IDS.tag);
+}
+
+/** A node's name in the workspace graph (`nodeName`), Untitled when it has none. */
+function nameOf(id: string, byId: Map<string, WireNode>): string {
+  return nodeName(id, (ref) => byId.get(ref)) || "Untitled";
 }
 
 /** First content tag (skips sys.tag / sys.field type markers). */
@@ -161,7 +165,7 @@ function resolveCluster(
   const untagged = { key: "untagged", label: "Untagged" };
   const node = (id: string): LensCluster => ({
     key: id,
-    label: graphDisplayText(byId.get(id)?.text ?? "", (ref) => byId.get(ref)?.text),
+    label: nameOf(id, byId),
   });
   const mode = (clusterBy || DEFAULT_CLUSTER_BY).trim();
   if (mode === "tag") {
@@ -394,9 +398,7 @@ export function extractLensGraph(
         ? (wire.props[perspective.labelBy.slice(5)] ?? [])
         : [];
     const label = labelValues
-      .map((value) =>
-        value.t === "ref" ? graphDisplayText(byId.get(value.v)?.text ?? "") : String(value.v),
-      )
+      .map((value) => (value.t === "ref" ? nameOf(value.v, byId) : String(value.v)))
       .filter(Boolean)
       .join(", ");
     const wireTags: string[] = [];
@@ -406,14 +408,14 @@ export function extractLensGraph(
       if (pv.t === "ref") {
         const target = byId.get(pv.v);
         if (target && isTagNode(target)) {
-          wireTags.push(graphDisplayText(target.text, (ref) => byId.get(ref)?.text));
+          wireTags.push(nameOf(target.id, byId));
           tagIds.push(target.id);
         }
       }
     }
     nodes.push({
       id,
-      label: label || graphDisplayText(wire.text, (ref) => byId.get(ref)?.text),
+      label: label || nameOf(id, byId),
       color,
       size,
       weight,

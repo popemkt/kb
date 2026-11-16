@@ -5,7 +5,7 @@ import {
   revealMarkupAtSelection,
   serializeEditable,
   setCaretSerializedOffset,
-  type RefInk,
+  type RefLook,
 } from "../lib/md-edit.ts";
 import {
   emptyTextHistory,
@@ -28,14 +28,14 @@ export function useTextHistory({
   editorRef,
   editing,
   content,
-  ink,
+  refs,
   onRestore,
 }: {
   editorRef: RefObject<HTMLDivElement | null>;
   editing: boolean;
   content: string;
-  /** How the restored text's references are inked (`RefInk`). */
-  ink: RefInk;
+  /** How the restored text's references are inked (`RefLook`). */
+  refs: RefLook;
   /** The text a step restored, for the surface to write. */
   onRestore: (state: TextState) => void;
 }): (direction: "undo" | "redo") => void {
@@ -70,12 +70,12 @@ export function useTextHistory({
       history.current = result.history;
       // The restored text arrives back as `content`; it is not a new edit.
       last.current = result.state;
-      renderInlineMarkdown(el, result.state.text, ink);
+      renderInlineMarkdown(el, result.state.text, refs);
       setCaretSerializedOffset(el, result.state.caret);
       revealMarkupAtSelection(el);
       onRestore(result.state);
     },
-    [editorRef, onRestore, ink],
+    [editorRef, onRestore, refs],
   );
 
   useEffect(() => {

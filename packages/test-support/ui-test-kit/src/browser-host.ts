@@ -24,7 +24,7 @@ import {
   type PaneReport,
   type Prefs,
   QUIET_ACTIVITY,
-  refInkOf,
+  refLookOf,
   type SchemaIndex,
   schemaOfGraph,
   WORKSPACE_ROOT_ID,
@@ -221,7 +221,7 @@ export function testBrowserHost(overrides: Partial<BrowserHost> = {}): TestBrows
     wireNodes: () => NO_WIRE,
     appearance: () => LIGHT,
     prefs: () => PREFS,
-    refInk: () => refInkOf(schemaNow()),
+    refLook: () => refLookOf(schemaNow()),
     zoomTo: () => {},
     zoomHome: () => {},
     graph: {

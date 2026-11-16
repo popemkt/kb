@@ -31,6 +31,7 @@ import {
   useIsActive,
   useIsSelected,
   usePageGraph,
+  rowName,
 } from "@kb/ui-sdk";
 import { detailRowOf, type ParamsOf } from "@kb/views";
 import { CollectionDetailView } from "@kb/collections";
@@ -161,7 +162,7 @@ function DetailPage({
   const shown = shownNode(row, context.schema);
   // Every field as a row, chips and tucked ones included. GAP [[01M7EY5YQKG919B47FD255B34B]]
   const fields = resolveProps(shown, context.schema);
-  const title = textOr(shown.text, "Untitled");
+  const title = textOr(rowName(row, context.schema), "Untitled");
   const { RowChildren } = frame;
   return (
     <section

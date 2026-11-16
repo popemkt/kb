@@ -18,6 +18,7 @@ import {
 import { conditionGraph, conditionsMatcher, derivedWith } from "../query";
 import type { SortSpec, ViewFilter } from "@kb/views";
 import type { OutlineNode, PropValue } from "./types";
+import { nameIn } from "./contextual-ref";
 import { textOr } from "./text";
 import type { SchemaIndex } from "./schema";
 import { isFieldHidden } from "./field-visibility";
@@ -30,7 +31,7 @@ function propValueKey(v: PropValue, _schema: SchemaIndex): string {
 }
 
 function propValueLabel(v: PropValue, schema: SchemaIndex): string {
-  if (v.t === "ref") return textOr(schema.get(v.v)?.text, v.v);
+  if (v.t === "ref") return textOr(nameIn(schema, v.v), v.v);
   if (v.t === "bool") return v.v ? "true" : "false";
   return String(v.v);
 }
@@ -58,7 +59,7 @@ export interface TableColumnSpec {
 
 /** A field id paired with the label a column header shows. */
 function toColumnSpec(fieldId: string, schema: SchemaIndex): TableColumnSpec {
-  return { fieldId, label: textOr(schema.get(fieldId)?.text, fieldId) };
+  return { fieldId, label: textOr(nameIn(schema, fieldId), fieldId) };
 }
 
 /**
@@ -263,7 +264,7 @@ export function groupChildrenForBoard(
   }
 
   const fieldNode = schema.get(groupFieldId);
-  const fieldLabel = textOr(fieldNode?.text, groupFieldId);
+  const fieldLabel = textOr(nameIn(schema, groupFieldId), groupFieldId);
   const options = new Map<string, BoardColumn>();
   if (declaresOptionSet(fieldNode)) {
     for (const optionId of fieldNode?.children ?? []) {

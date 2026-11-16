@@ -55,12 +55,14 @@ describe("a node's words as a brief", () => {
   it("seeds from its text and its first children's, skipping the empty", () => {
     const story = get("story");
     if (story === undefined) throw new Error("fixture");
+    // Each line is the node's plain words (DESIGN.md → Display text): a list
+    // marker is text, as its row shows it, and a picture reads as its alt.
     expect(seedOf(story, get).split("\n")).toEqual([
       "The lighthouse story",
-      "A keeper alone with the ship",
+      "- A keeper alone with the ship",
+      "storm",
       "Fog at dawn",
       "Gulls",
-      "Rocks",
     ]);
   });
 });

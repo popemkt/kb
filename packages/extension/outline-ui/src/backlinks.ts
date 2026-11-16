@@ -3,7 +3,7 @@ import {
   type EdnRunner,
   type NodeIndex,
   queryBacklinks,
-  rowText,
+  rowTitle,
   type SchemaIndex,
   type TagBadge,
 } from "@kb/ui-sdk";
@@ -58,12 +58,13 @@ export function backlinkRows(
     .filter((b) => b.id !== nodeId)
     .map((b) => {
       // The referrer's own text is schema-level too: a referrer outside the
-      // scope is still a node, and a contextual one shows its target's text.
+      // scope is still a node, and a contextual one shows its target's. It is
+      // drawn as its row draws it at rest, by its title (DESIGN.md → Display text).
       const node = schema.get(b.id);
       const referrer = references?.getNode(b.id);
       return {
         id: b.id,
-        text: node ? rowText(node, schema) : b.text,
+        text: node ? rowTitle(node, schema) : b.text,
         tags: node?.tags ?? [],
         relations:
           referrer === undefined || references === null

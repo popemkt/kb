@@ -164,6 +164,7 @@ export function readRoutine(node: NodeLike, zone: string): { routine: Routine; c
     calendar: read("calendar"),
     routine: {
       id: node.id,
+      // GAP [[01M7HCVZ2NX70JCJ8481B9PRA5]] the synced title is the stored text, markup and all
       title: node.text,
       starts: read("starts"),
       at: read("at") || null,

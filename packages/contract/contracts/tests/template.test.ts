@@ -1,8 +1,9 @@
 /**
- * `renderText`: a docs template's refs rendered as words. It reads tokens
- * with the one grammar (`@kb/model`'s mention.ts), so it sees exactly the
- * tokens the `:node/mentions` datoms see — the rendering half of the
- * extraction property in model's `mention.property.test.ts`.
+ * `renderText`: a docs template's refs rendered as words, each as
+ * `@kb/model`'s `refName` reads it. It reads tokens with the one grammar
+ * (`@kb/model`'s mention.ts), so it sees exactly the tokens the
+ * `:node/mentions` datoms see — the rendering half of the extraction
+ * property in model's `mention.property.test.ts`.
  */
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
@@ -18,6 +19,10 @@ function context(nodes: Array<Pick<KbNode, "id" | "text">>): TemplateContext {
   };
 }
 
+/** A target's text, which holds no markup, so its plain reading is itself. */
+const nameOf = (id: string) =>
+  `<${Array.from({ length: id.length }, (_, at) => id.charCodeAt(at)).join(" ")}>`;
+
 describe("renderText", () => {
   test("a stray [ before a token does not swallow it", () => {
     const ctx = context([{ id: "a", text: "Alpha" }]);
@@ -27,7 +32,7 @@ describe("renderText", () => {
     );
   });
 
-  test("renders each token as its non-empty label, else its target's text, else its id; text between is kept", () => {
+  test("renders each token as its label, trimmed, else its target's name, else its id; text between is kept", () => {
     const idArb = fc.stringMatching(/^[a-z0-9._-]{1,8}$/);
     const plainArb = fc.string({ maxLength: 12 }).filter((s) => !/[[\]|]/.test(s));
     fc.assert(
@@ -35,7 +40,7 @@ describe("renderText", () => {
         fc.array(
           fc.record({
             id: idArb,
-            // An empty label (`[[id|]]`) renders like no label at all.
+            // A blank label (`[[id|]]`, `[[id| ]]`) renders like no label at all.
             label: fc.option(plainArb, { nil: undefined }),
             known: fc.boolean(),
           }),
@@ -43,7 +48,9 @@ describe("renderText", () => {
         ),
         fc.array(plainArb, { minLength: 11, maxLength: 11 }),
         (tokens, gaps) => {
-          const known = tokens.filter((t) => t.known).map((t) => ({ id: t.id, text: `<${t.id}>` }));
+          const known = tokens
+            .filter((t) => t.known)
+            .map((t) => ({ id: t.id, text: nameOf(t.id) }));
           const ctx = context(known);
           const has = new Set(known.map((n) => n.id));
           let text = gaps[0] ?? "";
@@ -52,8 +59,9 @@ describe("renderText", () => {
             text +=
               (t.label === undefined ? `[[${t.id}]]` : `[[${t.id}|${t.label}]]`) +
               (gaps[i + 1] ?? "");
-            const named = t.label !== undefined && t.label.length > 0 ? t.label : undefined;
-            expected += (named ?? (has.has(t.id) ? `<${t.id}>` : t.id)) + (gaps[i + 1] ?? "");
+            const trimmed = t.label?.trim() ?? "";
+            const named = trimmed === "" ? undefined : trimmed;
+            expected += (named ?? (has.has(t.id) ? nameOf(t.id) : t.id)) + (gaps[i + 1] ?? "");
           });
           expect(renderText(text, ctx)).toBe(expected);
         },

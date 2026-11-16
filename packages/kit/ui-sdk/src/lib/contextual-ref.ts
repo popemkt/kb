@@ -37,7 +37,7 @@
 import { instanceAncestorIds } from "./instance-key";
 import type { RowSource, SchemaIndex } from "./schema";
 import type { OutlineNode } from "./types";
-import { SYSTEM_IDS, nodeTitleOf } from "@kb/model";
+import { SYSTEM_IDS, nodeTitleOf, plainWords } from "@kb/model";
 
 /**
  * Where a node the index serves from a file (a saved query's `.edn`) is
@@ -127,12 +127,28 @@ export function rowText(node: OutlineNode, schema: SchemaIndex): string {
  * belongs to (`nodeTitleOf`, DESIGN-UI.md → Titles from fields), which is
  * {@link rowText} itself unless that node's tag builds one from its fields.
  */
-// GAP [[01M7CYP03QT4AWT994NSXQV35B]] breadcrumbs, page titles and graph labels still name a node by its text
 export function rowTitle(node: OutlineNode, schema: SchemaIndex): string {
   const text = rowText(node, schema);
   const shownId = shownNodeId(node);
   if (shownId !== node.id && schema.get(shownId) === undefined) return text;
   return nodeTitleOf(shownId, shownNode(node, schema), (id) => schema.get(id));
+}
+
+/**
+ * A row's name: what it draws at rest ({@link rowTitle}) in plain words
+ * (DESIGN.md → Display text), "" when it has none. Every surface that names
+ * a node where only a string fits reads it: a breadcrumb, a pane's title, a
+ * list, a picker, a chip, a toast.
+ */
+// GAP [[01M7HCW0W60M9G3R2QCF8FZJW1]] some naming surfaces still read node.text
+export function rowName(node: OutlineNode, schema: SchemaIndex): string {
+  return plainWords(rowTitle(node, schema), (id) => schema.get(id));
+}
+
+/** The name of the node `id` names in `schema` ({@link rowName}), "" when it holds none. */
+export function nameIn(schema: SchemaIndex, id: string): string {
+  const node = schema.get(id);
+  return node === undefined ? "" : rowName(node, schema);
 }
 
 /**

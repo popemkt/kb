@@ -9,6 +9,7 @@ import {
   strValueOf,
   typeRefsOf,
   SYSTEM_IDS,
+  nodeName,
 } from "@kb/model";
 import {
   browserHost,
@@ -50,7 +51,10 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
   // resolves to its text instead of showing a raw id.
   const labelFor = useCallback(
     (id: string): string =>
-      textOr(byId.get(id)?.text.trim(), textOr(nodes.get(id)?.text.trim(), id)),
+      textOr(
+        nodeName(id, (ref) => byId.get(ref)),
+        textOr(nodes.get(id)?.text.trim(), id),
+      ),
     [byId, nodes],
   );
 
@@ -79,7 +83,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
       .filter((n) => isTagNode(n))
       .map((n) => ({
         id: n.id,
-        label: n.text || n.id,
+        label: nodeName(n.id, (ref) => byId.get(ref)) || n.id,
         note: taken.has(n.id) ? "included" : undefined,
         disabled: taken.has(n.id),
       }))
@@ -100,7 +104,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
         );
         return {
           id: n.id,
-          label: n.text || n.id,
+          label: nodeName(n.id, (ref) => byId.get(ref)) || n.id,
           note: taken.has(n.id) ? "extended" : cycles ? "would cycle" : undefined,
           disabled: taken.has(n.id) || cycles,
         };

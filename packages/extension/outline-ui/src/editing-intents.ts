@@ -13,7 +13,7 @@ import { mergeWithPrevious, toggleRowChecks } from "./editing-writes";
 import {
   browserHost,
   runKeyCall,
-  refInkOf,
+  refLookOf,
   renderInlineMarkdown,
   rowTextOf,
   serializeEditable,
@@ -44,7 +44,7 @@ function softBreak(
   const { textNodeId } = rowTextOf(outlineSource(), nodeId);
   const text = serializeEditable(editable);
   const next = `${text.slice(0, cursor)}\n${text.slice(cursor)}`;
-  renderInlineMarkdown(editable, next, refInkOf(browserHost().schema()));
+  renderInlineMarkdown(editable, next, refLookOf(browserHost().schema()));
   setCaretSerializedOffset(editable, cursor + 1);
   const view = editable.ownerDocument.defaultView;
   if (view) editable.dispatchEvent(new view.Event("input", { bubbles: true }));

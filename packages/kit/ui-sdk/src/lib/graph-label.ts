@@ -1,5 +1,3 @@
-import { parseInlineMd } from "./md-inline";
-
 /**
  * A graph label face, read from the design system: the graph face
  * (`--app-font-graph`, the default), the UI face, the monospace one or the
@@ -49,29 +47,4 @@ export function wrapGraphLabel(
   }
   if (line.trim()) lines.push(line.trim());
   return lines;
-}
-
-/** Project existing rich node text into a readable graph label using the shared parser. */
-export function graphDisplayText(
-  text: string,
-  resolve: (id: string) => string | undefined = () => undefined,
-  seen = new Set<string>(),
-): string {
-  return (
-    parseInlineMd(text)
-      .map((segment) => {
-        if (segment.t === "ref") {
-          if (segment.label !== segment.id) return segment.label;
-          const target = resolve(segment.id);
-          if (target === undefined || target.length === 0 || seen.has(segment.id))
-            return "Untitled";
-          return graphDisplayText(target, resolve, new Set([...seen, segment.id]));
-        }
-        if (segment.t === "link") return segment.label;
-        if (segment.t === "media") return segment.alt || segment.kind;
-        return segment.v;
-      })
-      .join("")
-      .trim() || "Untitled"
-  );
 }

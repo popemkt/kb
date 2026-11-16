@@ -6,6 +6,7 @@
  * the call, so an extension that contributes them runs none of its own
  * code when a person picks.
  */
+import { nodeName } from "@kb/model";
 import type { ReactNode } from "react";
 import type { Icon } from "@phosphor-icons/react";
 import type { ContributionEntry } from "@kb/plugin";
@@ -117,12 +118,11 @@ export function providePaletteStep(
     label: form.label,
     placeholder: form.placeholder,
     icon: drawn(icon, 12),
-    candidates: (graph) =>
+    candidates: ({ nodes, anchorId }) =>
       [...(savedQueryIds(form.candidates) ?? [])]
         .flatMap((nodeId): PickerCandidate[] => {
-          const node = graph.nodes.get(nodeId);
-          if (node === undefined || nodeId === graph.anchorId) return [];
-          return [{ id: nodeId, label: node.text.trim() || nodeId }];
+          if (!nodes.has(nodeId) || nodeId === anchorId) return [];
+          return [{ id: nodeId, label: nodeName(nodeId, (other) => nodes.get(other)) || nodeId }];
         })
         .toSorted((a, b) => a.label.localeCompare(b.label)),
     ...(form.limit === undefined ? {} : { limit: form.limit }),

@@ -273,6 +273,7 @@ export class NodeTable implements NodeIndex {
     const nodeOf = (id: NodeId) => this.#nodes.get(id);
     for (const node of this.#nodes.values()) {
       if (node.text.toLowerCase().includes(needle)) hits.push(node);
+      // GAP [[01M7HCW2CRPCQ04SSRNG2FHSNS]] matched against the source, not the words it reads as
       else if (nodeTitleOf(node.id, node, nodeOf).toLowerCase().includes(needle)) hits.push(node);
     }
     hits.sort(byId);

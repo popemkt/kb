@@ -4,7 +4,7 @@
  */
 import { SHORTCUT_IDS } from "@kb/keybindings";
 import type { WireNode } from "@kb/contracts";
-import { SYSTEM_IDS, nodeTitleOf } from "@kb/model";
+import { SYSTEM_IDS, nodeName } from "@kb/model";
 
 export type PaletteEntryKind = "command" | "node";
 
@@ -32,8 +32,8 @@ function isCommandNode(node: WireNode): boolean {
 
 /**
  * Global discovery excludes commands that require a surface execution context.
- * A node is listed by its title and found by its title or its text
- * (DESIGN.md → tag behaviours, title).
+ * A node is listed by its name, its title read plain, and found by its name
+ * or its text (DESIGN.md → Display text; tag behaviours, title).
  */
 export function buildPaletteIndex(nodes: WireNode[], rev: number): PaletteIndex {
   const byId = new Map(nodes.map((n) => [n.id, n]));
@@ -44,8 +44,8 @@ export function buildPaletteIndex(nodes: WireNode[], rev: number): PaletteIndex 
   // oxlint-disable-next-line unicorn/no-new-array -- GAP [[01M1MFJXAQ8NVBMA6E6CZ7CY9W]]
   const entries: PaletteEntry[] = new Array(global.length);
   for (const [i, n] of global.entries()) {
-    const title = nodeTitleOf(n.id, n, nodeOf);
-    entries[i] = entryOf(n.id, title || n.id, isCommandNode(n) ? "command" : "node", n.text);
+    const name = nodeName(n.id, nodeOf);
+    entries[i] = entryOf(n.id, name || n.id, isCommandNode(n) ? "command" : "node", n.text);
   }
   // Commands first for empty-query browsing, then stable by text.
   entries.sort((a, b) => {

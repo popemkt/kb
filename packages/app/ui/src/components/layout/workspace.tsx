@@ -10,6 +10,7 @@ import { layoutPanes, type LayoutPane } from "@kb/views";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 import { PaneFrame } from "./pane-frame";
 import { PaneMount } from "./pane-mount";
+import { useDocumentTitle } from "./pane-title";
 import { usePaneBodies } from "./use-pane-bodies";
 
 const LayoutGrid = lazy(() => import("./layout-grid"));
@@ -26,6 +27,7 @@ export function Workspace() {
   const panes = layoutPanes(layout);
   const { elementOf, bodies } = usePaneBodies(panes, drawPane, focus);
   const [only] = panes;
+  useDocumentTitle(panes.find((pane) => pane.id === focused)?.path ?? only?.path ?? "/");
   return (
     <>
       {bodies}

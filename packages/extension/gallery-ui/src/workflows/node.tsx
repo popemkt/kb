@@ -9,7 +9,8 @@
  */
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { lookOf, looksOf, nameOf, type GraphNode, type WorkflowParams } from "@kb/gallery";
-import { navigate, plainText, useNodes } from "@kb/ui-sdk";
+import { nodeName } from "@kb/model";
+import { navigate, useNodes } from "@kb/ui-sdk";
 import { nodePath } from "@kb/views";
 import { openLook, updateDraft, useDraft } from "../draft";
 import { useComposer, type ComposerFrame } from "../frame";
@@ -74,7 +75,7 @@ function NodeSearch({
                 onPicked();
               }}
             >
-              {plainText(node.text, (id) => frame.node(id)?.text) || node.id}
+              {nodeName(node.id, frame.node) || node.id}
             </button>
           </li>
         ))}

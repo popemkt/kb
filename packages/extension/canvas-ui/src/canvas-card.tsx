@@ -9,6 +9,7 @@ import {
   NodeRow,
   NodeTextHost,
   routePointerClick,
+  rowTitle,
   useIsActive,
   useNode,
   useNodeTextBinding,
@@ -171,6 +172,7 @@ export function KbNodeCard({
             nodeId={card.nodeId}
             instanceKey={instanceKey}
             content={node.text}
+            shown={rowTitle(node, binding.schema)}
             isActive={isActive}
             tags={node.tags}
             onActivate={handleActivate}

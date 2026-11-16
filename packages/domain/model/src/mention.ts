@@ -2,8 +2,10 @@ import type { NodeId } from "./model.ts";
 
 /**
  * The reference token in text: `[[node-id|label]]` or bare `[[node-id]]`.
- * This module is the one statement of its grammar: a reader of tokens scans
- * with it, so a token one reader sees is a token every reader sees.
+ * This module is the grammar `:node/mentions` and the text writes scan
+ * with, so a token one of them sees is a token every one of them sees. The
+ * inline grammar (`inline.ts`) parses the token again for the page.
+ * GAP [[01M7HCW3N0TSYGSXVNQS2K8H0Y]]
  *
  * The `[[` completion scan in `@kb/ui-sdk`'s `lib/refs.ts` is a different
  * concept and does not belong here: it looks for an *open* token — a `[[`

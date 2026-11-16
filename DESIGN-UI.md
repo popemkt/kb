@@ -790,8 +790,9 @@ node commands that act on many rows and write nothing.
 - **Count words** (the `view` group) counts what the selection's top rows
   (`selectionRoots`), the one row, or the page's title show, and every
   node under them, shown or collapsed: each node once, its text read as
-  plain words (`plainText`, `@kb/ui-sdk`: a reference reads as its label,
-  else its target's text, and markup and media are dropped), a row counted
+  plain words (`plainWords`, DESIGN.md → Display text: a reference reads
+  as its label, else its target's name, markup as its words and media as
+  its alt text), a row counted
   by the node it shows (`shownNode`), and a reference not followed below
   it. A toast says the words, the characters and the nodes ("120 words ·
   643 characters · 9 nodes"). Words and characters are counted as
@@ -1214,8 +1215,8 @@ choice is, since a choice is per node, rather than open one level by
 default (GAP [[01M7D8AP4A4W6S2X5T1DSE9D77]]).
 
 **Remove reference…** (⌘K, the node menu's make group) turns a reference
-in the row's text back into plain text: its label, or the target's text
-for a bare `[[id]]`. It is a step that lists the text's references, and
+in the row's text back into plain text, as `refName` reads it (DESIGN.md
+→ Display text): its label, else the target's name. It is a step that lists the text's references, and
 a pick turns every reference to that node in the text back, in one text
 write that is one undo step (`setNodeText`, below). Both steps are offered
 only on a row whose text names a node, and only on one row.
@@ -3767,13 +3768,22 @@ until "Save workspace".
 - **Titles from fields.** A tagged node whose tag builds a title from
   its fields (DESIGN.md → [Data model](DESIGN.md#data-model--everything-is-a-node),
   tag behaviours, `nodeTitleOf`) is drawn by that title wherever the page
-  names it: its row while no one edits it (`NodeTextHost`'s `shown`, the
-  text drawn at rest; pressing it edits the stored text, the caret at its
-  end), a ref value's label, and the rows search and the node picker
-  answer. A `[[ref]]` pill draws the label written into the text, so one
-  the picker makes is labelled by the title it offered. Editing the row shows the stored text, the
-  person's, and the title follows what was typed once the row is left.
-  A row view draws over the title as it would over the text.
+  names it, because the title is the source of its display text (DESIGN.md
+  → Display text). Where there is room for a line, the page draws it rich,
+  references as pills (`rowTitle`): its row while no one edits it
+  (`NodeTextHost`'s `shown`, the text drawn at rest; pressing it edits the
+  stored text, the caret at its end), the page's title at rest, a
+  References row, a canvas card. Where only a string fits, it shows the
+  plain reading (`rowName`, `nameIn`): a crumb, a pane's title and the
+  tab's (`{name} — kb`, the focused pane's), Recent and Pinned, a ⌘K row, a
+  picker's row, a ref value's label, a tag, option or field name, a
+  graph or canvas label, a toast. A `[[ref]]` pill reads as `refName` says:
+  the label written into the text, else its target's name, else (its
+  target gone) its id. A label the picker writes is the plain name it
+  offered. Editing the row or the title shows the stored text, the
+  person's, references still pills, and the title follows what was typed
+  once it is left. A click on a pill in the title follows it, as in a
+  row. A row view draws over the title as it would over the text.
 - **A tag's box.** The box is opt-in and off: no seeded tag names a
   check, so a default store and the demo draw no box, and nothing offers
   one until a person sets a tag's checkbox. A node whose tag names a check (DESIGN.md →

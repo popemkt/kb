@@ -3,7 +3,7 @@
  * descendants in reading order, to a depth and a row cap, so a large graph
  * reads as a page, not a dump.
  */
-import { rowText, shownNodeId, type NodeMap, type SchemaIndex } from "@kb/ui-sdk";
+import { rowTitle, shownNodeId, type NodeMap, type SchemaIndex } from "@kb/ui-sdk";
 
 /** How far below the root the read view lays descendants out; a deeper row opens by its parent. */
 export const READ_DEPTH = 3;
@@ -14,7 +14,7 @@ const READ_ROWS = 400;
 /** One row of the read view: a descendant of the root, at its depth below it. */
 interface ReadRow {
   readonly id: string;
-  /** What the row reads as: its text, or a reference's target's (`rowText`). */
+  /** What the row reads as at rest: its title, or a reference's target's (`rowTitle`). */
   readonly text: string;
   /** The node the row opens: itself, or the node a reference points at. */
   readonly opens: string;
@@ -80,7 +80,7 @@ export function readRows(
       const deeper = level < depth;
       rows.push({
         id: child,
-        text: rowText(node, schema),
+        text: rowTitle(node, schema),
         opens: shownNodeId(node),
         depth: level,
         hidden: deeper ? 0 : node.children.length,

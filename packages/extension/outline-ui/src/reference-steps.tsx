@@ -6,7 +6,7 @@
  * names them.
  */
 import { ArrowsOutLineVerticalIcon, LinkBreakIcon } from "@phosphor-icons/react";
-import { mentionSpans, replaceMentions } from "@kb/model";
+import { mentionSpans, nodeName, refName, replaceMentions } from "@kb/model";
 import {
   browserHost,
   type NodeMap,
@@ -27,10 +27,13 @@ function textNodeOf(nodes: NodeMap, rowId: string | null) {
   return row === undefined ? undefined : shownNode(row, browserHost().schema());
 }
 
-/** How the reference to `id` in `text` reads: its target's text, else its label, else its id. */
+/** The node a reference in `text` names, by its name; a gone one by the reference's label, else its id. */
 function referenceLabel(nodes: NodeMap, text: string, id: string): string {
   const label = mentionSpans(text).find((span) => span.id === id)?.label;
-  return textOr(nodes.get(id)?.text.trim(), textOr(label?.trim(), id));
+  return textOr(
+    nodeName(id, (ref) => nodes.get(ref)),
+    textOr(label?.trim(), id),
+  );
 }
 
 /** The references the text of the step's row names, as rows, `note` saying what to add. */
@@ -79,10 +82,9 @@ export const removeReference: PaletteStep = {
     const nodes = outlineNodes();
     const text = textNodeOf(nodes, targetNodeId);
     if (text === undefined) return;
-    const label = referenceLabel(nodes, text.text, pickedId);
     const next = replaceMentions(text.text, (span) =>
       span.id === pickedId
-        ? textOr(span.label?.trim(), label)
+        ? refName(span.id, span.label, (ref) => nodes.get(ref))
         : text.text.slice(span.start, span.end),
     );
     // A command's write, not a keystroke's: one undo step (`setNodeText`).

@@ -23,7 +23,7 @@ import { pageCommandContext, runKeyCommand } from "@/stores/page-commands";
 import { pageEditor } from "@/stores/page-editor";
 import { appearanceIn, usePrefsStore } from "@/stores/prefs.store";
 import { nodeTextPort } from "@/stores/node-text-port";
-import { refInkIn } from "@/stores/ref-ink";
+import { refLookIn } from "@/stores/ref-look";
 import { paneScreenPort } from "@/stores/screen.store";
 import { useUiStore } from "@/stores/ui.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
@@ -74,7 +74,7 @@ const host: BrowserHost = {
   wireNodes: () => useGraphStore.getState().wireNodes,
   appearance: () => appearanceIn(useDesignSystemStore.getState().painted, usePrefsStore.getState()),
   prefs: () => usePrefsStore.getState(),
-  refInk: () => refInkIn(useGraphStore.getState()),
+  refLook: () => refLookIn(useGraphStore.getState()),
   zoomTo: (id) => useGraphStore.getState().zoomTo(id),
   zoomHome: () => useGraphStore.getState().zoomHome(),
   graph: {

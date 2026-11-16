@@ -1,3 +1,4 @@
+import { nodeName } from "@kb/model";
 import { useMemo, useState } from "react";
 import { Bullet, navigate, NodeRow, useNodes, WorkspaceState } from "@kb/ui-sdk";
 import { createCanvasNode, listCanvasNodes } from "./canvas-api";
@@ -69,7 +70,7 @@ export function CanvasListPage() {
                 }
                 content={
                   <span className="truncate text-ui text-foreground/80">
-                    {n.text || "Untitled canvas"}
+                    {nodeName(n.id, (id) => nodes.get(id)) || "Untitled canvas"}
                   </span>
                 }
               />
