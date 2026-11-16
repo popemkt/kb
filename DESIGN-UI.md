@@ -2773,10 +2773,15 @@ The rules that hold everywhere, so no surface re-invents them:
   trigger, so a press and click on it is held to closing it exactly once; the harness's
   `popover-dismiss-coverage` check fails when a file calls `useDismiss` and
   no suite names it.
-- **IME composition is never interrupted.** Field editors track
-  `compositionstart`/`compositionend` _and_ check `nativeEvent.isComposing`
-  before treating a key as a commit, so a composing CJK/dead-key sequence is not
-  swallowed by Enter.
+- **IME composition is never interrupted.** A key that belongs to a
+  composition is the IME's, never a command. That covers every key while one is open
+  (`compositionstart`/`compositionend`, or `isComposing`), and also the
+  key that ends one, which WebKit (Safari, and a macOS WebView) sends after
+  `compositionend` with keyCode 229. So Enter that commits a Vietnamese,
+  CJK or dead-key word commits it and splits no row. One predicate decides
+  it, `isCompositionKey` (`@kb/ui-sdk`, `lib/keychord.ts`). Every keydown
+  that acts on Enter or Escape asks it: node text, field values, a
+  popover's Escape, and the chat and comment boxes.
 - **Load failures are recoverable, not raw.** An initial graph/workspace error
   renders a human-readable state with a Retry action and the technical detail
   behind a disclosure, rather than dumping the error.
