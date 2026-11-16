@@ -6,51 +6,71 @@ import {
   seededField,
   seededTag,
   SYSTEM_IDS,
+  type FieldOptions,
   type FieldType,
   type KbNode,
 } from "@kb/model";
 import { RoutinesCalendarView, RoutinesEventView, RoutinesSyncView } from "./view.ts";
 
+/** Where a field is drawn on a node (DESIGN.md → Data model → field display); left out, always. */
+type Show = FieldOptions["show"];
+
 function field(
   label: string,
   type: FieldType,
-): { label: string; type: FieldType; options: readonly []; one: boolean };
+  show?: Show,
+): { label: string; type: FieldType; options: readonly []; one: boolean; show: Show };
 function field<const O extends readonly string[]>(
   label: string,
   type: FieldType,
+  show: Show,
   options: O,
   one?: boolean,
-): { label: string; type: FieldType; options: O; one: boolean };
-function field(label: string, type: FieldType, options: readonly string[] = [], one = true) {
-  return { label, type, options, one };
+): { label: string; type: FieldType; options: O; one: boolean; show: Show };
+function field(
+  label: string,
+  type: FieldType,
+  show?: Show,
+  options: readonly string[] = [],
+  one = true,
+) {
+  return { label, type, options, one, show };
 }
+/*
+ * Each field's show, by what it holds: what says what an event, an
+ * occurrence, a calendar or an account is shows always; what a node of the
+ * kind may or may not carry shows when filled; the sync state kb writes
+ * (Google's id, link, status, message and time, a calendar's adapter and
+ * id) is tucked, since the Sync services page is where it is read; and an
+ * account's secrets, project and setup, which that page writes, never.
+ */
 const fields = {
   /** The series' rule (RRULE); empty for an event that happens once. */
-  rrule: field("repeat", "text"),
+  rrule: field("repeat", "text", "filled"),
   starts: field("starts", "date"),
   at: field("at", "time"),
-  duration: field("duration", "number"),
-  timezone: field("timezone", "text"),
-  until: field("until", "date"),
-  repeatsFrom: field("repeats from", "ref", ["schedule", "completion"]),
-  calendar: field("calendar", "ref"),
-  gcal: field("gcal link", "url"),
-  status: field("gcal status", "ref", ["pending", "synced", "error"]),
-  message: field("gcal message", "text"),
-  eventId: field("gcal event id", "text"),
-  syncedAt: field("synced at", "text"),
+  duration: field("duration", "number", "filled"),
+  timezone: field("timezone", "text", "filled"),
+  until: field("until", "date", "filled"),
+  repeatsFrom: field("repeats from", "ref", "filled", ["schedule", "completion"]),
+  calendar: field("calendar", "ref", "filled"),
+  gcal: field("gcal link", "url", "tucked"),
+  status: field("gcal status", "ref", "tucked", ["pending", "synced", "error"]),
+  message: field("gcal message", "text", "tucked"),
+  eventId: field("gcal event id", "text", "tucked"),
+  syncedAt: field("synced at", "text", "tucked"),
   on: field("on", "date"),
-  state: field("state", "ref", ["done", "skipped", "moved"]),
-  movedTo: field("moved to", "date"),
+  state: field("state", "ref", "filled", ["done", "skipped", "moved"]),
+  movedTo: field("moved to", "date", "filled"),
   account: field("account", "ref"),
-  adapter: field("adapter", "ref", ["google"]),
-  calendarId: field("calendar id", "text"),
-  sync: field("sync", "ref", ["preview", "on", "paused"]),
+  adapter: field("adapter", "ref", "tucked", ["google"]),
+  calendarId: field("calendar id", "text", "tucked"),
+  sync: field("sync", "ref", undefined, ["preview", "on", "paused"]),
   email: field("email", "text"),
-  clientId: field("client id", "secret"),
-  clientSecret: field("client secret", "secret"),
-  refreshToken: field("refresh token", "secret"),
-  project: field("google project", "text"),
+  clientId: field("client id", "secret", "never"),
+  clientSecret: field("client secret", "secret", "never"),
+  refreshToken: field("refresh token", "secret", "never"),
+  project: field("google project", "text", "never"),
   /**
    * What a person confirmed by hand about their setup, which kb cannot see in
    * Google before it connects: the steps done, or `existing`, a project they
@@ -59,6 +79,7 @@ const fields = {
   setup: field(
     "setup done",
     "ref",
+    "never",
     ["project", "apis", "branding", "domain", "audience", "existing"],
     false,
   ),
@@ -152,6 +173,7 @@ export function routinesSeed(at: string): readonly KbNode[] {
     nodes.push({
       ...seededField(id, spec.label, spec.type, at, {
         one: spec.one,
+        show: spec.show,
         props: target === null ? {} : { [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: target }] },
       }),
       children: spec.options.map((value) => routineOption(key, value)),

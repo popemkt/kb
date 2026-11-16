@@ -119,35 +119,47 @@ const SOURCES: ReadonlyArray<readonly [id: string, text: string, kind: string, u
   ],
 ];
 
+// A visual, a style and a look each carry some of these fields and not
+// others, and one field shows one way on all of them: shown when filled.
+// What says what an image source is (its kind and search url) shows always.
 export function gallerySeedNodes(at: string): readonly KbNode[] {
   const kind = seededField(GALLERY_IDS.sourceKindField, "source kind", "ref", at, { one: true });
   return [
-    seededField(GALLERY_IDS.mediaField, "media", "text", at),
-    seededField(GALLERY_IDS.sourceField, "source", "url", at, { one: true }),
-    seededField(GALLERY_IDS.creditField, "credit", "text", at, { one: true }),
+    seededField(GALLERY_IDS.mediaField, "media", "text", at, { show: "filled" }),
+    seededField(GALLERY_IDS.sourceField, "source", "url", at, { one: true, show: "filled" }),
+    seededField(GALLERY_IDS.creditField, "credit", "text", at, { one: true, show: "filled" }),
     seededField(GALLERY_IDS.stylesField, "styles", "ref", at, {
+      show: "filled",
       props: { [SYSTEM_IDS.targetTagField]: ref(GALLERY_IDS.styleTag) },
     }),
     seededField(GALLERY_IDS.madeWithField, "made with", "ref", at, {
+      show: "filled",
       props: { [SYSTEM_IDS.targetTagField]: ref(GALLERY_IDS.styleTag) },
     }),
-    seededField(GALLERY_IDS.promptField, "prompt", "text", at, { one: true }),
-    seededField(GALLERY_IDS.seenInField, "seen in", "text", at),
-    seededField(GALLERY_IDS.howToField, "how to", "text", at),
-    seededField(GALLERY_IDS.negativeField, "negative", "text", at, { one: true }),
-    seededField(GALLERY_IDS.widthField, "gallery.width", "number", at, { one: true, owned: true }),
+    seededField(GALLERY_IDS.promptField, "prompt", "text", at, { one: true, show: "filled" }),
+    seededField(GALLERY_IDS.seenInField, "seen in", "text", at, { show: "filled" }),
+    seededField(GALLERY_IDS.howToField, "how to", "text", at, { show: "filled" }),
+    seededField(GALLERY_IDS.negativeField, "negative", "text", at, { one: true, show: "filled" }),
+    seededField(GALLERY_IDS.widthField, "gallery.width", "number", at, {
+      one: true,
+      show: "never",
+    }),
     seededField(GALLERY_IDS.heightField, "gallery.height", "number", at, {
       one: true,
-      owned: true,
+      show: "never",
     }),
     seededField(GALLERY_IDS.searchUrlField, "search url", "text", at, { one: true }),
-    seededField(GALLERY_IDS.descriptionField, "description", "text", at, { one: true }),
-    seededField(GALLERY_IDS.paletteField, "palette", "text", at),
+    seededField(GALLERY_IDS.descriptionField, "description", "text", at, {
+      one: true,
+      show: "filled",
+    }),
+    seededField(GALLERY_IDS.paletteField, "palette", "text", at, { show: "filled" }),
     seededField(GALLERY_IDS.referenceField, "reference", "ref", at, {
       one: true,
+      show: "filled",
       props: { [SYSTEM_IDS.targetTagField]: ref(GALLERY_IDS.visualTag) },
     }),
-    seededField(GALLERY_IDS.forField, "look for", "ref", at, { one: true }),
+    seededField(GALLERY_IDS.forField, "look for", "ref", at, { one: true, show: "filled" }),
     seededField(GALLERY_IDS.saveIntoField, "save into", "ref", at, {
       one: true,
       props: { [SYSTEM_IDS.configuresField]: ref(extensionNodeId("gallery")) },

@@ -97,8 +97,16 @@ export function keyboardSchemaNodes(at: string): KbNode[] {
     call,
     seededField(SHORTCUT_IDS.action, "action", "text", at, { one: true }),
     seededField(SHORTCUT_IDS.input, "input", "text", at, { one: true }),
-    seededField(SHORTCUT_IDS.commandContext, "command context", "text", at, { one: true }),
-    seededField(SHORTCUT_IDS.commandIntent, "context command", "text", at, { one: true }),
+    // Which context a command runs in, and the command it stands for there,
+    // are kb's wiring of a seeded command: tucked.
+    seededField(SHORTCUT_IDS.commandContext, "command context", "text", at, {
+      one: true,
+      show: "tucked",
+    }),
+    seededField(SHORTCUT_IDS.commandIntent, "context command", "text", at, {
+      one: true,
+      show: "tucked",
+    }),
     seededTag(
       SHORTCUT_IDS.tag,
       "shortcut",
@@ -123,9 +131,12 @@ export function keyboardSchemaNodes(at: string): KbNode[] {
         ],
       },
     }),
-    seededField(SHORTCUT_IDS.where, "where", "text", at, { one: true }),
+    // Where a shortcut applies and the one it replaces are a shortcut's
+    // options: shown when filled.
+    seededField(SHORTCUT_IDS.where, "where", "text", at, { one: true, show: "filled" }),
     seededField(SHORTCUT_IDS.replaces, "replaces", "ref", at, {
       one: true,
+      show: "filled",
       props: { [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: SHORTCUT_IDS.tag }] },
     }),
     seededField(SHORTCUT_IDS.enabled, "enabled", "checkbox", at, { one: true }),

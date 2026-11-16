@@ -23,17 +23,20 @@ function option(id: string, text: string, at: string): KbNode {
 export function canvasSeedNodes(at: string): readonly KbNode[] {
   const state = seededField(CANVAS_IDS.commentStateField, "comment.state", "ref", at, {
     one: true,
-    owned: true,
+    show: "never",
   });
   const projection = seededField(CANVAS_IDS.canvasProjectionField, "canvas.projection", "ref", at, {
     one: true,
-    owned: true,
+    show: "never",
   });
   return [
-    seededField(CANVAS_IDS.canvasField, "canvas", "text", at, { one: true, owned: true }),
+    seededField(CANVAS_IDS.canvasField, "canvas", "text", at, { one: true, show: "never" }),
     ...Object.values(CANVAS_RUN_FIELDS).map(({ field, legacyName }) =>
+      // Which field a script canvas reads and writes: a canvas that runs one
+      // carries them, one that does not leaves them out. Shown when filled.
       seededField(field, `run ${legacyName} field`, "ref", at, {
         one: true,
+        show: "filled",
         props: { [SYSTEM_IDS.targetTagField]: ref(SYSTEM_IDS.field) },
       }),
     ),
@@ -46,21 +49,24 @@ export function canvasSeedNodes(at: string): readonly KbNode[] {
     { ...projection, children: [CANVAS_IDS.canvasProjection2d, CANVAS_IDS.canvasProjection3d] },
     option(CANVAS_IDS.canvasProjection2d, "2d", at),
     option(CANVAS_IDS.canvasProjection3d, "3d", at),
-    seededField(CANVAS_IDS.canvasPoseField, "canvas.pose", "text", at, { one: true, owned: true }),
+    seededField(CANVAS_IDS.canvasPoseField, "canvas.pose", "text", at, {
+      one: true,
+      show: "never",
+    }),
     seededField(CANVAS_IDS.commentCanvasField, "comment.canvas", "ref", at, {
       one: true,
-      owned: true,
+      show: "never",
       props: { [SYSTEM_IDS.targetTagField]: ref(CANVAS_IDS.canvasTag) },
     }),
     seededField(CANVAS_IDS.commentNodeField, "comment.node", "ref", at, {
       one: true,
-      owned: true,
+      show: "never",
     }),
     seededField(CANVAS_IDS.commentItemField, "comment.item", "text", at, {
       one: true,
-      owned: true,
+      show: "never",
     }),
-    seededField(CANVAS_IDS.commentAtField, "comment.at", "text", at, { one: true, owned: true }),
+    seededField(CANVAS_IDS.commentAtField, "comment.at", "text", at, { one: true, show: "never" }),
     { ...state, children: [CANVAS_IDS.commentOpen, CANVAS_IDS.commentResolved] },
     option(CANVAS_IDS.commentOpen, "open", at),
     option(CANVAS_IDS.commentResolved, "resolved", at),
