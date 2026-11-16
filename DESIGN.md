@@ -3371,8 +3371,9 @@ actions, contributed to `ProcedurePoint` (`kb.procedures`, keyed):
   what a write the step leads to would do, node by node. A migration's
   preview and apply steps name `migration.plan`. `procedure.status`
   passes the call through and never runs it, so reading a status costs no
-  plan; a surface reads it for the current step only, before the person
-  runs it.
+  plan. A surface reads it for one step, the first not done that names it,
+  so the person sees the changes before reaching the step and before
+  running it.
 
 The core actions are `procedure.list` and `procedure.status` (read), and
 `procedure.step {procedure, step, action?}`. `procedure.step` refuses any
@@ -3385,8 +3386,8 @@ approval. MCP, which carries no approval, is refused there as it is anywhere.
 The browser route `/procedure/<id>` is the same walker: it reads
 `procedure.status`, offers only the current step’s actions, shows recommendations
 and notes without choosing for the person, and invokes `procedure.step` through
-the page’s normal approval path. Under the current step it draws that step's
-`changes`, when it names one
+the page’s normal approval path. It draws the `changes` of the first step
+not done that names them, in that step's card
 ([DESIGN-UI → Procedure page](DESIGN-UI.md#procedure-page)). It shows the nested action receipt’s result or
 failure, and never automatically repeats a step whose check did not advance.
 
