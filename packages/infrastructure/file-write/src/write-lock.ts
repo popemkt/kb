@@ -129,6 +129,7 @@ function tryCreateLock(lockPath: string): boolean {
  * after a holder died, could take it too. Without an OS file lock, which
  * node:fs does not offer, that window can be narrowed but not closed.
  */
+// GAP [[01M7K2VAAGPW224QFP6QG8NARD]] a takeover can remove a live replacement lock; flock closes it.
 function stealIfStale(lockPath: string, nowMs: number): boolean {
   const judged = readLock(lockPath);
   if (judged === null || !isStale(judged, nowMs)) return false;
