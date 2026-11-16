@@ -49,8 +49,8 @@ takes a node that is already in Trash.
 | The concept | **Removal**: a person takes a node out of their graph. It has two depths: *trash*, which can be undone and keeps everything, and *purge*, which cannot be undone and is final |
 | The place | `sys.trash` ("Trash"), a node core seeds. Its children are the trashed roots, newest first. It is a page like any other, with a table view over the trash fields |
 | The state | **trashed** = the node has `sys.trash` as an ancestor. This is derived and never stored: `trashRootOf(id)` in `@kb/model` is the one reader, and the index derives a `:node/trashed` datom from it, as it derives mentions |
-| The provenance | three fields on the trashed root, managed by core: `trashed from` (ref to the old parent), `trashed rank` (its sibling rank there) and `trashed at` (date). The commit stamps them on any move in and clears them on any move out, so a drag works the same as the action |
-| The actions | `node.delete` moves to Trash, or purges when nothing would be lost (§6.3). `node.restore {id, to?}` moves back. `node.purge {id}` declares approval required. `trash.empty {olderThan?}` is a purge of many |
+| The provenance | three fields on the trashed root, managed by core: `trashed from` (ref to the old parent), `trashed rank` (its sibling rank there) and `trashed at` (date). The commit stamps them when a node becomes trashed and clears them when it stops being trashed, whatever wrote it, so a drag works the same as the action (§6.4) |
+| The actions | `node.delete` moves to Trash, or purges when nothing would be lost (§6.3). `node.restore {id, to?}` moves back. `node.purge {ids, force?}` declares approval required; `force` is only the `sys.*` override, never approval. `trash.empty {olderThan?}` is a purge of many |
 | The promise | **`node.delete` never loses content and never leaves a reference dangling.** It is one property in the store contract suite, run over every backend |
 | Display rule | Trash is a display rule, never a resolution rule, which is the rule kb already has for `sys.*`. Resolution (kinds, ref values, field keys, datalog) sees trashed nodes. Search, pickers, views and backlinks hide them by default. A reference draws them struck through, as "in Trash" |
 | Protection | the system-write rule reads "moved under `sys.trash`" as a delete, so the same refusal covers `sys.*`, with no new lock. Purging a field that holds values or a tag that has members is refused until they are detached (§7) |
@@ -332,8 +332,8 @@ read and never written.
   merges a move on one side with an edit on the other, where today it
   reports `deleted-and-modified`.
 - **Cost:** the provenance (where it came from) must not go stale when a
-  node is dragged out by hand. One core interceptor stamps and clears it,
-  on the same pattern as `ext.days.untag-period`. "Trashed" must be cheap to
+  node is dragged out by hand. One commit transformation stamps and clears
+  it, as the commit already ranks what a write placed. "Trashed" must be cheap to
   read: an ancestor walk in the model (the forest gives `parentOf`), and one
   derived datom in the index, re-derived over the subtree on a move in or
   out of Trash.
@@ -387,7 +387,7 @@ with their ids, as undo does today.
 | Drag in/out | delete/restore | no | no |
 | Clone merge | move vs edit merges | flag vs edit merges | delete vs edit conflicts |
 | Store growth | yes, until purged | yes | outside the store |
-| Rule 1 risk | one interceptor, one reader | filters at call sites | second storage shape |
+| Rule 1 risk | one commit step, one reader | filters at call sites | second storage shape |
 
 ## 5. Recommendation
 
@@ -395,7 +395,7 @@ with their ids, as undo does today.
 Traceability holds because the node, its id and its provenance stay in the
 graph. "Functional more or less" holds because nothing that resolves by id
 can tell that the node moved. It reuses what kb has: a move (`node.update`
-with a placement), a seeded node, managed fields, an interceptor pattern, the
+with a placement), a seeded node, managed fields, a commit step like ranking, the
 `sys.*` display rule, declared approval, and the placement port.
 
 Three principles come with it. Each has one home (DESIGN.md → a new
@@ -449,8 +449,8 @@ reader, so every surface that draws a reference draws one state the same way.
 |---|---|---|---|
 | `node.delete` | write | `{id, force?}` | `planRemoval`: when the node **keeps nothing** (below), purge it; otherwise move it under `sys.trash` at the top. Output `{id, outcome: "trashed" \| "purged"}`. The `descendants` input is removed |
 | `node.restore` | write | `{id, to?: Placement}` | move a trash root back to `trashed from` at `trashed rank` (`placedRank`), or to `to`. When `trashed from` is gone or itself trashed, see §6.5 |
-| `node.purge` | write, **approval required** | `{id}` | the old hard delete of a node in Trash, with its subtree. A node not in Trash is refused: "move it to Trash first" |
-| `trash.empty` | write, approval required | `{olderThan?: duration}` | the purge of every trash root, or of those whose `trashed at` is older. One transaction |
+| `node.purge` | write, **approval required** | `{ids, force?}` | the old hard delete of nodes in Trash, each with its subtree, as one transaction. A node not in Trash is refused: "move it to Trash first". The in-use guard below applies over every purged subtree |
+| `trash.empty` | write, approval required | `{olderThan?: duration}` | the purge of every trash root, or of those whose `trashed at` is older. One transaction, under the same guards as `node.purge` |
 
 **Keeps nothing** is one predicate, `keepsNothing(node, graph)` in `@kb/model`,
 which replaces the page's `isPrunableTransient`. The page keeps only its own
@@ -458,32 +458,98 @@ condition (that the row is transient), and that bridges to the model (Rule 1,
 bridges over mirrors). A node keeps nothing when all of these hold:
 
 - it is not `sys.*`;
-- its text is empty, or it is a reference row (`sys.f.ref.target`), whose
-  text is its target's;
+- **its stored text is empty**. A reference row reads its target's text, but
+  text it holds of its own is still the person's words, so a reference row
+  with authored text keeps something;
 - it has no children;
 - it holds no value other than its tags and its reference target;
-- **no other node references it**: no `:node/mentions` and no ref value.
+- **nothing depends on its identity.** The predicate asks every way one node
+  can depend on another, through one reader, `dependentsOf(id, graph)` in
+  `@kb/model`, so it names each dependency once:
+  - a mention (`[[id]]` in any text);
+  - a ref value anywhere, which covers a reference row's
+    `sys.f.ref.target`, a setting, and `sys.f.type` (a tag's members);
+  - a prop key: a node that holds a value of it as a field;
+  - a tag's template (`sys.f.fields`) or a field's target carriers that name
+    it.
+
+Tags and the reference target are exempt only as values the node *holds*.
+A tag *of* the node is not content, and the target of a reference row is
+the original's, not the row's. Neither exemption reaches the node's own
+identity: a field with values, or a tag with members, never keeps nothing.
 
 So an empty row, a paste's placeholder, an unpin, a dropped gallery pin and
 a transient prune all purge, as they do today. A person's delete of anything
-with content goes to Trash. The "no referrers" clause is what makes "delete
+with content goes to Trash. The dependency clause is what makes "delete
 never dangles" hold. `node.merge`'s delete half plans through the same
 `planRemoval`, over the source as the merge leaves it (its text and children
 gone to the target): a source that held props, or that is referenced, goes to
 Trash, where today it is lost.
 
-`node.batch` takes `node.delete`, `node.restore` and `node.purge` items through
-the same planners. A batch with a purge needs approval, as core already
-enforces for a batch.
+**The in-use guard** is the same reader on the purge side. A purge, by
+`node.purge`, `trash.empty`, or `keepsNothing`'s automatic one, is refused
+when any node in the purged subtree has a dependent outside it that is a
+prop key or a type membership: "<field> is used on 42 nodes. Remove it from
+them first, or keep it in Trash" (§7.4). Mentions and ref values from
+outside do not refuse a deliberate purge. They take the gone look (D6). An
+automatic purge never meets them, because `keepsNothing` already excludes
+any dependent.
+
+**Force and approval are two different answers.** `force` answers the
+system-write rule, meaning the node is `sys.*`, and nothing else. Approval
+answers whether a person stands behind a purge. Neither stands in for the
+other:
+
+- `node.delete {force}` may trash a `sys.*` node. It needs no approval,
+  because a trash can be undone.
+- `node.purge {force}` may purge a `sys.*` node, and still needs approval.
+  `force` without approval fails `approval_required`. Approval without
+  `force` on a `sys.*` node fails `forbidden`.
+- `force` never lifts the in-use guard. That guard is a constraint on the
+  data, not a lock on an owner's node, and the way past it is to detach.
+
+**Batches.** `node.batch` takes `node.delete` and `node.restore` items
+through the same planners. **It does not take `node.purge`.** Approval reads
+an action's declared parts (`batchOf`, a fixed list), not what one call's
+input holds. If `node.purge` were a part, every batch would need approval,
+and approval would have to read a call's contents to avoid that. So many
+purges are one call to `node.purge {ids}` or `trash.empty`, each of which
+declares approval on itself. The rejected alternative is an approval
+subject computed per call from its input (`approvalSubject(def, input)`).
+It is more general, and it changes the invoke core for one action.
 
 ### 6.4 The commit
 
-- **Moves in and out of Trash stamp and clear provenance** in the same write,
-  whatever made the move (`node.delete`, a drag, `kb mv`, an agent's
-  `node.update`). One core interceptor on the planned write: a node that
-  becomes a child of `sys.trash` gets `from`, `rank` and `at`; a node that
-  stops being one loses them. This is the `ext.days.untag-period` pattern,
-  and it means a drag and the action cannot disagree.
+- **Provenance is a commit transformation, not an action hook.** Every
+  store's commit already writes what a write did not say: it ranks the nodes
+  a write placed (DESIGN.md → [Sibling ranks](../../DESIGN.md#sibling-ranks)).
+  Provenance is the same kind of step, in the same place
+  (`persistEffect`, beside the system-write rule). It runs over the planned
+  transaction, so it covers every path that commits: an action, a batch, a
+  merge, a restore, `kb mv`, a drag, a raw `tx.apply`, a migration and
+  `store.restore`. An interceptor on an action's input
+  (`ext.days.untag-period` is one) would miss everything that does not
+  arrive as that action, so it is not the mechanism.
+- **It acts on transitions of the trashed state, read before and after the
+  transaction (`trashRootOf`), never on raw parent edges:**
+
+  | Transition of a node | Provenance |
+  |---|---|
+  | live → trashed, as a root (a child of `sys.trash`) | stamped: `from` is the parent it had before, `rank` its rank there, `at` the commit's instant. **Only a field the written node does not already hold is stamped**, so a write that carries provenance (`store.restore`, a migration, a restore from a clone) keeps its own |
+  | live → trashed, inside another trashed subtree (moved under a trashed node) | none. It is trashed through that root, and restoring the root brings it along |
+  | trashed → trashed (reordered among roots, nested under another trashed node, a nested one made a root again) | **untouched**. A move inside Trash never re-stamps, so trashing a parent after its child, or tidying the Trash, cannot overwrite where something came from |
+  | trashed → live (a restore, a drag out, a descendant extracted, an outer root restored over a nested former root) | cleared, on every node of the subtree that leaves Trash in this transaction, not only the one the write named |
+  | live → live | untouched |
+
+- **A store that was not committed is read, never repaired on open.**
+  A clone merge (`mergeNodeSets` through the git driver), a hand-edited
+  `nodes.jsonl` or an older kb can leave provenance on a live node, or a
+  trash root without it. Opening never writes, so readers make that inert:
+  provenance is read only through `trashProvenanceOf(id)`, which answers
+  for a current trash root and nothing else. A trash root with no `from` is
+  restored by placement (§6.5). Stale fields on a live node are dropped by
+  the next commit that writes that node, under the transition rule above.
+  Nothing scans the store to tidy it.
 - **The system-write rule reads a move under `sys.trash` as a delete.**
   `systemTxRefusal` already asks deletes first. It now also asks: does this
   write put a `sys.*` node, or a subtree holding one, under Trash? If so it
@@ -506,14 +572,14 @@ possible:
 | `trashed from` is itself trashed | refuse, naming it, with two ways out. `node.restore {id, to}` puts it somewhere else, or restoring the parent first restores the child with it. The page offers both. Restoring into Trash would leave it trashed, which is not a restore |
 | `trashed from` exists but moved | restore under it wherever it is now. The parent's identity is what was recorded, not its place |
 
-A node dragged out of Trash by hand goes where it is dropped. The
-interceptor clears its provenance, and that is a restore.
+A node dragged out of Trash by hand goes where it is dropped. The commit
+clears its provenance (§6.4), and that is a restore.
 
 ### 6.6 Surfaces
 
 | Surface | Trash | Restore | Purge |
 |---|---|---|---|
-| CLI | `kb rm <id>` prints "moved to Trash · `kb restore <id>`", or "removed (empty)"; `kb trash` lists | `kb restore <id> [--to <id>]` | `kb rm --purge <id>` (= trash then purge in one batch, asks on the tty), `kb trash empty [--older-than 30d]` |
+| CLI | `kb rm <id>` prints "moved to Trash · `kb restore <id>`", or "removed (empty)"; `kb trash` lists | `kb restore <id> [--to <id>]` | `kb rm --purge <id>` (`node.delete`, then `node.purge` of what it trashed: two calls, and only the purge asks on the tty), `kb trash empty [--older-than 30d]` |
 | MCP | `node_delete` | `node_restore` | not listed (approval required) |
 | page | every gesture in §2.5 unchanged; the toast says "Moved to Trash · Undo" | the Trash page, the banner on a trashed node, a drag out | Delete forever on the Trash page and the banner, with a dialog naming what still references it; Empty Trash |
 
@@ -531,7 +597,8 @@ pieces sit in the packages that already own the neighbouring concepts:
 - `@kb/model`: `trashRootOf`, `keepsNothing`, the system-write rule's
   Trash clause, `refName`'s third state;
 - `@kb/seed`: `sys.trash` and its three fields, and the table view;
-- `@kb/operations`: `planRemoval`, the four actions, the interceptor;
+- `@kb/operations`: `planRemoval`, `dependentsOf`'s guard and the four actions;
+- the commit (`persistEffect`): the provenance transformation (§6.4);
 - `@kb/query`: the derived datom, and the "not trashed" default on
   `graph.search`, `nodeCandidates` and the view/query runners;
 - `@kb/ui-sdk`: `RefLook.state` and the one look per state;
@@ -587,7 +654,7 @@ promises. So protection follows the reason it exists:
 
 | Node | Trash | Purge | Why |
 |---|---|---|---|
-| `sys.*` | refused, as delete is today; `force` overrides | refused; `force` overrides | identity and structure (AGENTS.md) |
+| `sys.*` | refused, as delete is today; `force` overrides | refused; `force` overrides the rule, and approval is still required | identity and structure (AGENTS.md) |
 | a family's seeded node with a plain id (`days.journal`, `approval.policies`) | allowed | allowed | the person's to remove. While it is in Trash the seed sees it and does not re-add it; after a purge the seed adds it again (GAP `01M413SPC35K20DFC4TRP4DJYH`, unchanged) |
 | a field that holds values, a tag with members | allowed, with a dialog: "Used on 42 nodes. They keep their values; restore brings it back." | **refused** while values or members exist: "Remove it from them first, or keep it in Trash." | a purge would orphan prop keys or type refs no one can see (§2.2). Constrain before you lock |
 | a node others reference | allowed (it stays functional) | allowed, after a dialog naming the count; references become the gone look | a reference is the referrer's, and its stored label stays theirs |
@@ -642,7 +709,7 @@ setting's value, and capture restores it.
 
 - **Undo of a trash is a move back.** `restoreInvocations` already plans a
   changed placement as `node.update`, so undoing a trash keeps `createdAt`,
-  and the interceptor clears the provenance. Undo still dies with the tab,
+  and the commit clears the provenance. Undo still dies with the tab,
   but Trash does not.
 - **The tail** records a trash as an upsert, so `graph.changes` reports it
   as "wrote", not "deleted". `deleted` keeps meaning purged.
@@ -690,6 +757,23 @@ properties:
 7. `isTrashed` and `:node/trashed` agree on every node after any write
    (a property test over random moves, as `merge.forest.property.test.ts`
    does).
+8. **`keepsNothing`'s exemptions, one case each:** a reference row with
+   authored text is trashed, not purged; an empty field with a value on
+   another node, an empty tag with a member, an empty node named in a
+   template or as a setting's value are each trashed; an empty, tagged,
+   unreferenced row is purged.
+9. **The in-use guard on every purge path:** `node.purge`, `trash.empty`
+   and an automatic purge are each refused when any node of the purged
+   subtree is a field with values or a tag with members outside it. `force`
+   does not lift it.
+10. **Provenance over the transition table (§6.4):** a reorder inside
+    Trash, a root nested under another trashed node, a descendant extracted,
+    an outer root restored over a nested former root, a re-trash after a
+    restore (stamped afresh), and a write that carries its own provenance
+    (kept). Each is run through an action, a batch and a raw transaction.
+11. **Force and approval:** `node.purge` with `force` and no approval fails
+    `approval_required`; with approval and no `force` on a `sys.*` node it
+    fails `forbidden`; `node.batch` refuses a `node.purge` item.
 
 ## 9. Phased plan and cost
 
@@ -698,7 +782,7 @@ Each phase is one PR, restructure first (Rule 1).
 | Phase | What | Size | Notes |
 |---|---|---|---|
 | **P0** restructure, behaviour-preserving | delete `descendants: "reparent"` (the dead seam); `planRemoval` is the one planner for delete, merge's delete half and batch deletes; `keepsNothing` moves to `@kb/model` and the page's prune reads it; `RefLook.state` with `live`/`gone`, and the one gone look on every surface in §7.1 | S–M, 1–2 days | fixes the invisible deleted pill on its own; no data change |
-| **P1** Trash in core | seed `sys.trash` and its fields; `node.delete` moves to Trash; `node.restore`, `node.purge`, `trash.empty`; the interceptor; the system-write clause; `trashRootOf` and the derived datom; CLI and MCP; the contract properties in §8; spec in DESIGN.md → Removal | M–L, 3–4 days | the wire fingerprint changes in this commit |
+| **P1** Trash in core | seed `sys.trash` and its fields; `node.delete` moves to Trash; `node.restore`, `node.purge`, `trash.empty`; `dependentsOf` and the in-use guard; the provenance commit step; the system-write clause; `trashRootOf` and the derived datom; CLI and MCP; the contract properties in §8; spec in DESIGN.md → Removal | M–L, 3–4 days | the wire fingerprint changes in this commit |
 | **P2** the page | Trash in the sidebar; the Trash page's table view; the trashed look and the banner; "Moved to Trash · Undo"; Delete forever and Empty Trash dialogs; search, picker and view defaults; the canvas card state; the protected-node dialogs in §7.4 | M, 2–3 days | `bun run test:ui` in full |
 | **P3** families | days restores a trashed period on need; routines retire on trash and republish on restore, read from Trash at startup; the gcal inbound design takes "in Trash" as dismissed | S–M, 1–2 days | live Google acceptance for restore |
 | **P4** optional | retention: `trash keeps` on core's node and a scheduled `trash.empty` through an automation (opening never writes, so not on open) | S | only if the owner wants it (D4) |
