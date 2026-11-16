@@ -75,6 +75,7 @@ import {
   mapAddTree,
   mapBacklinks,
   mapChildren,
+  mapExport,
   mapFieldDefine,
   mapFieldList,
   mapFieldTarget,
@@ -196,6 +197,7 @@ interface AddOpts extends IdOpts, ForceOpts {
   matching?: string;
   create?: boolean;
   outline?: string;
+  format?: string;
 }
 
 /**
@@ -249,6 +251,7 @@ function addEffect(
     const outline = yield* readTextArgEffect("--outline", opts.outline);
     const plan = mapAddTree({
       outline,
+      format: opts.format,
       parent,
       position: opts.position,
       force: opts.force === true,
@@ -484,7 +487,8 @@ function buildProgram(): Command {
     .command("add")
     .description("Create a node, or a whole outline in one transaction (--outline)")
     .argument("[text]", "node text")
-    .option("--outline <file>", "add an outline (Tana Paste) from a file, or - for stdin")
+    .option("--outline <file>", "add an outline from a file, or - for stdin")
+    .option("--format <id>", "the outline's format: tana (default), md, logseq, plain or json")
     .option("--parent <id>", "parent node id (default: the capture target, today's node with days)")
     .option("--top", "add at the top level, not the capture target", false)
     .option("--position <n>", "child index", toInt)
@@ -561,6 +565,28 @@ function buildProgram(): Command {
     .action(
       kbAction((ctx, globals, [id, opts]: [string, { depth: number }]) =>
         runPlanEffect(ctx, mapGet({ id, depth: opts.depth }), globals),
+      ),
+    );
+
+  program
+    .command("export")
+    .description("Write nodes, and what is under them, as text in an outline format")
+    .argument("<ids...>", "node ids")
+    .option("--format <id>", "md (default), plain, html, tana, logseq or json")
+    .option("--refs <form>", "how a reference is written: label (default), link or id")
+    .option("--indent <unit>", "spaces (default) or tabs")
+    .option("--no-children", "each node alone, without what is under it")
+    .option("--no-fields", "without tags and fields")
+    .action(
+      kbAction(
+        (
+          ctx,
+          globals,
+          [ids, opts]: [
+            string[],
+            { format?: string; refs?: string; indent?: string; children: boolean; fields: boolean },
+          ],
+        ) => runPlanEffect(ctx, mapExport({ ids, ...opts }), globals),
       ),
     );
 

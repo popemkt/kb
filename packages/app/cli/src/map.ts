@@ -15,7 +15,7 @@ import {
   type PropValue,
   LIST_ONTOLOGIES_QUERY,
 } from "@kb/model";
-import { outlineFieldNames, parseOutline } from "@kb/outline-paste";
+import { OUTLINE_FORMAT_IDS, outlineFieldNames, outlineFormat } from "@kb/outline-paste";
 
 export interface PlannedAction {
   id: string;
@@ -116,24 +116,34 @@ export function mapAdd(opts: {
   };
 }
 
+/** The outline format `id` names, or undefined for an id no format has (the action refuses it). */
+function formatNamed(id: string | undefined) {
+  const known = OUTLINE_FORMAT_IDS.find((candidate) => candidate === (id ?? "tana"));
+  return known === undefined ? undefined : outlineFormat(known);
+}
+
 /**
- * `kb add --outline`: the whole outline text, placed like `kb add`'s one
- * node. Planning reads its field lines once, for `--create`; an outline that
- * does not parse names none, and the action reports why.
+ * `kb add --outline`: the whole outline text in its format, placed like
+ * `kb add`'s one node. Planning reads its field lines once, through the
+ * format's reader, for `--create`; an outline that does not read names
+ * none, and the action reports why.
  */
 export function mapAddTree(opts: {
   outline: string;
+  /** The outline format's id; Tana Paste when omitted. */
+  format?: string;
   /** As {@link mapAdd}'s. */
   parent?: string | null;
   position?: number;
   force?: boolean;
 }): PlannedAction {
-  const parsed = parseOutline(opts.outline);
+  const parsed = formatNamed(opts.format)?.read?.(opts.outline);
   return {
     id: "node.addTree",
-    fields: parsed.ok ? outlineFieldNames(parsed.items) : [],
+    fields: parsed?.ok === true ? outlineFieldNames(parsed.items) : [],
     input: {
       outline: opts.outline,
+      ...(opts.format !== undefined ? { format: opts.format } : {}),
       ...(opts.parent !== undefined ? { parent: opts.parent } : {}),
       ...(opts.position !== undefined ? { position: opts.position } : {}),
       ...(opts.force === true ? { force: true } : {}),
@@ -179,6 +189,28 @@ export function mapGet(opts: { id: string; depth?: number }): PlannedAction {
   return {
     id: "node.get",
     input: { id: opts.id, depth: opts.depth ?? 1 },
+  };
+}
+
+/** `kb export`: the nodes in an outline format, each option the CLI was given. */
+export function mapExport(opts: {
+  ids: readonly string[];
+  format?: string;
+  refs?: string;
+  indent?: string;
+  children: boolean;
+  fields: boolean;
+}): PlannedAction {
+  return {
+    id: "node.export",
+    input: {
+      ids: opts.ids,
+      ...(opts.format !== undefined ? { format: opts.format } : {}),
+      ...(opts.refs !== undefined ? { refs: opts.refs } : {}),
+      ...(opts.indent !== undefined ? { indent: opts.indent } : {}),
+      children: opts.children,
+      fieldsAndTags: opts.fields,
+    },
   };
 }
 

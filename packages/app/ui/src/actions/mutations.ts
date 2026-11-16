@@ -507,8 +507,8 @@ export const mutations: PageWrites = {
     }
   },
 
-  async addTree(tree, place) {
-    const receipt = await invoke("node.addTree", { outline: tree, ...place });
+  async addTree(tree, format, place) {
+    const receipt = await invoke("node.addTree", { outline: tree, format, ...place });
     if (receipt.status === "failed") throw new Error(receipt.message);
     return AddedTreeSchema.parse(receipt.output).ids;
   },

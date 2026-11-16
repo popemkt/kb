@@ -5,11 +5,19 @@
  * details, folded: what it adds in words, its code's digests and paths, the
  * services it injects and provides, and any source it hides.
  */
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type { ExtensionReportRow } from "@kb/contracts";
 import { installMarketplace } from "@kb/contracts";
 import { extensionOutdatedDef, extensionUpdateDef } from "@kb/operations";
-import { cn, MENU_ROW, MENU_SURFACE, MenuSeparator, useDismiss, useMenuKeys } from "@kb/ui-sdk";
+import {
+  cn,
+  Dialog,
+  MENU_ROW,
+  MENU_SURFACE,
+  MenuSeparator,
+  useDismiss,
+  useMenuKeys,
+} from "@kb/ui-sdk";
 import {
   CheckIcon,
   CopyIcon,
@@ -228,25 +236,27 @@ function RemoveConfirm({
   readonly onRemove: () => void;
   readonly onCancel: () => void;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const title = useId();
-  useEffect(() => {
-    const element = dialog.current;
-    element?.showModal();
-    return () => element?.close();
-  }, []);
   return (
-    <dialog
-      ref={dialog}
-      aria-labelledby={title}
-      onCancel={onCancel}
-      data-testid={`remove-${row.name}`}
-      className="m-auto w-full max-w-md rounded-md border border-border bg-card p-5 text-card-foreground shadow-overlay"
+    <Dialog
+      title={`Remove ${row.label}?`}
+      onClose={onCancel}
+      testId={`remove-${row.name}`}
+      actions={
+        <>
+          <button type="button" className={BUTTON} onClick={onCancel} autoFocus>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className={cn(BUTTON, "border-destructive/40 text-destructive hover:bg-destructive/10")}
+            onClick={onRemove}
+          >
+            Remove
+          </button>
+        </>
+      }
     >
-      <h3 id={title} className="text-title">
-        Remove {row.label}?
-      </h3>
-      <ul className="mt-3 list-disc space-y-1 pl-5 text-ui text-muted-foreground">
+      <ul className="list-disc space-y-1 pl-5 text-ui text-muted-foreground">
         <li>{leaving}</li>
         <li>Its nodes stay, with everything you wrote on them.</li>
         <li>
@@ -254,19 +264,7 @@ function RemoveConfirm({
           can install it again.
         </li>
       </ul>
-      <div className="mt-4 flex justify-end gap-2">
-        <button type="button" className={BUTTON} onClick={onCancel} autoFocus>
-          Cancel
-        </button>
-        <button
-          type="button"
-          className={cn(BUTTON, "border-destructive/40 text-destructive hover:bg-destructive/10")}
-          onClick={onRemove}
-        >
-          Remove
-        </button>
-      </div>
-    </dialog>
+    </Dialog>
   );
 }
 

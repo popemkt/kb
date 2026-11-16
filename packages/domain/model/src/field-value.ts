@@ -143,6 +143,30 @@ export function parseTypedValue(
 }
 
 /**
+ * A value as the text {@link parseTypedValue} reads back: a string as it is,
+ * a number and a checkbox as JavaScript writes them, and a ref as its
+ * `[[id]]` token, which every reader of text reads as the same node. So for
+ * a value in its type's form, `parseTypedValue(valueSource(v), type)` is `v`
+ * (a ref through the token's id). An export writes values with it.
+ */
+export function valueSource(value: PropValue): string {
+  switch (value.t) {
+    case "ref":
+      return `[[${value.v}]]`;
+    case "str":
+    case "date":
+      return value.v;
+    case "num":
+    case "bool":
+      return String(value.v);
+    default: {
+      const unhandled: never = value;
+      throw new Error(`unhandled value: ${JSON.stringify(unhandled)}`);
+    }
+  }
+}
+
+/**
  * Why a value of an accepted kind is still not in its type's form, or null.
  * A url must be a link in canonical form (`normalizeUrl` of itself), a date a
  * real local `YYYY-MM-DD`, a secret a reference to where a key lives; each

@@ -1,6 +1,18 @@
+/**
+ * The one modal (DESIGN-UI.md → Cross-surface polish, "A modal is one
+ * component"): a panel over the scrim, dismissed as every popover is
+ * (Escape, or a press outside it), with its title and a close button, and
+ * Tab kept inside it. Its header and its actions stay in view and only its
+ * body scrolls, so the action it is for is never below the fold. On a phone
+ * it is a sheet from the bottom. It is not the
+ * native `<dialog>`: that one's top layer would leave the pickers and
+ * popovers a modal opens, which render outside it, inert behind it.
+ */
 import { useRef, type KeyboardEvent, type ReactNode } from "react";
 import { XIcon } from "@phosphor-icons/react";
-import { cn, IconButton, useDismiss } from "@kb/ui-sdk";
+import { cn } from "../lib/cn";
+import { IconButton } from "./icon-button";
+import { useDismiss } from "./use-dismiss";
 
 const FOCUSABLE =
   'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex="0"]';
@@ -22,22 +34,22 @@ function keepFocusIn(event: KeyboardEvent<HTMLElement>): void {
   }
 }
 
-/**
- * The calendar's modal: a panel over a scrim, dismissed as every popover is
- * (Escape, or a press outside it), with a close button, and Tab kept inside
- * it. On a phone it is a sheet from the bottom.
- */
 export function Dialog({
   title,
   onClose,
   children,
+  actions,
   testId,
   className,
 }: {
   readonly title: string;
   readonly onClose: () => void;
+  /** The body, which scrolls when the panel cannot hold it. */
   readonly children: ReactNode;
+  /** The dialog's buttons, in a footer that stays in view below the body. */
+  readonly actions?: ReactNode;
   readonly testId?: string;
+  /** The panel's own classes, its width above all (`sm:max-w-md` by default). */
   readonly className?: string;
 }) {
   const panel = useRef<HTMLDivElement>(null);
@@ -52,24 +64,23 @@ export function Dialog({
         data-testid={testId}
         onKeyDown={keepFocusIn}
         className={cn(
-          "flex max-h-[90vh] w-full flex-col gap-3 overflow-y-auto rounded-t-xl border border-border bg-popover p-4 text-popover-foreground shadow-modal sm:max-w-md sm:rounded-xl",
+          "flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-xl border border-border bg-popover text-popover-foreground shadow-modal sm:max-w-md sm:rounded-xl",
           className,
         )}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2 px-4 pt-4 pb-3">
           <h2 className="min-w-0 flex-1 text-heading text-foreground">{title}</h2>
           <IconButton label="Close" icon={XIcon} size="md" onClick={onClose} />
         </div>
-        {children}
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 pb-4">
+          {children}
+        </div>
+        {actions === undefined ? null : (
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border px-4 py-3">
+            {actions}
+          </div>
+        )}
       </div>
     </div>
   );
 }
-
-export const BUTTON_CLASS =
-  "inline-flex h-8 items-center justify-center gap-1 rounded-md border border-border px-3 text-ui text-foreground hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50";
-export const PRIMARY_BUTTON_CLASS =
-  "inline-flex h-8 items-center justify-center gap-1 rounded-md bg-primary px-3 text-ui text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50";
-/** An action drawn as its icon alone, as tall as the buttons beside it; its name is its label. */
-export const ICON_BUTTON_CLASS =
-  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-foreground hover:bg-accent outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { copyText } from "./copy";
+import { copyText, putFlavours, writeFlavours } from "./copy";
 import { setToastSink } from "./toast";
 
 describe("a copy said in a toast", () => {
@@ -36,5 +36,45 @@ describe("a copy said in a toast", () => {
     expect(await copyText("01ABC", "Node ID")).toBe(false);
     expect(said).toEqual(["Couldn't copy the node ID: select it and copy it by hand"]);
     expect(kinds).toEqual(["error"]);
+  });
+});
+
+describe("flavours", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("puts each flavour into a copy event's data", () => {
+    const set: [string, string][] = [];
+    putFlavours({ setData: (type: string, text: string) => set.push([type, text]) } as never, {
+      "text/plain": "- a",
+      "application/x-kb-outline": "[]",
+    });
+    expect(set).toEqual([
+      ["text/plain", "- a"],
+      ["application/x-kb-outline", "[]"],
+    ]);
+  });
+
+  it("writes several flavours as one clipboard item", async () => {
+    const items: unknown[] = [];
+    vi.stubGlobal("navigator", {
+      clipboard: {
+        write: (written: unknown[]) => {
+          items.push(...written);
+          return Promise.resolve();
+        },
+      },
+    });
+    vi.stubGlobal(
+      "ClipboardItem",
+      class {
+        readonly types: string[];
+        constructor(blobs: Record<string, Blob>) {
+          this.types = Object.keys(blobs);
+        }
+      },
+    );
+    setToastSink(() => {});
+    expect(await writeFlavours({ "text/plain": "a", "text/html": "<ul></ul>" }, "Rows")).toBe(true);
+    expect(items).toEqual([{ types: ["text/plain", "text/html"] }]);
   });
 });

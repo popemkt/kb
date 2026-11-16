@@ -20,7 +20,7 @@ export {
   type InlineSeg,
   type InlineSpan,
 } from "./inline.ts";
-export { nodeName, plainWords, refName } from "./display-text.ts";
+export { markupWords, nodeName, plainWords, refName, type RefForm } from "./display-text.ts";
 
 export { mergeNodeSets } from "./merge.ts";
 
@@ -47,7 +47,13 @@ export {
   targetTagsOf,
 } from "./field-type.ts";
 export type { Cardinality, FieldType } from "./field-type.ts";
-export { conformsToType, migrateDateValues, normalizeUrl, parseTypedValue } from "./field-value.ts";
+export {
+  conformsToType,
+  migrateDateValues,
+  normalizeUrl,
+  parseTypedValue,
+  valueSource,
+} from "./field-value.ts";
 export type { NumberSeparators, ParsedValue } from "./field-value.ts";
 export {
   configures,
@@ -125,7 +131,15 @@ export {
   resolveOntology,
 } from "./ontology.ts";
 export type { MemberReason, OntologyResolution } from "./ontology.ts";
-export { refValuesOf, strValueOf, typeRefsOf, type NodeLike } from "./node-like.ts";
+export { chipTagsOf, refValuesOf, strValueOf, typeRefsOf, type NodeLike } from "./node-like.ts";
+export {
+  contextualTargetOf,
+  isContextualRef,
+  shownNodeOf,
+  shownWalk,
+  type ShownRow,
+} from "./contextual-ref.ts";
+export { selectionRoots } from "./selection.ts";
 export {
   isA,
   kindsOf,

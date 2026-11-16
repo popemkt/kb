@@ -33,9 +33,8 @@
  * field, different mechanism, same English word. Nothing here touches those.
  */
 import type { SidebarNavItem } from "../components/sidebar-row";
-import { contextualTargetOf } from "./contextual-ref";
 import type { NodeMap, OutlineNode } from "./types";
-import { nodeName, SYSTEM_IDS } from "@kb/model";
+import { contextualTargetOf, nodeName, SYSTEM_IDS } from "@kb/model";
 
 /** Child ids of the Pinned list, in stored order. Empty when it is unseeded. */
 export function pinnedRefIds(nodes: NodeMap): string[] {

@@ -548,6 +548,29 @@ describe("cli e2e (tmpdir)", () => {
     expect(Object.values(got.children[0].props)).toContainEqual([{ t: "str", v: "3" }]);
   });
 
+  test("export writes nodes in a format, and add --outline --format reads one back", async () => {
+    await kb(["init", "--bare"]);
+    await kb(["tag", "define", "todo"]);
+    const file = join(root, "plan.md");
+    await writeFile(file, "* Plan #todo\n  more of it\n  + Step\n");
+    const added = JSON.parse(
+      (await kb(["add", "--outline", file, "--format", "md", "--top"])).stdout,
+    );
+    const [plan] = added.output.ids as [string];
+
+    const text = async (args: string[]) => {
+      const run = await kb(["export", ...args]);
+      expect(run.code).toBe(0);
+      return JSON.parse(run.stdout).output as { format: string; mediaType: string; text: string };
+    };
+    expect((await text([plan])).text).toBe("- Plan #todo\n  more of it\n  - Step");
+    expect((await text([plan, "--format", "plain", "--no-children"])).text).toBe("Plan more of it");
+    expect(await text([plan, "--format", "json", "--refs", "id", "--no-fields"])).toMatchObject({
+      format: "json",
+      mediaType: "application/json",
+    });
+  });
+
   test("add --outline - reads stdin; it refuses <text>, --tag, --prop and --id", async () => {
     await kb(["init", "--bare"]);
     const prevStdin = process.stdin;

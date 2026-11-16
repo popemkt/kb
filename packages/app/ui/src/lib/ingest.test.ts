@@ -16,8 +16,14 @@ import {
 import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
 
 const file = new File(["x"], "photo.png", { type: "image/png" });
-const dropped: Ingested = { gesture: "drop", types: ["Files"], text: "", files: [file] };
-const pasted: Ingested = { gesture: "paste", types: ["text/plain"], text: "a", files: [] };
+const dropped: Ingested = { gesture: "drop", types: ["Files"], text: "", data: {}, files: [file] };
+const pasted: Ingested = {
+  gesture: "paste",
+  types: ["text/plain"],
+  text: "a",
+  data: {},
+  files: [],
+};
 
 /** The row every gesture here lands on. */
 const site = () => ({ nodeId: "n.row", text: "a row" });
@@ -122,8 +128,8 @@ describe("a pasted outline's place", () => {
     wireNodes: () => [wire("n.parent", ["n.first", "n.nested"]), wire("n.top", [])],
     writes: {
       ...base.writes,
-      addTree: (tree, place) => {
-        added.push({ tree, place });
+      addTree: (tree, format, place) => {
+        added.push({ tree, format, place });
         return Promise.resolve(["n.made"]);
       },
     },
@@ -131,7 +137,7 @@ describe("a pasted outline's place", () => {
   const outline: IngestHandler = {
     match: { gestures: ["paste"], types: ["text/plain"] },
     priority: 0,
-    ingest: ({ text }) => ({ tree: text }),
+    ingest: ({ text }) => ({ tree: text, format: "md" }),
   };
 
   beforeAll(() => syncUiPlugins([testHostPlugin(host)]));
@@ -148,7 +154,7 @@ describe("a pasted outline's place", () => {
     expect(port.offer({ ...pasted, text: "- one" }, refuseText)).toBe(true);
     await expect
       .poll(() => added)
-      .toEqual([{ tree: "- one", place: { parent: "n.parent", position: 2 } }]);
+      .toEqual([{ tree: "- one", format: "md", place: { parent: "n.parent", position: 2 } }]);
   });
 
   it("is the top level for a top-level row, named as null, never the capture target", async () => {
@@ -157,6 +163,8 @@ describe("a pasted outline's place", () => {
       () => ({ nodeId: "n.top", text: "n.top" }),
     );
     expect(port.offer({ ...pasted, text: "- one" }, refuseText)).toBe(true);
-    await expect.poll(() => added).toEqual([{ tree: "- one", place: { parent: null } }]);
+    await expect
+      .poll(() => added)
+      .toEqual([{ tree: "- one", format: "md", place: { parent: null } }]);
   });
 });

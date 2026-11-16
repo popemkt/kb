@@ -37,7 +37,7 @@
 import { instanceAncestorIds } from "./instance-key";
 import type { RowSource, SchemaIndex } from "./schema";
 import type { OutlineNode } from "./types";
-import { SYSTEM_IDS, nodeTitleOf, plainWords } from "@kb/model";
+import { contextualTargetOf, nodeTitleOf, plainWords, shownNodeOf } from "@kb/model";
 
 /**
  * Where a node the index serves from a file (a saved query's `.edn`) is
@@ -45,27 +45,6 @@ import { SYSTEM_IDS, nodeTitleOf, plainWords } from "@kb/model";
  * and in a refused write's toast (`lib/refusal`).
  */
 export const FROM_SOURCE = "from its source file — change it there";
-
-/**
- * The node this reference points at, or null when it is not a reference.
- *
- * One read of one carrier. The tag check that used to guard this was the second
- * carrier for one distinction — and a strictly weaker one, since a `#ref` node
- * with no target is not a reference either, so the field already answered for
- * both. "Is it named `ref`?" was never on the table: a user tag called `ref`
- * must not turn its rows into references, and now it cannot, because nothing
- * reads a tag name here at all.
- */
-export function contextualTargetOf(node: OutlineNode | undefined): string | null {
-  const value = (node?.props[SYSTEM_IDS.refTargetField] ?? []).find(
-    (v) => v.t === "ref" && typeof v.v === "string" && v.v !== "",
-  );
-  return value ? String(value.v) : null;
-}
-
-export function isContextualRef(node: OutlineNode | undefined): boolean {
-  return contextualTargetOf(node) !== null;
-}
 
 /**
  * The node a row shows: its target for a contextual reference, itself for
@@ -76,17 +55,9 @@ export function shownNodeId(node: OutlineNode): string {
   return contextualTargetOf(node) ?? node.id;
 }
 
-/**
- * The node a row shows, as a node: the target of a contextual reference, the
- * row itself otherwise — and the row itself for a dangling reference, which
- * has nothing else to show.
- *
- * Read from the schema, the whole graph, so a reference to a node outside the
- * current scope still shows it.
- */
+/** The node a row shows (`shownNodeOf`), read from the schema, the whole graph. */
 export function shownNode(node: OutlineNode, schema: SchemaIndex): OutlineNode {
-  const shownId = shownNodeId(node);
-  return shownId === node.id ? node : (schema.get(shownId) ?? node);
+  return shownNodeOf(node, (id) => schema.get(id));
 }
 
 /**

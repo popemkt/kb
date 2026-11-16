@@ -5,7 +5,7 @@
  */
 export { outlineExtension, outlinePlugin } from "./extension.ts";
 export { OUTLINE_IDS } from "./ids.ts";
-export { showsChildCounts } from "./settings.ts";
+export { copyChoiceOf, copyChoiceValues, showsChildCounts } from "./settings.ts";
 
 export {
   EDITING_CONTEXT,

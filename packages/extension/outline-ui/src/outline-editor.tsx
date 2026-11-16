@@ -27,6 +27,8 @@ import { ReferencesSection } from "./references-section";
 import { SchemaSection } from "./schema-section";
 import { ZoomedRootHeader } from "./zoomed-root-header";
 import { useSelectionKeymap } from "./use-selection-keymap";
+import { CopyAsHost } from "./copy-as";
+import { useRowCopy } from "./row-copy";
 import { setOutlineHost } from "./outline-hosts";
 import { useLeadsOutlines, useOutlineHost } from "./outline-host";
 import { takesRows } from "./takes-rows";
@@ -170,15 +172,22 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
 
 /**
  * What editing an outline adds to the page once, however many outlines are
- * on screen: the selection keymap, undo and redo, and the node palette. The
- * outline that leads renders it (`useLeadsOutlines`).
+ * on screen: the selection keymap, undo and redo, the copy and cut of rows,
+ * the node palette and Copy as…. The outline that leads renders it
+ * (`useLeadsOutlines`).
  */
 function OutlinePageKeys() {
   const nodePaletteOpen = useNodePaletteOpen();
   const setNodePaletteOpen = browserHost().setNodePaletteOpen;
   useSelectionKeymap();
   useUndoRedoKeymap();
-  return <NodeCommandPalette open={nodePaletteOpen} onClose={() => setNodePaletteOpen(false)} />;
+  useRowCopy();
+  return (
+    <>
+      <NodeCommandPalette open={nodePaletteOpen} onClose={() => setNodePaletteOpen(false)} />
+      <CopyAsHost />
+    </>
+  );
 }
 
 /**

@@ -25,7 +25,7 @@ import {
 } from "@kb/routines";
 import { nodesOfKind } from "@kb/model";
 import { cn, useNodes } from "@kb/ui-sdk";
-import { BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from "./dialog";
+import { BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from "./buttons";
 import { FIELD_CLASS } from "./repeat-picker";
 import {
   consolePage,

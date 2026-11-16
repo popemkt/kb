@@ -732,7 +732,7 @@ what it makes is there once `together` returns. A gesture about one row
 is not gathered, its write being one write already, so a command that reads
 what its write made (Make your own tag opens the tag) reads it landed. Over a range, the node menu lists only the commands that act on many
 rows (`NodeCommand.many`): Add tag, Remove tag…, Add field, Set field…,
-Pin / Unpin, Check / Uncheck, Move to…, Move and leave reference…, Copy node ID, Count words and Delete. Any other node command, run over a range from its
+Pin / Unpin, Check / Uncheck, Move to…, Move and leave reference…, Copy node ID, Copy as…, Count words and Delete. Any other node command, run over a range from its
 shortcut, acts on the head alone (`runCommand`). A picker step it opens is
 handed every row (`targetNodeIds`), mints what it creates once, and writes
 the pick to each row as one write (`asOneWrite`), so what it does once the
@@ -785,7 +785,10 @@ in the same write. The CLI and MCP make the same moves with `node.update`
   left references selects them.
 
 **What rows hold, read and copied: Count words and Copy node ID.** Two
-node commands that act on many rows and write nothing.
+node commands that act on many rows and write nothing. The rows Count words
+walks are the ones an export writes (DESIGN.md → Outline formats), walked
+by one function (`shownWalk`, `@kb/model`, beside `contextualTargetOf`,
+which moves there from `@kb/ui-sdk` so the projection can read it).
 
 - **Count words** (the `view` group) counts what the selection's top rows
   (`selectionRoots`), the one row, or the page's title show, and every
@@ -804,6 +807,80 @@ node commands that act on many rows and write nothing.
   order, and a toast says it did, or that it could not (`copyText`,
   `@kb/ui-sdk`). The id is what `kb get <id>` and a `[[<id>]]` in any text
   reach.
+
+**Copy, cut and Copy as…: rows leave as text another program reads.** What
+leaves is written by the outline formats' codecs, over the projection of
+the rows (DESIGN.md →
+[Outline formats](DESIGN.md#outline-formats--one-tree-one-codec-each)):
+the top rows and every node under them, collapsed or not, a row read as
+the node it shows. A flavour is a format on the clipboard under its media
+type. Every surface puts flavours through `@kb/ui-sdk`'s `lib/copy.ts`, in
+one shape (`ClipboardFlavours`, media type → text): into a copy event's
+data, or through the async clipboard for a button (`writeFlavours`; `copyText`
+is its one-flavour case).
+
+- **Copy puts three flavours.** While rows are selected and no text is,
+  the page's copy (⌘C, Edit → Copy, the context menu's) is the outline's: it
+  answers the `copy` event, since only that event may set several flavours
+  and a custom one, and puts the selection as
+  - `text/plain`: Markdown, for a plain editor, a terminal or a chat;
+  - `text/html`: Rich text, a nested list that a document, Slack or mail
+    pastes as a list;
+  - `application/x-kb-outline`: JSON written as the source (refs, tags and
+    fields by id, a contextual reference as itself), which a paste into kb
+    reads back losslessly ([Paste and drop](#paste-and-drop)).
+
+  The first two are written with `node.export`'s defaults
+  (`EXPORT_DEFAULTS`: children, fields and tags, references as words, two
+  spaces), never the remembered Copy as… choice, so a copy is the same
+  every time. A native selection over rows not being edited (a drag across
+  them) is about rows too: it copies the rows it touches, from its first to
+  its last in drawing order.
+- **Cut** (⌘X) is that copy, then the selection's Delete: undo brings the
+  rows back, and the clipboard keeps them.
+- **A text selection copies its words.** A selection inside a row being
+  edited never leaves its editing host, so it never spans rows. The text
+  host answers its `copy` (and its `cut`, which then removes the text as
+  typing would) with the selection's source, read from both ends of the
+  range (`serializedOffsetOfBoundary`), as
+  - `text/plain`: that source with each reference as its words and the
+    markup kept (`markupWords`);
+  - `text/html`: the rich text writer's inline text, a reference as its
+    words, never a link to `#id`, which leads nowhere outside kb;
+  - `application/x-kb-text`: the source itself, references as tokens,
+    which a paste into a row inserts as it was ([Paste and drop](#paste-and-drop)).
+- **Copy as… chooses the format.** A node command in the `open` group,
+  after Copy node ID, that acts on many rows, and `Mod-Shift-C` on
+  `core.page` (the outline's keyboard, as data; free in kb, and a page key
+  is offered before the browser's inspector takes it). It opens a modal
+  (`Dialog`, [Cross-surface polish](#cross-surface-polish-i5)) over the
+  rows the command is about, or the page's node when it is opened on the
+  title:
+  - the format: Markdown, Plain text, Rich text, Tana Paste, Logseq and
+    JSON, as a segmented list read from `OUTLINE_FORMATS`; under each, one
+    line says where it goes, and Rich text says kb cannot read it back;
+  - the options: include children; include fields and tags; references as
+    words, `[[links]]` or ids; indent with spaces or tabs. An option the
+    format ignores is disabled and says why (plain text has no tags or
+    fields; rich text no indent);
+  - a live preview of exactly what Copy puts: rich text is the clipboard's
+    HTML drawn in a sandboxed frame, every other format its text in a
+    monospace block;
+  - Copy: rich text puts its HTML with the Markdown of the same choice as
+    `text/plain`; every other format puts its text as `text/plain`. A toast
+    says it copied, or why not.
+
+  The choice is remembered as the outline family's settings, fields that
+  configure `sys.extension.outline` (`sys.f.outline.copy.*`: the format and
+  the references as option sets whose options are the field's children,
+  the indent likewise, and children and fields and tags as checkboxes;
+  the format's options are derived from `OUTLINE_FORMATS`, so no list is
+  kept twice). The dialog opens on them and, when Copy is pressed, writes
+  what changed as one write, which undo can take back as any setting's.
+  Settings shows them with the family's other settings, and the CLI and MCP
+  set them as any field. An unset one reads as its `EXPORT_DEFAULTS` value.
+  They are the graph's, not this device's: a choice made in one tab is the
+  next tab's. The dialog's code loads when it first opens.
 
 A toast says what kind it is (`toast(message, kind)`): `info` for what was
 done, such as a count, a copy or where a move put rows, and `error`, the
@@ -2745,6 +2822,16 @@ The rules that hold everywhere, so no surface re-invents them:
   action to bind it to. Zooming never leaves the selection on the zoom root,
   which is a header and not a row: it moves to the first row under it, or
   clears.
+- **A modal is one component.** `Dialog` (`@kb/ui-sdk`) is a panel over
+  the scrim, with its title and a close button, Tab kept inside it,
+  dismissed as every popover is (`useDismiss`, below), and a sheet from the
+  bottom on a phone. Its header and its `actions` (the buttons it is for)
+  stay in view and only its body scrolls, so a dialog's primary action is
+  never below the fold; the action review still draws its answer buttons in
+  its body (GAP [[01M7HY51KS03P1CFM90JH4CS8Z]]). It is not the native `<dialog>`, whose top layer would
+  leave the popovers and pickers a modal opens, which render outside it,
+  inert behind it. The routines' editors, the action review, an
+  extension's removal confirmation and Copy as… are all it.
 - **The palette behaves like a dialog.** `components/palette/command-palette.tsx`
   records `document.activeElement` on open and restores focus on close, traps
   `Tab` inside itself, and keeps the active result scrolled into view.
@@ -2984,10 +3071,16 @@ handler takes it as text.
   outline family's point definitions (`OUTLINE_POINT_DEFINITIONS`), holds
   handlers. A page half reaches it by name, through `uses` and
   `ctx.point<IngestHandler>("outline.ingest")`.
+- **What a gesture carries is read once.** `Ingested` holds the gesture,
+  the data's types, its `text/plain` (`text`, which every handler and a
+  match's pattern read), the data of each other type it carries as a string
+  (`data`: `text/html`, kb's own flavours, keyed by type) and the files:
+  read from the event's `DataTransfer` while it runs, since they are gone
+  once it returns.
 - **A handler's match is data.** It names the gestures it takes (`paste`,
   `drop`) and the data's types (`text/plain`, `Files`). It may add a
-  regular expression its text must match. A pattern that does not compile
-  takes nothing.
+  regular expression its `text/plain` must match. A pattern that does not
+  compile takes nothing.
 - **The first to make something claims.** Handlers are tried by priority,
   higher first, and in the order contributed on a tie. Each whose match
   holds is asked what the gesture makes, and the first that makes
@@ -3001,7 +3094,8 @@ handler takes it as text.
 - **A handler never writes.** It says what the gesture makes, as data
   (`IngestOutcome`), and the page writes it at the row: the node the
   row's text is (`shownNodeId`). It makes one of three things:
-  - **Nodes**, as outline paste text (DESIGN.md → Outline paste). The page
+  - **Nodes**, as text in an outline format, with the format it is in
+    (`{tree, format}`; DESIGN.md → Outline formats). The page
     adds them after the row through `node.addTree`, in one transaction,
     under the guards every call meets, and puts the caret at the end of
     the last. It always names their parent: a top-level row's go to the
@@ -3018,12 +3112,27 @@ handler takes it as text.
 
   A write that fails, such as an outline that names a tag the store does
   not have, is told, and leaves nothing.
-- **The outline's own handlers are contributions.** It contributes two, as
+- **The outline's own handlers are contributions.** It contributes five, as
   any family would:
+  - the paste of kb's own rows (`PASTE_KB_OUTLINE`, priority 100, above a
+    family's): the `application/x-kb-outline` flavour a copy of rows puts
+    (Outline editor, "Copy, cut and Copy as…"), read as JSON, so the copy
+    lands with its tags, fields, references and contextual references as
+    they were, as new nodes (DESIGN.md → Outline formats, "A paste back
+    makes copies"). It declines a tree that names a node, a tag or a field
+    this store does not hold, as a copy from another kb does, so the next
+    handler reads its Markdown instead of the paste failing.
+  - the paste of kb's own text (`PASTE_KB_TEXT`, `@kb/ui-sdk`, priority
+    100): the `application/x-kb-text` flavour a text selection's copy puts
+    (Outline editor, "Copy, cut and Copy as…"), its source with references
+    as tokens. It makes text, which the host puts in at the caret as it puts
+    any pasted text, so a reference copied out of a row is a reference
+    again. It is not normalised, since it is kb's own source already. A
+    canvas card binds it beside `PASTE_TEXT`.
   - the paste of a list (`PASTE_LIST`, `outline-paste`): Tana Paste
     (`%%tana%%`), or two or more lines that are each a `-`, `*` or `+`
-    item, nesting by indent. Its items become nodes, every marker read as
-    `-`.
+    item, nesting by indent, read by the Markdown codec, which reads all of
+    that as it stands.
   - the drop of a file (`ATTACH_FILE`).
   - the paste of anything else, as text (`PASTE_TEXT`, `@kb/ui-sdk`), last
     of all (priority -1, below every family's). `pastedText` normalises the
@@ -3041,7 +3150,9 @@ handler takes it as text.
   `field:: value` and `[[ref]]` in an item's text and refuses one that is
   not there, and prose has no way to say that a `#` is only text. So a
   paragraph is never read as an outline: it pastes as text into the row
-  (`PASTE_TEXT`).
+  (`PASTE_TEXT`). Plain text reads as an outline only when asked to
+  (`kb add --outline --format plain`): a paste never claims it, since every
+  line of a paragraph would become a node.
 - **A family's handler is a transform** (`provideIngest(id, { match,
   priority, transform })`): its match as data, and its text as outline
   paste text, or null to decline. What the outline makes of it is the

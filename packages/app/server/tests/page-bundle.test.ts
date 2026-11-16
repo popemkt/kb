@@ -216,7 +216,33 @@ const DATASCRIPT = /cljs\.core/;
 // migration core.trim-trailing-breaks, which core's declaration carries to
 // the page as it carried core.field-show, measures 1,997,854 with it; the
 // budget keeps about 1.4 KB over that.
-const EAGER_BUDGET_BYTES = 1_999_254;
+// The contextual reference's target reader, moved from ui-sdk into @kb/model
+// so an export reads a row as the node it shows, measures 1,997,897; the
+// budget rises by its 43.
+// A selection's top rows, moved from ui-sdk into @kb/model so an export
+// picks the rows a move does, measure 1,997,985; the budget rises by their
+// 88.
+// shownWalk and shownNodeOf, the rows some rows show as a reader meets them,
+// in @kb/model, with Count words reading them, measure 1,998,110; the budget
+// rises by their 125.
+// One modal component in @kb/ui-sdk, which the action review the page draws
+// eagerly now shares with the routines and extension removal dialogs (its
+// focus handling and frame, where the review drew a native dialog), measures
+// 1,998,956; the budget rises by its 846.
+// The three reference forms and markupWords in @kb/model's display text, and
+// chipTagsOf, the chips' tags the graph view now reads, measure 1,999,081;
+// the budget rises by their 125.
+// requireNode in its own @kb/operations module, which the page's replica of
+// the actions loads, measures 1,999,092; the budget rises by its 11.
+// Copying out (the outline formats' readers and writers, the projection of
+// rows into a tree, and ⌘C's handler for rows and for a text selection,
+// eager since a copy must answer in the event; the Copy as… dialog stays
+// lazy) measures 2,016,759; the budget rises by its 17,667.
+// A dialog's header and actions held in view while only its body scrolls
+// (the shared Dialog's footer slot, and Copy as…, the routine editor and the
+// confirmations moved into it) measures 2,017,030; the budget rises by its
+// 271.
+const EAGER_BUDGET_BYTES = 2_018_430;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

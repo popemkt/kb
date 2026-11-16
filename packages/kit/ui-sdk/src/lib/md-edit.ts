@@ -446,6 +446,19 @@ export function getCaretSerializedOffset(el: HTMLElement | null | undefined): nu
   );
 }
 
+/** The selection inside `el`, as offsets into its source; null when it is collapsed or elsewhere. */
+export function selectedSpan(el: HTMLElement): { start: number; end: number } | null {
+  const selection = el.ownerDocument.getSelection();
+  if (selection === null || selection.rangeCount === 0 || selection.isCollapsed) return null;
+  const range = selection.getRangeAt(0);
+  if (!el.contains(range.startContainer) || !el.contains(range.endContainer)) return null;
+  const start = serializedOffsetOfBoundary(el, range.startContainer, range.startOffset);
+  const end = serializedOffsetOfBoundary(el, range.endContainer, range.endOffset);
+  return start === null || end === null || start === end
+    ? null
+    : { start: Math.min(start, end), end: Math.max(start, end) };
+}
+
 function inMark(node: Text): boolean {
   return node.parentElement?.classList.contains(INLINE_TEXT_CLASSES.mark) === true;
 }

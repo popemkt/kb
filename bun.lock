@@ -481,6 +481,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/model": "workspace:*",
+        "effect": "catalog:",
       },
       "devDependencies": {
         "@types/bun": "catalog:",
@@ -1156,6 +1157,7 @@
         "@kb/contracts": "workspace:*",
         "@kb/keybindings": "workspace:*",
         "@kb/model": "workspace:*",
+        "@kb/outline-paste": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/views": "workspace:*",
       },
@@ -1584,6 +1586,7 @@
         "@kb/contracts": "workspace:*",
         "@kb/keybindings": "workspace:*",
         "@kb/model": "workspace:*",
+        "@kb/outline-paste": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/query": "workspace:*",
         "@kb/sandbox": "workspace:*",

@@ -3,7 +3,12 @@ import { bundledSeed } from "@kb/bundled";
 import { SHORTCUT_IDS } from "@kb/keybindings";
 import { present, SYSTEM_IDS } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
-import { buildPaletteIndex, searchPalette, type PaletteIndex } from "@/lib/palette-index";
+import {
+  buildPaletteIndex,
+  searchPalette,
+  withNodeCommands,
+  type PaletteIndex,
+} from "@/lib/palette-index";
 
 const ISO = "2026-08-08T00:00:00.000Z";
 
@@ -90,6 +95,28 @@ describe("palette index", () => {
     const titled = (query: string) => searchPalette(index, query).find((h) => h.id === "n.notes");
     expect(titled("for ann")?.text).toBe("Write the notes for Ann");
     expect(titled("write the notes")?.text).toBe("Write the notes for Ann");
+  });
+
+  it("lists a node command once, in the place of the global command it is", () => {
+    // A node command a key binds is a command node too (Copy as… on
+    // Mod-Shift-C): one act, one row, so no two rows share an id.
+    const command = node("sys.cmd.both", "Both", {
+      [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.command }],
+    });
+    const faced = node("sys.cmd.faced", "Faced", {
+      [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.command }],
+    });
+    const index = withNodeCommands(
+      buildPaletteIndex([command, faced, node("n1", "Check up with Rob")], 1),
+      [
+        { id: "sys.cmd.both", label: "Both" },
+        { id: "node.face", label: "Face", faceOf: "sys.cmd.faced" },
+      ],
+      "Fixture root",
+    );
+    const ids = searchPalette(index, "").map((hit) => hit.id);
+    expect(ids).toEqual(["sys.cmd.both", "node.face", "n1"]);
+    expect(index.entries.find((entry) => entry.id === "sys.cmd.both")?.target).toBe("Fixture root");
   });
 
   it("keystroke search stays a single linear pass at 50k nodes", () => {

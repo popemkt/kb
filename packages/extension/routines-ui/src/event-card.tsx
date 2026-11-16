@@ -13,7 +13,7 @@ import { describeRepeat, routineSettings, type CalendarEntry, type Place } from 
 import { cn, IconButton, useOpenNode } from "@kb/ui-sdk";
 import { DateField } from "./date-field";
 import { longDay } from "@kb/calendar-kit";
-import { BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from "./dialog";
+import { BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from "./buttons";
 import { displayDay, displayTimes } from "./layout";
 import { inkOf, type CalendarGraph } from "./model";
 import { StatusDot } from "./status-dot";

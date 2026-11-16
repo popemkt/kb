@@ -21,11 +21,11 @@ import {
   pastSlop,
   pointerKind,
   type PointerKind,
-  selectionRoots,
   shownNodeId,
   textOr,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
+import { selectionRoots } from "@kb/model";
 import { outlineNodes, useOutlineStore } from "./outline.store";
 import { moveRows } from "./row-moves";
 
@@ -189,7 +189,7 @@ function pickedUp(nodeId: string, instanceKey: string) {
     const rows = store.selectedRows();
     const firstKey = rows[0]?.instanceKey ?? instanceKey;
     return {
-      ids: selectionRoots(store.selectedNodeIds, outlineNodes()),
+      ids: selectionRoots(store.selectedNodeIds, (id) => outlineNodes().get(id)?.parentId),
       keys: rows.map((row) => row.instanceKey),
       span: { firstKey, lastKey: rows.at(-1)?.instanceKey ?? firstKey },
     };

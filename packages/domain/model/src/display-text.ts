@@ -15,8 +15,11 @@
  *
  * Both readings name a reference the same way, by {@link refName}. So a
  * pill and the words beside it never disagree about what a reference says.
+ * Text written out of kb names a reference in one of three forms
+ * ({@link RefForm}), which the markup-keeping reading ({@link markupWords})
+ * and the plain one take.
  */
-import { parseInlineMd, type InlineSeg } from "./inline.ts";
+import { inlineSpanSource, parseInlineSource, type InlineSeg, type InlineSpan } from "./inline.ts";
 import type { NodeId } from "./model.ts";
 import type { NodeLike } from "./node-like.ts";
 import { nodeTitleOf } from "./tag-behaviour.ts";
@@ -46,6 +49,31 @@ export function refName(
   return wordsOf(nodeTitleOf(id, target, nodeOf), nodeOf, new Set([...seen, id])) || UNTITLED;
 }
 
+/**
+ * How text written out of kb names a reference: its words (`label`), a
+ * `[[words]]` link another outliner reads (`link`), or its token as stored
+ * (`id`), which kb reads back to the same node.
+ */
+export type RefForm = "label" | "link" | "id";
+
+/** What a link cannot hold: a `[[words]]` with one of these in it is not one token. */
+const NOT_IN_LINK = /[[\]|]/;
+
+/** The reference `span` written in `form`. */
+function refWritten(
+  span: InlineSpan & { readonly seg: { readonly t: "ref" } },
+  form: RefForm,
+  nodeOf: DisplayLookup,
+  seen: ReadonlySet<NodeId>,
+): string {
+  if (form === "id") return span.open;
+  const words = refName(span.seg.id, span.seg.label, nodeOf, seen);
+  return form === "link" && !NOT_IN_LINK.test(words) ? `[[${words}]]` : words;
+}
+
+const isRef = (span: InlineSpan): span is InlineSpan & { readonly seg: { readonly t: "ref" } } =>
+  span.seg.t === "ref";
+
 function segmentWords(seg: InlineSeg, nodeOf: DisplayLookup, seen: ReadonlySet<NodeId>): string {
   switch (seg.t) {
     case "text":
@@ -66,9 +94,18 @@ function segmentWords(seg: InlineSeg, nodeOf: DisplayLookup, seen: ReadonlySet<N
   }
 }
 
-function wordsOf(text: string, nodeOf: DisplayLookup, seen: ReadonlySet<NodeId>): string {
-  return parseInlineMd(text)
-    .map((seg) => segmentWords(seg, nodeOf, seen))
+function wordsOf(
+  text: string,
+  nodeOf: DisplayLookup,
+  seen: ReadonlySet<NodeId>,
+  form: RefForm = "label",
+): string {
+  return parseInlineSource(text)
+    .map((span) =>
+      isRef(span) && form !== "label"
+        ? refWritten(span, form, nodeOf, seen)
+        : segmentWords(span.seg, nodeOf, seen),
+    )
     .join("")
     .replace(/\s+/g, " ")
     .trim();
@@ -78,10 +115,26 @@ function wordsOf(text: string, nodeOf: DisplayLookup, seen: ReadonlySet<NodeId>)
  * `text` as plain words: what a person reads in it, with no markup. Text
  * and emphasis read as their words, code as its content, a link as its
  * label, media as its alt text, and a reference as {@link refName} says.
- * Runs of whitespace, line breaks included, read as one space.
+ * Runs of whitespace, line breaks included, read as one space. Text
+ * written out of kb may name its references in another `form`.
  */
-export function plainWords(text: string, nodeOf: DisplayLookup): string {
-  return wordsOf(text, nodeOf, new Set());
+export function plainWords(text: string, nodeOf: DisplayLookup, form: RefForm = "label"): string {
+  return wordsOf(text, nodeOf, new Set(), form);
+}
+
+/**
+ * `text` as markdown written out of kb: its markup as written, and each
+ * reference in `form` (its words by default), so a docs template and a
+ * markdown export read a reference as every reading does. A token the
+ * grammar does not read as a reference (inside code or emphasis) stays as
+ * written.
+ */
+export function markupWords(text: string, nodeOf: DisplayLookup, form: RefForm = "label"): string {
+  return parseInlineSource(text)
+    .map((span) =>
+      isRef(span) ? refWritten(span, form, nodeOf, new Set()) : inlineSpanSource(span),
+    )
+    .join("");
 }
 
 /**

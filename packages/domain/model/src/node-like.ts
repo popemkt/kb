@@ -54,3 +54,23 @@ export function strValueOf(
 export function typeRefsOf(node: Pick<NodeLike, "props"> | undefined): NodeId[] {
   return refValuesOf(node, SYSTEM_IDS.typeField);
 }
+
+/**
+ * DISPLAY: the tags a node's `#tag` chips show, by id — its kind slot
+ * ({@link typeRefsOf}) less the kinds themselves (`sys.tag`, `sys.field`),
+ * and only refs to a tag. A chip saying "#tag" on a tag's own page would be
+ * nonsense, which is the whole reason this list is not the graph: read it
+ * back as membership and every supertag looks untagged. The page's chips
+ * and an export that writes what a person reads both read this.
+ */
+export function chipTagsOf(
+  node: Pick<NodeLike, "props"> | undefined,
+  nodeOf: (id: NodeId) => Pick<NodeLike, "props"> | undefined,
+): NodeId[] {
+  return typeRefsOf(node).filter(
+    (id) =>
+      id !== SYSTEM_IDS.tag &&
+      id !== SYSTEM_IDS.field &&
+      typeRefsOf(nodeOf(id)).includes(SYSTEM_IDS.tag),
+  );
+}

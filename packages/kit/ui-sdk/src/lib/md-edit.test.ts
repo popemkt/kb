@@ -8,11 +8,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
 import { present } from "@kb/model";
+import { inlineHtml } from "@kb/outline-paste";
 import { isTextNode } from "./dom";
 import {
   getCaretSerializedOffset,
   insertAtSelection,
+  inlineNodes,
   isCanonicalInline,
+  type InlineNode,
   readInlineInput,
   renderInlineMarkdown,
   revealMarkupAtSelection,
@@ -434,5 +437,28 @@ describe("text put in at the selection", () => {
     expect(serializeEditable(el)).toBe("ab");
     el.remove();
     other.remove();
+  });
+});
+
+/** Every element tag in a tree, a wrapper's or a mark's span left out. */
+function elementTags(nodes: readonly InlineNode[]): string[] {
+  return nodes.flatMap((node) =>
+    typeof node === "string"
+      ? []
+      : [...(node.tag === "span" ? [] : [node.tag]), ...elementTags(node.children)],
+  );
+}
+
+// GAP [[01M7HSNPHW2Z613ZR7CC8CM5TW]]: two tables, held to one answer here.
+describe("rich text copy draws what the editor draws", () => {
+  it("writes emphasis and code as the editor's elements", () => {
+    const text = "**bold** *italic* `code`";
+    const written = [
+      ...inlineHtml(text, { refs: "label", indent: "spaces", nodeOf: () => undefined }).matchAll(
+        /<([a-z]+)>/g,
+      ),
+    ].map((match) => match[1]);
+    expect(written).toEqual(elementTags(inlineNodes(text, PLAIN_INK)));
+    expect(written).toHaveLength(3);
   });
 });

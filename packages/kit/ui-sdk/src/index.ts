@@ -157,6 +157,7 @@ export { FieldRow } from "./components/field-row";
 export { ManagedNote } from "./components/managed-field";
 export { useFieldWrite } from "./lib/field-write";
 export { Button } from "./components/button";
+export { Dialog } from "./components/dialog";
 export { IconButton } from "./components/icon-button";
 export { KnobControl } from "./components/deferred-parts";
 export { MENU_ROW, MENU_SURFACE, useMenuKeys } from "./components/menu";
@@ -193,8 +194,6 @@ export { ViewNotLoaded, ViewUnavailable } from "./components/view-unavailable";
 // The graph as the page holds it: nodes, values, the schema and its field
 // types, references, instances, perspectives, and the replica's one query seam.
 export {
-  contextualTargetOf,
-  isContextualRef,
   rowText,
   rowTitle,
   rowName,
@@ -255,7 +254,7 @@ export {
   projectedRowOf,
 } from "./lib/instance-key";
 export { isPinned, listPinnedNavItems, pinnedRefIds, pinnedRefIdsFor } from "./lib/pinned";
-export { rowsAbout, selectionRoots } from "./lib/selection";
+export { rowsAbout } from "./lib/selection";
 export {
   closesCycleOf,
   nodeCandidates,
@@ -447,6 +446,7 @@ export { currentKeymap, type KeyCall, keyCallOf, runKeyCall, tellKeymaps } from 
 export {
   ATTACH_FILE,
   ingestPort,
+  PASTE_KB_TEXT,
   PASTE_TEXT,
   provideIngest,
   type Ingested,
@@ -563,7 +563,7 @@ export {
   TIMING_FALLBACK,
 } from "./lib/timing";
 export { setToastSink, toast } from "./lib/toast";
-export { copyText } from "./lib/copy";
+export { copyText, putFlavours, writeFlavours, type ClipboardFlavours } from "./lib/copy";
 export { useFocusReturn, usePickerKeys } from "./lib/use-picker";
 export { useNarrowViewport } from "./lib/viewport";
 export { BREAKOUT_CLASS, useBreakoutShift } from "./lib/breakout";

@@ -11,6 +11,7 @@
  */
 import type { FieldType, Writable } from "@kb/model";
 import type { FrameViewKey, ViewConfig, ViewFilter } from "@kb/views";
+import type { OutlineFormatId } from "@kb/outline-paste";
 import type { RefCreation } from "./refs";
 import type { PropValue } from "./types";
 
@@ -201,13 +202,15 @@ export interface PageWrites {
    */
   readonly attachFileToNode: (nodeId: string, file: File) => Promise<boolean>;
   /**
-   * Add a tree of nodes, written as outline paste text (DESIGN.md → Outline
-   * paste), through `node.addTree`, in one transaction: under `parent` (null,
-   * the top level) at `position` (omitted, the end). The ids it made, in tree
-   * order; a write that fails rejects with what failed.
+   * Add a tree of nodes, written as text in outline format `format`
+   * (DESIGN.md → Outline formats), through `node.addTree`, in one
+   * transaction: under `parent` (null, the top level) at `position`
+   * (omitted, the end). The ids it made, in tree order; a write that fails
+   * rejects with what failed.
    */
   readonly addTree: (
     tree: string,
+    format: OutlineFormatId,
     place: { readonly parent: string | null; readonly position?: number },
   ) => Promise<readonly string[]>;
   /** W4: root node tagged #query with a starter sys.f.query definition. */

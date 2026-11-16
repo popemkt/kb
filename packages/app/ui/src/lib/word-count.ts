@@ -3,8 +3,8 @@
  * read and copied"): the nodes some rows show and every node under them,
  * each once, read as plain words.
  */
-import { plainWords } from "@kb/model";
-import { contextualTargetOf, type SchemaIndex, shownNode } from "@kb/ui-sdk";
+import { plainWords, shownWalk, type ShownRow } from "@kb/model";
+import type { OutlineNode, SchemaIndex } from "@kb/ui-sdk";
 
 export interface WordCount {
   readonly words: number;
@@ -25,28 +25,26 @@ function measure(text: string): { readonly words: number; readonly characters: n
 
 /**
  * The words, characters and nodes of what rows `rowIds` show and every node
- * under them, in `schema`. A row counts the node it shows (`shownNode`), and
- * a reference is not followed below it; a node met twice counts once.
+ * under them, in `schema`: the rows `shownWalk` meets, a row counting the
+ * node it shows and a reference not followed below it; a node met twice
+ * counts once.
  */
 export function countWords(rowIds: readonly string[], schema: SchemaIndex): WordCount {
   const counted = new Set<string>();
-  const met = new Set<string>();
   let words = 0;
   let characters = 0;
-  const pending = [...rowIds];
-  for (let id = pending.shift(); id !== undefined; id = pending.shift()) {
-    const row = schema.get(id);
-    if (row === undefined || met.has(id)) continue;
-    met.add(id);
-    const shown = shownNode(row, schema);
-    if (!counted.has(shown.id)) {
-      counted.add(shown.id);
-      const measured = measure(plainWords(shown.text, (other) => schema.get(other)));
-      words += measured.words;
-      characters += measured.characters;
+  const count = (rows: readonly ShownRow<OutlineNode>[]): void => {
+    for (const { shown, children } of rows) {
+      if (!counted.has(shown.id)) {
+        counted.add(shown.id);
+        const measured = measure(plainWords(shown.text, (other) => schema.get(other)));
+        words += measured.words;
+        characters += measured.characters;
+      }
+      count(children);
     }
-    if (contextualTargetOf(row) === null) pending.push(...row.children);
-  }
+  };
+  count(shownWalk(rowIds, (id) => schema.get(id)));
   return { words, characters, nodes: counted.size };
 }
 

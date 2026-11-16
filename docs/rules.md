@@ -1009,6 +1009,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — docs/research/2026-11-11-cli-host-modes.md step 7.
 - **node** — `01M75MA4HB3NFDXGGKG0RE45H5`
 
+### GAP: ext-canvas keeps its own copy of requireNode
+
+- **expected** — One reader of the node an action names, or its not_found refusal, in a package both @kb/operations' actions and an extension's actions may import (beside KbContext in @kb/contracts), which every action that reads one node by id calls.
+- **current** — @kb/operations has requireNode in require-node.ts, reading the session's index; ext-canvas's write.ts keeps a private requireNode that scans ctx.nodes, because an extension may not import @kb/operations.
+- **impact** — Two refusals of the same missing node, kept alike by hand: a change to one (its message, its code, or reading the index rather than scanning) leaves canvas writes answering the other way.
+- **closes** — requireNode moves to a package an extension may import (@kb/contracts beside KbContext), and both @kb/operations and ext-canvas import it; the canvas copy is deleted.
+- **node** — `01M7HXJDTBECGJN4RYGB5JENGF`
+
 ### GAP: ext-sdk declarations are still a hand-kept mirror; generation needs type-first and author-facing contracts
 
 - **expected** — P6, one type, one source: surface.ts and page-surface.ts are export type { … } from lists beside EXTENSION_SDK and PAGE_EXTENSION_SDK, and scripts/generate.ts bundles the declarations into the ambient kb-ext-sdk modules; the ext-sdk-fresh fixture compiles and the emitted text is unchanged.
@@ -1572,6 +1580,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The same @kb/ui-sdk the canvas browser plugin needs, published as an ambient d.ts like kb-ext-sdk, plus the server route, the shims and a loader test. The browser half is built and loaded as its own module, the repository-extension form of the backend-plugin/browser-plugin split canvas takes, not a second entry of the backend module.
 - **node** — `01M39F3N04WNEVCGHX428H8TKN`
 
+### GAP: rich text copy names emphasis and code elements beside the editor's element tree
+
+- **expected** — One table of the element each emphasis and code span is drawn as, in @kb/model beside the inline grammar, which ui-sdk's md-edit element tree and @kb/outline-paste's rich text writer both read.
+- **current** — md-edit's contentNode names strong, em and code in its switch, and outline-paste's html.ts holds its own open and close tags for the same three spans; a ui-sdk test proves the two agree.
+- **impact** — A change to how the editor draws emphasis or code can leave rich text copies drawing the old element until the bridge test goes red. The table could not move into @kb/model because the family-names sensor reads the string literal code, the HTML element, as the code family's name in a core file.
+- **closes** — The family-names sensor tells an HTML element name from a family id (or scopes itself to ids it can resolve), so the shared table can live in @kb/model and both readers import it.
+- **node** — `01M7HSNPHW2Z613ZR7CC8CM5TW`
+
 ### GAP: routine background runner placement has no general job contract
 
 - **expected** — Jobs: a job is an action marked job: true (idempotent catch-up, state in the store, no approval, a no-op run commits nothing), named by a #job node whose every, runs on and paused are data; any process runs due jobs through jobs.run (the host's scheduler, kb jobs run --due from cron or launchd, or one call); a host adds only triggers (writes, webhooks, watchers).
@@ -1736,6 +1752,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Extension development needs restarts; the kernel's unload/reload is proven by its contract but unused by any host.
 - **closes** — Hold the kernel as the session's live registry instead of a derived snapshot: the watcher calls kernel.unload/load, and byId/manifest read the points on demand.
 - **node** — `01M39F3N7TS10VJ881RNC0Z4X3`
+
+### GAP: the action review's answer buttons scroll with its body
+
+- **expected** — Every Dialog's primary action sits in its actions footer, which stays in view while the body scrolls; the action review's Approve and Deny included.
+- **current** — The action review is a Dialog whose body is ActionApproval, and ActionApproval, or a review a family contributes at the ActionReviewPoint, draws its own answer buttons at the end of what it shows, inside the body, so a long review scrolls them out of view on a phone.
+- **impact** — On a small screen a person scrolls a long review to reach Approve or Deny; the header and the scroll region keep the title and the close button in view, so the review is never stuck, only slower.
+- **closes** — The ActionReviewPoint contract splits a review into what it shows and how it is answered: a review returns its body, and the dialog draws the answer buttons in its actions footer from one shared answer (approve, deny, and a review's own extra choices).
+- **node** — `01M7HY51KS03P1CFM90JH4CS8Z`
 
 ### GAP: the agent family offers no model suggestions and no provider check
 

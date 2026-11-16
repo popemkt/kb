@@ -36,6 +36,7 @@ import {
 } from "@kb/model";
 import { persistEffect, persistPlannedEffect, type PersistOptions } from "./session.ts";
 import { placedGraph, placeOf } from "./place.ts";
+import { requireNode } from "./require-node.ts";
 import { datalogRows, type NodeIndex, type QueryEngineService } from "@kb/query";
 
 type KbWriteEnv = KbCtx | KbStore;
@@ -288,12 +289,6 @@ function nodeById(ctx: KbContext<NodeIndex>, id: NodeId): KbNode | undefined {
  */
 export function sessionGraph(ctx: KbContext<NodeIndex>): IndexedNodes {
   return IndexedNodes.of(ctx.nodes);
-}
-
-export function requireNode(ctx: KbContext<NodeIndex>, id: NodeId): KbNode {
-  const n = nodeById(ctx, id);
-  if (!n) throw new ResolveError("not_found", `node not found: ${id}`, { id });
-  return n;
 }
 
 function cloneNode(n: KbNode): KbNode {
