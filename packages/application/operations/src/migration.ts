@@ -22,6 +22,7 @@ import {
   MIGRATION_STEPS,
   MigrationListSchema,
   MigrationPoint,
+  PlanReadingSchema,
   type ActionDefinition,
   type ExtensionMigration,
   type MigrationGraph,
@@ -31,12 +32,15 @@ import {
   KbNodeSchema,
   MIGRATION_STATES,
   SYSTEM_IDS,
+  WRITE_KINDS,
   canonicalJson,
   currentIso,
   diffTx,
   domainError,
   migrationRecordId,
   migrationStateId,
+  writeChange,
+  writesOf,
   type DomainError,
   type KbNode,
   type MigrationState,
@@ -48,8 +52,6 @@ import { currentBackup, storeRestoreEffect } from "./store-backup.ts";
 
 /** What the digest of a plan covers; a change to it makes every preview stale. */
 const PLAN_FORMAT = "kb.migration/1";
-/** How many of a plan's nodes `migration.plan` names. */
-const SAMPLES = 20;
 
 /** A migration as a record reads it: where it stands, and what it was previewed at. */
 interface MigrationRecord {
@@ -69,6 +71,8 @@ interface Plan {
   readonly creates: number;
   readonly digest: string;
 }
+
+type PlanReading = z.infer<typeof PlanReadingSchema>;
 
 /** Whether `id` is the migrations' own ledger: the list, or a record. */
 function isLedger(id: NodeId): boolean {
@@ -251,6 +255,27 @@ const planOf = Effect.fn("migration.planOf")(function* (
   };
 });
 
+/**
+ * `plan` read node by node against `nodes`, the graph it applies to
+ * (DESIGN.md → Plugin data migrations, "A plan is read node by node"): its
+ * counts and its writes, changes then creates then deletes, the first
+ * `limit` of them when the caller gives one.
+ */
+function readingOf(plan: Plan, nodes: readonly KbNode[], limit?: number): PlanReading {
+  const graph = graphOf(nodes, plan.at);
+  const all = writesOf({ upserts: [...plan.upserts], deletes: [...plan.deletes] }, graph.nodeOf)
+    .map((write) => writeChange(write, graph.nodeOf))
+    .toSorted((a, b) => WRITE_KINDS.indexOf(a.kind) - WRITE_KINDS.indexOf(b.kind));
+  const writes = limit === undefined ? all : all.slice(0, limit);
+  return {
+    creates: plan.creates,
+    changes: plan.upserts.length - plan.creates,
+    deletes: plan.deletes.length,
+    writes: writes.map((write) => ({ ...write, parts: [...write.parts] })),
+    more: all.length - writes.length,
+  };
+}
+
 /** Whether `plan` writes nothing: the migration has nothing to do. */
 const isEmpty = (plan: Plan) => plan.upserts.length === 0 && plan.deletes.length === 0;
 
@@ -276,6 +301,10 @@ const recordIn = Effect.fn("migration.recordIn")(function* (
 
 const MigrationInput = z.object({ migration: z.string().min(1) });
 type MigrationInputT = z.infer<typeof MigrationInput>;
+
+/** A call that reads a plan: the migration, and how many of its writes to name (all, without one). */
+const PlanInput = MigrationInput.extend({ limit: z.number().int().positive().optional() });
+type PlanInputT = z.infer<typeof PlanInput>;
 
 const STATE = z.enum(MIGRATION_STATES);
 
@@ -323,34 +352,24 @@ export const migrationListEffect = Effect.fn("migration.list")(function* (): Eff
   };
 });
 
-const Sample = z.object({
-  id: z.string(),
-  text: z.string(),
-  change: z.enum(["create", "change", "delete"]),
-});
-
 export const migrationPlanDef = {
   id: "migration.plan",
   title: "Plan a migration",
   description:
-    "What a migration would write now (or, once previewed, at the instant it was previewed): how many nodes it creates, changes and deletes, the first of them, and the plan's digest, which says whether the preview still holds",
+    "What a migration would write now (or, once previewed, at the instant it was previewed), node by node: how many nodes it creates, changes and deletes, and each write's node, name and parts (text, fields, children) with their exact values before and after, all of them unless `limit` caps them (`more` counts the rest); and the plan's digest, which says whether the preview still holds",
   mode: { kind: "read" } as const,
-  inputSchema: MigrationInput,
-  outputSchema: z.object({
+  inputSchema: PlanInput,
+  outputSchema: PlanReadingSchema.extend({
     migration: z.string(),
     at: z.string(),
     digest: z.string(),
-    creates: z.number(),
-    changes: z.number(),
-    deletes: z.number(),
-    samples: z.array(Sample),
     /** The migration was previewed with exactly this plan. */
     previewed: z.boolean(),
   }),
 } satisfies ActionDefinition;
 
 export const migrationPlanEffect = Effect.fn("migration.plan")(function* (
-  input: MigrationInputT,
+  input: PlanInputT,
 ): Effect.fn.Return<
   z.infer<typeof migrationPlanDef.outputSchema>,
   DomainError,
@@ -359,29 +378,13 @@ export const migrationPlanEffect = Effect.fn("migration.plan")(function* (
   const migration = yield* migrationOf(input.migration);
   const ctx = yield* KbCtx;
   yield* reloadEffect(ctx);
-  const graph = graphOf(ctx.nodes, "");
   const record = liveRecord(ctx.nodes, input.migration);
   const plan = yield* planOf(input.migration, migration, ctx.nodes, yield* plannedAt(record));
-  const samples = [
-    ...plan.upserts.map((node) => ({
-      id: node.id,
-      text: node.text,
-      change: graph.nodeOf(node.id) === undefined ? ("create" as const) : ("change" as const),
-    })),
-    ...plan.deletes.map((id) => ({
-      id,
-      text: graph.nodeOf(id)?.text ?? "",
-      change: "delete" as const,
-    })),
-  ].slice(0, SAMPLES);
   return {
     migration: input.migration,
     at: plan.at,
     digest: plan.digest,
-    creates: plan.creates,
-    changes: plan.upserts.length - plan.creates,
-    deletes: plan.deletes.length,
-    samples,
+    ...readingOf(plan, ctx.nodes, input.limit),
     previewed: record?.state === "previewed" && record.digest === plan.digest,
   };
 });
@@ -535,19 +538,14 @@ export const migrationPreviewDef = {
   id: "migration.preview",
   title: "Preview a migration",
   description:
-    "Plan a migration and record the plan (its digest and instant) on the migration's record, with the backup of the store as it is now, which the record pins until the migration is kept or rolled back. Needs that backup (`store.backup`) first",
+    "Plan a migration and record the plan (its digest and instant) on the migration's record, with the backup of the store as it is now, which the record pins until the migration is kept or rolled back. Needs that backup (`store.backup`) first. Answers the plan it recorded, read node by node as `migration.plan` reads it",
   mode: { kind: "write", outsideRoot: true } as const,
-  inputSchema: MigrationInput,
-  outputSchema: RecordOutput.extend({
-    at: z.string(),
-    creates: z.number(),
-    changes: z.number(),
-    deletes: z.number(),
-  }),
+  inputSchema: PlanInput,
+  outputSchema: RecordOutput.extend({ at: z.string(), ...PlanReadingSchema.shape }),
 } satisfies ActionDefinition;
 
 export const migrationPreviewEffect = Effect.fn("migration.preview")(function* (
-  input: MigrationInputT,
+  input: PlanInputT,
 ): Effect.fn.Return<
   z.infer<typeof migrationPreviewDef.outputSchema>,
   DomainError,
@@ -558,7 +556,7 @@ export const migrationPreviewEffect = Effect.fn("migration.preview")(function* (
   const ctx = yield* KbCtx;
   const roots = yield* KbRoots;
   const at = yield* currentIso;
-  let planned: { plan: Plan; backup: string } | undefined;
+  let planned: { plan: Plan; backup: string; reading: PlanReading } | undefined;
   const protectedBackup = yield* currentBackup(roots, ctx.root);
   if (protectedBackup === undefined)
     return yield* domainError(
@@ -589,7 +587,11 @@ export const migrationPreviewEffect = Effect.fn("migration.preview")(function* (
             return yield* domainError("conflict", `${id} has nothing to migrate`, {
               migration: id,
             });
-          planned = { plan, backup: protectedBackup.id };
+          planned = {
+            plan,
+            backup: protectedBackup.id,
+            reading: readingOf(plan, nodes, input.limit),
+          };
           const record = {
             state: "previewed",
             digest: plan.digest,
@@ -603,16 +605,14 @@ export const migrationPreviewEffect = Effect.fn("migration.preview")(function* (
     ),
   );
   if (planned === undefined) return yield* domainError("internal", `${id} recorded no plan`);
-  const { plan, backup } = planned;
+  const { plan, backup, reading } = planned;
   return {
     migration: id,
     state: "previewed" as const,
     digest: plan.digest,
     backup,
     at,
-    creates: plan.creates,
-    changes: plan.upserts.length - plan.creates,
-    deletes: plan.deletes.length,
+    ...reading,
   };
 });
 

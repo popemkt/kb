@@ -10,7 +10,7 @@
  */
 import { z } from "zod";
 import { Point } from "@kb/plugin";
-import { MIGRATION_STATES, type KbNode, type NodeId } from "@kb/model";
+import { MIGRATION_STATES, WRITE_KINDS, type KbNode, type NodeId } from "@kb/model";
 import { CORE_POINT_DEFINITIONS } from "./point-definitions.ts";
 import type { ProcedureContribution, ProcedureStep } from "./procedure.ts";
 
@@ -76,6 +76,37 @@ export const MigrationListSchema = z.object({
   ),
 });
 
+/**
+ * A plan, read node by node (DESIGN.md → Plugin data migrations, "A plan is
+ * read node by node, and exactly"): its counts, and each write as
+ * `@kb/model`'s `writeChange` reads it, all of them unless the call gave a
+ * limit, with `more` counting the rest. What `migration.plan` and
+ * `migration.preview` answer, what `kb migrate --plan` prints and what a
+ * procedure step's `changes` draws on the page.
+ */
+export const PlanReadingSchema = z.object({
+  creates: z.number(),
+  changes: z.number(),
+  deletes: z.number(),
+  writes: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      kind: z.enum(WRITE_KINDS),
+      parts: z.array(
+        z.object({
+          part: z.string(),
+          label: z.string(),
+          before: z.string().nullable(),
+          after: z.string().nullable(),
+        }),
+      ),
+    }),
+  ),
+  /** How many writes the limit left out. */
+  more: z.number(),
+});
+
 /** The procedure that runs the migration `id` (`<family>.<id>`). */
 export function migrationProcedureId(id: string): string {
   return `migration.${id}`;
@@ -113,6 +144,8 @@ export function migrationProcedure(
     actions: [{ id: step, title, call: { action, input } }],
     check: check(step),
   });
+  // The preview and apply steps show the plan they record and write.
+  const plan = { action: "migration.plan", input: on };
   return {
     title: migration.title,
     ...(migration.description === undefined ? {} : { description: migration.description }),
@@ -124,18 +157,24 @@ export function migrationProcedure(
         "store.backup",
         {},
       ),
-      one(
-        "preview",
-        "Preview",
-        "Plan the migration and record what it will write, pinning the backup",
-        "migration.preview",
-      ),
-      one(
-        "apply",
-        "Apply",
-        "Write the previewed plan as one transaction, if the store still plans the same",
-        "migration.apply",
-      ),
+      {
+        ...one(
+          "preview",
+          "Preview",
+          "Plan the migration and record what it will write, pinning the backup",
+          "migration.preview",
+        ),
+        changes: plan,
+      },
+      {
+        ...one(
+          "apply",
+          "Apply",
+          "Write the previewed plan as one transaction, if the store still plans the same",
+          "migration.apply",
+        ),
+        changes: plan,
+      },
       one(
         "verify",
         "Verify",

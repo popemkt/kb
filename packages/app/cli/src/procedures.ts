@@ -11,14 +11,17 @@
  */
 import type { Command } from "commander";
 import { Effect } from "effect";
+import type { z } from "zod";
 import {
   migrationProcedureId,
   ActionReceiptSchema,
+  PlanReadingSchema,
   onWire,
   type KbContext,
   type ProcedureStatus,
   type StepStatus,
 } from "@kb/contracts";
+import { graphemes, textDiff, visibleText } from "@kb/model";
 import {
   migrationListDef,
   migrationPlanDef,
@@ -39,6 +42,53 @@ import {
   type GlobalOpts,
 } from "./command.ts";
 import { formatReceipt } from "./format.ts";
+
+/** How many writes a plan prints unless every one is asked for (`--all`). */
+const PLAN_CAP = 20;
+/** How much of a write's name its heading line keeps. */
+const NAME_CAP = 60;
+
+/** A part's before and after as one line: what they share, `[-removed-]` and `{+added+}`, whitespace drawn. */
+function diffLine(before: string | null, after: string | null): string {
+  return textDiff(before, after)
+    .map((span) =>
+      span.kind === "same"
+        ? visibleText(span.text)
+        : span.kind === "removed"
+          ? `[-${visibleText(span.text, true)}-]`
+          : `{+${visibleText(span.text, true)}+}`,
+    )
+    .join("");
+}
+
+/**
+ * A plan reading as lines (DESIGN.md → Plugin data migrations): its counts,
+ * each write as what it does, its name and id, then each part's diff; the
+ * first `cap` of the writes it holds, then how many it and the reading
+ * left out, and `more`, how to see them. What `--plan` prints and what a
+ * walk shows before a step that names its changes.
+ */
+export function planLines(
+  reading: z.infer<typeof PlanReadingSchema>,
+  cap: number,
+  more: string,
+): string[] {
+  const name = (text: string) => {
+    const chars = graphemes(visibleText(text));
+    return chars.length > NAME_CAP ? `${chars.slice(0, NAME_CAP).join("")}…` : chars.join("");
+  };
+  const left = reading.more + Math.max(0, reading.writes.length - cap);
+  return [
+    `creates ${reading.creates}, changes ${reading.changes}, deletes ${reading.deletes}`,
+    ...reading.writes
+      .slice(0, cap)
+      .flatMap((write) => [
+        `  ${write.kind} ${name(write.name) || "Untitled"}  (${write.id})`,
+        ...write.parts.map((part) => `      ${part.label}: ${diffLine(part.before, part.after)}`),
+      ]),
+    ...(left === 0 ? [] : [`  … and ${left} more (${more})`]),
+  ];
+}
 
 interface ProcedureOpts {
   readonly run?: boolean;
@@ -93,6 +143,31 @@ const statusOf = (ctx: KbContext, procedure: string) =>
         ? ({ read: true, status: parsed.data } as const)
         : ({ read: false, receipt } as const);
     }),
+  );
+
+/**
+ * What a step's `changes` call reads, as lines, the first {@link PLAN_CAP}
+ * writes; a reading that fails or is not a plan reading says so in a line
+ * rather than stopping the walk.
+ */
+const changesOf = (ctx: KbContext, call: NonNullable<StepStatus["changes"]>) =>
+  invokeCliEffect(ctx, onWire(ACTION_INVOKE_WIRE, { id: call.action, input: call.input })).pipe(
+    Effect.map((receipt) => {
+      if (receipt.status === "failed") return [`its changes could not be read: ${receipt.message}`];
+      const parsed = PlanReadingSchema.safeParse(receipt.output);
+      return parsed.success
+        ? [
+            `its changes (${call.action}):`,
+            ...planLines(parsed.data, PLAN_CAP, `${call.action} reads them all`),
+          ]
+        : [`its changes (${call.action}) are not a plan reading`];
+    }),
+  );
+
+/** What a walk shows before it asks to run `step`: the status, then the changes the step is about. */
+const prefaceOf = (ctx: KbContext, status: ProcedureStatus, step: StepStatus) =>
+  (step.changes === undefined ? Effect.succeed([]) : changesOf(ctx, step.changes)).pipe(
+    Effect.map((changes) => `${[...statusLines(status), ...changes].join("\n")}\n`),
   );
 
 /** Decode the step's nested receipt and report a failure or a check that stayed put. */
@@ -150,7 +225,7 @@ export const walk = Effect.fn("kb.procedure.walk")(function* (
     const action = decided ? undefined : opts.action;
     if (!opts.yes) {
       const go = yield* askTerminal(
-        Effect.succeed(`${statusLines(status).join("\n")}\n`),
+        prefaceOf(ctx, status, step),
         `Run ${step.id}${action === undefined ? "" : ` (${action})`}?`,
       );
       if (!go) {
@@ -244,11 +319,12 @@ interface MigrateOpts {
   readonly yes?: boolean;
   readonly status?: boolean;
   readonly plan?: boolean;
+  readonly all?: boolean;
   readonly keep?: boolean;
   readonly rollback?: boolean;
 }
 
-/** `kb migrate [id] [--yes] [--status] [--plan] [--keep | --rollback]`. */
+/** `kb migrate [id] [--yes] [--status] [--plan [--all]] [--keep | --rollback]`. */
 export function migrateCommands(program: Command): void {
   program
     .command("migrate")
@@ -258,7 +334,8 @@ export function migrateCommands(program: Command): void {
     .argument("[id]", "the migration, as `kb migrate` lists it (<family>.<id>)")
     .option("--yes", "do not ask before each step (approvals still ask; never keeps)", false)
     .option("--status", "show where the migration stands, running nothing", false)
-    .option("--plan", "show what it would write now, running nothing", false)
+    .option("--plan", "show what it would write now, node by node, running nothing", false)
+    .option("--all", `with --plan: every write, not the first ${PLAN_CAP}`, false)
     .option("--keep", "end its trial: keep it (its backup becomes an ordinary one)", false)
     .option("--rollback", "end its trial: put the store back to the backup taken before it", false)
     .action(
@@ -294,18 +371,26 @@ export function migrateCommands(program: Command): void {
         if (opts.plan === true)
           return invokeCliEffect(
             ctx,
-            onWire(ACTION_INVOKE_WIRE, { id: migrationPlanDef.id, input: { migration: id } }),
+            onWire(ACTION_INVOKE_WIRE, {
+              id: migrationPlanDef.id,
+              input: { migration: id, ...(opts.all === true ? {} : { limit: PLAN_CAP }) },
+            }),
           ).pipe(
             Effect.map((receipt) =>
               report(
                 receipt,
                 globals,
-                outputLines(migrationPlanDef, (plan) => [
-                  `${plan.migration}: creates ${plan.creates}, changes ${plan.changes}, deletes ${plan.deletes} (planned at ${plan.at}${plan.previewed ? ", as previewed" : ""})`,
-                  ...plan.samples.map(
-                    (sample) => `  ${sample.change} ${sample.id}  ${sample.text}`,
-                  ),
-                ]),
+                outputLines(migrationPlanDef, (plan) => {
+                  const [counts = "", ...writes] = planLines(
+                    plan,
+                    Infinity,
+                    "--all shows every one",
+                  );
+                  return [
+                    `${plan.migration}: ${counts} (planned at ${plan.at}${plan.previewed ? ", as previewed" : ""})`,
+                    ...writes,
+                  ];
+                }),
               ),
             ),
           );

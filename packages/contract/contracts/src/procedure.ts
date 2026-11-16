@@ -62,6 +62,13 @@ export interface ProcedureStep {
    * from the store (or what the store's machine holds, a backup) each time.
    */
   readonly check: ProcedureCall;
+  /**
+   * A read action whose output is a plan reading (`PlanReadingSchema`): the
+   * changes the step is about, node by node, which a surface shows before
+   * the person runs it. `procedure.status` passes it through and never runs
+   * it, so a status costs no plan.
+   */
+  readonly changes?: ProcedureCall;
 }
 
 /** Whether `step` is a decision: it offers more than one action. */
@@ -102,6 +109,8 @@ const StepStatusSchema = z.object({
   recommended: z.string().optional(),
   /** What its check gives to show beside it. */
   notes: z.array(z.string()),
+  /** The read that answers the changes it is about, as a plan reading; not run by the status. */
+  changes: ProcedureCallSchema.optional(),
   /** What its check answered: done, not done, or why it could not say. */
   check: z.discriminatedUnion("status", [
     z.object({ status: z.literal("done") }),

@@ -153,6 +153,7 @@ export {
   MigrationListSchema,
   MigrationPoint,
   migrationProcedureId,
+  PlanReadingSchema,
 } from "./migration.ts";
 export type { ExtensionMigration, MigrationGraph, MigrationStep } from "./migration.ts";
 export type {

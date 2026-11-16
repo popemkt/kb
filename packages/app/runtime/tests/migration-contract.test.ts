@@ -88,6 +88,14 @@ const family = defineExtension({
 });
 
 const PROCEDURE = "migration.fam.rename";
+
+/** How the plan reads `fam.rename`'s write of node `id`. */
+const renamed = (id: string, before: string, after: string) => ({
+  id,
+  name: after,
+  kind: "change",
+  parts: [{ part: "text", label: "Text", before, after }],
+});
 const APPROVED = { actor: "human", approved: true } as const;
 
 interface Listed {
@@ -327,6 +335,38 @@ function migrationContract(backend: StoreBackend): void {
           expect(yield* pinned()).toEqual([backup.backup.id]);
           expect(texts()).toEqual(["old a", "old b"]);
           expect((yield* status()).current).toBe("apply");
+        }),
+      ));
+
+    test("the plan reads node by node, the same on migration.plan and the preview", () =>
+      run(
+        Effect.gen(function* () {
+          const planned = (yield* output("migration.plan", { migration: "fam.rename" })) as {
+            writes: unknown[];
+            more: number;
+          };
+          expect(planned).toMatchObject({ creates: 0, changes: 2, deletes: 0, more: 0 });
+          expect(planned.writes).toEqual([
+            renamed("n.a", "old a", "new a"),
+            renamed("n.b", "old b", "new b"),
+          ]);
+          expect(
+            yield* output("migration.plan", { migration: "fam.rename", limit: 1 }),
+          ).toMatchObject({ changes: 2, writes: [renamed("n.a", "old a", "new a")], more: 1 });
+          yield* output("store.backup", {});
+          const preview = (yield* output("migration.preview", { migration: "fam.rename" })) as {
+            writes: unknown[];
+          };
+          expect(preview.writes).toEqual(planned.writes);
+          const steps = (yield* status()).steps;
+          const plan = { action: "migration.plan", input: { migration: "fam.rename" } };
+          expect(steps.map((s) => s.changes)).toEqual([
+            undefined,
+            plan,
+            plan,
+            undefined,
+            undefined,
+          ]);
         }),
       ));
 

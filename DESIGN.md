@@ -3460,8 +3460,8 @@ migration is for what a person wrote.
 - **A change is drawn so whitespace shows.** Each part's before and after
   are split by `textDiff` into the text they share and what is removed
   and added. `visibleText` draws a line break as `⏎`, a tab as `⇥`, and,
-  in what changes and at either end, a space as `·`, so a change that is
-  only whitespace still shows. The CLI marks what changes `[-removed-]`
+  in what is removed or added, a space as `·`, so a change that is only
+  whitespace still shows. The CLI marks what changes `[-removed-]`
   and `{+added+}`; the page marks it with colour and a strike, and names
   it for a screen reader.
 - **A failed verify is never left silently applied.** When verify finds

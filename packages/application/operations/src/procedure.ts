@@ -116,6 +116,7 @@ const statusOf = Effect.fn("procedure.statusOf")(function* (
       decision: isDecision(step),
       ...recommendedOf(step, checks[at]?.recommended),
       notes: [...(checks[at]?.notes ?? [])],
+      ...(step.changes === undefined ? {} : { changes: step.changes }),
       check: checks[at]?.check ?? { status: "not-done" },
       done: walked.done[at] ?? false,
     })),
