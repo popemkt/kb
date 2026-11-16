@@ -3,7 +3,7 @@ import { bundledSeed } from "@kb/bundled";
 import { SHORTCUT_IDS } from "@kb/keybindings";
 import { present, SYSTEM_IDS } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
-import { buildPaletteIndex, searchPalette } from "@/lib/palette-index";
+import { buildPaletteIndex, searchPalette, type PaletteIndex } from "@/lib/palette-index";
 
 const ISO = "2026-08-08T00:00:00.000Z";
 
@@ -19,41 +19,20 @@ function node(id: string, text: string, props: WireNode["props"] = {}): WireNode
 }
 
 /**
- * Best of {@link SAMPLES}: the fastest run is the one least interrupted by the
- * host, so it is the closest reading of the code's own cost on a shared machine.
+ * `index` with its entries counting each read of one, and that count. A
+ * keystroke's cost is how many entries it reads, which no load can change:
+ * the claim under test is a count, not a time.
  */
-function bestOf(runs: number, work: () => number): number {
-  let best = Infinity;
-  for (let run = 0; run < runs; run++) {
-    const started = performance.now();
-    work();
-    best = Math.min(best, performance.now() - started);
-  }
-  return best;
+function counted(index: PaletteIndex): { index: PaletteIndex; reads: () => number } {
+  let reads = 0;
+  const entries = new Proxy(index.entries, {
+    get(target, key) {
+      if (typeof key === "string" && /^\d+$/u.test(key)) reads += 1;
+      return target[key as keyof PaletteIndex["entries"]];
+    },
+  });
+  return { index: { ...index, entries }, reads: () => reads };
 }
-
-/**
- * How many times each side of the ratio is timed, keeping the fastest.
- *
- * Three was not enough: on a machine running the whole ui suite beside a
- * `bun test packages`, all three samples can be interrupted, and the measured
- * ratio drifted to 9.3 passes on one of five runs — a red that says nothing
- * about the algorithm. Nine samples of a sub-10 ms scan cost a fraction of a
- * second and put the loaded ratio back in range (1.46 / 2.30 / 1.55 / 3.75 /
- * 2.34 over the same five runs).
- */
-const SAMPLES = 9;
-
-/**
- * How many baseline substring passes a keystroke may cost.
- *
- * Three is the floor by construction: a miss costs `textLower.indexOf`, then
- * `idLower.includes`, then `haystack.includes`. Unloaded the ratio sits at 2.7
- * (the misses short-circuit on most entries); loaded it reached 3.75. Eight
- * leaves room above that while still landing far below a rebuild or a second
- * 50k subsequence pass.
- */
-const PASS_BUDGET = 8;
 
 describe("palette index", () => {
   it("indexes all nodes including field/tag/sys/command", () => {
@@ -130,40 +109,19 @@ describe("palette index", () => {
     expect(openHits).toHaveLength(20);
     expect(present(openHits.at(0), "first hit").kind).toBe("command");
 
-    // Calibration, not a clock: an absolute millisecond bar measures how busy
-    // the host is, so the gate is a ratio against one baseline substring pass
-    // over the same entries, timed on the same host in the same run. Load
-    // slows both sides equally. The claim under test is algorithmic — a
-    // keystroke is one linear scan over the prebuilt haystack, so an index
-    // rebuild or a second 50k subsequence pass blows the ratio anywhere.
-    const baselineMs = bestOf(SAMPLES, () => {
-      let seen = 0;
-      for (const entry of index.entries) seen += entry.textLower.indexOf("node 1234");
-      return seen;
-    });
+    // A keystroke that finds its text reads each entry once: one linear pass
+    // over the prebuilt haystack, with no second (fuzzy) pass and no sort or
+    // copy of the entries. A rebuild, a sort or a second pass reads more.
+    const keystroke = counted(index);
+    const keyHits = searchPalette(keystroke.index, "node 1234", 20);
+    expect(keyHits.map((hit) => hit.text)).toContain("node 1234");
+    expect(keystroke.reads()).toBe(index.entries.length);
 
-    let keyHits: ReturnType<typeof searchPalette> = [];
-    const keyMs = bestOf(SAMPLES, () => {
-      keyHits = searchPalette(index, "node 1234", 20);
-      return keyHits.length;
-    });
-
-    // Printed, not asserted: a rebuild is only ~3x a keystroke on a warm JIT
-    // over an already-sorted array, so it is too close to gate on. It is here
-    // because it is the cost the ratio above exists to keep off the keystroke
-    // path, and a reader deserves to see both numbers side by side.
-    const rebuildMs = bestOf(SAMPLES, () => buildPaletteIndex(nodes, 1).entries.length);
-
-    expect(keyHits.length).toBeGreaterThan(0);
-    expect(keyMs).toBeLessThan(baselineMs * PASS_BUDGET);
-
-    // Observations. Recorded like the store benchmark table, asserted by nobody.
-    console.info(
-      `| palette 50k | ms |\n|---|---:|\n| baseline substring pass | ${baselineMs.toFixed(2)} |` +
-        `\n| keystroke search | ${keyMs.toFixed(2)} |\n| index rebuild | ${rebuildMs.toFixed(2)} |` +
-        `\n| passes | ${(keyMs / baselineMs).toFixed(2)} |` +
-        `\n| rebuilds | ${(keyMs / rebuildMs).toFixed(3)} |`,
-    );
+    // Fuzzy matching runs only when no entry holds the text, as a second
+    // pass that stops at the limit: never more than two passes.
+    const fuzzy = counted(index);
+    expect(searchPalette(fuzzy.index, "nd 49999", 20).length).toBeGreaterThan(0);
+    expect(fuzzy.reads()).toBeLessThanOrEqual(2 * index.entries.length);
   });
 });
 
