@@ -3174,6 +3174,22 @@ remain valid. The CLI accepts an origin URL with an optional trailing slash,
 not credentials, a path, a query, or a fragment. Undeclared hosts and unrelated
 browser origins remain forbidden.
 
+The public origin is also kb's address: what a link that leaves the page
+names, such as a synced calendar event's backlink, or the redirect URI an
+OAuth client registers (the routines extension's `origin`). Without one it is
+the listener's own address. A proxy may serve the same UI at more addresses
+than one, such as a tailnet name and a local `https://kb.localhost`; each other
+address is a `kb ui --alias-origin <http(s)-origin>` (repeatable, validated as
+the public origin is). The guard admits an alias's Host and Origin as it does
+the public origin's, matched exactly, scheme and port included; nothing else
+of its name (another `*.localhost`, another port) is admitted. An alias is
+never kb's address: links keep the public origin, so a page opened at an
+alias works there, and only a step that leaves for that address on purpose,
+such as the routines extension sending the person to Google to sign in, comes
+back at the public origin, which its setup page says before it starts. An
+alias needs no public origin; a socket still does, since its page is the
+proxy's.
+
 **Hosted behind a proxy.** A hosted page works as a local one does: the
 page is the person's by its `Origin` (Surfaces → Who the person is), with
 nothing to open it by. A proxy that authenticates the person can also tell

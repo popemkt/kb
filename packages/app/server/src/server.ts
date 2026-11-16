@@ -83,8 +83,18 @@ export interface UiServerOptions {
    * this server's own port.
    */
   uiPort?: number;
-  /** Browser origin when a reverse proxy serves this UI. */
+  /**
+   * Browser origin when a reverse proxy serves this UI: kb's public address,
+   * the one links that leave the page name (`kb ui --public-origin`).
+   */
   publicOrigin?: string;
+  /**
+   * Other browser origins a proxy serves the same UI at, admitted as the
+   * public origin is (`kb ui --alias-origin`). Links that leave the page
+   * still name the public origin, or the listener's own address when there
+   * is none; an alias is never one. Default: none.
+   */
+  aliasOrigins?: readonly string[];
   /**
    * What an app that frames the page may have (`kb ui --embed-origin`): its
    * `origins` are sent as the page's `frame-ancestors` beside its own, and
@@ -138,7 +148,14 @@ export interface UiServerOptions {
  */
 export type ServedOptions = Pick<
   UiServerOptions,
-  "root" | "publicOrigin" | "embedding" | "identity" | "extensions" | "openedBy" | "watchExtensions"
+  | "root"
+  | "publicOrigin"
+  | "aliasOrigins"
+  | "embedding"
+  | "identity"
+  | "extensions"
+  | "openedBy"
+  | "watchExtensions"
 >;
 
 export interface UiServerHandle {
@@ -269,7 +286,8 @@ function serveUi(deps: {
   where: BindOptions;
   at: UiListener;
   uiPort: number | undefined;
-  publicOrigin: string | undefined;
+  /** Every origin a proxy serves the UI at: the public origin and its aliases. */
+  proxyOrigins: readonly string[];
   embedding: Embedding;
   root: string;
   ctx: KbContext;
@@ -291,7 +309,7 @@ function serveUi(deps: {
       guard ??= requestGuard({
         at,
         uiPort: deps.uiPort,
-        publicOrigin: deps.publicOrigin,
+        proxyOrigins: deps.proxyOrigins,
         identify: (request) =>
           identifyBy(
             deps.kernel.contributions(IdentityPoint).map(({ value }) => value),
@@ -532,7 +550,10 @@ export const startUi = Effect.fn("kb.startUi")(function* (
       where,
       at: asked,
       uiPort: opts.uiPort,
-      publicOrigin: opts.publicOrigin,
+      proxyOrigins: [
+        ...(opts.publicOrigin === undefined ? [] : [opts.publicOrigin]),
+        ...(opts.aliasOrigins ?? []),
+      ],
       embedding: opts.embedding ?? NO_EMBEDDING,
       root: opts.root,
       ctx,

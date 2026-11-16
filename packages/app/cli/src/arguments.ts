@@ -28,28 +28,38 @@ export const toSessionMode = (value: string): "follow" => {
     `--session takes follow (each call in the person's most recently active tab), not ${value}`,
   );
 };
-export const toOrigin = (value: string): string => {
-  try {
-    const url = new URL(value);
-    if (
-      (url.protocol === "http:" || url.protocol === "https:") &&
-      url.username === "" &&
-      url.password === "" &&
-      url.pathname === "/" &&
-      url.search === "" &&
-      url.hash === ""
-    ) {
-      return url.origin;
+/**
+ * The parser of an option that names a browser origin: an HTTP(S) URL with
+ * no credentials, path, query or fragment (a trailing slash is allowed),
+ * kept as its bare origin. A refusal names the option it was given for.
+ */
+const originFor =
+  (option: string) =>
+  (value: string): string => {
+    try {
+      const url = new URL(value);
+      if (
+        (url.protocol === "http:" || url.protocol === "https:") &&
+        url.username === "" &&
+        url.password === "" &&
+        url.pathname === "/" &&
+        url.search === "" &&
+        url.hash === ""
+      ) {
+        return url.origin;
+      }
+    } catch {
+      // Report malformed URLs through the same CLI usage error as non-origin URLs.
     }
-  } catch {
-    // Report malformed URLs through the same CLI usage error as non-origin URLs.
-  }
-  throw new CommanderError(
-    EXIT_USAGE,
-    "commander.invalidArgument",
-    "--public-origin must be an HTTP(S) origin, e.g. https://kb.example.com",
-  );
-};
+    throw new CommanderError(
+      EXIT_USAGE,
+      "commander.invalidArgument",
+      `${option} must be an HTTP(S) origin, e.g. https://kb.example.com`,
+    );
+  };
+
+/** `kb ui --public-origin`: kb's public address behind a reverse proxy. */
+export const toPublicOrigin = originFor("--public-origin");
 
 /**
  * One `--identity-header <header>=<login>`: a header a trusted reverse proxy
@@ -97,11 +107,20 @@ export const collectScripts = (value: string, held: readonly string[] = []): rea
   toScriptUrl(value),
 ];
 
-/** Every `--embed-origin` given, each an origin. */
-export const collectOrigins = (value: string, held: readonly string[] = []): readonly string[] => [
-  ...held,
-  toOrigin(value),
-];
+/** Every value a repeatable origin option was given, each an origin. */
+const collectOriginsFor = (option: string) => {
+  const toOrigin = originFor(option);
+  return (value: string, held: readonly string[] = []): readonly string[] => [
+    ...held,
+    toOrigin(value),
+  ];
+};
+
+/** Every `--embed-origin` given. */
+export const collectEmbedOrigins = collectOriginsFor("--embed-origin");
+
+/** Every `--alias-origin` given. */
+export const collectAliasOrigins = collectOriginsFor("--alias-origin");
 
 /** Every `--identity-header` given, as the one header they name and its logins. */
 export const collectIdentity = (
