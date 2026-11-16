@@ -304,6 +304,7 @@ function buildProgram(): Command {
       ),
     );
 
+  // GAP [[01M7HDP52RY5R2WJPXMMD30R8C]] kb ui's options load with every command.
   program
     .command("ui")
     .description("Serve the kb browser UI + subscription backend")

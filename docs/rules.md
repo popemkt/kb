@@ -1008,6 +1008,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — windowing for the outline list that keeps caret, focus, selection, pickers and jump-to-node working
 - **node** — `01M41062Z83M38GYHC276XJ8RF`
 
+### GAP: every kb ui option parser loads with each one-shot command
+
+- **expected** — A one-shot command eagerly loads only its own command's code; a subcommand's options and their parsers (kb ui's --public-origin, --alias-origin, --embed-origin, --identity-header) are registered when that subcommand is the one invoked.
+- **current** — buildProgram in packages/app/cli/src/cli.ts registers every subcommand and its options up front, so their parsers in arguments.ts sit in the eager CLI graph; kb ui --alias-origin (#248) added 350 bytes there, raising harness/cli-closure-budgets.json.
+- **impact** — Each new subcommand option grows every one-shot command's eager graph by its parser and help text; small per option, but the budget can only be raised, never held, while options keep landing.
+- **closes** — Subcommands register their options lazily (only the invoked command's definition is imported, e.g. one module per command loaded by name), and the cli-closure byte budget is lowered to the new measurement.
+- **rule** — Hosts are accelerators: the store is the truth
+- **node** — `01M7HDP52RY5R2WJPXMMD30R8C`
+
 ### GAP: every one-shot command rebuilds the whole index, derived sets and manifest
 
 - **expected** — A command pays for what it reads: manifest JSON Schemas are built for kb.manifest and MCP tools/list only, the DataScript index on first datalog use, and derived sets on demand, or from a snapshot keyed by the store fingerprint.
