@@ -81,11 +81,14 @@ describe("kinds, roles and options", () => {
 
   test("the type slot is the worked example: children, no tag, no targetTag", () => {
     const slot = byId.get(SYSTEM_IDS.fieldTypeField);
-    expect(slot?.children).toEqual(FIELD_TYPES.map((type) => FIELD_TYPE_OPTION_IDS[type]));
+    // The built-in types first; a type a family declares is filed after them.
+    expect(slot?.children.slice(0, FIELD_TYPES.length)).toEqual(
+      FIELD_TYPES.map((type) => FIELD_TYPE_OPTION_IDS[type]),
+    );
     expect(targetTagsOf(slot)).toEqual([]);
     expect(targetQueryOf(slot)).toBeNull();
-    for (const type of FIELD_TYPES) {
-      expect(typeRefsOf(byId.get(FIELD_TYPE_OPTION_IDS[type])), type).toEqual([]);
+    for (const child of slot?.children ?? []) {
+      expect(typeRefsOf(byId.get(child)), child).toEqual([]);
     }
   });
 });

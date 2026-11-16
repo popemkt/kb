@@ -113,21 +113,29 @@ describe("sys.f.onto.include — targetTag → sys.tag", () => {
   });
 });
 
+/** The type field's children as the bundled seed files them: the built-ins and each family's. */
+const typeOptions = present(seedMap.get(SYSTEM_IDS.fieldTypeField), "the type field").children;
+
 describe("sys.f.fieldType — the option set is the field's children", () => {
-  test("resolves to the six seeded option nodes, in declared child order", () => {
+  test("resolves to the field's seeded option nodes", () => {
     const allowed = allowedRefIdsOf(
       seedMap.get(SYSTEM_IDS.fieldTypeField),
       seedMap,
       runnerFor(seed),
     );
-    expect([...present(allowed, "expected allowed")]).toEqual(Object.values(FIELD_TYPE_OPTION_IDS));
+    // A set: which nodes the field may name, not the order a picker lists them in.
+    expect([...present(allowed, "expected allowed")].toSorted()).toEqual(
+      [...typeOptions].toSorted(),
+    );
   });
 
   test("declares neither targetTag nor targetQuery — parenting is the declaration", () => {
     const field = seedMap.get(SYSTEM_IDS.fieldTypeField);
     expect(targetTagsOf(field)).toEqual([]);
     expect(targetQueryOf(field)).toBeNull();
-    expect(present(field, "expected field").children).toEqual(Object.values(FIELD_TYPE_OPTION_IDS));
+    // The built-in types first; a type a family declares is filed after them.
+    const builtIn = Object.values(FIELD_TYPE_OPTION_IDS);
+    expect(present(field, "expected field").children.slice(0, builtIn.length)).toEqual(builtIn);
   });
 
   test("a child added to the field joins the option set with no extra rule", () => {
@@ -214,7 +222,9 @@ describe("sys.f.targetQuery — the general form", () => {
     });
     const nodes = [...seed, field];
     const allowed = allowedRefIdsOf(field, new Map(nodes.map((n) => [n.id, n])), runnerFor(nodes));
-    expect([...present(allowed, "expected allowed")]).toEqual(Object.values(FIELD_TYPE_OPTION_IDS));
+    expect([...present(allowed, "expected allowed")].toSorted()).toEqual(
+      [...typeOptions].toSorted(),
+    );
   });
 
   test("no runner, or broken EDN, yields empty — never 'unrestricted'", () => {

@@ -1,0 +1,9 @@
+{
+  "reason": "Routines' repeat type: its declared field type option, the repeat field's seeded type and the migration routines.repeat-type, in the family's declaration the CLI composes and the page folds; and REPEAT_KIND, the declared id the page half contributes its value kind for.",
+  "pr": "#266",
+  "raise": {
+    "cli-closure": { "bytes": 1289 },
+    "page-eager": { "bytes": 910 },
+    "surface": { "@kb/routines": 1 }
+  }
+}

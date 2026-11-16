@@ -91,7 +91,12 @@ describe("typed field seeds", () => {
       "expected byId.get(SYSTEM_IDS.fieldTypeField)",
     );
 
-    expect(slot.children).toEqual(FIELD_TYPES.map((type) => FIELD_TYPE_OPTION_IDS[type]));
+    // The built-in types first; a type a family declares is filed after them.
+    expect(slot.children.slice(0, FIELD_TYPES.length)).toEqual(
+      FIELD_TYPES.map((type) => FIELD_TYPE_OPTION_IDS[type]),
+    );
+    for (const child of slot.children)
+      expect(refs(present(byId.get(child), child), SYSTEM_IDS.typeField), child).toEqual([]);
     for (const type of FIELD_TYPES) {
       const option = byId.get(FIELD_TYPE_OPTION_IDS[type]);
       expect(option, type).toBeDefined();

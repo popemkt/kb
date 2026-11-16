@@ -1,14 +1,24 @@
 import { Record } from "effect";
-import { declarationPlugin, defineExtension, viewDef } from "@kb/contracts";
+import {
+  declarationPlugin,
+  defineExtension,
+  viewDef,
+  type ExtensionMigration,
+  type MigrationGraph,
+} from "@kb/contracts";
 import type { Plugin } from "@kb/plugin";
 import {
+  declaredOptionId,
   extensionNodeId,
+  FIELD_TYPE_OPTION_IDS,
+  FIELD_TYPE_OPTIONS,
   seededField,
   seededTag,
   SYSTEM_IDS,
   type FieldOptions,
   type FieldType,
   type KbNode,
+  type NodeId,
 } from "@kb/model";
 import { RoutinesCalendarView, RoutinesEventView, RoutinesSyncView } from "./view.ts";
 
@@ -44,9 +54,16 @@ function field(
  * id) is tucked, since the Sync services page is where it is read; and an
  * account's secrets, project and setup, which that page writes, never.
  */
+/**
+ * The family's field type for a series' rule (DESIGN.md → Field types): a
+ * rule stored as text, which the page reads as the event's line words it.
+ */
+export const REPEAT_KIND = "routines.repeat";
+/** Its option node, which the repeat field's type slot names. */
+export const REPEAT_TYPE: NodeId = declaredOptionId(FIELD_TYPE_OPTIONS, REPEAT_KIND);
 const fields = {
   /** The series' rule (RRULE); empty for an event that happens once. */
-  rrule: field("repeat", "text", "filled"),
+  rrule: { ...field("repeat", "text", "filled"), declared: REPEAT_TYPE },
   starts: field("starts", "date"),
   at: field("at", "time"),
   duration: field("duration", "number", "filled"),
@@ -174,7 +191,13 @@ export function routinesSeed(at: string): readonly KbNode[] {
       ...seededField(id, spec.label, spec.type, at, {
         one: spec.one,
         show: spec.show,
-        props: target === null ? {} : { [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: target }] },
+        props: {
+          ...(target === null ? {} : { [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: target }] }),
+          // A field of a type the family declares names that type, which stores as `spec.type`.
+          ...("declared" in spec
+            ? { [SYSTEM_IDS.fieldTypeField]: [{ t: "ref", v: spec.declared }] }
+            : {}),
+        },
       }),
       children: spec.options.map((value) => routineOption(key, value)),
     });
@@ -200,6 +223,48 @@ export function routinesSeed(at: string): readonly KbNode[] {
     );
   return nodes;
 }
+/** The repeat field as a store seeded before its type holds it: typed text. */
+function untypedRepeat(graph: MigrationGraph): KbNode | null {
+  const node = graph.nodeOf(ROUTINE_FIELDS.rrule);
+  const [type, ...more] = node?.props[SYSTEM_IDS.fieldTypeField] ?? [];
+  const text = more.length === 0 && type?.t === "ref" && type.v === FIELD_TYPE_OPTION_IDS.text;
+  return node !== undefined && text ? node : null;
+}
+
+/**
+ * The family's migration `routines.repeat-type` (DESIGN.md → Plugin data
+ * migrations): the repeat field of a store seeded before the family
+ * declared its type takes that type. Its values stay the rules they are.
+ * Pure and idempotent: a field already of the type plans nothing.
+ */
+const repeatTypeMigration: ExtensionMigration = {
+  id: "repeat-type",
+  title: "Read an event's repeat in words",
+  description:
+    "An event's repeat field was typed text, so it showed its rule (FREQ=WEEKLY). It takes the repeat type, which reads as the event's line does (Weekly on Tue) and still edits as the rule. Its values do not change.",
+  run: (graph) => {
+    const repeat = untypedRepeat(graph);
+    return {
+      upserts:
+        repeat === null
+          ? []
+          : [
+              {
+                ...repeat,
+                props: {
+                  ...repeat.props,
+                  [SYSTEM_IDS.fieldTypeField]: [{ t: "ref", v: REPEAT_TYPE }],
+                },
+                updatedAt: graph.at,
+              },
+            ],
+      deletes: [],
+    };
+  },
+  check: (graph) =>
+    untypedRepeat(graph) === null ? [] : [`${ROUTINE_FIELDS.rrule} is still typed text`],
+};
+
 export const routinesExtension = defineExtension({
   name: "routines",
   label: "Events",
@@ -209,6 +274,16 @@ export const routinesExtension = defineExtension({
   tags: ["event", "occurrence", "calendar", "google-account"],
   optional: { byDefault: "off" },
   seed: routinesSeed,
+  // Its repeat field's type: a rule, stored as text.
+  declaredOptions: [
+    {
+      kind: FIELD_TYPE_OPTIONS,
+      options: [
+        { id: REPEAT_KIND, label: "repeat", chooses: [{ kind: FIELD_TYPE_OPTIONS, id: "text" }] },
+      ],
+    },
+  ],
+  migrations: [repeatTypeMigration],
   retires: [
     // Routines became events, a routine an event and its rule the event's
     // repeat: labels only, so every id stays.
