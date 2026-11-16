@@ -271,7 +271,14 @@ function readingOf(plan: Plan, nodes: readonly KbNode[], limit?: number): PlanRe
     creates: plan.creates,
     changes: plan.upserts.length - plan.creates,
     deletes: plan.deletes.length,
-    writes: writes.map((write) => ({ ...write, parts: [...write.parts] })),
+    writes: writes.map((write) => ({
+      ...write,
+      parts: write.parts.map((part) => ({
+        ...part,
+        before: [...part.before],
+        after: [...part.after],
+      })),
+    })),
     more: all.length - writes.length,
   };
 }

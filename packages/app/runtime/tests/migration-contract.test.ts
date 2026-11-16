@@ -94,7 +94,14 @@ const renamed = (id: string, before: string, after: string) => ({
   id,
   name: after,
   kind: "change",
-  parts: [{ part: "text", label: "Text", before, after }],
+  parts: [
+    {
+      part: "text",
+      label: "Text",
+      before: [{ value: { t: "str", v: before } }],
+      after: [{ value: { t: "str", v: after } }],
+    },
+  ],
 });
 const APPROVED = { actor: "human", approved: true } as const;
 

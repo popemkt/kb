@@ -74,9 +74,11 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // (`writes`, `more`) in place of `samples`, and take an optional `limit`; a
 // procedure step may name its `changes`. A previous page never calls
 // `migration.plan`, ignores `changes` and shows a preview's output as values.
+// A plan reading's part holds its values typed and by id ({value, name?}) in
+// place of words, which only this release's page and CLI read.
 const RECORDED = {
   protocol: 9,
-  fingerprint: "b6f474a4049fc5e4da493e8ec8772b992d8d87240e7a702c3f0393ce0268b8b9",
+  fingerprint: "969810c8c057cae8d573b0773dcd8a9a17f8da4f13c9f66a0289bf4721dd9c66",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

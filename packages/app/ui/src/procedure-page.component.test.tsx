@@ -208,7 +208,14 @@ const change = (at: number) => ({
   id: `n${at}`,
   name: `Note ${at}`,
   kind: "change",
-  parts: [{ part: "text", label: "Text", before: `Note ${at}\n`, after: `Note ${at}` }],
+  parts: [
+    {
+      part: "text",
+      label: "Text",
+      before: [{ value: { t: "str", v: `Note ${at}\n` } }],
+      after: [{ value: { t: "str", v: `Note ${at}` } }],
+    },
+  ],
 });
 it("draws a step's changes before it is reached: grouped, capped, each node a link, a trailing break as ⏎", async () => {
   const plan = { action: "migration.plan", input: { migration: "core.trim" } };
@@ -242,7 +249,9 @@ it("draws a step's changes before it is reached: grouped, capped, each node a li
         id: "new",
         name: "",
         kind: "create",
-        parts: [{ part: "text", label: "Text", before: null, after: "" }],
+        parts: [
+          { part: "text", label: "Text", before: [], after: [{ value: { t: "str", v: "" } }] },
+        ],
       },
     ],
     more: 0,
@@ -271,6 +280,8 @@ it("draws a step's changes before it is reached: grouped, capped, each node a li
   ]);
   expect(groups[0]?.querySelectorAll("[data-plan-write]")).toHaveLength(25);
   expect(groups[1]?.textContent).toContain("Untitled");
+  // An empty text added still shows: as "".
+  expect(groups[1]?.querySelector('[data-plan-span="added"]')?.textContent).toBe('added: ""');
   const removed = present(container.querySelector('[data-plan-span="removed"]'), "removed span");
   expect(removed.textContent).toBe("removed: ⏎");
   await click("Show all 30");

@@ -169,7 +169,14 @@ const changed = (id: string, before: string, after: string) => ({
   id,
   name: after,
   kind: "change" as const,
-  parts: [{ part: "text", label: "Text", before, after }],
+  parts: [
+    {
+      part: "text",
+      label: "Text",
+      before: [{ value: { t: "str" as const, v: before } }],
+      after: [{ value: { t: "str" as const, v: after } }],
+    },
+  ],
 });
 
 test("a plan reads as lines: each write, its parts' diffs with whitespace drawn, and what the cap left out", () => {
@@ -187,4 +194,25 @@ test("a plan reads as lines: each write, its parts' diffs with whitespace drawn,
     "  … and 2 more (--all shows every one)",
   ]);
   expect(planLines({ ...reading, more: 0 }, Infinity, "")[4]).toBe("      Text: two[-··-]");
+});
+
+/** A reference to `v`, a node named Alex. */
+const alex = (v: string) => ({ value: { t: "ref" as const, v }, name: "Alex" });
+
+test("a plan line tells two values of one name apart: a reference by its id", () => {
+  const reading = {
+    creates: 0,
+    changes: 1,
+    deletes: 0,
+    writes: [
+      {
+        id: "m",
+        name: "Meeting",
+        kind: "change" as const,
+        parts: [{ part: "f.who", label: "Who", before: [alex("p.1")], after: [alex("p.2")] }],
+      },
+    ],
+    more: 0,
+  };
+  expect(planLines(reading, Infinity, "")[2]).toBe("      Who: [-Alex·(p.1)-], {+Alex·(p.2)+}");
 });

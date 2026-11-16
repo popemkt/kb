@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { z } from "zod";
 import { PlanReadingSchema, type ProcedureCall } from "@kb/contracts";
-import { WRITE_KINDS, textDiff, visibleText } from "@kb/model";
+import { WRITE_KINDS, partDiff, visibleText } from "@kb/model";
 import { Button, browserHost, cn, failureText, usePane } from "@kb/ui-sdk";
 import { nodePath } from "@kb/views";
 import { useGraphStore } from "@/stores/graph.store";
@@ -18,6 +18,7 @@ import { useWorkspaceStore } from "@/stores/workspace.store";
 type Reading = z.infer<typeof PlanReadingSchema>;
 type Write = Reading["writes"][number];
 type Kind = Write["kind"];
+type Part = Write["parts"][number];
 
 /** How many writes a group shows before its "Show all". */
 const GROUP_CAP = 25;
@@ -99,18 +100,12 @@ function Marked({ text, spaces }: { readonly text: string; readonly spaces: bool
   );
 }
 
-/** A part's before and after as one run: shared text plain, removed struck on the destructive tint, added on the success tint. */
-function Diff({
-  before,
-  after,
-}: {
-  readonly before: string | null;
-  readonly after: string | null;
-}) {
+/** A part's change as one run: what it keeps plain, removed struck on the destructive tint, added on the success tint. */
+function Diff({ part }: { readonly part: Part }) {
   return (
     <span className="min-w-0 break-all font-mono text-label" data-plan-diff>
       {byOffset(
-        textDiff(before, after),
+        partDiff(part),
         (span) => span.text,
         (span) => span.kind,
       ).map(({ piece: span, key }) =>
@@ -161,7 +156,7 @@ function WriteRow({ write }: { readonly write: Write }) {
           <div key={part.part} className="contents">
             <dt className="text-label text-muted-foreground">{part.label}</dt>
             <dd className="min-w-0">
-              <Diff before={part.before} after={part.after} />
+              <Diff part={part} />
             </dd>
           </div>
         ))}

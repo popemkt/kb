@@ -12,6 +12,7 @@ import { z } from "zod";
 import { Point } from "@kb/plugin";
 import { MIGRATION_STATES, WRITE_KINDS, type KbNode, type NodeId } from "@kb/model";
 import { CORE_POINT_DEFINITIONS } from "./point-definitions.ts";
+import { PropValueSchema } from "./protocol.ts";
 import type { ProcedureContribution, ProcedureStep } from "./procedure.ts";
 
 /** What a migration reads: the graph, without the migrations' own records. */
@@ -76,6 +77,9 @@ export const MigrationListSchema = z.object({
   ),
 });
 
+/** One value a part of a write holds: as stored, and for a reference the name of the node it names. */
+const WriteValueSchema = z.object({ value: PropValueSchema, name: z.string().optional() });
+
 /**
  * A plan, read node by node (DESIGN.md → Plugin data migrations, "A plan is
  * read node by node, and exactly"): its counts, and each write as
@@ -97,8 +101,9 @@ export const PlanReadingSchema = z.object({
         z.object({
           part: z.string(),
           label: z.string(),
-          before: z.string().nullable(),
-          after: z.string().nullable(),
+          /** The values as the store holds them, typed and by id; a reference with its target's name. */
+          before: z.array(WriteValueSchema),
+          after: z.array(WriteValueSchema),
         }),
       ),
     }),

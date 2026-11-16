@@ -89,8 +89,8 @@
       "contract/contracts/src/mcp-tool.ts": 2,
       "contract/contracts/src/protocol.ts": 2,
       "contract/contracts/src/screen.ts": 3,
-      "contract/contracts/src/migration.ts": 7,
       "contract/contracts/src/procedure.ts": 2,
+      "contract/contracts/src/migration.ts": 7,
       "contract/ext-sdk/src/module.ts": 6,
       "contract/ext-sdk/src/page-surface.ts": 3,
       "contract/ext-sdk/src/surface.ts": 2,
@@ -147,7 +147,7 @@
     },
     "lazy-fence": {},
     "cli-closure": {
-      "bytes": 2835416,
+      "bytes": 2837781,
       "modules": 755
     },
     "single-family": {

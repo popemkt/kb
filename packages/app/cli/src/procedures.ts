@@ -21,7 +21,7 @@ import {
   type ProcedureStatus,
   type StepStatus,
 } from "@kb/contracts";
-import { graphemes, textDiff, visibleText } from "@kb/model";
+import { graphemes, partDiff, visibleText } from "@kb/model";
 import {
   migrationListDef,
   migrationPlanDef,
@@ -48,9 +48,11 @@ const PLAN_CAP = 20;
 /** How much of a write's name its heading line keeps. */
 const NAME_CAP = 60;
 
-/** A part's before and after as one line: what they share, `[-removed-]` and `{+added+}`, whitespace drawn. */
-function diffLine(before: string | null, after: string | null): string {
-  return textDiff(before, after)
+type PlanPart = z.infer<typeof PlanReadingSchema>["writes"][number]["parts"][number];
+
+/** A part's change as one line: what it keeps, `[-removed-]` and `{+added+}`, whitespace drawn. */
+function diffLine(part: PlanPart): string {
+  return partDiff(part)
     .map((span) =>
       span.kind === "same"
         ? visibleText(span.text)
@@ -84,7 +86,7 @@ export function planLines(
       .slice(0, cap)
       .flatMap((write) => [
         `  ${write.kind} ${name(write.name) || "Untitled"}  (${write.id})`,
-        ...write.parts.map((part) => `      ${part.label}: ${diffLine(part.before, part.after)}`),
+        ...write.parts.map((part) => `      ${part.label}: ${diffLine(part)}`),
       ]),
     ...(left === 0 ? [] : [`  … and ${left} more (${more})`]),
   ];

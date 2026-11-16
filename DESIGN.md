@@ -3453,14 +3453,23 @@ migration is for what a person wrote.
   display text, `nodeName`, as the node will read, or as it read for a
   delete), what it does (create, change, delete), and its **parts**: the
   text, each field whose values differ, and the children, each with its
-  label and its value before and after (none on the side where it does not
-  exist). A value is the exact text the store holds, references named by
-  their target's name. The node's timestamps are bookkeeping and are not
-  parts. The reading is `@kb/model`'s `writeChange` over a `NodeWrite`, so
+  label and its values before and after (none on the side where it has
+  none). A value is the value the store holds, typed and by id
+  (`PropValue`: the text is a `str`, a child a `ref`), and a reference
+  carries its target's name beside its id. A reading never reduces a value
+  to words, so two values that read alike (two nodes named Alex, the number
+  3 and the text "3") stay two values for an agent as for a person. The
+  node's timestamps are bookkeeping and are not parts. The reading is `@kb/model`'s `writeChange` over a `NodeWrite`, so
   every surface reads the same write; none builds a second diff.
-- **A change is drawn so whitespace shows.** Each part's before and after
-  are split by `textDiff` into the text they share and what is removed
-  and added. `visibleText` draws a line break as `⏎`, a tab as `⇥`, and,
+- **A change is drawn so every difference shows.** `partDiff` reads a
+  part as what it keeps, removes and adds. One text on each side is diffed
+  by character, its shared runs cut around the change; any other part is
+  diffed value by value in order, the values joined by `, `. A value reads
+  as its words (a reference its target's name, an empty text `""`), and
+  where two different values in the part read alike, each says what tells
+  it apart: a reference its id, any other value its kind. So a reference
+  moved between two nodes of one name, or children of one name reordered,
+  still shows what moved. `visibleText` draws a line break as `⏎`, a tab as `⇥`, and,
   in what is removed or added, a space as `·`, so a change that is only
   whitespace still shows. The CLI marks what changes `[-removed-]`
   and `{+added+}`; the page marks it with colour and a strike, and names

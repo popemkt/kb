@@ -4392,8 +4392,8 @@ visit, before the backup is taken; once it is done, the Apply card does:
 - **A write is its node and its parts.** Its name (`nodeName`, _Untitled_
   for none) is a link that opens the node in this pane, except for a
   delete, whose node will be gone. Its id is beside it, small. Under it,
-  each part is a row: the part's label, then the before and after drawn by
-  `textDiff` and `visibleText`, the shared text plain, the removed struck
+  each part is a row: the part's label, then its change drawn by
+  `partDiff` and `visibleText`, the shared text plain, the removed struck
   through on the destructive tint, the added on the success tint, both in
   the foreground colour (a tint's own colour on it fails AA), each
   named _removed_ or _added_ for a screen reader. In shared text `⏎`, `⇥`
