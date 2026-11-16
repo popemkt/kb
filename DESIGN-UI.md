@@ -858,7 +858,9 @@ gives a trailing `\n` and the placeholder a browser leaves in a row it
 emptied (Backspace on the last character, or select all and delete), which
 typing then goes in front of. Read as `\n`, that placeholder would store a
 newline nobody typed, and Enter at the end would carry it into every row it
-opens.
+opens. Text stored that way before this rule is trimmed by core's migration
+`core.trim-trailing-breaks`
+([DESIGN.md → Plugin data migrations](DESIGN.md#plugin-data-migrations)).
 While editing, the DOM is the text: it is rebuilt from `content` on mount and
 when `content` moved on its own (a merge), never from a `content` still behind
 the editor's own writes. Text undo inside the row is the host's
@@ -2975,7 +2977,8 @@ already writes one.
 
 What a paste or a drop brings into a row's text is offered to a chain, and
 the browser's own paste or drop runs only when every handler declines it
-(`lib/ingest`).
+(`lib/ingest`). A paste of text never reaches the browser: the chain's last
+handler takes it as text.
 
 - **The outline declares the chain.** `outline.ingest`, a point in the
   outline family's point definitions (`OUTLINE_POINT_DEFINITIONS`), holds
@@ -2997,7 +3000,7 @@ the browser's own paste or drop runs only when every handler declines it
   until it is dropped.
 - **A handler never writes.** It says what the gesture makes, as data
   (`IngestOutcome`), and the page writes it at the row: the node the
-  row's text is (`shownNodeId`). It makes one of two things:
+  row's text is (`shownNodeId`). It makes one of three things:
   - **Nodes**, as outline paste text (DESIGN.md → Outline paste). The page
     adds them after the row through `node.addTree`, in one transaction,
     under the guards every call meets, and puts the caret at the end of
@@ -3008,6 +3011,10 @@ the browser's own paste or drop runs only when every handler declines it
     deleted. That is a second write, so undo takes them back in two steps.
   - **A file**, kept as an asset and linked from the row's text
     (`attachFileToNode`).
+  - **Text**, put in at the caret the way typing is. The text host that
+    took the gesture inserts it at its selection and reads the row back
+    through the one input step (`readInlineInput`), so the row's text undo
+    takes it back as it takes typing back.
 
   A write that fails, such as an outline that names a tag the store does
   not have, is told, and leaves nothing.
@@ -3018,12 +3025,23 @@ the browser's own paste or drop runs only when every handler declines it
     item, nesting by indent. Its items become nodes, every marker read as
     `-`.
   - the drop of a file (`ATTACH_FILE`).
+  - the paste of anything else, as text (`PASTE_TEXT`, `@kb/ui-sdk`), last
+    of all (priority -1, below every family's). `pastedText` normalises the
+    paste's `text/plain`:
+    - every line break becomes `\n`;
+    - a non-breaking space becomes a space;
+    - one trailing line break is dropped.
 
-  Only a list is the outline's to claim. Outline paste reads `#tag`,
+    A copied line carries a trailing break, and in the row it would open an
+    empty last line. The browser's own paste kept that break, with the caret
+    after it. WebKit also wrote rich HTML's spaces as U+00A0, which look
+    like spaces and match none.
+
+  Only a list is the outline's to claim as nodes. Outline paste reads `#tag`,
   `field:: value` and `[[ref]]` in an item's text and refuses one that is
   not there, and prose has no way to say that a `#` is only text. So a
-  paragraph is never read as an outline: it pastes as text into the row,
-  as before.
+  paragraph is never read as an outline: it pastes as text into the row
+  (`PASTE_TEXT`).
 - **A family's handler is a transform** (`provideIngest(id, { match,
   priority, transform })`): its match as data, and its text as outline
   paste text, or null to decline. What the outline makes of it is the
@@ -3039,7 +3057,8 @@ the browser's own paste or drop runs only when every handler declines it
   author writes. GAP [[01M73WFP42V98AA4VRG8JBQQ2N]].
 - **A text host offers each gesture through its port** (`IngestPort`,
   bound by the surface that draws it). A row's port is the chain at that
-  row (`useRowIngest`). A canvas card's takes a dropped file alone.
+  row (`useRowIngest`). A canvas card's takes a dropped file and pastes
+  text as a row does (`ATTACH_FILE`, `PASTE_TEXT`).
 
 ### UI points: routes and views
 

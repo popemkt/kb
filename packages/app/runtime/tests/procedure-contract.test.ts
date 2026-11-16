@@ -231,6 +231,12 @@ describe("procedure contract", () => {
         const listed = yield* invoke("procedure.list", {});
         expect(listed.status === "succeeded" && listed.output).toEqual({
           procedures: [
+            // Core's own declared migration, with nothing to trim in this store.
+            {
+              id: "migration.core.trim-trailing-breaks",
+              title: "Trim stray trailing line breaks",
+              current: null,
+            },
             { id: "t.advised.drop", title: "an advised decision", current: "decide" },
             { id: "t.advised.maybe", title: "an advised decision", current: "decide" },
             { id: "t.proc", title: "a procedure", current: "one" },

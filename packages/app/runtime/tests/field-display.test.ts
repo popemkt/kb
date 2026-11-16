@@ -41,8 +41,9 @@ test("a field hidden with the old checkbox reads as hidden, with no migration pe
   const ctx = await openKb(root);
   const listed = await invoke(ctx, { id: "migration.list", input: {} });
   if (listed.status !== "succeeded") throw new Error(JSON.stringify(listed));
-  const migrations = (listed.output as { migrations: { id: string }[] }).migrations;
-  expect(migrations.filter((m) => m.id.startsWith("core."))).toEqual([]);
+  const migrations = (listed.output as { migrations: { id: string; pending: boolean }[] })
+    .migrations;
+  expect(migrations.filter((m) => m.pending)).toEqual([]);
 
   const nodeOf = (id: string) => ctx.nodes.find((node) => node.id === id);
   expect(nodeOf("f.archived")?.props[SYSTEM_IDS.hiddenField]).toEqual([{ t: "bool", v: true }]);

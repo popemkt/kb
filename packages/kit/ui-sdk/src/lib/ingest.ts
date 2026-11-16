@@ -9,11 +9,12 @@
  * too (`IngestOutcome`), and the first to make something claims it; one that
  * makes nothing declines, and the next is asked. The surface commits what
  * the claim makes: a handler never writes. What every handler declines is
- * the browser's own: text pasted into the row.
+ * the browser's own, and the last handler, {@link PASTE_TEXT}, takes every
+ * paste of text, so only a drop can be.
  *
  * A text host offers a gesture through its {@link IngestPort}, which the
  * surface that draws it binds: the outline's runs the chain at its row, and a
- * canvas card's keeps a dropped file.
+ * canvas card's keeps a dropped file and pastes text.
  */
 import type { ContributionEntry } from "@kb/plugin";
 import { browserHost } from "../host";
@@ -39,11 +40,21 @@ export interface IngestSite {
 }
 
 /**
- * What a claimed gesture makes, which the page writes at the row: a tree of
+ * What a claimed gesture makes, which is written at the row: a tree of
  * nodes, as outline paste text (DESIGN.md → Outline paste), added after it
- * in one transaction; or a file, kept as an asset and linked from its text.
+ * in one transaction; a file, kept as an asset and linked from its text; or
+ * text, which the text host puts in at its caret the way typing is.
  */
-type IngestOutcome = { readonly tree: string } | { readonly attach: File };
+type IngestOutcome =
+  | { readonly tree: string }
+  | { readonly attach: File }
+  | { readonly text: string };
+
+/**
+ * The text host's own insertion: put `text` in at its selection, replacing
+ * what is selected, the caret after it, and read the row back as typing is.
+ */
+type InsertText = (text: string) => void;
 
 /** Which gestures a handler takes, as data: the gesture, the data's types, and a test of its text. */
 export interface IngestMatch {
@@ -73,8 +84,12 @@ export interface IngestPort {
    * dragged over, before its data can be read, so a pattern is not asked.
    */
   readonly accepts: (gesture: IngestGesture, types: readonly string[]) => boolean;
-  /** Offer it: true when it is claimed (the browser's own then does not run), and the claim runs. */
-  readonly offer: (ingested: Ingested) => boolean;
+  /**
+   * Offer it: true when it is claimed (the browser's own then does not run),
+   * and the claim runs. Text it makes goes in through `insertText` at once,
+   * while the gesture's event runs and its selection still stands.
+   */
+  readonly offer: (ingested: Ingested, insertText: InsertText) => boolean;
 }
 
 /** A gesture's data, read once: its text and files are gone once its event returns. */
@@ -196,8 +211,16 @@ async function addTreeAt(tree: string, site: IngestSite): Promise<void> {
   if (last !== undefined) host.activateNode(last);
 }
 
-/** Write what a claim made at `site`. */
-async function commitIngest(outcome: IngestOutcome, site: IngestSite): Promise<void> {
+/**
+ * Write what a claim made at `site`. Text goes in before the first await, so
+ * while the gesture's event runs.
+ */
+async function commitIngest(
+  outcome: IngestOutcome,
+  site: IngestSite,
+  insertText: InsertText,
+): Promise<void> {
+  if ("text" in outcome) return insertText(outcome.text);
   if ("tree" in outcome) return addTreeAt(outcome.tree, site);
   await browserHost().writes.attachFileToNode(site.nodeId, outcome.attach);
 }
@@ -213,11 +236,11 @@ export function ingestPort(
 ): IngestPort {
   return {
     accepts: (gesture, types) => handlers().some(({ match }) => takes(match, gesture, types)),
-    offer: (ingested) => {
+    offer: (ingested, insertText) => {
       const at = site();
       const claim = claimOf(handlers(), ingested, at);
       if (claim === null) return false;
-      void commitIngest(claim.outcome, at).catch((error: unknown) => {
+      void commitIngest(claim.outcome, at, insertText).catch((error: unknown) => {
         toast(
           `Nothing was made of that ${ingested.gesture}: ${error instanceof Error ? error.message : String(error)}`,
         );
@@ -270,4 +293,21 @@ export const ATTACH_FILE: IngestHandler = {
   match: { gestures: ["drop"], types: ["Files"] },
   priority: 0,
   ingest: ({ files }) => (files[0] === undefined ? null : { attach: files[0] }),
+};
+
+/**
+ * A paste's `text/plain` as it goes into the text: every line break as
+ * `\n`, a non-breaking space as a space, and one trailing line break
+ * dropped. A copied line carries that break, and in the text it would open
+ * an empty last line.
+ */
+export function pastedText(text: string): string {
+  return text.replaceAll(/\r\n?/gu, "\n").replaceAll("\u00A0", " ").replace(/\n$/u, "");
+}
+
+/** Any paste of text, put in at the caret as {@link pastedText} reads it: the chain's last handler. */
+export const PASTE_TEXT: IngestHandler = {
+  match: { gestures: ["paste"], types: ["text/plain"] },
+  priority: -1,
+  ingest: ({ text }) => ({ text: pastedText(text) }),
 };

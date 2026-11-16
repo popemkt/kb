@@ -265,6 +265,28 @@ export function readInlineInput(el: HTMLElement, refs: RefLook): { text: string;
 }
 
 /**
+ * Put `text` in at the selection inside `el`, replacing what is selected,
+ * with the caret after it: what typing it would leave, before the one input
+ * step reads it ({@link readInlineInput}). False when the selection is not
+ * in `el`, and nothing changes.
+ */
+export function insertAtSelection(el: HTMLElement, text: string): boolean {
+  const selection = el.ownerDocument.getSelection();
+  const range = selection === null || selection.rangeCount === 0 ? null : selection.getRangeAt(0);
+  if (selection === null || range === null || !el.contains(range.commonAncestorContainer)) {
+    return false;
+  }
+  range.deleteContents();
+  const inserted = el.ownerDocument.createTextNode(text);
+  range.insertNode(inserted);
+  range.setStartAfter(inserted);
+  range.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(range);
+  return true;
+}
+
+/**
  * Reveal the markup of every formatted segment the selection touches — a
  * caret at either edge of `**b**` counts — and hide the rest. Both sides are
  * measured as serialized offsets, so a caret resting in a hidden mark and one

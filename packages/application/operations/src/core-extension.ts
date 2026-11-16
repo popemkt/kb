@@ -1,5 +1,6 @@
 import { keyboardSchemaNodes, SHORTCUT_IDS } from "@kb/keybindings";
 import { CORE_KEYBOARD } from "./keyboard.ts";
+import { trimBreaksMigration } from "./trim-breaks-migration.ts";
 /**
  * Core declared as the families are (DESIGN.md → Extension families): its
  * own system nodes, the views the shell is built from, in the order the
@@ -81,4 +82,7 @@ export const coreExtension = defineExtension({
     { from: SYSTEM_IDS.cmdAddTag, to: SYSTEM_IDS.cmdAddTag, text: "Add tag" },
   ],
   context: CORE_CONTEXT_REFERENCES,
+  // What core migrates of a person's data: line breaks an earlier editor
+  // stored at the end of node text.
+  migrations: [trimBreaksMigration],
 });

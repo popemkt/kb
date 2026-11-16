@@ -9,6 +9,8 @@ import {
   type Ingested,
   type IngestHandler,
   type IngestMatch,
+  PASTE_TEXT,
+  pastedText,
   provideIngest,
 } from "./ingest";
 import { setToastSink } from "./toast";
@@ -38,7 +40,9 @@ const site = { nodeId: "n", text: "" };
 function claimed(handlers: readonly IngestHandler[], ingested: Ingested) {
   const claim = claimOf(handlers, ingested, site);
   if (claim === null) return null;
-  return "tree" in claim.outcome ? claim.outcome.tree : claim.outcome.attach;
+  const { outcome } = claim;
+  if ("tree" in outcome) return outcome.tree;
+  return "attach" in outcome ? outcome.attach : outcome.text;
 }
 
 describe("who claims a paste or a drop", () => {
@@ -109,5 +113,29 @@ describe("a handler written as a transform", () => {
     expect(() =>
       provideIngest("broken", { ...form, match: { ...form.match, pattern: "(" } }),
     ).toThrow(/paste handler broken: its pattern is no regular expression/);
+  });
+});
+
+describe("a paste of text", () => {
+  it("drops one trailing line break, the one a copied line carries", () => {
+    expect(pastedText("hello\n")).toBe("hello");
+    expect(pastedText("hello\r\n")).toBe("hello");
+    expect(pastedText("hello\n\n")).toBe("hello\n");
+    expect(pastedText("\n")).toBe("");
+  });
+
+  it("keeps every inner line, each break as \\n", () => {
+    expect(pastedText("one\r\ntwo\rthree\nfour")).toBe("one\ntwo\nthree\nfour");
+  });
+
+  it("reads a non-breaking space as a space", () => {
+    expect(pastedText("bold\u00A0and plain")).toBe("bold and plain");
+  });
+
+  it("is claimed last, by any paste of text a handler before it leaves", () => {
+    const declining = handler("declines", { gestures: ["paste"], types: ["text/plain"] }, 0, true);
+    expect(claimed([PASTE_TEXT, words], pasted("a"))).toBe("words");
+    expect(claimed([PASTE_TEXT, declining], pasted("a\n"))).toBe("a");
+    expect(claimed([PASTE_TEXT], dropped)).toBeNull();
   });
 });

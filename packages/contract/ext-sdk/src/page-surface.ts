@@ -456,18 +456,22 @@ export interface IngestSite {
 
 /**
  * What a claimed gesture makes, which kb writes at the row: a tree of nodes,
- * as outline paste text, added after it in one transaction; or a file, kept
- * as an asset and linked from its text.
+ * as outline paste text, added after it in one transaction; a file, kept as
+ * an asset and linked from its text; or text, put in at the caret the way
+ * typing is.
  */
-export type IngestOutcome = { readonly tree: string } | { readonly attach: File };
+export type IngestOutcome =
+  | { readonly tree: string }
+  | { readonly attach: File }
+  | { readonly text: string };
 
 /**
  * A row's paste and drop handler. The outline declares their point,
  * `outline.ingest`, so a plugin that contributes one names it in `uses` and
  * reaches it with `ctx.point<IngestHandler>("outline.ingest")`. By
  * priority, each whose match holds is asked what the gesture makes, and the
- * first to make something claims it; what every one declines is the
- * browser's.
+ * first to make something claims it. kb's last handler takes any paste as
+ * text; a drop every one declines is the browser's.
  */
 export interface IngestHandler {
   readonly match: IngestMatch;
