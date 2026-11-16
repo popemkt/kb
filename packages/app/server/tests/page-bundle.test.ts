@@ -246,7 +246,13 @@ const DATASCRIPT = /cljs\.core/;
 // and the field visibility round's show level on each seeded field, in the
 // seeds the page's declarations carry, measure 2,017,695 from 2,017,039; the
 // budget rises by their 656.
-const EAGER_BUDGET_BYTES = 2_019_086;
+// A migration's plan read node by node (#261: @kb/model's write-change.ts,
+// the reading and partDiff, which the page's action replica carries with
+// migration.plan, and the contracts' PlanReadingSchema and a step's changes
+// call in the procedure schemas) measures 2,020,716; the budget rises by its
+// 3,021. The procedure page that draws it stays lazy; partDiff rides the
+// model's shared chunk, where a module of its own still lands.
+const EAGER_BUDGET_BYTES = 2_022_107;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {
