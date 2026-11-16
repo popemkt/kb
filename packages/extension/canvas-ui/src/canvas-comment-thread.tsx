@@ -8,7 +8,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { CrosshairSimpleIcon, XIcon } from "@phosphor-icons/react";
 import type { CanvasThread } from "@kb/canvas";
-import { cn, useDismiss } from "@kb/ui-sdk";
+import { cn, isCompositionKey, useDismiss } from "@kb/ui-sdk";
 import type { CanvasPoint, ScreenRect, ViewSize } from "./canvas-camera";
 import { DOCK_RESERVE } from "./canvas-dock-size";
 import { placeBeside } from "./canvas-visible";
@@ -151,7 +151,7 @@ function CommentForm({
         className="w-full resize-none rounded-md border border-border bg-background px-2 py-1 text-ui outline-none focus:border-primary/50"
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
+          if (e.key !== "Enter" || e.shiftKey || isCompositionKey(e.nativeEvent)) return;
           e.preventDefault();
           void send();
         }}

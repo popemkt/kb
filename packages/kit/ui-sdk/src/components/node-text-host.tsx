@@ -10,6 +10,7 @@ import {
 import { LockSimpleIcon } from "@phosphor-icons/react";
 import { cn } from "../lib/cn";
 import { ingestedOf, type IngestPort } from "../lib/ingest";
+import { isCompositionKey } from "../lib/keychord";
 import { matchesChord, TEXT_HISTORY_CHORD } from "@kb/keybindings";
 import { KB_TEXT_CLASS } from "../lib/md-inline";
 import {
@@ -449,7 +450,7 @@ export function NodeTextHost({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (isComposing.current) return;
+      if (isCompositionKey(e.nativeEvent, isComposing.current)) return;
 
       // Text undo is the row's own: native undo cannot follow a rebuilt tree.
       const history = historyChord(e);

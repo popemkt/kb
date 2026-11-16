@@ -850,6 +850,14 @@ selection touches shows its delimiters, faint (Obsidian-style live preview;
 second `*` of `**`, breaking a link — rebuilds the tree around the caret
 (`isCanonicalInline`); typing inside a segment leaves the browser's DOM alone. A
 boundary caret rests outside hidden markup, so typing after `**b**` is plain.
+A line break is a `\n` in the text. A `<br>` reads as one only where a line
+follows it, and one that ends the text reads as nothing, in the text and in
+caret offsets alike, because it opens no line. That covers the box the tree
+gives a trailing `\n` and the placeholder a browser leaves in a row it
+emptied (Backspace on the last character, or select all and delete), which
+typing then goes in front of. Read as `\n`, that placeholder would store a
+newline nobody typed, and Enter at the end would carry it into every row it
+opens.
 While editing, the DOM is the text: it is rebuilt from `content` on mount and
 when `content` moved on its own (a merge), never from a `content` still behind
 the editor's own writes. Text undo inside the row is the host's
@@ -2765,10 +2773,15 @@ The rules that hold everywhere, so no surface re-invents them:
   trigger, so a press and click on it is held to closing it exactly once; the harness's
   `popover-dismiss-coverage` check fails when a file calls `useDismiss` and
   no suite names it.
-- **IME composition is never interrupted.** Field editors track
-  `compositionstart`/`compositionend` _and_ check `nativeEvent.isComposing`
-  before treating a key as a commit, so a composing CJK/dead-key sequence is not
-  swallowed by Enter.
+- **IME composition is never interrupted.** A key that belongs to a
+  composition is the IME's, never a command. That covers every key while one is open
+  (`compositionstart`/`compositionend`, or `isComposing`), and also the
+  key that ends one, which WebKit (Safari, and a macOS WebView) sends after
+  `compositionend` with keyCode 229. So Enter that commits a Vietnamese,
+  CJK or dead-key word commits it and splits no row. One predicate decides
+  it, `isCompositionKey` (`@kb/ui-sdk`, `lib/keychord.ts`). Every keydown
+  that acts on Enter or Escape asks it: node text, field values, a
+  popover's Escape, and the chat and comment boxes.
 - **Load failures are recoverable, not raw.** An initial graph/workspace error
   renders a human-readable state with a Retry action and the technical detail
   behind a disclosure, rather than dumping the error.

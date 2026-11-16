@@ -446,6 +446,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — let the outline page take a frame view override from the pane
 - **node** — `01M411FPKHWPRFTWDYKVXBDYSB`
 
+### GAP: a paste kb does not claim is the browser's, with a copied line's newline and WebKit's non-breaking spaces
+
+- **expected** — A paste the outline's ingest chain does not claim lands as its text/plain, normalised as typing is: a copied line's one trailing line break dropped, and a space stored as a space, never U+00A0.
+- **current** — An unclaimed paste is the browser's native insertion (DESIGN-UI.md → Paste and drop). A line copied with its newline pastes as the line and a break, the caret on a new line inside the row, in Chromium and WebKit; WebKit pastes rich HTML's spaces as U+00A0 and the row stores them.
+- **impact** — A pasted line leaves a stray line inside the row, one of the extra newlines the owner reports. Non-breaking spaces look like spaces but break search and every match by text.
+- **closes** — An IngestOutcome that inserts text at the caret, and a last handler in outline.ingest that inserts the paste's text/plain normalised, so no paste is left to the browser. QA evidence: ~/kb-proposals/review-2026-11-16/qa-outline-editing (the two failing paste cases).
+- **node** — `01M7HCQ0R0C5KM1QXBFVT7AKWD`
+
 ### GAP: a plugin backdrop runs with the page's power; nothing confines it to its canvas and its knobs
 
 - **expected** — A repository extension's backdrop is handed only its canvas (or GPU context) and its knob values, and can read no kb data: its scene runs in an isolated host (a sandboxed frame or a worker drawing to an OffscreenCanvas) that the slot feeds

@@ -1,5 +1,6 @@
 import { useInsertionEffect, useLayoutEffect, useRef, type RefObject } from "react";
 import { asElement, asInstance, isOutside } from "../lib/dom";
+import { isCompositionKey } from "../lib/keychord";
 
 /**
  * What a popover counts as itself, so a press there does not dismiss it: an
@@ -52,7 +53,7 @@ const layers: Layer[] = [];
  */
 function onKey(e: KeyboardEvent): void {
   const top = layers.at(-1);
-  if (top === undefined || e.key !== "Escape" || e.isComposing) return;
+  if (top === undefined || e.key !== "Escape" || isCompositionKey(e)) return;
   e.preventDefault();
   e.stopImmediatePropagation();
   top.dismiss();
