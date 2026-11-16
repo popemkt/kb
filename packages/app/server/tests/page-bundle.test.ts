@@ -216,7 +216,10 @@ const DATASCRIPT = /cljs\.core/;
 // migration core.trim-trailing-breaks, which core's declaration carries to
 // the page as it carried core.field-show, measures 1,997,854 with it; the
 // budget keeps about 1.4 KB over that.
-const EAGER_BUDGET_BYTES = 1_999_254;
+// The contextual reference's target reader, moved from ui-sdk into @kb/model
+// so an export reads a row as the node it shows, measures 1,997,897; the
+// budget rises by its 43.
+const EAGER_BUDGET_BYTES = 1_999_297;
 
 /** The chunks `index.html` loads before anything else: its module scripts and modulepreloads. */
 function eagerChunks(html: string): string[] {

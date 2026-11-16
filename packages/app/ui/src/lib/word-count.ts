@@ -3,8 +3,8 @@
  * read and copied"): the nodes some rows show and every node under them,
  * each once, read as plain words.
  */
-import { plainWords } from "@kb/model";
-import { contextualTargetOf, type SchemaIndex, shownNode } from "@kb/ui-sdk";
+import { contextualTargetOf, plainWords } from "@kb/model";
+import { type SchemaIndex, shownNode } from "@kb/ui-sdk";
 
 export interface WordCount {
   readonly words: number;

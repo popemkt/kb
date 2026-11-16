@@ -193,8 +193,6 @@ export { ViewNotLoaded, ViewUnavailable } from "./components/view-unavailable";
 // The graph as the page holds it: nodes, values, the schema and its field
 // types, references, instances, perspectives, and the replica's one query seam.
 export {
-  contextualTargetOf,
-  isContextualRef,
   rowText,
   rowTitle,
   rowName,

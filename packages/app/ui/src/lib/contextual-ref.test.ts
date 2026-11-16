@@ -4,9 +4,7 @@
  * and editing that text edits the target.
  */
 import {
-  contextualTargetOf,
   derivedWith,
-  isContextualRef,
   queryBacklinks,
   rowText,
   rowTextOf,
@@ -22,7 +20,7 @@ import {
 import { DatascriptIndex } from "@kb/ui-test-kit";
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import { present, SYSTEM_IDS } from "@kb/model";
+import { contextualTargetOf, isContextualRef, present, SYSTEM_IDS } from "@kb/model";
 import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import { fixtureGraph } from "@/api/fixture-graph";
 
