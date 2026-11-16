@@ -76,8 +76,10 @@ function entryOf(id: string, text: string, kind: PaletteEntryKind, written = tex
 /**
  * `index` with the commands of one node (`listNodeCommands`) ahead of it:
  * what the node menu offers that node, found by the same search, each marked
- * with the node it acts on. A node command that is the face of a global one
- * (`faceOf`) stands in its place, so one act is one row.
+ * with the node it acts on. A node command stands in the place of the global
+ * one it is: the one it is the face of (`faceOf`), and the one with its own
+ * id (a node command a key binds is a command node too). So one act is one
+ * row, and no two rows share an id.
  */
 export function withNodeCommands(
   index: PaletteIndex,
@@ -88,7 +90,9 @@ export function withNodeCommands(
   }[],
   target: string,
 ): PaletteIndex {
-  const faced = new Set(commands.flatMap((c) => (c.faceOf === undefined ? [] : [c.faceOf])));
+  const faced = new Set(
+    commands.flatMap((c) => (c.faceOf === undefined ? [c.id] : [c.id, c.faceOf])),
+  );
   const entries = commands.map((c) => ({ ...entryOf(c.id, c.label, "command"), target }));
   return {
     rev: index.rev,
