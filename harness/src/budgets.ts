@@ -30,8 +30,6 @@ export interface BudgetLedger {
   base: Record<BudgetName, Record<string, BudgetBaseEntry>>;
   /** Keyed by file name. */
   changes: Record<string, BudgetChange>;
-  /** What could not be read as a change; such a file adds nothing. */
-  problems: string[];
 }
 
 /** Where a ledger is read from: the working tree, or a commit. */
@@ -83,19 +81,54 @@ function isBudgetName(name: string): name is BudgetName {
   return Object.hasOwn(BUDGETS, name);
 }
 
-function decodeChange(name: string, text: string): BudgetChange | string {
-  const where = `${CHANGES_DIR}/${name}`;
+/** A file under harness/budgets/ that does not decode; every reader of the ledger fails on it. */
+export class BudgetLedgerError extends Error {
+  readonly problems: readonly string[];
+  constructor(problems: readonly string[]) {
+    super(`the budget ledger does not decode:\n${problems.join("\n")}`);
+    this.problems = problems;
+  }
+}
+
+function parseObject(where: string, text: string): Record<string, unknown> | string {
   let value: unknown;
   try {
     value = JSON.parse(text);
   } catch {
     return `${where} is not JSON`;
   }
-  if (!isRecord(value)) return `${where} is not an object`;
-  const { reason, pr, raise } = value;
+  return isRecord(value) ? value : `${where} is not an object`;
+}
+
+function decodeBase(where: string, text: string): Record<string, BudgetBaseEntry> | string {
+  const value = parseObject(where, text);
+  if (typeof value === "string") return value;
+  const base: Record<string, BudgetBaseEntry> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (!isRecord(entry)) return `${where}: ${key} is not an object`;
+    const { limit, reason, ...rest } = entry;
+    if (typeof limit !== "number" || !Number.isInteger(limit) || limit < 0) {
+      return `${where}: ${key}.limit is not a nonnegative integer`;
+    }
+    if (reason !== undefined && typeof reason !== "string") {
+      return `${where}: ${key}.reason is not a string`;
+    }
+    const unknown = Object.keys(rest);
+    if (unknown.length > 0) return `${where}: ${key} has unknown fields ${unknown.join(", ")}`;
+    base[key] = reason === undefined ? { limit } : { limit, reason };
+  }
+  return base;
+}
+
+function decodeChange(where: string, text: string): BudgetChange | string {
+  const value = parseObject(where, text);
+  if (typeof value === "string") return value;
+  const { reason, pr, raise, ...rest } = value;
   if (typeof reason !== "string" || reason.trim() === "") return `${where} needs a reason`;
-  if (pr !== undefined && typeof pr !== "string") return `${where}: pr is a string`;
+  if (pr !== undefined && typeof pr !== "string") return `${where}: pr is not a string`;
   if (!isRecord(raise) || Object.keys(raise).length === 0) return `${where} raises nothing`;
+  const unknown = Object.keys(rest);
+  if (unknown.length > 0) return `${where} has unknown fields ${unknown.join(", ")}`;
   const decoded: BudgetChange["raise"] = {};
   for (const [budget, deltas] of Object.entries(raise)) {
     if (!isBudgetName(budget)) return `${where} names ${budget}, which BUDGETS does not declare`;
@@ -112,22 +145,32 @@ function decodeChange(name: string, text: string): BudgetChange | string {
   return { reason, ...(pr === undefined ? {} : { pr }), raise: decoded };
 }
 
-/** The ledger as `files` holds it, or `undefined` when it holds no ledger (a base before one). */
+/**
+ * The ledger as `files` holds it, or `undefined` when it holds no ledger (a
+ * base before one). A file that does not decode throws {@link BudgetLedgerError}
+ * naming every such file: no reader may skip one, since a dropped base entry
+ * falls back to the default and a dropped change could have lowered a limit.
+ */
 export function readLedger(files: LedgerFiles = worktreeFiles): BudgetLedger | undefined {
   const base = {} as BudgetLedger["base"];
   const problems: string[] = [];
   for (const budget of Object.keys(BUDGETS) as BudgetName[]) {
-    const text = files.text(`${BUDGETS_DIR}/${budget}.json`);
+    const where = `${BUDGETS_DIR}/${budget}.json`;
+    const text = files.text(where);
     if (text === undefined) return undefined;
-    base[budget] = JSON.parse(text) as Record<string, BudgetBaseEntry>;
+    const entries = decodeBase(where, text);
+    if (typeof entries === "string") problems.push(entries);
+    else base[budget] = entries;
   }
   const changes: Record<string, BudgetChange> = {};
   for (const name of files.names(CHANGES_DIR)) {
-    const change = decodeChange(name, files.text(`${CHANGES_DIR}/${name}`) ?? "");
+    const where = `${CHANGES_DIR}/${name}`;
+    const change = decodeChange(where, files.text(where) ?? "");
     if (typeof change === "string") problems.push(change);
     else changes[name] = change;
   }
-  return { base, changes, problems };
+  if (problems.length > 0) throw new BudgetLedgerError(problems);
+  return { base, changes };
 }
 
 /** The ledger in the working tree, which every declared budget's base must be in. */
@@ -206,10 +249,5 @@ if (import.meta.main) {
     );
     process.exit(2);
   }
-  const ledger = currentLedger();
-  if (ledger.problems.length > 0) {
-    console.error(ledger.problems.join("\n"));
-    process.exit(1);
-  }
-  console.log(budgetLimit(ledger, budget, key));
+  console.log(budgetLimit(currentLedger(), budget, key));
 }

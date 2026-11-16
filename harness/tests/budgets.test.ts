@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  BudgetLedgerError,
   budgetExceeded,
   budgetLimit,
   currentLedger,
@@ -41,7 +42,6 @@ const raise = (budget: string, key: string, delta: number, reason = "a change") 
 
 test("the ledger reads, and every rise since the fork point is a new change file", () => {
   const now = currentLedger();
-  expect(now.problems).toEqual([]);
   const base = baselineAtRatchetBase();
   expect(base.ok, base.ok ? "" : base.reason).toBe(true);
   if (!base.ok) return;
@@ -111,15 +111,46 @@ test("a ceiling rises only through a new change file", () => {
   expect(unledgeredRises(ledger({}), base)).toEqual([]);
 });
 
-test("a change that cannot be read is named and adds nothing", () => {
-  const bad = ledger({
-    "harness/budgets/changes/no-reason.json": raise("surface", "@kb/model", 1, " "),
-    "harness/budgets/changes/typo.json": raise("surfaces", "@kb/model", 1),
-    "harness/budgets/changes/zero.json": raise("surface", "@kb/model", 0),
-    "harness/budgets/changes/half.json": raise("surface", "@kb/model", 0.5),
-    "harness/budgets/changes/empty.json": { reason: "nothing", raise: {} },
-  });
-  expect(bad.problems).toHaveLength(5);
-  expect(bad.changes).toEqual({});
-  expect(budgetLimit(bad, "surface", "@kb/model")).toBe(10);
+const surface = (entry: unknown) => ({ "harness/budgets/surface.json": { "@kb/model": entry } });
+
+/** The problems a ledger that does not decode names, or [] when it decodes. */
+function problemsOf(files: Record<string, unknown>): readonly string[] {
+  try {
+    ledger(files);
+    return [];
+  } catch (error) {
+    if (error instanceof BudgetLedgerError) return error.problems;
+    throw error;
+  }
+}
+
+test("a change that does not decode fails the whole ledger, naming every such file", () => {
+  expect(
+    problemsOf({
+      "harness/budgets/changes/no-reason.json": raise("surface", "@kb/model", 1, " "),
+      "harness/budgets/changes/typo.json": raise("surfaces", "@kb/model", 1),
+      "harness/budgets/changes/zero.json": raise("surface", "@kb/model", 0),
+      "harness/budgets/changes/half.json": raise("surface", "@kb/model", -0.5),
+      "harness/budgets/changes/empty.json": { reason: "nothing", raise: {} },
+      "harness/budgets/changes/extra.json": { ...raise("surface", "@kb/model", 1), delta: 1 },
+    }),
+  ).toHaveLength(6);
+});
+
+test("a base entry that does not decode fails the whole ledger", () => {
+  for (const entry of [
+    { limit: "293" },
+    {},
+    { limit: 9.5 },
+    { limit: -1 },
+    { limit: 9, reason: 3 },
+    { width: 9 },
+    9,
+  ]) {
+    expect(problemsOf(surface(entry)), JSON.stringify(entry)).toHaveLength(1);
+  }
+  expect(problemsOf({ "harness/budgets/page-eager.json": [] })).toEqual([
+    "harness/budgets/page-eager.json is not an object",
+  ]);
+  expect(problemsOf(surface({ limit: 9, reason: "" }))).toEqual([]);
 });

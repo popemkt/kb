@@ -353,8 +353,10 @@ clone or in CI:
   measurement that runs outside the harness (`page-bundle.test.ts`).
 
 The test that measures a size fails when the measure passes its limit. The
-harness's `budgets` check fails when a change file is malformed, names a
-budget `BUDGETS` does not declare, or when a limit is higher than at the
+ledger does not read at all, and so fails every reader, when a base or
+change file does not decode (a base entry is an integer `limit` and an
+optional string `reason`) or a change names a budget `BUDGETS` does not
+declare. The harness's `budgets` check also fails when a limit is higher than at the
 ratchet's fork point by more than the changes added since: a ceiling rises
 only through a new change file, never by editing the base or an earlier
 change, and removing an entry cannot silently restore a higher default.
