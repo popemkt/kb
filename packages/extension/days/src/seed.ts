@@ -36,7 +36,7 @@ export function daysSeed(at: string): readonly KbNode[] {
     // deliberate step), and kept to a real period by its guards.
     seededField(DAYS_IDS.keyField, "period", "text", at, {
       one: true,
-      owned: true,
+      show: "never",
       props: { [SYSTEM_IDS.managedByField]: ref(DAYS_IDS.family) },
     }),
     seededTag(DAYS_IDS.dayTag, "day", [DAYS_IDS.keyField], at),

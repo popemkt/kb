@@ -9,5 +9,5 @@ import { seededField, type KbNode } from "@kb/model";
 import { CHART_IDS } from "./ids.ts";
 
 export function chartSeedNodes(at: string): readonly KbNode[] {
-  return [seededField(CHART_IDS.chartField, "chart", "text", at, { one: true, owned: true })];
+  return [seededField(CHART_IDS.chartField, "chart", "text", at, { one: true, show: "never" })];
 }

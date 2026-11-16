@@ -5,27 +5,11 @@
  * of fields; every surface that draws or lists fields asks it.
  */
 import { SYSTEM_IDS, type KbNode, type NodeId, type PropValue } from "./model.ts";
+import { FIELD_SHOWS, FIELD_SHOW_OPTION_IDS, type FieldShow } from "./field-show.ts";
 import { seededField } from "./seed-builders.ts";
 
 /** What this module reads of a field node: its props. */
 type FieldProps = Readonly<Record<string, readonly PropValue[]>> | undefined;
-
-/**
- * Where a field is drawn on a node that has it: a row always, a row where
- * filled (a chip where empty), a chip, tucked behind the chips' "…", or
- * nowhere but debug.
- */
-const FIELD_SHOWS = ["always", "filled", "hidden", "tucked", "never"] as const;
-type FieldShow = (typeof FIELD_SHOWS)[number];
-
-/** Each show's option node: a child of `sys.f.show`. */
-const FIELD_SHOW_OPTION_IDS: Readonly<Record<FieldShow, NodeId>> = {
-  always: SYSTEM_IDS.showAlways,
-  filled: SYSTEM_IDS.showFilled,
-  hidden: SYSTEM_IDS.showHidden,
-  tucked: SYSTEM_IDS.showTucked,
-  never: SYSTEM_IDS.showNever,
-};
 
 /** Each show's label, as the seed writes its option. */
 const FIELD_SHOW_LABELS: Readonly<Record<FieldShow, string>> = {
@@ -40,7 +24,7 @@ const FIELD_SHOW_LABELS: Readonly<Record<FieldShow, string>> = {
  * The show field as core's seed declares it, stamped `at`: one value, a ref
  * to one of its own children, which are its options (the option-set shape),
  * followed by those options. `props` adds to the field's own. Then the
- * checkbox show took over from, `sys.f.hidden`: owned (show never) and on no
+ * checkbox show took over from, `sys.f.hidden`: shown never and on no
  * template, so a store seeded before show stops drawing its row, while the
  * values it holds still count (`fieldShowOf`).
  */
@@ -58,7 +42,7 @@ export function seededShowField(at: string, props: KbNode["props"] = {}): KbNode
   const field = seededField(SYSTEM_IDS.showField, "show", "ref", at, { one: true, props });
   const retired = seededField(SYSTEM_IDS.hiddenField, "hidden", "checkbox", at, {
     one: true,
-    owned: true,
+    show: "never",
   });
   return [{ ...field, children: options.map((option) => option.id) }, ...options, retired];
 }

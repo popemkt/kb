@@ -1,22 +1,20 @@
 /** Generic node constructors shared by core and family seeds. */
 import { SYSTEM_IDS, type KbNode } from "./model.ts";
 import { cardinalityValue, fieldTypeValue, type FieldType } from "./field-type.ts";
+import { FIELD_SHOW_OPTION_IDS, type FieldShow } from "./field-show.ts";
 
 /** What a field that holds one value declares: its cardinality. */
 const SINGLE: KbNode["props"] = { [SYSTEM_IDS.cardinalityField]: [cardinalityValue("one")] };
-
-/** What a field a node's structure or a surface of its own owns declares: show never. */
-const OWNED: KbNode["props"] = { [SYSTEM_IDS.showField]: [{ t: "ref", v: SYSTEM_IDS.showNever }] };
 
 /** What a seed says of a field beside its id, name and type. */
 export interface FieldOptions {
   /** It holds one value, not a list. */
   readonly one?: boolean;
   /**
-   * A node's structure or a surface of its own owns it, so it is never a
-   * field row (`sys.f.show` never).
+   * Where it is drawn on a node (`sys.f.show`), by what it holds; left out,
+   * always (DESIGN.md → Data model → field display).
    */
-  readonly owned?: boolean;
+  readonly show?: FieldShow;
   /** Any other declaration it carries. */
   readonly props?: KbNode["props"];
 }
@@ -36,19 +34,18 @@ export interface FieldOptions {
  * many, so only the single-valued ones carry the declaration — and the
  * fill-absent pass carries it to stores seeded before it existed.
  *
- * A field whose values are not drawn as field rows says so too (`owned`,
- * which writes `sys.f.show` never): one that is a node's structure (its kind, its template,
- * which option set it belongs to) or one a surface of its own draws and
- * writes (a query node's builder, a view's toolbar, the graph's lens
- * settings). Every other system field is drawn and edited like any field
- * (DESIGN.md → Data model → field display).
+ * A field says where it is drawn on a node (`show`, which writes
+ * `sys.f.show`), by what it holds: never for a node's structure or a field
+ * a surface of its own writes, tucked for machine and sync state, when
+ * filled for a value a node of the kind may or may not carry; left out, it
+ * is always a row (DESIGN.md → Data model → field display).
  */
 export function seededField(
   id: string,
   text: string,
   type: FieldType,
   at: string,
-  { one = false, owned = false, props = {} }: FieldOptions = {},
+  { one = false, show, props = {} }: FieldOptions = {},
 ): KbNode {
   return {
     id,
@@ -57,7 +54,9 @@ export function seededField(
       [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
       [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue(type)],
       ...(one ? SINGLE : {}),
-      ...(owned ? OWNED : {}),
+      ...(show === undefined
+        ? {}
+        : { [SYSTEM_IDS.showField]: [{ t: "ref", v: FIELD_SHOW_OPTION_IDS[show] }] }),
       ...props,
     },
     children: [],

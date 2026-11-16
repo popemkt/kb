@@ -46,12 +46,12 @@ export function graphSeedNodes(at: string): readonly KbNode[] {
   // The lens settings and a source's kind are drawn by the graph's own
   // settings, never as field rows (`owned`).
   const singleField = (id: string, text: string, type: FieldType) =>
-    seededField(id, text, type, at, { one: true, owned: true });
+    seededField(id, text, type, at, { one: true, show: "never" });
   /** A ref field whose allowed targets are the rows of one EDN query. */
   const refQueryField = (id: string, text: string, edn: string, one: boolean) =>
     seededField(id, text, "ref", at, {
       one,
-      owned: true,
+      show: "never",
       props: { [SYSTEM_IDS.targetQueryField]: [{ t: "str", v: edn }] },
     });
 

@@ -71,7 +71,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     opts: FieldOptions = {},
   ): KbNode => seededField(id, text, type, at, { ...opts, one: true });
   // A field whose values a node's structure or a surface of its own holds.
-  const OWNED = { owned: true } as const;
+  const OWNED = { show: "never" } as const;
 
   // A field node's own configuration is a field template, exactly like a tag's.
   // That is what lets one rule — "surface the fields your kinds and tags
@@ -316,7 +316,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   // The view a node is (one option), and the view nodes a host names (many, in order).
   const viewField = refQueryField(SYSTEM_IDS.viewField, "view", VIEW_OPTION_TARGET_QUERY, {
     one: true,
-    owned: true,
+    show: "never",
   });
   const viewsField = refQueryField(SYSTEM_IDS.viewsField, "views", VIEW_NODE_TARGET_QUERY, OWNED);
   /*
@@ -403,7 +403,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
    */
   const refTargetField = refField(SYSTEM_IDS.refTargetField, "ref.target", undefined, {
     one: true,
-    owned: true,
+    show: "never",
   });
 
   /*

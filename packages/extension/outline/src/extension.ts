@@ -126,7 +126,7 @@ export const outlineExtension = defineExtension({
     ...DISPLAY_OPTIONS.map((option) =>
       seededField(OUTLINE_IDS.displayFields[option], `shows ${option}`, "checkbox", at, {
         one: true,
-        owned: true,
+        show: "never",
       }),
     ),
     // A setting of the family's own node: written like any field, read where a row draws its bullet.
