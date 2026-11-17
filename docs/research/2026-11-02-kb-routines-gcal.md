@@ -192,7 +192,11 @@ is sent.
   calendar no node names now is listed in each pass with the binding it was
   named with, and kb's series there are ended, held past five like any
   ending. Once it holds nothing of kb's still running it is dropped, so it
-  costs one list call per pass until then. Its status is a calendar status
+  costs one list call per pass until then. While the calendar node that
+  named it is paused or in preview, it is not listed or written: a paused
+  calendar makes no write anywhere, its former Google calendars included,
+  and their series end once it sends again. A deleted node sends nothing
+  now, so its former calendar ends at once. Its status is a calendar status
   keyed by the node and the Google calendar, which the failed count
   includes. The `calendar.app.created` scope cannot list the calendars kb
   made (`calendarList.list` does not accept it), so Google cannot answer
@@ -201,8 +205,8 @@ is sent.
   re-point the host did not see whose write has left the kept tail (more
   than 1,024 transactions committed before the host next starts, or a
   restored or hand-edited store whose tail no longer describes it), and a
-  former binding the person no longer trusts, which shows `untrusted` and is
-  not written.
+  former binding the person no longer trusts, which is not written and
+  shows `untrusted` for as long as it is remembered.
 
 ### A person's edit in Google
 

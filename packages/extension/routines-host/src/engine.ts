@@ -132,7 +132,7 @@ function formerCalendars(
   );
   const former: Bound[] = [];
   for (const [calendarId, calendar] of named) {
-    if (now.has(calendarId)) continue;
+    if (now.has(calendarId) || !sending(nodes.get(calendar.id))) continue;
     const account = nodes.get(calendar.account);
     former.push({
       key: calendar.id + "@" + calendarId,
@@ -142,6 +142,19 @@ function formerCalendars(
     });
   }
   return former;
+}
+/**
+ * Whether a former calendar's node lets kb write for it: a node deleted does,
+ * and one still there only while its sync is on, so a paused or previewed
+ * calendar makes no write anywhere, its former Google calendars included.
+ */
+function sending(node: NodeLike | undefined): boolean {
+  if (node === undefined) return true;
+  try {
+    return readCalendar(node).mode === "on";
+  } catch {
+    return false;
+  }
 }
 /** The events a change to `ids` concerns: each event, the event an occurrence is under, and every event on a changed calendar or account. */
 function concerned(ids: readonly string[], nodes: ReadonlyMap<string, NodeLike>): Set<string> {
@@ -192,17 +205,21 @@ const listAndPlan = Effect.fnUntraced(function* (
   now: number,
 ) {
   const planned: Planned[] = [];
+  /** The former calendars this pass could not reach, whose status says why. */
+  const unreached: string[] = [];
   const current = boundCalendars(nodes);
   for (const bound of current) state.named.set(bound.calendar.calendarId, bound.calendar);
   for (const bound of [...formerCalendars(state.named, nodes), ...current]) {
     const key = bound.key;
     if (!(yield* state.options.host.trusted(yield* calendarBindingDigest(bound.binding)))) {
       // A former calendar's series are kb's to end, so one it cannot reach says so.
-      if (bound.routines.length === 0 && bound.key !== bound.calendar.id)
+      if (bound.routines.length === 0 && bound.key !== bound.calendar.id) {
         state.book.set(
           { kind: "calendar", calendar: key },
           { state: "error", message: "untrusted" },
         );
+        unreached.push(key);
+      }
       continue;
     }
     if (state.schedule.waits(key, now)) continue;
@@ -227,7 +244,7 @@ const listAndPlan = Effect.fnUntraced(function* (
     });
     planned.push({ bound, client, plan });
   }
-  return planned;
+  return { planned, unreached };
 });
 
 /**
@@ -419,11 +436,13 @@ export const makeRoutineEngine = Effect.fn("routines.engine.make")(function* (
   const pass = Effect.fn("routines.engine.pass")(function* () {
     const now = yield* Clock.currentTimeMillis;
     const due = schedule.dueAt(now);
-    const planned = yield* listAndPlan(state, yield* options.host.read, now);
+    const { planned, unreached } = yield* listAndPlan(state, yield* options.host.read, now);
     holdEndings(state, planned);
     yield* sendEndings(state, planned, now);
     forgetRetired(state, planned);
-    const named = new Set(planned.map(({ bound }) => "calendar:" + bound.key));
+    const named = new Set(
+      [...planned.map(({ bound }) => bound.key), ...unreached].map((key) => "calendar:" + key),
+    );
     for (const entry of planned)
       for (const event of entry.plan.events)
         for (const target of yield* sendEvent(state, entry, event, now))

@@ -13,16 +13,17 @@ import {
   type SyncStatuses,
 } from "@kb/routines";
 import { makeRoutineEngine } from "../src/index.ts";
+import { calendarBindingDigest } from "../src/binding.ts";
 import type { TailChange } from "../src/graph.ts";
 const str = (v: string) => [{ t: "str" as const, v }];
 const ref = (v: string) => [{ t: "ref" as const, v }];
 function node(id: string, tag: string, props: NodeLike["props"]): NodeLike {
   return { id, text: id, children: [], props: { [SYSTEM_IDS.typeField]: ref(tag), ...props } };
 }
-const calendarNode = (id: string, google: string) =>
+const calendarNode = (id: string, google: string, sync: "on" | "paused" = "on") =>
   node(id, T.calendar, {
     [F.calendarId]: str(google),
-    [F.sync]: ref(routineOption("sync", "on")),
+    [F.sync]: ref(routineOption("sync", sync)),
   });
 const routineNode = (id: string, calendar = "calendar") =>
   node(id, T.routine, {
@@ -50,6 +51,8 @@ function world(fake = makeFakeCalendar()) {
   changes[0] = { ...changes[0], calendars: written(["calendar"]) } as TailChange;
   const counts = { puts: 0, lists: 0 };
   let failing: { count: number; which: (id: string) => boolean } = { count: 0, which: () => true };
+  /** The binding digests a person no longer trusts. */
+  const distrusted = new Set<string>();
   const host = () =>
     makeRoutineEngine({
       origin: "https://kb.test",
@@ -63,7 +66,7 @@ function world(fake = makeFakeCalendar()) {
             complete: true,
             changes: changes.slice(since),
           })),
-        trusted: () => Effect.succeed(true),
+        trusted: (digest) => Effect.succeed(!distrusted.has(digest)),
         connection: () => Effect.void,
       },
       client: () =>
@@ -87,6 +90,7 @@ function world(fake = makeFakeCalendar()) {
     fake,
     nodes,
     counts,
+    distrusted,
     host,
     /** A person's edit: what it wrote, as the store's change feed says it. */
     touch: (...ids: string[]) =>
@@ -492,6 +496,54 @@ scenario("a calendar re-pointed while the host was stopped is read from the stor
     yield* start(w);
     expect(seriesOn(w, "google")?.recurrence[0]).toContain("UNTIL=");
     expect(seriesOn(w, "other-google")?.recurrence[0]).not.toContain("UNTIL=");
+  }),
+);
+
+scenario(
+  "a paused calendar re-pointed writes nothing, and ends its old series once it resumes",
+  () =>
+    Effect.gen(function* () {
+      const w = world();
+      const engine = yield* start(w);
+      w.nodes.set("calendar", calendarNode("calendar", "google", "paused"));
+      w.touch("calendar");
+      yield* flush(engine);
+      const puts = w.counts.puts;
+      w.nodes.set("calendar", calendarNode("calendar", "other-google", "paused"));
+      w.touch("calendar");
+      yield* flush(engine);
+      expect(w.counts.puts).toBe(puts);
+      expect(seriesOn(w, "google")?.recurrence[0]).not.toContain("UNTIL=");
+      expect(seriesOn(w, "other-google")).toBeUndefined();
+      w.nodes.set("calendar", calendarNode("calendar", "other-google"));
+      w.touch("calendar");
+      yield* flush(engine);
+      expect(seriesOn(w, "google")?.recurrence[0]).toContain("UNTIL=");
+      expect(seriesOn(w, "other-google")?.recurrence[0]).not.toContain("UNTIL=");
+    }),
+);
+
+scenario("a former calendar no longer trusted keeps saying so", () =>
+  Effect.gen(function* () {
+    const w = world();
+    const engine = yield* start(w);
+    w.distrusted.add(
+      yield* calendarBindingDigest({
+        calendar: readCalendar(calendarNode("calendar", "google")),
+        account: null,
+      }),
+    );
+    const heard: SyncStatuses[] = [];
+    yield* engine.watch("page", (next) => Effect.sync(() => void heard.push(next)));
+    w.nodes.set("calendar", calendarNode("calendar", "other-google"));
+    w.touch("calendar");
+    yield* flush(engine);
+    const untrusted = { state: "error", message: "untrusted" } as const;
+    expect(heard.at(-1)?.calendars["calendar@google"]).toEqual(untrusted);
+    expect(seriesOn(w, "google")?.recurrence[0]).not.toContain("UNTIL=");
+    yield* engine.syncNow;
+    yield* engine.step;
+    expect((yield* statuses(engine)).calendars["calendar@google"]).toEqual(untrusted);
   }),
 );
 
