@@ -1,6 +1,6 @@
 import { Effect, Result } from "effect";
 import { z } from "zod";
-import { marketplaceTree, MarketplaceIndexSchema } from "@kb/extension-source";
+import { MarketplaceIndexSchema } from "@kb/extension-source";
 import {
   ExtensionStorage,
   KbCtx,
@@ -22,9 +22,9 @@ import {
   marketplacePlan,
   resolveGithub,
   marketplaceSelections,
-  sourceFailure,
   namedEntries,
   marketplaceIdentity,
+  readSelectedIndex,
 } from "./extension-plans.ts";
 
 const Changed = z.object({
@@ -204,19 +204,9 @@ export const marketplaceListEffect = Effect.fn("extension.marketplace.list")(fun
   input: z.infer<typeof marketplaceListDef.inputSchema>,
 ) {
   const { root } = yield* KbCtx;
-  const storage = yield* ExtensionStorage;
   const marketplaces: z.infer<typeof marketplaceListDef.outputSchema>["marketplaces"] = [];
   for (const selected of yield* marketplaceSelections(yield* readSelectionSnapshot(root))) {
-    const read = yield* storage
-      .tree({ kind: "marketplace", name: selected.name, files: selected.selection.locked.files })
-      .pipe(
-        Effect.flatMap((tree) =>
-          tree === null
-            ? domainError("not_found", "index not fetched; run kb ext install")
-            : marketplaceTree(tree.source).pipe(Effect.mapError(sourceFailure)),
-        ),
-        Effect.result,
-      );
+    const read = yield* readSelectedIndex(selected).pipe(Effect.result);
     if (Result.isFailure(read)) {
       marketplaces.push({ ...selected, entries: [], error: read.failure.message });
       continue;

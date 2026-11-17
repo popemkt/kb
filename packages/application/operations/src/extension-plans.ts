@@ -15,6 +15,7 @@ import {
   type ExtensionScope,
   type ExtensionSelection,
   type ExtensionLock,
+  type ExtensionTransaction,
 } from "@kb/contracts";
 import type { SelectionSnapshot } from "./extension-locks.ts";
 import { domainError } from "@kb/model";
@@ -100,30 +101,50 @@ export const marketplaceSelections = Effect.fn("extensions.marketplaceSelections
   }
   return selected;
 });
+/** A selected index as one reader of it sees it: the one reading listing and install by name share. */
+export type SelectedMarketplace = Effect.Success<ReturnType<typeof marketplaceSelections>>[number];
+/** The index a selection pins, offline: its pinned tree, which must still be named as selected. */
+export const readSelectedIndex = Effect.fn("extensions.readSelectedIndex")(function* (
+  entry: SelectedMarketplace,
+) {
+  const tree = yield* (yield* ExtensionStorage).tree({
+    kind: "marketplace",
+    name: entry.name,
+    files: entry.selection.locked.files,
+  });
+  if (tree === null)
+    return yield* domainError(
+      "not_found",
+      `marketplace ${entry.name} is not fetched; run kb ext install`,
+    );
+  const { index, source } = yield* marketplaceTree(tree.source).pipe(
+    Effect.mapError(sourceFailure),
+  );
+  if (index.name !== entry.name)
+    return yield* domainError("invalid_input", "marketplace name does not match its lock");
+  return { index, source };
+});
 export const pinnedMarketplaces = Effect.fn("extensions.pinnedMarketplaces")(function* (
   snapshot: readonly SelectionSnapshot[],
 ) {
   const result: PinnedMarketplace[] = [];
-  const storage = yield* ExtensionStorage;
-  for (const entry of yield* marketplaceSelections(snapshot)) {
-    const tree = yield* storage.tree({
-      kind: "marketplace",
-      name: entry.name,
-      files: entry.selection.locked.files,
-    });
-    if (tree === null)
-      return yield* domainError(
-        "not_found",
-        `marketplace ${entry.name} is not fetched; run kb ext install`,
-      );
-    const { index, source } = yield* marketplaceTree(tree.source).pipe(
-      Effect.mapError(sourceFailure),
-    );
-    if (index.name !== entry.name)
-      return yield* domainError("invalid_input", "marketplace name does not match its lock");
-    result.push({ ...entry, index, source });
-  }
+  for (const entry of yield* marketplaceSelections(snapshot))
+    result.push({ ...entry, ...(yield* readSelectedIndex(entry)) });
   return result;
+});
+/**
+ * Record the index an install or update resolved through in the scope's
+ * marketplaces it writes, with its tree in the cache, so the lock can
+ * resolve and refresh the extension by name on its own.
+ */
+export const recordIndex = Effect.fn("extensions.recordIndex")(function* (
+  tx: ExtensionTransaction,
+  marketplaces: Map<string, ExtensionSelection>,
+  marketplace: PinnedMarketplace | undefined,
+) {
+  if (marketplace === undefined) return;
+  yield* tx.store({ kind: "marketplace", pin: marketplace.selection.locked }, marketplace.source);
+  marketplaces.set(marketplace.name, marketplace.selection);
 });
 /** Request resolution consumes a catalog of reviewed pins; refresh is a separate explicit operation. */
 export const resolveExtensionRequest = Effect.fn("extensions.resolveRequest")(function* (

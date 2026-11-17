@@ -5,6 +5,7 @@ import {
   extensionPlan,
   marketplacePlan,
   pinnedMarketplaces,
+  recordIndex,
   resolveExtensionRequest,
   type PinnedMarketplace,
 } from "./extension-plans.ts";
@@ -116,11 +117,8 @@ export const extensionInstallEffect = Effect.fn("extension.install")(function* (
       Effect.fn("extension.install.write")(function* (tx: ExtensionTransaction) {
         yield* checkSelectionSnapshot(root, snapshot);
         const tree = yield* record(tx, plan, request.marketplace);
-        if (request.marketplace !== undefined)
-          yield* tx.store(
-            { kind: "marketplace", pin: request.marketplace.selection.locked },
-            request.marketplace.source,
-          );
+        const marketplaces = new Map(Object.entries(before.selections.marketplaces));
+        yield* recordIndex(tx, marketplaces, request.marketplace);
         yield* writeSelectionSnapshot(tx, root, before, {
           extensions: {
             ...before.selections.extensions,
@@ -129,12 +127,7 @@ export const extensionInstallEffect = Effect.fn("extension.install")(function* (
               locked: { ...request.pin, files: tree.files },
             },
           },
-          marketplaces: {
-            ...before.selections.marketplaces,
-            ...(request.marketplace === undefined
-              ? {}
-              : { [request.marketplace.name]: request.marketplace.selection }),
-          },
+          marketplaces: Object.fromEntries(marketplaces),
         });
         return { installed, reload: EXTENSION_RELOAD };
       }),
