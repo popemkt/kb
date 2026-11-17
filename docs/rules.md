@@ -499,6 +499,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A derived, gitignored mirror file under .kb/cache/, adopted on connect and replaced by a snapshot when the authority has compacted past it.
 - **node** — `01M6950XSKGDE356Q8RK622WKQ`
 
+### GAP: a routine day returned to its series' default has no node to say its write waits
+
+- **expected** — Every write the routines engine sends shows pending, then synced or failed, on what it is for, and the calendar's waiting count includes it; taking back an instance's Done shows that instance waiting.
+- **current** — Taking back Done or Skip deletes the occurrence node (setEntryState), and the day's write (back to the series' default) has no node: planNodes marks nothing for it, so the instance shows its series' status and the count leaves it out.
+- **impact** — After an undo the calendar can read Synced (or one fewer waiting) while that day's write is still queued; it is sent all the same, and a failure is written on the series.
+- **closes** — Keep a taken-back fact as an occurrence node in state scheduled until its write is sent (then remove it), or key a status by instance (routine + original day) in a record the engine owns, which the calendar reads beside node statuses.
+- **node** — `01M7JGRXEA5AWPZS3SKTRQY45E`
+
 ### GAP: a routines OAuth connect attempt lives in one host process
 
 - **expected** — A connect attempt's state is verifiable without the process that began it: signed with a host secret, or a pending attempt kept in the store.

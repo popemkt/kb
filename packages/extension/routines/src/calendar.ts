@@ -43,6 +43,12 @@ export interface CalendarEntry {
   readonly calendar: string;
   /** Its sync status: its occurrence's when that has one, else its routine's. */
   readonly status: SyncStatus | null;
+  /**
+   * The node {@link status} is read from: its occurrence, or its routine.
+   * One write says one node's status, so the instances that read one node
+   * are one write, however many of them a calendar shows.
+   */
+  readonly statusNode: string;
 }
 
 /** A routine the calendar cannot show, and why. */
@@ -175,9 +181,19 @@ function entry(
     state: fact?.state ?? "scheduled",
     occurrence: occurrence?.node.id ?? null,
     calendar: firstRef(F.calendar)(node.props) ?? "",
-    status:
-      (occurrence === undefined ? null : readSyncStatus(occurrence.node)) ?? readSyncStatus(node),
+    ...syncOf(node, occurrence?.node),
   };
+}
+
+/** An instance's sync status and the node it is read from: its occurrence's, when that has one, else its routine's. */
+function syncOf(
+  routine: NodeLike,
+  occurrence: NodeLike | undefined,
+): Pick<CalendarEntry, "status" | "statusNode"> {
+  const own = occurrence === undefined ? null : readSyncStatus(occurrence);
+  return occurrence !== undefined && own !== null
+    ? { status: own, statusNode: occurrence.id }
+    : { status: readSyncStatus(routine), statusNode: routine.id };
 }
 
 /**

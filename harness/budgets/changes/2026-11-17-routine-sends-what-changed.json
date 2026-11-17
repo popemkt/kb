@@ -1,0 +1,5 @@
+{
+  "reason": "A routine sending only what changed since its last send, each pending, synced or failed status on the node its write is for, which the CLI's composition folds.",
+  "pr": "#260",
+  "raise": { "cli-closure": { "bytes": 178 } }
+}

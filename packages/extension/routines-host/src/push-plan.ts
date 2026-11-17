@@ -9,7 +9,6 @@ import {
   type CalendarBinding,
   type EventFields,
   type EventTime,
-  type Occurrence,
 } from "@kb/routines";
 export interface Snapshot {
   readonly node: NodeLike;
@@ -26,7 +25,69 @@ export interface PushOperation {
 }
 const destination = (snapshot: Snapshot) =>
   canonicalJson([snapshot.binding.calendar.id, snapshot.binding.calendar.calendarId]);
-/** One plan owns retirement of previous remote identities and publication of current ones. */
+/** What one snapshot publishes, keyed by target: its series parent, and each day its facts hold. */
+const PARENT = "parent";
+function published(
+  snapshot: Snapshot,
+  origin: string,
+): ReadonlyMap<string, Omit<PushOperation, "retiresSeries">> {
+  const routine = readRoutine(snapshot.node, snapshot.binding.calendar.zone).routine;
+  const backlink = origin + "/node/" + encodeURIComponent(snapshot.node.id);
+  const desired = routineOccurrences(snapshot.node, snapshot.nodes);
+  // A one-off's one instance is its event: the fact on its day is that event's own state.
+  const oneOff = routine.rrule.trim() === "";
+  const out = new Map<string, Omit<PushOperation, "retiresSeries">>([
+    [
+      PARENT,
+      {
+        snapshot,
+        fields: project(routine, backlink, 0, {
+          kind: "parent",
+          occurrence: oneOff ? (desired.get(routine.starts)?.occurrence ?? null) : null,
+        }),
+        original: null,
+        node: snapshot.node,
+      },
+    ],
+  ]);
+  if (oneOff) return out;
+  for (const [day, fact] of desired)
+    out.set(day, {
+      snapshot,
+      fields: project(routine, backlink, 0, {
+        kind: "instance",
+        on: day,
+        occurrence: fact.occurrence,
+      }),
+      original: { day, at: routine.at, zone: routine.zone },
+      node: fact.node,
+    });
+  return out;
+}
+
+/**
+ * What `previous`, the snapshot last sent, left published where the plan
+ * sends: nothing when none was sent, or its series is retired (a removal
+ * sent, then taken back, publishes everything again, as does a move to a
+ * new destination, whose old series this plan retires).
+ */
+function remote(
+  previous: Snapshot | undefined,
+  retiring: boolean,
+  origin: string,
+): ReadonlyMap<string, Omit<PushOperation, "retiresSeries">> {
+  return previous === undefined || previous.removed || retiring
+    ? new Map()
+    : published(previous, origin);
+}
+
+/**
+ * One plan owns retirement of previous remote identities and publication of
+ * current ones. It sends what changed since `previous`, the snapshot last
+ * sent: the parent when the series' own event changed, a day whose fact is
+ * new or changed, and a day whose fact is gone, back to the series' default.
+ * With no `previous`, a removed one or a new destination, it sends everything.
+ */
 export function pushPlan(
   current: Snapshot,
   previous: Snapshot | undefined,
@@ -58,28 +119,21 @@ export function pushPlan(
     });
   }
   if (current.removed) return operations;
+  const desired = published(current, origin);
+  const before = remote(previous, retire !== null, origin);
+  const sent = (key: string, fields: EventFields) => {
+    const was = before.get(key);
+    return was !== undefined && canonicalJson(was.fields) === canonicalJson(fields);
+  };
+  const parent = desired.get(PARENT);
+  if (parent !== undefined && !sent(PARENT, parent.fields))
+    operations.push({ ...parent, retiresSeries: false });
   const routine = readRoutine(current.node, current.binding.calendar.zone).routine;
+  // A one-off has no instances of its own: its day's fact is its parent's state.
+  if (routine.rrule.trim() === "") return operations;
   const backlink = origin + "/node/" + encodeURIComponent(current.node.id);
-  const desired = routineOccurrences(current.node, current.nodes);
-  // A one-off's one instance is its event: the fact on its day is that event's own state.
-  const oneOff = routine.rrule.trim() === "";
-  operations.push({
-    snapshot: current,
-    fields: project(routine, backlink, 0, {
-      kind: "parent",
-      occurrence: oneOff ? (desired.get(routine.starts)?.occurrence ?? null) : null,
-    }),
-    original: null,
-    node: current.node,
-    retiresSeries: false,
-  });
-  if (oneOff) return operations;
-  const old =
-    previous === undefined || retire !== null
-      ? new Map<string, { readonly node: NodeLike; readonly occurrence: Occurrence }>()
-      : routineOccurrences(previous.node, previous.nodes);
-  for (const [day] of old) {
-    if (desired.has(day)) continue;
+  for (const day of before.keys()) {
+    if (day === PARENT || desired.has(day)) continue;
     operations.push({
       snapshot: current,
       fields: project(routine, backlink, 0, { kind: "instance", on: day, occurrence: null }),
@@ -88,17 +142,8 @@ export function pushPlan(
       retiresSeries: false,
     });
   }
-  for (const [day, fact] of desired)
-    operations.push({
-      snapshot: current,
-      fields: project(routine, backlink, 0, {
-        kind: "instance",
-        on: day,
-        occurrence: fact.occurrence,
-      }),
-      original: { day, at: routine.at, zone: routine.zone },
-      node: fact.node,
-      retiresSeries: false,
-    });
+  for (const [day, operation] of desired)
+    if (day !== PARENT && !sent(day, operation.fields))
+      operations.push({ ...operation, retiresSeries: false });
   return operations;
 }

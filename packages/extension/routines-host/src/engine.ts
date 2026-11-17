@@ -6,6 +6,7 @@ import {
   readAccount,
   readCalendar,
   readRoutine,
+  readSyncStatus,
   retryDelay,
   routineInputs,
   routineZone,
@@ -21,7 +22,7 @@ import {
 import { calendarBindingDigest } from "./binding.ts";
 import { RoutineGraph, type RoutineHost } from "./graph.ts";
 
-import { pushPlan, type Snapshot } from "./push-plan.ts";
+import { pushPlan, type PushOperation, type Snapshot } from "./push-plan.ts";
 export interface EngineOptions {
   readonly host: RoutineHost;
   readonly client: (binding: CalendarBinding) => Effect.Effect<CalendarPort, SyncError>;
@@ -30,6 +31,13 @@ export interface EngineOptions {
 }
 interface Work extends Snapshot {
   readonly source: string;
+  /**
+   * The nodes this work has said wait (DESIGN-UI.md → The routines calendar,
+   * sync status): each node a write it plans is for, and whether that node
+   * had a status before. The series parent is one, so a change to one
+   * instance never says its whole series waits.
+   */
+  readonly marked: ReadonlyMap<string, boolean>;
   readonly first: number;
   readonly last: number;
   readonly attempts: number;
@@ -52,6 +60,23 @@ function syncedStatus(
       : { at: DateTime.formatIso(DateTime.makeUnsafe(at)) }),
   };
 }
+/**
+ * What a send says of the nodes its work marked: each node a write of its
+ * plan is for takes its outcome in `outcomes`, synced or failed, and a node
+ * said to wait whose write the plan no longer holds (its change was taken
+ * back before it was sent) is as it was sent, synced again, whatever the
+ * plan's own writes met.
+ */
+const settle = Effect.fn("routines.engine.settle")(function* (
+  options: EngineOptions,
+  work: Work,
+  outcomes: ReadonlyMap<string, SyncStatus>,
+) {
+  for (const [id, status] of outcomes) yield* options.host.status(id, status);
+  for (const [id, had] of work.marked)
+    if (had && !outcomes.has(id) && work.nodes.has(id))
+      yield* options.host.status(id, { state: "synced", message: "" });
+});
 const pushOne = Effect.fn("routines.engine.pushOne")(function* (
   options: EngineOptions,
   work: Work,
@@ -84,12 +109,19 @@ const pushOne = Effect.fn("routines.engine.pushOne")(function* (
     const response = yield* client.put(target.calendar.calendarId, id, operation.fields);
     if (operation.node !== null) receipts.push({ node: operation.node, response });
   }
-  if (queue.get(node.id) === work)
-    for (const receipt of receipts)
-      yield* options.host.status(
-        receipt.node.id,
-        syncedStatus(work, receipt.node, receipt.response, yield* Clock.currentTimeMillis),
-      );
+  if (queue.get(node.id) === work) {
+    const at = yield* Clock.currentTimeMillis;
+    yield* settle(
+      options,
+      work,
+      new Map(
+        receipts.map(({ node: written, response }) => [
+          written.id,
+          syncedStatus(work, written, response, at),
+        ]),
+      ),
+    );
+  }
   applied.set(node.id, work);
   return true;
 });
@@ -159,12 +191,62 @@ const pushQueue = Effect.fn("routines.engine.pushQueue")(function* (
                 error.retryAfter,
               ),
           });
-          yield* options.host.status(id, { state: "error", message: error.code });
+          // The writes that failed are the plan's; one with no node fails its series.
+          const failed = planNodes(work, applied.get(id), at, options.origin);
+          const status: SyncStatus = { state: "error", message: error.code };
+          yield* settle(
+            options,
+            work,
+            new Map((failed.length === 0 ? [work.node] : failed).map((n) => [n.id, status])),
+          );
         }),
       }),
     );
   }
 });
+/**
+ * The nodes a plan's writes are for: the series parent when its own event
+ * changes, and each instance whose fact does. A write with no node (a day
+ * back to its series' default, a series retired) has none to wait on; a
+ * plan that cannot be made waits on the series.
+ */
+function planNodes(
+  current: Snapshot,
+  previous: Snapshot | undefined,
+  now: number,
+  origin: string,
+): readonly NodeLike[] {
+  let operations: readonly PushOperation[];
+  try {
+    operations = pushPlan(current, previous, now, origin);
+  } catch {
+    return [current.node];
+  }
+  // GAP [[01M7JGRXEA5AWPZS3SKTRQY45E]] a day back to its series' default waits on no node.
+  return operations.flatMap((operation) => (operation.node === null ? [] : [operation.node]));
+}
+/**
+ * What one queued change says waits: the nodes its plan's writes are for,
+ * against `against` (none while `marks` is false), and every node the work
+ * has said waits so far, each with whether it had a status before.
+ */
+function waitsOf(
+  snapshot: Snapshot,
+  change: {
+    readonly against: Snapshot | undefined;
+    readonly earlier: ReadonlyMap<string, boolean> | undefined;
+    readonly marks: boolean;
+  },
+  at: number,
+  origin: string,
+): { readonly waits: readonly NodeLike[]; readonly marked: ReadonlyMap<string, boolean> } {
+  const { against, earlier, marks } = change;
+  const waits = marks ? planNodes(snapshot, against, at, origin) : [];
+  const marked = new Map(earlier);
+  for (const waiting of waits)
+    if (!marked.has(waiting.id)) marked.set(waiting.id, readSyncStatus(waiting) !== null);
+  return { waits, marked };
+}
 export const makeRoutineEngine = Effect.fn("routines.engine.make")(function* (
   options: EngineOptions,
 ) {
@@ -195,12 +277,24 @@ export const makeRoutineEngine = Effect.fn("routines.engine.make")(function* (
         continue;
       const pending = queue.get(node.id);
       const first = pending?.first ?? at;
+      const snapshot: Snapshot = { node, nodes, binding, removed: false };
+      // What waits: an edit, the writes its change makes (against what was
+      // last seen); a retry, the writes it sends again (against what was sent).
+      // Opening reads the store as it is, and says nothing waits.
+      const { waits, marked } = waitsOf(
+        snapshot,
+        {
+          against: retry ? applied.get(node.id) : previous,
+          earlier: pending?.marked,
+          marks: initialized || retry,
+        },
+        at,
+        options.origin,
+      );
       const work: Work = {
-        node,
-        nodes,
-        binding,
+        ...snapshot,
         source,
-        removed: false,
+        marked,
         first,
         last: at,
         attempts: 0,
@@ -209,14 +303,15 @@ export const makeRoutineEngine = Effect.fn("routines.engine.make")(function* (
       };
       seen.set(node.id, work);
       queue.set(node.id, work);
-      if (initialized || retry)
-        yield* options.host.status(node.id, { state: "pending", message: "" });
+      for (const waiting of waits)
+        yield* options.host.status(waiting.id, { state: "pending", message: "" });
     }
     for (const [id, previous] of seen) {
       if (active.has(id) || previous.removed) continue;
       const work = {
         ...previous,
         removed: true,
+        marked: new Map<string, boolean>(),
         first: at,
         last: at,
         attempts: 0,
