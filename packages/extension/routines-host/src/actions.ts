@@ -108,7 +108,7 @@ export function routineActions(
       accountInput,
       ({ account }: { account: string }) => connection.remove(account),
     ),
-    action("sync", "Retry event sync now", write, emptyInput, () => ok(engine.syncNow())),
+    action("sync", "Retry event sync now", write, emptyInput, () => ok(engine.syncNow)),
     action(
       "release",
       "Release these held deletion plans",

@@ -5,6 +5,7 @@ import { longDay } from "@kb/calendar-kit";
 import { displayTimes } from "./layout";
 import { inkOf } from "./model";
 import { StatusDot } from "./status-dot";
+import { useEntryStatus } from "./statuses";
 import type { LayoutProps } from "./week-view";
 
 /** What an agenda row does besides opening: tick its instance done, or skip it. */
@@ -25,6 +26,7 @@ function AgendaRow({
   readonly actions: InstanceActions;
 }) {
   const calendar = layout.model.calendars.get(entry.calendar);
+  const status = useEntryStatus(entry);
   const times = displayTimes(entry, layout.zone);
   const done = entry.state === "done";
   const skipped = entry.state === "skipped";
@@ -73,7 +75,7 @@ function AgendaRow({
           {skipped ? " · skipped" : ""}
         </span>
       </button>
-      <StatusDot status={entry.status} calendarMode={calendar?.mode} className="h-2 w-2" />
+      <StatusDot status={status} calendarMode={calendar?.mode} className="h-2 w-2" />
       <IconButton
         label={skipped ? `Bring back ${entry.title}` : `Skip ${entry.title}`}
         icon={ArrowArcRightIcon}

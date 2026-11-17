@@ -17,6 +17,7 @@ import { BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from "./buttons";
 import { displayDay, displayTimes } from "./layout";
 import { inkOf, type CalendarGraph } from "./model";
 import { StatusDot } from "./status-dot";
+import { useEntryStatus } from "./statuses";
 import { syncShown } from "./sync-shown";
 import { chosenState, instanceChoices } from "./instance-choices";
 import { TimeField } from "./time-field";
@@ -141,6 +142,7 @@ function InstanceDetails({
   const settings = node === undefined ? null : routineSettings(node).settings;
   const times = displayTimes(entry, zone);
   const calendar = model.calendars.get(entry.calendar);
+  const status = useEntryStatus(entry);
   return (
     <>
       {calendar === undefined ? null : (
@@ -169,13 +171,13 @@ function InstanceDetails({
         </p>
       )}
       <p className="flex items-center gap-2 text-meta text-muted-foreground">
-        <StatusDot status={entry.status} calendarMode={calendar?.mode} className="h-2 w-2" />
-        <span className="min-w-0 flex-1">{syncShown(entry.status, calendar?.mode, zone).text}</span>
+        <StatusDot status={status} calendarMode={calendar?.mode} className="h-2 w-2" />
+        <span className="min-w-0 flex-1">{syncShown(status, calendar?.mode, zone).text}</span>
       </p>
-      {entry.status?.url === undefined ? null : (
+      {status?.url === undefined ? null : (
         <a
           className="inline-flex items-center gap-1 text-meta text-primary hover:underline"
-          href={entry.status.url}
+          href={status.url}
           target="_blank"
           rel="noreferrer"
         >

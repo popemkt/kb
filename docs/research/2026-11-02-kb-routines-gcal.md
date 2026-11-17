@@ -182,6 +182,15 @@ is sent.
   by its listed id, so nothing is created twice.
 - An event deleted while the host was stopped ends at the next start. This
   closes the Simplified section's limit on deletions made offline.
+- A calendar node re-pointed at another Google calendar leaves kb's series
+  on the old one as they are. A pass lists only the Google calendars the
+  store names now, and the store no longer names that one. Before this
+  change the store's sync fields remembered it; by the rule that the store
+  holds facts they are gone, and the host remembers nothing across a
+  restart. Moving an event to another calendar node still ends its series
+  on the old one, because the old one is still named. The data directory
+  below is where the host would remember the calendars it has pushed to
+  (gap `01M7KTB23TP44SDM0D9XY3E5GM`).
 
 ### A person's edit in Google
 
@@ -202,7 +211,8 @@ ever accept edits made in Google.
 ### Operational data the host cannot rebuild
 
 Outbound sync keeps nothing that its next pass cannot rebuild, so it needs no
-storage. Inbound will need some: a subscribed calendar's sync token, and the
+storage, with one exception: the Google calendars a calendar node used to
+name (Restart, crash and deletion). Inbound will need some: a subscribed calendar's sync token, and the
 remote copy the data-plane research placed in an operational store under
 `KB_DATA`
 ([2026-11-10 §6.4](2026-11-10-data-plane-fields-events.md#6-events)). Its

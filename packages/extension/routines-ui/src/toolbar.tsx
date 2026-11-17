@@ -14,6 +14,7 @@ import { useCalendarClock } from "./clock";
 import { BUTTON_CLASS, ICON_BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from "./buttons";
 import type { CalendarModel } from "./model";
 import { syncPath } from "./routes";
+import { useSyncStatuses } from "./statuses";
 import { SYNC_DOTS, syncSummary } from "./sync-shown";
 import { syncNow } from "./writes";
 
@@ -146,7 +147,7 @@ export function CalendarToolbar({
   readonly onToday: () => void;
   readonly onNew: () => void;
 }) {
-  const summary = syncSummary(model, useCalendarClock().zone);
+  const summary = syncSummary(model, useSyncStatuses(), useCalendarClock().zone);
   const hasService = nodesOfKind(model.nodes, ROUTINE_TAGS.account).length > 0;
   return (
     <div

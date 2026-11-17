@@ -219,14 +219,14 @@ export function connections(options: RoutinesPluginOptions, ui: UiHostService, h
     const now = DateTime.formatIso(DateTime.makeUnsafe(yield* Clock.currentTimeMillis));
     if (Result.isFailure(done)) {
       if (done.failure.code !== "connect_invalid")
-        yield* host.status(account.id, {
+        yield* host.connection(account.id, {
           state: "error",
           message: `Connecting failed (${done.failure.code.replaceAll("_", " ")})`,
           at: now,
         });
       return yield* done.failure;
     }
-    yield* host.status(account.id, { state: "synced", message: "", at: now });
+    yield* host.connection(account.id, { state: "synced", message: "", at: now });
     return { account: account.id };
   });
 

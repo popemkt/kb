@@ -5,7 +5,9 @@
  * here (create by click and by drag, move one instance or its series, resize,
  * tick done, skip) is checked by what it wrote and by what is shown after it,
  * never by the component's own state. No Google calendar is involved: the
- * engine's push is behind the invoke path and not part of the page.
+ * engine's push is behind the invoke path and not part of the page, and what
+ * it says of its writes reaches the page on the host's status channel, which
+ * the test speaks for.
  */
 import { act, useMemo, useSyncExternalStore } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -16,10 +18,21 @@ import {
   routineOption,
   ROUTINE_FIELDS as F,
   ROUTINE_TAGS as T,
-  syncStatusProps,
+  NO_STATUSES,
+  STATUS_CHANNEL,
+  WATCH_STATUSES,
   type SyncStatus,
+  type SyncStatuses,
 } from "@kb/routines";
-import { getPath, setToastSink, subscribePath, syncUiPlugins, type OutlineNode } from "@kb/ui-sdk";
+import {
+  getPath,
+  setToastSink,
+  subscribePath,
+  syncUiPlugins,
+  type ChannelSink,
+  type OutlineNode,
+  type Standing,
+} from "@kb/ui-sdk";
 import {
   installDomGlobals,
   testBrowserHost,
@@ -77,6 +90,11 @@ let graph: Map<string, OutlineNode>;
 let calls: Call[];
 let toasts: string[];
 let zone = "Asia/Ho_Chi_Minh";
+/** What the sync host holds, which it says when the page watches; and the page's end of the channel. */
+let held: SyncStatuses;
+let heard: ChannelSink | null;
+let standing: Standing;
+let watches: number;
 const NOW = Date.UTC(2026, 10, 4, 3, 0); // Wed 2026-11-04 10:00 in Ho Chi Minh City
 
 /** One node call applied to the graph, as the page's local commit applies it. */
@@ -228,7 +246,26 @@ beforeEach(() => {
   zone = "Asia/Ho_Chi_Minh";
   calls = [];
   toasts = [];
+  held = NO_STATUSES;
+  heard = null;
+  standing = "person";
+  watches = 0;
   host = testBrowserHost({
+    channel: (name) => ({
+      listen: (sink) => {
+        if (name === STATUS_CHANNEL) heard = sink;
+        return () => {
+          if (heard === sink) heard = null;
+        };
+      },
+      send: (data) => {
+        if (name !== STATUS_CHANNEL || standing !== "person") return;
+        expect(data).toEqual(WATCH_STATUSES);
+        watches += 1;
+        heard?.data(held);
+      },
+    }),
+    standing: () => standing,
     invoke: (id, input) => {
       const call = { id, input: input as Record<string, unknown> };
       calls.push(call);
@@ -559,36 +596,31 @@ describe("occurrences", () => {
   });
 });
 
-/** The status fields the engine writes for `state`, as a node holds them. */
-const status = (state: SyncStatus): Props =>
-  Object.fromEntries(
-    Object.entries(syncStatusProps(state)).flatMap(([field, value]) =>
-      value === null ? [] : [[field, [value]]],
-    ),
-  );
+/** The host now holds `next`, and says so to a page that watches. */
+function hostSays(next: SyncStatuses): void {
+  held = next;
+  act(() => heard?.data(next));
+}
+const gymSays = (series: SyncStatus, days: Readonly<Record<string, SyncStatus>> = {}) =>
+  hostSays({ ...NO_STATUSES, series: { gym: series }, instances: { gym: days } });
 
 describe("sync status", () => {
   test("each instance shows its routine's dot, or its occurrence's own, with the message as its tooltip", () => {
-    const failed = outline("o-fail", "2026-11-04", {
+    const done = outline("o-done", "2026-11-04", {
       [SYSTEM_IDS.typeField]: [ref(T.occurrence)],
       [F.on]: [str("2026-11-04")],
       [F.state]: [ref(routineOption("state", "done"))],
-      ...status({ state: "error", message: "quota_exceeded" }),
     });
-    const synced = {
-      ...GYM,
-      props: {
-        ...GYM.props,
-        ...status({
-          state: "synced",
-          message: "",
-          at: "2026-11-04T02:00:00Z",
-          url: "https://calendar.google.com/event?eid=x",
-        }),
+    open("/calendar/week/2026-11-02", [CALENDAR, { ...GYM, children: ["o-done"] }, done]);
+    gymSays(
+      {
+        state: "synced",
+        message: "",
+        at: "2026-11-04T02:00:00Z",
+        url: "https://calendar.google.com/event?eid=x",
       },
-      children: ["o-fail"],
-    };
-    open("/calendar/week/2026-11-02", [CALENDAR, synced, failed]);
+      { "2026-11-04": { state: "error", message: "quota_exceeded" } },
+    );
     const monday = chip("gym/2026-11-02").querySelector<HTMLElement>("[data-sync-status]");
     expect(monday?.dataset["syncStatus"]).toBe("synced");
     // When it synced, on the page's wall clock (Ho Chi Minh City), as the box says its times.
@@ -599,15 +631,14 @@ describe("sync status", () => {
     expect($("[data-sync-summary]").dataset["syncSummary"]).toBe("error");
   });
   test("opening one links to Google Calendar, and Sync now asks the engine", async () => {
-    const synced = {
-      ...GYM,
-      props: {
-        ...GYM.props,
-        ...status({ state: "synced", message: "", url: "https://calendar.google.com/event?eid=x" }),
+    const service = outline("acct", "Google", { [SYSTEM_IDS.typeField]: [ref(T.account)] });
+    held = {
+      ...NO_STATUSES,
+      series: {
+        gym: { state: "synced", message: "", url: "https://calendar.google.com/event?eid=x" },
       },
     };
-    const service = outline("acct", "Google", { [SYSTEM_IDS.typeField]: [ref(T.account)] });
-    open("/calendar/week/2026-11-02", [CALENDAR, synced, service]);
+    open("/calendar/week/2026-11-02", [CALENDAR, GYM, service]);
     pointer("pointerdown", chip("gym/2026-11-02"), y(7) + 10);
     pointer("pointerup", chip("gym/2026-11-02"), y(7) + 10);
     const link = $('[data-testid="entry-popover"] a');
@@ -626,24 +657,43 @@ describe("sync status", () => {
     expect(getPath()).toBe("/calendar/sync");
     expect(calls.filter((call) => call.id === "ext.routines.sync")).toEqual([]);
   });
-  test("a calendar in preview or paused sends nothing, whatever status the engine last wrote", () => {
+  test("a calendar in preview or paused sends nothing, whatever status the host last held", () => {
     const sync = (mode: string) => ({
       ...CALENDAR,
       props: { ...CALENDAR.props, [F.sync]: [ref(routineOption("sync", mode))] },
     });
-    const pending = {
-      ...GYM,
-      props: { ...GYM.props, ...status({ state: "pending", message: "" }) },
-    };
     open("/calendar/week/2026-11-02", [sync("preview"), GYM]);
     const dot = () => chip("gym/2026-11-02").querySelector<HTMLElement>("[data-sync-status]");
     expect(dot()?.title).toBe("Not synced: the calendar is in preview");
-    open("/calendar/week/2026-11-02", [sync("paused"), pending]);
+    gymSays({ state: "pending", message: "" });
+    open("/calendar/week/2026-11-02", [sync("paused"), GYM]);
     expect([dot()?.dataset["syncStatus"], dot()?.title]).toEqual([
       "none",
       "Not synced: the calendar is paused",
     ]);
     expect($("[data-sync-summary]").dataset["syncSummary"]).toBe("none");
+  });
+  test("the page watches the host's statuses again when its connection comes back, and claims none while it is down", () => {
+    held = { ...NO_STATUSES, series: { gym: { state: "synced", message: "" } } };
+    open("/calendar/week/2026-11-02", [CALENDAR, GYM]);
+    const dot = () => chip("gym/2026-11-02").querySelector<HTMLElement>("[data-sync-status]");
+    expect([watches, dot()?.dataset["syncStatus"]]).toEqual([1, "synced"]);
+    standing = "offline";
+    act(() => host.setNodes(graph.values()));
+    expect([dot()?.dataset["syncStatus"], dot()?.title]).toEqual(["none", "Not synced yet"]);
+    expect($("[data-sync-summary]").dataset["syncSummary"]).toBe("none");
+    standing = "person";
+    act(() => host.setNodes(graph.values()));
+    expect([watches, dot()?.dataset["syncStatus"]]).toEqual([2, "synced"]);
+  });
+  test("with no host to hear, nothing is claimed synced", () => {
+    standing = "nobody";
+    open("/calendar/week/2026-11-02", [CALENDAR, GYM]);
+    expect(watches).toBe(0);
+    expect($("[data-sync-summary]").dataset["syncSummary"]).toBe("none");
+    expect(chip("gym/2026-11-02").querySelector<HTMLElement>("[data-sync-status]")?.title).toBe(
+      "Not synced yet",
+    );
   });
 });
 
@@ -961,18 +1011,15 @@ describe("an event on its own", () => {
   });
 
   test("says when it synced as it says its times, never as an ISO instant", () => {
-    const synced = {
-      ...GYM,
-      props: {
-        ...GYM.props,
-        ...status({ state: "synced", message: "", at: "2026-11-10T14:43:19.684Z" }),
-      },
+    held = {
+      ...NO_STATUSES,
+      series: { gym: { state: "synced", message: "", at: "2026-11-10T14:43:19.684Z" } },
     };
-    openEvent("gym", [CALENDAR, synced], true);
+    openEvent("gym", [CALENDAR, GYM], true);
     expect($("[data-event-line] [data-sync-status]").title).toBe(
       "Synced to Google Calendar at Nov 10, 21:43",
     );
-    openEvent("gym", [CALENDAR, synced]);
+    openEvent("gym", [CALENDAR, GYM]);
     const card = $("[data-event-view] [data-event-card]");
     expect(card.textContent).toContain("Synced to Google Calendar at Nov 10, 21:43");
     expect(card.textContent).not.toMatch(/\d{4}-\d{2}-\d{2}T/);

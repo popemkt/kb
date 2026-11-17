@@ -1,0 +1,16 @@
+{
+  "reason": "Routines' push reconciles against Google and keeps its statuses in the host. The page folds the family's declaration, which now carries the declared migration routines.sync-off-nodes, beside the SyncStatuses schemas and the status channel's name (1,222 measured eager bytes; the calendar's status store loads lazily with the routines page). The CLI composes the same declaration, and @kb/routines' barrel adds sent.ts, the kbSent digest and the owned and holds predicates the host's reconcile reads (5,745 bytes and one module). The package's surface grows by the statuses' schemas, the channel's name and id, the predicates, entryStatus and connectionProps, less the two node-status readers it drops (11).",
+  "pr": "#271",
+  "raise": {
+    "page-eager": {
+      "bytes": 1222
+    },
+    "cli-closure": {
+      "bytes": 5745,
+      "modules": 1
+    },
+    "surface": {
+      "@kb/routines": 11
+    }
+  }
+}

@@ -43,8 +43,6 @@ function timed(key: string, at: string, minutes: number): CalendarEntry {
     state: "scheduled",
     occurrence: null,
     calendar: "",
-    status: null,
-    statusNode: key,
   };
 }
 

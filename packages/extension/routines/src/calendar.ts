@@ -8,8 +8,14 @@
  */
 import { DateTime, Option } from "effect";
 import { addDays, firstRef, formatDay, nodesOfKind, parseDay, type NodeLike } from "@kb/model";
-import { readRoutine, readSyncStatus, routineOccurrences, routineZone } from "./config.ts";
-import { SyncError, type Occurrence, type Routine, type SyncStatus } from "./model.ts";
+import { readRoutine, routineOccurrences, routineZone } from "./config.ts";
+import {
+  SyncError,
+  type Occurrence,
+  type Routine,
+  type SyncStatus,
+  type SyncStatuses,
+} from "./model.ts";
 import { instancePlace, project, recurrence } from "./projection.ts";
 import { RRule } from "./rrule.ts";
 import { ROUTINE_FIELDS as F, ROUTINE_TAGS as T } from "./seed.ts";
@@ -41,14 +47,6 @@ export interface CalendarEntry {
   readonly occurrence: string | null;
   /** The calendar node the routine is on; empty when it names none. */
   readonly calendar: string;
-  /** Its sync status: its occurrence's when that has one, else its routine's. */
-  readonly status: SyncStatus | null;
-  /**
-   * The node {@link status} is read from: its occurrence, or its routine.
-   * One write says one node's status, so the instances that read one node
-   * are one write, however many of them a calendar shows.
-   */
-  readonly statusNode: string;
 }
 
 /** A routine the calendar cannot show, and why. */
@@ -181,19 +179,23 @@ function entry(
     state: fact?.state ?? "scheduled",
     occurrence: occurrence?.node.id ?? null,
     calendar: firstRef(F.calendar)(node.props) ?? "",
-    ...syncOf(node, occurrence?.node),
   };
 }
 
-/** An instance's sync status and the node it is read from: its occurrence's, when that has one, else its routine's. */
-function syncOf(
-  routine: NodeLike,
-  occurrence: NodeLike | undefined,
-): Pick<CalendarEntry, "status" | "statusNode"> {
-  const own = occurrence === undefined ? null : readSyncStatus(occurrence);
-  return occurrence !== undefined && own !== null
-    ? { status: own, statusNode: occurrence.id }
-    : { status: readSyncStatus(routine), statusNode: routine.id };
+/**
+ * An instance's sync status in the host's `statuses`, and the write it is read
+ * from: its own, when the host holds one for its day, else its series'. A
+ * one-off's one instance is its series. The instances that read one write are
+ * one write, however many of them a calendar shows.
+ */
+export function entryStatus(
+  statuses: SyncStatuses,
+  { routine, on, series }: Pick<CalendarEntry, "routine" | "on" | "series">,
+): { readonly status: SyncStatus | null; readonly write: string } {
+  const own = series ? statuses.instances[routine]?.[on] : undefined;
+  return own === undefined
+    ? { status: statuses.series[routine] ?? null, write: routine }
+    : { status: own, write: routine + "/" + on };
 }
 
 /**

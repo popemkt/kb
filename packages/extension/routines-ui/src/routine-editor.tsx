@@ -13,7 +13,6 @@ import {
   editRoutine,
   knownZone,
   project,
-  readSyncStatus,
   routineSettings,
   type RoutineSettings,
 } from "@kb/routines";
@@ -24,6 +23,7 @@ import type { CalendarGraph } from "./model";
 import { DateField } from "./date-field";
 import { FIELD_CLASS, RepeatPicker } from "./repeat-picker";
 import { StatusDot } from "./status-dot";
+import { useSyncStatuses } from "./statuses";
 import { syncShown } from "./sync-shown";
 import { TimeField } from "./time-field";
 import { clockOf, DAY_MINUTES, lengthBetween, lengthText, minutesOf } from "./time-text";
@@ -92,8 +92,7 @@ function SyncRow({
   readonly model: CalendarGraph;
   readonly calendar: string;
 }) {
-  const node = model.nodes.get(id);
-  const status = node === undefined ? null : readSyncStatus(node);
+  const status = useSyncStatuses().series[id] ?? null;
   const mode = model.calendars.get(calendar)?.mode;
   const { zone } = useCalendarClock();
   return (

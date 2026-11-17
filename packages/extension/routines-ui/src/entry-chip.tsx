@@ -6,6 +6,7 @@ import { cn } from "@kb/ui-sdk";
 import { displayTimes } from "./layout";
 import { inkOf, type CalendarChoice } from "./model";
 import { StatusDot } from "./status-dot";
+import { useEntryStatus } from "./statuses";
 
 const STATES = {
   scheduled: "",
@@ -38,6 +39,7 @@ export function EntryChip({
   onPointerDown,
   onOpen,
 }: EntryChipProps) {
+  const status = useEntryStatus(entry);
   const times = displayTimes(entry, zone);
   const label = `${entry.title}${times === null ? ", all day" : `, ${times.start}–${times.end}`}${
     entry.state === "scheduled" ? "" : `, ${entry.state}`
@@ -72,7 +74,7 @@ export function EntryChip({
       )}
     >
       <span className="flex min-w-0 items-center gap-1">
-        <StatusDot status={entry.status} calendarMode={calendar?.mode} />
+        <StatusDot status={status} calendarMode={calendar?.mode} />
         {entry.state === "done" ? <CheckIcon size={10} weight="bold" className="shrink-0" /> : null}
         {times !== null && !block ? (
           <span className="shrink-0 text-muted-foreground">{times.start}</span>

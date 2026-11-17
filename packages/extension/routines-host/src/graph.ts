@@ -2,7 +2,7 @@ import { Context, Layer, Result, DateTime, Effect, Schema } from "effect";
 import { z } from "zod";
 import { onWire, viaWithin, WireNodeSchema, type UiHostService } from "@kb/contracts";
 import { canonicalJson, type NodeLike, type PropValue } from "@kb/model";
-import { syncStatusProps, ROUTINE_TAGS as T, SyncError, type SyncStatus } from "@kb/routines";
+import { connectionProps, ROUTINE_TAGS as T, SyncError, type SyncStatus } from "@kb/routines";
 
 export interface TailChange {
   readonly at: number;
@@ -19,7 +19,11 @@ export interface RoutineHost {
   readonly read: Effect.Effect<ReadonlyMap<string, NodeLike>, SyncError>;
   readonly changes: (since: number) => Effect.Effect<TailPage, SyncError>;
   readonly trusted: (digest: string) => Effect.Effect<boolean, SyncError>;
-  readonly status: (id: string, status: SyncStatus) => Effect.Effect<void, SyncError>;
+  /** Record an account's connection on its node. GAP [[01M7KR406S3A38WYZYW7JKJ3BS]] */
+  readonly connection: (
+    id: string,
+    status: Pick<SyncStatus, "state" | "message" | "at">,
+  ) => Effect.Effect<void, SyncError>;
 }
 const Node = WireNodeSchema.pick({ id: true, text: true, props: true });
 const Tree = Node.extend({ children: z.array(Node).optional() });
@@ -130,7 +134,7 @@ export function makeRoutineHost(host: UiHostService): RoutineHost {
       if (!result.success) return yield* unavailable();
       return result.data.trusted.includes(digest);
     }),
-    status: (id, status) => replace(id, syncStatusProps(status)),
+    connection: (id, status) => replace(id, connectionProps(status)),
   };
 }
 

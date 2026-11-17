@@ -18,6 +18,7 @@ import { chosenState, instanceChoices } from "./instance-choices";
 import { displayDay, displayTimes } from "./layout";
 import { inkOf, type CalendarGraph } from "./model";
 import { StatusDot } from "./status-dot";
+import { useEntryStatus } from "./statuses";
 
 const STATE_TEXT = { moved: "Moved", done: "Done", skipped: "Skipped" } as const;
 
@@ -57,17 +58,14 @@ function Described({
   readonly lead: string | null;
 }) {
   const calendar = model.calendars.get(entry.calendar);
+  const status = useEntryStatus(entry);
   const node = model.nodes.get(entry.routine);
   const settings = node === undefined ? null : routineSettings(node).settings;
   const times = displayTimes(entry, zone);
   const repeat =
     settings === null ? null : describeRepeat(settings.rrule, settings.until, settings.starts);
   const sync = (
-    <StatusDot
-      status={entry.status}
-      calendarMode={calendar?.mode}
-      className="ml-1.5 h-2 w-2 shrink-0"
-    />
+    <StatusDot status={status} calendarMode={calendar?.mode} className="ml-1.5 h-2 w-2 shrink-0" />
   );
   const last = entry.state !== "scheduled" ? "state" : repeat === null ? "when" : "repeat";
   // GAP [[01M7JJWQH1DFYE2SKW018N1P46]] the calendar's dot is drawn among the words, not in the line's glyph column
@@ -190,6 +188,7 @@ export function EventLine({
     if (line.current !== null) onOpen(line.current, moving);
   };
   const moment = live && entry !== null ? eventMoment(entry, now) : null;
+  const status = useEntryStatus(entry ?? undefined);
   return (
     <div
       ref={line}
@@ -218,10 +217,10 @@ export function EventLine({
             <Choices entry={entry} actions={actions} onMove={() => open(true)} />
           )}
         </span>
-        {entry?.status?.url === undefined ? null : (
+        {status?.url === undefined ? null : (
           <a
             className="shrink-0 pb-0.5 text-faint-foreground hover:text-primary"
-            href={entry.status.url}
+            href={status.url}
             target="_blank"
             rel="noreferrer"
             title="Open in Google Calendar"

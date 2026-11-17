@@ -146,6 +146,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — one edge-fade mechanism for horizontal scrollers in the kit, read by the board (and lanes and cards)
 - **node** — `01M7DAJSTW3PP7375FECAA2DHS`
 
+### GAP: a calendar re-pointed at another Google calendar leaves kb's series on the old one
+
+- **expected** — When a calendar node's Google calendar id changes, kb's series on the calendar it named before are ended, as an event moved to another calendar node is.
+- **current** — The push pass lists only the Google calendars the store names now (boundCalendars), and the store keeps no record of the ones a calendar node named before, so their series stay as they were.
+- **impact** — Re-pointing a calendar leaves its old Google calendar holding kb's events, still repeating, until a person deletes them there; the store-held ledger that ended them before this change is gone by the rule that the store holds facts.
+- **closes** — The per-family data directory (docs/research/2026-11-02-kb-routines-gcal.md → Operational data the host cannot rebuild): the host remembers each Google calendar it has pushed to, and a pass also lists those no calendar node names now, to end kb's series there.
+- **node** — `01M7KTB23TP44SDM0D9XY3E5GM`
+
 ### GAP: a call's actor and approval are declared by the caller, not proven
 
 - **expected** — each surface authenticates its caller, so actor and approved are facts kb checks, and policies are a boundary rather than a guard against accidents
@@ -517,14 +525,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — No offline start; a DO daily-quota block or a Turso BLOCKED leaves nothing to read after a restart.
 - **closes** — A derived, gitignored mirror file under .kb/cache/, adopted on connect and replaced by a snapshot when the authority has compacted past it.
 - **node** — `01M6950XSKGDE356Q8RK622WKQ`
-
-### GAP: a routine day returned to its series' default has no node to say its write waits
-
-- **expected** — Every write the routines engine sends shows pending, then synced or failed, on what it is for, and the calendar's waiting count includes it; taking back an instance's Done shows that instance waiting.
-- **current** — Taking back Done or Skip deletes the occurrence node (setEntryState), and the day's write (back to the series' default) has no node: planNodes marks nothing for it, so the instance shows its series' status and the count leaves it out.
-- **impact** — After an undo the calendar can read Synced (or one fewer waiting) while that day's write is still queued; it is sent all the same, and a failure is written on the series.
-- **closes** — Keep a taken-back fact as an occurrence node in state scheduled until its write is sent (then remove it), or key a status by instance (routine + original day) in a record the engine owns, which the calendar reads beside node statuses.
-- **node** — `01M7JGRXEA5AWPZS3SKTRQY45E`
 
 ### GAP: a routines OAuth connect attempt lives in one host process
 
@@ -1273,9 +1273,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 ### GAP: managed-field commit lock
 
-- **expected** — A field whose value mirrors something outside the store, which no constraint can check (routines' gcal sync fields: the event id, its status, synced at), is locked to its family: the commit admits its values only from that family's actions, on every surface, and the editor names the action to use instead of an Edit.
-- **current** — sys.f.managedBy declares that a family manages a field, and the page puts an Edit step in front of a person's write, but the commit admits the write from anyone. Days needs no more (its period-key and unique-key guards keep every key valid); routines' sync fields have no constraint that could tell a right event id from a wrong one.
-- **impact** — A person's or an agent's write to a sync field can corrupt the sync's bookkeeping: a wrong gcal event id re-creates or orphans a Google event. A family that wants protection today can only reach for the sys.* node lock, which is the wrong grain.
+- **expected** — A field whose value mirrors something outside the store, which no constraint can check (an imported event's gcal event id, docs/research/2026-11-12-gcal-inbound.md §2), is locked to its family: the commit admits its values only from that family's actions, on every surface, and the editor names the action to use instead of an Edit.
+- **current** — sys.f.managedBy declares that a family manages a field, and the page puts an Edit step in front of a person's write, but the commit admits the write from anyone. Days needs no more (its period-key and unique-key guards keep every key valid). Routines' push keeps no sync fields since 2026-11-17 (the store holds facts); inbound's gcal event id, when G1 builds it, has no constraint that could tell a right id from a wrong one.
+- **impact** — A person's or an agent's write to an imported event's gcal event id can corrupt inbound's bookkeeping: a wrong id re-imports or orphans the event. A family that wants protection today can only reach for the sys.* node lock, which is the wrong grain.
 - **closes** — The commit reads sys.f.managedBy against the call's owning family (the called action's owner, part of the action contract), for fields that declare the lock; the field row shows the family's action in place of Edit. Only where no constraint can do the job (data-plane freedom: constrain before you lock).
 - **rule** — Data-plane freedom: constrain before you lock
 - **node** — `01M74AS94FM8GDGF3W10M84P43`
