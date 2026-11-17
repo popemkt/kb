@@ -1,5 +1,0 @@
-{
-  "reason": "BrowserHost carries the plugin channels and the connection's standing: ChannelPort, ChannelSink and Standing, now the sdk's, so a family other than the agent reaches its channel through the host.",
-  "pr": "#271",
-  "raise": { "surface": { "@kb/ui-sdk": 3 } }
-}

@@ -13,8 +13,7 @@ import type { AgentEvent, AgentRequest } from "@kb/agent";
 import { browserHostUiPlugin } from "@/browser-host";
 import { syncUiPlugins } from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
-import { AgentDock, attachChat, useChat, type AgentPorts } from "@kb/agent-ui";
-import type { Standing } from "@kb/ui-sdk";
+import { AgentDock, attachChat, useChat, type AgentPorts, type Standing } from "@kb/agent-ui";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 
 interface Stand {

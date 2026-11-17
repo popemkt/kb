@@ -5790,13 +5790,9 @@ A plugin can hold its own conversation with the connections of `kb ui`
   declares a host part; a repository extension that does is refused. The
   agent's `threads` and routines' `sync` are the two
   ([research](docs/research/2026-11-11-cli-host-modes.md#12-host-entries-declare-their-mode)).
-- In the browser, `KbWsClient.listen` and `sendChannel` carry a channel,
-  and a half reaches it through `BrowserHost.channel(name)`, with the
-  connection's `standing` beside it; the agent's ports are bound from the
-  same two members. A frame sent while the socket is down is dropped rather
-  than replayed, because the plugin forgets a connection that closes, so a
-  half that holds a conversation says its opening again when the standing
-  returns to `person`.
+- In the browser, `KbWsClient.listen` and `sendChannel` carry a channel. A
+  frame sent while the socket is down is dropped rather than replayed,
+  because the plugin forgets a connection that closes.
 
 ## Agent packages
 

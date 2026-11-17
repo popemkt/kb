@@ -50,7 +50,7 @@ import * as zod from "zod";
 import { ulid } from "ulid";
 import { Effect, Result } from "effect";
 import { AGENT_CHANNEL, agentExtension } from "@kb/agent";
-import type { AgentPorts } from "@kb/agent-ui";
+import type { AgentPorts, Standing } from "@kb/agent-ui";
 import { routinesExtension } from "@kb/routines";
 import { backdropsExtension } from "@kb/backdrops";
 import { backdropsUiPlugin } from "@kb/backdrops-ui";
@@ -82,7 +82,8 @@ import { outlineExtension } from "@kb/outline";
 import { outlineUiPlugin } from "@kb/outline-ui";
 import { useGraphStore } from "@/stores/graph.store";
 import { PluginError, type Plugin } from "@kb/plugin";
-import { browserHostUiPlugin, host } from "@/browser-host";
+import { getLiveClient } from "@/api/live";
+import { browserHostUiPlugin } from "@/browser-host";
 import { coreUiPlugin } from "@/core-plugin";
 import { designSystemsUiPlugin } from "@/design-systems";
 import { canvasUiPlugin } from "@kb/canvas-ui";
@@ -121,19 +122,31 @@ export const CORE_UI_PLUGINS: readonly Plugin[] = [
 ];
 
 /**
- * The agent's ports, bound to this page: the page host's `agent.chat`
- * channel and standing, and the browser's one invoke path, through
+ * Where this tab's connection stands, from the socket's state and what the
+ * server said of it: whose it is is told once per connection, after it opens.
+ */
+function standingOf({
+  wsStatus,
+  person,
+}: Pick<ReturnType<typeof useUiStore.getState>, "wsStatus" | "person">): Standing {
+  if (wsStatus !== "open") return "offline";
+  if (person === undefined) return "unknown";
+  return person === null ? "nobody" : "person";
+}
+
+/**
+ * The agent's ports, bound to this page: the live socket's `agent.chat`
+ * channel, the socket's state, and the browser's one invoke path, through
  * which the person's approve or decline is made. The agent's UI half reaches
  * neither the socket nor the invoke path itself.
  */
-const agentChannel = host.channel(AGENT_CHANNEL);
 const AGENT_PORTS: AgentPorts = {
-  listen: agentChannel.listen,
-  send: agentChannel.send,
+  listen: (sink) => getLiveClient().listen(AGENT_CHANNEL, sink),
+  send: (request) => getLiveClient().sendChannel(AGENT_CHANNEL, request),
   connection: (listener) => {
-    let told = host.standing();
-    return host.subscribe(() => {
-      const standing = host.standing();
+    let told = standingOf(useUiStore.getState());
+    return useUiStore.subscribe((next) => {
+      const standing = standingOf(next);
       if (standing === told) return;
       told = standing;
       listener(standing);

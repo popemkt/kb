@@ -40,36 +40,6 @@ export interface ViewProposal {
 export type ProposedView = { readonly id: string } | { readonly refused: string };
 
 /**
- * Where the tab's live connection stands: `offline` while it is closed,
- * `unknown` once open until the server says whose it is, then `person` or
- * `nobody`. Only the person speaks on a plugin channel, so a half knows a
- * tab that is nobody's cannot without trying.
- */
-export type Standing = "offline" | "unknown" | "person" | "nobody";
-
-/**
- * Where one plugin channel's frames go (`@kb/contracts` → `channel.ts`): the
- * data its plugin sends this connection, or the error the server answers the
- * channel with (no loaded plugin owns it, or the tab is not the person's).
- */
-export interface ChannelSink {
-  readonly data: (data: unknown) => void;
-  readonly error: (err: { readonly code: string; readonly message: string }) => void;
-}
-
-/** The page's end of one plugin channel on its live connection. */
-export interface ChannelPort {
-  /** Hear the channel: one sink per channel per page. Returns the unlisten. */
-  readonly listen: (sink: ChannelSink) => () => void;
-  /**
-   * Say `data` on the channel. A channel's plugin forgets a connection that
-   * closes, and a frame sent while the socket is down is dropped, so a half
-   * that holds a conversation says its opening again when `standing` returns.
-   */
-  readonly send: (data: unknown) => void;
-}
-
-/**
  * The page's host. It is a node text port too (`NodeTextPort`): the graph
  * reads, the caret hand-off, the text-host registry and the gestures a node
  * text host makes, so a half binds a text host through it
@@ -134,10 +104,6 @@ export interface BrowserHost extends NodeTextPort {
   readonly writes: PageWrites;
   /** Make one call through the browser's one invoke path and answer its receipt. */
   readonly invoke: (id: string, input: unknown) => Promise<ActionReceipt>;
-  /** The plugin channel `name` on the page's live connection. */
-  readonly channel: (name: string) => ChannelPort;
-  /** Where the live connection stands now. */
-  readonly standing: () => Standing;
   /**
    * Run the command `command` about the node `nodeId`, or about the page's
    * own target (the one ⌘K's commands run about) when null, as a palette
