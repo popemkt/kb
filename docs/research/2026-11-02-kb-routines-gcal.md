@@ -22,10 +22,9 @@ the occurrence, yet its day must go back to the series' default in Google.
 A deleted event leaves its series in Google. Google itself is the only
 lasting record of what kb wrote there, so push reads it from Google.
 
-**The store holds facts** ([DESIGN.md → Data model](../../DESIGN.md#data-model--everything-is-a-node)).
-The facts are events, their rules, their calendar, and the done, skipped and
-moved marks. Sync writes nothing to the store. What it knows about its own
-work is either derived from the store and Google or held by the host.
+**Statuses stay on nodes.** Each write's status is written on the node it
+is for, as before (Status on nodes, below). Nothing reads a status to decide
+what to send: that is decided from the store and Google's list alone.
 
 ### Two sides, one pass
 

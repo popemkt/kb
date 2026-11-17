@@ -75,7 +75,6 @@ const fields = {
   until: field("until", "date", "filled"),
   repeatsFrom: field("repeats from", "ref", "filled", ["schedule", "completion"]),
   calendar: field("calendar", "ref", "filled"),
-  // An account's connection: GAP [[01M7KR406S3A38WYZYW7JKJ3BS]] operational state on a node.
   status: field("gcal status", "ref", "tucked", ["pending", "synced", "error"]),
   message: field("gcal message", "text", "tucked"),
   syncedAt: field("synced at", "text", "tucked"),

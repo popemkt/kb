@@ -243,7 +243,7 @@ export function routineZone(node: NodeLike, nodes: ReadonlyMap<string, NodeLike>
 }
 /**
  * An account's connection, as the node fields it is stored in; null clears a
- * field. GAP [[01M7KR406S3A38WYZYW7JKJ3BS]] operational state on a node.
+ * field.
  */
 export function connectionProps(
   status: Pick<SyncStatus, "state" | "message" | "at">,

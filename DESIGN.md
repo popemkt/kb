@@ -783,29 +783,9 @@ type PropValue =
   reads it in one place, `fieldWriting` in `@kb/model`'s `system-write.ts`
   (`open`, `managed` or `closed`); `isWritableField` is whether it is not
   `closed`. A field whose value mirrors something outside the store, which
-  no constraint can check (an imported event's Google id), would need the
+  no constraint can check (a calendar sync's event id), would need the
   commit to refuse anyone but its family; there is no such lock yet
   (GAP [[01M74AS94FM8GDGF3W10M84P43]]).
-- **The store holds facts.** A fact is something a person means, or
-  something a source they chose says. That covers a node, its text and
-  fields, a tag, a setting, a done mark, and an imported event's own
-  fields.
-
-  Operational state is what a process records about its own work: sync
-  status, receipts from another service, caches, cursors and retry counts.
-  It is never stored as nodes. It is kept in one of three ways:
-  - **derived** from the store, and from the service it concerns, when it is
-    asked for;
-  - **held in memory** by the host doing the work, which rebuilds it when it
-    starts;
-  - **kept in the family's data directory**, outside the graph and never read
-    as facts. That directory is a seam the platform has not built
-    ([the routines design → Operational data](docs/research/2026-11-02-kb-routines-gcal.md#operational-data-the-host-cannot-rebuild)).
-
-  Event sync is built this way
-  ([Push reconciles against Google](docs/research/2026-11-02-kb-routines-gcal.md#push-reconciles-against-google-2026-11-17)).
-  A family that still stores operational state carries a gap naming this
-  rule.
 - **System nodes**, seeded on init, are ordinary nodes with reserved ids:
   `sys.field` (the type of fields), `sys.tag` (the type of tags),
   `sys.f.type` (the "type/tag" field), `sys.f.fields` (tag→templated fields).

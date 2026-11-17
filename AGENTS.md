@@ -176,12 +176,8 @@ the store and the actions), and one rule keeps them apart:
   and a command gives the same answer whether a host serves it or it runs
   in-process. A result that something is due, retained, rolled over or
   synced is worked out from the store when it is asked for, never from a
-  timer or a map in a process. For sync, that means the store and what the
-  remote side holds. A host may keep the last answer in memory, and
-  rebuilds it by asking again when it starts. A fact that must outlive a
-  call is written to the store under its lock; operational state never is
-  ([DESIGN.md → Data model](DESIGN.md#data-model--everything-is-a-node),
-  "The store holds facts"). Some features already work this way:
+  timer or a map in a process. State that must outlive a call is written
+  to the store under its lock. Some features already work this way:
   - backup retention is done at write time under the lock;
   - a day rolls over when it is read;
   - the store watcher only saves a reload that the next command would do

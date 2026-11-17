@@ -61,7 +61,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Plugins migrate their own data, declared and previewed | AGENTS.md#data-plane-freedom | repo | A family whose update changes the shape of data it owns ships the change as declared migration steps: pure, deterministic and idempotent, shown as a dry-run diff before the person approves the update, applied as one transaction that can be undone, and recorded as a node. A rename is an alias or a retirement row, and no step deletes or rewrites what the person added. | prose | A migration runner whose contract suite proves idempotence, one-transaction apply and the survival of the person's nodes and fields. |
 | Property selection | DESIGN.md#testing-doctrine | tests | A property states a falsifiable domain claim and is exercised from the rejecting side. TAUTOLOGY, STRUCTURAL and quantifier theatre are review verdicts cited by name. | prose | — |
 | Spec-first changes | DESIGN.md#spec-first-changes | repo | The design doc is edited before the code it describes, in the same change and earlier in commit order. If the section cannot be written, the code cannot be written. | prose | — |
-| The store holds facts | DESIGN.md#data-model--everything-is-a-node | repo | The store holds facts; operational state (sync status, receipts, caches, cursors) is derived, held in memory, or kept in an extension data directory. | prose | None yet: a check needs each family to declare which of its writes are facts, so that a write from a host's own work to any other field fails. |
 
 ## Gaps
 
@@ -177,15 +176,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A drawn line or arrow cannot be reshaped by hand, only redrawn or rescaled as a box.
 - **closes** — Point handles for path items in both projections, through one shared point-drag gesture.
 - **node** — `01M53H6Z5WQACGQ8ZR14HX5EDT`
-
-### GAP: a canvas run copies each component's inputs into its node
-
-- **expected** — A component's inputs are derived from its upstream components' outputs when it runs, and are not stored.
-- **current** — ext.canvas.run writes the upstream outputs into each component node's input field before running it (ext-canvas run.ts, writeField for input).
-- **impact** — Each run rewrites every component's input, so the store and its history fill with copies of other nodes' values, which go stale when an upstream output is edited.
-- **closes** — Pass inputs to the component in memory and read them from the upstream outputs where the canvas shows them, then drop the input values with a family migration.
-- **rule** — The store holds facts
-- **node** — `01M7KR451VW5QKGP2629X1AX6G`
 
 ### GAP: a channel a registry family contributes is not served
 
@@ -339,15 +329,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — With the outline switched off and the collections on, a frame opens as its children read as a list, and no table, board or cards view of it can be opened.
 - **closes** — Frame views that offer the page placement, or a core frame page that lays the frame out through its first frame view, chosen by the resolver when the outline is not held.
 - **node** — `01M5MWXPDDZGG2PFEGMG95HMBY`
-
-### GAP: a Google account's connection status is stored on its node
-
-- **expected** — Whether an account is connected, and why connecting failed, is derived or held by the host: connected is whether the host's secret store holds a refresh token for it, and a failed connect is answered to the caller and kept in the host's memory.
-- **current** — The connect flow's finish writes gcal status, gcal message and synced at on the account node (routines-host connections.ts), and the setup wizard reads connected and problem from those fields (readAccountSetup).
-- **impact** — The store carries a process's outcome as if it were a fact: a store restored from a backup, or copied to another machine, says connected where no token exists, and every connect writes a transaction.
-- **closes** — Derive connected from the host's secret store through a host read, hold the last failure in memory, then drop the three fields from the account tag with a family migration.
-- **rule** — The store holds facts
-- **node** — `01M7KR406S3A38WYZYW7JKJ3BS`
 
 ### GAP: a keybinding over a held chord is refused by the page keymap, not the kernel
 
@@ -534,15 +515,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Signed or stored connect state (docs/research/2026-11-11-cli-host-modes.md step 9).
 - **rule** — Hosts are accelerators: the store is the truth
 - **node** — `01M75MA0QYHNYGSNMJAGTZKZQ1`
-
-### GAP: a rule's enforcement is stored though it is derived from its checks
-
-- **expected** — A rule's enforcement is derived from its checks' surfaces when it is read (derivedEnforcement), and the rules index and audit read the derivation.
-- **current** — ext.check.sync writes the derived level into each rule's enforcement field (ext-check sync.ts, enforcementSyncs), and the rules view reads the stored copy; audit flags a stored value that differs.
-- **impact** — Two copies of one value, kept in step by an action someone must remember to run: between a check change and the next sync, the rules index says something the checks do not.
-- **closes** — Have the rules view and docs/rules.md read derivedEnforcement, then retire the enforcement value with a family migration (or keep the field only for rules with no check, as a person's own statement).
-- **rule** — The store holds facts
-- **node** — `01M7KR42PC5TE8H256VCSNPVEZ`
 
 ### GAP: a sandboxed graph.query is bounded in size, not in time
 
@@ -1281,9 +1253,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 ### GAP: managed-field commit lock
 
-- **expected** — A field whose value mirrors something outside the store, which no constraint can check (an imported event's gcal event id, docs/research/2026-11-12-gcal-inbound.md §2), is locked to its family: the commit admits its values only from that family's actions, on every surface, and the editor names the action to use instead of an Edit.
-- **current** — sys.f.managedBy declares that a family manages a field, and the page puts an Edit step in front of a person's write, but the commit admits the write from anyone. Days needs no more (its period-key and unique-key guards keep every key valid). Routines' push keeps no sync fields since 2026-11-17 (the store holds facts); inbound's gcal event id, when G1 builds it, has no constraint that could tell a right id from a wrong one.
-- **impact** — A person's or an agent's write to an imported event's gcal event id can corrupt inbound's bookkeeping: a wrong id re-imports or orphans the event. A family that wants protection today can only reach for the sys.* node lock, which is the wrong grain.
+- **expected** — A field whose value mirrors something outside the store, which no constraint can check (routines' gcal sync fields: the event id, its status, synced at), is locked to its family: the commit admits its values only from that family's actions, on every surface, and the editor names the action to use instead of an Edit.
+- **current** — sys.f.managedBy declares that a family manages a field, and the page puts an Edit step in front of a person's write, but the commit admits the write from anyone. Days needs no more (its period-key and unique-key guards keep every key valid); routines' sync fields have no constraint that could tell a right event id from a wrong one.
+- **impact** — A person's or an agent's write to a sync field can corrupt the sync's bookkeeping: a wrong gcal event id re-creates or orphans a Google event. A family that wants protection today can only reach for the sys.* node lock, which is the wrong grain.
 - **closes** — The commit reads sys.f.managedBy against the call's owning family (the called action's owner, part of the action contract), for fields that declare the lock; the field row shows the family's action in place of Edit. Only where no constraint can do the job (data-plane freedom: constrain before you lock).
 - **rule** — Data-plane freedom: constrain before you lock
 - **node** — `01M74AS94FM8GDGF3W10M84P43`
@@ -1450,15 +1422,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — an agent or script using the generic node actions can store a broken view, which then renders its fallback
 - **closes** — the write check in tx.ts can reach the view keys, injected or with keys held as data
 - **node** — `01M40X308W34T0PGSN12S9K2K2`
-
-### GAP: opening a location reorders the Locations list
-
-- **expected** — Which location was opened last is operational state, held by the host or derived, and the Locations list's order is the person's.
-- **current** — location.register, which every kb ui or kb init start calls, and location.open move the opened location to the top of the Locations list's children (locations writes.ts, rankedFirst).
-- **impact** — Every start rewrites the home store's list, so the person's own order is lost and the store records usage history as if it were a fact.
-- **closes** — Keep the last-opened order in the host's memory or derive it from when each location was last opened, and leave the list's children as the person ordered them.
-- **rule** — The store holds facts
-- **node** — `01M7KR47BRYSGTRX49Q6X66VVZ`
 
 ### GAP: orbit controls stand in the lab kit, not the scene kit
 

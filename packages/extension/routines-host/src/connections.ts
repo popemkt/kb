@@ -215,7 +215,6 @@ export function connections(options: RoutinesPluginOptions, ui: UiHostService, h
     const done = yield* Effect.result(attempt.step.finish(redirect));
     // A wrong redirect leaves the attempt to the right one; anything else ends it.
     if (Result.isSuccess(done) || done.failure.code !== "connect_invalid") connecting.delete(state);
-    // GAP [[01M7KR406S3A38WYZYW7JKJ3BS]] the connection's outcome is stored on the account node.
     const now = DateTime.formatIso(DateTime.makeUnsafe(yield* Clock.currentTimeMillis));
     if (Result.isFailure(done)) {
       if (done.failure.code !== "connect_invalid")

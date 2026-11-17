@@ -29,7 +29,7 @@ export interface RoutineHost {
   readonly read: Effect.Effect<ReadonlyMap<string, NodeLike>, SyncError>;
   readonly changes: (since: number) => Effect.Effect<TailPage, SyncError>;
   readonly trusted: (digest: string) => Effect.Effect<boolean, SyncError>;
-  /** Record an account's connection on its node. GAP [[01M7KR406S3A38WYZYW7JKJ3BS]] */
+  /** Record an account's connection on its node. */
   readonly connection: (
     id: string,
     status: Pick<SyncStatus, "state" | "message" | "at">,
