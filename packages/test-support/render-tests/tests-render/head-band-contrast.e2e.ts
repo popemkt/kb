@@ -49,6 +49,15 @@ const SIGNAL = 24;
 const EDGE = 48;
 /** How near a glyph, in pixels, the art lies under the ink. */
 const NEAR = 2;
+/**
+ * How long a frame may take to settle, in ms: to leave `loading`, and to show
+ * a look and hold it. Far above what an idle machine needs and spent only
+ * while the frame has not settled, so a loaded macOS runner (the harness for
+ * the next test boots beside this one) does not fail it, and a frame that
+ * never settles still does. Playwright's 5 s default is shorter than a
+ * screenshot pair takes there (run 43987386291).
+ */
+const SETTLE = 20_000;
 
 const ref = (v: string) => ({ t: "ref", v });
 
@@ -364,7 +373,11 @@ async function shotUnder(page: Page, clip: Box, css: string, mark: number): Prom
         png = (await page.screenshot({ clip })).toString("base64");
         return png === last && Math.abs((await page.evaluate(markIn, png)) - mark) <= 2;
       },
-      { message: `the look marked ${mark} never held still`, intervals: [50, 100, 250] },
+      {
+        message: `the look marked ${mark} never held still`,
+        intervals: [50, 100, 250],
+        timeout: SETTLE,
+      },
     )
     .toBe(true);
   await page.evaluate((id) => document.getElementById(id)?.remove(), LOOK_ID);
@@ -468,7 +481,7 @@ for (const head of heads) {
           for (const scheme of SCHEMES) {
             await setScheme(page, scheme);
             await expect(page.locator(`${FRAME} [data-scene-state="loading"]`)).toHaveCount(0, {
-              timeout: 20_000,
+              timeout: SETTLE,
             });
             await page.waitForFunction(() =>
               document.getAnimations().every((animation) => animation.playState !== "running"),
