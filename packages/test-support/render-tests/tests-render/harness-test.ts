@@ -49,9 +49,24 @@ export interface GpuFacts {
   readonly backend: "WebGPU" | "WebGL2";
 }
 
+/**
+ * Where a test's time goes, printed one line per test when
+ * `KB_RENDER_TIMING=1` (docs/ci.md → Render timing): how long it waited for its
+ * harness, how long that harness took to boot (it booted while an earlier
+ * test ran, so the boot is not the wait), the first `page.goto`, and the rest
+ * of the test.
+ */
+interface TestTiming {
+  harnessWaitMs: number;
+  harnessBootMs: number;
+  gotoMs: number;
+}
+
 export const test = base.extend<
   {
     harness: { url: string };
+    timing: TestTiming;
+    reportTiming: void;
     gpu: GpuFacts;
     /** What the harness installs beside the fixture store; a spec sets it with `test.use`. */
     harnessOptions: HarnessOptions;
@@ -71,8 +86,15 @@ export const test = base.extend<
     },
     { scope: "worker" },
   ],
-  harness: async ({ harnessOptions, harnessPool }, provide) => {
+  // oxlint-disable-next-line no-empty-pattern -- Playwright reads a fixture's dependencies from this pattern; the timing has none
+  timing: async ({}, provide) => {
+    await provide({ harnessWaitMs: 0, harnessBootMs: 0, gotoMs: 0 });
+  },
+  harness: async ({ harnessOptions, harnessPool, timing }, provide) => {
+    const asked = performance.now();
     const harness = await harnessPool.take(harnessOptions);
+    timing.harnessWaitMs = Math.round(performance.now() - asked);
+    timing.harnessBootMs = harness.bootMs;
     try {
       await provide({ url: harness.url });
     } finally {
@@ -83,10 +105,24 @@ export const test = base.extend<
     await provide(harness.url);
   },
   // A test's tab is the page: it opens once at the harness's URL.
-  page: async ({ page, harness }, provide) => {
+  page: async ({ page, harness, timing }, provide) => {
+    const asked = performance.now();
     await page.goto(harness.url);
+    timing.gotoMs = Math.round(performance.now() - asked);
     await provide(page);
   },
+  reportTiming: [
+    async ({ timing }, provide, testInfo) => {
+      await provide();
+      if (process.env["KB_RENDER_TIMING"] !== "1") return;
+      const rest = testInfo.duration - timing.harnessWaitMs - timing.gotoMs;
+      console.log(
+        `[timing] ${testInfo.file.split("/").pop()} › ${testInfo.title.slice(0, 70)} ` +
+          `wait=${timing.harnessWaitMs} boot=${timing.harnessBootMs} goto=${timing.gotoMs} test=${rest}`,
+      );
+    },
+    { auto: true },
+  ],
   gpu: async ({ context, harness }, provide) => {
     // `navigator.gpu` exists only in a secure context; the harness origin
     // (127.0.0.1) is one, about:blank is not.

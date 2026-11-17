@@ -76,6 +76,8 @@ export interface HarnessOptions {
 /** A running harness: where it serves, and how to stop it and remove its scratch root. */
 export interface Harness {
   readonly url: string;
+  /** Milliseconds from spawning the server until it answered. */
+  readonly bootMs: number;
   readonly stop: () => Promise<void>;
 }
 
@@ -93,6 +95,7 @@ export interface Harness {
  * {@link HarnessPool} spends while the previous test runs.
  */
 async function startHarness(options: HarnessOptions = {}): Promise<Harness> {
+  const started = performance.now();
   const port = await freePort();
   // The port travels as an argument. The served UI travels through the
   // server's own override, `KB_UI_DIST` (packages/app/server/src/paths.ts):
@@ -121,7 +124,9 @@ async function startHarness(options: HarnessOptions = {}): Promise<Harness> {
   while (Date.now() < deadline) {
     try {
       const response = await fetch(`${url}/api/graph`);
-      if (response.ok) return { url, stop: () => stop(server) };
+      if (response.ok) {
+        return { url, bootMs: Math.round(performance.now() - started), stop: () => stop(server) };
+      }
     } catch {
       // The process needs a moment to load the data root and bind its port.
     }
