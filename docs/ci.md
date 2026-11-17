@@ -26,7 +26,11 @@ the pre-commit hook and `packages.kb` use — are the flake's.
 - **`core`** — `bun run test` and `bun run test:dst`.
 - **`ui (1/2)`, `ui (2/2)`** — `bun run test:ui`, each shard half of every
   browser package's files.
-- **`render (1/2)`, `render (2/2)`** — `bun run test:render`, split by test count.
+- **`render`** — `bun run test:render`, as two Playwright projects of the render
+  config, each split into two shards by test count: `macos` (the specs that
+  need a GPU or macOS's fonts and scrollbars) on `macos-15`, and `portable`
+  (every other spec) on `ubuntu-24.04`. `MACOS_SPECS` in the render config
+  names which specs are `macos`, with the reason for each group.
 - **`validate`** — aggregate result of every selected gate; the single required check.
 
 ## Pre-commit: the same questions, one commit earlier
@@ -93,8 +97,18 @@ result, accepts skipped runtime jobs only for prose-only PRs, and fails for
 failed or cancelled gates. Skipped runtime jobs are
 intentional only for prose; verify remains unconditional.
 
-Core and UI run on Ubuntu, leaving three macOS jobs per run: the two
-render shards and the Nix package check. Core passed there in run
+Core, UI and the portable render specs run on Ubuntu, leaving three macOS
+jobs per run: the two `macos` render shards and the Nix package check. A
+Linux runner has no queue; the account runs five macOS jobs at once, so with
+three per run two runs in flight already queue the third, and macOS wait
+reached 40 minutes at p90 in the week before the split (render 1,000 s of run
+time on each of two runners, 2026-11-15 to 17). The portable specs were 482 s
+of the suite's 1,740 s of tests there; on a GPU-less Ubuntu runner they take
+about 5 to 7 minutes per shard (run 44017124181), beside the macOS shards.
+Three specs that the same probe ran 5 to 8 times slower (`query-builder`,
+`view-settings`) or over a 250 ms frame budget (`query-budget`) stay on
+macOS, as does anything that reads the GPU or the platform's text and
+scrollbars; `--disable-gpu` made no difference to the slow ones. Core passed there in run
 42249947516; UI's first Linux result is recorded in the performance record.
 Each backdrop option is a separate isolated render test. Playwright shards
 individual tests by count with `fullyParallel: true`, taking contiguous

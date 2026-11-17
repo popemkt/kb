@@ -166,16 +166,23 @@ jobs:
           SHARD: ${{ matrix.shard }}
         run: bun run test:ui --shard="$SHARD" --passWithNoTests
 
-  # Two isolated runners split files without increasing per-runner load.
-  # GAP [[01M79GV526E3V6ZPVW0D6752FK]]
+  # The macos project (the GPU, macOS's fonts and scrollbars) on two macOS
+  # runners, the portable one on two Ubuntu runners; which spec is which is
+  # `MACOS_SPECS` in the render config. Linux runners never queue behind the
+  # account's five macOS slots. Each platform splits by test count, which is
+  # not time. GAP [[01M79GV526E3V6ZPVW0D6752FK]]
   render:
     needs: scope
     if: needs.scope.outputs.runtime == 'true'
     strategy:
       fail-fast: false
       matrix:
-        shard: [1/2, 2/2]
-    runs-on: macos-15
+        include:
+          - { runner: macos-15, project: macos, shard: 1/2 }
+          - { runner: macos-15, project: macos, shard: 2/2 }
+          - { runner: ubuntu-24.04, project: portable, shard: 1/2 }
+          - { runner: ubuntu-24.04, project: portable, shard: 2/2 }
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     defaults:
       run:
@@ -190,18 +197,21 @@ jobs:
       - name: Cache Chromium
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
-          path: ~/Library/Caches/ms-playwright
+          path: ${{ runner.os == 'macOS' && '~/Library/Caches/ms-playwright' || '~/.cache/ms-playwright' }}
           key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
 
+      # --with-deps installs Chromium's system libraries on Linux; macOS has
+      # none to add.
       - name: Install Chromium for the render suite
-        run: bunx playwright install chromium
+        run: bunx playwright install --with-deps chromium
         working-directory: packages/test-support/render-tests
 
       - name: Render suite
         env:
+          PROJECT: ${{ matrix.project }}
           SHARD: ${{ matrix.shard }}
           KB_RENDER_TIMING: "1"
-        run: bun run test:render --shard="$SHARD"
+        run: bun run test:render --project="$PROJECT" --shard="$SHARD"
 
   validate:
     if: always()

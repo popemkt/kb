@@ -14,9 +14,32 @@ const chromiumGpuArgs = [
   ...(process.platform === "linux" ? ["--enable-features=Vulkan", "--use-angle=vulkan"] : []),
 ];
 
+/**
+ * The specs that need the macOS runner (`macos` project); every other spec is
+ * `portable` and CI may run it on Linux (docs/ci.md → Scheduling and
+ * selection). A spec is listed because of what it reads there:
+ * - the GPU: the backdrops and scenes, WebGPU where macOS has Metal and
+ *   WebGL2 otherwise (`gpu` in harness-test.ts), a hundred of the suite's
+ *   tests and most of its time;
+ * - macOS's fonts, scrollbars and colour: `typography`, `region-scrollbar`,
+ *   `design-system` and `gallery` measure what the platform lays out;
+ * - a Linux runner without a GPU measured 5 to 8 times slower than macOS
+ *   (`query-builder`, `view-settings`) or over its frame budget
+ *   (`query-budget`), so they stay.
+ * A new spec is portable until it is listed; a portable spec that fails on
+ * Linux is listed with the reason, not retried.
+ */
+const MACOS_SPECS =
+  /\/(backdrop-[^/]*|canvas3d[^/]*|design-system|gallery|head-band-contrast|lab|query-budget|query-builder|region-scrollbar|render|typography|unicorn-cold-start|view-settings)\.e2e\.ts$/;
+
 export default defineConfig({
   testDir: "./tests-render",
   testMatch: "**/*.e2e.ts",
+  // Every spec is in exactly one: `portable` is the complement of `macos`.
+  projects: [
+    { name: "macos", testMatch: MACOS_SPECS },
+    { name: "portable", testIgnore: MACOS_SPECS },
+  ],
   fullyParallel: true,
   // Why one on CI: docs/ci.md → Scheduling and selection.
   workers: isCI ? 1 : undefined,
