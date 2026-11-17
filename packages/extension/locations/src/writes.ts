@@ -106,6 +106,7 @@ export function defaultLabel(path: string, taken: ReadonlySet<string>): string {
 }
 
 /** The Locations list with `id` first, or null when it is first already. */
+// GAP [[01M7KR47BRYSGTRX49Q6X66VVZ]] opening a location reorders the person's list.
 function rankedFirst(list: KbNode, id: string, at: string): KbNode | null {
   if (list.children[0] === id) return null;
   return {

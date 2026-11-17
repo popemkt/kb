@@ -158,6 +158,7 @@ function performer(fields: CanvasRunFields) {
         : [];
     let made: FlowResult;
     if (scripts.length > 0) {
+      // GAP [[01M7KR451VW5QKGP2629X1AX6G]] the inputs, derived from upstream outputs, are stored.
       const unwritten = yield* writeField(
         nodeId,
         fields.input,

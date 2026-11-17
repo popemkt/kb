@@ -24,6 +24,7 @@ function replaceEnforcement(node: KbNode, field: NodeId, value: NodeId, at: stri
  * derives, rewritten to hold the derived one as of `at`. A rule whose derived
  * level is no option of the field is left alone.
  */
+// GAP [[01M7KR42PC5TE8H256VCSNPVEZ]] a derived level is stored on the rule.
 export function enforcementSyncs(model: CheckModel, at: string): KbNode[] {
   const enforcementField = model.fieldIds.get("enforcement");
   if (enforcementField === undefined) return [];
