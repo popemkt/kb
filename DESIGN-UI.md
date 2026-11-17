@@ -4355,7 +4355,9 @@ the settings. The record of why is
   - **Above the shelves**, a banner names what awaits review, each name a
     link that opens its card, and one _Add extension_ button opens the
     add panel: every pinned marketplace's entries with _Install_ (or
-    _Installed_), _Add a marketplace…_, then a field for a pasted GitHub
+    _Installed_), kb's own first and headed _kb · built in_ with its pin,
+    so a store with nothing installed has something to browse;
+    _Add a marketplace…_, then a field for a pasted GitHub
     source. One _Install into_ choice (store lock, this root, every kb on
     the machine) applies to all of them, and the panel says that nothing
     runs until it is trusted. A failed marketplace
