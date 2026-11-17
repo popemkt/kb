@@ -28,6 +28,7 @@ import {
   type ScreenState,
   type ServerMessage,
 } from "@kb/contracts";
+import type { ChannelSink } from "@kb/ui-sdk";
 import type { GraphMessage } from "@/session/replica";
 
 export type WsStatus = "idle" | "connecting" | "open" | "closed";
@@ -100,16 +101,6 @@ export interface KbWsClientOptions {
   /** Backoff bounds in ms (initial doubles up to max). */
   backoffInitialMs?: number;
   backoffMaxMs?: number;
-}
-
-/**
- * Where one plugin channel's frames go (`@kb/contracts` → `channel.ts`): the
- * data the plugin sends this connection, or the error the server answers the
- * channel with (no loaded plugin owns it).
- */
-export interface ChannelSink {
-  data: (data: unknown) => void;
-  error: (err: { code: string; message: string }) => void;
 }
 
 function defaultUrl(): string {

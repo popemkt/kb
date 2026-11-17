@@ -4612,7 +4612,9 @@ the shell.
     reaches what it would otherwise take from the shell's stores, actions
     and lib: the live graph, the page's one write path (`writes`, the kit's
     `PageWrites`, which `actions/mutations` implements), appearance,
-    navigation, panes, the invoke path and the sandbox host. It is a
+    navigation, panes, the invoke path, the plugin channels and the
+    connection's standing ([Plugin channels](DESIGN.md#plugin-channels)),
+    and the sandbox host. It is a
     subscribe, reads and gestures, never hooks: a hook selected from a
     service at run time is one React cannot check. The sdk's own hooks
     (`useNode`, `useAppearance`, `useFollow`, …) are built over it once,

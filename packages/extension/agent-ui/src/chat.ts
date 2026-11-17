@@ -26,22 +26,12 @@ import {
   type Transcript,
 } from "@kb/agent";
 import { failed, onWire, type ActionInvocation, type ActionReceipt } from "@kb/contracts";
+import type { ChannelSink, Standing } from "@kb/ui-sdk";
 
 /** Where the chat reaches the agent and the graph. */
-/**
- * Where the tab's connection stands: `offline` while it is closed, `unknown`
- * once open until the server says whose it is, then `person` or `nobody`.
- * A tab that is nobody's may not speak on the agent's channel, so the dock
- * knows that without trying.
- */
-export type Standing = "offline" | "unknown" | "person" | "nobody";
-
 export interface AgentPorts {
   /** Hear the agent channel; returns the unlisten. */
-  readonly listen: (sink: {
-    readonly data: (data: unknown) => void;
-    readonly error: (err: { readonly code: string; readonly message: string }) => void;
-  }) => () => void;
+  readonly listen: (sink: ChannelSink) => () => void;
   /** Say one request on the agent channel. */
   readonly send: (request: AgentRequest) => void;
   /**

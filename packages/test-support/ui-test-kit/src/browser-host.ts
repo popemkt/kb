@@ -244,6 +244,9 @@ export function testBrowserHost(overrides: Partial<BrowserHost> = {}): TestBrows
     viewCatalog: () => ({ keyOf: () => null }),
     writes: INERT_WRITES,
     invoke: (id) => noCall(id),
+    // A stand-in page has no live connection: its channels hear nothing and drop what is said.
+    channel: () => ({ listen: () => () => {}, send: () => {} }),
+    standing: () => "offline",
     runCommand: () => Promise.resolve(),
     replacementApproved: () => true,
     subscribeManifest: () => () => {},

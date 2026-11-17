@@ -12,7 +12,8 @@ import { listNodeCommands } from "@/lib/commands";
 import { servedManifest, subscribeManifest } from "@/lib/manifest";
 import { proposeView } from "@/lib/propose-view";
 import { pageCatalog } from "@/lib/view-catalog";
-import { BrowserHostService, type BrowserHost } from "@kb/ui-sdk";
+import { BrowserHostService, type BrowserHost, type Standing } from "@kb/ui-sdk";
+import { getLiveClient } from "@/api/live";
 import { hostSandboxFrame, invokeAsScript, isTrusted, setTrusted } from "@/lib/sandbox-host";
 import { invoke, invokeSettled } from "@/session/runtime";
 import { reachedState, useGraphStore } from "@/stores/graph.store";
@@ -46,7 +47,21 @@ export function replacementApproved(owner: string): boolean {
   return row === undefined || replacesWithoutApproval(row.origin);
 }
 
-const host: BrowserHost = {
+/**
+ * Where this tab's connection stands, from the socket's state and what the
+ * server said of it: whose it is is told once per connection, after it opens.
+ */
+function standingOf({
+  wsStatus,
+  person,
+}: Pick<ReturnType<typeof useUiStore.getState>, "wsStatus" | "person">): Standing {
+  if (wsStatus !== "open") return "offline";
+  if (person === undefined) return "unknown";
+  return person === null ? "nobody" : "person";
+}
+
+/** The page's host: the one binding of the shell that every half reaches it through. */
+export const host: BrowserHost = {
   // A node text port is what the shell binds its own text hosts through, so
   // the host is that port, listened to over every store its reads answer from.
   ...nodeTextPort,
@@ -104,6 +119,11 @@ const host: BrowserHost = {
   replacementApproved,
   writes: mutations,
   invoke,
+  channel: (name) => ({
+    listen: (sink) => getLiveClient().listen(name, sink),
+    send: (data) => getLiveClient().sendChannel(name, data),
+  }),
+  standing: () => standingOf(useUiStore.getState()),
   runCommand: runKeyCommand,
   subscribeManifest,
   screen: paneScreenPort,

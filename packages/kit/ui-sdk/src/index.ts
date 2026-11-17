@@ -48,7 +48,10 @@ export {
   browserHost,
   type BrowserHost,
   BrowserHostService,
+  type ChannelPort,
+  type ChannelSink,
   type ProposedView,
+  type Standing,
   type ViewProposal,
 } from "./host";
 export type { HostedFrame, SandboxEvents, SandboxPorts, SandboxRun } from "./sandbox";
