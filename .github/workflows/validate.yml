@@ -58,12 +58,15 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      # The snapshot holds the ~3,700 bun2nix package derivations `checks.kb`
-      # depends on; restored, only kb itself builds.
+      # On Linux the snapshot holds the ~3,700 bun2nix package derivations
+      # `checks.kb` depends on; restored, only kb itself builds. macOS has
+      # none: extracting the 1.5 GB snapshot took 170 s there, as long as
+      # substituting the packages from cache.nixos.org and building the rest
+      # (docs/ci.md, Scheduling and selection).
       - name: Set up
         uses: ./.github/actions/setup
         with:
-          flake-store: true
+          flake-store: ${{ runner.os == 'Linux' }}
           install: false
       - name: Lint the hook, scripts and workflows
         run: |
