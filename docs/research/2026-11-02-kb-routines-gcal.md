@@ -46,15 +46,26 @@ work is either derived from the store and Google or held by the host.
 ### What Google holds is compared by digest
 
 Each put stores, in the event's private extended properties,
-`kbSent = "<schema>:<SHA-256 of the canonical EventFields>"`. A remote event
-matches a desired write when:
+`kbSent = "<schema>:<SHA-256 of the canonical EventFields>"`. Two predicates
+decide everything a pass does with the list. Both live in `@kb/routines`, so
+every adapter is judged by the same ones.
 
-- its `kbSent` equals the desired write's digest under the same schema; or
-- it is cancelled and the write is too. Google keeps only the ids of a
-  cancelled event, so no other part of it can be compared.
+- **Whether an event is kb's** (`owned`). An event is kb's when its private
+  `kbNode` names a node. An exception is kb's when its series is. The
+  adapter decodes kb's fields only from kb's events. A pass compares,
+  rewrites or ends kb's events and nothing else. An event a person made in
+  kb's calendar, and its exceptions, are left exactly as they are, even
+  when one has an id kb would choose.
+- **Whether Google holds a write** (`holds`). It checks cancellation before
+  any digest:
+  - if the remote event is cancelled, it holds the write exactly when the
+    write is cancelled too. Google keeps only the ids of a cancelled event,
+    so no other part of it can be compared;
+  - otherwise, it holds the write exactly when its `kbSent` equals the
+    write's digest under the same schema.
 
-A remote event with no `kbSent` never matches. That covers an event written
-before this change, and one a person made in kb's calendar.
+  A remote event with no `kbSent` holds no write. That covers one written
+  before this change.
 
 **Versioning.** Schema `1` covers today's `EventFields`. A change that adds a
 field to `EventFields` adds a schema. The earlier schemas' digests are kept,
@@ -99,7 +110,8 @@ Google documents:
   its id.
 - **An exception with no fact on its day** goes back to the series' default.
   It is written unless it already matches that default.
-- **A series whose event is gone from this calendar** (deleted, or moved to
+- **A series whose event is gone from this calendar** (a series of kb's
+  whose `kbNode` names no event on this calendar now: deleted, or moved to
   another calendar) is ended at yesterday in its zone, or cancelled if it is
   a one-off, as before. The pass reads kb's own copy of the series from the
   list, decoded by the adapter, so it needs nothing of the deleted node. A
@@ -141,7 +153,14 @@ held). Two things carry it:
   A page that sends `{watch: true}` gets the current value at once and then
   each new one, until its connection drops.
 - **The `ext.routines.status` action**, which returns the same value to an
-  agent or a script.
+  agent or a script. Before the host's first pass has finished, the action
+  waits for it, so it never answers from an empty memory.
+
+Sync runs only in a host (`kb ui`), and a one-shot command runs none. The
+status action is the host's (DESIGN.md → Plugin channels, hosted actions),
+so a one-shot `kb` reaches it only through a running host. With no host it
+is not offered at all, and nothing claims an event is synced. That is the
+truth when no host runs: nothing is syncing.
 
 The calendar, its failed count, the event editor and the event's preview
 read the channel, never node fields. The failed count counts failed writes:
@@ -216,8 +235,13 @@ removes what the store held for sync. It:
   **gcal event id** and **synced at** values from every event, occurrence and
   calendar node;
 - removes those fields from those three tags' templates;
-- deletes the **gcal link** and **gcal event id** field nodes, which nothing
-  else uses.
+- deletes the **gcal link** and **gcal event id** field nodes. It does so only
+  where no other node holds a value of them; a person's own use keeps the
+  field, which is then theirs.
+
+It touches nothing else: no other field, no text and no child, so every value
+a person wrote stays. Its check names any event, occurrence or calendar node
+still holding one of the five, and any of the three tags still templating one.
 
 A store seeded after this change never has any of it. The account keeps
 **gcal status**, **gcal message** and **synced at** for its connection, and a

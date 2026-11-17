@@ -103,7 +103,7 @@ belongs to an event's series, an instance, or a calendar: a calendar's
 covers its list call and the endings of series whose events are gone. The
 migration `routines.sync-off-nodes` clears the status fields that stores
 from before held.
-The calendar view reads those fields and calls the actions above.
+The calendar view reads the statuses over that channel and calls the actions above.
 
 ## Validation and remaining acceptance
 
