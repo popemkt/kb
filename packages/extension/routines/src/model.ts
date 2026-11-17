@@ -39,6 +39,22 @@ export interface SyncStatus {
   readonly url?: string;
   readonly at?: string;
 }
+/**
+ * One event kb's calendar holds, as the port lists it: a series, a one-off
+ * or an exception, never an instance nobody changed.
+ */
+export interface RemoteEvent {
+  readonly id: string;
+  /** Google's link to it; empty where it gives none. */
+  readonly url: string;
+  /** For an exception: its series' id, and the start it replaces (`originalStartTime`). */
+  readonly exception: { readonly series: string; readonly original: EventTime } | null;
+  readonly cancelled: boolean;
+  /** What kb put there, as the adapter decodes it; null for a cancelled event or another's. */
+  readonly fields: EventFields | null;
+  /** The digest kb stored with it (`kbSent`); null for a cancelled event or one from before. */
+  readonly digest: string | null;
+}
 export interface Routine {
   readonly id: string;
   readonly title: string;

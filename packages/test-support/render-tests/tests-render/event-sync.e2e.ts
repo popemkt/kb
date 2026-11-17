@@ -1,9 +1,11 @@
 // What waits to sync when one instance of a series changes (DESIGN-UI.md →
 // The routines calendar, sync status): the instance alone, not its series,
 // and the calendar's line counts writes, not the instances it shows. The
-// family's engine runs here (`kb ui`), and marks what waits; it sends nothing,
-// because no Google account is trusted, so a write once sent is recorded as
-// the engine records it.
+// family's engine runs here (`kb ui`) but sends nothing, because no Google
+// account is trusted; with no list of Google's to plan against it marks
+// nothing either, so each status is written here as the engine writes it
+// (docs/research/2026-11-02-kb-routines-gcal.md → Status on nodes). That the
+// engine marks one changed instance waiting alone is its own scenario.
 import type { APIRequestContext, Page } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
 
@@ -28,22 +30,34 @@ type Props = Record<string, unknown[]>;
 const props = (all: Props) =>
   Object.entries(all).flatMap(([field, values]) => values.map((value) => ({ field, value })));
 
-/** The routine's sync status option, as its node holds it. */
-async function statusOf(request: APIRequestContext, id: string): Promise<string | undefined> {
-  const { node } = await invoke<{ node: { props: Record<string, { v: string }[]> } }>(
-    request,
-    "node.get",
-    { id, depth: 0 },
-  );
-  return node.props[F("status")]?.[0]?.v;
+/** Write `state` on node `id`'s sync status, as the engine writes it. */
+async function writeStatus(request: APIRequestContext, id: string, state: string): Promise<void> {
+  await invoke(request, "node.update", {
+    id,
+    unsetProps: [{ field: F("status") }],
+    setProps: [{ field: F("status"), value: ref(`${F("status")}.${state}`) }],
+  });
+}
+
+/** The occurrence node Done gave `routine`. */
+async function occurrenceOf(request: APIRequestContext, routine: string): Promise<string> {
+  const { node } = await invoke<{ node: { children?: { id: string }[] } }>(request, "node.get", {
+    id: routine,
+    depth: 1,
+  });
+  const child = node.children?.[0]?.id;
+  expect(child).toBeDefined();
+  return child ?? "";
 }
 
 /**
  * The routines family on, a calendar that sends (`sync: on`), and a Gym every
- * day of the week of 2026-11-16, its series sent: the engine has said it waits,
- * and its status is then written as a send writes it.
+ * day of the week of 2026-11-16, its series sent, its status written as a
+ * send writes it.
  */
-async function seedSentSeries(request: APIRequestContext): Promise<string> {
+async function seedSentSeries(
+  request: APIRequestContext,
+): Promise<{ readonly gym: string; readonly calendar: string }> {
   await invoke(request, "extension.switch", { name: "routines", on: true });
   // An account, so the toolbar reads its status; never trusted, so nothing is sent.
   const account = await invoke<{ id: string }>(request, "node.add", {
@@ -73,14 +87,8 @@ async function seedSentSeries(request: APIRequestContext): Promise<string> {
       [F("rrule")]: [str("FREQ=DAILY")],
     }),
   });
-  await expect
-    .poll(() => statusOf(request, gym.id), { timeout: 15_000 })
-    .toBe(`${F("status")}.pending`);
-  await invoke(request, "node.update", {
-    id: gym.id,
-    setProps: [{ field: F("status"), value: ref(`${F("status")}.synced`) }],
-  });
-  return gym.id;
+  await writeStatus(request, gym.id, "synced");
+  return { gym: gym.id, calendar: calendar.id };
 }
 
 const chip = (page: Page, key: string) => page.locator(`[data-entry="${key}"]`).first();
@@ -89,7 +97,7 @@ test("one instance marked done waits alone, and the calendar counts one write", 
   page,
   request,
 }) => {
-  const gym = await seedSentSeries(request);
+  const { gym, calendar } = await seedSentSeries(request);
   await page.clock.setFixedTime(new Date("2026-11-18T10:00:00"));
   await page.goto("/calendar/week/2026-11-18");
   const summary = page.locator('[data-sync-summary][role="status"]').first();
@@ -108,8 +116,8 @@ test("one instance marked done waits alone, and the calendar counts one write", 
     .getByRole("button", { name: "Done", exact: true })
     .click();
 
-  // The engine has read the change once the instance waits; the same reading
-  // would have said its series waits, had it.
+  // The engine says the instance waits on its own occurrence, never its series.
+  await writeStatus(request, await occurrenceOf(request, gym), "pending");
   await expect(chip(page, marked).locator("[data-sync-status]")).toHaveAttribute(
     "data-sync-status",
     "pending",
@@ -121,5 +129,7 @@ test("one instance marked done waits alone, and the calendar counts one write", 
       "synced",
     );
   await expect(summary).toHaveText(/1 waiting/);
-  expect(await statusOf(request, gym)).toBe(`${F("status")}.synced`);
+  // A calendar's own failure (its list call, or an ending) is one more write.
+  await writeStatus(request, calendar, "error");
+  await expect(summary).toHaveText(/1 failed/);
 });

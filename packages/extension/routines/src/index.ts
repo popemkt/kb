@@ -8,7 +8,15 @@ export {
 } from "./seed.ts";
 export type { RoutineField, RoutineOption } from "./seed.ts";
 export { EventFields, EventTime, SyncError } from "./model.ts";
-export type { Routine, Occurrence, ProjectionTarget, CalendarResult, SyncStatus } from "./model.ts";
+export type {
+  Routine,
+  Occurrence,
+  ProjectionTarget,
+  CalendarResult,
+  RemoteEvent,
+  SyncStatus,
+} from "./model.ts";
+export { holds, owned, sentDigest, startDay } from "./sent.ts";
 export type { CalendarPort } from "./ports.ts";
 export { project, canonicalRule, eventId, projectionFingerprint, endSeries } from "./projection.ts";
 export { settleAt, retryDelay } from "./scheduling.ts";

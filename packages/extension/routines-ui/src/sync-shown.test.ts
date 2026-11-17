@@ -4,7 +4,8 @@
  * one series a week shows.
  */
 import { describe, expect, test } from "vitest";
-import type { CalendarEntry, SyncStatus } from "@kb/routines";
+import { SYSTEM_IDS, type NodeLike } from "@kb/model";
+import { ROUTINE_TAGS, syncStatusProps, type CalendarEntry, type SyncStatus } from "@kb/routines";
 import type { CalendarChoice } from "./model";
 import { syncSummary } from "./sync-shown";
 
@@ -37,11 +38,22 @@ function instance(day: string, status: SyncStatus | null, statusNode: string): C
 }
 
 const WEEK = ["2026-11-16", "2026-11-17", "2026-11-18", "2026-11-19", "2026-11-20"];
-const summary = (entries: readonly CalendarEntry[]) =>
+/** The calendar node, holding `status` in its sync fields when there is one. */
+function calendarNode(status: SyncStatus | null): NodeLike {
+  const props: Record<string, NodeLike["props"][string]> = {
+    [SYSTEM_IDS.typeField]: [{ t: "ref", v: ROUTINE_TAGS.calendar }],
+  };
+  if (status !== null)
+    for (const [field, value] of Object.entries(syncStatusProps(status)))
+      if (value !== null) props[field] = [value];
+  return { id: CALENDAR.id, text: CALENDAR.name, children: [], props };
+}
+const summary = (entries: readonly CalendarEntry[], calendar: SyncStatus | null = null) =>
   syncSummary(
     {
       byDay: new Map(entries.map((entry) => [entry.day, [entry]])),
       calendars: new Map([[CALENDAR.id, CALENDAR]]),
+      nodes: new Map([[CALENDAR.id, calendarNode(calendar)]]),
     },
     ZONE,
   );
@@ -68,6 +80,19 @@ describe("the calendar's sync line", () => {
       instance(WEEK[2] ?? "", pending, "done-18"),
     ];
     expect(summary(entries)).toEqual({ state: "error", text: "1 failed" });
+  });
+
+  test("a calendar's own failure counts once, beside its synced instances", () => {
+    const unreached = { state: "error" as const, message: "google: untrusted" };
+    expect(
+      summary(
+        WEEK.map((day) => instance(day, synced, "gym")),
+        unreached,
+      ),
+    ).toEqual({
+      state: "error",
+      text: "1 failed",
+    });
   });
 
   test("every write sent reads Synced", () => {

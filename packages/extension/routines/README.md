@@ -88,15 +88,18 @@ A one-off takes a fact too, on its **starts** day: it is the one event's own sta
 Done days show ✅, grey, and no reminders; ordinary days use calendar defaults.
 
 - `ext.routines.preview {}` projects routines without contacting Google.
-- `ext.routines.status {}` and the `routines.status` channel return routine/occurrence node fields and queued deletion IDs for release.
-- `ext.routines.sync {}` retries pending/failed work; unchanged synced routines are no-ops.
-- `ext.routines.release {"keys":["<routine-node-id>"]}` authorizes exact held deletions.
+- `ext.routines.status {}` and the `routines.status` channel return routine, occurrence and calendar node fields and queued deletion IDs for release.
+- `ext.routines.sync {}` runs a pass now: it lists each kb calendar in Google and sends only what differs, so with nothing changed it writes nothing.
+- `ext.routines.release {"keys":["<routine-node-id>"]}` releases those held endings.
 - Calendar **sync** values **preview** and **paused** stop outbound requests.
 
-The behavior and Calendar port contract are specified once in the
-[design's Simplified section](../../../docs/research/2026-11-02-kb-routines-gcal.md#simplified-2026-11-04).
-Status fields are native graph fields on routines and occurrences: **gcal status**
+The behavior and Calendar port contract are specified once in the design record
+([Push reconciles against Google](../../../docs/research/2026-11-02-kb-routines-gcal.md#push-reconciles-against-google-2026-11-17),
+then its Simplified section).
+Status fields are native graph fields on routines, occurrences and calendars: **gcal status**
 (pending/synced/error), **gcal message**, **gcal link**, **gcal event id**, **synced at**.
+A calendar's status covers its list call and the endings of series whose events are gone,
+on its Google calendar and on any it named before.
 The calendar view reads those fields and calls the actions above.
 
 ## Validation and remaining acceptance
@@ -105,4 +108,5 @@ Unit tests use the fake Calendar adapter; the Google adapter joins its shared
 contract suite through a fake HTTP transport. No credentials or live Google calls
 are needed. Projection tests cover RRULEs, all-day events and DST boundaries.
 Live consent, Google exception retention across series updates, cancelled-instance
-restoration, mobile reminders and token revocation remain owner acceptance checks.
+restoration, the private `kbSent` property on a cancelled exception, mobile
+reminders and token revocation remain owner acceptance checks.

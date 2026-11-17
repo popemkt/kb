@@ -1,4 +1,4 @@
-import type { SyncStatus } from "@kb/routines";
+import { readSyncStatus, type SyncStatus } from "@kb/routines";
 import { momentText } from "./layout";
 import type { CalendarModel } from "./model";
 
@@ -56,10 +56,12 @@ export function syncShown(
 /**
  * How the instances shown stand with Google: the worst state among them,
  * counted in writes. Each node whose status they read is one write, so a
- * series' change is one however many of its instances are shown.
+ * series' change is one however many of its instances are shown. A calendar
+ * node's own status (its list call, and the endings of series whose events
+ * are gone, on its Google calendar or one it named before) is one more.
  */
 export function syncSummary(
-  model: Pick<CalendarModel, "byDay" | "calendars">,
+  model: Pick<CalendarModel, "byDay" | "calendars" | "nodes">,
   zone: string,
 ): { readonly state: SyncShown; readonly text: string } {
   const shown = new Map<string, SyncShown>();
@@ -68,6 +70,11 @@ export function syncSummary(
       entry.statusNode,
       syncShown(entry.status, model.calendars.get(entry.calendar)?.mode, zone).state,
     );
+  for (const [id, calendar] of model.calendars) {
+    const node = model.nodes.get(id);
+    const status = node === undefined ? null : readSyncStatus(node);
+    if (status !== null) shown.set(id, syncShown(status, calendar.mode, zone).state);
+  }
   const states = [...shown.values()];
   const failed = states.filter((state) => state === "error").length;
   const waiting = states.filter((state) => state === "pending").length;

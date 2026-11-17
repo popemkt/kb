@@ -314,6 +314,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Incremental foreign ingest in reloadEffect when the session is current at the tail's previous rev.
 - **node** — `01M6950WQN8VDWJMSH8EZ8X3DR`
 
+### GAP: a former Google calendar older than the kept history, or no longer trusted, keeps kb's series
+
+- **expected** — Every Google calendar a calendar node once named and none names now has kb's series on it ended, whenever the re-point or deletion happened.
+- **current** — The host knows a former Google calendar from what it has seen while running and from the store's kept tail (at least TX_TAIL_KEEP_ENTRIES transactions), read at start. A re-point it did not see whose write has left the tail, or a restored or hand-edited store whose tail no longer describes it, is unknown; a former binding whose trust digest the person no longer trusts shows untrusted and is not written.
+- **impact** — In those cases the old Google calendar keeps kb's events repeating until a person deletes them there, as every re-point did before the history read.
+- **closes** — The per-family data directory (docs/research/2026-11-02-kb-routines-gcal.md → Operational data the host cannot rebuild) remembering each Google calendar the host has pushed to, or a way for a person to trust a former binding from the calendar page.
+- **node** — `01M7KTB23TP44SDM0D9XY3E5GM`
+
 ### GAP: a frame view's page is the outline at the frame
 
 - **expected** — A frame opened as a page shows its frame view (a table, a board) whichever family draws the page, so the collections family stands without the outline.
@@ -1072,6 +1080,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — the family barrels are wider than their entries, these tests cannot run in their packages, and path mocks break on a file move
 - **closes** — each test rewritten over the ui-test-kit test host and moved into its family's -ui package, with each barrel narrowed to its entry
 - **node** — `01M531QT1YPM9NTF6NKH9BP66S`
+
+### GAP: field types from plugins vs tags as the behaviour mechanism
+
+- **expected** — One modelling answer to how plugin behaviour attaches. Tags and field types answer different questions. A tag is about the node: what it is, which fields it gets, what happens to it (created, placed, checked, hooks), so behaviour belongs on tags, the core mechanism as tag behaviour grows. A field type is about one value: how it is stored, checked, shown and edited (a date picker, "Weekly on Tue"), so it is presentation, not behaviour. A plugin's type does not grow handlers that rival tags.
+- **current** — Routines declares sys.ft.routines.repeat as a field type (its declaredOptions on the field type options), which every field's type menu offers, with its display (the rule in words) attached to the type through a value kind. Nothing states whether a type may react to changes, create nodes or run hooks.
+- **impact** — Once a plugin type grows handlers that do things (reacting to changes, creating nodes, running hooks), kb has two extension mechanisms and they compete, which overshadows tags. Meanwhile a family's own type clutters the global type menu for fields it was never meant for.
+- **closes** — The owner's decision between the two options below (or a third), stated in DESIGN.md → Field types; the type menu then offers what that decision says.
+- **node** — `01M7KVYBVC5N8VJSBBJCYE74SE`
 
 ### GAP: flat canvas items vanish in level 3D views
 

@@ -215,7 +215,7 @@ describe("graph.changes", () => {
       rev: number;
       actor?: string;
       via?: string;
-      wrote: { id: string; tags: string[] }[];
+      wrote: { id: string; tags: string[]; props?: Record<string, unknown> }[];
     }[];
   };
   const changesOf = async (
@@ -263,6 +263,34 @@ describe("graph.changes", () => {
       undefined,
     );
     expect((await changesOf(ctx, { since: all.head })).changes).toEqual([]);
+  });
+
+  test("answers the values each write gave the fields named, as that write gave them", async () => {
+    const ctx = await openKb(await makeRoot());
+    await invoke(ctx, { id: "field.define", input: { name: "where", type: "text" } });
+    const where = present(
+      (await changesOf(ctx, { since: 0, fields: [] })).changes.at(-1)?.wrote[0],
+      "expected the field node",
+    ).id;
+    const start = (await changesOf(ctx, { since: 0 })).head;
+    await invoke(ctx, { id: "node.add", input: { text: "cal", id: "n.cal" } });
+    for (const value of ["first", "second"])
+      await invoke(ctx, {
+        id: "node.update",
+        input: {
+          id: "n.cal",
+          unsetProps: [{ field: where }],
+          setProps: [{ field: where, value: { t: "str", v: value } }],
+        },
+      });
+    const read = await changesOf(ctx, { since: start, fields: [where, "sys.f.none"] });
+    expect(read.changes.map((change) => change.wrote[0]?.props)).toEqual([
+      {},
+      { [where]: [{ t: "str", v: "first" }] },
+      { [where]: [{ t: "str", v: "second" }] },
+    ]);
+    // A caller that names no fields hears none.
+    expect((await changesOf(ctx, { since: start })).changes[1]?.wrote[0]?.props).toBeUndefined();
   });
 
   test("a rev the log cannot reach back from answers no changes, incomplete", async () => {

@@ -1,0 +1,5 @@
+{
+  "reason": "Routines' push reconciles against Google: @kb/routines' barrel adds sent.ts, the kbSent digest and the owned and holds predicates the host's reconcile reads, which the CLI composes with the family's declaration. Its surface grows by RemoteEvent, holds, owned, sentDigest and startDay.",
+  "pr": "#271",
+  "raise": { "cli-closure": { "bytes": 3594, "modules": 1 }, "surface": { "@kb/routines": 5 } }
+}

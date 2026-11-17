@@ -58,6 +58,7 @@ function field(
  * The family's field type for a series' rule (DESIGN.md → Field types): a
  * rule stored as text, which the page reads as the event's line words it.
  */
+// GAP [[01M7KVYBVC5N8VJSBBJCYE74SE]] a family's own field type is offered in every field's type menu, and nothing says a type may not grow behaviour
 export const REPEAT_KIND = "routines.repeat";
 /** Its option node, which the repeat field's type slot names. */
 export const REPEAT_TYPE: NodeId = declaredOptionId(FIELD_TYPE_OPTIONS, REPEAT_KIND);
