@@ -5190,20 +5190,18 @@ as they are, since a person's Cloud project registered them.
   stays inside it. New and `c` start today at the next half hour when
   today is shown, else at nine on the day shown, for half an hour. The
   instance popover's Move this one uses the same day and time fields.
-- **Sync status.** Every instance carries a dot for its own status, or its
-  series' when it has none: synced, pending or error, with the message as
-  its tooltip. A calendar in preview or paused says it is not sent. The
-  statuses are the sync host's. The page reads them over the family's
-  `routines.status` channel and never from nodes
-  ([Status lives in the host](docs/research/2026-11-02-kb-routines-gcal.md#status-lives-in-the-host)),
-  so a page with no host serving it shows none.
-  - **A status belongs to the write it is for.** The engine sends what
+- **Sync status.** Every instance carries a dot for its routine's status,
+  or its occurrence's own when it has one: synced, pending or error, with
+  the message as its tooltip. A calendar in preview or paused says it is not
+  sent. The statuses are node fields the sync host writes
+  ([Status on nodes](docs/research/2026-11-02-kb-routines-gcal.md#status-on-nodes)).
+  - **A status belongs to the node a write is for.** The engine sends what
     differs from what Google holds: the series' event when the series
     changed, an instance when its fact did. It says pending, then synced or
-    failed, on that write alone. So ticking one instance Done never says its
+    failed, on that node alone. So ticking one instance Done never says its
     series waits, and an instance that fails never fails its series.
-  - **A taken-back fact is a write of its own.** A day whose fact is taken
-    back shows waiting until its series' default is sent.
+  - **A taken-back fact's day** goes back to its series' default with no
+    node of its own, so its write says nothing.
   - **A change taken back before it is sent** writes nothing, and is synced
     again.
   - **A deletion sent, then undone,** publishes the event and its facts
@@ -5213,9 +5211,10 @@ as they are, since a person's Cloud project registered them.
   the title, the layouts, then sync, then New. Sync's group reads the worst
   state showing as text with its dot (a status, not a button), counted in
   writes:
-  - each write the instances shown read their status from is one, however
+  - each node the instances shown read their status from is one, however
     many of one series' instances a week shows;
-  - each calendar whose own writes failed is one more.
+  - each calendar node whose own status says so is one more: its list call,
+    or the endings of series whose events are gone.
 
   Beside it sit
   Sync now (`ext.routines.sync`) and Sync services as icon buttons; with no

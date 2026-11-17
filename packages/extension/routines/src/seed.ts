@@ -17,7 +17,6 @@ import {
   SYSTEM_IDS,
   type FieldOptions,
   type FieldType,
-  tagChains,
   type KbNode,
   type NodeId,
 } from "@kb/model";
@@ -50,12 +49,10 @@ function field(
 /*
  * Each field's show, by what it holds: what says what an event, an
  * occurrence, a calendar or an account is shows always; what a node of the
- * kind may or may not carry shows when filled; a calendar's adapter and id,
- * and an account's connection, are tucked, since the Sync services page is
- * where they are read; and an account's secrets, project and setup, which
- * that page writes, never. Event sync keeps no state on nodes: its statuses
- * are the host's (docs/research/2026-11-02-kb-routines-gcal.md → Status lives
- * in the host).
+ * kind may or may not carry shows when filled; the sync state kb writes
+ * (Google's id, link, status, message and time, a calendar's adapter and
+ * id) is tucked, since the Sync services page is where it is read; and an
+ * account's secrets, project and setup, which that page writes, never.
  */
 /**
  * The family's field type for a series' rule (DESIGN.md → Field types): a
@@ -75,8 +72,10 @@ const fields = {
   until: field("until", "date", "filled"),
   repeatsFrom: field("repeats from", "ref", "filled", ["schedule", "completion"]),
   calendar: field("calendar", "ref", "filled"),
+  gcal: field("gcal link", "url", "tucked"),
   status: field("gcal status", "ref", "tucked", ["pending", "synced", "error"]),
   message: field("gcal message", "text", "tucked"),
+  eventId: field("gcal event id", "text", "tucked"),
   syncedAt: field("synced at", "text", "tucked"),
   on: field("on", "date"),
   state: field("state", "ref", "filled", ["done", "skipped", "moved"]),
@@ -129,10 +128,42 @@ const tags: readonly [string, string, readonly RoutineField[]][] = [
   [
     ROUTINE_TAGS.routine,
     "event",
-    ["rrule", "starts", "at", "duration", "timezone", "until", "repeatsFrom", "calendar"],
+    [
+      "rrule",
+      "starts",
+      "at",
+      "duration",
+      "timezone",
+      "until",
+      "repeatsFrom",
+      "calendar",
+      "gcal",
+      "status",
+      "message",
+      "eventId",
+      "syncedAt",
+    ],
   ],
-  [ROUTINE_TAGS.occurrence, "occurrence", ["on", "state", "movedTo", "at"]],
-  [ROUTINE_TAGS.calendar, "calendar", ["account", "adapter", "calendarId", "timezone", "sync"]],
+  [
+    ROUTINE_TAGS.occurrence,
+    "occurrence",
+    ["on", "state", "movedTo", "at", "gcal", "status", "message", "eventId", "syncedAt"],
+  ],
+  [
+    ROUTINE_TAGS.calendar,
+    "calendar",
+    [
+      "account",
+      "adapter",
+      "calendarId",
+      "timezone",
+      "sync",
+      "status",
+      "message",
+      "eventId",
+      "syncedAt",
+    ],
+  ],
   [
     ROUTINE_TAGS.account,
     "google-account",
@@ -145,6 +176,7 @@ const tags: readonly [string, string, readonly RoutineField[]][] = [
       "setup",
       "status",
       "message",
+      "eventId",
       "syncedAt",
     ],
   ],
@@ -234,102 +266,6 @@ const repeatTypeMigration: ExtensionMigration = {
     untypedRepeat(graph) === null ? [] : [`${ROUTINE_FIELDS.rrule} is still typed text`],
 };
 
-/**
- * The fields event sync kept on nodes before its state moved to the host,
- * by id: Google's link, the status, its message, Google's event id and when
- * it synced. The link and the event id are no longer seeded at all.
- */
-const SYNC_FIELDS = ["gcal", "status", "message", "eventId", "syncedAt"].map(
-  (key) => "sys.f.routines." + key,
-);
-const UNSEEDED_FIELDS = ["sys.f.routines.gcal", "sys.f.routines.eventId"];
-/** The tags whose nodes held sync state, and which templated it. */
-const SYNCED_TAGS: readonly NodeId[] = [
-  ROUTINE_TAGS.routine,
-  ROUTINE_TAGS.occurrence,
-  ROUTINE_TAGS.calendar,
-];
-
-/** `node` without the prop keys in `drop`, and its template without the fields in `untemplate`. */
-function without(node: KbNode, drop: readonly string[], untemplate: readonly string[]): KbNode {
-  const props = { ...node.props };
-  for (const key of drop) delete props[key];
-  const template = props[SYSTEM_IDS.fieldsField];
-  if (template !== undefined)
-    props[SYSTEM_IDS.fieldsField] = template.filter(
-      (value) => !(value.t === "ref" && untemplate.includes(value.v)),
-    );
-  return { ...node, props };
-}
-/** Whether any node of `nodes` still names `id`: as a field it holds, a value, or a child. */
-function named(nodes: readonly KbNode[], id: NodeId): boolean {
-  return nodes.some(
-    (node) =>
-      node.id !== id &&
-      (id in node.props ||
-        node.children.includes(id) ||
-        Object.values(node.props).some((values) =>
-          values.some((value) => value.t === "ref" && value.v === id),
-        )),
-  );
-}
-/** What still holds sync state in `graph`, one line each. */
-function syncLeft(graph: MigrationGraph): readonly string[] {
-  const { isA } = tagChains(graph.nodeOf);
-  const left: string[] = [];
-  for (const node of graph.nodes) {
-    if (SYNCED_TAGS.some((tag) => isA(node, tag)))
-      for (const key of SYNC_FIELDS) if (key in node.props) left.push(`${node.id} holds ${key}`);
-    const untemplate = SYNCED_TAGS.includes(node.id)
-      ? SYNC_FIELDS
-      : node.id === ROUTINE_TAGS.account
-        ? UNSEEDED_FIELDS
-        : [];
-    for (const value of node.props[SYSTEM_IDS.fieldsField] ?? [])
-      if (value.t === "ref" && untemplate.includes(value.v))
-        left.push(`${node.id} templates ${value.v}`);
-  }
-  return left;
-}
-
-/**
- * The family's migration `routines.sync-off-nodes` (docs/research/2026-11-02-kb-routines-gcal.md
- * → Migration): event sync's state comes off the store. Each event,
- * occurrence and calendar loses the five fields' values, its tag stops
- * templating them, and the account's tag stops templating the event id. The
- * link and event id fields go too, unless another node still names them,
- * which makes them the person's. Nothing else changes. Pure and idempotent:
- * a store without sync state plans nothing.
- */
-const syncOffNodesMigration: ExtensionMigration = {
-  id: "sync-off-nodes",
-  title: "Take sync state off events",
-  description:
-    "Event sync kept its status, message, Google's link and id, and when it synced on each event, occurrence and calendar. Sync now works those out from Google each time and keeps them in the running host, so these fields only go stale. They are removed from those nodes and their tags; nothing else changes.",
-  run: (graph) => {
-    const { isA } = tagChains(graph.nodeOf);
-    const upserts: KbNode[] = [];
-    for (const node of graph.nodes) {
-      const synced = SYNCED_TAGS.some((tag) => isA(node, tag));
-      const untemplate = SYNCED_TAGS.includes(node.id)
-        ? SYNC_FIELDS
-        : node.id === ROUTINE_TAGS.account
-          ? UNSEEDED_FIELDS
-          : [];
-      const next = without(node, synced ? SYNC_FIELDS : [], untemplate);
-      if (JSON.stringify(next.props) !== JSON.stringify(node.props))
-        upserts.push({ ...next, updatedAt: graph.at });
-    }
-    const written = new Map(upserts.map((node) => [node.id, node]));
-    const after = graph.nodes.map((node) => written.get(node.id) ?? node);
-    const deletes = UNSEEDED_FIELDS.filter(
-      (id) => graph.nodeOf(id) !== undefined && !named(after, id),
-    );
-    return { upserts, deletes };
-  },
-  check: syncLeft,
-};
-
 export const routinesExtension = defineExtension({
   name: "routines",
   label: "Events",
@@ -348,7 +284,7 @@ export const routinesExtension = defineExtension({
       ],
     },
   ],
-  migrations: [repeatTypeMigration, syncOffNodesMigration],
+  migrations: [repeatTypeMigration],
   retires: [
     // Routines became events, a routine an event and its rule the event's
     // repeat: labels only, so every id stays.
@@ -383,11 +319,6 @@ export const routinesExtension = defineExtension({
     ],
   },
 });
-
-/** The status channel's id, as the host entry contributes it; the server names it under the family. */
-export const STATUS_CHANNEL_ID = "status";
-/** The family's plugin channel that carries `SyncStatuses` to a page, by its full name. */
-export const STATUS_CHANNEL = `${routinesExtension.name}.${STATUS_CHANNEL_ID}`;
 
 /** The family's shared plugin: its declaration's view, which both hosts' entries load. */
 export function routinesDeclarationPlugin(): Plugin {

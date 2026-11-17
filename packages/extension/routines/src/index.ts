@@ -3,28 +3,18 @@ export {
   routinesSeed,
   routineOption,
   REPEAT_KIND,
-  STATUS_CHANNEL,
-  STATUS_CHANNEL_ID,
   ROUTINE_FIELDS,
   ROUTINE_TAGS,
 } from "./seed.ts";
 export type { RoutineField, RoutineOption } from "./seed.ts";
-export {
-  EventFields,
-  EventTime,
-  NO_STATUSES,
-  SyncError,
-  SyncStatus,
-  SyncStatuses,
-  WATCH_STATUSES,
-  WatchStatuses,
-} from "./model.ts";
+export { EventFields, EventTime, SyncError } from "./model.ts";
 export type {
   Routine,
   Occurrence,
   ProjectionTarget,
   CalendarResult,
   RemoteEvent,
+  SyncStatus,
 } from "./model.ts";
 export { holds, owned, sentDigest, startDay } from "./sent.ts";
 export type { CalendarPort } from "./ports.ts";
@@ -39,17 +29,16 @@ export {
   readAccount,
   routineOccurrences,
   routineZone,
-  connectionProps,
+  syncStatusProps,
 } from "./config.ts";
 export type { CalendarConfig, AccountConfig, CalendarBinding } from "./config.ts";
 export { routineInputs, DEFAULT_ROUTINE_ZONE } from "./config.ts";
 export { routinesDeclarationPlugin } from "./seed.ts";
-export { routineSettings, routineWrite, occurrenceWrite } from "./config.ts";
+export { routineSettings, routineWrite, occurrenceWrite, readSyncStatus } from "./config.ts";
 export type { RoutineSettings, OccurrenceSettings } from "./config.ts";
 export { instancePlace } from "./projection.ts";
 export {
   calendarEntries,
-  entryStatus,
   nextEntry,
   seriesDays,
   instantOf,

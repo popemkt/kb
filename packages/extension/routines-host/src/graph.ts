@@ -3,8 +3,8 @@ import { z } from "zod";
 import { onWire, viaWithin, WireNodeSchema, type UiHostService } from "@kb/contracts";
 import { canonicalJson, PropValueSchema, type NodeLike, type PropValue } from "@kb/model";
 import {
-  connectionProps,
   readCalendar,
+  syncStatusProps,
   ROUTINE_FIELDS as F,
   ROUTINE_TAGS as T,
   SyncError,
@@ -29,11 +29,8 @@ export interface RoutineHost {
   readonly read: Effect.Effect<ReadonlyMap<string, NodeLike>, SyncError>;
   readonly changes: (since: number) => Effect.Effect<TailPage, SyncError>;
   readonly trusted: (digest: string) => Effect.Effect<boolean, SyncError>;
-  /** Record an account's connection on its node. */
-  readonly connection: (
-    id: string,
-    status: Pick<SyncStatus, "state" | "message" | "at">,
-  ) => Effect.Effect<void, SyncError>;
+  /** Write `status` on node `id`'s sync fields, only where a value changes; a node gone takes none. */
+  readonly status: (id: string, status: SyncStatus) => Effect.Effect<void, SyncError>;
 }
 const Node = WireNodeSchema.pick({ id: true, text: true, props: true });
 const Tree = Node.extend({ children: z.array(Node).optional() });
@@ -173,7 +170,7 @@ export function makeRoutineHost(host: UiHostService): RoutineHost {
       if (!result.success) return yield* unavailable();
       return result.data.trusted.includes(digest);
     }),
-    connection: (id, status) => replace(id, connectionProps(status)),
+    status: (id, status) => replace(id, syncStatusProps(status)),
   };
 }
 

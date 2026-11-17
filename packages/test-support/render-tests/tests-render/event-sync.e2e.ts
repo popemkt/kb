@@ -1,10 +1,11 @@
-// The calendar hears event sync's statuses from the host that runs it
-// (docs/research/2026-11-02-kb-routines-gcal.md → Status lives in the host):
-// the page watches the family's channel on its socket, and the host answers
-// with what it holds. Nothing is sent here, because no Google account is
-// trusted, so nothing is claimed synced. What a sent write shows, and that one
-// changed instance waits alone, are the engine's scenarios and the calendar
-// page's tests, over the fake calendar.
+// What waits to sync when one instance of a series changes (DESIGN-UI.md →
+// The routines calendar, sync status): the instance alone, not its series,
+// and the calendar's line counts writes, not the instances it shows. The
+// family's engine runs here (`kb ui`) but sends nothing, because no Google
+// account is trusted; with no list of Google's to plan against it marks
+// nothing either, so each status is written here as the engine writes it
+// (docs/research/2026-11-02-kb-routines-gcal.md → Status on nodes). That the
+// engine marks one changed instance waiting alone is its own scenario.
 import type { APIRequestContext, Page } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
 
@@ -29,11 +30,34 @@ type Props = Record<string, unknown[]>;
 const props = (all: Props) =>
   Object.entries(all).flatMap(([field, values]) => values.map((value) => ({ field, value })));
 
+/** Write `state` on node `id`'s sync status, as the engine writes it. */
+async function writeStatus(request: APIRequestContext, id: string, state: string): Promise<void> {
+  await invoke(request, "node.update", {
+    id,
+    unsetProps: [{ field: F("status") }],
+    setProps: [{ field: F("status"), value: ref(`${F("status")}.${state}`) }],
+  });
+}
+
+/** The occurrence node Done gave `routine`. */
+async function occurrenceOf(request: APIRequestContext, routine: string): Promise<string> {
+  const { node } = await invoke<{ node: { children?: { id: string }[] } }>(request, "node.get", {
+    id: routine,
+    depth: 1,
+  });
+  const child = node.children?.[0]?.id;
+  expect(child).toBeDefined();
+  return child ?? "";
+}
+
 /**
- * The routines family on, a calendar that sends (`sync: on`) through an
- * account no one has trusted, and a Gym every day of the week of 2026-11-16.
+ * The routines family on, a calendar that sends (`sync: on`), and a Gym every
+ * day of the week of 2026-11-16, its series sent, its status written as a
+ * send writes it.
  */
-async function seedSeries(request: APIRequestContext): Promise<string> {
+async function seedSentSeries(
+  request: APIRequestContext,
+): Promise<{ readonly gym: string; readonly calendar: string }> {
   await invoke(request, "extension.switch", { name: "routines", on: true });
   // An account, so the toolbar reads its status; never trusted, so nothing is sent.
   const account = await invoke<{ id: string }>(request, "node.add", {
@@ -63,46 +87,49 @@ async function seedSeries(request: APIRequestContext): Promise<string> {
       [F("rrule")]: [str("FREQ=DAILY")],
     }),
   });
-  return gym.id;
-}
-
-const STATUS_CHANNEL = "routines.status";
-const NOTHING_HELD = { series: {}, instances: {}, calendars: {}, held: [] };
-
-/** The `routines.status` frames a page's sockets carry, each way. */
-function channelFrames(page: Page): { readonly said: unknown[]; readonly heard: unknown[] } {
-  const said: unknown[] = [];
-  const heard: unknown[] = [];
-  const keep = (into: unknown[]) => (payload: string | Buffer) => {
-    const frame = JSON.parse(String(payload)) as { op?: string; channel?: string; data?: unknown };
-    if (frame.op === "channel" && frame.channel === STATUS_CHANNEL) into.push(frame.data);
-  };
-  page.on("websocket", (socket) => {
-    socket.on("framesent", ({ payload }) => keep(said)(payload));
-    socket.on("framereceived", ({ payload }) => keep(heard)(payload));
-  });
-  return { said, heard };
+  await writeStatus(request, gym.id, "synced");
+  return { gym: gym.id, calendar: calendar.id };
 }
 
 const chip = (page: Page, key: string) => page.locator(`[data-entry="${key}"]`).first();
 
-test("the calendar watches the host's sync statuses, and claims nothing synced while nothing is sent", async ({
+test("one instance marked done waits alone, and the calendar counts one write", async ({
   page,
   request,
 }) => {
-  const gym = await seedSeries(request);
-  const frames = channelFrames(page);
+  const { gym, calendar } = await seedSentSeries(request);
   await page.clock.setFixedTime(new Date("2026-11-18T10:00:00"));
   await page.goto("/calendar/week/2026-11-18");
-  await expect.poll(() => frames.said, { timeout: 15_000 }).toContainEqual({ watch: true });
-  await expect.poll(() => frames.heard, { timeout: 15_000 }).toContainEqual(NOTHING_HELD);
-  await expect(page.locator('[data-sync-summary][role="status"]').first()).toHaveText(
-    /Not synced yet/,
+  const summary = page.locator('[data-sync-summary][role="status"]').first();
+  await expect(summary).toHaveText(/Synced/);
+  const week = ["16", "17", "18", "19", "20", "21", "22"].map((d) => `${gym}/2026-11-${d}`);
+  for (const key of week)
+    await expect(chip(page, key).locator("[data-sync-status]")).toHaveAttribute(
+      "data-sync-status",
+      "synced",
+    );
+
+  const marked = `${gym}/2026-11-18`;
+  await chip(page, marked).click();
+  await page
+    .locator(`[data-event-card="${marked}"]`)
+    .getByRole("button", { name: "Done", exact: true })
+    .click();
+
+  // The engine says the instance waits on its own occurrence, never its series.
+  await writeStatus(request, await occurrenceOf(request, gym), "pending");
+  await expect(chip(page, marked).locator("[data-sync-status]")).toHaveAttribute(
+    "data-sync-status",
+    "pending",
+    { timeout: 15_000 },
   );
-  await expect(chip(page, `${gym}/2026-11-18`).locator("[data-sync-status]")).toHaveAttribute(
-    "title",
-    "Not synced yet",
-  );
-  // A script asks the same host with the status action, and hears the same value.
-  expect(await invoke(request, "ext.routines.status", {})).toEqual(NOTHING_HELD);
+  for (const other of week.filter((day) => day !== marked))
+    await expect(chip(page, other).locator("[data-sync-status]")).toHaveAttribute(
+      "data-sync-status",
+      "synced",
+    );
+  await expect(summary).toHaveText(/1 waiting/);
+  // A calendar's own failure (its list call, or an ending) is one more write.
+  await writeStatus(request, calendar, "error");
+  await expect(summary).toHaveText(/1 failed/);
 });

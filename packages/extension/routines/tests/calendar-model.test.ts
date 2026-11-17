@@ -5,13 +5,12 @@ import {
   calendarEntries,
   describeRepeat,
   editRoutine,
-  entryStatus,
   instantOf,
-  NO_STATUSES,
   moveEntry,
   type MovePlan,
   nextEntry,
   readRepeat,
+  readSyncStatus,
   repeatPresets,
   repeatRule,
   resizeEntry,
@@ -20,6 +19,7 @@ import {
   seriesDays,
   setEntryState,
   shiftRule,
+  syncStatusProps,
   wallClock,
   ROUTINE_FIELDS as F,
   ROUTINE_TAGS as T,
@@ -266,26 +266,39 @@ describe("calendar entries", () => {
     expect(entries).toEqual([]);
     expect(issues).toEqual([{ routine: "bad", title: "bad", code: "invalid_rule" }]);
   });
-  test("an instance reads its own write's status when the host holds one, else its series'", () => {
-    const failed = { state: "error" as const, message: "quota", at: "2026-11-02T00:00:00Z" };
-    const graph = graphOf(routineNode("r", { ...zoned, [F.rrule]: [str("FREQ=DAILY")] }));
-    const statuses = {
-      ...NO_STATUSES,
-      series: { r: { state: "synced" as const, message: "" } },
-      instances: { r: { "2026-11-03": failed } },
-    };
-    expect(entryStatus(statuses, only(graph, "2026-11-02"))).toEqual({
-      status: { state: "synced", message: "" },
-      write: "r",
-    });
-    expect(entryStatus(statuses, only(graph, "2026-11-03"))).toEqual({
-      status: failed,
-      write: "r/2026-11-03",
-    });
-    expect(entryStatus(NO_STATUSES, only(graph, "2026-11-03"))).toEqual({
-      status: null,
-      write: "r",
-    });
+  test("an occurrence's own status wins over its routine's; the status fields round-trip", () => {
+    const status = { state: "error" as const, message: "quota", at: "2026-11-02T00:00:00Z" };
+    const written = syncStatusProps(status);
+    const props = Object.fromEntries(
+      Object.entries(written).flatMap(([field, value]) =>
+        value === null ? [] : [[field, [value]]],
+      ),
+    );
+    expect(readSyncStatus({ id: "x", text: "", children: [], props })).toEqual(status);
+    const graph = graphOf(
+      routineNode(
+        "r",
+        {
+          ...zoned,
+          [F.rrule]: [str("FREQ=DAILY")],
+          [F.status]: [ref(routineOption("status", "synced"))],
+        },
+        ["o"],
+      ),
+      {
+        id: "o",
+        text: "",
+        children: [],
+        props: {
+          [SYSTEM_IDS.typeField]: [ref(T.occurrence)],
+          [F.on]: [str("2026-11-03")],
+          [F.state]: [ref(routineOption("state", "done"))],
+          ...props,
+        },
+      },
+    );
+    expect(only(graph, "2026-11-02").status?.state).toBe("synced");
+    expect(only(graph, "2026-11-03").status).toEqual(status);
   });
 });
 

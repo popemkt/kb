@@ -24,11 +24,22 @@ import {
   type RemoteEvent,
 } from "@kb/routines";
 
+/**
+ * A calendar node's own writes, its list call and the endings of series whose
+ * events are gone: on the Google calendar it names, or, `former`, on one it
+ * named before.
+ */
+export interface CalendarTarget {
+  readonly kind: "calendar";
+  readonly calendar: string;
+  readonly former?: string;
+}
+
 /** What a write's status belongs to: an event's series, one of its instances, or a calendar. */
 export type Target =
   | { readonly kind: "series"; readonly routine: string }
   | { readonly kind: "instance"; readonly routine: string; readonly day: string }
-  | { readonly kind: "calendar"; readonly calendar: string };
+  | CalendarTarget;
 
 /** One put: its fields, and where it goes, an id kb has or the instance a lookup finds. */
 export interface Write {

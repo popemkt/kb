@@ -2,11 +2,11 @@
 
 ## Push reconciles against Google (2026-11-17)
 
-This section supersedes how the Simplified section below decides what to send
-and where sync state lives. That covers its in-memory comparison of what was
-last sent, its restart that sends everything again, its limit on deletions
-made while the worker is stopped, and its status fields on nodes. The
-bullets there that it replaces point here.
+This section supersedes how the Simplified section below decides what to send.
+That covers its in-memory comparison of what was last sent, its restart that
+sends everything again, and its limit on deletions made while the worker is
+stopped. Its status fields on nodes stay, written from what this pass works
+out (Status on nodes). The bullets there that it replaces point here.
 
 **Why.** On 2026-11-17 the owner's calendar showed a daily event failed on every
 day. The host had restarted. A fresh process remembered nothing it had sent,
@@ -118,17 +118,29 @@ Google documents:
   pass are held until released.
 - **Order:** endings first, then each event's series, then its days in order.
 
-### Status lives in the host
+### Status on nodes
 
-The sync worker in the host keeps one status per write target. Each status is
-pending, synced or failed with its message, and holds Google's id and link
-when it has them. The targets are:
+The sync worker in the host works out one status per write target. Each
+status is pending, synced or failed with its message, and holds Google's id
+and link when it has them. The targets are:
 
-- **an event's series**, keyed by the event node;
-- **an instance**, keyed by the event node and the day: a day with a fact, or
-  a day going back to its default after its fact was taken back;
-- **a calendar**, keyed by its node, for its list call and for the endings
-  of series whose events are gone.
+- **an event's series**, written on the event node;
+- **an instance**, written on the day's occurrence node. A day going back to
+  its default after its fact was taken back is a target too, but it has no
+  node, so nothing says it waits (gap `01M7JGRXEA5AWPZS3SKTRQY45E`). Its
+  series is never marked for it;
+- **a calendar**, written on the calendar node, for its list call and for the
+  endings of series whose events are gone, on its Google calendar and on the
+  ones it named before (Restart, crash and deletion). The node shows the
+  worst of them, and a former calendar's message starts with its Google id.
+
+Each status is written in the node's **gcal status**, **gcal message**,
+**gcal event id**, **gcal link** and **synced at** fields, through the
+family's `ext.routines.sync` writes, which the change feed leaves out. A
+field is written only when its value changes, so a pass that finds what
+each node already says makes no transaction. A status that does not know
+when kb last sent (a fresh worker finding Google holding a write) leaves
+**synced at** as the node holds it.
 
 How the status moves:
 
@@ -139,34 +151,22 @@ How the status moves:
   is synced. A failed write stops the rest of that event's writes in the
   pass, and those keep the status they had. A failing instance never marks
   its series. Other events go on.
-- The first pass after a start recomputes every status from the store and
-  Google, with one list call per calendar and, when nothing changed, no
-  writes. A restart costs the statuses only the seconds before that pass.
+- The first pass after a start works every status out again from the store
+  and Google, with one list call per calendar. With nothing changed it
+  writes nothing, to Google or to the store.
+- A calendar that is paused, in preview, not trusted, or waiting to retry
+  its list is not planned, so its events' statuses stay as they are.
 
-**The contract.** The statuses are a `SyncStatuses` value with four parts:
-`series`, `instances`, `calendars`, and `held` (the events whose ending is
-held). Two things carry it:
+Nothing reads a status to decide what to send. The calendar, its failed
+count, the event editor and the event's preview read the node fields, as
+before. The failed count counts failed writes: each node in error once,
+calendar nodes included.
 
-- **`routines.status`**, the family's plugin channel on the page's `/ws`
-  socket ([DESIGN.md → Plugin channels](../../DESIGN.md#plugin-channels)).
-  A page that sends `{watch: true}` gets the current value at once and then
-  each new one, until its connection drops.
-- **The `ext.routines.status` action**, which returns the same value to an
-  agent or a script. Before the host's first pass has finished, the action
-  waits for it, so it never answers from an empty memory.
+`ext.routines.status` answers each event, occurrence and calendar node's
+fields and the events whose ending is held for release
+(`pendingDeletions`), as before.
 
-Sync runs only in a host (`kb ui`), and a one-shot command runs none. The
-status action is the host's (DESIGN.md → Plugin channels, hosted actions),
-so a one-shot `kb` reaches it only through a running host. With no host it
-is not offered at all, and nothing claims an event is synced. That is the
-truth when no host runs: nothing is syncing.
-
-The calendar, its failed count, the event editor and the event's preview
-read the channel, never node fields. The failed count counts failed writes:
-each target in error once, calendars included. A taken-back fact's day is a
-target of its own, so it shows waiting and is counted.
-
-The process keeps scheduling too: the settle timer, retries with backoff
+The process keeps scheduling: the settle timer, retries with backoff
 capped at ten per event (transport, server and quota failures; others stop
 until a change or Sync now), and the releases of held endings. Losing all
 of it costs time and a person's repeated release, and it never changes what
@@ -195,17 +195,17 @@ is sent.
   named it is paused or in preview, it is not listed or written: a paused
   calendar makes no write anywhere, its former Google calendars included,
   and their series end once it sends again. A deleted node sends nothing
-  now, so its former calendar ends at once. Its status is a calendar status
-  keyed by the node and the Google calendar, which the failed count
-  includes. The `calendar.app.created` scope cannot list the calendars kb
+  now, so its former calendar ends at once. Its status is written on the
+  calendar node (Status on nodes); a deleted node's has nowhere to go. The
+  `calendar.app.created` scope cannot list the calendars kb
   made (`calendarList.list` does not accept it), so Google cannot answer
   this alone.
 - Two cases stay out of reach (gap `01M7KTB23TP44SDM0D9XY3E5GM`): a
   re-point the host did not see whose write has left the kept tail (more
   than 1,024 transactions committed before the host next starts, or a
   restored or hand-edited store whose tail no longer describes it), and a
-  former binding the person no longer trusts, which is not written and
-  shows `untrusted` for as long as it is remembered.
+  former binding the person no longer trusts, which is not written, and
+  whose calendar node shows `untrusted` for as long as it is remembered.
 
 ### A person's edit in Google
 
@@ -254,35 +254,10 @@ is safe, because a put overwrites. The alternative, adopting the receipts
 stored on nodes as acknowledged without sending, would trust that Google
 holds what the store says, and that trust is exactly what failed.
 
-The family migration `routines.sync-off-nodes`, "Take sync state off events",
-removes what the store held for sync. It:
-
-- removes the **gcal status**, **gcal message**, **gcal link**,
-  **gcal event id** and **synced at** values from every event, occurrence and
-  calendar node;
-- removes those fields from those three tags' templates;
-- deletes the **gcal link** and **gcal event id** field nodes. It does so only
-  where no other node holds a value of them; a person's own use keeps the
-  field, which is then theirs.
-
-It touches nothing else: no other field, no text and no child, so every value
-a person wrote stays. Its check names any event, occurrence or calendar node
-still holding one of the five, and any of the three tags still templating one.
-
-A store seeded after this change never has any of it. The account keeps
-**gcal status**, **gcal message** and **synced at** for its connection, and a
-gap records that (`#gap`).
-
-Sync works before the migration is applied, because nothing reads the old
-fields any more: they are only stale text in the outline. On the owner's
-store the deploy alone recovers the calendar:
-
-- the restart's first pass sends the series and its 11-16 exception once
-  each;
-- both read synced on the calendar.
-
-The one step left to the owner is applying the migration in Settings →
-Extensions → Migrations, which clears the stale fields.
+The status fields stay where they were, so a store from before needs no
+migration. Its stale values (the owner's series read failed) are replaced by
+the first pass after the deploy, which sends the series and its 11-16
+exception once each, and both read synced on the calendar.
 
 ### The port
 
@@ -322,9 +297,11 @@ comments on 2026-11-03. kb is the source of truth; Google is its outbound projec
   holds, and original-start instance lookup (see Push reconciles against Google).
   Every adapter joins the same contract suite. Put owns all projected fields;
   responses return only event ID and htmlLink. No If-Match or merge base exists.
-- Superseded (2026-11-17, Push reconciles against Google): sync state no longer
-  lives on nodes. The host holds it and serves it on the `routines.status`
-  channel, and sync writes nothing to the store.
+- State lives on the routine/occurrence node: gcal status (pending/synced/error),
+  gcal message, gcal link, gcal event id, synced at. Replace field values only
+  when different; no-op syncs do not change timestamps or write transactions.
+  The plugin's own writes are excluded by the existing transaction-tail via marker.
+  A calendar node holds its own (2026-11-17, Status on nodes).
 - Debounce and retries are in-memory scheduling, not a second datastore. Retry
   transport/server/quota failures with backoff, cap at ten, and use Sync now
   for an explicit retry. Authentication/validation failures stop immediately.

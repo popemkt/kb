@@ -1,16 +1,17 @@
 import { expect, test } from "bun:test";
-import { Effect, Fiber, type Scope } from "effect";
+import { Effect, type Scope } from "effect";
 import { TestClock } from "effect/testing";
 import { SYSTEM_IDS, type NodeLike } from "@kb/model";
 import {
   makeFakeCalendar,
   readCalendar,
+  readSyncStatus,
   routineOption,
+  syncStatusProps,
   ROUTINE_FIELDS as F,
   ROUTINE_TAGS as T,
   SyncError,
   type EventFields,
-  type SyncStatuses,
 } from "@kb/routines";
 import { makeRoutineEngine } from "../src/index.ts";
 import { calendarBindingDigest } from "../src/binding.ts";
@@ -49,10 +50,12 @@ function world(fake = makeFakeCalendar()) {
   // The store's history holds the calendar as it was written.
   const changes: TailChange[] = [{ at: 0, ids: ["calendar", "routine"], via: null, calendars: [] }];
   changes[0] = { ...changes[0], calendars: written(["calendar"]) } as TailChange;
-  const counts = { puts: 0, lists: 0 };
+  const counts = { puts: 0, lists: 0, statuses: 0 };
   let failing: { count: number; which: (id: string) => boolean } = { count: 0, which: () => true };
   /** The binding digests a person no longer trusts. */
   const distrusted = new Set<string>();
+  /** How many list calls fail next. */
+  let listFailures = 0;
   const host = () =>
     makeRoutineEngine({
       origin: "https://kb.test",
@@ -67,7 +70,18 @@ function world(fake = makeFakeCalendar()) {
             changes: changes.slice(since),
           })),
         trusted: (digest) => Effect.succeed(!distrusted.has(digest)),
-        connection: () => Effect.void,
+        // Sync's own writes, which the change feed leaves out.
+        status: (id, status) =>
+          Effect.sync(() => {
+            const held = nodes.get(id);
+            if (held === undefined) return;
+            counts.statuses++;
+            const props = { ...held.props };
+            for (const [field, value] of Object.entries(syncStatusProps(status)))
+              if (value === null) delete props[field];
+              else props[field] = [value];
+            nodes.set(id, { ...held, props });
+          }),
       },
       client: () =>
         Effect.succeed({
@@ -75,6 +89,8 @@ function world(fake = makeFakeCalendar()) {
           list: (calendar) =>
             Effect.suspend(() => {
               counts.lists++;
+              if (listFailures-- > 0)
+                return Effect.fail(new SyncError({ status: 503, code: "unavailable" }));
               return fake.port.list(calendar);
             }),
           put: (calendar, id, fields) =>
@@ -98,6 +114,9 @@ function world(fake = makeFakeCalendar()) {
     fail: (count: number, which: (id: string) => boolean = () => true) => {
       failing = { count, which };
     },
+    failLists: (count: number) => {
+      listFailures = count;
+    },
   };
 }
 type World = ReturnType<typeof world>;
@@ -111,7 +130,13 @@ const start = Effect.fn(function* (w: World) {
 /** Let an edit settle, then run what falls due. */
 const flush = (engine: Engine) =>
   engine.tail.pipe(Effect.andThen(TestClock.adjust("6 seconds")), Effect.andThen(engine.step));
-const statuses = (engine: Engine): Effect.Effect<SyncStatuses> => engine.status();
+/** The status a node's sync fields hold, as the page reads it. */
+const stored = (w: World, id: string) => {
+  const held = w.nodes.get(id);
+  return held === undefined ? null : readSyncStatus(held);
+};
+/** The status on the routine's fact for `day`. */
+const onDay = (w: World, day: string) => stored(w, "fact-routine-" + day);
 const event = (w: World, suffix: string): EventFields | undefined =>
   [...w.fake.events].find(([key]) => key.endsWith(suffix))?.[1];
 /** The routine with one fact on `on`, as ticking that instance writes it. */
@@ -154,20 +179,24 @@ scenario("a restart with nothing changed lists each calendar once and writes not
     fact(w, "2026-11-05");
     yield* flush(first);
     expect(w.counts.puts).toBe(2);
+    expect(stored(w, "routine")?.state).toBe("synced");
+    const sent = onDay(w, "2026-11-05");
+    expect(sent).toMatchObject({
+      state: "synced",
+      eventId: expect.stringContaining("_2026-11-05"),
+    });
     const before = { ...w.counts };
     const again = yield* start(w);
     expect(w.counts.puts).toBe(before.puts);
     expect(w.counts.lists).toBe(before.lists + 1);
-    const now = yield* statuses(again);
-    expect(now.series.routine?.state).toBe("synced");
-    expect(now.instances.routine?.["2026-11-05"]).toMatchObject({
-      state: "synced",
-      eventId: expect.stringContaining("_2026-11-05"),
-    });
+    // Nothing is written to the store either: each node already says what the pass found.
+    expect(w.counts.statuses).toBe(before.statuses);
+    expect(onDay(w, "2026-11-05")).toEqual(sent);
     // Sync now with nothing changed writes nothing either.
     yield* again.syncNow;
     yield* again.step;
     expect(w.counts.puts).toBe(before.puts);
+    expect(w.counts.statuses).toBe(before.statuses);
   }),
 );
 
@@ -186,9 +215,8 @@ scenario(
       yield* flush(again);
       expect(w.fake.lookups).toHaveLength(1);
       expect(event(w, "_2026-11-05")?.status).toBe("cancelled");
-      const now = yield* statuses(again);
-      expect(now.series.routine?.state).toBe("synced");
-      expect(now.instances.routine?.["2026-11-05"]?.state).toBe("synced");
+      expect(stored(w, "routine")?.state).toBe("synced");
+      expect(onDay(w, "2026-11-05")?.state).toBe("synced");
     }),
 );
 
@@ -201,26 +229,20 @@ scenario(
       fact(w, "2026-11-04");
       fact(w, "2026-11-05");
       yield* engine.tail;
-      let now = yield* statuses(engine);
       // Only the instances that changed wait; their series stays as it was sent.
-      expect(now.instances.routine?.["2026-11-04"]?.state).toBe("pending");
-      expect(now.instances.routine?.["2026-11-05"]?.state).toBe("pending");
-      expect(now.series.routine?.state).toBe("synced");
+      expect(onDay(w, "2026-11-04")?.state).toBe("pending");
+      expect(onDay(w, "2026-11-05")?.state).toBe("pending");
+      expect(stored(w, "routine")?.state).toBe("synced");
       w.fail(1, (id) => id.endsWith("_2026-11-04"));
       yield* flush(engine);
-      now = yield* statuses(engine);
-      expect(now.series.routine?.state).toBe("synced");
-      expect(now.instances.routine?.["2026-11-04"]).toMatchObject({
-        state: "error",
-        message: "unavailable",
-      });
-      expect(now.instances.routine?.["2026-11-05"]?.state).toBe("pending");
+      expect(stored(w, "routine")?.state).toBe("synced");
+      expect(onDay(w, "2026-11-04")).toMatchObject({ state: "error", message: "unavailable" });
+      expect(onDay(w, "2026-11-05")?.state).toBe("pending");
       // The retry sends both, and the series is not sent again.
       yield* TestClock.adjust("16 minutes");
       yield* engine.step;
-      now = yield* statuses(engine);
-      expect(now.instances.routine?.["2026-11-04"]?.state).toBe("synced");
-      expect(now.instances.routine?.["2026-11-05"]?.state).toBe("synced");
+      expect(onDay(w, "2026-11-04")?.state).toBe("synced");
+      expect(onDay(w, "2026-11-05")?.state).toBe("synced");
       expect(w.counts.puts).toBe(1 + 1 + 2);
     }),
 );
@@ -235,18 +257,17 @@ scenario(
       // The first host sends the series, then dies on the instance.
       yield* start(w);
       expect(w.fake.events.size).toBe(1);
-      const again = yield* start(w);
+      yield* start(w);
       expect(w.fake.events.size).toBe(2);
       // The series Google already held was not sent again.
       expect(w.counts.puts).toBe(3);
-      const now = yield* statuses(again);
-      expect(now.series.routine?.state).toBe("synced");
-      expect(now.instances.routine?.["2026-11-05"]?.state).toBe("synced");
+      expect(stored(w, "routine")?.state).toBe("synced");
+      expect(onDay(w, "2026-11-05")?.state).toBe("synced");
     }),
 );
 
 scenario(
-  "a store from before: each event is sent once more, to its listed id, and old fields are ignored",
+  "a store from before: each event is sent once more, to its listed id, and its old status is replaced",
   () =>
     Effect.gen(function* () {
       const w = world();
@@ -267,12 +288,11 @@ scenario(
       });
       const lookups = w.fake.lookups.length;
       const puts = w.counts.puts;
-      const again = yield* start(w);
+      yield* start(w);
       expect(w.counts.puts).toBe(puts + 2);
       expect(w.fake.lookups).toHaveLength(lookups);
-      const now = yield* statuses(again);
-      expect(now.series.routine?.state).toBe("synced");
-      expect(now.instances.routine?.["2026-11-05"]?.state).toBe("synced");
+      expect(stored(w, "routine")).toMatchObject({ state: "synced", message: "" });
+      expect(onDay(w, "2026-11-05")?.state).toBe("synced");
       yield* start(w);
       expect(w.counts.puts).toBe(puts + 2);
     }),
@@ -312,15 +332,15 @@ scenario("retries stop at ten; Sync now and a change start them again", () =>
     yield* TestClock.adjust("16 minutes");
     yield* engine.step;
     expect(w.counts.puts).toBe(10);
-    expect((yield* statuses(engine)).series.routine?.state).toBe("error");
+    expect(stored(w, "routine")?.state).toBe("error");
     yield* engine.syncNow;
     yield* engine.step;
-    expect((yield* statuses(engine)).series.routine?.state).toBe("synced");
+    expect(stored(w, "routine")?.state).toBe("synced");
   }),
 );
 
 scenario(
-  "taking back Done sends the day back to its default, and the day, never its series, shows it waiting",
+  "taking back Done sends the day back to its default, and never says its series waits",
   () =>
     Effect.gen(function* () {
       const w = world();
@@ -329,15 +349,12 @@ scenario(
       yield* flush(engine);
       expect(event(w, "_2026-11-05")?.done).toBe(true);
       untick(w, id);
+      // GAP [[01M7JGRXEA5AWPZS3SKTRQY45E]] the day has no node to say its write waits.
       yield* engine.tail;
-      const waiting = yield* statuses(engine);
-      expect(waiting.instances.routine?.["2026-11-05"]?.state).toBe("pending");
-      expect(waiting.series.routine?.state).toBe("synced");
+      expect(stored(w, "routine")?.state).toBe("synced");
       yield* flush(engine);
       expect(event(w, "_2026-11-05")?.done).toBe(false);
-      const now = yield* statuses(engine);
-      expect(now.instances.routine?.["2026-11-05"]?.state).toBe("synced");
-      expect(now.series.routine?.state).toBe("synced");
+      expect(stored(w, "routine")?.state).toBe("synced");
     }),
 );
 
@@ -350,12 +367,14 @@ scenario("a change taken back before it is sent writes nothing and is synced aga
     w.nodes.set(sent.id, { ...sent, text: "renamed" });
     w.touch(sent.id);
     yield* engine.tail;
-    expect((yield* statuses(engine)).series.routine?.state).toBe("pending");
-    w.nodes.set(sent.id, sent);
+    expect(stored(w, "routine")?.state).toBe("pending");
+    const pending = w.nodes.get(sent.id);
+    if (pending === undefined) throw new Error("missing routine");
+    w.nodes.set(sent.id, { ...pending, text: sent.text });
     w.touch(sent.id);
     yield* flush(engine);
     expect(w.counts.puts).toBe(1);
-    expect((yield* statuses(engine)).series.routine?.state).toBe("synced");
+    expect(stored(w, "routine")?.state).toBe("synced");
   }),
 );
 
@@ -400,7 +419,7 @@ for (const kind of ["recurring", "one-off"] as const)
         expect(restored?.recurrence[0]).not.toContain("UNTIL=");
         expect(event(w, "_2026-11-05")?.done).toBe(true);
       }
-      expect((yield* statuses(engine)).series.routine?.state).toBe("synced");
+      expect(stored(w, "routine")?.state).toBe("synced");
     }),
   );
 
@@ -426,9 +445,8 @@ scenario("more than five endings in a pass wait for their release, each one", ()
     w.touch(...ids);
     yield* flush(engine);
     expect(w.counts.puts).toBe(6);
-    const now = yield* statuses(engine);
-    expect(now.held).toEqual(ids.toSorted());
-    expect(now.calendars.calendar?.message).toContain("release");
+    expect((yield* engine.status()).pendingDeletions).toEqual(ids.toSorted());
+    expect(stored(w, "calendar")?.message).toContain("release");
     yield* engine.release(ids);
     yield* engine.step;
     expect(w.counts.puts).toBe(12);
@@ -437,7 +455,8 @@ scenario("more than five endings in a pass wait for their release, each one", ()
         (fields) => fields.recurrence[0]?.includes("UNTIL=") === true,
       ),
     ).toBe(true);
-    expect((yield* statuses(engine)).held).toEqual([]);
+    expect((yield* engine.status()).pendingDeletions).toEqual([]);
+    expect(stored(w, "calendar")).toMatchObject({ state: "synced", message: "" });
   }),
 );
 
@@ -533,17 +552,17 @@ scenario("a former calendar no longer trusted keeps saying so", () =>
         account: null,
       }),
     );
-    const heard: SyncStatuses[] = [];
-    yield* engine.watch("page", (next) => Effect.sync(() => void heard.push(next)));
     w.nodes.set("calendar", calendarNode("calendar", "other-google"));
     w.touch("calendar");
     yield* flush(engine);
-    const untrusted = { state: "error", message: "untrusted" } as const;
-    expect(heard.at(-1)?.calendars["calendar@google"]).toEqual(untrusted);
+    // The calendar node says so, naming the Google calendar it cannot reach.
+    const untrusted = { state: "error", message: "google: untrusted" };
+    expect(stored(w, "calendar")).toMatchObject(untrusted);
     expect(seriesOn(w, "google")?.recurrence[0]).not.toContain("UNTIL=");
+    expect(seriesOn(w, "other-google")?.recurrence[0]).not.toContain("UNTIL=");
     yield* engine.syncNow;
     yield* engine.step;
-    expect((yield* statuses(engine)).calendars["calendar@google"]).toEqual(untrusted);
+    expect(stored(w, "calendar")).toMatchObject(untrusted);
   }),
 );
 
@@ -624,27 +643,31 @@ scenario("a one-off's fact on its day is its one event's own state", () =>
     expect(yield* only).toMatchObject({ status: "cancelled", done: false });
     untick(w, id);
     expect(yield* only).toMatchObject({ status: "confirmed", done: false });
-    const now = yield* statuses(engine);
-    expect(now.series.routine?.state).toBe("synced");
-    expect(now.instances.routine).toBeUndefined();
+    expect(stored(w, "routine")?.state).toBe("synced");
   }),
 );
 
-scenario("the status action waits for the first pass, and a watcher hears each new value", () =>
+scenario(
+  "a calendar whose Google calendar cannot be listed says so on its node, not its events",
+  () =>
+    Effect.gen(function* () {
+      const w = world();
+      const engine = yield* start(w);
+      w.failLists(1);
+      yield* engine.syncNow;
+      yield* engine.step;
+      expect(stored(w, "calendar")?.state).toBe("error");
+      expect(stored(w, "routine")?.state).toBe("synced");
+    }),
+);
+
+scenario("the status action answers each node's status fields and the held endings", () =>
   Effect.gen(function* () {
     const w = world();
-    const engine = yield* w.host();
-    const asked = yield* Effect.forkChild(engine.status());
-    const heard: SyncStatuses[] = [];
-    yield* engine.watch("page", (value) => Effect.sync(() => void heard.push(value)));
-    expect(heard).toEqual([{ series: {}, instances: {}, calendars: {}, held: [] }]);
-    yield* engine.step;
-    const answered = yield* Fiber.join(asked);
-    expect(answered.series.routine?.state).toBe("synced");
-    expect(heard.at(-1)).toEqual(answered);
-    yield* engine.unwatch("page");
-    fact(w, "2026-11-05");
-    yield* flush(engine);
-    expect(heard.at(-1)?.instances.routine).toBeUndefined();
+    const engine = yield* start(w);
+    const answered = yield* engine.status();
+    expect(answered.pendingDeletions).toEqual([]);
+    const routine = answered.nodes.find((held) => held.id === "routine");
+    expect(routine?.props[F.status]).toEqual(ref(routineOption("status", "synced")));
   }),
 );

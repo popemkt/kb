@@ -1,9 +1,7 @@
-import { Context, Layer, Effect, Schema } from "effect";
+import { Context, Layer, Effect } from "effect";
 import { type SecretStore, UiHost, hostEntry } from "@kb/contracts";
 import {
   routinesExtension,
-  STATUS_CHANNEL_ID,
-  WatchStatuses,
   type SyncError,
   type AccountConfig,
   type CalendarBinding,
@@ -94,15 +92,13 @@ export function routinesPlugin(options: RoutinesPluginOptions) {
           "sync",
           routineActions(engine, connections(options, ui, graph), options.setup, scope),
         );
-        // A page that sends `WATCH_STATUSES` hears the statuses now and each new
-        // value after, until its connection drops (docs/research/2026-11-02-kb-routines-gcal.md
-        // → Status lives in the host).
-        yield* host.channel(STATUS_CHANNEL_ID, {
-          receive: (peer, data) =>
-            Schema.is(WatchStatuses)(data)
-              ? engine.watch(peer.connection, (statuses) => peer.send(statuses))
-              : Effect.void,
-          drop: (connection) => engine.unwatch(connection),
+        yield* host.channel("routines.status", {
+          receive: (peer) =>
+            engine.status().pipe(
+              Effect.flatMap((status) => peer.send(status)),
+              Effect.orElseSucceed(() => undefined),
+            ),
+          drop: () => Effect.void,
         });
         yield* engine.run;
       }),

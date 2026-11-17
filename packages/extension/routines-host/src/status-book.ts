@@ -1,41 +1,62 @@
 /**
  * The host's sync statuses (docs/research/2026-11-02-kb-routines-gcal.md →
- * Status lives in the host): one per write target, the events whose ending
- * is held, and the pages that hear them. It is memory only. A fresh host
- * fills it with its first pass, and the store never holds it.
+ * Status on nodes): one per write target, and the events whose ending is
+ * held. The pass works them out here, and each is written on the node it is
+ * for (`onNodes`). A fresh host fills the book with its first pass.
  */
-import { Effect } from "effect";
-import { canonicalJson } from "@kb/model";
-import type { RemoteEvent, SyncStatus, SyncStatuses } from "@kb/routines";
-import type { Target } from "./reconcile.ts";
+import type { NodeLike } from "@kb/model";
+import { routineOccurrences, type RemoteEvent, type SyncStatus } from "@kb/routines";
+import type { CalendarTarget, Target } from "./reconcile.ts";
+
+/** A calendar target's key: its node, and the former Google calendar when it is one. */
+export function calendarKey(target: CalendarTarget): string {
+  return target.former === undefined ? target.calendar : target.calendar + "@" + target.former;
+}
 
 /** A target's key: one string per target, whatever its kind. */
 export function targetKey(target: Target): string {
   if (target.kind === "series") return "series:" + target.routine;
   if (target.kind === "instance") return "instance:" + target.routine + "/" + target.day;
-  return "calendar:" + target.calendar;
+  return "calendar:" + calendarKey(target);
 }
 
-type Hear = (statuses: SyncStatuses) => Effect.Effect<void>;
+/** How much a status says is wrong: a calendar node shows the worst of its Google calendars'. */
+const WEIGHT = { synced: 0, pending: 1, error: 2 } as const;
+
+/** The occurrence node `routine` holds for `day`, if it holds exactly one. */
+function occurrenceOn(
+  routine: NodeLike | undefined,
+  day: string,
+  nodes: ReadonlyMap<string, NodeLike>,
+): string | undefined {
+  if (routine === undefined) return undefined;
+  try {
+    return routineOccurrences(routine, nodes).get(day)?.node.id;
+  } catch {
+    return undefined;
+  }
+}
 
 export class StatusBook {
   private readonly series = new Map<string, SyncStatus>();
   private readonly instances = new Map<string, Map<string, SyncStatus>>();
-  private readonly calendars = new Map<string, SyncStatus>();
+  private readonly calendars = new Map<
+    string,
+    { readonly target: CalendarTarget; readonly status: SyncStatus }
+  >();
   /** Each event whose ending waits for a release, with the Google id of the series that would end. */
   readonly held = new Map<string, string>();
-  private readonly watchers = new Map<string, Hear>();
-  private published = "";
 
   get(target: Target): SyncStatus | undefined {
     if (target.kind === "series") return this.series.get(target.routine);
     if (target.kind === "instance") return this.instances.get(target.routine)?.get(target.day);
-    return this.calendars.get(target.calendar);
+    return this.calendars.get(calendarKey(target))?.status;
   }
 
   set(target: Target, status: SyncStatus): void {
     if (target.kind === "series") this.series.set(target.routine, status);
-    else if (target.kind === "calendar") this.calendars.set(target.calendar, status);
+    else if (target.kind === "calendar")
+      this.calendars.set(calendarKey(target), { target, status });
     else {
       const days = this.instances.get(target.routine) ?? new Map<string, SyncStatus>();
       days.set(target.day, status);
@@ -69,37 +90,33 @@ export class StatusBook {
         if (!keep({ kind: "instance", routine, day })) days.delete(day);
       if (days.size === 0) this.instances.delete(routine);
     }
-    for (const calendar of this.calendars.keys())
-      if (!keep({ kind: "calendar", calendar })) this.calendars.delete(calendar);
+    for (const [key, { target }] of this.calendars) if (!keep(target)) this.calendars.delete(key);
   }
 
-  snapshot(): SyncStatuses {
-    return {
-      series: Object.fromEntries(this.series),
-      instances: Object.fromEntries(
-        [...this.instances].map(([routine, days]) => [routine, Object.fromEntries(days)]),
-      ),
-      calendars: Object.fromEntries(this.calendars),
-      held: [...this.held.keys()].toSorted(),
-    };
-  }
-
-  /** `connection` hears the statuses now, and each new value after, until it is dropped. */
-  watch(connection: string, hear: Hear): Effect.Effect<void> {
-    this.watchers.set(connection, hear);
-    return hear(this.snapshot());
-  }
-
-  unwatch(connection: string): void {
-    this.watchers.delete(connection);
-  }
-
-  /** Tell every watcher the statuses, when they differ from what was last told. */
-  publish(): Effect.Effect<void> {
-    const now = this.snapshot();
-    const text = canonicalJson(now);
-    if (text === this.published) return Effect.void;
-    this.published = text;
-    return Effect.forEach(this.watchers.values(), (hear) => hear(now), { discard: true });
+  /**
+   * Each status, keyed by the node it is written on: a series on its event,
+   * an instance on its occurrence, and a calendar's on its calendar node. A
+   * calendar node shows the worst of its Google calendar's and those it
+   * named before, a former one's message naming the Google calendar.
+   */
+  onNodes(nodes: ReadonlyMap<string, NodeLike>): ReadonlyMap<string, SyncStatus> {
+    const on = new Map<string, SyncStatus>();
+    for (const [routine, status] of this.series) on.set(routine, status);
+    for (const [routine, days] of this.instances)
+      for (const [day, status] of days) {
+        // GAP [[01M7JGRXEA5AWPZS3SKTRQY45E]] a day back to its series' default has no node to say its write waits.
+        const occurrence = occurrenceOn(nodes.get(routine), day, nodes);
+        if (occurrence !== undefined) on.set(occurrence, status);
+      }
+    for (const { target, status } of this.calendars.values()) {
+      const shown =
+        target.former === undefined || status.message === ""
+          ? status
+          : { ...status, message: target.former + ": " + status.message };
+      const before = on.get(target.calendar);
+      if (before === undefined || WEIGHT[shown.state] > WEIGHT[before.state])
+        on.set(target.calendar, shown);
+    }
+    return on;
   }
 }

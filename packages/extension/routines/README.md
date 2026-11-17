@@ -88,7 +88,7 @@ A one-off takes a fact too, on its **starts** day: it is the one event's own sta
 Done days show ✅, grey, and no reminders; ordinary days use calendar defaults.
 
 - `ext.routines.preview {}` projects routines without contacting Google.
-- `ext.routines.status {}` and the `routines.status` channel return the host's sync statuses and the ids of events whose ending is held for release.
+- `ext.routines.status {}` and the `routines.status` channel return routine, occurrence and calendar node fields and queued deletion IDs for release.
 - `ext.routines.sync {}` runs a pass now: it lists each kb calendar in Google and sends only what differs, so with nothing changed it writes nothing.
 - `ext.routines.release {"keys":["<routine-node-id>"]}` releases those held endings.
 - Calendar **sync** values **preview** and **paused** stop outbound requests.
@@ -96,14 +96,11 @@ Done days show ✅, grey, and no reminders; ordinary days use calendar defaults.
 The behavior and Calendar port contract are specified once in the design record
 ([Push reconciles against Google](../../../docs/research/2026-11-02-kb-routines-gcal.md#push-reconciles-against-google-2026-11-17),
 then its Simplified section).
-Sync writes nothing to the store. The host keeps each write's status
-(pending, synced or failed, with Google's link) and serves it on the
-`routines.status` channel and the `ext.routines.status` action. The status
-belongs to an event's series, an instance, or a calendar: a calendar's
-covers its list call and the endings of series whose events are gone. The
-migration `routines.sync-off-nodes` clears the status fields that stores
-from before held.
-The calendar view reads the statuses over that channel and calls the actions above.
+Status fields are native graph fields on routines, occurrences and calendars: **gcal status**
+(pending/synced/error), **gcal message**, **gcal link**, **gcal event id**, **synced at**.
+A calendar's status covers its list call and the endings of series whose events are gone,
+on its Google calendar and on any it named before.
+The calendar view reads those fields and calls the actions above.
 
 ## Validation and remaining acceptance
 

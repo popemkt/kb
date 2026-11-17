@@ -1,24 +1,15 @@
 /**
  * Event sync's engine (docs/research/2026-11-02-kb-routines-gcal.md → Push
  * reconciles against Google). Each pass lists every kb calendar, plans it
- * against the store (`reconcile`) and sends what differs. It writes nothing to
- * the store: what it knows of its own work is the statuses it keeps here and
- * serves, and the scheduling around them. A fresh process rebuilds both with
- * its first pass.
+ * against the store (`reconcile`) and sends what differs. What decides a
+ * write is the store and Google's list alone; each write's status is written
+ * on the node it is for, only where it changes (→ Status on nodes). The
+ * scheduling around them is memory, which a fresh process rebuilds with its
+ * first pass.
  */
-import {
-  Clock,
-  Context,
-  DateTime,
-  Deferred,
-  Effect,
-  Layer,
-  Random,
-  Result,
-  Semaphore,
-} from "effect";
+import { Clock, Context, DateTime, Effect, Layer, Random, Result, Semaphore } from "effect";
 import { TX_TAIL_KEEP_ENTRIES } from "@kb/contracts";
-import { firstRef, nodesOfKind, type NodeLike } from "@kb/model";
+import { canonicalJson, firstRef, nodesOfKind, tagChains, type NodeLike } from "@kb/model";
 import {
   project,
   readAccount,
@@ -26,6 +17,7 @@ import {
   readRoutine,
   routineZone,
   sentDigest,
+  syncStatusProps,
   SyncError,
   ROUTINE_FIELDS as F,
   ROUTINE_TAGS as T,
@@ -34,19 +26,19 @@ import {
   type CalendarPort,
   type RemoteEvent,
   type SyncStatus,
-  type SyncStatuses,
 } from "@kb/routines";
 import { calendarBindingDigest } from "./binding.ts";
 import { RoutineGraph, type RoutineHost, type TailPage } from "./graph.ts";
 import {
   reconcile,
   type CalendarPlan,
+  type CalendarTarget,
   type EventPlan,
   type Target,
   type Write,
 } from "./reconcile.ts";
 import { Schedule } from "./schedule.ts";
-import { StatusBook, targetKey } from "./status-book.ts";
+import { calendarKey, StatusBook, targetKey } from "./status-book.ts";
 
 export interface EngineOptions {
   readonly host: RoutineHost;
@@ -56,10 +48,12 @@ export interface EngineOptions {
 }
 /**
  * A Google calendar the engine lists, with the events kb wants on it: a
- * calendar node's, keyed by the node, or a former one's, keyed by the node
- * and the Google calendar, which wants none.
+ * calendar node's, or a former one's, which wants none. Its target is where
+ * its own writes' status goes, and its key (`calendarKey`) what its list and
+ * schedule are kept under.
  */
 interface Bound {
+  readonly target: CalendarTarget;
   readonly key: string;
   readonly calendar: CalendarConfig;
   readonly binding: CalendarBinding;
@@ -105,6 +99,7 @@ function boundCalendars(nodes: ReadonlyMap<string, NodeLike>): readonly Bound[] 
     if (calendar.mode !== "on" || calendar.calendarId === "") continue;
     const account = nodes.get(calendar.account);
     bound.push({
+      target: { kind: "calendar", calendar: calendar.id },
       key: calendar.id,
       calendar,
       binding: { calendar, account: account === undefined ? null : readAccount(account) },
@@ -134,8 +129,10 @@ function formerCalendars(
   for (const [calendarId, calendar] of named) {
     if (now.has(calendarId) || !sending(nodes.get(calendar.id))) continue;
     const account = nodes.get(calendar.account);
+    const target: CalendarTarget = { kind: "calendar", calendar: calendar.id, former: calendarId };
     former.push({
-      key: calendar.id + "@" + calendarId,
+      target,
+      key: calendarKey(target),
       calendar,
       binding: { calendar, account: account === undefined ? null : readAccount(account) },
       routines: [],
@@ -206,19 +203,16 @@ const listAndPlan = Effect.fnUntraced(function* (
 ) {
   const planned: Planned[] = [];
   /** The former calendars this pass could not reach, whose status says why. */
-  const unreached: string[] = [];
+  const unreached: CalendarTarget[] = [];
   const current = boundCalendars(nodes);
   for (const bound of current) state.named.set(bound.calendar.calendarId, bound.calendar);
   for (const bound of [...formerCalendars(state.named, nodes), ...current]) {
     const key = bound.key;
     if (!(yield* state.options.host.trusted(yield* calendarBindingDigest(bound.binding)))) {
       // A former calendar's series are kb's to end, so one it cannot reach says so.
-      if (bound.routines.length === 0 && bound.key !== bound.calendar.id) {
-        state.book.set(
-          { kind: "calendar", calendar: key },
-          { state: "error", message: "untrusted" },
-        );
-        unreached.push(key);
+      if (bound.target.former !== undefined) {
+        state.book.set(bound.target, { state: "error", message: "untrusted" });
+        unreached.push(bound.target);
       }
       continue;
     }
@@ -230,7 +224,7 @@ const listAndPlan = Effect.fnUntraced(function* (
       Effect.result,
     );
     if (Result.isFailure(listed)) {
-      state.book.set({ kind: "calendar", calendar: key }, failure(listed.failure));
+      state.book.set(bound.target, failure(listed.failure));
       yield* failed(state, key, listed.failure, now);
       continue;
     }
@@ -312,7 +306,7 @@ const sendEndings = Effect.fnUntraced(function* (
     }
     const held = entry.plan.endings.some((ending) => state.book.held.has(ending.routine));
     state.book.set(
-      { kind: "calendar", calendar: entry.bound.key },
+      entry.bound.target,
       refused !== null
         ? failure(refused)
         : held
@@ -382,10 +376,29 @@ const markWaiting = Effect.fnUntraced(function* (
   }
 });
 
+/** Whether `node`'s sync fields already say `status`: a field `status` leaves out is as it was. */
+function says(node: NodeLike, status: SyncStatus): boolean {
+  return Object.entries(syncStatusProps(status)).every(
+    ([field, value]) =>
+      canonicalJson(node.props[field] ?? []) === canonicalJson(value === null ? [] : [value]),
+  );
+}
+
+/** Write each status the book holds on its node, where the node does not say it already. */
+const writeStatuses = Effect.fnUntraced(function* (
+  state: State,
+  nodes: ReadonlyMap<string, NodeLike>,
+) {
+  for (const [id, status] of state.book.onNodes(nodes)) {
+    const node = nodes.get(id);
+    if (node !== undefined && !says(node, status)) yield* state.options.host.status(id, status);
+  }
+});
+
 /** A former calendar that holds nothing of kb's still running is done with. */
 function forgetRetired({ named }: State, planned: readonly Planned[]): void {
   for (const { bound, plan } of planned)
-    if (bound.key !== bound.calendar.id && plan.endings.length === 0)
+    if (bound.target.former !== undefined && plan.endings.length === 0)
       named.delete(bound.calendar.calendarId);
 }
 
@@ -430,18 +443,18 @@ export const makeRoutineEngine = Effect.fn("routines.engine.make")(function* (
   let revision = 0;
   let opened = false;
   let wanted = true;
-  const firstPass = yield* Deferred.make<void>();
   const lock = yield* Semaphore.make(1);
 
   const pass = Effect.fn("routines.engine.pass")(function* () {
     const now = yield* Clock.currentTimeMillis;
     const due = schedule.dueAt(now);
-    const { planned, unreached } = yield* listAndPlan(state, yield* options.host.read, now);
+    const nodes = yield* options.host.read;
+    const { planned, unreached } = yield* listAndPlan(state, nodes, now);
     holdEndings(state, planned);
     yield* sendEndings(state, planned, now);
     forgetRetired(state, planned);
     const named = new Set(
-      [...planned.map(({ bound }) => bound.key), ...unreached].map((key) => "calendar:" + key),
+      [...planned.map(({ bound }) => bound.target), ...unreached].map(targetKey),
     );
     for (const entry of planned)
       for (const event of entry.plan.events)
@@ -451,17 +464,13 @@ export const makeRoutineEngine = Effect.fn("routines.engine.make")(function* (
     book.prune(
       (target) =>
         named.has(targetKey(target)) ||
-        (target.kind === "calendar" && schedule.has(target.calendar)),
+        (target.kind === "calendar" && schedule.has(calendarKey(target))),
     );
     schedule.settled(due, now);
     wanted = false;
+    yield* writeStatuses(state, nodes);
   });
-  const runPass = lock.withPermit(
-    pass().pipe(
-      Effect.ensuring(Deferred.succeed(firstPass, undefined)),
-      Effect.andThen(Effect.suspend(() => book.publish())),
-    ),
-  );
+  const runPass = lock.withPermit(pass());
 
   /** An edit: its events settle, and the writes it makes wait, as planned against the last list. */
   const tail = Effect.gen(function* () {
@@ -482,7 +491,7 @@ export const makeRoutineEngine = Effect.fn("routines.engine.make")(function* (
     );
     for (const key of keys) schedule.edited(key, now);
     yield* markWaiting(state, nodes, keys, now);
-    yield* book.publish();
+    yield* writeStatuses(state, nodes);
   });
 
   const syncNow = Effect.sync(() => {
@@ -512,15 +521,17 @@ export const makeRoutineEngine = Effect.fn("routines.engine.make")(function* (
       catch: () => new SyncError({ status: 400, code: "invalid_rule" }),
     });
   });
-  /** The statuses, once the first pass since the host started has run: never an empty memory's. */
+  /** The status fields of each event, occurrence and calendar node, and the events whose ending is held. */
   const status = Effect.fn("routines.engine.status")(function* () {
-    yield* Deferred.await(firstPass);
-    return book.snapshot();
+    const nodes = yield* options.host.read;
+    const { isA } = tagChains((id) => nodes.get(id));
+    return {
+      nodes: [...nodes.values()]
+        .filter((node) => [T.routine, T.occurrence, T.calendar].some((tag) => isA(node, tag)))
+        .map((node) => ({ id: node.id, props: node.props })),
+      pendingDeletions: [...book.held.keys()].toSorted(),
+    };
   });
-  /** Hear each new statuses value on `connection`, starting with the current one. */
-  const watch = (connection: string, hear: (statuses: SyncStatuses) => Effect.Effect<void>) =>
-    Effect.suspend(() => book.watch(connection, hear));
-  const unwatch = (connection: string) => Effect.sync(() => book.unwatch(connection));
   const step = Effect.gen(function* () {
     yield* tail;
     if (wanted || schedule.ready(yield* Clock.currentTimeMillis)) yield* runPass;
@@ -533,7 +544,7 @@ export const makeRoutineEngine = Effect.fn("routines.engine.make")(function* (
       ),
     ),
   );
-  return { step, pass: runPass, tail, syncNow, release, preview, status, watch, unwatch, run };
+  return { step, pass: runPass, tail, syncNow, release, preview, status, run };
 });
 export class RoutineEngine extends Context.Service<
   RoutineEngine,

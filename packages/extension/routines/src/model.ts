@@ -32,37 +32,13 @@ export interface CalendarResult {
   readonly id: string;
   readonly url: string;
 }
-/** Where one write stands: waiting, sent, or failed with its code as the message. */
-export const SyncStatus = Schema.Struct({
-  state: Schema.Literals(["pending", "synced", "error"]),
-  message: Schema.String,
-  /** Google's id for the event the write is for, once Google has answered. */
-  eventId: Schema.optionalKey(Schema.String),
-  /** Google's own link to that event (`htmlLink`). */
-  url: Schema.optionalKey(Schema.String),
-  /** When kb last sent it, or last found Google holding it. */
-  at: Schema.optionalKey(Schema.String),
-});
-export type SyncStatus = typeof SyncStatus.Type;
-/**
- * The sync host's statuses (docs/research/2026-11-02-kb-routines-gcal.md →
- * Status lives in the host): one per write target. An event's series is
- * keyed by its node, an instance by its event's node and its original day,
- * and a calendar by its node, for its list call and the endings of series
- * whose events are gone. `held` are the events whose ending waits for a
- * release.
- */
-export const SyncStatuses = Schema.Struct({
-  series: Schema.Record(Schema.String, SyncStatus),
-  instances: Schema.Record(Schema.String, Schema.Record(Schema.String, SyncStatus)),
-  calendars: Schema.Record(Schema.String, SyncStatus),
-  held: Schema.Array(Schema.String),
-});
-export type SyncStatuses = typeof SyncStatuses.Type;
-export const NO_STATUSES: SyncStatuses = { series: {}, instances: {}, calendars: {}, held: [] };
-/** What a page sends on the family's status channel (`STATUS_CHANNEL`) to hear each new {@link SyncStatuses}. */
-export const WatchStatuses = Schema.Struct({ watch: Schema.Literal(true) });
-export const WATCH_STATUSES: typeof WatchStatuses.Type = { watch: true };
+export interface SyncStatus {
+  readonly state: "pending" | "synced" | "error";
+  readonly message: string;
+  readonly eventId?: string;
+  readonly url?: string;
+  readonly at?: string;
+}
 /**
  * One event kb's calendar holds, as the port lists it: a series, a one-off
  * or an exception, never an instance nobody changed.

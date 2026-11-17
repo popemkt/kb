@@ -241,16 +241,28 @@ export function routineZone(node: NodeLike, nodes: ReadonlyMap<string, NodeLike>
   const calendar = nodes.get(firstRef(F.calendar)(node.props) ?? "");
   return calendar === undefined ? DEFAULT_ROUTINE_ZONE : readCalendar(calendar).zone;
 }
-/**
- * An account's connection, as the node fields it is stored in; null clears a
- * field.
- */
-export function connectionProps(
-  status: Pick<SyncStatus, "state" | "message" | "at">,
-): Readonly<Record<string, PropValue | null>> {
+/** A node's sync status as its fields hold it ({@link syncStatusProps}); null before any. */
+export function readSyncStatus(node: NodeLike): SyncStatus | null {
+  const state = readRoutineOption("status", firstRef(F.status)(node.props));
+  if (state === undefined) return null;
+  const eventId = firstStr(F.eventId)(node.props);
+  const url = firstStr(F.gcal)(node.props);
+  const at = firstStr(F.syncedAt)(node.props);
+  return {
+    state,
+    message: firstStr(F.message)(node.props) ?? "",
+    ...(eventId === undefined ? {} : { eventId }),
+    ...(url === undefined ? {} : { url }),
+    ...(at === undefined ? {} : { at }),
+  };
+}
+/** A sync status as the node fields it is stored in; null clears a field. */
+export function syncStatusProps(status: SyncStatus): Readonly<Record<string, PropValue | null>> {
   return {
     [F.status]: { t: "ref", v: routineOption("status", status.state) },
     [F.message]: status.message === "" ? null : { t: "str", v: status.message },
+    ...(status.eventId === undefined ? {} : { [F.eventId]: { t: "str", v: status.eventId } }),
+    ...(status.url === undefined ? {} : { [F.gcal]: { t: "str", v: status.url } }),
     ...(status.at === undefined ? {} : { [F.syncedAt]: { t: "str", v: status.at } }),
   };
 }

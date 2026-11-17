@@ -1,6 +1,6 @@
 /**
  * When each key's writes may go (docs/research/2026-11-02-kb-routines-gcal.md
- * → Status lives in the host): an edit settles before it is sent, and a
+ * → Status on nodes): an edit settles before it is sent, and a
  * failure backs off before it is tried again. A key is an event node, or a
  * calendar node for its list call. Memory only: a fresh host has nothing
  * waiting, and its first pass sends at once.

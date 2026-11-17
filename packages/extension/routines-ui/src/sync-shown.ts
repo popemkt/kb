@@ -1,4 +1,4 @@
-import { entryStatus, type SyncStatus, type SyncStatuses } from "@kb/routines";
+import { readSyncStatus, type SyncStatus } from "@kb/routines";
 import { momentText } from "./layout";
 import type { CalendarModel } from "./model";
 
@@ -55,35 +55,32 @@ export function syncShown(
 
 /**
  * How the instances shown stand with Google: the worst state among them,
- * counted in writes (`entryStatus`), so a series' change is one however many
- * of its instances are shown. A sending calendar's own status (its list call
- * and the endings of its gone series) is one write too, and so is a former
- * Google calendar's, whose series the host is ending. A sending write the
- * host has said nothing of is not claimed synced.
+ * counted in writes. Each node whose status they read is one write, so a
+ * series' change is one however many of its instances are shown. A calendar
+ * node's own status (its list call, and the endings of series whose events
+ * are gone, on its Google calendar or one it named before) is one more.
  */
 export function syncSummary(
-  model: Pick<CalendarModel, "byDay" | "calendars">,
-  statuses: SyncStatuses,
+  model: Pick<CalendarModel, "byDay" | "calendars" | "nodes">,
   zone: string,
 ): { readonly state: SyncShown; readonly text: string } {
-  const writes = new Map<string, { readonly status: SyncStatus | null; readonly mode?: string }>();
-  for (const entry of [...model.byDay.values()].flat()) {
-    const { status, write } = entryStatus(statuses, entry);
-    writes.set(write, { status, mode: model.calendars.get(entry.calendar)?.mode });
+  const shown = new Map<string, SyncShown>();
+  for (const entry of [...model.byDay.values()].flat())
+    shown.set(
+      entry.statusNode,
+      syncShown(entry.status, model.calendars.get(entry.calendar)?.mode, zone).state,
+    );
+  for (const [id, calendar] of model.calendars) {
+    const node = model.nodes.get(id);
+    const status = node === undefined ? null : readSyncStatus(node);
+    if (status !== null) shown.set(id, syncShown(status, calendar.mode, zone).state);
   }
-  for (const [id, calendar] of model.calendars)
-    writes.set("calendar/" + id, { status: statuses.calendars[id] ?? null, mode: calendar.mode });
-  // A Google calendar no calendar names now, whose series the host is ending.
-  for (const [id, status] of Object.entries(statuses.calendars))
-    if (!model.calendars.has(id)) writes.set("calendar/" + id, { status, mode: "on" });
-  const shown = [...writes.values()].map(({ status, mode }) => syncShown(status, mode, zone).state);
-  const failed = shown.filter((state) => state === "error").length;
-  const waiting = shown.filter((state) => state === "pending").length;
+  const states = [...shown.values()];
+  const failed = states.filter((state) => state === "error").length;
+  const waiting = states.filter((state) => state === "pending").length;
   if (failed > 0) return { state: "error", text: `${String(failed)} failed` };
   if (waiting > 0) return { state: "pending", text: `${String(waiting)} waiting` };
-  const sending = [...writes.values()].filter(({ mode }) => mode === "on");
-  if (sending.length === 0) return { state: "none", text: "Not syncing" };
-  if (sending.some(({ status }) => status === null))
-    return { state: "none", text: "Not synced yet" };
-  return { state: "synced", text: "Synced" };
+  if ([...model.calendars.values()].some((calendar) => calendar.mode === "on"))
+    return { state: "synced", text: "Synced" };
+  return { state: "none", text: "Not syncing" };
 }
