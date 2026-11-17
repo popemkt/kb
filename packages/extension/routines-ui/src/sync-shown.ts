@@ -57,7 +57,8 @@ export function syncShown(
  * How the instances shown stand with Google: the worst state among them,
  * counted in writes (`entryStatus`), so a series' change is one however many
  * of its instances are shown. A sending calendar's own status (its list call
- * and the endings of its gone series) is one write too. A sending write the
+ * and the endings of its gone series) is one write too, and so is a former
+ * Google calendar's, whose series the host is ending. A sending write the
  * host has said nothing of is not claimed synced.
  */
 export function syncSummary(
@@ -72,6 +73,9 @@ export function syncSummary(
   }
   for (const [id, calendar] of model.calendars)
     writes.set("calendar/" + id, { status: statuses.calendars[id] ?? null, mode: calendar.mode });
+  // A Google calendar no calendar names now, whose series the host is ending.
+  for (const [id, status] of Object.entries(statuses.calendars))
+    if (!model.calendars.has(id)) writes.set("calendar/" + id, { status, mode: "on" });
   const shown = [...writes.values()].map(({ status, mode }) => syncShown(status, mode, zone).state);
   const failed = shown.filter((state) => state === "error").length;
   const waiting = shown.filter((state) => state === "pending").length;

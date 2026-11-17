@@ -146,14 +146,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — one edge-fade mechanism for horizontal scrollers in the kit, read by the board (and lanes and cards)
 - **node** — `01M7DAJSTW3PP7375FECAA2DHS`
 
-### GAP: a calendar re-pointed at another Google calendar leaves kb's series on the old one
-
-- **expected** — When a calendar node's Google calendar id changes, kb's series on the calendar it named before are ended, as an event moved to another calendar node is.
-- **current** — The push pass lists only the Google calendars the store names now (boundCalendars), and the store keeps no record of the ones a calendar node named before, so their series stay as they were.
-- **impact** — Re-pointing a calendar leaves its old Google calendar holding kb's events, still repeating, until a person deletes them there; the store-held ledger that ended them before this change is gone by the rule that the store holds facts.
-- **closes** — The per-family data directory (docs/research/2026-11-02-kb-routines-gcal.md → Operational data the host cannot rebuild): the host remembers each Google calendar it has pushed to, and a pass also lists those no calendar node names now, to end kb's series there.
-- **node** — `01M7KTB23TP44SDM0D9XY3E5GM`
-
 ### GAP: a call's actor and approval are declared by the caller, not proven
 
 - **expected** — each surface authenticates its caller, so actor and approved are facts kb checks, and policies are a boundary rather than a guard against accidents
@@ -331,6 +323,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Cheap for a CLI write; a peer editing at keystroke rate on a remote store costs one rebuild per commit, painful at 50k nodes.
 - **closes** — Incremental foreign ingest in reloadEffect when the session is current at the tail's previous rev.
 - **node** — `01M6950WQN8VDWJMSH8EZ8X3DR`
+
+### GAP: a former Google calendar older than the kept history, or no longer trusted, keeps kb's series
+
+- **expected** — Every Google calendar a calendar node once named and none names now has kb's series on it ended, whenever the re-point or deletion happened.
+- **current** — The host knows a former Google calendar from what it has seen while running and from the store's kept tail (at least TX_TAIL_KEEP_ENTRIES transactions), read at start. A re-point it did not see whose write has left the tail, or a restored or hand-edited store whose tail no longer describes it, is unknown; a former binding whose trust digest the person no longer trusts shows untrusted and is not written.
+- **impact** — In those cases the old Google calendar keeps kb's events repeating until a person deletes them there, as every re-point did before the history read.
+- **closes** — The per-family data directory (docs/research/2026-11-02-kb-routines-gcal.md → Operational data the host cannot rebuild) remembering each Google calendar the host has pushed to, or a way for a person to trust a former binding from the calendar page.
+- **node** — `01M7KTB23TP44SDM0D9XY3E5GM`
 
 ### GAP: a frame view's page is the outline at the frame
 

@@ -83,6 +83,17 @@ describe("the calendar's sync line", () => {
     expect(summary(statuses(failed, {}, failed))).toEqual({ state: "error", text: "2 failed" });
   });
 
+  test("a former Google calendar whose series wait for release is a failed write too", () => {
+    const held = {
+      ...statuses(synced, {}, synced),
+      calendars: {
+        [CALENDAR.id]: synced,
+        [CALENDAR.id + "@old-google"]: { state: "error" as const, message: "held" },
+      },
+    };
+    expect(summary(held)).toEqual({ state: "error", text: "1 failed" });
+  });
+
   test("every write sent reads Synced", () => {
     expect(summary(statuses(synced, {}, synced))).toEqual({ state: "synced", text: "Synced" });
   });

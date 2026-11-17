@@ -4,6 +4,7 @@ import { TestClock } from "effect/testing";
 import { SYSTEM_IDS, type NodeLike } from "@kb/model";
 import {
   makeFakeCalendar,
+  readCalendar,
   routineOption,
   ROUTINE_FIELDS as F,
   ROUTINE_TAGS as T,
@@ -12,6 +13,7 @@ import {
   type SyncStatuses,
 } from "@kb/routines";
 import { makeRoutineEngine } from "../src/index.ts";
+import type { TailChange } from "../src/graph.ts";
 const str = (v: string) => [{ t: "str" as const, v }];
 const ref = (v: string) => [{ t: "ref" as const, v }];
 function node(id: string, tag: string, props: NodeLike["props"]): NodeLike {
@@ -36,7 +38,16 @@ function world(fake = makeFakeCalendar()) {
     ["calendar", calendarNode("calendar", "google")],
     ["routine", routineNode("routine")],
   ]);
-  const changes: { at: number; ids: readonly string[]; via: null }[] = [];
+  /** What each change wrote of calendars, as the store's history answers it. */
+  const written = (ids: readonly string[]) =>
+    ids.flatMap((id) => {
+      const held = nodes.get(id);
+      if (held === undefined || held.props[SYSTEM_IDS.typeField]?.[0]?.v !== T.calendar) return [];
+      return [readCalendar(held)];
+    });
+  // The store's history holds the calendar as it was written.
+  const changes: TailChange[] = [{ at: 0, ids: ["calendar", "routine"], via: null, calendars: [] }];
+  changes[0] = { ...changes[0], calendars: written(["calendar"]) } as TailChange;
   const counts = { puts: 0, lists: 0 };
   let failing: { count: number; which: (id: string) => boolean } = { count: 0, which: () => true };
   const host = () =>
@@ -78,7 +89,8 @@ function world(fake = makeFakeCalendar()) {
     counts,
     host,
     /** A person's edit: what it wrote, as the store's change feed says it. */
-    touch: (...ids: string[]) => void changes.push({ at: 0, ids, via: null }),
+    touch: (...ids: string[]) =>
+      void changes.push({ at: 0, ids, via: null, calendars: written(ids) }),
     fail: (count: number, which: (id: string) => boolean = () => true) => {
       failing = { count, which };
     },
@@ -442,6 +454,55 @@ scenario("moving an event to another calendar ends its series on the old one", (
     const moved = [...w.fake.events].find(([key]) => key.startsWith("new-google/"));
     expect(old?.[1].recurrence[0]).toContain("UNTIL=");
     expect(moved?.[1].recurrence[0]).not.toContain("UNTIL=");
+  }),
+);
+
+/** The series each Google calendar holds of the routine, by calendar. */
+const seriesOn = (w: World, google: string) =>
+  [...w.fake.events].find(
+    ([key, fields]) => key.startsWith(google + "/") && fields.recurrence.length > 0,
+  )?.[1];
+
+scenario("re-pointing a calendar at another Google calendar ends kb's series on the old one", () =>
+  Effect.gen(function* () {
+    const w = world();
+    const engine = yield* start(w);
+    w.nodes.set("calendar", calendarNode("calendar", "other-google"));
+    w.touch("calendar");
+    yield* flush(engine);
+    expect(seriesOn(w, "google")?.recurrence[0]).toContain("UNTIL=");
+    expect(seriesOn(w, "other-google")?.recurrence[0]).not.toContain("UNTIL=");
+    // Nothing of kb's runs there now, so the next passes leave it alone.
+    const lists = w.counts.lists;
+    yield* engine.syncNow;
+    yield* engine.step;
+    expect(w.counts.lists - lists).toBe(2);
+    yield* engine.syncNow;
+    yield* engine.step;
+    expect(w.counts.lists - lists).toBe(3);
+  }),
+);
+
+scenario("a calendar re-pointed while the host was stopped is read from the store's history", () =>
+  Effect.gen(function* () {
+    const w = world();
+    yield* start(w);
+    w.nodes.set("calendar", calendarNode("calendar", "other-google"));
+    w.touch("calendar");
+    yield* start(w);
+    expect(seriesOn(w, "google")?.recurrence[0]).toContain("UNTIL=");
+    expect(seriesOn(w, "other-google")?.recurrence[0]).not.toContain("UNTIL=");
+  }),
+);
+
+scenario("a calendar node deleted ends kb's series on its Google calendar", () =>
+  Effect.gen(function* () {
+    const w = world();
+    const engine = yield* start(w);
+    w.nodes.delete("calendar");
+    w.touch("calendar");
+    yield* flush(engine);
+    expect(seriesOn(w, "google")?.recurrence[0]).toContain("UNTIL=");
   }),
 );
 

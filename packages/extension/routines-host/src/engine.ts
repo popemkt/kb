@@ -17,6 +17,7 @@ import {
   Result,
   Semaphore,
 } from "effect";
+import { TX_TAIL_KEEP_ENTRIES } from "@kb/contracts";
 import { firstRef, nodesOfKind, type NodeLike } from "@kb/model";
 import {
   project,
@@ -36,7 +37,7 @@ import {
   type SyncStatuses,
 } from "@kb/routines";
 import { calendarBindingDigest } from "./binding.ts";
-import { RoutineGraph, type RoutineHost } from "./graph.ts";
+import { RoutineGraph, type RoutineHost, type TailPage } from "./graph.ts";
 import {
   reconcile,
   type CalendarPlan,
@@ -53,8 +54,13 @@ export interface EngineOptions {
   readonly origin: string;
   readonly runner: string;
 }
-/** A calendar the engine sends to, with the events on it. */
+/**
+ * A Google calendar the engine lists, with the events kb wants on it: a
+ * calendar node's, keyed by the node, or a former one's, keyed by the node
+ * and the Google calendar, which wants none.
+ */
 interface Bound {
+  readonly key: string;
   readonly calendar: CalendarConfig;
   readonly binding: CalendarBinding;
   readonly routines: readonly NodeLike[];
@@ -74,13 +80,18 @@ interface State {
   readonly lists: Map<string, readonly RemoteEvent[]>;
   /** Each event whose ending a person released, with the Google id of the series released. */
   readonly released: Map<string, string>;
+  /**
+   * Each Google calendar a calendar node has named, as it named it, by its
+   * Google id: read from the store's kept history at start, from each change
+   * after, and from every pass. One no node names now is a former one.
+   */
+  readonly named: Map<string, CalendarConfig>;
 }
 /** More endings than this in one pass wait for a release, each one. */
 const ENDINGS_AT_ONCE = 5;
 const HELD = "Deletion held: release required";
 
 /** Every calendar whose sync is on and which names its Google calendar, with its events. */
-// GAP [[01M7KTB23TP44SDM0D9XY3E5GM]] a Google calendar no calendar node names now is never listed, so its series are not ended
 function boundCalendars(nodes: ReadonlyMap<string, NodeLike>): readonly Bound[] {
   const routines = nodesOfKind(nodes, T.routine);
   const bound: Bound[] = [];
@@ -94,12 +105,43 @@ function boundCalendars(nodes: ReadonlyMap<string, NodeLike>): readonly Bound[] 
     if (calendar.mode !== "on" || calendar.calendarId === "") continue;
     const account = nodes.get(calendar.account);
     bound.push({
+      key: calendar.id,
       calendar,
       binding: { calendar, account: account === undefined ? null : readAccount(account) },
       routines: routines.filter((routine) => firstRef(F.calendar)(routine.props) === node.id),
     });
   }
   return bound;
+}
+
+/**
+ * Every Google calendar a calendar node once named and none names now (it
+ * was re-pointed, or its node deleted), with the binding it was named with:
+ * kb wants none of its events there, so a pass ends kb's series on it
+ * (docs/research/2026-11-02-kb-routines-gcal.md → Restart, crash and deletion).
+ */
+// GAP [[01M7KTB23TP44SDM0D9XY3E5GM]] a former calendar is known only from what this host saw and the store's kept history
+function formerCalendars(
+  named: ReadonlyMap<string, CalendarConfig>,
+  nodes: ReadonlyMap<string, NodeLike>,
+): readonly Bound[] {
+  const now = new Set(
+    nodesOfKind(nodes, T.calendar).flatMap((node) =>
+      (node.props[F.calendarId] ?? []).map((value) => String(value.v)),
+    ),
+  );
+  const former: Bound[] = [];
+  for (const [calendarId, calendar] of named) {
+    if (now.has(calendarId)) continue;
+    const account = nodes.get(calendar.account);
+    former.push({
+      key: calendar.id + "@" + calendarId,
+      calendar,
+      binding: { calendar, account: account === undefined ? null : readAccount(account) },
+      routines: [],
+    });
+  }
+  return former;
 }
 /** The events a change to `ids` concerns: each event, the event an occurrence is under, and every event on a changed calendar or account. */
 function concerned(ids: readonly string[], nodes: ReadonlyMap<string, NodeLike>): Set<string> {
@@ -150,9 +192,19 @@ const listAndPlan = Effect.fnUntraced(function* (
   now: number,
 ) {
   const planned: Planned[] = [];
-  for (const bound of boundCalendars(nodes)) {
-    const key = bound.calendar.id;
-    if (!(yield* state.options.host.trusted(yield* calendarBindingDigest(bound.binding)))) continue;
+  const current = boundCalendars(nodes);
+  for (const bound of current) state.named.set(bound.calendar.calendarId, bound.calendar);
+  for (const bound of [...formerCalendars(state.named, nodes), ...current]) {
+    const key = bound.key;
+    if (!(yield* state.options.host.trusted(yield* calendarBindingDigest(bound.binding)))) {
+      // A former calendar's series are kb's to end, so one it cannot reach says so.
+      if (bound.routines.length === 0 && bound.key !== bound.calendar.id)
+        state.book.set(
+          { kind: "calendar", calendar: key },
+          { state: "error", message: "untrusted" },
+        );
+      continue;
+    }
     if (state.schedule.waits(key, now)) continue;
     const listed = yield* state.options.client(bound.binding).pipe(
       Effect.flatMap((client) =>
@@ -195,7 +247,7 @@ const send = Effect.fnUntraced(function* (
       ? to.id
       : (yield* client.instance(calendarId, to.series, to.original, to.zone)).id;
   const response = yield* client.put(calendarId, id, write.fields);
-  const last = state.lists.get(bound.calendar.id) ?? [];
+  const last = state.lists.get(bound.key) ?? [];
   const cancelled = write.fields.status === "cancelled";
   const now: RemoteEvent = {
     id: response.id,
@@ -208,7 +260,7 @@ const send = Effect.fnUntraced(function* (
     fields: cancelled ? null : write.fields,
     digest: cancelled ? null : yield* sentDigest(write.fields),
   };
-  state.lists.set(bound.calendar.id, [...last.filter((event) => event.id !== response.id), now]);
+  state.lists.set(bound.key, [...last.filter((event) => event.id !== response.id), now]);
   return response;
 });
 
@@ -243,7 +295,7 @@ const sendEndings = Effect.fnUntraced(function* (
     }
     const held = entry.plan.endings.some((ending) => state.book.held.has(ending.routine));
     state.book.set(
-      { kind: "calendar", calendar: entry.bound.calendar.id },
+      { kind: "calendar", calendar: entry.bound.key },
       refused !== null
         ? failure(refused)
         : held
@@ -298,7 +350,7 @@ const markWaiting = Effect.fnUntraced(function* (
   now: number,
 ) {
   for (const bound of boundCalendars(nodes)) {
-    const list = state.lists.get(bound.calendar.id);
+    const list = state.lists.get(bound.key);
     if (list === undefined) continue;
     const routines = bound.routines.filter((routine) => keys.has(routine.id));
     if (routines.length === 0) continue;
@@ -313,6 +365,39 @@ const markWaiting = Effect.fnUntraced(function* (
   }
 });
 
+/** A former calendar that holds nothing of kb's still running is done with. */
+function forgetRetired({ named }: State, planned: readonly Planned[]): void {
+  for (const { bound, plan } of planned)
+    if (bound.key !== bound.calendar.id && plan.endings.length === 0)
+      named.delete(bound.calendar.calendarId);
+}
+
+/** What each change named of Google calendars, while their calendar sent. */
+function remember({ named }: State, page: TailPage): void {
+  for (const change of page.changes)
+    for (const calendar of change.calendars)
+      if (calendar.mode === "on") named.set(calendar.calendarId, calendar);
+}
+
+/**
+ * The store's kept history, read once at start: every Google calendar a
+ * sending calendar node named in it. Returns the rev it read through; what it
+ * wrote is the first pass's to send, at once, so none of it settles.
+ */
+const readHistory = Effect.fnUntraced(function* (state: State) {
+  const changes = state.options.host.changes;
+  const first = yield* changes(0);
+  let page = first.complete
+    ? first
+    : yield* changes(Math.max(0, first.head - TX_TAIL_KEEP_ENTRIES));
+  remember(state, page);
+  while (page.complete && page.through < page.head) {
+    page = yield* changes(page.through);
+    remember(state, page);
+  }
+  return page.through;
+});
+
 export const makeRoutineEngine = Effect.fn("routines.engine.make")(function* (
   options: EngineOptions,
 ) {
@@ -322,6 +407,7 @@ export const makeRoutineEngine = Effect.fn("routines.engine.make")(function* (
     schedule: new Schedule(),
     lists: new Map(),
     released: new Map(),
+    named: new Map(),
   };
   const { book, schedule } = state;
   let revision = 0;
@@ -336,7 +422,8 @@ export const makeRoutineEngine = Effect.fn("routines.engine.make")(function* (
     const planned = yield* listAndPlan(state, yield* options.host.read, now);
     holdEndings(state, planned);
     yield* sendEndings(state, planned, now);
-    const named = new Set(planned.map(({ bound }) => "calendar:" + bound.calendar.id));
+    forgetRetired(state, planned);
+    const named = new Set(planned.map(({ bound }) => "calendar:" + bound.key));
     for (const entry of planned)
       for (const event of entry.plan.events)
         for (const target of yield* sendEvent(state, entry, event, now))
@@ -359,14 +446,14 @@ export const makeRoutineEngine = Effect.fn("routines.engine.make")(function* (
 
   /** An edit: its events settle, and the writes it makes wait, as planned against the last list. */
   const tail = Effect.gen(function* () {
-    const page = yield* options.host.changes(revision);
-    const since = revision;
-    revision = page.through;
-    // What was written before the host started is the first pass's to send, at once.
-    if (since === 0 && !opened) {
+    if (!opened) {
+      revision = yield* readHistory(state);
       opened = true;
       return;
     }
+    const page = yield* options.host.changes(revision);
+    revision = page.through;
+    remember(state, page);
     if (page.changes.length === 0) return;
     const now = yield* Clock.currentTimeMillis;
     const nodes = yield* options.host.read;

@@ -1,13 +1,23 @@
 import { Context, Layer, Result, DateTime, Effect, Schema } from "effect";
 import { z } from "zod";
 import { onWire, viaWithin, WireNodeSchema, type UiHostService } from "@kb/contracts";
-import { canonicalJson, type NodeLike, type PropValue } from "@kb/model";
-import { connectionProps, ROUTINE_TAGS as T, SyncError, type SyncStatus } from "@kb/routines";
+import { canonicalJson, PropValueSchema, type NodeLike, type PropValue } from "@kb/model";
+import {
+  connectionProps,
+  readCalendar,
+  ROUTINE_FIELDS as F,
+  ROUTINE_TAGS as T,
+  SyncError,
+  type CalendarConfig,
+  type SyncStatus,
+} from "@kb/routines";
 
 export interface TailChange {
   readonly at: number;
   readonly ids: readonly string[];
   readonly via: string | null;
+  /** Each calendar the change wrote that names a Google calendar, as it wrote it. */
+  readonly calendars: readonly CalendarConfig[];
 }
 export interface TailPage {
   readonly head: number;
@@ -35,11 +45,39 @@ const Changes = Schema.Struct({
     Schema.Struct({
       at: Schema.String,
       via: Schema.optionalKey(Schema.String),
-      wrote: Schema.Array(Schema.Struct({ id: Schema.String })),
+      wrote: Schema.Array(
+        Schema.Struct({
+          id: Schema.String,
+          tags: Schema.Array(Schema.String),
+          props: Schema.optionalKey(Schema.Record(Schema.String, Schema.Array(PropValueSchema))),
+        }),
+      ),
       deleted: Schema.Array(Schema.String),
     }),
   ),
 });
+/** What a calendar's binding is read from: the fields a change is asked the written values of. */
+const CALENDAR_FIELDS = [F.calendarId, F.account, F.timezone, F.sync, F.adapter];
+/** A written calendar's binding as the write gave it, or null when it names no Google calendar. */
+function writtenCalendar(written: {
+  readonly id: string;
+  readonly tags: readonly string[];
+  readonly props?: NodeLike["props"];
+}): CalendarConfig | null {
+  if (!written.tags.includes(T.calendar) || written.props === undefined) return null;
+  const node = {
+    id: written.id,
+    text: "",
+    children: [],
+    props: written.props,
+  };
+  try {
+    const calendar = readCalendar(node);
+    return calendar.calendarId === "" ? null : calendar;
+  } catch {
+    return null;
+  }
+}
 const unavailable = () => new SyncError({ status: 500, code: "graph_unavailable" });
 const invalid = () => new SyncError({ status: 502, code: "invalid_graph_response" });
 
@@ -110,7 +148,7 @@ export function makeRoutineHost(host: UiHostService): RoutineHost {
     read: read(),
     changes: Effect.fn("routines.graph.changes")(function* (since) {
       const page = yield* Schema.decodeUnknownEffect(Changes)(
-        yield* call("graph.changes", { since }),
+        yield* call("graph.changes", { since, fields: CALENDAR_FIELDS }),
       ).pipe(Effect.mapError(invalid));
       const changes = yield* Effect.try({
         try: () =>
@@ -122,6 +160,7 @@ export function makeRoutineHost(host: UiHostService): RoutineHost {
               at: DateTime.toEpochMillis(DateTime.makeUnsafe(entry.at)),
               ids: [...entry.wrote.map((written) => written.id), ...entry.deleted],
               via: entry.via ?? null,
+              calendars: entry.wrote.flatMap((written) => writtenCalendar(written) ?? []),
             })),
         catch: invalid,
       });

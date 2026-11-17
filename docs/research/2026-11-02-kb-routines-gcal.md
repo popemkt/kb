@@ -182,15 +182,27 @@ is sent.
   by its listed id, so nothing is created twice.
 - An event deleted while the host was stopped ends at the next start. This
   closes the Simplified section's limit on deletions made offline.
-- A calendar node re-pointed at another Google calendar leaves kb's series
-  on the old one as they are. A pass lists only the Google calendars the
-  store names now, and the store no longer names that one. Before this
-  change the store's sync fields remembered it; by the rule that the store
-  holds facts they are gone, and the host remembers nothing across a
-  restart. Moving an event to another calendar node still ends its series
-  on the old one, because the old one is still named. The data directory
-  below is where the host would remember the calendars it has pushed to
-  (gap `01M7KTB23TP44SDM0D9XY3E5GM`).
+- A calendar node re-pointed at another Google calendar, or deleted, ends
+  kb's series on the Google calendar it named before, as an event moved to
+  another calendar node does. The host knows the former calendar from what
+  it has seen and from the store's own history: at start it reads the kept
+  tail (`graph.changes` from `head − TX_TAIL_KEEP_ENTRIES`, asking each
+  write's calendar fields) for every Google calendar a sending calendar node
+  named, and after that each change and each pass add to it. A Google
+  calendar no node names now is listed in each pass with the binding it was
+  named with, and kb's series there are ended, held past five like any
+  ending. Once it holds nothing of kb's still running it is dropped, so it
+  costs one list call per pass until then. Its status is a calendar status
+  keyed by the node and the Google calendar, which the failed count
+  includes. The `calendar.app.created` scope cannot list the calendars kb
+  made (`calendarList.list` does not accept it), so Google cannot answer
+  this alone.
+- Two cases stay out of reach (gap `01M7KTB23TP44SDM0D9XY3E5GM`): a
+  re-point the host did not see whose write has left the kept tail (more
+  than 1,024 transactions committed before the host next starts, or a
+  restored or hand-edited store whose tail no longer describes it), and a
+  former binding the person no longer trusts, which shows `untrusted` and is
+  not written.
 
 ### A person's edit in Google
 
@@ -211,8 +223,9 @@ ever accept edits made in Google.
 ### Operational data the host cannot rebuild
 
 Outbound sync keeps nothing that its next pass cannot rebuild, so it needs no
-storage, with one exception: the Google calendars a calendar node used to
-name (Restart, crash and deletion). Inbound will need some: a subscribed calendar's sync token, and the
+storage. The Google calendars a calendar node used to name are rebuilt from
+the store's kept history (Restart, crash and deletion); one older than that
+history is where this directory would help. Inbound will need some: a subscribed calendar's sync token, and the
 remote copy the data-plane research placed in an operational store under
 `KB_DATA`
 ([2026-11-10 §6.4](2026-11-10-data-plane-fields-events.md#6-events)). Its
