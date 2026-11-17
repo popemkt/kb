@@ -395,6 +395,12 @@ export interface ValueSurfaceProps {
   readonly spec: ValueKindSpec;
   /** The field the value belongs to. */
   readonly fieldId: string;
+  /**
+   * The field as a whole: `holder` is the node that holds its values, which
+   * a surface reads the rest of that node from, or null for a value no node
+   * holds (a query's slot).
+   */
+  readonly field: { readonly holder: string | null };
   /** What an empty value says while it waits. */
   readonly placeholder?: string;
   readonly onEnd: (parsed?: ParsedValue, text?: string) => void;

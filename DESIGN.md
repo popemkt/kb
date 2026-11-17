@@ -3548,6 +3548,14 @@ comes off it (`⏎`), as `kb migrate core.trim-trailing-breaks --plan`
 does. A store with no such text plans
 nothing, so the migration is not pending there.
 
+**Routines' migration** is `routines.repeat-type`, "Read an event's repeat
+in words". The family declares a type for a series' rule,
+`routines.repeat`, stored as text ([Field types](#field-types)), and its
+seed names it on the repeat field. A store seeded before has that field
+typed text, which the seed never rewrites, so the migration gives the field
+the type. The values stay the rules they are, and a store whose field has
+the type already plans nothing.
+
 The surfaces are `kb migrate`, which lists the migrations with their
 states and whether each is pending, and `kb migrate <id>`, which walks
 one. The page lists the same `migration.list` in Settings → Extensions →

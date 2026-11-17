@@ -7,18 +7,23 @@ import {
   RoutinesSyncView,
   routinesDeclarationPlugin,
   routinesExtension,
+  REPEAT_KIND,
   SYNC_PATH,
 } from "@kb/routines";
 import {
   BrowserHostService,
   provideRoute,
+  provideValueKind,
   provideView,
   RoutePoint,
   SidebarSectionPoint,
+  ValueKindPoint,
   ViewPoint,
 } from "@kb/ui-sdk";
 import { CALENDAR_PATH, matchCalendar, matchSync } from "./routes";
 import { CalendarBlankIcon } from "@phosphor-icons/react";
+import { REPEAT_SPEC } from "./repeat-spec";
+import { RepeatSurface } from "./repeat-value";
 import { CalendarSection, CalendarSurface, EventSurface, SyncSurface } from "./surfaces";
 
 /**
@@ -28,7 +33,8 @@ import { CalendarSection, CalendarSurface, EventSurface, SyncSurface } from "./s
  * route (`/calendar`) and its sidebar row, an event's own box (the view an
  * `#event` node opens in and previews live), and the sync services page with
  * each service's setup (`/calendar/sync`, and `/calendar/connect`, where
- * Google sends the person back). The family is hosted by `kb ui`
+ * Google sends the person back), and its repeat type's value kind, which
+ * reads an event's rule in words. The family is hosted by `kb ui`
  * and off by default, so all of it exists only while the server reports it
  * on.
  */
@@ -84,6 +90,14 @@ export const routinesUiPlugin = definePlugin({
             entry: SYNC_PATH,
             frame: () => "full",
             pendingTitle: () => "Opening sync services…",
+          }),
+        ),
+        ctx.contribute(
+          ValueKindPoint,
+          provideValueKind(REPEAT_KIND, {
+            icon: "text",
+            spec: REPEAT_SPEC,
+            Surface: RepeatSurface,
           }),
         ),
         ctx.contribute(SidebarSectionPoint, {

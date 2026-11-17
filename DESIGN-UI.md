@@ -1491,7 +1491,11 @@ contract (`PointSpec.contract`: a type, a spec whose editor is one of the
 five and whose `text`, `parse`, `isBlank` and `follow` are functions, a
 layout, and a glyph and surface React draws), so a page half's malformed kind
 is refused where it is contributed, its plugin with it, and never reaches a
-slot: its type draws as the type it stores as.
+slot: its type draws as the type it stores as. A surface is handed its
+field whole as well as its value: `field.holder` is the node that holds the
+field's values (the row's, a table row's, a card's; none for a query's
+slot), so a kind whose value reads by its node's other fields reads them
+from there, through the page's hooks, as every surface reads a node.
 
 **The label column belongs to the field, not to its values.** The type glyph
 is the field's own button (`FieldRow`, labelled "Configure field <name>"). A
@@ -5230,6 +5234,14 @@ as they are, since a person's Cloud project registered them.
   instance synced as it says its other times, on the page's wall clock
   ("Synced to Google Calendar at Nov 10, 14:43"), in the box and in a sync
   dot's tooltip alike (`syncShown`).
+- **An event's repeat field reads as its line does.** The field is of
+  the family's repeat type (DESIGN.md → Plugin data migrations,
+  `routines.repeat-type`), whose value kind (`repeat-value.tsx`) shows the
+  rule in the words the line and the box use ("Weekly on Tue", the
+  one `describeRepeat`, read against the start and end of the event that
+  holds the field) with the rule as its title. Editing it puts the caret
+  in the rule itself: the editor is the text kind's own surface, which the
+  kind draws while the slot edits, so a rule is typed as any text is.
 - **An event's preview is one line.** Under the node's row its preview
   is one muted line for the same instance (`EventLine`,
   `event-line.tsx`), in the label type at the row's indent plus one: the

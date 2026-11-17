@@ -2,6 +2,7 @@ export {
   routinesExtension,
   routinesSeed,
   routineOption,
+  REPEAT_KIND,
   ROUTINE_FIELDS,
   ROUTINE_TAGS,
 } from "./seed.ts";

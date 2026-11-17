@@ -87,16 +87,22 @@ describe("bundled seed", () => {
   });
 
   test.each(DECLARED_KINDS)(
-    "$kind.field lists one option per declared thing, labelled, by priority then declaration order",
+    "$kind.field lists one option per declared thing after its own, labelled, by priority then declaration order",
     ({ kind }) => {
       const seed = new Map(bundledSeed(AT).map((node) => [node.id, node]));
       const declared = BUNDLED_DECLARATIONS.flatMap((declaration) =>
         optionsOf(declaration, kind),
       ).toSorted((a, b) => (a.order ?? 0) - (b.order ?? 0));
       expect(declared.length).toBeGreaterThan(0);
-      expect(seed.get(kind.field)?.children).toEqual(
-        declared.map((option) => declaredOptionId(kind, option.id)),
-      );
+      // A field that seeds options of its own (the built-in field types) keeps them first.
+      const own =
+        BUNDLED_DECLARATIONS.flatMap((declaration) => declaration.seed?.(AT) ?? []).find(
+          (node) => node.id === kind.field,
+        )?.children ?? [];
+      expect(seed.get(kind.field)?.children).toEqual([
+        ...own,
+        ...declared.map((option) => declaredOptionId(kind, option.id)),
+      ]);
       for (const option of declared) {
         expect(seed.get(declaredOptionId(kind, option.id))?.text).toBe(option.label);
       }
