@@ -165,9 +165,13 @@ test("Recent, Pinned, ⌘K and Move to… name a node by its plain words", async
   await page.getByRole("button", { name: "Open search palette" }).click();
   const palette = page.getByRole("dialog", { name: "Search and open" });
   await expect(palette).toBeVisible();
+  // The query is in the box before the top option is read: on a slow runner
+  // the option can still be the last probe's while a new query is typed.
+  const query = palette.getByRole("textbox");
   for (const probe of probes) {
-    await page.keyboard.press("ControlOrMeta+a");
-    await page.keyboard.type(probe.plain.slice(0, 18));
+    const typed = probe.plain.slice(0, 18);
+    await query.fill(typed);
+    await expect(query, probe.name).toHaveValue(typed);
     await expect(palette.getByRole("option").first(), probe.name).toContainText(probe.plain);
   }
   await page.keyboard.press("Escape");
