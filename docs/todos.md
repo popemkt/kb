@@ -106,6 +106,7 @@
 - Query builder: a query that comes back with no results says which condition removed the last node
 - Query builder: a query that does not lift says which clause, and text that does not parse says its line and column
 - Query builder: the hop limit of is under / is above is shown, not edited, and numbers and dates have no between
+- Remove the write lock's older-writer reading (the pid's field form, the empty-file grace, the live-pid check) once one release with the flock lock has shipped and no older kb can still write a store
 - safe minors and patches + bun audit fix (35 advisories, 15 high: rerun bun audit for the full list); drop root overrides that repeat the catalog's vite/vitest
 - Sidebar agent config (model, executable) as fields on the agent's extension node; folds into the plugin-config step
 - Themes: the user art slot (a local image under a theme's ground, never committed)

@@ -255,7 +255,7 @@ describe("JsonlStore Effect persistence", () => {
     }
   });
 
-  test("stale lock file is stolen so commits proceed", async () => {
+  test("a lock file a dead writer left is not a held lock, so commits proceed", async () => {
     root = await tempRoot();
     const store = new JsonlStore(root);
     await mkdir(join(root, ".kb"), { recursive: true });
