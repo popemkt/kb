@@ -103,6 +103,16 @@ describe("render-specs-own-store", () => {
     expect(violations, violations.join("\n")).toEqual([]);
   });
 
+  test("every spec the macos project names exists, so the list holds no dead entry", () => {
+    const config = readFileSync(join(RENDER_TESTS_ROOT, "playwright.config.ts"), "utf8");
+    const listed = /MACOS_SPECS =\s*\/\\\/\(([^)]+)\)\\\.e2e/.exec(config)?.[1]?.split("|");
+    expect(listed?.length ?? 0).toBeGreaterThan(5);
+    const dead = (listed ?? []).filter(
+      (name) => !specs.some((spec) => new RegExp(`/${name}\\.e2e\\.ts$`).test(`/${spec}`)),
+    );
+    expect(dead, `MACOS_SPECS names no spec: ${dead.join(", ")}`).toEqual([]);
+  });
+
   test("a spec on Playwright's own test is red; types from it are fine", () => {
     expect(
       ownStoreViolations("a.e2e.ts", 'import { expect, test } from "playwright/test";'),
