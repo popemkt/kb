@@ -197,6 +197,7 @@ jobs:
       - name: Render suite
         env:
           SHARD: ${{ matrix.shard }}
+          KB_RENDER_TIMING: "1"
         run: bun run test:render --shard="$SHARD"
 
   validate:

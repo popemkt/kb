@@ -114,6 +114,14 @@ in the root `bunfig.toml`. The measurements behind both are in
 [the 2026-11-13 record](research/2026-11-13-test-suite-speed.md).
 Superseded PR runs cancel; publishing is serialized and never cancelled.
 
+**Render timing.** The render step runs with `KB_RENDER_TIMING=1`, so each
+test logs one `[timing]` line: the wait for its harness, the harness's boot
+(it boots while the test before runs), the first `page.goto`, and the rest.
+The sum of a shard's lines against its test step says what the harness, the
+page load and the specs each cost on the macOS runner, which is where the
+suite's time is spent; read them from the job log before changing the suite's
+shape.
+
 The setup action owns Nix installation and dependency setup, including the
 flake-check store snapshot. Chromium is cached by OS,
 architecture and lockfile; installation still runs to verify its presence.
