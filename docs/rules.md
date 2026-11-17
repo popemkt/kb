@@ -1101,6 +1101,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — each test rewritten over the ui-test-kit test host and moved into its family's -ui package, with each barrel narrowed to its entry
 - **node** — `01M531QT1YPM9NTF6NKH9BP66S`
 
+### GAP: field types from plugins vs tags as the behaviour mechanism
+
+- **expected** — One modelling answer to how plugin behaviour attaches. Tags and field types answer different questions. A tag is about the node: what it is, which fields it gets, what happens to it (created, placed, checked, hooks), so behaviour belongs on tags, the core mechanism as tag behaviour grows. A field type is about one value: how it is stored, checked, shown and edited (a date picker, "Weekly on Tue"), so it is presentation, not behaviour. A plugin's type does not grow handlers that rival tags.
+- **current** — Routines declares sys.ft.routines.repeat as a field type (its declaredOptions on the field type options), which every field's type menu offers, with its display (the rule in words) attached to the type through a value kind. Nothing states whether a type may react to changes, create nodes or run hooks.
+- **impact** — Once a plugin type grows handlers that do things (reacting to changes, creating nodes, running hooks), kb has two extension mechanisms and they compete, which overshadows tags. Meanwhile a family's own type clutters the global type menu for fields it was never meant for.
+- **closes** — The owner's decision between the two options below (or a third), stated in DESIGN.md → Field types; the type menu then offers what that decision says.
+- **node** — `01M7KVYBVC5N8VJSBBJCYE74SE`
+
 ### GAP: flat canvas items vanish in level 3D views
 
 - **expected** — flat items stay visible when the camera looks across the floor (front, side views)
