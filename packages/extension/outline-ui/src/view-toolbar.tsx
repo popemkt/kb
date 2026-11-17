@@ -19,6 +19,41 @@ interface ViewToolbarProps {
   tucked?: boolean;
 }
 
+/**
+ * The bar's frame. The tucked gear stands in the same frame as the open bar,
+ * around a button of the bar's height, so opening or closing it moves
+ * nothing under it.
+ */
+const BAR_FRAME = "rounded-md border border-foreground/[0.06] bg-foreground/[0.04] p-0.5";
+
+/**
+ * A button's label, bold while it is the one chosen. Its box is always as
+ * wide as its bold words (an invisible bold copy under them), so choosing
+ * a view moves nothing beside it.
+ */
+function SteadyLabel({
+  text,
+  strong,
+  className,
+}: {
+  text: string;
+  strong: boolean;
+  className?: string;
+}) {
+  return (
+    <span
+      data-label={text}
+      className={cn(
+        "inline-flex flex-col whitespace-nowrap after:invisible after:h-0 after:overflow-hidden after:font-semibold after:content-[attr(data-label)] after:select-none",
+        strong && "font-semibold",
+        className,
+      )}
+    >
+      {text}
+    </span>
+  );
+}
+
 /** On a query node, the button that opens and closes its query builder (`query-builder/open.ts`). */
 function QueryToggle({ frameId, open }: { frameId: string; open: boolean }) {
   return (
@@ -27,7 +62,7 @@ function QueryToggle({ frameId, open }: { frameId: string; open: boolean }) {
       className={cn(
         "flex items-center gap-1 rounded-xs px-2 py-0.5 text-label font-medium transition-colors cursor-pointer",
         open
-          ? "bg-background text-foreground shadow-edge font-semibold"
+          ? "bg-background text-foreground shadow-edge"
           : "text-foreground/50 hover:bg-foreground/[0.04] hover:text-foreground/80",
       )}
       data-query-toggle={frameId}
@@ -40,7 +75,7 @@ function QueryToggle({ frameId, open }: { frameId: string; open: boolean }) {
       }}
     >
       <MagnifyingGlassIcon size={12} weight={open ? "bold" : "regular"} />
-      <span>Query</span>
+      <SteadyLabel text="Query" strong={open} />
     </button>
   );
 }
@@ -71,30 +106,30 @@ export function ViewToolbar({ frameId, view, className, tucked = false }: ViewTo
 
   if (!showChrome) {
     return (
-      <button
-        type="button"
-        className={cn(
-          "flex h-7 w-7 items-center justify-center rounded-md border border-foreground/[0.06] bg-foreground/[0.04] text-foreground/40 hover:bg-foreground/[0.08] hover:text-foreground/70",
-          className,
-        )}
-        data-view-toolbar-gear="true"
-        data-frame-id={frameId}
-        title="View options"
-        aria-label="View options"
-        onClick={(e) => {
-          e.stopPropagation();
-          setExpanded(true);
-        }}
-      >
-        <ViewOptionsGlyph size={14} />
-      </button>
+      <div className={cn("inline-flex", BAR_FRAME, className)}>
+        <button
+          type="button"
+          className="flex h-6 w-6 items-center justify-center rounded-xs text-foreground/40 hover:bg-foreground/[0.04] hover:text-foreground/70"
+          data-view-toolbar-gear="true"
+          data-frame-id={frameId}
+          title="View options"
+          aria-label="View options"
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded(true);
+          }}
+        >
+          <ViewOptionsGlyph size={14} />
+        </button>
+      </div>
     );
   }
 
   return (
     <div
       className={cn(
-        "view-toolbar relative inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-md bg-foreground/[0.04] p-0.5 border border-foreground/[0.06] select-none",
+        "view-toolbar relative inline-flex max-w-full items-center gap-0.5 overflow-x-auto select-none",
+        BAR_FRAME,
         className,
       )}
       data-view-toolbar="true"
@@ -109,7 +144,7 @@ export function ViewToolbar({ frameId, view, className, tucked = false }: ViewTo
           className={cn(
             "flex shrink-0 items-center gap-1 rounded-xs px-2 py-0.5 text-label font-medium transition-colors cursor-pointer",
             view === option
-              ? "bg-background text-foreground shadow-edge font-semibold"
+              ? "bg-background text-foreground shadow-edge"
               : "text-foreground/50 hover:bg-foreground/[0.04] hover:text-foreground/80",
           )}
           data-mode-button={localIdOf(option)}
@@ -119,7 +154,11 @@ export function ViewToolbar({ frameId, view, className, tucked = false }: ViewTo
         >
           <span aria-hidden="true">{picker.glyph}</span>
           {/* In a host with little room (its `viewbar` container), glyphs only: one row, never split. */}
-          <span className="whitespace-nowrap @max-[30rem]/viewbar:hidden">{option.label}</span>
+          <SteadyLabel
+            text={option.label}
+            strong={view === option}
+            className="@max-[30rem]/viewbar:hidden"
+          />
         </button>
       ))}
       {query !== null && <QueryToggle frameId={frameId} open={queryOpen} />}

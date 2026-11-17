@@ -141,6 +141,95 @@ for (const width of [1280, 390]) {
   });
 }
 
+/** The control's line, the open bar, its frame's line, the head and the page's first row. */
+const rects = (page: Page) =>
+  page.evaluate(() => {
+    // oxlint-disable-next-line unicorn/consistent-function-scoping -- page.evaluate serializes this callback, so its helpers live inside it
+    const box = (selector: string) => {
+      const r = document.querySelector(selector)?.getBoundingClientRect();
+      return r === undefined ? null : { x: r.x, y: r.y, width: r.width, height: r.height };
+    };
+    return {
+      control: box("[data-view-control]"),
+      bar: box("[data-view-toolbar]"),
+      // The open bar, or the frame its gear stands in: their line, not their width.
+      frame: (() => {
+        const frame =
+          document.querySelector("[data-view-toolbar]") ??
+          document.querySelector("[data-view-toolbar-gear]")?.parentElement;
+        const r = frame?.getBoundingClientRect();
+        return r === undefined ? null : { y: r.y, height: r.height };
+      })(),
+      head: box("[data-zoomed-root-header]"),
+      row: box('[data-node-row="true"]'),
+    };
+  });
+
+// The view control's line under the title (DESIGN-UI.md → The page's title):
+// opening it, hovering it, choosing a view and closing it move nothing, not
+// the bar's line, not the head, not the row under it.
+test.describe("the view control holds still", () => {
+  async function seedPage(request: APIRequestContext): Promise<string> {
+    const add = async (text: string, parent: string) =>
+      (await invokeGrid<{ id: string }>(request, "node.add", { text, parent })).id;
+    const id = await add("A page with a view control", "render.fixture.root");
+    await add("Its first row", id);
+    await add("Its second row", id);
+    return id;
+  }
+
+  test("on a list page, through its gear, its views and its close", async ({ page, request }) => {
+    await page.goto(`/node/${await seedPage(request)}`);
+    await expect(page.locator("[data-view-toolbar-gear]")).toHaveCount(1);
+    await page.mouse.move(0, 0);
+    const rest = await rects(page);
+    const still = async (state: string) => {
+      const now = await rects(page);
+      expect(now.control, `${state}: the control's line`).toEqual(rest.control);
+      expect(now.frame, `${state}: the bar's frame`).toEqual(rest.frame);
+      expect(now.head, `${state}: the head`).toEqual(rest.head);
+      expect(now.row, `${state}: the row under it`).toEqual(rest.row);
+    };
+    await page.locator("[data-zoom-title]").hover();
+    await still("the head hovered");
+    await page.locator("[data-view-toolbar-gear]").click();
+    await expect(page.locator("[data-view-toolbar]")).toBeVisible();
+    await still("the gear opened");
+    for (const mode of await page
+      .locator("[data-mode-button]")
+      .evaluateAll((els) => els.map((e) => e.getAttribute("data-mode-button")))) {
+      await page.locator(`[data-mode-button="${mode}"]`).hover();
+      await still(`${mode} hovered`);
+    }
+    await page.locator('[aria-label="Collapse view options"]').click();
+    await expect(page.locator("[data-view-toolbar-gear]")).toHaveCount(1);
+    await page.mouse.move(0, 0);
+    await still("closed with ×");
+  });
+
+  test("on a page shown as a view, choosing each view", async ({ page, request }) => {
+    await page.goto(`/node/${await seedPage(request)}`);
+    await page.locator("[data-view-toolbar-gear]").click();
+    await page.locator('[data-mode-button="table"]').click();
+    await expect(page.locator('[data-view-toolbar][data-active-mode="table"]')).toBeVisible();
+    await page.mouse.move(0, 0);
+    const first = await rects(page);
+    const modes = await page
+      .locator("[data-mode-button]")
+      .evaluateAll((els) => els.map((e) => e.getAttribute("data-mode-button")));
+    for (const mode of [...modes.filter((m) => m !== "list" && m !== "table"), "table"]) {
+      await page.locator(`[data-mode-button="${mode}"]`).click();
+      await expect(page.locator(`[data-view-toolbar][data-active-mode="${mode}"]`)).toBeVisible();
+      await page.mouse.move(0, 0);
+      const now = await rects(page);
+      expect(now.bar, `${mode} chosen: the bar`).toEqual(first.bar);
+      expect(now.head, `${mode} chosen: the head`).toEqual(first.head);
+      await page.locator(`[data-mode-button="${mode}"]`).hover();
+      expect((await rects(page)).bar, `${mode} hovered: the bar`).toEqual(first.bar);
+    }
+  });
+});
+
 // The outline grid (DESIGN-UI.md → Outline layout), walked over a page that
 // holds every line kind: rows, a row with a box, field rows of every type
 // with their values, hidden and tucked chips, ghost rows, a query's results,

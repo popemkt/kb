@@ -1,0 +1,5 @@
+{
+  "reason": "The view control holds still: the tucked gear stands in the bar's own frame (BAR_FRAME), and a view's label is always as wide as its bold words (SteadyLabel, an invisible bold copy under it), in the page head's view toolbar, which the page draws eagerly. Measured on the production build: 2,023,141 → 2,023,404 bytes, 263.",
+  "pr": "#277",
+  "raise": { "page-eager": { "bytes": 263 } }
+}
