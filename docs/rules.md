@@ -1588,8 +1588,8 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: render shards split by test count, so every backdrop test lands in shard 1
 
 - **expected** — CI render shards hold about equal test time, whatever the file order
-- **current** — Playwright cuts contiguous slices of equal test count in file order, per project. The macos project (157 tests, about 1,330 s) puts the 65 backdrop tests and little else in shard 1: about 540 s of tests against about 790 s in shard 2 (estimated from run 44009647565 timings; measured in the split PR). The portable project (89 tests) splits about evenly.
-- **impact** — macos 2/2 finishes minutes after 1/2 and bounds Validate; about 125 s per run
+- **current** — Playwright cuts contiguous slices of equal test count in file order, per project. The macos project (157 tests) put the backdrop files and gallery in shard 1 and head-band-contrast, render and lab in shard 2: 778 s of tests against 727 s in run 44019215801, which is near even, but the same files ran 1.5 to 2 times faster on another runner the hour before (run 44016049909), so the split by count is right only by luck of the file order.
+- **impact** — a shard that lands on a slow runner or a heavier file mix bounds Validate; render (macos) 1/2 took 961 s and 2/2 880 s of job time
 - **closes** — a duration-balanced split (Playwright has no timing-based sharding; PWTEST_SHARD_WEIGHTS is internal and still count-based); the backdrop timeout gap closing (2026-11-13) took about 110 s out of shard 1 but left the split by count
 - **node** — `01M79GV526E3V6ZPVW0D6752FK`
 
