@@ -1,0 +1,5 @@
+{
+  "reason": "graph.changes takes the fields a caller names and answers each written node's values of them, as that transaction wrote them: the input, the answer's props and their reading, in the core actions both the CLI and the page's action replica carry.",
+  "pr": "#271",
+  "raise": { "page-eager": { "bytes": 365 }, "cli-closure": { "bytes": 526 } }
+}

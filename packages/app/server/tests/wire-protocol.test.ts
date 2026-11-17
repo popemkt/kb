@@ -76,9 +76,11 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // `migration.plan`, ignores `changes` and shows a preview's output as values.
 // A plan reading's part holds its values typed and by id ({value, name?}) in
 // place of words, which only this release's page and CLI read.
+// `graph.changes` takes an optional `fields` and then answers each written
+// node's values of them (`props`); a previous page never sends `fields`.
 const RECORDED = {
   protocol: 9,
-  fingerprint: "969810c8c057cae8d573b0773dcd8a9a17f8da4f13c9f66a0289bf4721dd9c66",
+  fingerprint: "808ff65c2c7e40ae5efe932b2addb4e4fbdf7937569283a59f754497d8c1cf57",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

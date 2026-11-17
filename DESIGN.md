@@ -2341,7 +2341,12 @@ array. `KbTxLog.since` takes the same page, and `refresh` reads only what is
 past head instead of the whole tail. The log answers what it has caught up to,
 so `graph.changes` refreshes first and answers the store's sequence, a commit
 another process made included; it says how far a page read (`through`) for the
-caller to read on from. The shared tail contract (`tailContract` in
+caller to read on from. A caller that names `fields` hears the values each
+written node held for them in that transaction, which is how a reader derives
+what a node used to say (routines reads a calendar's former Google calendars
+so; docs/research/2026-11-02-kb-routines-gcal.md). A reader that wants all the
+tail still holds reads from `head − TX_TAIL_KEEP_ENTRIES`, which every
+backend's tail keeps. The shared tail contract (`tailContract` in
 `@kb/test-kit`) runs over all three tails.
 
 Both records carry `mark`: the store's own durable commit mark as of that

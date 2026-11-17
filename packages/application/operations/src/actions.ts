@@ -33,6 +33,7 @@ import {
   planNodeAdd,
   projectPropEdits,
   nodeTitleOf,
+  PropValueSchema,
 } from "@kb/model";
 import { persistEffect, persistPlannedEffect, type PersistOptions } from "./session.ts";
 import { placedGraph, placeOf } from "./place.ts";
@@ -237,6 +238,8 @@ export const graphSearchDef = {
 
 /** The most changes one `graph.changes` answer reads; a caller pages on from `through`. */
 const GRAPH_CHANGES_MAX = 500;
+/** The most fields one `graph.changes` call asks the written values of. */
+const GRAPH_CHANGES_FIELDS = 32;
 /** The most recorded ops one `graph.changes` answer decodes (TxPage.maxBytes). */
 const GRAPH_CHANGES_BYTES = 4 * 1024 * 1024;
 
@@ -247,7 +250,13 @@ const ChangeSchema = Schema.Struct({
   session: Schema.optionalKey(Schema.String),
   via: Schema.optionalKey(Schema.String),
   wrote: Schema.Array(
-    Schema.Struct({ id: Schema.String, text: Schema.String, tags: Schema.Array(Schema.String) }),
+    Schema.Struct({
+      id: Schema.String,
+      text: Schema.String,
+      tags: Schema.Array(Schema.String),
+      /** The values the write gave each field the caller named, those the node holds. */
+      props: Schema.optionalKey(Schema.Record(Schema.String, Schema.Array(PropValueSchema))),
+    }),
   ),
   deleted: Schema.Array(Schema.String),
 });
@@ -256,12 +265,13 @@ export const graphChangesDef = {
   id: "graph.changes",
   title: "Changes since",
   description:
-    "The transactions committed after rev `since`, oldest first, one page at a time: when, who made each (actor, tab session, the caller's via label) and which nodes it wrote or deleted. `viaPrefix` keeps the ones whose via is that label or one of its parts. Read on from `through` while it is below `head`. `complete` is false when the log no longer reaches back to `since`.",
+    "The transactions committed after rev `since`, oldest first, one page at a time: when, who made each (actor, tab session, the caller's via label) and which nodes it wrote or deleted. `viaPrefix` keeps the ones whose via is that label or one of its parts. `fields` names field ids whose values each written node is answered with, as that transaction wrote them. Read on from `through` while it is below `head`. `complete` is false when the log no longer reaches back to `since`.",
   mode: { kind: "read" } as const,
   inputSchema: z.object({
     since: z.number().int().nonnegative(),
     viaPrefix: z.string().min(1).optional(),
     limit: z.number().int().positive().max(GRAPH_CHANGES_MAX).optional(),
+    fields: z.array(z.string().min(1)).max(GRAPH_CHANGES_FIELDS).optional(),
   }),
   outputSchema: Schema.toStandardSchemaV1(
     Schema.toStandardJSONSchemaV1(
@@ -725,6 +735,18 @@ function tagIdsOf(node: KbNode): string[] {
  * the caller reads on from it. A log that cannot reach back that far answers
  * no changes, `through: head` and `complete: false`.
  */
+/** `node`'s values of `fields`, those it holds. */
+function valuesOf(
+  node: KbNode,
+  fields: readonly string[],
+): Record<string, KbNode["props"][string]> {
+  return Object.fromEntries(
+    fields
+      .filter((field) => Object.hasOwn(node.props, field))
+      .map((field) => [field, node.props[field] ?? []]),
+  );
+}
+
 export const graphChangesEffect = Effect.fn("graph.changes")(function* (
   input: z.infer<typeof graphChangesDef.inputSchema>,
 ): Effect.fn.Return<typeof graphChangesDef.outputSchema.Type, DomainError, KbCtx> {
@@ -737,6 +759,7 @@ export const graphChangesEffect = Effect.fn("graph.changes")(function* (
   });
   if (txs === "snapshot-required") return { head, through: head, complete: false, changes: [] };
   const prefix = input.viaPrefix;
+  const fields = input.fields;
   const through = txs.at(-1)?.rev ?? head;
   const changes = txs
     .filter((tx) => prefix === undefined || (tx.via !== undefined && viaWithin(tx.via, prefix)))
@@ -746,7 +769,12 @@ export const graphChangesEffect = Effect.fn("graph.changes")(function* (
       ...(tx.actor === undefined ? {} : { actor: tx.actor }),
       ...(tx.session === undefined ? {} : { session: tx.session }),
       ...(tx.via === undefined ? {} : { via: tx.via }),
-      wrote: tx.ops.upserts.map((node) => ({ id: node.id, text: node.text, tags: tagIdsOf(node) })),
+      wrote: tx.ops.upserts.map((node) => ({
+        id: node.id,
+        text: node.text,
+        tags: tagIdsOf(node),
+        ...(fields === undefined ? {} : { props: valuesOf(node, fields) }),
+      })),
       deleted: [...tx.ops.deletes],
     }));
   return { head, through, complete: true, changes };
