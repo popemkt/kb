@@ -6,7 +6,7 @@
 // edge stays on its own box, so the parent's guide line runs beside it and
 // never through its card or its rows. Every kind lines up at the one edge a
 // cards view (which never breaks out) starts at.
-import type { APIRequestContext } from "playwright/test";
+import type { APIRequestContext, Locator } from "playwright/test";
 import { expect, settledBox, test } from "./harness-test.ts";
 
 const ROOT = "render.fixture.root";
@@ -16,6 +16,20 @@ const ref = (v: string) => ({ t: "ref", v });
 async function action(request: APIRequestContext, id: string, input: Record<string, unknown>) {
   const response = await request.post("/api/action", { data: { id, input } });
   expect((await response.json()).status).toBe("succeeded");
+}
+
+/**
+ * Open the row `block` draws, by its own bullet, unless it is open already: a
+ * row with children opens collapsed unless the reader opened it, so the test
+ * never relies on how a page first draws its rows.
+ */
+async function openRow(block: Locator) {
+  const row = block.locator("[data-node-row]").first();
+  const bullet = row.getByRole("button", { name: /^(Expand|Collapse)/ }).first();
+  await expect(bullet).toBeVisible();
+  if ((await bullet.getAttribute("aria-label"))?.startsWith("Expand") === true)
+    await bullet.click();
+  await expect(bullet).toHaveAttribute("aria-label", /^Collapse/);
 }
 
 /** Each kind: its view option, and the element the view draws its frame with. */
@@ -55,6 +69,7 @@ test("a view under a row keeps to the child column, beside its parent's guide li
   for (const [kind, , selector] of KINDS) {
     const block = page.locator(`[data-node-block][data-node-id="vur.${kind}"]`).first();
     const view = block.locator(`.children-container ${selector}`).first();
+    await openRow(block);
     await expect(view).toBeVisible();
     const guide = await settledBox(
       block.locator(".children-container > div.absolute > div").first(),
