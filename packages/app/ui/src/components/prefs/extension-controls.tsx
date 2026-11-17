@@ -20,6 +20,7 @@ import {
   PRIMARY_BUTTON,
   SCOPE_OPTIONS,
   SCOPES,
+  originLabel,
   useExtensionAction,
 } from "./extension-actions.ts";
 
@@ -225,11 +226,11 @@ function AddPanel({
       {markets.markets.map((market) => {
         const { repo, rev } = market.selection.locked;
         return (
-          <section key={`${market.scope}:${market.name}`} aria-label={`${market.name} marketplace`}>
+          <section key={market.name} aria-label={`${market.name} marketplace`}>
             <h4 className="flex flex-wrap items-baseline gap-x-2 text-meta">
               <span className="kb-label text-muted-foreground">{market.name}</span>
               <span className="font-mono text-caption text-faint-foreground">
-                {repo} @ {rev.slice(0, 7)} · {SCOPES[market.scope].label.toLowerCase()}
+                {repo} @ {rev.slice(0, 7)} · {originLabel(market.origin)}
               </span>
             </h4>
             {market.error !== undefined && (
@@ -341,7 +342,7 @@ export function RetainedExtension({
       <div className="flex flex-wrap gap-2">
         {offers.map((market) => (
           <button
-            key={`${market.name}:${market.scope}`}
+            key={market.name}
             type="button"
             className={BUTTON}
             aria-label={`Install ${name} from ${market.name}`}

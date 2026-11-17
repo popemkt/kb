@@ -4,7 +4,7 @@
  * failed install never share a slot, and the lock scopes in words.
  */
 import { useState } from "react";
-import type { ExtensionScope } from "@kb/contracts";
+import type { ExtensionScope, MarketplaceOrigin } from "@kb/contracts";
 import { changeExtensions } from "@/actions/extensions";
 
 /** A button's look: quiet, and the one an extension's state asks for. */
@@ -29,6 +29,11 @@ export const SCOPES: Readonly<Record<ExtensionScope, { label: string; leaving: s
     leaving: "It leaves your user lock, so it stops loading in every kb on this machine.",
   },
 };
+
+/** Where a marketplace's selection comes from, in words: a scope's lock, or kb's own build. */
+export function originLabel(origin: MarketplaceOrigin): string {
+  return origin === "bundled" ? "built in" : SCOPES[origin].label.toLowerCase();
+}
 
 const SCOPE_ORDER: readonly ExtensionScope[] = ["store", "local", "user"];
 

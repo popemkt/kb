@@ -18,6 +18,7 @@ import {
 import { domainError } from "@kb/model";
 import {
   extensionPlan,
+  recordIndex,
   resolveRecordedRequest,
   sourceFailure,
   namedEntries,
@@ -149,13 +150,7 @@ export const extensionUpdateEffect = Effect.fn("extension.update")(function* (
           }
           const tree = yield* tx.store({ kind: "extension", pin: request.pin }, plan.source);
           const digest = yield* compiler.compile(tree.dir, name);
-          if (request.marketplace !== undefined) {
-            yield* tx.store(
-              { kind: "marketplace", pin: request.marketplace.selection.locked },
-              request.marketplace.source,
-            );
-            marketplaces.set(request.marketplace.name, request.marketplace.selection);
-          }
+          yield* recordIndex(tx, marketplaces, request.marketplace);
           const next: ExtensionSelection = {
             original: request.original,
             locked: { ...request.pin, files: tree.files },

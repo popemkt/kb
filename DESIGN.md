@@ -3819,6 +3819,35 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   source. Updates refresh that index from its original source before resolving
   the entry. Adding, updating and removing indexes are explicit actions; nothing
   grants trust or executes install scripts.
+- **kb ships its own marketplace.** `popemkt/kb-extensions`, named `kb`,
+  is a marketplace selection kb's build carries (`BUNDLED_MARKETPLACES` in
+  `@kb/bundled`, beside `BUNDLED_FAMILIES`), with the exact
+  `kb-marketplace.json` bytes it pins. It is the lowest layer under the
+  three scopes, `bundled`, read by the same selection reader: listing,
+  install by name, update and the ambiguity rule treat it as any selected
+  index, and a scope that selects the same repository and path under its
+  name overrides it. Every store can browse it with nothing fetched and
+  nothing written. A listing names each index's origin (a scope, or
+  `bundled`), which is where it comes from, not where a write goes.
+  - _Its pin_ moves with each kb release: `bin/refresh-kb-marketplace` reads
+    the index at a commit and writes the bytes and pin it ships, and a test
+    holds the bytes to the pin's file-set hash. `kb ext marketplace update
+    kb` pins a newer index in a scope (store by default) the way `add` does,
+    which then overrides the bundled one there until removed.
+  - _Installing_ from it is the first write and is otherwise the same:
+    fetch the entry's commit, select it in the chosen scope, trust nothing.
+    The index pin is not copied into the scope's lock, as an added
+    index's is: every kb that reads the lock ships this index, so the lock
+    would only freeze the catalog the person browses at the install's pin.
+    The extension's own pin is self-contained, so restoring it needs no
+    index.
+  - _It cannot be removed_ or hidden: browsing it does nothing, and a lock
+    field to hide it would make an older kb refuse the lock.
+    `kb ext marketplace remove kb` removes only a scope's own override, and
+    says that the bundled one remains.
+  - _Samples_ that prove a contract live in a second index of the same
+    repository, `kb-samples` (`github:popemkt/kb-extensions/samples`),
+    which a person adds when they want it.
 - **Review is part of the extension catalog.** Discovery reserves each selected name
   before reading bytes, including missing installed trees. The catalog reports
   visible and shadowed entries without importing them: origin and scope, original

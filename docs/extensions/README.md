@@ -205,7 +205,7 @@ onCommit(ctx, { tagged: ["ext.inbox-router.inbox-tag"] },
 `TxChange.tx` carries transaction metadata; `writes` carries matching frozen
 before/after nodes. `ReactionHost.invoke` returns an action receipt, so a
 reaction decides how to handle a refused checked call. See
-[inbox-router](https://github.com/popemkt/kb-extensions/tree/feat/inbox-router/extensions/inbox-router)
+[inbox-router](https://github.com/popemkt/kb-extensions/tree/main/samples/inbox-router)
 for a complete extension, including its seed nodes and manifest.
 
 ## Declared capability requirements

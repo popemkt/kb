@@ -1,11 +1,13 @@
 import { Effect, Result } from "effect";
 import { z } from "zod";
-import { marketplaceTree, MarketplaceIndexSchema } from "@kb/extension-source";
+import { MarketplaceIndexSchema } from "@kb/extension-source";
 import {
+  BundledMarketplaces,
   ExtensionStorage,
   KbCtx,
   DEFAULT_EXTENSION_SCOPE,
   ExtensionScopeSchema,
+  MarketplaceOriginSchema,
   ExtensionNameSchema,
   ExtensionSelectionSchema,
   type ActionDefinition,
@@ -22,9 +24,9 @@ import {
   marketplacePlan,
   resolveGithub,
   marketplaceSelections,
-  sourceFailure,
   namedEntries,
   marketplaceIdentity,
+  readSelectedIndex,
 } from "./extension-plans.ts";
 
 const Changed = z.object({
@@ -106,7 +108,8 @@ export const marketplaceAddEffect = Effect.fn("extension.marketplace.add")(funct
 export const marketplaceRemoveDef = {
   id: "extension.marketplace.remove",
   title: "Remove a marketplace",
-  description: "Remove an index selection; extension locks and cached sources remain.",
+  description:
+    "Remove a scope's index selection; extension locks and cached sources remain. kb's own marketplace ships with kb and stays.",
   mode: { kind: "write", outsideRoot: true } as const,
   inputSchema: z.object({ name: ExtensionNameSchema, scope: ExtensionScopeSchema.optional() }),
   outputSchema: z.object({ name: z.string(), scope: ExtensionScopeSchema }),
@@ -117,6 +120,14 @@ export const marketplaceRemoveEffect = Effect.fn("extension.marketplace.remove")
   const storage = yield* ExtensionStorage;
   const { root } = yield* KbCtx;
   const scope = input.scope ?? DEFAULT_EXTENSION_SCOPE;
+  const pinned = (yield* readSelectionSnapshot(root)).find((entry) => entry.scope === scope);
+  if (pinned === undefined || !Object.hasOwn(pinned.selections.marketplaces, input.name))
+    return yield* domainError(
+      "not_found",
+      (yield* BundledMarketplaces).some(({ name }) => name === input.name)
+        ? `marketplace ${input.name} ships with kb and stays; ${scope} holds no pin of its own to remove`
+        : `no marketplace named ${input.name} in ${scope}`,
+    );
   yield* storage.mutate((tx) =>
     tx.update(root, scope, (held) => ({
       ...held,
@@ -131,7 +142,7 @@ export const marketplaceUpdateDef = {
   id: "extension.marketplace.update",
   title: "Update marketplace indexes",
   description:
-    "Explicitly refresh indexes from their original GitHub sources. With no name refresh every index in the scopes in effect. Does not update or trust extensions.",
+    "Explicitly refresh indexes from their original GitHub sources. With no name refresh every index in the scopes in effect. Naming kb's own marketplace pins its newer index in a scope (store by default). Does not update or trust extensions.",
   mode: { kind: "write", outsideRoot: true } as const,
   inputSchema: z.object({
     name: ExtensionNameSchema.optional(),
@@ -170,8 +181,17 @@ export const marketplaceUpdateEffect = Effect.fn("extension.marketplace.update")
         plans,
       });
   }
-  if (input.name !== undefined && updated.length === 0)
-    return yield* domainError("not_found", `no marketplace named ${input.name}`);
+  if (input.name !== undefined && updated.length === 0) {
+    // kb's own, selected in no scope here: pin its newer index in a scope, as add does.
+    const bundled = (yield* BundledMarketplaces).find(({ name }) => name === input.name);
+    if (bundled === undefined)
+      return yield* domainError("not_found", `no marketplace named ${input.name}`);
+    return {
+      updated: [
+        yield* marketplaceAddEffect({ source: bundled.selection.original, scope: input.scope }),
+      ],
+    };
+  }
   return yield* storage.mutate(
     Effect.fn("marketplace.update.write")(function* (tx: ExtensionTransaction) {
       yield* checkSelectionSnapshot(root, snapshot);
@@ -188,12 +208,15 @@ export const marketplaceListDef = {
   id: "extension.marketplace.list",
   title: "List pinned marketplace entries",
   description:
-    "Offline list of selected indexes and their entries. Missing or invalid cached indexes are reported without fetching.",
+    "Offline list of selected indexes and their entries, each with its origin: a scope, or bundled for kb's own. Missing or invalid cached indexes are reported without fetching.",
   mode: { kind: "read" } as const,
   inputSchema: z.object({ query: z.string().optional() }),
   outputSchema: z.object({
     marketplaces: z.array(
-      Changed.extend({
+      z.object({
+        name: ExtensionNameSchema,
+        origin: MarketplaceOriginSchema,
+        selection: ExtensionSelectionSchema,
         entries: MarketplaceIndexSchema.shape.extensions,
         error: z.string().optional(),
       }),
@@ -204,19 +227,9 @@ export const marketplaceListEffect = Effect.fn("extension.marketplace.list")(fun
   input: z.infer<typeof marketplaceListDef.inputSchema>,
 ) {
   const { root } = yield* KbCtx;
-  const storage = yield* ExtensionStorage;
   const marketplaces: z.infer<typeof marketplaceListDef.outputSchema>["marketplaces"] = [];
   for (const selected of yield* marketplaceSelections(yield* readSelectionSnapshot(root))) {
-    const read = yield* storage
-      .tree({ kind: "marketplace", name: selected.name, files: selected.selection.locked.files })
-      .pipe(
-        Effect.flatMap((tree) =>
-          tree === null
-            ? domainError("not_found", "index not fetched; run kb ext install")
-            : marketplaceTree(tree.source).pipe(Effect.mapError(sourceFailure)),
-        ),
-        Effect.result,
-      );
+    const read = yield* readSelectedIndex(selected).pipe(Effect.result);
     if (Result.isFailure(read)) {
       marketplaces.push({ ...selected, entries: [], error: read.failure.message });
       continue;

@@ -278,8 +278,12 @@ export {
   SourceAddressSchema,
   ExtensionSelectionSchema,
   ExtensionLockSchema,
+  MarketplaceOriginSchema,
+  BundledMarketplaces,
 } from "./extension-install.ts";
 export type {
+  BundledMarketplace,
+  MarketplaceOrigin,
   ExtensionScope,
   ExtensionLock,
   ExtensionSelection,
