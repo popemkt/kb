@@ -1983,9 +1983,18 @@ file is the format git already understands.
     `Effect.scoped`, so reload → merge → replace is one critical section and
     concurrent CLI / MCP / `kb ui` writers cannot silently clobber each other
     (previously last-writer-wins). Contention spins on `Effect.sleep`
-    (25ms, `MAX_WAIT_MS` 15s — never a loop-blocking sleep); a lock whose
-    recorded pid is dead is stolen, and only exhausting the ceiling fails,
-    with a `conflict` error naming the holder pid.
+    (25ms, `MAX_WAIT_MS` 15s — never a loop-blocking sleep), and only
+    exhausting the ceiling fails, with a `conflict` error naming the holder
+    pid. A lock is created whole: the pid goes into a temp file, which is
+    hard-linked to the lock path, so no reader ever sees a lock without its
+    holder. A lock with no pid is one left by a crash or an older writer,
+    stale only once it is older than a writer needs to write one (2 s). A
+    lock whose recorded pid is dead is stolen by renaming it aside: of two
+    thieves only one moves it, and one that finds it moved a different lock
+    (by inode, pid and time) links that one back and keeps waiting. A
+    holder releases only a lock carrying its own pid. Without an OS file
+    lock the steal leaves one window open: after a holder dies, a writer
+    arriving while a thief puts a lock back can take it too.
   - `durable-replace.ts` — write the candidate to a tmp fd + `fsync`, copy the
     live file to `nodes.jsonl.bak` (+fsync), `rename` tmp → live, best-effort
     parent-directory fsync. Ordering-safe; **not** crash-injection tested
