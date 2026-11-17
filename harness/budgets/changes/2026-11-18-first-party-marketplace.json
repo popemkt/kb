@@ -1,0 +1,8 @@
+{
+  "reason": "kb's own marketplace: BUNDLED_MARKETPLACES and its pin in @kb/bundled, which the runtime the CLI composes provides as the lowest selection layer, with BundledMarketplaces, BundledMarketplace, MarketplaceOrigin and its schema in @kb/contracts. The index bytes load lazily, only when a listing or install reads them.",
+  "pr": "#278",
+  "raise": {
+    "cli-closure": { "bytes": 2419, "modules": 2 },
+    "surface": { "@kb/bundled": 1, "@kb/contracts": 4 }
+  }
+}

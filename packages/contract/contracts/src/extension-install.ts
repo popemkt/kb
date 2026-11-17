@@ -48,6 +48,26 @@ export const ExtensionLockSchema = z.object({
 });
 export type ExtensionLock = z.infer<typeof ExtensionLockSchema>;
 export type ExtensionSelection = z.infer<typeof ExtensionSelectionSchema>;
+/**
+ * Where a selected marketplace comes from: one of the scope locks, or kb's
+ * own build (DESIGN.md → kb ships its own marketplace). Not where a write
+ * goes: that is always a scope.
+ */
+const MARKETPLACE_ORIGINS = [...EXTENSION_SCOPES, "bundled"] as const;
+export const MarketplaceOriginSchema = z.enum(MARKETPLACE_ORIGINS);
+export type MarketplaceOrigin = z.infer<typeof MarketplaceOriginSchema>;
+/** A marketplace kb's build carries: its selection, pinned as an added one is, and the bytes it pins. */
+export interface BundledMarketplace {
+  readonly name: string;
+  readonly selection: ExtensionSelection;
+  /** The pinned `kb-marketplace.json`, exactly; loaded when it is first read. */
+  readonly index: () => Promise<string>;
+}
+/** The marketplaces kb's build carries, the lowest selection layer; none unless the host provides them. */
+export const BundledMarketplaces = Context.Reference<readonly BundledMarketplace[]>(
+  "kb/BundledMarketplaces",
+  { defaultValue: () => [] },
+);
 interface ExtensionLockRead {
   readonly lock: ExtensionLock;
   readonly failures: readonly ExtensionFailure[];

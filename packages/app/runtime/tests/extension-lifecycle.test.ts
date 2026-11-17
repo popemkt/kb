@@ -4,8 +4,14 @@ import { childProcessEnv } from "@kb/child-process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Layer } from "effect";
-import { CodeTrust, ExtensionReportSchema, type KbContext } from "@kb/contracts";
-import { SourceReader, type ObjectFile } from "@kb/extension-source";
+import {
+  BundledMarketplaces,
+  CodeTrust,
+  ExtensionReportSchema,
+  type BundledMarketplace,
+  type KbContext,
+} from "@kb/contracts";
+import { SourceReader, marketplaceTree, type ObjectFile } from "@kb/extension-source";
 import { memorySourceReader } from "@kb/source-git";
 import { extensionModule, pointHomeAt, writeTrustedExtension } from "@kb/test-kit";
 import { currentData, codeTrustLayer } from "@kb/workspace-fs";
@@ -24,6 +30,8 @@ let refs: Map<string, string>;
 let metadataRefs: Map<string, string>;
 let reads: number;
 let restoreHome: () => void;
+/** kb's own marketplaces for a test; the runtime's, when a test sets none. */
+let bundled: readonly BundledMarketplace[] | undefined;
 const sha = (n: number) => String(n).repeat(40);
 const file = (path: string, text: string): ObjectFile => ({
   path,
@@ -56,6 +64,7 @@ function repository(version: number, indexName = "sample"): ObjectFile[] {
 }
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), "kb-lifecycle-"));
+  bundled = undefined;
   restoreHome = pointHomeAt(join(root, "home"));
   ctx = await openKb(join(root, "a"));
   reads = 0;
@@ -138,7 +147,13 @@ afterEach(async () => {
 function request(id: string, input: unknown = {}, on = ctx) {
   return Effect.runPromise(
     invokeReceiptEffect(on, { id, input, actor: "agent" }).pipe(
-      Effect.provide(Layer.merge(kbRuntimeLayer(on), Layer.succeed(SourceReader, reader))),
+      Effect.provide(
+        Layer.mergeAll(
+          kbRuntimeLayer(on),
+          Layer.succeed(SourceReader, reader),
+          bundled === undefined ? Layer.empty : Layer.succeed(BundledMarketplaces, bundled),
+        ),
+      ),
     ),
   );
 }
@@ -421,7 +436,7 @@ test("adding a different repository over a marketplace name requires explicit re
   ).toMatchObject({ selection: { locked: { repo: "owner/imposter" } } });
   const installed = await call("extension.install", { source: "hello@sample" });
   expect(installed).toMatchObject({
-    installed: [{ marketplace: { name: "sample", repo: "owner/imposter", scope: "store" } }],
+    installed: [{ marketplace: { name: "sample", repo: "owner/imposter", origin: "store" } }],
   });
 });
 test("fetching an update never holds the mutation lock and a concurrent selection change conflicts", async () => {
@@ -491,4 +506,104 @@ test("successive README-only updates keep the shared executable approval and a u
   }
   resetRegistryCache();
   expect(await call("extension.diff", { name: "hello" })).toMatchObject({ files: [] });
+});
+
+/** owner/repo's index at sha(1), shipped as kb's own under the name it carries, sample. */
+async function shipRepository() {
+  const [index] = repository(1);
+  if (index === undefined) throw new Error("fixture index missing");
+  const { source } = await Effect.runPromise(
+    marketplaceTree({ files: [{ path: index.path, mode: "100644", bytes: index.bytes }] }),
+  );
+  bundled = [
+    {
+      name: "sample",
+      selection: {
+        original: "github:owner/repo",
+        locked: { repo: "owner/repo", path: "", rev: sha(1), files: source.hash },
+      },
+      index: async () => new TextDecoder().decode(index.bytes),
+    },
+  ];
+}
+const marketplaces = async () =>
+  (
+    (await call("extension.marketplace.list")) as {
+      marketplaces: { name: string; origin: string; selection: { locked: { rev: string } } }[];
+    }
+  ).marketplaces;
+const lockText = () =>
+  readFile(join(ctx.root, ".kb", "extensions.lock.json"), "utf8").catch(() => null);
+
+test("kb's own marketplace lists before anything is added, and listing fetches and writes nothing", async () => {
+  await shipRepository();
+  const before = await lockText();
+  expect(await call("extension.marketplace.list")).toMatchObject({
+    marketplaces: [
+      { name: "sample", origin: "bundled", entries: [{ name: "hello" }, { name: "aurora" }] },
+    ],
+  });
+  expect(reads).toBe(0);
+  expect(await lockText()).toBe(before);
+});
+
+test("installing from kb's own fetches the entry, selects it untrusted, and copies no index pin", async () => {
+  await shipRepository();
+  expect(await call("extension.install", { source: "hello" })).toMatchObject({
+    installed: [
+      { name: "hello", trusted: false, marketplace: { name: "sample", origin: "bundled" } },
+    ],
+  });
+  const held = await lock();
+  expect(held.extensions.hello).toMatchObject({
+    original: "hello@sample",
+    locked: { repo: "owner/repo", path: "extensions/hello", rev: sha(1) },
+  });
+  expect(held.marketplaces).toEqual({});
+  // The catalog is still the one kb ships, not one the install froze.
+  expect((await marketplaces())[0]).toMatchObject({ origin: "bundled" });
+});
+
+test("a scope selecting kb's own index overrides it; another index under its name is refused", async () => {
+  await shipRepository();
+  expect(
+    await request("extension.marketplace.add", { source: "github:owner/imposter@main" }),
+  ).toMatchObject({ status: "failed", message: expect.stringContaining("ambiguous marketplace") });
+  advance();
+  await call("extension.marketplace.add", { source: "github:owner/repo@main" });
+  expect(await marketplaces()).toMatchObject([
+    { name: "sample", origin: "store", selection: { locked: { rev: sha(2) } } },
+  ]);
+});
+
+test("updating kb's own pins its newer index in a scope; removing it says it stays", async () => {
+  await shipRepository();
+  expect(await request("extension.marketplace.remove", { name: "sample" })).toMatchObject({
+    status: "failed",
+    message: expect.stringContaining("ships with kb and stays"),
+  });
+  advance();
+  expect(await call("extension.marketplace.update", { name: "sample" })).toMatchObject({
+    updated: [{ name: "sample", scope: "store", selection: { locked: { rev: sha(2) } } }],
+  });
+  expect(await marketplaces()).toMatchObject([{ origin: "store" }]);
+  await call("extension.marketplace.remove", { name: "sample" });
+  expect(await marketplaces()).toMatchObject([
+    { origin: "bundled", selection: { locked: { rev: sha(1) } } },
+  ]);
+});
+
+test("the runtime ships kb's own marketplace, kb-extensions' index without its samples", async () => {
+  const kb = (await marketplaces()).find(({ name }) => name === "kb") as
+    | { origin: string; entries: { name: string }[]; selection: { original: string } }
+    | undefined;
+  expect(kb).toMatchObject({
+    origin: "bundled",
+    selection: { original: "github:popemkt/kb-extensions" },
+  });
+  const names = kb?.entries.map(({ name }) => name) ?? [];
+  expect(names).toContain("rating");
+  for (const sample of ["plain-fields", "quotes", "quote-source", "inbox-router"])
+    expect(names).not.toContain(sample);
+  expect(reads).toBe(0);
 });

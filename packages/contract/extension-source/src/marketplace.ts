@@ -38,7 +38,10 @@ export const MarketplaceIndexSchema = z
     }
   });
 export type MarketplaceIndex = z.infer<typeof MarketplaceIndexSchema>;
-export const marketplaceTree = Effect.fn("source.marketplaceTree")(function* (tree: SourceTree) {
+/** An index read from the files of a tree, whatever hash it came with: the projection hashes what it keeps. */
+export const marketplaceTree = Effect.fn("source.marketplaceTree")(function* (
+  tree: Pick<SourceTree, "files">,
+) {
   const file = tree.files.find((candidate) => candidate.path === "kb-marketplace.json");
   if (file === undefined)
     return yield* new SourceError({ message: "marketplace has no kb-marketplace.json" });

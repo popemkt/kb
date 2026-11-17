@@ -17,6 +17,7 @@ import {
   DEFAULT_EXTENSION_SCOPE,
   EXTENSION_RELOAD,
   ExtensionScopeSchema,
+  MarketplaceOriginSchema,
   type ActionDefinition,
   type ExtensionTransaction,
 } from "@kb/contracts";
@@ -50,7 +51,7 @@ export const extensionInstallDef = {
         marketplace: z
           .object({
             name: z.string(),
-            scope: ExtensionScopeSchema,
+            origin: MarketplaceOriginSchema,
             repo: z.string(),
             path: z.string(),
             rev: z.string(),
@@ -91,7 +92,7 @@ export const extensionInstallEffect = Effect.fn("extension.install")(function* (
         : {
             marketplace: {
               name: marketplace.name,
-              scope: marketplace.scope,
+              origin: marketplace.origin,
               ...marketplace.selection.locked,
             },
           }),

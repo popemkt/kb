@@ -78,9 +78,12 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // place of words, which only this release's page and CLI read.
 // `graph.changes` takes an optional `fields` and then answers each written
 // node's values of them (`props`); a previous page never sends `fields`.
+// Protocol 10: `extension.marketplace.list` names each index's `origin`, a
+// scope or kb's own build, in place of `scope`, which a previous page reads to
+// label it; `extension.install` names its marketplace's `origin` too.
 const RECORDED = {
-  protocol: 9,
-  fingerprint: "808ff65c2c7e40ae5efe932b2addb4e4fbdf7937569283a59f754497d8c1cf57",
+  protocol: 10,
+  fingerprint: "c9246e3fde95226e28a05a29d78fd8035f532ebe5ce52b18770e3696b562e319",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

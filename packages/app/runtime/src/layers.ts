@@ -1,3 +1,4 @@
+import { BUNDLED_MARKETPLACES } from "@kb/bundled";
 import { registeredLocationPaths } from "./bundled.ts";
 import { SourceReader } from "@kb/extension-source";
 import { gitSourceReader } from "@kb/source-git";
@@ -8,6 +9,7 @@ import { engineOf, KbIndexService, QueryEngineService } from "@kb/query";
 import { viewCatalogOf } from "@kb/views";
 import {
   ActionCatalog,
+  BundledMarketplaces,
   CaptureTarget,
   CurrentInterception,
   ExtensionCatalog,
@@ -93,6 +95,7 @@ export function kbRuntimeLayer(
     extensionStorageLayer.pipe(Layer.provide(bunFileSystemLayer)),
     extensionCompilerLayer,
     Layer.succeed(SourceReader, gitSourceReader()),
+    Layer.succeed(BundledMarketplaces, BUNDLED_MARKETPLACES),
     kbStoreLayer(ctx.store),
     kbCtxLayer(ctx),
     graphWritesLayer.pipe(Layer.provide(Layer.merge(kbCtxLayer(ctx), kbStoreLayer(ctx.store)))),

@@ -94,6 +94,8 @@ export const BUNDLED_DECLARATIONS: readonly ExtensionDeclaration[] = [
   ...HOSTED_FAMILIES,
 ];
 
+export { BUNDLED_MARKETPLACES } from "./marketplace/index.ts";
+
 /** The role catalog both hosts admit against, derived from the same declarations as the seed. */
 export const BUNDLED_CAPABILITIES = hostCapabilities(BUNDLED_DECLARATIONS);
 

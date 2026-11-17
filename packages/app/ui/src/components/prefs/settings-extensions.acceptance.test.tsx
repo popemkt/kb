@@ -182,7 +182,7 @@ describe("Settings' Extensions (acceptance)", () => {
             marketplaces: [
               {
                 name: "sample",
-                scope: "store",
+                origin: "bundled",
                 selection: {
                   original: "popemkt/kb-plugins-sample",
                   locked: {
@@ -693,6 +693,10 @@ describe("Settings' Extensions (acceptance)", () => {
     marketNames = ["hello", "tide"];
     await openFromHeader();
     const panel = await openAdd();
+    // kb's own marketplace is headed by its pin and where it comes from.
+    expect(panel.querySelector('section[aria-label="sample marketplace"] h4')?.textContent).toBe(
+      "samplepopemkt/kb-plugins-sample @ aaaaaaa · built in",
+    );
     // What is installed already says so; the rest has Install.
     expect(panel.querySelector('button[aria-label="Install hello from sample"]')).toBeNull();
     const install = present(
