@@ -9,7 +9,8 @@ inputs:
   flake-store:
     description: >-
       Restore the Nix store snapshot of `nix flake check`, and save it when its
-      key missed. For the job that runs the flake check, one per platform.
+      key missed. For the Linux job that runs the flake check; macOS has none
+      (docs/ci.md, Scheduling and selection).
     default: "false"
   install:
     description: Run `bun install --frozen-lockfile`.

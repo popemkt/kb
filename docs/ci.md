@@ -115,7 +115,11 @@ in the root `bunfig.toml`. The measurements behind both are in
 Superseded PR runs cancel; publishing is serialized and never cancelled.
 
 The setup action owns Nix installation and dependency setup, including the
-flake-check store snapshot. Chromium is cached by OS,
+flake-check store snapshot, which only the Linux `nix` job restores. On
+`macos-15` the snapshot cost as much as it saved (run 44014077446: restore 170
+s then a 52 s check, against 223 s with no snapshot, where cache.nixos.org
+serves most of the ~3,700 bun2nix packages), and it is a 1.5 GB cache entry.
+Chromium is cached by OS,
 architecture and lockfile; installation still runs to verify its presence.
 Dev shells continue to use Nix's binary substituter: a previous snapshot
 experiment took 67 seconds versus 45 seconds to substitute, so restoring a
