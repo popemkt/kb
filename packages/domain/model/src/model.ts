@@ -231,12 +231,6 @@ export const SYSTEM_IDS = {
   viewOutputField: "sys.f.view.output",
   /** A docs view's subject as a saved query's name, instead of its own `lens.query` (text). */
   viewSavedQueryField: "sys.f.view.saved-query",
-  cmdViewAsList: "sys.cmd.view-as-list",
-  cmdViewAsTable: "sys.cmd.view-as-table",
-  cmdViewAsBoard: "sys.cmd.view-as-board",
-  cmdViewAsCards: "sys.cmd.view-as-cards",
-  cmdViewAsDetail: "sys.cmd.view-as-detail",
-  cmdViewAsCalendar: "sys.cmd.view-as-calendar",
   cmdViewFilter: "sys.cmd.view-filter",
   /** Virtual root for saved queries (.kb/queries/*.edn); never in jsonl. */
   queriesRoot: "sys.queries",

@@ -117,36 +117,7 @@ export const fixtureGraph: GraphSnapshot = {
       text: "Collapse all",
       props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
     }),
-    node({
-      id: "sys.cmd.view-as-list",
-      text: "View as: List",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
-    }),
-    node({
-      id: "sys.cmd.view-as-table",
-      text: "View as: Table",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
-    }),
-    node({
-      id: "sys.cmd.view-as-board",
-      text: "View as: Board",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
-    }),
-    node({
-      id: "sys.cmd.view-as-cards",
-      text: "View as: Cards",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
-    }),
-    node({
-      id: "sys.cmd.view-as-detail",
-      text: "View as: List with detail",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
-    }),
-    node({
-      id: "sys.cmd.view-as-calendar",
-      text: "View as: Calendar",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
-    }),
+    ...[...SEED.values()].filter(({ id }) => id.startsWith("sys.cmd.view-as-")),
     node({
       id: "sys.cmd.view-filter",
       text: "Filter…",

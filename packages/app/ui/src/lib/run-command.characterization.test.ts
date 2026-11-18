@@ -340,12 +340,12 @@ describe("palette command routing (characterization)", () => {
   it("the six view-as commands write the view onto the zoomed frame's view node", async () => {
     useGraphStore.setState({ rootNodeId: "n.root-a" });
     for (const [commandId, view] of [
-      [SYSTEM_IDS.cmdViewAsList, "outline.list"],
-      [SYSTEM_IDS.cmdViewAsTable, "outline.table"],
-      [SYSTEM_IDS.cmdViewAsBoard, "outline.board"],
-      [SYSTEM_IDS.cmdViewAsCards, "outline.cards"],
-      [SYSTEM_IDS.cmdViewAsDetail, "collections.detail"],
-      [SYSTEM_IDS.cmdViewAsCalendar, "collections.calendar"],
+      ["sys.cmd.view-as-list", "outline.list"],
+      ["sys.cmd.view-as-table", "outline.table"],
+      ["sys.cmd.view-as-board", "outline.board"],
+      ["sys.cmd.view-as-cards", "outline.cards"],
+      ["sys.cmd.view-as-detail", "collections.detail"],
+      ["sys.cmd.view-as-calendar", "collections.calendar"],
     ] as const) {
       await run(commandId);
       expect(shownAs("n.root-a")).toBe(viewOptionId(view));
@@ -354,13 +354,13 @@ describe("palette command routing (characterization)", () => {
 
   it("view-as falls back to a selected non-sys row", async () => {
     useOutlineStore.setState({ selectedNodeId: "n.root-b" });
-    await run(SYSTEM_IDS.cmdViewAsTable);
+    await run("sys.cmd.view-as-table");
     expect(shownAs("n.root-b")).toBe(viewOptionId("outline.table"));
   });
 
   it("view-as with no frame toasts", async () => {
     useOutlineStore.setState({ selectedNodeId: SYSTEM_IDS.tag });
-    await run(SYSTEM_IDS.cmdViewAsList);
+    await run("sys.cmd.view-as-list");
     expect(toasts()).toEqual(["select a frame first"]);
   });
 

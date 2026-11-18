@@ -22,6 +22,7 @@ import {
   type NodeId,
   nowIso,
   roleNodeId,
+  seededCommand,
   type RoleDefinition,
   displaySettingFields,
   displaySettingRetirements,
@@ -46,6 +47,7 @@ export interface SeedView {
   readonly id: string;
   readonly label: string;
   readonly family?: ViewFamily | undefined;
+  readonly command?: NodeId;
   /**
    * What preview the view draws of a node it opens (`ViewKey.preview`):
    * where it draws one and its source claims it as a tag's default view,
@@ -450,6 +452,9 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
     name: source.name,
     seed: [
       ...(source.seed?.(at) ?? []),
+      ...(source.views ?? []).flatMap(({ key }) =>
+        key.command === undefined ? [] : [seededCommand(key.command, `View as: ${key.label}`, at)],
+      ),
       ...(source.roles ?? []).map(
         ({ role, label }): KbNode => ({
           id: roleNodeId(role),

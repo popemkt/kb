@@ -215,15 +215,6 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     cmd(SYSTEM_IDS.cmdToggleCheck, "Toggle check"),
     cmd(SYSTEM_IDS.cmdExpandAll, "Expand all"),
     cmd(SYSTEM_IDS.cmdCollapseAll, "Collapse all"),
-    // W7.1 view mode + filter commands. The view-as commands name the
-    // outline's and the collections' frame views, which are the families'.
-    // GAP [[01M536CGS8JJ7XMG3F738WSNYK]]
-    cmd(SYSTEM_IDS.cmdViewAsList, "View as: List"),
-    cmd(SYSTEM_IDS.cmdViewAsTable, "View as: Table"),
-    cmd(SYSTEM_IDS.cmdViewAsBoard, "View as: Board"),
-    cmd(SYSTEM_IDS.cmdViewAsCards, "View as: Cards"),
-    cmd(SYSTEM_IDS.cmdViewAsDetail, "View as: List with detail"),
-    cmd(SYSTEM_IDS.cmdViewAsCalendar, "View as: Calendar"),
     cmd(SYSTEM_IDS.cmdViewFilter, "Filter…"),
     // r5 ontology commands
     cmd(SYSTEM_IDS.cmdNewOntology, "New ontology"),
