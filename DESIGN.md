@@ -4472,7 +4472,8 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
     replacement (the replacement's own value wins where a node holds
     both), a ref value naming a retired id names its replacement, a child
     list names the replacement in its place, and a `[[ref]]` in text
-    follows. A renamed field and each of its options are rows of their
+    follows when the text contains the reference opener `[[`. A renamed
+    field and each of its options are rows of their
     own, so a value that chose an old option chooses the new one. Where
     nothing replaced an id, its keys, values and child entries are
     dropped; a mention in text is left, and shows as missing;
