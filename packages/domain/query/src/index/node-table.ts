@@ -11,7 +11,7 @@ import {
 } from "./derived.ts";
 import type { NodeIndex } from "./index.ts";
 import { ReadMemo } from "./read-memo.ts";
-import { TextSearch } from "./text-search.ts";
+import { TextSearch, type TextCandidates } from "./text-search.ts";
 
 /** A key as one string, for the maps keyed by key. */
 function keyName(key: KeyRef): string {
@@ -41,7 +41,7 @@ export interface NodeChange {
 
 /**
  * The node set an index answers over, and its point reads: the stored nodes
- * plus the virtual ones, who points at whom, and the text scan. It is the
+ * plus the virtual ones, who points at whom, and text search. It is the
  * {@link NodeIndex} half of every index, with no query engine: a
  * `DatascriptIndex` keeps its datoms in step with one, and a host whose
  * engine runs elsewhere reads its node set from one here.
@@ -50,10 +50,7 @@ export class NodeTable implements NodeIndex {
   #generation = 0;
   /** stored + virtual, in the order `storedNodes` must reproduce */
   #nodes = new Map<NodeId, KbNode>();
-  readonly #text = new TextSearch(
-    () => this.#nodes.values(),
-    (id) => this.#nodes.get(id),
-  );
+  readonly #text: TextSearch;
   #virtual: KbNode[] = [];
   #virtualIds = new Set<NodeId>();
   /** node → the ids it points at */
@@ -69,8 +66,17 @@ export class NodeTable implements NodeIndex {
   #storedCache: { generation: number; nodes: KbNode[] } | null = null;
   #derived: readonly DerivedRef[];
 
-  constructor(nodes: ReadonlyArray<KbNode>, derived: readonly DerivedRef[]) {
+  constructor(
+    nodes: ReadonlyArray<KbNode>,
+    derived: readonly DerivedRef[],
+    textCandidates?: TextCandidates,
+  ) {
     this.#derived = derived;
+    this.#text = new TextSearch(
+      () => this.#nodes.values(),
+      (id) => this.#nodes.get(id),
+      textCandidates,
+    );
     this.rebuild(nodes);
   }
 
@@ -153,6 +159,7 @@ export class NodeTable implements NodeIndex {
     this.#keyReaders = new Map();
     this.#keysReadBy = new Map();
     this.#refsStale = true;
+    this.#text.invalidate();
     this.#generation += 1;
   }
 
@@ -188,6 +195,7 @@ export class NodeTable implements NodeIndex {
     }
     for (const node of tx.upserts) this.#nodes.set(node.id, node);
     for (const id of removed) this.#nodes.delete(id);
+    this.#text.change(touched);
     const rekeyed = this.#moveKeys(keysWere);
     // A virtual node a tx stores or deletes is no longer virtual: nothing brings it back.
     this.#dropVirtual([...tx.upserts.map((n) => n.id), ...removed]);

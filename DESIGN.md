@@ -2703,8 +2703,9 @@ same lane. One path to a client, whatever a node's provenance.
   store backend. It updates documents when the node or any lookup in its
   title changes. A graph replacement discards the projection and the next
   indexed search builds it again. Candidate matches go through the same
-  substring test as a scan. Short or unsupported needles and runtimes
-  without the tokenizer use that scan. Opening a session and reading
+  substring test as a scan. A bounded lookup hands dense matches to the
+  scan, which also handles short or unsupported needles and runtimes
+  without the tokenizer. Opening a session and reading
   anything other than search need no text index.
 
 ## Trace and suggest

@@ -249,6 +249,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The chips line moves to a shared field-list component (or the detail view draws FieldsSection) so both surfaces take one placement
 - **node** — `01M7EY5YQKG919B47FD255B34B`
 
+### GAP: A concurrent SQLite CLI writer exited before committing
+
+- **expected** — Independent CLI additions commit under ordinary contention, or return a conflict that can be diagnosed and retried.
+- **current** — During scratch stress with four CLI writers and eight subscribers, one SQLite kb add exited 1 before writing its node. The harness preserved the exit code and missed the receipt on stdout. A rerun capturing both streams passed all 16 additions.
+- **impact** — The first run required retrying the missing addition. The 12 additions that completed stayed durable.
+- **closes** — Reproduce with structured CLI receipts, classify the refusal, and add a concurrent store regression if the refusal is outside the conflict contract.
+- **node** — `01M7Q56B5T0H4HEW6BP85BT1S9`
+
 ### GAP: a dashboard's inner panes are not in the screen state
 
 - **expected** — every pane on screen, including those inside a dashboard, is listed in the screen state and can be targeted
@@ -1691,14 +1699,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — shear in the item record
 - **node** — `01M41W5655T0R7791KKJM4WYB2`
 
-### GAP: search is a substring scan, no text index
-
-- **expected** — Full-text search as an additive derived index (FTS5, and sqlite-vec for semantic search) rebuilt from the JSONL like any other index.
-- **current** — graph.search is a case-insensitive substring scan over every node text.
-- **impact** — Search cost grows linearly with the graph and no ranking is possible.
-- **closes** — Gate on Bun's FTS5 close() segfault (oven-sh/bun#37044); adopt once a SQLite index exists.
-- **node** — `01M1M08X7037FH9Z0Y5G1RFRXX`
-
 ### GAP: search matches a node's stored text and title, not the words it reads as
 
 - **expected** — graph.search (kb search, MCP, the page's index search) finds a node by its plain display text too, so 'with Rob' finds 'Check up with Rob', as ⌘K does.
@@ -3075,6 +3075,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — hover panels, auto-layout and 'drop in column X sets status' (decision 5) cannot be scripted
 - **closes** — views declare their events and overlay anchors, an overlay frame, and a sys.f.scripts view setting
 - **node** — `01M41DKTE1T51M031N231VGQJR`
+
+### GAP: search is a substring scan, no text index
+
+- **expected** — Full-text search as an additive derived index (FTS5, and sqlite-vec for semantic search) rebuilt from the JSONL like any other index.
+- **current** — graph.search is a case-insensitive substring scan over every node text.
+- **impact** — Search cost grows linearly with the graph and no ranking is possible.
+- **closes** — Gate on Bun's FTS5 close() segfault (oven-sh/bun#37044); adopt once a SQLite index exists.
+- **node** — `01M1M08X7037FH9Z0Y5G1RFRXX`
 
 ### GAP: seven terminal .then callbacks disable promise/always-return
 
