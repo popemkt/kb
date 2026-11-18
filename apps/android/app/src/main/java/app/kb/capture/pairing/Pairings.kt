@@ -1,8 +1,9 @@
 package app.kb.capture.pairing
 
 import app.kb.capture.capture.PayloadWriter
+import app.kb.capture.storage.Disk
+import app.kb.capture.storage.RealDisk
 import java.io.File
-import java.io.IOException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -40,7 +41,7 @@ interface TokenVault {
  * off-graph: device-local — which stores this phone may deliver to, and its
  * credential for each, belong to the device, not to any store.
  */
-class Pairings(private val file: File, private val vault: TokenVault) {
+class Pairings(private val file: File, private val vault: TokenVault, private val disk: Disk = RealDisk()) {
     private val lock = Any()
     private val _all = MutableStateFlow(load())
 
@@ -69,16 +70,16 @@ class Pairings(private val file: File, private val vault: TokenVault) {
 
     private fun load(): List<Pairing> =
         try {
-            if (file.isFile) PayloadWriter.json.decodeFromString(ListSerializer(Pairing.serializer()), file.readText()) else emptyList()
+            if (disk.isFile(file)) PayloadWriter.json.decodeFromString(ListSerializer(Pairing.serializer()), disk.read(file).decodeToString()) else emptyList()
         } catch (_: Exception) {
             emptyList()
         }
 
     private fun write(next: List<Pairing>) {
-        file.parentFile?.mkdirs()
+        file.parentFile?.let { disk.mkdirs(it) }
         val tmp = File(file.path + ".tmp")
-        tmp.writeText(PayloadWriter.json.encodeToString(ListSerializer(Pairing.serializer()), next))
-        if (!tmp.renameTo(file)) throw IOException("could not save pairings")
+        disk.create(tmp) { it.write(PayloadWriter.json.encodeToString(ListSerializer(Pairing.serializer()), next).toByteArray()) }
+        disk.rename(tmp, file)
         _all.value = next
     }
 }

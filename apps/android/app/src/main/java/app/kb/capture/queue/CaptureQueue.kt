@@ -7,15 +7,16 @@ import app.kb.capture.capture.PayloadWriter
 import app.kb.capture.capture.RawCapture
 import app.kb.capture.capture.StagedFile
 import app.kb.capture.capture.isoWithOffset
+import app.kb.capture.storage.Disk
+import app.kb.capture.storage.RealDisk
 import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
 import java.io.InputStream
 import java.time.OffsetDateTime
 import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 
 /** Where a queued capture stands. */
@@ -72,6 +73,7 @@ data class QueuedCapture(val capture: RawCapture, val state: DeliveryState)
  */
 class CaptureQueue(
     private val root: File,
+    private val disk: Disk = RealDisk(),
     private val now: () -> OffsetDateTime = OffsetDateTime::now,
     private val newId: () -> String = { UUID.randomUUID().toString() },
 ) {
@@ -91,11 +93,12 @@ class CaptureQueue(
     /** Clears what a crash left half-done: unpublished staging and half-removed entries. */
     fun recover() =
         synchronized(lock) {
-            listOf(entries, staging, trash).forEach { it.mkdirs() }
-            staging.listFiles()?.forEach { it.deleteRecursively() }
-            trash.listFiles()?.forEach { it.deleteRecursively() }
-            entries.listFiles()?.forEach { dir ->
-                dir.listFiles { f -> f.name.endsWith(".tmp") }?.forEach { it.delete() }
+            listOf(entries, staging, trash).forEach { disk.mkdirs(it) }
+            disk.list(staging).forEach { disk.delete(File(staging, it)) }
+            disk.list(trash).forEach { disk.delete(File(trash, it)) }
+            disk.list(entries).forEach { id ->
+                val dir = File(entries, id)
+                disk.list(dir).filter { it.endsWith(".tmp") }.forEach { disk.delete(File(dir, it)) }
             }
             refresh()
         }
@@ -112,11 +115,10 @@ class CaptureQueue(
         val at = now()
         val dir = File(staging, id)
         try {
-            val filesDir = File(dir, FILES).apply { mkdirs() }
+            val filesDir = File(dir, FILES).also { disk.mkdirs(it) }
             val staged =
                 d.files.mapIndexed { index, source ->
-                    val target = File(filesDir, index.toString())
-                    val size = source.open().use { input -> writeSynced(target) { input.copyTo(it) } }
+                    val size = source.open().use { input -> disk.create(File(filesDir, index.toString())) { input.copyTo(it) } }
                     StagedFile(name = source.name, mime = source.mime, path = "$FILES/$index", size = size)
                 }
             val capture =
@@ -131,15 +133,15 @@ class CaptureQueue(
                     files = staged,
                 )
             val state = DeliveryState(store = store, updatedAt = isoWithOffset(at))
-            writeSynced(File(dir, CAPTURE)) { it.write(PayloadWriter.json.encodeToString(RawCapture.serializer(), capture).toByteArray()) }
-            writeSynced(File(dir, STATE)) { it.write(PayloadWriter.json.encodeToString(DeliveryState.serializer(), state).toByteArray()) }
+            disk.create(File(dir, CAPTURE)) { it.write(encode(RawCapture.serializer(), capture)) }
+            disk.create(File(dir, STATE)) { it.write(encode(DeliveryState.serializer(), state)) }
             synchronized(lock) {
-                if (!dir.renameTo(File(entries, id))) throw IOException("could not publish capture $id")
+                disk.rename(dir, File(entries, id))
                 refresh()
             }
             return QueuedCapture(capture, state)
         } catch (e: Throwable) {
-            dir.deleteRecursively()
+            runCatching { disk.delete(dir) }
             throw e
         }
     }
@@ -152,8 +154,10 @@ class CaptureQueue(
             val dir = File(entries, id)
             val current = read(dir) ?: return null
             val next = change(current.state).copy(updatedAt = isoWithOffset(now()))
-            writeState(dir, next)
-            if (next.status == Status.Sent) File(dir, FILES).deleteRecursively()
+            val tmp = File(dir, "$STATE.tmp")
+            disk.create(tmp) { it.write(encode(DeliveryState.serializer(), next)) }
+            disk.rename(tmp, File(dir, STATE))
+            if (next.status == Status.Sent) disk.delete(File(dir, FILES))
             refresh()
             next
         }
@@ -167,7 +171,10 @@ class CaptureQueue(
         synchronized(lock) {
             val dir = File(entries, id)
             val gone = File(trash, id)
-            if (dir.exists() && dir.renameTo(gone)) gone.deleteRecursively()
+            if (id in disk.list(entries)) {
+                disk.rename(dir, gone)
+                disk.delete(gone)
+            }
             refresh()
         }
 
@@ -177,41 +184,26 @@ class CaptureQueue(
             update(entry.capture.captureId) { it.copy(store = store) }
         }
 
-    fun openFile(id: String, file: StagedFile): InputStream = File(File(entries, id), file.path).inputStream()
+    fun openFile(id: String, file: StagedFile): InputStream = disk.open(File(File(entries, id), file.path))
 
     fun all(): List<QueuedCapture> =
-        (entries.listFiles()?.mapNotNull { read(it) } ?: emptyList()).sortedByDescending { it.capture.capturedAt }
+        disk.list(entries).mapNotNull { read(File(entries, it)) }.sortedByDescending { it.capture.capturedAt }
 
     private fun refresh() {
         _items.value = all()
     }
 
-    private fun read(dir: File): QueuedCapture? {
-        val capture = File(dir, CAPTURE).takeIf { it.isFile } ?: return null
-        val state = File(dir, STATE).takeIf { it.isFile } ?: return null
-        return try {
+    private fun read(dir: File): QueuedCapture? =
+        try {
             QueuedCapture(
-                PayloadWriter.json.decodeFromString(RawCapture.serializer(), capture.readText()),
-                PayloadWriter.json.decodeFromString(DeliveryState.serializer(), state.readText()),
+                PayloadWriter.json.decodeFromString(RawCapture.serializer(), disk.read(File(dir, CAPTURE)).decodeToString()),
+                PayloadWriter.json.decodeFromString(DeliveryState.serializer(), disk.read(File(dir, STATE)).decodeToString()),
             )
         } catch (_: Exception) {
             null
         }
-    }
 
-    private fun writeState(dir: File, state: DeliveryState) {
-        val tmp = File(dir, "$STATE.tmp")
-        writeSynced(tmp) { it.write(PayloadWriter.json.encodeToString(DeliveryState.serializer(), state).toByteArray()) }
-        if (!tmp.renameTo(File(dir, STATE))) throw IOException("could not update ${dir.name}")
-    }
-
-    private fun writeSynced(file: File, body: (FileOutputStream) -> Unit): Long =
-        FileOutputStream(file).use { out ->
-            body(out)
-            out.flush()
-            out.fd.sync()
-            out.channel.size()
-        }
+    private fun <T> encode(serializer: KSerializer<T>, value: T): ByteArray = PayloadWriter.json.encodeToString(serializer, value).toByteArray()
 
     private companion object {
         const val CAPTURE = "capture.json"
