@@ -15,7 +15,8 @@ import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import {
   CoreInvoke,
-  GraphEdgesAction,
+  type FamilyKernels,
+  type GraphEdgesAction,
   type ExtensionAction,
   type GraphWrites,
   type KbCtx,
@@ -32,6 +33,7 @@ import {
 } from "@kb/canvas";
 import { freshId } from "@kb/model";
 import { datalogRows, type KbIndexService, type QueryEngineService } from "@kb/query";
+import { CanvasGraph, canvasCapability } from "./capabilities.ts";
 import { CanvasTxError, canvasStep, createCanvasEffect, type CanvasFail } from "./write.ts";
 
 const diagramInput = z
@@ -78,13 +80,6 @@ const diagramOutput = z.object({
   reported: z.array(z.string()),
 });
 
-const edgesSchema = z.object({
-  nodes: z.array(z.string()),
-  edges: z.array(
-    z.object({ source: z.string(), target: z.string(), kind: z.string(), label: z.string() }),
-  ),
-});
-
 type DiagramInput = z.infer<typeof diagramInput>;
 
 /** The node ids a query's rows name in their first column, once each, in order. */
@@ -98,7 +93,9 @@ function rowIds(rows: unknown): string[] {
 }
 
 /** A graph edge as a diagram link: a typed relation labelled and bound to its field, a built-in kind bare. */
-function linkOf(edge: z.infer<typeof edgesSchema>["edges"][number]): DiagramLink {
+function linkOf(
+  edge: z.infer<typeof GraphEdgesAction.definition.outputSchema>["edges"][number],
+): DiagramLink {
   const link = { from: edge.source, to: edge.target };
   return edge.kind.startsWith("prop:")
     ? { ...link, label: edge.label, bindField: edge.kind.slice("prop:".length) }
@@ -109,7 +106,11 @@ function linkOf(edge: z.infer<typeof edgesSchema>["edges"][number]): DiagramLink
 const querySpecEffect = Effect.fn("ext.canvas.diagram.query")(function* (
   query: string,
   input: DiagramInput,
-): Effect.fn.Return<{ spec: DiagramSpec; reported: string[] }, CanvasFail, QueryEngineService> {
+): Effect.fn.Return<
+  { spec: DiagramSpec; reported: string[] },
+  CanvasFail,
+  QueryEngineService | FamilyKernels
+> {
   const rows = yield* datalogRows(query);
   const ids = rowIds(rows);
   if (ids.length === 0) {
@@ -124,17 +125,20 @@ const querySpecEffect = Effect.fn("ext.canvas.diagram.query")(function* (
     );
   }
   const invoke = yield* CoreInvoke;
-  if (invoke === null) return yield* Effect.fail(new CanvasTxError("this host reads no graph"));
-  const receipt = yield* invoke(
-    GraphEdgesAction.request({
+  const edges = yield* canvasCapability(CanvasGraph);
+  if (invoke === null || edges === undefined)
+    return yield* Effect.fail(new CanvasTxError("this host reads no graph"));
+  const receipt = yield* edges(
+    invoke,
+    {
       ids,
       ...(input.kinds === undefined ? {} : { kinds: input.kinds }),
       ...(input.includeSystem === undefined ? {} : { includeSystem: input.includeSystem }),
-    }),
+    },
     "read",
   );
   if (receipt.status === "failed") return yield* Effect.fail(new CanvasTxError(receipt.message));
-  const graph = yield* canvasStep(() => edgesSchema.parse(receipt.output));
+  const graph = receipt.output;
   const shown = new Set(graph.nodes);
   return {
     spec: {
@@ -162,7 +166,7 @@ const canvasDiagramEffect = Effect.fn("ext.canvas.diagram")(function* (
 ): Effect.fn.Return<
   z.infer<typeof diagramOutput>,
   CanvasFail,
-  KbCtx | GraphWrites | FileSystem | KbIndexService | QueryEngineService
+  KbCtx | GraphWrites | FileSystem | KbIndexService | QueryEngineService | FamilyKernels
 > {
   const { spec, reported } =
     input.query === undefined

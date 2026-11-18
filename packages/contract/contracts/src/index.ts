@@ -89,7 +89,12 @@ export {
   defineExtension,
   extensionRow,
 } from "./declaration.ts";
-export type { ExtensionDeclaration, ExtensionEntry, ExtensionRow } from "./declaration.ts";
+export type {
+  CatalogRow,
+  ExtensionDeclaration,
+  ExtensionEntry,
+  ExtensionRow,
+} from "./declaration.ts";
 export { hostEntry } from "./host-entry.ts";
 export { NO_SWITCHES, familyOn, switchWrites } from "./extension-switch.ts";
 export { FamilyKernels, FootprintRowSchema, holdsFamily, runtimeFootprint } from "./footprint.ts";

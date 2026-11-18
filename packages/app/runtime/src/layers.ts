@@ -89,7 +89,11 @@ export function kbRuntimeLayer(
   ),
   hosted?: HostedFamilies,
 ): Layer.Layer<ActionHandlerEnv> {
-  const registry = sessionRegistry(ctx).pipe(Effect.provide(bunFileSystemLayer));
+  const hostedRows = hosted?.rows ?? Effect.succeed([]);
+  const registry = hostedRows.pipe(
+    Effect.andThen(sessionRegistry(ctx, hosted?.kernel)),
+    Effect.provide(bunFileSystemLayer),
+  );
   return Layer.mergeAll(
     bunFileSystemLayer,
     extensionStorageLayer.pipe(Layer.provide(bunFileSystemLayer)),
@@ -117,7 +121,7 @@ export function kbRuntimeLayer(
     ),
     Layer.effect(
       ExtensionCatalog,
-      Effect.all([registry, hosted?.rows ?? Effect.succeed([])]).pipe(
+      Effect.all([registry, hostedRows]).pipe(
         Effect.map(([{ families }, rows]) => [...families, ...rows]),
       ),
     ),
@@ -184,7 +188,8 @@ function coreInvoke(
           `${request.id} is called while no call runs, and names no actor to make it`,
         );
       }
-      const registry = yield* sessionRegistry(ctx);
+      yield* hosted?.rows ?? Effect.void;
+      const registry = yield* sessionRegistry(ctx, hosted?.kernel);
       const reached = reachableActions(registry, familyKernels(registry, hosted));
       const mode = reached.byId.get(invocation.id)?.def.mode;
       if (scope === "read" && mode !== undefined && mode.kind !== "read") {

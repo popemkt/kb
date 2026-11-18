@@ -13,6 +13,10 @@
     {
       "name": "design-tokens",
       "specifier": "./harness/lint/design-tokens/index.ts"
+    },
+    {
+      "name": "extension-boundaries",
+      "specifier": "./harness/lint/extension-boundaries/index.ts"
     }
   ],
   "env": {
@@ -31,6 +35,7 @@
     "perf": "error"
   },
   "rules": {
+    "extension-boundaries/no-foreign-action-id": "error",
     "import/no-cycle": "error",
     "import/no-duplicates": "error",
     "import/no-unassigned-import": [

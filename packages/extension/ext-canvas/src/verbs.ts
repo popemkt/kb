@@ -9,16 +9,17 @@
  * (`commitCanvasEffect`), so it is one step of an open canvas's history
  * and its receipt carries the lints it made and cleared.
  */
+import { CanvasScripts, canvasCapability } from "./capabilities.ts";
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import {
   CoreInvoke,
-  ScriptListAction,
   CurrentCall,
   KbCtx,
   Screens,
   type ExtensionAction,
+  type FamilyKernels,
   type GraphWrites,
 } from "@kb/contracts";
 import type { KbIndexService } from "@kb/query";
@@ -162,8 +163,6 @@ const describeOutput = z.object({
     ),
 });
 
-const scriptsSchema = z.object({ scripts: z.array(z.record(z.string(), z.unknown())) });
-
 /**
  * The scripts that run on `canvasId` — its board's, then its own — as the
  * family that keeps scripts lists them, through the host's `CoreInvoke` as
@@ -175,12 +174,11 @@ const canvasScriptsEffect = Effect.fn("ext.canvas.scripts")(function* (
   board: string,
 ) {
   const invoke = yield* CoreInvoke;
-  if (invoke === null) return null;
+  const scripts = yield* canvasCapability(CanvasScripts);
+  if (invoke === null || scripts === undefined) return null;
   const subjects = board === canvasId ? [canvasId] : [board, canvasId];
-  const receipt = yield* invoke(ScriptListAction.request({ subjects }), "read");
-  if (receipt.status === "failed") return null;
-  const listed = scriptsSchema.safeParse(receipt.output);
-  return listed.success ? listed.data.scripts : null;
+  const receipt = yield* scripts.list(invoke, { subjects }, "read");
+  return receipt.status === "succeeded" ? receipt.output.scripts : null;
 });
 
 /**
@@ -216,7 +214,7 @@ const canvasScreenEffect = Effect.fn("ext.canvas.screen")(function* (canvasId: s
 
 const canvasDescribeEffect = Effect.fn("ext.canvas.describe")(function* (
   input: z.infer<typeof describeInput>,
-): Effect.fn.Return<z.infer<typeof describeOutput>, CanvasFail, KbCtx | Screens> {
+): Effect.fn.Return<z.infer<typeof describeOutput>, CanvasFail, KbCtx | Screens | FamilyKernels> {
   const doc = yield* readCanvasEffect(input.canvasId);
   const screen = yield* canvasScreenEffect(input.canvasId);
   const chosen =

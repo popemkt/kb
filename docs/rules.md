@@ -996,15 +996,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — E19 of the extension SDK plan, after E13, at a 3D step boundary
 - **node** — `01M43AT0V9HHVS7ZAEPWXEGE7F`
 
-### GAP: cross-family action calls by string id are invisible to the dependency graph
-
-- **expected** — a plugin that calls another family's action injects a key for it, held in a layer both may import, so the kernel derives the edge, the call is typed, and an optional call rides a child plugin that pends while its provider is off (as lab-ui's graph-studies injects NodeLinkGraphService)
-- **current** — ext-canvas calls ext.agent.complete (run.ts:42), ext.code.script.list and .run (run.ts:56-57, verbs.ts:167) and ext.graph.edges (diagram.ts:33) by string through CoreInvoke; kb ext list reports injects: [] for every registry family, and the call fails by name at run time when the provider is off
-- **impact** — switching agent, code or graph off breaks canvas's run, scripts and diagram verbs without warning; the dependency graph reads as complete while it holds none of these edges
-- **closes** — P2 of docs/research/2026-10-29-plugin-codependency.md: contribution keys in inject (restructure the four ids into keys, then resolve them in the kernel and carry each optional call on a child), with lint L1
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M63BZRZ4RDTCE1ZFVGRNEXGR`
-
 ### GAP: datalog and the query builder's tag filter do not reach a subtype's nodes
 
 - **expected** — A node of a tag that extends another is that tag's node in datalog too: a derived :node/is datom holds the closure of sys.f.type over sys.f.extends, the query builder's has-tag lowers to it and the page's condition evaluator reads kindsOf, while :f/sys.f.type stays tagged-exactly.
@@ -2701,6 +2692,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — core names a family, so 'Core names no feature' is not yet true for the outline
 - **closes** — the O3 cut: @kb/outline declares the views and the default
 - **node** — `01M52J3DADW4P7YV6907ME9C50`
+
+### GAP: cross-family action calls by string id are invisible to the dependency graph
+
+- **expected** — a plugin that calls another family's action injects a key for it, held in a layer both may import, so the kernel derives the edge, the call is typed, and an optional call rides a child plugin that pends while its provider is off (as lab-ui's graph-studies injects NodeLinkGraphService)
+- **current** — ext-canvas calls ext.agent.complete (run.ts:42), ext.code.script.list and .run (run.ts:56-57, verbs.ts:167) and ext.graph.edges (diagram.ts:33) by string through CoreInvoke; kb ext list reports injects: [] for every registry family, and the call fails by name at run time when the provider is off
+- **impact** — switching agent, code or graph off breaks canvas's run, scripts and diagram verbs without warning; the dependency graph reads as complete while it holds none of these edges
+- **closes** — P2 of docs/research/2026-10-29-plugin-codependency.md: contribution keys in inject (restructure the four ids into keys, then resolve them in the kernel and carry each optional call on a child), with lint L1
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M63BZRZ4RDTCE1ZFVGRNEXGR`
 
 ### GAP: deleting a surface budget bypasses increase rationale
 

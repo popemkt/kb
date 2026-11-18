@@ -205,6 +205,17 @@ export interface PointKey<C> {
   readonly declarer: string | null;
 }
 
+/** One canonical contribution from a family at a typed point. */
+export interface ContributionKey<C> {
+  readonly kind: "contribution";
+  readonly name: string;
+  readonly "~type"?: C;
+  readonly point: PointKey<C>;
+  readonly family: string;
+}
+
+export type InjectKey<C> = ServiceKey<C> | ContributionKey<C>;
+
 /** A typed reference resolves to a kernel-owned point by name. */
 export interface PointName<C> {
   readonly kind: "point-name";
@@ -270,8 +281,8 @@ export interface PluginContext {
   ): effect.Effect.Effect<PointKey<C>, PluginError>;
   point<C>(name: string | PointName<C>): effect.Effect.Effect<PointKey<C>, PluginError>;
   contributions<C>(point: PointKey<C>): readonly Contribution<C>[];
-  /** A service this plugin declared in `inject`. */
-  get<S>(key: ServiceKey<S>): effect.Effect.Effect<S, PluginError>;
+  /** A service or contribution this plugin declared in `inject`. */
+  get<S>(key: InjectKey<S>): effect.Effect.Effect<S, PluginError>;
   provide<S>(key: ServiceKey<S>, impl: S): effect.Effect.Effect<void, PluginError>;
   contribute<C>(
     point: PointKey<C>,
@@ -289,8 +300,8 @@ export interface Plugin {
   readonly name: string;
   /** Contribution id prefix: a family's server entry contributes in `ext.<name>` ({@link extensionNamespace}). */
   readonly namespace?: string;
-  /** Services that must exist before `apply` runs; the plugin waits until they do. */
-  readonly inject?: readonly ServiceKey<unknown>[];
+  /** Requirements that must be available before `apply` runs. */
+  readonly inject?: readonly InjectKey<unknown>[];
   readonly uses?: readonly string[];
   /** Labels for organising plugins, which kb reports and never reads: its family's ({@link familyTags}). */
   readonly tags?: readonly string[];
@@ -699,6 +710,12 @@ export declare function familyTags(
 ): readonly string[];
 /** `ext.<name>`: the namespace a family's server entry contributes in. */
 export declare function extensionNamespace(name: string): string;
+/** Build a typed requirement for a family contribution by its full id. */
+export declare function contributionKey<C>(
+  point: PointKey<C>,
+  family: string,
+  id: string,
+): ContributionKey<C>;
 export declare function Service<S>(): (name: string, spec?: ServiceSpec) => ServiceKey<S>;
 /** Every action any loaded plugin offers. */
 export declare const ActionPoint: PointKey<ActionContribution>;

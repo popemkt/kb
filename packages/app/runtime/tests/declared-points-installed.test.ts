@@ -140,3 +140,25 @@ test("a stranger installed first cannot declare in a bundled family's namespace"
   );
   expect(tree.points.some(({ point }) => point === "graph.themes")).toBe(false);
 });
+
+test("switching a family on names an unmet required provider and leaves the switch off", async () => {
+  const ctx = await setup();
+  await install(ctx, "owner");
+  await install(ctx, "user");
+  await trust(ctx, "point-owner");
+  await trust(ctx, "point-user");
+  const set = (name: string, on: boolean) =>
+    invoke(ctx, { id: "extension.switch", input: { name, on } });
+  expect((await set("point-user", false)).status).toBe("succeeded");
+  expect((await set("point-owner", false)).status).toBe("succeeded");
+  expect(await set("point-user", true)).toMatchObject({
+    status: "failed",
+    code: "invalid_input",
+    message: "point-user needs ext.point-owner.values before it can be switched on",
+  });
+  expect((await report(ctx)).extensions.find(({ name }) => name === "point-user")?.enabled).toBe(
+    false,
+  );
+  expect((await set("point-owner", true)).status).toBe("succeeded");
+  expect((await set("point-user", true)).status).toBe("succeeded");
+});

@@ -7,12 +7,14 @@ export type {
   Plugin,
   PluginContext,
   PluginHandle,
+  RequirementState,
 } from "./kernel.ts";
 export {
   PointName,
   Point,
   Service,
   asKeyType,
+  contributionKey,
   kernelHosts,
   KERNEL_HOSTS,
   POINT_CARDINALITIES,
@@ -39,3 +41,5 @@ export { roleSession, type RoleSession } from "./role-session.ts";
 export { ROLE_KINDS } from "./roles.ts";
 
 export { EXTENSION_NAME_PATTERN, LOCAL_POINT_NAME_PATTERN } from "./keys.ts";
+
+export type { ContributionKey, InjectKey } from "./keys.ts";

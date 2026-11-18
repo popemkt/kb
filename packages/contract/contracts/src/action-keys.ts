@@ -41,7 +41,6 @@ function actionKey<I extends z.ZodType, O extends z.ZodType>(
       binding ??= { family, id: extensionActionId(family, localId) };
       return definition;
     },
-    request,
     invoke: (run: CoreInvoker, input: z.input<I>, scope: Parameters<CoreInvoker>[1]) => {
       const call = request(input);
       return run(call, scope).pipe(
