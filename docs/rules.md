@@ -951,8 +951,8 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: CLI pays full cold start on every invocation
 
 - **expected** — Interactive commands reach a running kb ui process instead of rebuilding the world per invocation.
-- **current** — Every kb command imports effect plus datascript and rebuilds the query db from scratch; about 150 ms of every command is that import cost.
-- **impact** — Interactive use is bounded by cold start, and the derived snapshot cache exists mostly to work around it.
+- **current** — Profiled at de181ba2 with Bun 1.4.2 on Linux, nine fresh source CLI processes per case and a 50,817-node JSONL scratch store. Median wall time was 205 ms for --version, 386 ms for --help, 893 ms for get, 942 ms for search, and 1,295 ms for a Datalog query. Separately timed phases took 352 ms to import the CLI, 214 ms to select and load the store, 424 ms for a complete session open including that load, 28 ms for the first registry build after opening, and 16 ms to build the action layer with the registry already warm. The CPU profile of get sampled 53 ms in seed retirement's remapText. DataScript facts are lazy and get does not request them.
+- **impact** — The source CLI pays for imports and opening the graph on each call. In Datalog commands, the first query also builds the facts. The profile uses an OS-warm file cache and is a comparison baseline for this host.
 - **closes** — Separate design question recorded in briefs/p1-persistence.md section 4: protocol, discovery, and fallback when no server is running.
 - **node** — `01M1M08WPQTB514E7JERKYEDWZ`
 
