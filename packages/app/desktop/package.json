@@ -1,0 +1,32 @@
+{
+  "name": "@kb/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test",
+    "dev": "electrobun dev",
+    "build:app": "electrobun build",
+    "build:mac": "electrobun build --env=stable"
+  },
+  "dependencies": {
+    "@effect/platform-bun": "catalog:",
+    "@kb/child-process": "workspace:*",
+    "@kb/workspace-fs": "workspace:*",
+    "effect": "catalog:",
+    "electrobun": "catalog:"
+  },
+  "devDependencies": {
+    "@kb/test-kit": "workspace:*",
+    "@types/bun": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "scope:backend"
+    ]
+  }
+}

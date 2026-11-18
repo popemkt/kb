@@ -399,6 +399,10 @@ export const TEST_PRESET = "tsconfig.bun.json";
  * package and survives it being moved.
  */
 export const SANCTIONED_TSCONFIG_DELTAS: Record<string, Record<string, string>> = {
+  "@kb/desktop": {
+    paths:
+      "Electrobun 1.x ships `electrobun/bun` as TypeScript source that does not compile under the base strictness (`self`, implicit returns); the one adapter typechecks against a declaration of the slice it uses, and Electrobun's bundler builds the real module.",
+  },
   "@kb/render-tests": {
     lib: "Playwright `page.evaluate` bodies typecheck against the browser realm, so this one Bun package also needs the DOM lib. Widening the Bun preset would let backend code reference `document`.",
   },

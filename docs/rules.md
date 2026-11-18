@@ -573,6 +573,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A backend id in the authority's schema and in the base's cursor, checked on connect.
 - **node** — `01M69E3RQH76X44JB9H5NYDWBE`
 
+### GAP: a store window's page storage is lost when its local host comes back on another port
+
+- **expected** — A store window reopens with the page state it had (tab session, pane layout, scroll), whatever port its kb ui binds this time.
+- **current** — location.open starts kb ui --port 0, so each start has a new loopback origin, and the page's origin-scoped storage starts empty; the desktop remembers only the window's frame and page path (packages/app/desktop/src/core/app.ts).
+- **impact** — After a restart of the app or the host, a store window opens at the right page but with a fresh tab session and default layout.
+- **closes** — kb ui reuses a remembered port per root when it is free (the presence file or a location field names it), or the page keys its storage by store, not origin.
+- **node** — `01M7QTTSVH7B0ND5PTVD0475SB`
+
 ### GAP: a style's how-to names its tool in text, not by a node
 
 - **expected** — A how-to is a value whose tool (Three.js, Blender, Godot) is a node it refers to, so a builder's export or a query can ask for one tool's notes
@@ -1158,6 +1166,38 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A second machine's edits reach this one by git commit and merge only; no live shared editing, no offline queue.
 - **closes** — P0 and P1 of docs/research/2026-10-31-offline-first.md §7: the pure reconcile, the agent, the convergence property test, kb sync and the server lane.
 - **node** — `01M69E3P6ADBBDTGRP4F6ZSR81`
+
+### GAP: kb desktop declares the raw capture envelope itself instead of importing the contract
+
+- **expected** — Quick capture builds its payload as @kb/contracts' CaptureSubmit (CaptureSubmitSchema, CAPTURE_CONTRACT), the one statement of the raw capture wire.
+- **current** — packages/app/desktop/src/core/capture.ts declares RawCapture and CAPTURE_CONTRACT locally, matching the contract on feat/raw-capture-host, which was not on main when the desktop branched.
+- **impact** — If the contract changes, the desktop's envelope can drift from it with every test green.
+- **closes** — Once the capture contract is on main, capture.ts imports CaptureSubmit and CAPTURE_CONTRACT from @kb/contracts and its tests parse the envelope with CaptureSubmitSchema.
+- **node** — `01M7QTTTHGVFE32XRVV96A696K`
+
+### GAP: kb desktop has no pairing for a remote store's capture; its token is pasted by hand
+
+- **expected** — Adding a remote store pairs once (capture.pair with a one-use code the host's owner issues) and keeps the returned device credential in the OS keychain.
+- **current** — The store list takes an optional capture token as text and keeps it in the desktop's settings.json (mode 0600) beside the remote's origin (packages/app/desktop/src/core/config.ts).
+- **impact** — A remote capture works only with a token the person copied over, and the token sits in a plain file.
+- **closes** — The desktop calls capture.pair when a remote store is added and keeps the credential in Keychain (macOS) or the secret service (Linux).
+- **node** — `01M7QTTV8E0XFK9J0CKCNM6H5G`
+
+### GAP: kb desktop keeps remote stores in its own settings, beside the home store's locations
+
+- **expected** — A store reached at an origin (a tailnet kb ui) is a location like a local root: a node in the home store that location.list lists and location.open answers, so the desktop, the page's Locations section and kb open see one list.
+- **current** — packages/app/desktop/src/core/config.ts keeps remote stores (key, name, origin, token) in the desktop's settings.json; local stores are read from location.list.
+- **impact** — Two lists of stores: a remote added in the desktop is not in the page's Locations or kb locations, and one added elsewhere is not in the desktop.
+- **closes** — The locations family gains an origin (a URL-typed field beside sys.f.location.path, status derived by probing it), and the desktop lists and opens remotes through location.list and location.open.
+- **node** — `01M7QTTRFKDF9B7F4M29Z84XJQ`
+
+### GAP: kb desktop typechecks its Electrobun adapter against a hand-kept declaration
+
+- **expected** — The shell adapter typechecks against Electrobun's own declarations, so an Electrobun upgrade that changes an API the adapter calls goes red in tsc.
+- **current** — Electrobun 1.18 ships electrobun/bun as TypeScript source that does not compile under kb's strictness, so packages/app/desktop/tsconfig.json maps it (paths) to src/shell/electrobun/api.d.ts, a hand-written slice of the API.
+- **impact** — An Electrobun upgrade can change a signature the slice still declares; tsc stays green and the app fails at run time.
+- **closes** — Electrobun publishes declarations (or its 2.x devkit's are usable from a Bun workspace), or the slice is generated from node_modules/electrobun at install and checked, and the paths delta in SANCTIONED_TSCONFIG_DELTAS goes.
+- **node** — `01M7QTTS5YXQGNPZ1XRTVNTK4A`
 
 ### GAP: kb get without a host stops above D3's 100 ms target, inside the gate
 
