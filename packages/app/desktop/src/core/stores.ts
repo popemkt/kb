@@ -8,13 +8,16 @@
  * is an origin kept in the desktop's settings.
  *
  * What the desktop adds is ownership: a host it had to start is its to stop
- * when it quits, and one that was already serving is left alone.
+ * when it quits, and one that was already serving is left alone. Ownership
+ * is of one process, not of a root: the host is known by the presence it
+ * wrote when it started (its pid and its listener), and a host that has
+ * since been replaced by another one for the same root is not this app's.
  */
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 import { BunFileSystem } from "@effect/platform-bun";
-import { currentHome, readUiPresence, servingUi } from "@kb/workspace-fs";
+import { currentHome, readUiPresence, servingUi, type UiPresence } from "@kb/workspace-fs";
 import type { DesktopConfig, RemoteStore } from "./config.ts";
 import type { KbRunner, Receipt } from "./kb-command.ts";
 import { DeviceSettings, KbCli } from "./services.ts";
@@ -105,13 +108,26 @@ function isServed(root: string): Effect.Effect<boolean> {
   );
 }
 
-/** The pid `root`'s presence names, or null. */
-function presencePid(root: string): Effect.Effect<number | null> {
+/** What `root`'s presence says now, or null. */
+function presenceOf(root: string): Effect.Effect<UiPresence | null> {
   return readUiPresence(root).pipe(
-    Effect.map((presence) => presence?.pid ?? null),
     Effect.provide(BunFileSystem.layer),
     Effect.orElseSucceed(() => null),
   );
+}
+
+/** One host process: its pid and where it listens, as its presence names them. */
+interface HostIdentity {
+  readonly pid: number;
+  readonly listener: string;
+}
+
+function identityOf(presence: UiPresence): HostIdentity {
+  return { pid: presence.pid, listener: JSON.stringify(presence.at) };
+}
+
+function sameHost(a: HostIdentity, b: HostIdentity): boolean {
+  return a.pid === b.pid && a.listener === b.listener;
 }
 
 /** Send `sig` to `pid` (0 only asks), and answer whether it was there to receive it. */
@@ -146,9 +162,10 @@ export interface Stores {
   /** The roots whose hosts this app started and has not stopped. */
   readonly started: () => readonly string[];
   /**
-   * Stop the host this app started for `root`, when it still serves that
-   * root: SIGTERM to the pid its presence names, then SIGKILL after a
-   * grace. kb ui commits each write before it answers it, so a host with no
+   * Stop the host this app started for `root`, when that same process still
+   * serves it: SIGTERM, then SIGKILL after a grace. A host that has replaced
+   * it (another pid or listener in the presence) is someone else's and is
+   * never signalled. kb ui commits each write before it answers it, so a host with no
    * request in flight has nothing left to settle; the caller closes the
    * root's windows and waits for its own captures first.
    */
@@ -158,8 +175,8 @@ export interface Stores {
 const STOP_GRACE = "5 seconds";
 
 function storeDirectory(kb: KbRunner, config: DesktopConfig): Stores {
-  /** Roots whose host this app started, so quitting stops them and nothing else. */
-  const started = new Set<string>();
+  /** The host this app started for each root, so quitting stops those processes and nothing else. */
+  const started = new Map<string, HostIdentity>();
 
   const list = Effect.gen(function* () {
     const home = yield* currentHome;
@@ -181,7 +198,12 @@ function storeDirectory(kb: KbRunner, config: DesktopConfig): Stores {
     const opened = Option.getOrUndefined(decodeOpened(output));
     if (opened === undefined || opened.url === "")
       return yield* new StoreError({ message: `kb open answered no URL for ${store.name}` });
-    if (!wasServed) started.add(store.root);
+    if (!wasServed) {
+      // The host kb just started, known by the presence it wrote; without one
+      // there is no process to call this app's, so none is recorded.
+      const presence = yield* presenceOf(store.root);
+      if (presence !== null) started.set(store.root, identityOf(presence));
+    }
     return new URL(opened.url).origin;
   });
 
@@ -231,10 +253,13 @@ function storeDirectory(kb: KbRunner, config: DesktopConfig): Stores {
   });
 
   const stopStarted = Effect.fn("kb.desktop.stores.stopStarted")(function* (root: string) {
+    const owned = started.get(root);
     started.delete(root);
-    if (!(yield* isServed(root))) return;
-    const pid = yield* presencePid(root);
-    if (pid === null || !signal(pid, "SIGTERM")) return;
+    if (owned === undefined || !(yield* isServed(root))) return;
+    const presence = yield* presenceOf(root);
+    if (presence === null || !sameHost(identityOf(presence), owned)) return;
+    const { pid } = owned;
+    if (!signal(pid, "SIGTERM")) return;
     const exited = yield* Effect.gen(function* () {
       while (signal(pid, 0)) yield* Effect.sleep("100 millis");
     }).pipe(Effect.timeoutOption(STOP_GRACE));
@@ -248,7 +273,7 @@ function storeDirectory(kb: KbRunner, config: DesktopConfig): Stores {
     addLocal,
     addRemote,
     remove,
-    started: () => [...started],
+    started: () => [...started.keys()],
     stopStarted,
   };
 }

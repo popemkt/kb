@@ -86,7 +86,10 @@ offset), source: {app: "kb desktop"}, text}`. The host maps the text to
   - **Shift+Enter** adds a new line. **Escape** closes the panel.
   - When the panel closes, focus goes back to the app you were in (on macOS
     through `lsappinfo` and `open -b`, which need no permission).
-  - On failure the text stays and the reason shows.
+  - On failure the text stays and the reason shows. Enter again resends the
+    same capture (same `captureId`, time and store), so if the host saved it
+    but the answer was lost, it still makes one node. Changing the text
+    starts a new capture, and closing the panel drops it.
   - The target is the store you chose, else the store you last focused,
     else the first store.
 - **Menu** (the tray, and a "Stores" menu in the menu bar): Open store, Quick
@@ -95,7 +98,8 @@ offset), source: {app: "kb desktop"}, text}`. The host maps the text to
 - **Quit** (the menu, ⌘Q, SIGTERM or Ctrl-C) waits for captures in flight
   and closes the windows. It then stops only the `kb ui` hosts this app
   started, with SIGTERM and then SIGKILL after 5 s. A host that was already
-  running is left alone. Set `stopStartedHostsOnQuit: false` to keep the
+  running is left alone, and so is one that replaced the host this app
+  started (another pid or port in `.kb/ui.json`). Set `stopStartedHostsOnQuit: false` to keep the
   hosts running.
 - **`kb://open/<store>/<node>`** opens the node in that store's window. The
   store is named by its key or its name. The link only navigates, and a

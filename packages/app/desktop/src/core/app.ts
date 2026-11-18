@@ -6,7 +6,12 @@
  * (`Effect.runFork`), and a refusal it meets is shown with `shell.alert`.
  */
 import { Context, DateTime, Deferred, Effect, Layer } from "effect";
-import { textCapture, type CaptureOutcome, type SubmitCapture } from "./capture.ts";
+import {
+  textCapture,
+  type CaptureOutcome,
+  type RawCapture,
+  type SubmitCapture,
+} from "./capture.ts";
 import type { DesktopConfig } from "./config.ts";
 import { startControlServer, type ControlActions, type ControlServer } from "./control.ts";
 import { nodePagePath, parseDeepLink } from "./deep-link.ts";
@@ -79,6 +84,18 @@ interface StoreWindow {
   readonly origin: string;
 }
 
+/**
+ * A capture sent and not yet confirmed. Sending the same text again resends
+ * this envelope (its id, its time and its store), so a host that committed it
+ * but whose answer was lost answers with the same receipt instead of making
+ * a second node. Changed text is a new capture; closing the panel abandons it.
+ */
+interface PendingCapture {
+  readonly text: string;
+  readonly store: Store;
+  readonly capture: RawCapture;
+}
+
 /** What the app's parts share: its services, and the state of its windows. */
 interface Ctx {
   readonly shell: Shell;
@@ -95,6 +112,7 @@ interface Ctx {
   readonly refreshMenu: Effect.Effect<void>;
   control: ControlServer | null;
   capturePanel: ShellWindow | null;
+  pendingCapture: PendingCapture | null;
   storesWindow: ShellWindow | null;
   lastFocused: string | null;
   quitting: boolean;
@@ -241,7 +259,9 @@ function quickCapture(ctx: Ctx) {
     });
     ctx.capturePanel = panel;
     panel.onClosed(() => {
-      if (ctx.capturePanel === panel) ctx.capturePanel = null;
+      if (ctx.capturePanel !== panel) return;
+      ctx.capturePanel = null;
+      ctx.pendingCapture = null;
     });
     panel.focus();
   });
@@ -250,17 +270,29 @@ function quickCapture(ctx: Ctx) {
   const closeCapture = Effect.gen(function* () {
     const panel = ctx.capturePanel;
     ctx.capturePanel = null;
+    ctx.pendingCapture = null;
     panel?.close();
     yield* focus.restore;
   });
 
-  const send = Effect.fn("kb.desktop.app.send")(function* (text: string) {
+  /** The envelope for `text`: the pending one when it is the same text, else a new capture. */
+  const envelope = Effect.fn("kb.desktop.app.envelope")(function* (text: string) {
+    if (ctx.pendingCapture !== null && ctx.pendingCapture.text === text) return ctx.pendingCapture;
     const store = yield* captureStore;
-    const origin = windows.get(store.key)?.origin ?? (yield* stores.origin(store));
     const now = yield* DateTime.now;
+    const pending = { text, store, capture: textCapture(text, now, crypto.randomUUID()) };
+    ctx.pendingCapture = pending;
+    return pending;
+  });
+
+  const send = Effect.fn("kb.desktop.app.send")(function* (text: string) {
+    const { store, capture } = yield* envelope(text);
+    const origin = windows.get(store.key)?.origin ?? (yield* stores.origin(store));
     const token =
       store.kind === "remote" && store.token !== undefined ? { token: store.token } : {};
-    return yield* ctx.submit({ origin, ...token }, textCapture(text, now, crypto.randomUUID()));
+    const outcome = yield* ctx.submit({ origin, ...token }, capture);
+    if (outcome.ok && ctx.pendingCapture?.capture === capture) ctx.pendingCapture = null;
+    return outcome;
   });
 
   /** Send, counted as in flight until the host has answered. */
@@ -427,6 +459,7 @@ function desktopApp(
     refreshMenu: Effect.suspend(() => drawMenu),
     control: null,
     capturePanel: null,
+    pendingCapture: null,
     storesWindow: null,
     lastFocused: null,
     quitting: false,

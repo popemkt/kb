@@ -24,6 +24,7 @@ import {
   type RawCapture,
   type Shell,
   type ShellWindow,
+  type SubmitCapture,
   type WindowFrame,
   type WindowSpec,
 } from "../src/index.ts";
@@ -137,7 +138,14 @@ beforeEach(async () => {
   mkdirSync(join(await Effect.runPromise(currentHome), ".kb"), { recursive: true });
 });
 
-async function started(submitted: { origin: string; capture: RawCapture }[] = []) {
+async function started(
+  submitted: { origin: string; capture: RawCapture }[] = [],
+  submit: SubmitCapture = (host, capture) =>
+    Effect.sync(() => {
+      submitted.push({ origin: host.origin, capture });
+      return { ok: true, nodeId: "n1", store: "Alpha" } as const;
+    }),
+) {
   const ui = fakeShell();
   const config = new DesktopConfig(dir);
   const kb = fakeKb();
@@ -146,13 +154,7 @@ async function started(submitted: { origin: string; capture: RawCapture }[] = []
     Layer.succeed(DeviceSettings, config),
     Layer.succeed(KbCli, kb),
     Layer.succeed(FocusKeeper, NO_FOCUS_RETURN),
-    Layer.succeed(CaptureClient, {
-      submit: (host, capture) =>
-        Effect.sync(() => {
-          submitted.push({ origin: host.origin, capture });
-          return { ok: true, nodeId: "n1", store: "Alpha" } as const;
-        }),
-    }),
+    Layer.succeed(CaptureClient, { submit }),
   );
   const app = await Effect.runPromise(
     Effect.gen(function* () {
@@ -161,6 +163,24 @@ async function started(submitted: { origin: string; capture: RawCapture }[] = []
   );
   await Effect.runPromise(app.start);
   return { ui, app, kb, config };
+}
+
+/** Open the quick-capture panel by its hotkey, and a caller of the control server with its token. */
+async function capturePanel(
+  ui: ReturnType<typeof fakeShell>,
+  app: { control(): { readonly origin: string } },
+) {
+  ui.pressHotkey();
+  await Bun.sleep(0);
+  const panel = ui.open().find((w) => w.spec.floating);
+  const token = new URL(panel?.url ?? "").searchParams.get("t") ?? "";
+  const call = (path: string, body?: unknown) =>
+    fetch(`${app.control().origin}${path}`, {
+      method: body === undefined ? "GET" : "POST",
+      headers: { "x-kb-desktop": token },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    }).then((r) => r.json());
+  return { panel, call };
 }
 
 describe("DesktopApp", () => {
@@ -202,17 +222,8 @@ describe("DesktopApp", () => {
   test("quick capture sends the raw text to the capture store's host and closes", async () => {
     const submitted: { origin: string; capture: RawCapture }[] = [];
     const { ui, app } = await started(submitted);
-    ui.pressHotkey();
-    await Bun.sleep(0);
-    const panel = ui.open().find((w) => w.spec.floating);
+    const { panel, call } = await capturePanel(ui, app);
     expect(panel?.url).toStartWith(`${app.control().origin}/capture?t=`);
-    const token = new URL(panel?.url ?? "").searchParams.get("t") ?? "";
-    const call = (path: string, body?: unknown) =>
-      fetch(`${app.control().origin}${path}`, {
-        method: body === undefined ? "GET" : "POST",
-        headers: { "x-kb-desktop": token },
-        body: body === undefined ? undefined : JSON.stringify(body),
-      }).then((r) => r.json());
     expect(await call("/api/capture/target")).toEqual({ name: "Alpha" });
     expect(await call("/api/capture", { text: "buy milk\n" })).toEqual({ nodeId: "n1" });
     expect(submitted).toHaveLength(1);
@@ -229,6 +240,37 @@ describe("DesktopApp", () => {
       body: "{}",
     });
     expect(refused.status).toBe(403);
+    await Effect.runPromise(app.settle);
+  });
+
+  test("a retry after a lost answer resends the same capture, so the host makes one node", async () => {
+    // A host that commits each capture once by its id, and loses its first answer.
+    const nodes = new Map<string, string>();
+    const ids: string[] = [];
+    const submit: SubmitCapture = (_host, capture) =>
+      Effect.sync(() => {
+        ids.push(capture.captureId);
+        const known = nodes.get(capture.captureId);
+        if (known !== undefined) return { ok: true, nodeId: known, store: "Alpha" } as const;
+        nodes.set(capture.captureId, `n${nodes.size + 1}`);
+        return { ok: false, message: "the host did not answer in time" } as const;
+      });
+    const { ui, app } = await started([], submit);
+    const { panel, call } = await capturePanel(ui, app);
+    expect(await call("/api/capture", { text: "call Ana" })).toEqual({
+      error: "the host did not answer in time",
+    });
+    expect(panel?.closed).toBe(false);
+    expect(await call("/api/capture", { text: "call Ana" })).toEqual({ nodeId: "n1" });
+    expect(nodes.size).toBe(1);
+    expect(ids[1]).toBe(ids[0]);
+
+    // Text changed after a failure is a new capture, with its own id.
+    const next = await capturePanel(ui, app);
+    await next.call("/api/capture", { text: "call Ana" });
+    await next.call("/api/capture", { text: "call Ana today" });
+    expect(new Set(ids.slice(2)).size).toBe(2);
+    expect(ids.slice(2)).not.toContain(ids[0]);
     await Effect.runPromise(app.settle);
   });
 
