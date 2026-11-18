@@ -7,10 +7,19 @@
  */
 import { Effect, Result, Schema } from "effect";
 import { z } from "zod";
-import { GraphWrites, KbCtx, type ExtensionAction, type KbContext } from "@kb/contracts";
+import {
+  GraphEdgesAction,
+  EdgeKindSchema,
+  edgeKinds,
+  includeSystem,
+  GraphWrites,
+  KbCtx,
+  type ExtensionAction,
+  type KbContext,
+} from "@kb/contracts";
 import { KbIndexService, type NodeIndex } from "@kb/query";
 import { currentIso, domainError, type DomainError } from "@kb/model";
-import { EdgeKindSchema, type EdgeKind } from "./lens.ts";
+import type { EdgeKind } from "./lens.ts";
 import { edgesAmong, suggestOf, traceOf } from "./read.ts";
 import { typedRelation } from "./relation.ts";
 import { visibleNodes } from "./scaffolding.ts";
@@ -18,20 +27,6 @@ import { SUGGEST_DEFAULTS } from "./suggest.ts";
 import { TRACE_DEFAULTS, TRACE_REASON_CODES } from "./trace.ts";
 
 const isEdgeKind = Schema.is(EdgeKindSchema);
-const edgeKinds = z
-  .array(
-    z
-      .string()
-      .refine(isEdgeKind, { message: 'expected mention, child, ref-prop or "prop:<field id>"' }),
-  )
-  .optional()
-  .describe("The relationships walked; default mention, child and ref-prop (every ref field)");
-const includeSystem = z
-  .boolean()
-  .optional()
-  .describe(
-    "Walk through scaffolding (sys.* nodes, commands, tags and fields) too; by default the graph elides it",
-  );
 
 const traceInput = z.object({
   from: z.string().describe("The node the paths start at"),
@@ -134,34 +129,14 @@ export const graphSuggestEffect = Effect.fn("ext.graph.suggest")(function* (
   });
 });
 
-const edgesInput = z.object({
-  ids: z.array(z.string()).min(1).describe("The nodes whose edges among themselves are drawn"),
-  kinds: edgeKinds,
-  includeSystem,
-});
-
-const edgesOutput = z.object({
-  /** Of the ids named, those the graph shows, once each and in the order named. */
-  nodes: z.array(z.string()),
-  edges: z.array(
-    z.object({
-      source: z.string(),
-      target: z.string(),
-      kind: z.string(),
-      weight: z.number(),
-      label: z.string(),
-    }),
-  ),
-});
-
 export const graphEdgesEffect = Effect.fn("ext.graph.edges")(function* (
-  input: z.infer<typeof edgesInput>,
-): Effect.fn.Return<z.infer<typeof edgesOutput>, DomainError, KbCtx> {
+  input: z.infer<typeof GraphEdgesAction.definition.inputSchema>,
+): Effect.fn.Return<z.infer<typeof GraphEdgesAction.definition.outputSchema>, DomainError, KbCtx> {
   const { index, nodes } = yield* KbCtx;
   yield* existing(index, input.ids);
   const shown = visibleNodes(nodes, { includeSystem: input.includeSystem });
   const within = new Set(shown.map((node) => node.id));
-  return edgesOutput.parse(
+  return GraphEdgesAction.definition.outputSchema.parse(
     edgesAmong(nodes, { ids: input.ids, kinds: kindsOf(input.kinds), within }),
   );
 });
@@ -200,62 +175,62 @@ export const graphRelationTypeEffect = Effect.fn("ext.graph.relation.type")(func
   return { ...input, written: written !== null };
 });
 
-export const GRAPH_ACTIONS: readonly ExtensionAction[] = [
-  {
-    id: "trace",
-    aliases: ["graph.trace"],
-    title: "Trace connections",
-    description:
-      "The k shortest paths between two nodes over the graph's relationships, each hop with its " +
-      "kind, its direction, its label and a sentence. Ties in length go to the path through less " +
-      "connected nodes. A path is not a datalog relation, so this is not graph.query",
-    mode: { kind: "read" },
-    // "How does this connect to …": the trace may start at the focused node.
-    context: { from: "focused" },
-    inputSchema: traceInput,
-    outputSchema: traceOutput,
-    effect: graphTraceEffect,
-  },
-  {
-    id: "suggest",
-    aliases: ["graph.suggest"],
-    title: "Suggest relations",
-    description:
-      "Nodes the relationships do not connect to a node but whose structure says they relate: " +
-      "shared neighbours (Adamic-Adar), shared tags by rarity, and co-citation, each with its reasons",
-    mode: { kind: "read" },
-    inputSchema: suggestInput,
-    outputSchema: suggestOutput,
-    effect: graphSuggestEffect,
-  },
-  {
-    id: "edges",
-    aliases: ["graph.edges"],
-    title: "Edges among nodes",
-    description:
-      "The relationships among a set of nodes as the graph draws them, each with its kind, its " +
-      "weight (parallel edges of one kind counted) and its label (a verb, or a typed relation's " +
-      "field). Scaffolding is elided unless includeSystem, so the answer also says which of the " +
-      "ids it kept. What a diagram or a picture of a set draws its connections from",
-    mode: { kind: "read" },
-    inputSchema: edgesInput,
-    outputSchema: edgesOutput,
-    effect: graphEdgesEffect,
-  },
-  {
-    id: "relation.type",
-    aliases: ["graph.relation.type"],
-    title: "Type a relation",
-    description:
-      "Say what a connection means: add one ref prop of a ref field from source to target, in " +
-      "one transaction, leaving the text (and any mention of the target) as it is. The field " +
-      "node's text is the relation's label. Refuses a field that is not a ref and a target the " +
-      "field does not allow; typing a relation the source already holds writes nothing. " +
-      "It declares delegated approval (the owner's to say), which no guard that ships enforces for now",
-    // Typing a relation says what a connection means, which is the owner's to say.
-    mode: { kind: "write", approval: "delegated" },
-    inputSchema: relationInput,
-    outputSchema: relationOutput,
-    effect: graphRelationTypeEffect,
-  },
-];
+export function graphActions(family: string): readonly ExtensionAction[] {
+  return [
+    {
+      id: "trace",
+      aliases: ["graph.trace"],
+      title: "Trace connections",
+      description:
+        "The k shortest paths between two nodes over the graph's relationships, each hop with its " +
+        "kind, its direction, its label and a sentence. Ties in length go to the path through less " +
+        "connected nodes. A path is not a datalog relation, so this is not graph.query",
+      mode: { kind: "read" },
+      // "How does this connect to …": the trace may start at the focused node.
+      context: { from: "focused" },
+      inputSchema: traceInput,
+      outputSchema: traceOutput,
+      effect: graphTraceEffect,
+    },
+    {
+      id: "suggest",
+      aliases: ["graph.suggest"],
+      title: "Suggest relations",
+      description:
+        "Nodes the relationships do not connect to a node but whose structure says they relate: " +
+        "shared neighbours (Adamic-Adar), shared tags by rarity, and co-citation, each with its reasons",
+      mode: { kind: "read" },
+      inputSchema: suggestInput,
+      outputSchema: suggestOutput,
+      effect: graphSuggestEffect,
+    },
+    {
+      ...GraphEdgesAction.bind(family),
+      aliases: ["graph.edges"],
+      title: "Edges among nodes",
+      description:
+        "The relationships among a set of nodes as the graph draws them, each with its kind, its " +
+        "weight (parallel edges of one kind counted) and its label (a verb, or a typed relation's " +
+        "field). Scaffolding is elided unless includeSystem, so the answer also says which of the " +
+        "ids it kept. What a diagram or a picture of a set draws its connections from",
+      mode: { kind: "read" },
+      effect: graphEdgesEffect,
+    },
+    {
+      id: "relation.type",
+      aliases: ["graph.relation.type"],
+      title: "Type a relation",
+      description:
+        "Say what a connection means: add one ref prop of a ref field from source to target, in " +
+        "one transaction, leaving the text (and any mention of the target) as it is. The field " +
+        "node's text is the relation's label. Refuses a field that is not a ref and a target the " +
+        "field does not allow; typing a relation the source already holds writes nothing. " +
+        "It declares delegated approval (the owner's to say), which no guard that ships enforces for now",
+      // Typing a relation says what a connection means, which is the owner's to say.
+      mode: { kind: "write", approval: "delegated" },
+      inputSchema: relationInput,
+      outputSchema: relationOutput,
+      effect: graphRelationTypeEffect,
+    },
+  ];
+}

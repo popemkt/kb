@@ -1,3 +1,4 @@
+import { Effect } from "effect";
 import { pageLength, type TxPage, type TxRecord, type TxTail } from "@kb/contracts";
 import { canonicalJson, recordedTx, type KbTx, type StoreTx } from "@kb/model";
 
@@ -41,13 +42,17 @@ export class MemoryTxTail implements TxTail {
     );
   }
 
-  append(ops: StoreTx, record: TxRecord): KbTx {
-    const tx = recordedTx(this.head() + 1, ops, record);
-    this.entriesInOrder.push(tx);
-    return tx;
+  append(ops: StoreTx, record: TxRecord): Effect.Effect<KbTx> {
+    return Effect.sync(() => {
+      const tx = recordedTx(this.head() + 1, ops, record);
+      this.entriesInOrder.push(tx);
+      return tx;
+    });
   }
 
-  adopt(txs: readonly KbTx[]): void {
-    this.entriesInOrder = [...txs];
+  adopt(txs: readonly KbTx[]): Effect.Effect<void> {
+    return Effect.sync(() => {
+      this.entriesInOrder = [...txs];
+    });
   }
 }

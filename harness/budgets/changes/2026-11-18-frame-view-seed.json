@@ -1,0 +1,11 @@
+{
+  "reason": "Frame family declarations supply the store's default view option.",
+  "raise": {
+    "cli-closure": {
+      "bytes": 717
+    },
+    "surface": {
+      "@kb/model": 1
+    }
+  }
+}

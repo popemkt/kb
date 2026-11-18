@@ -8,7 +8,7 @@ import { openSync } from "node:fs";
 import { ReadStream, WriteStream } from "node:tty";
 import { createInterface } from "node:readline/promises";
 import { type Command, CommanderError } from "commander";
-import { Cause, Effect, Option } from "effect";
+import { Cause, Effect, type Scope, Option } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import {
   ActionCatalog,
@@ -20,7 +20,7 @@ import {
 import {
   invokeReceiptEffect,
   kbRuntimeLayer,
-  openKbEffect,
+  openKbScoped,
   processVia,
   type ActionHandlerEnv,
   resolveRootEffect,
@@ -98,7 +98,7 @@ export function handleCliError(err: unknown, json: boolean): number {
  * command are what type `A`.
  */
 export function cliAction<A extends readonly unknown[], E>(
-  body: (globals: GlobalOpts, args: A) => Effect.Effect<number, E, FileSystem>,
+  body: (globals: GlobalOpts, args: A) => Effect.Effect<number, E, FileSystem | Scope.Scope>,
 ): (this: Command, ...args: A) => Promise<void> {
   return function (this: Command, ...args: A): Promise<void> {
     const globals = getGlobals(this);
@@ -106,6 +106,7 @@ export function cliAction<A extends readonly unknown[], E>(
       // `suspend` so a plan built eagerly by the body (a bad `--prop`, say)
       // fails inside the Effect rather than throwing out of Commander.
       Effect.suspend(() => body(globals, args)).pipe(
+        Effect.scoped,
         Effect.provide(bunFileSystemLayer),
         Effect.catchCause((cause) =>
           Effect.succeed(handleCliError(Cause.squash(cause), globals.json === true)),
@@ -135,7 +136,7 @@ export function kbAction<A extends readonly unknown[], E>(
   return cliAction((globals, args) =>
     Effect.gen(function* () {
       const root = yield* resolveRootEffect({ root: globals.root });
-      const ctx = yield* openKbEffect(root);
+      const ctx = yield* openKbScoped(root);
       return yield* body(ctx, globals, args).pipe(Effect.provide(kbRuntimeLayer(ctx)));
     }),
   );

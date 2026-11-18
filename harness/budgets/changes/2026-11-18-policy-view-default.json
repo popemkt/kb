@@ -1,0 +1,9 @@
+{
+  "reason": "The governance family previews the removal of an untouched legacy table binding.",
+  "raise": {
+    "cli-closure": {
+      "bytes": 138,
+      "modules": 1
+    }
+  }
+}

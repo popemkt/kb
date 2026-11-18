@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { Cause, Effect, Exit } from "effect";
 import {
   Point,
+  contributionKey,
   Service,
   definePlugin,
   makeKernel,
@@ -17,6 +18,31 @@ const Greetings = Point<string>()("test.greetings", {
   tier: "T0",
 });
 const Counter = Service<{ readonly next: () => number }>()("test.counter");
+
+test("an injected canonical contribution adds a dependency, pends on loss, and rebinds", () => {
+  const hello = contributionKey(Greetings, "hello", "hello.world");
+  const reader = definePlugin({
+    name: "reader",
+    inject: [hello],
+    apply: Effect.fnUntraced(function* (ctx) {
+      yield* ctx.contribute(Greetings, { id: "copy", value: yield* ctx.get(hello) });
+    }),
+  });
+  const kernel = makeKernel({ host: "registry" });
+  run(kernel.load(reader));
+  expect(statusOf(kernel, "reader")).toBe("pending");
+  const provider = greeter("hello", "world");
+  const first = run(kernel.load(provider));
+  expect(kernel.dependencies()).toEqual([
+    { from: "reader", to: "hello", kind: "contribution", name: hello.name },
+  ]);
+  expect(kernel.lookup(Greetings, "reader.copy")?.value).toBe("world");
+  run(first.unload);
+  expect(ids(kernel)).toEqual([]);
+  expect(statusOf(kernel, "reader")).toBe("pending");
+  run(kernel.load(provider));
+  expect(kernel.lookup(Greetings, "reader.copy")?.value).toBe("world");
+});
 
 function greeter(name: string, ...words: string[]): Plugin {
   return definePlugin({

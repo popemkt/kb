@@ -61,6 +61,8 @@ export interface StoreCommit {
  */
 export interface EffectStore {
   readonly path: string;
+  /** Release held resources once the owner's operations have settled. Repeatable. */
+  readonly closeEffect: Effect.Effect<void>;
   /**
    * The store's state as it moves, whoever moves it: the current
    * {@link fingerprint} once the subscription is armed, then each fingerprint

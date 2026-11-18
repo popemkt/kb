@@ -280,6 +280,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
     const injected: KbNode[] = [sampleNode("n.injected", "from-mock")];
     let loads = 0;
     const mock: EffectStore = {
+      closeEffect: Effect.void,
       // A store with no fingerprint of its own: nothing to compare against, so
       // reload always goes to the port rather than short-circuiting.
       path: join(root, ".kb", "mock.jsonl"),
@@ -295,7 +296,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
           base: null,
           fingerprint: null,
           tx,
-          record: mock.txTail.append(tx, record),
+          record: Effect.runSync(mock.txTail.append(tx, record)),
           writes: writesOf(tx, (id) => injected.find((node) => node.id === id)),
         })),
     };
@@ -319,6 +320,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
     let held: KbNode[] = [];
     let revision = 0;
     const mock: EffectStore = {
+      closeEffect: Effect.void,
       path: ctx.store.path,
       changes: Stream.never,
       loadEffect: Effect.sync(() => [...held]),
@@ -339,7 +341,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
             fingerprint: `revision:${revision}`,
             tx,
             writes,
-            record: mock.txTail.append(tx, record),
+            record: Effect.runSync(mock.txTail.append(tx, record)),
           };
         }),
     };
@@ -369,6 +371,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
     const foreign = sampleNode("n.foreign", "another process");
     let raced = false;
     const racing: EffectStore = {
+      closeEffect: Effect.void,
       path: ctx.store.path,
       changes: Stream.never,
       loadEffect: Effect.sync(() => [...held]),
@@ -393,7 +396,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
             fingerprint: `revision:${revision}`,
             tx,
             writes,
-            record: racing.txTail.append(tx, record),
+            record: Effect.runSync(racing.txTail.append(tx, record)),
           };
         }),
     };
@@ -517,6 +520,7 @@ function movingStore(path: string, moves: number) {
   let revision = 0;
   let moved = 0;
   const store: EffectStore = {
+    closeEffect: Effect.void,
     path,
     changes: Stream.never,
     loadEffect: Effect.sync(() => [...held]),
@@ -542,7 +546,7 @@ function movingStore(path: string, moves: number) {
           fingerprint: `revision:${revision}`,
           tx,
           writes,
-          record: store.txTail.append(tx, record),
+          record: Effect.runSync(store.txTail.append(tx, record)),
         });
       }),
   };

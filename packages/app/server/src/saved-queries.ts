@@ -98,15 +98,28 @@ export class SavedQuerySet {
    * did not move, which leaves the index as it is (every directory tick
    * calls this, and `withVirtual` rebuilds it).
    */
-  sync(nodes: readonly KbNode[], at: string): void {
+  sync = Effect.fn("kb.syncSavedQuerySet")(function* (
+    this: SavedQuerySet,
+    nodes: readonly KbNode[],
+    at: string,
+  ) {
     const files = diffTx(this.current, nodes);
     if (files.upserts.length === 0 && files.deletes.length === 0) return;
     const shown = () => this.current.filter((node) => this.ctx.index.isVirtual(node.id));
     const before = shown();
+    const previous = this.current;
     this.current = [...nodes];
+    // GAP [[01M7Q2GKYMMSGJGB5D4X120E3C]] a virtual delta rebuilds the query index
     this.ctx.index.withVirtual(this.current);
     const ops = diffTx(before, shown());
     if (ops.upserts.length === 0 && ops.deletes.length === 0) return;
-    this.ctx.log.append(ops, at, VIRTUAL_ORIGIN);
-  }
+    yield* this.ctx.log.append(ops, at, VIRTUAL_ORIGIN).pipe(
+      Effect.tapError(() =>
+        Effect.sync(() => {
+          this.current = previous;
+          this.ctx.index.withVirtual(previous);
+        }),
+      ),
+    );
+  });
 }

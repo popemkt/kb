@@ -19,7 +19,8 @@ import {
   agentPlugin,
   scriptedRuntime,
 } from "@kb/agent";
-import { BUNDLED_FAMILIES, HOSTED_FAMILIES } from "@kb/bundled";
+import { BUNDLED_FAMILIES, HOSTED_FAMILIES, bundledFold } from "@kb/bundled";
+import { familyCoverageIssues } from "@kb/extension-test-kit";
 import {
   NO_SECRETS,
   extensionActionId,
@@ -125,6 +126,13 @@ describe("a host adds exactly what its families declare it hosts", () => {
 describe("what kb ui hosts is what the fold declares", () => {
   test("it hands over exactly the hosted families, so each one's seed is in every store", async () => {
     const entries = await Effect.runPromise(hostExtensions("/"));
+    expect(
+      familyCoverageIssues(
+        HOSTED_FAMILIES,
+        entries.map(({ entry }) => entry.name),
+        bundledFold(),
+      ),
+    ).toEqual([]);
     expect(entries.map(({ declaration }) => declaration)).toEqual([...HOSTED_FAMILIES]);
   });
 

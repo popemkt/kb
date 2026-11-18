@@ -24,6 +24,7 @@ import { z } from "zod";
 import {
   CoreInvoke,
   type GraphWrites,
+  type FamilyKernels,
   KbCtx,
   type ActionReceipt,
   type ExtensionAction,
@@ -39,12 +40,11 @@ import {
   type CanvasRunFields,
 } from "@kb/canvas";
 import type { NodeIndex } from "@kb/query";
+import { CanvasModel, CanvasScripts, canvasCapability } from "./capabilities.ts";
 import { runFieldsEffect } from "./run-fields.ts";
 import { CanvasIdSchema } from "./schemas.ts";
 import { CanvasTxError, canvasStep, readCanvasEffect, type CanvasFail } from "./write.ts";
 
-/** The model performer: one tool-less turn of the agent family's selected provider. */
-const MODEL_ACTION = "ext.agent.complete";
 /** What the model is told it is, before the instruction it performs. */
 const CANVAS_PERFORMER =
   "You are one component of a canvas that runs as a computer. Perform the instruction below " +
@@ -58,8 +58,6 @@ const instructionTurn = (instruction: string, inputs: readonly string[]) => ({
   system: `${CANVAS_PERFORMER}\n\nInstruction: ${instruction}`,
   message: inputs.join(INPUT_SEPARATOR) || "(the inputs are empty)",
 });
-const SCRIPT_LIST = "ext.code.script.list";
-const SCRIPT_RUN = "ext.code.script.run";
 
 const runInput = z.object({
   canvasId: CanvasIdSchema,
@@ -99,9 +97,6 @@ const runOutput = z.object({
     }),
   ),
 });
-
-const scriptsSchema = z.object({ scripts: z.array(z.object({ id: z.string() })) });
-const completedSchema = z.object({ text: z.string() });
 
 /** A receipt's failure in words, or null for one that succeeded. */
 const failureOf = (receipt: ActionReceipt) =>
@@ -151,13 +146,12 @@ function performer(fields: CanvasRunFields) {
     const { nodeId } = step.component;
     const node = ctx.index.getNode(nodeId);
     if (node === undefined) return fail(`no node ${nodeId}`);
-    const listed = yield* invoke({ id: SCRIPT_LIST, input: { subjects: [nodeId] } }, "read");
-    const scripts =
-      listed.status === "succeeded"
-        ? (scriptsSchema.safeParse(listed.output).data?.scripts ?? [])
-        : [];
+    const scripted = yield* canvasCapability(CanvasScripts);
+    const listed =
+      scripted === undefined ? null : yield* scripted.list(invoke, { subjects: [nodeId] }, "read");
+    const scripts = listed?.status === "succeeded" ? listed.output.scripts : [];
     let made: FlowResult;
-    if (scripts.length > 0) {
+    if (scripted !== undefined && scripts.length > 0) {
       const unwritten = yield* writeField(
         nodeId,
         fields.input,
@@ -165,10 +159,7 @@ function performer(fields: CanvasRunFields) {
       );
       if (unwritten !== null) return fail(`its inputs were not written: ${unwritten}`);
       for (const script of scripts) {
-        const ran = yield* invoke(
-          { id: SCRIPT_RUN, input: { script: script.id, subject: nodeId } },
-          "write",
-        );
+        const ran = yield* scripted.run(invoke, { script: script.id, subject: nodeId }, "write");
         const failure = failureOf(ran);
         if (failure !== null) return fail(`script ${script.id}: ${failure}`);
       }
@@ -179,24 +170,21 @@ function performer(fields: CanvasRunFields) {
     } else if (step.component.inputs.length === 0) {
       made = { ok: true, output: node.text, by: "constant" };
     } else {
-      const asked = yield* invoke(
-        {
-          id: MODEL_ACTION,
-          input: instructionTurn(
-            node.text,
-            step.inputs.map((i) => i.text),
-          ),
-        },
+      const complete = yield* canvasCapability(CanvasModel);
+      if (complete === undefined)
+        return fail("no model performed it: agent completion is unavailable");
+      const asked = yield* complete(
+        invoke,
+        instructionTurn(
+          node.text,
+          step.inputs.map((i) => i.text),
+        ),
         "write",
       );
-      const failure = failureOf(asked);
-      const answer = completedSchema.safeParse(asked.status === "succeeded" ? asked.output : null);
       made =
-        failure !== null
-          ? fail(`no model performed it: ${failure}`)
-          : answer.success
-            ? { ok: true, output: answer.data.text, by: "model" }
-            : fail(`${MODEL_ACTION} answered no text`);
+        asked.status === "failed"
+          ? fail(`no model performed it: ${asked.message}`)
+          : { ok: true, output: asked.output.text, by: "model" };
     }
     if (!made.ok) return made;
     const unwritten = yield* writeField(nodeId, fields.output, [made.output]);
@@ -206,7 +194,7 @@ function performer(fields: CanvasRunFields) {
 
 const canvasRunEffect = Effect.fn("ext.canvas.run")(function* (
   input: z.infer<typeof runInput>,
-): Effect.fn.Return<z.infer<typeof runOutput>, CanvasFail, KbCtx | GraphWrites> {
+): Effect.fn.Return<z.infer<typeof runOutput>, CanvasFail, KbCtx | GraphWrites | FamilyKernels> {
   const ctx = yield* KbCtx;
   const doc = yield* readCanvasEffect(input.canvasId);
   const plan = yield* canvasStep(() => flowPlan(doc, input.from));
@@ -249,7 +237,7 @@ export const RUN_VERB: ExtensionAction = {
     "it enters. Upstream runs first (ties in document order). A component whose node names scripts runs " +
     "them, its inputs written to its input field first and its output what they leave in its output field; one with no inputs is a constant (its words); " +
     "any other is an instruction (its node's text) the agent's selected model performs on its inputs " +
-    "(ext.agent.complete; where no agent is hosted, it fails by name). Each output is written " +
+    "(the model is unavailable where no agent is hosted). Each output is written " +
     "to its node's output field as it is made. A component after one that failed is skipped. A flow that " +
     "loops runs `rounds` rounds, at most 8.",
   mode: { kind: "write", approval: "required" },

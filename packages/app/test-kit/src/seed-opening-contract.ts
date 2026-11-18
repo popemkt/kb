@@ -11,6 +11,8 @@ import { Effect } from "effect";
 import { BUNDLED_DECLARATIONS } from "@kb/bundled";
 import {
   SYSTEM_IDS,
+  VIEW_FAMILY_OPTIONS,
+  declaredOptionId,
   fieldTypeValue,
   refValuesOf,
   typeRefsOf,
@@ -19,7 +21,8 @@ import {
   type KbNode,
 } from "@kb/model";
 import { persistEffect } from "@kb/operations";
-import { kbRuntimeLayer } from "@kb/runtime";
+import { onWire } from "@kb/contracts";
+import { IN_PROCESS_WIRE, invokeReceiptEffect, kbRuntimeLayer } from "@kb/runtime";
 import { seedGoldenNodes } from "./seed-golden.ts";
 import {
   CONTRACT_AT,
@@ -119,17 +122,24 @@ export function providerRolesReachEarlierStoreOnce(makeStore: StoreFactory): Pro
 
 /**
  * A store an earlier kb seeded before the default view type existed — the
- * golden without `sys.f.view.default` and without `sys.views` naming one —
- * gains both on its first open, in exactly one write, and no later open
- * writes: a seed addition reaches an existing store once, through the seed's
- * own passes (a new node, a fill-absent prop), never by a migration of its own.
+ * golden without `sys.f.view.default` or any of its store and group
+ * choices — gains them on its first open in exactly one write, through
+ * the seed's fill-absent pass.
  */
 export function defaultViewTypeReachesEarlierStoreOnce(makeStore: StoreFactory): Promise<void> {
   const field = SYSTEM_IDS.viewDefaultField;
+  const defaults = new Map([
+    [SYSTEM_IDS.viewsRoot, viewOptionId("outline.main")],
+    ...BUNDLED_DECLARATIONS.flatMap(({ familyDefaultViews }) =>
+      Object.entries(familyDefaultViews ?? {}).map(
+        ([family, key]) => [declaredOptionId(VIEW_FAMILY_OPTIONS, family), key.option] as const,
+      ),
+    ),
+  ]);
   const earlier = seedGoldenNodes()
     .filter((node) => node.id !== field)
     .map((node) =>
-      node.id === SYSTEM_IDS.viewsRoot
+      defaults.has(node.id)
         ? {
             ...node,
             props: Object.fromEntries(Object.entries(node.props).filter(([k]) => k !== field)),
@@ -148,13 +158,13 @@ export function defaultViewTypeReachesEarlierStoreOnce(makeStore: StoreFactory):
         const write = after.at(-1)?.ops;
         expect(write?.deletes).toEqual([]);
         expect(write?.upserts.map((node) => node.id).toSorted()).toEqual(
-          [field, SYSTEM_IDS.viewsRoot].toSorted(),
+          [field, ...defaults.keys()].toSorted(),
         );
         const loaded = new Map((yield* makeStore(root).loadEffect).map((node) => [node.id, node]));
         expect(loaded.has(field)).toBe(true);
-        expect(loaded.get(SYSTEM_IDS.viewsRoot)?.props[field]).toEqual([
-          { t: "ref", v: viewOptionId("outline.main") },
-        ]);
+        for (const [carrier, option] of defaults) {
+          expect(loaded.get(carrier)?.props[field]).toEqual([{ t: "ref", v: option }]);
+        }
         yield* opensWithoutWriting(makeStore, root);
       }),
     ),
@@ -319,6 +329,51 @@ export function personEditsToSeededNodesSurviveOpening(makeStore: StoreFactory):
   );
 }
 
+/** A removal through the action boundary survives a fresh session over the store. */
+function seededRemoval(
+  makeStore: StoreFactory,
+  action: { id: string; input: unknown },
+  check: (nodes: readonly KbNode[]) => void,
+): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* backendRoot(makeStore);
+        const ctx = yield* openSession(root);
+        const receipt = yield* invokeReceiptEffect(ctx, onWire(IN_PROCESS_WIRE, action)).pipe(
+          Effect.provide(kbRuntimeLayer(ctx)),
+        );
+        expect(receipt.status).toBe("succeeded");
+        const reopened = yield* openSession(root);
+        check(reopened.nodes);
+        yield* opensWithoutWriting(makeStore, root);
+      }),
+    ),
+  );
+}
+
+export function clearedSeedPropSurvivesOpening(makeStore: StoreFactory): Promise<void> {
+  const id = "lens.all-mentions";
+  const field = "sys.f.lens.cluster-by";
+  return seededRemoval(
+    makeStore,
+    { id: "node.update", input: { id, unsetProps: [{ field }] } },
+    (nodes) => {
+      const lens = nodes.find((node) => node.id === id);
+      expect(lens).toBeDefined();
+      expect(lens?.props[field] ?? []).toEqual([]);
+    },
+  );
+}
+
+export function removedSeedNodeSurvivesOpening(makeStore: StoreFactory): Promise<void> {
+  const id = "pin.approval.policies";
+  return seededRemoval(makeStore, { id: "node.delete", input: { id } }, (nodes) => {
+    expect(nodes.some((node) => node.id === id)).toBe(false);
+    expect(nodes.some((node) => node.children.includes(id))).toBe(false);
+  });
+}
+
 /** `node` without its values of field `key`. */
 function without(node: KbNode, key: string): KbNode {
   return {
@@ -369,6 +424,30 @@ export function tagDefaultViewReachesEarlierStoreOnce(makeStore: StoreFactory): 
           v: field,
         });
         yield* opensWithoutWriting(makeStore, root);
+      }),
+    ),
+  );
+}
+
+/** Releasing a store has no graph or tail effect, and it can be repeated. */
+export function releaseLeavesStoreUnchanged(makeStore: StoreFactory): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* backendRoot(makeStore);
+        const held = makeStore(root);
+        yield* held.commitEffect(
+          { upserts: [plainNode("n-release", "Release check")], deletes: [] },
+          { at: AT },
+        );
+        const before = yield* stateOf(held);
+        yield* held.closeEffect;
+        yield* held.closeEffect;
+        const reopened = yield* Effect.acquireRelease(
+          Effect.sync(() => makeStore(root)),
+          (store) => store.closeEffect,
+        );
+        expect(yield* stateOf(reopened)).toEqual(before);
       }),
     ),
   );

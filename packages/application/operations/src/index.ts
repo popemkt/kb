@@ -20,7 +20,12 @@ export { nodeAddTreeEffect } from "./node-add-tree.ts";
 export { ASSET_MAX_BYTES, assetUploadEffect } from "./assets.ts";
 export { GENERATED_HEADER } from "./docs/docs.ts";
 export { DocsError } from "./docs/views.ts";
-export { extensionSettingsEffect, extensionSwitchDef, familyFootprint } from "./extensions.ts";
+export {
+  extensionImpactDef,
+  extensionSettingsEffect,
+  extensionSwitchDef,
+  familyFootprint,
+} from "./extensions.ts";
 export { kbManifestDef } from "./manifest.ts";
 export { ontologyMembersEffect } from "./ontology.ts";
 export {

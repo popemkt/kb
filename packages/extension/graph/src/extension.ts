@@ -1,4 +1,4 @@
-import { VIEW_FAMILY_OPTIONS } from "@kb/model";
+import { LEGACY_GRAPH_RETIREMENTS, VIEW_FAMILY_OPTIONS } from "@kb/model";
 import { GRAPH_POINT_DEFINITIONS } from "./point-definitions.ts";
 /**
  * The graph family's declaration and its shared plugin (DESIGN.md →
@@ -21,7 +21,7 @@ import {
   familyTags,
 } from "@kb/contracts";
 import { definePlugin, type Plugin } from "@kb/plugin";
-import { GRAPH_ACTIONS } from "./actions.ts";
+import { graphActions } from "./actions.ts";
 import { GRAPH_IDS } from "./ids.ts";
 import { graphSeedNodes } from "./seed.ts";
 import {
@@ -62,7 +62,10 @@ export const graphExtension = defineExtension({
   ],
   // The default perspective lost its `sys.` prefix, so the write guard
   // does not lock it.
-  retires: [{ from: "sys.lens.all-mentions", to: GRAPH_IDS.lensAllMentions }],
+  retires: [
+    ...LEGACY_GRAPH_RETIREMENTS,
+    { from: "sys.lens.all-mentions", to: GRAPH_IDS.lensAllMentions },
+  ],
   declaredOptions: [
     {
       kind: VIEW_FAMILY_OPTIONS,
@@ -74,6 +77,8 @@ export const graphExtension = defineExtension({
     },
   ],
 });
+
+export const GRAPH_ACTIONS = graphActions(graphExtension.name);
 
 /** The graph family's shared plugin: its declaration's views, on either host. */
 export function graphPlugin(): Plugin {

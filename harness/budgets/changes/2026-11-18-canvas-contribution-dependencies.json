@@ -1,0 +1,13 @@
+{
+  "reason": "Contribution injection resolves an action at its point, and the registry reads the hosted entries it can call. Canvas keeps optional performers in children, and the switch checks top-level requirements.",
+  "raise": {
+    "cli-closure": {
+      "bytes": 3207,
+      "modules": 1
+    },
+    "surface": {
+      "@kb/contracts": 1,
+      "@kb/plugin": 4
+    }
+  }
+}

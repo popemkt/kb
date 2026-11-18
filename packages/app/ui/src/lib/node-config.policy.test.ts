@@ -28,6 +28,7 @@ import { makeKernel } from "@kb/plugin";
 import { isFrameViewKey } from "@kb/views";
 import { browserHostUiPlugin } from "@/browser-host";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
+import { viewOptionNodes } from "@/fixtures/view-fields";
 import { GRAPH_IDS } from "@kb/graph";
 
 /** The frame views the outline plugin provides, as its hosts resolve against them. */
@@ -162,14 +163,14 @@ describe("getViewConfig reporting", () => {
     // frame has no frame view node, so it shows the list (`frameViewNodeOf`).
     const bare = node("v.bare", { [SYSTEM_IDS.viewSortField]: [{ t: "str", v: "text" }] });
     const frame = node("f", { [SYSTEM_IDS.viewsField]: [{ t: "ref", v: "v.bare" }] });
-    const schema = schemaOfGraph(wireToOutlineMap([frame, bare], new Set()));
+    const schema = schemaOfGraph(wireToOutlineMap([frame, bare, ...viewOptionNodes], new Set()));
     expect(frameViewOf(frame, schema, FRAME_VIEWS)?.key.option).toBe("sys.view.outline.list");
     expect(warned).toEqual([]);
   });
 
   it("shows the list for a frame that names no view node", () => {
     const frame = node("f", {});
-    const schema = schemaOfGraph(wireToOutlineMap([frame], new Set()));
+    const schema = schemaOfGraph(wireToOutlineMap([frame, ...viewOptionNodes], new Set()));
     expect(frameViewOf(frame, schema, FRAME_VIEWS)?.key.option).toBe("sys.view.outline.list");
     expect(warned).toEqual([]);
   });

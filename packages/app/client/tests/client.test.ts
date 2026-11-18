@@ -301,6 +301,26 @@ describe.each([...STORE_BACKENDS])("over a %s store", (backend) => {
   });
 });
 
+test.each([...STORE_BACKENDS])(
+  "%s closes an embedded client after its earlier work",
+  async (backend) => {
+    const root = await workspace(backend);
+    const client = await openClient(root);
+    const reading = client.snapshot();
+    const closing = client.close();
+    const snapshot = await reading;
+    await closing;
+    await client.close();
+    expect(await codeOf(client.snapshot())).toBe("invalid_input");
+    const reopened = await openClient(root);
+    try {
+      expect(await reopened.snapshot()).toEqual(snapshot);
+    } finally {
+      await reopened.close();
+    }
+  },
+);
+
 describe("choosing the store", () => {
   test("a root with no store reads as an empty JSONL store and writes nothing", async () => {
     const root = scratch();

@@ -25,11 +25,14 @@
  * transactions the store did not commit (the saved-query virtual set) and
  * wraps itself in one.
  */
+import { Effect } from "effect";
 import type { Database } from "bun:sqlite";
 import {
   canonicalJson,
   decodeStoredTx,
   domainError,
+  ensureDomainError,
+  type DomainError,
   recordedTx,
   type KbTx,
   type Actor,
@@ -145,20 +148,26 @@ export class SqliteTxTail implements TxTail {
       .map(toKbTx);
   }
 
-  append(ops: StoreTx, record: TxRecord): KbTx {
-    try {
-      const db = this.connection.open();
-      return db.transaction(() => this.appendWithin(db, ops, record)).immediate();
-    } catch (err) {
-      throw domainError(
-        "internal",
-        `append tx tail ${this.path}: ${err instanceof Error ? err.message : String(err)}`,
-        { path: this.path },
-      );
-    }
+  append(ops: StoreTx, record: TxRecord): Effect.Effect<KbTx, DomainError> {
+    return Effect.try({
+      try: () => {
+        const db = this.connection.open();
+        return db.transaction(() => this.appendWithin(db, ops, record)).immediate();
+      },
+      catch: (err) =>
+        domainError(
+          "internal",
+          `append tx tail ${this.path}: ${err instanceof Error ? err.message : String(err)}`,
+          { path: this.path },
+        ),
+    });
   }
 
-  adopt(txs: readonly KbTx[]): void {
+  adopt(txs: readonly KbTx[]): Effect.Effect<void, DomainError> {
+    return Effect.try({ try: () => this.replace(txs), catch: ensureDomainError });
+  }
+
+  private replace(txs: readonly KbTx[]): void {
     const db = this.connection.open();
     const kept = txs.slice(-TX_TAIL_KEEP_ENTRIES);
     db.transaction(() => {

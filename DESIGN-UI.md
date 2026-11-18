@@ -347,11 +347,14 @@ WS protocol (JSON):
 ← {op:"tx",    datoms:[...], rev:N}           // broadcast to graph subscribers
 ```
 
-- v1 implementation: on every load, the server rebuilds a DataScript database
-  from the current nodes; on fs change it re-runs each subscription's query and
-  pushes rows if the result hash changed. The index runs only the queries a
-  change touched (DESIGN.md → Query layer → A run's read set) and answers
-  the rest from what it remembers.
+- The hub groups live subscriptions by exact query text. It retains one
+  index answer per live query and releases it when the last subscriber
+  leaves. On a transaction or a runtime definition change it asks the index
+  once per live query. When the index returns the same answer, the hub
+  skips hashing its rows. It sends rows only to subscriptions that saw a
+  different hash. Query invalidation follows [the index's read
+  set](DESIGN.md#query-layer-horizontal). A full index replacement invalidates
+  every live answer.
 - The browser UI subscribes to `tx` only and answers every query from its
   own replica (→ Replica queries); `rows` subscriptions are for thin
   clients, which need no DataScript.
@@ -3490,7 +3493,7 @@ how the stored name resolves to the key among them.
   names the view, and `frameViewOf` (`@kb/ui-sdk`'s `lib/frame-view.ts`)
   looks that node up in the schema (`frameViewNodeOf`, the one test of what
   a frame's view node is, which every reader shares), resolves its view
-  among the frame views provided, the list's when the frame has no frame
+  among the frame views provided, the group's default (DESIGN.md → View nodes) when the frame has no frame
   view node (it names none, or only nodes that name no frame view), and
   decodes the view
   node's props through that view's params, so the view gets exactly the
@@ -4465,6 +4468,8 @@ the settings. The record of why is
   The page's own kernel is joined in through the same readers
   (`organisationOf`, `orderedPoints`, `pageFootprint`), so the page
   computes nothing a CLI caller could not read (`lib/extension-report.ts`).
+  Settings still writes the switch directly. The preview belongs here
+  (GAP [[01M7Q11Q3BQNEMXNDWC7EPS9ZC]]).
   When either action fails, or the server cannot be asked, Extensions and
   Advanced say why and offer to ask again; an extension's settings stay,
   read from the graph, and its switch and its Details are not drawn,

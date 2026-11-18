@@ -1,0 +1,8 @@
+{
+  "reason": "The shared node table feeds an optional search projection and verifies its candidates with the existing substring matcher. SQLite stays in the server. The shared text-search code raises the measured CLI closure from 2,849,230 to 2,850,982 bytes and the tested eager page ceiling from 2,023,645 to 2,024,645 bytes. SearchDocument and TextCandidates describe the server binding.",
+  "raise": {
+    "cli-closure": { "bytes": 1752 },
+    "page-eager": { "bytes": 1000 },
+    "surface": { "@kb/query": 2 }
+  }
+}

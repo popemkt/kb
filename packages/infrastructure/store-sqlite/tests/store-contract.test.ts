@@ -26,7 +26,7 @@ tailContract(
     Effect.map(
       Effect.acquireRelease(
         Effect.sync(() => new SqliteStore(root)),
-        (store) => Effect.sync(() => store.close()),
+        (store) => store.closeEffect,
       ),
       (store) => store.txTail,
     ),

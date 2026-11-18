@@ -18,13 +18,16 @@ import {
   rankOf,
   rankTx,
   StoreState,
+  canonicalJson,
   canonicalJsonl,
+  diffTx,
   present,
   type DomainError,
   KbNodeSchema,
   nodeParseOptions,
 } from "@kb/model";
 import { bundledSeed } from "@kb/bundled";
+import { seedRemovalNodes } from "@kb/seed";
 import { onWire, type ActionRequest, type KbContext } from "@kb/contracts";
 
 /**
@@ -367,18 +370,38 @@ function orderingErrors(nodes: KbNode[]): string[] {
   return out;
 }
 
-function mintedSysErrors(nodes: KbNode[]): string[] {
-  const out: string[] = [];
-  const seedIds = new Set(bundledSeed().map((n) => n.id));
-  for (const n of nodes) {
-    if (isSysPrefixed(n.id) && !seedIds.has(n.id)) {
-      out.push(`sys node ${n.id} was minted during simulation`);
-    }
-  }
-  return out;
+/** A new system node must come from the seed or record a seed removal in this write. */
+function mintedSysErrors(
+  before: readonly KbNode[],
+  nodes: readonly KbNode[],
+  seedIds: ReadonlySet<string>,
+): string[] {
+  const prior = new Map(before.map((node) => [node.id, node]));
+  const minted = nodes.filter(({ id }) => isSysPrefixed(id) && !seedIds.has(id) && !prior.has(id));
+  const [first] = minted;
+  if (first === undefined) return [];
+
+  const choices = seedRemovalNodes(
+    diffTx(before, nodes),
+    (id) => prior.get(id),
+    (id) => seedIds.has(id),
+    first.createdAt,
+  );
+  const expected = new Map(choices.map((node) => [node.id, node]));
+  return minted.flatMap((node) => {
+    const choice = expected.get(node.id);
+    return choice !== undefined &&
+      canonicalJson({ ...choice, order: node.order }) === canonicalJson(node)
+      ? []
+      : [`sys node ${node.id} was minted during simulation`];
+  });
 }
 
-function invariantViolations(nodes: KbNode[]): string[] {
+function invariantViolations(
+  before: readonly KbNode[],
+  nodes: KbNode[],
+  seedIds: ReadonlySet<string>,
+): string[] {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const txErr = txIntegrityError(nodes, { upserts: [], deletes: [] });
   return [
@@ -386,7 +409,7 @@ function invariantViolations(nodes: KbNode[]): string[] {
     ...multipleParentErrors(nodes),
     ...orderingErrors(nodes),
     ...(txErr !== null && txErr !== "" ? [txErr] : []),
-    ...mintedSysErrors(nodes),
+    ...mintedSysErrors(before, nodes, seedIds),
   ];
 }
 
@@ -490,6 +513,13 @@ export const runScenario = Effect.fn("kb.runScenario")(function* (
 
   const program = Effect.gen(function* () {
     const ctx = yield* openKbEffect(root);
+    const seedIds = new Set(bundledSeed().map(({ id }) => id));
+    let before = snapshotSync(root).nodes;
+    const unexpected = mintedSysErrors([], before, seedIds);
+    if (unexpected.length > 0) {
+      violations.push(`opening (seed ${seed}): ${unexpected.join("; ")}`);
+      return;
+    }
     const rnd = yield* Random.Random;
     const rng = seededRng(rnd);
     let fieldIds: string[] = [];
@@ -525,7 +555,8 @@ export const runScenario = Effect.fn("kb.runScenario")(function* (
       // Continuous invariant check on the on-disk store after this op. The
       // store commit is synchronous (durable-replace), so a sync read sees it.
       const snap = snapshotSync(root);
-      const bad = invariantViolations(snap.nodes);
+      const bad = invariantViolations(before, snap.nodes, seedIds);
+      before = snap.nodes;
       if (bad.length > 0) {
         violations.push(`op#${i} (seed ${seed}): ${bad.join("; ")}`);
         return;

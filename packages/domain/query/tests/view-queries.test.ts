@@ -48,9 +48,6 @@ const ids = (edn: string) =>
     .map((row) => String(row[0]))
     .toSorted();
 
-/** The governance family's policies table, a frame view node its seed files among the Views. */
-const POLICIES_TABLE = "view.approval.policies";
-
 describe("view queries", () => {
   test("each compiles in the subset, never raw", () => {
     for (const edn of [
@@ -81,15 +78,9 @@ describe("view queries", () => {
 
   test("a family lists the view nodes whose view is in it, and sys.f.views may name any view node", () => {
     // The graph family's seeded graph, All mentions (`lens.all-mentions`),
-    // is one of them, and the approval policies table another.
+    // is one of the graph renderer view nodes.
     expect(ids(familyViewNodesQuery("graph.renderer"))).toEqual(["lens.all-mentions", "v.tree"]);
-    expect(ids(familyViewNodesQuery("outline.frame"))).toEqual(["v.table", POLICIES_TABLE]);
-    expect(ids(VIEW_NODE_TARGET_QUERY)).toEqual([
-      "lens.all-mentions",
-      "v.nb",
-      "v.table",
-      "v.tree",
-      POLICIES_TABLE,
-    ]);
+    expect(ids(familyViewNodesQuery("outline.frame"))).toEqual(["v.table"]);
+    expect(ids(VIEW_NODE_TARGET_QUERY)).toEqual(["lens.all-mentions", "v.nb", "v.table", "v.tree"]);
   });
 });

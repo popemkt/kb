@@ -1,0 +1,13 @@
+{
+  "reason": "Explicit view migration consumes conditional rows of the seed retirement table.",
+  "raise": {
+    "cli-closure": {
+      "bytes": 1237,
+      "modules": 1
+    },
+    "surface": {
+      "@kb/contracts": 1,
+      "@kb/model": 3
+    }
+  }
+}

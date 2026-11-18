@@ -94,6 +94,7 @@
   },
   "devDependencies": {
     "@kb/ext-sdk": "workspace:*",
+    "@kb/extension-test-kit": "workspace:*",
     "@kb/ui-test-kit": "workspace:*",
     "@storybook/addon-a11y": "catalog:",
     "@storybook/react-vite": "catalog:",

@@ -165,13 +165,58 @@ describe("reach over a ref field", () => {
     },
   );
 
-  // GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]: pins today's aliasing; flips to [] when refs and numbers are encoded apart.
-  test("a number equal to a live eid still aliases that node", () => {
+  test("a stored number is not an entity in a cold index", () => {
     const index = new DatascriptIndex(
       [node("p0", { props: { parent: [{ t: "num", v: 2 }] } }), node("p1")],
       { derived: derivedWith({}) },
     );
+    expect(firstColumn(index.runDatalog(ANCESTORS("p0")))).toEqual([]);
+  });
+
+  test("an existing numeric value reserves its number when a later node arrives", () => {
+    const holder = node("p0", { props: { parent: [{ t: "num", v: 2 }] } });
+    const index = new DatascriptIndex([holder], { derived: derivedWith({}) });
+    expect(index.runDatalog(ANCESTORS("p0"))).toEqual([]);
+    index.applyTx({ upserts: [node("p1")], deletes: [] });
+    expect(index.runDatalog(ANCESTORS("p0"))).toEqual([]);
+  });
+
+  test("writing a number equal to a live eid keeps it distinct from the ref in the same field", () => {
+    const holder = node("p0", { props: { parent: [ref("p1")] } });
+    const index = new DatascriptIndex([holder, node("p1")], { derived: derivedWith({}) });
+    const [[encoded]] = index.runDatalog('[:find ?s :where [?n :node/id "p1"] [(str ?n) ?s]]') as [
+      [string],
+    ];
+    const value = Number(encoded);
+    expect(Number.isInteger(value)).toBe(true);
+    index.applyTx({
+      upserts: [{ ...holder, props: { parent: [ref("p1"), { t: "num", v: value }] } }],
+      deletes: [],
+    });
+
+    const rows = index.runDatalog('[:find ?v :where [?h :node/id "p0"] [?h :f/parent ?v]]');
+    expect(rows).toContainEqual([value]);
+    expect(rows).toContainEqual(["p1"]);
     expect(firstColumn(index.runDatalog(ANCESTORS("p0")))).toEqual(["p1"]);
+  });
+
+  test("a numeric field literal does not select a reference to that eid", () => {
+    const index = new DatascriptIndex(
+      [node("p0", { props: { parent: [ref("p1")] } }), node("p1")],
+      { derived: derivedWith({}) },
+    );
+    expect(index.runDatalog("[:find ?id :where [?n :node/id ?id] [?n :f/parent 2]]")).toEqual([]);
+  });
+
+  test("a numeric field literal above the engine's eid range stays a number", () => {
+    const value = Number.MAX_SAFE_INTEGER;
+    const index = new DatascriptIndex(
+      [node("p0", { props: { parent: [{ t: "num", v: value }] } })],
+      { derived: derivedWith({}) },
+    );
+    expect(
+      index.runDatalog(`[:find ?id :where [?n :node/id ?id] [?n :f/parent ${value}]]`),
+    ).toEqual([["p0"]]);
   });
 
   test("a dangling ref on the lineage is skipped", () => {

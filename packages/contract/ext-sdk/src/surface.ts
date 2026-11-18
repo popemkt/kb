@@ -205,6 +205,17 @@ export interface PointKey<C> {
   readonly declarer: string | null;
 }
 
+/** One canonical contribution from a family at a typed point. */
+export interface ContributionKey<C> {
+  readonly kind: "contribution";
+  readonly name: string;
+  readonly "~type"?: C;
+  readonly point: PointKey<C>;
+  readonly family: string;
+}
+
+export type InjectKey<C> = ServiceKey<C> | ContributionKey<C>;
+
 /** A typed reference resolves to a kernel-owned point by name. */
 export interface PointName<C> {
   readonly kind: "point-name";
@@ -270,8 +281,8 @@ export interface PluginContext {
   ): effect.Effect.Effect<PointKey<C>, PluginError>;
   point<C>(name: string | PointName<C>): effect.Effect.Effect<PointKey<C>, PluginError>;
   contributions<C>(point: PointKey<C>): readonly Contribution<C>[];
-  /** A service this plugin declared in `inject`. */
-  get<S>(key: ServiceKey<S>): effect.Effect.Effect<S, PluginError>;
+  /** A service or contribution this plugin declared in `inject`. */
+  get<S>(key: InjectKey<S>): effect.Effect.Effect<S, PluginError>;
   provide<S>(key: ServiceKey<S>, impl: S): effect.Effect.Effect<void, PluginError>;
   contribute<C>(
     point: PointKey<C>,
@@ -289,8 +300,8 @@ export interface Plugin {
   readonly name: string;
   /** Contribution id prefix: a family's server entry contributes in `ext.<name>` ({@link extensionNamespace}). */
   readonly namespace?: string;
-  /** Services that must exist before `apply` runs; the plugin waits until they do. */
-  readonly inject?: readonly ServiceKey<unknown>[];
+  /** Requirements that must be available before `apply` runs. */
+  readonly inject?: readonly InjectKey<unknown>[];
   readonly uses?: readonly string[];
   /** Labels for organising plugins, which kb reports and never reads: its family's ({@link familyTags}). */
   readonly tags?: readonly string[];
@@ -324,6 +335,7 @@ export interface ViewKey<P> {
   readonly kind: "view";
   readonly id: `${string}.${string}`;
   readonly label: string;
+  readonly command?: string;
   readonly params: effect.Schema.Decoder<P>;
   /** The family of views a host chooses between, for a view that is one of them. */
   readonly family?: ViewFamily;
@@ -388,6 +400,8 @@ export interface ExtensionDeclaration {
    */
   readonly files?: Readonly<Record<NodeId, readonly NodeId[]>>;
   readonly views?: readonly ViewDef<unknown>[];
+  /** Defaults for view groups, by group key. */
+  readonly familyDefaultViews?: Readonly<Record<ViewFamily, ViewKey<unknown>>>;
   /**
    * The tags whose nodes open in one of its own `views` before the store's
    * default: by the tag's id, the view's key. A tag another declaration
@@ -421,6 +435,7 @@ export interface ExtensionDeclaration {
  */
 export interface SeedRetirement {
   readonly from: NodeId;
+  readonly after?: string;
   readonly to?: NodeId;
   readonly text?: string;
 }
@@ -699,9 +714,30 @@ export declare function familyTags(
 ): readonly string[];
 /** `ext.<name>`: the namespace a family's server entry contributes in. */
 export declare function extensionNamespace(name: string): string;
+/** Build a typed requirement for a family contribution by its full id. */
+export declare function contributionKey<C>(
+  point: PointKey<C>,
+  family: string,
+  id: string,
+): ContributionKey<C>;
 export declare function Service<S>(): (name: string, spec?: ServiceSpec) => ServiceKey<S>;
 /** Every action any loaded plugin offers. */
 export declare const ActionPoint: PointKey<ActionContribution>;
+
+/** One socket connection speaking to a channel the extension owns. */
+export interface ChannelPeer {
+  readonly connection: string;
+  readonly tab: () => string | null;
+  readonly send: (data: unknown) => effect.Effect.Effect<void>;
+}
+
+export interface Channel {
+  readonly receive: (peer: ChannelPeer, data: unknown) => effect.Effect.Effect<void>;
+  readonly drop: (connection: string) => effect.Effect.Effect<void>;
+}
+
+/** A family's namespaced channels served on the kb UI socket. */
+export declare const ChannelPoint: PointKey<Channel>;
 /** Every render template, by the id a view spec names it with. */
 export declare const TemplatePoint: PointKey<TemplateFn>;
 /** Every view a loaded plugin provides, by view id. */

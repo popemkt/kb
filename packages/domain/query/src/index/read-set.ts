@@ -27,6 +27,7 @@ import type {
   PredicateClause,
   PredicateName,
 } from "../ir/ir.ts";
+import { numericFieldLiteral } from "../ir/compile.ts";
 import { findWithRefAttrs } from "../datascript.ts";
 import { kbFunctions } from "../ir/kb-functions.ts";
 import { outerClauses } from "../ir/scope.ts";
@@ -94,9 +95,8 @@ export function readSetOf(ir: Ir, db: DatascriptDb): ReadSet {
 
 /**
  * What reviving a run's rows reads: a field value revived as a node
- * (`findWithRefAttrs`) is a node id while its eid is a live node and a bare
- * number otherwise, so it reads every node's id — a number field's value and
- * a ref look alike (GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]).
+ * (`findWithRefAttrs`) names a live node through its id. Keep the answer only
+ * while that identity is available.
  */
 function revivalReads(ir: IrQuery, refAttrs: ReadonlySet<string>): DatomRead[] {
   const fieldValues = new Set(
@@ -176,10 +176,13 @@ function ofEntities(read: DatomRead, entities: ReadonlySet<number> | undefined):
 function clauseReads(c: Clause, at: Reading): void {
   const { scope, reads } = at;
   switch (c.kind) {
-    case "pattern":
+    case "pattern": {
       if (c.attr === ":node/id" && c.value.t !== "str" && at.held.has(c.entity)) return;
       reads.push(patternRead(c, at));
+      const literal = numericFieldLiteral(c);
+      if (literal !== undefined) reads.push({ attr: ":node/id", entities: new Set([literal]) });
       return;
+    }
     case "children":
       reads.push(ofEntities({ attr: ":node/children" }, scope.get(c.parent)?.eids));
       return;

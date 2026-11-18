@@ -1,0 +1,11 @@
+{
+  "reason": "Compose hosted registry selection, text search and scoped store release on the integration branch. Measured page eager set 2029662 bytes against the previous 2029264-byte ceiling.",
+  "raise": {
+    "cli-closure": {
+      "bytes": 148
+    },
+    "page-eager": {
+      "bytes": 398
+    }
+  }
+}

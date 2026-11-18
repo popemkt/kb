@@ -5,6 +5,7 @@ import {
   diffTx,
   migrateDateValues,
   migrateFieldTypeValues,
+  present,
   type DomainError,
   type KbNode,
   type StoreTx,
@@ -28,7 +29,10 @@ const applySessionSeed = Effect.fn("kb.applySessionSeed")(function* (
 /** Serialize schema transitions for a session; a waiting refresh resolves the latest families. */
 const states = new WeakMap<
   KbContext,
-  { gate: Semaphore.Semaphore; declarations?: readonly ExtensionDeclaration[] }
+  {
+    gate: Semaphore.Semaphore;
+    current?: { readonly declarations: readonly ExtensionDeclaration[]; readonly fold: FoldedSeed };
+  }
 >();
 export const reconcileSessionSchema = Effect.fn("kb.reconcileSessionSchema")(function* (
   ctx: KbContext,
@@ -43,15 +47,21 @@ export const reconcileSessionSchema = Effect.fn("kb.reconcileSessionSchema")(fun
     Effect.gen(function* () {
       const families = yield* rootFamilies(ctx.root);
       const { declarations } = families;
-      if (held.declarations === declarations) return families;
+      if (held.current?.declarations === declarations) return families;
       yield* reloadEffect(ctx).pipe(Effect.provideService(KbStore, ctx.store));
-      yield* applySessionSeed(ctx, foldSeed(declarations, yield* currentIso));
+      const fold = foldSeed(declarations, yield* currentIso);
+      yield* applySessionSeed(ctx, fold);
       ctx.index.setDerived(derivedOf(declarations));
-      held.declarations = declarations;
+      held.current = { declarations, fold };
       return families;
     }),
   );
 });
+
+/** The one fold held after reconciling the session's schema. */
+export function sessionSeed(ctx: KbContext): FoldedSeed {
+  return present(states.get(ctx)?.current?.fold, "the reconciled seed of the open session");
+}
 
 /**
  * What opening writes to a store holding `nodes`: the system seed's

@@ -203,6 +203,7 @@ describe("Effect-native action registry", () => {
 
     const commits: StoreTx[] = [];
     const fakeStore: EffectStore = {
+      closeEffect: Effect.void,
       path: join(root, ".kb", "nodes.jsonl"),
       changes: Stream.never,
       loadEffect: Effect.succeed(ctx.nodes),
@@ -215,7 +216,7 @@ describe("Effect-native action registry", () => {
             base: null,
             fingerprint: null,
             tx,
-            record: fakeStore.txTail.append(tx, record),
+            record: Effect.runSync(fakeStore.txTail.append(tx, record)),
             writes: writesOf(tx, (id) => ctx.index.getNode(id)),
           };
         }),

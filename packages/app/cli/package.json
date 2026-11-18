@@ -35,6 +35,7 @@
   "devDependencies": {
     "@kb/canvas": "workspace:*",
     "@kb/code": "workspace:*",
+    "@kb/extension-test-kit": "workspace:*",
     "@kb/plugin": "workspace:*",
     "@kb/sandbox": "workspace:*",
     "@kb/test-kit": "workspace:*",

@@ -4,14 +4,14 @@
  * runtime's `KbRoots` adapter) and the runtime layer over this one both build
  * on it without importing each other.
  */
-import { Effect } from "effect";
+import { Effect, Exit } from "effect";
 import type { FileSystem } from "effect/FileSystem";
-import { legacyViewShapes, type DomainError, type KbNode } from "@kb/model";
-import { derivedWith } from "@kb/query";
+import { legacyViewShapes, type DomainError, type KbNode, type SeedRetirement } from "@kb/model";
+import { derivedWith, type TextCandidates } from "@kb/query";
 import type { KbContext } from "@kb/contracts";
 import { readLegacyDocsViews } from "@kb/workspace-fs";
 import { sessionOver } from "./own-write.ts";
-import { reconcileSessionSchema } from "./session-schema.ts";
+import { reconcileSessionSchema, sessionSeed } from "./session-schema.ts";
 import { selectStore } from "./store-selection.ts";
 
 /**
@@ -22,10 +22,11 @@ import { selectStore } from "./store-selection.ts";
 const reportLegacyViews = Effect.fn("kb.open.legacyViews")(function* (
   root: string,
   nodes: KbNode[],
+  retirements: readonly SeedRetirement[],
 ) {
   const files = yield* readLegacyDocsViews(root);
   const held = [
-    ...legacyViewShapes(nodes),
+    ...legacyViewShapes(nodes, retirements),
     ...(files.views.length > 0
       ? [`.kb/views spec(s) ${files.views.map((view) => view.name).join(", ")}`]
       : []),
@@ -57,11 +58,29 @@ const reportLegacyViews = Effect.fn("kb.open.legacyViews")(function* (
  */
 export const openKbEffect = Effect.fn("kb.open")(function* (
   root: string,
+  textCandidates?: TextCandidates,
 ): Effect.fn.Return<KbContext, DomainError, FileSystem> {
-  const store = yield* selectStore(root);
-  const loaded = yield* store.loadEffect;
-  const ctx = yield* sessionOver(root, store, loaded, derivedWith({}));
-  yield* reconcileSessionSchema(ctx);
-  yield* reportLegacyViews(root, ctx.nodes);
-  return ctx;
+  return yield* Effect.acquireUseRelease(
+    selectStore(root),
+    (store) =>
+      Effect.gen(function* () {
+        const loaded = yield* store.loadEffect;
+        const ctx = yield* sessionOver(root, store, loaded, derivedWith({}), textCandidates);
+        yield* reconcileSessionSchema(ctx);
+        yield* reportLegacyViews(root, ctx.nodes, sessionSeed(ctx).retired);
+        return ctx;
+      }),
+    (store, exit) => (Exit.isFailure(exit) ? store.closeEffect : Effect.void),
+  );
+});
+
+/** Open a session whose store is released with the caller's scope. */
+export const openKbScoped = Effect.fn("kb.openScoped")(function* (
+  root: string,
+  textCandidates?: TextCandidates,
+) {
+  return yield* Effect.acquireRelease(
+    openKbEffect(root, textCandidates),
+    (ctx) => ctx.store.closeEffect,
+  );
 });

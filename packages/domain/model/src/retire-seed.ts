@@ -1,5 +1,6 @@
 /** Apply a declared retirement table without rewriting user edits. */
-import type { KbNode, NodeId, PropValue, SeedRetirement } from "@kb/model";
+import type { KbNode, NodeId, PropValue } from "./model.ts";
+import type { SeedRetirement } from "./seed-retirement.ts";
 
 /** What each retired id becomes: its replacement, or null where nothing replaced it. */
 type Replacements = ReadonlyMap<NodeId, NodeId | null>;
@@ -66,6 +67,7 @@ function remapChildren(children: readonly NodeId[], to: Replacements): readonly 
 
 /** `text` with each `[[id]]` or `[[id|label]]` of a replaced id naming its replacement. */
 function remapText(text: string, to: Replacements): string {
+  if (!text.includes("[[")) return text;
   let out = text;
   for (const [from, next] of to) {
     if (next === null || !out.includes(`[[${from}`)) continue;

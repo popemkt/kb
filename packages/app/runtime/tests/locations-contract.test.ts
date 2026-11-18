@@ -342,7 +342,7 @@ function locationsContract(homeBackend: StoreBackend): void {
               .writeHome(opened, () => Effect.succeed({ upserts: [node], deletes: [] }))
               .pipe(Effect.flip);
             return { refused: failure, before: seeded };
-          }).pipe(Effect.provide(kbRuntimeLayer(ctx)));
+          }).pipe(Effect.scoped, Effect.provide(kbRuntimeLayer(ctx)));
           expect(refused.code).toBe("invalid_input");
           expect(yield* snapshot(other)).toEqual(before);
         }),

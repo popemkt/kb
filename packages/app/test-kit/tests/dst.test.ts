@@ -92,10 +92,13 @@ describe("DST — seeded histories over the real plan/apply path", () => {
     },
   );
 
-  scenarioTest("sys.* write guards hold: no sys node is minted or mutated by the sim", async () => {
-    const a = await run("dst-3");
-    expect(a.violations, a.violations.join("; ")).toEqual([]);
-  });
+  scenarioTest(
+    "sys.* write guards hold: only legitimate system records may be minted by the sim",
+    async () => {
+      const a = await run("dst-3");
+      expect(a.violations, a.violations.join("; ")).toEqual([]);
+    },
+  );
 
   scenarioTest("different seeds produce (almost certainly) different stores", async () => {
     const a = await run("dst-0");

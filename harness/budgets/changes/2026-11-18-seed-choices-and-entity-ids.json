@@ -1,0 +1,15 @@
+{
+  "reason": "Seed-removal choices share the seed reconciliation and commit paths. The DataScript allocator keeps stored numbers separate from entity ids. The page shares the seed-choice planner and typed query compiler. One seed planner export serves the shared commit path.",
+  "raise": {
+    "cli-closure": {
+      "bytes": 3144,
+      "modules": 1
+    },
+    "page-eager": {
+      "bytes": 932
+    },
+    "surface": {
+      "@kb/seed": 1
+    }
+  }
+}

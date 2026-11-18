@@ -81,9 +81,12 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // Protocol 10: `extension.marketplace.list` names each index's `origin`, a
 // scope or kb's own build, in place of `scope`, which a previous page reads to
 // label it; `extension.install` names its marketplace's `origin` too.
+// Protocol 11: the Extensions panel previews switches with `extension.impact`
+// and reads contribution dependencies and inbound references in `extension.list`.
+// Its requests and report decoder need the server that provides them.
 const RECORDED = {
-  protocol: 10,
-  fingerprint: "c9246e3fde95226e28a05a29d78fd8035f532ebe5ce52b18770e3696b562e319",
+  protocol: 11,
+  fingerprint: "2d27f28eae4184a14827c0c2fa8c821c611c5bb7ba6a7ef76a2a3113441d3b2d",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

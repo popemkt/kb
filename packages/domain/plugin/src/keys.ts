@@ -75,8 +75,24 @@ export interface PointKey<C> extends Key<"point", C> {
   readonly declarer: string | null;
 }
 
-/** Any key, whatever it stands for — for lists such as a plugin's `inject`. */
+/** An erased key for the kernel's service slots. */
 export type AnyServiceKey = ServiceKey<unknown>;
+
+export interface ContributionKey<C> extends Key<"contribution", C> {
+  readonly point: PointKey<C>;
+  readonly family: string;
+}
+
+export type InjectKey<C> = ServiceKey<C> | ContributionKey<C>;
+
+/** Require one canonical contribution at a typed point. */
+export function contributionKey<C>(
+  point: PointKey<C>,
+  family: string,
+  id: string,
+): ContributionKey<C> {
+  return Object.freeze({ kind: "contribution", name: id, point, family });
+}
 
 export function Service<S>(): (name: string, spec?: ServiceSpec) => ServiceKey<S> {
   return (name, spec) =>

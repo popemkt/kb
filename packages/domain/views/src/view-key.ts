@@ -30,6 +30,8 @@ export interface ViewKey<P> {
    * it by.
    */
   readonly label: string;
+  /** The seeded command that switches a frame to this view, when it has one. */
+  readonly command?: string;
   /**
    * What a legal `P` is: the view's settings, as an Effect `Schema`. It is the
    * one statement of them — a host decodes stored config through it, a picker

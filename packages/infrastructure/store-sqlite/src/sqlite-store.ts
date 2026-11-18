@@ -72,6 +72,7 @@ function mapCommitError(err: unknown, path: string): DomainError {
  * without decoding every row; another writer moves `rev`, and the commit
  * reads the rows as it always did.
  */
+// GAP [[01M7Q56B5T0H4HEW6BP85BT1S9]] intermittent refusal observed in concurrent CLI writes
 export class SqliteStore implements EffectStore {
   readonly path: string;
   readonly loadEffect: Effect.Effect<KbNode[], DomainError>;
@@ -103,10 +104,7 @@ export class SqliteStore implements EffectStore {
     return commitTx(this.connection, this.path, { tx, record, expected }, this.txTail, this.kept);
   }
 
-  /** Release the connection. For tests and for `store.migrate`'s teardown. */
-  close(): void {
-    this.connection.close();
-  }
+  readonly closeEffect = Effect.sync(() => this.connection.close());
 }
 
 interface CommitRequest {

@@ -1,0 +1,6 @@
+{
+  "reason": "The shared action contracts and kernel requirement inspection used by the switch preview reach the page through the shared SDK. The production eager set measures 2027332 bytes.",
+  "raise": {
+    "page-eager": { "bytes": 3687 }
+  }
+}

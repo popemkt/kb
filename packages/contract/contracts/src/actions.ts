@@ -17,7 +17,7 @@ import type { KbIndexService, QueryEngineService } from "@kb/query";
 import type { Screens } from "./screen.ts";
 import { NO_CONTEXT, type ContextReferences } from "./context.ts";
 import type { GraphWrites } from "./graph-writes.ts";
-import type { KbCtx, KbStore } from "./session.ts";
+import type { KbCtx, KbStore, SessionSeed } from "./session.ts";
 import type { TemplateRegistry } from "./template.ts";
 import type { CaptureTarget } from "./capture-target.ts";
 import type { ExtensionCatalog } from "./declaration.ts";
@@ -130,6 +130,7 @@ export function toolInputSchema(
 export type ActionHandlerEnv =
   | KbCtx
   | KbStore
+  | SessionSeed
   | GraphWrites
   | KbIndexService
   | QueryEngineService
@@ -437,7 +438,7 @@ export function failed(
   code: FailureCode,
   message: string,
   details?: unknown,
-): ActionReceipt {
+): Extract<ActionReceipt, { status: "failed" }> {
   return { status: "failed", id, code, message, details };
 }
 

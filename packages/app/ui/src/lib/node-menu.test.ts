@@ -573,7 +573,7 @@ describe("runner catalog provenance", () => {
   it("retains live view providers and captured inputs of host-generated commands", () => {
     const catalog = commandsFor(context());
     const frame = present(
-      catalog.find(({ command }) => command.id === SYSTEM_IDS.cmdViewAsList),
+      catalog.find(({ command }) => command.id === "sys.cmd.view-as-list"),
       "frame command",
     );
     expect(frame.source.kind).toBe("host");

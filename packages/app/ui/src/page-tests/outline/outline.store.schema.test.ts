@@ -3,6 +3,7 @@
  * schema means. Under an ontology scope the projection holds members only,
  * and every field and tag lookup reads the whole graph through `schemaOf`.
  */
+import { viewOptionNodes } from "@/fixtures/view-fields";
 import { beforeAll, afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { cardinalityOf, present, SYSTEM_IDS } from "@kb/model";
@@ -240,6 +241,7 @@ describe("transient prune reads content, not template slots", () => {
   /** A supertag templating a hidden and a visible field, and one root. */
   function graph(): WireNode[] {
     return [
+      ...viewOptionNodes,
       node("t.task", "task", {
         [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
         [SYSTEM_IDS.fieldsField]: [

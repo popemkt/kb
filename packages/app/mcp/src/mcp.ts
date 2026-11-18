@@ -40,6 +40,7 @@ import {
   invokeReceiptEffect,
   kbRuntimeLayer,
   openKbEffect,
+  pendingRequests,
   processVia,
   sessionRegistry,
   resolveRootEffect,
@@ -257,10 +258,16 @@ export const createMcpServer = Effect.fn("kb.createMcpServer")(function* (
   options: McpOptions = {},
   // oxlint-disable-next-line typescript/no-deprecated -- registry-built tool list; McpServer cannot express it (SDK docs)
 ): Effect.fn.Return<Server, DomainError, FileSystem> {
-  const ctx = yield* openKbEffect(root);
-  const actions = (yield* sessionRegistry(ctx)).manifestEntries();
-  const byToolName = new Map(actions.map((a) => [mcpToolName(a.id), a] as const));
-  return bindMcpHandlers(ctx, { byToolName }, options);
+  return yield* Effect.acquireUseRelease(
+    openKbEffect(root),
+    (ctx) =>
+      Effect.gen(function* () {
+        const actions = (yield* sessionRegistry(ctx)).manifestEntries();
+        const byToolName = new Map(actions.map((a) => [mcpToolName(a.id), a] as const));
+        return bindMcpHandlers(ctx, { byToolName }, options);
+      }),
+    (ctx, exit) => (Exit.isFailure(exit) ? ctx.store.closeEffect : Effect.void),
+  );
 }, Effect.provide(bunFileSystemLayer));
 
 /**
@@ -294,31 +301,75 @@ const listToolsEffect = Effect.fn("mcp.listTools")(function* (ctx: KbContext, op
   return { tools: listingOf(MCP_WIRE, manifest).map((entry) => mcpTool(entry, sessioned)) };
 });
 
+/** The transport owns the session until its request handlers settle. */
+// oxlint-disable-next-line typescript/no-deprecated -- this transport uses registry-built tool lists
+class SessionServer extends Server {
+  private readonly requests = pendingRequests();
+  private closing: Promise<void> | undefined;
+
+  private readonly release: Effect.Effect<void>;
+
+  constructor(release: Effect.Effect<void>) {
+    // oxlint-disable-next-line typescript/no-deprecated -- the low-level server supplies registry-built tool lists
+    super({ name: "kb", version: "0.1.0" }, { capabilities: { tools: {}, resources: {} } });
+    this.release = release;
+    // oxlint-disable-next-line unicorn/prefer-add-event-listener -- the MCP transport exposes onclose, without an event-listener API
+    this.onclose = () => {
+      void this.drain().catch((error: unknown) => this.onerror?.(ensureDomainError(error)));
+    };
+  }
+
+  run<A>(request: () => Promise<A>): Promise<A> {
+    if (this.closing !== undefined) {
+      return Promise.reject(new McpError(ErrorCode.ConnectionClosed, "the kb session is closed"));
+    }
+    return this.requests.run(request);
+  }
+
+  private drain(): Promise<void> {
+    this.closing ??= this.requests.settle().then(() => Effect.runPromise(this.release));
+    return this.closing;
+  }
+
+  override close(): Promise<void> {
+    // oxlint-disable-next-line typescript/no-deprecated -- close the transport owned by the low-level server
+    return super.close().then(
+      () => this.drain(),
+      (error: unknown) =>
+        this.drain().then(() => {
+          throw ensureDomainError(error);
+        }),
+    );
+  }
+}
+
 /**
  * The MCP SDK boundary. Every request handler must hand the SDK a promise, so
  * this is where kb's Effects are run — a plain function beside the builder,
  * not inside it.
  */
 function bindMcpHandlers(ctx: KbContext, toolsCtx: McpToolContext, options: McpOptions) {
-  // oxlint-disable-next-line typescript/no-deprecated -- registry-built tool list; McpServer cannot express it (SDK docs)
-  const server = new Server(
-    { name: "kb", version: "0.1.0" },
-    { capabilities: { tools: {}, resources: {} } },
-  );
+  const server = new SessionServer(ctx.store.closeEffect);
 
   server.setRequestHandler(ListToolsRequestSchema, () =>
-    runResourceHandler(listToolsEffect(ctx, options).pipe(Effect.provide(kbRuntimeLayer(ctx)))),
+    server.run(() =>
+      runResourceHandler(listToolsEffect(ctx, options).pipe(Effect.provide(kbRuntimeLayer(ctx)))),
+    ),
   );
 
   // MCP Apps: every view (a docs view by name, any other view node by id) is a
   // ui:// resource, served as a snapshot as of the read (view-app.ts).
   server.setRequestHandler(ListResourcesRequestSchema, () =>
-    runResourceHandler(listResourcesEffect(ctx).pipe(Effect.provide(kbRuntimeLayer(ctx)))),
+    server.run(() =>
+      runResourceHandler(listResourcesEffect(ctx).pipe(Effect.provide(kbRuntimeLayer(ctx)))),
+    ),
   );
 
   server.setRequestHandler(ReadResourceRequestSchema, (request) =>
-    runResourceHandler(
-      readResourceEffect(ctx, request.params.uri).pipe(Effect.provide(kbRuntimeLayer(ctx))),
+    server.run(() =>
+      runResourceHandler(
+        readResourceEffect(ctx, request.params.uri).pipe(Effect.provide(kbRuntimeLayer(ctx))),
+      ),
     ),
   );
 
@@ -326,7 +377,7 @@ function bindMcpHandlers(ctx: KbContext, toolsCtx: McpToolContext, options: McpO
     const { name, arguments: args, _meta } = request.params;
     // callToolEffect provides kbRuntimeLayer and maps Fail/Die → isError.
     const made = { stated: sessionOfMeta(_meta), follow: options.session === "follow" };
-    return Effect.runPromise(callToolEffect(ctx, name, args, toolsCtx, made));
+    return server.run(() => Effect.runPromise(callToolEffect(ctx, name, args, toolsCtx, made)));
   });
 
   return server;
@@ -345,7 +396,11 @@ export const startMcp = Effect.fn("kb.startMcp")(function* (
   yield* Effect.tryPromise({
     try: () => server.connect(transport),
     catch: ensureDomainError,
-  });
+  }).pipe(
+    Effect.onExit((exit) =>
+      Exit.isFailure(exit) ? Effect.promise(() => server.close()) : Effect.void,
+    ),
+  );
 });
 
 const parseRoot = Effect.fn("kb.mcp.parseRoot")(function* (

@@ -8,7 +8,7 @@ import {
   type FrameViewParams,
 } from "./frame.ts";
 import { subjectRootOf, subjectRootProps } from "./subject.ts";
-import { viewKey } from "./view-key.ts";
+import { localIdOf, viewKey } from "./view-key.ts";
 
 /** The outline plugin's namespace and view keys: what a host imports, never the components. */
 export const OUTLINE_NAMESPACE = "outline";
@@ -84,11 +84,13 @@ export function frameViewKey<P extends FrameViewParams>(
   rows: FrameViewKey["rows"],
 ): FrameViewKey<P> {
   // A frame view's settings are the `sys.f.view.*` props that configure it.
+  const key = viewKey<P>(id, label, params, {
+    read: (props, _host, report) => decodeFrameConfig(props, report),
+    write: encodeFrameConfig,
+  });
   return {
-    ...viewKey<P>(id, label, params, {
-      read: (props, _host, report) => decodeFrameConfig(props, report),
-      write: encodeFrameConfig,
-    }),
+    ...key,
+    command: `sys.cmd.view-as-${localIdOf(key)}`,
     family: FRAME_VIEW_FAMILY,
     rows,
     // A frame view lays the frame's rows out inside the outline, so its page is

@@ -37,11 +37,12 @@ import {
   seededField,
   seededTag,
   seededCommand,
+  retireSeeded,
   type FieldOptions,
 } from "@kb/model";
 
 import type { FoldedSeed } from "./seed-fold.ts";
-import { retireSeeded } from "./retire-seed.ts";
+import { seedRemovalLookup } from "./removals.ts";
 
 /** What a ref field whose values never close a cycle declares: acyclic. */
 const ACYCLIC: KbNode["props"] = { [SYSTEM_IDS.acyclicField]: [{ t: "bool", v: true }] };
@@ -215,15 +216,6 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     cmd(SYSTEM_IDS.cmdToggleCheck, "Toggle check"),
     cmd(SYSTEM_IDS.cmdExpandAll, "Expand all"),
     cmd(SYSTEM_IDS.cmdCollapseAll, "Collapse all"),
-    // W7.1 view mode + filter commands. The view-as commands name the
-    // outline's and the collections' frame views, which are the families'.
-    // GAP [[01M536CGS8JJ7XMG3F738WSNYK]]
-    cmd(SYSTEM_IDS.cmdViewAsList, "View as: List"),
-    cmd(SYSTEM_IDS.cmdViewAsTable, "View as: Table"),
-    cmd(SYSTEM_IDS.cmdViewAsBoard, "View as: Board"),
-    cmd(SYSTEM_IDS.cmdViewAsCards, "View as: Cards"),
-    cmd(SYSTEM_IDS.cmdViewAsDetail, "View as: List with detail"),
-    cmd(SYSTEM_IDS.cmdViewAsCalendar, "View as: Calendar"),
     cmd(SYSTEM_IDS.cmdViewFilter, "Filter…"),
     // r5 ontology commands
     cmd(SYSTEM_IDS.cmdNewOntology, "New ontology"),
@@ -739,15 +731,18 @@ export function ensureSystemSeed(
 
   // Retire BEFORE seeding defaults, so an edit on an old id is kept, and an
   // unedited label the seed has since changed takes the new one.
-  const { deletes, changed: retired } = retireSeeded(byId, fold.retired, (id) =>
-    seededText.get(id),
+  const { deletes, changed: retired } = retireSeeded(
+    byId,
+    fold.retired.filter(({ after }) => after === undefined),
+    (id) => seededText.get(id),
   );
   let seeded = retired;
+  const removed = seedRemovalLookup(byId, fold.retired);
 
   const seedById = new Map<string, KbNode>();
   for (const node of seed) {
     seedById.set(node.id, node);
-    if (!byId.has(node.id)) {
+    if (!byId.has(node.id) && !removed(node.id)) {
       byId.set(node.id, node);
       seeded = true;
     }
@@ -778,26 +773,13 @@ export function ensureSystemSeed(
     seeded = true;
   }
 
-  /*
-   * Fill seed prop keys an existing sys.* node has never carried.
-   *
-   * A key the store already has is a value the owner may have chosen, so it is
-   * never rewritten. A key that is absent entirely is not a conflict — it is a
-   * prop added to the seed after that store was created, and leaving it absent
-   * is what made new system behaviour invisible on older stores. This replaces
-   * the one-off "cluster-by=parent when absent" special case, which the seed
-   * already declares on lens.all-mentions and which this pass therefore covers
-   * exactly; adding the next such default now means editing the seed, not
-   * adding another block here.
-   *
-   * GAP [[01M3A0ZEWWG0VEHXEM3YNKRQ0Y]] — "absent" cannot tell a key the store
-   * never had from one its owner unset, so an unset seeded key comes back on
-   * the next open.
-   */
+  // Fill a newly introduced default unless the owner cleared its slot.
   for (const declared of seedById.values()) {
     const existing = byId.get(declared.id);
     if (existing === undefined || existing === declared) continue;
-    const absent = Object.entries(declared.props).filter(([field]) => !(field in existing.props));
+    const absent = Object.entries(declared.props).filter(
+      ([field]) => !(field in existing.props) && !removed(declared.id, field),
+    );
     if (absent.length === 0) continue;
     byId.set(declared.id, {
       ...existing,

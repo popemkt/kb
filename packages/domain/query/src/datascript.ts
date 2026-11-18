@@ -142,8 +142,8 @@ export function runIr(
 /**
  * The compiled `find` of `ir`, with a scalar variable read as a node ref where it
  * is the value of a field attr that holds refs (`DatascriptDb.refAttrs`): a
- * ref field's value is an entity, a number field's a number, though both are
- * stored as a bare number. GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]
+ * field can hold both scalars and refs. The index allocates eids outside the
+ * stored numbers, so revival in this position leaves scalars alone.
  */
 export function findWithRefAttrs(
   ir: IrQuery,

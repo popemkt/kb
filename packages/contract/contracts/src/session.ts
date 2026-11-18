@@ -1,5 +1,5 @@
 import { Context, Layer } from "effect";
-import type { KbNode } from "@kb/model";
+import type { KbNode, SeedRetirement } from "@kb/model";
 import type { KbIndex, NodeIndex } from "@kb/query";
 import type { EffectStore } from "./store.ts";
 import type { KbTxLog } from "./tx-log.ts";
@@ -56,6 +56,12 @@ export class KbStore extends Context.Service<KbStore, EffectStore>()("kb/KbStore
 
 /** Live kb session as every action reads it: its node set, wherever its engine runs. */
 export class KbCtx extends Context.Service<KbCtx, KbContext<NodeIndex>>()("kb/KbCtx") {}
+
+/** The fold the current session used to seed and retire schema. */
+export class SessionSeed extends Context.Service<
+  SessionSeed,
+  { readonly nodes: readonly KbNode[]; readonly retired: readonly SeedRetirement[] }
+>()("kb/SessionSeed") {}
 
 export function kbStoreLayer(store: EffectStore): Layer.Layer<KbStore> {
   return Layer.succeed(KbStore, store);

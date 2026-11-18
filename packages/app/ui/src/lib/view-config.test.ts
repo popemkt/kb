@@ -16,12 +16,13 @@ import {
   wireToOutlineMap,
 } from "@kb/ui-sdk";
 import { describe, expect, it } from "vitest";
-import { present, SYSTEM_IDS } from "@kb/model";
+import { declaredOptionId, present, SYSTEM_IDS, VIEW_FAMILY_OPTIONS } from "@kb/model";
 import { Effect } from "effect";
 import { makeKernel } from "@kb/plugin";
 import { browserHostUiPlugin } from "@/browser-host";
 import {
   DEFAULT_VIEW_CONFIG,
+  FRAME_VIEW_FAMILY,
   isFrameViewKey,
   OutlineListView,
   parseViewFilterEdn,
@@ -59,6 +60,25 @@ describe("view-config", () => {
     expect(getViewConfig({})).toEqual(DEFAULT_VIEW_CONFIG);
     expect(DEFAULT_VIEW_CONFIG.groupFieldId).toBeNull();
     expect(DEFAULT_VIEW_CONFIG.filters).toEqual([]);
+  });
+
+  it("resolves a frame with no view node through the graph's group default", () => {
+    const frame = { id: "f", text: "f", props: {}, children: [], createdAt: "", updatedAt: "" };
+    const group = declaredOptionId(VIEW_FAMILY_OPTIONS, FRAME_VIEW_FAMILY);
+    const options = viewOptionNodes.map((node) =>
+      node.id === group
+        ? {
+            ...node,
+            props: {
+              ...node.props,
+              [SYSTEM_IDS.viewDefaultField]: [{ t: "ref" as const, v: CollectionBoardView.option }],
+            },
+          }
+        : node,
+    );
+    const schema = schemaOfWires([frame, ...options]);
+    expect(frameViewOf(frame, schema, FRAME_VIEWS)?.key).toBe(CollectionBoardView);
+    expect(frameViewOf(frame, schema, [OutlineListView])).toBeNull();
   });
 
   it("shows a frame in the view its default view node names, and the list when it names none", () => {

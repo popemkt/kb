@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { UI_DEFAULT_PORT, type KbContext, type ActionReceipt, onWire } from "@kb/contracts";
 import {
   kbRuntimeLayer,
-  openKbEffect,
+  openKbScoped,
   registerOpenedRoot,
   type ActionHandlerEnv,
   resolveRootEffect,
@@ -420,7 +420,7 @@ function buildProgram(): Command {
             .pipe(Effect.mapError(ensureDomainError));
           yield* createStore(root, backend);
 
-          const ctx = yield* openKbEffect(root);
+          const ctx = yield* openKbScoped(root);
 
           /*
            * Example content lands here rather than in the system seed on

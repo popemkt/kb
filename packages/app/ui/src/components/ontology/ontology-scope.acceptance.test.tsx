@@ -6,12 +6,12 @@
  * Needs a real DOM (store hooks + routing + lazy pages), so it lives beside the
  * other `*.component`-class tests and is excluded from the recursive `bun test`.
  */
+import { viewOptionNodes } from "@/fixtures/view-fields";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { GraphSnapshot, WireNode } from "@kb/contracts";
-import { bundledSeed } from "@kb/bundled";
 import { present, SYSTEM_IDS } from "@kb/model";
 import { setFetchGraphSnapshot } from "@/api/graph";
 import { setPostAction } from "@/api/action";
@@ -60,10 +60,7 @@ function snapshot(): GraphSnapshot {
       node("n.notes", "tunnel notes"),
       node("n.oldvpn", "old vpn doc"),
       node("n.shopping", "shopping list"),
-      present(
-        bundledSeed(ISO).find((seeded) => seeded.id === SYSTEM_IDS.viewsRoot),
-        "the seed's view types",
-      ),
+      ...viewOptionNodes,
       node(ONTO, "Infrastructure", {
         [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.ontologyTag }],
         [SYSTEM_IDS.ontoIncludeField]: [{ t: "ref", v: SVC }],

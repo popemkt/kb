@@ -76,6 +76,31 @@ const dropsUnit: Same<Surface.Knob, Exclude<Knob, NumberKnob> | Omit<NumberKnob,
 const declarations: [Surface.ExtensionDeclaration] extends [ExtensionDeclaration] ? true : false =
   true;
 const plugins: [Surface.Plugin] extends [Plugin] ? true : false = true;
+/** The standalone declaration exposes this subset of the runtime's extension contract. */
+type HostDeclarationKeys =
+  | "manifest"
+  | "required"
+  | "keyboard"
+  | "roles"
+  | "points"
+  | "context"
+  | "defaultView"
+  | "refCarriers"
+  | "migrations"
+  | "host";
+type PublicDeclaration = Omit<ExtensionDeclaration, HostDeclarationKeys>;
+type RuntimeViewKey = NonNullable<ExtensionDeclaration["defaultView"]>;
+type PublicViewKey = Omit<RuntimeViewKey, "page">;
+type ViewDeclarationKeys = "views" | "familyDefaultViews" | "tagDefaultViews" | "tagRowViews";
+
+const declarationKeys: Same<keyof Surface.ExtensionDeclaration, keyof PublicDeclaration> = true;
+const declarationData: Same<
+  DataOf<Omit<Surface.ExtensionDeclaration, ViewDeclarationKeys>>,
+  DataOf<Omit<PublicDeclaration, ViewDeclarationKeys>>
+> = true;
+const viewKey: Same<Surface.ViewKey<unknown>, PublicViewKey> = true;
+const dropsOptionalFamily: Same<Omit<Surface.ViewKey<unknown>, "family">, PublicViewKey> = false;
+
 /**
  * The module's values are the host's (`EXTENSION_SDK`), and the surface
  * declares each of them, no more and no fewer, exactly: the host can
@@ -142,6 +167,15 @@ describe("extension SDK surface", () => {
 
   test("declares an extension and its plugin in shapes the contracts read", () => {
     expect([declarations, plugins]).toEqual([true, true]);
+  });
+
+  test("holds the public declaration keys, their data and view keys to the runtime", () => {
+    expect([declarationKeys, declarationData, viewKey, dropsOptionalFamily]).toEqual([
+      true,
+      true,
+      true,
+      false,
+    ]);
   });
 
   test("declares a backdrop and its knobs in the model's shapes", () => {

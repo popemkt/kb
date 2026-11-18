@@ -185,14 +185,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Point handles for path items in both projections, through one shared point-drag gesture.
 - **node** — `01M53H6Z5WQACGQ8ZR14HX5EDT`
 
-### GAP: a channel a registry family contributes is not served
-
-- **expected** — a family contributes to kb.ui.channels wherever it loads, and the kb ui socket hub routes frames to every channel a loaded family holds, a repository extension's included
-- **current** — PointSpec makes kb.ui.channels server-only: a registry contribution is refused atomically with wrong-kernel. Repository families still cannot contribute live channels through the registry.
-- **impact** — a repository extension cannot own a live channel to its page half: its two halves talk through actions only
-- **closes** — the hub's channel directory reads the session registry's kernel beside its own, with a surface property over kb ui that a registry family's channel answers its frames
-- **node** — `01M579MHGHVT2FNGJJRK81J9GY`
-
 ### GAP: a chart's page runs its query twice, once for the body and once for the figure
 
 - **expected** — a view's text resolves its data once and hands it to both body and figure
@@ -248,6 +240,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A field shown hidden or tucked takes a full row on a list-with-detail page, as it did before show had levels; no data is lost or unreachable
 - **closes** — The chips line moves to a shared field-list component (or the detail view draws FieldsSection) so both surfaces take one placement
 - **node** — `01M7EY5YQKG919B47FD255B34B`
+
+### GAP: A concurrent SQLite CLI writer exited before committing
+
+- **expected** — Independent CLI additions commit under ordinary contention, or return a conflict that can be diagnosed and retried.
+- **current** — During scratch stress with four CLI writers and eight subscribers, one SQLite kb add exited 1 before writing its node. The harness preserved the exit code and missed the receipt on stdout. A rerun capturing both streams passed all 16 additions.
+- **impact** — The first run required retrying the missing addition. The 12 additions that completed stayed durable.
+- **closes** — Reproduce with structured CLI receipts, classify the refusal, and add a concurrent store regression if the refusal is outside the conflict contract.
+- **node** — `01M7Q56B5T0H4HEW6BP85BT1S9`
 
 ### GAP: a dashboard's inner panes are not in the screen state
 
@@ -427,14 +427,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Range fields (min, max, step) on number field nodes, read by the write check (valueFormError) and seeded on knob fields by knobFields.
 - **node** — `01M6RVVZTP0BF2364BF8J1BFQB`
 
-### GAP: a number prop that equals a live eid reads as a ref to that node
-
-- **expected** — A {t:ref} prop value and a {t:num} prop value have distinct datom encodings, so a query or a reach can tell a reference from a number.
-- **current** — propDatomValue stores a resolved field ref as its bare eid and a {t:num} as its bare number under the same :f/<fieldId> attr. A number equal to a live eid joins to that node: [?n :f/x ?m] [?m :node/id ?id] and (reach ?n :f/x ?m) both follow it.
-- **impact** — A number-valued prop on a field that is walked as an edge (or joined as one) can alias an arbitrary node, and which node depends on eid assignment order. Rare in practice, since ref fields hold refs and number fields are not walked, but silent when it happens.
-- **closes** — Distinct encodings in datoms.ts (for example refs on :f/<fieldId> and numbers on a typed value, or a separate ref attr per field), with queries.ts, parse.ts find-type inference, and stored queries over numeric props migrated to match.
-- **node** — `01M3A0Y5JQ5XKZMC87K34HDT2B`
-
 ### GAP: a page-head backdrop hears where the pointer is, never when it presses
 
 - **expected** — A press over a backdrop's frame reaches it as a declared cue (a press BackdropCue Studio can list and act out), from the head that owns the frame, which keeps every press meant for the head's own text and controls
@@ -557,14 +549,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYMXMMZC9S8GS00CE6DFB`
 
-### GAP: a seeded default the owner deletes comes back on the next open
-
-- **expected** — the seed records what it planted, so a planted id that is missing reads as deleted and stays deleted
-- **current** — ensureSystemSeed re-adds every missing id on open, including default policies, the policies table view and its pin
-- **impact** — deleting a default policy, view or pin does not stick; DESIGN.md says to change a default's decision instead. Related to seed retirement, 01M3FK1PM9P96SNCSHXF0CJZRA
-- **closes** — a planted-ids record the seed reads, folded into the retirement table that gap names
-- **node** — `01M413SPC35K20DFC4TRP4DJYH`
-
 ### GAP: a stage with ambient occlusion renders without MSAA until three r187
 
 - **expected** — every stage antialiases its scene pass, occlusion or not
@@ -588,15 +572,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Pointing a device at a fresh or different authority would push or merge its whole graph into the wrong place.
 - **closes** — A backend id in the authority's schema and in the base's cursor, checked on connect.
 - **node** — `01M69E3RQH76X44JB9H5NYDWBE`
-
-### GAP: a store's release is not on the port; selectStore drops it
-
-- **expected** — Letting go of an open store is part of what selecting one returns: the caller that opened it can close it, through the port or a Scope, so a sqlite connection's lifetime is the session's, not the process's.
-- **current** — BACKENDS[name].open(root) returns { store, release }, and selectStore returns only .store. createStore and migrateStore call release; nothing that selects a store can. @kb/client documents that a sqlite connection stays open until the process ends; kb ui, kb mcp and the CLI hold theirs the same way.
-- **impact** — A library call that opens a client, commits and returns leaves a sqlite connection open with no way to close it, and a test or a long-lived host that opens many roots accumulates them. Harmless for one kb ui process per root; wrong as soon as the client is embedded.
-- **closes** — Decide where lifetime lives: selectStore as a scoped acquireRelease (every openKbEffect caller then supplies a Scope, which a long-lived session would hold), or a close on EffectStore that JSONL implements as a no-op. Then KbClient gains close(), and the api.d.ts contract with it.
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M39XVZCR684Y1V9FXNDT44D5`
 
 ### GAP: a style's how-to names its tool in text, not by a node
 
@@ -951,8 +926,8 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: CLI pays full cold start on every invocation
 
 - **expected** — Interactive commands reach a running kb ui process instead of rebuilding the world per invocation.
-- **current** — Every kb command imports effect plus datascript and rebuilds the query db from scratch; about 150 ms of every command is that import cost.
-- **impact** — Interactive use is bounded by cold start, and the derived snapshot cache exists mostly to work around it.
+- **current** — Profiled at de181ba2 with Bun 1.4.2 on Linux, nine fresh source CLI processes per case and a 50,817-node JSONL scratch store. Median wall time was 205 ms for --version, 386 ms for --help, 893 ms for get, 942 ms for search, and 1,295 ms for a Datalog query. Separately timed phases took 352 ms to import the CLI, 214 ms to select and load the store, 424 ms for a complete session open including that load, 28 ms for the first registry build after opening, and 16 ms to build the action layer with the registry already warm. The CPU profile of get sampled 53 ms in seed retirement's remapText. DataScript facts are lazy and get does not request them. Seven interleaved before/after runs of the seed-text shortcut on the same fixture measured 891.2 to 802.4 ms for get, 903.1 to 834.1 ms for search, 1299.2 to 1219.6 ms for Datalog, and 419.7 to 373.0 ms for session open (medians).
+- **impact** — The source CLI pays for imports and opening the graph on each call. In Datalog commands, the first query also builds the facts. The profile uses an OS-warm file cache and is a comparison baseline for this host.
 - **closes** — Separate design question recorded in briefs/p1-persistence.md section 4: protocol, discovery, and fallback when no server is running.
 - **node** — `01M1M08WPQTB514E7JERKYEDWZ`
 
@@ -972,22 +947,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Drain the cohesion ledger through module restructuring; reconsider the predicate only when an approved requirement needs the missed cases.
 - **node** — `01M787F34W9DSYPD544DRS5S4H`
 
-### GAP: core seeds the view-as command nodes for every family's views
-
-- **expected** — each family seeds the node commands for its own views (the outline its list, collections its table, board, cards and list with detail)
-- **current** — core's seed declares sys.cmd.view-as-{list,table,board,cards,detail}
-- **impact** — core names the outline's and the collections family's views; with collections off its view-as commands are still seeded
-- **closes** — each family's declaration seeds its view-as commands, and core's seed drops them
-- **node** — `01M536CGS8JJ7XMG3F738WSNYK`
-
-### GAP: core's approval policies view is a table, a view of the optional collections family
-
-- **expected** — a core-seeded view names only a core view type, or opens through the store's default view type
-- **current** — core's seed node view.approval.policies names outline.table, now the collections family's
-- **impact** — with collections switched off the approval policies frame shows 'cannot be shown here' instead of the policies
-- **closes** — the policies view opens in a core view type (the list, or the default view type), or core's policies view moves to a family that may depend on collections
-- **node** — `01M536CH4P48SXV9B0HH8B4XTG`
-
 ### GAP: core's screen protocol names the canvas
 
 - **expected** — core's screen protocol carries a pane's view state opaquely and the canvas family contributes its own part
@@ -995,15 +954,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — screen state is the next feature vocabulary in core that no check sees, and it grows with every 3D camera step
 - **closes** — E19 of the extension SDK plan, after E13, at a 3D step boundary
 - **node** — `01M43AT0V9HHVS7ZAEPWXEGE7F`
-
-### GAP: cross-family action calls by string id are invisible to the dependency graph
-
-- **expected** — a plugin that calls another family's action injects a key for it, held in a layer both may import, so the kernel derives the edge, the call is typed, and an optional call rides a child plugin that pends while its provider is off (as lab-ui's graph-studies injects NodeLinkGraphService)
-- **current** — ext-canvas calls ext.agent.complete (run.ts:42), ext.code.script.list and .run (run.ts:56-57, verbs.ts:167) and ext.graph.edges (diagram.ts:33) by string through CoreInvoke; kb ext list reports injects: [] for every registry family, and the call fails by name at run time when the provider is off
-- **impact** — switching agent, code or graph off breaks canvas's run, scripts and diagram verbs without warning; the dependency graph reads as complete while it holds none of these edges
-- **closes** — P2 of docs/research/2026-10-29-plugin-codependency.md: contribution keys in inject (restructure the four ids into keys, then resolve them in the kernel and carry each optional call on a child), with lint L1
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M63BZRZ4RDTCE1ZFVGRNEXGR`
 
 ### GAP: datalog and the query builder's tag filter do not reach a subtype's nodes
 
@@ -1079,15 +1029,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Type-first originals for the Effect-Schema-derived types (Actor, Knob, NumberKnob, PluginErrorReason); named author-facing types in @kb/contracts for each narrowed projection (KbContext, ActionInvocation and the rest the bridge test finds), an owner decision since each adds a contract; @kb/query's datascript.ts/datascript.d.ts pair under one name; then the switch with tsdown/rolldown-plugin-dts in tsgo mode (oxc mode needs isolated declarations the workspace does not have), gated on the emitted text being unchanged.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M79MBMJQKDBBGJ2HG8Z6QEG2`
-
-### GAP: extension SDK mirror is not bidirectionally typed
-
-- **expected** — The dependency-free public SDK contract and runtime contract are generated from one canonical schema or proven exactly assignable in both directions.
-- **current** — Freshness tests compare generated text to a maintained mirror, while runtime checks cover only selected substrings.
-- **impact** — The public SDK and runtime can drift while both local freshness checks remain green.
-- **closes** — Add bidirectional compile-time exactness fixtures or generate both surfaces from one dependency-free canonical contract.
-- **rule** — Domain typing — one canonical schema
-- **node** — `01M1PJWF4G6W4122ZE4K67319V`
 
 ### GAP: family halves' page tests run in the shell (outline, collections, graph)
 
@@ -1308,14 +1249,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — An allowed-file list for KB_DATA and KB_CACHE stated once, and a check over what the code writes there; docs/research/2026-11-11-cli-host-modes.md section 9.
 - **node** — `01M788TDKRD09FEQS10QZZ39S7`
 
-### GAP: no one coverage property holds every family to all three hosts
-
-- **expected** — One property holds every declared family to a seed node, a server entry and a browser entry.
-- **current** — Coverage is split: ui-plugins.test.ts checks browser entries, the registry checks bundled server entries, cli/tests/host-extensions.test.ts checks hosted families and adapters.
-- **impact** — No package sees all three hosts, so a family can miss one entry without anything going red.
-- **closes** — A test-kit property each host's test feeds its own entries into, run in the registry, CLI and UI tests.
-- **node** — `01M53M9Y6BZFMT08EHNRNFG7Y9`
-
 ### GAP: no pop-out OS windows for panes
 
 - **expected** — a pane can pop out into its own browser window, kept in sync over /ws like any client
@@ -1349,14 +1282,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a pending-transaction model the outline can draw and a palette command to start and release a turn; the theme then draws the plan
 - **node** — `01M5S0J203QE0ZMB7MGN7GJXD8`
 
-### GAP: no test holds that switching one optional family off leaves the others whole
-
-- **expected** — a switch matrix over the registry, the kb ui host and the page: for each optional family F, with every other family on, every other family's plugin is active or pending only on a key F alone provides, every read action answers, and no plugin fails
-- **current** — core-only.test.ts proves core stands without every optional family; that the family is the unit (DESIGN.md) is held only by the import fence, which cannot see a call by action id
-- **impact** — a new cross-family edge that is not an import (an action id, a copied id, a shared host) can make one family break when another is off, and CI stays green
-- **closes** — P1 of docs/research/2026-10-29-plugin-codependency.md
-- **node** — `01M63C0H8G86X7ZBJ48QYYNSAV`
-
 ### GAP: no thin dispatch from a one-shot command to a running host
 
 - **expected** — kb's entry module reads the root's presence (.kb/ui.json) and, when a host of the same build serves the root on its owner-only Unix socket, forwards argv to POST /api/cli, where the host runs the same command table on the CLI's wire; otherwise, or for commands that read stdin, prompt or host, it imports the in-process CLI. A dispatch contract test runs commands both ways and compares output and writes.
@@ -1389,14 +1314,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A seeded sys icon field and refInkOf reading it.
 - **node** — `01M3KA3BHNPNB8VX34HD8P2JCB`
 
-### GAP: nodes that reference a family's seed are not counted or shown before it is switched off
-
-- **expected** — extension.list rows carry referencedBy, the nodes outside a family whose refs land in what it seeds, read from :node/mentions joined to :node/owner, and extension.impact groups them by the kind of node referenced
-- **current** — the footprint lists what a family seeds and contributes, but not who points at it; views, backdrop and design-system choices that name a switched-off family degrade silently
-- **impact** — a person cannot tell how much of their graph a switch affects; the degrade is correct but unannounced
-- **closes** — P0 of docs/research/2026-10-29-plugin-codependency.md
-- **node** — `01M63C0HZMR1ZSS95YZGJ868PR`
-
 ### GAP: nothing flags another family's action id or seed id spelled as a string
 
 - **expected** — L1, a harness lint, fails a string literal ext.<f>.<id> in a package of another family; L2, a harness test over bundledOwners(), fails a literal equal to a node id another family seeds; L3 keeps a module top level inert (no effects, no globalThis or window writes)
@@ -1422,6 +1339,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A flight or outage means read-only; Turso Sync cannot be adopted as is.
 - **closes** — Refuse with a clear error in the prototype; revs-at-push is a tail-contract change, not recommended.
 - **node** — `01M6950YQJFX3TYG608GNVHRX4`
+
+### GAP: older JSONL writers cannot recover a pending tail record
+
+- **expected** — Every writer that can open the same JSONL root recognizes the published tail revision after an interrupted archive.
+- **current** — Current JSONL writers recover the write-ahead record under the node lock. An older writer takes the lock but reads only tx.jsonl; it cannot see the journal.
+- **impact** — If a current writer publishes a node replacement and dies before archival, or archival fails, an older writer can reuse the published revision. Readers can then require a snapshot, and that revision cannot unambiguously identify a write across versions.
+- **closes** — Upgrade the remaining older processes that write the root to a version that recovers the pending record.
+- **node** — `01M7Q21QJJWSB6JBZPW3EWT6K8`
 
 ### GAP: only BackdropPoint checks what a repository extension contributes; the page's other points trust its types
 
@@ -1683,6 +1608,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P2 of docs/research/2026-10-31-plugin-sources.md, after the source reader is shared by the two sinks.
 - **node** — `01M68NFBY0FEK3Q2CW2XZ7E6DE`
 
+### GAP: Saved-query file changes invalidate every live answer
+
+- **expected** — A saved-query file change invalidates live answers that read its changed virtual datoms.
+- **current** — SavedQuerySet applies a new virtual set with NodeIndex.withVirtual, which rebuilds the query index and clears every retained answer.
+- **impact** — Adding or editing a saved-query file reruns subscriptions whose data did not change.
+- **closes** — Apply the virtual set delta through the same incremental datom path while preserving stored-node shadowing.
+- **node** — `01M7Q2GKYMMSGJGB5D4X120E3C`
+
 ### GAP: scaling a turned item across its own axes stretches each side instead of shearing
 
 - **expected** — a scale across a turned item's axes shears it, as Blender does
@@ -1691,14 +1624,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — shear in the item record
 - **node** — `01M41W5655T0R7791KKJM4WYB2`
 
-### GAP: search is a substring scan, no text index
-
-- **expected** — Full-text search as an additive derived index (FTS5, and sqlite-vec for semantic search) rebuilt from the JSONL like any other index.
-- **current** — graph.search is a case-insensitive substring scan over every node text.
-- **impact** — Search cost grows linearly with the graph and no ranking is possible.
-- **closes** — Gate on Bun's FTS5 close() segfault (oven-sh/bun#37044); adopt once a SQLite index exists.
-- **node** — `01M1M08X7037FH9Z0Y5G1RFRXX`
-
 ### GAP: search matches a node's stored text and title, not the words it reads as
 
 - **expected** — graph.search (kb search, MCP, the page's index search) finds a node by its plain display text too, so 'with Rob' finds 'Check up with Rob', as ⌘K does.
@@ -1706,6 +1631,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A search for the words a person reads beside a reference misses the node; searching an id or a label still finds it.
 - **closes** — Match plainWords(nodeTitleOf(...)) beside the text in every index implementation, a property in the shared index contract.
 - **node** — `01M7HCW2CRPCQ04SSRNG2FHSNS`
+
+### GAP: seed removal lookup follows only direct retirement aliases
+
+- **expected** — A recorded removal stays effective when its seeded node or field is renamed again.
+- **current** — seedRemovalLookup checks the current id and direct predecessor ids. In a direct probe, old → middle and middle → new do not carry a choice made at old to new. The current seed fold requires every retirement target to be a seeded id, so that chain cannot reach the lookup through an admitted fold.
+- **impact** — A later rename must retain every historical id as a direct alias to the current id. If the fold admits chained aliases, a removal choice can be missed and the default can return.
+- **closes** — Before admitting a second rename with chained aliases, resolve retirement identities once for both seed reconciliation and removal lookup. Cover chains for both the holder and the field, with an older recorded removal surviving reopen.
+- **node** — `01M7QBJAHEMMDACN92CF68XRP8`
 
 ### GAP: Set field… offers only fields that declare an option set
 
@@ -1722,6 +1655,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A setting cannot be read without hovering or opening it, and a family has to choose short names to fit a column meant for another place.
 - **closes** — The field row takes its name column's width from where it is drawn: the full name in Settings, wrapped if it must; the outline row keeps its column.
 - **node** — `01M7F9300H9FDW5BGCBVQQFTXW`
+
+### GAP: Settings does not preview a family switch
+
+- **expected** — Settings reads extension.impact before a switch and shows effects and pending reasons.
+- **current** — The backend action is available through the CLI and MCP. Settings calls the switch directly.
+- **impact** — A person using Settings still discovers paused or degraded features after switching.
+- **closes** — Use extension.impact with the shared Settings report before switching and present the running state afterwards.
+- **node** — `01M7Q11Q3BQNEMXNDWC7EPS9ZC`
 
 ### GAP: Shift-drag on empty space in 3D does not marquee-select
 
@@ -1748,14 +1689,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Everything references by id
 - **node** — `01M7342XMGCJ1J68JHT38EZ7XE`
 
-### GAP: subscription re-evaluation is O(clients x subs x full query) per tx
-
-- **expected** — A logged transaction re-evaluates only the subscriptions it can affect, and evaluates each distinct query once for all the clients holding it.
-- **current** — SubscriptionHub.publish keys evaluation by query string, so each distinct query runs once per tx however many clients hold it. It still runs every subscribed query on every tx, including one the transaction cannot have affected.
-- **impact** — Cost now grows with the number of distinct queries on screen rather than with clients times subscriptions, but it is still every query on every edit: a board view with a dozen query nodes re-runs all twelve per keystroke, most of them answering the same rows.
-- **closes** — Skip a subscription the transaction cannot affect. @kb/query's IR names what a compiled query reads (PatternClause.attr, ReachClause.edge, children), but a StoreTx does not name what a write touched: it carries whole nodes as they are after the write, so a removed prop and every attribute of a deleted node are absent from it. Gating on that read set would silently drop those changes. Needs the tx log to carry before-images (or the store to report a per-tx attribute set), and a fallback that always re-runs an IrRaw query, which exposes no read set at all.
-- **node** — `01M1QZNM17MTGGPE517NVZYJT0`
-
 ### GAP: surfaces outside the audit's list still name a node by its stored text
 
 - **expected** — Every surface that names a node where only a string fits reads its plain display text (nameIn / nodeName, DESIGN.md → Display text), and every rich one is fed its title (rowTitle).
@@ -1765,14 +1698,13 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M7HCW0W60M9G3R2QCF8FZJW1`
 
-### GAP: switching a family off says nothing about what depends on it
+### GAP: Switch preview cannot resolve providers registered only at apply
 
-- **expected** — a read action, extension.impact {name, on}, answers what a switch would pause (plugins that go pending, with the key each waits on), degrade (nodes outside the family that reference its seed) and resume; Settings shows it before an off with a non-empty impact, the CLI prints it, and MCP and the agent have it as a read tool
-- **current** — extension.switch (operations/src/extensions.ts:62) checks only that the family is optional and returns {name, on}; nothing computes dependants before or after the write
-- **impact** — a person or an agent switches a family off without knowing which other features pause or which nodes will show as unavailable; the loss is found later, elsewhere
-- **closes** — P0 of docs/research/2026-10-29-plugin-codependency.md
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M63C0GJ5M78G1TFKM00RN4X6`
+- **expected** — Switch preview resolves pending requirements from provider structure without running disabled code.
+- **current** — Typed action contributions identify their provider. A generic service or dynamic point registered inside apply may have no provider visible while the family is off.
+- **impact** — An on preview can report unresolved requirements instead of predicting which plugins resume.
+- **closes** — Represent provider structure in the kernel registration model so the same declaration drives activation and off-state inspection.
+- **node** — `01M7Q11R3PYMA1KAXBER6TG792`
 
 ### GAP: sys.f.color keeps an always-open swatch row
 
@@ -1818,8 +1750,8 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: the action registry is build-once per process though the kernel can unload
 
 - **expected** — kb ui watches .kb/extensions and reloads a changed extension by unloading and loading its plugin; dependents re-pend and re-activate through the kernel.
-- **current** — registryFor caches one registry (and its kernel) per root for the process lifetime; a changed extension needs a restart of kb ui / kb mcp.
-- **impact** — Extension development needs restarts; the kernel's unload/reload is proven by its contract but unused by any host.
+- **current** — kb ui watches root extensions and replaces leased registry generations today. Incremental unload and load is deferred until the dependency work lands and the session can hold one dependency graph through each in-flight call.
+- **impact** — A change to one family also recreates unrelated plugin scopes, losing their in-memory state. The current registry lease protects calls already running during replacement.
 - **closes** — Hold the kernel as the session's live registry instead of a derived snapshot: the watcher calls kernel.unload/load, and byId/manifest read the points on demand.
 - **node** — `01M39F3N7TS10VJ881RNC0Z4X3`
 
@@ -1986,22 +1918,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Split into recognizers over a cursor and drive them from a list. The existing md-inline tests are the gate; this is a rewrite, not a mechanical move.
 - **node** — `01M1MGCM9RWXE3CYANZK5K4KC0`
 
-### GAP: the JSONL tx tail is not atomic with the node write
-
-- **expected** — One act: nodes.jsonl and the tail entry either both land or neither does, the way the sqlite adapter gets it for free inside BEGIN IMMEDIATE.
-- **current** — Two writes inside one lock (JsonlStore.commitEffect): durableReplaceFile for the nodes, then txTail.append, and the append is deliberately not fsynced. No other process can interleave, but a crash or power loss between them can. TxTail.isCurrent() detects it by comparing the tail's newest store mark to the file's, and StoreTxLog then refuses every rev at or below head.
-- **impact** — A crash in that window costs every connected client one snapshot instead of frames - the same cost the log already had before it was durable, so nothing regresses. What is not reached is the stated shape: on JSONL the record can still lag the write. The lag is detected exactly, because the mark it is compared by is the file's content hash.
-- **closes** — A write-ahead record the JSONL adapter can commit atomically with the file replace - a single sidecar holding both the candidate bytes and the tail entry, renamed once - or a per-root manifest that names the nodes generation and the tail head together.
-- **node** — `01M1XEZT8XZNSG1NGS9JPCQFGM`
-
-### GAP: the kit names the frame family's default view
-
-- **expected** — Which frame view a frame with no frame view node shows is data, as sys.views names the page default (sys.f.view.default, written by the fold from the declaration that provides it).
-- **current** — @kb/ui-sdk lib/frame-view.ts names viewOptionId("outline.list") (LIST_OPTION).
-- **impact** — The kit names one family's view, and no declaration can change the frame default.
-- **closes** — The frame family's default named in data, written by the fold from the one declaration that provides it, with the extension contract's provider property over it, and existing stores filled by the seed's fill-absent pass.
-- **node** — `01M53GQBPC6PR0CPQDNC74MV3R`
-
 ### GAP: the kit's node type is named for the outline
 
 - **expected** — The kit's node read model is named for what it is (a node as the page reads it), not for one family.
@@ -2091,14 +2007,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A remote root cannot hold .kb/queries/*.edn without forcing a resync that drops the virtual records.
 - **closes** — Give virtual transactions their own sequence, or stop logging them in the store's tail.
 - **node** — `01M6950ZTT4AQNADV0RVM9JSW1`
-
-### GAP: the seed's fill-absent pass restores a seeded prop its owner unset
-
-- **expected** — Removing every value of a seeded prop from a seeded node stays removed. The fill-absent pass adds only keys the seed gained after the store was created, never keys the owner deleted.
-- **current** — ensureSystemSeed fills any seed prop key an existing seeded node does not carry, on every open. It cannot tell a key the store never had from one the owner deleted, so 'kb unset lens.all-mentions sys.f.lens.cluster-by' is undone by the next command's open. A following 'kb set' then appends to the restored default. That is how a two-command replace doubled lens.all-mentions' values in both committed stores on 2026-09-24.
-- **impact** — A seeded node's props cannot be cleared, and replacing one with unset followed by set in two commands silently stores the value twice. A replace has to be one node.update carrying both unsetProps and setProps.
-- **closes** — Record which seed prop keys a store has already been offered (for example a seed revision per node, or a tombstone written when a seeded key is unset) and fill only keys added since. Then add a test that an unset seeded key survives reopening.
-- **node** — `01M3A0ZEWWG0VEHXEM3YNKRQ0Y`
 
 ### GAP: the server answers a client's query in the server's time zone
 
@@ -2239,15 +2147,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — the node.update contract change: a base (text or revision) on the input, a conflict failure from the server when it moved, and the page taking the server's text into a focused row with a visible conflict; then a two-tab browser test that types in the same focused row from both
 - **node** — `01M6HA0JJJDSFSJ3FPW8M8QC5K`
 
-### GAP: TxTail allocates a rev outside the store's exclusion for virtual transactions
-
-- **expected** — Every appender allocates its rev under the same exclusion, so two writers can never be handed the same one.
-- **current** — TxTail.append reads its own head to assign rev+1 and is documented as not self-serialising. The store calls it inside the lock that already serialises writers, which covers every node commit; KbTxLog.append does not, and that is the path the saved-query virtual set takes. A CLI commit concurrent with a .kb/queries/ reload, or two kb ui servers on one root with different ports, can both read head N and both write N+1.
-- **impact** — A duplicate rev in the tail. Frames stay applicable in order and upserts are idempotent, so a client converges - but rev stops being a unique position, and any surface that keys on it (a replay, an audit trail, an undo across sessions) would be reading two things with one name. Narrow: it needs a second appender in the same instant.
-- **closes** — Either the virtual set becomes a store transaction so the store's exclusion covers it, or the tail acquires the store's lock itself - which needs a synchronous acquire, and write-lock.ts deliberately has none (its spin is Effect.sleep so a contended commit cannot block the loop).
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M1XF05FV87AR22B4SAS0A2BK`
-
 ### GAP: UI_ALLOWS permits unused zone directions
 
 - **expected** — Each cross-zone permission corresponds to a production import or a deliberate composition-root capability, and each removed permission has a red import fixture.
@@ -2287,14 +2186,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a busy untrusted code view can stutter its own frame
 - **closes** — run QuickJS inside a blob Worker in the frame
 - **node** — `01M41DKVB5R21NRCE4T9R4KES1`
-
-### GAP: views.migrate keeps a second list of seeded ids it retires, beside the seed's retirement table
-
-- **expected** — Every seeded id a build retires is a row of the seed's retirement table, the views.migrate ones included: a row can name the migration that must read its values first, and opening retires it only once that migration has run.
-- **current** — ensureSystemSeed applies the seed's retirement table (SeedRetirement rows each family declares, folded by foldSeed) before it seeds; the graph's sys.lens.all-mentions and core's sys.cmd.preferences are rows. views.migrate still deletes seeded ids of its own (the #graph-perspective tag, lens.view-mode, the old lens.renderer options, the withdrawn placement field) through RETIRED in view-migration.ts, after reading their values into view nodes; moving them into the table would drop those values on open, before the migration reads them.
-- **impact** — Two places say which seeded ids are gone. Until views.migrate runs, a store keeps those old nodes, and opening reports them as legacy shapes rather than retiring them.
-- **closes** — The retirement table can hold a row until a named migration has run, and view-migration.ts's RETIRED becomes rows of it.
-- **node** — `01M3FK1PM9P96SNCSHXF0CJZRA`
 
 ### GAP: WebGPU-only render specs skip where Chromium has no WebGPU adapter
 
@@ -2370,6 +2261,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — an agent's idea of what the user sees on a 3D canvas can be wrong
 - **closes** — CanvasScreenSchema carries the camera {projection, pose} and the 3D scene reports visible items from its frustum
 - **node** — `01M3YMCVN656CNRJ3F3R91MHKA`
+
+### GAP: a channel a registry family contributes is not served
+
+- **expected** — a family contributes to kb.ui.channels wherever it loads, and the kb ui socket hub routes frames to every channel a loaded family holds, a repository extension's included
+- **current** — PointSpec makes kb.ui.channels server-only: a registry contribution is refused atomically with wrong-kernel. Repository families still cannot contribute live channels through the registry.
+- **impact** — a repository extension cannot own a live channel to its page half: its two halves talk through actions only
+- **closes** — the hub's channel directory reads the session registry's kernel beside its own, with a surface property over kb ui that a registry family's channel answers its frames
+- **node** — `01M579MHGHVT2FNGJJRK81J9GY`
 
 ### GAP: a code view cannot be promoted to a view type
 
@@ -2453,6 +2352,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — One page-side name reader (rowTitle's reader by id) that every naming surface takes in place of node.text, and the graph and canvas label paths moved onto it.
 - **node** — `01M7CYP03QT4AWT994NSXQV35B`
 
+### GAP: a number prop that equals a live eid reads as a ref to that node
+
+- **expected** — A {t:ref} prop value and a {t:num} prop value have distinct datom encodings, so a query or a reach can tell a reference from a number.
+- **current** — Closed in the derived index. Engine entity ids are allocated outside numbers stored by the graph. A write that takes a live eid invalidates the derived index and reallocates that entity.
+- **impact** — A number-valued prop on a field that is walked as an edge (or joined as one) can alias an arbitrary node, and which node depends on eid assignment order. Rare in practice, since ref fields hold refs and number fields are not walked, but silent when it happens.
+- **closes** — Distinct encodings in datoms.ts (for example refs on :f/<fieldId> and numbers on a typed value, or a separate ref attr per field), with queries.ts, parse.ts find-type inference, and stored queries over numeric props migrated to match.
+- **node** — `01M3A0Y5JQ5XKZMC87K34HDT2B`
+
 ### GAP: a one-off routine cannot be ticked done or skipped in the calendar
 
 - **expected** — Every instance the calendar shows, one-off or repeating, can be ticked done or skipped, and the engine sends it done (✅, grey, no reminders) or cancels it.
@@ -2486,6 +2393,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A declaration export for repository extensions, folded into that store's seed only, with the extension contract run over a repository fixture.
 - **node** — `01M53PZ0DWZ8MJN9T64TTQ10VD`
 
+### GAP: a seeded default the owner deletes comes back on the next open
+
+- **expected** — the seed records what it planted, so a planted id that is missing reads as deleted and stays deleted
+- **current** — Closed for future writes. Removing an editable seeded default records the choice in the same commit. The seed leaves that id absent on the next open.
+- **impact** — deleting a default policy, view or pin does not stick; DESIGN.md says to change a default's decision instead. Related to seed retirement, 01M3FK1PM9P96SNCSHXF0CJZRA
+- **closes** — a planted-ids record the seed reads, folded into the retirement table that gap names
+- **node** — `01M413SPC35K20DFC4TRP4DJYH`
+
 ### GAP: a seeded node whose text the seed changes keeps its old text in an existing store
 
 - **expected** — A label the seed changes (a command, field or option renamed for people) reaches every store on its next open, unless the owner edited that text.
@@ -2493,6 +2408,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Older stores show stale labels for renamed system nodes; the Settings page is reached from ⌘K under its old name.
 - **closes** — The retirement table retires labels: a row names the text the seed wrote before (text), and opening gives a node that still reads it the text the seed writes now, leaving an owner-edited text alone. Core retires Preferences for Settings.
 - **node** — `01M5WSTXZ18DWSKY1V30GJ5HVE`
+
+### GAP: a store's release is not on the port; selectStore drops it
+
+- **expected** — Letting go of an open store is part of what selecting one returns: the caller that opened it can close it, through the port or a Scope, so a sqlite connection's lifetime is the session's, not the process's.
+- **current** — BACKENDS[name].open(root) returns { store, release }, and selectStore returns only .store. createStore and migrateStore call release; nothing that selects a store can. @kb/client documents that a sqlite connection stays open until the process ends; kb ui, kb mcp and the CLI hold theirs the same way.
+- **impact** — A library call that opens a client, commits and returns leaves a sqlite connection open with no way to close it, and a test or a long-lived host that opens many roots accumulates them. Harmless for one kb ui process per root; wrong as soon as the client is embedded.
+- **closes** — Decide where lifetime lives: selectStore as a scoped acquireRelease (every openKbEffect caller then supplies a Scope, which a long-lived session would hold), or a close on EffectStore that JSONL implements as a no-op. Then KbClient gains close(), and the api.d.ts contract with it.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M39XVZCR684Y1V9FXNDT44D5`
 
 ### GAP: a system field the editor has no widget for is hidden from people, or read-only behind debug
 
@@ -2686,6 +2610,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M1PJW3WHWPCBT5BYNEQMYG98`
 
+### GAP: core seeds the view-as command nodes for every family's views
+
+- **expected** — each family seeds the node commands for its own views (the outline its list, collections its table, board, cards and list with detail)
+- **current** — core's seed declares sys.cmd.view-as-{list,table,board,cards,detail}
+- **impact** — core names the outline's and the collections family's views; with collections off its view-as commands are still seeded
+- **closes** — each family's declaration seeds its view-as commands, and core's seed drops them
+- **node** — `01M536CGS8JJ7XMG3F738WSNYK`
+
+### GAP: core's approval policies view is a table, a view of the optional collections family
+
+- **expected** — a core-seeded view names only a core view type, or opens through the store's default view type
+- **current** — core's seed node view.approval.policies names outline.table, now the collections family's
+- **impact** — with collections switched off the approval policies frame shows 'cannot be shown here' instead of the policies
+- **closes** — the policies view opens in a core view type (the list, or the default view type), or core's policies view moves to a family that may depend on collections
+- **node** — `01M536CH4P48SXV9B0HH8B4XTG`
+
 ### GAP: core's declaration imports the graph's view keys from @kb/graph
 
 - **expected** — the graph family's declaration declares its views; core neither imports @kb/graph nor names its keys
@@ -2701,6 +2641,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — core names a family, so 'Core names no feature' is not yet true for the outline
 - **closes** — the O3 cut: @kb/outline declares the views and the default
 - **node** — `01M52J3DADW4P7YV6907ME9C50`
+
+### GAP: cross-family action calls by string id are invisible to the dependency graph
+
+- **expected** — a plugin that calls another family's action injects a key for it, held in a layer both may import, so the kernel derives the edge, the call is typed, and an optional call rides a child plugin that pends while its provider is off (as lab-ui's graph-studies injects NodeLinkGraphService)
+- **current** — ext-canvas calls ext.agent.complete (run.ts:42), ext.code.script.list and .run (run.ts:56-57, verbs.ts:167) and ext.graph.edges (diagram.ts:33) by string through CoreInvoke; kb ext list reports injects: [] for every registry family, and the call fails by name at run time when the provider is off
+- **impact** — switching agent, code or graph off breaks canvas's run, scripts and diagram verbs without warning; the dependency graph reads as complete while it holds none of these edges
+- **closes** — P2 of docs/research/2026-10-29-plugin-codependency.md: contribution keys in inject (restructure the four ids into keys, then resolve them in the kernel and carry each optional call on a child), with lint L1
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M63BZRZ4RDTCE1ZFVGRNEXGR`
 
 ### GAP: deleting a surface budget bypasses increase rationale
 
@@ -2718,6 +2667,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Add the hook to ui-sdk, move every popover onto it, and hold it with one shared property over every popover.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M54V6G798RV0P805SMBG64H8`
+
+### GAP: extension SDK mirror is not bidirectionally typed
+
+- **expected** — The dependency-free public SDK contract and runtime contract are generated from one canonical schema or proven exactly assignable in both directions.
+- **current** — Freshness tests compare generated text to a maintained mirror, while runtime checks cover only selected substrings.
+- **impact** — The public SDK and runtime can drift while both local freshness checks remain green.
+- **closes** — Add bidirectional compile-time exactness fixtures or generate both surfaces from one dependency-free canonical contract.
+- **rule** — Domain typing — one canonical schema
+- **node** — `01M1PJWF4G6W4122ZE4K67319V`
 
 ### GAP: extension-to-extension permission does not enforce family ownership
 
@@ -2877,6 +2835,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Turn the chain into a table of {key, mods, toAction} entries. Behaviour-preserving only if the current first-match order is reproduced exactly, so it needs its own change with the keymap tests as the gate.
 - **node** — `01M1MGCH7SD69CRSSV75X789QW`
 
+### GAP: no one coverage property holds every family to all three hosts
+
+- **expected** — One property holds every declared family to a seed node, a server entry and a browser entry.
+- **current** — Coverage is split: ui-plugins.test.ts checks browser entries, the registry checks bundled server entries, cli/tests/host-extensions.test.ts checks hosted families and adapters.
+- **impact** — No package sees all three hosts, so a family can miss one entry without anything going red.
+- **closes** — A test-kit property each host's test feeds its own entries into, run in the registry, CLI and UI tests.
+- **node** — `01M53M9Y6BZFMT08EHNRNFG7Y9`
+
 ### GAP: no SQLite index behind the store port
 
 - **expected** — A second Store implementation backed by SQLite for O(1) writes and point reads, typed as a derived cache with committed JSONL as the truth.
@@ -2884,6 +2850,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Write cost is O(n) per commit regardless of transaction size, and node.get cannot avoid loading the whole graph.
 - **closes** — Track 2 phase work in briefs/p1-persistence.md. Trigger: measured commit latency at real node counts hurts, or node.get needs to stop materializing everything.
 - **node** — `01M1M08WEYJNEFDZVECN9QKEWT`
+
+### GAP: no test holds that switching one optional family off leaves the others whole
+
+- **expected** — a switch matrix over the registry, the kb ui host and the page: for each optional family F, with every other family on, every other family's plugin is active or pending only on a key F alone provides, every read action answers, and no plugin fails
+- **current** — core-only.test.ts proves core stands without every optional family; that the family is the unit (DESIGN.md) is held only by the import fence, which cannot see a call by action id
+- **impact** — a new cross-family edge that is not an import (an action id, a copied id, a shared host) can make one family break when another is off, and CI stays green
+- **closes** — P1 of docs/research/2026-10-29-plugin-codependency.md
+- **node** — `01M63C0H8G86X7ZBJ48QYYNSAV`
 
 ### GAP: NodeBlock decides row chrome with 28 branches
 
@@ -2900,6 +2874,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Which commands a node offers cannot be tested without rendering, and the same availability rules are re-derived in run-command.ts.
 - **closes** — Extract listNodeCommands(node, store) beside run-command.ts and have both the palette and the runner read it. Touches the command surface, so it is an owner call.
 - **node** — `01M1MGCF0ECBDEPTHPKMSQ4YFD`
+
+### GAP: nodes that reference a family's seed are not counted or shown before it is switched off
+
+- **expected** — extension.list rows carry referencedBy, the nodes outside a family whose refs land in what it seeds, read from :node/mentions joined to :node/owner, and extension.impact groups them by the kind of node referenced
+- **current** — the footprint lists what a family seeds and contributes, but not who points at it; views, backdrop and design-system choices that name a switched-off family degrade silently
+- **impact** — a person cannot tell how much of their graph a switch affects; the degrade is correct but unannounced
+- **closes** — P0 of docs/research/2026-10-29-plugin-codependency.md
+- **node** — `01M63C0HZMR1ZSS95YZGJ868PR`
 
 ### GAP: nodes.jsonl has no merge driver
 
@@ -3076,6 +3058,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — views declare their events and overlay anchors, an overlay frame, and a sys.f.scripts view setting
 - **node** — `01M41DKTE1T51M031N231VGQJR`
 
+### GAP: search is a substring scan, no text index
+
+- **expected** — Full-text search as an additive derived index (FTS5, and sqlite-vec for semantic search) rebuilt from the JSONL like any other index.
+- **current** — graph.search is a case-insensitive substring scan over every node text.
+- **impact** — Search cost grows linearly with the graph and no ranking is possible.
+- **closes** — Gate on Bun's FTS5 close() segfault (oven-sh/bun#37044); adopt once a SQLite index exists.
+- **node** — `01M1M08X7037FH9Z0Y5G1RFRXX`
+
 ### GAP: seven terminal .then callbacks disable promise/always-return
 
 - **expected** — promise/always-return runs with ignoreLastCallback:true, so the rule guards mid-chain callbacks (where a missing return really does break the chain) and says nothing about a terminal fire-and-forget callback.
@@ -3116,6 +3106,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — JsonlStore reports a content fingerprint rather than a stat — p1 Phase 3's sourceHash + sourceBytes + nodeCount — which means hashing the file on a path whose whole purpose is to answer 'did it change?' without reading it. Worth doing only with a cheaper content signal, or once the cost is measured against the store benchmark.
 - **node** — `01M1PK5NYA7ZG3XC0H0YRYRVZE`
 
+### GAP: subscription re-evaluation is O(clients x subs x full query) per tx
+
+- **expected** — A logged transaction re-evaluates only the subscriptions it can affect, and evaluates each distinct query once for all the clients holding it.
+- **current** — SubscriptionHub.publish keys evaluation by query string, so each distinct query runs once per tx however many clients hold it. It still runs every subscribed query on every tx, including one the transaction cannot have affected.
+- **impact** — Cost now grows with the number of distinct queries on screen rather than with clients times subscriptions, but it is still every query on every edit: a board view with a dozen query nodes re-runs all twelve per keystroke, most of them answering the same rows.
+- **closes** — Skip a subscription the transaction cannot affect. @kb/query's IR names what a compiled query reads (PatternClause.attr, ReachClause.edge, children), but a StoreTx does not name what a write touched: it carries whole nodes as they are after the write, so a removed prop and every attribute of a deleted node are absent from it. Gating on that read set would silently drop those changes. Needs the tx log to carry before-images (or the store to report a per-tx attribute set), and a fallback that always re-runs an IrRaw query, which exposes no read set at all.
+- **node** — `01M1QZNM17MTGGPE517NVZYJT0`
+
 ### GAP: suppression grammar still includes legacy eslint directives
 
 - **expected** — Every TypeScript suppression uses // oxlint-disable-next-line <rule> -- GAP id or // oxlint-disable-next-line <rule> -- <reason>.
@@ -3124,6 +3122,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Rewrite every listed directive to the oxlint grammar, then unskip suppression-grammar.test.ts.
 - **rule** — Lint scope coverage
 - **node** — `01M1PHTZDZCKMXYP6HW109M3DT`
+
+### GAP: switching a family off says nothing about what depends on it
+
+- **expected** — a read action, extension.impact {name, on}, answers what a switch would pause (plugins that go pending, with the key each waits on), degrade (nodes outside the family that reference its seed) and resume; Settings shows it before an off with a non-empty impact, the CLI prints it, and MCP and the agent have it as a read tool
+- **current** — extension.switch (operations/src/extensions.ts:62) checks only that the family is optional and returns {name, on}; nothing computes dependants before or after the write
+- **impact** — a person or an agent switches a family off without knowing which other features pause or which nodes will show as unavailable; the loss is found later, elsewhere
+- **closes** — P0 of docs/research/2026-10-29-plugin-codependency.md
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M63C0GJ5M78G1TFKM00RN4X6`
 
 ### GAP: the 3D bullet atlas has a fixed capacity
 
@@ -3239,6 +3246,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Design tokens: no bypass
 - **node** — `01M3AD9BRB1C5YMJFDQC1MDAFA`
 
+### GAP: the JSONL tx tail is not atomic with the node write
+
+- **expected** — One act: nodes.jsonl and the tail entry either both land or neither does, the way the sqlite adapter gets it for free inside BEGIN IMMEDIATE.
+- **current** — Closed. The write-ahead record and recovery rules are in DESIGN.md, The transaction tail.
+- **impact** — A failed prepare or node replacement leaves the previous revision visible. A published record survives an interrupted archive.
+- **closes** — A write-ahead record the JSONL adapter can commit atomically with the file replace - a single sidecar holding both the candidate bytes and the tail entry, renamed once - or a per-root manifest that names the nodes generation and the tail head together.
+- **node** — `01M1XEZT8XZNSG1NGS9JPCQFGM`
+
+### GAP: the kit names the frame family's default view
+
+- **expected** — Which frame view a frame with no frame view node shows is data, as sys.views names the page default (sys.f.view.default, written by the fold from the declaration that provides it).
+- **current** — @kb/ui-sdk lib/frame-view.ts names viewOptionId("outline.list") (LIST_OPTION).
+- **impact** — The kit names one family's view, and no declaration can change the frame default.
+- **closes** — The frame family's default named in data, written by the fold from the one declaration that provides it, with the extension contract's provider property over it, and existing stores filled by the seed's fill-absent pass.
+- **node** — `01M53GQBPC6PR0CPQDNC74MV3R`
+
 ### GAP: the lab's rich backdrop stands in kit/ beside the stage's plain backdrop()
 
 - **expected** — One backdrop mechanism in the scene kit: stage.backdrop() takes options (focus, warmth, haze, rise) and every study, lab or graph, draws its ground through it.
@@ -3320,6 +3343,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — an agent sees which kind of view is open but not which saved view node or its settings; ui.navigate cannot open a given view node
 - **closes** — the UI routes by view node (roadmap step 6 panes hold a ref to a view node) and the screen reports that id
 - **node** — `01M3YMCV7ZWR83DCCPQQS7PHNT`
+
+### GAP: the seed's fill-absent pass restores a seeded prop its owner unset
+
+- **expected** — Removing every value of a seeded prop from a seeded node stays removed. The fill-absent pass adds only keys the seed gained after the store was created, never keys the owner deleted.
+- **current** — Closed for future writes. Clearing a seed slot records the choice in the same commit. The next open fills new defaults and leaves recorded removals absent.
+- **impact** — A seeded node's props cannot be cleared, and replacing one with unset followed by set in two commands silently stores the value twice. A replace has to be one node.update carrying both unsetProps and setProps.
+- **closes** — Record which seed prop keys a store has already been offered (for example a seed revision per node, or a tombstone written when a seeded key is unset) and fill only keys added since. Then add a test that an unset seeded key survives reopening.
+- **node** — `01M3A0ZEWWG0VEHXEM3YNKRQ0Y`
 
 ### GAP: the server and browser plugin lists are not bridged
 
@@ -3403,6 +3434,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXMRZKE1AJC850BRTHHHCW`
 
+### GAP: TxTail allocates a rev outside the store's exclusion for virtual transactions
+
+- **expected** — Every appender allocates its rev under the same exclusion, so two writers can never be handed the same one.
+- **current** — Closed. Virtual appends and tail adoption use the same writer exclusion as node commits.
+- **impact** — Concurrent node and virtual transactions receive distinct revisions, including across processes.
+- **closes** — Either the virtual set becomes a store transaction so the store's exclusion covers it, or the tail acquires the store's lock itself - which needs a synchronous acquire, and write-lock.ts deliberately has none (its spin is Effect.sleep so a contended commit cannot block the loop).
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M1XF05FV87AR22B4SAS0A2BK`
+
 ### GAP: ui suites reddened under load when the row a chord crossed to had no text host
 
 - **expected** — A red ui run means a defect. Every suite that activates a row mounts a text host for it, the way every visible row does in the app, so no assertion races the store's 250 ms orphaned-focus fallback. Timing is asserted as a ratio or as a budget sized from measurement, never as bare wall clock.
@@ -3426,6 +3466,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a new family of views, from a bundled family or a repository extension, must edit core; core seeds the family option of a family that may be off
 - **closes** — defineExtension takes viewFamilies; the bundled fold seeds their options; ViewKey.family is typed by a registry the declarations extend; VIEW_FAMILY_VALUES keeps core's own (outline.frame) only
 - **node** — `01M66RQ281GTJNACBJ572PHCJP`
+
+### GAP: views.migrate keeps a second list of seeded ids it retires, beside the seed's retirement table
+
+- **expected** — Every seeded id a build retires is a row of the seed's retirement table, the views.migrate ones included: a row can name the migration that must read its values first, and opening retires it only once that migration has run.
+- **current** — ensureSystemSeed applies the seed's retirement table (SeedRetirement rows each family declares, folded by foldSeed) before it seeds; the graph's sys.lens.all-mentions and core's sys.cmd.preferences are rows. views.migrate still deletes seeded ids of its own (the #graph-perspective tag, lens.view-mode, the old lens.renderer options, the withdrawn placement field) through RETIRED in view-migration.ts, after reading their values into view nodes; moving them into the table would drop those values on open, before the migration reads them.
+- **impact** — Two places say which seeded ids are gone. Until views.migrate runs, a store keeps those old nodes, and opening reports them as legacy shapes rather than retiring them.
+- **closes** — The retirement table can hold a row until a named migration has run, and view-migration.ts's RETIRED becomes rows of it.
+- **node** — `01M3FK1PM9P96SNCSHXF0CJZRA`
 
 ### GAP: what an approved extension loads when it runs is not closed over
 

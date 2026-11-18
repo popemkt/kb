@@ -25,7 +25,8 @@ import {
 } from "@kb/keybindings";
 import { describe, expect, it } from "vitest";
 import { definePlugin, makeKernel, syncPlugins, type Contribution } from "@kb/plugin";
-import { BUNDLED_FAMILIES, HOSTED_FAMILIES, bundledSeed } from "@kb/bundled";
+import { BUNDLED_FAMILIES, HOSTED_FAMILIES, bundledFold, bundledSeed } from "@kb/bundled";
+import { familyCoverageIssues } from "@kb/extension-test-kit";
 import {
   NO_SWITCHES,
   extensionRow,
@@ -469,13 +470,13 @@ describe("the families the page loads", () => {
 });
 
 /** Every family kb declares: the registry's bundled ones, and those a host composes. */
-// GAP [[01M53M9Y6BZFMT08EHNRNFG7Y9]] no one coverage property holds every family to all three hosts
 const EVERY_FAMILY = [...BUNDLED_FAMILIES, ...HOSTED_FAMILIES];
 
 describe("the resolver", () => {
-  it("names every family, bundled or hosted: an entry, or null for one with no browser half", () => {
-    const missing = EVERY_FAMILY.filter(({ name }) => !Object.hasOwn(BROWSER_EXTENSIONS, name));
-    expect(missing.map(({ name }) => name)).toEqual([]);
+  it("pairs each family's seeded node with a resolver entry, using null for browserless families", () => {
+    expect(
+      familyCoverageIssues(EVERY_FAMILY, Object.keys(BROWSER_EXTENSIONS), bundledFold()),
+    ).toEqual([]);
   });
 
   it("has an entry for every family that provides a view, since the page draws its views", () => {
@@ -490,11 +491,6 @@ describe("the resolver", () => {
       .filter(([, extension]) => extension === null)
       .map(([name]) => name);
     expect(serverOnly.toSorted()).toEqual(["check", "docs"]);
-  });
-
-  it("names nothing beyond the families kb declares", () => {
-    const known = new Set(EVERY_FAMILY.map(({ name }) => name));
-    expect(Object.keys(BROWSER_EXTENSIONS).filter((name) => !known.has(name))).toEqual([]);
   });
 });
 

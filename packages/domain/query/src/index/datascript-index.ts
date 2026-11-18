@@ -11,8 +11,9 @@ import {
 } from "../datascript.ts";
 import type { Ir } from "../ir/ir.ts";
 import { parseEdn } from "../ir/parse.ts";
-import { type Datom, type DatascriptDb, type IdMap, nodeToDatoms, schemaFor } from "./datoms.ts";
+import { type Datom, type DatascriptDb, nodeToDatoms, schemaFor } from "./datoms.ts";
 import type { DerivedRef } from "./derived.ts";
+import { EntityIds } from "./entity-ids.ts";
 import type { DatalogAnswer, KbIndex, IndexOptions } from "./index.ts";
 import { NodeTable } from "./node-table.ts";
 import { readSetOf, touches, type ChangedDatom, type ReadSet } from "./read-set.ts";
@@ -40,7 +41,8 @@ type TxOp =
   | readonly [":db/retractEntity", number];
 
 /** An answer the index remembers: its rows, until when they hold, and what the run that made them read. */
-interface Kept extends DatalogAnswer {
+interface Kept {
+  readonly answer: DatalogAnswer;
   readonly reads: ReadSet;
 }
 
@@ -48,8 +50,8 @@ interface Kept extends DatalogAnswer {
  * The one {@link KbIndex} implementation: an in-memory DataScript db kept
  * incrementally in step with the store.
  *
- * Eids are stable and monotonic — allocated on a node's first appearance and
- * never reused, so a revived eid always means the node it meant before. The
+ * Entity ids are allocated by `EntityIds` and kept until a node disappears or
+ * a stored numeric value takes one. The
  * schema is derived from the data (a `:f/<field>` attr is a ref attr because
  * some node put a ref in it), which is the one thing `d.db_with` cannot grow:
  * a transaction that introduces a new attr falls back to a full rebuild and
@@ -69,8 +71,7 @@ export class DatascriptIndex implements KbIndex {
   /** Whether {@link #db} lags the table and is built again on its next use. */
   #stale = true;
   #rebuilds = 0;
-  #ids: IdMap = { toEid: new Map(), toId: new Map() };
-  #nextEid = 1;
+  readonly #ids = new EntityIds();
   #attrs = new Set<string>();
   /** Field attrs that have held a node ref since the last rebuild (`DatascriptDb.refAttrs`). */
   #refAttrs = new Set<string>();
@@ -79,6 +80,7 @@ export class DatascriptIndex implements KbIndex {
   readonly #clock: ClockSampler | undefined;
   /** Answers by query text, least recently asked first; each held until a transaction touches its read set. */
   readonly #answers = new Map<string, Kept>();
+  readonly #retained = new Map<string, { readers: number; answer: Kept | undefined }>();
   #runs = 0;
 
   /**
@@ -89,7 +91,7 @@ export class DatascriptIndex implements KbIndex {
   constructor(nodes: ReadonlyArray<KbNode>, options: IndexOptions) {
     this.#derived = options.derived;
     this.#clock = options.clock;
-    this.#table = new NodeTable(nodes, options.derived);
+    this.#table = new NodeTable(nodes, options.derived, options.textCandidates);
   }
 
   get generation(): number {
@@ -128,13 +130,13 @@ export class DatascriptIndex implements KbIndex {
   /** The db no longer matches the table: it is built again when next used, and no answer holds. */
   #invalidate(): void {
     this.#stale = true;
-    this.#answers.clear();
+    this.#forgetAnswers(() => true);
   }
 
   /** Every datom from the table's nodes, at once: the build `d.db_with` cannot grow into. */
   #buildDatoms(): void {
     const merged = [...this.#table.allNodes()];
-    this.#syncIds(merged);
+    this.#ids.sync(merged);
     this.#attrs = new Set();
     this.#refAttrs = new Set();
     const datoms: Datom[] = [];
@@ -147,8 +149,6 @@ export class DatascriptIndex implements KbIndex {
     this.#db = d.init_db(datoms, schemaFor(this.#attrs, this.#derived));
     this.#stale = false;
     this.#rebuilds += 1;
-    // A rebuild says nothing about which datoms moved: every answer is asked again.
-    this.#answers.clear();
   }
 
   applyTx(tx: StoreTx): void {
@@ -162,10 +162,16 @@ export class DatascriptIndex implements KbIndex {
     const retracts: TxOp[] = tx.deletes
       .filter((id) => this.#table.getNode(id) !== undefined)
       .map((id) => [":db/retractEntity", present(this.#ids.toEid.get(id), `eid for ${id}`)]);
+    const touched = new Set([...tx.deletes, ...tx.upserts.map(({ id }) => id)]);
+    const before = this.#nodesAt(touched);
     const change = this.#table.change(tx);
     if (change === null) return;
-    for (const id of change.created) this.#allocate(id);
-    for (const id of change.removed) this.#forget(id);
+    for (const id of change.removed) this.#ids.forget(id);
+    if (this.#ids.note(before, this.#nodesAt(touched))) {
+      this.#invalidate();
+      return;
+    }
+    for (const id of change.created) this.#ids.allocate(id);
 
     const adds: TxOp[] = [];
     let grown = false;
@@ -193,10 +199,36 @@ export class DatascriptIndex implements KbIndex {
     this.#db = d.db_with(this.#db, [...retracts, ...adds]);
     // A run revives a ref attr's values as nodes wherever they sit
     // (`findWithRefAttrs`), so a new one can change any answer that reads it.
-    if (revived) this.#answers.clear();
+    this.#forgetAnswers((kept) => revived || touches(kept.reads, changed));
+  }
+
+  #forgetAnswers(forget: (answer: Kept) => boolean): void {
     for (const [edn, kept] of this.#answers) {
-      if (touches(kept.reads, changed)) this.#answers.delete(edn);
+      if (forget(kept)) this.#answers.delete(edn);
     }
+    for (const entry of this.#retained.values()) {
+      if (entry.answer !== undefined && forget(entry.answer)) entry.answer = undefined;
+    }
+  }
+
+  retainDatalog(edn: string): () => void {
+    let entry = this.#retained.get(edn);
+    if (entry === undefined) {
+      entry = { readers: 0, answer: this.#answers.get(edn) };
+      this.#answers.delete(edn);
+      this.#retained.set(edn, entry);
+    }
+    entry.readers += 1;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      entry.readers -= 1;
+      if (entry.readers === 0) {
+        entry.answer = undefined;
+        this.#retained.delete(edn);
+      }
+    };
   }
 
   /**
@@ -234,17 +266,24 @@ export class DatascriptIndex implements KbIndex {
    */
   answerDatalog(edn: string, ...inputs: ReadonlyArray<unknown>): DatalogAnswer {
     if (inputs.length > 0) return this.#answer(parseEdn(edn), inputs);
-    const kept = this.#answers.get(edn);
-    if (kept !== undefined && this.#holds(kept)) {
-      this.#answers.delete(edn);
-      this.#answers.set(edn, kept);
-      return { rows: kept.rows, holdsUntilMs: kept.holdsUntilMs };
+    const retained = this.#retained.get(edn);
+    const kept = retained === undefined ? this.#answers.get(edn) : retained.answer;
+    if (kept !== undefined && this.#holds(kept.answer)) {
+      if (retained === undefined) {
+        this.#answers.delete(edn);
+        this.#answers.set(edn, kept);
+      }
+      return kept.answer;
     }
     const ir = parseEdn(edn);
     const answer = this.#answer(ir, inputs);
+    if (retained !== undefined) {
+      retained.answer = { answer, reads: readSetOf(ir, this.#datascriptDb()) };
+      return answer;
+    }
     this.#answers.delete(edn);
     if (answer.rows.length <= KEPT_ROWS) {
-      this.#answers.set(edn, { ...answer, reads: readSetOf(ir, this.#datascriptDb()) });
+      this.#answers.set(edn, { answer, reads: readSetOf(ir, this.#datascriptDb()) });
       for (const oldest of this.#answers.keys()) {
         if (this.#answers.size <= KEPT_ANSWERS) break;
         this.#answers.delete(oldest);
@@ -254,7 +293,7 @@ export class DatascriptIndex implements KbIndex {
   }
 
   /** Whether a remembered answer still holds now: one that read the clock holds until its time. */
-  #holds(kept: Kept): boolean {
+  #holds(kept: DatalogAnswer): boolean {
     if (kept.holdsUntilMs === null) return true;
     return this.#clock !== undefined && this.#clock().nowMs < kept.holdsUntilMs;
   }
@@ -329,30 +368,12 @@ export class DatascriptIndex implements KbIndex {
     }
   }
 
-  #allocate(id: NodeId): void {
-    if (this.#ids.toEid.has(id)) return;
-    this.#ids.toEid.set(id, this.#nextEid);
-    this.#ids.toId.set(this.#nextEid, id);
-    this.#nextEid += 1;
-  }
-
-  /** Drop the mapping; the number itself is retired, never handed out again. */
-  #forget(id: NodeId): void {
-    const eid = this.#ids.toEid.get(id);
-    if (eid === undefined) return;
-    this.#ids.toEid.delete(id);
-    this.#ids.toId.delete(eid);
-  }
-
-  #syncIds(nodes: ReadonlyArray<KbNode>): void {
-    const live = new Set(nodes.map((n) => n.id));
-    // Deleting the entry the Map iterator is on is well defined, so the live
-    // ids are filtered in one pass rather than over a copy.
-    for (const [id, eid] of this.#ids.toEid) {
-      if (live.has(id)) continue;
-      this.#ids.toEid.delete(id);
-      this.#ids.toId.delete(eid);
+  #nodesAt(ids: ReadonlySet<NodeId>): KbNode[] {
+    const nodes: KbNode[] = [];
+    for (const id of ids) {
+      const node = this.#table.getNode(id);
+      if (node !== undefined) nodes.push(node);
     }
-    for (const node of nodes) this.#allocate(node.id);
+    return nodes;
   }
 }

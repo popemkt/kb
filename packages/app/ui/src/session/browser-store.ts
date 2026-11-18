@@ -18,6 +18,7 @@ import { MemoryTxTail } from "@kb/tx-log";
 
 /** In-memory persistence side of the browser's replicated kb session. */
 export class BrowserStore implements EffectStore {
+  readonly closeEffect = Effect.void;
   readonly path = "browser";
   readonly loadEffect: Effect.Effect<KbNode[], DomainError>;
 
@@ -47,27 +48,27 @@ export class BrowserStore implements EffectStore {
     record: TxRecord,
     expected?: StoreFingerprint,
   ): Effect.Effect<StoreCommit, DomainError> {
-    return Effect.suspend(() => {
+    return Effect.gen({ self: this }, function* () {
       // Single-threaded and synchronous: nothing can land between the read of
       // the generation and the write that bumps it, or between that and the
       // record — which is what "one critical section" means in a browser.
       const base = String(this.generation);
       const stale = staleCommitError(expected, base);
-      if (stale !== null) return Effect.fail(stale);
+      if (stale !== null) return yield* stale;
       const applied = rankTx(this.state, tx);
       const writes = writesOf(applied, (id) => this.state.get(id));
       this.apply(applied);
       const kept =
         applied.upserts.length > 0 || applied.deletes.length > 0
-          ? this.txTail.append(applied, record)
+          ? yield* this.txTail.append(applied, record)
           : null;
-      return Effect.succeed({
+      return {
         base,
         fingerprint: String(this.generation),
         tx: applied,
         record: kept,
         writes,
-      });
+      };
     });
   }
 

@@ -12,7 +12,7 @@ import { join } from "node:path";
 import { Effect } from "effect";
 import { ChannelPoint, UiHost, defineExtension, type ExtensionEntry } from "@kb/contracts";
 import { definePlugin, type Plugin } from "@kb/plugin";
-import { FAKE_TAB_SCREEN, FakeTab } from "@kb/test-kit";
+import { FAKE_TAB_SCREEN, FakeTab, scratchRoot, writeTrustedExtensionEffect } from "@kb/test-kit";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
 const run = Effect.runPromise;
@@ -144,3 +144,63 @@ describe("plugin channels", () => {
     expect(released).toBe(true);
   });
 });
+
+test("a repository family's channel follows its live registry", () =>
+  run(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* scratchRoot;
+        yield* writeTrustedExtensionEffect(
+          root,
+          "counter.ts",
+          `
+          import { ChannelPoint, Effect, defineExtension, definePlugin, extensionNamespace } from "kb-ext-sdk";
+          export const declaration = defineExtension({ name: "counter", label: "Counter" });
+          export default definePlugin({
+            name: declaration.name,
+            namespace: extensionNamespace(declaration.name),
+            apply: (ctx) => {
+              let hits = 0;
+              return ctx.contribute(ChannelPoint, {
+                id: "echo",
+                value: {
+                  receive: (peer, data) => Effect.suspend(() => peer.send({ data, hits: ++hits })),
+                  drop: () => Effect.void,
+                },
+              });
+            },
+          });
+        `,
+        );
+        const handle = yield* Effect.acquireRelease(
+          startUi({ root, port: 0, openBrowser: false }),
+          (opened) => opened.stop,
+        );
+        const tab = yield* Effect.acquireRelease(
+          FakeTab.open(handle.at, "channel-registry"),
+          (opened) => opened.close,
+        );
+        const channel = "ext.counter.echo";
+        const initial = yield* tab.channel(channel, "first", () => true);
+        expect(initial).toEqual({ kind: "data", data: { data: "first", hits: 1 } });
+
+        for (const on of [false, true]) {
+          const result = yield* Effect.promise(async () => {
+            const response = await fetch(`${handle.url}/api/action`, {
+              method: "POST",
+              headers: { "content-type": "application/json", origin: new URL(handle.url).origin },
+              body: JSON.stringify({ id: "extension.switch", input: { name: "counter", on } }),
+            });
+            return response.json();
+          });
+          expect(result).toMatchObject({ status: "succeeded" });
+          const frame = yield* tab.channel(channel, "again", () => true);
+          expect(frame).toMatchObject(
+            on
+              ? { kind: "data", data: { data: "again", hits: 1 } }
+              : { kind: "error", code: "unknown_channel" },
+          );
+        }
+      }),
+    ),
+  ));

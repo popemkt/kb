@@ -25,9 +25,13 @@ import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { CollectionTableView } from "@kb/collections";
 import { collectionsUiPlugin } from "@kb/collections-ui";
 
-/** The one constructor, over an unscoped graph: the whole map is the schema. */
+/** Frame row fixtures carry the schema of a seeded store, even for a missing frame. */
 function schemaFor(nodes: NodeMap): SchemaIndex {
-  return schemaOfGraph(nodes);
+  const withOptions = new Map<string, OutlineNode>();
+  for (const option of viewOptionNodes)
+    withOptions.set(option.id, node(option.id, option.text, option.props, option.children));
+  for (const [id, value] of nodes) withOptions.set(id, value);
+  return schemaOfGraph(withOptions);
 }
 
 /** The frame views the outline plugin provides, as its hosts see them. */
@@ -42,9 +46,10 @@ const VIEWS = (() => {
 
 /** A frame's rows input, in the view its props name, as every host resolves it. */
 function input(nodes: NodeMap, frameId = "frame"): FrameRowsInput {
-  const view = frameViewOf(nodes.get(frameId), schemaFor(nodes), VIEWS);
+  const schema = schemaFor(nodes);
+  const view = frameViewOf(nodes.get(frameId), schema, VIEWS);
   if (view === null) throw new Error("the outline plugin provides no list view");
-  return { frameId, nodes, schema: schemaFor(nodes), view };
+  return { frameId, nodes, schema, view };
 }
 
 function rowsOf(nodes: NodeMap, frameId = "frame") {
@@ -97,8 +102,6 @@ function graph(view: FrameViewName, settings: OutlineNode["props"], rowCount = 5
   const [frame, viewNode] = framedAs(node("frame", "Frame", {}, ids), view, settings);
   map.set(frame.id, frame);
   map.set(viewNode.id, node(viewNode.id, "", viewNode.props));
-  for (const option of viewOptionNodes)
-    map.set(option.id, node(option.id, option.text, option.props, option.children));
   return map;
 }
 

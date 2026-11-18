@@ -52,7 +52,10 @@ import {
   type StoreFactory,
 } from "./store-session.ts";
 import {
+  clearedSeedPropSurvivesOpening,
+  removedSeedNodeSurvivesOpening,
   defaultViewTypeReachesEarlierStoreOnce,
+  releaseLeavesStoreUnchanged,
   tagDefaultViewReachesEarlierStoreOnce,
   familyViewOrderOnOpening,
   goldenSeedOpensUnwritten,
@@ -213,6 +216,7 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
     "opening is a read: reopening leaves the nodes, the fingerprint and the tail as they were",
     openingNeverWrites,
   ],
+  ["closing twice leaves the store unchanged when reopened", releaseLeavesStoreUnchanged],
   ["a store written by an earlier kb's seed opens without a write", goldenSeedOpensUnwritten],
   [
     "a store seeded before provider roles gains them in one write, then opens unwritten",
@@ -243,6 +247,8 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
       "survive every later open, which writes nothing",
     personEditsToSeededNodesSurviveOpening,
   ],
+  ["a cleared seeded property stays clear on reopen", clearedSeedPropSurvivesOpening],
+  ["a deleted seeded default stays deleted on reopen", removedSeedNodeSurvivesOpening],
   [
     "a node created without a rank gets one from the one owner, and a reopen keeps it",
     createdNodeKeepsItsRank,

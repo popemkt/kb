@@ -1,9 +1,17 @@
+import { ChannelPoint } from "./channel.ts";
 import { CORE_POINT_DEFINITIONS } from "./point-definitions.ts";
 import { Effect, Schema } from "effect";
 import { BACKDROP_OPTIONS, BACKDROP_VARIANT_OPTIONS, backdropVariantOptions } from "@kb/appearance";
 import { FIELD_TYPE_OPTIONS } from "@kb/model";
 import { NoParams, viewKey } from "@kb/views";
-import { Point, Service, definePlugin, namespaced, type ContributionEntry } from "@kb/plugin";
+import {
+  Point,
+  Service,
+  contributionKey,
+  definePlugin,
+  namespaced,
+  type ContributionEntry,
+} from "@kb/plugin";
 import type { NodeIndex } from "@kb/query";
 import type { KbContext } from "./session.ts";
 import type { ActionDefinition, ActionEffectHandler } from "./actions.ts";
@@ -163,7 +171,9 @@ export const EXTENSION_SDK = {
   familyTags,
   extensionNamespace,
   Service,
+  contributionKey,
   ActionPoint,
+  ChannelPoint,
   ActionGuardPoint,
   ActionInterceptorPoint,
   TxAfterPoint,

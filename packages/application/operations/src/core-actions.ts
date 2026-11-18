@@ -41,6 +41,8 @@ import { graphRunDef, graphRunEffect } from "./actions.ts";
 import {
   extensionFootprintDef,
   extensionFootprintEffect,
+  extensionImpactDef,
+  extensionImpactEffect,
   extensionListDef,
   extensionListEffect,
   extensionSettingsDef,
@@ -125,6 +127,7 @@ const portActions: readonly RegisteredAction[] = [
   coreNative(extensionSwitchDef, extensionSwitchEffect),
   coreNative(extensionInstallDef, extensionInstallEffect),
   coreNative(extensionFootprintDef, extensionFootprintEffect),
+  coreNative(extensionImpactDef, extensionImpactEffect),
   coreNative(extensionListDef, extensionListEffect),
   coreNative(extensionDiffDef, extensionDiffEffect),
   coreNative(extensionSettingsDef, extensionSettingsEffect),

@@ -24,6 +24,8 @@
  */
 import type { NodeId } from "./model.ts";
 
+export const VIEWS_MIGRATION = "views.migrate";
+
 /**
  * One row: `from` is retired; `to`, when given, is the seeded id that
  * replaced it (`from` itself where only the label changed); `text`, when
@@ -31,6 +33,8 @@ import type { NodeId } from "./model.ts";
  */
 export interface SeedRetirement {
   readonly from: NodeId;
+  /** The migration that reads the old data before applying this row. */
+  readonly after?: string;
   readonly to?: NodeId;
   readonly text?: string;
 }

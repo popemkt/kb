@@ -1,0 +1,4 @@
+{
+  "reason": "The shared node index delegates literal substring matching, title lookup, and id ordering to one text search module. The measured CLI closure adds one module and grows from 2,849,044 to 2,849,230 bytes.",
+  "raise": { "cli-closure": { "bytes": 186, "modules": 1 } }
+}

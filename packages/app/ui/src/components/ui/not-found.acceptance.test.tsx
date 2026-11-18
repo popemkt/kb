@@ -5,13 +5,12 @@
  * default perspective, and `/nope/xyz` or `/lab/nope` showed the outline under
  * the wrong URL. Each case below goes through the real App.
  */
+import { viewOptionNodes } from "@/fixtures/view-fields";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { GraphSnapshot } from "@kb/contracts";
-import { SYSTEM_IDS } from "@kb/model";
-import { OutlineView } from "@kb/views";
 
 const { App } = await import("@/components/App");
 const { setFetchGraphSnapshot } = await import("@/api/graph");
@@ -24,15 +23,7 @@ function snapshot(): GraphSnapshot {
     rev: 1,
     nodes: [
       { id: "n.a", text: "a note", props: {}, children: [], createdAt: ISO, updatedAt: ISO },
-      // The home shows the store's default view type, which every store's seed names.
-      {
-        id: SYSTEM_IDS.viewsRoot,
-        text: "Views",
-        props: { [SYSTEM_IDS.viewDefaultField]: [{ t: "ref", v: OutlineView.option }] },
-        children: [],
-        createdAt: ISO,
-        updatedAt: ISO,
-      },
+      ...viewOptionNodes,
     ],
   };
 }

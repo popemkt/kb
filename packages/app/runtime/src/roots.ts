@@ -15,7 +15,7 @@ import { KbRoots, KbStore, uiAddressOf, type KbContext, type RootProbe } from "@
 import { domainError, ensureDomainError, type DomainError, type KbNode } from "@kb/model";
 import { persistPlannedEffect } from "@kb/operations";
 import { canonicalRoot, currentHome, servingUi } from "@kb/workspace-fs";
-import { openKbEffect } from "./open.ts";
+import { openKbScoped } from "./open.ts";
 import { oneStartPerRoot, selfLaunch, serveRoot } from "./serve.ts";
 import { listBackups, takeBackup, useBackup } from "./backups.ts";
 import { createStore, storeBackendAt, storeSnapshot } from "./store-selection.ts";
@@ -97,9 +97,7 @@ export function kbRootsLayer(
             Effect.provide(context),
           ),
         create: (root) => createRoot(root).pipe(Effect.provide(context)),
-        // GAP [[01M39XVZCR684Y1V9FXNDT44D5]]: the store opened here is never
-        // released, as no selected store is; a sqlite root keeps its connection.
-        open: (root) => openKbEffect(root).pipe(Effect.provide(context)),
+        open: (root) => openKbScoped(root).pipe(Effect.provide(context)),
         // Core's planned commit, with the system writes the home registry is made of.
         writeHome: (home, plan) =>
           homeOnly(home).pipe(

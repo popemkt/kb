@@ -130,7 +130,7 @@ export const CORE_POINT_DEFINITIONS = {
     spec: {
       cardinality: "keyed",
       combine: "lookup by contribution id",
-      kernel: "server",
+      kernel: ["registry", "server"],
       tier: "T3",
     },
   },

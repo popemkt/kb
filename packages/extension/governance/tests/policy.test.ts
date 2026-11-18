@@ -3,8 +3,9 @@
  * seed writes (DESIGN.md → Action registry → Approval).
  */
 import { describe, expect, test } from "bun:test";
-import { SYSTEM_IDS, viewOptionId, type KbNode } from "@kb/model";
+import { SYSTEM_IDS, present, viewOptionId, type KbNode } from "@kb/model";
 import { bundledSeed } from "@kb/bundled";
+import { policiesViewMigration } from "../src/policies-view-migration.ts";
 import {
   ACTOR_OPTION_IDS,
   DECISION_OPTION_IDS,
@@ -21,6 +22,13 @@ const node = (id: string, props: KbNode["props"] = {}): KbNode => ({
   createdAt: "",
   updatedAt: "",
 });
+
+const plan = (...nodes: KbNode[]) =>
+  policiesViewMigration.run({
+    nodes,
+    nodeOf: (id) => nodes.find((candidate) => candidate.id === id),
+    at: "",
+  });
 
 describe("approval policies", () => {
   test("a policy is read from its tag and fields; an absent actor is every actor", () => {
@@ -74,20 +82,35 @@ describe("approval policies", () => {
     expect(byId.get(GOVERNANCE_IDS.policies)?.children).toEqual([]);
   });
 
-  test("the policies are managed in a table view of that query, pinned in the sidebar", () => {
+  test("the pinned policies query uses the store's default view", () => {
     const byId = new Map(bundledSeed().map((seeded) => [seeded.id, seeded]));
-    const host = byId.get(GOVERNANCE_IDS.policies);
-    expect(host?.props[SYSTEM_IDS.viewsField]).toEqual([
-      { t: "ref", v: GOVERNANCE_IDS.policiesView },
-    ]);
-    const view = byId.get(GOVERNANCE_IDS.policiesView);
-    expect(view?.props[SYSTEM_IDS.viewField]).toEqual([
-      { t: "ref", v: viewOptionId("outline.table") },
-    ]);
-    expect(byId.get(SYSTEM_IDS.viewsList)?.children).toContain(GOVERNANCE_IDS.policiesView);
+    const host = present(byId.get(GOVERNANCE_IDS.policies), "the policies query");
+    expect(host.props[SYSTEM_IDS.viewsField]).toBeUndefined();
+    expect(host.props[SYSTEM_IDS.queryField]).toHaveLength(1);
     expect(byId.get(SYSTEM_IDS.pinnedRoot)?.children).toEqual([GOVERNANCE_IDS.policiesPin]);
     expect(byId.get(GOVERNANCE_IDS.policiesPin)?.props[SYSTEM_IDS.refTargetField]).toEqual([
       { t: "ref", v: GOVERNANCE_IDS.policies },
     ]);
+  });
+
+  test("the preview detaches the stock table link while preserving edited views", () => {
+    const view = {
+      ...node("view.approval.policies", {
+        [SYSTEM_IDS.viewField]: [{ t: "ref", v: viewOptionId("outline.table") }],
+        [SYSTEM_IDS.viewDisplayField]: [
+          { t: "ref", v: GOVERNANCE_IDS.matchField },
+          { t: "ref", v: GOVERNANCE_IDS.actorField },
+          { t: "ref", v: GOVERNANCE_IDS.decisionField },
+        ],
+      }),
+      text: "",
+    };
+    const host = node(GOVERNANCE_IDS.policies, {
+      [SYSTEM_IDS.viewsField]: [{ t: "ref", v: view.id }],
+    });
+    const expected = { ...host, props: {} };
+    expect(plan(host, view)).toEqual({ upserts: [expected], deletes: [] });
+    expect(plan(expected, view)).toEqual({ upserts: [], deletes: [] });
+    expect(plan(host, { ...view, text: "My table" })).toEqual({ upserts: [], deletes: [] });
   });
 });

@@ -200,7 +200,8 @@ export {
 
 export { seededCommand, seededField, seededTag } from "./seed-builders.ts";
 
-export type { SeedRetirement } from "./seed-retirement.ts";
+export { retireSeeded } from "./retire-seed.ts";
+export { VIEWS_MIGRATION, type SeedRetirement } from "./seed-retirement.ts";
 
 export {
   chosenProps,
@@ -227,6 +228,7 @@ export {
   TAG_VIEWS,
   tagViewsOf,
   type TagViewRole,
+  familyDefaultViewOf,
   familyViewIdOf,
   docsViewNameError,
   docsViewNameOf,
@@ -251,6 +253,8 @@ export {
   frameViewNodeId,
   legacyViewShapes,
   migrateToViewNodes,
+  LEGACY_FRAME_RETIREMENTS,
+  LEGACY_GRAPH_RETIREMENTS,
 } from "./view-migration.ts";
 export type { LegacyDocsView } from "./view-migration.ts";
 export { isValidWorkspaceName } from "./workspace-name.ts";

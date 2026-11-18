@@ -7,7 +7,7 @@
  * adapter (selection, `kb init --store`, migration) reads that one table
  * rather than branching on a backend name at its own call site.
  */
-import { Effect } from "effect";
+import { Effect, type Scope } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { join } from "node:path";
 import { domainError, ensureDomainError, type DomainError } from "@kb/model";
@@ -20,55 +20,39 @@ import { createOwnStore, persistOwnWrite, sessionOver } from "./own-write.ts";
 export const STORE_BACKENDS = ["jsonl", "sqlite"] as const;
 export type StoreBackend = (typeof STORE_BACKENDS)[number];
 
-/** An open store plus the way to let go of whatever it holds. */
-interface OpenedStore {
-  readonly store: EffectStore;
-  /** No-op for a backend that holds nothing; a connection close for sqlite. */
-  readonly release: () => void;
-}
-
 interface StoreBackendOps {
-  readonly open: (root: string) => OpenedStore;
+  readonly open: (root: string) => EffectStore;
   /** Every file the backend owns under a root; the selecting one first. */
   readonly files: (root: string) => readonly string[];
 }
 
-/**
- * Erase a concrete adapter into {@link StoreBackendOps} while `release` still
- * sees its real type — so the table needs no cast and no `instanceof`.
- */
-function backend<S extends EffectStore>(spec: {
-  make: (root: string) => S;
-  files: (root: string) => readonly string[];
-  release?: (store: S) => void;
-}): StoreBackendOps {
-  return {
-    files: spec.files,
-    open: (root) => {
-      const store = spec.make(root);
-      return { store, release: () => spec.release?.(store) };
-    },
-  };
-}
-
 const BACKENDS: Record<StoreBackend, StoreBackendOps> = {
-  jsonl: backend({
-    make: (root) => new JsonlStore(root),
-    // The store itself names its files — including its transaction tail, which
-    // is as much the store's as `nodes.jsonl` is and must go when it goes, or
-    // migrating away would leave a tail describing a store that is not there.
-    // `.lock` and `.tmp` are transient.
+  jsonl: {
+    open: (root) => new JsonlStore(root),
+    // The store owns its transaction tail as well as its nodes file.
     files: (root) => {
       const store = new JsonlStore(root);
-      return [store.path, store.backupPath, store.txTail.path, store.txTail.backupPath];
+      return [
+        store.path,
+        store.backupPath,
+        store.txTail.path,
+        store.txTail.backupPath,
+        store.txTail.pendingPath,
+      ];
     },
-  }),
-  sqlite: backend({
-    make: (root) => new SqliteStore(root),
+  },
+  sqlite: {
+    open: (root) => new SqliteStore(root),
     files: sqliteStoreFiles,
-    release: (store) => store.close(),
-  }),
+  },
 };
+
+const acquireStore = Effect.fn("kb.acquireStore")(function* ({ root, backend }: StoreAt) {
+  return yield* Effect.acquireRelease(
+    Effect.sync(() => BACKENDS[backend].open(root)),
+    (store) => store.closeEffect,
+  );
+});
 
 /** The path whose existence means "this root is stored in that backend". */
 function selectingPath(root: string, name: StoreBackend): string {
@@ -123,21 +107,16 @@ export const selectStore = Effect.fn("kb.selectStore")(function* (
   root: string,
 ): Effect.fn.Return<EffectStore, DomainError, FileSystem> {
   const name = (yield* storeBackendAt(root)) ?? "jsonl";
-  // GAP [[01M39XVZCR684Y1V9FXNDT44D5]]: `release` is dropped here, so no
-  // caller that selects a store can close it.
-  return BACKENDS[name].open(root).store;
+  return BACKENDS[name].open(root);
 });
 
 /** A raw snapshot releases the selected adapter and never composes or seeds families. */
 export const storeSnapshot = Effect.fn("kb.storeSnapshot")(function* (root: string) {
   const name = yield* storeBackendAt(root);
   if (name === null) return [];
-  return yield* Effect.acquireUseRelease(
-    Effect.sync(() => BACKENDS[name].open(root)),
-    (opened) => opened.store.loadEffect,
-    (opened) => Effect.sync(opened.release),
-  );
-});
+  const store = yield* acquireStore({ root, backend: name });
+  return yield* store.loadEffect;
+}, Effect.scoped);
 
 /**
  * Make an empty store of `name` under a root that has none — what
@@ -148,7 +127,7 @@ export const storeSnapshot = Effect.fn("kb.storeSnapshot")(function* (root: stri
 export const createStore = Effect.fn("kb.createStore")(function* (
   root: string,
   name: StoreBackend,
-): Effect.fn.Return<void, DomainError, FileSystem> {
+): Effect.fn.Return<void, DomainError, FileSystem | Scope.Scope> {
   const found = yield* presentBackends(root);
   if (found.length > 1) return yield* twoStoresError(root, found);
   const [existing] = found;
@@ -160,11 +139,10 @@ export const createStore = Effect.fn("kb.createStore")(function* (
       { root, existing, requested: name },
     );
   }
-  const opened = BACKENDS[name].open(root);
-  yield* createOwnStore(yield* sessionOver(root, opened.store, [], []));
-  opened.release();
+  const store = yield* acquireStore({ root, backend: name });
+  yield* createOwnStore(yield* sessionOver(root, store, [], []));
   return undefined;
-});
+}, Effect.scoped);
 
 export interface StoreMigration {
   from: StoreBackend;
@@ -200,16 +178,16 @@ export interface StoreCopy {
 export const copyStore = Effect.fn("kb.copyStore")(function* (
   from: StoreAt,
   to: StoreAt,
-): Effect.fn.Return<StoreCopy, DomainError, FileSystem> {
+): Effect.fn.Return<StoreCopy, DomainError, FileSystem | Scope.Scope> {
   const fs = yield* FileSystem;
-  const source = BACKENDS[from.backend].open(from.root);
-  const target = BACKENDS[to.backend].open(to.root);
-  const before = yield* source.store.fingerprint;
-  const nodes = yield* source.store.loadEffect;
-  const tail = source.store.txTail.entries();
+  const source = yield* acquireStore(from);
+  const target = yield* acquireStore(to);
+  const before = yield* source.fingerprint;
+  const nodes = yield* source.loadEffect;
+  const tail = source.txTail.entries();
   // A copy lands only on an empty target: one that holds nodes by the time
   // the commit finds it is another writer's, and is never written over.
-  const into = yield* sessionOver(to.root, target.store, [], []);
+  const into = yield* sessionOver(to.root, target, [], []);
   // An empty transaction is normally omitted; a copy must materialize its empty payload.
   if (nodes.length === 0) yield* createOwnStore(into);
   yield* persistOwnWrite(into, (held) =>
@@ -226,12 +204,11 @@ export const copyStore = Effect.fn("kb.copyStore")(function* (
   );
   // A write to the source after it was read is not in the copy: then the
   // copy is undone, and the caller is told to copy again.
-  if ((yield* source.store.fingerprint) !== before) {
-    target.release();
+  if ((yield* source.fingerprint) !== before) {
+    yield* target.closeEffect;
     for (const file of BACKENDS[to.backend].files(to.root)) {
       yield* fs.remove(file, { force: true }).pipe(Effect.mapError(ensureDomainError));
     }
-    source.release();
     return yield* domainError(
       "conflict",
       `${from.root}'s ${from.backend} store changed while it was read; it is left as it was and nothing was copied, so try again`,
@@ -246,12 +223,9 @@ export const copyStore = Effect.fn("kb.copyStore")(function* (
   // store written before tails existed) leaves the target the one record its
   // own commit made, which is the truthful answer: the whole graph arrived in
   // one transaction and nothing before it is known.
-  if (tail.length > 0) target.store.txTail.adopt(tail);
-  source.release();
-  const path = target.store.path;
-  target.release();
-  return { fingerprint: before, nodes: nodes.length, path };
-});
+  if (tail.length > 0) yield* target.txTail.adopt(tail);
+  return { fingerprint: before, nodes: nodes.length, path: target.path };
+}, Effect.scoped);
 
 /**
  * Move a root from the store it has to the one it asked for: copy it into

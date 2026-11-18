@@ -54,6 +54,25 @@ function fresh(nodes: KbNode[], edn: string): string[][] {
 }
 
 describe("DatascriptIndex", () => {
+  test("retains a live answer across cache pressure until a matching change", () => {
+    const index = new DatascriptIndex([node("a"), node("b")], { derived: derivedWith({}) });
+    const query = '[:find ?text :where [?n :node/id "a"] [?n :node/text ?text]]';
+    const release = index.retainDatalog(query);
+    const answer = index.answerDatalog(query);
+    for (let i = 0; i < 300; i += 1) {
+      index.runDatalog(`[:find ?id :where [?n :node/id ?id] [(= ?id "absent-${i}")]]`);
+    }
+
+    index.applyTx({ upserts: [node("b", { text: "unrelated" })], deletes: [] });
+    expect(index.answerDatalog(query)).toBe(answer);
+    index.applyTx({ upserts: [], deletes: ["a"] });
+    expect(index.answerDatalog(query).rows).toEqual([]);
+
+    const held = index.answerDatalog(query);
+    release();
+    expect(index.answerDatalog(query)).not.toBe(held);
+  });
+
   test("rebuild answers datalog and owns the node lookup", () => {
     const nodes = [node("a", { text: "alpha", children: ["b"] }), node("b", { text: "beta" })];
     const index = new DatascriptIndex(nodes, { derived: derivedWith({}) });

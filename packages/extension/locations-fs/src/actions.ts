@@ -5,7 +5,7 @@
  * are the runtime's. What a write puts in the home store is planned by
  * `@kb/locations` and only committed here, in a session over the home store.
  */
-import { Effect } from "effect";
+import { Effect, type Scope } from "effect";
 import { KbCtx, KbRoots, type KbContext, type KbRootsPort } from "@kb/contracts";
 import { currentIso, domainError, freshId, type DomainError, type KbNode } from "@kb/model";
 import {
@@ -65,7 +65,7 @@ type Home =
 /** The home store, opened when there is one; else where it will be and why it is not there. */
 const openHome = Effect.fn("ext.locations.openHome")(function* (
   roots: KbRootsPort,
-): Effect.fn.Return<Home, DomainError> {
+): Effect.fn.Return<Home, DomainError, Scope.Scope> {
   const probe = yield* roots.probe(yield* roots.home);
   if (probe.state.kind !== "store")
     return {
@@ -87,7 +87,11 @@ const openHome = Effect.fn("ext.locations.openHome")(function* (
 const homeEntry = Effect.fn("ext.locations.homeEntry")(function* (
   roots: KbRootsPort,
   id: string,
-): Effect.fn.Return<{ readonly home: KbContext; readonly entry: LocationEntry }, DomainError> {
+): Effect.fn.Return<
+  { readonly home: KbContext; readonly entry: LocationEntry },
+  DomainError,
+  Scope.Scope
+> {
   const home = yield* openHome(roots);
   if (home.session === null) return yield* domainError("not_found", home.reason);
   const entry = locationEntries(home.session.nodes).find((each) => each.id === id);
@@ -126,7 +130,7 @@ function duplicateWarnings(rows: readonly LocationRow[]): string[] {
 
 export const locationListEffect = Effect.fn("ext.locations.list")(function* (
   _input: Record<string, never>,
-): Effect.fn.Return<LocationList, DomainError, KbRoots | KbCtx> {
+): Effect.fn.Return<LocationList, DomainError, KbRoots | KbCtx | Scope.Scope> {
   const roots = yield* KbRoots;
   const home = yield* openHome(roots);
   if (home.session === null) return { home: home.path, rows: [], warnings: [home.reason] };
@@ -137,12 +141,12 @@ export const locationListEffect = Effect.fn("ext.locations.list")(function* (
     { concurrency: "unbounded" },
   );
   return { home: home.path, rows, warnings: duplicateWarnings(rows) };
-});
+}, Effect.scoped);
 
 export const locationRegisterEffect = Effect.fn("ext.locations.register")(function* (input: {
   readonly path: string;
   readonly label?: string;
-}): Effect.fn.Return<LocationRow, DomainError, KbRoots | KbCtx> {
+}): Effect.fn.Return<LocationRow, DomainError, KbRoots | KbCtx | Scope.Scope> {
   const roots = yield* KbRoots;
   const target = yield* roots.probe(input.path);
   if (target.state.kind !== "store")
@@ -167,11 +171,15 @@ export const locationRegisterEffect = Effect.fn("ext.locations.register")(functi
   if (entry === undefined)
     return yield* domainError("internal", `${target.path} was registered but is not listed`);
   return yield* rowOf(roots, entry, yield* currentRoot(roots));
-});
+}, Effect.scoped);
 
 export const locationForgetEffect = Effect.fn("ext.locations.forget")(function* (input: {
   readonly id: string;
-}): Effect.fn.Return<{ id: string; label: string; path: string }, DomainError, KbRoots> {
+}): Effect.fn.Return<
+  { id: string; label: string; path: string },
+  DomainError,
+  KbRoots | Scope.Scope
+> {
   const roots = yield* KbRoots;
   const { home, entry } = yield* homeEntry(roots, input.id);
   const at = yield* currentIso;
@@ -181,7 +189,7 @@ export const locationForgetEffect = Effect.fn("ext.locations.forget")(function* 
       id: input.id,
     });
   return { id: entry.id, label: entry.label, path: entry.paths[0] ?? "" };
-});
+}, Effect.scoped);
 
 /**
  * The root an open names: a location's path by its id, a path, or, given
@@ -191,7 +199,7 @@ export const locationForgetEffect = Effect.fn("ext.locations.forget")(function* 
 const openTarget = Effect.fn("ext.locations.openTarget")(function* (
   roots: KbRootsPort,
   input: { readonly id?: string; readonly path?: string },
-): Effect.fn.Return<string, DomainError> {
+): Effect.fn.Return<string, DomainError, Scope.Scope> {
   if (input.path !== undefined) return input.path;
   if (input.id === undefined) {
     const home = yield* roots.home;
@@ -203,7 +211,7 @@ const openTarget = Effect.fn("ext.locations.openTarget")(function* (
   if ("reason" in held)
     return yield* domainError("not_found", `${entry.label}: ${held.reason}`, { id: entry.id });
   return held.path;
-});
+}, Effect.scoped);
 
 /**
  * Open a root: answer the URL of the `kb ui` serving it, where a browser

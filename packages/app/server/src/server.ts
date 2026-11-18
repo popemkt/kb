@@ -27,7 +27,8 @@ import {
   ownExtensionPath,
   sessionRegistry,
   childProcessEnv,
-  openKbEffect,
+  openKbScoped,
+  pendingRequests,
   registerOpenedRoot,
   writeErr,
 } from "@kb/runtime";
@@ -58,6 +59,7 @@ import { channelsOf, loadServerPlugins, type HostedExtensions } from "./plugins.
 import { SavedQuerySet, listSavedQueriesEffect, savedQueryNodes } from "./saved-queries.ts";
 import { serverRuntimeLayer } from "./screens.ts";
 import { ClientGone, SubscriptionHub, type ClientSend, type WsData } from "./session.ts";
+import { FtsTextCandidates } from "./text-candidates.ts";
 
 /** The injectable build-ensure step, shared by both entry points. */
 export type EnsureUiBuilt = (
@@ -231,7 +233,7 @@ export const ingestExternalWrite = Effect.fn("kb.ingestExternalWrite")(function*
   if (ctx.log.refresh().length > 0 || replaced === null) return;
   const ops = diffTx(replaced, ctx.index.storedNodes());
   if (ops.upserts.length === 0 && ops.deletes.length === 0) return;
-  ctx.log.append(ops, yield* currentIso);
+  yield* ctx.log.append(ops, yield* currentIso);
 });
 
 /**
@@ -251,7 +253,7 @@ export const ingestSavedQueries = Effect.fn("kb.ingestSavedQueries")(function* (
   queries: SavedQuerySet,
 ) {
   const saved = yield* listSavedQueriesEffect(root);
-  queries.sync(savedQueryNodes(saved), yield* currentIso);
+  yield* queries.sync(savedQueryNodes(saved), yield* currentIso);
 });
 
 /**
@@ -291,6 +293,7 @@ function serveUi(deps: {
   embedding: Embedding;
   root: string;
   ctx: KbContext;
+  requests: ReturnType<typeof pendingRequests>;
   hub: SubscriptionHub;
   hosted: HostedFamilies;
   /** The server's kernel, whose identity providers say who a request is. */
@@ -298,7 +301,10 @@ function serveUi(deps: {
   /** Where earlier builds are kept ({@link UiServerOptions.builds}). */
   builds: string | null;
 }): Bun.Server<WsData> {
-  const { ctx, hub } = deps;
+  const { ctx, hub, requests } = deps;
+  const runSocket = (effect: Effect.Effect<void>): void => {
+    void requests.run(() => Effect.runPromiseExit(effect));
+  };
   // Built on the first request, once the listener knows its port (0 binds an ephemeral one).
   let guard: RequestGuard | null = null;
   return Bun.serve<WsData>({
@@ -331,26 +337,28 @@ function serveUi(deps: {
         return undefined;
       }
 
-      return handleHttpRequest(req, caller.wire, {
-        root: deps.root,
-        page: uiAddressOf(at),
-        ctx,
-        hub,
-        hosted: deps.hosted,
-        embedding: deps.embedding,
-        builds: deps.builds,
-      });
+      return requests.run(() =>
+        handleHttpRequest(req, caller.wire, {
+          root: deps.root,
+          page: uiAddressOf(at),
+          ctx,
+          hub,
+          hosted: deps.hosted,
+          embedding: deps.embedding,
+          builds: deps.builds,
+        }),
+      );
     },
     websocket: {
       open(ws) {
-        Effect.runFork(hub.addClient(ws.data.clientId, clientSend(ws), ws.data.caller));
+        runSocket(hub.addClient(ws.data.clientId, clientSend(ws), ws.data.caller));
       },
       message(ws, message) {
         const text = typeof message === "string" ? message : new TextDecoder().decode(message);
-        Effect.runFork(hub.handleMessage(ws.data.clientId, text));
+        runSocket(hub.handleMessage(ws.data.clientId, text));
       },
       close(ws) {
-        Effect.runFork(hub.removeClient(ws.data.clientId));
+        runSocket(hub.removeClient(ws.data.clientId));
       },
     },
   });
@@ -416,9 +424,10 @@ const observeExtensions = Effect.fn("kb.observeExtensions")(function* (
   hosted: HostedExtensions,
   hub: SubscriptionHub,
 ) {
-  let composition = yield* sessionRegistry(ctx);
+  const registry = sessionRegistry(ctx, hosted.kernel);
+  let composition = yield* registry;
   const announceComposition = Effect.gen(function* () {
-    const next = yield* sessionRegistry(ctx);
+    const next = yield* registry;
     if (next === composition) return;
     composition = next;
     yield* hub.manifestChanged();
@@ -448,7 +457,7 @@ const observeExtensions = Effect.fn("kb.observeExtensions")(function* (
   );
   let told = yield* trusted;
   const refresh = Effect.gen(function* () {
-    const next = yield* sessionRegistry(ctx);
+    const next = yield* registry;
     const reading = yield* trusted;
     if (next === composition && reading !== null && reading === told) return;
     composition = next;
@@ -506,17 +515,25 @@ function extensionSignals(ctx: KbContext, hub: SubscriptionHub, watchExtensions:
  * are Effect programs provided with FileSystem/KbStore layers. Binds
  * 127.0.0.1 only by default.
  */
-export const startUi = Effect.fn("kb.startUi")(function* (
+const startUiIn = Effect.fn("kb.startUiIn")(function* (
   opts: UiServerOptions,
+  lifetime: Scope.Closeable,
 ): Effect.fn.Return<UiServerHandle, DomainError, FileSystem> {
   const asked = yield* listenerOf(opts);
   const openBrowserFlag = opts.openBrowser !== false;
 
-  const lifetime = Scope.makeUnsafe("parallel");
-
-  const ctx = yield* openKbEffect(opts.root);
+  const textCandidates = yield* Effect.acquireRelease(
+    Effect.sync(() => new FtsTextCandidates()),
+    (index) => Effect.sync(() => index.close()),
+  ).pipe(Scope.provide(lifetime));
+  const ctx = yield* openKbScoped(opts.root, textCandidates).pipe(Scope.provide(lifetime));
   const kernel = makeKernel({ host: "server" });
-  const hub = new SubscriptionHub(ctx, channelsOf(kernel), opts.embedding ?? NO_EMBEDDING);
+  yield* Scope.addFinalizer(lifetime, kernel.shutdown);
+  const hub = new SubscriptionHub(ctx, channelsOf(ctx, kernel), opts.embedding ?? NO_EMBEDDING);
+  yield* Scope.addFinalizer(
+    lifetime,
+    Effect.sync(() => hub.dispose()),
+  );
   const hosted = yield* loadServerPlugins(
     kernel,
     ctx,
@@ -525,6 +542,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     opts.identity ?? [],
   );
   const observation = yield* observeExtensions(ctx, hosted, hub);
+  yield* Scope.addFinalizer(lifetime, Effect.sync(observation.unsubscribe));
   const queries = new SavedQuerySet(ctx);
   queries.adopt(savedQueryNodes(yield* listSavedQueriesEffect(opts.root)));
 
@@ -542,9 +560,8 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   const builds =
     opts.builds !== undefined ? opts.builds : cache === null ? null : join(cache, "ui-builds");
 
-  // The listener first: a bind that fails throws here, before the lifetime
-  // owns the server, so nothing is left running behind a server that never
-  // came up.
+  // Bind before starting the background watchers.
+  const requests = pendingRequests();
   const server = yield* listen(asked, lifetime, (where) =>
     serveUi({
       where,
@@ -557,6 +574,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
       embedding: opts.embedding ?? NO_EMBEDDING,
       root: opts.root,
       ctx,
+      requests,
       hub,
       hosted,
       kernel,
@@ -569,14 +587,8 @@ export const startUi = Effect.fn("kb.startUi")(function* (
 
   yield* Scope.addFinalizer(
     lifetime,
-    Effect.sync(() => {
-      hub.dispose();
-      void server.stop(true);
-    }),
+    Effect.promise(() => server.stop(true).then(requests.settle)),
   );
-  // Each plugin's scope closes with the server's: what it forked stops with it.
-  yield* Scope.addFinalizer(lifetime, Effect.sync(observation.unsubscribe));
-  yield* Scope.addFinalizer(lifetime, kernel.shutdown);
 
   // The store says when it moved; the server never names its files. The first
   // element is the state once the subscription is armed, so a write that
@@ -622,6 +634,15 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     hosted,
     stop: Scope.close(lifetime, Exit.void),
   };
+});
+
+/** Keep the host scope through a successful start and release it on startup failure. */
+export const startUi = Effect.fn("kb.startUi")(function* (opts: UiServerOptions) {
+  return yield* Effect.acquireUseRelease(
+    Effect.sync(() => Scope.makeUnsafe("sequential")),
+    (lifetime) => startUiIn(opts, lifetime),
+    (lifetime, exit) => (Exit.isFailure(exit) ? Scope.close(lifetime, exit) : Effect.void),
+  );
 }, Effect.provide(bunFileSystemLayer));
 
 export interface UiDevServer {

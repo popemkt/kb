@@ -686,12 +686,12 @@ function frameViewCommands(ctx: CommandContext): {
 } {
   const views = ctx.outline.frameViews();
   return {
-    global: views.flatMap(({ key, picker }): CommandRegistration[] =>
-      picker.command === undefined
+    global: views.flatMap(({ key }): CommandRegistration[] =>
+      key.command === undefined
         ? []
         : [
             hostCommand(
-              { id: picker.command, menu: GLOBAL, run: (c) => setGlobalFrameView(c, key) },
+              { id: key.command, menu: GLOBAL, run: (c) => setGlobalFrameView(c, key) },
               { view: key.id },
               [key],
             ),
@@ -703,7 +703,7 @@ function frameViewCommands(ctx: CommandContext): {
           {
             id: `view-as-${localIdOf(key)}`,
             menu: nodeMenu("view", 10),
-            faceOf: picker.command,
+            faceOf: key.command,
             chrome: () => {
               const Icon = picker.icon;
               return {

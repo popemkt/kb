@@ -42,7 +42,12 @@ function migratedPerspective(props: Record<string, PropValue[]>): WireNode {
     props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: LEGACY_PERSPECTIVE_TAG }], ...props },
   };
   return present(
-    migrateToViewNodes([legacy], { docs: [], at: "" }).nodes[0],
+    migrateToViewNodes([legacy], {
+      docs: [],
+      at: "",
+      retirements: [],
+      seededText: () => undefined,
+    }).nodes[0],
     "the migrated perspective",
   );
 }

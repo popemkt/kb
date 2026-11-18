@@ -41,6 +41,14 @@ export const VIEW_FAMILY_OPTIONS: DeclaredOptions = {
 /** A stable declared key, resolved to a node id through VIEW_FAMILY_OPTIONS. */
 export type ViewFamily = string;
 
+/** The default option for a group of views, as named on the group's option node. */
+export function familyDefaultViewOf(
+  family: ViewFamily,
+  lookup: (id: NodeId) => Carrier | undefined,
+): NodeId | null {
+  return defaultViewTypeOf(lookup(declaredOptionId(VIEW_FAMILY_OPTIONS, family)));
+}
+
 /** The view an option node names, back from its id, or null for any other node. */
 export function viewIdOfOption(option: NodeId): string | null {
   return option.startsWith(VIEW_OPTION_PREFIX) ? option.slice(VIEW_OPTION_PREFIX.length) : null;

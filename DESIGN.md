@@ -1418,6 +1418,17 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   `VIEW_FAMILY_OPTIONS`; the same option fold derives their nodes and ownership.
   Core holds the field and id namespace, with no closed list of family keys.
   An unloaded plugin never deletes an option: the data outlives the code.
+  A family can claim the default for one of these groups through
+  `familyDefaultViews`. The fold writes `sys.f.view.default` on the
+  corresponding group option node. The view must be one the claimant
+  provides in that group, and each group has at most one claimant. Reads
+  and edits of a frame with no explicit frame view use that group's default.
+  Existing stores gain it through the seed's fill-absent pass.
+- **View commands belong to the view's declaration.** A view key can name
+  its command node by id. The fold derives that node from the same key
+  under the declaration's ownership. The palette uses that id for the
+  command's registration. Previously seeded ids keep their identity, and
+  a switched-off family keeps its nodes while its registrations are absent.
 - **The view catalog is the keys.** Every view's key — its id, option,
   label, family, its settings as an Effect `Schema` (annotated with what the view
   shows and what it is shown for) and how a view node's props are read into
@@ -1549,10 +1560,8 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
     setting of the kind `sys.tag` (`sys.f.configures` naming a kind: every
     node of it), and the kind templates it, so every tag's page shows the
     row and a seeded tag's is the person's to write without `force`, in
-    the editor or through `node.update`. Unset, a claimed tag's comes back
-    on the next open (the fill-absent pass, GAP
-    [[01M3A0ZEWWG0VEHXEM3YNKRQ0Y]]); choosing another view, the outline
-    included, is how a person says "not this one".
+    the editor or through `node.update`. Clearing it records the choice
+    described in [Extension families](#extension-families).
   - **Family off.** A tag's default this host holds no key for is passed
     over, quietly, so a `#canvas` node opens in the store's default while
     the canvas is off; one that names no view type a node opens in (a
@@ -1895,6 +1904,13 @@ grant}`: the code is one text prop, `sys.f.code`, held and read
   ([Sandbox → Snapshots](#snapshots)).
 
 ## Storage (horizontal)
+
+An open store exposes an idempotent `closeEffect` on the persistence port.
+The owner waits for its operations and subscriptions to settle, then closes
+the store on success, failure or interruption. An adapter without a held
+resource completes that effect without writing. An embedded `KbClient`
+offers `close()`, which waits for earlier client operations to finish and
+releases the client's store. Operations admitted after close fail.
 
 The port is `EffectStore` in `packages/contract/contracts/src/store.ts`; that
 file is its canonical statement and this section does not restate its members.
@@ -2288,10 +2304,23 @@ of refetching the graph.
 
 **The two tails.**
 
-|        | tail                                               | atomic with the node write?      | rev allocation                                                                    |
-| ------ | -------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------- |
-| JSONL  | `.kb/tx.jsonl`, one canonical-JSON record per line | no — two files, one lock         | under `.kb/nodes.jsonl.lock`, the lock that already covers load → merge → replace |
-| SQLite | a `tx` table in `.kb/kb.sqlite`                    | yes — the same `BEGIN IMMEDIATE` | inside that transaction                                                           |
+Both adapters publish the node write and its tail record as one commit,
+with one writer exclusion for graph and virtual transactions. SQLite inserts
+the record in its node transaction. JSONL keeps the history in `.kb/tx.jsonl`
+and stages the next record durably in `.kb/tx.jsonl.pending` before replacing
+`.kb/nodes.jsonl`. The replacement's content hash publishes the staged
+record. Readers see it only when that hash matches. The writer then folds
+the published record into the history under the node lock. If archiving is
+interrupted, the next writer must finish it before reusing the pending file.
+A restart can read a published record directly, and a prepared record whose
+node replacement failed stays invisible. An unchanged node image publishes
+at the journal write itself.
+
+The existing history and node file formats still open directly. The pending
+file is write-ahead state created by new commits, so there is no conversion
+of existing data. Keep it with the history when moving a store's replay state.
+A version that predates the journal cannot recover a pending record
+(GAP [[01M7Q21QJJWSB6JBZPW3EWT6K8]]).
 
 Each record also carries `actor`, who made the call that committed it, when
 an invocation did (`persistEffect` takes it from `CurrentCall`; `recordedTx`
@@ -2335,24 +2364,11 @@ store's fingerprint. `TxTail.isCurrent()`
 compares the newest mark to the store's current one, which is what makes the
 next paragraph a detection rather than a hope.
 
-**Write order: nodes first, tail second.** It only matters for JSONL, where
-the two writes are two files. The order is not symmetric in cost:
-
-- a tail that **lags** costs one snapshot. `isCurrent()` returns false at open,
-  `StoreTxLog` sets its `floor` to `head + 1`, and every `since(rev ≤ head)`
-  answers `"snapshot-required"` — including a client that is _at_ head, which
-  is the case a naive implementation gets wrong.
-- a tail that **led** would hand every replica a frame for a write that never
-  landed, and no later frame could take it back.
-
-So the tail is allowed to be behind and never allowed to be ahead. The same
-detection covers a store written by something that recorded nothing at all — a
-hand-edited `nodes.jsonl`, a restore from backup, an older kb. For the same
-reason the tail append is deliberately **not** `fsync`ed while the node write
-is: skipping the flush can only widen the lag, which is already handled, and
-paying an `fsync` per commit to shrink a window nothing falls into would double
-the cost of every keystroke. JSONL's mark is the store fingerprint, so a lag is
-detected exactly.
+An out-of-band write still has no corresponding record. When the tail's
+newest published mark differs from the current store mark, `StoreTxLog` at
+open sets its floor to `head + 1`. A reader at or below that head needs a
+snapshot. This covers hand edits, backup restores and writes by older kb
+versions.
 
 **Compaction.** Both tails keep their newest 2048 records and drop to 1024 when
 they pass it — the bound the ring used to impose, moved to the file so an
@@ -2360,11 +2376,10 @@ unbounded sequence costs one rewrite instead of unbounded disk. A reader
 further behind than the tail reaches gets `"snapshot-required"`, which is the
 answer the port already had.
 
-**Rev allocation is the store's exclusion, not a second lock.** `TxTail` reads
-its own head to assign the next rev, so it is not self-serialising: the store
-appends inside the lock that already serialises writers, and the only other
-appender is the saved-query set in the single `kb ui` process that owns
-`.kb/queries/`.
+**Rev allocation is the store's exclusion.** Graph commits, virtual
+appends and tail adoption take the same adapter-owned write exclusion. The
+tail allocates a revision only after entering it. Tail readers can still open
+a store without writing.
 
 **Migration carries the tail.** `kb store migrate --to` reads the source tail,
 commits the nodes, then `adopt`s those records into the target — revs
@@ -2429,7 +2444,7 @@ same lane. One path to a client, whatever a node's provenance.
   generation and forgets cached answers. Session seed reconciliation belongs
   to the runtime, shared by opening and refreshing a running session.
 - **Two halves, one owner.** An index is its node set and point reads
-  (`NodeIndex`: `getNode`, `referencesOf`, `storedNodes`, the text scan, the
+  (`NodeIndex`: `getNode`, `referencesOf`, `storedNodes`, text search, the
   generation), and the datalog engine over them (`KbIndex extends
   NodeIndex`). Every session holds the first half where its writes run
   (`KbContext<NodeIndex>`, the `KbCtx` service), so a write reads the nodes it
@@ -2539,6 +2554,9 @@ same lane. One path to a client, whatever a node's provenance.
     any transaction forgets it. A query with inputs is never remembered.
   - *Bounds.* `KEPT_ANSWERS` (256) answers, least recently asked forgotten
     first, none over `KEPT_ROWS` rows; a read set is the size of its query.
+    A live reader can retain its answer for the duration of the
+    subscription, outside these eviction bounds, with the same read-set
+    invalidation. A retained answer keeps its identity until it runs again.
     Rows are shared between askers and never changed.
   - *Budget and clock.* A run's budget is the host's (`answerOf`,
     `RemoteIndex`); a remembered answer costs no run, and a run that was
@@ -2627,14 +2645,19 @@ same lane. One path to a client, whatever a node's provenance.
   (DESIGN-UI.md → Adding to a frame). The receipt says how many
   conditions were left unmet; a query that does not lift requires nothing
   and is one unmet condition, so a caller can say the node may not show.
-- **A number stays a number when the query parses.** A ref prop and a number
-  prop are both stored as a bare number (GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]),
-  so a result value that equals a live eid could be either. For a query in
-  the IR subset only node-ref find positions are revived into node ids: a
-  variable the IR types as a node, or one bound as the value of a field attr
-  that holds refs somewhere in the data (the index's `refAttrs`). A count or
-  a number field's value stays a number. A `raw` query revives every
-  eid-shaped integer, as it cannot tell them apart.
+- **A stored number stays a number.** DataScript still represents a ref
+  as its target's engine entity id. The index allocates entity ids from
+  outside the numbers held by the graph. It relocates a live entity and
+  rebuilds its datoms if a write takes that entity's number. This keeps
+  scalar comparisons and arithmetic in the engine, excludes numbers from
+  field-to-entity joins, and makes both look up the graph's stable node ids.
+  For a query in the IR subset only node-ref find positions are revived into
+  node ids: a variable the IR types as a node, or one bound as the value of
+  a field attr that holds refs somewhere in the data (the index's `refAttrs`).
+  A numeric field literal in the IR matches a scalar, so it also excludes
+  matching entity ids when that number is absent from the graph. An
+  aggregate stays numeric. A raw query still revives numeric results that
+  are live entity ids, which can include integers it computed itself.
 - **Transitive reach** is a `:where` clause in that subset, written as a rule
   call so the EDN stays valid datalog:
 
@@ -2657,11 +2680,8 @@ same lane. One path to a client, whatever a node's provenance.
   `?from` and `?to` are variables, and either end may be the bound one:
   `(reach ?me :f/parent ?anc)` walks up a lineage, `(reach ?d :f/parent ?me)`
   walks down it. Each step and each result is a node: a dangling ref (kept
-  as its id string, see Data model), a string, a bool or a number that is
-  not an eid is neither followed nor returned. A number that equals a live
-  eid is indistinguishable from a ref to that node in the datoms
-  (GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]). A
-  cycle terminates, because the unbounded form is a set fixpoint and the
+  as its id string, see Data model), a string, a bool or a number stored
+  in the field is neither followed nor returned. A cycle terminates, because the unbounded form is a set fixpoint and the
   bounded form counts hops. The compiler owns the recursive rules it emits
   (private `__kb_reach_<n>` names, so a caller's own rule cannot collide):
   `%` is added to `:in` when the query does not declare it, and when it does,
@@ -2695,8 +2715,18 @@ same lane. One path to a client, whatever a node's provenance.
   own `.kb/queries/`. Shell-script wrappers optional on top, zero baked-in.
 - Built-in shorthands limited to structural ones: `kb backlinks <id>`,
   `kb children <id>`, `kb search <text>` — `kb search` delegates to the
-  first-class `graph.search` action (case-insensitive substring over node
-  text), so the substring policy lives in the action, not the CLI.
+  first-class `graph.search` action. The node index matches case-insensitive
+  literal substrings of stored text or display title, sorts by node id, then
+  limits the results. Stored and virtual nodes participate.
+- **Text candidates.** The server's node index lazily builds an in-memory
+  SQLite FTS5 trigram index over the current text and titles, for either
+  store backend. It updates documents when the node or any lookup in its
+  title changes. A graph replacement discards the projection and the next
+  indexed search builds it again. Candidate matches go through the same
+  substring test as a scan. A bounded lookup hands dense matches to the
+  scan, which also handles short or unsupported needles and runtimes
+  without the tokenizer. Opening a session and reading
+  anything other than search need no text index.
 
 ## Trace and suggest
 
@@ -3051,18 +3081,17 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
   - **The governance family** holds the policy vocabulary. Its interpreter
     and policy guards are deferred under GAP [[01M5E2DAVRH5CWKM27BVDYW19T]];
     no unread resolver or guard implementation is retained.
-  - **Policies are managed in a saved table, pinned in the sidebar; there is
-    no settings page.** The family seeds no policy. Its query node
-    `approval.policies` ("Approval policies") lists every
-    `#approval-policy` node wherever it is filed, and names a seeded table
-    view node (`view.approval.policies`, filed in the Views list) whose
-    columns are the three fields. The Pinned list's seeded reference
-    (`pin.approval.policies`) puts it in the sidebar. All three are
-    ordinary user-editable nodes, edited like any query, view or pin. A
-    seeded node its owner deletes comes back on the next open, because the
-    seed adds every id it misses (`// GAP [[01M413SPC35K20DFC4TRP4DJYH]]` in
-    `seed.ts`). A store seeded when defaults were seeded keeps those policy
-    nodes as data, which no guard reads.
+  - **Policies are managed in a pinned query.** The family seeds no policy.
+    Its query node `approval.policies` ("Approval policies") lists every
+    `#approval-policy` node, and the Pinned list's seeded reference
+    (`pin.approval.policies`) puts it in the sidebar. The query opens through
+    the store's default view until its owner chooses one. The
+    `governance.policies-default-view` migration removes the query's link to
+    an unchanged copy of the formerly seeded table view. The saved view
+    and any edited views stay in the store. The seed respects removal of
+    the query and its pin as described in [Extension families](#extension-families).
+    A store seeded when defaults were seeded keeps those policy nodes as
+    data, which no guard reads.
   - The flag goes on the invocation envelope, not in the input, so a surface
     can carry approval only if its wire format has an envelope.
     `POST /api/action` and `kb action-invoke` do. An MCP tool call and a
@@ -4045,7 +4074,10 @@ from "kb-ext-sdk"`. Types are generated from
   `packages/contract/ext-sdk/src/surface.ts` and embedded in the CLI bundle;
   `bun run gen:ext-sdk` refreshes the committed string (freshness-tested),
   and `surface-bridge.test.ts` holds the surface to `EXTENSION_SDK` and to
-  the plugin model. The plugin model is Effect's, so its types are
+  the plugin model. It also compares the public declaration's keys, data
+  and view keys in both directions. The fixture names the runtime-only
+  declaration fields and view callbacks excluded from the public projection.
+  The plugin model is Effect's, so its types are
   `effect`'s, a dev dependency of the extension's repository; its values
   are always the host's. A page half's types are `.kb/sdk-page.d.ts`
   (module `kb-ext-sdk/page`, from `page-surface.ts`: the UI points —
@@ -4124,7 +4156,12 @@ and it adds no field an extension author must fill in.
 
 - **Dependencies are derived, never declared.** A plugin says what it reads
   (`inject` and `uses`), and the kernel knows each service's provider and
-  each declared point's owner. Readiness, missing requirements and dependency
+  each declared point's owner. An injected contribution key names a canonical
+  registration at a typed point. The registry can resolve imported action
+  contributions through the host kernel that supplies those same actions to
+  invocation. Optional capabilities live on child plugins that wait for
+  their own requirements while the family stays active.
+  Readiness, missing requirements and dependency
   edges all derive from those requirement states (`kernel.dependencies()`:
   `{from, to, kind, name}`, `@kb/plugin`). A requirement nobody supplies is
   the plugin's `missing`, not an edge. Contributing to a declared point depends on its
@@ -4255,6 +4292,20 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
     switch: the server's entry, the `kb ui` host's entry and the browser
     half. A family depends only on its own packages (the family fence), so
     switching one off never breaks another.
+    The switch matrix composes the registry, the `kb ui` host and the page
+    with each optional family omitted in turn. The other plugins stay
+    active or wait for a requirement lost with that family. Registry reads
+    continue to answer and no plugin fails to load.
+  - **Switch impact is a read.** `extension.impact {name, on}` reports the
+    effects of a proposed switch in the kernels this host composes. It reads
+    the current dependency edges to report which plugins pause and what they
+    wait for. When turning a family on it reports pending plugins whose missing
+    requirements that family's typed contribution addresses can satisfy, and calls
+    out unresolved requirements whose providers only become known at apply.
+    The report comes from the same switch decision as the host and needs
+    neither an earlier run with the family on nor a trial activation. `kb ext
+    impact <name> [--on]` prints it, and MCP and the agent offer the same read.
+    The switch remains the action that writes.
   - **The switch is a node.** A family that is not required is on while the store's
     `sys.extension.<name>` node carries `true` in the checkbox field
     `sys.f.extension.enabled`, and by its declared default where the node
@@ -4269,9 +4320,13 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
     setting (below), and `extension.switch` is the checked verb over that
     write: it refuses an unknown or required family and commits under the
     system-write rule like every other write.
-  - **Every host makes the one decision.** A root has one registry at a
-    time, composed again when the set of families on changes, so a switch
-    takes effect on the next call, and the registry it replaces is released
+    Before turning a family on, the action checks its entry's top-level
+    requirements against the kernel and names any blockers. Optional
+    children wait for their own requirements after the entry loads.
+  - **Every host makes the one decision.** A host has one registry for a
+    root, composed again when the set of families on or the hosted
+    contributions it resolves change. A switch takes effect on the
+    next call, and the registry it replaces is released
     (Core boundary & extensions → A switch does not stop module code).
     The `kb ui` server composes the extensions it hosts (the agent) the
     same way: `composeHosted` converges its kernel on the ones `familyOn`
@@ -4410,13 +4465,29 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
   declarations alone, so a repository extension's seed shows no owner
   there.
 
+- **A deliberate removal suppresses its seed default.** When a regular
+  commit removes an editable seeded node or clears a non-structural field on
+  a seeded node, the same transaction records a seed choice as a system
+  node. Its id names the removed node or the node and field by id. The seed
+  uses those choices when it fills missing nodes and prop keys, and follows
+  direct retirement aliases when it reads them (GAP
+  [[01M7QBJAHEMMDACN92CF68XRP8]]). A choice prevents replanting while the
+  slot is absent. The owner can still write a value or restore the node.
+  Family writes that reconcile or migrate the seed do not record
+  removal choices. Older stores continue to fill defaults that have no
+  recorded choice. This does not rewrite any existing values.
+
 - **The seed retires what it renames.** A seeded id is frozen data, so a
   family that renames or removes one declares a row of the retirement
   table (`retires: [{from, to?, text?}]`, `SeedRetirement`, `@kb/model`):
   the id a store may still hold, the seeded id that replaced it, if any,
   and, where the seed changed the label too, the text it wrote before.
-  `ensureSystemSeed` applies the fold's rows before it seeds
-  (`retireSeeded`):
+  `ensureSystemSeed` applies the fold's immediate rows before it seeds
+  (`retireSeeded`). A row can name the built-in migration that must
+  first read the old values (`after: "views.migrate"`). That migration
+  consumes the rows after translating those values and commits the
+  translation with the retirements in one transaction. Applying a row
+  means:
   - a retired node is deleted. Where its replacement is not in the store
     yet it is renamed in place, so an edit made on the old id survives
     (its text included); where it
@@ -4426,7 +4497,8 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
     replacement (the replacement's own value wins where a node holds
     both), a ref value naming a retired id names its replacement, a child
     list names the replacement in its place, and a `[[ref]]` in text
-    follows. A renamed field and each of its options are rows of their
+    follows when the text contains the reference opener `[[`. A renamed
+    field and each of its options are rows of their
     own, so a value that chose an old option chooses the new one. Where
     nothing replaced an id, its keys, values and child entries are
     dropped; a mention in text is left, and shows as missing;
@@ -4489,6 +4561,13 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
   its runtime rows are exactly what that kernel holds of it, each action in
   its own `ext.<name>` namespace. A declared action list for a family that
   is off (owner question 3) and a write footprint are not built.
+
+  The reverse data footprint, `referencedBy` on each `extension.list` row,
+  reads `:node/mentions` into that family's `:node/owner` seed from nodes
+  outside the family. Switch impact groups these references by the kind of
+  seed they target (view, backdrop, design system, or other), counting each
+  referencing node once per group. The same data is available while the
+  family is off.
 
 - **Ids are frozen data.** `sys.f.chart`, `sys.views` options and the rest
   keep their spelling when their declaring package changes, so no store
@@ -4659,6 +4738,12 @@ figure?}`. `viewText` looks the view up in the catalog and falls back to
     reported on, and switched back on is both again on the same host; a
     required family written off by hand is still held and reported on;
   - every view it gives the UI has a key in the page's catalog.
+
+  The registry, UI server and page each run the same coverage property over
+  the families assigned to their composition. Every assigned declaration
+  has its owned node under `sys.extensions` and exactly one entry in that
+  composition. The page records browserless families explicitly in its
+  resolver.
 
   The page's half of switching (a family reported off leaves the page
   kernel with everything it contributed, and returns when reported on) is
@@ -5802,7 +5887,13 @@ A plugin can hold its own conversation with the connections of `kb ui`
   (`serverInvoke`: reload, then the invoke core), approval included, and
   always answers a receipt.
 - **A channel is a contribution to `ChannelPoint`**, under its namespaced
-  id (`agent.chat`). The frame is `{op: "channel", channel, data}` in both
+  id (`agent.chat`). Both the registry and the UI server kernel admit this
+  point. The socket hub reads their contributions on each receive and
+  drop and holds the registry lease until dispatch finishes, so a registry
+  replacement cannot close the channel's scope during a callback.
+  A single id routes to the registry contribution first if both kernels
+  provide it. A repository family uses `ChannelPoint` from `kb-ext-sdk`.
+  The frame is `{op: "channel", channel, data}` in both
   directions. `data` is the channel's own contract, which its plugin
   states. The hub hands it over untouched with the sending connection as
   the peer: its id, the tab it publishes its screen as, and a `send` back
