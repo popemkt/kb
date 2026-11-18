@@ -4413,9 +4413,10 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
   a seeded node, the same transaction records a seed choice as a system
   node. Its id names the removed node or the node and field by id. The seed
   uses those choices when it fills missing nodes and prop keys, and follows
-  its retirement aliases when it reads them. A choice prevents replanting
-  while the slot is absent. The owner can still write a value or restore
-  the node. Family writes that reconcile or migrate the seed do not record
+  direct retirement aliases when it reads them (GAP
+  [[01M7QBJAHEMMDACN92CF68XRP8]]). A choice prevents replanting while the
+  slot is absent. The owner can still write a value or restore the node.
+  Family writes that reconcile or migrate the seed do not record
   removal choices. Older stores continue to fill defaults that have no
   recorded choice. This does not rewrite any existing values.
 

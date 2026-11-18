@@ -14,7 +14,8 @@ function choiceId(node: NodeId, field?: NodeId): NodeId {
   return `sys.seed.removed.${encodeURIComponent(JSON.stringify(field === undefined ? [node] : [node, field]))}`;
 }
 
-/** Read a choice by current or retired ids, the same identities the seed recognizes. */
+/** Read a choice by its current id or a direct retirement alias. */
+// GAP [[01M7QBJAHEMMDACN92CF68XRP8]]: chained aliases need shared retirement resolution.
 export function seedRemovalLookup(
   nodes: ReadonlyMap<NodeId, KbNode>,
   retired: readonly SeedRetirement[],

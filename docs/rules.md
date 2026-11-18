@@ -1699,6 +1699,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Match plainWords(nodeTitleOf(...)) beside the text in every index implementation, a property in the shared index contract.
 - **node** — `01M7HCW2CRPCQ04SSRNG2FHSNS`
 
+### GAP: seed removal lookup follows only direct retirement aliases
+
+- **expected** — A recorded removal stays effective when its seeded node or field is renamed again.
+- **current** — seedRemovalLookup checks the current id and direct predecessor ids. In a direct probe, old → middle and middle → new do not carry a choice made at old to new. The current seed fold requires every retirement target to be a seeded id, so that chain cannot reach the lookup through an admitted fold.
+- **impact** — A later rename must retain every historical id as a direct alias to the current id. If the fold admits chained aliases, a removal choice can be missed and the default can return.
+- **closes** — Before admitting a second rename with chained aliases, resolve retirement identities once for both seed reconciliation and removal lookup. Cover chains for both the holder and the field, with an older recorded removal surviving reopen.
+- **node** — `01M7QBJAHEMMDACN92CF68XRP8`
+
 ### GAP: Set field… offers only fields that declare an option set
 
 - **expected** — Set field… over one row or a range offers every field and writes a value of the field's own type to each row: an option picked from a set, or a typed value (text, number, date, a node) read once and written to every row
