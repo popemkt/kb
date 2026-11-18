@@ -108,7 +108,7 @@
     "check:store": "bin/check-store-opens-clean",
     "check:audit": "bin/kb check audit",
     "check:ext": "bin/kb ext validate",
-    "check:gaps": "git ls-files -z -- '*.ts' '*.tsx' '*.css' '*.yml' 'bin/*' '.githooks/*' ':!harness' ':!docs' | bin/kb check gaps --files-from -",
+    "check:gaps": "git ls-files -z -- '*.ts' '*.tsx' '*.css' '*.yml' '*.kt' '*.kts' 'bin/*' '.githooks/*' ':!harness' ':!docs' | bin/kb check gaps --files-from -",
     "affected": "nx affected -t typecheck,test --base=main",
     "gen:ext-sdk": "bun packages/contract/ext-sdk/scripts/generate.ts && vp fmt packages/contract/ext-sdk/src/sdk-dts.text.ts",
     "gen:example-page": "bun packages/app/test-kit/tests/gen-example-page.ts && vp fmt packages/app/ui/src/test-support/example-page.text.ts",
