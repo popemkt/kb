@@ -1418,6 +1418,17 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   `VIEW_FAMILY_OPTIONS`; the same option fold derives their nodes and ownership.
   Core holds the field and id namespace, with no closed list of family keys.
   An unloaded plugin never deletes an option: the data outlives the code.
+  A family can claim the default for one of these groups through
+  `familyDefaultViews`. The fold writes `sys.f.view.default` on the
+  corresponding group option node. The view must be one the claimant
+  provides in that group, and each group has at most one claimant. Reads
+  and edits of a frame with no explicit frame view use that group's default.
+  Existing stores gain it through the seed's fill-absent pass.
+- **View commands belong to the view's declaration.** A view key can name
+  its command node by id. The fold derives that node from the same key
+  under the declaration's ownership. The palette uses that id for the
+  command's registration. Previously seeded ids keep their identity, and
+  a switched-off family keeps its nodes while its registrations are absent.
 - **The view catalog is the keys.** Every view's key — its id, option,
   label, family, its settings as an Effect `Schema` (annotated with what the view
   shows and what it is shown for) and how a view node's props are read into
@@ -1895,6 +1906,13 @@ grant}`: the code is one text prop, `sys.f.code`, held and read
   ([Sandbox → Snapshots](#snapshots)).
 
 ## Storage (horizontal)
+
+An open store exposes an idempotent `closeEffect` on the persistence port.
+The owner waits for its operations and subscriptions to settle, then closes
+the store on success, failure or interruption. An adapter without a held
+resource completes that effect without writing. An embedded `KbClient`
+offers `close()`, which waits for earlier client operations to finish and
+releases the client's store. Operations admitted after close fail.
 
 The port is `EffectStore` in `packages/contract/contracts/src/store.ts`; that
 file is its canonical statement and this section does not restate its members.
@@ -3051,18 +3069,17 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
   - **The governance family** holds the policy vocabulary. Its interpreter
     and policy guards are deferred under GAP [[01M5E2DAVRH5CWKM27BVDYW19T]];
     no unread resolver or guard implementation is retained.
-  - **Policies are managed in a saved table, pinned in the sidebar; there is
-    no settings page.** The family seeds no policy. Its query node
-    `approval.policies` ("Approval policies") lists every
-    `#approval-policy` node wherever it is filed, and names a seeded table
-    view node (`view.approval.policies`, filed in the Views list) whose
-    columns are the three fields. The Pinned list's seeded reference
-    (`pin.approval.policies`) puts it in the sidebar. All three are
-    ordinary user-editable nodes, edited like any query, view or pin. A
-    seeded node its owner deletes comes back on the next open, because the
-    seed adds every id it misses (`// GAP [[01M413SPC35K20DFC4TRP4DJYH]]` in
-    `seed.ts`). A store seeded when defaults were seeded keeps those policy
-    nodes as data, which no guard reads.
+  - **Policies are managed in a pinned query.** The family seeds no policy.
+    Its query node `approval.policies` ("Approval policies") lists every
+    `#approval-policy` node, and the Pinned list's seeded reference
+    (`pin.approval.policies`) puts it in the sidebar. The query opens through
+    the store's default view until its owner chooses one. The
+    `governance.policies-default-view` migration removes the query's link to
+    an unchanged copy of the formerly seeded table view. The saved view
+    and any edited views stay in the store. A seeded node its owner deletes
+    comes back on the next open, as recorded in GAP [[01M413SPC35K20DFC4TRP4DJYH]].
+    A store seeded when defaults were seeded keeps those policy nodes as
+    data, which no guard reads.
   - The flag goes on the invocation envelope, not in the input, so a surface
     can carry approval only if its wire format has an envelope.
     `POST /api/action` and `kb action-invoke` do. An MCP tool call and a
@@ -4418,8 +4435,12 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
   table (`retires: [{from, to?, text?}]`, `SeedRetirement`, `@kb/model`):
   the id a store may still hold, the seeded id that replaced it, if any,
   and, where the seed changed the label too, the text it wrote before.
-  `ensureSystemSeed` applies the fold's rows before it seeds
-  (`retireSeeded`):
+  `ensureSystemSeed` applies the fold's immediate rows before it seeds
+  (`retireSeeded`). A row can name the built-in migration that must
+  first read the old values (`after: "views.migrate"`). That migration
+  consumes the rows after translating those values and commits the
+  translation with the retirements in one transaction. Applying a row
+  means:
   - a retired node is deleted. Where its replacement is not in the store
     yet it is renamed in place, so an edit made on the old id survives
     (its text included); where it
@@ -5811,7 +5832,13 @@ A plugin can hold its own conversation with the connections of `kb ui`
   (`serverInvoke`: reload, then the invoke core), approval included, and
   always answers a receipt.
 - **A channel is a contribution to `ChannelPoint`**, under its namespaced
-  id (`agent.chat`). The frame is `{op: "channel", channel, data}` in both
+  id (`agent.chat`). Both the registry and the UI server kernel admit this
+  point. The socket hub reads their contributions on each receive and
+  drop and holds the registry lease until dispatch finishes, so a registry
+  replacement cannot close the channel's scope during a callback.
+  A single id routes to the registry contribution first if both kernels
+  provide it. A repository family uses `ChannelPoint` from `kb-ext-sdk`.
+  The frame is `{op: "channel", channel, data}` in both
   directions. `data` is the channel's own contract, which its plugin
   states. The hub hands it over untouched with the sending connection as
   the peer: its id, the tab it publishes its screen as, and a `send` back

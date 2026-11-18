@@ -3490,7 +3490,7 @@ how the stored name resolves to the key among them.
   names the view, and `frameViewOf` (`@kb/ui-sdk`'s `lib/frame-view.ts`)
   looks that node up in the schema (`frameViewNodeOf`, the one test of what
   a frame's view node is, which every reader shares), resolves its view
-  among the frame views provided, the list's when the frame has no frame
+  among the frame views provided, the group's default (DESIGN.md → View nodes) when the frame has no frame
   view node (it names none, or only nodes that name no frame view), and
   decodes the view
   node's props through that view's params, so the view gets exactly the
