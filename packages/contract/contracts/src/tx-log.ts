@@ -1,5 +1,5 @@
-import { Context } from "effect";
-import type { Actor, KbTx, StoreTx } from "@kb/model";
+import { Context, type Effect } from "effect";
+import type { Actor, DomainError, KbTx, StoreTx } from "@kb/model";
 
 /**
  * The one producer of "what changed, in order".
@@ -19,12 +19,8 @@ import type { Actor, KbTx, StoreTx } from "@kb/model";
  * a durable tail would be two records of one sequence, and the shorter one
  * would be the one that answered `snapshot-required` first.
  *
- * Synchronous, like {@link KbIndex} and for the same reason: every caller is
- * already inside a commit that must not yield between writing and recording.
- * `at` is a parameter rather than a `Clock` read because time has exactly one
- * owner in this codebase and it is an Effect service (`@kb/model`'s
- * `currentIso`); a synchronous port that read the wall clock would be a second
- * one.
+ * Reads are synchronous. An append is an effect so an adapter can wait for
+ * its writer exclusion. The caller supplies the time from its Clock.
  *
  * Reached as {@link KbContext.log}, beside the index, and not also as a
  * Context service: a session already hands its collaborators to everything
@@ -63,7 +59,7 @@ export interface KbTxLog {
    * (a hand-edited `nodes.jsonl`), whose delta the watcher recovers by diff
    * because no transaction was ever recorded for it.
    */
-  append(ops: StoreTx, at: string, origin?: string): KbTx;
+  append(ops: StoreTx, at: string, origin?: string): Effect.Effect<KbTx, DomainError>;
 
   /**
    * Everything after `rev`, oldest first, or one page of it ({@link
@@ -115,11 +111,8 @@ export interface TxRecord {
  * own crash story and its own rev allocation — three mechanisms for a
  * sequence the store is already serialising.
  *
- * Synchronous for the same reason {@link KbTxLog} is, and because both
- * adapters' primitives are synchronous underneath their Effect wrappers
- * (`writeSync`, `bun:sqlite`). `append` throws a `DomainError` when it cannot
- * persist; that is the only failure channel a synchronous member has, and it
- * is the same one `KbIndex` uses.
+ * Reads are synchronous. Mutations return effects so persistence failures and
+ * any wait for writer exclusion are visible to callers.
  *
  * **Not self-serialising.** The tail allocates a rev by reading its own head,
  * so two unsynchronised appenders could allocate the same one. The store
@@ -157,7 +150,7 @@ export interface TxTail {
   since(rev: number, page?: TxPage): KbTx[];
 
   /** Assign the next rev, persist the record, and return it. */
-  append(ops: StoreTx, record: TxRecord): KbTx;
+  append(ops: StoreTx, record: TxRecord): Effect.Effect<KbTx, DomainError>;
 
   /**
    * Replace the tail's contents with `txs`, revs and all.
@@ -167,7 +160,7 @@ export interface TxTail {
    * holding a rev is not forced into a snapshot by an operation that changed
    * nothing it can see.
    */
-  adopt(txs: readonly KbTx[]): void;
+  adopt(txs: readonly KbTx[]): Effect.Effect<void, DomainError>;
 }
 
 /**

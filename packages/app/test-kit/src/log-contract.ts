@@ -239,7 +239,7 @@ function failedAppendKeepsHead(adapter: LogAdapter): Promise<void> {
         // out for a transaction nobody can read back is a hole in the sequence
         // that no reader can recover from.
         adapter.breakTail(root);
-        expect(() => log.append(upsert("n-b", "b"), AT)).toThrow();
+        expect((yield* Effect.result(log.append(upsert("n-b", "b"), AT)))._tag).toBe("Failure");
         expect(log.head).toBe(before);
         expect(store.txTail.head()).toBe(before);
       }),
@@ -291,7 +291,7 @@ function staleTailForcesSnapshot(adapter: LogAdapter): Promise<void> {
 
         // The next real transaction re-anchors the tail to the store, and
         // frames from there on are servable again.
-        const appended = log.append(upsert("n-c", "c"), AT, "virtual");
+        const appended = yield* log.append(upsert("n-c", "c"), AT, "virtual");
         expect(log.head).toBe(appended.rev);
         expect(log.since(appended.rev)).toEqual([]);
       }),
@@ -310,7 +310,7 @@ function virtualTxIsRecorded(adapter: LogAdapter): Promise<void> {
 
         const seen: number[] = [];
         const off = log.subscribe((tx: KbTx) => seen.push(tx.rev));
-        const tx = log.append(upsert("sys.query.v", "saved"), AT, "virtual");
+        const tx = yield* log.append(upsert("sys.query.v", "saved"), AT, "virtual");
         off();
 
         expect(tx.rev).toBe(2);

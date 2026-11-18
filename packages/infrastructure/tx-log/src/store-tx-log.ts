@@ -1,5 +1,6 @@
+import { Effect } from "effect";
 import type { KbTxLog, TxPage, TxTail } from "@kb/contracts";
-import type { KbTx, StoreTx } from "@kb/model";
+import type { DomainError, KbTx, StoreTx } from "@kb/model";
 
 /**
  * The session's view of a store's {@link TxTail}.
@@ -41,10 +42,10 @@ export class StoreTxLog implements KbTxLog {
     return caught;
   }
 
-  append(ops: StoreTx, at: string, origin?: string): KbTx {
-    const tx = this.tail.append(ops, origin === undefined ? { at } : { at, origin });
-    this.record(tx);
-    return tx;
+  append(ops: StoreTx, at: string, origin?: string): Effect.Effect<KbTx, DomainError> {
+    return Effect.tap(this.tail.append(ops, origin === undefined ? { at } : { at, origin }), (tx) =>
+      Effect.sync(() => this.record(tx)),
+    );
   }
 
   since(rev: number, page?: TxPage): KbTx[] | "snapshot-required" {

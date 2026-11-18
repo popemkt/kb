@@ -16,11 +16,13 @@
  */
 import { appendFileSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { Predicate } from "effect";
+import { Effect, Predicate } from "effect";
 import {
   canonicalJson,
   decodeStoredTx,
   domainError,
+  ensureDomainError,
+  type DomainError,
   recordedTx,
   type KbTx,
   type StoreTx,
@@ -127,7 +129,14 @@ export class JsonlTxTail implements TxTail {
    * commit passes the mark of the bytes it just wrote rather than have the tail
    * read them back; any other caller gets the file's current mark.
    */
-  append(ops: StoreTx, record: TxRecord, mark = storeMark(this.nodesPath)): KbTx {
+  append(ops: StoreTx, record: TxRecord): Effect.Effect<KbTx, DomainError> {
+    return Effect.try({
+      try: () => this.appendWithin(ops, record, storeMark(this.nodesPath)),
+      catch: ensureDomainError,
+    });
+  }
+
+  appendWithin(ops: StoreTx, record: TxRecord, mark: string | null): KbTx {
     const existing = this.records();
     const rev = (existing.at(-1)?.tx.rev ?? 0) + 1;
     const tx = recordedTx(rev, ops, record);
@@ -141,11 +150,18 @@ export class JsonlTxTail implements TxTail {
     return tx;
   }
 
-  adopt(txs: readonly KbTx[]): void {
-    const mark = storeMark(this.nodesPath) ?? "";
-    this.write(
-      txs.slice(-TX_TAIL_KEEP_ENTRIES).map((tx) => ({ tx, mark, bytes: lineOf(tx, mark).length })),
-    );
+  adopt(txs: readonly KbTx[]): Effect.Effect<void, DomainError> {
+    return Effect.try({
+      try: () => {
+        const mark = storeMark(this.nodesPath) ?? "";
+        this.write(
+          txs
+            .slice(-TX_TAIL_KEEP_ENTRIES)
+            .map((tx) => ({ tx, mark, bytes: lineOf(tx, mark).length })),
+        );
+      },
+      catch: ensureDomainError,
+    });
   }
 
   /** The tail as records, from the cache while the file has not moved. */

@@ -234,7 +234,10 @@ function localCommitsOnly(makeStore: StoreFactory): Promise<void> {
       );
       yield* reloadEffect(h.ctx).pipe(Effect.provide(kbRuntimeLayer(h.ctx)));
       h.ctx.log.refresh();
-      h.ctx.log.append({ upserts: [plainNode("virtual", "virtual")], deletes: [] }, CONTRACT_AT);
+      yield* h.ctx.log.append(
+        { upserts: [plainNode("virtual", "virtual")], deletes: [] },
+        CONTRACT_AT,
+      );
       yield* h.run({ id: "node.get", input: { id: "foreign" }, actor: "human" });
       expect(calls).toBe(0);
       yield* h.run({

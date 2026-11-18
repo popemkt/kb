@@ -211,7 +211,7 @@ export class JsonlStore implements EffectStore {
         let committed: KbTx | null = null;
         if (applied.upserts.length > 0 || applied.deletes.length > 0) {
           committed = yield* Effect.try({
-            try: () => txTail.append(applied, record, fingerprint),
+            try: () => txTail.appendWithin(applied, record, fingerprint),
             catch: (err) => ensureDomainError(err),
           });
         }
