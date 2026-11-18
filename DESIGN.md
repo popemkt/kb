@@ -4255,6 +4255,20 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
     switch: the server's entry, the `kb ui` host's entry and the browser
     half. A family depends only on its own packages (the family fence), so
     switching one off never breaks another.
+    The switch matrix composes the registry, the `kb ui` host and the page
+    with each optional family omitted in turn. The other plugins stay
+    active or wait for a requirement lost with that family. Registry reads
+    continue to answer and no plugin fails to load.
+  - **Switch impact is a read.** `extension.impact {name, on}` reports the
+    effects of a proposed switch in the kernels this host composes. It reads
+    the current dependency edges to report which plugins pause and what they
+    wait for. When turning a family on it reports pending plugins whose missing
+    requirements that family's declared capabilities can satisfy, and calls
+    out unresolved requirements whose providers only become known at apply.
+    The report comes from the same switch decision as the host and needs
+    neither an earlier run with the family on nor a trial activation. `kb ext
+    impact <name> [--on]` prints it, and MCP and the agent offer the same read.
+    The switch remains the action that writes.
   - **The switch is a node.** A family that is not required is on while the store's
     `sys.extension.<name>` node carries `true` in the checkbox field
     `sys.f.extension.enabled`, and by its declared default where the node
@@ -4489,6 +4503,13 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
   its runtime rows are exactly what that kernel holds of it, each action in
   its own `ext.<name>` namespace. A declared action list for a family that
   is off (owner question 3) and a write footprint are not built.
+
+  The reverse data footprint, `referencedBy` on each `extension.list` row,
+  reads `:node/mentions` into that family's `:node/owner` seed from nodes
+  outside the family. Switch impact groups these references by the kind of
+  seed they target (view, backdrop, design system, or other), counting each
+  referencing node once per group. The same data is available while the
+  family is off.
 
 - **Ids are frozen data.** `sys.f.chart`, `sys.views` options and the rest
   keep their spelling when their declaring package changes, so no store
