@@ -276,9 +276,7 @@ export function startWebMcp(options: WebMcpOptions): WebMcpAdapter {
         report(`WebMCP could not read the manifest: ${manifest.error.message}`);
         return;
       }
-      yield* register(
-        manifest.data.actions.filter((entry) => listedOn(WEBMCP_WIRE, entry.decision)),
-      );
+      yield* register(manifest.data.actions.filter((entry) => listedOn(WEBMCP_WIRE, entry)));
     });
 
   // One sync at a time, so two listings never register the same name at once;

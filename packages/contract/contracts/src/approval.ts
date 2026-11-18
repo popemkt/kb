@@ -166,14 +166,19 @@ export function approvalAsk(receipt: ActionReceipt): ApprovalAsk {
 }
 
 /**
- * Whether a surface lists an action, given what is decided about a call to
- * it on that surface. The one rule is this: a surface leaves out an action
- * whose call could never succeed there — one that is denied, or one that
- * asks for approval on a wire that cannot carry it. A call by id still
- * reaches the invoke core, which refuses it.
+ * Whether a surface lists an action, given its entry in the manifest that
+ * surface read: what is decided about a call to it there. The one rule is
+ * this: a surface leaves out an action whose call could never succeed there
+ * — one that is denied, or one that asks for approval on a wire that cannot
+ * carry it. A call by id still reaches the invoke core, which refuses it.
+ * And a surface lists each action once, under its id: an alias stays
+ * callable, by its id or tool name, but is not listed again.
  */
-export function listedOn(wire: SurfaceWire, decision: ApprovalDecision): boolean {
-  if (decision === "deny") return false;
+export function listedOn(
+  wire: SurfaceWire,
+  { decision, aliasOf }: Pick<DecidedEntry, "decision" | "aliasOf">,
+): boolean {
+  if (aliasOf !== undefined || decision === "deny") return false;
   return decision === "allow" || wire.carriesApproval;
 }
 
@@ -198,7 +203,7 @@ export function listingOf(wire: SurfaceWire, receipt: ActionReceipt): DecidedEnt
   if (receipt.status !== "succeeded") return [];
   const parsed = ManifestActionsSchema.safeParse(receipt.output);
   if (!parsed.success) return [];
-  return parsed.data.actions.filter((entry) => listedOn(wire, entry.decision));
+  return parsed.data.actions.filter((entry) => listedOn(wire, entry));
 }
 
 /** An action as a call to it is decided: its id, its mode, and a batch's parts (`approvalSubject`). */

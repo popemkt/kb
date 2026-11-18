@@ -4,6 +4,7 @@
 #   out/kb-<version>/lib/kb/cli.js                  the CLI's entry, and its chunks
 #                                                   beside it (bin/build-cli)
 #   out/kb-<version>/lib/kb/packages/app/ui/dist    the UI it serves
+#   out/kb-<version>/share/kb/skills/kb             the agent skill
 # packed as out/kb-<version>.tar.gz with out/kb-<version>.tar.gz.sha256.
 # The version is package.json's, or the one given as `bin/release-bundle
 # <version>` — a nightly's, which is derived, never committed
@@ -35,6 +36,8 @@ mkdir -p "$stage/bin" "$stage/lib/kb/packages/app/ui"
 cp bin/kb-bun "$stage/lib/kb/launch"
 cp packages/infrastructure/child-process/src/kb-launch-flags.txt "$stage/lib/kb/launch-flags"
 cp -R packages/app/ui/dist "$stage/lib/kb/packages/app/ui/dist"
+mkdir -p "$stage/share/kb/skills"
+cp -R skills/kb "$stage/share/kb/skills/kb"
 for f in README.md LICENSE; do
   if [ -f "$f" ]; then cp "$f" "$stage/"; fi
 done

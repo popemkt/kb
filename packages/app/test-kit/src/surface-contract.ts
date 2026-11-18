@@ -421,7 +421,7 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
               ? ui.hosted.kernel.contributions(ActionPoint).map(({ id }) => id)
               : [];
           expect(actions.map(({ id }) => id)).toEqual([...registry.map(({ id }) => id), ...hosted]);
-          const callable = actions.filter((entry) => listedOn(surface.wire, entry.decision));
+          const callable = actions.filter((entry) => listedOn(surface.wire, entry));
           const listed = yield* Effect.promise(() => surface.list());
           // Wires without approval omit that detail from their hints.
           const stated = (entries: readonly ListedAction[]) =>

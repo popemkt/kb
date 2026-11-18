@@ -45,6 +45,15 @@ kb mcp                           # the MCP server, on stdio
 kb --help                        # everything else
 ```
 
+**Agents.** `kb mcp` serves one store, the one its `--root` or working
+directory names, as one tool per action. An alias is not listed beside its
+action, so `location_*`, `docs_check`, `docs_materialize` and
+`graph_{edges,trace,suggest,relation_type}` are listed only as their `ext_*`
+tools. Their old names still run. The skill that teaches an agent
+to work in kb, [`skills/kb`](skills/kb/SKILL.md), ships with every install at
+`<prefix>/share/kb/skills/kb` (`$out/share/kb/skills/kb` in Nix). Link your
+agents' skills directory to it.
+
 Every command finds its store by walking up from the working directory to
 the nearest `.kb/`, or takes `--root <path>`. `--json` gives machine output.
 
@@ -212,7 +221,8 @@ workflow, and it names the commit that bundle was built from.
 
 The release is one platform-independent bundle, `kb-<version>.tar.gz` with its
 `.sha256`. It unpacks to `kb-<version>/bin/kb`, a launcher that runs the bundled
-CLI on the `bun` on PATH, beside `lib/kb/` (the CLI and the UI it serves).
+CLI on the `bun` on PATH, beside `lib/kb/` (the CLI and the UI it serves) and
+`share/kb/skills/kb/` (the agent skill).
 `bun run release:bundle [<version>]` builds it into `out/`. `bun run
 release:smoke out/kb-<version>.tar.gz` runs the same smoke test CI runs.
 

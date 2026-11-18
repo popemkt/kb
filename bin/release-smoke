@@ -3,7 +3,8 @@
 #   bin/release-smoke out/kb-<version>.tar.gz
 # checks the .sha256 beside it, unpacks into a temp dir, then runs the
 # launcher: --version must print the version in the archive's name, --help
-# must succeed, and `kb ui` on a fresh temp store must serve the UI page.
+# must succeed, and `kb ui` on a fresh temp store must serve the UI page. The
+# agent skill must sit where hosts link it, share/kb/skills/kb.
 set -eu
 
 tarball=$(cd "$(dirname "$1")" && pwd)/$(basename "$1")
@@ -32,6 +33,11 @@ export KB_DATA="$tmp/data"
 
 tar -C "$tmp" -xzf "$tarball"
 kb="$tmp/$base/bin/kb"
+
+if [ ! -f "$tmp/$base/share/kb/skills/kb/SKILL.md" ]; then
+  echo "release-smoke: the bundle has no share/kb/skills/kb/SKILL.md" >&2
+  exit 1
+fi
 
 got=$(cd "$tmp" && "$kb" --version)
 if [ "$got" != "$expected" ]; then
