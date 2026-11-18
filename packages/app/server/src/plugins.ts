@@ -36,10 +36,10 @@ import type { ChannelDirectory } from "./session.ts";
 /** The channels `kernel` holds, read at each frame. */
 // GAP [[01M579MHGHVT2FNGJJRK81J9GY]] registry families still cannot own live channels
 export function channelsOf(kernel: Kernel): ChannelDirectory {
-  return {
-    find: (id) => kernel.lookup(ChannelPoint, id)?.value,
-    all: () => kernel.contributions(ChannelPoint).map((contribution) => contribution.value),
-  };
+  return (use) =>
+    Effect.suspend(() =>
+      use(new Map(kernel.contributions(ChannelPoint).map(({ id, value }) => [id, value]))),
+    );
 }
 
 /**

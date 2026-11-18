@@ -55,12 +55,11 @@ interface ClientState {
  * server's plugin kernel, read at each frame, so a plugin that loads or
  * unloads is seen at once.
  */
-export interface ChannelDirectory {
-  readonly find: (id: string) => Channel | undefined;
-  readonly all: () => readonly Channel[];
-}
+export type ChannelDirectory = <A>(
+  use: (channels: ReadonlyMap<string, Channel>) => Effect.Effect<A>,
+) => Effect.Effect<A>;
 
-const NO_CHANNELS: ChannelDirectory = { find: () => undefined, all: () => [] };
+const NO_CHANNELS: ChannelDirectory = (use) => use(new Map());
 
 /** What one query answered this transaction, shared by every subscription on it. */
 type QueryAnswer = { ok: true; rows: unknown[][]; hash: string } | { ok: false; message: string };
@@ -241,13 +240,10 @@ export class SubscriptionHub {
   /** Forget a client (socket closed / session interrupted). */
   removeClient(clientId: string): Effect.Effect<void> {
     this.clients.delete(clientId);
-    return this.screens.drop(clientId).pipe(
-      Effect.andThen(
-        Effect.forEach(this.channels.all(), (channel) => channel.drop(clientId), {
-          discard: true,
-        }),
-      ),
+    const dropChannels = this.channels((channels) =>
+      Effect.forEach(channels.values(), (channel) => channel.drop(clientId), { discard: true }),
     );
+    return this.screens.drop(clientId).pipe(Effect.andThen(dropChannels));
   }
 
   /** `clientId` as a peer of the channel `channel`: what it may know of the connection. */
@@ -284,18 +280,20 @@ export class SubscriptionHub {
         }),
       );
     }
-    const channel = this.channels.find(id);
-    if (channel === undefined) {
-      return client.send(
-        JSON.stringify({
-          op: "error",
-          id,
-          code: "unknown_channel",
-          message: `no plugin owns the channel ${id}`,
-        }),
-      );
-    }
-    return channel.receive(this.peer(clientId, id, client), data);
+    return this.channels((channels) => {
+      const channel = channels.get(id);
+      if (channel === undefined) {
+        return client.send(
+          JSON.stringify({
+            op: "error",
+            id,
+            code: "unknown_channel",
+            message: `no plugin owns the channel ${id}`,
+          }),
+        );
+      }
+      return channel.receive(this.peer(clientId, id, client), data);
+    });
   }
 
   /** Process one inbound WS frame. Never throws; failures become `error` frames. */
