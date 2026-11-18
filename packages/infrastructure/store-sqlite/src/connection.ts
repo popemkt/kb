@@ -110,7 +110,12 @@ export function sqliteConnection(path: string): SqliteConnection {
     if (handle !== null) return handle;
     mkdirSync(dirname(path), { recursive: true });
     const opened = new Database(path, { create: true });
-    initialize(opened);
+    try {
+      initialize(opened);
+    } catch (error) {
+      opened.close(false);
+      throw error;
+    }
     handle = opened;
     return opened;
   };

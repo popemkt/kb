@@ -1,0 +1,12 @@
+{
+  "reason": "Client and host lifetimes drain admitted work before closing the store.",
+  "raise": {
+    "cli-closure": {
+      "bytes": 406,
+      "modules": 1
+    },
+    "surface": {
+      "@kb/runtime": 2
+    }
+  }
+}

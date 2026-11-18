@@ -382,3 +382,27 @@ export function tagDefaultViewReachesEarlierStoreOnce(makeStore: StoreFactory): 
     ),
   );
 }
+
+/** Releasing a store has no graph or tail effect, and it can be repeated. */
+export function releaseLeavesStoreUnchanged(makeStore: StoreFactory): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* backendRoot(makeStore);
+        const held = makeStore(root);
+        yield* held.commitEffect(
+          { upserts: [plainNode("n-release", "Release check")], deletes: [] },
+          { at: AT },
+        );
+        const before = yield* stateOf(held);
+        yield* held.closeEffect;
+        yield* held.closeEffect;
+        const reopened = yield* Effect.acquireRelease(
+          Effect.sync(() => makeStore(root)),
+          (store) => store.closeEffect,
+        );
+        expect(yield* stateOf(reopened)).toEqual(before);
+      }),
+    ),
+  );
+}

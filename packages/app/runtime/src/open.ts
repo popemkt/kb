@@ -4,7 +4,7 @@
  * runtime's `KbRoots` adapter) and the runtime layer over this one both build
  * on it without importing each other.
  */
-import { Effect } from "effect";
+import { Effect, Exit } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { legacyViewShapes, type DomainError, type KbNode, type SeedRetirement } from "@kb/model";
 import { derivedWith } from "@kb/query";
@@ -59,10 +59,21 @@ const reportLegacyViews = Effect.fn("kb.open.legacyViews")(function* (
 export const openKbEffect = Effect.fn("kb.open")(function* (
   root: string,
 ): Effect.fn.Return<KbContext, DomainError, FileSystem> {
-  const store = yield* selectStore(root);
-  const loaded = yield* store.loadEffect;
-  const ctx = yield* sessionOver(root, store, loaded, derivedWith({}));
-  yield* reconcileSessionSchema(ctx);
-  yield* reportLegacyViews(root, ctx.nodes, sessionSeed(ctx).retired);
-  return ctx;
+  return yield* Effect.acquireUseRelease(
+    selectStore(root),
+    (store) =>
+      Effect.gen(function* () {
+        const loaded = yield* store.loadEffect;
+        const ctx = yield* sessionOver(root, store, loaded, derivedWith({}));
+        yield* reconcileSessionSchema(ctx);
+        yield* reportLegacyViews(root, ctx.nodes, sessionSeed(ctx).retired);
+        return ctx;
+      }),
+    (store, exit) => (Exit.isFailure(exit) ? store.closeEffect : Effect.void),
+  );
+});
+
+/** Open a session whose store is released with the caller's scope. */
+export const openKbScoped = Effect.fn("kb.openScoped")(function* (root: string) {
+  return yield* Effect.acquireRelease(openKbEffect(root), (ctx) => ctx.store.closeEffect);
 });

@@ -48,7 +48,10 @@ export const backendRoot = Effect.fn("storeContract.backendRoot")(function* (
   makeStore: StoreFactory,
 ) {
   const root = yield* scratchRoot;
-  yield* makeStore(root).commitEffect({ upserts: [], deletes: [] }, { at: CONTRACT_AT });
+  const store = makeStore(root);
+  yield* store
+    .commitEffect({ upserts: [], deletes: [] }, { at: CONTRACT_AT })
+    .pipe(Effect.ensuring(store.closeEffect));
   return root;
 });
 

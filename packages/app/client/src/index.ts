@@ -1,4 +1,4 @@
-import { Cause, Effect, Exit, Schema } from "effect";
+import { Cause, Effect, Exit, Schema, Semaphore } from "effect";
 import { KbStore, TxOrigin, staleCommitError, type EffectStore } from "@kb/contracts";
 import {
   applyTx,
@@ -160,17 +160,37 @@ function clientOver(root: string, store: EffectStore, clock: () => ClockSample):
     index: new DatascriptIndex([], { derived: bundledDerived(), clock }),
     revision: null,
   };
+  const gate = Semaphore.makeUnsafe(1);
+  let closed = false;
+  const runWhileOpen = <A>(operation: Effect.Effect<A, DomainError>): Promise<A> =>
+    run(
+      gate.withPermits(1)(
+        Effect.suspend(() =>
+          closed ? domainError("invalid_input", "the kb client is closed") : operation,
+        ),
+      ),
+    );
   return {
-    snapshot: () => run(readSnapshot(store)),
-    query: (edn, inputs = []) => run(runQuery(store, held, edn, inputs)),
-    commit: (change) => run(commitChange(root, store, change)),
+    snapshot: () => runWhileOpen(readSnapshot(store)),
+    query: (edn, inputs = []) => runWhileOpen(runQuery(store, held, edn, inputs)),
+    commit: (change) => runWhileOpen(commitChange(root, store, change)),
+    close: () =>
+      run(
+        gate.withPermits(1)(
+          Effect.gen(function* () {
+            if (closed) return;
+            closed = true;
+            yield* store.closeEffect;
+          }),
+        ),
+      ),
   };
 }
 
 /**
  * The store is chosen once, the way every kb surface chooses it
  * (`selectStore`: by which store file is present), and held for the client's
- * lifetime — a sqlite store keeps its connection open until the process ends.
+ * lifetime (DESIGN.md → Storage).
  */
 export function openClient(root: string): Promise<KbClient> {
   return run(

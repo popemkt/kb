@@ -12,7 +12,7 @@
  * `outsideRoot`. It writes one store beside the session's own, the home
  * store, and only through core's write path (`writeHome`).
  */
-import { Context, type Effect } from "effect";
+import { Context, type Effect, type Scope } from "effect";
 import type { DomainError, KbNode } from "@kb/model";
 import type { GraphPlan, GraphWrite } from "./graph-writes.ts";
 import type { KbContext } from "./session.ts";
@@ -74,8 +74,8 @@ export interface KbRootsPort {
   readonly served: (root: string) => Effect.Effect<string | null, DomainError>;
   /** Make `root` a kb root with an empty store, creating its directory, unless it is one. */
   readonly create: (root: string) => Effect.Effect<void, DomainError>;
-  /** A session over `root`, opened as every surface opens one: its store chosen by presence, seeded. */
-  readonly open: (root: string) => Effect.Effect<KbContext, DomainError>;
+  /** A seeded session over `root` whose store is released when the caller's scope closes. */
+  readonly open: (root: string) => Effect.Effect<KbContext, DomainError, Scope.Scope>;
   /**
    * Commit a write planned over the home store's nodes, through `home`, a
    * session over the home store that `open` gave. It is core's write path

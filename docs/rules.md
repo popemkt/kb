@@ -581,15 +581,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A backend id in the authority's schema and in the base's cursor, checked on connect.
 - **node** — `01M69E3RQH76X44JB9H5NYDWBE`
 
-### GAP: a store's release is not on the port; selectStore drops it
-
-- **expected** — Letting go of an open store is part of what selecting one returns: the caller that opened it can close it, through the port or a Scope, so a sqlite connection's lifetime is the session's, not the process's.
-- **current** — BACKENDS[name].open(root) returns { store, release }, and selectStore returns only .store. createStore and migrateStore call release; nothing that selects a store can. @kb/client documents that a sqlite connection stays open until the process ends; kb ui, kb mcp and the CLI hold theirs the same way.
-- **impact** — A library call that opens a client, commits and returns leaves a sqlite connection open with no way to close it, and a test or a long-lived host that opens many roots accumulates them. Harmless for one kb ui process per root; wrong as soon as the client is embedded.
-- **closes** — Decide where lifetime lives: selectStore as a scoped acquireRelease (every openKbEffect caller then supplies a Scope, which a long-lived session would hold), or a close on EffectStore that JSONL implements as a no-op. Then KbClient gains close(), and the api.d.ts contract with it.
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M39XVZCR684Y1V9FXNDT44D5`
-
 ### GAP: a style's how-to names its tool in text, not by a node
 
 - **expected** — A how-to is a value whose tool (Three.js, Blender, Godot) is a node it refers to, so a builder's export or a query can ask for one tool's notes
@@ -2444,6 +2435,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Older stores show stale labels for renamed system nodes; the Settings page is reached from ⌘K under its old name.
 - **closes** — The retirement table retires labels: a row names the text the seed wrote before (text), and opening gives a node that still reads it the text the seed writes now, leaving an owner-edited text alone. Core retires Preferences for Settings.
 - **node** — `01M5WSTXZ18DWSKY1V30GJ5HVE`
+
+### GAP: a store's release is not on the port; selectStore drops it
+
+- **expected** — Letting go of an open store is part of what selecting one returns: the caller that opened it can close it, through the port or a Scope, so a sqlite connection's lifetime is the session's, not the process's.
+- **current** — BACKENDS[name].open(root) returns { store, release }, and selectStore returns only .store. createStore and migrateStore call release; nothing that selects a store can. @kb/client documents that a sqlite connection stays open until the process ends; kb ui, kb mcp and the CLI hold theirs the same way.
+- **impact** — A library call that opens a client, commits and returns leaves a sqlite connection open with no way to close it, and a test or a long-lived host that opens many roots accumulates them. Harmless for one kb ui process per root; wrong as soon as the client is embedded.
+- **closes** — Decide where lifetime lives: selectStore as a scoped acquireRelease (every openKbEffect caller then supplies a Scope, which a long-lived session would hold), or a close on EffectStore that JSONL implements as a no-op. Then KbClient gains close(), and the api.d.ts contract with it.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M39XVZCR684Y1V9FXNDT44D5`
 
 ### GAP: a system field the editor has no widget for is hidden from people, or read-only behind debug
 

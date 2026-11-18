@@ -55,6 +55,8 @@ export interface KbClient {
    * node is `forbidden`, as on every kb surface.
    */
   commit(change: Commit): Promise<Snapshot>;
+  /** Wait for admitted operations and release the store. Safe to repeat. */
+  close(): Promise<void>;
 }
 
 export declare class KbClientError extends Error {

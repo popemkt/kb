@@ -1,7 +1,7 @@
 import type { Command } from "commander";
 import { Effect } from "effect";
 import { LegacyTrust, onWire } from "@kb/contracts";
-import { kbRuntimeLayer, openKbEffect, resolveRootEffect } from "@kb/runtime";
+import { kbRuntimeLayer, openKbScoped, resolveRootEffect } from "@kb/runtime";
 import { ACTION_INVOKE_WIRE, cliAction, invokeCliEffect, report } from "./command.ts";
 
 /** Review root-controlled bytes, then use the ordinary required-approval invocation edge. */
@@ -18,7 +18,7 @@ export function trustCommands(program: Command): void {
       cliAction((globals, [named]: [string | undefined]) =>
         Effect.gen(function* () {
           const root = yield* resolveRootEffect({ root: named ?? globals.root });
-          const ctx = yield* openKbEffect(root);
+          const ctx = yield* openKbScoped(root);
           return yield* Effect.gen(function* () {
             const digests = yield* (yield* LegacyTrust).digests(root);
             const receipt =
