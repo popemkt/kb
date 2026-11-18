@@ -1476,6 +1476,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Phase 2 of the note: child #rule clauses for the core-philosophy subset, evidence-stale from a bound digest, and resolved file#test citation, all in @kb/ext-check.
 - **node** — `01M7EY3MTKXJQQT4XGJYF3J88A`
 
+### GAP: phone capture lifecycle has no device or emulator evidence
+
+- **expected** — An instrumented test drives the share receiver on a headless emulator: share text, URL, image and two images from a real intent, kill the process between file copy and publish, restart, go offline and reconnect, and compare what the host received with the original (research 2026-11-18 §5, phase 0 · Phone lifecycle).
+- **current** — JVM unit tests cover payload building, queue durability and delivery decisions against a scripted host. The receiver activity, WorkManager scheduling and Keystore sealing are exercised only by hand on a device.
+- **impact** — A regression in intent parsing, content-URI grants or background delivery is found by the owner on their phone, not by a test.
+- **closes** — An androidTest suite run on an emulator from nix (androidenv system image, KVM), wired into the same gate as the unit tests.
+- **node** — `01M7QTAJ9GSK02FMWNR4XQGFMT`
+
 ### GAP: physical shortcut hints must use the shared chord key domain
 
 - **expected** — Shortcut hints agree with actual election for chords that constrain both physical code and character key, deriving representative keys from the shared chord model.
@@ -1826,6 +1834,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a provider that cannot run says so only when a turn fails, and a model id is typed with no suggestion
 - **closes** — the two read actions beside the agent's other actions, each answered by every adapter, with a property over kb ui
 - **node** — `01M5ZF97R8ZK857GS29QGVD3EN`
+
+### GAP: the Android capture app is built and tested by no gate
+
+- **expected** — apps/android is held by a check like every package: CI (or the pre-commit chain when apps/android is staged) runs gradle testDebugUnitTest and assembleDebug in nix develop .#android, so a change that breaks the receiver goes red.
+- **current** — Nothing runs it. bun run verify, Nx and CI see only the Bun workspace (packages/*/*); the Gradle build and its JVM unit tests run only when a person runs them (apps/android/README.md).
+- **impact** — The phone app can stop building, or its payload drift from the capture contract, with every gate green.
+- **closes** — A CI job (Linux, no macOS runner needed) running the two Gradle tasks in the android dev shell, and a docs/ci.md row for apps/android.
+- **node** — `01M7QTAHN8YW57M1R1XYGRBSZ8`
 
 ### GAP: the backdrop bar's mechanical checks are read by a reviewer, not run
 

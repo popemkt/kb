@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose draws the app; this only sets the window behind it to kb's dark background. -->
+    <style name="Theme.KbCapture" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/kb_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <!-- The share receiver shows no window of its own: only its toast. -->
+    <style name="Theme.KbCapture.Share" parent="android:Theme.Translucent.NoTitleBar">
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
+</resources>
