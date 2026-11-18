@@ -1,27 +1,15 @@
-import { isSysPrefixed, viewOptionId } from "@kb/model";
-import { bundledSeed } from "@kb/bundled";
+import { SYSTEM_IDS, viewOptionId } from "@kb/model";
 
 const LEAF_IDS = Array.from({ length: 28 }, (_, index) => `render.fixture.node.${index + 1}`);
 const ROOT_ID = "render.fixture.root";
 const PERSPECTIVE_ID = "lens.all-mentions";
 const LENS_TAG_ID = "render.fixture.tag";
 
-/**
- * Every node the perspective's lens sees: the fixture's leaves, root and
- * perspective, plus each non-system node the seed adds when the scratch store
- * opens (today the Pinned and Views lists). Derived from the seed, not counted by hand,
- * because the lens has no way to tell a seeded node from a fixture one.
- */
-const LENS_IDS = new Set([
-  ...LEAF_IDS,
-  ROOT_ID,
-  PERSPECTIVE_ID,
-  ...bundledSeed()
-    .map((seeded) => seeded.id)
-    .filter((id) => !isSysPrefixed(id)),
-]);
-
-export const FIXTURE_SIZE = LENS_IDS.size;
+/** The lens belongs to this fixture. Application seed changes must not move its layout. */
+const LENS_IDS = [ROOT_ID, ...LEAF_IDS, PERSPECTIVE_ID];
+const members = LENS_IDS.map((id) => `[?n :node/id ${JSON.stringify(id)}]`).join(" ");
+const LENS_QUERY = `[:find ?id :where (or ${members}) [?n :node/id ?id]]`;
+export const FIXTURE_SIZE = LENS_IDS.length;
 
 type PropValue = { t: "str" | "ref" | "num"; v: string | number };
 
@@ -56,7 +44,7 @@ function node(
 }
 
 /**
- * A stable single-cluster graph with 29 child edges. Keeping `cluster-by` at
+ * A stable single-cluster graph with one root and its 28 children. Keeping `cluster-by` at
  * `none` matches the production failure that used to collapse ForceGraph3D.
  * The perspective is intentionally part of its own lens: it remains editable
  * when renderer switching persists to this scratch data root. Its `max-nodes`
@@ -84,6 +72,7 @@ export function renderFixtureNodes(): FixtureNode[] {
         { t: "str", v: "child" },
       ],
       "sys.f.lens.cluster-by": [{ t: "str", v: "none" }],
+      [SYSTEM_IDS.lensQueryField]: [{ t: "str", v: LENS_QUERY }],
       "sys.f.lens.max-nodes": [{ t: "num", v: FIXTURE_SIZE }],
     }),
   ];
