@@ -124,6 +124,7 @@ function fixtureContext(initial: readonly KbNode[]) {
   let stored = [...initial];
   let revision = 0;
   const store: EffectStore = {
+    closeEffect: Effect.void,
     path: "/memory/nodes.jsonl",
     changes: Stream.never,
     loadEffect: Effect.sync(() => [...stored]),

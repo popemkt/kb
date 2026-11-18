@@ -280,6 +280,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
     const injected: KbNode[] = [sampleNode("n.injected", "from-mock")];
     let loads = 0;
     const mock: EffectStore = {
+      closeEffect: Effect.void,
       // A store with no fingerprint of its own: nothing to compare against, so
       // reload always goes to the port rather than short-circuiting.
       path: join(root, ".kb", "mock.jsonl"),
@@ -319,6 +320,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
     let held: KbNode[] = [];
     let revision = 0;
     const mock: EffectStore = {
+      closeEffect: Effect.void,
       path: ctx.store.path,
       changes: Stream.never,
       loadEffect: Effect.sync(() => [...held]),
@@ -369,6 +371,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
     const foreign = sampleNode("n.foreign", "another process");
     let raced = false;
     const racing: EffectStore = {
+      closeEffect: Effect.void,
       path: ctx.store.path,
       changes: Stream.never,
       loadEffect: Effect.sync(() => [...held]),
@@ -517,6 +520,7 @@ function movingStore(path: string, moves: number) {
   let revision = 0;
   let moved = 0;
   const store: EffectStore = {
+    closeEffect: Effect.void,
     path,
     changes: Stream.never,
     loadEffect: Effect.sync(() => [...held]),

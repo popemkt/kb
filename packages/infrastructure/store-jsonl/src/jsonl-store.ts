@@ -126,6 +126,7 @@ interface Kept {
  * The Bun FileSystem is provided here, not asked of callers.
  */
 export class JsonlStore implements EffectStore {
+  readonly closeEffect = Effect.void;
   readonly path: string;
   readonly backupPath: string;
   readonly loadEffect: Effect.Effect<KbNode[], DomainError>;

@@ -74,7 +74,7 @@ describe("selectStore", () => {
         yield* jsonl.commitEffect({ upserts: [node("n-a", "a")], deletes: [] }, { at: AT });
         const sqlite = new SqliteStore(root);
         yield* sqlite.commitEffect({ upserts: [node("n-a", "a")], deletes: [] }, { at: AT });
-        sqlite.close();
+        yield* sqlite.closeEffect;
         return yield* selectStore(root);
       }),
     );

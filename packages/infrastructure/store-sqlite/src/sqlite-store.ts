@@ -103,10 +103,7 @@ export class SqliteStore implements EffectStore {
     return commitTx(this.connection, this.path, { tx, record, expected }, this.txTail, this.kept);
   }
 
-  /** Release the connection. For tests and for `store.migrate`'s teardown. */
-  close(): void {
-    this.connection.close();
-  }
+  readonly closeEffect = Effect.sync(() => this.connection.close());
 }
 
 interface CommitRequest {

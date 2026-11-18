@@ -18,6 +18,7 @@ import { MemoryTxTail } from "@kb/tx-log";
 
 /** In-memory persistence side of the browser's replicated kb session. */
 export class BrowserStore implements EffectStore {
+  readonly closeEffect = Effect.void;
   readonly path = "browser";
   readonly loadEffect: Effect.Effect<KbNode[], DomainError>;
 

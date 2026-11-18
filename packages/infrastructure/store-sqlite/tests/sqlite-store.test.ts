@@ -27,7 +27,7 @@ const scratchStore = Effect.gen(function* () {
   );
   return yield* Effect.acquireRelease(
     Effect.sync(() => new SqliteStore(root)),
-    (store) => Effect.sync(() => store.close()),
+    (store) => store.closeEffect,
   );
 });
 
@@ -95,7 +95,7 @@ describe("SqliteStore", () => {
           );
           const store = new SqliteStore(root);
           yield* store.commitEffect({ upserts: [node("n-a", "a")], deletes: [] }, { at: AT });
-          store.close();
+          yield* store.closeEffect;
           // Back to schema 3: the tail as it was before `actor` was recorded.
           withRawConnection(store.path, (db) => {
             db.run("ALTER TABLE tx DROP COLUMN actor");
@@ -115,7 +115,7 @@ describe("SqliteStore", () => {
             expect(old !== undefined && "actor" in old).toBe(false);
             expect(made?.actor).toBe("human");
           } finally {
-            reopened.close();
+            yield* reopened.closeEffect;
           }
         }),
       ),
@@ -131,7 +131,7 @@ describe("SqliteStore", () => {
           );
           const store = new SqliteStore(root);
           yield* store.commitEffect({ upserts: [node("n-a", "a")], deletes: [] }, { at: AT });
-          store.close();
+          yield* store.closeEffect;
           // Back to schema 4: the tail as it was before `session` was recorded.
           withRawConnection(store.path, (db) => {
             db.run("ALTER TABLE tx DROP COLUMN session");
@@ -150,7 +150,7 @@ describe("SqliteStore", () => {
             expect(old !== undefined && "session" in old).toBe(false);
             expect(made?.session).toBe("tab.a");
           } finally {
-            reopened.close();
+            yield* reopened.closeEffect;
           }
         }),
       ),
@@ -166,7 +166,7 @@ describe("SqliteStore", () => {
           );
           const store = new SqliteStore(root);
           yield* store.commitEffect({ upserts: [node("n-a", "a")], deletes: [] }, { at: AT });
-          store.close();
+          yield* store.closeEffect;
           // Back to schema 5: the tail as it was before `via` was recorded.
           withRawConnection(store.path, (db) => {
             db.run("ALTER TABLE tx DROP COLUMN via");
@@ -184,7 +184,7 @@ describe("SqliteStore", () => {
             expect(old !== undefined && "via" in old).toBe(false);
             expect(made?.via).toBe("job:a");
           } finally {
-            reopened.close();
+            yield* reopened.closeEffect;
           }
         }),
       ),
