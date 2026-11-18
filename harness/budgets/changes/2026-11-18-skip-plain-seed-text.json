@@ -1,0 +1,6 @@
+{
+  "reason": "Skipping the retirement scan for text without a reference opener raises the measured CLI closure from 2,849,044 to 2,849,080 bytes.",
+  "raise": {
+    "cli-closure": { "bytes": 36 }
+  }
+}
