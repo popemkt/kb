@@ -2,6 +2,7 @@ package app.kb.capture.pairing
 
 import app.kb.capture.capture.PayloadWriter
 import app.kb.capture.storage.Disk
+import app.kb.capture.storage.Durable
 import app.kb.capture.storage.RealDisk
 import java.io.File
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,7 +37,8 @@ interface TokenVault {
 
 /**
  * The paired stores, newest first; the first is where new shares go. Kept as
- * one JSON file replaced by rename.
+ * one JSON file, replaced durably ([Durable.replace]) before [save] returns,
+ * since the one-use code it was paired with is already spent.
  *
  * off-graph: device-local — which stores this phone may deliver to, and its
  * credential for each, belong to the device, not to any store.
@@ -76,10 +78,8 @@ class Pairings(private val file: File, private val vault: TokenVault, private va
         }
 
     private fun write(next: List<Pairing>) {
-        file.parentFile?.let { disk.mkdirs(it) }
-        val tmp = File(file.path + ".tmp")
-        disk.create(tmp) { it.write(PayloadWriter.json.encodeToString(ListSerializer(Pairing.serializer()), next).toByteArray()) }
-        disk.rename(tmp, file)
+        Durable.ensureDir(disk, file.parentFile!!)
+        Durable.replace(disk, file) { it.write(PayloadWriter.json.encodeToString(ListSerializer(Pairing.serializer()), next).toByteArray()) }
         _all.value = next
     }
 }

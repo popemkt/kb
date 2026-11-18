@@ -8,6 +8,7 @@ import app.kb.capture.capture.RawCapture
 import app.kb.capture.capture.StagedFile
 import app.kb.capture.capture.isoWithOffset
 import app.kb.capture.storage.Disk
+import app.kb.capture.storage.Durable
 import app.kb.capture.storage.RealDisk
 import java.io.File
 import java.io.InputStream
@@ -59,12 +60,13 @@ data class QueuedCapture(val capture: RawCapture, val state: DeliveryState)
  * `entries/`, holding the immutable `capture.json`, the copied file bytes
  * under `files/`, and the mutable `state.json`.
  *
- * Durability is by atomic rename. A capture is assembled in `staging/` (bytes
- * copied, metadata written, all fsynced) and published by renaming its
- * directory into `entries/`; a state change writes a temporary file and
- * renames it over `state.json`. A crash therefore leaves either the whole
- * entry or none of it, and [recover] clears what a crash left in `staging/`
- * and `trash/`.
+ * Durability is [Durable]'s. A capture is assembled in `staging/` and
+ * published into `entries/` by one durable rename before the share is
+ * acknowledged; a state change durably replaces `state.json`; a discard is
+ * durably moved into `trash/` before it is deleted; and a Sent capture's
+ * bytes are released only after Sent is durable. A crash therefore leaves
+ * either the whole entry or none of it, never a pending capture without its
+ * bytes, and [recover] finishes what a crash interrupted.
  *
  * off-graph: device-local — shares wait here until the paired store commits
  * them; the store is the truth, and an entry is released once its receipt
@@ -93,12 +95,14 @@ class CaptureQueue(
     /** Clears what a crash left half-done: unpublished staging and half-removed entries. */
     fun recover() =
         synchronized(lock) {
-            listOf(entries, staging, trash).forEach { disk.mkdirs(it) }
+            listOf(entries, staging, trash).forEach { Durable.ensureDir(disk, it) }
             disk.list(staging).forEach { disk.delete(File(staging, it)) }
             disk.list(trash).forEach { disk.delete(File(trash, it)) }
             disk.list(entries).forEach { id ->
                 val dir = File(entries, id)
                 disk.list(dir).filter { it.endsWith(".tmp") }.forEach { disk.delete(File(dir, it)) }
+                // A crash between a durable Sent and the release of its bytes leaves them; finish the release.
+                if (read(dir)?.state?.status == Status.Sent) disk.delete(File(dir, FILES))
             }
             refresh()
         }
@@ -136,7 +140,7 @@ class CaptureQueue(
             disk.create(File(dir, CAPTURE)) { it.write(encode(RawCapture.serializer(), capture)) }
             disk.create(File(dir, STATE)) { it.write(encode(DeliveryState.serializer(), state)) }
             synchronized(lock) {
-                disk.rename(dir, File(entries, id))
+                Durable.rename(disk, dir, File(entries, id))
                 refresh()
             }
             return QueuedCapture(capture, state)
@@ -154,9 +158,8 @@ class CaptureQueue(
             val dir = File(entries, id)
             val current = read(dir) ?: return null
             val next = change(current.state).copy(updatedAt = isoWithOffset(now()))
-            val tmp = File(dir, "$STATE.tmp")
-            disk.create(tmp) { it.write(encode(DeliveryState.serializer(), next)) }
-            disk.rename(tmp, File(dir, STATE))
+            Durable.replace(disk, File(dir, STATE)) { it.write(encode(DeliveryState.serializer(), next)) }
+            // Released only once Sent is durable: a crash can never leave a pending capture without its bytes.
             if (next.status == Status.Sent) disk.delete(File(dir, FILES))
             refresh()
             next
@@ -172,7 +175,7 @@ class CaptureQueue(
             val dir = File(entries, id)
             val gone = File(trash, id)
             if (id in disk.list(entries)) {
-                disk.rename(dir, gone)
+                Durable.rename(disk, dir, gone)
                 disk.delete(gone)
             }
             refresh()

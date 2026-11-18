@@ -105,10 +105,10 @@ whenever the phone has a network. It retries with exponential backoff from
 
 | Situation | What the phone does |
 | --- | --- |
-| Share | Copies the bytes, writes the raw capture into `staging/`, fsyncs, renames it into `entries/`, shows the toast. A crash leaves the whole capture or none of it. |
+| Share | Copies the bytes and writes the raw capture into `staging/`. It syncs the files and their directories, renames the capture into `entries/`, and syncs both directories. Only then does it show the toast. A power cut leaves the whole capture or none of it, and a capture that was acknowledged survives. |
 | Disk full, unreadable file | Shows `Not queued: …` while the receiver is open, and leaves nothing half-written. |
 | Before each run | Asks the store's `kb.manifest` which `captureContract` versions it accepts. On a mismatch, or when the store names none, the capture stays pending with that reason. |
-| Committed | Marks the capture Sent, keeps the receipt, deletes the copied bytes. |
+| Committed | Marks the capture Sent durably and keeps the receipt. Only then does it delete the copied bytes, so a crash never leaves a pending capture without its bytes. |
 | `invalid_input`, `not_found`, `conflict`, … | Marks the capture Failed with the host's reason. |
 | `unknown_action` | Keeps it pending: this kb has no `capture.submit` yet. |
 | `forbidden`, HTTP 401/403 | Pauses the store. Its captures wait until you pair it again. |
@@ -145,13 +145,16 @@ only when Android names the referrer.
 | Path | Holds |
 | --- | --- |
 | `capture/` | The raw capture, its contract version, and the streaming request body writer |
-| `queue/` | The durable on-device queue |
+| `storage/` | The `Disk` port and `Durable`, the one crash-durable write path, used by the queue and the pairings |
+| `queue/` | The on-device queue |
 | `pairing/` | Paired stores and the Keystore-sealed credential |
 | `delivery/` | The host client, the delivery decisions and the WorkManager worker |
 | `share/` | The share-sheet receiver |
 | `ui/` | The Compose screen in kb's dark palette |
 
 The unit tests (`app/src/test`) cover payload building, queue durability
-(restart, a crash before publish, a failed copy, atomic state), and every
+(restart, a crash before publish, a failed copy, atomic state), power cuts
+before every step against a disk that models what a crash keeps
+(`CrashDisk`), and every
 delivery outcome against a scripted host. They run on the JVM, with no
 emulator.

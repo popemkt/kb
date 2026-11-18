@@ -8,6 +8,8 @@ import app.kb.capture.delivery.Pairer
 import app.kb.capture.pairing.KeystoreVault
 import app.kb.capture.pairing.Pairings
 import app.kb.capture.queue.CaptureQueue
+import app.kb.capture.storage.RealDisk
+import app.kb.capture.storage.fsyncDirectory
 import java.io.File
 
 /**
@@ -17,8 +19,9 @@ import java.io.File
  * worker, and a schedule here would replace the very run it started.
  */
 class KbCapture : Application() {
-    val queue by lazy { CaptureQueue(File(filesDir, "capture-queue")) }
-    val pairings by lazy { Pairings(File(filesDir, "pairings.json"), KeystoreVault()) }
+    private val disk by lazy { RealDisk(::fsyncDirectory) }
+    val queue by lazy { CaptureQueue(File(filesDir, "capture-queue"), disk) }
+    val pairings by lazy { Pairings(File(filesDir, "pairings.json"), KeystoreVault(), disk) }
     private val host by lazy { HttpCaptureHost() }
     val deliverer by lazy { Deliverer(queue, pairings, host) }
     val pairer by lazy { Pairer(queue, pairings, host) }
