@@ -98,7 +98,7 @@ export function compile(ir: Ir): CompiledEdn {
   const inSlots = compileIn(ir.in, rules !== undefined, functions);
   const columns = compiledFind(ir);
   const find = columns.map(compileFind).join(" ");
-  const where = ir.where.map((c) => compileClause(c, names)).join(" ");
+  const where = ir.where.flatMap((c) => compileClause(c, names)).join(" ");
   const edn = `[:find ${find}${inSlots} :where ${where}]`;
   return {
     query: normalizeEdnQuery(edn),
@@ -165,39 +165,39 @@ function compilePull(pattern: PullSpec): string {
   return `[${parts.join(" ")}]`;
 }
 
-function compileClause(clause: Clause, names: ReadonlyMap<ReachClause, string>): string {
+function compileClause(clause: Clause, names: ReadonlyMap<ReachClause, string>): string[] {
   switch (clause.kind) {
     case "pattern":
-      return `[?${clause.entity} ${clause.attr} ${compileTerm(clause.value)}]`;
+      return [`[?${clause.entity} ${clause.attr} ${compileTerm(clause.value)}]`];
     case "children": {
       const cs = `?__kb_cs_${clause.parent}`;
-      return `[?${clause.parent} :node/children ${cs}] [(identity ${cs}) [?${clause.child} ...]]`;
+      return [
+        `[?${clause.parent} :node/children ${cs}]`,
+        `[(identity ${cs}) [?${clause.child} ...]]`,
+      ];
     }
     case "reach": {
       const name = present(names.get(clause), "reach rule name");
-      if (clause.maxHops !== undefined) return `(${name} ?${clause.from} ?${clause.to} 1)`;
-      return `(${name} ?${clause.from} ?${clause.to})`;
+      if (clause.maxHops !== undefined) return [`(${name} ?${clause.from} ?${clause.to} 1)`];
+      return [`(${name} ?${clause.from} ?${clause.to})`];
     }
     case "rule":
-      return `(${[clause.name, ...clause.args.map(compileTerm)].join(" ")})`;
+      return [`(${[clause.name, ...clause.args.map(compileTerm)].join(" ")})`];
     case "predicate": {
       const fn = isKbFunction(clause.fn) ? `?${kbFunctionInput(clause.fn)}` : clause.fn;
       const call = `(${[fn, ...clause.args.map(compileArg)].join(" ")})`;
-      return clause.bind === undefined ? `[${call}]` : `[${call} ?${clause.bind}]`;
+      return [clause.bind === undefined ? `[${call}]` : `[${call} ?${clause.bind}]`];
     }
     case "or": {
       const branches = clause.branches.map((branch) => {
-        const forms = branch.map((c) => compileClause(c, names));
-        // `children` compiles to two forms, so a one-clause branch may still need `and`.
-        return forms.length === 1 && branch[0]?.kind !== "children"
-          ? forms.join(" ")
-          : `(and ${forms.join(" ")})`;
+        const forms = branch.flatMap((c) => compileClause(c, names));
+        return forms.length === 1 ? forms[0] : `(and ${forms.join(" ")})`;
       });
-      return `(${[joinHead("or", joinedFunctions(clause)), ...branches].join(" ")})`;
+      return [`(${[joinHead("or", joinedFunctions(clause)), ...branches].join(" ")})`];
     }
     case "not": {
-      const body = clause.clauses.map((c) => compileClause(c, names));
-      return `(${[joinHead("not", joinedFunctions(clause)), ...body].join(" ")})`;
+      const body = clause.clauses.flatMap((c) => compileClause(c, names));
+      return [`(${[joinHead("not", joinedFunctions(clause)), ...body].join(" ")})`];
     }
     default: {
       const _exhaustive: never = clause;
