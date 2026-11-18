@@ -91,6 +91,7 @@
       "devDependencies": {
         "@kb/canvas": "workspace:*",
         "@kb/code": "workspace:*",
+        "@kb/extension-test-kit": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/sandbox": "workspace:*",
         "@kb/test-kit": "workspace:*",
@@ -183,6 +184,7 @@
       "devDependencies": {
         "@kb/appearance": "workspace:*",
         "@kb/canvas": "workspace:*",
+        "@kb/extension-test-kit": "workspace:*",
         "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
         "zod": "catalog:",
@@ -317,6 +319,7 @@
       },
       "devDependencies": {
         "@kb/ext-sdk": "workspace:*",
+        "@kb/extension-test-kit": "workspace:*",
         "@kb/ui-test-kit": "workspace:*",
         "@storybook/addon-a11y": "catalog:",
         "@storybook/react-vite": "catalog:",
@@ -1607,6 +1610,13 @@
         "vitest": "catalog:",
       },
     },
+    "packages/test-support/extension-test-kit": {
+      "name": "@kb/extension-test-kit",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/model": "workspace:*",
+      },
+    },
     "packages/test-support/render-tests": {
       "name": "@kb/render-tests",
       "version": "0.0.0",
@@ -2050,6 +2060,8 @@
     "@kb/ext-sdk": ["@kb/ext-sdk@workspace:packages/contract/ext-sdk"],
 
     "@kb/extension-source": ["@kb/extension-source@workspace:packages/contract/extension-source"],
+
+    "@kb/extension-test-kit": ["@kb/extension-test-kit@workspace:packages/test-support/extension-test-kit"],
 
     "@kb/file-write": ["@kb/file-write@workspace:packages/infrastructure/file-write"],
 

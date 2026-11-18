@@ -661,6 +661,7 @@
   "@kb/ext-docs" = copyPathToStore ./packages/extension/ext-docs;
   "@kb/ext-sdk" = copyPathToStore ./packages/contract/ext-sdk;
   "@kb/extension-source" = copyPathToStore ./packages/contract/extension-source;
+  "@kb/extension-test-kit" = copyPathToStore ./packages/test-support/extension-test-kit;
   "@kb/file-write" = copyPathToStore ./packages/infrastructure/file-write;
   "@kb/gallery" = copyPathToStore ./packages/extension/gallery;
   "@kb/gallery-net" = copyPathToStore ./packages/extension/gallery-net;

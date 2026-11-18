@@ -1080,15 +1080,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M79MBMJQKDBBGJ2HG8Z6QEG2`
 
-### GAP: extension SDK mirror is not bidirectionally typed
-
-- **expected** — The dependency-free public SDK contract and runtime contract are generated from one canonical schema or proven exactly assignable in both directions.
-- **current** — Freshness tests compare generated text to a maintained mirror, while runtime checks cover only selected substrings.
-- **impact** — The public SDK and runtime can drift while both local freshness checks remain green.
-- **closes** — Add bidirectional compile-time exactness fixtures or generate both surfaces from one dependency-free canonical contract.
-- **rule** — Domain typing — one canonical schema
-- **node** — `01M1PJWF4G6W4122ZE4K67319V`
-
 ### GAP: family halves' page tests run in the shell (outline, collections, graph)
 
 - **expected** — a family half's tests hold it to BrowserHost through the test host (DESIGN-UI → Extension UI halves)
@@ -1307,14 +1298,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A feature can put truth in a per-machine file that git, backups' restore, other machines and one-shot commands on another host never see, which the store-is-the-truth rule forbids in spirit but nothing catches.
 - **closes** — An allowed-file list for KB_DATA and KB_CACHE stated once, and a check over what the code writes there; docs/research/2026-11-11-cli-host-modes.md section 9.
 - **node** — `01M788TDKRD09FEQS10QZZ39S7`
-
-### GAP: no one coverage property holds every family to all three hosts
-
-- **expected** — One property holds every declared family to a seed node, a server entry and a browser entry.
-- **current** — Coverage is split: ui-plugins.test.ts checks browser entries, the registry checks bundled server entries, cli/tests/host-extensions.test.ts checks hosted families and adapters.
-- **impact** — No package sees all three hosts, so a family can miss one entry without anything going red.
-- **closes** — A test-kit property each host's test feeds its own entries into, run in the registry, CLI and UI tests.
-- **node** — `01M53M9Y6BZFMT08EHNRNFG7Y9`
 
 ### GAP: no pop-out OS windows for panes
 
@@ -2719,6 +2702,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M54V6G798RV0P805SMBG64H8`
 
+### GAP: extension SDK mirror is not bidirectionally typed
+
+- **expected** — The dependency-free public SDK contract and runtime contract are generated from one canonical schema or proven exactly assignable in both directions.
+- **current** — Freshness tests compare generated text to a maintained mirror, while runtime checks cover only selected substrings.
+- **impact** — The public SDK and runtime can drift while both local freshness checks remain green.
+- **closes** — Add bidirectional compile-time exactness fixtures or generate both surfaces from one dependency-free canonical contract.
+- **rule** — Domain typing — one canonical schema
+- **node** — `01M1PJWF4G6W4122ZE4K67319V`
+
 ### GAP: extension-to-extension permission does not enforce family ownership
 
 - **expected** — An extension backend imports its own shared model, while independent extensions communicate through public contract points rather than each other’s implementation.
@@ -2876,6 +2868,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The binding set exists only as control flow: nothing can render a shortcuts list, and two bindings can silently overlap.
 - **closes** — Turn the chain into a table of {key, mods, toAction} entries. Behaviour-preserving only if the current first-match order is reproduced exactly, so it needs its own change with the keymap tests as the gate.
 - **node** — `01M1MGCH7SD69CRSSV75X789QW`
+
+### GAP: no one coverage property holds every family to all three hosts
+
+- **expected** — One property holds every declared family to a seed node, a server entry and a browser entry.
+- **current** — Coverage is split: ui-plugins.test.ts checks browser entries, the registry checks bundled server entries, cli/tests/host-extensions.test.ts checks hosted families and adapters.
+- **impact** — No package sees all three hosts, so a family can miss one entry without anything going red.
+- **closes** — A test-kit property each host's test feeds its own entries into, run in the registry, CLI and UI tests.
+- **node** — `01M53M9Y6BZFMT08EHNRNFG7Y9`
 
 ### GAP: no SQLite index behind the store port
 

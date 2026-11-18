@@ -55,6 +55,7 @@
   "devDependencies": {
     "@kb/appearance": "workspace:*",
     "@kb/canvas": "workspace:*",
+    "@kb/extension-test-kit": "workspace:*",
     "@kb/test-kit": "workspace:*",
     "@types/bun": "catalog:",
     "zod": "catalog:"

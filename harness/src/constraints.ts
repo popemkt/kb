@@ -280,6 +280,7 @@ export function isIsomorphicScope(scope: string): boolean {
  */
 const TEST_WORLD_PACKAGES: ReadonlySet<string> = new Set([
   "@kb/test-kit",
+  "@kb/extension-test-kit",
   "@kb/bundled",
   "@kb/ui-test-kit",
 ]);

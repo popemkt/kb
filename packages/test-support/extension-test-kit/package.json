@@ -1,0 +1,20 @@
+{
+  "name": "@kb/extension-test-kit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@kb/model": "workspace:*"
+  },
+  "nx": {
+    "tags": [
+      "scope:shared"
+    ]
+  }
+}

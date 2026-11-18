@@ -3,7 +3,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
-import { BUNDLED_FAMILIES } from "@kb/bundled";
+import { BUNDLED_FAMILIES, bundledFold } from "@kb/bundled";
+import { familyCoverageIssues } from "@kb/extension-test-kit";
 import { ActionPoint, ViewKeyPoint, defineExtension } from "@kb/contracts";
 import { SYSTEM_IDS } from "@kb/model";
 import { definePlugin, makeKernel } from "@kb/plugin";
@@ -235,6 +236,11 @@ const plugin = (name: string) => definePlugin({ name, apply: () => Effect.void }
 const family = (name: string) => defineExtension({ name, label: name });
 
 describe("the server's entries are resolved from the one bundled list", () => {
+  test("every registry family has an owned seed node and one entry", () => {
+    const entries = BUNDLED_EXTENSIONS.map(({ entry }) => entry.name);
+    expect(familyCoverageIssues(BUNDLED_FAMILIES, entries, bundledFold())).toEqual([]);
+  });
+
   test("the resolved list is the bundled families, in order", () => {
     expect(BUNDLED_EXTENSIONS.map(({ declaration }) => declaration)).toEqual([...BUNDLED_FAMILIES]);
   });
