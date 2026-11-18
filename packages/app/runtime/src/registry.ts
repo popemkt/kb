@@ -529,6 +529,7 @@ const withRoleChoices = Effect.fnUntraced(function* (registry: Registry, nodeOf:
  * a family switched off or untrusted are unloaded, their scopes closed,
  * once the calls running on it have settled. `null` root = core + bundled
  * only.
+ * GAP [[01M39F3N7TS10VJ881RNC0Z4X3]] A changed family still replaces unrelated plugin scopes.
  */
 export const registryFor = Effect.fn("kb.registryFor")(function* (
   root: string | null,
@@ -683,7 +684,7 @@ export function sessionRegistry(ctx: KbContext): Effect.Effect<Registry, never, 
  * plugin code goes through. One already released is never used; the call
  * takes its root's current registry instead.
  */
-const withSessionRegistry = <A, E, R>(
+export const withSessionRegistry = <A, E, R>(
   ctx: KbContext,
   use: (registry: Registry) => Effect.Effect<A, E, R>,
 ): Effect.Effect<A, E, R | FileSystem> =>

@@ -705,6 +705,21 @@ export declare function extensionNamespace(name: string): string;
 export declare function Service<S>(): (name: string, spec?: ServiceSpec) => ServiceKey<S>;
 /** Every action any loaded plugin offers. */
 export declare const ActionPoint: PointKey<ActionContribution>;
+
+/** One socket connection speaking to a channel the extension owns. */
+export interface ChannelPeer {
+  readonly connection: string;
+  readonly tab: () => string | null;
+  readonly send: (data: unknown) => effect.Effect.Effect<void>;
+}
+
+export interface Channel {
+  readonly receive: (peer: ChannelPeer, data: unknown) => effect.Effect.Effect<void>;
+  readonly drop: (connection: string) => effect.Effect.Effect<void>;
+}
+
+/** A family's namespaced channels served on the kb UI socket. */
+export declare const ChannelPoint: PointKey<Channel>;
 /** Every render template, by the id a view spec names it with. */
 export declare const TemplatePoint: PointKey<TemplateFn>;
 /** Every view a loaded plugin provides, by view id. */

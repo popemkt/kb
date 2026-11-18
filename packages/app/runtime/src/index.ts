@@ -23,6 +23,7 @@ export {
   registryFor,
   resetRegistryCache,
   sessionRegistry,
+  withSessionRegistry,
 } from "./registry.ts";
 export type { ActionHandlerEnv, RegisteredTemplate } from "./registry.ts";
 export { RootNotFoundError, resolveRootEffect } from "./root.ts";

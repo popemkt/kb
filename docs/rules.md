@@ -185,14 +185,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Point handles for path items in both projections, through one shared point-drag gesture.
 - **node** — `01M53H6Z5WQACGQ8ZR14HX5EDT`
 
-### GAP: a channel a registry family contributes is not served
-
-- **expected** — a family contributes to kb.ui.channels wherever it loads, and the kb ui socket hub routes frames to every channel a loaded family holds, a repository extension's included
-- **current** — PointSpec makes kb.ui.channels server-only: a registry contribution is refused atomically with wrong-kernel. Repository families still cannot contribute live channels through the registry.
-- **impact** — a repository extension cannot own a live channel to its page half: its two halves talk through actions only
-- **closes** — the hub's channel directory reads the session registry's kernel beside its own, with a surface property over kb ui that a registry family's channel answers its frames
-- **node** — `01M579MHGHVT2FNGJJRK81J9GY`
-
 ### GAP: a chart's page runs its query twice, once for the body and once for the figure
 
 - **expected** — a view's text resolves its data once and hands it to both body and figure
@@ -2329,6 +2321,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — an agent's idea of what the user sees on a 3D canvas can be wrong
 - **closes** — CanvasScreenSchema carries the camera {projection, pose} and the 3D scene reports visible items from its frustum
 - **node** — `01M3YMCVN656CNRJ3F3R91MHKA`
+
+### GAP: a channel a registry family contributes is not served
+
+- **expected** — a family contributes to kb.ui.channels wherever it loads, and the kb ui socket hub routes frames to every channel a loaded family holds, a repository extension's included
+- **current** — PointSpec makes kb.ui.channels server-only: a registry contribution is refused atomically with wrong-kernel. Repository families still cannot contribute live channels through the registry.
+- **impact** — a repository extension cannot own a live channel to its page half: its two halves talk through actions only
+- **closes** — the hub's channel directory reads the session registry's kernel beside its own, with a surface property over kb ui that a registry family's channel answers its frames
+- **node** — `01M579MHGHVT2FNGJJRK81J9GY`
 
 ### GAP: a code view cannot be promoted to a view type
 

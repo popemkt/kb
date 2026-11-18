@@ -1,0 +1,11 @@
+{
+  "reason": "The server resolves socket channels through the same registry lease as actions.",
+  "raise": {
+    "cli-closure": {
+      "bytes": 612
+    },
+    "surface": {
+      "@kb/runtime": 1
+    }
+  }
+}

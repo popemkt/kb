@@ -52,8 +52,8 @@ interface ClientState {
 
 /**
  * The plugin channels the hub routes `channel` frames to (`channel.ts`): the
- * server's plugin kernel, read at each frame, so a plugin that loads or
- * unloads is seen at once.
+ * channels held by the registry and server kernels for the duration of a
+ * callback.
  */
 export type ChannelDirectory = <A>(
   use: (channels: ReadonlyMap<string, Channel>) => Effect.Effect<A>,

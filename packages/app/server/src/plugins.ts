@@ -15,7 +15,7 @@ import {
 import { extensionNodeId } from "@kb/model";
 import { definePlugin, syncPlugins, type Kernel, type Plugin } from "@kb/plugin";
 import { receiptFromError, coreExtension } from "@kb/operations";
-import { writeErr } from "@kb/runtime";
+import { bunFileSystemLayer, withSessionRegistry, writeErr } from "@kb/runtime";
 import { serverInvoke } from "./invoke.ts";
 import { serverRuntimeLayer, type ScreenHub } from "./screens.ts";
 import type { ChannelDirectory } from "./session.ts";
@@ -33,13 +33,13 @@ import type { ChannelDirectory } from "./session.ts";
  * reported beside the registry's ({@link HostedExtensions}).
  */
 
-/** The channels `kernel` holds, read at each frame. */
-// GAP [[01M579MHGHVT2FNGJJRK81J9GY]] registry families still cannot own live channels
-export function channelsOf(kernel: Kernel): ChannelDirectory {
+/** The channels the host and the leased registry hold, read at each callback. */
+export function channelsOf(ctx: KbContext, host: Kernel): ChannelDirectory {
   return (use) =>
-    Effect.suspend(() =>
-      use(new Map(kernel.contributions(ChannelPoint).map(({ id, value }) => [id, value]))),
-    );
+    withSessionRegistry(ctx, ({ kernel }) => {
+      const channels = [host, kernel].flatMap((source) => source.contributions(ChannelPoint));
+      return use(new Map(channels.map(({ id, value }) => [id, value])));
+    }).pipe(Effect.provide(bunFileSystemLayer));
 }
 
 /**
