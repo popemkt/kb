@@ -3108,7 +3108,11 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     action whose call could never succeed there: one denied to the wire's
     actor, or one that asks on a wire that cannot carry approval
     (`listingOf`). A call by its id or tool name still reaches the invoke
-    core and is refused. MCP's `tools/list` and each agent turn read it
+    core and is refused. The same rule lists each action once, under its
+    id: an alias the manifest lists (`aliasOf`) stays callable by its id or
+    tool name but is not listed again, so a tool list never pays twice for
+    one action (on a fresh store, ten aliases were about 8.5 KB of every
+    MCP `tools/list`). MCP's `tools/list` and each agent turn read it
     afresh, and the page's WebMCP lists again when its replica's graph
     settles, since a guard may decide by graph data.
   - **Who the person is.** A request from the kb page in a browser is the
@@ -5551,6 +5555,25 @@ rows. A canvas exports its own document (`ext.canvas.export`).
     kb's own render, never model-written HTML, and it needs no network, so
     it declares no CSP. A host that renders no `ui://` resource (Claude
     Code) reads the same view as markdown through `render_view`.
+  - **Breaking change, with the old names still callable.** `tools/list`
+    no longer lists an alias beside its action ([Listings are
+    honest](#action-registry)), so these ten tools are listed only under
+    their ids: `location_list`, `location_register`, `location_forget`,
+    `location_open` (`ext_locations_*`), `docs_check`, `docs_materialize`
+    (`ext_docs_*`), `graph_edges`, `graph_trace`, `graph_suggest` and
+    `graph_relation_type` (`ext_graph_*`). A call by an old name still
+    runs, and the CLI's commands are unchanged.
+- **The agent skill** (`skills/kb/SKILL.md`) tells an agent how to work in
+  kb: which store it acts on, the actions and commands grouped by job, and
+  the rules a write keeps. It ships with kb, at
+  `<prefix>/share/kb/skills/kb` beside `bin/` and `lib/`: the Nix package's
+  `$out` and the release bundle's `kb-<version>/` both. That path is a
+  contract, since a host links its agents to the copy in the kb it pins.
+  The skill names actions and commands and leaves their inputs to
+  `tools/list` and `kb.manifest`, never restating a schema.
+  `packages/app/cli/tests/agent-skill.test.ts` holds every action id it
+  names to an action a surface lists, and every `kb <command>` to a
+  command.
 - **WebMCP** (`@kb/webmcp`, loaded by the kb UI as the built-in `webmcp`
   plugin): the registry as tools of the open page, for an agent that drives
   the browser. It follows the WebMCP draft of 2026-09-29
