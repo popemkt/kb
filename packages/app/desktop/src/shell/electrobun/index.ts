@@ -20,13 +20,20 @@ import {
 } from "../../core/services.ts";
 import { electrobunShell } from "./shell.ts";
 
+/**
+ * The checkout's `bin/kb`, which the build writes in place of this name
+ * (`electrobun.config.ts` → `define`). It is a build constant, not an
+ * environment variable, so nothing at run time can set or clear it.
+ */
+declare const KB_DESKTOP_CHECKOUT_KB: string;
+
 /** The app's bundle id (`electrobun.config.ts`), so focus return skips kb itself. */
 const BUNDLE_ID = "dev.kb.desktop";
 
 const shell = electrobunShell();
 const config = currentConfig();
 // oxlint-disable-next-line node/no-process-env -- where an app run from a terminal is told which kb to use
-const { KB_DESKTOP_KB, KB_DESKTOP_CHECKOUT_KB, PATH, USER } = process.env;
+const { KB_DESKTOP_KB, PATH, USER } = process.env;
 const kb = resolveKb({
   setting: config.settings.kb,
   env: KB_DESKTOP_KB,

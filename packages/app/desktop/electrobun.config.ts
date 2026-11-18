@@ -25,7 +25,7 @@ export default {
       entrypoint: "src/shell/electrobun/index.ts",
       // The checkout this app was built from: its kb is the fallback when no
       // other is found (src/core/kb-command.ts → resolveKb).
-      define: { "process.env.KB_DESKTOP_CHECKOUT_KB": JSON.stringify(join(repo, "bin", "kb")) },
+      define: { KB_DESKTOP_CHECKOUT_KB: JSON.stringify(join(repo, "bin", "kb")) },
     },
     copy: existsSync(release) ? { [release]: "kb" } : {},
     mac: { codesign: false, notarize: false, createDmg: false },
