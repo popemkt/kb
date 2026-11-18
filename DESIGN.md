@@ -4045,7 +4045,10 @@ from "kb-ext-sdk"`. Types are generated from
   `packages/contract/ext-sdk/src/surface.ts` and embedded in the CLI bundle;
   `bun run gen:ext-sdk` refreshes the committed string (freshness-tested),
   and `surface-bridge.test.ts` holds the surface to `EXTENSION_SDK` and to
-  the plugin model. The plugin model is Effect's, so its types are
+  the plugin model. It also compares the public declaration's keys, data
+  and view keys in both directions. The fixture names the runtime-only
+  declaration fields and view callbacks excluded from the public projection.
+  The plugin model is Effect's, so its types are
   `effect`'s, a dev dependency of the extension's repository; its values
   are always the host's. A page half's types are `.kb/sdk-page.d.ts`
   (module `kb-ext-sdk/page`, from `page-surface.ts`: the UI points —
@@ -4659,6 +4662,12 @@ figure?}`. `viewText` looks the view up in the catalog and falls back to
     reported on, and switched back on is both again on the same host; a
     required family written off by hand is still held and reported on;
   - every view it gives the UI has a key in the page's catalog.
+
+  The registry, UI server and page each run the same coverage property over
+  the families assigned to their composition. Every assigned declaration
+  has its owned node under `sys.extensions` and exactly one entry in that
+  composition. The page records browserless families explicitly in its
+  resolver.
 
   The page's half of switching (a family reported off leaves the page
   kernel with everything it contributed, and returns when reported on) is
