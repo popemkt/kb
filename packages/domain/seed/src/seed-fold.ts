@@ -28,6 +28,7 @@ import {
   displaySettingRetirements,
   displaySettingValues,
   type SeedRetirement,
+  VIEWS_MIGRATION,
   TAG_VIEWS,
   VIEW_FAMILY_OPTIONS,
   viewOptionId,
@@ -423,6 +424,9 @@ function retiredRows(
   );
   const retired = new Set<NodeId>();
   for (const { row, by } of rows) {
+    if (row.after !== undefined && row.after !== VIEWS_MIGRATION) {
+      throw new Error(`${by} retires ${row.from} after unknown migration ${row.after}`);
+    }
     if (!isSysPrefixed(row.from)) {
       throw new Error(`${by} retires ${row.from}, which is not a reserved sys. id`);
     }

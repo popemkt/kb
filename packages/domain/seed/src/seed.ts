@@ -730,8 +730,10 @@ export function ensureSystemSeed(
 
   // Retire BEFORE seeding defaults, so an edit on an old id is kept, and an
   // unedited label the seed has since changed takes the new one.
-  const { deletes, changed: retired } = retireSeeded(byId, fold.retired, (id) =>
-    seededText.get(id),
+  const { deletes, changed: retired } = retireSeeded(
+    byId,
+    fold.retired.filter(({ after }) => after === undefined),
+    (id) => seededText.get(id),
   );
   let seeded = retired;
 

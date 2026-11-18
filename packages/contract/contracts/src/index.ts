@@ -231,7 +231,7 @@ export type {
   UiCaptureInput,
   UiSelectInput,
 } from "./screen.ts";
-export { KbCtx, KbStore, inProcess, kbCtxLayer, kbStoreLayer } from "./session.ts";
+export { KbCtx, KbStore, SessionSeed, inProcess, kbCtxLayer, kbStoreLayer } from "./session.ts";
 export { NO_SECRETS, SecretError } from "./secrets.ts";
 export type { SecretSource, SecretSink, SecretStore } from "./secrets.ts";
 export { GraphWrites, NodeUpdateInputSchema, PropInputSchema } from "./graph-writes.ts";

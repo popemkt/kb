@@ -1,4 +1,4 @@
-import { VIEW_FAMILY_OPTIONS } from "@kb/model";
+import { LEGACY_GRAPH_RETIREMENTS, VIEW_FAMILY_OPTIONS } from "@kb/model";
 import { GRAPH_POINT_DEFINITIONS } from "./point-definitions.ts";
 /**
  * The graph family's declaration and its shared plugin (DESIGN.md →
@@ -62,7 +62,10 @@ export const graphExtension = defineExtension({
   ],
   // The default perspective lost its `sys.` prefix, so the write guard
   // does not lock it.
-  retires: [{ from: "sys.lens.all-mentions", to: GRAPH_IDS.lensAllMentions }],
+  retires: [
+    ...LEGACY_GRAPH_RETIREMENTS,
+    { from: "sys.lens.all-mentions", to: GRAPH_IDS.lensAllMentions },
+  ],
   declaredOptions: [
     {
       kind: VIEW_FAMILY_OPTIONS,

@@ -22,7 +22,7 @@ import {
   viewDef,
 } from "@kb/contracts";
 import { DESIGN_SYSTEM_OPTIONS } from "@kb/appearance";
-import { SYSTEM_IDS, extensionNodeId, type SeedOption } from "@kb/model";
+import { LEGACY_FRAME_RETIREMENTS, SYSTEM_IDS, extensionNodeId, type SeedOption } from "@kb/model";
 import { systemSeedNodes } from "@kb/seed";
 import {
   DocsMarkdownView,
@@ -73,6 +73,7 @@ export const coreExtension = defineExtension({
   // followed date leads: core's leads nowhere, and days answers its day.
   roles: [CAPTURE_TARGET_ROLE, LANDING_ROLE, DATE_TARGET_ROLE],
   retires: [
+    ...LEGACY_FRAME_RETIREMENTS,
     // ⌘K's Preferences became Settings with the page that replaced the popover.
     { from: "sys.cmd.preferences", to: SYSTEM_IDS.cmdSettings, text: "Preferences" },
     // The Extensions page became Settings' Extensions part, and its command followed.

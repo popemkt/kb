@@ -20,6 +20,7 @@ import {
   type ActionHandlerEnv,
   kbCtxLayer,
   kbStoreLayer,
+  SessionSeed,
   failed,
   type KbContext,
   CoreInvoke,
@@ -50,6 +51,7 @@ import {
   sessionRegistry,
   type Registry,
 } from "./registry.ts";
+import { sessionSeed } from "./session-schema.ts";
 import { kbRootsLayer } from "./roots.ts";
 import { remoteScreensLayer } from "./screens.ts";
 
@@ -97,6 +99,7 @@ export function kbRuntimeLayer(
     Layer.succeed(SourceReader, gitSourceReader()),
     Layer.succeed(BundledMarketplaces, BUNDLED_MARKETPLACES),
     kbStoreLayer(ctx.store),
+    Layer.effect(SessionSeed, registry.pipe(Effect.map(() => sessionSeed(ctx)))),
     kbCtxLayer(ctx),
     graphWritesLayer.pipe(Layer.provide(Layer.merge(kbCtxLayer(ctx), kbStoreLayer(ctx.store)))),
     Layer.succeed(KbIndexService, ctx.index),

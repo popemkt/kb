@@ -424,6 +424,7 @@ export interface ExtensionDeclaration {
  */
 export interface SeedRetirement {
   readonly from: NodeId;
+  readonly after?: string;
   readonly to?: NodeId;
   readonly text?: string;
 }

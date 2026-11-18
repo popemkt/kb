@@ -11,6 +11,8 @@
  * ids), and it is idempotent: a store in the new shape comes back as it was.
  */
 import { SYSTEM_IDS, type KbNode, type NodeId, type PropValue } from "./model.ts";
+import { retireSeeded } from "./retire-seed.ts";
+import { VIEWS_MIGRATION, type SeedRetirement } from "./seed-retirement.ts";
 import {
   docsViewNameError,
   docsViewProps,
@@ -63,38 +65,33 @@ const FRAME_SETTING_FIELDS: readonly NodeId[] = [
 ];
 const FRAME_FIELDS: readonly NodeId[] = [LEGACY_VIEW_MODE_FIELD, ...FRAME_SETTING_FIELDS];
 
-/**
- * `sys.f.view.placement` and its options, seeded for a moment and withdrawn:
- * nothing read them (the placements wait on A2's hosts). Retired.
- */
-const RETIRED_PLACEMENT = [
+/** The old frame view mode and the withdrawn placement field and options. */
+export const LEGACY_FRAME_RETIREMENTS = [
+  LEGACY_VIEW_MODE_FIELD,
   "sys.f.view.placement",
   "sys.view-placement.inline",
   "sys.view-placement.beside",
   "sys.view-placement.float",
-];
+].map((from): SeedRetirement => ({ from, after: VIEWS_MIGRATION }));
 
-/*
- * GAP [[01M3FK1PM9P96SNCSHXF0CJZRA]] — a second list of seeded ids that
- * opening does not retire: these are deleted only by `views.migrate`, which
- * first reads their values into the view nodes that replace them. Moving
- * them into the seed's retirement table would drop those values on open,
- * before the migration reads them; they join it once the table can wait on
- * a migration.
- */
-const RETIRED: ReadonlySet<NodeId> = new Set([
+/** The graph's old perspective tag and the options the renderer view keys replaced. */
+export const LEGACY_GRAPH_RETIREMENTS = [
   LEGACY_PERSPECTIVE_TAG,
-  LEGACY_VIEW_MODE_FIELD,
   ...RENDERER_NAMES.map(LEGACY_RENDERER_OPTION),
-  ...RETIRED_PLACEMENT,
-]);
+].map((from): SeedRetirement => ({ from, after: VIEWS_MIGRATION }));
+
+/** The seed rows this migration applies after reading the legacy shapes. */
+function viewRetirements(rows: readonly SeedRetirement[]): SeedRetirement[] {
+  return rows.filter(({ after }) => after === VIEWS_MIGRATION);
+}
 
 /**
  * What of the old shape a store still holds, one line each, without changing
  * it: what opening reports, so a person or agent knows to run `views.migrate`.
  */
-export function legacyViewShapes(nodes: KbNode[]): string[] {
-  const retired = nodes.filter((node) => RETIRED.has(node.id)).map((node) => node.id);
+export function legacyViewShapes(nodes: KbNode[], rows: readonly SeedRetirement[]): string[] {
+  const waiting = new Set(viewRetirements(rows).map(({ from }) => from));
+  const retired = nodes.filter((node) => waiting.has(node.id)).map((node) => node.id);
   const perspectives = nodes.filter(isPerspective).length;
   const frames = nodes.filter(isLegacyFrame).length;
   return [
@@ -161,11 +158,12 @@ function migratePerspective(node: KbNode): KbNode {
  */
 function migrateRendererRefs(node: KbNode): KbNode {
   const values = node.props[PERSPECTIVE_RENDERER_FIELD];
-  if (values === undefined || !values.some((v) => v.t === "ref" && RETIRED.has(v.v))) return node;
+  if (values === undefined) return node;
   const remapped = values.map((value) => {
-    const named = value.t === "ref" && RETIRED.has(value.v) ? rendererNamed(value) : null;
+    const named = value.t === "ref" ? rendererNamed(value) : null;
     return named === null ? value : rendererOption(named);
   });
+  if (remapped.every((value, index) => value === values[index])) return node;
   return { ...node, props: { ...node.props, [PERSPECTIVE_RENDERER_FIELD]: remapped } };
 }
 
@@ -225,6 +223,8 @@ export interface LegacyDocsView {
 export interface LegacyViews {
   readonly docs: readonly LegacyDocsView[];
   readonly at: string;
+  readonly retirements: readonly SeedRetirement[];
+  readonly seededText: (id: NodeId) => string | undefined;
 }
 
 /** What a migration did beyond the nodes it returns. */
@@ -307,10 +307,12 @@ export function migrateToViewNodes(nodes: KbNode[], legacy: LegacyViews): ViewMi
   const imported = out.map((node) => node.text);
   const filed = out.map((node) => node.id);
   for (const id of filed) ids.add(id);
+  const rows = viewRetirements(legacy.retirements);
+  const retiring = new Set(rows.filter(({ from, to }) => from !== to).map(({ from }) => from));
   let changed = out.length > 0;
   for (const node of nodes) {
-    if (RETIRED.has(node.id)) {
-      changed = true;
+    if (retiring.has(node.id)) {
+      out.push(node);
       continue;
     }
     let migrated = migrateRendererRefs(isPerspective(node) ? migratePerspective(node) : node);
@@ -326,15 +328,15 @@ export function migrateToViewNodes(nodes: KbNode[], legacy: LegacyViews): ViewMi
       filed.push(view.id);
       migrated = withoutFrameSettings(migrated, view.id);
     }
-    const children = migrated.children.filter((id) => !RETIRED.has(id));
-    if (children.length !== migrated.children.length) migrated = { ...migrated, children };
     if (migrated !== node) changed = true;
     out.push(migrated);
   }
-  if (!changed) return { nodes, changed, imported, warnings };
   const list = out.findIndex((node) => node.id === SYSTEM_IDS.viewsList);
   const views = out[list];
   if (views !== undefined && filed.length > 0)
     out[list] = { ...views, children: [...views.children, ...filed] };
-  return { nodes: out, changed, imported, warnings };
+  const final = new Map(out.map((node) => [node.id, node]));
+  const retirement = retireSeeded(final, rows, legacy.seededText);
+  changed ||= retirement.changed;
+  return { nodes: changed ? [...final.values()] : nodes, changed, imported, warnings };
 }

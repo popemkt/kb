@@ -17,13 +17,19 @@ import {
   migrateToViewNodes,
 } from "../src/view-migration.ts";
 import { defaultViewIdOf, docsViewProps, viewOptionId } from "../src/view-node.ts";
-import { bundledSeed } from "@kb/bundled";
+import { bundledFold, bundledSeed } from "@kb/bundled";
 
 const AT = "2026-09-01T00:00:00.000Z";
 /** A lens setting a perspective carried, which the migration keeps: the graph's `lens.max-nodes`. */
 const LENS_MAX_NODES = "sys.f.lens.max-nodes";
 /** No legacy docs views: what a store alone migrates with. */
-const NONE = { docs: [], at: AT };
+const fold = bundledFold(AT);
+const NONE = {
+  docs: [],
+  at: AT,
+  retirements: fold.retired,
+  seededText: (id: string) => fold.nodes.find((seeded) => seeded.id === id)?.text,
+};
 const ref = (v: string): PropValue => ({ t: "ref", v });
 const str = (v: string): PropValue => ({ t: "str", v });
 
@@ -237,6 +243,7 @@ describe("a root's .kb/views specs become docs view nodes", () => {
 
   test("each is a view node named by its name, its spec its params, filed in the Views list", () => {
     const { nodes, changed } = migrateToViewNodes([list], {
+      ...NONE,
       docs: [{ name: "rules", spec }],
       at: AT,
     });
@@ -251,8 +258,9 @@ describe("a root's .kb/views specs become docs view nodes", () => {
   });
 
   test("a spec whose view node is already there is not imported again", () => {
-    const once = migrateToViewNodes([list], { docs: [{ name: "rules", spec }], at: AT });
+    const once = migrateToViewNodes([list], { ...NONE, docs: [{ name: "rules", spec }], at: AT });
     const again = migrateToViewNodes(once.nodes, {
+      ...NONE,
       docs: [{ name: "rules", spec: { ...spec, template: "other" } }],
       at: "2027-01-01T00:00:00.000Z",
     });
@@ -288,6 +296,7 @@ describe("what the migration cannot do as asked, it says", () => {
     const other = node(docsViewNodeId("a"), { text: "a plain node" });
     const done = node(docsViewNodeId("b"), { text: "b", props: docsViewProps(spec) });
     const result = migrateToViewNodes([other, done], {
+      ...NONE,
       docs: [
         { name: "a", spec },
         { name: "b", spec },
@@ -305,6 +314,7 @@ describe("what the migration cannot do as asked, it says", () => {
   test("a docs view whose name another docs view goes by is not imported: it would be a second", () => {
     const namesake = node("my.rules", { text: "rules", props: docsViewProps(spec) });
     const result = migrateToViewNodes([namesake], {
+      ...NONE,
       docs: [
         { name: "rules", spec },
         { name: "todos", spec },
@@ -321,7 +331,9 @@ describe("what the migration cannot do as asked, it says", () => {
     const placement = node("sys.f.view.placement", { children: ["sys.view-placement.inline"] });
     const result = migrateToViewNodes([placement, node("sys.view-placement.inline")], NONE);
     expect(result.nodes).toEqual([]);
-    expect(legacyViewShapes([placement])).toEqual(["retired node(s) sys.f.view.placement"]);
+    expect(legacyViewShapes([placement], fold.retired)).toEqual([
+      "retired node(s) sys.f.view.placement",
+    ]);
   });
 });
 

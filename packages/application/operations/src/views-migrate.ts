@@ -1,7 +1,19 @@
 import { Effect } from "effect";
 import { z } from "zod";
-import { KbCtx, LegacyDocsViews, type ActionDefinition, type KbStore } from "@kb/contracts";
-import { currentIso, diffTx, migrateToViewNodes, type DomainError } from "@kb/model";
+import {
+  KbCtx,
+  LegacyDocsViews,
+  SessionSeed,
+  type ActionDefinition,
+  type KbStore,
+} from "@kb/contracts";
+import {
+  currentIso,
+  diffTx,
+  migrateToViewNodes,
+  VIEWS_MIGRATION,
+  type DomainError,
+} from "@kb/model";
 import { persistEffect, reloadEffect } from "./session.ts";
 
 /**
@@ -9,7 +21,7 @@ import { persistEffect, reloadEffect } from "./session.ts";
  * options → View nodes): opening only reports that a store still needs it.
  */
 export const viewsMigrateDef = {
-  id: "views.migrate",
+  id: VIEWS_MIGRATION,
   title: "Migrate to view nodes",
   description:
     "Rewrite a store written before view nodes to them — graph perspectives, frames' sys.f.view.* settings and the root's .kb/views specs — retire the imported spec files, and report what it could not do",
@@ -29,14 +41,20 @@ type ViewsMigrateOutput = z.infer<typeof viewsMigrateDef.outputSchema>;
 export const viewsMigrateEffect = Effect.fn("views.migrate")(function* (): Effect.fn.Return<
   ViewsMigrateOutput,
   DomainError,
-  KbCtx | KbStore | LegacyDocsViews
+  KbCtx | KbStore | LegacyDocsViews | SessionSeed
 > {
   const ctx = yield* KbCtx;
   const legacy = yield* LegacyDocsViews;
   const files = yield* legacy.read;
   yield* reloadEffect(ctx);
   const before = ctx.nodes;
-  const migration = migrateToViewNodes(before, { docs: files.views, at: yield* currentIso });
+  const seed = yield* SessionSeed;
+  const migration = migrateToViewNodes(before, {
+    docs: files.views,
+    at: yield* currentIso,
+    retirements: seed.retired,
+    seededText: (id) => seed.nodes.find((node) => node.id === id)?.text,
+  });
   if (migration.changed)
     yield* persistEffect(ctx, diffTx(before, migration.nodes), { systemWrites: "system" });
   // Only once the nodes are committed: a spec file is never removed before its view node exists.

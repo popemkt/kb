@@ -6,12 +6,12 @@
  */
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
-import { legacyViewShapes, type DomainError, type KbNode } from "@kb/model";
+import { legacyViewShapes, type DomainError, type KbNode, type SeedRetirement } from "@kb/model";
 import { derivedWith } from "@kb/query";
 import type { KbContext } from "@kb/contracts";
 import { readLegacyDocsViews } from "@kb/workspace-fs";
 import { sessionOver } from "./own-write.ts";
-import { reconcileSessionSchema } from "./session-schema.ts";
+import { reconcileSessionSchema, sessionSeed } from "./session-schema.ts";
 import { selectStore } from "./store-selection.ts";
 
 /**
@@ -22,10 +22,11 @@ import { selectStore } from "./store-selection.ts";
 const reportLegacyViews = Effect.fn("kb.open.legacyViews")(function* (
   root: string,
   nodes: KbNode[],
+  retirements: readonly SeedRetirement[],
 ) {
   const files = yield* readLegacyDocsViews(root);
   const held = [
-    ...legacyViewShapes(nodes),
+    ...legacyViewShapes(nodes, retirements),
     ...(files.views.length > 0
       ? [`.kb/views spec(s) ${files.views.map((view) => view.name).join(", ")}`]
       : []),
@@ -62,6 +63,6 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
   const loaded = yield* store.loadEffect;
   const ctx = yield* sessionOver(root, store, loaded, derivedWith({}));
   yield* reconcileSessionSchema(ctx);
-  yield* reportLegacyViews(root, ctx.nodes);
+  yield* reportLegacyViews(root, ctx.nodes, sessionSeed(ctx).retired);
   return ctx;
 });

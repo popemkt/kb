@@ -2239,14 +2239,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — run QuickJS inside a blob Worker in the frame
 - **node** — `01M41DKVB5R21NRCE4T9R4KES1`
 
-### GAP: views.migrate keeps a second list of seeded ids it retires, beside the seed's retirement table
-
-- **expected** — Every seeded id a build retires is a row of the seed's retirement table, the views.migrate ones included: a row can name the migration that must read its values first, and opening retires it only once that migration has run.
-- **current** — ensureSystemSeed applies the seed's retirement table (SeedRetirement rows each family declares, folded by foldSeed) before it seeds; the graph's sys.lens.all-mentions and core's sys.cmd.preferences are rows. views.migrate still deletes seeded ids of its own (the #graph-perspective tag, lens.view-mode, the old lens.renderer options, the withdrawn placement field) through RETIRED in view-migration.ts, after reading their values into view nodes; moving them into the table would drop those values on open, before the migration reads them.
-- **impact** — Two places say which seeded ids are gone. Until views.migrate runs, a store keeps those old nodes, and opening reports them as legacy shapes rather than retiring them.
-- **closes** — The retirement table can hold a row until a named migration has run, and view-migration.ts's RETIRED becomes rows of it.
-- **node** — `01M3FK1PM9P96SNCSHXF0CJZRA`
-
 ### GAP: WebGPU-only render specs skip where Chromium has no WebGPU adapter
 
 - **expected** — Every render spec runs on every lane that gates, so the Embers study, and the WebGPU backend of the scene kit, are proven in CI as well as locally.
@@ -3426,6 +3418,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a new family of views, from a bundled family or a repository extension, must edit core; core seeds the family option of a family that may be off
 - **closes** — defineExtension takes viewFamilies; the bundled fold seeds their options; ViewKey.family is typed by a registry the declarations extend; VIEW_FAMILY_VALUES keeps core's own (outline.frame) only
 - **node** — `01M66RQ281GTJNACBJ572PHCJP`
+
+### GAP: views.migrate keeps a second list of seeded ids it retires, beside the seed's retirement table
+
+- **expected** — Every seeded id a build retires is a row of the seed's retirement table, the views.migrate ones included: a row can name the migration that must read its values first, and opening retires it only once that migration has run.
+- **current** — ensureSystemSeed applies the seed's retirement table (SeedRetirement rows each family declares, folded by foldSeed) before it seeds; the graph's sys.lens.all-mentions and core's sys.cmd.preferences are rows. views.migrate still deletes seeded ids of its own (the #graph-perspective tag, lens.view-mode, the old lens.renderer options, the withdrawn placement field) through RETIRED in view-migration.ts, after reading their values into view nodes; moving them into the table would drop those values on open, before the migration reads them.
+- **impact** — Two places say which seeded ids are gone. Until views.migrate runs, a store keeps those old nodes, and opening reports them as legacy shapes rather than retiring them.
+- **closes** — The retirement table can hold a row until a named migration has run, and view-migration.ts's RETIRED becomes rows of it.
+- **node** — `01M3FK1PM9P96SNCSHXF0CJZRA`
 
 ### GAP: what an approved extension loads when it runs is not closed over
 
