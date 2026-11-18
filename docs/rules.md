@@ -137,6 +137,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A frame meter over the DOM backdrops (a PerformanceObserver over long animation frames under the head) and over the Unicorn runtime's loop, reporting data-frame-ms as the GPU host does.
 - **node** — `01M6RT9R6AXGVYZWCSTG26EET8`
 
+### GAP: a backdrop is not handed the page's colour scheme
+
+- **expected** — BackdropProps carries the page's colour scheme, light or dark, and a change of it reaches the running scene as any prop does
+- **current** — A plugin backdrop that paints light and dark pages differently (kb-extensions binary-orbits, both scenes) watches the dark class on <html> with a MutationObserver of its own
+- **impact** — Backdrops depend on the shell's class name, an internal detail: a change to how the shell marks the scheme silently breaks their palettes, and Studio cannot preview a backdrop in the scheme the page is not in
+- **closes** — A colour-scheme member on BackdropProps, fed by the shell and held by the backdrop contract suite and the SDK d.ts
+- **node** — `01M7PBBDSCWT98ZS7BGR17AHJN`
+
 ### GAP: a board wider than its pane cuts its last columns off with no sign that it scrolls
 
 - **expected** — a board whose columns run past the pane shows that more lie beyond it: an edge fade or a scroll hint on the side that scrolls, gone at the end
@@ -426,6 +434,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A number-valued prop on a field that is walked as an edge (or joined as one) can alias an arbitrary node, and which node depends on eid assignment order. Rare in practice, since ref fields hold refs and number fields are not walked, but silent when it happens.
 - **closes** — Distinct encodings in datoms.ts (for example refs on :f/<fieldId> and numbers on a typed value, or a separate ref attr per field), with queries.ts, parse.ts find-type inference, and stored queries over numeric props migrated to match.
 - **node** — `01M3A0Y5JQ5XKZMC87K34HDT2B`
+
+### GAP: a page-head backdrop hears where the pointer is, never when it presses
+
+- **expected** — A press over a backdrop's frame reaches it as a declared cue (a press BackdropCue Studio can list and act out), from the head that owns the frame, which keeps every press meant for the head's own text and controls
+- **current** — PointerSource has only now(); a backdrop that answers presses (kb-extensions binary-orbits, the galaxy's burst) adds its own passive capture pointerdown listener on window and judges for itself which presses are the page's (text, controls), gated on pointer.now() being non-null
+- **impact** — Each backdrop that answers presses writes its own hit filter and can misjudge a press the page needs; Studio cannot list or act out the cue; a tap with no move before it has no place, so touch presses are lost
+- **closes** — A press cue in BackdropCue and presses on PointerSource (or the frame tracker), filtered by the head and held by the backdrop contract suite
+- **node** — `01M7PBBD84QWMRDM498KG025Y1`
 
 ### GAP: a page's own backdrop has no gesture
 
