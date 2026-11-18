@@ -23,6 +23,7 @@ import {
   CurrentReactions,
   ExtensionFailures,
   IgnoredRootFiles,
+  ExtensionImpactSchema,
   ExtensionReportSchema,
   ExtensionSettingsSchema,
   FamilyKernels,
@@ -35,6 +36,7 @@ import {
   runtimeFootprint,
   switchWrites,
   type ActionDefinition,
+  type CatalogRow,
   type FamilyKernel,
   type FootprintRow,
   type KbStore,
@@ -50,7 +52,10 @@ import {
   type DomainError,
 } from "@kb/model";
 import { type KbIndex, KbIndexService } from "@kb/query";
+import { seedReferences, switchImpact } from "./extension-impact.ts";
 import { persistEffect, reloadEffect } from "./session.ts";
+
+const switchInput = z.object({ name: z.string().min(1), on: z.boolean() });
 
 export const extensionSwitchDef = {
   id: "extension.switch",
@@ -58,9 +63,39 @@ export const extensionSwitchDef = {
   description:
     "Turn an extension on or off for this kb: the server loads it, or leaves it out, from the next call on. Every extension can be switched except one kb.manifest lists with `required` (its reason)",
   mode: { kind: "write" } as const,
-  inputSchema: z.object({ name: z.string().min(1), on: z.boolean() }),
+  inputSchema: switchInput,
   outputSchema: z.object({ name: z.string(), on: z.boolean() }),
 } satisfies ActionDefinition;
+
+const switchableExtension = Effect.fn("extension.switchable")(function* (
+  name: string,
+): Effect.fn.Return<CatalogRow, DomainError, ExtensionCatalog> {
+  // A family a host composes (the agent, by `kb ui`) is in this catalog only where that host
+  // runs, so only there can its switch be written. GAP [[01M43H3T8XEMTNBARC024PZD2W]]
+  const row = (yield* ExtensionCatalog).find((candidate) => candidate.name === name);
+  if (row === undefined) {
+    return yield* domainError("not_found", `no extension named ${name}`, { name });
+  }
+  if (row.required !== undefined) {
+    return yield* domainError(
+      "invalid_input",
+      `${name} is required, so it is on wherever it is loaded: ${row.required}`,
+      { name },
+    );
+  }
+  return row;
+});
+
+const switchBlockers = Effect.fn("extension.switchBlockers")(function* (
+  row: CatalogRow,
+  on: boolean,
+) {
+  if (!on || row.selection === undefined) return [];
+  const requirements = yield* row.selection.requirements.pipe(
+    Effect.mapError((error) => domainError("invalid_input", error.message)),
+  );
+  return requirements.filter(({ from }) => from === null).map(({ name }) => name);
+});
 
 export const extensionSwitchEffect = Effect.fn("extension.switch")(function* (
   input: z.infer<typeof extensionSwitchDef.inputSchema>,
@@ -69,27 +104,44 @@ export const extensionSwitchEffect = Effect.fn("extension.switch")(function* (
   DomainError,
   ExtensionCatalog | KbCtx | KbStore
 > {
-  // A family a host composes (the agent, by `kb ui`) is in this catalog only where that host
-  // runs, so only there can its switch be written. GAP [[01M43H3T8XEMTNBARC024PZD2W]]
-  const row = (yield* ExtensionCatalog).find((candidate) => candidate.name === input.name);
-  if (row === undefined) {
-    return yield* domainError("not_found", `no extension named ${input.name}`, {
-      name: input.name,
-    });
-  }
-  if (row.required !== undefined) {
-    return yield* domainError(
-      "invalid_input",
-      `${input.name} is required, so it is on wherever it is loaded: ${row.required}`,
-      { name: input.name },
-    );
-  }
+  const row = yield* switchableExtension(input.name);
   const ctx = yield* KbCtx;
   // Read the switch as the store has it now: another process may have written it first.
   yield* reloadEffect(ctx);
+  const blockedBy = yield* switchBlockers(row, input.on);
+  if (blockedBy.length > 0) {
+    return yield* domainError(
+      "invalid_input",
+      `${row.name} needs ${blockedBy.join(", ")} before it can be switched on`,
+      { name: row.name, blockedBy },
+    );
+  }
   const upserts = switchWrites(row, input.on, (id) => ctx.index.getNode(id), yield* currentIso);
   yield* persistEffect(ctx, { upserts, deletes: [] });
   return { name: input.name, on: input.on };
+});
+
+export const extensionImpactDef = {
+  id: "extension.impact",
+  title: "Preview an extension switch",
+  description:
+    "Preview what switching an optional extension on or off would pause, degrade, resume or restore in this host and store",
+  mode: { kind: "read" } as const,
+  inputSchema: switchInput,
+  outputSchema: ExtensionImpactSchema,
+} satisfies ActionDefinition;
+
+export const extensionImpactEffect = Effect.fn("extension.impact")(function* (
+  input: z.infer<typeof switchInput>,
+) {
+  const row = yield* switchableExtension(input.name);
+  const blockedBy = yield* switchBlockers(row, input.on);
+  const kernels = yield* FamilyKernels;
+  const index = yield* KbIndexService;
+  const impact = switchImpact(row, input.on, kernels, seedReferences(index).get(row.name) ?? []);
+  return blockedBy.length === 0
+    ? impact
+    : { ...impact, blockedBy, resumes: [], restores: [], unresolved: [] };
 });
 
 export const extensionFootprintDef = {
@@ -164,7 +216,7 @@ export const extensionListDef = {
   id: "extension.list",
   title: "List the extensions",
   description:
-    "Every extension this kb composes, on or off, with its tags, service and declared-point requirements, what it provides and declares, and why any failed; each live point with its spec, owner and contributors in order; and refused repository extensions, an untrusted one with its digest",
+    "Every extension this kb composes, on or off, with its tags, requirements, what it provides, what references its seed, and why any failed; each live point with its spec, owner and contributors in order; and refused repository extensions, an untrusted one with its digest",
   mode: { kind: "read" } as const,
   inputSchema: z.object({}),
   outputSchema: ExtensionReportSchema,
@@ -179,14 +231,16 @@ export const extensionListDef = {
 export const extensionListEffect = Effect.fn("extension.list")(function* (): Effect.fn.Return<
   z.infer<typeof extensionListDef.outputSchema>,
   DomainError,
-  ExtensionCatalog | ExtensionFailures | FamilyKernels | IgnoredRootFiles | KbCtx
+  ExtensionCatalog | ExtensionFailures | FamilyKernels | IgnoredRootFiles | KbCtx | KbIndexService
 > {
   const kernels = yield* FamilyKernels;
   const failures = (yield* CurrentReactions).failures();
+  const references = seedReferences(yield* KbIndexService);
   return {
     extensions: (yield* ExtensionCatalog).map((row) => ({
       ...row,
       ...organisationOf(row.name, kernels, failures),
+      referencedBy: references.get(row.name) ?? [],
     })),
     points: orderedPoints(kernels),
     roles: orderedRoles(kernels),

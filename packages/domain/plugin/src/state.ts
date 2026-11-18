@@ -1,8 +1,8 @@
 import { Cause, Effect, type Scope } from "effect";
 import { PluginError, type PluginErrorReason } from "./errors.ts";
-import type { AnyServiceKey, PointKey, KernelHost, Key } from "./keys.ts";
+import type { AnyServiceKey, InjectKey, PointKey, KernelHost, Key } from "./keys.ts";
 import type { Cell } from "./cells.ts";
-import type { Contribution, Plugin, PluginStatus, RequirementState } from "./kernel.ts";
+import type { Contribution, Kernel, Plugin, PluginStatus, RequirementState } from "./kernel.ts";
 import type { RoleSession } from "./role-session.ts";
 import type { PluginAuthority } from "./authority.ts";
 
@@ -10,7 +10,7 @@ export interface Entry {
   readonly name: string;
   readonly namespace: string;
   readonly tags: readonly string[];
-  readonly inject: readonly AnyServiceKey[];
+  readonly inject: readonly InjectKey<unknown>[];
   readonly uses: readonly string[];
   readonly authority: PluginAuthority;
   readonly parent: string | null;
@@ -63,6 +63,7 @@ export function failureOf(plugin: string, cause: Cause.Cause<PluginError>): Plug
 /** Everything a kernel knows, mutated only inside the effects below. */
 export interface State {
   readonly host: KernelHost;
+  readonly importedContribution: Kernel["lookup"] | undefined;
   readonly entries: Map<string, Entry>;
   readonly services: Map<string, ServiceSlot>;
   readonly points: Map<string, PointSlot>;

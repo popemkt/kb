@@ -4468,6 +4468,8 @@ the settings. The record of why is
   The page's own kernel is joined in through the same readers
   (`organisationOf`, `orderedPoints`, `pageFootprint`), so the page
   computes nothing a CLI caller could not read (`lib/extension-report.ts`).
+  Settings still writes the switch directly. The preview belongs here
+  (GAP [[01M7Q11Q3BQNEMXNDWC7EPS9ZC]]).
   When either action fails, or the server cannot be asked, Extensions and
   Advanced say why and offer to ask again; an extension's settings stay,
   read from the graph, and its switch and its Details are not drawn,

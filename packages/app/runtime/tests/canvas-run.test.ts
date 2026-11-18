@@ -134,7 +134,7 @@ const outputOf = (ctx: Kb, id: string) =>
   ).props["f.output"];
 
 describe("ext.canvas.run", () => {
-  test("constants say their words, a script runs on its inputs, and an instruction without a model fails by name", async () => {
+  test("constants and scripts run while an instruction reports the missing model", async () => {
     const ctx = await computerKb();
     const before = canonicalJson(ctx.nodes);
     expect(
@@ -163,7 +163,7 @@ describe("ext.canvas.run", () => {
     ]);
     expect(outcomes.find((o) => o.item === "sum")).toMatchObject({
       status: "failed",
-      message: expect.stringMatching(/no model performed it: .*ext\.agent\.complete/),
+      message: "no model performed it: agent completion is unavailable",
     });
     expect(outputOf(ctx, "n.a")).toEqual([{ t: "str", v: "21" }]);
     expect(outputOf(ctx, "n.double")).toEqual([{ t: "str", v: "42" }]);

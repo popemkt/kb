@@ -4135,7 +4135,12 @@ and it adds no field an extension author must fill in.
 
 - **Dependencies are derived, never declared.** A plugin says what it reads
   (`inject` and `uses`), and the kernel knows each service's provider and
-  each declared point's owner. Readiness, missing requirements and dependency
+  each declared point's owner. An injected contribution key names a canonical
+  registration at a typed point. The registry can resolve imported action
+  contributions through the host kernel that supplies those same actions to
+  invocation. Optional capabilities live on child plugins that wait for
+  their own requirements while the family stays active.
+  Readiness, missing requirements and dependency
   edges all derive from those requirement states (`kernel.dependencies()`:
   `{from, to, kind, name}`, `@kb/plugin`). A requirement nobody supplies is
   the plugin's `missing`, not an edge. Contributing to a declared point depends on its
@@ -4266,6 +4271,20 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
     switch: the server's entry, the `kb ui` host's entry and the browser
     half. A family depends only on its own packages (the family fence), so
     switching one off never breaks another.
+    The switch matrix composes the registry, the `kb ui` host and the page
+    with each optional family omitted in turn. The other plugins stay
+    active or wait for a requirement lost with that family. Registry reads
+    continue to answer and no plugin fails to load.
+  - **Switch impact is a read.** `extension.impact {name, on}` reports the
+    effects of a proposed switch in the kernels this host composes. It reads
+    the current dependency edges to report which plugins pause and what they
+    wait for. When turning a family on it reports pending plugins whose missing
+    requirements that family's typed contribution addresses can satisfy, and calls
+    out unresolved requirements whose providers only become known at apply.
+    The report comes from the same switch decision as the host and needs
+    neither an earlier run with the family on nor a trial activation. `kb ext
+    impact <name> [--on]` prints it, and MCP and the agent offer the same read.
+    The switch remains the action that writes.
   - **The switch is a node.** A family that is not required is on while the store's
     `sys.extension.<name>` node carries `true` in the checkbox field
     `sys.f.extension.enabled`, and by its declared default where the node
@@ -4280,9 +4299,13 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
     setting (below), and `extension.switch` is the checked verb over that
     write: it refuses an unknown or required family and commits under the
     system-write rule like every other write.
-  - **Every host makes the one decision.** A root has one registry at a
-    time, composed again when the set of families on changes, so a switch
-    takes effect on the next call, and the registry it replaces is released
+    Before turning a family on, the action checks its entry's top-level
+    requirements against the kernel and names any blockers. Optional
+    children wait for their own requirements after the entry loads.
+  - **Every host makes the one decision.** A host has one registry for a
+    root, composed again when the set of families on or the hosted
+    contributions it resolves change. A switch takes effect on the
+    next call, and the registry it replaces is released
     (Core boundary & extensions → A switch does not stop module code).
     The `kb ui` server composes the extensions it hosts (the agent) the
     same way: `composeHosted` converges its kernel on the ones `familyOn`
@@ -4512,6 +4535,13 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
   its runtime rows are exactly what that kernel holds of it, each action in
   its own `ext.<name>` namespace. A declared action list for a family that
   is off (owner question 3) and a write footprint are not built.
+
+  The reverse data footprint, `referencedBy` on each `extension.list` row,
+  reads `:node/mentions` into that family's `:node/owner` seed from nodes
+  outside the family. Switch impact groups these references by the kind of
+  seed they target (view, backdrop, design system, or other), counting each
+  referencing node once per group. The same data is available while the
+  family is off.
 
 - **Ids are frozen data.** `sys.f.chart`, `sys.views` options and the rest
   keep their spelling when their declaring package changes, so no store

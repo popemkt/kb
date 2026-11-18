@@ -45,11 +45,13 @@ import {
   asKeyType,
   localPointName,
   namespaced,
+  rootPluginName,
   roleKeyAt,
   asPointKey,
   pointKey,
   type RoleKey,
   type AnyServiceKey,
+  type InjectKey,
   type PointKey,
   type PointReference,
   type PointName,
@@ -101,8 +103,8 @@ export interface PluginContext {
   declare<C>(name: string | PointName<C>, spec: PointSpec): Effect.Effect<PointKey<C>, PluginError>;
   point<C>(name: string | PointName<C>): Effect.Effect<PointKey<C>, PluginError>;
   contributions<C>(point: PointKey<C>): readonly Contribution<C>[];
-  /** A service this plugin declared in `inject`. */
-  get<S>(key: ServiceKey<S>): Effect.Effect<S, PluginError>;
+  /** A service or contribution this plugin declared in `inject`. */
+  get<S>(key: InjectKey<S>): Effect.Effect<S, PluginError>;
   provide<S>(key: ServiceKey<S>, impl: S): Effect.Effect<void, PluginError>;
   contribute<C>(
     point: PointKey<C>,
@@ -120,8 +122,8 @@ export interface Plugin {
   readonly name: string;
   /** Contribution id prefix. Defaults to the name (a child: its parent's namespace). */
   readonly namespace?: string;
-  /** Services that must exist before `apply` runs; the plugin waits until they do. */
-  readonly inject?: readonly AnyServiceKey[];
+  /** Requirements that must be available before `apply` runs. */
+  readonly inject?: readonly InjectKey<unknown>[];
   readonly uses?: readonly string[];
   /**
    * Labels for organising plugins (DESIGN.md → Plugin organisation). The
@@ -187,9 +189,10 @@ interface PluginState {
  * Contributions depend on a point's declarer, not on its readers.
  */
 export interface RequirementState {
-  readonly kind: "service" | "point";
+  readonly kind: "service" | "point" | "contribution";
   readonly name: string;
   readonly from: string | null;
+  readonly family?: string;
 }
 
 interface Dependency {
@@ -243,6 +246,10 @@ export interface Kernel {
   /** Effective host-bound code origin of a visible owner; not membership or replacement approval. */
   readonly provenance: (owner: string) => PluginProvenance | undefined;
   readonly plugins: () => readonly PluginState[];
+  /** Inspect an entry's top-level requirements without applying it or any children. */
+  readonly requirementsFor: (
+    plugin: Plugin,
+  ) => Effect.Effect<readonly RequirementState[], PluginError>;
   /**
    * Whether `plugin`, this very value, is what the kernel holds under its
    * name: how a host that converges on a list (`syncPlugins`) tells a
@@ -273,16 +280,41 @@ function serviceProvider(
   return candidate !== undefined && alive(state, candidate.owner) ? candidate : undefined;
 }
 
+function contributionAt<C>(
+  state: State,
+  point: PointReference<C>,
+  id: string,
+): Contribution<C> | undefined {
+  const slot = state.points.get(point.name);
+  const cell = matchesPoint(slot, point) ? slot?.byId.get(id) : undefined;
+  const candidate = cell === undefined ? undefined : elected(state, cell);
+  if (cell === undefined || candidate === undefined || !visible(state, candidate.owner))
+    return undefined;
+  const item = pointValue(cell, candidate);
+  return { ...item, value: asKeyType(point, item.value) };
+}
+
+function injectedProvider(state: State, key: InjectKey<unknown>) {
+  if (key.kind === "contribution") {
+    const item =
+      contributionAt(state, key.point, key.name) ??
+      state.importedContribution?.(key.point, key.name);
+    return item?.id === key.name && rootPluginName(item.owner) === key.family ? item : undefined;
+  }
+  const slot = state.services.get(key.name);
+  return slot?.key === key ? serviceProvider(state, slot) : undefined;
+}
+
 function requirementsOf(state: State, entry: Entry): RequirementState[] {
   return [
-    ...entry.inject.map((key): RequirementState => {
-      const slot = state.services.get(key.name);
-      return {
-        kind: "service",
+    ...entry.inject.map(
+      (key): RequirementState => ({
+        kind: key.kind,
         name: key.name,
-        from: slot?.key === key ? (serviceProvider(state, slot)?.owner ?? null) : null,
-      };
-    }),
+        from: injectedProvider(state, key)?.owner ?? null,
+        ...(key.kind === "contribution" ? { family: key.family } : {}),
+      }),
+    ),
     ...entry.uses.map(
       (name): RequirementState => ({
         kind: "point",
@@ -509,7 +541,7 @@ const provideErased = Effect.fnUntraced(function* (
 const getErased = Effect.fnUntraced(function* (
   state: State,
   active: Activation,
-  key: AnyServiceKey,
+  key: InjectKey<unknown>,
 ) {
   return yield* Effect.try({
     try: () => {
@@ -520,10 +552,9 @@ const getErased = Effect.fnUntraced(function* (
           "not-injected",
           `${entry.name} reads ${key.name} without declaring it in inject`,
         );
-      const slot = state.services.get(key.name);
-      const provider = serviceProvider(state, slot);
-      if (slot?.key !== key || provider === undefined)
-        throw refusal(entry.name, "not-loaded", `service ${key.name} is not provided`);
+      const provider = injectedProvider(state, key);
+      if (provider === undefined)
+        throw refusal(entry.name, "not-loaded", `${key.kind} ${key.name} is not provided`);
       return provider.value;
     },
     catch: (cause) => pluginFailure(active.entry.name, cause),
@@ -650,12 +681,15 @@ function provenanceOf(state: State, owner: string): PluginProvenance | undefined
 export function makeKernel({
   host,
   roleSession,
+  importedContribution,
 }: {
   readonly host: KernelHost;
   readonly roleSession?: RoleSession;
+  readonly importedContribution?: Kernel["lookup"];
 }): Kernel {
   const state: State = {
     host,
+    importedContribution,
     entries: new Map(),
     services: new Map(),
     points: new Map(),
@@ -677,15 +711,7 @@ export function makeKernel({
     ),
     provenance: (owner) => provenanceOf(state, owner),
     contributions: (point) => contributionsAt(state, point),
-    lookup: (point, id) => {
-      const slot = state.points.get(point.name);
-      const cell = matchesPoint(slot, point) ? slot?.byId.get(id) : undefined;
-      const candidate = cell === undefined ? undefined : elected(state, cell);
-      if (cell === undefined || candidate === undefined || !visible(state, candidate.owner))
-        return undefined;
-      const item = pointValue(cell, candidate);
-      return { ...item, value: asKeyType(point, item.value) };
-    },
+    lookup: (point, id) => contributionAt(state, point, id),
     contributionsOf: (owner) =>
       [...state.points.values()].flatMap((slot) =>
         cellEntries(slot.cells)
@@ -748,6 +774,11 @@ export function makeKernel({
         applied: entry.activation?.phase === "active",
         error: entry.error,
       })),
+    requirementsFor: (plugin) =>
+      Effect.try({
+        try: () => requirementsOf(state, pluginEntry(plugin, null, plugin.name, state.host)),
+        catch: (cause) => pluginFailure(plugin.name, cause),
+      }),
     dependencies: () =>
       [...state.entries.values()].flatMap((entry) =>
         requirementsOf(state, entry).flatMap(({ kind, name, from }) =>

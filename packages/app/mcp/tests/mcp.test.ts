@@ -58,6 +58,24 @@ describe("MCP surface", () => {
     await rm(root, { recursive: true, force: true });
   });
 
+  test("offers extension impact as a read tool", async () => {
+    const { client, close } = await connect(root);
+    try {
+      const listed = await client.listTools();
+      expect(
+        listed.tools.find((tool) => tool.name === "extension_impact")?.annotations?.readOnlyHint,
+      ).toBe(true);
+      expect(await callJson(client, "extension_impact", { name: "code", on: false })).toMatchObject(
+        {
+          isError: false,
+          body: { pauses: [{ plugin: "canvas/scripts", source: "registry" }] },
+        },
+      );
+    } finally {
+      await close();
+    }
+  });
+
   test("lists the action tools an agent may call; node_add then graph_query", async () => {
     const server = await run(createMcpServer(root));
     const client = new Client({ name: "kb-mcp-test", version: "0.0.0" });

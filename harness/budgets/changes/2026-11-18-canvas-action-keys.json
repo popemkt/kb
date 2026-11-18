@@ -1,0 +1,12 @@
+{
+  "reason": "Shared action keys carry the request and response schemas for the actions canvas calls. Each provider binds its wire address when the family constructs the action.",
+  "raise": {
+    "cli-closure": {
+      "bytes": 1480,
+      "modules": 1
+    },
+    "surface": {
+      "@kb/contracts": 10
+    }
+  }
+}

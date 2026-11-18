@@ -988,15 +988,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — E19 of the extension SDK plan, after E13, at a 3D step boundary
 - **node** — `01M43AT0V9HHVS7ZAEPWXEGE7F`
 
-### GAP: cross-family action calls by string id are invisible to the dependency graph
-
-- **expected** — a plugin that calls another family's action injects a key for it, held in a layer both may import, so the kernel derives the edge, the call is typed, and an optional call rides a child plugin that pends while its provider is off (as lab-ui's graph-studies injects NodeLinkGraphService)
-- **current** — ext-canvas calls ext.agent.complete (run.ts:42), ext.code.script.list and .run (run.ts:56-57, verbs.ts:167) and ext.graph.edges (diagram.ts:33) by string through CoreInvoke; kb ext list reports injects: [] for every registry family, and the call fails by name at run time when the provider is off
-- **impact** — switching agent, code or graph off breaks canvas's run, scripts and diagram verbs without warning; the dependency graph reads as complete while it holds none of these edges
-- **closes** — P2 of docs/research/2026-10-29-plugin-codependency.md: contribution keys in inject (restructure the four ids into keys, then resolve them in the kernel and carry each optional call on a child), with lint L1
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M63BZRZ4RDTCE1ZFVGRNEXGR`
-
 ### GAP: datalog and the query builder's tag filter do not reach a subtype's nodes
 
 - **expected** — A node of a tag that extends another is that tag's node in datalog too: a derived :node/is datom holds the closure of sys.f.type over sys.f.extends, the query builder's has-tag lowers to it and the page's condition evaluator reads kindsOf, while :f/sys.f.type stays tagged-exactly.
@@ -1341,14 +1332,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a pending-transaction model the outline can draw and a palette command to start and release a turn; the theme then draws the plan
 - **node** — `01M5S0J203QE0ZMB7MGN7GJXD8`
 
-### GAP: no test holds that switching one optional family off leaves the others whole
-
-- **expected** — a switch matrix over the registry, the kb ui host and the page: for each optional family F, with every other family on, every other family's plugin is active or pending only on a key F alone provides, every read action answers, and no plugin fails
-- **current** — core-only.test.ts proves core stands without every optional family; that the family is the unit (DESIGN.md) is held only by the import fence, which cannot see a call by action id
-- **impact** — a new cross-family edge that is not an import (an action id, a copied id, a shared host) can make one family break when another is off, and CI stays green
-- **closes** — P1 of docs/research/2026-10-29-plugin-codependency.md
-- **node** — `01M63C0H8G86X7ZBJ48QYYNSAV`
-
 ### GAP: no thin dispatch from a one-shot command to a running host
 
 - **expected** — kb's entry module reads the root's presence (.kb/ui.json) and, when a host of the same build serves the root on its owner-only Unix socket, forwards argv to POST /api/cli, where the host runs the same command table on the CLI's wire; otherwise, or for commands that read stdin, prompt or host, it imports the in-process CLI. A dispatch contract test runs commands both ways and compares output and writes.
@@ -1380,14 +1363,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Special nodes (inboxes, sys nodes) read the same as any other link.
 - **closes** — A seeded sys icon field and refInkOf reading it.
 - **node** — `01M3KA3BHNPNB8VX34HD8P2JCB`
-
-### GAP: nodes that reference a family's seed are not counted or shown before it is switched off
-
-- **expected** — extension.list rows carry referencedBy, the nodes outside a family whose refs land in what it seeds, read from :node/mentions joined to :node/owner, and extension.impact groups them by the kind of node referenced
-- **current** — the footprint lists what a family seeds and contributes, but not who points at it; views, backdrop and design-system choices that name a switched-off family degrade silently
-- **impact** — a person cannot tell how much of their graph a switch affects; the degrade is correct but unannounced
-- **closes** — P0 of docs/research/2026-10-29-plugin-codependency.md
-- **node** — `01M63C0HZMR1ZSS95YZGJ868PR`
 
 ### GAP: nothing flags another family's action id or seed id spelled as a string
 
@@ -1731,6 +1706,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The field row takes its name column's width from where it is drawn: the full name in Settings, wrapped if it must; the outline row keeps its column.
 - **node** — `01M7F9300H9FDW5BGCBVQQFTXW`
 
+### GAP: Settings does not preview a family switch
+
+- **expected** — Settings reads extension.impact before a switch and shows effects and pending reasons.
+- **current** — The backend action is available through the CLI and MCP. Settings calls the switch directly.
+- **impact** — A person using Settings still discovers paused or degraded features after switching.
+- **closes** — Use extension.impact with the shared Settings report before switching and present the running state afterwards.
+- **node** — `01M7Q11Q3BQNEMXNDWC7EPS9ZC`
+
 ### GAP: Shift-drag on empty space in 3D does not marquee-select
 
 - **expected** — Shift-drag on empty space in 3D draws a screen-space marquee and selects what it covers (owner answer 4 of the 3D plan)
@@ -1765,14 +1748,13 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M7HCW0W60M9G3R2QCF8FZJW1`
 
-### GAP: switching a family off says nothing about what depends on it
+### GAP: Switch preview cannot resolve providers registered only at apply
 
-- **expected** — a read action, extension.impact {name, on}, answers what a switch would pause (plugins that go pending, with the key each waits on), degrade (nodes outside the family that reference its seed) and resume; Settings shows it before an off with a non-empty impact, the CLI prints it, and MCP and the agent have it as a read tool
-- **current** — extension.switch (operations/src/extensions.ts:62) checks only that the family is optional and returns {name, on}; nothing computes dependants before or after the write
-- **impact** — a person or an agent switches a family off without knowing which other features pause or which nodes will show as unavailable; the loss is found later, elsewhere
-- **closes** — P0 of docs/research/2026-10-29-plugin-codependency.md
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M63C0GJ5M78G1TFKM00RN4X6`
+- **expected** — Switch preview resolves pending requirements from provider structure without running disabled code.
+- **current** — Typed action contributions identify their provider. A generic service or dynamic point registered inside apply may have no provider visible while the family is off.
+- **impact** — An on preview can report unresolved requirements instead of predicting which plugins resume.
+- **closes** — Represent provider structure in the kernel registration model so the same declaration drives activation and off-state inspection.
+- **node** — `01M7Q11R3PYMA1KAXBER6TG792`
 
 ### GAP: sys.f.color keeps an always-open swatch row
 
@@ -2693,6 +2675,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — the O3 cut: @kb/outline declares the views and the default
 - **node** — `01M52J3DADW4P7YV6907ME9C50`
 
+### GAP: cross-family action calls by string id are invisible to the dependency graph
+
+- **expected** — a plugin that calls another family's action injects a key for it, held in a layer both may import, so the kernel derives the edge, the call is typed, and an optional call rides a child plugin that pends while its provider is off (as lab-ui's graph-studies injects NodeLinkGraphService)
+- **current** — ext-canvas calls ext.agent.complete (run.ts:42), ext.code.script.list and .run (run.ts:56-57, verbs.ts:167) and ext.graph.edges (diagram.ts:33) by string through CoreInvoke; kb ext list reports injects: [] for every registry family, and the call fails by name at run time when the provider is off
+- **impact** — switching agent, code or graph off breaks canvas's run, scripts and diagram verbs without warning; the dependency graph reads as complete while it holds none of these edges
+- **closes** — P2 of docs/research/2026-10-29-plugin-codependency.md: contribution keys in inject (restructure the four ids into keys, then resolve them in the kernel and carry each optional call on a child), with lint L1
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M63BZRZ4RDTCE1ZFVGRNEXGR`
+
 ### GAP: deleting a surface budget bypasses increase rationale
 
 - **expected** — Every effective surface ceiling increase for a measured package requires a new or updated reason, including deletion of an explicit entry.
@@ -2876,6 +2867,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Track 2 phase work in briefs/p1-persistence.md. Trigger: measured commit latency at real node counts hurts, or node.get needs to stop materializing everything.
 - **node** — `01M1M08WEYJNEFDZVECN9QKEWT`
 
+### GAP: no test holds that switching one optional family off leaves the others whole
+
+- **expected** — a switch matrix over the registry, the kb ui host and the page: for each optional family F, with every other family on, every other family's plugin is active or pending only on a key F alone provides, every read action answers, and no plugin fails
+- **current** — core-only.test.ts proves core stands without every optional family; that the family is the unit (DESIGN.md) is held only by the import fence, which cannot see a call by action id
+- **impact** — a new cross-family edge that is not an import (an action id, a copied id, a shared host) can make one family break when another is off, and CI stays green
+- **closes** — P1 of docs/research/2026-10-29-plugin-codependency.md
+- **node** — `01M63C0H8G86X7ZBJ48QYYNSAV`
+
 ### GAP: NodeBlock decides row chrome with 28 branches
 
 - **expected** — A row's chrome (toolbar, fields, children, query results, projected frame) is chosen by one view-mode resolver, and NodeBlock renders what it returns.
@@ -2891,6 +2890,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Which commands a node offers cannot be tested without rendering, and the same availability rules are re-derived in run-command.ts.
 - **closes** — Extract listNodeCommands(node, store) beside run-command.ts and have both the palette and the runner read it. Touches the command surface, so it is an owner call.
 - **node** — `01M1MGCF0ECBDEPTHPKMSQ4YFD`
+
+### GAP: nodes that reference a family's seed are not counted or shown before it is switched off
+
+- **expected** — extension.list rows carry referencedBy, the nodes outside a family whose refs land in what it seeds, read from :node/mentions joined to :node/owner, and extension.impact groups them by the kind of node referenced
+- **current** — the footprint lists what a family seeds and contributes, but not who points at it; views, backdrop and design-system choices that name a switched-off family degrade silently
+- **impact** — a person cannot tell how much of their graph a switch affects; the degrade is correct but unannounced
+- **closes** — P0 of docs/research/2026-10-29-plugin-codependency.md
+- **node** — `01M63C0HZMR1ZSS95YZGJ868PR`
 
 ### GAP: nodes.jsonl has no merge driver
 
@@ -3131,6 +3138,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Rewrite every listed directive to the oxlint grammar, then unskip suppression-grammar.test.ts.
 - **rule** — Lint scope coverage
 - **node** — `01M1PHTZDZCKMXYP6HW109M3DT`
+
+### GAP: switching a family off says nothing about what depends on it
+
+- **expected** — a read action, extension.impact {name, on}, answers what a switch would pause (plugins that go pending, with the key each waits on), degrade (nodes outside the family that reference its seed) and resume; Settings shows it before an off with a non-empty impact, the CLI prints it, and MCP and the agent have it as a read tool
+- **current** — extension.switch (operations/src/extensions.ts:62) checks only that the family is optional and returns {name, on}; nothing computes dependants before or after the write
+- **impact** — a person or an agent switches a family off without knowing which other features pause or which nodes will show as unavailable; the loss is found later, elsewhere
+- **closes** — P0 of docs/research/2026-10-29-plugin-codependency.md
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M63C0GJ5M78G1TFKM00RN4X6`
 
 ### GAP: the 3D bullet atlas has a fixed capacity
 

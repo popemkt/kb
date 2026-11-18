@@ -1,7 +1,7 @@
 import { Schema } from "effect";
+import { EdgeKindSchema } from "@kb/contracts";
 import { subjectRootOf, viewKey, type ViewKey } from "@kb/views";
 import {
-  EdgeKindSchema,
   LENS_SETTINGS,
   LensParams,
   decodeLensConfig,

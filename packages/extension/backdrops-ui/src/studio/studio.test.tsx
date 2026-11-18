@@ -500,6 +500,8 @@ function row(name: string, more: Record<string, unknown>) {
     declares: [],
     uses: [],
     injects: [],
+    requiresContributions: [],
+    referencedBy: [],
     provides: [],
     failures: [],
     ...more,

@@ -105,6 +105,8 @@ async function answer(invocation: ActionRequest) {
       declares: [],
       uses: [],
       injects: [],
+      requiresContributions: [],
+      referencedBy: [],
       provides: [],
       failures: [],
     }));
