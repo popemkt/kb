@@ -15,6 +15,7 @@ import { mergeNodeSets, SYSTEM_IDS, type KbNode, type NodeId, present } from "@k
 
 import { foldSeed, type SeedSource } from "../src/seed-fold.ts";
 import { ensureSystemSeed } from "../src/seed.ts";
+import { seedRemovalNodes } from "../src/removals.ts";
 
 const AT = "2026-10-27T00:00:00.000Z";
 
@@ -133,6 +134,33 @@ describe("the seed's retirement table", () => {
       "sys.probe.tone.dim",
       "sys.probe.tone.bright",
     ]);
+  });
+
+  test("a cleared seed slot remains absent when its holder and field are renamed", () => {
+    const oldHolder = node("sys.probe.look.dim", "dim", {
+      props: { "sys.probe.f.look": [{ t: "ref", v: "sys.probe.look.bright" }] },
+    });
+    const cleared = { ...oldHolder, props: {} };
+    const choices = seedRemovalNodes(
+      { upserts: [cleared], deletes: [] },
+      (id) => (id === oldHolder.id ? oldHolder : undefined),
+      (id) => id === oldHolder.id,
+      AT,
+    );
+    const next = fold({
+      ...AFTER,
+      seed: (at) =>
+        (AFTER.seed?.(at) ?? []).map((entry) =>
+          entry.id === "sys.probe.tone.dim"
+            ? {
+                ...entry,
+                props: { "sys.probe.f.tone": [{ t: "ref", v: "sys.probe.tone.bright" }] },
+              }
+            : entry,
+        ),
+    });
+    const opened = ensureSystemSeed([...choices, cleared], next);
+    expect(byId(opened.nodes).get("sys.probe.tone.dim")?.props).toEqual({});
   });
 
   test("drops an id nothing replaced everywhere but a mention, which shows as missing", () => {

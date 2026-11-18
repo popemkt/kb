@@ -11,6 +11,7 @@
  * it against both adapters.
  */
 import { describe, expect, test } from "bun:test";
+import { Effect } from "effect";
 import fc from "fast-check";
 import type { KbNode, KbTx, StoreTx } from "@kb/model";
 import { MemoryTxTail, StoreTxLog } from "../src/index.ts";
@@ -39,6 +40,10 @@ function logOver(tail: MemoryTxTail = new MemoryTxTail()): StoreTxLog {
   return new StoreTxLog(tail);
 }
 
+function append(log: StoreTxLog, tx: StoreTx, at: string, origin?: string): KbTx {
+  return Effect.runSync(log.append(tx, at, origin));
+}
+
 function frames(answer: KbTx[] | "snapshot-required"): KbTx[] {
   expect(answer).not.toBe("snapshot-required");
   return answer === "snapshot-required" ? [] : answer;
@@ -49,7 +54,7 @@ describe("StoreTxLog", () => {
     fc.assert(
       fc.property(fc.array(txArb, { maxLength: 20 }), (txs) => {
         const log = logOver();
-        for (const tx of txs) log.append(tx, AT);
+        for (const tx of txs) append(log, tx, AT);
         expect(log.head).toBe(txs.length);
         expect(log.since(log.head)).toEqual([]);
         // A reader ahead of head counted against another store; nothing this
@@ -63,7 +68,7 @@ describe("StoreTxLog", () => {
     fc.assert(
       fc.property(fc.array(txArb, { minLength: 1, maxLength: 20 }), fc.nat(20), (txs, cut) => {
         const log = logOver();
-        const appended = txs.map((tx) => log.append(tx, AT));
+        const appended = txs.map((tx) => append(log, tx, AT));
         const k = Math.min(cut, txs.length);
         const caught = frames(log.since(k));
         expect(caught).toEqual(appended.slice(k));
@@ -82,8 +87,8 @@ describe("StoreTxLog", () => {
         const log = new StoreTxLog(tail);
         const total = cap + extra;
         for (let i = 0; i < total; i += 1) {
-          log.append({ upserts: [], deletes: [] }, AT);
-          tail.adopt(tail.entries().slice(-cap));
+          append(log, { upserts: [], deletes: [] }, AT);
+          Effect.runSync(tail.adopt(tail.entries().slice(-cap)));
         }
         // The tail holds revs (head - cap, head]. rev = head - cap is the
         // oldest reader that can still be caught up; one behind it cannot.
@@ -98,10 +103,10 @@ describe("StoreTxLog", () => {
     const log = logOver();
     const seen: number[] = [];
     const off = log.subscribe((tx) => seen.push(tx.rev));
-    log.append({ upserts: [], deletes: [] }, AT);
-    log.append({ upserts: [], deletes: [] }, AT, "client-a");
+    append(log, { upserts: [], deletes: [] }, AT);
+    append(log, { upserts: [], deletes: [] }, AT, "client-a");
     off();
-    log.append({ upserts: [], deletes: [] }, AT);
+    append(log, { upserts: [], deletes: [] }, AT);
     expect(seen).toEqual([1, 2]);
     expect(frames(log.since(1)).at(0)?.origin).toBe("client-a");
     expect(log.head).toBe(3);
@@ -110,8 +115,8 @@ describe("StoreTxLog", () => {
   test("a log opens at the tail's head and refreshes to what the tail gained", () => {
     const tail = new MemoryTxTail();
     const writer = new StoreTxLog(tail);
-    writer.append({ upserts: [node("n-a")], deletes: [] }, AT);
-    writer.append({ upserts: [node("n-b")], deletes: [] }, AT);
+    append(writer, { upserts: [node("n-a")], deletes: [] }, AT);
+    append(writer, { upserts: [node("n-b")], deletes: [] }, AT);
 
     // A second session over the same tail — a restart, or another process.
     const reader = new StoreTxLog(tail);
@@ -121,7 +126,7 @@ describe("StoreTxLog", () => {
     reader.subscribe((tx) => seen.push(tx.rev));
     expect(reader.refresh()).toEqual([]);
 
-    writer.append({ upserts: [node("n-c")], deletes: [] }, AT);
+    append(writer, { upserts: [node("n-c")], deletes: [] }, AT);
     expect(reader.refresh().map((tx) => tx.rev)).toEqual([3]);
     expect(seen).toEqual([3]);
     expect(reader.head).toBe(3);

@@ -1,27 +1,21 @@
-/**
- * The JSONL store's durable transaction tail: `<root>/.kb/tx.jsonl`.
- *
- * One canonical-JSON record per line, oldest first, in the same format and
- * with the same durability discipline as `nodes.jsonl` — it is the same kind
- * of file, so it gets one reader, one writer and one crash story rather than a
- * second set of each. It is **not** committed: the nodes are the intent and
- * the order they were written in is state (`docs/backup-strategy.md`).
- *
- * Each record carries `mark`, the store's own durable commit mark —
- * `nodes.jsonl`'s content hash, the same string {@link JsonlStore.fingerprint}
- * answers with — read after the node write. That is what makes
- * {@link JsonlTxTail.isCurrent} a comparison rather than a guess: a tail whose
- * last mark is not the file's current one is behind the store, which is the
- * crash window between the two writes made visible instead of assumed away.
- */
-import { appendFileSync, mkdirSync, readFileSync, statSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { Predicate } from "effect";
+import {
+  appendFileSync,
+  closeSync,
+  fsyncSync,
+  openSync,
+  readFileSync,
+  statSync,
+  unlinkSync,
+} from "node:fs";
+import { join } from "node:path";
+import { Effect, Predicate } from "effect";
 import {
   canonicalJson,
   decodeStoredTx,
   domainError,
+  ensureDomainError,
   recordedTx,
+  type DomainError,
   type KbTx,
   type StoreTx,
 } from "@kb/model";
@@ -33,193 +27,271 @@ import {
   type TxRecord,
   type TxTail,
 } from "@kb/contracts";
-import { durableReplaceFile } from "@kb/file-write";
+import {
+  acquireFileWriteLockEffect,
+  durableReplaceFile,
+  releaseFileWriteLock,
+} from "@kb/file-write";
 import { contentMark, storeMark } from "./content-mark.ts";
 
-/** One line of `tx.jsonl`: a {@link KbTx} plus the store mark it was written at. */
 interface TailRecord {
   readonly tx: KbTx;
   readonly mark: string;
-  /** The length of its line: what a page of the tail counts against its byte budget. */
   readonly bytes: number;
+}
+
+interface History {
+  readonly key: string | null;
+  readonly records: readonly TailRecord[];
+  readonly complete: boolean;
 }
 
 function lineOf(tx: KbTx, mark: string): string {
   return `${canonicalJson({ ...tx, mark })}\n`;
 }
 
-/**
- * `${size}:${mtime}` of the tail file itself: the key of the parse cache, never
- * a store mark. The tail only grows or is replaced, and either moves its size
- * or its mtime; the store's own mark is its content ({@link storeMark}).
- */
-function tailFileMark(path: string): string | null {
+function decodeLine(line: string): TailRecord {
+  const raw: unknown = JSON.parse(line);
+  const mark = Predicate.hasProperty(raw, "mark") && typeof raw.mark === "string" ? raw.mark : "";
+  return { tx: decodeStoredTx(raw), mark, bytes: Buffer.byteLength(line) + 1 };
+}
+
+function addRecord(history: readonly TailRecord[], pending: TailRecord): TailRecord[] {
+  const retained =
+    history.length < TX_TAIL_MAX_ENTRIES ? history : history.slice(-(TX_TAIL_KEEP_ENTRIES - 1));
+  return [...retained, pending];
+}
+
+function missing(err: unknown): boolean {
+  return Predicate.hasProperty(err, "code") && err.code === "ENOENT";
+}
+
+/** Include inode identity for replacement and ctime for same-size in-place edits. */
+function fileKey(path: string): string | null {
   try {
-    const info = statSync(path);
-    return `${String(info.size)}:${String(Math.trunc(info.mtimeMs))}`;
-  } catch {
-    return null;
+    const { ino, dev, size, ctimeNs } = statSync(path, { bigint: true });
+    return `${dev}:${ino}:${size}:${ctimeNs}`;
+  } catch (err) {
+    if (missing(err)) return null;
+    throw err;
   }
 }
 
-/** Where the JSONL store keeps its tail. */
 export function txTailPath(root: string): string {
   return join(root, ".kb", "tx.jsonl");
 }
 
-function markOf(raw: unknown): string {
-  return Predicate.hasProperty(raw, "mark") && typeof raw.mark === "string" ? raw.mark : "";
-}
-
+/**
+ * The JSONL tail is archived history plus at most one journaled record. The
+ * graph replacement publishes that record (DESIGN.md → The transaction tail).
+ * Every mutation runs under the node writer lock, including virtual writes.
+ */
 export class JsonlTxTail implements TxTail {
   readonly path: string;
   readonly backupPath: string;
+  readonly pendingPath: string;
   private readonly nodesPath: string;
-  /**
-   * The parsed file, kept only while the file has not moved.
-   *
-   * Not a second copy of the sequence: it is keyed by the tail file's own
-   * size+mtime, so another process's append invalidates it on the next read.
-   * Without it every commit would re-read and re-decode the whole tail on the
-   * keystroke path.
-   */
-  private cache: { mark: string; records: TailRecord[] } | null = null;
+  private cache: History | null = null;
 
   constructor(nodesPath: string, path: string) {
     this.nodesPath = nodesPath;
     this.path = path;
     this.backupPath = `${path}.bak`;
+    this.pendingPath = `${path}.pending`;
+  }
+
+  withWriter<A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E | DomainError, R> {
+    return Effect.scoped(
+      Effect.gen({ self: this }, function* () {
+        yield* Effect.acquireRelease(acquireFileWriteLockEffect(this.nodesPath), (lock) =>
+          Effect.sync(() => releaseFileWriteLock(lock)),
+        );
+        return yield* effect;
+      }),
+    );
   }
 
   head(): number {
-    return this.records().at(-1)?.tx.rev ?? 0;
+    return this.published().records.at(-1)?.tx.rev ?? 0;
   }
 
   isCurrent(): boolean {
-    const last = this.records().at(-1);
-    // No tail and an empty store is a consistent pair: nothing has happened yet.
-    if (last === undefined) return storeMark(this.nodesPath) === contentMark("");
-    return last.mark === storeMark(this.nodesPath);
+    const { records, mark } = this.published();
+    return (
+      (records.at(-1)?.mark ?? contentMark("")) ===
+      (mark === undefined ? storeMark(this.nodesPath) : mark)
+    );
   }
 
   entries(): KbTx[] {
-    return this.records().map((record) => record.tx);
+    return this.published().records.map((record) => record.tx);
   }
 
-  /** One page past `rev`, from the parse cache: the file is read once, whatever the paging. */
   since(rev: number, page?: TxPage): KbTx[] {
-    const after = this.records().filter((record) => record.tx.rev > rev);
-    const taken =
-      page === undefined
-        ? after
-        : after.slice(
-            0,
-            pageLength(
-              after.map((r) => r.bytes),
-              page,
-            ),
-          );
-    return taken.map((record) => record.tx);
+    const after = this.published().records.filter((record) => record.tx.rev > rev);
+    if (page === undefined) return after.map((record) => record.tx);
+    const count = pageLength(
+      after.map((record) => record.bytes),
+      page,
+    );
+    return after.slice(0, count).map((record) => record.tx);
   }
 
-  /**
-   * `mark` is the store's mark this record is written at. The store's own
-   * commit passes the mark of the bytes it just wrote rather than have the tail
-   * read them back; any other caller gets the file's current mark.
-   */
-  append(ops: StoreTx, record: TxRecord, mark = storeMark(this.nodesPath)): KbTx {
-    const existing = this.records();
-    const rev = (existing.at(-1)?.tx.rev ?? 0) + 1;
-    const tx = recordedTx(rev, ops, record);
-    const line: TailRecord = { tx, mark: mark ?? "", bytes: lineOf(tx, mark ?? "").length };
+  append(ops: StoreTx, record: TxRecord): Effect.Effect<KbTx, DomainError> {
+    return this.withWriter(
+      Effect.try({
+        try: () => {
+          const mark = this.readStoreMark();
+          return this.transact(ops, record, mark, mark);
+        },
+        catch: ensureDomainError,
+      }),
+    );
+  }
 
-    if (existing.length + 1 > TX_TAIL_MAX_ENTRIES) {
-      this.write([...existing.slice(-(TX_TAIL_KEEP_ENTRIES - 1)), line]);
-    } else {
-      this.appendLine(existing, line);
+  /** Stage and publish inside the writer lock. A virtual write has no node replacement. */
+  transact(ops: StoreTx, record: TxRecord, base: string, mark: string, publish?: () => void): KbTx {
+    const rev = this.archivePending(base) + 1;
+    const tx = recordedTx(rev, ops, record);
+    durableReplaceFile({ path: this.pendingPath, body: lineOf(tx, mark) });
+    publish?.();
+    // The commit is already visible. If this cleanup cannot finish, readers
+    // use the journal and the next writer must finish it before reusing it.
+    try {
+      this.archivePending(mark);
+      unlinkSync(this.pendingPath);
+    } catch {
+      // The staged record remains recoverable.
+      // GAP [[01M7Q21QJJWSB6JBZPW3EWT6K8]]: older writers cannot read it.
     }
     return tx;
   }
 
-  adopt(txs: readonly KbTx[]): void {
-    const mark = storeMark(this.nodesPath) ?? "";
-    this.write(
-      txs.slice(-TX_TAIL_KEEP_ENTRIES).map((tx) => ({ tx, mark, bytes: lineOf(tx, mark).length })),
+  adopt(txs: readonly KbTx[]): Effect.Effect<void, DomainError> {
+    return this.withWriter(
+      Effect.try({
+        try: () => {
+          const mark = this.readStoreMark();
+          this.archivePending(mark);
+          durableReplaceFile({ path: this.pendingPath, body: "" });
+          this.writeHistory(
+            txs.slice(-TX_TAIL_KEEP_ENTRIES).map((tx) => ({
+              tx,
+              mark,
+              bytes: Buffer.byteLength(lineOf(tx, mark)),
+            })),
+          );
+        },
+        catch: ensureDomainError,
+      }),
     );
   }
 
-  /** The tail as records, from the cache while the file has not moved. */
-  private records(): TailRecord[] {
-    const mark = tailFileMark(this.path);
-    if (mark === null) {
-      this.cache = null;
-      return [];
+  /**
+   * Read history before the pending record, then verify the history key. A
+   * writer can replace the journal only after archiving the previous record.
+   * Retrying a changed history avoids missing that record during handoff.
+   */
+  private published(): { records: readonly TailRecord[]; mark?: string | null } {
+    try {
+      for (;;) {
+        const history = this.history();
+        const pending = this.pending();
+        const records = history.records;
+        const unpublished =
+          pending !== undefined && pending.tx.rev > (records.at(-1)?.tx.rev ?? 0)
+            ? pending
+            : undefined;
+        const mark = unpublished === undefined ? undefined : storeMark(this.nodesPath);
+        if (history.key !== fileKey(this.path)) continue;
+        if (unpublished !== undefined && unpublished.mark === mark)
+          return { records: addRecord(records, unpublished), mark };
+        return mark === undefined ? { records } : { records, mark };
+      }
+    } catch {
+      // A damaged tail requires a snapshot. It must not prevent reading nodes.
+      return { records: this.cache?.records ?? [], mark: null };
     }
-    if (this.cache?.mark === mark) return this.cache.records;
-    const records = this.read();
-    this.cache = { mark, records };
-    return records;
   }
 
-  private read(): TailRecord[] {
+  private readStoreMark(): string {
+    const mark = storeMark(this.nodesPath);
+    if (mark === null) throw domainError("internal", `cannot read node mark for ${this.nodesPath}`);
+    return mark;
+  }
+
+  private pending(): TailRecord | undefined {
     let body: string;
     try {
-      body = readFileSync(this.path, "utf8");
-    } catch {
-      return [];
+      body = readFileSync(this.pendingPath, "utf8");
+    } catch (err) {
+      if (missing(err)) return undefined;
+      throw err;
     }
+    return body.length === 0 ? undefined : decodeLine(body.slice(0, -1));
+  }
+
+  private history(): History {
+    const key = fileKey(this.path);
+    if (this.cache?.key === key) return this.cache;
+    if (key === null) return { key, records: [], complete: true };
+    const lines = readFileSync(this.path, "utf8").split("\n");
     const records: TailRecord[] = [];
-    for (const line of body.split("\n")) {
+    const complete = lines.pop() === "";
+    for (const line of lines) {
       if (line.trim().length === 0) continue;
       try {
-        const raw: unknown = JSON.parse(line);
-        records.push({ tx: decodeStoredTx(raw), mark: markOf(raw), bytes: line.length + 1 });
+        records.push(decodeLine(line));
       } catch {
-        // A tail is state, not intent: an unreadable record costs the readers
-        // after it a snapshot, which the port already has an answer for.
-        // Failing the whole load — the right call for `nodes.jsonl`, where the
-        // data *is* the repo — would let a corrupt sidecar stop the store.
-        return records;
+        const history = { key, records, complete: false };
+        this.cache = history;
+        return history;
       }
     }
-    return records;
+    const history = { key, records, complete };
+    this.cache = history;
+    return history;
   }
 
   /**
-   * Append one line: the cheap path, and the common one.
-   *
-   * Deliberately not `fsync`ed, unlike the node write beside it. The whole
-   * point of the write order is that the tail may lag the store and never lead
-   * it, and skipping the flush can only ever make it lag — a power loss that
-   * takes the last record leaves exactly the state `isCurrent` already
-   * detects, and readers pay one snapshot for it. Paying an `fsync` per commit
-   * to shrink a window that is already handled would double the cost of every
-   * keystroke for no reachable failure.
+   * Preserve the journal before reusing it. A crash during archive can leave
+   * a partial line, or a full line whose fsync did not run. The former is
+   * replaced from the committed prefix and the latter still needs a sync.
    */
-  private appendLine(existing: TailRecord[], line: TailRecord): void {
-    try {
-      mkdirSync(dirname(this.path), { recursive: true });
-      appendFileSync(this.path, lineOf(line.tx, line.mark));
-    } catch (err) {
-      this.cache = null;
-      throw domainError(
-        "internal",
-        `append tx tail ${this.path}: ${err instanceof Error ? err.message : String(err)}`,
-        { path: this.path },
-      );
+  private archivePending(mark: string): number {
+    const history = this.history();
+    const last = history.records.at(-1)?.tx.rev ?? 0;
+    const pending = this.pending();
+    if (pending === undefined || pending.mark !== mark || pending.tx.rev < last) return last;
+    if (pending.tx.rev === last) {
+      this.syncHistory("", history.records);
+      return last;
     }
-    this.cache = { mark: tailFileMark(this.path) ?? "", records: [...existing, line] };
+    const records = addRecord(history.records, pending);
+    if (history.complete && history.records.length < TX_TAIL_MAX_ENTRIES) {
+      this.syncHistory(lineOf(pending.tx, pending.mark), records);
+    } else {
+      this.writeHistory(records);
+    }
+    return pending.tx.rev;
   }
 
-  /** Replace the whole tail — compaction and {@link JsonlTxTail.adopt}. */
-  private write(records: readonly TailRecord[]): void {
-    const body = records.map((record) => lineOf(record.tx, record.mark)).join("");
+  private syncHistory(line: string, records: readonly TailRecord[]): void {
+    const fd = openSync(this.path, "a");
     try {
-      durableReplaceFile({ path: this.path, backupPath: this.backupPath, body });
-    } catch (err) {
+      if (line !== "") appendFileSync(fd, line);
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
       this.cache = null;
-      throw err;
     }
-    this.cache = { mark: tailFileMark(this.path) ?? "", records: [...records] };
+    this.cache = { key: fileKey(this.path), records, complete: true };
+  }
+
+  private writeHistory(records: readonly TailRecord[]): void {
+    const body = records.map((record) => lineOf(record.tx, record.mark)).join("");
+    this.cache = null;
+    durableReplaceFile({ path: this.path, backupPath: this.backupPath, body });
+    this.cache = { key: fileKey(this.path), records, complete: true };
   }
 }

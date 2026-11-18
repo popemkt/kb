@@ -5,9 +5,7 @@
  * generated graphs and generated conditions, every node is answered alike.
  *
  * The graphs keep each field to the kinds a comparison is defined over (the
- * evaluator answers false across kinds, where DataScript orders them), and
- * their numbers clear of the eids a ref is stored as
- * (GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]).
+ * evaluator answers false across kinds, where DataScript orders them).
  */
 import {
   DatascriptIndex,
@@ -40,7 +38,7 @@ const INSTANTS = [
   "2026-10-25T00:00:00.000Z",
 ];
 const DATES = ["2026-10-14", "2026-10-20", "2026-10-21", "2026-11-03", "2026-11-04", "2027-01-01"];
-const NUMBERS = [1000.5, 2000, 3.25, -7.5];
+const NUMBERS = [1, 2, 3, 1000.5, 2000, 3.25, -7.5];
 
 const pick = <T>(xs: readonly T[]) => fc.constantFrom(...xs);
 const ref = (ids: readonly string[]) => pick(ids).map((v): PropValue => ({ t: "ref", v }));

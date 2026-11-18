@@ -42,6 +42,7 @@ import {
   kernelHosts,
   type ContributionEntry,
   type KernelHost,
+  type Kernel,
   type KernelSpec,
   type Plugin,
   type PointKey,
@@ -360,6 +361,14 @@ export const ExtensionRowSchema = z.object({
 
 export type ExtensionRow = z.infer<typeof ExtensionRowSchema>;
 
+/** Composition data retained beside the wire row. Discovery-only rows have no switch decision. */
+export interface CatalogRow extends ExtensionRow {
+  readonly selection?: {
+    readonly on: boolean;
+    readonly requirements: ReturnType<Kernel["requirementsFor"]>;
+  };
+}
+
 /**
  * Where a host composes a family from: kb's build (`bundled`), the `kb ui`
  * host (`host`), or a module path with the origin that selected it.
@@ -394,10 +403,14 @@ export function extensionRow(
   declaration: ExtensionDeclaration,
   from: ExtensionFrom,
   enabled: boolean,
-  page?: string,
-  digest?: string,
-): ExtensionRow {
+  options: {
+    readonly page?: string | undefined;
+    readonly digest?: string | undefined;
+    readonly selection?: CatalogRow["selection"];
+  } = {},
+): CatalogRow {
   const { source, origin } = extensionFrom(from);
+  const { page, digest, selection } = options;
   // kb's build is the author of what it ships: said once here, under what each family declares.
   const manifest = isKbOrigin(origin)
     ? { ...KB_BUILD, ...declaration.manifest }
@@ -412,10 +425,11 @@ export function extensionRow(
     origin,
     ...(page === undefined ? {} : { page }),
     ...(digest === undefined ? {} : { digest }),
+    ...(selection === undefined ? {} : { selection }),
   };
 }
 
 /** The extensions the host composes, loaded or not: what `kb.manifest` reports. */
-export class ExtensionCatalog extends Context.Service<ExtensionCatalog, readonly ExtensionRow[]>()(
+export class ExtensionCatalog extends Context.Service<ExtensionCatalog, readonly CatalogRow[]>()(
   "kb/ExtensionCatalog",
 ) {}

@@ -1,0 +1,4 @@
+{
+  "reason": "The query index retains a live answer and its read set until the final subscriber leaves. The CLI and server both load the shared DataScript index. Its measured eager closure grows from 2,849,044 to 2,849,731 bytes.",
+  "raise": { "cli-closure": { "bytes": 687 } }
+}

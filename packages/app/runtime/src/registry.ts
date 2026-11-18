@@ -31,7 +31,7 @@ import {
   type ActionReceipt,
   type ContextReferences,
   type ExtensionFailure,
-  type ExtensionRow,
+  type CatalogRow,
   type FamilyKernel,
   type Interception,
   type KbContext,
@@ -112,7 +112,7 @@ export interface Registry extends ActionTable {
    * Every bundled family, loaded or not, then each repository extension that
    * loaded: what `kb.manifest` reports of this registry (`ExtensionCatalog`).
    */
-  families: readonly ExtensionRow[];
+  families: readonly CatalogRow[];
 }
 
 /**
@@ -423,10 +423,26 @@ const buildRegistry = Effect.fnUntraced(function* (
   families: readonly LoadedExtension[],
   on: readonly LoadedExtension[],
   refused: readonly ExtensionFailure[],
-  required: readonly string[],
-  session: RoleSession = roleSession(),
+  {
+    required,
+    session = roleSession(),
+    hosted,
+  }: {
+    readonly required: readonly string[];
+    readonly session?: RoleSession;
+    readonly hosted?: FamilyKernel["kernel"] | undefined;
+  },
 ): Effect.fn.Return<Registry> {
-  const kernel = makeKernel({ host: "registry", roleSession: session });
+  const kernel = makeKernel({
+    host: "registry",
+    roleSession: session,
+    ...(hosted === undefined
+      ? {}
+      : {
+          importedContribution: (point, id) =>
+            point.name === ActionPoint.name ? hosted.lookup(point, id) : undefined,
+        }),
+  });
   const failures: ExtensionFailure[] = [...refused];
   const sources = new Map<string, string>();
 
@@ -468,15 +484,15 @@ const buildRegistry = Effect.fnUntraced(function* (
 
   const views = viewCatalogOf(kernel.contributions(ViewKeyPoint).map(({ value }) => value));
 
-  const rows: ExtensionRow[] = families.map(({ declaration, source, origin, digest, page }) =>
-    extensionRow(
-      declaration,
-      { source, origin },
-      sources.get(declaration.name) === source,
-      page === undefined || digest === undefined ? undefined : extensionPagePath(digest),
+  const selected = new Set(on);
+  const rows = families.map((family) => {
+    const { declaration, source, origin, digest, page } = family;
+    return extensionRow(declaration, { source, origin }, sources.get(declaration.name) === source, {
+      page: page === undefined || digest === undefined ? undefined : extensionPagePath(digest),
       digest,
-    ),
-  );
+      selection: { on: selected.has(family), requirements: kernel.requirementsFor(family.entry) },
+    });
+  });
 
   return {
     kernel,
@@ -497,10 +513,20 @@ const buildRegistry = Effect.fnUntraced(function* (
 });
 
 /** Each root's current registry, by the key it was composed for. */
-const current = new Map<
+type RegistryCache = Map<
   string,
   { readonly key: string; readonly registry: Effect.Effect<Registry, never, FileSystem> }
->();
+>;
+const standalone: RegistryCache = new Map();
+let hostedRegistries = new WeakMap<FamilyKernel["kernel"], RegistryCache>();
+
+function registriesFor(hosted: FamilyKernel["kernel"] | undefined): RegistryCache {
+  if (hosted === undefined) return standalone;
+  const current = hostedRegistries.get(hosted) ?? new Map();
+  hostedRegistries.set(hosted, current);
+  return current;
+}
+
 const NO_ROOT_KEY = "no-root";
 const roleSessions = new Map<string, RoleSession>();
 function sessionFor(root: string): RoleSession {
@@ -522,9 +548,9 @@ const withRoleChoices = Effect.fnUntraced(function* (registry: Registry, nodeOf:
  * (`rootFamilies`: the bundled ones, then `.kb/extensions/*.ts`) its store
  * has on. An optional family is on while the store `nodeOf` reads says so,
  * or by its declared default where it says nothing (`familyOn`); with no
- * store, every optional family is as it is by default. A root has one
- * registry at a time, kept while the families on, each with its closure's
- * digest, are the same; switching a family, or trusting or untrusting one,
+ * store, every optional family is as it is by default. A host keeps a
+ * root's registry while the families on, their closure digests and its
+ * hosted registrations are the same. Switching or changing trust
  * composes a new one, and the one it replaces is retired, so the plugins of
  * a family switched off or untrusted are unloaded, their scopes closed,
  * once the calls running on it have settled. `null` root = core + bundled
@@ -544,6 +570,7 @@ const registryOf = Effect.fn("kb.registryOf")(function* (
   root: string | null,
   snapshot: RootFamilies,
   nodeOf: NodeLookup,
+  hosted?: FamilyKernel["kernel"],
 ): Effect.fn.Return<Registry, never, FileSystem> {
   const { families, failures, inventory } = snapshot;
   const unread: string[] = [];
@@ -551,10 +578,12 @@ const registryOf = Effect.fn("kb.registryOf")(function* (
     familyOn(declaration, nodeOf, (warning) => unread.push(`${declaration.name}: ${warning}`)),
   );
   const rootKey = root ?? NO_ROOT_KEY;
+  const current = registriesFor(hosted);
   const key = JSON.stringify([
     on.map(({ declaration, digest }) => `${declaration.name}@${digest ?? "bundled"}`),
     inventory,
     failures,
+    hosted?.version(),
   ]);
   const held = current.get(rootKey);
   if (held?.key === key) return yield* withRoleChoices(yield* held.registry, nodeOf);
@@ -562,7 +591,11 @@ const registryOf = Effect.fn("kb.registryOf")(function* (
   // recipe: concurrent callers share the one in-flight build.
   // The deployment, not the store, decides whether governance is composed (`deploys`).
   const built = yield* Effect.cached(
-    buildRegistry(families, on, failures, requiredFamilies(), sessionFor(rootKey)).pipe(
+    buildRegistry(families, on, failures, {
+      required: requiredFamilies(),
+      session: sessionFor(rootKey),
+      hosted,
+    }).pipe(
       Effect.map((registry) => ({
         ...registry,
         families: [
@@ -628,7 +661,9 @@ export const admitExtensions = Effect.fn("kb.admitExtensions")(function* (
     () =>
       Effect.gen(function* () {
         const { families, failures } = yield* vouchedFamilies(root);
-        const registry = yield* buildRegistry(families, families, failures, requiredFamilies());
+        const registry = yield* buildRegistry(families, families, failures, {
+          required: requiredFamilies(),
+        });
         yield* registry.lifetime.retire;
         const locks = yield* validateInstallLocks(root).pipe(Effect.provide(extensionStorageLayer));
         return [...registry.failures, ...locks];
@@ -671,26 +706,31 @@ function requiredFamilies(): readonly string[] {
 }
 
 /** The registry a session runs in: its root's, as its own store switches the families. */
-export function sessionRegistry(ctx: KbContext): Effect.Effect<Registry, never, FileSystem> {
+export function sessionRegistry(
+  ctx: KbContext,
+  hosted?: FamilyKernel["kernel"],
+): Effect.Effect<Registry, never, FileSystem> {
   return reconcileSessionSchema(ctx).pipe(
     Effect.orDie,
-    Effect.flatMap((families) => registryOf(ctx.root, families, (id) => ctx.index.getNode(id))),
+    Effect.flatMap((families) =>
+      registryOf(ctx.root, families, (id) => ctx.index.getNode(id), hosted),
+    ),
   );
 }
 
 /**
- * Run `use` on the session's registry, holding it until `use` settles, so a
+ * Run `use` on the selected registry, holding it until `use` settles, so a
  * registry replaced meanwhile is released only after: what a call that runs
  * plugin code goes through. One already released is never used; the call
  * takes its root's current registry instead.
  */
-export const withSessionRegistry = <A, E, R>(
-  ctx: KbContext,
+export const withSessionRegistry = <A, E, R, RegistryEnv>(
+  select: Effect.Effect<Registry, never, RegistryEnv>,
   use: (registry: Registry) => Effect.Effect<A, E, R>,
-): Effect.Effect<A, E, R | FileSystem> =>
+): Effect.Effect<A, E, R | RegistryEnv> =>
   Effect.gen(function* () {
-    const registry = yield* sessionRegistry(ctx);
-    if (!registry.lifetime.acquire()) return yield* withSessionRegistry(ctx, use);
+    const registry = yield* select;
+    if (!registry.lifetime.acquire()) return yield* withSessionRegistry(select, use);
     return yield* use(registry).pipe(
       Effect.provideService(CurrentInterception, registry.interception),
       Effect.provideService(CurrentReactions, registry.reactions),
@@ -701,7 +741,8 @@ export const withSessionRegistry = <A, E, R>(
 
 /** Test hook: forget cached registries so fresh roots re-discover extensions. */
 export function resetRegistryCache(): void {
-  current.clear();
+  standalone.clear();
+  hostedRegistries = new WeakMap();
   resetRootFamilies();
 }
 
@@ -719,6 +760,12 @@ const reachedBy = Effect.fnUntraced(function* (registry: Registry) {
   return reachableActions(registry, yield* FamilyKernels).byId;
 });
 
+/** The registry selected for calls on the current host. */
+const invocationRegistry = Effect.fnUntraced(function* (ctx: KbContext) {
+  const hosted = (yield* FamilyKernels).find(({ source }) => source === "host")?.kernel;
+  return yield* sessionRegistry(ctx, hosted);
+});
+
 /**
  * Invoke over the discovered registry. The invoke core lives in
  * `@kb/operations` (`invokeWith`); this binds it to the session's registry
@@ -728,7 +775,7 @@ export const invokeEffect = Effect.fn("kb.invoke")(function* (
   ctx: KbContext,
   invocation: ActionInvocation,
 ): Effect.fn.Return<ActionReceipt, ActionSchemaError | DomainError, ActionHandlerEnv> {
-  return yield* withSessionRegistry(ctx, (registry) =>
+  return yield* withSessionRegistry(invocationRegistry(ctx), (registry) =>
     Effect.flatMap(reachedBy(registry), (byId) => invokeWith(byId, ctx, invocation)),
   );
 });
@@ -737,7 +784,7 @@ export const invokeReceiptEffect = Effect.fn("kb.invokeReceipt")(function* (
   ctx: KbContext,
   invocation: ActionInvocation,
 ): Effect.fn.Return<ActionReceipt, never, ActionHandlerEnv> {
-  return yield* withSessionRegistry(ctx, (registry) =>
+  return yield* withSessionRegistry(invocationRegistry(ctx), (registry) =>
     Effect.flatMap(reachedBy(registry), (byId) => invokeReceiptWith(byId, ctx, invocation)),
   );
 });

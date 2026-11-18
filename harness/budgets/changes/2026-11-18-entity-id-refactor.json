@@ -1,0 +1,4 @@
+{
+  "reason": "EntityIds owns allocation and lookup in one module. Clause compilation now represents the forms each clause emits.",
+  "raise": { "cli-closure": { "modules": 1 } }
+}

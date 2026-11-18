@@ -296,7 +296,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
           base: null,
           fingerprint: null,
           tx,
-          record: mock.txTail.append(tx, record),
+          record: Effect.runSync(mock.txTail.append(tx, record)),
           writes: writesOf(tx, (id) => injected.find((node) => node.id === id)),
         })),
     };
@@ -341,7 +341,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
             fingerprint: `revision:${revision}`,
             tx,
             writes,
-            record: mock.txTail.append(tx, record),
+            record: Effect.runSync(mock.txTail.append(tx, record)),
           };
         }),
     };
@@ -396,7 +396,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
             fingerprint: `revision:${revision}`,
             tx,
             writes,
-            record: racing.txTail.append(tx, record),
+            record: Effect.runSync(racing.txTail.append(tx, record)),
           };
         }),
     };
@@ -546,7 +546,7 @@ function movingStore(path: string, moves: number) {
           fingerprint: `revision:${revision}`,
           tx,
           writes,
-          record: store.txTail.append(tx, record),
+          record: Effect.runSync(store.txTail.append(tx, record)),
         });
       }),
   };

@@ -12,6 +12,7 @@ import {
 } from "@kb/contracts";
 import { canvasExtension, canvasPlugin } from "@kb/canvas";
 import { definePlugin } from "@kb/plugin";
+import { canvasCapabilities } from "./capabilities.ts";
 import { canvasCameraMigrate } from "./camera-migrate.ts";
 import { canvasDiagram } from "./diagram.ts";
 import { canvasExport } from "./export.ts";
@@ -143,6 +144,7 @@ export const canvasServerPlugin = definePlugin({
           discard: true,
         }),
         ctx.plugin(canvasPlugin()),
+        Effect.forEach(canvasCapabilities, (plugin) => ctx.plugin(plugin), { discard: true }),
       ],
       { discard: true },
     ),

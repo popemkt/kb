@@ -32,7 +32,13 @@ const BACKENDS: Record<StoreBackend, StoreBackendOps> = {
     // The store owns its transaction tail as well as its nodes file.
     files: (root) => {
       const store = new JsonlStore(root);
-      return [store.path, store.backupPath, store.txTail.path, store.txTail.backupPath];
+      return [
+        store.path,
+        store.backupPath,
+        store.txTail.path,
+        store.txTail.backupPath,
+        store.txTail.pendingPath,
+      ];
     },
   },
   sqlite: {
@@ -217,7 +223,7 @@ export const copyStore = Effect.fn("kb.copyStore")(function* (
   // store written before tails existed) leaves the target the one record its
   // own commit made, which is the truthful answer: the whole graph arrived in
   // one transaction and nothing before it is known.
-  if (tail.length > 0) target.txTail.adopt(tail);
+  if (tail.length > 0) yield* target.txTail.adopt(tail);
   return { fingerprint: before, nodes: nodes.length, path: target.path };
 }, Effect.scoped);
 

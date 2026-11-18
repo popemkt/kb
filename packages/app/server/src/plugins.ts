@@ -5,7 +5,7 @@ import {
   extensionRow,
   familyOn,
   type ExtensionEntry,
-  type ExtensionRow,
+  type CatalogRow,
   type HostedFamilies,
   type NodeLookup,
   type KbContext,
@@ -15,7 +15,7 @@ import {
 import { extensionNodeId } from "@kb/model";
 import { definePlugin, syncPlugins, type Kernel, type Plugin } from "@kb/plugin";
 import { receiptFromError, coreExtension } from "@kb/operations";
-import { bunFileSystemLayer, withSessionRegistry, writeErr } from "@kb/runtime";
+import { bunFileSystemLayer, sessionRegistry, withSessionRegistry, writeErr } from "@kb/runtime";
 import { serverInvoke } from "./invoke.ts";
 import { serverRuntimeLayer, type ScreenHub } from "./screens.ts";
 import type { ChannelDirectory } from "./session.ts";
@@ -36,7 +36,7 @@ import type { ChannelDirectory } from "./session.ts";
 /** The channels the host and the leased registry hold, read at each callback. */
 export function channelsOf(ctx: KbContext, host: Kernel): ChannelDirectory {
   return (use) =>
-    withSessionRegistry(ctx, ({ kernel }) => {
+    withSessionRegistry(sessionRegistry(ctx, host), ({ kernel }) => {
       const channels = [host, kernel].flatMap((source) => source.contributions(ChannelPoint));
       return use(new Map(channels.map(({ id, value }) => [id, value])));
     }).pipe(Effect.provide(bunFileSystemLayer));
@@ -90,7 +90,8 @@ export const composeHosted = Effect.fn("kb.ui.composeHosted")(function* (
   held: (hosted: HostedFamilies) => readonly Plugin[],
 ): Effect.fn.Return<HostedExtensions> {
   const lock = yield* Semaphore.make(1);
-  const rows: Effect.Effect<readonly ExtensionRow[]> = Effect.suspend(() => converge).pipe(
+  let selected = new Set<ExtensionEntry>();
+  const rows: Effect.Effect<readonly CatalogRow[]> = Effect.suspend(() => converge).pipe(
     Effect.andThen(
       Effect.sync(() => {
         const active = new Set(
@@ -99,9 +100,12 @@ export const composeHosted = Effect.fn("kb.ui.composeHosted")(function* (
             .filter((state) => state.status === "active")
             .map((state) => state.name),
         );
-        return extensions.map(({ declaration, entry }) =>
-          extensionRow(declaration, "host", active.has(entry.name)),
-        );
+        return extensions.map((extension) => {
+          const { declaration, entry } = extension;
+          return extensionRow(declaration, "host", active.has(entry.name), {
+            selection: { on: selected.has(extension), requirements: kernel.requirementsFor(entry) },
+          });
+        });
       }),
     ),
   );
@@ -115,6 +119,7 @@ export const composeHosted = Effect.fn("kb.ui.composeHosted")(function* (
       const names = on.map(({ declaration }) => declaration.name).join("\0");
       if (names === composed) return;
       composed = names;
+      selected = new Set(on);
       const failures = yield* syncPlugins(kernel, [...base, ...on.map(({ entry }) => entry)]);
       for (const { name, verb, cause } of failures) {
         const failure = Cause.squash(cause);

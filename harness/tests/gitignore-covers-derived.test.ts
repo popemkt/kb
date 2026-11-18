@@ -26,6 +26,7 @@ const REQUIRED_IGNORED = [
   ".kb/kb.sqlite-wal",
   ".kb/kb.sqlite-shm",
   ".kb/tx.jsonl",
+  ".kb/tx.jsonl.pending",
   ".kb/tx.jsonl.bak",
   ".stryker-tmp/sandbox",
   "data.bak",

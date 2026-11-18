@@ -16,7 +16,7 @@ import { Effect } from "effect";
 import { CurrentCall, KbStore, TxOrigin, type EffectStore, type KbContext } from "@kb/contracts";
 import { clockSampler, type DomainError, type KbNode, type StoreTx } from "@kb/model";
 import { noteStoreSynced, persistEffect, persistPlannedEffect } from "@kb/operations";
-import { DatascriptIndex, type DerivedRef } from "@kb/query";
+import { DatascriptIndex, type DerivedRef, type TextCandidates } from "@kb/query";
 import { StoreTxLog } from "@kb/tx-log";
 
 /**
@@ -33,10 +33,15 @@ export const sessionOver = Effect.fn("kb.sessionOver")(function* (
   store: EffectStore,
   nodes: readonly KbNode[],
   derived: readonly DerivedRef[],
+  textCandidates?: TextCandidates,
 ): Effect.fn.Return<KbContext> {
   // GAP [[01M5E2YBN75HF5C8HZPG62CAJH]] a query the server answers for a client reads the server's time zone
   const clock = yield* clockSampler;
-  const index = new DatascriptIndex([...nodes], { derived, clock });
+  const index = new DatascriptIndex([...nodes], {
+    derived,
+    clock,
+    ...(textCandidates === undefined ? {} : { textCandidates }),
+  });
   const ctx: KbContext = {
     root,
     store,

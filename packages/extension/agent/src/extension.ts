@@ -8,11 +8,11 @@
  * kind, its fields and the adapter options) is in the bundled fold, so every
  * store holds the nodes a provider is written with, whatever process opens it.
  */
-import { defineExtension } from "@kb/contracts";
+import { AgentCompleteAction, defineExtension } from "@kb/contracts";
 import { agentSeedNodes } from "./provider.ts";
 
 /** The completion's local id, in the family's namespace. */
-export const COMPLETE_ID = "complete";
+const COMPLETE_ID = AgentCompleteAction.definition.id;
 
 /** The sight's local id: whether the model a completion would ask sees pictures. */
 export const SIGHT_ID = "sight";
@@ -34,3 +34,5 @@ export const agentExtension = defineExtension({
     ],
   },
 });
+
+AgentCompleteAction.bind(agentExtension.name);

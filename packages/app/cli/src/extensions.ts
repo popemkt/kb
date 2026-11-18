@@ -25,6 +25,7 @@ import {
   onWire,
   waitingForPoint,
   type ExtensionReport,
+  type ExtensionImpact,
   type ExtensionReportRow,
   type ExtensionSettings,
   type FootprintRow,
@@ -32,6 +33,7 @@ import {
 } from "@kb/contracts";
 import { ensureDomainError, schemaToJsonSchema } from "@kb/model";
 import {
+  extensionImpactDef,
   extensionUpdateDef,
   extensionOutdatedDef,
   extensionRemoveDef,
@@ -61,6 +63,7 @@ import {
   cliAction,
   kbAction,
   report,
+  outputLines,
   type GlobalOpts,
 } from "./command.ts";
 import { formatMode } from "./format.ts";
@@ -152,6 +155,13 @@ function organisationLines(row: ExtensionReportRow): string[] {
   return [
     ...(tags.length === 0 ? [] : [`  tags: ${tags.join(", ")}`]),
     ...injects.map(({ service, from }) => `  injects ${service} from ${from ?? "nobody yet"}`),
+    ...row.requiresContributions.map(
+      ({ key, from, family }) =>
+        `  needs ${key} from ${from ?? family}${from === null ? " (waiting)" : ""}`,
+    ),
+    ...(row.referencedBy.length === 0
+      ? []
+      : [`  seed referenced by ${new Set(row.referencedBy.map(({ node }) => node)).size} node(s)`]),
     ...declares.map(
       ({ point, spec }) =>
         `  declares ${point} (${spec.cardinality}, ${spec.tier}): ${spec.combine}`,
@@ -162,6 +172,28 @@ function organisationLines(row: ExtensionReportRow): string[] {
     ...provides.map((service) => `  provides ${service}`),
     ...failures.map((failure) => `  ! ${failure}`),
   ];
+}
+
+function impactLines(impact: ExtensionImpact): readonly string[] {
+  const { name, on, blockedBy, pauses, degrades, resumes, restores, unresolved } = impact;
+  const lines = [
+    ...blockedBy.map((key) => `  Requires ${key}`),
+    ...pauses.map(
+      ({ plugin, source, keys }) =>
+        `  Pauses ${plugin} (${source}), waiting for ${keys.join(", ")}`,
+    ),
+    ...resumes.map(
+      ({ plugin, source, keys }) => `  Resumes ${plugin} (${source}) with ${keys.join(", ")}`,
+    ),
+    ...degrades.map(({ kind, count }) => `  Degrades ${count} referencing node(s): ${kind}`),
+    ...restores.map(({ kind, count }) => `  Restores ${count} referencing node(s): ${kind}`),
+    ...unresolved.map(
+      ({ plugin, source, keys }) =>
+        `  Unresolved for ${plugin} (${source}) with ${keys.join(", ")}`,
+    ),
+  ];
+  const direction = `Switch ${name} ${on ? "on" : "off"}`;
+  return lines.length === 0 ? [`${direction}: no dependent changes`] : [direction, ...lines];
 }
 
 /** The report as `kb ext list` prints it: each extension with its organisation and actions, then the points and refusals. */
@@ -445,6 +477,23 @@ function lifecycleCommands(ext: Command): void {
 
 export function extensionCommands(program: Command): void {
   const ext = program.command("ext").description("Extension operations");
+  ext
+    .command("impact")
+    .description(extensionImpactDef.description)
+    .argument("<name>", "extension name")
+    .option("--on", "preview switching on", false)
+    .action(
+      kbAction((ctx, globals, [name, { on }]: [string, { on: boolean }]) =>
+        invokeCliEffect(
+          ctx,
+          onWire(ACTION_INVOKE_WIRE, { id: extensionImpactDef.id, input: { name, on } }),
+        ).pipe(
+          Effect.map((receipt) =>
+            report(receipt, globals, outputLines(extensionImpactDef, impactLines)),
+          ),
+        ),
+      ),
+    );
   ext
     .command("list")
     .description(

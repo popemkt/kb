@@ -3,6 +3,7 @@ import type { KbNode, NodeId, StoreTx } from "@kb/model";
 import type { DerivedRef } from "./derived.ts";
 import type { ClockSampler } from "../datascript.ts";
 import type { Ir } from "../ir/ir.ts";
+import type { TextCandidates } from "./text-search.ts";
 
 /** How an index is built beyond its nodes. */
 export interface IndexOptions {
@@ -13,6 +14,7 @@ export interface IndexOptions {
    * leaving it out.
    */
   readonly derived: readonly DerivedRef[];
+  readonly textCandidates?: TextCandidates;
   /**
    * Where a run's clock sample comes from: the `Clock` and zone of the host
    * that builds the index (`clockSampler` in `@kb/model`), sampled once by a
@@ -101,7 +103,7 @@ export interface NodeIndex {
   isVirtual(id: NodeId): boolean;
 
   /**
-   * Case-insensitive substring scan over node text and node title
+   * Case-insensitive substring search over node text and node title
    * (`nodeTitleOf`: DESIGN.md → Data model → tag behaviours), sorted by id.
    */
   search(text: string, limit?: number): Array<KbNode>;
@@ -119,7 +121,7 @@ export interface NodeIndex {
  *
  * A kb session has exactly two collaborators: {@link KbStore}, which owns the
  * committed truth (`.kb/nodes.jsonl`), and this, which owns everything derived
- * from it — the datoms, the id map, the node lookup, the text scan. Nothing
+ * from it — the datoms, the id map, the node lookup, text search. Nothing
  * outside an implementation of this port may hold a query engine handle, and
  * nothing beside it may hold a second copy of the node set: a service standing
  * next to a `qdb` field is the parallel path Rule 1 forbids.
@@ -154,6 +156,13 @@ export interface KbIndex extends NodeIndex {
    * that did not until the graph moves (null).
    */
   answerDatalog(edn: string, ...inputs: ReadonlyArray<unknown>): DatalogAnswer;
+
+  /**
+   * Retain this no-input query's answer beyond ordinary cache eviction until
+   * the returned release is called. Each read of a retained answer returns
+   * the same object until a graph change invalidates it or its clock expires.
+   */
+  retainDatalog(edn: string): () => void;
 
   /**
    * Engine-neutral query IR. Unlike the raw EDN surface, result positions are

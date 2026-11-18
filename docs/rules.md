@@ -241,6 +241,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The chips line moves to a shared field-list component (or the detail view draws FieldsSection) so both surfaces take one placement
 - **node** — `01M7EY5YQKG919B47FD255B34B`
 
+### GAP: A concurrent SQLite CLI writer exited before committing
+
+- **expected** — Independent CLI additions commit under ordinary contention, or return a conflict that can be diagnosed and retried.
+- **current** — During scratch stress with four CLI writers and eight subscribers, one SQLite kb add exited 1 before writing its node. The harness preserved the exit code and missed the receipt on stdout. A rerun capturing both streams passed all 16 additions.
+- **impact** — The first run required retrying the missing addition. The 12 additions that completed stayed durable.
+- **closes** — Reproduce with structured CLI receipts, classify the refusal, and add a concurrent store regression if the refusal is outside the conflict contract.
+- **node** — `01M7Q56B5T0H4HEW6BP85BT1S9`
+
 ### GAP: a dashboard's inner panes are not in the screen state
 
 - **expected** — every pane on screen, including those inside a dashboard, is listed in the screen state and can be targeted
@@ -419,14 +427,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Range fields (min, max, step) on number field nodes, read by the write check (valueFormError) and seeded on knob fields by knobFields.
 - **node** — `01M6RVVZTP0BF2364BF8J1BFQB`
 
-### GAP: a number prop that equals a live eid reads as a ref to that node
-
-- **expected** — A {t:ref} prop value and a {t:num} prop value have distinct datom encodings, so a query or a reach can tell a reference from a number.
-- **current** — propDatomValue stores a resolved field ref as its bare eid and a {t:num} as its bare number under the same :f/<fieldId> attr. A number equal to a live eid joins to that node: [?n :f/x ?m] [?m :node/id ?id] and (reach ?n :f/x ?m) both follow it.
-- **impact** — A number-valued prop on a field that is walked as an edge (or joined as one) can alias an arbitrary node, and which node depends on eid assignment order. Rare in practice, since ref fields hold refs and number fields are not walked, but silent when it happens.
-- **closes** — Distinct encodings in datoms.ts (for example refs on :f/<fieldId> and numbers on a typed value, or a separate ref attr per field), with queries.ts, parse.ts find-type inference, and stored queries over numeric props migrated to match.
-- **node** — `01M3A0Y5JQ5XKZMC87K34HDT2B`
-
 ### GAP: a page-head backdrop hears where the pointer is, never when it presses
 
 - **expected** — A press over a backdrop's frame reaches it as a declared cue (a press BackdropCue Studio can list and act out), from the head that owns the frame, which keeps every press meant for the head's own text and controls
@@ -548,14 +548,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A 'save to this layout' gesture when the open workspace came from a layout node, writing its sys.f.layout through view.propose's check.
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYMXMMZC9S8GS00CE6DFB`
-
-### GAP: a seeded default the owner deletes comes back on the next open
-
-- **expected** — the seed records what it planted, so a planted id that is missing reads as deleted and stays deleted
-- **current** — ensureSystemSeed re-adds every missing id on open, including default policies, the policies table view and its pin
-- **impact** — deleting a default policy, view or pin does not stick; DESIGN.md says to change a default's decision instead. Related to seed retirement, 01M3FK1PM9P96SNCSHXF0CJZRA
-- **closes** — a planted-ids record the seed reads, folded into the retirement table that gap names
-- **node** — `01M413SPC35K20DFC4TRP4DJYH`
 
 ### GAP: a stage with ambient occlusion renders without MSAA until three r187
 
@@ -934,8 +926,8 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: CLI pays full cold start on every invocation
 
 - **expected** — Interactive commands reach a running kb ui process instead of rebuilding the world per invocation.
-- **current** — Every kb command imports effect plus datascript and rebuilds the query db from scratch; about 150 ms of every command is that import cost.
-- **impact** — Interactive use is bounded by cold start, and the derived snapshot cache exists mostly to work around it.
+- **current** — Profiled at de181ba2 with Bun 1.4.2 on Linux, nine fresh source CLI processes per case and a 50,817-node JSONL scratch store. Median wall time was 205 ms for --version, 386 ms for --help, 893 ms for get, 942 ms for search, and 1,295 ms for a Datalog query. Separately timed phases took 352 ms to import the CLI, 214 ms to select and load the store, 424 ms for a complete session open including that load, 28 ms for the first registry build after opening, and 16 ms to build the action layer with the registry already warm. The CPU profile of get sampled 53 ms in seed retirement's remapText. DataScript facts are lazy and get does not request them. Seven interleaved before/after runs of the seed-text shortcut on the same fixture measured 891.2 to 802.4 ms for get, 903.1 to 834.1 ms for search, 1299.2 to 1219.6 ms for Datalog, and 419.7 to 373.0 ms for session open (medians).
+- **impact** — The source CLI pays for imports and opening the graph on each call. In Datalog commands, the first query also builds the facts. The profile uses an OS-warm file cache and is a comparison baseline for this host.
 - **closes** — Separate design question recorded in briefs/p1-persistence.md section 4: protocol, discovery, and fallback when no server is running.
 - **node** — `01M1M08WPQTB514E7JERKYEDWZ`
 
@@ -962,15 +954,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — screen state is the next feature vocabulary in core that no check sees, and it grows with every 3D camera step
 - **closes** — E19 of the extension SDK plan, after E13, at a 3D step boundary
 - **node** — `01M43AT0V9HHVS7ZAEPWXEGE7F`
-
-### GAP: cross-family action calls by string id are invisible to the dependency graph
-
-- **expected** — a plugin that calls another family's action injects a key for it, held in a layer both may import, so the kernel derives the edge, the call is typed, and an optional call rides a child plugin that pends while its provider is off (as lab-ui's graph-studies injects NodeLinkGraphService)
-- **current** — ext-canvas calls ext.agent.complete (run.ts:42), ext.code.script.list and .run (run.ts:56-57, verbs.ts:167) and ext.graph.edges (diagram.ts:33) by string through CoreInvoke; kb ext list reports injects: [] for every registry family, and the call fails by name at run time when the provider is off
-- **impact** — switching agent, code or graph off breaks canvas's run, scripts and diagram verbs without warning; the dependency graph reads as complete while it holds none of these edges
-- **closes** — P2 of docs/research/2026-10-29-plugin-codependency.md: contribution keys in inject (restructure the four ids into keys, then resolve them in the kernel and carry each optional call on a child), with lint L1
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M63BZRZ4RDTCE1ZFVGRNEXGR`
 
 ### GAP: datalog and the query builder's tag filter do not reach a subtype's nodes
 
@@ -1299,14 +1282,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a pending-transaction model the outline can draw and a palette command to start and release a turn; the theme then draws the plan
 - **node** — `01M5S0J203QE0ZMB7MGN7GJXD8`
 
-### GAP: no test holds that switching one optional family off leaves the others whole
-
-- **expected** — a switch matrix over the registry, the kb ui host and the page: for each optional family F, with every other family on, every other family's plugin is active or pending only on a key F alone provides, every read action answers, and no plugin fails
-- **current** — core-only.test.ts proves core stands without every optional family; that the family is the unit (DESIGN.md) is held only by the import fence, which cannot see a call by action id
-- **impact** — a new cross-family edge that is not an import (an action id, a copied id, a shared host) can make one family break when another is off, and CI stays green
-- **closes** — P1 of docs/research/2026-10-29-plugin-codependency.md
-- **node** — `01M63C0H8G86X7ZBJ48QYYNSAV`
-
 ### GAP: no thin dispatch from a one-shot command to a running host
 
 - **expected** — kb's entry module reads the root's presence (.kb/ui.json) and, when a host of the same build serves the root on its owner-only Unix socket, forwards argv to POST /api/cli, where the host runs the same command table on the CLI's wire; otherwise, or for commands that read stdin, prompt or host, it imports the in-process CLI. A dispatch contract test runs commands both ways and compares output and writes.
@@ -1339,14 +1314,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A seeded sys icon field and refInkOf reading it.
 - **node** — `01M3KA3BHNPNB8VX34HD8P2JCB`
 
-### GAP: nodes that reference a family's seed are not counted or shown before it is switched off
-
-- **expected** — extension.list rows carry referencedBy, the nodes outside a family whose refs land in what it seeds, read from :node/mentions joined to :node/owner, and extension.impact groups them by the kind of node referenced
-- **current** — the footprint lists what a family seeds and contributes, but not who points at it; views, backdrop and design-system choices that name a switched-off family degrade silently
-- **impact** — a person cannot tell how much of their graph a switch affects; the degrade is correct but unannounced
-- **closes** — P0 of docs/research/2026-10-29-plugin-codependency.md
-- **node** — `01M63C0HZMR1ZSS95YZGJ868PR`
-
 ### GAP: nothing flags another family's action id or seed id spelled as a string
 
 - **expected** — L1, a harness lint, fails a string literal ext.<f>.<id> in a package of another family; L2, a harness test over bundledOwners(), fails a literal equal to a node id another family seeds; L3 keeps a module top level inert (no effects, no globalThis or window writes)
@@ -1372,6 +1339,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A flight or outage means read-only; Turso Sync cannot be adopted as is.
 - **closes** — Refuse with a clear error in the prototype; revs-at-push is a tail-contract change, not recommended.
 - **node** — `01M6950YQJFX3TYG608GNVHRX4`
+
+### GAP: older JSONL writers cannot recover a pending tail record
+
+- **expected** — Every writer that can open the same JSONL root recognizes the published tail revision after an interrupted archive.
+- **current** — Current JSONL writers recover the write-ahead record under the node lock. An older writer takes the lock but reads only tx.jsonl; it cannot see the journal.
+- **impact** — If a current writer publishes a node replacement and dies before archival, or archival fails, an older writer can reuse the published revision. Readers can then require a snapshot, and that revision cannot unambiguously identify a write across versions.
+- **closes** — Upgrade the remaining older processes that write the root to a version that recovers the pending record.
+- **node** — `01M7Q21QJJWSB6JBZPW3EWT6K8`
 
 ### GAP: only BackdropPoint checks what a repository extension contributes; the page's other points trust its types
 
@@ -1633,6 +1608,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P2 of docs/research/2026-10-31-plugin-sources.md, after the source reader is shared by the two sinks.
 - **node** — `01M68NFBY0FEK3Q2CW2XZ7E6DE`
 
+### GAP: Saved-query file changes invalidate every live answer
+
+- **expected** — A saved-query file change invalidates live answers that read its changed virtual datoms.
+- **current** — SavedQuerySet applies a new virtual set with NodeIndex.withVirtual, which rebuilds the query index and clears every retained answer.
+- **impact** — Adding or editing a saved-query file reruns subscriptions whose data did not change.
+- **closes** — Apply the virtual set delta through the same incremental datom path while preserving stored-node shadowing.
+- **node** — `01M7Q2GKYMMSGJGB5D4X120E3C`
+
 ### GAP: scaling a turned item across its own axes stretches each side instead of shearing
 
 - **expected** — a scale across a turned item's axes shears it, as Blender does
@@ -1641,14 +1624,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — shear in the item record
 - **node** — `01M41W5655T0R7791KKJM4WYB2`
 
-### GAP: search is a substring scan, no text index
-
-- **expected** — Full-text search as an additive derived index (FTS5, and sqlite-vec for semantic search) rebuilt from the JSONL like any other index.
-- **current** — graph.search is a case-insensitive substring scan over every node text.
-- **impact** — Search cost grows linearly with the graph and no ranking is possible.
-- **closes** — Gate on Bun's FTS5 close() segfault (oven-sh/bun#37044); adopt once a SQLite index exists.
-- **node** — `01M1M08X7037FH9Z0Y5G1RFRXX`
-
 ### GAP: search matches a node's stored text and title, not the words it reads as
 
 - **expected** — graph.search (kb search, MCP, the page's index search) finds a node by its plain display text too, so 'with Rob' finds 'Check up with Rob', as ⌘K does.
@@ -1656,6 +1631,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A search for the words a person reads beside a reference misses the node; searching an id or a label still finds it.
 - **closes** — Match plainWords(nodeTitleOf(...)) beside the text in every index implementation, a property in the shared index contract.
 - **node** — `01M7HCW2CRPCQ04SSRNG2FHSNS`
+
+### GAP: seed removal lookup follows only direct retirement aliases
+
+- **expected** — A recorded removal stays effective when its seeded node or field is renamed again.
+- **current** — seedRemovalLookup checks the current id and direct predecessor ids. In a direct probe, old → middle and middle → new do not carry a choice made at old to new. The current seed fold requires every retirement target to be a seeded id, so that chain cannot reach the lookup through an admitted fold.
+- **impact** — A later rename must retain every historical id as a direct alias to the current id. If the fold admits chained aliases, a removal choice can be missed and the default can return.
+- **closes** — Before admitting a second rename with chained aliases, resolve retirement identities once for both seed reconciliation and removal lookup. Cover chains for both the holder and the field, with an older recorded removal surviving reopen.
+- **node** — `01M7QBJAHEMMDACN92CF68XRP8`
 
 ### GAP: Set field… offers only fields that declare an option set
 
@@ -1672,6 +1655,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A setting cannot be read without hovering or opening it, and a family has to choose short names to fit a column meant for another place.
 - **closes** — The field row takes its name column's width from where it is drawn: the full name in Settings, wrapped if it must; the outline row keeps its column.
 - **node** — `01M7F9300H9FDW5BGCBVQQFTXW`
+
+### GAP: Settings does not preview a family switch
+
+- **expected** — Settings reads extension.impact before a switch and shows effects and pending reasons.
+- **current** — The backend action is available through the CLI and MCP. Settings calls the switch directly.
+- **impact** — A person using Settings still discovers paused or degraded features after switching.
+- **closes** — Use extension.impact with the shared Settings report before switching and present the running state afterwards.
+- **node** — `01M7Q11Q3BQNEMXNDWC7EPS9ZC`
 
 ### GAP: Shift-drag on empty space in 3D does not marquee-select
 
@@ -1698,14 +1689,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Everything references by id
 - **node** — `01M7342XMGCJ1J68JHT38EZ7XE`
 
-### GAP: subscription re-evaluation is O(clients x subs x full query) per tx
-
-- **expected** — A logged transaction re-evaluates only the subscriptions it can affect, and evaluates each distinct query once for all the clients holding it.
-- **current** — SubscriptionHub.publish keys evaluation by query string, so each distinct query runs once per tx however many clients hold it. It still runs every subscribed query on every tx, including one the transaction cannot have affected.
-- **impact** — Cost now grows with the number of distinct queries on screen rather than with clients times subscriptions, but it is still every query on every edit: a board view with a dozen query nodes re-runs all twelve per keystroke, most of them answering the same rows.
-- **closes** — Skip a subscription the transaction cannot affect. @kb/query's IR names what a compiled query reads (PatternClause.attr, ReachClause.edge, children), but a StoreTx does not name what a write touched: it carries whole nodes as they are after the write, so a removed prop and every attribute of a deleted node are absent from it. Gating on that read set would silently drop those changes. Needs the tx log to carry before-images (or the store to report a per-tx attribute set), and a fallback that always re-runs an IrRaw query, which exposes no read set at all.
-- **node** — `01M1QZNM17MTGGPE517NVZYJT0`
-
 ### GAP: surfaces outside the audit's list still name a node by its stored text
 
 - **expected** — Every surface that names a node where only a string fits reads its plain display text (nameIn / nodeName, DESIGN.md → Display text), and every rich one is fed its title (rowTitle).
@@ -1715,14 +1698,13 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M7HCW0W60M9G3R2QCF8FZJW1`
 
-### GAP: switching a family off says nothing about what depends on it
+### GAP: Switch preview cannot resolve providers registered only at apply
 
-- **expected** — a read action, extension.impact {name, on}, answers what a switch would pause (plugins that go pending, with the key each waits on), degrade (nodes outside the family that reference its seed) and resume; Settings shows it before an off with a non-empty impact, the CLI prints it, and MCP and the agent have it as a read tool
-- **current** — extension.switch (operations/src/extensions.ts:62) checks only that the family is optional and returns {name, on}; nothing computes dependants before or after the write
-- **impact** — a person or an agent switches a family off without knowing which other features pause or which nodes will show as unavailable; the loss is found later, elsewhere
-- **closes** — P0 of docs/research/2026-10-29-plugin-codependency.md
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M63C0GJ5M78G1TFKM00RN4X6`
+- **expected** — Switch preview resolves pending requirements from provider structure without running disabled code.
+- **current** — Typed action contributions identify their provider. A generic service or dynamic point registered inside apply may have no provider visible while the family is off.
+- **impact** — An on preview can report unresolved requirements instead of predicting which plugins resume.
+- **closes** — Represent provider structure in the kernel registration model so the same declaration drives activation and off-state inspection.
+- **node** — `01M7Q11R3PYMA1KAXBER6TG792`
 
 ### GAP: sys.f.color keeps an always-open swatch row
 
@@ -1936,14 +1918,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Split into recognizers over a cursor and drive them from a list. The existing md-inline tests are the gate; this is a rewrite, not a mechanical move.
 - **node** — `01M1MGCM9RWXE3CYANZK5K4KC0`
 
-### GAP: the JSONL tx tail is not atomic with the node write
-
-- **expected** — One act: nodes.jsonl and the tail entry either both land or neither does, the way the sqlite adapter gets it for free inside BEGIN IMMEDIATE.
-- **current** — Two writes inside one lock (JsonlStore.commitEffect): durableReplaceFile for the nodes, then txTail.append, and the append is deliberately not fsynced. No other process can interleave, but a crash or power loss between them can. TxTail.isCurrent() detects it by comparing the tail's newest store mark to the file's, and StoreTxLog then refuses every rev at or below head.
-- **impact** — A crash in that window costs every connected client one snapshot instead of frames - the same cost the log already had before it was durable, so nothing regresses. What is not reached is the stated shape: on JSONL the record can still lag the write. The lag is detected exactly, because the mark it is compared by is the file's content hash.
-- **closes** — A write-ahead record the JSONL adapter can commit atomically with the file replace - a single sidecar holding both the candidate bytes and the tail entry, renamed once - or a per-root manifest that names the nodes generation and the tail head together.
-- **node** — `01M1XEZT8XZNSG1NGS9JPCQFGM`
-
 ### GAP: the kit's node type is named for the outline
 
 - **expected** — The kit's node read model is named for what it is (a node as the page reads it), not for one family.
@@ -2033,14 +2007,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A remote root cannot hold .kb/queries/*.edn without forcing a resync that drops the virtual records.
 - **closes** — Give virtual transactions their own sequence, or stop logging them in the store's tail.
 - **node** — `01M6950ZTT4AQNADV0RVM9JSW1`
-
-### GAP: the seed's fill-absent pass restores a seeded prop its owner unset
-
-- **expected** — Removing every value of a seeded prop from a seeded node stays removed. The fill-absent pass adds only keys the seed gained after the store was created, never keys the owner deleted.
-- **current** — ensureSystemSeed fills any seed prop key an existing seeded node does not carry, on every open. It cannot tell a key the store never had from one the owner deleted, so 'kb unset lens.all-mentions sys.f.lens.cluster-by' is undone by the next command's open. A following 'kb set' then appends to the restored default. That is how a two-command replace doubled lens.all-mentions' values in both committed stores on 2026-09-24.
-- **impact** — A seeded node's props cannot be cleared, and replacing one with unset followed by set in two commands silently stores the value twice. A replace has to be one node.update carrying both unsetProps and setProps.
-- **closes** — Record which seed prop keys a store has already been offered (for example a seed revision per node, or a tombstone written when a seeded key is unset) and fill only keys added since. Then add a test that an unset seeded key survives reopening.
-- **node** — `01M3A0ZEWWG0VEHXEM3YNKRQ0Y`
 
 ### GAP: the server answers a client's query in the server's time zone
 
@@ -2180,15 +2146,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — words typed in one tab are lost when another tab, still focused on the same row, types again; the two tabs disagree with each other and with the server until the row loses focus. A row deleted elsewhere is different: that push is refused and shown as Not saved
 - **closes** — the node.update contract change: a base (text or revision) on the input, a conflict failure from the server when it moved, and the page taking the server's text into a focused row with a visible conflict; then a two-tab browser test that types in the same focused row from both
 - **node** — `01M6HA0JJJDSFSJ3FPW8M8QC5K`
-
-### GAP: TxTail allocates a rev outside the store's exclusion for virtual transactions
-
-- **expected** — Every appender allocates its rev under the same exclusion, so two writers can never be handed the same one.
-- **current** — TxTail.append reads its own head to assign rev+1 and is documented as not self-serialising. The store calls it inside the lock that already serialises writers, which covers every node commit; KbTxLog.append does not, and that is the path the saved-query virtual set takes. A CLI commit concurrent with a .kb/queries/ reload, or two kb ui servers on one root with different ports, can both read head N and both write N+1.
-- **impact** — A duplicate rev in the tail. Frames stay applicable in order and upserts are idempotent, so a client converges - but rev stops being a unique position, and any surface that keys on it (a replay, an audit trail, an undo across sessions) would be reading two things with one name. Narrow: it needs a second appender in the same instant.
-- **closes** — Either the virtual set becomes a store transaction so the store's exclusion covers it, or the tail acquires the store's lock itself - which needs a synchronous acquire, and write-lock.ts deliberately has none (its spin is Effect.sleep so a contended commit cannot block the loop).
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M1XF05FV87AR22B4SAS0A2BK`
 
 ### GAP: UI_ALLOWS permits unused zone directions
 
@@ -2395,6 +2352,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — One page-side name reader (rowTitle's reader by id) that every naming surface takes in place of node.text, and the graph and canvas label paths moved onto it.
 - **node** — `01M7CYP03QT4AWT994NSXQV35B`
 
+### GAP: a number prop that equals a live eid reads as a ref to that node
+
+- **expected** — A {t:ref} prop value and a {t:num} prop value have distinct datom encodings, so a query or a reach can tell a reference from a number.
+- **current** — Closed in the derived index. Engine entity ids are allocated outside numbers stored by the graph. A write that takes a live eid invalidates the derived index and reallocates that entity.
+- **impact** — A number-valued prop on a field that is walked as an edge (or joined as one) can alias an arbitrary node, and which node depends on eid assignment order. Rare in practice, since ref fields hold refs and number fields are not walked, but silent when it happens.
+- **closes** — Distinct encodings in datoms.ts (for example refs on :f/<fieldId> and numbers on a typed value, or a separate ref attr per field), with queries.ts, parse.ts find-type inference, and stored queries over numeric props migrated to match.
+- **node** — `01M3A0Y5JQ5XKZMC87K34HDT2B`
+
 ### GAP: a one-off routine cannot be ticked done or skipped in the calendar
 
 - **expected** — Every instance the calendar shows, one-off or repeating, can be ticked done or skipped, and the engine sends it done (✅, grey, no reminders) or cancels it.
@@ -2427,6 +2392,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A local extension is always on and its configuration lives in code, not in the graph.
 - **closes** — A declaration export for repository extensions, folded into that store's seed only, with the extension contract run over a repository fixture.
 - **node** — `01M53PZ0DWZ8MJN9T64TTQ10VD`
+
+### GAP: a seeded default the owner deletes comes back on the next open
+
+- **expected** — the seed records what it planted, so a planted id that is missing reads as deleted and stays deleted
+- **current** — Closed for future writes. Removing an editable seeded default records the choice in the same commit. The seed leaves that id absent on the next open.
+- **impact** — deleting a default policy, view or pin does not stick; DESIGN.md says to change a default's decision instead. Related to seed retirement, 01M3FK1PM9P96SNCSHXF0CJZRA
+- **closes** — a planted-ids record the seed reads, folded into the retirement table that gap names
+- **node** — `01M413SPC35K20DFC4TRP4DJYH`
 
 ### GAP: a seeded node whose text the seed changes keeps its old text in an existing store
 
@@ -2669,6 +2642,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — the O3 cut: @kb/outline declares the views and the default
 - **node** — `01M52J3DADW4P7YV6907ME9C50`
 
+### GAP: cross-family action calls by string id are invisible to the dependency graph
+
+- **expected** — a plugin that calls another family's action injects a key for it, held in a layer both may import, so the kernel derives the edge, the call is typed, and an optional call rides a child plugin that pends while its provider is off (as lab-ui's graph-studies injects NodeLinkGraphService)
+- **current** — ext-canvas calls ext.agent.complete (run.ts:42), ext.code.script.list and .run (run.ts:56-57, verbs.ts:167) and ext.graph.edges (diagram.ts:33) by string through CoreInvoke; kb ext list reports injects: [] for every registry family, and the call fails by name at run time when the provider is off
+- **impact** — switching agent, code or graph off breaks canvas's run, scripts and diagram verbs without warning; the dependency graph reads as complete while it holds none of these edges
+- **closes** — P2 of docs/research/2026-10-29-plugin-codependency.md: contribution keys in inject (restructure the four ids into keys, then resolve them in the kernel and carry each optional call on a child), with lint L1
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M63BZRZ4RDTCE1ZFVGRNEXGR`
+
 ### GAP: deleting a surface budget bypasses increase rationale
 
 - **expected** — Every effective surface ceiling increase for a measured package requires a new or updated reason, including deletion of an explicit entry.
@@ -2869,6 +2851,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Track 2 phase work in briefs/p1-persistence.md. Trigger: measured commit latency at real node counts hurts, or node.get needs to stop materializing everything.
 - **node** — `01M1M08WEYJNEFDZVECN9QKEWT`
 
+### GAP: no test holds that switching one optional family off leaves the others whole
+
+- **expected** — a switch matrix over the registry, the kb ui host and the page: for each optional family F, with every other family on, every other family's plugin is active or pending only on a key F alone provides, every read action answers, and no plugin fails
+- **current** — core-only.test.ts proves core stands without every optional family; that the family is the unit (DESIGN.md) is held only by the import fence, which cannot see a call by action id
+- **impact** — a new cross-family edge that is not an import (an action id, a copied id, a shared host) can make one family break when another is off, and CI stays green
+- **closes** — P1 of docs/research/2026-10-29-plugin-codependency.md
+- **node** — `01M63C0H8G86X7ZBJ48QYYNSAV`
+
 ### GAP: NodeBlock decides row chrome with 28 branches
 
 - **expected** — A row's chrome (toolbar, fields, children, query results, projected frame) is chosen by one view-mode resolver, and NodeBlock renders what it returns.
@@ -2884,6 +2874,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Which commands a node offers cannot be tested without rendering, and the same availability rules are re-derived in run-command.ts.
 - **closes** — Extract listNodeCommands(node, store) beside run-command.ts and have both the palette and the runner read it. Touches the command surface, so it is an owner call.
 - **node** — `01M1MGCF0ECBDEPTHPKMSQ4YFD`
+
+### GAP: nodes that reference a family's seed are not counted or shown before it is switched off
+
+- **expected** — extension.list rows carry referencedBy, the nodes outside a family whose refs land in what it seeds, read from :node/mentions joined to :node/owner, and extension.impact groups them by the kind of node referenced
+- **current** — the footprint lists what a family seeds and contributes, but not who points at it; views, backdrop and design-system choices that name a switched-off family degrade silently
+- **impact** — a person cannot tell how much of their graph a switch affects; the degrade is correct but unannounced
+- **closes** — P0 of docs/research/2026-10-29-plugin-codependency.md
+- **node** — `01M63C0HZMR1ZSS95YZGJ868PR`
 
 ### GAP: nodes.jsonl has no merge driver
 
@@ -3060,6 +3058,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — views declare their events and overlay anchors, an overlay frame, and a sys.f.scripts view setting
 - **node** — `01M41DKTE1T51M031N231VGQJR`
 
+### GAP: search is a substring scan, no text index
+
+- **expected** — Full-text search as an additive derived index (FTS5, and sqlite-vec for semantic search) rebuilt from the JSONL like any other index.
+- **current** — graph.search is a case-insensitive substring scan over every node text.
+- **impact** — Search cost grows linearly with the graph and no ranking is possible.
+- **closes** — Gate on Bun's FTS5 close() segfault (oven-sh/bun#37044); adopt once a SQLite index exists.
+- **node** — `01M1M08X7037FH9Z0Y5G1RFRXX`
+
 ### GAP: seven terminal .then callbacks disable promise/always-return
 
 - **expected** — promise/always-return runs with ignoreLastCallback:true, so the rule guards mid-chain callbacks (where a missing return really does break the chain) and says nothing about a terminal fire-and-forget callback.
@@ -3100,6 +3106,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — JsonlStore reports a content fingerprint rather than a stat — p1 Phase 3's sourceHash + sourceBytes + nodeCount — which means hashing the file on a path whose whole purpose is to answer 'did it change?' without reading it. Worth doing only with a cheaper content signal, or once the cost is measured against the store benchmark.
 - **node** — `01M1PK5NYA7ZG3XC0H0YRYRVZE`
 
+### GAP: subscription re-evaluation is O(clients x subs x full query) per tx
+
+- **expected** — A logged transaction re-evaluates only the subscriptions it can affect, and evaluates each distinct query once for all the clients holding it.
+- **current** — SubscriptionHub.publish keys evaluation by query string, so each distinct query runs once per tx however many clients hold it. It still runs every subscribed query on every tx, including one the transaction cannot have affected.
+- **impact** — Cost now grows with the number of distinct queries on screen rather than with clients times subscriptions, but it is still every query on every edit: a board view with a dozen query nodes re-runs all twelve per keystroke, most of them answering the same rows.
+- **closes** — Skip a subscription the transaction cannot affect. @kb/query's IR names what a compiled query reads (PatternClause.attr, ReachClause.edge, children), but a StoreTx does not name what a write touched: it carries whole nodes as they are after the write, so a removed prop and every attribute of a deleted node are absent from it. Gating on that read set would silently drop those changes. Needs the tx log to carry before-images (or the store to report a per-tx attribute set), and a fallback that always re-runs an IrRaw query, which exposes no read set at all.
+- **node** — `01M1QZNM17MTGGPE517NVZYJT0`
+
 ### GAP: suppression grammar still includes legacy eslint directives
 
 - **expected** — Every TypeScript suppression uses // oxlint-disable-next-line <rule> -- GAP id or // oxlint-disable-next-line <rule> -- <reason>.
@@ -3108,6 +3122,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Rewrite every listed directive to the oxlint grammar, then unskip suppression-grammar.test.ts.
 - **rule** — Lint scope coverage
 - **node** — `01M1PHTZDZCKMXYP6HW109M3DT`
+
+### GAP: switching a family off says nothing about what depends on it
+
+- **expected** — a read action, extension.impact {name, on}, answers what a switch would pause (plugins that go pending, with the key each waits on), degrade (nodes outside the family that reference its seed) and resume; Settings shows it before an off with a non-empty impact, the CLI prints it, and MCP and the agent have it as a read tool
+- **current** — extension.switch (operations/src/extensions.ts:62) checks only that the family is optional and returns {name, on}; nothing computes dependants before or after the write
+- **impact** — a person or an agent switches a family off without knowing which other features pause or which nodes will show as unavailable; the loss is found later, elsewhere
+- **closes** — P0 of docs/research/2026-10-29-plugin-codependency.md
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M63C0GJ5M78G1TFKM00RN4X6`
 
 ### GAP: the 3D bullet atlas has a fixed capacity
 
@@ -3223,6 +3246,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Design tokens: no bypass
 - **node** — `01M3AD9BRB1C5YMJFDQC1MDAFA`
 
+### GAP: the JSONL tx tail is not atomic with the node write
+
+- **expected** — One act: nodes.jsonl and the tail entry either both land or neither does, the way the sqlite adapter gets it for free inside BEGIN IMMEDIATE.
+- **current** — Closed. The write-ahead record and recovery rules are in DESIGN.md, The transaction tail.
+- **impact** — A failed prepare or node replacement leaves the previous revision visible. A published record survives an interrupted archive.
+- **closes** — A write-ahead record the JSONL adapter can commit atomically with the file replace - a single sidecar holding both the candidate bytes and the tail entry, renamed once - or a per-root manifest that names the nodes generation and the tail head together.
+- **node** — `01M1XEZT8XZNSG1NGS9JPCQFGM`
+
 ### GAP: the kit names the frame family's default view
 
 - **expected** — Which frame view a frame with no frame view node shows is data, as sys.views names the page default (sys.f.view.default, written by the fold from the declaration that provides it).
@@ -3313,6 +3344,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — the UI routes by view node (roadmap step 6 panes hold a ref to a view node) and the screen reports that id
 - **node** — `01M3YMCV7ZWR83DCCPQQS7PHNT`
 
+### GAP: the seed's fill-absent pass restores a seeded prop its owner unset
+
+- **expected** — Removing every value of a seeded prop from a seeded node stays removed. The fill-absent pass adds only keys the seed gained after the store was created, never keys the owner deleted.
+- **current** — Closed for future writes. Clearing a seed slot records the choice in the same commit. The next open fills new defaults and leaves recorded removals absent.
+- **impact** — A seeded node's props cannot be cleared, and replacing one with unset followed by set in two commands silently stores the value twice. A replace has to be one node.update carrying both unsetProps and setProps.
+- **closes** — Record which seed prop keys a store has already been offered (for example a seed revision per node, or a tombstone written when a seeded key is unset) and fill only keys added since. Then add a test that an unset seeded key survives reopening.
+- **node** — `01M3A0ZEWWG0VEHXEM3YNKRQ0Y`
+
 ### GAP: the server and browser plugin lists are not bridged
 
 - **expected** — the server registry is the one list of loaded extensions; the browser loads the browser entry of each extension the manifest reports; optional is a server-side load decision on the extension's declaration, reported by the manifest
@@ -3394,6 +3433,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Move both queries behind a lib/ or store selector that the components consume, so ds/ keeps one set of callers.
 - **rule** — UI import matrix
 - **node** — `01M1RXMRZKE1AJC850BRTHHHCW`
+
+### GAP: TxTail allocates a rev outside the store's exclusion for virtual transactions
+
+- **expected** — Every appender allocates its rev under the same exclusion, so two writers can never be handed the same one.
+- **current** — Closed. Virtual appends and tail adoption use the same writer exclusion as node commits.
+- **impact** — Concurrent node and virtual transactions receive distinct revisions, including across processes.
+- **closes** — Either the virtual set becomes a store transaction so the store's exclusion covers it, or the tail acquires the store's lock itself - which needs a synchronous acquire, and write-lock.ts deliberately has none (its spin is Effect.sleep so a contended commit cannot block the loop).
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M1XF05FV87AR22B4SAS0A2BK`
 
 ### GAP: ui suites reddened under load when the row a chord crossed to had no text host
 

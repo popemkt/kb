@@ -1,7 +1,10 @@
 import type { NodeIndex } from "@kb/query";
+import { seedRemovalNodes } from "@kb/seed";
 import { Effect } from "effect";
 import {
   currentIso,
+  extensionNameOf,
+  SYSTEM_IDS,
   type DomainError,
   domainError,
   txIntegrityError,
@@ -78,6 +81,7 @@ export const reloadEffect = Effect.fn("kb.reload")(function* (
   if (fingerprint !== null && fingerprint === seen.get(ctx)) return null;
   const loaded = yield* store.loadEffect;
   const replaced = ctx.index.storedNodes();
+  // GAP [[01M6950WQN8VDWJMSH8EZ8X3DR]] replay a foreign commit through the incremental index
   ctx.index.rebuild(loaded);
   if (fingerprint !== null) seen.set(ctx, fingerprint);
   return replaced;
@@ -219,9 +223,24 @@ const persistAttempt = Effect.fn("kb.persist.attempt")(function* (
   const where = session === undefined ? {} : { session };
   const via = call?.invocation.via;
   const label = via === undefined ? {} : { via };
+  const at = yield* currentIso;
+  // GAP [[01M549TK1WP4E6T4QHNDRSDYQA]]: a direct client's index knows only bundled owners.
+  const choices =
+    systemWrites === "system"
+      ? []
+      : seedRemovalNodes(
+          tx,
+          (id) => ctx.index.getNode(id),
+          (id) =>
+            ctx.index.related(id, ":node/owner").length > 0 ||
+            (extensionNameOf(id) !== undefined &&
+              ctx.index.getNode(SYSTEM_IDS.extensionsRoot)?.children.includes(id) === true),
+          at,
+        );
+  const write = choices.length === 0 ? tx : { ...tx, upserts: [...tx.upserts, ...choices] };
   const commit = yield* store.commitEffect(
-    tx,
-    { at: yield* currentIso, origin, ...actor, ...where, ...label },
+    write,
+    { at, origin, ...actor, ...where, ...label },
     checkedOn,
   );
   // Once durable, reconciliation and receipt capture finish even if the caller is interrupted.

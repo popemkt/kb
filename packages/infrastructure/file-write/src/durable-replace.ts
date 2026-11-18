@@ -21,7 +21,7 @@ import {
   openSync,
   renameSync,
   unlinkSync,
-  writeSync,
+  writeFileSync,
 } from "node:fs";
 import { dirname } from "node:path";
 import { domainError, type DomainError } from "@kb/model";
@@ -83,7 +83,7 @@ export function durableReplaceFile({ path, backupPath, body, mode }: FileReplace
   try {
     const fd = openSync(tmp, "wx", mode);
     try {
-      writeSync(fd, body, 0, "utf8");
+      writeFileSync(fd, body, "utf8");
       fsyncSync(fd);
     } finally {
       closeSync(fd);
@@ -136,7 +136,7 @@ export function durableCreateFile({
     mkdirSync(dir, { recursive: true });
     const fd = openSync(tmp, "wx", mode);
     try {
-      writeSync(fd, body, 0, "utf8");
+      writeFileSync(fd, body, "utf8");
       fsyncSync(fd);
     } finally {
       closeSync(fd);

@@ -1494,6 +1494,7 @@
       "dependencies": {
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
+        "effect": "catalog:",
       },
       "devDependencies": {
         "@types/bun": "catalog:",

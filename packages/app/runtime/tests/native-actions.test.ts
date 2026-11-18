@@ -216,7 +216,7 @@ describe("Effect-native action registry", () => {
             base: null,
             fingerprint: null,
             tx,
-            record: fakeStore.txTail.append(tx, record),
+            record: Effect.runSync(fakeStore.txTail.append(tx, record)),
             writes: writesOf(tx, (id) => ctx.index.getNode(id)),
           };
         }),

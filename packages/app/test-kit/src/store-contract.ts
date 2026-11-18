@@ -52,6 +52,8 @@ import {
   type StoreFactory,
 } from "./store-session.ts";
 import {
+  clearedSeedPropSurvivesOpening,
+  removedSeedNodeSurvivesOpening,
   defaultViewTypeReachesEarlierStoreOnce,
   releaseLeavesStoreUnchanged,
   tagDefaultViewReachesEarlierStoreOnce,
@@ -245,6 +247,8 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
       "survive every later open, which writes nothing",
     personEditsToSeededNodesSurviveOpening,
   ],
+  ["a cleared seeded property stays clear on reopen", clearedSeedPropSurvivesOpening],
+  ["a deleted seeded default stays deleted on reopen", removedSeedNodeSurvivesOpening],
   [
     "a node created without a rank gets one from the one owner, and a reopen keeps it",
     createdNodeKeepsItsRank,

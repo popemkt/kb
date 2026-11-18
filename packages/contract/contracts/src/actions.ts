@@ -438,7 +438,7 @@ export function failed(
   code: FailureCode,
   message: string,
   details?: unknown,
-): ActionReceipt {
+): Extract<ActionReceipt, { status: "failed" }> {
   return { status: "failed", id, code, message, details };
 }
 

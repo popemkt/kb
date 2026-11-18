@@ -74,7 +74,6 @@ export function governanceSeedNodes(at: string): readonly KbNode[] {
   const approvalPolicies = mk(GOVERNANCE_IDS.policies, "Approval policies", {
     [SYSTEM_IDS.queryField]: [{ t: "str", v: APPROVAL_POLICIES_QUERY }],
   });
-  // GAP [[01M413SPC35K20DFC4TRP4DJYH]]
   const approvalPoliciesPin = mk(GOVERNANCE_IDS.policiesPin, "", {
     [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: GOVERNANCE_IDS.policies }],
   });

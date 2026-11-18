@@ -20,6 +20,7 @@ import {
 } from "@kb/plugin";
 import { ExtensionRowSchema } from "./declaration.ts";
 import type { ExtensionFailure } from "./extension.ts";
+import { SeedReferenceSchema } from "./extension-impact.ts";
 import { FOOTPRINT_SOURCES, type FamilyKernel } from "./footprint.ts";
 const PointSpecSchema = z.object({
   cardinality: z.enum(POINT_CARDINALITIES),
@@ -37,7 +38,11 @@ const ExtensionReportRowSchema = ExtensionRowSchema.extend({
   uses: z.array(z.object({ point: z.string(), from: z.string().nullable() })),
   /** Each service its plugins inject, and the plugin that provides it; null while nobody does. */
   injects: z.array(z.object({ service: z.string(), from: z.string().nullable() })),
+  requiresContributions: z.array(
+    z.object({ key: z.string(), family: z.string(), from: z.string().nullable() }),
+  ),
   provides: z.array(z.string()),
+  referencedBy: z.array(SeedReferenceSchema),
   /** Why each of its plugins that failed to load did. */
   failures: z.array(z.string()),
 });
@@ -113,7 +118,10 @@ export function organisationOf(
   family: string,
   kernels: readonly FamilyKernel[],
   runtimeFailures: readonly PluginFailure[] = [],
-): Pick<ExtensionReportRow, "tags" | "injects" | "provides" | "failures" | "declares" | "uses"> {
+): Pick<
+  ExtensionReportRow,
+  "tags" | "injects" | "requiresContributions" | "provides" | "failures" | "declares" | "uses"
+> {
   const own = ownedBy(family);
   const held = kernels.map(({ kernel }) => ({
     kernel,
@@ -141,6 +149,9 @@ export function organisationOf(
     injects: requirements
       .filter(({ kind }) => kind === "service")
       .map(({ name, from }) => ({ service: name, from })),
+    requiresContributions: requirements.flatMap(({ name, from, family: provider }) =>
+      provider === undefined ? [] : [{ key: name, family: provider, from }],
+    ),
     provides: plugins.flatMap((plugin) => plugin.provides),
     failures: [
       ...plugins.flatMap((plugin) => (plugin.error === null ? [] : [plugin.error.message])),

@@ -1,0 +1,8 @@
+{
+  "reason": "Effectful tail mutations expose persistence errors and allow a transaction to wait for its adapter's writer exclusion.",
+  "raise": {
+    "cli-closure": {
+      "bytes": 275
+    }
+  }
+}

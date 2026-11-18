@@ -9,7 +9,7 @@
 import { describe, expect, test } from "bun:test";
 import { Effect, type Scope } from "effect";
 import type { TxTail } from "@kb/contracts";
-import type { KbNode, StoreTx } from "@kb/model";
+import type { DomainError, KbNode, StoreTx } from "@kb/model";
 
 const AT = "2026-01-01T00:00:00.000Z";
 
@@ -21,56 +21,62 @@ function upsert(id: string, text: string): StoreTx {
 /** A fresh, empty tail per property, its scratch space released with the scope. */
 export type TailFactory = Effect.Effect<TxTail, never, Scope.Scope>;
 
-const PROPERTIES: ReadonlyArray<readonly [string, (tail: TxTail) => void]> = [
+const PROPERTIES: ReadonlyArray<
+  readonly [string, (tail: TxTail) => Effect.Effect<void, DomainError>]
+> = [
   [
     "a record keeps every field its caller stated, and only those",
-    (tail) => {
-      tail.append(upsert("n-a", "a"), {
-        at: AT,
-        origin: "client-a",
-        actor: "agent",
-        session: "tab.a",
-        via: "job:a",
-      });
-      tail.append(upsert("n-b", "b"), { at: AT });
-      const [full, bare] = tail.entries();
-      expect(full).toMatchObject({ rev: 1, at: AT, origin: "client-a", actor: "agent" });
-      expect(full).toMatchObject({ session: "tab.a", via: "job:a" });
-      expect(Object.keys(bare ?? {}).toSorted()).toEqual(["at", "ops", "rev"]);
-    },
+    (tail) =>
+      Effect.gen(function* () {
+        yield* tail.append(upsert("n-a", "a"), {
+          at: AT,
+          origin: "client-a",
+          actor: "agent",
+          session: "tab.a",
+          via: "job:a",
+        });
+        yield* tail.append(upsert("n-b", "b"), { at: AT });
+        const [full, bare] = tail.entries();
+        expect(full).toMatchObject({ rev: 1, at: AT, origin: "client-a", actor: "agent" });
+        expect(full).toMatchObject({ session: "tab.a", via: "job:a" });
+        expect(Object.keys(bare ?? {}).toSorted()).toEqual(["at", "ops", "rev"]);
+      }),
   ],
   [
     "an identified reaction actor survives append, paging and replacement",
-    (tail) => {
-      const actor = { kind: "reaction", id: "ext.router.route" } as const;
-      tail.append(upsert("n-reaction", "reacted"), { at: AT, actor });
-      expect(tail.entries()[0]?.actor).toEqual(actor);
-      tail.adopt(tail.entries());
-      expect(tail.since(0)[0]?.actor).toEqual(actor);
-    },
+    (tail) =>
+      Effect.gen(function* () {
+        const actor = { kind: "reaction", id: "ext.router.route" } as const;
+        yield* tail.append(upsert("n-reaction", "reacted"), { at: AT, actor });
+        expect(tail.entries()[0]?.actor).toEqual(actor);
+        yield* tail.adopt(tail.entries());
+        expect(tail.since(0)[0]?.actor).toEqual(actor);
+      }),
   ],
   [
     "`since` reads the records after a rev, oldest first, all of them without a page",
-    (tail) => {
-      for (const id of ["a", "b", "c"]) tail.append(upsert(`n-${id}`, id), { at: AT });
-      expect(tail.since(1).map((tx) => tx.rev)).toEqual([2, 3]);
-      expect(tail.since(3)).toEqual([]);
-      expect(tail.since(0)).toEqual(tail.entries());
-    },
+    (tail) =>
+      Effect.gen(function* () {
+        for (const id of ["a", "b", "c"]) yield* tail.append(upsert(`n-${id}`, id), { at: AT });
+        expect(tail.since(1).map((tx) => tx.rev)).toEqual([2, 3]);
+        expect(tail.since(3)).toEqual([]);
+        expect(tail.since(0)).toEqual(tail.entries());
+      }),
   ],
   [
     "a page takes at most `limit`, within `maxBytes`, and never fewer than one",
-    (tail) => {
-      tail.append(upsert("n-a", "a"), { at: AT });
-      tail.append(upsert("n-big", "x".repeat(4096)), { at: AT });
-      tail.append(upsert("n-c", "c"), { at: AT });
-      expect(tail.since(0, { limit: 2, maxBytes: 1 << 20 }).map((tx) => tx.rev)).toEqual([1, 2]);
-      // The big record does not fit after the first: the page stops before it.
-      expect(tail.since(0, { limit: 10, maxBytes: 1024 }).map((tx) => tx.rev)).toEqual([1]);
-      // Alone it is still read, so a reader paging past it moves.
-      expect(tail.since(1, { limit: 10, maxBytes: 1024 }).map((tx) => tx.rev)).toEqual([2]);
-      expect(tail.since(3, { limit: 10, maxBytes: 1024 })).toEqual([]);
-    },
+    (tail) =>
+      Effect.gen(function* () {
+        yield* tail.append(upsert("n-a", "a"), { at: AT });
+        yield* tail.append(upsert("n-big", "x".repeat(4096)), { at: AT });
+        yield* tail.append(upsert("n-c", "c"), { at: AT });
+        expect(tail.since(0, { limit: 2, maxBytes: 1 << 20 }).map((tx) => tx.rev)).toEqual([1, 2]);
+        // The big record does not fit after the first: the page stops before it.
+        expect(tail.since(0, { limit: 10, maxBytes: 1024 }).map((tx) => tx.rev)).toEqual([1]);
+        // Alone it is still read, so a reader paging past it moves.
+        expect(tail.since(1, { limit: 10, maxBytes: 1024 }).map((tx) => tx.rev)).toEqual([2]);
+        expect(tail.since(3, { limit: 10, maxBytes: 1024 })).toEqual([]);
+      }),
   ],
 ];
 
@@ -82,7 +88,7 @@ export function tailContract(name: string, makeTail: TailFactory): void {
         Effect.runPromise(
           Effect.scoped(
             Effect.gen(function* () {
-              property(yield* makeTail);
+              yield* property(yield* makeTail);
             }),
           ),
         ),

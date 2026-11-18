@@ -59,6 +59,7 @@ import { channelsOf, loadServerPlugins, type HostedExtensions } from "./plugins.
 import { SavedQuerySet, listSavedQueriesEffect, savedQueryNodes } from "./saved-queries.ts";
 import { serverRuntimeLayer } from "./screens.ts";
 import { ClientGone, SubscriptionHub, type ClientSend, type WsData } from "./session.ts";
+import { FtsTextCandidates } from "./text-candidates.ts";
 
 /** The injectable build-ensure step, shared by both entry points. */
 export type EnsureUiBuilt = (
@@ -232,7 +233,7 @@ export const ingestExternalWrite = Effect.fn("kb.ingestExternalWrite")(function*
   if (ctx.log.refresh().length > 0 || replaced === null) return;
   const ops = diffTx(replaced, ctx.index.storedNodes());
   if (ops.upserts.length === 0 && ops.deletes.length === 0) return;
-  ctx.log.append(ops, yield* currentIso);
+  yield* ctx.log.append(ops, yield* currentIso);
 });
 
 /**
@@ -252,7 +253,7 @@ export const ingestSavedQueries = Effect.fn("kb.ingestSavedQueries")(function* (
   queries: SavedQuerySet,
 ) {
   const saved = yield* listSavedQueriesEffect(root);
-  queries.sync(savedQueryNodes(saved), yield* currentIso);
+  yield* queries.sync(savedQueryNodes(saved), yield* currentIso);
 });
 
 /**
@@ -423,9 +424,10 @@ const observeExtensions = Effect.fn("kb.observeExtensions")(function* (
   hosted: HostedExtensions,
   hub: SubscriptionHub,
 ) {
-  let composition = yield* sessionRegistry(ctx);
+  const registry = sessionRegistry(ctx, hosted.kernel);
+  let composition = yield* registry;
   const announceComposition = Effect.gen(function* () {
-    const next = yield* sessionRegistry(ctx);
+    const next = yield* registry;
     if (next === composition) return;
     composition = next;
     yield* hub.manifestChanged();
@@ -455,7 +457,7 @@ const observeExtensions = Effect.fn("kb.observeExtensions")(function* (
   );
   let told = yield* trusted;
   const refresh = Effect.gen(function* () {
-    const next = yield* sessionRegistry(ctx);
+    const next = yield* registry;
     const reading = yield* trusted;
     if (next === composition && reading !== null && reading === told) return;
     composition = next;
@@ -520,7 +522,11 @@ const startUiIn = Effect.fn("kb.startUiIn")(function* (
   const asked = yield* listenerOf(opts);
   const openBrowserFlag = opts.openBrowser !== false;
 
-  const ctx = yield* openKbScoped(opts.root).pipe(Scope.provide(lifetime));
+  const textCandidates = yield* Effect.acquireRelease(
+    Effect.sync(() => new FtsTextCandidates()),
+    (index) => Effect.sync(() => index.close()),
+  ).pipe(Scope.provide(lifetime));
+  const ctx = yield* openKbScoped(opts.root, textCandidates).pipe(Scope.provide(lifetime));
   const kernel = makeKernel({ host: "server" });
   yield* Scope.addFinalizer(lifetime, kernel.shutdown);
   const hub = new SubscriptionHub(ctx, channelsOf(ctx, kernel), opts.embedding ?? NO_EMBEDDING);

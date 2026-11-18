@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { BUNDLED_FAMILIES, bundledSeed } from "@kb/bundled";
-import { CoreInvoke, switchWrites, type ActionReceipt } from "@kb/contracts";
+import { CoreInvoke, ExtensionImpactSchema, switchWrites, type ActionReceipt } from "@kb/contracts";
 import { SYSTEM_IDS, extensionNodeId, present, type KbNode } from "@kb/model";
 import { kbManifestDef, persistEffect } from "@kb/operations";
 import { invoke } from "../src/invoke.ts";
@@ -44,7 +44,7 @@ const LAB_NODE = extensionNodeId("lab");
 const ENABLED = SYSTEM_IDS.extensionEnabledField;
 const ISO = "2026-10-04T00:00:00.000Z";
 
-describe("the lab is switched on the server", () => {
+describe("the registry follows family switches", () => {
   let root: string;
   let store: string;
 
@@ -55,6 +55,80 @@ describe("the lab is switched on the server", () => {
 
   afterEach(async () => {
     await rm(root, { recursive: true, force: true });
+  });
+
+  test("impact groups external seed references and remains read-only in both directions", async () => {
+    const ctx = await openKb(root);
+    const first = "sys.view.outline.main";
+    const read = (on: boolean) =>
+      invoke(ctx, {
+        id: "extension.impact",
+        input: { name: "outline", on },
+      });
+    const initial = await read(false);
+    const initialImpact = ExtensionImpactSchema.parse(
+      initial.status === "succeeded" ? initial.output : null,
+    );
+    const count = (initialImpact.degrades.find(({ kind }) => kind === "view")?.count ?? 0) + 1;
+    const added = await invoke(ctx, {
+      id: "node.add",
+      input: { text: `uses [[${first}]] twice [[${first}]]` },
+    });
+    expect(added.status).toBe("succeeded");
+    const before = await readFile(store);
+    const listing = await invoke(ctx, { id: "extension.list", input: {} });
+    expect(listing).toMatchObject({
+      status: "succeeded",
+      output: {
+        extensions: expect.arrayContaining([
+          expect.objectContaining({
+            name: "outline",
+            referencedBy: expect.arrayContaining([
+              expect.objectContaining({ target: first, kind: "view" }),
+            ]),
+          }),
+        ]),
+      },
+    });
+    expect(await read(false)).toMatchObject({
+      status: "succeeded",
+      output: { degrades: expect.arrayContaining([{ kind: "view", count }]) },
+    });
+    expect((await readFile(store)).equals(before)).toBe(true);
+    expect(
+      await invoke(ctx, { id: "extension.switch", input: { name: "outline", on: false } }),
+    ).toMatchObject({ status: "succeeded" });
+    const switched = await readFile(store);
+    expect(await read(true)).toMatchObject({
+      status: "succeeded",
+      output: { restores: expect.arrayContaining([{ kind: "view", count }]) },
+    });
+    expect((await readFile(store)).equals(switched)).toBe(true);
+  });
+
+  test("canvas can be switched on while its optional graph contribution is unavailable", async () => {
+    const ctx = await openKb(root);
+    const set = (name: string, on: boolean) =>
+      invoke(ctx, { id: "extension.switch", input: { name, on } });
+    expect((await set("canvas", false)).status).toBe("succeeded");
+    expect((await set("graph", false)).status).toBe("succeeded");
+    expect((await set("canvas", true)).status).toBe("succeeded");
+    const preview = await invoke(ctx, {
+      id: "extension.impact",
+      input: { name: "graph", on: true },
+    });
+    expect(preview).toMatchObject({
+      status: "succeeded",
+      output: {
+        resumes: [{ plugin: "canvas/graph", source: "registry", keys: ["ext.graph.edges"] }],
+      },
+    });
+    const diagram = await invoke(ctx, {
+      id: "ext.canvas.diagram",
+      input: { mermaid: "flowchart TD\n A --> B" },
+      approved: true,
+    });
+    expect(diagram.status).toBe("succeeded");
   });
 
   test("the seed holds the lab's node with no switch, so a fresh store has the lab off and the registry leaves it out", async () => {

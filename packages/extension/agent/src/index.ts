@@ -1,16 +1,10 @@
 export { MAX_CONVERSATIONS_PER_CONNECTION, agentPlugin } from "./bridge.ts";
-export {
-  AGENT_COMPLETE_ACTION,
-  AGENT_SIGHT_ACTION,
-  COMPLETION_LIMITS,
-  CompleteOutputSchema,
-  SightOutputSchema,
-} from "./complete.ts";
+export { AGENT_COMPLETE_ACTION, AGENT_SIGHT_ACTION, SightOutputSchema } from "./complete.ts";
 export { agentExtension } from "./extension.ts";
 export { AGENT_SYSTEM_PROMPT, userTurnText } from "./prompt.ts";
 export { AGENT_CHANNEL, AGENT_WIRE, AgentEventSchema, AgentRequestSchema } from "./protocol.ts";
 export type { AgentEvent, AgentRequest } from "./protocol.ts";
-export { AGENT_IMAGE_TYPES, AgentRuntimeError, MAX_STEPS, isAgentImageType } from "./runtime.ts";
+export { AgentRuntimeError, MAX_STEPS, isAgentImageType } from "./runtime.ts";
 export { resolveCredential } from "./credential.ts";
 export {
   AGENT_ADAPTERS,

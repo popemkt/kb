@@ -67,6 +67,7 @@ function remapChildren(children: readonly NodeId[], to: Replacements): readonly 
 
 /** `text` with each `[[id]]` or `[[id|label]]` of a replaced id naming its replacement. */
 function remapText(text: string, to: Replacements): string {
+  if (!text.includes("[[")) return text;
   let out = text;
   for (const [from, next] of to) {
     if (next === null || !out.includes(`[[${from}`)) continue;

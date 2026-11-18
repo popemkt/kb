@@ -9,7 +9,7 @@
 import { Context, type Effect } from "effect";
 import { z } from "zod";
 import type { Kernel } from "@kb/plugin";
-import type { ExtensionRow } from "./declaration.ts";
+import type { CatalogRow } from "./declaration.ts";
 
 /** Where a row was read: the seed, or the kernel of the registry, the `kb ui` host or the page. */
 export const FOOTPRINT_SOURCES = ["seed", "registry", "host", "page"] as const;
@@ -40,7 +40,15 @@ export interface FamilyKernel {
   readonly source: Exclude<FootprintRow["source"], "seed">;
   readonly kernel: Pick<
     Kernel,
-    "plugins" | "dependencies" | "contributions" | "contributionsOf" | "points" | "roles"
+    | "plugins"
+    | "dependencies"
+    | "contributions"
+    | "contributionsOf"
+    | "points"
+    | "roles"
+    | "lookup"
+    | "service"
+    | "version"
   >;
 }
 
@@ -57,7 +65,7 @@ export class FamilyKernels extends Context.Service<FamilyKernels, readonly Famil
  * families' report rows, read at each call, and the kernel it holds them in.
  */
 export interface HostedFamilies {
-  readonly rows: Effect.Effect<readonly ExtensionRow[]>;
+  readonly rows: Effect.Effect<readonly CatalogRow[]>;
   readonly kernel: Kernel;
 }
 
