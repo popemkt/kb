@@ -11,11 +11,11 @@
  * - a row of the home zooms, to `/outline/<id>`, which the home still owns;
  * - the sidebar still has its way home.
  */
+import { viewOptionNodes } from "@/fixtures/view-fields";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { extensionRow, type GraphSnapshot, type WireNode } from "@kb/contracts";
-import { SYSTEM_IDS } from "@kb/model";
 import { BUNDLED_DECLARATIONS, BUNDLED_FAMILIES } from "@kb/bundled";
 import { outlineExtension } from "@kb/outline";
 import { NodeReadView, OutlineView, viewCatalogOf } from "@kb/views";
@@ -61,11 +61,7 @@ function snapshot(): GraphSnapshot {
   return {
     rev: 1,
     nodes: [
-      // The store names the outline its default view type, as the bundled seed does.
-      node(SYSTEM_IDS.viewsRoot, "Views", [OutlineView.option], {
-        [SYSTEM_IDS.viewDefaultField]: [{ t: "ref", v: OutlineView.option }],
-      }),
-      node(OutlineView.option, OutlineView.label),
+      ...viewOptionNodes,
       node("n.plans", "Plans", ["n.trip"]),
       node("n.trip", "Trip to **Hanoi**", ["n.flights"]),
       node("n.flights", "Book flights"),

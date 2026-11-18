@@ -3,6 +3,7 @@
  * between its text and the next row, and the arrows pass through them in the
  * order they are drawn. Driven through a real `NodeBlock` and the store.
  */
+import { viewOptionNodes } from "@/fixtures/view-fields";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -31,6 +32,7 @@ const wire = (partial: Pick<WireNode, "id" | "text"> & Partial<WireNode>): WireN
 });
 
 const GRAPH: WireNode[] = [
+  ...viewOptionNodes,
   wire({ id: "n.p", text: "Parent", children: ["n.a", "n.b"] }),
   wire({
     id: "n.a",

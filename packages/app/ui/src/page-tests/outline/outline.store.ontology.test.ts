@@ -3,6 +3,7 @@
  * itself — membership, the zoom and home roots, search — is the graph
  * store's, and `graph.store.test.ts` holds it.
  */
+import { viewOptionNodes } from "@/fixtures/view-fields";
 import { beforeAll, afterAll, beforeEach, describe, expect, it } from "vitest";
 import { present, SYSTEM_IDS } from "@kb/model";
 import { syncUiPlugins } from "@kb/ui-sdk";
@@ -18,7 +19,7 @@ beforeAll(() => syncPagePlugins([outlineUiPlugin]));
 afterAll(() => syncUiPlugins([]));
 
 function hydrate(): void {
-  useGraphStore.getState().hydrateFromWire(ontologyWire(), 7, "fixtures");
+  useGraphStore.getState().hydrateFromWire([...viewOptionNodes, ...ontologyWire()], 7, "fixtures");
 }
 
 describe("outline store — ontology scope", () => {
@@ -78,7 +79,9 @@ describe("outline store — ontology scope", () => {
   });
 
   it("a broken ontology opens with no rows", () => {
-    useGraphStore.getState().hydrateFromWire([...ontologyWire(), brokenOntology()], 8, "fixtures");
+    useGraphStore
+      .getState()
+      .hydrateFromWire([...viewOptionNodes, ...ontologyWire(), brokenOntology()], 8, "fixtures");
     useGraphStore.getState().setOntologyScope("o.bad");
     expect(useOutlineStore.getState().getVisibleNodes()).toEqual([]);
   });
