@@ -54,7 +54,11 @@ async function post(body: unknown, from: From) {
 }
 
 /** A `/ws` connection carrying `headers`: the frames it is answered, or why it did not open. */
-async function socket(headers: Record<string, string>, frames: readonly unknown[]) {
+async function socket(
+  headers: Record<string, string>,
+  frames: readonly unknown[],
+  channelReply?: string,
+) {
   const ws = new WebSocket(`${handle.url.replace(/^http/, "ws")}/ws`, { headers });
   const heard: ServerMessage[] = [];
   const opened = await new Promise<boolean>((resolve) => {
@@ -66,7 +70,12 @@ async function socket(headers: Record<string, string>, frames: readonly unknown[
     ws.addEventListener("message", (event) => {
       const msg = JSON.parse(String(event.data)) as ServerMessage;
       heard.push(msg);
-      if (msg.op === "pong") resolve();
+      // A heartbeat can answer while the channel is still acquiring its registry.
+      const pong = heard.some((frame) => frame.op === "pong");
+      const channelAnswered =
+        channelReply === undefined ||
+        heard.some((frame) => frame.op === "error" && frame.id === channelReply);
+      if (pong && channelAnswered) resolve();
     });
   });
   for (const frame of [...frames, { op: "ping" }]) ws.send(JSON.stringify(frame));
@@ -141,7 +150,11 @@ describe("who reaches the API", () => {
 
 describe("who speaks on /ws", () => {
   test("a local program's socket is nobody's: it publishes its screen, and may not speak on a channel", async () => {
-    const { opened, person, heard } = await socket(headersFrom("program"), [SCREEN, CHANNEL]);
+    const { opened, person, heard } = await socket(
+      headersFrom("program"),
+      [SCREEN, CHANNEL],
+      CHANNEL.channel,
+    );
     expect(opened).toBe(true);
     expect(person).toBeNull();
     expect(heard).toEqual([
@@ -151,7 +164,11 @@ describe("who speaks on /ws", () => {
 
   test("the page's socket is the person's: it publishes its screen and speaks on channels", async () => {
     const page = { ...SCREEN, tab: "tab.page" };
-    const { opened, person, heard } = await socket(headersFrom("page"), [page, CHANNEL]);
+    const { opened, person, heard } = await socket(
+      headersFrom("page"),
+      [page, CHANNEL],
+      CHANNEL.channel,
+    );
     expect(opened).toBe(true);
     expect(person).toEqual({ name: expect.any(String) });
     expect(heard).toEqual([
