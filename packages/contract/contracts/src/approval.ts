@@ -171,12 +171,14 @@ export function approvalAsk(receipt: ActionReceipt): ApprovalAsk {
  * this: a surface leaves out an action whose call could never succeed there
  * — one that is denied, or one that asks for approval on a wire that cannot
  * carry it. A call by id still reaches the invoke core, which refuses it.
+ * And a surface lists each action once, under its id: an alias stays
+ * callable, by its id or tool name, but is not listed again.
  */
 export function listedOn(
   wire: SurfaceWire,
-  { decision }: Pick<DecidedEntry, "decision" | "aliasOf">,
+  { decision, aliasOf }: Pick<DecidedEntry, "decision" | "aliasOf">,
 ): boolean {
-  if (decision === "deny") return false;
+  if (aliasOf !== undefined || decision === "deny") return false;
   return decision === "allow" || wire.carriesApproval;
 }
 

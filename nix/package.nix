@@ -63,6 +63,9 @@ stdenvNoCC.mkDerivation {
     mkdir -p "$out/lib/kb/packages/app/ui" "$out/bin"
     cp -a "$TMPDIR/bundle/." "$out/lib/kb/"
     cp -a packages/app/ui/dist "$out/lib/kb/packages/app/ui/dist"
+    # The agent skill, where a host links its agents to it (DESIGN.md → Surfaces).
+    mkdir -p "$out/share/kb/skills"
+    cp -R skills/kb "$out/share/kb/skills/kb"
     cp bin/kb-bun "$out/lib/kb/launch"
     patchShebangs "$out/lib/kb/launch"
     cp packages/infrastructure/child-process/src/kb-launch-flags.txt "$out/lib/kb/launch-flags"
@@ -76,6 +79,7 @@ stdenvNoCC.mkDerivation {
   doInstallCheck = true;
   installCheckPhase = ''
     runHook preInstallCheck
+    test -f "$out/share/kb/skills/kb/SKILL.md"
     export KB_HOME="$TMPDIR/kb-startup-home"
     export KB_DATA="$TMPDIR/kb-startup-data"
     export KB_NIX_TEST_BIN="$out/bin/kb"

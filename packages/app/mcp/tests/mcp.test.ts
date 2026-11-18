@@ -68,12 +68,12 @@ describe("MCP surface", () => {
     const listed = await client.listTools();
     const names = new Set(listed.tools.map((t) => t.name));
     expect(names.has("kb_manifest")).toBe(true);
-    // A tool cannot carry a person's approval.
+    // A tool cannot carry a person's approval, and an alias is not listed beside its action.
     for (const entry of await run(manifest(root))) {
       const tool = entry.id.replaceAll(".", "_");
       expect({ tool, listed: names.has(tool) }).toEqual({
         tool,
-        listed: !requiresApproval(entry.mode),
+        listed: entry.aliasOf === undefined && !requiresApproval(entry.mode),
       });
     }
 
@@ -133,6 +133,17 @@ describe("MCP surface", () => {
 
     await client.close();
     await server.close();
+  });
+
+  test("an alias is listed once, under its action's id, and runs by its own name", async () => {
+    const { client, close } = await connect(root);
+    const names = (await client.listTools()).tools.map(({ name }) => name);
+    expect(names).toContain("ext_locations_list");
+    expect(names).not.toContain("location_list");
+    const byAlias = await callJson(client, "location_list", {});
+    const byId = await callJson(client, "ext_locations_list", {});
+    expect(byAlias).toEqual({ isError: false, body: byId.body });
+    await close();
   });
 
   test("kb_manifest lists the view catalog, each view's settings as JSON Schema", async () => {

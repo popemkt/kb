@@ -1,0 +1,5 @@
+{
+  "reason": "listedOn leaves an alias out of every listing, so MCP tools/list, /api/manifest and an agent turn name each action once, in @kb/contracts, which the CLI composes.",
+  "pr": "#280",
+  "raise": { "cli-closure": { "bytes": 22 } }
+}
