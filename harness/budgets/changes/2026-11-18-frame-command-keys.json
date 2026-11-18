@@ -1,0 +1,4 @@
+{
+  "reason": "Frame view keys name their global palette commands. The CLI loads these keys already to compose the view catalog, and reads the same public key shape as the page.",
+  "raise": { "cli-closure": { "bytes": 158 } }
+}

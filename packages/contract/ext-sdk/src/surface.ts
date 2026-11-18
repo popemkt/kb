@@ -324,6 +324,7 @@ export interface ViewKey<P> {
   readonly kind: "view";
   readonly id: `${string}.${string}`;
   readonly label: string;
+  readonly command?: string;
   readonly params: effect.Schema.Decoder<P>;
   /** The family of views a host chooses between, for a view that is one of them. */
   readonly family?: ViewFamily;

@@ -20,7 +20,6 @@ import {
   SidebarSectionPoint,
   ViewPoint,
 } from "@kb/ui-sdk";
-import { SYSTEM_IDS } from "@kb/model";
 import { ListBulletsIcon } from "@phosphor-icons/react";
 import { NodeField } from "./fields-section";
 import { outlineValueKindsPlugin } from "./slot-kind";
@@ -34,7 +33,7 @@ const { filters } = DEFAULT_VIEW_CONFIG;
 /**
  * The outline's views: its page, its list frame view — shown inline, under
  * the row of the frame whose children it lays out, and named for the
- * toolbar, the node menu and its `sys.command` node by its `picker`, first
+ * toolbar, the node menu and the picker, first
  * of the frame views offered — and its read-only snippet. The other frame
  * views are the collections family's (`@kb/collections-ui`).
  */
@@ -55,7 +54,6 @@ const OUTLINE_VIEWS = [
       glyph: "≡",
       icon: ListBulletsIcon,
       iconWeight: "regular",
-      command: SYSTEM_IDS.cmdViewAsList,
     },
   }),
   provideView(OutlineSnippetView, {

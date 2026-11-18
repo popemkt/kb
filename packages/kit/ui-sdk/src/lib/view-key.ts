@@ -12,16 +12,14 @@ import type { ViewKey } from "@kb/views";
  * How a picker shows a view of a family: part of the view's contribution, not
  * of its key, because it is presentation. The picker names it by its key's
  * `label`, the name the seed gives its option. `order` is where it sits among
- * its family (lower first); `glyph` is the toolbar's text mark, `icon` the
- * menu's, and `command` the `sys.command` node that switches to it, where the
- * family has those.
+ * its family (lower first); `glyph` is the toolbar's text mark and `icon`
+ * the menu's.
  */
 export interface ViewPicker {
   readonly order: number;
   readonly glyph?: string;
   readonly icon?: Icon;
   readonly iconWeight?: IconWeight;
-  readonly command?: string;
 }
 
 /** One view of a family as a picker lists it: its key, and how it is named. */

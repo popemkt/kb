@@ -12,7 +12,6 @@ import {
 } from "@kb/collections";
 import { DEFAULT_VIEW_CONFIG } from "@kb/views";
 import { BrowserHostService, provideView, ViewPoint } from "@kb/ui-sdk";
-import { SYSTEM_IDS } from "@kb/model";
 import {
   CalendarBlankIcon,
   SidebarSimpleIcon,
@@ -56,7 +55,6 @@ const COLLECTION_VIEWS = [
       glyph: "⊞",
       icon: TableIcon,
       iconWeight: "regular",
-      command: SYSTEM_IDS.cmdViewAsTable,
     },
   }),
   provideView(CollectionBoardView, {
@@ -68,7 +66,6 @@ const COLLECTION_VIEWS = [
       glyph: "▥",
       icon: SquaresFourIcon,
       iconWeight: "regular",
-      command: SYSTEM_IDS.cmdViewAsBoard,
     },
   }),
   provideView(CollectionCardsView, {
@@ -80,7 +77,6 @@ const COLLECTION_VIEWS = [
       glyph: "▦",
       icon: SquaresFourIcon,
       iconWeight: "duotone",
-      command: SYSTEM_IDS.cmdViewAsCards,
     },
   }),
   provideView(CollectionDetailView, {
@@ -92,7 +88,6 @@ const COLLECTION_VIEWS = [
       glyph: "◧",
       icon: SidebarSimpleIcon,
       iconWeight: "regular",
-      command: SYSTEM_IDS.cmdViewAsDetail,
     },
   }),
   provideView(CollectionCalendarView, {
@@ -104,7 +99,6 @@ const COLLECTION_VIEWS = [
       glyph: "▦",
       icon: CalendarBlankIcon,
       iconWeight: "regular",
-      command: SYSTEM_IDS.cmdViewAsCalendar,
     },
   }),
 ];
