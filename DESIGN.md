@@ -87,6 +87,14 @@ its dependency edges were measured to be manifest-derived only; the workspace
 reader answers both questions without spawning `nx graph`. Nx remains the task
 runner (`nx run-many -t typecheck`, `nx affected`).
 
+A native app that kb ships beside its packages, such as the Android share
+receiver, is **not** one of them either. It lives under `apps/<platform>`
+with its platform's own build (Gradle for `apps/android`), outside the
+`packages/*/*` workspace glob, so Bun, Nx and the harness never read it.
+It imports no `@kb/*` code: it speaks to a store only over that store's
+action wire, as any program does. Its toolchain is a flake dev shell
+(`nix develop .#android`), not a host install.
+
 The harness is **not** one of these packages. It checks the workspace's shape,
 so it lives at `harness/` — root tooling, outside `packages/`, typed by
 the root `@types/bun`, typechecked by the root Nx project `kb-workspace`, and
@@ -5720,6 +5728,17 @@ rows. A canvas exports its own document (`ext.canvas.export`).
     A script runs as the page does, with the person's session, so naming
     one trusts its origin as much as kb's own code. The page sends no
     `script-src` today; one added later must allow these scripts' origins.
+- **Phone capture** (`apps/android`): a thin share receiver. A share is
+  copied into a durable queue on the phone and delivered later, raw, to the
+  paired store's `capture.submit` over `POST /api/action`. The program wire
+  is used, with the device credential from `capture.pair` as a bearer token.
+  The host maps the share to nodes and places it, and the phone does no graph
+  writes of its own. The phone asks `kb.manifest` for `captureContract` when
+  it pairs and before each run, and keeps a capture queued, with the reason,
+  while the host does not accept the version it was encoded in. What the
+  phone does with each answer (sent, failed, paused, pending) is
+  `apps/android/README.md` → How it behaves. The design is
+  `docs/research/2026-11-18-desktop-and-phone-apps.md` §3–4.
 - **Agent onboarding**: CLAUDE.md/AGENTS.md section — node model, field/tag
   conventions, 5 example invocations.
 
