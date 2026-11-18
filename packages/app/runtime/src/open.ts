@@ -7,7 +7,7 @@
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { legacyViewShapes, type DomainError, type KbNode } from "@kb/model";
-import { derivedWith } from "@kb/query";
+import { derivedWith, type TextCandidates } from "@kb/query";
 import type { KbContext } from "@kb/contracts";
 import { readLegacyDocsViews } from "@kb/workspace-fs";
 import { sessionOver } from "./own-write.ts";
@@ -57,10 +57,11 @@ const reportLegacyViews = Effect.fn("kb.open.legacyViews")(function* (
  */
 export const openKbEffect = Effect.fn("kb.open")(function* (
   root: string,
+  textCandidates?: TextCandidates,
 ): Effect.fn.Return<KbContext, DomainError, FileSystem> {
   const store = yield* selectStore(root);
   const loaded = yield* store.loadEffect;
-  const ctx = yield* sessionOver(root, store, loaded, derivedWith({}));
+  const ctx = yield* sessionOver(root, store, loaded, derivedWith({}), textCandidates);
   yield* reconcileSessionSchema(ctx);
   yield* reportLegacyViews(root, ctx.nodes);
   return ctx;

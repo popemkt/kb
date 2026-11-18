@@ -91,7 +91,7 @@ export class DatascriptIndex implements KbIndex {
   constructor(nodes: ReadonlyArray<KbNode>, options: IndexOptions) {
     this.#derived = options.derived;
     this.#clock = options.clock;
-    this.#table = new NodeTable(nodes, options.derived);
+    this.#table = new NodeTable(nodes, options.derived, options.textCandidates);
   }
 
   get generation(): number {

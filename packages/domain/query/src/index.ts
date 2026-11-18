@@ -3,6 +3,7 @@ export { DatascriptIndex } from "./index/datascript-index.ts";
 export { derivedWith, nodeMentions } from "./index/derived.ts";
 export type { DerivedRef, KeyRef, ValueRefCarrier } from "./index/derived.ts";
 export { KbIndexService } from "./index/index.ts";
+export type { SearchDocument, TextCandidates } from "./index/text-search.ts";
 export type { KbIndex, NodeIndex } from "./index/index.ts";
 export {
   answered,

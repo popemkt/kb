@@ -58,6 +58,7 @@ import { channelsOf, loadServerPlugins, type HostedExtensions } from "./plugins.
 import { SavedQuerySet, listSavedQueriesEffect, savedQueryNodes } from "./saved-queries.ts";
 import { serverRuntimeLayer } from "./screens.ts";
 import { ClientGone, SubscriptionHub, type ClientSend, type WsData } from "./session.ts";
+import { FtsTextCandidates } from "./text-candidates.ts";
 
 /** The injectable build-ensure step, shared by both entry points. */
 export type EnsureUiBuilt = (
@@ -514,7 +515,8 @@ export const startUi = Effect.fn("kb.startUi")(function* (
 
   const lifetime = Scope.makeUnsafe("parallel");
 
-  const ctx = yield* openKbEffect(opts.root);
+  const textCandidates = new FtsTextCandidates();
+  const ctx = yield* openKbEffect(opts.root, textCandidates);
   const kernel = makeKernel({ host: "server" });
   const hub = new SubscriptionHub(ctx, channelsOf(kernel), opts.embedding ?? NO_EMBEDDING);
   const hosted = yield* loadServerPlugins(
@@ -572,6 +574,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     Effect.sync(() => {
       hub.dispose();
       void server.stop(true);
+      textCandidates.close();
     }),
   );
   // Each plugin's scope closes with the server's: what it forked stops with it.

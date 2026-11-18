@@ -58,7 +58,11 @@ export class ReadMemo<V> {
         if (known === undefined) continue;
         was.set(key, known.value);
         this.#known.delete(key);
-        for (const read of known.reads) this.#readers.get(read)?.delete(key);
+        for (const read of known.reads) {
+          const readers = this.#readers.get(read);
+          readers?.delete(key);
+          if (readers?.size === 0) this.#readers.delete(read);
+        }
       }
     }
     return was;

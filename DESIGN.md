@@ -2426,7 +2426,7 @@ same lane. One path to a client, whatever a node's provenance.
   generation and forgets cached answers. Session seed reconciliation belongs
   to the runtime, shared by opening and refreshing a running session.
 - **Two halves, one owner.** An index is its node set and point reads
-  (`NodeIndex`: `getNode`, `referencesOf`, `storedNodes`, the text scan, the
+  (`NodeIndex`: `getNode`, `referencesOf`, `storedNodes`, text search, the
   generation), and the datalog engine over them (`KbIndex extends
   NodeIndex`). Every session holds the first half where its writes run
   (`KbContext<NodeIndex>`, the `KbCtx` service), so a write reads the nodes it
@@ -2697,8 +2697,18 @@ same lane. One path to a client, whatever a node's provenance.
   own `.kb/queries/`. Shell-script wrappers optional on top, zero baked-in.
 - Built-in shorthands limited to structural ones: `kb backlinks <id>`,
   `kb children <id>`, `kb search <text>` — `kb search` delegates to the
-  first-class `graph.search` action (case-insensitive substring over node
-  text), so the substring policy lives in the action, not the CLI.
+  first-class `graph.search` action. The node index matches case-insensitive
+  literal substrings of stored text or display title, sorts by node id, then
+  limits the results. Stored and virtual nodes participate.
+- **Text candidates.** The server's node index lazily builds an in-memory
+  SQLite FTS5 trigram index over the current text and titles, for either
+  store backend. It updates documents when the node or any lookup in its
+  title changes. A graph replacement discards the projection and the next
+  indexed search builds it again. Candidate matches go through the same
+  substring test as a scan. A bounded lookup hands dense matches to the
+  scan, which also handles short or unsupported needles and runtimes
+  without the tokenizer. Opening a session and reading
+  anything other than search need no text index.
 
 ## Trace and suggest
 
