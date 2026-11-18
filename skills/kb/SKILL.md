@@ -15,7 +15,7 @@ Outlines, tables, boards and canvases are views of that one graph.
 
 ## Which store you are on
 
-- **`kb mcp` serves one store**, fixed when it starts: its `--root`, else the nearest `.kb/` above its working directory. Every tool acts on that store, and no argument switches it. On the owner's Mac, the registered kb server is the kb-work store.
+- **`kb mcp` serves one store**, fixed when it starts: its `--root`, else the nearest `.kb/` above its working directory. Every tool acts on that store, and no argument switches it. The host's MCP registration says which store that is.
 - **The CLI chooses per command**, the same way: `--root <path>`, else the nearest `.kb/`.
 - **In bb**, the kb plugin's `kb_call`, `kb_screen` and `kb_manifest` act on a kb tab and take an optional store name. bb's own kb skill covers them.
 - `ext.locations.list` lists the stores this machine has opened. If you can't tell which store a write would land in, ask before writing.
@@ -38,7 +38,7 @@ An MCP tool's name is its action id with `.` as `_`: `node.add` is `node_add`. `
 
 - **Find before you add.** Search first. Reuse an existing tag or field rather than minting a near-duplicate.
 - **Refer by id.** Queries, references and filters name nodes by id (`[?t :node/id "<id>"]`), never by text, because text is a label the person may rename. Resolve a name to an id once, by search, then use the id.
-- **Values are multi-valued.** Setting a value adds one. To replace a value, put the old one in `unsetProps` and the new one in `setProps` of a single `node.update` (unset runs first). From the CLI, run `kb unset`, then `kb set`.
+- **Values are multi-valued.** Setting a value adds one. To replace a value, put the old one in `unsetProps` and the new one in `setProps` of a single `node.update` (unset runs first), so the change is one transaction. From a shell, send that same `node.update` through `kb action-invoke`. `kb unset` followed by `kb set` is two transactions.
 - **Related writes go in one transaction.** Use `node.batch`, or `node.addTree` for an outline. They then land together and undo together.
 - **`sys.*` nodes belong to kb and its families.** You may change a `sys.*` node's text, add your own children or template fields, and set its settings. Anything else is refused with a reason. Report the reason; don't retry with `force`, which is the owner's.
 - **Approval is the person's.** An action that `kb.manifest` marks `ask` is not yours to run: for example `migration.apply`, `migration.rollback`, `store.restore`, trusting code, or running a script. Tell the person what to approve, and where.
