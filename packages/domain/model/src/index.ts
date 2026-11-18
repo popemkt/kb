@@ -200,6 +200,7 @@ export {
 
 export { seededCommand, seededField, seededTag } from "./seed-builders.ts";
 
+export { retireSeeded } from "./retire-seed.ts";
 export type { SeedRetirement } from "./seed-retirement.ts";
 
 export {

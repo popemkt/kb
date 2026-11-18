@@ -37,11 +37,11 @@ import {
   seededField,
   seededTag,
   seededCommand,
+  retireSeeded,
   type FieldOptions,
 } from "@kb/model";
 
 import type { FoldedSeed } from "./seed-fold.ts";
-import { retireSeeded } from "./retire-seed.ts";
 
 /** What a ref field whose values never close a cycle declares: acyclic. */
 const ACYCLIC: KbNode["props"] = { [SYSTEM_IDS.acyclicField]: [{ t: "bool", v: true }] };

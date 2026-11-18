@@ -1,5 +1,6 @@
 /** Apply a declared retirement table without rewriting user edits. */
-import type { KbNode, NodeId, PropValue, SeedRetirement } from "@kb/model";
+import type { KbNode, NodeId, PropValue } from "./model.ts";
+import type { SeedRetirement } from "./seed-retirement.ts";
 
 /** What each retired id becomes: its replacement, or null where nothing replaced it. */
 type Replacements = ReadonlyMap<NodeId, NodeId | null>;

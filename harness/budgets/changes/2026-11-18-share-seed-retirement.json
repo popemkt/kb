@@ -1,0 +1,4 @@
+{
+  "reason": "The store seed and model migrations share the same retirement operation. Moving it into the model changes the emitted CLI closure by 30 bytes.",
+  "raise": { "cli-closure": { "bytes": 30 }, "surface": { "@kb/model": 1 } }
+}
