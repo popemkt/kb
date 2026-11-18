@@ -64,7 +64,9 @@ import { ACTION_INVOKE_WIRE } from "../src/command.ts";
 /** What a listing must say of each action; the mode is decoded by the contracts' own schema. */
 const ListedActionSchema = ManifestEntrySchema.pick({ id: true, mode: true });
 const ManifestOutputSchema = z.object({
-  actions: z.array(DecidedEntrySchema.pick({ id: true, mode: true, decision: true })),
+  actions: z.array(
+    DecidedEntrySchema.pick({ id: true, mode: true, decision: true, aliasOf: true }),
+  ),
 });
 
 /** The CLI's listing: what `kb.manifest` lists to it, less what its wire could never call. */
@@ -74,7 +76,7 @@ function manifestOf(
 ): ListedAction[] {
   if (receipt.status !== "succeeded") throw new Error(`kb.manifest failed: ${receipt.message}`);
   return ManifestOutputSchema.parse(receipt.output)
-    .actions.filter((entry) => listedOn(wire, entry.decision))
+    .actions.filter((entry) => listedOn(wire, entry))
     .map(({ id, mode }) => ({ id, mode }));
 }
 
