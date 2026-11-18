@@ -41,7 +41,8 @@ type TxOp =
   | readonly [":db/retractEntity", number];
 
 /** An answer the index remembers: its rows, until when they hold, and what the run that made them read. */
-interface Kept extends DatalogAnswer {
+interface Kept {
+  readonly answer: DatalogAnswer;
   readonly reads: ReadSet;
 }
 
@@ -79,6 +80,7 @@ export class DatascriptIndex implements KbIndex {
   readonly #clock: ClockSampler | undefined;
   /** Answers by query text, least recently asked first; each held until a transaction touches its read set. */
   readonly #answers = new Map<string, Kept>();
+  readonly #retained = new Map<string, { readers: number; answer: Kept | undefined }>();
   #runs = 0;
 
   /**
@@ -128,7 +130,7 @@ export class DatascriptIndex implements KbIndex {
   /** The db no longer matches the table: it is built again when next used, and no answer holds. */
   #invalidate(): void {
     this.#stale = true;
-    this.#answers.clear();
+    this.#forgetAnswers(() => true);
   }
 
   /** Every datom from the table's nodes, at once: the build `d.db_with` cannot grow into. */
@@ -147,8 +149,6 @@ export class DatascriptIndex implements KbIndex {
     this.#db = d.init_db(datoms, schemaFor(this.#attrs, this.#derived));
     this.#stale = false;
     this.#rebuilds += 1;
-    // A rebuild says nothing about which datoms moved: every answer is asked again.
-    this.#answers.clear();
   }
 
   applyTx(tx: StoreTx): void {
@@ -199,10 +199,36 @@ export class DatascriptIndex implements KbIndex {
     this.#db = d.db_with(this.#db, [...retracts, ...adds]);
     // A run revives a ref attr's values as nodes wherever they sit
     // (`findWithRefAttrs`), so a new one can change any answer that reads it.
-    if (revived) this.#answers.clear();
+    this.#forgetAnswers((kept) => revived || touches(kept.reads, changed));
+  }
+
+  #forgetAnswers(forget: (answer: Kept) => boolean): void {
     for (const [edn, kept] of this.#answers) {
-      if (touches(kept.reads, changed)) this.#answers.delete(edn);
+      if (forget(kept)) this.#answers.delete(edn);
     }
+    for (const entry of this.#retained.values()) {
+      if (entry.answer !== undefined && forget(entry.answer)) entry.answer = undefined;
+    }
+  }
+
+  retainDatalog(edn: string): () => void {
+    let entry = this.#retained.get(edn);
+    if (entry === undefined) {
+      entry = { readers: 0, answer: this.#answers.get(edn) };
+      this.#answers.delete(edn);
+      this.#retained.set(edn, entry);
+    }
+    entry.readers += 1;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      entry.readers -= 1;
+      if (entry.readers === 0) {
+        entry.answer = undefined;
+        this.#retained.delete(edn);
+      }
+    };
   }
 
   /**
@@ -240,17 +266,24 @@ export class DatascriptIndex implements KbIndex {
    */
   answerDatalog(edn: string, ...inputs: ReadonlyArray<unknown>): DatalogAnswer {
     if (inputs.length > 0) return this.#answer(parseEdn(edn), inputs);
-    const kept = this.#answers.get(edn);
-    if (kept !== undefined && this.#holds(kept)) {
-      this.#answers.delete(edn);
-      this.#answers.set(edn, kept);
-      return { rows: kept.rows, holdsUntilMs: kept.holdsUntilMs };
+    const retained = this.#retained.get(edn);
+    const kept = retained === undefined ? this.#answers.get(edn) : retained.answer;
+    if (kept !== undefined && this.#holds(kept.answer)) {
+      if (retained === undefined) {
+        this.#answers.delete(edn);
+        this.#answers.set(edn, kept);
+      }
+      return kept.answer;
     }
     const ir = parseEdn(edn);
     const answer = this.#answer(ir, inputs);
+    if (retained !== undefined) {
+      retained.answer = { answer, reads: readSetOf(ir, this.#datascriptDb()) };
+      return answer;
+    }
     this.#answers.delete(edn);
     if (answer.rows.length <= KEPT_ROWS) {
-      this.#answers.set(edn, { ...answer, reads: readSetOf(ir, this.#datascriptDb()) });
+      this.#answers.set(edn, { answer, reads: readSetOf(ir, this.#datascriptDb()) });
       for (const oldest of this.#answers.keys()) {
         if (this.#answers.size <= KEPT_ANSWERS) break;
         this.#answers.delete(oldest);
@@ -260,7 +293,7 @@ export class DatascriptIndex implements KbIndex {
   }
 
   /** Whether a remembered answer still holds now: one that read the clock holds until its time. */
-  #holds(kept: Kept): boolean {
+  #holds(kept: DatalogAnswer): boolean {
     if (kept.holdsUntilMs === null) return true;
     return this.#clock !== undefined && this.#clock().nowMs < kept.holdsUntilMs;
   }

@@ -2536,6 +2536,9 @@ same lane. One path to a client, whatever a node's provenance.
     any transaction forgets it. A query with inputs is never remembered.
   - *Bounds.* `KEPT_ANSWERS` (256) answers, least recently asked forgotten
     first, none over `KEPT_ROWS` rows; a read set is the size of its query.
+    A live reader can retain its answer for the duration of the
+    subscription, outside these eviction bounds, with the same read-set
+    invalidation. A retained answer keeps its identity until it runs again.
     Rows are shared between askers and never changed.
   - *Budget and clock.* A run's budget is the host's (`answerOf`,
     `RemoteIndex`); a remembered answer costs no run, and a run that was

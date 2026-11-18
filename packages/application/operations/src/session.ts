@@ -81,6 +81,7 @@ export const reloadEffect = Effect.fn("kb.reload")(function* (
   if (fingerprint !== null && fingerprint === seen.get(ctx)) return null;
   const loaded = yield* store.loadEffect;
   const replaced = ctx.index.storedNodes();
+  // GAP [[01M6950WQN8VDWJMSH8EZ8X3DR]] replay a foreign commit through the incremental index
   ctx.index.rebuild(loaded);
   if (fingerprint !== null) seen.set(ctx, fingerprint);
   return replaced;

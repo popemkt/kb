@@ -1675,6 +1675,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P2 of docs/research/2026-10-31-plugin-sources.md, after the source reader is shared by the two sinks.
 - **node** — `01M68NFBY0FEK3Q2CW2XZ7E6DE`
 
+### GAP: Saved-query file changes invalidate every live answer
+
+- **expected** — A saved-query file change invalidates live answers that read its changed virtual datoms.
+- **current** — SavedQuerySet applies a new virtual set with NodeIndex.withVirtual, which rebuilds the query index and clears every retained answer.
+- **impact** — Adding or editing a saved-query file reruns subscriptions whose data did not change.
+- **closes** — Apply the virtual set delta through the same incremental datom path while preserving stored-node shadowing.
+- **node** — `01M7Q2GKYMMSGJGB5D4X120E3C`
+
 ### GAP: scaling a turned item across its own axes stretches each side instead of shearing
 
 - **expected** — a scale across a turned item's axes shears it, as Blender does
@@ -1747,14 +1755,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The builder resolves a label to a ref atom when it names a node.
 - **rule** — Everything references by id
 - **node** — `01M7342XMGCJ1J68JHT38EZ7XE`
-
-### GAP: subscription re-evaluation is O(clients x subs x full query) per tx
-
-- **expected** — A logged transaction re-evaluates only the subscriptions it can affect, and evaluates each distinct query once for all the clients holding it.
-- **current** — SubscriptionHub.publish keys evaluation by query string, so each distinct query runs once per tx however many clients hold it. It still runs every subscribed query on every tx, including one the transaction cannot have affected.
-- **impact** — Cost now grows with the number of distinct queries on screen rather than with clients times subscriptions, but it is still every query on every edit: a board view with a dozen query nodes re-runs all twelve per keystroke, most of them answering the same rows.
-- **closes** — Skip a subscription the transaction cannot affect. @kb/query's IR names what a compiled query reads (PatternClause.attr, ReachClause.edge, children), but a StoreTx does not name what a write touched: it carries whole nodes as they are after the write, so a removed prop and every attribute of a deleted node are absent from it. Gating on that read set would silently drop those changes. Needs the tx log to carry before-images (or the store to report a per-tx attribute set), and a fallback that always re-runs an IrRaw query, which exposes no read set at all.
-- **node** — `01M1QZNM17MTGGPE517NVZYJT0`
 
 ### GAP: surfaces outside the audit's list still name a node by its stored text
 
@@ -3106,6 +3106,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — One window left, and it needs a second process writing the same store: an external write in the same mtime tick with an identical byte count is invisible, so the session works from an index that is quietly one write behind until the next write it does see.
 - **closes** — JsonlStore reports a content fingerprint rather than a stat — p1 Phase 3's sourceHash + sourceBytes + nodeCount — which means hashing the file on a path whose whole purpose is to answer 'did it change?' without reading it. Worth doing only with a cheaper content signal, or once the cost is measured against the store benchmark.
 - **node** — `01M1PK5NYA7ZG3XC0H0YRYRVZE`
+
+### GAP: subscription re-evaluation is O(clients x subs x full query) per tx
+
+- **expected** — A logged transaction re-evaluates only the subscriptions it can affect, and evaluates each distinct query once for all the clients holding it.
+- **current** — SubscriptionHub.publish keys evaluation by query string, so each distinct query runs once per tx however many clients hold it. It still runs every subscribed query on every tx, including one the transaction cannot have affected.
+- **impact** — Cost now grows with the number of distinct queries on screen rather than with clients times subscriptions, but it is still every query on every edit: a board view with a dozen query nodes re-runs all twelve per keystroke, most of them answering the same rows.
+- **closes** — Skip a subscription the transaction cannot affect. @kb/query's IR names what a compiled query reads (PatternClause.attr, ReachClause.edge, children), but a StoreTx does not name what a write touched: it carries whole nodes as they are after the write, so a removed prop and every attribute of a deleted node are absent from it. Gating on that read set would silently drop those changes. Needs the tx log to carry before-images (or the store to report a per-tx attribute set), and a fallback that always re-runs an IrRaw query, which exposes no read set at all.
+- **node** — `01M1QZNM17MTGGPE517NVZYJT0`
 
 ### GAP: suppression grammar still includes legacy eslint directives
 

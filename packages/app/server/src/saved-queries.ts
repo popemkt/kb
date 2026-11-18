@@ -109,6 +109,7 @@ export class SavedQuerySet {
     const before = shown();
     const previous = this.current;
     this.current = [...nodes];
+    // GAP [[01M7Q2GKYMMSGJGB5D4X120E3C]] a virtual delta rebuilds the query index
     this.ctx.index.withVirtual(this.current);
     const ops = diffTx(before, shown());
     if (ops.upserts.length === 0 && ops.deletes.length === 0) return;
