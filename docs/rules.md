@@ -972,14 +972,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Drain the cohesion ledger through module restructuring; reconsider the predicate only when an approved requirement needs the missed cases.
 - **node** — `01M787F34W9DSYPD544DRS5S4H`
 
-### GAP: core's approval policies view is a table, a view of the optional collections family
-
-- **expected** — a core-seeded view names only a core view type, or opens through the store's default view type
-- **current** — core's seed node view.approval.policies names outline.table, now the collections family's
-- **impact** — with collections switched off the approval policies frame shows 'cannot be shown here' instead of the policies
-- **closes** — the policies view opens in a core view type (the list, or the default view type), or core's policies view moves to a family that may depend on collections
-- **node** — `01M536CH4P48SXV9B0HH8B4XTG`
-
 ### GAP: core's screen protocol names the canvas
 
 - **expected** — core's screen protocol carries a pane's view state opaquely and the canvas family contributes its own part
@@ -2668,6 +2660,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — core names the outline's and the collections family's views; with collections off its view-as commands are still seeded
 - **closes** — each family's declaration seeds its view-as commands, and core's seed drops them
 - **node** — `01M536CGS8JJ7XMG3F738WSNYK`
+
+### GAP: core's approval policies view is a table, a view of the optional collections family
+
+- **expected** — a core-seeded view names only a core view type, or opens through the store's default view type
+- **current** — core's seed node view.approval.policies names outline.table, now the collections family's
+- **impact** — with collections switched off the approval policies frame shows 'cannot be shown here' instead of the policies
+- **closes** — the policies view opens in a core view type (the list, or the default view type), or core's policies view moves to a family that may depend on collections
+- **node** — `01M536CH4P48SXV9B0HH8B4XTG`
 
 ### GAP: core's declaration imports the graph's view keys from @kb/graph
 

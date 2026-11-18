@@ -1,12 +1,12 @@
 /**
  * The governance family's seed (DESIGN.md → Governance): the
  * `#approval-policy` tag and its fields, their option nodes, the query node
- * that lists every policy, its table and its pin. It seeds no policy while
+ * that lists every policy and its pin. It seeds no policy while
  * policies are deferred.
  * A store composed without the family is seeded with none of it, so it
  * holds no policy node.
  */
-import { ACTORS, SYSTEM_IDS, seededField, seededTag, viewOptionId, type KbNode } from "@kb/model";
+import { ACTORS, SYSTEM_IDS, seededField, seededTag, type KbNode } from "@kb/model";
 import { APPROVAL_DECISIONS } from "@kb/contracts";
 import {
   ACTOR_OPTION_IDS,
@@ -70,44 +70,21 @@ function vocabularyNodes(at: string): KbNode[] {
 
 export function governanceSeedNodes(at: string): readonly KbNode[] {
   const mk = plainNode(at);
-  // No default policy is seeded while policies are deferred: an empty table
-  // decides nothing. GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]
-  /*
-   * Policies are managed in a saved table of every `#approval-policy` node,
-   * pinned in the sidebar; there is no settings page. The table is an
-   * ordinary frame view node over the query node's results, its columns the
-   * three fields, so its sort, widths and filters are edited like any view's.
-   * The table is the collections family's, which may be switched off; the
-   * list, core's other frame view, reads none of the columns, widths or page
-   * size the policies are shown by. GAP [[01M536CH4P48SXV9B0HH8B4XTG]]
-   */
-  const approvalPoliciesView = mk(GOVERNANCE_IDS.policiesView, "", {
-    [SYSTEM_IDS.viewField]: [{ t: "ref", v: viewOptionId("outline.table") }],
-    [SYSTEM_IDS.viewDisplayField]: [
-      { t: "ref", v: GOVERNANCE_IDS.matchField },
-      { t: "ref", v: GOVERNANCE_IDS.actorField },
-      { t: "ref", v: GOVERNANCE_IDS.decisionField },
-    ],
+  // GAP [[01M5E2DAVRH5CWKM27BVDYW19T]] no default policy is seeded while policy guards are deferred.
+  const approvalPolicies = mk(GOVERNANCE_IDS.policies, "Approval policies", {
+    [SYSTEM_IDS.queryField]: [{ t: "str", v: APPROVAL_POLICIES_QUERY }],
   });
-  const approvalPolicies: KbNode = {
-    ...mk(GOVERNANCE_IDS.policies, "Approval policies", {
-      [SYSTEM_IDS.queryField]: [{ t: "str", v: APPROVAL_POLICIES_QUERY }],
-      [SYSTEM_IDS.viewsField]: [{ t: "ref", v: GOVERNANCE_IDS.policiesView }],
-    }),
-  };
   // GAP [[01M413SPC35K20DFC4TRP4DJYH]]
   const approvalPoliciesPin = mk(GOVERNANCE_IDS.policiesPin, "", {
     [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: GOVERNANCE_IDS.policies }],
   });
 
-  return [...vocabularyNodes(at), approvalPolicies, approvalPoliciesView, approvalPoliciesPin];
+  return [...vocabularyNodes(at), approvalPolicies, approvalPoliciesPin];
 }
 
 /**
- * Where the family's nodes are filed among core's lists: its table among
- * the Views, its pin among the Pinned (`SeedSource.files`).
+ * The family's pin is filed in core's Pinned list (`SeedSource.files`).
  */
 export const GOVERNANCE_FILES = {
-  [SYSTEM_IDS.viewsList]: [GOVERNANCE_IDS.policiesView],
   [SYSTEM_IDS.pinnedRoot]: [GOVERNANCE_IDS.policiesPin],
 } as const;
