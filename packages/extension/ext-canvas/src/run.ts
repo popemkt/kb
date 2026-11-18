@@ -22,7 +22,10 @@
 import { Effect } from "effect";
 import { z } from "zod";
 import {
+  AgentCompleteAction,
   CoreInvoke,
+  ScriptListAction,
+  ScriptRunAction,
   type GraphWrites,
   KbCtx,
   type ActionReceipt,
@@ -43,8 +46,6 @@ import { runFieldsEffect } from "./run-fields.ts";
 import { CanvasIdSchema } from "./schemas.ts";
 import { CanvasTxError, canvasStep, readCanvasEffect, type CanvasFail } from "./write.ts";
 
-/** The model performer: one tool-less turn of the agent family's selected provider. */
-const MODEL_ACTION = "ext.agent.complete";
 /** What the model is told it is, before the instruction it performs. */
 const CANVAS_PERFORMER =
   "You are one component of a canvas that runs as a computer. Perform the instruction below " +
@@ -58,8 +59,6 @@ const instructionTurn = (instruction: string, inputs: readonly string[]) => ({
   system: `${CANVAS_PERFORMER}\n\nInstruction: ${instruction}`,
   message: inputs.join(INPUT_SEPARATOR) || "(the inputs are empty)",
 });
-const SCRIPT_LIST = "ext.code.script.list";
-const SCRIPT_RUN = "ext.code.script.run";
 
 const runInput = z.object({
   canvasId: CanvasIdSchema,
@@ -151,7 +150,7 @@ function performer(fields: CanvasRunFields) {
     const { nodeId } = step.component;
     const node = ctx.index.getNode(nodeId);
     if (node === undefined) return fail(`no node ${nodeId}`);
-    const listed = yield* invoke({ id: SCRIPT_LIST, input: { subjects: [nodeId] } }, "read");
+    const listed = yield* invoke(ScriptListAction.request({ subjects: [nodeId] }), "read");
     const scripts =
       listed.status === "succeeded"
         ? (scriptsSchema.safeParse(listed.output).data?.scripts ?? [])
@@ -166,7 +165,7 @@ function performer(fields: CanvasRunFields) {
       if (unwritten !== null) return fail(`its inputs were not written: ${unwritten}`);
       for (const script of scripts) {
         const ran = yield* invoke(
-          { id: SCRIPT_RUN, input: { script: script.id, subject: nodeId } },
+          ScriptRunAction.request({ script: script.id, subject: nodeId }),
           "write",
         );
         const failure = failureOf(ran);
@@ -180,13 +179,12 @@ function performer(fields: CanvasRunFields) {
       made = { ok: true, output: node.text, by: "constant" };
     } else {
       const asked = yield* invoke(
-        {
-          id: MODEL_ACTION,
-          input: instructionTurn(
+        AgentCompleteAction.request(
+          instructionTurn(
             node.text,
             step.inputs.map((i) => i.text),
           ),
-        },
+        ),
         "write",
       );
       const failure = failureOf(asked);
@@ -196,7 +194,7 @@ function performer(fields: CanvasRunFields) {
           ? fail(`no model performed it: ${failure}`)
           : answer.success
             ? { ok: true, output: answer.data.text, by: "model" }
-            : fail(`${MODEL_ACTION} answered no text`);
+            : fail(`${AgentCompleteAction.id} answered no text`);
     }
     if (!made.ok) return made;
     const unwritten = yield* writeField(nodeId, fields.output, [made.output]);

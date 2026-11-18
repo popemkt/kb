@@ -1,5 +1,10 @@
 import { Schema, type Effect, type Stream } from "effect";
-import type { ActionReceipt, ManifestEntry, SecretSource } from "@kb/contracts";
+import {
+  AGENT_IMAGE_TYPES,
+  type ActionReceipt,
+  type ManifestEntry,
+  type SecretSource,
+} from "@kb/contracts";
 import type { AdapterId, ProviderConfig } from "./provider.ts";
 
 /**
@@ -11,11 +16,6 @@ import type { AdapterId, ProviderConfig } from "./provider.ts";
  * `DESIGN.md` → Agent packages.
  */
 
-/**
- * The media types a picture a message carries may have: the ones the
- * models kb reaches take (Claude's and Chat Completions' alike).
- */
-export const AGENT_IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"] as const;
 export type AgentImageType = (typeof AGENT_IMAGE_TYPES)[number];
 
 /** Whether `mediaType` is one a message's picture may have. */

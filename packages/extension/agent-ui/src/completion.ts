@@ -8,14 +8,8 @@
  * A half that wants a model's text injects the service, so it waits while
  * the agent is off and names nothing of this family.
  */
-import {
-  AGENT_COMPLETE_ACTION,
-  AGENT_SIGHT_ACTION,
-  COMPLETION_LIMITS,
-  CompleteOutputSchema,
-  SightOutputSchema,
-} from "@kb/agent";
-import { failed, onWire, PAGE_WIRE } from "@kb/contracts";
+import { AGENT_COMPLETE_ACTION, AGENT_SIGHT_ACTION, SightOutputSchema } from "@kb/agent";
+import { COMPLETION_LIMITS, CompleteOutputSchema, failed, onWire, PAGE_WIRE } from "@kb/contracts";
 import type { CompletionReply, CompletionRequest, ModelCompletion } from "@kb/ui-sdk";
 import type { AgentPorts } from "./chat";
 

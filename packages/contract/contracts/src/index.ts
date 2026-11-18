@@ -1,3 +1,15 @@
+export {
+  AGENT_IMAGE_TYPES,
+  AgentCompleteAction,
+  COMPLETION_LIMITS,
+  CompleteOutputSchema,
+  EdgeKindSchema,
+  GraphEdgesAction,
+  ScriptListAction,
+  ScriptRunAction,
+  edgeKinds,
+  includeSystem,
+} from "./action-keys.ts";
 export { installMarketplace, isKbOrigin, replacesWithoutApproval } from "./extension-review.ts";
 export type { ExtensionOrigin, ExtensionReach } from "./extension-review.ts";
 export {

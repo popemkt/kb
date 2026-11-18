@@ -1,16 +1,20 @@
 import { Effect, Encoding, Stream } from "effect";
 import { z } from "zod";
-import { Assets, CoreInvoke, extensionActionId, failed, type ExtensionAction } from "@kb/contracts";
-import { assetMediaType, domainError, isAssetPath } from "@kb/model";
-import { COMPLETE_ID, SIGHT_ID, agentExtension } from "./extension.ts";
-import { chooseProvider, type Backends } from "./selection.ts";
 import {
   AGENT_IMAGE_TYPES,
-  isAgentImageType,
-  type AgentImage,
-  type AgentRuntime,
-  type AgentTurn,
-} from "./runtime.ts";
+  AgentCompleteAction,
+  COMPLETION_LIMITS,
+  type CompleteOutputSchema,
+  Assets,
+  CoreInvoke,
+  extensionActionId,
+  failed,
+  type ExtensionAction,
+} from "@kb/contracts";
+import { assetMediaType, domainError } from "@kb/model";
+import { SIGHT_ID, agentExtension } from "./extension.ts";
+import { chooseProvider, type Backends } from "./selection.ts";
+import { isAgentImageType, type AgentImage, type AgentRuntime, type AgentTurn } from "./runtime.ts";
 
 /**
  * `ext.agent.complete` (`DESIGN.md` → Agent packages → completion): kb's
@@ -20,7 +24,7 @@ import {
  * and no screen: the caller's system prompt and one message in, with the
  * pictures it names from the root's assets, the reply's text out, and how
  * many pictures the model was shown, none when its runtime does not see.
- * A family that needs a model calls it (a canvas run's instruction by id; a
+ * A family that needs a model calls it (a canvas run's instruction through its contribution key; a
  * page half, such as the gallery's prompt enhancer, through the
  * `ModelCompletionService` the agent's page half provides over it), so no
  * family holds a model client of its own.
@@ -31,24 +35,8 @@ import {
  * through an action it calls (`grantRefusal`, `callWithin`).
  */
 
-/** The bounds of one completion: what it sends, what it keeps of the reply, how long it waits. */
-export const COMPLETION_LIMITS = {
-  /** The longest system prompt, in characters. */
-  system: 20_000,
-  /** The longest message, in characters. */
-  message: 100_000,
-  /** The most pictures a message carries. */
-  images: 4,
-  /** The largest picture, in bytes. */
-  imageBytes: 5 * 1024 * 1024,
-  /** The most of the reply kept, in characters; the turn stops there. */
-  reply: 32_000,
-  /** How long a completion waits for its whole reply. */
-  timeoutMs: 180_000,
-} as const;
-
 /** The id the completion is invoked by: the one spelling of it, for the family's own halves. */
-export const AGENT_COMPLETE_ACTION = extensionActionId(agentExtension.name, COMPLETE_ID);
+export const AGENT_COMPLETE_ACTION = AgentCompleteAction.id;
 
 /** The id the sight is invoked by. */
 export const AGENT_SIGHT_ACTION = extensionActionId(agentExtension.name, SIGHT_ID);
@@ -62,50 +50,7 @@ export const SightOutputSchema = z.object({
 /** The system prompt of a completion whose caller names none. */
 const COMPLETION_SYSTEM = "Answer the message. Reply with the answer alone, no preamble.";
 
-const completeInput = z.object({
-  system: z
-    .string()
-    .min(1)
-    .max(COMPLETION_LIMITS.system)
-    .optional()
-    .describe(
-      "what the model is told it is and does (the system prompt); a plain answerer when absent",
-    ),
-  message: z
-    .string()
-    .min(1)
-    .max(COMPLETION_LIMITS.message)
-    .describe("the one message the model answers"),
-  images: z
-    .array(
-      z
-        .string()
-        .refine(isAssetPath, "an asset path, assets/<name>.<ext>")
-        .describe("an asset path, as asset.upload answers it"),
-    )
-    .max(COMPLETION_LIMITS.images)
-    .optional()
-    .describe(
-      `pictures shown with the message: at most ${COMPLETION_LIMITS.images} of kb's assets ` +
-        `(${AGENT_IMAGE_TYPES.join(", ")}), each at most ${COMPLETION_LIMITS.imageBytes / 1024 / 1024} MiB`,
-    ),
-});
-
-/** What a completion answers. */
-export const CompleteOutputSchema = z.object({
-  text: z.string().describe("the reply"),
-  truncated: z
-    .boolean()
-    .describe(`whether the reply was cut at ${COMPLETION_LIMITS.reply} characters`),
-  provider: z.string().describe("who answered: the provider's name, or the default runtime's"),
-  saw: z
-    .number()
-    .int()
-    .min(0)
-    .describe("how many of the pictures the model was shown: 0 when its runtime does not see"),
-});
-
-type CompleteInput = z.infer<typeof completeInput>;
+type CompleteInput = z.infer<typeof AgentCompleteAction.definition.inputSchema>;
 type CompleteOutput = z.infer<typeof CompleteOutputSchema>;
 
 /**
@@ -199,7 +144,7 @@ function completeEffect(backends: Backends) {
 /** The action over the host's `backends`. */
 function completeAction(backends: Backends): ExtensionAction {
   return {
-    id: COMPLETE_ID,
+    ...AgentCompleteAction.definition,
     title: "Complete with the agent's model",
     description:
       "Ask the model the person chose for the agent (its selected #agent-provider, or the default) " +
@@ -210,8 +155,6 @@ function completeAction(backends: Backends): ExtensionAction {
       "text alone.",
     // It changes nothing in kb; it reaches the provider's endpoint or starts its process.
     mode: { kind: "read", outsideRoot: true },
-    inputSchema: completeInput,
-    outputSchema: CompleteOutputSchema,
     effect: completeEffect(backends),
   };
 }

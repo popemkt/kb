@@ -10,6 +10,7 @@
  * subject's slots. The extraction itself is the kit's (`@kb/ui-sdk`'s
  * `graph-lens.ts`, over this package's edge projection).
  */
+import { EdgeKindSchema } from "@kb/contracts";
 import { Schema, SchemaGetter } from "effect";
 import {
   declaredIdOf,
@@ -218,15 +219,6 @@ const edgeKindValues = (props: NodeProps): unknown[] | undefined =>
 const edgeKindsWrite = (kinds: readonly EdgeKind[]): SlotWrite => ({
   [GRAPH_IDS.lensEdgeKindsField]: (kinds.length > 0 ? kinds : [NO_EDGE_KIND]).map(sourceValue),
 });
-
-export const EdgeKindSchema = Schema.Union([
-  Schema.Literals(["mention", "child", "ref-prop"]),
-  Schema.String.pipe(
-    Schema.refine((key): key is `prop:${string}` => key.startsWith("prop:"), {
-      expected: 'a "prop:<field id>" key',
-    }),
-  ),
-]);
 
 /** A count of nodes: positive, and whole however it was stored. */
 const NodeCountSchema = Schema.Finite.check(Schema.isGreaterThan(0)).pipe(

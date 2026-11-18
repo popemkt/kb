@@ -21,7 +21,7 @@ import {
   familyTags,
 } from "@kb/contracts";
 import { definePlugin, type Plugin } from "@kb/plugin";
-import { GRAPH_ACTIONS } from "./actions.ts";
+import { graphActions } from "./actions.ts";
 import { GRAPH_IDS } from "./ids.ts";
 import { graphSeedNodes } from "./seed.ts";
 import {
@@ -74,6 +74,8 @@ export const graphExtension = defineExtension({
     },
   ],
 });
+
+export const GRAPH_ACTIONS = graphActions(graphExtension.name);
 
 /** The graph family's shared plugin: its declaration's views, on either host. */
 export function graphPlugin(): Plugin {

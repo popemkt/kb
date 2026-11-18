@@ -14,6 +14,7 @@ import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import {
   CoreInvoke,
+  ScriptListAction,
   CurrentCall,
   KbCtx,
   Screens,
@@ -163,9 +164,6 @@ const describeOutput = z.object({
 
 const scriptsSchema = z.object({ scripts: z.array(z.record(z.string(), z.unknown())) });
 
-/** The action that lists the scripts nodes name, which the family that keeps scripts provides. */
-const SCRIPT_LIST = "ext.code.script.list";
-
 /**
  * The scripts that run on `canvasId` — its board's, then its own — as the
  * family that keeps scripts lists them, through the host's `CoreInvoke` as
@@ -179,7 +177,7 @@ const canvasScriptsEffect = Effect.fn("ext.canvas.scripts")(function* (
   const invoke = yield* CoreInvoke;
   if (invoke === null) return null;
   const subjects = board === canvasId ? [canvasId] : [board, canvasId];
-  const receipt = yield* invoke({ id: SCRIPT_LIST, input: { subjects } }, "read");
+  const receipt = yield* invoke(ScriptListAction.request({ subjects }), "read");
   if (receipt.status === "failed") return null;
   const listed = scriptsSchema.safeParse(receipt.output);
   return listed.success ? listed.data.scripts : null;

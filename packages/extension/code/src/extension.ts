@@ -22,8 +22,8 @@ import {
   familyTags,
 } from "@kb/contracts";
 import { definePlugin, type Plugin } from "@kb/plugin";
-import { SCRIPT_LIST } from "./list.ts";
-import { SCRIPT_RUN } from "./run.ts";
+import { scriptListAction } from "./list.ts";
+import { scriptRunAction } from "./run.ts";
 import { codeSeedNodes } from "./seed.ts";
 import { codeText } from "./text.ts";
 import { CodeView } from "./view.ts";
@@ -66,6 +66,8 @@ const scriptRunGuard: Omit<ActionGuard, "match"> = {
  * where code runs.
  */
 export function codePlugin(): Plugin {
+  const list = scriptListAction(codeExtension.name);
+  const run = scriptRunAction(codeExtension.name);
   return definePlugin({
     name: codeExtension.name,
     tags: familyTags(codeExtension),
@@ -75,11 +77,11 @@ export function codePlugin(): Plugin {
         [
           // Its actions, `ext.code.*`: listing scripts and running one once.
           Effect.forEach(
-            [SCRIPT_LIST, SCRIPT_RUN],
+            [list, run],
             (action) => ctx.contribute(ActionPoint, provideAction(action)),
             { discard: true },
           ),
-          guardAction(ctx, `${ctx.namespace}.${SCRIPT_RUN.id}`, scriptRunGuard, "script-run"),
+          guardAction(ctx, `${ctx.namespace}.${run.id}`, scriptRunGuard, "script-run"),
           ctx.plugin(declarationPlugin(codeExtension)),
         ],
         { discard: true },

@@ -13,7 +13,13 @@
 import { Effect, Predicate } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
-import { CoreInvoke, type ExtensionAction, type GraphWrites, type KbCtx } from "@kb/contracts";
+import {
+  CoreInvoke,
+  GraphEdgesAction,
+  type ExtensionAction,
+  type GraphWrites,
+  type KbCtx,
+} from "@kb/contracts";
 import {
   DIAGRAM_FLOWS,
   DIAGRAM_LIMITS,
@@ -27,9 +33,6 @@ import {
 import { freshId } from "@kb/model";
 import { datalogRows, type KbIndexService, type QueryEngineService } from "@kb/query";
 import { CanvasTxError, canvasStep, createCanvasEffect, type CanvasFail } from "./write.ts";
-
-/** The action that answers the edges among a set of nodes, which the graph family provides. */
-const GRAPH_EDGES = "ext.graph.edges";
 
 const diagramInput = z
   .object({
@@ -123,14 +126,11 @@ const querySpecEffect = Effect.fn("ext.canvas.diagram.query")(function* (
   const invoke = yield* CoreInvoke;
   if (invoke === null) return yield* Effect.fail(new CanvasTxError("this host reads no graph"));
   const receipt = yield* invoke(
-    {
-      id: GRAPH_EDGES,
-      input: {
-        ids,
-        ...(input.kinds === undefined ? {} : { kinds: input.kinds }),
-        ...(input.includeSystem === undefined ? {} : { includeSystem: input.includeSystem }),
-      },
-    },
+    GraphEdgesAction.request({
+      ids,
+      ...(input.kinds === undefined ? {} : { kinds: input.kinds }),
+      ...(input.includeSystem === undefined ? {} : { includeSystem: input.includeSystem }),
+    }),
     "read",
   );
   if (receipt.status === "failed") return yield* Effect.fail(new CanvasTxError(receipt.message));

@@ -74,7 +74,6 @@ export {
   DEFAULT_SIZE_BY,
   DEFAULT_SPREAD,
   DEFAULT_THEME,
-  EdgeKindSchema,
   LENS_LABEL_DENSITIES,
   LENS_LAYOUTS,
   LENS_LINK_STYLES,
@@ -108,9 +107,8 @@ export {
   type GraphSourceField,
   type GraphSourceKind,
 } from "./schema.ts";
-export { graphExtension, graphPlugin, graphServerPlugin } from "./extension.ts";
+export { GRAPH_ACTIONS, graphExtension, graphPlugin, graphServerPlugin } from "./extension.ts";
 export {
-  GRAPH_ACTIONS,
   graphEdgesEffect,
   graphRelationTypeEffect,
   graphSuggestEffect,
