@@ -26,6 +26,8 @@ import { Effect } from "effect";
 import { z } from "zod";
 import {
   ActionCatalog,
+  CAPTURE_CONTRACT,
+  CAPTURE_SUBMIT,
   CurrentCall,
   CurrentInterception,
   CodeTrust,
@@ -58,6 +60,7 @@ export const kbManifestDef = {
   inputSchema: z.object({}),
   outputSchema: z.object({
     root: z.string().optional(),
+    captureContract: z.literal(CAPTURE_CONTRACT).optional(),
     trusted: z.array(z.string()).optional(),
     actions: z.array(DecidedEntrySchema),
     views: z.array(ViewCatalogEntrySchema),
@@ -85,6 +88,9 @@ export const kbManifestEffect = Effect.fn("kb.manifest")(function* (): Effect.fn
   );
   return {
     root: ctx.root,
+    ...(actions.some(({ id }) => id === CAPTURE_SUBMIT)
+      ? { captureContract: CAPTURE_CONTRACT }
+      : {}),
     trusted: (yield* (yield* CodeTrust).records).map(({ digest }) => digest),
     actions,
     views: [...(yield* ViewCatalog).entries()],

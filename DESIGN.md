@@ -5605,6 +5605,32 @@ rows. A canvas exports its own document (`ext.canvas.export`).
 - **`docs.check` in pre-commit from day 1**: `.githooks/pre-commit` gains a
   `kb check` step in the same milestone that ships materialize (M4).
 
+### Raw capture
+
+Desktop quick capture and native share receivers send their original share to
+`capture.submit` on the selected store's host. The registry contract lives in
+`@kb/contracts` (`CaptureSubmitSchema`, `CaptureReceiptSchema`). The host
+advertises `captureContract` in `kb.manifest` when it serves the action. Clients
+compare the version before sending and keep the original share queued until the
+host confirms delivery. Omitted `version` uses v1. On HTTP, POST the ordinary
+action envelope `{id, input}` to `/api/action`; on MCP, call `capture_submit`.
+
+An explicit parent wins, including null for the top level. Otherwise the
+store's [capture target](#provider-roles) decides, using the store's day at
+delivery when Days is selected. A supplied store key must match the serving
+store. The host maps URLs to the store's configured URL field by ID, using a
+supplied title or the URL as node text and preserving separate shared text.
+A sole HTTP(S) URL in text uses the link mapping. Other text retains Unicode
+and line breaks. Files use the asset upload rules and appear in input order.
+An uploaded path must name a stored asset of this store. The host performs no
+network fetch on submission.
+
+The capture ID is a UUID. The receipt returns that ID, the committed node ID
+and the serving store key. The receipt and the capture tree commit together.
+A retry of the same capture returns that receipt. Reusing an ID with different
+content or from a different device is refused. Failures use the action's
+structured error receipt; a file refusal names the offending attachment.
+
 ## Surfaces
 
 - **CLI** (`commander`, `#!/usr/bin/env bun`): human commands + `kb action-invoke <json>`; `--json` everywhere. Internal command orchestration is Effect (`resolveRootEffect` → `openKbEffect` → `runPlanEffect` / `invokeReceiptEffect`) with an `Effect.runPromise` + exit-code boundary at each Commander surface action (not a claim that the whole process has a single runPromise). Commander itself stays the argv contract.
