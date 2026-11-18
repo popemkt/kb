@@ -13,16 +13,11 @@ import {
   StoreState,
   type DomainError,
   type KbNode,
-  type KbTx,
   type NodeId,
   type StoreTx,
 } from "@kb/model";
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem";
-import {
-  durableReplaceFile,
-  acquireFileWriteLockEffect,
-  releaseFileWriteLock,
-} from "@kb/file-write";
+import { durableReplaceFile } from "@kb/file-write";
 import {
   fingerprintChanges,
   KeptState,
@@ -166,60 +161,56 @@ export class JsonlStore implements EffectStore {
     const backupPath = this.backupPath;
     const txTail = this.txTail;
     const keeping = this.#kept;
-    return Effect.scoped(
-      Effect.gen(function* () {
-        yield* Effect.acquireRelease(acquireFileWriteLockEffect(path), (lockPath) =>
-          Effect.sync(() => releaseFileWriteLock(lockPath)),
-        );
+    return txTail
+      .withWriter(
+        Effect.gen(function* () {
+          // Under the lock, and from the one read the merge absorbs: `base` names
+          // exactly the file this commit merged into, which is what the caller
+          // needs to know it saw.
+          const current = yield* readBody(path);
+          const base = contentMark(current);
+          const stale = staleCommitError(expected, base);
+          if (stale !== null) return yield* stale;
+          // Taken, not read: whatever fails from here leaves nothing kept, and
+          // the next commit reads the file.
+          const kept = keeping.take(base) ?? {
+            state: StoreState.of(yield* decodeNodes(current, path)),
+            lines: null,
+          };
+          const applied = rankTx(kept.state, tx);
+          const writes = writesOf(applied, (id) => kept.state.get(id));
+          kept.state.apply(applied);
+          const lines = kept.lines ?? linesOf(kept.state.values());
+          if (kept.lines !== null) {
+            for (const id of applied.deletes) lines.delete(id);
+            for (const node of applied.upserts) lines.set(node.id, canonicalJson(node));
+          }
+          const body = canonicalJsonlOf(lines);
+          const fingerprint = contentMark(body);
 
-        // Under the lock, and from the one read the merge absorbs: `base` names
-        // exactly the file this commit merged into, which is what the caller
-        // needs to know it saw.
-        const current = yield* readBody(path);
-        const base = contentMark(current);
-        const stale = staleCommitError(expected, base);
-        if (stale !== null) return yield* stale;
-        // Taken, not read: whatever fails from here leaves nothing kept, and
-        // the next commit reads the file.
-        const kept = keeping.take(base) ?? {
-          state: StoreState.of(yield* decodeNodes(current, path)),
-          lines: null,
-        };
-        const applied = rankTx(kept.state, tx);
-        const writes = writesOf(applied, (id) => kept.state.get(id));
-        kept.state.apply(applied);
-        const lines = kept.lines ?? linesOf(kept.state.values());
-        if (kept.lines !== null) {
-          for (const id of applied.deletes) lines.delete(id);
-          for (const node of applied.upserts) lines.set(node.id, canonicalJson(node));
-        }
-        const body = canonicalJsonlOf(lines);
-        const fingerprint = contentMark(body);
-
-        yield* Effect.try({
-          try: () => durableReplaceFile({ path, backupPath, body }),
-          catch: (err) => ensureDomainError(err),
-        });
-
-        // Still under the same lock, so the tail's rev allocation is serialised
-        // by the mechanism that already serialises node writes and no second
-        // lock is needed. Nodes first, tail second: a tail that lags is
-        // detectable (`isCurrent`) and costs one snapshot, while a tail that
-        // led would hand replicas a frame for a write that never landed. An
-        // empty transaction is not recorded — it costs a rev and a frame and
-        // says nothing.
-        let committed: KbTx | null = null;
-        if (applied.upserts.length > 0 || applied.deletes.length > 0) {
-          committed = yield* Effect.try({
-            try: () => txTail.appendWithin(applied, record, fingerprint),
-            catch: (err) => ensureDomainError(err),
+          const replace = () => durableReplaceFile({ path, backupPath, body });
+          const committed = yield* Effect.try({
+            try: () => {
+              if (applied.upserts.length === 0 && applied.deletes.length === 0) {
+                replace();
+                return null;
+              }
+              return txTail.transact(
+                applied,
+                record,
+                base,
+                fingerprint,
+                base === fingerprint ? undefined : replace,
+              );
+            },
+            catch: ensureDomainError,
           });
-        }
 
-        keeping.keep(fingerprint, { state: kept.state, lines });
-        return { base, fingerprint, tx: applied, record: committed, writes };
-      }),
-    ).pipe(Effect.provide(BunFileSystem.layer));
+          keeping.keep(fingerprint, { state: kept.state, lines });
+          return { base, fingerprint, tx: applied, record: committed, writes };
+        }),
+      )
+      .pipe(Effect.provide(BunFileSystem.layer));
   }
 }
 

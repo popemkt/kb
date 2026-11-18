@@ -103,23 +103,9 @@ export interface TxRecord {
 /**
  * The durable sequence of committed transactions, owned by the store.
  *
- * It is the store's and not the log's because durability is the store's job
- * and nothing else can make the two writes one: the JSONL adapter appends
- * inside the `.lock` that already covers load → merge → replace, and the
- * SQLite adapter inserts inside the same `BEGIN IMMEDIATE` as the node rows.
- * A log that owned its own file beside the store would need its own lock, its
- * own crash story and its own rev allocation — three mechanisms for a
- * sequence the store is already serialising.
- *
- * Reads are synchronous. Mutations return effects so persistence failures and
- * any wait for writer exclusion are visible to callers.
- *
- * **Not self-serialising.** The tail allocates a rev by reading its own head,
- * so two unsynchronised appenders could allocate the same one. The store
- * appends inside its own exclusion, which is what makes concurrent CLI / MCP
- * / `kb ui` writers safe; the only other appender is
- * {@link KbTxLog.append} in the single `kb ui` process that owns
- * `.kb/queries/`.
+ * A graph commit publishes its node writes and the corresponding tail record
+ * together. Every tail mutation takes the same exclusion as graph commits.
+ * Reads are synchronous and do not change the store.
  */
 export interface TxTail {
   /** The newest recorded rev; 0 when nothing is recorded. Survives reopen. */
@@ -128,14 +114,8 @@ export interface TxTail {
   /**
    * Whether {@link head} describes the store as it is now.
    *
-   * False when the store moved without the tail: a process killed between the
-   * node write and the append, or a writer that bypassed the log entirely (a
-   * hand-edited `nodes.jsonl`, a `VACUUM`). Each entry carries the store's own
-   * durable commit mark as of that append, so this is a comparison rather than
-   * a guess — and it is the reason the write order is *nodes first, tail
-   * second*: a tail that lags is detectable here and costs one snapshot, while
-   * a tail that led would hand every replica a frame for a change the store
-   * never made.
+   * False when a writer bypassed the log entirely, for example by editing
+   * `nodes.jsonl` by hand. Each entry carries the store's durable commit mark.
    */
   isCurrent(): boolean;
 

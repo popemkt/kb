@@ -1423,6 +1423,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Refuse with a clear error in the prototype; revs-at-push is a tail-contract change, not recommended.
 - **node** — `01M6950YQJFX3TYG608GNVHRX4`
 
+### GAP: older JSONL writers cannot recover a pending tail record
+
+- **expected** — Every writer that can open the same JSONL root recognizes the published tail revision after an interrupted archive.
+- **current** — Current JSONL writers recover the write-ahead record under the node lock. An older writer takes the lock but reads only tx.jsonl; it cannot see the journal.
+- **impact** — If a current writer publishes a node replacement and dies before archival, or archival fails, an older writer can reuse the published revision. Readers can then require a snapshot, and that revision cannot unambiguously identify a write across versions.
+- **closes** — Upgrade the remaining older processes that write the root to a version that recovers the pending record.
+- **node** — `01M7Q21QJJWSB6JBZPW3EWT6K8`
+
 ### GAP: only BackdropPoint checks what a repository extension contributes; the page's other points trust its types
 
 - **expected** — Every page point a repository extension can contribute to reads each contribution through a check owned by its point (as useBackdrops reads BackdropPoint), so one malformed contribution is refused alone and never throws in a reader
@@ -1986,14 +1994,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Split into recognizers over a cursor and drive them from a list. The existing md-inline tests are the gate; this is a rewrite, not a mechanical move.
 - **node** — `01M1MGCM9RWXE3CYANZK5K4KC0`
 
-### GAP: the JSONL tx tail is not atomic with the node write
-
-- **expected** — One act: nodes.jsonl and the tail entry either both land or neither does, the way the sqlite adapter gets it for free inside BEGIN IMMEDIATE.
-- **current** — Two writes inside one lock (JsonlStore.commitEffect): durableReplaceFile for the nodes, then txTail.append, and the append is deliberately not fsynced. No other process can interleave, but a crash or power loss between them can. TxTail.isCurrent() detects it by comparing the tail's newest store mark to the file's, and StoreTxLog then refuses every rev at or below head.
-- **impact** — A crash in that window costs every connected client one snapshot instead of frames - the same cost the log already had before it was durable, so nothing regresses. What is not reached is the stated shape: on JSONL the record can still lag the write. The lag is detected exactly, because the mark it is compared by is the file's content hash.
-- **closes** — A write-ahead record the JSONL adapter can commit atomically with the file replace - a single sidecar holding both the candidate bytes and the tail entry, renamed once - or a per-root manifest that names the nodes generation and the tail head together.
-- **node** — `01M1XEZT8XZNSG1NGS9JPCQFGM`
-
 ### GAP: the kit names the frame family's default view
 
 - **expected** — Which frame view a frame with no frame view node shows is data, as sys.views names the page default (sys.f.view.default, written by the fold from the declaration that provides it).
@@ -2238,15 +2238,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — words typed in one tab are lost when another tab, still focused on the same row, types again; the two tabs disagree with each other and with the server until the row loses focus. A row deleted elsewhere is different: that push is refused and shown as Not saved
 - **closes** — the node.update contract change: a base (text or revision) on the input, a conflict failure from the server when it moved, and the page taking the server's text into a focused row with a visible conflict; then a two-tab browser test that types in the same focused row from both
 - **node** — `01M6HA0JJJDSFSJ3FPW8M8QC5K`
-
-### GAP: TxTail allocates a rev outside the store's exclusion for virtual transactions
-
-- **expected** — Every appender allocates its rev under the same exclusion, so two writers can never be handed the same one.
-- **current** — TxTail.append reads its own head to assign rev+1 and is documented as not self-serialising. The store calls it inside the lock that already serialises writers, which covers every node commit; KbTxLog.append does not, and that is the path the saved-query virtual set takes. A CLI commit concurrent with a .kb/queries/ reload, or two kb ui servers on one root with different ports, can both read head N and both write N+1.
-- **impact** — A duplicate rev in the tail. Frames stay applicable in order and upserts are idempotent, so a client converges - but rev stops being a unique position, and any surface that keys on it (a replay, an audit trail, an undo across sessions) would be reading two things with one name. Narrow: it needs a second appender in the same instant.
-- **closes** — Either the virtual set becomes a store transaction so the store's exclusion covers it, or the tail acquires the store's lock itself - which needs a synchronous acquire, and write-lock.ts deliberately has none (its spin is Effect.sleep so a contended commit cannot block the loop).
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M1XF05FV87AR22B4SAS0A2BK`
 
 ### GAP: UI_ALLOWS permits unused zone directions
 
@@ -3239,6 +3230,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Design tokens: no bypass
 - **node** — `01M3AD9BRB1C5YMJFDQC1MDAFA`
 
+### GAP: the JSONL tx tail is not atomic with the node write
+
+- **expected** — One act: nodes.jsonl and the tail entry either both land or neither does, the way the sqlite adapter gets it for free inside BEGIN IMMEDIATE.
+- **current** — Closed. The write-ahead record and recovery rules are in DESIGN.md, The transaction tail.
+- **impact** — A failed prepare or node replacement leaves the previous revision visible. A published record survives an interrupted archive.
+- **closes** — A write-ahead record the JSONL adapter can commit atomically with the file replace - a single sidecar holding both the candidate bytes and the tail entry, renamed once - or a per-root manifest that names the nodes generation and the tail head together.
+- **node** — `01M1XEZT8XZNSG1NGS9JPCQFGM`
+
 ### GAP: the lab's rich backdrop stands in kit/ beside the stage's plain backdrop()
 
 - **expected** — One backdrop mechanism in the scene kit: stage.backdrop() takes options (focus, warmth, haze, rise) and every study, lab or graph, draws its ground through it.
@@ -3402,6 +3401,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Move both queries behind a lib/ or store selector that the components consume, so ds/ keeps one set of callers.
 - **rule** — UI import matrix
 - **node** — `01M1RXMRZKE1AJC850BRTHHHCW`
+
+### GAP: TxTail allocates a rev outside the store's exclusion for virtual transactions
+
+- **expected** — Every appender allocates its rev under the same exclusion, so two writers can never be handed the same one.
+- **current** — Closed. Virtual appends and tail adoption use the same writer exclusion as node commits.
+- **impact** — Concurrent node and virtual transactions receive distinct revisions, including across processes.
+- **closes** — Either the virtual set becomes a store transaction so the store's exclusion covers it, or the tail acquires the store's lock itself - which needs a synchronous acquire, and write-lock.ts deliberately has none (its spin is Effect.sleep so a contended commit cannot block the loop).
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M1XF05FV87AR22B4SAS0A2BK`
 
 ### GAP: ui suites reddened under load when the row a chord crossed to had no text host
 

@@ -2293,15 +2293,18 @@ with one writer exclusion for graph and virtual transactions. SQLite inserts
 the record in its node transaction. JSONL keeps the history in `.kb/tx.jsonl`
 and stages the next record durably in `.kb/tx.jsonl.pending` before replacing
 `.kb/nodes.jsonl`. The replacement's content hash publishes the staged
-record. Readers see it only when that hash matches. Before preparing another
-write, the writer folds the published record into the history under the node
-lock. A restart can read a published record directly, and a prepared record
-whose node replacement failed never appears in the sequence. An unchanged
-node image publishes at the journal write itself.
+record. Readers see it only when that hash matches. The writer then folds
+the published record into the history under the node lock. If archiving is
+interrupted, the next writer must finish it before reusing the pending file.
+A restart can read a published record directly, and a prepared record whose
+node replacement failed stays invisible. An unchanged node image publishes
+at the journal write itself.
 
 The existing history and node file formats still open directly. The pending
 file is write-ahead state created by new commits, so there is no conversion
 of existing data. Keep it with the history when moving a store's replay state.
+A version that predates the journal cannot recover a pending record
+(GAP [[01M7Q21QJJWSB6JBZPW3EWT6K8]]).
 
 Each record also carries `actor`, who made the call that committed it, when
 an invocation did (`persistEffect` takes it from `CurrentCall`; `recordedTx`

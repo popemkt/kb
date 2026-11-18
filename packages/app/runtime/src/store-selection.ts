@@ -60,7 +60,13 @@ const BACKENDS: Record<StoreBackend, StoreBackendOps> = {
     // `.lock` and `.tmp` are transient.
     files: (root) => {
       const store = new JsonlStore(root);
-      return [store.path, store.backupPath, store.txTail.path, store.txTail.backupPath];
+      return [
+        store.path,
+        store.backupPath,
+        store.txTail.path,
+        store.txTail.backupPath,
+        store.txTail.pendingPath,
+      ];
     },
   }),
   sqlite: backend({

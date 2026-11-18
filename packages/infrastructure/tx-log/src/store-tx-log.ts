@@ -12,9 +12,8 @@ import type { DomainError, KbTx, StoreTx } from "@kb/model";
  *
  * `floor` is the crash story made explicit. The tail's last entry carries the
  * store's own commit mark, so at open the tail can say whether it describes
- * the store as it is now. When it does not — a process killed between the node
- * write and the append, or a store written by something that never recorded a
- * transaction — every rev at or below head describes a graph that is not the
+ * the store as it is now. When a writer bypassed the tail, every rev at or
+ * below head describes a graph that is not the
  * one on disk. Rather than replay those frames, the log refuses them: `floor`
  * becomes `head + 1`, so `since` answers `"snapshot-required"` until a fresh
  * append gives it something it can stand behind.
@@ -43,8 +42,10 @@ export class StoreTxLog implements KbTxLog {
   }
 
   append(ops: StoreTx, at: string, origin?: string): Effect.Effect<KbTx, DomainError> {
-    return Effect.tap(this.tail.append(ops, origin === undefined ? { at } : { at, origin }), (tx) =>
-      Effect.sync(() => this.record(tx)),
+    return Effect.tap(this.tail.append(ops, origin === undefined ? { at } : { at, origin }), () =>
+      Effect.sync(() => {
+        this.refresh();
+      }),
     );
   }
 
