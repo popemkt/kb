@@ -84,9 +84,12 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // Protocol 11: the Extensions panel previews switches with `extension.impact`
 // and reads contribution dependencies and inbound references in `extension.list`.
 // Its requests and report decoder need the server that provides them.
+// `capture.submit`, `capture.pair`, `capture.pairCode` and `capture.revoke`
+// are new actions a previous page never calls, and `kb.manifest` may name a
+// `captureContract`, an optional field a previous page ignores.
 const RECORDED = {
   protocol: 11,
-  fingerprint: "2d27f28eae4184a14827c0c2fa8c821c611c5bb7ba6a7ef76a2a3113441d3b2d",
+  fingerprint: "f9a6dcc61255ef7d9c003e73f5eb3b846dcc7e94ba14cea539fb7c3fbd99eacf",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */
