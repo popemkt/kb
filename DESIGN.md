@@ -2288,10 +2288,20 @@ of refetching the graph.
 
 **The two tails.**
 
-|        | tail                                               | atomic with the node write?      | rev allocation                                                                    |
-| ------ | -------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------- |
-| JSONL  | `.kb/tx.jsonl`, one canonical-JSON record per line | no — two files, one lock         | under `.kb/nodes.jsonl.lock`, the lock that already covers load → merge → replace |
-| SQLite | a `tx` table in `.kb/kb.sqlite`                    | yes — the same `BEGIN IMMEDIATE` | inside that transaction                                                           |
+Both adapters publish the node write and its tail record as one commit,
+with one writer exclusion for graph and virtual transactions. SQLite inserts
+the record in its node transaction. JSONL keeps the history in `.kb/tx.jsonl`
+and stages the next record durably in `.kb/tx.jsonl.pending` before replacing
+`.kb/nodes.jsonl`. The replacement's content hash publishes the staged
+record. Readers see it only when that hash matches. Before preparing another
+write, the writer folds the published record into the history under the node
+lock. A restart can read a published record directly, and a prepared record
+whose node replacement failed never appears in the sequence. An unchanged
+node image publishes at the journal write itself.
+
+The existing history and node file formats still open directly. The pending
+file is write-ahead state created by new commits, so there is no conversion
+of existing data. Keep it with the history when moving a store's replay state.
 
 Each record also carries `actor`, who made the call that committed it, when
 an invocation did (`persistEffect` takes it from `CurrentCall`; `recordedTx`
@@ -2335,24 +2345,11 @@ store's fingerprint. `TxTail.isCurrent()`
 compares the newest mark to the store's current one, which is what makes the
 next paragraph a detection rather than a hope.
 
-**Write order: nodes first, tail second.** It only matters for JSONL, where
-the two writes are two files. The order is not symmetric in cost:
-
-- a tail that **lags** costs one snapshot. `isCurrent()` returns false at open,
-  `StoreTxLog` sets its `floor` to `head + 1`, and every `since(rev ≤ head)`
-  answers `"snapshot-required"` — including a client that is _at_ head, which
-  is the case a naive implementation gets wrong.
-- a tail that **led** would hand every replica a frame for a write that never
-  landed, and no later frame could take it back.
-
-So the tail is allowed to be behind and never allowed to be ahead. The same
-detection covers a store written by something that recorded nothing at all — a
-hand-edited `nodes.jsonl`, a restore from backup, an older kb. For the same
-reason the tail append is deliberately **not** `fsync`ed while the node write
-is: skipping the flush can only widen the lag, which is already handled, and
-paying an `fsync` per commit to shrink a window nothing falls into would double
-the cost of every keystroke. JSONL's mark is the store fingerprint, so a lag is
-detected exactly.
+An out-of-band write still has no corresponding record. When the tail's
+newest published mark differs from the current store mark, `StoreTxLog` at
+open sets its floor to `head + 1`. A reader at or below that head needs a
+snapshot. This covers hand edits, backup restores and writes by older kb
+versions.
 
 **Compaction.** Both tails keep their newest 2048 records and drop to 1024 when
 they pass it — the bound the ring used to impose, moved to the file so an
@@ -2360,11 +2357,10 @@ unbounded sequence costs one rewrite instead of unbounded disk. A reader
 further behind than the tail reaches gets `"snapshot-required"`, which is the
 answer the port already had.
 
-**Rev allocation is the store's exclusion, not a second lock.** `TxTail` reads
-its own head to assign the next rev, so it is not self-serialising: the store
-appends inside the lock that already serialises writers, and the only other
-appender is the saved-query set in the single `kb ui` process that owns
-`.kb/queries/`.
+**Rev allocation is the store's exclusion.** Graph commits, virtual
+appends and tail adoption take the same adapter-owned write exclusion. The
+tail allocates a revision only after entering it. Tail readers can still open
+a store without writing.
 
 **Migration carries the tail.** `kb store migrate --to` reads the source tail,
 commits the nodes, then `adopt`s those records into the target — revs
