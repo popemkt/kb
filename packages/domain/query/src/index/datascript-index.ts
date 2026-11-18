@@ -49,8 +49,8 @@ interface Kept extends DatalogAnswer {
  * The one {@link KbIndex} implementation: an in-memory DataScript db kept
  * incrementally in step with the store.
  *
- * Eids are stable and monotonic — allocated on a node's first appearance and
- * never reused, so a revived eid always means the node it meant before. The
+ * Entity ids are allocated by `EntityIds` and kept until a node disappears or
+ * a stored numeric value takes one. The
  * schema is derived from the data (a `:f/<field>` attr is a ref attr because
  * some node put a ref in it), which is the one thing `d.db_with` cannot grow:
  * a transaction that introduces a new attr falls back to a full rebuild and
@@ -162,10 +162,16 @@ export class DatascriptIndex implements KbIndex {
     const retracts: TxOp[] = tx.deletes
       .filter((id) => this.#table.getNode(id) !== undefined)
       .map((id) => [":db/retractEntity", present(this.#ids.toEid.get(id), `eid for ${id}`)]);
+    const touched = new Set([...tx.deletes, ...tx.upserts.map(({ id }) => id)]);
+    const before = this.#nodesAt(touched);
     const change = this.#table.change(tx);
     if (change === null) return;
-    for (const id of change.created) this.#ids.allocate(id);
     for (const id of change.removed) this.#ids.forget(id);
+    if (this.#ids.note(before, this.#nodesAt(touched))) {
+      this.#invalidate();
+      return;
+    }
+    for (const id of change.created) this.#ids.allocate(id);
 
     const adds: TxOp[] = [];
     let grown = false;
@@ -327,5 +333,14 @@ export class DatascriptIndex implements KbIndex {
     for (const [key, datom] of before) {
       if (!after.has(key)) retracts.push([":db/retract", eid, datom.a, datom.v]);
     }
+  }
+
+  #nodesAt(ids: ReadonlySet<NodeId>): KbNode[] {
+    const nodes: KbNode[] = [];
+    for (const id of ids) {
+      const node = this.#table.getNode(id);
+      if (node !== undefined) nodes.push(node);
+    }
+    return nodes;
   }
 }

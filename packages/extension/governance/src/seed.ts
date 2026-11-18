@@ -95,7 +95,6 @@ export function governanceSeedNodes(at: string): readonly KbNode[] {
       [SYSTEM_IDS.viewsField]: [{ t: "ref", v: GOVERNANCE_IDS.policiesView }],
     }),
   };
-  // GAP [[01M413SPC35K20DFC4TRP4DJYH]]
   const approvalPoliciesPin = mk(GOVERNANCE_IDS.policiesPin, "", {
     [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: GOVERNANCE_IDS.policies }],
   });

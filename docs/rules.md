@@ -427,14 +427,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Range fields (min, max, step) on number field nodes, read by the write check (valueFormError) and seeded on knob fields by knobFields.
 - **node** — `01M6RVVZTP0BF2364BF8J1BFQB`
 
-### GAP: a number prop that equals a live eid reads as a ref to that node
-
-- **expected** — A {t:ref} prop value and a {t:num} prop value have distinct datom encodings, so a query or a reach can tell a reference from a number.
-- **current** — propDatomValue stores a resolved field ref as its bare eid and a {t:num} as its bare number under the same :f/<fieldId> attr. A number equal to a live eid joins to that node: [?n :f/x ?m] [?m :node/id ?id] and (reach ?n :f/x ?m) both follow it.
-- **impact** — A number-valued prop on a field that is walked as an edge (or joined as one) can alias an arbitrary node, and which node depends on eid assignment order. Rare in practice, since ref fields hold refs and number fields are not walked, but silent when it happens.
-- **closes** — Distinct encodings in datoms.ts (for example refs on :f/<fieldId> and numbers on a typed value, or a separate ref attr per field), with queries.ts, parse.ts find-type inference, and stored queries over numeric props migrated to match.
-- **node** — `01M3A0Y5JQ5XKZMC87K34HDT2B`
-
 ### GAP: a page-head backdrop hears where the pointer is, never when it presses
 
 - **expected** — A press over a backdrop's frame reaches it as a declared cue (a press BackdropCue Studio can list and act out), from the head that owns the frame, which keeps every press meant for the head's own text and controls
@@ -556,14 +548,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A 'save to this layout' gesture when the open workspace came from a layout node, writing its sys.f.layout through view.propose's check.
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYMXMMZC9S8GS00CE6DFB`
-
-### GAP: a seeded default the owner deletes comes back on the next open
-
-- **expected** — the seed records what it planted, so a planted id that is missing reads as deleted and stays deleted
-- **current** — ensureSystemSeed re-adds every missing id on open, including default policies, the policies table view and its pin
-- **impact** — deleting a default policy, view or pin does not stick; DESIGN.md says to change a default's decision instead. Related to seed retirement, 01M3FK1PM9P96SNCSHXF0CJZRA
-- **closes** — a planted-ids record the seed reads, folded into the retirement table that gap names
-- **node** — `01M413SPC35K20DFC4TRP4DJYH`
 
 ### GAP: a stage with ambient occlusion renders without MSAA until three r187
 
@@ -2092,14 +2076,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Give virtual transactions their own sequence, or stop logging them in the store's tail.
 - **node** — `01M6950ZTT4AQNADV0RVM9JSW1`
 
-### GAP: the seed's fill-absent pass restores a seeded prop its owner unset
-
-- **expected** — Removing every value of a seeded prop from a seeded node stays removed. The fill-absent pass adds only keys the seed gained after the store was created, never keys the owner deleted.
-- **current** — ensureSystemSeed fills any seed prop key an existing seeded node does not carry, on every open. It cannot tell a key the store never had from one the owner deleted, so 'kb unset lens.all-mentions sys.f.lens.cluster-by' is undone by the next command's open. A following 'kb set' then appends to the restored default. That is how a two-command replace doubled lens.all-mentions' values in both committed stores on 2026-09-24.
-- **impact** — A seeded node's props cannot be cleared, and replacing one with unset followed by set in two commands silently stores the value twice. A replace has to be one node.update carrying both unsetProps and setProps.
-- **closes** — Record which seed prop keys a store has already been offered (for example a seed revision per node, or a tombstone written when a seeded key is unset) and fill only keys added since. Then add a test that an unset seeded key survives reopening.
-- **node** — `01M3A0ZEWWG0VEHXEM3YNKRQ0Y`
-
 ### GAP: the server answers a client's query in the server's time zone
 
 - **expected** — A kb date function (kb/today, kb/date-in-days) in a query the server runs for a client (a rows subscription over /ws, MCP graph_query) reads the civil date in that client's time zone: the client's zone travels with its request, and the run's clock sample carries it.
@@ -2444,6 +2420,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — One page-side name reader (rowTitle's reader by id) that every naming surface takes in place of node.text, and the graph and canvas label paths moved onto it.
 - **node** — `01M7CYP03QT4AWT994NSXQV35B`
 
+### GAP: a number prop that equals a live eid reads as a ref to that node
+
+- **expected** — A {t:ref} prop value and a {t:num} prop value have distinct datom encodings, so a query or a reach can tell a reference from a number.
+- **current** — Closed in the derived index. Engine entity ids are allocated outside numbers stored by the graph. A write that takes a live eid invalidates the derived index and reallocates that entity.
+- **impact** — A number-valued prop on a field that is walked as an edge (or joined as one) can alias an arbitrary node, and which node depends on eid assignment order. Rare in practice, since ref fields hold refs and number fields are not walked, but silent when it happens.
+- **closes** — Distinct encodings in datoms.ts (for example refs on :f/<fieldId> and numbers on a typed value, or a separate ref attr per field), with queries.ts, parse.ts find-type inference, and stored queries over numeric props migrated to match.
+- **node** — `01M3A0Y5JQ5XKZMC87K34HDT2B`
+
 ### GAP: a one-off routine cannot be ticked done or skipped in the calendar
 
 - **expected** — Every instance the calendar shows, one-off or repeating, can be ticked done or skipped, and the engine sends it done (✅, grey, no reminders) or cancels it.
@@ -2476,6 +2460,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A local extension is always on and its configuration lives in code, not in the graph.
 - **closes** — A declaration export for repository extensions, folded into that store's seed only, with the extension contract run over a repository fixture.
 - **node** — `01M53PZ0DWZ8MJN9T64TTQ10VD`
+
+### GAP: a seeded default the owner deletes comes back on the next open
+
+- **expected** — the seed records what it planted, so a planted id that is missing reads as deleted and stays deleted
+- **current** — Closed for future writes. Removing an editable seeded default records the choice in the same commit. The seed leaves that id absent on the next open.
+- **impact** — deleting a default policy, view or pin does not stick; DESIGN.md says to change a default's decision instead. Related to seed retirement, 01M3FK1PM9P96SNCSHXF0CJZRA
+- **closes** — a planted-ids record the seed reads, folded into the retirement table that gap names
+- **node** — `01M413SPC35K20DFC4TRP4DJYH`
 
 ### GAP: a seeded node whose text the seed changes keeps its old text in an existing store
 
@@ -3319,6 +3311,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — an agent sees which kind of view is open but not which saved view node or its settings; ui.navigate cannot open a given view node
 - **closes** — the UI routes by view node (roadmap step 6 panes hold a ref to a view node) and the screen reports that id
 - **node** — `01M3YMCV7ZWR83DCCPQQS7PHNT`
+
+### GAP: the seed's fill-absent pass restores a seeded prop its owner unset
+
+- **expected** — Removing every value of a seeded prop from a seeded node stays removed. The fill-absent pass adds only keys the seed gained after the store was created, never keys the owner deleted.
+- **current** — Closed for future writes. Clearing a seed slot records the choice in the same commit. The next open fills new defaults and leaves recorded removals absent.
+- **impact** — A seeded node's props cannot be cleared, and replacing one with unset followed by set in two commands silently stores the value twice. A replace has to be one node.update carrying both unsetProps and setProps.
+- **closes** — Record which seed prop keys a store has already been offered (for example a seed revision per node, or a tombstone written when a seeded key is unset) and fill only keys added since. Then add a test that an unset seeded key survives reopening.
+- **node** — `01M3A0ZEWWG0VEHXEM3YNKRQ0Y`
 
 ### GAP: the server and browser plugin lists are not bridged
 

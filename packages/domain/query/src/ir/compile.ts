@@ -6,10 +6,12 @@ import type {
   IrQuery,
   KbFunctionName,
   PredicateArg,
+  PatternClause,
   PullSpec,
   ReachClause,
   Term,
 } from "./ir.ts";
+import { isEidNumber } from "../index/entity-ids.ts";
 import { boundVars, outerClauses } from "./scope.ts";
 import { isKbFunction, kbFunctionInput } from "./kb-functions.ts";
 
@@ -165,10 +167,25 @@ function compilePull(pattern: PullSpec): string {
   return `[${parts.join(" ")}]`;
 }
 
+/** A numeric field literal whose value could also be an engine entity id. */
+export function numericFieldLiteral(clause: PatternClause): number | undefined {
+  const { attr, value } = clause;
+  return attr.startsWith(":f/") && value.t === "num" && isEidNumber(value.value)
+    ? value.value
+    : undefined;
+}
+
 function compileClause(clause: Clause, names: ReadonlyMap<ReachClause, string>): string[] {
   switch (clause.kind) {
-    case "pattern":
-      return [`[?${clause.entity} ${clause.attr} ${compileTerm(clause.value)}]`];
+    case "pattern": {
+      const term = compileTerm(clause.value);
+      const pattern = `[?${clause.entity} ${clause.attr} ${term}]`;
+      // EntityIds never gives an eid to a stored number. Reject an eid
+      // matched by a numeric field literal, even if no node stores the literal.
+      return numericFieldLiteral(clause) !== undefined
+        ? [pattern, `[(missing? $ ${term} :node/id)]`]
+        : [pattern];
+    }
     case "children": {
       const cs = `?__kb_cs_${clause.parent}`;
       return [
@@ -255,9 +272,8 @@ function compileReachRules(
  * test is `[?v :node/id ?v_id]`, which drops bools and numbers that are not
  * eids. DataScript throws when a string is bound into that entity slot, and a
  * dangling field ref is its id string. So strings go first, by the one value
- * whose `str` is itself. A number that equals a live eid still passes; the
- * encoding, not this test, is what cannot tell it from a ref
- * (GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]).
+ * whose `str` is itself. The index gives entities ids apart from stored
+ * numbers, so field scalars cannot pass the node test.
  */
 function isNode(v: string): string {
   return `[(str ?${v}) ?${v}_str] [(not= ?${v}_str ?${v})] [?${v} :node/id ?${v}_id]`;
