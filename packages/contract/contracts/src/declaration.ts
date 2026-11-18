@@ -128,6 +128,8 @@ export interface ExtensionDeclaration {
    * second provider, so the shell names no view.
    */
   readonly defaultView?: ViewKey<unknown>;
+  /** Defaults for view groups, by group key (DESIGN.md → View nodes). */
+  readonly familyDefaultViews?: Readonly<Record<string, ViewKey<unknown>>>;
   /**
    * The tags whose nodes open in one of its own `views` before the store's
    * default (DESIGN.md → View nodes): by the tag's id, the view's key. The

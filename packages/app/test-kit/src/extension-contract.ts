@@ -65,6 +65,7 @@ import {
   SYSTEM_IDS,
   TAG_VIEWS,
   extensionNodeId,
+  familyDefaultViewOf,
   isWritableField,
   present,
   settingsOf,
@@ -82,7 +83,7 @@ import { extensionSettingsEffect, familyFootprint } from "@kb/operations";
 import { makeKernel, type Kernel, type Plugin } from "@kb/plugin";
 import { DatascriptIndex, type KbIndex } from "@kb/query";
 import { STORE_BACKENDS, bunFileSystemLayer, createStore, kbRuntimeLayer } from "@kb/runtime";
-import { paramsFromProps } from "@kb/views";
+import { FRAME_VIEW_FAMILY, paramsFromProps } from "@kb/views";
 import { CONTRACT_AT, openSession, scratchRoot } from "./store-session.ts";
 
 /**
@@ -147,6 +148,39 @@ function defaultViewPromises(declaration: ExtensionDeclaration): void {
     for (const { views, defaultView } of providers) {
       const provided = (views ?? []).map(({ key }): string => key.id);
       expect(provided).toContain(defaultView?.id ?? "none");
+    }
+  });
+
+  test("its view commands and group defaults come from its view keys", () => {
+    const sources = foldWith(declaration);
+    expect(
+      sources.filter((source) => source.familyDefaultViews?.[FRAME_VIEW_FAMILY] !== undefined),
+    ).toHaveLength(1);
+    const { nodes, owners } = foldSeed(sources, CONTRACT_AT);
+    const byId = new Map(nodes.map((node) => [node.id, node]));
+    for (const { key } of declaration.views ?? []) {
+      if (key.command === undefined) continue;
+      expect(owners.get(key.command)).toBe(declaration.name);
+      expect(byId.get(key.command)?.text).toBe(`View as: ${key.label}`);
+    }
+    for (const [family, key] of Object.entries(declaration.familyDefaultViews ?? {})) {
+      expect(key.family).toBe(family);
+      expect(familyDefaultViewOf(family, (id) => byId.get(id))).toBe(key.option);
+      const rival: SeedView = { id: "contract.rival", label: "Rival", family };
+      expect(() =>
+        foldSeed(
+          [
+            ...foldWith(declaration),
+            {
+              name: "contract.rival",
+              label: "Rival",
+              views: [{ key: rival }],
+              familyDefaultViews: { [family]: rival },
+            },
+          ],
+          CONTRACT_AT,
+        ),
+      ).toThrow(/provided twice/);
     }
   });
 

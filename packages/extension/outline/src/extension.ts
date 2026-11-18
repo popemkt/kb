@@ -113,6 +113,7 @@ export const outlineExtension = defineExtension({
   tags: ["outline"],
   roles: [FIELD_EDITOR_ROLE],
   defaultView: OutlineView,
+  familyDefaultViews: { [OutlineListView.family]: OutlineListView },
   declaredOptions: [
     {
       kind: VIEW_FAMILY_OPTIONS,

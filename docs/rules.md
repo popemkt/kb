@@ -1961,14 +1961,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A write-ahead record the JSONL adapter can commit atomically with the file replace - a single sidecar holding both the candidate bytes and the tail entry, renamed once - or a per-root manifest that names the nodes generation and the tail head together.
 - **node** — `01M1XEZT8XZNSG1NGS9JPCQFGM`
 
-### GAP: the kit names the frame family's default view
-
-- **expected** — Which frame view a frame with no frame view node shows is data, as sys.views names the page default (sys.f.view.default, written by the fold from the declaration that provides it).
-- **current** — @kb/ui-sdk lib/frame-view.ts names viewOptionId("outline.list") (LIST_OPTION).
-- **impact** — The kit names one family's view, and no declaration can change the frame default.
-- **closes** — The frame family's default named in data, written by the fold from the one declaration that provides it, with the extension contract's provider property over it, and existing stores filled by the seed's fill-absent pass.
-- **node** — `01M53GQBPC6PR0CPQDNC74MV3R`
-
 ### GAP: the kit's node type is named for the outline
 
 - **expected** — The kit's node read model is named for what it is (a node as the page reads it), not for one family.
@@ -3238,6 +3230,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Replace the three classes with the warning token. That is a visible colour change, so it lands as its own commit outside the no-visual-change token restructure (wave 2026-09-24 f1).
 - **rule** — Design tokens: no bypass
 - **node** — `01M3AD9BRB1C5YMJFDQC1MDAFA`
+
+### GAP: the kit names the frame family's default view
+
+- **expected** — Which frame view a frame with no frame view node shows is data, as sys.views names the page default (sys.f.view.default, written by the fold from the declaration that provides it).
+- **current** — @kb/ui-sdk lib/frame-view.ts names viewOptionId("outline.list") (LIST_OPTION).
+- **impact** — The kit names one family's view, and no declaration can change the frame default.
+- **closes** — The frame family's default named in data, written by the fold from the one declaration that provides it, with the extension contract's provider property over it, and existing stores filled by the seed's fill-absent pass.
+- **node** — `01M53GQBPC6PR0CPQDNC74MV3R`
 
 ### GAP: the lab's rich backdrop stands in kit/ beside the stage's plain backdrop()
 

@@ -389,6 +389,8 @@ export interface ExtensionDeclaration {
    */
   readonly files?: Readonly<Record<NodeId, readonly NodeId[]>>;
   readonly views?: readonly ViewDef<unknown>[];
+  /** Defaults for view groups, by group key. */
+  readonly familyDefaultViews?: Readonly<Record<ViewFamily, ViewKey<unknown>>>;
   /**
    * The tags whose nodes open in one of its own `views` before the store's
    * default: by the tag's id, the view's key. A tag another declaration

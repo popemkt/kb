@@ -5,6 +5,7 @@
  */
 import { type DependencyList, useContext, useMemo, useSyncExternalStore } from "react";
 import type { WireNode } from "@kb/contracts";
+import { familyDefaultViewOf } from "@kb/model";
 
 import type { NodeTextHostBinding } from "./components/node-text-host";
 import { useNodeTextBindingThrough } from "./components/node-text-port";
@@ -25,7 +26,7 @@ import type { NodeMap, OutlineNode } from "./lib/types";
 import type { PageGraphState } from "./lib/page-graph";
 import type { Appearance, Prefs } from "./lib/theme";
 import { browserHost, type BrowserHost } from "./host";
-import { type FrameViewKey, isFrameViewKey } from "@kb/views";
+import { type FrameViewKey, FRAME_VIEW_FAMILY, isFrameViewKey } from "@kb/views";
 
 import { familyViews, ViewPoint } from "./lib/view-point.ts";
 import { useContributions } from "./lib/plugins.ts";
@@ -243,5 +244,11 @@ export function useFrameViewNode(frame: OutlineNode | undefined): OutlineNode | 
 export function useFrameView(frame: OutlineNode | undefined): FrameView | null {
   const views = useFrameViewKeys();
   const viewNode = useFrameViewNode(frame);
-  return useMemo(() => frameViewThrough(frame, viewNode ?? null, views), [frame, viewNode, views]);
+  const defaultOption = usePageGraph((s) =>
+    familyDefaultViewOf(FRAME_VIEW_FAMILY, (id) => schemaOf(s).get(id)),
+  );
+  return useMemo(
+    () => frameViewThrough(frame, viewNode ?? null, views, defaultOption),
+    [frame, viewNode, views, defaultOption],
+  );
 }

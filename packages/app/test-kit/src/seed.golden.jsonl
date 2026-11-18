@@ -769,7 +769,7 @@
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.tag.year","props":{"sys.f.fields":[{"t":"ref","v":"sys.f.days.key"}],"sys.f.type":[{"t":"ref","v":"sys.tag"}]},"text":"year","updatedAt":"2026-01-01T00:00:00.000Z"}
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.view-family.gallery.workflow","props":{},"text":"Gallery workflow","updatedAt":"2026-01-01T00:00:00.000Z"}
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.view-family.graph.renderer","props":{},"text":"Graph renderer","updatedAt":"2026-01-01T00:00:00.000Z"}
-{"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.view-family.outline.frame","props":{},"text":"Frame view","updatedAt":"2026-01-01T00:00:00.000Z"}
+{"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.view-family.outline.frame","props":{"sys.f.view.default":[{"t":"ref","v":"sys.view.outline.list"}]},"text":"Frame view","updatedAt":"2026-01-01T00:00:00.000Z"}
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.view.backdrops.studio","props":{},"text":"Backdrop Studio","updatedAt":"2026-01-01T00:00:00.000Z"}
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.view.canvas.list","props":{},"text":"Canvases","updatedAt":"2026-01-01T00:00:00.000Z"}
 {"children":[],"createdAt":"2026-01-01T00:00:00.000Z","id":"sys.view.canvas.page","props":{},"text":"Canvas","updatedAt":"2026-01-01T00:00:00.000Z"}

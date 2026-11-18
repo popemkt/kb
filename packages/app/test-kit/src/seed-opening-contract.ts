@@ -11,6 +11,8 @@ import { Effect } from "effect";
 import { BUNDLED_DECLARATIONS } from "@kb/bundled";
 import {
   SYSTEM_IDS,
+  VIEW_FAMILY_OPTIONS,
+  declaredOptionId,
   fieldTypeValue,
   refValuesOf,
   typeRefsOf,
@@ -119,17 +121,24 @@ export function providerRolesReachEarlierStoreOnce(makeStore: StoreFactory): Pro
 
 /**
  * A store an earlier kb seeded before the default view type existed — the
- * golden without `sys.f.view.default` and without `sys.views` naming one —
- * gains both on its first open, in exactly one write, and no later open
- * writes: a seed addition reaches an existing store once, through the seed's
- * own passes (a new node, a fill-absent prop), never by a migration of its own.
+ * golden without `sys.f.view.default` or any of its store and group
+ * choices — gains them on its first open in exactly one write, through
+ * the seed's fill-absent pass.
  */
 export function defaultViewTypeReachesEarlierStoreOnce(makeStore: StoreFactory): Promise<void> {
   const field = SYSTEM_IDS.viewDefaultField;
+  const defaults = new Map([
+    [SYSTEM_IDS.viewsRoot, viewOptionId("outline.main")],
+    ...BUNDLED_DECLARATIONS.flatMap(({ familyDefaultViews }) =>
+      Object.entries(familyDefaultViews ?? {}).map(
+        ([family, key]) => [declaredOptionId(VIEW_FAMILY_OPTIONS, family), key.option] as const,
+      ),
+    ),
+  ]);
   const earlier = seedGoldenNodes()
     .filter((node) => node.id !== field)
     .map((node) =>
-      node.id === SYSTEM_IDS.viewsRoot
+      defaults.has(node.id)
         ? {
             ...node,
             props: Object.fromEntries(Object.entries(node.props).filter(([k]) => k !== field)),
@@ -148,13 +157,13 @@ export function defaultViewTypeReachesEarlierStoreOnce(makeStore: StoreFactory):
         const write = after.at(-1)?.ops;
         expect(write?.deletes).toEqual([]);
         expect(write?.upserts.map((node) => node.id).toSorted()).toEqual(
-          [field, SYSTEM_IDS.viewsRoot].toSorted(),
+          [field, ...defaults.keys()].toSorted(),
         );
         const loaded = new Map((yield* makeStore(root).loadEffect).map((node) => [node.id, node]));
         expect(loaded.has(field)).toBe(true);
-        expect(loaded.get(SYSTEM_IDS.viewsRoot)?.props[field]).toEqual([
-          { t: "ref", v: viewOptionId("outline.main") },
-        ]);
+        for (const [carrier, option] of defaults) {
+          expect(loaded.get(carrier)?.props[field]).toEqual([{ t: "ref", v: option }]);
+        }
         yield* opensWithoutWriting(makeStore, root);
       }),
     ),

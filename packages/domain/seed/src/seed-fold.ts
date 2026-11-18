@@ -87,6 +87,8 @@ export interface SeedSource {
    * else. The fold writes it as `sys.views`' `sys.f.view.default`.
    */
   readonly defaultView?: SeedView;
+  /** The view each group starts with, by the group's key. */
+  readonly familyDefaultViews?: Readonly<Record<ViewFamily, SeedView>>;
   /**
    * The tags whose nodes open in one of this source's own `views` before the
    * store's default: by the tag node's id, the view's key. The fold writes
@@ -146,6 +148,7 @@ interface ViewClaim {
   readonly label: string;
   readonly view: SeedView;
   readonly by: SeedSource;
+  readonly family?: ViewFamily;
 }
 
 /** Every view `sources` claim, in source order: the store's default, then each tag's, role by role. */
@@ -161,6 +164,13 @@ function viewClaims(sources: readonly SeedSource[]): ViewClaim[] {
             by: source,
           },
         ]),
+    ...Object.entries(source.familyDefaultViews ?? {}).map(([family, view]) => ({
+      on: declaredOptionId(VIEW_FAMILY_OPTIONS, family),
+      ...TAG_VIEWS.default,
+      view,
+      by: source,
+      family,
+    })),
     ...claimedTagViews(source).map(({ role, tag, view }) => ({
       on: tag,
       ...TAG_VIEWS[role],
@@ -196,9 +206,15 @@ function viewClaimProps(
       );
     }
     const by = claim.by.name;
-    if (!(claim.by.views ?? []).some(({ key }) => key.id === claim.view.id)) {
+    const provided = claim.by.views?.find(({ key }) => key.id === claim.view.id)?.key;
+    if (provided === undefined) {
       throw new Error(
         `${by} names ${claim.view.id} the ${label} of ${on} but provides no such view`,
+      );
+    }
+    if (claim.family !== undefined && provided.family !== claim.family) {
+      throw new Error(
+        `${by} names ${provided.id} as the default of a different view family, ${claim.family}`,
       );
     }
     if (!seeded.has(on)) {

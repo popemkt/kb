@@ -6,7 +6,7 @@
  * what it resolves.
  */
 import { Result } from "effect";
-import { familyViewIdOf, viewOptionId, viewOptionOf, type NodeProps } from "@kb/model";
+import { familyDefaultViewOf, familyViewIdOf, viewOptionOf, type NodeProps } from "@kb/model";
 import {
   decodeFrameConfig,
   FRAME_VIEW_FAMILY,
@@ -79,34 +79,31 @@ export function frameConfigOf(
 }
 
 /**
- * What a frame is shown as while it has no frame view node: the list. The
- * kit names it by id because no declaration or data says which frame view
- * is the default yet.
- */
-// GAP [[01M53GQBPC6PR0CPQDNC74MV3R]] the kit names the frame family's default view
-const LIST_OPTION = viewOptionId("outline.list");
-
-/**
  * The view a frame shows its children in, among the frame views provided
  * (`views`, as `ViewPoint` lists them), with the view node's props decoded
  * through that view's params for the frame, so it carries exactly the
  * settings the view reads. Two cases differ:
  *
  * - A frame with no frame view node ({@link frameViewNodeOf}: it names
- *   none, or only nodes that name no frame view) shows the list.
+ *   none, or only nodes that name no frame view) uses the view family's default.
  * - A frame whose view node names a frame view that is not provided (its
  *   family switched off, or its plugin not loaded) resolves to null: the
  *   frame shows that it cannot be shown here, and offers no rows, rather
  *   than another view.
  *
- * Null too while not even the list is provided.
+ * Null too when the family has no default provided here.
  */
 export function frameViewOf(
   frame: ViewCarrier | undefined,
   schema: SchemaIndex,
   views: readonly FrameViewKey[],
 ): FrameView | null {
-  return frameViewThrough(frame, frameViewNodeOf(frame, schema), views);
+  return frameViewThrough(
+    frame,
+    frameViewNodeOf(frame, schema),
+    views,
+    familyDefaultViewOf(FRAME_VIEW_FAMILY, (id) => schema.get(id)),
+  );
 }
 
 /** {@link frameViewOf}, given the frame's view node ({@link frameViewNodeOf}) already looked up. */
@@ -114,13 +111,14 @@ export function frameViewThrough(
   frame: ViewCarrier | undefined,
   node: ViewCarrier | null,
   views: readonly FrameViewKey[],
+  defaultOption: string | null,
 ): FrameView | null {
   const asked = viewKeyOfNode(node ?? undefined, views);
   if (node !== null && asked === null) {
     logWarn(`[view-config] ${node.id}: ${viewOptionOf(node)} is no frame view provided here`);
     return null;
   }
-  const key = asked ?? views.find((view) => view.option === LIST_OPTION);
+  const key = asked ?? views.find((view) => view.option === defaultOption);
   if (key === undefined) return null;
   const params = paramsFromProps(key, node?.props ?? {}, frame?.id ?? null, frameReport);
   if (Result.isSuccess(params)) return { key, params: params.success };

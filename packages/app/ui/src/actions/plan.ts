@@ -3,12 +3,13 @@ import {
   checkEdits,
   checkOf,
   closesCycle,
+  familyDefaultViewOf,
   familyViewIdOf,
   fieldTypeValue,
   hostViewIds,
   viewsWithDefault,
   siblingSlots,
-  viewOptionId,
+  viewOptionOf,
   type FieldType,
   togglesChecked,
   type Writable,
@@ -678,17 +679,14 @@ export function planMakeDefaultView(
   ]);
 }
 
-/** What a frame is shown as until it names a frame view node: the list. */
-const FRAME_LIST_OPTION = viewOptionId("outline.list");
-
 /**
  * Edit a frame's view: the first frame view node it names (`familyViewIdOf`,
  * the one its children are shown through), its fields replaced in one
  * `node.update`. A view of another kind named first (a snippet, a
  * neighbourhood) is never rewritten. A frame that names no frame view node
- * gets one — the list's, filed in the Views list under `newViewId`, carrying
+ * gets one, filed in the Views list under `newViewId`, carrying
  * the edit — named first in `sys.f.views`, so it is the frame's default.
- * Null when there is no Views list to file it in.
+ * Null when there is no Views list or no frame view to assign.
  */
 export function planEditFrameView(
   nodes: WireNode[],
@@ -700,10 +698,13 @@ export function planEditFrameView(
   const byId = wireById(nodes);
   const viewId = familyViewIdOf(frame, FRAME_VIEW_FAMILY, (id) => byId.get(id));
   if (viewId !== null) return replaceProps(nodes, viewId, [...edit]);
-  const props: WireNode["props"] = {
-    [SYSTEM_IDS.viewField]: [refTo(FRAME_LIST_OPTION)],
-    ...Object.fromEntries(edit.map(({ field, values }) => [field, values])),
-  };
+  const props: WireNode["props"] = Object.fromEntries(
+    edit.map(({ field, values }) => [field, values]),
+  );
+  const option =
+    viewOptionOf({ props }) ?? familyDefaultViewOf(FRAME_VIEW_FAMILY, (id) => byId.get(id));
+  if (option === null) return null;
+  props[SYSTEM_IDS.viewField] = [refTo(option)];
   const made = planAddViewNode(nodes, newViewId, "", props);
   if (made === null) return null;
   const views = viewsWithDefault(frame, newViewId);

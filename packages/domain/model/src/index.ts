@@ -227,6 +227,7 @@ export {
   TAG_VIEWS,
   tagViewsOf,
   type TagViewRole,
+  familyDefaultViewOf,
   familyViewIdOf,
   docsViewNameError,
   docsViewNameOf,

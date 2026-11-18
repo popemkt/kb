@@ -42,7 +42,6 @@
       "kit/ui-sdk/src/lib/bullet-mode.ts": 6,
       "kit/ui-sdk/src/lib/command-point.ts": 1,
       "kit/ui-sdk/src/lib/form-icons.ts": 1,
-      "kit/ui-sdk/src/lib/frame-view.ts": 1,
       "kit/ui-sdk/src/lib/graph-label.ts": 3,
       "kit/ui-sdk/src/lib/graph-read.component.test.tsx": 5,
       "kit/ui-sdk/src/lib/graph-read.ts": 2,
