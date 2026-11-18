@@ -75,7 +75,7 @@ fun CaptureScreen(app: KbCapture) {
                 PrimaryTabRow(selectedTabIndex = tab) {
                     Status.entries.forEachIndexed { index, status ->
                         val count = items.count { it.state.status == status }
-                        Tab(selected = tab == index, onClick = { tab = index }, text = { Text("${status.name} · $count") })
+                        Tab(selected = tab == index, onClick = { tab = index }, text = { Text("${status.name} $count", maxLines = 1, softWrap = false) })
                     }
                 }
             }
