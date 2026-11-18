@@ -1,11 +1,4 @@
-import {
-  nodeTitleOf,
-  tagAncestors,
-  type FieldType,
-  type KbNode,
-  type NodeId,
-  type StoreTx,
-} from "@kb/model";
+import { tagAncestors, type FieldType, type KbNode, type NodeId, type StoreTx } from "@kb/model";
 import { derivedTargets, nodeRefs, referenceFields } from "./datoms.ts";
 import {
   fieldTypesIn,
@@ -18,14 +11,11 @@ import {
 } from "./derived.ts";
 import type { NodeIndex } from "./index.ts";
 import { ReadMemo } from "./read-memo.ts";
+import { TextSearch } from "./text-search.ts";
 
 /** A key as one string, for the maps keyed by key. */
 function keyName(key: KeyRef): string {
   return JSON.stringify([key.field, key.value]);
-}
-
-function byId(a: KbNode, b: KbNode): number {
-  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
 /**
@@ -60,6 +50,10 @@ export class NodeTable implements NodeIndex {
   #generation = 0;
   /** stored + virtual, in the order `storedNodes` must reproduce */
   #nodes = new Map<NodeId, KbNode>();
+  readonly #text = new TextSearch(
+    () => this.#nodes.values(),
+    (id) => this.#nodes.get(id),
+  );
   #virtual: KbNode[] = [];
   #virtualIds = new Set<NodeId>();
   /** node → the ids it points at */
@@ -268,16 +262,7 @@ export class NodeTable implements NodeIndex {
   }
 
   search(text: string, limit?: number): Array<KbNode> {
-    const needle = text.toLowerCase();
-    const hits: KbNode[] = [];
-    const nodeOf = (id: NodeId) => this.#nodes.get(id);
-    for (const node of this.#nodes.values()) {
-      if (node.text.toLowerCase().includes(needle)) hits.push(node);
-      // GAP [[01M7HCW2CRPCQ04SSRNG2FHSNS]] matched against the source, not the words it reads as
-      else if (nodeTitleOf(node.id, node, nodeOf).toLowerCase().includes(needle)) hits.push(node);
-    }
-    hits.sort(byId);
-    return limit !== undefined && hits.length > limit ? hits.slice(0, limit) : hits;
+    return this.#text.search(text, limit);
   }
 
   /** Read `node`'s references again, its key reads with them. */
