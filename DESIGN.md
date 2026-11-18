@@ -1549,10 +1549,8 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
     setting of the kind `sys.tag` (`sys.f.configures` naming a kind: every
     node of it), and the kind templates it, so every tag's page shows the
     row and a seeded tag's is the person's to write without `force`, in
-    the editor or through `node.update`. Unset, a claimed tag's comes back
-    on the next open (the fill-absent pass, GAP
-    [[01M3A0ZEWWG0VEHXEM3YNKRQ0Y]]); choosing another view, the outline
-    included, is how a person says "not this one".
+    the editor or through `node.update`. Clearing it records the choice
+    described in [Extension families](#extension-families).
   - **Family off.** A tag's default this host holds no key for is passed
     over, quietly, so a `#canvas` node opens in the store's default while
     the canvas is off; one that names no view type a node opens in (a
@@ -2626,14 +2624,19 @@ same lane. One path to a client, whatever a node's provenance.
   (DESIGN-UI.md → Adding to a frame). The receipt says how many
   conditions were left unmet; a query that does not lift requires nothing
   and is one unmet condition, so a caller can say the node may not show.
-- **A number stays a number when the query parses.** A ref prop and a number
-  prop are both stored as a bare number (GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]),
-  so a result value that equals a live eid could be either. For a query in
-  the IR subset only node-ref find positions are revived into node ids: a
-  variable the IR types as a node, or one bound as the value of a field attr
-  that holds refs somewhere in the data (the index's `refAttrs`). A count or
-  a number field's value stays a number. A `raw` query revives every
-  eid-shaped integer, as it cannot tell them apart.
+- **A stored number stays a number.** DataScript still represents a ref
+  as its target's engine entity id. The index allocates entity ids from
+  outside the numbers held by the graph. It relocates a live entity and
+  rebuilds its datoms if a write takes that entity's number. This keeps
+  scalar comparisons and arithmetic in the engine, excludes numbers from
+  field-to-entity joins, and makes both look up the graph's stable node ids.
+  For a query in the IR subset only node-ref find positions are revived into
+  node ids: a variable the IR types as a node, or one bound as the value of
+  a field attr that holds refs somewhere in the data (the index's `refAttrs`).
+  A numeric field literal in the IR matches a scalar, so it also excludes
+  matching entity ids when that number is absent from the graph. An
+  aggregate stays numeric. A raw query still revives numeric results that
+  are live entity ids, which can include integers it computed itself.
 - **Transitive reach** is a `:where` clause in that subset, written as a rule
   call so the EDN stays valid datalog:
 
@@ -2656,11 +2659,8 @@ same lane. One path to a client, whatever a node's provenance.
   `?from` and `?to` are variables, and either end may be the bound one:
   `(reach ?me :f/parent ?anc)` walks up a lineage, `(reach ?d :f/parent ?me)`
   walks down it. Each step and each result is a node: a dangling ref (kept
-  as its id string, see Data model), a string, a bool or a number that is
-  not an eid is neither followed nor returned. A number that equals a live
-  eid is indistinguishable from a ref to that node in the datoms
-  (GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]). A
-  cycle terminates, because the unbounded form is a set fixpoint and the
+  as its id string, see Data model), a string, a bool or a number stored
+  in the field is neither followed nor returned. A cycle terminates, because the unbounded form is a set fixpoint and the
   bounded form counts hops. The compiler owns the recursive rules it emits
   (private `__kb_reach_<n>` names, so a caller's own rule cannot collide):
   `%` is added to `:in` when the query does not declare it, and when it does,
@@ -3057,11 +3057,10 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     view node (`view.approval.policies`, filed in the Views list) whose
     columns are the three fields. The Pinned list's seeded reference
     (`pin.approval.policies`) puts it in the sidebar. All three are
-    ordinary user-editable nodes, edited like any query, view or pin. A
-    seeded node its owner deletes comes back on the next open, because the
-    seed adds every id it misses (`// GAP [[01M413SPC35K20DFC4TRP4DJYH]]` in
-    `seed.ts`). A store seeded when defaults were seeded keeps those policy
-    nodes as data, which no guard reads.
+    ordinary user-editable nodes, edited like any query, view or pin.
+    The seed respects their removal as described in
+    [Extension families](#extension-families). A store seeded when default
+    policies shipped keeps those policy nodes as data, which no guard reads.
   - The flag goes on the invocation envelope, not in the input, so a surface
     can carry approval only if its wire format has an envelope.
     `POST /api/action` and `kb action-invoke` do. An MCP tool call and a
@@ -4408,6 +4407,17 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
   code. The page and the client fold and derive ownership from the bundled
   declarations alone, so a repository extension's seed shows no owner
   there.
+
+- **A deliberate removal suppresses its seed default.** When a regular
+  commit removes an editable seeded node or clears a non-structural field on
+  a seeded node, the same transaction records a seed choice as a system
+  node. Its id names the removed node or the node and field by id. The seed
+  uses those choices when it fills missing nodes and prop keys, and follows
+  its retirement aliases when it reads them. A choice prevents replanting
+  while the slot is absent. The owner can still write a value or restore
+  the node. Family writes that reconcile or migrate the seed do not record
+  removal choices. Older stores continue to fill defaults that have no
+  recorded choice. This does not rewrite any existing values.
 
 - **The seed retires what it renames.** A seeded id is frozen data, so a
   family that renames or removes one declares a row of the retirement
