@@ -347,6 +347,12 @@ export { KeybindingPoint, KeyContextPoint } from "./keybindings.ts";
 export {
   CAPTURE_CONTRACT,
   CAPTURE_SUBMIT,
+  CAPTURE_PAIR,
+  CAPTURE_PAIR_CODE,
+  CAPTURE_REVOKE,
+  CaptureDeviceDigest,
+  CaptureVersion,
+  CapturePairReceiptSchema,
   CaptureReceiptSchema,
   CaptureSubmitSchema,
   type CaptureReceipt,

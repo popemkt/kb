@@ -1216,6 +1216,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A clamp-with-expand on the outline's field value view, stated in DESIGN-UI → Long text, with a test on a long value; the canvas document under Show properties then shows a few clamped lines.
 - **node** — `01M6BAEDQ6NQTXPBY5VNTJ5KBN`
 
+### GAP: Manage capture devices with verified host approval
+
+- **expected** — A person can inspect, pair and revoke their devices from an authenticated host surface. Pairings survive a store move and expired codes are retired.
+- **current** — The host CLI issues codes and revokes devices. A code expires after ten minutes and its record stays in the graph. The canonical store root binds credentials and the delivery key. The capture listener authenticates devices for its scoped actions.
+- **impact** — Moving a store requires re-pairing and old pairing rows may accumulate. The person needs host CLI access for administration.
+- **closes** — Give the store a portable identity and add authenticated pairing and revocation with expiry cleanup.
+- **node** — `01M7QT8Z33KEHWZ5KNQXRWGYZ4`
+
 ### GAP: managed-field commit lock
 
 - **expected** — A field whose value mirrors something outside the store, which no constraint can check (routines' gcal sync fields: the event id, its status, synced at), is locked to its family: the commit admits its values only from that family's actions, on every surface, and the editor names the action to use instead of an Edit.
@@ -1516,6 +1524,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Another device, browser or profile starts with an empty Recent; clearing site data forgets it
 - **closes** — A per-person screen-state home that syncs (not the graph: viewing must not write the store), read by the section in place of localStorage
 - **node** — `01M7D6DPTPPKEY515V7J3FJDM4`
+
+### GAP: Reconcile capture assets left before a failed graph commit
+
+- **expected** — A capture that never commits releases staged assets after it can no longer be replaying.
+- **current** — Capture stores validated bytes atomically under content-derived paths before its conditional graph commit. A failed write or process crash may leave an unreferenced file. Retrying the share reuses the same path.
+- **impact** — Shares remain retryable and do not multiply files, but an abandoned share can leave disk usage behind.
+- **closes** — Reconcile unreferenced staged capture assets without racing live commits or deleting a file another node references.
+- **node** — `01M7QT8YBS8V0B97VWRP4D717F`
 
 ### GAP: relations read world-aligned bounds, not volumes
 

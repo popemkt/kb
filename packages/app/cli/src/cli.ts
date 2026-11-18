@@ -316,6 +316,7 @@ function buildProgram(): Command {
       "--socket <path>",
       "listen on a Unix socket only its owner can connect to (mode 0600), for a proxy on this host; with --public-origin",
     )
+    .option("--capture-only", "serve only pairing, capture version and authenticated delivery")
     .option("--dev", "spawn the Vite dev server (HMR) and proxy to the backend", false)
     .option("--dev-port <n>", "Vite dev server port (default 5173)", toPort)
     .option(
@@ -357,6 +358,7 @@ function buildProgram(): Command {
               port?: number;
               socket?: string;
               dev?: boolean;
+              captureOnly?: boolean;
               devPort?: number;
               publicOrigin?: string;
               aliasOrigin?: readonly string[];
@@ -380,6 +382,7 @@ function buildProgram(): Command {
               socket: opts.socket,
               openBrowser: opts.open !== false,
               dev: opts.dev === true,
+              captureOnly: opts.captureOnly === true,
               devPort: opts.devPort,
               publicOrigin: opts.publicOrigin,
               aliasOrigins: opts.aliasOrigin ?? [],
@@ -390,10 +393,13 @@ function buildProgram(): Command {
                 opts.identityHeader === undefined
                   ? []
                   : [identityHeaderIdentity(opts.identityHeader)],
-              extensions: yield* hostExtensions(
-                root,
-                opts.publicOrigin ?? `http://127.0.0.1:${opts.port ?? UI_DEFAULT_PORT}`,
-              ),
+              extensions:
+                opts.captureOnly === true
+                  ? []
+                  : yield* hostExtensions(
+                      root,
+                      opts.publicOrigin ?? `http://127.0.0.1:${opts.port ?? UI_DEFAULT_PORT}`,
+                    ),
               openedBy: ACTION_INVOKE_WIRE,
               watchExtensions: opts.watchExtensions === true,
             });

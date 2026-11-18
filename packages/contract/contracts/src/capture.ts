@@ -1,3 +1,4 @@
+import { Context } from "effect";
 import { z } from "zod";
 
 export const CAPTURE_CONTRACT = 1;
@@ -35,3 +36,23 @@ export const CaptureReceiptSchema = z.object({
 
 export type CaptureSubmit = z.infer<typeof CaptureSubmitSchema>;
 export type CaptureReceipt = z.infer<typeof CaptureReceiptSchema>;
+
+export const CAPTURE_PAIR = "capture.pair";
+export const CAPTURE_PAIR_CODE = "capture.pairCode";
+export const CAPTURE_REVOKE = "capture.revoke";
+
+const CaptureStoreSchema = z.object({ key: z.string(), name: z.string() });
+
+export const CapturePairReceiptSchema = z.object({
+  token: z.string(),
+  deviceId: z.string(),
+  store: CaptureStoreSchema,
+  captureContract: z.literal(CAPTURE_CONTRACT),
+});
+
+/** The HTTP admission layer stamps this from a bearer credential; it is never an input field. */
+export const CaptureDeviceDigest = Context.Reference<string | undefined>("kb/CaptureDeviceDigest", {
+  defaultValue: () => undefined,
+});
+
+export const CaptureVersion = z.object({ captureContract: z.literal(CAPTURE_CONTRACT).optional() });

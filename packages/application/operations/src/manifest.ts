@@ -28,6 +28,7 @@ import {
   ActionCatalog,
   CAPTURE_CONTRACT,
   CAPTURE_SUBMIT,
+  CaptureVersion,
   CurrentCall,
   CurrentInterception,
   CodeTrust,
@@ -60,7 +61,7 @@ export const kbManifestDef = {
   inputSchema: z.object({}),
   outputSchema: z.object({
     root: z.string().optional(),
-    captureContract: z.literal(CAPTURE_CONTRACT).optional(),
+    ...CaptureVersion.shape,
     trusted: z.array(z.string()).optional(),
     actions: z.array(DecidedEntrySchema),
     views: z.array(ViewCatalogEntrySchema),

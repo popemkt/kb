@@ -3,6 +3,12 @@ import { Cause, Effect, Option, Schema } from "effect";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import {
   ActionReceiptSchema,
+  CAPTURE_PAIR,
+  CAPTURE_SUBMIT,
+  CaptureDeviceDigest,
+  CaptureVersion,
+  failed,
+  succeeded,
   listingOf,
   onWire,
   requestOf,
@@ -11,14 +17,17 @@ import {
   type HostedFamilies,
   type KbContext,
   type ServerIdentity,
+  type ActionRequest,
+  type ActionReceipt,
   type SurfaceWire,
 } from "@kb/contracts";
+import { captureCredential, captureDeviceDigest, reloadEffect } from "@kb/operations";
 import { writeErr, servedPage, type ActionHandlerEnv } from "@kb/runtime";
 import { SANDBOX_FRAME_HEADERS, SANDBOX_FRAME_PATH, sandboxFrameDocument } from "@kb/sandbox";
 import { canonicalRoot } from "@kb/workspace-fs";
 import * as assets from "./assets.ts";
 import { deliver } from "./delivery.ts";
-import { HTTP_WIRE } from "./guard.ts";
+import { HTTP_WIRE, type Caller } from "./guard.ts";
 import { refusalLine, serverInvoke } from "./invoke.ts";
 import { listSavedQueriesEffect } from "./saved-queries.ts";
 import { serverRuntimeLayer } from "./screens.ts";
@@ -29,6 +38,8 @@ const JSON_CONTENT_TYPE = "application/json;charset=utf-8";
 
 export interface UiHttpDeps {
   root: string;
+  /** Capture admission stamped by the HTTP request guard. */
+  capture?: Caller["capture"];
   /** Where its page is (`uiAddressOf` its listener), as `/api/identity` says it. */
   page: string;
   ctx: KbContext;
@@ -43,10 +54,11 @@ export interface UiHttpDeps {
 
 function jsonResponse(
   body: unknown,
-  options?: { status?: number },
+  options?: { status?: number; headers?: Record<string, string> },
 ): HttpServerResponse.HttpServerResponse {
   return HttpServerResponse.jsonUnsafe(body, {
     status: options?.status,
+    headers: options?.headers,
     contentType: JSON_CONTENT_TYPE,
   });
 }
@@ -210,13 +222,55 @@ const clientFailureResponse = Effect.fn("ui.clientFailureResponse")(function* (
   return jsonResponse({ reported: true });
 });
 
+/** A successful action carries the revision the page waits to apply. */
+function actionResponse(ctx: KbContext, receipt: ActionReceipt, headers?: Record<string, string>) {
+  const response: ActionResponse =
+    receipt.status === "succeeded" ? { ...receipt, rev: ctx.log.head } : receipt;
+  return jsonResponse(response, { headers });
+}
+
+/** Only actions the capture client needs, on a wire that conveys no approval. */
+const captureResponse = Effect.fn("kb.ui.capture")(function* (
+  ctx: KbContext,
+  { id, input }: ActionRequest,
+  token: string | undefined,
+) {
+  const refuse = (message: string) =>
+    jsonResponse(failed(id, "forbidden", message), { status: 403 });
+  const discovery = id === "kb.manifest";
+  if (!discovery && id !== CAPTURE_SUBMIT && id !== CAPTURE_PAIR) {
+    return refuse("this listener or credential only admits capture actions");
+  }
+  if (id === CAPTURE_SUBMIT && token === undefined) {
+    return refuse("pair a device before submitting a capture");
+  }
+  if (id === CAPTURE_PAIR && token !== undefined) {
+    return refuse("exchange a pairing code without a device credential");
+  }
+  const digest = token === undefined ? undefined : yield* captureDeviceDigest(ctx.root, token);
+  if (digest !== undefined) {
+    yield* reloadEffect(ctx);
+    if (captureCredential(ctx.nodes, digest) === undefined) {
+      return refuse("capture device credential is invalid or revoked");
+    }
+  }
+  const receipt = yield* serverInvoke(ctx, onWire(HTTP_WIRE, { id, input })).pipe(
+    Effect.provideService(CaptureDeviceDigest, digest),
+  );
+  const output =
+    discovery && receipt.status === "succeeded"
+      ? succeeded(id, CaptureVersion.parse(receipt.output))
+      : receipt;
+  return actionResponse(ctx, output, { "cache-control": "no-store" });
+});
+
 const handleHttpRequestEffect = (
   req: Request,
   wire: SurfaceWire,
   deps: UiHttpDeps,
 ): Effect.Effect<HttpServerResponse.HttpServerResponse, never, ActionHandlerEnv> =>
   Effect.gen(function* () {
-    const { ctx } = deps;
+    const { ctx, capture } = deps;
     const url = new URL(req.url);
 
     const read = req.method === "GET" ? JSON_READS.get(url.pathname) : undefined;
@@ -240,13 +294,12 @@ const handleHttpRequestEffect = (
       const made = requestOf(body.value);
       if ("invalid" in made) return invalidInput(made.invalid);
 
+      if (capture !== undefined) return yield* captureResponse(ctx, made.request, capture.token);
+      if (made.request.id === CAPTURE_PAIR) {
+        return yield* captureResponse(ctx, made.request, undefined);
+      }
       const receipt = yield* serverInvoke(ctx, onWire(wire, made.request));
-      // The head once the invocation has committed: the rev a client waits
-      // for before it lets the server's image replace its own (protocol.ts →
-      // ActionResponseSchema).
-      const response: ActionResponse =
-        receipt.status === "succeeded" ? { ...receipt, rev: ctx.log.head } : receipt;
-      return jsonResponse(response);
+      return actionResponse(ctx, receipt);
     }
 
     const file =

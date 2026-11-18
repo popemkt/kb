@@ -5605,7 +5605,7 @@ rows. A canvas exports its own document (`ext.canvas.export`).
 - **`docs.check` in pre-commit from day 1**: `.githooks/pre-commit` gains a
   `kb check` step in the same milestone that ships materialize (M4).
 
-### Raw capture
+## Raw capture
 
 Desktop quick capture and native share receivers send their original share to
 `capture.submit` on the selected store's host. The registry contract lives in
@@ -5613,7 +5613,7 @@ Desktop quick capture and native share receivers send their original share to
 advertises `captureContract` in `kb.manifest` when it serves the action. Clients
 compare the version before sending and keep the original share queued until the
 host confirms delivery. Omitted `version` uses v1. On HTTP, POST the ordinary
-action envelope `{id, input}` to `/api/action`; on MCP, call `capture_submit`.
+action envelope `{id, input}` to `/api/action`. On MCP, call `capture_submit`.
 
 An explicit parent wins, including null for the top level. Otherwise the
 store's [capture target](#provider-roles) decides, using the store's day at
@@ -5629,7 +5629,35 @@ The capture ID is a UUID. The receipt returns that ID, the committed node ID
 and the serving store key. The receipt and the capture tree commit together.
 A retry of the same capture returns that receipt. Reusing an ID with different
 content or from a different device is refused. Failures use the action's
-structured error receipt; a file refusal names the offending attachment.
+structured error receipt. A file refusal names the offending attachment.
+Receipt nodes retain the original timestamp and source app when supplied.
+The Core setting `sys.f.capture.urlField` names the site's URL field by ID.
+An empty setting uses the seeded `sys.f.capture.url` field.
+
+Bytes use the same validation and atomic asset write as `asset.upload`.
+An inline capture asset takes its name from the digest of its stored bytes,
+so competing deliveries and retries reuse it. A failed graph commit can leave
+an unreferenced asset. GAP [[01M7QT8YBS8V0B97VWRP4D717F]] tracks reconciliation.
+
+For phone delivery, serve a dedicated `kb ui --capture-only` listener through
+HTTPS. It serves `POST /api/action` for capture version discovery, pairing
+and authenticated submission. Its manifest returns only `captureContract`.
+The regular UI can keep its own listener and access rules. On the host, issue
+a ten-minute, one-use code:
+
+```sh
+kb --root /path/to/store --json action-invoke '{"id":"capture.pairCode"}'
+```
+
+The device gives that `code` and its `deviceName` to `capture.pair`. The
+response supplies its `token`, `deviceId`, `store` (key and name), and
+`captureContract`. The device sends `Authorization: Bearer <token>` with
+discovery and submission. The credential conveys no person approval.
+The store keeps a digest per device. Pairing returns the plaintext token once. The store key and credentials
+are bound to the host's canonical root. Revoke by invoking `capture.revoke`
+on the host CLI with `{deviceId}`. GAP [[01M7QT8Z33KEHWZ5KNQXRWGYZ4]] tracks
+device management and portable store identity. The broader actor proof
+remains GAP [[01M413SP3QSSQJMKKDK3W3J6G8]].
 
 ## Surfaces
 

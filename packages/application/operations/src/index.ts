@@ -70,3 +70,5 @@ export { personWriteRefusal } from "./write-refusal.ts";
 
 export { matchSpecificity } from "./action-match.ts";
 export { PAGE_CONTEXT_ID } from "./keyboard.ts";
+
+export { captureCredential, captureDeviceDigest } from "./capture-devices.ts";

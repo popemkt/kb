@@ -32,7 +32,7 @@ function extOf(filename: string): string {
   return dot > lastSep + 1 ? filename.slice(dot + 1) : "";
 }
 
-function sanitizeExt(raw: string | undefined, filename: string | undefined): string {
+export function sanitizeExt(raw: string | undefined, filename: string | undefined): string {
   let ext = (raw ?? "").replace(/^\./, "").trim();
   if (ext === "" && filename !== undefined && filename !== "") {
     ext = extOf(filename);
@@ -116,7 +116,7 @@ export const assetUploadDef = {
 
 type UploadInput = z.infer<typeof assetUploadDef.inputSchema>;
 
-const prepareAsset = Effect.fn("asset.prepare")(function* (input: UploadInput) {
+export const prepareAsset = Effect.fn("asset.prepare")(function* (input: UploadInput) {
   return yield* Effect.try({
     try: () => {
       const ext = sanitizeExt(input.ext, input.filename);
