@@ -347,11 +347,14 @@ WS protocol (JSON):
 ← {op:"tx",    datoms:[...], rev:N}           // broadcast to graph subscribers
 ```
 
-- v1 implementation: on every load, the server rebuilds a DataScript database
-  from the current nodes; on fs change it re-runs each subscription's query and
-  pushes rows if the result hash changed. The index runs only the queries a
-  change touched (DESIGN.md → Query layer → A run's read set) and answers
-  the rest from what it remembers.
+- The hub groups live subscriptions by exact query text. It retains one
+  index answer per live query and releases it when the last subscriber
+  leaves. On a transaction or a runtime definition change it asks the index
+  once per live query. When the index returns the same answer, the hub
+  skips hashing its rows. It sends rows only to subscriptions that saw a
+  different hash. Query invalidation follows [the index's read
+  set](DESIGN.md#query-layer-horizontal), including for external writes and
+  saved-query nodes.
 - The browser UI subscribes to `tx` only and answers every query from its
   own replica (→ Replica queries); `rows` subscriptions are for thin
   clients, which need no DataScript.
