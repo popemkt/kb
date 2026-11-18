@@ -353,8 +353,8 @@ WS protocol (JSON):
   once per live query. When the index returns the same answer, the hub
   skips hashing its rows. It sends rows only to subscriptions that saw a
   different hash. Query invalidation follows [the index's read
-  set](DESIGN.md#query-layer-horizontal), including for external writes and
-  saved-query nodes.
+  set](DESIGN.md#query-layer-horizontal). A full index replacement invalidates
+  every live answer.
 - The browser UI subscribes to `tx` only and answers every query from its
   own replica (→ Replica queries); `rows` subscriptions are for thin
   clients, which need no DataScript.

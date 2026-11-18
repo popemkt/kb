@@ -156,6 +156,13 @@ export interface KbIndex extends NodeIndex {
   answerDatalog(edn: string, ...inputs: ReadonlyArray<unknown>): DatalogAnswer;
 
   /**
+   * Retain this no-input query's answer beyond ordinary cache eviction until
+   * the returned release is called. Each read of a retained answer returns
+   * the same object until a graph change invalidates it or its clock expires.
+   */
+  retainDatalog(edn: string): () => void;
+
+  /**
    * Engine-neutral query IR. Unlike the raw EDN surface, result positions are
    * typed, so aggregate numbers are never mistaken for engine entity ids.
    */

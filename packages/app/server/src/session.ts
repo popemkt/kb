@@ -68,8 +68,20 @@ interface RowSubscription {
   lastHash: string;
 }
 
-/** What one query answered this transaction, shared by every subscription on it. */
-type QueryAnswer = { ok: true; rows: unknown[][]; hash: string } | { ok: false; message: string };
+interface HashedAnswer {
+  readonly result: ReturnType<KbContext["index"]["answerDatalog"]>;
+  readonly hash: string;
+}
+
+interface QueryGroup {
+  readonly subs: Set<RowSubscription>;
+  readonly release: () => void;
+  answer?: HashedAnswer;
+  /** The hash every subscriber last saw, when they all agree. */
+  settled?: string | undefined;
+}
+
+type QueryAnswer = { ok: true; answer: HashedAnswer } | { ok: false; message: string };
 
 function toWireNode(node: KbNode): WireNode {
   return WireNodeSchema.parse(node);
@@ -128,7 +140,7 @@ export interface KeptGraph {
 
 export class SubscriptionHub {
   private clients = new Map<string, ClientState>();
-  private queries = new Map<string, Set<RowSubscription>>();
+  private queries = new Map<string, QueryGroup>();
   /** This hub, among every hub a root has had: what keeps a version from naming two graphs. */
   private readonly instance = crypto.randomUUID();
   private kept: { readonly at: string; readonly graph: KeptGraph } | null = null;
@@ -165,6 +177,7 @@ export class SubscriptionHub {
   dispose(): void {
     this.unsubscribe();
     this.clients.clear();
+    for (const group of this.queries.values()) group.release();
     this.queries.clear();
     Effect.runFork(this.screens.dispose());
   }
@@ -271,22 +284,42 @@ export class SubscriptionHub {
     if (sub === undefined) return;
     client.subs.delete(id);
     const group = this.queries.get(sub.query);
-    group?.delete(sub);
-    if (group?.size === 0) this.queries.delete(sub.query);
+    if (group === undefined) return;
+    group.subs.delete(sub);
+    this.releaseIfEmpty(sub.query, group);
+  }
+
+  private releaseIfEmpty(query: string, group: QueryGroup): void {
+    if (group.subs.size !== 0) return;
+    group.release();
+    this.queries.delete(query);
   }
 
   private subscribeRows(client: ClientState, id: string, query: string): Effect.Effect<void> {
-    const answer = this.evaluate(query);
-    if (!answer.ok) return this.queryError(client.send, id, answer.message);
+    let group = this.queries.get(query);
+    if (group === undefined) {
+      group = { subs: new Set(), release: this.ctx.index.retainDatalog(query) };
+      this.queries.set(query, group);
+    }
+    const evaluated = this.evaluate(query, group);
+    if (!evaluated.ok) {
+      this.releaseIfEmpty(query, group);
+      return this.queryError(client.send, id, evaluated.message);
+    }
 
-    this.unsubscribeRows(client, id);
-    const sub = { id, query, send: client.send, lastHash: answer.hash };
-    client.subs.set(id, sub);
-    const group = this.queries.get(query);
-    if (group === undefined) this.queries.set(query, new Set([sub]));
-    else group.add(sub);
-
-    return this.sendRows(sub, this.ctx.log.head, answer.rows);
+    const { result, hash } = evaluated.answer;
+    let sub = client.subs.get(id);
+    if (sub?.query === query) {
+      sub.lastHash = hash;
+    } else {
+      this.unsubscribeRows(client, id);
+      sub = { id, query, send: client.send, lastHash: hash };
+      client.subs.set(id, sub);
+      group.subs.add(sub);
+    }
+    if (group.subs.size === 1) group.settled = hash;
+    else if (group.settled !== hash) group.settled = undefined;
+    return this.sendRows(sub, this.ctx.log.head, result.rows);
   }
 
   private sendRows(sub: RowSubscription, rev: number, rows: unknown[][]): Effect.Effect<void> {
@@ -442,15 +475,9 @@ export class SubscriptionHub {
    * Forward one logged transaction: the delta to every watcher, then the rows
    * of every subscription whose answer moved.
    *
-   * A query's answer depends on the index, not on who asked for it, so each
-   * distinct query is run once per transaction and every subscription holding
-   * it reads that one answer. The UI opens a subscription per query node on
-   * screen, so the same board view in three tabs used to cost three identical
-   * datalog runs on the hot path of every keystroke.
-   *
-   * The evaluation is shared; the decision is not. Each subscription keeps its
-   * own last-seen hash, because two clients holding the same query can be at
-   * different points in it — one just subscribed, one has been watching.
+   * The hub reads each live query once. A settled group skips fan-out when
+   * its hash still holds. The per-subscription hash also accounts for clients
+   * that joined after the index moved and already saw the new rows.
    */
   private publish(tx: KbTx): Effect.Effect<void> {
     const payload = this.txFrame(tx);
@@ -467,16 +494,22 @@ export class SubscriptionHub {
   private publishRows(rev: number): Effect.Effect<void> {
     const sends: Effect.Effect<void>[] = [];
     for (const [query, group] of this.queries) {
-      const answer = this.evaluate(query);
-      for (const sub of group) {
-        if (!answer.ok) {
-          sends.push(this.queryError(sub.send, sub.id, answer.message));
-          continue;
+      const evaluated = this.evaluate(query, group);
+      if (!evaluated.ok) {
+        for (const sub of group.subs) {
+          sends.push(this.queryError(sub.send, sub.id, evaluated.message));
         }
-        if (answer.hash === sub.lastHash) continue;
-        sub.lastHash = answer.hash;
-        sends.push(this.sendRows(sub, rev, answer.rows));
+        continue;
       }
+
+      const { result, hash } = evaluated.answer;
+      if (group.settled === hash) continue;
+      for (const sub of group.subs) {
+        if (hash === sub.lastHash) continue;
+        sub.lastHash = hash;
+        sends.push(this.sendRows(sub, rev, result.rows));
+      }
+      group.settled = hash;
     }
 
     if (sends.length === 0) return Effect.void;
@@ -484,10 +517,12 @@ export class SubscriptionHub {
   }
 
   /** Run one query against the index; a datalog failure is an answer too. */
-  private evaluate(query: string): QueryAnswer {
+  private evaluate(query: string, group: QueryGroup): QueryAnswer {
     try {
-      const rows = this.ctx.index.runDatalog(query);
-      return { ok: true, rows, hash: rowsHash(rows) };
+      const result = this.ctx.index.answerDatalog(query);
+      if (group.answer?.result === result) return { ok: true, answer: group.answer };
+      group.answer = { result, hash: rowsHash(result.rows) };
+      return { ok: true, answer: group.answer };
     } catch (err) {
       return { ok: false, message: err instanceof Error ? err.message : String(err) };
     }

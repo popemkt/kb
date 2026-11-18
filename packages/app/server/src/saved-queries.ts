@@ -104,6 +104,7 @@ export class SavedQuerySet {
     const shown = () => this.current.filter((node) => this.ctx.index.isVirtual(node.id));
     const before = shown();
     this.current = [...nodes];
+    // GAP [[01M7Q2GKYMMSGJGB5D4X120E3C]] a virtual delta rebuilds the query index
     this.ctx.index.withVirtual(this.current);
     const ops = diffTx(before, shown());
     if (ops.upserts.length === 0 && ops.deletes.length === 0) return;
