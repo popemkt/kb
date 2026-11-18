@@ -1,0 +1,4 @@
+{
+  "reason": "Asset validation becomes reusable and the workspace asset port publishes a staged file with an atomic rename.",
+  "raise": { "cli-closure": { "bytes": 231 } }
+}

@@ -114,13 +114,10 @@ export const assetUploadDef = {
   }),
 } satisfies ActionDefinition;
 
-export const assetUploadEffect = Effect.fn("asset.upload")(function* (
-  input: z.infer<typeof assetUploadDef.inputSchema>,
-): Effect.fn.Return<z.infer<typeof assetUploadDef.outputSchema>, DomainError, Assets> {
-  const assets = yield* Assets;
-  const id = yield* freshId;
+type UploadInput = z.infer<typeof assetUploadDef.inputSchema>;
 
-  const prepared = yield* Effect.try({
+const prepareAsset = Effect.fn("asset.prepare")(function* (input: UploadInput) {
+  return yield* Effect.try({
     try: () => {
       const ext = sanitizeExt(input.ext, input.filename);
       const data = decodeBytes(input.bytes, input.encoding);
@@ -141,7 +138,14 @@ export const assetUploadEffect = Effect.fn("asset.upload")(function* (
       return domainError("internal", err instanceof Error ? err.message : String(err));
     },
   });
+});
 
+export const assetUploadEffect = Effect.fn("asset.upload")(function* (
+  input: UploadInput,
+): Effect.fn.Return<z.infer<typeof assetUploadDef.outputSchema>, DomainError, Assets> {
+  const assets = yield* Assets;
+  const id = yield* freshId;
+  const prepared = yield* prepareAsset(input);
   const path = yield* assets.write(id, prepared.ext, prepared.data);
 
   return {
