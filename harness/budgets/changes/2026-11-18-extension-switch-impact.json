@@ -1,0 +1,13 @@
+{
+  "reason": "Extension impact reads kernel dependencies and reverse seed references, and the CLI prints the same preview the action tool serves.",
+  "raise": {
+    "cli-closure": {
+      "bytes": 6783,
+      "modules": 2
+    },
+    "surface": {
+      "@kb/operations": 1,
+      "@kb/contracts": 4
+    }
+  }
+}

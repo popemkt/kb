@@ -97,6 +97,38 @@ async function call(
 }
 
 describe("ext.agent.complete", () => {
+  test("canvas model dependency follows completion across the host boundary", async () => {
+    const model = { plugin: "canvas/model", source: "registry", keys: [COMPLETE] };
+    expect(await call("extension.impact", { name: "agent", on: false })).toMatchObject({
+      status: "succeeded",
+      output: { pauses: [model] },
+    });
+    expect(await call("extension.switch", { name: "agent", on: false })).toMatchObject({
+      status: "succeeded",
+    });
+    try {
+      expect(await call("extension.impact", { name: "agent", on: true })).toMatchObject({
+        status: "succeeded",
+        output: { resumes: [model] },
+      });
+      expect(await call("extension.list", {})).toMatchObject({
+        status: "succeeded",
+        output: {
+          extensions: expect.arrayContaining([
+            expect.objectContaining({
+              name: "canvas",
+              requiresContributions: expect.arrayContaining([
+                { key: COMPLETE, family: "agent", from: null },
+              ]),
+            }),
+          ]),
+        },
+      });
+    } finally {
+      await call("extension.switch", { name: "agent", on: true });
+    }
+  });
+
   test("is listed where the agent is hosted, as a read that reaches outside the root", async () => {
     const receipt = await call(kbManifestDef.id, {});
     const entry = kbManifestDef.outputSchema

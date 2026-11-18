@@ -23,6 +23,7 @@ import {
   CurrentReactions,
   ExtensionFailures,
   IgnoredRootFiles,
+  ExtensionImpactSchema,
   ExtensionReportSchema,
   ExtensionSettingsSchema,
   FamilyKernels,
@@ -51,6 +52,7 @@ import {
   type DomainError,
 } from "@kb/model";
 import { type KbIndex, KbIndexService } from "@kb/query";
+import { seedReferences, switchImpact } from "./extension-impact.ts";
 import { persistEffect, reloadEffect } from "./session.ts";
 
 const switchInput = z.object({ name: z.string().min(1), on: z.boolean() });
@@ -117,6 +119,29 @@ export const extensionSwitchEffect = Effect.fn("extension.switch")(function* (
   const upserts = switchWrites(row, input.on, (id) => ctx.index.getNode(id), yield* currentIso);
   yield* persistEffect(ctx, { upserts, deletes: [] });
   return { name: input.name, on: input.on };
+});
+
+export const extensionImpactDef = {
+  id: "extension.impact",
+  title: "Preview an extension switch",
+  description:
+    "Preview what switching an optional extension on or off would pause, degrade, resume or restore in this host and store",
+  mode: { kind: "read" } as const,
+  inputSchema: switchInput,
+  outputSchema: ExtensionImpactSchema,
+} satisfies ActionDefinition;
+
+export const extensionImpactEffect = Effect.fn("extension.impact")(function* (
+  input: z.infer<typeof switchInput>,
+) {
+  const row = yield* switchableExtension(input.name);
+  const blockedBy = yield* switchBlockers(row, input.on);
+  const kernels = yield* FamilyKernels;
+  const index = yield* KbIndexService;
+  const impact = switchImpact(row, input.on, kernels, seedReferences(index).get(row.name) ?? []);
+  return blockedBy.length === 0
+    ? impact
+    : { ...impact, blockedBy, resumes: [], restores: [], unresolved: [] };
 });
 
 export const extensionFootprintDef = {
@@ -191,7 +216,7 @@ export const extensionListDef = {
   id: "extension.list",
   title: "List the extensions",
   description:
-    "Every extension this kb composes, on or off, with its tags, service and declared-point requirements, what it provides and declares, and why any failed; each live point with its spec, owner and contributors in order; and refused repository extensions, an untrusted one with its digest",
+    "Every extension this kb composes, on or off, with its tags, requirements, what it provides, what references its seed, and why any failed; each live point with its spec, owner and contributors in order; and refused repository extensions, an untrusted one with its digest",
   mode: { kind: "read" } as const,
   inputSchema: z.object({}),
   outputSchema: ExtensionReportSchema,
@@ -206,14 +231,16 @@ export const extensionListDef = {
 export const extensionListEffect = Effect.fn("extension.list")(function* (): Effect.fn.Return<
   z.infer<typeof extensionListDef.outputSchema>,
   DomainError,
-  ExtensionCatalog | ExtensionFailures | FamilyKernels | IgnoredRootFiles | KbCtx
+  ExtensionCatalog | ExtensionFailures | FamilyKernels | IgnoredRootFiles | KbCtx | KbIndexService
 > {
   const kernels = yield* FamilyKernels;
   const failures = (yield* CurrentReactions).failures();
+  const references = seedReferences(yield* KbIndexService);
   return {
     extensions: (yield* ExtensionCatalog).map((row) => ({
       ...row,
       ...organisationOf(row.name, kernels, failures),
+      referencedBy: references.get(row.name) ?? [],
     })),
     points: orderedPoints(kernels),
     roles: orderedRoles(kernels),

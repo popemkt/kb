@@ -106,6 +106,8 @@ export {
   organisationOf,
 } from "./extension-report.ts";
 export type { ExtensionReport, ExtensionReportRow } from "./extension-report.ts";
+export { ExtensionImpactSchema } from "./extension-impact.ts";
+export type { ExtensionImpact, SeedReference } from "./extension-impact.ts";
 export { ExtensionSettingsSchema } from "./extension-settings.ts";
 export type { ExtensionSettings } from "./extension-settings.ts";
 export type { NodeLookup } from "./extension-switch.ts";
@@ -337,7 +339,7 @@ export { CORE_POINT_DEFINITIONS, type PointDefinition } from "./point-definition
 export { type TxMatch, type TxReaction } from "./tx-match.ts";
 
 export { hostCapabilities, extensionAdmissionIssue } from "./admission.ts";
-export { waitingForPoint, PointNamesSchema } from "./point-names.ts";
+export { pointOwner, waitingForPoint, PointNamesSchema } from "./point-names.ts";
 
 export { manifestAuthority } from "./manifest-authority.ts";
 

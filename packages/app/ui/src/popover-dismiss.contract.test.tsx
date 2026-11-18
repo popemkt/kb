@@ -57,6 +57,8 @@ dismissContract({
             declares: [],
             uses: [],
             injects: [],
+            requiresContributions: [],
+            referencedBy: [],
             provides: [],
             failures: [],
           },

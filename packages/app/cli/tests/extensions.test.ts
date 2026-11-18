@@ -220,6 +220,21 @@ describe("bundled docs extension", () => {
 });
 
 describe("kb ext list", () => {
+  test("previews a switch in text and JSON without writing it", async () => {
+    const root = await tempRoot();
+    const args = ["--root", root];
+    const human = await runCli([...args, "ext", "impact", "code"]);
+    expect(human.code).toBe(0);
+    expect(human.out).toContain("Pauses canvas/scripts (registry)");
+    const machine = await runCli([...args, "--json", "ext", "impact", "code", "--on"]);
+    expect(machine.code).toBe(0);
+    expect(JSON.parse(machine.out)).toMatchObject({
+      status: "succeeded",
+      id: "extension.impact",
+      output: { on: true, resumes: [], degrades: [], pauses: [] },
+    });
+  });
+
   test("lists bundled + repo extensions, human and JSON", async () => {
     const root = await tempRoot();
     await writeExtension(root, "hello.ts", HELLO_EXT);
