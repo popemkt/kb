@@ -1,0 +1,145 @@
+# kb desktop (`@kb/desktop`)
+
+kb as a desktop app: one window per store showing that store's own kb page,
+a global quick-capture panel, a tray and app menu, and `kb://` links. This is
+a first version to try out and change. The plan it follows is
+`docs/research/2026-11-18-desktop-and-phone-apps.md` (branch
+`research/apps-raw-capture`).
+
+## Run it on a Mac (arm64)
+
+Electrobun builds only for the OS it runs on, so the macOS app has to be
+built on the Mac. From a checkout of this branch:
+
+```sh
+nix develop            # or any shell with bun 1.4.x
+bun install
+cd packages/app/desktop
+bun run dev            # build and launch a dev build (logs in the terminal)
+# or
+bun run build:mac      # a stable build: build/stable-macos-arm64/kb.app
+open build/*/kb.app    # unsigned, so the first open may need right-click → Open
+```
+
+The first build downloads Electrobun's macOS core (about 50 MB) from its
+GitHub release into `node_modules/electrobun`.
+
+**Which kb it runs.** The app does not include kb. It runs the first of these
+that exists:
+
+1. `"kb"` in `settings.json` (see below)
+2. `KB_DESKTOP_KB`
+3. a kb release copied into the app (`Resources/app/kb`). `build:mac` copies
+   `out/kb-<version>` in when it exists, so run `sh bin/release-bundle`
+   first to get it
+4. the checkout's `bin/kb`. The build records the path of the checkout it
+   was built from
+5. `kb` on the PATH, after adding the places Nix, Homebrew and bun install to,
+   since an app opened from Finder does not get your shell's PATH
+
+Quick capture needs a kb that has `capture.submit`, which is on
+`feat/raw-capture-host` until it merges. A kb without it refuses the
+capture with "update kb" and keeps your text. Against a host built from that
+branch (`b7e3c540`), the desktop's envelope was accepted, and a retry with
+the same `captureId` returned the same receipt. Multi-line text arrived
+intact, and URL text became a link node.
+
+When the app runs from the checkout's kb, `kb ui` builds the UI on its first
+start. That can take longer than the 10 seconds `location.open` waits. If
+the first open fails, run `cd packages/app/ui && bun run build` once.
+
+## Run it on Linux (how it was tested)
+
+```sh
+bun run build:app      # build/dev-linux-x64/kb-dev
+build/dev-linux-x64/kb-dev/bin/launcher
+```
+
+It needs WebKitGTK 4.1, GTK 3, libsoup 3 and libayatana-appindicator. On
+NixOS, nix-ld has to be on, with those libraries in `NIX_LD_LIBRARY_PATH`.
+It was tested under Xvfb against scratch stores (`KB_HOME`, `KB_DATA`,
+`KB_DESKTOP_HOME` all pointed into `/tmp`).
+
+## What works
+
+- **Stores.** The store list (it opens when no store window does, and from
+  the menu) shows your local stores, which are the locations in your home
+  store (`kb locations`), and your remote stores, which are origins.
+  - Add a local root by path and name. A directory that is not a store gets
+    `kb init`.
+  - Add a remote store by an `https:` origin.
+  - Forget a store. Its files are never touched.
+  - Choose which store quick capture sends to.
+- **One window per store**, showing the page that store's own host serves.
+  - Local stores open through `kb open <id>`, which reuses a `kb ui`
+    already serving the root, or starts one on a free port.
+  - Opening the same store twice focuses its window.
+  - Windows remember their frame and page path per store. The ones open at
+    quit reopen at launch.
+- **Quick capture.** `Cmd+Shift+K` (set `hotkey` to change it) opens a small
+  panel that stays on top. It shows the target store.
+  - **Enter** sends the text as typed to that store's host, as one raw
+    `capture.submit` call: `{version: 1, captureId, capturedAt (with your UTC
+offset), source: {app: "kb desktop"}, text}`. The host maps the text to
+    nodes and places them (today's day by default). On success the panel
+    closes.
+  - **Shift+Enter** adds a new line. **Escape** closes the panel.
+  - When the panel closes, focus goes back to the app you were in (on macOS
+    through `lsappinfo` and `open -b`, which need no permission).
+  - On failure the text stays and the reason shows.
+  - The target is the store you chose, else the store you last focused,
+    else the first store.
+- **Menu** (the tray, and a "Stores" menu in the menu bar): Open store, Quick
+  capture, Stores…, Quit. The standard Edit menu is there too, so ⌘C, ⌘V
+  and ⌘Z work in the page.
+- **Quit** (the menu, ⌘Q, SIGTERM or Ctrl-C) waits for captures in flight
+  and closes the windows. It then stops only the `kb ui` hosts this app
+  started, with SIGTERM and then SIGKILL after 5 s. A host that was already
+  running is left alone. Set `stopStartedHostsOnQuit: false` to keep the
+  hosts running.
+- **`kb://open/<store>/<node>`** opens the node in that store's window. The
+  store is named by its key or its name. The link only navigates, and a
+  store the app does not know opens nothing. The app registers the `kb`
+  scheme on macOS.
+
+## Stubbed or missing
+
+- **Not run on macOS yet.** Everything above ran on Linux (WebKitGTK).
+  The macOS-only paths are untested: the menu bar, tray, `open-url`, dock
+  reopen, focus return and the WKWebView rendering.
+- **Remote capture auth.** A remote store's capture token is pasted by hand
+  into the store list. There is no `capture.pair` flow yet
+  (GAP `01M7QTTV8E0XFK9J0CKCNM6H5G`).
+- **Remote stores are not locations.** They are kept in the desktop's own
+  settings (GAP `01M7QTTRFKDF9B7F4M29Z84XJQ`).
+- **Page storage across ports.** A local host that comes back on a new port
+  starts the page with empty storage, so it loses its tab session and
+  layout. The window still reopens at the right path
+  (GAP `01M7QTTSVH7B0ND5PTVD0475SB`).
+- **Capture is text only.** There are no files, URL fields or drag-in yet.
+  The contract supports them.
+- No icon, signing, notarization, DMG or auto-update.
+- On Linux, a deep link only arrives as a launch argument (there is no
+  single-instance handoff). Electrobun has no application menu on Linux.
+
+## Where things live
+
+| Path                                        | What                                                                                                                                                                                                                     |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/core/`                                 | Everything that decides, independent of the shell: the store list (through one-shot `kb` commands), store windows, quick capture, menu, deep links, quit, and the control server that serves the desktop's own two pages |
+| `src/core/shell.ts`                         | The shell port: windows, hotkey, menu, OS events, exit                                                                                                                                                                   |
+| `src/core/services.ts`                      | The services the composition root provides (shell, settings, kb CLI, focus return, capture client). `Desktop` and `StoreDirectory` are layers over them                                                                  |
+| `src/shell/electrobun/`                     | The Electrobun adapter and entry. Nothing in it decides anything                                                                                                                                                         |
+| `~/Library/Application Support/kb-desktop/` | `settings.json` (`kb`, `hotkey`, `captureStore`, `stopStartedHostsOnQuit`, `remotes`) and `windows.json`. On Linux it is under `$XDG_CONFIG_HOME/kb-desktop`. `KB_DESKTOP_HOME` overrides it                             |
+
+**Swapping Electrobun for Tauri v2.** The core is plain TypeScript on Bun and
+draws its own pages over a loopback control server. The swap would go like
+this:
+
+1. Run `src/core` as a Bun sidecar.
+2. Write a Tauri adapter that implements `Shell` over its IPC: windows,
+   global-shortcut, tray, deep-link and quit. That is about 150 lines of Rust
+   glue plus a small TS bridge.
+3. Point its webviews at the URLs the core hands out.
+
+Nothing in `core/`, the pages or the kb side changes.

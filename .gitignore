@@ -91,3 +91,7 @@ playwright-report
 
 # Store-local extension lock overrides.
 .kb/extensions.local.json
+
+# kb desktop: Electrobun build output
+packages/app/desktop/build
+packages/app/desktop/artifacts
