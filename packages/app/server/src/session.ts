@@ -46,8 +46,7 @@ interface ClientState {
   /** Whose connection it is ({@link WsData.caller}). */
   caller: Caller;
   watchTx: boolean;
-  /** subscription id → { query, lastHash } */
-  subs: Map<string, { query: string; lastHash: string }>;
+  subs: Map<string, RowSubscription>;
 }
 
 /**
@@ -61,6 +60,13 @@ export interface ChannelDirectory {
 }
 
 const NO_CHANNELS: ChannelDirectory = { find: () => undefined, all: () => [] };
+
+interface RowSubscription {
+  readonly id: string;
+  readonly query: string;
+  readonly send: ClientState["send"];
+  lastHash: string;
+}
 
 /** What one query answered this transaction, shared by every subscription on it. */
 type QueryAnswer = { ok: true; rows: unknown[][]; hash: string } | { ok: false; message: string };
@@ -122,6 +128,7 @@ export interface KeptGraph {
 
 export class SubscriptionHub {
   private clients = new Map<string, ClientState>();
+  private queries = new Map<string, Set<RowSubscription>>();
   /** This hub, among every hub a root has had: what keeps a version from naming two graphs. */
   private readonly instance = crypto.randomUUID();
   private kept: { readonly at: string; readonly graph: KeptGraph } | null = null;
@@ -158,6 +165,7 @@ export class SubscriptionHub {
   dispose(): void {
     this.unsubscribe();
     this.clients.clear();
+    this.queries.clear();
     Effect.runFork(this.screens.dispose());
   }
 
@@ -225,6 +233,7 @@ export class SubscriptionHub {
    */
   addClient(clientId: string, deliver: ClientSend, caller: Caller): Effect.Effect<void> {
     const send = (text: string) => Effect.ignore(deliver(text));
+    this.forgetSubscriptions(clientId);
     this.clients.set(clientId, { send, deliver, caller, watchTx: false, subs: new Map() });
     const greeting: ServerMessage[] = [
       { op: "hello", rev: this.ctx.log.head, protocol: WIRE_PROTOCOL },
@@ -240,6 +249,7 @@ export class SubscriptionHub {
 
   /** Forget a client (socket closed / session interrupted). */
   removeClient(clientId: string): Effect.Effect<void> {
+    this.forgetSubscriptions(clientId);
     this.clients.delete(clientId);
     return this.screens.drop(clientId).pipe(
       Effect.andThen(
@@ -248,6 +258,43 @@ export class SubscriptionHub {
         }),
       ),
     );
+  }
+
+  private forgetSubscriptions(clientId: string): void {
+    const client = this.clients.get(clientId);
+    if (client === undefined) return;
+    for (const id of client.subs.keys()) this.unsubscribeRows(client, id);
+  }
+
+  private unsubscribeRows(client: ClientState, id: string): void {
+    const sub = client.subs.get(id);
+    if (sub === undefined) return;
+    client.subs.delete(id);
+    const group = this.queries.get(sub.query);
+    group?.delete(sub);
+    if (group?.size === 0) this.queries.delete(sub.query);
+  }
+
+  private subscribeRows(client: ClientState, id: string, query: string): Effect.Effect<void> {
+    const answer = this.evaluate(query);
+    if (!answer.ok) return this.queryError(client.send, id, answer.message);
+
+    this.unsubscribeRows(client, id);
+    const sub = { id, query, send: client.send, lastHash: answer.hash };
+    client.subs.set(id, sub);
+    const group = this.queries.get(query);
+    if (group === undefined) this.queries.set(query, new Set([sub]));
+    else group.add(sub);
+
+    return this.sendRows(sub, this.ctx.log.head, answer.rows);
+  }
+
+  private sendRows(sub: RowSubscription, rev: number, rows: unknown[][]): Effect.Effect<void> {
+    return sub.send(JSON.stringify({ op: "rows", id: sub.id, rev, rows }));
+  }
+
+  private queryError(send: ClientState["send"], id: string, message: string): Effect.Effect<void> {
+    return send(JSON.stringify({ op: "error", id, code: "query_error", message }));
   }
 
   /** `clientId` as a peer of the channel `channel`: what it may know of the connection. */
@@ -335,7 +382,7 @@ export class SubscriptionHub {
         client.watchTx = msg.enabled;
         return Effect.void;
       case "unsubscribe":
-        client.subs.delete(msg.id);
+        this.unsubscribeRows(client, msg.id);
         return Effect.void;
       case "screen":
         return this.screens.publish(
@@ -360,26 +407,8 @@ export class SubscriptionHub {
         if (caught.length === 0) return Effect.void;
         return Effect.forEach(caught, (tx) => client.send(this.txFrame(tx))).pipe(Effect.asVoid);
       }
-      case "subscribe": {
-        try {
-          const rows = this.ctx.index.runDatalog(msg.query);
-          const hash = rowsHash(rows);
-          client.subs.set(msg.id, { query: msg.query, lastHash: hash });
-          return client.send(
-            JSON.stringify({ op: "rows", id: msg.id, rev: this.ctx.log.head, rows }),
-          );
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          return client.send(
-            JSON.stringify({
-              op: "error",
-              id: msg.id,
-              code: "query_error",
-              message,
-            }),
-          );
-        }
-      }
+      case "subscribe":
+        return this.subscribeRows(client, msg.id, msg.query);
       default: {
         // Unreachable: `never` makes the compiler prove the switch is
         // exhaustive over ClientMessage. The clause exists because the switch
@@ -437,25 +466,16 @@ export class SubscriptionHub {
   /** Re-evaluate live answers at this revision, independently of a node delta. */
   private publishRows(rev: number): Effect.Effect<void> {
     const sends: Effect.Effect<void>[] = [];
-    const answers = new Map<string, QueryAnswer>();
-    for (const c of this.clients.values()) {
-      for (const [id, sub] of c.subs) {
-        let answer = answers.get(sub.query);
-        if (answer === undefined) {
-          answer = this.evaluate(sub.query);
-          answers.set(sub.query, answer);
-        }
+    for (const [query, group] of this.queries) {
+      const answer = this.evaluate(query);
+      for (const sub of group) {
         if (!answer.ok) {
-          sends.push(
-            c.send(
-              JSON.stringify({ op: "error", id, code: "query_error", message: answer.message }),
-            ),
-          );
+          sends.push(this.queryError(sub.send, sub.id, answer.message));
           continue;
         }
         if (answer.hash === sub.lastHash) continue;
         sub.lastHash = answer.hash;
-        sends.push(c.send(JSON.stringify({ op: "rows", id, rev, rows: answer.rows })));
+        sends.push(this.sendRows(sub, rev, answer.rows));
       }
     }
 
