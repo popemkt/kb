@@ -1,0 +1,7 @@
+{
+  "extends": "../../../tsconfig.bun.json",
+  "compilerOptions": {
+    "paths": { "electrobun/bun": ["./src/shell/electrobun/api.d.ts"] }
+  },
+  "include": ["src", "tests", "electrobun.config.ts"]
+}

@@ -27,9 +27,13 @@ export function assetsLayer(root: string): Layer.Layer<Assets, never, FileSystem
           yield* fs
             .makeDirectory(dir, { recursive: true })
             .pipe(Effect.mapError((err) => internal(`create ${dir}`, err)));
-          yield* fs
-            .writeFile(abs, bytes)
-            .pipe(Effect.mapError((err) => internal(`write asset ${relPath}`, err)));
+          yield* Effect.scoped(
+            Effect.gen(function* () {
+              const staging = yield* fs.makeTempFileScoped({ directory: dir, prefix: ".upload-" });
+              yield* fs.writeFile(staging, bytes);
+              yield* fs.rename(staging, abs);
+            }),
+          ).pipe(Effect.mapError((err) => internal(`write asset ${relPath}`, err)));
           return relPath;
         }),
         read: Effect.fn("kb.assets.read")(function* (path: string, maxBytes: number) {

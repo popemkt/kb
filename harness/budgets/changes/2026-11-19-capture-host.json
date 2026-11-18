@@ -1,0 +1,8 @@
+{
+  "reason": "The registry ships raw capture placement, durable receipts and device pairing. Shared capture schemas and capture seed definitions ship in the production page. The eager byte allowance is measured with the registry and page changes in #282.",
+  "raise": {
+    "cli-closure": { "bytes": 13330, "modules": 3 },
+    "surface": { "@kb/contracts": 6, "@kb/operations": 2 },
+    "page-eager": { "bytes": 1573 }
+  }
+}

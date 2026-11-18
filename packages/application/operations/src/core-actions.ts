@@ -1,3 +1,12 @@
+import { captureSubmitDef, captureSubmitEffect } from "./capture-submit.ts";
+import {
+  capturePairCodeDef,
+  capturePairCodeEffect,
+  capturePairDef,
+  capturePairEffect,
+  captureRevokeDef,
+  captureRevokeEffect,
+} from "./capture-devices.ts";
 import {
   extensionUpdateDef,
   extensionUpdateEffect,
@@ -121,6 +130,10 @@ const portActions: readonly RegisteredAction[] = [
   coreNative(marketplaceListDef, marketplaceListEffect),
   coreNative(graphRunDef, graphRunEffect),
   coreNative(assetUploadDef, assetUploadEffect),
+  coreNative(captureSubmitDef, captureSubmitEffect),
+  coreNative(capturePairDef, capturePairEffect),
+  coreNative(capturePairCodeDef, capturePairCodeEffect),
+  coreNative(captureRevokeDef, captureRevokeEffect),
   coreNative(renderViewDef, renderViewActionEffect),
   coreNative(renderViewsDef, renderViewsActionEffect),
   coreNative(kbManifestDef, kbManifestEffect),

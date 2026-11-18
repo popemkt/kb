@@ -87,6 +87,14 @@ its dependency edges were measured to be manifest-derived only; the workspace
 reader answers both questions without spawning `nx graph`. Nx remains the task
 runner (`nx run-many -t typecheck`, `nx affected`).
 
+A native app that kb ships beside its packages, such as the Android share
+receiver, is **not** one of them either. It lives under `apps/<platform>`
+with its platform's own build (Gradle for `apps/android`), outside the
+`packages/*/*` workspace glob, so Bun, Nx and the harness never read it.
+It imports no `@kb/*` code: it speaks to a store only over that store's
+action wire, as any program does. Its toolchain is a flake dev shell
+(`nix develop .#android`), not a host install.
+
 The harness is **not** one of these packages. It checks the workspace's shape,
 so it lives at `harness/` — root tooling, outside `packages/`, typed by
 the root `@types/bun`, typechecked by the root Nx project `kb-workspace`, and
@@ -5605,6 +5613,60 @@ rows. A canvas exports its own document (`ext.canvas.export`).
 - **`docs.check` in pre-commit from day 1**: `.githooks/pre-commit` gains a
   `kb check` step in the same milestone that ships materialize (M4).
 
+## Raw capture
+
+Desktop quick capture and native share receivers send their original share to
+`capture.submit` on the selected store's host. The registry contract lives in
+`@kb/contracts` (`CaptureSubmitSchema`, `CaptureReceiptSchema`). The host
+advertises `captureContract` in `kb.manifest` when it serves the action. Clients
+compare the version before sending and keep the original share queued until the
+host confirms delivery. Omitted `version` uses v1. On HTTP, POST the ordinary
+action envelope `{id, input}` to `/api/action`. On MCP, call `capture_submit`.
+
+An explicit parent wins, including null for the top level. Otherwise the
+store's [capture target](#provider-roles) decides, using the store's day at
+delivery when Days is selected. A supplied store key must match the serving
+store. The host maps URLs to the store's configured URL field by ID, using a
+supplied title or the URL as node text and preserving separate shared text.
+A sole HTTP(S) URL in text uses the link mapping. Other text retains Unicode
+and line breaks. Files use the asset upload rules and appear in input order.
+An uploaded path must name a stored asset of this store. The host performs no
+network fetch on submission.
+
+The capture ID is a UUID. The receipt returns that ID, the committed node ID
+and the serving store key. The receipt and the capture tree commit together.
+A retry of the same capture returns that receipt. Reusing an ID with different
+content or from a different device is refused. Failures use the action's
+structured error receipt. A file refusal names the offending attachment.
+Receipt nodes retain the original timestamp and source app when supplied.
+The Core setting `sys.f.capture.urlField` names the site's URL field by ID.
+An empty setting uses the seeded `sys.f.capture.url` field.
+
+Bytes use the same validation and atomic asset write as `asset.upload`.
+An inline capture asset takes its name from the digest of its stored bytes,
+so competing deliveries and retries reuse it. A failed graph commit can leave
+an unreferenced asset. GAP [[01M7QT8YBS8V0B97VWRP4D717F]] tracks reconciliation.
+
+For phone delivery, serve a dedicated `kb ui --capture-only` listener through
+HTTPS. It serves `POST /api/action` for capture version discovery, pairing
+and authenticated submission. Its manifest returns only `captureContract`.
+The regular UI can keep its own listener and access rules. On the host, issue
+a ten-minute, one-use code:
+
+```sh
+kb --root /path/to/store --json action-invoke '{"id":"capture.pairCode"}'
+```
+
+The device gives that `code` and its `deviceName` to `capture.pair`. The
+response supplies its `token`, `deviceId`, `store` (key and name), and
+`captureContract`. The device sends `Authorization: Bearer <token>` with
+discovery and submission. The credential conveys no person approval.
+The store keeps a digest per device. Pairing returns the plaintext token once. The store key and credentials
+are bound to the host's canonical root. Revoke by invoking `capture.revoke`
+on the host CLI with `{deviceId}`. GAP [[01M7QT8Z33KEHWZ5KNQXRWGYZ4]] tracks
+device management and portable store identity. The broader actor proof
+remains GAP [[01M413SP3QSSQJMKKDK3W3J6G8]].
+
 ## Surfaces
 
 - **CLI** (`commander`, `#!/usr/bin/env bun`): human commands + `kb action-invoke <json>`; `--json` everywhere. Internal command orchestration is Effect (`resolveRootEffect` → `openKbEffect` → `runPlanEffect` / `invokeReceiptEffect`) with an `Effect.runPromise` + exit-code boundary at each Commander surface action (not a claim that the whole process has a single runPromise). Commander itself stays the argv contract.
@@ -5720,6 +5782,17 @@ rows. A canvas exports its own document (`ext.canvas.export`).
     A script runs as the page does, with the person's session, so naming
     one trusts its origin as much as kb's own code. The page sends no
     `script-src` today; one added later must allow these scripts' origins.
+- **Phone capture** (`apps/android`): a thin share receiver. A share is
+  copied into a durable queue on the phone and delivered later, raw, to the
+  paired store's `capture.submit` over `POST /api/action`. The program wire
+  is used, with the device credential from `capture.pair` as a bearer token.
+  The host maps the share to nodes and places it, and the phone does no graph
+  writes of its own. The phone asks `kb.manifest` for `captureContract` when
+  it pairs and before each run, and keeps a capture queued, with the reason,
+  while the host does not accept the version it was encoded in. What the
+  phone does with each answer (sent, failed, paused, pending) is
+  `apps/android/README.md` → How it behaves. The design is
+  `docs/research/2026-11-18-desktop-and-phone-apps.md` §3–4.
 - **Agent onboarding**: CLAUDE.md/AGENTS.md section — node model, field/tag
   conventions, 5 example invocations.
 

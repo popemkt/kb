@@ -1,3 +1,4 @@
+import { CAPTURE_IDS, captureSeed } from "./capture-model.ts";
 import { keyboardSchemaNodes, SHORTCUT_IDS } from "@kb/keybindings";
 import { CORE_KEYBOARD } from "./keyboard.ts";
 import { trimBreaksMigration } from "./trim-breaks-migration.ts";
@@ -51,7 +52,7 @@ export const coreExtension = defineExtension({
   },
   tags: ["core"],
   required: "Everything else is built on it; without it there is no graph to extend.",
-  seed: (at) => [...systemSeedNodes(at), ...keyboardSchemaNodes(at)],
+  seed: (at) => [...systemSeedNodes(at), ...keyboardSchemaNodes(at), ...captureSeed(at)],
   keyboard: CORE_KEYBOARD,
   views: [
     viewDef(OntologyListView),
@@ -66,7 +67,14 @@ export const coreExtension = defineExtension({
   ],
   declaredOptions: [{ kind: DESIGN_SYSTEM_OPTIONS, options: [KB_DESIGN_SYSTEM] }],
   // Its own lists it files under its node: the families' migration records.
-  files: { [extensionNodeId("core")]: [SYSTEM_IDS.migrationsList, SHORTCUT_IDS.parent] },
+  files: {
+    [extensionNodeId("core")]: [
+      SYSTEM_IDS.migrationsList,
+      SHORTCUT_IDS.parent,
+      CAPTURE_IDS.receipts,
+      CAPTURE_IDS.devices,
+    ],
+  },
   // Where a node made with no chosen place goes, and where a page that
   // loads at the root opens: core's page half answers the top level and
   // home, and a family may replace either (days answers today). Where a

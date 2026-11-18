@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Three linked nodes: a capture joining the graph. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M40,62 L54,42 L70,64"
+        android:strokeWidth="4"
+        android:strokeColor="#FFA1A1A1"
+        android:strokeLineCap="round" />
+    <path
+        android:fillColor="#FFF0A13A"
+        android:pathData="M54,42m-9,0a9,9 0,1 1,18 0a9,9 0,1 1,-18 0" />
+    <path
+        android:fillColor="#FFFAFAFA"
+        android:pathData="M40,62m-7,0a7,7 0,1 1,14 0a7,7 0,1 1,-14 0" />
+    <path
+        android:fillColor="#FFFAFAFA"
+        android:pathData="M70,64m-7,0a7,7 0,1 1,14 0a7,7 0,1 1,-14 0" />
+</vector>

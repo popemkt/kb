@@ -1,0 +1,8 @@
+{
+  "reason": "The CLI action manifest advertises the raw capture protocol, whose input and receipt schemas live in the shared contracts. The production page reads the additional manifest field.",
+  "raise": {
+    "cli-closure": { "bytes": 951, "modules": 1 },
+    "surface": { "@kb/contracts": 6 },
+    "page-eager": { "bytes": 415 }
+  }
+}

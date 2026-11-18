@@ -1,0 +1,5 @@
+# A bun test run from this package's directory preloads what a root run
+# does: the one list, packages/app/test-kit/src/preload.ts (the root
+# bunfig.toml says why). Held to this text by harness/tests/test-preload.test.ts.
+[test]
+preload = ["../../app/test-kit/src/preload.ts"]

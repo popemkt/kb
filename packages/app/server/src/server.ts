@@ -72,6 +72,8 @@ export interface UiServerOptions {
   /** Bind port; 0 = ephemeral. Default UI_DEFAULT_PORT. */
   port?: number;
   openBrowser?: boolean;
+  /** Serve the restricted device wire on this listener. */
+  captureOnly?: boolean;
   hostname?: string;
   /**
    * Listen on a Unix socket at this path, created with mode 0600, instead
@@ -151,6 +153,7 @@ export interface UiServerOptions {
 export type ServedOptions = Pick<
   UiServerOptions,
   | "root"
+  | "captureOnly"
   | "publicOrigin"
   | "aliasOrigins"
   | "embedding"
@@ -290,6 +293,7 @@ function serveUi(deps: {
   uiPort: number | undefined;
   /** Every origin a proxy serves the UI at: the public origin and its aliases. */
   proxyOrigins: readonly string[];
+  captureOnly: boolean;
   embedding: Embedding;
   root: string;
   ctx: KbContext;
@@ -316,6 +320,7 @@ function serveUi(deps: {
         at,
         uiPort: deps.uiPort,
         proxyOrigins: deps.proxyOrigins,
+        captureOnly: deps.captureOnly,
         identify: (request) =>
           identifyBy(
             deps.kernel.contributions(IdentityPoint).map(({ value }) => value),
@@ -339,6 +344,7 @@ function serveUi(deps: {
 
       return requests.run(() =>
         handleHttpRequest(req, caller.wire, {
+          capture: caller.capture,
           root: deps.root,
           page: uiAddressOf(at),
           ctx,
@@ -416,6 +422,30 @@ const takeOpenedRoot = Effect.fn("kb.takeOpenedRoot")(function* (served: {
   const { ctx, layer, openedBy } = served;
   const unlisted = yield* registerOpenedRoot(ctx, openedBy).pipe(Effect.provide(layer));
   if (unlisted !== null) writeErr(`kb ui: this root is not among your locations: ${unlisted}`);
+});
+
+/** A browser listener tells other processes where to find its tabs. */
+const announceUi = Effect.fn("kb.announceUi")(function* ({
+  ctx,
+  layer,
+  openedBy,
+  at,
+  lifetime,
+}: {
+  ctx: KbContext;
+  layer: Layer.Layer<ActionHandlerEnv>;
+  openedBy: SurfaceWire | undefined;
+  at: UiListener;
+  lifetime: Scope.Scope;
+}) {
+  if (openedBy !== undefined) yield* takeOpenedRoot({ ctx, layer, openedBy });
+  yield* writeUiPresence(ctx.root, at).pipe(
+    Effect.catch((err) => Effect.sync(() => writeErr(`kb ui: ${err.message}`))),
+  );
+  yield* Scope.addFinalizer(
+    lifetime,
+    clearUiPresence(ctx.root, at).pipe(Effect.provide(bunFileSystemLayer), Effect.ignore),
+  );
 });
 
 /** One observer owns graph switches and the registry identity announced to clients. */
@@ -520,7 +550,7 @@ const startUiIn = Effect.fn("kb.startUiIn")(function* (
   lifetime: Scope.Closeable,
 ): Effect.fn.Return<UiServerHandle, DomainError, FileSystem> {
   const asked = yield* listenerOf(opts);
-  const openBrowserFlag = opts.openBrowser !== false;
+  const openBrowserFlag = opts.captureOnly !== true && opts.openBrowser !== false;
 
   const textCandidates = yield* Effect.acquireRelease(
     Effect.sync(() => new FtsTextCandidates()),
@@ -557,8 +587,9 @@ const startUiIn = Effect.fn("kb.startUiIn")(function* (
   }).pipe(Effect.ignoreCause);
 
   const cache = yield* currentCache;
+  const defaultBuilds = cache === null ? null : join(cache, "ui-builds");
   const builds =
-    opts.builds !== undefined ? opts.builds : cache === null ? null : join(cache, "ui-builds");
+    opts.captureOnly === true ? null : opts.builds === undefined ? defaultBuilds : opts.builds;
 
   // Bind before starting the background watchers.
   const requests = pendingRequests();
@@ -567,6 +598,7 @@ const startUiIn = Effect.fn("kb.startUiIn")(function* (
       where,
       at: asked,
       uiPort: opts.uiPort,
+      captureOnly: opts.captureOnly === true,
       proxyOrigins: [
         ...(opts.publicOrigin === undefined ? [] : [opts.publicOrigin]),
         ...(opts.aliasOrigins ?? []),
@@ -611,20 +643,9 @@ const startUiIn = Effect.fn("kb.startUiIn")(function* (
 
   const at = bound(asked, server);
   const url = uiAddressOf(at);
-  if (opts.openedBy !== undefined) {
-    yield* takeOpenedRoot({ ctx, layer, openedBy: opts.openedBy });
+  if (opts.captureOnly !== true) {
+    yield* announceUi({ ctx, layer, at, openedBy: opts.openedBy, lifetime });
   }
-  // Say where this root is served, so a process that needs its tabs (the CLI
-  // or `kb mcp` asking for the screen) can reach them. Losing that costs only
-  // the screen actions in other processes, so a failed write is reported and
-  // the server still serves.
-  yield* writeUiPresence(opts.root, at).pipe(
-    Effect.catch((err) => Effect.sync(() => writeErr(`kb ui: ${err.message}`))),
-  );
-  yield* Scope.addFinalizer(
-    lifetime,
-    clearUiPresence(opts.root, at).pipe(Effect.provide(bunFileSystemLayer), Effect.ignore),
-  );
 
   if (openBrowserFlag) openBrowser(url);
 
@@ -766,6 +787,15 @@ export const runUiCli = Effect.fn("kb.runUiCli")(function* (
     ...served
   } = opts;
   const open = asked !== false;
+
+  if (served.captureOnly === true) {
+    if (dev === true)
+      return yield* domainError("invalid_input", "--capture-only cannot serve --dev");
+    const handle = yield* startUi({ ...served, port, socket, openBrowser: false });
+    const where = handle.at.kind === "socket" ? handle.at.path : handle.url;
+    writeErr(`kb capture listening on ${where}`);
+    return yield* Effect.never;
+  }
 
   if (dev === true) {
     const started = yield* startDevServer({

@@ -573,6 +573,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A backend id in the authority's schema and in the base's cursor, checked on connect.
 - **node** — `01M69E3RQH76X44JB9H5NYDWBE`
 
+### GAP: a store window's page storage is lost when its local host comes back on another port
+
+- **expected** — A store window reopens with the page state it had (tab session, pane layout, scroll), whatever port its kb ui binds this time.
+- **current** — location.open starts kb ui --port 0, so each start has a new loopback origin, and the page's origin-scoped storage starts empty; the desktop remembers only the window's frame and page path (packages/app/desktop/src/core/app.ts).
+- **impact** — After a restart of the app or the host, a store window opens at the right page but with a fresh tab session and default layout.
+- **closes** — kb ui reuses a remembered port per root when it is free (the presence file or a location field names it), or the page keys its storage by store, not origin.
+- **node** — `01M7QTTSVH7B0ND5PTVD0475SB`
+
 ### GAP: a style's how-to names its tool in text, not by a node
 
 - **expected** — A how-to is a value whose tool (Three.js, Blender, Godot) is a node it refers to, so a builder's export or a query can ask for one tool's notes
@@ -1159,6 +1167,38 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P0 and P1 of docs/research/2026-10-31-offline-first.md §7: the pure reconcile, the agent, the convergence property test, kb sync and the server lane.
 - **node** — `01M69E3P6ADBBDTGRP4F6ZSR81`
 
+### GAP: kb desktop declares the raw capture envelope itself instead of importing the contract
+
+- **expected** — Quick capture builds its payload as @kb/contracts' CaptureSubmit (CaptureSubmitSchema, CAPTURE_CONTRACT), the one statement of the raw capture wire.
+- **current** — packages/app/desktop/src/core/capture.ts declares RawCapture and CAPTURE_CONTRACT locally, matching the contract on feat/raw-capture-host, which was not on main when the desktop branched.
+- **impact** — If the contract changes, the desktop's envelope can drift from it with every test green.
+- **closes** — Once the capture contract is on main, capture.ts imports CaptureSubmit and CAPTURE_CONTRACT from @kb/contracts and its tests parse the envelope with CaptureSubmitSchema.
+- **node** — `01M7QTTTHGVFE32XRVV96A696K`
+
+### GAP: kb desktop has no pairing for a remote store's capture; its token is pasted by hand
+
+- **expected** — Adding a remote store pairs once (capture.pair with a one-use code the host's owner issues) and keeps the returned device credential in the OS keychain.
+- **current** — The store list takes an optional capture token as text and keeps it in the desktop's settings.json (mode 0600) beside the remote's origin (packages/app/desktop/src/core/config.ts).
+- **impact** — A remote capture works only with a token the person copied over, and the token sits in a plain file.
+- **closes** — The desktop calls capture.pair when a remote store is added and keeps the credential in Keychain (macOS) or the secret service (Linux).
+- **node** — `01M7QTTV8E0XFK9J0CKCNM6H5G`
+
+### GAP: kb desktop keeps remote stores in its own settings, beside the home store's locations
+
+- **expected** — A store reached at an origin (a tailnet kb ui) is a location like a local root: a node in the home store that location.list lists and location.open answers, so the desktop, the page's Locations section and kb open see one list.
+- **current** — packages/app/desktop/src/core/config.ts keeps remote stores (key, name, origin, token) in the desktop's settings.json; local stores are read from location.list.
+- **impact** — Two lists of stores: a remote added in the desktop is not in the page's Locations or kb locations, and one added elsewhere is not in the desktop.
+- **closes** — The locations family gains an origin (a URL-typed field beside sys.f.location.path, status derived by probing it), and the desktop lists and opens remotes through location.list and location.open.
+- **node** — `01M7QTTRFKDF9B7F4M29Z84XJQ`
+
+### GAP: kb desktop typechecks its Electrobun adapter against a hand-kept declaration
+
+- **expected** — The shell adapter typechecks against Electrobun's own declarations, so an Electrobun upgrade that changes an API the adapter calls goes red in tsc.
+- **current** — Electrobun 1.18 ships electrobun/bun as TypeScript source that does not compile under kb's strictness, so packages/app/desktop/tsconfig.json maps it (paths) to src/shell/electrobun/api.d.ts, a hand-written slice of the API.
+- **impact** — An Electrobun upgrade can change a signature the slice still declares; tsc stays green and the app fails at run time.
+- **closes** — Electrobun publishes declarations (or its 2.x devkit's are usable from a Bun workspace), or the slice is generated from node_modules/electrobun at install and checked, and the paths delta in SANCTIONED_TSCONFIG_DELTAS goes.
+- **node** — `01M7QTTS5YXQGNPZ1XRTVNTK4A`
+
 ### GAP: kb get without a host stops above D3's 100 ms target, inside the gate
 
 - **expected** — kb get, run one-shot with no host, answers in under 100 ms (D3, decided 2026-11-13: about 300 ms after #189 steps 2-6, under 100 ms after 7-8).
@@ -1215,6 +1255,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Show properties on a #canvas node reveals its document field, so the row draws the whole canvas JSON; any long text field (pasted logs, notes) stretches the outline the same way.
 - **closes** — A clamp-with-expand on the outline's field value view, stated in DESIGN-UI → Long text, with a test on a long value; the canvas document under Show properties then shows a few clamped lines.
 - **node** — `01M6BAEDQ6NQTXPBY5VNTJ5KBN`
+
+### GAP: Manage capture devices with verified host approval
+
+- **expected** — A person can inspect, pair and revoke their devices from an authenticated host surface. Pairings survive a store move and expired codes are retired.
+- **current** — The host CLI issues codes and revokes devices. A code expires after ten minutes and its record stays in the graph. The canonical store root binds credentials and the delivery key. The capture listener authenticates devices for its scoped actions.
+- **impact** — Moving a store requires re-pairing and old pairing rows may accumulate. The person needs host CLI access for administration.
+- **closes** — Give the store a portable identity and add authenticated pairing and revocation with expiry cleanup.
+- **node** — `01M7QT8Z33KEHWZ5KNQXRWGYZ4`
 
 ### GAP: managed-field commit lock
 
@@ -1428,6 +1476,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Phase 2 of the note: child #rule clauses for the core-philosophy subset, evidence-stale from a bound digest, and resolved file#test citation, all in @kb/ext-check.
 - **node** — `01M7EY3MTKXJQQT4XGJYF3J88A`
 
+### GAP: phone capture lifecycle has no device or emulator evidence
+
+- **expected** — An instrumented test drives the share receiver on a headless emulator: share text, URL, image and two images from a real intent, kill the process between file copy and publish, restart, go offline and reconnect, and compare what the host received with the original (research 2026-11-18 §5, phase 0 · Phone lifecycle).
+- **current** — JVM unit tests cover payload building, queue durability and delivery decisions against a scripted host. The receiver activity, WorkManager scheduling and Keystore sealing are exercised only by hand on a device.
+- **impact** — A regression in intent parsing, content-URI grants or background delivery is found by the owner on their phone, not by a test.
+- **closes** — An androidTest suite run on an emulator from nix (androidenv system image, KVM), wired into the same gate as the unit tests.
+- **node** — `01M7QTAJ9GSK02FMWNR4XQGFMT`
+
 ### GAP: physical shortcut hints must use the shared chord key domain
 
 - **expected** — Shortcut hints agree with actual election for chords that constrain both physical code and character key, deriving representative keys from the shared chord model.
@@ -1516,6 +1572,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Another device, browser or profile starts with an empty Recent; clearing site data forgets it
 - **closes** — A per-person screen-state home that syncs (not the graph: viewing must not write the store), read by the section in place of localStorage
 - **node** — `01M7D6DPTPPKEY515V7J3FJDM4`
+
+### GAP: Reconcile capture assets left before a failed graph commit
+
+- **expected** — A capture that never commits releases staged assets after it can no longer be replaying.
+- **current** — Capture stores validated bytes atomically under content-derived paths before its conditional graph commit. A failed write or process crash may leave an unreferenced file. Retrying the share reuses the same path.
+- **impact** — Shares remain retryable and do not multiply files, but an abandoned share can leave disk usage behind.
+- **closes** — Reconcile unreferenced staged capture assets without racing live commits or deleting a file another node references.
+- **node** — `01M7QT8YBS8V0B97VWRP4D717F`
 
 ### GAP: relations read world-aligned bounds, not volumes
 
@@ -1770,6 +1834,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a provider that cannot run says so only when a turn fails, and a model id is typed with no suggestion
 - **closes** — the two read actions beside the agent's other actions, each answered by every adapter, with a property over kb ui
 - **node** — `01M5ZF97R8ZK857GS29QGVD3EN`
+
+### GAP: the Android capture app is built and tested by no gate
+
+- **expected** — apps/android is held by a check like every package: CI (or the pre-commit chain when apps/android is staged) runs gradle testDebugUnitTest and assembleDebug in nix develop .#android, so a change that breaks the receiver goes red.
+- **current** — Nothing runs it. bun run verify, Nx and CI see only the Bun workspace (packages/*/*); the Gradle build and its JVM unit tests run only when a person runs them (apps/android/README.md).
+- **impact** — The phone app can stop building, or its payload drift from the capture contract, with every gate green.
+- **closes** — A CI job (Linux, no macOS runner needed) running the two Gradle tasks in the android dev shell, and a docs/ci.md row for apps/android.
+- **node** — `01M7QTAHN8YW57M1R1XYGRBSZ8`
 
 ### GAP: the backdrop bar's mechanical checks are read by a reviewer, not run
 

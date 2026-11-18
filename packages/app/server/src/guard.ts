@@ -67,6 +67,8 @@ export interface GuardSite {
   readonly identify: (req: Request) => Identification;
   /** Who the page is when no provider names them (`serverOwner`). */
   readonly owner: Person;
+  /** This listener admits only the capture wire. */
+  readonly captureOnly?: boolean;
 }
 
 /**
@@ -76,6 +78,7 @@ export interface GuardSite {
 export interface Caller {
   readonly wire: SurfaceWire;
   readonly person: Person | null;
+  readonly capture?: { readonly token: string | undefined };
 }
 
 /** A local program's request: nobody's, on HTTP's wire. */
@@ -132,6 +135,17 @@ function page(person: Person): Admission {
   return { caller: { wire: PAGE_WIRE, person } };
 }
 
+function captureAdmission(authorization: string, origin: string | null): Admission {
+  if (origin !== null) {
+    return { refused: refusal(403, "the capture wire takes no browser Origin") };
+  }
+  const token = /^Bearer (kbcap_[a-f0-9]{64})$/i.exec(authorization)?.[1];
+  if (authorization !== "" && token === undefined) {
+    return { refused: refusal(403, "capture device credential is invalid") };
+  }
+  return { caller: { ...PROGRAM, capture: { token } } };
+}
+
 export function requestGuard(site: GuardSite): RequestGuard {
   const { origins, hosts } = addressesOf(site);
   const refused = (status: number, message: string): Admission => ({
@@ -139,6 +153,11 @@ export function requestGuard(site: GuardSite): RequestGuard {
   });
   return {
     admit: (req, url) => {
+      const authorization = req.headers.get("authorization") ?? "";
+      const captureWire = site.captureOnly === true || /^Bearer\s+kbcap_/i.test(authorization);
+      if (captureWire && (req.method !== "POST" || url.pathname !== "/api/action")) {
+        return refused(403, "this listener or credential only admits capture actions");
+      }
       if (url.pathname !== "/ws" && !url.pathname.startsWith("/api/")) return { caller: PROGRAM };
       const host = req.headers.get("host");
       if (host === null || !hosts.has(host)) {
@@ -155,6 +174,7 @@ export function requestGuard(site: GuardSite): RequestGuard {
       ) {
         return refused(415, `POST ${url.pathname} takes application/json`);
       }
+      if (captureWire) return captureAdmission(authorization, origin);
       const identified = site.identify(req);
       if ("refused" in identified) return refused(403, identified.refused);
       if (origin === null) return { caller: PROGRAM };
