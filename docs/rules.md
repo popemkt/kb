@@ -1777,8 +1777,8 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: the action registry is build-once per process though the kernel can unload
 
 - **expected** — kb ui watches .kb/extensions and reloads a changed extension by unloading and loading its plugin; dependents re-pend and re-activate through the kernel.
-- **current** — registryFor caches one registry (and its kernel) per root for the process lifetime; a changed extension needs a restart of kb ui / kb mcp.
-- **impact** — Extension development needs restarts; the kernel's unload/reload is proven by its contract but unused by any host.
+- **current** — kb ui watches root extensions and replaces leased registry generations today. Incremental unload and load is deferred until the dependency work lands and the session can hold one dependency graph through each in-flight call.
+- **impact** — A change to one family also recreates unrelated plugin scopes, losing their in-memory state. The current registry lease protects calls already running during replacement.
 - **closes** — Hold the kernel as the session's live registry instead of a derived snapshot: the watcher calls kernel.unload/load, and byId/manifest read the points on demand.
 - **node** — `01M39F3N7TS10VJ881RNC0Z4X3`
 
