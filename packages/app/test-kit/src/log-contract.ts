@@ -28,13 +28,9 @@ import type { StoreFactory } from "./store-contract.ts";
  * What the suite needs from an adapter: how to build it, and how to put its
  * tail one record behind its nodes.
  *
- * The second half cannot be port-generic and saying so is the point. "The
- * process died between the node write and the record" is the state the write
- * order is *chosen* for, so the contract has to be able to reach it — but the
- * only way to reach it is to reach past the port, and each backend reaches
- * differently (a line off a file, a row out of a table). The property stays
- * here, where both adapters must pass it; the one line that injects it belongs
- * to the adapter, the way `s1` left the mid-write abort in the sqlite package.
+ * The adapter supplies fault injection for writes that fail and changes that
+ * bypassed the tail. Every adapter must satisfy the same assertions about
+ * observable graph contents, revisions and replay.
  */
 export interface LogAdapter {
   readonly makeStore: StoreFactory;
@@ -73,6 +69,14 @@ function commit(store: EffectStore, tx: StoreTx, origin?: string) {
  * own.
  */
 const PROPERTIES: ReadonlyArray<readonly [string, (adapter: LogAdapter) => Promise<void>]> = [
+  [
+    "a refused tail write leaves both the stored nodes and revision unchanged",
+    failedCommitIsAtomic,
+  ],
+  [
+    "a virtual append delivers any earlier store commits before its own record",
+    virtualAppendCatchesUp,
+  ],
   ["an unwritten store has an empty tail that is current", emptyTailIsCurrent],
   ["a commit is recorded: one entry, the caller's `at` and `origin`", commitIsRecorded],
   ["rev is monotonic and survives a reopen", revSurvivesReopen],
@@ -224,6 +228,28 @@ function emptyCommitRecordsNothing(adapter: LogAdapter): Promise<void> {
   );
 }
 
+function failedCommitIsAtomic(adapter: LogAdapter): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* scratchRoot;
+        const store = adapter.makeStore(root);
+        yield* commit(store, upsert("n-a", "a"));
+        const before = yield* store.loadEffect;
+        const mark = yield* store.fingerprint;
+        adapter.breakTail(root);
+
+        const result = yield* Effect.result(commit(store, upsert("n-b", "b")));
+        expect(result._tag).toBe("Failure");
+        const reopened = adapter.makeStore(root);
+        expect(yield* reopened.loadEffect).toEqual(before);
+        expect(yield* reopened.fingerprint).toBe(mark);
+        expect(reopened.txTail.head()).toBe(1);
+      }),
+    ),
+  );
+}
+
 function failedAppendKeepsHead(adapter: LogAdapter): Promise<void> {
   return Effect.runPromise(
     Effect.scoped(
@@ -239,7 +265,7 @@ function failedAppendKeepsHead(adapter: LogAdapter): Promise<void> {
         // out for a transaction nobody can read back is a hole in the sequence
         // that no reader can recover from.
         adapter.breakTail(root);
-        expect(() => log.append(upsert("n-b", "b"), AT)).toThrow();
+        expect((yield* Effect.result(log.append(upsert("n-b", "b"), AT)))._tag).toBe("Failure");
         expect(log.head).toBe(before);
         expect(store.txTail.head()).toBe(before);
       }),
@@ -256,8 +282,7 @@ function storeAheadOfTailIsDetected(adapter: LogAdapter): Promise<void> {
         yield* commit(store, upsert("n-a", "a"));
         expect(store.txTail.isCurrent()).toBe(true);
 
-        // The crash the write order is chosen for: the nodes landed and the
-        // record did not.
+        // Simulate a write that bypassed the tail.
         yield* commit(store, upsert("n-b", "b"));
         adapter.dropLastRecord(root);
 
@@ -291,9 +316,29 @@ function staleTailForcesSnapshot(adapter: LogAdapter): Promise<void> {
 
         // The next real transaction re-anchors the tail to the store, and
         // frames from there on are servable again.
-        const appended = log.append(upsert("n-c", "c"), AT, "virtual");
+        const appended = yield* log.append(upsert("n-c", "c"), AT, "virtual");
         expect(log.head).toBe(appended.rev);
         expect(log.since(appended.rev)).toEqual([]);
+      }),
+    ),
+  );
+}
+
+function virtualAppendCatchesUp(adapter: LogAdapter): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* scratchRoot;
+        const store = adapter.makeStore(root);
+        const log = new StoreTxLog(store.txTail);
+        const seen: number[] = [];
+        log.subscribe((tx) => seen.push(tx.rev));
+
+        yield* commit(adapter.makeStore(root), upsert("n-a", "a"));
+        const virtual = yield* log.append(upsert("sys.query.v", "saved"), AT, "virtual");
+        expect(virtual.rev).toBe(2);
+        expect(seen).toEqual([1, 2]);
+        expect(log.refresh()).toEqual([]);
       }),
     ),
   );
@@ -310,7 +355,7 @@ function virtualTxIsRecorded(adapter: LogAdapter): Promise<void> {
 
         const seen: number[] = [];
         const off = log.subscribe((tx: KbTx) => seen.push(tx.rev));
-        const tx = log.append(upsert("sys.query.v", "saved"), AT, "virtual");
+        const tx = yield* log.append(upsert("sys.query.v", "saved"), AT, "virtual");
         off();
 
         expect(tx.rev).toBe(2);

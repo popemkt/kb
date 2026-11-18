@@ -427,14 +427,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Range fields (min, max, step) on number field nodes, read by the write check (valueFormError) and seeded on knob fields by knobFields.
 - **node** — `01M6RVVZTP0BF2364BF8J1BFQB`
 
-### GAP: a number prop that equals a live eid reads as a ref to that node
-
-- **expected** — A {t:ref} prop value and a {t:num} prop value have distinct datom encodings, so a query or a reach can tell a reference from a number.
-- **current** — propDatomValue stores a resolved field ref as its bare eid and a {t:num} as its bare number under the same :f/<fieldId> attr. A number equal to a live eid joins to that node: [?n :f/x ?m] [?m :node/id ?id] and (reach ?n :f/x ?m) both follow it.
-- **impact** — A number-valued prop on a field that is walked as an edge (or joined as one) can alias an arbitrary node, and which node depends on eid assignment order. Rare in practice, since ref fields hold refs and number fields are not walked, but silent when it happens.
-- **closes** — Distinct encodings in datoms.ts (for example refs on :f/<fieldId> and numbers on a typed value, or a separate ref attr per field), with queries.ts, parse.ts find-type inference, and stored queries over numeric props migrated to match.
-- **node** — `01M3A0Y5JQ5XKZMC87K34HDT2B`
-
 ### GAP: a page-head backdrop hears where the pointer is, never when it presses
 
 - **expected** — A press over a backdrop's frame reaches it as a declared cue (a press BackdropCue Studio can list and act out), from the head that owns the frame, which keeps every press meant for the head's own text and controls
@@ -556,14 +548,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A 'save to this layout' gesture when the open workspace came from a layout node, writing its sys.f.layout through view.propose's check.
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYMXMMZC9S8GS00CE6DFB`
-
-### GAP: a seeded default the owner deletes comes back on the next open
-
-- **expected** — the seed records what it planted, so a planted id that is missing reads as deleted and stays deleted
-- **current** — ensureSystemSeed re-adds every missing id on open, including default policies, the policies table view and its pin
-- **impact** — deleting a default policy, view or pin does not stick; DESIGN.md says to change a default's decision instead. Related to seed retirement, 01M3FK1PM9P96SNCSHXF0CJZRA
-- **closes** — a planted-ids record the seed reads, folded into the retirement table that gap names
-- **node** — `01M413SPC35K20DFC4TRP4DJYH`
 
 ### GAP: a stage with ambient occlusion renders without MSAA until three r187
 
@@ -1423,6 +1407,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Refuse with a clear error in the prototype; revs-at-push is a tail-contract change, not recommended.
 - **node** — `01M6950YQJFX3TYG608GNVHRX4`
 
+### GAP: older JSONL writers cannot recover a pending tail record
+
+- **expected** — Every writer that can open the same JSONL root recognizes the published tail revision after an interrupted archive.
+- **current** — Current JSONL writers recover the write-ahead record under the node lock. An older writer takes the lock but reads only tx.jsonl; it cannot see the journal.
+- **impact** — If a current writer publishes a node replacement and dies before archival, or archival fails, an older writer can reuse the published revision. Readers can then require a snapshot, and that revision cannot unambiguously identify a write across versions.
+- **closes** — Upgrade the remaining older processes that write the root to a version that recovers the pending record.
+- **node** — `01M7Q21QJJWSB6JBZPW3EWT6K8`
+
 ### GAP: only BackdropPoint checks what a repository extension contributes; the page's other points trust its types
 
 - **expected** — Every page point a repository extension can contribute to reads each contribution through a check owned by its point (as useBackdrops reads BackdropPoint), so one malformed contribution is refused alone and never throws in a reader
@@ -1707,6 +1699,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Match plainWords(nodeTitleOf(...)) beside the text in every index implementation, a property in the shared index contract.
 - **node** — `01M7HCW2CRPCQ04SSRNG2FHSNS`
 
+### GAP: seed removal lookup follows only direct retirement aliases
+
+- **expected** — A recorded removal stays effective when its seeded node or field is renamed again.
+- **current** — seedRemovalLookup checks the current id and direct predecessor ids. In a direct probe, old → middle and middle → new do not carry a choice made at old to new. The current seed fold requires every retirement target to be a seeded id, so that chain cannot reach the lookup through an admitted fold.
+- **impact** — A later rename must retain every historical id as a direct alias to the current id. If the fold admits chained aliases, a removal choice can be missed and the default can return.
+- **closes** — Before admitting a second rename with chained aliases, resolve retirement identities once for both seed reconciliation and removal lookup. Cover chains for both the holder and the field, with an older recorded removal surviving reopen.
+- **node** — `01M7QBJAHEMMDACN92CF68XRP8`
+
 ### GAP: Set field… offers only fields that declare an option set
 
 - **expected** — Set field… over one row or a range offers every field and writes a value of the field's own type to each row: an option picked from a set, or a typed value (text, number, date, a node) read once and written to every row
@@ -1986,14 +1986,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Split into recognizers over a cursor and drive them from a list. The existing md-inline tests are the gate; this is a rewrite, not a mechanical move.
 - **node** — `01M1MGCM9RWXE3CYANZK5K4KC0`
 
-### GAP: the JSONL tx tail is not atomic with the node write
-
-- **expected** — One act: nodes.jsonl and the tail entry either both land or neither does, the way the sqlite adapter gets it for free inside BEGIN IMMEDIATE.
-- **current** — Two writes inside one lock (JsonlStore.commitEffect): durableReplaceFile for the nodes, then txTail.append, and the append is deliberately not fsynced. No other process can interleave, but a crash or power loss between them can. TxTail.isCurrent() detects it by comparing the tail's newest store mark to the file's, and StoreTxLog then refuses every rev at or below head.
-- **impact** — A crash in that window costs every connected client one snapshot instead of frames - the same cost the log already had before it was durable, so nothing regresses. What is not reached is the stated shape: on JSONL the record can still lag the write. The lag is detected exactly, because the mark it is compared by is the file's content hash.
-- **closes** — A write-ahead record the JSONL adapter can commit atomically with the file replace - a single sidecar holding both the candidate bytes and the tail entry, renamed once - or a per-root manifest that names the nodes generation and the tail head together.
-- **node** — `01M1XEZT8XZNSG1NGS9JPCQFGM`
-
 ### GAP: the kit names the frame family's default view
 
 - **expected** — Which frame view a frame with no frame view node shows is data, as sys.views names the page default (sys.f.view.default, written by the fold from the declaration that provides it).
@@ -2091,14 +2083,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A remote root cannot hold .kb/queries/*.edn without forcing a resync that drops the virtual records.
 - **closes** — Give virtual transactions their own sequence, or stop logging them in the store's tail.
 - **node** — `01M6950ZTT4AQNADV0RVM9JSW1`
-
-### GAP: the seed's fill-absent pass restores a seeded prop its owner unset
-
-- **expected** — Removing every value of a seeded prop from a seeded node stays removed. The fill-absent pass adds only keys the seed gained after the store was created, never keys the owner deleted.
-- **current** — ensureSystemSeed fills any seed prop key an existing seeded node does not carry, on every open. It cannot tell a key the store never had from one the owner deleted, so 'kb unset lens.all-mentions sys.f.lens.cluster-by' is undone by the next command's open. A following 'kb set' then appends to the restored default. That is how a two-command replace doubled lens.all-mentions' values in both committed stores on 2026-09-24.
-- **impact** — A seeded node's props cannot be cleared, and replacing one with unset followed by set in two commands silently stores the value twice. A replace has to be one node.update carrying both unsetProps and setProps.
-- **closes** — Record which seed prop keys a store has already been offered (for example a seed revision per node, or a tombstone written when a seeded key is unset) and fill only keys added since. Then add a test that an unset seeded key survives reopening.
-- **node** — `01M3A0ZEWWG0VEHXEM3YNKRQ0Y`
 
 ### GAP: the server answers a client's query in the server's time zone
 
@@ -2238,15 +2222,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — words typed in one tab are lost when another tab, still focused on the same row, types again; the two tabs disagree with each other and with the server until the row loses focus. A row deleted elsewhere is different: that push is refused and shown as Not saved
 - **closes** — the node.update contract change: a base (text or revision) on the input, a conflict failure from the server when it moved, and the page taking the server's text into a focused row with a visible conflict; then a two-tab browser test that types in the same focused row from both
 - **node** — `01M6HA0JJJDSFSJ3FPW8M8QC5K`
-
-### GAP: TxTail allocates a rev outside the store's exclusion for virtual transactions
-
-- **expected** — Every appender allocates its rev under the same exclusion, so two writers can never be handed the same one.
-- **current** — TxTail.append reads its own head to assign rev+1 and is documented as not self-serialising. The store calls it inside the lock that already serialises writers, which covers every node commit; KbTxLog.append does not, and that is the path the saved-query virtual set takes. A CLI commit concurrent with a .kb/queries/ reload, or two kb ui servers on one root with different ports, can both read head N and both write N+1.
-- **impact** — A duplicate rev in the tail. Frames stay applicable in order and upserts are idempotent, so a client converges - but rev stops being a unique position, and any surface that keys on it (a replay, an audit trail, an undo across sessions) would be reading two things with one name. Narrow: it needs a second appender in the same instant.
-- **closes** — Either the virtual set becomes a store transaction so the store's exclusion covers it, or the tail acquires the store's lock itself - which needs a synchronous acquire, and write-lock.ts deliberately has none (its spin is Effect.sleep so a contended commit cannot block the loop).
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M1XF05FV87AR22B4SAS0A2BK`
 
 ### GAP: UI_ALLOWS permits unused zone directions
 
@@ -2453,6 +2428,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — One page-side name reader (rowTitle's reader by id) that every naming surface takes in place of node.text, and the graph and canvas label paths moved onto it.
 - **node** — `01M7CYP03QT4AWT994NSXQV35B`
 
+### GAP: a number prop that equals a live eid reads as a ref to that node
+
+- **expected** — A {t:ref} prop value and a {t:num} prop value have distinct datom encodings, so a query or a reach can tell a reference from a number.
+- **current** — Closed in the derived index. Engine entity ids are allocated outside numbers stored by the graph. A write that takes a live eid invalidates the derived index and reallocates that entity.
+- **impact** — A number-valued prop on a field that is walked as an edge (or joined as one) can alias an arbitrary node, and which node depends on eid assignment order. Rare in practice, since ref fields hold refs and number fields are not walked, but silent when it happens.
+- **closes** — Distinct encodings in datoms.ts (for example refs on :f/<fieldId> and numbers on a typed value, or a separate ref attr per field), with queries.ts, parse.ts find-type inference, and stored queries over numeric props migrated to match.
+- **node** — `01M3A0Y5JQ5XKZMC87K34HDT2B`
+
 ### GAP: a one-off routine cannot be ticked done or skipped in the calendar
 
 - **expected** — Every instance the calendar shows, one-off or repeating, can be ticked done or skipped, and the engine sends it done (✅, grey, no reminders) or cancels it.
@@ -2485,6 +2468,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A local extension is always on and its configuration lives in code, not in the graph.
 - **closes** — A declaration export for repository extensions, folded into that store's seed only, with the extension contract run over a repository fixture.
 - **node** — `01M53PZ0DWZ8MJN9T64TTQ10VD`
+
+### GAP: a seeded default the owner deletes comes back on the next open
+
+- **expected** — the seed records what it planted, so a planted id that is missing reads as deleted and stays deleted
+- **current** — Closed for future writes. Removing an editable seeded default records the choice in the same commit. The seed leaves that id absent on the next open.
+- **impact** — deleting a default policy, view or pin does not stick; DESIGN.md says to change a default's decision instead. Related to seed retirement, 01M3FK1PM9P96SNCSHXF0CJZRA
+- **closes** — a planted-ids record the seed reads, folded into the retirement table that gap names
+- **node** — `01M413SPC35K20DFC4TRP4DJYH`
 
 ### GAP: a seeded node whose text the seed changes keeps its old text in an existing store
 
@@ -3239,6 +3230,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Design tokens: no bypass
 - **node** — `01M3AD9BRB1C5YMJFDQC1MDAFA`
 
+### GAP: the JSONL tx tail is not atomic with the node write
+
+- **expected** — One act: nodes.jsonl and the tail entry either both land or neither does, the way the sqlite adapter gets it for free inside BEGIN IMMEDIATE.
+- **current** — Closed. The write-ahead record and recovery rules are in DESIGN.md, The transaction tail.
+- **impact** — A failed prepare or node replacement leaves the previous revision visible. A published record survives an interrupted archive.
+- **closes** — A write-ahead record the JSONL adapter can commit atomically with the file replace - a single sidecar holding both the candidate bytes and the tail entry, renamed once - or a per-root manifest that names the nodes generation and the tail head together.
+- **node** — `01M1XEZT8XZNSG1NGS9JPCQFGM`
+
 ### GAP: the lab's rich backdrop stands in kit/ beside the stage's plain backdrop()
 
 - **expected** — One backdrop mechanism in the scene kit: stage.backdrop() takes options (focus, warmth, haze, rise) and every study, lab or graph, draws its ground through it.
@@ -3321,6 +3320,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — the UI routes by view node (roadmap step 6 panes hold a ref to a view node) and the screen reports that id
 - **node** — `01M3YMCV7ZWR83DCCPQQS7PHNT`
 
+### GAP: the seed's fill-absent pass restores a seeded prop its owner unset
+
+- **expected** — Removing every value of a seeded prop from a seeded node stays removed. The fill-absent pass adds only keys the seed gained after the store was created, never keys the owner deleted.
+- **current** — Closed for future writes. Clearing a seed slot records the choice in the same commit. The next open fills new defaults and leaves recorded removals absent.
+- **impact** — A seeded node's props cannot be cleared, and replacing one with unset followed by set in two commands silently stores the value twice. A replace has to be one node.update carrying both unsetProps and setProps.
+- **closes** — Record which seed prop keys a store has already been offered (for example a seed revision per node, or a tombstone written when a seeded key is unset) and fill only keys added since. Then add a test that an unset seeded key survives reopening.
+- **node** — `01M3A0ZEWWG0VEHXEM3YNKRQ0Y`
+
 ### GAP: the server and browser plugin lists are not bridged
 
 - **expected** — the server registry is the one list of loaded extensions; the browser loads the browser entry of each extension the manifest reports; optional is a server-side load decision on the extension's declaration, reported by the manifest
@@ -3402,6 +3409,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Move both queries behind a lib/ or store selector that the components consume, so ds/ keeps one set of callers.
 - **rule** — UI import matrix
 - **node** — `01M1RXMRZKE1AJC850BRTHHHCW`
+
+### GAP: TxTail allocates a rev outside the store's exclusion for virtual transactions
+
+- **expected** — Every appender allocates its rev under the same exclusion, so two writers can never be handed the same one.
+- **current** — Closed. Virtual appends and tail adoption use the same writer exclusion as node commits.
+- **impact** — Concurrent node and virtual transactions receive distinct revisions, including across processes.
+- **closes** — Either the virtual set becomes a store transaction so the store's exclusion covers it, or the tail acquires the store's lock itself - which needs a synchronous acquire, and write-lock.ts deliberately has none (its spin is Effect.sleep so a contended commit cannot block the loop).
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M1XF05FV87AR22B4SAS0A2BK`
 
 ### GAP: ui suites reddened under load when the row a chord crossed to had no text host
 

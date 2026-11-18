@@ -1,0 +1,8 @@
+{
+  "reason": "The JSONL tail stages a durable record before the node replacement and recovers an interrupted archive under the shared writer lock.",
+  "raise": {
+    "cli-closure": {
+      "bytes": 1886
+    }
+  }
+}

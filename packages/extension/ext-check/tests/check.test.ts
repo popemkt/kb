@@ -69,7 +69,11 @@ class FixtureTail implements TxTail {
     return this.recorded.filter((tx) => tx.rev > rev);
   }
 
-  append(ops: StoreTx, record: TxRecord): KbTx {
+  append(ops: StoreTx, record: TxRecord): Effect.Effect<KbTx> {
+    return Effect.sync(() => this.record(ops, record));
+  }
+
+  private record(ops: StoreTx, record: TxRecord): KbTx {
     const rev = this.head() + 1;
     const tx: KbTx = {
       rev,
@@ -81,8 +85,8 @@ class FixtureTail implements TxTail {
     return tx;
   }
 
-  adopt(): void {
-    /* Migration is not a thing a fixture store does. */
+  adopt(): Effect.Effect<void> {
+    return Effect.void;
   }
 }
 
@@ -104,10 +108,12 @@ class FixtureLog implements KbTxLog {
     return caught;
   }
 
-  append(ops: StoreTx, at: string, origin?: string): KbTx {
-    const tx = this.tail.append(ops, origin === undefined ? { at } : { at, origin });
-    this.rev = tx.rev;
-    return tx;
+  append(ops: StoreTx, at: string, origin?: string): Effect.Effect<KbTx> {
+    return Effect.tap(this.tail.append(ops, origin === undefined ? { at } : { at, origin }), (tx) =>
+      Effect.sync(() => {
+        this.rev = tx.rev;
+      }),
+    );
   }
 
   since(rev: number): KbTx[] | "snapshot-required" {
@@ -140,7 +146,7 @@ function fixtureContext(initial: readonly KbNode[]) {
           fingerprint: `revision:${revision}`,
           tx,
           writes,
-          record: tail.append(tx, record),
+          record: Effect.runSync(tail.append(tx, record)),
         };
       }),
   };

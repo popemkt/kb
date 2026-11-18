@@ -6,10 +6,12 @@ import type {
   IrQuery,
   KbFunctionName,
   PredicateArg,
+  PatternClause,
   PullSpec,
   ReachClause,
   Term,
 } from "./ir.ts";
+import { isEidNumber } from "../index/entity-ids.ts";
 import { boundVars, outerClauses } from "./scope.ts";
 import { isKbFunction, kbFunctionInput } from "./kb-functions.ts";
 
@@ -98,7 +100,7 @@ export function compile(ir: Ir): CompiledEdn {
   const inSlots = compileIn(ir.in, rules !== undefined, functions);
   const columns = compiledFind(ir);
   const find = columns.map(compileFind).join(" ");
-  const where = ir.where.map((c) => compileClause(c, names)).join(" ");
+  const where = ir.where.flatMap((c) => compileClause(c, names)).join(" ");
   const edn = `[:find ${find}${inSlots} :where ${where}]`;
   return {
     query: normalizeEdnQuery(edn),
@@ -165,39 +167,54 @@ function compilePull(pattern: PullSpec): string {
   return `[${parts.join(" ")}]`;
 }
 
-function compileClause(clause: Clause, names: ReadonlyMap<ReachClause, string>): string {
+/** A numeric field literal whose value could also be an engine entity id. */
+export function numericFieldLiteral(clause: PatternClause): number | undefined {
+  const { attr, value } = clause;
+  return attr.startsWith(":f/") && value.t === "num" && isEidNumber(value.value)
+    ? value.value
+    : undefined;
+}
+
+function compileClause(clause: Clause, names: ReadonlyMap<ReachClause, string>): string[] {
   switch (clause.kind) {
-    case "pattern":
-      return `[?${clause.entity} ${clause.attr} ${compileTerm(clause.value)}]`;
+    case "pattern": {
+      const term = compileTerm(clause.value);
+      const pattern = `[?${clause.entity} ${clause.attr} ${term}]`;
+      // EntityIds never gives an eid to a stored number. Reject an eid
+      // matched by a numeric field literal, even if no node stores the literal.
+      return numericFieldLiteral(clause) !== undefined
+        ? [pattern, `[(missing? $ ${term} :node/id)]`]
+        : [pattern];
+    }
     case "children": {
       const cs = `?__kb_cs_${clause.parent}`;
-      return `[?${clause.parent} :node/children ${cs}] [(identity ${cs}) [?${clause.child} ...]]`;
+      return [
+        `[?${clause.parent} :node/children ${cs}]`,
+        `[(identity ${cs}) [?${clause.child} ...]]`,
+      ];
     }
     case "reach": {
       const name = present(names.get(clause), "reach rule name");
-      if (clause.maxHops !== undefined) return `(${name} ?${clause.from} ?${clause.to} 1)`;
-      return `(${name} ?${clause.from} ?${clause.to})`;
+      if (clause.maxHops !== undefined) return [`(${name} ?${clause.from} ?${clause.to} 1)`];
+      return [`(${name} ?${clause.from} ?${clause.to})`];
     }
     case "rule":
-      return `(${[clause.name, ...clause.args.map(compileTerm)].join(" ")})`;
+      return [`(${[clause.name, ...clause.args.map(compileTerm)].join(" ")})`];
     case "predicate": {
       const fn = isKbFunction(clause.fn) ? `?${kbFunctionInput(clause.fn)}` : clause.fn;
       const call = `(${[fn, ...clause.args.map(compileArg)].join(" ")})`;
-      return clause.bind === undefined ? `[${call}]` : `[${call} ?${clause.bind}]`;
+      return [clause.bind === undefined ? `[${call}]` : `[${call} ?${clause.bind}]`];
     }
     case "or": {
       const branches = clause.branches.map((branch) => {
-        const forms = branch.map((c) => compileClause(c, names));
-        // `children` compiles to two forms, so a one-clause branch may still need `and`.
-        return forms.length === 1 && branch[0]?.kind !== "children"
-          ? forms.join(" ")
-          : `(and ${forms.join(" ")})`;
+        const forms = branch.flatMap((c) => compileClause(c, names));
+        return forms.length === 1 ? forms[0] : `(and ${forms.join(" ")})`;
       });
-      return `(${[joinHead("or", joinedFunctions(clause)), ...branches].join(" ")})`;
+      return [`(${[joinHead("or", joinedFunctions(clause)), ...branches].join(" ")})`];
     }
     case "not": {
-      const body = clause.clauses.map((c) => compileClause(c, names));
-      return `(${[joinHead("not", joinedFunctions(clause)), ...body].join(" ")})`;
+      const body = clause.clauses.flatMap((c) => compileClause(c, names));
+      return [`(${[joinHead("not", joinedFunctions(clause)), ...body].join(" ")})`];
     }
     default: {
       const _exhaustive: never = clause;
@@ -255,9 +272,8 @@ function compileReachRules(
  * test is `[?v :node/id ?v_id]`, which drops bools and numbers that are not
  * eids. DataScript throws when a string is bound into that entity slot, and a
  * dangling field ref is its id string. So strings go first, by the one value
- * whose `str` is itself. A number that equals a live eid still passes; the
- * encoding, not this test, is what cannot tell it from a ref
- * (GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]).
+ * whose `str` is itself. The index gives entities ids apart from stored
+ * numbers, so field scalars cannot pass the node test.
  */
 function isNode(v: string): string {
   return `[(str ?${v}) ?${v}_str] [(not= ?${v}_str ?${v})] [?${v} :node/id ?${v}_id]`;

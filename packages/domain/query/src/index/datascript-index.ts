@@ -11,8 +11,9 @@ import {
 } from "../datascript.ts";
 import type { Ir } from "../ir/ir.ts";
 import { parseEdn } from "../ir/parse.ts";
-import { type Datom, type DatascriptDb, type IdMap, nodeToDatoms, schemaFor } from "./datoms.ts";
+import { type Datom, type DatascriptDb, nodeToDatoms, schemaFor } from "./datoms.ts";
 import type { DerivedRef } from "./derived.ts";
+import { EntityIds } from "./entity-ids.ts";
 import type { DatalogAnswer, KbIndex, IndexOptions } from "./index.ts";
 import { NodeTable } from "./node-table.ts";
 import { readSetOf, touches, type ChangedDatom, type ReadSet } from "./read-set.ts";
@@ -48,8 +49,8 @@ interface Kept extends DatalogAnswer {
  * The one {@link KbIndex} implementation: an in-memory DataScript db kept
  * incrementally in step with the store.
  *
- * Eids are stable and monotonic — allocated on a node's first appearance and
- * never reused, so a revived eid always means the node it meant before. The
+ * Entity ids are allocated by `EntityIds` and kept until a node disappears or
+ * a stored numeric value takes one. The
  * schema is derived from the data (a `:f/<field>` attr is a ref attr because
  * some node put a ref in it), which is the one thing `d.db_with` cannot grow:
  * a transaction that introduces a new attr falls back to a full rebuild and
@@ -69,8 +70,7 @@ export class DatascriptIndex implements KbIndex {
   /** Whether {@link #db} lags the table and is built again on its next use. */
   #stale = true;
   #rebuilds = 0;
-  #ids: IdMap = { toEid: new Map(), toId: new Map() };
-  #nextEid = 1;
+  readonly #ids = new EntityIds();
   #attrs = new Set<string>();
   /** Field attrs that have held a node ref since the last rebuild (`DatascriptDb.refAttrs`). */
   #refAttrs = new Set<string>();
@@ -134,7 +134,7 @@ export class DatascriptIndex implements KbIndex {
   /** Every datom from the table's nodes, at once: the build `d.db_with` cannot grow into. */
   #buildDatoms(): void {
     const merged = [...this.#table.allNodes()];
-    this.#syncIds(merged);
+    this.#ids.sync(merged);
     this.#attrs = new Set();
     this.#refAttrs = new Set();
     const datoms: Datom[] = [];
@@ -162,10 +162,16 @@ export class DatascriptIndex implements KbIndex {
     const retracts: TxOp[] = tx.deletes
       .filter((id) => this.#table.getNode(id) !== undefined)
       .map((id) => [":db/retractEntity", present(this.#ids.toEid.get(id), `eid for ${id}`)]);
+    const touched = new Set([...tx.deletes, ...tx.upserts.map(({ id }) => id)]);
+    const before = this.#nodesAt(touched);
     const change = this.#table.change(tx);
     if (change === null) return;
-    for (const id of change.created) this.#allocate(id);
-    for (const id of change.removed) this.#forget(id);
+    for (const id of change.removed) this.#ids.forget(id);
+    if (this.#ids.note(before, this.#nodesAt(touched))) {
+      this.#invalidate();
+      return;
+    }
+    for (const id of change.created) this.#ids.allocate(id);
 
     const adds: TxOp[] = [];
     let grown = false;
@@ -329,30 +335,12 @@ export class DatascriptIndex implements KbIndex {
     }
   }
 
-  #allocate(id: NodeId): void {
-    if (this.#ids.toEid.has(id)) return;
-    this.#ids.toEid.set(id, this.#nextEid);
-    this.#ids.toId.set(this.#nextEid, id);
-    this.#nextEid += 1;
-  }
-
-  /** Drop the mapping; the number itself is retired, never handed out again. */
-  #forget(id: NodeId): void {
-    const eid = this.#ids.toEid.get(id);
-    if (eid === undefined) return;
-    this.#ids.toEid.delete(id);
-    this.#ids.toId.delete(eid);
-  }
-
-  #syncIds(nodes: ReadonlyArray<KbNode>): void {
-    const live = new Set(nodes.map((n) => n.id));
-    // Deleting the entry the Map iterator is on is well defined, so the live
-    // ids are filtered in one pass rather than over a copy.
-    for (const [id, eid] of this.#ids.toEid) {
-      if (live.has(id)) continue;
-      this.#ids.toEid.delete(id);
-      this.#ids.toId.delete(eid);
+  #nodesAt(ids: ReadonlySet<NodeId>): KbNode[] {
+    const nodes: KbNode[] = [];
+    for (const id of ids) {
+      const node = this.#table.getNode(id);
+      if (node !== undefined) nodes.push(node);
     }
-    for (const node of nodes) this.#allocate(node.id);
+    return nodes;
   }
 }

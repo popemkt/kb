@@ -19,7 +19,8 @@ import {
   type KbNode,
 } from "@kb/model";
 import { persistEffect } from "@kb/operations";
-import { kbRuntimeLayer } from "@kb/runtime";
+import { onWire } from "@kb/contracts";
+import { IN_PROCESS_WIRE, invokeReceiptEffect, kbRuntimeLayer } from "@kb/runtime";
 import { seedGoldenNodes } from "./seed-golden.ts";
 import {
   CONTRACT_AT,
@@ -317,6 +318,51 @@ export function personEditsToSeededNodesSurviveOpening(makeStore: StoreFactory):
       }),
     ),
   );
+}
+
+/** A removal through the action boundary survives a fresh session over the store. */
+function seededRemoval(
+  makeStore: StoreFactory,
+  action: { id: string; input: unknown },
+  check: (nodes: readonly KbNode[]) => void,
+): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* backendRoot(makeStore);
+        const ctx = yield* openSession(root);
+        const receipt = yield* invokeReceiptEffect(ctx, onWire(IN_PROCESS_WIRE, action)).pipe(
+          Effect.provide(kbRuntimeLayer(ctx)),
+        );
+        expect(receipt.status).toBe("succeeded");
+        const reopened = yield* openSession(root);
+        check(reopened.nodes);
+        yield* opensWithoutWriting(makeStore, root);
+      }),
+    ),
+  );
+}
+
+export function clearedSeedPropSurvivesOpening(makeStore: StoreFactory): Promise<void> {
+  const id = "lens.all-mentions";
+  const field = "sys.f.lens.cluster-by";
+  return seededRemoval(
+    makeStore,
+    { id: "node.update", input: { id, unsetProps: [{ field }] } },
+    (nodes) => {
+      const lens = nodes.find((node) => node.id === id);
+      expect(lens).toBeDefined();
+      expect(lens?.props[field] ?? []).toEqual([]);
+    },
+  );
+}
+
+export function removedSeedNodeSurvivesOpening(makeStore: StoreFactory): Promise<void> {
+  const id = "pin.approval.policies";
+  return seededRemoval(makeStore, { id: "node.delete", input: { id } }, (nodes) => {
+    expect(nodes.some((node) => node.id === id)).toBe(false);
+    expect(nodes.some((node) => node.children.includes(id))).toBe(false);
+  });
 }
 
 /** `node` without its values of field `key`. */

@@ -231,7 +231,7 @@ export const ingestExternalWrite = Effect.fn("kb.ingestExternalWrite")(function*
   if (ctx.log.refresh().length > 0 || replaced === null) return;
   const ops = diffTx(replaced, ctx.index.storedNodes());
   if (ops.upserts.length === 0 && ops.deletes.length === 0) return;
-  ctx.log.append(ops, yield* currentIso);
+  yield* ctx.log.append(ops, yield* currentIso);
 });
 
 /**
@@ -251,7 +251,7 @@ export const ingestSavedQueries = Effect.fn("kb.ingestSavedQueries")(function* (
   queries: SavedQuerySet,
 ) {
   const saved = yield* listSavedQueriesEffect(root);
-  queries.sync(savedQueryNodes(saved), yield* currentIso);
+  yield* queries.sync(savedQueryNodes(saved), yield* currentIso);
 });
 
 /**

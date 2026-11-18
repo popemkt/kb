@@ -7,3 +7,4 @@ export {
   type SeedSource,
   type SeedView,
 } from "./seed-fold.ts";
+export { seedRemovalNodes } from "./removals.ts";
