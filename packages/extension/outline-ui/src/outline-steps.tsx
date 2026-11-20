@@ -117,7 +117,7 @@ export const addField: PaletteStep<string | null> = {
         .wireNodes.filter(
           (node) => targets.has(node.id) && (node.props[fieldId]?.length ?? 0) === 0,
         );
-      await Promise.all(missing.map((node) => writes.updateProp(node.id, fieldId, empty)));
+      await Promise.all(missing.map((node) => writes.initializeProp(node.id, fieldId, empty)));
       return fieldId;
     });
   },

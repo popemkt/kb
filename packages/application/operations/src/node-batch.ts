@@ -122,7 +122,7 @@ const planCall = Effect.fn("node.batch.call")(function* (
     return { id: call.input.id, write };
   }
   // A node already gone is deleted already: nothing to write, as `node.delete`.
-  return { id: call.input.id, write: planNodeDelete(nodes, call.input, at) };
+  return { id: call.input.id, write: yield* planNodeDelete(nodes, call.input, at) };
 });
 
 /**

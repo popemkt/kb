@@ -244,6 +244,9 @@ describe("triggers in the text", () => {
       await vi.waitFor(() => expect(outlineNodes().get(ABOVE)?.children).toEqual([LINE]));
       expect(propOf(ABOVE, "field.status")).toEqual([]);
       expect(textOf(LINE)).toBe("");
+      await act(() => mutations.redo());
+      expect(outlineNodes().has(LINE)).toBe(false);
+      expect(propOf(ABOVE, "field.status")).toHaveLength(1);
     });
 
     it("keeps the typed text and focus when the conversion is refused", async () => {

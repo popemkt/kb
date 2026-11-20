@@ -16,6 +16,7 @@ import {
   planDefineTag,
   planDelete,
   planIndent,
+  planInitializeProp,
   planInsertSibling,
   planMergeInto,
   planMergeWithPrevious,
@@ -114,7 +115,7 @@ function recordHistory(preWire: WireNode[], plan: PlannedMutation): void {
         });
   useGraphStore.getState().recordUndo({
     undo: restoreInvocations(wire(), before),
-    redo: plan.actions,
+    redo: plan.redoActions ?? plan.actions,
   });
 }
 
@@ -122,7 +123,11 @@ function recordHistory(preWire: WireNode[], plan: PlannedMutation): void {
  * The gesture being made (`together`): the actions its writes planned, in
  * order, sent as one write when it ends. Null while no gesture is open.
  */
-let gesture: { actions: ActionRequest[]; undoText: Map<string, string> } | null = null;
+let gesture: {
+  actions: ActionRequest[];
+  redoActions: ActionRequest[];
+  undoText: Map<string, string>;
+} | null = null;
 
 async function invokeAll(actions: Array<{ id: string; input: unknown }>): Promise<boolean> {
   const localOnly = useGraphStore.getState().loadSource !== "api";
@@ -145,6 +150,7 @@ async function invokeAll(actions: Array<{ id: string; input: unknown }>): Promis
 async function runPlan(plan: PlannedMutation): Promise<RunOptimisticResult> {
   if (gesture !== null) {
     gesture.actions.push(...plan.actions);
+    gesture.redoActions.push(...(plan.redoActions ?? plan.actions));
     for (const [id, text] of plan.undoText ?? []) gesture.undoText.set(id, text);
     return { ok: true };
   }
@@ -320,8 +326,8 @@ export const mutations: PageWrites = {
     await applyPlan(planSplit(wire(), id, cursor, ulid(), { expandedIds }));
   },
 
-  async deleteNode(id: string, undo?: { readonly text: string }): Promise<boolean> {
-    return applyPlan(planDelete(wire(), id, undo));
+  async deleteNode(id, draft): Promise<boolean> {
+    return applyPlan(planDelete(wire(), id, draft));
   },
 
   async mergeNextIntoThis(thisId: string, nextId: string): Promise<void> {
@@ -383,7 +389,11 @@ export const mutations: PageWrites = {
   async together<T>(made: () => Promise<T>): Promise<T | null> {
     // A gesture inside another is part of it.
     if (gesture !== null) return made();
-    const open = { actions: [] as ActionRequest[], undoText: new Map<string, string>() };
+    const open = {
+      actions: [] as ActionRequest[],
+      redoActions: [] as ActionRequest[],
+      undoText: new Map<string, string>(),
+    };
     gesture = open;
     let result: T;
     try {
@@ -418,6 +428,10 @@ export const mutations: PageWrites = {
 
   async removeProp(nodeId: string, fieldId: string, value?: PropValue): Promise<void> {
     await applyPlan(planUnsetProp(wire(), nodeId, fieldId, value));
+  },
+
+  async initializeProp(nodeId, fieldId, value): Promise<void> {
+    await applyPlan(planInitializeProp(nodeId, fieldId, value));
   },
 
   async createRefTarget(creation: RefCreation, name: string): Promise<string | null> {

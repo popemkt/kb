@@ -87,9 +87,11 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // `capture.submit`, `capture.pair`, `capture.pairCode` and `capture.revoke`
 // are new actions a previous page never calls, and `kb.manifest` may name a
 // `captureContract`, an optional field a previous page ignores.
+// Protocol 12: the field shortcut depends on the server checking draft
+// and field preconditions. Reload older pages before they send writes.
 const RECORDED = {
-  protocol: 11,
-  fingerprint: "f9a6dcc61255ef7d9c003e73f5eb3b846dcc7e94ba14cea539fb7c3fbd99eacf",
+  protocol: 12,
+  fingerprint: "c56e1b0f8f83519a91bbe9f8e5423700f8c7583e15e412f7a9ca82bd75c8a424",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

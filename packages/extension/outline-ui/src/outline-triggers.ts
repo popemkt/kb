@@ -66,7 +66,9 @@ function stepTrigger<Result>(
   step: PaletteStep<Result | null>,
   open: TextTrigger["open"],
   row: { readonly nodeId: string; readonly schema: SchemaIndex },
-  target: () => StepTarget<Result> | null = () => ({ nodeId: row.nodeId }),
+  target: (typed: { readonly query: string }) => StepTarget<Result> | null = () => ({
+    nodeId: row.nodeId,
+  }),
 ): TextTrigger {
   return {
     id,
@@ -83,7 +85,7 @@ function stepTrigger<Result>(
       ),
     ...(step.createLabel === undefined ? {} : { createLabel: step.createLabel }),
     pick: (picked, typed) => {
-      const at = target();
+      const at = target(typed);
       if (at === null) return null;
       const conversion = at.conversion;
       const write = async () => {
@@ -204,13 +206,14 @@ function fieldTrigger(
       ? null
       : { start: 0, end: cursor, query: match[1] ?? "" };
   };
-  return stepTrigger("field", addField, open, row, () => {
+  return stepTrigger("field", addField, open, row, (typed) => {
     const parent = emptyLineOf(row.nodeId, instanceKey);
     if (parent === null || instanceKey === undefined) return null;
     return {
       nodeId: parent,
       conversion: {
-        remove: () => browserHost().writes.deleteNode(row.nodeId, { text: "" }),
+        remove: () =>
+          browserHost().writes.deleteNode(row.nodeId, { parent, text: `>${typed.query}` }),
         land: landInFieldsOf(instanceKey, parent),
       },
     };

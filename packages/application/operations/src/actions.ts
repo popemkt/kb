@@ -23,6 +23,7 @@ import {
   type RankSlot,
   IndexedNodes,
   resolveFieldId,
+  resolveFieldIn,
   resolveTagId,
   type DomainError,
   type KbNode,
@@ -112,6 +113,8 @@ export const nodeDeleteDef = {
     id: z.string(),
     /** Parent deletion is never implicitly shallow; cascade is the default. */
     descendants: z.enum(["cascade", "reparent"]).optional(),
+    /** Consume a draft line only while it still has this text, parent and no content besides its text. */
+    requireEmptyLine: z.object({ parent: z.string(), text: z.string() }).optional(),
     /** Bypass sys.* write-guard (browse yes / break no). */
     force: z.boolean().optional(),
   }),
@@ -322,7 +325,7 @@ function cloneNode(n: KbNode): KbNode {
 // A field's cardinality is read from the plan graph, which holds stored
 // nodes only. A field is never virtual (the virtual nodes are saved queries),
 // so this reads what the session index would.
-function isInSubtree(nodes: KbNode[], rootId: NodeId, targetId: NodeId): boolean {
+function isInSubtree(nodes: readonly KbNode[], rootId: NodeId, targetId: NodeId): boolean {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const stack = [rootId];
   const seen = new Set<NodeId>();
@@ -338,7 +341,7 @@ function isInSubtree(nodes: KbNode[], rootId: NodeId, targetId: NodeId): boolean
   return false;
 }
 
-function detachFromParents(nodes: KbNode[], childId: NodeId, at: string): KbNode[] {
+function detachFromParents(nodes: readonly KbNode[], childId: NodeId, at: string): KbNode[] {
   const touched: KbNode[] = [];
   for (const n of nodes) {
     if (!n.children.includes(childId)) continue;
@@ -350,7 +353,7 @@ function detachFromParents(nodes: KbNode[], childId: NodeId, at: string): KbNode
   return touched;
 }
 
-function collectSubtreeIds(nodes: KbNode[], rootId: NodeId): NodeId[] {
+function collectSubtreeIds(nodes: readonly KbNode[], rootId: NodeId): NodeId[] {
   const byId = new Map(nodes.map((node) => [node.id, node]));
   const result: NodeId[] = [];
   const seen = new Set<NodeId>();
@@ -489,22 +492,38 @@ export interface PlannedNodeWrite {
  * a batch of it (`node.batch`): the node gone, with its subtree unless
  * `descendants: "reparent"`, and detached from every parent.
  */
-export function planNodeDelete(
-  nodes: KbNode[],
+export const planNodeDelete = Effect.fn("node.delete.plan")(function* (
+  nodes: readonly KbNode[],
   input: z.infer<typeof nodeDeleteDef.inputSchema>,
   at: string,
-): PlannedNodeWrite {
+): Effect.fn.Return<PlannedNodeWrite, DomainError> {
+  const expected = input.requireEmptyLine;
+  if (expected !== undefined) {
+    const graph = IndexedNodes.of(nodes);
+    const line = graph.get(input.id);
+    if (
+      line === undefined ||
+      line.text !== expected.text ||
+      line.children.length > 0 ||
+      Object.keys(line.props).length > 0 ||
+      graph.parentOf(input.id) !== expected.parent
+    ) {
+      return yield* domainError("conflict", "The draft line changed before it could be converted", {
+        id: input.id,
+      });
+    }
+  }
   const deletes =
     input.descendants === "reparent" ? [input.id] : collectSubtreeIds(nodes, input.id);
   return { upserts: detachFromParents(nodes, input.id, at), deletes };
-}
+});
 
 export const nodeDeleteEffect = Effect.fn("node.delete")(function* (
   input: z.infer<typeof nodeDeleteDef.inputSchema>,
 ): Effect.fn.Return<{ id: string; deleted: true }, DomainError, KbWriteEnv> {
   const ctx = yield* KbCtx;
   const at = yield* currentIso;
-  yield* persistEffect(ctx, planNodeDelete(ctx.nodes, input, at), forcedBy(input));
+  yield* persistPlannedEffect(ctx, (nodes) => planNodeDelete(nodes, input, at), forcedBy(input));
   return { id: input.id, deleted: true };
 });
 
@@ -516,7 +535,7 @@ export const nodeDeleteEffect = Effect.fn("node.delete")(function* (
  * once, only when one needs it: a text edit reads no graph.
  */
 export const planNodeUpdate = Effect.fn("node.update.plan")(function* (
-  nodes: KbNode[],
+  nodes: readonly KbNode[],
   input: z.infer<typeof nodeUpdateDef.inputSchema>,
   at: string,
   nodeOf: (id: NodeId) => KbNode | undefined,
@@ -529,6 +548,16 @@ export const planNodeUpdate = Effect.fn("node.update.plan")(function* (
   const upserts: KbNode[] = [];
   let built: IndexedNodes | undefined;
   const graph = (): IndexedNodes => (built ??= IndexedNodes.of(nodes));
+
+  for (const field of input.requireUnset ?? []) {
+    const id = yield* syncDomain(() => resolveFieldIn(graph(), field));
+    if ((node.props[id]?.length ?? 0) > 0) {
+      return yield* domainError("conflict", "The field gained a value before it could be added", {
+        id: node.id,
+        field: id,
+      });
+    }
+  }
 
   yield* syncDomain(() => {
     if (input.text !== undefined) node.text = input.text;
@@ -581,9 +610,15 @@ export const nodeUpdateEffect = Effect.fn("node.update")(function* (
 ): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbWriteEnv> {
   const ctx = yield* KbCtx;
   const at = yield* currentIso;
-  const { node, write } = yield* planNodeUpdate(ctx.nodes, input, at, (id) => nodeById(ctx, id));
-  yield* persistEffect(ctx, write, forcedBy(input));
-  return { id: input.id, node };
+  const planned = yield* persistPlannedEffect(
+    ctx,
+    (nodes) =>
+      planNodeUpdate(nodes, input, at, (id) => nodeById(ctx, id)).pipe(
+        Effect.map(({ node, write }) => ({ ...write, node })),
+      ),
+    forcedBy(input),
+  );
+  return { id: input.id, node: present(planned, "an update always writes").node };
 });
 
 export const nodeMergeEffect = Effect.fn("node.merge")(function* (

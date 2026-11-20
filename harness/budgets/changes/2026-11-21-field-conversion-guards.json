@@ -1,0 +1,8 @@
+{
+  "reason": "Node writes check the draft line and empty field against the graph they will commit to, including when a concurrent write forces replanning.",
+  "raise": {
+    "cli-closure": {
+      "bytes": 887
+    }
+  }
+}

@@ -5346,6 +5346,12 @@ and guard decision over all of it, one transaction-tail record, one undo
 step. Over a store that moved while it was planned, the whole batch is
 planned again, as `node.addTree` is.
 
+A `node.update` can name fields in `requireUnset` to require that they
+currently hold no values. A `node.delete` can specify `requireEmptyLine`
+with the draft's parent and exact text. Its node must still have that
+parent and text, with no children or props. A failed precondition is a
+conflict, checked again over the current graph whenever the batch replans.
+
 The output is `{ ids }`, each call's node in call order (the node added,
 updated or deleted). The action declares itself a batch of its three parts
 (`batchOf`), so a guard on any of them governs it, decided with each part's

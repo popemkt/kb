@@ -85,9 +85,12 @@ export interface PageWrites {
    * Delete the node and its subtree. Answers whether it landed: false when
    * the commit refused it, so a caller that moves the selection or the caret
    * past the row moves it only when the row went. A gesture that consumes
-   * a draft can supply the text the row should come back with on undo.
+   * an empty draft supplies its parent and typed text as commit preconditions.
    */
-  readonly deleteNode: (id: string, undo?: { readonly text: string }) => Promise<boolean>;
+  readonly deleteNode: (
+    id: string,
+    draft?: { readonly parent: string; readonly text: string },
+  ) => Promise<boolean>;
   /**
    * Merge the next row into this one (Delete at the end of a row).
    */
@@ -147,6 +150,7 @@ export interface PageWrites {
     oldValue?: PropValue,
   ) => Promise<void>;
   readonly removeProp: (nodeId: string, fieldId: string, value?: PropValue) => Promise<void>;
+  readonly initializeProp: (nodeId: string, fieldId: string, value: PropValue) => Promise<void>;
   /**
    * Mint a node a ref field may point at, named `name`, where the field's
    * declaration says a new target goes (`refCreationOf`): a child of the

@@ -1733,6 +1733,8 @@ can replace what was typed for the trigger or consume the row in a write.
   the field if the pick added it. The caret lands on the field's value
   where the parent's fields are drawn: under its row, or in the page head.
   If the conversion is refused, the typed text and caret stay on the line.
+  The write checks the draft line and any field it initializes against the
+  current graph, so a concurrent edit can refuse the conversion.
   To add a field to a node that has text, use Add field on that node
   (its menu, or the palette).
 
