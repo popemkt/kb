@@ -47,7 +47,7 @@ describe("platformKeychain", () => {
     const keychain = platformKeychain({ platform: "linux", run });
     await Effect.runPromise(keychain.write(item, "v"));
     await Effect.runPromise(keychain.erase(item));
-    expect(asked.map((each) => each.argv[1])).toEqual(["store", "clear"]);
+    expect(asked.map((each) => each.argv[1])).toEqual(["store", "clear", "search"]);
     expect(asked[0]?.stdin).toBe("v");
   });
 
@@ -79,37 +79,45 @@ describe("platformKeychain", () => {
     });
   });
 
-  test("Linux erase confirms a silent clear found no matching item, including locked matches", async () => {
-    const erase = (found: LookupResult) =>
-      Effect.runPromise(
-        Effect.result(
-          platformKeychain({
-            platform: "linux",
-            run: (argv) => {
-              if (argv[1] === "clear") return Promise.resolve({ code: 1, stdout: "", stderr: "" });
-              expect(argv).toEqual([
-                "secret-tool",
-                "search",
-                "--all",
-                "service",
-                "kb-desktop",
-                "account",
-                "remote-1",
-              ]);
-              return Promise.resolve(found);
-            },
-          }).erase(item),
-        ),
-      );
-    expect(await erase({ code: 0, stdout: "", stderr: "" })).toMatchObject({ success: undefined });
-    for (const found of [
-      { code: 0, stdout: "[locked-item]\n", stderr: "" },
-      { code: 1, stdout: "", stderr: "secret-tool: service unavailable\n" },
-    ]) {
-      expect(await erase(found)).toMatchObject({
-        failure: { message: "secret-tool refused to delete the item" },
+  test.each([0, 1])(
+    "Linux erase checks for remaining matches after a silent clear (exit %i)",
+    async (code) => {
+      const erase = (found: LookupResult) =>
+        Effect.runPromise(
+          Effect.result(
+            platformKeychain({
+              platform: "linux",
+              run: (argv) => {
+                if (argv[1] === "clear") return Promise.resolve({ code, stdout: "", stderr: "" });
+                expect(argv).toEqual([
+                  "secret-tool",
+                  "search",
+                  "--all",
+                  "service",
+                  "kb-desktop",
+                  "account",
+                  "remote-1",
+                ]);
+                return Promise.resolve(found);
+              },
+            }).erase(item),
+          ),
+        );
+      expect(await erase({ code: 0, stdout: "", stderr: "" })).toMatchObject({
+        success: undefined,
       });
-    }
+      for (const found of [
+        { code: 0, stdout: "[locked-item]\n", stderr: "" },
+        { code: 1, stdout: "", stderr: "secret-tool: service unavailable\n" },
+      ]) {
+        expect(await erase(found)).toMatchObject({
+          failure: { message: "secret-tool refused to delete the item" },
+        });
+      }
+    },
+  );
+
+  test("Linux erase reports a clear error without searching", async () => {
     const { asked, run } = recorder({
       code: 1,
       stdout: "",

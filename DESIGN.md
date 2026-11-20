@@ -6394,7 +6394,9 @@ setup page shows beside the field). `kb ui` binds `systemSecrets`
   mode on stdin (`security -i`), and to `secret-tool store` on Linux, with
   the value on stdin, so no value is ever on a command line; a value
   `security -i` cannot quote is refused. Erasing succeeds when the item is
-  deleted or confirmed absent. A helper failure is reported to the caller.
+  deleted or confirmed absent. On Linux, the keychain checks for any
+  remaining matches after a clear because locked matches can survive it.
+  A helper failure is reported to the caller.
 - **`dotenv:`** references read their file on each use, with no shell
   expansion. Files must be private (0600) and regular, and symlinks are
   refused. Writes and erases serialize through an exclusive lock, preserve

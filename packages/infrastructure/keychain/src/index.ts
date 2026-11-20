@@ -189,20 +189,20 @@ export function platformKeychain(
       if (argv === null)
         return yield* new KeychainError({ message: `kb erases no keychain on ${platform}` });
       const answer = yield* ask(argv);
-      if (answer.code === 0) return undefined;
-      // macOS security exits with the low byte of errSecItemNotFound (-25300).
-      // A failed search setup can emit an additional error before the missing-item line.
-      if (
-        platform === "darwin" &&
-        answer.code === 44 &&
-        /^security: SecKeychainSearchCopyNext:[^\r\n]+$/.test(answer.stderr.trim())
-      )
+      if (platform === "linux") {
+        // Clear only deletes unlocked matches. Search without --unlock also reports locked matches.
+        if (answer.code === 0 || (answer.code === 1 && answer.stderr === "")) {
+          const found = yield* ask(["secret-tool", "search", "--all", ...linuxAttributes(item)]);
+          if (found.code === 0 && found.stdout === "" && found.stderr === "") return undefined;
+        }
+      } else if (
+        answer.code === 0 ||
+        // macOS security reports errSecItemNotFound (-25300) as exit 44.
+        // A failed search setup can emit an additional error before the missing-item line.
+        (answer.code === 44 &&
+          /^security: SecKeychainSearchCopyNext:[^\r\n]+$/.test(answer.stderr.trim()))
+      ) {
         return undefined;
-      // A silent "clear" exit 1 means nothing was deleted, including a locked match.
-      // A search without --unlock also reports locked matches on the Secret Service.
-      if (platform === "linux" && answer.code === 1 && answer.stderr === "") {
-        const found = yield* ask(["secret-tool", "search", "--all", ...linuxAttributes(item)]);
-        if (found.code === 0 && found.stdout === "" && found.stderr === "") return undefined;
       }
       return yield* new KeychainError({ message: `${tool(argv)} refused to delete the item` });
     }),
