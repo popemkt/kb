@@ -30,8 +30,8 @@ export interface TextTrigger {
   readonly id: string;
   /** The trigger typed before `cursor` in `text`, if one is. */
   readonly open: (text: string, cursor: number) => OpenTrigger | null;
-  /** What it offers for `query`, read from `nodes`. */
-  readonly rows: (query: string, nodes: NodeMap) => PickerRow[];
+  /** What it offers for `query`, read from `nodes` (and the row `nodeId` it is typed in, when known). */
+  readonly rows: (query: string, nodes: NodeMap, nodeId?: string) => PickerRow[];
   /** How a row that makes a new node by the query's name reads ("Create tag “x”"). */
   readonly createLabel?: (name: string) => string;
   /** A row picked (by Enter, Tab or a click). */

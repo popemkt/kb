@@ -89,7 +89,7 @@ export function PickerList({
             row={row}
             active={i === activeIndex}
             checks={checks}
-            lead={leadOf?.(row)}
+            lead={leadOf?.(row) ?? (row.kind === "item" ? row.glyph : undefined)}
             createLabel={createLabel}
             onHover={() => onHover?.(i)}
             onPick={(alternate) => onPick(row, alternate)}

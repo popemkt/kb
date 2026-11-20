@@ -1,0 +1,4 @@
+{
+  "reason": "The shared picker carries a row's glyph to the list and the text host passes the edited node to triggers. The production page measures 2,031,815 eager bytes, up from 2,031,650.",
+  "raise": { "page-eager": { "bytes": 165 } }
+}

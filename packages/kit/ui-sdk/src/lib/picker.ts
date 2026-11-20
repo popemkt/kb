@@ -11,14 +11,17 @@
  * draws the result. A surface that needs a picker supplies candidates and a
  * write; it never ranks or handles an arrow key itself.
  *
- * Pure: no React, no DOM.
+ * Pure: no React runtime, no DOM.
  */
+import type { ReactNode } from "react";
 
 /** One node a picker may offer, as the picker sees it. */
 export interface PickerCandidate {
   readonly id: string;
   /** What the row shows and what a query is matched against. */
   readonly label: string;
+  /** Leading glyph drawn before the label. */
+  readonly glyph?: ReactNode;
   /** Muted text after the label (e.g. "already extends"). */
   readonly note?: string;
   /** Shown, but not pickable. */
@@ -36,6 +39,7 @@ export type PickerRow =
       readonly kind: "item";
       readonly id: string;
       readonly label: string;
+      readonly glyph?: ReactNode;
       readonly note?: string;
       readonly disabled: boolean;
       /** Where the query landed in `label`, for highlighting. */
@@ -165,6 +169,7 @@ export function pickerRows(
     kind: "item",
     id: candidate.id,
     label: candidate.label,
+    ...(candidate.glyph === undefined ? {} : { glyph: candidate.glyph }),
     ...(candidate.note === undefined ? {} : { note: candidate.note }),
     disabled: candidate.disabled === true,
     matches: match.ranges,
