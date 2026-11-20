@@ -26,6 +26,7 @@ import { useUiStore } from "@/stores/ui.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
+import { ctxRefWire } from "@/fixtures/contextual-ref";
 
 const ISO = "2026-10-01T00:00:00.000Z";
 
@@ -236,18 +237,22 @@ describe("the query builder", () => {
     await click(option);
   }
 
-  it.each(["tag", "Escape"])("Turn into query waits for a pick (%s)", async (choice) => {
+  it.each(["tag", "reference", "Escape"])("Turn into query (%s)", async (choice) => {
     resetOutlineStore();
     useUiStore.getState().setNodePaletteOpen(false);
     const nodeId = "n.c";
-    const instanceKey = `row/${nodeId}`;
+    const reference = ctxRefWire("n.retro-reference", nodeId);
+    const rowId = choice === "reference" ? reference.id : nodeId;
+    const instanceKey = `row/${rowId}`;
     const task = wire({
       id: "t.task",
       text: "task",
       props: { [SYSTEM_IDS.typeField]: [ref(SYSTEM_IDS.tag)] },
     });
-    useGraphStore.getState().hydrateFromWire([...graph(DEFAULT_QUERY_EDN), task], 1, "fixtures");
-    useOutlineStore.setState({ selectedNodeId: nodeId, selectedInstanceKey: instanceKey });
+    useGraphStore
+      .getState()
+      .hydrateFromWire([...graph(DEFAULT_QUERY_EDN), task, reference], 1, "fixtures");
+    useOutlineStore.setState({ selectedNodeId: rowId, selectedInstanceKey: instanceKey });
     const before = useGraphStore.getState().wireNodes;
     const undoDepth = useGraphStore.getState().undoStack.length;
     await act(async () => {
@@ -289,6 +294,12 @@ describe("the query builder", () => {
       expect(value?.v).toContain(":f/sys.f.type");
       expect(node.props[SYSTEM_IDS.typeField]).toBeUndefined();
     });
+    expect(outlineNodes().get(reference.id)?.props).toEqual(reference.props);
+    const commands = browserHost().nodeCommands(
+      { nodeId: rowId, frameId: rowId, nodeIds: [rowId] },
+      { close: () => {}, openStep: () => {} },
+    );
+    expect(commands.map(({ id }) => id)).not.toContain("turn-query");
     expect(useGraphStore.getState().wireNodes).toHaveLength(before.length);
     expect(useGraphStore.getState().undoStack).toHaveLength(undoDepth + 1);
     await act(async () => {

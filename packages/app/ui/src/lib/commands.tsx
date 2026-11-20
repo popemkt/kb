@@ -435,7 +435,7 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
       icon: <MagnifyingGlassIcon size={14} weight="bold" />,
     }),
     when: (ctx) => {
-      const node = targetNode(ctx);
+      const node = targetShownNode(ctx);
       return node !== undefined && !isQueryNode(node);
     },
     run: (ctx) => ctx.palette.openStep("outline.find-tagged"),
