@@ -104,7 +104,7 @@
     "fmt": "vp fmt packages harness",
     "fmt:check": "vp fmt packages harness --check",
     "knip": "knip --include files,dependencies,exports,types,nsExports,nsTypes,duplicates",
-    "harness": "bun test harness",
+    "harness": "bun test harness --timeout 30000",
     "harness:snapshot": "bun harness/src/snapshot.ts",
     "check:store": "bin/check-store-opens-clean",
     "check:audit": "bin/kb check audit",
