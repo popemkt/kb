@@ -1,0 +1,7 @@
+{
+  "reason": "Every kb writer waits for a write lock one way: takeWriteLock and its two durations move from file-write's private loop into the shared contracts, so the SQLite store can take its lock without blocking the event loop.",
+  "raise": {
+    "cli-closure": { "bytes": 220, "modules": 1 },
+    "surface": { "@kb/contracts": 3 }
+  }
+}

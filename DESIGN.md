@@ -2006,9 +2006,11 @@ file is the format git already understands.
     pid wraps the _whole_ commit via `Effect.acquireRelease` inside
     `Effect.scoped`, so reload → merge → replace is one critical section and
     concurrent CLI / MCP / `kb ui` writers cannot silently clobber each other
-    (previously last-writer-wins). Contention spins on `Effect.sleep` (25ms,
-    `MAX_WAIT_MS` 15s — never a loop-blocking sleep), and only exhausting the
-    ceiling fails, with a `conflict` error naming the holder pid. The lock is
+    (previously last-writer-wins). Contention waits as every kb writer
+    waits (`takeWriteLock` in `@kb/contracts`: a try that never blocks, then
+    `Effect.sleep` for `WRITE_LOCK_RETRY`, 25ms, up to `WRITE_LOCK_WAIT`, 15s
+    — never a loop-blocking sleep), and only exhausting the ceiling fails,
+    with a `conflict` error naming the holder pid. The lock is
     the kernel's: the holder opens `<file>.lock` and takes `flock(2)` on it
     (`LOCK_EX | LOCK_NB`, retried on the spin), and the kernel releases it
     when the holder unlocks, closes it or dies. So a dead holder's lock is
