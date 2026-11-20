@@ -235,13 +235,13 @@ function defaultCaller(wire: SurfaceWire): Caller {
 /** Only actions whose declaration admits this capture caller, on a wire that conveys no approval. */
 const captureResponse = Effect.fn("kb.ui.capture")(function* (
   ctx: KbContext,
-  request: ActionRequest,
+  { id, input }: ActionRequest,
   caller: Caller,
 ) {
   const refuse = (message: string) =>
-    jsonResponse(failed(request.id, "forbidden", message), { status: 403 });
+    jsonResponse(failed(id, "forbidden", message), { status: 403 });
   yield* reloadEffect(ctx);
-  const def = yield* actionDefinitionEffect(ctx, request.id);
+  const def = yield* actionDefinitionEffect(ctx, id);
   const denied = callerRefusal(def, caller.kind);
   if (denied !== null) return refuse(denied);
   const token = caller.capture?.token;
@@ -249,7 +249,7 @@ const captureResponse = Effect.fn("kb.ui.capture")(function* (
   if (digest !== undefined && captureCredential(ctx.nodes, digest) === undefined) {
     return refuse("capture device credential is invalid or revoked");
   }
-  const receipt = yield* serverInvoke(ctx, onWire(caller.wire, request)).pipe(
+  const receipt = yield* serverInvoke(ctx, onWire(caller.wire, { id, input })).pipe(
     Effect.provideService(CaptureDeviceDigest, digest),
   );
   return actionResponse(ctx, receipt, { "cache-control": "no-store" });

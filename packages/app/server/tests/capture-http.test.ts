@@ -14,6 +14,7 @@ import {
   CapturePairReceiptSchema,
   CaptureReceiptSchema,
   CoreInvoke,
+  CurrentCall,
   defineExtension,
   extensionNamespace,
   provideAction,
@@ -21,6 +22,7 @@ import {
 } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
 import { STORE_BACKENDS, bunFileSystemLayer, createStore, invoke, openKb } from "@kb/runtime";
+import { FakeTab } from "@kb/test-kit";
 import { startUi } from "../src/server.ts";
 
 async function read(response: Response) {
@@ -121,13 +123,20 @@ const DEVICE_ECHO: ExtensionEntry = {
               description: "Admits paired capture devices via declaration, with no server edit.",
               mode: { kind: "read" },
               callers: ["person", "program", "capture-device"],
-              inputSchema: {
-                parse: Schema.decodeUnknownSync(Schema.Struct({ note: Schema.String })),
-              },
+              context: { note: "subject" },
+              inputSchema: Schema.toStandardSchemaV1(
+                Schema.toStandardJSONSchemaV1(Schema.Struct({ note: Schema.String })),
+              ),
               outputSchema: {
-                parse: Schema.decodeUnknownSync(Schema.Struct({ pong: Schema.String })),
+                parse: Schema.decodeUnknownSync(
+                  Schema.Struct({ pong: Schema.String, via: Schema.optional(Schema.String) }),
+                ),
               },
-              effect: (input: { note: string }) => Effect.succeed({ pong: input.note }),
+              effect: (input: { note: string }) =>
+                Effect.gen(function* () {
+                  const call = yield* CurrentCall;
+                  return { pong: input.note, via: call?.invocation.via };
+                }),
             }),
           ),
           ctx.contribute(
@@ -191,6 +200,7 @@ test("a new action declaring device access is admitted with no server edit, and 
   const mainUi = await Effect.runPromise(
     startUi({ root, port: 0, openBrowser: false, extensions: [DEVICE_ECHO] }),
   );
+  const tab = await Effect.runPromise(FakeTab.open(mainUi.at, "tab.capture-test"));
   try {
     // Pair against the main kb ui listener (one store URL serves both UI and capture).
     const issued = await invoke(ctx, { id: CAPTURE_PAIR_CODE, input: {} });
@@ -202,6 +212,45 @@ test("a new action declaring device access is admitted with no server edit, and 
     const paired = await read(pairRes);
     if (paired.status !== "succeeded") throw new Error(JSON.stringify(paired));
     const { token, store } = CapturePairReceiptSchema.parse(paired.output);
+
+    const ping = (input: unknown, fromPage: boolean) =>
+      fetch(`${mainUi.url}/api/action`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(fromPage ? { origin: mainUi.url } : { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({
+          id: "ext.device-echo.ping",
+          input,
+          session: tab.id,
+          via: "capture-test",
+        }),
+      });
+    const pageReceipt = await ping({}, true);
+    expect(await pageReceipt.json()).toMatchObject({
+      status: "succeeded",
+      output: { pong: "n.fake-tab-root", via: "capture-test" },
+      context: { note: { from: "subject", value: "n.fake-tab-root" } },
+    });
+    const baseline = await postAction(mainUi.url, "ext.device-echo.ping", {}, token);
+    const baselineBody: unknown = await baseline.json();
+    expect(baselineBody).toMatchObject({ status: "failed", code: "invalid_input" });
+    expect(await (await ping({}, false)).json()).toEqual(baselineBody);
+    const plainPing = await postAction(
+      mainUi.url,
+      "ext.device-echo.ping",
+      { note: "public" },
+      token,
+    );
+    const plainBody: unknown = await plainPing.json();
+    expect(plainBody).toEqual({
+      status: "succeeded",
+      id: "ext.device-echo.ping",
+      output: { pong: "public" },
+      rev: expect.any(Number),
+    });
+    expect(await (await ping({ note: "public" }, false)).json()).toEqual(plainBody);
 
     // Main kb ui listener accepts a paired device credential for discovery and capture.
     const mainManifest = await read(await postAction(mainUi.url, "kb.manifest", {}, token));
@@ -280,6 +329,7 @@ test("a new action declaring device access is admitted with no server edit, and 
       (await postAction(captureOnly.url, CAPTURE_PAIR, { code, deviceName: "Dup" }, token)).status,
     ).toBe(403);
   } finally {
+    await Effect.runPromise(tab.close);
     await Effect.runPromise(captureOnly.stop);
     await Effect.runPromise(mainUi.stop);
     await rm(root, { recursive: true, force: true });
