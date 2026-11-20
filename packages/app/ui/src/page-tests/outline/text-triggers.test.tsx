@@ -14,6 +14,7 @@ import { parseDateInput, present, SYSTEM_IDS } from "@kb/model";
 import { definePlugin } from "@kb/plugin";
 import { DateTargetService, outlineInstanceKey, syncUiPlugins } from "@kb/ui-sdk";
 import { mutations } from "@/actions/mutations";
+import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import { useGraphStore } from "@/stores/graph.store";
 import { rankedFixture } from "@/test-support/ranked-fixture";
 import { resetOutlineStore } from "@/test-support/outline-store";
@@ -86,9 +87,9 @@ describe("triggers in the text", () => {
     container.remove();
   });
 
-  /** Edit row `row` with `text` in it, the caret at its end. */
-  async function typed(text: string, row = ROW): Promise<HTMLElement> {
-    await act(async () => mutations.updateNodeContent(row, text));
+  /** Edit the text shown by `row`, the caret at its end. */
+  async function typed(text: string, row = ROW, textNodeId = row): Promise<HTMLElement> {
+    await act(async () => mutations.updateNodeContent(textNodeId, text));
     const key = outlineInstanceKey(row, outlineNodes());
     act(() => useOutlineStore.getState().activateNode(row, text.length, key));
     await act(async () => {
@@ -254,6 +255,19 @@ describe("triggers in the text", () => {
   describe("[[", () => {
     it("excludes the edited row from matching candidates", async () => {
       await typed("Search jumps [[Search jumps");
+      expect(options().map((option) => option.getAttribute("data-picker-id"))).toEqual([
+        "n.root-b",
+      ]);
+    });
+
+    it("excludes the shown node when editing through a contextual reference", async () => {
+      const graph = useGraphStore.getState();
+      graph.hydrateFromWire(
+        [...graph.wireNodes, ...REF_SEED_WIRES, ctxRefWire("n.ctx", ROW)],
+        1,
+        "fixtures",
+      );
+      await typed("Search jumps [[Search jumps", "n.ctx", ROW);
       expect(options().map((option) => option.getAttribute("data-picker-id"))).toEqual([
         "n.root-b",
       ]);

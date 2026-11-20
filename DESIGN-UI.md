@@ -1684,7 +1684,8 @@ field (`>`) do the same, counting nodes using each tag or field and remembering
 picks separately. The remaining tags and fields appear by label match or explicit
 system id search. The rows show a tag hash or the field's type glyph and
 the number of nodes using it. Text reference search (`[[`) excludes the
-row being edited. The field picker shows what the field holds checked; in a
+node whose text is being edited, including through a contextual reference.
+The field picker shows what the field holds checked; in a
 many-valued field Enter toggles and it stays open,
 Backspace on an empty query takes back the last value, and in a one-valued
 field a pick replaces and closes. A value that would close a cycle through a field

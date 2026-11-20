@@ -36,7 +36,7 @@ import {
   type TextTrigger,
   type TriggerPick,
 } from "../lib/text-triggers";
-import { rowTextReadOnlyReason } from "../lib/contextual-ref";
+import { rowTextReadOnlyReason, shownNodeId } from "../lib/contextual-ref";
 import { refLookOf } from "../lib/ref-look";
 import type { SchemaIndex } from "../lib/schema";
 import type { NodeMap, TagBadge } from "../lib/types";
@@ -265,7 +265,8 @@ export function NodeTextHost({
     latest.current = content;
   }, [content]);
   const [cursor, setCursor] = useState(0);
-  const readOnlyReason = rowTextReadOnlyReason(nodeId, nodes.get(nodeId), schema, isVirtual);
+  const node = nodes.get(nodeId);
+  const readOnlyReason = rowTextReadOnlyReason(nodeId, node, schema, isVirtual);
   /** How the text's references are inked, from the graph they point into. */
   const refs = refLookOf(schema);
   const readOnly = readOnlyReason !== null;
@@ -285,7 +286,7 @@ export function NodeTextHost({
     content,
     cursor,
     nodes,
-    nodeId,
+    nodeId: node === undefined ? nodeId : shownNodeId(node),
   });
 
   useLayoutEffect(() => {
