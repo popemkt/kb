@@ -7,7 +7,7 @@
  * gates use takes a packages root, so a fixture runs the same functions the
  * real checks call, over two packages instead of thirty.
  */
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -28,7 +28,8 @@ const fixtureRoots: string[] = [];
 
 /** Builds the tree and returns its packages root. */
 export function fixtureWorkspace(packages: readonly FixturePackage[]): string {
-  const root = mkdtempSync(join(tmpdir(), "kb-harness-fixture-"));
+  // Its real path, as the resolver answers (macOS links /tmp to /private/tmp).
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "kb-harness-fixture-")));
   fixtureRoots.push(root);
   const packagesRoot = join(root, "packages");
   for (const pkg of packages) {

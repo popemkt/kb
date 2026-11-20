@@ -7,7 +7,7 @@
  * does: no UI to build, so the server serves its API at once.
  */
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BunFileSystem } from "@effect/platform-bun";
@@ -39,7 +39,8 @@ async function answers(origin: string): Promise<boolean> {
 
 /** A store directory over a real kb in a fresh scratch directory, with the root Alpha added. */
 async function alphaStore(): Promise<{ kb: KbRunner; stores: Stores; root: string }> {
-  scratch = mkdtempSync(join(tmpdir(), "kb-desktop-stores-"));
+  // Its real path, as kb records a location by (macOS links /tmp to /private/tmp).
+  scratch = realpathSync(mkdtempSync(join(tmpdir(), "kb-desktop-stores-")));
   const pkg = join(scratch, "pkg");
   mkdirSync(pkg);
   const root = join(scratch, "alpha");
