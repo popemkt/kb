@@ -31,24 +31,21 @@ import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { currentWorkspace } from "@/stores/workspace.store";
 
-/** The node the focused pane actually shows, if it has one. */
-export function focusedPaneSubject(): string | undefined {
+function focusedPaneSubject(zoom: string): string | null {
   const workspace = currentWorkspace();
   const path = findPane(workspace.layout, workspace.focused)?.path;
-  if (path === undefined) return undefined;
-  const subject = paneSubjectAt(
-    currentContributions(RoutePoint),
-    path,
-    useGraphStore.getState().rootNodeId,
-  );
-  return subject === WORKSPACE_ROOT_ID ? undefined : subject;
+  if (path === undefined) return null;
+  const subject = paneSubjectAt(currentContributions(RoutePoint), path, zoom);
+  return subject === WORKSPACE_ROOT_ID ? null : (subject ?? null);
 }
 
 export function pageCommandApi(): OutlineCommandApi {
   const graph = useGraphStore.getState();
+  const paneSubjectId = focusedPaneSubject(graph.rootNodeId);
   return {
     selectedNodeId: pageEditor().getState().selectedNodeId,
-    rootNodeId: focusedPaneSubject() ?? graph.rootNodeId,
+    paneSubjectId,
+    rootNodeId: paneSubjectId ?? graph.rootNodeId,
     ontologyId: graph.ontologyId,
     nodes: pageRows(),
     wireNodes: graph.wireNodes,

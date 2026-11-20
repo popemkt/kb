@@ -216,6 +216,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     cmd(SYSTEM_IDS.cmdToggleCheck, "Toggle check"),
     cmd(SYSTEM_IDS.cmdExpandAll, "Expand all"),
     cmd(SYSTEM_IDS.cmdCollapseAll, "Collapse all"),
+    cmd(SYSTEM_IDS.cmdGoBack, "Go back"),
+    cmd(SYSTEM_IDS.cmdGoForward, "Go forward"),
     cmd(SYSTEM_IDS.cmdViewFilter, "Filter…"),
     // r5 ontology commands
     cmd(SYSTEM_IDS.cmdNewOntology, "New ontology"),

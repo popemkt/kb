@@ -1139,8 +1139,9 @@ a tag writes a condition on the [shown node’s](#contextual-references)
 type field for that exact tag ID.
 Escape closes the picker without a write. In global search, Alt+Enter
 saves the typed text as a case-insensitive text condition and opens the
-query node. It is a child of the focused pane’s subject node. When the pane
-has no subject node, the [capture destination](./DESIGN.md#provider-roles)
+query node. It is a child of the focused pane’s subject node, including
+the node zoomed within an ontology. At the workspace root or in a pane
+with no subject node, the [capture destination](./DESIGN.md#provider-roles)
 decides where it goes.
 
 ### Outline layout
@@ -3922,6 +3923,10 @@ until "Save workspace".
   the focused pane (`startWorkspace`). Moving the focus shows the newly
   focused pane's location without adding a history step (`replacePath`). On
   load, the URL wins over the stored location of the focused pane.
+- **Back and Forward** sit beside the sidebar toggle and run the same
+  commands as ⌘K and the rebindable `Mod-[` and `Mod-]` page shortcuts.
+  The buttons are enabled for known history entries. Immediately after a
+  reload, forward history is unknown.
 - **One pane has no chrome.** A workspace of one pane is drawn as the page
   always was: the header, then the pane. Two or more panes are a movable
   layout grid, and the header stays. The header is the shell's: every page
@@ -5352,7 +5357,7 @@ and a horizontal one above it on a narrow one.
   binding as the person (`sandbox.trust`), asks the host for Google's URL
   (`ext.routines.connect`) and goes there. Google sends the person back to
   `/calendar/connect`, which hands that address to the host once
-  (`ext.routines.finish`), removes the code from the address bar at once,
+  (`ext.routines.finish`), clears the callback parameters in the current history entry,
   and returns to the setup. Every write here is `approval: "required"`, so
   an agent cannot set up, connect or remove a service, and the host offers
   the page a binding to trust (`ext.routines.binding`) only when the
@@ -5436,6 +5441,9 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
   page's own key context (`core.page`; [Outline editor →
   Keybindings](#outline-editor-i1)), so the key opens today wherever focus
   is.
+- **"Previous day" and "Next day"** in ⌘K step from the day shown in the
+  focused pane, or from today if that pane shows no day, opening the adjacent
+  date through the date target.
 - **Opening on today.** Where a page that loads at the root opens is the
   page role `ui.landing` (DESIGN.md → [Provider roles](./DESIGN.md#provider-roles)).
   Core owns it and stays home, and days replaces it. Days answers today's

@@ -25,6 +25,7 @@ import {
   frameRows,
   frameViewOf,
   isPinned,
+  outlinePath,
   pageTitleInstanceKey,
   providedFrameViews,
   syncUiPlugins,
@@ -745,48 +746,58 @@ describe("the global palette on a page", () => {
   });
 
   it.each([
-    { path: "/", parent: "t.super" },
-    { path: "/node/n.inbox", parent: "n.inbox" },
-    { path: SETTINGS_PATH, parent: undefined },
-  ])("Alt+Enter saves and opens a query from $path", async ({ path, parent }) => {
-    const before = useWorkspaceStore.getState();
-    useWorkspaceStore.setState({
-      layout: singlePane({ id: "p.search", path }),
-      focused: "p.search",
-    });
-    const add = vi.spyOn(browserHost().writes, "addMatchingNode");
-    try {
-      await openPalette();
-      const input = present(
-        dom.document.querySelector('[aria-label="Search and open"] input'),
-        "palette input",
-      );
-      const text = 'Project "notes"';
-      await act(async () => {
-        Object.getOwnPropertyDescriptor(dom.HTMLInputElement.prototype, "value")?.set?.call(
-          input,
-          text,
+    { path: "/", zoom: "t.super", parent: "t.super" },
+    { path: "/", zoom: WORKSPACE_ROOT_ID, parent: undefined },
+    { path: "/node/n.inbox", zoom: "t.super", parent: "n.inbox" },
+    {
+      path: outlinePath({ ontology: "t.super", zoom: "n.inbox" }),
+      zoom: "t.super",
+      parent: "n.inbox",
+    },
+    { path: SETTINGS_PATH, zoom: "t.super", parent: undefined },
+  ])(
+    "Alt+Enter saves and opens a query from $path (outline at $zoom)",
+    async ({ path, zoom, parent }) => {
+      const before = useWorkspaceStore.getState();
+      useGraphStore.setState({ rootNodeId: zoom });
+      useWorkspaceStore.setState({
+        layout: singlePane({ id: "p.search", path }),
+        focused: "p.search",
+      });
+      const add = vi.spyOn(browserHost().writes, "addMatchingNode");
+      try {
+        await openPalette();
+        const input = present(
+          dom.document.querySelector('[aria-label="Search and open"] input'),
+          "palette input",
         );
-        input.dispatchEvent(new dom.KeyboardEvent("keyup", { bubbles: true }));
-      });
-      expect(container.textContent).toContain("Alt+Enter");
-      await act(async () => {
-        input.dispatchEvent(
-          new dom.KeyboardEvent("keydown", { key: "Enter", altKey: true, bubbles: true }),
-        );
-      });
-      await vi.waitFor(() => {
-        const { rootNodeId: id, wireNodes } = useGraphStore.getState();
-        expect(wireNodes.find((node) => node.children.includes(id))?.id).toBe(parent);
-        const value = outlineNodes().get(id)?.props[SYSTEM_IDS.queryField]?.[0]?.v;
-        expect(value).toEqual(expect.stringContaining("kb/includes-ci?"));
-        expect(value).toEqual(expect.stringContaining(JSON.stringify(text)));
-      });
-      if (parent === undefined) expect(add.mock.calls[0]?.[0]).not.toHaveProperty("parent");
-    } finally {
-      useWorkspaceStore.setState({ layout: before.layout, focused: before.focused });
-    }
-  });
+        const text = 'Project "notes"';
+        await act(async () => {
+          Object.getOwnPropertyDescriptor(dom.HTMLInputElement.prototype, "value")?.set?.call(
+            input,
+            text,
+          );
+          input.dispatchEvent(new dom.KeyboardEvent("keyup", { bubbles: true }));
+        });
+        expect(container.textContent).toContain("Alt+Enter");
+        await act(async () => {
+          input.dispatchEvent(
+            new dom.KeyboardEvent("keydown", { key: "Enter", altKey: true, bubbles: true }),
+          );
+        });
+        await vi.waitFor(() => {
+          const { rootNodeId: id, wireNodes } = useGraphStore.getState();
+          expect(wireNodes.find((node) => node.children.includes(id))?.id).toBe(parent);
+          const value = outlineNodes().get(id)?.props[SYSTEM_IDS.queryField]?.[0]?.v;
+          expect(value).toEqual(expect.stringContaining("kb/includes-ci?"));
+          expect(value).toEqual(expect.stringContaining(JSON.stringify(text)));
+        });
+        if (parent === undefined) expect(add.mock.calls[0]?.[0]).not.toHaveProperty("parent");
+      } finally {
+        useWorkspaceStore.setState({ layout: before.layout, focused: before.focused });
+      }
+    },
+  );
 
   it("hands a command that asks for a step to the node menu at the page's title", async () => {
     await openPalette();

@@ -109,11 +109,11 @@ describe("a repository extension's page half (acceptance)", () => {
       ["ui.keybindings", "example.unrate"],
       ["kb.views", "example.board"],
       ["kb.views", "example.note"],
+      ["ui.commands", "example.link"],
       ["ui.palette-steps", "example.link"],
       ["ui.views", "example.board"],
       ["ui.views", "example.note"],
       ["ui.sidebar", "example.section"],
-      ["ui.commands", "example.link"],
       ["outline.ingest", "example.ratings"],
       ["ui.backdrops", "example.glow"],
     ]);

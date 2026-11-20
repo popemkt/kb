@@ -17,11 +17,11 @@ export const DEFAULT_QUERY_EDN = "[:find ?id :where [?n :node/id ?id]]";
 /** Save the search as a node with a text condition, then open its results. */
 export async function openQueryFromSearch(
   text: string,
-  parent: string | undefined,
+  parent: string | null,
   zoomTo: (id: string) => void,
 ): Promise<void> {
   const added = await browserHost().writes.addMatchingNode({
-    ...(parent === undefined ? {} : { parent }),
+    ...(parent === null ? {} : { parent }),
     tags: [],
     props: [
       {

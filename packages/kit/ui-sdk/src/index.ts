@@ -495,7 +495,9 @@ export {
 } from "./lib/pointer-slop";
 
 export {
+  canGo,
   getPath,
+  go,
   navigate,
   ontologyPath,
   outlineLocationOf,

@@ -24,7 +24,7 @@ import {
   type PaletteHit,
 } from "@/lib/palette-index";
 import { pageProjection, shownNodes, useGraphStore } from "@/stores/graph.store";
-import { focusedPaneSubject, pageCommandContext, pageCommandTarget } from "@/stores/page-commands";
+import { pageCommandApi, pageCommandContext, pageCommandTarget } from "@/stores/page-commands";
 import { pageEditor } from "@/stores/page-editor";
 import { useUiStore } from "@/stores/ui.store";
 
@@ -200,9 +200,9 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         e.preventDefault();
         if (e.altKey) {
           if (searchText === "") return;
-          const parent = focusedPaneSubject();
+          const { paneSubjectId } = pageCommandApi();
           onClose();
-          void openQueryFromSearch(searchText, parent, zoomTo);
+          void openQueryFromSearch(searchText, paneSubjectId, zoomTo);
           return;
         }
         const hit = hits[active];
