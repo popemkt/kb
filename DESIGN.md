@@ -5319,6 +5319,14 @@ its output always carries the node. Deleting is its own action because it is
 the write a caller most needs to name on its own: a guard matches an action
 by its id ([Action registry](#action-registry) → Interception).
 
+### Conditional text edits
+
+A `node.update` may require `expectedText`, the complete source text the
+edit was based on. The shared planner refuses the whole edit with a
+`conflict` when the node holds different text. A planned commit checks
+the same condition again each time the store moves and the edit is
+planned again. A call in a batch reads the text left by its earlier calls.
+
 ### Batches of writes — `node.batch`
 
 `node.batch` takes `{calls, force?}`: a list of calls, each `{action, input}`

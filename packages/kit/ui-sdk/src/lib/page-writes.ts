@@ -40,9 +40,10 @@ export interface PageWrites {
   /**
    * A command's text, written whole outside the editor (Remove reference…):
    * one write and one undo step, as every other command's write is. Answers
-   * whether it was written.
+   * whether it was written. Pass the source text for edits made from a
+   * particular reading of the node.
    */
-  readonly setNodeText: (id: string, text: string) => Promise<boolean>;
+  readonly setNodeText: (id: string, text: string, expectedText?: string) => Promise<boolean>;
   readonly createNodeAfter: (afterId: string) => Promise<void>;
   /**
    * Add a node made with no chosen place (⌘K "Add node" with nothing

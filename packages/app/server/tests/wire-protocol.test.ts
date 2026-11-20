@@ -87,9 +87,11 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // `capture.submit`, `capture.pair`, `capture.pairCode` and `capture.revoke`
 // are new actions a previous page never calls, and `kb.manifest` may name a
 // `captureContract`, an optional field a previous page ignores.
+// node.update and node.batch take an optional expectedText precondition.
+// Previous pages continue sending updates without the field.
 const RECORDED = {
   protocol: 11,
-  fingerprint: "f9a6dcc61255ef7d9c003e73f5eb3b846dcc7e94ba14cea539fb7c3fbd99eacf",
+  fingerprint: "4077f14477e527274bd99006d34f126451e6a97b10e5d14afdeee7659e6c3d69",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

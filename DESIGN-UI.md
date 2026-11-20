@@ -1457,7 +1457,8 @@ The node, its ancestors and descendants, system and schema nodes, and
 rows with a mention edge are excluded. The section shows up to 50 rows at
 first and reveals another 50 with **Show more**. **Link** replaces the
 first matched span with an inline reference using the matched wording.
-It is one text write and one undo step.
+It is one text write and one undo step. The write requires the source text
+the match was read from ([Conditional text edits](DESIGN.md#conditional-text-edits)).
 
 An outline row with incoming mentions has a count at its right edge.
 Clicking the count opens the node in the same pane and scrolls to

@@ -17,15 +17,11 @@ const PAGE_SIZE = 50;
 
 function linkMention(targetId: string, row: UnlinkedMentionRow) {
   const { node, match } = row;
-  const host = browserHost();
-  const state = host.graph.state();
-  const latest = schemaOf(state).get(node.id);
-  if (latest === undefined || latest.text !== node.text || state.index?.isVirtual(node.id) === true)
-    return;
   const token = formatRefToken(targetId, node.text.slice(match.start, match.end));
-  void host.writes.setNodeText(
+  void browserHost().writes.setNodeText(
     node.id,
     node.text.slice(0, match.start) + token + node.text.slice(match.end),
+    node.text,
   );
 }
 

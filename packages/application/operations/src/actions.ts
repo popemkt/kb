@@ -322,7 +322,7 @@ function cloneNode(n: KbNode): KbNode {
 // A field's cardinality is read from the plan graph, which holds stored
 // nodes only. A field is never virtual (the virtual nodes are saved queries),
 // so this reads what the session index would.
-function isInSubtree(nodes: KbNode[], rootId: NodeId, targetId: NodeId): boolean {
+function isInSubtree(nodes: readonly KbNode[], rootId: NodeId, targetId: NodeId): boolean {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const stack = [rootId];
   const seen = new Set<NodeId>();
@@ -338,7 +338,7 @@ function isInSubtree(nodes: KbNode[], rootId: NodeId, targetId: NodeId): boolean
   return false;
 }
 
-function detachFromParents(nodes: KbNode[], childId: NodeId, at: string): KbNode[] {
+function detachFromParents(nodes: readonly KbNode[], childId: NodeId, at: string): KbNode[] {
   const touched: KbNode[] = [];
   for (const n of nodes) {
     if (!n.children.includes(childId)) continue;
@@ -516,7 +516,7 @@ export const nodeDeleteEffect = Effect.fn("node.delete")(function* (
  * once, only when one needs it: a text edit reads no graph.
  */
 export const planNodeUpdate = Effect.fn("node.update.plan")(function* (
-  nodes: KbNode[],
+  nodes: readonly KbNode[],
   input: z.infer<typeof nodeUpdateDef.inputSchema>,
   at: string,
   nodeOf: (id: NodeId) => KbNode | undefined,
@@ -526,6 +526,13 @@ export const planNodeUpdate = Effect.fn("node.update.plan")(function* (
     if (!held) throw new ResolveError("not_found", `node not found: ${input.id}`, { id: input.id });
     return cloneNode(held);
   });
+  if (input.expectedText !== undefined && node.text !== input.expectedText) {
+    return yield* domainError(
+      "conflict",
+      "The node’s text changed. Read the new text before editing it.",
+      { id: input.id },
+    );
+  }
   const upserts: KbNode[] = [];
   let built: IndexedNodes | undefined;
   const graph = (): IndexedNodes => (built ??= IndexedNodes.of(nodes));
@@ -581,9 +588,12 @@ export const nodeUpdateEffect = Effect.fn("node.update")(function* (
 ): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbWriteEnv> {
   const ctx = yield* KbCtx;
   const at = yield* currentIso;
-  const { node, write } = yield* planNodeUpdate(ctx.nodes, input, at, (id) => nodeById(ctx, id));
-  yield* persistEffect(ctx, write, forcedBy(input));
-  return { id: input.id, node };
+  const plan = Effect.fn("node.update.write")(function* (nodes: readonly KbNode[]) {
+    const { node, write } = yield* planNodeUpdate(nodes, input, at, (id) => nodeById(ctx, id));
+    return { node, ...write };
+  });
+  const written = yield* persistPlannedEffect(ctx, plan, forcedBy(input));
+  return { id: input.id, node: present(written, "a node update always writes").node };
 });
 
 export const nodeMergeEffect = Effect.fn("node.merge")(function* (

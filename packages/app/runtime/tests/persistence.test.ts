@@ -4,9 +4,11 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runWithKb } from "../src/layers.ts";
+import { IN_PROCESS_WIRE } from "../src/invoke.ts";
+import { invokeReceiptEffect } from "../src/registry.ts";
 import { openKbEffect } from "../src/open.ts";
 import { openKb, reload } from "../src/session.ts";
-import { KbStore, kbStoreLayer, staleCommitError, type EffectStore } from "@kb/contracts";
+import { KbStore, kbStoreLayer, onWire, staleCommitError, type EffectStore } from "@kb/contracts";
 import { persistEffect, persistPlannedEffect, reloadEffect } from "@kb/operations";
 import { JsonlStore } from "@kb/store-jsonl";
 import { bunFileSystemLayer } from "../src/platform.ts";
@@ -588,6 +590,24 @@ describe("a write planned from what the session read", () => {
     );
     expect(plans.count).toBe(2);
     expect(moving.list()).toMatchObject({ text: "moved 1", children: ["n.a"] });
+  });
+
+  test("a conditional text update checks its source again after a concurrent commit", async () => {
+    root = await tempRoot();
+    const ctx = await openKb(root);
+    const moving = movingStore(ctx.store.path, 1);
+    const receipt = await runWithKb(
+      ctx,
+      invokeReceiptEffect(
+        ctx,
+        onWire(IN_PROCESS_WIRE, {
+          id: "node.update",
+          input: { id: "n.list", text: "updated n.list", expectedText: "n.list" },
+        }),
+      ).pipe(Effect.provideService(KbStore, moving.store)),
+    );
+    expect(receipt).toMatchObject({ status: "failed", code: "conflict" });
+    expect(moving.list()?.text).toBe("moved 1");
   });
 
   test("a store that keeps moving is the caller's conflict, and nothing is written", async () => {
