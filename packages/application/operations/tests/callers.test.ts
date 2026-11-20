@@ -107,4 +107,100 @@ describe("action caller enforcement through the invocation contract", () => {
       ),
     ).toMatchObject({ status: "succeeded", output: { ok: true } });
   });
+
+  test("nested calls inherit the outer caller and enforce callers + callerOutput", async () => {
+    const nestedActions: Map<string, RegisteredAction<never>> = new Map<
+      string,
+      RegisteredAction<never>
+    >([
+      [
+        "ordinary.secret",
+        {
+          def: {
+            id: "ordinary.secret",
+            title: "Ordinary secret",
+            description: "Defaults to person and program only.",
+            mode: { kind: "read" },
+            inputSchema: z.object({}),
+            outputSchema: z.object({ secret: z.string() }),
+          },
+          effect: () => Effect.succeed({ secret: "private" }),
+          source: "core",
+          aliases: [],
+        },
+      ],
+      [
+        "projected.info",
+        {
+          def: {
+            id: "projected.info",
+            title: "Projected info",
+            description: "Projects output for capture-device callers.",
+            mode: { kind: "read" },
+            callers: ["person", "program", "capture-device"],
+            callerOutput: {
+              "capture-device": z.object({ public: z.string() }),
+            },
+            inputSchema: z.object({}),
+            outputSchema: z.object({ public: z.string(), secret: z.string() }),
+          },
+          effect: () => Effect.succeed({ public: "ok", secret: "hidden" }),
+          source: "core",
+          aliases: [],
+        },
+      ],
+      [
+        "device.outer",
+        {
+          def: {
+            id: "device.outer",
+            title: "Device outer",
+            description: "Calls another action while running under capture-device.",
+            mode: { kind: "read" },
+            callers: ["person", "program", "capture-device"],
+            inputSchema: z.object({ target: z.string() }),
+            outputSchema: z.object({ inner: z.unknown() }),
+          },
+          effect: (input: { target: string }) =>
+            invokeReceiptWith(nestedActions, FAKE_CTX, {
+              id: input.target,
+              input: {},
+              actor: "cli",
+            }).pipe(Effect.map((inner) => ({ inner }))),
+          source: "core",
+          aliases: [],
+        },
+      ],
+    ]);
+
+    // A capture-device action cannot escalate to an ordinary-only action via a nested call.
+    const blocked = await Effect.runPromise(
+      invokeReceiptWith(
+        nestedActions,
+        FAKE_CTX,
+        onWire(DEVICE_WIRE, { id: "device.outer", input: { target: "ordinary.secret" } }),
+      ),
+    );
+    expect(blocked).toMatchObject({
+      status: "succeeded",
+      output: { inner: { status: "failed", code: "forbidden" } },
+    });
+
+    // A nested call to an admitted action still applies callerOutput projection.
+    const projected = await Effect.runPromise(
+      invokeReceiptWith(
+        nestedActions,
+        FAKE_CTX,
+        onWire(DEVICE_WIRE, { id: "device.outer", input: { target: "projected.info" } }),
+      ),
+    );
+    expect(projected).toMatchObject({
+      status: "succeeded",
+      output: { inner: { status: "succeeded", output: { public: "ok" } } },
+    });
+    if (projected.status === "succeeded") {
+      const inner = (projected.output as { inner: { output: unknown } }).inner;
+      expect(inner.output).toEqual({ public: "ok" });
+    }
+  });
 });

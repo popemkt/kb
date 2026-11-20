@@ -193,18 +193,14 @@ const invokeCall = Effect.fn("kb.invoke")(function* <R>(
     });
   }
   const entry = actions.get(id);
-  const caller = outer === null ? invocationCaller(made) : undefined;
+  const caller = invocationCaller(made);
   if (!entry) {
-    if (caller !== undefined) {
-      const denied = callerRefusal(undefined, caller);
-      if (denied !== null) return failed(id, "forbidden", denied);
-    }
+    const denied = callerRefusal(undefined, caller);
+    if (denied !== null) return failed(id, "forbidden", denied);
     return failed(id, "unknown_action", `unknown action: ${id}`);
   }
-  if (caller !== undefined) {
-    const denied = callerRefusal(entry.def, caller);
-    if (denied !== null) return failed(id, "forbidden", denied);
-  }
+  const denied = callerRefusal(entry.def, caller);
+  if (denied !== null) return failed(id, "forbidden", denied);
   // Every call passes the interceptors, then is put to the guards as it will
   // run, here on invoke itself, so no surface can skip either
   // (`interception.ts`).
@@ -254,7 +250,7 @@ const invokeCall = Effect.fn("kb.invoke")(function* <R>(
     asCall(invocation),
   );
   const validated = yield* parseOutput(entry.def.id, entry.def.outputSchema, output);
-  const projection = caller === undefined ? undefined : entry.def.callerOutput?.[caller];
+  const projection = entry.def.callerOutput?.[caller];
   const projected =
     projection === undefined ? validated : yield* parseOutput(entry.def.id, projection, validated);
   return succeeded(id, projected, fill.context);

@@ -1,7 +1,7 @@
 {
   "reason": "Actions declare caller access and per-caller output projection in @kb/contracts and @kb/operations, and @kb/runtime exposes actionDefinitionEffect so the server derives capture admission from the registry without hard-coding action ids.",
   "raise": {
-    "cli-closure": { "bytes": 2851 },
+    "cli-closure": { "bytes": 3025 },
     "surface": { "@kb/contracts": 5, "@kb/runtime": 1 }
   }
 }

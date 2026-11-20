@@ -9,6 +9,7 @@
 import type { NodeIndex } from "@kb/query";
 import { Option, Schema } from "effect";
 import {
+  invocationCaller,
   madeBy,
   hasPerson,
   madeByScript,
@@ -35,6 +36,14 @@ const decodeGrant = Schema.decodeUnknownOption(CodeGrant);
  * session, and for its `via`: a script's always, any other's unless it names
  * its own.
  */
+function inheritedCaller(
+  outer: ActionInvocation | undefined,
+  request: ActionRequest | ActionInvocation,
+) {
+  if (outer !== undefined) return invocationCaller(outer);
+  return "caller" in request ? request.caller : undefined;
+}
+
 export function callWithin(outer: RunningCall | null, request: ActionInvocation): ActionInvocation;
 export function callWithin(
   outer: RunningCall | null,
@@ -55,12 +64,14 @@ export function callWithin(
   if (actor === undefined) return null;
   const session = request.session ?? caller?.session;
   const via = request.via ?? caller?.via;
+  const callerKind = inheritedCaller(caller, request);
   const { approved: statedApproval, ...requestData } = request;
   const approved =
     caller === undefined ? statedApproval : statedApproval === false ? false : hasPerson(caller);
   return {
     ...requestData,
     actor,
+    ...(callerKind === undefined ? {} : { caller: callerKind }),
     ...(approved === undefined ? {} : { approved }),
     ...(session === undefined ? {} : { session }),
     ...(via === undefined ? {} : { via }),
@@ -77,6 +88,7 @@ function scriptWithin(
   return {
     ...rest,
     actor: "script",
+    caller: invocationCaller(caller),
     ...((scope.session ?? caller.session) === undefined
       ? {}
       : { session: scope.session ?? caller.session }),

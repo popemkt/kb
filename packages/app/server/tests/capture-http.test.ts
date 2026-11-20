@@ -13,6 +13,7 @@ import {
   CAPTURE_SUBMIT,
   CapturePairReceiptSchema,
   CaptureReceiptSchema,
+  CoreInvoke,
   defineExtension,
   extensionNamespace,
   provideAction,
@@ -143,6 +144,27 @@ const DEVICE_ECHO: ExtensionEntry = {
               effect: () => Effect.succeed({ secret: true }),
             }),
           ),
+          ctx.contribute(
+            ActionPoint,
+            provideAction({
+              id: "nested",
+              title: "Nested CoreInvoke probe",
+              description:
+                "Invokes another action via CoreInvoke while running under a device caller.",
+              mode: { kind: "read" },
+              callers: ["person", "program", "capture-device"],
+              inputSchema: {
+                parse: Schema.decodeUnknownSync(Schema.Struct({ target: Schema.String })),
+              },
+              outputSchema: { parse: (v: unknown) => v },
+              effect: (input: { target: string }) =>
+                Effect.gen(function* () {
+                  const coreInvoke = yield* CoreInvoke;
+                  if (coreInvoke === null) return { status: "no-core" };
+                  return yield* coreInvoke({ id: input.target, input: {} }, "read");
+                }),
+            }),
+          ),
         ],
         { discard: true },
       ),
@@ -220,6 +242,33 @@ test("a new action declaring device access is admitted with no server edit, and 
         code: "forbidden",
         message: "this listener or credential only admits capture actions",
       });
+
+      // Nested CoreInvoke from a device action cannot reach an undeclared action,
+      // and still projects kb.manifest for capture-device.
+      const nestedDenied = await read(
+        await postAction(
+          base,
+          "ext.device-echo.nested",
+          { target: "ext.device-echo.private" },
+          token,
+        ),
+      );
+      expect(nestedDenied).toMatchObject({
+        status: "succeeded",
+        output: { status: "failed", code: "forbidden" },
+      });
+      const nestedManifest = await read(
+        await postAction(base, "ext.device-echo.nested", { target: "kb.manifest" }, token),
+      );
+      expect(nestedManifest).toMatchObject({
+        status: "succeeded",
+        output: { status: "succeeded", output: { captureContract: CAPTURE_CONTRACT } },
+      });
+      if (nestedManifest.status === "succeeded") {
+        expect((nestedManifest.output as { output: unknown }).output).toEqual({
+          captureContract: CAPTURE_CONTRACT,
+        });
+      }
     }
 
     // Without a device credential on --capture-only, device-only action is refused.
