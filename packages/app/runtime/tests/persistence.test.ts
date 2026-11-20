@@ -1,5 +1,6 @@
 import { describe, expect, test, afterEach } from "bun:test";
-import { Effect, Layer, Stream } from "effect";
+import { Effect, Fiber, Layer, Stream } from "effect";
+import { TestClock } from "effect/testing";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -593,17 +594,24 @@ describe("a write planned from what the session read", () => {
   test("a store that keeps moving is the caller's conflict, and nothing is written", async () => {
     root = await tempRoot();
     const ctx = await openKb(root);
-    const moving = movingStore(ctx.store.path, 10);
+    const moving = movingStore(ctx.store.path, Infinity);
     const plans = { count: 0 };
     const err = await Effect.runPromise(
-      Effect.flip(
-        persistPlannedEffect(ctx, appendA(plans), { systemWrites: "system" }).pipe(
-          Effect.provide(Layer.mergeAll(kbStoreLayer(moving.store), bunFileSystemLayer)),
+      Effect.gen(function* () {
+        const write = yield* Effect.forkChild(
+          Effect.flip(persistPlannedEffect(ctx, appendA(plans), { systemWrites: "system" })),
+        );
+        yield* TestClock.adjust("16 seconds");
+        return yield* Fiber.join(write);
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(kbStoreLayer(moving.store), bunFileSystemLayer, TestClock.layer()),
         ),
       ),
     );
     expect(err.code).toBe("conflict");
-    expect(plans.count).toBe(3);
+    expect(plans.count).toBeGreaterThan(1);
     expect(moving.list()?.children).toEqual([]);
+    expect(moving.store.txTail.entries()).toEqual([]);
   });
 });
