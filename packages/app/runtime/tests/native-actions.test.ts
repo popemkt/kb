@@ -1,9 +1,9 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, onTestFinished, test } from "bun:test";
 import { extensionModule, writeTrustedExtension, until } from "@kb/test-kit";
 import { present, writesOf } from "@kb/model";
 import { mkdtemp, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { Effect, Exit, Fiber, Stream } from "effect";
+import { Effect, Exit, Fiber, Scope, Stream } from "effect";
 import { kbRuntimeLayer } from "../src/layers.ts";
 import { openKbEffect } from "../src/open.ts";
 import { openKb } from "../src/session.ts";
@@ -243,7 +243,13 @@ describe("Effect-native action registry", () => {
   });
 
   test("interrupting a long native handler runs finalizers and skips late writes", async () => {
-    const root = await makeRoot();
+    const scope = Scope.makeUnsafe();
+    onTestFinished(() => Effect.runPromise(Scope.close(scope, Exit.void)));
+    const root = await Effect.runPromise(
+      Effect.acquireRelease(Effect.promise(tempRoot), (path) =>
+        Effect.promise(() => rm(path, { recursive: true, force: true })),
+      ).pipe(Effect.provideService(Scope.Scope, scope)),
+    );
     const dir = join(root, ".kb", "extensions");
     await mkdir(dir, { recursive: true });
     const marker = join(root, "finalized.marker");
@@ -283,14 +289,14 @@ import { z } from "zod";`,
     );
 
     const ctx = await openKb(root);
-    const fiber = Effect.runFork(
+    const fiber = await Effect.runPromise(
       invokeReceiptEffect(
         ctx,
         onWire(IN_PROCESS_WIRE, {
           id: "ext.slow.sleep",
           input: { marker, started, late },
         }),
-      ).pipe(Effect.provide(kbRuntimeLayer(ctx))),
+      ).pipe(Effect.provide(kbRuntimeLayer(ctx)), Effect.forkIn(scope)),
     );
     // Interrupted once the handler says it is running, its finalizer added:
     // interrupted before that, there is rightly no finalizer to run, and how

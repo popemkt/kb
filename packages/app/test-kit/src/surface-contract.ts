@@ -22,7 +22,7 @@
  * it reaches listens on.
  */
 import { extensionModule, writeTrustedExtensionEffect } from "./extension-files.ts";
-import { describe, expect, test } from "bun:test";
+import { describe, expect, onTestFinished, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -41,7 +41,7 @@ import {
   type SurfaceWire,
   type UiListener,
 } from "@kb/contracts";
-import { SYSTEM_IDS, extensionNodeId } from "@kb/model";
+import { SYSTEM_IDS, extensionNodeId, type DomainError } from "@kb/model";
 import {
   bunFileSystemLayer,
   deployGovernance,
@@ -324,36 +324,34 @@ interface OnListener extends SurfaceSet {
 function overSurfaces(
   { serve, surfaces, listener }: OnListener,
   check: (c: SurfaceCase) => Effect.Effect<void>,
-): Promise<void> {
-  return Effect.runPromise(
-    Effect.scoped(
-      Effect.gen(function* () {
-        const root = yield* scratchRoot;
-        const ctx = yield* Effect.promise(() => openKb(root));
-        const written = yield* Effect.promise(() => invoke(ctx, SETTING_INVOCATION));
-        expect(written.status).toBe("succeeded");
-        const { ui } = yield* serveRoot(serve, root, listener);
-        yield* Effect.forEach(
-          Object.entries(surfaces),
-          ([name, open]) =>
-            Effect.scoped(
-              Effect.gen(function* () {
-                const surface = yield* openSurface(open, root, ui);
-                // The composition the surface reaches: the registry, and on a kb ui what it hosts.
-                const hosted = surface.host === "ui" ? ui.hosted : undefined;
-                const core = (invocation: ActionRequest) =>
-                  invokeReceiptEffect(ctx, onWire(surface.wire, invocation)).pipe(
-                    Effect.provide(kbRuntimeLayer(ctx, undefined, hosted)),
-                  );
-                const via = (invocation: ActionRequest) =>
-                  Effect.promise(() => surface.invoke(invocation));
-                yield* check({ name, surface, root, ui, core, via });
-              }),
-            ),
-          { discard: true },
-        );
-      }),
-    ),
+): Effect.Effect<void, DomainError> {
+  return Effect.scoped(
+    Effect.gen(function* () {
+      const root = yield* scratchRoot;
+      const ctx = yield* Effect.promise(() => openKb(root));
+      const written = yield* Effect.promise(() => invoke(ctx, SETTING_INVOCATION));
+      expect(written.status).toBe("succeeded");
+      const { ui } = yield* serveRoot(serve, root, listener);
+      yield* Effect.forEach(
+        Object.entries(surfaces),
+        ([name, open]) =>
+          Effect.scoped(
+            Effect.gen(function* () {
+              const surface = yield* openSurface(open, root, ui);
+              // The composition the surface reaches: the registry, and on a kb ui what it hosts.
+              const hosted = surface.host === "ui" ? ui.hosted : undefined;
+              const core = (invocation: ActionRequest) =>
+                invokeReceiptEffect(ctx, onWire(surface.wire, invocation)).pipe(
+                  Effect.provide(kbRuntimeLayer(ctx, undefined, hosted)),
+                );
+              const via = (invocation: ActionRequest) =>
+                Effect.promise(() => surface.invoke(invocation));
+              yield* check({ name, surface, root, ui, core, via });
+            }),
+          ),
+        { discard: true },
+      );
+    }),
   );
 }
 
@@ -368,7 +366,9 @@ function asMadeOn(surface: ActionSurface, call: ActionRequest): ActionRequest {
   return made;
 }
 
-const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<void>]> = [
+const PROPERTIES: ReadonlyArray<
+  readonly [string, (set: OnListener) => Effect.Effect<void, DomainError>]
+> = [
   [
     "approval required needs a person",
     (set) =>
@@ -708,14 +708,23 @@ export function surfaceContract(set: SurfaceSet, cell: SurfaceContractCell): voi
     for (const [title, property] of PROPERTIES)
       test(
         title,
-        () =>
-          Effect.runPromise(
+        () => {
+          const controller = new AbortController();
+          const finished = Effect.runPromise(
             Effect.acquireUseRelease(
               Effect.sync(() => deployGovernance(governance)),
-              () => Effect.promise(() => property(run)),
+              () => property(run),
               () => Effect.sync(() => deployGovernance("required")),
             ),
-          ),
+            { signal: controller.signal },
+          );
+          onTestFinished(() => {
+            controller.abort();
+            // The test body owns reporting its result. The hook waits for scope cleanup.
+            return finished.catch(() => undefined);
+          });
+          return finished;
+        },
         // Every property drives all transports, including many detached CLI processes.
         120_000,
       );

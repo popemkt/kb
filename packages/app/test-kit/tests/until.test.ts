@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-test("a timed-out wait stops polling before the next test", async () => {
+test("a timed-out wait stops polling and runner-owned cleanup completes before the next test", async () => {
   // Intentionally fail a test in a separate runner to exercise its real timeout.
   const root = await mkdtemp(join(tmpdir(), "kb-until-"));
   try {
@@ -12,17 +12,25 @@ test("a timed-out wait stops polling before the next test", async () => {
       fixture,
       `
 import { expect, onTestFinished, test } from "bun:test";
+import { writeFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { until } from ${JSON.stringify(import.meta.resolve("../src/until.ts"))};
 
+const marker = "owned-by-timed-out-test";
 let polls = 0;
 let stoppedAt = 0;
 test("timed-out wait", async () => {
+  writeFileSync(marker, "");
   const waiting = until(() => { polls += 1; return undefined; }, "a result that never arrives");
-  onTestFinished(() => { stoppedAt = polls; });
+  onTestFinished(async () => {
+    stoppedAt = polls;
+    await rm(marker);
+  });
   await waiting;
 }, 50);
 
 test("the next test owns its waits", async () => {
+  expect(await Bun.file(marker).exists()).toBe(false);
   await Bun.sleep(50);
   expect(polls).toBe(stoppedAt);
 });

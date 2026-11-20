@@ -4,7 +4,7 @@ import { until } from "@kb/test-kit";
  * without one: the page runs here in a DOM whose parent plays the MCP Apps
  * host, answering `ui/initialize` and `resources/read` as the spec has it.
  */
-import { describe, expect, test } from "bun:test";
+import { describe, expect, onTestFinished, test } from "bun:test";
 import { Window, type HTMLButtonElement } from "happy-dom";
 import { viewSnapshotApp } from "../src/view-app.ts";
 
@@ -29,6 +29,7 @@ function isRequest(value: unknown): value is Request {
 /** The snapshot in a DOM, framed by a host that answers with `answer`, or by nothing. */
 function open(answer: ((request: Request) => unknown) | null) {
   const window = new Window({ settings: { enableJavaScriptEvaluation: true } });
+  onTestFinished(() => window.happyDOM.close());
   const received: Request[] = [];
   if (answer !== null)
     Object.defineProperty(window, "parent", {
@@ -38,7 +39,7 @@ function open(answer: ((request: Request) => unknown) | null) {
           received.push(message);
           if (message.id === undefined) return;
           const result = answer(message);
-          setTimeout(() => {
+          window.setTimeout(() => {
             window.dispatchEvent(
               new window.MessageEvent("message", {
                 data: { jsonrpc: "2.0", id: message.id, result },
@@ -84,11 +85,10 @@ describe("view snapshot app", () => {
     expect(received.at(-1)).toMatchObject({ method: "resources/read", params: { uri: URI } });
     // The fresh snapshot is stamped by the server that rendered it.
     expect(window.document.querySelector("#kb-as-of")?.textContent).toBe(AFTER);
-    await window.happyDOM.close();
   });
 
   test("a host that proxies no resource reads gets no refresh", async () => {
-    const { window, received, button } = open(() => ({
+    const { received, button } = open(() => ({
       protocolVersion: "2026-01-26",
       hostCapabilities: { serverTools: {} },
       hostInfo: { name: "t", version: "0" },
@@ -102,7 +102,6 @@ describe("view snapshot app", () => {
       "ui/notifications/initialized",
     ]);
     expect(button?.hidden).toBe(true);
-    await window.happyDOM.close();
   });
 
   test("outside a host it offers no refresh", async () => {
@@ -110,6 +109,5 @@ describe("view snapshot app", () => {
     await new Promise((r) => setTimeout(r, 20));
     expect(button?.hidden).toBe(true);
     expect(window.document.querySelector("#kb-view h1")?.textContent).toBe("Before");
-    await window.happyDOM.close();
   });
 });

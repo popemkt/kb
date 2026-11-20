@@ -497,6 +497,8 @@ but comparisons made within one run.
 Bun tests waiting for an observable result use `until` from `@kb/test-kit`.
 The probe retries on `undefined`. The runner owns the timeout and stops any
 pending wait when the test finishes, reporting what it was waiting for.
+An ended wait stays pending so the test body cannot resume during teardown.
+Tests register resource cleanup with the runner before waiting.
 
 **Coverage is a signal, never a gate.** It may be reported; there is no
 "fail below N%" check and there will not be one. Chasing a percentage
