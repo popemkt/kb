@@ -988,14 +988,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Lab principles
 - **node** — `01M3A95XAEE6FGT8ZVDRHYBDF5`
 
-### GAP: Enter on an expanded reference opens a sibling, not the target's first child
-
-- **expected** — Enter at the end of an expanded reference opens the target's first child, as on any expanded row.
-- **current** — planSplit in actions/plan.ts counts the reference's own children, which are none.
-- **impact** — One row kind breaks the outline's Enter rule.
-- **closes** — planSplit counts the shown node's children.
-- **node** — `01M3KA3BBRADE3TNWQ78JNK37M`
-
 ### GAP: every expanded outline row mounts, so load cost grows with expanded rows
 
 - **expected** — the outline mounts only rows near the viewport, and updates and first paint cost the same for 50 or 5,000 expanded rows
@@ -1786,14 +1778,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Tables and boards need the mouse to reach a value.
 - **closes** — Give table/board cells the same slot navigation order the outline uses.
 - **node** — `01M3KA3A8JZN1GH9DXK2SNZ1N1`
-
-### GAP: tables and boards sort, filter and group references by their own empty props
-
-- **expected** — A reference in a table or board sorts, filters and groups by its target's fields, as it renders them.
-- **current** — frame-rows.ts reads the row node's own props, so a reference sorts and groups as an empty node.
-- **impact** — References land in the wrong group or order in every view but the outline.
-- **closes** — Those steps read shownNode while still returning row ids.
-- **node** — `01M3KA3B5V5K7GYYPAYK7G6KHG`
 
 ### GAP: tests that poll until something happens give up on a wall-clock deadline of their own
 
@@ -2740,6 +2724,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M54V6G798RV0P805SMBG64H8`
 
+### GAP: Enter on an expanded reference opens a sibling, not the target's first child
+
+- **expected** — Enter at the end of an expanded reference opens the target's first child, as on any expanded row.
+- **current** — Fixed: planSplit now checks shownOf(nodes, id).children and parents the new first child on the target; resolveActivateKey keeps focus on the new child under the reference's instance.
+- **impact** — One row kind breaks the outline's Enter rule.
+- **closes** — planSplit counts the shown node's children.
+- **node** — `01M3KA3BBRADE3TNWQ78JNK37M`
+
 ### GAP: extension SDK mirror is not bidirectionally typed
 
 - **expected** — The dependency-free public SDK contract and runtime contract are generated from one canonical schema or proven exactly assignable in both directions.
@@ -3203,6 +3195,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P0 of docs/research/2026-10-29-plugin-codependency.md
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M63C0GJ5M78G1TFKM00RN4X6`
+
+### GAP: tables and boards sort, filter and group references by their own empty props
+
+- **expected** — A reference in a table or board sorts, filters and groups by its target's fields, as it renders them.
+- **current** — Fixed: frame-layout.ts (not frame-rows.ts) read the reference's own empty props and tags for filters, sort, board grouping, calendar day grouping, and derived table columns; all now read shownNode(row, schema) while returning row ids, and planMoveToGroup writes to shownOf().
+- **impact** — References land in the wrong group or order in every view but the outline.
+- **closes** — Those steps read shownNode while still returning row ids.
+- **node** — `01M3KA3B5V5K7GYYPAYK7G6KHG`
 
 ### GAP: the 3D bullet atlas has a fixed capacity
 
