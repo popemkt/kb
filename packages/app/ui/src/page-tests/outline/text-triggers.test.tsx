@@ -252,6 +252,34 @@ describe("triggers in the text", () => {
       expect(propOf(ABOVE, "field.status")).toHaveLength(1);
     });
 
+    it("undoes and redoes a conversion that defines a new field", async () => {
+      const name = "Review delivery note";
+      const el = await typedOnLine(`>${name}`);
+      expect(listed()).toContain(`Create field "${name}"`);
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(useGraphStore.getState().undoStack).toHaveLength(1));
+      const definition = useGraphStore.getState().wireNodes.find((node) => node.text === name);
+      const field = present(definition, name).id;
+      expect(propOf(field, SYSTEM_IDS.typeField)).toContainEqual({ t: "ref", v: SYSTEM_IDS.field });
+      expect(propOf(ABOVE, field)).toEqual([{ t: "str", v: "" }]);
+      expect(outlineNodes().has(LINE)).toBe(false);
+
+      await act(async () => {
+        expect(await mutations.undo()).toBe(true);
+      });
+      expect(outlineNodes().has(field)).toBe(false);
+      expect(propOf(ABOVE, field)).toEqual([]);
+      expect(outlineNodes().get(ABOVE)?.children).toEqual([LINE]);
+      expect(textOf(LINE)).toBe("");
+
+      await act(async () => {
+        expect(await mutations.redo()).toBe(true);
+      });
+      expect(textOf(field)).toBe(name);
+      expect(propOf(ABOVE, field)).toEqual([{ t: "str", v: "" }]);
+      expect(outlineNodes().has(LINE)).toBe(false);
+    });
+
     it("keeps the typed text and focus when the conversion is refused", async () => {
       const nodes = rankedFixture().map((node) =>
         node.id === "field.status"

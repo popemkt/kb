@@ -112,6 +112,7 @@ export const addField: PaletteStep<string | null> = {
       // field's own declared type decides which editor that row gets.
       const empty = emptyValueForType(resolveFieldTypeById(fieldId, schema));
       const targets = new Set(targetNodeIds);
+      // GAP [[01M7XMMCPA7H2R1P065TVCQNYC]] — skipped initialization has no commit-time presence check.
       const missing = graph
         .state()
         .wireNodes.filter(
