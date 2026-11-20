@@ -1463,8 +1463,10 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   reported. A setting the view takes from its host or its route, which a
   view node therefore cannot hold, is refused by its path. On success the
   node is filed at the end of the Views list and named in the host's
-  `sys.f.views` (first when `default`); otherwise nothing is written and the
-  receipt carries every issue as `{path, message}`. Any other entry that
+  `sys.f.views` (first when `default`). If the store changes before commit,
+  the action replans on the current graph and refuses a claimed view ID.
+  On failure nothing is written and the receipt carries every issue as
+  `{path, message}`. Any other entry that
   makes a view node from settings is to call the same function. The write
   check does not yet: a view node written through `node.add` or
   `node.update` is not checked against its view's settings
