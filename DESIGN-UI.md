@@ -301,8 +301,9 @@ be kept, never how it is sent.
     its manifest lists them — is
     recorded beside the version
     (`server/tests/wire-protocol.test.ts`), so changing any of it fails until
-    someone decides: still compatible (record the fingerprint), or not (bump
-    the protocol).
+    someone checks compatibility in both directions. Record the fingerprint
+    when both builds can still work together. Bump the protocol when either
+    side would read a message differently.
   - _A reload waits, keeps the page, and says so._ A tab reloads when the
     server speaks another protocol, or as a fallback when a chunk it asks
     for is gone even so (Vite's `vite:preloadError`, or a view's error

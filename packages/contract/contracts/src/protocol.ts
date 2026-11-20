@@ -20,16 +20,11 @@ import { ScreenAckSchema, ScreenCommandSchema, ScreenStateSchema } from "./scree
  */
 
 /**
- * The version of this wire: what a page of one build and a server of
- * another must agree on to work together — these messages, the action
- * envelope and receipt, the snapshot, and the input and output of every
- * action the server offers. A build changes on every release; this changes
- * only when a page of the previous build could no longer talk to the
- * server. The wire's fingerprint is recorded beside it
- * (`packages/app/server/tests/wire-protocol.test.ts`), so a change to any
- * of those shapes is a decision: still compatible, or the next protocol.
+ * The version a page and server must agree on (DESIGN-UI.md → Delivery).
+ * The wire's fingerprint is recorded with it in
+ * `packages/app/server/tests/wire-protocol.test.ts`.
  */
-export const WIRE_PROTOCOL = 11;
+export const WIRE_PROTOCOL = 12;
 
 /** A prop value as the wire carries it. */
 export const PropValueSchema = z.union([

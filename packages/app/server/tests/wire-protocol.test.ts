@@ -7,11 +7,9 @@
  * snapshot, and every action the server offers by id,
  * mode, input and output, as the server's own manifest lists them.
  *
- * When this test fails, the wire changed. Decide which it is:
- * - a page of the previous build still works with it (a new optional field,
- *   a new message it ignores): record the new fingerprint below;
- * - it does not: bump `WIRE_PROTOCOL` in `@kb/contracts` and record both.
- *   Every open tab then reloads into the new build when it is idle.
+ * When this test fails, follow the compatibility rule in DESIGN-UI.md →
+ * Delivery to decide whether to record a new fingerprint or bump
+ * `WIRE_PROTOCOL` in `@kb/contracts` too.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
@@ -88,10 +86,11 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // `capture.submit`, `capture.pair`, `capture.pairCode` and `capture.revoke`
 // are new actions a previous page never calls, and `kb.manifest` may name a
 // `captureContract`, an optional field a previous page ignores.
-// The fingerprint now covers the existing sandbox protocol. node.addTree
-// takes optional ids; previous pages omit them as before.
+// Protocol 12: the page sends the ids its optimistic outline paste minted.
+// A protocol-11 server can discard those ids and mint its own. The fingerprint
+// also covers the existing sandbox protocol.
 const RECORDED = {
-  protocol: 11,
+  protocol: 12,
   fingerprint: "80026d5cdb5e9fa40de40e23a7755cde36df390d48d76ada353283d084d22ea0",
 };
 
