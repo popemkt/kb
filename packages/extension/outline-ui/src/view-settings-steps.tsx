@@ -2,7 +2,7 @@ import { SortAscendingIcon, SquaresFourIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { SYSTEM_IDS } from "@kb/model";
 import type { ContributionEntry } from "@kb/plugin";
-import { browserHost, type PaletteStep, type PickerCandidate } from "@kb/ui-sdk";
+import { browserHost, shownNode, type PaletteStep, type PickerCandidate } from "@kb/ui-sdk";
 import { frameFieldCandidates, groupFieldSetting, NO_FIELD } from "./view-settings-fields";
 
 interface FieldSetting {
@@ -45,11 +45,16 @@ export const VIEW_SETTINGS_STEPS: readonly ContributionEntry<PaletteStep>[] = FI
       label,
       icon,
       placeholder: "Search fields…",
-      candidates: ({ anchorId, nodes }) =>
-        anchorId === null
-          ? []
-          : choices(frameFieldCandidates(anchorId, nodes, browserHost().schema())),
-      commit: ({ targetNodeId, pickedId }) => write(targetNodeId, pickedId),
+      candidates: ({ anchorId, nodes }) => {
+        const row = anchorId === null ? undefined : nodes.get(anchorId);
+        if (row === undefined) return [];
+        const schema = browserHost().schema();
+        return choices(frameFieldCandidates(shownNode(row, schema).id, nodes, schema));
+      },
+      commit: async ({ targetNodeId, schema, pickedId }) => {
+        const row = schema.get(targetNodeId);
+        if (row !== undefined) await write(shownNode(row, schema).id, pickedId);
+      },
     },
   }),
 );

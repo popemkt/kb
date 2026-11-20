@@ -171,6 +171,11 @@ function targetNode(ctx: CommandContext) {
   return id === null ? undefined : ctx.outline.nodes.get(id);
 }
 
+function targetShownNode(ctx: CommandContext, schema = browserHost().schema()) {
+  const row = targetNode(ctx);
+  return row === undefined ? undefined : shownNode(row, schema);
+}
+
 /** The ids of the nodes the rows a command is about show (`shownNodeId`), in the rows' order. */
 function shownIdsOf(ctx: CommandContext): string[] {
   return ctx.target.nodeIds.map((id) => {
@@ -181,18 +186,17 @@ function shownIdsOf(ctx: CommandContext): string[] {
 
 /** Whether the text the target row shows names a node (DESIGN-UI.md → Contextual references). */
 function namesANode(ctx: CommandContext): boolean {
-  const node = targetNode(ctx);
-  return (
-    node !== undefined && extractMentions(shownNode(node, browserHost().schema()).text).length > 0
-  );
+  const node = targetShownNode(ctx);
+  return node !== undefined && extractMentions(node.text).length > 0;
 }
 
 function hasFrameSetting(ctx: CommandContext, param: keyof FrameView["params"]): boolean {
-  const node = targetNode(ctx);
+  const schema = browserHost().schema();
+  const node = targetShownNode(ctx, schema);
   if (node === undefined) return false;
   const view = frameViewOf(
     node,
-    browserHost().schema(),
+    schema,
     ctx.outline.frameViews().map(({ key }) => key),
   );
   return view?.params[param] !== undefined;

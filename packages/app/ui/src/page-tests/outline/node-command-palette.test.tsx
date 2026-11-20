@@ -488,7 +488,12 @@ describe("node command palette", () => {
   });
 
   it.each([
-    { command: "Group by…", choice: "Status", field: SYSTEM_IDS.viewGroupField, value: "f.status" },
+    {
+      command: "Group by…",
+      choice: "Status",
+      field: SYSTEM_IDS.viewGroupField,
+      value: "sys.f.test-status",
+    },
     {
       command: "Sort by…",
       choice: "Name",
@@ -496,38 +501,51 @@ describe("node command palette", () => {
       value: SYSTEM_IDS.nodeTextField,
     },
   ])(
-    "$command writes its board setting when a field is picked",
+    "$command on a reference writes the board setting on its target",
     async ({ command, choice, field, value }) => {
       const [board, view] = framedAs(
         wire({ id: "n.board", text: "Board", children: ["n.zebra", "n.alpine"] }),
         "board",
       );
       const status = wire({
-        id: "f.status",
+        id: "sys.f.test-status",
         text: "Status",
         props: {
           [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
           [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("text")],
         },
       });
-      const props = { [status.id]: [{ t: "str" as const, v: "Doing" }] };
+      const tag = wire({
+        id: "t.board-row",
+        text: "Board row",
+        props: {
+          [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
+          [SYSTEM_IDS.fieldsField]: [{ t: "ref", v: status.id }],
+        },
+      });
+      const props = {
+        [SYSTEM_IDS.typeField]: [{ t: "ref" as const, v: tag.id }],
+        [status.id]: [{ t: "str" as const, v: "Doing" }],
+      };
       const zebra = wire({ id: "n.zebra", text: "Zebra", props });
       const alpine = wire({ id: "n.alpine", text: "Alpine", props });
+      const reference = ctxRefWire("n.board-ref", board.id);
       useGraphStore
         .getState()
         .hydrateFromWire(
-          [...graph(), ...viewFieldNodes, board, view, status, zebra, alpine],
+          [...graph(), ...viewFieldNodes, board, view, status, tag, zebra, alpine, reference],
           2,
           "fixtures",
         );
       const undoDepth = useGraphStore.getState().undoStack.length;
-      await open(board.id);
+      await open(reference.id);
       await pick(command);
       expect(outlineNodes().get(view.id)?.props[field]).toBeUndefined();
       await pick(choice);
       await vi.waitFor(() =>
         expect(outlineNodes().get(view.id)?.props[field]).toEqual([{ t: "ref", v: value }]),
       );
+      expect(outlineNodes().get(reference.id)?.props).toEqual(reference.props);
       expect(useGraphStore.getState().undoStack).toHaveLength(undoDepth + 1);
       const nodes = outlineNodes();
       const schema = browserHost().schema();

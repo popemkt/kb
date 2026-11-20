@@ -3148,11 +3148,12 @@ The groups, in the menu's order (`NODE_MENU_GROUPS`):
 | `arrange` | where it sits | Indent, Outdent, Move to…, Move and leave reference… |
 | `mark` | what marks it | Pin / Unpin, Show / Hide debug fields |
 | `view` | how its views show it | View as: …, Make default view: …, Edit query, Add chart, Filter…, Group by…, Sort by…, Expand reference…, Count words |
+| `remove` | removing it | Delete node |
 
 “Group by…” and “Sort by…” open field pickers on frames whose views
-declare those settings. Each pick writes the frame’s view node. Sorting
-uses the chosen field in ascending order, with “Manual order” to clear it.
-| `remove` | removing it | Delete node |
+declare those settings. Each pick writes the
+[shown frame’s](#contextual-references) view node. Sorting uses the chosen
+field in ascending order, with “Manual order” to clear it.
 
 So a family's command takes a place among the shell's by naming it, and
 the one menu builder (`listNodeCommands`) reads the place from the
