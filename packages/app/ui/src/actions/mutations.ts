@@ -302,13 +302,13 @@ export const mutations: PageWrites = {
     await applyPlan(planSetFieldTargetQuery(wire(), fieldId, edn));
   },
 
-  async splitNode(id: string, cursor: number | "end"): Promise<void> {
+  async splitNode(id: string, cursor: number | "end", instanceKey?: string): Promise<void> {
     // Expanded set from the page's rows drives Tana first-child splits.
     const expandedIds = new Set<string>();
     for (const n of pageRows().values()) {
       if (!n.collapsed) expandedIds.add(n.id);
     }
-    await applyPlan(planSplit(wire(), id, cursor, ulid(), { expandedIds }));
+    await applyPlan(planSplit(wire(), id, cursor, ulid(), { expandedIds, instanceKey }));
   },
 
   async deleteNode(id: string): Promise<boolean> {

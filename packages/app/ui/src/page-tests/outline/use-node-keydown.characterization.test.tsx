@@ -21,6 +21,7 @@ import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import {
+  childInstanceKey,
   outlineInstanceKey,
   projectedRowKey,
   renderInlineMarkdown,
@@ -241,6 +242,33 @@ describe("outline editing keymap (characterization)", () => {
       expect(await press(mount("n.child-a1", endOf("n.child-a1")), "Delete")).toBe(true);
       expect(node("n.ref")).toBeDefined();
       expect(node("n.child-a1")?.text).toBe("Load graph into client DataScript");
+    });
+
+    it("Enter on an expanded reference under a query result edits the new row under it there", async () => {
+      // n.root-b, a result of query n.q, holds a reference to n.root-a, opened.
+      const wires = structuredClone(fixtureGraph.nodes).map((w) =>
+        w.id === "n.root-b" ? { ...w, children: ["n.ref-a"] } : w,
+      );
+      resetOutlineStore();
+      useGraphStore
+        .getState()
+        .hydrateFromWire(
+          [...wires, ...REF_SEED_WIRES, ctxRefWire("n.ref-a", "n.root-a")],
+          fixtureGraph.rev,
+          "fixtures",
+        );
+      act(() => useOutlineStore.getState().toggleCollapse("n.ref-a"));
+      const instanceKey = childInstanceKey(projectedRowKey("n.q", "n.root-b"), "n.ref-a");
+      act(() => useOutlineStore.getState().activateNode("n.ref-a", 0, instanceKey));
+      act(() => root.render(<Host nodeId="n.ref-a" instanceKey={instanceKey} />));
+      const el = present(container.querySelector<HTMLElement>('[data-editor="true"]'), "editor");
+
+      expect(await press(el, "Enter")).toBe(true);
+      const first = present(node("n.root-a")?.children[0], "new first child");
+      expect(first).not.toBe("n.child-a1");
+      const s = useOutlineStore.getState();
+      expect(s.activeNodeId).toBe(first);
+      expect(s.activeInstanceKey).toBe(childInstanceKey(instanceKey, first));
     });
 
     it("Meta+Backspace deletes the reference, never the original", async () => {

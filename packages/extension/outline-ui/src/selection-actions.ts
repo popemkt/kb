@@ -15,6 +15,7 @@ import {
   asOneWrite,
   browserHost,
   childInstanceKey,
+  nodeOfInstance,
   runKeyCall,
   rowTextOf,
   shownNode,
@@ -118,10 +119,6 @@ function eachRow(nodeId: string): readonly string[] {
   return rows.length <= 1 ? [nodeId] : rows.map((row) => row.nodeId);
 }
 
-/** The node an instance key ends at. */
-const nodeOfKey = (instanceKey: string): string =>
-  instanceKey.slice(instanceKey.lastIndexOf("/") + 1);
-
 /**
  * Move the rows the selection acts on as one block (`write`), then select
  * the range again at their new rows, its anchor and head where they were.
@@ -131,7 +128,7 @@ function arrange(write: (ids: readonly string[]) => Promise<void>, nodeId: strin
   const { selectionAnchorKey } = useOutlineStore.getState();
   void write(ids).then(() => {
     if (range && selectionAnchorKey !== null) {
-      useOutlineStore.getState().selectRange(nodeOfKey(selectionAnchorKey), nodeId);
+      useOutlineStore.getState().selectRange(nodeOfInstance(selectionAnchorKey), nodeId);
     }
   });
 }

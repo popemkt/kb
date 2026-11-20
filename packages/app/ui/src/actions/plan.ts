@@ -16,7 +16,14 @@ import {
   type Writable,
   SYSTEM_IDS,
 } from "@kb/model";
-import { forestRootIds, type MatchingAdd, type MovePlace, type PropValue } from "@kb/ui-sdk";
+import {
+  childInstanceKey,
+  forestRootIds,
+  parentInstanceKey,
+  type MatchingAdd,
+  type MovePlace,
+  type PropValue,
+} from "@kb/ui-sdk";
 import { FRAME_VIEW_FAMILY, frameSettingWrite, type ViewConfig } from "@kb/views";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { findParentWire, wireById } from "@/lib/tx";
@@ -25,6 +32,8 @@ export interface PlannedMutation {
   actions: ActionRequest[];
   focusId?: string;
   focusCursor?: number;
+  /** The instance `focusId` is edited at, when the write knows it; else the editor resolves it. */
+  focusInstanceKey?: string;
 }
 
 const plan = (...actions: ActionRequest[]): PlannedMutation => ({ actions });
@@ -102,7 +111,7 @@ export function planSplit(
   id: string,
   cursor: number | "end",
   newId: string,
-  opts: { expandedIds: Set<string> },
+  opts: { expandedIds: Set<string>; instanceKey?: string },
 ): PlannedMutation {
   const node = requireNode(nodes, id);
   const at = cursor === "end" ? node.text.length : cursor;
@@ -112,6 +121,9 @@ export function planSplit(
   const firstChild = content !== null && content.children.length > 0 && opts.expandedIds.has(id);
   const parent = firstChild ? content : findParentWire(nodes, id);
   const position = firstChild ? 0 : parent ? parent.children.indexOf(id) + 1 : undefined;
+  // The new row is drawn under the row's instance, or beside it.
+  const row = opts.instanceKey;
+  const drawnUnder = row === undefined ? null : firstChild ? row : parentInstanceKey(row);
   return {
     actions: [
       ...(left === node.text ? [] : [updateOf(id, { text: left })]),
@@ -126,6 +138,7 @@ export function planSplit(
     ],
     focusId: newId,
     focusCursor: 0,
+    ...(drawnUnder === null ? {} : { focusInstanceKey: childInstanceKey(drawnUnder, newId) }),
   };
 }
 export const planDelete = (_nodes: WireNode[], id: string) =>

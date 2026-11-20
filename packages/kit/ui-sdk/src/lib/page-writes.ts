@@ -80,7 +80,14 @@ export interface PageWrites {
   readonly addFieldTargetTag: (fieldId: string, tagId: string) => Promise<void>;
   readonly removeFieldTargetTag: (fieldId: string, tagId: string) => Promise<void>;
   readonly setFieldTargetQuery: (fieldId: string, edn: string | null) => Promise<void>;
-  readonly splitNode: (id: string, cursor: number | "end") => Promise<void>;
+  /**
+   * Split the row's text at `cursor` into it and a new row (`"end"`: only
+   * the new row), and edit the new row. `instanceKey` is the row instance
+   * the caret was in: the new row is edited where it is drawn beside or
+   * under that one, which a row under a query result or a reference names
+   * and its node alone does not.
+   */
+  readonly splitNode: (id: string, cursor: number | "end", instanceKey?: string) => Promise<void>;
   /**
    * Delete the node and its subtree. Answers whether it landed: false when
    * the commit refused it, so a caller that moves the selection or the caret

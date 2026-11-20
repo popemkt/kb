@@ -14,7 +14,14 @@ import { createRoot, type Root } from "react-dom/client";
 import type { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { outlineInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
+import {
+  childInstanceKey,
+  outlineInstanceKey,
+  projectedRowKey,
+  syncUiPlugins,
+  WORKSPACE_ROOT_ID,
+} from "@kb/ui-sdk";
+import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import { KeybindingPoint } from "@kb/contracts";
 import { provideKeybinding } from "@kb/keybindings";
 import { useGraphStore } from "@/stores/graph.store";
@@ -252,6 +259,30 @@ describe("selection-mode dispatcher (characterization)", () => {
     const minted = useOutlineStore.getState().activeNodeId;
     expect(minted).not.toBeNull();
     expect(node(String(minted))?.parentId).toBe("n.root-a");
+  });
+
+  it("createAfter: o on an expanded reference under a query result edits the new row there", async () => {
+    // n.root-b, a result of query n.q, holds a reference to n.root-a, opened.
+    const wires = structuredClone(fixtureGraph.nodes).map((w) =>
+      w.id === "n.root-b" ? { ...w, children: ["n.ref-a"] } : w,
+    );
+    useGraphStore
+      .getState()
+      .hydrateFromWire(
+        [...wires, ...REF_SEED_WIRES, ctxRefWire("n.ref-a", "n.root-a")],
+        fixtureGraph.rev,
+        "fixtures",
+      );
+    act(() => useOutlineStore.getState().toggleCollapse("n.ref-a"));
+    const instanceKey = childInstanceKey(projectedRowKey("n.q", "n.root-b"), "n.ref-a");
+    act(() => useOutlineStore.getState().selectNode("n.ref-a", instanceKey));
+    act(() => root.render(<Host />));
+    await press("o");
+    const minted = String(useOutlineStore.getState().activeNodeId);
+    expect(node(minted)?.parentId).toBe("n.root-a");
+    expect(useOutlineStore.getState().activeInstanceKey).toBe(
+      childInstanceKey(instanceKey, minted),
+    );
   });
 
   it("createAfter: o on a leaf mints the next sibling", async () => {

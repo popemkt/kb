@@ -30,8 +30,10 @@ import {
   logWarn,
   MAIN_OUTLINE_HOST,
   type NodeMap,
+  nodeOfInstance,
   outlineInstanceKey,
   type OutlineNode,
+  parentInstanceKey,
   type PageGraphState,
   type PageProjection,
   providedFrameViews,
@@ -440,8 +442,9 @@ const NO_FOCUS = {
  * The instance to activate `id` at: the one named, else under `working` (or its
  * parent row) when `id` is a child of the node shown there — so Enter or `o`
  * under an expanded contextual reference focuses the new row under that
- * reference instead of jumping to the target's canonical path — else its row
- * in the outline being worked in (the host of `working`, the current selection).
+ * reference, wherever it is drawn (under a query result too), instead of
+ * jumping to the target's canonical path — else its row in the outline being
+ * worked in (the host of `working`, the current selection).
  */
 function resolveActivateKey(
   id: string,
@@ -452,26 +455,20 @@ function resolveActivateKey(
 ): string {
   if (instanceKey !== undefined) return instanceKey;
   const parentId = nodes.get(id)?.parentId ?? null;
-  if (parentId !== null && working !== null && !isProjectedInstance(working)) {
-    const cut = working.lastIndexOf("/");
-    if (cut > 0) {
-      const workingNode = nodes.get(working.slice(cut + 1));
-      if (
-        workingNode !== undefined &&
-        !workingNode.collapsed &&
-        shownNodeId(workingNode) === parentId &&
-        !showsAncestor(working, workingNode, schema)
-      ) {
-        return childInstanceKey(working, id);
-      }
-      const parentKey = working.slice(0, cut);
-      const parentCut = parentKey.lastIndexOf("/");
-      if (parentCut > 0) {
-        const parentNode = nodes.get(parentKey.slice(parentCut + 1));
-        if (parentNode !== undefined && shownNodeId(parentNode) === parentId) {
-          return childInstanceKey(parentKey, id);
-        }
-      }
+  if (parentId !== null && working !== null) {
+    const workingNode = nodes.get(nodeOfInstance(working));
+    if (
+      workingNode !== undefined &&
+      !workingNode.collapsed &&
+      shownNodeId(workingNode) === parentId &&
+      !showsAncestor(working, workingNode, schema)
+    ) {
+      return childInstanceKey(working, id);
+    }
+    const parentKey = parentInstanceKey(working);
+    const parentNode = parentKey === null ? undefined : nodes.get(nodeOfInstance(parentKey));
+    if (parentKey !== null && parentNode !== undefined && shownNodeId(parentNode) === parentId) {
+      return childInstanceKey(parentKey, id);
     }
   }
   return outlineInstanceKey(id, nodes, walkHostOf(working));

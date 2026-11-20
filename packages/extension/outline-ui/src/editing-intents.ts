@@ -105,7 +105,8 @@ function mergeNextIn({ nodeId, instanceKey, nextNodeId, caret }: IntentOf<"merge
 const EDITING_STEPS: EditingSteps = {
   claim: () => {},
   softBreak,
-  split: ({ nodeId, cursor }) => void browserHost().writes.splitNode(nodeId, cursor),
+  split: ({ nodeId, instanceKey, cursor }) =>
+    void browserHost().writes.splitNode(nodeId, cursor, instanceKey),
   indent: ({ nodeId, cursor }) => void browserHost().writes.indentNodes([nodeId], cursor),
   outdent: ({ nodeId, cursor }) => void browserHost().writes.outdentNodes([nodeId], cursor),
   deleteSubtree,

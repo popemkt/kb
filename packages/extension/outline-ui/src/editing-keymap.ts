@@ -65,7 +65,7 @@ export type EditingIntent =
   /** Claimed and deliberately inert — the key must not reach the browser. */
   | { type: "claim" }
   | { type: "softBreak"; nodeId: string; instanceKey: string; cursor: number }
-  | { type: "split"; nodeId: string; cursor: number | "end" }
+  | { type: "split"; nodeId: string; instanceKey: string; cursor: number | "end" }
   | { type: "indent"; nodeId: string; cursor: number }
   | { type: "outdent"; nodeId: string; cursor: number }
   | { type: "deleteSubtree"; nodeId: string; instanceKey: string }
@@ -229,6 +229,7 @@ const EDITING_INTENTS = new Map<string, IntentOf>([
     structural((ctx) => ({
       type: "split",
       nodeId: ctx.nodeId,
+      instanceKey: ctx.instanceKey,
       cursor: ctx.ownsText(ctx.nodeId) ? ctx.cursor : "end",
     })),
   ],

@@ -72,8 +72,9 @@ export async function runOptimistic(
   }
 
   if (plan.focusId !== undefined) {
-    // Its row where the page is being edited: the editor resolves the instance.
-    editor().activateNode(plan.focusId, plan.focusCursor ?? 0);
+    // Its row where the page is being edited: at the instance the write
+    // names, else the one the editor resolves.
+    editor().activateNode(plan.focusId, plan.focusCursor ?? 0, plan.focusInstanceKey);
   }
   return { ok: true, focusId: plan.focusId, focusCursor: plan.focusCursor, outputs };
 }

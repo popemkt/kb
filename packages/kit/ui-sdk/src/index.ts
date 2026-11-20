@@ -248,9 +248,11 @@ export {
   isProjectedInstance,
   isProjectedRow,
   MAIN_OUTLINE_HOST,
+  nodeOfInstance,
   outlineHostOfPane,
   outlineInstanceKey,
   pageTitleInstanceKey,
+  parentInstanceKey,
   projectedRowKey,
   projectedRowOf,
 } from "./lib/instance-key";
