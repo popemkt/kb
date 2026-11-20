@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Compose draws the app; this only sets the window behind it to kb's dark background. -->
-    <style name="Theme.KbCapture" parent="android:Theme.Material.NoActionBar">
+    <!-- The shell's window, behind the WebView and the system bars: kb's dark background. -->
+    <style name="Theme.KbCapture" parent="Theme.AppCompat.NoActionBar">
         <item name="android:windowBackground">@color/kb_background</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
+
+    <!-- BridgeActivity sets Capacitor's own theme by this name; the app's resource wins, so it is kb's. -->
+    <style name="AppTheme.NoActionBar" parent="Theme.KbCapture" />
 
     <!-- The share receiver shows no window of its own: only its toast. -->
     <style name="Theme.KbCapture.Share" parent="android:Theme.Translucent.NoTitleBar">

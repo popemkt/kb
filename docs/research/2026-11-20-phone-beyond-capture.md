@@ -266,10 +266,11 @@ views:
   `capture.pair`, credential sealed by the Android Keystore), Open, Forget.
   Pairing stays the only access model. Nothing in the shell knows about
   Tailscale or any other network.
-- **Offline**: shown in place of a broken WebView when the store's UI does
-  not load. It says "Offline — captures are queued (N)", lists the queue
-  (pending, sent, failed), offers retry or discard on each, and has Try
-  again.
+- **Queue**: the phone's captures (pending, sent, failed), with retry or
+  discard on each; its tab carries the count still waiting. It is also the
+  offline screen: when the store's UI does not load, the shell shows it in
+  place of the broken page, headed "Offline — <store> did not load", with
+  why, "captures are queued (N)" and Try again.
 - **Capture**: a text field and Queue. The widget, the tile and `kb://capture`
   open it. It writes to the same durable queue as the share sheet.
 

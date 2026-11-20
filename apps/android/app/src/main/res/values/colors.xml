@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- What the OS draws before or beside the page (window, widget): kb's dark set,
+     design-system.css `.dark` converted from oklch to sRGB. The page itself
+     uses design-system.css directly. -->
 <resources>
     <color name="kb_background">#FF0A0A0A</color>
+    <color name="kb_card">#FF171717</color>
+    <color name="kb_foreground">#FFFAFAFA</color>
+    <color name="kb_border">#1AFFFFFF</color>
     <color name="kb_primary">#FFF0A13A</color>
 </resources>

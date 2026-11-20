@@ -5647,10 +5647,13 @@ An inline capture asset takes its name from the digest of its stored bytes,
 so competing deliveries and retries reuse it. A failed graph commit can leave
 an unreferenced asset. GAP [[01M7QT8YBS8V0B97VWRP4D717F]] tracks reconciliation.
 
-For phone delivery, serve a dedicated `kb ui --capture-only` listener through
-HTTPS. It serves `POST /api/action` for capture version discovery, pairing
-and authenticated submission. Its manifest returns only `captureContract`.
-The regular UI can keep its own listener and access rules. On the host, issue
+Any `kb ui` listener admits the capture wire: an unauthenticated
+`capture.pair`, and any call with a `Bearer kbcap_…` credential, which
+reaches only discovery and `capture.submit`. A phone app that loads the
+store's UI pairs and delivers on that same URL. To expose capture alone, serve a
+dedicated `kb ui --capture-only` listener through HTTPS. It serves
+`POST /api/action` for capture version discovery, pairing and
+authenticated submission. Its manifest returns only `captureContract`. On the host, issue
 a ten-minute, one-use code:
 
 ```sh
@@ -5782,16 +5785,30 @@ remains GAP [[01M413SP3QSSQJMKKDK3W3J6G8]].
     A script runs as the page does, with the person's session, so naming
     one trusts its origin as much as kb's own code. The page sends no
     `script-src` today; one added later must allow these scripts' origins.
-- **Phone capture** (`apps/android`): a thin share receiver. A share is
-  copied into a durable queue on the phone and delivered later, raw, to the
-  paired store's `capture.submit` over `POST /api/action`. The program wire
-  is used, with the device credential from `capture.pair` as a bearer token.
-  The host maps the share to nodes and places it, and the phone does no graph
-  writes of its own. The phone asks `kb.manifest` for `captureContract` when
-  it pairs and before each run, and keeps a capture queued, with the reason,
-  while the host does not accept the version it was encoded in. What the
-  phone does with each answer (sent, failed, paused, pending) is
+- **Phone app** (`apps/android`): a Capacitor shell around kb's own web
+  UI. A paired store is the URL of its `kb ui`. The shell loads that page
+  in its WebView as a browser would, so the UI is always the store's own kb
+  version and never a second UI. Capacitor's bridge is injected only into
+  the shell's bundled page (Stores, the capture queue, Capture), so the
+  store's page gets no native access. Native code is kept for what only a
+  device does:
+  - the share receiver, and a durable queue delivered later, raw, to the
+    paired store's `capture.submit` over `POST /api/action` with the device
+    credential from `capture.pair` as a bearer token. A bearer `kbcap_`
+    call is the capture wire on any `kb ui` listener, so one URL serves the
+    UI and capture;
+  - a home-screen widget and a quick-settings tile, which open `kb://capture`;
+  - notifications when a capture is refused or a store stops accepting the
+    phone;
+  - the back button, and `kb://` links.
+
+  The phone does no graph writes of its own. It asks `kb.manifest` for
+  `captureContract` when it pairs and before each run, and keeps a capture
+  queued, with the reason, while the host does not accept the version it
+  was encoded in. When a store's UI does not load, the shell shows the
+  queue in its place. What the phone does with each answer is
   `apps/android/README.md` → How it behaves. The design is
+  `docs/research/2026-11-20-phone-beyond-capture.md` §7, after
   `docs/research/2026-11-18-desktop-and-phone-apps.md` §3–4.
 - **Agent onboarding**: CLAUDE.md/AGENTS.md section — node model, field/tag
   conventions, 5 example invocations.

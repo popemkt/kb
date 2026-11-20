@@ -2,7 +2,6 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
 }
 
@@ -17,8 +16,8 @@ android {
         applicationId = "app.kb.capture"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
 
     buildTypes {
@@ -32,10 +31,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    buildFeatures {
-        compose = true
-    }
-
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
@@ -47,15 +42,44 @@ kotlin {
     }
 }
 
+/**
+ * kb's design system, as the web UI defines it, put beside the shell's page
+ * (`assets/public/design-system.css`) at build time: the shell styles itself
+ * with the UI's own custom properties and keeps no copy of them.
+ */
+abstract class KbDesignSystem : DefaultTask() {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val source: RegularFileProperty
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun copy() {
+        val target = outputDir.get().asFile.resolve("public")
+        target.mkdirs()
+        source.get().asFile.copyTo(target.resolve("design-system.css"), overwrite = true)
+    }
+}
+
+val kbDesignSystem =
+    tasks.register<KbDesignSystem>("kbDesignSystem") {
+        source.set(rootProject.layout.projectDirectory.file("../../packages/app/ui/src/design-system.css"))
+    }
+
+androidComponents {
+    onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(kbDesignSystem, KbDesignSystem::outputDir)
+    }
+}
+
 dependencies {
-    implementation(platform(libs.compose.bom))
-    implementation(libs.compose.material3)
-    implementation(libs.compose.ui)
-    implementation(libs.compose.ui.tooling.preview)
-    debugImplementation(libs.compose.ui.tooling)
-    implementation(libs.activity.compose)
+    implementation(libs.capacitor.core)
+    implementation(libs.androidx.core)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.activity)
     implementation(libs.lifecycle.runtime)
-    implementation(libs.lifecycle.runtime.compose)
     implementation(libs.work.runtime)
     implementation(libs.serialization.json)
     implementation(libs.coroutines.android)

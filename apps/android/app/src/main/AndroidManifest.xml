@@ -2,6 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".KbCapture"
@@ -12,13 +13,23 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.KbCapture">
 
+        <!-- The shell: a paired store's own kb UI, or the shell's page (Stores, queue, Capture). -->
         <activity
-            android:name=".ui.MainActivity"
+            android:name=".shell.ShellActivity"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:exported="true"
+            android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- kb://capture, kb://queue, kb://stores, kb://open/<path in the store's UI> -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="kb" />
             </intent-filter>
         </activity>
 
@@ -43,5 +54,32 @@
                 <data android:mimeType="image/*" />
             </intent-filter>
         </activity>
+
+        <!-- One-tap capture from the home screen and the quick-settings shade: both open kb://capture. -->
+        <receiver
+            android:name=".device.CaptureWidget"
+            android:exported="false"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/capture_widget" />
+        </receiver>
+
+        <service
+            android:name=".device.CaptureTile"
+            android:exported="true"
+            android:icon="@drawable/ic_capture"
+            android:label="@string/tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.ACTIVE_TILE"
+                android:value="false" />
+        </service>
     </application>
 </manifest>
