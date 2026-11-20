@@ -31,9 +31,7 @@ export interface BacklinkRow {
    */
   relations: BacklinkRelation[];
   /** Ancestor path above this row, outermost first (home omitted). */
-  breadcrumbs?: readonly Crumb[];
-  /** Whether the referring node has children that can be expanded as context. */
-  hasChildren?: boolean;
+  breadcrumbs: readonly Crumb[];
 }
 
 /** Where a referrer's references are read, field by field (`NodeIndex.referenceFields`). */
@@ -43,12 +41,15 @@ type ReferenceReader = Pick<NodeIndex, "getNode" | "referenceFields">;
  * Other nodes that reference `nodeId`, excluding self-references.
  * Shared so every backlink reader uses the exact same query and self-filter.
  */
-function otherBacklinks(run: EdnRunner, nodeId: string): Array<{ id: string; text: string }> {
+export function otherBacklinks(
+  run: EdnRunner,
+  nodeId: string,
+): Array<{ id: string; text: string }> {
   return queryBacklinks(run, nodeId).filter((b) => b.id !== nodeId);
 }
 
 /** Ancestor breadcrumbs above `nodeId` in `schema`, outermost first (home omitted). */
-function rowBreadcrumbs(schema: SchemaIndex, nodeId: string): Crumb[] {
+export function rowBreadcrumbs(schema: SchemaIndex, nodeId: string): Crumb[] {
   const parentId = schema.get(nodeId)?.parentId ?? null;
   if (parentId === null || parentId === WORKSPACE_ROOT_ID) return [];
   return crumbsTo(parentId, WORKSPACE_ROOT_ID, schema, schema);
@@ -90,7 +91,6 @@ export function backlinkRows(
           ? []
           : relationsThrough(referrer, references.referenceFields(referrer, nodeId), schema),
       breadcrumbs: rowBreadcrumbs(schema, b.id),
-      hasChildren: (node?.children.length ?? 0) > 0,
     };
   });
 }

@@ -136,6 +136,20 @@ describe("outline update cost", () => {
     expect(new Set(renderedRows())).toEqual(new Set(["n.kid-3"]));
   });
 
+  it("updates the counter when a mention is added without rendering its target row again", async () => {
+    const counter = () => container.querySelector('[data-reference-counter="n.other"]');
+    expect(counter()).toBeNull();
+    const changed = wire("n.kid-3", "See [[n.other|Other root]]");
+    await act(async () => {
+      useGraphStore.getState().applyTx([changed], [], { rev: 2 });
+    });
+    await vi.waitFor(async () => {
+      await act(async () => {});
+      expect(counter()?.textContent).toBe("1");
+    });
+    expect(new Set(renderedRows())).toEqual(new Set(["n.kid-3"]));
+  });
+
   it("re-renders only the toggled row when a node collapses or expands", async () => {
     await act(async () => {
       useOutlineStore.getState().toggleCollapse("n.parent");

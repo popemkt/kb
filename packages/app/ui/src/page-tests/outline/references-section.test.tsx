@@ -1,67 +1,176 @@
-/**
- * W8a inline References: backlinks render at the bottom of a zoomed view as
- * read-only ref rows (replaces the deleted NODE panel). The store-coupled
- * half resolves backlinks via ds/db queryBacklinks (tested there + here on
- * fixture data); the view half renders off pure props like the other
- * server-rendered row tests.
- */
-import { describe, expect, it } from "vitest";
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { bundledSeed } from "@kb/bundled";
 import type { WireNode } from "@kb/contracts";
-import { derivedWith, queryBacklinks } from "@kb/ui-sdk";
-import { DatascriptIndex } from "@kb/ui-test-kit";
-import { fixtureGraph } from "@/api/fixture-graph";
-import { ReferencesView } from "@kb/outline-ui";
+import { extensionNodeId, isQueryNode, present, SYSTEM_IDS } from "@kb/model";
+import { OUTLINE_IDS } from "@kb/outline";
+import { OutlineEditor, outlineNodes } from "@kb/outline-ui";
+import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
+import { childInstanceKey, projectedRowKey, syncUiPlugins } from "@kb/ui-sdk";
+import { useGraphStore } from "@/stores/graph.store";
+import { resetOutlineStore } from "@/test-support/outline-store";
+import { syncPagePlugins } from "@/test-support/page-plugins";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
 
-function referrer(): WireNode {
-  return {
-    id: "n.referrer",
-    text: "See [[n.root-a|Ship kb ui shell]] for context",
-    props: {},
-    children: [],
-    createdAt: "2026-08-08T00:00:00.000Z",
-    updatedAt: "2026-08-08T00:00:00.000Z",
-  };
+const ISO = "2026-08-08T05:00:00.000Z";
+const TARGET = "n.spec";
+const FAMILY = extensionNodeId("outline");
+const PLAIN = "we should write spec soon";
+
+function wire(id: string, text: string, children: string[] = []): WireNode {
+  return { id, text, props: {}, children, createdAt: ISO, updatedAt: ISO };
 }
 
-describe("inline References (W8a)", () => {
-  it("queryBacklinks resolves [[ref]] mentions from node text", () => {
-    const db = new DatascriptIndex([...fixtureGraph.nodes, referrer()], {
-      derived: derivedWith({}),
+function graph(extra: WireNode[]) {
+  const relation = wire("f.influences", "influences");
+  relation.props[SYSTEM_IDS.typeField] = [{ t: "ref", v: SYSTEM_IDS.field }];
+  relation.props[SYSTEM_IDS.relationInverseField] = [{ t: "str", v: "influenced by" }];
+  const followUp = wire("n.follow-up", "Follow up after [[n.spec|Write spec]]");
+  followUp.props[relation.id] = [{ t: "ref", v: TARGET }];
+  return [
+    ...bundledSeed(ISO).filter((node) => !isQueryNode(node)),
+    wire(TARGET, "Write spec"),
+    wire("n.project", "Project notes", ["n.decision", "n.follow-up"]),
+    wire("n.decision", "Decision [[n.spec|Write spec]]", ["n.criteria"]),
+    wire("n.criteria", "Acceptance criteria"),
+    followUp,
+    relation,
+    wire("n.plain", PLAIN),
+    ...extra,
+  ];
+}
+
+const settled = async (assertion: () => void) => {
+  await vi.waitFor(async () => {
+    await act(async () => {});
+    assertion();
+  });
+};
+
+describe("node page references", () => {
+  let dom: InstalledDom;
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeAll(() => {
+    syncPagePlugins([outlineUiPlugin]);
+    dom = installDomGlobals();
+    (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
+  });
+
+  afterAll(() => {
+    delete (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT;
+    dom.restore();
+    syncUiPlugins([]);
+  });
+
+  beforeEach(() => {
+    resetOutlineStore();
+    container = dom.window.document.createElement("div") as unknown as HTMLDivElement;
+    dom.window.document.body.appendChild(container as unknown as never);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    vi.restoreAllMocks();
+  });
+
+  async function draw(nodeId?: string, extra: WireNode[] = []) {
+    await act(async () => {
+      useGraphStore.getState().hydrateFromWire(graph(extra), 1, "fixtures");
+      if (nodeId !== undefined) useGraphStore.getState().zoomTo(nodeId);
+      root.render(<OutlineEditor />);
     });
-    const run = (edn: string) => db.runDatalog(edn);
-    expect(queryBacklinks(run, "n.root-a").map((b) => b.id)).toEqual(["n.referrer"]);
-    expect(queryBacklinks(run, "n.root-b")).toEqual([]);
+  }
+
+  const find = (selector: string) => container.querySelector<HTMLElement>(selector);
+  const count = (selector: string) => container.querySelectorAll(selector).length;
+  it("names each referrer's ancestor and expands its children in place", async () => {
+    await draw(TARGET);
+    await settled(() => expect(count("[data-backlink-id]")).toBe(2));
+    expect(
+      [...container.querySelectorAll("[data-backlink-breadcrumbs]")].map((el) => el.textContent),
+    ).toEqual(["Project notes", "Project notes"]);
+    expect(find('[data-backlink-relation="f.influences"]')?.textContent).toBe("influenced by");
+    const button = present(
+      find('[data-backlink-id="n.decision"] button[aria-expanded]'),
+      "chevron",
+    );
+    expect(find('[data-backlink-id] [data-node-block][data-node-id="n.criteria"]')).toBeNull();
+    await act(async () => button.click());
+    expect(button.getAttribute("aria-expanded")).toBe("true");
+    const child = find('[data-backlink-id] [data-node-block][data-node-id="n.criteria"]');
+    expect(child?.textContent).toContain("Acceptance criteria");
+    expect(child?.dataset.instanceKey).not.toBe(
+      childInstanceKey(projectedRowKey(TARGET, "n.decision"), "n.criteria"),
+    );
   });
 
-  it("renders a References header + one ref row per backlink", () => {
-    const html = renderToStaticMarkup(
-      createElement(ReferencesView, {
-        nodeId: "n.root-a",
-        backlinks: [
-          { id: "n.referrer", text: "See root-a", tags: [], relations: [] },
-          {
-            id: "n.other",
-            text: "Other link",
-            tags: [],
-            relations: [{ field: "f.influences", label: "influenced by" }],
-          },
-        ],
-      }),
+  it("links a matched span in one undo step and moves the row between sections", async () => {
+    await draw(TARGET);
+    await settled(() =>
+      expect(find('[data-link-mention="n.plain"]')?.hasAttribute("disabled")).toBe(false),
     );
-    expect(html).toMatch(/>References<span[^>]*>\(2\)<\/span>/);
-    expect(html).toContain('data-references-for="n.root-a"');
-    expect(html).toContain('data-node-id="n.referrer"');
-    // A typed relation reads from this node's side, by its inverse label.
-    expect(html).toContain('data-backlink-relation="f.influences"');
-    expect(html).toContain("influenced by");
+    await act(async () => present(find('[data-link-mention="n.plain"]'), "Link").click());
+    await settled(() => expect(find('[data-backlink-id="n.plain"]')).not.toBeNull());
+    expect(find('[data-link-mention="n.plain"]')).toBeNull();
+    expect(outlineNodes().get("n.plain")?.text).toBe("we should [[n.spec|write spec]] soon");
+    expect(useGraphStore.getState().undoStack).toHaveLength(1);
+
+    await act(async () => {
+      dom.window.dispatchEvent(
+        new dom.window.KeyboardEvent("keydown", { key: "z", ctrlKey: true }),
+      );
+    });
+    await settled(() =>
+      expect(find('[data-link-mention="n.plain"]')?.hasAttribute("disabled")).toBe(false),
+    );
+    expect(outlineNodes().get("n.plain")?.text).toBe(PLAIN);
+    expect(find('[data-backlink-id="n.plain"]')).toBeNull();
   });
 
-  it("renders nothing when the node has no backlinks", () => {
-    const html = renderToStaticMarkup(
-      createElement(ReferencesView, { nodeId: "n.root-b", backlinks: [] }),
+  it("reveals the next batch of unlinked mentions on demand", async () => {
+    await draw(
+      TARGET,
+      Array.from({ length: 50 }, (_, i) => wire(`n.mention-${i}`, PLAIN)),
     );
-    expect(html).toBe("");
+    await settled(() => expect(count("[data-link-mention]")).toBe(50));
+    const more = present(
+      [...container.querySelectorAll("button")].find((button) =>
+        button.textContent.includes("Show more (1 remaining)"),
+      ),
+      "Show more",
+    );
+    await act(async () => more.click());
+    expect(count("[data-link-mention]")).toBe(51);
+  });
+
+  it("opens the node at References from its row counter and respects the outline setting", async () => {
+    const scroll = vi.spyOn(dom.window.HTMLElement.prototype, "scrollIntoView");
+    await draw();
+    const counter = `[data-reference-counter="${TARGET}"]`;
+    await settled(() => expect(find(counter)?.textContent).toBe("2"));
+    await act(async () => present(find(counter), "counter").click());
+    await settled(() => expect(find(`[data-references-for="${TARGET}"]`)).not.toBeNull());
+    expect(useGraphStore.getState().rootNodeId).toBe(TARGET);
+    expect(scroll.mock.contexts).toContain(find(`[data-references-for="${TARGET}"]`));
+
+    const family = present(useGraphStore.getState().index?.getNode(FAMILY), FAMILY);
+    const disabled = {
+      ...family,
+      props: {
+        ...family.props,
+        [OUTLINE_IDS.hideReferenceCountsField]: [{ t: "bool" as const, v: true }],
+      },
+    };
+    await act(async () => {
+      useGraphStore.getState().applyTx([disabled], [], { rev: 2 });
+      useGraphStore.getState().zoomHome();
+    });
+    expect(find(`[data-node-row][data-node-id="${TARGET}"]`)).not.toBeNull();
+    expect(find(counter)).toBeNull();
   });
 });

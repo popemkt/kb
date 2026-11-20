@@ -23,7 +23,7 @@ import {
   usePane,
 } from "@kb/ui-sdk";
 import { extensionNodeId } from "@kb/model";
-import { showsChildCounts } from "@kb/outline";
+import { showsChildCounts, showsReferenceCounts } from "@kb/outline";
 import { useOutlineStore } from "./outline.store";
 import { pressRowBullet } from "./row-drag";
 
@@ -32,6 +32,7 @@ import { RowChildren } from "./frame-view-slot";
 import { NodeContent } from "./node-content";
 import { RowCheck } from "./row-check";
 import { checkedTextClass, rowCheckOf } from "./row-check-state";
+import { RowReferenceCounter } from "./row-reference-counter";
 import { RowPreview } from "./row-preview";
 import { openIn, useRowOpening, useRowView } from "./row-opening";
 import { QueryResultsSection } from "./query-results";
@@ -190,7 +191,7 @@ export const NodeBlock = memo(function NodeBlock({
       data-instance-key={instanceKey}
     >
       <div className="relative flex items-center" onClickCapture={handleShiftClick}>
-        <div className="flex-1 min-w-0">
+        <div className="relative flex-1 min-w-0">
           <NodeRow
             depth={depth}
             nodeId={nodeId}
@@ -239,19 +240,20 @@ export const NodeBlock = memo(function NodeBlock({
               />
             }
           />
+          {chrome.showToolbar && (
+            // The toolbar stays out while something it opened is open (a
+            // control of it is `aria-expanded`): the filters, or the query.
+            <div
+              className={cn(
+                "absolute right-2 top-1/2 -translate-y-1/2 transition-opacity z-10",
+                "opacity-0 group-hover/frame:opacity-100 group-focus-within/frame:opacity-100 has-[[aria-expanded=true]]:opacity-100",
+              )}
+            >
+              <ViewToolbar frameId={shownId} view={frameViewKey} />
+            </div>
+          )}
         </div>
-        {chrome.showToolbar && (
-          // The toolbar stays out while something it opened is open (a
-          // control of it is `aria-expanded`): the filters, or the query.
-          <div
-            className={cn(
-              "absolute right-2 transition-opacity z-10",
-              "opacity-0 group-hover/frame:opacity-100 group-focus-within/frame:opacity-100 has-[[aria-expanded=true]]:opacity-100",
-            )}
-          >
-            <ViewToolbar frameId={shownId} view={frameViewKey} />
-          </div>
-        )}
+        {showsReferenceCounts(outlineFamily) && <RowReferenceCounter nodeId={shownId} />}
       </div>
 
       <OpenReferences

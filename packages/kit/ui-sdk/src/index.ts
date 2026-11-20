@@ -258,6 +258,7 @@ export { isPinned, listPinnedNavItems, pinnedRefIds, pinnedRefIdsFor } from "./l
 export { rowsAbout } from "./lib/selection";
 export {
   closesCycleOf,
+  formatRefToken,
   nodeCandidates,
   type RefCreation,
   refCreationOf,

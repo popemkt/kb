@@ -1441,12 +1441,29 @@ reference…_ is withheld from a row that already is one. View filters, sort and
 board grouping read a row's own props, so a reference inside a table or board
 sorts and groups as an empty node. Enter at the end of an expanded reference
 opens a sibling, where an expanded ordinary row opens its first child, because
-`planSplit` reads the row's own children. The References list shows a
-reference by its rendered target text rather than by the ancestor context it
-sits in, so on the original's own page a reference row reads as a copy of the
-original's text; a context breadcrumb is the obvious next step and is not
-built. There is no global ⌘K entry: a contextual reference needs both a host
-row and a target, and the global palette has no two-step for that.
+`planSplit` reads the row's own children. There is no global ⌘K entry: a contextual
+reference needs both a host row and a target, and the global palette has no
+two-step for that.
+
+On a zoomed node, **References** lists the other nodes with a
+`:node/mentions` edge to it. Each referrer has a clickable ancestor path
+above it. Its chevron reveals the children visible in the current outline
+as ordinary rows without moving or opening the referrer itself.
+
+**Unlinked mentions** follows References. It finds a case-insensitive
+whole-word or phrase match for the displayed title in node text, outside
+existing reference tokens. Titles must have at least three characters.
+The node, its ancestors and descendants, system and schema nodes, and
+rows with a mention edge are excluded. The section shows up to 50 rows at
+first and reveals another 50 with **Show more**. **Link** replaces the
+first matched span with an inline reference using the matched wording.
+It is one text write and one undo step.
+
+An outline row with incoming mentions has a count at its right edge.
+Clicking the count opens the node in the same pane and scrolls to
+References. The count reads the same mention query as the list.
+Counts appear by default. The outline family's **hide reference counts**
+checkbox turns them off.
 
 A References row names each field its referrer points here through
 (`NodeIndex.referenceFields`, read by the carriers that made the
