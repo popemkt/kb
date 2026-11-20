@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { join, relative } from "node:path";
 import { EXTENSION_ROOTS, familyEdgeViolation, isPackageTestFile } from "../src/constraints.ts";
 import {
   browserHalfProblems,
@@ -11,7 +11,15 @@ import {
   staleRootSanctions,
   unpairedExtensions,
 } from "../src/families.ts";
-import { importEdges, testSupportBreaches } from "../src/import-graph.ts";
+import {
+  importEdges,
+  parseModule,
+  sourceFilesUnder,
+  stringLiteral,
+  testSupportBreaches,
+  walkAst,
+} from "../src/import-graph.ts";
+import { sourceSiteAt } from "../src/source-site.ts";
 import {
   PACKAGES_ROOT,
   dependencyEntries,
@@ -491,5 +499,73 @@ describe("red fixtures: browser halves", () => {
     expect(browserHalfProblems(root, ["outline"], new Set(["canvas"]))).toEqual([
       "CORE_BROWSER_HALVES names canvas, which is no longer a surface of @kb/ui",
     ]);
+  });
+});
+
+/** Ask the composition root for the actual fold without importing product code into the harness. */
+function seedOwners(): ReadonlyMap<string, string> {
+  const result = Bun.spawnSync(
+    [
+      process.execPath,
+      "-e",
+      'import { bundledOwners } from "./src/index.ts"; console.log(JSON.stringify([...bundledOwners()]));',
+    ],
+    { cwd: join(PACKAGES_ROOT, "app/bundled") },
+  );
+  if (!result.success) throw new Error(result.stderr.toString());
+  const entries: [string, string][] = JSON.parse(result.stdout.toString());
+  return new Map(entries);
+}
+
+function foreignSeedIds(
+  file: string,
+  source: string,
+  owners: ReadonlyMap<string, string>,
+  family: string | undefined,
+): string[] {
+  const found: string[] = [];
+  const lines = source.split("\n");
+  walkAst(parseModule(file, source).program, (node) => {
+    const id = stringLiteral(node);
+    if (id === undefined || typeof node["start"] !== "number") return;
+    const owner = owners.get(id);
+    if (owner === undefined || owner === "core" || owner === family) return;
+    const { line, gap } = sourceSiteAt(source, lines, node["start"]);
+    if (gap === undefined) {
+      found.push(`${file}:${line} spells ${id}, a node seeded by family:${owner}`);
+    }
+  });
+  return found;
+}
+
+describe("foreign seeded ids", () => {
+  const owners = seedOwners();
+
+  test("production source leaves bundled family ids with their owner", () => {
+    const packages = workspacePackages();
+    const axes = packageAxes(packages);
+    const failures: string[] = [];
+    for (const pkg of packages) {
+      const axis = axes.get(pkg.name);
+      if (axis?.scope === "test-support") continue;
+      const root = join(PACKAGES_ROOT, pkg.dir);
+      for (const path of sourceFilesUnder(root)) {
+        const file = relative(root, path);
+        if (!file.startsWith("src/") || isPackageTestFile(file)) continue;
+        failures.push(
+          ...foreignSeedIds(`${pkg.dir}/${file}`, readFileSync(path, "utf8"), owners, axis?.family),
+        );
+      }
+    }
+    expect(failures, failures.join("\n")).toEqual([]);
+  }, 30_000);
+
+  test("a literal naming another family's seeded node goes red", () => {
+    const source = 'const tag = "sys.tag.canvas";';
+    expect(foreignSeedIds("fixture.ts", source, owners, "graph")).toEqual([
+      "fixture.ts:1 spells sys.tag.canvas, a node seeded by family:canvas",
+    ]);
+    expect(foreignSeedIds("fixture.ts", source, owners, "canvas")).toEqual([]);
+    expect(foreignSeedIds("fixture.ts", source, owners, undefined)).toHaveLength(1);
   });
 });

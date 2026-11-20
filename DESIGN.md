@@ -3997,7 +3997,7 @@ where, how rows become markdown, repo-specific output of any kind — lives in
     registry at a time, and the one replaced is shut down, every plugin's
     scope closed, once the calls running on it have settled), but a module
     cannot be un-imported: its top level's effects, and the module, stay
-    until the process restarts.
+    until the process restarts. GAP [[01M7WXS4712B6AC2Q6TE43T7CA]]
   - **A family's channels are its host's.** `kb.ui.channels` accepts only
     the server kernel. A registry contribution is refused with `wrong-kernel`.
     GAP [[01M579MHGHVT2FNGJJRK81J9GY]]
@@ -4700,6 +4700,11 @@ figure?}`. `viewText` looks the view up in the catalog and falls back to
     spread key) fails, because only a direct literal call can be read;
   - an extension package imports another extension package only of its own
     family;
+  - production source spells a bundled family's seeded ids only inside that
+    family. The harness reads the actual ownership fold and checks string
+    literals, including strings without substitutions in backticks. Tests
+    and test-support packages may name those ids as fixture data. A known
+    production copy carries a gap marker at its site;
   - an `app` package imports an extension package only from its composition
     root's bundled-extensions file (`EXTENSION_ROOTS`), and a root
     re-exports none. Tests (the package's `tests/` folder, `*.test.*`
@@ -4769,12 +4774,8 @@ Today's drift from this contract is marked where it sits:
   GAP [[01M41H30Y60D3G9WJJX6NFQD2T]];
 - the outline's canvas bullet, which the kit names by the canvas tag's
   frozen id: GAP [[01M436DVSEHKNYWSF2MR07HPMR]];
-- core's migration of graph data written before the graph was a family,
-  which names the graph's frozen id by its spelling
-  (`PERSPECTIVE_RENDERER_FIELD`), held to `GRAPH_IDS` by `@kb/graph`'s seed
-  test (the default perspective's rename is the graph family's own
-  retirement row): a gap placeholder in the
-  [projection-families plan](docs/brainstorms/2026-10-16-kb-projection-families/README.md).
+- the offline demo's graph seed references: GAP [[01M7WXS470A29JEH2DHDGEWJD6]];
+- the core migration's graph renderer field: GAP [[01M7WXS471S9B2FYXWQZV52PKD]].
 
 ### Canvas documents
 

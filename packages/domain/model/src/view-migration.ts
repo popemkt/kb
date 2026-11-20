@@ -42,7 +42,7 @@ const DEFAULT_RENDERER: RendererName = "force2d";
  * are frozen data, so the migration names its spelling, and the graph's tests
  * hold the two to one.
  */
-export const PERSPECTIVE_RENDERER_FIELD = "sys.f.lens.renderer";
+export const PERSPECTIVE_RENDERER_FIELD = "sys.f.lens.renderer"; // GAP [[01M7WXS471S9B2FYXWQZV52PKD]]
 
 /** `lens.renderer`'s option children before the renderers were views. Retired. */
 const LEGACY_RENDERER_OPTION = (name: RendererName) => `sys.graph.renderer.${name}`;
