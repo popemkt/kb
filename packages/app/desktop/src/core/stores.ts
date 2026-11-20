@@ -19,6 +19,7 @@ import { hostname } from "node:os";
 import { join } from "node:path";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 import { BunFileSystem } from "@effect/platform-bun";
+import { CAPTURE_PAIR_CODE } from "@kb/contracts";
 import { currentHome, readUiPresence, servingUi, type UiPresence } from "@kb/workspace-fs";
 import type { DesktopConfig, RemoteStore } from "./config.ts";
 import type { Keychain, KeychainItem } from "@kb/keychain";
@@ -217,8 +218,7 @@ function remoteStores(config: DesktopConfig, pair: PairWithHost, keychain: Keych
     const typed = code.trim().toLowerCase();
     if (!PAIR_CODE.test(typed))
       return yield* new StoreError({
-        message:
-          'a pairing code is 32 hex characters; issue one on the store\'s host with: kb --root <store> --json action-invoke \'{"id":"capture.pairCode"}\'',
+        message: `a pairing code is 32 hex characters; issue one on the store's host with: kb --root <store> --json action-invoke '{"id":"${CAPTURE_PAIR_CODE}"}'`,
       });
     const paired = yield* pair(bare, typed, DEVICE_NAME);
     if (!paired.ok)

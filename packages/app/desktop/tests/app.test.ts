@@ -20,10 +20,10 @@ import {
   KbCli,
   DesktopConfig,
   NO_FOCUS_RETURN,
+  type CaptureSubmit,
   type KbRunner,
   type MenuEntry,
   type PairWithHost,
-  type RawCapture,
   type Shell,
   type ShellWindow,
   type SubmitCapture,
@@ -143,7 +143,7 @@ beforeEach(async () => {
 });
 
 async function started(
-  submitted: { origin: string; capture: RawCapture }[] = [],
+  submitted: { origin: string; capture: CaptureSubmit }[] = [],
   submit: SubmitCapture = (host, capture) =>
     Effect.sync(() => {
       submitted.push({ origin: host.origin, capture });
@@ -227,7 +227,7 @@ describe("DesktopApp", () => {
   });
 
   test("quick capture sends the raw text to the capture store's host and closes", async () => {
-    const submitted: { origin: string; capture: RawCapture }[] = [];
+    const submitted: { origin: string; capture: CaptureSubmit }[] = [];
     const { ui, app } = await started(submitted);
     const { panel, call } = await capturePanel(ui, app);
     expect(panel?.url).toStartWith(`${app.control().origin}/capture?t=`);

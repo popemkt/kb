@@ -5,6 +5,7 @@
  */
 import { afterEach, describe, expect, test } from "bun:test";
 import { DateTime, Effect } from "effect";
+import { CAPTURE_PAIR, CAPTURE_SUBMIT, CaptureSubmitSchema } from "@kb/contracts";
 import {
   CAPTURE_CONTRACT,
   captureOutcome,
@@ -13,6 +14,10 @@ import {
   textCapture,
 } from "../src/index.ts";
 import { contractStatus, pairOutcome, pairWithHost } from "../src/core/capture.ts";
+
+const CAPTURE_ID_1 = "00000000-0000-4000-8000-000000000001";
+const CAPTURE_ID_2 = "00000000-0000-4000-8000-000000000002";
+const CAPTURE_ID_3 = "00000000-0000-4000-8000-000000000003";
 
 describe("localIsoTime", () => {
   test("is ISO-8601 with the local offset, and names the same instant", () => {
@@ -24,11 +29,12 @@ describe("localIsoTime", () => {
 });
 
 describe("textCapture", () => {
-  test("keeps the text as typed and says the contract version", () => {
-    const capture = textCapture("  line one\n  line two  ", DateTime.makeUnsafe(0), "c-1");
+  test("keeps the text as typed and conforms to CaptureSubmitSchema", () => {
+    const capture = textCapture("  line one\n  line two  ", DateTime.makeUnsafe(0), CAPTURE_ID_1);
+    expect(CaptureSubmitSchema.safeParse(capture).success).toBe(true);
     expect(capture).toMatchObject({
       version: CAPTURE_CONTRACT,
-      captureId: "c-1",
+      captureId: CAPTURE_ID_1,
       source: { app: "kb desktop" },
       text: "  line one\n  line two  ",
     });
@@ -41,16 +47,31 @@ describe("captureOutcome", () => {
     expect(
       captureOutcome({
         status: "succeeded",
-        output: { captureId: "c", nodeId: "n1", store: "Personal" },
+        output: { captureId: CAPTURE_ID_1, nodeId: "n1", store: "Personal" },
       }),
     ).toEqual({ ok: true, nodeId: "n1", store: "Personal" });
+  });
+
+  test("rejects a succeeded reply that fails CaptureReceiptSchema", () => {
+    expect(
+      captureOutcome({
+        status: "succeeded",
+        output: { captureId: "not-a-uuid", nodeId: "n1", store: "Personal" },
+      }),
+    ).toEqual({ ok: false, message: "the host answered something that is not a receipt" });
+    expect(
+      captureOutcome({
+        status: "succeeded",
+        output: { captureId: CAPTURE_ID_1, nodeId: "n1" },
+      }),
+    ).toEqual({ ok: false, message: "the host answered something that is not a receipt" });
   });
 
   test("a host without the action says kb needs updating", () => {
     const outcome = captureOutcome({
       status: "failed",
       code: "unknown_action",
-      message: "unknown action: capture.submit",
+      message: `unknown action: ${CAPTURE_SUBMIT}`,
     });
     expect(outcome.ok).toBe(false);
     expect(outcome.ok ? "" : outcome.message).toContain("update kb");
@@ -85,19 +106,19 @@ describe("submitCapture", () => {
         });
         return Response.json({
           status: "succeeded",
-          output: { captureId: "c-2", nodeId: "n2", store: "S" },
+          output: { captureId: CAPTURE_ID_2, nodeId: "n2", store: "S" },
           rev: 3,
         });
       },
     });
     stop = () => void server.stop(true);
-    const capture = textCapture("hello", DateTime.makeUnsafe(0), "c-2");
+    const capture = textCapture("hello", DateTime.makeUnsafe(0), CAPTURE_ID_2);
     const outcome = await Effect.runPromise(
       submitCapture({ origin: `http://127.0.0.1:${server.port}`, token: "tok" }, capture),
     );
     expect(outcome).toEqual({ ok: true, nodeId: "n2", store: "S" });
     expect(seen).toEqual([
-      { auth: "Bearer tok", origin: null, body: { id: "capture.submit", input: capture } },
+      { auth: "Bearer tok", origin: null, body: { id: CAPTURE_SUBMIT, input: capture } },
     ]);
   });
 
@@ -105,7 +126,7 @@ describe("submitCapture", () => {
     const outcome = await Effect.runPromise(
       submitCapture(
         { origin: "http://127.0.0.1:9" },
-        textCapture("x", DateTime.makeUnsafe(0), "c-3"),
+        textCapture("x", DateTime.makeUnsafe(0), CAPTURE_ID_3),
       ),
     );
     expect(outcome.ok).toBe(false);
@@ -133,7 +154,7 @@ describe("pairWithHost", () => {
             token: "kbcap_x",
             deviceId: "d1",
             store: { key: "01S", name: "Scratch" },
-            captureContract: 1,
+            captureContract: CAPTURE_CONTRACT,
           },
         });
       },
@@ -147,18 +168,42 @@ describe("pairWithHost", () => {
       token: "kbcap_x",
       deviceId: "d1",
       store: { key: "01S", name: "Scratch" },
-      accepts: [1],
+      accepts: [CAPTURE_CONTRACT],
     });
     expect(seen).toEqual([
       {
         auth: null,
         origin: null,
         body: {
-          id: "capture.pair",
+          id: CAPTURE_PAIR,
           input: { code: "ab".repeat(16), deviceName: "kb desktop on m" },
         },
       },
     ]);
+  });
+
+  test("rejects a pairing reply that fails CapturePairReceiptSchema", () => {
+    expect(
+      pairOutcome({
+        status: "succeeded",
+        output: {
+          token: "kbcap_x",
+          deviceId: "d1",
+          store: { key: "01S", name: "Scratch" },
+        },
+      }),
+    ).toEqual({ ok: false, message: "the host answered something that is not a pairing" });
+    expect(
+      pairOutcome({
+        status: "succeeded",
+        output: {
+          token: "kbcap_x",
+          deviceId: "d1",
+          store: { key: "01S", name: "Scratch" },
+          captureContract: 99,
+        },
+      }),
+    ).toEqual({ ok: false, message: "the host answered something that is not a pairing" });
   });
 
   test("a refusal, a kb without capture.pair and an unreachable host are outcomes with why", async () => {

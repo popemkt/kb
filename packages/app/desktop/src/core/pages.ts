@@ -6,6 +6,8 @@
  * not kb's page, which every store window loads from its own host.
  */
 
+import { CAPTURE_PAIR_CODE } from "@kb/contracts";
+
 const BASE_STYLE = `
 :root { color-scheme: light dark; font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif; }
 body { margin: 0; background: Canvas; color: CanvasText; }
@@ -94,7 +96,7 @@ form { display: flex; gap: 6px; flex-wrap: wrap; } form input { flex: 1; min-wid
 <form id="addLocal"><input name="name" placeholder="Name"><input name="path" placeholder="/path/to/root (made a store if it is not one)" required><button>Add</button></form>
 <h2>Pair a remote store</h2>
 <form id="addRemote"><input name="name" placeholder="Name (optional)"><input name="origin" placeholder="https://host.tailnet.ts.net" required><input name="code" placeholder="Pairing code" required autocomplete="off" spellcheck="false"><button>Pair</button></form>
-<p class="muted">On the store's host, issue a one-use code (valid 10 minutes): <code>kb --root &lt;store&gt; --json action-invoke '{"id":"capture.pairCode"}'</code>. The credential it pairs is kept in the keychain.</p>
+<p class="muted">On the store's host, issue a one-use code (valid 10 minutes): <code>kb --root &lt;store&gt; --json action-invoke '{"id":"${CAPTURE_PAIR_CODE}"}'</code>. The credential it pairs is kept in the keychain.</p>
 <div id="status"></div>
 <p class="muted" id="kb"></p>
 <script>${apiScript(token)}

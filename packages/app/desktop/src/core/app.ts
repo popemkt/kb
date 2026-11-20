@@ -10,7 +10,7 @@ import {
   contractStatus,
   textCapture,
   type CaptureOutcome,
-  type RawCapture,
+  type CaptureSubmit,
   type SubmitCapture,
 } from "./capture.ts";
 import type { DesktopConfig } from "./config.ts";
@@ -95,7 +95,7 @@ interface StoreWindow {
 interface PendingCapture {
   readonly text: string;
   readonly store: Store;
-  readonly capture: RawCapture;
+  readonly capture: CaptureSubmit;
 }
 
 /** What the app's parts share: its services, and the state of its windows. */

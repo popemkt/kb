@@ -10,20 +10,16 @@
  * module only builds the calls and reads the receipts.
  */
 import { DateTime, Effect, Option, Schema } from "effect";
+import {
+  CAPTURE_CONTRACT,
+  CAPTURE_PAIR,
+  CAPTURE_SUBMIT,
+  CapturePairReceiptSchema,
+  CaptureReceiptSchema,
+  type CaptureSubmit,
+} from "@kb/contracts";
 
-// GAP [[01M7QTTTHGVFE32XRVV96A696K]]: the envelope is declared here until @kb/contracts' CaptureSubmit is on main.
-/** The contract version this desktop speaks. */
-export const CAPTURE_CONTRACT = 1;
-
-/** A raw capture, as the host's `capture.submit` takes it. */
-export interface RawCapture {
-  readonly version: typeof CAPTURE_CONTRACT;
-  readonly captureId: string;
-  /** When the person captured it, with their UTC offset. */
-  readonly capturedAt: string;
-  readonly source: { readonly app: string };
-  readonly text: string;
-}
+export { CAPTURE_CONTRACT, type CaptureSubmit };
 
 /** What a submission came to: the node the host made, or why it did not. */
 export type CaptureOutcome =
@@ -36,7 +32,7 @@ export function localIsoTime(at: DateTime.DateTime): string {
 }
 
 /** The raw capture of `text`, typed `at`. */
-export function textCapture(text: string, at: DateTime.DateTime, captureId: string): RawCapture {
+export function textCapture(text: string, at: DateTime.DateTime, captureId: string): CaptureSubmit {
   return {
     version: CAPTURE_CONTRACT,
     captureId,
@@ -52,31 +48,32 @@ export interface CaptureHost {
   readonly token?: string;
 }
 
-/** What `/api/action` answers to a `capture.submit` call. */
-const CaptureAnswerSchema = Schema.Union([
-  Schema.Struct({
-    status: Schema.Literal("succeeded"),
-    output: Schema.Struct({ nodeId: Schema.String, store: Schema.optionalKey(Schema.String) }),
-  }),
+/** The outer `/api/action` envelope; each action's output is checked with its shared schema from `@kb/contracts`. */
+const ActionAnswerSchema = Schema.Union([
+  Schema.Struct({ status: Schema.Literal("succeeded"), output: Schema.Unknown }),
   Schema.Struct({
     status: Schema.Literal("failed"),
     code: Schema.optionalKey(Schema.String),
     message: Schema.optionalKey(Schema.String),
   }),
 ]);
-const decodeAnswer = Schema.decodeUnknownOption(CaptureAnswerSchema);
+const decodeAnswer = Schema.decodeUnknownOption(ActionAnswerSchema);
 
 /** Read a `/api/action` answer as an outcome. */
 export function captureOutcome(body: unknown): CaptureOutcome {
   const answer = Option.getOrUndefined(decodeAnswer(body));
   if (answer === undefined)
     return { ok: false, message: "the host answered something that is not a receipt" };
-  if (answer.status === "succeeded")
-    return { ok: true, nodeId: answer.output.nodeId, store: answer.output.store ?? "" };
+  if (answer.status === "succeeded") {
+    const parsed = CaptureReceiptSchema.safeParse(answer.output);
+    if (!parsed.success)
+      return { ok: false, message: "the host answered something that is not a receipt" };
+    return { ok: true, nodeId: parsed.data.nodeId, store: parsed.data.store };
+  }
   if (answer.code === "unknown_action")
     return {
       ok: false,
-      message: `this store's kb has no capture.submit yet (it needs capture contract ${CAPTURE_CONTRACT}); update kb`,
+      message: `this store's kb has no ${CAPTURE_SUBMIT} yet (it needs capture contract ${CAPTURE_CONTRACT}); update kb`,
     };
   const refused = answer.message ?? "the host refused the capture";
   if (answer.code === "forbidden") return { ok: false, message: `${refused}. ${REPAIR}` };
@@ -116,26 +113,6 @@ const callAction = Effect.fn("kb.desktop.capture.call")(function* (
   return body;
 });
 
-// GAP [[01M7QTTTHGVFE32XRVV96A696K]]: the pair receipt is declared here, beside the envelope, until the desktop imports @kb/contracts.
-/** What `capture.pair` answers. */
-const PairAnswerSchema = Schema.Union([
-  Schema.Struct({
-    status: Schema.Literal("succeeded"),
-    output: Schema.Struct({
-      token: Schema.String,
-      deviceId: Schema.String,
-      store: Schema.Struct({ key: Schema.String, name: Schema.String }),
-      captureContract: Schema.optionalKey(Schema.Finite),
-    }),
-  }),
-  Schema.Struct({
-    status: Schema.Literal("failed"),
-    code: Schema.optionalKey(Schema.String),
-    message: Schema.optionalKey(Schema.String),
-  }),
-]);
-const decodePairAnswer = Schema.decodeUnknownOption(PairAnswerSchema);
-
 /** A pairing: this device's credential for a store, and the capture contracts its host accepts. */
 export type PairOutcome =
   | {
@@ -149,21 +126,27 @@ export type PairOutcome =
 
 /** Read a `capture.pair` answer as a pairing. */
 export function pairOutcome(body: unknown): PairOutcome {
-  const answer = Option.getOrUndefined(decodePairAnswer(body));
+  const answer = Option.getOrUndefined(decodeAnswer(body));
   if (answer === undefined)
     return { ok: false, message: "the host answered something that is not a pairing" };
   if (answer.status === "succeeded") {
-    const { token, deviceId, store, captureContract } = answer.output;
+    const parsed = CapturePairReceiptSchema.safeParse(answer.output);
+    if (!parsed.success)
+      return { ok: false, message: "the host answered something that is not a pairing" };
+    const { token, deviceId, store, captureContract } = parsed.data;
     return {
       ok: true,
       token,
       deviceId,
       store,
-      accepts: captureContract === undefined ? [] : [captureContract],
+      accepts: [captureContract],
     };
   }
   if (answer.code === "unknown_action")
-    return { ok: false, message: "this store's kb has no capture.pair yet; update kb on its host" };
+    return {
+      ok: false,
+      message: `this store's kb has no ${CAPTURE_PAIR} yet; update kb on its host`,
+    };
   return { ok: false, message: answer.message ?? "the host refused the pairing" };
 }
 
@@ -174,7 +157,7 @@ export function pairOutcome(body: unknown): PairOutcome {
  */
 export const pairWithHost = Effect.fn("kb.desktop.capture.pair")(
   function* (origin: string, code: string, deviceName: string) {
-    return pairOutcome(yield* callAction({ origin }, "capture.pair", { code, deviceName }));
+    return pairOutcome(yield* callAction({ origin }, CAPTURE_PAIR, { code, deviceName }));
   },
   Effect.catch((message: string) => Effect.succeed<PairOutcome>({ ok: false, message })),
 );
@@ -202,8 +185,8 @@ export function contractStatus(accepts: readonly number[]): string {
  * cannot be reached is an outcome with the reason.
  */
 export const submitCapture = Effect.fn("kb.desktop.capture.submit")(
-  function* (host: CaptureHost, capture: RawCapture) {
-    return captureOutcome(yield* callAction(host, "capture.submit", capture));
+  function* (host: CaptureHost, capture: CaptureSubmit) {
+    return captureOutcome(yield* callAction(host, CAPTURE_SUBMIT, capture));
   },
   Effect.catch((message: string) => Effect.succeed<CaptureOutcome>({ ok: false, message })),
 );
@@ -211,5 +194,5 @@ export const submitCapture = Effect.fn("kb.desktop.capture.submit")(
 /** How the app submits a capture: the real host call, or a stand-in in tests. */
 export type SubmitCapture = (
   host: CaptureHost,
-  capture: RawCapture,
+  capture: CaptureSubmit,
 ) => Effect.Effect<CaptureOutcome>;

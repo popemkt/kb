@@ -15,8 +15,8 @@ export {
 export type {
   CaptureHost,
   CaptureOutcome,
+  CaptureSubmit,
   PairWithHost,
-  RawCapture,
   SubmitCapture,
 } from "./core/capture.ts";
 export { DEFAULT_SETTINGS, DesktopConfig, desktopDir, settingsOf } from "./core/config.ts";

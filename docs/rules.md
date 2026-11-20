@@ -1167,14 +1167,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P0 and P1 of docs/research/2026-10-31-offline-first.md §7: the pure reconcile, the agent, the convergence property test, kb sync and the server lane.
 - **node** — `01M69E3P6ADBBDTGRP4F6ZSR81`
 
-### GAP: kb desktop declares the raw capture envelope itself instead of importing the contract
-
-- **expected** — Quick capture and pairing read and write the capture wire as @kb/contracts states it: the envelope as CaptureSubmit (CaptureSubmitSchema, CAPTURE_CONTRACT) and the pair answer as CapturePairReceiptSchema, the one statement of the wire.
-- **current** — packages/app/desktop/src/core/capture.ts declares RawCapture, CAPTURE_CONTRACT and the capture.pair answer (PairAnswerSchema) locally, matching @kb/contracts by hand; the desktop does not depend on @kb/contracts.
-- **impact** — If the contract changes, the desktop's envelope can drift from it with every test green.
-- **closes** — capture.ts imports CaptureSubmit, CAPTURE_CONTRACT and CapturePairReceiptSchema (or an Effect Schema derived from them) from @kb/contracts, and its tests parse the envelope and the pair answer with them.
-- **node** — `01M7QTTTHGVFE32XRVV96A696K`
-
 ### GAP: kb desktop keeps remote stores in its own settings, beside the home store's locations
 
 - **expected** — A store reached at an origin (a tailnet kb ui) is a location like a local root: a node in the home store that location.list lists and location.open answers, so the desktop, the page's Locations section and kb open see one list.

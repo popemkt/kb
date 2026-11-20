@@ -125,6 +125,7 @@
       "dependencies": {
         "@effect/platform-bun": "catalog:",
         "@kb/child-process": "workspace:*",
+        "@kb/contracts": "workspace:*",
         "@kb/keychain": "workspace:*",
         "@kb/workspace-fs": "workspace:*",
         "effect": "catalog:",
