@@ -2140,6 +2140,8 @@ CREATE TABLE meta  (key TEXT PRIMARY KEY, value TEXT);   -- schema_version, rev
   unopened store compares equal to nothing.
 - **The store owns the connection.** It opens lazily on first `load` or
   `commit` and stays open for the store's lifetime; `close()` exists for tests.
+  Opening a database with the current schema only reads. Creation and schema
+  upgrades change the database, with the schema changes in one transaction.
   The caller cannot own it: `EffectStore` is constructed once per session and
   handed to layers, actions and the watcher as a value, and none of them has a
   lifetime to hang a connection off — `KbContext` is not scoped. Making the

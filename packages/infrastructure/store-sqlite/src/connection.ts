@@ -45,8 +45,6 @@ export function commitMark(db: Database): string | null {
 }
 
 export interface SqliteConnection {
-  /** Open the database, creating the file and schema when absent. */
-  open: () => Database;
   /** The open handle, or one for an existing file — never creates the file. */
   peek: () => Database | null;
   /** Wait for the write lock, then run and finish a transaction in one synchronous turn. */
@@ -55,10 +53,28 @@ export interface SqliteConnection {
   close: () => void;
 }
 
+function hasCurrentSchema(db: Database): boolean {
+  const meta = db.query("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = 'meta'");
+  if (meta.get() === null) return false;
+  return (
+    db.query<{ value: string }, []>("SELECT value FROM meta WHERE key = 'schema_version'").get()
+      ?.value === SCHEMA_VERSION
+  );
+}
+
 function initialize(db: Database): void {
-  db.run("PRAGMA journal_mode = WAL");
-  db.run("PRAGMA synchronous = NORMAL");
   db.run(BUSY_TIMEOUT);
+  db.run("PRAGMA synchronous = NORMAL");
+  if (hasCurrentSchema(db)) return;
+
+  db.run("PRAGMA journal_mode = WAL");
+  db.transaction(() => {
+    // Another opener may have migrated while this connection waited for the lock.
+    if (!hasCurrentSchema(db)) migrate(db);
+  }).immediate();
+}
+
+function migrate(db: Database): void {
   db.run("CREATE TABLE IF NOT EXISTS nodes (id TEXT PRIMARY KEY, body TEXT NOT NULL)");
   db.run("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)");
   // The store's durable transaction tail; see `tx-tail.ts` for what each
@@ -141,7 +157,6 @@ export function sqliteConnection(path: string): SqliteConnection {
   };
 
   return {
-    open,
     peek: () => (handle !== null ? handle : existsSync(path) ? open() : null),
     write: (run) =>
       takeWriteLock(
