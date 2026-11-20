@@ -8,6 +8,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Layer } from "effect";
+import { KeychainError } from "@kb/keychain";
 import { currentHome } from "@kb/workspace-fs";
 import {
   CaptureClient,
@@ -361,7 +362,15 @@ describe("a paired remote store", () => {
         submitted.push(host);
         return { ok: true, nodeId: "n9", store: "Work" } as const;
       });
-    const { ui, app, config, keychain } = await started([], submit, fakeKb(), pair);
+    const memory = memoryKeychain();
+    let refuseErase = true;
+    const { ui, app, config, keychain } = await started([], submit, fakeKb(), pair, {
+      ...memory,
+      erase: (item) =>
+        refuseErase
+          ? Effect.fail(new KeychainError({ message: "security refused to delete the item" }))
+          : memory.erase(item),
+    });
     const { call } = await capturePanel(ui, app);
 
     expect(
@@ -374,7 +383,8 @@ describe("a paired remote store", () => {
     expect(paired).toEqual([
       { origin: HOST, code: CODE, deviceName: expect.stringMatching(/^kb desktop on /) },
     ]);
-    const [remote] = config.settings.remotes;
+    const pairedRemotes = config.settings.remotes;
+    const [remote] = pairedRemotes;
     expect(remote).toMatchObject({ name: "Work", origin: HOST, deviceId: "dev-1", accepts: [1] });
     expect(JSON.stringify(config.settings)).not.toContain(TOKEN);
     expect([...keychain.items]).toEqual([[`kb-desktop/${remote?.key}`, TOKEN]]);
@@ -391,7 +401,17 @@ describe("a paired remote store", () => {
     ).toEqual({ nodeId: "n9" });
     expect(submitted).toEqual([{ origin: HOST, token: TOKEN }]);
 
-    // Forgetting it takes its credential out of the keychain too.
+    expect(await call("/api/stores/remove", { key: remote?.key })).toEqual({
+      error:
+        "Could not forget Work: its keychain credential could not be erased (security refused to delete the item). Try Forget again.",
+    });
+    expect(await call("/api/stores")).toMatchObject({
+      stores: expect.arrayContaining([expect.objectContaining({ key: remote?.key })]),
+    });
+    expect(new DesktopConfig(dir).settings.remotes).toEqual(pairedRemotes);
+    expect(keychain.items.size).toBe(1);
+
+    refuseErase = false;
     expect(await call("/api/stores/remove", { key: remote?.key })).toEqual({ ok: true });
     expect(config.settings.remotes).toEqual([]);
     expect(keychain.items.size).toBe(0);

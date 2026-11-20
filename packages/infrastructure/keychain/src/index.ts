@@ -15,6 +15,7 @@ import { childProcessEnv } from "@kb/child-process";
 export interface LookupResult {
   readonly code: number;
   readonly stdout: string;
+  readonly stderr: string;
 }
 
 /**
@@ -32,16 +33,17 @@ export type RunLookup = (
 export const runLookup: RunLookup = (argv, signal, stdin) => {
   const child = Bun.spawn([...argv], {
     stdout: "pipe",
-    stderr: "ignore",
+    stderr: "pipe",
     stdin: stdin === undefined ? "ignore" : new TextEncoder().encode(stdin),
     env: childProcessEnv("lookup"),
     signal,
     killSignal: "SIGKILL",
   });
-  return Promise.all([new Response(child.stdout).text(), child.exited]).then(([stdout, code]) => ({
-    code,
-    stdout,
-  }));
+  return Promise.all([
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+    child.exited,
+  ]).then(([stdout, stderr, code]) => ({ code, stdout, stderr }));
 };
 
 /** One keychain item: its service, and its account when it names one. */
@@ -55,6 +57,10 @@ export class KeychainError extends Schema.TaggedError<KeychainError>()("kb/Keych
   message: Schema.String,
 }) {}
 
+function linuxAttributes({ service, account }: KeychainItem): readonly string[] {
+  return ["service", service, ...(account === undefined ? [] : ["account", account])];
+}
+
 /** The keychain read command for `item` on `platform`, or null where kb knows none. */
 function readArgv(item: KeychainItem, platform: string): readonly string[] | null {
   const { service, account } = item;
@@ -67,14 +73,7 @@ function readArgv(item: KeychainItem, platform: string): readonly string[] | nul
       ...(account === undefined ? [] : ["-a", account]),
       "-w",
     ];
-  if (platform === "linux")
-    return [
-      "secret-tool",
-      "lookup",
-      "service",
-      service,
-      ...(account === undefined ? [] : ["account", account]),
-    ];
+  if (platform === "linux") return ["secret-tool", "lookup", ...linuxAttributes(item)];
   return null;
 }
 
@@ -101,14 +100,7 @@ function writeCommand(
   }
   if (platform === "linux")
     return {
-      argv: [
-        "secret-tool",
-        "store",
-        `--label=kb ${service}`,
-        "service",
-        service,
-        ...(account === undefined ? [] : ["account", account]),
-      ],
+      argv: ["secret-tool", "store", `--label=kb ${service}`, ...linuxAttributes(item)],
       stdin: value,
     };
   return null;
@@ -125,14 +117,7 @@ function eraseArgv(item: KeychainItem, platform: string): readonly string[] | nu
       service,
       ...(account === undefined ? [] : ["-a", account]),
     ];
-  if (platform === "linux")
-    return [
-      "secret-tool",
-      "clear",
-      "service",
-      service,
-      ...(account === undefined ? [] : ["account", account]),
-    ];
+  if (platform === "linux") return ["secret-tool", "clear", ...linuxAttributes(item)];
   return null;
 }
 
@@ -141,7 +126,7 @@ export interface Keychain {
   /** The item's value, or null when it is not set. */
   readonly read: (item: KeychainItem) => Effect.Effect<string | null, KeychainError>;
   readonly write: (item: KeychainItem, value: string) => Effect.Effect<void, KeychainError>;
-  /** Erase the item; one already gone is erased (neither helper tells that apart here). */
+  /** Erase the item. An absent item succeeds; a failed deletion is an error. */
   readonly erase: (item: KeychainItem) => Effect.Effect<void, KeychainError>;
 }
 
@@ -202,9 +187,24 @@ export function platformKeychain(
     erase: Effect.fn("kb.keychain.erase")(function* (item: KeychainItem) {
       const argv = eraseArgv(item, platform);
       if (argv === null)
-        return yield* new KeychainError({ message: `kb writes no keychain on ${platform}` });
-      yield* ask(argv);
-      return undefined;
+        return yield* new KeychainError({ message: `kb erases no keychain on ${platform}` });
+      const answer = yield* ask(argv);
+      if (answer.code === 0) return undefined;
+      // macOS security exits with the low byte of errSecItemNotFound (-25300).
+      // A failed search setup can emit an additional error before the missing-item line.
+      if (
+        platform === "darwin" &&
+        answer.code === 44 &&
+        /^security: SecKeychainSearchCopyNext:[^\r\n]+$/.test(answer.stderr.trim())
+      )
+        return undefined;
+      // A silent "clear" exit 1 means nothing was deleted, including a locked match.
+      // A search without --unlock also reports locked matches on the Secret Service.
+      if (platform === "linux" && answer.code === 1 && answer.stderr === "") {
+        const found = yield* ask(["secret-tool", "search", "--all", ...linuxAttributes(item)]);
+        if (found.code === 0 && found.stdout === "" && found.stderr === "") return undefined;
+      }
+      return yield* new KeychainError({ message: `${tool(argv)} refused to delete the item` });
     }),
   };
 }

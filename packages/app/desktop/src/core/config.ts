@@ -192,9 +192,10 @@ export class DesktopConfig {
   }
 
   updateSettings(change: (settings: DesktopSettings) => DesktopSettings): DesktopSettings {
-    this.#settings = change(this.#settings);
-    writeJson(this.settingsFile, this.#settings);
-    return this.#settings;
+    const next = change(this.#settings);
+    writeJson(this.settingsFile, next);
+    this.#settings = next;
+    return next;
   }
 
   window(key: string): WindowMemory | undefined {

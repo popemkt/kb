@@ -5799,6 +5799,9 @@ remains GAP [[01M413SP3QSSQJMKKDK3W3J6G8]].
   the settings file. A legacy remote stays listed as “Needs pairing” and
   cannot receive captures until paired. Pairing at the same origin keeps
   its key, so its window and capture settings still refer to it.
+  Forget removes a remote from settings after its credential is erased.
+  If erasure fails, the app shows the error and keeps the store listed
+  for another attempt.
 - **Agent onboarding**: CLAUDE.md/AGENTS.md section — node model, field/tag
   conventions, 5 example invocations.
 
@@ -6390,7 +6393,8 @@ setup page shows beside the field). `kb ui` binds `systemSecrets`
 - **`keychain:`** writes go to `security` on macOS through its interactive
   mode on stdin (`security -i`), and to `secret-tool store` on Linux, with
   the value on stdin, so no value is ever on a command line; a value
-  `security -i` cannot quote is refused. Erasing deletes the item.
+  `security -i` cannot quote is refused. Erasing succeeds when the item is
+  deleted or confirmed absent. A helper failure is reported to the caller.
 - **`dotenv:`** references read their file on each use, with no shell
   expansion. Files must be private (0600) and regular, and symlinks are
   refused. Writes and erases serialize through an exclusive lock, preserve

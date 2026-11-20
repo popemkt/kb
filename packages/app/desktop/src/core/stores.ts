@@ -17,7 +17,7 @@
 import { existsSync } from "node:fs";
 import { hostname } from "node:os";
 import { join } from "node:path";
-import { Context, Effect, Layer, Option, Schema } from "effect";
+import { Context, Effect, Layer, Option, Schema, Semaphore } from "effect";
 import { BunFileSystem } from "@effect/platform-bun";
 import { CAPTURE_PAIR_CODE } from "@kb/contracts";
 import { currentHome, readUiPresence, servingUi, type UiPresence } from "@kb/workspace-fs";
@@ -205,51 +205,51 @@ const STOP_GRACE = "5 seconds";
  * keychain.
  */
 function remoteStores(config: DesktopConfig, pair: PairWithHost, keychain: Keychain) {
-  const add = Effect.fn("kb.desktop.stores.addRemote")(function* (
-    name: string,
-    at: string,
-    code: string,
-  ) {
-    const bare = remoteOrigin(at);
-    if (bare === null)
-      return yield* new StoreError({
-        message: `${at} is not an https origin (or a loopback http one)`,
-      });
-    const typed = code.trim().toLowerCase();
-    if (!PAIR_CODE.test(typed))
-      return yield* new StoreError({
-        message: `a pairing code is 32 hex characters; issue one on the store's host with: kb --root <store> --json action-invoke '{"id":"${CAPTURE_PAIR_CODE}"}'`,
-      });
-    const paired = yield* pair(bare, typed, DEVICE_NAME);
-    if (!paired.ok)
-      return yield* new StoreError({ message: `could not pair with ${bare}: ${paired.message}` });
-    const before = config.settings.remotes.find((r) => r.origin === bare);
-    const key = before?.key ?? `remote-${crypto.randomUUID().slice(0, 8)}`;
-    yield* keychain
-      .write(credentialItem(key), paired.token)
-      .pipe(
+  const mutation = Semaphore.makeUnsafe(1);
+  const add = Effect.fn("kb.desktop.stores.addRemote")(
+    function* (name: string, at: string, code: string) {
+      const bare = remoteOrigin(at);
+      if (bare === null)
+        return yield* new StoreError({
+          message: `${at} is not an https origin (or a loopback http one)`,
+        });
+      const typed = code.trim().toLowerCase();
+      if (!PAIR_CODE.test(typed))
+        return yield* new StoreError({
+          message: `a pairing code is 32 hex characters; issue one on the store's host with: kb --root <store> --json action-invoke '{"id":"${CAPTURE_PAIR_CODE}"}'`,
+        });
+      const paired = yield* pair(bare, typed, DEVICE_NAME);
+      if (!paired.ok)
+        return yield* new StoreError({ message: `could not pair with ${bare}: ${paired.message}` });
+      const before = config.settings.remotes.find((r) => r.origin === bare);
+      const key = before?.key ?? `remote-${crypto.randomUUID().slice(0, 8)}`;
+      yield* keychain.write(credentialItem(key), paired.token).pipe(
         Effect.mapError(
           (err) =>
-            new StoreError({ message: `paired, but the credential was not kept: ${err.message}` }),
+            new StoreError({
+              message: `paired, but the credential was not kept: ${err.message}`,
+            }),
         ),
       );
-    const remote: RemoteStore = {
-      key,
-      name: name === "" ? (before?.name ?? paired.store.name) : name,
-      origin: bare,
-      deviceId: paired.deviceId,
-      // GAP [[01M7WZGP3B84JK08R43Y642C7N]]: the contract is read here, at pairing, and not from kb.manifest after.
-      accepts: paired.accepts,
-    };
-    config.updateSettings((s) => ({
-      ...s,
-      remotes:
-        before === undefined
-          ? [...s.remotes, remote]
-          : s.remotes.map((r) => (r.key === key ? remote : r)),
-    }));
-    return remote;
-  });
+      const remote: RemoteStore = {
+        key,
+        name: name === "" ? (before?.name ?? paired.store.name) : name,
+        origin: bare,
+        deviceId: paired.deviceId,
+        // GAP [[01M7WZGP3B84JK08R43Y642C7N]]: the contract is read here, at pairing, and not from kb.manifest after.
+        accepts: paired.accepts,
+      };
+      config.updateSettings((s) => ({
+        ...s,
+        remotes:
+          before === undefined
+            ? [...s.remotes, remote]
+            : s.remotes.map((r) => (r.key === key ? remote : r)),
+      }));
+      return remote;
+    },
+    (effect) => mutation.withPermit(effect),
+  );
 
   const credential = Effect.fn("kb.desktop.stores.credential")(function* (store: Store) {
     if (store.kind === "local") return undefined;
@@ -270,22 +270,23 @@ function remoteStores(config: DesktopConfig, pair: PairWithHost, keychain: Keych
     return token;
   });
 
-  const forget = Effect.fn("kb.desktop.stores.forgetRemote")(function* (
-    store: Extract<Store, { kind: "remote" }>,
-  ) {
-    config.updateSettings((s) => ({
-      ...s,
-      remotes: s.remotes.filter((r) => r.key !== store.key),
-    }));
-    yield* keychain.erase(credentialItem(store.key)).pipe(
-      Effect.mapError(
-        (err) =>
-          new StoreError({
-            message: `${store.name} is forgotten, but its credential is still in the keychain (kb-desktop, ${store.key}): ${err.message}`,
-          }),
-      ),
-    );
-  });
+  const forget = Effect.fn("kb.desktop.stores.forgetRemote")(
+    function* (store: Extract<Store, { kind: "remote" }>) {
+      yield* keychain.erase(credentialItem(store.key)).pipe(
+        Effect.mapError(
+          (err) =>
+            new StoreError({
+              message: `Could not forget ${store.name}: its keychain credential could not be erased (${err.message}). Try Forget again.`,
+            }),
+        ),
+      );
+      config.updateSettings((s) => ({
+        ...s,
+        remotes: s.remotes.filter((r) => r.key !== store.key),
+      }));
+    },
+    (effect) => mutation.withPermit(effect),
+  );
 
   return { add, credential, forget };
 }

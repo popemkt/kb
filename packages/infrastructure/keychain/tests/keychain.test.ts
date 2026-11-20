@@ -20,7 +20,7 @@ const item = { service: "kb-desktop", account: "remote-1" };
 
 describe("platformKeychain", () => {
   test("reads, writes and erases with security on macOS, the value on stdin", async () => {
-    const { asked, run } = recorder({ code: 0, stdout: "tok\n" });
+    const { asked, run } = recorder({ code: 0, stdout: "tok\n", stderr: "" });
     const keychain = platformKeychain({ platform: "darwin", run });
     expect(await Effect.runPromise(keychain.read(item))).toBe("tok");
     await Effect.runPromise(keychain.write(item, "kbd_secret"));
@@ -43,7 +43,7 @@ describe("platformKeychain", () => {
   });
 
   test("uses secret-tool on Linux", async () => {
-    const { asked, run } = recorder({ code: 0, stdout: "" });
+    const { asked, run } = recorder({ code: 0, stdout: "", stderr: "" });
     const keychain = platformKeychain({ platform: "linux", run });
     await Effect.runPromise(keychain.write(item, "v"));
     await Effect.runPromise(keychain.erase(item));
@@ -52,16 +52,81 @@ describe("platformKeychain", () => {
   });
 
   test("an item that is not set reads as null", async () => {
-    const { run } = recorder({ code: 44, stdout: "" });
+    const { run } = recorder({ code: 44, stdout: "", stderr: "" });
     expect(await Effect.runPromise(platformKeychain({ platform: "darwin", run }).read(item))).toBe(
       null,
     );
   });
 
+  test("macOS erase accepts an absent item and reports deletion or search failures", async () => {
+    const missing =
+      "security: SecKeychainSearchCopyNext: The specified item could not be found in the keychain.\n";
+    const erase = (code: number, stderr: string) =>
+      Effect.runPromise(
+        Effect.result(
+          platformKeychain({
+            platform: "darwin",
+            run: recorder({ code, stdout: "", stderr }).run,
+          }).erase(item),
+        ),
+      );
+    expect(await erase(44, missing)).toMatchObject({ success: undefined });
+    expect(
+      await erase(44, `security: SecKeychainSearchCreateFromAttributes: No keychain\n${missing}`),
+    ).toMatchObject({ failure: { message: "security refused to delete the item" } });
+    expect(await erase(36, "password has been deleted.\n")).toMatchObject({
+      failure: { message: "security refused to delete the item" },
+    });
+  });
+
+  test("Linux erase confirms a silent clear found no matching item, including locked matches", async () => {
+    const erase = (found: LookupResult) =>
+      Effect.runPromise(
+        Effect.result(
+          platformKeychain({
+            platform: "linux",
+            run: (argv) => {
+              if (argv[1] === "clear") return Promise.resolve({ code: 1, stdout: "", stderr: "" });
+              expect(argv).toEqual([
+                "secret-tool",
+                "search",
+                "--all",
+                "service",
+                "kb-desktop",
+                "account",
+                "remote-1",
+              ]);
+              return Promise.resolve(found);
+            },
+          }).erase(item),
+        ),
+      );
+    expect(await erase({ code: 0, stdout: "", stderr: "" })).toMatchObject({ success: undefined });
+    for (const found of [
+      { code: 0, stdout: "[locked-item]\n", stderr: "" },
+      { code: 1, stdout: "", stderr: "secret-tool: service unavailable\n" },
+    ]) {
+      expect(await erase(found)).toMatchObject({
+        failure: { message: "secret-tool refused to delete the item" },
+      });
+    }
+    const { asked, run } = recorder({
+      code: 1,
+      stdout: "",
+      stderr: "secret-tool: service unavailable\n",
+    });
+    expect(
+      await Effect.runPromise(
+        Effect.result(platformKeychain({ platform: "linux", run }).erase(item)),
+      ),
+    ).toMatchObject({ failure: { message: "secret-tool refused to delete the item" } });
+    expect(asked.map((each) => each.argv[1])).toEqual(["clear"]);
+  });
+
   test("a refused write, a platform with no keychain and a helper that hangs fail with why", async () => {
     const refused = platformKeychain({
       platform: "darwin",
-      run: recorder({ code: 1, stdout: "" }).run,
+      run: recorder({ code: 1, stdout: "", stderr: "" }).run,
     });
     expect(await Effect.runPromise(Effect.result(refused.write(item, "v")))).toMatchObject({
       failure: { message: "security refused the write" },
