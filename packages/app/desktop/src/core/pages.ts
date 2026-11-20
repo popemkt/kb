@@ -103,6 +103,21 @@ function say(text, error) { status.textContent = text; status.className = error 
 function cell(text, cls) { const td = document.createElement("td"); td.textContent = text; if (cls) td.className = cls; return td; }
 function button(label, run) { const b = document.createElement("button"); b.textContent = label; b.onclick = run; return b; }
 function only(text, cls) { const tr = document.createElement("tr"); tr.append(cell(text, cls)); return tr; }
+// Forgetting asks on the page, by a second click within 5 s: the webview shows no confirm() dialog.
+// Which store is asked about outlives a refresh, which rebuilds the rows (on focus, too).
+let asking = null;
+async function forget(s) {
+  if (asking?.key !== s.key) {
+    clearTimeout(asking?.timer);
+    asking = { key: s.key, timer: setTimeout(() => { asking = null; say(""); refresh(); }, 5000) };
+    say("Click again to forget " + s.name + ". " + (s.kind === "local" ? "Its files are not touched." : "Its credential is erased from the keychain."));
+    refresh();
+    return;
+  }
+  clearTimeout(asking.timer); asking = null;
+  try { await api("/api/stores/remove", { key: s.key }); say(""); } catch (e) { say(e.message, true); }
+  refresh();
+}
 async function refresh() {
   const rows = document.getElementById("rows");
   try {
@@ -115,7 +130,7 @@ async function refresh() {
       tr.append(cell(s.name), cell(s.kind === "local" ? s.root : s.origin, "muted"), cell(s.kind === "local" ? s.status : s.contract, "muted"));
       const actions = cell("", "actions");
       actions.append(button("Open", () => api("/api/stores/open", { key: s.key }).then(() => say("")).catch((e) => say(e.message, true))), " ",
-        button("Forget", async () => { if (!confirm("Forget " + s.name + "? Its files are not touched.")) return; await api("/api/stores/remove", { key: s.key }).catch((e) => say(e.message, true)); refresh(); }));
+        button(asking?.key === s.key ? "Really forget?" : "Forget", () => forget(s)));
       tr.append(actions); rows.append(tr);
     }
     const select = document.getElementById("captureStore");

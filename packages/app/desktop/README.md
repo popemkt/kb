@@ -104,7 +104,7 @@ It was tested under Xvfb against scratch stores (`KB_HOME`, `KB_DATA`,
     `Authorization: Bearer` with every capture. The row says which capture
     contract the store accepts ("Accepts v1 · in step with this app"). A
     host that refuses the credential asks you to pair again.
-  - Forget a store. Its files are never touched;
+  - Forget a store, by clicking Forget twice. Its files are never touched;
     a remote's credential is erased from the keychain.
   - Choose which store quick capture sends to.
 - **One window per store**, showing the page that store's own host serves.
