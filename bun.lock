@@ -173,6 +173,7 @@
         "@kb/gallery-net": "workspace:*",
         "@kb/governance": "workspace:*",
         "@kb/graph": "workspace:*",
+        "@kb/keychain": "workspace:*",
         "@kb/lab": "workspace:*",
         "@kb/locations": "workspace:*",
         "@kb/locations-fs": "workspace:*",
@@ -1437,6 +1438,17 @@
         "@types/bun": "catalog:",
       },
     },
+    "packages/infrastructure/keychain": {
+      "name": "@kb/keychain",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/child-process": "workspace:*",
+        "effect": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
     "packages/infrastructure/sandbox-quickjs": {
       "name": "@kb/sandbox-quickjs",
       "version": "0.0.0",
@@ -2097,6 +2109,8 @@
     "@kb/graph-ui": ["@kb/graph-ui@workspace:packages/extension/graph-ui"],
 
     "@kb/keybindings": ["@kb/keybindings@workspace:packages/domain/keybindings"],
+
+    "@kb/keychain": ["@kb/keychain@workspace:packages/infrastructure/keychain"],
 
     "@kb/lab": ["@kb/lab@workspace:packages/extension/lab"],
 

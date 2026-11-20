@@ -7,7 +7,8 @@
 import { describe, expect, test } from "bun:test";
 import { Effect } from "effect";
 import type { SecretRef } from "@kb/model";
-import { systemSecrets, type LookupResult } from "../src/index.ts";
+import type { LookupResult } from "@kb/keychain";
+import { systemSecrets } from "../src/index.ts";
 
 const notFound = (): Promise<LookupResult> => Promise.resolve({ code: 44, stdout: "" });
 

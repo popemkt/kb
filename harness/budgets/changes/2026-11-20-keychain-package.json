@@ -1,0 +1,6 @@
+{
+  "reason": "The platform keychain moves out of @kb/runtime's secrets into its own infrastructure package, @kb/keychain, so the desktop can keep a paired store's credential there without importing the runtime. The CLI loads the same code as one more module.",
+  "raise": {
+    "cli-closure": { "bytes": 529, "modules": 1 }
+  }
+}

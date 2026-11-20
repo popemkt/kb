@@ -29,6 +29,7 @@
     "@kb/gallery-net": "workspace:*",
     "@kb/governance": "workspace:*",
     "@kb/graph": "workspace:*",
+    "@kb/keychain": "workspace:*",
     "@kb/lab": "workspace:*",
     "@kb/locations": "workspace:*",
     "@kb/locations-fs": "workspace:*",

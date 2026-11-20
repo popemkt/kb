@@ -37,7 +37,7 @@ import {
 } from "@kb/file-write";
 import { SecretError, type SecretSink } from "@kb/contracts";
 import { secretRefLabel, type SecretRef } from "@kb/model";
-import type { RunLookup } from "./secrets.ts";
+import type { RunLookup } from "@kb/keychain";
 
 type SealedRef = Extract<SecretRef, { kind: "sealed" }>;
 
