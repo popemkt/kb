@@ -3,11 +3,13 @@ import { z } from "zod";
 import { actorKind, type Actor } from "@kb/model";
 import {
   ManifestEntrySchema,
+  invocationCaller,
   type ActionInvocation,
   type ActionRequest,
   type ActionMode,
   type ActionReceipt,
   type BatchPart,
+  type CallerKind,
 } from "./actions.ts";
 
 /**
@@ -41,6 +43,11 @@ export interface SurfaceWire {
    * (`KbTx.actor`), which grants the call nothing by itself.
    */
   readonly actor: Actor;
+  /**
+   * Caller kind admitted on this wire (`ActionDefinition.callers`). Defaults
+   * from `actor` (`"person"` for `human`, `"program"` otherwise) when omitted.
+   */
+  readonly caller?: CallerKind;
   /**
    * Whether the wire relays calls others make: the page's, which carries the
    * person's gestures, the agent it hosts, WebMCP's tools and the scripts it
@@ -87,15 +94,19 @@ export function onWire(
   request: ActionRequest | ActionInvocation,
 ): ActionInvocation {
   const relayed = wire.relays === true ? madeBy(request) : undefined;
+  const relayedCaller = wire.relays === true && "caller" in request ? request.caller : undefined;
   const { approved, script, ...call } = request;
   const scripted = script !== undefined && carries(wire, "script");
   const via = call.via ?? wire.via;
+  const actor = scripted ? "script" : (relayed ?? wire.actor);
+  const caller = relayedCaller ?? wire.caller ?? invocationCaller({ actor, caller: undefined });
   return {
     ...call,
     ...(via === undefined ? {} : { via }),
     ...(approved !== undefined && carries(wire, "approved") ? { approved } : {}),
     ...(scripted ? { script } : {}),
-    actor: scripted ? "script" : (relayed ?? wire.actor),
+    actor,
+    caller,
   };
 }
 
@@ -118,7 +129,12 @@ export function madeByScript(invocation: ActionInvocation): boolean {
  * is the person's gesture. A page the server vouches for nobody behind
  * calls on a local program's wire, and its gestures run there unrefused.
  */
-export const PAGE_WIRE: SurfaceWire = { carriesApproval: true, actor: "human", relays: true };
+export const PAGE_WIRE: SurfaceWire = {
+  carriesApproval: true,
+  actor: "human",
+  caller: "person",
+  relays: true,
+};
 
 /**
  * Whether a person stands behind the call: it says a person approved it, or

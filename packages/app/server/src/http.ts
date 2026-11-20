@@ -4,7 +4,6 @@ import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import {
   ActionReceiptSchema,
   CaptureDeviceDigest,
-  CurrentCaller,
   admitsCaptureCaller,
   callerRefusal,
   failed,
@@ -251,7 +250,6 @@ const captureResponse = Effect.fn("kb.ui.capture")(function* (
     return refuse("capture device credential is invalid or revoked");
   }
   const receipt = yield* serverInvoke(ctx, onWire(caller.wire, request)).pipe(
-    Effect.provideService(CurrentCaller, caller.kind),
     Effect.provideService(CaptureDeviceDigest, digest),
   );
   return actionResponse(ctx, receipt, { "cache-control": "no-store" });
@@ -275,9 +273,7 @@ const postActionResponse = Effect.fn("kb.ui.postAction")(function* (
     return yield* captureResponse(deps.ctx, made.request, caller);
   }
   const def = yield* actionDefinitionEffect(deps.ctx, made.request.id);
-  const receipt = yield* serverInvoke(deps.ctx, onWire(caller.wire, made.request)).pipe(
-    Effect.provideService(CurrentCaller, caller.kind),
-  );
+  const receipt = yield* serverInvoke(deps.ctx, onWire(caller.wire, made.request));
   const headers =
     def !== undefined && admitsCaptureCaller(def) ? { "cache-control": "no-store" } : undefined;
   return actionResponse(deps.ctx, receipt, headers);

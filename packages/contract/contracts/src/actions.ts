@@ -5,6 +5,7 @@ import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import {
   FailureCodeSchema,
+  actorKind,
   type Actor,
   type ActionSchema,
   type ActionSchemaError,
@@ -142,14 +143,15 @@ export function callerRefusal(
 }
 
 /**
- * The caller kind stamped by the transport admission layer (for HTTP, `guard.ts`),
- * read by the invoke core to enforce {@link ActionDefinition.callers} and apply
- * {@link ActionDefinition.callerOutput}. Undefined when invoked without a transport
- * caller (in-process calls, tests).
+ * The caller kind an invocation runs as: its explicit `caller`, or derived
+ * from its actor (`"person"` for `human`, `"program"` for every other actor)
+ * so an omitted caller never bypasses {@link ActionDefinition.callers}.
  */
-export const CurrentCaller = Context.Reference<CallerKind | undefined>("kb/CurrentCaller", {
-  defaultValue: () => undefined,
-});
+export function invocationCaller(
+  invocation: Pick<ActionInvocation, "actor" | "caller">,
+): CallerKind {
+  return invocation.caller ?? (actorKind(invocation.actor) === "human" ? "person" : "program");
+}
 
 /**
  * The input schema a surface publishes for an action's tool. MCP and WebMCP
@@ -472,7 +474,10 @@ export function sessionOfMeta(meta: unknown): string | undefined {
  * The actor is a record of who made the call (`KbTx.actor`), and grants
  * nothing by itself; only a script's call is held to more (`madeByScript`).
  */
-export type ActionInvocation = ActionRequest & { readonly actor: Actor };
+export type ActionInvocation = ActionRequest & {
+  readonly actor: Actor;
+  readonly caller?: CallerKind;
+};
 
 /** One input a session filled: the reference it was read from, and the value it read. */
 const FilledInputSchema = z.object({ from: z.string(), value: z.unknown() });

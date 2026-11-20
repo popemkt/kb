@@ -68,6 +68,7 @@ export const WEBMCP_WIRE: SurfaceWire = {
   // GAP [[01M3S5DDJ7MP2VZ4WJB007RRR5]]
   carriesApproval: false,
   actor: "agent",
+  caller: "program",
 };
 
 /** How the host runs an invocation: its receipt, never a throw it can help. */

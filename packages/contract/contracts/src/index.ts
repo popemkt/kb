@@ -29,10 +29,10 @@ export {
 export {
   ActionCatalog,
   ActionRequestSchema,
-  CurrentCaller,
   admitsCaptureCaller,
   callerRefusal,
   envelopeOf,
+  invocationCaller,
   isCaptureCaller,
   SESSION_META_KEY,
   sessionOfMeta,

@@ -47,7 +47,7 @@ import {
  * say a person approved one. The page's requests are the page's wire
  * (`PAGE_WIRE`).
  */
-export const HTTP_WIRE: SurfaceWire = { carriesApproval: false, actor: "agent" };
+export const HTTP_WIRE: SurfaceWire = { carriesApproval: false, actor: "agent", caller: "program" };
 
 /** Where the server listens, and where the browser loads the UI from. */
 export interface GuardSite {
@@ -147,7 +147,7 @@ function captureAdmission(authorization: string, origin: string | null): Admissi
     return { refused: refusal(403, "capture device credential is invalid") };
   }
   const kind: CallerKind = token === undefined ? "capture-pairing" : "capture-device";
-  return { caller: { ...PROGRAM, kind, capture: { token } } };
+  return { caller: { ...PROGRAM, kind, wire: { ...HTTP_WIRE, caller: kind }, capture: { token } } };
 }
 
 export function requestGuard(site: GuardSite): RequestGuard {

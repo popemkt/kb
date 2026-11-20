@@ -11,12 +11,12 @@ import {
   type ExtensionPromiseHandler,
   type KbContext,
   CurrentCall,
-  CurrentCaller,
   CurrentReactions,
   CurrentContextReferences,
   CurrentInterception,
   approvalSubject,
   callerRefusal,
+  invocationCaller,
 } from "@kb/contracts";
 import {
   ActionSchemaError,
@@ -193,7 +193,7 @@ const invokeCall = Effect.fn("kb.invoke")(function* <R>(
     });
   }
   const entry = actions.get(id);
-  const caller = outer === null ? yield* CurrentCaller : undefined;
+  const caller = outer === null ? invocationCaller(made) : undefined;
   if (!entry) {
     if (caller !== undefined) {
       const denied = callerRefusal(undefined, caller);
