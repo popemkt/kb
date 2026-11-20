@@ -183,6 +183,27 @@ describe("triggers in the text", () => {
       });
     });
 
+    it("keeps the parent's existing single field value when picked again", async () => {
+      const value = { t: "str", v: "in progress" } as const;
+      const nodes = rankedFixture().map((node) => {
+        if (node.id === ABOVE) return { ...node, props: { "field.status": [value] } };
+        if (node.id !== "field.status") return node;
+        return {
+          ...node,
+          props: {
+            ...node.props,
+            [SYSTEM_IDS.cardinalityField]: [{ t: "ref" as const, v: SYSTEM_IDS.cardinalityOne }],
+          },
+        };
+      });
+      useGraphStore.getState().hydrateFromWire(nodes, 1, "fixtures");
+      const el = await typedOnLine(">stat");
+      expect(listed()).toContain("status");
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(outlineNodes().has(LINE)).toBe(false));
+      expect(propOf(ABOVE, "field.status")).toEqual([value]);
+    });
+
     it("is one undo step: the line comes back empty and the field goes", async () => {
       const el = await typedOnLine(">stat");
       await press(el, "Enter");

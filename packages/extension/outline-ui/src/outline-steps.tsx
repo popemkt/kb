@@ -104,14 +104,20 @@ export const addField: PaletteStep = {
   createLabel: (name) => `Create field "${name}"`,
   candidates: (graph) => nodesOfKind(graph.wireNodes, SYSTEM_IDS.field),
   commit: async ({ targetNodeIds, schema, pickedId, creating, name }) => {
-    const { writes } = browserHost();
+    const { graph, writes } = browserHost();
     await asOneWrite(targetNodeIds, async () => {
       const fieldId = creating ? await writes.defineField(name) : pickedId;
       if (fieldId === null) return;
       // An empty typed value is what makes the row appear and focusable; the
       // field's own declared type decides which editor that row gets.
       const empty = emptyValueForType(resolveFieldTypeById(fieldId, schema));
-      await Promise.all(targetNodeIds.map((id) => writes.updateProp(id, fieldId, empty)));
+      const targets = new Set(targetNodeIds);
+      const missing = graph
+        .state()
+        .wireNodes.filter(
+          (node) => targets.has(node.id) && (node.props[fieldId]?.length ?? 0) === 0,
+        );
+      await Promise.all(missing.map((node) => writes.updateProp(node.id, fieldId, empty)));
     });
   },
 };

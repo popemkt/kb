@@ -1729,8 +1729,9 @@ then write.
   more in it, a row at the top of the forest, a reference, a projected
   row. It is the Add field step (`outline.add-field`) aimed at that
   parent: a pick takes the line away and adds the field to the parent, as
-  Add field does from the menu, in one write, so one undo brings the empty
-  line back and takes the field off. The caret lands on the field's value
+  Add field does from the menu, preserving any values the parent already
+  holds for that field. One undo brings the empty line back and removes
+  the field if the pick added it. The caret lands on the field's value
   where the parent's fields are drawn: under its row, or in the page head.
   To add a field to a node that has text, use Add field on that node
   (its menu, or the palette).
