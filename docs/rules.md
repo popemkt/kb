@@ -922,10 +922,10 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Separate design question recorded in briefs/p1-persistence.md section 4: protocol, discovery, and fallback when no server is running.
 - **node** — `01M1M08WPQTB514E7JERKYEDWZ`
 
-### GAP: CLI, MCP and tree insertion lack relative-date parsing
+### GAP: CLI properties and tree input lack relative-date context
 
 - **expected** — Every surface parses the same date phrases the UI's DateEditor accepts.
-- **current** — @kb/model already provides parseDateInput and accepts a reference date in parseTypedValue. The CLI property mapper and the shared node.addTree parser omit that date, so CLI and MCP tree input still require absolute YYYY-MM-DD values.
+- **current** — @kb/model's parseTypedValue accepts today as the reference date for relative phrases. The CLI property mapper and the shared node.addTree parser used by CLI and MCP call it without today.
 - **impact** — Relative phrases such as today and next fri work in the date editor but fail on these input paths.
 - **closes** — Supply the reference date to the shared parser from CLI property parsing and the node.addTree path used by CLI and MCP.
 - **node** — `01M3KA3AEEFG0E200V4D63G5SN`
@@ -1036,15 +1036,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — the family barrels are wider than their entries, these tests cannot run in their packages, and path mocks break on a file move
 - **closes** — each test rewritten over the ui-test-kit test host and moved into its family's -ui package, with each barrel narrowed to its entry
 - **node** — `01M531QT1YPM9NTF6NKH9BP66S`
-
-### GAP: family migration approval omits the dry-run diff and rollback restores the whole store
-
-- **expected** — The migration approval sheet shows the dry-run diff. Rollback undoes only the migration's transaction.
-- **current** — Families can declare migration steps, and Settings → Migrations shows the preview in the migration procedure. The approval sheet omits the diff. Rollback restores the whole store (GAP: a migration's roll back restores the whole store, not only the migration).
-- **impact** — A person must inspect the preview separately before approving. Rolling back can take later edits out of the live store.
-- **closes** — Show the existing migration preview on the approval sheet and use transaction-scoped rollback as tracked in GAP: a migration's roll back restores the whole store, not only the migration.
-- **rule** — Plugins migrate their own data, declared and previewed
-- **node** — `01M7342YFJC4B6DMAFD8MTSTD7`
 
 ### GAP: field types from plugins vs tags as the behaviour mechanism
 
@@ -1980,6 +1971,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Every family reads its nodes through a type named for the outline.
 - **closes** — One rename across the workspace, done when the canvas packages are free to touch.
 - **node** — `01M53GQC1V4S043899SSX8Q47J`
+
+### GAP: the migration approval dialog omits the dry-run diff
+
+- **expected** — The migration approval dialog shows the dry-run diff.
+- **current** — The migration procedure shows the dry-run diff on its page. The approval dialog omits it. Rollback is tracked in G09EVF.
+- **impact** — A person must inspect the preview separately before approving.
+- **closes** — Show the existing dry-run diff in the migration approval dialog.
+- **rule** — Plugins migrate their own data, declared and previewed
+- **node** — `01M7342YFJC4B6DMAFD8MTSTD7`
 
 ### GAP: the node palette has no "Add value to <field>" command
 
