@@ -45,9 +45,11 @@ export const nodeAddTreeDef = {
     "Top-level items go under parent at position (the end when omitted); an omitted " +
     "parent puts them where captures go, the capture target (today's node while days is " +
     "on and its captures setting says today), and parent: null at the top level. All or " +
-    "nothing; returns the created ids in tree order and each item's line.",
+    "nothing; returns the created ids in tree order and each item's line. ids, when given, " +
+    "are the ids to create the items with, one per item in tree order; omitted, they are minted.",
   mode: { kind: "write" } as const,
   targets: ["parent"],
+  mints: "ids",
   // Every call is a batch of node.adds: a guard on node.add governs it too,
   // by node.add's own mode.
   batchOf: [nodeAddDef.id],
@@ -63,6 +65,12 @@ export const nodeAddTreeDef = {
         "the node its top-level items go under; null for the top level; omitted, the capture target (today's node while days is on)",
       ),
     position: z.number().int().nonnegative().optional(),
+    ids: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "the ids to create the items with, one per item in tree order (an item, then its children); omitted, minted",
+      ),
     /** Bypass sys.* write-guard (browse yes / break no), as node.add's. */
     force: z.boolean().optional(),
   }),
@@ -322,10 +330,17 @@ export const planNodeAddTreeEffect = Effect.fn("node.addTree.plan")(function* (
   }
   const at = yield* currentIso;
   const flat = flatten(parsed.items, input.position);
-  const ids: NodeId[] = [];
-  for (let i = 0; i < flat.length; i++) ids.push(yield* freshId);
+  const ids: NodeId[] = [...(input.ids ?? [])];
+  if (input.ids !== undefined && ids.length !== flat.length) {
+    return yield* domainError(
+      "invalid_input",
+      `ids names ${ids.length} nodes and the outline has ${flat.length} items: give one id per item, or none`,
+      { ids: ids.length, items: flat.length },
+    );
+  }
+  while (ids.length < flat.length) ids.push(yield* freshId);
   const idAt = (index: number): NodeId =>
-    present(ids[index], "node.addTree mints one id per flattened item");
+    present(ids[index], "node.addTree has one id per flattened item");
   const planned: PlannedItem[] = flat.map(({ item, parentIndex, position }, index) => ({
     item,
     id: idAt(index),

@@ -237,6 +237,15 @@ export interface ActionDefinition<
    * action, never inferred.
    */
   context?: Readonly<Record<string, string>>;
+  /**
+   * The key of its input that names the nodes a call creates, an id or a
+   * list of ids, which its output answers under the same key: an omitted
+   * one is minted. A write the page commits first is pushed with the ids
+   * its local commit minted there, so the server creates the nodes the
+   * page already shows (DESIGN-UI.md → Mutations). Declared by the action,
+   * never inferred.
+   */
+  mints?: string;
   inputSchema: TIn;
   outputSchema: TOut;
   /**

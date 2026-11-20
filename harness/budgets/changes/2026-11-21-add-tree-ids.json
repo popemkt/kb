@@ -1,0 +1,6 @@
+{
+  "reason": "node.addTree takes the ids to create its items with, and actions declare the input that names the nodes they mint, so a page's optimistic write and the server's commit create the same nodes (GAP 01M5ZBC8DQWB1DY5Z9AAABGPYR).",
+  "raise": {
+    "cli-closure": { "bytes": 554 }
+  }
+}
