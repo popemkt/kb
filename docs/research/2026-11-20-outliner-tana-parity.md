@@ -1055,11 +1055,12 @@ tags…" does the same for tags, from existing tags only.
   write. A proposed value is judged by the graph's own constraints, not by
   `conformsToType`, which checks a value's kind and form only
   (`domain/model/src/field-value.ts`) and would pass `owner: Zed` for a
-  ref field whose options are Ana and Bo. The check is the shared pair the
-  picker and the commit already use: `valueConformanceError(fieldId, value,
-  nodes)` for kind, form and a ref naming a stored node, and
-  `allowedRefIdsOf(fieldNode, nodes, runQuery)` (`domain/model/src/field-type.ts`)
-  for option membership. That one resolver answers for all three ways a field
+  ref field whose options are Ana and Bo. The check is the shared pair, which
+  proposal and apply must both call: `valueConformanceError(fieldId, value,
+  nodes)` for kind, form and a ref naming a stored node (the commit's own
+  integrity check), and `allowedRefIdsOf(fieldNode, nodes, runQuery)`
+  (`domain/model/src/field-type.ts`) for option membership, which today only
+  the UI picker consults. That one resolver answers for all three ways a field
   names its targets: its own children (an option set), `targetTag`, or
   `targetQuery`; `null` means unrestricted. A ref value outside the set, a
   value that fails `valueConformanceError`, or a value the field would close
@@ -1121,9 +1122,11 @@ it is `updateProp` and `addTag`. No review pane, no new store, and the model
 never creates a tag, option or node. _AGENTS.md:_ **Rule 1**, one more
 setting beside `fillFrom` with one reader and a proposal the person edits in
 the palette's own list; **one contract**, `valueConformanceError` and
-`allowedRefIdsOf` are the validity check the picker and the commit already
-share, applied unchanged at proposal and again at apply, so a proposal is
-judged the same by the UI, the CLI and MCP, and `ext.agent.propose` has a
+`allowedRefIdsOf` are the one shared validity check, and the proposal step
+and the apply step both call it (the commit enforces only the first; the
+commit-level gap `01M39YM7FQ9S231XW8JBA5MG0E` stays open, and this brief
+does not close it), so a proposal is judged the same by the UI, the CLI and
+MCP, and `ext.agent.propose` has a
 contract test over the invoke core; **canonical
 statement**, DESIGN.md → tag behaviours gains the setting (its one reader)
 and → Agent packages names the action, with no copy in the UI doc.

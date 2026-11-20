@@ -2224,7 +2224,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **expected** — A new query asks for its first condition, as Tana does, so the result is what the person meant.
 - **current** — turn-query writes DEFAULT_QUERY_EDN (no conditions); the page shows the whole store under the row (F5 in docs/research/2026-11-20-outliner-tana-parity.md).
 - **impact** — The first query a person makes floods the page with system nodes; the builder is below the fold.
-- **closes** — Brief 6 in docs/research/2026-11-20-outliner-tana-parity.md: Turn into query opens the Add tag step and writes a tag condition by id.
+- **closes** — Brief 6 in docs/research/2026-11-20-outliner-tana-parity.md: Turn into query opens the query-only tag picker (findTagged, over addTag's candidates, no create row) and writes a tag condition by id; it tags nothing and mints nothing, which Add tag's commit would.
 - **node** — `01M7WW1S48RQ48GD7A14VZG545`
 
 ### GAP: two installed extensions cannot share a service key
