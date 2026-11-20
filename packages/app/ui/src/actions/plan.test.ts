@@ -32,6 +32,15 @@ describe("outline action input builders", () => {
     ]);
   });
 
+  it("a split at the end of a row writes only the new row", () => {
+    const text = fixtureGraph.nodes.find((node) => node.id === "n.root-b")?.text ?? "";
+    expect(
+      planSplit(fixtureGraph.nodes, "n.root-b", text.length, "new", {
+        expandedIds: new Set(),
+      }).actions.map((action) => action.id),
+    ).toEqual(["node.add"]);
+  });
+
   it("delete delegates cascade semantics to node.update", () => {
     expect(planDelete(fixtureGraph.nodes, "n.root-a").actions).toEqual([
       { id: "node.delete", input: { id: "n.root-a", descendants: "cascade" } },
@@ -224,16 +233,15 @@ describe("splitting a contextual reference", () => {
   const parent = wire("p", {}, ["r"]);
   const graph = [parent, refRow, target, wire("t.c1", {})];
 
+  // Only the new row is written: the reference itself is not touched.
   it("opens the target's first child when the reference is expanded and the target has children", () => {
     expect(planSplit(graph, "r", "end", "new", { expandedIds: new Set(["r"]) }).actions).toEqual([
-      { id: "node.update", input: { id: "r", text: "" } },
       { id: "node.add", input: { id: "new", text: "", parent: "t", position: 0 } },
     ]);
   });
 
   it("opens a sibling after the reference when the reference is collapsed", () => {
     expect(planSplit(graph, "r", "end", "new", { expandedIds: new Set() }).actions).toEqual([
-      { id: "node.update", input: { id: "r", text: "" } },
       { id: "node.add", input: { id: "new", text: "", parent: "p", position: 1 } },
     ]);
   });

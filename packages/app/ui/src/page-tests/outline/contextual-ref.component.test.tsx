@@ -255,6 +255,9 @@ describe("contextual reference row", () => {
     const firstChildId = present(outlineNodes().get("n.root-a")?.children[0], "first child");
     expect(firstChildId).not.toBe("n.child-a1");
     expect(outlineNodes().get("n.hosted-ref")?.children).toEqual([]);
+    // The reference itself is not written: only the new row is.
+    const reference = useGraphStore.getState().wireNodes.find((n) => n.id === "n.hosted-ref");
+    expect(reference?.updatedAt).toBe(ISO);
     const s = useOutlineStore.getState();
     expect(s.activeNodeId).toBe(firstChildId);
     expect(s.activeInstanceKey).toBe(childInstanceKey(refKey, firstChildId));

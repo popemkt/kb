@@ -90,7 +90,9 @@ export const planUpdateText = (_nodes: WireNode[], id: string, text: string) =>
  * reference's target's, as on the target's own row). `"end"` splits after the
  * whole text, i.e. only creates the next row — what Enter means on a row whose
  * shown text is not its own (a contextual reference), where no offset the
- * caret reports is an offset into this node's text.
+ * caret reports is an offset into this node's text. The row is written only
+ * when the split changes its text: a split at the end leaves the row as it
+ * was, so it is not touched.
  */
 export function planSplit(
   nodes: WireNode[],
@@ -109,7 +111,7 @@ export function planSplit(
   const position = firstChild ? 0 : parent ? parent.children.indexOf(id) + 1 : undefined;
   return {
     actions: [
-      { id: "node.update", input: { id, text: left } },
+      ...(left === node.text ? [] : [updateOf(id, { text: left })]),
       {
         id: "node.add",
         input: {
