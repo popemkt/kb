@@ -146,9 +146,9 @@ export function matchCandidate(label: string, id: string, query: string): Match 
     };
   }
   if (matchesId(id, q)) return { score: 2, ranges: [] };
+  if (q.length < 3) return null;
   const words = initials(text, q);
   if (words !== null) return { score: 3, ranges: runs(words) };
-  if (q.length < 3) return null;
   const inLabel = subsequence(text, q);
   if (inLabel !== null && compact(inLabel)) {
     // Tighter first: the span the letters cover breaks ties among these.

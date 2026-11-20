@@ -1672,11 +1672,11 @@ text's triggers (`[[`, `@`, `#`, `>`), every node-palette step
 (`PaletteStepPoint`; the outline's add-tag, add-field, reference and move-to
 steps among them),
 the ontology page's include/extends, the canvas's "add existing node" and the
-tag page's add-field. A query ranks exact labels, label prefixes, label substrings, id
-matches, label initials and compact subsequences of at least three letters,
-in that order. The list marks matched label letters. An id match takes at
-least two characters and
-searches the last dot-separated segment of an id other than a ULID. An
+tag page's add-field. A query ranks exact labels, label prefixes, label
+substrings, id matches, word initials and compact subsequences, in that order.
+Word initials and compact subsequences require at least three characters.
+The list marks matched label letters. An id match takes at least two characters
+and searches the last dot-separated segment of an id other than a ULID. An
 explicit prefix starting with `sys.` searches the full system id.
 With an empty query an option set keeps its declared order. Other fields
 offer the session's recent picks, then the most used. Add tag (`#`) and Add

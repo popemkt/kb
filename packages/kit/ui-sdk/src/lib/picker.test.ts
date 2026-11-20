@@ -57,9 +57,12 @@ describe("matchCandidate", () => {
     ]);
   });
 
-  it("does not treat scattered letters as a match for a two-letter query", () => {
+  it("requires three letters for fuzzy matches and keeps shorter literal matches", () => {
+    expect(matchCandidate("Daily Updates", "n.report", "du")).toBeNull();
     expect(matchCandidate("Captured URL", "sys.f.capture.url", "du")).toBeNull();
     expect(matchCandidate("view.saved-query", "sys.f.view.saved-query", "du")).toBeNull();
+    expect(matchCandidate("Daily User Updates", "n.report", "duu")?.score).toBe(3);
+    expect(matchCandidate("due", "ex.f.due", "du")?.score).toBe(0);
     expect(matchCandidate("Sky · Stars and dust", "sys.backdrop.motes", "du")?.score).toBe(1);
   });
 });
