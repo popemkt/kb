@@ -69,8 +69,9 @@ export const NodeBlock = memo(function NodeBlock({
   // definitions its fields and tags name — not on the whole graph.
   const { outline, schema } = useGraphRead();
   const node = outline.get(nodeId);
-  // The outline family's own setting: whether a closed parent says how many children it has.
-  const countChildren = showsChildCounts(useNode(extensionNodeId("outline")));
+  // The outline family's own settings, read once off its node.
+  const outlineFamily = useNode(extensionNodeId("outline"));
+  const countChildren = showsChildCounts(outlineFamily);
   const activateNode = useOutlineStore((s) => s.activateNode);
   const selectNode = useOutlineStore((s) => s.selectNode);
   const toggleCollapse = useOutlineStore((s) => s.toggleCollapse);
