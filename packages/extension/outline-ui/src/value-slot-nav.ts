@@ -103,6 +103,33 @@ export function enterFields(instanceKey: string, which: "first" | "last"): boole
   return true;
 }
 
+/**
+ * Land on node `nodeId`'s last field value where its fields are drawn nearest
+ * row instance `instanceKey`, at rest, once the page has drawn the write that
+ * follows: under its row, or in the page head when it is the page. The row's
+ * place is read now, since that write may take the row away.
+ */
+export function landInFieldsOf(instanceKey: string, nodeId: string): () => void {
+  const row = document.querySelector(
+    `[data-node-block][data-instance-key="${CSS.escape(instanceKey)}"]`,
+  );
+  const around: Element[] = [];
+  for (let at = row?.parentElement ?? null; at !== null; at = at.parentElement) around.push(at);
+  const sectionOf = `[data-fields-for="${CSS.escape(nodeId)}"]`;
+  const land = () => {
+    const section = around
+      .find((el) => el.isConnected && el.querySelector(sectionOf) !== null)
+      ?.querySelector(sectionOf);
+    const first = section?.querySelector(SLOT);
+    const slot = first === null || first === undefined ? undefined : sectionSlots(first).at(-1);
+    if (slot !== undefined) arriveAt(slot, "rest");
+  };
+  return () => {
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(land);
+    else land();
+  };
+}
+
 /** How many field values a row instance shows. */
 export function fieldSlotCount(instanceKey: string): number {
   return instanceSlots(instanceKey).length;

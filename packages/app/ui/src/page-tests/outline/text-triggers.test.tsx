@@ -138,18 +138,78 @@ describe("triggers in the text", () => {
   });
 
   describe(">", () => {
-    it("on a row that is only it, offers the fields, and a pick empties the row and adds one", async () => {
-      const el = await typed(">stat");
+    /** An empty line: n.grandchild, alone under n.child-a2, holds nothing but its text. */
+    const LINE = "n.grandchild";
+    const ABOVE = "n.child-a2";
+
+    /** Edit `LINE` with `text` in it, drawn under its parent's row, as the outline draws it. */
+    async function typedOnLine(text: string): Promise<HTMLElement> {
+      await act(async () => mutations.updateNodeContent(LINE, text));
+      const key = outlineInstanceKey(LINE, outlineNodes());
+      act(() => useOutlineStore.getState().activateNode(LINE, text.length, key));
+      await act(async () => {
+        root.render(
+          <NodeBlock
+            nodeId={ABOVE}
+            instanceKey={outlineInstanceKey(ABOVE, outlineNodes())}
+            depth={0}
+          />,
+        );
+      });
+      return present(
+        container.querySelector<HTMLElement>(`[data-instance-key="${key}"] [contenteditable]`),
+        "editor",
+      );
+    }
+
+    it("on an empty line, a pick makes the line a field of the node it is under", async () => {
+      const el = await typedOnLine(">stat");
       expect(listed()).toContain("status");
       await press(el, "Enter");
-      await vi.waitFor(() => expect(propOf(ROW, "field.status")).toHaveLength(1));
-      expect(textOf(ROW)).toBe("");
+      await vi.waitFor(() => expect(propOf(ABOVE, "field.status")).toHaveLength(1));
+      expect(outlineNodes().get(LINE)).toBeUndefined();
+      expect(outlineNodes().get(ABOVE)?.children).toEqual([]);
+      expect(propOf(LINE, "field.status")).toEqual([]);
+    });
+
+    it("lands in the new field's value, drawn under the node's row", async () => {
+      const el = await typedOnLine(">stat");
+      await press(el, "Enter");
+      await vi.waitFor(() => {
+        const section = container.querySelector(`[data-fields-for="${ABOVE}"]`);
+        const slot = section?.querySelector('[data-field="field.status"] [data-value-slot]');
+        expect(slot).not.toBeNull();
+        expect(slot?.contains(dom.document.activeElement as unknown as Node)).toBe(true);
+      });
+    });
+
+    it("is one undo step: the line comes back empty and the field goes", async () => {
+      const el = await typedOnLine(">stat");
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(propOf(ABOVE, "field.status")).toHaveLength(1));
+      expect(useGraphStore.getState().undoStack).toHaveLength(1);
+      await act(() => mutations.undo());
+      await vi.waitFor(() => expect(outlineNodes().get(ABOVE)?.children).toEqual([LINE]));
+      expect(propOf(ABOVE, "field.status")).toEqual([]);
+      expect(textOf(LINE)).toBe("");
+    });
+
+    it("stays text on a row that holds more than its text, or sits under no node", async () => {
+      // Children.
+      await typed(">stat", ABOVE);
+      expect(container.querySelector('[role="listbox"]')).toBeNull();
+      // A tag and a field, at the top.
+      await typed(">stat", "n.root-b");
+      expect(container.querySelector('[role="listbox"]')).toBeNull();
+      // Nothing but its text, at the top: no node to be a field of.
+      await typed(">stat");
+      expect(container.querySelector('[role="listbox"]')).toBeNull();
     });
 
     it("stays text after other text, and as a quote", async () => {
-      await typed("a >stat");
+      await typedOnLine("a >stat");
       expect(container.querySelector('[role="listbox"]')).toBeNull();
-      await typed("> quoted");
+      await typedOnLine("> quoted");
       expect(container.querySelector('[role="listbox"]')).toBeNull();
     });
   });

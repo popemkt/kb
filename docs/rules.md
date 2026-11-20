@@ -113,11 +113,11 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Draw links as screen-space quads (three's Line2NodeMaterial / LineSegments2 with a per-instance width updated in place, or a TSL quad strip), sized by the square root of weight, keeping the one-draw batch and no per-frame allocation.
 - **node** — `01M3AZSFJ9A8K8FYGHF5ADEAPT`
 
-### GAP: a # or > pick in the text is two writes, the text's and the step's
+### GAP: a # pick in the text is two writes, the text's and the step's
 
-- **expected** — A trigger pick that writes (# tags the row, > adds a field) is one write with the text it takes out, so one undo takes back both (DESIGN-UI.md → Triggers in the text; asOneWrite).
-- **current** — The text host lays the pick into the text through its own text write, then the step commits its own one write (stepTrigger in outline-triggers.ts); undo takes the tag or field back first, and the text second.
-- **impact** — Undoing a # or > pick takes two steps, and the first leaves #query or >query back in the row without its picker.
+- **expected** — A # pick is one write with the text it takes out, so one undo takes back both (DESIGN-UI.md → Triggers in the text).
+- **current** — The text host lays the pick into the text through its own text write, then the step commits its own one write (stepTrigger in outline-triggers.ts); undo takes the tag back first, and the text second. A > pick takes the line away in its write, so it is one undo.
+- **impact** — Undoing a # pick takes two steps, and the first leaves #query back in the row without its picker.
 - **closes** — TriggerPick.write returns a planned mutation the host applies together with its text write (mutations.together), or the text host's write joins the step's plan.
 - **node** — `01M7D4AYQFJGZQGJZ3KD7M388R`
 
@@ -702,6 +702,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Pass the wire snapshot in and return the planned effect out, letting the store apply it — the seam the optimistic path already almost has. Lands with the outline-store split.
 - **rule** — UI import matrix
 - **node** — `01M1RXMRB7AZB7DPFR6XBPBKQ9`
+
+### GAP: Add field with a ref field is refused: its empty value is a ref to no node
+
+- **expected** — Add field (the menu's, the palette's, or > in the text) on a field whose type is ref (options, a node) adds the field to the node with no value yet, and its slot opens for a pick (DESIGN-UI.md → Field values: one slot grammar).
+- **current** — addField writes emptyValueForType(type) as the first value; for ref that is {t:ref, v:""}, and the commit refuses it: field <id> refs missing node (valueConformanceError in @kb/model field-value.ts).
+- **impact** — A person cannot add an options or node field (status, owner, a family's state) from Add field or >; the write is refused with a toast, and nothing is added.
+- **closes** — A field shown with no value is a first-class state the slot draws (an opened-but-empty field), so Add field writes no placeholder value; or the store accepts an empty ref as no value.
+- **node** — `01M7WVNN93MWQ3FYK5J86P6ASD`
 
 ### GAP: admission bundles an extension's page half but never imports or decodes it
 

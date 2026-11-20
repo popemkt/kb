@@ -1720,10 +1720,20 @@ then write.
   It is the Add tag step (`outline.add-tag`): it offers the tags, and a new
   one by name, and a pick takes `#` and the query out of the text and tags
   the row.
-- `>` opens on a row whose whole text is `>` and a query. It is the Add
-  field step (`outline.add-field`): a pick empties the text, adds the field
-  to the row as Add field does from the menu, and puts the caret in its
-  value.
+- `>` makes an empty line a field of the node it is under, as Tana's
+  does ("stand on an empty line, type `>`, give the field a name or pick
+  one, Tab to its value"). It opens on a row whose whole text is `>` and a
+  query, the caret at its end, when the row is an empty line: it holds
+  nothing but that text (no child, no field, no tag) and is drawn under
+  its own parent, a row or the page. Elsewhere `>` is text: a row with
+  more in it, a row at the top of the forest, a reference, a projected
+  row. It is the Add field step (`outline.add-field`) aimed at that
+  parent: a pick takes the line away and adds the field to the parent, as
+  Add field does from the menu, in one write, so one undo brings the empty
+  line back and takes the field off. The caret lands on the field's value
+  where the parent's fields are drawn: under its row, or in the page head.
+  To add a field to a node that has text, use Add field on that node
+  (its menu, or the palette).
 
 `[[` is every text host's. `@`, `#` and `>` are the outline's: its rows
 pass them to their text host beside `[[`. A trigger with nothing to offer is
