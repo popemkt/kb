@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -180,6 +180,45 @@ await Bun.write(config.jsonReporter.fileName, ${JSON.stringify(JSON.stringify(fr
     } finally {
       if (path === undefined) delete process.env.PATH;
       else process.env.PATH = path;
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("the merge skips truncated and invalid reports and warns about each shard", () => {
+    const root = mkdtempSync(join(tmpdir(), "kb-mutation-reports-"));
+    const warning = spyOn(console, "warn").mockImplementation(() => undefined);
+    const good = result({
+      "good.ts": { language: "typescript", source: "true", mutants: [mutant("1", "Killed")] },
+    });
+    const base = readBaseConfig();
+    try {
+      mkdirSync(join(root, "reports/mutation/shards"), { recursive: true });
+      for (const [name, contents] of Object.entries({
+        good: JSON.stringify(good),
+        truncated: '{"files":',
+        invalid:
+          '{"files":{"invalid.ts":{}},"schemaVersion":"2","thresholds":{"high":80,"low":60}}',
+      })) {
+        const config = shardConfig(
+          base,
+          { name, mutate: [`${name}.ts`], tests: "tests" },
+          {
+            full: false,
+            concurrency: 1,
+          },
+        );
+        writeFileSync(
+          join(root, "reports/mutation/shards", `${name}.config.json`),
+          JSON.stringify(config),
+        );
+        writeFileSync(join(root, config.jsonReporter.fileName), contents);
+      }
+      expect(mergeReports(readShardReports(root)).files).toEqual(good.files);
+      expect(warning).toHaveBeenCalledTimes(2);
+      expect(warning).toHaveBeenCalledWith(expect.stringContaining("truncated.json"));
+      expect(warning).toHaveBeenCalledWith(expect.stringContaining("invalid.json"));
+    } finally {
+      warning.mockRestore();
       rmSync(root, { recursive: true, force: true });
     }
   });

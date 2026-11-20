@@ -184,8 +184,9 @@ Mutation testing is not part of Validate — see the header comment in
 `@kb/query` and the CLI's argument mapper, and the run seeds fast-check, so
 its survivor list is reproducible. `harness/src/mutation.ts` plans the shards
 and merges the JSON reports Stryker writes for that run. A shard's working
-baseline stays separate from its upload. A shard that produces no report
-contributes no results, and a run with no reports produces no new baseline.
+baseline stays separate from its upload. The merge warns about unreadable
+or invalid shard reports and uses the valid ones. A run with no valid reports
+produces no new baseline.
 The survivor report is the artifact.
 
 The weekly mutation report saves its baseline cache whenever the baseline

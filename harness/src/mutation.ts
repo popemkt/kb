@@ -41,8 +41,9 @@ import { createRequire } from "node:module";
 import { availableParallelism } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { Instrumenter } from "@stryker-mutator/instrumenter";
+import Ajv from "ajv";
 import { calculateMetrics } from "mutation-testing-metrics";
-import type { MutationTestResult } from "mutation-testing-report-schema";
+import { schema, type MutationTestResult } from "mutation-testing-report-schema";
 import { WORKSPACE_ROOT, gitWorkspaceFiles, workspacePackages } from "./workspace.ts";
 
 /** The longest a shard's mutants may take, by the plan's estimate: a margin under the job's 120 minutes. */
@@ -51,6 +52,8 @@ export const SHARD_BUDGET_SECONDS = 45 * 60;
 const BASE_CONFIG = join(WORKSPACE_ROOT, "stryker.config.json");
 const SHARD_DIR = "reports/mutation/shards";
 const INCREMENTAL_DIR = "reports/mutation/incremental";
+const reportValidator = new Ajv({ validateFormats: false });
+const validReport = reportValidator.compile<MutationTestResult>(schema);
 /** The merged report of the last run that produced reports, which every shard's incremental run starts from. */
 const BASELINE = "reports/mutation/baseline.json";
 
@@ -306,23 +309,33 @@ export function runShard(shard: MutationShard, full: boolean, root: string = WOR
 export function readShardReports(root: string): ShardReport[] {
   const dir = join(root, SHARD_DIR);
   if (!existsSync(dir)) return [];
-  return readdirSync(dir)
-    .filter((name) => name.endsWith(".config.json"))
-    .flatMap((name) => {
-      const config = JSON.parse(readFileSync(join(dir, name), "utf8")) as {
-        mutate: string[];
+  const outputs = new Set(readdirSync(dir));
+  const reports: ShardReport[] = [];
+  for (const name of outputs) {
+    if (!name.endsWith(".config.json")) continue;
+    let path = join(dir, name);
+    try {
+      const config = JSON.parse(readFileSync(path, "utf8")) as {
+        mutate?: unknown;
         jsonReporter?: { fileName: string };
       };
-      if (config.jsonReporter === undefined) return [];
-      const reportPath = join(dir, basename(config.jsonReporter.fileName));
-      if (!existsSync(reportPath)) return [];
-      return [
-        {
-          mutate: config.mutate,
-          report: JSON.parse(readFileSync(reportPath, "utf8")) as MutationTestResult,
-        },
-      ];
-    });
+      if (config.jsonReporter === undefined) continue;
+      const reportName = basename(config.jsonReporter.fileName);
+      if (!outputs.has(reportName)) continue;
+      path = join(dir, reportName);
+      const report: unknown = JSON.parse(readFileSync(path, "utf8"));
+      if (!validReport(report)) throw new Error(reportValidator.errorsText(validReport.errors));
+      const { mutate } = config;
+      if (!Array.isArray(mutate) || !mutate.every((file) => typeof file === "string")) {
+        throw new Error(`${name} does not list the shard's files`);
+      }
+      reports.push({ mutate, report });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.warn(`Skipping unreadable mutation shard output ${path}: ${reason}`);
+    }
+  }
+  return reports;
 }
 
 /** Merges the available reports into the baseline and HTML report, and prints the score. */
