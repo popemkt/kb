@@ -3423,7 +3423,9 @@ back at the public origin, which its setup page says before it starts. An
 alias needs no public origin; a socket still does, since its page is the
 proxy's.
 
-**Hosted behind a proxy.** A hosted page works as a local one does: the
+### Hosted behind a proxy
+
+A hosted page works as a local one does: the
 page is the person's by its `Origin` (Surfaces → Who the person is), with
 nothing to open it by. A proxy that authenticates the person can also tell
 `kb ui` their name: `kb ui --identity-header <header>=<login>`
@@ -5669,8 +5671,11 @@ An inline capture asset takes its name from the digest of its stored bytes,
 so competing deliveries and retries reuse it. A failed graph commit can leave
 an unreferenced asset. GAP [[01M7QT8YBS8V0B97VWRP4D717F]] tracks reconciliation.
 
-For phone delivery, serve the main `kb ui` listener through HTTPS so one store URL
-serves the UI and capture, or serve a dedicated `kb ui --capture-only` listener.
+For an audience that only needs phone capture, serve a dedicated
+`kb ui --capture-only` listener over HTTPS. To serve the UI and phone capture
+at one store URL, use the main `kb ui` listener over HTTPS and apply the
+regular UI and program access controls described in
+[Hosted behind a proxy](#hosted-behind-a-proxy).
 For HTTP, send the action envelope `{id, input}` to `POST /api/action`. See
 [Action registry](#action-registry) for caller admission and receipts.
 On the host, issue a ten-minute, one-use code with the CLI.

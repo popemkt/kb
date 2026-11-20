@@ -274,6 +274,13 @@ test("a new action declaring device access is admitted with no server edit, and 
     expect((await fetch(`${mainUi.url}/api/graph`)).status).toBe(200);
     expect((await fetch(`${mainUi.url}/api/manifest`)).status).toBe(200);
     expect((await fetch(`${captureOnly.url}/api/manifest`)).status).toBe(403);
+    expect((await fetch(captureOnly.url)).status).toBe(403);
+    const captureFromPage = await fetch(`${captureOnly.url}/api/action`, {
+      method: "POST",
+      headers: { origin: captureOnly.url, "content-type": "application/json" },
+      body: JSON.stringify({ id: "kb.manifest", input: {} }),
+    });
+    expect(captureFromPage.status).toBe(403);
     expect(
       (await fetch(`${mainUi.url}/api/graph`, { headers: { Authorization: `Bearer ${token}` } }))
         .status,
