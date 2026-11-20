@@ -19,6 +19,7 @@ import {
   CurrentInterception,
   KbStore,
   TxOrigin,
+  WriteLockDeadline,
   type KbContext,
   type StoreCommit,
   type StoreFingerprint,
@@ -161,26 +162,26 @@ export const persistEffect = Effect.fn("kb.persist")(function* (
   return yield* options.expected === undefined ? retryCommit(Effect.result(commit)) : commit;
 });
 
-// This window starts after a commit conflict. Adapters own lock acquisition for each attempt.
-const COMMIT_RETRY_WINDOW_MS = 15_000;
+const COMMIT_WAIT_MS = 15_000;
 
 // Preparing a write may itself refuse. Only a conflict during commit starts another attempt.
 const retryCommit = Effect.fnUntraced(function* <A, R>(
   attempt: Effect.Effect<Result.Result<A, DomainError>, DomainError, R>,
 ) {
-  let deadline: number | undefined;
+  const deadline = (yield* WriteLockDeadline) ?? (yield* Clock.currentTimeMillis) + COMMIT_WAIT_MS;
+  const run = Effect.provideService(attempt, WriteLockDeadline, deadline);
   let delayCap = 10;
   for (;;) {
-    const result = yield* attempt;
+    const result = yield* run;
     if (Result.isSuccess(result)) return result.success;
     const { failure } = result;
     if (failure.code !== "conflict") return yield* failure;
 
     const now = yield* Clock.currentTimeMillis;
-    deadline ??= now + COMMIT_RETRY_WINDOW_MS;
     const delay = delayCap * (yield* Random.next);
     if (now + delay >= deadline) return yield* failure;
     yield* Effect.sleep(delay);
+    if ((yield* Clock.currentTimeMillis) >= deadline) return yield* failure;
     delayCap = Math.min(delayCap * 2, 250);
   }
 });

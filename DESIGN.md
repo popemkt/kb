@@ -1962,10 +1962,11 @@ which the port does not have. `briefs/p1-persistence.md` picks incremental
 reading up against that adapter's own internals when it gets there; keeping
 `decodeNodes` exported for a benchmark nobody runs yet would be a dead seam.
 
-**The session retries commit conflicts.** Across backends, a conflict starts a
-15-second retry window with capped, jittered exponential backoff. A transaction
+**The session retries commit conflicts.** Across backends, a retryable write
+starts with one 15-second deadline for lock acquisition and any retries.
+Conflicts retry with capped, jittered exponential backoff. A transaction
 is checked again against the refreshed graph, and a planned write is planned
-again from it. After the window is spent, the last conflict reaches the caller.
+again from it. An exhausted lock wait returns its conflict to the caller.
 A caller that supplies its own expected fingerprint gets one attempt against
 that state. A refusal from the planner reaches the caller immediately.
 

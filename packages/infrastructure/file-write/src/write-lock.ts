@@ -40,7 +40,8 @@ import {
   writeSync,
 } from "node:fs";
 import { dirname } from "node:path";
-import { Clock, Duration, Effect, Predicate } from "effect";
+import { Clock, Effect, Predicate } from "effect";
+import { WriteLockDeadline } from "@kb/contracts";
 import { domainError, type DomainError } from "@kb/model";
 
 const LOCK_SUFFIX = ".lock";
@@ -300,9 +301,17 @@ export const acquireFileWriteLockEffect = Effect.fn("kb.acquireWriteLock")(funct
   });
 
   const spin = Effect.gen(function* () {
-    const started = yield* Clock.currentTimeMillis;
+    const deadline = (yield* WriteLockDeadline) ?? (yield* Clock.currentTimeMillis) + MAX_WAIT_MS;
     for (;;) {
       const now = yield* Clock.currentTimeMillis;
+      if (now >= deadline) {
+        const { holder, note } = describeHolder(lockPath);
+        return yield* domainError(
+          "conflict",
+          `timed out waiting for write lock ${lockPath}${note}`,
+          { lockPath, holder },
+        );
+      }
       const got = yield* Effect.try({
         try: () => {
           if (tryEnter(fd, lockPath, now)) return true;
@@ -318,15 +327,7 @@ export const acquireFileWriteLockEffect = Effect.fn("kb.acquireWriteLock")(funct
         held.set(lockPath, fd);
         return lockPath;
       }
-      if (now - started > MAX_WAIT_MS) {
-        const { holder, note } = describeHolder(lockPath);
-        return yield* domainError(
-          "conflict",
-          `timed out waiting for write lock ${lockPath}${note}`,
-          { lockPath, holder },
-        );
-      }
-      yield* Effect.sleep(Duration.millis(SPIN_MS));
+      yield* Effect.sleep(Math.min(SPIN_MS, deadline - now));
     }
   });
   // A waiter that fails or is interrupted closes its file; a holder keeps it

@@ -1,5 +1,5 @@
 import { describe, expect, test, afterEach } from "bun:test";
-import { Effect, Fiber, Layer, Stream } from "effect";
+import { Clock, Effect, Fiber, Layer, Stream } from "effect";
 import { TestClock } from "effect/testing";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -7,7 +7,13 @@ import { join } from "node:path";
 import { runWithKb } from "../src/layers.ts";
 import { openKbEffect } from "../src/open.ts";
 import { openKb, reload } from "../src/session.ts";
-import { KbStore, kbStoreLayer, staleCommitError, type EffectStore } from "@kb/contracts";
+import {
+  KbStore,
+  kbStoreLayer,
+  staleCommitError,
+  WriteLockDeadline,
+  type EffectStore,
+} from "@kb/contracts";
 import { persistEffect, persistPlannedEffect, reloadEffect } from "@kb/operations";
 import { JsonlStore } from "@kb/store-jsonl";
 import { bunFileSystemLayer } from "../src/platform.ts";
@@ -613,5 +619,42 @@ describe("a write planned from what the session read", () => {
     expect(plans.count).toBeGreaterThan(1);
     expect(moving.list()?.children).toEqual([]);
     expect(moving.store.txTail.entries()).toEqual([]);
+  });
+
+  test("a retry gives the next lock only the time left and stops on an exhausted wait", async () => {
+    root = await tempRoot();
+    const ctx = await openKb(root);
+    const { store } = movingStore(ctx.store.path, 1);
+    const waits: number[] = [];
+    const lockConflict = new DomainError({ code: "conflict", message: "write lock timed out" });
+    const awaitingLock: EffectStore = {
+      ...store,
+      commitEffect: (tx, record, expected) =>
+        Effect.gen(function* () {
+          const deadline = present(yield* WriteLockDeadline, "the write has a deadline");
+          const remaining = deadline - (yield* Clock.currentTimeMillis);
+          waits.push(remaining);
+          if (waits.length === 1) {
+            yield* Effect.sleep("10 seconds");
+            return yield* store.commitEffect(tx, record, expected);
+          }
+          yield* Effect.sleep(remaining);
+          return yield* lockConflict;
+        }),
+    };
+    const failure = await Effect.runPromise(
+      Effect.gen(function* () {
+        const write = yield* Effect.forkChild(
+          Effect.flip(persistPlannedEffect(ctx, (nodes) => Effect.succeed(planAppend(nodes)))),
+        );
+        yield* TestClock.adjust("16 seconds");
+        return yield* Fiber.join(write);
+      }).pipe(Effect.provide(Layer.mergeAll(kbStoreLayer(awaitingLock), TestClock.layer()))),
+    );
+    expect(failure).toBe(lockConflict);
+    expect(waits).toHaveLength(2);
+    expect(waits[0]).toBe(15_000);
+    expect(waits[1]).toBeLessThanOrEqual(5_000);
+    expect(store.txTail.entries()).toEqual([]);
   });
 });

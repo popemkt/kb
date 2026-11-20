@@ -21,6 +21,10 @@ import { dirname } from "node:path";
  */
 const BUSY_TIMEOUT_MS = 15_000;
 
+export function setBusyTimeout(db: Database, remainingMs = BUSY_TIMEOUT_MS): void {
+  db.run(`PRAGMA busy_timeout = ${String(remainingMs)}`);
+}
+
 /** Bumped when the table shape changes; stored in `meta` so a file can say. */
 const SCHEMA_VERSION = "6";
 
@@ -48,17 +52,23 @@ export function commitMark(db: Database): string | null {
 
 export interface SqliteConnection {
   /** Open the database, creating the file and schema when absent. */
-  open: () => Database;
+  open: (waitForLock?: () => number) => Database;
   /** The open handle, or one for an existing file — never creates the file. */
   peek: () => Database | null;
   /** Drop the handle. Tests own store lifetimes; production has one session. */
   close: () => void;
 }
 
-function initialize(db: Database): void {
+function initialize(db: Database, waitForLock?: () => number): void {
+  setBusyTimeout(db, waitForLock?.());
   db.run("PRAGMA journal_mode = WAL");
   db.run("PRAGMA synchronous = NORMAL");
-  db.run(`PRAGMA busy_timeout = ${String(BUSY_TIMEOUT_MS)}`);
+  setBusyTimeout(db, waitForLock?.());
+  db.transaction(() => initializeSchema(db)).immediate();
+}
+
+/** Schema changes share one write lock, including when an old store needs an upgrade. */
+function initializeSchema(db: Database): void {
   db.run("CREATE TABLE IF NOT EXISTS nodes (id TEXT PRIMARY KEY, body TEXT NOT NULL)");
   db.run("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)");
   // The store's durable transaction tail; see `tx-tail.ts` for what each
@@ -106,12 +116,12 @@ function initialize(db: Database): void {
 export function sqliteConnection(path: string): SqliteConnection {
   let handle: Database | null = null;
 
-  const open = (): Database => {
+  const open = (waitForLock?: () => number): Database => {
     if (handle !== null) return handle;
     mkdirSync(dirname(path), { recursive: true });
     const opened = new Database(path, { create: true });
     try {
-      initialize(opened);
+      initialize(opened, waitForLock);
     } catch (error) {
       opened.close(false);
       throw error;

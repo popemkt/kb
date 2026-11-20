@@ -1430,6 +1430,7 @@
       "name": "@kb/file-write",
       "version": "0.0.0",
       "dependencies": {
+        "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
         "effect": "catalog:",
       },

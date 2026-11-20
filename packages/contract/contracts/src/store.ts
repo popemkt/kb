@@ -121,6 +121,8 @@ export interface EffectStore {
    * commit merges into whatever is there, which is what a session that
    * reconciles through {@link StoreCommit.base} wants; with it a caller that
    * decided on a state it read gets "that state is gone" instead of a merge.
+   * Lock acquisition respects the caller's {@link WriteLockDeadline}, when
+   * supplied. An exhausted wait returns a conflict before writing anything.
    */
   commitEffect(
     tx: StoreTx,
