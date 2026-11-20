@@ -25,13 +25,11 @@
  * transactions the store did not commit (the saved-query virtual set) and
  * wraps itself in one.
  */
-import { Effect } from "effect";
+import type { Effect } from "effect";
 import type { Database } from "bun:sqlite";
 import {
   canonicalJson,
   decodeStoredTx,
-  domainError,
-  ensureDomainError,
   type DomainError,
   recordedTx,
   type KbTx,
@@ -79,11 +77,9 @@ function sqlActor(actor: Actor | undefined): string | null {
 
 export class SqliteTxTail implements TxTail {
   private readonly connection: SqliteConnection;
-  private readonly path: string;
 
-  constructor(connection: SqliteConnection, path: string) {
+  constructor(connection: SqliteConnection) {
     this.connection = connection;
-    this.path = path;
   }
 
   head(): number {
@@ -149,28 +145,12 @@ export class SqliteTxTail implements TxTail {
   }
 
   append(ops: StoreTx, record: TxRecord): Effect.Effect<KbTx, DomainError> {
-    return Effect.try({
-      try: () => {
-        const db = this.connection.open();
-        return db.transaction(() => this.appendWithin(db, ops, record)).immediate();
-      },
-      catch: (err) =>
-        domainError(
-          "internal",
-          `append tx tail ${this.path}: ${err instanceof Error ? err.message : String(err)}`,
-          { path: this.path },
-        ),
-    });
+    return this.connection.write((db) => this.appendWithin(db, ops, record));
   }
 
   adopt(txs: readonly KbTx[]): Effect.Effect<void, DomainError> {
-    return Effect.try({ try: () => this.replace(txs), catch: ensureDomainError });
-  }
-
-  private replace(txs: readonly KbTx[]): void {
-    const db = this.connection.open();
     const kept = txs.slice(-TX_TAIL_KEEP_ENTRIES);
-    db.transaction(() => {
+    return this.connection.write((db) => {
       db.run("DELETE FROM tx");
       const mark = commitMark(db) ?? "";
       const insert = db.prepare<
@@ -191,7 +171,7 @@ export class SqliteTxTail implements TxTail {
           mark,
         );
       }
-    }).immediate();
+    });
   }
 
   /**

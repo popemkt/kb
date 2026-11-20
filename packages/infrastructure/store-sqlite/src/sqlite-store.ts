@@ -1,7 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { watch } from "node:fs";
 import { dirname } from "node:path";
-import { Effect, Predicate, type Stream } from "effect";
+import { Effect, type Stream } from "effect";
 import {
   canonicalJson,
   decodeStoredNode,
@@ -30,25 +30,6 @@ import { SqliteTxTail } from "./tx-tail.ts";
 interface NodeRow {
   id: string;
   body: string;
-}
-
-/** The `code` of a thrown sqlite/fs error, when it carries one. */
-function errnoCode(err: unknown): string {
-  return Predicate.hasProperty(err, "code") && typeof err.code === "string" ? err.code : "";
-}
-
-/**
- * A write that lost a race is a `conflict`, everything else is `internal` —
- * the same two answers `@kb/store-jsonl` gives, so a caller handling a
- * contended commit does not have to know which adapter it got.
- */
-function mapCommitError(err: unknown, path: string): DomainError {
-  const code = errnoCode(err);
-  const message = err instanceof Error ? err.message : String(err);
-  if (code === "SQLITE_BUSY" || code === "SQLITE_LOCKED") {
-    return domainError("conflict", `store busy: ${message}`, { path, code });
-  }
-  return domainError("internal", `commit ${path}: ${message}`, { path });
 }
 
 /**
@@ -93,7 +74,7 @@ export class SqliteStore implements EffectStore {
       watch,
       fingerprint: this.fingerprint,
     });
-    this.txTail = new SqliteTxTail(this.connection, this.path);
+    this.txTail = new SqliteTxTail(this.connection);
   }
 
   commitEffect(
@@ -127,61 +108,57 @@ function commitTx(
   txTail: SqliteTxTail,
   kept: KeptState<StoreState>,
 ): Effect.Effect<StoreCommit, DomainError> {
-  return Effect.try({
-    try: () => {
-      const db = connection.open();
+  return connection
+    .write((db) => {
       const read = db.query<NodeRow, [string]>("SELECT id, body FROM nodes WHERE id = ?");
       const drop = db.prepare<unknown, [string]>("DELETE FROM nodes WHERE id = ?");
       const upsert = db.prepare<unknown, [string, string]>(
         `INSERT INTO nodes (id, body) VALUES (?, ?)
-           ON CONFLICT(id) DO UPDATE SET body = excluded.body`,
+         ON CONFLICT(id) DO UPDATE SET body = excluded.body`,
       );
-      const committed = db
-        .transaction(() => {
-          const base = commitMark(db);
-          const stale = staleCommitError(expected, base);
-          // Thrown to roll the transaction back; `catch` below passes it through.
-          if (stale !== null) throw stale;
-          // Taken, not read: a commit that fails leaves nothing kept.
-          const state =
-            kept.take(base) ??
-            (tx.upserts.length === 0 ? null : StoreState.of(storedNodes(db, path)));
-          const applied = state === null ? tx : rankTx(state, tx);
-          const writes = writesOf(applied, (id) => {
-            if (state !== null) return state.get(id);
-            const row = read.get(id);
-            return row === null ? undefined : storedNode(row, path);
-          });
-          for (const id of applied.deletes) drop.run(id);
-          for (const node of applied.upserts) upsert.run(node.id, canonicalJson(node));
-          // After the rows, whose triggers have moved `rev`, so the mark the
-          // tail stamps is the one a reopen will read; inside the same
-          // transaction, so on this backend the node rows and their log entry
-          // are one act with no crash window between them. An empty
-          // transaction is not recorded: it changes nothing and says nothing.
-          const committedRecord =
-            applied.upserts.length > 0 || applied.deletes.length > 0
-              ? txTail.appendWithin(db, applied, record)
-              : null;
-          // Read under the write lock, after the triggers: the state this
-          // commit leaves is the one a reopen will name.
-          return { base, applied, state, after: commitMark(db), record: committedRecord, writes };
-        })
-        .immediate();
-      if (committed.state !== null && committed.after !== null) {
-        committed.state.apply(committed.applied);
-        kept.keep(committed.after, committed.state);
-      }
-      return {
-        base: committed.base,
-        fingerprint: committed.after,
-        tx: committed.applied,
-        record: committed.record,
-        writes: committed.writes,
-      };
-    },
-    catch: (err) => (isDomainError(err) ? err : mapCommitError(err, path)),
-  });
+      const base = commitMark(db);
+      const stale = staleCommitError(expected, base);
+      // Thrown to roll the transaction back; the connection passes it through.
+      if (stale !== null) throw stale;
+      // Taken, not read: a commit that fails leaves nothing kept.
+      const state =
+        kept.take(base) ?? (tx.upserts.length === 0 ? null : StoreState.of(storedNodes(db, path)));
+      const applied = state === null ? tx : rankTx(state, tx);
+      const writes = writesOf(applied, (id) => {
+        if (state !== null) return state.get(id);
+        const row = read.get(id);
+        return row === null ? undefined : storedNode(row, path);
+      });
+      for (const id of applied.deletes) drop.run(id);
+      for (const node of applied.upserts) upsert.run(node.id, canonicalJson(node));
+      // After the rows, whose triggers have moved `rev`, so the mark the
+      // tail stamps is the one a reopen will read; inside the same
+      // transaction, so on this backend the node rows and their log entry
+      // are one act with no crash window between them. An empty
+      // transaction is not recorded: it changes nothing and says nothing.
+      const committedRecord =
+        applied.upserts.length > 0 || applied.deletes.length > 0
+          ? txTail.appendWithin(db, applied, record)
+          : null;
+      // Read under the write lock, after the triggers: the state this
+      // commit leaves is the one a reopen will name.
+      return { base, applied, state, after: commitMark(db), record: committedRecord, writes };
+    })
+    .pipe(
+      Effect.map((committed) => {
+        if (committed.state !== null && committed.after !== null) {
+          committed.state.apply(committed.applied);
+          kept.keep(committed.after, committed.state);
+        }
+        return {
+          base: committed.base,
+          fingerprint: committed.after,
+          tx: committed.applied,
+          record: committed.record,
+          writes: committed.writes,
+        };
+      }),
+    );
 }
 
 /**

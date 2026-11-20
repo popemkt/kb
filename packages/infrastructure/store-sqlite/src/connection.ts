@@ -13,13 +13,11 @@
 import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import { Duration, Effect, Option, Predicate } from "effect";
+import { takeWriteLock, WRITE_LOCK_WAIT } from "@kb/contracts";
+import { domainError, isDomainError, type DomainError } from "@kb/model";
 
-/**
- * The same ceiling `@kb/store-jsonl`'s advisory lock spends waiting, so a
- * contended commit behaves the same on both adapters instead of failing fast
- * on one and spinning on the other.
- */
-const BUSY_TIMEOUT_MS = 15_000;
+const BUSY_TIMEOUT = `PRAGMA busy_timeout = ${String(Duration.toMillis(WRITE_LOCK_WAIT))}`;
 
 /** Bumped when the table shape changes; stored in `meta` so a file can say. */
 const SCHEMA_VERSION = "6";
@@ -51,6 +49,8 @@ export interface SqliteConnection {
   open: () => Database;
   /** The open handle, or one for an existing file — never creates the file. */
   peek: () => Database | null;
+  /** Wait for the write lock, then run and finish a transaction in one synchronous turn. */
+  write: <A>(run: (db: Database) => A) => Effect.Effect<A, DomainError>;
   /** Drop the handle. Tests own store lifetimes; production has one session. */
   close: () => void;
 }
@@ -58,7 +58,7 @@ export interface SqliteConnection {
 function initialize(db: Database): void {
   db.run("PRAGMA journal_mode = WAL");
   db.run("PRAGMA synchronous = NORMAL");
-  db.run(`PRAGMA busy_timeout = ${String(BUSY_TIMEOUT_MS)}`);
+  db.run(BUSY_TIMEOUT);
   db.run("CREATE TABLE IF NOT EXISTS nodes (id TEXT PRIMARY KEY, body TEXT NOT NULL)");
   db.run("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)");
   // The store's durable transaction tail; see `tx-tail.ts` for what each
@@ -103,6 +103,26 @@ function initialize(db: Database): void {
   db.run(`UPDATE meta SET value = '${SCHEMA_VERSION}' WHERE key = 'schema_version'`);
 }
 
+function sqliteLockCode(error: unknown): "SQLITE_BUSY" | "SQLITE_LOCKED" | null {
+  if (!Predicate.hasProperty(error, "code")) return null;
+  const { code } = error;
+  return code === "SQLITE_BUSY" || code === "SQLITE_LOCKED" ? code : null;
+}
+
+/** Only contention when acquiring the write lock is retried. */
+function tryBeginWrite(db: Database): boolean {
+  db.run("PRAGMA busy_timeout = 0");
+  try {
+    db.run("BEGIN IMMEDIATE");
+    return true;
+  } catch (error) {
+    if (sqliteLockCode(error) !== null) return false;
+    throw error;
+  } finally {
+    db.run(BUSY_TIMEOUT);
+  }
+}
+
 export function sqliteConnection(path: string): SqliteConnection {
   let handle: Database | null = null;
 
@@ -123,6 +143,33 @@ export function sqliteConnection(path: string): SqliteConnection {
   return {
     open,
     peek: () => (handle !== null ? handle : existsSync(path) ? open() : null),
+    write: (run) =>
+      takeWriteLock(
+        () =>
+          Effect.try({
+            try: () => {
+              const db = open();
+              try {
+                if (!tryBeginWrite(db)) return Option.none();
+                const value = run(db);
+                db.run("COMMIT");
+                return Option.some(value);
+              } catch (error) {
+                if (db.inTransaction) db.run("ROLLBACK");
+                throw error;
+              }
+            },
+            catch: (error) => {
+              if (isDomainError(error)) return error;
+              const message = error instanceof Error ? error.message : String(error);
+              const code = sqliteLockCode(error);
+              return code === null
+                ? domainError("internal", `write ${path}: ${message}`, { path })
+                : domainError("conflict", `store busy: ${message}`, { path, code });
+            },
+          }),
+        Effect.fail(domainError("conflict", `store busy: timed out waiting for ${path}`, { path })),
+      ),
     close: () => {
       handle?.close(false);
       handle = null;
