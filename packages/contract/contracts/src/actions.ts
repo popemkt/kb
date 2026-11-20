@@ -98,6 +98,7 @@ export const CallerKindSchema = z.enum(CALLER_KINDS) satisfies z.ZodType<CallerK
 
 /** Default callers when an action omits `callers`: person sessions and local programs, no capture device access. */
 const DEFAULT_CALLERS: readonly CallerKind[] = ["person", "program"];
+type CallerAccess = { readonly callers?: readonly CallerKind[] | undefined };
 
 /** True when `kind` is a capture caller (`capture-device` or `capture-pairing`). */
 export function isCaptureCaller(kind: CallerKind): boolean {
@@ -105,17 +106,17 @@ export function isCaptureCaller(kind: CallerKind): boolean {
 }
 
 /** The caller kinds `def` admits: its declared `callers`, or {@link DEFAULT_CALLERS} when omitted. */
-function callersOf(def: Pick<ActionDefinition, "callers">): readonly CallerKind[] {
+function callersOf(def: CallerAccess): readonly CallerKind[] {
   return def.callers ?? DEFAULT_CALLERS;
 }
 
 /** True when `def` admits `kind`. */
-function admitsCaller(def: Pick<ActionDefinition, "callers">, kind: CallerKind): boolean {
+function admitsCaller(def: CallerAccess, kind: CallerKind): boolean {
   return callersOf(def).includes(kind);
 }
 
 /** True when `def` admits any capture caller kind (`capture-device` or `capture-pairing`). */
-export function admitsCaptureCaller(def: Pick<ActionDefinition, "callers">): boolean {
+export function admitsCaptureCaller(def: CallerAccess): boolean {
   return callersOf(def).some(isCaptureCaller);
 }
 
@@ -126,10 +127,7 @@ export function admitsCaptureCaller(def: Pick<ActionDefinition, "callers">): boo
  * or one that declares no capture caller returns the same refusal so a capture
  * listener never leaks which non-capture actions exist.
  */
-export function callerRefusal(
-  def: Pick<ActionDefinition, "callers"> | undefined,
-  kind: CallerKind,
-): string | null {
+export function callerRefusal(def: CallerAccess | undefined, kind: CallerKind): string | null {
   if (def !== undefined && admitsCaller(def, kind)) return null;
   if (isCaptureCaller(kind)) {
     if (def === undefined || !admitsCaptureCaller(def)) {
@@ -409,6 +407,7 @@ export const ActionRequestSchema = z.object({
     .optional()
     .transform((input): unknown => input ?? {}),
   approved: z.boolean().optional(),
+  caller: CallerKindSchema.optional(),
   session: z.string().min(1).optional(),
   via: z.string().min(1).max(VIA_MAX).optional(),
   /**
@@ -438,16 +437,16 @@ export function requestOf(
 }
 
 /**
- * The envelope `call` is sent in to another process: the request alone. Who
- * made it here stays here, since the surface that receives it says who
- * calls there.
+ * The envelope sent to another process. The receiving wire stamps the actor
+ * and can carry the page's request to act as a program.
  */
 export function envelopeOf(call: ActionRequest): ActionRequest {
-  const { id, input, approved, session, via, script } = call;
+  const { id, input, approved, caller, session, via, script } = call;
   return {
     id,
     input,
     ...(approved === undefined ? {} : { approved }),
+    ...(caller === "program" ? { caller } : {}),
     ...(session === undefined ? {} : { session }),
     ...(via === undefined ? {} : { via }),
     ...(script === undefined ? {} : { script }),
@@ -478,7 +477,6 @@ export function sessionOfMeta(meta: unknown): string | undefined {
  */
 export type ActionInvocation = ActionRequest & {
   readonly actor: Actor;
-  readonly caller?: CallerKind;
 };
 
 /** One input a session filled: the reference it was read from, and the value it read. */

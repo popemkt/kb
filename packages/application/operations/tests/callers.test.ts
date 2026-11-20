@@ -7,7 +7,15 @@
 import { describe, expect, test } from "bun:test";
 import { Effect, Logger } from "effect";
 import { z } from "zod";
-import { PAGE_WIRE, onWire, type KbContext, type SurfaceWire } from "@kb/contracts";
+import {
+  PAGE_WIRE,
+  envelopeOf,
+  hasPerson,
+  onWire,
+  requestOf,
+  type KbContext,
+  type SurfaceWire,
+} from "@kb/contracts";
 import type { NodeIndex } from "@kb/query";
 import { invokeReceiptWith, type RegisteredAction } from "../src/invoke.ts";
 
@@ -59,6 +67,22 @@ const ACTIONS = new Map<string, RegisteredAction<never>>([
 ]);
 
 describe("action caller enforcement through the invocation contract", () => {
+  test("a serialized page relay can carry program identity and the receiving wire stamps other kinds", () => {
+    const call = { id: "person.only", input: {} };
+    const relay = envelopeOf(onWire(MCP_LIKE_WIRE, call));
+    const decoded = requestOf(relay);
+    if ("invalid" in decoded) throw new Error(decoded.invalid);
+    const received = onWire(PAGE_WIRE, decoded.request);
+    expect(received).toMatchObject({ actor: "agent", caller: "program" });
+    expect(hasPerson(received)).toBe(false);
+    for (const asserted of ["person", "capture-device", "capture-pairing"]) {
+      const made = requestOf({ ...call, caller: asserted, actor: "human" });
+      if ("invalid" in made) throw new Error(made.invalid);
+      expect(onWire(PROGRAM_WIRE, made.request)).toMatchObject({ actor: "cli", caller: "program" });
+      expect(onWire(PAGE_WIRE, made.request)).toMatchObject({ actor: "human", caller: "person" });
+    }
+  });
+
   test.each(["output", "projection", "defect"])(
     "capture receipts hide %s schema diagnostics",
     async (phase) => {

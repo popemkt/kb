@@ -29,6 +29,7 @@ function entry(id: string, mode: ManifestEntry["mode"]): DecidedEntry {
 const MANIFEST = [
   entry("node.get", { kind: "read" }),
   entry("render.views", { kind: "read" }),
+  { ...entry("ext.gated.person", { kind: "read" }), callers: ["person"] },
   entry("ext.gated.stamp", { kind: "write", approval: "required" }),
 ];
 
@@ -86,6 +87,7 @@ describe("the page's WebMCP plugin", () => {
       id: "kb.manifest",
       input: {},
       actor: "agent",
+      caller: "program",
       session: tabSession(),
     });
     expect([...tools.keys()]).toEqual(["node.get", "render.views"]);
@@ -118,6 +120,7 @@ describe("the page's WebMCP plugin", () => {
       id: "render.views",
       input: {},
       actor: "agent",
+      caller: "program",
       session: tabSession(),
     });
     Effect.runSync(kernel.unload("webmcp"));
@@ -142,6 +145,7 @@ describe("the page's WebMCP plugin", () => {
       id: "kb.manifest",
       input: {},
       actor: "agent",
+      caller: "program",
       session: tabSession(),
     });
     Effect.runSync(kernel.unload("webmcp"));

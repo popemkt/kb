@@ -1,8 +1,9 @@
 import { Context } from "effect";
 import { z } from "zod";
-import { actorKind, type Actor } from "@kb/model";
+import { AGENT_ACTOR, actorKind, type Actor } from "@kb/model";
 import {
   ManifestEntrySchema,
+  callerRefusal,
   invocationCaller,
   type ActionInvocation,
   type ActionRequest,
@@ -94,12 +95,22 @@ export function onWire(
   request: ActionRequest | ActionInvocation,
 ): ActionInvocation {
   const relayed = wire.relays === true ? madeBy(request) : undefined;
-  const relayedCaller = wire.relays === true && "caller" in request ? request.caller : undefined;
-  const { approved, script, ...call } = request;
+  const { approved, caller: statedCaller, script, ...call } = request;
   const scripted = script !== undefined && carries(wire, "script");
   const via = call.via ?? wire.via;
-  const actor = scripted ? "script" : (relayed ?? wire.actor);
-  const caller = relayedCaller ?? wire.caller ?? invocationCaller({ actor, caller: undefined });
+  const wireCaller = invocationCaller(wire);
+  // An external envelope can narrow the page's identity to a program. The
+  // receiver supplies every other caller kind, including capture credentials.
+  const programRelay =
+    relayed === undefined &&
+    wire.relays === true &&
+    wireCaller === "person" &&
+    statedCaller === "program";
+  const wireActor = programRelay ? AGENT_ACTOR : wire.actor;
+  const actor = scripted ? "script" : (relayed ?? wireActor);
+  const relayedCaller = relayed === undefined ? undefined : statedCaller;
+  const caller =
+    relayedCaller ?? (programRelay ? "program" : wire.caller) ?? invocationCaller({ actor });
   return {
     ...call,
     ...(via === undefined ? {} : { via }),
@@ -185,16 +196,19 @@ export function approvalAsk(receipt: ActionReceipt): ApprovalAsk {
  * Whether a surface lists an action, given its entry in the manifest that
  * surface read: what is decided about a call to it there. The one rule is
  * this: a surface leaves out an action whose call could never succeed there
- * — one that is denied, or one that asks for approval on a wire that cannot
- * carry it. A call by id still reaches the invoke core, which refuses it.
+ * — one whose caller is outside its declaration, one that is denied, or one
+ * that asks for approval on a wire that cannot carry it. A call by id still
+ * reaches the invoke core, which refuses it.
  * And a surface lists each action once, under its id: an alias stays
  * callable, by its id or tool name, but is not listed again.
  */
 export function listedOn(
   wire: SurfaceWire,
-  { decision, aliasOf }: Pick<DecidedEntry, "decision" | "aliasOf">,
+  entry: Pick<DecidedEntry, "decision" | "aliasOf" | "callers">,
 ): boolean {
+  const { decision, aliasOf } = entry;
   if (aliasOf !== undefined || decision === "deny") return false;
+  if (callerRefusal(entry, invocationCaller(wire)) !== null) return false;
   return decision === "allow" || wire.carriesApproval;
 }
 

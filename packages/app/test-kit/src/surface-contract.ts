@@ -122,6 +122,8 @@ export type SurfaceFactory = (root: string, ui: LiveUi) => Promise<ActionSurface
 
 /** The fixture's write that declares approval. */
 const APPROVAL_ACTION = "ext.gated.stamp";
+const PERSON_ACTION = "ext.gated.person";
+const PROGRAM_ACTION = "ext.gated.program";
 
 /** An extension's node every store holds (core's), and a field the root declares a setting of it. */
 const EXTENSION_NODE = extensionNodeId("core");
@@ -171,6 +173,16 @@ const GATED_EXTENSION = extensionModule("gated", {
     outputSchema: passthrough,
     handler: async () => ({ stamped: true }),
   },
+  ...["person", "program"].map((caller) => ({
+    id: caller,
+    title: caller,
+    description: "A server read for this caller kind",
+    mode: { kind: "read" },
+    callers: [caller],
+    inputSchema: passthrough,
+    outputSchema: passthrough,
+    handler: async () => ({ caller }),
+  })),
 ]`,
 });
 
@@ -182,6 +194,7 @@ const GATED_EXTENSION = extensionModule("gated", {
  */
 const CALLS: readonly ActionRequest[] = [
   { id: "kb.manifest", input: {} },
+  { id: PROGRAM_ACTION, input: {} },
   { id: "node.get", input: { id: "sys.tag", depth: 0 } },
   { id: "node.get", input: { id: "n.surface-contract-missing" } },
   { id: "node.get", input: {} },
@@ -404,9 +417,9 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
   [
     "every surface lists the action ids of what it reaches (the registry's, and on a kb ui " +
       "what it hosts) with their declared modes, " +
-      "leaving out only what is denied to its actor or asks where its wire cannot approve",
+      "using caller admission and the wire's approval rules",
     (set) =>
-      overSurfaces(set, ({ name, surface, root, ui, core }) =>
+      overSurfaces(set, ({ name, surface, root, ui, core, via }) =>
         Effect.gen(function* () {
           const registry = yield* manifest(root).pipe(Effect.provide(bunFileSystemLayer));
           expect(registry.some((entry) => entry.id === APPROVAL_ACTION)).toBe(true);
@@ -423,6 +436,18 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
           expect(actions.map(({ id }) => id)).toEqual([...registry.map(({ id }) => id), ...hosted]);
           const callable = actions.filter((entry) => listedOn(surface.wire, entry));
           const listed = yield* Effect.promise(() => surface.list());
+          expect(listed.some(({ id }) => id === PERSON_ACTION)).toBe(name === "page");
+          if (name === "page") {
+            const person = { id: PERSON_ACTION, input: {} };
+            expect(yield* via(person)).toMatchObject({
+              status: "succeeded",
+              output: { caller: "person" },
+            });
+            expect(yield* via({ ...person, caller: "program" })).toMatchObject({
+              status: "failed",
+              code: "forbidden",
+            });
+          }
           // Wires without approval omit that detail from their hints.
           const stated = (entries: readonly ListedAction[]) =>
             surface.wire.carriesApproval ? entries : entries.map(withoutApproval);

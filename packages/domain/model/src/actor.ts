@@ -16,7 +16,8 @@ import { Schema } from "effect";
  * sandbox (a code view), whoever wrote it: its calls are held to its run's
  * grant (DESIGN.md → Sandbox). A reaction records its listener id with its kind.
  */
-export const ACTORS = ["human", "agent", "cli", "script", "reaction"] as const;
+export const AGENT_ACTOR = "agent";
+export const ACTORS = ["human", AGENT_ACTOR, "cli", "script", "reaction"] as const;
 export type ActorKind = (typeof ACTORS)[number];
 
 export const ActorSchema = Schema.Union([

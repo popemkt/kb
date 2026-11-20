@@ -89,9 +89,11 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // `captureContract`, an optional field a previous page ignores.
 // Manifest entries carry an optional `callers` list when an action admits
 // non-default caller kinds; a previous page ignores it.
+// Protocol 12: the page must preserve the program caller when it relays
+// WebMCP actions. A previous page instead sends them as the person's calls.
 const RECORDED = {
-  protocol: 11,
-  fingerprint: "4202156ce2808a395b3fcc62e843795b7296a363696a1c33f22589bc9c7fa9ec",
+  protocol: 12,
+  fingerprint: "1950f9389f64ad76bbb03689652642a76ee0695a7e691b762d783ce6ca7b1b57",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

@@ -3161,8 +3161,8 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     calling `kb.manifest` on that wire. `kb.manifest` lists every action and
     says of each what is decided about the caller's own call
     (`decision`). One rule in `@kb/contracts`, `listedOn`, then leaves out an
-    action whose call could never succeed there: one denied to the wire's
-    actor, or one that asks on a wire that cannot carry approval
+    action whose declaration excludes the wire's caller kind, whose guard
+    denies the call, or whose guard asks on a wire that cannot carry approval
     (`listingOf`). A call by its id or tool name still reaches the invoke
     core and is refused. The same rule lists each action once, under its
     id: an alias the manifest lists (`aliasOf`) stays callable by its id or
@@ -3179,9 +3179,11 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     carries an `Origin` it lets through is the UI's own page, on the page's
     wire (`PAGE_WIRE`), and one that carries none is a local program's
     (`HTTP_WIRE`, an agent's). A browser sends `Origin` on every
-    WebSocket handshake and every `POST`, so the page's socket and its
-    actions are always the page's; its same-origin `GET`s carry none and
-    read on the program's wire, which reads the same. **The trade-off,
+    WebSocket handshake and every `POST`. The page may narrow its action
+    envelope to the `program` caller kind, which relays WebMCP calls
+    without a person's implicit approval. The receiving wire supplies all
+    other caller kinds. Same-origin `GET`s carry no `Origin` and use the
+    program's wire. **The trade-off,
     chosen plainly:** a local program can send the UI's `Origin` and pass
     as the page. That is accepted, because governance is not a security
     boundary here (Action registry → Current stance): who can reach the

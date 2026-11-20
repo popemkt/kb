@@ -26,7 +26,7 @@ describe("the tab session a call is made in", () => {
     const request = { id: "ui.navigate", input: { route: "/graph" }, session: "tab.a" };
     expect(onWire(PAGE_WIRE, request).session).toBe("tab.a");
     expect(onWire(PROGRAM_WIRE, request).session).toBe("tab.a");
-    expect(envelopeOf(onWire(PROGRAM_WIRE, request))).toEqual(request);
+    expect(envelopeOf(onWire(PROGRAM_WIRE, request))).toEqual({ ...request, caller: "program" });
     expect(envelopeOf({ id: "ui.screen", input: {} })).toEqual({ id: "ui.screen", input: {} });
   });
 
@@ -41,6 +41,7 @@ describe("the tab session a call is made in", () => {
       id: "node.get",
       input: {},
       actor: "cli",
+      caller: "program",
       approved: false,
     });
   });

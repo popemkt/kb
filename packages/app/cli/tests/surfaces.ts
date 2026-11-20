@@ -23,6 +23,7 @@ import {
   DecidedEntrySchema,
   ManifestEntrySchema,
   NO_SECRETS,
+  envelopeOf,
   listedOn,
   onWire,
   type ActionRequest,
@@ -65,7 +66,7 @@ import { ACTION_INVOKE_WIRE } from "../src/command.ts";
 const ListedActionSchema = ManifestEntrySchema.pick({ id: true, mode: true });
 const ManifestOutputSchema = z.object({
   actions: z.array(
-    DecidedEntrySchema.pick({ id: true, mode: true, decision: true, aliasOf: true }),
+    DecidedEntrySchema.pick({ id: true, mode: true, decision: true, aliasOf: true, callers: true }),
   ),
 });
 
@@ -259,7 +260,7 @@ async function postAction(
       "content-type": "application/json",
       ...(from === "page" ? { origin: uiAddressOf(at) } : {}),
     },
-    body: JSON.stringify(invocation),
+    body: JSON.stringify(envelopeOf(invocation)),
   });
   const response = ActionResponseSchema.parse(await res.json());
   if (response.status === "failed") return response;
