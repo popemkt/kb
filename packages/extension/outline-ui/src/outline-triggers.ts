@@ -45,11 +45,11 @@ function openedAfterSpace(opener: string, query: string) {
  * Where a palette step writes, read when picked. A conversion consumes the
  * source row in the same batch and moves focus when the batch lands.
  */
-interface StepTarget {
+interface StepTarget<Result> {
   readonly nodeId: string;
   readonly conversion?: {
     readonly remove: () => Promise<boolean>;
-    readonly land: () => void;
+    readonly land: (result: Result) => void;
   };
 }
 
@@ -61,12 +61,12 @@ interface StepTarget {
  * text's write and the step's are two writes, so one undo takes back the
  * step's alone.
  */
-function stepTrigger(
+function stepTrigger<Result>(
   id: string,
-  step: PaletteStep,
+  step: PaletteStep<Result | null>,
   open: TextTrigger["open"],
   row: { readonly nodeId: string; readonly schema: SchemaIndex },
-  target: () => StepTarget | null = () => ({ nodeId: row.nodeId }),
+  target: () => StepTarget<Result> | null = () => ({ nodeId: row.nodeId }),
 ): TextTrigger {
   return {
     id,
@@ -88,7 +88,7 @@ function stepTrigger(
       const conversion = at.conversion;
       const write = async () => {
         const landed = await browserHost().writes.together(async () => {
-          await step.commit({
+          const result = await step.commit({
             targetNodeId: at.nodeId,
             targetNodeIds: [at.nodeId],
             schema: row.schema,
@@ -97,9 +97,12 @@ function stepTrigger(
             name: typed.query.trim(),
             alternate: false,
           });
-          return conversion?.remove();
+          if (result === null || (conversion !== undefined && !(await conversion.remove()))) {
+            return null;
+          }
+          return result;
         });
-        if (landed === true) conversion?.land();
+        if (landed !== null) conversion?.land(landed);
       };
       return conversion === undefined ? { insert: "", write } : { consume: write };
     },

@@ -97,17 +97,17 @@ const removeTag: PaletteStep = {
   },
 };
 
-export const addField: PaletteStep = {
+export const addField: PaletteStep<string | null> = {
   label: "Add field",
   placeholder: "Search or name a field...",
   icon: <TextTIcon size={12} weight="bold" />,
   createLabel: (name) => `Create field "${name}"`,
   candidates: (graph) => nodesOfKind(graph.wireNodes, SYSTEM_IDS.field),
-  commit: async ({ targetNodeIds, schema, pickedId, creating, name }) => {
+  commit: ({ targetNodeIds, schema, pickedId, creating, name }) => {
     const { graph, writes } = browserHost();
-    await asOneWrite(targetNodeIds, async () => {
+    return asOneWrite(targetNodeIds, async () => {
       const fieldId = creating ? await writes.defineField(name) : pickedId;
-      if (fieldId === null) return;
+      if (fieldId === null) return null;
       // An empty typed value is what makes the row appear and focusable; the
       // field's own declared type decides which editor that row gets.
       const empty = emptyValueForType(resolveFieldTypeById(fieldId, schema));
@@ -118,6 +118,7 @@ export const addField: PaletteStep = {
           (node) => targets.has(node.id) && (node.props[fieldId]?.length ?? 0) === 0,
         );
       await Promise.all(missing.map((node) => writes.updateProp(node.id, fieldId, empty)));
+      return fieldId;
     });
   },
 };

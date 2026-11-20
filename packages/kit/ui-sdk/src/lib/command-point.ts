@@ -103,7 +103,7 @@ interface PaletteStepPick {
  * over one picker engine (`lib/picker`), so only the candidate source,
  * whether a new one may be minted, and the write vary.
  */
-export interface PaletteStep {
+export interface PaletteStep<Result = unknown> {
   readonly label: string;
   readonly placeholder: string;
   readonly icon: ReactNode;
@@ -117,7 +117,8 @@ export interface PaletteStep {
    * reference"); absent, Alt picks as Enter does.
    */
   readonly alternate?: string;
-  readonly commit: (pick: PaletteStepPick) => Promise<void>;
+  /** The write and any result a caller uses to continue the gesture. */
+  readonly commit: (pick: PaletteStepPick) => Promise<Result>;
 }
 
 /**

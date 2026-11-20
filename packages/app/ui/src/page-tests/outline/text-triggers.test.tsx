@@ -205,6 +205,36 @@ describe("triggers in the text", () => {
       expect(propOf(ABOVE, "field.status")).toEqual([value]);
     });
 
+    it("focuses the picked field when a different field follows it", async () => {
+      const nodes = rankedFixture().flatMap((node) => {
+        if (node.id === "field.status") {
+          return [node, { ...node, id: "field.second", text: "second" }];
+        }
+        if (node.id !== ABOVE) return [node];
+        return [
+          {
+            ...node,
+            props: {
+              "field.status": [{ t: "str" as const, v: "doing" }],
+              "field.second": [{ t: "str" as const, v: "another value" }],
+            },
+          },
+        ];
+      });
+      useGraphStore.getState().hydrateFromWire(nodes, 1, "fixtures");
+      const el = await typedOnLine(">stat");
+      const section = present(container.querySelector(`[data-fields-for="${ABOVE}"]`), "fields");
+      const slots = ["status", "second"].map((field) =>
+        present(section.querySelector(`[data-field="field.${field}"] [data-value-slot]`), field),
+      );
+      expect([...section.querySelectorAll("[data-value-slot]")]).toEqual(slots);
+      const pickedSlot = present(slots[0], "picked slot");
+      await press(el, "Enter");
+      await vi.waitFor(() =>
+        expect(pickedSlot.contains(dom.document.activeElement as unknown as Node)).toBe(true),
+      );
+    });
+
     it("is one undo step: the line comes back empty and the field goes", async () => {
       const el = await typedOnLine(">stat");
       await press(el, "Enter");
