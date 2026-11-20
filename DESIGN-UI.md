@@ -170,11 +170,14 @@ server refuses is said once, as a change that was not saved, and its hold is
 dropped. The server writes every call it refuses to its log, by action,
 code, tab session and node ids, never the refusal's message, which may quote
 what was written or what the graph holds (`server/src/invoke.ts`).
+A successful receipt that names different minted IDs also drops the hold
+and asks the server for missed changes. The settled receipt names the IDs
+the server committed.
 
 **What the table guarantees.**
 
 - Only the server escalates to a snapshot. The browser fetches `/api/graph`
-  only after the server answered `snapshot-required`. A failed push asks
+  only after the server answered `snapshot-required`. Dropping a hold asks
   `since` and nothing more.
 - `awaiting-snapshot` is left only by installing a snapshot. A hello at the
   replica's rev does not clear it, and a failed fetch is retried until one

@@ -1,4 +1,4 @@
-import { Effect, Layer, Predicate } from "effect";
+import { Effect, Equal, Layer, Predicate } from "effect";
 import {
   type ActionRequest,
   type ActionReceipt,
@@ -271,7 +271,7 @@ function requireSession(): BrowserSession {
  * The one ordered network lane for this tab's writes (DESIGN-UI.md → Replica
  * sync → Push lane). The server is handed the writes in the order the tab
  * committed them, so it judges each against the graph the person saw when
- * they made it. A push that carries a hold settles it with its receipt.
+ * they made it. A receipt that confirms the write settles its hold.
  */
 function send(invocation: ActionRequest, hold?: Hold): Promise<ActionResponse> {
   const result = pushTail.catch(() => undefined).then(() => postAction(invocation));
@@ -283,7 +283,8 @@ function send(invocation: ActionRequest, hold?: Hold): Promise<ActionResponse> {
   const { replica } = requireSession();
   return result.then(
     (response) => {
-      if (response.status === "succeeded") replica.settle(hold, response.rev);
+      if (response.status === "succeeded" && confirmsMint(invocation, response.output))
+        replica.settle(hold, response.rev);
       else replica.drop(hold);
       return response;
     },
@@ -292,6 +293,19 @@ function send(invocation: ActionRequest, hold?: Hold): Promise<ActionResponse> {
       throw error;
     },
   );
+}
+
+/** An older server can accept a push and mint its own ids. Catch up to its graph in that case. */
+function confirmsMint(invocation: ActionRequest, output: unknown): boolean {
+  const key = localActions.get(invocation.id)?.def.mints;
+  if (
+    key === undefined ||
+    !Predicate.hasProperty(invocation.input, key) ||
+    !Predicate.hasProperty(output, key)
+  )
+    return true;
+  const sent = invocation.input[key];
+  return sent === undefined || Equal.equals(sent, output[key]);
 }
 
 /**

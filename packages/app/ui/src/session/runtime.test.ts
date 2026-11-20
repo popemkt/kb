@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { setPostAction } from "@/api/action";
+import { setPostAction, type ActionResponse } from "@/api/action";
 import { tabSession } from "@/api/tab-session";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { bundledDerived } from "@kb/bundled";
@@ -118,10 +118,12 @@ describe("browser action runtime", () => {
 
   it("pushes the same outline ids the local commit minted for its rows", async () => {
     useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+    const since = vi.fn();
+    setBrowserLink({ since, fetchSnapshot: vi.fn(), retryAfter: vi.fn() });
     const post = vi.fn(async (invocation: ActionRequest) => ({
       status: "succeeded" as const,
       id: invocation.id,
-      output: invocation.input,
+      output: structuredClone(invocation.input),
       rev: 2,
     }));
     setPostAction(post);
@@ -133,11 +135,40 @@ describe("browser action runtime", () => {
     expect(ids.map((id) => index()?.getNode(id)?.text)).toEqual(["First", "Nested", "Last"]);
     expect(index()?.getNode(ids[0] ?? "")?.children).toEqual([ids[1]]);
     expect(await settled).toMatchObject({ status: "succeeded", output: { ids } });
+    expect(since).not.toHaveBeenCalled();
     expect(post).toHaveBeenCalledExactlyOnceWith({
       id: "node.addTree",
       input: { ...input, ids },
       session: tabSession(),
     });
+  });
+
+  it("drops optimistic outline ids and catches up when the server minted different ones", async () => {
+    useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+    const response = Promise.withResolvers<ActionResponse>();
+    setPostAction(() => response.promise);
+    const since = vi.fn();
+    setBrowserLink({ since, fetchSnapshot: vi.fn(), retryAfter: vi.fn() });
+
+    const { receipt, settled } = await invokeSettled({
+      id: "node.addTree",
+      input: { outline: "- Pasted row", parent: null },
+    });
+    if (receipt.status !== "succeeded") throw new Error(receipt.message);
+    const { lines } = receipt.output as { lines: Record<string, string> };
+    const local = index()?.getNode(lines["1"] ?? "");
+    if (local === undefined) throw new Error("the replica did not show the pasted row");
+
+    const serverNode = { ...local, id: "n.legacy-paste" };
+    const output = { ids: [serverNode.id], lines: { 1: serverNode.id } };
+    response.resolve({ id: "node.addTree", status: "succeeded", rev: 2, output });
+
+    expect(await settled).toMatchObject({ status: "succeeded", output });
+    expect(index()?.getNode(local.id)).toBeUndefined();
+    expect(since).toHaveBeenCalledExactlyOnceWith(1);
+    browserReplica()?.receive({ op: "tx", rev: 2, upserts: [serverNode], deletes: [] });
+    expect(index()?.getNode(serverNode.id)?.text).toBe("Pasted row");
+    expect(index()?.getNode(local.id)).toBeUndefined();
   });
 
   it.each([

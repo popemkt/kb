@@ -166,7 +166,7 @@ export class BrowserReplica {
     this.flush();
   }
 
-  /** The push failed or threw: show the server image again, and ask what was missed. */
+  /** Discard a speculative hold and catch up to the server's graph. */
   drop(hold: Hold): void {
     if (!this.holds.has(hold)) return;
     this.show(this.release([hold]));
