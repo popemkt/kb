@@ -8,6 +8,7 @@ import { describe, expect, test } from "bun:test";
 import { Effect, Logger } from "effect";
 import { z } from "zod";
 import {
+  CurrentInterception,
   PAGE_WIRE,
   envelopeOf,
   hasPerson,
@@ -18,6 +19,7 @@ import {
 } from "@kb/contracts";
 import type { NodeIndex } from "@kb/query";
 import { invokeReceiptWith, type RegisteredAction } from "../src/invoke.ts";
+import { interceptionOf } from "../src/interception.ts";
 
 const PROGRAM_WIRE: SurfaceWire = { carriesApproval: false, actor: "cli", caller: "program" };
 const MCP_LIKE_WIRE: SurfaceWire = { carriesApproval: false, actor: "agent", caller: "program" };
@@ -83,8 +85,8 @@ describe("action caller enforcement through the invocation contract", () => {
     }
   });
 
-  test.each(["output", "projection", "defect"])(
-    "capture receipts hide %s schema diagnostics",
+  test.each(["output", "projection", "defect", "interceptor"])(
+    "capture receipts hide %s diagnostics",
     async (phase) => {
       const privateValue = "private graph value";
       const Output = z.object({ privateValue: z.string() });
@@ -102,6 +104,18 @@ describe("action caller enforcement through the invocation contract", () => {
             }
           : Reject;
       const id = "diagnostic.output";
+      const interception = interceptionOf({
+        interceptors:
+          phase === "interceptor"
+            ? [
+                {
+                  owner: "test",
+                  id: "test.output",
+                  value: { match: id, output: () => Effect.die(new Error(privateValue)) },
+                },
+              ]
+            : [],
+      });
       const actions = new Map<string, RegisteredAction<never>>([
         [
           id,
@@ -128,6 +142,7 @@ describe("action caller enforcement through the invocation contract", () => {
         const receipt = await Effect.runPromise(
           invokeReceiptWith(actions, FAKE_CTX, onWire(wire, { id, input: {} })).pipe(
             Effect.provide(Logger.layer([logger])),
+            Effect.provideService(CurrentInterception, interception),
           ),
         );
         expect(receipt).toEqual({
@@ -138,12 +153,18 @@ describe("action caller enforcement through the invocation contract", () => {
         });
       }
       expect(JSON.stringify(logs)).toContain(privateValue);
-      if (phase !== "defect") expect(JSON.stringify(logs)).toContain('"path":["privateValue"]');
+      if (phase === "output" || phase === "projection") {
+        expect(JSON.stringify(logs)).toContain('"path":["privateValue"]');
+      }
       const ordinary = await Effect.runPromise(
-        invokeReceiptWith(actions, FAKE_CTX, onWire(PROGRAM_WIRE, { id, input: {} })),
+        invokeReceiptWith(actions, FAKE_CTX, onWire(PROGRAM_WIRE, { id, input: {} })).pipe(
+          Effect.provideService(CurrentInterception, interception),
+        ),
       );
-      if (phase === "output") expect(JSON.stringify(ordinary)).toContain(privateValue);
-      else expect(ordinary).toMatchObject({ status: "succeeded", output: { privateValue } });
+      if (phase === "output" || phase === "interceptor") {
+        expect(ordinary.status).toBe("failed");
+        expect(JSON.stringify(ordinary)).toContain(privateValue);
+      } else expect(ordinary).toMatchObject({ status: "succeeded", output: { privateValue } });
     },
   );
 

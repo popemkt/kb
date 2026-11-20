@@ -2945,8 +2945,9 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   `callerOutput` declares the per-caller schema the invoke core applies after
   the output schema on every call, including nested calls. `kb.manifest`
   admits both capture caller kinds and projects their output to
-  `CaptureVersion`. A capture caller gets a generic internal failure if either
-  output schema fails. The host logs its diagnostics.
+  `CaptureVersion`. A capture caller gets a generic internal failure if an
+  output interceptor or either output schema fails. The host logs its
+  diagnostics.
 - **Request envelope.** An action can declare `requestEnvelope: "input-only"`
   to drop the tab session and `via` label and run without person approval on
   every wire. `capture.pair` uses this envelope to exchange the one-use code.

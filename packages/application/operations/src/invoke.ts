@@ -150,21 +150,21 @@ const parseOutput = Effect.fnUntraced(function* (
 });
 
 /**
- * Both output schemas read unprojected data. Keep their diagnostics on the
- * host when the receipt goes to a capture caller.
+ * Output interceptors and schemas read unprojected data. Keep their
+ * diagnostics on the host when the receipt goes to a capture caller.
  */
 const outputForCaller = Effect.fnUntraced(function* (
   def: ActionDefinition,
   caller: CallerKind,
-  output: unknown,
+  output: Effect.Effect<unknown, DomainError>,
 ) {
-  const validate = Effect.gen(function* () {
-    const validated = yield* parseOutput(def.id, def.outputSchema, output);
+  const finish = Effect.gen(function* () {
+    const validated = yield* parseOutput(def.id, def.outputSchema, yield* output);
     const projection = def.callerOutput?.[caller];
     return projection === undefined ? validated : yield* parseOutput(def.id, projection, validated);
   });
-  if (!isCaptureCaller(caller)) return yield* validate;
-  return yield* validate.pipe(
+  if (!isCaptureCaller(caller)) return yield* finish;
+  return yield* finish.pipe(
     Effect.catchCause((cause) =>
       Effect.gen(function* () {
         if (Cause.hasInterruptsOnly(cause)) return yield* Effect.failCause(cause);
@@ -288,7 +288,7 @@ const invokeCall = Effect.fn("kb.invoke")(function* <R>(
   if (run === null) return failed(id, "internal", `action has no effect or handler: ${id}`);
 
   const produced = yield* run.pipe(asCall(invocation));
-  const output = yield* interceptOutput(interception, { ctx, invocation, action }, produced).pipe(
+  const output = interceptOutput(interception, { ctx, invocation, action }, produced).pipe(
     asCall(invocation),
   );
   const projected = yield* outputForCaller(entry.def, caller, output);
