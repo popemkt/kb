@@ -1672,7 +1672,7 @@ text's triggers (`[[`, `@`, `#`, `>`), every node-palette step
 (`PaletteStepPoint`; the outline's add-tag, add-field, reference and move-to
 steps among them),
 the ontology page's include/extends, the canvas's "add existing node" and the
-tag page's add-field. A query ranks label prefixes, label substrings, id
+tag page's add-field. A query ranks exact labels, label prefixes, label substrings, id
 matches, label initials and compact subsequences of at least three letters,
 in that order. The list marks matched label letters. An id match takes at
 least two characters and

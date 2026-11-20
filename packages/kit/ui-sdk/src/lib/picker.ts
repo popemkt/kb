@@ -76,6 +76,8 @@ interface Match {
   readonly ranges: readonly MatchRange[];
 }
 
+const EXACT_LABEL_SCORE = -1;
+
 /** Merge adjacent single-character ranges into runs. */
 function runs(indices: readonly number[]): MatchRange[] {
   const out: Array<[number, number]> = [];
@@ -128,18 +130,21 @@ function compact(at: readonly number[]): boolean {
 /**
  * How well `query` matches a candidate, or null when it does not.
  *
- * In order: the label starts with the query, contains it, the id ends in a matching segment,
- * or the query's characters start the label's words in order, or occur in
- * order close together. Only label matches carry ranges, since only the label is
- * shown.
+ * Exact labels come first, then label prefixes, label substrings, id matches,
+ * word initials, and compact subsequences. Only label matches carry ranges.
  */
 export function matchCandidate(label: string, id: string, query: string): Match | null {
   const q = query.trim().toLowerCase();
   if (q === "") return { score: 0, ranges: [] };
   const text = label.toLowerCase();
   const at = text.indexOf(q);
-  if (at === 0) return { score: 0, ranges: [[0, q.length]] };
-  if (at > 0) return { score: 1, ranges: [[at, at + q.length]] };
+  if (at >= 0) {
+    const score = at === 0 ? 0 : 1;
+    return {
+      score: text.trim() === q ? EXACT_LABEL_SCORE : score,
+      ranges: [[at, at + q.length]],
+    };
+  }
   if (matchesId(id, q)) return { score: 2, ranges: [] };
   const words = initials(text, q);
   if (words !== null) return { score: 3, ranges: runs(words) };
@@ -192,7 +197,7 @@ export function pickerRows(
     matches: match.ranges,
     selected: selected?.has(candidate.id) === true,
   }));
-  const named = candidates.some((c) => c.label.trim().toLowerCase() === name.toLowerCase());
+  const named = scored[0]?.match.score === EXACT_LABEL_SCORE;
   if (canCreate && name !== "" && !named) rows.push({ kind: "create", id: CREATE_ROW_ID, name });
   return rows;
 }

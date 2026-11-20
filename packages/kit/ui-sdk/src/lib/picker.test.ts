@@ -72,6 +72,19 @@ describe("orderCandidates with recents and uses", () => {
     { id: "ex.tag.project", label: "project" },
   ];
 
+  it.each(["Task", " Task "])("keeps the exact tag %j ahead of 12 more-used prefixes", (label) => {
+    const prefixes = Array.from({ length: 12 }, (_, i) => ({
+      id: `ex.tag.task-${i}`,
+      label: `Task type ${i}`,
+    }));
+    const ordered = orderCandidates([...prefixes, { id: "ex.tag.task", label }], {
+      uses: new Map(prefixes.map(({ id }) => [id, 10])),
+      emptyQuery: "recent-or-used",
+    });
+    const rows = pickerRows(ordered, { query: " TASK ", limit: 12, canCreate: true });
+    expect(ids(rows)).toEqual(["ex.tag.task", ...prefixes.slice(0, 11).map(({ id }) => id)]);
+  });
+
   it("empty query returns recents first, then by use count, then (only matching) the rest", () => {
     const ordered = orderCandidates(pool, {
       recent: ["ex.tag.project"],
