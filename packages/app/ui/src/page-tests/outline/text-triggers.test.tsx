@@ -10,11 +10,12 @@ import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { bundledPlugin } from "@kb/contracts";
 import { daysExtension } from "@kb/days";
-import { parseDateInput, present, SYSTEM_IDS } from "@kb/model";
+import { isContextualRef, parseDateInput, present, SYSTEM_IDS } from "@kb/model";
 import { definePlugin } from "@kb/plugin";
 import { browserHost, DateTargetService, outlineInstanceKey, syncUiPlugins } from "@kb/ui-sdk";
 import { mutations } from "@/actions/mutations";
 import { useGraphStore } from "@/stores/graph.store";
+import { REF_SEED_WIRES } from "@/fixtures/contextual-ref";
 import { rankedFixture } from "@/test-support/ranked-fixture";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
@@ -433,6 +434,38 @@ describe("triggers in the text", () => {
         expect(propOf(ROW, SYSTEM_IDS.typeField)).toContainEqual({ t: "ref", v: "tag.todo" }),
       );
       act(() => useUiStore.getState().setNodePaletteOpen(false));
+    });
+  });
+
+  describe("@ as the whole text", () => {
+    // The field a reference row's target is (the seed's), beside the fixture.
+    beforeEach(() =>
+      useGraphStore
+        .getState()
+        .hydrateFromWire([...rankedFixture(), ...REF_SEED_WIRES], 1, "fixtures"),
+    );
+
+    it("makes the row a reference to the node picked, its text not repeated, in one undo step", async () => {
+      const el = await typed("@Ship");
+      expect(listed()[0]).toContain("Ship kb ui shell");
+      const undoBefore = useGraphStore.getState().undoStack.length;
+      await press(el, "Enter");
+      await vi.waitFor(() =>
+        expect(propOf(ROW, SYSTEM_IDS.refTargetField)).toEqual([{ t: "ref", v: "n.root-a" }]),
+      );
+      expect(textOf(ROW)).toBe("");
+      expect(isContextualRef(present(outlineNodes().get(ROW), "row"))).toBe(true);
+      expect(useGraphStore.getState().undoStack).toHaveLength(undoBefore + 1);
+      await act(() => mutations.undo());
+      await vi.waitFor(() => expect(propOf(ROW, SYSTEM_IDS.refTargetField)).toEqual([]));
+      expect(textOf(ROW)).toBe("@Ship");
+    });
+
+    it("after other text, stays a reference in the text", async () => {
+      const el = await typed("see @Ship");
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(textOf(ROW)).toBe("see [[n.root-a|Ship kb ui shell]]"));
+      expect(propOf(ROW, SYSTEM_IDS.refTargetField)).toEqual([]);
     });
   });
 });

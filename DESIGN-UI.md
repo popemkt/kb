@@ -1722,7 +1722,11 @@ step), and ⌘⇧Z makes it again.
   provider other than core's is elected for `ui.date-target` (DESIGN.md →
   [Provider roles](./DESIGN.md#provider-roles)): with days on, the date's
   day. A pick inserts a reference to the node, or to the date's node, made
-  if need be.
+  if need be. As a row's whole text (`@` and the query, the caret at its
+  end), on a row whose text is its own, a pick makes the row a reference
+  row to that node instead, the write Turn into reference… makes
+  (`outline.add-ref`), and the text goes. The row is then selected, not
+  edited, since its text is now the node it references.
 - `#` opens at the start of the text or after a space, its query one word.
   It is the Add tag step (`outline.add-tag`): it offers the tags, and a new
   one by name, and a pick takes `#` and the query out of the text and tags

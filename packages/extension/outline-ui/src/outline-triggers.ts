@@ -3,10 +3,11 @@
  * text), beside the `[[` every text has: `@` a date or a node, `#` a tag,
  * `>` a field, `/` a command. `#` and `>` are the Add tag and Add field
  * steps opened from the text, so they offer and write exactly what those
- * steps do; `@` is `[[`'s nodes with the date its query names first; `/`
- * is the node menu (`slashTrigger`).
+ * steps do; `@` is `[[`'s nodes with the date its query names first, and
+ * as a row's whole text it is Turn into reference…'s step; `/` is the node
+ * menu (`slashTrigger`).
  */
-import { parseDateInput, parseDay } from "@kb/model";
+import { parseDateInput, parseDay, present } from "@kb/model";
 import {
   browserHost,
   dateTarget,
@@ -26,7 +27,7 @@ import {
 } from "@kb/ui-sdk";
 import { longDateLabel, relativeDateLabel, todayLocal } from "./date-display";
 import { outlineNodes } from "./outline.store";
-import { addField, addTag } from "./outline-steps";
+import { addField, addTag, OUTLINE_STEPS } from "./outline-steps";
 import { slashTrigger } from "./slash-trigger";
 import { landInFieldsOf } from "./value-slot-nav";
 
@@ -187,8 +188,8 @@ async function mentioned(row: PickerRow): Promise<PickerRow | null> {
 }
 
 /**
- * `@` in the text of node `nodeId`: a reference to the node or the date
- * picked, as `[[` makes, in the text.
+ * `@` in the text of node `nodeId`, after other text: a reference to the
+ * node or the date picked, as `[[` makes, in the text.
  */
 const mentionTrigger = (nodeId: string): TextTrigger => ({
   id: "mention",
@@ -200,6 +201,49 @@ const mentionTrigger = (nodeId: string): TextTrigger => ({
     return target === null ? { insert: `@${typed.query}` } : refTrigger.pick(target, typed);
   },
 });
+
+/** Turn into reference…'s step, the outline's own (`outline.add-ref`). */
+const turnIntoReference = present(
+  OUTLINE_STEPS.find(({ id }) => id === "add-ref")?.value,
+  "the outline's add-ref step",
+);
+
+/**
+ * `@` as the whole text of row `row.nodeId`, drawn at `instanceKey`, the
+ * caret at its end, where the row's text is its own (not a reference's):
+ * what `@` offers, and a pick makes the row a reference to it, the write
+ * Turn into reference… makes, with the text gone, as one write. The row is
+ * then selected, not edited: its text is now the node it references, which
+ * the caret should not walk into unasked.
+ */
+function referenceTrigger(
+  row: { readonly nodeId: string; readonly textNodeId: string; readonly schema: SchemaIndex },
+  instanceKey: string | undefined,
+): TextTrigger {
+  return {
+    id: "reference",
+    open: (text, cursor) => {
+      const whole = /^@[^\n@]*$/u.test(text) && cursor === text.length;
+      const open = whole && row.nodeId === row.textNodeId ? mentionAt(text, cursor) : null;
+      return open?.start === 0 ? mentionQuery(open) : null;
+    },
+    rows: mentionRows(row.nodeId),
+    pick: async (picked, typed) => {
+      const target = await mentioned(picked);
+      if (target === null) return { insert: `@${typed.query}` };
+      return stepPick(
+        turnIntoReference,
+        row,
+        { nodeId: row.nodeId, after: () => browserHost().selectNode(row.nodeId, instanceKey) },
+        {
+          id: target.id,
+          creating: false,
+          name: typed.query.trim(),
+        },
+      );
+    },
+  };
+}
 
 /**
  * The node row `nodeId`, drawn at `instanceKey`, is an empty line of: the
@@ -247,7 +291,9 @@ function fieldTrigger(
 /**
  * The outline's triggers for the text of the row whose node is `rowNodeId`,
  * its text node `nodeId`'s (`shownNodeId`: the row's own, or a reference's
- * target), drawn at `instanceKey`, beside every text's `[[`.
+ * target), drawn at `instanceKey`, beside every text's `[[`. The first that
+ * opens is the one open, so `@` as the whole text is a reference row's
+ * before it is a mention.
  */
 export function outlineTriggers(
   rowNodeId: string,
@@ -257,6 +303,7 @@ export function outlineTriggers(
 ): readonly TextTrigger[] {
   const row = { nodeId, schema };
   return [
+    referenceTrigger({ nodeId: rowNodeId, textNodeId: nodeId, schema }, instanceKey),
     mentionTrigger(nodeId),
     stepTrigger("tag", addTag, openedAfterSpace("#", "[^\\s#]*"), row),
     fieldTrigger(row, instanceKey),
