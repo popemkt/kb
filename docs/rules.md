@@ -842,6 +842,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — an edge end that may be a free point (or a path item end bound to an item), written through connectItems and drawn by edgeRoute in both projections
 - **node** — `01M5QP271PQ15E7WZ36KEN055N`
 
+### GAP: Canvas commands prepare whole-node writes before the retry planner
+
+- **expected** — A Canvas edit or import derives its document, parent links and related node writes from the graph each commit attempt reads.
+- **current** — Several Canvas verbs and the tldraw import pass precomputed node upserts to GraphWrites.commit; another attempt can reuse the same snapshots. This path predates the session retry change.
+- **impact** — A concurrent edit can be replaced by an older canvas document or parent link.
+- **closes** — Move Canvas document edits, related writes and import planning into the GraphWrites callback and prove concurrent edits survive on both store backends.
+- **node** — `01M7XES1FFV2N8AEZREJN7CQG7`
+
 ### GAP: canvas context menu opens in 2D only; a right-click in 3D opens nothing
 
 - **expected** — a right-click that does not drag opens the same context menu in 3D as in 2D, on what it lands on

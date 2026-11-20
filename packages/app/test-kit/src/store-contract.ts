@@ -69,6 +69,7 @@ import { commitReceiptNamesItsWrite, tailRecordsWhoCommitted } from "./commit-re
 import { viewsMigrateRewritesLegacyShapes } from "./view-migration-contract.ts";
 import {
   commitAfterAnotherWriterMergesIntoIt,
+  deletePreservesConcurrentSibling,
   plannedWriteSurvivesContention,
   updatePreservesConcurrentField,
 } from "./writers-contract.ts";
@@ -294,6 +295,7 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
   ["a commit with an exhausted lock deadline leaves the store unchanged", exhaustedLockDeadline],
   ["a session replans a write through repeated commit conflicts", plannedWriteSurvivesContention],
   ["node.update preserves a concurrent edit to a different field", updatePreservesConcurrentField],
+  ["node.delete preserves a concurrently added sibling", deletePreservesConcurrentSibling],
   [
     "a commit that cannot be written fails with a DomainError and leaves no store",
     unwritableCommitFails,

@@ -121,10 +121,11 @@ export interface PersistOptions {
  * conditional commit): a commit's integrity, system-write rule and guards
  * hold for the state it lands on, whoever else writes at the same time, and
  * a guard's "one node per key" is a promise across processes, not a hope.
- * When the store moved, the same transaction is caught up, checked and
+ * For a transaction authored independently of the graph, the same write is checked and
  * committed again under the session retry policy (DESIGN.md → Storage). A
  * caller that names its own `expected` (a write planned from what it read)
- * gets that state or the conflict, and can plan again itself.
+ * gets that state or the conflict, and can plan again itself. A write that
+ * derives its transaction from the graph uses {@link persistPlannedEffect}.
  *
  * The transaction is recorded by the commit itself: the store's tail is
  * durable and the store is the only thing that can make the node write and

@@ -5,8 +5,8 @@
  */
 import { expect } from "bun:test";
 import { Effect } from "effect";
-import { KbStore, onWire, type EffectStore } from "@kb/contracts";
-import { present, rankOf, SYSTEM_IDS, type KbNode } from "@kb/model";
+import { KbStore, onWire, type EffectStore, type KbContext } from "@kb/contracts";
+import { present, rankOf, SYSTEM_IDS, type DomainError, type KbNode } from "@kb/model";
 import { persistPlannedEffect } from "@kb/operations";
 import { IN_PROCESS_WIRE, invokeReceiptEffect, kbRuntimeLayer } from "@kb/runtime";
 import {
@@ -17,6 +17,65 @@ import {
   scratchRoot,
   type StoreFactory,
 } from "./store-session.ts";
+
+/** Land a competing write after the action's plan and before its first commit. */
+const raceAction = Effect.fn("storeContract.raceAction")(function* (
+  ctx: KbContext,
+  action: { id: string; input: unknown },
+  competing: Effect.Effect<unknown, DomainError>,
+) {
+  let attempts = 0;
+  const store: EffectStore = {
+    ...ctx.store,
+    commitEffect: (tx, record, expected) =>
+      Effect.gen(function* () {
+        attempts += 1;
+        if (attempts === 1) yield* competing;
+        return yield* ctx.store.commitEffect(tx, record, expected);
+      }),
+  };
+  const receipt = yield* invokeReceiptEffect(ctx, onWire(IN_PROCESS_WIRE, action)).pipe(
+    Effect.provideService(KbStore, store),
+    Effect.provide(kbRuntimeLayer(ctx)),
+  );
+  return { receipt, attempts };
+});
+
+/** Deleting one child preserves the sibling a concurrent writer just added. */
+export function deletePreservesConcurrentSibling(makeStore: StoreFactory): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* backendRoot(makeStore);
+        const other = yield* Effect.acquireRelease(
+          Effect.sync(() => makeStore(root)),
+          (store) => store.closeEffect,
+        );
+        const doomed = plainNode("n-doomed", "remove me");
+        const sibling = plainNode("n-sibling", "keep me here");
+        const list = parent([doomed.id]);
+        yield* other.commitEffect({ upserts: [list, doomed], deletes: [] }, { at: AT });
+        const ctx = yield* Effect.acquireRelease(
+          openSession(root),
+          (session) => session.store.closeEffect,
+        );
+        const { receipt, attempts } = yield* raceAction(
+          ctx,
+          { id: "node.delete", input: { id: doomed.id } },
+          other.commitEffect(
+            { upserts: [parent([doomed.id, sibling.id]), sibling], deletes: [] },
+            { at: AT },
+          ),
+        );
+        expect(attempts).toBe(2);
+        expect(receipt.status).toBe("succeeded");
+        const stored = yield* other.loadEffect;
+        expect(stored.some((node) => node.id === doomed.id)).toBe(false);
+        expect(stored.find((node) => node.id === list.id)?.children).toEqual([sibling.id]);
+      }),
+    ),
+  );
+}
 
 /** Two writers changing distinct fields on one node keep both edits. */
 export function updatePreservesConcurrentField(makeStore: StoreFactory): Promise<void> {
@@ -40,29 +99,17 @@ export function updatePreservesConcurrentField(makeStore: StoreFactory): Promise
         };
         const value = { t: "num" as const, v: 42 };
         const expectedProps = { ...concurrent, [SYSTEM_IDS.viewPagesizeField]: [value] };
-        let attempts = 0;
-        const store: EffectStore = {
-          ...ctx.store,
-          commitEffect: (tx, record, expected) =>
-            Effect.gen(function* () {
-              attempts += 1;
-              if (attempts === 1) {
-                // Land the other edit after the action's read and before the adapter checks the revision.
-                yield* other.commitEffect(
-                  { upserts: [{ ...starting, props: concurrent }], deletes: [] },
-                  { at: AT },
-                );
-              }
-              return yield* ctx.store.commitEffect(tx, record, expected);
-            }),
-        };
-        const receipt = yield* invokeReceiptEffect(
+        const { receipt, attempts } = yield* raceAction(
           ctx,
-          onWire(IN_PROCESS_WIRE, {
+          {
             id: "node.update",
             input: { id: node.id, setProps: [{ field: SYSTEM_IDS.viewPagesizeField, value }] },
-          }),
-        ).pipe(Effect.provideService(KbStore, store), Effect.provide(kbRuntimeLayer(ctx)));
+          },
+          other.commitEffect(
+            { upserts: [{ ...starting, props: concurrent }], deletes: [] },
+            { at: AT },
+          ),
+        );
         expect(attempts).toBe(2);
         expect(receipt).toMatchObject({
           status: "succeeded",

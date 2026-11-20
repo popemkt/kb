@@ -11,10 +11,11 @@ import {
   currentIso,
   diffTx,
   migrateToViewNodes,
+  present,
   VIEWS_MIGRATION,
   type DomainError,
 } from "@kb/model";
-import { persistEffect, reloadEffect } from "./session.ts";
+import { persistPlannedEffect } from "./session.ts";
 
 /**
  * The move to view nodes, run on purpose (DESIGN.md → Kinds, roles and
@@ -46,17 +47,23 @@ export const viewsMigrateEffect = Effect.fn("views.migrate")(function* (): Effec
   const ctx = yield* KbCtx;
   const legacy = yield* LegacyDocsViews;
   const files = yield* legacy.read;
-  yield* reloadEffect(ctx);
-  const before = ctx.nodes;
   const seed = yield* SessionSeed;
-  const migration = migrateToViewNodes(before, {
+  const options = {
     docs: files.views,
     at: yield* currentIso,
     retirements: seed.retired,
-    seededText: (id) => seed.nodes.find((node) => node.id === id)?.text,
-  });
-  if (migration.changed)
-    yield* persistEffect(ctx, diffTx(before, migration.nodes), { systemWrites: "system" });
+    seededText: (id: string) => seed.nodes.find((node) => node.id === id)?.text,
+  };
+  const planned = yield* persistPlannedEffect(
+    ctx,
+    (before) => {
+      const migration = migrateToViewNodes([...before], options);
+      const tx = migration.changed ? diffTx(before, migration.nodes) : { upserts: [], deletes: [] };
+      return Effect.succeed({ ...tx, migration });
+    },
+    { systemWrites: "system" },
+  );
+  const { migration } = present(planned, "the migration always reports its plan");
   // Only once the nodes are committed: a spec file is never removed before its view node exists.
   yield* legacy.retire(migration.imported);
   return {

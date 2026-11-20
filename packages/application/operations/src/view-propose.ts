@@ -9,10 +9,16 @@
 import { Effect } from "effect";
 import { z } from "zod";
 import { KbCtx, ViewCatalog, type ActionDefinition, type KbStore } from "@kb/contracts";
-import { domainError, type DomainError, type KbNode } from "@kb/model";
+import {
+  domainError,
+  freshId,
+  IndexedNodes,
+  present,
+  type DomainError,
+  type KbNode,
+} from "@kb/model";
 import { planViewProposal } from "@kb/views";
-import { sessionGraph } from "./actions.ts";
-import { persistEffect } from "./session.ts";
+import { persistPlannedEffect } from "./session.ts";
 
 export const viewProposeDef = {
   id: "view.propose",
@@ -56,13 +62,17 @@ export const viewProposeEffect = Effect.fn("view.propose")(function* (
       view: input.view,
       views: catalog.items.map((known) => known.key.id),
     });
-  const planned = yield* planViewProposal(
-    (id) => ctx.index.getNode(id),
-    sessionGraph(ctx),
-    key,
-    input,
+  const id = input.id ?? (yield* freshId);
+  const committed = yield* persistPlannedEffect(ctx, (nodes) =>
+    Effect.map(
+      planViewProposal((nodeId) => ctx.index.getNode(nodeId), IndexedNodes.of(nodes), key, {
+        ...input,
+        id,
+      }),
+      (plan) => ({ ...plan, deletes: [] }),
+    ),
   );
-  yield* persistEffect(ctx, { upserts: [...planned.upserts], deletes: [] });
+  const planned = present(committed, "a view proposal always writes");
   return {
     id: planned.node.id,
     view: key.id,

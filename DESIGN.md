@@ -1965,8 +1965,10 @@ reading up against that adapter's own internals when it gets there; keeping
 **The session retries commit conflicts.** Across backends, a retryable write
 starts with one 15-second deadline for lock acquisition and any retries.
 Conflicts retry with capped, jittered exponential backoff. A transaction
-is checked again against the refreshed graph, and a planned write is planned
-again from it. An exhausted lock wait returns its conflict to the caller.
+authored independently of the graph is checked again against the refreshed
+graph. Writes derived from it run their planner again, including decisions
+about whether to write at all. An exhausted lock wait returns its conflict
+to the caller.
 A caller that supplies its own expected fingerprint gets one attempt against
 that state. A refusal from the planner reaches the caller immediately.
 
@@ -5326,9 +5328,6 @@ answers `{canvasId, items, edges, reported}`.
 its output always carries the node. Deleting is its own action because it is
 the write a caller most needs to name on its own: a guard matches an action
 by its id ([Action registry](#action-registry) → Interception).
-
-A standalone `node.update` applies its requested edits to the refreshed graph
-on each retry under [Storage](#storage).
 
 ### Batches of writes — `node.batch`
 
