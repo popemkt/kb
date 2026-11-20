@@ -18,14 +18,19 @@ export type RunOptimisticResult = {
 };
 
 /** The actions a batch of node writes is made of (DESIGN.md → Batches of writes). */
-const BATCH_PARTS: ReadonlySet<string> = new Set(["node.add", "node.update", "node.delete"]);
+const BATCH_PARTS: ReadonlySet<string> = new Set([
+  "node.add",
+  "node.update",
+  "node.delete",
+  "field.define",
+]);
 
 /**
  * `actions` as the writes they are (DESIGN-UI.md → Outline editor, "A
  * selection is a range of rows"): each run of several node writes is one
  * `node.batch` call, so the commit takes or refuses it whole. An action a
- * batch cannot carry (`tag.define`, say, which a step makes before it tags
- * the rows) is sent as it is, in its place.
+ * batch cannot carry is sent as it is, in its place.
+ * GAP [[01M7XCENSKX32JHABYKAD8AD6N]] — tag definitions commit before the rows are tagged.
  */
 export function oneWrite(actions: readonly ActionRequest[]): ActionRequest[] {
   const out: ActionRequest[] = [];

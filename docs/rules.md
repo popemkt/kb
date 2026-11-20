@@ -979,6 +979,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Add :node/is to CORE_DERIVED with a carrier that reads the chain and re-derives a tag's instances when its sys.f.extends changes; lower has-tag to it, evaluate it with isA, and stop canonicalizing a sys.f.type is-condition into has-tag. The routines engine's read (routines-host graph.ts) then asks :node/is and brings the tags its readers walk.
 - **node** — `01M738XHYKHDFFCN8DK595Z15T`
 
+### GAP: defining and applying a tag can leave an orphan definition
+
+- **expected** — Defining and applying a tag in one editor gesture commits as one transaction.
+- **current** — The palette and # text picker send tag.define ahead of the node update, as on main at be415b51.
+- **impact** — If tagging the target is refused, the newly defined tag remains in the graph.
+- **closes** — Plan the tag definition and the node updates in one batch using the shared tag definition planner.
+- **node** — `01M7XCENSKX32JHABYKAD8AD6N`
+
 ### GAP: Durable browser invocation replay
 
 - **expected** — The browser invocation lane durably queues offline mutations and replays them under an explicit conflict policy.

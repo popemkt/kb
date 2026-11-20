@@ -202,4 +202,47 @@ describe.each([...STORE_BACKENDS])("node.batch over a %s store", (backend) => {
       expect(parent?.props["field.choice"]).toEqual(change === "value" ? [value] : undefined);
     },
   );
+
+  test.each([false, true])(
+    "mints the field and converts the line together (stale draft: %s)",
+    async (stale) => {
+      const { ctx, call, node } = await opened();
+      await call("node.update", { id: "n.kept", text: stale ? "edited" : ">New field" });
+      const head = ctx.log.head;
+      const value = { t: "str", v: "" } as const;
+      const receipt = await invoke(ctx, {
+        id: "node.batch",
+        input: {
+          calls: [
+            { action: "field.define", input: { id: "field.new", name: "New field" } },
+            {
+              action: "node.update",
+              input: {
+                id: "n.dest",
+                requireUnset: ["field.new"],
+                setProps: [{ field: "field.new", value }],
+              },
+            },
+            {
+              action: "node.delete",
+              input: { id: "n.kept", requireEmptyLine: { parent: "n.dest", text: ">New field" } },
+            },
+          ],
+        },
+      });
+      if (stale) {
+        expect(receipt).toMatchObject({ status: "failed", code: "conflict", details: { call: 2 } });
+        expect(ctx.log.head).toBe(head);
+        expect(node("field.new")).toBeUndefined();
+        expect(node("n.kept")?.text).toBe("edited");
+        expect(node("n.dest")?.props["field.new"]).toBeUndefined();
+      } else {
+        expect(receipt).toMatchObject({ status: "succeeded" });
+        expect(ctx.log.head).toBe(head + 1);
+        expect(node("field.new")?.text).toBe("New field");
+        expect(node("n.kept")).toBeUndefined();
+        expect(node("n.dest")?.props["field.new"]).toEqual([value]);
+      }
+    },
+  );
 });

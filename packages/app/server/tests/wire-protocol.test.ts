@@ -91,7 +91,7 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // and field preconditions. Reload older pages before they send writes.
 const RECORDED = {
   protocol: 12,
-  fingerprint: "c56e1b0f8f83519a91bbe9f8e5423700f8c7583e15e412f7a9ca82bd75c8a424",
+  fingerprint: "f533a71266f24c118dda03697e4b0b3687e4aa7c2dd12a47df7dae9c00b2c721",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

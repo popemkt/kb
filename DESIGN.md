@@ -5283,7 +5283,7 @@ answers `{canvasId, items, edges, reported}`.
 | `node.add`                                                                   | write | create (text, props by field name/id, parent, position, tags, and `matching`: what a query node requires, [What a match requires](#query-layer-horizontal))                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `node.addTree`                                                               | write | create a whole outline from text in an outline format (Tana Paste unless `format` says otherwise) in one transaction (`kb add --outline [--format]`; [Outline paste](#outline-paste--nodeaddtree)) |
 | `node.export`                                                                | read  | write nodes, and what is under them, as text in an outline format (`kb export`; [Outline formats](#outline-formats--one-tree-one-codec-each)) |
-| `node.batch`                                                                 | write | several `node.add` / `node.update` / `node.delete` calls as one transaction, each planned over what the ones before it wrote ([Batches of writes](#batches-of-writes--nodebatch)) |
+| `node.batch`                                                                 | write | node writes and field definitions in one transaction ([Batches of writes](#batches-of-writes--nodebatch)) |
 | `node.update`                                                                | write | edit text / set-unset props / move                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `node.delete`                                                                | write | delete a node, its descendants with it unless `descendants: "reparent"` (`kb rm`)                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `node.get`                                                                   | read  | pull subtree to depth N                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -5322,7 +5322,7 @@ by its id ([Action registry](#action-registry) → Interception).
 ### Batches of writes — `node.batch`
 
 `node.batch` takes `{calls, force?}`: a list of calls, each `{action, input}`
-naming `node.add`, `node.update` or `node.delete`, and commits them as one
+naming `node.add`, `node.update`, `node.delete` or `field.define`, and commits them as one
 transaction. It is how one gesture over several nodes is one write: a person
 tagging, moving or deleting a multi-row selection in the outline
 (DESIGN-UI.md → Outline editor, "A selection is a range of rows"), an agent
@@ -5330,11 +5330,11 @@ retagging what a query found, `kb action-invoke` from a script. Each call's
 input is that action's own input, read by its own schema, less `force`,
 which the batch states once for the whole commit; a `node.add` names its
 `parent` (`null` for the top level), since a batch decides every place
-itself and never asks the capture target.
+itself and never asks the capture target. A batched `field.define` names
+its id so later calls can reference it.
 
 The calls are planned in order over one working copy of the nodes, each by
-its action's own planner (`planNodeAdd`, `planNodeUpdate`, `planNodeDelete`,
-the same functions the three actions commit through), and each call's writes
+its action's own planner, and each call's writes
 are applied to the copy before the next is planned, so a later call sees an
 earlier one: two moves into one parent at `position` and `position + 1` land
 in that order, and an update of a node an earlier call deleted is refused
@@ -5352,8 +5352,7 @@ with the draft's parent and exact text. Its node must still have that
 parent and text, with no children or props. A failed precondition is a
 conflict, checked again over the current graph whenever the batch replans.
 
-The output is `{ ids }`, each call's node in call order (the node added,
-updated or deleted). The action declares itself a batch of its three parts
+The output is `{ ids }`, each call's node in call order. The action declares itself a batch of its parts
 (`batchOf`), so a guard on any of them governs it, decided with each part's
 own mode ([Action registry](#action-registry)). It declares no `targets`,
 since its nodes are inside its calls, so a script cannot call it (Sandbox →

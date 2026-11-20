@@ -665,11 +665,12 @@ export const nodeGetEffect = Effect.fn("node.get")(function* (
   return { node: pullSubtree(ctx, input.id, input.depth) };
 });
 
-export const fieldDefineEffect = Effect.fn("field.define")(function* (
+/** The node an explicit field definition adds, shared by standalone and batched definitions. */
+export const fieldDefinitionInput = Effect.fn("field.define.input")(function* (
+  nodes: readonly KbNode[],
   input: z.infer<typeof fieldDefineDef.inputSchema>,
-): Effect.fn.Return<{ id: string }, DomainError, KbWriteEnv> {
-  const ctx = yield* KbCtx;
-  const existing = ctx.nodes.filter(
+): Effect.fn.Return<PlacedAddInput, DomainError> {
+  const existing = nodes.filter(
     (n) =>
       n.text === input.name &&
       (n.props[SYSTEM_IDS.typeField] ?? []).some((v) => v.t === "ref" && v.v === SYSTEM_IDS.field),
@@ -679,7 +680,7 @@ export const fieldDefineEffect = Effect.fn("field.define")(function* (
       ids: existing.map((e) => e.id),
     });
   }
-  const result = yield* addNodeAtEffect({
+  return {
     id: input.id,
     text: input.name,
     parent: null,
@@ -689,7 +690,15 @@ export const fieldDefineEffect = Effect.fn("field.define")(function* (
         value: { t: "ref", v: SYSTEM_IDS.field },
       },
     ],
-  });
+  };
+});
+
+export const fieldDefineEffect = Effect.fn("field.define")(function* (
+  input: z.infer<typeof fieldDefineDef.inputSchema>,
+): Effect.fn.Return<{ id: string }, DomainError, KbWriteEnv> {
+  const ctx = yield* KbCtx;
+  const inputAtRoot = yield* fieldDefinitionInput(ctx.nodes, input);
+  const result = yield* addNodeAtEffect(inputAtRoot);
   return { id: result.id };
 });
 
