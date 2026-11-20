@@ -24,7 +24,7 @@ import {
   type PaletteHit,
 } from "@/lib/palette-index";
 import { pageProjection, shownNodes, useGraphStore } from "@/stores/graph.store";
-import { pageCommandContext, pageCommandTarget } from "@/stores/page-commands";
+import { focusedPaneSubject, pageCommandContext, pageCommandTarget } from "@/stores/page-commands";
 import { pageEditor } from "@/stores/page-editor";
 import { useUiStore } from "@/stores/ui.store";
 
@@ -200,9 +200,9 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         e.preventDefault();
         if (e.altKey) {
           if (searchText === "") return;
-          const { outline } = commandContext(onClose);
+          const parent = focusedPaneSubject();
           onClose();
-          void openQueryFromSearch(searchText, outline);
+          void openQueryFromSearch(searchText, parent, zoomTo);
           return;
         }
         const hit = hits[active];
@@ -229,7 +229,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         focusable[next]?.focus();
       }
     },
-    [hits, active, onClose, searchText, selectHit],
+    [hits, active, onClose, searchText, selectHit, zoomTo],
   );
 
   if (!open) return null;

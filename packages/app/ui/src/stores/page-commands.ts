@@ -15,6 +15,7 @@ import {
   RoutePoint,
   rowsAbout,
   toast,
+  WORKSPACE_ROOT_ID,
   type CommandContext,
   type CommandTarget,
   type OutlineCommandApi,
@@ -30,19 +31,24 @@ import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { currentWorkspace } from "@/stores/workspace.store";
 
-/** The node the focused pane is shown for, else the page's zoom (`zoom`). */
-function standingNodeId(zoom: string): string {
+/** The node the focused pane actually shows, if it has one. */
+export function focusedPaneSubject(): string | undefined {
   const workspace = currentWorkspace();
   const path = findPane(workspace.layout, workspace.focused)?.path;
-  if (path === undefined) return zoom;
-  return paneSubjectAt(currentContributions(RoutePoint), path, zoom) ?? zoom;
+  if (path === undefined) return undefined;
+  const subject = paneSubjectAt(
+    currentContributions(RoutePoint),
+    path,
+    useGraphStore.getState().rootNodeId,
+  );
+  return subject === WORKSPACE_ROOT_ID ? undefined : subject;
 }
 
 export function pageCommandApi(): OutlineCommandApi {
   const graph = useGraphStore.getState();
   return {
     selectedNodeId: pageEditor().getState().selectedNodeId,
-    rootNodeId: standingNodeId(graph.rootNodeId),
+    rootNodeId: focusedPaneSubject() ?? graph.rootNodeId,
     ontologyId: graph.ontologyId,
     nodes: pageRows(),
     wireNodes: graph.wireNodes,

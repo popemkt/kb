@@ -1139,8 +1139,9 @@ a tag writes a condition on the [shown node’s](#contextual-references)
 type field for that exact tag ID.
 Escape closes the picker without a write. In global search, Alt+Enter
 saves the typed text as a case-insensitive text condition and opens the
-query node. It is a child of the current page’s node, or goes to the
-[capture destination](./DESIGN.md#provider-roles) from the workspace root.
+query node. It is a child of the focused pane’s subject node. When the pane
+has no subject node, the [capture destination](./DESIGN.md#provider-roles)
+decides where it goes.
 
 ### Outline layout
 

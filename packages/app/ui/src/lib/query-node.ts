@@ -5,7 +5,7 @@
  * (`useQueryRows`), and the ids they name are the kit's (`resultNodeIds`).
  */
 import { SYSTEM_IDS } from "@kb/model";
-import { browserHost, conditionsEdn, WORKSPACE_ROOT_ID, type OutlineCommandApi } from "@kb/ui-sdk";
+import { browserHost, conditionsEdn } from "@kb/ui-sdk";
 
 /**
  * What a minted query node asks: every node, no conditions yet. It is the
@@ -17,10 +17,11 @@ export const DEFAULT_QUERY_EDN = "[:find ?id :where [?n :node/id ?id]]";
 /** Save the search as a node with a text condition, then open its results. */
 export async function openQueryFromSearch(
   text: string,
-  outline: Pick<OutlineCommandApi, "rootNodeId" | "zoomTo">,
+  parent: string | undefined,
+  zoomTo: (id: string) => void,
 ): Promise<void> {
   const added = await browserHost().writes.addMatchingNode({
-    ...(outline.rootNodeId === WORKSPACE_ROOT_ID ? {} : { parent: outline.rootNodeId }),
+    ...(parent === undefined ? {} : { parent }),
     tags: [],
     props: [
       {
@@ -29,5 +30,5 @@ export async function openQueryFromSearch(
       },
     ],
   });
-  if (added !== null) outline.zoomTo(added.id);
+  if (added !== null) zoomTo(added.id);
 }

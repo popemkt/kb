@@ -37,6 +37,8 @@ import { useUiStore } from "@/stores/ui.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 import { singlePane } from "@kb/views";
 import { layoutUiPlugin } from "@/components/layout/plugin";
+import { settingsUiPlugin } from "@/components/prefs/settings-plugin";
+import { SETTINGS_PATH } from "@/lib/settings-trigger";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
@@ -619,7 +621,13 @@ describe("the global palette on a page", () => {
 
   beforeAll(() => {
     // The page's routes too: a pane opened at a node names it by its route.
-    syncPagePlugins([outlineUiPlugin, collectionsUiPlugin, chartUiPlugin, layoutUiPlugin]);
+    syncPagePlugins([
+      outlineUiPlugin,
+      collectionsUiPlugin,
+      chartUiPlugin,
+      layoutUiPlugin,
+      settingsUiPlugin,
+    ]);
     dom = new Window();
     const g = globalThis as Record<string, unknown>;
     g.window = dom;
@@ -736,33 +744,48 @@ describe("the global palette on a page", () => {
     expect(defineTag).toHaveBeenCalledWith("my project", ["t.super"]);
   });
 
-  it("Alt+Enter saves the typed search under the zoomed node and opens it", async () => {
-    await openPalette();
-    const input = present(
-      dom.document.querySelector('[aria-label="Search and open"] input'),
-      "palette input",
-    );
-    const text = 'Project "notes"';
-    await act(async () => {
-      Object.getOwnPropertyDescriptor(dom.HTMLInputElement.prototype, "value")?.set?.call(
-        input,
-        text,
+  it.each([
+    { path: "/", parent: "t.super" },
+    { path: "/node/n.inbox", parent: "n.inbox" },
+    { path: SETTINGS_PATH, parent: undefined },
+  ])("Alt+Enter saves and opens a query from $path", async ({ path, parent }) => {
+    const before = useWorkspaceStore.getState();
+    useWorkspaceStore.setState({
+      layout: singlePane({ id: "p.search", path }),
+      focused: "p.search",
+    });
+    const add = vi.spyOn(browserHost().writes, "addMatchingNode");
+    try {
+      await openPalette();
+      const input = present(
+        dom.document.querySelector('[aria-label="Search and open"] input'),
+        "palette input",
       );
-      input.dispatchEvent(new dom.KeyboardEvent("keyup", { bubbles: true }));
-    });
-    expect(container.textContent).toContain("Alt+Enter");
-    await act(async () => {
-      input.dispatchEvent(
-        new dom.KeyboardEvent("keydown", { key: "Enter", altKey: true, bubbles: true }),
-      );
-    });
-    await vi.waitFor(() => {
-      const id = useGraphStore.getState().rootNodeId;
-      expect(childrenOf("t.super")).toContain(id);
-      const value = outlineNodes().get(id)?.props[SYSTEM_IDS.queryField]?.[0]?.v;
-      expect(value).toEqual(expect.stringContaining("kb/includes-ci?"));
-      expect(value).toEqual(expect.stringContaining(JSON.stringify(text)));
-    });
+      const text = 'Project "notes"';
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(dom.HTMLInputElement.prototype, "value")?.set?.call(
+          input,
+          text,
+        );
+        input.dispatchEvent(new dom.KeyboardEvent("keyup", { bubbles: true }));
+      });
+      expect(container.textContent).toContain("Alt+Enter");
+      await act(async () => {
+        input.dispatchEvent(
+          new dom.KeyboardEvent("keydown", { key: "Enter", altKey: true, bubbles: true }),
+        );
+      });
+      await vi.waitFor(() => {
+        const { rootNodeId: id, wireNodes } = useGraphStore.getState();
+        expect(wireNodes.find((node) => node.children.includes(id))?.id).toBe(parent);
+        const value = outlineNodes().get(id)?.props[SYSTEM_IDS.queryField]?.[0]?.v;
+        expect(value).toEqual(expect.stringContaining("kb/includes-ci?"));
+        expect(value).toEqual(expect.stringContaining(JSON.stringify(text)));
+      });
+      if (parent === undefined) expect(add.mock.calls[0]?.[0]).not.toHaveProperty("parent");
+    } finally {
+      useWorkspaceStore.setState({ layout: before.layout, focused: before.focused });
+    }
   });
 
   it("hands a command that asks for a step to the node menu at the page's title", async () => {
