@@ -11,6 +11,7 @@ import {
   dateTarget,
   datesLead,
   instanceAncestorIds,
+  isProjectedRow,
   nodeCandidates,
   type NodeMap,
   type PaletteStep,
@@ -176,7 +177,7 @@ const mentionTrigger = (nodeId: string): TextTrigger => ({
  */
 function emptyLineOf(nodeId: string, instanceKey: string | undefined): string | null {
   const node = outlineNodes().get(nodeId);
-  if (node === undefined || instanceKey === undefined) return null;
+  if (node === undefined || instanceKey === undefined || isProjectedRow(instanceKey)) return null;
   // The key ends with the row's own node: a reference row's is the reference, not its target.
   if (!instanceKey.endsWith(`/${nodeId}`)) return null;
   const above = instanceAncestorIds(instanceKey).at(-1) ?? null;

@@ -12,7 +12,7 @@ import { bundledPlugin } from "@kb/contracts";
 import { daysExtension } from "@kb/days";
 import { parseDateInput, present, SYSTEM_IDS } from "@kb/model";
 import { definePlugin } from "@kb/plugin";
-import { DateTargetService, outlineInstanceKey, syncUiPlugins } from "@kb/ui-sdk";
+import { DateTargetService, outlineInstanceKey, projectedRowKey, syncUiPlugins } from "@kb/ui-sdk";
 import { mutations } from "@/actions/mutations";
 import { useGraphStore } from "@/stores/graph.store";
 import { rankedFixture } from "@/test-support/ranked-fixture";
@@ -73,9 +73,9 @@ describe("triggers in the text", () => {
   });
 
   /** Edit row `row` with `text` in it, the caret at its end. */
-  async function typed(text: string, row = ROW): Promise<HTMLElement> {
+  async function typed(text: string, row = ROW, instanceKey?: string): Promise<HTMLElement> {
     await act(async () => mutations.updateNodeContent(row, text));
-    const key = outlineInstanceKey(row, outlineNodes());
+    const key = instanceKey ?? outlineInstanceKey(row, outlineNodes());
     act(() => useOutlineStore.getState().activateNode(row, text.length, key));
     await act(async () => {
       root.render(<NodeBlock nodeId={row} instanceKey={key} depth={0} />);
@@ -232,6 +232,12 @@ describe("triggers in the text", () => {
       expect(container.querySelector('[role="listbox"]')).toBeNull();
       await typedOnLine("> quoted");
       expect(container.querySelector('[role="listbox"]')).toBeNull();
+    });
+
+    it("stays text on a projected row whose source is also its parent", async () => {
+      await typed(">stat", LINE, projectedRowKey(ABOVE, LINE));
+      expect(listed()).toEqual([]);
+      expect(textOf(LINE)).toBe(">stat");
     });
   });
 
