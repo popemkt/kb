@@ -322,7 +322,7 @@ function cloneNode(n: KbNode): KbNode {
 // A field's cardinality is read from the plan graph, which holds stored
 // nodes only. A field is never virtual (the virtual nodes are saved queries),
 // so this reads what the session index would.
-function isInSubtree(nodes: KbNode[], rootId: NodeId, targetId: NodeId): boolean {
+function isInSubtree(nodes: readonly KbNode[], rootId: NodeId, targetId: NodeId): boolean {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const stack = [rootId];
   const seen = new Set<NodeId>();
@@ -338,7 +338,7 @@ function isInSubtree(nodes: KbNode[], rootId: NodeId, targetId: NodeId): boolean
   return false;
 }
 
-function detachFromParents(nodes: KbNode[], childId: NodeId, at: string): KbNode[] {
+function detachFromParents(nodes: readonly KbNode[], childId: NodeId, at: string): KbNode[] {
   const touched: KbNode[] = [];
   for (const n of nodes) {
     if (!n.children.includes(childId)) continue;
@@ -516,11 +516,11 @@ export const nodeDeleteEffect = Effect.fn("node.delete")(function* (
  * once, only when one needs it: a text edit reads no graph.
  */
 export const planNodeUpdate = Effect.fn("node.update.plan")(function* (
-  nodes: KbNode[],
+  nodes: readonly KbNode[],
   input: z.infer<typeof nodeUpdateDef.inputSchema>,
   at: string,
   nodeOf: (id: NodeId) => KbNode | undefined,
-): Effect.fn.Return<{ node: KbNode; write: PlannedNodeWrite }, DomainError> {
+): Effect.fn.Return<PlannedNodeWrite & { node: KbNode }, DomainError> {
   const node = yield* syncDomain(() => {
     const held = nodeOf(input.id);
     if (!held) throw new ResolveError("not_found", `node not found: ${input.id}`, { id: input.id });
@@ -573,7 +573,7 @@ export const planNodeUpdate = Effect.fn("node.update.plan")(function* (
 
   node.updatedAt = at;
   upserts.push(node);
-  return { node, write: { upserts, deletes: [] } };
+  return { node, upserts, deletes: [] };
 });
 
 export const nodeUpdateEffect = Effect.fn("node.update")(function* (
@@ -581,8 +581,12 @@ export const nodeUpdateEffect = Effect.fn("node.update")(function* (
 ): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbWriteEnv> {
   const ctx = yield* KbCtx;
   const at = yield* currentIso;
-  const { node, write } = yield* planNodeUpdate(ctx.nodes, input, at, (id) => nodeById(ctx, id));
-  yield* persistEffect(ctx, write, forcedBy(input));
+  const planned = yield* persistPlannedEffect(
+    ctx,
+    (nodes) => planNodeUpdate(nodes, input, at, (id) => nodeById(ctx, id)),
+    forcedBy(input),
+  );
+  const { node } = present(planned, "an update always writes");
   return { id: input.id, node };
 });
 

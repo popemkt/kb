@@ -5327,6 +5327,9 @@ its output always carries the node. Deleting is its own action because it is
 the write a caller most needs to name on its own: a guard matches an action
 by its id ([Action registry](#action-registry) → Interception).
 
+A standalone `node.update` applies its requested edits to the refreshed graph
+on each retry under [Storage](#storage).
+
 ### Batches of writes — `node.batch`
 
 `node.batch` takes `{calls, force?}`: a list of calls, each `{action, input}`

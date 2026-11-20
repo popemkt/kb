@@ -5,9 +5,10 @@
  */
 import { expect } from "bun:test";
 import { Effect } from "effect";
-import { present, rankOf, type KbNode } from "@kb/model";
+import { KbStore, onWire, type EffectStore } from "@kb/contracts";
+import { present, rankOf, SYSTEM_IDS, type KbNode } from "@kb/model";
 import { persistPlannedEffect } from "@kb/operations";
-import { kbRuntimeLayer } from "@kb/runtime";
+import { IN_PROCESS_WIRE, invokeReceiptEffect, kbRuntimeLayer } from "@kb/runtime";
 import {
   backendRoot,
   CONTRACT_AT as AT,
@@ -16,6 +17,63 @@ import {
   scratchRoot,
   type StoreFactory,
 } from "./store-session.ts";
+
+/** Two writers changing distinct fields on one node keep both edits. */
+export function updatePreservesConcurrentField(makeStore: StoreFactory): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* backendRoot(makeStore);
+        const other = yield* Effect.acquireRelease(
+          Effect.sync(() => makeStore(root)),
+          (store) => store.closeEffect,
+        );
+        const node = plainNode("n-edit", "a view");
+        yield* other.commitEffect({ upserts: [node], deletes: [] }, { at: AT });
+        const ctx = yield* Effect.acquireRelease(
+          openSession(root),
+          (session) => session.store.closeEffect,
+        );
+        const starting = present(ctx.index.getNode(node.id), "the node being edited");
+        const concurrent = {
+          [SYSTEM_IDS.viewColwidthField]: [{ t: "str" as const, v: '{"name":180}' }],
+        };
+        const value = { t: "num" as const, v: 42 };
+        const expectedProps = { ...concurrent, [SYSTEM_IDS.viewPagesizeField]: [value] };
+        let attempts = 0;
+        const store: EffectStore = {
+          ...ctx.store,
+          commitEffect: (tx, record, expected) =>
+            Effect.gen(function* () {
+              attempts += 1;
+              if (attempts === 1) {
+                // Land the other edit after the action's read and before the adapter checks the revision.
+                yield* other.commitEffect(
+                  { upserts: [{ ...starting, props: concurrent }], deletes: [] },
+                  { at: AT },
+                );
+              }
+              return yield* ctx.store.commitEffect(tx, record, expected);
+            }),
+        };
+        const receipt = yield* invokeReceiptEffect(
+          ctx,
+          onWire(IN_PROCESS_WIRE, {
+            id: "node.update",
+            input: { id: node.id, setProps: [{ field: SYSTEM_IDS.viewPagesizeField, value }] },
+          }),
+        ).pipe(Effect.provideService(KbStore, store), Effect.provide(kbRuntimeLayer(ctx)));
+        expect(attempts).toBe(2);
+        expect(receipt).toMatchObject({
+          status: "succeeded",
+          output: { node: { props: expectedProps } },
+        });
+        const stored = yield* other.loadEffect;
+        expect(stored.find((candidate) => candidate.id === node.id)?.props).toEqual(expectedProps);
+      }),
+    ),
+  );
+}
 
 /** A session keeps replanning a write as other commits land on the same parent. */
 export function plannedWriteSurvivesContention(makeStore: StoreFactory): Promise<void> {

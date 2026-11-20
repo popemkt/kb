@@ -70,6 +70,7 @@ import { viewsMigrateRewritesLegacyShapes } from "./view-migration-contract.ts";
 import {
   commitAfterAnotherWriterMergesIntoIt,
   plannedWriteSurvivesContention,
+  updatePreservesConcurrentField,
 } from "./writers-contract.ts";
 
 export type { StoreFactory } from "./store-session.ts";
@@ -292,6 +293,7 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
   ["two conditional commits from one state: at most one lands", conditionalCommitsRace],
   ["a commit with an exhausted lock deadline leaves the store unchanged", exhaustedLockDeadline],
   ["a session replans a write through repeated commit conflicts", plannedWriteSurvivesContention],
+  ["node.update preserves a concurrent edit to a different field", updatePreservesConcurrentField],
   [
     "a commit that cannot be written fails with a DomainError and leaves no store",
     unwritableCommitFails,
