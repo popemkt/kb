@@ -826,6 +826,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Implement an IndexedDB-backed EffectStore with the same generation fingerprint contract.
 - **node** — `01M1R6N8VC3W5P93KABEFZ8CTX`
 
+### GAP: Bun's Unix listener types omit the supported idle timeout option
+
+- **expected** — The Bun listener signature accepts the runtime idleTimeout option on TCP and Unix sockets.
+- **current** — Bun 1.4.2 accepts a listener-wide idleTimeout on Unix sockets but UnixServeOptions omits it. The documented per-request timeout is ineffective on Unix sockets (oven-sh/bun#43816). kb passes the listener-wide option through its binding object.
+- **impact** — The Bun boundary must carry the option through a typing seam to give Unix requests the same deadline as TCP requests.
+- **closes** — When Bun declares idleTimeout on UnixServeOptions, pass it directly to Bun.serve and recheck the 35-second response on TCP and Unix sockets.
+- **node** — `01M7X56KZ3QCBQTZ4KMEE7PNGA`
+
 ### GAP: canvas 3D-only face tones are local literals in canvas-card-face.ts
 
 - **expected** — Every tone a canvas face paints is resolved from canvas-style.ts.
@@ -1735,6 +1743,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — selecting many items in 3D means clicking each
 - **closes** — a 3D workspace step that owns the marquee, picking items by their projected boxes
 - **node** — `01M41AB88FH1G58NR7AZE0SZJF`
+
+### GAP: SQLite commits decode the whole graph under the write lock after a foreign write
+
+- **expected** — A commit bases rank and write settlement on the current committed state while keeping the SQLite write lock only for work proportional to the changes involved.
+- **current** — When a foreign write moves the commit mark, SqliteStore loses its kept state. Its next upsert decodes all rows and rebuilds StoreState inside BEGIN IMMEDIATE.
+- **impact** — A large graph stretches the write lock hold time and stalls the local event loop during decoding. The six-writer scratch repro still showed seconds of event-loop delay after lock acquisition became asynchronous.
+- **closes** — Bring kept state forward from the durable transaction tail when it spans the change, with a full read as the fallback for an unexplained fingerprint. Verify lock duration and foreground request latency under concurrent writers.
+- **node** — `01M7X33AK295XK8CNKFGEAAPZD`
 
 ### GAP: stacking on and of tilted solids is approximate
 

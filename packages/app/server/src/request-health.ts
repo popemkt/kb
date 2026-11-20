@@ -1,0 +1,71 @@
+import { Effect, Fiber } from "effect";
+import { pendingRequests, writeErr } from "@kb/runtime";
+
+/** Leave room for a screen command to spend its full wait inside a request. */
+const REQUEST_DEADLINE_MS = 35_000;
+export const HTTP_IDLE_TIMEOUT_SECONDS = Math.ceil(REQUEST_DEADLINE_MS / 1000) + 10;
+
+const SAMPLE_INTERVAL_MS = 1_000;
+const STALL_THRESHOLD_MS = 1_000;
+
+/** Track handler work until it settles, including cancellation after a deadline. */
+export function requestHealth(deadlineMs = REQUEST_DEADLINE_MS) {
+  const requests = pendingRequests();
+  let nextSample = performance.now() + SAMPLE_INTERVAL_MS;
+  let eventLoopLagMs = 0;
+  const sample = Effect.runFork(
+    Effect.forever(
+      Effect.gen(function* () {
+        yield* Effect.sleep(SAMPLE_INTERVAL_MS);
+        const now = performance.now();
+        eventLoopLagMs = Math.max(0, Math.round(now - nextSample));
+        nextSample = now + SAMPLE_INTERVAL_MS;
+        if (eventLoopLagMs >= STALL_THRESHOLD_MS) {
+          writeErr(`kb ui: event loop stalled for ${String(eventLoopLagMs)} ms`);
+        }
+      }),
+    ),
+  );
+
+  return {
+    run(req: Request, pathname: string, handle: (signal: AbortSignal) => Promise<Response>) {
+      const abort = new AbortController();
+      const due = performance.now() + deadlineMs;
+      let expired: Response | undefined;
+      const expire = () => {
+        if (expired !== undefined) return expired;
+        const message = `Request exceeded the ${String(deadlineMs)} ms deadline.`;
+        expired = Response.json(
+          { status: "failed", code: "timeout", message },
+          { status: 503, headers: { "Cache-Control": "no-store" } },
+        );
+        writeErr(`kb ui: ${req.method} ${JSON.stringify(pathname)}: ${message}`);
+        abort.abort();
+        return expired;
+      };
+      // Start the timer before the handler runs. Check the elapsed time on
+      // completion too, since synchronous work can delay the timer itself.
+      const timer = new AbortController();
+      const deadline = Effect.runPromise(Effect.sleep(deadlineMs), { signal: timer.signal }).then(
+        expire,
+      );
+      const pending = requests.run(() => Promise.resolve().then(() => handle(abort.signal)));
+      return Promise.race([
+        deadline,
+        pending.then((response) => (performance.now() >= due ? expire() : response)),
+      ]).finally(() => timer.abort());
+    },
+    response() {
+      return Response.json(
+        {
+          ...requests.snapshot(),
+          eventLoopLagMs: Math.max(eventLoopLagMs, Math.round(performance.now() - nextSample)),
+        },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    },
+    settle() {
+      return Effect.runPromise(Fiber.interrupt(sample)).then(requests.settle);
+    },
+  };
+}

@@ -48,6 +48,7 @@ implementation modules under `packages/app/server/src/` split by concern:
 | ------------------ | ----------------------------------------------------------------------------------------------- |
 | `server.ts`        | Bun.serve / Effect runtime boundary, fs-watch, CLI entry, Scope shutdown                        |
 | `http.ts`          | Effect REST/API routing, failure mapping, kb asset GET, SPA static fallback                     |
+| `request-health.ts` | HTTP deadlines, in-flight handler counts and event-loop lag ([Delivery](#delivery))            |
 | `delivery.ts`      | how every answer is sent: `304` revalidation, brotli/gzip ([Delivery](#delivery))               |
 | `invoke.ts`        | how the server runs an invocation it is handed: reload, then the invoke core; logs each refusal |
 | `session.ts`       | Effect `SubscriptionHub` (clients, message processing, broadcast, cleanup)                      |
@@ -259,6 +260,21 @@ query text, each as of a generation of the replica.
   at a time, outside the shared answers (its query may carry inputs).
 
 ### Delivery
+
+HTTP routes compose the action runtime when they invoke an action. Static
+files and identity reads use the filesystem without building that runtime.
+
+HTTP handlers have 35 seconds to produce a response, allowing a screen command
+to wait its full 30 seconds. On expiry `kb ui` responds with a JSON 503, requests
+cancellation of the handler and writes one line to stderr with the method and
+path. Bun's HTTP idle timeout is 45 seconds on either listener. WebSocket
+traffic and streaming response bodies continue under their own lifetimes.
+
+`GET /api/health` runs after the normal request guard and reads only process
+metrics. It reports active HTTP handlers (`inFlight`), the age of the oldest
+in milliseconds (`oldestRequestMs`), and the event loop's delay
+(`eventLoopLagMs`), sampled once a second. A sample delayed by at least one
+second is logged to stderr when the loop resumes.
 
 How the page's bytes reach a browser, which is often across a tailnet relay
 with a round trip of 100 ms or more. The server's HTTP boundary

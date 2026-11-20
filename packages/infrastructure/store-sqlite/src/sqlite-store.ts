@@ -121,6 +121,7 @@ function commitTx(
       // Thrown to roll the transaction back; the connection passes it through.
       if (stale !== null) throw stale;
       // Taken, not read: a commit that fails leaves nothing kept.
+      // GAP [[01M7X33AK295XK8CNKFGEAAPZD]] A foreign write forces a full read under the lock.
       const state =
         kept.take(base) ?? (tx.upserts.length === 0 ? null : StoreState.of(storedNodes(db, path)));
       const applied = state === null ? tx : rankTx(state, tx);
