@@ -127,9 +127,12 @@ loopback port. Screenshots are in
   is left to the browser. Ctrl+S did nothing in the test.
 - **F7. No in-app Back/Forward.** `kit/ui-sdk/src/lib/router.ts` is
   `pushState` plus `popstate`; no button, no key. A browser tab has the
-  browser's Back; the Electron desktop app and the phone app planned in
-  `docs/research/2026-11-18-desktop-and-phone-apps.md` have none. `Alt+←` and
-  `Ctrl+[` were inert in the test.
+  browser's Back; the desktop app's store window (Electrobun,
+  `packages/app/desktop`, which shows the store's own kb page) has no
+  navigation chrome of its own and only its menu and keys. The phone app
+  planned in `docs/research/2026-11-18-desktop-and-phone-apps.md` is
+  capture-only and shows no kb page, so Back does not apply to it. `Alt+←`
+  and `Ctrl+[` were inert in the test.
 - **F8. Zoom is a selection key only.** `⌘.` is bound in
   `selection-keymap`, not in `EDITING_BINDINGS`
   (`outline/src/keyboard.ts`); there is no zoom-out key.
@@ -401,20 +404,29 @@ must be serial.
 
 | WP | Briefs | Owns (files) | Touches shared docs |
 |---|---|---|---|
-| **WP-1 Row triggers** | 1 | `outline-ui/src/outline-triggers.ts`, new `outline-ui/src/slash-trigger.ts`, `kit/ui-sdk/src/host.ts` (+ its test host), `app/ui/src/browser-host.ts` | DESIGN-UI.md → "Triggers in the text" paragraph (~line 1699); the BrowserHost contract |
-| **WP-2 Pickers** | 2 | `kit/ui-sdk/src/lib/picker.ts`, `text-triggers.ts`, `refs.ts`, `use-picker.ts`, `outline-ui/src/outline-steps.tsx`, `picker-recency.ts`, `field-picker.tsx` | DESIGN-UI.md → pickers |
+| **WP-1 Row triggers** (after WP-2, see below) | 1 | `outline-ui/src/outline-triggers.ts`, new `outline-ui/src/slash-trigger.ts`, `kit/ui-sdk/src/components/node-text-host.tsx` (`applyPick`), `kit/ui-sdk/src/host.ts` (+ its test host), `app/ui/src/browser-host.ts` | DESIGN-UI.md → "Triggers in the text" paragraph (~line 1699); the BrowserHost contract |
+| **WP-2 Pickers** | 2 | `kit/ui-sdk/src/lib/picker.ts`, `text-triggers.ts`, `refs.ts`, `use-picker.ts`, `outline-ui/src/outline-steps.tsx`, `picker-recency.ts`, `field-picker.tsx`, and both trigger test files, `kit/ui-sdk/src/lib/text-triggers.test.ts` and `app/ui/src/page-tests/outline/text-triggers.test.tsx` | DESIGN-UI.md → pickers |
 | **WP-3 History** | 3 | `kit/ui-sdk/src/lib/router.ts`, `app/ui/src/components/App.tsx` (header), `domain/model/src/model.ts` + `domain/seed/src/seed.ts` (two command ids), `days-ui/src/command.ts`, `days/src/extension.ts` | DESIGN-UI.md → Days; Panes |
 | **WP-4 Structure keys** | 4 | `outline/src/keyboard.ts`, `outline-ui/src/editing-intents.ts`, `editing-keymap.ts`, `selection-keymap.ts`, `outline.store.ts`, `app/ui/src/actions/mutations.ts` | DESIGN-UI.md → Outline editor keymap tables |
-| **WP-5 Queries** | 6 | `app/ui/src/lib/commands.tsx`, `app/ui/src/lib/query-node.ts`, `outline-ui/src/query-builder/*`, `view-settings-*.ts(x)`, `app/ui/src/components/palette/command-palette.tsx` | DESIGN-UI.md → query node, node menu |
+| **WP-5 Queries** | 6 | `app/ui/src/lib/commands.tsx`, `app/ui/src/lib/query-node.ts`, `outline-ui/src/query-builder/*`, new `outline-ui/src/query-steps.tsx` and its one contribution line in `outline-ui/src/plugin.ts`, `view-settings-*.ts(x)`, `app/ui/src/components/palette/command-palette.tsx` | DESIGN-UI.md → query node, node menu |
 | **WP-6 Backlinks** | 7 | `outline-ui/src/references-section.tsx`, `backlinks.ts`, new `unlinked-mentions.*`, the row counter in `row-view.tsx` / `node-block.tsx`, `outline/src/settings.ts` | DESIGN-UI.md → Contextual references |
 | **WP-7 AI on nodes** | 5 then 8 | `extension/agent/src/*`, `extension/agent-ui/src/*`, the agent family's seeds | DESIGN.md → Agent packages; DESIGN-UI.md → the node menu |
 
-Cross-package edges (none are file conflicts; all are order hints):
+Cross-package edges (all but the first are order hints, not file conflicts):
+
+- **WP-1 runs after WP-2.** Both briefs add cases to the two trigger test
+  files, so one package owns them: WP-2, whose picker work is already being
+  built and lands first. WP-1 starts from WP-2's merged branch (rebase onto
+  it before adding its own cases) and appends to those files; it does not
+  create parallel copies. Every other file stays disjoint, so WP-1's source
+  edits can be written meanwhile, only its tests wait.
 
 - WP-1's `/` menu lists the node palette's commands, so WP-5's and WP-7's new
   commands show up in it with no further work.
 - WP-1 adds a `BrowserHost` member (`nodeCommands`, `openNodePalette`);
   nothing else edits `host.ts`.
+- WP-5 reads `addTag` (exported from `outline-steps.tsx`, which WP-2 owns)
+  and does not edit it.
 - WP-3 adds commands through the plugin path that `days` and `outline`
   use, not `commands.tsx`, which WP-5 owns.
 - `DESIGN-UI.md` is edited by every package, in different sections. Rebase
@@ -469,13 +481,36 @@ row.
 - A `#`, `>`, `@` or `/` pick is one undo entry. ⌃Z once restores the row as
   it was before the pick (the typed trigger text back, the tag, field or
   reference gone). Typing itself keeps the text host's history.
+  Today a pick is two writes: `applyPick` emits the text through
+  `updateNodeContent`, a keystroke write that records no undo step and never
+  joins a gesture (`app/ui/src/actions/mutations.ts`, `updateNodeContent`
+  bypasses `runPlan`), then runs the pick's `write`, which records its own
+  step.
 
 **Where.** `outline-ui/src/outline-triggers.ts`: add `slashTrigger` in a new
 `slash-trigger.ts` and register it in `outlineTriggers`; change `stepTrigger`
-so the text removal and the step commit are one `asOneWrite`
-(`kit/ui-sdk/src/lib/command-point.ts:254`), and delete the
-`GAP [[01M7D4AYQFJGZQGJZ3KD7M388R]]` comment and its `#gap` node
-(`kb rm`). The listing needs a port: add to `BrowserHost`
+so the whole pick is one transaction. `asOneWrite`
+(`kit/ui-sdk/src/lib/command-point.ts:254`) is not the tool: it skips
+batching for a single row (`rows.length > 1 ? together(...) : gesture()`),
+so a one-row pick would still be two writes. The mechanism is
+`PageWrites.together` itself (`kit/ui-sdk/src/lib/page-writes.ts`, implemented
+by `together` and `runPlan` in `app/ui/src/actions/mutations.ts`): inside it
+each planned write is queued and sent as one `node.batch` call, recorded as
+one undo step whose inverse is built from the graph as the gesture found it.
+Only plan-based writes join it, so the text removal must be `setNodeText`
+(which goes through `applyPlan`), not `updateNodeContent`. In
+`kit/ui-sdk/src/components/node-text-host.tsx`, `applyPick` keeps laying the
+span's replacement into the editor and moving the caret as now (that is the
+editor's local state), but its persisted write moves into the pick's
+`write`: `host.writes.together(async () => { await setNodeText(nodeId,
+nextText); await step.commit(...) })`. Every trigger's pick (`[[`, `@`,
+`#`, `>`, `/`) takes the same path, so there is one way a pick writes, not a
+step-only branch (Rule 1). Two things the builder must prove: the keystroke
+text before the pick (`x #ta`) has landed before the batch plans, since the
+batch's undo restores what the graph held when it opened; and a step that
+awaits a minted id (`defineTag`) still gets it, because a write inside
+`together` answers the id it will make before it lands. Then delete the
+`GAP [[01M7D4AYQFJGZQGJZ3KD7M388R]]` comment and its `#gap` node (`kb rm`). The listing needs a port: add to `BrowserHost`
 (`kit/ui-sdk/src/host.ts`) `nodeCommands(nodeId): readonly {id; label; icon?;
 step: boolean}[]` and `openNodePalette(nodeId, query)`, implemented in
 `app/ui/src/browser-host.ts` over `listNodeCommands` and the palette opener
@@ -498,7 +533,10 @@ and `kit/ui-sdk/src/lib/text-triggers.test.ts`):
 3. Component: `/tag` lists "Add tag" first; Enter opens the palette on that
    step; picking a tag applies it.
 4. Undo: type `x #ta`, pick `task`: ⌃Z once leaves `x #ta` and no tag; ⌃⇧Z
-   redoes. Same for `>due` and `/indent`.
+   redoes. Same for `>due` and `/indent`. Assert the history gained exactly
+   one entry for the pick (one `node.batch` call carrying the text write and
+   the tag write), including on a single row, where `asOneWrite` would have
+   made two.
 5. `@` as whole text, pick "Ship beta": the row is a reference row (has the
    dashed ring, `isReferenceRow`) and the text is not duplicated; `see @Ship`
    keeps the inline ref.
@@ -602,14 +640,33 @@ day page steps to the next or previous day.
   (`app/ui/src/components/App.tsx`, next to `SidebarToggle`): Back and
   Forward, disabled when there is nowhere to go; tooltips name the key.
 - Keys through the page context (`core.page`, offered before any surface):
-  `Alt-ArrowLeft` Back, `Alt-ArrowRight` Forward; `Mod-[` and `Mod-]` as
-  alternates. They are commands (`Go back`, `Go forward`), so ⌘K lists them
-  and a person can rebind them as any shortcut.
-- On a day page (`/node/days.YYYY-MM-DD`): `Ctrl-[` and `Ctrl-]` go to the
-  previous and next day on every platform (Tana's pair), made if need be
-  through `dateTarget`; commands `Previous day`, `Next day`. Because `Mod-[`
-  is Back on macOS, bind the day pair as `Ctrl-[` and `Ctrl-]` only on a day
-  page, `when` the zoomed node is a day.
+  `Mod-[` Back and `Mod-]` Forward. `Mod` is ⌘ or Ctrl on every platform:
+  chord matching reads `meta || ctrl` and has no platform branch
+  (`domain/keybindings/src/chord.ts`, `modifiersMatch`), so one binding
+  covers ⌘[ on macOS and Ctrl-[ elsewhere. They are commands (`Go back`,
+  `Go forward`), so ⌘K lists them and a person can rebind them as any
+  shortcut. No `Alt`-only chord: `core.page` reserves every chord without ⌘ or
+  Ctrl (`reserved: [{ mod: false }, PALETTE_CHORD]`,
+  `application/operations/src/keyboard.ts`), so `Alt-ArrowLeft` and
+  `Alt-ArrowRight` are refused for any plugin that is not core ("reserved in
+  core.page"). Core itself may hold one, but then `admitKeymaps` evicts the
+  outline's own `ArrowLeft` / `ArrowRight` selection keys
+  (`close-or-climb`, `open-or-descend` are `mod: false` with `alt`
+  unconstrained, so they overlap), and on macOS Alt-←/→ is also the text
+  caret's word jump. Checked with `admitKeymaps` over `CORE_KEYBOARD` and
+  `OUTLINE_KEYBOARD`.
+- Day stepping: commands `Previous day` and `Next day`, bound in `core.page`
+  by the days family as `Mod-Alt-ArrowLeft` and `Mod-Alt-ArrowRight` (admitted
+  for a non-core owner: they hold ⌘ or Ctrl, and no outline binding
+  overlaps them). A `Keybinding` has no `when`, and one binding per chord is
+  held per context, so Tana's `Ctrl-[` pair cannot be a day-page-only chord:
+  `Ctrl-[` is the same chord as `Mod-[` and is refused beside it. The commands
+  therefore work everywhere: on a day page they step from that day, made if
+  need be through `dateTarget`; elsewhere they step from today, as
+  `goToTodayCommand` already reaches a day from any page. macOS Chrome takes
+  ⌘⌥←/→ for tab switching before the page sees it; the builder checks that
+  on a Mac and, if the browser wins, ships the two commands unbound (⌘K and
+  rebindable) rather than choosing another chord blind. §8 asks the owner.
 - The stack: `router.ts` keeps `window.history`, and records the entry index
   in `history.state` so `canGoBack` / `canGoForward` are known without the
   Navigation API; forward after a reload is unknown and shows disabled
@@ -633,15 +690,24 @@ hard-coded listeners; the day pair lives in the days family that owns days.
    `canGo()` flips; replace does not add an entry.
 2. Component: the header buttons are disabled at the first page, enabled
    after navigating, and click moves.
-3. Keybinding: `Alt-ArrowLeft` from a zoomed node returns to the previous
-   route; the chord is held by `core.page` and shows in the shortcuts list.
-4. `days-ui`: `Ctrl-]` on `days.2026-11-20` opens `days.2026-11-21`, creating
-   it; on a non-day page the chord is not claimed.
-5. `keybindings.test.ts` (outline) and the page-keys tests still pass: no
+3. Keybinding, both platform mappings: a key event with `metaKey` (the macOS
+   ⌘ mapping) and one with `ctrlKey` (the Windows/Linux mapping) each resolve
+   `[` to Go back and `]` to Go forward from a zoomed node, and the same two
+   events for `Mod-Alt-ArrowLeft` / `Mod-Alt-ArrowRight` resolve to
+   Previous day / Next day; the chords are held by `core.page` and show in
+   the shortcuts list.
+4. `admitKeymaps` over the real `CORE_KEYBOARD`, `OUTLINE_KEYBOARD` and days
+   bindings leaves `refused` empty in every context, so the outline's
+   `ArrowLeft` / `ArrowRight` selection keys are still held; a negative case
+   shows `Alt-ArrowLeft` from a non-core owner is refused (the rule this brief
+   depends on, held by a test rather than by this paragraph).
+5. `days-ui`: Next day on `days.2026-11-20` opens `days.2026-11-21`,
+   creating it; from a non-day page it steps from today.
+6. `keybindings.test.ts` (outline) and the page-keys tests still pass: no
    overlap with a held chord.
 
 **Screenshots.** Header with disabled Back; after navigating, both states;
-a day page after `Ctrl-]`.
+a day page after Next day.
 
 **Passes both tests.** _Outliner-only:_ a zoom is a route to a node, so Back
 is movement between nodes; a day step is a move between day nodes. The
@@ -652,8 +718,8 @@ ship the commands and keys and drop the buttons (the desktop shell then has
 the keys and ⌘K only). _AGENTS.md:_ **Rule 1**, two commands rather than
 listeners, and one stack, owned by `router.ts`; **one contract**,
 `canGo`/`go` are the router's promise and a test over a fake `History`
-proves them the same in a browser tab and in the Electron shell, since both
-are `window.history`; **canonical statement**, DESIGN-UI.md → Days (day
+proves them the same in a browser tab and in the Electrobun store window,
+since both are `window.history`; **canonical statement**, DESIGN-UI.md → Days (day
 stepping) and → Panes and layouts (Back and Forward) each get one sentence,
 and the header is described once.
 
@@ -823,9 +889,17 @@ in one gesture, and Group / Sort are commands.
 
 **Behaviour.**
 
-- "Turn into query" (⌘K, and `/query` after Brief 1) opens the Add tag step
-  first, titled "Find nodes tagged…", and writes the query with that tag
-  condition. Esc makes no query. A query with no conditions stays legal
+- "Turn into query" (⌘K, and `/query` after Brief 1) opens a tag step first,
+  titled "Find nodes tagged…", and writes the query with that tag condition.
+  Esc makes no query. It is not the Add tag step: that step's `commit`
+  writes a tag on the row and, for a typed name that matches nothing, mints
+  one (`outline-steps.tsx`, `addTag.commit`: `defineTag` then `addTag`).
+  Turning a row into a query must tag nothing and create nothing, so the new
+  step reuses Add tag's candidate selection (`addTag.candidates`, over
+  `nodesOfKind`: the same tags in the same order) with its own commit, which
+  writes only the query condition, and offers no "Create tag" row
+  (`createLabel` absent: a condition on a tag that does not exist matches
+  nothing, and a gesture that mints structure is not a search). A query with no conditions stays legal
   (existing tests assert its text) but is never what a gesture makes by
   default, so the flood in F5 stops.
 - In the global search (⌘K with no row), `Alt+Enter` on the typed text makes
@@ -838,15 +912,23 @@ in one gesture, and Group / Sort are commands.
 - The false hint goes: "Search everything… ⌘S" becomes "Search
   everything…" (⌘S stays the browser's; see the owner decision in §8).
 
-**Where.** `app/ui/src/lib/commands.tsx` (`turn-query` at ~417, the
-`search-all` label at 494, the Filter command's neighbours),
+**Where.** `app/ui/src/lib/commands.tsx` (`turn-query` at ~417, which
+becomes `ctx.palette.openStep("outline.find-tagged")` as `add-tag` does at
+~382; the `search-all` label at 494, the Filter command's neighbours),
 `app/ui/src/lib/query-node.ts` (`DEFAULT_QUERY_EDN` stays for the empty
-case; add a builder from a tag id), `outline-ui/src/query-builder/*`,
-`view-settings-fields.ts`, `components/palette/command-palette.tsx`
-(`Alt+Enter`).
+case; add a builder from a tag id), a new `outline-ui/src/query-steps.tsx`
+holding the `findTagged` `PaletteStep` (`label`, `placeholder`, `icon` of its
+own; `candidates: addTag.candidates`; `commit` writes
+`updateProp(nodeId, SYSTEM_IDS.queryField, …)` and nothing else), contributed
+beside `OUTLINE_STEPS` in `outline-ui/src/plugin.ts`,
+`outline-ui/src/query-builder/*`, `view-settings-fields.ts`,
+`components/palette/command-palette.tsx` (`Alt+Enter`). WP-2 owns
+`outline-steps.tsx`, so this reads `addTag` and does not edit it.
 
 **Rule 1.** The query kind is still "a node with the query field"; the step
-is the existing `addTag` PaletteStep reused, not a query-specific wizard.
+is one more `PaletteStep` over the existing tag candidates (a bridge to
+`addTag.candidates`, not a copy of the tag list), not a query-specific
+wizard.
 Group and Sort are two more settings written through the same view-settings
 path the popover uses.
 
@@ -855,7 +937,10 @@ path the popover uses.
 1. `query-builder.component.test.tsx`: Turn into query opens the tag step;
    picking `task` writes `[:find ?id :where … :f/sys.f.type … "task-id"]`
    (by id, never text: AGENTS.md → data-plane freedom); Esc writes nothing;
-   the existing "No conditions" assertions stay green.
+   the existing "No conditions" assertions stay green. The row carries no
+   tag afterwards (its type slot is as it was), typing a name no tag has
+   offers no create row and mints no node (the node count is unchanged), and
+   the pick is one undo step.
 2. Palette test: `Alt+Enter` in global search creates a query node with the
    text condition under the zoomed node.
 3. Group by… and Sort by… write the view settings; the view reflects them.
@@ -868,7 +953,8 @@ query with a count; the palette entries; Alt+Enter from search.
 **Passes both tests.** _Outliner-only:_ a query is already a node with a
 field, the builder is its editor, and Group and Sort are view settings, which
 are fields; nothing new is stored or drawn. _AGENTS.md:_ **Rule 1**, the
-tag step is the existing `addTag` reused (no query wizard) and a text
+tag step reuses `addTag`'s candidate selection with a commit that writes only
+the condition (no query wizard, no tag written or minted) and a text
 condition is a builder condition kind, not a special case; **one contract**,
 the query EDN a gesture writes is evaluated by the same datalog layer for the
 UI, `kb run` and MCP, and the new tag condition is written by id; **canonical
@@ -966,10 +1052,28 @@ tags…" does the same for tags, from existing tags only.
   options. The reply is a proposal list `field: value`.
 - The proposal is shown as a **multi-select palette step** (rows like
   `owner: Ana`, all pre-checked); Enter applies the checked ones in one
-  write. A value that does not conform to the field (`conformsToType`), or
-  names an option that does not exist, is dropped and counted in the step's
-  header ("2 of 3 filled; `owner` had no matching option"). Nothing is
-  created: no new option, tag or node.
+  write. A proposed value is judged by the graph's own constraints, not by
+  `conformsToType`, which checks a value's kind and form only
+  (`domain/model/src/field-value.ts`) and would pass `owner: Zed` for a
+  ref field whose options are Ana and Bo. The check is the shared pair the
+  picker and the commit already use: `valueConformanceError(fieldId, value,
+  nodes)` for kind, form and a ref naming a stored node, and
+  `allowedRefIdsOf(fieldNode, nodes, runQuery)` (`domain/model/src/field-type.ts`)
+  for option membership. That one resolver answers for all three ways a field
+  names its targets: its own children (an option set), `targetTag`, or
+  `targetQuery`; `null` means unrestricted. A ref value outside the set, a
+  value that fails `valueConformanceError`, or a value the field would close
+  a cycle with (`sys.f.acyclic`, `closesCycle`), is dropped and counted in
+  the step's header ("2 of 3 filled; `owner` had no matching option").
+  Nothing is created: no new option, tag or node.
+- The same check runs again when the step applies, against the graph as it
+  is then: the commit does not yet refuse a ref outside the allowed set
+  (`GAP 01M39YM7FQ9S231XW8JBA5MG0E`; only the picker does), and the graph can
+  change between the read and Enter (an option deleted, the field given a
+  value by hand or retyped, the row deleted). A row that fails then is
+  skipped and reported, never written. If that gap closes first, the
+  commit enforces it for every writer and the apply-time call is the same
+  function, not a second rule.
 - **Suggest tags…**: candidates are existing tags in use (or non-shipped);
   the model picks; the same multi-select step applies them with `addTag`.
 - Both are read-then-apply: two actions, a read (`ext.agent.propose`) that
@@ -994,8 +1098,12 @@ never mints structure (Capacities' November 2026 rule).
 1. Read action contract (`scriptedRuntime`): for a `#task` row with empty
    `status` (options Todo, Doing, Done) and `owner` (ref, options Ana, Bo),
    a scripted reply proposes `status: Doing`, `owner: Zed`; the proposal
-   keeps `status` and drops `owner` with a reason.
-2. The step applies only the checked rows, in one write and one undo.
+   keeps `status` and drops `owner` with a reason. Also a `targetTag` field
+   and a `targetQuery` field each drop a ref outside what `allowedRefIdsOf`
+   returns for them, so all three carriers go through the one resolver.
+2. The step applies only the checked rows, in one write and one undo. A
+   proposal made, then an option deleted (or the field filled by hand)
+   before Enter: that row is skipped and reported, the others apply.
 3. A field with no instruction is never proposed; a field that already has a
    value is never proposed.
 4. Suggest tags never returns an id that is not an existing tag; a reply
@@ -1012,9 +1120,11 @@ checked rows and the header count; the applied row; ⌃Z.
 it is `updateProp` and `addTag`. No review pane, no new store, and the model
 never creates a tag, option or node. _AGENTS.md:_ **Rule 1**, one more
 setting beside `fillFrom` with one reader and a proposal the person edits in
-the palette's own list; **one contract**, `conformsToType` is the one
-validity check, so a proposal is judged the same by the UI, the CLI and MCP,
-and `ext.agent.propose` has a contract test over the invoke core; **canonical
+the palette's own list; **one contract**, `valueConformanceError` and
+`allowedRefIdsOf` are the validity check the picker and the commit already
+share, applied unchanged at proposal and again at apply, so a proposal is
+judged the same by the UI, the CLI and MCP, and `ext.agent.propose` has a
+contract test over the invoke core; **canonical
 statement**, DESIGN.md → tag behaviours gains the setting (its one reader)
 and → Agent packages names the action, with no copy in the UI doc.
 
@@ -1026,9 +1136,11 @@ and → Agent packages names the action, with no copy in the UI doc.
 1. **⌘S.** Default in Brief 6: drop the false label and leave ⌘S to the
    browser (`page-keys.ts` says why). Tana's ⌘S is search; binding it takes
    Save from the browser. Your call.
-2. **Chords.** `Mod-Alt-Arrow*` (Brief 4) and `Alt-Arrow*` (Brief 3) may
-   collide with window managers on Linux and with macOS system keys; the
-   builders check `admitKeymaps` but not your desktops.
+2. **Chords.** `Mod-Alt-Arrow*` (Brief 4: structure keys; Brief 3: Previous
+   and Next day) may collide with window managers on Linux and with macOS
+   system keys or the browser (⌘⌥←/→ switches tabs in Chrome on macOS); the
+   builders check `admitKeymaps` but not your desktops. Brief 3's Back and
+   Forward are `Mod-[` and `Mod-]`, which `admitKeymaps` admits.
 3. **AI spend and exposure.** Briefs 5 and 8 call the configured agent
    provider and send subtree text. The chat dock already sends the screen's
    node names. Decide whether the Private flag (rank 14) must precede Brief 5
@@ -1051,7 +1163,7 @@ and → Agent packages names the action, with no copy in the UI doc.
 
 - **Hands-on time.** About 11 minutes of scripted browser driving, not 30,
   headless Chrome on Linux. macOS ⌘ chords, mouse-first flows (click, hover,
-  rubber band, Shift+click range), motion, latency and the Electron app were
+  rubber band, Shift+click range), motion, latency and the Electrobun desktop app were
   not exercised.
 - **Not tested in the UI** (read from code or docs only): paste of a
   `%%tana%%` list, Copy as…, table view calculations, board drag between

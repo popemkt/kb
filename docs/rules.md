@@ -1297,14 +1297,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — An allowed-file list for KB_DATA and KB_CACHE stated once, and a check over what the code writes there; docs/research/2026-11-11-cli-host-modes.md section 9.
 - **node** — `01M788TDKRD09FEQS10QZZ39S7`
 
-### GAP: no in-app Back or Forward, so the desktop and phone apps have no navigation history
-
-- **expected** — Back and Forward are commands with buttons and bindable keys in every shell.
-- **current** — router.ts is pushState plus popstate; only a browser tab has Back, the Electron and phone shells have no chrome (F7 in docs/research/2026-11-20-outliner-tana-parity.md).
-- **impact** — After zooming or following a reference there is no way back in the apps kb is building.
-- **closes** — Brief 3 in docs/research/2026-11-20-outliner-tana-parity.md: header buttons, Go back and Go forward commands, router canGo and go.
-- **node** — `01M7WW1VZJBCBMXTQ2W3NSN6T2`
-
 ### GAP: no pop-out OS windows for panes
 
 - **expected** — a pane can pop out into its own browser window, kept in sync over /ws like any client
@@ -2013,6 +2005,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Every new inline form is another branch in the same function, and the interaction between forms (a ref inside bold, an escape inside code) is only tested end to end.
 - **closes** — Split into recognizers over a cursor and drive them from a list. The existing md-inline tests are the gate; this is a rewrite, not a mechanical move.
 - **node** — `01M1MGCM9RWXE3CYANZK5K4KC0`
+
+### GAP: the kb UI has no Back or Forward command or control (the desktop app's store window has none either)
+
+- **expected** — The kb UI has Back and Forward as commands, with buttons in its header and bindable keys, so the page and the desktop app's store window can move through navigation history.
+- **current** — kit/ui-sdk/src/lib/router.ts is pushState plus popstate with no Back or Forward command, button or key. A browser tab has the browser's own Back; the desktop app (Electrobun, packages/app/desktop) shows the store's own kb page in a window with no navigation chrome, so it has none either. The Android and iOS apps are capture-only and show no kb page (F7 in docs/research/2026-11-20-outliner-tana-parity.md).
+- **impact** — After zooming or following a reference in the kb UI there is no in-app way back, in the desktop store window or in a tab without browser chrome.
+- **closes** — Brief 3 in docs/research/2026-11-20-outliner-tana-parity.md: header buttons, Go back and Go forward commands on Mod-[ and Mod-], router canGo and go.
+- **node** — `01M7WW1VZJBCBMXTQ2W3NSN6T2`
 
 ### GAP: the kit's node type is named for the outline
 
