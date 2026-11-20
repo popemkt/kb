@@ -5342,7 +5342,7 @@ and a horizontal one above it on a narrow one.
   binding as the person (`sandbox.trust`), asks the host for Google's URL
   (`ext.routines.connect`) and goes there. Google sends the person back to
   `/calendar/connect`, which hands that address to the host once
-  (`ext.routines.finish`), removes the code from the address bar at once,
+  (`ext.routines.finish`), clears the callback parameters in the current history entry,
   and returns to the setup. Every write here is `approval: "required"`, so
   an agent cannot set up, connect or remove a service, and the host offers
   the page a binding to trust (`ext.routines.binding`) only when the

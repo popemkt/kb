@@ -51,7 +51,9 @@ export function go(delta: number): void {
 }
 
 function writePath(method: "pushState" | "replaceState", to: string): void {
-  if (!hasLocation() || to === getPath()) return;
+  if (!hasLocation()) return;
+  const { search, hash } = window.location;
+  if (to === `${getPath()}${search}${hash}`) return;
   const index = pathIndex();
   const push = method === "pushState";
   const next = push ? index + 1 : index;
@@ -66,8 +68,8 @@ export function navigate(to: string): void {
 
 /**
  * Show `to` in the address bar without a history entry: the URL names the
- * focused pane, and moving the focus to another pane is not a step back can
- * undo.
+ * focused pane. Moving focus or clearing a callback's URL parameters keeps
+ * the current entry and its state.
  */
 export function replacePath(to: string): void {
   writePath("replaceState", to);

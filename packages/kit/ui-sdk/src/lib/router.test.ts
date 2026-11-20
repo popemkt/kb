@@ -12,7 +12,7 @@ class TestWindow extends EventTarget {
   private entries: Entry[] = [{ path: "/", state: null }];
 
   get location() {
-    return { pathname: this.entries[this.active]?.path };
+    return new URL(this.entries[this.active]?.path ?? "/", "https://kb.test");
   }
 
   get history() {
@@ -92,6 +92,27 @@ describe("in-app history", () => {
     } finally {
       stop();
     }
+  });
+
+  it("clears callback parameters in the same entry and preserves its state", async () => {
+    const page = new TestWindow();
+    vi.stubGlobal("window", page);
+    const { canGo, getPath, go, navigate, replacePath } = await freshRouter();
+    const callback = "/calendar/connect";
+    navigate(`${callback}?code=one-shot#return`);
+    page.history.replaceState(
+      Object.assign({ marker: "kept" }, page.history.state),
+      "",
+      `${callback}?code=one-shot#return`,
+    );
+    replacePath(callback);
+    expect(page.location.href).toBe(`https://kb.test${callback}`);
+    expect(page.history.state).toMatchObject({ marker: "kept" });
+    expect(canGo()).toEqual({ back: true, forward: false });
+    go(-1);
+    expect(getPath()).toBe("/");
+    go(1);
+    expect(page.location.href).toBe(`https://kb.test${callback}`);
   });
 });
 
