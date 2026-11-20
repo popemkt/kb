@@ -4384,11 +4384,8 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
     (`systemWriteRefusal`, `@kb/model`) admits exactly the values of fields
     that configure the node being written, beside its text and a person's
     additions to its lists ([Data model](#data-model--everything-is-a-node)
-    states the rule). Its
-    rank and every other field stay its owner's. The page does not yet offer
-    every write the rule admits: additive edits
-    (GAP [[01M7342V3W6X9PFNWVZ92WD7SF]]) and labels
-    (GAP [[01M7342W0CNMFK152YEFNJHPP4]]).
+    states the rule). Its rank and every other field stay its owner's. The page
+    offers title edits and additive edits under the same rule.
     The invoke core checks
     every commit against the rule, on the server and on the page's replica,
     and the page's field rows read the rule (`fieldWriting`, through
