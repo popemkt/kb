@@ -5,12 +5,13 @@
  */
 import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
-import { Cause, Effect, Exit } from "effect";
+import { Cause, Clock, Effect, Exit } from "effect";
 import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { canonicalJson, isDomainError, present, type KbNode } from "@kb/model";
+import { WriteLockDeadline } from "@kb/contracts";
 import { SqliteStore } from "../src/index.ts";
 
 const AT = "2026-01-01T00:00:00.000Z";
@@ -46,6 +47,21 @@ function failureOf(exit: Exit.Exit<unknown, unknown>): unknown {
 }
 
 describe("SqliteStore", () => {
+  test("an expired first commit leaves the database absent", () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const store = yield* scratchStore;
+          const deadline = yield* Clock.currentTimeMillis;
+          const error = yield* Effect.flip(
+            store.commitEffect({ upserts: [node("n-a", "a")], deletes: [] }, { at: AT }),
+          ).pipe(Effect.provideService(WriteLockDeadline, deadline));
+          expect(error.code).toBe("conflict");
+          expect(existsSync(store.path)).toBe(false);
+        }),
+      ),
+    ));
+
   test("a store that is only read from never creates its file", () =>
     Effect.runPromise(
       Effect.scoped(
@@ -156,7 +172,7 @@ describe("SqliteStore", () => {
       ),
     ));
 
-  test("a schema-5 tail gains the via column: its rows read back, and a new commit records its via", () =>
+  test("a cold schema-5 read proceeds under the write lock and the first commit upgrades it", () =>
     Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
@@ -175,7 +191,17 @@ describe("SqliteStore", () => {
 
           const reopened = new SqliteStore(root);
           try {
-            expect(reopened.txTail.entries().map((tx) => tx.rev)).toEqual([1]);
+            withRawConnection(store.path, (db) => {
+              db.run("BEGIN IMMEDIATE");
+              expect(Effect.runSync(reopened.loadEffect).map(({ id }) => id)).toEqual(["n-a"]);
+              expect(reopened.txTail.entries().map(({ rev }) => rev)).toEqual([1]);
+              expect(db.query("SELECT value FROM meta WHERE key = 'schema_version'").get()).toEqual(
+                {
+                  value: "5",
+                },
+              );
+              db.run("ROLLBACK");
+            });
             yield* reopened.commitEffect(
               { upserts: [node("n-b", "b")], deletes: [] },
               { at: AT, actor: "agent", via: "job:a" },

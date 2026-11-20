@@ -1962,6 +1962,16 @@ which the port does not have. `briefs/p1-persistence.md` picks incremental
 reading up against that adapter's own internals when it gets there; keeping
 `decodeNodes` exported for a benchmark nobody runs yet would be a dead seam.
 
+**The session retries commit conflicts.** Across backends, a retryable write
+starts with one 15-second deadline for lock acquisition and any retries.
+Conflicts retry with capped, jittered exponential backoff. A transaction
+authored independently of the graph is checked again against the refreshed
+graph. Writes derived from it run their planner again, including decisions
+about whether to write at all. An exhausted lock wait returns its conflict
+to the caller.
+A caller that supplies its own expected fingerprint gets one attempt against
+that state. A refusal from the planner reaches the caller immediately.
+
 A tool outside kb's surfaces reaches the graph through `@kb/client`
 (`packages/app/client/README.md`): a fresh read, a query over it, and a commit
 conditioned on the fingerprint that read returned — the port's own members,
@@ -2140,8 +2150,9 @@ CREATE TABLE meta  (key TEXT PRIMARY KEY, value TEXT);   -- schema_version, rev
   unopened store compares equal to nothing.
 - **The store owns the connection.** It opens lazily on first `load` or
   `commit` and stays open for the store's lifetime; `close()` exists for tests.
-  Opening a database with the current schema only reads. Creation and schema
-  upgrades change the database, with the schema changes in one transaction.
+  Reads can open current and older schemas while a writer holds the lock.
+  Schema creation and upgrades run in the first write transaction. Reads of
+  older transaction records omit metadata columns that were added later.
   The caller cannot own it: `EffectStore` is constructed once per session and
   handed to layers, actions and the watcher as a value, and none of them has a
   lifetime to hang a connection off — `KbContext` is not scoped. Making the
@@ -6478,8 +6489,8 @@ are `docs/brainstorms/2026-10-17-kb-locations/README.md`.
   through `KbRoots.writeHome`, core's planned write path on the home store
   and on no other root: planned from the home
   session as it has caught up, committed on the condition that the store
-  is still in that state, and planned again when it is not, a few times
-  before the `conflict` is the caller's.
+  is still in that state, and planned again on a conflict as described in
+  [Storage](#storage).
 - **The actions** are namespaced `ext.locations.*`, aliased `location.*`,
   and every one's mode says `outsideRoot`, so MCP and WebMCP report them
   open-world ([Action registry](#action-registry) → Mode):

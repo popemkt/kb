@@ -44,29 +44,34 @@ import {
   type TxRecord,
   type TxTail,
 } from "@kb/contracts";
-import { commitMark, type SqliteConnection } from "./connection.ts";
+import { commitMark, hasTable, type SqliteConnection } from "./connection.ts";
 
 interface TxRow {
   rev: number;
   at: string;
   origin: string | null;
-  actor: string | null;
-  session: string | null;
-  via: string | null;
+  actor?: string | null;
+  session?: string | null;
+  via?: string | null;
   ops: string;
 }
 
+/** Older stores may have no durable tail yet. */
+function tailOf(db: Database | null): Database | null {
+  return db !== null && hasTable(db, "tx") ? db : null;
+}
+
 function toKbTx(row: TxRow): KbTx {
+  // Older tails omit columns that a later write will add.
+  const { actor = null, session = null, via = null } = row;
   return decodeStoredTx({
     rev: row.rev,
     at: row.at,
     ops: JSON.parse(row.ops),
     ...(row.origin === null ? {} : { origin: row.origin }),
-    ...(row.actor === null
-      ? {}
-      : { actor: row.actor.startsWith("{") ? JSON.parse(row.actor) : row.actor }),
-    ...(row.session === null ? {} : { session: row.session }),
-    ...(row.via === null ? {} : { via: row.via }),
+    ...(actor === null ? {} : { actor: actor.startsWith("{") ? JSON.parse(actor) : actor }),
+    ...(session === null ? {} : { session }),
+    ...(via === null ? {} : { via }),
   });
 }
 
@@ -83,7 +88,7 @@ export class SqliteTxTail implements TxTail {
   }
 
   head(): number {
-    const db = this.connection.peek();
+    const db = tailOf(this.connection.peek());
     if (db === null) return 0;
     return db.query<{ rev: number | null }, []>("SELECT MAX(rev) AS rev FROM tx").get()?.rev ?? 0;
   }
@@ -92,9 +97,10 @@ export class SqliteTxTail implements TxTail {
     const db = this.connection.peek();
     // No database is no store and no tail: a consistent empty pair.
     if (db === null) return true;
-    const last = db
-      .query<{ mark: string }, []>("SELECT mark FROM tx ORDER BY rev DESC LIMIT 1")
-      .get();
+    const last =
+      tailOf(db)
+        ?.query<{ mark: string }, []>("SELECT mark FROM tx ORDER BY rev DESC LIMIT 1")
+        .get() ?? null;
     // An empty tail is current only while the store is empty too. `meta.rev`
     // counts row changes, so "0" is the store nothing has written a row to.
     if (last === null) return commitMark(db) === "0";
@@ -102,12 +108,9 @@ export class SqliteTxTail implements TxTail {
   }
 
   entries(): KbTx[] {
-    const db = this.connection.peek();
+    const db = tailOf(this.connection.peek());
     if (db === null) return [];
-    return db
-      .query<TxRow, []>("SELECT rev, at, origin, actor, session, via, ops FROM tx ORDER BY rev")
-      .all()
-      .map(toKbTx);
+    return db.query<TxRow, []>("SELECT * FROM tx ORDER BY rev").all().map(toKbTx);
   }
 
   /**
@@ -116,9 +119,9 @@ export class SqliteTxTail implements TxTail {
    * ops of a row the page does not take are never read.
    */
   since(rev: number, page?: TxPage): KbTx[] {
-    const db = this.connection.peek();
+    const db = tailOf(this.connection.peek());
     if (db === null) return [];
-    const columns = "SELECT rev, at, origin, actor, session, via, ops FROM tx";
+    const columns = "SELECT * FROM tx";
     if (page === undefined) {
       return db
         .query<TxRow, [number]>(`${columns} WHERE rev > ? ORDER BY rev`)

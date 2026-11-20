@@ -53,7 +53,7 @@ import {
 } from "@kb/model";
 import { type KbIndex, KbIndexService } from "@kb/query";
 import { seedReferences, switchImpact } from "./extension-impact.ts";
-import { persistEffect, reloadEffect } from "./session.ts";
+import { persistPlannedEffect } from "./session.ts";
 
 const switchInput = z.object({ name: z.string().min(1), on: z.boolean() });
 
@@ -106,18 +106,20 @@ export const extensionSwitchEffect = Effect.fn("extension.switch")(function* (
 > {
   const row = yield* switchableExtension(input.name);
   const ctx = yield* KbCtx;
-  // Read the switch as the store has it now: another process may have written it first.
-  yield* reloadEffect(ctx);
-  const blockedBy = yield* switchBlockers(row, input.on);
-  if (blockedBy.length > 0) {
-    return yield* domainError(
-      "invalid_input",
-      `${row.name} needs ${blockedBy.join(", ")} before it can be switched on`,
-      { name: row.name, blockedBy },
-    );
-  }
-  const upserts = switchWrites(row, input.on, (id) => ctx.index.getNode(id), yield* currentIso);
-  yield* persistEffect(ctx, { upserts, deletes: [] });
+  yield* persistPlannedEffect(ctx, () =>
+    Effect.gen(function* () {
+      const blockedBy = yield* switchBlockers(row, input.on);
+      if (blockedBy.length > 0) {
+        return yield* domainError(
+          "invalid_input",
+          `${row.name} needs ${blockedBy.join(", ")} before it can be switched on`,
+          { name: row.name, blockedBy },
+        );
+      }
+      const upserts = switchWrites(row, input.on, (id) => ctx.index.getNode(id), yield* currentIso);
+      return { upserts, deletes: [] };
+    }),
+  );
   return { name: input.name, on: input.on };
 });
 

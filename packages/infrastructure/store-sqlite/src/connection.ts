@@ -37,8 +37,18 @@ const REV_TRIGGERS = ["INSERT", "UPDATE", "DELETE"].map(
      END`,
 );
 
+/** Check for a table without upgrading a database that does not have it yet. */
+export function hasTable(db: Database, name: string): boolean {
+  return (
+    db
+      .query<unknown, [string]>("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ?")
+      .get(name) !== null
+  );
+}
+
 /** The store's commit mark: `meta.rev`, or null when the database has none. */
 export function commitMark(db: Database): string | null {
+  if (!hasTable(db, "meta")) return null;
   return (
     db.query<{ value: string }, []>("SELECT value FROM meta WHERE key = 'rev'").get()?.value ?? null
   );
@@ -54,24 +64,11 @@ export interface SqliteConnection {
 }
 
 function hasCurrentSchema(db: Database): boolean {
-  const meta = db.query("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = 'meta'");
-  if (meta.get() === null) return false;
+  if (!hasTable(db, "meta")) return false;
   return (
     db.query<{ value: string }, []>("SELECT value FROM meta WHERE key = 'schema_version'").get()
       ?.value === SCHEMA_VERSION
   );
-}
-
-function initialize(db: Database): void {
-  db.run(BUSY_TIMEOUT);
-  db.run("PRAGMA synchronous = NORMAL");
-  if (hasCurrentSchema(db)) return;
-
-  db.run("PRAGMA journal_mode = WAL");
-  db.transaction(() => {
-    // Another opener may have migrated while this connection waited for the lock.
-    if (!hasCurrentSchema(db)) migrate(db);
-  }).immediate();
 }
 
 function migrate(db: Database): void {
@@ -93,21 +90,12 @@ function migrate(db: Database): void {
        mark TEXT NOT NULL
      )`,
   );
-  // The migration from schema 3: a tail made before `actor` was recorded
-  // gains the column, empty on every row it already holds.
-  const txColumns = db.query<{ name: string }, []>("PRAGMA table_info(tx)").all();
-  if (!txColumns.some((column) => column.name === "actor")) {
-    db.run("ALTER TABLE tx ADD COLUMN actor TEXT");
-  }
-  // The migration from schema 4: a tail made before `session` was recorded
-  // gains the column, empty on every row it already holds.
-  if (!txColumns.some((column) => column.name === "session")) {
-    db.run("ALTER TABLE tx ADD COLUMN session TEXT");
-  }
-  // The migration from schema 5: a tail made before `via` was recorded gains
-  // the column, empty on every row it already holds.
-  if (!txColumns.some((column) => column.name === "via")) {
-    db.run("ALTER TABLE tx ADD COLUMN via TEXT");
+  // Schemas 4–6 each added one optional metadata column to the tail.
+  const columns = db.query<{ name: string }, []>("PRAGMA table_info(tx)").all();
+  for (const name of ["actor", "session", "via"]) {
+    if (!columns.some((column) => column.name === name)) {
+      db.run(`ALTER TABLE tx ADD COLUMN ${name} TEXT`);
+    }
   }
   db.run(
     `INSERT INTO meta (key, value) VALUES ('schema_version', '${SCHEMA_VERSION}'), ('rev', '0')
@@ -129,6 +117,8 @@ function sqliteLockCode(error: unknown): "SQLITE_BUSY" | "SQLITE_LOCKED" | null 
 function tryBeginWrite(db: Database): boolean {
   db.run("PRAGMA busy_timeout = 0");
   try {
+    const journal = db.query<{ journal_mode: string }, []>("PRAGMA journal_mode").get();
+    if (journal?.journal_mode !== "wal") db.run("PRAGMA journal_mode = WAL");
     db.run("BEGIN IMMEDIATE");
     return true;
   } catch (error) {
@@ -142,30 +132,40 @@ function tryBeginWrite(db: Database): boolean {
 export function sqliteConnection(path: string): SqliteConnection {
   let handle: Database | null = null;
 
-  const open = (): Database => {
-    if (handle !== null) return handle;
-    mkdirSync(dirname(path), { recursive: true });
-    const opened = new Database(path, { create: true });
+  const connect = (db: Database): Database => {
     try {
-      initialize(opened);
+      db.run("PRAGMA synchronous = NORMAL");
+      db.run(BUSY_TIMEOUT);
     } catch (error) {
-      opened.close(false);
+      db.close(false);
       throw error;
     }
-    handle = opened;
-    return opened;
+    handle = db;
+    return db;
+  };
+
+  const create = (): Database => {
+    mkdirSync(dirname(path), { recursive: true });
+    return connect(new Database(path, { create: true }));
   };
 
   return {
-    peek: () => (handle !== null ? handle : existsSync(path) ? open() : null),
+    peek: () => {
+      const db =
+        handle ?? (existsSync(path) ? connect(new Database(path, { readwrite: true })) : null);
+      // An empty file can be visible before another process creates its tables.
+      return db !== null && hasTable(db, "nodes") ? db : null;
+    },
     write: (run) =>
       takeWriteLock(
         () =>
           Effect.try({
             try: () => {
-              const db = open();
+              const db = handle ?? create();
               try {
                 if (!tryBeginWrite(db)) return Option.none();
+                // Upgrade under the lock this write already acquired.
+                if (!hasCurrentSchema(db)) migrate(db);
                 const value = run(db);
                 db.run("COMMIT");
                 return Option.some(value);

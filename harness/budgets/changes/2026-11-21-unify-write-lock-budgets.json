@@ -1,0 +1,7 @@
+{
+  "reason": "Both branches budgeted the deadline reference and their own adapter wait code. The combined adapters use one helper and export the reference once.",
+  "raise": {
+    "cli-closure": { "bytes": -841, "modules": -1 },
+    "surface": { "@kb/contracts": -1 }
+  }
+}

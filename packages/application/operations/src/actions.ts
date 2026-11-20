@@ -35,7 +35,7 @@ import {
   nodeTitleOf,
   PropValueSchema,
 } from "@kb/model";
-import { persistEffect, persistPlannedEffect, type PersistOptions } from "./session.ts";
+import { persistPlannedEffect, type PersistOptions } from "./session.ts";
 import { placedGraph, placeOf } from "./place.ts";
 import { requireNode } from "./require-node.ts";
 import { datalogRows, type NodeIndex, type QueryEngineService } from "@kb/query";
@@ -289,18 +289,6 @@ function nodeById(ctx: KbContext<NodeIndex>, id: NodeId): KbNode | undefined {
   return ctx.index.getNode(id);
 }
 
-/**
- * The session's stored graph as a write plan reads it (`NodeGraph`), indexed
- * once per invocation that needs it: a plan that writes several nodes in one
- * transaction `put`s each step's upserts into the same graph, so every step
- * sees what the steps before it wrote. Only stored nodes are in it — the
- * index's virtual nodes never reach the store, so a plan never reads one as a
- * parent or a taken id.
- */
-export function sessionGraph(ctx: KbContext<NodeIndex>): IndexedNodes {
-  return IndexedNodes.of(ctx.nodes);
-}
-
 function cloneNode(n: KbNode): KbNode {
   return {
     ...n,
@@ -322,7 +310,7 @@ function cloneNode(n: KbNode): KbNode {
 // A field's cardinality is read from the plan graph, which holds stored
 // nodes only. A field is never virtual (the virtual nodes are saved queries),
 // so this reads what the session index would.
-function isInSubtree(nodes: KbNode[], rootId: NodeId, targetId: NodeId): boolean {
+function isInSubtree(nodes: readonly KbNode[], rootId: NodeId, targetId: NodeId): boolean {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const stack = [rootId];
   const seen = new Set<NodeId>();
@@ -338,7 +326,7 @@ function isInSubtree(nodes: KbNode[], rootId: NodeId, targetId: NodeId): boolean
   return false;
 }
 
-function detachFromParents(nodes: KbNode[], childId: NodeId, at: string): KbNode[] {
+function detachFromParents(nodes: readonly KbNode[], childId: NodeId, at: string): KbNode[] {
   const touched: KbNode[] = [];
   for (const n of nodes) {
     if (!n.children.includes(childId)) continue;
@@ -350,7 +338,7 @@ function detachFromParents(nodes: KbNode[], childId: NodeId, at: string): KbNode
   return touched;
 }
 
-function collectSubtreeIds(nodes: KbNode[], rootId: NodeId): NodeId[] {
+function collectSubtreeIds(nodes: readonly KbNode[], rootId: NodeId): NodeId[] {
   const byId = new Map(nodes.map((node) => [node.id, node]));
   const result: NodeId[] = [];
   const seen = new Set<NodeId>();
@@ -490,7 +478,7 @@ export interface PlannedNodeWrite {
  * `descendants: "reparent"`, and detached from every parent.
  */
 export function planNodeDelete(
-  nodes: KbNode[],
+  nodes: readonly KbNode[],
   input: z.infer<typeof nodeDeleteDef.inputSchema>,
   at: string,
 ): PlannedNodeWrite {
@@ -504,7 +492,11 @@ export const nodeDeleteEffect = Effect.fn("node.delete")(function* (
 ): Effect.fn.Return<{ id: string; deleted: true }, DomainError, KbWriteEnv> {
   const ctx = yield* KbCtx;
   const at = yield* currentIso;
-  yield* persistEffect(ctx, planNodeDelete(ctx.nodes, input, at), forcedBy(input));
+  yield* persistPlannedEffect(
+    ctx,
+    (nodes) => Effect.succeed(planNodeDelete(nodes, input, at)),
+    forcedBy(input),
+  );
   return { id: input.id, deleted: true };
 });
 
@@ -516,11 +508,11 @@ export const nodeDeleteEffect = Effect.fn("node.delete")(function* (
  * once, only when one needs it: a text edit reads no graph.
  */
 export const planNodeUpdate = Effect.fn("node.update.plan")(function* (
-  nodes: KbNode[],
+  nodes: readonly KbNode[],
   input: z.infer<typeof nodeUpdateDef.inputSchema>,
   at: string,
   nodeOf: (id: NodeId) => KbNode | undefined,
-): Effect.fn.Return<{ node: KbNode; write: PlannedNodeWrite }, DomainError> {
+): Effect.fn.Return<PlannedNodeWrite & { node: KbNode }, DomainError> {
   const node = yield* syncDomain(() => {
     const held = nodeOf(input.id);
     if (!held) throw new ResolveError("not_found", `node not found: ${input.id}`, { id: input.id });
@@ -573,7 +565,7 @@ export const planNodeUpdate = Effect.fn("node.update.plan")(function* (
 
   node.updatedAt = at;
   upserts.push(node);
-  return { node, write: { upserts, deletes: [] } };
+  return { node, upserts, deletes: [] };
 });
 
 export const nodeUpdateEffect = Effect.fn("node.update")(function* (
@@ -581,8 +573,12 @@ export const nodeUpdateEffect = Effect.fn("node.update")(function* (
 ): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbWriteEnv> {
   const ctx = yield* KbCtx;
   const at = yield* currentIso;
-  const { node, write } = yield* planNodeUpdate(ctx.nodes, input, at, (id) => nodeById(ctx, id));
-  yield* persistEffect(ctx, write, forcedBy(input));
+  const planned = yield* persistPlannedEffect(
+    ctx,
+    (nodes) => planNodeUpdate(nodes, input, at, (id) => nodeById(ctx, id)),
+    forcedBy(input),
+  );
+  const { node } = present(planned, "an update always writes");
   return { id: input.id, node };
 });
 
@@ -591,35 +587,50 @@ export const nodeMergeEffect = Effect.fn("node.merge")(function* (
 ): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbWriteEnv> {
   const ctx = yield* KbCtx;
   const at = yield* currentIso;
-  if (isInSubtree(ctx.nodes, input.id, input.into)) {
-    return yield* domainError(
-      "invalid_move",
-      `cannot merge ${input.id} into itself or its own descendant ${input.into}`,
-      { id: input.id, into: input.into },
-    );
-  }
-  const source = yield* syncDomain(() => requireNode(ctx, input.id));
-  const parents = detachFromParents(ctx.nodes, input.id, at);
-  const target = yield* syncDomain(() =>
-    cloneNode(parents.find((n) => n.id === input.into) ?? requireNode(ctx, input.into)),
+  const planned = yield* persistPlannedEffect(
+    ctx,
+    (nodes) =>
+      Effect.gen(function* () {
+        if (isInSubtree(nodes, input.id, input.into)) {
+          return yield* domainError(
+            "invalid_move",
+            `cannot merge ${input.id} into itself or its own descendant ${input.into}`,
+            { id: input.id, into: input.into },
+          );
+        }
+        const source = yield* syncDomain(() => requireNode(ctx, input.id));
+        const parents = detachFromParents(nodes, input.id, at);
+        const detachedTarget = parents.find((node) => node.id === input.into);
+        const target = yield* syncDomain(() =>
+          cloneNode(detachedTarget ?? requireNode(ctx, input.into)),
+        );
+        // Each child joins the group after the last, ranked as a placement there is.
+        const graph = IndexedNodes.of(nodes);
+        const group: RankSlot[] = target.children.flatMap((id) => graph.get(id) ?? []);
+        const moved = source.children.flatMap((id) => {
+          const child = graph.get(id);
+          if (child === undefined) return [];
+          const placed = {
+            ...cloneNode(child),
+            order: rankForInsert(group, group.length, child.order),
+          };
+          placed.updatedAt = at;
+          group.push(placed);
+          return [placed];
+        });
+        target.text += source.text;
+        target.children = [...target.children, ...source.children];
+        target.updatedAt = at;
+        return {
+          node: target,
+          upserts: [...parents.filter((n) => n.id !== target.id), target, ...moved],
+          deletes: [input.id],
+        };
+      }),
+    forcedBy(input),
   );
-  // Each child joins the group after the last, ranked as a placement there is.
-  const graph = sessionGraph(ctx);
-  const group: RankSlot[] = target.children.flatMap((id) => graph.get(id) ?? []);
-  const moved = source.children.flatMap((id) => {
-    const child = graph.get(id);
-    if (child === undefined) return [];
-    const placed = { ...cloneNode(child), order: rankForInsert(group, group.length, child.order) };
-    placed.updatedAt = at;
-    group.push(placed);
-    return [placed];
-  });
-  target.text += source.text;
-  target.children = [...target.children, ...source.children];
-  target.updatedAt = at;
-  const upserts = [...parents.filter((n) => n.id !== target.id), target, ...moved];
-  yield* persistEffect(ctx, { upserts, deletes: [input.id] }, forcedBy(input));
-  return { id: target.id, node: target };
+  const { node } = present(planned, "a merge always writes");
+  return { id: node.id, node };
 });
 
 export const nodeGetEffect = Effect.fn("node.get")(function* (
@@ -633,28 +644,35 @@ export const nodeGetEffect = Effect.fn("node.get")(function* (
 export const fieldDefineEffect = Effect.fn("field.define")(function* (
   input: z.infer<typeof fieldDefineDef.inputSchema>,
 ): Effect.fn.Return<{ id: string }, DomainError, KbWriteEnv> {
-  const ctx = yield* KbCtx;
-  const existing = ctx.nodes.filter(
-    (n) =>
-      n.text === input.name &&
-      (n.props[SYSTEM_IDS.typeField] ?? []).some((v) => v.t === "ref" && v.v === SYSTEM_IDS.field),
+  const result = yield* commitAddEffect(
+    {
+      id: input.id,
+      text: input.name,
+      props: [
+        {
+          field: SYSTEM_IDS.typeField,
+          value: { t: "ref", v: SYSTEM_IDS.field },
+        },
+      ],
+    },
+    (nodes) => {
+      const existing = nodes.filter(
+        (n) =>
+          n.text === input.name &&
+          (n.props[SYSTEM_IDS.typeField] ?? []).some(
+            (v) => v.t === "ref" && v.v === SYSTEM_IDS.field,
+          ),
+      );
+      if (existing.length > 0 && (input.id === undefined || input.id === "")) {
+        return Effect.fail(
+          domainError("ambiguous", `field already exists: ${input.name}`, {
+            ids: existing.map((e) => e.id),
+          }),
+        );
+      }
+      return Effect.succeed({ parent: null, upserts: [] });
+    },
   );
-  if (existing.length > 0 && (input.id === undefined || input.id === "")) {
-    return yield* domainError("ambiguous", `field already exists: ${input.name}`, {
-      ids: existing.map((e) => e.id),
-    });
-  }
-  const result = yield* addNodeAtEffect({
-    id: input.id,
-    text: input.name,
-    parent: null,
-    props: [
-      {
-        field: SYSTEM_IDS.typeField,
-        value: { t: "ref", v: SYSTEM_IDS.field },
-      },
-    ],
-  });
   return { id: result.id };
 });
 

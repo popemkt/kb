@@ -1,0 +1,4 @@
+{
+  "reason": "Standalone node updates reuse the session's planned commit path to preserve concurrent edits.",
+  "raise": { "cli-closure": { "bytes": 43 } }
+}

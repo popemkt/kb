@@ -82,7 +82,7 @@ export interface EffectStore {
    * proved for every adapter by the store contract.
    */
   readonly changes: Stream.Stream<StoreFingerprint | null>;
-  /** Read the last committed state of a current store even while another writer holds the lock. */
+  /** Read the last committed state even while another writer holds the lock. */
   readonly loadEffect: Effect.Effect<KbNode[], DomainError>;
   /**
    * The store's current fingerprint, or null when it cannot say (no store
@@ -104,8 +104,8 @@ export interface EffectStore {
    * {@link StoreCommit}.
    *
    * Waiting for another writer's lock suspends the commit without blocking
-   * the event loop. It resumes when it acquires the lock or fails with a
-   * conflict when the shared write-lock wait expires.
+   * the event loop. It spends the caller's `WriteLockDeadline` when supplied.
+   * Expiry returns a conflict before writing anything.
    *
    * Ranks are settled here, inside the adapter's exclusion: `tx` is passed
    * through `rankTx` against the state it merges into before anything is
