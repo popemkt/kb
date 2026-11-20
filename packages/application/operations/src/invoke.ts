@@ -11,10 +11,12 @@ import {
   type ExtensionPromiseHandler,
   type KbContext,
   CurrentCall,
+  CurrentCaller,
   CurrentReactions,
   CurrentContextReferences,
   CurrentInterception,
   approvalSubject,
+  callerRefusal,
 } from "@kb/contracts";
 import {
   ActionSchemaError,
@@ -129,17 +131,17 @@ function dispatch<R>(
  * The parsed value is what the receipt carries. Parsing that did not decide
  * the output would be a check performed and then discarded.
  */
-const parseOutput = Effect.fnUntraced(function* (def: ActionDefinition, output: unknown) {
-  return yield* parseBySchema(def.outputSchema, output).pipe(
+const parseOutput = Effect.fnUntraced(function* (
+  id: string,
+  schema: ActionDefinition["outputSchema"],
+  output: unknown,
+) {
+  return yield* parseBySchema(schema, output).pipe(
     Effect.mapError((err) =>
-      domainError(
-        "internal",
-        `action ${def.id} returned output its schema rejects: ${err.message}`,
-        {
-          action: def.id,
-          issues: err instanceof ActionSchemaError ? err.issues : undefined,
-        },
-      ),
+      domainError("internal", `action ${id} returned output its schema rejects: ${err.message}`, {
+        action: id,
+        issues: err instanceof ActionSchemaError ? err.issues : undefined,
+      }),
     ),
   );
 });
@@ -191,7 +193,18 @@ const invokeCall = Effect.fn("kb.invoke")(function* <R>(
     });
   }
   const entry = actions.get(id);
-  if (!entry) return failed(id, "unknown_action", `unknown action: ${id}`);
+  const caller = outer === null ? yield* CurrentCaller : undefined;
+  if (!entry) {
+    if (caller !== undefined) {
+      const denied = callerRefusal(undefined, caller);
+      if (denied !== null) return failed(id, "forbidden", denied);
+    }
+    return failed(id, "unknown_action", `unknown action: ${id}`);
+  }
+  if (caller !== undefined) {
+    const denied = callerRefusal(entry.def, caller);
+    if (denied !== null) return failed(id, "forbidden", denied);
+  }
   // Every call passes the interceptors, then is put to the guards as it will
   // run, here on invoke itself, so no surface can skip either
   // (`interception.ts`).
@@ -240,7 +253,11 @@ const invokeCall = Effect.fn("kb.invoke")(function* <R>(
   const output = yield* interceptOutput(interception, { ctx, invocation, action }, produced).pipe(
     asCall(invocation),
   );
-  return succeeded(id, yield* parseOutput(entry.def, output), fill.context);
+  const validated = yield* parseOutput(entry.def.id, entry.def.outputSchema, output);
+  const projection = caller === undefined ? undefined : entry.def.callerOutput?.[caller];
+  const projected =
+    projection === undefined ? validated : yield* parseOutput(entry.def.id, projection, validated);
+  return succeeded(id, projected, fill.context);
 });
 
 /**

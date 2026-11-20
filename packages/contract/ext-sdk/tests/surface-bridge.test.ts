@@ -4,6 +4,7 @@ import type {
   ReactionHost,
   TxMatch,
   ActionMode,
+  CallerKind,
   EXTENSION_SDK,
   ExtensionDeclaration,
 } from "@kb/contracts";
@@ -52,6 +53,8 @@ void reactions;
 const actor: Same<Surface.Actor, Actor> = true;
 void actor;
 const modes: Same<Surface.ActionMode, ActionMode> = true;
+const callers: Same<Surface.CallerKind, CallerKind> = true;
+void callers;
 const codes: Same<Surface.FailureCode, FailureCode> = true;
 /** A backdrop's key and its knobs, as an author declares them, are the model's own. */
 const knobs: Same<Surface.Knob, Knob> = true;

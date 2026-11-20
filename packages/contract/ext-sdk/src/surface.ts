@@ -34,6 +34,9 @@ export type ActionMode =
       readonly outsideRoot?: true;
     };
 
+/** Who may invoke an action; defaults to `["person", "program"]` (no capture device access). */
+export type CallerKind = "person" | "program" | "capture-device" | "capture-pairing";
+
 export type FailureCode =
   | "not_found"
   | "invalid_input"
@@ -101,6 +104,8 @@ export interface ActionDefinition<
   title: string;
   description: string;
   mode: ActionMode;
+  callers?: readonly CallerKind[];
+  callerOutput?: Readonly<Partial<Record<CallerKind, ActionSchema>>>;
   inputSchema: TIn;
   outputSchema: TOut;
   effect?: ActionEffectHandler;

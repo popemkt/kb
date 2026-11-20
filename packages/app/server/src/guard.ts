@@ -34,6 +34,7 @@
  */
 import {
   PAGE_WIRE,
+  type CallerKind,
   type Identification,
   type Person,
   type SurfaceWire,
@@ -72,17 +73,19 @@ export interface GuardSite {
 }
 
 /**
- * Who a request the guard lets through comes from: the page, which is the
- * person, or a local program, which is nobody (`null`), and its wire.
+ * Who a request the guard lets through comes from: the page (`person`), a
+ * local program (`program`), a paired capture device (`capture-device`), or an
+ * unpaired capture client (`capture-pairing`), together with its wire.
  */
 export interface Caller {
+  readonly kind: CallerKind;
   readonly wire: SurfaceWire;
   readonly person: Person | null;
   readonly capture?: { readonly token: string | undefined };
 }
 
 /** A local program's request: nobody's, on HTTP's wire. */
-export const PROGRAM: Caller = { wire: HTTP_WIRE, person: null };
+export const PROGRAM: Caller = { kind: "program", wire: HTTP_WIRE, person: null };
 
 /** What the guard makes of a request: refused, or let through from its caller. */
 type Admission = { readonly refused: Response } | { readonly caller: Caller };
@@ -132,7 +135,7 @@ function addressesOf(site: GuardSite): { origins: Set<string>; hosts: Set<string
 
 /** The page's request, as `person`. */
 function page(person: Person): Admission {
-  return { caller: { wire: PAGE_WIRE, person } };
+  return { caller: { kind: "person", wire: PAGE_WIRE, person } };
 }
 
 function captureAdmission(authorization: string, origin: string | null): Admission {
@@ -143,7 +146,8 @@ function captureAdmission(authorization: string, origin: string | null): Admissi
   if (authorization !== "" && token === undefined) {
     return { refused: refusal(403, "capture device credential is invalid") };
   }
-  return { caller: { ...PROGRAM, capture: { token } } };
+  const kind: CallerKind = token === undefined ? "capture-pairing" : "capture-device";
+  return { caller: { ...PROGRAM, kind, capture: { token } } };
 }
 
 export function requestGuard(site: GuardSite): RequestGuard {

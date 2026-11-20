@@ -58,6 +58,11 @@ export const kbManifestDef = {
   description:
     "Return the full kb action registry manifest, with what is decided about your own call to each action (allow, ask for approval, deny), the view catalog (every view type with its settings as JSON Schema), and the extensions the host composes, each with whether it is loaded",
   mode: { kind: "read" } as const,
+  callers: ["person", "program", "capture-device", "capture-pairing"],
+  callerOutput: {
+    "capture-device": CaptureVersion,
+    "capture-pairing": CaptureVersion,
+  },
   inputSchema: z.object({}),
   outputSchema: z.object({
     root: z.string().optional(),

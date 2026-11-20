@@ -26,6 +26,7 @@ import {
   NO_SWITCHES,
   type NodeLookup,
   type ActionContribution,
+  type ActionDefinition,
   type ActionHandlerEnv,
   type ActionInvocation,
   type ActionReceipt,
@@ -208,6 +209,8 @@ function registeredAction(contribution: Contribution<ActionContribution>): Regis
       title: value.title,
       description: value.description,
       mode: value.mode,
+      ...(value.callers === undefined ? {} : { callers: value.callers }),
+      ...(value.callerOutput === undefined ? {} : { callerOutput: value.callerOutput }),
       ...(value.batchOf === undefined ? {} : { batchOf: value.batchOf }),
       ...(value.targets === undefined ? {} : { targets: value.targets }),
       ...(value.context === undefined ? {} : { context: value.context }),
@@ -777,6 +780,16 @@ export const invokeEffect = Effect.fn("kb.invoke")(function* (
 ): Effect.fn.Return<ActionReceipt, ActionSchemaError | DomainError, ActionHandlerEnv> {
   return yield* withSessionRegistry(invocationRegistry(ctx), (registry) =>
     Effect.flatMap(reachedBy(registry), (byId) => invokeWith(byId, ctx, invocation)),
+  );
+});
+
+/** Look up a reachable action's definition by id (core, bundled, repo, or hosted), without building JSON Schemas. */
+export const actionDefinitionEffect = Effect.fn("kb.actionDefinition")(function* (
+  ctx: KbContext,
+  id: string,
+): Effect.fn.Return<ActionDefinition | undefined, never, FileSystem | FamilyKernels> {
+  return yield* withSessionRegistry(invocationRegistry(ctx), (registry) =>
+    Effect.map(reachedBy(registry), (byId) => byId.get(id)?.def),
   );
 });
 

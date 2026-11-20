@@ -2929,7 +2929,8 @@ scope.
 
 Harman-lite (zod) + Effect-native handlers for owned actions:
 
-- `ActionDefinition { id, title, description, mode, inputSchema, outputSchema, effect? }` — JSON Schemas from each schema's Standard JSON Schema converter or `z.toJSONSchema`, never hand-written; the inputSchema is published as the side a caller sends, the outputSchema as the side the action returns. Optional `effect` is the Effect-native handler seam for built-ins / bundled extensions.
+- `ActionDefinition { id, title, description, mode, callers?, callerOutput?, inputSchema, outputSchema, effect? }` — JSON Schemas from each schema's Standard JSON Schema converter or `z.toJSONSchema`, never hand-written; the inputSchema is published as the side a caller sends, the outputSchema as the side the action returns. Optional `effect` is the Effect-native handler seam for built-ins / bundled extensions.
+- **Callers**: an action declares which caller kinds (`CallerKind`) may invoke it on `callers`, next to `mode`: `person` (the UI's own page, `PAGE_WIRE`), `program` (a local program without a browser `Origin`, `HTTP_WIRE`), `capture-device` (a paired capture device presenting `Authorization: Bearer kbcap_…`), and `capture-pairing` (an unauthenticated capture client on `--capture-only` or exchanging a one-use pairing code). Omitting `callers` defaults to `["person", "program"]` (no capture device access). An action may also declare `callerOutput` — a per-caller output projection schema applied by the invoke core after `outputSchema` succeeds (for example, `kb.manifest` projects its output to `CaptureVersion` for `capture-device` and `capture-pairing` callers). Both `--capture-only` listeners and `Bearer kbcap_…` requests derive admission from these declarations in the registry rather than a hard-coded action list in the server: `--capture-only` admits only actions whose declaration admits the capture caller kinds, and adding a device-scoped action requires no server edit.
 - **Mode**: every action states once, as a required field, what invoking it does.
   `{kind: "read"}` changes nothing.
   `{kind: "write", approval?: "required" | "delegated"}` may change the
@@ -5647,11 +5648,16 @@ An inline capture asset takes its name from the digest of its stored bytes,
 so competing deliveries and retries reuse it. A failed graph commit can leave
 an unreferenced asset. GAP [[01M7QT8YBS8V0B97VWRP4D717F]] tracks reconciliation.
 
-For phone delivery, serve a dedicated `kb ui --capture-only` listener through
-HTTPS. It serves `POST /api/action` for capture version discovery, pairing
-and authenticated submission. Its manifest returns only `captureContract`.
-The regular UI can keep its own listener and access rules. On the host, issue
-a ten-minute, one-use code:
+For phone delivery, either serve the store's main `kb ui` listener through
+HTTPS (one store URL serves both the UI and capture: `POST /api/action` accepts
+pairing and paired `Authorization: Bearer <token>` device credentials alongside
+normal UI and program callers) or serve a dedicated `kb ui --capture-only`
+listener when the UI keeps its own listener and access rules. Both paths derive
+which actions are admitted and how `kb.manifest` projects its output from each
+action's `callers` and `callerOutput` declarations
+([Action registry](#action-registry)): `capture.pair` admits `capture-pairing`,
+`capture.submit` admits `capture-device`, and `kb.manifest` admits both while
+projecting to `captureContract`. On the host, issue a ten-minute, one-use code:
 
 ```sh
 kb --root /path/to/store --json action-invoke '{"id":"capture.pairCode"}'

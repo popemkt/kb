@@ -83,6 +83,75 @@ export function requiresApproval(mode: ActionMode): boolean {
 }
 
 /**
+ * Who may invoke an action, declared on {@link ActionDefinition.callers} and
+ * read by every listener and the invoke core (`DESIGN.md` → Action registry → Callers):
+ *
+ * - `"person"` — the UI's own page, representing a person session (`PAGE_WIRE`).
+ * - `"program"` — a local program without a browser Origin (CLI, MCP, curl, another app; `HTTP_WIRE`).
+ * - `"capture-device"` — a paired capture device presenting a bearer credential (`Authorization: Bearer kbcap_…`).
+ * - `"capture-pairing"` — an unauthenticated capture client on `--capture-only` or exchanging a one-use pairing code.
+ */
+const CALLER_KINDS = ["person", "program", "capture-device", "capture-pairing"] as const;
+export type CallerKind = (typeof CALLER_KINDS)[number];
+export const CallerKindSchema = z.enum(CALLER_KINDS) satisfies z.ZodType<CallerKind>;
+
+/** Default callers when an action omits `callers`: person sessions and local programs, no capture device access. */
+const DEFAULT_CALLERS: readonly CallerKind[] = ["person", "program"];
+
+/** True when `kind` is a capture caller (`capture-device` or `capture-pairing`). */
+export function isCaptureCaller(kind: CallerKind): boolean {
+  return kind === "capture-device" || kind === "capture-pairing";
+}
+
+/** The caller kinds `def` admits: its declared `callers`, or {@link DEFAULT_CALLERS} when omitted. */
+function callersOf(def: Pick<ActionDefinition, "callers">): readonly CallerKind[] {
+  return def.callers ?? DEFAULT_CALLERS;
+}
+
+/** True when `def` admits `kind`. */
+function admitsCaller(def: Pick<ActionDefinition, "callers">, kind: CallerKind): boolean {
+  return callersOf(def).includes(kind);
+}
+
+/** True when `def` admits any capture caller kind (`capture-device` or `capture-pairing`). */
+export function admitsCaptureCaller(def: Pick<ActionDefinition, "callers">): boolean {
+  return callersOf(def).some(isCaptureCaller);
+}
+
+/**
+ * Why `kind` may not invoke `def`, or `null` when admitted.
+ *
+ * For capture callers (`capture-device`, `capture-pairing`), an unknown action
+ * or one that declares no capture caller returns the same refusal so a capture
+ * listener never leaks which non-capture actions exist.
+ */
+export function callerRefusal(
+  def: Pick<ActionDefinition, "callers"> | undefined,
+  kind: CallerKind,
+): string | null {
+  if (def !== undefined && admitsCaller(def, kind)) return null;
+  if (isCaptureCaller(kind)) {
+    if (def === undefined || !admitsCaptureCaller(def)) {
+      return "this listener or credential only admits capture actions";
+    }
+    return kind === "capture-pairing"
+      ? "pair a device before calling this action"
+      : "call this action without a device credential";
+  }
+  return def === undefined ? null : "this caller may not invoke this action";
+}
+
+/**
+ * The caller kind stamped by the transport admission layer (for HTTP, `guard.ts`),
+ * read by the invoke core to enforce {@link ActionDefinition.callers} and apply
+ * {@link ActionDefinition.callerOutput}. Undefined when invoked without a transport
+ * caller (in-process calls, tests).
+ */
+export const CurrentCaller = Context.Reference<CallerKind | undefined>("kb/CurrentCaller", {
+  defaultValue: () => undefined,
+});
+
+/**
  * The input schema a surface publishes for an action's tool. MCP and WebMCP
  * both need a JSON Schema whose root is an object, so an action whose schema
  * is anything else is published as an object that takes no properties. An
@@ -210,6 +279,17 @@ export interface ActionDefinition<
   title: string;
   description: string;
   mode: ActionMode;
+  /**
+   * Caller kinds admitted to invoke this action (`DESIGN.md` → Action registry → Callers).
+   * Defaults to {@link DEFAULT_CALLERS} (`["person", "program"]`, no capture device access).
+   */
+  callers?: readonly CallerKind[];
+  /**
+   * Optional per-caller output projection schemas. After the handler's output
+   * passes `outputSchema`, a top-level call from a caller kind listed here is
+   * projected through its declared schema.
+   */
+  callerOutput?: Readonly<Partial<Record<CallerKind, ActionSchema>>>;
   /**
    * The ids of the actions every call of this one is a batch of: it writes
    * what they write, so approval decides it as each of them as well as
@@ -451,6 +531,8 @@ export const ManifestEntrySchema = z.object({
   title: z.string(),
   description: z.string(),
   mode: ActionModeSchema,
+  /** Caller kinds admitted to invoke this action when it differs from the default (`person`, `program`). */
+  callers: z.array(CallerKindSchema).optional(),
   /** The actions this one is a batch of, each with its own mode ({@link batchPartsOf}). */
   batchOf: z.array(z.object({ id: z.string(), mode: ActionModeSchema })).optional(),
   inputSchema: z.unknown(),
@@ -514,6 +596,7 @@ export function actionToManifestEntry(
     title: def.title,
     description: def.description,
     mode: def.mode,
+    ...(def.callers === undefined ? {} : { callers: [...def.callers] }),
     ...(parts === undefined ? {} : { batchOf: parts }),
     inputSchema: schemaToJsonSchema(def.inputSchema, "input"),
     outputSchema: schemaToJsonSchema(def.outputSchema, "output"),

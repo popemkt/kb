@@ -87,9 +87,11 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // `capture.submit`, `capture.pair`, `capture.pairCode` and `capture.revoke`
 // are new actions a previous page never calls, and `kb.manifest` may name a
 // `captureContract`, an optional field a previous page ignores.
+// Manifest entries carry an optional `callers` list when an action admits
+// non-default caller kinds; a previous page ignores it.
 const RECORDED = {
   protocol: 11,
-  fingerprint: "f9a6dcc61255ef7d9c003e73f5eb3b846dcc7e94ba14cea539fb7c3fbd99eacf",
+  fingerprint: "4202156ce2808a395b3fcc62e843795b7296a363696a1c33f22589bc9c7fa9ec",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

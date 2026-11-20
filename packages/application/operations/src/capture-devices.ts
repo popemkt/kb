@@ -57,6 +57,7 @@ export const capturePairDef = {
   title: "Pair a capture device",
   description: "Exchange a one-use host pairing code for a capture credential in this store.",
   mode: { kind: "write" },
+  callers: ["person", "program", "capture-pairing"],
   inputSchema: z.object({
     code: z.string().regex(/^[a-f0-9]{32}$/),
     deviceName: z.string().trim().min(1).max(120),
