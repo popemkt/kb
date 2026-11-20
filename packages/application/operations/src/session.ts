@@ -1,6 +1,6 @@
 import type { NodeIndex } from "@kb/query";
 import { seedRemovalNodes } from "@kb/seed";
-import { Effect } from "effect";
+import { Effect, Result } from "effect";
 import {
   currentIso,
   extensionNameOf,
@@ -158,21 +158,21 @@ export const persistEffect = Effect.fn("kb.persist")(function* (
   tx: StoreTx,
   options: PersistOptions = {},
 ): Effect.fn.Return<StoreCommit, DomainError, KbStore> {
-  for (let attempt = 1; ; attempt++) {
-    const landed = yield* persistAttempt(ctx, tx, options).pipe(
-      Effect.map((commit) => ({ commit })),
-      Effect.catchIf(
-        (err) =>
-          err.code === "conflict" && options.expected === undefined && attempt < CHECKED_ATTEMPTS,
-        () => Effect.succeed(null),
-      ),
-    );
-    if (landed !== null) return landed.commit;
-  }
+  const commit = persistAttempt(ctx, tx, options);
+  return yield* options.expected === undefined ? retryCommit(Effect.result(commit), 5) : commit;
 });
 
-/** How many times a transaction is checked again over a store that moved under it. */
-const CHECKED_ATTEMPTS = 5;
+// Preparing a write may itself refuse. Only a conflict during commit starts another attempt.
+const retryCommit = Effect.fnUntraced(function* <A, R>(
+  attempt: Effect.Effect<Result.Result<A, DomainError>, DomainError, R>,
+  attempts: number,
+) {
+  for (let count = 1; ; count++) {
+    const result = yield* attempt;
+    if (Result.isSuccess(result)) return result.success;
+    if (result.failure.code !== "conflict" || count === attempts) return yield* result.failure;
+  }
+});
 
 /**
  * One attempt of {@link persistEffect}: catch up, check, and commit on the
@@ -267,9 +267,6 @@ const persistAttempt = Effect.fn("kb.persist.attempt")(function* (
   return commit;
 });
 
-/** How many times a planned write is planned again over a store that moved under it. */
-const PLANNED_ATTEMPTS = 3;
-
 /**
  * Commit a write planned from the graph as this session read it: `plan`
  * sees the session's nodes once it has caught up, and what it plans lands
@@ -290,19 +287,18 @@ export const persistPlannedEffect = Effect.fn("kb.persistPlanned")(function* <
   plan: (nodes: readonly KbNode[]) => Effect.Effect<W | null, DomainError, R>,
   options: PersistOptions = {},
 ): Effect.fn.Return<W | null, DomainError, KbStore | R> {
-  for (let attempt = 1; ; attempt++) {
-    yield* reloadEffect(ctx);
-    const read = seen.get(ctx);
-    const write = yield* plan(ctx.nodes);
-    if (write === null || (write.upserts.length === 0 && write.deletes.length === 0)) return write;
-    const tx: StoreTx = { upserts: [...write.upserts], deletes: [...write.deletes] };
-    const committed = yield* persistEffect(ctx, tx, { ...options, expected: read }).pipe(
-      Effect.as(true),
-      Effect.catchIf(
-        (err) => err.code === "conflict" && attempt < PLANNED_ATTEMPTS,
-        () => Effect.succeed(false),
-      ),
-    );
-    if (committed) return write;
-  }
+  return yield* retryCommit(
+    Effect.gen(function* () {
+      yield* reloadEffect(ctx);
+      const expected = seen.get(ctx);
+      const write = yield* plan(ctx.nodes);
+      if (write === null || (write.upserts.length === 0 && write.deletes.length === 0))
+        return Result.succeed(write);
+      const tx: StoreTx = { upserts: [...write.upserts], deletes: [...write.deletes] };
+      return yield* Effect.result(
+        Effect.as(persistEffect(ctx, tx, { ...options, expected }), write),
+      );
+    }),
+    3,
+  );
 });
