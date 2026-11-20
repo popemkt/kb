@@ -1928,7 +1928,7 @@ everything above the port — operations, query, surfaces — sees only
 `EffectStore` + `KbNode`.
 
 Both adapters answer the same three questions and are proven by the same
-tests: `storeContract(name, makeStore)` in `@kb/test-kit` is one `describe`
+tests: `storeContract(name, factory)` in `@kb/test-kit` is one `describe`
 block that each adapter's test file calls with its own factory. A property
 that holds for one backend and not the other is not a store property, and the
 contract is where that gets found out. The contract also holds what a session

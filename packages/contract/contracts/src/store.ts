@@ -82,6 +82,7 @@ export interface EffectStore {
    * proved for every adapter by the store contract.
    */
   readonly changes: Stream.Stream<StoreFingerprint | null>;
+  /** Read the last committed state of a current store even while another writer holds the lock. */
   readonly loadEffect: Effect.Effect<KbNode[], DomainError>;
   /**
    * The store's current fingerprint, or null when it cannot say (no store
@@ -101,6 +102,10 @@ export interface EffectStore {
    * Apply `tx`, record it on {@link txTail}, and report what the store did so
    * a caller can tell its own delta from the state that delta landed in. See
    * {@link StoreCommit}.
+   *
+   * Waiting for another writer's lock suspends the commit without blocking
+   * the event loop. It resumes when it acquires the lock or fails with a
+   * conflict when the shared write-lock wait expires.
    *
    * Ranks are settled here, inside the adapter's exclusion: `tx` is passed
    * through `rankTx` against the state it merges into before anything is
