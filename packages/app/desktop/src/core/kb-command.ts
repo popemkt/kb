@@ -7,21 +7,24 @@
  * app and kb update independently.
  */
 import { existsSync } from "node:fs";
-import { homedir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 import { Effect, Option, Schema } from "effect";
 import { childProcessEnv } from "@kb/child-process";
+
+/** What the program path is made from: the inherited PATH, and whose home it is. */
+export interface ProgramPlaces {
+  /** The PATH the app inherited (launchd's bare one when opened from Finder). */
+  readonly path: string | undefined;
+  readonly home: string;
+  readonly user: string | undefined;
+}
 
 /**
  * Where an app started from Finder finds programs. It inherits launchd's
  * bare PATH, not the person's shell's, so the places kb and Bun are
  * installed to (Nix, Homebrew, bun's installer) are added to it.
  */
-export function programPath(
-  path: string | undefined,
-  home: string,
-  user: string | undefined,
-): string {
+export function programPath({ path, home, user }: ProgramPlaces): string {
   const extra = [
     join(home, ".nix-profile", "bin"),
     ...(user === undefined ? [] : [`/etc/profiles/per-user/${user}/bin`]),
@@ -34,6 +37,18 @@ export function programPath(
   ];
   const have = (path ?? "").split(delimiter).filter((dir) => dir !== "");
   return [...have, ...extra.filter((dir) => !have.includes(dir))].join(delimiter);
+}
+
+/**
+ * The environment of every kb the desktop runs, the one place it is made:
+ * a kb child's (`childProcessEnv("kb")`) on the program path, plus
+ * `overrides`. The search for kb on the path reads the same PATH.
+ */
+export function kbEnvironment(
+  places: ProgramPlaces,
+  overrides: Readonly<Record<string, string>> = {},
+): Record<string, string> {
+  return childProcessEnv("kb", { PATH: programPath(places), ...overrides });
 }
 
 /** Where to look for kb, in order (the first that exists wins). */
@@ -92,18 +107,13 @@ export function receiptOf(stdout: string, stderr: string, code: number): Receipt
   });
 }
 
-/**
- * The runner over a real kb command, in a kb child's environment
- * (`childProcessEnv("kb")`) on the program path, plus `env`.
- */
+/** The runner over a real kb command, in `env` (`kbEnvironment`). */
 export function kbProcessRunner(
   command: string,
-  options: { readonly env?: Readonly<Record<string, string>>; readonly timeoutMs?: number } = {},
+  options: { readonly env: Readonly<Record<string, string>>; readonly timeoutMs?: number },
 ): KbRunner {
   const timeout = options.timeoutMs ?? 60_000;
-  // oxlint-disable-next-line node/no-process-env -- the PATH and user an app child inherits
-  const { PATH, USER } = process.env;
-  const env = childProcessEnv("kb", { PATH: programPath(PATH, homedir(), USER), ...options.env });
+  const { env } = options;
   return {
     run: Effect.fn("kb.desktop.kb.run")(
       function* (root: string, args: readonly string[]) {

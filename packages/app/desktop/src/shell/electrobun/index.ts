@@ -10,7 +10,7 @@ import { Effect, Layer } from "effect";
 import { Desktop, DesktopLive } from "../../core/app.ts";
 import { currentConfig } from "../../core/config.ts";
 import { platformFocusReturn } from "../../core/focus.ts";
-import { kbProcessRunner, programPath, resolveKb } from "../../core/kb-command.ts";
+import { kbEnvironment, kbProcessRunner, resolveKb } from "../../core/kb-command.ts";
 import {
   CaptureClient,
   DeviceSettings,
@@ -34,6 +34,7 @@ const shell = electrobunShell();
 const config = currentConfig();
 // oxlint-disable-next-line node/no-process-env -- where an app run from a terminal is told which kb to use
 const { KB_DESKTOP_KB, PATH, USER } = process.env;
+const env = kbEnvironment({ path: PATH, home: homedir(), user: USER });
 const kb = resolveKb({
   setting: config.settings.kb,
   env: KB_DESKTOP_KB,
@@ -41,7 +42,7 @@ const kb = resolveKb({
   bundled: join(import.meta.dir, "..", "kb", "bin", "kb"),
   // The checkout the app was built from, stamped in at build time.
   checkout: KB_DESKTOP_CHECKOUT_KB,
-  path: programPath(PATH, homedir(), USER),
+  path: env.PATH ?? "",
 });
 
 if (kb === null) {
@@ -53,7 +54,7 @@ if (kb === null) {
   const services = Layer.mergeAll(
     Layer.succeed(DesktopShell, shell),
     Layer.succeed(DeviceSettings, config),
-    Layer.succeed(KbCli, kbProcessRunner(kb)),
+    Layer.succeed(KbCli, kbProcessRunner(kb, { env })),
     Layer.succeed(FocusKeeper, platformFocusReturn(process.platform, BUNDLE_ID)),
     CaptureClient.layer,
   );

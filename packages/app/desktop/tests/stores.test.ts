@@ -8,7 +8,7 @@
  */
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { BunFileSystem } from "@effect/platform-bun";
 import { KB_SOURCE_BIN } from "@kb/test-kit";
@@ -17,6 +17,7 @@ import { Effect, Layer } from "effect";
 import {
   DesktopConfig,
   DeviceSettings,
+  kbEnvironment,
   kbProcessRunner,
   KbCli,
   StoreDirectory,
@@ -44,7 +45,12 @@ async function alphaStore(): Promise<{ kb: KbRunner; stores: Stores; root: strin
   const pkg = join(scratch, "pkg");
   mkdirSync(pkg);
   const root = join(scratch, "alpha");
-  const kb = kbProcessRunner(KB_SOURCE_BIN, { env: { KB_PKG_ROOT: pkg } });
+  const kb = kbProcessRunner(KB_SOURCE_BIN, {
+    env: kbEnvironment(
+      { path: process.env.PATH, home: homedir(), user: process.env.USER },
+      { KB_PKG_ROOT: pkg },
+    ),
+  });
   const stores = await Effect.runPromise(
     Effect.gen(function* () {
       return yield* StoreDirectory;
