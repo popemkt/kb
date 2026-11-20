@@ -178,9 +178,8 @@ export function KbNodeCard({
             isActive={isActive}
             tags={node.tags}
             onActivate={handleActivate}
-            onChange={(text) => {
-              void browserHost().writes.updateNodeContent(card.nodeId, text);
-            }}
+            onChange={(text) => void browserHost().writes.updateNodeContent(card.nodeId, text)}
+            writeText={(text) => browserHost().writes.setNodeText(card.nodeId, text)}
             ingest={ingest}
             onRemoveTag={(tagId) => {
               void browserHost().writes.removeTag(card.nodeId, tagId);

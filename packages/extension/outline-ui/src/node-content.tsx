@@ -48,7 +48,13 @@ export function NodeContent({
   ...props
 }: Omit<
   NodeTextHostProps,
-  keyof NodeTextHostBinding | "nodeId" | "content" | "onChange" | "ingest" | "onRemoveTag"
+  | keyof NodeTextHostBinding
+  | "nodeId"
+  | "content"
+  | "onChange"
+  | "writeText"
+  | "ingest"
+  | "onRemoveTag"
 > & {
   /** The row's node, as the surface renders it (a projection may pass its own map). */
   node: OutlineNode;
@@ -95,6 +101,7 @@ export function NodeContent({
       onChange={(next) => {
         if (next !== content) void browserHost().writes.updateNodeContent(textNodeId, next);
       }}
+      writeText={(next) => browserHost().writes.setNodeText(textNodeId, next)}
       ingest={ingest}
       triggers={triggers}
       onFollow={follow}

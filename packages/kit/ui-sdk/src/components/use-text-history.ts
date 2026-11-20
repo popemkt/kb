@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type RefObject } from "react";
 import {
   getCaretSerializedOffset,
   renderInlineMarkdown,
@@ -9,20 +9,34 @@ import {
 } from "../lib/md-edit.ts";
 import {
   emptyTextHistory,
+  recordPageStep,
   recordTextEdit,
   redoTextEdit,
   undoTextEdit,
   type TextState,
 } from "../lib/text-history.ts";
 
+/** The row's history, as its host drives it. */
+export interface TextHistoryControl {
+  /** Answer an undo or redo chord. */
+  readonly step: (direction: "undo" | "redo") => void;
+  /**
+   * Record a pick (`TextTrigger`): one write of the page's, which took the
+   * text from `before` to `after`; its arrival as `content` is not typing.
+   */
+  readonly recordPick: (before: TextState, after: TextState) => void;
+}
+
 /**
  * Text undo for the row being edited (`lib/text-history`).
  *
  * It records the row's text as it arrives — every write reaches the host as
- * `content`, whether it was typed, completed from `[[` or broken with
- * Shift+Enter — so no edit path has to remember to record itself. The
- * returned `step` answers an undo or redo chord; `beforeinput`'s
- * `historyUndo` / `historyRedo` (the Edit menu) route to it too.
+ * `content`, whether it was typed or broken with Shift+Enter — so no typing
+ * path has to remember to record itself. A pick is the page's write, not
+ * typing: the host records it (`recordPick`), and an undo or redo that
+ * reaches it is the page's (`onPage`). `step` answers an undo or redo
+ * chord; `beforeinput`'s `historyUndo` / `historyRedo` (the Edit menu)
+ * route to it too.
  */
 export function useTextHistory({
   editorRef,
@@ -30,6 +44,7 @@ export function useTextHistory({
   content,
   refs,
   onRestore,
+  onPage,
 }: {
   editorRef: RefObject<HTMLDivElement | null>;
   editing: boolean;
@@ -38,7 +53,12 @@ export function useTextHistory({
   refs: RefLook;
   /** The text a step restored, for the surface to write. */
   onRestore: (state: TextState) => void;
-}): (direction: "undo" | "redo") => void {
+  /**
+   * Take back, or make again, the page's write a pick made (`PageWrites.undo`
+   * / `redo`), which leaves the text `state`.
+   */
+  onPage: (direction: "undo" | "redo", state: TextState) => void;
+}): TextHistoryControl {
   const history = useRef(emptyTextHistory);
   const last = useRef<TextState | null>(null);
 
@@ -73,10 +93,16 @@ export function useTextHistory({
       renderInlineMarkdown(el, result.state.text, refs);
       setCaretSerializedOffset(el, result.state.caret);
       revealMarkupAtSelection(el);
-      onRestore(result.state);
+      if (result.page) onPage(direction, result.state);
+      else onRestore(result.state);
     },
-    [editorRef, onRestore, refs],
+    [editorRef, onRestore, onPage, refs],
   );
+
+  const recordPick = useCallback((before: TextState, after: TextState) => {
+    history.current = recordPageStep(history.current, before, after);
+    last.current = after;
+  }, []);
 
   useEffect(() => {
     const el = editorRef.current;
@@ -90,5 +116,5 @@ export function useTextHistory({
     return () => el.removeEventListener("beforeinput", onBeforeInput);
   }, [editorRef, editing, step]);
 
-  return step;
+  return useMemo(() => ({ step, recordPick }), [step, recordPick]);
 }

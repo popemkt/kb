@@ -15,6 +15,7 @@ import { textFlavours } from "../lib/text-copy";
 import { isCompositionKey } from "../lib/keychord";
 import { matchesChord, TEXT_HISTORY_CHORD } from "@kb/keybindings";
 import { KB_TEXT_CLASS } from "../lib/md-inline";
+import { browserHost } from "../host";
 import {
   getCaretSerializedOffset,
   insertAtSelection,
@@ -105,7 +106,13 @@ export interface NodeTextHostProps extends NodeTextHostBinding {
   onBlur?: () => void;
   zoomTitleEditor?: boolean;
   onActivate: (cursorPos?: number) => void;
+  /** A keystroke's text (`PageWrites.updateNodeContent`): the row's own text undo covers it. */
   onChange: (content: string) => void;
+  /**
+   * The text written whole, as a command writes it (`PageWrites.setNodeText`):
+   * what a pick leaves in the text, written with the pick's own write as one.
+   */
+  writeText: (content: string) => Promise<unknown>;
   onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   /**
    * Where a paste or a drop into the text is offered (`lib/ingest`): the
@@ -221,6 +228,7 @@ export function NodeTextHost({
   zoomTitleEditor,
   onActivate,
   onChange,
+  writeText,
   onKeyDown,
   nodes,
   schema,
@@ -328,12 +336,23 @@ export function NodeTextHost({
     },
     [emit],
   );
-  const stepTextHistory = useTextHistory({
+  /** The page's write a pick made, taken back or made again: the text arrives as `content`. */
+  const stepPage = useCallback(
+    (direction: "undo" | "redo", state: { text: string; caret: number }) => {
+      setCursor(state.caret);
+      if (state.text !== content) pendingEcho.current = state.text;
+      const { writes } = browserHost();
+      void (direction === "undo" ? writes.undo() : writes.redo());
+    },
+    [content],
+  );
+  const textHistory = useTextHistory({
     editorRef,
     editing,
     content,
     refs,
     onRestore: restoreText,
+    onPage: stepPage,
   });
 
   useRevealMarkup(editorRef, editing);
@@ -341,8 +360,12 @@ export function NodeTextHost({
 
   /**
    * Lay a pick into the text: what it inserts replaces the trigger's span,
-   * the caret after it, then its write. A pick that resolves later is laid
-   * into the text as it is then, unless the span has changed meanwhile.
+   * the caret after it. The text and the pick's own write are then written
+   * as one write of the page's (`PageWrites.together`), one undo step, which
+   * the row's history holds in its place (`recordPick`). The text typed
+   * before the pick has landed by then, so the undo brings it back. A pick
+   * that resolves later is laid into the text as it is then, unless the
+   * span has changed meanwhile.
    */
   const applyPick = useCallback(
     async (made: TriggerPick | Promise<TriggerPick>, span: OpenTrigger) => {
@@ -352,7 +375,7 @@ export function NodeTextHost({
       if (text.slice(span.start, span.end) !== was) return;
       const next = text.slice(0, span.start) + pick.insert + text.slice(span.end);
       const caret = span.start + pick.insert.length;
-      emit(next);
+      if (next !== text) pendingEcho.current = next;
       if (editorRef.current) {
         renderInlineMarkdown(editorRef.current, next, refs);
         setCaretSerializedOffset(editorRef.current, caret);
@@ -360,9 +383,14 @@ export function NodeTextHost({
       }
       setCursor(caret);
       if (instanceKey !== undefined) placeCaret(instanceKey, caret);
-      await pick.write?.();
+      textHistory.recordPick({ text, caret: span.end }, { text: next, caret });
+      await browserHost().writes.together(async () => {
+        await writeText(next);
+        await pick.write?.();
+      });
+      pick.landed?.();
     },
-    [content, instanceKey, emit, placeCaret, refs],
+    [content, instanceKey, placeCaret, refs, textHistory, writeText],
   );
 
   /** A row picked, or (Enter with none) what the trigger does then. */
@@ -490,7 +518,7 @@ export function NodeTextHost({
       const history = historyChord(e);
       if (history !== null) {
         e.preventDefault();
-        stepTextHistory(history);
+        textHistory.step(history);
         return;
       }
 
@@ -532,7 +560,7 @@ export function NodeTextHost({
       instanceKey,
       selectNode,
       setNodePaletteOpen,
-      stepTextHistory,
+      textHistory,
     ],
   );
 

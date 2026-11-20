@@ -3,6 +3,7 @@ import { present } from "@kb/model";
 import {
   TEXT_HISTORY_COALESCE_MS,
   emptyTextHistory,
+  recordPageStep,
   recordTextEdit,
   redoTextEdit,
   undoTextEdit,
@@ -35,5 +36,24 @@ describe("text history", () => {
     const edited = recordTextEdit(undone.history, s("a"), 5000);
     expect(redoTextEdit(edited, s("ax"))).toBeNull();
     expect(undoTextEdit(emptyTextHistory, s(""))).toBeNull();
+  });
+
+  it("holds a page step in its place among the typing, taken back and made again whole", () => {
+    let h = recordTextEdit(emptyTextHistory, s(""), 0);
+    h = recordPageStep(h, s("x #ta"), s("x ", 2));
+    // Typing straight after the pick is its own step, never the pick's.
+    h = recordTextEdit(h, s("x ", 2), 10);
+    const typing = present(undoTextEdit(h, s("x y")), "undo typing");
+    expect(typing).toMatchObject({ state: s("x ", 2), page: false });
+    const pick = present(undoTextEdit(typing.history, typing.state), "undo the pick");
+    expect(pick).toMatchObject({ state: s("x #ta"), page: true });
+    const before = present(undoTextEdit(pick.history, pick.state), "undo the first typing");
+    expect(before).toMatchObject({ state: s(""), page: false });
+    const again = present(redoTextEdit(before.history, before.state), "redo the typing");
+    expect(again).toMatchObject({ state: s("x #ta"), page: false });
+    expect(present(redoTextEdit(again.history, again.state), "redo the pick")).toMatchObject({
+      state: s("x ", 2),
+      page: true,
+    });
   });
 });

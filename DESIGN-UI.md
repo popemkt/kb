@@ -912,8 +912,9 @@ operations (split, merge, indent, outdent, delete, move) are the covered case.
 A text has two writes, told apart by who writes it: a keystroke's
 (`PageWrites.updateNodeContent`), which records no step because the row's
 own text undo covers it (below), and a command's, written whole from
-outside the editor (`PageWrites.setNodeText`, Remove reference…), which is
-one undo step as every command's write is.
+outside the editor (`PageWrites.setNodeText`, Remove reference…, a pick
+from the text's triggers), which is one undo step as every command's
+write is.
 
 **Node text is one surface, read or edited.** There is no raw-source edit
 mode. `lib/md-edit.ts` `inlineNodes` is the one description of what inline
@@ -945,9 +946,10 @@ While editing, the DOM is the text: it is rebuilt from `content` on mount and
 when `content` moved on its own (a merge), never from a `content` still behind
 the editor's own writes. Text undo inside the row is the host's
 (`lib/text-history.ts`, `components/ui/use-text-history.ts`), recorded from the
-row's `content` stream so every write path — typing, `[[` completion,
-Shift+Enter — is covered, because native undo cannot follow a rebuilt tree;
-structural undo stays the store's (below).
+row's `content` stream so every typing path — keys, Shift+Enter, a paste —
+is covered, because native undo cannot follow a rebuilt tree; structural
+undo stays the store's (below). A pick from a trigger is the store's step,
+held in the row's history in its place (Triggers in the text).
 
 **Refs are atomic in the editor.** `[[id|label]]` renders as a
 `contenteditable=false` link carrying its serialized token, in both states, so
@@ -1702,7 +1704,12 @@ on the text host (`TextTrigger`, `lib/text-triggers.ts`). Each row of it
 says where a trigger opens, what it offers and what a pick does; the host
 runs every row with the one picker engine and the one list. A pick
 replaces what was typed for the trigger, the opener and its query, and may
-then write.
+then write. The text it leaves and what it writes are one write of the
+page's (`PageWrites.together`: one `node.batch`, one undo step), so one
+undo puts the row back as it was before the pick: the typed trigger back,
+the reference, tag or field gone. ⌘Z in the row reaches it in its place
+among the row's typing (`lib/text-history.ts`, a `page` step), and ⌘⇧Z
+makes it again.
 
 - `[[` opens anywhere and offers every node (`nodeCandidates`). A pick
   inserts a reference, `[[id|label]]`, and Enter with nothing to pick
@@ -1729,9 +1736,10 @@ then write.
   more in it, a row at the top of the forest, a reference, a projected
   row. It is the Add field step (`outline.add-field`) aimed at that
   parent: a pick takes the line away and adds the field to the parent, as
-  Add field does from the menu, in one write, so one undo brings the empty
-  line back and takes the field off. The caret lands on the field's value
-  where the parent's fields are drawn: under its row, or in the page head.
+  Add field does from the menu, in one write, so one undo brings the line
+  back as it was typed and takes the field off. The caret lands on the
+  field's value where the parent's fields are drawn: under its row, or in
+  the page head.
   To add a field to a node that has text, use Add field on that node
   (its menu, or the palette).
 

@@ -55,12 +55,9 @@ interface StepTarget {
 
 /**
  * The pick of `picked` in `step`, opened from the text
- * of `row`, to the node `at` names: the trigger goes from the text, then
- * the step commits with what goes with it, as one write, and what follows.
- *
- * GAP [[01M7D4AYQFJGZQGJZ3KD7M388R]] — where the row stays (`#`), the
- * text's write and the step's are two writes, so one undo takes back the
- * step's alone.
+ * of `row`, to the node `at` names: the trigger goes from the text, and its
+ * write is the step's commit with what goes with it, made with the text's
+ * as one write (`TriggerPick`).
  */
 function stepPick(
   step: PaletteStep,
@@ -72,20 +69,18 @@ function stepPick(
   return {
     insert: "",
     write: async () => {
-      await browserHost().writes.together(async () => {
-        await at.with?.();
-        await step.commit({
-          targetNodeId: at.nodeId,
-          targetNodeIds: [at.nodeId],
-          schema: row.schema,
-          pickedId: picked.id,
-          creating: picked.creating,
-          name: picked.name,
-          alternate: false,
-        });
+      await at.with?.();
+      await step.commit({
+        targetNodeId: at.nodeId,
+        targetNodeIds: [at.nodeId],
+        schema: row.schema,
+        pickedId: picked.id,
+        creating: picked.creating,
+        name: picked.name,
+        alternate: false,
       });
-      at.after?.();
     },
+    ...(at.after === undefined ? {} : { landed: at.after }),
   };
 }
 

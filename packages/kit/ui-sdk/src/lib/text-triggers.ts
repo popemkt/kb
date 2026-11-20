@@ -22,8 +22,10 @@ export interface OpenTrigger {
 /** What a pick does: the text that replaces the trigger's span, then any write. */
 export interface TriggerPick {
   readonly insert: string;
-  /** A write made once the text is in place. */
+  /** A write made with the text's, as one write: one undo step. */
   readonly write?: () => Promise<void>;
+  /** What follows once that write has landed (where the caret goes). */
+  readonly landed?: () => void;
 }
 
 export interface TextTrigger {

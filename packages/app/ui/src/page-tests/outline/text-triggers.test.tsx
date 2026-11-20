@@ -183,7 +183,7 @@ describe("triggers in the text", () => {
       });
     });
 
-    it("is one undo step: the line comes back empty and the field goes", async () => {
+    it("is one undo step: the line comes back as typed and the field goes", async () => {
       const el = await typedOnLine(">stat");
       await press(el, "Enter");
       await vi.waitFor(() => expect(propOf(ABOVE, "field.status")).toHaveLength(1));
@@ -191,7 +191,7 @@ describe("triggers in the text", () => {
       await act(() => mutations.undo());
       await vi.waitFor(() => expect(outlineNodes().get(ABOVE)?.children).toEqual([LINE]));
       expect(propOf(ABOVE, "field.status")).toEqual([]);
-      expect(textOf(LINE)).toBe("");
+      expect(textOf(LINE)).toBe(">stat");
     });
 
     it("stays text on a row that holds more than its text, or sits under no node", async () => {
@@ -287,6 +287,66 @@ describe("triggers in the text", () => {
       expect(await press(el, "Enter")).toBe(true);
       expect(textOf(ROW)).toBe("See [[n.root-b|Search jumps to matching nodes]]");
       expect(container.querySelector('[role="listbox"]')).toBeNull();
+    });
+  });
+  /** Press ⌘Z (⌘⇧Z with `shift`) in `el`, the chord the text host answers. */
+  async function chord(el: HTMLElement, shift = false): Promise<void> {
+    await act(async () => {
+      const key = shift ? "Z" : "z";
+      const ev = new dom.KeyboardEvent("keydown", {
+        key,
+        metaKey: true,
+        shiftKey: shift,
+        bubbles: true,
+        cancelable: true,
+      });
+      el.dispatchEvent(ev as unknown as Event);
+    });
+  }
+
+  describe("a pick is one write", () => {
+    it("# : one undo step, one node.batch with the text and the tag; ⌘Z in the row takes it back", async () => {
+      const el = await typed("x #to");
+      const undoBefore = useGraphStore.getState().undoStack.length;
+      await press(el, "Enter");
+      await vi.waitFor(() =>
+        expect(propOf(ROW, SYSTEM_IDS.typeField)).toContainEqual({ t: "ref", v: "tag.todo" }),
+      );
+      expect(textOf(ROW)).toBe("x ");
+      const { undoStack } = useGraphStore.getState();
+      expect(undoStack).toHaveLength(undoBefore + 1);
+      // The step is both writes, sent as one call (`oneWrite`).
+      expect(undoStack.at(-1)?.redo.map((a) => a.id)).toEqual(["node.update", "node.update"]);
+
+      await chord(el);
+      await vi.waitFor(() => expect(textOf(ROW)).toBe("x #to"));
+      expect(propOf(ROW, SYSTEM_IDS.typeField)).not.toContainEqual({ t: "ref", v: "tag.todo" });
+      expect(el.textContent).toBe("x #to");
+
+      await chord(el, true);
+      await vi.waitFor(() => expect(textOf(ROW)).toBe("x "));
+      expect(propOf(ROW, SYSTEM_IDS.typeField)).toContainEqual({ t: "ref", v: "tag.todo" });
+    });
+
+    it("[[ : the reference and the text it replaced are one undo step", async () => {
+      const el = await typed("See [[Search jumps");
+      await press(el, "Enter");
+      expect(textOf(ROW)).toBe("See [[n.root-b|Search jumps to matching nodes]]");
+      await chord(el);
+      await vi.waitFor(() => expect(textOf(ROW)).toBe("See [[Search jumps"));
+    });
+
+    it("typing after a pick undoes first, then the pick", async () => {
+      const el = await typed("x #to");
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(textOf(ROW)).toBe("x "));
+      await act(async () => mutations.updateNodeContent(ROW, "x y"));
+      await chord(el);
+      await vi.waitFor(() => expect(textOf(ROW)).toBe("x "));
+      expect(propOf(ROW, SYSTEM_IDS.typeField)).toContainEqual({ t: "ref", v: "tag.todo" });
+      await chord(el);
+      await vi.waitFor(() => expect(textOf(ROW)).toBe("x #to"));
+      expect(propOf(ROW, SYSTEM_IDS.typeField)).not.toContainEqual({ t: "ref", v: "tag.todo" });
     });
   });
 });
