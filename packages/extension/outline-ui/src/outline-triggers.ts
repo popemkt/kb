@@ -40,8 +40,20 @@ function openedAfterSpace(opener: string, query: string) {
 }
 
 /**
- * A palette step opened from the text: a pick takes the trigger out of the
- * text, then commits.
+ * Where a palette step opened from the text writes, read when it is picked:
+ * the node the pick is for, the writes made with the step's as the same one
+ * write, and what follows once that is made.
+ */
+interface StepTarget {
+  readonly nodeId: string;
+  readonly with?: () => Promise<unknown>;
+  readonly after?: () => void;
+}
+
+/**
+ * A palette step opened from the text of `row`: a pick takes the trigger
+ * out of the text, then commits to the node `target` names (the row, unless
+ * it says otherwise), with what goes with it, as one write.
  *
  * GAP [[01M7D4AYQFJGZQGJZ3KD7M388R]] — the text's write and the step's are
  * two writes, so one undo takes back the step's alone.
@@ -51,7 +63,7 @@ function stepTrigger(
   step: PaletteStep,
   open: TextTrigger["open"],
   row: { readonly nodeId: string; readonly schema: SchemaIndex },
-  then?: () => void,
+  target: () => StepTarget | null = () => ({ nodeId: row.nodeId }),
 ): TextTrigger {
   return {
     id,
@@ -67,21 +79,28 @@ function stepTrigger(
         { query, canCreate: step.createLabel !== undefined, limit: step.limit ?? LIMIT },
       ),
     ...(step.createLabel === undefined ? {} : { createLabel: step.createLabel }),
-    pick: (picked, typed) => ({
-      insert: "",
-      write: async () => {
-        await step.commit({
-          targetNodeId: row.nodeId,
-          targetNodeIds: [row.nodeId],
-          schema: row.schema,
-          pickedId: picked.id,
-          creating: picked.kind === "create",
-          name: typed.query.trim(),
-          alternate: false,
-        });
-        then?.();
-      },
-    }),
+    pick: (picked, typed) => {
+      const at = target();
+      return {
+        insert: "",
+        write: async () => {
+          if (at === null) return;
+          await browserHost().writes.together(async () => {
+            await at.with?.();
+            await step.commit({
+              targetNodeId: at.nodeId,
+              targetNodeIds: [at.nodeId],
+              schema: row.schema,
+              pickedId: picked.id,
+              creating: picked.kind === "create",
+              name: typed.query.trim(),
+              alternate: false,
+            });
+          });
+          at.after?.();
+        },
+      };
+    },
   };
 }
 
@@ -170,8 +189,11 @@ export function outlineTriggers(
     mentionTrigger(nodeId),
     stepTrigger("tag", addTag, openedAfterSpace("#", "[^\\s#]*"), row),
     // The field added, the caret goes into its value, as Tab into a row's fields does.
-    stepTrigger("field", addField, fieldOpen, row, () => {
-      if (instanceKey !== undefined) enterFields(instanceKey, "last");
-    }),
+    stepTrigger("field", addField, fieldOpen, row, () => ({
+      nodeId,
+      after: () => {
+        if (instanceKey !== undefined) enterFields(instanceKey, "last");
+      },
+    })),
   ];
 }
