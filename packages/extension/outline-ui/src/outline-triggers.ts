@@ -13,6 +13,7 @@ import {
   instanceAncestorIds,
   nodeCandidates,
   type NodeMap,
+  type OpenTrigger,
   type PaletteStep,
   type PickerRow,
   pickerRows,
@@ -20,6 +21,7 @@ import {
   type SchemaIndex,
   type TextTrigger,
   textOr,
+  type TriggerPick,
 } from "@kb/ui-sdk";
 import { longDateLabel, relativeDateLabel, todayLocal } from "./date-display";
 import { outlineNodes } from "./outline.store";
@@ -52,13 +54,45 @@ interface StepTarget {
 }
 
 /**
- * A palette step opened from the text of `row`: a pick takes the trigger
- * out of the text, then commits to the node `target` names (the row, unless
- * it says otherwise), with what goes with it, as one write.
+ * The pick of `picked` in `step`, opened from the text
+ * of `row`, to the node `at` names: the trigger goes from the text, then
+ * the step commits with what goes with it, as one write, and what follows.
  *
  * GAP [[01M7D4AYQFJGZQGJZ3KD7M388R]] — where the row stays (`#`), the
  * text's write and the step's are two writes, so one undo takes back the
  * step's alone.
+ */
+function stepPick(
+  step: PaletteStep,
+  row: { readonly schema: SchemaIndex },
+  at: StepTarget | null,
+  picked: { readonly id: string; readonly creating: boolean; readonly name: string },
+): TriggerPick {
+  if (at === null) return { insert: "" };
+  return {
+    insert: "",
+    write: async () => {
+      await browserHost().writes.together(async () => {
+        await at.with?.();
+        await step.commit({
+          targetNodeId: at.nodeId,
+          targetNodeIds: [at.nodeId],
+          schema: row.schema,
+          pickedId: picked.id,
+          creating: picked.creating,
+          name: picked.name,
+          alternate: false,
+        });
+      });
+      at.after?.();
+    },
+  };
+}
+
+/**
+ * A palette step opened from the text of `row`: a pick takes the trigger
+ * out of the text and commits to the node `target` names (the row, unless
+ * it says otherwise), with what goes with it, as one write.
  */
 function stepTrigger(
   id: string,
@@ -81,28 +115,12 @@ function stepTrigger(
         { query, canCreate: step.createLabel !== undefined, limit: step.limit ?? LIMIT },
       ),
     ...(step.createLabel === undefined ? {} : { createLabel: step.createLabel }),
-    pick: (picked, typed) => {
-      const at = target();
-      return {
-        insert: "",
-        write: async () => {
-          if (at === null) return;
-          await browserHost().writes.together(async () => {
-            await at.with?.();
-            await step.commit({
-              targetNodeId: at.nodeId,
-              targetNodeIds: [at.nodeId],
-              schema: row.schema,
-              pickedId: picked.id,
-              creating: picked.kind === "create",
-              name: typed.query.trim(),
-              alternate: false,
-            });
-          });
-          at.after?.();
-        },
-      };
-    },
+    pick: (picked, typed) =>
+      stepPick(step, row, target(), {
+        id: picked.id,
+        creating: picked.kind === "create",
+        name: typed.query.trim(),
+      }),
   };
 }
 
@@ -141,31 +159,48 @@ function selfAndAbove(nodes: NodeMap, nodeId: string): Set<string> {
   return held;
 }
 
+/** Whether an `@` query reads as one: it runs to a few words, never past two spaces. */
+const mentionQuery = (open: OpenTrigger | null): OpenTrigger | null =>
+  open === null || /\s\s$/u.test(open.query) ? null : open;
+
 /**
- * `@` in the text of row `nodeId`: a reference to the date its query names
- * (its day, made if need be, through `ui.date-target`), else to a node, as
- * `[[` makes. Neither the row, whose text holds the query, nor a node it
- * sits under is offered.
+ * What `@` offers in the text of node `nodeId`: the date its query names,
+ * then the nodes `[[` offers, less the node, whose text holds the query,
+ * and every node it sits under.
  */
-const mentionTrigger = (nodeId: string): TextTrigger => ({
-  id: "mention",
-  open: (text, cursor) => {
-    const open = mentionAt(text, cursor);
-    return open === null || /\s\s$/u.test(open.query) ? null : open;
-  },
-  rows: (query, nodes) => {
+function mentionRows(nodeId: string): TextTrigger["rows"] {
+  return (query, nodes) => {
     const date = dateRow(query);
     const own = selfAndAbove(nodes, nodeId);
     const others = nodeCandidates(nodes, { exclude: (id) => own.has(id) });
     return [...date, ...pickerRows(others, { query, limit: LIMIT - date.length })];
-  },
+  };
+}
+
+/**
+ * The node an `@` row names: the node itself, or the date's (its day,
+ * made if need be, through `ui.date-target`); null when the date leads
+ * nowhere after all.
+ */
+async function mentioned(row: PickerRow): Promise<PickerRow | null> {
+  if (!row.id.startsWith(DATE_ROW) || row.kind !== "item") return row;
+  const id = await dateTarget(row.id.slice(DATE_ROW.length));
+  if (id === null) return null;
+  return { ...row, id, label: textOr(outlineNodes().get(id)?.text.trim(), row.label) };
+}
+
+/**
+ * `@` in the text of node `nodeId`: a reference to the node or the date
+ * picked, as `[[` makes, in the text.
+ */
+const mentionTrigger = (nodeId: string): TextTrigger => ({
+  id: "mention",
+  open: (text, cursor) => mentionQuery(mentionAt(text, cursor)),
+  rows: mentionRows(nodeId),
   pick: async (row, typed) => {
-    if (!row.id.startsWith(DATE_ROW) || row.kind !== "item") return refTrigger.pick(row, typed);
-    const id = await dateTarget(row.id.slice(DATE_ROW.length));
-    // The date leads nowhere after all: the text stays as typed.
-    if (id === null) return { insert: `@${typed.query}` };
-    const label = textOr(outlineNodes().get(id)?.text.trim(), row.label);
-    return refTrigger.pick({ ...row, id, label }, typed);
+    const target = await mentioned(row);
+    // The date leads nowhere: the text stays as typed.
+    return target === null ? { insert: `@${typed.query}` } : refTrigger.pick(target, typed);
   },
 });
 

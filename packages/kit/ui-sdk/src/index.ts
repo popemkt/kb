@@ -309,7 +309,12 @@ export {
   datesLead,
   leadsNowhere,
 } from "./lib/date-target";
-export { refTrigger, type TextTrigger } from "./lib/text-triggers";
+export {
+  type OpenTrigger,
+  refTrigger,
+  type TextTrigger,
+  type TriggerPick,
+} from "./lib/text-triggers";
 export {
   type FieldEditorProps,
   type FieldRowProps,
