@@ -239,7 +239,7 @@ describe("contractStatus", () => {
     ).toEqual({
       ok: false,
       message:
-        "capture device credential is invalid or revoked. Pair this store again: forget it in Stores, and add it with a new code from its host.",
+        "capture device credential is invalid or revoked. Pair this store again in Stores using the same origin and a new code from its host.",
     });
   });
 });

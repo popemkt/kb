@@ -15,20 +15,23 @@ import type { WindowFrame } from "./shell.ts";
 
 /**
  * A store served by a host elsewhere (a tailnet `kb ui`), by its origin,
- * paired once (`capture.pair`). Its credential is in the keychain under its
- * key (`stores.ts` → `credentialItem`), never here.
+ * with pairing metadata once paired (`capture.pair`). Its credential is in
+ * the keychain under its key (`stores.ts` → `credentialItem`), never here.
  */
-export interface RemoteStore {
+export type RemoteStore = {
   /** Stable: what a deep link, the window state and the keychain item name it by. */
   readonly key: string;
   readonly name: string;
   /** The bare `https:` (or loopback `http:`) origin its page is served at. */
   readonly origin: string;
-  /** This device's id at the host, from the pairing. */
-  readonly deviceId: string;
-  /** The capture contract versions its host said it accepts when it was paired. */
-  readonly accepts: readonly number[];
-}
+} & (
+  | {
+      /** This device's id and the host's accepted capture contracts, from pairing. */
+      readonly deviceId: string;
+      readonly accepts: readonly number[];
+    }
+  | { readonly deviceId?: never; readonly accepts?: never }
+);
 
 export interface DesktopSettings {
   /** The kb command to run, when it is not found on its own (`kb-command.ts`). */
@@ -92,20 +95,27 @@ function writeJson(file: string, value: unknown): void {
   renameSync(tmp, file);
 }
 
-/** A paired remote as settings keep it; one that is not (an old pasted-token entry, say) is left out. */
+/** Decode the remote's identity and, when present, its pairing metadata. */
 function remoteOf(value: unknown): RemoteStore | null {
   if (!isRecord(value)) return null;
   const { key, name, origin, deviceId, accepts } = value;
-  if (
-    typeof key !== "string" ||
-    typeof name !== "string" ||
-    typeof origin !== "string" ||
-    typeof deviceId !== "string" ||
-    !Array.isArray(accepts)
-  )
+  if (typeof key !== "string" || typeof name !== "string" || typeof origin !== "string")
     return null;
+  if (typeof deviceId !== "string" || !Array.isArray(accepts)) return { key, name, origin };
   const versions = accepts.filter((v): v is number => typeof v === "number");
   return { key, name, origin, deviceId, accepts: versions };
+}
+
+/** Remove the legacy credential in place so other on-disk settings are preserved. */
+function scrubRemoteTokens(raw: unknown): boolean {
+  if (!isRecord(raw) || !Array.isArray(raw.remotes)) return false;
+  let changed = false;
+  for (const remote of raw.remotes) {
+    if (!isRecord(remote) || !Object.hasOwn(remote, "token")) continue;
+    delete remote.token;
+    changed = true;
+  }
+  return changed;
 }
 
 /** Settings as read from `raw`, each missing or malformed member at its default. */
@@ -162,7 +172,9 @@ export class DesktopConfig {
   constructor(dir: string) {
     this.dir = dir;
     mkdirSync(dir, { recursive: true, mode: 0o700 });
-    this.#settings = settingsOf(readJson(this.settingsFile));
+    const settings = readJson(this.settingsFile);
+    if (scrubRemoteTokens(settings)) writeJson(this.settingsFile, settings);
+    this.#settings = settingsOf(settings);
     this.#windows = windowsOf(readJson(this.#windowsFile));
   }
 

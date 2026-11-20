@@ -1,6 +1,6 @@
 /** The desktop's own settings and window state: defaults, malformed input, and a round trip. */
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEFAULT_SETTINGS, DesktopConfig, desktopDir, settingsOf } from "../src/index.ts";
@@ -30,19 +30,52 @@ describe("settingsOf", () => {
       hotkey: "Alt+Space",
       remotes: [
         { key: "r1", name: "Work", origin: "https://w.ts.net", deviceId: "d1", accepts: [1, "x"] },
-        // A remote from before pairing, with a pasted token and no device: not a paired store.
         { key: "r2", name: "Old", origin: "https://o.ts.net", token: "t" },
+        { token: "t" },
       ],
     });
     expect(settings.kb).toBe("/opt/kb/bin/kb");
     expect(settings.hotkey).toBe("Alt+Space");
     expect(settings.remotes).toEqual([
       { key: "r1", name: "Work", origin: "https://w.ts.net", deviceId: "d1", accepts: [1] },
+      { key: "r2", name: "Old", origin: "https://o.ts.net" },
     ]);
   });
 });
 
 describe("DesktopConfig", () => {
+  test("scrubs legacy tokens on load, preserving store identities and other settings", () => {
+    const dir = mkdtempSync(join(tmpdir(), "kb-desktop-config-"));
+    const file = join(dir, "settings.json");
+    const legacy = { key: "r1", name: "Old", origin: "https://o.ts.net" };
+    const paired = {
+      key: "r2",
+      name: "Work",
+      origin: "https://w.ts.net",
+      deviceId: "d1",
+      accepts: [1],
+    };
+    const other = { captureStore: legacy.key, hotkey: "Alt+Space", custom: true };
+    writeFileSync(
+      file,
+      JSON.stringify({ ...other, remotes: [{ ...legacy, token: "old-secret" }, paired] }),
+    );
+    const config = new DesktopConfig(dir);
+    expect(JSON.parse(readFileSync(file, "utf8"))).toEqual({ ...other, remotes: [legacy, paired] });
+    expect(config.settings.remotes).toEqual([legacy, paired]);
+    expect(config.settings.captureStore).toBe(legacy.key);
+    expect(new DesktopConfig(dir).settings).toEqual(config.settings);
+  });
+
+  test("opening clean settings keeps the original file", () => {
+    const dir = mkdtempSync(join(tmpdir(), "kb-desktop-config-"));
+    const file = join(dir, "settings.json");
+    const raw = '{"hotkey":"Alt+Space"}';
+    writeFileSync(file, raw);
+    expect(new DesktopConfig(dir).settings.hotkey).toBe("Alt+Space");
+    expect(readFileSync(file, "utf8")).toBe(raw);
+  });
+
   test("window memory survives a restart; a window not open stays closed", () => {
     const dir = mkdtempSync(join(tmpdir(), "kb-desktop-config-"));
     const first = new DesktopConfig(dir);

@@ -76,13 +76,13 @@ export function captureOutcome(body: unknown): CaptureOutcome {
       message: `this store's kb has no ${CAPTURE_SUBMIT} yet (it needs capture contract ${CAPTURE_CONTRACT}); update kb`,
     };
   const refused = answer.message ?? "the host refused the capture";
-  if (answer.code === "forbidden") return { ok: false, message: `${refused}. ${REPAIR}` };
+  if (answer.code === "forbidden") return { ok: false, message: `${refused}. ${PAIR_AGAIN}` };
   return { ok: false, message: refused };
 }
 
 /** What to do when a host no longer takes this device's credential. */
-const REPAIR =
-  "Pair this store again: forget it in Stores, and add it with a new code from its host.";
+export const PAIR_AGAIN =
+  "Pair this store again in Stores using the same origin and a new code from its host.";
 
 /** Call `id` with `input` on `host`'s action endpoint, as a program (no Origin), with its credential when it has one. */
 const callAction = Effect.fn("kb.desktop.capture.call")(function* (
@@ -170,7 +170,8 @@ export type PairWithHost = (
 ) => Effect.Effect<PairOutcome>;
 
 /** Whether a host that accepts `accepts` takes this desktop's captures, in words, as the store list shows it. */
-export function contractStatus(accepts: readonly number[]): string {
+export function contractStatus(accepts: readonly number[] | undefined): string {
+  if (accepts === undefined) return "Needs pairing";
   if (accepts.length === 0)
     return `Capture contract not confirmed yet (this app sends v${CAPTURE_CONTRACT})`;
   if (accepts.includes(CAPTURE_CONTRACT))

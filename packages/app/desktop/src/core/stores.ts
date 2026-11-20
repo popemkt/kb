@@ -23,7 +23,7 @@ import { CAPTURE_PAIR_CODE } from "@kb/contracts";
 import { currentHome, readUiPresence, servingUi, type UiPresence } from "@kb/workspace-fs";
 import type { DesktopConfig, RemoteStore } from "./config.ts";
 import type { Keychain, KeychainItem } from "@kb/keychain";
-import type { PairWithHost } from "./capture.ts";
+import { PAIR_AGAIN, type PairWithHost } from "./capture.ts";
 import type { KbRunner, Receipt } from "./kb-command.ts";
 import { CaptureClient, CredentialKeychain, DeviceSettings, KbCli } from "./services.ts";
 
@@ -253,6 +253,8 @@ function remoteStores(config: DesktopConfig, pair: PairWithHost, keychain: Keych
 
   const credential = Effect.fn("kb.desktop.stores.credential")(function* (store: Store) {
     if (store.kind === "local") return undefined;
+    if (store.deviceId === undefined)
+      return yield* new StoreError({ message: `${store.name} needs pairing. ${PAIR_AGAIN}` });
     const token = yield* keychain.read(credentialItem(store.key)).pipe(
       Effect.mapError(
         (err) =>
@@ -263,7 +265,7 @@ function remoteStores(config: DesktopConfig, pair: PairWithHost, keychain: Keych
     );
     if (token === null)
       return yield* new StoreError({
-        message: `${store.name} has no credential in the keychain. Forget it in Stores, and add it again with a new code from its host.`,
+        message: `${store.name} has no credential in the keychain. ${PAIR_AGAIN}`,
       });
     return token;
   });

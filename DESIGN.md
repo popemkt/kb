@@ -5793,6 +5793,12 @@ remains GAP [[01M413SP3QSSQJMKKDK3W3J6G8]].
   phone does with each answer (sent, failed, paused, pending) is
   `apps/android/README.md` → How it behaves. The design is
   `docs/research/2026-11-18-desktop-and-phone-apps.md` §3–4.
+- **Desktop capture** (`packages/app/desktop`): settings keep a remote
+  store's key, name and origin, plus its device id and accepted contracts
+  after pairing. On load, the app removes any legacy pasted tokens from
+  the settings file. A legacy remote stays listed as “Needs pairing” and
+  cannot receive captures until paired. Pairing at the same origin keeps
+  its key, so its window and capture settings still refer to it.
 - **Agent onboarding**: CLAUDE.md/AGENTS.md section — node model, field/tag
   conventions, 5 example invocations.
 

@@ -4,7 +4,7 @@
  * window memory across a restart.
  */
 import { beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Layer } from "effect";
@@ -310,6 +310,37 @@ describe("a paired remote store", () => {
   const HOST = "https://work.tail.ts.net";
   const CODE = "0123456789abcdef0123456789abcdef";
   const TOKEN = `kbcap_${"a".repeat(64)}`;
+
+  test("a legacy remote needs pairing and re-pairs in place", async () => {
+    const legacy = { key: "legacy", name: "My Work", origin: HOST };
+    writeFileSync(
+      join(dir, "settings.json"),
+      JSON.stringify({ remotes: [{ ...legacy, token: "old" }], captureStore: legacy.key }),
+    );
+    const pair: PairWithHost = () =>
+      Effect.succeed({
+        ok: true,
+        token: TOKEN,
+        deviceId: "dev-1",
+        store: { key: "01WORK", name: "Work" },
+        accepts: [1],
+      });
+    const { ui, app, config } = await started([], undefined, fakeKb(), pair);
+    const { call } = await capturePanel(ui, app);
+    expect(await call("/api/stores")).toMatchObject({
+      captureStore: legacy.key,
+      stores: expect.arrayContaining([{ ...legacy, kind: "remote", contract: "Needs pairing" }]),
+    });
+    expect(await call("/api/capture", { text: "from the desk" })).toEqual({
+      error:
+        "My Work needs pairing. Pair this store again in Stores using the same origin and a new code from its host.",
+    });
+    expect(await call("/api/stores/add-remote", { origin: HOST, code: CODE })).toEqual({
+      ok: true,
+    });
+    expect(config.settings.remotes).toEqual([{ ...legacy, deviceId: "dev-1", accepts: [1] }]);
+    await Effect.runPromise(app.settle);
+  });
 
   test("pairs with a code, keeps the credential in the keychain only, and captures with it", async () => {
     const paired: { origin: string; code: string; deviceName: string }[] = [];
