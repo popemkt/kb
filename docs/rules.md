@@ -2047,6 +2047,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — palette-index.test.ts asserts open <50ms and keystroke <10ms at 50k nodes. A standalone benchmark puts Array.from({length:n}) about 40% behind new Array(n) at that size, and the push variant flipped that test red on three of four full-suite runs on a loaded machine. Close it by making the 50k path fast enough that the allocation shape stops mattering (incremental or worker-side palette search), then delete both disables.
 - **node** — `01M1MFJXAQ8NVBMA6E6CZ7CY9W`
 
+### GAP: the phone app cannot record a voice memo
+
+- **expected** — The phone records audio and queues it as a file capture, delivered raw like any share; the host stores it as an asset and may transcribe it, optionally, on its side.
+- **current** — Capture from the phone is text, links and images from the share sheet, and typed notes; there is no recorder, and the host asset rules are not checked for audio formats.
+- **impact** — The fastest way to capture on a phone, speaking, is missing; a voice note recorded in another app can only be shared if the host admits its format.
+- **closes** — A record action in the shell (widget and Capture view) writing an audio file into the queue, with RECORD_AUDIO asked when first used, and the asset upload rules admitting the recorder's format, proven by a raw-capture test.
+- **node** — `01M7WZ0Q5ZJ2NZ36T3JNWXJNVE`
+
+### GAP: the phone hears only what its own delivery runs find
+
+- **expected** — The host can tell the phone about events on its side (a capture filed, a reminder due) through a self-hosted push service such as ntfy or UnifiedPush, with no third-party account.
+- **current** — Notifications are local: the delivery worker posts one when a capture is refused or a store stops accepting the phone. Nothing reaches the phone from the host.
+- **impact** — Host-side events (reminders, a run that needs attention) cannot reach the phone; the person has to open the app or the web UI.
+- **closes** — A push channel chosen at pairing (a UnifiedPush distributor or an ntfy topic), a host action that publishes to it, and the shell posting what arrives.
+- **node** — `01M7WZ0QV3HAB6YRKS8CHE1793`
+
 ### GAP: the reference token has two grammars, mention.ts and the inline parser
 
 - **expected** — One statement of the label token: the inline grammar (inline.ts) and :node/mentions extraction (mention.ts) read the same tokens.
