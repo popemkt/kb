@@ -1672,11 +1672,20 @@ text's triggers (`[[`, `@`, `#`, `>`), every node-palette step
 (`PaletteStepPoint`; the outline's add-tag, add-field, reference and move-to
 steps among them),
 the ontology page's include/extends, the canvas's "add existing node" and the
-tag page's add-field. A query matches fuzzily (prefix, substring, id, word
-initials, a compact subsequence) and the matched letters are marked; with
-nothing typed an option set keeps its own order, other fields offer the
-session's recent picks and then the most used. The field picker shows what the
-field holds checked; in a many-valued field Enter toggles and it stays open,
+tag page's add-field. A query ranks label prefixes, label substrings, id
+matches, label initials and compact subsequences of at least three letters,
+in that order. The list marks matched label letters. An id match takes at
+least two characters and
+searches the last dot-separated segment of an id other than a ULID. An
+explicit prefix starting with `sys.` searches the full system id.
+With an empty query an option set keeps its declared order. Other fields
+offer the session's recent picks, then the most used. Add tag (`#`) and Add
+field (`>`) do the same, counting nodes using each tag or field and remembering
+picks separately. The remaining tags and fields appear by label match or explicit
+system id search. The rows show a tag hash or the field's type glyph and
+the number of nodes using it. Text reference search (`[[`) excludes the
+row being edited. The field picker shows what the field holds checked; in a
+many-valued field Enter toggles and it stays open,
 Backspace on an empty query takes back the last value, and in a one-valued
 field a pick replaces and closes. A value that would close a cycle through a field
 that declares itself acyclic (a tag's `extends`; `closesCycleOf`) is shown,

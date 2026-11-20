@@ -48,7 +48,7 @@ export interface TextTrigger {
 const ROW_LIMIT = 12;
 
 /**
- * `[[`: a reference to any node. A pick inserts `[[id|label]]`; Enter with
+ * `[[`: a reference to another node. A pick inserts `[[id|label]]`; Enter with
  * nothing to pick closes the brackets.
  */
 export const refTrigger: TextTrigger = {
@@ -57,7 +57,11 @@ export const refTrigger: TextTrigger = {
     const open = openRefQuery(text, cursor);
     return open === null ? null : { start: open.start, end: cursor, query: open.query };
   },
-  rows: (query, nodes) => pickerRows(nodeCandidates(nodes), { query, limit: ROW_LIMIT }),
+  rows: (query, nodes, nodeId) =>
+    pickerRows(nodeCandidates(nodes, { exclude: (id) => id === nodeId }), {
+      query,
+      limit: ROW_LIMIT,
+    }),
   pick: (row) => ({ insert: formatRefToken(row.id, row.kind === "item" ? row.label : row.name) }),
   none: (open) => ({ insert: `[[${open.query}]]` }),
 };

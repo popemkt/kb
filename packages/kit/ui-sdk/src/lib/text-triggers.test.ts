@@ -27,6 +27,10 @@ describe("[[", () => {
     expect(refTrigger.rows("alp", nodes).map((row) => row.id)).toEqual(["n.alpha"]);
   });
 
+  it("excludes a match when it is the edited row", () => {
+    expect(refTrigger.rows("alp", nodes, "n.alpha")).toEqual([]);
+  });
+
   it("inserts a reference for a pick, and closes its brackets with nothing to pick", async () => {
     const open = { start: 4, end: 9, query: "Alp" };
     const [row] = refTrigger.rows("alp", nodes);
