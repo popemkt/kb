@@ -67,7 +67,10 @@ import {
 } from "./seed-opening-contract.ts";
 import { commitReceiptNamesItsWrite, tailRecordsWhoCommitted } from "./commit-record-contract.ts";
 import { viewsMigrateRewritesLegacyShapes } from "./view-migration-contract.ts";
-import { commitAfterAnotherWriterMergesIntoIt } from "./writers-contract.ts";
+import {
+  commitAfterAnotherWriterMergesIntoIt,
+  plannedWriteSurvivesContention,
+} from "./writers-contract.ts";
 
 export type { StoreFactory } from "./store-session.ts";
 
@@ -287,6 +290,7 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
     conditionalCommitNamesItsBase,
   ],
   ["two conditional commits from one state: at most one lands", conditionalCommitsRace],
+  ["a session replans a write through repeated commit conflicts", plannedWriteSurvivesContention],
   [
     "a commit that cannot be written fails with a DomainError and leaves no store",
     unwritableCommitFails,

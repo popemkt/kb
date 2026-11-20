@@ -1,6 +1,6 @@
 import type { NodeIndex } from "@kb/query";
 import { seedRemovalNodes } from "@kb/seed";
-import { Effect, Result } from "effect";
+import { Clock, Effect, Random, Result } from "effect";
 import {
   currentIso,
   extensionNameOf,
@@ -121,10 +121,9 @@ export interface PersistOptions {
  * hold for the state it lands on, whoever else writes at the same time, and
  * a guard's "one node per key" is a promise across processes, not a hope.
  * When the store moved, the same transaction is caught up, checked and
- * committed again, a few times, before the `conflict` is the caller's. A
- * caller that names its own `expected` (a write planned from what it read,
- * {@link persistPlannedEffect}) gets that state or the conflict, and plans
- * again itself.
+ * committed again under the session retry policy (DESIGN.md → Storage). A
+ * caller that names its own `expected` (a write planned from what it read)
+ * gets that state or the conflict, and can plan again itself.
  *
  * The transaction is recorded by the commit itself: the store's tail is
  * durable and the store is the only thing that can make the node write and
@@ -159,18 +158,30 @@ export const persistEffect = Effect.fn("kb.persist")(function* (
   options: PersistOptions = {},
 ): Effect.fn.Return<StoreCommit, DomainError, KbStore> {
   const commit = persistAttempt(ctx, tx, options);
-  return yield* options.expected === undefined ? retryCommit(Effect.result(commit), 5) : commit;
+  return yield* options.expected === undefined ? retryCommit(Effect.result(commit)) : commit;
 });
+
+// This window starts after a commit conflict. Adapters own lock acquisition for each attempt.
+const COMMIT_RETRY_WINDOW_MS = 15_000;
 
 // Preparing a write may itself refuse. Only a conflict during commit starts another attempt.
 const retryCommit = Effect.fnUntraced(function* <A, R>(
   attempt: Effect.Effect<Result.Result<A, DomainError>, DomainError, R>,
-  attempts: number,
 ) {
-  for (let count = 1; ; count++) {
+  let deadline: number | undefined;
+  let delayCap = 10;
+  for (;;) {
     const result = yield* attempt;
     if (Result.isSuccess(result)) return result.success;
-    if (result.failure.code !== "conflict" || count === attempts) return yield* result.failure;
+    const { failure } = result;
+    if (failure.code !== "conflict") return yield* failure;
+
+    const now = yield* Clock.currentTimeMillis;
+    deadline ??= now + COMMIT_RETRY_WINDOW_MS;
+    const delay = delayCap * (yield* Random.next);
+    if (now + delay >= deadline) return yield* failure;
+    yield* Effect.sleep(delay);
+    delayCap = Math.min(delayCap * 2, 250);
   }
 });
 
@@ -274,7 +285,7 @@ const persistAttempt = Effect.fn("kb.persist.attempt")(function* (
  * plan that replaces a whole node from what it read (a list's children, say)
  * would otherwise merge over a write another process made in between and
  * lose it. When the store moved, the plan is made again over what it now
- * holds, a few times, before the `conflict` is the caller's. A plan may
+ * holds under the session retry policy (DESIGN.md → Storage). A plan may
  * refuse (a node it needs is gone, say), and the refusal is the caller's
  * failure. Answers what was committed, or null when `plan` had nothing to
  * write.
@@ -296,9 +307,8 @@ export const persistPlannedEffect = Effect.fn("kb.persistPlanned")(function* <
         return Result.succeed(write);
       const tx: StoreTx = { upserts: [...write.upserts], deletes: [...write.deletes] };
       return yield* Effect.result(
-        Effect.as(persistEffect(ctx, tx, { ...options, expected }), write),
+        Effect.as(persistAttempt(ctx, tx, { ...options, expected }), write),
       );
     }),
-    3,
   );
 });

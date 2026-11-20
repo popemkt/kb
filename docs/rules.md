@@ -241,14 +241,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The chips line moves to a shared field-list component (or the detail view draws FieldsSection) so both surfaces take one placement
 - **node** — `01M7EY5YQKG919B47FD255B34B`
 
-### GAP: A concurrent SQLite CLI writer exited before committing
-
-- **expected** — Independent CLI additions commit under ordinary contention, or return a conflict that can be diagnosed and retried.
-- **current** — During scratch stress with four CLI writers and eight subscribers, one SQLite kb add exited 1 before writing its node. The harness preserved the exit code and missed the receipt on stdout. A rerun capturing both streams passed all 16 additions.
-- **impact** — The first run required retrying the missing addition. The 12 additions that completed stayed durable.
-- **closes** — Reproduce with structured CLI receipts, classify the refusal, and add a concurrent store regression if the refusal is outside the conflict contract.
-- **node** — `01M7Q56B5T0H4HEW6BP85BT1S9`
-
 ### GAP: a dashboard's inner panes are not in the screen state
 
 - **expected** — every pane on screen, including those inside a dashboard, is listed in the screen state and can be targeted
@@ -2349,6 +2341,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — the view catalog does not grow from code views that proved themselves (decision 4C)
 - **closes** — a promotion action plus a review-and-commit flow that writes the code view as an extension view
 - **node** — `01M41DKTTRA55RA1KF4QBWQ9MF`
+
+### GAP: A concurrent SQLite CLI writer exited before committing
+
+- **expected** — Independent CLI additions commit under ordinary contention, or return a conflict that can be diagnosed and retried.
+- **current** — Four concurrent CLI writers reproduced a stale fingerprint conflict on SQLite. The failing kb add exhausted three immediate attempts, reported the conflict on stdout and wrote nothing. The session now replans or rechecks conflicting commits with jittered backoff within a bounded retry window.
+- **impact** — The first run required retrying the missing addition. The 12 additions that completed stayed durable.
+- **closes** — Share the session retry policy and prove across both store backends that a planned append preserves six intervening writes and commits once.
+- **node** — `01M7Q56B5T0H4HEW6BP85BT1S9`
 
 ### GAP: a confirming frame for an earlier write overwrites a later optimistic write
 

@@ -6,7 +6,66 @@
 import { expect } from "bun:test";
 import { Effect } from "effect";
 import { present, rankOf, type KbNode } from "@kb/model";
-import { CONTRACT_AT as AT, plainNode, scratchRoot, type StoreFactory } from "./store-session.ts";
+import { persistPlannedEffect } from "@kb/operations";
+import { kbRuntimeLayer } from "@kb/runtime";
+import {
+  backendRoot,
+  CONTRACT_AT as AT,
+  openSession,
+  plainNode,
+  scratchRoot,
+  type StoreFactory,
+} from "./store-session.ts";
+
+/** A session keeps replanning a write as other commits land on the same parent. */
+export function plannedWriteSurvivesContention(makeStore: StoreFactory): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* backendRoot(makeStore);
+        const ctx = yield* Effect.acquireRelease(
+          openSession(root),
+          (session) => session.store.closeEffect,
+        );
+        const other = yield* Effect.acquireRelease(
+          Effect.sync(() => makeStore(root)),
+          (store) => store.closeEffect,
+        );
+        yield* other.commitEffect({ upserts: [parent([])], deletes: [] }, { at: AT });
+        const head = other.txTail.entries().length;
+        const contenders = Array.from({ length: 6 }, (_, i) => plainNode(`n-other-${i}`, "other"));
+        const own = plainNode("n-own", "own");
+        let plans = 0;
+        const committed = yield* persistPlannedEffect(ctx, (nodes) =>
+          Effect.gen(function* () {
+            const current = present(
+              nodes.find((node) => node.id === "n-p"),
+              "the parent",
+            );
+            // Each contender commits after the plan read the parent and before its conditional write.
+            const winner = contenders[plans];
+            plans += 1;
+            if (winner !== undefined) {
+              yield* other.commitEffect(
+                { upserts: [parent([...current.children, winner.id]), winner], deletes: [] },
+                { at: AT },
+              );
+            }
+            return { upserts: [parent([...current.children, own.id]), own], deletes: [] };
+          }),
+        ).pipe(Effect.provide(kbRuntimeLayer(ctx)));
+
+        const children = [...contenders.map((node) => node.id), own.id];
+        expect(plans).toBe(children.length);
+        expect(committed?.upserts[0]?.children).toEqual(children);
+        expect(ctx.index.getNode("n-p")?.children).toEqual(children);
+        const stored = yield* other.loadEffect;
+        expect(stored.find((node) => node.id === "n-p")?.children).toEqual(children);
+        expect(other.txTail.entries()).toHaveLength(head + children.length);
+      }),
+    ),
+  );
+}
 
 /** The parent every writer below appends under, holding `children`. */
 function parent(children: string[]): KbNode {

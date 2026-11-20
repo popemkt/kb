@@ -72,7 +72,6 @@ function mapCommitError(err: unknown, path: string): DomainError {
  * without decoding every row; another writer moves `rev`, and the commit
  * reads the rows as it always did.
  */
-// GAP [[01M7Q56B5T0H4HEW6BP85BT1S9]] intermittent refusal observed in concurrent CLI writes
 export class SqliteStore implements EffectStore {
   readonly path: string;
   readonly loadEffect: Effect.Effect<KbNode[], DomainError>;
