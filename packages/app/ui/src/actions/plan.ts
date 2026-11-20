@@ -22,6 +22,8 @@ import { findParentWire, wireById } from "@/lib/tx";
 
 export interface PlannedMutation {
   actions: ActionRequest[];
+  /** Text to restore for a row whose draft the gesture consumed. */
+  undoText?: ReadonlyMap<string, string>;
   focusId?: string;
   focusCursor?: number;
 }
@@ -111,8 +113,14 @@ export function planSplit(
     focusCursor: 0,
   };
 }
-export const planDelete = (_nodes: WireNode[], id: string) =>
-  plan({ id: "node.delete", input: { id, descendants: "cascade" } });
+export function planDelete(
+  _nodes: WireNode[],
+  id: string,
+  undo?: { readonly text: string },
+): PlannedMutation {
+  const deletion = plan({ id: "node.delete", input: { id, descendants: "cascade" } });
+  return undo === undefined ? deletion : { ...deletion, undoText: new Map([[id, undo.text]]) };
+}
 export function planMergeInto(
   nodes: WireNode[],
   id: string,

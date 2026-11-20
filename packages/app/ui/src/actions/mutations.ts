@@ -104,8 +104,16 @@ function indexed(id: string): KbNode | undefined {
 }
 
 function recordHistory(preWire: WireNode[], plan: PlannedMutation): void {
+  const undoText = plan.undoText;
+  const before =
+    undoText === undefined || undoText.size === 0
+      ? preWire
+      : preWire.map((node) => {
+          const text = undoText.get(node.id);
+          return text === undefined ? node : { ...node, text };
+        });
   useGraphStore.getState().recordUndo({
-    undo: restoreInvocations(wire(), preWire),
+    undo: restoreInvocations(wire(), before),
     redo: plan.actions,
   });
 }
@@ -114,7 +122,7 @@ function recordHistory(preWire: WireNode[], plan: PlannedMutation): void {
  * The gesture being made (`together`): the actions its writes planned, in
  * order, sent as one write when it ends. Null while no gesture is open.
  */
-let gesture: { actions: ActionRequest[] } | null = null;
+let gesture: { actions: ActionRequest[]; undoText: Map<string, string> } | null = null;
 
 async function invokeAll(actions: Array<{ id: string; input: unknown }>): Promise<boolean> {
   const localOnly = useGraphStore.getState().loadSource !== "api";
@@ -137,6 +145,7 @@ async function invokeAll(actions: Array<{ id: string; input: unknown }>): Promis
 async function runPlan(plan: PlannedMutation): Promise<RunOptimisticResult> {
   if (gesture !== null) {
     gesture.actions.push(...plan.actions);
+    for (const [id, text] of plan.undoText ?? []) gesture.undoText.set(id, text);
     return { ok: true };
   }
   const preWire = useGraphStore.getState().wireNodes;
@@ -311,8 +320,8 @@ export const mutations: PageWrites = {
     await applyPlan(planSplit(wire(), id, cursor, ulid(), { expandedIds }));
   },
 
-  async deleteNode(id: string): Promise<boolean> {
-    return applyPlan(planDelete(wire(), id));
+  async deleteNode(id: string, undo?: { readonly text: string }): Promise<boolean> {
+    return applyPlan(planDelete(wire(), id, undo));
   },
 
   async mergeNextIntoThis(thisId: string, nextId: string): Promise<void> {
@@ -371,10 +380,10 @@ export const mutations: PageWrites = {
     return { references };
   },
 
-  async together<T>(made: () => Promise<T>): Promise<T> {
+  async together<T>(made: () => Promise<T>): Promise<T | null> {
     // A gesture inside another is part of it.
     if (gesture !== null) return made();
-    const open = { actions: [] as ActionRequest[] };
+    const open = { actions: [] as ActionRequest[], undoText: new Map<string, string>() };
     gesture = open;
     let result: T;
     try {
@@ -382,7 +391,7 @@ export const mutations: PageWrites = {
     } finally {
       gesture = null;
     }
-    if (open.actions.length > 0) await applyPlan({ actions: open.actions });
+    if (open.actions.length > 0 && !(await applyPlan(open))) return null;
     return result;
   },
 

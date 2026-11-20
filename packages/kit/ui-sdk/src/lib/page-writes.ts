@@ -84,9 +84,10 @@ export interface PageWrites {
   /**
    * Delete the node and its subtree. Answers whether it landed: false when
    * the commit refused it, so a caller that moves the selection or the caret
-   * past the row moves it only when the row went.
+   * past the row moves it only when the row went. A gesture that consumes
+   * a draft can supply the text the row should come back with on undo.
    */
-  readonly deleteNode: (id: string) => Promise<boolean>;
+  readonly deleteNode: (id: string, undo?: { readonly text: string }) => Promise<boolean>;
   /**
    * Merge the next row into this one (Delete at the end of a row).
    */
@@ -130,11 +131,11 @@ export interface PageWrites {
    * made, against the graph as the gesture found it, and they are sent
    * together as one `node.batch` call when it ends, recorded as one undo
    * step. A write inside answers that it was taken (`true`, or the id it
-   * will make) before it lands; the batch says why if it is refused. Only
-   * the writes the gesture waits for are part of it, and a `together`
+   * will make) before it lands. The batch says why and answers null if it
+   * is refused. Only the writes the gesture waits for are part of it. A `together`
    * inside another is part of the outer one.
    */
-  readonly together: <T>(gesture: () => Promise<T>) => Promise<T>;
+  readonly together: <T>(gesture: () => Promise<T>) => Promise<T | null>;
   /** D19: undo through inverse invocations of the same shared actions. */
   readonly undo: () => Promise<boolean>;
   /** D19: redo the last undone mutation. */

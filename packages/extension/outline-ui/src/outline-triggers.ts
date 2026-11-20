@@ -42,20 +42,20 @@ function openedAfterSpace(opener: string, query: string) {
 }
 
 /**
- * Where a palette step opened from the text writes, read when it is picked:
- * the node the pick is for, the writes made with the step's as the same one
- * write, and what follows once that is made.
+ * Where a palette step writes, read when picked. A conversion consumes the
+ * source row in the same batch and moves focus when the batch lands.
  */
 interface StepTarget {
   readonly nodeId: string;
-  readonly with?: () => Promise<unknown>;
-  readonly after?: () => void;
+  readonly conversion?: {
+    readonly remove: () => Promise<boolean>;
+    readonly land: () => void;
+  };
 }
 
 /**
- * A palette step opened from the text of `row`: a pick takes the trigger
- * out of the text, then commits to the node `target` names (the row, unless
- * it says otherwise), with what goes with it, as one write.
+ * A palette step opened from the text of `row`: commit to the node
+ * `target` names, either editing the trigger span or consuming the row.
  *
  * GAP [[01M7D4AYQFJGZQGJZ3KD7M388R]] — where the row stays (`#`), the
  * text's write and the step's are two writes, so one undo takes back the
@@ -84,25 +84,24 @@ function stepTrigger(
     ...(step.createLabel === undefined ? {} : { createLabel: step.createLabel }),
     pick: (picked, typed) => {
       const at = target();
-      return {
-        insert: "",
-        write: async () => {
-          if (at === null) return;
-          await browserHost().writes.together(async () => {
-            await at.with?.();
-            await step.commit({
-              targetNodeId: at.nodeId,
-              targetNodeIds: [at.nodeId],
-              schema: row.schema,
-              pickedId: picked.id,
-              creating: picked.kind === "create",
-              name: typed.query.trim(),
-              alternate: false,
-            });
+      if (at === null) return null;
+      const conversion = at.conversion;
+      const write = async () => {
+        const landed = await browserHost().writes.together(async () => {
+          await step.commit({
+            targetNodeId: at.nodeId,
+            targetNodeIds: [at.nodeId],
+            schema: row.schema,
+            pickedId: picked.id,
+            creating: picked.kind === "create",
+            name: typed.query.trim(),
+            alternate: false,
           });
-          at.after?.();
-        },
+          return conversion?.remove();
+        });
+        if (landed === true) conversion?.land();
       };
+      return conversion === undefined ? { insert: "", write } : { consume: write };
     },
   };
 }
@@ -207,8 +206,10 @@ function fieldTrigger(
     if (parent === null || instanceKey === undefined) return null;
     return {
       nodeId: parent,
-      with: () => browserHost().writes.deleteNode(row.nodeId),
-      after: landInFieldsOf(instanceKey, parent),
+      conversion: {
+        remove: () => browserHost().writes.deleteNode(row.nodeId, { text: "" }),
+        land: landInFieldsOf(instanceKey, parent),
+      },
     };
   });
 }

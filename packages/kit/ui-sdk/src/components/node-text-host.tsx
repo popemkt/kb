@@ -253,6 +253,7 @@ export function NodeTextHost({
   const pendingEcho = useRef<string | null>(null);
   /** The text as last rendered: what a pick that resolves later is laid into. */
   const latest = useRef(content);
+  const consuming = useRef(false);
   useLayoutEffect(() => {
     latest.current = content;
   }, [content]);
@@ -340,16 +341,25 @@ export function NodeTextHost({
   useOpenPills(editorRef, openReferences);
 
   /**
-   * Lay a pick into the text: what it inserts replaces the trigger's span,
-   * the caret after it, then its write. A pick that resolves later is laid
-   * into the text as it is then, unless the span has changed meanwhile.
+   * Lay a pick into the text as it is now, unless the span has changed
+   * meanwhile. A pick that consumes the row owns the write and focus.
    */
   const applyPick = useCallback(
-    async (made: TriggerPick | Promise<TriggerPick>, span: OpenTrigger) => {
+    async (made: TriggerPick | null | Promise<TriggerPick | null>, span: OpenTrigger) => {
       const was = content.slice(span.start, span.end);
       const pick = await made;
       const text = latest.current;
       if (text.slice(span.start, span.end) !== was) return;
+      if (pick === null || consuming.current) return;
+      if ("consume" in pick) {
+        consuming.current = true;
+        try {
+          await pick.consume();
+        } finally {
+          consuming.current = false;
+        }
+        return;
+      }
       const next = text.slice(0, span.start) + pick.insert + text.slice(span.end);
       const caret = span.start + pick.insert.length;
       emit(next);

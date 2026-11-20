@@ -251,7 +251,10 @@ export interface NodeCommandListing {
  * that row's write being one write already, so a write whose result the
  * gesture reads has landed when it reads it.
  */
-export function asOneWrite<T>(rows: readonly string[], gesture: () => Promise<T>): Promise<T> {
+export function asOneWrite<T>(
+  rows: readonly string[],
+  gesture: () => Promise<T>,
+): Promise<T | null> {
   return rows.length > 1 ? browserHost().writes.together(gesture) : gesture();
 }
 

@@ -1701,8 +1701,7 @@ picker at the caret, without leaving the text. The triggers are one table
 on the text host (`TextTrigger`, `lib/text-triggers.ts`). Each row of it
 says where a trigger opens, what it offers and what a pick does; the host
 runs every row with the one picker engine and the one list. A pick
-replaces what was typed for the trigger, the opener and its query, and may
-then write.
+can replace what was typed for the trigger or consume the row in a write.
 
 - `[[` opens anywhere and offers every node (`nodeCandidates`). A pick
   inserts a reference, `[[id|label]]`, and Enter with nothing to pick
@@ -1733,6 +1732,7 @@ then write.
   holds for that field. One undo brings the empty line back and removes
   the field if the pick added it. The caret lands on the field's value
   where the parent's fields are drawn: under its row, or in the page head.
+  If the conversion is refused, the typed text and caret stay on the line.
   To add a field to a node that has text, use Add field on that node
   (its menu, or the palette).
 

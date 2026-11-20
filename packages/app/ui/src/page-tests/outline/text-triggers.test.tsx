@@ -10,11 +10,12 @@ import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { bundledPlugin } from "@kb/contracts";
 import { daysExtension } from "@kb/days";
-import { parseDateInput, present, SYSTEM_IDS } from "@kb/model";
+import { fieldTypeValue, parseDateInput, present, SYSTEM_IDS } from "@kb/model";
 import { definePlugin } from "@kb/plugin";
 import { DateTargetService, outlineInstanceKey, projectedRowKey, syncUiPlugins } from "@kb/ui-sdk";
 import { mutations } from "@/actions/mutations";
 import { useGraphStore } from "@/stores/graph.store";
+import { useUiStore } from "@/stores/ui.store";
 import { rankedFixture } from "@/test-support/ranked-fixture";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
@@ -213,6 +214,28 @@ describe("triggers in the text", () => {
       await vi.waitFor(() => expect(outlineNodes().get(ABOVE)?.children).toEqual([LINE]));
       expect(propOf(ABOVE, "field.status")).toEqual([]);
       expect(textOf(LINE)).toBe("");
+    });
+
+    it("keeps the typed text and focus when the conversion is refused", async () => {
+      const nodes = rankedFixture().map((node) =>
+        node.id === "field.status"
+          ? {
+              ...node,
+              props: { ...node.props, [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")] },
+            }
+          : node,
+      );
+      useGraphStore.getState().hydrateFromWire(nodes, 1, "fixtures");
+      useUiStore.setState({ toasts: [] });
+      const el = await typedOnLine(">stat");
+      expect(listed()).toContain("status");
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(useUiStore.getState().toasts).toHaveLength(1));
+      expect(textOf(LINE)).toBe(">stat");
+      expect(el.textContent).toBe(">stat");
+      expect(dom.document.activeElement).toBe(el);
+      expect(propOf(ABOVE, "field.status")).toEqual([]);
+      expect(useGraphStore.getState().undoStack).toHaveLength(0);
     });
 
     it("stays text on a row that holds more than its text, or sits under no node", async () => {
