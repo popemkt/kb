@@ -1,15 +1,16 @@
 /** A running server follows CLI lock edits and another process's trust, without a request to prod it. */
 import { expect, onTestFinished, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect } from "effect";
+import { Effect, Exit } from "effect";
 import { extensionNodeId, present } from "@kb/model";
 import { GraphSnapshotSchema, type ServerMessage } from "@kb/contracts";
 import { kbManifestDef } from "@kb/operations";
+import { definePlugin } from "@kb/plugin";
 import { childProcessEnv, STORE_BACKENDS } from "@kb/runtime";
 import { extensionModule, KB_SOURCE_BIN, writeExtension, until } from "@kb/test-kit";
-import { startUi, type UiServerHandle } from "../src/index.ts";
+import { startUi, type UiServerHandle, type UiServerOptions } from "../src/index.ts";
 
 const OWNER_QUERY =
   '[:find ?owner :where [?n :node/id "live.seed"] [?n :node/owner ?o] [?o :node/id ?owner]]';
@@ -58,11 +59,15 @@ async function reloadFixture(
 ) {
   const at = await mkdtemp(join(tmpdir(), prefix));
   const root = join(at, "root");
-  let handle: UiServerHandle | undefined;
+  const controller = new AbortController();
+  let startup: Promise<UiServerHandle> | undefined;
   let socket: WebSocket | undefined;
   onTestFinished(async () => {
+    controller.abort();
     try {
       socket?.close();
+      // startUi releases its partial startup before this promise settles.
+      const handle = await startup?.catch(() => undefined);
       if (handle !== undefined) await Effect.runPromise(handle.stop);
     } finally {
       try {
@@ -76,13 +81,45 @@ async function reloadFixture(
   return {
     at,
     root,
-    start: async () => {
-      handle = await Effect.runPromise(startUi({ root, port: 0, openBrowser: false }));
+    start: async (options: Pick<UiServerOptions, "identity"> = {}) => {
+      controller.signal.throwIfAborted();
+      startup = Effect.runPromise(startUi({ root, port: 0, openBrowser: false, ...options }), {
+        signal: controller.signal,
+      });
+      const handle = await startup;
+      controller.signal.throwIfAborted();
       socket = new WebSocket(handle.url.replace("http:", "ws:") + "/ws");
       return { handle, frames: await watchFrames(socket) };
     },
   };
 }
+
+test("reload fixture teardown interrupts startup and awaits its finalizer before removing the root", async () => {
+  const starting = Promise.withResolvers<void>();
+  const marker = "startup-finalized";
+  const { root, start } = await reloadFixture(
+    "kb-reload-startup-",
+    "jsonl",
+    async (rootToClean) => {
+      expect(await Bun.file(join(rootToClean, marker)).text()).toBe("interrupted");
+    },
+  );
+  const blocker = definePlugin({
+    name: "startup-blocker",
+    apply: () =>
+      Effect.acquireUseRelease(
+        Effect.sync(() => starting.resolve()),
+        () => Effect.never,
+        (_, exit) =>
+          Effect.promise(() =>
+            writeFile(join(root, marker), Exit.hasInterrupts(exit) ? "interrupted" : "completed"),
+          ),
+      ),
+  });
+  // End the test during startup so its runner-owned teardown has to cancel it.
+  void start({ identity: [blocker] }).catch(() => undefined);
+  await starting.promise;
+});
 
 async function invoke(handle: UiServerHandle, id: string) {
   const response = await fetch(`${handle.url}/api/action`, {
