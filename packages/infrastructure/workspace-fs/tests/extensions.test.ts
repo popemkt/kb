@@ -1,4 +1,5 @@
-import { expect, test } from "bun:test";
+import { until } from "@kb/test-kit";
+import { expect, onTestFinished, test } from "bun:test";
 import {
   chmod,
   mkdir,
@@ -128,16 +129,20 @@ test("invalid lock schema is refused without replacement", async () => {
   }
 });
 
-async function appeared(path: string): Promise<void> {
-  const deadline = Date.now() + 5000;
-  while (!(await Bun.file(path).exists())) {
-    if (Date.now() > deadline) throw new Error(`worker did not reach ${path}`);
-    await Bun.sleep(10);
-  }
+function appeared(path: string): Promise<true> {
+  return until(
+    async () => ((await Bun.file(path).exists()) ? true : undefined),
+    `worker marker ${path}`,
+  );
 }
 test("one process holds publication and selection together against a second mutation", async () => {
   const root = await mkdtemp(join(tmpdir(), "kb-install-txn-"));
   const children: Bun.Subprocess[] = [];
+  onTestFinished(async () => {
+    for (const child of children) child.kill();
+    await Promise.allSettled(children.map((child) => child.exited));
+    await rm(root, { recursive: true, force: true });
+  });
   const spawn = (name: string) => {
     const child = Bun.spawn(
       [
@@ -184,25 +189,19 @@ test("one process holds publication and selection together against a second muta
     );
     children.push(child);
   };
-  try {
-    spawn("a");
-    await appeared(join(root, "published-a"));
-    spawn("b");
-    await appeared(join(root, "probed-b"));
-    expect(await Bun.file(join(root, "entered-b")).exists()).toBe(false);
-    await writeFile(join(root, "release-a"), "");
-    for (const child of children) expect(await child.exited).toBe(0);
-    const lock = await Effect.runPromise(
-      Effect.gen(function* () {
-        return yield* (yield* ExtensionStorage).read(root, "store");
-      }).pipe(Effect.provide(storageLayer)),
-    );
-    expect(Object.keys(lock.lock.extensions)).toEqual(["a", "b"]);
-  } finally {
-    for (const child of children) child.kill();
-    await Promise.allSettled(children.map((child) => child.exited));
-    await rm(root, { recursive: true, force: true });
-  }
+  spawn("a");
+  await appeared(join(root, "published-a"));
+  spawn("b");
+  await appeared(join(root, "probed-b"));
+  expect(await Bun.file(join(root, "entered-b")).exists()).toBe(false);
+  await writeFile(join(root, "release-a"), "");
+  for (const child of children) expect(await child.exited).toBe(0);
+  const lock = await Effect.runPromise(
+    Effect.gen(function* () {
+      return yield* (yield* ExtensionStorage).read(root, "store");
+    }).pipe(Effect.provide(storageLayer)),
+  );
+  expect(Object.keys(lock.lock.extensions)).toEqual(["a", "b"]);
 });
 
 test("cache selectors distinguish two product projections of the same pinned source", async () => {

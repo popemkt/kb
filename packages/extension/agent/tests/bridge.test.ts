@@ -1,3 +1,4 @@
+import { until } from "@kb/test-kit";
 /**
  * The bridge over a scripted runtime and a stand-in `kb ui` host: what a
  * turn is given, what the sidebar hears, and how a call runs: through the
@@ -159,16 +160,12 @@ class Peer implements ChannelPeer {
     return Effect.runPromise(channel.receive(this, data));
   }
 
-  /** The first event `pred` accepts, waiting up to two seconds for it. */
+  /** The first event `pred` accepts. */
   async next(pred: (event: AgentEvent) => boolean): Promise<AgentEvent> {
-    const deadline = Date.now() + 2000;
-    for (;;) {
-      const found = this.heard.find(pred);
-      if (found !== undefined) return found;
-      if (Date.now() > deadline)
-        throw new Error(`never heard it; heard ${JSON.stringify(this.heard)}`);
-      await Bun.sleep(5);
-    }
+    return until(
+      () => this.heard.find(pred),
+      () => `agent event; heard ${JSON.stringify(this.heard)}`,
+    );
   }
 
   turnEnd(): Promise<AgentEvent> {

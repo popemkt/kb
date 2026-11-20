@@ -569,6 +569,7 @@
         "zod": "catalog:",
       },
       "devDependencies": {
+        "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
       },
     },
@@ -1434,6 +1435,7 @@
         "effect": "catalog:",
       },
       "devDependencies": {
+        "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
       },
     },
@@ -1528,6 +1530,7 @@
       },
       "devDependencies": {
         "@effect/platform-bun": "catalog:",
+        "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
       },
     },

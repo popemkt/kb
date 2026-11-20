@@ -1,3 +1,4 @@
+import { until } from "@kb/test-kit";
 /**
  * A view's MCP App snapshot refreshes through its host and never looks live
  * without one: the page runs here in a DOM whose parent plays the MCP Apps
@@ -52,10 +53,6 @@ function open(answer: ((request: Request) => unknown) | null) {
   return { window, received, button };
 }
 
-async function until(ready: () => boolean): Promise<void> {
-  for (let i = 0; i < 100 && !ready(); i++) await new Promise((r) => setTimeout(r, 5));
-}
-
 describe("view snapshot app", () => {
   test("shows its refresh once the host answers, and swaps in the fresh snapshot", async () => {
     const { window, received, button } = open((request) =>
@@ -67,7 +64,10 @@ describe("view snapshot app", () => {
             hostInfo: { name: "t", version: "0" },
           },
     );
-    await until(() => button?.hidden === false);
+    await until(
+      () => (button?.hidden === false ? true : undefined),
+      "the refresh button to appear",
+    );
     expect(button?.hidden).toBe(false);
     expect(received.map((r) => r.method)).toEqual([
       "ui/initialize",
@@ -75,7 +75,11 @@ describe("view snapshot app", () => {
     ]);
 
     button?.click();
-    await until(() => window.document.querySelector("#kb-view h1")?.textContent === "After");
+    await until(
+      () =>
+        window.document.querySelector("#kb-view h1")?.textContent === "After" ? true : undefined,
+      "the updated snapshot",
+    );
     expect(window.document.querySelector("#kb-view h1")?.textContent).toBe("After");
     expect(received.at(-1)).toMatchObject({ method: "resources/read", params: { uri: URI } });
     // The fresh snapshot is stamped by the server that rendered it.
@@ -89,7 +93,10 @@ describe("view snapshot app", () => {
       hostCapabilities: { serverTools: {} },
       hostInfo: { name: "t", version: "0" },
     }));
-    await until(() => received.some((r) => r.method === "ui/notifications/initialized"));
+    await until(
+      () => received.find((r) => r.method === "ui/notifications/initialized"),
+      "the initialization notification",
+    );
     expect(received.map((r) => r.method)).toEqual([
       "ui/initialize",
       "ui/notifications/initialized",

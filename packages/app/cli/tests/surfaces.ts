@@ -55,6 +55,7 @@ import {
   type ServeUi,
   type SurfaceFactory,
   type SurfaceSet,
+  until,
 } from "@kb/test-kit";
 import { ToolCallFailed, WEBMCP_WIRE, startWebMcp, type ModelContextTool } from "@kb/webmcp";
 import { requestUi } from "@kb/workspace-fs";
@@ -369,30 +370,30 @@ const agent: SurfaceFactory = async (_root, ui) => {
     const from = tab.heard(AGENT_CHANNEL).length;
     tab.say(AGENT_CHANNEL, { type: "send", conversation, text: JSON.stringify(ask) });
     const answered = new Set<string>();
-    const deadline = Date.now() + 10_000;
-    for (;;) {
-      const events = agentEvents(tab, from, conversation);
-      for (const event of events) {
-        if (event.type !== "approval" || answered.has(event.call)) continue;
-        answered.add(event.call);
-        const call = events.find(
-          (held): held is Extract<AgentEvent, { type: "tool-call" }> =>
-            held.type === "tool-call" && held.call === event.call,
-        );
-        if (call === undefined) throw new Error(`approval for a call never made: ${event.call}`);
-        const invocation = onWire(AGENT_WIRE, { id: call.action, input: call.input, approved });
-        const receipt = await postAction(ui.at, invocation, "page");
-        tab.say(AGENT_CHANNEL, { type: "receipt", conversation, call: event.call, receipt });
-      }
-      const end = events.find((event) => event.type === "turn-end");
-      if (end !== undefined) {
-        if (end.outcome !== "done") throw new Error(`agent turn ${end.outcome}`);
-        return events.flatMap((event) => (event.type === "text" ? [event.delta] : [])).join("");
-      }
-      if (Date.now() > deadline)
-        throw new Error(`agent turn never ended: ${JSON.stringify(events)}`);
-      await Bun.sleep(5);
-    }
+    return until(
+      async () => {
+        const events = agentEvents(tab, from, conversation);
+        for (const event of events) {
+          if (event.type !== "approval" || answered.has(event.call)) continue;
+          answered.add(event.call);
+          const call = events.find(
+            (held): held is Extract<AgentEvent, { type: "tool-call" }> =>
+              held.type === "tool-call" && held.call === event.call,
+          );
+          if (call === undefined) throw new Error(`approval for a call never made: ${event.call}`);
+          const invocation = onWire(AGENT_WIRE, { id: call.action, input: call.input, approved });
+          const receipt = await postAction(ui.at, invocation, "page");
+          tab.say(AGENT_CHANNEL, { type: "receipt", conversation, call: event.call, receipt });
+        }
+        const end = events.find((event) => event.type === "turn-end");
+        if (end !== undefined) {
+          if (end.outcome !== "done") throw new Error(`agent turn ${end.outcome}`);
+          return events.flatMap((event) => (event.type === "text" ? [event.delta] : [])).join("");
+        }
+        return undefined;
+      },
+      () => `agent turn end: ${JSON.stringify(agentEvents(tab, from, conversation))}`,
+    );
   };
   return {
     wire: AGENT_WIRE,

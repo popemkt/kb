@@ -1,3 +1,4 @@
+import { until } from "@kb/test-kit";
 /**
  * Which provider runs a turn (`DESIGN.md` → Agent packages → providers): the
  * agent's node selects an `#agent-provider` node, read when each turn
@@ -159,14 +160,10 @@ class Peer implements ChannelPeer {
   async turn(channel: Channel, text: string): Promise<AgentEvent> {
     const ends = this.heard.filter((event) => event.type === "turn-end").length;
     await Effect.runPromise(channel.receive(this, { type: "send", conversation: "k1", text }));
-    const deadline = Date.now() + 2000;
-    for (;;) {
-      const end = this.heard.filter((event) => event.type === "turn-end")[ends];
-      if (end !== undefined) return end;
-      if (Date.now() > deadline)
-        throw new Error(`no turn end; heard ${JSON.stringify(this.heard)}`);
-      await Bun.sleep(5);
-    }
+    return until(
+      () => this.heard.filter((event) => event.type === "turn-end")[ends],
+      () => `agent turn end; heard ${JSON.stringify(this.heard)}`,
+    );
   }
 
   notices(): readonly string[] {

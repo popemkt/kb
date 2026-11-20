@@ -8,7 +8,7 @@ import { extensionNodeId, present } from "@kb/model";
 import { GraphSnapshotSchema, type ServerMessage } from "@kb/contracts";
 import { kbManifestDef } from "@kb/operations";
 import { childProcessEnv, STORE_BACKENDS } from "@kb/runtime";
-import { extensionModule, KB_SOURCE_BIN, writeExtension } from "@kb/test-kit";
+import { extensionModule, KB_SOURCE_BIN, writeExtension, until } from "@kb/test-kit";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
 const OWNER_QUERY =
@@ -34,13 +34,10 @@ async function frame(
   frames: ServerMessage[],
   matches: (message: ServerMessage) => boolean,
 ): Promise<ServerMessage> {
-  const end = Date.now() + 5000;
-  while (Date.now() < end) {
-    const found = frames.find(matches);
-    if (found !== undefined) return found;
-    await Bun.sleep(25);
-  }
-  throw new Error(`server did not announce the change; frames: ${JSON.stringify(frames)}`);
+  return until(
+    () => frames.find(matches),
+    () => `server change announcement; frames: ${JSON.stringify(frames)}`,
+  );
 }
 async function watching(url: string) {
   const ws = new WebSocket(url.replace("http:", "ws:") + "/ws");

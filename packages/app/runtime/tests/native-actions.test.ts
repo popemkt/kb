@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { extensionModule, writeTrustedExtension } from "@kb/test-kit";
+import { extensionModule, writeTrustedExtension, until } from "@kb/test-kit";
 import { present, writesOf } from "@kb/model";
 import { mkdtemp, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -296,9 +296,11 @@ import { z } from "zod";`,
     // interrupted before that, there is rightly no finalizer to run, and how
     // long the extension takes to load is the host's, not the test's. A
     // handler that ends before it gets there ends the wait too.
-    while (!(await Bun.file(started).exists()) && fiber.pollUnsafe() === undefined) {
-      await Bun.sleep(5);
-    }
+    await until(
+      async () =>
+        (await Bun.file(started).exists()) || fiber.pollUnsafe() !== undefined ? true : undefined,
+      "the native handler to start or finish",
+    );
     await Effect.runPromise(Fiber.interrupt(fiber));
     const exit = await Effect.runPromise(Fiber.await(fiber));
     expect(Exit.hasInterrupts(exit)).toBe(true);

@@ -1,3 +1,4 @@
+import { until } from "@kb/test-kit";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
   existsSync,
@@ -65,9 +66,7 @@ function watchOutput(stdout: ReadableStream<Uint8Array>) {
   const seen = (line: string) => text.split("\n").includes(line);
   return {
     seen,
-    until: async (line: string) => {
-      while (!seen(line)) await Bun.sleep(10);
-    },
+    until: (line: string) => until(() => (seen(line) ? true : undefined), `child output "${line}"`),
   };
 }
 

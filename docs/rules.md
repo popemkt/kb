@@ -810,6 +810,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — move the shared GPU backdrop host out of backdrops-ui into a kit package (beside @kb/scene-gpu) with its scene registry passed in, then port arena-scene.ts onto mountBackdrop and delete Arena's wrapper; the port drops Arena's write() and its Pod re-fire in favour of reactions.impulse / reactions.stir read in frame(), and Arena passes backdrop-continuity.contract.test.tsx
 - **node** — `01M5SYY397F5NPN3CHWGCSPQSY`
 
+### GAP: browser tests duplicate polling loops with independent deadlines
+
+- **expected** — Browser tests waiting for an observable result share a helper in @kb/ui-test-kit and use the owning test timeout.
+- **current** — Browser-scope tests in @kb/ui and @kb/graph-ui implement their own polls, several with individual deadlines.
+- **impact** — A busy host can expire a poll while its enclosing test still has time to finish, and each test must own its own cleanup.
+- **closes** — Provide one Vitest-compatible wait in @kb/ui-test-kit, tie it to the test lifetime, and migrate the browser callers.
+- **node** — `01M7WYE1A1B7RX5H6Q7058C14A`
+
 ### GAP: BrowserStore IndexedDB persistence
 
 - **expected** — The browser replica persists through an IndexedDB-backed EffectStore across page reloads.
@@ -1778,14 +1786,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — References land in the wrong group or order in every view but the outline.
 - **closes** — Those steps read shownNode while still returning row ids.
 - **node** — `01M3KA3B5V5K7GYYPAYK7G6KHG`
-
-### GAP: tests that poll until something happens give up on a wall-clock deadline of their own
-
-- **expected** — One test-kit wait-until helper that polls until its condition holds, bounded by the test's own timeout, which is what every such test means by 'soon'
-- **current** — Seven test files each carry their own poll loop with a deadline of 2 to 10 s (cli tests/surfaces.ts, server screens/channels/cross-process-sync/extension-reload, agent providers/bridge, workspace-fs extensions); each gives up and asserts at its deadline
-- **impact** — A loop gives up at its deadline whatever the machine's load. The events they wait for take milliseconds, so the margin is a hundred times or more and none has failed yet, but the loops are seven copies of one mechanism with seven deadlines
-- **closes** — Move the loop into @kb/test-kit, bounded by the test's timeout, and replace the seven copies with it
-- **node** — `01M7B3HX9R9DNDDTJY546W1HH3`
 
 ### GAP: the 3D gizmo shows over a locked selection
 
@@ -3203,6 +3203,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P0 of docs/research/2026-10-29-plugin-codependency.md
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M63C0GJ5M78G1TFKM00RN4X6`
+
+### GAP: tests that poll until something happens give up on a wall-clock deadline of their own
+
+- **expected** — One test-kit wait-until helper that polls until its condition holds, bounded by the test's own timeout, which is what every such test means by 'soon'
+- **current** — Closed: one until helper in @kb/test-kit replaces 15 polling loops across 13 Bun test files. Bun owns the timeout, reports the awaited condition and stops pending waits at test completion.
+- **impact** — Independent polling deadlines could expire while the owning test still had time to finish. Maintaining the loop separately in 13 test files also made cleanup inconsistent.
+- **closes** — Use the shared until helper in the Bun tests that poll for observable results, and verify that an expired wait stops before the next test.
+- **node** — `01M7B3HX9R9DNDDTJY546W1HH3`
 
 ### GAP: the 3D bullet atlas has a fixed capacity
 
