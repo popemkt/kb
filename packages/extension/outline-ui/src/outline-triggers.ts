@@ -23,7 +23,7 @@ import {
   textOr,
 } from "@kb/ui-sdk";
 import { longDateLabel, relativeDateLabel, todayLocal } from "./date-display";
-import { outlineNodes } from "./outline.store";
+import { outlineNodes, useOutlineStore } from "./outline.store";
 import { addField, addTag } from "./outline-steps";
 import { landInFieldsOf } from "./value-slot-nav";
 
@@ -50,6 +50,7 @@ interface StepTarget<Result> {
   readonly conversion?: {
     readonly remove: () => Promise<boolean>;
     readonly land: (result: Result) => void;
+    readonly refused: () => void;
   };
 }
 
@@ -104,7 +105,8 @@ function stepTrigger<Result>(
           }
           return result;
         });
-        if (landed !== null) conversion?.land(landed);
+        if (landed === null) conversion?.refused();
+        else conversion?.land(landed);
       };
       return conversion === undefined ? { insert: "", write } : { consume: write };
     },
@@ -209,12 +211,29 @@ function fieldTrigger(
   return stepTrigger("field", addField, open, row, (typed) => {
     const parent = emptyLineOf(row.nodeId, instanceKey);
     if (parent === null || instanceKey === undefined) return null;
+    const text = `>${typed.query}`;
+    const land = landInFieldsOf(instanceKey, parent);
+    const focusIsFree = () => {
+      const { activeInstanceKey, selectedInstanceKey } = useOutlineStore.getState();
+      const focused = document.activeElement;
+      return (
+        activeInstanceKey === instanceKey ||
+        (selectedInstanceKey === null &&
+          (focused === document.body || focused?.isConnected !== true))
+      );
+    };
     return {
       nodeId: parent,
       conversion: {
-        remove: () =>
-          browserHost().writes.deleteNode(row.nodeId, { parent, text: `>${typed.query}` }),
-        land: landInFieldsOf(instanceKey, parent),
+        remove: () => browserHost().writes.deleteNode(row.nodeId, { parent, text }),
+        land: (fieldId) => {
+          if (focusIsFree()) land(fieldId);
+        },
+        refused: () => {
+          if (focusIsFree() && outlineNodes().get(row.nodeId)?.parentId === parent) {
+            useOutlineStore.getState().activateNode(row.nodeId, text.length, instanceKey);
+          }
+        },
       },
     };
   });

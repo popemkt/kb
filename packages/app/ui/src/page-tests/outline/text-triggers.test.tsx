@@ -13,7 +13,9 @@ import { daysExtension } from "@kb/days";
 import { fieldTypeValue, parseDateInput, present, SYSTEM_IDS } from "@kb/model";
 import { definePlugin } from "@kb/plugin";
 import { DateTargetService, outlineInstanceKey, projectedRowKey, syncUiPlugins } from "@kb/ui-sdk";
+import { setPostAction, type ActionResponse } from "@/api/action";
 import { mutations } from "@/actions/mutations";
+import { waitForBrowserPushes } from "@/session/runtime";
 import { useGraphStore } from "@/stores/graph.store";
 import { useUiStore } from "@/stores/ui.store";
 import { rankedFixture } from "@/test-support/ranked-fixture";
@@ -69,6 +71,7 @@ describe("triggers in the text", () => {
   });
 
   afterEach(() => {
+    setPostAction(null);
     act(() => root.unmount());
     container.remove();
   });
@@ -267,6 +270,40 @@ describe("triggers in the text", () => {
       expect(textOf(LINE)).toBe(">stat");
       expect(el.textContent).toBe(">stat");
       expect(dom.document.activeElement).toBe(el);
+      expect(propOf(ABOVE, "field.status")).toEqual([]);
+      expect(useGraphStore.getState().undoStack).toHaveLength(0);
+    });
+
+    it("restores the caret without adding undo history when only the server refuses", async () => {
+      const nodes = rankedFixture().map((node) =>
+        node.id === LINE ? { ...node, text: ">stat" } : node,
+      );
+      useGraphStore.getState().hydrateFromWire(nodes, 1, "api");
+      const reply = Promise.withResolvers<ActionResponse>();
+      setPostAction(async ({ id }) =>
+        id === "node.batch" ? reply.promise : { status: "succeeded", id, rev: 1, output: {} },
+      );
+      const el = await typedOnLine(">stat");
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(outlineNodes().has(LINE)).toBe(false));
+      expect(useGraphStore.getState().undoStack).toHaveLength(0);
+      expect(dom.document.activeElement.closest("[data-value-slot]")).toBeNull();
+      await act(async () => {
+        reply.resolve({
+          status: "failed",
+          id: "node.batch",
+          code: "conflict",
+          message: "The draft changed on the server",
+        });
+        await waitForBrowserPushes();
+      });
+      await vi.waitFor(() => {
+        const active = dom.document.activeElement;
+        expect(active.getAttribute("contenteditable")).toBe("true");
+        expect(active.textContent).toBe(">stat");
+        expect(dom.document.getSelection().focusOffset).toBe(5);
+      });
+      expect(textOf(LINE)).toBe(">stat");
       expect(propOf(ABOVE, "field.status")).toEqual([]);
       expect(useGraphStore.getState().undoStack).toHaveLength(0);
     });

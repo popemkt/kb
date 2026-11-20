@@ -26,6 +26,8 @@ export interface PlannedMutation {
   undoText?: ReadonlyMap<string, string>;
   /** Replay after undo when the preconditions need the restored draft text. */
   redoActions?: ActionRequest[];
+  /** Publish history and completion only after the server accepts the write. */
+  completion?: "confirmed";
   focusId?: string;
   focusCursor?: number;
 }
@@ -128,6 +130,7 @@ export function planDelete(
       { ...deletion, input: { ...deletion.input, requireEmptyLine: { ...draft, text: "" } } },
     ],
     undoText: new Map([[id, ""]]),
+    completion: "confirmed",
   };
 }
 export function planMergeInto(

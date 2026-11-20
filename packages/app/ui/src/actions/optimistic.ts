@@ -1,12 +1,8 @@
-import type { ActionRequest } from "@kb/contracts";
+import type { ActionReceipt, ActionRequest } from "@kb/contracts";
 import type { PlannedMutation } from "@/actions/plan";
 import { toast, failureText } from "@kb/ui-sdk";
-import { invoke, invokeLocal } from "@/session/runtime";
+import { invoke, invokeLocal, invokeSettled } from "@/session/runtime";
 import { useGraphStore } from "@/stores/graph.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
-import { pageEditor } from "@/stores/page-editor"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
-
-/** The page's editor's state now: where a write lands the caret. */
-const editor = () => pageEditor().getState();
 
 export type RunOptimisticResult = {
   ok: boolean;
@@ -17,6 +13,8 @@ export type RunOptimisticResult = {
    * writes is one write (`oneWrite`), answering as one `node.batch`.
    */
   outputs?: unknown[];
+  /** The final result for a plan whose caller waits for server acceptance. */
+  confirmed?: Promise<boolean>;
 };
 
 /** The actions a batch of node writes is made of (DESIGN.md → Batches of writes). */
@@ -59,11 +57,19 @@ export async function runOptimistic(
   opts?: { skipRemote?: boolean },
 ): Promise<RunOptimisticResult> {
   const skipRemote = opts?.skipRemote === true || useGraphStore.getState().loadSource !== "api";
+  const replies: Promise<ActionReceipt>[] = [];
+  const write = async (action: ActionRequest): Promise<ActionReceipt> => {
+    if (skipRemote) return invokeLocal(action);
+    if (plan.completion !== "confirmed") return invoke(action.id, action.input);
+    const invoked = await invokeSettled(action);
+    replies.push(invoked.settled);
+    return invoked.receipt;
+  };
 
   const outputs: unknown[] = [];
   for (const action of oneWrite(plan.actions)) {
     // oxlint-disable-next-line eslint/no-await-in-loop -- plans are deliberately ordered (split and merge depend on prior writes)
-    const receipt = await (skipRemote ? invokeLocal(action) : invoke(action.id, action.input));
+    const receipt = await write(action);
     if (receipt.status === "failed") {
       toast(failureText(receipt));
       return { ok: false };
@@ -71,9 +77,11 @@ export async function runOptimistic(
     outputs.push(receipt.output);
   }
 
-  if (plan.focusId !== undefined) {
-    // Its row where the page is being edited: the editor resolves the instance.
-    editor().activateNode(plan.focusId, plan.focusCursor ?? 0);
-  }
-  return { ok: true, focusId: plan.focusId, focusCursor: plan.focusCursor, outputs };
+  const confirmed =
+    replies.length === 0
+      ? undefined
+      : Promise.all(replies).then((receipts) =>
+          receipts.every((receipt) => receipt.status === "succeeded"),
+        );
+  return { ok: true, focusId: plan.focusId, focusCursor: plan.focusCursor, outputs, confirmed };
 }

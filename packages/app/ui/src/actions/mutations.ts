@@ -104,7 +104,7 @@ function indexed(id: string): KbNode | undefined {
   return useGraphStore.getState().index?.getNode(id);
 }
 
-function recordHistory(preWire: WireNode[], plan: PlannedMutation): void {
+function historyOf(preWire: WireNode[], plan: PlannedMutation) {
   const undoText = plan.undoText;
   const before =
     undoText === undefined || undoText.size === 0
@@ -113,10 +113,10 @@ function recordHistory(preWire: WireNode[], plan: PlannedMutation): void {
           const text = undoText.get(node.id);
           return text === undefined ? node : { ...node, text };
         });
-  useGraphStore.getState().recordUndo({
+  return {
     undo: restoreInvocations(wire(), before),
     redo: plan.redoActions ?? plan.actions,
-  });
+  };
 }
 
 /**
@@ -127,6 +127,7 @@ let gesture: {
   actions: ActionRequest[];
   redoActions: ActionRequest[];
   undoText: Map<string, string>;
+  completion?: PlannedMutation["completion"];
 } | null = null;
 
 async function invokeAll(actions: Array<{ id: string; input: unknown }>): Promise<boolean> {
@@ -152,11 +153,18 @@ async function runPlan(plan: PlannedMutation): Promise<RunOptimisticResult> {
     gesture.actions.push(...plan.actions);
     gesture.redoActions.push(...(plan.redoActions ?? plan.actions));
     for (const [id, text] of plan.undoText ?? []) gesture.undoText.set(id, text);
+    if (plan.completion !== undefined) gesture.completion = plan.completion;
     return { ok: true };
   }
   const preWire = useGraphStore.getState().wireNodes;
   const result = await runOptimistic(plan);
-  if (result.ok) recordHistory(preWire, plan);
+  if (!result.ok) return result;
+  const history = historyOf(preWire, plan);
+  if (result.confirmed !== undefined && !(await result.confirmed)) return { ok: false };
+  if (result.focusId !== undefined) {
+    editor().activateNode(result.focusId, result.focusCursor ?? 0);
+  }
+  useGraphStore.getState().recordUndo(history);
   return result;
 }
 

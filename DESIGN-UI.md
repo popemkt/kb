@@ -1735,6 +1735,8 @@ can replace what was typed for the trigger or consume the row in a write.
   If the conversion is refused, the typed text and caret stay on the line.
   The write checks the draft line and any field it initializes against the
   current graph, so a concurrent edit can refuse the conversion.
+  The field receives focus and the conversion enters undo history after
+  server acceptance.
   To add a field to a node that has text, use Add field on that node
   (its menu, or the palette).
 
