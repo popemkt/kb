@@ -37,6 +37,7 @@ import {
   type ActionRequest,
   type ActionMode,
   type ActionReceipt,
+  type EffectStore,
   type HostedFamilies,
   type SurfaceWire,
   type UiListener,
@@ -286,6 +287,7 @@ interface SurfaceCase {
   readonly name: string;
   readonly surface: ActionSurface;
   readonly root: string;
+  readonly store: EffectStore;
   /** The root's `kb ui`. */
   readonly ui: LiveUi;
   /**
@@ -347,7 +349,7 @@ function overSurfaces(
                   );
                 const via = (invocation: ActionRequest) =>
                   Effect.promise(() => surface.invoke(invocation));
-                yield* check({ name, surface, root, ui, core, via });
+                yield* check({ name, surface, root, store: ctx.store, ui, core, via });
               }),
             ),
           { discard: true },
@@ -622,7 +624,7 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
   [
     "an outline paste keeps the supplied ids in tree order on every surface",
     (set) =>
-      overSurfaces(set, ({ name, via }) =>
+      overSurfaces(set, ({ name, store, via }) =>
         Effect.gen(function* () {
           const [parent, child, sibling] = ["parent", "child", "sibling"].map(
             (part) => `n.paste-${name}-${part}`,
@@ -646,6 +648,22 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
             status: "succeeded",
             output: { node: { id: parent, children: [{ id: child, text: "Nested" }] } },
           });
+
+          const before = yield* store.fingerprint;
+          expect(before).not.toBeNull();
+          const collision = [
+            `n.paste-${name}-fresh-parent`,
+            child,
+            `n.paste-${name}-fresh-sibling`,
+          ];
+          expect(yield* via({ ...paste, input: { ...paste.input, ids: collision } })).toMatchObject(
+            {
+              status: "failed",
+              code: "ambiguous",
+              details: { id: child, line: 2 },
+            },
+          );
+          expect(yield* store.fingerprint).toBe(before);
         }),
       ),
   ],
