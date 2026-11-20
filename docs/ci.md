@@ -81,7 +81,12 @@ there has a known answer already:
 `#rule`'s `home` file and every `#check`'s `evidence` file, wherever they
 live, plus each surface's files — the `files` its `enforcement` option node
 declares, here this hook, `package.json`, the lint and tsc configs and the
-workflows.
+workflows. The audit reads commands from package scripts, shell hook files
+and workflow `run` steps. An invocation names the first words of one
+command, including any wrapper that runs it. Shell separators delimit
+commands, quotes keep a word together, and comments supply no commands.
+Lint invocations name complete enabled rule keys in the lint config.
+Other file formats supply no invocations.
 
 A fresh clone without `bun install` fails the hook with the command to run,
 rather than passing on checks it could not make.
@@ -110,12 +115,14 @@ Three specs that the same probe ran 5 to 8 times slower (`query-builder`,
 macOS, as does anything that reads the GPU or the platform's text and
 scrollbars; `--disable-gpu` made no difference to the slow ones. Core passed there in run
 42249947516; UI's first Linux result is recorded in the performance record.
-Each backdrop option is a separate isolated render test. Playwright shards
-individual tests by count with `fullyParallel: true`, taking contiguous
-slices in file order. All 60 backdrop tests currently land in shard 1:
-about 8.7 minutes of tests against an estimated 6.3 minutes in shard 2.
-This balances count, not duration, and remains sensitive to file order
-(a `#gap` names it). CI pins `workers: 1`; local runs use the default. Two
+Each backdrop option is a separate isolated render test. CI assigns whole
+spec files within each project by descending measured duration, placing
+each file on the lightest shard so far. The render config reads the
+project's `render-durations.json` weights and the matrix's
+`KB_RENDER_SHARD` selection. A new file takes its project's median
+measured duration until a new timing sample is recorded. CI pins
+`workers: 1`; local runs use the default and collect the whole project
+unless a shard is selected. Two
 workers on the three-core macOS runner were tried (run 43371012192): every
 test slowed, shard 2's tests summed 956 s against 396 s at one worker and
 the shard took longer, and a frame-time assertion failed under the load.
@@ -134,7 +141,11 @@ test logs one `[timing]` line: the wait for its harness, the harness's boot
 The sum of a shard's lines against its test step says what the harness, the
 page load and the specs each cost on the macOS runner, which is where the
 suite's time is spent; read them from the job log before changing the suite's
-shape.
+shape. The duration ledger starts with Validate run 44377439682. To update
+it, sum `wait + goto + test` from each project's successful shard logs per
+path relative to `tests-render`. The harness boots alongside another test,
+so the weight includes the wait it caused and excludes the separate
+`boot` measurement.
 
 The setup action owns Nix installation and dependency setup, including the
 flake-check store snapshot, which only the Linux `nix` job restores. On
@@ -171,6 +182,10 @@ Mutation testing is not part of Validate — see the header comment in
 `@kb/query` and the CLI's argument mapper, and the run seeds fast-check, so
 its survivor list is reproducible. `harness/src/mutation.ts` plans the shards
 and merges their reports; the survivor report is the artifact.
+
+The weekly mutation report saves its baseline cache whenever the baseline
+file exists, including after an earlier step fails. The next run can reuse
+the results represented in that file.
 
 ## Releases
 

@@ -201,14 +201,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a chart builder that writes the spec through the one chart spec check
 - **node** — `01M4187E5QQYRD8ENHQM968EEJ`
 
-### GAP: a check's invocation counts as wired when any surface file merely contains it
-
-- **expected** — A check's invocation is wired when a surface file runs it as a whole command: a hook or workflow line, a package.json script segment, a lint rule key — each surface reading its own file's grammar.
-- **current** — ext.check.audit's invocationIsWired accepts any substring of any surface file, so 'bun run test' is wired by 'bun run test:ui', and a comment that names a command counts as running it.
-- **impact** — A check can read as wired when nothing runs it, and its rule's enforcement then claims more than holds.
-- **closes** — Per-surface invocation grammars: command lines of the hook and workflow run steps, &&-segments of package.json scripts, rule keys of .oxlintrc.json; an invocation matches one whole.
-- **node** — `01M56TFECRSQN243PAEB6XGHRY`
-
 ### GAP: a checklist row shows no box until a tag ties one to its done field
 
 - **expected** — A row the checklist family makes from a pasted Markdown checklist shows its done as a box, as Tana draws a task (DESIGN-UI.md → A tag's box).
@@ -1216,14 +1208,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The prototype of docs/research/2026-10-31-online-stores.md §7: the port, the mirror store, the DO authority, the two-process sync test.
 - **node** — `01M6950VPS4MH8NWDWB4ZF9CP1`
 
-### GAP: kb mutation skips saving its baseline when the merge step fails
-
-- **expected** — The report job saves the next baseline even when a shard or the merge failed, as its comment says.
-- **current** — kb-mutation.yml 'Save baseline' has no if: always(), so a failed Download or Merge reports step skips it.
-- **impact** — The next weekly run misses the cache and runs in full: bounded by the shard plan, only slower.
-- **closes** — if: always() on the save step, guarded on the baseline file existing.
-- **node** — `01M55AE0NTW88HWFJ2V0ZH92KQ`
-
 ### GAP: KbIndex is DataScript in memory on both stores; sqlite holds nodes but answers no queries
 
 - **expected** — A KbIndex backed by the sqlite store — queries compiled from the query IR to SQL and answered by the database that already holds the nodes, so a sqlite root does not rebuild a whole DataScript db on every open.
@@ -1605,14 +1589,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Replace the padlock with an owned-by note that names the node's family, and let a seeded node's title be edited as any node's is.
 - **rule** — Data-plane freedom: labels are cosmetic
 - **node** — `01M7342W0CNMFK152YEFNJHPP4`
-
-### GAP: render shards split by test count, so every backdrop test lands in shard 1
-
-- **expected** — CI render shards hold about equal test time, whatever the file order
-- **current** — Playwright cuts contiguous slices of equal test count in file order, per project. The macos project (157 tests) put the backdrop files and gallery in shard 1 and head-band-contrast, render and lab in shard 2: 778 s of tests against 727 s in run 44019215801, which is near even, but the same files ran 1.5 to 2 times faster on another runner the hour before (run 44016049909), so the split by count is right only by luck of the file order.
-- **impact** — a shard that lands on a slow runner or a heavier file mix bounds Validate; render (macos) 1/2 took 961 s and 2/2 880 s of job time
-- **closes** — a duration-balanced split (Playwright has no timing-based sharding; PWTEST_SHARD_WEIGHTS is internal and still count-based); the backdrop timeout gap closing (2026-11-13) took about 110 s out of shard 1 but left the split by count
-- **node** — `01M79GV526E3V6ZPVW0D6752FK`
 
 ### GAP: replacement approval inspection awaits the keybinding consumer
 
@@ -2657,6 +2633,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1XCB0ETCJH03FGJS6E75AFP`
 
+### GAP: check audit matched substrings instead of wired invocations
+
+- **expected** — A check names a command at the start of a simple shell command or an enabled lint rule by its complete key.
+- **current** — The audit reads shell hooks, workflow run steps, package scripts and enabled lint rules according to their file format. It ignores shell comments and preserves quoted words.
+- **impact** — A check can read as wired when nothing runs it, and its rule's enforcement then claims more than holds.
+- **closes** — Focused audit fixtures cover comment-only references, command lookalikes, workflow run steps, wrappers and full lint keys.
+- **node** — `01M56TFECRSQN243PAEB6XGHRY`
+
 ### GAP: CLI child returned no receipt in the socket surface contract
 
 - **expected** — Every CLI invocation returns its JSON receipt; failures are diagnosable without rerunning or hiding a transport fault.
@@ -2872,6 +2856,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Validate in withLink (the one writer) and make itemLead's type a checked link.
 - **node** — `01M55AE092VNPBQKGGZZHZZY9W`
 
+### GAP: kb mutation skipped saving its baseline after a report failure
+
+- **expected** — The report job saves the next baseline even when a shard or the merge failed, as its comment says.
+- **current** — The Save baseline step evaluates even after an earlier failure and saves when reports/mutation/baseline.json exists.
+- **impact** — The next weekly run misses the cache and runs in full: bounded by the shard plan, only slower.
+- **closes** — if: always() on the save step, guarded on the baseline file existing.
+- **node** — `01M55AE0NTW88HWFJ2V0ZH92KQ`
+
 ### GAP: KbContext carries two persistence interfaces
 
 - **expected** — KbContext exposes one Effect-native storage capability used by all core and extension handlers.
@@ -3054,6 +3046,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The candidate ranking - the part with real rules - can only be tested through the DOM.
 - **closes** — Lift candidate search into a hook beside fuzzyNodeCandidates and leave RefEditor as presentation.
 - **node** — `01M1MGCP1EF5GM8NA32JEJRJ9Q`
+
+### GAP: render shards split by test count instead of measured duration
+
+- **expected** — CI render shards hold about equal test time, whatever the file order
+- **current** — CI assigns whole spec files using per-project durations from run 44377439682. The estimated macOS load is 731 s and 729 s, compared with the old split at 567 s and 893 s.
+- **impact** — a shard that lands on a slow runner or a heavier file mix bounds Validate; render (macos) 1/2 took 961 s and 2/2 880 s of job time
+- **closes** — The render config assigns the longest file to the lightest shard in turn, using the project median for files without a measurement.
+- **node** — `01M79GV526E3V6ZPVW0D6752FK`
 
 ### GAP: repository extensions have no fail-closed admission
 
