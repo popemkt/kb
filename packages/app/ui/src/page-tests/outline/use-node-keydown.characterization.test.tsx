@@ -23,6 +23,7 @@ import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import {
   childInstanceKey,
   outlineInstanceKey,
+  PaneContext,
   projectedRowKey,
   renderInlineMarkdown,
   rowTextOf,
@@ -40,6 +41,7 @@ import { syncPagePlugins } from "@/test-support/page-plugins";
 import {
   outlineNodes,
   outlineSource,
+  setOutlineHost,
   useNodeKeyDown,
   useOutlineNode,
   useOutlineStore,
@@ -541,6 +543,30 @@ describe("outline editing keymap (characterization)", () => {
       expect(node("n.grandchild")?.text).toBe("Persist collapsed ids in localStorage");
       expect(await press(mount("n.child-a1", 0, false), ",", { metaKey: true })).toBe(true);
       expect(useGraphStore.getState().rootNodeId).toBe(WORKSPACE_ROOT_ID);
+    });
+
+    it("Meta+, and Meta+. on a query result in another pane move that pane, not the main outline", async () => {
+      // The pane's outline is rooted at n.child-a2; the row's key names its query, not the pane.
+      const opened: string[] = [];
+      setOutlineHost("pane:p2", { root: "n.child-a2", chain: [], open: (id) => opened.push(id) });
+      try {
+        const instanceKey = projectedRowKey("n.q", "n.root-b");
+        act(() => useOutlineStore.getState().activateNode("n.root-b", 0, instanceKey));
+        act(() =>
+          root.render(
+            <PaneContext.Provider value="p2">
+              <Host nodeId="n.root-b" instanceKey={instanceKey} />
+            </PaneContext.Provider>,
+          ),
+        );
+        const el = present(container.querySelector<HTMLElement>('[data-editor="true"]'), "editor");
+        expect(await press(el, ",", { metaKey: true })).toBe(true);
+        expect(await press(el, ".", { metaKey: true })).toBe(true);
+        expect(opened).toEqual(["n.root-a", "n.root-b"]);
+        expect(useGraphStore.getState().rootNodeId).toBe(WORKSPACE_ROOT_ID);
+      } finally {
+        setOutlineHost("pane:p2", null);
+      }
     });
 
     it("Meta+, at home has no page above: claimed, and nothing moves", async () => {

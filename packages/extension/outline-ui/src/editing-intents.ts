@@ -22,7 +22,7 @@ import {
 import { outlineSource, useOutlineStore } from "./outline.store";
 import type { EditingIntent } from "./editing-keymap";
 import { enterFields } from "./value-slot-nav";
-import { openFromRow } from "./outline-hosts";
+import { openFromHost } from "./outline-hosts";
 import { zoomIntoRow, zoomOut } from "./outline-zoom";
 
 type IntentOf<T extends EditingIntent["type"]> = Extract<EditingIntent, { type: T }>;
@@ -121,10 +121,10 @@ const EDITING_STEPS: EditingSteps = {
   expandSubtree: ({ instanceKey }) => useOutlineStore.getState().expandSubtree(instanceKey),
   collapseSubtree: ({ instanceKey }) => useOutlineStore.getState().collapseSubtree(instanceKey),
   createBefore: ({ nodeId }) => void createNodeBefore(nodeId),
-  zoom: ({ nodeId, instanceKey }) => zoomIntoRow(nodeId, instanceKey),
-  zoomOut: ({ instanceKey }) => zoomOut(instanceKey),
+  zoom: ({ nodeId, host }) => zoomIntoRow(nodeId, host),
+  zoomOut: ({ host }) => zoomOut(host),
   // Collapsed / leaf: open the enclosing page, as the row's outline opens one.
-  zoomToParent: ({ parentId, instanceKey }) => openFromRow(instanceKey, parentId),
+  zoomToParent: ({ parentId, host }) => openFromHost(host, parentId),
   moveCaretToRow: ({ nodeId, instanceKey, cursor, x }) =>
     useOutlineStore.getState().activateNode(nodeId, cursor, instanceKey, { x }),
   select: ({ nodeId, instanceKey }) => useOutlineStore.getState().selectNode(nodeId, instanceKey),

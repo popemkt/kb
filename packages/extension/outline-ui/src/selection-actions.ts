@@ -27,6 +27,7 @@ import type { SelectionKeyAction } from "./selection-keymap";
 import { outlineSource, useOutlineStore, outlineNodes } from "./outline.store";
 import { enterFields } from "./value-slot-nav";
 import { zoomIntoRow, zoomOut } from "./outline-zoom";
+import { outlineHostOfInstance } from "./outline-hosts";
 
 type ActionOf<T extends SelectionKeyAction["type"]> = Extract<SelectionKeyAction, { type: T }>;
 
@@ -206,8 +207,10 @@ const SELECTION_STEPS: SelectionSteps = {
   moveUp: ({ nodeId }) => arrange((ids) => browserHost().writes.moveNodesUp(ids), nodeId),
   moveDown: ({ nodeId }) => arrange((ids) => browserHost().writes.moveNodesDown(ids), nodeId),
   moveToGroup,
-  zoom: ({ nodeId, instanceKey }) => zoomIntoRow(nodeId, instanceKey),
-  zoomOut: ({ instanceKey }) => zoomOut(instanceKey),
+  // The selection's keys are the page's, pressed in no pane, so the row's
+  // outline is the one its key names. GAP [[01M411FPC839XBJJ873V1VYYYD]]
+  zoom: ({ nodeId, instanceKey }) => zoomIntoRow(nodeId, outlineHostOfInstance(instanceKey)),
+  zoomOut: ({ instanceKey }) => zoomOut(outlineHostOfInstance(instanceKey)),
   expandSubtree: ({ instanceKey }) => {
     for (const key of eachInstance(instanceKey)) useOutlineStore.getState().expandSubtree(key);
   },

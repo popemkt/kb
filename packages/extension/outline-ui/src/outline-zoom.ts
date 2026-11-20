@@ -6,22 +6,25 @@
 import { browserHost, shownNodeId, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { crumbsTo } from "./crumbs";
 import { outlineNodes } from "./outline.store";
-import { openFromRow, outlineHostOf, outlineHostOfInstance } from "./outline-hosts";
+import { openFromHost, outlineHostOf } from "./outline-hosts";
 
-/** Open the page of the node the row shows — a reference's original — as its outline opens one. */
-export function zoomIntoRow(nodeId: string, instanceKey: string): void {
+/**
+ * Open the page of the node row `nodeId` shows — a reference's original — as
+ * the outline of host `host`, the one the row is drawn in, opens one.
+ */
+export function zoomIntoRow(nodeId: string, host: string): void {
   const node = outlineNodes().get(nodeId);
-  openFromRow(instanceKey, node ? shownNodeId(node) : nodeId);
+  openFromHost(host, node ? shownNodeId(node) : nodeId);
 }
 
 /**
- * Zoom out of the page the row's outline shows, to the one above it: the
- * crumb before its last (`crumbsTo`), or home. At home there is nothing
- * above, so nothing moves. A pane rooted at a node moves its pane, as its
- * crumbs do; the zoomed outline zooms.
+ * Zoom out of the page the outline of host `host` shows, to the one above
+ * it: the crumb before its last (`crumbsTo`), or home. At home there is
+ * nothing above, so nothing moves. A pane rooted at a node moves its pane,
+ * as its crumbs do; the zoomed outline zooms.
  */
-export function zoomOut(instanceKey: string): void {
-  const host = outlineHostOf(outlineHostOfInstance(instanceKey));
+export function zoomOut(hostId: string): void {
+  const host = outlineHostOf(hostId);
   const graph = browserHost().graph.state();
   const rooted = host?.root ?? null;
   const root = rooted ?? graph.rootNodeId;

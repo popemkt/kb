@@ -26,6 +26,12 @@ export interface EditingKeyContext {
   readonly projectedRow: boolean;
   readonly nodeId: string;
   readonly instanceKey: string;
+  /**
+   * The outline host the key was pressed in: its pane's (`useOutlineHost`),
+   * where a zoom opens. The instance key cannot say it for a projected row,
+   * whose key names its source, not its pane.
+   */
+  readonly host: string;
   readonly cursor: number;
   /** The text the row shows and edits (`rowTextOf`); `cursor` is an offset into it. */
   readonly text: string;
@@ -87,10 +93,10 @@ export type EditingIntent =
   | { type: "collapseSubtree"; instanceKey: string }
   /** A new empty row directly above this one, edited. */
   | { type: "createBefore"; nodeId: string }
-  | { type: "zoom"; nodeId: string; instanceKey: string }
+  | { type: "zoom"; nodeId: string; host: string }
   /** Out to the page above the one the row's outline shows. */
-  | { type: "zoomOut"; instanceKey: string }
-  | { type: "zoomToParent"; parentId: string; instanceKey: string }
+  | { type: "zoomOut"; host: string }
+  | { type: "zoomToParent"; parentId: string; host: string }
   | {
       type: "moveCaretToRow";
       nodeId: string;
@@ -181,7 +187,7 @@ function revealIntent(ctx: EditingKeyContext, key: string): EditingIntent {
     }
     return ctx.parentId === null
       ? { type: "claim" }
-      : { type: "zoomToParent", parentId: ctx.parentId, instanceKey: ctx.instanceKey };
+      : { type: "zoomToParent", parentId: ctx.parentId, host: ctx.host };
   }
   if (ctx.collapsed && (ctx.childCount > 0 || ctx.tagCount > 0)) {
     return { type: "toggleCollapse", nodeId: ctx.nodeId };
@@ -261,8 +267,8 @@ const EDITING_INTENTS = new Map<string, IntentOf>([
   // Opening and closing is the reader's, never structure: a projected row's too.
   ["expand-subtree", (ctx) => ({ type: "expandSubtree", instanceKey: ctx.instanceKey })],
   ["collapse-subtree", (ctx) => ({ type: "collapseSubtree", instanceKey: ctx.instanceKey })],
-  ["zoom", (ctx) => ({ type: "zoom", nodeId: ctx.nodeId, instanceKey: ctx.instanceKey })],
-  ["zoom-out", (ctx) => ({ type: "zoomOut", instanceKey: ctx.instanceKey })],
+  ["zoom", (ctx) => ({ type: "zoom", nodeId: ctx.nodeId, host: ctx.host })],
+  ["zoom-out", (ctx) => ({ type: "zoomOut", host: ctx.host })],
   ["line-up", (ctx) => crossRowIntent(ctx, "ArrowUp")],
   ["line-down", (ctx) => crossRowIntent(ctx, "ArrowDown")],
   // Popups handle Escape before delegating; bare Escape selects.
