@@ -5,6 +5,8 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { bundledDerived } from "@kb/bundled";
 import { inThreadPort } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
 import { provideEngine } from "@/session/engine";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
+import { syncPagePlugins } from "@/test-support/page-plugins";
 import { Effect } from "effect";
 import { declarationPlugin, type ActionRequest, type ScreensPort } from "@kb/contracts";
 import { coreExtension } from "@kb/operations";
@@ -134,6 +136,37 @@ describe("browser action runtime", () => {
     expect(post).toHaveBeenCalledExactlyOnceWith({
       id: "node.addTree",
       input: { ...input, ids },
+      session: tabSession(),
+    });
+  });
+
+  it.each([
+    { id: "field.define", input: { name: "Review date" }, text: "Review date" },
+    { id: "tag.define", input: { name: "Review item" }, text: "Review item" },
+    {
+      id: "view.propose",
+      input: { view: "outline.main", text: "Review outline" },
+      text: "Review outline",
+    },
+  ])("$id pushes the id it minted on the page", async ({ id, input, text }) => {
+    useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+    syncPagePlugins([outlineUiPlugin]);
+    const post = vi.fn(async (invocation: ActionRequest) => ({
+      status: "succeeded" as const,
+      id: invocation.id,
+      output: invocation.input,
+      rev: 2,
+    }));
+    setPostAction(post);
+
+    const { receipt, settled } = await invokeSettled({ id, input });
+    if (receipt.status !== "succeeded") throw new Error(receipt.message);
+    const { id: minted } = receipt.output as { id: string };
+    expect(index()?.getNode(minted)?.text).toBe(text);
+    expect(await settled).toMatchObject({ status: "succeeded", output: { id: minted } });
+    expect(post).toHaveBeenCalledExactlyOnceWith({
+      id,
+      input: { ...input, id: minted },
       session: tabSession(),
     });
   });
