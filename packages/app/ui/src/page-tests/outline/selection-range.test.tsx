@@ -16,6 +16,7 @@ import { outlineInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk
 import { installDomGlobals } from "@kb/ui-test-kit";
 import { mutations } from "@/actions/mutations";
 import { useGraphStore } from "@/stores/graph.store";
+import { useUiStore } from "@/stores/ui.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { rankedFixture } from "@/test-support/ranked-fixture";
 import { syncPagePlugins } from "@/test-support/page-plugins";
@@ -31,6 +32,8 @@ function Host() {
 }
 
 const node = (id: string) => outlineNodes().get(id);
+/** The toasts shown since the test began, by their text. */
+const told = () => useUiStore.getState().toasts.map((toast) => toast.text);
 const selection = () => useOutlineStore.getState();
 /** The forest's rows, in order, as far as these tests read it. */
 const roots = () =>
@@ -93,6 +96,7 @@ describe("a selection is a range of rows", () => {
   afterAll(() => restore?.());
 
   beforeEach(() => {
+    useUiStore.setState({ toasts: [] });
     resetOutlineStore();
     useGraphStore.getState().hydrateFromWire(rankedFixture(), fixtureGraph.rev, "fixtures");
     container = dom.document.createElement("div") as unknown as HTMLDivElement;
@@ -215,7 +219,7 @@ describe("a selection is a range of rows", () => {
     expect(selection().selectedNodeIds).toEqual(["n.root-b", "n.root-c"]);
   });
 
-  it("leaves a range that is not one run of siblings where it is", async () => {
+  it("leaves a range that is not one run of siblings where it is, and says so", async () => {
     act(() => selection().toggleCollapse("n.root-a"));
     selectAndMount("n.child-a2");
     // a2 is collapsed over its child, so the next row down is n.root-b.
@@ -225,6 +229,28 @@ describe("a selection is a range of rows", () => {
     expect(node("n.child-a2")?.parentId).toBe("n.root-a");
     expect(node("n.root-b")?.parentId).not.toBe("n.child-a1");
     expect(useGraphStore.getState().undoStack).toHaveLength(0);
+    expect(told()).toEqual(["Only rows next to each other under one parent move together"]);
+  });
+
+  it("a range from a first child stays on Tab, told that its first row has no row above", async () => {
+    act(() => selection().toggleCollapse("n.root-a"));
+    selectAndMount("n.child-a1");
+    await press("ArrowDown", { shiftKey: true });
+    expect(selection().selectedNodeIds).toEqual(["n.child-a1", "n.child-a2"]);
+    await press("Tab");
+    expect(node("n.child-a1")?.parentId).toBe("n.root-a");
+    expect(node("n.child-a2")?.parentId).toBe("n.root-a");
+    expect(useGraphStore.getState().undoStack).toHaveLength(0);
+    expect(told()).toEqual(["The first row has no row above it to move under"]);
+  });
+
+  it("a range of top-level rows stays on Shift-Tab, told that it has no parent", async () => {
+    const before = roots();
+    selectAndMount("n.root-b");
+    await press("ArrowDown", { shiftKey: true });
+    await press("Tab", { shiftKey: true });
+    expect(roots()).toEqual(before);
+    expect(told()).toEqual(["Top-level rows have no parent to move out of"]);
   });
 
   /** n.root-a to n.root-c selected: three rows, n.root-a closed over its children. */

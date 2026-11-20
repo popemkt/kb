@@ -6,7 +6,14 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { present } from "@kb/model";
-import { EXPANDED_STORAGE_KEY, EXPANSION_STORAGE_KEY, syncUiPlugins } from "@kb/ui-sdk";
+import {
+  childInstanceKey,
+  EXPANDED_STORAGE_KEY,
+  EXPANSION_STORAGE_KEY,
+  outlineInstanceKey,
+  syncUiPlugins,
+} from "@kb/ui-sdk";
+import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
@@ -75,6 +82,78 @@ beforeEach(() => {
   graph().hydrateFromWire(structuredClone(fixtureGraph.nodes), fixtureGraph.rev, "fixtures");
 });
 afterEach(() => vi.unstubAllGlobals());
+
+/** A row's instance in the main outline. */
+const keyOf = (id: string) => outlineInstanceKey(id, outlineNodes());
+
+describe("a row's whole subtree opens and closes at once", () => {
+  /** The fixture with n.root-c closed over a child, and n.ref, a reference to n.root-a, under it. */
+  function seedSiblingAndReference(): void {
+    const wires = structuredClone(fixtureGraph.nodes).map((w) =>
+      w.id === "n.root-c" ? { ...w, children: ["n.c1", "n.ref"] } : w,
+    );
+    const leaf = {
+      ...present(
+        wires.find((w) => w.id === "n.child-a1"),
+        "a1",
+      ),
+      children: [],
+    };
+    graph().hydrateFromWire(
+      [
+        ...wires,
+        ...REF_SEED_WIRES,
+        { ...leaf, id: "n.c1", text: "c1" },
+        ctxRefWire("n.ref", "n.root-a"),
+      ],
+      fixtureGraph.rev,
+      "fixtures",
+    );
+  }
+  it("opens the row and every row under it, and closes them all again; siblings untouched", () => {
+    seedSiblingAndReference();
+    expect(["n.root-a", "n.child-a2", "n.root-c"].map(collapsed)).toEqual([true, true, true]);
+    outline().expandSubtree(keyOf("n.root-a"));
+    expect(["n.root-a", "n.child-a2", "n.root-c"].map(collapsed)).toEqual([false, false, true]);
+    outline().collapseSubtree(keyOf("n.root-a"));
+    expect(["n.root-a", "n.child-a2", "n.root-c"].map(collapsed)).toEqual([true, true, true]);
+  });
+
+  it("closes what was open below a closed row too", () => {
+    outline().toggleCollapse("n.child-a2");
+    expect(collapsed("n.child-a2")).toBe(false);
+    outline().collapseSubtree(keyOf("n.root-a"));
+    expect(collapsed("n.child-a2")).toBe(true);
+  });
+
+  it("a reference's subtree is its target's rows, under the reference", () => {
+    seedSiblingAndReference();
+    outline().toggleCollapse("n.root-c");
+    outline().expandSubtree(childInstanceKey(keyOf("n.root-c"), "n.ref"));
+    expect(collapsed("n.ref")).toBe(false);
+    expect(collapsed("n.child-a2")).toBe(false);
+    // The target's own row is another place: its choice is its own.
+    expect(collapsed("n.root-a")).toBe(true);
+  });
+
+  it("Expand all and Collapse all are the subtrees of the scope's top rows", () => {
+    seedSiblingAndReference();
+    outline().expandAllInScope();
+    expect(["n.root-a", "n.child-a2", "n.root-c", "n.ref"].map(collapsed)).toEqual([
+      false,
+      false,
+      false,
+      false,
+    ]);
+    outline().collapseAllInScope();
+    expect(["n.root-a", "n.child-a2", "n.root-c", "n.ref"].map(collapsed)).toEqual([
+      true,
+      true,
+      true,
+      true,
+    ]);
+  });
+});
 
 describe("expansion keeps only choices the reader can undo", () => {
   it("a closed row that loses its children and gains them again is never stuck closed", () => {

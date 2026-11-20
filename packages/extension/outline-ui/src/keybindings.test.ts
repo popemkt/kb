@@ -31,6 +31,33 @@ describe("the outline's keybindings", () => {
     expect(bindings.length).toBeGreaterThan(0);
   });
 
+  // DESIGN-UI.md → Outline editor: ⌘⌥↑/↓ (Ctrl+Alt) the subtree, ⌘↑/↓ one
+  // level, ⇧Enter a line break, ⌘⇧Enter a row before, ⌘. in and ⌘, out.
+  it.each([
+    [EDITING_KEY_CONTEXT, { key: "ArrowDown", metaKey: true, altKey: true }, "expand-subtree"],
+    [EDITING_KEY_CONTEXT, { key: "ArrowDown", ctrlKey: true, altKey: true }, "expand-subtree"],
+    [EDITING_KEY_CONTEXT, { key: "ArrowUp", metaKey: true, altKey: true }, "collapse-subtree"],
+    [EDITING_KEY_CONTEXT, { key: "ArrowUp", ctrlKey: true, altKey: true }, "collapse-subtree"],
+    [EDITING_KEY_CONTEXT, { key: "ArrowDown", metaKey: true }, "expand"],
+    [EDITING_KEY_CONTEXT, { key: "ArrowDown", ctrlKey: true }, "expand"],
+    [EDITING_KEY_CONTEXT, { key: "ArrowUp", metaKey: true }, "collapse-or-leave"],
+    [EDITING_KEY_CONTEXT, { key: "Enter", shiftKey: true }, "soft-break"],
+    [EDITING_KEY_CONTEXT, { key: "Enter", metaKey: true, shiftKey: true }, "create-before"],
+    [EDITING_KEY_CONTEXT, { key: "Enter", ctrlKey: true, shiftKey: true }, "create-before"],
+    [EDITING_KEY_CONTEXT, { key: ".", metaKey: true }, "zoom"],
+    [EDITING_KEY_CONTEXT, { key: ",", ctrlKey: true }, "zoom-out"],
+    [SELECTION_KEY_CONTEXT, { key: "ArrowDown", metaKey: true, altKey: true }, "expand-subtree"],
+    [SELECTION_KEY_CONTEXT, { key: "ArrowUp", ctrlKey: true, altKey: true }, "collapse-subtree"],
+    [SELECTION_KEY_CONTEXT, { key: ".", ctrlKey: true }, "zoom"],
+    [SELECTION_KEY_CONTEXT, { key: ",", metaKey: true }, "zoom-out"],
+    [SELECTION_KEY_CONTEXT, { key: ",", shiftKey: false }, "append"],
+  ] as const)("chord %# runs the intent its binding names", (context, event, intent) => {
+    const binding = admitKeybindings(context, outlineKeybindings(), ANYONE).resolve(event);
+    expect(binding !== undefined && "intent" in binding.value.run && binding.value.run.intent).toBe(
+      intent,
+    );
+  });
+
   it("runs only intents its context names", () => {
     for (const [context, bindings] of [
       [EDITING_KEY_CONTEXT, EDITING_BINDINGS],

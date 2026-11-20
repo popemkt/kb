@@ -26,7 +26,7 @@ import { selectionRoots } from "@kb/model";
 import type { SelectionKeyAction } from "./selection-keymap";
 import { outlineSource, useOutlineStore, outlineNodes } from "./outline.store";
 import { enterFields } from "./value-slot-nav";
-import { zoomIntoRow } from "./outline-zoom";
+import { zoomIntoRow, zoomOut } from "./outline-zoom";
 
 type ActionOf<T extends SelectionKeyAction["type"]> = Extract<SelectionKeyAction, { type: T }>;
 
@@ -111,6 +111,12 @@ function topRows(nodeId: string): { readonly ids: readonly string[]; readonly ra
 function eachRow(nodeId: string): readonly string[] {
   const rows = useOutlineStore.getState().selectedRows();
   return rows.length <= 1 ? [nodeId] : rows.map((row) => row.nodeId);
+}
+
+/** The instances of the rows the selection marks: each row of a range, else the head's. */
+function eachInstance(instanceKey: string): readonly string[] {
+  const rows = useOutlineStore.getState().selectedRows();
+  return rows.length <= 1 ? [instanceKey] : rows.map((row) => row.instanceKey);
 }
 
 /**
@@ -201,6 +207,13 @@ const SELECTION_STEPS: SelectionSteps = {
   moveDown: ({ nodeId }) => arrange((ids) => browserHost().writes.moveNodesDown(ids), nodeId),
   moveToGroup,
   zoom: ({ nodeId, instanceKey }) => zoomIntoRow(nodeId, instanceKey),
+  zoomOut: ({ instanceKey }) => zoomOut(instanceKey),
+  expandSubtree: ({ instanceKey }) => {
+    for (const key of eachInstance(instanceKey)) useOutlineStore.getState().expandSubtree(key);
+  },
+  collapseSubtree: ({ instanceKey }) => {
+    for (const key of eachInstance(instanceKey)) useOutlineStore.getState().collapseSubtree(key);
+  },
   createAfter,
   createBefore: ({ nodeId }) => void createNodeBefore(nodeId),
   append,

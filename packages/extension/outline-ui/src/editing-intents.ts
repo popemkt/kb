@@ -9,7 +9,7 @@
  * Exhaustiveness is the mapped type: a new `EditingIntent` variant with no row
  * here fails the build.
  */
-import { mergeWithPrevious, toggleRowChecks } from "./editing-writes";
+import { createNodeBefore, mergeWithPrevious, toggleRowChecks } from "./editing-writes";
 import {
   browserHost,
   runKeyCall,
@@ -23,6 +23,7 @@ import { outlineSource, useOutlineStore } from "./outline.store";
 import type { EditingIntent } from "./editing-keymap";
 import { enterFields } from "./value-slot-nav";
 import { openFromRow } from "./outline-hosts";
+import { zoomIntoRow, zoomOut } from "./outline-zoom";
 
 type IntentOf<T extends EditingIntent["type"]> = Extract<EditingIntent, { type: T }>;
 
@@ -117,6 +118,11 @@ const EDITING_STEPS: EditingSteps = {
   moveDown: ({ nodeId }) => void browserHost().writes.moveNodesDown([nodeId]),
   toggleCheck: ({ nodeId }) => void toggleRowChecks([nodeId]),
   toggleCollapse: ({ nodeId }) => useOutlineStore.getState().toggleCollapse(nodeId),
+  expandSubtree: ({ instanceKey }) => useOutlineStore.getState().expandSubtree(instanceKey),
+  collapseSubtree: ({ instanceKey }) => useOutlineStore.getState().collapseSubtree(instanceKey),
+  createBefore: ({ nodeId }) => void createNodeBefore(nodeId),
+  zoom: ({ nodeId, instanceKey }) => zoomIntoRow(nodeId, instanceKey),
+  zoomOut: ({ instanceKey }) => zoomOut(instanceKey),
   // Collapsed / leaf: open the enclosing page, as the row's outline opens one.
   zoomToParent: ({ parentId, instanceKey }) => openFromRow(instanceKey, parentId),
   moveCaretToRow: ({ nodeId, instanceKey, cursor, x }) =>

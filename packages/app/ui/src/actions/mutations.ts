@@ -71,8 +71,8 @@ const editor = () => pageEditor().getState();
 /** What a person is told when a block of rows stays where it is, by why (`BlockStays`). */
 const BLOCK_STAYS: Readonly<Record<BlockStays["stays"], string>> = {
   "not-a-run": "Only rows next to each other under one parent move together",
-  "no-row-above": "Only rows next to each other under one parent move together",
-  "no-parent": "Only rows next to each other under one parent move together",
+  "no-row-above": "The first row has no row above it to move under",
+  "no-parent": "Top-level rows have no parent to move out of",
 };
 
 /**

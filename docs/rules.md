@@ -1372,6 +1372,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Hosts are accelerators: the store is the truth
 - **node** — `01M75MA1FDWA0W84EBDYGCCEHX`
 
+### GAP: o does not make the row directly below the selected one
+
+- **expected** — o in selection mode makes an empty row directly below the selected row, as selection-actions.ts createAfter says: the first child of an expanded parent, else the next sibling, a top-level row's included (the way Shift+O and Cmd+Shift+Enter now use planInsertSibling).
+- **current** — createEmptyNode (packages/app/ui/src/actions/mutations.ts) appends the new row as the LAST child of an expanded parent (planAddChild), and for a top-level row ignores afterSiblingId and adds a root with no position, so the row lands at the top of the page.
+- **impact** — o on an expanded parent or on a top-level row puts the new row somewhere other than under the row the person pressed it on; they have to find it and move it.
+- **closes** — createEmptyNode places by planInsertSibling (after) for a sibling, a top-level one included, and at position 0 for an expanded parent's first child; selection characterization tests assert the exact place for both.
+- **node** — `01M7X2C58J05ZV2KSWZSHDEWHS`
+
 ### GAP: offline writes to a shared store are unsupported (the tail is a total order the store assigns)
 
 - **expected** — Either offline writes are refused with a stated reason, or revs are assigned at push time so devices can write offline (docs/research/2026-10-31-online-stores.md §2.4).

@@ -141,6 +141,11 @@ interface OutlineState {
   toggleCollapse: (id: string) => void;
   /** Open the reference to `targetId` in the text of `sourceId` under its row, or close it. */
   toggleReference: (sourceId: string, targetId: string) => void;
+  /** Open the row at `instanceKey` and every row under it (`subtreeRows`). */
+  expandSubtree: (instanceKey: string) => void;
+  /** Close the row at `instanceKey` and every row under it. */
+  collapseSubtree: (instanceKey: string) => void;
+  /** Open every row of the outline's scope: its top rows' subtrees. */
   expandAllInScope: () => void;
   collapseAllInScope: () => void;
   expandAncestors: (id: string) => void;
@@ -714,6 +719,12 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
       const key = openReferenceKey(sourceId, targetId);
       choose([[key, get().expansion.get(key) !== true]]);
     },
+
+    expandSubtree: (instanceKey) =>
+      openRows(subtreeRows(instanceKey, outlineNodes(), schemaNow()), true),
+
+    collapseSubtree: (instanceKey) =>
+      openRows(subtreeRows(instanceKey, outlineNodes(), schemaNow()), false),
 
     expandAllInScope: () =>
       openRows(scopeRows(graphNow().rootNodeId, outlineNodes(), schemaNow()), true),

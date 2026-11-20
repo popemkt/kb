@@ -82,6 +82,14 @@ export type EditingIntent =
   | { type: "moveDown"; nodeId: string }
   | { type: "toggleCheck"; nodeId: string }
   | { type: "toggleCollapse"; nodeId: string }
+  /** Open the row and every row under it; or close them. */
+  | { type: "expandSubtree"; instanceKey: string }
+  | { type: "collapseSubtree"; instanceKey: string }
+  /** A new empty row directly above this one, edited. */
+  | { type: "createBefore"; nodeId: string }
+  | { type: "zoom"; nodeId: string; instanceKey: string }
+  /** Out to the page above the one the row's outline shows. */
+  | { type: "zoomOut"; instanceKey: string }
   | { type: "zoomToParent"; parentId: string; instanceKey: string }
   | {
       type: "moveCaretToRow";
@@ -233,6 +241,8 @@ const EDITING_INTENTS = new Map<string, IntentOf>([
       cursor: ctx.ownsText(ctx.nodeId) ? ctx.cursor : "end",
     })),
   ],
+  // A new row above: its place is the row's, so a projected row has none.
+  ["create-before", structural((ctx) => ({ type: "createBefore", nodeId: ctx.nodeId }))],
   ["outdent", structural((ctx) => ({ type: "outdent", nodeId: ctx.nodeId, cursor: ctx.cursor }))],
   ["indent", structural((ctx) => ({ type: "indent", nodeId: ctx.nodeId, cursor: ctx.cursor }))],
   // Delete the subtree — an offset-0 gesture: mid-text the caret check
@@ -248,6 +258,11 @@ const EDITING_INTENTS = new Map<string, IntentOf>([
   ["toggle-check", (ctx) => ({ type: "toggleCheck", nodeId: ctx.nodeId })],
   ["collapse-or-leave", (ctx) => revealIntent(ctx, "ArrowUp")],
   ["expand", (ctx) => revealIntent(ctx, "ArrowDown")],
+  // Opening and closing is the reader's, never structure: a projected row's too.
+  ["expand-subtree", (ctx) => ({ type: "expandSubtree", instanceKey: ctx.instanceKey })],
+  ["collapse-subtree", (ctx) => ({ type: "collapseSubtree", instanceKey: ctx.instanceKey })],
+  ["zoom", (ctx) => ({ type: "zoom", nodeId: ctx.nodeId, instanceKey: ctx.instanceKey })],
+  ["zoom-out", (ctx) => ({ type: "zoomOut", instanceKey: ctx.instanceKey })],
   ["line-up", (ctx) => crossRowIntent(ctx, "ArrowUp")],
   ["line-down", (ctx) => crossRowIntent(ctx, "ArrowDown")],
   // Popups handle Escape before delegating; bare Escape selects.

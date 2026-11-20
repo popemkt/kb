@@ -32,6 +32,7 @@ import {
   type RefLook,
 } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
+import { rankedFixture } from "@/test-support/ranked-fixture";
 import { mountActiveTextHost } from "@/test-support/active-text-host";
 import { installDomGlobals } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
@@ -89,6 +90,11 @@ async function settle(rounds = 4, delayMs = 0): Promise<void> {
       await new Promise((resolve) => setTimeout(resolve, delayMs));
     });
   }
+}
+
+/** The forest's top rows, in order. */
+function roots(): string[] {
+  return node(WORKSPACE_ROOT_ID)?.children ?? [];
 }
 
 function endOf(id: string): number {
@@ -495,6 +501,52 @@ describe("outline editing keymap (characterization)", () => {
       act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
       expect(await press(mount("n.child-a1", 0, false), "ArrowUp", { metaKey: true })).toBe(true);
       expect(useGraphStore.getState().rootNodeId).toBe("n.root-a");
+    });
+
+    it("Meta+Alt+ArrowDown opens the whole subtree, Ctrl+Alt+ArrowUp closes it, the caret staying", async () => {
+      const el = mount("n.root-a", 2, false);
+      expect(await press(el, "ArrowDown", { metaKey: true, altKey: true })).toBe(true);
+      expect([node("n.root-a")?.collapsed, node("n.child-a2")?.collapsed]).toEqual([false, false]);
+      expect(await press(el, "ArrowUp", { ctrlKey: true, altKey: true })).toBe(true);
+      expect([node("n.root-a")?.collapsed, node("n.child-a2")?.collapsed]).toEqual([true, true]);
+      expect(useOutlineStore.getState().activeNodeId).toBe("n.root-a");
+    });
+
+    it("Meta+Shift+Enter makes an empty row before this one, edited, and splits nothing", async () => {
+      // The top level's order is its rows' ranks.
+      useGraphStore.getState().hydrateFromWire(rankedFixture(), fixtureGraph.rev, "fixtures");
+      const text = node("n.root-c")?.text;
+      const before = roots();
+      expect(
+        await press(mount("n.root-c", 4, false), "Enter", { metaKey: true, shiftKey: true }),
+      ).toBe(true);
+      const after = roots();
+      expect(after).toHaveLength(before.length + 1);
+      const made = present(after[after.indexOf("n.root-c") - 1], "row before");
+      expect(before).not.toContain(made);
+      expect(node(made)?.text).toBe("");
+      expect(node("n.root-c")?.text).toBe(text);
+      expect(useOutlineStore.getState().activeNodeId).toBe(made);
+    });
+
+    it("Meta+. zooms into the row being edited, and Ctrl+, zooms out to the page above", async () => {
+      act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
+      const text = node("n.child-a2")?.text;
+      expect(await press(mount("n.child-a2", 3, false), ".", { metaKey: true })).toBe(true);
+      expect(useGraphStore.getState().rootNodeId).toBe("n.child-a2");
+      expect(node("n.child-a2")?.text).toBe(text);
+      // Now inside n.child-a2: its child's row zooms out to n.child-a2's parent.
+      expect(await press(mount("n.grandchild", 0, false), ",", { ctrlKey: true })).toBe(true);
+      expect(useGraphStore.getState().rootNodeId).toBe("n.root-a");
+      expect(node("n.grandchild")?.text).toBe("Persist collapsed ids in localStorage");
+      expect(await press(mount("n.child-a1", 0, false), ",", { metaKey: true })).toBe(true);
+      expect(useGraphStore.getState().rootNodeId).toBe(WORKSPACE_ROOT_ID);
+    });
+
+    it("Meta+, at home has no page above: claimed, and nothing moves", async () => {
+      expect(await press(mount("n.root-b", 0, false), ",", { metaKey: true })).toBe(true);
+      expect(useGraphStore.getState().rootNodeId).toBe(WORKSPACE_ROOT_ID);
+      expect(useOutlineStore.getState().activeNodeId).toBe("n.root-b");
     });
 
     it("Meta+ArrowDown expands a collapsed parent", async () => {

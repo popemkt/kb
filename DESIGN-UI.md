@@ -439,11 +439,20 @@ split is what matters here:
 | **A — active edit** (caret inside node text)     | typing                       | `outline.editing`   | `outline-ui/src/editing-keymap.ts` + `outline-ui/src/use-node-keydown.ts`       |
 | **B — selection** (row selected, caret inactive) | after `Escape`, or arrow-nav | `outline.selection` | `outline-ui/src/selection-keymap.ts` + `outline-ui/src/use-selection-keymap.ts` |
 
-Mode A owns split/merge/indent/outdent, soft line break (`Shift+Enter`),
+Mode A owns split/merge/indent/outdent, soft line break (`Shift+Enter`), a
+new empty row above (`Cmd+Shift+Enter`, as `Shift+O` makes one),
 vertical caret motion, and autocomplete interception. Mode B owns
 `ArrowLeft/Right` collapse-expand-parent-firstchild, `Cmd+Shift+ArrowLeft/Right`
-a row to the group beside its own (_Groups_), `o` / `Shift+O` create-below/above, `Space` toggle, `Cmd+.` zoom, and printable-character
-re-entry into Mode A. Mode B's keys are the selected row's: a key pressed
+a row to the group beside its own (_Groups_), `o` / `Shift+O` create-below/above, `Space` toggle, and printable-character
+re-entry into Mode A. Both modes hold the structure keys a row is
+navigated by: `Cmd+ArrowUp/Down` close or open one level (Mode B:
+`ArrowLeft/Right`), `Cmd+Alt+ArrowDown` / `Cmd+Alt+ArrowUp` (Ctrl+Alt on
+Windows and Linux) open or close the row's whole subtree, every row
+under it whatever it showed (each selected row's, over a range),
+`Cmd+.` zooms into the row, and `Cmd+,` zooms out to the page above the
+one its outline shows (its crumb before the last; at home nothing moves).
+The palette's Expand all and Collapse all are the same subtree step over
+every top row of the page (`expandSubtree`, `expandAllInScope`). Mode B's keys are the selected row's: a key pressed
 while focus is on a control the keyboard stops at (a text entry, or a button
 such as a tag's box or a hidden field's chip) is that control's, so Tab
 moves focus on and Enter or Space presses it (`ownsItsKeys`). Chrome the
@@ -720,8 +729,9 @@ What a gesture over a range acts on is said once, by the selection:
   row goes with it (`selectionRoots`). Tab, Shift-Tab and the moves act on
   the top rows as one block when they are one run of siblings (one parent,
   none skipped): the block goes under the sibling before it, after its
-  parent, or past the sibling beside it. A range that is not one run is told
-  so and left as it is.
+  parent, or past the sibling beside it. A range that stays is told why
+  (`BlockStays`): it is not one run, its first row has no row above it to
+  move under, or its rows are at the top with no parent to move out of.
 
 A gesture over several rows is one write. Every plan of several node writes
 is sent as one `node.batch` call (DESIGN.md →
