@@ -1,0 +1,6 @@
+{
+  "reason": "Contextual references read as their targets in views and on Enter, and their fixes: a split writes only what it changes, a dangling reference writes no content, the new row is edited at the instance its row is drawn in, and blocks that stay say why. Measured from a short checkout: 470 bytes for the references commit and 315 for the fixes and the restructure, over main at its limit.",
+  "raise": {
+    "page-eager": { "bytes": 785 }
+  }
+}
