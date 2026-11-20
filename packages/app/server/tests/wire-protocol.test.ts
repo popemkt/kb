@@ -3,8 +3,8 @@
  * "A tab outlives its build"). A page of the previous build keeps working
  * against this server as long as `WIRE_PROTOCOL` is the same, so whatever
  * such a page sends or reads is fingerprinted here: the socket's messages,
- * the action envelope and its answer, the snapshot, and every action the
- * server offers, which a page may call or run on its own replica, by id,
+ * the sandbox frame's messages, the action envelope and its answer, the
+ * snapshot, and every action the server offers by id,
  * mode, input and output, as the server's own manifest lists them.
  *
  * When this test fails, the wire changed. Decide which it is:
@@ -18,7 +18,7 @@ import { createHash } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import {
   ActionRequestSchema,
   ActionResponseSchema,
@@ -28,6 +28,7 @@ import {
   WIRE_PROTOCOL,
 } from "@kb/contracts";
 import { schemaToJsonSchema } from "@kb/model";
+import { FrameMessage, PageMessage } from "@kb/sandbox";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
 // Protocol 4: an extension row carries its origin (kb's build and the host
@@ -87,9 +88,11 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // `capture.submit`, `capture.pair`, `capture.pairCode` and `capture.revoke`
 // are new actions a previous page never calls, and `kb.manifest` may name a
 // `captureContract`, an optional field a previous page ignores.
+// The fingerprint now covers the existing sandbox protocol. node.addTree
+// takes optional ids; previous pages omit them as before.
 const RECORDED = {
   protocol: 11,
-  fingerprint: "f9a6dcc61255ef7d9c003e73f5eb3b846dcc7e94ba14cea539fb7c3fbd99eacf",
+  fingerprint: "80026d5cdb5e9fa40de40e23a7755cde36df390d48d76ada353283d084d22ea0",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */
@@ -130,7 +133,6 @@ async function offered(url: string): Promise<unknown[]> {
 }
 
 /** Every shape as a parser reads it: the side a page and a server each accept. */
-// GAP [[01M6GY0MXXXY2YQ8C3P77M2QNF]] the sandbox frame's messages are not fingerprinted, and its script is not digest-named
 function wireFingerprint(actions: unknown[]): string {
   const wire = {
     client: schemaToJsonSchema(ClientMessageSchema, "input"),
@@ -138,6 +140,8 @@ function wireFingerprint(actions: unknown[]): string {
     request: schemaToJsonSchema(ActionRequestSchema, "input"),
     response: schemaToJsonSchema(ActionResponseSchema, "input"),
     snapshot: schemaToJsonSchema(GraphSnapshotSchema, "input"),
+    frameToPage: Schema.toJsonSchemaDocument(FrameMessage),
+    pageToFrame: Schema.toJsonSchemaDocument(PageMessage),
     actions,
   };
   return createHash("sha256").update(canonical(wire)).digest("hex");

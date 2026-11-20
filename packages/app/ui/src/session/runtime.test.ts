@@ -6,7 +6,7 @@ import { bundledDerived } from "@kb/bundled";
 import { inThreadPort } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
 import { provideEngine } from "@/session/engine";
 import { Effect } from "effect";
-import { declarationPlugin, type ScreensPort } from "@kb/contracts";
+import { declarationPlugin, type ActionRequest, type ScreensPort } from "@kb/contracts";
 import { coreExtension } from "@kb/operations";
 import { syncUiPlugins } from "@kb/ui-sdk";
 import {
@@ -112,6 +112,30 @@ describe("browser action runtime", () => {
     expect(useGraphStore.getState().wireNodes).toBe(projected);
     await waitForBrowserPushes();
     expect(post).not.toHaveBeenCalled();
+  });
+
+  it("pushes the same outline ids the local commit minted for its rows", async () => {
+    useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+    const post = vi.fn(async (invocation: ActionRequest) => ({
+      status: "succeeded" as const,
+      id: invocation.id,
+      output: invocation.input,
+      rev: 2,
+    }));
+    setPostAction(post);
+
+    const input = { outline: "- First\n  - Nested\n- Last", parent: "n.root-a" };
+    const { receipt, settled } = await invokeSettled({ id: "node.addTree", input });
+    if (receipt.status !== "succeeded") throw new Error(receipt.message);
+    const { ids } = receipt.output as { ids: string[] };
+    expect(ids.map((id) => index()?.getNode(id)?.text)).toEqual(["First", "Nested", "Last"]);
+    expect(index()?.getNode(ids[0] ?? "")?.children).toEqual([ids[1]]);
+    expect(await settled).toMatchObject({ status: "succeeded", output: { ids } });
+    expect(post).toHaveBeenCalledExactlyOnceWith({
+      id: "node.addTree",
+      input: { ...input, ids },
+      session: tabSession(),
+    });
   });
 
   it("refuses a local write its field cannot hold, before anything is pushed", async () => {

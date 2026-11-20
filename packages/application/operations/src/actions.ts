@@ -169,7 +169,6 @@ export const fieldDefineDef = {
   title: "Define field",
   description: "Mint a field node (typed sys.field)",
   mode: { kind: "write" } as const,
-  mints: "id",
   inputSchema: z.object({
     name: z.string(),
     id: z.string().optional(),
@@ -183,7 +182,6 @@ export const tagDefineDef = {
   description:
     "Mint a tag node (typed sys.tag) with optional templated fields, and the tags it extends",
   mode: { kind: "write" } as const,
-  mints: "id",
   inputSchema: z.object({
     name: z.string(),
     id: z.string().optional(),

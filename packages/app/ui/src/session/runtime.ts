@@ -462,12 +462,11 @@ export async function invokeSettled(invocation: ActionRequest): Promise<Invoked>
   if (receipt.status === "failed") return done(receipt);
   const hold = requireSession().replica.hold(touched);
   // What the local commit decided from this tab is pushed as given: what it
-  // filled from the tab's screen, and where the page's capture target put a
-  // node made with no chosen place. The server decides neither again, so it
-  // commits what the replica did, in the tab's day; its receipt says what
-  // was filled, as the local one does.
+  // filled from the tab's screen, where it put nodes made with no chosen
+  // place, and the ids it created them with.
   const { context } = receipt;
-  const pushed = asPlaced(asFilled(invocation, context), placed);
+  const filled = asPlaced(asFilled(invocation, context), placed);
+  const pushed = asMinted(filled, local.def.mints, receipt.output);
   return { receipt, settled: settledOf(id, pushInvocation(pushed, hold), context) };
 }
 
@@ -532,6 +531,22 @@ function asFilled(
   if (context === undefined || !Predicate.isObject(invocation.input)) return invocation;
   const filled = Object.entries(context).map(([key, { value }]) => [key, value]);
   return { ...invocation, input: { ...invocation.input, ...Object.fromEntries(filled) } };
+}
+
+/** Carry the local commit's ids back into the declared input key. */
+function asMinted(
+  invocation: ActionRequest,
+  key: string | undefined,
+  output: unknown,
+): ActionRequest {
+  if (
+    key === undefined ||
+    !Predicate.isObject(invocation.input) ||
+    invocation.input[key] !== undefined ||
+    !Predicate.hasProperty(output, key)
+  )
+    return invocation;
+  return { ...invocation, input: { ...invocation.input, [key]: output[key] } };
 }
 
 /** {@link invokeSettled} for a caller that acts on the first receipt and lets a rejected push surface as a toast. */

@@ -620,6 +620,36 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
       ),
   ],
   [
+    "an outline paste keeps the supplied ids in tree order on every surface",
+    (set) =>
+      overSurfaces(set, ({ name, via }) =>
+        Effect.gen(function* () {
+          const [parent, child, sibling] = ["parent", "child", "sibling"].map(
+            (part) => `n.paste-${name}-${part}`,
+          );
+          const outline = "- First\n  - Nested\n- Last";
+          const paste = { id: "node.addTree", input: { outline, parent: null } };
+          expect(yield* via({ ...paste, input: { ...paste.input, ids: [parent] } })).toMatchObject({
+            status: "failed",
+            code: "invalid_input",
+          });
+          expect(
+            yield* via({ ...paste, input: { ...paste.input, ids: [parent, parent, sibling] } }),
+          ).toMatchObject({ status: "failed", code: "ambiguous" });
+
+          const ids = [parent, child, sibling];
+          expect(yield* via({ ...paste, input: { ...paste.input, ids } })).toMatchObject({
+            status: "succeeded",
+            output: { ids, lines: { 1: parent, 2: child, 3: sibling } },
+          });
+          expect(yield* via({ id: "node.get", input: { id: parent, depth: 1 } })).toMatchObject({
+            status: "succeeded",
+            output: { node: { id: parent, children: [{ id: child, text: "Nested" }] } },
+          });
+        }),
+      ),
+  ],
+  [
     "no call says who makes it: the wire does, and an actor a call states is dropped, never refused",
     (set) =>
       overSurfaces(set, ({ name, surface }) =>

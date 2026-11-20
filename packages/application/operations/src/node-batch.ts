@@ -108,6 +108,7 @@ const planCall = Effect.fn("node.batch.call")(function* (
   at: string,
 ): Effect.fn.Return<{ id: NodeId; write: PlannedNodeWrite }, DomainError> {
   if (call.action === "node.add") {
+    // GAP [[01M7X43QWW4ZHWA2WFWJ6WP5ZY]] an optimistic batch re-mints missing ids on the server.
     const id = call.input.id ?? (yield* freshId);
     const graph = IndexedNodes.of(nodes);
     const { written } = yield* syncDomain(() =>
