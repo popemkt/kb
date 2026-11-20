@@ -1525,14 +1525,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — move store-jsonl's write-lock into a shared package as a path-keyed lock, take it around recordBuild's refresh-or-publish and prune, and add a concurrent refresh-vs-prune test
 - **node** — `01M6H0QPT8K2YPY6XV6SM5WRYH`
 
-### GAP: query print-roundtrip coverage quota depends on independent random samples
-
-- **expected** — Query round-trip coverage includes a guaranteed meaningful set of non-empty answers, independent of chance.
-- **current** — ir.test.ts samples 100 independently generated stores and queries, then requires at least 8 non-empty answers. CI run 42451620455 produced 7, although every round-trip comparison passed.
-- **impact** — An unchanged query implementation can fail the full core gate nondeterministically; this blocked the extension UI PR.
-- **closes** — Generate meaningful non-empty cases by construction alongside broad random cases, preserve the comparison contract, and reproduce the failing coverage distribution.
-- **node** — `01M6WV8JS4GPF0TRYDZY948C40`
-
 ### GAP: query-result rows are not keyed per pane
 
 - **expected** — query-result rows carry their outline host in their instance key, like other rows
@@ -3046,6 +3038,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Adding a value type edits a shared component; the per-type editors cannot be story-tested alone.
 - **closes** — Same registry as the FieldRow gap: one place maps a field type to its editor.
 - **node** — `01M1MGCND3KMDYJPSSMD2E4Q9J`
+
+### GAP: query print-roundtrip coverage quota depends on independent random samples
+
+- **expected** — Query round-trip coverage includes a guaranteed meaningful set of non-empty answers, independent of chance.
+- **current** — Closed: curated queries exercise each generated clause shape with a guaranteed non-empty result. The randomized round-trip comparison no longer depends on how many of its runs produce rows.
+- **impact** — An unchanged query implementation can fail the full core gate nondeterministically; this blocked the extension UI PR.
+- **closes** — Generate meaningful non-empty cases by construction alongside broad random cases, preserve the comparison contract, and reproduce the failing coverage distribution.
+- **node** — `01M6WV8JS4GPF0TRYDZY948C40`
 
 ### GAP: RefEditor mixes candidate search, keyboard handling and rendering in 22 branches
 
