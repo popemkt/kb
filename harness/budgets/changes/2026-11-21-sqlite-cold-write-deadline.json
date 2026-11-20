@@ -1,0 +1,4 @@
+{
+  "reason": "A first SQLite commit checks the write-lock deadline before creating the database.",
+  "raise": { "cli-closure": { "bytes": 16 } }
+}

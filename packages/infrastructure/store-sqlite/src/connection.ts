@@ -118,6 +118,8 @@ export function sqliteConnection(path: string): SqliteConnection {
 
   const open = (waitForLock?: () => number): Database => {
     if (handle !== null) return handle;
+    // Check the deadline before creating the directory or database.
+    waitForLock?.();
     mkdirSync(dirname(path), { recursive: true });
     const opened = new Database(path, { create: true });
     try {
