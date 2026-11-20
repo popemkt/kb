@@ -1297,6 +1297,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — An allowed-file list for KB_DATA and KB_CACHE stated once, and a check over what the code writes there; docs/research/2026-11-11-cli-host-modes.md section 9.
 - **node** — `01M788TDKRD09FEQS10QZZ39S7`
 
+### GAP: no in-app Back or Forward, so the desktop and phone apps have no navigation history
+
+- **expected** — Back and Forward are commands with buttons and bindable keys in every shell.
+- **current** — router.ts is pushState plus popstate; only a browser tab has Back, the Electron and phone shells have no chrome (F7 in docs/research/2026-11-20-outliner-tana-parity.md).
+- **impact** — After zooming or following a reference there is no way back in the apps kb is building.
+- **closes** — Brief 3 in docs/research/2026-11-20-outliner-tana-parity.md: header buttons, Go back and Go forward commands, router canGo and go.
+- **node** — `01M7WW1VZJBCBMXTQ2W3NSN6T2`
+
 ### GAP: no pop-out OS windows for panes
 
 - **expected** — a pane can pop out into its own browser window, kept in sync over /ws like any client
@@ -1337,6 +1345,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — One-shot commands stay an order of magnitude slower than curl even when a host is already warm, and agents that run many commands pay it on each.
 - **closes** — docs/research/2026-11-11-cli-host-modes.md section 5 and step 12.
 - **node** — `01M788TCV1H6XEE8X7TGTPP1Y1`
+
+### GAP: node palette advertises a ⌘S that is bound to nothing
+
+- **expected** — A label names a key that runs the command.
+- **current** — commands.tsx search-all reads Search everything… ⌘S; page-keys.ts leaves ⌘S to the browser, so the key does nothing (F6 in docs/research/2026-11-20-outliner-tana-parity.md).
+- **impact** — A hint that lies teaches people the keyboard is broken.
+- **closes** — Brief 6 in docs/research/2026-11-20-outliner-tana-parity.md: drop the label, or bind ⌘S as the owner decides.
+- **node** — `01M7WW1PRXPC058Y8MPDN8ADM0`
 
 ### GAP: node-config decode warnings reach the browser log, not the UI
 
@@ -1803,6 +1819,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Move the loop into @kb/test-kit, bounded by the test's timeout, and replace the seven copies with it
 - **node** — `01M7B3HX9R9DNDDTJY546W1HH3`
 
+### GAP: the # and > pickers list rows that do not match the query and ignore recency
+
+- **expected** — A trigger picker lists what matches the query, ranked by recency and use, the way the value picker does (orderCandidates, picker-recency).
+- **current** — matchCandidate matches an id substring, so every sys.tag.* id matches #ta; outlineTriggers stepTrigger feeds an alphabetical nodesOfKind list to pickerRows, so recency and use counts are never applied (F2, F3 in docs/research/2026-11-20-outliner-tana-parity.md).
+- **impact** — The first thing a Tana user touches is noisy: system tags and fields pad every list, nothing shows a type, and a declared seam (picker-recency) is unused here.
+- **closes** — Brief 2 in docs/research/2026-11-20-outliner-tana-parity.md: label-only match, orderCandidates in addTag and addField candidates, glyph and use-count note.
+- **node** — `01M7WW1MDZPJQRME00HG81PSKS`
+
 ### GAP: the 3D gizmo shows over a locked selection
 
 - **expected** — What the selection shows follows what may be done to it: a locked item shows no transform gizmo, as 2D shows it no resize handles.
@@ -2194,6 +2218,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Secondary labels, hints and counts set in translucent foreground can sit below AA in any design system without anything going red.
 - **closes** — Classify the translucent text roles (a small set of named text tokens, e.g. subtle and faint, in place of ad-hoc /N steps), hold each to its threshold in the guard, and retire the raw /N text utilities.
 - **node** — `01M3BEJDX4YP2DPHSCFS66NZK1`
+
+### GAP: turning a node into a query matches every node in the store
+
+- **expected** — A new query asks for its first condition, as Tana does, so the result is what the person meant.
+- **current** — turn-query writes DEFAULT_QUERY_EDN (no conditions); the page shows the whole store under the row (F5 in docs/research/2026-11-20-outliner-tana-parity.md).
+- **impact** — The first query a person makes floods the page with system nodes; the builder is below the fold.
+- **closes** — Brief 6 in docs/research/2026-11-20-outliner-tana-parity.md: Turn into query opens the Add tag step and writes a tag condition by id.
+- **node** — `01M7WW1S48RQ48GD7A14VZG545`
 
 ### GAP: two installed extensions cannot share a service key
 
