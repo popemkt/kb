@@ -1,6 +1,7 @@
 import { basename, extname } from "node:path";
 import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
+import { forEachChild, parse, type SyntaxNode } from "unbash";
 import { z } from "zod";
 import { propText, type CheckModel, type Finding } from "./model.ts";
 import { isFile, pathInRoot } from "./repo-files.ts";
@@ -15,29 +16,25 @@ const workflow = z.object({
 const rules = z.object({ rules: z.record(z.string(), z.unknown()).optional() });
 const lintConfig = rules.extend({ overrides: z.array(rules).optional() });
 
-// Keep quoted and escaped parts in their word. A # starts a comment only
-// between words. Shell operators end a command, including inside subshells.
-const SHELL_TOKENS =
-  /#[^\n]*|[;&|()<>\n]+|(?:'[^']*'|"(?:(?:\\[\s\S])|[^"\\])*"|`[^`]*`|\\[^\n]|[^\s;&|()<>'"`\\])+/g;
-const OPERATOR = /^[;&|()<>\n]/;
-const COMMAND_PREFIX = /^(?:if|then|elif|else|do|!|[a-zA-Z_][a-zA-Z_0-9]*=.*)$/;
-
-function* shellCommands(source: string): Generator<string[]> {
-  let words: string[] = [];
-  for (const token of source.replaceAll(/\\\r?\n/g, "").match(SHELL_TOKENS) ?? []) {
-    if (token.startsWith("#")) continue;
-    if (OPERATOR.test(token)) {
-      if (words.length > 0) yield words;
-      words = [];
-    } else if (words.length > 0 || !COMMAND_PREFIX.test(token)) {
-      words.push(token);
+/** Read statically spelled command words without running the shell or expanding variables. */
+function shellCommands(source: string): string[][] {
+  const commands: string[][] = [];
+  function visit(node: SyntaxNode): void {
+    if (node.type === "Script" && (node.errors?.length ?? 0) > 0) return;
+    if (node.type === "Command" && node.name !== undefined) {
+      const args = node.args.map((arg) =>
+        arg.type === "Word" ? arg.value : source.slice(arg.pos, arg.end),
+      );
+      commands.push([node.name.value, ...args]);
     }
+    forEachChild(node, visit);
   }
-  if (words.length > 0) yield words;
+  visit(parse(source));
+  return commands;
 }
 
 function commandMatches(source: string, invocation: readonly string[]): boolean {
-  return [...shellCommands(source)].some((words) =>
+  return shellCommands(source).some((words) =>
     invocation.every((word, index) => word === words[index]),
   );
 }

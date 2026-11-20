@@ -83,8 +83,10 @@ live, plus each surface's files — the `files` its `enforcement` option node
 declares, here this hook, `package.json`, the lint and tsc configs and the
 workflows. The audit reads commands from package scripts, shell hook files
 and workflow `run` steps. An invocation names the first words of one
-command, including any wrapper that runs it. Shell separators delimit
-commands, quotes keep a word together, and comments supply no commands.
+command, including any wrapper that runs it. A shell parser identifies
+commands and removes quoting from their words without evaluating
+expansions. Comments, here-document text and test operands supply no
+commands.
 Lint invocations name complete enabled rule keys in the lint config.
 Other file formats supply no invocations.
 

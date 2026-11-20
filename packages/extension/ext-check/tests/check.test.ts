@@ -331,6 +331,8 @@ describe("ext.check.audit", () => {
       "bun run harness",
     ],
     [".githooks/pre-commit", "# bun run harness\necho bun run harness\n", "bun run harness"],
+    [".githooks/pre-commit", "cat <<-'EOF'\n\tbun run test\n\tEOF\n", "bun run test"],
+    [".githooks/pre-commit", "[[ x < bun && run == test ]]\n", "bun"],
     [
       ".github/workflows/validate.yml",
       "jobs:\n  verify:\n    steps:\n      - name: bun run test\n        run: bun run test:ui # bun run test\n",
@@ -371,6 +373,12 @@ describe("ext.check.audit", () => {
       '{"rules":{"typescript/no-explicit-any":"error"}}',
       "typescript/no-explicit-any",
     ],
+    [
+      "package.json",
+      JSON.stringify({ scripts: { verify: '"bun" run harness' } }),
+      "bun run harness",
+    ],
+    [".githooks/pre-commit", '"bu"n "run" test', "bun run test"],
   ])("recognizes an invocation in %s", (path, source, invocation) =>
     audit(invocationFixture(path, source, invocation)).then((findings) => {
       expect(findings).toEqual([]);

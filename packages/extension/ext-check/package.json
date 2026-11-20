@@ -18,6 +18,7 @@
     "@kb/query": "workspace:*",
     "@kb/views": "workspace:*",
     "effect": "catalog:",
+    "unbash": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
