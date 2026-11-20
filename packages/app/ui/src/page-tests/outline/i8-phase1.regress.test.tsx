@@ -287,26 +287,18 @@ describe("i8 Phase 1 regressions (R9 B-table)", () => {
     expect(present(outlineNodes().get("n.root-a"), "n.root-a").text).toContain(beforeNext.text);
   });
 
-  it("F15: '/' at offset 0 of empty node opens node palette (Mode A)", async () => {
+  it("F15: '/' on an empty row opens the row's commands at the caret (Mode A)", async () => {
     const newId = await createTransientNode("n.root-c", null);
     const id = present(newId, "minted node");
+    await act(async () => mutations.updateNodeContent(id, "/"));
     const key = outlineInstanceKey(id, outlineNodes());
+    act(() => useOutlineStore.getState().activateNode(id, 1, key));
     await act(async () => {
       root.render(<NodeBlock nodeId={id} instanceKey={key} depth={0} />);
     });
-    const editor = present(container.querySelector('[contenteditable="true"]'), "editor");
-    await act(async () => {
-      const ev = new KeyboardEvent("keydown", { key: "/", bubbles: true, cancelable: true });
-      editor.dispatchEvent(ev);
-    });
-    // handler uses requestAnimationFrame to open palette after selectNode
-    await act(async () => {
-      await new Promise<void>((r) => {
-        const w = globalThis as unknown as { requestAnimationFrame?: (cb: () => void) => void };
-        if (w.requestAnimationFrame) w.requestAnimationFrame(() => r());
-        else setTimeout(() => r(), 0);
-      });
-    });
-    expect(useUiStore.getState().nodePaletteOpen).toBe(true);
+    // The node menu's commands, in the text's picker (DESIGN-UI.md → Triggers in the text).
+    const options = [...container.querySelectorAll('[role="listbox"] [role="option"]')];
+    expect(options.map((o) => o.textContent.trim())).toContain("Indent");
+    expect(useUiStore.getState().nodePaletteOpen).toBe(false);
   });
 });

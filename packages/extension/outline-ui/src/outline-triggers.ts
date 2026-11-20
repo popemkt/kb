@@ -1,9 +1,10 @@
 /**
  * The outline's triggers in a row's text (DESIGN-UI.md → Triggers in the
  * text), beside the `[[` every text has: `@` a date or a node, `#` a tag,
- * `>` a field. `#` and `>` are the Add tag and Add field steps opened from
- * the text, so they offer and write exactly what those steps do; `@` is
- * `[[`'s nodes with the date its query names first.
+ * `>` a field, `/` a command. `#` and `>` are the Add tag and Add field
+ * steps opened from the text, so they offer and write exactly what those
+ * steps do; `@` is `[[`'s nodes with the date its query names first; `/`
+ * is the node menu (`slashTrigger`).
  */
 import { parseDateInput, parseDay } from "@kb/model";
 import {
@@ -26,6 +27,7 @@ import {
 import { longDateLabel, relativeDateLabel, todayLocal } from "./date-display";
 import { outlineNodes } from "./outline.store";
 import { addField, addTag } from "./outline-steps";
+import { slashTrigger } from "./slash-trigger";
 import { landInFieldsOf } from "./value-slot-nav";
 
 /** How many rows a trigger's picker shows. */
@@ -243,10 +245,12 @@ function fieldTrigger(
 }
 
 /**
- * The outline's triggers for the text of row `nodeId` (the node its text
- * is: `shownNodeId`), drawn at `instanceKey`, beside every text's `[[`.
+ * The outline's triggers for the text of the row whose node is `rowNodeId`,
+ * its text node `nodeId`'s (`shownNodeId`: the row's own, or a reference's
+ * target), drawn at `instanceKey`, beside every text's `[[`.
  */
 export function outlineTriggers(
+  rowNodeId: string,
   nodeId: string,
   instanceKey: string | undefined,
   schema: SchemaIndex,
@@ -256,5 +260,6 @@ export function outlineTriggers(
     mentionTrigger(nodeId),
     stepTrigger("tag", addTag, openedAfterSpace("#", "[^\\s#]*"), row),
     fieldTrigger(row, instanceKey),
+    slashTrigger(rowNodeId, openedAfterSpace("/", "[^\\s/]*")),
   ];
 }

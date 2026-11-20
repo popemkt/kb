@@ -1707,9 +1707,9 @@ replaces what was typed for the trigger, the opener and its query, and may
 then write. The text it leaves and what it writes are one write of the
 page's (`PageWrites.together`: one `node.batch`, one undo step), so one
 undo puts the row back as it was before the pick: the typed trigger back,
-the reference, tag or field gone. ⌘Z in the row reaches it in its place
-among the row's typing (`lib/text-history.ts`, a `page` step), and ⌘⇧Z
-makes it again.
+the reference, tag, field or command's write gone. ⌘Z in the row reaches
+it in its place among the row's typing (`lib/text-history.ts`, a `page`
+step), and ⌘⇧Z makes it again.
 
 - `[[` opens anywhere and offers every node (`nodeCandidates`). A pick
   inserts a reference, `[[id|label]]`, and Enter with nothing to pick
@@ -1742,10 +1742,19 @@ makes it again.
   the page head.
   To add a field to a node that has text, use Add field on that node
   (its menu, or the palette).
+- `/` opens at the start of the text or after a space, its query one word,
+  so `a/b` and an address are text. It offers the row's node menu, the
+  commands and the order the node palette shows (`BrowserHost.nodeCommands`),
+  matched by label. A pick takes `/` and the query out of the text and
+  runs the command about the row. A command that opens a picker step (Add
+  tag, Move to…) opens it in the node palette, on the row. Once the write
+  has landed and nothing else holds the focus, the row is edited where it
+  is drawn then (under its new parent, after Indent), the caret where `/`
+  was.
 
-`[[` is every text host's. `@`, `#` and `>` are the outline's: its rows
-pass them to their text host beside `[[`. A trigger with nothing to offer is
-closed, so its keys stay the text's: `@` or `#` in prose and `> ` starting a
+`[[` is every text host's. `@`, `#`, `>` and `/` are the outline's: its
+rows pass them to their text host beside `[[`. A trigger with nothing to
+offer is closed, so its keys stay the text's: `@` or `#` in prose and `> ` starting a
 quote are typed as text. Escape closes the picker and keeps the text, until
 the query changes. The table is the text host's own, not a plugin point;
 when a second family needs a trigger of its own, it becomes one.

@@ -12,13 +12,14 @@ import { bundledPlugin } from "@kb/contracts";
 import { daysExtension } from "@kb/days";
 import { parseDateInput, present, SYSTEM_IDS } from "@kb/model";
 import { definePlugin } from "@kb/plugin";
-import { DateTargetService, outlineInstanceKey, syncUiPlugins } from "@kb/ui-sdk";
+import { browserHost, DateTargetService, outlineInstanceKey, syncUiPlugins } from "@kb/ui-sdk";
 import { mutations } from "@/actions/mutations";
 import { useGraphStore } from "@/stores/graph.store";
 import { rankedFixture } from "@/test-support/ranked-fixture";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
-import { NodeBlock, outlineNodes, useOutlineStore } from "@kb/outline-ui";
+import { NodeBlock, NodeCommandPalette, outlineNodes, useOutlineStore } from "@kb/outline-ui";
+import { useUiStore } from "@/stores/ui.store";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
 
 beforeAll(() => syncPagePlugins([outlineUiPlugin]));
@@ -289,6 +290,7 @@ describe("triggers in the text", () => {
       expect(container.querySelector('[role="listbox"]')).toBeNull();
     });
   });
+
   /** Press ⌘Z (⌘⇧Z with `shift`) in `el`, the chord the text host answers. */
   async function chord(el: HTMLElement, shift = false): Promise<void> {
     await act(async () => {
@@ -303,6 +305,15 @@ describe("triggers in the text", () => {
       el.dispatchEvent(ev as unknown as Event);
     });
   }
+
+  /** The editor of row `row` as it is drawn now. */
+  const editorOf = (row = ROW) =>
+    present(
+      container.querySelector<HTMLElement>(
+        `[data-instance-key="${outlineInstanceKey(row, outlineNodes())}"] [contenteditable]`,
+      ),
+      "editor",
+    );
 
   describe("a pick is one write", () => {
     it("# : one undo step, one node.batch with the text and the tag; ⌘Z in the row takes it back", async () => {
@@ -347,6 +358,81 @@ describe("triggers in the text", () => {
       await chord(el);
       await vi.waitFor(() => expect(textOf(ROW)).toBe("x #to"));
       expect(propOf(ROW, SYSTEM_IDS.typeField)).not.toContainEqual({ t: "ref", v: "tag.todo" });
+    });
+  });
+
+  describe("/", () => {
+    /** The labels listed when `text` is typed in the row, or null when no picker opens. */
+    async function offered(text: string): Promise<string[] | null> {
+      await typed(text);
+      return container.querySelector('[role="listbox"]') === null ? null : listed();
+    }
+
+    it("opens at the start and after a space, never inside a word, an address or [[", async () => {
+      expect(await offered("/")).toContain("Indent");
+      expect(await offered("then /ind")).toContain("Indent");
+      expect(await offered("a/b")).toBeNull();
+      expect(await offered("see https://x")).toBeNull();
+      expect(await offered("[[/")).not.toContain("Indent");
+      // Its query is one word: a space after it closes the picker.
+      expect(await offered("/ind more")).toBeNull();
+    });
+
+    it("lists the node menu's commands for the row, in its order", async () => {
+      const all = await offered("/");
+      const menu = browserHost().nodeCommands(
+        { nodeId: ROW, frameId: ROW, nodeIds: [ROW] },
+        { close: () => {}, openStep: () => {} },
+      );
+      expect(all).toEqual(menu.map((command) => command.label));
+    });
+
+    it("runs a command about the row: /ind indents it, and the text goes, in one undo step", async () => {
+      const el = await typed("/ind");
+      const parentBefore = outlineNodes().get(ROW)?.parentId ?? null;
+      const undoBefore = useGraphStore.getState().undoStack.length;
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(outlineNodes().get(ROW)?.parentId).toBe("n.root-b"));
+      expect(textOf(ROW)).toBe("");
+      expect(useGraphStore.getState().undoStack).toHaveLength(undoBefore + 1);
+      await act(() => mutations.undo());
+      await vi.waitFor(() => expect(outlineNodes().get(ROW)?.parentId ?? null).toBe(parentBefore));
+      expect(textOf(ROW)).toBe("/ind");
+    });
+
+    it("a command that is a picker step opens it in the node palette, where a pick writes", async () => {
+      const key = outlineInstanceKey(ROW, outlineNodes());
+      await act(async () => mutations.updateNodeContent(ROW, "/tag"));
+      act(() => useOutlineStore.getState().activateNode(ROW, 4, key));
+      function Page() {
+        const open = useUiStore((s) => s.nodePaletteOpen);
+        return (
+          <>
+            <NodeBlock nodeId={ROW} instanceKey={key} depth={0} />
+            <NodeCommandPalette
+              open={open}
+              onClose={() => useUiStore.getState().setNodePaletteOpen(false)}
+            />
+          </>
+        );
+      }
+      await act(async () => root.render(<Page />));
+      expect(listed()[0]).toBe("Add tag");
+      await press(editorOf(), "Enter");
+      await vi.waitFor(() => expect(useUiStore.getState().nodePaletteOpen).toBe(true));
+      expect(useUiStore.getState().nodePaletteStep).toBe("outline.add-tag");
+      expect(textOf(ROW)).toBe("");
+      const todo = present(
+        [...dom.document.querySelectorAll('[data-palette-list="true"] button')].find(
+          (b) => b.textContent.trim() === "todo",
+        ),
+        "the todo row",
+      ) as unknown as HTMLElement;
+      await act(async () => todo.click());
+      await vi.waitFor(() =>
+        expect(propOf(ROW, SYSTEM_IDS.typeField)).toContainEqual({ t: "ref", v: "tag.todo" }),
+      );
+      act(() => useUiStore.getState().setNodePaletteOpen(false));
     });
   });
 });

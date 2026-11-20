@@ -69,8 +69,8 @@ export function NodeContent({
   const { instanceKey } = props;
   const { schema, onFollow } = binding;
   const triggers = useMemo(
-    () => outlineTriggers(textNodeId, instanceKey, schema),
-    [textNodeId, instanceKey, schema],
+    () => outlineTriggers(node.id, textNodeId, instanceKey, schema),
+    [node.id, textNodeId, instanceKey, schema],
   );
   const inPlace = instanceKey !== undefined && opensInPlace(instanceKey);
   const expansion = useOutlineStore((s) => s.expansion);

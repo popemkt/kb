@@ -73,10 +73,8 @@ export interface NodeTextHostBinding {
   onFollow: Follow;
   consumeCaret: (instanceKey: string) => CaretIntent | null;
   placeCaret: (instanceKey: string, at: CaretAt) => void;
-  selectNode: (id: string, instanceKey?: string) => void;
   registerTextHost: (instanceKey: string) => void;
   unregisterTextHost: (instanceKey: string) => void;
-  setNodePaletteOpen: (open: boolean) => void;
 }
 
 export interface NodeTextHostProps extends NodeTextHostBinding {
@@ -237,10 +235,8 @@ export function NodeTextHost({
   onFollow,
   consumeCaret,
   placeCaret,
-  selectNode,
   registerTextHost,
   unregisterTextHost,
-  setNodePaletteOpen,
   ingest,
   onRemoveTag,
   triggers: own = NONE,
@@ -522,26 +518,6 @@ export function NodeTextHost({
         return;
       }
 
-      // F15: '/' at offset 0 of an empty node opens the node palette (r1 Mode A MUST, before autocomplete).
-      if (
-        e.key === "/" &&
-        !e.metaKey &&
-        !e.ctrlKey &&
-        content === "" &&
-        getCaretSerializedOffset(editorRef.current) === 0
-      ) {
-        e.preventDefault();
-        // Select this row so palette can anchor, then open it
-        selectNode(nodeId, instanceKey);
-        // rAF not available in happy-dom — fall back to sync
-        if (typeof requestAnimationFrame === "function") {
-          requestAnimationFrame(() => setNodePaletteOpen(true));
-        } else {
-          setNodePaletteOpen(true);
-        }
-        return;
-      }
-
       if (open !== null && picker.handleKeyDown(e)) {
         // D14: Escape dismisses the popover only — stay editing, keep caret.
         if (e.key === "Escape") e.stopPropagation();
@@ -551,17 +527,7 @@ export function NodeTextHost({
       setCursor(getCaretSerializedOffset(editorRef.current));
       onKeyDown(e);
     },
-    [
-      open,
-      picker,
-      onKeyDown,
-      content,
-      nodeId,
-      instanceKey,
-      selectNode,
-      setNodePaletteOpen,
-      textHistory,
-    ],
+    [open, picker, onKeyDown, textHistory],
   );
 
   const showPadlock = readOnly && !isActive;

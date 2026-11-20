@@ -13,10 +13,8 @@ const binding: NodeTextHostBinding = {
   onFollow: noopFollow,
   consumeCaret: () => null,
   placeCaret: noop,
-  selectNode: noop,
   registerTextHost: noop,
   unregisterTextHost: noop,
-  setNodePaletteOpen: noop,
 };
 
 const oneTag = [{ id: "tag.todo", name: "todo", color: "#3b82f6" }];
