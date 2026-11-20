@@ -1,11 +1,11 @@
 /**
  * Caller admission and projection in the invoke core (`ActionDefinition.callers`,
- * `ActionDefinition.callerOutput`, `ActionDefinition.carriesApproval`): enforced
+ * `ActionDefinition.callerOutput`): enforced
  * through the invocation contract for every surface, without relying on an HTTP
  * service context.
  */
 import { describe, expect, test } from "bun:test";
-import { Effect } from "effect";
+import { Effect, Logger } from "effect";
 import { z } from "zod";
 import { PAGE_WIRE, onWire, type KbContext, type SurfaceWire } from "@kb/contracts";
 import type { NodeIndex } from "@kb/query";
@@ -59,6 +59,70 @@ const ACTIONS = new Map<string, RegisteredAction<never>>([
 ]);
 
 describe("action caller enforcement through the invocation contract", () => {
+  test.each(["output", "projection", "defect"])(
+    "capture receipts hide %s schema diagnostics",
+    async (phase) => {
+      const privateValue = "private graph value";
+      const Output = z.object({ privateValue: z.string() });
+      const Reject = Output.refine(() => false, {
+        message: privateValue,
+        path: ["privateValue"],
+      });
+      const projection =
+        phase === "defect"
+          ? {
+              "~standard": {
+                ...Output["~standard"],
+                validate: () => Promise.reject(new Error(privateValue)),
+              },
+            }
+          : Reject;
+      const id = "diagnostic.output";
+      const actions = new Map<string, RegisteredAction<never>>([
+        [
+          id,
+          {
+            def: {
+              id,
+              title: "Diagnostic output",
+              description: "Returns a value that a schema rejects.",
+              mode: { kind: "read" },
+              callers: ["program", "capture-device", "capture-pairing"],
+              callerOutput: { "capture-device": projection, "capture-pairing": projection },
+              inputSchema: z.object({}),
+              outputSchema: phase === "output" ? Reject : Output,
+            },
+            effect: () => Effect.succeed({ privateValue }),
+            source: "core",
+            aliases: [],
+          },
+        ],
+      ]);
+      const logs: unknown[] = [];
+      const logger = Logger.make(({ message }) => logs.push(message));
+      for (const wire of [DEVICE_WIRE, { ...DEVICE_WIRE, caller: "capture-pairing" } as const]) {
+        const receipt = await Effect.runPromise(
+          invokeReceiptWith(actions, FAKE_CTX, onWire(wire, { id, input: {} })).pipe(
+            Effect.provide(Logger.layer([logger])),
+          ),
+        );
+        expect(receipt).toEqual({
+          status: "failed",
+          id,
+          code: "internal",
+          message: "capture action output is invalid",
+        });
+      }
+      expect(JSON.stringify(logs)).toContain(privateValue);
+      if (phase !== "defect") expect(JSON.stringify(logs)).toContain('"path":["privateValue"]');
+      const ordinary = await Effect.runPromise(
+        invokeReceiptWith(actions, FAKE_CTX, onWire(PROGRAM_WIRE, { id, input: {} })),
+      );
+      if (phase === "output") expect(JSON.stringify(ordinary)).toContain(privateValue);
+      else expect(ordinary).toMatchObject({ status: "succeeded", output: { privateValue } });
+    },
+  );
+
   test("enforces callers on CLI/MCP/replica wires and when invocation.caller is omitted", async () => {
     // Omitted caller on an agent/cli invocation defaults to "program", never "allow all".
     const omittedProgram = await Effect.runPromise(

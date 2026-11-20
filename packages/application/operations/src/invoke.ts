@@ -1,11 +1,12 @@
 import type { NodeIndex } from "@kb/query";
-import { Effect, Predicate } from "effect";
+import { Cause, Effect, Predicate } from "effect";
 import {
   type ActionDefinition,
   type ActionEffectHandler,
   type ActionHandlerEnv,
   type ActionInvocation,
   type ActionReceipt,
+  type CallerKind,
   failed,
   succeeded,
   type ExtensionPromiseHandler,
@@ -17,6 +18,7 @@ import {
   approvalSubject,
   callerRefusal,
   invocationCaller,
+  isCaptureCaller,
 } from "@kb/contracts";
 import {
   ActionSchemaError,
@@ -147,6 +149,36 @@ const parseOutput = Effect.fnUntraced(function* (
 });
 
 /**
+ * Both output schemas read unprojected data. Keep their diagnostics on the
+ * host when the receipt goes to a capture caller.
+ */
+const outputForCaller = Effect.fnUntraced(function* (
+  def: ActionDefinition,
+  caller: CallerKind,
+  output: unknown,
+) {
+  const validate = Effect.gen(function* () {
+    const validated = yield* parseOutput(def.id, def.outputSchema, output);
+    const projection = def.callerOutput?.[caller];
+    return projection === undefined ? validated : yield* parseOutput(def.id, projection, validated);
+  });
+  if (!isCaptureCaller(caller)) return yield* validate;
+  return yield* validate.pipe(
+    Effect.catchCause((cause) =>
+      Effect.gen(function* () {
+        if (Cause.hasInterruptsOnly(cause)) return yield* Effect.failCause(cause);
+        const diagnostic = Cause.squash(cause);
+        yield* Effect.logError(
+          diagnostic instanceof Error ? diagnostic.message : String(diagnostic),
+          isDomainError(diagnostic) ? diagnostic.details : undefined,
+        );
+        return yield* domainError("internal", "capture action output is invalid");
+      }),
+    ),
+  );
+});
+
+/**
  * How deep calls may nest, each made inside another (an action's handler
  * invoking, or a listener's): past it the call is refused, so a listener
  * or an action that calls back into what it intercepts cannot run away.
@@ -249,10 +281,7 @@ const invokeCall = Effect.fn("kb.invoke")(function* <R>(
   const output = yield* interceptOutput(interception, { ctx, invocation, action }, produced).pipe(
     asCall(invocation),
   );
-  const validated = yield* parseOutput(entry.def.id, entry.def.outputSchema, output);
-  const projection = entry.def.callerOutput?.[caller];
-  const projected =
-    projection === undefined ? validated : yield* parseOutput(entry.def.id, projection, validated);
+  const projected = yield* outputForCaller(entry.def, caller, output);
   return succeeded(id, projected, fill.context);
 });
 

@@ -288,8 +288,8 @@ export interface ActionDefinition<
   callers?: readonly CallerKind[];
   /**
    * Optional per-caller output projection schemas. After the handler's output
-   * passes `outputSchema`, a top-level call from a caller kind listed here is
-   * projected through its declared schema.
+   * passes `outputSchema`, the invoke core applies the caller's declared
+   * projection to the receipt.
    */
   callerOutput?: Readonly<Partial<Record<CallerKind, ActionSchema>>>;
   /**
