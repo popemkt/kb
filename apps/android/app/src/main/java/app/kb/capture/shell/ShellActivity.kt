@@ -1,48 +1,81 @@
 package app.kb.capture.shell
 
 import android.Manifest
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.view.View
+import android.view.ViewGroup
+import android.webkit.ValueCallback
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import app.kb.capture.KbCapture
 import app.kb.capture.R
 import app.kb.capture.delivery.DeliveryWorker
-import com.getcapacitor.Bridge
 import com.getcapacitor.BridgeActivity
-import com.getcapacitor.BridgeWebViewClient
 
 /**
- * The app: one WebView, which shows either the shell's own page (Stores,
- * the queue, Capture) or a paired store's own kb UI, loaded from the store
- * as a browser would load it ([Routes]). It owns the three things the page
- * cannot: what a launch or a `kb://` link opens, the back button, and the
- * queue in place of a store UI that did not load.
+ * The app: two WebViews, one shown at a time ([Pane]). Capacitor's shows the
+ * shell's own bundled page (Stores, the queue, Capture) and holds the
+ * bridge to the Kotlin core. A [StoreWebView] shows a paired store's own kb
+ * UI, loaded from the store as a browser would load it, with no bridge and
+ * no native interface. Every move goes through [show], which picks the pane
+ * by [Routes.paneFor]. The activity owns the three things the pages cannot:
+ * what a launch or a `kb://` link opens, the back button, and the queue in
+ * place of a store UI that did not load.
  */
 class ShellActivity : BridgeActivity() {
     private val app get() = KbCapture.of(this)
+    private val shellView: WebView get() = bridge.webView
+
+    /**
+     * Made on first use, beside Capacitor's WebView: [BridgeActivity] hands
+     * the first intent to [onNewIntent] from inside `super.onCreate`, once
+     * the bridge exists.
+     */
+    internal val storeView: StoreWebView by lazy {
+        StoreWebView(this).also {
+            it.setBackgroundColor(getColor(R.color.kb_background))
+            it.visibility = View.GONE
+            it.webViewClient = StoreClient()
+            it.webChromeClient = StoreChrome()
+            (shellView.parent as ViewGroup).addView(it, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        }
+    }
+
+    private val shown: WebView get() = if (storeView.visibility == View.VISIBLE) storeView else shellView
+
+    private var choosing: ValueCallback<Array<Uri>>? = null
+    private val chooseFiles =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            choosing?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data))
+            choosing = null
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         registerPlugin(ShellPlugin::class.java)
         super.onCreate(savedInstanceState)
-        bridge.webView.setBackgroundColor(getColor(R.color.kb_background))
-        bridge.setWebViewClient(ShellWebViewClient(bridge))
+        shellView.setBackgroundColor(getColor(R.color.kb_background))
         askToNotify()
         onBackPressedDispatcher.addCallback(
             this,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
-                    val webView = bridge.webView
-                    val history = webView.copyBackForwardList()
+                    val view = shown
+                    val history = view.copyBackForwardList()
                     val previous = history.getItemAtIndex(history.currentIndex - 1)?.url
-                    when (val back = Routes.back(webView.url, previous, app.pairings.all.value)) {
-                        Back.GoBack -> webView.goBack()
-                        is Back.Load -> webView.loadUrl(back.url)
+                    when (val back = Routes.back(view.url, previous, app.pairings.all.value)) {
+                        Back.GoBack -> view.goBack()
+                        is Back.Load -> show(back.url)
                         Back.Leave -> finish()
                     }
                 }
@@ -50,12 +83,38 @@ class ShellActivity : BridgeActivity() {
         )
     }
 
+    /** Shows [url] in its pane ([Routes.paneFor]): the shell's page, a store's UI, or the browser for anything else. */
+    fun show(url: String) {
+        when (Routes.paneFor(url, app.pairings.all.value)) {
+            Pane.Shell -> {
+                if (shellView.url != url) shellView.loadUrl(url)
+                reveal(shellView, storeView)
+            }
+            Pane.Store -> {
+                storeView.loadUrl(url)
+                reveal(storeView, shellView)
+            }
+            Pane.Outside ->
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                } catch (_: ActivityNotFoundException) {
+                    // Nothing on the phone opens it; the page stays where it was.
+                }
+        }
+    }
+
+    private fun reveal(view: WebView, hidden: WebView) {
+        hidden.visibility = View.GONE
+        view.visibility = View.VISIBLE
+        view.requestFocus()
+    }
+
     /** A launch, a `kb://` link, the widget and the tile all arrive here ([BridgeActivity] passes the first intent too). */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         val link = if (intent.action == Intent.ACTION_VIEW) intent.dataString else null
-        if (intent.action == Intent.ACTION_MAIN && bridge.webView.url != null && !Routes.isShell(bridge.webView.url)) return
-        bridge.webView.loadUrl(Routes.forLink(link, app.pairings.current))
+        if (intent.action == Intent.ACTION_MAIN && storeView.visibility == View.VISIBLE) return
+        show(Routes.forLink(link, app.pairings.current))
     }
 
     /** Delivery tells the person about a refused capture or a paused store ([DeliveryNotices]); Android 13+ asks first. */
@@ -74,26 +133,43 @@ class ShellActivity : BridgeActivity() {
     }
 
     /**
-     * Capacitor's client, plus one rule: when a store's UI does not load
-     * (offline, the host asleep, a proxy's 5xx, a capture-only listener's
-     * 403), the queue is shown in its place, saying why, rather than a
-     * broken page.
+     * The store pane's navigation: its own store's pages stay, anything else
+     * goes through [show]. When a store's UI does not load (offline, the host
+     * asleep, a proxy's 5xx, a capture-only listener's 403), the queue is
+     * shown in its place, saying why, rather than a broken page.
      */
-    private inner class ShellWebViewClient(bridge: Bridge) : BridgeWebViewClient(bridge) {
+    private inner class StoreClient : WebViewClient() {
+        override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+            val url = request.url.toString()
+            if (Routes.paneFor(url, app.pairings.all.value) == Pane.Store) return false
+            show(url)
+            return true
+        }
+
         override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-            super.onReceivedError(view, request, error)
-            if (request.isForMainFrame) offline(view, request, error.description?.toString() ?: "it did not load")
+            if (request.isForMainFrame) offline(request, error.description?.toString() ?: "it did not load")
         }
 
         override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
-            super.onReceivedHttpError(view, request, response)
-            if (request.isForMainFrame && response.statusCode >= 400) offline(view, request, "HTTP ${response.statusCode}")
+            if (request.isForMainFrame && response.statusCode >= 400) offline(request, "HTTP ${response.statusCode}")
         }
 
-        private fun offline(view: WebView, request: WebResourceRequest, why: String) {
-            val url = request.url.toString()
-            if (Routes.isShell(url)) return
-            view.loadUrl(Routes.offline(Routes.storeOf(url, app.pairings.all.value), why))
+        private fun offline(request: WebResourceRequest, why: String) =
+            show(Routes.offline(Routes.storeOf(request.url.toString(), app.pairings.all.value), why))
+    }
+
+    /** A browser's dialogs, and its file picker for the UI's attachments. */
+    private inner class StoreChrome : WebChromeClient() {
+        override fun onShowFileChooser(view: WebView, callback: ValueCallback<Array<Uri>>, params: FileChooserParams): Boolean {
+            choosing?.onReceiveValue(null)
+            choosing = callback
+            return try {
+                chooseFiles.launch(params.createIntent())
+                true
+            } catch (_: ActivityNotFoundException) {
+                choosing = null
+                false
+            }
         }
     }
 }

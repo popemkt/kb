@@ -14,6 +14,8 @@ work = "2.10.4"
 serialization = "1.9.0"
 coroutines = "1.10.2"
 junit = "4.13.2"
+# Runs the shell activity on the JVM, Capacitor included, for ShellActivityTest.
+robolectric = "4.16"
 
 [libraries]
 capacitor-core = { group = "com.capacitorjs", name = "core", version.ref = "capacitor" }
@@ -26,6 +28,8 @@ serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serializ
 coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+work-testing = { group = "androidx.work", name = "work-testing", version.ref = "work" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

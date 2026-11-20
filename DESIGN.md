@@ -5787,11 +5787,13 @@ remains GAP [[01M413SP3QSSQJMKKDK3W3J6G8]].
     `script-src` today; one added later must allow these scripts' origins.
 - **Phone app** (`apps/android`): a Capacitor shell around kb's own web
   UI. A paired store is the URL of its `kb ui`. The shell loads that page
-  in its WebView as a browser would, so the UI is always the store's own kb
-  version and never a second UI. Capacitor's bridge is injected only into
-  the shell's bundled page (Stores, the capture queue, Capture), so the
-  store's page gets no native access. Native code is kept for what only a
-  device does:
+  as a browser would, so the UI is always the store's own kb version and
+  never a second UI. It does so in a WebView of its own, which no bridge
+  touches and which refuses any JavaScript interface. Capacitor's WebView
+  shows only the shell's bundled page (Stores, the capture queue, Capture)
+  and holds the bridge, so the store's page gets no native access even where
+  Capacitor falls back to an origin-wide interface. Native code is kept for
+  what only a device does:
   - the share receiver, and a durable queue delivered later, raw, to the
     paired store's `capture.submit` over `POST /api/action` with the device
     credential from `capture.pair` as a bearer token. A bearer `kbcap_`

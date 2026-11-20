@@ -167,7 +167,7 @@ only when Android names the referrer.
 | `pairing/` | Paired stores and the Keystore-sealed credential |
 | `delivery/` | The host client, the delivery decisions, `Notices`, and the WorkManager worker |
 | `share/` | The share-sheet receiver |
-| `shell/` | The Capacitor activity, `Routes` (where the WebView goes: launch, links, back, offline), `Shell` (the page's moves over the core) and the `KbShell` plugin |
+| `shell/` | The activity and its two WebViews (Capacitor's for the shell's page, `StoreWebView` for a store's UI, with no bridge), `Routes` (which pane shows a URL: launch, links, back, offline), `Shell` (the page's moves over the core) and the `KbShell` plugin |
 | `device/` | The widget, the quick-settings tile and the delivery notifications |
 | `assets/public/` | The shell's page: Stores, Queue and Capture |
 
@@ -179,7 +179,10 @@ The unit tests (`app/src/test`) run on the JVM, with no emulator. They cover:
 - power cuts before every step, against a disk that models what a crash
   keeps (`CrashDisk`);
 - every delivery outcome, and what it notifies, against a scripted host;
-- the shell's routing and its page's moves.
+- the shell's routing and its page's moves;
+- the real activity, Capacitor included, on Robolectric: a store's UI loads
+  only in the WebView with no bridge, even where Capacitor falls back to an
+  origin-wide interface.
 
 The page's JS is not typechecked or linted, as the rest of the Gradle
 project is not gated yet (GAP [[01M7QTAHN8YW57M1R1XYGRBSZ8]]).

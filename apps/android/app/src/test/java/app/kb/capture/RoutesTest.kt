@@ -2,6 +2,7 @@ package app.kb.capture
 
 import app.kb.capture.pairing.Pairing
 import app.kb.capture.shell.Back
+import app.kb.capture.shell.Pane
 import app.kb.capture.shell.Routes
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -44,10 +45,13 @@ class RoutesTest {
     }
 
     @Test
-    fun `only the shell's page and paired stores stay in the app`() {
-        assertTrue(Routes.staysInApp("https://localhost/#/stores", stores))
-        assertTrue(Routes.staysInApp("https://kb.tail.ts.net/n/01ABC", stores))
-        assertFalse(Routes.staysInApp("https://example.com/article", stores))
+    fun `the shell's page, a paired store's UI and anything else each have their own pane`() {
+        assertEquals(Pane.Shell, Routes.paneFor("https://localhost/#/stores", stores))
+        assertEquals(Pane.Store, Routes.paneFor("https://kb.tail.ts.net/n/01ABC", stores))
+        assertEquals(Pane.Store, Routes.paneFor("http://100.64.0.2:4321/", stores))
+        assertEquals(Pane.Outside, Routes.paneFor("https://example.com/article", stores))
+        assertEquals(Pane.Outside, Routes.paneFor("http://localhost:4321/", stores))
+        assertEquals(Pane.Outside, Routes.paneFor(null, stores))
     }
 
     @Test

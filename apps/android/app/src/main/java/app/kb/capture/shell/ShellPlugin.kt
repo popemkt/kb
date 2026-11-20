@@ -18,9 +18,10 @@ import kotlinx.serialization.KSerializer
 
 /**
  * `KbShell`, the one plugin the shell's own page calls: [Shell]'s moves,
- * translated from and to JSON, plus `open` and `show`, which move the
- * WebView. Capacitor injects its bridge only into the shell's origin
- * ([Routes.SHELL]), so a store's UI cannot reach this plugin.
+ * translated from and to JSON, plus `open` and `show`, which change what
+ * [ShellActivity] shows. Only the shell's bundled page runs in Capacitor's
+ * WebView. A store's UI runs in a [StoreWebView], which no bridge reaches,
+ * so it cannot call this plugin.
  *
  * The page hears `state` whenever the queue or the pairings change.
  */
@@ -39,8 +40,12 @@ class ShellPlugin : Plugin() {
 
     override fun handleOnDestroy() = scope.cancel()
 
-    /** Links within the shell's page and paired stores' UIs stay in the WebView; Capacitor opens any other outside. */
-    override fun shouldOverrideLoad(url: Uri): Boolean? = if (Routes.staysInApp(url.toString(), app.pairings.all.value)) false else null
+    /** Capacitor's WebView keeps only the shell's page; a link anywhere else is shown in its own pane ([ShellActivity.show]). */
+    override fun shouldOverrideLoad(url: Uri): Boolean {
+        if (Routes.isShell(url.toString())) return false
+        show(url.toString())
+        return true
+    }
 
     @PluginMethod
     fun state(call: PluginCall) = answer(call, ShellState.serializer()) { app.shell.state() }
@@ -73,18 +78,18 @@ class ShellPlugin : Plugin() {
     @PluginMethod
     fun open(call: PluginCall) {
         val store = app.pairings.byKey(call.getString("key").orEmpty()) ?: return call.reject("That store is not paired.")
-        load(Routes.home(store))
+        show(Routes.home(store))
         call.resolve()
     }
 
     /** Shows one of the shell's own views: `stores`, `queue` or `capture`. */
     @PluginMethod
     fun show(call: PluginCall) {
-        load(Routes.forLink("kb://${call.getString("view") ?: "stores"}", app.pairings.current))
+        show(Routes.forLink("kb://${call.getString("view") ?: "stores"}", app.pairings.current))
         call.resolve()
     }
 
-    private fun load(url: String) = bridge.executeOnMainThread { bridge.webView.loadUrl(url) }
+    private fun show(url: String) = bridge.executeOnMainThread { (activity as ShellActivity).show(url) }
 
     private fun <T> answer(call: PluginCall, serializer: KSerializer<T>, block: () -> T) {
         scope.launch {

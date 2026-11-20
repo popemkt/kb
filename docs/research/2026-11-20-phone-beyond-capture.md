@@ -242,10 +242,19 @@ from the server, because it is the same page served by the same process.
 UI changes ship with the store's kb and need no over-the-air mechanism. Only
 a change to the shell or its plugins needs a new APK.
 
-The store page runs as it does in a phone browser. Capacitor injects its JS
-bridge only into the app's own origin: a document-start script for one
-origin, `https://localhost`, through `WebViewCompat`. The store's page
-therefore has **no native access**, and the token stays out of its reach.
+The store page runs as it does in a phone browser, in a WebView of its own
+(`StoreWebView`). The app has two WebViews and shows one at a time.
+Capacitor's WebView shows only the shell's bundled page and holds the
+bridge. The store's WebView has no bridge, and it refuses
+`addJavascriptInterface` from any caller. Capacitor alone would not be
+enough. It injects its bridge into one origin, `https://localhost`,
+through a scoped `WebViewCompat` listener. Where that listener is
+unavailable, fails to register, or the legacy bridge is configured, it
+falls back to an origin-wide `addJavascriptInterface`, which would reach
+any page in its WebView. A store's page therefore never loads there, and
+it has **no native access** in any case. The token stays out of its
+reach. `ShellActivityTest` runs the real activity on Robolectric, whose
+WebView forces that fallback, and checks the store's page against it.
 Whatever admits a phone browser to that page admits the shell: the same
 listener, origins and identity rules. One URL serves both halves. The page
 is at `<url>/`, and capture delivery and pairing go to `<url>/api/action`.
