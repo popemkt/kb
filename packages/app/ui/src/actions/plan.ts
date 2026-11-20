@@ -10,7 +10,7 @@ import {
   viewsWithDefault,
   siblingSlots,
   viewOptionOf,
-  shownNodeOf,
+  contextualTargetOf,
   type FieldType,
   togglesChecked,
   type Writable,
@@ -34,13 +34,16 @@ function requireNode(nodes: WireNode[], id: string): WireNode {
   return node;
 }
 /**
- * The node row `id` shows (`shownNodeOf`): a contextual reference's target,
- * the row itself otherwise. What a write reads or changes of a row's content
- * — its children, its fields — is this node's; its place is the row's own.
+ * The node whose content a write on row `id` reads or changes — its
+ * children, its fields: a contextual reference's target, the row itself
+ * otherwise; its place is the row's own. Null for a reference whose target
+ * is gone: it has no content to write, and writing the reference node's own
+ * fields instead would give it content of its own.
  */
-function shownOf(nodes: WireNode[], id: string): WireNode {
-  const byId = wireById(nodes);
-  return shownNodeOf(requireNode(nodes, id), (target) => byId.get(target));
+function contentOf(nodes: WireNode[], id: string): WireNode | null {
+  const row = requireNode(nodes, id);
+  const target = contextualTargetOf(row);
+  return target === null ? row : (wireById(nodes).get(target) ?? null);
 }
 /** One `node.update` of `id`. */
 const updateOf = (id: string, input: Record<string, unknown>): ActionRequest => ({
@@ -105,9 +108,9 @@ export function planSplit(
   const at = cursor === "end" ? node.text.length : cursor;
   const left = node.text.slice(0, at);
   const right = node.text.slice(at);
-  const shown = shownOf(nodes, id);
-  const firstChild = shown.children.length > 0 && opts.expandedIds.has(id);
-  const parent = firstChild ? shown : findParentWire(nodes, id);
+  const content = contentOf(nodes, id);
+  const firstChild = content !== null && content.children.length > 0 && opts.expandedIds.has(id);
+  const parent = firstChild ? content : findParentWire(nodes, id);
   const position = firstChild ? 0 : parent ? parent.children.indexOf(id) + 1 : undefined;
   return {
     actions: [
@@ -732,7 +735,8 @@ export function planEditFrameView(
  * node it shows — where its group is read from, a reference's target — become
  * `value`, or none for "No <field>". A row already in that group (its first
  * value is `value`, or it holds none and `value` is null) is left as it is,
- * so nothing is written (null).
+ * so nothing is written (null); so is a reference whose target is gone,
+ * which has no content to move (`contentOf`).
  */
 export function planMoveToGroup(
   n: WireNode[],
@@ -740,8 +744,9 @@ export function planMoveToGroup(
   field: string,
   value: PropValue | null,
 ): PlannedMutation | null {
-  const shown = shownOf(n, id);
-  const first = shown.props[field]?.[0] ?? null;
+  const content = contentOf(n, id);
+  if (content === null) return null;
+  const first = content.props[field]?.[0] ?? null;
   if (JSON.stringify(first) === JSON.stringify(value)) return null;
-  return planReplaceField(n, shown.id, field, value === null ? [] : [value]);
+  return planReplaceField(n, content.id, field, value === null ? [] : [value]);
 }

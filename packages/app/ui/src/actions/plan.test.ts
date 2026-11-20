@@ -225,6 +225,12 @@ describe("moving a row to a group", () => {
     );
     expect(planMoveToGroup([card, refRow], "r", "f.status", doing)).toBeNull();
   });
+
+  it("writes nothing for a reference whose target is gone, not even on the reference node", () => {
+    const dangling = wire("r", { [SYSTEM_IDS.refTargetField]: [ref("gone")] });
+    expect(planMoveToGroup([dangling], "r", "f.status", done)).toBeNull();
+    expect(planMoveToGroup([dangling], "r", "f.status", null)).toBeNull();
+  });
 });
 
 describe("splitting a contextual reference", () => {
@@ -238,6 +244,13 @@ describe("splitting a contextual reference", () => {
     expect(planSplit(graph, "r", "end", "new", { expandedIds: new Set(["r"]) }).actions).toEqual([
       { id: "node.add", input: { id: "new", text: "", parent: "t", position: 0 } },
     ]);
+  });
+
+  it("opens a sibling after a reference whose target is gone, expanded or not", () => {
+    const dangling = wire("r", { [SYSTEM_IDS.refTargetField]: [ref("gone")] });
+    expect(
+      planSplit([parent, dangling], "r", "end", "new", { expandedIds: new Set(["r"]) }).actions,
+    ).toEqual([{ id: "node.add", input: { id: "new", text: "", parent: "p", position: 1 } }]);
   });
 
   it("opens a sibling after the reference when the reference is collapsed", () => {
