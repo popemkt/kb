@@ -292,6 +292,8 @@ export interface ActionDefinition<
    * projection to the receipt.
    */
   callerOutput?: Readonly<Partial<Record<CallerKind, ActionSchema>>>;
+  /** An input-only action drops request metadata and runs without person approval. */
+  requestEnvelope?: "input-only";
   /**
    * The ids of the actions every call of this one is a batch of: it writes
    * what they write, so approval decides it as each of them as well as

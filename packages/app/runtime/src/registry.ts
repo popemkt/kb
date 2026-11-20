@@ -211,6 +211,7 @@ function registeredAction(contribution: Contribution<ActionContribution>): Regis
       mode: value.mode,
       ...(value.callers === undefined ? {} : { callers: value.callers }),
       ...(value.callerOutput === undefined ? {} : { callerOutput: value.callerOutput }),
+      ...(value.requestEnvelope === undefined ? {} : { requestEnvelope: value.requestEnvelope }),
       ...(value.batchOf === undefined ? {} : { batchOf: value.batchOf }),
       ...(value.targets === undefined ? {} : { targets: value.targets }),
       ...(value.context === undefined ? {} : { context: value.context }),

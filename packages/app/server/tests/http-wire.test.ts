@@ -12,8 +12,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { SYSTEM_IDS } from "@kb/model";
-import type { ServerMessage } from "@kb/contracts";
-import { FAKE_TAB_SCREEN } from "@kb/test-kit";
+import { CAPTURE_PAIR, CAPTURE_PAIR_CODE, type ServerMessage } from "@kb/contracts";
+import { invoke, openKb } from "@kb/runtime";
+import { FAKE_TAB_SCREEN, trustExtension, writeTrustedExtension } from "@kb/test-kit";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
 let root = "";
@@ -21,6 +22,24 @@ let handle: UiServerHandle;
 
 beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), "kb-http-wire-"));
+  await writeTrustedExtension(
+    root,
+    "pairing-policy.ts",
+    `
+import { Effect, defineExtension, definePlugin, guardAction } from "kb-ext-sdk";
+export const declaration = defineExtension({ name: "pairing-policy", label: "Pairing policy" });
+export default definePlugin({
+  name: declaration.name,
+  apply: (plugin) => guardAction(plugin, ${JSON.stringify(CAPTURE_PAIR)}, {
+    before: ({ invocation }) => Effect.succeed(
+      invocation.session === undefined && invocation.via === undefined
+        ? { decision: "ask", rule: "pairing-approval", message: "approve pairing" }
+        : { decision: "deny", rule: "pairing-metadata", message: "pairing received request metadata" },
+    ),
+  }, "pairing"),
+});
+`,
+  );
   handle = await Effect.runPromise(startUi({ root, port: 0, openBrowser: false }));
 });
 afterAll(async () => {
@@ -92,6 +111,27 @@ const SCREEN = { op: "screen", tab: "tab.wire", state: FAKE_TAB_SCREEN };
 const CHANNEL = { op: "channel", channel: "no.such.channel", data: {} };
 
 describe("a page that holds no token", () => {
+  test("pairing on the page wire uses the action's input-only envelope", async () => {
+    await trustExtension(root, "pairing-policy.ts");
+    const ctx = await openKb(root);
+    const issued = await invoke(ctx, { id: CAPTURE_PAIR_CODE, input: {} });
+    if (issued.status !== "succeeded") throw new Error(JSON.stringify(issued));
+    const { code } = issued.output as { code: string };
+    const pairing = await post(
+      {
+        id: CAPTURE_PAIR,
+        input: { code, deviceName: "Phone" },
+        approved: true,
+        session: "tab.policy",
+        via: "pairing-test",
+      },
+      "page",
+    );
+    expect(pairing.status).toBe(200);
+    expect(pairing.body.code).toBe("approval_required");
+    expect(pairing.body).toHaveProperty("message", "approve pairing");
+  });
+
   test("edits: a node it adds and renames is written", async () => {
     const added = await post({ id: "node.add", input: { id: "n.page", text: "mine" } }, "page");
     expect(added.body).toMatchObject({ status: "succeeded" });

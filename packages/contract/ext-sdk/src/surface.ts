@@ -106,6 +106,7 @@ export interface ActionDefinition<
   mode: ActionMode;
   callers?: readonly CallerKind[];
   callerOutput?: Readonly<Partial<Record<CallerKind, ActionSchema>>>;
+  requestEnvelope?: "input-only";
   inputSchema: TIn;
   outputSchema: TOut;
   effect?: ActionEffectHandler;

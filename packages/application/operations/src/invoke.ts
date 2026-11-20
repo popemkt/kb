@@ -178,6 +178,14 @@ const outputForCaller = Effect.fnUntraced(function* (
   );
 });
 
+function invocationFor(def: ActionDefinition, invocation: ActionInvocation): ActionInvocation {
+  if (def.requestEnvelope !== "input-only") return invocation;
+  // Identity and script reach are stamped by the host. Session, via and
+  // approval are outside this action's request envelope, even on PAGE_WIRE.
+  const { session: _session, via: _via, ...inputOnly } = invocation;
+  return { ...inputOnly, approved: false };
+}
+
 /**
  * How deep calls may nest, each made inside another (an action's handler
  * invoking, or a listener's): past it the call is refused, so a listener
@@ -246,7 +254,7 @@ const invokeCall = Effect.fn("kb.invoke")(function* <R>(
   // A call made in a tab session is first given the required inputs it left
   // out from what its person is looking at, so all that follows sees the
   // input as it will run (`context-fill.ts`).
-  const fill = yield* fillFromSession(entry.def, made, outer);
+  const fill = yield* fillFromSession(entry.def, invocationFor(entry.def, made), outer);
   const held = yield* sealedPart(fill.invocation);
   // Everything the call runs — its listeners as much as its handler — runs
   // as this call, so a call any of them makes nests in it and counts
