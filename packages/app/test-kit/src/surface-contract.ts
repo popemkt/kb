@@ -118,7 +118,11 @@ export type ServeUi = (root: string, kind: UiListenerKind) => Promise<LiveUi>;
  * Open the surface over a root that already exists, has been opened once, and
  * that `ui` serves.
  */
-export type SurfaceFactory = (root: string, ui: LiveUi) => Promise<ActionSurface>;
+export type SurfaceFactory = (
+  root: string,
+  ui: LiveUi,
+  signal: AbortSignal,
+) => Promise<ActionSurface>;
 
 /** The fixture's write that declares approval. */
 const APPROVAL_ACTION = "ext.gated.stamp";
@@ -274,9 +278,9 @@ function serveRoot(serve: ServeUi, root: string, kind: UiListenerKind) {
 }
 
 /** One surface over the root, closed when the scope closes. */
-function openSurface(open: SurfaceFactory, root: string, ui: LiveUi) {
+function openSurface(open: SurfaceFactory, root: string, ui: LiveUi, signal: AbortSignal) {
   return Effect.acquireRelease(
-    Effect.promise(() => open(root, ui)),
+    Effect.promise(() => open(root, ui, signal)),
     (surface) => Effect.promise(() => surface.close()),
   );
 }
@@ -311,6 +315,7 @@ export interface SurfaceSet {
 /** The set as one run of the suite takes it: with the way its `kb ui` listens. */
 interface OnListener extends SurfaceSet {
   readonly listener: UiListenerKind;
+  readonly signal: AbortSignal;
 }
 
 /**
@@ -322,7 +327,7 @@ interface OnListener extends SurfaceSet {
  * (stdout, a port).
  */
 function overSurfaces(
-  { serve, surfaces, listener }: OnListener,
+  { serve, surfaces, listener, signal }: OnListener,
   check: (c: SurfaceCase) => Effect.Effect<void>,
 ): Effect.Effect<void, DomainError> {
   return Effect.scoped(
@@ -337,7 +342,7 @@ function overSurfaces(
         ([name, open]) =>
           Effect.scoped(
             Effect.gen(function* () {
-              const surface = yield* openSurface(open, root, ui);
+              const surface = yield* openSurface(open, root, ui, signal);
               // The composition the surface reaches: the registry, and on a kb ui what it hosts.
               const hosted = surface.host === "ui" ? ui.hosted : undefined;
               const core = (invocation: ActionRequest) =>
@@ -703,7 +708,6 @@ export const SURFACE_CONTRACT_CELLS: Readonly<
 export function surfaceContract(set: SurfaceSet, cell: SurfaceContractCell): void {
   const names = Object.keys(set.surfaces).join(", ");
   const { governance, listener } = cell;
-  const run: OnListener = { ...set, listener };
   describe(`action surfaces (${names}) on ${listener}, governance ${governance}`, () => {
     for (const [title, property] of PROPERTIES)
       test(
@@ -713,7 +717,7 @@ export function surfaceContract(set: SurfaceSet, cell: SurfaceContractCell): voi
           const finished = Effect.runPromise(
             Effect.acquireUseRelease(
               Effect.sync(() => deployGovernance(governance)),
-              () => property(run),
+              () => property({ ...set, listener, signal: controller.signal }),
               () => Effect.sync(() => deployGovernance("required")),
             ),
             { signal: controller.signal },

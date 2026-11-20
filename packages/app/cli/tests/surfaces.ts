@@ -253,6 +253,7 @@ async function postAction(
   at: UiListener,
   invocation: ActionRequest,
   from: "page" | "program",
+  signal?: AbortSignal,
 ): Promise<ActionReceipt> {
   const res = await requestUi(at, "/api/action", {
     method: "POST",
@@ -261,6 +262,7 @@ async function postAction(
       ...(from === "page" ? { origin: uiAddressOf(at) } : {}),
     },
     body: JSON.stringify(invocation),
+    ...(signal === undefined ? {} : { signal }),
   });
   const response = ActionResponseSchema.parse(await res.json());
   if (response.status === "failed") return response;
@@ -352,6 +354,19 @@ function agentEvents(tab: FakeTab, from: number, conversation: string): AgentEve
     .filter((event) => event.conversation === conversation);
 }
 
+/** Post an approval through the page and relay its receipt while the test is active. */
+export async function answerApproval(
+  at: UiListener,
+  invocation: ActionRequest,
+  signal: AbortSignal,
+  sendReceipt: (receipt: ActionReceipt) => void,
+): Promise<void> {
+  signal.throwIfAborted();
+  const receipt = await postAction(at, invocation, "page", signal);
+  signal.throwIfAborted();
+  sendReceipt(receipt);
+}
+
 /**
  * The agent: a sidebar tab on the root's `kb ui` sends a message on the
  * agent channel, and the scripted model lists its tools or makes the call.
@@ -360,11 +375,12 @@ function agentEvents(tab: FakeTab, from: number, conversation: string): AgentEve
  * approval exactly as the invocation declares it, and answers the receipt.
  * The receipt is the one the model was given.
  */
-const agent: SurfaceFactory = async (_root, ui) => {
+const agent: SurfaceFactory = async (_root, ui, signal) => {
   // A connection that publishes no screen, so the root's one tab stays the contract's own.
   const tab = await Effect.runPromise(FakeTab.open(ui.at, "sidebar.surface-contract", null));
   let turns = 0;
   const say = async (ask: unknown, approved: boolean): Promise<string> => {
+    signal.throwIfAborted();
     turns += 1;
     const conversation = `contract-${turns}`;
     const from = tab.heard(AGENT_CHANNEL).length;
@@ -382,8 +398,9 @@ const agent: SurfaceFactory = async (_root, ui) => {
           );
           if (call === undefined) throw new Error(`approval for a call never made: ${event.call}`);
           const invocation = onWire(AGENT_WIRE, { id: call.action, input: call.input, approved });
-          const receipt = await postAction(ui.at, invocation, "page");
-          tab.say(AGENT_CHANNEL, { type: "receipt", conversation, call: event.call, receipt });
+          await answerApproval(ui.at, invocation, signal, (receipt) =>
+            tab.say(AGENT_CHANNEL, { type: "receipt", conversation, call: event.call, receipt }),
+          );
         }
         const end = events.find((event) => event.type === "turn-end");
         if (end !== undefined) {
