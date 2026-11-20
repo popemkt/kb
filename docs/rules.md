@@ -273,14 +273,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — dropOver takes the frame's view (frameViewOf, its sort and group), and a drop over a sorted or grouped frame's rows lands in the frame with the line on the frame's own row.
 - **node** — `01M7D25CX9D6V64G19PYJJYCXM`
 
-### GAP: a DST scenario is not hermetic: KB_DATA moved under it changes its store
-
-- **expected** — A seeded DST history replays to a byte-identical store every time (dst.test.ts, each committed seed replays to a byte-identical store), on any machine and under any load, whatever else the process does meanwhile
-- **current** — A scenario reads where kb keeps its data (KB_DATA, through currentData) each time a commit keeps its backup, and that work reads the seeded clock. So moving KB_DATA while a scenario runs changes its stamps from there on (23 of 543 lines, reproduced 2026-11-14). The test preload moves KB_DATA in every beforeEach, and a test that overruns its budget keeps running beside the next one, so an overrun replay diverges: CI run 43497638157 (seed dst-3, after the looped replay test overran 32 s) and, likely, the dst-2 divergence once under load (four stamps 46 s apart). Each committed seed is now its own test, inside the budget, so only a genuine hang overruns.
-- **impact** — A DST replay depends on process-global state outside the simulation: whatever moves KB_DATA mid-run, an overrun included, makes it diverge, and the failure reads as nondeterminism in the store
-- **closes** — A scenario pins its own data directory: currentData read from a provided service whose default is the environment, so runScenario provides one it owns and nothing outside can move it
-- **node** — `01M740E2KPGXWP4WKTE2XZ6N56`
-
 ### GAP: a family a host composes is switched only where that host runs
 
 - **expected** — every surface can write any family's switch, a hosted one included, and kb ext list lists it
@@ -2358,6 +2350,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Choose one carrier (the date variant, since PropValue already names it, or drop the variant), migrate stored values on open the way migrateFieldTypeValues does for type values, and list one kind for date.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M39X7NQV187BDQVGH81997M5`
+
+### GAP: a DST scenario is not hermetic: KB_DATA moved under it changes its store
+
+- **expected** — A seeded DST history replays to a byte-identical store every time (dst.test.ts, each committed seed replays to a byte-identical store), on any machine and under any load, whatever else the process does meanwhile
+- **current** — Closed: runScenario supplies a private data directory for every backup made during replay. A regression repoints KB_DATA after 30 operations, verifies identical store bytes and checks that the redirected directory stays empty.
+- **impact** — A DST replay depends on process-global state outside the simulation: whatever moves KB_DATA mid-run, an overrun included, makes it diverge, and the failure reads as nondeterminism in the store
+- **closes** — A scenario pins its own data directory: currentData read from a provided service whose default is the environment, so runScenario provides one it owns and nothing outside can move it
+- **node** — `01M740E2KPGXWP4WKTE2XZ6N56`
 
 ### GAP: a family that only kb ui hosts contributes no registry actions
 

@@ -29,6 +29,7 @@ import {
 import { bundledSeed } from "@kb/bundled";
 import { seedRemovalNodes } from "@kb/seed";
 import { onWire, type ActionRequest, type KbContext } from "@kb/contracts";
+import { DataDirectory } from "@kb/workspace-fs";
 
 /**
  * Deterministic simulation testing (DST) harness (t2-dst).
@@ -502,12 +503,13 @@ export interface ScenarioResult {
  */
 export const runScenario = Effect.fn("kb.runScenario")(function* (
   seed: string,
-  opts: { ops?: number; base?: number; step?: number } = {},
+  opts: { ops?: number; base?: number; step?: number; onOperation?: (index: number) => void } = {},
 ): Effect.fn.Return<ScenarioResult, DomainError> {
   const opsCount = opts.ops ?? 60;
   const base = opts.base ?? BASE_EPOCH;
   const step = opts.step ?? 1000;
   const root = yield* Effect.promise(() => mkdtemp(join(tmpdir(), "kb-dst-")));
+  const data = join(root, "data");
   const violations: string[] = [];
   let applied = 0;
 
@@ -526,6 +528,7 @@ export const runScenario = Effect.fn("kb.runScenario")(function* (
     const tagIds: string[] = [];
 
     for (let i = 0; i < opsCount; i++) {
+      opts.onOperation?.(i);
       // Discover fields/tags from the live nodes so planSet/planUnset can target
       // real, already-defined fields (never force-mint, so sys guards hold).
       if (fieldIds.length === 0) {
@@ -576,6 +579,7 @@ export const runScenario = Effect.fn("kb.runScenario")(function* (
     Effect.provide(bunFileSystemLayer),
     Random.withSeed(seed),
     Effect.provideService(Clock.Clock, seededClock(base, step)),
+    Effect.provideService(DataDirectory, () => data),
   );
 
   yield* program;
