@@ -334,6 +334,11 @@ describe("ext.check.audit", () => {
     [".githooks/pre-commit", "cat <<-'EOF'\n\tbun run test\n\tEOF\n", "bun run test"],
     [".githooks/pre-commit", "[[ x < bun && run == test ]]\n", "bun"],
     [
+      ".githooks/pre-commit",
+      "'$repo_root/intent/gate.sh' record git-commit",
+      '"$repo_root/intent/gate.sh" record git-commit',
+    ],
+    [
       ".github/workflows/validate.yml",
       "jobs:\n  verify:\n    steps:\n      - name: bun run test\n        run: bun run test:ui # bun run test\n",
       "bun run test",

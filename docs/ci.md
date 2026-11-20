@@ -84,9 +84,9 @@ declares, here this hook, `package.json`, the lint and tsc configs and the
 workflows. The audit reads commands from package scripts, shell hook files
 and workflow `run` steps. An invocation names the first words of one
 command, including any wrapper that runs it. A shell parser identifies
-commands and removes quoting from their words without evaluating
-expansions. Comments, here-document text and test operands supply no
-commands.
+commands. Literal words compare after quote removal, and words containing
+expansions compare by their original spelling. Comments, here-document
+text and test operands supply no commands.
 Lint invocations name complete enabled rule keys in the lint config.
 Other file formats supply no invocations.
 

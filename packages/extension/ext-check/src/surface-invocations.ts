@@ -1,7 +1,7 @@
 import { basename, extname } from "node:path";
 import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
-import { forEachChild, parse, type SyntaxNode } from "unbash";
+import { forEachChild, parse, type SyntaxNode, type Word, type WordPart } from "unbash";
 import { z } from "zod";
 import { propText, type CheckModel, type Finding } from "./model.ts";
 import { isFile, pathInRoot } from "./repo-files.ts";
@@ -16,6 +16,19 @@ const workflow = z.object({
 const rules = z.object({ rules: z.record(z.string(), z.unknown()).optional() });
 const lintConfig = rules.extend({ overrides: z.array(rules).optional() });
 
+function isLiteralPart(part: WordPart): boolean {
+  if (part.type === "DoubleQuoted") {
+    return part.parts.every((child) => child.type === "Literal");
+  }
+  return part.type === "Literal" || part.type === "SingleQuoted" || part.type === "AnsiCQuoted";
+}
+
+/** Fully literal words compare after quote removal. Dynamic words retain their shell syntax. */
+function wordKey(word: Word): string {
+  const literal = word.parts?.every(isLiteralPart) ?? true;
+  return literal ? `literal:${word.value}` : `syntax:${word.text}`;
+}
+
 /** Read statically spelled command words without running the shell or expanding variables. */
 function shellCommands(source: string): string[][] {
   const commands: string[][] = [];
@@ -23,9 +36,9 @@ function shellCommands(source: string): string[][] {
     if (node.type === "Script" && (node.errors?.length ?? 0) > 0) return;
     if (node.type === "Command" && node.name !== undefined) {
       const args = node.args.map((arg) =>
-        arg.type === "Word" ? arg.value : source.slice(arg.pos, arg.end),
+        arg.type === "Word" ? wordKey(arg) : `assignment:${source.slice(arg.pos, arg.end)}`,
       );
-      commands.push([node.name.value, ...args]);
+      commands.push([wordKey(node.name), ...args]);
     }
     forEachChild(node, visit);
   }
