@@ -312,6 +312,21 @@ test("a new action declaring device access is admitted with no server edit, and 
         status: "succeeded",
         output: { status: "failed", code: "forbidden" },
       });
+      for (const target of ["node.add", "ext.device-echo.unknown"]) {
+        const nested = await read(
+          await postAction(base, "ext.device-echo.nested", { target }, token),
+        );
+        expect(nested).toEqual({
+          status: "succeeded",
+          id: "ext.device-echo.nested",
+          output: {
+            status: "failed",
+            id: target,
+            code: "forbidden",
+            message: "this listener or credential only admits capture actions",
+          },
+        });
+      }
       const nestedManifest = await read(
         await postAction(base, "ext.device-echo.nested", { target: "kb.manifest" }, token),
       );

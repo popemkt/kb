@@ -622,8 +622,8 @@ export class ActionCatalog extends Context.Service<ActionCatalog, () => readonly
 
 /**
  * What a call made from inside the core may do: `read` refuses a call to an
- * action that writes before the core; `write` makes any call, decided by the
- * core like every call.
+ * action that writes after caller admission. The `write` scope lets the
+ * invoke core decide the call like any other.
  */
 type InvokeScope = "read" | "write";
 

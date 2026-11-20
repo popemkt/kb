@@ -2932,7 +2932,8 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
 - `ActionDefinition { id, title, description, mode, callers?, callerOutput?, requestEnvelope?, inputSchema, outputSchema, effect? }` — JSON Schemas from each schema's Standard JSON Schema converter or `z.toJSONSchema`, never hand-written; the inputSchema is published as the side a caller sends, the outputSchema as the side the action returns. Optional `effect` is the Effect-native handler seam for built-ins / bundled extensions.
 - **Callers.** An action's `callers` declaration lists the caller kinds that
   may invoke it. Every invocation has a caller, stamped by its surface.
-  Nested calls inherit their outer caller. The in-process default is
+  Nested calls inherit their outer caller. The core checks admission before a
+  nested call's read or write scope. The in-process default is
   `person` for a human actor and `program` for other actors. An action without
   a `callers` declaration admits those two kinds. The capture caller kinds
   are `capture-device` for a paired device with a valid bearer credential and

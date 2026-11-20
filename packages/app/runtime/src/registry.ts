@@ -29,6 +29,7 @@ import {
   type ActionDefinition,
   type ActionHandlerEnv,
   type ActionInvocation,
+  type ActionMode,
   type ActionReceipt,
   type ContextReferences,
   type ExtensionFailure,
@@ -797,9 +798,10 @@ export const actionDefinitionEffect = Effect.fn("kb.actionDefinition")(function*
 export const invokeReceiptEffect = Effect.fn("kb.invokeReceipt")(function* (
   ctx: KbContext,
   invocation: ActionInvocation,
+  scope?: ActionMode["kind"],
 ): Effect.fn.Return<ActionReceipt, never, ActionHandlerEnv> {
   return yield* withSessionRegistry(invocationRegistry(ctx), (registry) =>
-    Effect.flatMap(reachedBy(registry), (byId) => invokeReceiptWith(byId, ctx, invocation)),
+    Effect.flatMap(reachedBy(registry), (byId) => invokeReceiptWith(byId, ctx, invocation, scope)),
   );
 });
 

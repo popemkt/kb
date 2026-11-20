@@ -5,6 +5,7 @@ import {
   type ActionEffectHandler,
   type ActionHandlerEnv,
   type ActionInvocation,
+  type ActionMode,
   type ActionReceipt,
   type CallerKind,
   failed,
@@ -202,16 +203,17 @@ export const invokeWith = Effect.fnUntraced(function* <R>(
   actions: ReadonlyMap<string, RegisteredAction<R>>,
   ctx: KbContext<NodeIndex>,
   asked: ActionInvocation,
+  scope: ActionMode["kind"] = "write",
 ): Effect.fn.Return<ActionReceipt, ActionSchemaError | DomainError, R> {
   const inherited = yield* CurrentCommitFrame;
-  if (inherited !== null && inherited.open()) return yield* invokeCall(actions, ctx, asked);
+  if (inherited !== null && inherited.open()) return yield* invokeCall(actions, ctx, asked, scope);
   const services = yield* Effect.context<R>();
   const held = commitFrame(
     yield* CurrentReactions,
     (invocation) => invokeReceiptWith(actions, ctx, invocation),
     services,
   );
-  return yield* invokeCall(actions, ctx, asked).pipe(
+  return yield* invokeCall(actions, ctx, asked, scope).pipe(
     Effect.onExit(() => held.drain),
     Effect.provideService(CurrentCommitFrame, held.frame),
   );
@@ -221,6 +223,7 @@ const invokeCall = Effect.fn("kb.invoke")(function* <R>(
   actions: ReadonlyMap<string, RegisteredAction<R>>,
   ctx: KbContext<NodeIndex>,
   asked: ActionInvocation,
+  scope: ActionMode["kind"],
 ): Effect.fn.Return<ActionReceipt, ActionSchemaError | DomainError, R> {
   // A call an action makes while another runs is made as that one's caller.
   const outer = yield* CurrentCall;
@@ -234,13 +237,12 @@ const invokeCall = Effect.fn("kb.invoke")(function* <R>(
   }
   const entry = actions.get(id);
   const caller = invocationCaller(made);
-  if (!entry) {
-    const denied = callerRefusal(undefined, caller);
-    if (denied !== null) return failed(id, "forbidden", denied);
-    return failed(id, "unknown_action", `unknown action: ${id}`);
-  }
-  const denied = callerRefusal(entry.def, caller);
+  const denied = callerRefusal(entry?.def, caller);
   if (denied !== null) return failed(id, "forbidden", denied);
+  if (entry === undefined) return failed(id, "unknown_action", `unknown action: ${id}`);
+  if (scope === "read" && entry.def.mode.kind === "write") {
+    return failed(id, "forbidden", `${id} is a write, and a call made while reading may only read`);
+  }
   // Every call passes the interceptors, then is put to the guards as it will
   // run, here on invoke itself, so no surface can skip either
   // (`interception.ts`).
@@ -303,8 +305,9 @@ export const invokeReceiptWith = Effect.fn("kb.invokeReceipt")(function* <R>(
   actions: ReadonlyMap<string, RegisteredAction<R>>,
   ctx: KbContext<NodeIndex>,
   invocation: ActionInvocation,
+  scope?: ActionMode["kind"],
 ): Effect.fn.Return<ActionReceipt, never, R> {
-  return yield* invokeWith(actions, ctx, invocation).pipe(
+  return yield* invokeWith(actions, ctx, invocation, scope).pipe(
     Effect.catch((err) => Effect.succeed(receiptFromError(invocation.id, err))),
   );
 });
