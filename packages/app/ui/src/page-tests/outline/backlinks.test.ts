@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { present, SYSTEM_IDS } from "@kb/model";
+import { parseInlineSource, present, SYSTEM_IDS } from "@kb/model";
 import { derivedWith, queryBacklinks, schemaOf } from "@kb/ui-sdk";
 import { DatascriptIndex } from "@kb/ui-test-kit";
 import { fixtureGraph } from "@/api/fixture-graph";
@@ -35,6 +35,31 @@ const row = (id: string, text: string, children: string[] = []): WireNode => ({
 });
 
 describe("unlinkedMentionRows", () => {
+  it("links a plain span even if earlier occurrences are inside inline markup", () => {
+    const wireNodes = [
+      row("n.spec", "Write spec"),
+      row("n.code", "`write spec`"),
+      row("n.bold", "**write spec**"),
+      row("n.italic", "*write spec*"),
+      row("n.link", "[write spec](https://example.com)"),
+      row("n.mixed", "`write spec`, then WRITE SPEC"),
+    ];
+    const db = new DatascriptIndex(wireNodes, { derived: derivedWith({}) });
+    const matches = unlinkedMentionRows(
+      (edn) => db.runDatalog(edn),
+      schemaOf({ wireNodes }),
+      "n.spec",
+    );
+    expect(matches.map(({ node }) => node.id)).toEqual(["n.mixed"]);
+    const linked = present(matches[0], "plain occurrence");
+    expect(linked.linkedText).toBe("`write spec`, then [[n.spec|WRITE SPEC]]");
+    expect(parseInlineSource(linked.linkedText).map(({ seg }) => seg)).toContainEqual({
+      t: "ref",
+      id: "n.spec",
+      label: "WRITE SPEC",
+    });
+  });
+
   it("requires the title at word boundaries and excludes the target tree, existing edges and schema", () => {
     const schemaNode = row("n.schema", "Write spec");
     schemaNode.props[SYSTEM_IDS.typeField] = [{ t: "ref", v: SYSTEM_IDS.tag }];
@@ -63,8 +88,8 @@ describe("unlinkedMentionRows", () => {
     const schema = schemaOf({ wireNodes });
     const matches = unlinkedMentionRows(run, schema, "n.spec");
     expect(matches.map(({ node }) => node.id)).toEqual(["n.valid"]);
-    expect(matches.map(({ node, match }) => node.text.slice(match.start, match.end))).toEqual([
-      "write spec",
+    expect(matches.map(({ linkedText }) => linkedText)).toEqual([
+      "we should [[n.spec|write spec]] soon",
     ]);
     expect(unlinkedMentionRows(run, schema, "n.proto").map(({ node }) => node.id)).toEqual([
       "n.proto-match",

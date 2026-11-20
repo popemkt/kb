@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   browserHost,
-  formatRefToken,
   NodeLinkRow,
   OutlineLine,
   schemaOf,
@@ -15,14 +14,8 @@ import { unlinkedMentionRows, type UnlinkedMentionRow } from "./unlinked-mention
 
 const PAGE_SIZE = 50;
 
-function linkMention(targetId: string, row: UnlinkedMentionRow) {
-  const { node, match } = row;
-  const token = formatRefToken(targetId, node.text.slice(match.start, match.end));
-  void browserHost().writes.setNodeText(
-    node.id,
-    node.text.slice(0, match.start) + token + node.text.slice(match.end),
-    node.text,
-  );
+function linkMention({ node, linkedText }: UnlinkedMentionRow) {
+  void browserHost().writes.setNodeText(node.id, linkedText, node.text);
 }
 
 export function UnlinkedMentionsSection({ nodeId }: { readonly nodeId: string }) {
@@ -50,7 +43,7 @@ export function UnlinkedMentionsSection({ nodeId }: { readonly nodeId: string })
               className="shrink-0 rounded-xs border border-border/60 bg-foreground/[0.03] px-2 py-0.5 text-caption font-medium text-foreground/70 hover:bg-foreground/[0.08] hover:text-foreground transition-colors duration-100 cursor-pointer"
               data-link-mention={row.node.id}
               disabled={!answer.settled || index?.isVirtual(row.node.id) === true}
-              onClick={() => linkMention(nodeId, row)}
+              onClick={() => linkMention(row)}
             >
               Link
             </button>

@@ -1451,8 +1451,9 @@ above it. Its chevron reveals the children visible in the current outline
 as ordinary rows without moving or opening the referrer itself.
 
 **Unlinked mentions** follows References. It finds a case-insensitive
-whole-word or phrase match for the displayed title in node text, outside
-existing reference tokens. Titles must have at least three characters.
+whole-word or phrase match for the displayed title in plain-text segments.
+The inline parser must read the replacement as a reference at that span.
+Titles must have at least three characters.
 The node, its ancestors and descendants, system and schema nodes, and
 rows with a mention edge are excluded. The section shows up to 50 rows at
 first and reveals another 50 with **Show more**. **Link** replaces the

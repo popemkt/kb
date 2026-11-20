@@ -1,17 +1,26 @@
-import { isSysPrefixed, isViewNode, mentionSpans, refValuesOf, SYSTEM_IDS } from "@kb/model";
-import { type EdnRunner, nameIn, type OutlineNode, type SchemaIndex } from "@kb/ui-sdk";
+import {
+  inlineSpanSource,
+  type InlineSpan,
+  isSysPrefixed,
+  isViewNode,
+  parseInlineSource,
+  refValuesOf,
+  SYSTEM_IDS,
+} from "@kb/model";
+import {
+  type EdnRunner,
+  formatRefToken,
+  nameIn,
+  type OutlineNode,
+  type SchemaIndex,
+} from "@kb/ui-sdk";
 import { otherBacklinks, rowBreadcrumbs } from "./backlinks";
 import type { Crumb } from "./crumbs";
-
-interface TextSpan {
-  readonly start: number;
-  readonly end: number;
-}
 
 export interface UnlinkedMentionRow {
   readonly node: OutlineNode;
   readonly breadcrumbs: readonly Crumb[];
-  readonly match: TextSpan;
+  readonly linkedText: string;
 }
 
 const graphemes = new Intl.Segmenter();
@@ -31,13 +40,32 @@ function titlePattern(title: string): RegExp {
   return new RegExp(`${prefix}${literal}${suffix}`, "giu");
 }
 
-function findUnlinkedMatch(text: string, pattern: RegExp): TextSpan | null {
-  const mentions = mentionSpans(text);
+/** The parser's segment and its range in the original text at this offset. */
+function inlineSpanAt(
+  text: string,
+  offset: number,
+): { start: number; end: number; span: InlineSpan } | null {
+  let start = 0;
+  for (const span of parseInlineSource(text)) {
+    const end = start + inlineSpanSource(span).length;
+    if (offset < end) return { start, end, span };
+    start = end;
+  }
+  return null;
+}
+
+function linkedTextFor(text: string, pattern: RegExp, targetId: string): string | null {
   for (const hit of text.matchAll(pattern)) {
     const start = hit.index;
     const end = start + hit[0].length;
-    if (mentions.every((mention) => end <= mention.start || start >= mention.end)) {
-      return { start, end };
+    const source = inlineSpanAt(text, start);
+    if (source?.span.seg.t !== "text" || end > source.end) continue;
+
+    const token = formatRefToken(targetId, hit[0]);
+    const linkedText = text.slice(0, start) + token + text.slice(end);
+    const linked = inlineSpanAt(linkedText, start);
+    if (linked?.span.seg.t === "ref" && linked.start === start && linked.span.open === token) {
+      return linkedText;
     }
   }
   return null;
@@ -83,9 +111,9 @@ export function unlinkedMentionRows(
     if (excluded.has(node.id) || isSchemaOrSystemNode(node) || node.text.length < title.length) {
       continue;
     }
-    const match = findUnlinkedMatch(node.text, pattern);
-    if (match !== null) {
-      rows.push({ node, breadcrumbs: rowBreadcrumbs(schema, node.id), match });
+    const linkedText = linkedTextFor(node.text, pattern, nodeId);
+    if (linkedText !== null) {
+      rows.push({ node, breadcrumbs: rowBreadcrumbs(schema, node.id), linkedText });
     }
   }
   return rows;
