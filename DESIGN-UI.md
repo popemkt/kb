@@ -1125,14 +1125,21 @@ query row, and ends in a ghost row that adds a result, not a child: what it
 adds is a node the query answers, not a child of the query (Frame views →
 _Adding to a frame_). Open or closed is the outline's
 screen state per node (`queryBuilders`), kept for the session and never
-written to the graph. A query that says nothing yet — no EDN, or no
-conditions, as a new one starts — opens its builder; one that says something
+written to the graph. A query that says nothing yet — no EDN or no
+conditions — opens its builder; one that says something
 opens closed. A write from the builder pins it open, so the first condition
 never folds it away under the caret. A query that fails shows its error
 with an "Edit query" button beside it, the way to its editor while it is
 tucked. From the keyboard: Tab reaches the
 button, and the node menu offers "Edit query" / "Hide query", opening a
 closed row to show it (`outline-ui/src/outline-commands.tsx`).
+
+“Turn into query” opens the tag picker at “Find nodes tagged…”. Picking
+a tag writes a condition on the node’s type field for that exact tag ID.
+Escape closes the picker without a write. In global search, Alt+Enter
+saves the typed text as a case-insensitive text condition and opens the
+query node. It is a child of the current page’s node, or goes to the
+[capture destination](./DESIGN.md#provider-roles) from the workspace root.
 
 ### Outline layout
 
@@ -3140,7 +3147,11 @@ The groups, in the menu's order (`NODE_MENU_GROUPS`):
 | `open` | where it opens | Search everything…, Open in panel, Open as workspace, Open with: …, Copy node ID |
 | `arrange` | where it sits | Indent, Outdent, Move to…, Move and leave reference… |
 | `mark` | what marks it | Pin / Unpin, Show / Hide debug fields |
-| `view` | how its views show it | View as: …, Make default view: …, Edit query, Add chart, Filter…, Expand reference…, Count words |
+| `view` | how its views show it | View as: …, Make default view: …, Edit query, Add chart, Filter…, Group by…, Sort by…, Expand reference…, Count words |
+
+“Group by…” and “Sort by…” open field pickers on frames whose views
+declare those settings. Each pick writes the frame’s view node. Sorting
+uses the chosen field in ascending order, with “Manual order” to clear it.
 | `remove` | removing it | Delete node |
 
 So a family's command takes a place among the shell's by naming it, and

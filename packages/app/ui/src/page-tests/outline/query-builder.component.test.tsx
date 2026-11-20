@@ -13,9 +13,16 @@ import { bundledSeed } from "@kb/bundled";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { browserHost, syncUiPlugins } from "@kb/ui-sdk";
 import { OutlineListView } from "@kb/views";
-import { outlineNodes, QueryResultsSection, useOutlineStore, ViewToolbar } from "@kb/outline-ui";
+import {
+  NodeCommandPalette,
+  outlineNodes,
+  QueryResultsSection,
+  useOutlineStore,
+  ViewToolbar,
+} from "@kb/outline-ui";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { useGraphStore } from "@/stores/graph.store";
+import { useUiStore } from "@/stores/ui.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
@@ -39,7 +46,7 @@ const isField = { [SYSTEM_IDS.typeField]: [ref(SYSTEM_IDS.field)] };
 
 const QUERY = "n.query";
 
-/** A todo tag templating status and due; three todos and a plain node; the query node. */
+/** A todo tag templating status and due, its instances, and a query node. */
 function graph(edn: string): WireNode[] {
   return [
     ...bundledSeed(ISO).filter((node) => !isQueryNode(node)),
@@ -228,6 +235,69 @@ describe("the query builder", () => {
     );
     await click(option);
   }
+
+  it.each(["tag", "Escape"])("Turn into query waits for a pick (%s)", async (choice) => {
+    resetOutlineStore();
+    useUiStore.getState().setNodePaletteOpen(false);
+    const nodeId = "n.c";
+    const instanceKey = `row/${nodeId}`;
+    const task = wire({
+      id: "t.task",
+      text: "task",
+      props: { [SYSTEM_IDS.typeField]: [ref(SYSTEM_IDS.tag)] },
+    });
+    useGraphStore.getState().hydrateFromWire([...graph(DEFAULT_QUERY_EDN), task], 1, "fixtures");
+    useOutlineStore.setState({ selectedNodeId: nodeId, selectedInstanceKey: instanceKey });
+    const before = useGraphStore.getState().wireNodes;
+    const undoDepth = useGraphStore.getState().undoStack.length;
+    await act(async () => {
+      root.render(
+        <>
+          <div data-menu-anchor={instanceKey} />
+          <NodeCommandPalette open onClose={() => {}} />
+        </>,
+      );
+    });
+    await pick("Turn into query");
+    const step = present(
+      container.ownerDocument.querySelector('[aria-label="Find nodes tagged…"]'),
+      "tag step",
+    );
+    expect(useGraphStore.getState().wireNodes).toEqual(before);
+    const input = present(step.querySelector("input"), "tag input");
+
+    if (choice === "Escape") {
+      await key(input, "Escape");
+      expect(container.ownerDocument.querySelector('[aria-label="Find nodes tagged…"]')).toBeNull();
+      expect(useGraphStore.getState().wireNodes).toEqual(before);
+      expect(useGraphStore.getState().undoStack).toHaveLength(undoDepth);
+      return;
+    }
+
+    await type("a tag nobody made", input);
+    expect(step.querySelector('[role="option"]')).toBeNull();
+    await key(input, "Enter");
+    expect(useGraphStore.getState().wireNodes).toEqual(before);
+
+    await type("task", input);
+    await pick("task");
+    await vi.waitFor(() => {
+      const node = present(outlineNodes().get(nodeId), nodeId);
+      const [value] = node.props[SYSTEM_IDS.queryField] ?? [];
+      expect(value?.t).toBe("str");
+      expect(value?.v).toContain(':node/id "t.task"');
+      expect(value?.v).toContain(":f/sys.f.type");
+      expect(node.props[SYSTEM_IDS.typeField]).toBeUndefined();
+    });
+    expect(useGraphStore.getState().wireNodes).toHaveLength(before.length);
+    expect(useGraphStore.getState().undoStack).toHaveLength(undoDepth + 1);
+    await act(async () => {
+      expect(await browserHost().writes.undo()).toBe(true);
+    });
+    expect(outlineNodes().get(nodeId)?.props).toEqual(
+      before.find((node) => node.id === nodeId)?.props,
+    );
+  });
 
   it("a new query node opens on Conditions, with nothing said yet and every node counted", async () => {
     await mount(DEFAULT_QUERY_EDN, "default");

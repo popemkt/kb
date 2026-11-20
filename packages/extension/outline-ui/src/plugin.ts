@@ -6,6 +6,8 @@ import { definePlugin } from "@kb/plugin";
 import { ListFrameView } from "./frame-views";
 import { OutlineSurface, PinnedSection, RecentSection } from "./surfaces";
 import { ViewSettingsPopoverHost } from "./view-settings-popover";
+import { findTagged } from "./query-steps";
+import { VIEW_SETTINGS_STEPS } from "./view-settings-steps";
 import { OutlineListView, OutlineSnippetView, OutlineView, DEFAULT_VIEW_CONFIG } from "@kb/views";
 import { OutlineSnippet } from "./outline-snippet";
 import {
@@ -117,7 +119,11 @@ export const outlineUiPlugin = definePlugin({
           ...OUTLINE_COMMANDS.map((command) =>
             ctx.contribute(CommandPoint, { id: command.id, value: command }),
           ),
-          ...OUTLINE_STEPS.map((step) => ctx.contribute(paletteSteps, step)),
+          ...[
+            ...OUTLINE_STEPS,
+            { id: "find-tagged", value: findTagged },
+            ...VIEW_SETTINGS_STEPS,
+          ].map((step) => ctx.contribute(paletteSteps, step)),
           ...OUTLINE_INGESTS.map((handler) => ctx.contribute(ingests, handler)),
           ctx.contribute(OverlayPoint, {
             id: "view-filter",

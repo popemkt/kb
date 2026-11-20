@@ -22,8 +22,11 @@ import { bundledSeed } from "@kb/bundled";
 import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import {
   browserHost,
+  frameRows,
+  frameViewOf,
   isPinned,
   pageTitleInstanceKey,
+  providedFrameViews,
   syncUiPlugins,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
@@ -42,7 +45,7 @@ import { syncPagePlugins } from "@/test-support/page-plugins";
 import { NodeCommandPalette, outlineNodes, useOutlineStore } from "@kb/outline-ui";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { collectionsUiPlugin } from "@kb/collections-ui";
-import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
+import { framedAs, viewFieldNodes } from "@/fixtures/view-fields";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them; the chart contributes "Add chart".
@@ -394,7 +397,7 @@ describe("node command palette", () => {
       "Add field",
       "Set field…",
       "Make supertag",
-      "Search everything… ⌘S",
+      "Search everything…",
       "Open in panel",
       "Open with: Outline",
       "Open with: Chart",
@@ -427,7 +430,7 @@ describe("node command palette", () => {
       "Turn into reference…",
       "Add field",
       "Set field…",
-      "Search everything… ⌘S",
+      "Search everything…",
       "Open in panel",
       "Open with: Outline",
       "Open with: Chart",
@@ -484,20 +487,60 @@ describe("node command palette", () => {
     expect(labels()[1]).toBe("Turn into reference…");
   });
 
-  it("Turn into query writes the builder's canonical query, so the node opens as conditions", async () => {
-    await open("n.plain");
-    const row = [...dom.document.querySelectorAll('[data-palette-list="true"] button')].find(
-      (b) => b.textContent.trim() === "Turn into query",
-    ) as HTMLElement | undefined;
-    await act(async () => {
-      present(row, "turn into query row").click();
-    });
-    await vi.waitFor(() =>
-      expect(outlineNodes().get("n.plain")?.props[SYSTEM_IDS.queryField]).toEqual([
-        { t: "str", v: DEFAULT_QUERY_EDN },
-      ]),
-    );
-  });
+  it.each([
+    { command: "Group by…", choice: "Status", field: SYSTEM_IDS.viewGroupField, value: "f.status" },
+    {
+      command: "Sort by…",
+      choice: "Name",
+      field: SYSTEM_IDS.viewSortField,
+      value: SYSTEM_IDS.nodeTextField,
+    },
+  ])(
+    "$command writes its board setting when a field is picked",
+    async ({ command, choice, field, value }) => {
+      const [board, view] = framedAs(
+        wire({ id: "n.board", text: "Board", children: ["n.zebra", "n.alpine"] }),
+        "board",
+      );
+      const status = wire({
+        id: "f.status",
+        text: "Status",
+        props: {
+          [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+          [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("text")],
+        },
+      });
+      const props = { [status.id]: [{ t: "str" as const, v: "Doing" }] };
+      const zebra = wire({ id: "n.zebra", text: "Zebra", props });
+      const alpine = wire({ id: "n.alpine", text: "Alpine", props });
+      useGraphStore
+        .getState()
+        .hydrateFromWire(
+          [...graph(), ...viewFieldNodes, board, view, status, zebra, alpine],
+          2,
+          "fixtures",
+        );
+      const undoDepth = useGraphStore.getState().undoStack.length;
+      await open(board.id);
+      await pick(command);
+      expect(outlineNodes().get(view.id)?.props[field]).toBeUndefined();
+      await pick(choice);
+      await vi.waitFor(() =>
+        expect(outlineNodes().get(view.id)?.props[field]).toEqual([{ t: "ref", v: value }]),
+      );
+      expect(useGraphStore.getState().undoStack).toHaveLength(undoDepth + 1);
+      const nodes = outlineNodes();
+      const schema = browserHost().schema();
+      const keys = providedFrameViews().map(({ key }) => key);
+      const resolved = present(frameViewOf(nodes.get(board.id), schema, keys), "board view");
+      const rows = frameRows({ frameId: board.id, nodes, schema, view: resolved });
+      if (field === SYSTEM_IDS.viewGroupField) {
+        expect(rows.columns[0]?.key).toBe("str:Doing");
+      } else {
+        expect(rows.rendered.map(({ id }) => id)).toEqual([alpine.id, zebra.id]);
+      }
+    },
+  );
 
   it("drops Turn into reference on a node that already is one", async () => {
     await open("n.ref");
@@ -673,6 +716,35 @@ describe("the global palette on a page", () => {
       row("Make your own tag that extends this").click();
     });
     expect(defineTag).toHaveBeenCalledWith("my project", ["t.super"]);
+  });
+
+  it("Alt+Enter saves the typed search under the zoomed node and opens it", async () => {
+    await openPalette();
+    const input = present(
+      dom.document.querySelector('[aria-label="Search and open"] input'),
+      "palette input",
+    );
+    const text = 'Project "notes"';
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(dom.HTMLInputElement.prototype, "value")?.set?.call(
+        input,
+        text,
+      );
+      input.dispatchEvent(new dom.KeyboardEvent("keyup", { bubbles: true }));
+    });
+    expect(container.textContent).toContain("Alt+Enter");
+    await act(async () => {
+      input.dispatchEvent(
+        new dom.KeyboardEvent("keydown", { key: "Enter", altKey: true, bubbles: true }),
+      );
+    });
+    await vi.waitFor(() => {
+      const id = useGraphStore.getState().rootNodeId;
+      expect(childrenOf("t.super")).toContain(id);
+      const value = outlineNodes().get(id)?.props[SYSTEM_IDS.queryField]?.[0]?.v;
+      expect(value).toEqual(expect.stringContaining("kb/includes-ci?"));
+      expect(value).toEqual(expect.stringContaining(JSON.stringify(text)));
+    });
   });
 
   it("hands a command that asks for a step to the node menu at the page's title", async () => {

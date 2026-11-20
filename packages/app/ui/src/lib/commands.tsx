@@ -43,6 +43,7 @@ import {
   PushPinIcon,
   PushPinSlashIcon,
   SidebarSimpleIcon,
+  SortAscendingIcon,
   SquareIcon,
   SquaresFourIcon,
   StarIcon,
@@ -73,6 +74,8 @@ import {
   CommandPoint,
   copyText,
   currentContributions,
+  frameViewOf,
+  type FrameView,
   isPinned,
   isSysPrefixed,
   shownNode,
@@ -98,7 +101,6 @@ import { SETTINGS_PATH } from "@/lib/settings-trigger";
 import { chooseDesignSystem, DesignSystemPoint, shownDesignSystem } from "@kb/appearance-kit";
 import { pageOpeningsOf } from "@/lib/node-openings";
 import { countWords, sayCount } from "@/lib/word-count";
-import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { pageCatalog } from "@/lib/view-catalog";
 import { settingsPath } from "@/lib/settings-parts";
 import {
@@ -183,6 +185,17 @@ function namesANode(ctx: CommandContext): boolean {
   return (
     node !== undefined && extractMentions(shownNode(node, browserHost().schema()).text).length > 0
   );
+}
+
+function hasFrameSetting(ctx: CommandContext, param: keyof FrameView["params"]): boolean {
+  const node = targetNode(ctx);
+  if (node === undefined) return false;
+  const view = frameViewOf(
+    node,
+    browserHost().schema(),
+    ctx.outline.frameViews().map(({ key }) => key),
+  );
+  return view?.params[param] !== undefined;
 }
 
 /** The frame a view command edits, or a toast saying there is none. */
@@ -421,15 +434,7 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
       const node = targetNode(ctx);
       return node !== undefined && !isQueryNode(node);
     },
-    run: (ctx) =>
-      nodeAction(ctx, (nodeId) => {
-        // Setting the field is the whole gesture: the field is the kind, so
-        // there is no tag to apply alongside it and nothing to keep in sync.
-        void browserHost().writes.updateProp(nodeId, SYSTEM_IDS.queryField, {
-          t: "str",
-          v: DEFAULT_QUERY_EDN,
-        });
-      }),
+    run: (ctx) => ctx.palette.openStep("outline.find-tagged"),
   },
   {
     id: "turn-ref",
@@ -491,7 +496,7 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
   {
     id: "search-all",
     menu: nodeMenu("open", 10),
-    chrome: () => ({ label: "Search everything… ⌘S", icon: <MagnifyingGlassIcon size={14} /> }),
+    chrome: () => ({ label: "Search everything…", icon: <MagnifyingGlassIcon size={14} /> }),
     run: (ctx) => {
       ctx.palette.close();
       ctx.ui.setGlobalPaletteOpen(true);
@@ -673,6 +678,20 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     faceOf: SYSTEM_IDS.cmdViewFilter,
     chrome: () => ({ label: "Filter…", icon: <MagnifyingGlassIcon size={14} /> }),
     run: (ctx) => nodeAction(ctx, (nodeId) => ctx.ui.setViewSettingsFrameId(nodeId)),
+  },
+  {
+    id: "group-by",
+    menu: nodeMenu("view", 91),
+    chrome: () => ({ label: "Group by…", icon: <SquaresFourIcon size={14} /> }),
+    when: (ctx) => hasFrameSetting(ctx, "groupFieldId"),
+    run: (ctx) => ctx.palette.openStep("outline.group-by"),
+  },
+  {
+    id: "sort-by",
+    menu: nodeMenu("view", 92),
+    chrome: () => ({ label: "Sort by…", icon: <SortAscendingIcon size={14} /> }),
+    when: (ctx) => hasFrameSetting(ctx, "sort"),
+    run: (ctx) => ctx.palette.openStep("outline.sort-by"),
   },
 ];
 
