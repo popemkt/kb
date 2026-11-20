@@ -16,7 +16,8 @@ import type { DesktopConfig } from "./config.ts";
 import { startControlServer, type ControlActions, type ControlServer } from "./control.ts";
 import { nodePagePath, parseDeepLink } from "./deep-link.ts";
 import type { FocusReturn } from "./focus.ts";
-import { CaptureClient, DeviceSettings, DesktopShell, FocusKeeper } from "./services.ts";
+import { describeKb, type KbInUse } from "./kb-command.ts";
+import { CaptureClient, DeviceSettings, DesktopShell, FocusKeeper, KbCli } from "./services.ts";
 import type { MenuEntry, Shell, ShellWindow, WindowFrame } from "./shell.ts";
 import { findStore, StoreDirectory, StoreError, type Store, type Stores } from "./stores.ts";
 
@@ -101,6 +102,8 @@ interface Ctx {
   readonly shell: Shell;
   readonly config: DesktopConfig;
   readonly stores: Stores;
+  /** The kb the store list runs, which the list names. */
+  readonly kb: KbInUse;
   readonly focus: FocusReturn;
   readonly submit: SubmitCapture;
   readonly windows: Map<string, StoreWindow>;
@@ -375,11 +378,19 @@ function menu(ctx: Ctx, w: Windows, c: Capture, quit: Effect.Effect<void>): Effe
 function pageActions(ctx: Ctx, w: Windows, c: Capture): ControlActions {
   const { config, stores, refreshMenu } = ctx;
   return {
-    listStores: Effect.map(stores.list, (all) => ({
-      stores: all,
-      captureStore: config.settings.captureStore ?? "",
-      hotkey: config.settings.hotkey,
-    })),
+    // A list that cannot be read is an answer too: the page shows why in
+    // place of the stores, with the kb it ran, instead of waiting forever.
+    listStores: stores.list.pipe(
+      Effect.map((all) => ({ stores: all, problem: "" })),
+      Effect.catch((err: StoreError) => Effect.succeed({ stores: [], problem: err.message })),
+      Effect.map((listed) => ({
+        ...listed,
+        kb: describeKb(ctx.kb.kb),
+        passedOver: ctx.kb.skipped.map(({ kb, why }) => `${describeKb(kb)}: ${why}`),
+        captureStore: config.settings.captureStore ?? "",
+        hotkey: config.settings.hotkey,
+      })),
+    ),
     openStore: (key) => w.openStore(key),
     addLocal: (path, name) =>
       path === ""
@@ -448,7 +459,7 @@ function starting(
 }
 
 function desktopApp(
-  services: Pick<Ctx, "shell" | "config" | "stores" | "focus" | "submit">,
+  services: Pick<Ctx, "shell" | "config" | "stores" | "kb" | "focus" | "submit">,
 ): DesktopApp {
   let drawMenu: Effect.Effect<void> = Effect.void;
   const ctx: Ctx = {
@@ -481,7 +492,7 @@ function desktopApp(
   };
 }
 
-/** The desktop app over the shell, the settings, the store directory, focus return and the capture client. */
+/** The desktop app over the shell, the settings, the store directory and its kb, focus return and the capture client. */
 export class Desktop extends Context.Service<Desktop, DesktopApp>()("@kb/desktop/Desktop") {
   static readonly layer = Layer.effect(
     Desktop,
@@ -490,6 +501,7 @@ export class Desktop extends Context.Service<Desktop, DesktopApp>()("@kb/desktop
         shell: yield* DesktopShell,
         config: yield* DeviceSettings,
         stores: yield* StoreDirectory,
+        kb: (yield* KbCli).inUse,
         focus: yield* FocusKeeper,
         submit: (yield* CaptureClient).submit,
       });

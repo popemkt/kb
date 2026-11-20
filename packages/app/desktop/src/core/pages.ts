@@ -95,17 +95,20 @@ form { display: flex; gap: 6px; flex-wrap: wrap; } form input { flex: 1; min-wid
 <h2>Add a remote store</h2>
 <form id="addRemote"><input name="name" placeholder="Name"><input name="origin" placeholder="https://host.tailnet.ts.net" required><input name="token" placeholder="Capture token (optional)"><button>Add</button></form>
 <div id="status"></div>
+<p class="muted" id="kb"></p>
 <script>${apiScript(token)}
 const status = document.getElementById("status");
 function say(text, error) { status.textContent = text; status.className = error ? "error" : "muted"; }
 function cell(text, cls) { const td = document.createElement("td"); td.textContent = text; if (cls) td.className = cls; return td; }
 function button(label, run) { const b = document.createElement("button"); b.textContent = label; b.onclick = run; return b; }
+function only(text, cls) { const tr = document.createElement("tr"); tr.append(cell(text, cls)); return tr; }
 async function refresh() {
+  const rows = document.getElementById("rows");
   try {
-    const { stores, captureStore, hotkey } = await api("/api/stores");
-    const rows = document.getElementById("rows");
+    const { stores, problem, kb, passedOver, captureStore, hotkey } = await api("/api/stores");
     rows.replaceChildren();
-    if (stores.length === 0) rows.append(Object.assign(document.createElement("tr"), { innerHTML: '<td class="muted">No stores yet. Add one below.</td>' }));
+    if (problem) rows.append(only("Your stores could not be listed. " + problem, "error"));
+    else if (stores.length === 0) rows.append(only("No stores yet. Add one below.", "muted"));
     for (const s of stores) {
       const tr = document.createElement("tr");
       tr.append(cell(s.name), cell(s.kind === "local" ? s.root : s.origin, "muted"), cell(s.kind === "local" ? s.status : "remote", "muted"));
@@ -118,7 +121,11 @@ async function refresh() {
     select.replaceChildren(new Option("the last store I used", ""), ...stores.map((s) => new Option(s.name, s.key)));
     select.value = captureStore || "";
     document.getElementById("hotkey").textContent = "Hotkey: " + hotkey;
-  } catch (e) { say(e.message, true); }
+    document.getElementById("kb").textContent = "Runs kb: " + kb + (passedOver.length ? " · passed over " + passedOver.join(" · ") : "");
+  } catch (e) {
+    // The app itself did not answer: say so where the stores would be.
+    rows.replaceChildren(only("The store list could not be read. " + e.message, "error"));
+  }
 }
 document.getElementById("captureStore").onchange = (e) => api("/api/settings/capture-store", { key: e.target.value }).catch((err) => say(err.message, true));
 for (const id of ["addLocal", "addRemote"]) {

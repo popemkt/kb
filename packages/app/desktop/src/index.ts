@@ -22,13 +22,13 @@ export type { DeepLink } from "./core/deep-link.ts";
 export { bundleIdOf, NO_FOCUS_RETURN, platformFocusReturn } from "./core/focus.ts";
 export type { FocusReturn } from "./core/focus.ts";
 export {
+  kbCandidates,
   kbEnvironment,
   kbProcessRunner,
-  programPath,
-  receiptOf,
+  processProbe,
   resolveKb,
 } from "./core/kb-command.ts";
-export type { KbCandidates, KbRunner, ProgramPlaces, Receipt } from "./core/kb-command.ts";
+export type { KbCandidate, KbRunner, Receipt } from "./core/kb-command.ts";
 export {
   CaptureClient,
   DesktopShell,

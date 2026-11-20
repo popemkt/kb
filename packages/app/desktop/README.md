@@ -24,18 +24,46 @@ open build/*/kb.app    # unsigned, so the first open may need right-click → Op
 The first build downloads Electrobun's macOS core (about 50 MB) from its
 GitHub release into `node_modules/electrobun`.
 
-**Which kb it runs.** The app does not include kb. It runs the first of these
-that exists:
+**Which kb it runs.** The app does not include kb. At launch it tries
+these in order and runs the first that answers `kb --version`:
 
 1. `"kb"` in `settings.json` (see below)
 2. `KB_DESKTOP_KB`
 3. a kb release copied into the app (`Resources/app/kb`). `build:mac` copies
    `out/kb-<version>` in when it exists, so run `sh bin/release-bundle`
    first to get it
-4. the checkout's `bin/kb`. The build records the path of the checkout it
-   was built from
-5. `kb` on the PATH, after adding the places Nix, Homebrew and bun install to,
-   since an app opened from Finder does not get your shell's PATH
+4. in a stable or canary build (`build:mac`), `kb` on the PATH, then the
+   checkout's `bin/kb`; in a dev build (`bun run dev`, `build:app`), the
+   checkout's `bin/kb` first, then `kb` on the PATH. The build records the
+   path of the checkout it was built from
+
+A kb that does not answer is passed over, never chosen. The ones passed
+over, and why, are logged and listed under the store list, which also names
+the kb in use. When none answers, the app says which it tried and quits. A
+kb you named (1 or 2) that is missing is reported the same way, rather than
+skipped in silence.
+
+Why a stable build runs the installed kb before the checkout's: a stable
+build is the app you use every day, and the installed kb is the one you
+chose and pinned (Nix, Homebrew, a release). The checkout's kb is whatever
+branch that checkout has checked out today. It needs a Bun and builds its UI
+on the first `kb ui`, and the checkout may be a worktree that is gone next
+week. A dev build is run while kb itself is being changed, so there the
+checkout's kb, the one being changed, comes first. Either way the other one
+is still tried, so an app with only one of them runs it.
+
+**PATH.** An app opened from Finder inherits launchd's bare PATH, not your
+shell's. Every kb the app runs (the probe, `kb locations`, `kb open`) gets
+the same PATH, with the places Nix, Homebrew and bun install to added. The
+checkout's `bin/kb` execs `bun` by name, and a Nix dev shell's Bun lives
+only in the store, so the build also records the Bun it ran with and adds
+its directory last: an installed Bun wins, and the build's Bun is there when
+none is. A `kb ui` that kb starts runs on the same Bun as the kb that
+started it.
+
+If the store list says it could not list your stores, its message names the
+kb that ran. Set `"kb"` in `settings.json` to the full path of a kb that
+runs (`command -v kb` in a terminal prints one) and reopen the app.
 
 Quick capture needs a kb that has `capture.submit`, which is on
 `feat/raw-capture-host` until it merges. A kb without it refuses the
@@ -108,9 +136,17 @@ offset), source: {app: "kb desktop"}, text}`. The host maps the text to
 
 ## Stubbed or missing
 
-- **Not run on macOS yet.** Everything above ran on Linux (WebKitGTK).
-  The macOS-only paths are untested: the menu bar, tray, `open-url`, dock
-  reopen, focus return and the WKWebView rendering.
+- **macOS, partly run.** A stable build opened with launchd's bare PATH
+  (as Finder opens it) on an arm64 Mac lists the stores, reopens the store
+  windows it had open, shows the menu bar's Stores menu and renders the
+  store list in WKWebView, with the installed kb and with the checkout's
+  kb on the build's Bun. The tray, `open-url`, dock reopen and focus return
+  are not run there yet.
+- **Which kb runs.** It is resolved once, at launch
+  (GAP `01M7WV5D06HSMA1JFBBRGE0B13`). The probe proves a kb runs, not that
+  it serves `capture.submit` (GAP `01M7WV5DBWNMEWS2QG6M4VP3QY`). The
+  checkout and Bun paths a build records are those of the build machine
+  (GAP `01M7WV5DQDNMQMR9QYJN839TNJ`).
 - **Remote capture auth.** A remote store's capture token is pasted by hand
   into the store list. There is no `capture.pair` flow yet
   (GAP `01M7QTTV8E0XFK9J0CKCNM6H5G`).

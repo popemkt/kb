@@ -149,11 +149,12 @@ export class DesktopConfig {
   constructor(dir: string) {
     this.dir = dir;
     mkdirSync(dir, { recursive: true, mode: 0o700 });
-    this.#settings = settingsOf(readJson(this.#settingsFile));
+    this.#settings = settingsOf(readJson(this.settingsFile));
     this.#windows = windowsOf(readJson(this.#windowsFile));
   }
 
-  get #settingsFile(): string {
+  /** The person's settings file, which messages name when a setting is the fix. */
+  get settingsFile(): string {
     return join(this.dir, "settings.json");
   }
 
@@ -167,7 +168,7 @@ export class DesktopConfig {
 
   updateSettings(change: (settings: DesktopSettings) => DesktopSettings): DesktopSettings {
     this.#settings = change(this.#settings);
-    writeJson(this.#settingsFile, this.#settings);
+    writeJson(this.settingsFile, this.#settings);
     return this.#settings;
   }
 

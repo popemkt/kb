@@ -45,12 +45,16 @@ async function alphaStore(): Promise<{ kb: KbRunner; stores: Stores; root: strin
   const pkg = join(scratch, "pkg");
   mkdirSync(pkg);
   const root = join(scratch, "alpha");
-  const kb = kbProcessRunner(KB_SOURCE_BIN, {
-    env: kbEnvironment(
-      { path: process.env.PATH, home: homedir(), user: process.env.USER },
-      { KB_PKG_ROOT: pkg },
-    ),
-  });
+  const kb = kbProcessRunner(
+    { kb: { source: "checkout", file: KB_SOURCE_BIN }, skipped: [] },
+    {
+      settingsFile: join(scratch, "desktop", "settings.json"),
+      env: kbEnvironment(
+        { path: process.env.PATH, home: homedir(), user: process.env.USER },
+        { KB_PKG_ROOT: pkg },
+      ),
+    },
+  );
   const stores = await Effect.runPromise(
     Effect.gen(function* () {
       return yield* StoreDirectory;

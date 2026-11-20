@@ -111,6 +111,7 @@ function fakeKb(): KbRunner & { calls: string[][] } {
   const calls: string[][] = [];
   return {
     calls,
+    inUse: { kb: { source: "path", file: "/fake/bin/kb" }, skipped: [] },
     run(_root, args) {
       calls.push([...args]);
       if (args[0] === "locations")
@@ -145,10 +146,10 @@ async function started(
       submitted.push({ origin: host.origin, capture });
       return { ok: true, nodeId: "n1", store: "Alpha" } as const;
     }),
+  kb: KbRunner & { calls: string[][] } = fakeKb(),
 ) {
   const ui = fakeShell();
   const config = new DesktopConfig(dir);
-  const kb = fakeKb();
   const services = Layer.mergeAll(
     Layer.succeed(DesktopShell, ui.shell),
     Layer.succeed(DeviceSettings, config),
@@ -289,5 +290,42 @@ describe("DesktopApp", () => {
     second.ui.open()[0]?.fire.closed();
     expect(second.config.openWindows()).toEqual([]);
     await Effect.runPromise(second.app.settle);
+  });
+});
+
+describe("the store list page", () => {
+  test("a kb that cannot list the stores is an answer that says why and which kb ran", async () => {
+    const broken = fakeKb();
+    const kb: KbRunner & { calls: string[][] } = {
+      calls: broken.calls,
+      inUse: {
+        kb: { source: "checkout", file: "/src/kb/bin/kb" },
+        skipped: [
+          { kb: { source: "setting", file: "/gone/kb" }, why: "there is no file at /gone/kb" },
+        ],
+      },
+      run: (root, args) =>
+        args[0] === "locations"
+          ? Effect.succeed({
+              status: "failed",
+              code: "internal",
+              message: 'kb exited 127: bun: not found. Set "kb" in settings.json …',
+            })
+          : broken.run(root, args),
+    };
+    const { ui, app } = await started([], undefined, kb);
+    const page = ui.open().find((w) => w.spec.title === "kb stores");
+    const token = new URL(page?.url ?? "").searchParams.get("t") ?? "";
+    const answer = await fetch(`${app.control().origin}/api/stores`, {
+      headers: { "x-kb-desktop": token },
+    });
+    expect(answer.status).toBe(200);
+    expect(await answer.json()).toMatchObject({
+      stores: [],
+      problem: 'kb locations: kb exited 127: bun: not found. Set "kb" in settings.json …',
+      kb: "/src/kb/bin/kb (the checkout the app was built from)",
+      passedOver: ['/gone/kb ("kb" in settings.json): there is no file at /gone/kb'],
+    });
+    await Effect.runPromise(app.settle);
   });
 });
