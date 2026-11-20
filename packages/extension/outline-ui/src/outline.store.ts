@@ -18,6 +18,7 @@ import { create } from "zustand";
 import {
   browserHost,
   type CaretIntent,
+  childInstanceKey,
   type Expansion,
   type ExpansionChanges,
   type FamilyView,
@@ -41,7 +42,9 @@ import {
   type SchemaIndex,
   schemaOf,
   type ScopeSource,
+  shownNodeId,
   shownNodesOf,
+  showsAncestor,
   toast,
   withExpansion,
   WORKSPACE_ROOT_ID,
@@ -434,16 +437,44 @@ const NO_FOCUS = {
 } as const;
 
 /**
- * The instance to activate `id` at: the one named, else its row in the
- * outline being worked in (the host of `working`, the current selection).
+ * The instance to activate `id` at: the one named, else under `working` (or its
+ * parent row) when `id` is a child of the node shown there — so Enter or `o`
+ * under an expanded contextual reference focuses the new row under that
+ * reference instead of jumping to the target's canonical path — else its row
+ * in the outline being worked in (the host of `working`, the current selection).
  */
 function resolveActivateKey(
   id: string,
   instanceKey: string | undefined,
   nodes: NodeMap,
   working: string | null,
+  schema: SchemaIndex,
 ): string {
-  return instanceKey ?? outlineInstanceKey(id, nodes, walkHostOf(working));
+  if (instanceKey !== undefined) return instanceKey;
+  const parentId = nodes.get(id)?.parentId ?? null;
+  if (parentId !== null && working !== null && !isProjectedInstance(working)) {
+    const cut = working.lastIndexOf("/");
+    if (cut > 0) {
+      const workingNode = nodes.get(working.slice(cut + 1));
+      if (
+        workingNode !== undefined &&
+        !workingNode.collapsed &&
+        shownNodeId(workingNode) === parentId &&
+        !showsAncestor(working, workingNode, schema)
+      ) {
+        return childInstanceKey(working, id);
+      }
+      const parentKey = working.slice(0, cut);
+      const parentCut = parentKey.lastIndexOf("/");
+      if (parentCut > 0) {
+        const parentNode = nodes.get(parentKey.slice(parentCut + 1));
+        if (parentNode !== undefined && shownNodeId(parentNode) === parentId) {
+          return childInstanceKey(parentKey, id);
+        }
+      }
+    }
+  }
+  return outlineInstanceKey(id, nodes, walkHostOf(working));
 }
 
 /**
@@ -513,6 +544,7 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
           instanceKey,
           outlineNodes(),
           get().selectedInstanceKey,
+          schemaNow(),
         );
         pruneOutgoingTransient(id);
         set({
@@ -526,7 +558,13 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
       // indent, and palette navigation therefore cannot focus a hidden row.
       get().expandAncestors(id);
       const revealed = get();
-      const key = resolveActivateKey(id, instanceKey, outlineNodes(), revealed.selectedInstanceKey);
+      const key = resolveActivateKey(
+        id,
+        instanceKey,
+        outlineNodes(),
+        revealed.selectedInstanceKey,
+        schemaNow(),
+      );
       // Projected instances (query rows, canvas cards) are drawn by the component
       // that mounts them, so their exact
       // visibility is only knowable once it mounts. The mounted-host
@@ -597,7 +635,7 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
       const { selectedInstanceKey } = get();
       if (!nodes.has(id)) return;
       // The outline being worked in is the one the focus is leaving.
-      const key = resolveActivateKey(id, instanceKey, nodes, selectedInstanceKey);
+      const key = resolveActivateKey(id, instanceKey, nodes, selectedInstanceKey, schemaNow());
       pruneOutgoingTransient(id);
       set({
         ...selectionOf(id, key),
@@ -636,8 +674,8 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
       const nodes = outlineNodes();
       const working = get().selectedInstanceKey;
       if (!nodes.has(anchorId) || !nodes.has(headId)) return;
-      const headKey = resolveActivateKey(headId, undefined, nodes, working);
-      const anchorKey = resolveActivateKey(anchorId, undefined, nodes, working);
+      const headKey = resolveActivateKey(headId, undefined, nodes, working, schemaNow());
+      const anchorKey = resolveActivateKey(anchorId, undefined, nodes, working, schemaNow());
       set({
         ...selectionOf(headId, headKey, anchorKey, () =>
           get().getVisibleInstances(walkHostOf(headKey)),

@@ -208,4 +208,33 @@ describe("moving a row to a group", () => {
     expect(planMoveToGroup([card], "c", "f.status", doing)).toBeNull();
     expect(planMoveToGroup([wire("c", {})], "c", "f.status", null)).toBeNull();
   });
+
+  it("routes a contextual reference's move to its target, never the reference node", () => {
+    const refRow = wire("r", { [SYSTEM_IDS.refTargetField]: [ref("c")] });
+    expect(planMoveToGroup([card, refRow], "r", "f.status", done)).toEqual(
+      planReplaceField([card, refRow], "c", "f.status", [done]),
+    );
+    expect(planMoveToGroup([card, refRow], "r", "f.status", doing)).toBeNull();
+  });
+});
+
+describe("splitting a contextual reference", () => {
+  const target = wire("t", {}, ["t.c1"]);
+  const refRow = wire("r", { [SYSTEM_IDS.refTargetField]: [ref("t")] });
+  const parent = wire("p", {}, ["r"]);
+  const graph = [parent, refRow, target, wire("t.c1", {})];
+
+  it("opens the target's first child when the reference is expanded and the target has children", () => {
+    expect(planSplit(graph, "r", "end", "new", { expandedIds: new Set(["r"]) }).actions).toEqual([
+      { id: "node.update", input: { id: "r", text: "" } },
+      { id: "node.add", input: { id: "new", text: "", parent: "t", position: 0 } },
+    ]);
+  });
+
+  it("opens a sibling after the reference when the reference is collapsed", () => {
+    expect(planSplit(graph, "r", "end", "new", { expandedIds: new Set() }).actions).toEqual([
+      { id: "node.update", input: { id: "r", text: "" } },
+      { id: "node.add", input: { id: "new", text: "", parent: "p", position: 1 } },
+    ]);
+  });
 });

@@ -248,10 +248,11 @@ export interface PageWrites {
   readonly addViewFilter: (frameId: string, filter: ViewFilter) => Promise<void>;
   readonly removeViewFilter: (frameId: string, filter: ViewFilter) => Promise<void>;
   /**
-   * Move a row to a group of a grouped view (DESIGN-UI.md → Groups): its
-   * values of `fieldId` become `value`, or none for "No <field>", in one
-   * write; a row already in that group is left as it is. The one way a
-   * drag or a key moves a row between groups.
+   * Move a row to a group of a grouped view (DESIGN-UI.md → Groups): the
+   * values of `fieldId` on the node it shows (`shownNode`: a reference's
+   * target, which its group is read from) become `value`, or none for
+   * "No <field>", in one write; a row already in that group is left as it
+   * is. The one way a drag or a key moves a row between groups.
    */
   readonly moveToGroup: (nodeId: string, fieldId: string, value: PropValue | null) => Promise<void>;
 }

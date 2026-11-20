@@ -10,6 +10,7 @@ import {
   viewsWithDefault,
   siblingSlots,
   viewOptionOf,
+  shownNodeOf,
   type FieldType,
   togglesChecked,
   type Writable,
@@ -31,6 +32,15 @@ function requireNode(nodes: WireNode[], id: string): WireNode {
   const node = wireById(nodes).get(id);
   if (!node) throw new Error(`node not found: ${id}`);
   return node;
+}
+/**
+ * The node row `id` shows (`shownNodeOf`): a contextual reference's target,
+ * the row itself otherwise. What a write reads or changes of a row's content
+ * — its children, its fields — is this node's; its place is the row's own.
+ */
+function shownOf(nodes: WireNode[], id: string): WireNode {
+  const byId = wireById(nodes);
+  return shownNodeOf(requireNode(nodes, id), (target) => byId.get(target));
 }
 /** One `node.update` of `id`. */
 const updateOf = (id: string, input: Record<string, unknown>): ActionRequest => ({
@@ -75,11 +85,12 @@ export const planReplaceField = (
 export const planUpdateText = (_nodes: WireNode[], id: string, text: string) =>
   update(id, { text });
 /**
- * Split a row's text at `cursor` into itself and a new row after it (or its
- * first child when it is an expanded parent). `"end"` splits after the whole
- * text, i.e. only creates the next row — what Enter means on a row whose shown
- * text is not its own (a contextual reference), where no offset the caret
- * reports is an offset into this node's text.
+ * Split a row's text at `cursor` into itself and a new row after it (or the
+ * first child of the node it shows when it is an expanded parent: a
+ * reference's target's, as on the target's own row). `"end"` splits after the
+ * whole text, i.e. only creates the next row — what Enter means on a row whose
+ * shown text is not its own (a contextual reference), where no offset the
+ * caret reports is an offset into this node's text.
  */
 export function planSplit(
   nodes: WireNode[],
@@ -92,8 +103,9 @@ export function planSplit(
   const at = cursor === "end" ? node.text.length : cursor;
   const left = node.text.slice(0, at);
   const right = node.text.slice(at);
-  const firstChild = node.children.length > 0 && opts.expandedIds.has(id);
-  const parent = firstChild ? node : findParentWire(nodes, id);
+  const shown = shownOf(nodes, id);
+  const firstChild = shown.children.length > 0 && opts.expandedIds.has(id);
+  const parent = firstChild ? shown : findParentWire(nodes, id);
   const position = firstChild ? 0 : parent ? parent.children.indexOf(id) + 1 : undefined;
   return {
     actions: [
@@ -714,7 +726,8 @@ export function planEditFrameView(
   return { actions: [...made.actions, ...named.actions] };
 }
 /**
- * Move a row to a group (DESIGN-UI.md → Groups): its values of `field` become
+ * Move a row to a group (DESIGN-UI.md → Groups): the values of `field` on the
+ * node it shows — where its group is read from, a reference's target — become
  * `value`, or none for "No <field>". A row already in that group (its first
  * value is `value`, or it holds none and `value` is null) is left as it is,
  * so nothing is written (null).
@@ -725,7 +738,8 @@ export function planMoveToGroup(
   field: string,
   value: PropValue | null,
 ): PlannedMutation | null {
-  const first = requireNode(n, id).props[field]?.[0] ?? null;
+  const shown = shownOf(n, id);
+  const first = shown.props[field]?.[0] ?? null;
   if (JSON.stringify(first) === JSON.stringify(value)) return null;
-  return planReplaceField(n, id, field, value === null ? [] : [value]);
+  return planReplaceField(n, shown.id, field, value === null ? [] : [value]);
 }
