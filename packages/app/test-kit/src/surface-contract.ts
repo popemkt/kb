@@ -267,15 +267,18 @@ const scratchRoot = Effect.acquireRelease(
  * scope closes. Every surface reaches that one tab: HTTP and WebMCP through
  * the server, the CLI, MCP and the invoke core through `.kb/ui.json`.
  */
-function serveRoot(serve: ServeUi, root: string, kind: UiListenerKind) {
-  return Effect.acquireRelease(
-    Effect.gen(function* () {
-      const ui = yield* Effect.promise(() => serve(root, kind));
-      return { ui, tab: yield* FakeTab.open(ui.at, CONTRACT_TAB) };
-    }),
-    ({ ui, tab }) => tab.close.pipe(Effect.andThen(Effect.promise(() => ui.stop()))),
+export const serveRoot = Effect.fn("kb.serveSurfaceRoot")(function* (
+  serve: ServeUi,
+  root: string,
+  kind: UiListenerKind,
+) {
+  const ui = yield* Effect.acquireRelease(
+    Effect.promise(() => serve(root, kind)),
+    (handle) => Effect.promise(() => handle.stop()),
   );
-}
+  yield* FakeTab.scoped(ui.at, CONTRACT_TAB);
+  return ui;
+});
 
 /** One surface over the root, closed when the scope closes. */
 function openSurface(open: SurfaceFactory, root: string, ui: LiveUi, signal: AbortSignal) {
@@ -336,7 +339,7 @@ function overSurfaces(
       const ctx = yield* Effect.promise(() => openKb(root));
       const written = yield* Effect.promise(() => invoke(ctx, SETTING_INVOCATION));
       expect(written.status).toBe("succeeded");
-      const { ui } = yield* serveRoot(serve, root, listener);
+      const ui = yield* serveRoot(serve, root, listener);
       yield* Effect.forEach(
         Object.entries(surfaces),
         ([name, open]) =>
@@ -483,7 +486,7 @@ const PROPERTIES: ReadonlyArray<
         Effect.scoped(
           Effect.gen(function* () {
             if (surface.session !== "stated") return;
-            yield* Effect.acquireRelease(FakeTab.open(ui.at, LATER_TAB), (later) => later.close);
+            yield* FakeTab.scoped(ui.at, LATER_TAB);
             const navigate = { id: "ui.navigate", input: { route: "/graph" } };
             expect({ name, receipt: yield* via({ ...navigate, session: CONTRACT_TAB }) }).toEqual({
               name,
@@ -521,7 +524,7 @@ const PROPERTIES: ReadonlyArray<
               panes: FAKE_TAB_SCREEN.panes.map((pane) => ({ ...pane, focused: id })),
             };
             const tab = `${FOCUS_TAB}.${name}`;
-            yield* Effect.acquireRelease(FakeTab.open(ui.at, tab, focusedOn), (open) => open.close);
+            yield* FakeTab.scoped(ui.at, tab, focusedOn);
             const rename = { id: "node.update", input: { text: "renamed here" } };
             const receipt = yield* via({ ...rename, session: tab });
             expect({ name, receipt }).toMatchObject({

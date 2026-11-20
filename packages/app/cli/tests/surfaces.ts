@@ -377,7 +377,9 @@ export async function answerApproval(
  */
 const agent: SurfaceFactory = async (_root, ui, signal) => {
   // A connection that publishes no screen, so the root's one tab stays the contract's own.
-  const tab = await Effect.runPromise(FakeTab.open(ui.at, "sidebar.surface-contract", null));
+  const tab = await Effect.runPromise(FakeTab.open(ui.at, "sidebar.surface-contract", null), {
+    signal,
+  });
   let turns = 0;
   const say = async (ask: unknown, approved: boolean): Promise<string> => {
     signal.throwIfAborted();
