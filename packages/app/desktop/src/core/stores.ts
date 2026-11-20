@@ -238,6 +238,7 @@ function remoteStores(config: DesktopConfig, pair: PairWithHost, keychain: Keych
       name: name === "" ? (before?.name ?? paired.store.name) : name,
       origin: bare,
       deviceId: paired.deviceId,
+      // GAP [[01M7WZGP3B84JK08R43Y642C7N]]: the contract is read here, at pairing, and not from kb.manifest after.
       accepts: paired.accepts,
     };
     config.updateSettings((s) => ({

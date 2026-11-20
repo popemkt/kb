@@ -1191,6 +1191,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — kb --version (or a capabilities action) reports the contract versions it serves, and the probe requires the capture contract the desktop speaks.
 - **node** — `01M7WV5DBWNMEWS2QG6M4VP3QY`
 
+### GAP: kb desktop reads a remote's capture contract once, at pairing
+
+- **expected** — The desktop learns which capture contracts a paired remote accepts from its kb.manifest when it checks the store, as the Android app does before it delivers (Deliverer.checkContract), so the store list and a capture see the host's current contract.
+- **current** — packages/app/desktop/src/core/stores.ts keeps the captureContract the capture.pair answer named as the remote's accepts in settings.json, and the store list shows that value until the store is paired again.
+- **impact** — A host updated to a new capture contract shows as in step until a capture is refused; a host that stops accepting captures is not noticed until then.
+- **closes** — The store list and the capture path ask the remote's kb.manifest (with the device credential) for captureContract, update accepts, and show waiting or paused states as Android does.
+- **node** — `01M7WZGP3B84JK08R43Y642C7N`
+
 ### GAP: kb desktop resolves its kb once, at launch
 
 - **expected** — The desktop notices when the kb it runs stops answering (or a better one appears) and resolves again, without a restart.

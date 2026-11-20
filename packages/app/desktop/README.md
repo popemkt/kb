@@ -159,6 +159,10 @@ offset), source: {app: "kb desktop"}, text}`. The host maps the text to
 - **The capture wire is declared twice.** The capture envelope and the
   `capture.pair` answer are written out in `src/core/capture.ts`, matching
   `@kb/contracts` by hand (GAP `01M7QTTTHGVFE32XRVV96A696K`).
+- **The contract status is read at pairing.** A remote's accepted capture
+  contracts come from its `capture.pair` answer and are not re-read from its
+  `kb.manifest`, as the Android app does before it delivers
+  (GAP `01M7WZGP3B84JK08R43Y642C7N`).
 - **Remote stores are not locations.** They are kept in the desktop's own
   settings (GAP `01M7QTTRFKDF9B7F4M29Z84XJQ`).
 - **Page storage across ports.** A local host that comes back on a new port
