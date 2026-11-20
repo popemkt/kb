@@ -5426,8 +5426,9 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
   page's own key context (`core.page`; [Outline editor →
   Keybindings](#outline-editor-i1)), so the key opens today wherever focus
   is.
-- **"Previous day" and "Next day"** in ⌘K step from the open day or from
-  today on other pages, opening the adjacent date through the date target.
+- **"Previous day" and "Next day"** in ⌘K step from the day shown in the
+  focused pane, or from today if that pane shows no day, opening the adjacent
+  date through the date target.
 - **Opening on today.** Where a page that loads at the root opens is the
   page role `ui.landing` (DESIGN.md → [Provider roles](./DESIGN.md#provider-roles)).
   Core owns it and stays home, and days replaces it. Days answers today's

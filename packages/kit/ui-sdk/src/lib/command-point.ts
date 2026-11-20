@@ -23,7 +23,9 @@ import { browserHost } from "../host";
 /** What commands read and drive on the outline store. */
 export interface OutlineCommandApi {
   readonly selectedNodeId: string | null;
-  /** The node the page stands at: the one its focused pane is shown for, a zoom or a node opened there. */
+  /** The focused pane's node, when the pane shows one. */
+  readonly paneSubjectId: string | null;
+  /** The command's outline root, falling back to the page's zoom if the pane has no subject. */
   readonly rootNodeId: string;
   readonly ontologyId: string | null;
   readonly nodes: NodeMap;

@@ -4,19 +4,8 @@
  */
 import { DAYS_IDS, isDayKey } from "@kb/days";
 import { addDays, formatDay, parseDay } from "@kb/model";
-import {
-  browserHost,
-  currentContributions,
-  dateTarget,
-  getPath,
-  matchRoute,
-  navigate,
-  outlineLocationOf,
-  paramsOf,
-  RoutePoint,
-  type Command,
-} from "@kb/ui-sdk";
-import { NodeView, nodePath } from "@kb/views";
+import { browserHost, dateTarget, navigate, type Command } from "@kb/ui-sdk";
+import { nodePath } from "@kb/views";
 import { openToday, pageDay } from "./today";
 import { keyOf } from "./touched";
 
@@ -29,12 +18,8 @@ const goToTodayCommand: Command = {
   },
 };
 
-function adjacentDay(delta: number): string | null {
-  const path = getPath();
-  const id =
-    outlineLocationOf(path)?.zoom ??
-    paramsOf(matchRoute(currentContributions(RoutePoint), path), NodeView)?.node;
-  const key = id === undefined ? null : keyOf(browserHost().nodes().get(id));
+function adjacentDay(id: string | null, delta: number): string | null {
+  const key = id === null ? null : keyOf(browserHost().node(id));
   const day = parseDay(key ?? "") ?? parseDay(pageDay());
   if (day === null) return null;
   const adjacent = formatDay(addDays(day, delta));
@@ -45,8 +30,8 @@ function dayStepCommand(id: string, delta: number): Command {
   return {
     id,
     menu: { where: "global" },
-    run: async ({ palette }) => {
-      const adjacent = adjacentDay(delta);
+    run: async ({ outline, palette }) => {
+      const adjacent = adjacentDay(outline.paneSubjectId, delta);
       if (adjacent === null) return;
       palette.close();
       const target = await dateTarget(adjacent);

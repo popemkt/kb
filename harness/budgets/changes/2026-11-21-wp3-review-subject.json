@@ -1,0 +1,8 @@
+{
+  "reason": "The measured bundle increase from this WP-3 review fix covers fix: step days from the focused pane subject.",
+  "raise": {
+    "page-eager": {
+      "bytes": 57
+    }
+  }
+}

@@ -5,27 +5,29 @@ import { matchRoute, outlineLocationOf } from "@kb/ui-sdk";
 const SUBJECT_KEYS = ["node", "perspective", "id", "root", "view"] as const;
 
 /**
- * The node a pane at `path` is shown for: the subject its route names, else,
- * as the page's outline, the page's one `zoom`; undefined for a page shown for
- * no node. What a pane is titled by (`usePaneTitle`), and the node the page
- * stands at for a command (`pageCommandApi`).
+ * The node a pane at `path` is shown for: its outline zoom or the subject
+ * its route names. What a pane is titled by (`usePaneTitle`) and what a
+ * command reads as the focused pane's subject (`pageCommandApi`).
  */
 export function paneSubjectAt(
   routes: Parameters<typeof matchRoute>[0],
   path: string,
   zoom: string,
 ): string | undefined {
+  const shown = shownZoomAt(path, zoom);
+  if (shown !== undefined) return shown;
   const route = matchRoute(routes, path);
-  return (route === null ? undefined : subjectOf(route.params)) ?? shownZoomAt(path, zoom);
+  return route === null ? undefined : subjectOf(route.params);
 }
 
 /**
- * The node a pane at `path` shows when it is the page's outline: the page's
- * one `zoom`, which the pane's own location names only while it is focused
- * (GAP [[01M411FP5AGQ4VB5SGJWCJAN66]]); undefined for any other path.
+ * An outline's explicit zoom, or the page's one `zoom` at the unscoped home.
+ * The pane's own location names the zoom only while it is focused
+ * (GAP [[01M411FP5AGQ4VB5SGJWCJAN66]]).
  */
 export function shownZoomAt(path: string, zoom: string): string | undefined {
-  return outlineLocationOf(path)?.ontology === null ? zoom : undefined;
+  const outline = outlineLocationOf(path);
+  return outline?.zoom ?? (outline?.ontology === null ? zoom : undefined);
 }
 
 function subjectOf(params: unknown): string | undefined {
