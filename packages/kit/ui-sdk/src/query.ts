@@ -7,7 +7,14 @@
  * them.
  */
 import { familyViewNodesQuery, type ViewFamily } from "@kb/model";
-import { backlinksQuery, neighbourhoodQuery, type EdnRunner } from "@kb/query";
+import {
+  backlinksQuery,
+  lowerIr,
+  neighbourhoodQuery,
+  printEdn,
+  type Condition,
+  type EdnRunner,
+} from "@kb/query";
 
 export type { EdnRunner, KbIndex, NodeIndex } from "@kb/query";
 // No index is exported here: DataScript is the worker's, and the page's
@@ -24,6 +31,11 @@ export {
 } from "@kb/query";
 export type { EnginePort, FromEngine, Timers } from "@kb/query";
 export type { QueryRecords } from "@kb/query";
+
+/** A list of conditions as canonical query EDN, shared by the builder and creation gestures. */
+export function conditionsEdn(conditions: readonly Condition[]): string {
+  return printEdn(lowerIr(conditions));
+}
 
 /**
  * Nodes that reference `targetId`. The EDN comes from `@kb/query` —
