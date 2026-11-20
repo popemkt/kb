@@ -13,16 +13,21 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import type { WindowFrame } from "./shell.ts";
 
-/** A store served by a host elsewhere (a tailnet `kb ui`), by its origin. */
+/**
+ * A store served by a host elsewhere (a tailnet `kb ui`), by its origin,
+ * paired once (`capture.pair`). Its credential is in the keychain under its
+ * key (`stores.ts` → `credentialItem`), never here.
+ */
 export interface RemoteStore {
-  /** Stable: what a deep link and the window state name it by. */
+  /** Stable: what a deep link, the window state and the keychain item name it by. */
   readonly key: string;
   readonly name: string;
   /** The bare `https:` (or loopback `http:`) origin its page is served at. */
   readonly origin: string;
-  /** The credential its host's `capture.submit` asks for, when it asks for one. */
-  // GAP [[01M7QTTV8E0XFK9J0CKCNM6H5G]]: pasted by hand and kept in settings.json; no capture.pair yet.
-  readonly token?: string;
+  /** This device's id at the host, from the pairing. */
+  readonly deviceId: string;
+  /** The capture contract versions its host said it accepts when it was paired. */
+  readonly accepts: readonly number[];
 }
 
 export interface DesktopSettings {
@@ -87,12 +92,20 @@ function writeJson(file: string, value: unknown): void {
   renameSync(tmp, file);
 }
 
+/** A paired remote as settings keep it; one that is not (an old pasted-token entry, say) is left out. */
 function remoteOf(value: unknown): RemoteStore | null {
   if (!isRecord(value)) return null;
-  const { key, name, origin, token } = value;
-  if (typeof key !== "string" || typeof name !== "string" || typeof origin !== "string")
+  const { key, name, origin, deviceId, accepts } = value;
+  if (
+    typeof key !== "string" ||
+    typeof name !== "string" ||
+    typeof origin !== "string" ||
+    typeof deviceId !== "string" ||
+    !Array.isArray(accepts)
+  )
     return null;
-  return typeof token === "string" ? { key, name, origin, token } : { key, name, origin };
+  const versions = accepts.filter((v): v is number => typeof v === "number");
+  return { key, name, origin, deviceId, accepts: versions };
 }
 
 /** Settings as read from `raw`, each missing or malformed member at its default. */

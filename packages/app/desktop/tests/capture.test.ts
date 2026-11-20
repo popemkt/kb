@@ -1,6 +1,7 @@
 /**
- * Quick capture's half of the raw capture contract: the envelope it sends
- * to `capture.submit` and how it reads the receipt, against a stand-in host.
+ * The desktop's half of the capture wire: pairing (`capture.pair`), the
+ * envelope it sends to `capture.submit`, and how it reads each receipt,
+ * against a stand-in host.
  */
 import { afterEach, describe, expect, test } from "bun:test";
 import { DateTime, Effect } from "effect";
@@ -11,6 +12,7 @@ import {
   submitCapture,
   textCapture,
 } from "../src/index.ts";
+import { contractStatus, pairOutcome, pairWithHost } from "../src/core/capture.ts";
 
 describe("localIsoTime", () => {
   test("is ISO-8601 with the local offset, and names the same instant", () => {
@@ -107,5 +109,92 @@ describe("submitCapture", () => {
       ),
     );
     expect(outcome.ok).toBe(false);
+  });
+});
+
+describe("pairWithHost", () => {
+  let stop = nothing;
+  afterEach(() => stop());
+
+  test("trades the code for a credential as a program, and reads the contract the host accepts", async () => {
+    const seen: { auth: string | null; origin: string | null; body: unknown }[] = [];
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      async fetch(req) {
+        seen.push({
+          auth: req.headers.get("authorization"),
+          origin: req.headers.get("origin"),
+          body: await req.json(),
+        });
+        return Response.json({
+          status: "succeeded",
+          output: {
+            token: "kbcap_x",
+            deviceId: "d1",
+            store: { key: "01S", name: "Scratch" },
+            captureContract: 1,
+          },
+        });
+      },
+    });
+    stop = () => void server.stop(true);
+    const outcome = await Effect.runPromise(
+      pairWithHost(`http://127.0.0.1:${server.port}`, "ab".repeat(16), "kb desktop on m"),
+    );
+    expect(outcome).toEqual({
+      ok: true,
+      token: "kbcap_x",
+      deviceId: "d1",
+      store: { key: "01S", name: "Scratch" },
+      accepts: [1],
+    });
+    expect(seen).toEqual([
+      {
+        auth: null,
+        origin: null,
+        body: {
+          id: "capture.pair",
+          input: { code: "ab".repeat(16), deviceName: "kb desktop on m" },
+        },
+      },
+    ]);
+  });
+
+  test("a refusal, a kb without capture.pair and an unreachable host are outcomes with why", async () => {
+    expect(pairOutcome({ status: "failed", code: "forbidden", message: "code used" })).toEqual({
+      ok: false,
+      message: "code used",
+    });
+    expect(pairOutcome({ status: "failed", code: "unknown_action" })).toEqual({
+      ok: false,
+      message: "this store's kb has no capture.pair yet; update kb on its host",
+    });
+    const unreachable = await Effect.runPromise(
+      pairWithHost("http://127.0.0.1:9", "0".repeat(32), "m"),
+    );
+    expect(unreachable.ok).toBe(false);
+  });
+});
+
+describe("contractStatus", () => {
+  test("says whether the host takes this app's captures", () => {
+    expect(contractStatus([1])).toBe("Accepts v1 · in step with this app");
+    expect(contractStatus([])).toBe("Capture contract not confirmed yet (this app sends v1)");
+    expect(contractStatus([2])).toBe("Accepts v2; this app sends v1, so captures are refused");
+  });
+
+  test("a refused credential says to pair again", () => {
+    expect(
+      captureOutcome({
+        status: "failed",
+        code: "forbidden",
+        message: "capture device credential is invalid or revoked",
+      }),
+    ).toEqual({
+      ok: false,
+      message:
+        "capture device credential is invalid or revoked. Pair this store again: forget it in Stores, and add it with a new code from its host.",
+    });
   });
 });

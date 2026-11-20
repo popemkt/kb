@@ -15,6 +15,8 @@ import { KB_SOURCE_BIN } from "@kb/test-kit";
 import { currentHome, readUiPresence } from "@kb/workspace-fs";
 import { Effect, Layer } from "effect";
 import {
+  CaptureClient,
+  CredentialKeychain,
   DesktopConfig,
   DeviceSettings,
   kbEnvironment,
@@ -24,6 +26,7 @@ import {
   type KbRunner,
   type Stores,
 } from "../src/index.ts";
+import { memoryKeychain } from "./memory-keychain.ts";
 
 let scratch = "";
 afterEach(() => {
@@ -64,6 +67,11 @@ async function alphaStore(): Promise<{ kb: KbRunner; stores: Stores; root: strin
           Layer.provide(
             Layer.mergeAll(
               Layer.succeed(KbCli, kb),
+              Layer.succeed(CaptureClient, {
+                pair: () => Effect.succeed({ ok: false, message: "no host here" } as const),
+                submit: () => Effect.succeed({ ok: false, message: "no host here" } as const),
+              }),
+              Layer.succeed(CredentialKeychain, memoryKeychain()),
               Layer.succeed(DeviceSettings, new DesktopConfig(join(scratch, "desktop"))),
             ),
           ),

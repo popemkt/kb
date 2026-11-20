@@ -24,16 +24,20 @@ describe("settingsOf", () => {
     );
   });
 
-  test("keeps what is well formed and drops a malformed remote", () => {
+  test("keeps what is well formed, drops a malformed remote, and keeps no token", () => {
     const settings = settingsOf({
       kb: "/opt/kb/bin/kb",
       hotkey: "Alt+Space",
-      remotes: [{ key: "r1", name: "Work", origin: "https://w.ts.net", token: "t" }, { key: "r2" }],
+      remotes: [
+        { key: "r1", name: "Work", origin: "https://w.ts.net", deviceId: "d1", accepts: [1, "x"] },
+        // A remote from before pairing, with a pasted token and no device: not a paired store.
+        { key: "r2", name: "Old", origin: "https://o.ts.net", token: "t" },
+      ],
     });
     expect(settings.kb).toBe("/opt/kb/bin/kb");
     expect(settings.hotkey).toBe("Alt+Space");
     expect(settings.remotes).toEqual([
-      { key: "r1", name: "Work", origin: "https://w.ts.net", token: "t" },
+      { key: "r1", name: "Work", origin: "https://w.ts.net", deviceId: "d1", accepts: [1] },
     ]);
   });
 });

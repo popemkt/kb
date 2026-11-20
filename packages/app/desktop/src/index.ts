@@ -12,7 +12,13 @@ export {
   submitCapture,
   textCapture,
 } from "./core/capture.ts";
-export type { CaptureHost, CaptureOutcome, RawCapture, SubmitCapture } from "./core/capture.ts";
+export type {
+  CaptureHost,
+  CaptureOutcome,
+  PairWithHost,
+  RawCapture,
+  SubmitCapture,
+} from "./core/capture.ts";
 export { DEFAULT_SETTINGS, DesktopConfig, desktopDir, settingsOf } from "./core/config.ts";
 export type { DesktopSettings, RemoteStore, WindowMemory } from "./core/config.ts";
 export { startControlServer } from "./core/control.ts";
@@ -31,6 +37,7 @@ export {
 export type { KbCandidate, KbRunner, Receipt } from "./core/kb-command.ts";
 export {
   CaptureClient,
+  CredentialKeychain,
   DesktopShell,
   DeviceSettings,
   FocusKeeper,

@@ -92,8 +92,9 @@ form { display: flex; gap: 6px; flex-wrap: wrap; } form input { flex: 1; min-wid
 <form id="capture"><label>Sends to <select id="captureStore"></select></label><span class="muted" id="hotkey"></span></form>
 <h2>Add a local store</h2>
 <form id="addLocal"><input name="name" placeholder="Name"><input name="path" placeholder="/path/to/root (made a store if it is not one)" required><button>Add</button></form>
-<h2>Add a remote store</h2>
-<form id="addRemote"><input name="name" placeholder="Name"><input name="origin" placeholder="https://host.tailnet.ts.net" required><input name="token" placeholder="Capture token (optional)"><button>Add</button></form>
+<h2>Pair a remote store</h2>
+<form id="addRemote"><input name="name" placeholder="Name (optional)"><input name="origin" placeholder="https://host.tailnet.ts.net" required><input name="code" placeholder="Pairing code" required autocomplete="off" spellcheck="false"><button>Pair</button></form>
+<p class="muted">On the store's host, issue a one-use code (valid 10 minutes): <code>kb --root &lt;store&gt; --json action-invoke '{"id":"capture.pairCode"}'</code>. The credential it pairs is kept in the keychain.</p>
 <div id="status"></div>
 <p class="muted" id="kb"></p>
 <script>${apiScript(token)}
@@ -111,7 +112,7 @@ async function refresh() {
     else if (stores.length === 0) rows.append(only("No stores yet. Add one below.", "muted"));
     for (const s of stores) {
       const tr = document.createElement("tr");
-      tr.append(cell(s.name), cell(s.kind === "local" ? s.root : s.origin, "muted"), cell(s.kind === "local" ? s.status : "remote", "muted"));
+      tr.append(cell(s.name), cell(s.kind === "local" ? s.root : s.origin, "muted"), cell(s.kind === "local" ? s.status : s.contract, "muted"));
       const actions = cell("", "actions");
       actions.append(button("Open", () => api("/api/stores/open", { key: s.key }).then(() => say("")).catch((e) => say(e.message, true))), " ",
         button("Forget", async () => { if (!confirm("Forget " + s.name + "? Its files are not touched.")) return; await api("/api/stores/remove", { key: s.key }).catch((e) => say(e.message, true)); refresh(); }));
@@ -132,7 +133,7 @@ for (const id of ["addLocal", "addRemote"]) {
   document.getElementById(id).onsubmit = async (event) => {
     event.preventDefault();
     const form = event.target;
-    say("Adding…");
+    say(id === "addLocal" ? "Adding…" : "Pairing…");
     try { await api("/api/stores/" + (id === "addLocal" ? "add-local" : "add-remote"), Object.fromEntries(new FormData(form))); form.reset(); say(""); }
     catch (e) { say(e.message, true); }
     refresh();

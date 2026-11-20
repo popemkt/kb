@@ -16,6 +16,7 @@
   "dependencies": {
     "@effect/platform-bun": "catalog:",
     "@kb/child-process": "workspace:*",
+    "@kb/keychain": "workspace:*",
     "@kb/workspace-fs": "workspace:*",
     "effect": "catalog:",
     "electrobun": "catalog:"

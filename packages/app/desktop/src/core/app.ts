@@ -7,6 +7,7 @@
  */
 import { Context, DateTime, Deferred, Effect, Layer } from "effect";
 import {
+  contractStatus,
   textCapture,
   type CaptureOutcome,
   type RawCapture,
@@ -291,9 +292,11 @@ function quickCapture(ctx: Ctx) {
   const send = Effect.fn("kb.desktop.app.send")(function* (text: string) {
     const { store, capture } = yield* envelope(text);
     const origin = windows.get(store.key)?.origin ?? (yield* stores.origin(store));
-    const token =
-      store.kind === "remote" && store.token !== undefined ? { token: store.token } : {};
-    const outcome = yield* ctx.submit({ origin, ...token }, capture);
+    const token = yield* stores.credential(store);
+    const outcome = yield* ctx.submit(
+      { origin, ...(token === undefined ? {} : { token }) },
+      capture,
+    );
     if (outcome.ok && ctx.pendingCapture?.capture === capture) ctx.pendingCapture = null;
     return outcome;
   });
@@ -381,7 +384,12 @@ function pageActions(ctx: Ctx, w: Windows, c: Capture): ControlActions {
     // A list that cannot be read is an answer too: the page shows why in
     // place of the stores, with the kb it ran, instead of waiting forever.
     listStores: stores.list.pipe(
-      Effect.map((all) => ({ stores: all, problem: "" })),
+      Effect.map((all) => ({
+        stores: all.map((store) =>
+          store.kind === "remote" ? { ...store, contract: contractStatus(store.accepts) } : store,
+        ),
+        problem: "",
+      })),
       Effect.catch((err: StoreError) => Effect.succeed({ stores: [], problem: err.message })),
       Effect.map((listed) => ({
         ...listed,
@@ -396,8 +404,8 @@ function pageActions(ctx: Ctx, w: Windows, c: Capture): ControlActions {
       path === ""
         ? Effect.fail(new StoreError({ message: "give the root's path" }))
         : Effect.andThen(stores.addLocal(path, name), refreshMenu),
-    addRemote: (name, origin, token) =>
-      Effect.andThen(stores.addRemote(name, origin, token), refreshMenu),
+    addRemote: (name, origin, code) =>
+      Effect.andThen(stores.addRemote(name, origin, code), refreshMenu),
     removeStore: (key) =>
       w.storeOf(key).pipe(
         Effect.flatMap((store) => stores.remove(store)),

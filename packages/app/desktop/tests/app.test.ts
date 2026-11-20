@@ -11,6 +11,7 @@ import { Effect, Layer } from "effect";
 import { currentHome } from "@kb/workspace-fs";
 import {
   CaptureClient,
+  CredentialKeychain,
   Desktop,
   DesktopLive,
   DeviceSettings,
@@ -21,6 +22,7 @@ import {
   NO_FOCUS_RETURN,
   type KbRunner,
   type MenuEntry,
+  type PairWithHost,
   type RawCapture,
   type Shell,
   type ShellWindow,
@@ -28,6 +30,7 @@ import {
   type WindowFrame,
   type WindowSpec,
 } from "../src/index.ts";
+import { memoryKeychain } from "./memory-keychain.ts";
 
 interface FakeWindow extends ShellWindow {
   readonly spec: WindowSpec;
@@ -147,6 +150,8 @@ async function started(
       return { ok: true, nodeId: "n1", store: "Alpha" } as const;
     }),
   kb: KbRunner & { calls: string[][] } = fakeKb(),
+  pair: PairWithHost = () => Effect.succeed({ ok: false, message: "no host here" } as const),
+  keychain = memoryKeychain(),
 ) {
   const ui = fakeShell();
   const config = new DesktopConfig(dir);
@@ -155,7 +160,8 @@ async function started(
     Layer.succeed(DeviceSettings, config),
     Layer.succeed(KbCli, kb),
     Layer.succeed(FocusKeeper, NO_FOCUS_RETURN),
-    Layer.succeed(CaptureClient, { submit }),
+    Layer.succeed(CaptureClient, { pair, submit }),
+    Layer.succeed(CredentialKeychain, keychain),
   );
   const app = await Effect.runPromise(
     Effect.gen(function* () {
@@ -163,7 +169,7 @@ async function started(
     }).pipe(Effect.provide(DesktopLive.pipe(Layer.provide(services)))),
   );
   await Effect.runPromise(app.start);
-  return { ui, app, kb, config };
+  return { ui, app, kb, config, keychain };
 }
 
 /** Open the quick-capture panel by its hotkey, and a caller of the control server with its token. */
@@ -290,6 +296,90 @@ describe("DesktopApp", () => {
     second.ui.open()[0]?.fire.closed();
     expect(second.config.openWindows()).toEqual([]);
     await Effect.runPromise(second.app.settle);
+  });
+});
+
+/** A host that refuses every pairing code. */
+const refusesCode: PairWithHost = () =>
+  Effect.succeed({
+    ok: false,
+    message: "capture pairing code is invalid, expired or already used",
+  } as const);
+
+describe("a paired remote store", () => {
+  const HOST = "https://work.tail.ts.net";
+  const CODE = "0123456789abcdef0123456789abcdef";
+  const TOKEN = `kbcap_${"a".repeat(64)}`;
+
+  test("pairs with a code, keeps the credential in the keychain only, and captures with it", async () => {
+    const paired: { origin: string; code: string; deviceName: string }[] = [];
+    const pair: PairWithHost = (origin, code, deviceName) =>
+      Effect.sync(() => {
+        paired.push({ origin, code, deviceName });
+        return {
+          ok: true,
+          token: TOKEN,
+          deviceId: "dev-1",
+          store: { key: "01WORK", name: "Work" },
+          accepts: [1],
+        } as const;
+      });
+    const submitted: { origin: string; token?: string }[] = [];
+    const submit: SubmitCapture = (host) =>
+      Effect.sync(() => {
+        submitted.push(host);
+        return { ok: true, nodeId: "n9", store: "Work" } as const;
+      });
+    const { ui, app, config, keychain } = await started([], submit, fakeKb(), pair);
+    const { call } = await capturePanel(ui, app);
+
+    expect(
+      await call("/api/stores/add-remote", {
+        name: "",
+        origin: `${HOST}/x`,
+        code: ` ${CODE.toUpperCase()} `,
+      }),
+    ).toEqual({ ok: true });
+    expect(paired).toEqual([
+      { origin: HOST, code: CODE, deviceName: expect.stringMatching(/^kb desktop on /) },
+    ]);
+    const [remote] = config.settings.remotes;
+    expect(remote).toMatchObject({ name: "Work", origin: HOST, deviceId: "dev-1", accepts: [1] });
+    expect(JSON.stringify(config.settings)).not.toContain(TOKEN);
+    expect([...keychain.items]).toEqual([[`kb-desktop/${remote?.key}`, TOKEN]]);
+
+    const listed = (await call("/api/stores")) as { stores: { kind: string }[] };
+    expect(listed.stores.find((s) => s.kind === "remote")).toMatchObject({
+      name: "Work",
+      contract: "Accepts v1 · in step with this app",
+    });
+
+    await call("/api/settings/capture-store", { key: remote?.key });
+    expect(
+      await (await capturePanel(ui, app)).call("/api/capture", { text: "from the desk" }),
+    ).toEqual({ nodeId: "n9" });
+    expect(submitted).toEqual([{ origin: HOST, token: TOKEN }]);
+
+    // Forgetting it takes its credential out of the keychain too.
+    expect(await call("/api/stores/remove", { key: remote?.key })).toEqual({ ok: true });
+    expect(config.settings.remotes).toEqual([]);
+    expect(keychain.items.size).toBe(0);
+    await Effect.runPromise(app.settle);
+  });
+
+  test("a code that is not one, or a host that refuses it, adds nothing", async () => {
+    const { ui, app, config, keychain } = await started([], undefined, fakeKb(), refusesCode);
+    const { call } = await capturePanel(ui, app);
+    const badCode = (await call("/api/stores/add-remote", { origin: HOST, code: "1234" })) as {
+      error: string;
+    };
+    expect(badCode.error).toContain("a pairing code is 32 hex characters");
+    expect(await call("/api/stores/add-remote", { origin: HOST, code: CODE })).toEqual({
+      error: `could not pair with ${HOST}: capture pairing code is invalid, expired or already used`,
+    });
+    expect(config.settings.remotes).toEqual([]);
+    expect(keychain.items.size).toBe(0);
+    await Effect.runPromise(app.settle);
   });
 });
 

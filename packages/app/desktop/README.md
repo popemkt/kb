@@ -95,8 +95,17 @@ It was tested under Xvfb against scratch stores (`KB_HOME`, `KB_DATA`,
   store (`kb locations`), and your remote stores, which are origins.
   - Add a local root by path and name. A directory that is not a store gets
     `kb init`.
-  - Add a remote store by an `https:` origin.
-  - Forget a store. Its files are never touched.
+  - Pair a remote store: its origin and a one-use pairing code its host's
+    owner issues with `capture.pairCode` (the store list shows the command;
+    a code is good for 10 minutes). The app calls
+    `capture.pair`, keeps the device credential it returns in the macOS
+    Keychain (service `kb-desktop`, account the store's key; the secret
+    service on Linux), never in `settings.json`, and sends it as
+    `Authorization: Bearer` with every capture. The row says which capture
+    contract the store accepts ("Accepts v1 · in step with this app"). A
+    host that refuses the credential asks you to pair again.
+  - Forget a store. Its files are never touched;
+    a remote's credential is erased from the keychain.
   - Choose which store quick capture sends to.
 - **One window per store**, showing the page that store's own host serves.
   - Local stores open through `kb open <id>`, which reuses a `kb ui`
@@ -147,9 +156,9 @@ offset), source: {app: "kb desktop"}, text}`. The host maps the text to
   it serves `capture.submit` (GAP `01M7WV5DBWNMEWS2QG6M4VP3QY`). The
   checkout and Bun paths a build records are those of the build machine
   (GAP `01M7WV5DQDNMQMR9QYJN839TNJ`).
-- **Remote capture auth.** A remote store's capture token is pasted by hand
-  into the store list. There is no `capture.pair` flow yet
-  (GAP `01M7QTTV8E0XFK9J0CKCNM6H5G`).
+- **The capture wire is declared twice.** The capture envelope and the
+  `capture.pair` answer are written out in `src/core/capture.ts`, matching
+  `@kb/contracts` by hand (GAP `01M7QTTTHGVFE32XRVV96A696K`).
 - **Remote stores are not locations.** They are kept in the desktop's own
   settings (GAP `01M7QTTRFKDF9B7F4M29Z84XJQ`).
 - **Page storage across ports.** A local host that comes back on a new port
@@ -164,13 +173,13 @@ offset), source: {app: "kb desktop"}, text}`. The host maps the text to
 
 ## Where things live
 
-| Path                                        | What                                                                                                                                                                                                                     |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `src/core/`                                 | Everything that decides, independent of the shell: the store list (through one-shot `kb` commands), store windows, quick capture, menu, deep links, quit, and the control server that serves the desktop's own two pages |
-| `src/core/shell.ts`                         | The shell port: windows, hotkey, menu, OS events, exit                                                                                                                                                                   |
-| `src/core/services.ts`                      | The services the composition root provides (shell, settings, kb CLI, focus return, capture client). `Desktop` and `StoreDirectory` are layers over them                                                                  |
-| `src/shell/electrobun/`                     | The Electrobun adapter and entry. Nothing in it decides anything                                                                                                                                                         |
-| `~/Library/Application Support/kb-desktop/` | `settings.json` (`kb`, `hotkey`, `captureStore`, `stopStartedHostsOnQuit`, `remotes`) and `windows.json`. On Linux it is under `$XDG_CONFIG_HOME/kb-desktop`. `KB_DESKTOP_HOME` overrides it                             |
+| Path                                        | What                                                                                                                                                                                                                                                                  |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/core/`                                 | Everything that decides, independent of the shell: the store list (through one-shot `kb` commands), store windows, quick capture, menu, deep links, quit, and the control server that serves the desktop's own two pages                                              |
+| `src/core/shell.ts`                         | The shell port: windows, hotkey, menu, OS events, exit                                                                                                                                                                                                                |
+| `src/core/services.ts`                      | The services the composition root provides (shell, settings, kb CLI, focus return, capture client, credential keychain). `Desktop` and `StoreDirectory` are layers over them                                                                                          |
+| `src/shell/electrobun/`                     | The Electrobun adapter and entry. Nothing in it decides anything                                                                                                                                                                                                      |
+| `~/Library/Application Support/kb-desktop/` | `settings.json` (`kb`, `hotkey`, `captureStore`, `stopStartedHostsOnQuit`, `remotes`: key, name, origin, device id and accepted contracts, never a credential) and `windows.json`. On Linux it is under `$XDG_CONFIG_HOME/kb-desktop`. `KB_DESKTOP_HOME` overrides it |
 
 **Swapping Electrobun for Tauri v2.** The core is plain TypeScript on Bun and
 draws its own pages over a loopback control server. The swap would go like

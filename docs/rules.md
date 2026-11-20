@@ -1169,24 +1169,16 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 ### GAP: kb desktop declares the raw capture envelope itself instead of importing the contract
 
-- **expected** — Quick capture builds its payload as @kb/contracts' CaptureSubmit (CaptureSubmitSchema, CAPTURE_CONTRACT), the one statement of the raw capture wire.
-- **current** — packages/app/desktop/src/core/capture.ts declares RawCapture and CAPTURE_CONTRACT locally, matching the contract on feat/raw-capture-host, which was not on main when the desktop branched.
+- **expected** — Quick capture and pairing read and write the capture wire as @kb/contracts states it: the envelope as CaptureSubmit (CaptureSubmitSchema, CAPTURE_CONTRACT) and the pair answer as CapturePairReceiptSchema, the one statement of the wire.
+- **current** — packages/app/desktop/src/core/capture.ts declares RawCapture, CAPTURE_CONTRACT and the capture.pair answer (PairAnswerSchema) locally, matching @kb/contracts by hand; the desktop does not depend on @kb/contracts.
 - **impact** — If the contract changes, the desktop's envelope can drift from it with every test green.
-- **closes** — Once the capture contract is on main, capture.ts imports CaptureSubmit and CAPTURE_CONTRACT from @kb/contracts and its tests parse the envelope with CaptureSubmitSchema.
+- **closes** — capture.ts imports CaptureSubmit, CAPTURE_CONTRACT and CapturePairReceiptSchema (or an Effect Schema derived from them) from @kb/contracts, and its tests parse the envelope and the pair answer with them.
 - **node** — `01M7QTTTHGVFE32XRVV96A696K`
-
-### GAP: kb desktop has no pairing for a remote store's capture; its token is pasted by hand
-
-- **expected** — Adding a remote store pairs once (capture.pair with a one-use code the host's owner issues) and keeps the returned device credential in the OS keychain.
-- **current** — The store list takes an optional capture token as text and keeps it in the desktop's settings.json (mode 0600) beside the remote's origin (packages/app/desktop/src/core/config.ts).
-- **impact** — A remote capture works only with a token the person copied over, and the token sits in a plain file.
-- **closes** — The desktop calls capture.pair when a remote store is added and keeps the credential in Keychain (macOS) or the secret service (Linux).
-- **node** — `01M7QTTV8E0XFK9J0CKCNM6H5G`
 
 ### GAP: kb desktop keeps remote stores in its own settings, beside the home store's locations
 
 - **expected** — A store reached at an origin (a tailnet kb ui) is a location like a local root: a node in the home store that location.list lists and location.open answers, so the desktop, the page's Locations section and kb open see one list.
-- **current** — packages/app/desktop/src/core/config.ts keeps remote stores (key, name, origin, token) in the desktop's settings.json; local stores are read from location.list.
+- **current** — packages/app/desktop/src/core/config.ts keeps remote stores (key, name, origin, device id, accepted capture contracts) in the desktop's settings.json, their device credentials in the keychain; local stores are read from location.list.
 - **impact** — Two lists of stores: a remote added in the desktop is not in the page's Locations or kb locations, and one added elsewhere is not in the desktop.
 - **closes** — The locations family gains an origin (a URL-typed field beside sys.f.location.path, status derived by probing it), and the desktop lists and opens remotes through location.list and location.open.
 - **node** — `01M7QTTRFKDF9B7F4M29Z84XJQ`

@@ -5,7 +5,8 @@
  * answers the URL of the `kb ui` serving the root and starts one when none
  * does. So reusing a running host, and starting one on any free port, is
  * kb's own mechanism (`serveRoot`), not a second one here. A remote store
- * is an origin kept in the desktop's settings.
+ * is an origin kept in the desktop's settings, paired once with its host
+ * (`capture.pair`), its credential in the platform keychain.
  *
  * What the desktop adds is ownership: a host it had to start is its to stop
  * when it quits, and one that was already serving is left alone. Ownership
@@ -14,13 +15,16 @@
  * since been replaced by another one for the same root is not this app's.
  */
 import { existsSync } from "node:fs";
+import { hostname } from "node:os";
 import { join } from "node:path";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 import { BunFileSystem } from "@effect/platform-bun";
 import { currentHome, readUiPresence, servingUi, type UiPresence } from "@kb/workspace-fs";
 import type { DesktopConfig, RemoteStore } from "./config.ts";
+import type { Keychain, KeychainItem } from "@kb/keychain";
+import type { PairWithHost } from "./capture.ts";
 import type { KbRunner, Receipt } from "./kb-command.ts";
-import { DeviceSettings, KbCli } from "./services.ts";
+import { CaptureClient, CredentialKeychain, DeviceSettings, KbCli } from "./services.ts";
 
 /** Why a store could not be listed, opened, added or forgotten, in words a person reads. */
 export class StoreError extends Schema.TaggedError<StoreError>()("kb.desktop/StoreError", {
@@ -92,6 +96,17 @@ export function remoteOrigin(input: string): string | null {
   return url.origin;
 }
 
+/** The keychain item that holds the credential of the remote store `key`. */
+function credentialItem(key: string): KeychainItem {
+  return { service: "kb-desktop", account: key };
+}
+
+/** A pairing code as `capture.pairCode` issues it: 32 lowercase hex characters. */
+const PAIR_CODE = /^[a-f0-9]{32}$/;
+
+/** What this device is called at a host it pairs with. */
+const DEVICE_NAME = `kb desktop on ${hostname()}`;
+
 /** A receipt's output, or the refusal as a StoreError that says what was asked. */
 function succeeded(receipt: Receipt, asked: string): Effect.Effect<unknown, StoreError> {
   return receipt.status === "succeeded"
@@ -152,12 +167,20 @@ export interface Stores {
   readonly origin: (store: Store) => Effect.Effect<string, StoreError>;
   /** Add the kb root at `path` as a location named `name`, making a store there when there is none. */
   readonly addLocal: (path: string, name: string) => Effect.Effect<void, StoreError>;
+  /**
+   * Pair with the host at `origin` with the one-use `code` its owner issued
+   * (`capture.pairCode`), keep the credential in the keychain, and add the
+   * store, named `name` or as its host names it. Pairing an origin already
+   * added pairs it again: a new credential under the same key.
+   */
   readonly addRemote: (
     name: string,
     origin: string,
-    token: string | undefined,
+    code: string,
   ) => Effect.Effect<RemoteStore, StoreError>;
-  /** Forget `store`: a location leaves the home store (its directory is never touched); a remote leaves the settings. */
+  /** The credential to send a capture to `store` with: a remote store's from the keychain, none for a local one. */
+  readonly credential: (store: Store) => Effect.Effect<string | undefined, StoreError>;
+  /** Forget `store`: a location leaves the home store (its directory is never touched); a remote leaves the settings and its credential the keychain. */
   readonly remove: (store: Store) => Effect.Effect<void, StoreError>;
   /** The roots whose hosts this app started and has not stopped. */
   readonly started: () => readonly string[];
@@ -174,9 +197,105 @@ export interface Stores {
 
 const STOP_GRACE = "5 seconds";
 
-function storeDirectory(kb: KbRunner, config: DesktopConfig): Stores {
+/**
+ * The paired remote stores: adding one pairs it (`capture.pair`) and keeps
+ * its credential in the keychain under its key, a capture reads it from
+ * there, and forgetting one takes it out of both the settings and the
+ * keychain.
+ */
+function remoteStores(config: DesktopConfig, pair: PairWithHost, keychain: Keychain) {
+  const add = Effect.fn("kb.desktop.stores.addRemote")(function* (
+    name: string,
+    at: string,
+    code: string,
+  ) {
+    const bare = remoteOrigin(at);
+    if (bare === null)
+      return yield* new StoreError({
+        message: `${at} is not an https origin (or a loopback http one)`,
+      });
+    const typed = code.trim().toLowerCase();
+    if (!PAIR_CODE.test(typed))
+      return yield* new StoreError({
+        message:
+          'a pairing code is 32 hex characters; issue one on the store\'s host with: kb --root <store> --json action-invoke \'{"id":"capture.pairCode"}\'',
+      });
+    const paired = yield* pair(bare, typed, DEVICE_NAME);
+    if (!paired.ok)
+      return yield* new StoreError({ message: `could not pair with ${bare}: ${paired.message}` });
+    const before = config.settings.remotes.find((r) => r.origin === bare);
+    const key = before?.key ?? `remote-${crypto.randomUUID().slice(0, 8)}`;
+    yield* keychain
+      .write(credentialItem(key), paired.token)
+      .pipe(
+        Effect.mapError(
+          (err) =>
+            new StoreError({ message: `paired, but the credential was not kept: ${err.message}` }),
+        ),
+      );
+    const remote: RemoteStore = {
+      key,
+      name: name === "" ? (before?.name ?? paired.store.name) : name,
+      origin: bare,
+      deviceId: paired.deviceId,
+      accepts: paired.accepts,
+    };
+    config.updateSettings((s) => ({
+      ...s,
+      remotes:
+        before === undefined
+          ? [...s.remotes, remote]
+          : s.remotes.map((r) => (r.key === key ? remote : r)),
+    }));
+    return remote;
+  });
+
+  const credential = Effect.fn("kb.desktop.stores.credential")(function* (store: Store) {
+    if (store.kind === "local") return undefined;
+    const token = yield* keychain.read(credentialItem(store.key)).pipe(
+      Effect.mapError(
+        (err) =>
+          new StoreError({
+            message: `${store.name}'s credential could not be read: ${err.message}`,
+          }),
+      ),
+    );
+    if (token === null)
+      return yield* new StoreError({
+        message: `${store.name} has no credential in the keychain. Forget it in Stores, and add it again with a new code from its host.`,
+      });
+    return token;
+  });
+
+  const forget = Effect.fn("kb.desktop.stores.forgetRemote")(function* (
+    store: Extract<Store, { kind: "remote" }>,
+  ) {
+    config.updateSettings((s) => ({
+      ...s,
+      remotes: s.remotes.filter((r) => r.key !== store.key),
+    }));
+    yield* keychain.erase(credentialItem(store.key)).pipe(
+      Effect.mapError(
+        (err) =>
+          new StoreError({
+            message: `${store.name} is forgotten, but its credential is still in the keychain (kb-desktop, ${store.key}): ${err.message}`,
+          }),
+      ),
+    );
+  });
+
+  return { add, credential, forget };
+}
+
+function storeDirectory(
+  kb: KbRunner,
+  config: DesktopConfig,
+  pair: PairWithHost,
+  keychain: Keychain,
+): Stores {
   /** The host this app started for each root, so quitting stops those processes and nothing else. */
   const started = new Map<string, HostIdentity>();
+  const remotes = remoteStores(config, pair, keychain);
 
   const list = Effect.gen(function* () {
     const home = yield* currentHome;
@@ -217,32 +336,9 @@ function storeDirectory(kb: KbRunner, config: DesktopConfig): Stores {
     );
   });
 
-  const addRemote = Effect.fn("kb.desktop.stores.addRemote")(function* (
-    name: string,
-    at: string,
-    token: string | undefined,
-  ) {
-    const bare = remoteOrigin(at);
-    if (bare === null)
-      return yield* new StoreError({
-        message: `${at} is not an https origin (or a loopback http one)`,
-      });
-    const remote: RemoteStore = {
-      key: `remote-${crypto.randomUUID().slice(0, 8)}`,
-      name: name === "" ? new URL(bare).host : name,
-      origin: bare,
-      ...(token === undefined || token === "" ? {} : { token }),
-    };
-    config.updateSettings((s) => ({ ...s, remotes: [...s.remotes, remote] }));
-    return remote;
-  });
-
   const remove = Effect.fn("kb.desktop.stores.remove")(function* (store: Store) {
     if (store.kind === "remote") {
-      config.updateSettings((s) => ({
-        ...s,
-        remotes: s.remotes.filter((r) => r.key !== store.key),
-      }));
+      yield* remotes.forget(store);
       return;
     }
     const home = yield* currentHome;
@@ -271,21 +367,27 @@ function storeDirectory(kb: KbRunner, config: DesktopConfig): Stores {
     find: (keyOrName) => Effect.map(list, (stores) => findStore(stores, keyOrName)),
     origin,
     addLocal,
-    addRemote,
+    addRemote: remotes.add,
+    credential: remotes.credential,
     remove,
     started: () => [...started.keys()],
     stopStarted,
   };
 }
 
-/** The store directory: the home store's locations and the remote stores, over the desktop's kb. */
+/** The store directory: the home store's locations over the desktop's kb, and the paired remote stores. */
 export class StoreDirectory extends Context.Service<StoreDirectory, Stores>()(
   "@kb/desktop/StoreDirectory",
 ) {
   static readonly layer = Layer.effect(
     StoreDirectory,
     Effect.gen(function* () {
-      return storeDirectory(yield* KbCli, yield* DeviceSettings);
+      return storeDirectory(
+        yield* KbCli,
+        yield* DeviceSettings,
+        (yield* CaptureClient).pair,
+        yield* CredentialKeychain,
+      );
     }),
   );
 }

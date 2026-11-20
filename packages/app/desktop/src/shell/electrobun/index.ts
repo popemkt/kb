@@ -23,6 +23,7 @@ import {
 } from "../../core/kb-command.ts";
 import {
   CaptureClient,
+  CredentialKeychain,
   DeviceSettings,
   DesktopShell,
   FocusKeeper,
@@ -83,6 +84,7 @@ if (choice.kb === null) {
     Layer.succeed(KbCli, kbProcessRunner(choice, { env, settingsFile: config.settingsFile })),
     Layer.succeed(FocusKeeper, platformFocusReturn(process.platform, BUNDLE_ID)),
     CaptureClient.layer,
+    CredentialKeychain.layer,
   );
   const main = Effect.gen(function* () {
     const desktop = yield* Desktop;
