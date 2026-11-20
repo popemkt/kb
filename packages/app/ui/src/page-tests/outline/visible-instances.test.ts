@@ -168,6 +168,72 @@ describe("visible instances", () => {
   });
 });
 
+const outline = () => useOutlineStore.getState();
+const collapsed = (id: string) => present(outlineNodes().get(id), id).collapsed;
+
+describe("a row's subtree keys walk the rows the outline draws", () => {
+  /** n.q1 holds a stored child, n.qc, over a child of its own. */
+  beforeEach(() => {
+    resetOutlineStore();
+    const leaf = (id: string, children: string[] = []): WireNode => ({
+      ...queryWire(),
+      id,
+      text: id,
+      props: {},
+      children,
+    });
+    useGraphStore
+      .getState()
+      .hydrateFromWire(
+        [
+          ...fixtureGraph.nodes,
+          ...viewFieldNodes,
+          { ...queryWire(), children: ["n.qc"] },
+          leaf("n.qc", ["n.qcc"]),
+          leaf("n.qcc"),
+        ],
+        fixtureGraph.rev,
+        "fixtures",
+      );
+  });
+
+  /** The query open, and its results answered, as a page that draws them has them. */
+  async function queryOpen(): Promise<void> {
+    outline().toggleCollapse("n.q1");
+    outline().getVisibleInstances();
+    await present(useGraphStore.getState().queries, "replica queries").ask(TODO_EDN);
+  }
+
+  it("opens the results a query draws and the rows under them, then closes them", async () => {
+    await queryOpen();
+    expect(["n.root-a", "n.child-a2", "n.qc"].map(collapsed)).toEqual([true, true, true]);
+    outline().expandSubtree("tree/n.q1");
+    // n.root-a is drawn under the query as its result; its rows open with it.
+    expect(["n.root-a", "n.child-a2", "n.qc"].map(collapsed)).toEqual([false, false, false]);
+    outline().collapseSubtree("tree/n.q1");
+    expect(["n.q1", "n.root-a", "n.child-a2", "n.qc"].map(collapsed)).toEqual([
+      true,
+      true,
+      true,
+      true,
+    ]);
+  });
+
+  it("leaves the stored children a query's view does not draw as they are", async () => {
+    const { mutations } = await import("@/actions/mutations");
+    await mutations.setFrameView("n.q1", CollectionTableView);
+    outline().toggleCollapse("n.qc");
+    await queryOpen();
+    outline().collapseSubtree("tree/n.q1");
+    expect(collapsed("n.q1")).toBe(true);
+    expect(collapsed("n.qc")).toBe(false);
+    outline().toggleCollapse("n.qc");
+    outline().expandSubtree("tree/n.q1");
+    expect(collapsed("n.q1")).toBe(false);
+    expect(collapsed("n.qc")).toBe(true);
+  });
+});
+
 describe("outlines in several panes", () => {
   beforeEach(() => {
     resetOutlineStore();

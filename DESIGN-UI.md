@@ -448,7 +448,9 @@ re-entry into Mode A. Both modes hold the structure keys a row is
 navigated by: `Cmd+ArrowUp/Down` close or open one level (Mode B:
 `ArrowLeft/Right`), `Cmd+Alt+ArrowDown` / `Cmd+Alt+ArrowUp` (Ctrl+Alt on
 Windows and Linux) open or close the row's whole subtree, every row
-under it whatever it showed (each selected row's, over a range),
+the outline draws under it as it draws them all open: query results
+and references opened in place among them, and a child its view does
+not draw left as it is (each selected row's, over a range),
 `Cmd+.` zooms into the row, and `Cmd+,` zooms out to the page above the
 one its outline shows (its crumb before the last; at home nothing moves).
 The palette's Expand all and Collapse all are the same subtree step over
