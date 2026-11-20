@@ -15,7 +15,7 @@ import {
   SidebarSectionPoint,
   type NodeMap,
 } from "@kb/ui-sdk";
-import { goToTodayCommand } from "./command";
+import { daysCommands } from "./command";
 import { TodaySection } from "./section";
 import { dayNode, todayNode } from "./today";
 
@@ -90,7 +90,9 @@ export const daysUiPlugin = definePlugin({
           id: "section",
           value: { order: 5, Component: TodaySection },
         }),
-        ctx.contribute(CommandPoint, { id: goToTodayCommand.id, value: goToTodayCommand }),
+        ...daysCommands.map((command) =>
+          ctx.contribute(CommandPoint, { id: command.id, value: command }),
+        ),
         ctx.provide(CaptureTargetService, captureIntoToday),
         ctx.provide(LandingService, landOnToday),
         ctx.provide(DateTargetService, dayNode),

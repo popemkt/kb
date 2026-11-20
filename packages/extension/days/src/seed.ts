@@ -59,5 +59,7 @@ export function daysSeed(at: string): readonly KbNode[] {
       props: CONFIGURES_DAYS,
     }),
     seededCommand(DAYS_IDS.todayCommand, "Go to today", at),
+    seededCommand(DAYS_IDS.previousDayCommand, "Previous day", at),
+    seededCommand(DAYS_IDS.nextDayCommand, "Next day", at),
   ];
 }

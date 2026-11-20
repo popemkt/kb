@@ -27,9 +27,36 @@ export function getPath(): string {
   return hasLocation() ? window.location.pathname || "/" : "/";
 }
 
+/** Each in-app entry carries its position, even across a page reload. */
+function pathIndex(): number {
+  const state: unknown = hasLocation() ? window.history.state : null;
+  if (typeof state !== "object" || state === null || !("kbPathIndex" in state)) return 0;
+  const index = state.kbPathIndex;
+  return typeof index === "number" && Number.isSafeInteger(index) && index >= 0 ? index : 0;
+}
+
+// The last entry known to this page starts at the entry it loaded.
+let lastIndex = pathIndex();
+
+export function canGo(): { back: boolean; forward: boolean } {
+  const index = pathIndex();
+  return { back: index > 0, forward: index < lastIndex };
+}
+
+/** Traverse only known in-app entries. The browser reports the move via popstate. */
+export function go(delta: number): void {
+  if (!hasLocation() || !Number.isSafeInteger(delta) || delta === 0) return;
+  const target = pathIndex() + delta;
+  if (target >= 0 && target <= lastIndex) window.history.go(delta);
+}
+
 function writePath(method: "pushState" | "replaceState", to: string): void {
   if (!hasLocation() || to === getPath()) return;
-  window.history[method]({}, "", to);
+  const index = pathIndex();
+  const push = method === "pushState";
+  const next = push ? index + 1 : index;
+  window.history[method]({ ...(push ? {} : window.history.state), kbPathIndex: next }, "", to);
+  if (push) lastIndex = next;
   notify();
 }
 
@@ -46,14 +73,19 @@ export function replacePath(to: string): void {
   writePath("replaceState", to);
 }
 
+function onPopState(): void {
+  lastIndex = Math.max(lastIndex, pathIndex());
+  notify();
+}
+
 /** Call `listener` whenever the path changes, by `navigate` or by history; returns the unsubscribe. */
 export function subscribePath(listener: Listener): () => void {
   if (!hasLocation()) return () => {};
-  if (listeners.size === 0) window.addEventListener("popstate", notify);
+  if (listeners.size === 0) window.addEventListener("popstate", onPopState);
   listeners.add(listener);
   return () => {
     listeners.delete(listener);
-    if (listeners.size === 0) window.removeEventListener("popstate", notify);
+    if (listeners.size === 0) window.removeEventListener("popstate", onPopState);
   };
 }
 

@@ -3908,6 +3908,10 @@ until "Save workspace".
   the focused pane (`startWorkspace`). Moving the focus shows the newly
   focused pane's location without adding a history step (`replacePath`). On
   load, the URL wins over the stored location of the focused pane.
+- **Back and Forward** sit beside the sidebar toggle and run the same
+  commands as ⌘K and the rebindable `Mod-[` and `Mod-]` page shortcuts.
+  The buttons are enabled for known history entries. Immediately after a
+  reload, forward history is unknown.
 - **One pane has no chrome.** A workspace of one pane is drawn as the page
   always was: the header, then the pane. Two or more panes are a movable
   layout grid, and the header stays. The header is the shell's: every page
@@ -5422,6 +5426,8 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
   page's own key context (`core.page`; [Outline editor →
   Keybindings](#outline-editor-i1)), so the key opens today wherever focus
   is.
+- **"Previous day" and "Next day"** in ⌘K step from the open day or from
+  today on other pages, opening the adjacent date through the date target.
 - **Opening on today.** Where a page that loads at the root opens is the
   page role `ui.landing` (DESIGN.md → [Provider roles](./DESIGN.md#provider-roles)).
   Core owns it and stays home, and days replaces it. Days answers today's

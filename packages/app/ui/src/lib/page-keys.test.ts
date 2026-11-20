@@ -7,6 +7,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DAYS_IDS } from "@kb/days";
+import { SYSTEM_IDS } from "@kb/model";
 import { currentKeymap, setToastSink, syncUiPlugins, tellKeymaps } from "@kb/ui-sdk";
 import { KeybindingPoint } from "@kb/contracts";
 import { provideKeybinding } from "@kb/keybindings";
@@ -37,6 +38,12 @@ describe("the page's own keys", () => {
   it("refuses no bundled binding, in any context", () => {
     expect(told.filter((line) => line.startsWith("Keybinding"))).toEqual([]);
     expect(currentKeymap("canvas.rest").held.length).toBeGreaterThan(0);
+    expect(currentKeymap("outline.selection").resolve({ key: "ArrowLeft" })?.value.run).toEqual({
+      intent: "close-or-climb",
+    });
+    expect(currentKeymap("outline.selection").resolve({ key: "ArrowRight" })?.value.run).toEqual({
+      intent: "open-or-descend",
+    });
     for (const id of [
       PAGE_CONTEXT_ID,
       "outline.editing",
@@ -63,6 +70,42 @@ describe("the page's own keys", () => {
     });
     expect(today?.id).toBe("days.today");
     expect(today?.value.run).toEqual({ command: DAYS_IDS.todayCommand });
+  });
+
+  it.each([
+    ["macOS", { metaKey: true }],
+    ["Linux/Windows", { ctrlKey: true }],
+  ])("admits the history shortcuts on %s", (_platform, mod) => {
+    const { resolve } = currentKeymap(PAGE_CONTEXT_ID);
+    expect(resolve({ key: "[", physicalKey: "BracketLeft", ...mod })?.value.run).toEqual({
+      command: SYSTEM_IDS.cmdGoBack,
+    });
+    expect(resolve({ key: "]", physicalKey: "BracketRight", ...mod })?.value.run).toEqual({
+      command: SYSTEM_IDS.cmdGoForward,
+    });
+  });
+
+  it("refuses an Alt-only navigation shortcut from a non-core plugin", () => {
+    const plugin = definePlugin({
+      name: "history-shortcut-probe",
+      apply: (ctx) =>
+        ctx.contribute(
+          KeybindingPoint,
+          provideKeybinding("back", {
+            context: PAGE_CONTEXT_ID,
+            chord: "Alt-ArrowLeft",
+            run: { command: SYSTEM_IDS.cmdGoBack },
+          }),
+        ),
+    });
+    syncPagePlugins([...bundled, plugin]);
+    try {
+      expect(currentKeymap(PAGE_CONTEXT_ID).refused).toEqual([
+        { id: "history-shortcut-probe.back", reason: expect.stringContaining("held by") },
+      ]);
+    } finally {
+      syncPagePlugins(bundled);
+    }
   });
 
   it("holds no key without ⌘ or Ctrl, so typing never reaches it", () => {

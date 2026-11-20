@@ -1,6 +1,12 @@
 /** Core's page keyboard definition, shared with its default graph descriptions. */
 import type { ContributionEntry } from "@kb/plugin";
-import { PALETTE_CHORD, type KeyContextSpec, type Keybinding } from "@kb/keybindings";
+import {
+  PALETTE_CHORD,
+  provideKeybinding,
+  type KeyContextSpec,
+  type Keybinding,
+} from "@kb/keybindings";
+import { SYSTEM_IDS } from "@kb/model";
 /** The page's context, as core contributes it to `ui.key-contexts`. */
 const PAGE_CONTEXT: ContributionEntry<KeyContextSpec> = {
   id: "page",
@@ -15,12 +21,22 @@ const PAGE_CONTEXT: ContributionEntry<KeyContextSpec> = {
 /** The context's id, as bindings name it: core's namespace, then its own. */
 export const PAGE_CONTEXT_ID = "core.page";
 
-/** The page's own keys, as core contributes them to `ui.keybindings`: ⌘K. */
+/** The page's own keys, as core contributes them to `ui.keybindings`. */
 const PAGE_BINDINGS: readonly ContributionEntry<Keybinding>[] = [
   {
     id: "page.palette",
     value: { context: PAGE_CONTEXT_ID, chord: PALETTE_CHORD, run: { intent: "palette" } },
   },
+  provideKeybinding("page.go-back", {
+    context: PAGE_CONTEXT_ID,
+    chord: "Mod-[",
+    run: { command: SYSTEM_IDS.cmdGoBack },
+  }),
+  provideKeybinding("page.go-forward", {
+    context: PAGE_CONTEXT_ID,
+    chord: "Mod-]",
+    run: { command: SYSTEM_IDS.cmdGoForward },
+  }),
 ];
 
 export const CORE_KEYBOARD = { contexts: [PAGE_CONTEXT], bindings: PAGE_BINDINGS };
