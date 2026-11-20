@@ -25,6 +25,7 @@ import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import { KeybindingPoint } from "@kb/contracts";
 import { provideKeybinding } from "@kb/keybindings";
 import { useGraphStore } from "@/stores/graph.store";
+import { rankedFixture } from "@/test-support/ranked-fixture";
 import { installDomGlobals } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
@@ -301,6 +302,16 @@ describe("selection-mode dispatcher (characterization)", () => {
     const minted = useOutlineStore.getState().activeNodeId;
     expect(minted).not.toBeNull();
     expect(node("n.root-a")?.children).toEqual(["n.child-a1", minted, "n.child-a2"]);
+  });
+
+  it("createBefore: O on a top-level row mints the row directly above it", async () => {
+    // The top level's order is its rows' ranks.
+    useGraphStore.getState().hydrateFromWire(rankedFixture(), fixtureGraph.rev, "fixtures");
+    selectAndMount("n.root-c");
+    await press("O");
+    const minted = useOutlineStore.getState().activeNodeId;
+    const roots = node(WORKSPACE_ROOT_ID)?.children ?? [];
+    expect(roots.slice(roots.indexOf("n.root-b"))).toEqual(["n.root-b", minted, "n.root-c"]);
   });
 
   it("append: a printable key edits at the end with the character added", async () => {

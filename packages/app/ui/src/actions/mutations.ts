@@ -24,7 +24,6 @@ import {
   planNewQueryNode,
   planOutdent,
   planPinNode,
-  planPrependChild,
   planRemoveTag,
   planSetProp,
   planSplit,
@@ -57,7 +56,6 @@ const AddedSchema = z.object({ unmet: z.number().optional() });
 /** A size in whole megabytes, as a toast says it. */
 const mb = (bytes: number) => `${Math.round(bytes / (1024 * 1024))} MB`;
 
-import { findParentWire } from "@/lib/tx";
 import { restoreInvocations } from "@/actions/restore";
 import type { ActionRequest, WireNode } from "@kb/contracts";
 import { typeRefsOf, SYSTEM_IDS } from "@kb/model";
@@ -249,23 +247,9 @@ export const mutations: PageWrites = {
   },
 
   async createEmptyNodeBefore(beforeId: string): Promise<string | null> {
-    const parent = findParentWire(wire(), beforeId);
-    if (!parent) {
-      return mutations.createEmptyNode(WORKSPACE_ROOT_ID, beforeId);
-    }
-    const siblings = parent.children;
-    const idx = siblings.indexOf(beforeId);
-    const prevSibling = idx > 0 ? (siblings[idx - 1] ?? null) : null;
+    // Directly above it in its group, a top-level row's included.
     const newId = ulid();
-    let plan: PlannedMutation | null;
-    if (prevSibling !== null) {
-      plan = planInsertSibling(wire(), prevSibling, "after", newId);
-    } else {
-      plan = planPrependChild(wire(), parent.id, newId);
-    }
-    const ok = await applyPlan(plan);
-    if (!ok) return null;
-    return newId;
+    return (await applyPlan(planInsertSibling(wire(), beforeId, "before", newId))) ? newId : null;
   },
   async addTagField(tagId: string, fieldId: string): Promise<void> {
     const { planAddTagField } = await import("@/actions/plan");

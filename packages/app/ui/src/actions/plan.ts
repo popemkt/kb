@@ -593,8 +593,6 @@ export const planAddRootNode = (text: string, id: string, props?: WireNode["prop
   addNode(id, text, { props });
 export const planAddChild = (n: WireNode[], parent: string, id: string, text = "") =>
   addNode(id, text, { parent, position: requireNode(n, parent).children.length });
-export const planPrependChild = (_n: WireNode[], parent: string, id: string, text = "") =>
-  addNode(id, text, { parent, position: 0 });
 
 /**
  * An empty node that carries what `add` asks (DESIGN-UI.md → Adding to a
