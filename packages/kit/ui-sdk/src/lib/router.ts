@@ -27,10 +27,14 @@ export function getPath(): string {
   return hasLocation() ? window.location.pathname || "/" : "/";
 }
 
-export function navigate(to: string): void {
+function writePath(method: "pushState" | "replaceState", to: string): void {
   if (!hasLocation() || to === getPath()) return;
-  window.history.pushState({}, "", to);
+  window.history[method]({}, "", to);
   notify();
+}
+
+export function navigate(to: string): void {
+  writePath("pushState", to);
 }
 
 /**
@@ -39,18 +43,17 @@ export function navigate(to: string): void {
  * undo.
  */
 export function replacePath(to: string): void {
-  if (!hasLocation() || to === getPath()) return;
-  window.history.replaceState({}, "", to);
-  notify();
+  writePath("replaceState", to);
 }
 
 /** Call `listener` whenever the path changes, by `navigate` or by history; returns the unsubscribe. */
 export function subscribePath(listener: Listener): () => void {
+  if (!hasLocation()) return () => {};
+  if (listeners.size === 0) window.addEventListener("popstate", notify);
   listeners.add(listener);
-  window.addEventListener("popstate", listener);
   return () => {
     listeners.delete(listener);
-    window.removeEventListener("popstate", listener);
+    if (listeners.size === 0) window.removeEventListener("popstate", notify);
   };
 }
 
