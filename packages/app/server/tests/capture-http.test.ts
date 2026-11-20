@@ -272,6 +272,8 @@ test("a new action declaring device access is admitted with no server edit, and 
 
     // Main kb ui listener still serves regular UI/program callers normally.
     expect((await fetch(`${mainUi.url}/api/graph`)).status).toBe(200);
+    expect((await fetch(`${mainUi.url}/api/manifest`)).status).toBe(200);
+    expect((await fetch(`${captureOnly.url}/api/manifest`)).status).toBe(403);
     expect(
       (await fetch(`${mainUi.url}/api/graph`, { headers: { Authorization: `Bearer ${token}` } }))
         .status,
@@ -279,6 +281,10 @@ test("a new action declaring device access is admitted with no server edit, and 
 
     // The newly declared device action works on both --capture-only and main kb ui with no server edit.
     for (const base of [captureOnly.url, mainUi.url]) {
+      const manifestRoute = await fetch(`${base}/api/manifest`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      expect(manifestRoute.status).toBe(403);
       const ok = await postAction(base, "ext.device-echo.ping", { note: "hello" }, token);
       expect(ok.status).toBe(200);
       expect(await read(ok)).toMatchObject({ status: "succeeded", output: { pong: "hello" } });

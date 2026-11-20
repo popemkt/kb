@@ -2930,11 +2930,22 @@ scope.
 Harman-lite (zod) + Effect-native handlers for owned actions:
 
 - `ActionDefinition { id, title, description, mode, callers?, callerOutput?, requestEnvelope?, inputSchema, outputSchema, effect? }` — JSON Schemas from each schema's Standard JSON Schema converter or `z.toJSONSchema`, never hand-written; the inputSchema is published as the side a caller sends, the outputSchema as the side the action returns. Optional `effect` is the Effect-native handler seam for built-ins / bundled extensions.
-- **Callers**: an action declares which caller kinds (`CallerKind`) may invoke it on `callers`, next to `mode`: `person` (the UI's own page, `PAGE_WIRE`), `program` (a local program without a browser `Origin`, `HTTP_WIRE`), `capture-device` (a paired capture device presenting `Authorization: Bearer kbcap_…`), and `capture-pairing` (an unauthenticated capture client on `--capture-only` or exchanging a one-use pairing code). Omitting `callers` defaults to `["person", "program"]` (no capture device access). An action may also declare `callerOutput` — a per-caller output projection schema applied by the invoke core after `outputSchema` succeeds (for example, `kb.manifest` projects its output to `CaptureVersion` for `capture-device` and `capture-pairing` callers). Both `--capture-only` listeners and `Bearer kbcap_…` requests derive admission from these declarations in the registry rather than a hard-coded action list in the server: `--capture-only` admits only actions whose declaration admits the capture caller kinds, and adding a device-scoped action requires no server edit.
-  The HTTP capture wire takes only the action id and input, so a capture
-  request cannot fill inputs from a tab session or label a call with `via`.
-  A capture caller gets a generic internal failure if either output schema
-  fails. The host logs its diagnostics.
+- **Callers.** An action's `callers` declaration lists the caller kinds that
+  may invoke it. Every invocation has a caller, stamped by its surface.
+  Nested calls inherit their outer caller. The in-process default is
+  `person` for a human actor and `program` for other actors. An action without
+  a `callers` declaration admits those two kinds. The capture caller kinds
+  are `capture-device` for a paired device with a valid bearer credential and
+  `capture-pairing` for a request without a credential on a capture-only
+  listener. Both use the same registry admission as other calls and can only
+  reach actions that explicitly admit their kind. Their HTTP wire takes only
+  the action ID and input.
+
+  `callerOutput` declares the per-caller schema the invoke core applies after
+  the output schema on every call, including nested calls. `kb.manifest`
+  admits both capture caller kinds and projects their output to
+  `CaptureVersion`. A capture caller gets a generic internal failure if either
+  output schema fails. The host logs its diagnostics.
 - **Request envelope.** An action can declare `requestEnvelope: "input-only"`
   to drop the tab session and `via` label and run without person approval on
   every wire. `capture.pair` uses this envelope to exchange the one-use code.
@@ -5628,8 +5639,7 @@ Desktop quick capture and native share receivers send their original share to
 `@kb/contracts` (`CaptureSubmitSchema`, `CaptureReceiptSchema`). The host
 advertises `captureContract` in `kb.manifest` when it serves the action. Clients
 compare the version before sending and keep the original share queued until the
-host confirms delivery. Omitted `version` uses v1. On HTTP, POST the ordinary
-action envelope `{id, input}` to `/api/action`. On MCP, call `capture_submit`.
+host confirms delivery. Omitted `version` uses v1. On MCP, call `capture_submit`.
 
 An explicit parent wins, including null for the top level. Otherwise the
 store's [capture target](#provider-roles) decides, using the store's day at
@@ -5655,16 +5665,11 @@ An inline capture asset takes its name from the digest of its stored bytes,
 so competing deliveries and retries reuse it. A failed graph commit can leave
 an unreferenced asset. GAP [[01M7QT8YBS8V0B97VWRP4D717F]] tracks reconciliation.
 
-For phone delivery, either serve the store's main `kb ui` listener through
-HTTPS (one store URL serves both the UI and capture: `POST /api/action` accepts
-pairing and paired `Authorization: Bearer <token>` device credentials alongside
-normal UI and program callers) or serve a dedicated `kb ui --capture-only`
-listener when the UI keeps its own listener and access rules. Both paths derive
-which actions are admitted and how `kb.manifest` projects its output from each
-action's `callers` and `callerOutput` declarations
-([Action registry](#action-registry)): `capture.pair` admits `capture-pairing`,
-`capture.submit` admits `capture-device`, and `kb.manifest` admits both while
-projecting to `captureContract`. On the host, issue a ten-minute, one-use code:
+For phone delivery, serve the main `kb ui` listener through HTTPS so one store URL
+serves the UI and capture, or serve a dedicated `kb ui --capture-only` listener.
+For HTTP, send the action envelope `{id, input}` to `POST /api/action`. See
+[Action registry](#action-registry) for caller admission and receipts.
+On the host, issue a ten-minute, one-use code with the CLI.
 
 ```sh
 kb --root /path/to/store --json action-invoke '{"id":"capture.pairCode"}'
@@ -5673,7 +5678,7 @@ kb --root /path/to/store --json action-invoke '{"id":"capture.pairCode"}'
 The device gives that `code` and its `deviceName` to `capture.pair`. The
 response supplies its `token`, `deviceId`, `store` (key and name), and
 `captureContract`. The device sends `Authorization: Bearer <token>` with
-discovery and submission. The credential conveys no person approval.
+discovery and submission.
 The store keeps a digest per device. Pairing returns the plaintext token once. The store key and credentials
 are bound to the host's canonical root. Revoke by invoking `capture.revoke`
 on the host CLI with `{deviceId}`. GAP [[01M7QT8Z33KEHWZ5KNQXRWGYZ4]] tracks
