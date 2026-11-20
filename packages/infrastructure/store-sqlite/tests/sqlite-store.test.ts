@@ -7,7 +7,7 @@ import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { Cause, Clock, Effect, Exit } from "effect";
 import { existsSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { canonicalJson, isDomainError, present, type KbNode } from "@kb/model";
@@ -71,6 +71,55 @@ describe("SqliteStore", () => {
           // Presence selects the adapter: a load that conjured the database
           // would make the selector see two stores under one root.
           expect(existsSync(store.path)).toBe(false);
+        }),
+      ),
+    ));
+
+  test("a read-only session sees committed WAL rows without checkpointing a crashed writer", () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const store = yield* scratchStore;
+          // The only writer must be gone when the parent opens the database.
+          const writer = yield* Effect.acquireRelease(
+            Effect.sync(() =>
+              Bun.spawn(
+                [
+                  process.execPath,
+                  "-e",
+                  `const { SqliteStore } = await import(process.argv[1]);
+                   const { Effect } = await import(process.argv[2]);
+                   const store = new SqliteStore(process.argv[3]);
+                   const upserts = [${JSON.stringify(node("n-a", "after"))}];
+                   await Effect.runPromise(store.commitEffect({ upserts, deletes: [] }, { at: upserts[0].createdAt }));
+                   console.log("committed");
+                   await Bun.stdin.text();`,
+                  "--",
+                  import.meta.resolve("../src/index.ts"),
+                  import.meta.resolve("effect"),
+                  join(store.path, "../.."),
+                ],
+                { stdin: "pipe", stdout: "pipe", stderr: "inherit" },
+              ),
+            ),
+            (child) =>
+              Effect.promise(async () => {
+                child.kill("SIGKILL");
+                await child.exited;
+              }),
+          );
+          const output = writer.stdout.getReader();
+          const committed = yield* Effect.promise(() => output.read());
+          expect(new TextDecoder().decode(committed.value).trim()).toBe("committed");
+          writer.kill("SIGKILL");
+          yield* Effect.promise(() => writer.exited);
+
+          const before = yield* Effect.promise(() => readFile(store.path));
+          expect(yield* Effect.promise(() => Bun.file(`${store.path}-wal`).exists())).toBe(true);
+          expect((yield* store.loadEffect).map(({ text }) => text)).toEqual(["after"]);
+          yield* store.closeEffect;
+          const after = yield* Effect.promise(() => readFile(store.path));
+          expect(after.equals(before)).toBe(true);
         }),
       ),
     ));

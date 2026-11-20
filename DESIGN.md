@@ -2125,7 +2125,9 @@ CREATE TABLE meta  (key TEXT PRIMARY KEY, value TEXT);   -- schema_version, rev
   all-or-nothing here too: one bad row fails the whole load with an
   `invalid_input` naming that row's id.
 - `.kb/kb.sqlite` is the committed file, the way `nodes.jsonl` is; `-wal` and
-  `-shm` are derived and gitignored.
+  `-shm` are derived and gitignored. A session opens a read-only handle until
+  its first write. Closing that handle leaves a crashed writer's WAL available
+  for the next reader without checkpointing it into `kb.sqlite`.
 - `PRAGMA journal_mode = WAL` lets readers proceed while a writer holds the lock.
   `synchronous = NORMAL` makes the same durability trade as JSONL. Each write
   transaction tries `BEGIN IMMEDIATE` with `busy_timeout = 0`, restores the

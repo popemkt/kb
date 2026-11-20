@@ -130,29 +130,32 @@ function tryBeginWrite(db: Database): boolean {
 }
 
 export function sqliteConnection(path: string): SqliteConnection {
-  let handle: Database | null = null;
+  let handle: { db: Database; mode: "read" | "write" } | null = null;
 
-  const connect = (db: Database): Database => {
+  const connect = (db: Database, mode: "read" | "write"): Database => {
     try {
-      db.run("PRAGMA synchronous = NORMAL");
+      if (mode === "write") db.run("PRAGMA synchronous = NORMAL");
       db.run(BUSY_TIMEOUT);
     } catch (error) {
       db.close(false);
       throw error;
     }
-    handle = db;
+    handle?.db.close(false);
+    handle = { db, mode };
     return db;
   };
 
-  const create = (): Database => {
+  const writer = (): Database => {
+    if (handle?.mode === "write") return handle.db;
     mkdirSync(dirname(path), { recursive: true });
-    return connect(new Database(path, { create: true }));
+    return connect(new Database(path, { create: true }), "write");
   };
 
   return {
     peek: () => {
       const db =
-        handle ?? (existsSync(path) ? connect(new Database(path, { readwrite: true })) : null);
+        handle?.db ??
+        (existsSync(path) ? connect(new Database(path, { readonly: true }), "read") : null);
       // An empty file can be visible before another process creates its tables.
       return db !== null && hasTable(db, "nodes") ? db : null;
     },
@@ -161,7 +164,7 @@ export function sqliteConnection(path: string): SqliteConnection {
         () =>
           Effect.try({
             try: () => {
-              const db = handle ?? create();
+              const db = writer();
               try {
                 if (!tryBeginWrite(db)) return Option.none();
                 // Upgrade under the lock this write already acquired.
@@ -186,7 +189,7 @@ export function sqliteConnection(path: string): SqliteConnection {
         Effect.fail(domainError("conflict", `store busy: timed out waiting for ${path}`, { path })),
       ),
     close: () => {
-      handle?.close(false);
+      handle?.db.close(false);
       handle = null;
     },
   };
