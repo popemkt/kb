@@ -185,24 +185,40 @@ function runOf(
 }
 
 /**
+ * Why a block of rows stays where it is when Tab or Shift-Tab is asked of
+ * it: it is not one run of siblings (`runOf`), or it is one with nowhere to
+ * go — no row above its first to move under, or no parent to move out of.
+ */
+export interface BlockStays {
+  readonly stays: "not-a-run" | "no-row-above" | "no-parent";
+}
+
+/**
  * Indent a block (`runOf`) under the sibling before it, after that
  * sibling's own children, in order: one `node.update` per row, each placed
- * after the one before it.
+ * after the one before it. Or why it stays.
  */
-export function planIndent(nodes: WireNode[], ids: readonly string[]): PlannedMutation | null {
+export function planIndent(
+  nodes: WireNode[],
+  ids: readonly string[],
+): PlannedMutation | BlockStays {
   const run = runOf(nodes, ids);
-  if (run === null) return null;
+  if (run === null) return { stays: "not-a-run" };
   const previous = run.siblings[run.first - 1];
-  if (previous === undefined) return null;
+  if (previous === undefined) return { stays: "no-row-above" };
   const base = requireNode(nodes, previous).children.length;
   return plan(...ids.map((id, j) => updateOf(id, { parent: previous, position: base + j })));
 }
 
-/** Outdent a block (`runOf`) to just after its parent, in order. */
-export function planOutdent(nodes: WireNode[], ids: readonly string[]): PlannedMutation | null {
+/** Outdent a block (`runOf`) to just after its parent, in order. Or why it stays. */
+export function planOutdent(
+  nodes: WireNode[],
+  ids: readonly string[],
+): PlannedMutation | BlockStays {
   const run = runOf(nodes, ids);
   const [head] = ids;
-  if (run === null || run.parent === null || head === undefined) return null;
+  if (run === null || head === undefined) return { stays: "not-a-run" };
+  if (run.parent === null) return { stays: "no-parent" };
   const grand = findParentWire(nodes, run.parent.id)?.id ?? null;
   const base = groupIds(nodes, grand, head).indexOf(run.parent.id) + 1;
   return plan(...ids.map((id, j) => updateOf(id, { parent: grand, position: base + j })));

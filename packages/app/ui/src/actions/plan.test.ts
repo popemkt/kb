@@ -15,7 +15,15 @@ import {
   planReplaceField,
   planSetProp,
   planSplit,
+  type BlockStays,
+  type PlannedMutation,
 } from "./plan.ts";
+
+/** A plan that moves its block, not why the block stays. */
+function planned(plan: PlannedMutation | BlockStays): PlannedMutation {
+  if ("stays" in plan) throw new Error(`the block stays: ${plan.stays}`);
+  return plan;
+}
 
 describe("outline action input builders", () => {
   it("split keeps the expanded-first-child decision in the UI", () => {
@@ -48,7 +56,7 @@ describe("outline action input builders", () => {
   });
 
   it("indent and parented move emit positions, not rewritten parents", () => {
-    expect(present(planIndent(fixtureGraph.nodes, ["n.child-a2"]), "indent").actions).toEqual([
+    expect(planned(planIndent(fixtureGraph.nodes, ["n.child-a2"])).actions).toEqual([
       { id: "node.update", input: { id: "n.child-a2", parent: "n.child-a1", position: 0 } },
     ]);
     expect(present(planMove(fixtureGraph.nodes, ["n.child-a2"], "up"), "move").actions).toEqual([
@@ -60,7 +68,7 @@ describe("outline action input builders", () => {
     const roots = siblingSlots(fixtureGraph.nodes, null).map((n) => n.id);
     const block = ["n.root-b", "n.root-c"];
     // Under the sibling before it, after that sibling's children, in order.
-    expect(present(planIndent(fixtureGraph.nodes, block), "indent").actions).toEqual([
+    expect(planned(planIndent(fixtureGraph.nodes, block)).actions).toEqual([
       { id: "node.update", input: { id: "n.root-b", parent: "n.root-a", position: 2 } },
       { id: "node.update", input: { id: "n.root-c", parent: "n.root-a", position: 3 } },
     ]);
@@ -73,16 +81,24 @@ describe("outline action input builders", () => {
     // Out: after the parent, in order.
     const children = ["n.child-a1", "n.child-a2"];
     const after = roots.indexOf("n.root-a") + 1;
-    expect(present(planOutdent(fixtureGraph.nodes, children), "outdent").actions).toEqual([
+    expect(planned(planOutdent(fixtureGraph.nodes, children)).actions).toEqual([
       { id: "node.update", input: { id: "n.child-a1", parent: null, position: after } },
       { id: "node.update", input: { id: "n.child-a2", parent: null, position: after + 1 } },
     ]);
   });
 
   it("plans nothing for rows that are not one run of siblings", () => {
-    expect(planIndent(fixtureGraph.nodes, ["n.child-a2", "n.root-b"])).toBeNull();
+    expect(planIndent(fixtureGraph.nodes, ["n.child-a2", "n.root-b"])).toEqual({
+      stays: "not-a-run",
+    });
     expect(planMove(fixtureGraph.nodes, ["n.root-a", "n.root-c"], "down")).toBeNull();
-    expect(planOutdent(fixtureGraph.nodes, ["n.root-b"])).toBeNull();
+  });
+
+  it("says why a run of siblings stays: no row above it, or no parent", () => {
+    expect(planIndent(fixtureGraph.nodes, ["n.child-a1", "n.child-a2"])).toEqual({
+      stays: "no-row-above",
+    });
+    expect(planOutdent(fixtureGraph.nodes, ["n.root-b"])).toEqual({ stays: "no-parent" });
   });
 
   it("root inserts and moves send a position in the root group, never a rank", () => {

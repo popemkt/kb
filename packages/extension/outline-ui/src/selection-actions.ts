@@ -26,7 +26,7 @@ import { selectionRoots } from "@kb/model";
 import type { SelectionKeyAction } from "./selection-keymap";
 import { outlineSource, useOutlineStore, outlineNodes } from "./outline.store";
 import { enterFields } from "./value-slot-nav";
-import { openFromRow } from "./outline-hosts";
+import { zoomIntoRow } from "./outline-zoom";
 
 type ActionOf<T extends SelectionKeyAction["type"]> = Extract<SelectionKeyAction, { type: T }>;
 
@@ -83,12 +83,6 @@ function append({ nodeId, instanceKey, char }: ActionOf<"append">): void {
   const nextText = text + char;
   store.activateNode(nodeId, nextText.length, instanceKey);
   void browserHost().writes.updateNodeContent(textNodeId, nextText);
-}
-
-/** Open the page of the node the row shows — a reference's original — as its outline opens one. */
-function zoom({ nodeId, instanceKey }: ActionOf<"zoom">): void {
-  const node = outlineNodes().get(nodeId);
-  openFromRow(instanceKey, node ? shownNodeId(node) : nodeId);
 }
 
 /**
@@ -206,7 +200,7 @@ const SELECTION_STEPS: SelectionSteps = {
   moveUp: ({ nodeId }) => arrange((ids) => browserHost().writes.moveNodesUp(ids), nodeId),
   moveDown: ({ nodeId }) => arrange((ids) => browserHost().writes.moveNodesDown(ids), nodeId),
   moveToGroup,
-  zoom,
+  zoom: ({ nodeId, instanceKey }) => zoomIntoRow(nodeId, instanceKey),
   createAfter,
   createBefore: ({ nodeId }) => void createNodeBefore(nodeId),
   append,

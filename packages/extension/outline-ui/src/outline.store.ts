@@ -44,6 +44,7 @@ import {
   type SchemaIndex,
   schemaOf,
   type ScopeSource,
+  shownNode,
   shownNodeId,
   shownNodesOf,
   showsAncestor,
@@ -307,31 +308,29 @@ function withChoices(
   return next ?? expansion;
 }
 
-function collectSubtreeIds(nodeId: string, nodes: NodeMap, result: string[]): void {
-  const node = nodes.get(nodeId);
-  if (!node) return;
-  result.push(nodeId);
-  for (const childId of node.children) {
-    collectSubtreeIds(childId, nodes, result);
+/**
+ * The rows of the subtree at row instance `instanceKey`, whatever is open:
+ * the row, then the rows under the node it shows (`lib/contextual-ref`), each
+ * at its own instance, as the outline would draw them all open. A row whose
+ * shown node is already shown above it is a leaf here as it is when drawn
+ * (`showsAncestor`), so a reference under its own target ends the walk.
+ */
+function* subtreeRows(instanceKey: string, nodes: NodeMap, schema: SchemaIndex): Generator<string> {
+  const id = nodeOfInstance(instanceKey);
+  const node = nodes.get(id);
+  if (node === undefined) return;
+  yield id;
+  if (showsAncestor(instanceKey, node, schema)) return;
+  for (const child of shownNode(node, schema).children) {
+    yield* subtreeRows(childInstanceKey(instanceKey, child), nodes, schema);
   }
 }
 
-function scopeNodeIds(nodes: NodeMap, rootNodeId: string): string[] {
-  const result: string[] = [];
-  if (rootNodeId !== WORKSPACE_ROOT_ID) {
-    const root = nodes.get(rootNodeId);
-    if (!root) return result;
-    for (const childId of root.children) {
-      collectSubtreeIds(childId, nodes, result);
-    }
-    return result;
+/** The rows of a scope's outline (rooted at `rootNodeId`), as `subtreeRows` walks each top row. */
+function* scopeRows(rootNodeId: string, nodes: NodeMap, schema: SchemaIndex): Generator<string> {
+  for (const child of nodes.get(rootNodeId)?.children ?? []) {
+    yield* subtreeRows(outlineInstanceKey(child, nodes), nodes, schema);
   }
-  const workspace = nodes.get(WORKSPACE_ROOT_ID);
-  if (!workspace) return result;
-  for (const childId of workspace.children) {
-    collectSubtreeIds(childId, nodes, result);
-  }
-  return result;
 }
 
 /** `schema` is the map field definitions are read from (`lib/schema.ts`). */
@@ -525,6 +524,20 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
     set({ expansion: keptExpansion(current, next, schemaNow()) });
   }
 
+  /** Open (true) or close (false) each of `rows` that can expand and is not so already. */
+  function openRows(rows: Iterable<string>, open: boolean): void {
+    const nodes = outlineNodes();
+    const schema = schemaNow();
+    const choices: Array<readonly [string, boolean]> = [];
+    for (const id of rows) {
+      const node = nodes.get(id);
+      if (node?.collapsed === open && isExpandableOutlineNode(node, schema)) {
+        choices.push([id, open]);
+      }
+    }
+    choose(choices);
+  }
+
   return {
     ...initialOutlineState,
 
@@ -702,30 +715,11 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
       choose([[key, get().expansion.get(key) !== true]]);
     },
 
-    expandAllInScope: () => {
-      const nodes = outlineNodes();
-      const schema = schemaNow();
-      const open: Array<readonly [string, boolean]> = [];
-      for (const id of scopeNodeIds(nodes, graphNow().rootNodeId)) {
-        const node = nodes.get(id);
-        if (node?.collapsed === true && isExpandableOutlineNode(node, schema))
-          open.push([id, true]);
-      }
-      choose(open);
-    },
+    expandAllInScope: () =>
+      openRows(scopeRows(graphNow().rootNodeId, outlineNodes(), schemaNow()), true),
 
-    collapseAllInScope: () => {
-      const nodes = outlineNodes();
-      const schema = schemaNow();
-      const closed: Array<readonly [string, boolean]> = [];
-      for (const id of scopeNodeIds(nodes, graphNow().rootNodeId)) {
-        const node = nodes.get(id);
-        if (node?.collapsed === false && isExpandableOutlineNode(node, schema)) {
-          closed.push([id, false]);
-        }
-      }
-      choose(closed);
-    },
+    collapseAllInScope: () =>
+      openRows(scopeRows(graphNow().rootNodeId, outlineNodes(), schemaNow()), false),
 
     expandAncestors: (id) => choose(ancestorsToOpen(outlineNodes(), id)),
 
