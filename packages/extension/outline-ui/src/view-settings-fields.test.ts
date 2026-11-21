@@ -44,6 +44,17 @@ describe("the view settings' fields", () => {
     ]);
   });
 
+  it("labels a field by the words it reads as, not its markup", () => {
+    const marked = wireToOutlineMap([
+      ...wires.filter((n) => n.id !== "f.zeta"),
+      field("f.zeta", "**Zeta** `z`"),
+    ]);
+    const zeta = frameFieldCandidates("frame", marked, schemaOfGraph(marked)).find(
+      (c) => c.id === "f.zeta",
+    );
+    expect(zeta?.label).toBe("Zeta z");
+  });
+
   it("offers a pinned field first, before the rows' templated ones", () => {
     const pinned = wireToOutlineMap([
       ...wires.filter((n) => n.id !== "f.zeta"),

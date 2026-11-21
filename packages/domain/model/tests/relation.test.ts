@@ -68,7 +68,16 @@ describe("relationFieldFit", () => {
 });
 
 describe("relationFieldsFor", () => {
-  test("offers the ref fields that allow the target, and only them, by text", () => {
+  test("names each field as it reads, and orders them by that name", () => {
+    const marked = new Map(nodes);
+    marked.set("f.owner", { ...fieldNode("f.owner", "ref"), text: "**Accountable** owner" });
+    expect(relationFieldsFor(marked, "c", noQuery)).toEqual([
+      { id: "f.owner", name: "Accountable owner" },
+      { id: "f.influences", name: "influences" },
+    ]);
+  });
+
+  test("offers the ref fields that allow the target, and only them, by name", () => {
     const ids = (target: string) => relationFieldsFor(nodes, target, noQuery).map((f) => f.id);
     expect(ids("b")).toEqual(["f.about", "f.influences", "f.owner"]);
     expect(ids("c")).toEqual(["f.influences", "f.owner"]);

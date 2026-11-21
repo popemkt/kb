@@ -10,7 +10,7 @@
  * open, not a second one. It is a radiogroup: the arrow keys move the choice.
  */
 import type { KeyboardEvent, ReactNode } from "react";
-import { browserHost, cn, type FieldContext, type PropValue } from "@kb/ui-sdk";
+import { nameIn, browserHost, cn, type FieldContext, type PropValue } from "@kb/ui-sdk";
 import { notePick } from "./picker-recency";
 
 /**
@@ -77,7 +77,7 @@ export function OptionGallery({
     >
       {options.map((optionId, index) => {
         const on = chosen?.v === optionId;
-        const text = context.schema.get(optionId)?.text ?? optionId;
+        const text = nameIn(context.schema, optionId) || optionId;
         return (
           <button
             key={optionId}

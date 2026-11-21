@@ -3,10 +3,10 @@
     "family-names": {
       "contract/contracts/src/actions.ts": 3,
       "contract/contracts/src/mcp-tool.ts": 2,
+      "contract/contracts/src/migration.ts": 7,
+      "contract/contracts/src/procedure.ts": 2,
       "contract/contracts/src/protocol.ts": 2,
       "contract/contracts/src/screen.ts": 3,
-      "contract/contracts/src/procedure.ts": 2,
-      "contract/contracts/src/migration.ts": 7,
       "contract/ext-sdk/src/module.ts": 6,
       "contract/ext-sdk/src/page-surface.ts": 3,
       "contract/ext-sdk/src/surface.ts": 2,
@@ -100,7 +100,6 @@
     "knip": {
       "devDependencies:packages/domain/model/package.json:@kb/test-kit": 1,
       "exports:packages/app/ui/src/actions/plan.ts:planInsertChild": 1,
-      "exports:packages/app/ui/src/lib/ontology-scope.ts:labelOf": 1,
       "nsExports:packages/app/ui/src/stores/prefs.store.ts:PrefsStore.DEFAULT_PREFS": 1,
       "nsExports:packages/app/ui/src/stores/prefs.store.ts:PrefsStore.defaultSidebarOpen": 1,
       "nsExports:packages/app/ui/src/stores/prefs.store.ts:PrefsStore.loadPrefs": 1,

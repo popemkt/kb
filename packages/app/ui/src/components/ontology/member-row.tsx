@@ -1,6 +1,6 @@
 import { ArrowUUpLeftIcon, PushPinIcon, PushPinSlashIcon, XIcon } from "@phosphor-icons/react";
 import { describeReason } from "@kb/model";
-import { cn, IconButton, MdView } from "@kb/ui-sdk";
+import { useSchema, rowTitle, cn, IconButton, MdView } from "@kb/ui-sdk";
 import type { MemberRowModel } from "@/lib/ontology-scope";
 import { useFollow } from "@/stores/follow";
 import { useRefLook } from "@/stores/ref-look";
@@ -38,6 +38,8 @@ export function MemberRow({
 }: MemberRowProps) {
   const follow = useFollow();
   const refs = useRefLook();
+  const schema = useSchema();
+  const node = schema.get(row.id);
   const provenance = excluded
     ? "excluded"
     : row.reasons.map((r) => describeReason(r, labelOf)).join(" · ") || "member";
@@ -73,10 +75,15 @@ export function MemberRow({
         title={row.id}
         onClick={() => onOpen?.(row.id)}
       >
-        {/* Same renderer as the outline: a member row showed its node text as
-            raw source, so bold markers and [[id|label]] refs leaked verbatim
-            into the list. Clamped, because these rows are one line tall. */}
-        <MdView text={row.label} className="min-w-0 flex-1" clamp onFollow={follow} refs={refs} />
+        {/* Same renderer and title as the outline row; the plain label names it
+            where only a string fits. Clamped, because these rows are one line tall. */}
+        <MdView
+          text={node === undefined ? row.label : rowTitle(node, schema)}
+          className="min-w-0 flex-1"
+          clamp
+          onFollow={follow}
+          refs={refs}
+        />
       </button>
 
       <span

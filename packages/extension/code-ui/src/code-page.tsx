@@ -15,6 +15,7 @@ import {
 import { ENGINE_LIMITS, engineKindFor, type EngineKind, type RunStatus } from "@kb/sandbox";
 import { CodeView, grantSentence, type CodeParams } from "@kb/code";
 import {
+  useSchema,
   browserHost,
   cn,
   IconButton,
@@ -23,7 +24,6 @@ import {
   textOr,
   toast,
   useGeneration,
-  useNode,
   useSandboxPorts,
   useSandboxTrust,
   SandboxApprovalCard,
@@ -34,6 +34,7 @@ import {
   type ViewProps,
   failureText,
 } from "@kb/ui-sdk";
+import { nodeName } from "@kb/model";
 
 const BUTTON = cn(
   "rounded-sm px-2 py-1 text-label font-medium outline-none transition duration-100",
@@ -139,7 +140,7 @@ function CodeHeader({ title, engine, status, trust, showCode, ...on }: HeaderPro
 }
 
 export function CodePage({ params, host }: ViewProps<CodeParams>) {
-  const viewNode = useNode(host.viewNode);
+  const schema = useSchema();
   const generation = useGeneration();
   const [status, setStatus] = useState<RunStatus | null>(null);
   const [showCode, setShowCode] = useState(false);
@@ -151,7 +152,10 @@ export function CodePage({ params, host }: ViewProps<CodeParams>) {
     // The code's console, in the page's: the one log seam the UI has.
     log: (level, text) => (level === "error" ? logError : logWarn)(`[code ${level}] ${text}`),
   }));
-  const title = textOr(viewNode?.text.trim(), "Code");
+  const title = textOr(
+    host.viewNode === undefined ? "" : nodeName(host.viewNode, (id) => schema.get(id)),
+    "Code",
+  );
   const engine = engineKindFor(trust?.trusted ?? false);
   // Read once by the frame, which is keyed by the digest of what runs.
   const run: SandboxRun = useMemo(

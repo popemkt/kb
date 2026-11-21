@@ -4,7 +4,7 @@
  * own, and the ink the row's text takes once it is checked.
  */
 import { checkOf } from "@kb/model";
-import { textOr, type OutlineNode, type SchemaIndex } from "@kb/ui-sdk";
+import { nameIn, textOr, type OutlineNode, type SchemaIndex } from "@kb/ui-sdk";
 
 /** A row's box: whether it is checked, and the name of the field it is tied to. */
 export interface RowCheckState {
@@ -20,7 +20,7 @@ export interface RowCheckState {
 export function rowCheckOf(shown: OutlineNode, schema: SchemaIndex): RowCheckState | null {
   const check = checkOf(shown, (id) => schema.get(id));
   if (check === null) return null;
-  return { checked: check.checked, label: textOr(schema.get(check.field)?.text, check.field) };
+  return { checked: check.checked, label: textOr(nameIn(schema, check.field), check.field) };
 }
 
 /**

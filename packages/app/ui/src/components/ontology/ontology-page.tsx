@@ -53,7 +53,10 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
     (id: string): string =>
       textOr(
         nodeName(id, (ref) => byId.get(ref)),
-        textOr(nodes.get(id)?.text.trim(), id),
+        textOr(
+          nodeName(id, (ref) => nodes.get(ref)),
+          id,
+        ),
       ),
     [byId, nodes],
   );

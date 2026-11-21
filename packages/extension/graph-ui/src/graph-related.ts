@@ -9,7 +9,7 @@
  */
 import type { WireNode } from "@kb/contracts";
 import { suggestOf, suggestsRelations, type LensPerspective, type SuggestedNode } from "@kb/graph";
-import { extensionNodeId, relationFieldsFor } from "@kb/model";
+import { extensionNodeId, relationFieldsFor, type RelationFieldChoice } from "@kb/model";
 import { browserHost, useAnswered } from "@kb/ui-sdk";
 import type { GraphLens } from "./graph-lens";
 
@@ -18,7 +18,7 @@ const RELATED_LIMIT = 5;
 
 /** A related row's typing: the ref fields that allow its target, and the write. */
 interface RelatedTyping {
-  readonly fieldsFor: (target: string) => readonly { readonly id: string; readonly text: string }[];
+  readonly fieldsFor: (target: string) => readonly RelationFieldChoice[];
   readonly link: (target: string, field: string) => Promise<boolean>;
 }
 

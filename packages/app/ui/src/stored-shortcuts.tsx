@@ -13,7 +13,7 @@ import {
   type Keybinding,
 } from "@kb/keybindings";
 import { coreExtension, sandboxTrustDef } from "@kb/operations";
-import { canonicalJson, refValuesOf } from "@kb/model";
+import { nodeName, canonicalJson, refValuesOf } from "@kb/model";
 import {
   ActionReviewPoint,
   BrowserHostService,
@@ -99,8 +99,8 @@ function readShortcuts(host: BrowserHost) {
       row === undefined ? undefined : refValuesOf(row, field)[0];
     const label = (id: string | undefined) => {
       if (id === undefined) return "Unavailable";
-      const text = graph.get(id)?.text.trim();
-      return text === undefined || text === "" ? id : text;
+      const name = nodeName(id, (of) => graph.get(of));
+      return name === "" ? id : name;
     };
     const keys = candidate.contributions.map(({ value }) => describeChord(value.chord)).join(" / ");
     const context =

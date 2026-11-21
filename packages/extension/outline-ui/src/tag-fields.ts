@@ -7,6 +7,7 @@
  */
 import { typeRefsOf, SYSTEM_IDS } from "@kb/model";
 import type { SchemaIndex } from "@kb/ui-sdk";
+import { rowName } from "@kb/ui-sdk";
 
 export interface TagFieldRef {
   id: string;
@@ -25,7 +26,7 @@ export function resolveTagFields(
   const all: TagFieldRef[] = [];
   for (const [id, node] of schema) {
     if (typeRefsOf(node).includes(SYSTEM_IDS.field)) {
-      all.push({ id, name: node.text });
+      all.push({ id, name: rowName(node, schema) });
     }
   }
   all.sort((a, b) => a.name.localeCompare(b.name));

@@ -10,6 +10,8 @@ import {
 } from "@kb/views";
 import { isOntologyNode } from "@kb/model";
 import {
+  useSchema,
+  nameIn,
   browserHost,
   listOntologyItems,
   type MatchedRoute,
@@ -52,8 +54,9 @@ export function OntologyChrome({ params }: { readonly params: OntologyScopeParam
   const warnings = useGraphStore((s) => s.ontologyWarnings);
   const leaveScope = useGraphStore((s) => s.leaveScope);
   const onto = useOntologyNode(id);
+  const schema = useSchema();
   if (onto === undefined) return null;
-  const label = textOr(onto.text.trim(), "Untitled ontology");
+  const label = textOr(nameIn(schema, onto.id), "Untitled ontology");
   return (
     <OntologyScopeBar
       ontologyId={id}

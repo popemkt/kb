@@ -21,7 +21,7 @@
  *   Google hands it a refresh token.
  * - Calendars is done when a calendar on this account is synced to Google.
  */
-import { firstRef, firstStr, nodesOfKind, type NodeLike } from "@kb/model";
+import { nodeName, firstRef, firstStr, nodesOfKind, type NodeLike } from "@kb/model";
 import { updateNode, type NodeCall } from "./calendar-edits.ts";
 import { readCalendar } from "./config.ts";
 import {
@@ -87,6 +87,8 @@ export function readAccountSetup(
     if (step !== undefined) confirmed.add(step);
   }
   const status = readRoutineOption("status", firstRef(F.status)(account.props));
+  const nameOf = (node: NodeLike) =>
+    nodeName(node.id, (id) => (id === node.id ? node : nodes.get(id)));
   const calendars: SetupCalendar[] = [];
   for (const node of nodesOfKind(nodes, T.calendar)) {
     if (firstRef(F.account)(node.props) !== account.id) continue;
@@ -98,7 +100,7 @@ export function readAccountSetup(
     }
     calendars.push({
       id: node.id,
-      name: node.text === "" ? "Untitled calendar" : node.text,
+      name: nameOf(node) || "Untitled calendar",
       mode: read.mode,
       provisioned: read.calendarId !== "",
     });
@@ -106,7 +108,7 @@ export function readAccountSetup(
   const text = (field: string) => firstStr(field)(account.props) ?? "";
   return {
     id: account.id,
-    name: account.text,
+    name: nameOf(account),
     email: text(F.email),
     project: text(F.project),
     confirmed,
