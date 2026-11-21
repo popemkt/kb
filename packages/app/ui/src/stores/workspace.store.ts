@@ -28,6 +28,7 @@ import {
   nodePath,
 } from "@kb/views";
 import {
+  browserHost,
   getPath,
   MAIN_PANE,
   navigate,
@@ -35,7 +36,6 @@ import {
   replacePath,
   subscribePath,
 } from "@kb/ui-sdk";
-import { proposeView } from "@/lib/propose-view";
 import { useUiStore } from "@/stores/ui.store";
 
 // off-graph: device-local — the arrangement of panes is this screen's; "Save workspace" writes one to the store as a node
@@ -192,7 +192,11 @@ function keptLayout(layout: LayoutTree): LayoutTree {
  */
 async function saveWorkspace(layout: LayoutTree, text: string): Promise<string | null> {
   const root = keptLayout(layout);
-  const proposed = await proposeView({ view: LayoutView, params: { root }, text });
+  const proposed = await browserHost().writes.proposeView({
+    view: LayoutView,
+    params: { root },
+    text,
+  });
   // Refused, the write path has said why.
   if ("refused" in proposed) return null;
   useUiStore.getState().pushToast("info", `Saved the workspace as “${text}”, in Views`);

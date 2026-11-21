@@ -22,13 +22,13 @@ beforeEach(() => {
       calls.push(["replaceField", nodeId, fieldId, values]);
       return Promise.resolve();
     },
-  };
-  const proposeView = (proposal: ViewProposal) => {
-    calls.push(["proposeView", proposal]);
-    return Promise.resolve({ id: "n.view" });
+    proposeView: (proposal: ViewProposal) => {
+      calls.push(["proposeView", proposal]);
+      return Promise.resolve({ id: "n.view" });
+    },
   };
   syncUiPlugins([]);
-  syncUiPlugins([testHostPlugin({ ...host, writes, proposeView })]);
+  syncUiPlugins([testHostPlugin({ ...host, writes })]);
 });
 
 afterAll(() => syncUiPlugins([]));

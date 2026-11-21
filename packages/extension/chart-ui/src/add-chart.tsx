@@ -6,7 +6,7 @@
 import { ChartBarIcon } from "@phosphor-icons/react";
 import { queryDefOf } from "@kb/model";
 import { ChartView, starterChartSpec } from "@kb/chart";
-import { browserHost, nodeAction, nodeMenu, queryRecords, type NodeCommand } from "@kb/ui-sdk";
+import { nodeAction, nodeMenu, queryRecords, type NodeCommand } from "@kb/ui-sdk";
 import { nodePath } from "@kb/views";
 
 export const addChartCommand: NodeCommand = {
@@ -18,10 +18,10 @@ export const addChartCommand: NodeCommand = {
       ctx.target.nodeId === null ? undefined : ctx.outline.nodes.get(ctx.target.nodeId),
     ) !== null,
   run: (ctx) =>
-    nodeAction(ctx, async (nodeId) => {
+    nodeAction(ctx, async (nodeId, writes) => {
       const def = queryDefOf(ctx.outline.nodes.get(nodeId));
       const columns = def === null ? [] : queryRecords(def.edn, []).columns;
-      const proposed = await browserHost().proposeView({
+      const proposed = await writes.proposeView({
         view: ChartView,
         params: { spec: starterChartSpec(columns) },
         host: nodeId,

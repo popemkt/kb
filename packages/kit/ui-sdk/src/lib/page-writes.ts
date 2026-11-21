@@ -10,7 +10,7 @@
  * rejects for a refusal.
  */
 import type { FieldType, Writable } from "@kb/model";
-import type { FrameViewKey, ViewConfig, ViewFilter } from "@kb/views";
+import type { FrameViewKey, ViewConfig, ViewFilter, ViewKey } from "@kb/views";
 import type { OutlineFormatId } from "@kb/outline-paste";
 import type { RefCreation } from "./refs";
 import type { PageHistory } from "./text-history";
@@ -21,6 +21,22 @@ export interface MovePlace {
   readonly parent: string | null;
   readonly after?: string | null;
 }
+
+/** A view node to make from settings: what `view.propose` checks. */
+export interface ViewProposal {
+  readonly view: ViewKey<unknown>;
+  readonly params: Readonly<Record<string, unknown>>;
+  /** The node it is shown for, which names it among its views. */
+  readonly host?: string;
+  readonly text?: string;
+}
+
+/**
+ * The new view node's id, or why the proposal was refused. The page's write
+ * path has told the person already, as it tells every refused write, so a
+ * caller does not tell it again.
+ */
+export type ProposedView = { readonly id: string } | { readonly refused: string };
 
 /** What `addMatchingNode` gives the node it mints: `node.add`'s place and carriers. */
 export interface MatchingAdd {
@@ -138,7 +154,8 @@ export interface PageWrites {
     leaveReferences?: boolean,
   ) => Promise<{ readonly references: readonly string[] } | null>;
   /**
-   * Make the writes `gesture` makes one write (DESIGN-UI.md → Outline
+   * Make the writes `gesture` makes through `writes`, the page's writes it
+   * is handed, one write (DESIGN-UI.md → Outline
    * editor, "A selection is a range of rows"): each is planned when it is
    * made, against the graph as the gesture found it, and they are sent
    * together as one `node.batch` call when it ends, recorded as one undo
@@ -147,7 +164,13 @@ export interface PageWrites {
    * is refused. Only the writes the gesture waits for are part of it. A `together`
    * inside another is part of the outer one.
    */
-  readonly together: <T>(gesture: () => Promise<T>) => Promise<T | null>;
+  readonly together: <T>(gesture: (writes: PageWrites) => Promise<T>) => Promise<T | null>;
+  /**
+   * Make a view node from settings through `view.propose`, the one check of
+   * a proposed view, as one write and one undo step (or part of the
+   * gesture's): its id, or why it was refused.
+   */
+  readonly proposeView: (proposal: ViewProposal) => Promise<ProposedView>;
   /**
    * The page's undo and redo stacks now, newest last, each entry an identity
    * that stays the same as it moves between them: what a row's own history

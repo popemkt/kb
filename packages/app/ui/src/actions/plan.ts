@@ -23,6 +23,7 @@ import {
   type MatchingAdd,
   type MovePlace,
   type PropValue,
+  type ViewProposal,
 } from "@kb/ui-sdk";
 import { FRAME_VIEW_FAMILY, frameSettingWrite, type ViewConfig } from "@kb/views";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
@@ -155,6 +156,24 @@ export function planSplit(
     focusCursor: 0,
     ...(drawnUnder === null ? {} : { focusInstanceKey: childInstanceKey(drawnUnder, newId) }),
   };
+}
+/**
+ * A view node made from settings, `id` minted here so the replica's commit
+ * and the server's are one node: left to the action, each would mint its
+ * own. `view.propose` is the one check of a proposed view (DESIGN.md → View
+ * nodes), so the page writes exactly what an agent could propose.
+ */
+export function planProposeView(proposal: ViewProposal, id: string): PlannedMutation {
+  return plan({
+    id: "view.propose",
+    input: {
+      id,
+      view: proposal.view.id,
+      params: proposal.params,
+      ...(proposal.host === undefined ? {} : { host: proposal.host }),
+      ...(proposal.text === undefined ? {} : { text: proposal.text }),
+    },
+  });
 }
 export function planDelete(
   _nodes: WireNode[],

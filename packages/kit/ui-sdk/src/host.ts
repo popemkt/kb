@@ -14,7 +14,6 @@
 import { Service } from "@kb/plugin";
 import type { ActionInvocation, ActionReceipt, WireNode } from "@kb/contracts";
 import type { CommandTarget, NodeCommandListing, PaletteSurface } from "./lib/command-point";
-import type { ViewKey } from "@kb/views";
 import type { NodeTextPort } from "./components/node-text-port";
 import type { RefLook } from "./lib/md-edit";
 import type { PageGraphPort } from "./lib/page-graph";
@@ -26,22 +25,6 @@ import type { Appearance, Prefs } from "./lib/theme";
 import type { OutlineNode } from "./lib/types";
 import type { HostedFrame, SandboxEvents, SandboxPorts, SandboxRun } from "./sandbox";
 import type { KeyCatalog } from "./lib/tag-opening";
-
-/** A view node to make from settings: what `view.propose` checks. */
-export interface ViewProposal {
-  readonly view: ViewKey<unknown>;
-  readonly params: Readonly<Record<string, unknown>>;
-  /** The node it is shown for, which names it among its views. */
-  readonly host?: string;
-  readonly text?: string;
-}
-
-/**
- * The new view node's id, or why the proposal was refused. The page's write
- * path has told the person already, as it tells every refused write, so a
- * caller does not tell it again.
- */
-export type ProposedView = { readonly id: string } | { readonly refused: string };
 
 /**
  * The page's host. It is a node text port too (`NodeTextPort`): the graph
@@ -129,8 +112,6 @@ export interface BrowserHost extends NodeTextPort {
   readonly subscribeManifest: (listener: () => void) => () => void;
   /** Where a view reports what it shows for its pane (`usePaneScreen`). */
   readonly screen: PaneScreenPort;
-  /** Make a view node through `view.propose`, the one check of a proposed view. */
-  readonly proposeView: (proposal: ViewProposal) => Promise<ProposedView>;
   /** The page's end of the sandbox bridge (DESIGN.md → Sandbox). */
   readonly sandbox: {
     /** Host `run` in `frame`, an iframe sandboxed with `allow-scripts` alone. */

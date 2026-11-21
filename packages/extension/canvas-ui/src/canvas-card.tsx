@@ -179,7 +179,7 @@ export function KbNodeCard({
             tags={node.tags}
             onActivate={handleActivate}
             onChange={(text) => void browserHost().writes.updateNodeContent(card.nodeId, text)}
-            writeText={(text) => browserHost().writes.setNodeText(card.nodeId, text)}
+            writeText={(text, writes) => writes.setNodeText(card.nodeId, text)}
             readText={() => browserHost().node(card.nodeId)?.text ?? null}
             ingest={ingest}
             onRemoveTag={(tagId) => {

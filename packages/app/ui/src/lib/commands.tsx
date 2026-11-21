@@ -89,6 +89,7 @@ import {
   NODE_MENU_GROUPS,
   ontologyPath,
   type OutlineCommandApi,
+  type PageWrites,
   type ProvidedView,
   ViewPoint,
   uiKernelReader,
@@ -213,7 +214,7 @@ function withFrame(ctx: CommandContext, body: (frameId: string) => void | Promis
 }
 
 async function setGlobalFrameView(ctx: CommandContext, view: FrameViewKey): Promise<void> {
-  await withFrame(ctx, (frameId) => browserHost().writes.setFrameView(frameId, view));
+  await withFrame(ctx, (frameId) => ctx.writes.setFrameView(frameId, view));
 }
 
 /** The ontology to enter: the selected or zoomed one, else the first. */
@@ -237,18 +238,18 @@ const GLOBAL_COMMANDS: readonly Command[] = [
     run: async (ctx) => {
       const selected = ctx.outline.selectedNodeId;
       if (selected !== null) {
-        await browserHost().writes.createNodeAfter(selected);
+        await ctx.writes.createNodeAfter(selected);
         return;
       }
       const newId = ulid();
-      if (await browserHost().writes.captureNode("", newId)) ctx.outline.jumpToNode(newId);
+      if (await ctx.writes.captureNode("", newId)) ctx.outline.jumpToNode(newId);
     },
   },
   {
     id: SYSTEM_IDS.cmdAddTag,
     menu: GLOBAL,
     run: async (ctx) => {
-      const id = await browserHost().writes.defineTag("untitled-tag");
+      const id = await ctx.writes.defineTag("untitled-tag");
       if (id !== null) ctx.outline.zoomTo(id);
     },
   },
@@ -256,7 +257,7 @@ const GLOBAL_COMMANDS: readonly Command[] = [
     id: SYSTEM_IDS.cmdDefineField,
     menu: GLOBAL,
     run: async (ctx) => {
-      const id = await browserHost().writes.defineField("untitled-field");
+      const id = await ctx.writes.defineField("untitled-field");
       if (id !== null) ctx.outline.zoomTo(id);
     },
   },
@@ -271,15 +272,15 @@ const GLOBAL_COMMANDS: readonly Command[] = [
     id: SYSTEM_IDS.cmdNewQuery,
     menu: GLOBAL,
     run: async (ctx) => {
-      const newId = await browserHost().writes.newQueryNode();
+      const newId = await ctx.writes.newQueryNode();
       if (newId !== null) ctx.outline.zoomTo(newId);
     },
   },
   {
     id: SYSTEM_IDS.cmdNewOntology,
     menu: GLOBAL,
-    run: async () => {
-      const id = await browserHost().writes.defineOntology();
+    run: async (ctx) => {
+      const id = await ctx.writes.defineOntology();
       if (id !== null) navigate(ontologyPath(id));
     },
   },
@@ -317,13 +318,13 @@ const GLOBAL_COMMANDS: readonly Command[] = [
     id: SYSTEM_IDS.cmdSwitchDesignSystem,
     menu: GLOBAL,
     // Through the contributed systems from the one shown, so a stale choice steps from the default.
-    run: async () => {
+    run: async (ctx) => {
       const host = browserHost();
       const contributed = currentContributions(DesignSystemPoint);
       const shown = shownDesignSystem(contributed, host.node(extensionNodeId("core"))?.props);
       if (shown === null) return;
       const ids = contributed.map(({ value }) => value.key.id);
-      await chooseDesignSystem(host.writes, nextIn(ids, shown.value.key.id));
+      await chooseDesignSystem(ctx.writes, nextIn(ids, shown.value.key.id));
     },
   },
   {
@@ -350,7 +351,7 @@ const GLOBAL_COMMANDS: readonly Command[] = [
     menu: GLOBAL,
     when: (ctx) => rowChecks(ctx).length > 0,
     run: async (ctx) => {
-      await browserHost().writes.toggleChecks(shownIdsOf(ctx));
+      await ctx.writes.toggleChecks(shownIdsOf(ctx));
     },
   },
   {
@@ -420,9 +421,9 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     }),
     when: (ctx) => typeRefsOf(targetNode(ctx)).includes(SYSTEM_IDS.tag),
     run: (ctx) =>
-      nodeAction(ctx, async (nodeId) => {
+      nodeAction(ctx, async (nodeId, writes) => {
         const name = textOr(ctx.outline.nodes.get(nodeId)?.text.trim(), nodeId);
-        const id = await browserHost().writes.defineTag(`my ${name}`, [nodeId]);
+        const id = await writes.defineTag(`my ${name}`, [nodeId]);
         if (id !== null) ctx.outline.zoomTo(id);
       }),
   },
@@ -486,8 +487,8 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
       return node !== undefined && !typeRefsOf(node).includes(SYSTEM_IDS.tag);
     },
     run: (ctx) =>
-      nodeAction(ctx, async (nodeId) => {
-        if (!(await browserHost().writes.makeSupertag(nodeId))) return;
+      nodeAction(ctx, async (nodeId, writes) => {
+        if (!(await writes.makeSupertag(nodeId))) return;
         // A supertag is schema, so it leaves the outline forest the moment it
         // becomes one. Zoom to it rather than letting the row vanish — and
         // its field template is the next thing anyone wants anyway.
@@ -544,13 +545,13 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     id: "indent",
     menu: nodeMenu("arrange", 10),
     chrome: () => ({ label: "Indent", icon: <ArrowRightIcon size={14} /> }),
-    run: (ctx) => nodeAction(ctx, (nodeId) => browserHost().writes.indentNodes([nodeId])),
+    run: (ctx) => nodeAction(ctx, (nodeId, writes) => writes.indentNodes([nodeId])),
   },
   {
     id: "outdent",
     menu: nodeMenu("arrange", 20),
     chrome: () => ({ label: "Outdent", icon: <ArrowBendUpLeftIcon size={14} /> }),
-    run: (ctx) => nodeAction(ctx, (nodeId) => browserHost().writes.outdentNodes([nodeId])),
+    run: (ctx) => nodeAction(ctx, (nodeId, writes) => writes.outdentNodes([nodeId])),
   },
   {
     // DESIGN-UI.md → Outline editor, "A row moves anywhere".
@@ -589,10 +590,8 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     // when every one is: the label says which.
     run: (ctx) => {
       const unpin = allPinned(ctx);
-      return nodeAction(ctx, (nodeId) =>
-        isPinned(ctx.outline.nodes, nodeId) === unpin
-          ? browserHost().writes.togglePin(nodeId)
-          : undefined,
+      return nodeAction(ctx, (nodeId, writes) =>
+        isPinned(ctx.outline.nodes, nodeId) === unpin ? writes.togglePin(nodeId) : undefined,
       );
     },
   },
@@ -613,7 +612,7 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
       };
     },
     run: async (ctx) => {
-      const written = browserHost().writes.toggleChecks(shownIdsOf(ctx));
+      const written = ctx.writes.toggleChecks(shownIdsOf(ctx));
       ctx.palette.close();
       await written;
     },
@@ -646,8 +645,8 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     // A selected row under another selected row goes with it.
     run: (ctx) => {
       const roots = selectionRoots(ctx.target.nodeIds, (id) => ctx.outline.nodes.get(id)?.parentId);
-      return nodeAction({ ...ctx, target: { ...ctx.target, nodeIds: roots } }, (nodeId) =>
-        browserHost().writes.deleteNode(nodeId),
+      return nodeAction({ ...ctx, target: { ...ctx.target, nodeIds: roots } }, (nodeId, writes) =>
+        writes.deleteNode(nodeId),
       );
     },
   },
@@ -732,7 +731,7 @@ function frameViewCommands(ctx: CommandContext): {
                 icon: Icon === undefined ? null : <Icon size={14} weight={picker.iconWeight} />,
               };
             },
-            run: (c) => nodeAction(c, (nodeId) => browserHost().writes.setFrameView(nodeId, key)),
+            run: (c) => nodeAction(c, (nodeId, writes) => writes.setFrameView(nodeId, key)),
           },
           { view: key.id },
           [key],
@@ -787,7 +786,7 @@ function defaultViewCommands(ctx: CommandContext): readonly CommandRegistration[
           chrome: () => ({ label, icon: <StarIcon size={14} /> }),
           run: async (c) => {
             c.palette.close();
-            await browserHost().writes.makeDefaultView(hostId, viewId);
+            await c.writes.makeDefaultView(hostId, viewId);
           },
         },
         { hostId, viewId },
@@ -949,7 +948,8 @@ export function listNodeCommands(ctx: CommandContext): NodeCommandListing[] {
         faceOf: command.faceOf,
         label: chrome.label,
         icon: chrome.icon,
-        run: () => runCommand(command.id, ctx),
+        run: (writes?: PageWrites) =>
+          runCommand(command.id, writes === undefined ? ctx : { ...ctx, writes }),
       };
     });
 }

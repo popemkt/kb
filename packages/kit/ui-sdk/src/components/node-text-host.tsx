@@ -41,6 +41,7 @@ import { rowTextReadOnlyReason, shownNodeId } from "../lib/contextual-ref";
 import { refLookOf } from "../lib/ref-look";
 import type { SchemaIndex } from "../lib/schema";
 import type { NodeMap, TagBadge } from "../lib/types";
+import type { PageWrites } from "../lib/page-writes";
 import { InlineMarkdown } from "./md-view";
 import { useRevealMarkup } from "./use-reveal-markup";
 import { useTextHistory } from "./use-text-history";
@@ -108,9 +109,10 @@ export interface NodeTextHostProps extends NodeTextHostBinding {
   onChange: (content: string) => void;
   /**
    * The text written whole, as a command writes it (`PageWrites.setNodeText`):
-   * what a pick leaves in the text, written with the pick's own write as one.
+   * what a pick leaves in the text, written with the pick's own write as one,
+   * through the writes of that one write (`writes`).
    */
-  writeText: (content: string) => Promise<unknown>;
+  writeText: (content: string, writes: PageWrites) => Promise<unknown>;
   /**
    * The text as the graph holds it now, read from the node `writeText`
    * writes (null: none): what the row shows after a page undo or redo.
@@ -441,9 +443,9 @@ export function NodeTextHost({
       const below = writes.history().undo.at(-1);
       lay(after);
       textHistory.shown(after);
-      const landed = await writes.together(async () => {
-        await writeText(after.text);
-        await pick.write?.();
+      const landed = await writes.together(async (pickWrites) => {
+        await writeText(after.text, pickWrites);
+        await pick.write?.(pickWrites);
         return true;
       });
       if (landed === null) {

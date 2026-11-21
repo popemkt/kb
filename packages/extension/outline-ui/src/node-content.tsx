@@ -108,7 +108,7 @@ export function NodeContent({
       onChange={(next) => {
         if (next !== content) void browserHost().writes.updateNodeContent(textNodeId, next);
       }}
-      writeText={(next) => browserHost().writes.setNodeText(textNodeId, next)}
+      writeText={(next, writes) => writes.setNodeText(textNodeId, next)}
       readText={readText}
       ingest={ingest}
       triggers={triggers}

@@ -88,7 +88,7 @@ export function ChartPage({ params, host }: ViewProps<ChartParams>) {
         setEditing(false);
         return;
       }
-      const proposed = await browserHost().proposeView({
+      const proposed = await browserHost().writes.proposeView({
         view: ChartView,
         params: { spec },
         ...(params.source === undefined ? {} : { host: params.source }),

@@ -12,9 +12,11 @@ const invoke = vi.fn();
 vi.mock("@/session/runtime", () => ({
   invoke: (id: string, input: unknown) => invoke(id, input),
   invokeLocal: ({ id, input }: { id: string; input: unknown }) => invoke(id, input),
+  invokeCoalesced: () => Promise.reject(new Error("no text writes here")),
+  invokeSettled: () => Promise.reject(new Error("no settled writes here")),
 }));
 
-const { proposeView } = await import("./propose-view");
+const { mutations } = await import("./mutations");
 
 describe("proposeView", () => {
   it("mints the node's id in the call, so every side that runs it writes that node", async () => {
@@ -27,8 +29,8 @@ describe("proposeView", () => {
       }),
     );
     const view = { view: LayoutView, params: { root: { tabs: [] } }, text: "Morning" };
-    const first = await proposeView(view);
-    const second = await proposeView(view);
+    const first = await mutations.proposeView(view);
+    const second = await mutations.proposeView(view);
     const named = invoke.mock.calls.map(([, input]) => (input as { id?: string }).id);
     expect(named).toEqual([expect.stringMatching(/^[0-9A-HJKMNP-TV-Z]{26}$/), expect.any(String)]);
     expect([first, second]).toEqual(named.map((id) => ({ id })));

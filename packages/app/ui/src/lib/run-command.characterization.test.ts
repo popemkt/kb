@@ -9,6 +9,7 @@
  * to an argument.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { mutations } from "@/actions/mutations";
 import {
   SYSTEM_IDS,
   defaultViewIdOf,
@@ -75,6 +76,7 @@ function context(): CommandContext {
     debugFields: useDebugFieldsStore.getState(),
     workspace: useWorkspaceStore.getState(),
     palette: { close: () => {}, openStep: () => {} },
+    writes: mutations,
   };
 }
 
