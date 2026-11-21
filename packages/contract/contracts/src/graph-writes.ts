@@ -54,6 +54,18 @@ export const PropInputSchema = z.object({
 });
 
 /**
+ * A write's leave to define each field it names that does not exist yet,
+ * as `field.define` defines one, in the write's own transaction: a write
+ * that fails leaves no field behind (`kb add --create`).
+ */
+export const CreateFieldsSchema = z
+  .boolean()
+  .optional()
+  .describe(
+    "define each field the write names that does not exist yet, as field.define does, in the same transaction",
+  );
+
+/**
  * `node.update`'s input: what one edit of a node says. It is a contract so
  * that whatever reads an update before it runs (days' untag interceptor)
  * reads it exactly as the action will.
@@ -71,6 +83,7 @@ export const NodeUpdateInputSchema = z.object({
   parent: z.string().nullable().optional(),
   /** Index in the target sibling group; the end when omitted on a move. */
   position: z.number().int().nonnegative().optional(),
+  createFields: CreateFieldsSchema,
   /** Bypass sys.* write-guard (browse yes / break no). */
   force: z.boolean().optional(),
 });

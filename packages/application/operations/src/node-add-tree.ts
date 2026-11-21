@@ -1,6 +1,12 @@
 import { Effect, Predicate } from "effect";
 import { z } from "zod";
-import { type ActionDefinition, type CaptureTarget, KbCtx, type KbStore } from "@kb/contracts";
+import {
+  type ActionDefinition,
+  type CaptureTarget,
+  CreateFieldsSchema,
+  KbCtx,
+  type KbStore,
+} from "@kb/contracts";
 import {
   ResolveError,
   cardinalityOf,
@@ -25,8 +31,13 @@ import {
   syncDomain,
   type PropEntry,
 } from "@kb/model";
-import { OUTLINE_FORMAT_IDS, outlineFormat, type OutlineItem } from "@kb/outline-paste";
-import { forcedBy, nodeAddDef } from "./actions.ts";
+import {
+  OUTLINE_FORMAT_IDS,
+  outlineFieldNames,
+  outlineFormat,
+  type OutlineItem,
+} from "@kb/outline-paste";
+import { forcedBy, nodeAddDef, planMissingFields } from "./actions.ts";
 import { placedGraph, placeOf } from "./place.ts";
 import { persistPlannedEffect } from "./session.ts";
 
@@ -68,6 +79,7 @@ export const nodeAddTreeDef = {
       .array(z.string())
       .optional()
       .describe("one id per item in tree order, minted if omitted"),
+    createFields: CreateFieldsSchema,
     /** Bypass sys.* write-guard (browse yes / break no), as node.add's. */
     force: z.boolean().optional(),
   }),
@@ -344,8 +356,10 @@ export const planNodeAddTreeEffect = Effect.fn("node.addTree.plan")(function* (
     position,
   }));
 
+  const written = new Set<NodeId>(
+    yield* planMissingFields(graph, input.createFields, outlineFieldNames(parsed.items), at),
+  );
   const resolve = refResolver(graph, planned);
-  const written = new Set<NodeId>();
 
   for (const { item, id, parent, position } of planned) {
     const props = yield* itemProps(item, graph, resolve);

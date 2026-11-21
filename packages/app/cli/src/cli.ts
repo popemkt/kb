@@ -3,13 +3,7 @@ import { Command, CommanderError } from "commander";
 import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { join } from "node:path";
-import {
-  UI_DEFAULT_PORT,
-  WIRE_PROTOCOL,
-  type KbContext,
-  type ActionReceipt,
-  onWire,
-} from "@kb/contracts";
+import { UI_DEFAULT_PORT, WIRE_PROTOCOL, type KbContext, onWire } from "@kb/contracts";
 import {
   kbRuntimeLayer,
   openKbScoped,
@@ -26,12 +20,10 @@ import {
   writeErr,
 } from "@kb/runtime";
 import {
-  type DomainError,
   FIELD_TYPES,
   SYSTEM_IDS,
   currentIso,
   ensureDomainError,
-  isSysPrefixed,
   resolveFieldId,
   resolveTagId,
 } from "@kb/model";
@@ -75,7 +67,6 @@ import { relationCommands } from "./relations.ts";
 import { hostExtensions } from "./host-plugins.ts";
 import { readActionJsonEffect, readTextArgEffect } from "./input.ts";
 import {
-  fieldsNeedingCreate,
   mapActionInvoke,
   mapAdd,
   mapAddTree,
@@ -125,55 +116,14 @@ function parseStoreBackend(value: string, flag: string): StoreBackend {
   return found;
 }
 
-function ensureFieldsEffect(
-  ctx: KbContext,
-  plan: PlannedAction,
-  create: boolean,
-): Effect.Effect<ActionReceipt | null, DomainError, ActionHandlerEnv> {
-  return Effect.gen(function* () {
-    if (!create) return null;
-    // Minted in their own transactions, before the write. GAP [[01M52F7X4YQ7W3TJHVPBBXARGP]]
-    for (const name of fieldsNeedingCreate(plan)) {
-      if (isSysPrefixed(name) || name === "type" || name === "fields") {
-        continue;
-      }
-      const outcome = yield* Effect.try({
-        try: () => {
-          resolveFieldId(ctx.nodes, name);
-          return "ok" as const;
-        },
-        catch: (err) => ensureDomainError(err),
-      }).pipe(
-        Effect.catchIf(
-          (err) => err.code === "not_found",
-          () => Effect.succeed("missing" as const),
-        ),
-      );
-      if (outcome !== "missing") continue;
-      const receipt = yield* invokeCliEffect(
-        ctx,
-        onWire(ACTION_INVOKE_WIRE, { id: "field.define", input: { name } }),
-      );
-      if (receipt.status === "failed") return receipt;
-    }
-    return null;
-  });
-}
-
 /** Run a planned registry action and write formatted stdout. */
 export function runPlanEffect(
   ctx: KbContext,
   plan: PlannedAction,
   globals: GlobalOpts,
-  opts: { create?: boolean; command?: string } = {},
+  opts: { command?: string } = {},
 ): Effect.Effect<number, Error, ActionHandlerEnv> {
   return Effect.gen(function* () {
-    const created = yield* ensureFieldsEffect(ctx, plan, opts.create === true);
-    if (created && created.status === "failed") {
-      writeOut(formatReceipt(created, { json: globals.json === true }));
-      return EXIT_FAILED;
-    }
-
     const receipt = yield* invokeCliEffect(
       ctx,
       onWire(ACTION_INVOKE_WIRE, { id: plan.id, input: plan.input }),
@@ -226,7 +176,6 @@ function addEffect(
   opts: AddOpts,
 ): Effect.Effect<number, Error, ActionHandlerEnv> {
   return Effect.gen(function* () {
-    const create = { create: opts.create === true };
     if (opts.top === true && opts.parent !== undefined) {
       return yield* new UsageError({ message: "kb add: --parent and --top name two places" });
     }
@@ -243,9 +192,10 @@ function addEffect(
         props: opts.prop.map((arg) => parsePropArg(arg, declaredTypes(ctx.nodes))),
         matching: opts.matching,
         id: opts.id,
+        createFields: opts.create === true,
         force: opts.force === true,
       });
-      return yield* runPlanEffect(ctx, plan, globals, create);
+      return yield* runPlanEffect(ctx, plan, globals);
     }
     if (
       text !== undefined ||
@@ -265,9 +215,10 @@ function addEffect(
       format: opts.format,
       parent,
       position: opts.position,
+      createFields: opts.create === true,
       force: opts.force === true,
     });
-    return yield* runPlanEffect(ctx, plan, globals, create);
+    return yield* runPlanEffect(ctx, plan, globals);
   });
 }
 interface SetOpts extends ForceOpts {
@@ -543,10 +494,10 @@ function buildProgram(json: boolean): Command {
             id,
             field,
             value: parseFieldValue(value, declaredTypes(ctx.nodes)(field), field),
+            createFields: opts.create === true,
             force: opts.force === true,
           }),
           globals,
-          { create: opts.create === true },
         ),
       ),
     );

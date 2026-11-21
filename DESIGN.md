@@ -953,8 +953,12 @@ set`, MCP and the UI all replace in one write), a many-valued field gains
   ref field's _target constraint_ (`allowedRefIdsOf`) is not part of the check
   yet — only the picker applies it (a recorded gap).
 - **Name resolution**: CLI/actions accept field/tag _names_; resolver does a
-  unique-text lookup among `sys.field`/`sys.tag` nodes (error on ambiguity,
-  `--create` to mint). Resolution is dynamic at load — at our scale (\<\<100k
+  unique-text lookup among `sys.field`/`sys.tag` nodes (error on ambiguity).
+  A write that sets values (`node.add`, `node.addTree`, `node.update`, and
+  those calls in `node.batch`) takes `createFields`, the CLI's `--create`: each
+  field it names that does not resolve is defined as `field.define` defines
+  one, planned into the write's own transaction, so a write that fails leaves
+  no field behind. A `sys.*` name is never minted. Resolution is dynamic at load — at our scale (\<\<100k
   nodes) caching is premature; revisit only if load profiling says so.
 - **A CLI value is parsed as its field's declared type**, never guessed from
   its shape (`parseFieldValue` in `@kb/cli`'s `map.ts`): `kb set <n>
@@ -5504,8 +5508,7 @@ items go under `parent` (the forest roots when omitted) at `position`,
 The action declares itself a batch of `node.add` (`batchOf`), so approval
 decides it as `node.add` too ([Action registry](#action-registry)). The
 syntax is the format's reader in `@kb/outline-paste`, pure and resolving
-nothing, which the CLI reads too (to plan `--create` from an outline's field
-lines) and a family may check an outline it ships against. The action is in
+nothing, which a family may check an outline it ships against. The action is in
 the isomorphic registry, so the CLI (`kb add --outline <file> [--format
 <id>]`, `-` for stdin), MCP (`node_addTree`), WebMCP, the sidebar agent and
 the page's own invoke all reach the same handler.
@@ -5528,8 +5531,8 @@ The grammar is Tana Paste's format, a subset of Tana Paste:
   node. `name::` followed by nested `- value` items holds several values, and
   an inline value may be combined with nested ones. Each value is read as the
   field's declared type, as `--prop` does. A field that does not exist is
-  refused, and `kb add --outline --create` mints it first, as
-  `kb add --create` does. `::` makes a field only when whitespace or the end
+  refused, and `kb add --outline --create` (`createFields`) defines it in the
+  outline's own transaction, as `kb add --create` does. `::` makes a field only when whitespace or the end
   of the line follows it, so `a::b` stays text.
 - `[[id]]` and `[[id|label]]` in text and in values are the ordinary ref form
   ([Data model](#data-model--everything-is-a-node)). A target that is a stored
@@ -5573,11 +5576,9 @@ parked: it needs an XML parser in the isomorphic domain, and its attributes
 map to nothing past `text`. When it is wanted, it is one more codec over the
 same tree, not a second write path.
 
-`--create` mints missing fields through `field.define` before the outline's
-own transaction, as it does for `kb add`. An outline that then fails keeps
-those fields. The all-or-nothing promise therefore covers the outline's nodes
-and props, but not fields minted on the command line
-(GAP [[01M52F7X4YQ7W3TJHVPBBXARGP]]).
+`--create` (`createFields`) defines missing fields in the outline's own
+transaction, as it does for `kb add`, so the all-or-nothing promise covers
+them too: an outline that fails leaves no field behind.
 
 ### Outline formats — one tree, one codec each
 

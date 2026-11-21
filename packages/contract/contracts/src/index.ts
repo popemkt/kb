@@ -260,7 +260,12 @@ export type {
 export { KbCtx, KbStore, SessionSeed, inProcess, kbCtxLayer, kbStoreLayer } from "./session.ts";
 export { NO_SECRETS, SecretError } from "./secrets.ts";
 export type { SecretSource, SecretSink, SecretStore } from "./secrets.ts";
-export { GraphWrites, NodeUpdateInputSchema, PropInputSchema } from "./graph-writes.ts";
+export {
+  CreateFieldsSchema,
+  GraphWrites,
+  NodeUpdateInputSchema,
+  PropInputSchema,
+} from "./graph-writes.ts";
 export type { GraphWritesPort } from "./graph-writes.ts";
 export {
   TX_TAIL_KEEP_ENTRIES,

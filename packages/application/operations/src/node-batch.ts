@@ -22,10 +22,12 @@ import {
 import {
   fieldDefineDef,
   fieldDefinitionInput,
+  fieldsNamed,
   forcedBy,
   nodeAddDef,
   nodeDeleteDef,
   nodeUpdateDef,
+  planMissingFields,
   planNodeDelete,
   planNodeUpdate,
   tagDefineDef,
@@ -146,10 +148,14 @@ const planCall = Effect.fn("node.batch.call")(function* (
     const input = yield* addInputOf(nodes, call);
     const id = input.id ?? given ?? (yield* freshId);
     const graph = IndexedNodes.of(nodes);
+    const defined =
+      call.action === "node.add"
+        ? yield* planMissingFields(graph, call.input.createFields, fieldsNamed(input.props), at)
+        : [];
     const { written } = yield* syncDomain(() =>
       planNodeAdd(graph, { ...input, parent: input.parent ?? undefined }, id, at),
     );
-    const upserts = written.flatMap((w) => graph.get(w) ?? []);
+    const upserts = [...defined, ...written].flatMap((w) => graph.get(w) ?? []);
     return { id, write: { upserts, deletes: [] } };
   }
   if (call.action === "node.update") {
