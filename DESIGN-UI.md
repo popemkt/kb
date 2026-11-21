@@ -4258,9 +4258,10 @@ until "Save workspace".
   row: the chip of that tag, which already says why the node is special,
   grows a ↗ segment behind a hairline (`TagChip`'s `action`), "Open in
   Canvas", the same step as the menu's row. The chip's name still goes to
-  the tag. On a pointer that hovers the segment shows while the row is
-  hovered or holds focus; on touch (`hover: none`) it is always there. It
-  is a button, so Tab reaches it. A click on the bullet stays as resolved.
+  the tag. The segment is always there, faint until the row is hovered or
+  holds focus, so the chip is as wide at rest as under the pointer and the
+  row's words never rewrap when it shows ("Row actions take no width",
+  References). It is a button, so Tab reaches it. A click on the bullet stays as resolved.
 - **The bullet's menu.** A right click on a row's bullet, or a finger held
   on it for `LONG_PRESS_MS` (`useMenuGesture`, `@kb/ui-sdk`), selects the
   row and opens the node menu on it, as ⌘K does on a selected row. A long
