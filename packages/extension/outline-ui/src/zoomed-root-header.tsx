@@ -284,7 +284,9 @@ export function ZoomedRootHeader({
         }
       />
 
-      <FieldsSection nodeId={node.id} depth={-1} instanceKey={`title/${node.id}`} />
+      {/* The page's fields are the title instance's, so the keyboard leaving
+          the title, or its description, finds them, and leaves them for it. */}
+      <FieldsSection nodeId={node.id} depth={-1} instanceKey={pageTitleInstanceKey(node.id)} />
     </div>
   );
 }
