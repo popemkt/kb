@@ -15,7 +15,7 @@
  * compares. `base` is the mark the append's transaction began on: a store
  * commit's rows moved the mark from `base` to `mark`, and a record of a
  * transaction the store did not commit leaves the two equal. Rows chained
- * base to mark are what {@link SqliteTxTail.committedBetween} reads; null
+ * base to mark are what {@link SqliteTxTail.committedSince} reads; null
  * on a row an earlier kb wrote, which chains to nothing.
  *
  * `rev` is the tail's own counter, not `meta.rev`: `meta.rev` counts row
@@ -43,7 +43,9 @@ import {
 import {
   TX_TAIL_KEEP_ENTRIES,
   TX_TAIL_MAX_ENTRIES,
+  committedSpan,
   pageLength,
+  type TailSpan,
   type TxPage,
   type TxRecord,
   type TxTail,
@@ -156,35 +158,34 @@ export class SqliteTxTail implements TxTail {
     return this.connection.write((db) => this.appendWithin(db, ops, record, commitMark(db)));
   }
 
+  committedSince(from: string): TailSpan | null {
+    const db = tailOf(this.connection.peek());
+    if (db === null) return null;
+    // One read transaction: the rows and the mark they must end on are one state.
+    return db.transaction(() => {
+      const to = commitMark(db);
+      return to === null ? null : this.committedBetween(db, from, to);
+    })();
+  }
+
   /**
-   * The transactions the store committed from the state marked `from` to the
-   * one marked `to`, oldest first, read inside a transaction the caller
-   * opened; null when the tail cannot account for every write between.
-   *
-   * The rows from the first one that began on `from` must chain, each
-   * beginning on the mark the one before it left, and end on `to`. A write
-   * the tail did not record (a hand-run `sqlite3`) moves `meta.rev` with no
-   * row, so the next row begins on a mark no row left; a compacted tail
-   * holds no row beginning on `from`; a row an earlier kb wrote has no base.
-   * Each is null, which costs the caller one full read. A row whose base is
-   * its mark moved no node row and is passed over: its ops are a record of
-   * something the store never wrote.
+   * {@link committedSince} to the state marked `to`, read inside a
+   * transaction the caller opened — how a commit brings its kept state
+   * forward under the write lock. The rows from the last one that began on
+   * `from` are read; the rule is `committedSpan`'s.
    */
-  committedBetween(db: Database, from: string, to: string): StoreTx[] | null {
+  committedBetween(db: Database, from: string, to: string): TailSpan | null {
     if (tailOf(db) === null) return null;
     const rows = db
       .query<TxRow & { base: string | null; mark: string }, [string]>(
-        "SELECT * FROM tx WHERE rev >= (SELECT MIN(rev) FROM tx WHERE base = ?) ORDER BY rev",
+        "SELECT * FROM tx WHERE rev >= (SELECT MAX(rev) FROM tx WHERE base = ?) ORDER BY rev",
       )
       .all(from);
-    const committed: StoreTx[] = [];
-    let at = from;
-    for (const row of rows) {
-      if (row.base !== at) return null;
-      if (row.mark !== at) committed.push(toKbTx(row).ops);
-      at = row.mark;
-    }
-    return at === to ? committed : null;
+    return committedSpan(
+      rows.map((row) => ({ base: row.base, mark: row.mark, ops: () => toKbTx(row).ops })),
+      from,
+      to,
+    );
   }
 
   adopt(txs: readonly KbTx[]): Effect.Effect<void, DomainError> {

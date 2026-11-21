@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { pageLength, type TxPage, type TxRecord, type TxTail } from "@kb/contracts";
+import { pageLength, type TailSpan, type TxPage, type TxRecord, type TxTail } from "@kb/contracts";
 import { canonicalJson, recordedTx, type KbTx, type StoreTx } from "@kb/model";
 
 /**
@@ -40,6 +40,11 @@ export class MemoryTxTail implements TxTail {
         page,
       ),
     );
+  }
+
+  /** No store marks to chain: a holder of an older state reads the store it replicates. */
+  committedSince(): TailSpan | null {
+    return null;
   }
 
   append(ops: StoreTx, record: TxRecord): Effect.Effect<KbTx> {

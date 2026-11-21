@@ -1,5 +1,6 @@
 import { Context, type Effect } from "effect";
 import type { Actor, DomainError, KbTx, StoreTx } from "@kb/model";
+import type { StoreFingerprint } from "./store.ts";
 
 /**
  * The one producer of "what changed, in order".
@@ -133,6 +134,18 @@ export interface TxTail {
   append(ops: StoreTx, record: TxRecord): Effect.Effect<KbTx, DomainError>;
 
   /**
+   * What the store committed since the state `from` names, through the state
+   * it is in now, oldest first, with the fingerprint of that state; null
+   * when the tail cannot show it recorded every write between (a hand edit,
+   * a compacted tail, a record an earlier kb wrote without its base, or a
+   * tail without the store's marks). Records of transactions the store did
+   * not commit (the saved-query virtual set's) are left out: they wrote no
+   * node. What a holder of the state `from` applies to reach the store's
+   * current state without reading it; the rule is {@link committedSpan}.
+   */
+  committedSince(from: StoreFingerprint): TailSpan | null;
+
+  /**
    * Replace the tail's contents with `txs`, revs and all.
    *
    * `kb store migrate` is the caller: the nodes move byte-identically between
@@ -201,3 +214,50 @@ export const VIRTUAL_ORIGIN = "virtual";
  */
 export const TX_TAIL_MAX_ENTRIES = 2048;
 export const TX_TAIL_KEEP_ENTRIES = 1024;
+
+/** The store's committed transactions from one state to another (`TxTail.committedSince`). */
+export interface TailSpan {
+  readonly txs: readonly StoreTx[];
+  /** The state the transactions end on. */
+  readonly mark: StoreFingerprint;
+}
+
+/** One tail record as {@link committedSpan} reads it: the marks it began and ended on, and its ops. */
+export interface MarkedRecord {
+  /** Null on a record written before tails recorded where it began. */
+  readonly base: StoreFingerprint | null;
+  readonly mark: StoreFingerprint;
+  readonly ops: () => StoreTx;
+}
+
+/**
+ * The one statement of how a tail shows it explains a span, shared by every
+ * tail that records marks. From the last record that began on `from`, each
+ * record must begin on the mark the one before it ended on, and the last
+ * must end on `to`: a write the tail did not record moves the store's mark
+ * with no record, so the next record begins on a mark no record left. A
+ * record that began and ended on one mark wrote no node and is passed over.
+ * `ops` is read only for the records taken.
+ */
+export function committedSpan(
+  records: readonly MarkedRecord[],
+  from: StoreFingerprint,
+  to: StoreFingerprint,
+): TailSpan | null {
+  let start = -1;
+  for (let i = records.length - 1; i >= 0; i--) {
+    if (records[i]?.base === from) {
+      start = i;
+      break;
+    }
+  }
+  if (start === -1) return null;
+  const txs: StoreTx[] = [];
+  let at = from;
+  for (const record of records.slice(start)) {
+    if (record.base !== at) return null;
+    if (record.mark !== at) txs.push(record.ops());
+    at = record.mark;
+  }
+  return at === to ? { txs, mark: to } : null;
+}

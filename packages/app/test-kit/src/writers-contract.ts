@@ -302,3 +302,40 @@ export function commitAfterAnotherWriterMergesIntoIt(makeStore: StoreFactory): P
     ),
   );
 }
+
+/**
+ * A holder of one state can learn what other writers committed since it
+ * from the tail alone (`TxTail.committedSince`): every adapter answers the
+ * commits in order, as they were applied, without the record of a
+ * transaction the store never committed, and ending on the store's current
+ * fingerprint; and a state the tail never named answers null.
+ */
+export function tailNamesCommitsSinceAState(makeStore: StoreFactory): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* scratchRoot;
+        const one = makeStore(root);
+        const two = makeStore(root);
+        yield* one.commitEffect({ upserts: [plainNode("n-a", "a")], deletes: [] }, { at: AT });
+        const held = present(yield* one.fingerprint, "a fingerprint after a commit");
+
+        const added = yield* two.commitEffect(
+          { upserts: [plainNode("n-b", "b")], deletes: [] },
+          { at: AT },
+        );
+        yield* two.txTail.append(
+          { upserts: [plainNode("n-v", "virtual")], deletes: [] },
+          { at: AT },
+        );
+        const dropped = yield* two.commitEffect({ upserts: [], deletes: ["n-a"] }, { at: AT });
+
+        expect(one.txTail.committedSince(held)).toEqual({
+          txs: [added.tx, dropped.tx],
+          mark: present(yield* one.fingerprint, "a fingerprint after a commit"),
+        });
+        expect(one.txTail.committedSince("never-a-state")).toBeNull();
+      }),
+    ),
+  );
+}

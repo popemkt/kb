@@ -102,19 +102,15 @@ describe("index rebuilds on the interactive path", () => {
     }
   });
 
-  test("a write from another process is picked up, and costs one rebuild", async () => {
+  test("a write from another process that the tail records is applied without a rebuild", async () => {
     const dir = await root();
     try {
       const ctx = await openKb(dir);
       const before = rebuildsByAQuery(ctx.index);
 
       const external = new JsonlStore(dir);
-      const onDisk = await Effect.runPromise(external.loadEffect);
       await Effect.runPromise(
-        external.commitEffect(
-          { upserts: [...onDisk, node("n.external")], deletes: [] },
-          { at: TX_AT },
-        ),
+        external.commitEffect({ upserts: [node("n.external")], deletes: [] }, { at: TX_AT }),
       );
 
       await Effect.runPromise(
@@ -124,15 +120,43 @@ describe("index rebuilds on the interactive path", () => {
         ) as Effect.Effect<void>,
       );
       expect(ctx.index.getNode("n.external")).toBeDefined();
-      expect(rebuildsByAQuery(ctx.index)).toBe(before + 1);
+      expect(rebuildsByAQuery(ctx.index)).toBe(before);
 
-      // A second reload with nothing new does not build again.
+      // A second reload with nothing new does nothing either.
       await Effect.runPromise(
         reloadEffect(ctx).pipe(
           Effect.asVoid,
           Effect.provide(kbRuntimeLayer(ctx)),
         ) as Effect.Effect<void>,
       );
+      expect(rebuildsByAQuery(ctx.index)).toBe(before);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("a hand edit the tail cannot explain costs one rebuild, even with a recorded write after it", async () => {
+    const dir = await root();
+    try {
+      const ctx = await openKb(dir);
+      const before = rebuildsByAQuery(ctx.index);
+
+      const path = join(dir, ".kb", "nodes.jsonl");
+      const body = await Bun.file(path).text();
+      await Bun.write(path, `${body}${JSON.stringify(node("n.hand"))}\n`);
+      const external = new JsonlStore(dir);
+      await Effect.runPromise(
+        external.commitEffect({ upserts: [node("n.external")], deletes: [] }, { at: TX_AT }),
+      );
+
+      await Effect.runPromise(
+        reloadEffect(ctx).pipe(
+          Effect.asVoid,
+          Effect.provide(kbRuntimeLayer(ctx)),
+        ) as Effect.Effect<void>,
+      );
+      expect(ctx.index.getNode("n.hand")).toBeDefined();
+      expect(ctx.index.getNode("n.external")).toBeDefined();
       expect(rebuildsByAQuery(ctx.index)).toBe(before + 1);
     } finally {
       await rm(dir, { recursive: true, force: true });

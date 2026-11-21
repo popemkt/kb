@@ -273,14 +273,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — drawing a back face in 2D
 - **node** — `01M41W56GDH3M0TNGX4BDV4STR`
 
-### GAP: a foreign commit reloads the whole graph (reloadEffect rebuilds the index)
-
-- **expected** — A foreign commit whose records the tail holds applies to the index incrementally (applyTx), in reloadEffect, not beside it.
-- **current** — ingestExternalWrite -> reloadEffect -> loadEffect -> index.rebuild is O(N) per foreign commit (docs/research/2026-10-31-online-stores.md §4.3).
-- **impact** — Cheap for a CLI write; a peer editing at keystroke rate on a remote store costs one rebuild per commit, painful at 50k nodes.
-- **closes** — Incremental foreign ingest in reloadEffect when the session is current at the tail's previous rev.
-- **node** — `01M6950WQN8VDWJMSH8EZ8X3DR`
-
 ### GAP: a former Google calendar older than the kept history, or no longer trusted, keeps kb's series
 
 - **expected** — Every Google calendar a calendar node once named and none names now has kb's series on it ended, whenever the re-point or deletion happened.
@@ -2503,6 +2495,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — no model suggestions for a provider and no provider check, so a provider that cannot run says so only when a turn fails
 - **closes** — hosted actions in composeHosted and serverInvoke, with a contract property over kb ui, then the two actions
 - **node** — `01M53F2M2S6J3WW0Z0KR136J6A`
+
+### GAP: a foreign commit reloads the whole graph (reloadEffect rebuilds the index)
+
+- **expected** — A foreign commit whose records the tail holds applies to the index incrementally (applyTx), in reloadEffect, not beside it.
+- **current** — ingestExternalWrite -> reloadEffect -> loadEffect -> index.rebuild is O(N) per foreign commit (docs/research/2026-10-31-online-stores.md §4.3).
+- **impact** — Cheap for a CLI write; a peer editing at keystroke rate on a remote store costs one rebuild per commit, painful at 50k nodes.
+- **closes** — Incremental foreign ingest in reloadEffect when the session is current at the tail's previous rev.
+- **node** — `01M6950WQN8VDWJMSH8EZ8X3DR`
 
 ### GAP: a frame stood up as a wall does not hold items on its face
 

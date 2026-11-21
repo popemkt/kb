@@ -13,15 +13,31 @@
  * never lost.
  */
 import { Effect } from "effect";
-import { CurrentCall, KbStore, TxOrigin, type EffectStore, type KbContext } from "@kb/contracts";
+import {
+  CurrentCall,
+  KbStore,
+  TxOrigin,
+  type EffectStore,
+  type KbContext,
+  type StoreFingerprint,
+} from "@kb/contracts";
 import { clockSampler, type DomainError, type KbNode, type StoreTx } from "@kb/model";
 import { noteStoreSynced, persistEffect, persistPlannedEffect } from "@kb/operations";
 import { DatascriptIndex, type DerivedRef, type TextCandidates } from "@kb/query";
 import { StoreTxLog } from "@kb/tx-log";
 
 /**
- * A session over `store`, the store of `root`, whose nodes are `nodes` as
- * the store holds them now: the index built over them once, with the
+ * What a session is opened over: the nodes read from its store, and the
+ * store's fingerprint read before them (`noteStoreSynced` says why before).
+ */
+export interface StoreRead {
+  readonly nodes: readonly KbNode[];
+  readonly fingerprint: StoreFingerprint | null;
+}
+
+/**
+ * A session over `store`, the store of `root`, whose nodes are `read`'s as
+ * the store held them: the index built over them once, with the
  * references the root's families derive (`derived`) and the clock its
  * kb date functions read (the `Clock` and time zone in scope), the log over the
  * store's tail, and the session marked as caught up. Opening makes one
@@ -31,13 +47,13 @@ import { StoreTxLog } from "@kb/tx-log";
 export const sessionOver = Effect.fn("kb.sessionOver")(function* (
   root: string,
   store: EffectStore,
-  nodes: readonly KbNode[],
+  read: StoreRead,
   derived: readonly DerivedRef[],
   textCandidates?: TextCandidates,
 ): Effect.fn.Return<KbContext> {
   // GAP [[01M5E2YBN75HF5C8HZPG62CAJH]] a query the server answers for a client reads the server's time zone
   const clock = yield* clockSampler;
-  const index = new DatascriptIndex([...nodes], {
+  const index = new DatascriptIndex([...read.nodes], {
     derived,
     clock,
     ...(textCandidates === undefined ? {} : { textCandidates }),
@@ -51,7 +67,7 @@ export const sessionOver = Effect.fn("kb.sessionOver")(function* (
       return index.storedNodes();
     },
   };
-  yield* noteStoreSynced(ctx).pipe(Effect.provideService(KbStore, store));
+  noteStoreSynced(ctx, read.fingerprint);
   return ctx;
 });
 
