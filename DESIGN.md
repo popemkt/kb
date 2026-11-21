@@ -1934,7 +1934,7 @@ everything above the port — operations, query, surfaces — sees only
 `EffectStore` + `KbNode`.
 
 Both adapters answer the same three questions and are proven by the same
-tests: `storeContract(name, makeStore)` in `@kb/test-kit` is one `describe`
+tests: `storeContract(name, factory)` in `@kb/test-kit` is one `describe`
 block that each adapter's test file calls with its own factory. A property
 that holds for one backend and not the other is not a store property, and the
 contract is where that gets found out. The contract also holds what a session
@@ -2022,9 +2022,13 @@ file is the format git already understands.
     pid wraps the _whole_ commit via `Effect.acquireRelease` inside
     `Effect.scoped`, so reload → merge → replace is one critical section and
     concurrent CLI / MCP / `kb ui` writers cannot silently clobber each other
-    (previously last-writer-wins). Contention spins on `Effect.sleep` (25ms,
-    `MAX_WAIT_MS` 15s — never a loop-blocking sleep), and only exhausting the
-    ceiling fails, with a `conflict` error naming the holder pid. The lock is
+    (previously last-writer-wins). Contention waits as every kb writer
+    waits (`takeWriteLock` in `@kb/contracts`: a try that never blocks, then
+    `Effect.sleep` for up to `WRITE_LOCK_RETRY`, 25ms, between tries).
+    `WriteLockDeadline` lets a caller supply one absolute deadline across
+    attempts. The default `WRITE_LOCK_WAIT` is 15s when there is no supplied
+    deadline. JSONL reports a `conflict` naming the holder pid when time runs
+    out. The lock is
     the kernel's: the holder opens `<file>.lock` and takes `flock(2)` on it
     (`LOCK_EX | LOCK_NB`, retried on the spin), and the kernel releases it
     when the holder unlocks, closes it or dies. So a dead holder's lock is
@@ -2127,13 +2131,15 @@ CREATE TABLE meta  (key TEXT PRIMARY KEY, value TEXT);   -- schema_version, rev
   all-or-nothing here too: one bad row fails the whole load with an
   `invalid_input` naming that row's id.
 - `.kb/kb.sqlite` is the committed file, the way `nodes.jsonl` is; `-wal` and
-  `-shm` are derived and gitignored.
-- `PRAGMA journal_mode = WAL`, `synchronous = NORMAL`, `busy_timeout = 15000`.
-  WAL so a reader is never blocked by the writer; `NORMAL` because the same
-  durability trade the JSONL adapter makes (ordering-safe, no `F_FULLFSYNC`) is
-  the honest one at repo scale; the busy timeout is the same 15s ceiling
-  `write-lock.ts` already spends waiting, so a contended commit behaves the same
-  on both adapters rather than failing fast on one and spinning on the other.
+  `-shm` are derived and gitignored. A session opens a read-only handle until
+  its first write. Closing that handle leaves a crashed writer's WAL available
+  for the next reader without checkpointing it into `kb.sqlite`.
+- `PRAGMA journal_mode = WAL` lets readers proceed while a writer holds the lock.
+  `synchronous = NORMAL` makes the same durability trade as JSONL. All handles
+  use `busy_timeout = 0` so a contended operation leaves the host responsive.
+  A read blocked by an exclusive lock, such as on a legacy rollback-journal
+  database, fails immediately. A write waits asynchronously for `BEGIN IMMEDIATE`
+  through the shared `takeWriteLock` policy.
 - **No `.lock` file.** `BEGIN IMMEDIATE … COMMIT` takes sqlite's own write lock
   for the whole deletes → upserts → tail-record transaction. A second lock beside
   it would be two mechanisms for one concept, and the weaker one would be the
@@ -2153,6 +2159,9 @@ CREATE TABLE meta  (key TEXT PRIMARY KEY, value TEXT);   -- schema_version, rev
   unopened store compares equal to nothing.
 - **The store owns the connection.** It opens lazily on first `load` or
   `commit` and stays open for the store's lifetime; `close()` exists for tests.
+  Reads can open current and older schemas while a writer holds the lock.
+  Schema creation and upgrades run in the first write transaction. Reads of
+  older transaction records omit metadata columns that were added later.
   The caller cannot own it: `EffectStore` is constructed once per session and
   handed to layers, actions and the watcher as a value, and none of them has a
   lifetime to hang a connection off — `KbContext` is not scoped. Making the

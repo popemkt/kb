@@ -7,7 +7,7 @@ import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { Cause, Clock, Effect, Exit } from "effect";
 import { existsSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { canonicalJson, isDomainError, present, type KbNode } from "@kb/model";
@@ -30,6 +30,29 @@ const scratchStore = Effect.gen(function* () {
     Effect.sync(() => new SqliteStore(root)),
     (store) => store.closeEffect,
   );
+});
+
+/** Start a scratch writer and wait for it to announce its state. */
+const startWriter = Effect.fnUntraced(function* (script: string, args: string[], ready: string) {
+  const child = yield* Effect.acquireRelease(
+    Effect.sync(() =>
+      Bun.spawn([process.execPath, "-e", script, "--", ...args], {
+        stdin: "pipe",
+        stdout: "pipe",
+        stderr: "inherit",
+      }),
+    ),
+    (writer) =>
+      Effect.promise(async () => {
+        writer.kill("SIGKILL");
+        await writer.exited;
+      }),
+  );
+  const output = child.stdout.getReader();
+  const line = yield* Effect.promise(() => output.read()).pipe(Effect.timeout("5 seconds"));
+  output.releaseLock();
+  expect(new TextDecoder().decode(line.value).trim()).toBe(ready);
+  return child;
 });
 
 /** Run `body` against a raw second connection to the same database. */
@@ -71,6 +94,75 @@ describe("SqliteStore", () => {
           // Presence selects the adapter: a load that conjured the database
           // would make the selector see two stores under one root.
           expect(existsSync(store.path)).toBe(false);
+        }),
+      ),
+    ));
+
+  test("a read-only session sees committed WAL rows without checkpointing a crashed writer", () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const store = yield* scratchStore;
+          // The only writer must be gone when the parent opens the database.
+          const writer = yield* startWriter(
+            `const { SqliteStore } = await import(process.argv[1]);
+             const { Effect } = await import(process.argv[2]);
+             const store = new SqliteStore(process.argv[3]);
+             const upserts = [${JSON.stringify(node("n-a", "after"))}];
+             await Effect.runPromise(store.commitEffect({ upserts, deletes: [] }, { at: upserts[0].createdAt }));
+             console.log("committed");
+             await Bun.stdin.text();`,
+            [
+              import.meta.resolve("../src/index.ts"),
+              import.meta.resolve("effect"),
+              join(store.path, "../.."),
+            ],
+            "committed",
+          );
+          writer.kill("SIGKILL");
+          yield* Effect.promise(() => writer.exited);
+
+          const before = yield* Effect.promise(() => readFile(store.path));
+          expect(yield* Effect.promise(() => Bun.file(`${store.path}-wal`).exists())).toBe(true);
+          expect((yield* store.loadEffect).map(({ text }) => text)).toEqual(["after"]);
+          yield* store.closeEffect;
+          const after = yield* Effect.promise(() => readFile(store.path));
+          expect(after.equals(before)).toBe(true);
+        }),
+      ),
+    ));
+
+  test("a rollback-journal read fails while another process holds an exclusive lock", () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const store = yield* scratchStore;
+          const writer = yield* startWriter(
+            `import { Database } from "bun:sqlite";
+             import { mkdirSync } from "node:fs";
+             import { dirname } from "node:path";
+             const path = process.argv[1];
+             mkdirSync(dirname(path), { recursive: true });
+             const db = new Database(path);
+             db.run("PRAGMA journal_mode = DELETE");
+             db.run("CREATE TABLE nodes (id TEXT PRIMARY KEY, body TEXT NOT NULL)");
+             db.run("INSERT INTO nodes VALUES (?, ?)", ["n-a", process.argv[2]]);
+             db.run("BEGIN EXCLUSIVE");
+             console.log("locked");
+             await Promise.race([Bun.stdin.text(), Bun.sleep(2000)]);
+             db.run("ROLLBACK");
+             db.close();
+             process.exit(0);`,
+            [store.path, canonicalJson(node("n-a", "a"))],
+            "locked",
+          );
+          // If SQLite waits synchronously, the child's fail-safe unlocks and
+          // the read succeeds. It should fail while the lock is still held.
+          const error = yield* Effect.flip(store.loadEffect);
+          expect(error.message).toContain("database is locked");
+          yield* Effect.promise(() => Promise.resolve(writer.stdin.end()));
+          expect(yield* Effect.promise(() => writer.exited)).toBe(0);
+          expect((yield* store.loadEffect).map(({ text }) => text)).toEqual(["a"]);
         }),
       ),
     ));
@@ -172,7 +264,7 @@ describe("SqliteStore", () => {
       ),
     ));
 
-  test("a schema-5 tail gains the via column: its rows read back, and a new commit records its via", () =>
+  test("a cold schema-5 read proceeds under the write lock and the first commit upgrades it", () =>
     Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
@@ -191,7 +283,17 @@ describe("SqliteStore", () => {
 
           const reopened = new SqliteStore(root);
           try {
-            expect(reopened.txTail.entries().map((tx) => tx.rev)).toEqual([1]);
+            withRawConnection(store.path, (db) => {
+              db.run("BEGIN IMMEDIATE");
+              expect(Effect.runSync(reopened.loadEffect).map(({ id }) => id)).toEqual(["n-a"]);
+              expect(reopened.txTail.entries().map(({ rev }) => rev)).toEqual([1]);
+              expect(db.query("SELECT value FROM meta WHERE key = 'schema_version'").get()).toEqual(
+                {
+                  value: "5",
+                },
+              );
+              db.run("ROLLBACK");
+            });
             yield* reopened.commitEffect(
               { upserts: [node("n-b", "b")], deletes: [] },
               { at: AT, actor: "agent", via: "job:a" },

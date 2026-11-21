@@ -1,5 +1,6 @@
 import { relative } from "node:path";
 import { Cause, Effect, Option, Schema } from "effect";
+import type { FileSystem } from "effect/FileSystem";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import {
   ActionReceiptSchema,
@@ -22,7 +23,7 @@ import {
   type SurfaceWire,
 } from "@kb/contracts";
 import { captureCredential, captureDeviceDigest, reloadEffect } from "@kb/operations";
-import { writeErr, servedPage, type ActionHandlerEnv } from "@kb/runtime";
+import { bunFileSystemLayer, writeErr, servedPage, type ActionHandlerEnv } from "@kb/runtime";
 import { SANDBOX_FRAME_HEADERS, SANDBOX_FRAME_PATH, sandboxFrameDocument } from "@kb/sandbox";
 import { canonicalRoot } from "@kb/workspace-fs";
 import * as assets from "./assets.ts";
@@ -98,7 +99,12 @@ class KeptJson {
 }
 
 /** A read of the API: a `GET` that answers JSON, as a value or as text its owner keeps. */
-type JsonRead = (deps: UiHttpDeps) => Effect.Effect<unknown, never, ActionHandlerEnv>;
+type JsonRead = (deps: UiHttpDeps) => Effect.Effect<unknown, never, FileSystem>;
+
+/** Compose the action runtime at the point where a route invokes an action. */
+function provideActions<A, E>(deps: UiHttpDeps, effect: Effect.Effect<A, E, ActionHandlerEnv>) {
+  return effect.pipe(Effect.provide(serverRuntimeLayer(deps.ctx, deps.hub.screens, deps.hosted)));
+}
 
 function readResponse(body: unknown): HttpServerResponse.HttpServerResponse {
   if (!(body instanceof KeptJson)) return jsonResponse(body);
@@ -120,8 +126,11 @@ const JSON_READS: ReadonlyMap<string, JsonRead> = new Map<string, JsonRead>([
   ],
   [
     "/api/manifest",
-    ({ ctx }) =>
-      serverInvoke(ctx, onWire(HTTP_WIRE, { id: "kb.manifest", input: {} })).pipe(
+    (deps) =>
+      provideActions(
+        deps,
+        serverInvoke(deps.ctx, onWire(HTTP_WIRE, { id: "kb.manifest", input: {} })),
+      ).pipe(
         Effect.map((receipt) => listingOf(HTTP_WIRE, receipt)),
         // A store that cannot be reloaded lists nothing, as a refused manifest does.
         Effect.orElseSucceed(() => []),
@@ -141,7 +150,7 @@ interface FileRead {
   readonly read: (
     deps: UiHttpDeps,
     path: string,
-  ) => Effect.Effect<HttpServerResponse.HttpServerResponse, never, ActionHandlerEnv>;
+  ) => Effect.Effect<HttpServerResponse.HttpServerResponse, never, FileSystem>;
 }
 
 /**
@@ -264,13 +273,20 @@ const captureResponse = Effect.fn("kb.ui.capture")(function* (
   return actionResponse(ctx, output, { "cache-control": "no-store" });
 });
 
-const handleHttpRequestEffect = (
-  req: Request,
-  wire: SurfaceWire,
+const invokeActionResponse = Effect.fn("ui.actionResponse")(function* (
   deps: UiHttpDeps,
-): Effect.Effect<HttpServerResponse.HttpServerResponse, never, ActionHandlerEnv> =>
-  Effect.gen(function* () {
-    const { ctx, capture } = deps;
+  wire: SurfaceWire,
+  request: ActionRequest,
+) {
+  const { ctx, capture } = deps;
+  if (capture !== undefined) return yield* captureResponse(ctx, request, capture.token);
+  if (request.id === CAPTURE_PAIR) return yield* captureResponse(ctx, request, undefined);
+  const receipt = yield* serverInvoke(ctx, onWire(wire, request));
+  return actionResponse(ctx, receipt);
+});
+
+const handleHttpRequestEffect = Effect.fn("kb.ui.request")(
+  function* (req: Request, wire: SurfaceWire, deps: UiHttpDeps) {
     const url = new URL(req.url);
 
     const read = req.method === "GET" ? JSON_READS.get(url.pathname) : undefined;
@@ -294,12 +310,7 @@ const handleHttpRequestEffect = (
       const made = requestOf(body.value);
       if ("invalid" in made) return invalidInput(made.invalid);
 
-      if (capture !== undefined) return yield* captureResponse(ctx, made.request, capture.token);
-      if (made.request.id === CAPTURE_PAIR) {
-        return yield* captureResponse(ctx, made.request, undefined);
-      }
-      const receipt = yield* serverInvoke(ctx, onWire(wire, made.request));
-      return actionResponse(ctx, receipt);
+      return yield* provideActions(deps, invokeActionResponse(deps, wire, made.request));
     }
 
     const file =
@@ -325,30 +336,30 @@ const handleHttpRequestEffect = (
       },
       { status: 503 },
     );
-  }).pipe(
-    Effect.catchCause((cause) =>
-      Cause.hasInterruptsOnly(cause)
-        ? Effect.interrupt
-        : Effect.succeed(internalFailure(Cause.squash(cause))),
-    ),
-  );
+  },
+  Effect.catchCause((cause) =>
+    Cause.hasInterruptsOnly(cause)
+      ? Effect.interrupt
+      : Effect.succeed(internalFailure(Cause.squash(cause))),
+  ),
+);
 
 /**
  * Promise facade for the HTTP layer: runs the routing Effect, for a request
- * the guard let through on `wire`, against the
- * server's runtime Layer (FileSystem + store + session + templates + the
- * screens this server holds), converts the response to a Web `Response`,
- * and sends it as every answer is sent (`delivery.ts`).
+ * the guard let through on `wire`, then converts the response for delivery.
+ * Routes have the filesystem and compose the full runtime when invoking an action.
  */
 export function handleHttpRequest(
   req: Request,
   wire: SurfaceWire,
   deps: UiHttpDeps,
+  signal?: AbortSignal,
 ): Promise<Response> {
   return Effect.runPromise(
     handleHttpRequestEffect(req, wire, deps).pipe(
-      Effect.provide(serverRuntimeLayer(deps.ctx, deps.hub.screens, deps.hosted)),
+      Effect.provide(bunFileSystemLayer),
       Effect.flatMap((response) => deliver(req, response)),
     ),
+    signal === undefined ? undefined : { signal },
   );
 }

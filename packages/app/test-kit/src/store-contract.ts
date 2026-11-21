@@ -69,6 +69,8 @@ import { commitReceiptNamesItsWrite, tailRecordsWhoCommitted } from "./commit-re
 import { viewsMigrateRewritesLegacyShapes } from "./view-migration-contract.ts";
 import {
   commitAfterAnotherWriterMergesIntoIt,
+  opensAndCommitsUnderContention,
+  type WriteLockHolder,
   deletePreservesConcurrentSibling,
   plannedWriteSurvivesContention,
   updatePreservesConcurrentField,
@@ -889,12 +891,19 @@ function singleValuedFieldHoldsOne(makeStore: StoreFactory): Promise<void> {
  * Run the contract against one adapter.
  *
  * @param name - adapter name, used as the describe label
- * @param makeStore - build the adapter for a scratch root; called more than
- *   once per root on purpose, since "a second instance over the same files" is
- *   how an external writer is spelled in port terms
+ * @param factory - how to open the adapter and take its write lock in a child process
  */
-export function storeContract(name: string, makeStore: StoreFactory): void {
+export function storeContract(
+  name: string,
+  factory: { makeStore: StoreFactory; holdWriteLock: WriteLockHolder },
+): void {
+  const { makeStore, holdWriteLock } = factory;
   describe(`${name} — EffectStore contract`, () => {
     for (const [title, property] of PROPERTIES) test(title, () => property(makeStore));
+    test(
+      "a writer holding the lock leaves reads and the event loop free",
+      () => opensAndCommitsUnderContention(makeStore, holdWriteLock),
+      30_000,
+    );
   });
 }

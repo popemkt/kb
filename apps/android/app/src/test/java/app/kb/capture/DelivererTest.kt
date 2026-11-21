@@ -102,6 +102,26 @@ class DelivererTest {
     }
 
     @Test
+    fun `a server deadline leaves the capture pending until a later delivery succeeds`() {
+        paired()
+        host.submit = { HttpCaptureHost.interpret(503, "Request exceeded the 35000 ms deadline.") }
+        val id = queue.enqueue(CaptureDraft(text = "t"), "personal").capture.captureId
+        assertTrue(deliverer.deliverAll())
+        val pending = queue.get(id)!!.state
+        assertEquals(Status.Pending, pending.status)
+        assertEquals(1, pending.attempts)
+        assertEquals("Not delivered yet: HTTP 503", pending.reason)
+
+        host.submit = { FakeHost.ok("""{"nodeId":"01N"}""") }
+        assertFalse(deliverer.deliverAll())
+        assertEquals(Status.Sent, queue.get(id)!!.state.status)
+        val submittedIds = host.calls.filter { it.first == "capture.submit" }.map {
+            it.third["input"]!!.jsonObject["captureId"]!!.jsonPrimitive.content
+        }
+        assertEquals(listOf(id, id), submittedIds)
+    }
+
+    @Test
     fun `a permanent refusal fails the capture with the host's reason, and retry is the person's`() {
         paired()
         host.submit = { Answer.Refused("not_found", "inbox 01X does not exist") }

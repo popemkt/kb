@@ -108,4 +108,24 @@ describe("submitCapture", () => {
     );
     expect(outcome.ok).toBe(false);
   });
+
+  test("a server deadline reports HTTP 503 without an action receipt", async () => {
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: () =>
+        new Response("Request exceeded the 35000 ms deadline.", {
+          status: 503,
+          headers: { "Retry-After": "1" },
+        }),
+    });
+    stop = () => void server.stop(true);
+    const outcome = await Effect.runPromise(
+      submitCapture(
+        { origin: `http://127.0.0.1:${server.port}` },
+        textCapture("x", DateTime.makeUnsafe(0), "c-4"),
+      ),
+    );
+    expect(outcome).toEqual({ ok: false, message: "the host answered HTTP 503" });
+  });
 });

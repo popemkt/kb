@@ -4,7 +4,7 @@
  * adapter.
  */
 import { expect } from "bun:test";
-import { Effect } from "effect";
+import { Effect, Fiber } from "effect";
 import { KbStore, onWire, type EffectStore, type KbContext } from "@kb/contracts";
 import { present, rankOf, SYSTEM_IDS, type DomainError, type KbNode } from "@kb/model";
 import { persistPlannedEffect } from "@kb/operations";
@@ -167,6 +167,80 @@ export function plannedWriteSurvivesContention(makeStore: StoreFactory): Promise
         const stored = yield* other.loadEffect;
         expect(stored.find((node) => node.id === "n-p")?.children).toEqual(children);
         expect(other.txTail.entries()).toHaveLength(head + children.length);
+      }),
+    ),
+  );
+}
+
+export interface WriteLockHolder {
+  /** Resolve the backend's lock API from this directory. */
+  readonly cwd: string;
+  /** Code that acquires the lock on `path` and keeps it until the process exits. */
+  readonly script: string;
+}
+
+/** A child owns the backend's real lock. The stdin pipe controls its lifetime. */
+const holdLock = Effect.fn("storeContract.holdLock")(function* (
+  path: string,
+  { cwd, script }: WriteLockHolder,
+) {
+  const child = yield* Effect.acquireRelease(
+    Effect.sync(() =>
+      Bun.spawn(
+        [
+          process.execPath,
+          "-e",
+          `const path = ${JSON.stringify(path)};
+${script}
+console.log("locked"); await Bun.stdin.text();`,
+        ],
+        { cwd, stdin: "pipe", stdout: "pipe", stderr: "inherit" },
+      ),
+    ),
+    (process) =>
+      Effect.gen(function* () {
+        process.kill();
+        yield* Effect.promise(() => process.exited);
+      }),
+  );
+  const reader = child.stdout.getReader();
+  const ready = yield* Effect.promise(() => reader.read()).pipe(Effect.timeout("5 seconds"));
+  expect(new TextDecoder().decode(ready.value)).toBe("locked\n");
+  reader.releaseLock();
+  return child;
+});
+
+export function opensAndCommitsUnderContention(
+  makeStore: StoreFactory,
+  holder: WriteLockHolder,
+): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* scratchRoot;
+        const store = yield* Effect.acquireRelease(
+          Effect.sync(() => makeStore(root)),
+          (opened) => opened.closeEffect,
+        );
+        yield* store.commitEffect({ upserts: [plainNode("a", "a")], deletes: [] }, { at: AT });
+        yield* store.closeEffect;
+        const child = yield* holdLock(store.path, holder);
+
+        // A fresh connection reads the last committed state while the child
+        // still owns the lock. Only the write should have to wait.
+        expect((yield* store.loadEffect).map(({ id }) => id)).toEqual(["a"]);
+        const commit = yield* Effect.forkScoped(
+          store.commitEffect({ upserts: [plainNode("b", "b")], deletes: [] }, { at: AT }),
+          { startImmediately: true },
+        );
+        const ticker = yield* Effect.forkScoped(Effect.sleep("50 millis"));
+        yield* Fiber.join(ticker);
+        expect(commit.pollUnsafe()).toBeUndefined();
+
+        yield* Effect.promise(() => Promise.resolve(child.stdin.end()));
+        expect(yield* Effect.promise(() => child.exited)).toBe(0);
+        yield* Fiber.join(commit);
+        expect((yield* store.loadEffect).map(({ id }) => id)).toEqual(["a", "b"]);
       }),
     ),
   );

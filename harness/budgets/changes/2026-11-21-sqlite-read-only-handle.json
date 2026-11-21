@@ -1,0 +1,4 @@
+{
+  "reason": "Keep a read-only SQLite handle until the first write so a read session cannot checkpoint a crashed writer's WAL.",
+  "raise": { "cli-closure": { "bytes": 110 } }
+}

@@ -20,9 +20,9 @@
  * in a fixed field, so theirs is any other form. That reading goes one
  * release after this ships (todo 01M7K50TFYFRWRJBTQ8V76489P).
  *
- * Acquisition takes the lock without blocking and sleeps via Effect.sleep
- * between tries (never Bun.sleepSync), so concurrent commits on the same
- * event loop can make progress.
+ * Acquisition waits as every kb writer waits (`takeWriteLock`): it takes the
+ * lock without blocking and sleeps on the Effect clock between tries, so
+ * concurrent commits on the same event loop can make progress.
  */
 import { dlopen, FFIType, read } from "bun:ffi";
 import {
@@ -40,13 +40,11 @@ import {
   writeSync,
 } from "node:fs";
 import { dirname } from "node:path";
-import { Clock, Effect, Predicate } from "effect";
-import { WriteLockDeadline } from "@kb/contracts";
+import { Effect, Option, Predicate } from "effect";
+import { takeWriteLock } from "@kb/contracts";
 import { domainError, type DomainError } from "@kb/model";
 
 const LOCK_SUFFIX = ".lock";
-const SPIN_MS = 25;
-const MAX_WAIT_MS = 15_000;
 /**
  * How long an empty lock file is an older kb's that has yet to write its
  * pid. Ours is never empty; an older kb writes its pid within microseconds
@@ -300,36 +298,30 @@ export const acquireFileWriteLockEffect = Effect.fn("kb.acquireWriteLock")(funct
     catch: lockFailure(lockPath, "open"),
   });
 
-  const spin = Effect.gen(function* () {
-    const deadline = (yield* WriteLockDeadline) ?? (yield* Clock.currentTimeMillis) + MAX_WAIT_MS;
-    for (;;) {
-      const now = yield* Clock.currentTimeMillis;
-      if (now >= deadline) {
-        const { holder, note } = describeHolder(lockPath);
-        return yield* domainError(
-          "conflict",
-          `timed out waiting for write lock ${lockPath}${note}`,
-          { lockPath, holder },
-        );
-      }
-      const got = yield* Effect.try({
+  const spin = takeWriteLock(
+    (now) =>
+      Effect.try({
         try: () => {
-          if (tryEnter(fd, lockPath, now)) return true;
-          if (isAtPath(fd, lockPath)) return false;
-          // The holder before removed this file as it let go: try the one there now.
-          closeSync(fd);
-          fd = openLock(lockPath);
-          return tryEnter(fd, lockPath, now);
+          if (!tryEnter(fd, lockPath, now)) {
+            if (isAtPath(fd, lockPath)) return Option.none();
+            // The holder before removed this file as it let go: try the one there now.
+            closeSync(fd);
+            fd = openLock(lockPath);
+            if (!tryEnter(fd, lockPath, now)) return Option.none();
+          }
+          held.set(lockPath, fd);
+          return Option.some(lockPath);
         },
         catch: lockFailure(lockPath, "acquire"),
+      }),
+    Effect.suspend(() => {
+      const { holder, note } = describeHolder(lockPath);
+      return domainError("conflict", `timed out waiting for write lock ${lockPath}${note}`, {
+        lockPath,
+        holder,
       });
-      if (got) {
-        held.set(lockPath, fd);
-        return lockPath;
-      }
-      yield* Effect.sleep(Math.min(SPIN_MS, deadline - now));
-    }
-  });
+    }),
+  );
   // A waiter that fails or is interrupted closes its file; a holder keeps it
   // open until it releases.
   return yield* spin.pipe(Effect.onError(() => Effect.sync(() => closeSync(fd))));
