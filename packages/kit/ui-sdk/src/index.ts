@@ -246,6 +246,7 @@ export {
   isProjectedInstance,
   isProjectedRow,
   MAIN_OUTLINE_HOST,
+  mayBeInHost,
   nodeOfInstance,
   outlineHostOfPane,
   outlineInstanceKey,

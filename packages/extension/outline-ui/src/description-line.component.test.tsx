@@ -13,8 +13,10 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { present, SYSTEM_IDS } from "@kb/model";
 import {
   fieldContextOf,
+  childInstanceKey,
   fieldsSectionProps,
   MAIN_OUTLINE_HOST,
+  outlineHostOfPane,
   pageTitleInstanceKey,
   schemaOfGraph,
   syncUiPlugins,
@@ -31,6 +33,7 @@ import {
 } from "@kb/ui-test-kit";
 import { DescriptionLine } from "./description-line";
 import { describe as askForDescription, useDescribing } from "./description-state";
+import { useOutlineStore } from "./outline.store";
 import { outlineValueKindsPlugin } from "./slot-kind";
 import { ValueSlot } from "./value-slot";
 
@@ -238,5 +241,36 @@ describe("a node's description line", () => {
       await new Promise((resolve) => setTimeout(resolve, 5));
     });
     expect(focused()).toBe(next());
+  });
+
+  describe("where a gesture opens a description, with two panes", () => {
+    const OTHER = outlineHostOfPane("p2");
+    afterEach(() => useOutlineStore.getState().selectNode(null));
+
+    /** Where Add/Edit description opens on NODE, run with the main pane focused. */
+    function opensAt(selected: string): string | null {
+      // Set as the selection, as a selection the page made (the node is not drawn here).
+      useOutlineStore.setState({
+        selectedNodeId: NODE,
+        selectedInstanceKey: selected,
+        selectedKeys: new Set([selected]),
+        selectedNodeIds: [NODE],
+      });
+      askForDescription(NODE, MAIN_OUTLINE_HOST);
+      return useDescribing.getState().at;
+    }
+
+    it("opens at the focused pane's title, not at a title left selected in the other pane", () => {
+      expect(opensAt(pageTitleInstanceKey(NODE, OTHER))).toBe(AT);
+    });
+
+    it("opens at the focused pane's title, not at a row left selected in the other pane", () => {
+      expect(opensAt(childInstanceKey(OTHER, NODE))).toBe(AT);
+    });
+
+    it("opens at the row selected in the focused pane", () => {
+      const here = childInstanceKey(MAIN_OUTLINE_HOST, NODE);
+      expect(opensAt(here)).toBe(here);
+    });
   });
 });

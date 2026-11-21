@@ -129,6 +129,19 @@ export function projectedRowKey(sourceId: string, nodeId: string): string {
 }
 
 /**
+ * Whether instance `instanceKey` of node `nodeId` may be drawn by outline
+ * host `host`: a row keyed under that host, or the page's title there. A
+ * title or a row keyed under another host is another pane's. A query's
+ * projected row or a canvas card names its source, not its host, so its key
+ * cannot rule it out.
+ */
+export function mayBeInHost(instanceKey: string, nodeId: string, host: string): boolean {
+  if (instanceKey.startsWith(TITLE_PREFIX))
+    return instanceKey === pageTitleInstanceKey(nodeId, host);
+  return isProjectedInstance(instanceKey) || hostOfInstance(instanceKey) === host;
+}
+
+/**
  * The instance is projected: drawn somewhere other than an outline's walk of
  * the tree — inside a query's projected rows (a result row or one of its
  * descendants), or on a canvas. Its visibility is decided by the component

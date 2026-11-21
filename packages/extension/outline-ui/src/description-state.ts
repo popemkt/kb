@@ -6,7 +6,7 @@
  * description itself is the node's `sys.f.description` value.
  */
 import { descriptionOf, SYSTEM_IDS } from "@kb/model";
-import { pageTitleInstanceKey, useFieldWrite, useGraphRead } from "@kb/ui-sdk";
+import { mayBeInHost, pageTitleInstanceKey, useFieldWrite, useGraphRead } from "@kb/ui-sdk";
 import { create } from "zustand";
 import { useOutlineStore } from "./outline.store";
 
@@ -20,18 +20,20 @@ export const useDescribing = create<{ readonly at: string | null; readonly gestu
 );
 
 /**
- * Open node `nodeId`'s description for editing where the command found it:
- * the row selected or edited on it, else the page's title in outline host
- * `host`'s pane (the focused one, where the command runs).
+ * Open node `nodeId`'s description for editing where the command found it,
+ * in outline host `host`'s pane (the focused one, where the command runs):
+ * the row selected or edited on it there, else the page's title there. A
+ * selection left in another pane is not where the person is.
  */
 export function describe(nodeId: string, host: string): void {
   const s = useOutlineStore.getState();
-  const at =
-    s.selectedNodeId === nodeId && s.selectedInstanceKey !== null
-      ? s.selectedInstanceKey
-      : s.activeNodeId === nodeId && s.activeInstanceKey !== null
-        ? s.activeInstanceKey
-        : pageTitleInstanceKey(nodeId, host);
+  const here = (nodeOf: string | null, key: string | null): key is string =>
+    nodeOf === nodeId && key !== null && mayBeInHost(key, nodeId, host);
+  const at = here(s.selectedNodeId, s.selectedInstanceKey)
+    ? s.selectedInstanceKey
+    : here(s.activeNodeId, s.activeInstanceKey)
+      ? s.activeInstanceKey
+      : pageTitleInstanceKey(nodeId, host);
   useDescribing.setState((was) => ({ at, gesture: was.gesture + 1 }));
 }
 

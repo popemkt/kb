@@ -1283,8 +1283,9 @@ description** on a node with none and **Edit description** on one that has
 one (`sys.cmd.outline.describe`, the outline's command), and Mod-Shift-E
 runs it: a page key, so it reaches a row being edited, a selected row and,
 with neither, the page's title. It opens the description where the command's
-node is drawn (`describe`): the row selected or edited on it, else the
-page's title. On a node with none it opens an empty slot there, editing,
+node is drawn in the focused pane (`describe`): the row selected or edited
+on it there, else that pane's title; a selection left in another pane is
+not where the person is (`mayBeInHost`). On a node with none it opens an empty slot there, editing,
 which leaves nothing behind when it is left empty. A description no one
 may write without force (a system node's) is drawn as words, and the
 command is not offered there.
