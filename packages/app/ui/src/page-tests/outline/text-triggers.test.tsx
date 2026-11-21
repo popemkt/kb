@@ -732,7 +732,7 @@ describe("triggers in the text", () => {
       });
 
       it("that cannot join its undo step leave the typed trigger out of every undo", async () => {
-        // Made later, and with no undo step of its own (as Add chart's view.propose is).
+        // Made later, after the command answered, and with no undo step of its own.
         syncPagePlugins([
           outlineUiPlugin,
           probe("Rename later", () => {

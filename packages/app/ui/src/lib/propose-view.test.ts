@@ -8,7 +8,11 @@ import { describe, expect, it, vi } from "vitest";
 import { LayoutView } from "@kb/views";
 
 const invoke = vi.fn();
-vi.mock("@/session/runtime", () => ({ invoke: (id: string, input: unknown) => invoke(id, input) }));
+// A page write runs on the replica (`invokeLocal`) or through the push (`invoke`), as the page is loaded.
+vi.mock("@/session/runtime", () => ({
+  invoke: (id: string, input: unknown) => invoke(id, input),
+  invokeLocal: ({ id, input }: { id: string; input: unknown }) => invoke(id, input),
+}));
 
 const { proposeView } = await import("./propose-view");
 

@@ -114,6 +114,12 @@ const typesOf = (id: string) =>
     useGraphStore.getState().wireNodes.find((n) => n.id === id)?.props[SYSTEM_IDS.typeField] ?? []
   ).map((v) => v.v);
 
+/** Node `id` as the store holds it. */
+const nodeOf = (id: string) => useGraphStore.getState().wireNodes.find((n) => n.id === id);
+
+/** The tags "Make your own tag that extends this" made of `project`. */
+const mine = () => useGraphStore.getState().wireNodes.filter((n) => n.text === "my project");
+
 /** The children of `id`, in order, as the store holds them. */
 const childrenOf = (id: string) =>
   useGraphStore.getState().wireNodes.find((n) => n.id === id)?.children ?? [];
@@ -617,6 +623,78 @@ describe("node command palette", () => {
     expect(dom.document.querySelector('[role="dialog"]')?.getAttribute("aria-label")).toBe(
       "Add tag",
     );
+  });
+
+  describe("a command answers its writes", () => {
+    // What a command zooms to or opens beside is the workspace's: put it back.
+    let workspace: ReturnType<typeof useWorkspaceStore.getState>;
+    beforeEach(() => {
+      workspace = useWorkspaceStore.getState();
+    });
+    afterEach(() => useWorkspaceStore.setState(workspace, true));
+
+    /**
+     * Run the command labelled `label` about `nodeId` as a / pick runs it,
+     * in one gesture (`PageWrites.together`), and answer how many undo steps
+     * it left.
+     */
+    async function runAsPick(nodeId: string, label: string): Promise<number> {
+      // The seed's nodes these commands write through: the extends field and the Views list.
+      useGraphStore
+        .getState()
+        .hydrateFromWire(
+          [...graph(), ...viewFieldNodes, seeded(SYSTEM_IDS.extendsField)],
+          1,
+          "fixtures",
+        );
+      const host = browserHost();
+      const listed = host.nodeCommands(
+        { nodeId, frameId: nodeId, nodeIds: [nodeId] },
+        { close: () => {}, openStep: () => {} },
+      );
+      const command = present(
+        listed.find((c) => c.label === label || c.label.startsWith(label)),
+        label,
+      );
+      const before = useGraphStore.getState().undoStack.length;
+      await act(async () => {
+        await host.writes.together(command.run);
+      });
+      return useGraphStore.getState().undoStack.length - before;
+    }
+
+    it("Make supertag: written when it answers, one undo step", async () => {
+      expect(await runAsPick("n.plain", "Make supertag")).toBe(1);
+      expect(typesOf("n.plain")).toContain(SYSTEM_IDS.tag);
+      await act(() => mutations.undo());
+      expect(typesOf("n.plain")).not.toContain(SYSTEM_IDS.tag);
+    });
+
+    it("Make your own tag that extends this: written when it answers, one undo step", async () => {
+      expect(await runAsPick("t.super", "Make your own tag that extends this")).toBe(1);
+      expect(mine()).toHaveLength(1);
+      await act(() => mutations.undo());
+      expect(mine()).toHaveLength(0);
+    });
+
+    it("View as: written when it answers, one undo step", async () => {
+      const views = () => nodeOf("n.plain")?.props[SYSTEM_IDS.viewsField] ?? [];
+      expect(await runAsPick("n.plain", "View as: Table")).toBe(1);
+      expect(views()).toHaveLength(1);
+      await act(() => mutations.undo());
+      expect(views()).toHaveLength(0);
+    });
+
+    it("Add chart: its view node is one undo step, made when it answers", async () => {
+      const views = () => nodeOf("n.query")?.props[SYSTEM_IDS.viewsField] ?? [];
+      expect(await runAsPick("n.query", "Add chart")).toBe(1);
+      const [view] = views();
+      expect(view).toBeDefined();
+      expect(nodeOf(String(view?.v))).toBeDefined();
+      await act(() => mutations.undo());
+      expect(views()).toHaveLength(0);
+      expect(nodeOf(String(view?.v))).toBeUndefined();
+    });
   });
 });
 

@@ -378,14 +378,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — packageShards packs mutants by line range instead of by file, emitting file:start-end entries in a shard's mutate.
 - **node** — `01M558MRWHR92991GYFRC5WWXY`
 
-### GAP: a node command that does not answer its writes makes them apart from its undo step
-
-- **expected** — Every node command's run answers the writes it makes, through the page's write path (PageWrites), so a / pick or a palette run waits for them and they are one undo step (PageWrites.together).
-- **current** — NodeCommandListing.run and nodeAction answer the command's promise, but several command bodies fire their write without answering it (void writes.defineTag in Make my tag, void writes.updateProp in Make query, the makeSupertag and Add chart async blocks, void setFrameView, void invokeAction in command-forms), and Add chart's view.propose goes to invoke directly, not through PageWrites, so it has no undo step at all.
-- **impact** — Such a command's write is not part of the / pick's undo step (or the palette run's): it is its own step, or, for Add chart, no step. The typed trigger never comes back (the / pick consumes it as typing), but undo takes the command back in more than one step or not at all.
-- **closes** — Each listed body returns its write instead of voiding it (commands.tsx is WP-5's file, chart-ui and command-forms are shared), and view.propose becomes a planned write in mutations (WP-4's), so its view node is made and undone as any page write.
-- **node** — `01M7XSNFCYHHYD7VKTZXPYG60B`
-
 ### GAP: a node drawn at several places shares one open or closed choice
 
 - **expected** — Each place a node is drawn (a row instance: under its parent, as a query result, under a reference) keeps its own open or closed choice, so opening or closing one row's subtree changes only the rows drawn under it
@@ -2544,6 +2536,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A 'Move to…' palette step that picks the new parent, and row drag and drop, both through node.move.
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYPQ3CGJKP20TQFADPRH1`
+
+### GAP: a node command that does not answer its writes makes them apart from its undo step
+
+- **expected** — Every node command's run answers the writes it makes, through the page's write path (PageWrites), so a / pick or a palette run waits for them and they are one undo step (PageWrites.together).
+- **current** — NodeCommandListing.run and nodeAction answer the command's promise, but several command bodies fire their write without answering it (void writes.defineTag in Make my tag, void writes.updateProp in Make query, the makeSupertag and Add chart async blocks, void setFrameView, void invokeAction in command-forms), and Add chart's view.propose goes to invoke directly, not through PageWrites, so it has no undo step at all.
+- **impact** — Such a command's write is not part of the / pick's undo step (or the palette run's): it is its own step, or, for Add chart, no step. The typed trigger never comes back (the / pick consumes it as typing), but undo takes the command back in more than one step or not at all.
+- **closes** — Each listed body returns its write instead of voiding it (commands.tsx is WP-5's file, chart-ui and command-forms are shared), and view.propose becomes a planned write in mutations (WP-4's), so its view node is made and undone as any page write.
+- **node** — `01M7XSNFCYHHYD7VKTZXPYG60B`
 
 ### GAP: a node's title reaches its row, ref values, search and the picker, not every place the page names a node
 

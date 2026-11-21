@@ -1859,8 +1859,8 @@ the caret as they were.
   query go from the text as typing takes text away, then the command runs
   about the row through the page's write path (`PageWrites.together`), so
   the writes it answers are one undo step, and no undo brings the typed
-  trigger back, whether a command's write joins that step or not (Add
-  chart's view is not a page write). A command that opens a picker step
+  trigger back. Every node command answers the writes it makes (its run
+  awaits them, never `void`s them), so they join that step. A command that opens a picker step
   (Add tag, Move to…) opens it in the node palette, on the row. Once the
   write has landed and nothing else holds the focus, the row is edited
   where it is drawn then (under its new parent, after Indent), the caret
@@ -4329,7 +4329,9 @@ every node by its key) reach it with nothing of its own.
   it, started from the query's columns (`starterChartSpec`: its first
   aggregate column by its first non-id column, else a count of rows by that
   column), and opens it in a panel beside. `lib/propose-view` is the UI's
-  one way to call `view.propose`; "Save workspace" goes through it too.
+  one way to call `view.propose`; "Save workspace" goes through it too. It
+  calls it as a page write (`runPageWrite`), so the view node it makes is
+  one undo step, or part of the gesture that made it.
 
 ### Code views
 

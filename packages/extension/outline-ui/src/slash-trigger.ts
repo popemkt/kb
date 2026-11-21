@@ -63,7 +63,6 @@ export function slashTrigger(
           await host.writes.updateNodeContent(row.textNodeId, left);
           // The editor takes the text as written, the caret where `/` was.
           host.activateNode(row.nodeId, typed.start, instanceKey);
-          // GAP [[01M7XSNFCYHHYD7VKTZXPYG60B]] a command that does not answer its writes makes them apart.
           // GAP [[01M7XVRNAJBC9Q09SKCGRQTMHC]] the gesture is the page's: an edit made while it is open joins it.
           await host.writes.together(command.run);
           keepEditing(row.nodeId, typed.start);

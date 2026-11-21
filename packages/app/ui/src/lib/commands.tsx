@@ -349,7 +349,9 @@ const GLOBAL_COMMANDS: readonly Command[] = [
     id: SYSTEM_IDS.cmdToggleCheck,
     menu: GLOBAL,
     when: (ctx) => rowChecks(ctx).length > 0,
-    run: (ctx) => void browserHost().writes.toggleChecks(shownIdsOf(ctx)),
+    run: async (ctx) => {
+      await browserHost().writes.toggleChecks(shownIdsOf(ctx));
+    },
   },
   {
     // Portal host (the outline's ViewSettingsPopoverHost overlay) anchors to
@@ -418,13 +420,10 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     }),
     when: (ctx) => typeRefsOf(targetNode(ctx)).includes(SYSTEM_IDS.tag),
     run: (ctx) =>
-      nodeAction(ctx, (nodeId) => {
+      nodeAction(ctx, async (nodeId) => {
         const name = textOr(ctx.outline.nodes.get(nodeId)?.text.trim(), nodeId);
-        void browserHost()
-          .writes.defineTag(`my ${name}`, [nodeId])
-          .then((id) => {
-            if (id !== null) ctx.outline.zoomTo(id);
-          });
+        const id = await browserHost().writes.defineTag(`my ${name}`, [nodeId]);
+        if (id !== null) ctx.outline.zoomTo(id);
       }),
   },
   {
@@ -487,14 +486,12 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
       return node !== undefined && !typeRefsOf(node).includes(SYSTEM_IDS.tag);
     },
     run: (ctx) =>
-      nodeAction(ctx, (nodeId) => {
-        void (async () => {
-          if (!(await browserHost().writes.makeSupertag(nodeId))) return;
-          // A supertag is schema, so it leaves the outline forest the moment it
-          // becomes one. Zoom to it rather than letting the row vanish — and
-          // its field template is the next thing anyone wants anyway.
-          ctx.outline.zoomTo(nodeId);
-        })();
+      nodeAction(ctx, async (nodeId) => {
+        if (!(await browserHost().writes.makeSupertag(nodeId))) return;
+        // A supertag is schema, so it leaves the outline forest the moment it
+        // becomes one. Zoom to it rather than letting the row vanish — and
+        // its field template is the next thing anyone wants anyway.
+        ctx.outline.zoomTo(nodeId);
       }),
   },
   {
@@ -615,9 +612,10 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
         icon: checks ? <CheckSquareIcon size={14} /> : <SquareIcon size={14} />,
       };
     },
-    run: (ctx) => {
-      void browserHost().writes.toggleChecks(shownIdsOf(ctx));
+    run: async (ctx) => {
+      const written = browserHost().writes.toggleChecks(shownIdsOf(ctx));
       ctx.palette.close();
+      await written;
     },
   },
   {
@@ -734,8 +732,7 @@ function frameViewCommands(ctx: CommandContext): {
                 icon: Icon === undefined ? null : <Icon size={14} weight={picker.iconWeight} />,
               };
             },
-            run: (c) =>
-              nodeAction(c, (nodeId) => void browserHost().writes.setFrameView(nodeId, key)),
+            run: (c) => nodeAction(c, (nodeId) => browserHost().writes.setFrameView(nodeId, key)),
           },
           { view: key.id },
           [key],
