@@ -39,6 +39,9 @@ function graph(extra: WireNode[]) {
   ];
 }
 
+/** How many referrers a place shows. */
+const shownIn = (place: Element) => place.querySelectorAll("[data-backlink-id]").length;
+
 const settled = async (assertion: () => void) => {
   await vi.waitFor(async () => {
     await act(async () => {});
@@ -86,25 +89,71 @@ describe("node page references", () => {
 
   const find = (selector: string) => container.querySelector<HTMLElement>(selector);
   const count = (selector: string) => container.querySelectorAll(selector).length;
-  it("names each referrer's ancestor and expands its children in place", async () => {
-    await draw(TARGET);
-    await settled(() => expect(count("[data-backlink-id]")).toBe(2));
-    expect(
-      [...container.querySelectorAll("[data-backlink-breadcrumbs]")].map((el) => el.textContent),
-    ).toEqual(["Project notes", "Project notes"]);
-    expect(find('[data-backlink-relation="f.influences"]')?.textContent).toBe("influenced by");
-    const button = present(
-      find('[data-backlink-id="n.decision"] button[aria-expanded]'),
-      "chevron",
+  const headings = () => [
+    ...container.querySelectorAll<HTMLButtonElement>("[data-references-for] h2 button"),
+  ];
+  const heading = (name: string) =>
+    present(
+      headings().find((button) => button.textContent.startsWith(name)),
+      `${name} heading`,
     );
+  /** Open References, and Unlinked mentions under it when `mentions`. */
+  async function openReferences(mentions = false) {
+    await settled(() => expect(headings()).not.toHaveLength(0));
+    await act(async () => heading("References").click());
+    if (mentions) await act(async () => heading("Unlinked mentions").click());
+  }
+  const bulletOf = (row: string) =>
+    present(find(`${row} [data-node-row] [data-bullet-kind]`), `${row} bullet`);
+  const showMore = (label: string) =>
+    present(
+      [...container.querySelectorAll<HTMLElement>("[data-show-more]")].find((button) =>
+        button.textContent.startsWith(label),
+      ),
+      label,
+    );
+
+  it("is one closed line that says how many, until it is opened", async () => {
+    await draw(TARGET);
+    await settled(() =>
+      expect(heading("References").textContent).toBe("References(2 · 1 unlinked)"),
+    );
+    expect(heading("References").getAttribute("aria-expanded")).toBe("false");
+    expect(count("[data-backlink-id]")).toBe(0);
+    expect(count("[data-unlinked-mention-id]")).toBe(0);
+
+    await openReferences();
+    expect(heading("References").getAttribute("aria-expanded")).toBe("true");
+    expect(count("[data-backlink-id]")).toBe(2);
+    // The unlinked mentions wait behind their own line.
+    expect(heading("Unlinked mentions").getAttribute("aria-expanded")).toBe("false");
+    expect(count("[data-unlinked-mention-id]")).toBe(0);
+  });
+
+  it("names the place the referrers are written in once, and folds a referrer's children by its bullet", async () => {
+    await draw(TARGET);
+    await openReferences();
+    // Both referrers are children of Project notes: one place, drawn as its row.
+    const place = present(find('[data-reference-place="n.project"]'), "place");
+    expect(place.querySelector("[data-node-row]")?.textContent).toBe("Project notes");
+    expect(
+      [...place.querySelectorAll("[data-backlink-id]")].map((row) =>
+        row.getAttribute("data-backlink-id"),
+      ),
+    ).toEqual(["n.decision", "n.follow-up"]);
+    expect(find('[data-backlink-relation="f.influences"]')?.textContent).toBe("influenced by");
+
     expect(find('[data-backlink-id] [data-node-block][data-node-id="n.criteria"]')).toBeNull();
-    await act(async () => button.click());
-    expect(button.getAttribute("aria-expanded")).toBe("true");
+    await act(async () => bulletOf('[data-backlink-id="n.decision"]').click());
     const child = find('[data-backlink-id] [data-node-block][data-node-id="n.criteria"]');
     expect(child?.textContent).toContain("Acceptance criteria");
     expect(child?.dataset.instanceKey).not.toBe(
       childInstanceKey(projectedRowKey(TARGET, "n.decision"), "n.criteria"),
     );
+
+    // The place's own bullet folds the place.
+    await act(async () => bulletOf('[data-reference-place="n.project"] >').click());
+    expect(count("[data-backlink-id]")).toBe(0);
   });
 
   it("expands the shown target's children for a contextual backlink", async () => {
@@ -120,19 +169,64 @@ describe("node page references", () => {
         rev: 2,
       });
     });
+    await openReferences();
 
     const selector = '[data-backlink-id="n.context"]';
-    await settled(() => expect(find(`${selector} button[aria-expanded]`)).not.toBeNull());
-    await act(async () => present(find(`${selector} button[aria-expanded]`), "chevron").click());
+    await settled(() => expect(find(selector)).not.toBeNull());
+    await act(async () => bulletOf(selector).click());
     expect(find(`${selector} [data-node-block][data-node-id="n.shown-child"]`)).not.toBeNull();
     expect(find(`${selector} [data-node-block][data-node-id="n.own-child"]`)).toBeNull();
   });
 
+  it("shows a few places and a few rows of each, and each place reveals more on its own", async () => {
+    // Twelve places, each with five referrers.
+    const places = Array.from({ length: 12 }, (_, p) => {
+      const rows = Array.from({ length: 5 }, (_row, r) =>
+        wire(`n.p${p}-r${r}`, `Row ${r} of place ${p} on [[${TARGET}|Write spec]]`),
+      );
+      return [
+        wire(
+          `n.p${p}`,
+          `Place ${p}`,
+          rows.map((row) => row.id),
+        ),
+        ...rows,
+      ];
+    });
+    await draw(TARGET, places.flat());
+    await settled(() => expect(heading("References").textContent).toContain("62"));
+    await openReferences();
+    // n.project holds two; the twelve places hold five each.
+    expect(count("[data-reference-place]")).toBe(5);
+    const fives = [...container.querySelectorAll("[data-reference-place]")].filter(
+      (place) => place.getAttribute("data-reference-place") !== "n.project",
+    );
+    expect(fives.map(shownIn)).toEqual(fives.map(() => 3));
+
+    const before = count("[data-backlink-id]");
+    await act(async () =>
+      present(
+        fives[0]?.querySelector<HTMLElement>("[data-show-more]"),
+        "the place's Show more",
+      ).click(),
+    );
+    expect(shownIn(present(fives[0], "place"))).toBe(5);
+    expect(count("[data-backlink-id]")).toBe(before + 2);
+    // The other places keep what they showed.
+    expect(fives.slice(1).map(shownIn)).toEqual(fives.slice(1).map(() => 3));
+
+    await act(async () => showMore("Show 8 more places").click());
+    expect(count("[data-reference-place]")).toBe(13);
+  });
+
   it("links a matched span in one undo step and moves the row between sections", async () => {
     await draw(TARGET);
+    await openReferences(true);
     await settled(() =>
       expect(find('[data-link-mention="n.plain"]')?.hasAttribute("disabled")).toBe(false),
     );
+    // The action is laid over the row, not beside it.
+    expect(find('[data-unlinked-mention-id="n.plain"] [data-row-action]')).not.toBeNull();
     await act(async () => present(find('[data-link-mention="n.plain"]'), "Link").click());
     await settled(() => expect(find('[data-backlink-id="n.plain"]')).not.toBeNull());
     expect(find('[data-link-mention="n.plain"]')).toBeNull();
@@ -144,11 +238,11 @@ describe("node page references", () => {
         new dom.window.KeyboardEvent("keydown", { key: "z", ctrlKey: true }),
       );
     });
+    // Back among the unlinked mentions, which stay open as they were.
     await settled(() =>
       expect(find('[data-link-mention="n.plain"]')?.hasAttribute("disabled")).toBe(false),
     );
     expect(outlineNodes().get("n.plain")?.text).toBe(PLAIN);
-    expect(find('[data-backlink-id="n.plain"]')).toBeNull();
   });
 
   it("reveals the next batch of unlinked mentions on demand", async () => {
@@ -156,14 +250,12 @@ describe("node page references", () => {
       TARGET,
       Array.from({ length: 50 }, (_, i) => wire(`n.mention-${i}`, PLAIN)),
     );
-    await settled(() => expect(count("[data-link-mention]")).toBe(50));
-    const more = present(
-      [...container.querySelectorAll("button")].find((button) =>
-        button.textContent.includes("Show more (1 remaining)"),
-      ),
-      "Show more",
+    await settled(() =>
+      expect(heading("References").textContent).toBe("References(2 · 51 unlinked)"),
     );
-    await act(async () => more.click());
-    expect(count("[data-link-mention]")).toBe(51);
+    await openReferences(true);
+    expect(count("[data-link-mention]")).toBe(3);
+    await act(async () => showMore("Show 10 more").click());
+    expect(count("[data-link-mention]")).toBe(13);
   });
 });

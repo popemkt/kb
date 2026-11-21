@@ -252,6 +252,9 @@ test.describe("the outline grid", () => {
       }
       await expect(page.locator("[data-event-line]")).toBeVisible();
       await expect(page.locator("[data-references-for]")).toBeVisible();
+      // References open from their one closed line; their places and rows are lines too.
+      await page.locator("[data-references-for] h2 button").first().click();
+      await expect(page.locator("[data-references-for] [data-node-row]").first()).toBeVisible();
       await page.mouse.move(0, 0);
       const drift = await gridDrift(page);
       expect(drift.checked, "the walk found the line kinds").toBeGreaterThan(60);

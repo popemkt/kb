@@ -1920,6 +1920,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A shared key home for third-party keys (the codependency record's Q1), or a by-name key resolved by the kernel.
 - **node** — `01M68NFCSWZ41EJNBVDJ23RPFJ`
 
+### GAP: two mechanisms lay a row's hover actions over it
+
+- **expected** — One kit component owns actions laid over a row's right end: absolute, no width, shown on hover or focus, always shown where nothing hovers, inert while hidden (DESIGN-UI.md → References, 'Row actions take no width'). NodeLinkRow's Link and the outline row's view toolbar both use it.
+- **current** — NodeLinkRow's RowAction (packages/kit/ui-sdk/src/components/node-link-row.tsx) and NodeBlock's ViewToolbar overlay (packages/extension/outline-ui/src/node-block.tsx) each place, reveal and ground the overlay themselves; the toolbar's group/frame also reveals it while a child row is hovered, and it takes clicks while hidden.
+- **impact** — A third row action would copy one of the two; the two already differ in reveal scope, touch rule and whether a hidden action takes clicks.
+- **closes** — Lift RowAction into the kit as the one overlay (with the toolbar's 'stay while something it opened is open' rule) and draw NodeBlock's toolbar through it.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M7ZN612X0JRVRG29RARKF1DR`
+
 ### GAP: two tabs editing the same row overwrite each other silently
 
 - **expected** — a node.update carries the text it was edited from (its base), and the server refuses one whose node changed since; the tab then shows the row as changed elsewhere, takes the server's text, and the person's unsaved words are offered back, never lost silently

@@ -458,7 +458,7 @@ export {
   useFollowThrough,
 } from "./lib/follow";
 export { type GraphLabelFace, graphLabelFont, wrapGraphLabel } from "./lib/graph-label";
-export { guideLineStyle, HANGING_GLYPH, indentStyle } from "./lib/indent";
+export { GLYPH_COLUMN, guideLineStyle, HANGING_GLYPH, indentStyle } from "./lib/indent";
 export { keptLoad } from "./lib/kept-load";
 export { isCompositionKey, keyChordEvent } from "./lib/keychord";
 export { currentKeymap, type KeyCall, keyCallOf, runKeyCall, tellKeymaps } from "./lib/keybindings";

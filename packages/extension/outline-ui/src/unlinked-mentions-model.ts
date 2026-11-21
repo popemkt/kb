@@ -15,11 +15,9 @@ import {
   type SchemaIndex,
 } from "@kb/ui-sdk";
 import { otherBacklinks, rowBreadcrumbs } from "./backlinks";
-import type { Crumb } from "./crumbs";
 
 export interface UnlinkedMentionRow {
   readonly node: OutlineNode;
-  readonly breadcrumbs: readonly Crumb[];
   readonly linkedText: string;
 }
 
@@ -113,7 +111,7 @@ export function unlinkedMentionRows(
     }
     const linkedText = linkedTextFor(node.text, pattern, nodeId);
     if (linkedText !== null) {
-      rows.push({ node, breadcrumbs: rowBreadcrumbs(schema, node.id), linkedText });
+      rows.push({ node, linkedText });
     }
   }
   return rows;
