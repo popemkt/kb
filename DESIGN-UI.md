@@ -1629,7 +1629,7 @@ editor keep their own keys. The chord tables are
 The rows' keymaps pass through the values: ↓ off a row's last line (editing
 or selected) lands on its first value, ↓ from its last value goes to the next
 row, ↑ comes back the same way (`enterFields`; the order is read off the DOM
-by `outline-ui/src/value-slot-nav.ts`, never kept a second time) A row's
+by `outline-ui/src/value-slot-nav.ts`, never kept a second time). A row's
 values are those of its fields section (`fieldsSectionProps`), which an
 outline row's fields, a table row's cells and a card's fields each carry, so
 the arrows pass through a table's and a board's rows as through the
@@ -3693,7 +3693,11 @@ how the stored name resolves to the key among them.
   side; a view under a row (`FrameSubject.depth` above 0) keeps its left
   edge on its box and reaches only to the region's right edge
   (`trailing`), so a list's rows, a cards grid, a table and a board under
-  the same row start at one left edge.
+  the same row start at one left edge. A board or lanes wider than that
+  scroll sideways, and an edge past which more columns lie fades
+  (`EDGE_FADE_CLASS`, measured by `useEdgeFade`, the kit's one mechanism
+  for a horizontal scroller), so the columns cut off at the pane's edge are
+  seen to go on; an edge with nothing past it does not fade.
   The store's row walk (`visible-instances`) and the command registry read
   the same enumeration from the UI kernel (`@kb/ui-sdk`'s
   `providedFrameViews`, the frame views `ViewPoint` holds now), so a frame

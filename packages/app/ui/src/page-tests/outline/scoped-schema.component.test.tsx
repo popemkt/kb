@@ -113,6 +113,7 @@ describe("a projected view under an ontology scope", () => {
     g.FocusEvent = dom.FocusEvent;
     g.Node = dom.Node;
     g.CSS = { escape: (s: string) => s };
+    g.ResizeObserver = dom.ResizeObserver;
     // The slot draws the frame's view from the ones the outline plugin provides.
     syncPagePlugins([outlineUiPlugin, collectionsUiPlugin]);
   });

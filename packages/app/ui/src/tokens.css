@@ -40,6 +40,8 @@
   --tag-weight: var(--font-weight-ui, 500);
   /* A field row's label column, from the text column to the value column. */
   --kb-field-label: 120px;
+  /* How far into a horizontal scroller an edge that hides more fades. */
+  --kb-edge-fade: calc(48px * var(--density));
 }
 
 @layer components {
@@ -86,6 +88,31 @@
     text-transform: var(--display-case);
     letter-spacing: var(--display-tracking);
     font-variation-settings: var(--display-variation);
+  }
+
+  /* A horizontal scroller fades the edges past which more of its content
+   * lies, so a board's columns are seen to go on. `useEdgeFade`
+   * (`@kb/ui-sdk`, which names this class as `EDGE_FADE_CLASS`) measures
+   * which edges hide more and marks them; an edge with nothing past it has
+   * no fade. The mask reads only alpha, so the ink is any opaque one. */
+  .kb-edge-fade {
+    --edge-fade-start: 0px;
+    --edge-fade-end: 0px;
+  }
+  .kb-edge-fade[data-more-start] {
+    --edge-fade-start: var(--kb-edge-fade);
+  }
+  .kb-edge-fade[data-more-end] {
+    --edge-fade-end: var(--kb-edge-fade);
+  }
+  .kb-edge-fade:is([data-more-start], [data-more-end]) {
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      var(--foreground) var(--edge-fade-start),
+      var(--foreground) calc(100% - var(--edge-fade-end)),
+      transparent
+    );
   }
 
   /* A section label: small capitals over a group (References, Pinned, a
