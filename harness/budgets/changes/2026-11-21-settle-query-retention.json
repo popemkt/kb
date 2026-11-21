@@ -1,0 +1,6 @@
+{
+  "reason": "Keeping query answers across the rounds of a settling walk adds 206 bytes to the measured production page eager bundle.",
+  "raise": {
+    "page-eager": { "bytes": 206 }
+  }
+}

@@ -2456,7 +2456,7 @@ on one mark. So the tail can say what the store committed since a state
 state's mark, when each begins on the mark the one before it left and the
 last ends on the store's current mark (`committedSpan` in `@kb/contracts`,
 the rule's one statement). A write the tail did not record breaks the
-chain, as does a compacted tail or a record an earlier kb wrote without
+chain, as does a compacted tail or an older tail or record without
 `base`, and the answer is null. Two readers use it. A session catching up
 with another writer's commits (`reloadEffect`) applies them to its index as
 it applies its own, and reads and indexes the whole graph only on null. The

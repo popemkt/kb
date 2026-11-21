@@ -259,7 +259,9 @@ query text, each as of a generation of the replica.
   runner (`resolveOntology`, `allowedRefIdsOf`, `relationFieldsFor`) runs
   over the answers' runner, and a React reader re-runs it when an answer it
   read arrives (`useAnswered`); an event handler waits for every query it
-  asks to be answered as of now (`settle`, the page's `answered`).
+  asks to be answered as of now (`settle`, the page's `answered`). The
+  walk keeps the entries it reads until it finishes, including when it
+  reads more queries than the cache would otherwise keep.
 - **A value that must not be drawn half-built** (a graph) is held at its
   last settled value for the same subject (`useLastSettled`).
 - **Actions.** An isomorphic action that runs on the page asks datalog of

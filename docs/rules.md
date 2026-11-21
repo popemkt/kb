@@ -744,6 +744,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — move the shared GPU backdrop host out of backdrops-ui into a kit package (beside @kb/scene-gpu) with its scene registry passed in, then port arena-scene.ts onto mountBackdrop and delete Arena's wrapper; the port drops Arena's write() and its Pod re-fire in favour of reactions.impulse / reactions.stir read in frame(), and Arena passes backdrop-continuity.contract.test.tsx
 - **node** — `01M5SYY397F5NPN3CHWGCSPQSY`
 
+### GAP: Attribute the integration's page-eager growth
+
+- **expected** — The production bundle increase is attributed to changes in outline fields, expansion, and graph and write code. Controls used for tag templates load at first use if measurement supports it.
+- **current** — harness/budgets/changes/2026-11-21b-integration-reconcile.json adds 15,333 bytes based on the combined total. The tag schema section imports TagFieldsConfig statically.
+- **impact** — The page pays the combined eager cost on every visit, and the total alone does not identify the code responsible for the increase.
+- **closes** — Compare production bundle inputs before and after integration and account for the increase by source area. Measure an on-demand tag-template controls chunk and verify that tag editing still works.
+- **node** — `01M7Z86SRDCZ6A3B7E7MKNEAM5`
+
 ### GAP: browser tests duplicate polling loops with independent deadlines
 
 - **expected** — Browser tests waiting for an observable result share a helper in @kb/ui-test-kit and use the owning test timeout.
@@ -1903,6 +1911,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — words typed in one tab are lost when another tab, still focused on the same row, types again; the two tabs disagree with each other and with the server until the row loses focus. A row deleted elsewhere is different: that push is refused and shown as Not saved
 - **closes** — the node.update contract change: a base (text or revision) on the input, a conflict failure from the server when it moved, and the page taking the server's text into a focused row with a visible conflict; then a two-tab browser test that types in the same focused row from both
 - **node** — `01M6HA0JJJDSFSJ3FPW8M8QC5K`
+
+### GAP: Typing preconditions use the editor's actual base text
+
+- **expected** — Each typed edit uses the base text the focused editor displayed as its write precondition.
+- **current** — packages/app/ui/src/actions/mutations.ts reads the base text from the replica at dispatch. A remote edit can reach the replica while the editor still displays older text.
+- **impact** — The next keystroke can match the unseen remote text as its precondition and overwrite that edit.
+- **closes** — Carry the editor's actual base text through the typing write and coalescing path. Test a remote edit reaching the replica before the focused editor refreshes.
+- **node** — `01M7Z8689FDT3YBPAQ74RB9VQ2`
 
 ### GAP: UI_ALLOWS permits unused zone directions
 

@@ -217,8 +217,7 @@ export const mutations: PageWrites = {
     const held = store.wireNodes.find((node) => node.id === id);
     if (held === undefined) return;
 
-    // Typed over the text the page shows, and refused if the server holds
-    // other text by then: a concurrent edit is not overwritten.
+    // GAP [[01M7Z8689FDT3YBPAQ74RB9VQ2]] The replica may hold newer text than the focused editor shows.
     const plan = planUpdateText(id, content, held.text);
     const action = plan.actions[0];
     if (action === undefined) return;

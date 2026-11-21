@@ -50,7 +50,7 @@ import {
   type TxRecord,
   type TxTail,
 } from "@kb/contracts";
-import { commitMark, hasTable, type SqliteConnection } from "./connection.ts";
+import { commitMark, hasTable, tailColumns, type SqliteConnection } from "./connection.ts";
 
 interface TxRow {
   rev: number;
@@ -159,7 +159,7 @@ export class SqliteTxTail implements TxTail {
   }
 
   committedSince(from: string): TailSpan | null {
-    const db = tailOf(this.connection.peek());
+    const db = this.connection.peek();
     if (db === null) return null;
     // One read transaction: the rows and the mark they must end on are one state.
     return db.transaction(() => {
@@ -175,7 +175,7 @@ export class SqliteTxTail implements TxTail {
    * `from` are read; the rule is `committedSpan`'s.
    */
   committedBetween(db: Database, from: string, to: string): TailSpan | null {
-    if (tailOf(db) === null) return null;
+    if (!tailColumns(db).includes("base")) return null;
     const rows = db
       .query<TxRow & { base: string | null; mark: string }, [string]>(
         "SELECT * FROM tx WHERE rev >= (SELECT MAX(rev) FROM tx WHERE base = ?) ORDER BY rev",

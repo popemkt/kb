@@ -57,6 +57,8 @@ interface Entry {
   asking: number | null;
   /** Who keeps this query live: asked again when the generation moves. */
   watchers: number;
+  /** Walks that keep this answer across rounds without asking it again on every move. */
+  settlers: number;
   /** Who waits for the answer as of a generation (`ask`). */
   waiting: Array<{ readonly generation: number; readonly settle: (answer: QueryAnswer) => void }>;
   readonly listeners: Set<() => void>;
@@ -178,7 +180,15 @@ export class ReplicaQueries implements QueryAnswers {
 
   /** The last answer to `edn`, asking for the current one when the page has not got it. */
   read(edn: string): QueryRead {
+    return this.#read(edn);
+  }
+
+  #read(edn: string, retained?: Set<Entry>): QueryRead {
     const entry = this.#entry(edn);
+    if (retained !== undefined && !retained.has(entry)) {
+      retained.add(entry);
+      entry.settlers += 1;
+    }
     const generation = this.#generation();
     const current = this.#holds(entry.answer, generation);
     if (entry.read.current !== current || entry.read.answer !== entry.answer) {
@@ -235,8 +245,12 @@ export class ReplicaQueries implements QueryAnswers {
    * given, so a caller can watch what it read.
    */
   runner(reads?: Map<string, QueryRead>): EdnRunner {
+    return this.#runner(reads);
+  }
+
+  #runner(reads?: Map<string, QueryRead>, retained?: Set<Entry>): EdnRunner {
     return (edn) => {
-      const read = this.read(edn);
+      const read = this.#read(edn, retained);
       reads?.set(edn, read);
       const { answer } = read;
       if (answer === null) return [];
@@ -257,25 +271,30 @@ export class ReplicaQueries implements QueryAnswers {
     read: (run: EdnRunner) => T,
     awaits?: (value: T) => ReadonlySet<string> | null,
   ): Promise<T> {
-    return this.#settleFrom(read, awaits, 0);
+    const retained = new Set<Entry>();
+    return this.#settleFrom(read, awaits, retained, 0).finally(() => {
+      for (const entry of retained) entry.settlers -= 1;
+      this.#forget();
+    });
   }
 
   /** One round of `settle`: read, and if it named queries that are not current, wait and read again. */
   async #settleFrom<T>(
     read: (run: EdnRunner) => T,
     awaits: ((value: T) => ReadonlySet<string> | null) | undefined,
+    retained: Set<Entry>,
     round: number,
   ): Promise<T> {
     if (round >= MAX_ROUNDS) throw new Error(`a reader named new queries for ${MAX_ROUNDS} rounds`);
     const reads = new Map<string, QueryRead>();
-    const value = read(this.runner(reads));
+    const value = read(this.#runner(reads, retained));
     const awaited = awaits?.(value) ?? null;
     const stale = [...reads].flatMap(([edn, at]) =>
       at.current || (awaited !== null && !awaited.has(edn)) ? [] : [edn],
     );
     if (stale.length === 0) return value;
     await Promise.all(stale.map((edn) => this.ask(edn)));
-    return this.#settleFrom(read, awaits, round + 1);
+    return this.#settleFrom(read, awaits, retained, round + 1);
   }
 
   #entry(edn: string): Entry {
@@ -290,22 +309,24 @@ export class ReplicaQueries implements QueryAnswers {
       read: NOT_ASKED,
       asking: null,
       watchers: 0,
+      settlers: 0,
       waiting: [],
       listeners: new Set(),
       lapse: null,
     };
+    this.#forget(1);
     this.#entries.set(edn, entry);
-    this.#forget();
     return entry;
   }
 
-  /** Drop the least recently read queries no one watches, waits for or listens to. */
-  #forget(): void {
-    let spare = this.#entries.size - KEPT_UNWATCHED;
+  /** Reclaim unheld entries before inserting a new one or after a walk releases its entries. */
+  #forget(reserve = 0): void {
+    let spare = this.#entries.size + reserve - KEPT_UNWATCHED;
     for (const [edn, entry] of this.#entries) {
       if (spare <= 0) return;
       const held =
         entry.watchers > 0 ||
+        entry.settlers > 0 ||
         entry.waiting.length > 0 ||
         entry.listeners.size > 0 ||
         entry.asking !== null;

@@ -1,4 +1,4 @@
-import { beforeAll, afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { present, SYSTEM_IDS } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { viewFieldNodes } from "@/fixtures/view-fields";
@@ -7,8 +7,10 @@ import {
   MAIN_OUTLINE_HOST,
   MAX_VIEW_DEPTH,
   projectedRowKey,
+  ReplicaQueries,
   slotLink,
   syncUiPlugins,
+  type QueryAnswer,
 } from "@kb/ui-sdk";
 import type { WireNode } from "@kb/contracts";
 import { useGraphStore } from "@/stores/graph.store";
@@ -256,6 +258,41 @@ describe("a row's subtree keys walk the rows the outline draws", () => {
     expect(useGraphStore.getState().queries?.read(TODO_EDN).current).toBe(false);
     await outline().expandSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
     expect([rowKey("n.q1"), result, underResult].map(closedAt)).toEqual([false, false, false]);
+  });
+
+  it("expands and collapses all projected rows across more cold queries than the cache holds", async () => {
+    // The page cache keeps 256 unwatched queries.
+    const wires = Array.from(
+      { length: 257 },
+      (_, i): WireNode => ({
+        ...queryWire(),
+        id: `n.query-${i}`,
+        props: {
+          [SYSTEM_IDS.queryField]: [
+            { t: "str", v: `[:find ?id :where [?n :node/id ?id] [(= ${i} ${i})]]` },
+          ],
+        },
+      }),
+    );
+    useGraphStore.getState().hydrateFromWire([...fixtureGraph.nodes, ...wires], 1, "fixtures");
+    const run = vi.fn(
+      (): Promise<QueryAnswer> =>
+        Promise.resolve({ kind: "rows", generation: 0, rows: [["n.root-a"]] }),
+    );
+    const queries = new ReplicaQueries({ run }, () => 0, {
+      now: () => 0,
+      set: () => () => {},
+    });
+    useGraphStore.setState({ queries });
+    const results = wires.map(({ id }) => projectedRowKey(id, "n.root-a"));
+
+    await outline().expandAllInScope();
+    expect(results.every((key) => outline().isOpen(key))).toBe(true);
+    expect(run).toHaveBeenCalledTimes(wires.length);
+
+    await outline().collapseAllInScope();
+    expect(results.every(closedAt)).toBe(true);
+    expect(run.mock.calls.length).toBeLessThanOrEqual(wires.length * 2);
   });
 
   it("waits only for the queries inside the subtree it opens", async () => {

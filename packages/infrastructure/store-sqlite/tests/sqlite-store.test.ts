@@ -65,6 +65,32 @@ function withRawConnection(path: string, body: (db: Database) => void): void {
   }
 }
 
+/** A store that still uses schema 6, with one committed node. */
+const schema6Store = Effect.gen(function* () {
+  const store = yield* scratchStore;
+  yield* store.commitEffect({ upserts: [node("n-a", "a")], deletes: [] }, { at: AT });
+  withRawConnection(store.path, (db) => {
+    db.run("ALTER TABLE tx DROP COLUMN base");
+    db.run("UPDATE meta SET value = '6' WHERE key = 'schema_version'");
+  });
+  return store;
+});
+
+/** A second writer commits with the old tail format. */
+function commitWithSchema6(path: string): void {
+  withRawConnection(path, (db) => {
+    db.transaction(() => {
+      const added = node("n-b", "b");
+      db.run("INSERT INTO nodes (id, body) VALUES (?, ?)", [added.id, canonicalJson(added)]);
+      db.run(
+        `INSERT INTO tx (rev, at, ops, mark)
+         SELECT 2, ?, ?, value FROM meta WHERE key = 'rev'`,
+        [AT, canonicalJson({ deletes: [], upserts: [added] })],
+      );
+    })();
+  });
+}
+
 function failureOf(exit: Exit.Exit<unknown, unknown>): unknown {
   return Exit.isFailure(exit) ? Cause.squash(exit.cause) : null;
 }
@@ -264,31 +290,37 @@ describe("SqliteStore", () => {
       ),
     ));
 
+  test("catch-up on schema 6 falls back after a foreign write and leaves the schema alone", () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const store = yield* schema6Store;
+          yield* store.closeEffect;
+          expect((yield* store.loadEffect).map(({ id }) => id)).toEqual(["n-a"]);
+          const from = present(yield* store.fingerprint, "the initial fingerprint");
+          commitWithSchema6(store.path);
+
+          expect(yield* store.fingerprint).not.toBe(from);
+          expect(store.txTail.committedSince(from)).toBeNull();
+          expect((yield* store.loadEffect).map(({ id }) => id).toSorted()).toEqual(["n-a", "n-b"]);
+          withRawConnection(store.path, (db) => {
+            expect(db.query("SELECT value FROM meta WHERE key = 'schema_version'").get()).toEqual({
+              value: "6",
+            });
+            expect(
+              db.query("SELECT name FROM pragma_table_info('tx') WHERE name = 'base'").get(),
+            ).toBeNull();
+          });
+        }),
+      ),
+    ));
+
   test("a schema-6 tail gains the base column: its rows chain to nothing, so the next commit after another writer's reads every row", () =>
     Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
-          const root = yield* Effect.acquireRelease(
-            Effect.promise(() => mkdtemp(join(tmpdir(), "kb-sqlite-"))),
-            (dir) => Effect.promise(() => rm(dir, { recursive: true, force: true })),
-          );
-          const one = new SqliteStore(root);
-          yield* Effect.addFinalizer(() => one.closeEffect);
-          yield* one.commitEffect({ upserts: [node("n-a", "a")], deletes: [] }, { at: AT });
-          // Back to schema 6, and a commit an earlier kb made: a row with no base.
-          withRawConnection(one.path, (db) => {
-            db.run("ALTER TABLE tx DROP COLUMN base");
-            db.run("UPDATE meta SET value = '6' WHERE key = 'schema_version'");
-            db.prepare<unknown, [string, string]>("INSERT INTO nodes (id, body) VALUES (?, ?)").run(
-              "n-b",
-              canonicalJson(node("n-b", "b")),
-            );
-            db.run(
-              `INSERT INTO tx (rev, at, ops, mark)
-               SELECT 2, '${AT}', '{"deletes":[],"upserts":[]}', value FROM meta WHERE key = 'rev'`,
-            );
-          });
-
+          const one = yield* schema6Store;
+          commitWithSchema6(one.path);
           const rebuilt = spyOn(StoreState, "of");
           try {
             const { writes } = yield* one.commitEffect(

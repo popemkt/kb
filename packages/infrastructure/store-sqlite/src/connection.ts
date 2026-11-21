@@ -44,6 +44,14 @@ export function hasTable(db: Database, name: string): boolean {
   );
 }
 
+/** Columns of the transaction tail, empty before the table exists. */
+export function tailColumns(db: Database): string[] {
+  return db
+    .query<{ name: string }, []>("PRAGMA table_info(tx)")
+    .all()
+    .map(({ name }) => name);
+}
+
 /** The store's commit mark: `meta.rev`, or null when the database has none. */
 export function commitMark(db: Database): string | null {
   if (!hasTable(db, "meta")) return null;
@@ -90,9 +98,9 @@ function migrate(db: Database): void {
      )`,
   );
   // Schemas 4–7 each added one optional column to the tail.
-  const columns = db.query<{ name: string }, []>("PRAGMA table_info(tx)").all();
+  const columns = tailColumns(db);
   for (const name of ["actor", "session", "via", "base"]) {
-    if (!columns.some((column) => column.name === name)) {
+    if (!columns.includes(name)) {
       db.run(`ALTER TABLE tx ADD COLUMN ${name} TEXT`);
     }
   }
