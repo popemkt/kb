@@ -87,6 +87,7 @@ export const MCP_WIRE: SurfaceWire = {
   // GAP [[01M3R2KD6V1AZ9WS62ZVG9T4G2]]
   carriesApproval: false,
   actor: "agent",
+  caller: "program",
   ...processVia,
 };
 

@@ -225,157 +225,168 @@ function pattern(
 /** True one time in four: the clause kinds that narrow most, so most generated queries still answer rows. */
 const rarely = fc.integer({ min: 0, max: 3 }).map((n) => n === 0);
 
-const irArb: fc.Arbitrary<IrQuery> = fc
-  .record({
-    idLiteral: fc.option(fc.constantFrom("n.todo", "p", "a"), { nil: null }),
-    text: fc.constantFrom("omit", "var", "a todo", "leaf"),
-    typeJoin: fc.boolean(),
-    mentionsJoin: fc.boolean(),
-    children: fc.boolean(),
-    reach: fc.boolean(),
-    hasChild: rarely,
-    textHas: fc.option(
-      fc.record({
-        fn: fc.constantFrom(
-          "clojure.string/includes?" as const,
-          "kb/includes-ci?" as const,
-          "clojure.string/starts-with?" as const,
-          "clojure.string/ends-with?" as const,
-          "not=" as const,
-          "<" as const,
-        ),
-        needle: fc.constantFrom("o", "a", "leaf", "[["),
-      }),
-      { nil: null, freq: 3 },
-    ),
-    noneOf: rarely,
-    anyOf: rarely,
-    recent: rarely,
-  })
-  .chain((shape) => {
-    const where: GenClause[] = [
-      pattern(
-        "n",
-        ":node/id",
-        shape.idLiteral === null ? { t: "var", name: "id" } : { t: "str", value: shape.idLiteral },
+const shapeArb = fc.record({
+  idLiteral: fc.option(fc.constantFrom("n.todo", "p", "a"), { nil: null }),
+  text: fc.constantFrom("omit", "var", "a todo", "leaf"),
+  typeJoin: fc.boolean(),
+  mentionsJoin: fc.boolean(),
+  children: fc.boolean(),
+  reach: fc.boolean(),
+  hasChild: rarely,
+  textHas: fc.option(
+    fc.record({
+      fn: fc.constantFrom(
+        "clojure.string/includes?" as const,
+        "kb/includes-ci?" as const,
+        "clojure.string/starts-with?" as const,
+        "clojure.string/ends-with?" as const,
+        "not=" as const,
+        "<" as const,
       ),
-    ];
-    if (shape.text === "var") where.push(pattern("n", ":node/text", { t: "var", name: "text" }));
-    else if (shape.text !== "omit")
-      where.push(pattern("n", ":node/text", { t: "str", value: shape.text }));
-    if (shape.typeJoin) {
-      where.push(pattern("n", ":f/sys.f.type", { t: "var", name: "t" }));
-      where.push(pattern("t", ":node/id", { t: "var", name: "tid" }));
-    }
-    if (shape.mentionsJoin) {
-      where.push(pattern("n", ":node/mentions", { t: "var", name: "m" }));
-      where.push(pattern("m", ":node/id", { t: "var", name: "mid" }));
-    }
-    if (shape.children) {
-      where.push(pattern("p", ":node/id", { t: "str", value: "p" }));
-      where.push({ kind: "children", parent: "p", child: "c", order: "o" });
-      where.push(pattern("c", ":node/id", { t: "var", name: "cid" }));
-    }
-    if (shape.reach) {
-      where.push(pattern("root", ":node/id", { t: "str", value: "a" }));
-      where.push({ kind: "reach", from: "root", to: "reached", edge: ":node/mentions" });
-      where.push(pattern("reached", ":node/id", { t: "var", name: "rid" }));
-    }
-    if (shape.hasChild) where.push(pattern("n", ":node/child", { t: "blank" }));
-    if (shape.textHas !== null) {
-      where.push(pattern("n", ":node/text", { t: "var", name: "text2" }));
-      where.push({
-        kind: "predicate",
-        fn: shape.textHas.fn,
-        args: [
-          { t: "var", name: "text2" },
-          { t: "str", value: shape.textHas.needle },
-        ],
-      });
-    }
-    if (shape.noneOf) {
-      // "none of": not (A or B), each branch with its own variables.
-      where.push({
-        kind: "not",
-        join: ["n"],
-        clauses: [
-          {
-            kind: "or",
-            join: ["n"],
-            branches: [
-              [pattern("n", ":node/text", { t: "str", value: "leaf" })],
-              [
-                pattern("x", ":node/id", { t: "str", value: "a" }),
-                { kind: "reach", from: "x", to: "n", edge: ":node/mentions" },
-              ],
+      needle: fc.constantFrom("o", "a", "leaf", "[["),
+    }),
+    { nil: null, freq: 3 },
+  ),
+  noneOf: rarely,
+  anyOf: rarely,
+  recent: rarely,
+});
+
+type QueryShape = typeof shapeArb extends fc.Arbitrary<infer Shape> ? Shape : never;
+
+function clausesFor(shape: QueryShape): GenClause[] {
+  const where: GenClause[] = [
+    pattern(
+      "n",
+      ":node/id",
+      shape.idLiteral === null ? { t: "var", name: "id" } : { t: "str", value: shape.idLiteral },
+    ),
+  ];
+  if (shape.text === "var") where.push(pattern("n", ":node/text", { t: "var", name: "text" }));
+  else if (shape.text !== "omit")
+    where.push(pattern("n", ":node/text", { t: "str", value: shape.text }));
+  if (shape.typeJoin) {
+    where.push(pattern("n", ":f/sys.f.type", { t: "var", name: "t" }));
+    where.push(pattern("t", ":node/id", { t: "var", name: "tid" }));
+  }
+  if (shape.mentionsJoin) {
+    where.push(pattern("n", ":node/mentions", { t: "var", name: "m" }));
+    where.push(pattern("m", ":node/id", { t: "var", name: "mid" }));
+  }
+  if (shape.children) {
+    where.push(pattern("p", ":node/id", { t: "str", value: "p" }));
+    where.push({ kind: "children", parent: "p", child: "c", order: "o" });
+    where.push(pattern("c", ":node/id", { t: "var", name: "cid" }));
+  }
+  if (shape.reach) {
+    where.push(pattern("root", ":node/id", { t: "str", value: "a" }));
+    where.push({ kind: "reach", from: "root", to: "reached", edge: ":node/mentions" });
+    where.push(pattern("reached", ":node/id", { t: "var", name: "rid" }));
+  }
+  if (shape.hasChild) where.push(pattern("n", ":node/child", { t: "blank" }));
+  if (shape.textHas !== null) {
+    where.push(pattern("n", ":node/text", { t: "var", name: "text2" }));
+    where.push({
+      kind: "predicate",
+      fn: shape.textHas.fn,
+      args: [
+        { t: "var", name: "text2" },
+        { t: "str", value: shape.textHas.needle },
+      ],
+    });
+  }
+  if (shape.noneOf) {
+    // "none of": not (A or B), each branch with its own variables.
+    where.push({
+      kind: "not",
+      join: ["n"],
+      clauses: [
+        {
+          kind: "or",
+          join: ["n"],
+          branches: [
+            [pattern("n", ":node/text", { t: "str", value: "leaf" })],
+            [
+              pattern("x", ":node/id", { t: "str", value: "a" }),
+              { kind: "reach", from: "x", to: "n", edge: ":node/mentions" },
             ],
+          ],
+        },
+      ],
+    });
+  }
+  if (shape.recent) {
+    // "created in the last 7 days": a window over two kb functions of one clock sample.
+    where.push(pattern("n", ":node/created-at", { t: "var", name: "text_c" }));
+    where.push({
+      kind: "predicate",
+      fn: "kb/instant-days-ago",
+      args: [{ t: "num", value: 7 }],
+      bind: "text_s1",
+    });
+    where.push({ kind: "predicate", fn: "kb/instant-now", args: [], bind: "text_s2" });
+    where.push({
+      kind: "predicate",
+      fn: "<=",
+      args: [
+        { t: "var", name: "text_s1" },
+        { t: "var", name: "text_c" },
+      ],
+    });
+    where.push({
+      kind: "predicate",
+      fn: "<=",
+      args: [
+        { t: "var", name: "text_c" },
+        { t: "var", name: "text_s2" },
+      ],
+    });
+  }
+  if (shape.anyOf) {
+    where.push({
+      kind: "or",
+      join: ["n"],
+      branches: [
+        [pattern("n", ":f/sys.f.type", { t: "blank" })],
+        [
+          pattern("q", ":node/id", { t: "str", value: "p" }),
+          { kind: "children", parent: "q", child: "n", order: "qo" },
+        ],
+        [
+          {
+            kind: "predicate",
+            fn: "missing?",
+            args: [{ t: "src" }, { t: "var", name: "n" }, { t: "attr", value: ":node/children" }],
           },
         ],
-      });
-    }
-    if (shape.recent) {
-      // "created in the last 7 days": a window over two kb functions of one clock sample.
-      where.push(pattern("n", ":node/created-at", { t: "var", name: "text_c" }));
-      where.push({
-        kind: "predicate",
-        fn: "kb/instant-days-ago",
-        args: [{ t: "num", value: 7 }],
-        bind: "text_s1",
-      });
-      where.push({ kind: "predicate", fn: "kb/instant-now", args: [], bind: "text_s2" });
-      where.push({
-        kind: "predicate",
-        fn: "<=",
-        args: [
-          { t: "var", name: "text_s1" },
-          { t: "var", name: "text_c" },
-        ],
-      });
-      where.push({
-        kind: "predicate",
-        fn: "<=",
-        args: [
-          { t: "var", name: "text_c" },
-          { t: "var", name: "text_s2" },
-        ],
-      });
-    }
-    if (shape.anyOf) {
-      where.push({
-        kind: "or",
-        join: ["n"],
-        branches: [
-          [pattern("n", ":f/sys.f.type", { t: "blank" })],
-          [
-            pattern("q", ":node/id", { t: "str", value: "p" }),
-            { kind: "children", parent: "q", child: "n", order: "qo" },
-          ],
-          [
-            {
-              kind: "predicate",
-              fn: "missing?",
-              args: [{ t: "src" }, { t: "var", name: "n" }, { t: "attr", value: ":node/children" }],
-            },
-          ],
-        ],
-      });
-    }
-    const names = boundNames(where);
-    return fc
-      .uniqueArray(fc.constantFrom(...names), {
-        minLength: 1,
-        maxLength: Math.min(2, names.length),
-      })
-      .map((findNames) => ({
-        kind: "query" as const,
-        find: findNames.map((name) => ({
-          kind: "var" as const,
-          name,
-          type: name.startsWith("text") ? ("scalar" as const) : ("node-ref" as const),
-        })),
-        where,
-      }));
-  });
+      ],
+    });
+  }
+  return where;
+}
+
+function queryFor(where: GenClause[], find: string[]): IrQuery {
+  return {
+    kind: "query",
+    find: find.map((name) => ({
+      kind: "var",
+      name,
+      type: name.startsWith("text") ? "scalar" : "node-ref",
+    })),
+    where,
+  };
+}
+
+const irArb = shapeArb.chain((shape) => {
+  const where = clausesFor(shape);
+  const names = boundNames(where);
+  return fc
+    .uniqueArray(fc.constantFrom(...names), {
+      minLength: 1,
+      maxLength: Math.min(2, names.length),
+    })
+    .map((find) => queryFor(where, find));
+});
 
 describe("the canonical domain is what parseEdn produces", () => {
   test("every stored query parses to a canonical IR", () => {
@@ -451,7 +462,54 @@ const storeArb: fc.Arbitrary<KbNode[]> = fc.tuple(
   ),
 );
 
+const exampleShape: QueryShape = {
+  idLiteral: null,
+  text: "omit",
+  typeJoin: false,
+  mentionsJoin: false,
+  children: false,
+  reach: false,
+  hasChild: false,
+  textHas: null,
+  noneOf: false,
+  anyOf: false,
+  recent: false,
+};
+
+const examples: { name: string; shape: Partial<QueryShape>; find: string[] }[] = [
+  { name: "literal text pattern", shape: { text: "a todo" }, find: ["id"] },
+  { name: "type join", shape: { typeJoin: true }, find: ["id", "tid"] },
+  { name: "mentions join", shape: { mentionsJoin: true }, find: ["id", "mid"] },
+  { name: "ordered children", shape: { idLiteral: "p", children: true }, find: ["cid"] },
+  { name: "transitive reach", shape: { idLiteral: "a", reach: true }, find: ["rid"] },
+  { name: "child pattern", shape: { hasChild: true }, find: ["id"] },
+  {
+    name: "text predicate",
+    shape: { textHas: { fn: "clojure.string/includes?", needle: "o" } },
+    find: ["text2"],
+  },
+  { name: "not with an or join", shape: { noneOf: true }, find: ["id"] },
+  { name: "or join with different clause kinds", shape: { anyOf: true }, find: ["id"] },
+  { name: "recent creation window", shape: { recent: true }, find: ["id"] },
+];
+
 describe("property 3: printing keeps the answer", () => {
+  test.each(examples)("$name yields rows before and after round-trip", ({ shape, find }) => {
+    const index = indexFor([
+      node("sys.tag"),
+      node("n.todo", { text: "a todo", props: { "sys.f.type": [{ t: "ref", v: "sys.tag" }] } }),
+      node("p", { children: ["c1", "c2"] }),
+      node("c1", { text: "leaf" }),
+      node("c2", { createdAt: "2025-12-01T00:00:00.000Z" }),
+      node("a", { text: "[[b]]" }),
+      node("b", { text: "[[c2]]" }),
+    ]);
+    const ir = queryFor(clausesFor({ ...exampleShape, ...shape }), find);
+    const rows = sortedRows(index.run(ir));
+    expect(rows.length).toBeGreaterThan(0);
+    expect(sortedRows(index.run(parseEdn(printEdn(ir))))).toEqual(rows);
+  });
+
   test("rows of parseEdn(printEdn(ir)) equal the rows of ir, over a generated store", () => {
     const outcome = (index: DatascriptIndex, ir: Ir) => {
       try {
@@ -460,19 +518,14 @@ describe("property 3: printing keeps the answer", () => {
         return { error: e instanceof Error ? e.message : String(e) };
       }
     };
-    let answered = 0;
     fc.assert(
       fc.property(irArb, storeArb, (ir, store) => {
         const index = indexFor(store);
         const expected = outcome(index, ir);
-        if (expected.rows !== undefined && expected.rows.length > 0) answered += 1;
         expect(outcome(index, parseEdn(printEdn(ir)))).toEqual(expected);
       }),
       { numRuns: 100 },
     );
-    // Equal errors, or equal empty answers, on both sides prove little: a share of the runs must answer rows.
-    // GAP [[01M6WV8JS4GPF0TRYDZY948C40]] — independent samples do not guarantee this coverage quota.
-    expect(answered).toBeGreaterThanOrEqual(8);
   });
 });
 

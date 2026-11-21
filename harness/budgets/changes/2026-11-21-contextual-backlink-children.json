@@ -1,0 +1,4 @@
+{
+  "reason": "Backlink tag chips and expanded children read the node the contextual reference shows. The resulting shared chunk change adds 15 eager page bytes.",
+  "raise": { "page-eager": { "bytes": 15 } }
+}

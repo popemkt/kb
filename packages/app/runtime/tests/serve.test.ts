@@ -1,4 +1,4 @@
-import { KB_SOURCE_BIN } from "@kb/test-kit";
+import { KB_SOURCE_BIN, until } from "@kb/test-kit";
 /**
  * Starting a `kb ui` for a root (`serveRoot`, DESIGN.md → Locations): a real
  * `kb ui --port 0` over a temp root, whose URL in presence answers for that
@@ -51,14 +51,9 @@ function alive(pid: number): boolean {
   }
 }
 
-/** Whether `pid` has exited within `ms`. */
-async function exitsWithin(pid: number, ms: number): Promise<boolean> {
-  const until = Date.now() + ms;
-  while (alive(pid)) {
-    if (Date.now() > until) return false;
-    await Bun.sleep(20);
-  }
-  return true;
+async function waitForExit(pidFile: string): Promise<void> {
+  const pid = Number(await readFile(pidFile, "utf8"));
+  await until(() => (alive(pid) ? undefined : true), `process ${pid} to exit`);
 }
 
 /** The message of the failure `effect` ends in. */
@@ -126,7 +121,7 @@ describe("starting a kb ui for a root", () => {
     );
     expect(message).toContain("did not answer within 0.5s, so it was stopped");
     expect(message).toContain("warming up");
-    expect(await exitsWithin(Number(await readFile(pidFile, "utf8")), 2000)).toBe(true);
+    await waitForExit(pidFile);
   });
 });
 
@@ -152,7 +147,7 @@ describe("stopping a child that never served", () => {
       ),
     );
     expect(message).toContain("so it was stopped");
-    expect(await exitsWithin(Number(await readFile(pidFile, "utf8")), 1000)).toBe(true);
+    await waitForExit(pidFile);
   }, 10_000);
 
   test("what a child started is killed with it, though the child itself exits on SIGTERM", async () => {
@@ -172,7 +167,7 @@ describe("stopping a child that never served", () => {
       ),
     );
     expect(message).toContain("so it was stopped");
-    expect(await exitsWithin(Number(await readFile(pidFile, "utf8")), 1000)).toBe(true);
+    await waitForExit(pidFile);
   }, 10_000);
 });
 

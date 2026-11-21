@@ -7,22 +7,26 @@
  * does: no UI to build, so the server serves its API at once.
  */
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { BunFileSystem } from "@effect/platform-bun";
 import { KB_SOURCE_BIN } from "@kb/test-kit";
 import { currentHome, readUiPresence } from "@kb/workspace-fs";
 import { Effect, Layer } from "effect";
 import {
+  CaptureClient,
+  CredentialKeychain,
   DesktopConfig,
   DeviceSettings,
+  kbEnvironment,
   kbProcessRunner,
   KbCli,
   StoreDirectory,
   type KbRunner,
   type Stores,
 } from "../src/index.ts";
+import { memoryKeychain } from "./memory-keychain.ts";
 
 let scratch = "";
 afterEach(() => {
@@ -39,11 +43,21 @@ async function answers(origin: string): Promise<boolean> {
 
 /** A store directory over a real kb in a fresh scratch directory, with the root Alpha added. */
 async function alphaStore(): Promise<{ kb: KbRunner; stores: Stores; root: string }> {
-  scratch = mkdtempSync(join(tmpdir(), "kb-desktop-stores-"));
+  // Its real path, as kb records a location by (macOS links /tmp to /private/tmp).
+  scratch = realpathSync(mkdtempSync(join(tmpdir(), "kb-desktop-stores-")));
   const pkg = join(scratch, "pkg");
   mkdirSync(pkg);
   const root = join(scratch, "alpha");
-  const kb = kbProcessRunner(KB_SOURCE_BIN, { env: { KB_PKG_ROOT: pkg } });
+  const kb = kbProcessRunner(
+    { kb: { source: "checkout", file: KB_SOURCE_BIN }, skipped: [] },
+    {
+      settingsFile: join(scratch, "desktop", "settings.json"),
+      env: kbEnvironment(
+        { path: process.env.PATH, home: homedir(), user: process.env.USER },
+        { KB_PKG_ROOT: pkg },
+      ),
+    },
+  );
   const stores = await Effect.runPromise(
     Effect.gen(function* () {
       return yield* StoreDirectory;
@@ -53,6 +67,11 @@ async function alphaStore(): Promise<{ kb: KbRunner; stores: Stores; root: strin
           Layer.provide(
             Layer.mergeAll(
               Layer.succeed(KbCli, kb),
+              Layer.succeed(CaptureClient, {
+                pair: () => Effect.succeed({ ok: false, message: "no host here" } as const),
+                submit: () => Effect.succeed({ ok: false, message: "no host here" } as const),
+              }),
+              Layer.succeed(CredentialKeychain, memoryKeychain()),
               Layer.succeed(DeviceSettings, new DesktopConfig(join(scratch, "desktop"))),
             ),
           ),

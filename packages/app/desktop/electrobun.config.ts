@@ -23,9 +23,16 @@ export default {
   build: {
     bun: {
       entrypoint: "src/shell/electrobun/index.ts",
-      // The checkout this app was built from: its kb is the fallback when no
-      // other is found (src/core/kb-command.ts → resolveKb).
-      define: { KB_DESKTOP_CHECKOUT_KB: JSON.stringify(join(repo, "bin", "kb")) },
+      // The checkout this app was built from, whose kb is one of the
+      // candidates (src/core/kb-command.ts → kbCandidates), and the Bun the
+      // build ran with, which that kb execs by name: an app opened from
+      // Finder may find no Bun of its own (a Nix dev shell's lives only in
+      // the store), so its directory goes last on the kb's program path.
+      // GAP [[01M7WV5DQDNMQMR9QYJN839TNJ]]: build-machine paths in the bundle.
+      define: {
+        KB_DESKTOP_CHECKOUT_KB: JSON.stringify(join(repo, "bin", "kb")),
+        KB_DESKTOP_BUILD_BUN: JSON.stringify(Bun.which("bun") ?? ""),
+      },
     },
     copy: existsSync(release) ? { [release]: "kb" } : {},
     mac: { codesign: false, notarize: false, createDmg: false },

@@ -1,0 +1,6 @@
+{
+  "reason": "The shared keychain distinguishes absent items from failed deletions on macOS and Linux. The CLI already loads this package for secret references.",
+  "raise": {
+    "cli-closure": { "bytes": 492 }
+  }
+}

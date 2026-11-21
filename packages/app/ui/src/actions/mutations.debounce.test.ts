@@ -117,11 +117,7 @@ describe("the push lane keeps local commit order", () => {
 
     await vi.advanceTimersByTimeAsync(280);
     await waitForBrowserPushes();
-    expect(pushed).toEqual([
-      `node.batch [node.update n.root-b, node.add ${row}]`,
-      `node.update ${row}`,
-      `node.batch [node.delete ${row}, node.update n.root-b]`,
-    ]);
+    expect(pushed).toEqual([`node.add ${row}`, `node.update ${row}`, `node.delete ${row}`]);
     expect(refused).toEqual([]);
   });
 
@@ -147,8 +143,8 @@ describe("the push lane keeps local commit order", () => {
     });
     await mutations.updateNodeContent("n.root-b", "abc");
     // The row the next keystroke goes to exists while the text push is still out.
-    const row = await added(() => mutations.splitNode("n.root-b", 3));
-    expect(useGraphStore.getState().index?.getNode("n.root-b")?.text).toBe("abc");
+    const row = await added(() => mutations.splitNode("n.root-b", 2));
+    expect(useGraphStore.getState().index?.getNode("n.root-b")?.text).toBe("ab");
 
     answer.resolve(succeeded({ id: "node.update", input: {} }));
     await waitForBrowserPushes();

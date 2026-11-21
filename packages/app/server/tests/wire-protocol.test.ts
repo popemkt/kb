@@ -3,22 +3,20 @@
  * "A tab outlives its build"). A page of the previous build keeps working
  * against this server as long as `WIRE_PROTOCOL` is the same, so whatever
  * such a page sends or reads is fingerprinted here: the socket's messages,
- * the action envelope and its answer, the snapshot, and every action the
- * server offers, which a page may call or run on its own replica, by id,
+ * the sandbox frame's messages, the action envelope and its answer, the
+ * snapshot, and every action the server offers by id,
  * mode, input and output, as the server's own manifest lists them.
  *
- * When this test fails, the wire changed. Decide which it is:
- * - a page of the previous build still works with it (a new optional field,
- *   a new message it ignores): record the new fingerprint below;
- * - it does not: bump `WIRE_PROTOCOL` in `@kb/contracts` and record both.
- *   Every open tab then reloads into the new build when it is idle.
+ * When this test fails, follow the compatibility rule in DESIGN-UI.md →
+ * Delivery to decide whether to record a new fingerprint or bump
+ * `WIRE_PROTOCOL` in `@kb/contracts` too.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import {
   ActionRequestSchema,
   ActionResponseSchema,
@@ -26,8 +24,10 @@ import {
   GraphSnapshotSchema,
   ServerMessageSchema,
   WIRE_PROTOCOL,
+  type ActionRequest,
 } from "@kb/contracts";
 import { schemaToJsonSchema } from "@kb/model";
+import { FrameMessage, PageMessage } from "@kb/sandbox";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
 // Protocol 4: an extension row carries its origin (kb's build and the host
@@ -87,9 +87,24 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // `capture.submit`, `capture.pair`, `capture.pairCode` and `capture.revoke`
 // are new actions a previous page never calls, and `kb.manifest` may name a
 // `captureContract`, an optional field a previous page ignores.
+// Manifest entries carry an optional `callers` list when an action admits
+// non-default caller kinds; a previous page ignores it.
+// Protocol 12: the page must preserve the program caller when it relays
+// WebMCP actions. A previous page instead sends them as the person's calls.
+// Protocol 13: the page makes an accepted sidebar approval as a person
+// gesture. The server ignores approval claims in external envelopes.
+// The page sends the ids its optimistic outline paste minted (`node.addTree`
+// `ids`); a server of an earlier protocol could discard those ids and mint its
+// own. The fingerprint also covers the existing sandbox protocol.
+// `node.update` and `node.batch` carry an `expectedText` precondition; a
+// server of an earlier protocol would drop it and commit against changed text.
+// The field shortcut depends on the server checking draft and field
+// preconditions (`node.delete` `requireEmptyLine`, `node.update`
+// `requireUnset`, `field.define` in `node.batch`); a page of an earlier
+// protocol reloads before it sends writes.
 const RECORDED = {
-  protocol: 11,
-  fingerprint: "f9a6dcc61255ef7d9c003e73f5eb3b846dcc7e94ba14cea539fb7c3fbd99eacf",
+  protocol: 13,
+  fingerprint: "1ed4152ca86148a576e28217f954646023f6f37119923b7eb296c58e0ed18444",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */
@@ -110,14 +125,20 @@ interface ManifestAction {
   readonly outputSchema: unknown;
 }
 
-/** Every action the server offers, as its manifest lists them, each by what a call to it carries. */
-async function offered(url: string): Promise<unknown[]> {
+async function callPageAction(url: string, invocation: ActionRequest): Promise<unknown> {
   const res = await fetch(`${url}/api/action`, {
     method: "POST",
     headers: { "content-type": "application/json", origin: new URL(url).origin },
-    body: JSON.stringify({ id: "kb.manifest", input: {} }),
+    body: JSON.stringify(invocation),
   });
-  const receipt = (await res.json()) as { output: { actions: ManifestAction[] } };
+  return res.json();
+}
+
+/** Every action the server offers, as its manifest lists them, each by what a call to it carries. */
+async function offered(url: string): Promise<unknown[]> {
+  const receipt = (await callPageAction(url, { id: "kb.manifest", input: {} })) as {
+    output: { actions: ManifestAction[] };
+  };
   return receipt.output.actions
     .map(({ id, mode, batchOf, inputSchema, outputSchema }) => ({
       id,
@@ -130,7 +151,6 @@ async function offered(url: string): Promise<unknown[]> {
 }
 
 /** Every shape as a parser reads it: the side a page and a server each accept. */
-// GAP [[01M6GY0MXXXY2YQ8C3P77M2QNF]] the sandbox frame's messages are not fingerprinted, and its script is not digest-named
 function wireFingerprint(actions: unknown[]): string {
   const wire = {
     client: schemaToJsonSchema(ClientMessageSchema, "input"),
@@ -138,6 +158,8 @@ function wireFingerprint(actions: unknown[]): string {
     request: schemaToJsonSchema(ActionRequestSchema, "input"),
     response: schemaToJsonSchema(ActionResponseSchema, "input"),
     snapshot: schemaToJsonSchema(GraphSnapshotSchema, "input"),
+    frameToPage: Schema.toJsonSchemaDocument(FrameMessage),
+    pageToFrame: Schema.toJsonSchemaDocument(PageMessage),
     actions,
   };
   return createHash("sha256").update(canonical(wire)).digest("hex");
@@ -160,5 +182,25 @@ describe("the wire protocol", () => {
     expect(actions.length).toBeGreaterThan(50);
     const now = { protocol: WIRE_PROTOCOL, fingerprint: wireFingerprint(actions) };
     expect(now, "the wire changed: see the comment at the top of this file").toEqual(RECORDED);
+  });
+
+  test("carries the source text precondition from the page to the update planner", async () => {
+    const id = "n.changed-before-link";
+    expect(
+      await callPageAction(handle.url, {
+        id: "node.add",
+        input: { id, text: "newer source text", parent: null },
+      }),
+    ).toMatchObject({ status: "succeeded" });
+    expect(
+      await callPageAction(handle.url, {
+        id: "node.update",
+        input: { id, text: "linked text", expectedText: "older source text" },
+      }),
+    ).toMatchObject({ status: "failed", code: "conflict" });
+    expect(await callPageAction(handle.url, { id: "node.get", input: { id } })).toMatchObject({
+      status: "succeeded",
+      output: { node: { text: "newer source text" } },
+    });
   });
 });

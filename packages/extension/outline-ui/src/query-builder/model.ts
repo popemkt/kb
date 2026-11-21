@@ -9,23 +9,21 @@
  * way the model places a row (`ConditionOf`). Whether an operand is given
  * is the draft's to say, never its value's: an empty text, tag or node is a
  * value like any other, and a row lifted from stored text is always a row.
- * What is written is the tree without its drafts, printed canonically,
- * `printEdn(lowerIr(…))` (`lowerIr` lowers a list's canonical form). The
+ * What is written is the tree without its drafts, printed by `conditionsEdn`. The
  * tree is kept as the person built it; only the stored text is canonical
  * (docs/brainstorms/2026-10-20-query-builder → Switching between the
  * builder and the advanced editor).
  */
 import type { FieldType, PropValue } from "@kb/model";
-import {
-  lowerIr,
-  printEdn,
-  type CompareOp,
-  type Condition,
-  type ConditionEdge,
-  type ConditionOf,
-  type ConditionRow,
-  type ConditionValue,
-  type GroupOf,
+import { conditionsEdn } from "@kb/ui-sdk";
+import type {
+  CompareOp,
+  Condition,
+  ConditionEdge,
+  ConditionOf,
+  ConditionRow,
+  ConditionValue,
+  GroupOf,
 } from "@kb/query";
 
 /**
@@ -110,7 +108,7 @@ export function writable(tree: BuilderTree): Condition[] {
  * its canonical form) and printed.
  */
 export function writtenEdn(tree: BuilderTree): string {
-  return printEdn(lowerIr(writable(tree)));
+  return conditionsEdn(writable(tree));
 }
 
 /* -------------------------------------------------------------------------- */

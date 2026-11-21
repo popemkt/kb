@@ -227,7 +227,7 @@ describe("shipped keybinding data", () => {
       if (binding.id === "core.page.palette")
         expect(row?.props[SHORTCUT_IDS.keys]).toEqual([{ t: "str", v: "Mod-K" }]);
       if (binding.id === "outline.editing.soft-break")
-        expect(row?.props[SHORTCUT_IDS.keys]).toEqual([{ t: "str", v: "Shift-Enter" }]);
+        expect(row?.props[SHORTCUT_IDS.keys]).toEqual([{ t: "str", v: "NoMod-Shift-Enter" }]);
       if ("intent" in binding.value.run)
         expect(graph.get(extensionNodeId(familyOf(binding)))?.children).toContain(
           keyTargetNodeId(familyOf(binding), binding.value.context, binding.value.run),

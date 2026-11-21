@@ -23,7 +23,9 @@ import { browserHost } from "../host";
 /** What commands read and drive on the outline store. */
 export interface OutlineCommandApi {
   readonly selectedNodeId: string | null;
-  /** The node the page stands at: the one its focused pane is shown for, a zoom or a node opened there. */
+  /** The focused pane's node, when the pane shows one. */
+  readonly paneSubjectId: string | null;
+  /** The command's outline root, falling back to the page's zoom if the pane has no subject. */
   readonly rootNodeId: string;
   readonly ontologyId: string | null;
   readonly nodes: NodeMap;
@@ -103,7 +105,7 @@ interface PaletteStepPick {
  * over one picker engine (`lib/picker`), so only the candidate source,
  * whether a new one may be minted, and the write vary.
  */
-export interface PaletteStep {
+export interface PaletteStep<Result = unknown> {
   readonly label: string;
   readonly placeholder: string;
   readonly icon: ReactNode;
@@ -117,7 +119,8 @@ export interface PaletteStep {
    * reference"); absent, Alt picks as Enter does.
    */
   readonly alternate?: string;
-  readonly commit: (pick: PaletteStepPick) => Promise<void>;
+  /** The write and any result a caller uses to continue the gesture. */
+  readonly commit: (pick: PaletteStepPick) => Promise<Result>;
 }
 
 /**
@@ -241,7 +244,8 @@ export interface NodeCommandListing {
   readonly faceOf?: string | undefined;
   readonly label: string;
   readonly icon: ReactNode;
-  readonly run: () => void;
+  /** Run the command; it answers once the writes it waits for are made. */
+  readonly run: () => Promise<void>;
 }
 
 /**
@@ -251,15 +255,27 @@ export interface NodeCommandListing {
  * that row's write being one write already, so a write whose result the
  * gesture reads has landed when it reads it.
  */
-export function asOneWrite<T>(rows: readonly string[], gesture: () => Promise<T>): Promise<T> {
+export function asOneWrite<T>(
+  rows: readonly string[],
+  gesture: () => Promise<T>,
+): Promise<T | null> {
   return rows.length > 1 ? browserHost().writes.together(gesture) : gesture();
 }
 
-/** A node command that acts on each row it is about (`target.nodeIds`), as one write (`asOneWrite`), and dismisses the menu. */
-export function nodeAction(ctx: CommandContext, body: (nodeId: string) => unknown): void {
+/**
+ * A node command that acts on each row it is about (`target.nodeIds`), as
+ * one write (`asOneWrite`), and dismisses the menu. It answers once that
+ * write is made: the writes `body` answers, so a caller's gesture can wait
+ * for them.
+ */
+export async function nodeAction(
+  ctx: CommandContext,
+  body: (nodeId: string) => unknown,
+): Promise<void> {
   const { nodeIds } = ctx.target;
-  void asOneWrite(nodeIds, () => Promise.all(nodeIds.map((nodeId) => body(nodeId))));
+  const written = asOneWrite(nodeIds, () => Promise.all(nodeIds.map((nodeId) => body(nodeId))));
   ctx.palette.close();
+  await written;
 }
 
 /** The core page's owner of the palette-step seam. */

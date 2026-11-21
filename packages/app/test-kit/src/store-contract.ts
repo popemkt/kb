@@ -23,10 +23,10 @@
  */
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
-import { Cause, Duration, Effect, Exit, Option, Queue, Stream } from "effect";
+import { Cause, Clock, Duration, Effect, Exit, Option, Queue, Stream } from "effect";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { onWire, STORE_CHANGES_POLL } from "@kb/contracts";
+import { onWire, STORE_CHANGES_POLL, WriteLockDeadline } from "@kb/contracts";
 import {
   applyTx,
   compareRootOrder,
@@ -67,7 +67,14 @@ import {
 } from "./seed-opening-contract.ts";
 import { commitReceiptNamesItsWrite, tailRecordsWhoCommitted } from "./commit-record-contract.ts";
 import { viewsMigrateRewritesLegacyShapes } from "./view-migration-contract.ts";
-import { commitAfterAnotherWriterMergesIntoIt } from "./writers-contract.ts";
+import {
+  commitAfterAnotherWriterMergesIntoIt,
+  opensAndCommitsUnderContention,
+  type WriteLockHolder,
+  deletePreservesConcurrentSibling,
+  plannedWriteSurvivesContention,
+  updatePreservesConcurrentField,
+} from "./writers-contract.ts";
 
 export type { StoreFactory } from "./store-session.ts";
 
@@ -287,11 +294,36 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
     conditionalCommitNamesItsBase,
   ],
   ["two conditional commits from one state: at most one lands", conditionalCommitsRace],
+  ["a commit with an exhausted lock deadline leaves the store unchanged", exhaustedLockDeadline],
+  ["a session replans a write through repeated commit conflicts", plannedWriteSurvivesContention],
+  ["node.update preserves a concurrent edit to a different field", updatePreservesConcurrentField],
+  ["node.delete preserves a concurrently added sibling", deletePreservesConcurrentSibling],
   [
     "a commit that cannot be written fails with a DomainError and leaves no store",
     unwritableCommitFails,
   ],
 ];
+
+function exhaustedLockDeadline(makeStore: StoreFactory): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* backendRoot(makeStore);
+        const store = yield* Effect.acquireRelease(
+          Effect.sync(() => makeStore(root)),
+          (held) => held.closeEffect,
+        );
+        const before = yield* stateOf(store);
+        const deadline = yield* Clock.currentTimeMillis;
+        const error = yield* Effect.flip(
+          store.commitEffect({ upserts: [plainNode("n-a", "a")], deletes: [] }, { at: AT }),
+        ).pipe(Effect.provideService(WriteLockDeadline, deadline));
+        expect(error.code).toBe("conflict");
+        expect(yield* stateOf(store)).toEqual(before);
+      }),
+    ),
+  );
+}
 
 function unwrittenStoreIsEmpty(makeStore: StoreFactory): Promise<void> {
   return Effect.runPromise(
@@ -859,12 +891,19 @@ function singleValuedFieldHoldsOne(makeStore: StoreFactory): Promise<void> {
  * Run the contract against one adapter.
  *
  * @param name - adapter name, used as the describe label
- * @param makeStore - build the adapter for a scratch root; called more than
- *   once per root on purpose, since "a second instance over the same files" is
- *   how an external writer is spelled in port terms
+ * @param factory - how to open the adapter and take its write lock in a child process
  */
-export function storeContract(name: string, makeStore: StoreFactory): void {
+export function storeContract(
+  name: string,
+  factory: { makeStore: StoreFactory; holdWriteLock: WriteLockHolder },
+): void {
+  const { makeStore, holdWriteLock } = factory;
   describe(`${name} — EffectStore contract`, () => {
     for (const [title, property] of PROPERTIES) test(title, () => property(makeStore));
+    test(
+      "a writer holding the lock leaves reads and the event loop free",
+      () => opensAndCommitsUnderContention(makeStore, holdWriteLock),
+      30_000,
+    );
   });
 }

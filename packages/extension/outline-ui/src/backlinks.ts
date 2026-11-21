@@ -5,8 +5,11 @@ import {
   queryBacklinks,
   rowTitle,
   type SchemaIndex,
+  shownNode,
   type TagBadge,
+  WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
+import { crumbsTo, type Crumb } from "./crumbs";
 
 /**
  * A typed relation the referrer holds to the node, worded from the node's
@@ -28,10 +31,30 @@ export interface BacklinkRow {
    * day. None when it only mentions the node in its own text.
    */
   relations: BacklinkRelation[];
+  /** Ancestor path above this row, outermost first (home omitted). */
+  breadcrumbs: readonly Crumb[];
 }
 
 /** Where a referrer's references are read, field by field (`NodeIndex.referenceFields`). */
 type ReferenceReader = Pick<NodeIndex, "getNode" | "referenceFields">;
+
+/**
+ * Other nodes that reference `nodeId`, excluding self-references.
+ * Shared by References and Unlinked mentions.
+ */
+export function otherBacklinks(
+  run: EdnRunner,
+  nodeId: string,
+): Array<{ id: string; text: string }> {
+  return queryBacklinks(run, nodeId).filter((b) => b.id !== nodeId);
+}
+
+/** Ancestor breadcrumbs above `nodeId` in `schema`, outermost first (home omitted). */
+export function rowBreadcrumbs(schema: SchemaIndex, nodeId: string): Crumb[] {
+  const parentId = schema.get(nodeId)?.parentId ?? null;
+  if (parentId === null || parentId === WORKSPACE_ROOT_ID) return [];
+  return crumbsTo(parentId, WORKSPACE_ROOT_ID, schema, schema);
+}
 
 /**
  * Nodes that reference `nodeId`, resolved to rows ready to render.
@@ -54,24 +77,23 @@ export function backlinkRows(
   references: ReferenceReader | null,
   nodeId: string,
 ): BacklinkRow[] {
-  return queryBacklinks(run, nodeId)
-    .filter((b) => b.id !== nodeId)
-    .map((b) => {
-      // The referrer's own text is schema-level too: a referrer outside the
-      // scope is still a node, and a contextual one shows its target's. It is
-      // drawn as its row draws it at rest, by its title (DESIGN.md → Display text).
-      const node = schema.get(b.id);
-      const referrer = references?.getNode(b.id);
-      return {
-        id: b.id,
-        text: node ? rowTitle(node, schema) : b.text,
-        tags: node?.tags ?? [],
-        relations:
-          referrer === undefined || references === null
-            ? []
-            : relationsThrough(referrer, references.referenceFields(referrer, nodeId), schema),
-      };
-    });
+  return otherBacklinks(run, nodeId).map((b) => {
+    // The referrer's own text is schema-level too: a referrer outside the
+    // scope is still a node, and a contextual one shows its target's. It is
+    // drawn as its row draws it at rest, by its title (DESIGN.md → Display text).
+    const node = schema.get(b.id);
+    const referrer = references?.getNode(b.id);
+    return {
+      id: b.id,
+      text: node ? rowTitle(node, schema) : b.text,
+      tags: node === undefined ? [] : shownNode(node, schema).tags,
+      relations:
+        referrer === undefined || references === null
+          ? []
+          : relationsThrough(referrer, references.referenceFields(referrer, nodeId), schema),
+      breadcrumbs: rowBreadcrumbs(schema, b.id),
+    };
+  });
 }
 
 /**

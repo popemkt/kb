@@ -1,4 +1,16 @@
+import { globSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "playwright/test";
+import durations from "./render-durations.json" with { type: "json" };
+import { renderShard } from "./render-shards.ts";
+
+/**
+ * `text` matched literally in a RegExp. Playwright loads this config under
+ * CI's Node, which has no `RegExp.escape`.
+ */
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+}
 
 // Headless Chromium hides WebGPU behind `--enable-unsafe-webgpu`. With it, a
 // machine that has an adapter proves the WebGPU path; one without falls back
@@ -32,14 +44,16 @@ const chromiumGpuArgs = [
 const MACOS_SPECS =
   /\/(backdrop-[^/]*|canvas3d[^/]*|design-system|gallery|head-band-contrast|lab|query-budget|query-builder|region-scrollbar|render|typography|unicorn-cold-start|view-settings)\.e2e\.ts$/;
 
-export default defineConfig({
+// The portable project is the complement of macos.
+const PROJECTS = [
+  { name: "macos", testMatch: MACOS_SPECS },
+  { name: "portable", testIgnore: MACOS_SPECS },
+] as const;
+
+const config = defineConfig({
   testDir: "./tests-render",
   testMatch: "**/*.e2e.ts",
-  // Every spec is in exactly one: `portable` is the complement of `macos`.
-  projects: [
-    { name: "macos", testMatch: MACOS_SPECS },
-    { name: "portable", testIgnore: MACOS_SPECS },
-  ],
+  projects: [...PROJECTS],
   fullyParallel: true,
   // Why one on CI: docs/ci.md → Scheduling and selection.
   workers: isCI ? 1 : undefined,
@@ -65,3 +79,28 @@ export default defineConfig({
     launchOptions: { args: chromiumGpuArgs, ignoreDefaultArgs: ["--hide-scrollbars"] },
   },
 });
+
+const shard = process.env.KB_RENDER_SHARD;
+if (shard !== undefined) {
+  const { testDir, testMatch } = config;
+  if (testDir === undefined || typeof testMatch !== "string") {
+    throw new Error("Render sharding requires the suite's testDir and testMatch glob");
+  }
+  const cwd = fileURLToPath(new URL(testDir, import.meta.url));
+  const files = globSync(testMatch, { cwd }).filter((file) => !file.startsWith("node_modules/"));
+  config.projects = PROJECTS.map((project) => {
+    const projectFiles = files.filter((file) =>
+      "testMatch" in project
+        ? project.testMatch.test(`/${file}`)
+        : !project.testIgnore.test(`/${file}`),
+    );
+    return {
+      ...project,
+      testMatch: renderShard(projectFiles, durations[project.name], shard).map(
+        (file) => new RegExp(`/${escapeRegExp(file)}$`),
+      ),
+    };
+  });
+}
+
+export default config;

@@ -5,6 +5,7 @@ import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import {
   FailureCodeSchema,
+  actorKind,
   type Actor,
   type ActionSchema,
   type ActionSchemaError,
@@ -80,6 +81,85 @@ export function isActionMode(value: unknown): value is ActionMode {
 /** True when an action with this mode declares that each call needs a person's approval. */
 export function requiresApproval(mode: ActionMode): boolean {
   return mode.kind === "write" && mode.approval === "required";
+}
+
+/**
+ * Who may invoke an action, declared on {@link ActionDefinition.callers} and
+ * read by every listener and the invoke core (`DESIGN.md` → Action registry → Callers):
+ *
+ * - `"person"` — the UI's own page, representing a person session (`PAGE_WIRE`).
+ * - `"program"` — a local program without a browser Origin (CLI, MCP, curl, another app; `HTTP_WIRE`).
+ * - `"capture-device"` — a paired capture device presenting a bearer credential (`Authorization: Bearer kbcap_…`).
+ * - `"capture-pairing"` — an unauthenticated capture client on `--capture-only` or exchanging a one-use pairing code.
+ */
+const CALLER_KINDS = ["person", "program", "capture-device", "capture-pairing"] as const;
+export type CallerKind = (typeof CALLER_KINDS)[number];
+export const CallerKindSchema = z.enum(CALLER_KINDS) satisfies z.ZodType<CallerKind>;
+
+/** Default callers when an action omits `callers`: person sessions and local programs, no capture device access. */
+const DEFAULT_CALLERS: readonly CallerKind[] = ["person", "program"];
+type CallerAccess = { readonly callers?: readonly CallerKind[] | undefined };
+
+/** True when `kind` is a capture caller (`capture-device` or `capture-pairing`). */
+export function isCaptureCaller(kind: CallerKind): boolean {
+  return kind === "capture-device" || kind === "capture-pairing";
+}
+
+/** The caller kinds `def` admits: its declared `callers`, or {@link DEFAULT_CALLERS} when omitted. */
+function callersOf(def: CallerAccess): readonly CallerKind[] {
+  return def.callers ?? DEFAULT_CALLERS;
+}
+
+/** True when `def` admits `kind`. */
+function admitsCaller(def: CallerAccess, kind: CallerKind): boolean {
+  return callersOf(def).includes(kind);
+}
+
+/** True when `def` admits any capture caller kind (`capture-device` or `capture-pairing`). */
+export function admitsCaptureCaller(def: CallerAccess): boolean {
+  return callersOf(def).some(isCaptureCaller);
+}
+
+/**
+ * Why `kind` may not invoke `def`, or `null` when admitted.
+ *
+ * For capture callers (`capture-device`, `capture-pairing`), an unknown action
+ * or one that declares no capture caller returns the same refusal so a capture
+ * listener never leaks which non-capture actions exist.
+ */
+export function callerRefusal(
+  def: CallerAccess | undefined,
+  invocation: Pick<ActionInvocation, "actor" | "caller" | "callerCeiling">,
+): string | null {
+  const kind = invocationCaller(invocation);
+  const { callerCeiling } = invocation;
+  if (
+    def !== undefined &&
+    admitsCaller(def, kind) &&
+    (callerCeiling === undefined || admitsCaller(def, invocationCaller(callerCeiling)))
+  ) {
+    return null;
+  }
+  if (isCaptureCaller(kind)) {
+    if (def === undefined || !admitsCaptureCaller(def)) {
+      return "this listener or credential only admits capture actions";
+    }
+    return kind === "capture-pairing"
+      ? "pair a device before calling this action"
+      : "call this action without a device credential";
+  }
+  return def === undefined ? null : "this caller may not invoke this action";
+}
+
+/**
+ * The caller kind an invocation runs as: its explicit `caller`, or derived
+ * from its actor (`"person"` for `human`, `"program"` for every other actor)
+ * so an omitted caller never bypasses {@link ActionDefinition.callers}.
+ */
+export function invocationCaller(
+  invocation: Pick<ActionInvocation, "actor" | "caller">,
+): CallerKind {
+  return invocation.caller ?? (actorKind(invocation.actor) === "human" ? "person" : "program");
 }
 
 /**
@@ -211,6 +291,20 @@ export interface ActionDefinition<
   description: string;
   mode: ActionMode;
   /**
+   * Caller kinds admitted to invoke this action (`DESIGN.md` → Action registry → Callers).
+   * Defaults to {@link DEFAULT_CALLERS} (`["person", "program"]`, no capture device access).
+   */
+  callers?: readonly CallerKind[];
+  /**
+   * Optional per-caller output projection schemas. After the handler's output
+   * passes `outputSchema`, the invoke core applies the caller's declared
+   * projection to the receipt. A relay also applies its caller ceiling's
+   * projection, keeping only output common to both.
+   */
+  callerOutput?: Readonly<Partial<Record<CallerKind, ActionSchema>>>;
+  /** An input-only action drops request metadata and runs without person approval. */
+  requestEnvelope?: "input-only";
+  /**
    * The ids of the actions every call of this one is a batch of: it writes
    * what they write, so approval decides it as each of them as well as
    * itself, and required approval is enforced by core. Only ids:
@@ -237,6 +331,15 @@ export interface ActionDefinition<
    * action, never inferred.
    */
   context?: Readonly<Record<string, string>>;
+  /**
+   * The key of its input that names the nodes a call creates, an id or a
+   * list of ids, which its output answers under the same key: an omitted
+   * one is minted. A write the page commits first is pushed with the ids
+   * its local commit minted there, so the server creates the nodes the
+   * page already shows (DESIGN-UI.md → Mutations). Declared by the action,
+   * never inferred.
+   */
+  mints?: string;
   inputSchema: TIn;
   outputSchema: TOut;
   /**
@@ -325,6 +428,7 @@ export const ActionRequestSchema = z.object({
     .optional()
     .transform((input): unknown => input ?? {}),
   approved: z.boolean().optional(),
+  caller: CallerKindSchema.optional(),
   session: z.string().min(1).optional(),
   via: z.string().min(1).max(VIA_MAX).optional(),
   /**
@@ -339,31 +443,30 @@ export const ActionRequestSchema = z.object({
 export type ActionRequest = z.output<typeof ActionRequestSchema>;
 
 /**
- * The request `raw` makes, a call's envelope as it arrives from outside kb
- * (an HTTP body, `kb action-invoke`'s JSON), or why it is no request. It is
- * never refused for what it states: the surface it arrives on says who makes
- * it (`onWire`), and what that wire does not carry is dropped.
+ * Parse an external action envelope. The receiving surface stamps identity
+ * and approval. An explicit decline can only reduce authority.
  */
 export function requestOf(
   raw: unknown,
 ): { readonly request: ActionRequest } | { readonly invalid: string } {
   const parsed = ActionRequestSchema.safeParse(raw);
-  return parsed.success
-    ? { request: parsed.data }
-    : { invalid: parsed.error.issues.map((issue) => issue.message).join("; ") };
+  if (!parsed.success)
+    return { invalid: parsed.error.issues.map((issue) => issue.message).join("; ") };
+  const { approved, ...request } = parsed.data;
+  return { request: approved === false ? { ...request, approved } : request };
 }
 
 /**
- * The envelope `call` is sent in to another process: the request alone. Who
- * made it here stays here, since the surface that receives it says who
- * calls there.
+ * The envelope sent to another process. The receiving wire stamps identity
+ * and can carry a restriction to program callers or a decline.
  */
 export function envelopeOf(call: ActionRequest): ActionRequest {
-  const { id, input, approved, session, via, script } = call;
+  const { id, input, approved, caller, session, via, script } = call;
   return {
     id,
     input,
-    ...(approved === undefined ? {} : { approved }),
+    ...(approved === false ? { approved } : {}),
+    ...(caller === "program" ? { caller } : {}),
     ...(session === undefined ? {} : { session }),
     ...(via === undefined ? {} : { via }),
     ...(script === undefined ? {} : { script }),
@@ -392,7 +495,14 @@ export function sessionOfMeta(meta: unknown): string | undefined {
  * The actor is a record of who made the call (`KbTx.actor`), and grants
  * nothing by itself; only a script's call is held to more (`madeByScript`).
  */
-export type ActionInvocation = ActionRequest & { readonly actor: Actor };
+export type ActionInvocation = ActionRequest & {
+  readonly actor: Actor;
+  /** The surface's original caller when a relay narrows it. Stamped by the host. */
+  readonly callerCeiling?: {
+    readonly actor: Actor;
+    readonly caller?: CallerKind | undefined;
+  };
+};
 
 /** One input a session filled: the reference it was read from, and the value it read. */
 const FilledInputSchema = z.object({ from: z.string(), value: z.unknown() });
@@ -451,6 +561,8 @@ export const ManifestEntrySchema = z.object({
   title: z.string(),
   description: z.string(),
   mode: ActionModeSchema,
+  /** Caller kinds admitted to invoke this action when it differs from the default (`person`, `program`). */
+  callers: z.array(CallerKindSchema).optional(),
   /** The actions this one is a batch of, each with its own mode ({@link batchPartsOf}). */
   batchOf: z.array(z.object({ id: z.string(), mode: ActionModeSchema })).optional(),
   inputSchema: z.unknown(),
@@ -514,6 +626,7 @@ export function actionToManifestEntry(
     title: def.title,
     description: def.description,
     mode: def.mode,
+    ...(def.callers === undefined ? {} : { callers: [...def.callers] }),
     ...(parts === undefined ? {} : { batchOf: parts }),
     inputSchema: schemaToJsonSchema(def.inputSchema, "input"),
     outputSchema: schemaToJsonSchema(def.outputSchema, "output"),
@@ -534,8 +647,8 @@ export class ActionCatalog extends Context.Service<ActionCatalog, () => readonly
 
 /**
  * What a call made from inside the core may do: `read` refuses a call to an
- * action that writes before the core; `write` makes any call, decided by the
- * core like every call.
+ * action that writes after caller admission. The `write` scope lets the
+ * invoke core decide the call like any other.
  */
 type InvokeScope = "read" | "write";
 

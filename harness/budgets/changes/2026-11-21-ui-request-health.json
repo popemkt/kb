@@ -1,0 +1,6 @@
+{
+  "reason": "The existing pending handler tracker keeps start times so the UI can report active work. The tracker also serves MCP, so its added bookkeeping is counted in the CLI closure.",
+  "raise": {
+    "cli-closure": { "bytes": 226 }
+  }
+}

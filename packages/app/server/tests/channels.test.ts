@@ -12,7 +12,13 @@ import { join } from "node:path";
 import { Effect } from "effect";
 import { ChannelPoint, UiHost, defineExtension, type ExtensionEntry } from "@kb/contracts";
 import { definePlugin, type Plugin } from "@kb/plugin";
-import { FAKE_TAB_SCREEN, FakeTab, scratchRoot, writeTrustedExtensionEffect } from "@kb/test-kit";
+import {
+  FAKE_TAB_SCREEN,
+  FakeTab,
+  scratchRoot,
+  writeTrustedExtensionEffect,
+  until,
+} from "@kb/test-kit";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
 const run = Effect.runPromise;
@@ -118,8 +124,7 @@ describe("plugin channels", () => {
     expect(b.heard("echo.chat")).toHaveLength(1);
     await run(b.close);
     tabs.splice(tabs.indexOf(b), 1);
-    const deadline = Date.now() + 2000;
-    while (dropped.length === 0 && Date.now() < deadline) await Bun.sleep(10);
+    await until(() => dropped[0], "the disconnected channel tab to be dropped");
     expect(dropped).toHaveLength(1);
   });
 

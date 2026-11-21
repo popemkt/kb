@@ -9,6 +9,7 @@ import {
   type OutlineNode,
   rowText,
   rowTitle,
+  schemaOf,
   shownNodeId,
   useNodeTextBinding,
 } from "@kb/ui-sdk";
@@ -48,7 +49,14 @@ export function NodeContent({
   ...props
 }: Omit<
   NodeTextHostProps,
-  keyof NodeTextHostBinding | "nodeId" | "content" | "onChange" | "ingest" | "onRemoveTag"
+  | keyof NodeTextHostBinding
+  | "nodeId"
+  | "content"
+  | "onChange"
+  | "writeText"
+  | "readText"
+  | "ingest"
+  | "onRemoveTag"
 > & {
   /** The row's node, as the surface renders it (a projection may pass its own map). */
   node: OutlineNode;
@@ -60,11 +68,16 @@ export function NodeContent({
   const content = rowText(node, binding.schema);
   const textNodeId = shownNodeId(node);
   const ingest = useRowIngest(textNodeId, content);
+  // What the row edits, as the graph holds it now: a reference row's is its target's.
+  const readText = useCallback(
+    () => schemaOf(browserHost().graph.state()).get(textNodeId)?.text ?? null,
+    [textNodeId],
+  );
   const { instanceKey } = props;
   const { schema, onFollow } = binding;
   const triggers = useMemo(
-    () => outlineTriggers(textNodeId, instanceKey, schema),
-    [textNodeId, instanceKey, schema],
+    () => outlineTriggers(node.id, textNodeId, instanceKey, schema),
+    [node.id, textNodeId, instanceKey, schema],
   );
   const inPlace = instanceKey !== undefined && opensInPlace(instanceKey);
   const expansion = useOutlineStore((s) => s.expansion);
@@ -95,6 +108,8 @@ export function NodeContent({
       onChange={(next) => {
         if (next !== content) void browserHost().writes.updateNodeContent(textNodeId, next);
       }}
+      writeText={(next) => browserHost().writes.setNodeText(textNodeId, next)}
+      readText={readText}
       ingest={ingest}
       triggers={triggers}
       onFollow={follow}

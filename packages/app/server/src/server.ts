@@ -55,6 +55,7 @@ import { identifyBy, serverOwner } from "./auth.ts";
 import { requestGuard, type RequestGuard } from "./guard.ts";
 import { listen, type BindOptions } from "./listener.ts";
 import { handleHttpRequest } from "./http.ts";
+import { HTTP_IDLE_TIMEOUT_SECONDS, requestHealth } from "./request-health.ts";
 import { channelsOf, loadServerPlugins, type HostedExtensions } from "./plugins.ts";
 import { SavedQuerySet, listSavedQueriesEffect, savedQueryNodes } from "./saved-queries.ts";
 import { serverRuntimeLayer } from "./screens.ts";
@@ -297,7 +298,8 @@ function serveUi(deps: {
   embedding: Embedding;
   root: string;
   ctx: KbContext;
-  requests: ReturnType<typeof pendingRequests>;
+  sockets: ReturnType<typeof pendingRequests>;
+  health: ReturnType<typeof requestHealth>;
   hub: SubscriptionHub;
   hosted: HostedFamilies;
   /** The server's kernel, whose identity providers say who a request is. */
@@ -305,14 +307,20 @@ function serveUi(deps: {
   /** Where earlier builds are kept ({@link UiServerOptions.builds}). */
   builds: string | null;
 }): Bun.Server<WsData> {
-  const { ctx, hub, requests } = deps;
+  const { ctx, hub, sockets, health } = deps;
   const runSocket = (effect: Effect.Effect<void>): void => {
-    void requests.run(() => Effect.runPromiseExit(effect));
+    void sockets.run(() => Effect.runPromiseExit(effect));
   };
   // Built on the first request, once the listener knows its port (0 binds an ephemeral one).
   let guard: RequestGuard | null = null;
+  // GAP [[01M7X56KZ3QCBQTZ4KMEE7PNGA]] Bun accepts the idle timeout on Unix
+  // listeners at runtime, but UnixServeOptions omits it (oven-sh/bun#43816).
+  const binding: BindOptions = Object.assign(
+    { idleTimeout: HTTP_IDLE_TIMEOUT_SECONDS },
+    deps.where,
+  );
   return Bun.serve<WsData>({
-    ...deps.where,
+    ...binding,
     fetch(req, srv) {
       const url = new URL(req.url);
       const at = bound(deps.at, srv);
@@ -342,17 +350,23 @@ function serveUi(deps: {
         return undefined;
       }
 
-      return requests.run(() =>
-        handleHttpRequest(req, caller.wire, {
-          capture: caller.capture,
-          root: deps.root,
-          page: uiAddressOf(at),
-          ctx,
-          hub,
-          hosted: deps.hosted,
-          embedding: deps.embedding,
-          builds: deps.builds,
-        }),
+      if (req.method === "GET" && url.pathname === "/api/health") return health.response();
+      return health.run(req, url.pathname, (signal) =>
+        handleHttpRequest(
+          req,
+          caller.wire,
+          {
+            caller,
+            root: deps.root,
+            page: uiAddressOf(at),
+            ctx,
+            hub,
+            hosted: deps.hosted,
+            embedding: deps.embedding,
+            builds: deps.builds,
+          },
+          signal,
+        ),
       );
     },
     websocket: {
@@ -592,7 +606,12 @@ const startUiIn = Effect.fn("kb.startUiIn")(function* (
     opts.captureOnly === true ? null : opts.builds === undefined ? defaultBuilds : opts.builds;
 
   // Bind before starting the background watchers.
-  const requests = pendingRequests();
+  const sockets = pendingRequests();
+  const health = requestHealth();
+  yield* Scope.addFinalizer(
+    lifetime,
+    Effect.promise(() => health.settle()),
+  );
   const server = yield* listen(asked, lifetime, (where) =>
     serveUi({
       where,
@@ -606,7 +625,8 @@ const startUiIn = Effect.fn("kb.startUiIn")(function* (
       embedding: opts.embedding ?? NO_EMBEDDING,
       root: opts.root,
       ctx,
-      requests,
+      sockets,
+      health,
       hub,
       hosted,
       kernel,
@@ -619,7 +639,7 @@ const startUiIn = Effect.fn("kb.startUiIn")(function* (
 
   yield* Scope.addFinalizer(
     lifetime,
-    Effect.promise(() => server.stop(true).then(requests.settle)),
+    Effect.promise(() => server.stop(true).then(sockets.settle)),
   );
 
   // The store says when it moved; the server never names its files. The first

@@ -1,10 +1,11 @@
 import type { NodeIndex } from "@kb/query";
-import { Effect, Predicate } from "effect";
+import { Cause, Effect, Predicate } from "effect";
 import {
   type ActionDefinition,
   type ActionEffectHandler,
   type ActionHandlerEnv,
   type ActionInvocation,
+  type ActionMode,
   type ActionReceipt,
   failed,
   succeeded,
@@ -15,6 +16,9 @@ import {
   CurrentContextReferences,
   CurrentInterception,
   approvalSubject,
+  callerRefusal,
+  invocationCaller,
+  isCaptureCaller,
 } from "@kb/contracts";
 import {
   ActionSchemaError,
@@ -129,20 +133,107 @@ function dispatch<R>(
  * The parsed value is what the receipt carries. Parsing that did not decide
  * the output would be a check performed and then discarded.
  */
-const parseOutput = Effect.fnUntraced(function* (def: ActionDefinition, output: unknown) {
-  return yield* parseBySchema(def.outputSchema, output).pipe(
+const parseOutput = Effect.fnUntraced(function* (
+  id: string,
+  schema: ActionDefinition["outputSchema"],
+  output: unknown,
+) {
+  return yield* parseBySchema(schema, output).pipe(
     Effect.mapError((err) =>
-      domainError(
-        "internal",
-        `action ${def.id} returned output its schema rejects: ${err.message}`,
-        {
-          action: def.id,
-          issues: err instanceof ActionSchemaError ? err.issues : undefined,
-        },
-      ),
+      domainError("internal", `action ${id} returned output its schema rejects: ${err.message}`, {
+        action: id,
+        issues: err instanceof ActionSchemaError ? err.issues : undefined,
+      }),
     ),
   );
 });
+
+/** Keep JSON fields and values common to both projections at the same path. */
+function commonOutput(left: unknown, right: unknown): unknown {
+  if (Array.isArray(left) && Array.isArray(right) && left.length === right.length) {
+    const items = left.map((item, index) => commonOutput(item, right[index]));
+    return items.includes(undefined) ? undefined : items;
+  }
+  if (Predicate.isObject(left) && Predicate.isObject(right)) {
+    const entries: [string, unknown][] = [];
+    for (const [key, value] of Object.entries(left)) {
+      if (!Object.hasOwn(right, key)) continue;
+      const common = commonOutput(value, right[key]);
+      if (common !== undefined) entries.push([key, common]);
+    }
+    return Object.fromEntries(entries);
+  }
+  return Object.is(left, right) ? left : undefined;
+}
+
+const projectOutput = Effect.fnUntraced(function* (
+  id: string,
+  output: unknown,
+  callerProjection: ActionDefinition["outputSchema"] | undefined,
+  ceilingProjection: ActionDefinition["outputSchema"] | undefined,
+) {
+  const projection = callerProjection ?? ceilingProjection;
+  if (projection === undefined) return output;
+  if (ceilingProjection === undefined || ceilingProjection === projection) {
+    return yield* parseOutput(id, projection, output);
+  }
+  // Each schema sees the full validated result, independently of the other.
+  // Compare what their results expose on the wire, including transformed values.
+  const projected = yield* parseOutput(id, projection, structuredClone(output));
+  const callerValue: unknown = JSON.parse(JSON.stringify(projected));
+  const limited = yield* parseOutput(id, ceilingProjection, output);
+  const ceilingValue: unknown = JSON.parse(JSON.stringify(limited));
+  const common = commonOutput(callerValue, ceilingValue);
+  if (common === undefined) {
+    return yield* domainError("internal", `action ${id} has incompatible output projections`);
+  }
+  return common;
+});
+
+/** Keep diagnostics that can contain unprojected values on the host. */
+const outputForCaller = Effect.fnUntraced(function* (
+  def: ActionDefinition,
+  invocation: ActionInvocation,
+  output: Effect.Effect<unknown, DomainError>,
+) {
+  const caller = invocationCaller(invocation);
+  const { callerCeiling } = invocation;
+  const callerProjection = def.callerOutput?.[caller];
+  const ceilingProjection =
+    callerCeiling === undefined ? undefined : def.callerOutput?.[invocationCaller(callerCeiling)];
+  const finish = Effect.gen(function* () {
+    const validated = yield* parseOutput(def.id, def.outputSchema, yield* output);
+    return yield* projectOutput(def.id, validated, callerProjection, ceilingProjection);
+  });
+  const capture = isCaptureCaller(caller);
+  if (!capture && callerProjection === undefined && ceilingProjection === undefined) {
+    return yield* finish;
+  }
+  return yield* finish.pipe(
+    Effect.catchCause((cause) =>
+      Effect.gen(function* () {
+        if (Cause.hasInterruptsOnly(cause)) return yield* Effect.failCause(cause);
+        const diagnostic = Cause.squash(cause);
+        yield* Effect.logError(
+          diagnostic instanceof Error ? diagnostic.message : String(diagnostic),
+          isDomainError(diagnostic) ? diagnostic.details : undefined,
+        );
+        return yield* domainError(
+          "internal",
+          capture ? "capture action output is invalid" : "action output is invalid",
+        );
+      }),
+    ),
+  );
+});
+
+function invocationFor(def: ActionDefinition, invocation: ActionInvocation): ActionInvocation {
+  if (def.requestEnvelope !== "input-only") return invocation;
+  // Identity and script reach are stamped by the host. Session, via and
+  // approval are outside this action's request envelope, even on PAGE_WIRE.
+  const { session: _session, via: _via, ...inputOnly } = invocation;
+  return { ...inputOnly, approved: false };
+}
 
 /**
  * How deep calls may nest, each made inside another (an action's handler
@@ -160,16 +251,17 @@ export const invokeWith = Effect.fnUntraced(function* <R>(
   actions: ReadonlyMap<string, RegisteredAction<R>>,
   ctx: KbContext<NodeIndex>,
   asked: ActionInvocation,
+  scope: ActionMode["kind"] = "write",
 ): Effect.fn.Return<ActionReceipt, ActionSchemaError | DomainError, R> {
   const inherited = yield* CurrentCommitFrame;
-  if (inherited !== null && inherited.open()) return yield* invokeCall(actions, ctx, asked);
+  if (inherited !== null && inherited.open()) return yield* invokeCall(actions, ctx, asked, scope);
   const services = yield* Effect.context<R>();
   const held = commitFrame(
     yield* CurrentReactions,
     (invocation) => invokeReceiptWith(actions, ctx, invocation),
     services,
   );
-  return yield* invokeCall(actions, ctx, asked).pipe(
+  return yield* invokeCall(actions, ctx, asked, scope).pipe(
     Effect.onExit(() => held.drain),
     Effect.provideService(CurrentCommitFrame, held.frame),
   );
@@ -179,6 +271,7 @@ const invokeCall = Effect.fn("kb.invoke")(function* <R>(
   actions: ReadonlyMap<string, RegisteredAction<R>>,
   ctx: KbContext<NodeIndex>,
   asked: ActionInvocation,
+  scope: ActionMode["kind"],
 ): Effect.fn.Return<ActionReceipt, ActionSchemaError | DomainError, R> {
   // A call an action makes while another runs is made as that one's caller.
   const outer = yield* CurrentCall;
@@ -191,7 +284,12 @@ const invokeCall = Effect.fn("kb.invoke")(function* <R>(
     });
   }
   const entry = actions.get(id);
-  if (!entry) return failed(id, "unknown_action", `unknown action: ${id}`);
+  const denied = callerRefusal(entry?.def, made);
+  if (denied !== null) return failed(id, "forbidden", denied);
+  if (entry === undefined) return failed(id, "unknown_action", `unknown action: ${id}`);
+  if (scope === "read" && entry.def.mode.kind === "write") {
+    return failed(id, "forbidden", `${id} is a write, and a call made while reading may only read`);
+  }
   // Every call passes the interceptors, then is put to the guards as it will
   // run, here on invoke itself, so no surface can skip either
   // (`interception.ts`).
@@ -205,7 +303,7 @@ const invokeCall = Effect.fn("kb.invoke")(function* <R>(
   // A call made in a tab session is first given the required inputs it left
   // out from what its person is looking at, so all that follows sees the
   // input as it will run (`context-fill.ts`).
-  const fill = yield* fillFromSession(entry.def, made, outer);
+  const fill = yield* fillFromSession(entry.def, invocationFor(entry.def, made), outer);
   const held = yield* sealedPart(fill.invocation);
   // Everything the call runs — its listeners as much as its handler — runs
   // as this call, so a call any of them makes nests in it and counts
@@ -237,10 +335,11 @@ const invokeCall = Effect.fn("kb.invoke")(function* <R>(
   if (run === null) return failed(id, "internal", `action has no effect or handler: ${id}`);
 
   const produced = yield* run.pipe(asCall(invocation));
-  const output = yield* interceptOutput(interception, { ctx, invocation, action }, produced).pipe(
+  const output = interceptOutput(interception, { ctx, invocation, action }, produced).pipe(
     asCall(invocation),
   );
-  return succeeded(id, yield* parseOutput(entry.def, output), fill.context);
+  const projected = yield* outputForCaller(entry.def, made, output);
+  return succeeded(id, projected, fill.context);
 });
 
 /**
@@ -253,8 +352,9 @@ export const invokeReceiptWith = Effect.fn("kb.invokeReceipt")(function* <R>(
   actions: ReadonlyMap<string, RegisteredAction<R>>,
   ctx: KbContext<NodeIndex>,
   invocation: ActionInvocation,
+  scope?: ActionMode["kind"],
 ): Effect.fn.Return<ActionReceipt, never, R> {
-  return yield* invokeWith(actions, ctx, invocation).pipe(
+  return yield* invokeWith(actions, ctx, invocation, scope).pipe(
     Effect.catch((err) => Effect.succeed(receiptFromError(invocation.id, err))),
   );
 });

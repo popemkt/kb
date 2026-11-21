@@ -127,20 +127,20 @@ export const fixtureGraph: GraphSnapshot = {
     seedField("sys.f.query.limit"),
     seedField("sys.f.node.text"),
     seedField("sys.f.lens.query"),
-    seedField("sys.f.lens.renderer"),
-    seedField("sys.f.lens.color-by"),
-    seedField("sys.f.lens.size-by"),
-    seedField("sys.f.lens.edge-kinds"),
-    seedField("sys.f.lens.max-nodes"),
-    seedField("sys.f.lens.cluster-by"),
+    seedField("sys.f.lens.renderer"), // GAP [[01M7WXS470A29JEH2DHDGEWJD6]]
+    seedField("sys.f.lens.color-by"), // GAP [[01M7WXS470A29JEH2DHDGEWJD6]]
+    seedField("sys.f.lens.size-by"), // GAP [[01M7WXS470A29JEH2DHDGEWJD6]]
+    seedField("sys.f.lens.edge-kinds"), // GAP [[01M7WXS470A29JEH2DHDGEWJD6]]
+    seedField("sys.f.lens.max-nodes"), // GAP [[01M7WXS470A29JEH2DHDGEWJD6]]
+    seedField("sys.f.lens.cluster-by"), // GAP [[01M7WXS470A29JEH2DHDGEWJD6]]
     seedField("sys.f.lens.focus"),
-    seedField("sys.f.lens.layout"),
-    seedField("sys.f.lens.spread"),
-    seedField("sys.f.lens.link-distance"),
-    seedField("sys.f.lens.show-labels"),
-    seedField("sys.f.lens.autorotate"),
-    seedField("sys.f.lens.label-density"),
-    seedField("sys.f.lens.hops"),
+    seedField("sys.f.lens.layout"), // GAP [[01M7WXS470A29JEH2DHDGEWJD6]]
+    seedField("sys.f.lens.spread"), // GAP [[01M7WXS470A29JEH2DHDGEWJD6]]
+    seedField("sys.f.lens.link-distance"), // GAP [[01M7WXS470A29JEH2DHDGEWJD6]]
+    seedField("sys.f.lens.show-labels"), // GAP [[01M7WXS470A29JEH2DHDGEWJD6]]
+    seedField("sys.f.lens.autorotate"), // GAP [[01M7WXS470A29JEH2DHDGEWJD6]]
+    seedField("sys.f.lens.label-density"), // GAP [[01M7WXS470A29JEH2DHDGEWJD6]]
+    seedField("sys.f.lens.hops"), // GAP [[01M7WXS470A29JEH2DHDGEWJD6]]
     // View nodes: the fields, and the view options with their families.
     seedField("sys.f.view"),
     seedField("sys.f.views"),
@@ -149,11 +149,12 @@ export const fixtureGraph: GraphSnapshot = {
     // A seeded supertag, so the offline graph holds both kinds of tag.
     ...seedTree(SYSTEM_IDS.ontologyTag),
     node({
-      id: "lens.all-mentions",
+      id: "lens.all-mentions", // GAP [[01M7WXS470A29JEH2DHDGEWJD6]]
       text: "All mentions",
       props: {
-        "sys.f.view": [{ t: "ref", v: "sys.view.graph.force2d" }],
-        "sys.f.lens.cluster-by": [{ t: "str", v: "parent" }],
+        "sys.f.view": [{ t: "ref", v: "sys.view.graph.force2d" }], // GAP [[01M7WXS470A29JEH2DHDGEWJD6]]
+        "sys.f.lens.cluster-by": [{ t: "str", v: "parent" }], // GAP [[01M7WXS470A29JEH2DHDGEWJD6]]
+        // GAP [[01M7WXS470A29JEH2DHDGEWJD6]]
         "sys.f.lens.edge-kinds": [
           { t: "str", v: "mention" },
           { t: "str", v: "child" },

@@ -16,6 +16,7 @@ import { applyEditingIntent } from "./editing-intents";
 import { mapEditingKey, type EditingKeyContext } from "./editing-keymap";
 import { EDITING_CONTEXT_ID } from "@kb/outline";
 import { fieldSlotCount } from "./value-slot-nav";
+import { useOutlineHost } from "./outline-host";
 
 export interface UseNodeKeyDownArgs {
   nodeId: string;
@@ -26,9 +27,10 @@ export interface UseNodeKeyDownArgs {
 function readEditingContext(args: {
   nodeId: string;
   instanceKey: string;
+  host: string;
   editable: HTMLElement;
 }): EditingKeyContext {
-  const { nodeId, instanceKey, editable } = args;
+  const { nodeId, instanceKey, host, editable } = args;
   const store = useOutlineStore.getState();
   const live = outlineNodes().get(nodeId);
   const shown = rowTextOf(outlineSource(), nodeId);
@@ -40,6 +42,7 @@ function readEditingContext(args: {
     projectedRow: isProjectedRow(instanceKey),
     nodeId,
     instanceKey,
+    host,
     // Serialized caret offset — robust across element boundaries and atomic
     // ref pills (D06).
     cursor: getCaretSerializedOffset(editable),
@@ -72,18 +75,19 @@ function readEditingContext(args: {
  * never naive extremes, and an intent always claims the key.
  */
 export function useNodeKeyDown({ nodeId, instanceKey }: UseNodeKeyDownArgs) {
+  const host = useOutlineHost();
   return useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       const editable = e.currentTarget;
       const intent = mapEditingKey(
         keyChordEvent(e),
-        readEditingContext({ nodeId, instanceKey, editable }),
+        readEditingContext({ nodeId, instanceKey, host, editable }),
         currentKeymap(EDITING_CONTEXT_ID),
       );
       if (intent === null) return;
       e.preventDefault();
       applyEditingIntent(intent, editable);
     },
-    [nodeId, instanceKey],
+    [nodeId, instanceKey, host],
   );
 }

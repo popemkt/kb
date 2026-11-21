@@ -26,6 +26,12 @@ export interface EditingKeyContext {
   readonly projectedRow: boolean;
   readonly nodeId: string;
   readonly instanceKey: string;
+  /**
+   * The outline host the key was pressed in: its pane's (`useOutlineHost`),
+   * where a zoom opens. The instance key cannot say it for a projected row,
+   * whose key names its source, not its pane.
+   */
+  readonly host: string;
   readonly cursor: number;
   /** The text the row shows and edits (`rowTextOf`); `cursor` is an offset into it. */
   readonly text: string;
@@ -65,7 +71,7 @@ export type EditingIntent =
   /** Claimed and deliberately inert — the key must not reach the browser. */
   | { type: "claim" }
   | { type: "softBreak"; nodeId: string; instanceKey: string; cursor: number }
-  | { type: "split"; nodeId: string; cursor: number | "end" }
+  | { type: "split"; nodeId: string; instanceKey: string; cursor: number | "end" }
   | { type: "indent"; nodeId: string; cursor: number }
   | { type: "outdent"; nodeId: string; cursor: number }
   | { type: "deleteSubtree"; nodeId: string; instanceKey: string }
@@ -82,7 +88,15 @@ export type EditingIntent =
   | { type: "moveDown"; nodeId: string }
   | { type: "toggleCheck"; nodeId: string }
   | { type: "toggleCollapse"; nodeId: string }
-  | { type: "zoomToParent"; parentId: string; instanceKey: string }
+  /** Open the row and every row under it; or close them. */
+  | { type: "expandSubtree"; instanceKey: string; host: string }
+  | { type: "collapseSubtree"; instanceKey: string; host: string }
+  /** A new empty row directly above this one, edited. */
+  | { type: "createBefore"; nodeId: string }
+  | { type: "zoom"; nodeId: string; host: string }
+  /** Out to the page above the one the row's outline shows. */
+  | { type: "zoomOut"; host: string }
+  | { type: "zoomToParent"; parentId: string; host: string }
   | {
       type: "moveCaretToRow";
       nodeId: string;
@@ -173,7 +187,7 @@ function revealIntent(ctx: EditingKeyContext, key: string): EditingIntent {
     }
     return ctx.parentId === null
       ? { type: "claim" }
-      : { type: "zoomToParent", parentId: ctx.parentId, instanceKey: ctx.instanceKey };
+      : { type: "zoomToParent", parentId: ctx.parentId, host: ctx.host };
   }
   if (ctx.collapsed && (ctx.childCount > 0 || ctx.tagCount > 0)) {
     return { type: "toggleCollapse", nodeId: ctx.nodeId };
@@ -229,9 +243,12 @@ const EDITING_INTENTS = new Map<string, IntentOf>([
     structural((ctx) => ({
       type: "split",
       nodeId: ctx.nodeId,
+      instanceKey: ctx.instanceKey,
       cursor: ctx.ownsText(ctx.nodeId) ? ctx.cursor : "end",
     })),
   ],
+  // A new row above: its place is the row's, so a projected row has none.
+  ["create-before", structural((ctx) => ({ type: "createBefore", nodeId: ctx.nodeId }))],
   ["outdent", structural((ctx) => ({ type: "outdent", nodeId: ctx.nodeId, cursor: ctx.cursor }))],
   ["indent", structural((ctx) => ({ type: "indent", nodeId: ctx.nodeId, cursor: ctx.cursor }))],
   // Delete the subtree — an offset-0 gesture: mid-text the caret check
@@ -247,6 +264,11 @@ const EDITING_INTENTS = new Map<string, IntentOf>([
   ["toggle-check", (ctx) => ({ type: "toggleCheck", nodeId: ctx.nodeId })],
   ["collapse-or-leave", (ctx) => revealIntent(ctx, "ArrowUp")],
   ["expand", (ctx) => revealIntent(ctx, "ArrowDown")],
+  // Opening and closing is the reader's, never structure: a projected row's too.
+  ["expand-subtree", ({ instanceKey, host }) => ({ type: "expandSubtree", instanceKey, host })],
+  ["collapse-subtree", ({ instanceKey, host }) => ({ type: "collapseSubtree", instanceKey, host })],
+  ["zoom", (ctx) => ({ type: "zoom", nodeId: ctx.nodeId, host: ctx.host })],
+  ["zoom-out", (ctx) => ({ type: "zoomOut", host: ctx.host })],
   ["line-up", (ctx) => crossRowIntent(ctx, "ArrowUp")],
   ["line-down", (ctx) => crossRowIntent(ctx, "ArrowDown")],
   // Popups handle Escape before delegating; bare Escape selects.

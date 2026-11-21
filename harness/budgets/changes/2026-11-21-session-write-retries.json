@@ -1,0 +1,4 @@
+{
+  "reason": "One-shot writes share a time-bounded retry loop that refreshes the graph after a conflict and spaces retries with jitter.",
+  "raise": { "cli-closure": { "bytes": 182 } }
+}

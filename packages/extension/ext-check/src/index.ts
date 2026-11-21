@@ -8,9 +8,15 @@ import {
   familyTags,
 } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
-import { checkAuditEffect } from "./audit.ts";
 import { checkGapsEffect } from "./gaps.ts";
-import { auditOutput, emptyInput, gapsInput, gapsOutput, syncOutput } from "./model.ts";
+import {
+  auditOutput,
+  emptyInput,
+  gapsInput,
+  gapsOutput,
+  syncOutput,
+  type EmptyInput,
+} from "./model.ts";
 import { checkSyncEffect } from "./sync.ts";
 
 const actions: ExtensionAction[] = [
@@ -22,7 +28,10 @@ const actions: ExtensionAction[] = [
     mode: { kind: "read" },
     inputSchema: emptyInput,
     outputSchema: auditOutput,
-    effect: checkAuditEffect,
+    effect: Effect.fn("ext.check.loadAudit")(function* (input: EmptyInput) {
+      const { checkAuditEffect } = yield* Effect.promise(() => import("./audit.ts"));
+      return yield* checkAuditEffect(input);
+    }),
   },
   {
     id: "gaps",
@@ -54,7 +63,6 @@ export const checkPlugin = definePlugin({
       discard: true,
     }),
 });
-export { checkAuditEffect } from "./audit.ts";
 export { checkSyncEffect } from "./sync.ts";
 export { auditOutput, findingSchema, syncOutput } from "./model.ts";
 export type { Finding } from "./model.ts";

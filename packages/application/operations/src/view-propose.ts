@@ -9,10 +9,16 @@
 import { Effect } from "effect";
 import { z } from "zod";
 import { KbCtx, ViewCatalog, type ActionDefinition, type KbStore } from "@kb/contracts";
-import { domainError, type DomainError, type KbNode } from "@kb/model";
+import {
+  domainError,
+  freshId,
+  IndexedNodes,
+  present,
+  type DomainError,
+  type KbNode,
+} from "@kb/model";
 import { planViewProposal } from "@kb/views";
-import { sessionGraph } from "./actions.ts";
-import { persistEffect } from "./session.ts";
+import { persistPlannedEffect } from "./session.ts";
 
 export const viewProposeDef = {
   id: "view.propose",
@@ -20,6 +26,7 @@ export const viewProposeDef = {
   description:
     "Write a view node: a view from kb.manifest's view catalog (`view`, its id or option), its settings (`params`, checked against that view's settings schema: every setting legal, none it does not declare, and each one a view node can hold), and optionally the node it is shown for (`host`), whose views then name it, first when `default`. Files it in the Views list. On any issue it writes nothing and fails with every issue at its path.",
   mode: { kind: "write" } as const,
+  mints: "id",
   inputSchema: z.object({
     view: z.string().min(1),
     params: z.record(z.string(), z.unknown()).default({}),
@@ -56,18 +63,22 @@ export const viewProposeEffect = Effect.fn("view.propose")(function* (
       view: input.view,
       views: catalog.items.map((known) => known.key.id),
     });
-  const planned = yield* planViewProposal(
-    (id) => ctx.index.getNode(id),
-    sessionGraph(ctx),
-    key,
-    input,
+  const id = input.id ?? (yield* freshId);
+  const committed = yield* persistPlannedEffect(ctx, (nodes) =>
+    Effect.map(
+      planViewProposal((nodeId) => ctx.index.getNode(nodeId), IndexedNodes.of(nodes), key, {
+        ...input,
+        id,
+      }),
+      (plan) => ({ ...plan, deletes: [] }),
+    ),
   );
-  yield* persistEffect(ctx, { upserts: [...planned.upserts], deletes: [] });
+  const { node, host, params } = present(committed, "a view proposal always writes");
   return {
-    id: planned.node.id,
+    id: node.id,
     view: key.id,
-    ...(planned.host === null ? {} : { host: planned.host.id }),
-    params: planned.params,
-    node: planned.node,
+    ...(host === null ? {} : { host: host.id }),
+    params,
+    node,
   };
 });

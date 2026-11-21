@@ -11,10 +11,12 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@kb/contracts": "workspace:*",
     "@kb/model": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {
+    "@kb/test-kit": "workspace:*",
     "@types/bun": "catalog:"
   },
   "nx": {

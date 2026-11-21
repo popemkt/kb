@@ -316,6 +316,7 @@ export const commitCanvasEffect = Effect.fn("ext.canvas.commit")(function* (
     canvasWorld(yield* readableEffect([...also, canvas])),
   );
   const upserts = [canvas, ...also];
+  // GAP [[01M7XES1FFV2N8AEZREJN7CQG7]]: prepare the Canvas edit in the commit planner.
   yield* (yield* GraphWrites).commit(() => Effect.succeed({ upserts, deletes: [] }));
   return { doc: docStr, lints: lintDiff(before, after) };
 });

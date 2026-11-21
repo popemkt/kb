@@ -7,9 +7,10 @@
 import { describe, expect, test } from "bun:test";
 import { Effect } from "effect";
 import type { SecretRef } from "@kb/model";
-import { systemSecrets, type LookupResult } from "../src/index.ts";
+import type { LookupResult } from "@kb/keychain";
+import { systemSecrets } from "../src/index.ts";
 
-const notFound = (): Promise<LookupResult> => Promise.resolve({ code: 44, stdout: "" });
+const notFound = (): Promise<LookupResult> => Promise.resolve({ code: 44, stdout: "", stderr: "" });
 
 function resolve(source: ReturnType<typeof systemSecrets>, ref: SecretRef) {
   return Effect.runPromise(Effect.result(source.resolve(ref)));
@@ -43,7 +44,7 @@ describe("systemSecrets", () => {
     const asked: (readonly string[])[] = [];
     const run = (argv: readonly string[], _signal: AbortSignal): Promise<LookupResult> => {
       asked.push(argv);
-      return Promise.resolve({ code: 0, stdout: "sk-2\n" });
+      return Promise.resolve({ code: 0, stdout: "sk-2\n", stderr: "" });
     };
     const ref: SecretRef = { kind: "keychain", service: "kb-proxy", account: "me" };
     for (const platform of ["darwin", "linux"]) {
@@ -68,7 +69,7 @@ describe("systemSecrets", () => {
   });
 });
 
-const answersNothing = () => Promise.resolve({ code: 0, stdout: "" });
+const answersNothing = () => Promise.resolve({ code: 0, stdout: "", stderr: "" });
 
 describe("systemSecrets writes", () => {
   test("a new secret is placed in the macOS keychain on a Mac, the sealed store elsewhere", () => {
@@ -87,7 +88,7 @@ describe("systemSecrets writes", () => {
     const asked: { argv: readonly string[]; stdin: string | undefined }[] = [];
     const run = (argv: readonly string[], _signal: AbortSignal, stdin?: string) => {
       asked.push({ argv, stdin });
-      return Promise.resolve({ code: 0, stdout: "" });
+      return Promise.resolve({ code: 0, stdout: "", stderr: "" });
     };
     const ref: SecretRef = { kind: "keychain", service: "kb", account: "routines.a" };
     for (const platform of ["darwin", "linux"])

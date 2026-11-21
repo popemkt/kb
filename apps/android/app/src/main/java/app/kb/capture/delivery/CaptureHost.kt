@@ -91,7 +91,6 @@ class HttpCaptureHost(private val timeoutMs: Int = 30_000) : CaptureHost {
     companion object {
         /** Reads an HTTP status and body as an [Answer]; pure, so the decision is tested without a network. */
         fun interpret(status: Int, text: String): Answer {
-            if (status == 401 || status == 403) return Answer.Unauthorized("HTTP $status ${text.take(200)}".trim())
             val receipt =
                 try {
                     PayloadWriter.json.parseToJsonElement(text).jsonObject
@@ -100,6 +99,8 @@ class HttpCaptureHost(private val timeoutMs: Int = 30_000) : CaptureHost {
                 }
             val kind = receipt?.get("status")?.let { (it as? JsonPrimitive)?.content }
             return when {
+                status == 401 || status == 403 ->
+                    Answer.Unauthorized(receipt?.get("message")?.let { (it as? JsonPrimitive)?.content } ?: "HTTP $status")
                 kind == "succeeded" -> Answer.Ok(receipt["output"] ?: JsonObject(emptyMap()))
                 kind == "failed" -> {
                     val code = receipt["code"]?.jsonPrimitive?.content ?: "internal"

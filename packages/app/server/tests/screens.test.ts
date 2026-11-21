@@ -20,7 +20,7 @@ import {
   type UiListener,
 } from "@kb/contracts";
 import { invoke, openKb } from "@kb/runtime";
-import { FAKE_TAB_SCREEN, FakeTab } from "@kb/test-kit";
+import { FAKE_TAB_SCREEN, FakeTab, until } from "@kb/test-kit";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
 /** Who the page is: the account that runs the server. */
@@ -51,17 +51,6 @@ async function command(
 ) {
   const made = session === undefined ? { id, input } : { id, input, session };
   return ScreenReceiptSchema.parse(await post(handle, made));
-}
-
-/** `read` until `done` accepts it, for at most two seconds; the last answer either way. */
-async function eventually<A>(read: () => Promise<A>, done: (value: A) => boolean): Promise<A> {
-  const deadline = Date.now() + 2000;
-  let value = await read();
-  while (!done(value) && Date.now() < deadline) {
-    await Bun.sleep(10);
-    value = await read();
-  }
-  return value;
 }
 
 /**
@@ -131,10 +120,10 @@ describe("screen state", () => {
     await run(a.close);
     // The server takes the close on its own turn, so the list empties soon after.
     expect(
-      await eventually(
-        () => screen(handle),
-        (list) => list.tabs.length === 0,
-      ),
+      await until(async () => {
+        const list = await screen(handle);
+        return list.tabs.length === 0 ? list : undefined;
+      }, "the screen list to lose its closed tab"),
     ).toEqual({
       tabs: [],
     });
@@ -262,7 +251,7 @@ describe("screen state", () => {
     a.answer = "silent";
     const pending = command(handle, "ui.navigate", { route: "/", timeoutMs: 5000 });
     // The command is on its way once the tab has it.
-    while (a.commands.length === 0) await Bun.sleep(5);
+    await until(() => a.commands[0], "the tab to receive its command");
     await run(a.close);
     expect(await pending).toEqual({ outcome: "no-tab", tab: "tab.a" });
   });

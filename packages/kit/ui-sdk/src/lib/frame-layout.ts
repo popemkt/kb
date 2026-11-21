@@ -5,6 +5,12 @@
  * the order they flatten to. Which view a frame is shown
  * in, and the settings its view node holds, are `frameViewOf` and
  * `frameConfigOf`.
+ *
+ * Every step reads a row's values off the node the row shows (`shownNode`),
+ * and hands back the row itself: a contextual reference is filtered, sorted,
+ * grouped and dated by its target's text, tags and fields, as it draws them,
+ * while its place in the frame stays the reference's own (DESIGN-UI.md →
+ * Contextual references).
  */
 import { longDay } from "@kb/calendar-kit";
 import {
@@ -18,7 +24,7 @@ import {
 import { conditionGraph, conditionsMatcher, derivedWith } from "../query";
 import type { SortSpec, ViewFilter } from "@kb/views";
 import type { OutlineNode, PropValue } from "./types";
-import { nameIn } from "./contextual-ref";
+import { nameIn, shownNode } from "./contextual-ref";
 import { textOr } from "./text";
 import type { SchemaIndex } from "./schema";
 import { isFieldHidden } from "./field-visibility";
@@ -49,7 +55,8 @@ export function applyViewFilters(
   schema: SchemaIndex,
 ): OutlineNode[] {
   if (filters.length === 0) return children;
-  return children.filter(conditionsMatcher(filters, conditionGraph(schema, derivedWith({}))));
+  const matches = conditionsMatcher(filters, conditionGraph(schema, derivedWith({})));
+  return children.filter((row) => matches(shownNode(row, schema)));
 }
 
 export interface TableColumnSpec {
@@ -97,7 +104,7 @@ function derivedColumns(
   const seen = new Set<string>();
   const columns: TableColumnSpec[] = [];
   for (const child of children) {
-    const tags = child.tags.map((tag) => tag.id);
+    const tags = shownNode(child, schema).tags.map((tag) => tag.id);
     for (const field of templateFieldsOf(tags, (id) => schema.get(id))) {
       if (seen.has(field)) continue;
       seen.add(field);
@@ -202,8 +209,9 @@ type RowComparator = (a: OutlineNode, b: OutlineNode) => number;
 
 /** One sort key, in one direction. */
 function compareByField(spec: SortSpec, schema: SchemaIndex): RowComparator {
+  const valueOf = (row: OutlineNode) => sortValueOf(shownNode(row, schema), spec.fieldId);
   return (a, b) => {
-    const cmp = compareValues(sortValueOf(a, spec.fieldId), sortValueOf(b, spec.fieldId), schema);
+    const cmp = compareValues(valueOf(a), valueOf(b), schema);
     return spec.dir === "asc" ? cmp : -cmp;
   };
 }
@@ -280,7 +288,7 @@ export function groupChildrenForBoard(
 
   for (const child of children) {
     // Display: first value wins. Drag clears all values then sets one.
-    const [v] = child.props[groupFieldId] ?? [];
+    const [v] = shownNode(child, schema).props[groupFieldId] ?? [];
     if (v === undefined) {
       empty.nodes.push(child);
       continue;
@@ -345,9 +353,9 @@ export function groupSteps(columns: readonly BoardColumn[]): Map<string, GroupSt
   return steps;
 }
 
-/** A row's day by a date field: its first value's, when that is a day; else none. */
-function dayOf(row: OutlineNode, fieldId: string): string | null {
-  const [first] = row.props[fieldId] ?? [];
+/** A shown node's day by a date field: its first value's, when that is a day; else none. */
+function dayOf(shown: OutlineNode, fieldId: string): string | null {
+  const [first] = shown.props[fieldId] ?? [];
   if (first?.t !== "str") return null;
   const day = parseDay(first.v);
   return day === null ? null : formatDay(day);
@@ -376,7 +384,7 @@ export function groupRowsByDay(
     }),
   );
   for (const row of rows) {
-    const day = fieldId === null ? null : dayOf(row, fieldId);
+    const day = fieldId === null ? null : dayOf(shownNode(row, schema), fieldId);
     if (day === null) empty.nodes.push(row);
     else byDay.get(day)?.nodes.push(row);
   }

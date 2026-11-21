@@ -1,0 +1,6 @@
+{
+  "reason": "Record the production page size measured at the capture review base 47aeb404 before the WebMCP caller relay and follow-up fixes.",
+  "raise": {
+    "page-eager": { "bytes": 1857 }
+  }
+}

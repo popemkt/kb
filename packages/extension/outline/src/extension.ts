@@ -130,8 +130,12 @@ export const outlineExtension = defineExtension({
         show: "never",
       }),
     ),
-    // A setting of the family's own node: written like any field, read where a row draws its bullet.
+    // Settings of the family's own node: written like any field, read where a row draws.
     seededField(OUTLINE_IDS.childCountsField, "show child counts", "checkbox", at, {
+      one: true,
+      props: CONFIGURES_OUTLINE,
+    }),
+    seededField(OUTLINE_IDS.hideReferenceCountsField, "hide reference counts", "checkbox", at, {
       one: true,
       props: CONFIGURES_OUTLINE,
     }),

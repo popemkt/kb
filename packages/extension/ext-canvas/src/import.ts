@@ -234,6 +234,7 @@ const canvasImportEffect = Effect.fn("ext.canvas.import")(function* (
   const upserts = [...written].map((id) =>
     present(graph.get(id), "a planned node is in the graph"),
   );
+  // GAP [[01M7XES1FFV2N8AEZREJN7CQG7]]: plan the import against the graph each attempt reads.
   yield* (yield* GraphWrites).commit(() => Effect.succeed({ upserts, deletes: [] }));
   const world = canvasWorld([...ctx.nodes, ...upserts]);
   return {

@@ -1,14 +1,23 @@
 /** Keep transports' asynchronous handlers alive until their shared session can be released. */
 export function pendingRequests() {
-  const active = new Set<Promise<unknown>>();
+  const active = new Map<Promise<unknown>, number>();
   return {
     run<A>(start: () => Promise<A>): Promise<A> {
+      const started = performance.now();
       const pending = start();
-      active.add(pending);
-      return pending.finally(() => {
-        active.delete(pending);
+      const tracked = pending.finally(() => {
+        active.delete(tracked);
       });
+      active.set(tracked, started);
+      return tracked;
     },
-    settle: () => Promise.allSettled(active).then(() => undefined),
+    snapshot() {
+      const oldest = active.values().next().value;
+      return {
+        inFlight: active.size,
+        oldestRequestMs: oldest === undefined ? 0 : Math.round(performance.now() - oldest),
+      };
+    },
+    settle: () => Promise.allSettled(active.keys()).then(() => undefined),
   };
 }

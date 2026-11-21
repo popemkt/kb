@@ -675,6 +675,7 @@
   "@kb/graph" = copyPathToStore ./packages/extension/graph;
   "@kb/graph-ui" = copyPathToStore ./packages/extension/graph-ui;
   "@kb/keybindings" = copyPathToStore ./packages/domain/keybindings;
+  "@kb/keychain" = copyPathToStore ./packages/infrastructure/keychain;
   "@kb/lab" = copyPathToStore ./packages/extension/lab;
   "@kb/lab-ui" = copyPathToStore ./packages/extension/lab-ui;
   "@kb/locations" = copyPathToStore ./packages/extension/locations;
@@ -3895,6 +3896,10 @@
   "unbash@4.0.10" = fetchurl {
     url = "https://registry.npmjs.org/unbash/-/unbash-4.0.10.tgz";
     hash = "sha512-b7zoBQvpWp0vuN5q2vK2RRBR2SvuruQAs50DApdDveBSn3eSYd84IaHodFqQIMlvY9K2VnyBUEXgwOBuGU9GBg==";
+  };
+  "unbash@6.0.4" = fetchurl {
+    url = "https://registry.npmjs.org/unbash/-/unbash-6.0.4.tgz";
+    hash = "sha512-t3OptUArewg9OpYGDskTSlxhyLDahfmZ4d36hE44Efb1y3HRLLpzsVqwH+AwBVymP4t7pP71xN+nnduudn2awA==";
   };
   "underscore@1.13.8" = fetchurl {
     url = "https://registry.npmjs.org/underscore/-/underscore-1.13.8.tgz";

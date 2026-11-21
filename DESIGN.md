@@ -494,6 +494,12 @@ by time takes one of three forms:
 Bench-lane files (`bun run bench`) print wall time and are held to nothing
 but comparisons made within one run.
 
+Bun tests waiting for an observable result use `until` from `@kb/test-kit`.
+The probe retries on `undefined`. The runner owns the timeout and stops any
+pending wait when the test finishes, reporting what it was waiting for.
+An ended wait stays pending so the test body cannot resume during teardown.
+Tests register resource cleanup with the runner before waiting.
+
 **Coverage is a signal, never a gate.** It may be reported; there is no
 "fail below N%" check and there will not be one. Chasing a percentage
 manufactures exactly the noise this doctrine forbids.
@@ -1463,8 +1469,10 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   reported. A setting the view takes from its host or its route, which a
   view node therefore cannot hold, is refused by its path. On success the
   node is filed at the end of the Views list and named in the host's
-  `sys.f.views` (first when `default`); otherwise nothing is written and the
-  receipt carries every issue as `{path, message}`. Any other entry that
+  `sys.f.views` (first when `default`). If the store changes before commit,
+  the action replans on the current graph and refuses a claimed view ID.
+  On failure nothing is written and the receipt carries every issue as
+  `{path, message}`. Any other entry that
   makes a view node from settings is to call the same function. The write
   check does not yet: a view node written through `node.add` or
   `node.update` is not checked against its view's settings
@@ -1928,7 +1936,7 @@ everything above the port — operations, query, surfaces — sees only
 `EffectStore` + `KbNode`.
 
 Both adapters answer the same three questions and are proven by the same
-tests: `storeContract(name, makeStore)` in `@kb/test-kit` is one `describe`
+tests: `storeContract(name, factory)` in `@kb/test-kit` is one `describe`
 block that each adapter's test file calls with its own factory. A property
 that holds for one backend and not the other is not a store property, and the
 contract is where that gets found out. The contract also holds what a session
@@ -1961,6 +1969,16 @@ split went with that: it was measuring two halves of `JsonlStore.loadEffect`,
 which the port does not have. `briefs/p1-persistence.md` picks incremental
 reading up against that adapter's own internals when it gets there; keeping
 `decodeNodes` exported for a benchmark nobody runs yet would be a dead seam.
+
+**The session retries commit conflicts.** Across backends, a retryable write
+starts with one 15-second deadline for lock acquisition and any retries.
+Conflicts retry with capped, jittered exponential backoff. A transaction
+authored independently of the graph is checked again against the refreshed
+graph. Writes derived from it run their planner again, including decisions
+about whether to write at all. An exhausted lock wait returns its conflict
+to the caller.
+A caller that supplies its own expected fingerprint gets one attempt against
+that state. A refusal from the planner reaches the caller immediately.
 
 A tool outside kb's surfaces reaches the graph through `@kb/client`
 (`packages/app/client/README.md`): a fresh read, a query over it, and a commit
@@ -2006,9 +2024,13 @@ file is the format git already understands.
     pid wraps the _whole_ commit via `Effect.acquireRelease` inside
     `Effect.scoped`, so reload → merge → replace is one critical section and
     concurrent CLI / MCP / `kb ui` writers cannot silently clobber each other
-    (previously last-writer-wins). Contention spins on `Effect.sleep` (25ms,
-    `MAX_WAIT_MS` 15s — never a loop-blocking sleep), and only exhausting the
-    ceiling fails, with a `conflict` error naming the holder pid. The lock is
+    (previously last-writer-wins). Contention waits as every kb writer
+    waits (`takeWriteLock` in `@kb/contracts`: a try that never blocks, then
+    `Effect.sleep` for up to `WRITE_LOCK_RETRY`, 25ms, between tries).
+    `WriteLockDeadline` lets a caller supply one absolute deadline across
+    attempts. The default `WRITE_LOCK_WAIT` is 15s when there is no supplied
+    deadline. JSONL reports a `conflict` naming the holder pid when time runs
+    out. The lock is
     the kernel's: the holder opens `<file>.lock` and takes `flock(2)` on it
     (`LOCK_EX | LOCK_NB`, retried on the spin), and the kernel releases it
     when the holder unlocks, closes it or dies. So a dead holder's lock is
@@ -2111,13 +2133,15 @@ CREATE TABLE meta  (key TEXT PRIMARY KEY, value TEXT);   -- schema_version, rev
   all-or-nothing here too: one bad row fails the whole load with an
   `invalid_input` naming that row's id.
 - `.kb/kb.sqlite` is the committed file, the way `nodes.jsonl` is; `-wal` and
-  `-shm` are derived and gitignored.
-- `PRAGMA journal_mode = WAL`, `synchronous = NORMAL`, `busy_timeout = 15000`.
-  WAL so a reader is never blocked by the writer; `NORMAL` because the same
-  durability trade the JSONL adapter makes (ordering-safe, no `F_FULLFSYNC`) is
-  the honest one at repo scale; the busy timeout is the same 15s ceiling
-  `write-lock.ts` already spends waiting, so a contended commit behaves the same
-  on both adapters rather than failing fast on one and spinning on the other.
+  `-shm` are derived and gitignored. A session opens a read-only handle until
+  its first write. Closing that handle leaves a crashed writer's WAL available
+  for the next reader without checkpointing it into `kb.sqlite`.
+- `PRAGMA journal_mode = WAL` lets readers proceed while a writer holds the lock.
+  `synchronous = NORMAL` makes the same durability trade as JSONL. All handles
+  use `busy_timeout = 0` so a contended operation leaves the host responsive.
+  A read blocked by an exclusive lock, such as on a legacy rollback-journal
+  database, fails immediately. A write waits asynchronously for `BEGIN IMMEDIATE`
+  through the shared `takeWriteLock` policy.
 - **No `.lock` file.** `BEGIN IMMEDIATE … COMMIT` takes sqlite's own write lock
   for the whole deletes → upserts → tail-record transaction. A second lock beside
   it would be two mechanisms for one concept, and the weaker one would be the
@@ -2137,6 +2161,9 @@ CREATE TABLE meta  (key TEXT PRIMARY KEY, value TEXT);   -- schema_version, rev
   unopened store compares equal to nothing.
 - **The store owns the connection.** It opens lazily on first `load` or
   `commit` and stays open for the store's lifetime; `close()` exists for tests.
+  Reads can open current and older schemas while a writer holds the lock.
+  Schema creation and upgrades run in the first write transaction. Reads of
+  older transaction records omit metadata columns that were added later.
   The caller cannot own it: `EffectStore` is constructed once per session and
   handed to layers, actions and the watcher as a value, and none of them has a
   lifetime to hang a connection off — `KbContext` is not scoped. Making the
@@ -2929,7 +2956,33 @@ scope.
 
 Harman-lite (zod) + Effect-native handlers for owned actions:
 
-- `ActionDefinition { id, title, description, mode, inputSchema, outputSchema, effect? }` — JSON Schemas from each schema's Standard JSON Schema converter or `z.toJSONSchema`, never hand-written; the inputSchema is published as the side a caller sends, the outputSchema as the side the action returns. Optional `effect` is the Effect-native handler seam for built-ins / bundled extensions.
+- `ActionDefinition { id, title, description, mode, callers?, callerOutput?, requestEnvelope?, inputSchema, outputSchema, effect? }` — JSON Schemas from each schema's Standard JSON Schema converter or `z.toJSONSchema`, never hand-written; the inputSchema is published as the side a caller sends, the outputSchema as the side the action returns. Optional `effect` is the Effect-native handler seam for built-ins / bundled extensions.
+- **Callers.** An action's `callers` declaration lists the caller kinds that
+  may invoke it. Every invocation has a caller, stamped by its surface.
+  Nested calls inherit their outer caller. The core checks admission before a
+  nested call's read or write scope. The in-process default is
+  `person` for a human actor and `program` for other actors. An action without
+  a `callers` declaration admits those two kinds. The capture caller kinds
+  are `capture-device` for a paired device with a valid bearer credential and
+  `capture-pairing` for a request without a credential on a capture-only
+  listener. Both use the same registry admission as other calls and can only
+  reach actions that explicitly admit their kind. Their HTTP wire takes only
+  the action ID and input.
+
+  `callerOutput` declares the per-caller schema the invoke core applies after
+  the output schema on every call, including nested calls. A relay applies
+  both the effective caller's projection and the caller ceiling's projection
+  to the same validated result. A missing projection adds no restriction.
+  When both declare projections, the receipt keeps only common JSON fields
+  and values. Arrays intersect by position when lengths agree and elements
+  can be intersected. Capture calls and calls with an output projection get
+  a generic internal failure if an output interceptor or schema fails. The
+  host logs its diagnostics.
+  `kb.manifest` admits both capture caller kinds and projects their output
+  to `CaptureVersion`.
+- **Request envelope.** An action can declare `requestEnvelope: "input-only"`
+  to drop the tab session and `via` label and run without person approval on
+  every wire. `capture.pair` uses this envelope to exchange the one-use code.
 - **Mode**: every action states once, as a required field, what invoking it does.
   `{kind: "read"}` changes nothing.
   `{kind: "write", approval?: "required" | "delegated"}` may change the
@@ -3102,9 +3155,12 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     data, which no guard reads.
   - The flag goes on the invocation envelope, not in the input, so a surface
     can carry approval only if its wire format has an envelope.
-    `POST /api/action` and `kb action-invoke` do. An MCP tool call and a
-    WebMCP `execute` do not, because their arguments are the input, so a
-    call that asks is always refused over MCP and WebMCP.
+    Only a trusted in-process call can carry a positive approval assertion.
+    An external action envelope may carry a decline. The server ignores
+    its positive approval claims and recognises the page's own gesture
+    from its wire. A person who accepts an agent's approval prompt makes
+    the call as their own page gesture. A call that asks is refused over
+    MCP and WebMCP.
   - The wire also names its **actor**, who a call on it is made by: `human`
     (a gesture in the UI), `agent` (the sidebar agent, MCP, WebMCP, and any
     program that calls over HTTP), `cli`, or `script` (code in the sandbox,
@@ -3131,8 +3187,8 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     the request guard says which wire a request is on (Surfaces → Who the
     person is): the kb page in a browser is the page's, anything else a
     local program's (`HTTP_WIRE`, an agent's). The envelope the page sends
-    (`envelopeOf`) states no actor, so a relayed call is the page's on the
-    server (`// GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]`). **Every call names
+    (`envelopeOf`) states no actor. The receiving wire stamps identity
+    and applies the caller ceiling described below. **Every call names
     its actor** in the core: what the invoke core takes is an
     `ActionInvocation`, whose actor the type requires. A call an action
     makes while another runs (`CoreInvoke`) is made by that one's actor
@@ -3142,8 +3198,8 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     calling `kb.manifest` on that wire. `kb.manifest` lists every action and
     says of each what is decided about the caller's own call
     (`decision`). One rule in `@kb/contracts`, `listedOn`, then leaves out an
-    action whose call could never succeed there: one denied to the wire's
-    actor, or one that asks on a wire that cannot carry approval
+    action whose declaration excludes a caller required by the wire, whose guard
+    denies the call, or whose guard asks on a wire that cannot carry approval
     (`listingOf`). A call by its id or tool name still reaches the invoke
     core and is refused. The same rule lists each action once, under its
     id: an alias the manifest lists (`aliasOf`) stays callable by its id or
@@ -3160,9 +3216,12 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     carries an `Origin` it lets through is the UI's own page, on the page's
     wire (`PAGE_WIRE`), and one that carries none is a local program's
     (`HTTP_WIRE`, an agent's). A browser sends `Origin` on every
-    WebSocket handshake and every `POST`, so the page's socket and its
-    actions are always the page's; its same-origin `GET`s carry none and
-    read on the program's wire, which reads the same. **The trade-off,
+    WebSocket handshake and every `POST`. The page may narrow its action
+    envelope to the `program` caller kind. When a relay changes identity,
+    the server keeps the original caller as the ceiling. An action and its
+    guards must admit both identities, including at commit and in nested
+    calls. The relay carries no implicit person approval. Same-origin
+    `GET`s carry no `Origin` and use the program's wire. **The trade-off,
     chosen plainly:** a local program can send the UI's `Origin` and pass
     as the page. That is accepted, because governance is not a security
     boundary here (Action registry → Current stance): who can reach the
@@ -3400,7 +3459,9 @@ back at the public origin, which its setup page says before it starts. An
 alias needs no public origin; a socket still does, since its page is the
 proxy's.
 
-**Hosted behind a proxy.** A hosted page works as a local one does: the
+### Hosted behind a proxy
+
+A hosted page works as a local one does: the
 page is the person's by its `Origin` (Surfaces → Who the person is), with
 nothing to open it by. A proxy that authenticates the person can also tell
 `kb ui` their name: `kb ui --identity-header <header>=<login>`
@@ -3997,7 +4058,7 @@ where, how rows become markdown, repo-specific output of any kind — lives in
     registry at a time, and the one replaced is shut down, every plugin's
     scope closed, once the calls running on it have settled), but a module
     cannot be un-imported: its top level's effects, and the module, stay
-    until the process restarts.
+    until the process restarts. GAP [[01M7WXS4712B6AC2Q6TE43T7CA]]
   - **A family's channels are its host's.** `kb.ui.channels` accepts only
     the server kernel. A registry contribution is refused with `wrong-kernel`.
     GAP [[01M579MHGHVT2FNGJJRK81J9GY]]
@@ -4384,11 +4445,8 @@ enabled, source, origin}`: `origin` is how it came to be composed (`bundled`, `h
     (`systemWriteRefusal`, `@kb/model`) admits exactly the values of fields
     that configure the node being written, beside its text and a person's
     additions to its lists ([Data model](#data-model--everything-is-a-node)
-    states the rule). Its
-    rank and every other field stay its owner's. The page does not yet offer
-    every write the rule admits: additive edits
-    (GAP [[01M7342V3W6X9PFNWVZ92WD7SF]]) and labels
-    (GAP [[01M7342W0CNMFK152YEFNJHPP4]]).
+    states the rule). Its rank and every other field stay its owner's. The page
+    offers title edits and additive edits under the same rule.
     The invoke core checks
     every commit against the rule, on the server and on the page's replica,
     and the page's field rows read the rule (`fieldWriting`, through
@@ -4700,6 +4758,11 @@ figure?}`. `viewText` looks the view up in the catalog and falls back to
     spread key) fails, because only a direct literal call can be read;
   - an extension package imports another extension package only of its own
     family;
+  - production source spells a bundled family's seeded ids only inside that
+    family. The harness reads the actual ownership fold and checks string
+    literals, including strings without substitutions in backticks. Tests
+    and test-support packages may name those ids as fixture data. A known
+    production copy carries a gap marker at its site;
   - an `app` package imports an extension package only from its composition
     root's bundled-extensions file (`EXTENSION_ROOTS`), and a root
     re-exports none. Tests (the package's `tests/` folder, `*.test.*`
@@ -4769,12 +4832,8 @@ Today's drift from this contract is marked where it sits:
   GAP [[01M41H30Y60D3G9WJJX6NFQD2T]];
 - the outline's canvas bullet, which the kit names by the canvas tag's
   frozen id: GAP [[01M436DVSEHKNYWSF2MR07HPMR]];
-- core's migration of graph data written before the graph was a family,
-  which names the graph's frozen id by its spelling
-  (`PERSPECTIVE_RENDERER_FIELD`), held to `GRAPH_IDS` by `@kb/graph`'s seed
-  test (the default perspective's rename is the graph family's own
-  retirement row): a gap placeholder in the
-  [projection-families plan](docs/brainstorms/2026-10-16-kb-projection-families/README.md).
+- the offline demo's graph seed references: GAP [[01M7WXS470A29JEH2DHDGEWJD6]];
+- the core migration's graph renderer field: GAP [[01M7WXS471S9B2FYXWQZV52PKD]].
 
 ### Canvas documents
 
@@ -5283,7 +5342,7 @@ answers `{canvasId, items, edges, reported}`.
 | `node.add`                                                                   | write | create (text, props by field name/id, parent, position, tags, and `matching`: what a query node requires, [What a match requires](#query-layer-horizontal))                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `node.addTree`                                                               | write | create a whole outline from text in an outline format (Tana Paste unless `format` says otherwise) in one transaction (`kb add --outline [--format]`; [Outline paste](#outline-paste--nodeaddtree)) |
 | `node.export`                                                                | read  | write nodes, and what is under them, as text in an outline format (`kb export`; [Outline formats](#outline-formats--one-tree-one-codec-each)) |
-| `node.batch`                                                                 | write | several `node.add` / `node.update` / `node.delete` calls as one transaction, each planned over what the ones before it wrote ([Batches of writes](#batches-of-writes--nodebatch)) |
+| `node.batch`                                                                 | write | node writes and field definitions in one transaction ([Batches of writes](#batches-of-writes--nodebatch)) |
 | `node.update`                                                                | write | edit text / set-unset props / move                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `node.delete`                                                                | write | delete a node, its descendants with it unless `descendants: "reparent"` (`kb rm`)                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `node.get`                                                                   | read  | pull subtree to depth N                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -5319,10 +5378,18 @@ its output always carries the node. Deleting is its own action because it is
 the write a caller most needs to name on its own: a guard matches an action
 by its id ([Action registry](#action-registry) → Interception).
 
+### Conditional text edits
+
+A `node.update` may require `expectedText`, the complete source text the
+edit was based on. The shared planner refuses the whole edit with a
+`conflict` when the node holds different text. A planned commit checks
+the same condition again each time the store moves and the edit is
+planned again. A call in a batch reads the text left by its earlier calls.
+
 ### Batches of writes — `node.batch`
 
 `node.batch` takes `{calls, force?}`: a list of calls, each `{action, input}`
-naming `node.add`, `node.update` or `node.delete`, and commits them as one
+naming `node.add`, `node.update`, `node.delete` or `field.define`, and commits them as one
 transaction. It is how one gesture over several nodes is one write: a person
 tagging, moving or deleting a multi-row selection in the outline
 (DESIGN-UI.md → Outline editor, "A selection is a range of rows"), an agent
@@ -5330,11 +5397,11 @@ retagging what a query found, `kb action-invoke` from a script. Each call's
 input is that action's own input, read by its own schema, less `force`,
 which the batch states once for the whole commit; a `node.add` names its
 `parent` (`null` for the top level), since a batch decides every place
-itself and never asks the capture target.
+itself and never asks the capture target. A batched `field.define` names
+its id so later calls can reference it.
 
 The calls are planned in order over one working copy of the nodes, each by
-its action's own planner (`planNodeAdd`, `planNodeUpdate`, `planNodeDelete`,
-the same functions the three actions commit through), and each call's writes
+its action's own planner, and each call's writes
 are applied to the copy before the next is planned, so a later call sees an
 earlier one: two moves into one parent at `position` and `position + 1` land
 in that order, and an update of a node an earlier call deleted is refused
@@ -5346,8 +5413,13 @@ and guard decision over all of it, one transaction-tail record, one undo
 step. Over a store that moved while it was planned, the whole batch is
 planned again, as `node.addTree` is.
 
-The output is `{ ids }`, each call's node in call order (the node added,
-updated or deleted). The action declares itself a batch of its three parts
+A `node.update` can name fields in `requireUnset` to require that they
+currently hold no values. A `node.delete` can specify `requireEmptyLine`
+with the draft's parent and exact text. Its node must still have that
+parent and text, with no children or props. A failed precondition is a
+conflict, checked again over the current graph whenever the batch replans.
+
+The output is `{ ids }`, each call's node in call order. The action declares itself a batch of its parts
 (`batchOf`), so a guard on any of them governs it, decided with each part's
 own mode ([Action registry](#action-registry)). It declares no `targets`,
 since its nodes are inside its calls, so a script cannot call it (Sandbox →
@@ -5357,7 +5429,7 @@ the same handler.
 
 ### Outline paste — `node.addTree`
 
-`node.addTree` takes `{outline, format?, parent?, position?, force?}` and
+`node.addTree` takes `{outline, format?, parent?, position?, ids?, force?}` and
 creates every item of the outline as one transaction. The text is read by
 the reader of `format` (`tana`, Tana Paste, when omitted), and every format
 that reads makes the same tree
@@ -5381,8 +5453,9 @@ step. A failure that belongs to a line writes nothing, and its message
 starts `outline line N:` (`details.line`). Only the commit's own checks, the
 integrity check and approval, answer for the outline as a whole.
 
-The output is `ids` (every created node in tree order: an item, then its
-children) and `lines` (each item's 1-based source line → its id). Top-level
+The optional `ids` supplies one id per item in tree order (an item, then its
+children). If omitted, the action mints them. The output gives these `ids`
+and `lines` (each item's 1-based source line → its id). Top-level
 items go under `parent` (the forest roots when omitted) at `position`,
 `position + 1`, …, or at the end, where one `node.add` would put the first.
 The action declares itself a batch of `node.add` (`batchOf`), so approval
@@ -5620,8 +5693,7 @@ Desktop quick capture and native share receivers send their original share to
 `@kb/contracts` (`CaptureSubmitSchema`, `CaptureReceiptSchema`). The host
 advertises `captureContract` in `kb.manifest` when it serves the action. Clients
 compare the version before sending and keep the original share queued until the
-host confirms delivery. Omitted `version` uses v1. On HTTP, POST the ordinary
-action envelope `{id, input}` to `/api/action`. On MCP, call `capture_submit`.
+host confirms delivery. Omitted `version` uses v1. On MCP, call `capture_submit`.
 
 An explicit parent wins, including null for the top level. Otherwise the
 store's [capture target](#provider-roles) decides, using the store's day at
@@ -5647,11 +5719,17 @@ An inline capture asset takes its name from the digest of its stored bytes,
 so competing deliveries and retries reuse it. A failed graph commit can leave
 an unreferenced asset. GAP [[01M7QT8YBS8V0B97VWRP4D717F]] tracks reconciliation.
 
-For phone delivery, serve a dedicated `kb ui --capture-only` listener through
-HTTPS. It serves `POST /api/action` for capture version discovery, pairing
-and authenticated submission. Its manifest returns only `captureContract`.
-The regular UI can keep its own listener and access rules. On the host, issue
-a ten-minute, one-use code:
+Any `kb ui` listener admits the capture wire: an unauthenticated
+`capture.pair`, and any call with a `Bearer kbcap_…` credential, which
+reaches only the actions whose declaration admits a capture caller. A phone
+app that loads the store's UI pairs and delivers on that same URL. To serve
+the UI and phone capture at one store URL, use the main `kb ui` listener over
+HTTPS and apply the regular UI and program access controls described in
+[Hosted behind a proxy](#hosted-behind-a-proxy). For an audience that only
+needs phone capture, serve a dedicated `kb ui --capture-only` listener over
+HTTPS. For HTTP, send the action envelope `{id, input}` to `POST /api/action`.
+See [Action registry](#action-registry) for caller admission and receipts.
+On the host, issue a ten-minute, one-use code with the CLI:
 
 ```sh
 kb --root /path/to/store --json action-invoke '{"id":"capture.pairCode"}'
@@ -5660,7 +5738,7 @@ kb --root /path/to/store --json action-invoke '{"id":"capture.pairCode"}'
 The device gives that `code` and its `deviceName` to `capture.pair`. The
 response supplies its `token`, `deviceId`, `store` (key and name), and
 `captureContract`. The device sends `Authorization: Bearer <token>` with
-discovery and submission. The credential conveys no person approval.
+discovery and submission.
 The store keeps a digest per device. Pairing returns the plaintext token once. The store key and credentials
 are bound to the host's canonical root. Revoke by invoking `capture.revoke`
 on the host CLI with `{deviceId}`. GAP [[01M7QT8Z33KEHWZ5KNQXRWGYZ4]] tracks
@@ -5782,17 +5860,44 @@ remains GAP [[01M413SP3QSSQJMKKDK3W3J6G8]].
     A script runs as the page does, with the person's session, so naming
     one trusts its origin as much as kb's own code. The page sends no
     `script-src` today; one added later must allow these scripts' origins.
-- **Phone capture** (`apps/android`): a thin share receiver. A share is
-  copied into a durable queue on the phone and delivered later, raw, to the
-  paired store's `capture.submit` over `POST /api/action`. The program wire
-  is used, with the device credential from `capture.pair` as a bearer token.
-  The host maps the share to nodes and places it, and the phone does no graph
-  writes of its own. The phone asks `kb.manifest` for `captureContract` when
-  it pairs and before each run, and keeps a capture queued, with the reason,
-  while the host does not accept the version it was encoded in. What the
-  phone does with each answer (sent, failed, paused, pending) is
+- **Phone app** (`apps/android`): a Capacitor shell around kb's own web
+  UI. A paired store is the URL of its `kb ui`. The shell loads that page
+  as a browser would, so the UI is always the store's own kb version and
+  never a second UI. It does so in a WebView of its own, which no bridge
+  touches and which refuses any JavaScript interface. Capacitor's WebView
+  shows only the shell's bundled page (Stores, the capture queue, Capture)
+  and holds the bridge, so the store's page gets no native access even where
+  Capacitor falls back to an origin-wide interface. A link may switch to
+  one of the shell page's own views, and nothing else on its origin, where
+  Capacitor also serves local files. Native code is kept for
+  what only a device does:
+  - the share receiver, and a durable queue delivered later, raw, to the
+    paired store's `capture.submit` over `POST /api/action` with the device
+    credential from `capture.pair` as a bearer token. A bearer `kbcap_`
+    call is the capture wire on any `kb ui` listener, so one URL serves the
+    UI and capture;
+  - a home-screen widget and a quick-settings tile, which open `kb://capture`;
+  - notifications when a capture is refused or a store stops accepting the
+    phone;
+  - the back button, and `kb://` links.
+
+  The phone does no graph writes of its own. It asks `kb.manifest` for
+  `captureContract` when it pairs and before each run, and keeps a capture
+  queued, with the reason, while the host does not accept the version it
+  was encoded in. When a store's UI does not load, the shell shows the
+  queue in its place. What the phone does with each answer is
   `apps/android/README.md` → How it behaves. The design is
+  `docs/research/2026-11-20-phone-beyond-capture.md` §7, after
   `docs/research/2026-11-18-desktop-and-phone-apps.md` §3–4.
+- **Desktop capture** (`packages/app/desktop`): settings keep a remote
+  store's key, name and origin, plus its device id and accepted contracts
+  after pairing. On load, the app removes any legacy pasted tokens from
+  the settings file. A legacy remote stays listed as “Needs pairing” and
+  cannot receive captures until paired. Pairing at the same origin keeps
+  its key, so its window and capture settings still refer to it.
+  Forget removes a remote from settings after its credential is erased.
+  If erasure fails, the app shows the error and keeps the store listed
+  for another attempt.
 - **Agent onboarding**: CLAUDE.md/AGENTS.md section — node model, field/tag
   conventions, 5 example invocations.
 
@@ -6384,7 +6489,10 @@ setup page shows beside the field). `kb ui` binds `systemSecrets`
 - **`keychain:`** writes go to `security` on macOS through its interactive
   mode on stdin (`security -i`), and to `secret-tool store` on Linux, with
   the value on stdin, so no value is ever on a command line; a value
-  `security -i` cannot quote is refused. Erasing deletes the item.
+  `security -i` cannot quote is refused. Erasing succeeds when the item is
+  deleted or confirmed absent. On Linux, the keychain checks for any
+  remaining matches after a clear because locked matches can survive it.
+  A helper failure is reported to the caller.
 - **`dotenv:`** references read their file on each use, with no shell
   expansion. Files must be private (0600) and regular, and symlinks are
   refused. Writes and erases serialize through an exclusive lock, preserve
@@ -6432,9 +6540,12 @@ are `docs/brainstorms/2026-10-17-kb-locations/README.md`.
   back.
 - **The per-user data directory**, owned by `dataPath` in `@kb/workspace-fs`,
   is `$KB_DATA`, else `~/Library/Application Support/kb` on macOS, else
-  `${XDG_DATA_HOME:-~/.local/share}/kb`. A test run must name `KB_DATA`;
-  there is no fallback to the person's data. Trust and installed extension
-  state belong here.
+  `${XDG_DATA_HOME:-~/.local/share}/kb`. Effect code resolves it through
+  `DataDirectory`, which reads the environment by default. A test run must
+  name `KB_DATA` or provide a directory through the service. Each seeded
+  simulation provides a private directory for the whole replay, so changes
+  to the process environment leave its store bytes unchanged. Trust and
+  installed extension state belong here.
 - **The home store** is `$KB_HOME` when set, else `<data>/home`. It is a full root,
   seeded with the bundled fold like any store, so opening it gives tables,
   boards and queries over the locations with nothing of its own; opened, it
@@ -6473,8 +6584,8 @@ are `docs/brainstorms/2026-10-17-kb-locations/README.md`.
   through `KbRoots.writeHome`, core's planned write path on the home store
   and on no other root: planned from the home
   session as it has caught up, committed on the condition that the store
-  is still in that state, and planned again when it is not, a few times
-  before the `conflict` is the caller's.
+  is still in that state, and planned again on a conflict as described in
+  [Storage](#storage).
 - **The actions** are namespaced `ext.locations.*`, aliased `location.*`,
   and every one's mode says `outsideRoot`, so MCP and WebMCP report them
   open-world ([Action registry](#action-registry) → Mode):

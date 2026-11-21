@@ -10,20 +10,36 @@ import {
   viewsWithDefault,
   siblingSlots,
   viewOptionOf,
+  contextualTargetOf,
   type FieldType,
   togglesChecked,
   type Writable,
   SYSTEM_IDS,
 } from "@kb/model";
-import { forestRootIds, type MatchingAdd, type MovePlace, type PropValue } from "@kb/ui-sdk";
+import {
+  childInstanceKey,
+  forestRootIds,
+  parentInstanceKey,
+  type MatchingAdd,
+  type MovePlace,
+  type PropValue,
+} from "@kb/ui-sdk";
 import { FRAME_VIEW_FAMILY, frameSettingWrite, type ViewConfig } from "@kb/views";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { findParentWire, wireById } from "@/lib/tx";
 
 export interface PlannedMutation {
   actions: ActionRequest[];
+  /** Text to restore for a row whose draft the gesture consumed. */
+  undoText?: ReadonlyMap<string, string>;
+  /** Replay after undo when the preconditions need the restored draft text. */
+  redoActions?: ActionRequest[];
+  /** Publish history and completion only after the server accepts the write. */
+  completion?: "confirmed";
   focusId?: string;
   focusCursor?: number;
+  /** The instance `focusId` is edited at, when the write knows it; else the editor resolves it. */
+  focusInstanceKey?: string;
 }
 
 const plan = (...actions: ActionRequest[]): PlannedMutation => ({ actions });
@@ -31,6 +47,18 @@ function requireNode(nodes: WireNode[], id: string): WireNode {
   const node = wireById(nodes).get(id);
   if (!node) throw new Error(`node not found: ${id}`);
   return node;
+}
+/**
+ * The node whose content a write on row `id` reads or changes — its
+ * children, its fields: a contextual reference's target, the row itself
+ * otherwise; its place is the row's own. Null for a reference whose target
+ * is gone: it has no content to write, and writing the reference node's own
+ * fields instead would give it content of its own.
+ */
+function contentOf(nodes: WireNode[], id: string): WireNode | null {
+  const row = requireNode(nodes, id);
+  const target = contextualTargetOf(row);
+  return target === null ? row : (wireById(nodes).get(target) ?? null);
 }
 /** One `node.update` of `id`. */
 const updateOf = (id: string, input: Record<string, unknown>): ActionRequest => ({
@@ -72,32 +100,39 @@ export const planReplaceField = (
   values: PropValue[],
 ) => replaceProps(nodes, id, [{ field, values }]);
 
-export const planUpdateText = (_nodes: WireNode[], id: string, text: string) =>
-  update(id, { text });
+export const planUpdateText = (id: string, text: string, expectedText?: string) =>
+  update(id, expectedText === undefined ? { text } : { text, expectedText });
 /**
- * Split a row's text at `cursor` into itself and a new row after it (or its
- * first child when it is an expanded parent). `"end"` splits after the whole
- * text, i.e. only creates the next row — what Enter means on a row whose shown
- * text is not its own (a contextual reference), where no offset the caret
- * reports is an offset into this node's text.
+ * Split a row's text at `cursor` into itself and a new row after it (or the
+ * first child of the node it shows when it is an expanded parent: a
+ * reference's target's, as on the target's own row). `"end"` splits after the
+ * whole text, i.e. only creates the next row — what Enter means on a row whose
+ * shown text is not its own (a contextual reference), where no offset the
+ * caret reports is an offset into this node's text. The row is written only
+ * when the split changes its text: a split at the end leaves the row as it
+ * was, so it is not touched.
  */
 export function planSplit(
   nodes: WireNode[],
   id: string,
   cursor: number | "end",
   newId: string,
-  opts: { expandedIds: Set<string> },
+  opts: { expandedIds: Set<string>; instanceKey?: string },
 ): PlannedMutation {
   const node = requireNode(nodes, id);
   const at = cursor === "end" ? node.text.length : cursor;
   const left = node.text.slice(0, at);
   const right = node.text.slice(at);
-  const firstChild = node.children.length > 0 && opts.expandedIds.has(id);
-  const parent = firstChild ? node : findParentWire(nodes, id);
+  const content = contentOf(nodes, id);
+  const firstChild = content !== null && content.children.length > 0 && opts.expandedIds.has(id);
+  const parent = firstChild ? content : findParentWire(nodes, id);
   const position = firstChild ? 0 : parent ? parent.children.indexOf(id) + 1 : undefined;
+  // The new row is drawn under the row's instance, or beside it.
+  const row = opts.instanceKey;
+  const drawnUnder = row === undefined ? null : firstChild ? row : parentInstanceKey(row);
   return {
     actions: [
-      { id: "node.update", input: { id, text: left } },
+      ...(left === node.text ? [] : [updateOf(id, { text: left })]),
       {
         id: "node.add",
         input: {
@@ -109,10 +144,25 @@ export function planSplit(
     ],
     focusId: newId,
     focusCursor: 0,
+    ...(drawnUnder === null ? {} : { focusInstanceKey: childInstanceKey(drawnUnder, newId) }),
   };
 }
-export const planDelete = (_nodes: WireNode[], id: string) =>
-  plan({ id: "node.delete", input: { id, descendants: "cascade" } });
+export function planDelete(
+  _nodes: WireNode[],
+  id: string,
+  draft?: { readonly parent: string; readonly text: string },
+): PlannedMutation {
+  const deletion = { id: "node.delete", input: { id, descendants: "cascade" } };
+  if (draft === undefined) return plan(deletion);
+  return {
+    actions: [{ ...deletion, input: { ...deletion.input, requireEmptyLine: draft } }],
+    redoActions: [
+      { ...deletion, input: { ...deletion.input, requireEmptyLine: { ...draft, text: "" } } },
+    ],
+    undoText: new Map([[id, ""]]),
+    completion: "confirmed",
+  };
+}
 export function planMergeInto(
   nodes: WireNode[],
   id: string,
@@ -155,24 +205,40 @@ function runOf(
 }
 
 /**
+ * Why a block of rows stays where it is when Tab or Shift-Tab is asked of
+ * it: it is not one run of siblings (`runOf`), or it is one with nowhere to
+ * go — no row above its first to move under, or no parent to move out of.
+ */
+export interface BlockStays {
+  readonly stays: "not-a-run" | "no-row-above" | "no-parent";
+}
+
+/**
  * Indent a block (`runOf`) under the sibling before it, after that
  * sibling's own children, in order: one `node.update` per row, each placed
- * after the one before it.
+ * after the one before it. Or why it stays.
  */
-export function planIndent(nodes: WireNode[], ids: readonly string[]): PlannedMutation | null {
+export function planIndent(
+  nodes: WireNode[],
+  ids: readonly string[],
+): PlannedMutation | BlockStays {
   const run = runOf(nodes, ids);
-  if (run === null) return null;
+  if (run === null) return { stays: "not-a-run" };
   const previous = run.siblings[run.first - 1];
-  if (previous === undefined) return null;
+  if (previous === undefined) return { stays: "no-row-above" };
   const base = requireNode(nodes, previous).children.length;
   return plan(...ids.map((id, j) => updateOf(id, { parent: previous, position: base + j })));
 }
 
-/** Outdent a block (`runOf`) to just after its parent, in order. */
-export function planOutdent(nodes: WireNode[], ids: readonly string[]): PlannedMutation | null {
+/** Outdent a block (`runOf`) to just after its parent, in order. Or why it stays. */
+export function planOutdent(
+  nodes: WireNode[],
+  ids: readonly string[],
+): PlannedMutation | BlockStays {
   const run = runOf(nodes, ids);
   const [head] = ids;
-  if (run === null || run.parent === null || head === undefined) return null;
+  if (run === null || head === undefined) return { stays: "not-a-run" };
+  if (run.parent === null) return { stays: "no-parent" };
   const grand = findParentWire(nodes, run.parent.id)?.id ?? null;
   const base = groupIds(nodes, grand, head).indexOf(run.parent.id) + 1;
   return plan(...ids.map((id, j) => updateOf(id, { parent: grand, position: base + j })));
@@ -342,6 +408,11 @@ export function planUnsetProp(
   value?: PropValue,
 ): PlannedMutation {
   return update(id, { unsetProps: [{ field, ...(value === undefined ? {} : { value }) }] });
+}
+
+/** Set the starter value only if the graph still has no value for this field. */
+export function planInitializeProp(id: string, field: string, value: PropValue): PlannedMutation {
+  return update(id, { requireUnset: [field], setProps: [{ field, value }] });
 }
 export const planAddTag = (n: WireNode[], id: string, tag: string) =>
   planSetProp(n, id, SYSTEM_IDS.typeField, { t: "ref", v: tag });
@@ -563,8 +634,6 @@ export const planAddRootNode = (text: string, id: string, props?: WireNode["prop
   addNode(id, text, { props });
 export const planAddChild = (n: WireNode[], parent: string, id: string, text = "") =>
   addNode(id, text, { parent, position: requireNode(n, parent).children.length });
-export const planPrependChild = (_n: WireNode[], parent: string, id: string, text = "") =>
-  addNode(id, text, { parent, position: 0 });
 
 /**
  * An empty node that carries what `add` asks (DESIGN-UI.md → Adding to a
@@ -714,10 +783,12 @@ export function planEditFrameView(
   return { actions: [...made.actions, ...named.actions] };
 }
 /**
- * Move a row to a group (DESIGN-UI.md → Groups): its values of `field` become
+ * Move a row to a group (DESIGN-UI.md → Groups): the values of `field` on the
+ * node it shows — where its group is read from, a reference's target — become
  * `value`, or none for "No <field>". A row already in that group (its first
  * value is `value`, or it holds none and `value` is null) is left as it is,
- * so nothing is written (null).
+ * so nothing is written (null); so is a reference whose target is gone,
+ * which has no content to move (`contentOf`).
  */
 export function planMoveToGroup(
   n: WireNode[],
@@ -725,7 +796,9 @@ export function planMoveToGroup(
   field: string,
   value: PropValue | null,
 ): PlannedMutation | null {
-  const first = requireNode(n, id).props[field]?.[0] ?? null;
+  const content = contentOf(n, id);
+  if (content === null) return null;
+  const first = content.props[field]?.[0] ?? null;
   if (JSON.stringify(first) === JSON.stringify(value)) return null;
-  return planReplaceField(n, id, field, value === null ? [] : [value]);
+  return planReplaceField(n, content.id, field, value === null ? [] : [value]);
 }

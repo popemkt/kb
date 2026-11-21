@@ -6,6 +6,7 @@
  */
 import { pinnedFirst, typeRefsOf, SYSTEM_IDS } from "@kb/model";
 import {
+  browserHost,
   isFieldHidden,
   isSysPrefixed,
   resolveTableColumns,
@@ -16,6 +17,22 @@ import {
   type TableColumnSpec,
 } from "@kb/ui-sdk";
 import type { ViewConfig } from "@kb/views";
+
+/** The picker choice that leaves a setting without a field. Never a node id. */
+export const NO_FIELD = "\u0000none";
+
+export const groupFieldSetting = {
+  choices: (fields: readonly PickerCandidate[]): PickerCandidate[] => [
+    { id: NO_FIELD, label: "None" },
+    ...fields,
+  ],
+  write: (frameId: string, fieldId: string): Promise<void> =>
+    browserHost().writes.setFrameSetting(
+      frameId,
+      "groupFieldId",
+      fieldId === NO_FIELD ? null : fieldId,
+    ),
+};
 
 /** The frame's rows, as the projection `nodes` holds them. */
 function frameRowNodes(frame: OutlineNode, nodes: NodeMap): OutlineNode[] {

@@ -22,8 +22,12 @@ import { bundledSeed } from "@kb/bundled";
 import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import {
   browserHost,
+  frameRows,
+  frameViewOf,
   isPinned,
+  outlinePath,
   pageTitleInstanceKey,
+  providedFrameViews,
   syncUiPlugins,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
@@ -34,6 +38,8 @@ import { useUiStore } from "@/stores/ui.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 import { singlePane } from "@kb/views";
 import { layoutUiPlugin } from "@/components/layout/plugin";
+import { settingsUiPlugin } from "@/components/prefs/settings-plugin";
+import { SETTINGS_PATH } from "@/lib/settings-trigger";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
@@ -42,7 +48,7 @@ import { syncPagePlugins } from "@/test-support/page-plugins";
 import { NodeCommandPalette, outlineNodes, useOutlineStore } from "@kb/outline-ui";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { collectionsUiPlugin } from "@kb/collections-ui";
-import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
+import { framedAs, viewFieldNodes } from "@/fixtures/view-fields";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them; the chart contributes "Add chart".
@@ -94,7 +100,11 @@ function graph(): WireNode[] {
     }),
     ctxRefWire("n.ref", "n.plain"),
     // Where Move to… puts rows.
-    wire({ id: "n.inbox", text: "Inbox" }),
+    wire({
+      id: "n.inbox",
+      text: "Inbox",
+      props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: "t.super" }] },
+    }),
   ];
 }
 
@@ -229,6 +239,13 @@ describe("node command palette", () => {
     await act(async () => present(row, label).click());
   }
 
+  async function pickTag(id: string) {
+    const row = dom.document.querySelector<InstanceType<typeof dom.HTMLElement>>(
+      `[data-palette-list="true"] [data-picker-id="${id}"]`,
+    );
+    await act(async () => present(row, id).click());
+  }
+
   it("over a range, offers only the commands that act on each row", async () => {
     await openOver(["n.plain", "n.query"]);
     expect(labels()).toEqual([
@@ -265,7 +282,7 @@ describe("node command palette", () => {
   it("tags every row of a range with the tag picked, as one undo step", async () => {
     await openOver(["n.plain", "n.query"]);
     await pick("Add tag");
-    await pick("project");
+    await pickTag("t.super");
     await vi.waitFor(() => expect(typesOf("n.query")).toContain("t.super"));
     expect(typesOf("n.plain")).toContain("t.super");
     expect(useGraphStore.getState().undoStack).toHaveLength(1);
@@ -274,7 +291,7 @@ describe("node command palette", () => {
   it("removes a tag from the rows of a range that carry it", async () => {
     await openOver(["n.plain", "n.query"]);
     await pick("Add tag");
-    await pick("project");
+    await pickTag("t.super");
     await vi.waitFor(() => expect(typesOf("n.query")).toContain("t.super"));
     await openOver(["n.plain", "n.query"]);
     expect(labels()).toContain("Remove tag…");
@@ -394,7 +411,7 @@ describe("node command palette", () => {
       "Add field",
       "Set field…",
       "Make supertag",
-      "Search everything… ⌘S",
+      "Search everything…",
       "Open in panel",
       "Open with: Outline",
       "Open with: Chart",
@@ -427,7 +444,7 @@ describe("node command palette", () => {
       "Turn into reference…",
       "Add field",
       "Set field…",
-      "Search everything… ⌘S",
+      "Search everything…",
       "Open in panel",
       "Open with: Outline",
       "Open with: Chart",
@@ -484,20 +501,78 @@ describe("node command palette", () => {
     expect(labels()[1]).toBe("Turn into reference…");
   });
 
-  it("Turn into query writes the builder's canonical query, so the node opens as conditions", async () => {
-    await open("n.plain");
-    const row = [...dom.document.querySelectorAll('[data-palette-list="true"] button')].find(
-      (b) => b.textContent.trim() === "Turn into query",
-    ) as HTMLElement | undefined;
-    await act(async () => {
-      present(row, "turn into query row").click();
-    });
-    await vi.waitFor(() =>
-      expect(outlineNodes().get("n.plain")?.props[SYSTEM_IDS.queryField]).toEqual([
-        { t: "str", v: DEFAULT_QUERY_EDN },
-      ]),
-    );
-  });
+  it.each([
+    {
+      command: "Group by…",
+      choice: "Status",
+      field: SYSTEM_IDS.viewGroupField,
+      value: "sys.f.test-status",
+    },
+    {
+      command: "Sort by…",
+      choice: "Name",
+      field: SYSTEM_IDS.viewSortField,
+      value: SYSTEM_IDS.nodeTextField,
+    },
+  ])(
+    "$command on a reference writes the board setting on its target",
+    async ({ command, choice, field, value }) => {
+      const [board, view] = framedAs(
+        wire({ id: "n.board", text: "Board", children: ["n.zebra", "n.alpine"] }),
+        "board",
+      );
+      const status = wire({
+        id: "sys.f.test-status",
+        text: "Status",
+        props: {
+          [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+          [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("text")],
+        },
+      });
+      const tag = wire({
+        id: "t.board-row",
+        text: "Board row",
+        props: {
+          [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
+          [SYSTEM_IDS.fieldsField]: [{ t: "ref", v: status.id }],
+        },
+      });
+      const props = {
+        [SYSTEM_IDS.typeField]: [{ t: "ref" as const, v: tag.id }],
+        [status.id]: [{ t: "str" as const, v: "Doing" }],
+      };
+      const zebra = wire({ id: "n.zebra", text: "Zebra", props });
+      const alpine = wire({ id: "n.alpine", text: "Alpine", props });
+      const reference = ctxRefWire("n.board-ref", board.id);
+      useGraphStore
+        .getState()
+        .hydrateFromWire(
+          [...graph(), ...viewFieldNodes, board, view, status, tag, zebra, alpine, reference],
+          2,
+          "fixtures",
+        );
+      const undoDepth = useGraphStore.getState().undoStack.length;
+      await open(reference.id);
+      await pick(command);
+      expect(outlineNodes().get(view.id)?.props[field]).toBeUndefined();
+      await pick(choice);
+      await vi.waitFor(() =>
+        expect(outlineNodes().get(view.id)?.props[field]).toEqual([{ t: "ref", v: value }]),
+      );
+      expect(outlineNodes().get(reference.id)?.props).toEqual(reference.props);
+      expect(useGraphStore.getState().undoStack).toHaveLength(undoDepth + 1);
+      const nodes = outlineNodes();
+      const schema = browserHost().schema();
+      const keys = providedFrameViews().map(({ key }) => key);
+      const resolved = present(frameViewOf(nodes.get(board.id), schema, keys), "board view");
+      const rows = frameRows({ frameId: board.id, nodes, schema, view: resolved });
+      if (field === SYSTEM_IDS.viewGroupField) {
+        expect(rows.columns[0]?.key).toBe("str:Doing");
+      } else {
+        expect(rows.rendered.map(({ id }) => id)).toEqual([alpine.id, zebra.id]);
+      }
+    },
+  );
 
   it("drops Turn into reference on a node that already is one", async () => {
     await open("n.ref");
@@ -558,7 +633,13 @@ describe("the global palette on a page", () => {
 
   beforeAll(() => {
     // The page's routes too: a pane opened at a node names it by its route.
-    syncPagePlugins([outlineUiPlugin, collectionsUiPlugin, chartUiPlugin, layoutUiPlugin]);
+    syncPagePlugins([
+      outlineUiPlugin,
+      collectionsUiPlugin,
+      chartUiPlugin,
+      layoutUiPlugin,
+      settingsUiPlugin,
+    ]);
     dom = new Window();
     const g = globalThis as Record<string, unknown>;
     g.window = dom;
@@ -674,6 +755,60 @@ describe("the global palette on a page", () => {
     });
     expect(defineTag).toHaveBeenCalledWith("my project", ["t.super"]);
   });
+
+  it.each([
+    { path: "/", zoom: "t.super", parent: "t.super" },
+    { path: "/", zoom: WORKSPACE_ROOT_ID, parent: undefined },
+    { path: "/node/n.inbox", zoom: "t.super", parent: "n.inbox" },
+    {
+      path: outlinePath({ ontology: "t.super", zoom: "n.inbox" }),
+      zoom: "t.super",
+      parent: "n.inbox",
+    },
+    { path: SETTINGS_PATH, zoom: "t.super", parent: undefined },
+  ])(
+    "Alt+Enter saves and opens a query from $path (outline at $zoom)",
+    async ({ path, zoom, parent }) => {
+      const before = useWorkspaceStore.getState();
+      useGraphStore.setState({ rootNodeId: zoom });
+      useWorkspaceStore.setState({
+        layout: singlePane({ id: "p.search", path }),
+        focused: "p.search",
+      });
+      const add = vi.spyOn(browserHost().writes, "addMatchingNode");
+      try {
+        await openPalette();
+        const input = present(
+          dom.document.querySelector('[aria-label="Search and open"] input'),
+          "palette input",
+        );
+        const text = 'Project "notes"';
+        await act(async () => {
+          Object.getOwnPropertyDescriptor(dom.HTMLInputElement.prototype, "value")?.set?.call(
+            input,
+            text,
+          );
+          input.dispatchEvent(new dom.KeyboardEvent("keyup", { bubbles: true }));
+        });
+        expect(container.textContent).toContain("Alt+Enter");
+        await act(async () => {
+          input.dispatchEvent(
+            new dom.KeyboardEvent("keydown", { key: "Enter", altKey: true, bubbles: true }),
+          );
+        });
+        await vi.waitFor(() => {
+          const { rootNodeId: id, wireNodes } = useGraphStore.getState();
+          expect(wireNodes.find((node) => node.children.includes(id))?.id).toBe(parent);
+          const value = outlineNodes().get(id)?.props[SYSTEM_IDS.queryField]?.[0]?.v;
+          expect(value).toEqual(expect.stringContaining("kb/includes-ci?"));
+          expect(value).toEqual(expect.stringContaining(JSON.stringify(text)));
+        });
+        if (parent === undefined) expect(add.mock.calls[0]?.[0]).not.toHaveProperty("parent");
+      } finally {
+        useWorkspaceStore.setState({ layout: before.layout, focused: before.focused });
+      }
+    },
+  );
 
   it("hands a command that asks for a step to the node menu at the page's title", async () => {
     await openPalette();

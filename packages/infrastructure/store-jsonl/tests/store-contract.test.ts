@@ -14,7 +14,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { JsonlStore, txTailPath } from "../src/index.ts";
 
-storeContract("JsonlStore", (root) => new JsonlStore(root));
+storeContract("JsonlStore", {
+  makeStore: (root) => new JsonlStore(root),
+  holdWriteLock: {
+    cwd: import.meta.dir,
+    script: `
+      import { Effect } from "effect";
+      import { acquireFileWriteLockEffect } from "@kb/file-write";
+      await Effect.runPromise(acquireFileWriteLockEffect(path));
+    `,
+  },
+});
 reactionContract("JsonlStore", (root) => new JsonlStore(root));
 
 const scratchRoot = Effect.acquireRelease(

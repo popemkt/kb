@@ -1,0 +1,8 @@
+{
+  "reason": "The invoke core enforces the declared input-only envelope for pairing across surfaces.",
+  "raise": {
+    "cli-closure": {
+      "bytes": 360
+    }
+  }
+}

@@ -19,23 +19,45 @@ export interface OpenTrigger {
   readonly query: string;
 }
 
-/** What a pick does: the text that replaces the trigger's span, then any write. */
-export interface TriggerPick {
-  readonly insert: string;
-  /** A write made once the text is in place. */
-  readonly write?: () => Promise<void>;
-}
+/**
+ * A pick edits its span, or consumes what was typed in writes of its own.
+ * An edit's text and its write are one write of the page's
+ * (`PageWrites.together`), which the text host makes: one undo step.
+ */
+export type TriggerPick =
+  | {
+      readonly insert: string;
+      /** A write made with the text's, as one write. */
+      readonly write?: () => Promise<unknown>;
+      /** What follows once that write has landed (where the caret goes). */
+      readonly landed?: () => void;
+    }
+  | {
+      /**
+       * Owns what was typed for the trigger (the text it covers, or the
+       * whole row), the writes the pick makes, and the focus after they land.
+       */
+      readonly consume: () => Promise<void>;
+    };
 
 export interface TextTrigger {
   readonly id: string;
   /** The trigger typed before `cursor` in `text`, if one is. */
   readonly open: (text: string, cursor: number) => OpenTrigger | null;
-  /** What it offers for `query`, read from `nodes`. */
-  readonly rows: (query: string, nodes: NodeMap) => PickerRow[];
+  /** What it offers for `query`, given the row and the node whose text it shows when known. */
+  readonly rows: (
+    query: string,
+    nodes: NodeMap,
+    nodeId?: string,
+    textNodeId?: string,
+  ) => PickerRow[];
   /** How a row that makes a new node by the query's name reads ("Create tag “x”"). */
   readonly createLabel?: (name: string) => string;
   /** A row picked (by Enter, Tab or a click). */
-  readonly pick: (row: PickerRow, open: OpenTrigger) => TriggerPick | Promise<TriggerPick>;
+  readonly pick: (
+    row: PickerRow,
+    open: OpenTrigger,
+  ) => TriggerPick | null | Promise<TriggerPick | null>;
   /**
    * Enter or Tab with nothing to pick. A trigger that answers it stays open
    * with no rows; one that does not is closed then, and its keys are the
@@ -48,7 +70,7 @@ export interface TextTrigger {
 const ROW_LIMIT = 12;
 
 /**
- * `[[`: a reference to any node. A pick inserts `[[id|label]]`; Enter with
+ * `[[`: a reference to another node. A pick inserts `[[id|label]]`; Enter with
  * nothing to pick closes the brackets.
  */
 export const refTrigger: TextTrigger = {
@@ -57,7 +79,11 @@ export const refTrigger: TextTrigger = {
     const open = openRefQuery(text, cursor);
     return open === null ? null : { start: open.start, end: cursor, query: open.query };
   },
-  rows: (query, nodes) => pickerRows(nodeCandidates(nodes), { query, limit: ROW_LIMIT }),
+  rows: (query, nodes, nodeId, textNodeId) =>
+    pickerRows(nodeCandidates(nodes, { exclude: (id) => id === nodeId || id === textNodeId }), {
+      query,
+      limit: ROW_LIMIT,
+    }),
   pick: (row) => ({ insert: formatRefToken(row.id, row.kind === "item" ? row.label : row.name) }),
   none: (open) => ({ insert: `[[${open.query}]]` }),
 };

@@ -171,10 +171,8 @@ function familyViews(registry: Registry, hosted: HostedFamilies | undefined) {
 
 /**
  * The invoke core on this root, for code it is already running
- * (`CoreInvoke`): within `read`, a call to an action that writes is refused
- * before the core; any other call runs through it, decided like every call,
- * in the same host's runtime (its tabs' screens and what it hosts), so a
- * call an action makes reaches what a call from outside does.
+ * (`CoreInvoke`): the core applies the caller's admission and the requested
+ * scope in the same host's runtime (its tabs' screens and what it hosts).
  */
 function coreInvoke(
   ctx: KbContext,
@@ -191,18 +189,7 @@ function coreInvoke(
           `${request.id} is called while no call runs, and names no actor to make it`,
         );
       }
-      yield* hosted?.rows ?? Effect.void;
-      const registry = yield* sessionRegistry(ctx, hosted?.kernel);
-      const reached = reachableActions(registry, familyKernels(registry, hosted));
-      const mode = reached.byId.get(invocation.id)?.def.mode;
-      if (scope === "read" && mode !== undefined && mode.kind !== "read") {
-        return failed(
-          invocation.id,
-          "forbidden",
-          `${invocation.id} is a write, and a call made while reading may only read`,
-        );
-      }
-      return yield* invokeReceiptEffect(ctx, invocation).pipe(
+      return yield* invokeReceiptEffect(ctx, invocation, scope).pipe(
         Effect.provide(kbRuntimeLayer(ctx, screens, hosted)),
       );
     }).pipe(

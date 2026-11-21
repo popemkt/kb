@@ -6,7 +6,7 @@
 // page from a row being edited, and the row takes no letter from it. The
 // harness's store has days switched off, so the spec switches it on, as a
 // person would, over the API.
-import type { APIRequestContext } from "playwright/test";
+import type { APIRequestContext, Page } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
 
 const ROOT = "render.fixture.root";
@@ -26,12 +26,22 @@ async function storedText(request: APIRequestContext, id: string): Promise<strin
   return node.text;
 }
 
+async function runPaletteCommand(page: Page, label: string, id: string): Promise<void> {
+  await page.getByRole("button", { name: "Open search palette" }).click();
+  await page.getByPlaceholder("Search and open…").fill(label);
+  await page.locator(`[data-palette-row="${id}"]`).click();
+}
+
 test("Mod-Shift-D opens today's page, even from a row being edited", async ({ page, request }) => {
   await call(request, "extension.switch", { name: "days", on: true });
   const before = await storedText(request, ROW);
   await page.goto(`/node/${ROOT}`);
   const row = page.locator(`[data-node-id="${ROW}"]`).first();
   await expect(row).toBeVisible();
+  const back = page.getByRole("button", { name: "Back", exact: true });
+  const forward = page.getByRole("button", { name: "Forward", exact: true });
+  await expect(back).toBeDisabled();
+  await expect(forward).toBeDisabled();
   await row.locator(".node-content").first().click();
   await expect(page.locator(`[data-node-id="${ROW}"][data-active="true"]`)).toBeVisible();
 
@@ -49,8 +59,40 @@ test("Mod-Shift-D opens today's page, even from a row being edited", async ({ pa
   expect(day.made).toEqual([]);
   await expect(page).toHaveURL(new RegExp(`/node/${encodeURIComponent(day.id)}$`, "u"));
 
-  // The row took no letter from the key: its text is as it was.
-  await page.goBack();
+  await expect(back).toBeEnabled();
+  await expect(forward).toBeDisabled();
+  for (const modifier of ["Control", "Meta"]) {
+    await page.keyboard.press(`${modifier}+BracketLeft`);
+    await expect(page).toHaveURL(new RegExp(`/node/${ROOT}$`, "u"));
+    await page.keyboard.press(`${modifier}+BracketRight`);
+    await expect(page).toHaveURL(new RegExp(`/node/${encodeURIComponent(day.id)}$`, "u"));
+  }
+  await back.click();
   await expect(row).toBeVisible();
+  await expect(back).toBeDisabled();
+  await forward.click();
+  await expect(page).toHaveURL(new RegExp(`/node/${encodeURIComponent(day.id)}$`, "u"));
+  await back.click();
+  await expect(row).toBeVisible();
+  // The row took no letter from the key: its text is as it was.
   expect(await storedText(request, ROW)).toBe(before);
+});
+
+test("day commands use the open day or step from today", async ({ page, request }) => {
+  await call(request, "extension.switch", { name: "days", on: true });
+  await call(request, "ext.days.today", { day: "2026-11-20" });
+
+  await page.goto("/node/days.2026-11-20");
+  await expect(page.locator("[data-zoom-title]")).toBeVisible();
+  await runPaletteCommand(page, "Next day", "sys.cmd.days.next-day");
+  await expect(page).toHaveURL(/\/node\/days\.2026-11-21$/u);
+  expect(await storedText(request, "days.2026-11-21")).toContain("Nov 21");
+  await runPaletteCommand(page, "Previous day", "sys.cmd.days.previous-day");
+  await expect(page).toHaveURL(/\/node\/days\.2026-11-20$/u);
+
+  await page.clock.setFixedTime(new Date(2026, 10, 24, 12));
+  await page.goto(`/node/${ROOT}`);
+  await expect(page.locator(`[data-node-id="${ROW}"]`).first()).toBeVisible();
+  await runPaletteCommand(page, "Next day", "sys.cmd.days.next-day");
+  await expect(page).toHaveURL(/\/node\/days\.2026-11-25$/u);
 });

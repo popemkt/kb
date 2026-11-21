@@ -1,0 +1,6 @@
+{
+  "reason": "The SQLite connection checks the on-disk schema before taking a write lock and checks again inside the schema migration transaction.",
+  "raise": {
+    "cli-closure": { "bytes": 373 }
+  }
+}

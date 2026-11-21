@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { until } from "@kb/test-kit";
+import { afterEach, beforeEach, describe, expect, onTestFinished, test } from "bun:test";
 import {
   existsSync,
   mkdtempSync,
@@ -56,18 +57,20 @@ const increments = (each: number) => `
       }`;
 
 /** A child's stdout as it arrives, so a test can wait for a line or see it has not come. */
-function watchOutput(stdout: ReadableStream<Uint8Array>) {
+function watchOutput(child: Bun.ReadableSubprocess) {
+  onTestFinished(async () => {
+    if (child.exitCode === null) child.kill();
+    await child.exited;
+  });
   let text = "";
   void (async () => {
     const decoder = new TextDecoder();
-    for await (const chunk of stdout) text += decoder.decode(chunk, { stream: true });
+    for await (const chunk of child.stdout) text += decoder.decode(chunk, { stream: true });
   })();
   const seen = (line: string) => text.split("\n").includes(line);
   return {
     seen,
-    until: async (line: string) => {
-      while (!seen(line)) await Bun.sleep(10);
-    },
+    until: (line: string) => until(() => (seen(line) ? true : undefined), `child output "${line}"`),
   };
 }
 
@@ -205,7 +208,7 @@ describe.each([
       ),
       { cwd: PACKAGE_DIR, stdin: "pipe", stdout: "pipe", stderr: "pipe" },
     );
-    await watchOutput(older.stdout).until("held");
+    await watchOutput(older).until("held");
     const waiter = Effect.runFork(acquireFileWriteLockEffect(file));
     await Bun.sleep(300);
     expect(waiter.pollUnsafe()).toBeUndefined();
@@ -218,6 +221,7 @@ describe.each([
 
   test("this one holding the lock keeps an older kb out until it lets go", async () => {
     const lock = await Effect.runPromise(acquireFileWriteLockEffect(file));
+    onTestFinished(() => releaseFileWriteLock(lock));
     const older = Bun.spawn(
       lockArgv(
         `
@@ -229,7 +233,7 @@ describe.each([
       ),
       { cwd: PACKAGE_DIR, stdout: "pipe", stderr: "pipe" },
     );
-    const output = watchOutput(older.stdout);
+    const output = watchOutput(older);
     await output.until("waiting");
     await Bun.sleep(300);
     expect(output.seen("held")).toBe(false);
@@ -249,7 +253,7 @@ describe.each([
       ),
       { cwd: PACKAGE_DIR, stdin: "pipe", stdout: "pipe", stderr: "pipe" },
     );
-    await watchOutput(older.stdout).until("held");
+    await watchOutput(older).until("held");
     const exit = await Effect.runPromise(
       Effect.gen(function* () {
         const waiter = yield* Effect.forkChild(acquireFileWriteLockEffect(file));

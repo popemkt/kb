@@ -1,0 +1,6 @@
+{
+  "reason": "The outline's triggers name a step's pick and an `@` query by the text host's own types (DESIGN-UI.md → Triggers in the text): stepPick answers a TriggerPick and mentionQuery reads an OpenTrigger, which the ui-sdk barrel now exports beside TextTrigger.",
+  "raise": {
+    "surface": { "@kb/ui-sdk": 2 }
+  }
+}

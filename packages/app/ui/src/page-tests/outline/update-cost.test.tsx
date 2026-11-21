@@ -16,9 +16,10 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { isQueryNode } from "@kb/model";
+import { isQueryNode, present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import {
+  BACKLINK_COUNTS_QUERY,
   nodeCandidates,
   outlineInstanceKey,
   resolveRowChrome,
@@ -70,7 +71,7 @@ function graph(): WireNode[] {
       kids.map((k) => k.id),
     ),
     ...kids,
-    wire("n.other", "Other root"),
+    wire("n.other", "Other root [[n.other]]"),
     wire("n.typing", "[["),
   ];
 }
@@ -86,6 +87,8 @@ describe("outline update cost", () => {
   let dom: InstalledDom;
   let container: HTMLDivElement;
   let root: Root;
+  let mentionWatches: () => string[];
+  let mentionSubscriptions: () => string[];
 
   beforeAll(() => {
     syncPagePlugins([outlineUiPlugin]);
@@ -102,6 +105,13 @@ describe("outline update cost", () => {
   beforeEach(async () => {
     resetOutlineStore();
     useGraphStore.getState().hydrateFromWire(graph(), 1, "fixtures");
+    const queries = present(useGraphStore.getState().queries, "graph queries");
+    const watch = vi.spyOn(queries, "watch");
+    const subscribeTo = vi.spyOn(queries, "subscribeTo");
+    mentionWatches = () =>
+      watch.mock.calls.map(([edn]) => edn).filter((edn) => edn.includes(":node/mentions"));
+    mentionSubscriptions = () =>
+      subscribeTo.mock.calls.map(([edn]) => edn).filter((edn) => edn.includes(":node/mentions"));
     useOutlineStore.getState().expandAllInScope();
     container = dom.window.document.createElement("div") as unknown as HTMLDivElement;
     dom.window.document.body.appendChild(container as unknown as never);
@@ -133,6 +143,35 @@ describe("outline update cost", () => {
       useGraphStore.getState().applyTx([changed], [], { rev: 2 });
     });
     expect(container.textContent).toContain("Kid three");
+    expect(new Set(renderedRows())).toEqual(new Set(["n.kid-3"]));
+  });
+
+  it("shares one mention query and one answer subscription across displayed rows", async () => {
+    const queries = present(useGraphStore.getState().queries, "graph queries");
+    expect(rowCount()).toBeGreaterThan(CHILDREN);
+    expect(mentionWatches()).toEqual([BACKLINK_COUNTS_QUERY]);
+    expect(mentionSubscriptions()).toEqual([BACKLINK_COUNTS_QUERY]);
+
+    await act(async () => {
+      useGraphStore.getState().applyTx([wire("n.kid-3", "An unrelated edit")], [], { rev: 2 });
+      const answer = await queries.ask(BACKLINK_COUNTS_QUERY);
+      expect(answer.kind).toBe("rows");
+    });
+    expect(mentionWatches()).toEqual([BACKLINK_COUNTS_QUERY]);
+    expect(mentionSubscriptions()).toEqual([BACKLINK_COUNTS_QUERY]);
+  });
+
+  it("updates the counter when a mention is added without rendering its target row again", async () => {
+    const counter = () => container.querySelector('[data-reference-counter="n.other"]');
+    expect(counter()).toBeNull();
+    const changed = wire("n.kid-3", "See [[n.other|Other root]]");
+    await act(async () => {
+      useGraphStore.getState().applyTx([changed], [], { rev: 2 });
+    });
+    await vi.waitFor(async () => {
+      await act(async () => {});
+      expect(counter()?.textContent).toBe("1");
+    });
     expect(new Set(renderedRows())).toEqual(new Set(["n.kid-3"]));
   });
 

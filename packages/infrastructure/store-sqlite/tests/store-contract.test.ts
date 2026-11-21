@@ -12,7 +12,17 @@ import { Effect } from "effect";
 import { logContract, storeContract, tailContract, reactionContract } from "@kb/test-kit";
 import { SqliteStore, sqliteStorePath } from "../src/index.ts";
 
-storeContract("SqliteStore", (root) => new SqliteStore(root));
+storeContract("SqliteStore", {
+  makeStore: (root) => new SqliteStore(root),
+  holdWriteLock: {
+    cwd: import.meta.dir,
+    script: `
+      import { Database } from "bun:sqlite";
+      const db = new Database(path);
+      db.run("BEGIN IMMEDIATE");
+    `,
+  },
+});
 reactionContract("SqliteStore", (root) => new SqliteStore(root));
 
 const scratchRoot = Effect.acquireRelease(

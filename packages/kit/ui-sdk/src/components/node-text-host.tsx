@@ -15,6 +15,7 @@ import { textFlavours } from "../lib/text-copy";
 import { isCompositionKey } from "../lib/keychord";
 import { matchesChord, TEXT_HISTORY_CHORD } from "@kb/keybindings";
 import { KB_TEXT_CLASS } from "../lib/md-inline";
+import { browserHost } from "../host";
 import {
   getCaretSerializedOffset,
   insertAtSelection,
@@ -36,7 +37,7 @@ import {
   type TextTrigger,
   type TriggerPick,
 } from "../lib/text-triggers";
-import { rowTextReadOnlyReason } from "../lib/contextual-ref";
+import { rowTextReadOnlyReason, shownNodeId } from "../lib/contextual-ref";
 import { refLookOf } from "../lib/ref-look";
 import type { SchemaIndex } from "../lib/schema";
 import type { NodeMap, TagBadge } from "../lib/types";
@@ -72,10 +73,8 @@ export interface NodeTextHostBinding {
   onFollow: Follow;
   consumeCaret: (instanceKey: string) => CaretIntent | null;
   placeCaret: (instanceKey: string, at: CaretAt) => void;
-  selectNode: (id: string, instanceKey?: string) => void;
   registerTextHost: (instanceKey: string) => void;
   unregisterTextHost: (instanceKey: string) => void;
-  setNodePaletteOpen: (open: boolean) => void;
 }
 
 export interface NodeTextHostProps extends NodeTextHostBinding {
@@ -105,7 +104,18 @@ export interface NodeTextHostProps extends NodeTextHostBinding {
   onBlur?: () => void;
   zoomTitleEditor?: boolean;
   onActivate: (cursorPos?: number) => void;
+  /** A keystroke's text (`PageWrites.updateNodeContent`): the row's own text undo covers it. */
   onChange: (content: string) => void;
+  /**
+   * The text written whole, as a command writes it (`PageWrites.setNodeText`):
+   * what a pick leaves in the text, written with the pick's own write as one.
+   */
+  writeText: (content: string) => Promise<unknown>;
+  /**
+   * The text as the graph holds it now, read from the node `writeText`
+   * writes (null: none): what the row shows after a page undo or redo.
+   */
+  readText: () => string | null;
   onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   /**
    * Where a paste or a drop into the text is offered (`lib/ingest`): the
@@ -183,13 +193,23 @@ const NONE: readonly TextTrigger[] = [];
  * its query changes or typing resumes (D14), and a trigger with nothing to
  * offer is closed, unless it answers Enter then.
  */
-function useOpenTrigger(
-  own: readonly TextTrigger[],
-  editing: boolean,
-  content: string,
-  cursor: number,
-  nodes: NodeMap,
-) {
+function useOpenTrigger({
+  own,
+  editing,
+  content,
+  cursor,
+  nodes,
+  nodeId,
+  textNodeId,
+}: {
+  own: readonly TextTrigger[];
+  editing: boolean;
+  content: string;
+  cursor: number;
+  nodes: NodeMap;
+  nodeId: string;
+  textNodeId: string;
+}) {
   const triggers = useMemo(() => [refTrigger, ...own], [own]);
   /** The query Escape dismissed the picker at, or null. */
   const [dismissed, setDismissed] = useState<string | null>(null);
@@ -199,8 +219,8 @@ function useOpenTrigger(
   }, [editing, triggers, content, cursor, dismissed]);
   // Rows exist only while a trigger is typed: a closed row asks for none.
   const rows = useMemo(
-    () => (typed === null ? [] : typed.trigger.rows(typed.open.query, nodes)),
-    [typed, nodes],
+    () => (typed === null ? [] : typed.trigger.rows(typed.open.query, nodes, nodeId, textNodeId)),
+    [typed, nodes, nodeId, textNodeId],
   );
   const triggered = typed !== null && (rows.length > 0 || typed.trigger.none !== undefined);
   return { open: triggered ? typed : null, rows, setDismissed };
@@ -221,6 +241,8 @@ export function NodeTextHost({
   zoomTitleEditor,
   onActivate,
   onChange,
+  writeText,
+  readText,
   onKeyDown,
   nodes,
   schema,
@@ -229,10 +251,8 @@ export function NodeTextHost({
   onFollow,
   consumeCaret,
   placeCaret,
-  selectNode,
   registerTextHost,
   unregisterTextHost,
-  setNodePaletteOpen,
   ingest,
   onRemoveTag,
   triggers: own = NONE,
@@ -253,11 +273,13 @@ export function NodeTextHost({
   const pendingEcho = useRef<string | null>(null);
   /** The text as last rendered: what a pick that resolves later is laid into. */
   const latest = useRef(content);
+  const consuming = useRef(false);
   useLayoutEffect(() => {
     latest.current = content;
   }, [content]);
   const [cursor, setCursor] = useState(0);
-  const readOnlyReason = rowTextReadOnlyReason(nodeId, nodes.get(nodeId), schema, isVirtual);
+  const node = nodes.get(nodeId);
+  const readOnlyReason = rowTextReadOnlyReason(nodeId, node, schema, isVirtual);
   /** How the text's references are inked, from the graph they point into. */
   const refs = refLookOf(schema);
   const readOnly = readOnlyReason !== null;
@@ -271,7 +293,15 @@ export function NodeTextHost({
     [content, onChange],
   );
 
-  const { open, rows, setDismissed } = useOpenTrigger(own, editing, content, cursor, nodes);
+  const { open, rows, setDismissed } = useOpenTrigger({
+    own,
+    editing,
+    content,
+    cursor,
+    nodes,
+    nodeId,
+    textNodeId: node === undefined ? nodeId : shownNodeId(node),
+  });
 
   useLayoutEffect(() => {
     if (!isActive || instanceKey === undefined) return undefined;
@@ -328,41 +358,99 @@ export function NodeTextHost({
     },
     [emit],
   );
-  const stepTextHistory = useTextHistory({
+  /**
+   * The page's side of the row's history: its undo stacks, and its undo and
+   * redo, the text then arriving as `content`, as `state` says or as the
+   * page leaves it.
+   */
+  const page = useMemo(
+    () => ({
+      history: () => browserHost().writes.history(),
+      step: async (direction: "undo" | "redo", state: { text: string; caret: number } | null) => {
+        if (state !== null) {
+          setCursor(state.caret);
+          pendingEcho.current = state.text === latest.current ? null : state.text;
+        }
+        const { writes } = browserHost();
+        await (direction === "undo" ? writes.undo() : writes.redo());
+        return readText();
+      },
+    }),
+    [readText],
+  );
+  const textHistory = useTextHistory({
     editorRef,
     editing,
     content,
     refs,
     onRestore: restoreText,
+    page,
   });
 
   useRevealMarkup(editorRef, editing);
   useOpenPills(editorRef, openReferences);
 
   /**
-   * Lay a pick into the text: what it inserts replaces the trigger's span,
-   * the caret after it, then its write. A pick that resolves later is laid
-   * into the text as it is then, unless the span has changed meanwhile.
+   * Lay a pick into the text as it is now, unless the span has changed
+   * meanwhile. A pick that consumes the row owns the write and focus.
+   * Otherwise what it inserts replaces the trigger's span, the caret after
+   * it, and the text and the pick's own write are written as one write of
+   * the page's (`PageWrites.together`), one undo step, which the row's
+   * history holds in its place, tied to the page's undo entry it made
+   * (`recordPick`). The text typed before the pick has landed by then, so
+   * the undo brings it back. A refused write leaves the text and the caret
+   * as they were.
    */
   const applyPick = useCallback(
-    async (made: TriggerPick | Promise<TriggerPick>, span: OpenTrigger) => {
+    async (made: TriggerPick | null | Promise<TriggerPick | null>, span: OpenTrigger) => {
       const was = content.slice(span.start, span.end);
       const pick = await made;
       const text = latest.current;
       if (text.slice(span.start, span.end) !== was) return;
-      const next = text.slice(0, span.start) + pick.insert + text.slice(span.end);
-      const caret = span.start + pick.insert.length;
-      emit(next);
-      if (editorRef.current) {
-        renderInlineMarkdown(editorRef.current, next, refs);
-        setCaretSerializedOffset(editorRef.current, caret);
-        revealMarkupAtSelection(editorRef.current);
+      if (pick === null || consuming.current) return;
+      if ("consume" in pick) {
+        consuming.current = true;
+        try {
+          await pick.consume();
+        } finally {
+          consuming.current = false;
+        }
+        return;
       }
-      setCursor(caret);
-      if (instanceKey !== undefined) placeCaret(instanceKey, caret);
-      await pick.write?.();
+      const before = { text, caret: span.end };
+      const after = {
+        text: text.slice(0, span.start) + pick.insert + text.slice(span.end),
+        caret: span.start + pick.insert.length,
+      };
+      const lay = (state: typeof after) => {
+        pendingEcho.current = state.text === latest.current ? null : state.text;
+        if (editorRef.current) {
+          renderInlineMarkdown(editorRef.current, state.text, refs);
+          setCaretSerializedOffset(editorRef.current, state.caret);
+          revealMarkupAtSelection(editorRef.current);
+        }
+        setCursor(state.caret);
+        if (instanceKey !== undefined) placeCaret(instanceKey, state.caret);
+      };
+      const { writes } = browserHost();
+      const below = writes.history().undo.at(-1);
+      lay(after);
+      textHistory.shown(after);
+      const landed = await writes.together(async () => {
+        await writeText(after.text);
+        await pick.write?.();
+        return true;
+      });
+      if (landed === null) {
+        textHistory.shown(before);
+        lay(before);
+        return;
+      }
+      const entry = writes.history().undo.at(-1);
+      if (entry !== below) textHistory.recordPick(before, after, entry);
+      pick.landed?.();
     },
-    [content, instanceKey, emit, placeCaret, refs],
+    [content, instanceKey, placeCaret, refs, textHistory, writeText],
   );
 
   /** A row picked, or (Enter with none) what the trigger does then. */
@@ -490,27 +578,7 @@ export function NodeTextHost({
       const history = historyChord(e);
       if (history !== null) {
         e.preventDefault();
-        stepTextHistory(history);
-        return;
-      }
-
-      // F15: '/' at offset 0 of an empty node opens the node palette (r1 Mode A MUST, before autocomplete).
-      if (
-        e.key === "/" &&
-        !e.metaKey &&
-        !e.ctrlKey &&
-        content === "" &&
-        getCaretSerializedOffset(editorRef.current) === 0
-      ) {
-        e.preventDefault();
-        // Select this row so palette can anchor, then open it
-        selectNode(nodeId, instanceKey);
-        // rAF not available in happy-dom — fall back to sync
-        if (typeof requestAnimationFrame === "function") {
-          requestAnimationFrame(() => setNodePaletteOpen(true));
-        } else {
-          setNodePaletteOpen(true);
-        }
+        textHistory.step(history);
         return;
       }
 
@@ -523,17 +591,7 @@ export function NodeTextHost({
       setCursor(getCaretSerializedOffset(editorRef.current));
       onKeyDown(e);
     },
-    [
-      open,
-      picker,
-      onKeyDown,
-      content,
-      nodeId,
-      instanceKey,
-      selectNode,
-      setNodePaletteOpen,
-      stepTextHistory,
-    ],
+    [open, picker, onKeyDown, textHistory],
   );
 
   const showPadlock = readOnly && !isActive;

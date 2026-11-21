@@ -1,3 +1,4 @@
+import { until } from "@kb/test-kit";
 /**
  * The bridge over a scripted runtime and a stand-in `kb ui` host: what a
  * turn is given, what the sidebar hears, and how a call runs: through the
@@ -159,16 +160,12 @@ class Peer implements ChannelPeer {
     return Effect.runPromise(channel.receive(this, data));
   }
 
-  /** The first event `pred` accepts, waiting up to two seconds for it. */
+  /** The first event `pred` accepts. */
   async next(pred: (event: AgentEvent) => boolean): Promise<AgentEvent> {
-    const deadline = Date.now() + 2000;
-    for (;;) {
-      const found = this.heard.find(pred);
-      if (found !== undefined) return found;
-      if (Date.now() > deadline)
-        throw new Error(`never heard it; heard ${JSON.stringify(this.heard)}`);
-      await Bun.sleep(5);
-    }
+    return until(
+      () => this.heard.find(pred),
+      () => `agent event; heard ${JSON.stringify(this.heard)}`,
+    );
   }
 
   turnEnd(): Promise<AgentEvent> {
@@ -245,6 +242,7 @@ describe("the agent bridge", () => {
       id: "node.get",
       input: { id: "n.root", depth: 0 },
       actor: "agent",
+      caller: "program",
     });
     expect(peer.heard.some((event) => event.type === "approval")).toBe(false);
   });
@@ -292,7 +290,7 @@ describe("the agent bridge", () => {
     // The host saw only the agent's own call, which it refused; the bridge never approves.
     // The call is made in the tab session of the person who asked.
     expect(h.invoked.filter((invocation) => invocation.id === "ext.gated.stamp")).toEqual([
-      { id: "ext.gated.stamp", input: {}, actor: "agent", session: "tab.a" },
+      { id: "ext.gated.stamp", input: {}, actor: "agent", caller: "program", session: "tab.a" },
     ]);
   });
 

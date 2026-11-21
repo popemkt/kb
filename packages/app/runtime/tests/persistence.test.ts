@@ -1,12 +1,22 @@
 import { describe, expect, test, afterEach } from "bun:test";
-import { Effect, Layer, Stream } from "effect";
+import { Clock, Effect, Fiber, Layer, Stream } from "effect";
+import { TestClock } from "effect/testing";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runWithKb } from "../src/layers.ts";
+import { IN_PROCESS_WIRE } from "../src/invoke.ts";
+import { invokeReceiptEffect } from "../src/registry.ts";
 import { openKbEffect } from "../src/open.ts";
 import { openKb, reload } from "../src/session.ts";
-import { KbStore, kbStoreLayer, staleCommitError, type EffectStore } from "@kb/contracts";
+import {
+  KbStore,
+  kbStoreLayer,
+  onWire,
+  staleCommitError,
+  WriteLockDeadline,
+  type EffectStore,
+} from "@kb/contracts";
 import { persistEffect, persistPlannedEffect, reloadEffect } from "@kb/operations";
 import { JsonlStore } from "@kb/store-jsonl";
 import { bunFileSystemLayer } from "../src/platform.ts";
@@ -590,20 +600,82 @@ describe("a write planned from what the session read", () => {
     expect(moving.list()).toMatchObject({ text: "moved 1", children: ["n.a"] });
   });
 
+  test("a conditional text update checks its source again after a concurrent commit", async () => {
+    root = await tempRoot();
+    const ctx = await openKb(root);
+    const moving = movingStore(ctx.store.path, 1);
+    const receipt = await runWithKb(
+      ctx,
+      invokeReceiptEffect(
+        ctx,
+        onWire(IN_PROCESS_WIRE, {
+          id: "node.update",
+          input: { id: "n.list", text: "updated n.list", expectedText: "n.list" },
+        }),
+      ).pipe(Effect.provideService(KbStore, moving.store)),
+    );
+    expect(receipt).toMatchObject({ status: "failed", code: "conflict" });
+    expect(moving.list()?.text).toBe("moved 1");
+  });
+
   test("a store that keeps moving is the caller's conflict, and nothing is written", async () => {
     root = await tempRoot();
     const ctx = await openKb(root);
-    const moving = movingStore(ctx.store.path, 10);
+    const moving = movingStore(ctx.store.path, Infinity);
     const plans = { count: 0 };
     const err = await Effect.runPromise(
-      Effect.flip(
-        persistPlannedEffect(ctx, appendA(plans), { systemWrites: "system" }).pipe(
-          Effect.provide(Layer.mergeAll(kbStoreLayer(moving.store), bunFileSystemLayer)),
+      Effect.gen(function* () {
+        const write = yield* Effect.forkChild(
+          Effect.flip(persistPlannedEffect(ctx, appendA(plans), { systemWrites: "system" })),
+        );
+        yield* TestClock.adjust("16 seconds");
+        return yield* Fiber.join(write);
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(kbStoreLayer(moving.store), bunFileSystemLayer, TestClock.layer()),
         ),
       ),
     );
     expect(err.code).toBe("conflict");
-    expect(plans.count).toBe(3);
+    expect(plans.count).toBeGreaterThan(1);
     expect(moving.list()?.children).toEqual([]);
+    expect(moving.store.txTail.entries()).toEqual([]);
+  });
+
+  test("a retry gives the next lock only the time left and stops on an exhausted wait", async () => {
+    root = await tempRoot();
+    const ctx = await openKb(root);
+    const { store } = movingStore(ctx.store.path, 1);
+    const waits: number[] = [];
+    const lockConflict = new DomainError({ code: "conflict", message: "write lock timed out" });
+    const awaitingLock: EffectStore = {
+      ...store,
+      commitEffect: (tx, record, expected) =>
+        Effect.gen(function* () {
+          const deadline = present(yield* WriteLockDeadline, "the write has a deadline");
+          const remaining = deadline - (yield* Clock.currentTimeMillis);
+          waits.push(remaining);
+          if (waits.length === 1) {
+            yield* Effect.sleep("10 seconds");
+            return yield* store.commitEffect(tx, record, expected);
+          }
+          yield* Effect.sleep(remaining);
+          return yield* lockConflict;
+        }),
+    };
+    const failure = await Effect.runPromise(
+      Effect.gen(function* () {
+        const write = yield* Effect.forkChild(
+          Effect.flip(persistPlannedEffect(ctx, (nodes) => Effect.succeed(planAppend(nodes)))),
+        );
+        yield* TestClock.adjust("16 seconds");
+        return yield* Fiber.join(write);
+      }).pipe(Effect.provide(Layer.mergeAll(kbStoreLayer(awaitingLock), TestClock.layer()))),
+    );
+    expect(failure).toBe(lockConflict);
+    expect(waits).toHaveLength(2);
+    expect(waits[0]).toBe(15_000);
+    expect(waits[1]).toBeLessThanOrEqual(5_000);
+    expect(store.txTail.entries()).toEqual([]);
   });
 });

@@ -157,6 +157,8 @@ export const SYSTEM_IDS = {
   cmdDebugShowFields: "sys.cmd.debug-show-fields",
   cmdExpandAll: "sys.cmd.expand-all",
   cmdCollapseAll: "sys.cmd.collapse-all",
+  cmdGoBack: "sys.cmd.go-back",
+  cmdGoForward: "sys.cmd.go-forward",
   /**
    * Query nodes as pure system nodes (DESIGN-REFINE §2 W4). A query node is any
    * node carrying `sys.f.query` — the field is the kind, so there is no

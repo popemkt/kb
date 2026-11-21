@@ -83,6 +83,7 @@ export const daysExtension = defineExtension({
         chord: "Mod-Shift-D",
         run: { command: DAYS_IDS.todayCommand },
       }),
+      // GAP [[01M7X187JZA6QW3CFB0JHZZJPV]] day stepping ships without default shortcuts.
     ],
   },
   retires: RETIRED_DAY_PAGE.map((from) => ({ from })),

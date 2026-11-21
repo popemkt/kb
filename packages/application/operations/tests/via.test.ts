@@ -28,7 +28,7 @@ describe("the via a call is made for", () => {
     const request = { id: "node.add", input: { text: "a" }, via: "job:a" };
     expect(onWire(PROGRAM_WIRE, request).via).toBe("job:a");
     expect(onWire(LABELLED_WIRE, request).via).toBe("job:a");
-    expect(envelopeOf(onWire(PROGRAM_WIRE, request))).toEqual(request);
+    expect(envelopeOf(onWire(PROGRAM_WIRE, request))).toEqual({ ...request, caller: "program" });
   });
 
   test("a wire that states one labels every call that names none", () => {

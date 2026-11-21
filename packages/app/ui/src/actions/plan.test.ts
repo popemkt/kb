@@ -15,7 +15,15 @@ import {
   planReplaceField,
   planSetProp,
   planSplit,
+  type BlockStays,
+  type PlannedMutation,
 } from "./plan.ts";
+
+/** A plan that moves its block, not why the block stays. */
+function planned(plan: PlannedMutation | BlockStays): PlannedMutation {
+  if ("stays" in plan) throw new Error(`the block stays: ${plan.stays}`);
+  return plan;
+}
 
 describe("outline action input builders", () => {
   it("split keeps the expanded-first-child decision in the UI", () => {
@@ -32,6 +40,15 @@ describe("outline action input builders", () => {
     ]);
   });
 
+  it("a split at the end of a row writes only the new row", () => {
+    const text = fixtureGraph.nodes.find((node) => node.id === "n.root-b")?.text ?? "";
+    expect(
+      planSplit(fixtureGraph.nodes, "n.root-b", text.length, "new", {
+        expandedIds: new Set(),
+      }).actions.map((action) => action.id),
+    ).toEqual(["node.add"]);
+  });
+
   it("delete delegates cascade semantics to node.update", () => {
     expect(planDelete(fixtureGraph.nodes, "n.root-a").actions).toEqual([
       { id: "node.delete", input: { id: "n.root-a", descendants: "cascade" } },
@@ -39,7 +56,7 @@ describe("outline action input builders", () => {
   });
 
   it("indent and parented move emit positions, not rewritten parents", () => {
-    expect(present(planIndent(fixtureGraph.nodes, ["n.child-a2"]), "indent").actions).toEqual([
+    expect(planned(planIndent(fixtureGraph.nodes, ["n.child-a2"])).actions).toEqual([
       { id: "node.update", input: { id: "n.child-a2", parent: "n.child-a1", position: 0 } },
     ]);
     expect(present(planMove(fixtureGraph.nodes, ["n.child-a2"], "up"), "move").actions).toEqual([
@@ -51,7 +68,7 @@ describe("outline action input builders", () => {
     const roots = siblingSlots(fixtureGraph.nodes, null).map((n) => n.id);
     const block = ["n.root-b", "n.root-c"];
     // Under the sibling before it, after that sibling's children, in order.
-    expect(present(planIndent(fixtureGraph.nodes, block), "indent").actions).toEqual([
+    expect(planned(planIndent(fixtureGraph.nodes, block)).actions).toEqual([
       { id: "node.update", input: { id: "n.root-b", parent: "n.root-a", position: 2 } },
       { id: "node.update", input: { id: "n.root-c", parent: "n.root-a", position: 3 } },
     ]);
@@ -64,16 +81,24 @@ describe("outline action input builders", () => {
     // Out: after the parent, in order.
     const children = ["n.child-a1", "n.child-a2"];
     const after = roots.indexOf("n.root-a") + 1;
-    expect(present(planOutdent(fixtureGraph.nodes, children), "outdent").actions).toEqual([
+    expect(planned(planOutdent(fixtureGraph.nodes, children)).actions).toEqual([
       { id: "node.update", input: { id: "n.child-a1", parent: null, position: after } },
       { id: "node.update", input: { id: "n.child-a2", parent: null, position: after + 1 } },
     ]);
   });
 
   it("plans nothing for rows that are not one run of siblings", () => {
-    expect(planIndent(fixtureGraph.nodes, ["n.child-a2", "n.root-b"])).toBeNull();
+    expect(planIndent(fixtureGraph.nodes, ["n.child-a2", "n.root-b"])).toEqual({
+      stays: "not-a-run",
+    });
     expect(planMove(fixtureGraph.nodes, ["n.root-a", "n.root-c"], "down")).toBeNull();
-    expect(planOutdent(fixtureGraph.nodes, ["n.root-b"])).toBeNull();
+  });
+
+  it("says why a run of siblings stays: no row above it, or no parent", () => {
+    expect(planIndent(fixtureGraph.nodes, ["n.child-a1", "n.child-a2"])).toEqual({
+      stays: "no-row-above",
+    });
+    expect(planOutdent(fixtureGraph.nodes, ["n.root-b"])).toEqual({ stays: "no-parent" });
   });
 
   it("root inserts and moves send a position in the root group, never a rank", () => {
@@ -207,5 +232,46 @@ describe("moving a row to a group", () => {
   it("writes nothing for the group the row is in, by its first value", () => {
     expect(planMoveToGroup([card], "c", "f.status", doing)).toBeNull();
     expect(planMoveToGroup([wire("c", {})], "c", "f.status", null)).toBeNull();
+  });
+
+  it("routes a contextual reference's move to its target, never the reference node", () => {
+    const refRow = wire("r", { [SYSTEM_IDS.refTargetField]: [ref("c")] });
+    expect(planMoveToGroup([card, refRow], "r", "f.status", done)).toEqual(
+      planReplaceField([card, refRow], "c", "f.status", [done]),
+    );
+    expect(planMoveToGroup([card, refRow], "r", "f.status", doing)).toBeNull();
+  });
+
+  it("writes nothing for a reference whose target is gone, not even on the reference node", () => {
+    const dangling = wire("r", { [SYSTEM_IDS.refTargetField]: [ref("gone")] });
+    expect(planMoveToGroup([dangling], "r", "f.status", done)).toBeNull();
+    expect(planMoveToGroup([dangling], "r", "f.status", null)).toBeNull();
+  });
+});
+
+describe("splitting a contextual reference", () => {
+  const target = wire("t", {}, ["t.c1"]);
+  const refRow = wire("r", { [SYSTEM_IDS.refTargetField]: [ref("t")] });
+  const parent = wire("p", {}, ["r"]);
+  const graph = [parent, refRow, target, wire("t.c1", {})];
+
+  // Only the new row is written: the reference itself is not touched.
+  it("opens the target's first child when the reference is expanded and the target has children", () => {
+    expect(planSplit(graph, "r", "end", "new", { expandedIds: new Set(["r"]) }).actions).toEqual([
+      { id: "node.add", input: { id: "new", text: "", parent: "t", position: 0 } },
+    ]);
+  });
+
+  it("opens a sibling after a reference whose target is gone, expanded or not", () => {
+    const dangling = wire("r", { [SYSTEM_IDS.refTargetField]: [ref("gone")] });
+    expect(
+      planSplit([parent, dangling], "r", "end", "new", { expandedIds: new Set(["r"]) }).actions,
+    ).toEqual([{ id: "node.add", input: { id: "new", text: "", parent: "p", position: 1 } }]);
+  });
+
+  it("opens a sibling after the reference when the reference is collapsed", () => {
+    expect(planSplit(graph, "r", "end", "new", { expandedIds: new Set() }).actions).toEqual([
+      { id: "node.add", input: { id: "new", text: "", parent: "p", position: 1 } },
+    ]);
   });
 });

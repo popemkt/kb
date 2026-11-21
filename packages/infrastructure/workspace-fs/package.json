@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "@effect/platform-bun": "catalog:",
+    "@kb/test-kit": "workspace:*",
     "@types/bun": "catalog:"
   },
   "nx": {

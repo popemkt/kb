@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { setPostAction } from "@/api/action";
+import { setPostAction, type ActionResponse } from "@/api/action";
 import { tabSession } from "@/api/tab-session";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { bundledDerived } from "@kb/bundled";
 import { inThreadPort } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
 import { provideEngine } from "@/session/engine";
+import { outlineUiPlugin } from "@/test-support/outline-plugin";
+import { syncPagePlugins } from "@/test-support/page-plugins";
 import { Effect } from "effect";
-import { declarationPlugin, type ScreensPort } from "@kb/contracts";
+import { declarationPlugin, type ActionRequest, type ScreensPort } from "@kb/contracts";
 import { coreExtension } from "@kb/operations";
 import { syncUiPlugins } from "@kb/ui-sdk";
 import {
@@ -112,6 +114,92 @@ describe("browser action runtime", () => {
     expect(useGraphStore.getState().wireNodes).toBe(projected);
     await waitForBrowserPushes();
     expect(post).not.toHaveBeenCalled();
+  });
+
+  it("pushes the same outline ids the local commit minted for its rows", async () => {
+    useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+    const since = vi.fn();
+    setBrowserLink({ since, fetchSnapshot: vi.fn(), retryAfter: vi.fn() });
+    const post = vi.fn(async (invocation: ActionRequest) => ({
+      status: "succeeded" as const,
+      id: invocation.id,
+      output: structuredClone(invocation.input),
+      rev: 2,
+    }));
+    setPostAction(post);
+
+    const input = { outline: "- First\n  - Nested\n- Last", parent: "n.root-a" };
+    const { receipt, settled } = await invokeSettled({ id: "node.addTree", input });
+    if (receipt.status !== "succeeded") throw new Error(receipt.message);
+    const { ids } = receipt.output as { ids: string[] };
+    expect(ids.map((id) => index()?.getNode(id)?.text)).toEqual(["First", "Nested", "Last"]);
+    expect(index()?.getNode(ids[0] ?? "")?.children).toEqual([ids[1]]);
+    expect(await settled).toMatchObject({ status: "succeeded", output: { ids } });
+    expect(since).not.toHaveBeenCalled();
+    expect(post).toHaveBeenCalledExactlyOnceWith({
+      id: "node.addTree",
+      input: { ...input, ids },
+      session: tabSession(),
+    });
+  });
+
+  it("drops optimistic outline ids and catches up when the server minted different ones", async () => {
+    useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+    const response = Promise.withResolvers<ActionResponse>();
+    setPostAction(() => response.promise);
+    const since = vi.fn();
+    setBrowserLink({ since, fetchSnapshot: vi.fn(), retryAfter: vi.fn() });
+
+    const { receipt, settled } = await invokeSettled({
+      id: "node.addTree",
+      input: { outline: "- Pasted row", parent: null },
+    });
+    if (receipt.status !== "succeeded") throw new Error(receipt.message);
+    const { lines } = receipt.output as { lines: Record<string, string> };
+    const local = index()?.getNode(lines["1"] ?? "");
+    if (local === undefined) throw new Error("the replica did not show the pasted row");
+
+    const serverNode = { ...local, id: "n.legacy-paste" };
+    const output = { ids: [serverNode.id], lines: { 1: serverNode.id } };
+    response.resolve({ id: "node.addTree", status: "succeeded", rev: 2, output });
+
+    expect(await settled).toMatchObject({ status: "succeeded", output });
+    expect(index()?.getNode(local.id)).toBeUndefined();
+    expect(since).toHaveBeenCalledExactlyOnceWith(1);
+    browserReplica()?.receive({ op: "tx", rev: 2, upserts: [serverNode], deletes: [] });
+    expect(index()?.getNode(serverNode.id)?.text).toBe("Pasted row");
+    expect(index()?.getNode(local.id)).toBeUndefined();
+  });
+
+  it.each([
+    { id: "field.define", input: { name: "Review date" }, text: "Review date" },
+    { id: "tag.define", input: { name: "Review item" }, text: "Review item" },
+    {
+      id: "view.propose",
+      input: { view: "outline.main", text: "Review outline" },
+      text: "Review outline",
+    },
+  ])("$id pushes the id it minted on the page", async ({ id, input, text }) => {
+    useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+    syncPagePlugins([outlineUiPlugin]);
+    const post = vi.fn(async (invocation: ActionRequest) => ({
+      status: "succeeded" as const,
+      id: invocation.id,
+      output: invocation.input,
+      rev: 2,
+    }));
+    setPostAction(post);
+
+    const { receipt, settled } = await invokeSettled({ id, input });
+    if (receipt.status !== "succeeded") throw new Error(receipt.message);
+    const { id: minted } = receipt.output as { id: string };
+    expect(index()?.getNode(minted)?.text).toBe(text);
+    expect(await settled).toMatchObject({ status: "succeeded", output: { id: minted } });
+    expect(post).toHaveBeenCalledExactlyOnceWith({
+      id,
+      input: { ...input, id: minted },
+      session: tabSession(),
+    });
   });
 
   it("refuses a local write its field cannot hold, before anything is pushed", async () => {

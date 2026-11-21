@@ -12,11 +12,15 @@ async function runHelper(argv: readonly string[], signal: AbortSignal, stdin?: s
   const child = Bun.spawn([...argv], {
     stdin: stdin === undefined ? "ignore" : new TextEncoder().encode(stdin),
     stdout: "pipe",
-    stderr: "ignore",
+    stderr: "pipe",
     signal,
   });
-  const [stdout, code] = await Promise.all([new Response(child.stdout).text(), child.exited]);
-  return { code, stdout };
+  const [stdout, stderr, code] = await Promise.all([
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+    child.exited,
+  ]);
+  return { code, stdout, stderr };
 }
 
 const systemdCreds = systemdCredsCipher(runHelper);
@@ -179,7 +183,7 @@ describe("systemd-creds", () => {
     const calls: { argv: readonly string[]; stdin: string | undefined }[] = [];
     const cipher = systemdCredsCipher((argv, _signal, stdin) => {
       calls.push({ argv, stdin });
-      return Promise.resolve({ code: 0, stdout: "c2VhbGVk\nYm9keQ==\n" });
+      return Promise.resolve({ code: 0, stdout: "c2VhbGVk\nYm9keQ==\n", stderr: "" });
     });
     expect(await Effect.runPromise(cipher.seal("routines.a", "value"))).toBe("c2VhbGVkYm9keQ==");
     expect(calls).toEqual([

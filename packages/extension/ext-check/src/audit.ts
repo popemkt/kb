@@ -16,66 +16,8 @@ import {
   type Finding,
 } from "./model.ts";
 import { isFile, pathInRoot } from "./repo-files.ts";
+import { findInvocationUnwired } from "./surface-invocations.ts";
 import { textMatchesOf } from "./text-matches.ts";
-
-const surfaceFiles = Effect.fn("ext.check.surfaceFiles")(function* (
-  root: string,
-  patterns: readonly string[],
-) {
-  const fs = yield* FileSystem;
-  const files = new Set<string>();
-  for (const pattern of patterns) {
-    const wildcard = pattern.indexOf("*");
-    if (wildcard < 0) {
-      const path = pathInRoot(root, pattern);
-      if (path !== undefined && (yield* isFile(path))) files.add(path);
-      continue;
-    }
-
-    const separator = pattern.lastIndexOf("/", wildcard);
-    const directory = pathInRoot(root, separator < 0 ? "." : pattern.slice(0, separator));
-    const basename = pattern.slice(separator + 1);
-    const [prefix, suffix, extra] = basename.split("*");
-    if (
-      directory === undefined ||
-      prefix === undefined ||
-      suffix === undefined ||
-      extra !== undefined
-    ) {
-      continue;
-    }
-    const entries = yield* fs
-      .readDirectory(directory)
-      .pipe(Effect.orElseSucceed((): string[] => []));
-    for (const entry of entries) {
-      if (!entry.startsWith(prefix) || !entry.endsWith(suffix)) continue;
-      const path = pathInRoot(
-        root,
-        `${separator < 0 ? "" : pattern.slice(0, separator + 1)}${entry}`,
-      );
-      if (path !== undefined && (yield* isFile(path))) files.add(path);
-    }
-  }
-  return [...files].toSorted();
-});
-
-const invocationIsWired = Effect.fn("ext.check.invocationIsWired")(function* (
-  root: string,
-  model: CheckModel,
-  surface: string | undefined,
-  invocation: string | undefined,
-) {
-  const patterns = surface === undefined ? undefined : model.surfaceFiles.get(surface);
-  if (patterns === undefined || invocation === undefined || invocation === "") return false;
-  const fs = yield* FileSystem;
-  const files = yield* surfaceFiles(root, patterns);
-  for (const path of files) {
-    const content = yield* fs.readFileString(path).pipe(Effect.orElseSucceed(() => ""));
-    // A substring, not a whole command. GAP [[01M56TFECRSQN243PAEB6XGHRY]]
-    if (content.includes(invocation)) return true;
-  }
-  return false;
-});
 
 /** GitHub's anchor for a heading: lower case, punctuation dropped (`_` and `-` kept), spaces to `-`. */
 function githubHeadingSlug(heading: string): string {
@@ -159,25 +101,6 @@ const findEvidenceMissing = Effect.fn("ext.check.findEvidenceMissing")(function*
     }
   }
   return evidenceMissing;
-});
-
-const findInvocationUnwired = Effect.fn("ext.check.findInvocationUnwired")(function* (
-  root: string,
-  model: CheckModel,
-) {
-  const invocationUnwired: Finding[] = [];
-  for (const check of model.checks) {
-    const surface = propText(model, check, "surface");
-    const invocation = propText(model, check, "invocation");
-    if (!(yield* invocationIsWired(root, model, surface, invocation))) {
-      invocationUnwired.push({
-        kind: "invocation-unwired",
-        check: check.id,
-        message: `check ${check.id} invocation is not wired on ${surface ?? "(missing)"}: ${invocation ?? "(missing)"}`,
-      });
-    }
-  }
-  return invocationUnwired;
 });
 
 function findEnforcementStale(model: CheckModel): Finding[] {

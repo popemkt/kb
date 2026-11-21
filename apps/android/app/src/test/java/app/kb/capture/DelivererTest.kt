@@ -102,6 +102,26 @@ class DelivererTest {
     }
 
     @Test
+    fun `a server deadline leaves the capture pending until a later delivery succeeds`() {
+        paired()
+        host.submit = { HttpCaptureHost.interpret(503, "Request exceeded the 35000 ms deadline.") }
+        val id = queue.enqueue(CaptureDraft(text = "t"), "personal").capture.captureId
+        assertTrue(deliverer.deliverAll())
+        val pending = queue.get(id)!!.state
+        assertEquals(Status.Pending, pending.status)
+        assertEquals(1, pending.attempts)
+        assertEquals("Not delivered yet: HTTP 503", pending.reason)
+
+        host.submit = { FakeHost.ok("""{"nodeId":"01N"}""") }
+        assertFalse(deliverer.deliverAll())
+        assertEquals(Status.Sent, queue.get(id)!!.state.status)
+        val submittedIds = host.calls.filter { it.first == "capture.submit" }.map {
+            it.third["input"]!!.jsonObject["captureId"]!!.jsonPrimitive.content
+        }
+        assertEquals(listOf(id, id), submittedIds)
+    }
+
+    @Test
     fun `a permanent refusal fails the capture with the host's reason, and retry is the person's`() {
         paired()
         host.submit = { Answer.Refused("not_found", "inbox 01X does not exist") }
@@ -192,7 +212,11 @@ class InterpretTest {
         assertEquals(Answer.Refused("invalid_input", "files[1]: too large"), HttpCaptureHost.interpret(200, """{"status":"failed","id":"capture.submit","code":"invalid_input","message":"files[1]: too large"}"""))
         assertTrue(HttpCaptureHost.interpret(200, """{"status":"failed","id":"x","code":"forbidden","message":"revoked"}""") is Answer.Unauthorized)
         assertTrue(HttpCaptureHost.interpret(200, """{"status":"failed","id":"x","code":"internal","message":"boom"}""") is Answer.Unreachable)
-        assertTrue(HttpCaptureHost.interpret(401, "") is Answer.Unauthorized)
+        assertEquals(Answer.Unauthorized("HTTP 401"), HttpCaptureHost.interpret(401, ""))
+        assertEquals(
+            Answer.Unauthorized("capture device credential is invalid or revoked"),
+            HttpCaptureHost.interpret(403, """{"status":"failed","id":"kb.manifest","code":"forbidden","message":"capture device credential is invalid or revoked"}"""),
+        )
         assertTrue(HttpCaptureHost.interpret(502, "Bad gateway") is Answer.Unreachable)
         assertTrue(HttpCaptureHost.interpret(200, "<html>") is Answer.Unreachable)
     }

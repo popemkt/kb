@@ -1,0 +1,6 @@
+{
+  "reason": "An instance key names its row's node and its parent's instance (nodeOfInstance, parentInstanceKey), so a split lands the caret in the instance the row is drawn in and the outline's walks read a row's place from its key instead of parsing it at each call site.",
+  "raise": {
+    "surface": { "@kb/ui-sdk": 2 }
+  }
+}

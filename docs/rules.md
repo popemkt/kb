@@ -20,7 +20,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Outline grid: one text column | DESIGN-UI.md#one-text-column | packages/extension/outline-ui packages/kit/ui-sdk outline | Every line's first letter starts on its depth's text column, --kb-text-inset after the glyph column: a row's text, a field's name, a ghost row's placeholder, a section's heading, a query's status line, a row's line preview. An inline mark never moves it: a link's outward mark follows its label, and a field's values start on one value column with a reference's bullet hung in the label's last glyph column. | ci | — |
 | Outline grid: the page's title is a line | DESIGN-UI.md#the-pages-title | packages/extension/outline-ui packages/kit/ui-sdk outline | The page's head is depth-0 lines with an empty glyph column, each on the text column the rows start on: the title, which owns its whole line and wraps only at the column's end; its tags and owner; its view control on a line of its own (the quiet gear on a list page, the whole toolbar on a projected view or a query page). Its fields follow as depth-0 field rows. | ci | — |
 | Compiler strictness contract | DESIGN.md#compiler-strictness-contract | repo | One base tsconfig owns strictness; the DESIGN.md table is the contract, packages declare only their delta, and a rejected flag is recorded with its measured count. | harness | — |
-| Core names no feature | DESIGN.md#extension-families | packages | Every extension package belongs to one family, tagged with the name the family declares once, and imports another extension package only of its own family. An app package imports an extension package only from a composition-root file (EXTENSION_ROOTS), never re-exported, or from a file named as a deferred breach; every extension package is loaded, by a value import, by a root of each host its scope runs in; and a family's browser half is its one @kb/<family>-ui package, a surface of @kb/ui named for a family being a deferred breach (CORE_BROWSER_HALVES). Not checked yet: that core packages hold no feature vocabulary (the open extension-boundaries gaps). | harness | — |
+| Core names no feature | DESIGN.md#extension-families | packages | Every extension package belongs to one family, tagged with the name the family declares once, and imports another extension package only of its own family. An app package imports an extension package only from a composition-root file (EXTENSION_ROOTS), never re-exported, or from a file named as a deferred breach; every extension package is loaded, by a value import, by a root of each host its scope runs in; and a family's browser half is its one @kb/<family>-ui package, a surface of @kb/ui named for a family being a deferred breach (CORE_BROWSER_HALVES). The harness checks literal copies of family-owned seeded ids. Open extension-boundaries gaps track other ways core still names features. | harness | — |
 | Coverage is a signal | DESIGN.md#testing-doctrine | repo | Coverage is reported and never a threshold; chasing a percentage manufactures exactly the noise the testing doctrine forbids. | harness | — |
 | Design tokens: every class is live | DESIGN-UI.md#design-tokens | packages/app/ui | Every class the UI writes emits CSS under kb's stylesheet. The token bridge resets Tailwind's own scales, so a default step (text-sm, shadow-xl, rounded-3xl) reads like a class and compiles to nothing; Tailwind itself, not a pattern list, decides which classes are dead. | harness | — |
 | Drift markers | AGENTS.md#drift-markers-and-gaps | repo | A deferred clean shape carries a GAP marker at the deferral site and a matching gap node naming expected, current, impact and closes. An unlabelled workaround is drift. | harness | — |
@@ -113,14 +113,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Draw links as screen-space quads (three's Line2NodeMaterial / LineSegments2 with a per-instance width updated in place, or a TSL quad strip), sized by the square root of weight, keeping the one-draw batch and no per-frame allocation.
 - **node** — `01M3AZSFJ9A8K8FYGHF5ADEAPT`
 
-### GAP: a # or > pick in the text is two writes, the text's and the step's
-
-- **expected** — A trigger pick that writes (# tags the row, > adds a field) is one write with the text it takes out, so one undo takes back both (DESIGN-UI.md → Triggers in the text; asOneWrite).
-- **current** — The text host lays the pick into the text through its own text write, then the step commits its own one write (stepTrigger in outline-triggers.ts); undo takes the tag or field back first, and the text second.
-- **impact** — Undoing a # or > pick takes two steps, and the first leaves #query or >query back in the row without its picker.
-- **closes** — TriggerPick.write returns a planned mutation the host applies together with its text write (mutations.together), or the text host's write joins the step's plan.
-- **node** — `01M7D4AYQFJGZQGJZ3KD7M388R`
-
 ### GAP: a 3D capture briefly shows two frames
 
 - **expected** — no visible flash
@@ -201,14 +193,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a chart builder that writes the spec through the one chart spec check
 - **node** — `01M4187E5QQYRD8ENHQM968EEJ`
 
-### GAP: a check's invocation counts as wired when any surface file merely contains it
-
-- **expected** — A check's invocation is wired when a surface file runs it as a whole command: a hook or workflow line, a package.json script segment, a lint rule key — each surface reading its own file's grammar.
-- **current** — ext.check.audit's invocationIsWired accepts any substring of any surface file, so 'bun run test' is wired by 'bun run test:ui', and a comment that names a command counts as running it.
-- **impact** — A check can read as wired when nothing runs it, and its rule's enforcement then claims more than holds.
-- **closes** — Per-surface invocation grammars: command lines of the hook and workflow run steps, &&-segments of package.json scripts, rule keys of .oxlintrc.json; an invocation matches one whole.
-- **node** — `01M56TFECRSQN243PAEB6XGHRY`
-
 ### GAP: a checklist row shows no box until a tag ties one to its done field
 
 - **expected** — A row the checklist family makes from a pasted Markdown checklist shows its done as a box, as Tana draws a task (DESIGN-UI.md → A tag's box).
@@ -241,14 +225,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The chips line moves to a shared field-list component (or the detail view draws FieldsSection) so both surfaces take one placement
 - **node** — `01M7EY5YQKG919B47FD255B34B`
 
-### GAP: A concurrent SQLite CLI writer exited before committing
-
-- **expected** — Independent CLI additions commit under ordinary contention, or return a conflict that can be diagnosed and retried.
-- **current** — During scratch stress with four CLI writers and eight subscribers, one SQLite kb add exited 1 before writing its node. The harness preserved the exit code and missed the receipt on stdout. A rerun capturing both streams passed all 16 additions.
-- **impact** — The first run required retrying the missing addition. The 12 additions that completed stayed durable.
-- **closes** — Reproduce with structured CLI receipts, classify the refusal, and add a concurrent store regression if the refusal is outside the conflict contract.
-- **node** — `01M7Q56B5T0H4HEW6BP85BT1S9`
-
 ### GAP: a dashboard's inner panes are not in the screen state
 
 - **expected** — every pane on screen, including those inside a dashboard, is listed in the screen state and can be targeted
@@ -273,14 +249,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — dropOver takes the frame's view (frameViewOf, its sort and group), and a drop over a sorted or grouped frame's rows lands in the frame with the line on the frame's own row.
 - **node** — `01M7D25CX9D6V64G19PYJJYCXM`
 
-### GAP: a DST scenario is not hermetic: KB_DATA moved under it changes its store
-
-- **expected** — A seeded DST history replays to a byte-identical store every time (dst.test.ts, each committed seed replays to a byte-identical store), on any machine and under any load, whatever else the process does meanwhile
-- **current** — A scenario reads where kb keeps its data (KB_DATA, through currentData) each time a commit keeps its backup, and that work reads the seeded clock. So moving KB_DATA while a scenario runs changes its stamps from there on (23 of 543 lines, reproduced 2026-11-14). The test preload moves KB_DATA in every beforeEach, and a test that overruns its budget keeps running beside the next one, so an overrun replay diverges: CI run 43497638157 (seed dst-3, after the looped replay test overran 32 s) and, likely, the dst-2 divergence once under load (four stamps 46 s apart). Each committed seed is now its own test, inside the budget, so only a genuine hang overruns.
-- **impact** — A DST replay depends on process-global state outside the simulation: whatever moves KB_DATA mid-run, an overrun included, makes it diverge, and the failure reads as nondeterminism in the store
-- **closes** — A scenario pins its own data directory: currentData read from a provided service whose default is the environment, so runScenario provides one it owns and nothing outside can move it
-- **node** — `01M740E2KPGXWP4WKTE2XZ6N56`
-
 ### GAP: a family a host composes is switched only where that host runs
 
 - **expected** — every surface can write any family's switch, a hosted one included, and kb ext list lists it
@@ -288,15 +256,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — the agent cannot be switched off before kb ui first runs with it, except from the page
 - **closes** — the host families' declarations reported (not loaded) by every process, or the agent's declaration joining the bundled list with a host half that only kb ui loads
 - **node** — `01M43H3T8XEMTNBARC024PZD2W`
-
-### GAP: a family cannot declare a migration of its data
-
-- **expected** — A family's manifest declares a data version and pure, idempotent migration steps; an update shows their dry-run diff on its approval sheet, applies them as one transaction that can be undone, and records a migration node.
-- **current** — A family changes its data only through seed retirement rows (renames, applied on open without a preview) and bespoke passes such as views' migrate; neither is previewed, approved, undoable as a unit or recorded.
-- **impact** — The routines to events rename, and any change to what a family's data means, would rewrite a person's nodes without their seeing it first.
-- **closes** — A manifest data block, a migration runner with a contract suite, the dry-run diff on the trust sheet and a #migration record node.
-- **rule** — Plugins migrate their own data, declared and previewed
-- **node** — `01M7342YFJC4B6DMAFD8MTSTD7`
 
 ### GAP: a family's paste transform runs in the page at T3, not in the isolated frame at T1
 
@@ -419,6 +378,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — packageShards packs mutants by line range instead of by file, emitting file:start-end entries in a shard's mutate.
 - **node** — `01M558MRWHR92991GYFRC5WWXY`
 
+### GAP: a node command that does not answer its writes makes them apart from its undo step
+
+- **expected** — Every node command's run answers the writes it makes, through the page's write path (PageWrites), so a / pick or a palette run waits for them and they are one undo step (PageWrites.together).
+- **current** — NodeCommandListing.run and nodeAction answer the command's promise, but several command bodies fire their write without answering it (void writes.defineTag in Make my tag, void writes.updateProp in Make query, the makeSupertag and Add chart async blocks, void setFrameView, void invokeAction in command-forms), and Add chart's view.propose goes to invoke directly, not through PageWrites, so it has no undo step at all.
+- **impact** — Such a command's write is not part of the / pick's undo step (or the palette run's): it is its own step, or, for Add chart, no step. The typed trigger never comes back (the / pick consumes it as typing), but undo takes the command back in more than one step or not at all.
+- **closes** — Each listed body returns its write instead of voiding it (commands.tsx is WP-5's file, chart-ui and command-forms are shared), and view.propose becomes a planned write in mutations (WP-4's), so its view node is made and undone as any page write.
+- **node** — `01M7XSNFCYHHYD7VKTZXPYG60B`
+
+### GAP: a node drawn at several places shares one open or closed choice
+
+- **expected** — Each place a node is drawn (a row instance: under its parent, as a query result, under a reference) keeps its own open or closed choice, so opening or closing one row's subtree changes only the rows drawn under it
+- **current** — The outline's expansion is one choice per node id (toggleCollapse, withExpansion, openRows): the subtree keys open or close each node they reach, so the same node drawn elsewhere (in the tree, under another query, in another pane) opens or closes with it
+- **impact** — ⌘⌥↓ on a query, a reference or a row whose descendants also appear elsewhere opens those rows everywhere, and ⌘⌥↑ closes them everywhere; Expand all and Collapse all do the same over the scope
+- **closes** — Expansion keyed by row instance where a row's choice can differ from its node's, as GAP: a reference opened in place shows its target as the target's own open or closed choice asks for references opened in place; the subtree keys then write the instances subtreeOf found
+- **node** — `01M7XP1SNNVNYZKH5GCSW3RH6C`
+
 ### GAP: a number knob's range is the declaration's, not data on its field node
 
 - **expected** — A knob field carries its own range and step as data, so every surface that writes it (kb set, node.update, the field editor) refuses a value outside them, as it refuses a value of the wrong type.
@@ -458,6 +433,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a frame with list and board views cannot be shown as a board in one pane and a list in another
 - **closes** — let the outline page take a frame view override from the pane
 - **node** — `01M411FPKHWPRFTWDYKVXBDYSB`
+
+### GAP: a pending / command's gesture can capture a separate edit made in the same tab
+
+- **expected** — A / pick's batch (PageWrites.together around command.run) holds only the writes that command makes, so undo takes back that command and nothing else.
+- **current** — PageWrites.together opens one page-wide gesture: every planned write made in the tab while it is open joins it. A / command that awaits (a server call, a later write) keeps the gesture open, and a separate edit made meanwhile (a field value, another row's command) is captured into the same batch and undone with it.
+- **impact** — Rare (an edit made in the moment a / command is pending), but then one undo takes back the command and the unrelated edit together, and a refusal of either refuses both.
+- **closes** — A gesture scoped to its caller rather than the page: commands write through a writes handle their context hands them (CommandContext.writes bound to the gesture) instead of the global browserHost().writes, since the browser has no async context to tell the command's continuation from other work. The same scoping serves the text host's pick batch and nodeAction's asOneWrite.
+- **node** — `01M7XVRNAJBC9Q09SKCGRQTMHC`
 
 ### GAP: a plugin backdrop runs with the page's power; nothing confines it to its canvas and its knobs
 
@@ -507,6 +490,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — registryFor requires the store's switches (no default), or the runtime layer resolves FamilyKernels per call; a contract property that composing the manifest mid-session keeps every action and procedure reachable.
 - **node** — `01M7C87K56AJY519YZ51NPF06F`
 
+### GAP: A rejected optimistic mention Link can leave a stale undo step
+
+- **expected** — An outline undo step can reverse only a write the server accepted, using the text that write actually replaced.
+- **current** — The page records an undo step when a conditional Link succeeds in its replica. An intervening edit can make the server refuse the same write after the undo step is already recorded.
+- **impact** — Undoing the rejected Link can send a replacement with the earlier source text and overwrite the concurrent edit.
+- **closes** — Make history follow the shared write settlement and cover a Link rejected by the server after local success. Prove that undo preserves the intervening text.
+- **node** — `01M7XRPAHQ1ZB2CHNAXEN4B0KM`
+
 ### GAP: a remote root keeps no persisted mirror, so it cannot start or read offline
 
 - **expected** — A remote store persists its last mirror (nodes and tail head) so a restart offline reads it, and a quota stop leaves something to read (docs/research/2026-10-31-online-stores.md §3.4).
@@ -531,6 +522,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Signed or stored connect state (docs/research/2026-11-11-cli-host-modes.md step 9).
 - **rule** — Hosts are accelerators: the store is the truth
 - **node** — `01M75MA0QYHNYGSNMJAGTZKZQ1`
+
+### GAP: a row a pick redraws starts its text history over, so ⌘Z in it cannot reach the pick
+
+- **expected** — ⌘Z in a row takes back the last thing done in it, a pick included, wherever the pick put the row: the row's history follows it when a write draws it at another instance (an /indent), or the row's ⌘Z steps the page's history once its own is spent.
+- **current** — The row's history lives in its text host (use-text-history.ts). A / pick that indents or outdents the row redraws it under a new instance key, so a new text host starts with an empty history; slashTrigger re-edits it there (keepEditing) but ⌘Z in it reaches only the typing since. Escape, then ⌘Z (the page's undo) takes the pick back in one step.
+- **impact** — After /indent or /outdent, ⌘Z while still typing in the row does not undo the indent; the person has to leave the row first. Tab-indent while editing has the same limit today.
+- **closes** — The page editor (outline.store.ts, WP-4's file in the 2026-11-20 parity work) keeps the active row's text history across a re-key of its instance, or the text host falls through to PageWrites.undo/redo when its history is empty, with the editor following the row to its new instance.
+- **node** — `01M7X9MKS1DM5JEAR2DRWS7KT6`
 
 ### GAP: a sandboxed graph.query is bounded in size, not in time
 
@@ -588,14 +587,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A consumer wanting one tool's notes parses strings; a misspelt tool name is a different tool and nothing notices
 - **closes** — Tools as nodes, and a how-to as a child node (or a field value) that refers to its tool; the starter writes it so and the art direction groups by it
 - **node** — `01M68CQN0E7CMMEATHT0RDYV10`
-
-### GAP: a tab of an earlier build is served the current sandbox frame script
-
-- **expected** — The sandbox frame's script is kept per build like the page's chunks (digest-named, served from the build archive), or its page↔frame messages are part of the wire fingerprint, so a tab of an earlier build talks to a frame of its own protocol.
-- **current** — dist/sandbox/frame.js keeps one name and is served no-cache; a tab of an earlier build loads the current frame, and FrameMessage/PageMessage are not fingerprinted in server/tests/wire-protocol.test.ts.
-- **impact** — A release that changes the frame protocol breaks code nodes in tabs opened before it, with no reload to fix them.
-- **closes** — Digest-name the frame script (Vite entry with a hash, the page reading its name from the build) or add the sandbox protocol's schemas to the wire fingerprint.
-- **node** — `01M6GY0MXXXY2YQ8C3P77M2QNF`
 
 ### GAP: a tag's template fields cannot be reordered
 
@@ -670,14 +661,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — host lifecycle owns its views: deleting a host or dropping a view from sys.f.views deletes view nodes nothing else names
 - **node** — `01M3YM5Y5XYDZ1C7G0PCQ1RMK8`
 
-### GAP: a view node's markdown has no layout of its own
-
-- **expected** — each view type contributes its own markdown projection: filters, sort, board grouping, table columns, graph edges
-- **current** — render.view's markdown lists the view, its settings and the nodes its subject shows, the same shape for every view
-- **impact** — Claude Code and other hosts without ui:// see a flat list where the person sees a board, table or graph
-- **closes** — each view key carries a markdown projection beside its params
-- **node** — `01M40X30G92A0E57C02JHQ9A1G`
-
 ### GAP: a view's narrowing is evaluated in JS by the condition evaluator, not ANDed onto the frame's query at compile
 
 - **expected** — A view's narrowing is lowered (lowerIr) and ANDed onto its frame's rows in datalog: appended to the :where of a query frame that does not aggregate, and run over the children of any other frame, in one budgeted execution with the query's results
@@ -702,6 +685,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Pass the wire snapshot in and return the planned effect out, letting the store apply it — the seam the optimistic path already almost has. Lands with the outline-store split.
 - **rule** — UI import matrix
 - **node** — `01M1RXMRB7AZB7DPFR6XBPBKQ9`
+
+### GAP: Add field with a ref field is refused: its empty value is a ref to no node
+
+- **expected** — Add field (the menu's, the palette's, or > in the text) on a field whose type is ref (options, a node) adds the field to the node with no value yet, and its slot opens for a pick (DESIGN-UI.md → Field values: one slot grammar).
+- **current** — addField writes emptyValueForType(type) as the first value; for ref that is {t:ref, v:""}, and the commit refuses it: field <id> refs missing node (valueConformanceError in @kb/model field-value.ts).
+- **impact** — A person cannot add an options or node field (status, owner, a family's state) from Add field or >; the write is refused with a toast, and nothing is added.
+- **closes** — A field shown with no value is a first-class state the slot draws (an opened-but-empty field), so Add field writes no placeholder value; or the store accepts an empty ref as no value.
+- **node** — `01M7WVNN93MWQ3FYK5J86P6ASD`
 
 ### GAP: admission bundles an extension's page half but never imports or decodes it
 
@@ -818,6 +809,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — move the shared GPU backdrop host out of backdrops-ui into a kit package (beside @kb/scene-gpu) with its scene registry passed in, then port arena-scene.ts onto mountBackdrop and delete Arena's wrapper; the port drops Arena's write() and its Pod re-fire in favour of reactions.impulse / reactions.stir read in frame(), and Arena passes backdrop-continuity.contract.test.tsx
 - **node** — `01M5SYY397F5NPN3CHWGCSPQSY`
 
+### GAP: browser tests duplicate polling loops with independent deadlines
+
+- **expected** — Browser tests waiting for an observable result share a helper in @kb/ui-test-kit and use the owning test timeout.
+- **current** — Browser-scope tests in @kb/ui and @kb/graph-ui implement their own polls, several with individual deadlines.
+- **impact** — A busy host can expire a poll while its enclosing test still has time to finish, and each test must own its own cleanup.
+- **closes** — Provide one Vitest-compatible wait in @kb/ui-test-kit, tie it to the test lifetime, and migrate the browser callers.
+- **node** — `01M7WYE1A1B7RX5H6Q7058C14A`
+
 ### GAP: BrowserStore IndexedDB persistence
 
 - **expected** — The browser replica persists through an IndexedDB-backed EffectStore across page reloads.
@@ -825,6 +824,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A page reload discards optimistic local state that has not reached the server.
 - **closes** — Implement an IndexedDB-backed EffectStore with the same generation fingerprint contract.
 - **node** — `01M1R6N8VC3W5P93KABEFZ8CTX`
+
+### GAP: Bun's Unix listener types omit the supported idle timeout option
+
+- **expected** — The Bun listener signature accepts the runtime idleTimeout option on TCP and Unix sockets.
+- **current** — Bun 1.4.2 accepts a listener-wide idleTimeout on Unix sockets but UnixServeOptions omits it. The documented per-request timeout is ineffective on Unix sockets (oven-sh/bun#43816). kb passes the listener-wide option through its binding object.
+- **impact** — The Bun boundary must carry the option through a typing seam to give Unix requests the same deadline as TCP requests.
+- **closes** — When Bun declares idleTimeout on UnixServeOptions, pass it directly to Bun.serve and recheck the 35-second response on TCP and Unix sockets.
+- **node** — `01M7X56KZ3QCBQTZ4KMEE7PNGA`
 
 ### GAP: canvas 3D-only face tones are local literals in canvas-card-face.ts
 
@@ -849,6 +856,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — moving the item leaves the arrow behind; a half-made diagram does not hold together
 - **closes** — an edge end that may be a free point (or a path item end bound to an item), written through connectItems and drawn by edgeRoute in both projections
 - **node** — `01M5QP271PQ15E7WZ36KEN055N`
+
+### GAP: Canvas commands prepare whole-node writes before the retry planner
+
+- **expected** — A Canvas edit or import derives its document, parent links and related node writes from the graph each commit attempt reads.
+- **current** — Several Canvas verbs and the tldraw import pass precomputed node upserts to GraphWrites.commit; another attempt can reuse the same snapshots. This path predates the session retry change.
+- **impact** — A concurrent edit can be replaced by an older canvas document or parent link.
+- **closes** — Move Canvas document edits, related writes and import planning into the GraphWrites callback and prove concurrent edits survive on both store backends.
+- **node** — `01M7XES1FFV2N8AEZREJN7CQG7`
 
 ### GAP: canvas context menu opens in 2D only; a right-click in 3D opens nothing
 
@@ -939,6 +954,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Separate design question recorded in briefs/p1-persistence.md section 4: protocol, discovery, and fallback when no server is running.
 - **node** — `01M1M08WPQTB514E7JERKYEDWZ`
 
+### GAP: CLI properties and tree input lack relative-date context
+
+- **expected** — Every surface parses the same date phrases the UI's DateEditor accepts.
+- **current** — @kb/model's parseTypedValue accepts today as the reference date for relative phrases. The CLI property mapper and the shared node.addTree parser used by CLI and MCP call it without today.
+- **impact** — Relative phrases such as today and next fri work in the date editor but fail on these input paths.
+- **closes** — Supply the reference date to the shared parser from CLI property parsing and the node.addTree path used by CLI and MCP.
+- **node** — `01M3KA3AEEFG0E200V4D63G5SN`
+
 ### GAP: code-image identity parked for the single-owner shortcut model
 
 - **expected** — Revisit loaded-code image identity only if kb needs stronger authentication than its single-owner local trust/approval model.
@@ -971,6 +994,23 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Add :node/is to CORE_DERIVED with a carrier that reads the chain and re-derives a tag's instances when its sys.f.extends changes; lower has-tag to it, evaluate it with isA, and stop canonicalizing a sys.f.type is-condition into has-tag. The routines engine's read (routines-host graph.ts) then asks :node/is and brings the tags its readers walk.
 - **node** — `01M738XHYKHDFFCN8DK595Z15T`
 
+### GAP: Day stepping has no default shortcut
+
+- **expected** — Previous day and Next day have distinct default shortcuts that reach kb in each supported shell.
+- **current** — The commands ship in the palette. Chrome on macOS reserves Command-Option-Left and Command-Option-Right for switching tabs, and Ctrl brackets overlap the history shortcuts.
+- **impact** — Day stepping needs the palette or a shortcut the person assigns.
+- **closes** — Approve a default pair that is free in the page and outline keymaps and reaches kb in macOS Chrome and the desktop shell.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M7X187JZA6QW3CFB0JHZZJPV`
+
+### GAP: defining and applying a tag can leave an orphan definition
+
+- **expected** — Defining and applying a tag in one editor gesture commits as one transaction.
+- **current** — The palette and # text picker send tag.define ahead of the node update, as on main at be415b51.
+- **impact** — If tagging the target is refused, the newly defined tag remains in the graph.
+- **closes** — Plan the tag definition and the node updates in one batch using the shared tag definition planner.
+- **node** — `01M7XCENSKX32JHABYKAD8AD6N`
+
 ### GAP: Durable browser invocation replay
 
 - **expected** — The browser invocation lane durably queues offline mutations and replays them under an explicit conflict policy.
@@ -987,14 +1027,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A WebGL2-expressible grid (a counting sort in several transform-feedback passes, or a fixed-slot grid written without atomics), or three's WebGL backend gaining storage atomics; plus a render-lane run with WebGPU disabled.
 - **rule** — Lab principles
 - **node** — `01M3A95XAEE6FGT8ZVDRHYBDF5`
-
-### GAP: Enter on an expanded reference opens a sibling, not the target's first child
-
-- **expected** — Enter at the end of an expanded reference opens the target's first child, as on any expanded row.
-- **current** — planSplit in actions/plan.ts counts the reference's own children, which are none.
-- **impact** — One row kind breaks the outline's Enter rule.
-- **closes** — planSplit counts the shown node's children.
-- **node** — `01M3KA3BBRADE3TNWQ78JNK37M`
 
 ### GAP: every expanded outline row mounts, so load cost grows with expanded rows
 
@@ -1021,6 +1053,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — docs/research/2026-11-11-cli-host-modes.md step 7.
 - **node** — `01M75MA4HB3NFDXGGKG0RE45H5`
 
+### GAP: Expand subtree / Expand all do not open results of a query that has not answered yet
+
+- **expected** — Expand subtree and Expand all open the results of every query they open, a query not yet answered included; an async version stays scoped to its page and awaits only the queries inside the requested subtree
+- **current** — The subtree walk (rowsDrawnOpen in outline.store.ts) reads the answers the page has, synchronously: a query it opens that has not answered yet draws no results, so they stay closed. An async version (580ea33e, reverted) settled the page's answers first, and Sol's re-check of 62c65a19 found two faults: Expand all applied its choices after the queries settled, so navigating meanwhile landed them on another page; and the settled walk waited on queries in branches outside the requested subtree
+- **impact** — ⌘⌥↓ on a closed query that no row has drawn opens the query but not its results or the rows under them; pressing it again once the results show opens them
+- **closes** — An async subtree step that captures its page and host, drops its result if the page has moved by the time it settles, and settles only the queries the requested subtree opens
+- **node** — `01M7XSM8DNSX1HCZW2217PX5M1`
+
 ### GAP: ext-canvas keeps its own copy of requireNode
 
 - **expected** — One reader of the node an action names, or its not_found refusal, in a package both @kb/operations' actions and an extension's actions may import (beside KbContext in @kb/contracts), which every action that reads one node by id calls.
@@ -1038,6 +1078,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M79MBMJQKDBBGJ2HG8Z6QEG2`
 
+### GAP: extension module initialization can run effects before the plugin loads
+
+- **expected** — Extension declarations and entries keep module initialization inert. Effects run through the plugin lifecycle.
+- **current** — The source gates check imports, foreign ids and runtime code-loading forms. They do not enforce inert module initialization or reject top-level writes to globals.
+- **impact** — Loading a module can run effects even when its plugin is never applied.
+- **closes** — Implement L3 in docs/research/2026-10-29-plugin-codependency.md and run the same admission check for bundled and repository extensions.
+- **rule** — Core names no feature
+- **node** — `01M7WXS4712B6AC2Q6TE43T7CA`
+
 ### GAP: family halves' page tests run in the shell (outline, collections, graph)
 
 - **expected** — a family half's tests hold it to BrowserHost through the test host (DESIGN-UI → Extension UI halves)
@@ -1054,6 +1103,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The owner's decision between the two options below (or a third), stated in DESIGN.md → Field types; the type menu then offers what that decision says.
 - **node** — `01M7KVYBVC5N8VJSBBJCYE74SE`
 
+### GAP: five React Compiler lint rules remain on the blocking ratchet
+
+- **expected** — react/refs, react/exhaustive-effect-dependencies, react/set-state-in-effect, react/memo-dependencies and react/globals all run at error with zero violations.
+- **current** — react/hooks already runs at error. The blocking baseline in harness/lint-warn-baseline.json tracks 28 warnings across the five remaining rules.
+- **impact** — The remaining violations can lead to stale values or repeated renders. The blocking ratchet prevents the count from growing.
+- **closes** — Drain per component with the UI suite (bun run test:ui) as the guard, re-snapshot the ledger, and promote each rule to error when its count reaches 0.
+- **node** — `01M35NJQPKW5YVNVFFAFAYXPFH`
+
 ### GAP: flat canvas items vanish in level 3D views
 
 - **expected** — flat items stay visible when the camera looks across the floor (front, side views)
@@ -1061,6 +1118,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — front and side views of a canvas of flat cards look empty
 - **closes** — 3D workspace step 3 (items get depth), or drawn outlines on flat items
 - **node** — `01M41AB7YM5801ZJNM1Q647SYD`
+
+### GAP: Flushing queued draft typing before conversion can overwrite a concurrent edit
+
+- **expected** — A queued text write preceding a conversion preserves concurrent edits to the same draft.
+- **current** — The ordered push lane sends pending typing as an unconditional node update before it submits the guarded conversion batch.
+- **impact** — The typing write can overwrite a concurrent draft edit before the conversion precondition reads the line.
+- **closes** — Give the coalesced draft text write a concurrency precondition and keep the conversion ordered after it.
+- **node** — `01M7XMMFAMVHBRBHC9X8P68FJ9`
 
 ### GAP: four core files have consumers in only one extension family
 
@@ -1167,29 +1232,45 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P0 and P1 of docs/research/2026-10-31-offline-first.md §7: the pure reconcile, the agent, the convergence property test, kb sync and the server lane.
 - **node** — `01M69E3P6ADBBDTGRP4F6ZSR81`
 
-### GAP: kb desktop declares the raw capture envelope itself instead of importing the contract
-
-- **expected** — Quick capture builds its payload as @kb/contracts' CaptureSubmit (CaptureSubmitSchema, CAPTURE_CONTRACT), the one statement of the raw capture wire.
-- **current** — packages/app/desktop/src/core/capture.ts declares RawCapture and CAPTURE_CONTRACT locally, matching the contract on feat/raw-capture-host, which was not on main when the desktop branched.
-- **impact** — If the contract changes, the desktop's envelope can drift from it with every test green.
-- **closes** — Once the capture contract is on main, capture.ts imports CaptureSubmit and CAPTURE_CONTRACT from @kb/contracts and its tests parse the envelope with CaptureSubmitSchema.
-- **node** — `01M7QTTTHGVFE32XRVV96A696K`
-
-### GAP: kb desktop has no pairing for a remote store's capture; its token is pasted by hand
-
-- **expected** — Adding a remote store pairs once (capture.pair with a one-use code the host's owner issues) and keeps the returned device credential in the OS keychain.
-- **current** — The store list takes an optional capture token as text and keeps it in the desktop's settings.json (mode 0600) beside the remote's origin (packages/app/desktop/src/core/config.ts).
-- **impact** — A remote capture works only with a token the person copied over, and the token sits in a plain file.
-- **closes** — The desktop calls capture.pair when a remote store is added and keeps the credential in Keychain (macOS) or the secret service (Linux).
-- **node** — `01M7QTTV8E0XFK9J0CKCNM6H5G`
-
 ### GAP: kb desktop keeps remote stores in its own settings, beside the home store's locations
 
 - **expected** — A store reached at an origin (a tailnet kb ui) is a location like a local root: a node in the home store that location.list lists and location.open answers, so the desktop, the page's Locations section and kb open see one list.
-- **current** — packages/app/desktop/src/core/config.ts keeps remote stores (key, name, origin, token) in the desktop's settings.json; local stores are read from location.list.
+- **current** — packages/app/desktop/src/core/config.ts keeps remote stores (key, name, origin, device id, accepted capture contracts) in the desktop's settings.json, their device credentials in the keychain; local stores are read from location.list.
 - **impact** — Two lists of stores: a remote added in the desktop is not in the page's Locations or kb locations, and one added elsewhere is not in the desktop.
 - **closes** — The locations family gains an origin (a URL-typed field beside sys.f.location.path, status derived by probing it), and the desktop lists and opens remotes through location.list and location.open.
 - **node** — `01M7QTTRFKDF9B7F4M29Z84XJQ`
+
+### GAP: kb desktop proves its kb runs, not that it is new enough
+
+- **expected** — Resolution passes over a kb that runs but lacks what the desktop calls (capture.submit, capture.pair), the same way it passes over one that cannot run, and says which version it needs.
+- **current** — processProbe in packages/app/desktop/src/core/kb-command.ts asks only kb --version to answer; an older installed kb wins in a release build and quick capture to its stores is refused with "update kb".
+- **impact** — On a Mac whose installed kb is an older nightly, a release build runs it ahead of a newer checkout kb, so capture to local stores fails until the installed kb is updated or "kb" is set.
+- **closes** — kb --version (or a capabilities action) reports the contract versions it serves, and the probe requires the capture contract the desktop speaks.
+- **node** — `01M7WV5DBWNMEWS2QG6M4VP3QY`
+
+### GAP: kb desktop reads a remote's capture contract once, at pairing
+
+- **expected** — The desktop learns which capture contracts a paired remote accepts from its kb.manifest when it checks the store, as the Android app does before it delivers (Deliverer.checkContract), so the store list and a capture see the host's current contract.
+- **current** — packages/app/desktop/src/core/stores.ts keeps the captureContract the capture.pair answer named as the remote's accepts in settings.json, and the store list shows that value until the store is paired again.
+- **impact** — A host updated to a new capture contract shows as in step until a capture is refused; a host that stops accepting captures is not noticed until then.
+- **closes** — The store list and the capture path ask the remote's kb.manifest (with the device credential) for captureContract, update accepts, and show waiting or paused states as Android does.
+- **node** — `01M7WZGP3B84JK08R43Y642C7N`
+
+### GAP: kb desktop resolves its kb once, at launch
+
+- **expected** — The desktop notices when the kb it runs stops answering (or a better one appears) and resolves again, without a restart.
+- **current** — packages/app/desktop/src/shell/electrobun/index.ts probes the candidates once at launch and keeps the choice for the life of the process.
+- **impact** — A kb installed, rebuilt or removed while the app runs is not seen until the person quits and reopens kb; the store list then says the kb could not run, and the advice says to reopen.
+- **closes** — KbCli resolves lazily and re-resolves after a run that failed without a receipt, behind the same KbRunner port.
+- **node** — `01M7WV5D06HSMA1JFBBRGE0B13`
+
+### GAP: kb desktop stamps build-machine paths into the app
+
+- **expected** — A built app carries no path of the machine or checkout it was built on; a kb for it is bundled or installed.
+- **current** — electrobun.config.ts stamps KB_DESKTOP_CHECKOUT_KB (the checkout bin/kb) and KB_DESKTOP_BUILD_BUN (the Bun the build ran with, often a Nix store path) into the bundle.
+- **impact** — The app works on the machine it was built on only while that checkout and that Bun exist: a removed worktree or a Nix garbage collection turns both candidates into ones the probe passes over.
+- **closes** — build:mac bundles a kb release (bin/release-bundle) by default, and the checkout candidate is kept for dev builds only.
+- **node** — `01M7WV5DQDNMQMR9QYJN839TNJ`
 
 ### GAP: kb desktop typechecks its Electrobun adapter against a hand-kept declaration
 
@@ -1215,14 +1296,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — No live shared editing across machines; the owner's Cloudflare/Turso setup has nothing to talk to.
 - **closes** — The prototype of docs/research/2026-10-31-online-stores.md §7: the port, the mirror store, the DO authority, the two-process sync test.
 - **node** — `01M6950VPS4MH8NWDWB4ZF9CP1`
-
-### GAP: kb mutation skips saving its baseline when the merge step fails
-
-- **expected** — The report job saves the next baseline even when a shard or the merge failed, as its comment says.
-- **current** — kb-mutation.yml 'Save baseline' has no if: always(), so a failed Download or Merge reports step skips it.
-- **impact** — The next weekly run misses the cache and runs in full: bounded by the shard plan, only slower.
-- **closes** — if: always() on the save step, guarded on the baseline file existing.
-- **node** — `01M55AE0NTW88HWFJ2V0ZH92KQ`
 
 ### GAP: KbIndex is DataScript in memory on both stores; sqlite holds nodes but answers no queries
 
@@ -1338,6 +1411,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — docs/research/2026-11-11-cli-host-modes.md section 5 and step 12.
 - **node** — `01M788TCV1H6XEE8X7TGTPP1Y1`
 
+### GAP: node palette advertises a ⌘S that is bound to nothing
+
+- **expected** — A label names a key that runs the command.
+- **current** — commands.tsx search-all reads Search everything… ⌘S; page-keys.ts leaves ⌘S to the browser, so the key does nothing (F6 in docs/research/2026-11-20-outliner-tana-parity.md).
+- **impact** — A hint that lies teaches people the keyboard is broken.
+- **closes** — Brief 6 in docs/research/2026-11-20-outliner-tana-parity.md: drop the label, or bind ⌘S as the owner decides.
+- **node** — `01M7WW1PRXPC058Y8MPDN8ADM0`
+
 ### GAP: node-config decode warnings reach the browser log, not the UI
 
 - **expected** — A malformed config prop is visible where the config is: a badge or bar beside the graph / view frame, the way resolveOntology's warnings surface through ontology-scope-bar and ontology-page.
@@ -1346,13 +1427,13 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Give the two decoders' reports a home in the ui the way ontology warnings have one — a store field plus a badge — and have the config surfaces read it instead of the log seam. Component + store work: out of g8's zone (docs/kb/waves/2026-09-09/briefs/g8-domain-typing.md).
 - **node** — `01M1XF1NA2RBAX1E6NNX6PMZ6N`
 
-### GAP: node.addTree mints its ids twice when the page runs it optimistically
+### GAP: node.batch mints missing add ids twice when run optimistically
 
-- **expected** — An optimistic write names the same nodes on the page and on the server: the ids the local commit mints are the ids the server commits, as node.add does by taking the minted id as input
-- **current** — node.addTree takes no ids, so the page's local commit (invokeSettled, writeLocal) mints one set and the server's commit another; the page shows the local ids until the push settles, then the replica converges on the server's and the local ones vanish
-- **impact** — Anything a page reads from a pasted tree before the push settles names nodes that will not exist: a selection made at once is lost, and a write that refers to a returned id (a setting naming the new Library) is refused or dangles. The gallery runs its starter on the server (ext.gallery.starter) to avoid it
-- **closes** — node.addTree takes the ids to mint (one per flattened item), filled from the local commit and pushed with the invocation, as node.add's id is
-- **node** — `01M5ZBC8DQWB1DY5Z9AAABGPYR`
+- **expected** — A node.batch add creates the same node on the page and on the server, including when the caller omits id.
+- **current** — The isomorphic node.batch planner mints an id for each node.add with no id. The page pushes the original nested calls, so the server mints other ids.
+- **impact** — A caller holding an id from the local batch receipt can lose its selection or refer to a node the server never stored.
+- **closes** — Project the ids in the local batch receipt into the corresponding node.add inputs before pushing, using the same action declaration as outline paste. Prove mixed batches keep their call order and explicit ids.
+- **node** — `01M7X43QWW4ZHWA2WFWJ6WP5ZY`
 
 ### GAP: nodes have no icon, so refs cannot show one
 
@@ -1362,15 +1443,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A seeded sys icon field and refInkOf reading it.
 - **node** — `01M3KA3BHNPNB8VX34HD8P2JCB`
 
-### GAP: nothing flags another family's action id or seed id spelled as a string
-
-- **expected** — L1, a harness lint, fails a string literal ext.<f>.<id> in a package of another family; L2, a harness test over bundledOwners(), fails a literal equal to a node id another family seeds; L3 keeps a module top level inert (no effects, no globalThis or window writes)
-- **current** — the family fence refuses imports only, so a coupling it forbids reappears as a string: four foreign action ids in ext-canvas, and sys.tag.canvas copied into the kit (gap 01M436DVSEHKNYWSF2MR07HPMR)
-- **impact** — each copy is a mirror held by a test or by nothing; a rename breaks it at run time, not at build
-- **closes** — P2 (L1) and P3 (L2, L3) of docs/research/2026-10-29-plugin-codependency.md
-- **rule** — Core names no feature
-- **node** — `01M63C0JP6WDX8CZ0VBPYQY4ER`
-
 ### GAP: nothing proves a family correct when no host runs
 
 - **expected** — extensionContract (@kb/test-kit) has a hostless property, and every hosted family runs under it: for a family with a host loop, its catch-up action run one-shot after any sequence of writes, deletions included, reaches the store state and remote effects a host running throughout reaches.
@@ -1379,6 +1451,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The property in extensionContract, run over the routines memory Calendar; the rule's enforcement then moves to ci (docs/research/2026-11-11-cli-host-modes.md step 10).
 - **rule** — Hosts are accelerators: the store is the truth
 - **node** — `01M75MA1FDWA0W84EBDYGCCEHX`
+
+### GAP: o does not make the row directly below the selected one
+
+- **expected** — o in selection mode makes an empty row directly below the selected row, as selection-actions.ts createAfter says: the first child of an expanded parent, else the next sibling, a top-level row's included (the way Shift+O and Cmd+Shift+Enter now use planInsertSibling).
+- **current** — createEmptyNode (packages/app/ui/src/actions/mutations.ts) appends the new row as the LAST child of an expanded parent (planAddChild), and for a top-level row ignores afterSiblingId and adds a root with no position, so the row lands at the top of the page.
+- **impact** — o on an expanded parent or on a top-level row puts the new row somewhere other than under the row the person pressed it on; they have to find it and move it.
+- **closes** — createEmptyNode places by planInsertSibling (after) for a sibling, a top-level one included, and at position 0 for an expanded parent's first child; selection characterization tests assert the exact place for both.
+- **node** — `01M7X2C58J05ZV2KSWZSHDEWHS`
 
 ### GAP: offline writes to a shared store are unsupported (the tail is a total order the store assigns)
 
@@ -1443,6 +1523,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — storage grows with every distinct row the reader ever toggled and is re-serialised on each save
 - **closes** — prune on a delete that is not undone, restore the choice on undo
 - **node** — `01M52E0177292798G5908A74GG`
+
+### GAP: outline paste deletes its source and focuses a row before server acceptance
+
+- **expected** — An outline paste keeps an empty source row until the server accepts the tree. Focus moves to the last authoritative row after it reaches the outline.
+- **current** — packages/app/ui/src/actions/mutations.ts returns the optimistic node.addTree ids to addTreeAt in the shared ingest path. addTreeAt can delete the source row and focus an id the server later replaces or refuses. The receipt can arrive before the authoritative rows reach the page.
+- **impact** — A refused paste can lose its source row. A server that mints replacement ids can leave focus on a speculative row that disappears.
+- **closes** — Use the settled node.addTree receipt to decide whether to remove a source row that is still empty. When the authoritative rows reach the outline, focus its last row. Cover refusal, changed source content, and replacement ids arriving after the receipt. See outline paste ids.
+- **node** — `01M7XMM97Q7Q251R5GGZGACGC9`
 
 ### GAP: outline zoom is one per tab, not one per pane
 
@@ -1525,13 +1613,13 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — move store-jsonl's write-lock into a shared package as a path-keyed lock, take it around recordBuild's refresh-or-publish and prune, and add a concurrent refresh-vs-prune test
 - **node** — `01M6H0QPT8K2YPY6XV6SM5WRYH`
 
-### GAP: query print-roundtrip coverage quota depends on independent random samples
+### GAP: Query conversion must preserve a query saved by another tab
 
-- **expected** — Query round-trip coverage includes a guaranteed meaningful set of non-empty answers, independent of chance.
-- **current** — ir.test.ts samples 100 independently generated stores and queries, then requires at least 8 non-empty answers. CI run 42451620455 produced 7, although every round-trip comparison passed.
-- **impact** — An unchanged query implementation can fail the full core gate nondeterministically; this blocked the extension UI PR.
-- **closes** — Generate meaningful non-empty cases by construction alongside broad random cases, preserve the comparison contract, and reproduce the failing coverage distribution.
-- **node** — `01M6WV8JS4GPF0TRYDZY948C40`
+- **expected** — The picker sets the query field only if it is empty when the write commits.
+- **current** — A tag pick can replace a query that another tab saved after the picker opened.
+- **impact** — Picking a tag can discard an existing saved query and its conditions.
+- **closes** — Pass the field-absence condition through the shared undoable PageWrites property update. Record undo history only for the accepted write.
+- **node** — `01M7XM3JDSQN8BK0RMQCD3HZM9`
 
 ### GAP: query-result rows are not keyed per pane
 
@@ -1556,14 +1644,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Tracing queries must stay inside the subset; a lineage query that also needs a function outside PREDICATES, a binding form or a :with section fails with an error that does not name the cause.
 - **closes** — An opaque clause/section kind in the IR (ir.ts) that parse.ts produces for unmodelled forms and compile.ts emits unchanged; find-type inference then treats vars bound only there as scalar.
 - **node** — `01M39X8RPQBWFVDNG77BB3ZCMH`
-
-### GAP: React Compiler rules oxlint 1.83 added sit on the ratchet, not at error
-
-- **expected** — react/refs, exhaustive-effect-dependencies, set-state-in-effect, hooks, memo-dependencies and globals are error with zero sites, like the rest of oxlint's correctness and suspicious categories.
-- **current** — The oxlint 1.76 -> 1.83 bump turned them on through those categories with 59 existing sites, mostly the imperative graph and canvas components (sigma, three, the canvas doc hook) reading refs during render and syncing state in effects. They are warn with counts frozen in harness/lint-warn-baseline.json.
-- **impact** — Each site can render stale values or cascade renders. The ratchet stops new ones, but the existing 59 stay until drained.
-- **closes** — Drain per component with the UI suite (bun run test:ui) as the guard, re-snapshot the ledger, and promote each rule to error when its count reaches 0.
-- **node** — `01M35NJQPKW5YVNVFFAFAYXPFH`
 
 ### GAP: Recent nodes are one browser's, not a person's
 
@@ -1597,23 +1677,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The server reads the UI dist through one asset source that a compiled build fills from embedded files (Bun.embeddedFiles) and a bundle fills from disk; then publish.yml, the one release path, adds a compile matrix and release-smoke runs on each binary.
 - **node** — `01M56H9MA14N5TG8640BN6PHXP`
 
-### GAP: renaming a sys.* or plugin node's label needs force
-
-- **expected** — A text-only write to a seeded node commits without force; the seed keeps the edited label (it already does on open).
-- **current** — The commit admits a text-only write to a sys.* node, and a store-contract property proves the label survives the next open, but the zoomed header still shows a padlock on a seeded node's title and the editor does not let it be edited.
-- **impact** — A person cannot call the events tag habit, or a status option Waiting, in their own words without overriding the whole protection.
-- **closes** — Replace the padlock with an owned-by note that names the node's family, and let a seeded node's title be edited as any node's is.
-- **rule** — Data-plane freedom: labels are cosmetic
-- **node** — `01M7342W0CNMFK152YEFNJHPP4`
-
-### GAP: render shards split by test count, so every backdrop test lands in shard 1
-
-- **expected** — CI render shards hold about equal test time, whatever the file order
-- **current** — Playwright cuts contiguous slices of equal test count in file order, per project. The macos project (157 tests) put the backdrop files and gallery in shard 1 and head-band-contrast, render and lab in shard 2: 778 s of tests against 727 s in run 44019215801, which is near even, but the same files ran 1.5 to 2 times faster on another runner the hour before (run 44016049909), so the split by count is right only by luck of the file order.
-- **impact** — a shard that lands on a slow runner or a heavier file mix bounds Validate; render (macos) 1/2 took 961 s and 2/2 880 s of job time
-- **closes** — a duration-balanced split (Playwright has no timing-based sharding; PWTEST_SHARD_WEIGHTS is internal and still count-based); the backdrop timeout gap closing (2026-11-13) took about 110 s out of shard 1 but left the split by count
-- **node** — `01M79GV526E3V6ZPVW0D6752FK`
-
 ### GAP: replacement approval inspection awaits the keybinding consumer
 
 - **expected** — Every published kernel and native page API has a production consumer.
@@ -1638,6 +1701,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A repo cannot add a view without editing kb itself.
 - **closes** — The same @kb/ui-sdk the canvas browser plugin needs, published as an ambient d.ts like kb-ext-sdk, plus the server route, the shims and a loader test. The browser half is built and loaded as its own module, the repository-extension form of the backend-plugin/browser-plugin split canvas takes, not a second entry of the backend module.
 - **node** — `01M39F3N04WNEVCGHX428H8TKN`
+
+### GAP: Reusing a field during line conversion can consume the draft after its value is cleared
+
+- **expected** — The conversion checks at commit time that a picked field whose initialization was skipped still has a value.
+- **current** — The Add field step reads an existing value from the browser replica and skips initialization without a presence precondition.
+- **impact** — If a concurrent writer clears the value before the batch commits, the conversion can consume the draft and leave no field value.
+- **closes** — Check the retained field value in the same transaction that consumes the draft.
+- **node** — `01M7XMMCPA7H2R1P065TVCQNYC`
 
 ### GAP: rich text copy names emphasis and code elements beside the editor's element tree
 
@@ -1736,6 +1807,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a 3D workspace step that owns the marquee, picking items by their projected boxes
 - **node** — `01M41AB88FH1G58NR7AZE0SZJF`
 
+### GAP: SQLite commits decode the whole graph under the write lock after a foreign write
+
+- **expected** — A commit bases rank and write settlement on the current committed state while keeping the SQLite write lock only for work proportional to the changes involved.
+- **current** — When a foreign write moves the commit mark, SqliteStore loses its kept state. Its next upsert decodes all rows and rebuilds StoreState inside BEGIN IMMEDIATE.
+- **impact** — A large graph stretches the write lock hold time and stalls the local event loop during decoding. The six-writer scratch repro still showed seconds of event-loop delay after lock acquisition became asynchronous.
+- **closes** — Bring kept state forward from the durable transaction tail when it spans the change, with a full read as the fallback for an unexplained fingerprint. Verify lock duration and foreground request latency under concurrent writers.
+- **node** — `01M7X33AK295XK8CNKFGEAAPZD`
+
 ### GAP: stacking on and of tilted solids is approximate
 
 - **expected** — an item stacks on a tilted solid's real surface height, and a tilted item stands on its lowest point
@@ -1787,21 +1866,13 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Give table/board cells the same slot navigation order the outline uses.
 - **node** — `01M3KA3A8JZN1GH9DXK2SNZ1N1`
 
-### GAP: tables and boards sort, filter and group references by their own empty props
+### GAP: the # and > pickers list rows that do not match the query and ignore recency
 
-- **expected** — A reference in a table or board sorts, filters and groups by its target's fields, as it renders them.
-- **current** — frame-rows.ts reads the row node's own props, so a reference sorts and groups as an empty node.
-- **impact** — References land in the wrong group or order in every view but the outline.
-- **closes** — Those steps read shownNode while still returning row ids.
-- **node** — `01M3KA3B5V5K7GYYPAYK7G6KHG`
-
-### GAP: tests that poll until something happens give up on a wall-clock deadline of their own
-
-- **expected** — One test-kit wait-until helper that polls until its condition holds, bounded by the test's own timeout, which is what every such test means by 'soon'
-- **current** — Seven test files each carry their own poll loop with a deadline of 2 to 10 s (cli tests/surfaces.ts, server screens/channels/cross-process-sync/extension-reload, agent providers/bridge, workspace-fs extensions); each gives up and asserts at its deadline
-- **impact** — A loop gives up at its deadline whatever the machine's load. The events they wait for take milliseconds, so the margin is a hundred times or more and none has failed yet, but the loops are seven copies of one mechanism with seven deadlines
-- **closes** — Move the loop into @kb/test-kit, bounded by the test's timeout, and replace the seven copies with it
-- **node** — `01M7B3HX9R9DNDDTJY546W1HH3`
+- **expected** — A trigger picker lists what matches the query, ranked by recency and use, the way the value picker does (orderCandidates, picker-recency).
+- **current** — matchCandidate matches an id substring, so every sys.tag.* id matches #ta; outlineTriggers stepTrigger feeds an alphabetical nodesOfKind list to pickerRows, so recency and use counts are never applied (F2, F3 in docs/research/2026-11-20-outliner-tana-parity.md).
+- **impact** — The first thing a Tana user touches is noisy: system tags and fields pad every list, nothing shows a type, and a declared seam (picker-recency) is unused here.
+- **closes** — Brief 2 in docs/research/2026-11-20-outliner-tana-parity.md: label-only match, orderCandidates in addTag and addField candidates, glyph and use-count note.
+- **node** — `01M7WW1MDZPJQRME00HG81PSKS`
 
 ### GAP: the 3D gizmo shows over a locked selection
 
@@ -1884,14 +1955,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A render-tests spec that loads the benchmark document and asserts the frame-time histogram, on hardware the CI lane can hold steady
 - **node** — `01M5PMJEGCJPMVNCKBDYZ0V57G`
 
-### GAP: the CLI has no relative dates (today, next fri)
-
-- **expected** — Every surface parses the same date phrases the UI's DateEditor accepts.
-- **current** — The UI parses phrases like today / next fri; the CLI and MCP take absolute YYYY-MM-DD only.
-- **impact** — Two date grammars depending on surface.
-- **closes** — Move the phrase parser into @kb/model next to parseTypedValue and call it from CLI/MCP.
-- **node** — `01M3KA3AEEFG0E200V4D63G5SN`
-
 ### GAP: the CLI's eager graph loads every family's painters and the host's engines
 
 - **expected** — From the CLI entry, painters and engines load at first use (chart-vega's Vega, gallery-net, canvas' tldraw reader, the QuickJS engine, store-sqlite when selected, source-git at first fetch), and the @kb/runtime barrel exports the mode-neutral core only.
@@ -1915,6 +1978,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A person cannot group facets into the parts Scene shows or the axes Reflect asks for. Renaming a facet silently moves it out of its axis. The axis ids are also the model's JSON keys in Reflect.
 - **closes** — axesOf reads facets of facets from the library (a facet's nearest #facet ancestor), the starter groups its facets that way, AXIS_SPECS is deleted, and Reflect keys its JSON by an axis's name. Articulate, Remix and Scene keep calling axesOf, so all three follow.
 - **node** — `01M6BYQEZ6BC91MBTXM9NF1ZVX`
+
+### GAP: the core legacy view migration spells a graph-owned seed id
+
+- **expected** — The graph family owns the migration that depends on its seeded renderer field.
+- **current** — The core legacy view migration retains the renderer field id. The graph seed test checks it against GRAPH_IDS.
+- **impact** — Renaming the field requires editing both the family and the core migration.
+- **closes** — Move the graph-specific legacy conversion into a family-owned migration, or retire the legacy path when supported stores no longer need it.
+- **rule** — Core names no feature
+- **node** — `01M7WXS471S9B2FYXWQZV52PKD`
 
 ### GAP: the data-plane promises are not properties over the store (Phase 3)
 
@@ -1990,6 +2062,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Split into recognizers over a cursor and drive them from a list. The existing md-inline tests are the gate; this is a rewrite, not a mechanical move.
 - **node** — `01M1MGCM9RWXE3CYANZK5K4KC0`
 
+### GAP: the kb UI has no Back or Forward command or control (the desktop app's store window has none either)
+
+- **expected** — The kb UI has Back and Forward as commands, with buttons in its header and bindable keys, so the page and the desktop app's store window can move through navigation history.
+- **current** — kit/ui-sdk/src/lib/router.ts is pushState plus popstate with no Back or Forward command, button or key. A browser tab has the browser's own Back; the desktop app (Electrobun, packages/app/desktop) shows the store's own kb page in a window with no navigation chrome, so it has none either. The Android and iOS apps are capture-only and show no kb page (F7 in docs/research/2026-11-20-outliner-tana-parity.md).
+- **impact** — After zooming or following a reference in the kb UI there is no in-app way back, in the desktop store window or in a tab without browser chrome.
+- **closes** — Brief 3 in docs/research/2026-11-20-outliner-tana-parity.md: header buttons, Go back and Go forward commands on Mod-[ and Mod-], router canGo and go.
+- **node** — `01M7WW1VZJBCBMXTQ2W3NSN6T2`
+
 ### GAP: the kit's node type is named for the outline
 
 - **expected** — The kit's node read model is named for what it is (a node as the page reads it), not for one family.
@@ -1998,6 +2078,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — One rename across the workspace, done when the canvas packages are free to touch.
 - **node** — `01M53GQC1V4S043899SSX8Q47J`
 
+### GAP: the migration approval dialog omits the dry-run diff
+
+- **expected** — The migration approval dialog shows the dry-run diff.
+- **current** — The migration procedure shows the dry-run diff on its page. The approval dialog omits it. Rollback is tracked in G09EVF.
+- **impact** — A person must inspect the preview separately before approving.
+- **closes** — Show the existing dry-run diff in the migration approval dialog.
+- **rule** — Plugins migrate their own data, declared and previewed
+- **node** — `01M7342YFJC4B6DMAFD8MTSTD7`
+
 ### GAP: the node palette has no "Add value to <field>" command
 
 - **expected** — The node's ⌘K menu offers "Add value to <field>" for each field the node shows, reaching the same picker the + does.
@@ -2005,6 +2094,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Keyboard-only users cannot add a value to a field whose row is off screen or collapsed.
 - **closes** — A palette step per shown field that opens the field's value picker.
 - **node** — `01M3KA39PQAJZJ6C6ZY4RV1SPZ`
+
+### GAP: the offline demo spells graph-owned seed ids
+
+- **expected** — The graph family supplies the seed nodes and ids its offline demo uses through the composition root.
+- **current** — The offline demo reads the bundled seed but spells out which graph fields and options it takes, including the reference keys in its demo lens.
+- **impact** — A graph seed rename has to be reflected in the demo as a separate edit.
+- **closes** — Move the graph-owned slice of the demo behind a family contribution consumed by the composition root.
+- **rule** — Core names no feature
+- **node** — `01M7WXS470A29JEH2DHDGEWJD6`
 
 ### GAP: the outline's bullet kit keeps a copy of the canvas tag id
 
@@ -2046,6 +2144,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Two pinpoint disables of a rule that is error everywhere else, on the one ui path with a measured latency bar.
 - **closes** — palette-index.test.ts asserts open <50ms and keystroke <10ms at 50k nodes. A standalone benchmark puts Array.from({length:n}) about 40% behind new Array(n) at that size, and the push variant flipped that test red on three of four full-suite runs on a loaded machine. Close it by making the 50k path fast enough that the allocation shape stops mattering (incremental or worker-side palette search), then delete both disables.
 - **node** — `01M1MFJXAQ8NVBMA6E6CZ7CY9W`
+
+### GAP: the phone app cannot record a voice memo
+
+- **expected** — The phone records audio and queues it as a file capture, delivered raw like any share; the host stores it as an asset and may transcribe it, optionally, on its side.
+- **current** — Capture from the phone is text, links and images from the share sheet, and typed notes; there is no recorder, and the host asset rules are not checked for audio formats.
+- **impact** — The fastest way to capture on a phone, speaking, is missing; a voice note recorded in another app can only be shared if the host admits its format.
+- **closes** — A record action in the shell (widget and Capture view) writing an audio file into the queue, with RECORD_AUDIO asked when first used, and the asset upload rules admitting the recorder's format, proven by a raw-capture test.
+- **node** — `01M7WZ0Q5ZJ2NZ36T3JNWXJNVE`
+
+### GAP: the phone hears only what its own delivery runs find
+
+- **expected** — The host can tell the phone about events on its side (a capture filed, a reminder due) through a self-hosted push service such as ntfy or UnifiedPush, with no third-party account.
+- **current** — Notifications are local: the delivery worker posts one when a capture is refused or a store stops accepting the phone. Nothing reaches the phone from the host.
+- **impact** — Host-side events (reminders, a run that needs attention) cannot reach the phone; the person has to open the app or the web UI.
+- **closes** — A push channel chosen at pairing (a UnifiedPush distributor or an ntfy topic), a host action that publishes to it, and the shell posting what arrives.
+- **node** — `01M7WZ0QV3HAB6YRKS8CHE1793`
 
 ### GAP: the reference token has two grammars, mention.ts and the inline parser
 
@@ -2111,15 +2225,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A GPU busy with another app's work reads as the backdrop's cost, so its quality steps down when it need not; on WebGL2 quality only falls once frames actually drop.
 - **closes** — Timestamp readings that hold on Metal (per pass, or three's per-frame grouping fixed), checked against wall time on the M4, and the WebGL2 disjoint timer where the browser has it.
 - **node** — `01M5STYVVX474T8WBT4FY341CM`
-
-### GAP: the system-write rule refuses additive edits to seeded nodes
-
-- **expected** — A person's field added to a seeded tag's template, a child under a seeded node and an option under a seeded field commit without force; removing or reordering what the seed ships is refused.
-- **current** — The commit admits a person's ids in a seeded node's children and template and keeps every seeded id there in order (systemWriteRefusal, proven over every surface by the surface contract), but the editor still hides Add field on seeded tags, refuses a child under a seeded node before it reaches the commit (isSysPrefixed guards in the page), and toasts that sys.* nodes are read-only.
-- **impact** — A person cannot add a field to a family's tag (a Location on the events tag), an option to its option set, or a child under it, so extending a plugin's model means forking it.
-- **closes** — The editor offers the additive gestures on every node, Add field on a seeded tag and a child under a seeded node, asking the commit's rule instead of isSysPrefixed, and its refusals name the owner.
-- **rule** — Data-plane freedom: additive edits
-- **node** — `01M7342V3W6X9PFNWVZ92WD7SF`
 
 ### GAP: the systemd-creds sealed-store contract runs only on a host that can seal
 
@@ -2195,6 +2300,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Classify the translucent text roles (a small set of named text tokens, e.g. subtle and faint, in place of ad-hoc /N steps), hold each to its threshold in the guard, and retire the raw /N text utilities.
 - **node** — `01M3BEJDX4YP2DPHSCFS66NZK1`
 
+### GAP: turning a node into a query matches every node in the store
+
+- **expected** — A new query asks for its first condition, as Tana does, so the result is what the person meant.
+- **current** — turn-query writes DEFAULT_QUERY_EDN (no conditions); the page shows the whole store under the row (F5 in docs/research/2026-11-20-outliner-tana-parity.md).
+- **impact** — The first query a person makes floods the page with system nodes; the builder is below the fold.
+- **closes** — Brief 6 in docs/research/2026-11-20-outliner-tana-parity.md: Turn into query opens the query-only tag picker (findTagged, over addTag's candidates, no create row) and writes a tag condition by id; it tags nothing and mints nothing, which Add tag's commit would.
+- **node** — `01M7WW1S48RQ48GD7A14VZG545`
+
 ### GAP: two installed extensions cannot share a service key
 
 - **expected** — An installed extension can inject a service another installed extension provides; the key has one home both can import (docs/research/2026-10-31-plugin-sources.md §7, and Q1 of 2026-10-29-plugin-codependency.md).
@@ -2258,6 +2371,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a busy untrusted code view can stutter its own frame
 - **closes** — run QuickJS inside a blob Worker in the frame
 - **node** — `01M41DKVB5R21NRCE4T9R4KES1`
+
+### GAP: views without ViewDef.text render a generic markdown body
+
+- **expected** — Each view's markdown reflects its layout and settings, including grouping for boards, columns for tables and edges for graphs.
+- **current** — render.view uses ViewDef.text when the view provides it. Views without that contribution, such as the outline board and tree graph, fall back to settings and a flat list of subject nodes.
+- **impact** — Text-only clients lose the view-specific layout and relationships for views that use the fallback.
+- **closes** — Add ViewDef.text contributions for the remaining view types so their markdown conveys the layout.
+- **node** — `01M40X30G92A0E57C02JHQ9A1G`
 
 ### GAP: WebGPU-only render specs skip where Chromium has no WebGPU adapter
 
@@ -2350,6 +2471,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a promotion action plus a review-and-commit flow that writes the code view as an extension view
 - **node** — `01M41DKTTRA55RA1KF4QBWQ9MF`
 
+### GAP: A concurrent SQLite CLI writer exited before committing
+
+- **expected** — Independent CLI additions commit under ordinary contention, or return a conflict that can be diagnosed and retried.
+- **current** — Four concurrent CLI writers reproduced a stale fingerprint conflict on SQLite. The failing kb add exhausted three immediate attempts, reported the conflict on stdout and wrote nothing. The session now replans or rechecks conflicting commits with jittered backoff within a bounded retry window.
+- **impact** — The first run required retrying the missing addition. The 12 additions that completed stayed durable.
+- **closes** — Share the session retry policy and prove across both store backends that a planned append preserves six intervening writes and commits once.
+- **node** — `01M7Q56B5T0H4HEW6BP85BT1S9`
+
 ### GAP: a confirming frame for an earlier write overwrites a later optimistic write
 
 - **expected** — While a node has local writes the server has not confirmed yet, a remote frame never rolls it back to an older state. The browser holds or rebases the remote node until its own writes are confirmed. The text-only pendingContent carve-out in actions/mutations.ts becomes one case of that rule.
@@ -2366,6 +2495,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Choose one carrier (the date variant, since PropValue already names it, or drop the variant), migrate stored values on open the way migrateFieldTypeValues does for type values, and list one kind for date.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M39X7NQV187BDQVGH81997M5`
+
+### GAP: a DST scenario is not hermetic: KB_DATA moved under it changes its store
+
+- **expected** — A seeded DST history replays to a byte-identical store every time (dst.test.ts, each committed seed replays to a byte-identical store), on any machine and under any load, whatever else the process does meanwhile
+- **current** — Closed: runScenario supplies a private data directory for every backup made during replay. A regression repoints KB_DATA after 30 operations, verifies identical store bytes and checks that the redirected directory stays empty.
+- **impact** — A DST replay depends on process-global state outside the simulation: whatever moves KB_DATA mid-run, an overrun included, makes it diverge, and the failure reads as nondeterminism in the store
+- **closes** — A scenario pins its own data directory: currentData read from a provided service whose default is the environment, so runScenario provides one it owns and nothing outside can move it
+- **node** — `01M740E2KPGXWP4WKTE2XZ6N56`
 
 ### GAP: a family that only kb ui hosts contributes no registry actions
 
@@ -2498,6 +2635,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Field visibility read from data: a sys field is a person's to edit unless its node says otherwise, and the debug rows become writable where the system-write rule allows.
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYK42Y4G74JD62AD00BZS`
+
+### GAP: a tab of an earlier build is served the current sandbox frame script
+
+- **expected** — The sandbox frame's script is kept per build like the page's chunks (digest-named, served from the build archive), or its page↔frame messages are part of the wire fingerprint, so a tab of an earlier build talks to a frame of its own protocol.
+- **current** — Tabs load the current sandbox frame script. The wire fingerprint covers FrameMessage and PageMessage, so an incompatible change requires a protocol bump and reload.
+- **impact** — A release that changes the frame protocol breaks code nodes in tabs opened before it, with no reload to fix them.
+- **closes** — Digest-name the frame script (Vite entry with a hash, the page reading its name from the build) or add the sandbox protocol's schemas to the wire fingerprint.
+- **node** — `01M6GY0MXXXY2YQ8C3P77M2QNF`
 
 ### GAP: a theme's motion personality is CSS tokens, not options kb can read or set
 
@@ -2657,6 +2802,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1XCB0ETCJH03FGJS6E75AFP`
 
+### GAP: check audit matched substrings instead of wired invocations
+
+- **expected** — A check names a command at the start of a simple shell command or an enabled lint rule by its complete key.
+- **current** — The audit reads shell hooks, workflow run steps, package scripts and enabled lint rules according to their file format. It ignores shell comments and preserves quoted words.
+- **impact** — A check can read as wired when nothing runs it, and its rule's enforcement then claims more than holds.
+- **closes** — Focused audit fixtures cover comment-only references, command lookalikes, workflow run steps, wrappers and full lint keys.
+- **node** — `01M56TFECRSQN243PAEB6XGHRY`
+
 ### GAP: CLI child returned no receipt in the socket surface contract
 
 - **expected** — Every CLI invocation returns its JSON receipt; failures are diagnosable without rerunning or hiding a transport fault.
@@ -2739,6 +2892,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Add the hook to ui-sdk, move every popover onto it, and hold it with one shared property over every popover.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M54V6G798RV0P805SMBG64H8`
+
+### GAP: Enter on an expanded reference opens a sibling, not the target's first child
+
+- **expected** — Enter at the end of an expanded reference opens the target's first child, as on any expanded row.
+- **current** — Fixed: planSplit now checks shownOf(nodes, id).children and parents the new first child on the target; resolveActivateKey keeps focus on the new child under the reference's instance.
+- **impact** — One row kind breaks the outline's Enter rule.
+- **closes** — planSplit counts the shown node's children.
+- **node** — `01M3KA3BBRADE3TNWQ78JNK37M`
 
 ### GAP: extension SDK mirror is not bidirectionally typed
 
@@ -2872,6 +3033,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Validate in withLink (the one writer) and make itemLead's type a checked link.
 - **node** — `01M55AE092VNPBQKGGZZHZZY9W`
 
+### GAP: kb mutation skipped saving its baseline after a report failure
+
+- **expected** — The report job saves the next baseline even when a shard or the merge failed, as its comment says.
+- **current** — The Save baseline step evaluates even after an earlier failure and saves when reports/mutation/baseline.json exists.
+- **impact** — The next weekly run misses the cache and runs in full: bounded by the shard plan, only slower.
+- **closes** — if: always() on the save step, guarded on the baseline file existing.
+- **node** — `01M55AE0NTW88HWFJ2V0ZH92KQ`
+
 ### GAP: KbContext carries two persistence interfaces
 
 - **expected** — KbContext exposes one Effect-native storage capability used by all core and extension handlers.
@@ -2930,6 +3099,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a new cross-family edge that is not an import (an action id, a copied id, a shared host) can make one family break when another is off, and CI stays green
 - **closes** — P1 of docs/research/2026-10-29-plugin-codependency.md
 - **node** — `01M63C0H8G86X7ZBJ48QYYNSAV`
+
+### GAP: node.addTree mints its ids twice when the page runs it optimistically
+
+- **expected** — An optimistic write names the same nodes on the page and on the server: the ids the local commit mints are the ids the server commits, as node.add does by taking the minted id as input
+- **current** — The page pushes the tree-order ids from its local node.addTree receipt. The server creates the same nodes, and the gallery starter uses its server action to file bundled pictures.
+- **impact** — Anything a page reads from a pasted tree before the push settles names nodes that will not exist: a selection made at once is lost, and a write that refers to a returned id (a setting naming the new Library) is refused or dangles. The gallery runs its starter on the server (ext.gallery.starter) to avoid it
+- **closes** — node.addTree takes the ids to mint (one per flattened item), filled from the local commit and pushed with the invocation, as node.add's id is
+- **node** — `01M5ZBC8DQWB1DY5Z9AAABGPYR`
 
 ### GAP: NodeBlock decides row chrome with 28 branches
 
@@ -3039,6 +3216,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXMR501MC0KQ85WSNHC97R`
 
+### GAP: production source could copy another family’s seeded node id
+
+- **expected** — A harness test fails when production source spells a node id another bundled family seeds.
+- **current** — The harness reads the bundled seed owners and examines string literals in production source. Known copies cite open gaps at their sites. The action-id lint shipped earlier in 6149f12d.
+- **impact** — A copied id can silently couple two families and only fail when a seed id changes.
+- **closes** — The foreign seed id harness test exercises the real bundled ownership fold and a failing source fixture. Module initialization is tracked separately in GAP: extension module initialization can run effects before the plugin loads.
+- **rule** — Core names no feature
+- **node** — `01M63C0JP6WDX8CZ0VBPYQY4ER`
+
 ### GAP: PropValueEditor branches 24 ways over prop value type
 
 - **expected** — One editor per PropValue variant, selected through a registry keyed by the variant tag.
@@ -3047,6 +3233,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Same registry as the FieldRow gap: one place maps a field type to its editor.
 - **node** — `01M1MGCND3KMDYJPSSMD2E4Q9J`
 
+### GAP: query print-roundtrip coverage quota depends on independent random samples
+
+- **expected** — Query round-trip coverage includes a guaranteed meaningful set of non-empty answers, independent of chance.
+- **current** — Closed: curated queries exercise each generated clause shape with a guaranteed non-empty result. The randomized round-trip comparison no longer depends on how many of its runs produce rows.
+- **impact** — An unchanged query implementation can fail the full core gate nondeterministically; this blocked the extension UI PR.
+- **closes** — Generate meaningful non-empty cases by construction alongside broad random cases, preserve the comparison contract, and reproduce the failing coverage distribution.
+- **node** — `01M6WV8JS4GPF0TRYDZY948C40`
+
 ### GAP: RefEditor mixes candidate search, keyboard handling and rendering in 22 branches
 
 - **expected** — Ref candidate search and keyboard navigation are a hook (useRefCandidates) the editor renders from.
@@ -3054,6 +3248,23 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The candidate ranking - the part with real rules - can only be tested through the DOM.
 - **closes** — Lift candidate search into a hook beside fuzzyNodeCandidates and leave RefEditor as presentation.
 - **node** — `01M1MGCP1EF5GM8NA32JEJRJ9Q`
+
+### GAP: renaming a sys.* or plugin node's label needs force
+
+- **expected** — A text-only write to a seeded node commits without force; the seed keeps the edited label (it already does on open).
+- **current** — The zoomed header lets a person edit a seeded node's title. The edit commits without force and the seeded label survives reopen, as covered by the shared store contract.
+- **impact** — A person cannot call the events tag habit, or a status option Waiting, in their own words without overriding the whole protection.
+- **closes** — Replace the padlock with an owned-by note that names the node's family, and let a seeded node's title be edited as any node's is.
+- **rule** — Data-plane freedom: labels are cosmetic
+- **node** — `01M7342W0CNMFK152YEFNJHPP4`
+
+### GAP: render shards split by test count instead of measured duration
+
+- **expected** — CI render shards hold about equal test time, whatever the file order
+- **current** — CI assigns whole spec files using per-project durations from run 44377439682. The estimated macOS load is 731 s and 729 s, compared with the old split at 567 s and 893 s.
+- **impact** — a shard that lands on a slow runner or a heavier file mix bounds Validate; render (macos) 1/2 took 961 s and 2/2 880 s of job time
+- **closes** — The render config assigns the longest file to the lightest shard in turn, using the project median for files without a measurement.
+- **node** — `01M79GV526E3V6ZPVW0D6752FK`
 
 ### GAP: repository extensions have no fail-closed admission
 
@@ -3203,6 +3414,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P0 of docs/research/2026-10-29-plugin-codependency.md
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M63C0GJ5M78G1TFKM00RN4X6`
+
+### GAP: tables and boards sort, filter and group references by their own empty props
+
+- **expected** — A reference in a table or board sorts, filters and groups by its target's fields, as it renders them.
+- **current** — Fixed: frame-layout.ts (not frame-rows.ts) read the reference's own empty props and tags for filters, sort, board grouping, calendar day grouping, and derived table columns; all now read shownNode(row, schema) while returning row ids, and planMoveToGroup writes to shownOf().
+- **impact** — References land in the wrong group or order in every view but the outline.
+- **closes** — Those steps read shownNode while still returning row ids.
+- **node** — `01M3KA3B5V5K7GYYPAYK7G6KHG`
+
+### GAP: tests that poll until something happens give up on a wall-clock deadline of their own
+
+- **expected** — One test-kit wait-until helper that polls until its condition holds, bounded by the test's own timeout, which is what every such test means by 'soon'
+- **current** — Closed: one until helper in @kb/test-kit replaces 15 polling loops across 13 Bun test files. Bun owns the timeout, reports the awaited condition and stops pending waits at test completion.
+- **impact** — Independent polling deadlines could expire while the owning test still had time to finish. Maintaining the loop separately in 13 test files also made cleanup inconsistent.
+- **closes** — Use the shared until helper in the Bun tests that poll for observable results, and verify that an expired wait stops before the next test.
+- **node** — `01M7B3HX9R9DNDDTJY546W1HH3`
 
 ### GAP: the 3D bullet atlas has a fixed capacity
 
@@ -3455,6 +3682,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Contained today: SVG is served with CSP default-src 'none' and canvas pictures render as <img>. A future inline use of a sanitised SVG would fetch external CSS.
 - **closes** — Decode CSS escapes, then run safeCss over each style element's joined text; add the four vectors from Sol round 8 as rows.
 - **node** — `01M55ADZWF54Q5MN8AEXDM1W1D`
+
+### GAP: the system-write rule refuses additive edits to seeded nodes
+
+- **expected** — A person's field added to a seeded tag's template, a child under a seeded node and an option under a seeded field commit without force; removing or reordering what the seed ships is refused.
+- **current** — The editor commits a person's child under a seeded node and a field on a seeded tag without force. Shipped template fields are marked as shipped. The shared surface contract covers the commit guard.
+- **impact** — A person cannot add a field to a family's tag (a Location on the events tag), an option to its option set, or a child under it, so extending a plugin's model means forking it.
+- **closes** — The editor offers the additive gestures on every node, Add field on a seeded tag and a child under a seeded node, asking the commit's rule instead of isSysPrefixed, and its refusals name the owner.
+- **rule** — Data-plane freedom: additive edits
+- **node** — `01M7342V3W6X9PFNWVZ92WD7SF`
 
 ### GAP: the tx log is MemoryTxLog on both stores; a sqlite root could have a durable one as a table
 

@@ -6,6 +6,8 @@
  * not kb's page, which every store window loads from its own host.
  */
 
+import { CAPTURE_PAIR_CODE } from "@kb/contracts";
+
 const BASE_STYLE = `
 :root { color-scheme: light dark; font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif; }
 body { margin: 0; background: Canvas; color: CanvasText; }
@@ -92,40 +94,63 @@ form { display: flex; gap: 6px; flex-wrap: wrap; } form input { flex: 1; min-wid
 <form id="capture"><label>Sends to <select id="captureStore"></select></label><span class="muted" id="hotkey"></span></form>
 <h2>Add a local store</h2>
 <form id="addLocal"><input name="name" placeholder="Name"><input name="path" placeholder="/path/to/root (made a store if it is not one)" required><button>Add</button></form>
-<h2>Add a remote store</h2>
-<form id="addRemote"><input name="name" placeholder="Name"><input name="origin" placeholder="https://host.tailnet.ts.net" required><input name="token" placeholder="Capture token (optional)"><button>Add</button></form>
+<h2>Pair a remote store</h2>
+<form id="addRemote"><input name="name" placeholder="Name (optional)"><input name="origin" placeholder="https://host.tailnet.ts.net" required><input name="code" placeholder="Pairing code" required autocomplete="off" spellcheck="false"><button>Pair</button></form>
+<p class="muted">On the store's host, issue a one-use code (valid 10 minutes): <code>kb --root &lt;store&gt; --json action-invoke '{"id":"${CAPTURE_PAIR_CODE}"}'</code>. The credential it pairs is kept in the keychain.</p>
 <div id="status"></div>
+<p class="muted" id="kb"></p>
 <script>${apiScript(token)}
 const status = document.getElementById("status");
 function say(text, error) { status.textContent = text; status.className = error ? "error" : "muted"; }
 function cell(text, cls) { const td = document.createElement("td"); td.textContent = text; if (cls) td.className = cls; return td; }
 function button(label, run) { const b = document.createElement("button"); b.textContent = label; b.onclick = run; return b; }
+function only(text, cls) { const tr = document.createElement("tr"); tr.append(cell(text, cls)); return tr; }
+// Forgetting asks on the page, by a second click within 5 s: the webview shows no confirm() dialog.
+// Which store is asked about outlives a refresh, which rebuilds the rows (on focus, too).
+let asking = null;
+async function forget(s) {
+  if (asking?.key !== s.key) {
+    clearTimeout(asking?.timer);
+    asking = { key: s.key, timer: setTimeout(() => { asking = null; say(""); refresh(); }, 5000) };
+    say("Click again to forget " + s.name + ". " + (s.kind === "local" ? "Its files are not touched." : "Its credential is erased from the keychain."));
+    refresh();
+    return;
+  }
+  clearTimeout(asking.timer); asking = null;
+  try { await api("/api/stores/remove", { key: s.key }); say(""); } catch (e) { say(e.message, true); }
+  refresh();
+}
 async function refresh() {
+  const rows = document.getElementById("rows");
   try {
-    const { stores, captureStore, hotkey } = await api("/api/stores");
-    const rows = document.getElementById("rows");
+    const { stores, problem, kb, passedOver, captureStore, hotkey } = await api("/api/stores");
     rows.replaceChildren();
-    if (stores.length === 0) rows.append(Object.assign(document.createElement("tr"), { innerHTML: '<td class="muted">No stores yet. Add one below.</td>' }));
+    if (problem) rows.append(only("Your stores could not be listed. " + problem, "error"));
+    else if (stores.length === 0) rows.append(only("No stores yet. Add one below.", "muted"));
     for (const s of stores) {
       const tr = document.createElement("tr");
-      tr.append(cell(s.name), cell(s.kind === "local" ? s.root : s.origin, "muted"), cell(s.kind === "local" ? s.status : "remote", "muted"));
+      tr.append(cell(s.name), cell(s.kind === "local" ? s.root : s.origin, "muted"), cell(s.kind === "local" ? s.status : s.contract, "muted"));
       const actions = cell("", "actions");
       actions.append(button("Open", () => api("/api/stores/open", { key: s.key }).then(() => say("")).catch((e) => say(e.message, true))), " ",
-        button("Forget", async () => { if (!confirm("Forget " + s.name + "? Its files are not touched.")) return; await api("/api/stores/remove", { key: s.key }).catch((e) => say(e.message, true)); refresh(); }));
+        button(asking?.key === s.key ? "Really forget?" : "Forget", () => forget(s)));
       tr.append(actions); rows.append(tr);
     }
     const select = document.getElementById("captureStore");
     select.replaceChildren(new Option("the last store I used", ""), ...stores.map((s) => new Option(s.name, s.key)));
     select.value = captureStore || "";
     document.getElementById("hotkey").textContent = "Hotkey: " + hotkey;
-  } catch (e) { say(e.message, true); }
+    document.getElementById("kb").textContent = "Runs kb: " + kb + (passedOver.length ? " · passed over " + passedOver.join(" · ") : "");
+  } catch (e) {
+    // The app itself did not answer: say so where the stores would be.
+    rows.replaceChildren(only("The store list could not be read. " + e.message, "error"));
+  }
 }
 document.getElementById("captureStore").onchange = (e) => api("/api/settings/capture-store", { key: e.target.value }).catch((err) => say(err.message, true));
 for (const id of ["addLocal", "addRemote"]) {
   document.getElementById(id).onsubmit = async (event) => {
     event.preventDefault();
     const form = event.target;
-    say("Adding…");
+    say(id === "addLocal" ? "Adding…" : "Pairing…");
     try { await api("/api/stores/" + (id === "addLocal" ? "add-local" : "add-remote"), Object.fromEntries(new FormData(form))); form.reset(); say(""); }
     catch (e) { say(e.message, true); }
     refresh();

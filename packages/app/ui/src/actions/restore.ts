@@ -63,8 +63,21 @@ export function restoreInvocations(
   const fromById = new Map(from.map((node) => [node.id, node]));
   const toById = new Map(to.map((node) => [node.id, node]));
   const actions: Array<{ id: string; input: unknown }> = [];
+  const removed = from.filter((node) => !toById.has(node.id));
+  const removedIds = new Set(removed.map((node) => node.id));
+  // Clear properties while their field definitions still resolve. Keep the
+  // deletes ahead of the placement writes so positions count surviving siblings.
   for (const node of from) {
-    if (!toById.has(node.id)) actions.push({ id: "node.delete", input: { id: node.id } });
+    if (removedIds.has(node.id)) continue;
+    const unsetProps = Object.keys(node.props)
+      .filter((field) => removedIds.has(field))
+      .map((field) => ({ field }));
+    if (unsetProps.length > 0) {
+      actions.push({ id: "node.update", input: { id: node.id, unsetProps } });
+    }
+  }
+  for (const node of removed) {
+    actions.push({ id: "node.delete", input: { id: node.id } });
   }
   const missing = to.filter((node) => !fromById.has(node.id));
   const depth = (node: WireNode): number => {
@@ -109,7 +122,9 @@ export function restoreInvocations(
     if (!moved && JSON.stringify(was) === JSON.stringify(is)) continue;
     // One node.update, which removes before it adds: a restore is one
     // transaction, like every other replacement.
-    const unsetProps = Object.keys(current.props).map((field) => ({ field }));
+    const unsetProps = Object.keys(current.props)
+      .filter((field) => !removedIds.has(field))
+      .map((field) => ({ field }));
     const setProps = propEntries(target);
     actions.push({
       id: "node.update",
