@@ -8,9 +8,10 @@
  * mode, input and output, as the server's own manifest lists them.
  *
  * When this test fails, the wire changed. Decide which it is:
- * - a page of the previous build still works with it (a new optional field,
- *   a new message it ignores): record the new fingerprint below;
- * - it does not: bump `WIRE_PROTOCOL` in `@kb/contracts` and record both.
+ * - both builds still work with each other's wire (for example, a new field
+ *   a previous page ignores): record the new fingerprint below;
+ * - either build reads the other's wire incorrectly: bump `WIRE_PROTOCOL`
+ *   in `@kb/contracts` and record both.
  *   Every open tab then reloads into the new build when it is idle.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -26,6 +27,7 @@ import {
   GraphSnapshotSchema,
   ServerMessageSchema,
   WIRE_PROTOCOL,
+  type ActionRequest,
 } from "@kb/contracts";
 import { schemaToJsonSchema } from "@kb/model";
 import { startUi, type UiServerHandle } from "../src/index.ts";
@@ -87,10 +89,10 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // `capture.submit`, `capture.pair`, `capture.pairCode` and `capture.revoke`
 // are new actions a previous page never calls, and `kb.manifest` may name a
 // `captureContract`, an optional field a previous page ignores.
-// node.update and node.batch take an optional expectedText precondition.
-// Previous pages continue sending updates without the field.
+// Protocol 13: node.update and node.batch carry an expectedText precondition.
+// Older servers would drop the field and commit against changed source text.
 const RECORDED = {
-  protocol: 11,
+  protocol: 13,
   fingerprint: "4077f14477e527274bd99006d34f126451e6a97b10e5d14afdeee7659e6c3d69",
 };
 
@@ -112,14 +114,20 @@ interface ManifestAction {
   readonly outputSchema: unknown;
 }
 
-/** Every action the server offers, as its manifest lists them, each by what a call to it carries. */
-async function offered(url: string): Promise<unknown[]> {
+async function callPageAction(url: string, invocation: ActionRequest): Promise<unknown> {
   const res = await fetch(`${url}/api/action`, {
     method: "POST",
     headers: { "content-type": "application/json", origin: new URL(url).origin },
-    body: JSON.stringify({ id: "kb.manifest", input: {} }),
+    body: JSON.stringify(invocation),
   });
-  const receipt = (await res.json()) as { output: { actions: ManifestAction[] } };
+  return res.json();
+}
+
+/** Every action the server offers, as its manifest lists them, each by what a call to it carries. */
+async function offered(url: string): Promise<unknown[]> {
+  const receipt = (await callPageAction(url, { id: "kb.manifest", input: {} })) as {
+    output: { actions: ManifestAction[] };
+  };
   return receipt.output.actions
     .map(({ id, mode, batchOf, inputSchema, outputSchema }) => ({
       id,
@@ -162,5 +170,25 @@ describe("the wire protocol", () => {
     expect(actions.length).toBeGreaterThan(50);
     const now = { protocol: WIRE_PROTOCOL, fingerprint: wireFingerprint(actions) };
     expect(now, "the wire changed: see the comment at the top of this file").toEqual(RECORDED);
+  });
+
+  test("carries the source text precondition from the page to the update planner", async () => {
+    const id = "n.changed-before-link";
+    expect(
+      await callPageAction(handle.url, {
+        id: "node.add",
+        input: { id, text: "newer source text", parent: null },
+      }),
+    ).toMatchObject({ status: "succeeded" });
+    expect(
+      await callPageAction(handle.url, {
+        id: "node.update",
+        input: { id, text: "linked text", expectedText: "older source text" },
+      }),
+    ).toMatchObject({ status: "failed", code: "conflict" });
+    expect(await callPageAction(handle.url, { id: "node.get", input: { id } })).toMatchObject({
+      status: "succeeded",
+      output: { node: { text: "newer source text" } },
+    });
   });
 });

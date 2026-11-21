@@ -300,8 +300,10 @@ be kept, never how it is sent.
     of every action the server offers, as its manifest lists them — is
     recorded beside the version
     (`server/tests/wire-protocol.test.ts`), so changing any of it fails until
-    someone decides: still compatible (record the fingerprint), or not (bump
-    the protocol).
+    someone checks compatibility in both directions. Changing the meaning
+    of an action across builds requires a protocol bump, even when the
+    action's new input is optional. An older server would drop a conditional
+    text edit's precondition ([Conditional text edits](DESIGN.md#conditional-text-edits)).
   - _A reload waits, keeps the page, and says so._ A tab reloads when the
     server speaks another protocol, or as a fallback when a chunk it asks
     for is gone even so (Vite's `vite:preloadError`, or a view's error
