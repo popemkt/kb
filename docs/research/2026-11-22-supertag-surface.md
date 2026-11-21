@@ -39,9 +39,10 @@ statements move into DESIGN.md → Data model → tag behaviours and DESIGN-UI.m
    handle it with no new verb and no new storage shape.
 4. **Resolvers are pure, synchronous functions of one context.** That
    context is a clock sample, the actor, and the graph as the caller may read
-   it, scoped before anything resolves. Query answers are taken per plan
-   attempt, over that attempt's graph. Families contribute resolvers in
-   their declaration, so the page and the server run the same code.
+   it, scoped before anything resolves. Query answers are evaluated for each
+   planned call, over the scoped graph that call sees. Families contribute
+   resolvers in their declaration, so the page and the server run the same
+   code.
    Anything that does I/O (AI, the network, a calendar) is not a resolver.
    It is a command run on an event, in a second transaction with its own
    undo.
@@ -518,20 +519,29 @@ interface ResolveContext {
   readonly field: NodeId;                     // the field it fills, so a resolver can read its type and cardinality
   /** This attempt's graph as the CALLER may read it (readableNodes), not the graph. */
   readonly nodes: ScopedReads;
-  /** Answers to the queries `asks` named, over this attempt's graph, already scoped (readableQuery). */
+  /** Answers to the queries `asks` named, EVALUATED over the graph this call is planned on, as the caller may read it. */
   readonly answers: QueryAnswers;
 }
 ```
 
 - **Reads are the caller's, applied before anything resolves.** A resolver
   never sees the raw graph. The plan builds `ctx.nodes` from the attempt's
-  nodes through `readableNodes(invocation, nodes)` and `ctx.answers` through
-  `readableQuery` (`@kb/sandbox`'s `script-reach.ts`). These are the
-  functions that already bound what a script's canvas actions read. For a
-  person, an agent or the CLI, nothing is narrowed today, so the view is the
-  whole graph. For a script whose grant does not read the graph, a node
-  beyond its subject and the vocabulary is bare: an id with no text, fields
-  or children.
+  nodes through `readableNodes(invocation, nodes)` (`@kb/sandbox`'s
+  `script-reach.ts`), the function that already bounds what a script's
+  canvas actions read. For a person, an agent or the CLI, nothing is
+  narrowed today, so the view is the whole graph. For a script whose grant
+  does not read the graph, a node beyond its subject and the vocabulary is
+  bare: an id with no text, fields or children.
+  - **Queries are evaluated over that scoped graph, not filtered
+    afterwards.** `readableQuery` evaluates over the full index and then
+    drops rows that name an unreadable id. That is enough for id rows, but
+    a scalar or an aggregate (a count, a max, a text value) computed from
+    unreadable nodes would pass through it and could reach a field or
+    QuickJS. So `ctx.answers` is evaluated over an index of the scoped
+    graph itself, built from `readableNodes` (§6.6). Bare nodes contribute
+    their ids and nothing else, so a scalar can reflect only what the caller
+    reads. What stays visible is whether an id exists, which DESIGN.md →
+    Sandbox already accepts. `readableQuery` is not used for resolvers.
   - **This has to happen before resolving, not at the commit.** The commit
     catches a script's write that comes to _reference_ a node beyond its
     reach (`scriptWriteRefusal` follows every carrier of the reference
@@ -758,13 +768,16 @@ field's `allowedRefIdsOf` is dropped, and the drop is reported (§6.5).
     back empty and are reported `beyond-reach`. That covers a ref, which
     the commit would refuse (`scriptWriteRefusal`), and plain text copied
     from it, which the commit could not catch.
-  - **The template's own nodes are read under the same rule.** A template
-    node P and its content are not vocabulary today (`isVocabulary` in
-    `@kb/sandbox`: `sys.*`, a tag, a field, a field's option), so for a
-    script P reads bare. Its statics, content and initializers are then
-    unreadable, and the gained tag's template is skipped and reported, not
-    copied. Whether a tag's template should count as vocabulary, readable
-    by every script like the tag's own name, is D11.
+  - **The template's own nodes are read under the same rule, and stay
+    scoped.** A template node P and its content are not vocabulary
+    (`isVocabulary` in `@kb/sandbox`: `sys.*`, a tag, a field, a field's
+    option). So a script reads P in full only when P is within its own
+    reach. Otherwise P reads bare, and the gained tag's template is skipped
+    and reported `beyond-reach`, not copied. P is deliberately not made
+    vocabulary. `sys.f.tag.template` may point at any existing subtree, so
+    vocabulary status would expose that subtree to every script and exempt
+    new references to it from the write-reach check. Giving scripts broader
+    access is a separate publication decision (D11).
   - **Copies sit under the instance**, inside the subject, so writing them
     is within reach.
 - **Asynchronous resolvers (scripts, WP‑5)**, if synchronous evaluation
@@ -786,26 +799,40 @@ field's `allowedRefIdsOf` is dropped, and the drop is reported (§6.5).
   days family's `time zone` setting), else the process's. A
   thin client's day on the server is GAP `01M5E2YBN75HF5C8HZPG62CAJH`'s
   question, and this inherits that answer rather than adding a second one.
-- **Queries are answered per plan attempt, over that attempt's graph.**
-  Core does not plan under the store lock. `persistPlannedEffect`
+- **Queries are answered for each planned call, over the graph that call
+  sees.** Core does not plan under the store lock. `persistPlannedEffect`
   (`operations/src/session.ts`) catches up, plans over `ctx.nodes`, and
   commits on the condition that the store is still at the state it read
   (`expected`). If another writer got in first, it plans again over what
-  the store now holds. Query-dependent resolvers fit that loop as one step
-  inside each attempt's `plan` Effect, before the pure plan:
-  1. `queriesNeeded(graph, input)`, a pure function, lists the initializers
-     the gained templates will run that read `query`, and the queries their
-     resolvers `asks` for.
-  2. The attempt answers them over its own `ctx.nodes`, through the
-     session's index, which `reloadEffect` has just brought to exactly that
-     state, and scopes them with `readableQuery`.
-  3. The pure plan (`planNodeAdd` or `planNodeUpdate`) reads them from
-     `ctx.answers`.
+  the store now holds. Within one attempt, `node.batch` plans its calls in
+  order over one working copy, and each call sees the earlier calls'
+  writes. So a single prepass over the attempt's starting state would miss
+  data an earlier call added. Query-dependent resolvers are therefore
+  answered at the point each add or update is planned, inside the
+  attempt's `plan` Effect:
+  1. `queriesNeeded(graph, call)`, a pure function, lists the initializers
+     this call's gained templates will run that read `query`, and the
+     queries their resolvers `asks` for. Most calls list none, and then
+     steps 2 and 3 cost nothing.
+  2. The plan evaluates them over **the staged graph this call sees**,
+     scoped to the caller: `readableNodes(invocation, staged)`, where
+     `staged` is the attempt's nodes plus the batch's earlier writes. When
+     nothing is staged and the caller is not narrowed, that graph is exactly
+     the session index after `reloadEffect`, and the index answers. When
+     the graph differs from the index (a later call in a batch, or a
+     narrowed caller), the plan builds a one-off index over that graph.
+  3. The pure plan for this call (`planNodeAdd` or `planNodeUpdate`) reads
+     the answers from `ctx.answers`.
 
-  If the conditional commit fails, the next attempt re-answers over the new
-  graph. So the answers a commit carries are always those of the graph that
-  commit was planned on. It stays one commit, one transaction and one undo
-  step.
+  The batch still ends in one conditional commit. If that commit fails, the
+  next attempt replans every call, re-answering each over its new staged
+  graph. So the answers a commit carries are always those of the graph
+  each call was planned on. It stays one commit, one transaction and one
+  undo step. Building a one-off index costs time in proportion to the
+  graph, and only calls that run a query initializer pay it. Whether that
+  is affordable is an open question (§10). If it is not, the fallback is
+  to answer query initializers only where no index has to be built, and
+  report the rest `failed`, not to answer them over another state.
 - **The page defers query-dependent resolvers to the server.** The page's
   query engine runs in a worker, so it answers asynchronously and can lag
   the replica. The page's local plan therefore does not ask it. An
@@ -834,7 +861,7 @@ field's `allowedRefIdsOf` is dropped, and the drop is reported (§6.5).
 | `planNodeAdd` takes a `WriteContext` (`at`, `ClockSample`, actor, the caller's read scope, resolvers, the attempt's query answers) instead of `at` | `domain/model/src/node-write.ts` and every caller (operations, days, canvas, capture) | restructure, behaviour-preserving (WP‑0) |
 | `planNodeUpdate(graph, node, edits, ctx) → {props, written}` becomes the shared update plan; `node.update`'s handler (and `node.batch`'s update calls) upserts `written`; `projectPropEdits` becomes its props projection | `node-write.ts`; `operations/src/actions.ts` (node.update), `node-batch.ts`; `days/src/untag.ts` keeps the projection | restructure, behaviour-preserving (WP‑0): `written` is just the node until templates exist |
 | `fillOnTagging` becomes `instantiate`, with `fill from` as its first initializer source, and the field set still from the gained tags' templates (§3.3) | `tag-behaviour.ts` | restructure (WP‑0) |
-| each plan attempt answers its templates' queries before the pure plan (`queriesNeeded`, then `readableQuery` over the attempt's index) | the `plan` Effects handed to `persistPlannedEffect` (node.add, node.update, node.addTree, node.batch) | addition (WP‑3) |
+| each planned call answers its templates' queries before its pure plan (`queriesNeeded`, then evaluation over the caller-scoped staged graph that call sees: the session index when nothing differs, else a one-off index) | the `plan` Effects handed to `persistPlannedEffect` (node.add, node.update, node.addTree, and node.batch per call) | addition (WP‑3) |
 | the plan may add copy nodes besides the instance and its parent, from an add **or an update** | `planNodeAdd`'s and `planNodeUpdate`'s `written`; `node-add-tree`, `node-batch` | addition (WP‑2) |
 | receipts gain `unresolved` | `@kb/contracts` action output for `node.add`, `node.addTree`, `node.batch`, `node.update` | wire change; record the fingerprint in that commit (WP‑3) |
 | `copyId` | `@kb/model` | addition (WP‑2) |
@@ -954,9 +981,9 @@ additions (Rule 1). Every WP runs the cheap chain plus the tests named.
 - `sys.resolver` and the §5.1 tags with their parameters, the
   `tag.resolvers` point and the `resolvers` declaration part.
 - `unresolved` on receipts, with the toast.
-- Per-attempt query answers (`queriesNeeded`, scoped by `readableQuery`) in
-  the `plan` Effects, and "pending" for query initializers in the page's
-  local plan.
+- Per-call query answers (`queriesNeeded`, evaluated over the
+  caller-scoped staged graph) in the `plan` Effects, and "pending" for
+  query initializers in the page's local plan.
 - An "Add dynamic value…" palette step in the template section, and the
   "⚡" chip drawing an initializer in its field slot.
 - *Tests:*
@@ -967,6 +994,11 @@ additions (Rule 1). Every WP runs the cheap chain plus the tests named.
     its subject;
   - a contention test: a `#query` initializer whose answer changes between
     two attempts commits the second attempt's answer, in one commit;
+  - a batch test: a `#query` initializer in a batch's second call sees a
+    node the first call added, in one commit;
+  - a scope test for queries: a narrowed caller's `#query` that counts or
+    reads text of nodes beyond its reach answers as if those nodes were
+    bare;
   - a page test: a `#query` field is empty locally, filled by the receipt,
     with one push and no second write;
   - the zone rule at a midnight boundary;
@@ -1044,15 +1076,21 @@ multiple templates per tag (D1b); Tana's Voice chat (no kb surface).
 10. **Should sandboxed (third-party) resolvers be allowed at all?**
     - **Recommended:** yes, in WP‑5, pure evaluation only.
     - Alternative: trusted families only, for good.
-11. **Can a script read a tag's template?** A script whose grant does not
-    read the graph reads a template node bare today, because P is not
-    vocabulary. So its adds get no template (§6.5).
-    - **Recommended:** make a tag's template subtree vocabulary
-      (`isVocabulary`), readable by every script, as the tag's own name and
-      fields are. It is schema the person publishes for every node of the
-      tag.
-    - Alternative: keep it unreadable, so a script's tagged nodes get no
-      static values or content, only what the script writes itself.
+11. **Should a template ever be readable beyond a script's reach?** By
+    default it is not. A script reads a tag's template only when the
+    template is within its own reach. Otherwise the template is skipped and
+    reported, and the script's tagged nodes get only what the script writes
+    itself (§6.5).
+    - **Recommended:** keep templates scoped by default, as specified.
+      Do not make them vocabulary. `sys.f.tag.template` may point at any
+      existing subtree, so vocabulary status would expose that subtree to
+      every script and exempt new references to it from the write-reach
+      check.
+    - **Open:** whether to add an explicit, per-template **publication**
+      gesture later: a person marks a template "readable by scripts",
+      knowing what that exposes, and the reach rules read that mark. This
+      needs its own design (what a published template exposes, and whether
+      copying from it counts as reach), and is not proposed here.
 
 ## 10. Not verified
 
@@ -1084,7 +1122,17 @@ multiple templates per tag (D1b); Tana's Voice chat (no kb surface).
     and exactly at the state `reloadEffect` leaves for the attempt.
     `readableQuery` takes a synchronous runner, and `persistPlannedEffect`
     reloads before each `plan`. If the index lags, step 2 of §6.6 builds a
-    one-off index over the attempt's nodes instead.
+    one-off index over the attempt's nodes instead;
+  - the cost of building a one-off index over a staged or caller-scoped
+    graph for a call that runs a query initializer (§6.6). It is not
+    measured, and it decides whether `#query` is affordable inside a batch
+    or for a narrowed caller;
+  - `readableQuery`'s existing callers. It filters rows after evaluating
+    over the full index, so a value-returning query asked on a narrowed
+    caller's behalf could reflect unreadable nodes. Today's callers ask
+    queries whose rows are node ids (target queries), and I found no
+    scalar case, but I did not audit every caller. If one exists, it is a
+    gap of its own, separate from this proposal.
 - **Looked at in the browser:** only the tag page and an instance on a
   scratch store, about five minutes. Screenshots 1–2.
 
@@ -1113,3 +1161,18 @@ the shared add and update planners, in the same transaction.
    `node.update` and `node.batch` upsert the copies in the same transaction,
    and `projectPropEdits` becomes its props projection. WP‑0 makes this
    restructure, and WP‑2 tests creating and tagging alike.
+
+
+### Second revision, 2026-11-22
+
+1. **§4.2: query answers are evaluated over the caller-scoped graph, not
+   filtered afterwards.** `readableQuery` drops rows naming unreadable ids
+   after evaluating over the full index, so scalars and aggregates could
+   leak. It is not used for resolvers.
+2. **§6.6, §6.7, §8: queries are answered per planned call, over the staged
+   graph that call sees**, so a later call in a `node.batch` sees earlier
+   calls' writes. It is still one conditional commit, and every call is
+   replanned on contention. The cost of a one-off index is open (§10).
+3. **§6.5, D11: templates stay scoped by default** and are not vocabulary,
+   since a template can point at any subtree. Broader access for scripts is
+   an open, separate publication decision.
