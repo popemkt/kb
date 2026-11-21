@@ -520,6 +520,28 @@ describe("triggers in the text", () => {
       undo.mockRestore();
     });
 
+    it("⌘Z in the row takes back a write the page made since the pick first, then the pick", async () => {
+      const el = await typed("x #to");
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(textOf(ROW)).toBe("x "));
+      const other = textOf("n.root-a");
+      await act(() => mutations.setNodeText("n.root-a", "rewritten"));
+      await chord(el);
+      await vi.waitFor(() => expect(textOf("n.root-a")).toBe(other));
+      expect(propOf(ROW, SYSTEM_IDS.typeField)).toContainEqual({ t: "ref", v: "tag.todo" });
+      expect(el.textContent).toBe("x ");
+      await chord(el);
+      await vi.waitFor(() => expect(textOf(ROW)).toBe("x #to"));
+      expect(el.textContent).toBe("x #to");
+      expect(propOf(ROW, SYSTEM_IDS.typeField)).not.toContainEqual({ t: "ref", v: "tag.todo" });
+      // ⌘⇧Z makes them again, in their order.
+      await chord(el, true);
+      await vi.waitFor(() => expect(textOf(ROW)).toBe("x "));
+      await chord(el, true);
+      await vi.waitFor(() => expect(textOf("n.root-a")).toBe("rewritten"));
+      expect(el.textContent).toBe("x ");
+    });
+
     it("typing after a pick undoes first, then the pick", async () => {
       const el = await typed("x #to");
       await press(el, "Enter");
@@ -606,6 +628,17 @@ describe("triggers in the text", () => {
         expect(propOf(ROW, SYSTEM_IDS.typeField)).toContainEqual({ t: "ref", v: "tag.todo" }),
       );
       act(() => useUiStore.getState().setNodePaletteOpen(false));
+      // ⌘Z in the row takes back the tag first, the latest write, and shows the text it leaves.
+      await chord(editorOf());
+      await vi.waitFor(() =>
+        expect(propOf(ROW, SYSTEM_IDS.typeField)).not.toContainEqual({ t: "ref", v: "tag.todo" }),
+      );
+      expect(textOf(ROW)).toBe("");
+      expect(editorOf().textContent).toBe("");
+      // Then what was typed for the trigger.
+      await chord(editorOf());
+      await vi.waitFor(() => expect(editorOf().textContent).toBe("/tag"));
+      expect(textOf(ROW)).toBe("/tag");
     });
   });
 

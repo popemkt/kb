@@ -948,8 +948,14 @@ the editor's own writes. Text undo inside the row is the host's
 (`lib/text-history.ts`, `components/ui/use-text-history.ts`), recorded from the
 row's `content` stream so every typing path — keys, Shift+Enter, a paste —
 is covered, because native undo cannot follow a rebuilt tree; structural
-undo stays the store's (below). A pick from a trigger is the store's step,
-held in the row's history in its place (Triggers in the text).
+undo stays the store's (below). The two meet in the row's history: each
+of its steps marks the store's last undo entry when it was taken
+(`PageWrites.history`), a pick from a trigger is held as the store's step
+it made, in its place (Triggers in the text), and ⌘Z in the row takes back
+first whatever the store wrote since the row's last step (a command run on
+the row, a pick in the palette) through the store's undo, then shows the
+text the store holds. So ⌘Z in the row takes back the last thing done
+while it is edited, and what the row shows is what the store holds.
 
 **Refs are atomic in the editor.** `[[id|label]]` renders as a
 `contenteditable=false` link carrying its serialized token, in both states, so
@@ -1709,9 +1715,9 @@ typed text writes the text it leaves and its own write as one write of the
 page's (`PageWrites.together`: one `node.batch`, one undo step), so one
 undo puts the row back as it was before the pick: the typed trigger back,
 the reference, tag or command's write gone. ⌘Z in the row reaches it in
-its place among the row's typing (`lib/text-history.ts`, a `page` step),
-and ⌘⇧Z makes it again. A refused write leaves the text and the caret as
-they were.
+its place among the row's typing (`lib/text-history.ts`, a `page` step
+tied to the store's undo entry), and ⌘⇧Z makes it again. A refused write leaves the text and
+the caret as they were.
 
 - `[[` opens anywhere and offers every node (`nodeCandidates`). A pick
   inserts a reference, `[[id|label]]`, and Enter with nothing to pick

@@ -333,15 +333,25 @@ export function NodeTextHost({
     },
     [emit],
   );
-  /** The page's write a pick made, taken back or made again: the text arrives as `content`. */
-  const stepPage = useCallback(
-    (direction: "undo" | "redo", state: { text: string; caret: number }) => {
-      setCursor(state.caret);
-      if (state.text !== content) pendingEcho.current = state.text;
-      const { writes } = browserHost();
-      void (direction === "undo" ? writes.undo() : writes.redo());
-    },
-    [content],
+  /**
+   * The page's side of the row's history: its undo stacks, and its undo and
+   * redo, the text then arriving as `content`, as `state` says or as the
+   * page leaves it.
+   */
+  const page = useMemo(
+    () => ({
+      history: () => browserHost().writes.history(),
+      step: async (direction: "undo" | "redo", state: { text: string; caret: number } | null) => {
+        if (state !== null) {
+          setCursor(state.caret);
+          pendingEcho.current = state.text === latest.current ? null : state.text;
+        }
+        const { writes } = browserHost();
+        await (direction === "undo" ? writes.undo() : writes.redo());
+        return browserHost().node(nodeId)?.text ?? null;
+      },
+    }),
+    [nodeId],
   );
   const textHistory = useTextHistory({
     editorRef,
@@ -349,7 +359,7 @@ export function NodeTextHost({
     content,
     refs,
     onRestore: restoreText,
-    onPage: stepPage,
+    page,
   });
 
   useRevealMarkup(editorRef, editing);
@@ -361,9 +371,10 @@ export function NodeTextHost({
    * Otherwise what it inserts replaces the trigger's span, the caret after
    * it, and the text and the pick's own write are written as one write of
    * the page's (`PageWrites.together`), one undo step, which the row's
-   * history holds in its place (`recordPick`). The text typed before the
-   * pick has landed by then, so the undo brings it back. A refused write
-   * leaves the text and the caret as they were.
+   * history holds in its place, tied to the page's undo entry it made
+   * (`recordPick`). The text typed before the pick has landed by then, so
+   * the undo brings it back. A refused write leaves the text and the caret
+   * as they were.
    */
   const applyPick = useCallback(
     async (made: TriggerPick | null | Promise<TriggerPick | null>, span: OpenTrigger) => {
@@ -396,18 +407,22 @@ export function NodeTextHost({
         setCursor(state.caret);
         if (instanceKey !== undefined) placeCaret(instanceKey, state.caret);
       };
+      const { writes } = browserHost();
+      const below = writes.history().undo.at(-1);
       lay(after);
-      const forget = textHistory.recordPick(before, after);
-      const landed = await browserHost().writes.together(async () => {
+      textHistory.shown(after);
+      const landed = await writes.together(async () => {
         await writeText(after.text);
         await pick.write?.();
         return true;
       });
       if (landed === null) {
-        forget();
+        textHistory.shown(before);
         lay(before);
         return;
       }
+      const entry = writes.history().undo.at(-1);
+      if (entry !== below) textHistory.recordPick(before, after, entry);
       pick.landed?.();
     },
     [content, instanceKey, placeCaret, refs, textHistory, writeText],

@@ -413,6 +413,11 @@ export const mutations: PageWrites = {
     return result;
   },
 
+  history: () => {
+    const { undoStack, redoStack } = useGraphStore.getState();
+    return { undo: undoStack, redo: redoStack };
+  },
+
   async undo(): Promise<boolean> {
     const entry = useGraphStore.getState().applyUndo();
     if (!entry) return false;
