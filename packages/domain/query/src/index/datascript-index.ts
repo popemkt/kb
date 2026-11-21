@@ -15,7 +15,7 @@ import { type Datom, type DatascriptDb, nodeToDatoms, schemaFor } from "./datoms
 import type { DerivedRef } from "./derived.ts";
 import { EntityIds } from "./entity-ids.ts";
 import type { DatalogAnswer, KbIndex, IndexOptions } from "./index.ts";
-import { NodeTable } from "./node-table.ts";
+import { NodeTable, type NodeChange } from "./node-table.ts";
 import { readSetOf, touches, type ChangedDatom, type ReadSet } from "./read-set.ts";
 
 /** Identity of a datom within one entity — attr plus value, compared structurally. */
@@ -152,22 +152,30 @@ export class DatascriptIndex implements KbIndex {
   }
 
   applyTx(tx: StoreTx): void {
-    // A db that is built on its next use is built from the table then: only the table moves.
-    if (this.#stale) {
-      this.#table.change(tx);
-      return;
-    }
+    this.#follow(this.#table.change(tx));
+  }
+
+  /**
+   * The virtual set's delta is a transaction like any other
+   * (`NodeTable.changeVirtual`): the db follows it incrementally, and only
+   * the answers that read what it moved are forgotten.
+   */
+  withVirtual(nodes: ReadonlyArray<KbNode>): void {
+    this.#follow(this.#table.changeVirtual(nodes));
+  }
+
+  /** Bring the db up to a change the table took: the difference only, or a rebuild where it cannot. */
+  #follow(change: NodeChange | null): void {
+    // A db that is built on its next use is built from the table then: only the table moved.
+    if (change === null || this.#stale) return;
     // Retractions name the eids as they stand, so they are collected before the
     // id map moves under them.
-    const retracts: TxOp[] = tx.deletes
-      .filter((id) => this.#table.getNode(id) !== undefined)
-      .map((id) => [":db/retractEntity", present(this.#ids.toEid.get(id), `eid for ${id}`)]);
-    const touched = new Set([...tx.deletes, ...tx.upserts.map(({ id }) => id)]);
-    const before = this.#nodesAt(touched);
-    const change = this.#table.change(tx);
-    if (change === null) return;
+    const retracts: TxOp[] = change.removed.map((id) => [
+      ":db/retractEntity",
+      present(this.#ids.toEid.get(id), `eid for ${id}`),
+    ]);
     for (const id of change.removed) this.#ids.forget(id);
-    if (this.#ids.note(before, this.#nodesAt(touched))) {
+    if (this.#ids.note(change.was, change.now)) {
       this.#invalidate();
       return;
     }
@@ -346,11 +354,6 @@ export class DatascriptIndex implements KbIndex {
     return this.#table.search(text, limit);
   }
 
-  withVirtual(nodes: ReadonlyArray<KbNode>): void {
-    this.#table.withVirtual(nodes);
-    this.#invalidate();
-  }
-
   /** Retract what this entity has and add what it should have — the difference only. */
   #diffEntity(eid: number, next: Datom[], retracts: TxOp[], adds: TxOp[]): void {
     const before = new Map<string, { a: string; v: unknown }>();
@@ -366,14 +369,5 @@ export class DatascriptIndex implements KbIndex {
     for (const [key, datom] of before) {
       if (!after.has(key)) retracts.push([":db/retract", eid, datom.a, datom.v]);
     }
-  }
-
-  #nodesAt(ids: ReadonlySet<NodeId>): KbNode[] {
-    const nodes: KbNode[] = [];
-    for (const id of ids) {
-      const node = this.#table.getNode(id);
-      if (node !== undefined) nodes.push(node);
-    }
-    return nodes;
   }
 }

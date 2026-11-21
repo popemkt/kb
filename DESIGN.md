@@ -2568,8 +2568,9 @@ same lane. One path to a client, whatever a node's provenance.
   - *Matching.* A transaction's change set is the datoms it adds and
     retracts (an entity retracted whole is every datom it had), by
     attribute; an answer whose read set one of them matches is forgotten.
-    A rebuild (a first-seen attribute, `rebuild`, `withVirtual`) forgets
-    every answer, and so does an attribute that holds a ref for the first
+    The virtual set's delta (`withVirtual`, a saved-query file added,
+    edited or removed) is matched as a transaction is. A rebuild (a
+    first-seen attribute, `rebuild`) forgets every answer, and so does an attribute that holds a ref for the first
     time: a run revives that attribute's values as nodes, whichever entity
     holds them. A run that revives a field's value as a node reads every
     node's id, since that value names a node only while the node lives.

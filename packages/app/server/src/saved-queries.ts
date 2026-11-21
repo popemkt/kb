@@ -95,8 +95,9 @@ export class SavedQuerySet {
    * nothing a client holds, and a file node whose stored node has since gone
    * comes back. The frame names only ids the index holds, or held, as
    * virtual, so a client applies it as it stands. A no-op when the files
-   * did not move, which leaves the index as it is (every directory tick
-   * calls this, and `withVirtual` rebuilds it).
+   * did not move (every directory tick calls this). The index applies the
+   * set's delta as a transaction, so a live answer that read none of what
+   * moved still holds.
    */
   sync = Effect.fn("kb.syncSavedQuerySet")(function* (
     this: SavedQuerySet,
@@ -109,7 +110,6 @@ export class SavedQuerySet {
     const before = shown();
     const previous = this.current;
     this.current = [...nodes];
-    // GAP [[01M7Q2GKYMMSGJGB5D4X120E3C]] a virtual delta rebuilds the query index
     this.ctx.index.withVirtual(this.current);
     const ops = diffTx(before, shown());
     if (ops.upserts.length === 0 && ops.deletes.length === 0) return;

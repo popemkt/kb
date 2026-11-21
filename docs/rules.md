@@ -1743,14 +1743,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P2 of docs/research/2026-10-31-plugin-sources.md, after the source reader is shared by the two sinks.
 - **node** — `01M68NFBY0FEK3Q2CW2XZ7E6DE`
 
-### GAP: Saved-query file changes invalidate every live answer
-
-- **expected** — A saved-query file change invalidates live answers that read its changed virtual datoms.
-- **current** — SavedQuerySet applies a new virtual set with NodeIndex.withVirtual, which rebuilds the query index and clears every retained answer.
-- **impact** — Adding or editing a saved-query file reruns subscriptions whose data did not change.
-- **closes** — Apply the virtual set delta through the same incremental datom path while preserving stored-node shadowing.
-- **node** — `01M7Q2GKYMMSGJGB5D4X120E3C`
-
 ### GAP: scaling a turned item across its own axes stretches each side instead of shearing
 
 - **expected** — a scale across a turned item's axes shears it, as Blender does
@@ -3324,6 +3316,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The palette command set is not enumerable, so the palette and the runner each re-derive availability, and a command cannot be tested without the runner.
 - **closes** — Introduce a ui command registry and register each command beside its implementation. Pairs with the NodeCommandPalette gap - one registry serves both.
 - **node** — `01M1MGCRNVNBE5HW27Z83PK67B`
+
+### GAP: Saved-query file changes invalidate every live answer
+
+- **expected** — A saved-query file change invalidates live answers that read its changed virtual datoms.
+- **current** — SavedQuerySet applies a new virtual set with NodeIndex.withVirtual, which rebuilds the query index and clears every retained answer.
+- **impact** — Adding or editing a saved-query file reruns subscriptions whose data did not change.
+- **closes** — Apply the virtual set delta through the same incremental datom path while preserving stored-node shadowing.
+- **node** — `01M7Q2GKYMMSGJGB5D4X120E3C`
 
 ### GAP: saved-query virtual nodes never appear in tx frames
 

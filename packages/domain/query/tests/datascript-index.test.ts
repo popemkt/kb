@@ -24,6 +24,9 @@ function node(id: string, over: Partial<KbNode> = {}): KbNode {
   };
 }
 
+/** The text of the node `id`. */
+const textOf = (id: string) => `[:find ?text :where [?n :node/id "${id}"] [?n :node/text ?text]]`;
+
 const TEXT_QUERY = `[:find ?id ?text :where [?n :node/id ?id] [?n :node/text ?text]]`;
 const MENTIONS_QUERY = `[:find ?from ?to :where [?e :node/mentions ?m] [?e :node/id ?from] [?m :node/id ?to]]`;
 
@@ -320,6 +323,47 @@ describe("DatascriptIndex", () => {
     ]);
     expect(index.storedNodes().map((n) => n.id)).toEqual(["a"]);
     expect(index.getNode("sys.query.v")?.text).toBe("saved");
+  });
+
+  test("a virtual set change keeps the answers that do not read what it moved", () => {
+    const index = built(new DatascriptIndex([node("a")], { derived: derivedWith({}) }));
+    index.withVirtual([node("sys.query.v", { text: "saved" }), node("sys.query.w")]);
+    const stored = index.answerDatalog(textOf("a"));
+    const untouched = index.answerDatalog(textOf("sys.query.w"));
+    expect(index.answerDatalog(textOf("sys.query.v")).rows).toEqual([["saved"]]);
+    const builds = index.rebuilds;
+
+    index.withVirtual([node("sys.query.v", { text: "edited" }), node("sys.query.w")]);
+    expect(index.rebuilds).toBe(builds);
+    expect(index.answerDatalog(textOf("a"))).toBe(stored);
+    expect(index.answerDatalog(textOf("sys.query.w"))).toBe(untouched);
+    expect(index.answerDatalog(textOf("sys.query.v")).rows).toEqual([["edited"]]);
+    expect(rows(index, TEXT_QUERY)).toEqual(
+      fresh([node("a"), node("sys.query.v", { text: "edited" }), node("sys.query.w")], TEXT_QUERY),
+    );
+
+    // A virtual node the set drops leaves, and one it adds arrives, without a rebuild.
+    index.withVirtual([node("sys.query.v", { text: "edited" }), node("sys.query.x")]);
+    expect(index.rebuilds).toBe(builds);
+    expect(index.answerDatalog(textOf("a"))).toBe(stored);
+    expect(index.answerDatalog(textOf("sys.query.w")).rows).toEqual([]);
+    expect(rows(index, TEXT_QUERY)).toEqual(
+      fresh([node("a"), node("sys.query.v", { text: "edited" }), node("sys.query.x")], TEXT_QUERY),
+    );
+  });
+
+  test("a virtual set change under a stored id moves nothing", () => {
+    const index = built(
+      new DatascriptIndex([node("sys.query.v", { text: "persisted" })], {
+        derived: derivedWith({}),
+      }),
+    );
+    const generation = index.generation;
+    const answer = index.answerDatalog(TEXT_QUERY);
+    index.withVirtual([node("sys.query.v", { text: "from the file" })]);
+    expect(index.generation).toBe(generation);
+    expect(index.answerDatalog(TEXT_QUERY)).toBe(answer);
+    expect(index.isVirtual("sys.query.v")).toBe(false);
   });
 
   test("a virtual node the store later owns stops being virtual", () => {
