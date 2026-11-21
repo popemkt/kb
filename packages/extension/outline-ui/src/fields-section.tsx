@@ -38,7 +38,9 @@ import {
   type ValueKindSpec,
 } from "@kb/ui-sdk";
 import { backToRow } from "./back-to-row";
+import { useOutlineHost } from "./outline-host";
 import { outlineSource, releaseOutlineKeyboard, useOutlineStore } from "./outline.store";
+import { rowAfter } from "./row-after";
 import { ValueSlot } from "./value-slot";
 import { FieldPicker } from "./field-picker";
 import { useSlotKind } from "./slot-kind";
@@ -340,12 +342,14 @@ function valueKeys(values: readonly PropValue[]): Array<{ key: string; value: Pr
 /**
  * The keyboard leaves a node's fields for its row (`FieldHandle.leave`):
  * `back` goes back to the row from the focused value (`backToRow`), `up`
- * edits its text at the end, `down` edits the next row. Drawn under no row
- * instance (a story, a test), it stays.
+ * edits its text at the end, `down` edits the row after it (`rowAfter`,
+ * drawn by outline host `host`). Drawn under no row instance (a story, a
+ * test), it stays.
  */
 function leaveFields(
   nodeId: string,
   instanceKey: string | undefined,
+  host: string,
   way: "up" | "down" | "back",
 ): void {
   if (instanceKey === undefined) return;
@@ -354,7 +358,7 @@ function leaveFields(
   else if (way === "up")
     s.activateNode(nodeId, rowTextOf(outlineSource(), nodeId).text.length, instanceKey);
   else {
-    const next = s.getNextVisibleInstance(instanceKey);
+    const next = rowAfter(instanceKey, nodeId, host);
     if (next !== null) s.activateNode(next.nodeId, 0, next.instanceKey);
   }
 }
@@ -394,6 +398,7 @@ function useFieldHandle({
   const landed = useRef<typeof landing>(null);
   const stackRef = useRef<HTMLDivElement>(null);
   const closeOpened = useContext(CloseOpenedField);
+  const host = useOutlineHost();
 
   useLayoutEffect(() => {
     const stack = stackRef.current;
@@ -418,7 +423,7 @@ function useFieldHandle({
     // from any other field, back is to the row.
     leave: (way) => {
       if (way === "back" && values.length === 0 && closeOpened?.(fieldId) === true) return;
-      leaveFields(nodeId, instanceKey, way);
+      leaveFields(nodeId, instanceKey, host, way);
     },
     claimKeyboard: releaseOutlineKeyboard,
     focusSlot: (index) => setLanding({ index, values }),
@@ -667,6 +672,7 @@ export function FieldsSection({ nodeId, depth, instanceKey }: FieldsSectionProps
   /** Where the keyboard lands once the section redraws: an opened field's value, or a closed one's chip. */
   const [landing, setLanding] = useState<{ on: "field" | "chip"; fieldId: string } | null>(null);
   const section = useRef<HTMLDivElement>(null);
+  const host = useOutlineHost();
 
   useLayoutEffect(() => {
     if (landing?.on !== "field" || section.current === null) return;
@@ -726,7 +732,7 @@ export function FieldsSection({ nodeId, depth, instanceKey }: FieldsSectionProps
           landing={landing?.on === "chip" ? landing.fieldId : null}
           onLanded={() => setLanding(null)}
           onOpen={open}
-          onLeave={(way) => leaveFields(nodeId, instanceKey, way)}
+          onLeave={(way) => leaveFields(nodeId, instanceKey, host, way)}
         />
       )}
     </div>

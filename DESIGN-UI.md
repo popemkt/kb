@@ -1275,8 +1275,10 @@ goes on to the row's first field value, else the next row. Enter or
 Escape on an emptied description, Escape at rest, and leaving its editor
 with the arrows hand the keyboard back to the row: Escape selects the row,
 ↑ edits the row's text at its end, and ↓ goes on to the row's first field
-value, else the next row. The outline's own arrows pass it by: it is
-reached by pointer, by ⌘K, or by its key. ⌘K and the node menu offer **Add
+value, else the next row. Under a page's title the next row is the page's
+first row, since the title stands before them, and with nothing to go on
+to, Tab and ↓ go back to the text, never to nothing. The outline's own
+arrows pass it by: it is reached by pointer, by ⌘K, or by its key. ⌘K and the node menu offer **Add
 description** on a node with none and **Edit description** on one that has
 one (`sys.cmd.outline.describe`, the outline's command), and Mod-Shift-E
 runs it: a page key, so it reaches a row being edited, a selected row and,

@@ -24,27 +24,35 @@ import {
 } from "@kb/ui-sdk";
 import { backToRow } from "./back-to-row";
 import { doneDescribing, useDescribing, useDescriptionShown } from "./description-state";
+import { useOutlineHost } from "./outline-host";
 import { outlineSource, releaseOutlineKeyboard, useOutlineStore } from "./outline.store";
+import { rowAfter } from "./row-after";
 import { ValueSlot } from "./value-slot";
 import { arriveAt, enterFields } from "./value-slot-nav";
 
 const FIELD = SYSTEM_IDS.descriptionField;
 
-/** Where the keyboard goes when it leaves the description: back to the row, its text, or on. */
+/**
+ * Where the keyboard goes when it leaves the description: back to the row,
+ * its text, or on to the row's first field value, else the next row. With
+ * nothing after it (a page with no fields and no rows), on is back to the
+ * text, so the keyboard is never left on nothing.
+ */
 function leave(
   rowId: string,
   instanceKey: string,
+  host: string,
   from: Element | null,
   way: "up" | "down" | "back",
 ) {
   doneDescribing(instanceKey);
   const s = useOutlineStore.getState();
   if (way === "back") backToRow(from, rowId, instanceKey);
-  else if (way === "up")
-    s.activateNode(rowId, rowTextOf(outlineSource(), rowId).text.length, instanceKey);
-  else if (!enterFields(instanceKey, "first")) {
-    const next = s.getNextVisibleInstance(instanceKey);
+  else if (way === "down" && enterFields(instanceKey, "first")) return;
+  else {
+    const next = way === "down" ? rowAfter(instanceKey, rowId, host) : null;
     if (next !== null) s.activateNode(next.nodeId, 0, next.instanceKey);
+    else s.activateNode(rowId, rowTextOf(outlineSource(), rowId).text.length, instanceKey);
   }
 }
 
@@ -73,6 +81,7 @@ export function DescriptionLine({
   const { readOnly } = useFieldWrite(nodeId, FIELD, context.schema);
   const shown = useDescriptionShown(nodeId, instanceKey);
   const line = useRef<HTMLDivElement>(null);
+  const host = useOutlineHost();
 
   // A gesture asked for it: its slot opens for editing, once it is drawn.
   useLayoutEffect(() => {
@@ -94,7 +103,7 @@ export function DescriptionLine({
     openPicker: () => undefined,
     addSlot: () => undefined,
     addValue: () => undefined,
-    leave: (way) => leave(rowId, instanceKey, line.current, way),
+    leave: (way) => leave(rowId, instanceKey, host, line.current, way),
     claimKeyboard: releaseOutlineKeyboard,
     // The line holds one value: a written description is its one slot, at rest.
     focusSlot: () => {
