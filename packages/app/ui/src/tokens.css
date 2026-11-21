@@ -212,8 +212,7 @@
   font-family: var(--app-font-mono);
   font-size: 0.92em;
   background: color-mix(in oklch, var(--foreground) 8%, transparent);
-  /* Off the radius scale: GAP [[01M3AF8G4N9JHJB8YYEWF8F5SZ]] */
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   padding: 0.05em 0.28em;
 }
 

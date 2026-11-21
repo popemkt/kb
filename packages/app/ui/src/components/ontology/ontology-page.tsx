@@ -402,8 +402,7 @@ function Segmented<T extends string>({
           type="button"
           aria-pressed={o.key === value}
           className={cn(
-            // oxlint-disable-next-line design-tokens/no-raw-design-value -- GAP [[01M3AF8G4N9JHJB8YYEWF8F5SZ]]
-            "rounded-[5px] px-2 py-0.5 text-label font-medium transition-colors duration-100",
+            "rounded-sm px-2 py-0.5 text-label font-medium transition-colors duration-100",
             o.key === value
               ? "bg-background text-foreground/75 shadow-raised"
               : "text-foreground/35 hover:text-foreground/60",

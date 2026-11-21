@@ -7838,10 +7838,10 @@ is.
   bridge computes `xs` (−4px), `sm` (−2px), `lg` (+4px), `xl` (+10px) and
   `2xl` (×2) from it, after resetting Tailwind's steps. Bare `rounded`
   (Tailwind's fixed 4px) is `rounded-xs`, and `.kb-md-media` applies the
-  same step. `rounded-full` is a shape, not a step. Three corners are still
-  off the scale (2px resize handles, the 3px inline-code chip, the 5px
-  ontology segmented control), under one gap: putting them on a step moves
-  each by 1–2px, which is a visible change.
+  same step. `rounded-full` is a shape, not a step. Every corner is on a
+  step: a canvas resize handle and the inline-code chip (`.kb-md-code`) are
+  `xs`, and a segment inside a padded `md` track is `sm`, the track's radius
+  less its padding, so the two curves stay concentric.
 - **Borders.** `--border-width` is what a bare `border` and `divide-*`
   draw: the bridge maps it onto Tailwind's `--default-border-width`, so it
   is read, not merely declared (an earlier unread `--border-width` was
@@ -7942,12 +7942,11 @@ surfaces make two rules.
 A sanctioned exception is the soft-rule mechanism for few sites (root
 `CLAUDE.md` → Drift markers and gaps): a pinpoint
 `oxlint-disable-next-line design-tokens/no-raw-design-value -- GAP [[id]]`
-and a `#gap` node. One gap uses it today: three corners sit off the
-radius scale (see Radius above), left out of the no-visual-change
-restructure because closing it is a visible change. (The graph's
-query-error chip, the other one, reads the `warning` token now.) A stylesheet cannot carry a lint disable, so the one CSS site
-(`.kb-md-code`) carries a bare `GAP [[id]]` comment, which the harness's
-gap-marker check resolves like any other.
+and a `#gap` node. No site uses it today: the last three, corners off the
+radius scale, were put on steps (see Radius above), and the graph's
+query-error chip reads the `warning` token. A stylesheet cannot carry a
+lint disable, so a CSS site would carry a bare `GAP [[id]]` comment, which
+the harness's gap-marker check resolves like any other.
 
 ### A dead token is a duplicate
 

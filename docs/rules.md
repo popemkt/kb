@@ -1905,14 +1905,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A core page entry plugin holding them as children.
 - **node** — `01M549THN6RH36SEE9QTSZ0PZP`
 
-### GAP: the sigma renderer's lifecycle effect carries 32 branches
-
-- **expected** — Renderer setup, event wiring and teardown are three named steps, with the graph-building step shared across renderers.
-- **current** — One useEffect constructs the sigma instance, wires every event, applies reducers and tears down, branching on capability and selection state throughout.
-- **impact** — The effect is the renderer, so nothing about it can be tested without a DOM and a real sigma instance.
-- **closes** — Extract createSigmaRenderer(el, opts) returning {update, destroy} and let the effect be three calls.
-- **node** — `01M1MGCPJTV66QSFCR44XG29YM`
-
 ### GAP: the stage's GPU meter times queue completion, not timestamp queries
 
 - **expected** — gpuMs is each frame's own GPU time, from timestamp queries around its passes, on every backend.
@@ -1961,15 +1953,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — In a side panel or on a phone, the top of that art is hidden behind the breadcrumbs scrim; the breadcrumbs stay readable
 - **closes** — Recompose those themes narrow-head art below the head band (or let a backdrop presentation reserve the band), checked by a narrow-width screenshot per theme
 - **node** — `01M7355M039ESNZV6N85EV8BQ2`
-
-### GAP: three corner radii (2px, 3px, 5px) sit off the radius scale
-
-- **expected** — Every corner radius is a step derived from the design system's --radius, so a swap re-rounds everything.
-- **current** — canvas-resize-handles.tsx uses rounded-[2px], ontology-page.tsx's segmented control rounded-[5px], and tokens.css's .kb-md-code a fixed 3px, each under a GAP marker (a disable of design-tokens/no-raw-design-value in the two components).
-- **impact** — A design system that changes --radius leaves these three corners unchanged.
-- **closes** — Map each onto a step (xs 4px or sm 6px, a 1-2px visible change), or add a step if the size is a real role. That is a visible change, so it lands outside the no-visual-change token restructure (wave 2026-09-24 f1).
-- **rule** — Design tokens: no bypass
-- **node** — `01M3AF8G4N9JHJB8YYEWF8F5SZ`
 
 ### GAP: three philosophy checks wait on their prerequisites (Phase 5)
 
@@ -3683,6 +3666,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — defineExtension per family, kb.manifest.extensions with enabled, and a browser resolver keyed by family name; the lab's off-by-default becomes a server-side setting that the registry loads by and the manifest reports, and its Preferences row writes that setting (E10, E10b)
 - **node** — `01M41H30N0SV4QE5R8VQQ1K4ZA`
 
+### GAP: the sigma renderer's lifecycle effect carries 32 branches
+
+- **expected** — Renderer setup, event wiring and teardown are three named steps, with the graph-building step shared across renderers.
+- **current** — Closed: sigma-renderer.ts names the steps: mountSigma (the instance, its label pipeline and the cluster hulls) and wireSigmaInput (hover, click, open, trace, isolate, drag) each return their teardown, and SigmaGraph's lifecycle effect is the calls. The graph-building pass shares its placement with every renderer through computeLayoutPositions.
+- **impact** — The effect is the renderer, so nothing about it can be tested without a DOM and a real sigma instance.
+- **closes** — Extract createSigmaRenderer(el, opts) returning {update, destroy} and let the effect be three calls.
+- **node** — `01M1MGCPJTV66QSFCR44XG29YM`
+
 ### GAP: the Sky borrows the graph's toScreen across the UI zones until it moves to scene/gpu/screen.ts
 
 - **expected** — One screen projection in the scene kit (scene/gpu/screen.ts, toScreen) that the 3D graph and the Sky both import.
@@ -3747,6 +3738,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Four pinpoint disables, and a port shaped so only one listener per event can ever exist. Today that is true by construction (the client owns the socket), which is why this is deferred rather than wrong.
 - **closes** — Widen WsLike to {addEventListener, removeEventListener, send, close} and update every injected fake (api/live.test.ts and the ws tests). That is a test-double contract change across the package, not a mechanical edit, so it needs its own commit.
 - **node** — `01M1MHKS8EV3DD378TZSX44EJG`
+
+### GAP: three corner radii (2px, 3px, 5px) sit off the radius scale
+
+- **expected** — Every corner radius is a step derived from the design system's --radius, so a swap re-rounds everything.
+- **current** — Closed: the canvas resize handle and the inline-code chip are rounded-xs, and the ontology page's segmented control is rounded-sm, its md track's radius less the track padding; DESIGN-UI.md -> Radius says so.
+- **impact** — A design system that changes --radius leaves these three corners unchanged.
+- **closes** — Map each onto a step (xs 4px or sm 6px, a 1-2px visible change), or add a step if the size is a real role. That is a visible change, so it lands outside the no-visual-change token restructure (wave 2026-09-24 f1).
+- **rule** — Design tokens: no bypass
+- **node** — `01M3AF8G4N9JHJB8YYEWF8F5SZ`
 
 ### GAP: turning a node into a query matches every node in the store
 
