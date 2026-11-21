@@ -260,10 +260,11 @@ export const mutations: PageWrites = {
   async createEmptyNode(parentId: string, afterSiblingId: string | null): Promise<string | null> {
     const newId = ulid();
     let ok = false;
-    if (parentId === WORKSPACE_ROOT_ID) {
-      ok = await applyPlan(planAddRootNode("", newId));
-    } else if (afterSiblingId !== null) {
+    if (afterSiblingId !== null) {
+      // Directly below it in its group, a top-level row's included.
       ok = await applyPlan(planInsertSibling(wire(), afterSiblingId, "after", newId));
+    } else if (parentId === WORKSPACE_ROOT_ID) {
+      ok = await applyPlan(planAddRootNode("", newId));
     } else {
       ok = await applyPlan(planAddChild(wire(), parentId, newId, ""));
     }

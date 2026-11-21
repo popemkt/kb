@@ -19,7 +19,6 @@ import {
   runKeyCall,
   rowTextOf,
   shownNode,
-  shownNodeId,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
 import { selectionRoots } from "@kb/model";
@@ -68,10 +67,10 @@ function selectFirstChild({ nodeId, instanceKey }: ActionOf<"selectFirstChild">)
 /** 'o': directly below = first child when expanded, else next sibling (D07). */
 function createAfter({ nodeId }: ActionOf<"createAfter">): void {
   const node = outlineNodes().get(nodeId);
-  const expanded = Boolean(node && !node.collapsed && shownChildren(nodeId).length > 0);
-  if (node && expanded) {
-    // Under the node the row shows: a reference's first child is its target's.
-    void createTransientNode(shownNodeId(node), null);
+  // The first row drawn under it: a reference's first child is its target's.
+  const first = node && !node.collapsed ? shownChildren(nodeId)[0] : undefined;
+  if (first !== undefined) {
+    void createNodeBefore(first);
     return;
   }
   void createTransientNode(node?.parentId ?? WORKSPACE_ROOT_ID, nodeId);

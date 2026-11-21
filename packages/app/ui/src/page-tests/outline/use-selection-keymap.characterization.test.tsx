@@ -253,13 +253,23 @@ describe("selection-mode dispatcher (characterization)", () => {
     expect(useGraphStore.getState().rootNodeId).toBe("n.root-b");
   });
 
-  it("createAfter: o on an expanded parent mints a child of it", async () => {
+  it("createAfter: o on an expanded parent mints its first child", async () => {
     act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
     selectAndMount("n.root-a");
     await press("o");
     const minted = useOutlineStore.getState().activeNodeId;
     expect(minted).not.toBeNull();
-    expect(node(String(minted))?.parentId).toBe("n.root-a");
+    expect(node("n.root-a")?.children).toEqual([minted, "n.child-a1", "n.child-a2"]);
+  });
+
+  it("createAfter: o on a top-level row mints the row directly below it", async () => {
+    // The top level's order is its rows' ranks.
+    useGraphStore.getState().hydrateFromWire(rankedFixture(), fixtureGraph.rev, "fixtures");
+    selectAndMount("n.root-b");
+    await press("o");
+    const minted = useOutlineStore.getState().activeNodeId;
+    const roots = node(WORKSPACE_ROOT_ID)?.children ?? [];
+    expect(roots.slice(roots.indexOf("n.root-b"))).toEqual(["n.root-b", minted, "n.root-c"]);
   });
 
   it("createAfter: o on an expanded reference under a query result edits the new row there", async () => {
