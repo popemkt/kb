@@ -4,6 +4,7 @@ import {
   asInstance,
   cn,
   type CommandContext,
+  isCompositionKey,
   isSysPrefixed,
   menuAnchorOf,
   pageTitleInstanceKey,
@@ -14,6 +15,7 @@ import {
   useFocusReturn,
 } from "@kb/ui-sdk";
 import { declinedCommands, listNodeCommands, runCommand } from "@/lib/commands";
+import { openQueryFromSearch } from "@/lib/query-node";
 import {
   buildPaletteIndex,
   searchPalette,
@@ -22,7 +24,7 @@ import {
   type PaletteHit,
 } from "@/lib/palette-index";
 import { pageProjection, shownNodes, useGraphStore } from "@/stores/graph.store";
-import { pageCommandContext, pageCommandTarget } from "@/stores/page-commands";
+import { pageCommandApi, pageCommandContext, pageCommandTarget } from "@/stores/page-commands";
 import { pageEditor } from "@/stores/page-editor";
 import { useUiStore } from "@/stores/ui.store";
 
@@ -129,6 +131,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   }, [graphIndex, nodeCommands, declined, schema]);
 
   const hits = useMemo(() => searchPalette(index, query, ROW_LIMIT), [index, query]);
+  const searchText = query.trim();
 
   /*
    * Focus the input in the commit that opens the palette, before the browser
@@ -193,7 +196,15 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         return;
       }
       if (e.key === "Enter") {
+        if (isCompositionKey(e.nativeEvent)) return;
         e.preventDefault();
+        if (e.altKey) {
+          if (searchText === "") return;
+          const { paneSubjectId } = pageCommandApi();
+          onClose();
+          void openQueryFromSearch(searchText, paneSubjectId, zoomTo);
+          return;
+        }
         const hit = hits[active];
         if (hit) void selectHit(hit);
         return;
@@ -218,7 +229,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         focusable[next]?.focus();
       }
     },
-    [hits, active, onClose, selectHit],
+    [hits, active, onClose, searchText, selectHit, zoomTo],
   );
 
   if (!open) return null;
@@ -309,6 +320,11 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             ))
           )}
         </ul>
+        {searchText !== "" && (
+          <div className="border-t border-foreground/[0.06] px-3 py-1.5 text-caption text-faint-foreground">
+            <kbd>Alt+Enter</kbd> to save as a query
+          </div>
+        )}
       </div>
     </div>
   );

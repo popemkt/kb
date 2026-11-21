@@ -30,10 +30,13 @@ import {
 } from "@kb/ui-sdk";
 import { outlineNodes, useOutlineNode } from "./outline.store";
 import { ChoiceSlot } from "./query-builder/slots";
-import { frameColumns, frameFieldCandidates, pageSizeOptions } from "./view-settings-fields";
-
-/** The group slot's choice that groups by nothing. Never a node id. */
-const NO_GROUP = "\u0000none";
+import {
+  frameColumns,
+  frameFieldCandidates,
+  groupFieldSetting,
+  NO_FIELD,
+  pageSizeOptions,
+} from "./view-settings-fields";
 
 /** The fields of the frame's rows, read again whenever the graph changes. */
 function useFieldCandidates(frameId: string): PickerCandidate[] {
@@ -48,7 +51,7 @@ function useFieldCandidates(frameId: string): PickerCandidate[] {
 /** Which field a board's columns are made of: one of the rows' fields, or none. */
 function GroupSetting({ frameId, groupFieldId }: { frameId: string; groupFieldId: string | null }) {
   const fields = useFieldCandidates(frameId);
-  const chosen = groupFieldId ?? NO_GROUP;
+  const chosen = groupFieldId ?? NO_FIELD;
   const label =
     groupFieldId === null
       ? ""
@@ -61,24 +64,15 @@ function GroupSetting({ frameId, groupFieldId }: { frameId: string; groupFieldId
         name="group by"
         label={label}
         tone="value"
-        candidates={[{ id: NO_GROUP, label: "None" }, ...fields]}
+        candidates={groupFieldSetting.choices(fields)}
         chosen={chosen}
         placeholder="None"
         pickLabel="Group by field"
-        onPick={(id) =>
-          void browserHost().writes.setFrameSetting(
-            frameId,
-            "groupFieldId",
-            id === NO_GROUP ? null : id,
-          )
-        }
+        onPick={(id) => void groupFieldSetting.write(frameId, id)}
       />
     </PrefFieldRow>
   );
 }
-
-/** The date field slot's choice that dates by nothing. Never a node id. */
-const NO_DATE = "\u0000none";
 
 /**
  * Which date field a calendar places its rows by (DESIGN-UI.md → Calendar):
@@ -107,15 +101,15 @@ function DateFieldSetting({
         name="date field"
         label={label}
         tone="value"
-        candidates={[{ id: NO_DATE, label: "None" }, ...fields]}
-        chosen={dateFieldId ?? NO_DATE}
+        candidates={[{ id: NO_FIELD, label: "None" }, ...fields]}
+        chosen={dateFieldId ?? NO_FIELD}
         placeholder="None"
         pickLabel="Place rows by date field"
         onPick={(id) =>
           void browserHost().writes.setFrameSetting(
             frameId,
             "dateFieldId",
-            id === NO_DATE ? null : id,
+            id === NO_FIELD ? null : id,
           )
         }
       />

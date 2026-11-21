@@ -15,6 +15,7 @@ import {
   RoutePoint,
   rowsAbout,
   toast,
+  WORKSPACE_ROOT_ID,
   type CommandContext,
   type CommandTarget,
   type OutlineCommandApi,
@@ -34,7 +35,8 @@ function focusedPaneSubject(zoom: string): string | null {
   const workspace = currentWorkspace();
   const path = findPane(workspace.layout, workspace.focused)?.path;
   if (path === undefined) return null;
-  return paneSubjectAt(currentContributions(RoutePoint), path, zoom) ?? null;
+  const subject = paneSubjectAt(currentContributions(RoutePoint), path, zoom);
+  return subject === WORKSPACE_ROOT_ID ? null : (subject ?? null);
 }
 
 export function pageCommandApi(): OutlineCommandApi {

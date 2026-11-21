@@ -1,0 +1,6 @@
+{
+  "reason": "The search and node palettes carry the query creation shortcut, the tag and view setting picker steps, and the Group by and Sort by commands in the page's eager bundle.",
+  "raise": {
+    "page-eager": { "bytes": 4610 }
+  }
+}

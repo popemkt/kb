@@ -369,6 +369,7 @@ export {
 export { resultNodeIds } from "./lib/use-query-node-rows";
 export {
   answerOf,
+  conditionsEdn,
   derivedWith,
   type EdnRunner,
   type EnginePort,
