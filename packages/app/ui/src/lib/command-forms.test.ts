@@ -5,6 +5,7 @@
  * pick where the input says `PICKED`.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { mutations } from "@/actions/mutations";
 import type { WireNode } from "@kb/contracts";
 import { SYSTEM_IDS, present } from "@kb/model";
 import {
@@ -58,7 +59,7 @@ const host = testBrowserHost({
     );
   },
 });
-host.setNodes(wireToOutlineMap([...GRAPH], new Set()).values());
+host.setNodes(wireToOutlineMap([...GRAPH]).values());
 
 const opened: string[] = [];
 let closed = 0;
@@ -71,6 +72,7 @@ function context(nodeId: string): CommandContext {
     debugFields: useDebugFieldsStore.getState(),
     workspace: useWorkspaceStore.getState(),
     palette: { close: () => (closed += 1), openStep: (step) => opened.push(step) },
+    writes: mutations,
   };
 }
 
@@ -199,6 +201,7 @@ describe("a picker step as data", () => {
       creating: false,
       alternate: false,
       name: "",
+      writes: mutations,
     });
     expect(calls).toEqual([
       {
@@ -223,6 +226,7 @@ describe("a picker step as data", () => {
       creating: false,
       alternate: false,
       name: "",
+      writes: mutations,
     });
     expect(present(told[0], "a toast")).toBe("node.fail failed: no such field");
   });

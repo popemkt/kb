@@ -22,7 +22,6 @@
     "@kb/mcp": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/operations": "workspace:*",
-    "@kb/outline-paste": "workspace:*",
     "@kb/query": "workspace:*",
     "@kb/routines": "workspace:*",
     "@kb/routines-gcal": "workspace:*",

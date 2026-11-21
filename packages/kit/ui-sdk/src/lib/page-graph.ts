@@ -10,7 +10,7 @@
  * the index and the schema stay the whole graph (r5 §2.5).
  */
 import type { WireNode } from "@kb/contracts";
-import { listOntologyNodes } from "@kb/model";
+import { nodeName, listOntologyNodes } from "@kb/model";
 import type { SidebarNavItem } from "../components/sidebar-row";
 import type { NodeIndex } from "../query";
 import type { QueryAnswers } from "./replica-queries";
@@ -133,7 +133,7 @@ function scopedViewOf(
     return last;
   }
   const wire = scopedWireNodes(state.wireNodes, members, ontologyId);
-  const nodes = wireToOutlineMap(wire, new Set(), state.wireNodes, last ? [last.nodes] : []);
+  const nodes = wireToOutlineMap(wire, state.wireNodes, last ? [last.nodes] : []);
   lastScoped = { source: state, wire, nodes };
   return lastScoped;
 }
@@ -170,10 +170,11 @@ export function inScope(state: ScopeSource, id: string): boolean {
  * ontology sorts as "Untitled ontology", not as its id).
  */
 export function listOntologyItems(wireNodes: WireNode[]): SidebarNavItem[] {
+  const byId = new Map(wireNodes.map((n) => [n.id, n]));
   return listOntologyNodes(wireNodes)
     .map((n) => ({
       id: n.id,
-      label: n.text.trim() || "Untitled ontology",
+      label: nodeName(n.id, (id) => byId.get(id)) || "Untitled ontology",
     }))
     .toSorted((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
 }

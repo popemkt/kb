@@ -24,6 +24,7 @@ import {
   currentContributions,
   nodeAction,
   nodeMenu,
+  outlineInstanceKey,
   tagOpeningOf,
   ViewPoint,
   type Command,
@@ -108,10 +109,13 @@ export const OUTLINE_COMMANDS: readonly Command[] = [
       nodeAction(ctx, (nodeId) => {
         const open = !queryBuilderOpen(nodeId, targetQuery(ctx));
         setQueryBuilderOpen(nodeId, open);
-        // The builder is drawn under the row: a closed row is opened to show it.
-        if (open && outlineNodes().get(nodeId)?.collapsed === true) {
-          useOutlineStore.getState().toggleCollapse(nodeId);
-        }
+        // The builder is drawn under the row the menu is on: closed, it is opened to show it.
+        const store = useOutlineStore.getState();
+        const key =
+          store.selectedNodeId === nodeId && store.selectedInstanceKey !== null
+            ? store.selectedInstanceKey
+            : outlineInstanceKey(nodeId, outlineNodes());
+        if (open && !store.isOpen(key)) store.toggleCollapse(key);
       }),
   },
   ...DISPLAY_OPTIONS.map(displayCommand),

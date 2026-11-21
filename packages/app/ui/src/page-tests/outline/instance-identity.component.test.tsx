@@ -11,7 +11,7 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { outlineInstanceKey, projectedRowKey, syncUiPlugins } from "@kb/ui-sdk";
 import type { WireNode } from "@kb/contracts";
 import { useGraphStore } from "@/stores/graph.store";
-import { resetOutlineStore } from "@/test-support/outline-store";
+import { resetOutlineStore, rowKey } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { NodeBlock, outlineNodes, useOutlineStore } from "@kb/outline-ui";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
@@ -67,7 +67,7 @@ describe("instance identity (component)", () => {
   beforeEach(() => {
     seed([queryWire()]);
     // Expand query so result rows appear in the visible-instance walk.
-    useOutlineStore.getState().toggleCollapse("n.q1");
+    useOutlineStore.getState().toggleCollapse(rowKey("n.q1"));
     container = dom.document.createElement("div") as unknown as HTMLDivElement;
     dom.document.body.appendChild(container as unknown as never);
     root = createRoot(container);
@@ -179,8 +179,8 @@ describe("instance identity (component)", () => {
 
   it("expanded ref children render non-ref bullets", async () => {
     const refKey = projectedRowKey("n.q1", "n.root-a");
-    // Expand the result node so children mount under the ref instance.
-    useOutlineStore.setState((s) => ({ expansion: new Map(s.expansion).set("n.root-a", true) }));
+    // Open the result's row so its children mount under the ref instance.
+    useOutlineStore.setState((s) => ({ expansion: new Map(s.expansion).set(refKey, true) }));
 
     await act(async () => {
       root.render(<NodeBlock nodeId="n.root-a" instanceKey={refKey} depth={1} />);

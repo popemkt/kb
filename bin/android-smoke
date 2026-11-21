@@ -1,0 +1,285 @@
+#!/bin/sh
+# The phone capture lifecycle, on a headless emulator against a scratch kb
+# store, with a screenshot of every step as the evidence:
+#
+#   nix develop .#android-emulator -c bin/android-smoke [out-dir]
+#
+#   1. share a multiline text and a link before any store is paired, then
+#      kill the app with both pending;
+#   2. pair the store in the app, as a person does, and see both delivered;
+#   3. share an image the app has no grant to read, and see it refused
+#      whole; with the host asleep, share a text, kill the app, wake the
+#      host and reopen the app;
+#   4. go offline, share a text, come back online and let the background
+#      worker deliver it with the app closed;
+#   5. compare what the store holds with what was shared: every text as
+#      typed, the link and its title, and one receipt per share.
+#
+# What it cannot reach from outside the app (a kill between the file copy
+# and the publish) is the JVM tests' (apps/android/README.md → Code). An
+# image a real app shares, alone or several at once, is not reached yet:
+# adb's shell can grant no read of another app's media, and `am` builds
+# no list of streams. GAP [[01M7YG9CYP7B06M7ZS5QX7QMAM]]
+#
+# Needs a hardware-accelerated emulator (KVM on Linux) and the workspace's
+# dependencies (`bun install`). Everything it makes lives under <out-dir>,
+# a new directory under /tmp by default: the store, kb's own home, the AVD
+# and the adb server, which listens on its own port. Screenshots are in
+# <out-dir>/shots, and the logs of the host and the emulator beside them.
+set -eu
+
+root=$(cd "$(dirname "$0")/.." && pwd)
+out=${1:-$(mktemp -d "${TMPDIR:-/tmp}/kb-android-smoke.XXXXXX")}
+mkdir -p "$out/shots"
+out=$(cd "$out" && pwd)
+
+port=${KB_SMOKE_PORT:-47392}
+console=${KB_SMOKE_CONSOLE:-5584}
+serial=emulator-$console
+package=app.kb.capture
+apk="$root/apps/android/app/build/outputs/apk/debug/app-debug.apk"
+kb="$root/bin/kb"
+store="$out/store"
+
+export KB_HOME="$out/kb-home" KB_DATA="$out/kb-data"
+export ANDROID_USER_HOME="$out/android" ANDROID_EMULATOR_HOME="$out/android"
+export ANDROID_AVD_HOME="$out/android/avd"
+export ANDROID_ADB_SERVER_PORT="${KB_SMOKE_ADB_PORT:-5137}"
+
+say() { echo "android-smoke: $*"; }
+fail() {
+  echo "android-smoke: $*" >&2
+  exit 1
+}
+
+for tool in adb emulator avdmanager gradle bun curl jq; do
+  command -v "$tool" >/dev/null || fail "no $tool on PATH; run it in nix develop .#android-emulator"
+done
+[ -d "$root/node_modules" ] || fail "the workspace has no dependencies; run bun install"
+[ -r /dev/kvm ] || [ "$(uname -s)" != Linux ] || fail "no /dev/kvm: the emulator needs KVM"
+
+host=
+emu=
+cleanup() {
+  [ -z "$host" ] || kill "$host" 2>/dev/null || true
+  if [ -n "$emu" ]; then
+    adb -s "$serial" emu kill >/dev/null 2>&1 || kill "$emu" 2>/dev/null || true
+    wait "$emu" 2>/dev/null || true
+  fi
+  adb kill-server >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+trap 'exit 130' INT TERM
+
+# --- the host -------------------------------------------------------------
+
+# Poll <command> once a second until it succeeds, for at most <seconds>.
+await() {
+  seconds=$1
+  shift
+  while ! "$@"; do
+    seconds=$((seconds - 1))
+    [ "$seconds" -gt 0 ] || return 1
+    sleep 1
+  done
+}
+
+serving() { [ "$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port/")" != 000 ]; }
+
+host_up() {
+  "$kb" --root "$store" ui --capture-only --port "$port" --no-open >>"$out/host.log" 2>&1 &
+  host=$!
+  await 60 serving || fail "kb ui never listened on :$port (host.log)"
+}
+
+host_down() {
+  kill "$host"
+  wait "$host" 2>/dev/null || true
+  host=
+}
+
+# Every capture the store committed, one JSON object per line, in the order
+# they were shared: {key, at, text, node}.
+receipts() {
+  "$kb" --root "$store" --json query \
+    '[:find ?key ?at ?id ?text :where [?r :f/sys.f.capture.key ?key] [?r :f/sys.f.capture.capturedAt ?at] [?r :f/sys.f.capture.result ?n] [?n :node/id ?id] [?n :node/text ?text]]' |
+    jq -c '.output.rows | sort_by(.[1]) | .[] | {key: .[0], at: .[1], node: .[2], text: .[3]}'
+}
+
+received() { [ "$(receipts | wc -l)" -ge "$1" ]; }
+
+mkdir -p "$store"
+"$kb" --root "$store" init >/dev/null
+host_up
+say "store $store, served on :$port"
+
+# --- the phone ------------------------------------------------------------
+
+a() { adb -s "$serial" "$@"; }
+shot() {
+  a exec-out screencap -p >"$out/shots/$1.png"
+  say "  shot $1"
+}
+
+case $(uname -m) in
+  aarch64 | arm64) abi=arm64-v8a ;;
+  *) abi=x86_64 ;;
+esac
+for image in "$ANDROID_HOME"/system-images/android-*/default/"$abi"; do break; done
+[ -d "$image" ] || fail "the SDK has no default $abi system image"
+api=$(basename "$(dirname "$(dirname "$image")")")
+echo no | avdmanager -s create avd -n kb-smoke -d pixel_6 \
+  -k "system-images;$api;default;$abi" >/dev/null
+
+say "booting $api ($abi) as $serial"
+emulator -avd kb-smoke -port "$console" -no-window -no-audio -no-boot-anim \
+  -no-snapshot -gpu swiftshader_indirect >"$out/emulator.log" 2>&1 &
+emu=$!
+booted() {
+  kill -0 "$emu" 2>/dev/null || fail "the emulator exited (emulator.log)"
+  [ "$(a shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]
+}
+await 300 booted || fail "the emulator did not boot in 5 minutes (emulator.log)"
+a shell input keyevent KEYCODE_WAKEUP
+a shell wm dismiss-keyguard
+# A slow host makes System UI miss its deadline at boot; its "isn't
+# responding" dialog would sit over every screen and swallow the taps.
+a shell settings put global hide_error_dialogs 1
+a shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null
+for scale in window_animation_scale transition_animation_scale animator_duration_scale; do
+  a shell settings put global "$scale" 0
+done
+
+say "building and installing the debug APK"
+gradle -q -p "$root/apps/android" assembleDebug
+a install -r -g "$apk" >/dev/null
+# The phone reaches the host's loopback through adb, as http://127.0.0.1.
+a reverse "tcp:$port" "tcp:$port" >/dev/null
+
+# The screen's accessibility tree; a WebView exposes its page's controls in it.
+screen() {
+  a shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 && a exec-out cat /sdcard/ui.xml | tr '>' '\n'
+}
+# The centre of the <n>th (default first) node matching <pattern>.
+centre() {
+  screen | grep -- "$1" | sed -n "${2:-1}p" |
+    sed -n 's/.*bounds="\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\]".*/\1 \2 \3 \4/p' |
+    awk '{ print int(($1 + $3) / 2), int(($2 + $4) / 2) }'
+}
+shows() { [ -n "$(centre "$@")" ]; }
+tap() {
+  if ! await 30 shows "$@"; then
+    screen >"$out/screen.xml" || true
+    shot failed
+    fail "nothing on screen matches $1 (screen.xml, shots/failed.png)"
+  fi
+  # shellcheck disable=SC2046 # the centre is two words, x and y
+  a shell input tap $(centre "$@")
+}
+
+link() { a shell am start -W -a android.intent.action.VIEW -d "$1" "$package" >/dev/null; }
+# The queue, on its <Pending|Sent|Failed> tab.
+queue() {
+  link kb://queue
+  await 30 shows 'text="What this phone has captured' || fail "kb://queue did not show the queue"
+  tap "text=\"$1 [0-9]"
+}
+# share <am start arguments>: a share sent to kb's receiver, as a sheet sends it.
+share() { a shell am start -W -n "$package/.share.ShareActivity" "$@" >/dev/null; }
+killed() { a shell am force-stop "$package"; }
+
+text1='kb smoke · the first line
+and the second — ünïcode ✓'
+url=https://example.com/kb-smoke
+title='Smoke article'
+
+# 1. Shared before any pairing, then the app is killed with both pending.
+say "1. share before pairing, then kill the app"
+link kb://stores
+shot 01-stores-unpaired
+share -a android.intent.action.SEND -t text/plain --es android.intent.extra.TEXT "'$text1'"
+shot 02-shared-text-toast
+share -a android.intent.action.SEND -t text/plain --es android.intent.extra.TEXT "$url" \
+  --es android.intent.extra.SUBJECT "'$title'"
+queue Pending
+shot 03-queue-waiting-for-a-store
+killed
+received 1 && fail "the store received a capture before it was paired"
+
+# 2. Pairing, as a person does it, delivers both.
+say "2. pair the store"
+# With no store paired yet, Stores opens on the pairing form.
+link kb://stores
+tap 'class="android.widget.EditText"' 1
+a shell input keyevent KEYCODE_MOVE_END
+for _ in 1 2 3 4 5 6 7 8; do a shell input keyevent KEYCODE_DEL; done
+a shell input text "http://127.0.0.1:$port"
+code=$("$kb" --root "$store" --json action-invoke '{"id":"capture.pairCode"}' | jq -r .output.code)
+tap 'class="android.widget.EditText"' 2
+a shell input text "$code"
+shot 04-pair-form
+tap 'text="Pair"'
+await 60 received 2 || fail "pairing did not deliver the two pending captures (host.log)"
+queue Sent
+shot 05-queue-sent-after-pairing
+
+# 3. A share the app may not read is refused whole; a share to a sleeping
+#    host waits, survives a kill, and goes when the host wakes.
+say "3. an unreadable share, then a share to a sleeping host, kill, wake"
+host_down
+a shell screencap -p /sdcard/Pictures/kb-smoke.png
+a shell content call --uri content://media/ --method scan_volume --arg external_primary >/dev/null
+picture=$(a shell content query --uri content://media/external/images/media --projection _id \
+  --where "\"_display_name='kb-smoke.png'\"" | sed -n 's/.*_id=\([0-9]*\).*/\1/p' | head -n 1)
+[ -n "$picture" ] || fail "the media store did not index the screenshot"
+# adb's shell holds no grant on another app's media to pass on.
+share -a android.intent.action.SEND -t image/png \
+  --eu android.intent.extra.STREAM "content://media/external/images/media/$picture"
+shot 06-unreadable-image-not-queued
+text3='sent while the host slept'
+share -a android.intent.action.SEND -t text/plain --es android.intent.extra.TEXT "'$text3'"
+queue Pending
+# Through adb's reverse port a sleeping host accepts and drops the
+# connection, so the queue must say so in words (NoAnswer.Dropped).
+await 60 shows 'text="Waiting for store: the connection closed before it answered' ||
+  fail "the queue never said, in words, why the capture waits"
+[ "$(screen | grep -c 'text="Retry now"')" -eq 1 ] || fail "the unreadable image left an entry in the queue"
+shot 07-queue-host-asleep
+killed
+host_up
+queue Sent
+await 60 received 3 || fail "reopening the app did not deliver to the woken host (host.log)"
+shot 08-queue-sent-after-wake
+
+# 4. Offline: the worker delivers on reconnect with the app closed.
+say "4. share offline, reconnect with the app closed"
+a shell cmd connectivity airplane-mode enable
+# The switch returns before the network is down, and the worker would
+# reach the host over adb's reverse port if it ran first.
+disconnected() { a shell dumpsys connectivity | grep -q 'Active default network: none'; }
+await 30 disconnected || fail "airplane mode did not take the network down"
+text2='offline · delivered by the worker'
+share -a android.intent.action.SEND -t text/plain --es android.intent.extra.TEXT "'$text2'"
+a shell input keyevent KEYCODE_HOME
+shot 09-offline-home
+sleep 5
+received 4 && fail "a capture was delivered while the phone was offline"
+a shell cmd connectivity airplane-mode disable
+await 120 received 4 || fail "the worker did not deliver after reconnecting"
+queue Sent
+shot 10-queue-all-sent
+
+# 5. What the store holds is what was shared.
+say "5. compare the store with the shares"
+receipts >"$out/receipts.jsonl"
+count=$(wc -l <"$out/receipts.jsonl")
+[ "$count" -eq 4 ] || fail "expected 4 receipts, one per share, got $count"
+nth() { sed -n "$1p" "$out/receipts.jsonl" | jq -r "$2"; }
+[ "$(nth 1 .text)" = "$text1" ] || fail "the text arrived as: $(nth 1 .text)"
+[ "$(nth 2 .text)" = "$title" ] || fail "the link's node is: $(nth 2 .text)"
+"$kb" --root "$store" --json get "$(nth 2 .node)" >"$out/link.json"
+grep -qF "$url" "$out/link.json" || fail "the link's node has no $url"
+[ "$(nth 3 .text)" = "$text3" ] || fail "the text to the sleeping host arrived as: $(nth 3 .text)"
+[ "$(nth 4 .text)" = "$text2" ] || fail "the offline text arrived as: $(nth 4 .text)"
+
+say "ok: 4 shares delivered as shared, one receipt each; evidence in $out/shots"

@@ -11,7 +11,7 @@ import { syncUiPlugins } from "@kb/ui-sdk";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { viewFieldNodes } from "@/fixtures/view-fields";
 import { useGraphStore } from "@/stores/graph.store";
-import { resetOutlineStore } from "@/test-support/outline-store";
+import { resetOutlineStore, rowKey } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { NodeBlock, useOutlineStore } from "@kb/outline-ui";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
@@ -63,7 +63,7 @@ describe("frame row parity (render vs nav)", () => {
   it("a paginated table frame navigates only to rows it renders", async () => {
     const { mutations } = await import("@/actions/mutations");
     useGraphStore.getState().zoomTo("n.root-a");
-    useOutlineStore.getState().toggleCollapse("n.root-a");
+    useOutlineStore.getState().toggleCollapse(rowKey("n.root-a"));
 
     await mutations.setFrameView("n.root-a", CollectionTableView);
     await mutations.setFrameSetting("n.root-a", "pagesize", 1);

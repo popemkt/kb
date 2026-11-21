@@ -162,7 +162,7 @@ describe("NodeIndex contract", () => {
     expect(table.generation).toBe(before);
   });
 
-  test("search finds a node by its text or its title, alike in every implementation", () => {
+  test("search finds a node by its text or its name, alike in every implementation", () => {
     const at = "2026-11-14T00:00:00.000Z";
     const node = (id: string, text: string, props: KbNode["props"] = {}): KbNode => ({
       id,
@@ -178,6 +178,8 @@ describe("NodeIndex contract", () => {
         [SYSTEM_IDS.tagTitleField]: [{ t: "str", v: "[[sys.f.node.text]] for [[f.who]]" }],
       }),
       node("ann", "Ann"),
+      node("rob", "Robert"),
+      node("check", "Check up with [[rob|Rob]] in `code`"),
       node("t1", "ship", {
         [SYSTEM_IDS.typeField]: [{ t: "ref", v: "t.task" }],
         "f.who": [{ t: "ref", v: "ann" }],
@@ -193,6 +195,9 @@ describe("NodeIndex contract", () => {
       // "ann" is Ann's text, and t1's title is "ship for Ann".
       expect(index.search("for ann").map((n) => n.id)).toEqual(["t1"]);
       expect(index.search("ann").map((n) => n.id)).toEqual(["ann", "t1"]);
+      // The words "check" reads as, not only its markup; the stored text still finds it.
+      expect(index.search("with rob in code").map((n) => n.id)).toEqual(["check"]);
+      expect(index.search("[[rob|").map((n) => n.id)).toEqual(["check"]);
     }
   });
 });

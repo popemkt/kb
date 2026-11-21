@@ -14,7 +14,6 @@
 import { Service } from "@kb/plugin";
 import type { ActionInvocation, ActionReceipt, WireNode } from "@kb/contracts";
 import type { CommandTarget, NodeCommandListing, PaletteSurface } from "./lib/command-point";
-import type { ViewKey } from "@kb/views";
 import type { NodeTextPort } from "./components/node-text-port";
 import type { RefLook } from "./lib/md-edit";
 import type { PageGraphPort } from "./lib/page-graph";
@@ -26,18 +25,6 @@ import type { Appearance, Prefs } from "./lib/theme";
 import type { OutlineNode } from "./lib/types";
 import type { HostedFrame, SandboxEvents, SandboxPorts, SandboxRun } from "./sandbox";
 import type { KeyCatalog } from "./lib/tag-opening";
-
-/** A view node to make from settings: what `view.propose` checks. */
-export interface ViewProposal {
-  readonly view: ViewKey<unknown>;
-  readonly params: Readonly<Record<string, unknown>>;
-  /** The node it is shown for, which names it among its views. */
-  readonly host?: string;
-  readonly text?: string;
-}
-
-/** The new view node's id, or the receipt's message when the proposal was refused. */
-export type ProposedView = { readonly id: string } | { readonly refused: string };
 
 /**
  * The page's host. It is a node text port too (`NodeTextPort`): the graph
@@ -56,8 +43,10 @@ export interface BrowserHost extends NodeTextPort {
   readonly events: () => PageEvents;
   /** Whether a node is selected in this instance (`instanceKey`). */
   readonly isSelected: (nodeId: string, instanceKey: string) => boolean;
-  /** Open or close a row: the page's editor's expansion (`PageEditorState.toggleCollapse`). */
-  readonly toggleCollapse: (nodeId: string) => void;
+  /** Whether the row drawn at `instanceKey` is open (`PageEditorState.isOpen`). */
+  readonly isOpen: (instanceKey: string) => boolean;
+  /** Open or close the row drawn at `instanceKey`: the page's editor's expansion (`PageEditorState.toggleCollapse`). */
+  readonly toggleCollapse: (instanceKey: string) => void;
   /** The graph's nodes as they came over the wire. */
   readonly wireNodes: () => WireNode[];
   readonly appearance: () => Appearance;
@@ -125,8 +114,6 @@ export interface BrowserHost extends NodeTextPort {
   readonly subscribeManifest: (listener: () => void) => () => void;
   /** Where a view reports what it shows for its pane (`usePaneScreen`). */
   readonly screen: PaneScreenPort;
-  /** Make a view node through `view.propose`, the one check of a proposed view. */
-  readonly proposeView: (proposal: ViewProposal) => Promise<ProposedView>;
   /** The page's end of the sandbox bridge (DESIGN.md → Sandbox). */
   readonly sandbox: {
     /** Host `run` in `frame`, an iframe sandboxed with `allow-scripts` alone. */
@@ -152,4 +139,21 @@ export function browserHost(): BrowserHost {
   const host = currentService(BrowserHostService);
   if (host === undefined) throw new Error("no BrowserHost: the shell's host plugin is not loaded");
   return host;
+}
+
+/**
+ * Once the page has drawn what was just written: edit row `nodeId` at
+ * `caret` where it is drawn now, when nothing holds the focus. A write that
+ * redraws the row (an indent puts it under another; its undo puts it back)
+ * takes its editor away, and editing goes on where the row is now, its text
+ * history with it (`useTextHistory`); one that opens something (a step in
+ * the node palette, a dialog) holds the focus itself.
+ */
+export function keepEditing(nodeId: string, caret: number): void {
+  const resume = () => {
+    const held = document.activeElement;
+    if (held === null || held === document.body) browserHost().activateNode(nodeId, caret);
+  };
+  if (typeof requestAnimationFrame === "function") requestAnimationFrame(resume);
+  else resume();
 }

@@ -149,7 +149,7 @@ describe("getViewConfig reporting", () => {
       [SYSTEM_IDS.viewField]: [{ t: "ref", v: option.id }],
     });
     const frame = node("f", { [SYSTEM_IDS.viewsField]: [{ t: "ref", v: "v.kanban" }] });
-    const nodes = wireToOutlineMap([frame, viewNode, option], new Set());
+    const nodes = wireToOutlineMap([frame, viewNode, option]);
     const schema = schemaOfGraph(nodes);
     // The frame says it cannot be shown here (`FrameViewSlot`), and its walk offers no rows.
     expect(frameViewOf(frame, schema, FRAME_VIEWS)).toBeNull();
@@ -163,14 +163,14 @@ describe("getViewConfig reporting", () => {
     // frame has no frame view node, so it shows the list (`frameViewNodeOf`).
     const bare = node("v.bare", { [SYSTEM_IDS.viewSortField]: [{ t: "str", v: "text" }] });
     const frame = node("f", { [SYSTEM_IDS.viewsField]: [{ t: "ref", v: "v.bare" }] });
-    const schema = schemaOfGraph(wireToOutlineMap([frame, bare, ...viewOptionNodes], new Set()));
+    const schema = schemaOfGraph(wireToOutlineMap([frame, bare, ...viewOptionNodes]));
     expect(frameViewOf(frame, schema, FRAME_VIEWS)?.key.option).toBe("sys.view.outline.list");
     expect(warned).toEqual([]);
   });
 
   it("shows the list for a frame that names no view node", () => {
     const frame = node("f", {});
-    const schema = schemaOfGraph(wireToOutlineMap([frame, ...viewOptionNodes], new Set()));
+    const schema = schemaOfGraph(wireToOutlineMap([frame, ...viewOptionNodes]));
     expect(frameViewOf(frame, schema, FRAME_VIEWS)?.key.option).toBe("sys.view.outline.list");
     expect(warned).toEqual([]);
   });

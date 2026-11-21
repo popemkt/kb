@@ -1,0 +1,6 @@
+{
+  "reason": "A horizontal scroller fades the edge past which more of its content lies: one kit mechanism (EDGE_FADE_CLASS, useEdgeFade, scrollEdgesOf and its ScrollEdges type) that the board and the lanes read.",
+  "raise": {
+    "surface": { "@kb/ui-sdk": 4 }
+  }
+}

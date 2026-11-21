@@ -1,5 +1,6 @@
 import {
   asInstance,
+  browserHost,
   Bullet,
   bulletClickIntent,
   cn,
@@ -23,12 +24,16 @@ import {
   TAG_PALETTE,
   TagChipGroup,
   useRevealMarkup,
+  useTextTriggers,
   type EditHandle,
   type Follow,
   type FollowTarget,
+  type NodeMap,
+  type OpenTrigger,
   type OutlineNode,
   type RefLook,
   type RejectedInput,
+  type TriggerPick,
   type ValueSurfaceProps,
   nameIn,
   HANGING_GLYPH,
@@ -82,6 +87,7 @@ function CaretValue({
   handleRef,
   placeholder,
   context,
+  field,
   display: shownAs,
 }: Omit<ValueSurfaceProps, "display"> & { display: CaretDisplay }) {
   // A text value's references are inked like node text's (`RefLook`).
@@ -140,6 +146,8 @@ function CaretValue({
           placeholder={placeholder}
           className={cn(textClass, "editable")}
           refs={shownAs === "markdown" ? refs : null}
+          nodes={context.outline}
+          holder={field.holder}
           onFinish={finish}
           onPaste={(e) => {
             // A link pasted into an empty url slot is the whole gesture.
@@ -255,13 +263,18 @@ function useCaretHandle({
 
 /**
  * A caret value while it edits: the inline tree made contentEditable, typing
- * read back through `readInlineInput` (outside an IME composition).
+ * read back through `readInlineInput` (outside an IME composition). A text
+ * value is a text, so `[[` opens the node picker at its caret as it does in
+ * node text (`useTextTriggers`), and a pick lays its reference into the value
+ * being edited; the edit is written when it is kept, as all of it is.
  */
 function CaretEditor({
   editRef,
   placeholder,
   className,
   refs,
+  nodes,
+  holder,
   onFinish,
   onPaste,
 }: {
@@ -270,35 +283,90 @@ function CaretEditor({
   className: string;
   /** How the text's references read (`RefLook`); null for a plain editor, which has no tree to re-form. */
   refs: RefLook | null;
+  /** What `[[` offers, less the node holding the value. */
+  nodes: NodeMap;
+  holder: string | null;
   onFinish: () => void;
   onPaste: (e: React.ClipboardEvent<HTMLDivElement>) => void;
 }) {
   const composing = useRef(false);
+  /** The text as typed and the caret in it: what the triggers read. */
+  const [typed, setTyped] = useState({ text: "", caret: 0 });
+
+  /** Lay a pick into the value as it is now, unless its span changed meanwhile. */
+  const lay = async (made: TriggerPick | null | Promise<TriggerPick | null>, span: OpenTrigger) => {
+    const el = editRef.current;
+    if (el === null || refs === null) return;
+    const was = serializeEditable(el).slice(span.start, span.end);
+    const pick = await made;
+    const text = serializeEditable(el);
+    if (pick === null || text.slice(span.start, span.end) !== was) return;
+    if ("consume" in pick) {
+      await pick.consume();
+      return;
+    }
+    const next = text.slice(0, span.start) + pick.insert + text.slice(span.end);
+    const caret = span.start + pick.insert.length;
+    renderInlineMarkdown(el, next, refs);
+    setCaretSerializedOffset(el, caret);
+    revealMarkupAtSelection(el);
+    setTyped({ text: next, caret });
+    await pick.write?.(browserHost().writes);
+    pick.landed?.();
+  };
+
+  const triggers = useTextTriggers({
+    editing: refs !== null,
+    text: typed.text,
+    cursor: typed.caret,
+    nodes,
+    nodeId: holder ?? "",
+    textNodeId: holder ?? "",
+    anchorRef: editRef,
+    apply: (made, span) => void lay(made, span),
+  });
+
+  const read = () => {
+    if (editRef.current === null || refs === null) return;
+    setTyped(readInlineInput(editRef.current, refs));
+    triggers.resume();
+  };
+
   return (
-    <div
-      key="edit"
-      ref={editRef}
-      className={className}
-      contentEditable
-      suppressContentEditableWarning
-      role="textbox"
-      data-editable-text="true"
-      data-placeholder={placeholder}
-      onInput={() => {
-        if (editRef.current && refs !== null && !composing.current) {
-          readInlineInput(editRef.current, refs);
-        }
-      }}
-      onCompositionStart={() => {
-        composing.current = true;
-      }}
-      onCompositionEnd={() => {
-        composing.current = false;
-        if (editRef.current && refs !== null) readInlineInput(editRef.current, refs);
-      }}
-      onBlur={onFinish}
-      onPaste={onPaste}
-    />
+    <>
+      <div
+        key="edit"
+        ref={editRef}
+        className={className}
+        contentEditable
+        suppressContentEditableWarning
+        role="textbox"
+        data-editable-text="true"
+        data-placeholder={placeholder}
+        onInput={() => {
+          if (!composing.current) read();
+        }}
+        onKeyDown={(e) => {
+          // An open picker's keys are its own: the slot must not also commit or leave.
+          if (triggers.keyDown(e)) e.stopPropagation();
+        }}
+        onKeyUp={() => {
+          const el = editRef.current;
+          if (el !== null)
+            setTyped({ text: serializeEditable(el), caret: getCaretSerializedOffset(el) });
+        }}
+        onCompositionStart={() => {
+          composing.current = true;
+        }}
+        onCompositionEnd={() => {
+          composing.current = false;
+          read();
+        }}
+        onBlur={onFinish}
+        onPaste={onPaste}
+      />
+      {triggers.list}
+    </>
   );
 }
 
@@ -316,7 +384,7 @@ function CaretRest({
   refs,
   rejected,
 }: {
-  viewRef: React.Ref<HTMLDivElement>;
+  viewRef: React.RefObject<HTMLDivElement | null>;
   className: string;
   /** Null: the slot is unset and shows its placeholder. */
   text: string | null;
@@ -327,30 +395,50 @@ function CaretRest({
   refs: RefLook;
   rejected: RejectedInput | null;
 }) {
+  const long = useLongValue(viewRef, text);
   return (
     <>
-      <div
-        key="view"
-        ref={viewRef}
-        className={className}
-        data-editable-text="true"
-        data-empty-placeholder={text === null ? "true" : undefined}
-        data-rejected={rejected !== null ? "true" : undefined}
-        aria-invalid={rejected !== null || undefined}
-        title={rejected?.reason}
-      >
-        {/* D17: empty state is CSS-only (:empty::before) — the DOM stays
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div
+          key="view"
+          ref={viewRef}
+          className={cn(className, long.clamped && LONG_VALUE_CLAMP)}
+          data-editable-text="true"
+          data-empty-placeholder={text === null ? "true" : undefined}
+          data-rejected={rejected !== null ? "true" : undefined}
+          data-clamped={long.clamped ? "true" : undefined}
+          aria-invalid={rejected !== null || undefined}
+          title={rejected?.reason}
+        >
+          {/* D17: empty state is CSS-only (:empty::before) — the DOM stays
             empty so the caret lands on a truly blank editor. */}
-        {text === null ? null : href?.kind === "href" ? (
-          <UrlLink href={href.href} />
-        ) : markdown ? (
-          <InlineMarkdown text={text} refs={refs} />
-        ) : chip ? (
-          <span className={INLINE_TEXT_CLASSES.code} data-secret-ref="true">
-            {text}
-          </span>
-        ) : (
-          text
+          {text === null ? null : href?.kind === "href" ? (
+            <UrlLink href={href.href} />
+          ) : markdown ? (
+            <InlineMarkdown text={text} refs={refs} />
+          ) : chip ? (
+            <span className={INLINE_TEXT_CLASSES.code} data-secret-ref="true">
+              {text}
+            </span>
+          ) : (
+            text
+          )}
+        </div>
+        {long.toggle && (
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-expanded={!long.clamped}
+            data-long-value-toggle="true"
+            className="self-start px-1 text-meta text-foreground/40 hover:text-foreground/70"
+            onClick={(e) => {
+              // Reading it whole is not editing it.
+              e.stopPropagation();
+              long.flip();
+            }}
+          >
+            {long.clamped ? "Show more" : "Show less"}
+          </button>
         )}
       </div>
       {rejected !== null && (
@@ -364,6 +452,37 @@ function CaretRest({
       )}
     </>
   );
+}
+
+/** How many lines a long value shows at rest before it is clamped (DESIGN-UI.md → Long text). */
+const LONG_VALUE_CLAMP = "line-clamp-6";
+
+/**
+ * Whether a value at rest is clamped (DESIGN-UI.md → Long text): a value
+ * longer than its clamp shows the clamp's lines and a toggle to read it
+ * whole, and back. Whether it overflows is measured on the drawn value, again
+ * when its text or its width changes; reading it whole is this drawn
+ * value's passing state, written nowhere.
+ */
+function useLongValue(viewRef: React.RefObject<HTMLDivElement | null>, text: string | null) {
+  const [whole, setWhole] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  useLayoutEffect(() => {
+    const el = viewRef.current;
+    // An unset value has nothing to clamp; a new text is measured anew.
+    if (el === null || whole || text === null) return undefined;
+    const measure = () => setOverflows(el.scrollHeight > el.clientHeight + 1);
+    measure();
+    if (typeof ResizeObserver === "undefined") return undefined;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [viewRef, text, whole]);
+  return {
+    clamped: !whole,
+    toggle: whole || overflows,
+    flip: () => setWhole((was) => !was),
+  };
 }
 
 /**
@@ -436,9 +555,18 @@ export function CheckboxSurface({ value }: ValueSurfaceProps) {
  * A date value: at rest its label near today (`Today`, `Fri`, `Oct 12`),
  * read from its local calendar day, with the full date as the title; while
  * the slot edits, the date editor — typed phrases or the calendar — seeded
- * with the stored date, or with input the slot kept.
+ * with the stored date, or with input the slot kept, and keyed by the slot
+ * as every value is (its arrows aside).
  */
-export function DateSurface({ value, spec, editing, seed, rejected, onEnd }: ValueSurfaceProps) {
+export function DateSurface({
+  value,
+  spec,
+  editing,
+  seed,
+  rejected,
+  onEnd,
+  handleRef,
+}: ValueSurfaceProps) {
   const stored = spec.text(value);
   // A stored date in an older form (an ISO timestamp) still reads as its day.
   const canonical = stored === "" ? "" : (parseDateInput(stored) ?? stored);
@@ -450,6 +578,7 @@ export function DateSurface({ value, spec, editing, seed, rejected, onEnd }: Val
         initialText={seed ?? rejected?.text ?? canonical}
         onCommit={(text) => onEnd(spec.parse(text), text)}
         onCancel={() => onEnd()}
+        handleRef={handleRef}
       />
     );
   }

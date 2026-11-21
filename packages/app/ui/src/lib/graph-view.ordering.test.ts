@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { forestRootIds, loadExpansion, wireToOutlineMap } from "@kb/ui-sdk";
+import { forestRootIds, loadExpansion, placeOfInstance } from "@kb/ui-sdk";
 import { mergeTx } from "@/lib/tx";
 import { mutations } from "@/actions/mutations";
 import { useGraphStore } from "@/stores/graph.store";
-import { resetOutlineStore } from "@/test-support/outline-store";
+import { resetOutlineStore, rowKey } from "@/test-support/outline-store";
 import { outlineNodes, useOutlineStore } from "@kb/outline-ui";
 
 describe("stable outline ordering", () => {
@@ -75,13 +75,13 @@ describe("stable outline ordering", () => {
     expect(afterChildren).toEqual(beforeChildren);
   });
 
-  it("expanded ids persist in localStorage", () => {
+  it("an opened row's place persists in localStorage", () => {
     if (typeof localStorage === "undefined") return;
-    useOutlineStore.getState().toggleCollapse("n.root-a");
-    const ids = [...loadExpansion()].filter(([, open]) => open).map(([id]) => id);
-    expect(ids).toContain("n.root-a");
-
-    const remapped = wireToOutlineMap(fixtureGraph.nodes, new Set(ids));
-    expect(present(remapped.get("n.root-a"), "n.root-a").collapsed).toBe(false);
+    const key = rowKey("n.root-a");
+    useOutlineStore.getState().toggleCollapse(key);
+    const places = [...loadExpansion((id) => id)]
+      .filter(([, open]) => open)
+      .map(([place]) => place);
+    expect(places).toContain(placeOfInstance(key));
   });
 });

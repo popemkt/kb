@@ -40,8 +40,8 @@ import {
   outputLines,
   report,
   type GlobalOpts,
-} from "./command.ts";
-import { formatReceipt } from "./format.ts";
+} from "../command.ts";
+import { formatReceipt } from "../format.ts";
 
 /** How many writes a plan prints unless every one is asked for (`--all`). */
 const PLAN_CAP = 20;

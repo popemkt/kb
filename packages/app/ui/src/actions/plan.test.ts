@@ -7,6 +7,7 @@ import {
   planDelete,
   planEditFrameView,
   planIndent,
+  planInitializeProp,
   planInsertSibling,
   planMergeInto,
   planMove,
@@ -29,7 +30,7 @@ describe("outline action input builders", () => {
   it("split keeps the expanded-first-child decision in the UI", () => {
     expect(
       planSplit(fixtureGraph.nodes, "n.root-a", 4, "new", {
-        expandedIds: new Set(["n.root-a"]),
+        open: true,
       }).actions,
     ).toEqual([
       { id: "node.update", input: { id: "n.root-a", text: "Ship" } },
@@ -44,7 +45,7 @@ describe("outline action input builders", () => {
     const text = fixtureGraph.nodes.find((node) => node.id === "n.root-b")?.text ?? "";
     expect(
       planSplit(fixtureGraph.nodes, "n.root-b", text.length, "new", {
-        expandedIds: new Set(),
+        open: false,
       }).actions.map((action) => action.id),
     ).toEqual(["node.add"]);
   });
@@ -163,6 +164,43 @@ const wire = (id: string, props: WireNode["props"], children: string[] = []): Wi
   updatedAt: "2026-01-01T00:00:00.000Z",
 });
 
+describe("giving a field a value", () => {
+  const AT = "2026-11-21T00:00:00.000Z";
+  const held = { t: "str", v: "held" } as const;
+  const empty = { t: "str", v: "" } as const;
+  const nodes: WireNode[] = [
+    { id: "n.bare", text: "", props: {}, children: [], createdAt: AT, updatedAt: AT },
+    {
+      id: "n.held",
+      text: "",
+      props: { "field.f": [held] },
+      children: [],
+      createdAt: AT,
+      updatedAt: AT,
+    },
+  ];
+
+  it("sets the starter value while the field holds none, and only then", () => {
+    expect(planInitializeProp(nodes, "n.bare", "field.f", empty).actions).toEqual([
+      {
+        id: "node.update",
+        input: {
+          id: "n.bare",
+          requireUnset: ["field.f"],
+          setProps: [{ field: "field.f", value: empty }],
+        },
+      },
+    ]);
+  });
+
+  // GAP 01M7XMMCPA7H2R1P065TVCQNYC, closed.
+  it("keeps the value a field holds, and has the commit check it still holds one", () => {
+    expect(planInitializeProp(nodes, "n.held", "field.f", empty).actions).toEqual([
+      { id: "node.update", input: { id: "n.held", requireSet: ["field.f"] } },
+    ]);
+  });
+});
+
 describe("editing a frame's view", () => {
   const snippet = wire("v.snippet", {
     [SYSTEM_IDS.viewField]: [ref(viewOptionId("outline.snippet"))],
@@ -257,20 +295,20 @@ describe("splitting a contextual reference", () => {
 
   // Only the new row is written: the reference itself is not touched.
   it("opens the target's first child when the reference is expanded and the target has children", () => {
-    expect(planSplit(graph, "r", "end", "new", { expandedIds: new Set(["r"]) }).actions).toEqual([
+    expect(planSplit(graph, "r", "end", "new", { open: true }).actions).toEqual([
       { id: "node.add", input: { id: "new", text: "", parent: "t", position: 0 } },
     ]);
   });
 
   it("opens a sibling after a reference whose target is gone, expanded or not", () => {
     const dangling = wire("r", { [SYSTEM_IDS.refTargetField]: [ref("gone")] });
-    expect(
-      planSplit([parent, dangling], "r", "end", "new", { expandedIds: new Set(["r"]) }).actions,
-    ).toEqual([{ id: "node.add", input: { id: "new", text: "", parent: "p", position: 1 } }]);
+    expect(planSplit([parent, dangling], "r", "end", "new", { open: true }).actions).toEqual([
+      { id: "node.add", input: { id: "new", text: "", parent: "p", position: 1 } },
+    ]);
   });
 
   it("opens a sibling after the reference when the reference is collapsed", () => {
-    expect(planSplit(graph, "r", "end", "new", { expandedIds: new Set() }).actions).toEqual([
+    expect(planSplit(graph, "r", "end", "new", { open: false }).actions).toEqual([
       { id: "node.add", input: { id: "new", text: "", parent: "p", position: 1 } },
     ]);
   });

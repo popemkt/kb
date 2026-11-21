@@ -162,7 +162,7 @@ export class RemoteIndex implements NodeIndex {
   }
 
   withVirtual(nodes: ReadonlyArray<KbNode>): void {
-    this.#table.withVirtual(nodes);
+    if (this.#table.changeVirtual(nodes) === null) return;
     this.#tell({ op: "virtual", nodes: [...nodes], generation: this.generation });
   }
 

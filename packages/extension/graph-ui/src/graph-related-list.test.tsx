@@ -33,7 +33,7 @@ function related(link: Related["typing"]["link"]): Related {
       { id: "x", text: "X", score: 1, reasons: { shared: ["b"], tags: [], citedBy: ["b"] } },
     ],
     typing: {
-      fieldsFor: (target) => (target === "e" ? [{ id: "f.influences", text: "influences" }] : []),
+      fieldsFor: (target) => (target === "e" ? [{ id: "f.influences", name: "influences" }] : []),
       link,
     },
   };

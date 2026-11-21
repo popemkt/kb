@@ -1,25 +1,27 @@
 /**
  * Field values are in the outline's keyboard path: a row's values sit
  * between its text and the next row, and the arrows pass through them in the
- * order they are drawn. Driven through a real `NodeBlock` and the store.
+ * order they are drawn, whether the row is an outline row, a table row or a
+ * card. Driven through a real `NodeBlock` and the store.
  */
-import { viewOptionNodes } from "@/fixtures/view-fields";
+import { framedAs, type FrameViewName, viewOptionNodes } from "@/fixtures/view-fields";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present, SYSTEM_IDS } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
-import { resetOutlineStore } from "@/test-support/outline-store";
+import { resetOutlineStore, rowKey } from "@/test-support/outline-store";
 import { outlineInstanceKey, setCaretSerializedOffset, syncUiPlugins } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { NodeBlock, outlineNodes, useOutlineStore } from "@kb/outline-ui";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
+import { collectionsUiPlugin } from "@kb/collections-ui";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.
-beforeAll(() => syncPagePlugins([outlineUiPlugin]));
+beforeAll(() => syncPagePlugins([outlineUiPlugin, collectionsUiPlugin]));
 afterAll(() => syncUiPlugins([]));
 
 const ISO = "2026-09-28T00:00:00.000Z";
@@ -62,7 +64,21 @@ async function settle(rounds = 4): Promise<void> {
   }
 }
 
-describe("field values in the outline's keyboard path", () => {
+/** `GRAPH` with the parent's rows laid out as `view`, the note field shown on each. */
+function framed(view: FrameViewName): WireNode[] {
+  const parent = present(
+    GRAPH.find((n) => n.id === "n.p"),
+    "n.p",
+  );
+  const display = { [SYSTEM_IDS.viewDisplayField]: [{ t: "ref" as const, v: "f.note" }] };
+  return [...GRAPH.filter((n) => n !== parent), ...framedAs(parent, view, display)];
+}
+
+describe.each([
+  ["the outline", GRAPH],
+  ["a table", framed("table")],
+  ["cards", framed("cards")],
+] as const)("field values in the keyboard path of %s", (_, graph) => {
   let dom: InstalledDom;
   let container: HTMLDivElement;
   let root: Root;
@@ -79,8 +95,8 @@ describe("field values in the outline's keyboard path", () => {
 
   beforeEach(async () => {
     resetOutlineStore();
-    useGraphStore.getState().hydrateFromWire(GRAPH, 1, "fixtures");
-    useOutlineStore.getState().toggleCollapse("n.a");
+    useGraphStore.getState().hydrateFromWire(graph, 1, "fixtures");
+    useOutlineStore.getState().toggleCollapse(rowKey("n.a"));
     container = dom.window.document.createElement("div") as unknown as HTMLDivElement;
     dom.window.document.body.appendChild(container as unknown as never);
     root = createRoot(container);
@@ -95,7 +111,12 @@ describe("field values in the outline's keyboard path", () => {
   });
 
   const focused = () => dom.window.document.activeElement as unknown as HTMLElement | null;
-  const slots = () => [...container.querySelectorAll<HTMLElement>('[data-value-slot="text"]')];
+  /** The rows' values, in drawn order (not the parent's own, which a framed parent shows). */
+  const slots = () => [
+    ...container.querySelectorAll<HTMLElement>(
+      ["n.a", "n.b"].map((id) => `[data-fields-for="${id}"] [data-value-slot="text"]`).join(", "),
+    ),
+  ];
 
   async function press(target: Element, key: string, init: { shiftKey?: boolean } = {}) {
     await act(async () => {

@@ -200,6 +200,7 @@ export {
   ActionResponseSchema,
   ClientMessageSchema,
   GraphSnapshotSchema,
+  KbVersionSchema,
   SavedQuerySchema,
   NO_EMBEDDING,
   ServerIdentitySchema,
@@ -213,6 +214,7 @@ export type {
   ClientMessage,
   Embedding,
   GraphSnapshot,
+  KbVersion,
   SavedQuery,
   ServerIdentity,
   ServerMessage,
@@ -258,16 +260,22 @@ export type {
 export { KbCtx, KbStore, SessionSeed, inProcess, kbCtxLayer, kbStoreLayer } from "./session.ts";
 export { NO_SECRETS, SecretError } from "./secrets.ts";
 export type { SecretSource, SecretSink, SecretStore } from "./secrets.ts";
-export { GraphWrites, NodeUpdateInputSchema, PropInputSchema } from "./graph-writes.ts";
+export {
+  CreateFieldsSchema,
+  GraphWrites,
+  NodeUpdateInputSchema,
+  PropInputSchema,
+} from "./graph-writes.ts";
 export type { GraphWritesPort } from "./graph-writes.ts";
 export {
   TX_TAIL_KEEP_ENTRIES,
   TX_TAIL_MAX_ENTRIES,
   TxOrigin,
   VIRTUAL_ORIGIN,
+  committedSpan,
   pageLength,
 } from "./tx-log.ts";
-export type { KbTxLog, TxPage, TxRecord, TxTail } from "./tx-log.ts";
+export type { KbTxLog, TailSpan, TxPage, TxRecord, TxTail } from "./tx-log.ts";
 export { TemplateRegistry, renderText } from "./template.ts";
 export type { ExtensionTemplate, TemplateContext, TemplateFn } from "./template.ts";
 export type { KbContext } from "./session.ts";

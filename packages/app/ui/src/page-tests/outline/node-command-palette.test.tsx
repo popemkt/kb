@@ -42,10 +42,10 @@ import { settingsUiPlugin } from "@/components/prefs/settings-plugin";
 import { SETTINGS_PATH } from "@/lib/settings-trigger";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useGraphStore } from "@/stores/graph.store";
-import { resetOutlineStore } from "@/test-support/outline-store";
+import { resetOutlineStore, rowClosed } from "@/test-support/outline-store";
 import { chartUiPlugin } from "@kb/chart-ui";
 import { syncPagePlugins } from "@/test-support/page-plugins";
-import { NodeCommandPalette, outlineNodes, useOutlineStore } from "@kb/outline-ui";
+import { NodeBlock, NodeCommandPalette, outlineNodes, useOutlineStore } from "@kb/outline-ui";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { collectionsUiPlugin } from "@kb/collections-ui";
 import { framedAs, viewFieldNodes } from "@/fixtures/view-fields";
@@ -99,6 +99,16 @@ function graph(): WireNode[] {
       props: { [SYSTEM_IDS.queryField]: [{ t: "str", v: "[:find ?e :where [?e]]" }] },
     }),
     ctxRefWire("n.ref", "n.plain"),
+    // A row with a field it draws as a row: what Add value… offers.
+    wire({
+      id: "f.note",
+      text: "note",
+      props: {
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+        [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("text")],
+      },
+    }),
+    wire({ id: "n.noted", text: "A noted row", props: { "f.note": [{ t: "str", v: "first" }] } }),
     // Where Move to… puts rows.
     wire({
       id: "n.inbox",
@@ -113,6 +123,12 @@ const typesOf = (id: string) =>
   (
     useGraphStore.getState().wireNodes.find((n) => n.id === id)?.props[SYSTEM_IDS.typeField] ?? []
   ).map((v) => v.v);
+
+/** Node `id` as the store holds it. */
+const nodeOf = (id: string) => useGraphStore.getState().wireNodes.find((n) => n.id === id);
+
+/** The tags "Make your own tag that extends this" made of `project`. */
+const mine = () => useGraphStore.getState().wireNodes.filter((n) => n.text === "my project");
 
 /** The children of `id`, in order, as the store holds them. */
 const childrenOf = (id: string) =>
@@ -145,6 +161,7 @@ describe("node command palette", () => {
     g.KeyboardEvent = dom.KeyboardEvent;
     g.MouseEvent = dom.MouseEvent;
     g.Node = dom.Node;
+    g.MutationObserver = dom.MutationObserver;
     g.CSS = { escape: (s: string) => s };
     g.requestAnimationFrame = (fn: () => void) => {
       fn();
@@ -286,6 +303,43 @@ describe("node command palette", () => {
     await vi.waitFor(() => expect(typesOf("n.query")).toContain("t.super"));
     expect(typesOf("n.plain")).toContain("t.super");
     expect(useGraphStore.getState().undoStack).toHaveLength(1);
+  });
+
+  it("makes a tag by the name typed and tags the row with it, as one write", async () => {
+    await open("n.plain");
+    await pick("Add tag");
+    const input = present(
+      dom.document.querySelector('[role="dialog"] input'),
+      "picker input",
+    ) as unknown as HTMLInputElement;
+    await act(async () => {
+      input.focus();
+      Object.getOwnPropertyDescriptor(dom.HTMLInputElement.prototype, "value")?.set?.call(
+        input,
+        "brandnew",
+      );
+      // React met no DOM when it loaded, so it reads a text change on a key.
+      input.dispatchEvent(new dom.KeyboardEvent("keyup", { bubbles: true }) as unknown as Event);
+    });
+    const create = present(
+      dom.document.querySelector<InstanceType<typeof dom.HTMLElement>>(
+        '[role="dialog"] [data-picker-create="true"]',
+      ),
+      "create row",
+    );
+    await act(async () => create.click());
+    await vi.waitFor(() =>
+      expect(typesOf("n.plain")).toContain(
+        present(
+          useGraphStore.getState().wireNodes.find((n) => n.text === "brandnew"),
+          "the new tag",
+        ).id,
+      ),
+    );
+    // The definition and the tagging are one write: one undo step, sent as one call (`oneWrite`).
+    const { undoStack } = useGraphStore.getState();
+    expect(undoStack).toHaveLength(1);
+    expect(undoStack.at(-1)?.redo.map((a) => a.id)).toEqual(["tag.define", "node.update"]);
   });
 
   it("removes a tag from the rows of a range that carry it", async () => {
@@ -479,7 +533,7 @@ describe("node command palette", () => {
   it("Edit query opens a query node's tucked builder, and then offers to hide it", async () => {
     await open("n.plain");
     expect(labels()).not.toContain("Edit query");
-    expect(outlineNodes().get("n.query")?.collapsed).toBe(true);
+    expect(rowClosed("n.query")).toBe(true);
     await open("n.query");
     const row = [...dom.document.querySelectorAll('[data-palette-list="true"] button')].find(
       (b) => b.textContent.trim() === "Edit query",
@@ -489,7 +543,7 @@ describe("node command palette", () => {
     });
     expect(useOutlineStore.getState().queryBuilders["n.query"]?.open).toBe(true);
     // The builder is drawn under the row, so a closed row is opened to show it.
-    expect(outlineNodes().get("n.query")?.collapsed).toBe(false);
+    expect(rowClosed("n.query")).toBe(false);
     await open("n.query");
     expect(labels()).toContain("Hide query");
     expect(labels()).not.toContain("Edit query");
@@ -574,10 +628,48 @@ describe("node command palette", () => {
     },
   );
 
-  it("drops Turn into reference on a node that already is one", async () => {
+  it("Add value… adds a value to a field the row draws, where the row draws it", async () => {
+    const outline = dom.document.createElement("div");
+    dom.document.body.appendChild(outline);
+    const rows = createRoot(outline as unknown as HTMLDivElement);
+    try {
+      await act(async () => {
+        rows.render(<NodeBlock nodeId="n.noted" instanceKey="row/n.noted" depth={0} />);
+      });
+      useOutlineStore.setState({ selectedNodeId: "n.noted", selectedInstanceKey: "row/n.noted" });
+      await act(async () => {
+        root.render(<NodeCommandPalette open onClose={() => {}} />);
+      });
+      expect(labels()).toContain("Add value…");
+      await pick("Add value…");
+      expect(labels()).toEqual(["note"]);
+      await pickTag("f.note");
+      // The field's own "+": a new slot to type the next value in, open.
+      await vi.waitFor(() =>
+        expect(
+          outline.querySelector('[contenteditable="true"]')?.getAttribute("data-placeholder"),
+        ).toBe("Enter to add another · Esc to finish"),
+      );
+    } finally {
+      act(() => rows.unmount());
+      outline.remove();
+    }
+  });
+
+  it("offers Change reference target on a node that already is one, and repoints it", async () => {
     await open("n.ref");
     expect(labels()).not.toContain("Turn into reference…");
-    expect(labels()[1]).toBe("Turn into query");
+    expect(labels()).toContain("Change reference target…");
+    await pick("Change reference target…");
+    await pickTag("n.inbox");
+    // The same write Turn into reference… makes: the reference's target field, replaced.
+    await vi.waitFor(() =>
+      expect(
+        useGraphStore.getState().wireNodes.find((n) => n.id === "n.ref")?.props[
+          SYSTEM_IDS.refTargetField
+        ],
+      ).toEqual([{ t: "ref", v: "n.inbox" }]),
+    );
   });
 
   it("opens at a page's title, where the page's node is active", async () => {
@@ -617,6 +709,100 @@ describe("node command palette", () => {
     expect(dom.document.querySelector('[role="dialog"]')?.getAttribute("aria-label")).toBe(
       "Add tag",
     );
+  });
+
+  describe("a command answers its writes", () => {
+    // What a command zooms to or opens beside is the workspace's: put it back.
+    let workspace: ReturnType<typeof useWorkspaceStore.getState>;
+    beforeEach(() => {
+      workspace = useWorkspaceStore.getState();
+    });
+    afterEach(() => useWorkspaceStore.setState(workspace, true));
+
+    /**
+     * Run the command labelled `label` about `nodeId` as a / pick runs it,
+     * in one gesture (`PageWrites.together`), and answer how many undo steps
+     * it left.
+     */
+    async function runAsPick(nodeId: string, label: string): Promise<number> {
+      // The seed's nodes these commands write through: the extends field and the Views list.
+      useGraphStore
+        .getState()
+        .hydrateFromWire(
+          [...graph(), ...viewFieldNodes, seeded(SYSTEM_IDS.extendsField)],
+          1,
+          "fixtures",
+        );
+      const host = browserHost();
+      const listed = host.nodeCommands(
+        { nodeId, frameId: nodeId, nodeIds: [nodeId] },
+        { close: () => {}, openStep: () => {} },
+      );
+      const command = present(
+        listed.find((c) => c.label === label || c.label.startsWith(label)),
+        label,
+      );
+      const before = useGraphStore.getState().undoStack.length;
+      await act(async () => {
+        await host.writes.together(command.run);
+      });
+      return useGraphStore.getState().undoStack.length - before;
+    }
+
+    it("Make supertag: written when it answers, one undo step", async () => {
+      expect(await runAsPick("n.plain", "Make supertag")).toBe(1);
+      expect(typesOf("n.plain")).toContain(SYSTEM_IDS.tag);
+      await act(() => mutations.undo());
+      expect(typesOf("n.plain")).not.toContain(SYSTEM_IDS.tag);
+    });
+
+    it("Make your own tag that extends this: written when it answers, one undo step", async () => {
+      expect(await runAsPick("t.super", "Make your own tag that extends this")).toBe(1);
+      expect(mine()).toHaveLength(1);
+      await act(() => mutations.undo());
+      expect(mine()).toHaveLength(0);
+    });
+
+    it("View as: written when it answers, one undo step", async () => {
+      const views = () => nodeOf("n.plain")?.props[SYSTEM_IDS.viewsField] ?? [];
+      expect(await runAsPick("n.plain", "View as: Table")).toBe(1);
+      expect(views()).toHaveLength(1);
+      await act(() => mutations.undo());
+      expect(views()).toHaveLength(0);
+    });
+
+    it("Add chart: its view node is one undo step, made when it answers", async () => {
+      const views = () => nodeOf("n.query")?.props[SYSTEM_IDS.viewsField] ?? [];
+      expect(await runAsPick("n.query", "Add chart")).toBe(1);
+      const [view] = views();
+      expect(view).toBeDefined();
+      expect(nodeOf(String(view?.v))).toBeDefined();
+      await act(() => mutations.undo());
+      expect(views()).toHaveLength(0);
+      expect(nodeOf(String(view?.v))).toBeUndefined();
+    });
+
+    it("Add chart refused: the write path says why, once", async () => {
+      // No Views list or views field to file the chart in: view.propose refuses it.
+      useGraphStore.getState().hydrateFromWire(graph(), 1, "fixtures");
+      useUiStore.setState({ toasts: [] });
+      const host = browserHost();
+      const command = present(
+        host
+          .nodeCommands(
+            { nodeId: "n.query", frameId: "n.query", nodeIds: ["n.query"] },
+            { close: () => {}, openStep: () => {} },
+          )
+          .find((c) => c.label === "Add chart"),
+        "Add chart",
+      );
+      await act(async () => {
+        await command.run();
+      });
+      const told = useUiStore.getState().toasts;
+      expect(told.reduce((n, t) => n + t.count, 0)).toBe(1);
+      expect(nodeOf("n.query")?.props[SYSTEM_IDS.viewsField] ?? []).toHaveLength(0);
+    });
   });
 });
 

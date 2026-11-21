@@ -28,7 +28,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { canonicalJsonl, decodeStoredNode, mergeNodeSets, type KbNode } from "@kb/model";
 import { writeErr } from "@kb/runtime";
-import { cliAction } from "./command.ts";
+import { cliAction } from "../command.ts";
 
 const MERGED = 0;
 const CONFLICT_WRITTEN = 3;

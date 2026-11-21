@@ -1,4 +1,11 @@
-import { tagAncestors, type FieldType, type KbNode, type NodeId, type StoreTx } from "@kb/model";
+import {
+  diffTx,
+  tagAncestors,
+  type FieldType,
+  type KbNode,
+  type NodeId,
+  type StoreTx,
+} from "@kb/model";
 import { derivedTargets, nodeRefs, referenceFields } from "./datoms.ts";
 import {
   fieldTypesIn,
@@ -37,6 +44,10 @@ export interface NodeChange {
   readonly created: readonly NodeId[];
   readonly removed: readonly NodeId[];
   readonly restated: readonly KbNode[];
+  /** The nodes it upserted or deleted, as they stood before it: those it found. */
+  readonly was: readonly KbNode[];
+  /** The nodes it upserted, as they now stand. */
+  readonly now: readonly KbNode[];
 }
 
 /**
@@ -176,10 +187,40 @@ export class NodeTable implements NodeIndex {
   }
 
   /**
-   * Apply `tx` and say what it changed ({@link NodeChange}); null, and no new
-   * generation, when it changes nothing.
+   * Apply `tx` to the stored set and say what it changed
+   * ({@link NodeChange}); null, and no new generation, when it changes
+   * nothing. A virtual node it stores or deletes is no longer virtual:
+   * nothing brings it back.
    */
   change(tx: StoreTx): NodeChange | null {
+    const taken = new Set([...tx.upserts.map((n) => n.id), ...tx.deletes]);
+    return this.#change(tx, () => {
+      if ([...taken].some((id) => this.#virtualIds.has(id)))
+        this.#setVirtual(this.#virtual.filter((n) => !taken.has(n.id)));
+    });
+  }
+
+  withVirtual(nodes: ReadonlyArray<KbNode>): void {
+    this.changeVirtual(nodes);
+  }
+
+  /**
+   * Replace the virtual set with `nodes` and say what that changed, as
+   * {@link change} does: the set's delta is one transaction over the
+   * virtual nodes, so a query engine kept over the table follows it the way
+   * it follows a stored one. A stored node keeps its id against a virtual
+   * one, so a node of `nodes` under a stored id changes nothing.
+   */
+  changeVirtual(nodes: ReadonlyArray<KbNode>): NodeChange | null {
+    const next = nodes.filter((n) => !this.#nodes.has(n.id) || this.#virtualIds.has(n.id));
+    return this.#change(diffTx(this.#virtual, next), () => this.#setVirtual(next));
+  }
+
+  /**
+   * Apply `tx` to the node set, settle which nodes are virtual
+   * (`settleVirtual`), and restate whatever the change reaches.
+   */
+  #change(tx: StoreTx, settleVirtual: () => void): NodeChange | null {
     this.#readRefs();
     const created = tx.upserts.filter((n) => !this.#nodes.has(n.id)).map((n) => n.id);
     const removed = tx.deletes.filter((id) => this.#nodes.has(id));
@@ -188,6 +229,7 @@ export class NodeTable implements NodeIndex {
     const typed = this.#types.forget(touched);
     const chained = this.#chains.forget(touched);
     const keysWere = new Map(touched.map((id) => [id, this.#keysHeld(this.#nodes.get(id))]));
+    const was = touched.flatMap((id) => this.#nodes.get(id) ?? []);
 
     for (const id of removed) {
       this.#setRefs(id, new Set());
@@ -197,8 +239,7 @@ export class NodeTable implements NodeIndex {
     for (const id of removed) this.#nodes.delete(id);
     this.#text.change(touched);
     const rekeyed = this.#moveKeys(keysWere);
-    // A virtual node a tx stores or deletes is no longer virtual: nothing brings it back.
-    this.#dropVirtual([...tx.upserts.map((n) => n.id), ...removed]);
+    settleVirtual();
 
     const restated = new Map<NodeId, KbNode>();
     for (const node of tx.upserts) restated.set(node.id, node);
@@ -213,15 +254,7 @@ export class NodeTable implements NodeIndex {
     }
     for (const node of restated.values()) this.#restate(node);
     this.#generation += 1;
-    return { created, removed, restated: [...restated.values()] };
-  }
-
-  withVirtual(nodes: ReadonlyArray<KbNode>): void {
-    const stored = this.storedNodes();
-    const storedIds = new Set(stored.map((n) => n.id));
-    this.#virtual = nodes.filter((n) => !storedIds.has(n.id));
-    this.#virtualIds = new Set(this.#virtual.map((n) => n.id));
-    this.rebuild(stored);
+    return { created, removed, restated: [...restated.values()], was, now: tx.upserts };
   }
 
   referencesOf(node: KbNode): ReadonlySet<NodeId> {
@@ -355,10 +388,8 @@ export class NodeTable implements NodeIndex {
     }
   }
 
-  #dropVirtual(ids: ReadonlyArray<NodeId>): void {
-    if (!ids.some((id) => this.#virtualIds.has(id))) return;
-    const gone = new Set(ids);
-    this.#virtual = this.#virtual.filter((n) => !gone.has(n.id));
-    this.#virtualIds = new Set(this.#virtual.map((n) => n.id));
+  #setVirtual(nodes: KbNode[]): void {
+    this.#virtual = nodes;
+    this.#virtualIds = new Set(nodes.map((n) => n.id));
   }
 }

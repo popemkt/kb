@@ -130,7 +130,12 @@ const commitChange = Effect.fn("kb.client.commit")(function* (
   if (stale !== null) return yield* stale;
 
   const tx = { upserts: input.upserts, deletes: input.deletes };
-  const session = yield* sessionOver(root, store, current.nodes, bundledDerived());
+  const session = yield* sessionOver(
+    root,
+    store,
+    { nodes: current.nodes, fingerprint: current.revision },
+    bundledDerived(),
+  );
   const { fingerprint, tx: applied } = yield* persistEffect(session, tx, {
     expected: current.revision,
   }).pipe(Effect.provideService(KbStore, store), Effect.provideService(TxOrigin, input.origin));

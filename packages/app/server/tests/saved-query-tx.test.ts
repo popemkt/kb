@@ -70,6 +70,13 @@ async function externally(
   );
 }
 
+/** The text of the node `id`. */
+const text = (id: string) => `[:find ?t :where [?n :node/id "${id}"] [?n :node/text ?t]]`;
+
+/** The query a saved-query node `id` holds. */
+const query = (id: string) =>
+  `[:find ?q :where [?n :node/id "${id}"] [?n :f/${SYSTEM_IDS.queryField} ?q]]`;
+
 async function adopted(dir: string, ctx: KbContext): Promise<SavedQuerySet> {
   const queries = new SavedQuerySet(ctx);
   queries.adopt(savedQueryNodes(await listSavedQueries(dir)));
@@ -108,6 +115,33 @@ describe("saved queries are a logged transaction", () => {
       await ingest(dir, ctx, queries);
       expect(ctx.log.head).toBe(before + 1);
       expect(txFrames(client)).toHaveLength(1);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("editing one keeps every live answer that does not read it", async () => {
+    const dir = await root();
+    try {
+      await writeFile(join(dir, ".kb", "queries", "todos.edn"), "[:find ?id]\n");
+      const ctx = await openKb(dir);
+      const queries = await adopted(dir, ctx);
+      const releases = [text("elsewhere"), text("sys.query.todos"), query("sys.query.todos")].map(
+        (edn) => ctx.index.retainDatalog(edn),
+      );
+      const elsewhere = ctx.index.answerDatalog(text("elsewhere"));
+      const name = ctx.index.answerDatalog(text("sys.query.todos"));
+      expect(ctx.index.answerDatalog(query("sys.query.todos")).rows).toEqual([["[:find ?id]"]]);
+
+      await writeFile(join(dir, ".kb", "queries", "todos.edn"), "[:find ?n]\n");
+      await writeFile(join(dir, ".kb", "queries", "done.edn"), "[:find ?d]\n");
+      await ingest(dir, ctx, queries);
+
+      // Only the answer that read the edited file's datoms runs again.
+      expect(ctx.index.answerDatalog(text("elsewhere"))).toBe(elsewhere);
+      expect(ctx.index.answerDatalog(text("sys.query.todos"))).toBe(name);
+      expect(ctx.index.answerDatalog(query("sys.query.todos")).rows).toEqual([["[:find ?n]"]]);
+      for (const release of releases) release();
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

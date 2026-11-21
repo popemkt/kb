@@ -64,7 +64,7 @@ import { typeRefsOf, SYSTEM_IDS } from "@kb/model";
 import { shownNodes, useGraphStore } from "@/stores/graph.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { pageRows } from "@/stores/page"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { pageEditor } from "@/stores/page-editor"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
-import { invoke, invokeCoalesced, invokeLocal } from "@/session/runtime";
+import { invoke, invokeCoalesced, invokeLocal, invokeSettled } from "@/session/runtime";
 
 /** The page's editor's state now: where a write lands the caret. */
 const editor = () => pageEditor().getState();
@@ -172,7 +172,6 @@ async function runPlan(plan: PlannedMutation): Promise<RunOptimisticResult> {
     // names, else the one the editor resolves.
     editor().activateNode(result.focusId, result.focusCursor ?? 0, result.focusInstanceKey);
   }
-  // GAP [[01M7XRPAHQ1ZB2CHNAXEN4B0KM]] a server refusal can leave this optimistic undo step behind.
   useGraphStore.getState().recordUndo(history);
   return result;
 }
@@ -215,9 +214,11 @@ async function frameConfig(frameId: string): Promise<ViewConfig> {
 export const mutations: PageWrites = {
   async updateNodeContent(id: string, content: string): Promise<void> {
     const store = useGraphStore.getState();
-    if (!store.wireNodes.some((node) => node.id === id)) return;
+    const held = store.wireNodes.find((node) => node.id === id);
+    if (held === undefined) return;
 
-    const plan = planUpdateText(id, content);
+    // GAP [[01M7Z8689FDT3YBPAQ74RB9VQ2]] The replica may hold newer text than the focused editor shows.
+    const plan = planUpdateText(id, content, held.text);
     const action = plan.actions[0];
     if (action === undefined) return;
     // Each keystroke commits here; the lane pushes the last of a pause, in
@@ -260,10 +261,11 @@ export const mutations: PageWrites = {
   async createEmptyNode(parentId: string, afterSiblingId: string | null): Promise<string | null> {
     const newId = ulid();
     let ok = false;
-    if (parentId === WORKSPACE_ROOT_ID) {
-      ok = await applyPlan(planAddRootNode("", newId));
-    } else if (afterSiblingId !== null) {
+    if (afterSiblingId !== null) {
+      // Directly below it in its group, a top-level row's included.
       ok = await applyPlan(planInsertSibling(wire(), afterSiblingId, "after", newId));
+    } else if (parentId === WORKSPACE_ROOT_ID) {
+      ok = await applyPlan(planAddRootNode("", newId));
     } else {
       ok = await applyPlan(planAddChild(wire(), parentId, newId, ""));
     }
@@ -321,12 +323,12 @@ export const mutations: PageWrites = {
   },
 
   async splitNode(id: string, cursor: number | "end", instanceKey?: string): Promise<void> {
-    // Expanded set from the page's rows drives Tana first-child splits.
-    const expandedIds = new Set<string>();
-    for (const n of pageRows().values()) {
-      if (!n.collapsed) expandedIds.add(n.id);
-    }
-    await applyPlan(planSplit(wire(), id, cursor, ulid(), { expandedIds, instanceKey }));
+    // An open row splits into its first child, as Tana does: open where it
+    // is drawn, the row being edited when no instance is named.
+    const page = pageEditor().getState();
+    const row = instanceKey ?? (page.activeNodeId === id ? page.activeInstanceKey : null);
+    const open = row === null ? pageRows().get(id)?.collapsed === false : page.isOpen(row);
+    await applyPlan(planSplit(wire(), id, cursor, ulid(), { open, instanceKey }));
   },
 
   async deleteNode(id, draft): Promise<boolean> {
@@ -389,9 +391,9 @@ export const mutations: PageWrites = {
     return { references };
   },
 
-  async together<T>(made: () => Promise<T>): Promise<T | null> {
+  async together<T>(made: (writes: PageWrites) => Promise<T>): Promise<T | null> {
     // A gesture inside another is part of it.
-    if (gesture !== null) return made();
+    if (gesture !== null) return made(mutations);
     const open = {
       actions: [] as ActionRequest[],
       redoActions: [] as ActionRequest[],
@@ -400,12 +402,19 @@ export const mutations: PageWrites = {
     gesture = open;
     let result: T;
     try {
-      result = await made();
+      result = await made(mutations);
     } finally {
       gesture = null;
     }
     if (open.actions.length > 0 && !(await applyPlan(open))) return null;
     return result;
+  },
+
+  async proposeView(proposal) {
+    const { planProposeView } = await import("@/actions/plan");
+    const id = ulid();
+    const written = await runPlan(planProposeView(proposal, id));
+    return written.ok ? { id } : { refused: written.refused ?? "view.propose was refused" };
   },
 
   history: () => {
@@ -439,7 +448,7 @@ export const mutations: PageWrites = {
   },
 
   async initializeProp(nodeId, fieldId, value): Promise<void> {
-    await applyPlan(planInitializeProp(nodeId, fieldId, value));
+    await applyPlan(planInitializeProp(wire(), nodeId, fieldId, value));
   },
 
   async createRefTarget(creation: RefCreation, name: string): Promise<string | null> {
@@ -482,7 +491,9 @@ export const mutations: PageWrites = {
     const pins = pinnedRefIdsFor(shownNodes(), nodeId);
     if (pins.length > 0) {
       // Every pin of the node goes, as one write.
-      await mutations.together(() => Promise.all(pins.map((refId) => mutations.deleteNode(refId))));
+      await mutations.together((writes) =>
+        Promise.all(pins.map((refId) => writes.deleteNode(refId))),
+      );
       return true;
     }
     const plan = planPinNode(wire(), nodeId, ulid());
@@ -539,7 +550,13 @@ export const mutations: PageWrites = {
   },
 
   async addTree(tree, format, place) {
-    const receipt = await invoke("node.addTree", { outline: tree, format, ...place });
+    // The server's answer, not the replica's: a refused tree made nothing, and
+    // an older server may answer ids of its own (`confirmsMint`).
+    const { receipt: local, settled } = await invokeSettled({
+      id: "node.addTree",
+      input: { outline: tree, format, ...place },
+    });
+    const receipt = local.status === "failed" ? local : await settled;
     if (receipt.status === "failed") throw new Error(receipt.message);
     return AddedTreeSchema.parse(receipt.output).ids;
   },

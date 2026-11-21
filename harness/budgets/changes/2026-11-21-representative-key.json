@@ -1,0 +1,6 @@
+{
+  "reason": "A shortcut's hint probes the keymap with the key a press of its chord carries: @kb/keybindings exports representativeKey, read from the same key domain overlap is decided over, so the canvas's hints follow a replacement that names both a place and its character.",
+  "raise": {
+    "surface": { "@kb/keybindings": 1 }
+  }
+}

@@ -49,6 +49,30 @@ The debug APK is signed with the SDK's generated debug key, which is enough
 for `adb install`. Nothing here signs with anyone's account or publishes to
 a store. The Gradle project is not part of the Bun workspace
 (`packages/*/*`): `bun install`, `bun run verify` and Nx do not see it.
+Validate's `android` job runs the two commands above, in the same shell, on
+every change that reaches the app ([`docs/ci.md`](../../docs/ci.md)).
+
+### On an emulator
+
+`bin/android-smoke` runs the capture lifecycle on a headless emulator
+against a scratch store, and keeps a screenshot of each step. The
+`android-emulator` shell adds the emulator and an AOSP system image of the
+same platform to the build's SDK. It needs KVM on Linux, and the
+workspace's dependencies (`bun install`) for the store's host:
+
+```sh
+nix develop .#android-emulator -c bin/android-smoke [out-dir]
+# → <out-dir>/shots/*.png, receipts.jsonl, host.log, emulator.log
+```
+
+It shares a multiline text and a link before any store is paired, then
+kills the app. It pairs the store through the Stores form, as a person
+does. It checks that an image the app may not read is refused whole. It
+shares to a sleeping host, kills the app and wakes the host. It shares
+while offline and lets the background worker deliver after reconnecting,
+with the app closed. Then it compares the store's receipts with what was
+shared. The script's header lists what it does not reach yet.
+Nothing runs it on a schedule (GAP [[01M7YGA1ZSD4MARTYMA8K0KJVA]]).
 
 ## Install
 
@@ -102,7 +126,8 @@ pairing waits and goes to the first store you pair.
   again.
 - **Queue** holds what this phone captured:
   - **Pending**: not delivered yet, with the reason once it has tried
-    (`Waiting for Personal: timeout`). **Retry now** starts a delivery run.
+    (`Waiting for Personal: it did not answer in time.`). **Retry now**
+    starts a delivery run.
   - **Sent**: the host committed it. The row shows the node id, and the
     copied bytes have been released.
   - **Failed**: the host refused it for a reason of its own, such as a
@@ -129,7 +154,7 @@ whenever the phone has a network. It retries with exponential backoff from
 | `invalid_input`, `not_found`, `conflict`, … | Marks the capture Failed with the host's reason. |
 | `unknown_action` | Keeps it pending: this kb has no `capture.submit` yet. |
 | `forbidden`, HTTP 401/403 | Pauses the store. Its captures wait until you pair it again. |
-| Offline, timeout, 5xx, `internal` | Keeps it pending, counts the attempt, retries later. |
+| Offline, timeout, 5xx, `internal` | Keeps it pending, counts the attempt, retries later. The reason says what failed in words (`NoAnswer`): nothing listening, the connection dropped, no network, a certificate it does not trust. It shows only the host's own message or HTTP status, never the exception's. |
 
 The host is idempotent on `captureId`, so a capture whose answer was lost is
 simply sent again.
@@ -184,5 +209,6 @@ The unit tests (`app/src/test`) run on the JVM, with no emulator. They cover:
   only in the WebView with no bridge, even where Capacitor falls back to an
   origin-wide interface.
 
-The page's JS is not typechecked or linted, as the rest of the Gradle
-project is not gated yet (GAP [[01M7QTAHN8YW57M1R1XYGRBSZ8]]).
+The page's JS is not typechecked or linted: the `android` job builds the
+APK and runs these tests, and neither parses it
+(GAP [[01M7YBRZ6F5DVBKD0EXA16XG73]]).

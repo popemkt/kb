@@ -1,0 +1,4 @@
+{
+  "reason": "Relation field choices, script labels, location labels, account setup names and days' refusals name a node by nodeName instead of its stored text; @kb/model exports the field choice a relation picker reads (RelationFieldChoice).",
+  "raise": { "cli-closure": { "bytes": 317 }, "surface": { "@kb/model": 1 } }
+}

@@ -81,6 +81,7 @@ function walked(): string[] {
     chain: [],
     pages: {},
     expansion: new Map(),
+    references: new Set(),
     details: {},
     days: frameDays,
     today: TODAY,

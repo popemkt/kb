@@ -10,7 +10,6 @@ import { definePlugin, rootPluginName } from "@kb/plugin";
 import { mutations } from "@/actions/mutations";
 import { listNodeCommands } from "@/lib/commands";
 import { servedManifest, subscribeManifest } from "@/lib/manifest";
-import { proposeView } from "@/lib/propose-view";
 import { pageCatalog } from "@/lib/view-catalog";
 import { BrowserHostService, type BrowserHost } from "@kb/ui-sdk";
 import { hostSandboxFrame, invokeAsScript, isTrusted, setTrusted } from "@/lib/sandbox-host";
@@ -70,7 +69,8 @@ const host: BrowserHost = {
     const { selectedNodeId, selectedInstanceKey } = pageEditor().getState();
     return selectedNodeId === nodeId && selectedInstanceKey === instanceKey;
   },
-  toggleCollapse: (nodeId) => pageEditor().getState().toggleCollapse(nodeId),
+  isOpen: (instanceKey) => pageEditor().getState().isOpen(instanceKey),
+  toggleCollapse: (instanceKey) => pageEditor().getState().toggleCollapse(instanceKey),
   wireNodes: () => useGraphStore.getState().wireNodes,
   appearance: () => appearanceIn(useDesignSystemStore.getState().painted, usePrefsStore.getState()),
   prefs: () => usePrefsStore.getState(),
@@ -107,7 +107,6 @@ const host: BrowserHost = {
   runCommand: runKeyCommand,
   subscribeManifest,
   screen: paneScreenPort,
-  proposeView,
   sandbox: { hostFrame: hostSandboxFrame, invokeAsScript, isTrusted, setTrusted },
 };
 

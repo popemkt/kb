@@ -111,7 +111,9 @@ export interface NodeIndex {
   /**
    * Index-only nodes: they answer queries and never reach the store. Saved
    * queries are materialised this way by `kb ui`. Replaces the set wholesale;
-   * a stored node of the same id always wins.
+   * a stored node of the same id always wins. What changes is the set's
+   * delta, applied as a transaction is: a node that reads the same stays as
+   * it is, and an answer that read none of what moved still holds.
    */
   withVirtual(nodes: ReadonlyArray<KbNode>): void;
 }

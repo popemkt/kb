@@ -10,11 +10,13 @@ export interface GraphWrite {
 
 /**
  * A write as a family plans it: the transaction to make over the graph as it
- * is (`nodes`), null for none, or a refusal.
+ * is (`nodes`), null for none, or a refusal (`E`, a `DomainError` unless the
+ * family refuses in its own words). It may read the services `R` its action
+ * runs with, the session among them, which has caught up to `nodes`.
  */
-export type GraphPlan<W extends GraphWrite = StoreTx> = (
+export type GraphPlan<W extends GraphWrite = StoreTx, E = DomainError, R = never> = (
   nodes: readonly KbNode[],
-) => Effect.Effect<W | null, DomainError>;
+) => Effect.Effect<W | null, E, R>;
 
 /**
  * Core's write path, as a port a family's action writes through. It is the
@@ -28,12 +30,12 @@ export type GraphPlan<W extends GraphWrite = StoreTx> = (
  * index and transaction log with it. It answers the write it committed, as
  * the plan answered it, or null when the plan had nothing to write, and
  * fails with the `DomainError` `persistEffect` fails with, or the plan's
- * refusal.
+ * refusal, as the plan refused.
  */
 export interface GraphWritesPort {
-  readonly commit: <W extends GraphWrite>(
-    plan: GraphPlan<W>,
-  ) => Effect.Effect<W | null, DomainError>;
+  readonly commit: <W extends GraphWrite, E = DomainError, R = never>(
+    plan: GraphPlan<W, E, R>,
+  ) => Effect.Effect<W | null, DomainError | E, R>;
 }
 
 export class GraphWrites extends Context.Service<GraphWrites, GraphWritesPort>()(
@@ -52,6 +54,18 @@ export const PropInputSchema = z.object({
 });
 
 /**
+ * A write's leave to define each field it names that does not exist yet,
+ * as `field.define` defines one, in the write's own transaction: a write
+ * that fails leaves no field behind (`kb add --create`).
+ */
+export const CreateFieldsSchema = z
+  .boolean()
+  .optional()
+  .describe(
+    "define each field the write names that does not exist yet, as field.define does, in the same transaction",
+  );
+
+/**
  * `node.update`'s input: what one edit of a node says. It is a contract so
  * that whatever reads an update before it runs (days' untag interceptor)
  * reads it exactly as the action will.
@@ -64,11 +78,14 @@ export const NodeUpdateInputSchema = z.object({
   setProps: z.array(PropInputSchema).optional(),
   /** Require these fields (by name or id) to hold no values before this edit. */
   requireUnset: z.array(z.string()).optional(),
+  /** Require these fields (by name or id) to hold a value before this edit. */
+  requireSet: z.array(z.string()).optional(),
   unsetProps: z.array(z.object({ field: z.string(), value: z.unknown().optional() })).optional(),
   /** Move under this parent, or to the forest roots when null. */
   parent: z.string().nullable().optional(),
   /** Index in the target sibling group; the end when omitted on a move. */
   position: z.number().int().nonnegative().optional(),
+  createFields: CreateFieldsSchema,
   /** Bypass sys.* write-guard (browse yes / break no). */
   force: z.boolean().optional(),
 });

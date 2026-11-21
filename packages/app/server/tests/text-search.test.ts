@@ -22,6 +22,7 @@ test("indexed search preserves literal matching, id order, and live projection c
     node("\uD800", 'a quoted "one" or two'),
     node("b", 'a quoted "one" or two with a\0b and \uD800xyz'),
     node("owner", "Ann"),
+    node("meet", "meet [[owner]] *soon*"),
     tag,
     task,
     ...Array.from({ length: 550 }, (_, i) =>
@@ -53,12 +54,16 @@ test("indexed search preserves literal matching, id order, and live projection c
     both("xyz", ["b"]);
     both("\uFFFDxyz", []);
     both("for ann", ["task"]);
+    // A reference reads as its target's name, emphasis as its words.
+    both("meet ann soon", ["meet"]);
 
     for (const index of [scan, indexed]) {
       index.applyTx({ upserts: [node("owner", "Mina")], deletes: ["z"] });
     }
     both("for ann", []);
     both("for mina", ["task"]);
+    both("meet ann", []);
+    both("meet mina soon", ["meet"]);
     both('quoted "one" OR two', ["b", "\uD800"]);
 
     for (const index of [scan, indexed]) {

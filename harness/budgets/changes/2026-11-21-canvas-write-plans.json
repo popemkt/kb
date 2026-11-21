@@ -1,0 +1,6 @@
+{
+  "reason": "Canvas writes are planned over the graph each commit attempt reads: commitCanvasEffect takes a plan run inside GraphWrites.commit, and the tldraw import's planning moves into its own planner, so a retry keeps a concurrent write.",
+  "raise": {
+    "cli-closure": { "bytes": 682 }
+  }
+}

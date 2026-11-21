@@ -23,6 +23,7 @@ import {
   type MatchingAdd,
   type MovePlace,
   type PropValue,
+  type ViewProposal,
 } from "@kb/ui-sdk";
 import { FRAME_VIEW_FAMILY, frameSettingWrite, type ViewConfig } from "@kb/views";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
@@ -100,8 +101,17 @@ export const planReplaceField = (
   values: PropValue[],
 ) => replaceProps(nodes, id, [{ field, values }]);
 
-export const planUpdateText = (id: string, text: string, expectedText?: string) =>
-  update(id, expectedText === undefined ? { text } : { text, expectedText });
+/**
+ * Write `id`'s text. Written on the text it was read from (`expectedText`,
+ * DESIGN.md → Conditional text edits), the write can be refused by the
+ * server after the replica took it, so its undo step waits for the server
+ * (`completion`): an undo of a refused write would put back text it never
+ * replaced there.
+ */
+export const planUpdateText = (id: string, text: string, expectedText?: string): PlannedMutation =>
+  expectedText === undefined
+    ? update(id, { text })
+    : { ...update(id, { text, expectedText }), completion: "confirmed" };
 /**
  * Split a row's text at `cursor` into itself and a new row after it (or the
  * first child of the node it shows when it is an expanded parent: a
@@ -117,14 +127,15 @@ export function planSplit(
   id: string,
   cursor: number | "end",
   newId: string,
-  opts: { expandedIds: Set<string>; instanceKey?: string },
+  /** Whether the row split is open where it is drawn, and that instance when it is named. */
+  opts: { open: boolean; instanceKey?: string },
 ): PlannedMutation {
   const node = requireNode(nodes, id);
   const at = cursor === "end" ? node.text.length : cursor;
   const left = node.text.slice(0, at);
   const right = node.text.slice(at);
   const content = contentOf(nodes, id);
-  const firstChild = content !== null && content.children.length > 0 && opts.expandedIds.has(id);
+  const firstChild = content !== null && content.children.length > 0 && opts.open;
   const parent = firstChild ? content : findParentWire(nodes, id);
   const position = firstChild ? 0 : parent ? parent.children.indexOf(id) + 1 : undefined;
   // The new row is drawn under the row's instance, or beside it.
@@ -147,10 +158,28 @@ export function planSplit(
     ...(drawnUnder === null ? {} : { focusInstanceKey: childInstanceKey(drawnUnder, newId) }),
   };
 }
+/**
+ * A view node made from settings, `id` minted here so the replica's commit
+ * and the server's are one node: left to the action, each would mint its
+ * own. `view.propose` is the one check of a proposed view (DESIGN.md → View
+ * nodes), so the page writes exactly what an agent could propose.
+ */
+export function planProposeView(proposal: ViewProposal, id: string): PlannedMutation {
+  return plan({
+    id: "view.propose",
+    input: {
+      id,
+      view: proposal.view.id,
+      params: proposal.params,
+      ...(proposal.host === undefined ? {} : { host: proposal.host }),
+      ...(proposal.text === undefined ? {} : { text: proposal.text }),
+    },
+  });
+}
 export function planDelete(
   _nodes: WireNode[],
   id: string,
-  draft?: { readonly parent: string; readonly text: string },
+  draft?: { readonly parent: string | null; readonly text: string },
 ): PlannedMutation {
   const deletion = { id: "node.delete", input: { id, descendants: "cascade" } };
   if (draft === undefined) return plan(deletion);
@@ -410,9 +439,20 @@ export function planUnsetProp(
   return update(id, { unsetProps: [{ field, ...(value === undefined ? {} : { value }) }] });
 }
 
-/** Set the starter value only if the graph still has no value for this field. */
-export function planInitializeProp(id: string, field: string, value: PropValue): PlannedMutation {
-  return update(id, { requireUnset: [field], setProps: [{ field, value }] });
+/**
+ * Give the node's field a value: `value` while it holds none, else the one
+ * it holds. Either way the commit checks the field is still as it was read.
+ */
+export function planInitializeProp(
+  nodes: WireNode[],
+  id: string,
+  field: string,
+  value: PropValue,
+): PlannedMutation {
+  const holds = (nodes.find((node) => node.id === id)?.props[field]?.length ?? 0) > 0;
+  return holds
+    ? update(id, { requireSet: [field] })
+    : update(id, { requireUnset: [field], setProps: [{ field, value }] });
 }
 export const planAddTag = (n: WireNode[], id: string, tag: string) =>
   planSetProp(n, id, SYSTEM_IDS.typeField, { t: "ref", v: tag });

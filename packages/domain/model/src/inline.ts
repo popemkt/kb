@@ -106,6 +106,39 @@ export function clearInlineMdCache(): void {
   parseCache.clear();
 }
 
+/**
+ * The reference token, `[[node-id|label]]` or bare `[[node-id]]`, and its
+ * one statement: the page draws the refs this grammar parses, and
+ * `:node/mentions` and the text writes read the same refs from it
+ * (`mention.ts`), so a token in inline code is code to both.
+ *
+ * The id excludes `[` as well as `]` and `|`: a real id is ULID/`sys.*`
+ * shaped and never contains one, and excluding it lets the parse re-sync to
+ * a genuine `[[id]]` after a stray extra `[` in prose (`[[[id]]`) instead of
+ * swallowing that `[` into the id. The label runs to the first `]`, and an
+ * id that is blank once trimmed is no token.
+ */
+const REF_TOKEN = /\[\[([^[\]|]+)(?:\|([^\]]*))?\]\]/y;
+
+/** One reference token as written: where it ends, its trimmed id, its label untrimmed. */
+export interface RefToken {
+  /** Index just past the closing `]]`. */
+  end: number;
+  id: string;
+  /** The text after `|` as written; `undefined` for a bare `[[id]]`. */
+  label: string | undefined;
+}
+
+/** The reference token starting exactly at `at`, or null. */
+export function refTokenAt(text: string, at: number): RefToken | null {
+  if (text[at] !== "[" || text[at + 1] !== "[") return null;
+  REF_TOKEN.lastIndex = at;
+  const m = REF_TOKEN.exec(text);
+  const id = m?.[1]?.trim();
+  if (m === null || id === undefined || id === "") return null;
+  return { end: at + m[0].length, id, label: m[2] };
+}
+
 function parseUrlAfterParen(text: string, openParenIdx: number): number {
   // openParenIdx points at "("; walk to matching ")" with nesting.
   let depth = 1;
@@ -158,11 +191,15 @@ function canClose(text: string, at: number, length: number): boolean {
 /**
  * The first run after `from` that can close a `length`-mark delimiter: a run
  * of exactly that length, or, for a strong (two-mark) delimiter, any longer
- * run too, which closes on its first two marks.
+ * run too, which closes on its first two marks. A reference token binds
+ * tighter than emphasis, as a link does in CommonMark, and kb's segments are
+ * flat, so emphasis never spans one: a ref before any closer leaves the
+ * delimiter literal and the ref a ref.
  */
 function closerOf(text: string, from: number, mark: string, length: number): number {
   let j = from;
   while (j < text.length) {
+    if (refTokenAt(text, j)) return -1;
     if (text[j] !== mark) {
       j++;
       continue;
@@ -287,23 +324,15 @@ function parseOnce(text: string): InlineSpan[] {
       }
     }
 
-    // [[id|label]] or [[id]]; GAP [[01M7HCW3N0TSYGSXVNQS2K8H0Y]] a second statement of mention.ts's token
-    if (text[i] === "[" && text[i + 1] === "[") {
-      const end = text.indexOf("]]", i + 2);
-      if (end > i) {
-        const inner = text.slice(i + 2, end);
-        if (!inner.includes("[") && !inner.includes("]")) {
-          flush();
-          const pipe = inner.indexOf("|");
-          const id = (pipe >= 0 ? inner.slice(0, pipe) : inner).trim();
-          const label = pipe >= 0 ? inner.slice(pipe + 1).trim() || undefined : undefined;
-          if (id) {
-            out.push({ seg: { t: "ref", id, label }, open: text.slice(i, end + 2), close: "" });
-            i = end + 2;
-            continue;
-          }
-        }
-      }
+    // [[id|label]] or [[id]]
+    const ref = refTokenAt(text, i);
+    if (ref) {
+      flush();
+      const trimmed = ref.label?.trim();
+      const label = trimmed === "" ? undefined : trimmed;
+      out.push({ seg: { t: "ref", id: ref.id, label }, open: text.slice(i, ref.end), close: "" });
+      i = ref.end;
+      continue;
     }
 
     // ![alt](assets/…) media (W6a) — before plain links

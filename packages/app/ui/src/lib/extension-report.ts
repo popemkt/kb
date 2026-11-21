@@ -273,13 +273,13 @@ export interface ContributionGroup {
 
 /**
  * What an extension adds, as a person reads it: each kind (a point's word,
- * else its name; a seeded node's type, by that type node's text) with the
+ * else its name; a seeded node's type, by that type node's name) with the
  * names of what it added, its own namespace left off. A view contributed
  * on both hosts is named once.
  */
 export function contributionGroups(
   extension: PanelExtension,
-  textOf: (id: string) => string | undefined,
+  nameOf: (id: string) => string | undefined,
 ): readonly ContributionGroup[] {
   const own = [`ext.${extension.row.name}.`, `${extension.row.name}.`];
   const short = (id: string) => {
@@ -294,8 +294,8 @@ export function contributionGroups(
     }
   }
   for (const { kind, id } of extension.seeded) {
-    const type = textOf(kind) ?? kind;
-    grouped.set(type, (grouped.get(type) ?? new Set()).add(textOf(id) ?? short(id)));
+    const type = nameOf(kind) ?? kind;
+    grouped.set(type, (grouped.get(type) ?? new Set()).add(nameOf(id) ?? short(id)));
   }
   return [...grouped].map(([kind, names]) => ({ kind, names: [...names] }));
 }

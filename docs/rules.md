@@ -64,14 +64,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 ## Gaps
 
-### GAP: --create mints missing fields in their own transactions before the write that needs them
-
-- **expected** — field definitions a --create write needs are planned into the same transaction as that write (node.add, node.addTree, node.update/set)
-- **current** — ensureFieldsEffect in the CLI mints each missing field through field.define, one transaction per field, before the action runs
-- **impact** — a failed add, outline paste or set leaves the minted fields behind, and minting several fields is not atomic
-- **closes** — a pure planFieldDefine shared by field.define and the write actions, with create moved into the actions' input
-- **node** — `01M52F7X4YQ7W3TJHVPBBXARGP`
-
 ### GAP: .kb/views/*.json docs view specs are still read, for the one-time import
 
 - **expected** — docs views exist only as view nodes; no .kb/views reader remains
@@ -137,14 +129,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A colour-scheme member on BackdropProps, fed by the shell and held by the backdrop contract suite and the SDK d.ts
 - **node** — `01M7PBBDSCWT98ZS7BGR17AHJN`
 
-### GAP: a board wider than its pane cuts its last columns off with no sign that it scrolls
-
-- **expected** — a board whose columns run past the pane shows that more lie beyond it: an edge fade or a scroll hint on the side that scrolls, gone at the end
-- **current** — the board scrolls sideways (overflow-x-auto) and cuts the last column at the pane edge with nothing showing more is there; main does this too, and every option now having a column (Tana views line) makes it more often
-- **impact** — at 1280px the Blocked and No Status columns of a four-option board are cut off and look missing
-- **closes** — one edge-fade mechanism for horizontal scrollers in the kit, read by the board (and lanes and cards)
-- **node** — `01M7DAJSTW3PP7375FECAA2DHS`
-
 ### GAP: a call's actor and approval are declared by the caller, not proven
 
 - **expected** — each surface authenticates its caller, so actor and approved are facts kb checks, and policies are a boundary rather than a guard against accidents
@@ -176,6 +160,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A drawn line or arrow cannot be reshaped by hand, only redrawn or rescaled as a box.
 - **closes** — Point handles for path items in both projections, through one shared point-drag gesture.
 - **node** — `01M53H6Z5WQACGQ8ZR14HX5EDT`
+
+### GAP: a canvas tab saves its whole document over a concurrent document edit
+
+- **expected** — ext.canvas.tx.apply carries the document it was edited from, and a save whose stored document moved since is refused or merged, as node.update refuses a stale expectedText.
+- **current** — tx.apply writes the document its caller sends; only its prop target is now planned over the graph each attempt reads.
+- **impact** — Two tabs (or a tab and an agent verb) editing one canvas: the later whole-document save drops the other edit.
+- **closes** — An expected-document precondition on tx.apply (a hash of the doc read), checked inside the commit plan, with the canvas tab re-reading on conflict.
+- **node** — `01M7YE61HDBDA0TRFCYBPRYE4W`
 
 ### GAP: a chart's page runs its query twice, once for the body and once for the figure
 
@@ -272,14 +264,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — 2D and 3D disagree on what a flipped card looks like
 - **closes** — drawing a back face in 2D
 - **node** — `01M41W56GDH3M0TNGX4BDV4STR`
-
-### GAP: a foreign commit reloads the whole graph (reloadEffect rebuilds the index)
-
-- **expected** — A foreign commit whose records the tail holds applies to the index incrementally (applyTx), in reloadEffect, not beside it.
-- **current** — ingestExternalWrite -> reloadEffect -> loadEffect -> index.rebuild is O(N) per foreign commit (docs/research/2026-10-31-online-stores.md §4.3).
-- **impact** — Cheap for a CLI write; a peer editing at keystroke rate on a remote store costs one rebuild per commit, painful at 50k nodes.
-- **closes** — Incremental foreign ingest in reloadEffect when the session is current at the tail's previous rev.
-- **node** — `01M6950WQN8VDWJMSH8EZ8X3DR`
 
 ### GAP: a former Google calendar older than the kept history, or no longer trusted, keeps kb's series
 
@@ -378,22 +362,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — packageShards packs mutants by line range instead of by file, emitting file:start-end entries in a shard's mutate.
 - **node** — `01M558MRWHR92991GYFRC5WWXY`
 
-### GAP: a node command that does not answer its writes makes them apart from its undo step
-
-- **expected** — Every node command's run answers the writes it makes, through the page's write path (PageWrites), so a / pick or a palette run waits for them and they are one undo step (PageWrites.together).
-- **current** — NodeCommandListing.run and nodeAction answer the command's promise, but several command bodies fire their write without answering it (void writes.defineTag in Make my tag, void writes.updateProp in Make query, the makeSupertag and Add chart async blocks, void setFrameView, void invokeAction in command-forms), and Add chart's view.propose goes to invoke directly, not through PageWrites, so it has no undo step at all.
-- **impact** — Such a command's write is not part of the / pick's undo step (or the palette run's): it is its own step, or, for Add chart, no step. The typed trigger never comes back (the / pick consumes it as typing), but undo takes the command back in more than one step or not at all.
-- **closes** — Each listed body returns its write instead of voiding it (commands.tsx is WP-5's file, chart-ui and command-forms are shared), and view.propose becomes a planned write in mutations (WP-4's), so its view node is made and undone as any page write.
-- **node** — `01M7XSNFCYHHYD7VKTZXPYG60B`
-
-### GAP: a node drawn at several places shares one open or closed choice
-
-- **expected** — Each place a node is drawn (a row instance: under its parent, as a query result, under a reference) keeps its own open or closed choice, so opening or closing one row's subtree changes only the rows drawn under it
-- **current** — The outline's expansion is one choice per node id (toggleCollapse, withExpansion, openRows): the subtree keys open or close each node they reach, so the same node drawn elsewhere (in the tree, under another query, in another pane) opens or closes with it
-- **impact** — ⌘⌥↓ on a query, a reference or a row whose descendants also appear elsewhere opens those rows everywhere, and ⌘⌥↑ closes them everywhere; Expand all and Collapse all do the same over the scope
-- **closes** — Expansion keyed by row instance where a row's choice can differ from its node's, as GAP: a reference opened in place shows its target as the target's own open or closed choice asks for references opened in place; the subtree keys then write the instances subtreeOf found
-- **node** — `01M7XP1SNNVNYZKH5GCSW3RH6C`
-
 ### GAP: a number knob's range is the declaration's, not data on its field node
 
 - **expected** — A knob field carries its own range and step as data, so every surface that writes it (kb set, node.update, the field editor) refuses a value outside them, as it refuses a value of the wrong type.
@@ -466,21 +434,13 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — An instance key for a value slot so the target's children can render under it, then the bullet toggles expansion like a row bullet.
 - **node** — `01M3KA38YPZZFKQRZM9ZP6C99F`
 
-### GAP: a reference opened in place shows its target as the target's own open or closed choice
+### GAP: a reference opened in place shows its target closed when the target is collapsed by default
 
 - **expected** — Opening a reference in place shows its target open one level by default, as screen state of that open reference alone, never stored
-- **current** — The outline's expansion is one choice per node (toggleCollapse, withExpansion): the opened reference draws its target open or closed as every row of that node is, so a target closed in the tree opens closed (visible-instances.ts)
-- **impact** — To read or edit what the target holds, the reader opens it once more, and that opens it in the tree too, and is saved as the node's choice
-- **closes** — Expansion keyed by row instance where a row's choice can differ from its node's (projected rows first), so an opened reference can default open without touching the node's choice
+- **current** — Expansion is a choice per place, and an opened reference draws its target at its own place (ref:row:<row>/<target>), whose default is the target's own: a target with children or fields opens closed (visible-instances.ts, isRowOpen)
+- **impact** — To read or edit what the target holds, the reader opens it once more at that place; the tree and storage are untouched, but the second gesture remains
+- **closes** — A default per place: a reference opened in place defaults its target's row open (isRowOpen reads the place's default before the node's), with the undoable rule judging a choice against that default
 - **node** — `01M7D8AP4A4W6S2X5T1DSE9D77`
-
-### GAP: a reference's target cannot be changed from the UI
-
-- **expected** — A reference row can be repointed from the UI.
-- **current** — Every field row a reference draws is its target's, so its own props (sys.f.ref.target) are not shown; Turn into reference... is withheld from a row that already is one. Repointing is CLI/MCP node.update only.
-- **impact** — A wrongly picked reference must be deleted and recreated in the UI.
-- **closes** — A "Change reference target..." step in the node's ⌘K menu using the shared picker.
-- **node** — `01M3KA3AZTJVQNADZ12SDPE9X1`
 
 ### GAP: a registry composed blind to the store's switches replaces the session's
 
@@ -489,14 +449,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A process that composes a switch-blind registry mid-session loses its repository families' contributions: their actions and procedures answer not_found.
 - **closes** — registryFor requires the store's switches (no default), or the runtime layer resolves FamilyKernels per call; a contract property that composing the manifest mid-session keeps every action and procedure reachable.
 - **node** — `01M7C87K56AJY519YZ51NPF06F`
-
-### GAP: A rejected optimistic mention Link can leave a stale undo step
-
-- **expected** — An outline undo step can reverse only a write the server accepted, using the text that write actually replaced.
-- **current** — The page records an undo step when a conditional Link succeeds in its replica. An intervening edit can make the server refuse the same write after the undo step is already recorded.
-- **impact** — Undoing the rejected Link can send a replacement with the earlier source text and overwrite the concurrent edit.
-- **closes** — Make history follow the shared write settlement and cover a Link rejected by the server after local success. Prove that undo preserves the intervening text.
-- **node** — `01M7XRPAHQ1ZB2CHNAXEN4B0KM`
 
 ### GAP: a remote root keeps no persisted mirror, so it cannot start or read offline
 
@@ -522,14 +474,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Signed or stored connect state (docs/research/2026-11-11-cli-host-modes.md step 9).
 - **rule** — Hosts are accelerators: the store is the truth
 - **node** — `01M75MA0QYHNYGSNMJAGTZKZQ1`
-
-### GAP: a row a pick redraws starts its text history over, so ⌘Z in it cannot reach the pick
-
-- **expected** — ⌘Z in a row takes back the last thing done in it, a pick included, wherever the pick put the row: the row's history follows it when a write draws it at another instance (an /indent), or the row's ⌘Z steps the page's history once its own is spent.
-- **current** — The row's history lives in its text host (use-text-history.ts). A / pick that indents or outdents the row redraws it under a new instance key, so a new text host starts with an empty history; slashTrigger re-edits it there (keepEditing) but ⌘Z in it reaches only the typing since. Escape, then ⌘Z (the page's undo) takes the pick back in one step.
-- **impact** — After /indent or /outdent, ⌘Z while still typing in the row does not undo the indent; the person has to leave the row first. Tab-indent while editing has the same limit today.
-- **closes** — The page editor (outline.store.ts, WP-4's file in the 2026-11-20 parity work) keeps the active row's text history across a re-key of its instance, or the text host falls through to PageWrites.undo/redo when its history is empty, with the editor following the row to its new instance.
-- **node** — `01M7X9MKS1DM5JEAR2DRWS7KT6`
 
 ### GAP: a sandboxed graph.query is bounded in size, not in time
 
@@ -587,15 +531,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A consumer wanting one tool's notes parses strings; a misspelt tool name is a different tool and nothing notices
 - **closes** — Tools as nodes, and a how-to as a child node (or a field value) that refers to its tool; the starter writes it so and the art direction groups by it
 - **node** — `01M68CQN0E7CMMEATHT0RDYV10`
-
-### GAP: a tag's template fields cannot be reordered
-
-- **expected** — The fields a tag templates are an ordered list a person reorders where they add and remove them.
-- **current** — tag-fields-config.tsx adds and removes a template field; the order is the order they were added.
-- **impact** — Field rows on every tagged node show in an order nobody chose; fixing it needs node.update on the tag from the CLI.
-- **closes** — Reorder in tag-fields-config (drag or move up/down), writing the template's order.
-- **rule** — Editor first (the editor is the main human editing surface)
-- **node** — `01M5CRYP40YAHA2ZQFB850ARVZ`
 
 ### GAP: a tag's view pickers offer view types that cannot play their part
 
@@ -694,6 +629,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A field shown with no value is a first-class state the slot draws (an opened-but-empty field), so Add field writes no placeholder value; or the store accepts an empty ref as no value.
 - **node** — `01M7WVNN93MWQ3FYK5J86P6ASD`
 
+### GAP: Add field writes 0 to make a number field's row appear
+
+- **expected** — Adding a field shows its row with an empty slot, for every type, and writes no value the person did not give.
+- **current** — A field row appears only while the node holds a value for it, so Add field writes the type's initial value (FIELD_TYPE_SPEC.initial). For number that is 0, since an empty string is not a value a number field stores; the slot then reads 0 rather than empty.
+- **impact** — A number field added and left alone holds a 0 the person never entered, and it counts in queries, sums and filters.
+- **closes** — A field row that can exist without a value (a declared-but-empty field on the node, as data), so Add field writes nothing; then drop FieldTypeSpec.initial.
+- **node** — `01M7YW0HJFHQ08HTGBBW1EWYER`
+
 ### GAP: admission bundles an extension's page half but never imports or decodes it
 
 - **expected** — kb ext validate refuses a repository extension whose page half would fail in the page: it imports the bundled page half in a page-like environment and decodes its page surface as the page does, so a page half that loads but contributes wrongly fails the gate.
@@ -726,14 +669,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — browser agents cannot use approval-required actions
 - **closes** — an in-page approval prompt shared with the sidebar agent (roadmap step 5)
 - **node** — `01M3S5DDJ7MP2VZ4WJB007RRR5`
-
-### GAP: an empty number slot draws its editor starter, 0, as if it were a value
-
-- **expected** — an empty number field reads as empty (the italic "Empty" a status or text slot shows), and the editor opens on a blank input
-- **current** — the number kind starts its editor from {t:num, v:0} (FIELD_TYPE_SPEC in ui-sdk lib/field-type.ts) and its isBlank reads that as filled, so every empty number slot shows 0; the Add field palette step also writes that 0 to make the row appear
-- **impact** — a card or row reads Points 0 where nothing is stored; a reviewer took a new board card for one with a value set
-- **closes** — split the starter an editor shows from the value Add field writes: the number slot draws blank when no value is stored, and the Add field step writes what makes an empty row appear without a number
-- **node** — `01M7DAJCF878DEPVQHE6R7FJT9`
 
 ### GAP: an event line draws its calendar dot among its words, so the calendar name starts after the text column
 
@@ -779,7 +714,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: an older kb taking a crashed holder's lock can collide with a writer taking it in place
 
 - **expected** — Two processes never hold a store's write lock at once, an older kb's included: once no kb from before the kernel lock can write a store, the lock is flock(2) alone and nothing judges a pid stale.
-- **current** — During an update an older kb steals a lock whose pid is dead. A writer holding the flock writes its pid over that same dead pid in place. If the older kb read the dead pid just before the writer wrote, it removes or renames the file after the writer checked it, and both enter.
+- **current** — During an update an older kb steals a lock whose pid is dead. A writer holding the flock writes its pid over that same dead pid in place. If the older kb read the dead pid just before the writer wrote, it removes or renames the file after the writer checked it, and both enter. The pid-file kbs that do this are v0.3.0 (the last stable release) and nightlies before 2026-11-17. Their steal reads and then unlinks by name, blind, so nothing a current writer does can close the race while one of them may still run. Owner decision 2026-11-21: stay open until a stable release with the flock lock ships, then run todo 01M7K50TFYFRWRJBTQ8V76489P.
 - **impact** — After a crash of a lock holder while an older kb is still running, a narrow race can let one older and one new writer commit at once, and one write is lost. Two older writers have the same race between themselves.
 - **closes** — Removing the older-writer reading one release after the kernel lock ships (todo 01M7K50TFYFRWRJBTQ8V76489P), once no older kb can still write a store.
 - **node** — `01M7K7RWGW47P9WY09SZTAEP4B`
@@ -808,6 +743,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — two hosts to keep in step: quality, visibility and no-restart fixes land twice
 - **closes** — move the shared GPU backdrop host out of backdrops-ui into a kit package (beside @kb/scene-gpu) with its scene registry passed in, then port arena-scene.ts onto mountBackdrop and delete Arena's wrapper; the port drops Arena's write() and its Pod re-fire in favour of reactions.impulse / reactions.stir read in frame(), and Arena passes backdrop-continuity.contract.test.tsx
 - **node** — `01M5SYY397F5NPN3CHWGCSPQSY`
+
+### GAP: Attribute the integration's page-eager growth
+
+- **expected** — The production bundle increase is attributed to changes in outline fields, expansion, and graph and write code. Controls used for tag templates load at first use if measurement supports it.
+- **current** — harness/budgets/changes/2026-11-21b-integration-reconcile.json adds 15,333 bytes based on the combined total. The tag schema section imports TagFieldsConfig statically.
+- **impact** — The page pays the combined eager cost on every visit, and the total alone does not identify the code responsible for the increase.
+- **closes** — Compare production bundle inputs before and after integration and account for the increase by source area. Measure an on-demand tag-template controls chunk and verify that tag editing still works.
+- **node** — `01M7Z86SRDCZ6A3B7E7MKNEAM5`
+
+### GAP: Bound the Git source contract fixture commands in the parallel core suite
+
+- **expected** — The Git source contract fixture setup and teardown finish or fail with the stalled command identified when run by the parallel core suite.
+- **current** — A synchronous fixture Git spawn can stall a Bun worker in CI before it emits a result. Validate runs the file in a separate step with a two-minute deadline.
+- **impact** — CI can fail at the step deadline without identifying the stalled Git command. The parallel core run previously waited until the 30-minute job limit.
+- **closes** — Reproduce the synchronous spawn stall in CI, make fixture commands finish or fail within their own deadlines, and restore the file to the parallel core suite once verified.
+- **node** — `01M7ZBVT9HEJAB68AG8QBTBCQG`
 
 ### GAP: browser tests duplicate polling loops with independent deadlines
 
@@ -856,14 +807,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — moving the item leaves the arrow behind; a half-made diagram does not hold together
 - **closes** — an edge end that may be a free point (or a path item end bound to an item), written through connectItems and drawn by edgeRoute in both projections
 - **node** — `01M5QP271PQ15E7WZ36KEN055N`
-
-### GAP: Canvas commands prepare whole-node writes before the retry planner
-
-- **expected** — A Canvas edit or import derives its document, parent links and related node writes from the graph each commit attempt reads.
-- **current** — Several Canvas verbs and the tldraw import pass precomputed node upserts to GraphWrites.commit; another attempt can reuse the same snapshots. This path predates the session retry change.
-- **impact** — A concurrent edit can be replaced by an older canvas document or parent link.
-- **closes** — Move Canvas document edits, related writes and import planning into the GraphWrites callback and prove concurrent edits survive on both store backends.
-- **node** — `01M7XES1FFV2N8AEZREJN7CQG7`
 
 ### GAP: canvas context menu opens in 2D only; a right-click in 3D opens nothing
 
@@ -921,14 +864,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Body tones in canvas-style.ts, both painters resolving them, and a look-contract assertion.
 - **node** — `01M540YKDP4WQPSJR41GH0Q90V`
 
-### GAP: caretRangeFromPoint needs a CaretDocument cast because lib.dom marks it deprecated
-
-- **expected** — offsetFromPoint calls document.caretRangeFromPoint bound, with no type assertion, and typescript/no-deprecated does not fire on the DOM method.
-- **current** — lib.dom marks caretRangeFromPoint @deprecated. A direct Document call is typescript/no-deprecated (ratchet rise). The one remaining assertion is document as unknown as CaretDocument so the probe stays off that type and the method is called bound.
-- **impact** — ui src keeps one typescript/no-unsafe-type-assertion that a check cannot replace until the DOM lib drops the deprecation or the ratchet promotes no-deprecated to error with a pinpoint disable.
-- **closes** — lib.dom removes @deprecated from caretRangeFromPoint, or caretPositionFromPoint is the only probe and Chrome implements it everywhere this app runs.
-- **node** — `01M1P2R0XMSK1MRVQ8P2JH5V0Z`
-
 ### GAP: charts have no categorical palette
 
 - **expected** — each design system carries a categorical chart palette, checked for colour-blind separation and contrast in light and dark
@@ -954,14 +889,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Separate design question recorded in briefs/p1-persistence.md section 4: protocol, discovery, and fallback when no server is running.
 - **node** — `01M1M08WPQTB514E7JERKYEDWZ`
 
-### GAP: CLI properties and tree input lack relative-date context
-
-- **expected** — Every surface parses the same date phrases the UI's DateEditor accepts.
-- **current** — @kb/model's parseTypedValue accepts today as the reference date for relative phrases. The CLI property mapper and the shared node.addTree parser used by CLI and MCP call it without today.
-- **impact** — Relative phrases such as today and next fri work in the date editor but fail on these input paths.
-- **closes** — Supply the reference date to the shared parser from CLI property parsing and the node.addTree path used by CLI and MCP.
-- **node** — `01M3KA3AEEFG0E200V4D63G5SN`
-
 ### GAP: code-image identity parked for the single-owner shortcut model
 
 - **expected** — Revisit loaded-code image identity only if kb needs stronger authentication than its single-owner local trust/approval model.
@@ -986,14 +913,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — E19 of the extension SDK plan, after E13, at a 3D step boundary
 - **node** — `01M43AT0V9HHVS7ZAEPWXEGE7F`
 
-### GAP: datalog and the query builder's tag filter do not reach a subtype's nodes
-
-- **expected** — A node of a tag that extends another is that tag's node in datalog too: a derived :node/is datom holds the closure of sys.f.type over sys.f.extends, the query builder's has-tag lowers to it and the page's condition evaluator reads kindsOf, while :f/sys.f.type stays tagged-exactly.
-- **current** — kindsOf and isA read the chain in @kb/model, and the template, views, ref targets and ontology members follow it, but datalog has only :f/sys.f.type, so a has-tag filter, a saved query or a tag page's instance list names only nodes tagged exactly.
-- **impact** — A person's #meeting that extends #event shows on the calendar page, which reads the page's graph through isA, but the routines engine reads its nodes with a datalog query on sys.f.type and does not sync it; a query or a view filter for #event does not name it either.
-- **closes** — Add :node/is to CORE_DERIVED with a carrier that reads the chain and re-derives a tag's instances when its sys.f.extends changes; lower has-tag to it, evaluate it with isA, and stop canonicalizing a sys.f.type is-condition into has-tag. The routines engine's read (routines-host graph.ts) then asks :node/is and brings the tags its readers walk.
-- **node** — `01M738XHYKHDFFCN8DK595Z15T`
-
 ### GAP: Day stepping has no default shortcut
 
 - **expected** — Previous day and Next day have distinct default shortcuts that reach kb in each supported shell.
@@ -1002,14 +921,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Approve a default pair that is free in the page and outline keymaps and reaches kb in macOS Chrome and the desktop shell.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M7X187JZA6QW3CFB0JHZZJPV`
-
-### GAP: defining and applying a tag can leave an orphan definition
-
-- **expected** — Defining and applying a tag in one editor gesture commits as one transaction.
-- **current** — The palette and # text picker send tag.define ahead of the node update, as on main at be415b51.
-- **impact** — If tagging the target is refused, the newly defined tag remains in the graph.
-- **closes** — Plan the tag definition and the node updates in one batch using the shared tag definition planner.
-- **node** — `01M7XCENSKX32JHABYKAD8AD6N`
 
 ### GAP: Durable browser invocation replay
 
@@ -1035,31 +946,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — large expanded outlines are slow to open and the first scroll can hitch on slow machines
 - **closes** — windowing for the outline list that keeps caret, focus, selection, pickers and jump-to-node working
 - **node** — `01M41062Z83M38GYHC276XJ8RF`
-
-### GAP: every kb ui option parser loads with each one-shot command
-
-- **expected** — A one-shot command eagerly loads only its own command's code; a subcommand's options and their parsers (kb ui's --public-origin, --alias-origin, --embed-origin, --identity-header) are registered when that subcommand is the one invoked.
-- **current** — buildProgram in packages/app/cli/src/cli.ts registers every subcommand and its options up front, so their parsers in arguments.ts sit in the eager CLI graph; kb ui --alias-origin (#248) added 350 bytes there, raising harness/cli-closure-budgets.json.
-- **impact** — Each new subcommand option grows every one-shot command's eager graph by its parser and help text; small per option, but the budget can only be raised, never held, while options keep landing.
-- **closes** — Subcommands register their options lazily (only the invoked command's definition is imported, e.g. one module per command loaded by name), and the cli-closure byte budget is lowered to the new measurement.
-- **rule** — Hosts are accelerators: the store is the truth
-- **node** — `01M7HDP52RY5R2WJPXMMD30R8C`
-
-### GAP: every one-shot command rebuilds the whole index, derived sets and manifest
-
-- **expected** — A command pays for what it reads: manifest JSON Schemas are built for kb.manifest and MCP tools/list only, the DataScript index on first datalog use, and derived sets on demand, or from a snapshot keyed by the store fingerprint.
-- **current** — The DataScript db is built on first datalog use (DatascriptIndex), the node table reads every node's references on its first change (NodeTable), and the action table converts schemas to JSON Schema only when a call lists them (kb.manifest, MCP tools/list), so kb get does none of these. Opening a root still reads the transaction tail's head and commit mark (StoreTxLog decides its replay floor at open), and module init (zod schemas, the bundled declarations and seed fold) is step 8.
-- **impact** — kb get and kb search stay above about 200 ms whatever the module split does, and the cost grows with the store.
-- **closes** — docs/research/2026-11-11-cli-host-modes.md step 7.
-- **node** — `01M75MA4HB3NFDXGGKG0RE45H5`
-
-### GAP: Expand subtree / Expand all do not open results of a query that has not answered yet
-
-- **expected** — Expand subtree and Expand all open the results of every query they open, a query not yet answered included; an async version stays scoped to its page and awaits only the queries inside the requested subtree
-- **current** — The subtree walk (rowsDrawnOpen in outline.store.ts) reads the answers the page has, synchronously: a query it opens that has not answered yet draws no results, so they stay closed. An async version (580ea33e, reverted) settled the page's answers first, and Sol's re-check of 62c65a19 found two faults: Expand all applied its choices after the queries settled, so navigating meanwhile landed them on another page; and the settled walk waited on queries in branches outside the requested subtree
-- **impact** — ⌘⌥↓ on a closed query that no row has drawn opens the query but not its results or the rows under them; pressing it again once the results show opens them
-- **closes** — An async subtree step that captures its page and host, drops its result if the page has moved by the time it settles, and settles only the queries the requested subtree opens
-- **node** — `01M7XSM8DNSX1HCZW2217PX5M1`
 
 ### GAP: ext-canvas keeps its own copy of requireNode
 
@@ -1119,14 +1005,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — 3D workspace step 3 (items get depth), or drawn outlines on flat items
 - **node** — `01M41AB7YM5801ZJNM1Q647SYD`
 
-### GAP: Flushing queued draft typing before conversion can overwrite a concurrent edit
-
-- **expected** — A queued text write preceding a conversion preserves concurrent edits to the same draft.
-- **current** — The ordered push lane sends pending typing as an unconditional node update before it submits the guarded conversion batch.
-- **impact** — The typing write can overwrite a concurrent draft edit before the conversion precondition reads the line.
-- **closes** — Give the coalesced draft text write a concurrency precondition and keep the conversion ordered after it.
-- **node** — `01M7XMMFAMVHBRBHC9X8P68FJ9`
-
 ### GAP: four core files have consumers in only one extension family
 
 - **expected** — Every file in SINGLE_FAMILY_LAYERS serves core or more than one extension family.
@@ -1175,14 +1053,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Re-introduce policies: contribute the guards again from governancePlugin, seed the defaults, and derive who calls from the wire inside the family, once the actor model is settled. Write the enforcement tests again with them: who is asked or refused per actor, force as the owner's, configuration and policy writes needing a person, and the surface contract's properties that an approval and a policy decide the same on every surface (git history before this gap's cleanup holds the old ones).
 - **node** — `01M5E2DAVRH5CWKM27BVDYW19T`
 
-### GAP: GraphPage carries 35 branches of renderer and perspective selection
-
-- **expected** — GraphPage picks a renderer and hands it a resolved lens; renderer capability differences live in graph-capabilities.ts, not in the page.
-- **current** — The page branches on renderer, perspective presence, query error, selection and capability flags in one component body.
-- **impact** — Adding a renderer means editing the page, which is exactly the coupling capabilitiesFor was introduced to remove.
-- **closes** — Move the remaining renderer-specific branches behind RendererCapabilities and render one <GraphCanvasFrame> for every renderer.
-- **node** — `01M1MGCFTMWY5EYHEWP9QVH8Z9`
-
 ### GAP: helpers two families need are copied between them
 
 - **expected** — a helper that two families need has one home in the layer they share
@@ -1190,14 +1060,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a fix to one copy silently misses the other
 - **closes** — E16 of the extension SDK plan
 - **node** — `01M43ASYY0EC1E4TYFXYXHZEME`
-
-### GAP: hierarchicalLayout mixes forest construction with placement in 21 branches
-
-- **expected** — Forest construction (from edges) and placement (from a forest) are separate pure functions, as they already are for the tree renderer.
-- **current** — hierarchicalLayout derives roots, walks children and assigns coordinates in one pass with cycle guards inline.
-- **impact** — The cycle guard - the subtle part - is not separately testable, and the same forest logic exists again in tree-graph.
-- **closes** — Reuse the forest builder tree-graph already has and leave this function as placement only.
-- **node** — `01M1MGCR50QEXX7R4JDJ51HQFY`
 
 ### GAP: icon-only buttons are hand-rolled outside IconButton
 
@@ -1240,14 +1102,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The locations family gains an origin (a URL-typed field beside sys.f.location.path, status derived by probing it), and the desktop lists and opens remotes through location.list and location.open.
 - **node** — `01M7QTTRFKDF9B7F4M29Z84XJQ`
 
-### GAP: kb desktop proves its kb runs, not that it is new enough
-
-- **expected** — Resolution passes over a kb that runs but lacks what the desktop calls (capture.submit, capture.pair), the same way it passes over one that cannot run, and says which version it needs.
-- **current** — processProbe in packages/app/desktop/src/core/kb-command.ts asks only kb --version to answer; an older installed kb wins in a release build and quick capture to its stores is refused with "update kb".
-- **impact** — On a Mac whose installed kb is an older nightly, a release build runs it ahead of a newer checkout kb, so capture to local stores fails until the installed kb is updated or "kb" is set.
-- **closes** — kb --version (or a capabilities action) reports the contract versions it serves, and the probe requires the capture contract the desktop speaks.
-- **node** — `01M7WV5DBWNMEWS2QG6M4VP3QY`
-
 ### GAP: kb desktop reads a remote's capture contract once, at pairing
 
 - **expected** — The desktop learns which capture contracts a paired remote accepts from its kb.manifest when it checks the store, as the Android app does before it delivers (Deliverer.checkContract), so the store list and a capture see the host's current contract.
@@ -1256,28 +1110,12 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The store list and the capture path ask the remote's kb.manifest (with the device credential) for captureContract, update accepts, and show waiting or paused states as Android does.
 - **node** — `01M7WZGP3B84JK08R43Y642C7N`
 
-### GAP: kb desktop resolves its kb once, at launch
-
-- **expected** — The desktop notices when the kb it runs stops answering (or a better one appears) and resolves again, without a restart.
-- **current** — packages/app/desktop/src/shell/electrobun/index.ts probes the candidates once at launch and keeps the choice for the life of the process.
-- **impact** — A kb installed, rebuilt or removed while the app runs is not seen until the person quits and reopens kb; the store list then says the kb could not run, and the advice says to reopen.
-- **closes** — KbCli resolves lazily and re-resolves after a run that failed without a receipt, behind the same KbRunner port.
-- **node** — `01M7WV5D06HSMA1JFBBRGE0B13`
-
-### GAP: kb desktop stamps build-machine paths into the app
-
-- **expected** — A built app carries no path of the machine or checkout it was built on; a kb for it is bundled or installed.
-- **current** — electrobun.config.ts stamps KB_DESKTOP_CHECKOUT_KB (the checkout bin/kb) and KB_DESKTOP_BUILD_BUN (the Bun the build ran with, often a Nix store path) into the bundle.
-- **impact** — The app works on the machine it was built on only while that checkout and that Bun exist: a removed worktree or a Nix garbage collection turns both candidates into ones the probe passes over.
-- **closes** — build:mac bundles a kb release (bin/release-bundle) by default, and the checkout candidate is kept for dev builds only.
-- **node** — `01M7WV5DQDNMQMR9QYJN839TNJ`
-
 ### GAP: kb desktop typechecks its Electrobun adapter against a hand-kept declaration
 
 - **expected** — The shell adapter typechecks against Electrobun's own declarations, so an Electrobun upgrade that changes an API the adapter calls goes red in tsc.
 - **current** — Electrobun 1.18 ships electrobun/bun as TypeScript source that does not compile under kb's strictness, so packages/app/desktop/tsconfig.json maps it (paths) to src/shell/electrobun/api.d.ts, a hand-written slice of the API.
 - **impact** — An Electrobun upgrade can change a signature the slice still declares; tsc stays green and the app fails at run time.
-- **closes** — Electrobun publishes declarations (or its 2.x devkit's are usable from a Bun workspace), or the slice is generated from node_modules/electrobun at install and checked, and the paths delta in SANCTIONED_TSCONFIG_DELTAS goes.
+- **closes** — Tried 2026-11-21 (long/desktop-resolve): tsc declaration emit over node_modules/electrobun/dist/api/bun fails with TS4094 (private member of an exported anonymous class) and emits nothing, so a generated slice needs another emitter. Compiling the adapter against the source fails on 7 errors inside Electrobun: self is undeclared (5, native.ts) and noImplicitReturns (2, native.ts and Socket.ts); against the real types the adapter has 2 errors of its own (Tray menu items need type: "normal"), which the slice hid. Closing it needs an owner choice: sanction noImplicitReturns:false plus a declaration of Bun's self global for @kb/desktop in place of the paths delta, or move the Electrobun adapter into its own package with those deltas so the core stays strict. Or Electrobun ships declarations.
 - **node** — `01M7QTTS5YXQGNPZ1XRTVNTK4A`
 
 ### GAP: kb get without a host stops above D3's 100 ms target, inside the gate
@@ -1321,14 +1159,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — per-item origins in the gizmo
 - **node** — `01M41W57GRNCMBJG1RYJQTA68P`
 
-### GAP: long field values are drawn in full in the outline
-
-- **expected** — A field value longer than a few lines is clamped in the outline's field row, with an expand control to read it whole, as a row's own text is not (DESIGN-UI → Long text covers node text and pointer labels only).
-- **current** — A field's value renders in full and wraps (FieldsSection → NodeField); nothing clamps or expands a long value.
-- **impact** — Show properties on a #canvas node reveals its document field, so the row draws the whole canvas JSON; any long text field (pasted logs, notes) stretches the outline the same way.
-- **closes** — A clamp-with-expand on the outline's field value view, stated in DESIGN-UI → Long text, with a test on a long value; the canvas document under Show properties then shows a few clamped lines.
-- **node** — `01M6BAEDQ6NQTXPBY5VNTJ5KBN`
-
 ### GAP: Manage capture devices with verified host approval
 
 - **expected** — A person can inspect, pair and revoke their devices from an authenticated host surface. Pairings survive a store move and expired codes are retired.
@@ -1342,7 +1172,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **expected** — A field whose value mirrors something outside the store, which no constraint can check (routines' gcal sync fields: the event id, its status, synced at), is locked to its family: the commit admits its values only from that family's actions, on every surface, and the editor names the action to use instead of an Edit.
 - **current** — sys.f.managedBy declares that a family manages a field, and the page puts an Edit step in front of a person's write, but the commit admits the write from anyone. Days needs no more (its period-key and unique-key guards keep every key valid); routines' sync fields have no constraint that could tell a right event id from a wrong one.
 - **impact** — A person's or an agent's write to a sync field can corrupt the sync's bookkeeping: a wrong gcal event id re-creates or orphans a Google event. A family that wants protection today can only reach for the sys.* node lock, which is the wrong grain.
-- **closes** — The commit reads sys.f.managedBy against the call's owning family (the called action's owner, part of the action contract), for fields that declare the lock; the field row shows the family's action in place of Edit. Only where no constraint can do the job (data-plane freedom: constrain before you lock).
+- **closes** — The commit reads sys.f.managedBy against the call's owning family (the called action's owner, part of the action contract), for fields that declare the lock; the field row shows the family's action in place of Edit. Only where no constraint can do the job (data-plane freedom: constrain before you lock). Owner decision first: how a field declares the lock (a value beside sys.f.managedBy, such as a managed/locked option), and how the commit learns the calling action's family (the owner of CurrentCall's action id).
 - **rule** — Data-plane freedom: constrain before you lock
 - **node** — `01M74AS94FM8GDGF3W10M84P43`
 
@@ -1353,14 +1183,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Namespace width and SDK exposure are not distinguished by the current measurements.
 - **closes** — Add only the namespace-width and SDK-exposure measurement needed by a future approved lane.
 - **node** — `01M787EFNSYXKT510HYDPGVB9A`
-
-### GAP: no [[ completion while editing a text field value
-
-- **expected** — Typing [[ in a text value opens the same node picker node text does.
-- **current** — Text values share the live-markdown input step but not the [[ completion trigger; a typed label still counts as a mention.
-- **impact** — Linking from a text value needs the id by hand.
-- **closes** — Wire the shared picker's [[ trigger into the text value editor (one trigger, both surfaces).
-- **node** — `01M3KA394XS9DCGY9RHS151G6F`
 
 ### GAP: no feature-specific storage outside the store (an allowed-file list under KB_DATA) — debatable; refine later
 
@@ -1411,14 +1233,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — docs/research/2026-11-11-cli-host-modes.md section 5 and step 12.
 - **node** — `01M788TCV1H6XEE8X7TGTPP1Y1`
 
-### GAP: node palette advertises a ⌘S that is bound to nothing
-
-- **expected** — A label names a key that runs the command.
-- **current** — commands.tsx search-all reads Search everything… ⌘S; page-keys.ts leaves ⌘S to the browser, so the key does nothing (F6 in docs/research/2026-11-20-outliner-tana-parity.md).
-- **impact** — A hint that lies teaches people the keyboard is broken.
-- **closes** — Brief 6 in docs/research/2026-11-20-outliner-tana-parity.md: drop the label, or bind ⌘S as the owner decides.
-- **node** — `01M7WW1PRXPC058Y8MPDN8ADM0`
-
 ### GAP: node-config decode warnings reach the browser log, not the UI
 
 - **expected** — A malformed config prop is visible where the config is: a badge or bar beside the graph / view frame, the way resolveOntology's warnings surface through ontology-scope-bar and ontology-page.
@@ -1426,14 +1240,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The policy is honest in code and invisible in the product: the one audience who could fix a malformed prop is the one who cannot see it. Repeat renders also re-log the same warning, because getViewConfig runs per node per render.
 - **closes** — Give the two decoders' reports a home in the ui the way ontology warnings have one — a store field plus a badge — and have the config surfaces read it instead of the log seam. Component + store work: out of g8's zone (docs/kb/waves/2026-09-09/briefs/g8-domain-typing.md).
 - **node** — `01M1XF1NA2RBAX1E6NNX6PMZ6N`
-
-### GAP: node.batch mints missing add ids twice when run optimistically
-
-- **expected** — A node.batch add creates the same node on the page and on the server, including when the caller omits id.
-- **current** — The isomorphic node.batch planner mints an id for each node.add with no id. The page pushes the original nested calls, so the server mints other ids.
-- **impact** — A caller holding an id from the local batch receipt can lose its selection or refer to a node the server never stored.
-- **closes** — Project the ids in the local batch receipt into the corresponding node.add inputs before pushing, using the same action declaration as outline paste. Prove mixed batches keep their call order and explicit ids.
-- **node** — `01M7X43QWW4ZHWA2WFWJ6WP5ZY`
 
 ### GAP: nodes have no icon, so refs cannot show one
 
@@ -1452,14 +1258,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Hosts are accelerators: the store is the truth
 - **node** — `01M75MA1FDWA0W84EBDYGCCEHX`
 
-### GAP: o does not make the row directly below the selected one
-
-- **expected** — o in selection mode makes an empty row directly below the selected row, as selection-actions.ts createAfter says: the first child of an expanded parent, else the next sibling, a top-level row's included (the way Shift+O and Cmd+Shift+Enter now use planInsertSibling).
-- **current** — createEmptyNode (packages/app/ui/src/actions/mutations.ts) appends the new row as the LAST child of an expanded parent (planAddChild), and for a top-level row ignores afterSiblingId and adds a root with no position, so the row lands at the top of the page.
-- **impact** — o on an expanded parent or on a top-level row puts the new row somewhere other than under the row the person pressed it on; they have to find it and move it.
-- **closes** — createEmptyNode places by planInsertSibling (after) for a sibling, a top-level one included, and at position 0 for an expanded parent's first child; selection characterization tests assert the exact place for both.
-- **node** — `01M7X2C58J05ZV2KSWZSHDEWHS`
-
 ### GAP: offline writes to a shared store are unsupported (the tail is a total order the store assigns)
 
 - **expected** — Either offline writes are refused with a stated reason, or revs are assigned at push time so devices can write offline (docs/research/2026-10-31-online-stores.md §2.4).
@@ -1471,7 +1269,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: older JSONL writers cannot recover a pending tail record
 
 - **expected** — Every writer that can open the same JSONL root recognizes the published tail revision after an interrupted archive.
-- **current** — Current JSONL writers recover the write-ahead record under the node lock. An older writer takes the lock but reads only tx.jsonl; it cannot see the journal.
+- **current** — Current JSONL writers recover the write-ahead record under the node lock. An older writer takes the lock but reads only tx.jsonl; it cannot see the journal. Older means any kb from before the journal (ee9d5400, 2026-11-18): the pid-file kbs (v0.3.0, nightlies before 2026-11-17) and the flock nightlies of 2026-11-17 and 18. The flock ones take the same kernel lock and read the same holder record as current main, so no lock format can fence them out without fencing current main too. Owner decision 2026-11-21: stay open until those processes are gone.
 - **impact** — If a current writer publishes a node replacement and dies before archival, or archival fails, an older writer can reuse the published revision. Readers can then require a snapshot, and that revision cannot unambiguously identify a write across versions.
 - **closes** — Upgrade the remaining older processes that write the root to a version that recovers the pending record.
 - **node** — `01M7Q21QJJWSB6JBZPW3EWT6K8`
@@ -1495,9 +1293,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: only view.propose checks a view node's settings against its key
 
 - **expected** — every write of a view node, from any action, is checked by its view key
-- **current** — view.propose runs viewNodeFor; node.add and node.update can write a view node whose settings its view cannot read
+- **current** — view.propose runs viewNodeFor. Generic node writes can store settings the view cannot read. The reverted guard rejected an atomic unset and set of the same field, let a malformed value replace another when both produced the same error text, and keyed each schema error to every field read, so a valid Markdown output path could not be set while its template was missing.
 - **impact** — an agent or script using the generic node actions can store a broken view, which then renders its fallback
-- **closes** — the write check in tx.ts can reach the view keys, injected or with keys held as data
+- **closes** — Key each validation error to the stored fields it depends on. Carry an existing error forward only when those values are unchanged, so one valid setting can be filled in at a time and atomic field replacement works.
 - **node** — `01M40X308W34T0PGSN12S9K2K2`
 
 ### GAP: orbit controls stand in the lab kit, not the scene kit
@@ -1508,30 +1306,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — WP4 folds kit/orbit.ts into the scene kit with the lab kit's view controls, and the graph's flight and the orbit share one camera rig.
 - **node** — `01M3E9QZ3D6EG2W2MERM93ABNA`
 
-### GAP: outline expansion save writes derived drops and filters other tabs' choices by this tab's schema
-
-- **expected** — only the reader's gestures are written as changes, and the keeps filter applies only to the ids this tab changed
-- **current** — changesOf counts drops made by undoable as changes, and saveExpansionChanges applies keeps to every stored id using this tab's schema
-- **impact** — a tab with a stale snapshot can erase another tab's newer choice for a row it sees differently
-- **closes** — derive changes from gestures only; apply keeps to changed ids only
-- **node** — `01M52E01JB6CFKT2M8CAS171EJ`
-
-### GAP: outline expansion storage keeps choices for deleted rows forever
-
-- **expected** — a choice for a row deleted and not restored is pruned from kb-expansion
-- **current** — isUndoable keeps every choice for a row the graph does not hold, so restored rows (undo) keep theirs; nothing ever prunes
-- **impact** — storage grows with every distinct row the reader ever toggled and is re-serialised on each save
-- **closes** — prune on a delete that is not undone, restore the choice on undo
-- **node** — `01M52E0177292798G5908A74GG`
-
-### GAP: outline paste deletes its source and focuses a row before server acceptance
-
-- **expected** — An outline paste keeps an empty source row until the server accepts the tree. Focus moves to the last authoritative row after it reaches the outline.
-- **current** — packages/app/ui/src/actions/mutations.ts returns the optimistic node.addTree ids to addTreeAt in the shared ingest path. addTreeAt can delete the source row and focus an id the server later replaces or refuses. The receipt can arrive before the authoritative rows reach the page.
-- **impact** — A refused paste can lose its source row. A server that mints replacement ids can leave focus on a speculative row that disappears.
-- **closes** — Use the settled node.addTree receipt to decide whether to remove a source row that is still empty. When the authoritative rows reach the outline, focus its last row. Cover refusal, changed source content, and replacement ids arriving after the receipt. See outline paste ids.
-- **node** — `01M7XMM97Q7Q251R5GGZGACGC9`
-
 ### GAP: outline zoom is one per tab, not one per pane
 
 - **expected** — each pane's outline has its own zoom root, read from the pane's location; the store's rootNodeId is derived from it, not stored beside it
@@ -1539,14 +1313,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — two outline panes cannot be zoomed into different nodes at the root route
 - **closes** — move the zoom into the pane's location
 - **node** — `01M411FP5AGQ4VB5SGJWCJAN66`
-
-### GAP: pasting several lines into a many-valued field is one value
-
-- **expected** — A multi-line paste into a many-valued field becomes one value per line.
-- **current** — The pasted text lands as a single value.
-- **impact** — Bulk entry of options or refs takes one edit per value.
-- **closes** — The value stack's paste handler splits on newlines for many-valued fields and appends one slot per line.
-- **node** — `01M3KA39GQ7Q8HSD0JKB46VCC5`
 
 ### GAP: people cannot pick a canvas item as a link target
 
@@ -1564,23 +1330,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Phase 2 of the note: child #rule clauses for the core-philosophy subset, evidence-stale from a bound digest, and resolved file#test citation, all in @kb/ext-check.
 - **node** — `01M7EY3MTKXJQQT4XGJYF3J88A`
 
-### GAP: phone capture lifecycle has no device or emulator evidence
-
-- **expected** — An instrumented test drives the share receiver on a headless emulator: share text, URL, image and two images from a real intent, kill the process between file copy and publish, restart, go offline and reconnect, and compare what the host received with the original (research 2026-11-18 §5, phase 0 · Phone lifecycle).
-- **current** — JVM unit tests cover payload building, queue durability and delivery decisions against a scripted host. The receiver activity, WorkManager scheduling and Keystore sealing are exercised only by hand on a device.
-- **impact** — A regression in intent parsing, content-URI grants or background delivery is found by the owner on their phone, not by a test.
-- **closes** — An androidTest suite run on an emulator from nix (androidenv system image, KVM), wired into the same gate as the unit tests.
-- **node** — `01M7QTAJ9GSK02FMWNR4XQGFMT`
-
-### GAP: physical shortcut hints must use the shared chord key domain
-
-- **expected** — Shortcut hints agree with actual election for chords that constrain both physical code and character key, deriving representative keys from the shared chord model.
-- **current** — PR #181 at 0e4fcc8c is approved but its canvas pressOf uses an empty key for code-only chords. A replacement of canvas.rest.pan using code Space and key space runs correctly while the old pan hint still advertises Space.
-- **impact** — A stale shortcut hint can advertise a key that runs another binding. Dispatch, reservations and approval remain correct; Sol classifies this as non-blocking P3.
-- **closes** — After #181 lands, derive physical representative key values from the shared chord model and retain the review181-r3-hint-probe regression as coverage.
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M75H9VJT3C118T7DHK87PSFD`
-
 ### GAP: picking and stacking treat rounded corners as square
 
 - **expected** — hitTest and surface snap follow the rounded rect corners that are drawn
@@ -1588,14 +1337,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a click or a drop just outside a drawn corner still lands on the item
 - **closes** — a rounded-rect hit volume in the shape table
 - **node** — `01M41GAZ88QXRS7M85S0JN0ZW1`
-
-### GAP: placing a top-level item inserts into the plan graph's ordered roots array
-
-- **expected** — placing an item at the forest roots costs O(log R) in a plan (an ordered structure with logarithmic insert)
-- **current** — IndexedNodes keeps the roots in one ordered array and splices into it, moving the rest in memory: O(R) per top-level placement
-- **impact** — an outline paste with many top-level items over a store with many roots does R work per item (a memmove; small constant)
-- **closes** — an ordered structure with logarithmic insert for the roots in node-graph.ts, counted in the plan test
-- **node** — `01M52RTGASH2F5PVW7CK2Q50VN`
 
 ### GAP: PropValue still carries the legacy {t:"date"} variant
 
@@ -1613,14 +1354,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — move store-jsonl's write-lock into a shared package as a path-keyed lock, take it around recordBuild's refresh-or-publish and prune, and add a concurrent refresh-vs-prune test
 - **node** — `01M6H0QPT8K2YPY6XV6SM5WRYH`
 
-### GAP: Query conversion must preserve a query saved by another tab
-
-- **expected** — The picker sets the query field only if it is empty when the write commits.
-- **current** — A tag pick can replace a query that another tab saved after the picker opened.
-- **impact** — Picking a tag can discard an existing saved query and its conditions.
-- **closes** — Pass the field-absence condition through the shared undoable PageWrites property update. Record undo history only for the accepted write.
-- **node** — `01M7XM3JDSQN8BK0RMQCD3HZM9`
-
 ### GAP: query-result rows are not keyed per pane
 
 - **expected** — query-result rows carry their outline host in their instance key, like other rows
@@ -1628,14 +1361,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — the same query open in two panes shares row instances; keyboard navigation in query results goes to the main pane
 - **closes** — put the host in the query-row instance key
 - **node** — `01M411FPC839XBJJ873V1VYYYD`
-
-### GAP: rankBetween grows ranks by a digit per tail append within one plan
-
-- **expected** — appending many siblings in one plan keeps rank length bounded (e.g. rank allocation that spreads appended ranks)
-- **current** — rankBetween bumps one digit per tail append; after ~400 appends to one group in a single plan ranks pass 12 characters and placement scans back for a usable neighbour until the commit re-spreads the group
-- **impact** — one outline paste with several hundred siblings under one parent slows per item; the counted plan test stops at 350
-- **closes** — a rank allocation in order.ts with bounded growth for repeated appends, proven by the plan test at thousands of siblings
-- **node** — `01M52RMD1V9BW6E27RYYSH2K5X`
 
 ### GAP: reach is recognised only inside the query subset parseEdn models
 
@@ -1702,14 +1427,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The same @kb/ui-sdk the canvas browser plugin needs, published as an ambient d.ts like kb-ext-sdk, plus the server route, the shims and a loader test. The browser half is built and loaded as its own module, the repository-extension form of the backend-plugin/browser-plugin split canvas takes, not a second entry of the backend module.
 - **node** — `01M39F3N04WNEVCGHX428H8TKN`
 
-### GAP: Reusing a field during line conversion can consume the draft after its value is cleared
-
-- **expected** — The conversion checks at commit time that a picked field whose initialization was skipped still has a value.
-- **current** — The Add field step reads an existing value from the browser replica and skips initialization without a presence precondition.
-- **impact** — If a concurrent writer clears the value before the batch commits, the conversion can consume the draft and leave no field value.
-- **closes** — Check the retained field value in the same transaction that consumes the draft.
-- **node** — `01M7XMMCPA7H2R1P065TVCQNYC`
-
 ### GAP: rich text copy names emphasis and code elements beside the editor's element tree
 
 - **expected** — One table of the element each emphasis and code span is drawn as, in @kb/model beside the inline grammar, which ui-sdk's md-edit element tree and @kb/outline-paste's rich text writer both read.
@@ -1743,14 +1460,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P2 of docs/research/2026-10-31-plugin-sources.md, after the source reader is shared by the two sinks.
 - **node** — `01M68NFBY0FEK3Q2CW2XZ7E6DE`
 
-### GAP: Saved-query file changes invalidate every live answer
-
-- **expected** — A saved-query file change invalidates live answers that read its changed virtual datoms.
-- **current** — SavedQuerySet applies a new virtual set with NodeIndex.withVirtual, which rebuilds the query index and clears every retained answer.
-- **impact** — Adding or editing a saved-query file reruns subscriptions whose data did not change.
-- **closes** — Apply the virtual set delta through the same incremental datom path while preserving stored-node shadowing.
-- **node** — `01M7Q2GKYMMSGJGB5D4X120E3C`
-
 ### GAP: scaling a turned item across its own axes stretches each side instead of shearing
 
 - **expected** — a scale across a turned item's axes shears it, as Blender does
@@ -1758,14 +1467,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — multi-item scales in Global space distort turned items differently from Blender
 - **closes** — shear in the item record
 - **node** — `01M41W5655T0R7791KKJM4WYB2`
-
-### GAP: search matches a node's stored text and title, not the words it reads as
-
-- **expected** — graph.search (kb search, MCP, the page's index search) finds a node by its plain display text too, so 'with Rob' finds 'Check up with Rob', as ⌘K does.
-- **current** — node-table search matches the stored text and nodeTitleOf (domain/query/src/index/node-table.ts), markup and ids included; ⌘K matches the name and the stored text.
-- **impact** — A search for the words a person reads beside a reference misses the node; searching an id or a label still finds it.
-- **closes** — Match plainWords(nodeTitleOf(...)) beside the text in every index implementation, a property in the shared index contract.
-- **node** — `01M7HCW2CRPCQ04SSRNG2FHSNS`
 
 ### GAP: seed removal lookup follows only direct retirement aliases
 
@@ -1783,14 +1484,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A Set field step that, after the field is picked, opens the field's own value editor once (the field row's editor, through the picker step) and writes its value to every target in one asOneWrite
 - **node** — `01M7CY0205F8GSDTNMSSG35S97`
 
-### GAP: Settings cuts a setting's name short
-
-- **expected** — A setting in Settings shows its whole name, wrapping if it must, so a family's settings read as the sentences they are (show child counts, suggest relations).
-- **current** — Settings draws each setting with the generic field row (settings-fold.tsx), whose name column is sized for an outline row's field names and cuts a longer one with an ellipsis: show child cou…, suggest relati….
-- **impact** — A setting cannot be read without hovering or opening it, and a family has to choose short names to fit a column meant for another place.
-- **closes** — The field row takes its name column's width from where it is drawn: the full name in Settings, wrapped if it must; the outline row keeps its column.
-- **node** — `01M7F9300H9FDW5BGCBVQQFTXW`
-
 ### GAP: Settings does not preview a family switch
 
 - **expected** — Settings reads extension.impact before a switch and shows effects and pending reasons.
@@ -1807,14 +1500,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a 3D workspace step that owns the marquee, picking items by their projected boxes
 - **node** — `01M41AB88FH1G58NR7AZE0SZJF`
 
-### GAP: SQLite commits decode the whole graph under the write lock after a foreign write
-
-- **expected** — A commit bases rank and write settlement on the current committed state while keeping the SQLite write lock only for work proportional to the changes involved.
-- **current** — When a foreign write moves the commit mark, SqliteStore loses its kept state. Its next upsert decodes all rows and rebuilds StoreState inside BEGIN IMMEDIATE.
-- **impact** — A large graph stretches the write lock hold time and stalls the local event loop during decoding. The six-writer scratch repro still showed seconds of event-loop delay after lock acquisition became asynchronous.
-- **closes** — Bring kept state forward from the durable transaction tail when it spans the change, with a full read as the fallback for an unexplained fingerprint. Verify lock duration and foreground request latency under concurrent writers.
-- **node** — `01M7X33AK295XK8CNKFGEAAPZD`
-
 ### GAP: stacking on and of tilted solids is approximate
 
 - **expected** — an item stacks on a tilted solid's real surface height, and a tilted item stands on its lowest point
@@ -1826,7 +1511,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: stored queries may match a node by its text
 
 - **expected** — Every stored query, lens and view filter names nodes by id; a label a person picks in the query builder is written as the id it resolves to.
-- **current** — The query IR's label atom compiles to a match on the node's id or its text, so a label the query builder could resolve to an id is stored as text. ext.check.audit's ref-by-text refuses a stored query, lens, saved query or view filter that names a node by its text, so a stored one cannot land.
+- **current** — The query builder already writes a ref for a value a person picks (the field's own editor). The one writer of a label is a view filter: ViewFilterSchema holds only label atoms, the view-settings popover writes typed text there, and a label compiles to a match on a node's id or its text. ext.check.audit's ref-by-text refuses a stored one, so it cannot land in a repository store. Closing it waits on GAP 01M5E7S398F4GM2490R3RZ3ZPP (view filters stored as rows of the one condition model), where a field-is filter can hold a ref and the popover can use the field's own value picker.
 - **impact** — A saved query or a view filter that matched a tag or an option by its text silently returns nothing after a person renames it, which makes cosmetic renames unsafe.
 - **closes** — The builder resolves a label to a ref atom when it names a node.
 - **rule** — Everything references by id
@@ -1835,9 +1520,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: surfaces outside the audit's list still name a node by its stored text
 
 - **expected** — Every surface that names a node where only a string fits reads its plain display text (nameIn / nodeName, DESIGN.md → Display text), and every rich one is fed its title (rowTitle).
-- **current** — Gallery names (tiles, styles, facets, sources, workflows), settings (extension groups, design-system card, stored shortcuts, agent settings), code script labels and the code and chart view titles, the ontology page's title, scope bar and member chips, query builder labels, view settings and tag-fields pickers, the field picker's create row, option gallery cards, a row box's accessible name, a backlink's relation chip, the related list's Link as…, the canvas edge inspector, days' refusal messages, the node menu's Make default view labels and Extend tag's name, the graph perspective picker, location labels, the sync page title and the Owned by chip read node.text; Tagged instances, Nodes with this field and ontology member rows draw the stored text rich, not the title.
+- **current** — The gallery's tiles (a visual's caption in the grid and the detail, look, reference, remix, scene, capture and articulate-parts panels) and the workflow composer's title read node.text; the graph perspective picker names a perspective by decodePerspective's label (its text, trimmed), so it can disagree with the sidebar, which reads nodeName.
 - **impact** — Markup shows where a field, tag, option or system node's name holds it (rare: these are mostly schema names), and a titled node is named by its text there.
-- **closes** — Route each through nameIn or nodeName (rowTitle for the rich ones); the e2e node-display-text walks each surface it gains.
+- **closes** — Route each through nodeName: the gallery's visuals named once where libraryOf builds them, the composer through its frame's lookup, and the perspective's label read with a lookup (or the picker naming by nodeName); the e2e node-display-text walks each surface it gains.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M7HCW0W60M9G3R2QCF8FZJW1`
 
@@ -1857,22 +1542,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Draw colour as a value kind in VALUE_KINDS with a swatch picker opened from the slot.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M3KA39WTMVDWE004ZQA59FQ5`
-
-### GAP: table and board cells are not in the arrow-key path
-
-- **expected** — Arrow keys move through table and board cells' values the way they move through an outline row's values.
-- **current** — Keyboard nav into field values reads outline DOM order only; table and board cells are skipped.
-- **impact** — Tables and boards need the mouse to reach a value.
-- **closes** — Give table/board cells the same slot navigation order the outline uses.
-- **node** — `01M3KA3A8JZN1GH9DXK2SNZ1N1`
-
-### GAP: the # and > pickers list rows that do not match the query and ignore recency
-
-- **expected** — A trigger picker lists what matches the query, ranked by recency and use, the way the value picker does (orderCandidates, picker-recency).
-- **current** — matchCandidate matches an id substring, so every sys.tag.* id matches #ta; outlineTriggers stepTrigger feeds an alphabetical nodesOfKind list to pickerRows, so recency and use counts are never applied (F2, F3 in docs/research/2026-11-20-outliner-tana-parity.md).
-- **impact** — The first thing a Tana user touches is noisy: system tags and fields pad every list, nothing shows a type, and a declared seam (picker-recency) is unused here.
-- **closes** — Brief 2 in docs/research/2026-11-20-outliner-tana-parity.md: label-only match, orderCandidates in addTag and addField candidates, glyph and use-count note.
-- **node** — `01M7WW1MDZPJQRME00HG81PSKS`
 
 ### GAP: the 3D gizmo shows over a locked selection
 
@@ -1906,13 +1575,13 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — the two read actions beside the agent's other actions, each answered by every adapter, with a property over kb ui
 - **node** — `01M5ZF97R8ZK857GS29QGVD3EN`
 
-### GAP: the Android capture app is built and tested by no gate
+### GAP: the Android shell page's JS is typechecked and linted by no gate
 
-- **expected** — apps/android is held by a check like every package: CI (or the pre-commit chain when apps/android is staged) runs gradle testDebugUnitTest and assembleDebug in nix develop .#android, so a change that breaks the receiver goes red.
-- **current** — Nothing runs it. bun run verify, Nx and CI see only the Bun workspace (packages/*/*); the Gradle build and its JVM unit tests run only when a person runs them (apps/android/README.md).
-- **impact** — The phone app can stop building, or its payload drift from the capture contract, with every gate green.
-- **closes** — A CI job (Linux, no macOS runner needed) running the two Gradle tasks in the android dev shell, and a docs/ci.md row for apps/android.
-- **node** — `01M7QTAHN8YW57M1R1XYGRBSZ8`
+- **expected** — apps/android/app/src/main/assets/public/shell.js is held like the workspace's code: typechecked (checkJs, or TypeScript compiled into the assets at build time) and linted by the one oxlint ruleset in bun run verify.
+- **current** — The android job builds the APK and runs the JVM tests, which drive the page's moves through Shell but never parse shell.js; bun run lint names packages, harness and vite.config.ts only, and nothing typechecks the page.
+- **impact** — A typo or an undefined name in the page's JS ships in an APK that builds green; it shows only when a person opens Stores, Queue or Capture on a phone.
+- **closes** — Add the page to the lint and typecheck scope (a tsconfig with checkJs over assets/public, or a TS source compiled by the Gradle build), and drop this marker from apps/android/README.md.
+- **node** — `01M7YBRZ6F5DVBKD0EXA16XG73`
 
 ### GAP: the backdrop bar's mechanical checks are read by a reviewer, not run
 
@@ -1955,14 +1624,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A render-tests spec that loads the benchmark document and asserts the frame-time histogram, on hardware the CI lane can hold steady
 - **node** — `01M5PMJEGCJPMVNCKBDYZ0V57G`
 
-### GAP: the CLI's eager graph loads every family's painters and the host's engines
-
-- **expected** — From the CLI entry, painters and engines load at first use (chart-vega's Vega, gallery-net, canvas' tldraw reader, the QuickJS engine, store-sqlite when selected, source-git at first fetch), and the @kb/runtime barrel exports the mode-neutral core only.
-- **current** — cli.ts imports @kb/runtime, whose barrel statically reaches bundled.ts (BUNDLED_EXTENSIONS builds every family's server plugin at module load), layers.ts (source-git) and store-selection.ts (store-sqlite). Chart's Vega, gallery's starter pictures, canvas' tldraw reader and QuickJS load on first use. store-sqlite (8.5 KB) and source-git (8.6 KB) stay eager: each is plain code with no dependency of its own, and a lazy store-sqlite first needs its file list (which presence detection reads on every open) to live outside its adapter, because Bun keeps a package eager when it is imported both statically and dynamically. The runtime barrel still exports host-only modules (step 6). The command path's static closure is 2.7 MB and 720 modules.
-- **impact** — About 135-145 ms of module init on every command, plus their parse once the build is split; kb get cannot approach 100 ms.
-- **closes** — docs/research/2026-11-11-cli-host-modes.md steps 4-6, each removing its breach row from the CLI lazy fence.
-- **node** — `01M75MA300NQJS5M3V6GEWQS8E`
-
 ### GAP: the command palette draws every command the same way, so a theme cannot draw functions as cards
 
 - **expected** — the shown design system may present palette commands in its own form (Transistor: a function card with name(), a MEM cost and slots; ART-DIRECTION.md → Transistor)
@@ -1996,21 +1657,21 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Phase 3 of the note: the three properties in storeContract over JSONL and SQLite, each with a falsifying case.
 - **node** — `01M7EY3NJJZMRTXJEM0TMKJCH4`
 
-### GAP: the date editor's Enter and Tab skip the value keymap
+### GAP: the emulator capture smoke runs in no gate
 
-- **expected** — Enter at the end of a date value opens the next value and Tab moves on, as in every other value kind.
-- **current** — DateEditor's Enter commits without opening a next value; its Tab does not move to the next slot.
-- **impact** — Dates are the one value kind that breaks the slot keyboard grammar.
-- **closes** — DateEditor delegates Enter/Tab to the ValueSlot keymap instead of handling them itself.
-- **node** — `01M3KA39ATBBJHPY4AWP7VKX8G`
+- **expected** — Validate's android job, or a scheduled Linux job beside it, runs bin/android-smoke on ubuntu-24.04 with KVM, so a change that breaks pairing, queueing or delivery on a device goes red.
+- **current** — bin/android-smoke runs by hand (nix develop .#android-emulator -c bin/android-smoke); it passed on shared-server on 2026-11-21. No workflow runs it.
+- **impact** — The device lifecycle is proven when someone runs the smoke, not on every change that reaches the app.
+- **closes** — A step in the android job (or a nightly job): the KVM udev rule GitHub's Linux runners need, the android-emulator shell, bun install for the scratch host, then the smoke, with shots/ uploaded on failure. Measure its minutes first; the owner decides whether it runs per PR or nightly.
+- **node** — `01M7YGA1ZSD4MARTYMA8K0KJVA`
 
-### GAP: the days landing gives up on a fixed budget and silently leaves the person at home
+### GAP: the emulator smoke shares no image a real app granted
 
-- **expected** — The landing on today waits for readiness: the page's live connection and the day node reaching its replica, however long a slow machine takes, and says so if it truly cannot land, instead of a fixed budget that falls back without a word.
-- **current** — land() asks the landing role with a 5 s budget (LANDING_BUDGET_MS), and days' answer waits at most 3 s for the made day to reach the page (ARRIVAL_MS); past either, the page stays at / without telling the person. On macOS CI the render suite's page-load landing missed its budget, so the paste spec now opens a node page instead of depending on the landing.
-- **impact** — On a slow machine or connection a person with days on opens kb at home instead of today, with no sign that the landing failed; anything that relies on landing on today (the render paste spec did) is timing-dependent.
-- **closes** — The landing awaits a readiness signal the page owns (live connection up, the day in the replica) rather than wall-clock budgets, or tells the person when it falls back; a render spec that lands on today under a throttled page.
-- **node** — `01M7CC1GD0A1J314ZTAR54F8AD`
+- **expected** — bin/android-smoke shares an image, and two images at once, from a real source app (the Files app's share sheet, or a test-only sender APK with a FileProvider), so the receiver's content-URI grant, its SEND_MULTIPLE path and the bytes and order of the files the host stores are checked on a device.
+- **current** — The smoke shares text and a link. Its one image share has no grant (adb's shell cannot pass a read of another app's media) and checks only that the share is refused whole; am builds no list of streams, so SEND_MULTIPLE is not reached. Files are covered by the JVM payload and queue tests only.
+- **impact** — A regression in how the receiver reads granted content URIs, or in multi-image shares, is still found on the owner's phone first.
+- **closes** — Drive DocumentsUI's share sheet from the smoke (multi-select, Share, kb), or install a small sender APK built beside the app, then compare each stored asset's digest with the shared file's, in order.
+- **node** — `01M7YG9CYP7B06M7ZS5QX7QMAM`
 
 ### GAP: the extension dependency graph has no command, view or reverse edges
 
@@ -2062,14 +1723,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Split into recognizers over a cursor and drive them from a list. The existing md-inline tests are the gate; this is a rewrite, not a mechanical move.
 - **node** — `01M1MGCM9RWXE3CYANZK5K4KC0`
 
-### GAP: the kb UI has no Back or Forward command or control (the desktop app's store window has none either)
-
-- **expected** — The kb UI has Back and Forward as commands, with buttons in its header and bindable keys, so the page and the desktop app's store window can move through navigation history.
-- **current** — kit/ui-sdk/src/lib/router.ts is pushState plus popstate with no Back or Forward command, button or key. A browser tab has the browser's own Back; the desktop app (Electrobun, packages/app/desktop) shows the store's own kb page in a window with no navigation chrome, so it has none either. The Android and iOS apps are capture-only and show no kb page (F7 in docs/research/2026-11-20-outliner-tana-parity.md).
-- **impact** — After zooming or following a reference in the kb UI there is no in-app way back, in the desktop store window or in a tab without browser chrome.
-- **closes** — Brief 3 in docs/research/2026-11-20-outliner-tana-parity.md: header buttons, Go back and Go forward commands on Mod-[ and Mod-], router canGo and go.
-- **node** — `01M7WW1VZJBCBMXTQ2W3NSN6T2`
-
 ### GAP: the kit's node type is named for the outline
 
 - **expected** — The kit's node read model is named for what it is (a node as the page reads it), not for one family.
@@ -2086,14 +1739,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Show the existing dry-run diff in the migration approval dialog.
 - **rule** — Plugins migrate their own data, declared and previewed
 - **node** — `01M7342YFJC4B6DMAFD8MTSTD7`
-
-### GAP: the node palette has no "Add value to <field>" command
-
-- **expected** — The node's ⌘K menu offers "Add value to <field>" for each field the node shows, reaching the same picker the + does.
-- **current** — Adding a value is only Enter or the inline + on the field row.
-- **impact** — Keyboard-only users cannot add a value to a field whose row is off screen or collapsed.
-- **closes** — A palette step per shown field that opens the field's value picker.
-- **node** — `01M3KA39PQAJZJ6C6ZY4RV1SPZ`
 
 ### GAP: the offline demo spells graph-owned seed ids
 
@@ -2137,14 +1782,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Rows derived from the fold's family list with an explicit not-hosted row for hosted families, and a test.
 - **node** — `01M53M9XA8FN8Q25QJVFF8MBE4`
 
-### GAP: the palette index pre-sizes its arrays with new Array(n)
-
-- **expected** — buildPaletteIndex and searchPalette allocate their result arrays the way unicorn/no-new-array wants (Array.from({ length: n }) or push), with no pinpoint disable.
-- **current** — Both keep new Array(n) plus index assignment, each carrying // oxlint-disable-next-line unicorn/no-new-array.
-- **impact** — Two pinpoint disables of a rule that is error everywhere else, on the one ui path with a measured latency bar.
-- **closes** — palette-index.test.ts asserts open <50ms and keystroke <10ms at 50k nodes. A standalone benchmark puts Array.from({length:n}) about 40% behind new Array(n) at that size, and the push variant flipped that test red on three of four full-suite runs on a loaded machine. Close it by making the 50k path fast enough that the allocation shape stops mattering (incremental or worker-side palette search), then delete both disables.
-- **node** — `01M1MFJXAQ8NVBMA6E6CZ7CY9W`
-
 ### GAP: the phone app cannot record a voice memo
 
 - **expected** — The phone records audio and queues it as a file capture, delivered raw like any share; the host stores it as an asset and may transcribe it, optionally, on its side.
@@ -2160,14 +1797,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Host-side events (reminders, a run that needs attention) cannot reach the phone; the person has to open the app or the web UI.
 - **closes** — A push channel chosen at pairing (a UnifiedPush distributor or an ntfy topic), a host action that publishes to it, and the shell posting what arrives.
 - **node** — `01M7WZ0QV3HAB6YRKS8CHE1793`
-
-### GAP: the reference token has two grammars, mention.ts and the inline parser
-
-- **expected** — One statement of the label token: the inline grammar (inline.ts) and :node/mentions extraction (mention.ts) read the same tokens.
-- **current** — mention.ts scans with MENTION_RE and inline.ts parses refs in its own branch. They differ on a token inside inline code (mention extracts it, the parser leaves it text) and on a label that holds '['.
-- **impact** — A ref written in code is a backlink the page does not draw as a pill; rare, and nothing is lost.
-- **closes** — mentionSpans derived from parseInlineSource's ref spans (or the reverse), with the mention property test and the inline tests over one grammar; a store-wide check that the mentions it derives are unchanged, or a declared change.
-- **node** — `01M7HCW3N0TSYGSXVNQS2K8H0Y`
 
 ### GAP: the routines calendar names an event by its synced title, the node's stored text, so its chips show markup
 
@@ -2199,7 +1828,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **expected** — A kb date function (kb/today, kb/date-in-days) in a query the server runs for a client (a rows subscription over /ws, MCP graph_query) reads the civil date in that client's time zone: the client's zone travels with its request, and the run's clock sample carries it.
 - **current** — The runtime's index samples the Clock and DateTime.CurrentTimeZone in scope when the session opens (sessionOver), which is the server process's own zone; a rows subscription the server answers uses it. The page is not affected: it answers its own queries in its engine worker, in the browser's zone.
 - **impact** — When the server and a thin client are in different zones, a relative-date condition (due within the next 14 days, today) can be a day off near midnight.
-- **closes** — The subscribe frame (and graph_query) names the client's time zone, and the server builds that run's ClockSample with it, with a test that pins two zones across a midnight.
+- **closes** — The subscribe frame (and graph_query) names the client's time zone, and the server builds that run's ClockSample with it, with a test that pins two zones across a midnight. Owner decision first: the client's zone travels per query (the subscribe frame, graph.query's input, KbIndex.answerDatalog and QueryEngine.runDatalog, the page worker included) or once per call on the action envelope, which days' capture target and every other date-reading action would then share.
 - **node** — `01M5E2YBN75HF5C8HZPG62CAJH`
 
 ### GAP: the shell's page plugins belong to no family
@@ -2209,14 +1838,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The plugin view cannot attribute shell UI to a family.
 - **closes** — A core page entry plugin holding them as children.
 - **node** — `01M549THN6RH36SEE9QTSZ0PZP`
-
-### GAP: the sigma renderer's lifecycle effect carries 32 branches
-
-- **expected** — Renderer setup, event wiring and teardown are three named steps, with the graph-building step shared across renderers.
-- **current** — One useEffect constructs the sigma instance, wires every event, applies reducers and tears down, branching on capability and selection state throughout.
-- **impact** — The effect is the renderer, so nothing about it can be tested without a DOM and a real sigma instance.
-- **closes** — Extract createSigmaRenderer(el, opts) returning {update, destroy} and let the effect be three calls.
-- **node** — `01M1MGCPJTV66QSFCR44XG29YM`
 
 ### GAP: the stage's GPU meter times queue completion, not timestamp queries
 
@@ -2267,15 +1888,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Recompose those themes narrow-head art below the head band (or let a backdrop presentation reserve the band), checked by a narrow-width screenshot per theme
 - **node** — `01M7355M039ESNZV6N85EV8BQ2`
 
-### GAP: three corner radii (2px, 3px, 5px) sit off the radius scale
-
-- **expected** — Every corner radius is a step derived from the design system's --radius, so a swap re-rounds everything.
-- **current** — canvas-resize-handles.tsx uses rounded-[2px], ontology-page.tsx's segmented control rounded-[5px], and tokens.css's .kb-md-code a fixed 3px, each under a GAP marker (a disable of design-tokens/no-raw-design-value in the two components).
-- **impact** — A design system that changes --radius leaves these three corners unchanged.
-- **closes** — Map each onto a step (xs 4px or sm 6px, a 1-2px visible change), or add a step if the size is a real role. That is a visible change, so it lands outside the no-visual-change token restructure (wave 2026-09-24 f1).
-- **rule** — Design tokens: no bypass
-- **node** — `01M3AF8G4N9JHJB8YYEWF8F5SZ`
-
 ### GAP: three philosophy checks wait on their prerequisites (Phase 5)
 
 - **expected** — Families migrate their own data has a migration-runner contract (P6); one contract, every implementation has a check over one registry form every port declares (P8); and weakening a philosophy rule (deleting its check, editing its principle) passes a governance door (docs/research/2026-11-13-philosophy-as-checks.md, Phase 5).
@@ -2300,14 +1912,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Classify the translucent text roles (a small set of named text tokens, e.g. subtle and faint, in place of ad-hoc /N steps), hold each to its threshold in the guard, and retire the raw /N text utilities.
 - **node** — `01M3BEJDX4YP2DPHSCFS66NZK1`
 
-### GAP: turning a node into a query matches every node in the store
-
-- **expected** — A new query asks for its first condition, as Tana does, so the result is what the person meant.
-- **current** — turn-query writes DEFAULT_QUERY_EDN (no conditions); the page shows the whole store under the row (F5 in docs/research/2026-11-20-outliner-tana-parity.md).
-- **impact** — The first query a person makes floods the page with system nodes; the builder is below the fold.
-- **closes** — Brief 6 in docs/research/2026-11-20-outliner-tana-parity.md: Turn into query opens the query-only tag picker (findTagged, over addTag's candidates, no create row) and writes a tag condition by id; it tags nothing and mints nothing, which Add tag's commit would.
-- **node** — `01M7WW1S48RQ48GD7A14VZG545`
-
 ### GAP: two installed extensions cannot share a service key
 
 - **expected** — An installed extension can inject a service another installed extension provides; the key has one home both can import (docs/research/2026-10-31-plugin-sources.md §7, and Q1 of 2026-10-29-plugin-codependency.md).
@@ -2316,14 +1920,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A shared key home for third-party keys (the codependency record's Q1), or a by-name key resolved by the kernel.
 - **node** — `01M68NFCSWZ41EJNBVDJ23RPFJ`
 
-### GAP: two processes that start a kb ui for one root at once can start two servers
-
-- **expected** — Starts for one root are single-flight across processes: a start holds a pidfile lock under the root's .kb, re-checks presence once it holds the lock, and only then spawns.
-- **current** — oneStartPerRoot (runtime/src/serve.ts) makes concurrent starts in one process one start; two processes (kb open and the page's server) can each spawn a server at once, the later presence write wins and the other runs on, unlisted.
-- **impact** — An extra unsupervised kb ui can be left running over the root; neither data nor security is affected (both serve the same root on loopback, the guard applies to both).
-- **closes** — A generic pidfile lock with a home both store-jsonl (its nodes write lock) and runtime may import (not infrastructure: infra cannot import infra), e.g. a backend contract-layer package; KbRoots.serve holds it around the re-check and the spawn.
-- **node** — `01M545PFJ3285JNXYHKVCM50Z7`
-
 ### GAP: two tabs editing the same row overwrite each other silently
 
 - **expected** — a node.update carries the text it was edited from (its base), and the server refuses one whose node changed since; the tab then shows the row as changed elsewhere, takes the server's text, and the person's unsaved words are offered back, never lost silently
@@ -2331,6 +1927,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — words typed in one tab are lost when another tab, still focused on the same row, types again; the two tabs disagree with each other and with the server until the row loses focus. A row deleted elsewhere is different: that push is refused and shown as Not saved
 - **closes** — the node.update contract change: a base (text or revision) on the input, a conflict failure from the server when it moved, and the page taking the server's text into a focused row with a visible conflict; then a two-tab browser test that types in the same focused row from both
 - **node** — `01M6HA0JJJDSFSJ3FPW8M8QC5K`
+
+### GAP: Typing preconditions use the editor's actual base text
+
+- **expected** — Each typed edit uses the base text the focused editor displayed as its write precondition.
+- **current** — packages/app/ui/src/actions/mutations.ts reads the base text from the replica at dispatch. A remote edit can reach the replica while the editor still displays older text.
+- **impact** — The next keystroke can match the unseen remote text as its precondition and overwrite that edit.
+- **closes** — Carry the editor's actual base text through the typing write and coalescing path. Test a remote edit reaching the replica before the focused editor refreshes.
+- **node** — `01M7Z8689FDT3YBPAQ74RB9VQ2`
 
 ### GAP: UI_ALLOWS permits unused zone directions
 
@@ -2407,6 +2011,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 ## Closed
 
+### GAP: --create mints missing fields in their own transactions before the write that needs them
+
+- **expected** — field definitions a --create write needs are planned into the same transaction as that write (node.add, node.addTree, node.update/set)
+- **current** — Fixed: node.add, node.addTree, node.update (and those calls in node.batch) take createFields; planMissingFields in @kb/operations defines each missing field in the write's own plan, and the CLI's --create sends it instead of minting through field.define first.
+- **impact** — a failed add, outline paste or set leaves the minted fields behind, and minting several fields is not atomic
+- **closes** — a pure planFieldDefine shared by field.define and the write actions, with create moved into the actions' input
+- **node** — `01M52F7X4YQ7W3TJHVPBBXARGP`
+
 ### GAP: /api/action does not check Origin
 
 - **expected** — the server accepts action calls only from its own UI origin or local non-browser callers
@@ -2438,6 +2050,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Two typescript/no-unsafe-type-assertion hits remain in ui src. One of them is the seam that deleted fourteen per-callback assertions; the other is the labelled-node sprite accessor.
 - **closes** — Upstream exports a generic constructor and types nodeThreeObject as Object3D | falsy, or those two members become augmentable exported interfaces.
 - **node** — `01M1P2RAJVTB4CESYGEVF7NDE1`
+
+### GAP: a board wider than its pane cuts its last columns off with no sign that it scrolls
+
+- **expected** — a board whose columns run past the pane shows that more lie beyond it: an edge fade or a scroll hint on the side that scrolls, gone at the end
+- **current** — Fixed: one kit mechanism, EDGE_FADE_CLASS with useEdgeFade (scrollEdgesOf), marks the edges of a horizontal scroller past which more lies, and tokens.css fades them; the board and the lanes read it. Cards are a wrapping grid and never scroll sideways; the table is left as it was.
+- **impact** — at 1280px the Blocked and No Status columns of a four-option board are cut off and look missing
+- **closes** — one edge-fade mechanism for horizontal scrollers in the kit, read by the board (and lanes and cards)
+- **node** — `01M7DAJSTW3PP7375FECAA2DHS`
 
 ### GAP: a canvas item with a link shows no mark on the canvas
 
@@ -2512,6 +2132,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — hosted actions in composeHosted and serverInvoke, with a contract property over kb ui, then the two actions
 - **node** — `01M53F2M2S6J3WW0Z0KR136J6A`
 
+### GAP: a foreign commit reloads the whole graph (reloadEffect rebuilds the index)
+
+- **expected** — A foreign commit whose records the tail holds applies to the index incrementally (applyTx), in reloadEffect, not beside it.
+- **current** — ingestExternalWrite -> reloadEffect -> loadEffect -> index.rebuild is O(N) per foreign commit (docs/research/2026-10-31-online-stores.md §4.3).
+- **impact** — Cheap for a CLI write; a peer editing at keystroke rate on a remote store costs one rebuild per commit, painful at 50k nodes.
+- **closes** — Incremental foreign ingest in reloadEffect when the session is current at the tail's previous rev.
+- **node** — `01M6950WQN8VDWJMSH8EZ8X3DR`
+
 ### GAP: a frame stood up as a wall does not hold items on its face
 
 - **expected** — a frame holds items laid on its own face, whatever way it stands
@@ -2552,6 +2180,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A 'Move to…' palette step that picks the new parent, and row drag and drop, both through node.move.
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYPQ3CGJKP20TQFADPRH1`
+
+### GAP: a node command that does not answer its writes makes them apart from its undo step
+
+- **expected** — Every node command's run answers the writes it makes, through the page's write path (PageWrites), so a / pick or a palette run waits for them and they are one undo step (PageWrites.together).
+- **current** — NodeCommandListing.run and nodeAction answer the command's promise, but several command bodies fire their write without answering it (void writes.defineTag in Make my tag, void writes.updateProp in Make query, the makeSupertag and Add chart async blocks, void setFrameView, void invokeAction in command-forms), and Add chart's view.propose goes to invoke directly, not through PageWrites, so it has no undo step at all.
+- **impact** — Such a command's write is not part of the / pick's undo step (or the palette run's): it is its own step, or, for Add chart, no step. The typed trigger never comes back (the / pick consumes it as typing), but undo takes the command back in more than one step or not at all.
+- **closes** — Each listed body returns its write instead of voiding it (commands.tsx is WP-5's file, chart-ui and command-forms are shared), and view.propose becomes a planned write in mutations (WP-4's), so its view node is made and undone as any page write.
+- **node** — `01M7XSNFCYHHYD7VKTZXPYG60B`
+
+### GAP: a node drawn at several places shares one open or closed choice
+
+- **expected** — Each place a node is drawn (a row instance: under its parent, as a query result, under a reference) keeps its own open or closed choice, so opening or closing one row's subtree changes only the rows drawn under it
+- **current** — The outline's expansion is one choice per node id (toggleCollapse, withExpansion, openRows): the subtree keys open or close each node they reach, so the same node drawn elsewhere (in the tree, under another query, in another pane) opens or closes with it
+- **impact** — ⌘⌥↓ on a query, a reference or a row whose descendants also appear elsewhere opens those rows everywhere, and ⌘⌥↑ closes them everywhere; Expand all and Collapse all do the same over the scope
+- **closes** — Expansion keyed by row instance where a row's choice can differ from its node's, as GAP: a reference opened in place shows its target closed when the target is collapsed by default asks for references opened in place; the subtree keys then write the instances subtreeOf found
+- **node** — `01M7XP1SNNVNYZKH5GCSW3RH6C`
 
 ### GAP: a node's title reaches its row, ref values, search and the picker, not every place the page names a node
 
@@ -2594,6 +2238,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYKQAHJNG5SSRVSYE77GN`
 
+### GAP: a reference's target cannot be changed from the UI
+
+- **expected** — A reference row can be repointed from the UI.
+- **current** — Every field row a reference draws is its target's, so its own props (sys.f.ref.target) are not shown; Turn into reference... is withheld from a row that already is one. Repointing is CLI/MCP node.update only.
+- **impact** — A wrongly picked reference must be deleted and recreated in the UI.
+- **closes** — A "Change reference target..." step in the node's ⌘K menu using the shared picker.
+- **node** — `01M3KA3AZTJVQNADZ12SDPE9X1`
+
+### GAP: A rejected optimistic mention Link can leave a stale undo step
+
+- **expected** — An outline undo step can reverse only a write the server accepted, using the text that write actually replaced.
+- **current** — The page records an undo step when a conditional Link succeeds in its replica. An intervening edit can make the server refuse the same write after the undo step is already recorded.
+- **impact** — Undoing the rejected Link can send a replacement with the earlier source text and overwrite the concurrent edit.
+- **closes** — Make history follow the shared write settlement and cover a Link rejected by the server after local success. Prove that undo preserves the intervening text.
+- **node** — `01M7XRPAHQ1ZB2CHNAXEN4B0KM`
+
 ### GAP: a repository extension has no node, switch or settings
 
 - **expected** — An extension in .kb/extensions/*.ts declares itself like a bundled family, so the store it lives in carries its sys.extension.<name> node, its switch and its settings as fields.
@@ -2601,6 +2261,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A local extension is always on and its configuration lives in code, not in the graph.
 - **closes** — A declaration export for repository extensions, folded into that store's seed only, with the extension contract run over a repository fixture.
 - **node** — `01M53PZ0DWZ8MJN9T64TTQ10VD`
+
+### GAP: a row a pick redraws starts its text history over, so ⌘Z in it cannot reach the pick
+
+- **expected** — ⌘Z in a row takes back the last thing done in it, a pick included, wherever the pick put the row: the row's history follows it when a write draws it at another instance (an /indent), or the row's ⌘Z steps the page's history once its own is spent.
+- **current** — The row's history lives in its text host (use-text-history.ts). A / pick that indents or outdents the row redraws it under a new instance key, so a new text host starts with an empty history; slashTrigger re-edits it there (keepEditing) but ⌘Z in it reaches only the typing since. Escape, then ⌘Z (the page's undo) takes the pick back in one step.
+- **impact** — After /indent or /outdent, ⌘Z while still typing in the row does not undo the indent; the person has to leave the row first. Tab-indent while editing has the same limit today.
+- **closes** — The page editor (outline.store.ts, WP-4's file in the 2026-11-20 parity work) keeps the active row's text history across a re-key of its instance, or the text host falls through to PageWrites.undo/redo when its history is empty, with the editor following the row to its new instance.
+- **node** — `01M7X9MKS1DM5JEAR2DRWS7KT6`
 
 ### GAP: a seeded default the owner deletes comes back on the next open
 
@@ -2643,6 +2311,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A release that changes the frame protocol breaks code nodes in tabs opened before it, with no reload to fix them.
 - **closes** — Digest-name the frame script (Vite entry with a hash, the page reading its name from the build) or add the sandbox protocol's schemas to the wire fingerprint.
 - **node** — `01M6GY0MXXXY2YQ8C3P77M2QNF`
+
+### GAP: a tag's template fields cannot be reordered
+
+- **expected** — The fields a tag templates are an ordered list a person reorders where they add and remove them.
+- **current** — Fixed: tag-fields-config moves a person's template field a step up or down from its row's controls, or by dragging it onto another row (movedTemplate in tag-fields.ts), writing the new sys.f.fields order with replaceField; a shipped field shows no move, as it shows no remove, so the order the owner ships stays.
+- **impact** — Field rows on every tagged node show in an order nobody chose; fixing it needs node.update on the tag from the CLI.
+- **closes** — Reorder in tag-fields-config (drag or move up/down), writing the template's order.
+- **rule** — Editor first (the editor is the main human editing surface)
+- **node** — `01M5CRYP40YAHA2ZQFB850ARVZ`
 
 ### GAP: a theme's motion personality is CSS tokens, not options kb can read or set
 
@@ -2693,6 +2370,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Add one registry output parser for Effect-native and Promise handlers, map mismatch to an internal contract failure, and add invalid-output tests.
 - **rule** — Domain typing — parse unknown at the boundary
 - **node** — `01M1PJSSQYFV2E160JANGBPKCK`
+
+### GAP: an empty number slot draws its editor starter, 0, as if it were a value
+
+- **expected** — an empty number field reads as empty (the italic "Empty" a status or text slot shows), and the editor opens on a blank input
+- **current** — the number kind starts its editor from {t:num, v:0} (FIELD_TYPE_SPEC in ui-sdk lib/field-type.ts) and its isBlank reads that as filled, so every empty number slot shows 0; the Add field palette step also writes that 0 to make the row appear
+- **impact** — a card or row reads Points 0 where nothing is stored; a reviewer took a new board card for one with a value set
+- **closes** — split the starter an editor shows from the value Add field writes: the number slot draws blank when no value is stored, and the Add field step writes what makes an empty row appear without a number
+- **node** — `01M7DAJCF878DEPVQHE6R7FJT9`
 
 ### GAP: an outline component owns the live-query subscription
 
@@ -2753,6 +2438,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXNGSJT2J2VHDSYY7QJSD3`
 
+### GAP: Canvas commands prepare whole-node writes before the retry planner
+
+- **expected** — A Canvas edit or import derives its document, parent links and related node writes from the graph each commit attempt reads.
+- **current** — Several Canvas verbs and the tldraw import pass precomputed node upserts to GraphWrites.commit; another attempt can reuse the same snapshots. This path predates the session retry change.
+- **impact** — A concurrent edit can be replaced by an older canvas document or parent link.
+- **closes** — Move Canvas document edits, related writes and import planning into the GraphWrites callback and prove concurrent edits survive on both store backends.
+- **node** — `01M7XES1FFV2N8AEZREJN7CQG7`
+
 ### GAP: canvas move release persists the unsnapped position
 
 - **expected** — The position persisted on pointer release is the last snapped position shown during the drag; finishMove and moveNodes share one snap computation.
@@ -2802,6 +2495,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1XCB0ETCJH03FGJS6E75AFP`
 
+### GAP: caretRangeFromPoint needs a CaretDocument cast because lib.dom marks it deprecated
+
+- **expected** — offsetFromPoint calls document.caretRangeFromPoint bound, with no type assertion, and typescript/no-deprecated does not fire on the DOM method.
+- **current** — Closed: caretRangeAt probes each spelling with in and calls the vendor caretRangeFromPoint bound, under a pinpoint typescript/no-deprecated disable with its reason now that the rule is error; no type assertion is left.
+- **impact** — ui src keeps one typescript/no-unsafe-type-assertion that a check cannot replace until the DOM lib drops the deprecation or the ratchet promotes no-deprecated to error with a pinpoint disable.
+- **closes** — lib.dom removes @deprecated from caretRangeFromPoint, or caretPositionFromPoint is the only probe and Chrome implements it everywhere this app runs.
+- **node** — `01M1P2R0XMSK1MRVQ8P2JH5V0Z`
+
 ### GAP: check audit matched substrings instead of wired invocations
 
 - **expected** — A check names a command at the start of a simple shell command or an enabled lint rule by its complete key.
@@ -2817,6 +2518,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The full core gate can fail outside the extension UI, and the original trace cannot distinguish a child crash from a transport failure.
 - **closes** — Use process.exitCode and natural shutdown for every CLI exit path; prove multi-MB receipts and errors survive delayed pipe readers byte-exactly, and the surface contract passes repeatedly under parallel load.
 - **node** — `01M6WW0WE9QD8W2KCRM1NW8SHB`
+
+### GAP: CLI properties and tree input lack relative-date context
+
+- **expected** — Every surface parses the same date phrases the UI's DateEditor accepts.
+- **current** — @kb/model's parseTypedValue accepts today as the reference date for relative phrases. The CLI property mapper and the shared node.addTree parser used by CLI and MCP call it without today.
+- **impact** — Relative phrases such as today and next fri work in the date editor but fail on these input paths.
+- **closes** — Supply the reference date to the shared parser from CLI property parsing and the node.addTree path used by CLI and MCP.
+- **node** — `01M3KA3AEEFG0E200V4D63G5SN`
 
 ### GAP: command dispatcher eagerly reaches chart engines and QuickJS
 
@@ -2876,6 +2585,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M63BZRZ4RDTCE1ZFVGRNEXGR`
 
+### GAP: datalog and the query builder's tag filter do not reach a subtype's nodes
+
+- **expected** — A node of a tag that extends another is that tag's node in datalog too: a derived :node/is datom holds the closure of sys.f.type over sys.f.extends, the query builder's has-tag lowers to it and the page's condition evaluator reads kindsOf, while :f/sys.f.type stays tagged-exactly.
+- **current** — Fixed: :node/is is in CORE_DERIVED (derived over the tag chain), has-tag lowers to it and the condition evaluator reads it; the routines engine's read (routines-host graph.ts) now asks [?n :node/is ?t] and brings each tag on its nodes' chains (following sys.f.extends), so a #meeting that extends a routine is synced.
+- **impact** — A person's #meeting that extends #event shows on the calendar page, which reads the page's graph through isA, but the routines engine reads its nodes with a datalog query on sys.f.type and does not sync it; a query or a view filter for #event does not name it either.
+- **closes** — Add :node/is to CORE_DERIVED with a carrier that reads the chain and re-derives a tag's instances when its sys.f.extends changes; lower has-tag to it, evaluate it with isA, and stop canonicalizing a sys.f.type is-condition into has-tag. The routines engine's read (routines-host graph.ts) then asks :node/is and brings the tags its readers walk.
+- **node** — `01M738XHYKHDFFCN8DK595Z15T`
+
+### GAP: defining and applying a tag can leave an orphan definition
+
+- **expected** — Defining and applying a tag in one editor gesture commits as one transaction.
+- **current** — The palette and # text picker send tag.define ahead of the node update, as on main at be415b51.
+- **impact** — If tagging the target is refused, the newly defined tag remains in the graph.
+- **closes** — Plan the tag definition and the node updates in one batch using the shared tag definition planner.
+- **node** — `01M7XCENSKX32JHABYKAD8AD6N`
+
 ### GAP: deleting a surface budget bypasses increase rationale
 
 - **expected** — Every effective surface ceiling increase for a measured package requires a new or updated reason, including deletion of an explicit entry.
@@ -2900,6 +2625,31 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — One row kind breaks the outline's Enter rule.
 - **closes** — planSplit counts the shown node's children.
 - **node** — `01M3KA3BBRADE3TNWQ78JNK37M`
+
+### GAP: every kb ui option parser loads with each one-shot command
+
+- **expected** — A one-shot command eagerly loads only its own command's code; a subcommand's options and their parsers (kb ui's --public-origin, --alias-origin, --embed-origin, --identity-header) are registered when that subcommand is the one invoked.
+- **current** — Closed 2026-11-21. cli.ts holds the command table, every command by name with the module under cli/src/commands/ that declares it, and loads only the invoked command's module (programFor); help, no command or an unknown one load every module, in the table's order. kb ui's option parsers moved with it into commands/ui-options.ts and kb mcp's into commands/mcp.ts, so a new subcommand option grows only its own command. The CLI fence forbids an eager import into commands/, and the cli-closure budget fell by 63,475 bytes and 11 modules to the measurement.
+- **impact** — Each new subcommand option grows every one-shot command's eager graph by its parser and help text; small per option, but the budget can only be raised, never held, while options keep landing.
+- **closes** — Subcommands register their options lazily (only the invoked command's definition is imported, e.g. one module per command loaded by name), and the cli-closure byte budget is lowered to the new measurement.
+- **rule** — Hosts are accelerators: the store is the truth
+- **node** — `01M7HDP52RY5R2WJPXMMD30R8C`
+
+### GAP: every one-shot command rebuilds the whole index, derived sets and manifest
+
+- **expected** — A command pays for what it reads: manifest JSON Schemas are built for kb.manifest and MCP tools/list only, the DataScript index on first datalog use, and derived sets on demand, or from a snapshot keyed by the store fingerprint.
+- **current** — Closed 2026-11-21. The DataScript db is built on first datalog use (DatascriptIndex), the node table reads every node's references on its first change (NodeTable), and the action table converts schemas to JSON Schema only when a call lists them (kb.manifest, MCP tools/list), so kb get does none of these. A runtime layer composes one registry for all its services (kbRuntimeLayer), where it had reconciled the session schema and read the root's families once per service, about nine times per command; and the derived refs are read from the fold opening already made (derivedOf), where opening had folded every family's seed twice. What a get still pays at open (the tx tail decoded whole, the schema reconcile, the registry build, module init) is the owner's choice under gap 01M7B2SRJ6NAQB5ZSAJNDWPY5A.
+- **impact** — kb get and kb search stay above about 200 ms whatever the module split does, and the cost grows with the store.
+- **closes** — docs/research/2026-11-11-cli-host-modes.md step 7.
+- **node** — `01M75MA4HB3NFDXGGKG0RE45H5`
+
+### GAP: Expand subtree / Expand all do not open results of a query that has not answered yet
+
+- **expected** — Expand subtree and Expand all open the results of every query they open, a query not yet answered included; an async version stays scoped to its page and awaits only the queries inside the requested subtree
+- **current** — The subtree walk (rowsDrawnOpen in outline.store.ts) reads the answers the page has, synchronously: a query it opens that has not answered yet draws no results, so they stay closed. An async version (580ea33e, reverted) settled the page's answers first, and Sol's re-check of 62c65a19 found two faults: Expand all applied its choices after the queries settled, so navigating meanwhile landed them on another page; and the settled walk waited on queries in branches outside the requested subtree
+- **impact** — ⌘⌥↓ on a closed query that no row has drawn opens the query but not its results or the rows under them; pressing it again once the results show opens them
+- **closes** — An async subtree step that captures its page and host, drops its result if the page has moved by the time it settles, and settles only the queries the requested subtree opens
+- **node** — `01M7XSM8DNSX1HCZW2217PX5M1`
 
 ### GAP: extension SDK mirror is not bidirectionally typed
 
@@ -2950,6 +2700,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Introduce the editor registry (it already half-exists in field-value.tsx) and have FieldRow look up rather than branch.
 - **node** — `01M1MGCHQH499KS0RV9J461F73`
 
+### GAP: Flushing queued draft typing before conversion can overwrite a concurrent edit
+
+- **expected** — A queued text write preceding a conversion preserves concurrent edits to the same draft.
+- **current** — The ordered push lane sends pending typing as an unconditional node update before it submits the guarded conversion batch.
+- **impact** — The typing write can overwrite a concurrent draft edit before the conversion precondition reads the line.
+- **closes** — Give the coalesced draft text write a concurrency precondition and keep the conversion ordered after it.
+- **node** — `01M7XMMFAMVHBRBHC9X8P68FJ9`
+
 ### GAP: getViewConfig decodes view props with 45 branches
 
 - **expected** — View configuration decodes through one Schema with declared defaults, the same way every other node-backed config should.
@@ -2990,6 +2748,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The point plus a kind row, and decoding against contributed ids.
 - **node** — `01M54PYCJ6FGCT8SGZDZPVQW7Y`
 
+### GAP: GraphPage carries 35 branches of renderer and perspective selection
+
+- **expected** — GraphPage picks a renderer and hands it a resolved lens; renderer capability differences live in graph-capabilities.ts, not in the page.
+- **current** — Closed: GraphPage is a composition of named hooks (sys switch, active perspective, lens extraction, picking, frame, settings) and two pieces (header, view); it renders one GraphCanvasFrame for every renderer, and no function in graph-page.tsx is over the complexity limit.
+- **impact** — Adding a renderer means editing the page, which is exactly the coupling capabilitiesFor was introduced to remove.
+- **closes** — Move the remaining renderer-specific branches behind RendererCapabilities and render one <GraphCanvasFrame> for every renderer.
+- **node** — `01M1MGCFTMWY5EYHEWP9QVH8Z9`
+
 ### GAP: GraphPage embeds the ontology surface's picker
 
 - **expected** — A surface composes its own chrome; a control shared by two surfaces is a primitive or is lifted into the shell that owns both.
@@ -3016,6 +2782,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Dotenv rotation, file mode and refusal tests.
 - **node** — `01M6EKFSVWFZQTWABBHQJ86CJ8`
 
+### GAP: hierarchicalLayout mixes forest construction with placement in 21 branches
+
+- **expected** — Forest construction (from edges) and placement (from a forest) are separate pure functions, as they already are for the tree renderer.
+- **current** — Closed: depthLayers is the pure layer construction, its cycle guard tested on its own, and hierarchicalLayout only places columns. It does not reuse buildTreeForest: a layer is a node's shortest depth, a tree hangs it under the first parent a depth-first walk meets, so reuse would move nodes.
+- **impact** — The cycle guard - the subtle part - is not separately testable, and the same forest logic exists again in tree-graph.
+- **closes** — Reuse the forest builder tree-graph already has and leave this function as placement only.
+- **node** — `01M1MGCR50QEXX7R4JDJ51HQFY`
+
 ### GAP: import graph misses package-entry bypasses
 
 - **expected** — One import resolver maps every supported specifier to its owning package, rejects relative imports across package roots and @kb package subpaths, and explicitly governs every JavaScript-family source extension.
@@ -3032,6 +2806,30 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Not reachable now; a new writer that skips the schema could make a javascript: link clickable.
 - **closes** — Validate in withLink (the one writer) and make itemLead's type a checked link.
 - **node** — `01M55AE092VNPBQKGGZZHZZY9W`
+
+### GAP: kb desktop proves its kb runs, not that it is new enough
+
+- **expected** — Resolution passes over a kb that runs but lacks what the desktop calls (capture.submit, capture.pair), the same way it passes over one that cannot run, and says which version it needs.
+- **current** — processProbe in packages/app/desktop/src/core/kb-command.ts asks only kb --version to answer; an older installed kb wins in a release build and quick capture to its stores is refused with "update kb".
+- **impact** — On a Mac whose installed kb is an older nightly, a release build runs it ahead of a newer checkout kb, so capture to local stores fails until the installed kb is updated or "kb" is set.
+- **closes** — kb --version (or a capabilities action) reports the contract versions it serves, and the probe requires the capture contract the desktop speaks.
+- **node** — `01M7WV5DBWNMEWS2QG6M4VP3QY`
+
+### GAP: kb desktop resolves its kb once, at launch
+
+- **expected** — The desktop notices when the kb it runs stops answering (or a better one appears) and resolves again, without a restart.
+- **current** — packages/app/desktop/src/shell/electrobun/index.ts probes the candidates once at launch and keeps the choice for the life of the process.
+- **impact** — A kb installed, rebuilt or removed while the app runs is not seen until the person quits and reopens kb; the store list then says the kb could not run, and the advice says to reopen.
+- **closes** — KbCli resolves lazily and re-resolves after a run that failed without a receipt, behind the same KbRunner port.
+- **node** — `01M7WV5D06HSMA1JFBBRGE0B13`
+
+### GAP: kb desktop stamps build-machine paths into the app
+
+- **expected** — A built app carries no path of the machine or checkout it was built on; a kb for it is bundled or installed.
+- **current** — electrobun.config.ts stamps KB_DESKTOP_CHECKOUT_KB (the checkout bin/kb) and KB_DESKTOP_BUILD_BUN (the Bun the build ran with, often a Nix store path) into the bundle.
+- **impact** — The app works on the machine it was built on only while that checkout and that Bun exist: a removed worktree or a Nix garbage collection turns both candidates into ones the probe passes over.
+- **closes** — build:mac bundles a kb release (bin/release-bundle) by default, and the checkout candidate is kept for dev builds only.
+- **node** — `01M7WV5DQDNMQMR9QYJN839TNJ`
 
 ### GAP: kb mutation skipped saving its baseline after a report failure
 
@@ -3068,6 +2866,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXMQPVJKREGDS7D37J1MWN`
 
+### GAP: long field values are drawn in full in the outline
+
+- **expected** — A field value longer than a few lines is clamped in the outline's field row, with an expand control to read it whole, as a row's own text is not (DESIGN-UI → Long text covers node text and pointer labels only).
+- **current** — A field's value renders in full and wraps (FieldsSection → NodeField); nothing clamps or expands a long value.
+- **impact** — Show properties on a #canvas node reveals its document field, so the row draws the whole canvas JSON; any long text field (pasted logs, notes) stretches the outline the same way.
+- **closes** — A clamp-with-expand on the outline's field value view, stated in DESIGN-UI → Long text, with a test on a long value; the canvas document under Show properties then shows a few clamped lines.
+- **node** — `01M6BAEDQ6NQTXPBY5VNTJ5KBN`
+
 ### GAP: mapSelectionKey maps keys to actions through a 46-branch chain
 
 - **expected** — A declarative keymap table (chord -> action factory) that the mapper looks up, so the binding set is data and can be listed, documented and rebound.
@@ -3075,6 +2881,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The binding set exists only as control flow: nothing can render a shortcuts list, and two bindings can silently overlap.
 - **closes** — Turn the chain into a table of {key, mods, toAction} entries. Behaviour-preserving only if the current first-match order is reproduced exactly, so it needs its own change with the keymap tests as the gate.
 - **node** — `01M1MGCH7SD69CRSSV75X789QW`
+
+### GAP: no [[ completion while editing a text field value
+
+- **expected** — Typing [[ in a text value opens the same node picker node text does.
+- **current** — Text values share the live-markdown input step but not the [[ completion trigger; a typed label still counts as a mention.
+- **impact** — Linking from a text value needs the id by hand.
+- **closes** — Wire the shared picker's [[ trigger into the text value editor (one trigger, both surfaces).
+- **node** — `01M3KA394XS9DCGY9RHS151G6F`
 
 ### GAP: no one coverage property holds every family to all three hosts
 
@@ -3100,6 +2914,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P1 of docs/research/2026-10-29-plugin-codependency.md
 - **node** — `01M63C0H8G86X7ZBJ48QYYNSAV`
 
+### GAP: node palette advertises a ⌘S that is bound to nothing
+
+- **expected** — A label names a key that runs the command.
+- **current** — commands.tsx search-all reads Search everything… ⌘S; page-keys.ts leaves ⌘S to the browser, so the key does nothing (F6 in docs/research/2026-11-20-outliner-tana-parity.md).
+- **impact** — A hint that lies teaches people the keyboard is broken.
+- **closes** — Brief 6 in docs/research/2026-11-20-outliner-tana-parity.md: drop the label, or bind ⌘S as the owner decides.
+- **node** — `01M7WW1PRXPC058Y8MPDN8ADM0`
+
 ### GAP: node.addTree mints its ids twice when the page runs it optimistically
 
 - **expected** — An optimistic write names the same nodes on the page and on the server: the ids the local commit mints are the ids the server commits, as node.add does by taking the minted id as input
@@ -3107,6 +2929,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Anything a page reads from a pasted tree before the push settles names nodes that will not exist: a selection made at once is lost, and a write that refers to a returned id (a setting naming the new Library) is refused or dangles. The gallery runs its starter on the server (ext.gallery.starter) to avoid it
 - **closes** — node.addTree takes the ids to mint (one per flattened item), filled from the local commit and pushed with the invocation, as node.add's id is
 - **node** — `01M5ZBC8DQWB1DY5Z9AAABGPYR`
+
+### GAP: node.batch mints missing add ids twice when run optimistically
+
+- **expected** — A node.batch add creates the same node on the page and on the server, including when the caller omits id.
+- **current** — The isomorphic node.batch planner mints an id for each node.add with no id. The page pushes the original nested calls, so the server mints other ids.
+- **impact** — A caller holding an id from the local batch receipt can lose its selection or refer to a node the server never stored.
+- **closes** — Project the ids in the local batch receipt into the corresponding node.add inputs before pushing, using the same action declaration as outline paste. Prove mixed batches keep their call order and explicit ids.
+- **node** — `01M7X43QWW4ZHWA2WFWJ6WP5ZY`
 
 ### GAP: NodeBlock decides row chrome with 28 branches
 
@@ -3156,6 +2986,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — each row of EXTENSION_ROOT_BREACHES deleted as its importer leaves core: the canvas UI with @kb/canvas-ui (E13), and the docs and check entries once the family's report reaches them through the registry rather than its schema; a row no import matches already fails
 - **node** — `01M41H30Y60D3G9WJJX6NFQD2T`
 
+### GAP: o does not make the row directly below the selected one
+
+- **expected** — o in selection mode makes an empty row directly below the selected row, as selection-actions.ts createAfter says: the first child of an expanded parent, else the next sibling, a top-level row's included (the way Shift+O and Cmd+Shift+Enter now use planInsertSibling).
+- **current** — createEmptyNode (packages/app/ui/src/actions/mutations.ts) appends the new row as the LAST child of an expanded parent (planAddChild), and for a top-level row ignores afterSiblingId and adds a root with no position, so the row lands at the top of the page.
+- **impact** — o on an expanded parent or on a top-level row puts the new row somewhere other than under the row the person pressed it on; they have to find it and move it.
+- **closes** — createEmptyNode places by planInsertSibling (after) for a sibling, a top-level one included, and at position 0 for an expanded parent's first child; selection characterization tests assert the exact place for both.
+- **node** — `01M7X2C58J05ZV2KSWZSHDEWHS`
+
 ### GAP: ontology member rows render outline's MdView
 
 - **expected** — Markdown rendering is used by three surfaces; it is a primitive, not an outline internal.
@@ -3164,6 +3002,30 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Move MdView into the primitives zone; it takes text and options and touches no store.
 - **rule** — UI import matrix
 - **node** — `01M1RXNKKK31EGJWCA1KCV6V20`
+
+### GAP: outline expansion save writes derived drops and filters other tabs' choices by this tab's schema
+
+- **expected** — only the reader's gestures are written as changes, and the keeps filter applies only to the ids this tab changed
+- **current** — Fixed: keptExpansion writes only the ids this tab decided (the ids next chose differently from current, rows kept open by a graph move, and a row choice going out of storage and back with the row); saveExpansionChanges takes no keeps filter and leaves every other stored id as it is. A drop undoable makes because the graph moved is not written.
+- **impact** — a tab with a stale snapshot can erase another tab's newer choice for a row it sees differently
+- **closes** — derive changes from gestures only; apply keeps to changed ids only
+- **node** — `01M52E01JB6CFKT2M8CAS171EJ`
+
+### GAP: outline expansion storage keeps choices for deleted rows forever
+
+- **expected** — a choice for a row deleted and not restored is pruned from kb-expansion
+- **current** — Fixed: storage keeps a row choice only while the graph holds the row (isStored); a delete drops it, the undo that restores the row writes it back, and a choice for a row gone at load leaves with the next save. The tab keeps the choice in memory for the undo.
+- **impact** — storage grows with every distinct row the reader ever toggled and is re-serialised on each save
+- **closes** — prune on a delete that is not undone, restore the choice on undo
+- **node** — `01M52E0177292798G5908A74GG`
+
+### GAP: outline paste deletes its source and focuses a row before server acceptance
+
+- **expected** — An outline paste keeps an empty source row until the server accepts the tree. Focus moves to the last authoritative row after it reaches the outline.
+- **current** — packages/app/ui/src/actions/mutations.ts returns the optimistic node.addTree ids to addTreeAt in the shared ingest path. addTreeAt can delete the source row and focus an id the server later replaces or refuses. The receipt can arrive before the authoritative rows reach the page.
+- **impact** — A refused paste can lose its source row. A server that mints replacement ids can leave focus on a speculative row that disappears.
+- **closes** — Use the settled node.addTree receipt to decide whether to remove a source row that is still empty. When the authoritative rows reach the outline, focus its last row. Cover refusal, changed source content, and replacement ids arriving after the receipt. See outline paste ids.
+- **node** — `01M7XMM97Q7Q251R5GGZGACGC9`
 
 ### GAP: outline view modes and graph renderers are local registries, not ViewPoint members
 
@@ -3188,6 +3050,39 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Field defaults are stated once per field in code and again in the ontology, and a malformed prop degrades silently per field instead of failing the decode.
 - **closes** — Track 2 domain-typing work: express LensPerspective as a Schema and decode props through it. Not mechanical - it changes what happens on malformed input.
 - **node** — `01M1MGCEBYDFRNJX1JKXXN825H`
+
+### GAP: pasting several lines into a many-valued field is one value
+
+- **expected** — A multi-line paste into a many-valued field becomes one value per line.
+- **current** — The pasted text lands as a single value.
+- **impact** — Bulk entry of options or refs takes one edit per value.
+- **closes** — The value stack's paste handler splits on newlines for many-valued fields and appends one slot per line.
+- **node** — `01M3KA39GQ7Q8HSD0JKB46VCC5`
+
+### GAP: phone capture lifecycle has no device or emulator evidence
+
+- **expected** — An instrumented test drives the share receiver on a headless emulator: share text, URL, image and two images from a real intent, kill the process between file copy and publish, restart, go offline and reconnect, and compare what the host received with the original (research 2026-11-18 §5, phase 0 · Phone lifecycle).
+- **current** — JVM unit tests cover payload building, queue durability and delivery decisions against a scripted host. The receiver activity, WorkManager scheduling and Keystore sealing are exercised only by hand on a device.
+- **impact** — A regression in intent parsing, content-URI grants or background delivery is found by the owner on their phone, not by a test.
+- **closes** — An androidTest suite run on an emulator from nix (androidenv system image, KVM), wired into the same gate as the unit tests.
+- **node** — `01M7QTAJ9GSK02FMWNR4XQGFMT`
+
+### GAP: physical shortcut hints must use the shared chord key domain
+
+- **expected** — Shortcut hints agree with actual election for chords that constrain both physical code and character key, deriving representative keys from the shared chord model.
+- **current** — Fixed: @kb/keybindings exports representativeKey, the key a press of a chord carries read from the shared key domain (keyDomain: Space's " ", a numpad digit, a named key, a US layout's character for a layout-dependent place); canvas-keymap's hint probe (pressOf) presses it instead of an empty key, so replacing canvas.rest.pan with code Space and key space leaves the old pan no hint. The hint-probe regression is canvas-keymap.test.ts (the hint probe), with unit cases in keychord.test.ts.
+- **impact** — A stale shortcut hint can advertise a key that runs another binding. Dispatch, reservations and approval remain correct; Sol classifies this as non-blocking P3.
+- **closes** — After #181 lands, derive physical representative key values from the shared chord model and retain the review181-r3-hint-probe regression as coverage.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M75H9VJT3C118T7DHK87PSFD`
+
+### GAP: placing a top-level item inserts into the plan graph's ordered roots array
+
+- **expected** — placing an item at the forest roots costs O(log R) in a plan (an ordered structure with logarithmic insert)
+- **current** — Fixed: IndexedNodes keeps the roots in a SortedList (sorted-list.ts, a treap with subtree sizes), so a top-level placement, an unroot and a positional read each cost O(log R); a property test holds it to a sorted array and counts O(log n) comparisons per insert, and node-graph.contract.test.ts still holds both adapters equal.
+- **impact** — an outline paste with many top-level items over a store with many roots does R work per item (a memmove; small constant)
+- **closes** — an ordered structure with logarithmic insert for the roots in node-graph.ts, counted in the plan test
+- **node** — `01M52RTGASH2F5PVW7CK2Q50VN`
 
 ### GAP: pre-commit admission reads the working tree
 
@@ -3233,6 +3128,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Same registry as the FieldRow gap: one place maps a field type to its editor.
 - **node** — `01M1MGCND3KMDYJPSSMD2E4Q9J`
 
+### GAP: Query conversion must preserve a query saved by another tab
+
+- **expected** — The picker sets the query field only if it is empty when the write commits.
+- **current** — A tag pick can replace a query that another tab saved after the picker opened.
+- **impact** — Picking a tag can discard an existing saved query and its conditions.
+- **closes** — Pass the field-absence condition through the shared undoable PageWrites property update. Record undo history only for the accepted write.
+- **node** — `01M7XM3JDSQN8BK0RMQCD3HZM9`
+
 ### GAP: query print-roundtrip coverage quota depends on independent random samples
 
 - **expected** — Query round-trip coverage includes a guaranteed meaningful set of non-empty answers, independent of chance.
@@ -3240,6 +3143,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — An unchanged query implementation can fail the full core gate nondeterministically; this blocked the extension UI PR.
 - **closes** — Generate meaningful non-empty cases by construction alongside broad random cases, preserve the comparison contract, and reproduce the failing coverage distribution.
 - **node** — `01M6WV8JS4GPF0TRYDZY948C40`
+
+### GAP: rankBetween grows ranks by a digit per tail append within one plan
+
+- **expected** — appending many siblings in one plan keeps rank length bounded (e.g. rank allocation that spreads appended ranks)
+- **current** — Fixed: a tail step reads the k+1 digits after a rank's run of k leading z's as a counter and widens the run when it overflows (stepBefore mirrors it over 0s), so n appends grow a rank by about two characters per factor of 36; the plan test files 5000 children under one parent at a constant number of reads each.
+- **impact** — one outline paste with several hundred siblings under one parent slows per item; the counted plan test stops at 350
+- **closes** — a rank allocation in order.ts with bounded growth for repeated appends, proven by the plan test at thousands of siblings
+- **node** — `01M52RMD1V9BW6E27RYYSH2K5X`
 
 ### GAP: RefEditor mixes candidate search, keyboard handling and rendering in 22 branches
 
@@ -3283,6 +3194,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — SLAP-extract explicitColumns / derivedColumns / mergeColumns and keep the existing view-config tests green.
 - **node** — `01M1MGCJYB7PZXM68T4AVBECYG`
 
+### GAP: Reusing a field during line conversion can consume the draft after its value is cleared
+
+- **expected** — The conversion checks at commit time that a picked field whose initialization was skipped still has a value.
+- **current** — The Add field step reads an existing value from the browser replica and skips initialization without a presence precondition.
+- **impact** — If a concurrent writer clears the value before the batch commits, the conversion can consume the draft and leave no field value.
+- **closes** — Check the retained field value in the same transaction that consumes the draft.
+- **node** — `01M7XMMCPA7H2R1P065TVCQNYC`
+
 ### GAP: routine live sync status has no ephemeral outline column
 
 - **expected** — A family can project transient field values without committing them.
@@ -3325,6 +3244,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Introduce a ui command registry and register each command beside its implementation. Pairs with the NodeCommandPalette gap - one registry serves both.
 - **node** — `01M1MGCRNVNBE5HW27Z83PK67B`
 
+### GAP: Saved-query file changes invalidate every live answer
+
+- **expected** — A saved-query file change invalidates live answers that read its changed virtual datoms.
+- **current** — SavedQuerySet applies a new virtual set with NodeIndex.withVirtual, which rebuilds the query index and clears every retained answer.
+- **impact** — Adding or editing a saved-query file reruns subscriptions whose data did not change.
+- **closes** — Apply the virtual set delta through the same incremental datom path while preserving stored-node shadowing.
+- **node** — `01M7Q2GKYMMSGJGB5D4X120E3C`
+
 ### GAP: saved-query virtual nodes never appear in tx frames
 
 - **expected** — Every node a client can see reaches it the same way. A change under .kb/queries/ produces a KbTx like any other change, so a client catching up with since(rev) ends with the same graph a fresh /api/graph would give it.
@@ -3348,6 +3275,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Search cost grows linearly with the graph and no ranking is possible.
 - **closes** — Gate on Bun's FTS5 close() segfault (oven-sh/bun#37044); adopt once a SQLite index exists.
 - **node** — `01M1M08X7037FH9Z0Y5G1RFRXX`
+
+### GAP: search matches a node's stored text and title, not the words it reads as
+
+- **expected** — graph.search (kb search, MCP, the page's index search) finds a node by its plain display text too, so 'with Rob' finds 'Check up with Rob', as ⌘K does.
+- **current** — node-table search matches the stored text and nodeTitleOf (domain/query/src/index/node-table.ts), markup and ids included; ⌘K matches the name and the stored text.
+- **impact** — A search for the words a person reads beside a reference misses the node; searching an id or a label still finds it.
+- **closes** — Match plainWords(nodeTitleOf(...)) beside the text in every index implementation, a property in the shared index contract.
+- **node** — `01M7HCW2CRPCQ04SSRNG2FHSNS`
+
+### GAP: Settings cuts a setting's name short
+
+- **expected** — A setting in Settings shows its whole name, wrapping if it must, so a family's settings read as the sentences they are (show child counts, suggest relations).
+- **current** — Fixed: the field row's name reads its wrapping from the cascade (--kb-field-name-space, nowrap unless a surface says normal) as it reads its width (--kb-field-label); Settings' rows carry kb-setting, which sets a 200px column (--kb-setting-label) and normal wrapping, so a setting's whole name shows; the outline row keeps its 120px column and cuts.
+- **impact** — A setting cannot be read without hovering or opening it, and a family has to choose short names to fit a column meant for another place.
+- **closes** — The field row takes its name column's width from where it is drawn: the full name in Settings, wrapped if it must; the outline row keeps its column.
+- **node** — `01M7F9300H9FDW5BGCBVQQFTXW`
 
 ### GAP: seven terminal .then callbacks disable promise/always-return
 
@@ -3380,6 +3323,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — text on round solids is visible only in 2D
 - **closes** — 3D plan step 7: billboards
 - **node** — `01M41GAZJS5TD86RFSAJJB4XKD`
+
+### GAP: SQLite commits decode the whole graph under the write lock after a foreign write
+
+- **expected** — A commit bases rank and write settlement on the current committed state while keeping the SQLite write lock only for work proportional to the changes involved.
+- **current** — When a foreign write moves the commit mark, SqliteStore loses its kept state. Its next upsert decodes all rows and rebuilds StoreState inside BEGIN IMMEDIATE.
+- **impact** — A large graph stretches the write lock hold time and stalls the local event loop during decoding. The six-writer scratch repro still showed seconds of event-loop delay after lock acquisition became asynchronous.
+- **closes** — Bring kept state forward from the durable transaction tail when it spans the change, with a full read as the fallback for an unexplained fingerprint. Verify lock duration and foreground request latency under concurrent writers.
+- **node** — `01M7X33AK295XK8CNKFGEAAPZD`
 
 ### GAP: store staleness is size+mtime, not a fingerprint
 
@@ -3415,6 +3366,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M63C0GJ5M78G1TFKM00RN4X6`
 
+### GAP: table and board cells are not in the arrow-key path
+
+- **expected** — Arrow keys move through table and board cells' values the way they move through an outline row's values.
+- **current** — Fixed: a row fields section is one marker (fieldsSectionProps in @kb/ui-sdk: data-fields-for and data-fields-of) carried by an outline row fields, a table row and a card fields; value-slot-nav finds a row values by it, so the arrows and Tab walk table and board cells as they walk an outline row values.
+- **impact** — Tables and boards need the mouse to reach a value.
+- **closes** — Give table/board cells the same slot navigation order the outline uses.
+- **node** — `01M3KA3A8JZN1GH9DXK2SNZ1N1`
+
 ### GAP: tables and boards sort, filter and group references by their own empty props
 
 - **expected** — A reference in a table or board sorts, filters and groups by its target's fields, as it renders them.
@@ -3431,6 +3390,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Use the shared until helper in the Bun tests that poll for observable results, and verify that an expired wait stops before the next test.
 - **node** — `01M7B3HX9R9DNDDTJY546W1HH3`
 
+### GAP: the # and > pickers list rows that do not match the query and ignore recency
+
+- **expected** — A trigger picker lists what matches the query, ranked by recency and use, the way the value picker does (orderCandidates, picker-recency).
+- **current** — matchCandidate matches an id substring, so every sys.tag.* id matches #ta; outlineTriggers stepTrigger feeds an alphabetical nodesOfKind list to pickerRows, so recency and use counts are never applied (F2, F3 in docs/research/2026-11-20-outliner-tana-parity.md).
+- **impact** — The first thing a Tana user touches is noisy: system tags and fields pad every list, nothing shows a type, and a declared seam (picker-recency) is unused here.
+- **closes** — Brief 2 in docs/research/2026-11-20-outliner-tana-parity.md: label-only match, orderCandidates in addTag and addField candidates, glyph and use-count note.
+- **node** — `01M7WW1MDZPJQRME00HG81PSKS`
+
 ### GAP: the 3D bullet atlas has a fixed capacity
 
 - **expected** — Every distinct bullet in a 3D graph drawn in the bullet theme has its own painted cell, however many distinct tag-colour combinations the graph holds.
@@ -3438,6 +3405,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A graph with more than 400 distinct bullets (many multi-tag colour sets) draws the overflow as the wrong bullet in the bullet theme.
 - **closes** — A second atlas page (a texture array) or painting overflow cells on demand, with a test that a graph past the capacity draws every bullet from its own cell.
 - **node** — `01M3FNF3PFQA9J4XM76G3K7P9A`
+
+### GAP: the Android capture app is built and tested by no gate
+
+- **expected** — apps/android is held by a check like every package: CI (or the pre-commit chain when apps/android is staged) runs gradle testDebugUnitTest and assembleDebug in nix develop .#android, so a change that breaks the receiver goes red.
+- **current** — Nothing runs it. bun run verify, Nx and CI see only the Bun workspace (packages/*/*); the Gradle build and its JVM unit tests run only when a person runs them (apps/android/README.md).
+- **impact** — The phone app can stop building, or its payload drift from the capture contract, with every gate green.
+- **closes** — A CI job (Linux, no macOS runner needed) running the two Gradle tasks in the android dev shell, and a docs/ci.md row for apps/android.
+- **node** — `01M7QTAHN8YW57M1R1XYGRBSZ8`
 
 ### GAP: the browser UI cannot carry approval for an action
 
@@ -3479,6 +3454,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a test file per matrix cell over shared surface factories, or a cheaper one-shot CLI (the startup measurements in PR #189)
 - **node** — `01M79GV5XZGH57HF5174KXYYAB`
 
+### GAP: the CLI's eager graph loads every family's painters and the host's engines
+
+- **expected** — From the CLI entry, painters and engines load at first use (chart-vega's Vega, gallery-net, canvas' tldraw reader, the QuickJS engine, store-sqlite when selected, source-git at first fetch), and the @kb/runtime barrel exports the mode-neutral core only.
+- **current** — Closed 2026-11-21. Chart's Vega, gallery's starter pictures, canvas' tldraw reader and QuickJS loaded on first use already; now the SQLite adapter and its engine load when a root selects it (loadSqliteStore; presence reads only sqliteStoreFiles), the git reader and its transport at a source's first fetch (gitSourceReader), and the gallery's handlers with their network and image code at the family's first call. The extension watchers (extensionRuntimeChanges, ownExtensionEdits) moved from the @kb/runtime barrel into @kb/server. The CLI fence forbids bun:sqlite, the git transport and the gallery's http client, and the command path's static closure fell by about 38 KB and 10 modules. pendingRequests stays in the runtime: both hosts (kb ui and kb mcp) use it and no host package is shared. What module init still costs (Effect, zod, DataScript) is gap 01M7B2SRJ6NAQB5ZSAJNDWPY5A.
+- **impact** — About 135-145 ms of module init on every command, plus their parse once the build is split; kb get cannot approach 100 ms.
+- **closes** — docs/research/2026-11-11-cli-host-modes.md steps 4-6, each removing its breach row from the CLI lazy fence.
+- **node** — `01M75MA300NQJS5M3V6GEWQS8E`
+
 ### GAP: the cluster renderer's lifecycle effect carries 28 branches
 
 - **expected** — Same shape as the sigma gap: a renderer object with update/destroy, and hull drawing as its own pure geometry function.
@@ -3502,6 +3485,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a view extension cannot say itself in text without editing core, and core carries code-fence policy
 - **closes** — codeText moves to @kb/code with its key (E8)
 - **node** — `01M41H2ZG7C0SV1DYZE6MMKPFE`
+
+### GAP: the date editor's Enter and Tab skip the value keymap
+
+- **expected** — Enter at the end of a date value opens the next value and Tab moves on, as in every other value kind.
+- **current** — DateEditor's Enter commits without opening a next value; its Tab does not move to the next slot.
+- **impact** — Dates are the one value kind that breaks the slot keyboard grammar.
+- **closes** — DateEditor delegates Enter/Tab to the ValueSlot keymap instead of handling them itself.
+- **node** — `01M3KA39ATBBJHPY4AWP7VKX8G`
+
+### GAP: the days landing gives up on a fixed budget and silently leaves the person at home
+
+- **expected** — The landing on today waits for readiness: the page's live connection and the day node reaching its replica, however long a slow machine takes, and says so if it truly cannot land, instead of a fixed budget that falls back without a word.
+- **current** — land() asks the landing role with a 5 s budget (LANDING_BUDGET_MS), and days' answer waits at most 3 s for the made day to reach the page (ARRIVAL_MS); past either, the page stays at / without telling the person. On macOS CI the render suite's page-load landing missed its budget, so the paste spec now opens a node page instead of depending on the landing.
+- **impact** — On a slow machine or connection a person with days on opens kb at home instead of today, with no sign that the landing failed; anything that relies on landing on today (the render paste spec did) is timing-dependent.
+- **closes** — The landing awaits a readiness signal the page owns (live connection up, the day in the replica) rather than wall-clock budgets, or tells the person when it falls back; a render spec that lands on today under a throttled page.
+- **node** — `01M7CC1GD0A1J314ZTAR54F8AD`
 
 ### GAP: the default design system's light accent and warning sit below body-text AA
 
@@ -3553,6 +3552,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A write-ahead record the JSONL adapter can commit atomically with the file replace - a single sidecar holding both the candidate bytes and the tail entry, renamed once - or a per-root manifest that names the nodes generation and the tail head together.
 - **node** — `01M1XEZT8XZNSG1NGS9JPCQFGM`
 
+### GAP: the kb UI has no Back or Forward command or control (the desktop app's store window has none either)
+
+- **expected** — The kb UI has Back and Forward as commands, with buttons in its header and bindable keys, so the page and the desktop app's store window can move through navigation history.
+- **current** — kit/ui-sdk/src/lib/router.ts is pushState plus popstate with no Back or Forward command, button or key. A browser tab has the browser's own Back; the desktop app (Electrobun, packages/app/desktop) shows the store's own kb page in a window with no navigation chrome, so it has none either. The Android and iOS apps are capture-only and show no kb page (F7 in docs/research/2026-11-20-outliner-tana-parity.md).
+- **impact** — After zooming or following a reference in the kb UI there is no in-app way back, in the desktop store window or in a tab without browser chrome.
+- **closes** — Brief 3 in docs/research/2026-11-20-outliner-tana-parity.md: header buttons, Go back and Go forward commands on Mod-[ and Mod-], router canGo and go.
+- **node** — `01M7WW1VZJBCBMXTQ2W3NSN6T2`
+
 ### GAP: the kit names the frame family's default view
 
 - **expected** — Which frame view a frame with no frame view node shows is data, as sys.views names the page default (sys.f.view.default, written by the fold from the declaration that provides it).
@@ -3593,6 +3600,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — an order on node commands, read by the one menu builder
 - **node** — `01M531QSQ2DJDSPYB132RQ5RBC`
 
+### GAP: the node palette has no "Add value to <field>" command
+
+- **expected** — The node's ⌘K menu offers "Add value to <field>" for each field the node shows, reaching the same picker the + does.
+- **current** — Adding a value is only Enter or the inline + on the field row.
+- **impact** — Keyboard-only users cannot add a value to a field whose row is off screen or collapsed.
+- **closes** — A palette step per shown field that opens the field's value picker.
+- **node** — `01M3KA39PQAJZJ6C6ZY4RV1SPZ`
+
 ### GAP: the outline keydown handler is a 64-branch callback
 
 - **expected** — The editing keymap is a table like the selection keymap should be: chord -> intent, with the intents applied by one dispatcher.
@@ -3610,6 +3625,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M545DBMQA0RGRWZY21HT3XD9`
 
+### GAP: the palette index pre-sizes its arrays with new Array(n)
+
+- **expected** — buildPaletteIndex and searchPalette allocate their result arrays the way unicorn/no-new-array wants (Array.from({ length: n }) or push), with no pinpoint disable.
+- **current** — Closed: buildPaletteIndex and searchPalette build their arrays with map and carry no disable; the 50k-node test counts entry reads (365b84db), which the allocation shape does not change.
+- **impact** — Two pinpoint disables of a rule that is error everywhere else, on the one ui path with a measured latency bar.
+- **closes** — palette-index.test.ts asserts open <50ms and keystroke <10ms at 50k nodes. A standalone benchmark puts Array.from({length:n}) about 40% behind new Array(n) at that size, and the push variant flipped that test red on three of four full-suite runs on a loaded machine. Close it by making the 50k path fast enough that the allocation shape stops mattering (incremental or worker-side palette search), then delete both disables.
+- **node** — `01M1MFJXAQ8NVBMA6E6CZ7CY9W`
+
+### GAP: the phone's queue shows a raw Java exception as the reason a capture waits
+
+- **expected** — A pending capture's reason is a person's sentence naming the store and what happened (the store did not answer, the connection dropped, the phone is offline), as the README's How it behaves table words it.
+- **current** — Deliverer passes the transport exception's message through: on the emulator smoke (shot 07-queue-host-asleep) a sleeping host reads 'Waiting for store: unexpected end of stream on com.android.okhttp.Address@76c34e2c'.
+- **impact** — The queue's one explanation of why a share has not arrived is an object identity the person cannot act on.
+- **closes** — Map transport failures (refused, reset, end of stream, timeout, DNS) to worded reasons in the delivery decisions, with a DelivererTest case per kind, and let bin/android-smoke assert the worded reason.
+- **node** — `01M7YHBTK1JFMECMX1M5NHV851`
+
 ### GAP: the preferences popover renders outline's PrefFieldRow
 
 - **expected** — Prefs is its own surface and composes its own rows; a row layout shared with outline is a primitive.
@@ -3618,6 +3649,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Move the row layout into components/ui/ beside EnumSelect and PopoverShell, which this file already uses.
 - **rule** — UI import matrix
 - **node** — `01M1RXNMP8NQZ2WD8F2E8V6QBH`
+
+### GAP: the reference token has two grammars, mention.ts and the inline parser
+
+- **expected** — One statement of the label token: the inline grammar (inline.ts) and :node/mentions extraction (mention.ts) read the same tokens.
+- **current** — mention.ts scans with MENTION_RE and inline.ts parses refs in its own branch. They differ on a token inside inline code (mention extracts it, the parser leaves it text) and on a label that holds '['.
+- **impact** — A ref written in code is a backlink the page does not draw as a pill; rare, and nothing is lost.
+- **closes** — mentionSpans derived from parseInlineSource's ref spans (or the reverse), with the mention property test and the inline tests over one grammar; a store-wide check that the mentions it derives are unchanged, or a declared change.
+- **node** — `01M7HCW3N0TSYGSXVNQS2K8H0Y`
 
 ### GAP: the release bundle is one file, so every command parses host code
 
@@ -3658,6 +3697,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — an extension can be on in one host and off in the other with nothing reporting it; the agent sidebar can be switched on against a server that runs no agent, which answers unknown_channel; the server's catalog lists lab.page while the page has the lab off, so an agent can propose a view the page does not draw
 - **closes** — defineExtension per family, kb.manifest.extensions with enabled, and a browser resolver keyed by family name; the lab's off-by-default becomes a server-side setting that the registry loads by and the manifest reports, and its Preferences row writes that setting (E10, E10b)
 - **node** — `01M41H30N0SV4QE5R8VQQ1K4ZA`
+
+### GAP: the sigma renderer's lifecycle effect carries 32 branches
+
+- **expected** — Renderer setup, event wiring and teardown are three named steps, with the graph-building step shared across renderers.
+- **current** — Closed: sigma-renderer.ts names the steps: mountSigma (the instance, its label pipeline and the cluster hulls) and wireSigmaInput (hover, click, open, trace, isolate, drag) each return their teardown, and SigmaGraph's lifecycle effect is the calls. The graph-building pass shares its placement with every renderer through computeLayoutPositions.
+- **impact** — The effect is the renderer, so nothing about it can be tested without a DOM and a real sigma instance.
+- **closes** — Extract createSigmaRenderer(el, opts) returning {update, destroy} and let the effect be three calls.
+- **node** — `01M1MGCPJTV66QSFCR44XG29YM`
 
 ### GAP: the Sky borrows the graph's toScreen across the UI zones until it moves to scene/gpu/screen.ts
 
@@ -3724,6 +3771,23 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Widen WsLike to {addEventListener, removeEventListener, send, close} and update every injected fake (api/live.test.ts and the ws tests). That is a test-double contract change across the package, not a mechanical edit, so it needs its own commit.
 - **node** — `01M1MHKS8EV3DD378TZSX44EJG`
 
+### GAP: three corner radii (2px, 3px, 5px) sit off the radius scale
+
+- **expected** — Every corner radius is a step derived from the design system's --radius, so a swap re-rounds everything.
+- **current** — Closed: the canvas resize handle and the inline-code chip are rounded-xs, and the ontology page's segmented control is rounded-sm, its md track's radius less the track padding; DESIGN-UI.md -> Radius says so.
+- **impact** — A design system that changes --radius leaves these three corners unchanged.
+- **closes** — Map each onto a step (xs 4px or sm 6px, a 1-2px visible change), or add a step if the size is a real role. That is a visible change, so it lands outside the no-visual-change token restructure (wave 2026-09-24 f1).
+- **rule** — Design tokens: no bypass
+- **node** — `01M3AF8G4N9JHJB8YYEWF8F5SZ`
+
+### GAP: turning a node into a query matches every node in the store
+
+- **expected** — A new query asks for its first condition, as Tana does, so the result is what the person meant.
+- **current** — turn-query writes DEFAULT_QUERY_EDN (no conditions); the page shows the whole store under the row (F5 in docs/research/2026-11-20-outliner-tana-parity.md).
+- **impact** — The first query a person makes floods the page with system nodes; the builder is below the fold.
+- **closes** — Brief 6 in docs/research/2026-11-20-outliner-tana-parity.md: Turn into query opens the query-only tag picker (findTagged, over addTag's candidates, no create row) and writes a tag condition by id; it tags nothing and mints nothing, which Add tag's commit would.
+- **node** — `01M7WW1S48RQ48GD7A14VZG545`
+
 ### GAP: two definitions of which node is a canvas
 
 - **expected** — One reader decides whether a node is a canvas (sys.tag.canvas), and every writer and reader asks it.
@@ -3741,6 +3805,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Move both queries behind a lib/ or store selector that the components consume, so ds/ keeps one set of callers.
 - **rule** — UI import matrix
 - **node** — `01M1RXMRZKE1AJC850BRTHHHCW`
+
+### GAP: two processes that start a kb ui for one root at once can start two servers
+
+- **expected** — Starts for one root are single-flight across processes: a start holds a pidfile lock under the root's .kb, re-checks presence once it holds the lock, and only then spawns.
+- **current** — oneStartPerRoot (runtime/src/serve.ts) makes concurrent starts in one process one start; two processes (kb open and the page's server) can each spawn a server at once, the later presence write wins and the other runs on, unlisted.
+- **impact** — An extra unsupervised kb ui can be left running over the root; neither data nor security is affected (both serve the same root on loopback, the guard applies to both).
+- **closes** — A generic pidfile lock with a home both store-jsonl (its nodes write lock) and runtime may import (not infrastructure: infra cannot import infra), e.g. a backend contract-layer package; KbRoots.serve holds it around the re-check and the spawn.
+- **node** — `01M545PFJ3285JNXYHKVCM50Z7`
 
 ### GAP: TxTail allocates a rev outside the store's exclusion for virtual transactions
 

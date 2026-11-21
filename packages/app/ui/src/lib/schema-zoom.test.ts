@@ -12,7 +12,7 @@ import { fixtureGraph } from "@/api/fixture-graph";
 describe("schema zoom queries", () => {
   const qdb = new DatascriptIndex(fixtureGraph.nodes, { derived: derivedWith({}) });
   const run = (edn: string) => qdb.runDatalog(edn);
-  const nodes = wireToOutlineMap(fixtureGraph.nodes, new Set());
+  const nodes = wireToOutlineMap(fixtureGraph.nodes);
 
   it("detects tag vs field zoom kinds", () => {
     expect(schemaZoomKind(nodes.get("tag.todo"))).toBe("tag");

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { Effect, Schema } from "effect";
 import { ROUTINE_FIELDS as F, ROUTINE_TAGS as T, routineOption } from "@kb/routines";
-import type { PropValue } from "@kb/model";
+import { nodesOfKind, type PropValue } from "@kb/model";
 import { makeRoutineHost } from "../src/index.ts";
 const Update = Schema.Struct({
   unsetProps: Schema.Array(Schema.Struct({ field: Schema.String })),
@@ -95,4 +95,40 @@ test("a change says each calendar it wrote that names a Google calendar, as it w
   expect(
     page.changes[0]?.calendars.map(({ id, calendarId, mode }) => ({ id, calendarId, mode })),
   ).toEqual([{ id: "cal", calendarId: "old-google", mode: "on" }]);
+});
+
+test("read asks what a node is, and brings the tags a subtype's chain walks", async () => {
+  const meetingTag = "t.meeting";
+  const nodes: Record<string, { id: string; text: string; props: Record<string, PropValue[]> }> = {
+    m1: { id: "m1", text: "Standup", props: { "sys.f.type": [{ t: "ref", v: meetingTag }] } },
+    [meetingTag]: {
+      id: meetingTag,
+      text: "meeting",
+      props: {
+        "sys.f.type": [{ t: "ref", v: "sys.tag" }],
+        "sys.f.extends": [{ t: "ref", v: T.routine }],
+      },
+    },
+  };
+  const queries: string[] = [];
+  const host = makeRoutineHost({
+    root: "/scratch",
+    invoke: (request) =>
+      Effect.sync(() => {
+        const input = request.input as { query?: string; id?: string };
+        if (request.id === "graph.query") {
+          queries.push(input.query ?? "");
+          return { status: "succeeded", id: request.id, output: { rows: [["m1"]] } };
+        }
+        const node = nodes[input.id ?? ""];
+        if (request.id !== "node.get") throw new Error("unexpected request");
+        if (node === undefined)
+          return { status: "failed", id: request.id, code: "not_found", message: "gone" };
+        return { status: "succeeded", id: request.id, output: { node } };
+      }),
+  });
+  const read = await Effect.runPromise(host.read);
+  expect(queries[0]).toContain(":node/is");
+  expect(queries[0]).not.toContain(":f/sys.f.type");
+  expect(nodesOfKind(read, T.routine).map((node) => node.id)).toEqual(["m1"]);
 });

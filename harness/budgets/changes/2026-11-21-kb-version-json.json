@@ -1,0 +1,7 @@
+{
+  "reason": "kb --version --json answers which kb this is (its version and the wire protocol it serves, KbVersionSchema and its type in @kb/contracts), so kb desktop runs only a kb that speaks its protocol.",
+  "raise": {
+    "cli-closure": { "bytes": 240 },
+    "surface": { "@kb/contracts": 2 }
+  }
+}

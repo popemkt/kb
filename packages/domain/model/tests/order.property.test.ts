@@ -188,24 +188,40 @@ describe("rankBetween (fast-check)", () => {
     expect(() => rankBetween("a", "a")).toThrow(RangeError);
   });
 
-  test("tail appends step: 1000 appends stay strictly increasing and short", () => {
+  test("tail appends step: 50000 appends stay strictly increasing, and grow logarithmically", () => {
     const ranks: string[] = [];
-    for (let i = 0; i < 1000; i++) ranks.push(rankBetween(ranks.at(-1), undefined));
+    for (let i = 0; i < 50_000; i++) ranks.push(rankBetween(ranks.at(-1), undefined));
     for (let i = 1; i < ranks.length; i++) {
       expect(present(ranks[i - 1], "prev") < present(ranks[i], "cur")).toBe(true);
+      expect(present(ranks[i], "cur")).toMatch(WELL_FORMED);
     }
-    // One character per 35 appends, not one per append once a halving gap runs out.
-    expect(Math.max(...ranks.map((r) => r.length))).toBeLessThanOrEqual(30);
-    expect(present(ranks[199], "200th").length).toBeLessThanOrEqual(7);
+    // About two characters per factor of 36, never one per run of appends:
+    // a group appended to thousands of times in one plan stays far below the
+    // 12 characters a rank may use.
+    expect(present(ranks[999], "1000th").length).toBeLessThanOrEqual(3);
+    expect(Math.max(...ranks.map((r) => r.length))).toBeLessThanOrEqual(7);
+  });
+
+  test("a head or tail step from any rank is beyond it, well formed and short", () => {
+    fc.assert(
+      fc.property(rankArb, (rank) => {
+        const after = rankBetween(rank, undefined);
+        const before = rankBetween(undefined, rank);
+        expect(rank < after && before < rank).toBe(true);
+        expect(after).toMatch(WELL_FORMED);
+        expect(before).toMatch(WELL_FORMED);
+        expect(Math.max(after.length, before.length)).toBeLessThanOrEqual(2 * rank.length + 1);
+      }),
+    );
   });
 
   test("head inserts step the same way", () => {
     const ranks: string[] = [];
-    for (let i = 0; i < 500; i++) ranks.unshift(rankBetween(undefined, ranks[0]));
+    for (let i = 0; i < 50_000; i++) ranks.unshift(rankBetween(undefined, ranks[0]));
     for (let i = 1; i < ranks.length; i++) {
       expect(present(ranks[i - 1], "prev") < present(ranks[i], "cur")).toBe(true);
     }
-    expect(Math.max(...ranks.map((r) => r.length))).toBeLessThanOrEqual(16);
+    expect(Math.max(...ranks.map((r) => r.length))).toBeLessThanOrEqual(7);
   });
 
   test("ranksFor spreads a group with room between neighbours and short keys", () => {

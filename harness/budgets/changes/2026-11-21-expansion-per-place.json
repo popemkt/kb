@@ -1,0 +1,6 @@
+{
+  "reason": "Expansion is a choice per place: a row asks whether it is open by the instance it is drawn at (isRowOpen, placeOfInstance, useIsOpen), stored choices are places with old node ids read as tree places, references opened in place are their own set, and the subtree keys wait for the queries inside them. Measured 2062466 -> 2064085 bytes from a short checkout, base 195fb6a9 to head 37a72e5d.",
+  "raise": {
+    "page-eager": { "bytes": 1619 }
+  }
+}

@@ -15,32 +15,29 @@ export function pageDay(): string {
   return dayKeyAt(sample.nowMs, sample.timeZone) ?? "";
 }
 
-// GAP [[01M7CC1GD0A1J314ZTAR54F8AD]] a fixed wait for the made day, not the page's readiness.
-/** How long a made day may take to reach the page's replica. */
-const ARRIVAL_MS = 3_000;
-
-/** Whether the page's replica holds `id`, waiting for it a little. */
-function arrived(id: string): Promise<boolean> {
+/**
+ * Once the page's replica holds `id`: a node the family made arrives through
+ * the page's live connection, however long a slow machine or connection
+ * takes, so this waits for it, not for a clock. A caller that must answer
+ * sooner bounds it with its own role's budget.
+ */
+function arrived(id: string): Promise<void> {
   const host = browserHost();
-  if (host.nodes().has(id)) return Promise.resolve(true);
+  if (host.nodes().has(id)) return Promise.resolve();
   return new Promise((resolve) => {
-    const settle = (held: boolean) => {
-      stop();
-      clearTimeout(timer);
-      resolve(held);
-    };
     const stop = host.subscribe(() => {
-      if (host.nodes().has(id)) settle(true);
+      if (!host.nodes().has(id)) return;
+      stop();
+      resolve();
     });
-    const timer = setTimeout(() => settle(host.nodes().has(id)), ARRIVAL_MS);
   });
 }
 
 /**
- * The node of `day` (`YYYY-MM-DD`), made if need be. Rejects when the
- * family refused or the node never reached the page: as a role's provider
- * (the capture target, the date target), a failure demotes days and the
- * role's default answers (DESIGN.md → Provider roles).
+ * The node of `day` (`YYYY-MM-DD`), made if need be, once it is in the
+ * page's replica. Rejects when the family refused it: as a role's provider
+ * (the capture target, the date target, the landing), a failure demotes
+ * days and the role's default answers (DESIGN.md → Provider roles).
  */
 export async function dayNode(day: string): Promise<string> {
   const receipt = await browserHost().invoke(DAYS_IDS.todayAction, { day });
@@ -51,7 +48,7 @@ export async function dayNode(day: string): Promise<string> {
       ? output.id
       : null;
   if (id === null) throw new Error(`${day}'s node: the action answered no id`);
-  if (!(await arrived(id))) throw new Error(`${day}'s node ${id} never reached the page`);
+  await arrived(id);
   return id;
 }
 

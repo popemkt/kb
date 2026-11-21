@@ -430,6 +430,28 @@ describe("another plugin's canvas keys", () => {
     );
   });
 
+  test("a chord replaced by its place and its character takes its hint with it (the hint probe)", () => {
+    // Pan holds Space by its place alone; the replacement names the place and
+    // the character a press of it carries, as a recorded chord does.
+    const pan = CANVAS_SHORTCUTS.find(({ name }) => name === "pan");
+    expect(pan && hintOf(pan)).toBe("Space");
+    withKeys(
+      keys({
+        id: "pan",
+        value: {
+          context: "canvas.rest",
+          chord: { physicalKey: "Space", key: " " },
+          run: { action: "keys.pan" },
+          replaces: "canvas.rest.pan",
+        },
+      }),
+      () => {
+        expect(canvasKeymap("rest").refused).toEqual([]);
+        expect(pan && hintOf(pan)).toBe("");
+      },
+    );
+  });
+
   test("may not take Escape, so no key traps a person in a transform", () => {
     withKeys(
       keys(

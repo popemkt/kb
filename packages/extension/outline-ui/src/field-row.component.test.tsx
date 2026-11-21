@@ -102,6 +102,7 @@ describe("a field row's glyph", () => {
         shipped: new Set<string>(),
         onAdd: () => undefined,
         onRemove: () => undefined,
+        onMove: () => undefined,
         onFollow: () => undefined,
       }),
     );

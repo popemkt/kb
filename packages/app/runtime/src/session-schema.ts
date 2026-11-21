@@ -51,7 +51,7 @@ export const reconcileSessionSchema = Effect.fn("kb.reconcileSessionSchema")(fun
       yield* reloadEffect(ctx).pipe(Effect.provideService(KbStore, ctx.store));
       const fold = foldSeed(declarations, yield* currentIso);
       yield* applySessionSeed(ctx, fold);
-      ctx.index.setDerived(derivedOf(declarations));
+      ctx.index.setDerived(derivedOf(declarations, fold));
       held.current = { declarations, fold };
       return families;
     }),

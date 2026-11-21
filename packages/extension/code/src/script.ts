@@ -7,6 +7,7 @@
  */
 import { Result } from "effect";
 import {
+  nodeName,
   firstStr,
   refValuesOf,
   typeRefsOf,
@@ -32,16 +33,21 @@ export function scriptIdsOf(host: Pick<NodeLike, "props"> | undefined): NodeId[]
 }
 
 /**
- * `node` as a script, or null when it is none kb can run: it is not tagged
+ * The node `id` as a script, named by its name (`nodeName`), or null when
+ * it is none kb can run: it is missing, it is not tagged
  * `#script` (so writing it is not configuration), it holds no code, or a
  * grant that does not read as one. No grant is the default (it reads
  * the node it runs for, and calls nothing).
  */
-export function scriptOf(node: Pick<KbNode, "id" | "text" | "props">): ScriptSource | null {
-  if (!typeRefsOf(node).includes(CODE_IDS.scriptTag)) return null;
+export function scriptOf(
+  id: NodeId,
+  nodeOf: (id: NodeId) => Pick<KbNode, "text" | "props"> | undefined,
+): ScriptSource | null {
+  const node = nodeOf(id);
+  if (node === undefined || !typeRefsOf(node).includes(CODE_IDS.scriptTag)) return null;
   const code = node.props[CODE_IDS.codeField]?.find((value) => value.t === "str")?.v;
   if (code === undefined || code.trim() === "") return null;
   const grant = grantOfText(firstStr(CODE_IDS.codeGrantField)(node.props));
   if (Result.isFailure(grant)) return null;
-  return { id: node.id, label: node.text.trim() || node.id, code, grant: grant.success };
+  return { id, label: nodeName(id, nodeOf) || id, code, grant: grant.success };
 }

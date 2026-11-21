@@ -323,7 +323,11 @@ in `harness/src/constraints.ts`. The UI row fences the issuer's chunk;
 its meaning is stated in [DESIGN-UI](DESIGN-UI.md#extension-ui-halves).
 The CLI row measures the command dispatcher (`cli.ts`): `main.ts` already
 loads that dispatcher dynamically for launch validation, so using the launcher
-would hide the command's eager imports. The CLI row fences the dependency
+would hide the command's eager imports. The dispatcher holds the command
+table, every command by name with the module under `cli/src/commands/` that
+declares it, and loads only the invoked command's module (every one for help);
+the CLI row forbids an eager import into `commands/`, so a command's options
+and parsers load with that command alone. The CLI row fences the dependency
 itself. Its current violations form the `lazy-fence` ledger lane, keyed by
 importing file and specifier. The `cli-closure` budget
 ([Budgets](#budgets)) holds total emitted bytes and
@@ -686,7 +690,9 @@ type PropValue =
     display rule, never a write: the stored text stays the person's, and
     editing a row edits it. A row draws the title while no one edits it, a
     reference to the node is labelled by it, and search finds a node by
-    its text or its title and answers with the title (`graph.search`,
+    its stored text or by its name, the title read as plain words
+    (`nodeName`, so `with Rob` finds `Check up with [[id|Rob]]`), and
+    answers with the title (`graph.search`,
     every index implementation alike; DESIGN-UI.md → Panes and layouts →
     titles from fields). A reference names a field by id, so renaming the
     field changes no title's meaning.
@@ -733,8 +739,7 @@ type PropValue =
 - **Hiding `sys.*` is a display rule, never a resolution rule.** Resolution
   surfaces — ref-target constraints, ontology membership, datalog, validity
   checks — read the kind slot (`typeRefsOf`, i.e. `sys.f.type`, through the
-  chains it names: `kindsOf`; datalog does not follow a chain yet, GAP
-  [[01M738XHYKHDFFCN8DK595Z15T]]) and return
+  chains it names: `kindsOf`, and `:node/is` in datalog) and return
   everything it names, seeded ids included: `sys.f.fieldType` legitimately
   targets six `sys.ft.*` options and `sys.f.onto.include` legitimately targets
   every supertag. Display surfaces then decide what to _show_: an unconstrained
@@ -927,7 +932,10 @@ type PropValue =
   pasted key is refused before it can reach a committed store; only the
   process that needs the key reads it, through its `SecretSource`, as
   [Agent packages](#agent-packages) → providers states), and every
-  surface parses raw input through the same `parseTypedValue`. A `ref` must
+  surface parses raw input through the same `parseTypedValue`, a relative
+  date (`today`, `next fri`) against the writer's today (`currentLocalDate`,
+  the `Clock` in the zone in scope), so the CLI, an outline paste and the
+  date editor read one phrase as one day. A `ref` must
   also name a node the graph stores. The check (`valueConformanceError`) is part of
   `txIntegrityError`, so it runs where outline integrity already runs —
   `persistEffect`, which every action on every surface (CLI, MCP, HTTP/WS, the
@@ -951,8 +959,12 @@ set`, MCP and the UI all replace in one write), a many-valued field gains
   ref field's _target constraint_ (`allowedRefIdsOf`) is not part of the check
   yet — only the picker applies it (a recorded gap).
 - **Name resolution**: CLI/actions accept field/tag _names_; resolver does a
-  unique-text lookup among `sys.field`/`sys.tag` nodes (error on ambiguity,
-  `--create` to mint). Resolution is dynamic at load — at our scale (\<\<100k
+  unique-text lookup among `sys.field`/`sys.tag` nodes (error on ambiguity).
+  A write that sets values (`node.add`, `node.addTree`, `node.update`, and
+  those calls in `node.batch`) takes `createFields`, the CLI's `--create`: each
+  field it names that does not resolve is defined as `field.define` defines
+  one, planned into the write's own transaction, so a write that fails leaves
+  no field behind. A `sys.*` name is never minted. Resolution is dynamic at load — at our scale (\<\<100k
   nodes) caching is premature; revisit only if load profiling says so.
 - **A CLI value is parsed as its field's declared type**, never guessed from
   its shape (`parseFieldValue` in `@kb/cli`'s `map.ts`): `kb set <n>
@@ -967,7 +979,11 @@ set`, MCP and the UI all replace in one write), a many-valued field gains
   Two things carry a reference in this model, and `:node/mentions` is emitted
   from **both**:
   1. a wiki-link in **text** — `[[node-id|label]]` or bare `[[node-id]]`,
-     whose one grammar is `@kb/model`'s `mention.ts` (`mentionSpans`) —
+     read by the inline grammar, the token's one statement
+     (`@kb/model`'s `inline.ts`, `refTokenAt`; `mention.ts`'s
+     `mentionSpans` is its refs), so a mention is exactly a ref the page
+     draws: a token inside inline code is code, and a ref binds tighter
+     than emphasis, so `**[[id]]**` is a ref between literal marks —
      whether the text is the node's own `text` or a `{t:"str"}` value it
      holds (`nodeMentions` in `@kb/query`): a text field's value is written,
      rendered and followed exactly like node text (DESIGN-UI.md → Field
@@ -1147,9 +1163,8 @@ sys.extension.<name>` answers it.
   form and the rest as written (`markupWords`); plain text is the plain
   reading with each reference in its form. Both live in `display-text.ts`,
   so no writer names a reference itself ([Outline formats](#outline-formats--one-tree-one-codec-each)).
-  A docs template's `renderText` still reads every token as
-  `:node/mentions` does, one inside code or emphasis included, where the
-  inline grammar sees text (GAP [[01M7HCW3N0TSYGSXVNQS2K8H0Y]]).
+  A docs template's `renderText` reads every token as `:node/mentions`
+  does, which is as the page draws it.
 
 - Datom mapping: `[id :node/text v]`, `[id :node/child child]` (+order),
   `[id :f/<fieldId> v]` with ref values as entity refs → native datalog joins
@@ -1168,8 +1183,13 @@ move operations, every store's commit, the merge, and — through the operations
 
 - **A rank is a variable-length base-36 fraction.** `rankBetween(a, b)` is
   always strictly between its bounds, because a rank can always grow by a
-  character; a head or tail insert steps the first digit that can move instead
-  of halving the gap. No rank ends in `0` (it would tie with its own prefix);
+  character; a head or tail insert steps instead of halving the gap. A tail
+  step reads the `k + 1` digits after a rank's run of `k` leading `z`s as a
+  counter and adds one, and when the counter would start with `z` the run
+  grows and a wider counter starts (`y`, `z1`, `z11` … `zyz`, `zz1`); a head
+  step is its mirror over leading `0`s. Each run holds 36 times the steps of
+  the last, so n appends in a row grow a rank by about two characters per
+  factor of 36: 3 characters at 1000, 7 at 50 000. No rank ends in `0` (it would tie with its own prefix);
   a bound that does is read without it. The property test beside it holds
   `a < between(a, b) < b` for any two ranks, long ones included.
 - **A placement is a position, and the rank is derived.** `node.add` and
@@ -1235,18 +1255,13 @@ once, when it is next read, not once per child. That list is the only record
 of a node's children: the node itself is stored without them, and `get` is
 the one place the two are joined, so no read sees children the graph no
 longer holds. It holds the roots in order
-once asked, so each placement at the roots costs a binary search. Two costs
-remain:
-
-- Each placement at the roots inserts into the ordered array, and that moves
-  the roots after it in memory (O(R) moves; GAP
-  [[01M52RTGASH2F5PVW7CK2Q50VN]]).
-- Appending to one group within one plan steps each rank after the last
-  (`rankBetween`'s tail step), and the ranks grow: 12 characters at about
-  400 appends, 58 at 2000. Past `MAX_RANK_LENGTH` (12) a rank is not
-  usable, so each later placement scans back over the whole group for a
-  usable neighbour, O(k) per item, until the commit re-spreads the group
-  (GAP [[01M52RMD1V9BW6E27RYYSH2K5X]]).
+once asked, in a `SortedList` (a treap: a search tree on the visible order
+with each subtree's size), so placing a node at the roots, taking one out and
+reading a root by position each cost O(log R). Appending to one group within
+one plan steps each rank after the last (`rankBetween`'s tail step), whose growth is
+logarithmic ([Sibling ranks](#sibling-ranks)), so a plan of thousands of
+siblings under one parent keeps every rank usable and reads a constant number
+of neighbours per item.
 
 `node-graph.contract.test.ts` runs the same properties over both adapters,
 using random forests with dangling children, and random renames, retags,
@@ -1953,9 +1968,12 @@ tail records and what a session's index applies.
 state it last read or wrote — a `StoreState` (`@kb/model`): the nodes, each
 node's parent and the roots, moved by the transactions it commits — under the
 fingerprint that names that state. A commit whose base is that fingerprint
-settles its ranks against the kept state instead of decoding every node; any
-other base — another writer's commit, a hand edit — is read as it always was,
-and a commit that fails keeps nothing. The kept state is never the truth: the
+settles its ranks against the kept state instead of decoding every node. A
+commit on any other base brings the kept state forward through the
+transactions other writers committed since, when the adapter can show its tail
+recorded every write between (SQLite, below); a base it cannot explain — a
+hand edit, a compacted tail, an earlier kb's write — is read in full. A commit
+that fails keeps nothing. The kept state is never the truth: the
 fingerprint decides which state a commit lands on, so "a commit after another
 writer's merges into what it left and settles against it" is a contract
 property every adapter runs, and dropping the kept state costs one read.
@@ -2159,6 +2177,16 @@ CREATE TABLE meta  (key TEXT PRIMARY KEY, value TEXT);   -- schema_version, rev
   way to see a foreign writer, is a per-connection counter and fails exactly
   that. Null when the file does not exist, so an
   unopened store compares equal to nothing.
+- **Each tail row names the mark it began on** (`tx.base`; schema 7), beside
+  the `mark` it left. A commit whose base is not the mark its kept state names
+  brings the state forward through the rows the tail can show it committed
+  since (`TxTail.committedSince`, below, read inside the commit's own
+  transaction), and reads every row when it cannot: a hand write moves
+  `meta.rev` with no row. So a commit after another writer's costs what
+  that writer wrote, and a 50k-node store's commit after a foreign one holds
+  the write lock for milliseconds rather than the second a full decode took.
+  The load reads its mark and its rows in one read transaction, so the kept
+  state is exactly the state its mark names.
 - **The store owns the connection.** It opens lazily on first `load` or
   `commit` and stays open for the store's lifetime; `close()` exists for tests.
   Reads can open current and older schemas while a writer holds the lock.
@@ -2185,7 +2213,10 @@ looking:
 Presence rather than a config key because there is nothing else to configure —
 the answer is a single bit, the file that holds the data is the least
 surprising place to keep it, and a config file that disagreed with the tree
-would be a second source of truth for which store is real. Both present is an
+would be a second source of truth for which store is real. Presence reads
+only each adapter's file list (`sqliteStoreFiles`); the SQLite adapter and
+`bun:sqlite` load when a root selects it (`loadSqliteStore`), so a command on a
+JSONL root parses neither. Both present is an
 error rather than a precedence rule: a precedence rule would silently pick one
 and leave the other's writes stranded, which is the failure mode worth being
 loud about. The code is `conflict` — two stores claiming the same root is
@@ -2405,6 +2436,24 @@ open sets its floor to `head + 1`. A reader at or below that head needs a
 snapshot. This covers hand edits, backup restores and writes by older kb
 versions.
 
+Each record also carries `base`, the mark its transaction began on: a
+commit moved the store from `base` to `mark`, and a record of a
+transaction the store did not commit (the virtual set's) begins and ends
+on one mark. So the tail can say what the store committed since a state
+(`TxTail.committedSince`): the records from the last one that began on that
+state's mark, when each begins on the mark the one before it left and the
+last ends on the store's current mark (`committedSpan` in `@kb/contracts`,
+the rule's one statement). A write the tail did not record breaks the
+chain, as does a compacted tail or an older tail or record without
+`base`, and the answer is null. Two readers use it. A session catching up
+with another writer's commits (`reloadEffect`) applies them to its index as
+it applies its own, and reads and indexes the whole graph only on null. The
+SQLite store brings its kept state forward through it under the write lock
+(SqliteStore, above). A session marks the state it holds with the
+fingerprint read *before* its nodes, so a write landing between the two is
+applied again, which leaves the nodes as they were, rather than claimed and
+never applied. The memory tail has no marks and always answers null.
+
 **Compaction.** Both tails keep their newest 2048 records and drop to 1024 when
 they pass it — the bound the ring used to impose, moved to the file so an
 unbounded sequence costs one rewrite instead of unbounded disk. A reader
@@ -2568,8 +2617,9 @@ same lane. One path to a client, whatever a node's provenance.
   - *Matching.* A transaction's change set is the datoms it adds and
     retracts (an entity retracted whole is every datom it had), by
     attribute; an answer whose read set one of them matches is forgotten.
-    A rebuild (a first-seen attribute, `rebuild`, `withVirtual`) forgets
-    every answer, and so does an attribute that holds a ref for the first
+    The virtual set's delta (`withVirtual`, a saved-query file added,
+    edited or removed) is matched as a transaction is. A rebuild (a
+    first-seen attribute, `rebuild`) forgets every answer, and so does an attribute that holds a ref for the first
     time: a run revives that attribute's values as nodes, whichever entity
     holds them. A run that revives a field's value as a node reads every
     node's id, since that value names a node only while the node lives.
@@ -2754,7 +2804,7 @@ same lane. One path to a client, whatever a node's provenance.
   literal substrings of stored text or display title, sorts by node id, then
   limits the results. Stored and virtual nodes participate.
 - **Text candidates.** The server's node index lazily builds an in-memory
-  SQLite FTS5 trigram index over the current text and titles, for either
+  SQLite FTS5 trigram index over the current text and names, for either
   store backend. It updates documents when the node or any lookup in its
   title changes. A graph replacement discards the projection and the next
   indexed search builds it again. Candidate matches go through the same
@@ -2835,7 +2885,7 @@ includeSystem?}` is the projection itself as a host answers it
   family that draws a set's connections (a canvas diagram) asks for them
   through it rather than importing the projection. The CLI's `kb trace <a> <b> [--kinds …] [--k n]`,
   `kb suggest <id> [--kinds …]` and `kb relate <source> <target> <field>`
-  are sugar over them (`cli/src/relations.ts`), as `kb backlinks` is over
+  are sugar over them (`cli/src/commands/relations.ts`), as `kb backlinks` is over
   `graph.query`; MCP, WebMCP and the agent list them as they list every
   action.
 - **Typing a relation** (`graph.relation.type {source, target, field}`) is
@@ -3472,7 +3522,7 @@ header names anyone else, or carries none, is named as any other is.
 
 The header is believed from whatever reaches the server, so it is sound
 only where the proxy is the one way in, and `kb ui` takes it only with
-`--socket <path>` (`checkUiListen` in `app/cli/src/arguments.ts`): the
+`--socket <path>` (`checkUiListen` in `app/cli/src/commands/ui-options.ts`): the
 server listens on a Unix socket instead of a TCP port, created with mode
 0600 under a matching umask, so only its owner and root can connect
 (`listen` in `app/server/src/listener.ts`). A socket is reached through its
@@ -3840,7 +3890,7 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   setting `sys.f.extensions.watch` (a checkbox, `extensionsWatched` in
   `@kb/server`) is on, so a person can leave it on. The flag is per run and
   the setting is the store's, committed with it.
-  - **What watching does.** `ownExtensionEdits` (`app/runtime`) watches the
+  - **What watching does.** `ownExtensionEdits` (`app/server`) watches the
     folder and every folder under it, creating it when it is initially missing.
     Its parent-directory signal follows removal and recreation, replacing the
     scoped recursive watch when the directory identity changes. Disabling
@@ -4724,7 +4774,10 @@ figure?}`. `viewText` looks the view up in the catalog and falls back to
     resolver is asked again with what it writes when it runs inside a call,
     and the index and the transaction log move with it. It answers the
     write as the plan answered it, so a plan may carry what it decided (the
-    day it found) alongside the nodes.
+    day it found) alongside the nodes. A plan may refuse in its family's
+    own words (a canvas verb's relation error), and may read the services
+    its action runs with, the session among them, caught up to the nodes it
+    is handed.
 
   `graph-writes.test.ts` (`app/runtime`) holds this over the binding. What
   a write means is pure and below the port, so a family plans exactly what
@@ -5036,7 +5089,12 @@ gestures go through — the one transform (`transformItem`), surface snap
 (`snap.ts`), membership and the drop rule (`membership.ts`), placing on a
 frame's face (`placedOnFace`), the edge record the pointer's edge drag makes
 (`connectItems`) — and each write is one `commitCanvasEffect`: one store
-transaction, one step of an open canvas's history.
+transaction, one step of an open canvas's history. A verb hands it a plan,
+not a document: the plan reads the stored document (`readCanvasEffect`) and
+every node it rewrites beside it (a bound edge's source, a promoted card's
+node, another page that takes items) inside `GraphWrites.commit`, so it is
+made again over each attempt's graph and a write another process made
+meanwhile is kept (`canvas-concurrent.test.ts`, over every store backend).
 
 - **Relations read both ways** (`relations.ts`). Directions are the canvas's
   own axes — left and right along x, north and south along y (north up the
@@ -5193,7 +5251,9 @@ is a `.tldraw` archive (a ZIP holding tldraw-sync's `db.sqlite`, whose
 lowering is `@kb/canvas`'s pure `tldrawBoard`, so any source of tldraw's
 store records can use it.
 - The first page by tldraw's page order is the board, filed under `parent`;
-  the others are its pages. Everything is one transaction, and the answer
+  the others are its pages. Everything is one transaction, planned inside
+  `GraphWrites.commit` over each attempt's graph (the parent's children, the
+  fields kb already has), and the answer
   names each page, the record nodes and fields it made, its lints (each
   once), and `reported`: what kb drew differently or not at all.
 - A `frame` is a frame; a tldraw `group` is no item, its members standing
@@ -5388,17 +5448,21 @@ planned again. A call in a batch reads the text left by its earlier calls.
 
 ### Batches of writes — `node.batch`
 
-`node.batch` takes `{calls, force?}`: a list of calls, each `{action, input}`
-naming `node.add`, `node.update`, `node.delete` or `field.define`, and commits them as one
-transaction. It is how one gesture over several nodes is one write: a person
-tagging, moving or deleting a multi-row selection in the outline
-(DESIGN-UI.md → Outline editor, "A selection is a range of rows"), an agent
-retagging what a query found, `kb action-invoke` from a script. Each call's
+`node.batch` takes `{calls, ids?, force?}`, where each call has an
+`{action, input}` naming `node.add`, `node.update`, `node.delete`,
+`field.define` or `tag.define`. It commits the calls in one transaction.
+The outline uses it to tag, move or delete a multi-row selection
+(DESIGN-UI.md → Outline editor, "A selection is a range of rows"). An agent
+can use it to retag query results, and a script can call it through
+`kb action-invoke`. Each call's
 input is that action's own input, read by its own schema, less `force`,
 which the batch states once for the whole commit; a `node.add` names its
 `parent` (`null` for the top level), since a batch decides every place
-itself and never asks the capture target. A batched `field.define` names
-its id so later calls can reference it.
+itself and never asks the capture target. A batched `field.define` or
+`tag.define` names its id so later calls can reference it, and is planned
+by its action's own definition planner (`fieldDefinitionInput`,
+`tagDefinitionInput`), so a tag made in a picker and the rows it tags are
+one transaction: a refused tagging leaves no tag behind.
 
 The calls are planned in order over one working copy of the nodes, each by
 its action's own planner, and each call's writes
@@ -5414,12 +5478,17 @@ step. Over a store that moved while it was planned, the whole batch is
 planned again, as `node.addTree` is.
 
 A `node.update` can name fields in `requireUnset` to require that they
-currently hold no values. A `node.delete` can specify `requireEmptyLine`
-with the draft's parent and exact text. Its node must still have that
+currently hold no values, or in `requireSet` to require that they hold one. A `node.delete` can specify `requireEmptyLine`
+with the draft's parent (null for a top-level row) and exact text. Its node must still have that
 parent and text, with no children or props. A failed precondition is a
 conflict, checked again over the current graph whenever the batch replans.
 
-The output is `{ ids }`, each call's node in call order. The action declares itself a batch of its parts
+The output is `{ ids }`, each call's node in call order. `ids` in the input
+is the same list, one id per call: a `node.add` that names no id of its own
+is created with its call's, and one is minted when the list is omitted; a
+list of another length is refused. It is the batch's `mints` key, so a page
+that commits a batch first pushes the ids its commit answered and the server
+creates the nodes the page shows, as `node.addTree` does. The action declares itself a batch of its parts
 (`batchOf`), so a guard on any of them governs it, decided with each part's
 own mode ([Action registry](#action-registry)). It declares no `targets`,
 since its nodes are inside its calls, so a script cannot call it (Sandbox →
@@ -5461,8 +5530,7 @@ items go under `parent` (the forest roots when omitted) at `position`,
 The action declares itself a batch of `node.add` (`batchOf`), so approval
 decides it as `node.add` too ([Action registry](#action-registry)). The
 syntax is the format's reader in `@kb/outline-paste`, pure and resolving
-nothing, which the CLI reads too (to plan `--create` from an outline's field
-lines) and a family may check an outline it ships against. The action is in
+nothing, which a family may check an outline it ships against. The action is in
 the isomorphic registry, so the CLI (`kb add --outline <file> [--format
 <id>]`, `-` for stdin), MCP (`node_addTree`), WebMCP, the sidebar agent and
 the page's own invoke all reach the same handler.
@@ -5485,8 +5553,8 @@ The grammar is Tana Paste's format, a subset of Tana Paste:
   node. `name::` followed by nested `- value` items holds several values, and
   an inline value may be combined with nested ones. Each value is read as the
   field's declared type, as `--prop` does. A field that does not exist is
-  refused, and `kb add --outline --create` mints it first, as
-  `kb add --create` does. `::` makes a field only when whitespace or the end
+  refused, and `kb add --outline --create` (`createFields`) defines it in the
+  outline's own transaction, as `kb add --create` does. `::` makes a field only when whitespace or the end
   of the line follows it, so `a::b` stays text.
 - `[[id]]` and `[[id|label]]` in text and in values are the ordinary ref form
   ([Data model](#data-model--everything-is-a-node)). A target that is a stored
@@ -5530,11 +5598,9 @@ parked: it needs an XML parser in the isomorphic domain, and its attributes
 map to nothing past `text`. When it is wanted, it is one more codec over the
 same tree, not a second write path.
 
-`--create` mints missing fields through `field.define` before the outline's
-own transaction, as it does for `kb add`. An outline that then fails keeps
-those fields. The all-or-nothing promise therefore covers the outline's nodes
-and props, but not fields minted on the command line
-(GAP [[01M52F7X4YQ7W3TJHVPBBXARGP]]).
+`--create` (`createFields`) defines missing fields in the outline's own
+transaction, as it does for `kb add`, so the all-or-nothing promise covers
+them too: an outline that fails leaves no field behind.
 
 ### Outline formats — one tree, one codec each
 
@@ -5747,7 +5813,7 @@ remains GAP [[01M413SP3QSSQJMKKDK3W3J6G8]].
 
 ## Surfaces
 
-- **CLI** (`commander`, `#!/usr/bin/env bun`): human commands + `kb action-invoke <json>`; `--json` everywhere. Internal command orchestration is Effect (`resolveRootEffect` → `openKbEffect` → `runPlanEffect` / `invokeReceiptEffect`) with an `Effect.runPromise` + exit-code boundary at each Commander surface action (not a claim that the whole process has a single runPromise). Commander itself stays the argv contract.
+- **CLI** (`commander`, `#!/usr/bin/env bun`): human commands + `kb action-invoke <json>`; `--json` everywhere. `kb --version --json` says which kb this is (`KbVersionSchema` in `@kb/contracts`: its version and the [wire protocol](DESIGN-UI.md#delivery) it serves), and the launcher answers it without loading the command table. Internal command orchestration is Effect (`resolveRootEffect` → `openKbEffect` → `runPlanEffect` / `invokeReceiptEffect`) with an `Effect.runPromise` + exit-code boundary at each Commander surface action (not a claim that the whole process has a single runPromise). Commander itself stays the argv contract.
 - **MCP** (`kb mcp`, `@modelcontextprotocol/sdk` stdio): `kb.manifest` as an
   agent, read at each `tools/list` → one tool per action it may call → Effect
   handler (`callToolEffect` / resource Effects via `reloadEffect` + `invokeReceiptEffect`); tool hints from the mode ([Action registry](#action-registry)). SDK request handlers remain Promise-returning; CallTool maps Fail/Die to `isError`, resource Fail/Die to JSON-RPC `-32603`.
@@ -5898,6 +5964,11 @@ remains GAP [[01M413SP3QSSQJMKKDK3W3J6G8]].
   Forget removes a remote from settings after its credential is erased.
   If erasure fails, the app shows the error and keeps the store listed
   for another attempt.
+  The app runs only a kb whose `kb --version --json` names the wire
+  protocol the app was built with, by the page's rule (DESIGN-UI.md →
+  Delivery); one that names another, or predates the question, is passed
+  over with which side to update (`packages/app/desktop/README.md` →
+  Which kb it runs).
 - **Agent onboarding**: CLAUDE.md/AGENTS.md section — node model, field/tag
   conventions, 5 example invocations.
 
@@ -6611,9 +6682,12 @@ are `docs/brainstorms/2026-10-17-kb-locations/README.md`.
   is stopped with its process group (SIGTERM, then SIGKILL once a short
   grace has passed): until it serves it belongs to the
   start, so a failed or interrupted start leaves no server behind.
-  Concurrent opens of one root in one process are one start
-  (`oneStartPerRoot`); across processes they are not yet
-  (GAP [[01M545PFJ3285JNXYHKVCM50Z7]]). A missing location, or one that is not a
+  Concurrent opens of one root are one start. In one process a second
+  start waits for the first and gets its answer (`oneStartPerRoot`).
+  Across processes, a start holds the root's start lock (`.kb/ui-start.lock`,
+  the kernel lock the store's writers take, `@kb/file-write`), looks for a
+  server again once it holds it, and spawns only when there is none, so a
+  start that waited answers the server the other one started. A missing location, or one that is not a
   store, fails `not_found` with its reason and starts nothing. Started
   servers keep running with no supervisor, as a `kb ui` a person starts
   does; `kb locations` shows which are served.
@@ -7430,7 +7504,9 @@ Core owns the role and answers the top level, and days replaces it
 ([Days](#days)). The third is `ui.landing`, the node a page that loads at
 the root opens on, which the shell asks once per page load. Core owns it
 and stays home, and days replaces it with today (DESIGN-UI.md →
-[Days](./DESIGN-UI.md#days)). The fourth is `ui.date-target`, the node a
+[Days](./DESIGN-UI.md#days)). It is the one service call with no budget:
+a landing waits for what it needs, however long a slow machine takes, and
+a provider that fails leaves the page home with a toast that says why. The fourth is `ui.date-target`, the node a
 followed date value opens (a `date` follow target, DESIGN-UI.md → Field
 values). Core owns it and leads nowhere, and days replaces it with the
 date's day, made if need be. A text's `@` trigger asks it too

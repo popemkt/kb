@@ -11,7 +11,7 @@
  */
 import type { WireNode } from "@kb/contracts";
 import { resolveOntology, type MemberReason, type OntologyResolution } from "@kb/model";
-import { textOr, type NodeMap, type OutlineNode, type QueryAnswers } from "@kb/ui-sdk";
+import type { QueryAnswers } from "@kb/ui-sdk";
 
 export type { MemberReason, OntologyResolution };
 
@@ -101,9 +101,4 @@ export function excludedRows(
       pinned: false,
     }))
     .toSorted((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
-}
-
-export function labelOf(id: string, nodes: NodeMap): string {
-  const node: OutlineNode | undefined = nodes.get(id);
-  return textOr(node?.text.trim(), id);
 }

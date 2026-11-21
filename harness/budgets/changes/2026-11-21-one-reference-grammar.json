@@ -1,0 +1,4 @@
+{
+  "reason": "The reference token is stated once, in the inline grammar, and mentions read the parser's refs; a ref binds tighter than emphasis.",
+  "raise": { "cli-closure": { "bytes": 222 } }
+}

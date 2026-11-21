@@ -48,7 +48,7 @@ function readEditingContext(args: {
     cursor: getCaretSerializedOffset(editable),
     text: shown.text,
     childCount: content?.children.length ?? 0,
-    collapsed: live?.collapsed ?? false,
+    collapsed: live !== undefined && !store.isOpen(instanceKey),
     tagCount: content?.tags.length ?? 0,
     parentId,
     siblingIndex: parent ? parent.children.indexOf(nodeId) : -1,

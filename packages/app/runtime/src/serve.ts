@@ -12,6 +12,12 @@ import { KB_LAUNCH_FLAGS } from "@kb/child-process";
  * it serves it belongs to the start: a start that fails, by timing out or by
  * being interrupted, stops it, so a failed start leaves no server behind.
  * Its stderr goes to a log file, and a failed start reports the file's tail.
+ *
+ * Starts for one root are single-flight across processes: a start holds the
+ * root's start lock (`.kb/ui-start.lock`, the same kernel lock the store's
+ * writers take), looks for a server again once it holds it, and spawns only
+ * when there is none. A start that waited on another finds that one's
+ * server and answers its URL.
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import { closeSync, openSync } from "node:fs";
@@ -21,6 +27,7 @@ import { FileSystem } from "effect/FileSystem";
 import { domainError, ensureDomainError, type DomainError } from "@kb/model";
 import { uiAddressOf } from "@kb/contracts";
 import { servingUi } from "@kb/workspace-fs";
+import { acquireFileWriteLockEffect, releaseFileWriteLock } from "@kb/file-write";
 import { childProcessEnv } from "./child-env.ts";
 
 /** How a `kb ui` is started: the kb command, the environment it runs in, and how long it gets. */
@@ -126,8 +133,9 @@ const logTail = Effect.fn("kb.serve.tail")(function* (
 
 /**
  * Start a `kb ui` serving `root` and answer its URL once it says it serves
- * the root. Fails `internal` with the tail of its stderr when it exits
- * first, or when it has not answered in time, and then it is stopped: a
+ * the root, or the URL of the one already serving it once this start holds
+ * the root's start lock. Fails `internal` with the tail of its stderr when it
+ * exits first, or when it has not answered in time, and then it is stopped: a
  * start is one attempt, and a server that comes up after its start gave up
  * is one nobody asked for.
  */
@@ -135,6 +143,11 @@ export const serveRoot = Effect.fn("kb.serve")(function* (
   root: string,
   launch: UiLaunch,
 ): Effect.fn.Return<string, DomainError, FileSystem | Scope.Scope> {
+  yield* Effect.acquireRelease(acquireFileWriteLockEffect(join(root, ".kb", "ui-start")), (lock) =>
+    Effect.sync(() => releaseFileWriteLock(lock)),
+  );
+  const serving = yield* servingUi(root);
+  if (serving !== null) return uiAddressOf(serving);
   const fs = yield* FileSystem;
   const dir = yield* fs
     .makeTempDirectory({ prefix: "kb-ui-" })
@@ -177,8 +190,6 @@ type Start = (root: string) => Effect.Effect<string, DomainError>;
  * root that is already starting waits for that start and gets its answer,
  * its URL or its failure, instead of starting a second server.
  */
-// GAP [[01M545PFJ3285JNXYHKVCM50Z7]]: one start per root in this process only; two
-// processes starting one root at once can each start a server.
 export function oneStartPerRoot(start: Start): Start {
   const starting = new Map<string, Deferred.Deferred<string, DomainError>>();
   return (root) =>

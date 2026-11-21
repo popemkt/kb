@@ -5,7 +5,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import { CommanderError } from "commander";
-import { checkUiListen, collectScripts } from "../src/arguments.ts";
+import { checkUiListen, collectScripts } from "../src/commands/ui-options.ts";
 
 const BRIDGE = "https://bb.example/api/v1/plugins/bbim/http/bridge.js";
 

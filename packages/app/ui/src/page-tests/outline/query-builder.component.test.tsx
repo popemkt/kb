@@ -11,7 +11,13 @@ import { isQueryNode, present, fieldTypeValue, SYSTEM_IDS } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { bundledSeed } from "@kb/bundled";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
-import { browserHost, syncUiPlugins } from "@kb/ui-sdk";
+import {
+  browserHost,
+  currentContributions,
+  PaletteStepPoint,
+  schemaOf,
+  syncUiPlugins,
+} from "@kb/ui-sdk";
 import { OutlineListView } from "@kb/views";
 import {
   NodeCommandPalette,
@@ -310,6 +316,48 @@ describe("the query builder", () => {
     expect(outlineNodes().get(nodeId)?.props).toEqual(
       before.find((node) => node.id === nodeId)?.props,
     );
+  });
+
+  it("Turn into query keeps a query another tab saved while the tag picker was open", async () => {
+    resetOutlineStore();
+    const nodeId = "n.c";
+    const task = wire({
+      id: "t.task",
+      text: "task",
+      props: { [SYSTEM_IDS.typeField]: [ref(SYSTEM_IDS.tag)] },
+    });
+    // The picker opened on a plain node; another tab has since saved a query on it.
+    const theirs = { t: "str" as const, v: '[:find ?id :where [?n :node/text "theirs"]]' };
+    useGraphStore.getState().hydrateFromWire(
+      [...graph(DEFAULT_QUERY_EDN), task].map((node) =>
+        node.id === nodeId
+          ? { ...node, props: { ...node.props, [SYSTEM_IDS.queryField]: [theirs] } }
+          : node,
+      ),
+      2,
+      "api",
+    );
+    const saved = useGraphStore.getState().wireNodes;
+    const undoDepth = useGraphStore.getState().undoStack.length;
+    const findTagged = present(
+      currentContributions(PaletteStepPoint).find(({ id }) => id === "outline.find-tagged"),
+      "find-tagged step",
+    ).value;
+    await act(async () => {
+      await findTagged.commit({
+        targetNodeId: nodeId,
+        targetNodeIds: [nodeId],
+        schema: schemaOf(useGraphStore.getState()),
+        pickedId: task.id,
+        creating: false,
+        name: "task",
+        alternate: false,
+        writes: browserHost().writes,
+      });
+    });
+    expect(outlineNodes().get(nodeId)?.props[SYSTEM_IDS.queryField]).toEqual([theirs]);
+    expect(useGraphStore.getState().wireNodes).toEqual(saved);
+    expect(useGraphStore.getState().undoStack).toHaveLength(undoDepth);
   });
 
   it("a new query node opens on Conditions, with nothing said yet and every node counted", async () => {

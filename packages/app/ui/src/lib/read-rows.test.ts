@@ -28,7 +28,7 @@ const graph: WireNode[] = [
   wire("g"),
   { ...wire("r"), text: "", props: { [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: "g" }] } },
 ];
-const nodes = schemaOfGraph(wireToOutlineMap(graph, new Set()));
+const nodes = schemaOfGraph(wireToOutlineMap(graph));
 const rows = (root: string, depth?: number, max?: number) =>
   readRows(nodes, nodes, root, depth, max).rows;
 

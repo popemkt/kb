@@ -117,11 +117,11 @@ const EDITING_STEPS: EditingSteps = {
   moveUp: ({ nodeId }) => void browserHost().writes.moveNodesUp([nodeId]),
   moveDown: ({ nodeId }) => void browserHost().writes.moveNodesDown([nodeId]),
   toggleCheck: ({ nodeId }) => void toggleRowChecks([nodeId]),
-  toggleCollapse: ({ nodeId }) => useOutlineStore.getState().toggleCollapse(nodeId),
+  toggleCollapse: ({ instanceKey }) => useOutlineStore.getState().toggleCollapse(instanceKey),
   expandSubtree: ({ instanceKey, host }) =>
-    useOutlineStore.getState().expandSubtree(instanceKey, host),
+    void useOutlineStore.getState().expandSubtree(instanceKey, host),
   collapseSubtree: ({ instanceKey, host }) =>
-    useOutlineStore.getState().collapseSubtree(instanceKey, host),
+    void useOutlineStore.getState().collapseSubtree(instanceKey, host),
   createBefore: ({ nodeId }) => void createNodeBefore(nodeId),
   zoom: ({ nodeId, host }) => zoomIntoRow(nodeId, host),
   zoomOut: ({ host }) => zoomOut(host),

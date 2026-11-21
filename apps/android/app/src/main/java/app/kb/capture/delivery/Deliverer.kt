@@ -122,7 +122,7 @@ class Deliverer(
                 true
             }
             is Answer.Unreachable -> {
-                queue.update(id) { it.copy(attempts = it.attempts + 1, reason = "Not delivered yet: ${answer.message}") }
+                queue.update(id) { it.copy(attempts = it.attempts + 1, reason = waitingFor(pairing, answer)) }
                 false
             }
         }
@@ -141,7 +141,7 @@ class Deliverer(
                 pause(pairing, answer.message)
                 ContractCheck.Paused("${pairing.name} refused this phone (${answer.message}). Pair again.")
             }
-            is Answer.Unreachable -> ContractCheck.Waiting("Waiting for ${pairing.name}: ${answer.message}")
+            is Answer.Unreachable -> ContractCheck.Waiting(waitingFor(pairing, answer))
         }
 
     /** Pauses a store; the person is told once, when it stops accepting this phone, not on every run after. */
@@ -150,6 +150,9 @@ class Deliverer(
         pairings.update(pairing.key) { it.copy(paused = why) }
         if (newly) notices.paused(pairing, why)
     }
+
+    /** The one wording of a capture that waits because its host gave no answer. */
+    private fun waitingFor(pairing: Pairing, answer: Answer.Unreachable): String = "Waiting for ${pairing.name}: ${answer.reason}"
 
     private fun wait(id: String, reason: String) {
         queue.update(id) { it.copy(reason = reason) }
@@ -206,7 +209,7 @@ class Pairer(
                     else "${answer.code}: ${answer.message}",
                 )
             is Answer.Unauthorized -> PairOutcome.Failed("Refused: ${answer.message}")
-            is Answer.Unreachable -> PairOutcome.Failed("Could not reach $url: ${answer.message}")
+            is Answer.Unreachable -> PairOutcome.Failed("Could not reach ${url.trim()}: ${answer.reason}")
         }
     }
 

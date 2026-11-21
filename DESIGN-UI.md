@@ -163,7 +163,10 @@ to the replica at once, and its push lingers as the lane's last write until a
 pause (`COALESCE_MS`) passes with no keystroke for that node, or any other
 write is pushed or lingers, which sends it first (`invokeCoalesced`). Only
 the last write lingers, so a keystroke joins only the push right before it,
-never one another write has followed. So no write waits
+never one another write has followed. The coalesced push carries the text
+its run's first keystroke was typed over (`expectedText`), so a concurrent
+edit is refused as a conflict, not overwritten, and a guarded write behind it
+(a line's conversion) sees that refusal. So no write waits
 on the network before it commits locally — Enter splits the row at once, and
 the next keystroke lands in the new one — and no text is pushed after a write
 that followed it, such as the undo or merge that deletes its node. A push the
@@ -256,7 +259,9 @@ query text, each as of a generation of the replica.
   runner (`resolveOntology`, `allowedRefIdsOf`, `relationFieldsFor`) runs
   over the answers' runner, and a React reader re-runs it when an answer it
   read arrives (`useAnswered`); an event handler waits for every query it
-  asks to be answered as of now (`settle`, the page's `answered`).
+  asks to be answered as of now (`settle`, the page's `answered`). The
+  walk keeps the entries it reads until it finishes, including when it
+  reads more queries than the cache would otherwise keep.
 - **A value that must not be drawn half-built** (a graph) is held at its
   last settled value for the same subject (`useLastSettled`).
 - **Actions.** An isomorphic action that runs on the page asks datalog of
@@ -325,6 +330,9 @@ be kept, never how it is sent.
     someone checks compatibility in both directions. Record the fingerprint
     when both builds can still work together. Bump the protocol when either
     side would read a message differently.
+    A program that runs kb rather than serving its page keeps the same
+    rule: kb desktop reads the protocol from `kb --version --json` and runs
+    only a kb of its own protocol.
     Changing the meaning of an action across builds requires a protocol bump,
     even when the action's new input is optional. An older server would drop a
     conditional text edit's precondition
@@ -470,18 +478,23 @@ Mode A owns split/merge/indent/outdent, soft line break (`Shift+Enter`), a
 new empty row above (`Cmd+Shift+Enter`, as `Shift+O` makes one),
 vertical caret motion, and autocomplete interception. Mode B owns
 `ArrowLeft/Right` collapse-expand-parent-firstchild, `Cmd+Shift+ArrowLeft/Right`
-a row to the group beside its own (_Groups_), `o` / `Shift+O` create-below/above, `Space` toggle, and printable-character
+a row to the group beside its own (_Groups_), `o` / `Shift+O` create the row directly below (an open row's first child, else the next sibling, a top-level row's included) / above, `Space` toggle, and printable-character
 re-entry into Mode A. Both modes hold the structure keys a row is
 navigated by: `Cmd+ArrowUp/Down` close or open one level (Mode B:
 `ArrowLeft/Right`), `Cmd+Alt+ArrowDown` / `Cmd+Alt+ArrowUp` (Ctrl+Alt on
 Windows and Linux) open or close the row's whole subtree, every row
-the outline draws under it as it draws them all open: query results
+the outline draws under it, at the place it draws it, as it draws them
+all open: query results
 and references opened in place among them, and a child its view does
 not draw left as it is (each selected row's, over a range),
 `Cmd+.` zooms into the row, and `Cmd+,` zooms out to the page above the
 one its outline shows (its crumb before the last; at home nothing moves).
 The palette's Expand all and Collapse all are the same subtree step over
-every top row of the page (`expandSubtree`, `expandAllInScope`). Mode B's keys are the selected row's: a key pressed
+every top row of the page (`expandSubtree`, `expandAllInScope`). A query the
+step opens draws its results once answered, so the step waits for the
+queries inside the subtree it opens (`settle`'s `awaits`; every query of the
+page for Expand all) and opens their results too. Its rows are its page's: if the page
+has moved by the time they are answered, the step opens nothing. Mode B's keys are the selected row's: a key pressed
 while focus is on a control the keyboard stops at (a text entry, or a button
 such as a tag's box or a hidden field's chip) is that control's, so Tab
 moves focus on and Enter or Space presses it (`ownsItsKeys`). Chrome the
@@ -681,7 +694,12 @@ point's `combine`:
   only when the holder covers the replacement’s whole chord. Another owner still
   needs replacement approval for any shared press. Layout-independent
   keys, including numpad digits with NumLock on or off, narrow that overlap;
-  layout-dependent positions are checked conservatively. Reserved page-owner
+  layout-dependent positions are checked conservatively. A shortcut's hint
+  names a chord only while a press of it still reaches its binding, and that
+  press is read from the same key domain (`representativeKey`: a place's own
+  key, Space's `" "`, a US layout's character where the layout decides), so
+  a replacement that names both the place and its character takes the hint
+  with it. Reserved page-owner
   bindings remain ahead of conflicting surface-owner claims;
 - a binding over a held chord is refused unless it names the holder in
   `replaces` (the record's §9 default 7: an occupied chord is never taken
@@ -778,7 +796,10 @@ Pin / Unpin, Check / Uncheck, Move to…, Move and leave reference…, Copy node
 shortcut, acts on the head alone (`runCommand`). A picker step it opens is
 handed every row (`targetNodeIds`), mints what it creates once, and writes
 the pick to each row as one write (`asOneWrite`), so what it does once the
-write lands (where the selection goes after a move) reads it landed.
+write lands (where the selection goes after a move) reads it landed. A tag
+the Add tag step makes is part of that write over one row too
+(`PageWrites.together`): the definition and the tagging are one `node.batch`,
+so a refused tagging leaves no new tag behind.
 
 **A row moves anywhere: Move to…, and a drag.** Two gestures, one write
 (`PageWrites.moveNodes`): the rows a gesture moves, the selection's top
@@ -993,8 +1014,14 @@ of its steps marks the store's last undo entry when it was taken
 it made, in its place (Triggers in the text), and ⌘Z in the row takes back
 first whatever the store wrote since the row's last step (a command run on
 the row, a pick in the palette) through the store's undo, then shows the
-text the store holds. So ⌘Z in the row takes back the last thing done
-while it is edited, and what the row shows is what the store holds.
+text the store holds. The history is the row's, not its host's: a write
+that draws the row at another instance (an indent from `/` or Tab) takes
+its host away while the row is edited, and the host drawn there takes the
+history up when the text is as it was; a store undo that redraws the row
+leaves it edited where it is drawn now (`keepEditing`). Leaving the row
+(Escape, a click elsewhere) ends its history. So ⌘Z in the row takes back
+the last thing done while it is edited, wherever that put the row, and what
+the row shows is what the store holds.
 
 **Refs are atomic in the editor.** `[[id|label]]` renders as a
 `contenteditable=false` link carrying its serialized token, in both states, so
@@ -1057,24 +1084,37 @@ The outline's row asks with the setting's value, and every other view
 that draws a bullet (a card, a table cell, a link row) never asks, because
 its rows do not open in place.
 
-**Expansion is the reader's, per tab.** `expansion` holds a choice per row,
-open or closed, and the references opened in place (Contextual references
-→ A reference in the text opens in place), a row's choice only while the
-reader can undo it: a choice that equals the row's default, or names a row
-that can no longer expand, is dropped (`undoable`), so no row is held
-collapsed with no gesture to open it. A row the graph does not hold now
-keeps its choice, so a row restored by an undo comes back as the reader
-left it. A row shown open stays open when the graph
-gives it children or fields. Each tab keeps its own expansion while it is
+**Expansion is the reader's, per tab.** `expansion` holds a choice per
+place, open or closed. A place is where a row stands in the graph: a row of
+the outline's tree is its path from the workspace root, whichever pane
+draws it, so the main outline and an outline in another pane share it; a
+projected row (a query's result, a reference opened in place) is its own
+key (`placeOfInstance`). A node drawn at several places is open or closed
+at each one on its own: opening a row in the tree leaves the same node
+closed where a query draws it, and Expand subtree opens the places it
+walks, not the node. A choice stays only while the reader can undo it: a
+choice that equals the row's default, or names a row that can no longer
+expand, is dropped (`undoable`), so no row is held collapsed with no
+gesture to open it. A row the graph does not hold now keeps its choice, so
+a row restored by an undo comes back as the reader left it. Deleting a
+node removes its choices from storage. Restoring it by undo writes them
+back. A saved choice for a node already gone at load leaves with the next
+save. A row shown open stays open when the graph gives it children or fields, at each place
+an outline on screen draws it. Each tab keeps its own expansion while it is
 open, and storage seeds it at load: another tab's choices are read at the
 next load, never merged in by a graph move. Storage is shared, so a save
-applies only the ids this tab changed onto what storage holds at that moment
-(`saveExpansionChanges`), never a snapshot of the tab's, and drops stored
-choices that are no longer undoable on the way. A load writes nothing. The
-stored form is one key, `kb-expansion`, holding `{ open, closed }` and
-written in one `setItem`. While it is absent, the legacy `kb-expanded` (open
-ids) is read in its place. The legacy key is never written or deleted, so a
-tab on an older build still reads it.
+applies this tab's decisions to what storage holds at that moment
+(`saveExpansionChanges`). The tab writes the reader's gestures and the
+choices that a graph move keeps open. A graph move can also make a choice
+irrelevant in the current tab. The tab drops it locally, leaving the saved
+choice available to another tab that can still use it. A load writes
+nothing. The stored form is one key, `kb-expansion`, holding
+`{ open, closed }` and written in one `setItem`. A place has a separator
+and a node id never does, so a bare id an older build stored there is read
+as the node's place in the tree. The next save stores the place. While the
+key is absent, the legacy `kb-expanded` (open ids, read the same way) is read
+in its place. The legacy key is never written or deleted, so a tab on an
+older build still reads it.
 
 **A row depends on what it reads, not on the graph.** The page holds the
 graph as whole values — the outline's rows (`outlineNodes`), and the graph
@@ -1087,12 +1127,12 @@ that from costing a render per row:
 - The projection is persistent. `wireToOutlineMap` takes the map it replaces
   and keeps a node's object when the node projects to the same value, which
   the schema does per snapshot. Unscoped, the outline's rows are the schema
-  itself, read through the expansion (`withExpansion`, a view that builds no
-  map): a row shown as its default is the schema's own object, and one shown
-  the other way is one object per schema node. Under a scope they are the
-  scope's projection read the same way. So a node's identity changes exactly
-  when what it shows does. Each snapshot builds the schema map, a scope
-  builds its own projection, and expanding or collapsing builds nothing.
+  itself, each node at its default collapse; under a scope they are the
+  scope's projection. Whether a row is open is not its node's: a row reads
+  its own instance's choice from the outline store (`isRowOpen`, through
+  `isOpen`), so a node's identity changes exactly when what it shows does.
+  Each snapshot builds the schema map, a scope builds its own projection,
+  and expanding or collapsing builds nothing and replaces no node.
 - A row reads the graph through a tracked read (`useGraphReadThrough`,
   `@kb/ui-sdk` → `lib/graph-read`, over a `GraphSource`; the shell's
   `useGraphRead` binds it to the graph store and the projection the page
@@ -1155,7 +1195,11 @@ of its last before its first lands (a view node is minted before a frame
 names it; an upload is made before the text that names it), so a refusal
 leaves nothing behind. A tag's Fields list offers "Add field" on every tag;
 a field its owner ships (`isShipped`) is marked "shipped" and offers no
-remove. Only a row whose text is changed elsewhere is read-only at the door:
+remove and no move. A person's field moves: a step up or down from its
+row's controls, or dragged onto another row, landing at that row's place
+(one `replaceField` of `sys.f.fields`, which the commit accepts because the
+shipped fields keep their order). The template's order is the order its
+members' field rows show in. Only a row whose text is changed elsewhere is read-only at the door:
 `store.activateNode` degrades it to selection so no caret enters it, and the
 row shows a hover padlock with the reason.
 
@@ -1183,7 +1227,9 @@ closed row to show it (`outline-ui/src/outline-commands.tsx`).
 
 “Turn into query” opens the tag picker at “Find nodes tagged…”. Picking
 a tag writes a condition on the [shown node’s](#contextual-references)
-type field for that exact tag ID.
+type field for that exact tag ID, only if the node still has no query when
+the write commits: a query another tab saved while the picker was open is
+kept, and the pick writes nothing and leaves no undo step.
 Escape closes the picker without a write. In global search, Alt+Enter
 saves the typed text as a case-insensitive text condition and opens the
 query node. It is a child of the focused pane’s subject node, including
@@ -1256,6 +1302,13 @@ An inline mark never moves it:
   their words on one column. Why: a value's lead glyph is part of the value,
   not a column of its own, and giving every value an empty glyph slot would
   move plain values a step to the right.
+- **Where a field row is drawn sets its label column.** The surface states
+  the column's width (`--kb-field-label`) and whether a name too long for it
+  wraps (`--kb-field-name-space`, cut short with an ellipsis unless the
+  surface says `normal`), and the field row reads both. An outline row keeps
+  the 120px column and cuts. A Settings row (`kb-setting`) takes Settings'
+  wider column (`--kb-setting-label`) and draws a setting's whole name,
+  wrapped where it must, because a family's settings read as sentences.
 
 A block, such as a table, a board or a still preview's box, starts where a
 child row's box does, on the child's glyph column. Its rows, if it draws
@@ -1478,17 +1531,20 @@ and its own tint).
   one.
 
 Which references are open is the reader's, held in the outline's
-expansion (Outline editor → Expansion is the reader's, per tab) beside
-each row's open or closed choice, under the projected row's key. Like
-those choices, it is one tab's and never undone. Unlike them, it is not
-stored, and it is dropped once the row's text no longer names the
-reference. A reference opens only under a row of the outline's own tree.
-Under a projected row, or a row inside one, Alt-click follows as a plain
-click does, so two references that name each other cannot open into
-each other forever. The same node in two places shares its open
-references, as a query's results do (GAP [[01M411FPC839XBJJ873V1VYYYD]]). An opened reference draws its target open or closed as the target's own
-choice is, since a choice is per node, rather than open one level by
-default (GAP [[01M7D8AP4A4W6S2X5T1DSE9D77]]).
+`openReferences` under the projected row's key, apart from the rows'
+open or closed choices (Outline editor → Expansion is the reader's, per
+tab): that key is also the place of the target's row, and opening or
+closing that row leaves the reference open. Like those choices, it is
+one tab's and never undone. Unlike them, it is not stored, and it is
+dropped once the row's text no longer names the reference. A reference
+opens only under a row of the outline's own tree. Under a projected row,
+or a row inside one, Alt-click follows as a plain click does, so two
+references that name each other cannot open into each other forever.
+The same node in two places shares its open references, as a query's
+results do (GAP [[01M411FPC839XBJJ873V1VYYYD]]). An opened reference
+draws its target at its own place, closed when the target is collapsed
+by default, rather than open one level by default
+(GAP [[01M7D8AP4A4W6S2X5T1DSE9D77]]).
 
 **Remove reference…** (⌘K, the node menu's make group) turns a reference
 in the row's text back into plain text, as `refName` reads it (DESIGN.md
@@ -1498,9 +1554,9 @@ write that is one undo step (`setNodeText`, below). Both steps are offered
 only on a row whose text names a node, and only on one row.
 
 **Named gaps.** The reference node's own props — its target among them — are
-not drawn by its row, since every field row is the target's; the target is
-repointable only from the CLI or MCP (`node.update`), and _Turn into
-reference…_ is withheld from a row that already is one. View filters, sort and
+not drawn by its row, since every field row is the target's; on a row that
+already is a reference, _Turn into reference…_ reads _Change reference
+target…_ and repoints it, with the same step and the same write. View filters, sort and
 board grouping read a row's own props, so a reference inside a table or board
 sorts and groups as an empty node. Enter at the end of an expanded reference
 opens a sibling, where an expanded ordinary row opens its first child, because
@@ -1523,7 +1579,10 @@ rows with a mention edge are excluded. The section shows up to 50 rows at
 first and reveals another 50 with **Show more**. **Link** replaces the
 first matched span with an inline reference using the matched wording.
 It is one text write and one undo step. The write requires the source text
-the match was read from ([Conditional text edits](DESIGN.md#conditional-text-edits)).
+the match was read from ([Conditional text edits](DESIGN.md#conditional-text-edits)),
+so the server may refuse what the replica took; its undo step is recorded
+once the server takes it, as every text write on a reading is
+(`planUpdateText`), and a refused Link leaves none.
 
 An outline row with incoming mentions has a count at its right edge.
 Clicking the count opens the node in the same pane and scrolls to
@@ -1600,7 +1659,15 @@ the row's anatomy, a primitive of `@kb/ui-sdk` that prefs renders too
 | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Follow** (a ref's node, an option's page, a url) | plain click on a _pointer segment_ — a ref label, an option chip, a url's link, a `[[ref]]` pill in text — exactly as in node text; ⌘/Ctrl-click anywhere on the value | ⌘Enter, at rest or editing                                                                                                                 |
 | **Edit**                                           | plain click anywhere else in the slot; a caret lands where the click did                                                                                               | Enter or F2; a printable key opens it with that key typed (replacing the value; a picker starts its query with it); Space flips a checkbox |
-| **Add** (many-valued fields only)                  | the "+" in the trailing space of the last value, on hover or focus                                                                                                     | Enter at the end of a typed value; the picker, which stays open                                                                            |
+| **Add** (many-valued fields only)                  | the "+" in the trailing space of the last value, on hover or focus                                                                                                     | Enter at the end of a typed value; the picker, which stays open; from anywhere on the row, Add value… in its ⌘K menu                       |
+
+**Add value…** is the Add verb reached from the row's ⌘K menu, for a field
+whose row is off screen or collapsed. It lists the fields the row draws as
+rows and does what the picked field's "+" does (`FieldHandle.addValue`):
+its picker for a picked kind, a new empty slot for a typed one, and the
+slot itself for a field that holds one value or none. A closed row opens
+first, and the landing waits for its fields to be drawn
+(`landInFieldsOf`).
 
 Following is one function for every pointer in kb (`lib/follow.ts`:
 `routePointerClick`, the bullet rule `bulletClickIntent`, and `useFollow`,
@@ -1622,7 +1689,11 @@ editor keep their own keys. The chord tables are
 The rows' keymaps pass through the values: ↓ off a row's last line (editing
 or selected) lands on its first value, ↓ from its last value goes to the next
 row, ↑ comes back the same way (`enterFields`; the order is read off the DOM
-by `outline-ui/src/value-slot-nav.ts`, never kept a second time).
+by `outline-ui/src/value-slot-nav.ts`, never kept a second time). A row's
+values are those of its fields section (`fieldsSectionProps`), which an
+outline row's fields, a table row's cells and a card's fields each carry, so
+the arrows pass through a table's and a board's rows as through the
+outline's.
 
 **Adding has no line of its own.** Enter at the end of a value of a
 many-valued field commits it and opens the next value's slot; Enter on that
@@ -1689,7 +1760,11 @@ a line to draw. Debug fields draw every field as a row, and no line.
 - **date** is a local calendar day (`@kb/model` `local-date`), labelled near
   today (Today, Fri, Oct 12), edited in `DateEditor`: typed phrases
   (`parseDateInput`: tomorrow, next fri, in 2 weeks, oct 3) with a live
-  preview, over a keyboard-first calendar.
+  preview, over a keyboard-first calendar. Its arrows are its own (↑/↓ a
+  day, ⇧↑/⇧↓ a week, PageUp/PageDown a month); every other key is the
+  slot's, as on any value: Enter sets the date and, at the end of a
+  many-valued field's, opens the next value, Tab sets it and moves on,
+  Escape leaves it.
 - **checkbox** is a checkbox, not a switch.
 - **secret** is the reference to where a key lives (`env:NAME`,
   `keychain:<service>[/<account>]`), shown as a code chip under a key
@@ -1702,6 +1777,16 @@ a line to draw. Debug fields draw every field as a row, and no line.
 - **option** — a ref field that declares its values by parenting them
   (`declaresOptionSet`) — is a chip drawn in the tag chip's box, in the
   option's colour (`optionColorOf`); a field's chips wrap on one line.
+
+**A paste of several lines.** Pasting several lines into a many-valued
+field adds one value per line
+(`value-paste`, the stack's paste): blank lines are dropped, each line is
+read as the field reads a value typed (`spec.parse`), or for a picked field
+names the target its picker offers by that exact name, made first, as the
+create row makes one, where the field may make targets. The values go after
+the field's own as one write of the page's, one undo step, and the keyboard
+lands on the last. A paste with a line the field cannot read or name, or a
+single line, is the editor's, as typing is.
 
 **Option previews.** An option of a declared kind (DESIGN.md → Extension
 families → Declared options) may be drawn with a live sample of what it
@@ -1853,15 +1938,20 @@ the caret as they were.
   query go from the text as typing takes text away, then the command runs
   about the row through the page's write path (`PageWrites.together`), so
   the writes it answers are one undo step, and no undo brings the typed
-  trigger back, whether a command's write joins that step or not (Add
-  chart's view is not a page write). A command that opens a picker step
+  trigger back. Every node command answers the writes it makes (its run
+  awaits them, never `void`s them), and makes them through the writes its
+  context hands it (`CommandContext.writes`, the gesture's), so they join
+  that step. A command that opens a picker step
   (Add tag, Move to…) opens it in the node palette, on the row. Once the
   write has landed and nothing else holds the focus, the row is edited
   where it is drawn then (under its new parent, after Indent), the caret
   where `/` was.
 
-`[[` is every text host's. `@`, `#`, `>` and `/` are the outline's: its
-rows pass them to their text host beside `[[`. A trigger with nothing to
+`[[` is every text host's, and a text value's editor runs it too: a pick
+lays the reference into the value being edited, written when the edit is
+kept (`useTextTriggers`, the one hook both surfaces take). `@`, `#`, `>`
+and `/` are the outline's: its rows pass them to their text host beside
+`[[`. A trigger with nothing to
 offer is closed, so its keys stay the text's: `@` or `#` in prose and `> ` starting a
 quote are typed as text. Escape closes the picker and keeps the text, until
 the query changes. The table is the text host's own, not a plugin point;
@@ -1869,14 +1959,10 @@ when a second family needs a trigger of its own, it becomes one.
 
 **Named gaps.** A ref value's bullet follows on a plain click (a value's
 bullet has no children of its own to expand) rather than expanding the
-target's children inline under the field. `[[` completion is not offered while
-editing a text value (a typed token still mentions). The date editor's Enter
-commits without opening a next value, and its Tab does not move on. Pasting
-several lines into a many-valued field is not split into values. The node
+target's children inline under the field. The node
 palette has no "Add value to …" command. `sys.f.color` keeps its always-open
 swatch row. The PropValue union still carries the legacy `date` variant so old
-stores decode (opening rewrites it). Table and board cells are not in the
-arrow path (the outline's rows are).
+stores decode (opening rewrites it).
 
 ### Ontology scope (i6)
 
@@ -3271,7 +3357,7 @@ The groups, in the menu's order (`NODE_MENU_GROUPS`):
 | Group | What it holds | Its rows today |
 | --- | --- | --- |
 | `lead` | how the node itself opens and shows | "Open in …" for its tag's view; "Show/Hide preview", "Show/Hide properties" |
-| `make` | what the node is and holds | Add tag, Remove tag…, Make your own tag that extends this, Turn into query, Turn into reference…, Add field, Set field…, Make supertag, Type this reference…, Remove reference… |
+| `make` | what the node is and holds | Add tag, Remove tag…, Make your own tag that extends this, Turn into query, Turn into reference… (Change reference target… on a reference), Add field, Add value…, Set field…, Make supertag, Type this reference…, Remove reference… |
 | `open` | where it opens | Search everything…, Open in panel, Open as workspace, Open with: …, Copy node ID |
 | `arrange` | where it sits | Indent, Outdent, Move to…, Move and leave reference… |
 | `mark` | what marks it | Pin / Unpin, Show / Hide debug fields |
@@ -3376,11 +3462,14 @@ handler takes it as text.
     (`{tree, format}`; DESIGN.md → Outline formats). The page
     adds them after the row through `node.addTree`, in one transaction,
     under the guards every call meets, and puts the caret at the end of
-    the last. It always names their parent: a top-level row's go to the
+    the last the server answered, once that row reaches the outline. It
+    always names their parent: a top-level row's go to the
     top level (`parent: null`, at its end), never to the capture target
     an omitted parent would mean. A row that held nothing (no text, fields, tags or children)
     is where the person meant them to go: they take its place, and it is
-    deleted. That is a second write, so undo takes them back in two steps.
+    deleted once the server has taken the tree, if it still holds nothing
+    then, under `node.delete`'s `requireEmptyLine`. A refused tree leaves
+    the row. That is a second write, so undo takes them back in two steps.
   - **A file**, kept as an asset and linked from the row's text
     (`attachFileToNode`).
   - **Text**, put in at the caret the way typing is. The text host that
@@ -3683,7 +3772,11 @@ how the stored name resolves to the key among them.
   side; a view under a row (`FrameSubject.depth` above 0) keeps its left
   edge on its box and reaches only to the region's right edge
   (`trailing`), so a list's rows, a cards grid, a table and a board under
-  the same row start at one left edge.
+  the same row start at one left edge. A board or lanes wider than that
+  scroll sideways, and an edge past which more columns lie fades
+  (`EDGE_FADE_CLASS`, measured by `useEdgeFade`, the kit's one mechanism
+  for a horizontal scroller), so the columns cut off at the pane's edge are
+  seen to go on; an edge with nothing past it does not fade.
   The store's row walk (`visible-instances`) and the command registry read
   the same enumeration from the UI kernel (`@kb/ui-sdk`'s
   `providedFrameViews`, the frame views `ViewPoint` holds now), so a frame
@@ -4322,8 +4415,11 @@ every node by its key) reach it with nothing of its own.
 - **"Add chart"** in a query node's node menu proposes a chart view node for
   it, started from the query's columns (`starterChartSpec`: its first
   aggregate column by its first non-id column, else a count of rows by that
-  column), and opens it in a panel beside. `lib/propose-view` is the UI's
-  one way to call `view.propose`; "Save workspace" goes through it too.
+  column), and opens it in a panel beside. `PageWrites.proposeView` is the
+  UI's one way to call `view.propose`; "Save workspace", a graph
+  perspective and a canvas's first camera go through it too. It is a page
+  write, so the view node it makes is one undo step, or part of the
+  gesture that made it.
 
 ### Code views
 
@@ -5579,15 +5675,19 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
   or reloading a plugin, never moves the page. The shell asks only while
   the page is at `/` with nothing in its URL, and moves only if the page
   has not moved by the time the answer comes. The move replaces the root's
-  history entry, so Back leaves the page.
+  history entry, so Back leaves the page. The landing has no clock: days
+  answers once today's node is in the page's replica, which on a slow
+  machine or connection is when the live connection brings it. If days
+  fails (the action refused today's node), the page stays home and a toast
+  says "Stayed home:" and why.
 - **The capture target's replacement** answers today's node through
   `ext.days.today`, with the page's local day, unless the family's
   `captures` setting says the top level. ⌘K "Add node" with nothing
   selected and a picker's "create" row for a new top-level node both go
   through the role (`captureNode`), so either lands in today. When the
-  action refuses or the node never reaches the page, the replacement fails
-  rather than answering the top level itself: the role demotes it and
-  core's default answers.
+  action refuses, or the node has not reached the page within the capture
+  role's budget, the replacement fails rather than answering the top level
+  itself: the role demotes it and core's default answers.
 
 ## Design tokens
 
@@ -7751,6 +7851,16 @@ rows. A clamped label carries its full text in a `title` tooltip.
 `outline-layout.e2e.ts` measures the title in a real engine at a desktop
 and a phone width.
 
+A field's value is content too, but a value is read beside its node, not
+as the page. A value at rest shows at most six lines (`line-clamp-6`,
+`useLongValue` in `field-value`): one that overflows them draws "Show
+more" under it, which shows it whole and turns to "Show less". Whether it
+overflows is measured on the drawn value, again when its text or width
+changes. Reading it whole is the drawn value's passing state, written
+nowhere, and is not editing it: editing shows the whole value, as it always
+does. So a pasted log, or a canvas's document under Show properties,
+stays a few lines in the outline until it is asked for.
+
 ### Elevation
 
 How far a surface floats above the page, lowest first. `--elevation-<level>`
@@ -7777,10 +7887,10 @@ is.
   bridge computes `xs` (−4px), `sm` (−2px), `lg` (+4px), `xl` (+10px) and
   `2xl` (×2) from it, after resetting Tailwind's steps. Bare `rounded`
   (Tailwind's fixed 4px) is `rounded-xs`, and `.kb-md-media` applies the
-  same step. `rounded-full` is a shape, not a step. Three corners are still
-  off the scale (2px resize handles, the 3px inline-code chip, the 5px
-  ontology segmented control), under one gap: putting them on a step moves
-  each by 1–2px, which is a visible change.
+  same step. `rounded-full` is a shape, not a step. Every corner is on a
+  step: a canvas resize handle and the inline-code chip (`.kb-md-code`) are
+  `xs`, and a segment inside a padded `md` track is `sm`, the track's radius
+  less its padding, so the two curves stay concentric.
 - **Borders.** `--border-width` is what a bare `border` and `divide-*`
   draw: the bridge maps it onto Tailwind's `--default-border-width`, so it
   is read, not merely declared (an earlier unread `--border-width` was
@@ -7881,12 +7991,11 @@ surfaces make two rules.
 A sanctioned exception is the soft-rule mechanism for few sites (root
 `CLAUDE.md` → Drift markers and gaps): a pinpoint
 `oxlint-disable-next-line design-tokens/no-raw-design-value -- GAP [[id]]`
-and a `#gap` node. One gap uses it today: three corners sit off the
-radius scale (see Radius above), left out of the no-visual-change
-restructure because closing it is a visible change. (The graph's
-query-error chip, the other one, reads the `warning` token now.) A stylesheet cannot carry a lint disable, so the one CSS site
-(`.kb-md-code`) carries a bare `GAP [[id]]` comment, which the harness's
-gap-marker check resolves like any other.
+and a `#gap` node. No site uses it today: the last three, corners off the
+radius scale, were put on steps (see Radius above), and the graph's
+query-error chip reads the `warning` token. A stylesheet cannot carry a
+lint disable, so a CSS site would carry a bare `GAP [[id]]` comment, which
+the harness's gap-marker check resolves like any other.
 
 ### A dead token is a duplicate
 

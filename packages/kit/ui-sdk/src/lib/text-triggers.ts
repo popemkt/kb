@@ -8,6 +8,7 @@
 import { formatRefToken, nodeCandidates, openRefQuery } from "./refs";
 import { pickerRows, type PickerRow } from "./picker";
 import type { NodeMap } from "./types";
+import type { PageWrites } from "./page-writes";
 
 /** A trigger typed at the caret: the span it covers in the text, and its query. */
 export interface OpenTrigger {
@@ -27,8 +28,8 @@ export interface OpenTrigger {
 export type TriggerPick =
   | {
       readonly insert: string;
-      /** A write made with the text's, as one write. */
-      readonly write?: () => Promise<unknown>;
+      /** A write made with the text's, as one write, through the writes it is handed. */
+      readonly write?: (writes: PageWrites) => Promise<unknown>;
       /** What follows once that write has landed (where the caret goes). */
       readonly landed?: () => void;
     }

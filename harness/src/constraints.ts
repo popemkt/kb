@@ -610,7 +610,9 @@ export interface LazyFence {
  * The launcher every `kb` process runs first (`main.ts`), and the only
  * modules loading it may parse: the launch check and the version it
  * answers itself. Everything else (the command table, the runtime, any
- * host) sits behind its one `import()` of the CLI fence's entry.
+ * host) sits behind its `import()` of the CLI fence's entry, and the wire
+ * protocol `kb --version --json` names behind its `import()` of
+ * `@kb/contracts`.
  */
 export const CLI_LAUNCHER = {
   entry: "packages/app/cli/src/main.ts",
@@ -630,9 +632,14 @@ export const LAZY_FENCES = {
   cli: {
     // main.ts already imports this dispatcher dynamically for launch validation.
     // Measure the code every command actually loads, not that thin launcher.
+    // Hosts and their SDKs; painters and engines, which load at first use:
+    // Vega, QuickJS, the SQLite engine when a root selects it, the git
+    // transport at a source's first fetch, and the gallery's network client
+    // with its first call. And every command module (`cli/src/commands/`),
+    // which the command table loads by the invoked command's name.
     entry: "packages/app/cli/src/cli.ts",
     forbidden:
-      /^(?:@kb\/(?:server|mcp|routines-host|routines-gcal|agent-claude|agent-openai)(?:\/|$)|@modelcontextprotocol\/sdk(?:\/|$)|@anthropic-ai\/claude-agent-sdk(?:\/|$)|vega[^/]*(?:\/|$)|@jitl\/quickjs-|packages\/(?:app\/(?:server|mcp)|extension\/(?:routines-host|routines-gcal|agent-claude|agent-openai))\/)/,
+      /^(?:@kb\/(?:server|mcp|routines-host|routines-gcal|agent-claude|agent-openai)(?:\/|$)|@modelcontextprotocol\/sdk(?:\/|$)|@anthropic-ai\/claude-agent-sdk(?:\/|$)|vega[^/]*(?:\/|$)|@jitl\/quickjs-|bun:sqlite$|packages\/infrastructure\/source-git\/src\/transport\.ts$|packages\/extension\/gallery-net\/src\/http\.ts$|packages\/app\/cli\/src\/commands\/|packages\/(?:app\/(?:server|mcp)|extension\/(?:routines-host|routines-gcal|agent-claude|agent-openai))\/)/,
     depth: 1,
     boundary: "dependency",
   },

@@ -90,6 +90,10 @@ describe("a page's owner chip", () => {
     // The owner's label is the person's; the chip reads it as it stands.
     await act(() => mutations.updateNodeContent(CORE, "Kernel"));
     expect(chip()?.textContent).toBe("Owned byKernel");
+
+    // It names the owner by the words it reads as, never its markup.
+    await act(() => mutations.updateNodeContent(CORE, "**Kernel** v2"));
+    expect(chip()?.textContent).toBe("Owned byKernel v2");
   });
 
   it("names the owner under a scope that lists the node but not its owner", async () => {

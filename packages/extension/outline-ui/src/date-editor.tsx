@@ -1,7 +1,7 @@
-import { useRef, useState } from "react";
+import { useImperativeHandle, useRef, useState } from "react";
 import { CaretLeftIcon, CaretRightIcon } from "@phosphor-icons/react";
 import { addMonths, formatDay, parseDateInput, parseDay, type LocalDate } from "@kb/model";
-import { cn, IconButton, KB_TEXT_CLASS, useAnchoredPosition } from "@kb/ui-sdk";
+import { cn, IconButton, KB_TEXT_CLASS, useAnchoredPosition, type EditHandle } from "@kb/ui-sdk";
 import {
   firstDayOfWeek,
   longDateLabel,
@@ -9,7 +9,7 @@ import {
   todayLocal,
   weekdayInitials,
 } from "./date-display.ts";
-import { calendarWeeks, dateEditorIntent, sameDay } from "./date-calendar";
+import { calendarWeeks, dateMoveOf, sameDay } from "./date-calendar";
 
 export interface DateEditorProps {
   /** What the input starts with: the stored date, or input the slot kept. */
@@ -18,6 +18,8 @@ export interface DateEditorProps {
   onCommit: (text: string) => void;
   /** Leave without changing anything. */
   onCancel: () => void;
+  /** The editor's side of the value slot's keymap: the slot's Enter, Tab and Escape land here. */
+  handleRef?: React.Ref<EditHandle>;
 }
 
 /**
@@ -25,11 +27,13 @@ export interface DateEditorProps {
  * `next fri`, `oct 3`, `in 2 weeks` — `parseDateInput`, the reader every
  * surface shares) with a live preview of the date it names, over a calendar
  * that follows it. Keyboard-first: ↑/↓ move a day, ⇧↑/⇧↓ a week,
- * PageUp/PageDown a month, Enter or Tab sets it, Escape leaves; the pointer
- * picks a day. The calendar is anchored below the input and flips above it
- * when there is no room.
+ * PageUp/PageDown a month; the pointer picks a day. Every other key is the
+ * value slot's, as on any value: Enter sets the date (and, at the end of a
+ * many-valued field's, opens the next value), Tab sets it and moves on,
+ * Escape leaves. The calendar is anchored below the input and flips above
+ * it when there is no room.
  */
-export function DateEditor({ initialText, onCommit, onCancel }: DateEditorProps) {
+export function DateEditor({ initialText, onCommit, onCancel, handleRef }: DateEditorProps) {
   const today = todayLocal();
   const [text, setText] = useState(initialText);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -47,6 +51,33 @@ export function DateEditor({ initialText, onCommit, onCancel }: DateEditorProps)
     setText(formatDay(date));
     setShownMonth(date);
   };
+
+  /**
+   * The editor is left once: by a commit, a cancel or a pick. The focus
+   * moving on after a cancel blurs the input while it is still drawn, and
+   * that blur must not keep what the cancel put back.
+   */
+  const left = useRef(false);
+  const leave = (how: () => void) => {
+    if (left.current) return;
+    left.current = true;
+    how();
+  };
+  /** Leave with what is typed, or — nothing changed — without a write. */
+  const finish = () => leave(() => (text === initialText ? onCancel() : onCommit(text)));
+  const cancel = () => leave(onCancel);
+
+  useImperativeHandle(handleRef, () => ({
+    commit: finish,
+    cancel,
+    softBreak: () => undefined,
+    atEnd: () => {
+      const at = inputRef.current?.selectionStart ?? text.length;
+      return text.trim() !== "" && at >= text.length;
+    },
+    caret: () => ({ at: inputRef.current?.selectionStart ?? text.length, length: text.length }),
+    caretAtPoint: () => "end",
+  }));
 
   return (
     <div className="relative min-w-0 flex-1" data-date-editor="true">
@@ -69,19 +100,14 @@ export function DateEditor({ initialText, onCommit, onCancel }: DateEditorProps)
           const date = named === null ? null : parseDay(named);
           if (date !== null) setShownMonth(date);
         }}
-        onBlur={() => {
-          if (text === initialText) onCancel();
-          else onCommit(text);
-        }}
+        onBlur={finish}
         onKeyDown={(e) => {
-          // The outline behind this input must not also act on these keys.
+          // A move is the editor's; any other key goes on to the slot.
+          const move = dateMoveOf(e);
+          if (move === null) return;
           e.stopPropagation();
-          const intent = dateEditorIntent(e);
-          if (intent === null) return;
           e.preventDefault();
-          if (intent.type === "move") setDate(intent.to(current));
-          else if (intent.type === "commit") onCommit(text);
-          else onCancel();
+          setDate(move(current));
         }}
       />
       <div
@@ -114,7 +140,7 @@ export function DateEditor({ initialText, onCommit, onCancel }: DateEditorProps)
           picked={preview}
           today={today}
           onPage={(n) => setShownMonth(addMonths(month, n))}
-          onPick={(day) => onCommit(formatDay(day))}
+          onPick={(day) => leave(() => onCommit(formatDay(day)))}
         />
         <p className="mt-1.5 px-1 text-caption text-foreground/25">
           ↑↓ day · ⇧↑↓ week · PgUp/PgDn month · ↵ set · esc

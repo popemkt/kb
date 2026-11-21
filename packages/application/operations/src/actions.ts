@@ -7,6 +7,7 @@ import {
   type KbContext,
   KbCtx,
   type KbStore,
+  CreateFieldsSchema,
   NodeUpdateInputSchema,
   PropInputSchema,
   SavedQueries,
@@ -32,6 +33,8 @@ import {
   syncDomain,
   placedRank,
   planNodeAdd,
+  isSysPrefixed,
+  type NodeGraph,
   projectPropEdits,
   nodeTitleOf,
   PropValueSchema,
@@ -72,6 +75,7 @@ export const nodeAddDef = {
         "a query node's id: the node gets what its conditions require (DESIGN.md → What a match requires)",
       ),
     id: z.string().optional(),
+    createFields: CreateFieldsSchema,
     /** Bypass sys.* write-guard (browse yes / break no). */
     force: z.boolean().optional(),
   }),
@@ -115,7 +119,7 @@ export const nodeDeleteDef = {
     /** Parent deletion is never implicitly shallow; cascade is the default. */
     descendants: z.enum(["cascade", "reparent"]).optional(),
     /** Consume a draft line only while it still has this text, parent and no content besides its text. */
-    requireEmptyLine: z.object({ parent: z.string(), text: z.string() }).optional(),
+    requireEmptyLine: z.object({ parent: z.string().nullable(), text: z.string() }).optional(),
     /** Bypass sys.* write-guard (browse yes / break no). */
     force: z.boolean().optional(),
   }),
@@ -412,10 +416,11 @@ const planNodeAddEffect = Effect.fn("node.add.plan")(function* (
   const at = yield* currentIso;
   const id = input.id ?? (yield* freshId);
   const { graph, upserts } = placedGraph(ctx.nodes, made);
+  const defined = yield* planMissingFields(graph, input.createFields, fieldsNamed(input.props), at);
   const { node, written } = yield* syncDomain(() =>
     planNodeAdd(graph, { ...input, parent: input.parent ?? undefined }, id, at),
   );
-  return { id, node, upserts: upserts(written) };
+  return { id, node, upserts: upserts([...defined, ...written]) };
 });
 
 /**
@@ -457,13 +462,6 @@ export const nodeAddEffect = Effect.fn("node.add")(function* (
   return unmet === undefined ? added : { ...added, unmet };
 });
 
-/** One node at a place its caller decided, as `node.add` writes it: the capture target is never asked. */
-const addNodeAtEffect = Effect.fn("node.add.at")(function* (
-  input: PlacedAddInput,
-): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbWriteEnv> {
-  return yield* commitAddEffect(input, () => Effect.succeed({ parent: input.parent, upserts: [] }));
-});
-
 /**
  * How a node action's commit meets the system-write rule, which the commit
  * owns (`persistEffect`): checked, unless the owner set `force`.
@@ -497,7 +495,7 @@ export const planNodeDelete = Effect.fn("node.delete.plan")(function* (
       line.text !== expected.text ||
       line.children.length > 0 ||
       Object.keys(line.props).length > 0 ||
-      graph.parentOf(input.id) !== expected.parent
+      (graph.parentOf(input.id) ?? null) !== expected.parent
     ) {
       return yield* domainError("conflict", "The draft line changed before it could be converted", {
         id: input.id,
@@ -546,14 +544,25 @@ export const planNodeUpdate = Effect.fn("node.update.plan")(function* (
   const upserts: KbNode[] = [];
   let built: IndexedNodes | undefined;
   const graph = (): IndexedNodes => (built ??= IndexedNodes.of(nodes));
+  if (input.createFields === true) {
+    const defined = yield* planMissingFields(graph(), true, fieldsNamed(input.setProps), at);
+    upserts.push(
+      ...defined.map((id) => present(graph().get(id), "a defined field is in the graph")),
+    );
+  }
 
-  for (const field of input.requireUnset ?? []) {
+  // Whether each field named holds a value, as the edit was planned on.
+  const preconditions = [
+    ...(input.requireUnset ?? []).map((field) => ({ field, holds: false })),
+    ...(input.requireSet ?? []).map((field) => ({ field, holds: true })),
+  ];
+  for (const { field, holds } of preconditions) {
     const id = yield* syncDomain(() => resolveFieldIn(graph(), field));
-    if ((node.props[id]?.length ?? 0) > 0) {
-      return yield* domainError("conflict", "The field gained a value before it could be added", {
-        id: node.id,
-        field: id,
-      });
+    if ((node.props[id]?.length ?? 0) > 0 !== holds) {
+      const message = holds
+        ? "The field lost its value before it could be kept"
+        : "The field gained a value before it could be added";
+      return yield* domainError("conflict", message, { id: node.id, field: id });
     }
   }
 
@@ -676,6 +685,16 @@ export const nodeGetEffect = Effect.fn("node.get")(function* (
   return { node: pullSubtree(ctx, input.id, input.depth) };
 });
 
+/** The node `field.define` adds for `name`: a typed `sys.field` at the top level. */
+function fieldDefinition(name: string, id: NodeId | undefined): PlacedAddInput {
+  return {
+    id,
+    text: name,
+    parent: null,
+    props: [{ field: SYSTEM_IDS.typeField, value: { t: "ref", v: SYSTEM_IDS.field } }],
+  };
+}
+
 /** The node an explicit field definition adds, shared by standalone and batched definitions. */
 export const fieldDefinitionInput = Effect.fn("field.define.input")(function* (
   nodes: readonly KbNode[],
@@ -691,18 +710,45 @@ export const fieldDefinitionInput = Effect.fn("field.define.input")(function* (
       ids: existing.map((e) => e.id),
     });
   }
-  return {
-    id: input.id,
-    text: input.name,
-    parent: null,
-    props: [
-      {
-        field: SYSTEM_IDS.typeField,
-        value: { t: "ref", v: SYSTEM_IDS.field },
-      },
-    ],
-  };
+  return fieldDefinition(input.name, input.id);
 });
+
+/**
+ * The fields a write names that `graph` does not hold, each defined in
+ * `graph` as `field.define` defines it, when the write asks for it
+ * (`createFields`): planned into the write's own plan, so they commit with
+ * the write or not at all. A `sys.*` name is never minted. Returns the ids
+ * it defined.
+ */
+export const planMissingFields = Effect.fn("field.define.missing")(function* (
+  graph: NodeGraph,
+  createFields: boolean | undefined,
+  names: Iterable<string>,
+  at: string,
+): Effect.fn.Return<NodeId[], DomainError> {
+  if (createFields !== true) return [];
+  const defined: NodeId[] = [];
+  for (const name of new Set(names)) {
+    if (isSysPrefixed(name)) continue;
+    const missing = yield* syncDomain(() => resolveFieldIn(graph, name)).pipe(
+      Effect.as(false),
+      Effect.catchIf(
+        (err) => err.code === "not_found",
+        () => Effect.succeed(true),
+      ),
+    );
+    if (!missing) continue;
+    const id = yield* freshId;
+    const definition = fieldDefinition(name, id);
+    yield* syncDomain(() => planNodeAdd(graph, { ...definition, parent: undefined }, id, at));
+    defined.push(id);
+  }
+  return defined;
+});
+
+/** The fields a write's prop entries name, by name or id. */
+export const fieldsNamed = (entries: readonly { readonly field: string }[] | undefined) =>
+  (entries ?? []).map(({ field }) => field);
 
 /**
  * `field.define`: the definition planned again over each attempt's graph
@@ -720,10 +766,16 @@ export const fieldDefineEffect = Effect.fn("field.define")(function* (
   return { id: result.id };
 });
 
-export const tagDefineEffect = Effect.fn("tag.define")(function* (
+/**
+ * The node a tag definition adds, resolved over `nodes`: typed `sys.tag`,
+ * templating `fields` and extending `extends`, each by name or id. Shared
+ * by the standalone definition and a batched one (`node.batch`), so a tag
+ * defined and applied in one gesture is planned as `tag.define` plans it.
+ */
+export const tagDefinitionInput = Effect.fn("tag.define.input")(function* (
+  nodes: readonly KbNode[],
   input: z.infer<typeof tagDefineDef.inputSchema>,
-): Effect.fn.Return<{ id: string }, DomainError, KbWriteEnv> {
-  const ctx = yield* KbCtx;
+): Effect.fn.Return<PlacedAddInput, DomainError> {
   const props: z.infer<typeof PropInputSchema>[] = [
     {
       field: SYSTEM_IDS.typeField,
@@ -731,29 +783,36 @@ export const tagDefineEffect = Effect.fn("tag.define")(function* (
     },
   ];
   yield* syncDomain(() => {
-    if (input.fields) {
-      for (const f of input.fields) {
-        const fieldId = resolveFieldId(ctx.nodes, f);
-        props.push({
-          field: SYSTEM_IDS.fieldsField,
-          value: { t: "ref", v: fieldId },
-        });
-      }
+    for (const f of input.fields ?? []) {
+      props.push({
+        field: SYSTEM_IDS.fieldsField,
+        value: { t: "ref", v: resolveFieldId(nodes, f) },
+      });
     }
     // A tag no node names yet extends what it likes: it closes no cycle.
     for (const parent of input.extends ?? []) {
       props.push({
         field: SYSTEM_IDS.extendsField,
-        value: { t: "ref", v: resolveTagId(ctx.nodes, parent) },
+        value: { t: "ref", v: resolveTagId(nodes, parent) },
       });
     }
   });
-  const result = yield* addNodeAtEffect({
-    id: input.id,
-    text: input.name,
-    parent: null,
-    props,
-  });
+  return { id: input.id, text: input.name, parent: null, props };
+});
+
+/**
+ * `tag.define`: the definition planned again over each attempt's graph
+ * (`commitAddEffect`), as `field.define` is, so the fields it templates and
+ * the tags it extends are resolved over what the write lands on.
+ */
+export const tagDefineEffect = Effect.fn("tag.define")(function* (
+  input: z.infer<typeof tagDefineDef.inputSchema>,
+): Effect.fn.Return<{ id: string }, DomainError, KbWriteEnv> {
+  const ctx = yield* KbCtx;
+  const definition = (nodes: readonly KbNode[]) => tagDefinitionInput(nodes, input);
+  const result = yield* commitAddEffect(yield* definition(ctx.nodes), (nodes) =>
+    Effect.map(definition(nodes), ({ parent }) => ({ parent, upserts: [] })),
+  );
   return { id: result.id };
 });
 

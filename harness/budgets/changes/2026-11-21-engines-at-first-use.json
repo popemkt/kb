@@ -1,0 +1,4 @@
+{
+  "reason": "Painters and engines at first use (gap 01M75MA300NQJS5M3V6GEWQS8E): the SQLite adapter and bun:sqlite load when a root selects it, the git reader and transport at a source's first fetch, the gallery's handlers with their network and image code at its first call; and the extension watchers moved from the @kb/runtime barrel into @kb/server.",
+  "raise": { "cli-closure": { "bytes": -38570, "modules": -10 } }
+}

@@ -177,7 +177,7 @@ describe("the empty slot of each type", () => {
   /** What an unset slot shows: the CSS `:empty::before` placeholder, mostly. */
   const EMPTY_MARKER: Record<FieldType, string> = {
     text: 'data-empty-placeholder="true"',
-    number: ">0<",
+    number: 'data-empty-placeholder="true"',
     url: 'data-empty-placeholder="true"',
     time: 'data-empty-placeholder="true"',
     date: 'data-empty-placeholder="true"',

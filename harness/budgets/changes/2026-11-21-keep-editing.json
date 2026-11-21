@@ -1,0 +1,6 @@
+{
+  "reason": "keepEditing moves from the outline's / trigger into the SDK beside browserHost: the one way a write that redraws a row leaves it edited where it is drawn now, used by the / trigger and by the text host's page undo, so a row's text history follows it.",
+  "raise": {
+    "surface": { "@kb/ui-sdk": 1 }
+  }
+}

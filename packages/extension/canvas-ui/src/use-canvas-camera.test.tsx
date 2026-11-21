@@ -65,7 +65,7 @@ describe("useCanvasCamera", () => {
     proposeView.mockClear();
     const base = testBrowserHost();
     syncUiPlugins([
-      testHostPlugin(testBrowserHost({ proposeView, writes: { ...base.writes, replaceField } })),
+      testHostPlugin(testBrowserHost({ writes: { ...base.writes, replaceField, proposeView } })),
     ]);
     root = createRoot(document.body.appendChild(document.createElement("div")));
   });

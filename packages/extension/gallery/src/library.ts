@@ -8,7 +8,7 @@
  * ancestor tagged `#facet` (research record §4). No field duplicates it, so
  * moving a style under another facet re-files it everywhere at once.
  */
-import { SYSTEM_IDS, assetEmbedsOf, type PropValue } from "@kb/model";
+import { nodeName, SYSTEM_IDS, assetEmbedsOf, type PropValue } from "@kb/model";
 import { GALLERY_IDS } from "./ids.ts";
 
 /** What the library reads of a node: the shape a stored node and a page node share. */
@@ -66,6 +66,7 @@ export function sourceUrlOf(node: GraphNode): string | null {
 
 export interface StyleEntry {
   readonly id: string;
+  /** Its name: its words as they read (`nodeName`), no markup. */
   readonly text: string;
   /** Its facet's id, or null for a style no facet holds. */
   readonly facet: string | null;
@@ -83,6 +84,7 @@ export interface StyleEntry {
 
 export interface FacetEntry {
   readonly id: string;
+  /** Its name: its words as they read (`nodeName`), no markup. */
   readonly text: string;
   /** Its styles, in outline order. */
   readonly styles: readonly string[];
@@ -113,6 +115,8 @@ export function libraryOf(nodes: Iterable<GraphNode>): Library {
     byId.set(node.id, node);
     for (const child of node.children) held.add(child);
   }
+  /** A facet's or style's name: its words as they read (`nodeName`). */
+  const nameOf = (id: string) => nodeName(id, (of) => byId.get(of));
   const visuals: GraphNode[] = [];
   const styles = new Map<string, StyleEntry>();
   const styleNodes: GraphNode[] = [];
@@ -131,7 +135,7 @@ export function libraryOf(nodes: Iterable<GraphNode>): Library {
       if (isTagged(node, GALLERY_IDS.facetTag)) {
         here = node.id;
         if (!facetById.has(node.id)) {
-          const entry = { id: node.id, text: node.text, styles: [] };
+          const entry = { id: node.id, text: nameOf(node.id), styles: [] };
           facetById.set(node.id, entry);
           facets.push(entry);
         }
@@ -139,10 +143,10 @@ export function libraryOf(nodes: Iterable<GraphNode>): Library {
       if (isTagged(node, GALLERY_IDS.styleTag)) {
         styles.set(node.id, {
           id: node.id,
-          text: node.text,
+          text: nameOf(node.id),
           facet: here,
           // A style with no template composes as its name.
-          prompt: promptOf(node) === "" ? node.text.trim() : promptOf(node),
+          prompt: promptOf(node) === "" ? nameOf(node.id) : promptOf(node),
           negative: negativeOf(node),
           description: strings(node, GALLERY_IDS.descriptionField)[0] ?? "",
           madeWith: [],
@@ -274,6 +278,7 @@ export function creditOf(node: GraphNode): string {
 /** An image source as the sources panel offers it. */
 export interface ImageSource {
   readonly id: string;
+  /** Its name: its words as they read (`nodeName`), no markup. */
   readonly text: string;
   /** Its search page, `{query}` standing for the query; empty when it names none. */
   readonly searchUrl: string;
@@ -283,13 +288,14 @@ export interface ImageSource {
 
 /** Every node tagged image source, in the order given: what the sources panel lists. */
 export function imageSourcesOf(nodes: Iterable<GraphNode>): readonly ImageSource[] {
+  const byId = new Map([...nodes].map((node) => [node.id, node]));
   const sources: ImageSource[] = [];
-  for (const node of nodes) {
+  for (const node of byId.values()) {
     if (!isTagged(node, GALLERY_IDS.sourceTag)) continue;
     const kind = refs(node, GALLERY_IDS.sourceKindField)[0] ?? GALLERY_IDS.kindLink;
     sources.push({
       id: node.id,
-      text: node.text,
+      text: nodeName(node.id, (id) => byId.get(id)),
       searchUrl: strings(node, GALLERY_IDS.searchUrlField)[0] ?? "",
       kind: kind === GALLERY_IDS.kindLink ? "link" : "api",
     });

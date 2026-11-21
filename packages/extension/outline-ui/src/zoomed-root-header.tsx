@@ -6,6 +6,7 @@ import {
   nodeTagColors,
   OptionChip,
   menuAnchor,
+  nameIn,
   OutlineLine,
   pageTitleInstanceKey,
   type OutlineNode,
@@ -173,7 +174,7 @@ function useOwner(id: string) {
       <span>Owned by</span>
       <OptionChip
         id={owner.id}
-        label={owner.text || owner.id}
+        label={nameIn(schema, owner.id) || owner.id}
         color={nodeTagColors(owner)[0] ?? UNTAGGED_COLOR}
       />
     </div>

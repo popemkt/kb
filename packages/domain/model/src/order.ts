@@ -63,29 +63,50 @@ function midpoint(low: string, high: string | undefined): string {
   return digitChar(lowDigit) + midpoint(low.slice(1), undefined);
 }
 
-/**
- * The next rank after `low` with nothing above it: bump the first digit that
- * can be bumped. Appends at the tail therefore *step* — `"i"`, `"j"`, `"k"` …
- * — and a rank gains a character only once every digit before it is `z`,
- * rather than halving the remaining gap on every append.
- */
-function stepAfter(low: string): string {
-  for (let i = 0; i < low.length; i++) {
-    const d = digit(low[i]);
-    if (d < BASE - 1) return low.slice(0, i) + digitChar(d + 1);
-  }
-  return `${low}1`;
+/** How many times `rank` opens with `edge`. */
+function runOf(rank: string, edge: string): number {
+  let run = 0;
+  while (rank[run] === edge) run++;
+  return run;
 }
 
-/** The mirror of {@link stepAfter} for a head insert below `high`. */
+/**
+ * The next rank after `low` with nothing above it. A rank that opens with
+ * `k` `z`s reads the `k + 1` digits after them as a counter and adds one, so
+ * appends at the tail *step* (`"i"`, `"j"` … `"y"`); when the counter's first
+ * digit would become `z`, the run grows by one and the wider counter starts
+ * again (`"z1"`, `"z11"` … `"zyz"`, `"zz1"`, `"zz101"` …). Each run holds 36
+ * times as many steps as the one before it, so a run of n appends grows its
+ * ranks by about two characters per factor of 36, never one per run of 35.
+ */
+function stepAfter(low: string): string {
+  const run = runOf(low, "z");
+  const rest = low.slice(run);
+  if (rest === "") return `${low}1`;
+  const counter = Array.from({ length: run + 1 }, (_, at) => digit(rest[at]));
+  let i = counter.length - 1;
+  while (counter[i] === BASE - 1) counter[i--] = 0;
+  counter[i] = present(counter[i], "a counter digit below z") + 1;
+  if (counter[0] === BASE - 1) return `${"z".repeat(run + 1)}1`;
+  return "z".repeat(run) + trimZeros(counter.map(digitChar).join(""));
+}
+
+/**
+ * The mirror of {@link stepAfter} for a head insert below `high`: a run of
+ * `0`s, the counter after it taking one away, and a longer run (`"0z"`,
+ * `"00z"` …) when its first digit would become `0`. A `high` with digits
+ * past the counter is above the counter alone, which is then the step.
+ */
 function stepBefore(high: string): string {
-  for (let i = 0; i < high.length; i++) {
-    const d = digit(high[i]);
-    if (d === 0) continue;
-    const stepped = high.slice(0, i) + digitChar(d - 1);
-    return d - 1 === 0 ? `${stepped}z` : stepped;
-  }
-  throw new RangeError(`no rank below ${high}`);
+  const run = runOf(high, "0");
+  const rest = high.slice(run);
+  if (rest.length > run + 1) return "0".repeat(run) + trimZeros(rest.slice(0, run + 1));
+  const counter = Array.from({ length: run + 1 }, (_, at) => digit(rest[at]));
+  let i = counter.length - 1;
+  while (counter[i] === 0) counter[i--] = BASE - 1;
+  counter[i] = present(counter[i], "a counter digit above 0") - 1;
+  if (counter[0] === 0) return `${"0".repeat(run + 1)}z`;
+  return "0".repeat(run) + trimZeros(counter.map(digitChar).join(""));
 }
 
 /**
@@ -98,8 +119,6 @@ function stepBefore(high: string): string {
  */
 export function rankBetween(before?: string, after?: string): string {
   if (after === undefined) {
-    // Repeated tail steps grow a rank past MAX_RANK_LENGTH in one plan.
-    // GAP [[01M52RMD1V9BW6E27RYYSH2K5X]]
     return before === undefined ? digitChar(BASE / 2) : stepAfter(before);
   }
   const high = trimZeros(after);

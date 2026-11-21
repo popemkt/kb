@@ -50,7 +50,7 @@ export function RelatedList({ related }: { related: Related }) {
               <option value="">Link as…</option>
               {fields.map((field) => (
                 <option key={field.id} value={field.id}>
-                  {field.text}
+                  {field.name}
                 </option>
               ))}
             </select>

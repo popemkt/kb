@@ -19,7 +19,6 @@ import {
   runKeyCall,
   rowTextOf,
   shownNode,
-  shownNodeId,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
 import { selectionRoots } from "@kb/model";
@@ -66,12 +65,14 @@ function selectFirstChild({ nodeId, instanceKey }: ActionOf<"selectFirstChild">)
 }
 
 /** 'o': directly below = first child when expanded, else next sibling (D07). */
-function createAfter({ nodeId }: ActionOf<"createAfter">): void {
+function createAfter({ nodeId, instanceKey }: ActionOf<"createAfter">): void {
   const node = outlineNodes().get(nodeId);
-  const expanded = Boolean(node && !node.collapsed && shownChildren(nodeId).length > 0);
-  if (node && expanded) {
-    // Under the node the row shows: a reference's first child is its target's.
-    void createTransientNode(shownNodeId(node), null);
+  // The first row drawn under it: a reference's first child is its target's.
+  const first = useOutlineStore.getState().isOpen(instanceKey)
+    ? shownChildren(nodeId)[0]
+    : undefined;
+  if (first !== undefined) {
+    void createNodeBefore(first);
     return;
   }
   void createTransientNode(node?.parentId ?? WORKSPACE_ROOT_ID, nodeId);
@@ -151,10 +152,10 @@ function moveToGroup({ instanceKey, side }: ActionOf<"moveToGroup">): void {
     seen.add(nodeId);
     return [{ nodeId, fieldId: group.fieldId, value: step.value }];
   });
-  const { writes } = browserHost();
   void asOneWrite(
+    browserHost().writes,
     moves.map((move) => move.nodeId),
-    () =>
+    (writes) =>
       Promise.all(moves.map((move) => writes.moveToGroup(move.nodeId, move.fieldId, move.value))),
   );
   const opens = head?.group?.[side]?.opens;
@@ -175,8 +176,9 @@ function deleteRow({ nodeId, instanceKey }: ActionOf<"delete">): void {
   const prev = store.getPreviousVisibleInstance(first);
   const next = store.getNextVisibleInstance(last);
   const { ids } = topRows(nodeId);
-  const { writes } = browserHost();
-  void asOneWrite(ids, () => Promise.all(ids.map((id) => writes.deleteNode(id)))).then(() => {
+  void asOneWrite(browserHost().writes, ids, (writes) =>
+    Promise.all(ids.map((id) => writes.deleteNode(id))),
+  ).then(() => {
     if (ids.some((id) => outlineNodes().has(id))) return;
     const pick = prev ?? next;
     if (pick) {
@@ -196,10 +198,10 @@ const SELECTION_STEPS: SelectionSteps = {
     useOutlineStore.getState().activateNode(nodeId, 0, instanceKey),
   // Three chords, one gesture: ArrowLeft and ArrowRight only reach these rows
   // when the toggle would move in their direction.
-  toggleCollapse: ({ nodeId }) => useOutlineStore.getState().toggleCollapse(nodeId),
+  toggleCollapse: ({ instanceKey }) => useOutlineStore.getState().toggleCollapse(instanceKey),
   toggleCheck: ({ nodeId }) => void toggleRowChecks(eachRow(nodeId)),
-  collapse: ({ nodeId }) => useOutlineStore.getState().toggleCollapse(nodeId),
-  expand: ({ nodeId }) => useOutlineStore.getState().toggleCollapse(nodeId),
+  collapse: ({ instanceKey }) => useOutlineStore.getState().toggleCollapse(instanceKey),
+  expand: ({ instanceKey }) => useOutlineStore.getState().toggleCollapse(instanceKey),
   selectParent,
   selectFirstChild,
   indent: ({ nodeId }) => arrange((ids) => browserHost().writes.indentNodes(ids), nodeId),
@@ -213,12 +215,12 @@ const SELECTION_STEPS: SelectionSteps = {
   zoomOut: ({ instanceKey }) => zoomOut(outlineHostOfInstance(instanceKey)),
   expandSubtree: ({ instanceKey }) => {
     for (const key of eachInstance(instanceKey)) {
-      useOutlineStore.getState().expandSubtree(key, outlineHostOfInstance(key));
+      void useOutlineStore.getState().expandSubtree(key, outlineHostOfInstance(key));
     }
   },
   collapseSubtree: ({ instanceKey }) => {
     for (const key of eachInstance(instanceKey)) {
-      useOutlineStore.getState().collapseSubtree(key, outlineHostOfInstance(key));
+      void useOutlineStore.getState().collapseSubtree(key, outlineHostOfInstance(key));
     }
   },
   createAfter,

@@ -1,5 +1,8 @@
 import { useOutlineStore, useOutlineNode, useOutlineNodes } from "./outline.store";
 import {
+  usePageGraph,
+  schemaOf,
+  rowTitle,
   browserHost,
   Bullet,
   MdView,
@@ -82,6 +85,7 @@ function SchemaInstanceRow({
   const nodes = useOutlineNodes();
   const follow = useFollow();
   const refs = useRefLook();
+  const schema = usePageGraph(schemaOf);
   const node = nodes.get(hit.id);
   const tags = node?.tags ?? [];
 
@@ -117,7 +121,7 @@ function SchemaInstanceRow({
         content={
           <>
             <MdView
-              text={hit.text || "(empty)"}
+              text={rowTitle(bulletNode, schema) || "(empty)"}
               className="min-w-0 flex-1 text-foreground/85"
               onFollow={follow}
               refs={refs}

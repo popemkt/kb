@@ -174,9 +174,8 @@ async function remember(was: ExportOptions, choice: ExportOptions): Promise<void
     ([field, value]) => JSON.stringify(before[field]) !== JSON.stringify(value),
   );
   if (changed.length === 0) return;
-  const { writes } = browserHost();
   const family = extensionNodeId("outline");
-  await writes.together(() =>
+  await browserHost().writes.together((writes) =>
     Promise.all(changed.map(([field, value]) => writes.replaceField(family, field, [value]))),
   );
 }

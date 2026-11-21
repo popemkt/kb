@@ -156,9 +156,10 @@ export function staleCommitError(
 /**
  * What a store keeps of the state it last read or wrote, under the
  * fingerprint that names that state (DESIGN.md → Storage → a commit reads
- * what it lands on): handed back only to a commit whose base is that same
- * fingerprint, and taken when it is, so a commit that fails keeps nothing.
- * Never the truth — losing it costs one read.
+ * what it lands on): handed back to a commit whose base is that same
+ * fingerprint, or brought forward to it by the store when the store can
+ * explain every write in between, and taken either way, so a commit that
+ * fails keeps nothing. Never the truth — losing it costs one read.
  */
 export class KeptState<T> {
   #kept: { readonly mark: StoreFingerprint; readonly value: T } | null = null;
@@ -167,10 +168,19 @@ export class KeptState<T> {
     this.#kept = { mark, value };
   }
 
-  /** What was kept under `mark`, or null; nothing is kept after. */
-  take(mark: StoreFingerprint | null): T | null {
+  /**
+   * What was kept under `mark`; else what `forward` makes of the state kept
+   * under an older fingerprint, which is null when the store cannot carry
+   * it to `mark`; else null. Nothing is kept after.
+   */
+  take(
+    mark: StoreFingerprint | null,
+    forward?: (from: StoreFingerprint, value: T) => T | null,
+  ): T | null {
     const kept = this.#kept;
     this.#kept = null;
-    return kept !== null && kept.mark === mark ? kept.value : null;
+    if (kept === null || mark === null) return null;
+    if (kept.mark === mark) return kept.value;
+    return forward === undefined ? null : forward(kept.mark, kept.value);
   }
 }

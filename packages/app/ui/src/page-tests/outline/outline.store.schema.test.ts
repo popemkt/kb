@@ -24,6 +24,7 @@ import { useGraphStore } from "@/stores/graph.store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { backlinkRows, outlineNodes, useOutlineStore } from "@kb/outline-ui";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
+import { rowKey } from "@/test-support/outline-store";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.
@@ -107,7 +108,7 @@ describe("schema lookups under an ontology scope", () => {
     const scopedSchema = schemaOf(graph);
     graph.setOntologyScope(null);
     expect(schemaOf(useGraphStore.getState())).toBe(scopedSchema);
-    useOutlineStore.getState().toggleCollapse("n.a");
+    useOutlineStore.getState().toggleCollapse(rowKey("n.a"));
     expect(schemaOf(useGraphStore.getState())).toBe(scopedSchema);
   });
 
@@ -297,8 +298,9 @@ describe("an unscoped schema", () => {
   it("is the projection's snapshot, and a collapse does not replace it", () => {
     useGraphStore.getState().hydrateFromWire(wire(), 1, "fixtures");
     const before = schemaOf(useGraphStore.getState());
-    useOutlineStore.getState().toggleCollapse("n.a");
-    expect(outlineNodes()).not.toBe(before);
+    useOutlineStore.getState().toggleCollapse("tree/n.a");
+    // Open or closed is the row's place's: the rows stay the snapshot's.
+    expect(outlineNodes()).toBe(before);
     expect(schemaOf(useGraphStore.getState())).toBe(before);
   });
 });

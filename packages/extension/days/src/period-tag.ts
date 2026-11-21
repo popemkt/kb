@@ -10,7 +10,14 @@
  */
 import { Effect } from "effect";
 import type { ActionGuard } from "@kb/contracts";
-import { refValuesOf, tagChains, type NodeLookup, type NodeLike, type NodeWrite } from "@kb/model";
+import {
+  nodeName,
+  refValuesOf,
+  tagChains,
+  type NodeLookup,
+  type NodeLike,
+  type NodeWrite,
+} from "@kb/model";
 import { DAYS_IDS } from "./ids.ts";
 
 /** Each period tag setting and the base tag its value must reach. */
@@ -50,7 +57,7 @@ export function periodTagRefusal(
     const [chosen] = refValuesOf(family.after, field);
     if (chosen === undefined || chosen === refValuesOf(family.before, field)[0]) continue;
     if (!reaches(chosen, base, nodeOf)) {
-      const label = nodeOf(chosen)?.text ?? chosen;
+      const label = nodeName(chosen, nodeOf) || chosen;
       return `${label} does not extend #${name}: a ${name}'s tag is #${name} or a tag that extends it`;
     }
   }

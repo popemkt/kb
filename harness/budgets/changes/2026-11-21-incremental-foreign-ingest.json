@@ -1,0 +1,7 @@
+{
+  "reason": "A session catches up with another writer's commits from the tail (TxTail.committedSince, one chain rule for both tails) instead of rebuilding its index; JSONL tail records carry the mark they began on.",
+  "raise": {
+    "cli-closure": { "bytes": 1112 },
+    "surface": { "@kb/contracts": 2 }
+  }
+}
