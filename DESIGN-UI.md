@@ -4282,8 +4282,11 @@ until "Save workspace".
   host too ([Projected rows](#outline-editor-i1)).
 - **A dashboard is fixed.** The layout view in a pane draws its own panes
   with the same grid, locked. Its panes take ids under their pane's
-  (`<outer>:<inner>`), and each draws its page through a slot shown for its
-  location. "Open as the workspace" (its corner button, or the node menu
+  (`<outer>:<inner>`, `nestedLayout`), and each draws its page through a
+  slot shown for its location. The screen state lists them after their
+  pane, under those ids (`src/screen.ts`), so an agent sees what each
+  shows and selects or captures in it; a navigate to one is refused, since
+  the dashboard is fixed. "Open as the workspace" (its corner button, or the node menu
   on a layout node) replaces the workspace with its tree, movable again.
 
 ### Chart views

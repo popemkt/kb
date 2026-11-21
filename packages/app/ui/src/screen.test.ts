@@ -34,7 +34,9 @@ import { useGraphStore } from "@/stores/graph.store";
 import { useScreenStore } from "@/stores/screen.store";
 import { useUiStore } from "@/stores/ui.store";
 import { startWorkspace, useWorkspaceStore } from "@/stores/workspace.store";
-import { layoutPanes, singlePane } from "@kb/views";
+import { LayoutView, layoutPanes, singlePane } from "@kb/views";
+import { SYSTEM_IDS } from "@kb/model";
+import { viewOptionNodes } from "@/fixtures/view-fields";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
 
@@ -294,6 +296,77 @@ describe("the tab's screen", () => {
       route: "/node/lens.all-mentions",
       view: { key: "graph.page", node: "lens.all-mentions" },
     });
+  });
+
+  it("lists a dashboard's panes after its own, under their ids there, and takes no navigate to one", () => {
+    const { plugin, published, carryOut } = tab();
+    const dashboard = {
+      id: "v.dash",
+      text: "Dashboard",
+      props: {
+        [SYSTEM_IDS.viewField]: [{ t: "ref" as const, v: LayoutView.option }],
+        [SYSTEM_IDS.layoutField]: [
+          {
+            t: "str" as const,
+            v: JSON.stringify({
+              split: "row",
+              children: [
+                { tabs: [{ id: "a", path: "/node/n.root-a" }] },
+                { tabs: [{ id: "b", path: "/node/v.dash" }] },
+              ],
+            }),
+          },
+        ],
+      },
+      children: [],
+      createdAt: "2026-10-03T00:00:00.000Z",
+      updatedAt: "2026-10-03T00:00:00.000Z",
+    };
+    useGraphStore
+      .getState()
+      .hydrateFromWire(
+        [...structuredClone(fixtureGraph.nodes), ...viewOptionNodes, dashboard],
+        2,
+        "api",
+      );
+    syncUiPlugins([
+      paletteStepsPlugin,
+      browserHostUiPlugin,
+      declarationPlugin(coreExtension),
+      outlineUiPlugin,
+      layoutUiPlugin,
+      plugin,
+    ]);
+    navigate("/node/v.dash");
+    vi.advanceTimersByTime(SCREEN_PUBLISH_MS);
+    // The dashboard inside itself is listed once, as its slot draws it once.
+    expect(published.at(-1)?.panes.map(({ id, route, view }) => ({ id, route, view }))).toEqual([
+      { id: "main", route: "/node/v.dash", view: { key: "layout.grid", node: "v.dash" } },
+      { id: "main:a", route: "/node/n.root-a", view: { key: "outline.main" } },
+      { id: "main:b", route: "/node/v.dash", view: { key: "layout.grid", node: "v.dash" } },
+    ]);
+
+    // A select goes to the view in the dashboard's pane it names.
+    const select = vi.fn((): ScreenAck => ({ outcome: "applied" }));
+    useScreenStore.setState({
+      panes: {
+        "main:a": {
+          report: { focused: null, selection: [] },
+          carryOut: select,
+          owner: Symbol("a"),
+        },
+      },
+    });
+    expect(carryOut({ kind: "select", pane: "main:a", selection: ["n.root-a"] })).toEqual({
+      outcome: "applied",
+    });
+    expect(select).toHaveBeenCalledWith({ kind: "select", selection: ["n.root-a"] });
+    // A dashboard is fixed: its panes are not moved one by one.
+    expect(carryOut({ kind: "navigate", pane: "main:a", to: { route: "/" } })).toEqual({
+      outcome: "rejected",
+      reason: "pane main:a is in a dashboard, which is fixed: open it as the workspace",
+    });
+    expect(getPath()).toBe("/node/v.dash");
   });
 
   it("hands a select to the open view, whose answer is the tab's", () => {

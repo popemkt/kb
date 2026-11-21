@@ -225,14 +225,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The chips line moves to a shared field-list component (or the detail view draws FieldsSection) so both surfaces take one placement
 - **node** — `01M7EY5YQKG919B47FD255B34B`
 
-### GAP: a dashboard's inner panes are not in the screen state
-
-- **expected** — every pane on screen, including those inside a dashboard, is listed in the screen state and can be targeted
-- **current** — panes inside a dashboard are part of their pane's view and are not listed
-- **impact** — an agent cannot see or move what a dashboard's inner panes show
-- **closes** — list nested panes in the screen state with their own ids
-- **node** — `01M411FPSNN7B18JQ62RKB8ZXW`
-
 ### GAP: a dependency from one kernel to a family another kernel composes cannot be an edge
 
 - **expected** — a call from the registry to a family the kb ui host composes (the agent) is an edge the graph reports and a key whose absence pends its caller, on every host
@@ -2462,6 +2454,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Fast consecutive edits on one node flicker. A field row can unmount mid-gesture, which drops its pending + value slot and sends the next keystrokes into another editor. palette.e2e.ts 'Add field' failed about 1 run in 4 under parallel load: later was appended to high (a highlater value), or typed into the node title.
 - **closes** — Track the nodes each in-flight local invocation touched, from its local StoreTx. Hold remote upserts for those nodes, then apply the newest held node once the node's last write is confirmed. Or tag tx frames with origin and invocation id, and rebase unconfirmed invocations on ingest. Then fold pendingContent in, and remove both halves of the workaround: the palette spec's settle wait, and the test-render data-kb-rev hook in outline.store.ts. Pin the behaviour with a spec that delays pushes.
 - **node** — `01M3A6NB33CT1EMM418HBN8GTT`
+
+### GAP: a dashboard's inner panes are not in the screen state
+
+- **expected** — every pane on screen, including those inside a dashboard, is listed in the screen state and can be targeted
+- **current** — panes inside a dashboard are part of their pane's view and are not listed
+- **impact** — an agent cannot see or move what a dashboard's inner panes show
+- **closes** — list nested panes in the screen state with their own ids
+- **node** — `01M411FPSNN7B18JQ62RKB8ZXW`
 
 ### GAP: a date value has two carriers, {t:str} and {t:date}
 

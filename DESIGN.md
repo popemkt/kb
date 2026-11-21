@@ -5955,8 +5955,10 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   it opened in, and `node` names the view node it shows when it shows one.
   `activePane` is the focused pane, the one the URL names. A command may
   name its `pane`. Without one it goes to the focused pane, and it is
-  refused for a pane the tab does not have. A dashboard's own panes are part
-  of their pane's view, so they are not listed (GAP [[01M411FPSNN7B18JQ62RKB8ZXW]]).
+  refused for a pane the tab does not have. A dashboard's own panes follow
+  the pane that shows it, under their ids on screen (`<outer>:<inner>`,
+  `nestedLayout`), so an agent sees what each shows and selects or captures
+  in it; a navigate to one is refused, since a dashboard is fixed.
 - **`ui.screen`** (read) returns the live tabs, each naming whose it is
   (`person`: the person's, as its connection was authenticated, or `null`,
   nobody's). The person's come first, then nobody's, each most recently

@@ -5,15 +5,18 @@
  * commands the server sends it. It is a built-in plugin, so it starts and
  * stops with the UI kernel.
  *
- * Every pane of the workspace is in it (`stores/workspace.store`): its
- * location, and the view that location resolves to — for a node opened at
- * `/node/<id>`, the view it opened in and the view node it shows. What the
- * view shows — the node it is shown for, focus, selection, a canvas's
+ * Every pane on screen is in it: each of the workspace's
+ * (`stores/workspace.store`), and after each one that shows a dashboard,
+ * the dashboard's own, under their ids there (`nestedLayout`). Each says
+ * its location, and the view that location resolves to — for a node opened
+ * at `/node/<id>`, the view it opened in and the view node it shows. What
+ * the view shows — the node it is shown for, focus, selection, a canvas's
  * camera — the mounted view reports under its pane (`stores/screen.store`).
- * A command goes to the pane it names, else the focused one.
+ * A command goes to the pane it names, else the focused one; a dashboard's
+ * pane takes every command but a navigate, since a dashboard is fixed.
  */
 import { coreExtension } from "@kb/operations";
-import { Effect, Result } from "effect";
+import { Effect, Result, Schema } from "effect";
 import {
   SCREEN_APPLIED,
   ScreenStateSchema,
@@ -31,8 +34,11 @@ import { renewTabSession, tabSession } from "@/api/tab-session";
 import { getLiveClient, setScreenTab, type ScreenTab } from "@/api/live";
 import {
   HomeView,
+  LayoutParams,
+  LayoutView,
   NodeView,
   layoutPanes,
+  nestedLayout,
   resolveDefaultViewType,
   resolveNodeView,
   type LayoutPane,
@@ -59,13 +65,20 @@ import { useWorkspaceStore } from "@/stores/workspace.store";
 /** How often, at most, a tab publishes its screen. */
 export const SCREEN_PUBLISH_MS = 100;
 
+/** What a pane at a route shows: its view's key, the view node it shows, and the view's params. */
+interface ShownView {
+  readonly key: string;
+  readonly node?: string;
+  readonly input?: unknown;
+}
+
 /**
  * The view a pane at `route` shows: the route's view, or, for a node opened
  * at `/node/<id>`, the view it resolves to and the view node it shows, and,
  * at the home, the view the page stands in (the store's default view type,
  * or the read view in its place).
  */
-function viewAt(route: string): { key: string; node?: string } | null {
+function viewAt(route: string): ShownView | null {
   const matched = matchRoute(currentContributions(RoutePoint), route);
   if (matched === null) return null;
   const schema = schemaOf(useGraphStore.getState());
@@ -82,22 +95,53 @@ function viewAt(route: string): { key: string; node?: string } | null {
   // A broken view names no view, so the pane names the route's.
   if ("broken" in found) return { key: matched.view.id };
   const key = found.key === null ? found.listed.id : found.key.id;
-  return found.viewNode === undefined ? { key } : { key, node: found.viewNode };
+  const input = found.key === null ? {} : { input: found.input };
+  return found.viewNode === undefined ? { key, ...input } : { key, node: found.viewNode, ...input };
 }
 
+/** A pane on screen: where it is, the view it shows there, and whether a dashboard holds it. */
+interface ScreenPane extends LayoutPane {
+  readonly view: ShownView | null;
+  readonly nested: boolean;
+}
+
+const isLayoutParams = Schema.is(LayoutParams);
+
 /**
- * One workspace pane as the screen reports it. A dashboard's own panes are
- * part of its pane's view: they are not listed, and no command names one.
- * GAP [[01M411FPSNN7B18JQ62RKB8ZXW]]
+ * The panes on screen, in reading order: each of `panes`, then, when it
+ * shows a dashboard (a layout view), the dashboard's panes under its id
+ * (`nestedLayout`), as the dashboard draws them, and theirs in turn. A
+ * dashboard drawn inside itself stops at the first repeat (`within`), as
+ * its slot does.
  */
-function paneScreen(pane: LayoutPane) {
-  const report = useScreenStore.getState().panes[pane.id]?.report;
-  const view = viewAt(pane.path);
+function screenPanes(
+  panes: readonly LayoutPane[],
+  nested = false,
+  within: ReadonlySet<string> = new Set(),
+): ScreenPane[] {
+  return panes.flatMap((pane) => {
+    const view = viewAt(pane.path);
+    const shown: ScreenPane = { ...pane, view, nested };
+    if (view?.key !== LayoutView.id || within.has(pane.path) || !isLayoutParams(view.input)) {
+      return [shown];
+    }
+    const inner = layoutPanes(nestedLayout(view.input.root, pane.id));
+    return [shown, ...screenPanes(inner, true, new Set([...within, pane.path]))];
+  });
+}
+
+/** One pane as the screen reports it. */
+function paneScreen({ id, path, view }: ScreenPane) {
+  const report = useScreenStore.getState().panes[id]?.report;
   const subject = report?.subject;
+  const named =
+    view === null
+      ? null
+      : { key: view.key, ...(view.node === undefined ? {} : { node: view.node }) };
   return {
-    id: pane.id,
-    route: pane.path,
-    view: view === null ? null : { ...view, ...(subject === undefined ? {} : { subject }) },
+    id,
+    route: path,
+    view: named === null ? null : { ...named, ...(subject === undefined ? {} : { subject }) },
     focused: report?.focused ?? null,
     selection: [...(report?.selection ?? [])],
     ...(report?.canvas === undefined ? {} : { canvas: report.canvas }),
@@ -112,7 +156,7 @@ function readScreen(document: Document) {
     // Whether the person is looking at this tab.
     active: document.visibilityState === "visible" && document.hasFocus(),
     activePane: focused,
-    panes: layoutPanes(layout).map(paneScreen),
+    panes: screenPanes(layoutPanes(layout)).map(paneScreen),
   });
 }
 
@@ -227,12 +271,17 @@ function navigate(
  */
 function carryOut(command: ScreenCommand): ScreenAck | Promise<ScreenAck> {
   const { layout, focused } = useWorkspaceStore.getState();
-  const ids = layoutPanes(layout).map((pane) => pane.id);
+  const panes = screenPanes(layoutPanes(layout));
   const pane = command.pane ?? focused;
-  if (!ids.includes(pane)) {
-    return screenRejected(`no pane ${pane}; this tab has ${ids.join(", ")}`);
+  const target = panes.find((shown) => shown.id === pane);
+  if (target === undefined) {
+    return screenRejected(`no pane ${pane}; this tab has ${panes.map((p) => p.id).join(", ")}`);
   }
-  if (command.kind === "navigate") return navigate(pane, command);
+  if (command.kind === "navigate") {
+    return target.nested
+      ? screenRejected(`pane ${pane} is in a dashboard, which is fixed: open it as the workspace`)
+      : navigate(pane, command);
+  }
   const view = useScreenStore.getState().panes[pane];
   if (command.kind === "capture") {
     if (view === undefined) return screenRejected("the open view has no canvas to draw");
