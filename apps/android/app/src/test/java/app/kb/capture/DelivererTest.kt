@@ -212,7 +212,11 @@ class InterpretTest {
         assertEquals(Answer.Refused("invalid_input", "files[1]: too large"), HttpCaptureHost.interpret(200, """{"status":"failed","id":"capture.submit","code":"invalid_input","message":"files[1]: too large"}"""))
         assertTrue(HttpCaptureHost.interpret(200, """{"status":"failed","id":"x","code":"forbidden","message":"revoked"}""") is Answer.Unauthorized)
         assertTrue(HttpCaptureHost.interpret(200, """{"status":"failed","id":"x","code":"internal","message":"boom"}""") is Answer.Unreachable)
-        assertTrue(HttpCaptureHost.interpret(401, "") is Answer.Unauthorized)
+        assertEquals(Answer.Unauthorized("HTTP 401"), HttpCaptureHost.interpret(401, ""))
+        assertEquals(
+            Answer.Unauthorized("capture device credential is invalid or revoked"),
+            HttpCaptureHost.interpret(403, """{"status":"failed","id":"kb.manifest","code":"forbidden","message":"capture device credential is invalid or revoked"}"""),
+        )
         assertTrue(HttpCaptureHost.interpret(502, "Bad gateway") is Answer.Unreachable)
         assertTrue(HttpCaptureHost.interpret(200, "<html>") is Answer.Unreachable)
     }

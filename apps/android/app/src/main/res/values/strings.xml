@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">kb capture</string>
+    <string name="app_name">kb</string>
     <string name="share_label">kb</string>
+    <string name="widget_label">Capture to kb</string>
+    <string name="widget_description">One tap to capture a note into kb, even offline.</string>
+    <string name="tile_label">kb capture</string>
+    <string name="channel_delivery">Capture delivery</string>
+    <string name="channel_delivery_description">A capture the store refused, or a store that stopped accepting this phone.</string>
 </resources>

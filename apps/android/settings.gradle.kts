@@ -1,4 +1,4 @@
-// kb's Android share receiver: a Gradle project of its own, outside the Bun
+// kb's Android app, a Capacitor shell: a Gradle project of its own, outside the Bun
 // workspace (`packages/*/*`), built in `nix develop .#android` (README.md).
 pluginManagement {
     repositories {
