@@ -1021,14 +1021,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Hosts are accelerators: the store is the truth
 - **node** — `01M7HDP52RY5R2WJPXMMD30R8C`
 
-### GAP: every one-shot command rebuilds the whole index, derived sets and manifest
-
-- **expected** — A command pays for what it reads: manifest JSON Schemas are built for kb.manifest and MCP tools/list only, the DataScript index on first datalog use, and derived sets on demand, or from a snapshot keyed by the store fingerprint.
-- **current** — The DataScript db is built on first datalog use (DatascriptIndex), the node table reads every node's references on its first change (NodeTable), and the action table converts schemas to JSON Schema only when a call lists them (kb.manifest, MCP tools/list), so kb get does none of these. Opening a root still reads the transaction tail's head and commit mark (StoreTxLog decides its replay floor at open), and module init (zod schemas, the bundled declarations and seed fold) is step 8.
-- **impact** — kb get and kb search stay above about 200 ms whatever the module split does, and the cost grows with the store.
-- **closes** — docs/research/2026-11-11-cli-host-modes.md step 7.
-- **node** — `01M75MA4HB3NFDXGGKG0RE45H5`
-
 ### GAP: ext-canvas keeps its own copy of requireNode
 
 - **expected** — One reader of the node an action names, or its not_found refusal, in a package both @kb/operations' actions and an extension's actions may import (beside KbContext in @kb/contracts), which every action that reads one node by id calls.
@@ -1842,14 +1834,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A change that keeps the render counts but costs the compositor or the main thread (a blurred shadow per item, a layout per frame) slows the canvas with nothing going red
 - **closes** — A render-tests spec that loads the benchmark document and asserts the frame-time histogram, on hardware the CI lane can hold steady
 - **node** — `01M5PMJEGCJPMVNCKBDYZ0V57G`
-
-### GAP: the CLI's eager graph loads every family's painters and the host's engines
-
-- **expected** — From the CLI entry, painters and engines load at first use (chart-vega's Vega, gallery-net, canvas' tldraw reader, the QuickJS engine, store-sqlite when selected, source-git at first fetch), and the @kb/runtime barrel exports the mode-neutral core only.
-- **current** — cli.ts imports @kb/runtime, whose barrel statically reaches bundled.ts (BUNDLED_EXTENSIONS builds every family's server plugin at module load), layers.ts (source-git) and store-selection.ts (store-sqlite). Chart's Vega, gallery's starter pictures, canvas' tldraw reader and QuickJS load on first use. store-sqlite (8.5 KB) and source-git (8.6 KB) stay eager: each is plain code with no dependency of its own, and a lazy store-sqlite first needs its file list (which presence detection reads on every open) to live outside its adapter, because Bun keeps a package eager when it is imported both statically and dynamically. The runtime barrel still exports host-only modules (step 6). The command path's static closure is 2.7 MB and 720 modules.
-- **impact** — About 135-145 ms of module init on every command, plus their parse once the build is split; kb get cannot approach 100 ms.
-- **closes** — docs/research/2026-11-11-cli-host-modes.md steps 4-6, each removing its breach row from the CLI lazy fence.
-- **node** — `01M75MA300NQJS5M3V6GEWQS8E`
 
 ### GAP: the command palette draws every command the same way, so a theme cannot draw functions as cards
 
@@ -2797,6 +2781,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — planSplit counts the shown node's children.
 - **node** — `01M3KA3BBRADE3TNWQ78JNK37M`
 
+### GAP: every one-shot command rebuilds the whole index, derived sets and manifest
+
+- **expected** — A command pays for what it reads: manifest JSON Schemas are built for kb.manifest and MCP tools/list only, the DataScript index on first datalog use, and derived sets on demand, or from a snapshot keyed by the store fingerprint.
+- **current** — Closed 2026-11-21. The DataScript db is built on first datalog use (DatascriptIndex), the node table reads every node's references on its first change (NodeTable), and the action table converts schemas to JSON Schema only when a call lists them (kb.manifest, MCP tools/list), so kb get does none of these. A runtime layer composes one registry for all its services (kbRuntimeLayer), where it had reconciled the session schema and read the root's families once per service, about nine times per command; and the derived refs are read from the fold opening already made (derivedOf), where opening had folded every family's seed twice. What a get still pays at open (the tx tail decoded whole, the schema reconcile, the registry build, module init) is the owner's choice under gap 01M7B2SRJ6NAQB5ZSAJNDWPY5A.
+- **impact** — kb get and kb search stay above about 200 ms whatever the module split does, and the cost grows with the store.
+- **closes** — docs/research/2026-11-11-cli-host-modes.md step 7.
+- **node** — `01M75MA4HB3NFDXGGKG0RE45H5`
+
 ### GAP: Expand subtree / Expand all do not open results of a query that has not answered yet
 
 - **expected** — Expand subtree and Expand all open the results of every query they open, a query not yet answered included; an async version stays scoped to its page and awaits only the queries inside the requested subtree
@@ -3470,6 +3462,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — the core suite cannot drop below about 215 s locally however many workers it gets: four workers ran it in 298 s, sixteen in 239 s; on CI's Ubuntu runner four workers took 407 s against 466 s serial
 - **closes** — a test file per matrix cell over shared surface factories, or a cheaper one-shot CLI (the startup measurements in PR #189)
 - **node** — `01M79GV5XZGH57HF5174KXYYAB`
+
+### GAP: the CLI's eager graph loads every family's painters and the host's engines
+
+- **expected** — From the CLI entry, painters and engines load at first use (chart-vega's Vega, gallery-net, canvas' tldraw reader, the QuickJS engine, store-sqlite when selected, source-git at first fetch), and the @kb/runtime barrel exports the mode-neutral core only.
+- **current** — Closed 2026-11-21. Chart's Vega, gallery's starter pictures, canvas' tldraw reader and QuickJS loaded on first use already; now the SQLite adapter and its engine load when a root selects it (loadSqliteStore; presence reads only sqliteStoreFiles), the git reader and its transport at a source's first fetch (gitSourceReader), and the gallery's handlers with their network and image code at the family's first call. The extension watchers (extensionRuntimeChanges, ownExtensionEdits) moved from the @kb/runtime barrel into @kb/server. The CLI fence forbids bun:sqlite, the git transport and the gallery's http client, and the command path's static closure fell by about 38 KB and 10 modules. pendingRequests stays in the runtime: both hosts (kb ui and kb mcp) use it and no host package is shared. What module init still costs (Effect, zod, DataScript) is gap 01M7B2SRJ6NAQB5ZSAJNDWPY5A.
+- **impact** — About 135-145 ms of module init on every command, plus their parse once the build is split; kb get cannot approach 100 ms.
+- **closes** — docs/research/2026-11-11-cli-host-modes.md steps 4-6, each removing its breach row from the CLI lazy fence.
+- **node** — `01M75MA300NQJS5M3V6GEWQS8E`
 
 ### GAP: the cluster renderer's lifecycle effect carries 28 branches
 

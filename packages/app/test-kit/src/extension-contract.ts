@@ -286,12 +286,13 @@ function ownershipPromises(declaration: ExtensionDeclaration, host: SwitchingHos
           : source,
     );
     const stored = ensureSystemSeed([], before).nodes;
-    const reopened = ensureSystemSeed(stored, foldSeed(after, CONTRACT_AT));
+    const afterFold = foldSeed(after, CONTRACT_AT);
+    const reopened = ensureSystemSeed(stored, afterFold);
     expect({ seeded: reopened.seeded, deletes: reopened.deletes }).toEqual({
       seeded: false,
       deletes: [],
     });
-    const index = new DatascriptIndex(stored, { derived: derivedOf(after) });
+    const index = new DatascriptIndex(stored, { derived: derivedOf(after, afterFold) });
     expect(ownedIn(index, receiver.name)).toContain(moved.id);
     expect(ownedIn(index, declaration.name)).not.toContain(moved.id);
   });

@@ -632,9 +632,13 @@ export const LAZY_FENCES = {
   cli: {
     // main.ts already imports this dispatcher dynamically for launch validation.
     // Measure the code every command actually loads, not that thin launcher.
+    // Hosts and their SDKs; painters and engines, which load at first use:
+    // Vega, QuickJS, the SQLite engine when a root selects it, the git
+    // transport at a source's first fetch, and the gallery's network client
+    // with its first call.
     entry: "packages/app/cli/src/cli.ts",
     forbidden:
-      /^(?:@kb\/(?:server|mcp|routines-host|routines-gcal|agent-claude|agent-openai)(?:\/|$)|@modelcontextprotocol\/sdk(?:\/|$)|@anthropic-ai\/claude-agent-sdk(?:\/|$)|vega[^/]*(?:\/|$)|@jitl\/quickjs-|packages\/(?:app\/(?:server|mcp)|extension\/(?:routines-host|routines-gcal|agent-claude|agent-openai))\/)/,
+      /^(?:@kb\/(?:server|mcp|routines-host|routines-gcal|agent-claude|agent-openai)(?:\/|$)|@modelcontextprotocol\/sdk(?:\/|$)|@anthropic-ai\/claude-agent-sdk(?:\/|$)|vega[^/]*(?:\/|$)|@jitl\/quickjs-|bun:sqlite$|packages\/infrastructure\/source-git\/src\/transport\.ts$|packages\/extension\/gallery-net\/src\/http\.ts$|packages\/(?:app\/(?:server|mcp)|extension\/(?:routines-host|routines-gcal|agent-claude|agent-openai))\/)/,
     depth: 1,
     boundary: "dependency",
   },

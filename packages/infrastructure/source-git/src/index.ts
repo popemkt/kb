@@ -4,7 +4,6 @@ import {
   SourceReader,
   selectedPaths,
   checkedTree,
-  parseSource,
   pinnedSchema,
   pinSource,
   isRepositoryRef,
@@ -12,71 +11,20 @@ import {
   type PinnedSource,
   type ObjectFile,
 } from "@kb/extension-source";
-import { gitTransport } from "./transport.ts";
-import {
-  advertisedRefs,
-  advertisedCommit,
-  ensureTrees,
-  withRepository,
-  verifyCommit,
-} from "./references.ts";
-import { readObjects, treeEntries } from "./objects.ts";
-const checkedSource = (source: GithubSource) =>
-  parseSource(`github:${source.repo}${source.path === "" ? "" : `/${source.path}`}@${source.ref}`);
-/** Endpoints are host configuration; tests inject a directory of bare repositories. */
+import { checkedSource } from "./checked-source.ts";
+
+/**
+ * The git reader. Endpoints are host configuration; tests inject a
+ * directory of bare repositories. Its transport, which runs git, loads
+ * with the first fetch, so a command that fetches nothing parses none of it.
+ */
 export function gitSourceReader(base = "https://github.com"): SourceReader["Service"] {
-  const git = gitTransport(base);
-  const url = (repo: string) => `${base}/${repo}.git`;
+  const reader = Effect.promise(() => import("./git-reader.ts")).pipe(
+    Effect.map(({ gitReader }) => gitReader(base)),
+  );
   return SourceReader.of({
-    resolve: Effect.fn("source.resolve")(function* (source: GithubSource) {
-      const valid = yield* Effect.try({
-        try: () => checkedSource(source),
-        catch: SourceError.from,
-      });
-      return yield* withRepository(git, (dir) =>
-        Effect.gen(function* () {
-          const refs = yield* advertisedRefs(git, url(valid.repo), dir);
-          const pin = yield* Effect.try({
-            try: () => pinSource(valid, refs),
-            catch: SourceError.from,
-          });
-          if (advertisedCommit(pin, refs)) return pin;
-          yield* verifyCommit(git, url(pin.repo), pin, refs, dir);
-          return pin;
-        }),
-      );
-    }),
-    read: Effect.fn("source.read")(function* (source: PinnedSource) {
-      const pin = yield* Effect.try({
-        try: () => pinnedSchema.parse(source),
-        catch: SourceError.from,
-      });
-      const endpoint = url(pin.repo);
-      return yield* withRepository(git, (dir) =>
-        Effect.gen(function* () {
-          const refs = yield* advertisedRefs(git, endpoint, dir);
-          const repo = yield* verifyCommit(git, endpoint, pin, refs, dir);
-          yield* ensureTrees(git, endpoint, pin, repo);
-          const listing = yield* git(
-            [
-              "--literal-pathspecs",
-              "ls-tree",
-              "-r",
-              "-z",
-              pin.rev,
-              "--",
-              ...(pin.path === "" ? [] : [pin.path]),
-            ],
-            dir,
-          );
-          const entries = yield* Effect.try({
-            try: () => selectedPaths(treeEntries(listing), pin.path),
-            catch: SourceError.from,
-          });
-          return yield* checkedTree(yield* readObjects(git, endpoint, dir, entries));
-        }),
-      );
-    }),
+    resolve: (source) => Effect.flatMap(reader, (git) => git.resolve(source)),
+    read: (source) => Effect.flatMap(reader, (git) => git.read(source)),
   });
 }
 /** Raw object modes and ancestry keep the same adversarial contract as Git. */

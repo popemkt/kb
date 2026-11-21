@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { domainError, ensureDomainError, type DomainError } from "@kb/model";
 import type { EffectStore, StoreFingerprint } from "@kb/contracts";
 import { JsonlStore } from "@kb/store-jsonl";
-import { SqliteStore, sqliteStoreFiles } from "@kb/store-sqlite";
+import { loadSqliteStore, sqliteStoreFiles } from "@kb/store-sqlite";
 import { createOwnStore, persistOwnWrite, sessionOver } from "./own-write.ts";
 
 /** The backends a root can be stored in. Also the `--store` / `--to` values. */
@@ -21,14 +21,15 @@ export const STORE_BACKENDS = ["jsonl", "sqlite"] as const;
 export type StoreBackend = (typeof STORE_BACKENDS)[number];
 
 interface StoreBackendOps {
-  readonly open: (root: string) => EffectStore;
+  /** The backend's adapter over `root`, loaded when a root first selects it. */
+  readonly open: (root: string) => Effect.Effect<EffectStore>;
   /** Every file the backend owns under a root; the selecting one first. */
   readonly files: (root: string) => readonly string[];
 }
 
 const BACKENDS: Record<StoreBackend, StoreBackendOps> = {
   jsonl: {
-    open: (root) => new JsonlStore(root),
+    open: (root) => Effect.sync(() => new JsonlStore(root)),
     // The store owns its transaction tail as well as its nodes file.
     files: (root) => {
       const store = new JsonlStore(root);
@@ -42,16 +43,14 @@ const BACKENDS: Record<StoreBackend, StoreBackendOps> = {
     },
   },
   sqlite: {
-    open: (root) => new SqliteStore(root),
+    open: (root) =>
+      Effect.promise(loadSqliteStore).pipe(Effect.map(({ SqliteStore }) => new SqliteStore(root))),
     files: sqliteStoreFiles,
   },
 };
 
 const acquireStore = Effect.fn("kb.acquireStore")(function* ({ root, backend }: StoreAt) {
-  return yield* Effect.acquireRelease(
-    Effect.sync(() => BACKENDS[backend].open(root)),
-    (store) => store.closeEffect,
-  );
+  return yield* Effect.acquireRelease(BACKENDS[backend].open(root), (store) => store.closeEffect);
 });
 
 /** The path whose existence means "this root is stored in that backend". */
@@ -107,7 +106,7 @@ export const selectStore = Effect.fn("kb.selectStore")(function* (
   root: string,
 ): Effect.fn.Return<EffectStore, DomainError, FileSystem> {
   const name = (yield* storeBackendAt(root)) ?? "jsonl";
-  return BACKENDS[name].open(root);
+  return yield* BACKENDS[name].open(root);
 });
 
 /** A raw snapshot releases the selected adapter and never composes or seeds families. */

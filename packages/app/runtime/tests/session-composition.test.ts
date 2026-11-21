@@ -3,11 +3,17 @@ import { expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Tracer } from "effect";
 import { ExtensionStorage } from "@kb/contracts";
 import { extensionStorageLayer } from "@kb/workspace-fs";
 import { extensionModule, writeTrustedExtension } from "@kb/test-kit";
-import { openKb, bunFileSystemLayer, sessionRegistry, resetRegistryCache } from "../src/index.ts";
+import {
+  openKb,
+  bunFileSystemLayer,
+  kbRuntimeLayer,
+  sessionRegistry,
+  resetRegistryCache,
+} from "../src/index.ts";
 
 test("a lock changed while seeding takes effect on the next composition, never with the previous schema", async () => {
   const at = await mkdtemp(join(tmpdir(), "kb-composition-snapshot-"));
@@ -68,5 +74,27 @@ test("a lock changed while seeding takes effect on the next composition, never w
   } finally {
     resetRegistryCache();
     await rm(at, { recursive: true, force: true });
+  }
+});
+
+test("a session's runtime is composed over one registry: its families are read once, not once per service", async () => {
+  const root = await mkdtemp(join(tmpdir(), "kb-composition-once-"));
+  try {
+    const ctx = await openKb(root);
+    const spans: string[] = [];
+    const recording = Tracer.make({
+      span: (options) => {
+        spans.push(options.name);
+        return new Tracer.NativeSpan(options);
+      },
+    });
+    await Effect.runPromise(
+      Effect.void.pipe(Effect.provide(kbRuntimeLayer(ctx)), Effect.withTracer(recording)),
+    );
+    expect(spans.filter((name) => name === "kb.reconcileSessionSchema")).toHaveLength(1);
+    expect(spans.filter((name) => name === "kb.rootFamilies")).toHaveLength(1);
+  } finally {
+    resetRegistryCache();
+    await rm(root, { recursive: true, force: true });
   }
 });

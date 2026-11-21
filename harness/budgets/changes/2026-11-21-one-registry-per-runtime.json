@@ -1,0 +1,4 @@
+{
+  "reason": "A runtime layer composes over one cached registry (Layer.unwrap over Effect.cached in kbRuntimeLayer), so a command reconciles its session's schema once rather than once per service; and derivedOf reads the fold it is given rather than folding the seed again.",
+  "raise": { "cli-closure": { "bytes": 297 } }
+}
