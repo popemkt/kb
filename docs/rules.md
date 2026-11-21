@@ -1396,22 +1396,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — WP4 folds kit/orbit.ts into the scene kit with the lab kit's view controls, and the graph's flight and the orbit share one camera rig.
 - **node** — `01M3E9QZ3D6EG2W2MERM93ABNA`
 
-### GAP: outline expansion save writes derived drops and filters other tabs' choices by this tab's schema
-
-- **expected** — only the reader's gestures are written as changes, and the keeps filter applies only to the ids this tab changed
-- **current** — changesOf counts drops made by undoable as changes, and saveExpansionChanges applies keeps to every stored id using this tab's schema
-- **impact** — a tab with a stale snapshot can erase another tab's newer choice for a row it sees differently
-- **closes** — derive changes from gestures only; apply keeps to changed ids only
-- **node** — `01M52E01JB6CFKT2M8CAS171EJ`
-
-### GAP: outline expansion storage keeps choices for deleted rows forever
-
-- **expected** — a choice for a row deleted and not restored is pruned from kb-expansion
-- **current** — isUndoable keeps every choice for a row the graph does not hold, so restored rows (undo) keep theirs; nothing ever prunes
-- **impact** — storage grows with every distinct row the reader ever toggled and is re-serialised on each save
-- **closes** — prune on a delete that is not undone, restore the choice on undo
-- **node** — `01M52E0177292798G5908A74GG`
-
 ### GAP: outline zoom is one per tab, not one per pane
 
 - **expected** — each pane's outline has its own zoom root, read from the pane's location; the store's rootNodeId is derived from it, not stored beside it
@@ -1705,14 +1689,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Draw colour as a value kind in VALUE_KINDS with a swatch picker opened from the slot.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M3KA39WTMVDWE004ZQA59FQ5`
-
-### GAP: table and board cells are not in the arrow-key path
-
-- **expected** — Arrow keys move through table and board cells' values the way they move through an outline row's values.
-- **current** — Keyboard nav into field values reads outline DOM order only; table and board cells are skipped.
-- **impact** — Tables and boards need the mouse to reach a value.
-- **closes** — Give table/board cells the same slot navigation order the outline uses.
-- **node** — `01M3KA3A8JZN1GH9DXK2SNZ1N1`
 
 ### GAP: the 3D gizmo shows over a locked selection
 
@@ -3077,6 +3053,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXNKKK31EGJWCA1KCV6V20`
 
+### GAP: outline expansion save writes derived drops and filters other tabs' choices by this tab's schema
+
+- **expected** — only the reader's gestures are written as changes, and the keeps filter applies only to the ids this tab changed
+- **current** — Fixed: keptExpansion writes only the ids this tab decided (the ids next chose differently from current, rows kept open by a graph move, and a row choice going out of storage and back with the row); saveExpansionChanges takes no keeps filter and leaves every other stored id as it is. A drop undoable makes because the graph moved is not written.
+- **impact** — a tab with a stale snapshot can erase another tab's newer choice for a row it sees differently
+- **closes** — derive changes from gestures only; apply keeps to changed ids only
+- **node** — `01M52E01JB6CFKT2M8CAS171EJ`
+
+### GAP: outline expansion storage keeps choices for deleted rows forever
+
+- **expected** — a choice for a row deleted and not restored is pruned from kb-expansion
+- **current** — Fixed: storage keeps a row choice only while the graph holds the row (isStored); a delete drops it, the undo that restores the row writes it back, and a choice for a row gone at load leaves with the next save. The tab keeps the choice in memory for the undo.
+- **impact** — storage grows with every distinct row the reader ever toggled and is re-serialised on each save
+- **closes** — prune on a delete that is not undone, restore the choice on undo
+- **node** — `01M52E0177292798G5908A74GG`
+
 ### GAP: outline paste deletes its source and focuses a row before server acceptance
 
 - **expected** — An outline paste keeps an empty source row until the server accepts the tree. Focus moves to the last authoritative row after it reaches the outline.
@@ -3366,6 +3358,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P0 of docs/research/2026-10-29-plugin-codependency.md
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M63C0GJ5M78G1TFKM00RN4X6`
+
+### GAP: table and board cells are not in the arrow-key path
+
+- **expected** — Arrow keys move through table and board cells' values the way they move through an outline row's values.
+- **current** — Fixed: a row fields section is one marker (fieldsSectionProps in @kb/ui-sdk: data-fields-for and data-fields-of) carried by an outline row fields, a table row and a card fields; value-slot-nav finds a row values by it, so the arrows and Tab walk table and board cells as they walk an outline row values.
+- **impact** — Tables and boards need the mouse to reach a value.
+- **closes** — Give table/board cells the same slot navigation order the outline uses.
+- **node** — `01M3KA3A8JZN1GH9DXK2SNZ1N1`
 
 ### GAP: tables and boards sort, filter and group references by their own empty props
 

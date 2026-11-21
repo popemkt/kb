@@ -240,14 +240,14 @@ function schemaNow(): SchemaIndex {
 /**
  * Whether the reader can still undo choosing `open` for row `id`: the row can
  * expand and `open` is not its default. A row the graph does not hold now
- * keeps its choice, so a row deleted and restored (an undo) comes back as the
- * reader left it. A reference opened in place holds while it is open and its
- * row's text names it (`openReferenceHolds`).
+ * keeps its choice in the tab, so a row deleted and restored (an undo) comes
+ * back as the reader left it; storage does not keep it (`isStored`). A
+ * reference opened in place holds while it is open and its row's text names
+ * it (`openReferenceHolds`).
  */
 function isUndoable(id: string, open: boolean, schema: SchemaIndex): boolean {
   const reference = openReferenceHolds(id, open, schema);
   if (reference !== null) return reference;
-  // GAP [[01M52E0177292798G5908A74GG]]
   const node = schema.get(id);
   // A row's default is `node.collapsed`: a choice to open is one to change it.
   return node === undefined || (open === node.collapsed && isExpandableOutlineNode(node, schema));
@@ -277,19 +277,54 @@ function changesOf(before: Expansion, after: Expansion): ExpansionChanges {
 }
 
 /**
- * `next` made `undoable`. What this tab changed is applied onto storage's
- * current expansion, never a snapshot of this tab's, so another tab's
- * choices survive; storage drops the choices that are no longer undoable on
- * the way.
+ * Whether storage keeps choice `open` for `id` over `schema`: a row's choice
+ * the reader can undo, for a row the graph holds. The references opened in
+ * place are this tab's alone, and so is the choice of a row the graph no
+ * longer holds: the tab keeps it for an undo, and storage keeps it only once
+ * the row is back.
  */
-function keptExpansion(current: Expansion, next: Expansion, schema: SchemaIndex): Expansion {
-  const kept = undoable(next, schema);
-  // The references opened in place are this tab's alone: storage holds rows' choices.
-  const changes = new Map([...changesOf(current, kept)].filter(([id]) => !isReferenceKey(id)));
-  // GAP [[01M52E01JB6CFKT2M8CAS171EJ]]
-  if (changes.size > 0) {
-    saveExpansionChanges(changes, (id, open) => isUndoable(id, open, schema));
+function isStored(id: string, open: boolean, schema: SchemaIndex): boolean {
+  return schema.has(id) && isUndoable(id, open, schema);
+}
+
+/**
+ * `next` made `undoable` over `after`, the schema of the graph it is held
+ * against; `current` was held against `before`. A save writes only what
+ * this tab decided, each row as storage keeps it of the result
+ * (`isStored`): the rows `next` chose differently from `current` (the
+ * reader's gestures, and the rows a graph move keeps open), and the rows
+ * whose choice goes out of storage and back with the row, written with
+ * every save. A choice `undoable` drops because the graph moved is not
+ * written: another tab may see that row differently, and a load drops it
+ * again while it still cannot be undone. The changes are applied onto
+ * storage's current expansion, never a snapshot of this tab's, so another
+ * tab's choices survive.
+ */
+function keptExpansion(
+  current: Expansion,
+  before: SchemaIndex,
+  next: Expansion,
+  after: SchemaIndex,
+): Expansion {
+  const kept = undoable(next, after);
+  const decided = new Set(changesOf(current, next).keys());
+  const gone: string[] = [];
+  for (const id of kept.keys()) {
+    if (!after.has(id)) gone.push(id);
+    else if (!before.has(id)) decided.add(id);
   }
+  for (const id of gone) if (before.has(id)) decided.add(id);
+  // The references opened in place are this tab's alone: storage holds rows' choices.
+  const ids = [...decided, ...(decided.size > 0 ? gone : [])].filter((id) => !isReferenceKey(id));
+  if (ids.length === 0) return kept;
+  saveExpansionChanges(
+    new Map(
+      ids.map((id) => {
+        const open = kept.get(id);
+        return [id, open !== undefined && isStored(id, open, after) ? open : null] as const;
+      }),
+    ),
+  );
   return kept;
 }
 
@@ -508,7 +543,8 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
     const current = get().expansion;
     const next = withChoices(current, choices);
     if (next === current) return;
-    set({ expansion: keptExpansion(current, next, schemaNow()) });
+    const schema = schemaNow();
+    set({ expansion: keptExpansion(current, schema, next, schema) });
   }
 
   /** Open (true) or close (false) each of `rows` that can expand and is not so already. */
@@ -911,7 +947,7 @@ function follow(change: GraphChange, prev: PageGraphState, next: PageGraphState)
   }
   const to = shownNodesOf(next);
   const open = keptOpen(outline.expansion, shownNodesOf(prev), to);
-  const expansion = keptExpansion(outline.expansion, open, schema);
+  const expansion = keptExpansion(outline.expansion, schemaOf(prev), open, schema);
   const kept = KEPT_FOCUS[change](outline, to);
   const focus = { ...outline, ...kept };
   useOutlineStore.setState({

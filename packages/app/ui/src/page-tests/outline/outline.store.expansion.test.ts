@@ -182,7 +182,7 @@ describe("expansion keeps only choices the reader can undo", () => {
     expect(collapsed("n.child-a2")).toBe(false);
   });
 
-  it("a row closed against an open default reopens once it cannot expand, and storage agrees", () => {
+  it("a row closed against an open default reopens once it cannot expand; storage keeps the reader's choice", () => {
     // A tagged row with no value yet: its tag's field slot makes it expandable, open by default.
     const tagged = {
       ...wireOf("n.root-c"),
@@ -200,7 +200,8 @@ describe("expansion keeps only choices the reader can undo", () => {
     graph().applyTx([{ ...tagged, props: {} }], [], { rev: 3 });
     expect(collapsed("n.root-c")).toBe(false);
     expect(outline().expansion.has("n.root-c")).toBe(false);
-    expect(stored().closed).not.toContain("n.root-c");
+    // The drop is the graph's doing, not a gesture: storage is not written.
+    expect(stored().closed).toContain("n.root-c");
     reload();
     expect(collapsed("n.root-c")).toBe(false);
   });
@@ -215,6 +216,25 @@ describe("expansion keeps only choices the reader can undo", () => {
     graph().applyTx([parent, row], [], { rev: 3 });
     expect(collapsed("n.child-a2")).toBe(false);
     expect(stored().open).toContain("n.child-a2");
+  });
+
+  it("a deleted row's choice leaves storage, and the undo that restores the row writes it back", () => {
+    outline().toggleCollapse("n.child-a2");
+    const parent = wireOf("n.root-a");
+    const row = wireOf("n.child-a2");
+    graph().applyTx([{ ...parent, children: ["n.child-a1"] }], ["n.child-a2"], { rev: 2 });
+    expect(stored().open).not.toContain("n.child-a2");
+    graph().applyTx([parent, row], [], { rev: 3 });
+    expect(stored().open).toContain("n.child-a2");
+  });
+
+  it("a choice storage holds for a row gone at load leaves storage with this tab's next save", () => {
+    anotherTabStores(["n.gone", "n.child-a2"]);
+    reload();
+    // A load writes nothing.
+    expect(stored().open).toContain("n.gone");
+    outline().toggleCollapse("n.root-a");
+    expect(stored().open.toSorted()).toEqual(["n.child-a2", "n.root-a"]);
   });
 
   it("storage holds exactly the outline's choices", () => {
@@ -247,6 +267,21 @@ describe("each tab keeps its own expansion while open; storage seeds it at load"
     reload();
     expect(collapsed("n.root-a")).toBe(false);
     expect(collapsed("n.child-a2")).toBe(false);
+  });
+
+  it("a save keeps another tab's choice for a row this tab sees differently", () => {
+    // Another tab, whose graph gave n.child-a1 children, opened it; here it is a leaf.
+    anotherTabStores(["n.child-a1"]);
+    outline().toggleCollapse("n.root-a");
+    expect(stored().open.toSorted()).toEqual(["n.child-a1", "n.root-a"]);
+  });
+
+  it("a graph move that drops no choice of this tab's writes nothing", () => {
+    anotherTabStores(["n.child-a1"]);
+    writes();
+    graph().applyTx([{ ...wireOf("n.root-c"), text: "renamed" }], [], { rev: 2 });
+    expect(writes()).toBe(0);
+    expect(stored().open).toEqual(["n.child-a1"]);
   });
 
   it("a load writes nothing", () => {

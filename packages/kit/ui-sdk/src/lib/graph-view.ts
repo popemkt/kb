@@ -412,14 +412,10 @@ export type ExpansionChanges = ReadonlyMap<string, boolean | null>;
 
 /**
  * Apply `changes` onto the expansion storage holds now, never a snapshot of
- * this tab's: another tab's choices for other rows survive. Every stored
- * choice `keeps` refuses is dropped on the way. One write, so the stored
- * form is never half-written.
+ * this tab's: another tab's choices for other rows survive as they are. One
+ * write, so the stored form is never half-written.
  */
-export function saveExpansionChanges(
-  changes: ExpansionChanges,
-  keeps: (id: string, open: boolean) => boolean,
-): void {
+export function saveExpansionChanges(changes: ExpansionChanges): void {
   const stored = new Map(loadExpansion());
   for (const [id, open] of changes) {
     if (open === null) stored.delete(id);
@@ -427,11 +423,7 @@ export function saveExpansionChanges(
   }
   const open: string[] = [];
   const closed: string[] = [];
-  for (const [id, isOpen] of stored) {
-    // GAP [[01M52E01JB6CFKT2M8CAS171EJ]]
-    if (!keeps(id, isOpen)) continue;
-    (isOpen ? open : closed).push(id);
-  }
+  for (const [id, isOpen] of stored) (isOpen ? open : closed).push(id);
   try {
     localStorage.setItem(EXPANSION_STORAGE_KEY, JSON.stringify({ open, closed }));
   } catch {

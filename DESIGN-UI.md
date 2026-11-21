@@ -1079,14 +1079,21 @@ open or closed, and the references opened in place (Contextual references
 reader can undo it: a choice that equals the row's default, or names a row
 that can no longer expand, is dropped (`undoable`), so no row is held
 collapsed with no gesture to open it. A row the graph does not hold now
-keeps its choice, so a row restored by an undo comes back as the reader
-left it. A row shown open stays open when the graph
+keeps its choice in the tab, so a row restored by an undo comes back as the
+reader left it, but storage does not keep it: a delete takes the row's
+choice out of storage, the undo that restores the row writes it back, and a
+choice storage holds for a row gone at load leaves with the tab's next save.
+A row shown open stays open when the graph
 gives it children or fields. Each tab keeps its own expansion while it is
 open, and storage seeds it at load: another tab's choices are read at the
 next load, never merged in by a graph move. Storage is shared, so a save
 applies only the ids this tab changed onto what storage holds at that moment
-(`saveExpansionChanges`), never a snapshot of the tab's, and drops stored
-choices that are no longer undoable on the way. A load writes nothing. The
+(`saveExpansionChanges`), never a snapshot of the tab's, and the ids it
+changed are the ones it decided: the reader's gestures, the rows a graph move
+keeps open, and a row's choice going out of storage with the row and back
+with it. A choice the tab drops because the graph moved is not written,
+since another tab may see that row differently; a load drops it again while
+it still cannot be undone. A load writes nothing. The
 stored form is one key, `kb-expansion`, holding `{ open, closed }` and
 written in one `setItem`. While it is absent, the legacy `kb-expanded` (open
 ids) is read in its place. The legacy key is never written or deleted, so a
@@ -1640,7 +1647,11 @@ editor keep their own keys. The chord tables are
 The rows' keymaps pass through the values: ↓ off a row's last line (editing
 or selected) lands on its first value, ↓ from its last value goes to the next
 row, ↑ comes back the same way (`enterFields`; the order is read off the DOM
-by `outline-ui/src/value-slot-nav.ts`, never kept a second time).
+by `outline-ui/src/value-slot-nav.ts`, never kept a second time) A row's
+values are those of its fields section (`fieldsSectionProps`), which an
+outline row's fields, a table row's cells and a card's fields each carry, so
+the arrows pass through a table's and a board's rows as through the
+outline's.
 
 **Adding has no line of its own.** Enter at the end of a value of a
 many-valued field commits it and opens the next value's slot; Enter on that
@@ -1898,8 +1909,7 @@ target's children inline under the field. Pasting
 several lines into a many-valued field is not split into values. The node
 palette has no "Add value to …" command. `sys.f.color` keeps its always-open
 swatch row. The PropValue union still carries the legacy `date` variant so old
-stores decode (opening rewrites it). Table and board cells are not in the
-arrow path (the outline's rows are).
+stores decode (opening rewrites it).
 
 ### Ontology scope (i6)
 

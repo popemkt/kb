@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
 import {
+  fieldsSectionProps,
   browserHost,
   Bullet,
   copyText,
@@ -308,6 +309,7 @@ const TableRow = memo(function TableRow({
       className="border-b border-foreground/[0.03] hover:bg-foreground/[0.02] transition-colors"
       data-node-id={child.id}
       data-instance-key={childKey}
+      {...fieldsSectionProps(shown.id, childKey)}
     >
       <td className="px-1 py-0.5 align-top">
         <NodeRow
