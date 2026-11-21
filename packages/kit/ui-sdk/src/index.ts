@@ -302,7 +302,14 @@ export {
   pageCapturePlanner,
   topLevelCapture,
 } from "./lib/capture-target";
-export { type Landing, LandingService, land, landOnce, stayHome } from "./lib/landing";
+export {
+  type Landing,
+  LandingService,
+  land,
+  landOnce,
+  provideLanding,
+  stayHome,
+} from "./lib/landing";
 export {
   type DateTarget,
   DateTargetService,

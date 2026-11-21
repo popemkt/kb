@@ -7504,7 +7504,17 @@ Core owns the role and answers the top level, and days replaces it
 ([Days](#days)). The third is `ui.landing`, the node a page that loads at
 the root opens on, which the shell asks once per page load. Core owns it
 and stays home, and days replaces it with today (DESIGN-UI.md →
-[Days](./DESIGN-UI.md#days)). It is the one service call with no budget:
+[Days](./DESIGN-UI.md#days)). It is the official way for a family to say
+where the page opens: a page half answers through `provideLanding`
+(`kb-ext-sdk/page`), its manifest claims `ui.landing` in `replaces`, and
+election picks the one answer, by the role node's `sys.f.provider` and
+otherwise the claims' priority, so two families never both move the page.
+It is asked only while the page stands at `/` with nothing in its URL: a
+link or an address names its place, and that place wins. The shell draws
+no workspace until the answer settles, so a page that lands elsewhere never
+paints the root on the way. The answer is the page's, not the server's: it
+is the page kernel's election, in the page's own day, so no bootstrap
+payload carries it. It is the one service call with no budget:
 a landing waits for what it needs, however long a slow machine takes, and
 a provider that fails leaves the page home with a toast that says why. The fourth is `ui.date-target`, the node a
 followed date value opens (a `date` follow target, DESIGN-UI.md → Field

@@ -798,3 +798,17 @@ export declare function provideFieldEditor(
   ctx: PluginContext,
   Component: ComponentType<FieldRowProps>,
 ): effect.Effect.Effect<void, PluginError>;
+
+/**
+ * Where a page that loads at the root opens: the id of the node to open, or
+ * null to stay home. A rejection keeps the page home and tells the person
+ * why ("Stayed home: …"). The page asks it once per load, before it first
+ * draws the workspace, and never while a link names another place.
+ */
+export type Landing = () => Promise<string | null>;
+
+/** Requires the trusted manifest to declare replacement of ui.landing. */
+export declare function provideLanding(
+  ctx: PluginContext,
+  landing: Landing,
+): effect.Effect.Effect<void, PluginError>;

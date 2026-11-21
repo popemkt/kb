@@ -10,8 +10,8 @@ import {
   CaptureTargetService,
   CommandPoint,
   DateTargetService,
-  LandingService,
   NodeSectionPoint,
+  provideLanding,
   SidebarSectionPoint,
   type NodeMap,
 } from "@kb/ui-sdk";
@@ -94,7 +94,7 @@ export const daysUiPlugin = definePlugin({
           ctx.contribute(CommandPoint, { id: command.id, value: command }),
         ),
         ctx.provide(CaptureTargetService, captureIntoToday),
-        ctx.provide(LandingService, landOnToday),
+        provideLanding(ctx, landOnToday),
         ctx.provide(DateTargetService, dayNode),
       ],
       { discard: true },

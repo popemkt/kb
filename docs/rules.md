@@ -289,6 +289,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Cell claims in the kernel: step 5 declared point slots plus step 7 replaceable cells, with the overlap relation stated in the point spec, read by contributeErased.
 - **node** — `01M6Y9H5FD9GVMK9N9QBT5DNTN`
 
+### GAP: a landing that never answers holds the workspace with no way home
+
+- **expected** — While the shell holds the workspace for the ui.landing answer, the person always has a way to stay home: the sidebar's Home row (or the held state itself) ends the wait at the root
+- **current** — The hold ends only at the answer, a failure, or a navigation that changes the URL. At / the sidebar's Home row navigates to / and moves nothing, so a provider that never settles (days waiting for today's node over a live connection that never delivers it) leaves 'Opening your workspace…' until the person picks another sidebar row
+- **impact** — On a connection that never delivers today's node the workspace stays in its loading state; before the hold the root was usable meanwhile
+- **closes** — A stay-home gesture the landing hears (Home while asked settles land() at home), with a render spec that holds a landing forever and leaves it by Home
+- **node** — `01M7ZN4675JTGVXVGH49Z0QF90`
+
 ### GAP: a layout's panes are not mentions of the nodes they show
 
 - **expected** — the nodes a layout's panes show are derived as mentions at load, so they backlink to the layout

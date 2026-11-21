@@ -5674,7 +5674,11 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
   families' plugins are first in (`landOnce`), so switching days on later,
   or reloading a plugin, never moves the page. The shell asks only while
   the page is at `/` with nothing in its URL, and moves only if the page
-  has not moved by the time the answer comes. The move replaces the root's
+  has not moved by the time the answer comes. Until the answer settles the
+  workspace shows its neutral "Opening your workspace…" state, never the
+  root, so a load that opens on today paints today first; a navigation
+  while it is asked (a sidebar row, Back) ends the wait where the person
+  went. The move replaces the root's
   history entry, so Back leaves the page. The landing has no clock: days
   answers once today's node is in the page's replica, which on a slow
   machine or connection is when the live connection brings it. If days

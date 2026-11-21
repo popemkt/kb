@@ -121,8 +121,12 @@ describe("ui.landing", () => {
     const landing = land();
     await Promise.resolve();
     navigate("/settings");
-    pending.resolve("days.2026-11-11");
+    // It settles at the move, not at the answer: a shell that holds its
+    // first paint on it draws where the person went.
     await landing;
+    expect(getPath()).toBe("/settings");
+    pending.resolve("days.2026-11-11");
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(getPath()).toBe("/settings");
   });
 

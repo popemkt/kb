@@ -183,6 +183,23 @@ and writeability. Its `parse` callback uses kb's field-value parser; `update`
 and `remove` use the host's normal checked write path. Reference values are
 node ids; providers may resolve or edit them as their interface requires. The component runs with full page power.
 
+Where the page opens is the `ui.landing` role. A page half that claims it
+imports `provideLanding` from `kb-ext-sdk/page` and calls it with its plugin
+context and an async function answering a node id, or null to stay home.
+The page asks the elected provider once per load, only when the address
+names no place, and draws nothing until it answers, so the page opens
+straight on that node. A rejection keeps the page home with a
+"Stayed home: …" toast.
+
+```ts
+// .kb/extensions/inbox.page.tsx, whose manifest claims
+// {"role": "ui.landing", "why": "Open on the inbox"}
+export default definePlugin({
+  name: "inbox",
+  apply: (ctx) => provideLanding(ctx, async () => "ext.inbox.inbox"),
+});
+```
+
 ## Reacting to commits
 
 Use `onCommit` from `kb-ext-sdk` in the server plugin's `apply`. The
