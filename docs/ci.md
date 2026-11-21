@@ -95,7 +95,9 @@ rather than passing on checks it could not make.
 
 ## Scheduling and selection
 
-Every main push runs every gate before publication. PRs whose entire diff is
+Every main push runs every gate before publication. A PR's gates are selected
+by the paths its diff touches, in `bin/ci-scope`, which the `scope` job runs
+and which prints one answer per gate. PRs whose entire diff is
 Markdown under `docs/` or `README.md` run verify (including rule-home audits)
 and generated-doc checks only. All other paths conservatively select all
 suites: shared graph packages, extensions, assets and build configuration can

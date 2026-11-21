@@ -34,11 +34,11 @@ jobs:
           HEAD: ${{ github.event.pull_request.head.sha }}
         shell: bash
         run: |
-          runtime=true
           if [ "$EVENT" = pull_request ]; then
-            runtime=$(bin/ci-runtime "$BASE" "$HEAD")
+            bin/ci-scope "$BASE" "$HEAD" >> "$GITHUB_OUTPUT"
+          else
+            bin/ci-scope >> "$GITHUB_OUTPUT"
           fi
-          echo "runtime=$runtime" >> "$GITHUB_OUTPUT"
 
   # The flake: formatting, the hook and scripts, the workflows, and the
   # package build itself (`checks.kb`), on each platform a release ships for.

@@ -1,0 +1,30 @@
+#!/bin/sh
+# Which of Validate's gates a change selects: one `<gate>=true|false` line
+# per gate, the form $GITHUB_OUTPUT reads (docs/ci.md, Scheduling and
+# selection). With a range, a PR's base and head, a gate is selected by the
+# paths the diff touches; with none, a push to main, every gate is.
+# Missing history is an error.
+set -eu
+if [ $# -eq 0 ]; then
+  changed=
+  every=true
+else
+  changed=$(git diff --no-renames --name-only "${1:?base}...${2:?head}")
+  every=false
+fi
+
+# A changed path matches the pattern (touches), or one does not (strays).
+touches() { printf '%s\n' "$changed" | grep -qE "$1"; }
+strays() { printf '%s\n' "$changed" | grep -qvE "$1"; }
+
+# gate <name> <touches|strays> <ERE>: whether the change selects <name>.
+gate() {
+  if [ "$every" = true ] || "$2" "$3"; then
+    echo "$1=true"
+  else
+    echo "$1=false"
+  fi
+}
+
+# The runtime suites: anything but prose.
+gate runtime strays '^(docs/.*\.md|README\.md)$'
