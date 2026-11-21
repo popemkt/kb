@@ -285,7 +285,9 @@ describe("the query builder", () => {
     expect(useGraphStore.getState().wireNodes).toEqual(before);
 
     await type("task", input);
-    await pick("task");
+    // The tag picker's row shows its usage after the label, so the tag is
+    // picked by id.
+    await click(present(step.querySelector('[data-picker-id="t.task"]'), "task option"));
     await vi.waitFor(() => {
       const node = present(outlineNodes().get(nodeId), nodeId);
       const [value] = node.props[SYSTEM_IDS.queryField] ?? [];
