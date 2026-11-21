@@ -681,7 +681,12 @@ point's `combine`:
   only when the holder covers the replacement’s whole chord. Another owner still
   needs replacement approval for any shared press. Layout-independent
   keys, including numpad digits with NumLock on or off, narrow that overlap;
-  layout-dependent positions are checked conservatively. Reserved page-owner
+  layout-dependent positions are checked conservatively. A shortcut's hint
+  names a chord only while a press of it still reaches its binding, and that
+  press is read from the same key domain (`representativeKey`: a place's own
+  key, Space's `" "`, a US layout's character where the layout decides), so
+  a replacement that names both the place and its character takes the hint
+  with it. Reserved page-owner
   bindings remain ahead of conflicting surface-owner claims;
 - a binding over a held chord is refused unless it names the holder in
   `replaces` (the record's §9 default 7: an occupied chord is never taken

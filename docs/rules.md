@@ -1555,15 +1555,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — An androidTest suite run on an emulator from nix (androidenv system image, KVM), wired into the same gate as the unit tests.
 - **node** — `01M7QTAJ9GSK02FMWNR4XQGFMT`
 
-### GAP: physical shortcut hints must use the shared chord key domain
-
-- **expected** — Shortcut hints agree with actual election for chords that constrain both physical code and character key, deriving representative keys from the shared chord model.
-- **current** — PR #181 at 0e4fcc8c is approved but its canvas pressOf uses an empty key for code-only chords. A replacement of canvas.rest.pan using code Space and key space runs correctly while the old pan hint still advertises Space.
-- **impact** — A stale shortcut hint can advertise a key that runs another binding. Dispatch, reservations and approval remain correct; Sol classifies this as non-blocking P3.
-- **closes** — After #181 lands, derive physical representative key values from the shared chord model and retain the review181-r3-hint-probe regression as coverage.
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M75H9VJT3C118T7DHK87PSFD`
-
 ### GAP: picking and stacking treat rounded corners as square
 
 - **expected** — hitTest and surface snap follow the rounded rect corners that are drawn
@@ -3180,6 +3171,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Field defaults are stated once per field in code and again in the ontology, and a malformed prop degrades silently per field instead of failing the decode.
 - **closes** — Track 2 domain-typing work: express LensPerspective as a Schema and decode props through it. Not mechanical - it changes what happens on malformed input.
 - **node** — `01M1MGCEBYDFRNJX1JKXXN825H`
+
+### GAP: physical shortcut hints must use the shared chord key domain
+
+- **expected** — Shortcut hints agree with actual election for chords that constrain both physical code and character key, deriving representative keys from the shared chord model.
+- **current** — Fixed: @kb/keybindings exports representativeKey, the key a press of a chord carries read from the shared key domain (keyDomain: Space's " ", a numpad digit, a named key, a US layout's character for a layout-dependent place); canvas-keymap's hint probe (pressOf) presses it instead of an empty key, so replacing canvas.rest.pan with code Space and key space leaves the old pan no hint. The hint-probe regression is canvas-keymap.test.ts (the hint probe), with unit cases in keychord.test.ts.
+- **impact** — A stale shortcut hint can advertise a key that runs another binding. Dispatch, reservations and approval remain correct; Sol classifies this as non-blocking P3.
+- **closes** — After #181 lands, derive physical representative key values from the shared chord model and retain the review181-r3-hint-probe regression as coverage.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M75H9VJT3C118T7DHK87PSFD`
 
 ### GAP: pre-commit admission reads the working tree
 
