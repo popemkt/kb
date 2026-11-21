@@ -13,11 +13,9 @@
 import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { Duration, Effect, Option, Predicate } from "effect";
-import { takeWriteLock, WRITE_LOCK_WAIT } from "@kb/contracts";
+import { Effect, Option, Predicate } from "effect";
+import { takeWriteLock } from "@kb/contracts";
 import { domainError, isDomainError, type DomainError } from "@kb/model";
-
-const BUSY_TIMEOUT = `PRAGMA busy_timeout = ${String(Duration.toMillis(WRITE_LOCK_WAIT))}`;
 
 /** Bumped when the table shape changes; stored in `meta` so a file can say. */
 const SCHEMA_VERSION = "6";
@@ -113,20 +111,10 @@ function sqliteLockCode(error: unknown): "SQLITE_BUSY" | "SQLITE_LOCKED" | null 
   return code === "SQLITE_BUSY" || code === "SQLITE_LOCKED" ? code : null;
 }
 
-/** Only contention when acquiring the write lock is retried. */
-function tryBeginWrite(db: Database): boolean {
-  db.run("PRAGMA busy_timeout = 0");
-  try {
-    const journal = db.query<{ journal_mode: string }, []>("PRAGMA journal_mode").get();
-    if (journal?.journal_mode !== "wal") db.run("PRAGMA journal_mode = WAL");
-    db.run("BEGIN IMMEDIATE");
-    return true;
-  } catch (error) {
-    if (sqliteLockCode(error) !== null) return false;
-    throw error;
-  } finally {
-    db.run(BUSY_TIMEOUT);
-  }
+function beginWrite(db: Database): void {
+  const journal = db.query<{ journal_mode: string }, []>("PRAGMA journal_mode").get();
+  if (journal?.journal_mode !== "wal") db.run("PRAGMA journal_mode = WAL");
+  db.run("BEGIN IMMEDIATE");
 }
 
 export function sqliteConnection(path: string): SqliteConnection {
@@ -134,8 +122,8 @@ export function sqliteConnection(path: string): SqliteConnection {
 
   const connect = (db: Database, mode: "read" | "write"): Database => {
     try {
+      db.run("PRAGMA busy_timeout = 0");
       if (mode === "write") db.run("PRAGMA synchronous = NORMAL");
-      db.run(BUSY_TIMEOUT);
     } catch (error) {
       db.close(false);
       throw error;
@@ -164,9 +152,15 @@ export function sqliteConnection(path: string): SqliteConnection {
         () =>
           Effect.try({
             try: () => {
-              const db = writer();
+              let db: Database;
               try {
-                if (!tryBeginWrite(db)) return Option.none();
+                db = writer();
+                beginWrite(db);
+              } catch (error) {
+                if (sqliteLockCode(error) !== null) return Option.none();
+                throw error;
+              }
+              try {
                 // Upgrade under the lock this write already acquired.
                 if (!hasCurrentSchema(db)) migrate(db);
                 const value = run(db);

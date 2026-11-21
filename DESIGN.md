@@ -2129,10 +2129,11 @@ CREATE TABLE meta  (key TEXT PRIMARY KEY, value TEXT);   -- schema_version, rev
   its first write. Closing that handle leaves a crashed writer's WAL available
   for the next reader without checkpointing it into `kb.sqlite`.
 - `PRAGMA journal_mode = WAL` lets readers proceed while a writer holds the lock.
-  `synchronous = NORMAL` makes the same durability trade as JSONL. Each write
-  transaction tries `BEGIN IMMEDIATE` with `busy_timeout = 0`, restores the
-  connection's busy timeout after the try, and waits through the shared
-  `takeWriteLock` policy when the lock is held.
+  `synchronous = NORMAL` makes the same durability trade as JSONL. All handles
+  use `busy_timeout = 0` so a contended operation leaves the host responsive.
+  A read blocked by an exclusive lock, such as on a legacy rollback-journal
+  database, fails immediately. A write waits asynchronously for `BEGIN IMMEDIATE`
+  through the shared `takeWriteLock` policy.
 - **No `.lock` file.** `BEGIN IMMEDIATE … COMMIT` takes sqlite's own write lock
   for the whole deletes → upserts → tail-record transaction. A second lock beside
   it would be two mechanisms for one concept, and the weaker one would be the

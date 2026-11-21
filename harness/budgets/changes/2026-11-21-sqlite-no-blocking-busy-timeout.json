@@ -1,0 +1,4 @@
+{
+  "reason": "SQLite handles fail promptly on contention, and the Effect write-lock policy owns the wait instead of a second synchronous timeout.",
+  "raise": { "cli-closure": { "bytes": -204 } }
+}

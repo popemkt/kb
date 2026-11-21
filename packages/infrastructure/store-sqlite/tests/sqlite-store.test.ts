@@ -32,6 +32,29 @@ const scratchStore = Effect.gen(function* () {
   );
 });
 
+/** Start a scratch writer and wait for it to announce its state. */
+const startWriter = Effect.fnUntraced(function* (script: string, args: string[], ready: string) {
+  const child = yield* Effect.acquireRelease(
+    Effect.sync(() =>
+      Bun.spawn([process.execPath, "-e", script, "--", ...args], {
+        stdin: "pipe",
+        stdout: "pipe",
+        stderr: "inherit",
+      }),
+    ),
+    (writer) =>
+      Effect.promise(async () => {
+        writer.kill("SIGKILL");
+        await writer.exited;
+      }),
+  );
+  const output = child.stdout.getReader();
+  const line = yield* Effect.promise(() => output.read()).pipe(Effect.timeout("5 seconds"));
+  output.releaseLock();
+  expect(new TextDecoder().decode(line.value).trim()).toBe(ready);
+  return child;
+});
+
 /** Run `body` against a raw second connection to the same database. */
 function withRawConnection(path: string, body: (db: Database) => void): void {
   const db = new Database(path);
@@ -81,36 +104,21 @@ describe("SqliteStore", () => {
         Effect.gen(function* () {
           const store = yield* scratchStore;
           // The only writer must be gone when the parent opens the database.
-          const writer = yield* Effect.acquireRelease(
-            Effect.sync(() =>
-              Bun.spawn(
-                [
-                  process.execPath,
-                  "-e",
-                  `const { SqliteStore } = await import(process.argv[1]);
-                   const { Effect } = await import(process.argv[2]);
-                   const store = new SqliteStore(process.argv[3]);
-                   const upserts = [${JSON.stringify(node("n-a", "after"))}];
-                   await Effect.runPromise(store.commitEffect({ upserts, deletes: [] }, { at: upserts[0].createdAt }));
-                   console.log("committed");
-                   await Bun.stdin.text();`,
-                  "--",
-                  import.meta.resolve("../src/index.ts"),
-                  import.meta.resolve("effect"),
-                  join(store.path, "../.."),
-                ],
-                { stdin: "pipe", stdout: "pipe", stderr: "inherit" },
-              ),
-            ),
-            (child) =>
-              Effect.promise(async () => {
-                child.kill("SIGKILL");
-                await child.exited;
-              }),
+          const writer = yield* startWriter(
+            `const { SqliteStore } = await import(process.argv[1]);
+             const { Effect } = await import(process.argv[2]);
+             const store = new SqliteStore(process.argv[3]);
+             const upserts = [${JSON.stringify(node("n-a", "after"))}];
+             await Effect.runPromise(store.commitEffect({ upserts, deletes: [] }, { at: upserts[0].createdAt }));
+             console.log("committed");
+             await Bun.stdin.text();`,
+            [
+              import.meta.resolve("../src/index.ts"),
+              import.meta.resolve("effect"),
+              join(store.path, "../.."),
+            ],
+            "committed",
           );
-          const output = writer.stdout.getReader();
-          const committed = yield* Effect.promise(() => output.read());
-          expect(new TextDecoder().decode(committed.value).trim()).toBe("committed");
           writer.kill("SIGKILL");
           yield* Effect.promise(() => writer.exited);
 
@@ -120,6 +128,41 @@ describe("SqliteStore", () => {
           yield* store.closeEffect;
           const after = yield* Effect.promise(() => readFile(store.path));
           expect(after.equals(before)).toBe(true);
+        }),
+      ),
+    ));
+
+  test("a rollback-journal read fails while another process holds an exclusive lock", () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const store = yield* scratchStore;
+          const writer = yield* startWriter(
+            `import { Database } from "bun:sqlite";
+             import { mkdirSync } from "node:fs";
+             import { dirname } from "node:path";
+             const path = process.argv[1];
+             mkdirSync(dirname(path), { recursive: true });
+             const db = new Database(path);
+             db.run("PRAGMA journal_mode = DELETE");
+             db.run("CREATE TABLE nodes (id TEXT PRIMARY KEY, body TEXT NOT NULL)");
+             db.run("INSERT INTO nodes VALUES (?, ?)", ["n-a", process.argv[2]]);
+             db.run("BEGIN EXCLUSIVE");
+             console.log("locked");
+             await Promise.race([Bun.stdin.text(), Bun.sleep(2000)]);
+             db.run("ROLLBACK");
+             db.close();
+             process.exit(0);`,
+            [store.path, canonicalJson(node("n-a", "a"))],
+            "locked",
+          );
+          // If SQLite waits synchronously, the child's fail-safe unlocks and
+          // the read succeeds. It should fail while the lock is still held.
+          const error = yield* Effect.flip(store.loadEffect);
+          expect(error.message).toContain("database is locked");
+          yield* Effect.promise(() => Promise.resolve(writer.stdin.end()));
+          expect(yield* Effect.promise(() => writer.exited)).toBe(0);
+          expect((yield* store.loadEffect).map(({ text }) => text)).toEqual(["a"]);
         }),
       ),
     ));
