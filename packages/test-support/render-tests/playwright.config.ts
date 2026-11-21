@@ -4,6 +4,14 @@ import { defineConfig } from "playwright/test";
 import durations from "./render-durations.json" with { type: "json" };
 import { renderShard } from "./render-shards.ts";
 
+/**
+ * `text` matched literally in a RegExp. Playwright loads this config under
+ * CI's Node, which has no `RegExp.escape`.
+ */
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+}
+
 // Headless Chromium hides WebGPU behind `--enable-unsafe-webgpu`. With it, a
 // machine that has an adapter proves the WebGPU path; one without falls back
 // to WebGL2, and the specs read which (`gpu` in harness-test.ts). On Linux,
@@ -89,7 +97,7 @@ if (shard !== undefined) {
     return {
       ...project,
       testMatch: renderShard(projectFiles, durations[project.name], shard).map(
-        (file) => new RegExp(`/${RegExp.escape(file)}$`),
+        (file) => new RegExp(`/${escapeRegExp(file)}$`),
       ),
     };
   });
