@@ -1,0 +1,8 @@
+{
+  "reason": "The page shares one mention-count query and count index across outline rows. The query and SDK each expose the batch query, which adds 221 bytes to the CLI closure and 1,113 bytes to the page's eager set.",
+  "raise": {
+    "cli-closure": { "bytes": 221 },
+    "page-eager": { "bytes": 1113 },
+    "surface": { "@kb/query": 1, "@kb/ui-sdk": 1 }
+  }
+}

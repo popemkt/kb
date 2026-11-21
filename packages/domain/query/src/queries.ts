@@ -39,19 +39,22 @@ export const LIST_ALL_NODES_QUERY = `[:find ?id ?text
                :where [?n :node/id ?id]
                       [?n :node/text ?text]]`;
 
-/**
- * Nodes that reference `id`, via `:node/mentions` — the carrier-independent
- * reference relation (a `[[id]]` token in text *or* a `{t:"ref"}` prop value;
- * see `query/datascript.ts`). Single owner: the browser reads this same string
- * through the `@kb/queries` alias rather than keeping its own copy.
- */
+const MENTION_SOURCES = `[?e :node/mentions ?m]
+                      [?e :node/id ?from]`;
+
+/** Nodes that reference `id` through the carrier-independent mention relation. */
 export function backlinksQuery(id: string): string {
   return `[:find ?from ?text
-               :where [?e :node/mentions ?m]
-                      [?e :node/id ?from]
+               :where ${MENTION_SOURCES}
                       [?e :node/text ?text]
                       [?m :node/id ${JSON.stringify(id)}]]`;
 }
+
+/** Count the other nodes mentioning each target, in one replica read. */
+export const BACKLINK_COUNTS_QUERY = `[:find ?target (count ?from)
+               :where ${MENTION_SOURCES}
+                      [?m :node/id ?target]
+                      [(not= ?e ?m)]]`;
 
 /** Which way a neighbourhood walks an edge: along it (`out`) or against it (`in`). */
 export type NeighbourhoodDirection = "out" | "in";

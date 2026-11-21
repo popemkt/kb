@@ -1,7 +1,6 @@
 import { memo } from "react";
-import { useAnswered, useOpenNode, usePane } from "@kb/ui-sdk";
-import { otherBacklinks } from "./backlinks";
-
+import { useOpenNode, usePane } from "@kb/ui-sdk";
+import { useBacklinkCount } from "./backlink-counts";
 import { requestReferencesScroll } from "./references-scroll";
 
 /** Subscribes separately so new mention edges do not render the outline row again. */
@@ -12,7 +11,7 @@ export const RowReferenceCounter = memo(function RowReferenceCounter({
 }) {
   const open = useOpenNode();
   const pane = usePane();
-  const { value: count } = useAnswered((run) => otherBacklinks(run, nodeId).length, [nodeId]);
+  const count = useBacklinkCount(nodeId);
   if (count === 0) return null;
 
   const label = `Open References (${count})`;

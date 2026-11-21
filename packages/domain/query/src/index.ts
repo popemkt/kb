@@ -38,6 +38,7 @@ export type {
 export { queryRecords } from "./records.ts";
 export type { QueryRecords } from "./records.ts";
 export {
+  BACKLINK_COUNTS_QUERY,
   LIST_ALL_NODES_QUERY,
   LIST_FIELDS_QUERY,
   LIST_TAGS_QUERY,

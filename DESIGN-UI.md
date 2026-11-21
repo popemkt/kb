@@ -1463,7 +1463,8 @@ the match was read from ([Conditional text edits](DESIGN.md#conditional-text-edi
 
 An outline row with incoming mentions has a count at its right edge.
 Clicking the count opens the node in the same pane and scrolls to
-References. The count reads the same mention query as the list.
+References. A single query groups the mention relation by target for all
+mounted counters in the replica. Each row subscribes to its own count.
 Counts appear by default. The outline family's **hide reference counts**
 checkbox turns them off.
 
