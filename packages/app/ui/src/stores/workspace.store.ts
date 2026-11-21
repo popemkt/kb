@@ -34,7 +34,6 @@ import {
   outlineLocationOf,
   replacePath,
   subscribePath,
-  toast,
 } from "@kb/ui-sdk";
 import { proposeView } from "@/lib/propose-view";
 import { useUiStore } from "@/stores/ui.store";
@@ -194,10 +193,8 @@ function keptLayout(layout: LayoutTree): LayoutTree {
 async function saveWorkspace(layout: LayoutTree, text: string): Promise<string | null> {
   const root = keptLayout(layout);
   const proposed = await proposeView({ view: LayoutView, params: { root }, text });
-  if ("refused" in proposed) {
-    toast(`Could not save the workspace: ${proposed.refused}`);
-    return null;
-  }
+  // Refused, the write path has said why.
+  if ("refused" in proposed) return null;
   useUiStore.getState().pushToast("info", `Saved the workspace as “${text}”, in Views`);
   return proposed.id;
 }

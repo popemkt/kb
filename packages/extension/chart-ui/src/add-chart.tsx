@@ -6,14 +6,7 @@
 import { ChartBarIcon } from "@phosphor-icons/react";
 import { queryDefOf } from "@kb/model";
 import { ChartView, starterChartSpec } from "@kb/chart";
-import {
-  browserHost,
-  nodeAction,
-  nodeMenu,
-  queryRecords,
-  toast,
-  type NodeCommand,
-} from "@kb/ui-sdk";
+import { browserHost, nodeAction, nodeMenu, queryRecords, type NodeCommand } from "@kb/ui-sdk";
 import { nodePath } from "@kb/views";
 
 export const addChartCommand: NodeCommand = {
@@ -33,7 +26,9 @@ export const addChartCommand: NodeCommand = {
         params: { spec: starterChartSpec(columns) },
         host: nodeId,
       });
-      if ("refused" in proposed) toast(`Could not add a chart: ${proposed.refused}`);
-      else ctx.workspace.openBeside(ctx.workspace.focused, nodePath(nodeId, proposed.id));
+      // Refused, the write path has said why.
+      if (!("refused" in proposed)) {
+        ctx.workspace.openBeside(ctx.workspace.focused, nodePath(nodeId, proposed.id));
+      }
     }),
 };

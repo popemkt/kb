@@ -36,7 +36,11 @@ export interface ViewProposal {
   readonly text?: string;
 }
 
-/** The new view node's id, or the receipt's message when the proposal was refused. */
+/**
+ * The new view node's id, or why the proposal was refused. The page's write
+ * path has told the person already, as it tells every refused write, so a
+ * caller does not tell it again.
+ */
 export type ProposedView = { readonly id: string } | { readonly refused: string };
 
 /**
