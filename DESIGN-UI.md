@@ -1380,6 +1380,14 @@ its title, tags and fields, its children in its view, and then what
 reaches it from elsewhere: for a tag or field, what carries it (Schema),
 then its References.
 
+- **The crumbs never scroll sideways.** The head's crumb row (Home, then
+  each node down to the page's) keeps Home and the page's own node on
+  screen at any width. When the row would not fit, the crumbs between fold
+  into one "…", the oldest first and only as many as the width needs; the
+  page's own name is cut with an ellipsis only once nothing is left to
+  fold. "…" names the folded crumbs on hover and opens them as a menu on
+  click or Enter, its first row focused, each row opening its node as a
+  crumb does. A wider pane unfolds them again.
 - **The title selected holds the keyboard.** The page's title is its
   node's own instance (`pageTitleInstanceKey`): selected, it takes the
   keyboard focus, so Enter edits it, its caret at the end. A gesture that

@@ -44,6 +44,7 @@ export { fieldGlyphOf } from "./value-views";
 export { outlineValueKindsPlugin, slotKindOf, useSlotKind, type SlotKind } from "./slot-kind";
 export { frameFieldCandidates } from "./view-settings-fields";
 export { ViewSettingsPopoverHost } from "./view-settings-popover";
+export { FoldedCrumbs } from "./folded-crumbs";
 export { ViewToolbar } from "./view-toolbar";
 export { collectVisibleInstances } from "./visible-instances";
 export { ZoomedRootHeader } from "./zoomed-root-header";
