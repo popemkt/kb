@@ -1411,14 +1411,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — docs/research/2026-11-11-cli-host-modes.md section 5 and step 12.
 - **node** — `01M788TCV1H6XEE8X7TGTPP1Y1`
 
-### GAP: node palette advertises a ⌘S that is bound to nothing
-
-- **expected** — A label names a key that runs the command.
-- **current** — commands.tsx search-all reads Search everything… ⌘S; page-keys.ts leaves ⌘S to the browser, so the key does nothing (F6 in docs/research/2026-11-20-outliner-tana-parity.md).
-- **impact** — A hint that lies teaches people the keyboard is broken.
-- **closes** — Brief 6 in docs/research/2026-11-20-outliner-tana-parity.md: drop the label, or bind ⌘S as the owner decides.
-- **node** — `01M7WW1PRXPC058Y8MPDN8ADM0`
-
 ### GAP: node-config decode warnings reach the browser log, not the UI
 
 - **expected** — A malformed config prop is visible where the config is: a badge or bar beside the graph / view frame, the way resolveOntology's warnings surface through ontology-scope-bar and ontology-page.
@@ -2061,14 +2053,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Every new inline form is another branch in the same function, and the interaction between forms (a ref inside bold, an escape inside code) is only tested end to end.
 - **closes** — Split into recognizers over a cursor and drive them from a list. The existing md-inline tests are the gate; this is a rewrite, not a mechanical move.
 - **node** — `01M1MGCM9RWXE3CYANZK5K4KC0`
-
-### GAP: the kb UI has no Back or Forward command or control (the desktop app's store window has none either)
-
-- **expected** — The kb UI has Back and Forward as commands, with buttons in its header and bindable keys, so the page and the desktop app's store window can move through navigation history.
-- **current** — kit/ui-sdk/src/lib/router.ts is pushState plus popstate with no Back or Forward command, button or key. A browser tab has the browser's own Back; the desktop app (Electrobun, packages/app/desktop) shows the store's own kb page in a window with no navigation chrome, so it has none either. The Android and iOS apps are capture-only and show no kb page (F7 in docs/research/2026-11-20-outliner-tana-parity.md).
-- **impact** — After zooming or following a reference in the kb UI there is no in-app way back, in the desktop store window or in a tab without browser chrome.
-- **closes** — Brief 3 in docs/research/2026-11-20-outliner-tana-parity.md: header buttons, Go back and Go forward commands on Mod-[ and Mod-], router canGo and go.
-- **node** — `01M7WW1VZJBCBMXTQ2W3NSN6T2`
 
 ### GAP: the kit's node type is named for the outline
 
@@ -3100,6 +3084,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P1 of docs/research/2026-10-29-plugin-codependency.md
 - **node** — `01M63C0H8G86X7ZBJ48QYYNSAV`
 
+### GAP: node palette advertises a ⌘S that is bound to nothing
+
+- **expected** — A label names a key that runs the command.
+- **current** — commands.tsx search-all reads Search everything… ⌘S; page-keys.ts leaves ⌘S to the browser, so the key does nothing (F6 in docs/research/2026-11-20-outliner-tana-parity.md).
+- **impact** — A hint that lies teaches people the keyboard is broken.
+- **closes** — Brief 6 in docs/research/2026-11-20-outliner-tana-parity.md: drop the label, or bind ⌘S as the owner decides.
+- **node** — `01M7WW1PRXPC058Y8MPDN8ADM0`
+
 ### GAP: node.addTree mints its ids twice when the page runs it optimistically
 
 - **expected** — An optimistic write names the same nodes on the page and on the server: the ids the local commit mints are the ids the server commits, as node.add does by taking the minted id as input
@@ -3552,6 +3544,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A failed prepare or node replacement leaves the previous revision visible. A published record survives an interrupted archive.
 - **closes** — A write-ahead record the JSONL adapter can commit atomically with the file replace - a single sidecar holding both the candidate bytes and the tail entry, renamed once - or a per-root manifest that names the nodes generation and the tail head together.
 - **node** — `01M1XEZT8XZNSG1NGS9JPCQFGM`
+
+### GAP: the kb UI has no Back or Forward command or control (the desktop app's store window has none either)
+
+- **expected** — The kb UI has Back and Forward as commands, with buttons in its header and bindable keys, so the page and the desktop app's store window can move through navigation history.
+- **current** — kit/ui-sdk/src/lib/router.ts is pushState plus popstate with no Back or Forward command, button or key. A browser tab has the browser's own Back; the desktop app (Electrobun, packages/app/desktop) shows the store's own kb page in a window with no navigation chrome, so it has none either. The Android and iOS apps are capture-only and show no kb page (F7 in docs/research/2026-11-20-outliner-tana-parity.md).
+- **impact** — After zooming or following a reference in the kb UI there is no in-app way back, in the desktop store window or in a tab without browser chrome.
+- **closes** — Brief 3 in docs/research/2026-11-20-outliner-tana-parity.md: header buttons, Go back and Go forward commands on Mod-[ and Mod-], router canGo and go.
+- **node** — `01M7WW1VZJBCBMXTQ2W3NSN6T2`
 
 ### GAP: the kit names the frame family's default view
 
