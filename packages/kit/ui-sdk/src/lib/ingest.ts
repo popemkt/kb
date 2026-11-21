@@ -253,7 +253,7 @@ async function addTreeAt(tree: string, format: OutlineFormatId, site: IngestSite
   const last = ids.at(-1);
   if (last === undefined) return;
   await reached(last);
-  host.activateNode(last);
+  host.activateNode(last, textNow(last)?.length);
 }
 
 /**
