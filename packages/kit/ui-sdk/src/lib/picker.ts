@@ -25,6 +25,12 @@ export interface PickerCandidate {
   readonly glyph?: ReactNode;
   /** Muted text after the label (e.g. "already extends"). */
   readonly note?: string;
+  /**
+   * Muted words under the label, one line: the node's description
+   * (`descriptionOf`), so a person tells two like-named nodes apart. Null
+   * or absent: none.
+   */
+  readonly hint?: string | null;
   /** Shown, but not pickable. */
   readonly disabled?: boolean;
   /** Discoverable by label or an explicit system id search, without an empty-query row. */
@@ -44,6 +50,7 @@ export type PickerRow =
       readonly label: string;
       readonly glyph?: ReactNode;
       readonly note?: string;
+      readonly hint?: string;
       readonly disabled: boolean;
       /** Where the query landed in `label`, for highlighting. */
       readonly matches: readonly MatchRange[];
@@ -193,6 +200,7 @@ export function pickerRows(
     label: candidate.label,
     ...(candidate.glyph === undefined ? {} : { glyph: candidate.glyph }),
     ...(candidate.note === undefined ? {} : { note: candidate.note }),
+    ...(candidate.hint === undefined || candidate.hint === null ? {} : { hint: candidate.hint }),
     disabled: candidate.disabled === true,
     matches: match.ranges,
     selected: selected?.has(candidate.id) === true,

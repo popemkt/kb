@@ -19,7 +19,7 @@ import {
 import "dockview-react/dist/styles/dockview.css";
 import "./dockview-theme.css";
 import { XIcon } from "@phosphor-icons/react";
-import { sameLayout, type LayoutTree } from "@kb/views";
+import { layoutPanes, sameLayout, withPanePath, type LayoutTree } from "@kb/views";
 import { cn, IconButton } from "@kb/ui-sdk";
 import { PANE_COMPONENT, fromDockview, toDockview, type PaneParams } from "./dockview-adapter";
 import { PaneMount } from "./pane-mount";
@@ -148,6 +148,24 @@ export default function LayoutGrid({
     if (grid === null) return;
     const current = fromDockview(grid.toJSON());
     if (current !== null && sameLayout(current, target)) return;
+    // A pane that only moved to another place keeps its panel: rebuilding
+    // the grid would take every pane's body off screen and back, and the
+    // keyboard with it.
+    const relocated =
+      current === null
+        ? null
+        : layoutPanes(target).reduce(
+            (moved, pane) => withPanePath(moved, pane.id, pane.path),
+            current,
+          );
+    if (relocated !== null && sameLayout(relocated, target)) {
+      for (const pane of layoutPanes(target)) {
+        const panel = grid.getPanel(pane.id);
+        if (panel !== undefined && pathOf(panel.params) !== pane.path)
+          panel.api.updateParameters({ path: pane.path } satisfies PaneParams);
+      }
+      return;
+    }
     grid.fromJSON(toDockview(target, boxOf(host.current)));
   };
 

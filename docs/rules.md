@@ -476,6 +476,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYMXMMZC9S8GS00CE6DFB`
 
+### GAP: a seeded tag or field takes a description only with force
+
+- **expected** — A description is a setting any node takes, a seeded tag's or field's included: a person describes a family's tag and its hint shows in the tag picker, without force, and takes it back.
+- **current** — sys.f.description is a field of no tag, and the write guard keeps a sys.* node closed to every field that does not configure it. configures holds one value, so the description cannot be a setting of both sys.tag and sys.field; describing a seeded node needs force. The outliner offers no Add description there and draws a seeded node's description as words.
+- **impact** — The hint in the tag and field pickers comes only from tags and fields a person made; a family's own tags show none unless the family seeds one.
+- **closes** — configures takes many values, or the guard reads settings from one place every sys kind shares, so sys.f.description configures every node kind; then the outliner's Add description is offered on seeded nodes too.
+- **rule** — Data-plane freedom: additive edits
+- **node** — `01M7ZP97P0FAAWC9NDQDWYAGK8`
+
 ### GAP: a stage with ambient occlusion renders without MSAA until three r187
 
 - **expected** — every stage antialiases its scene pass, occlusion or not
@@ -637,6 +646,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a thread/message node model the bridge writes, and resume from it
 - **rule** — Hosts are accelerators: the store is the truth
 - **node** — `01M40WSVNKVH3ZY8QE0GN5DY8X`
+
+### GAP: an abandoned landing call can stay pending for the page session
+
+- **expected** — When the person navigates away while the landing is asked, the provider call it started still ends by the one deadline: it is answered, refused or given up on within about 4 s, and its fault, if any, is recorded as any overrun's is.
+- **current** — land() (packages/kit/ui-sdk/src/lib/landing.ts:93) clears the deadline in its finally as soon as the page moves, so the late promise never rejects, and a provider that never answers leaves callPageRole's fiber, and the role call, pending for the rest of the page session.
+- **impact** — A stalled landing abandoned by navigation is never faulted and its call never settles: a small leak per page load, and a misbehaving provider escapes the fault that would demote it. The page itself is not held.
+- **closes** — Keep the deadline running until the election settles rather than until land() returns (clear it when answer settles, not in land's finally), so a move ends the wait for the shell but not the bound on the call; a test with fake timers that navigates mid-call and sees the stalled provider faulted at 4 s.
+- **node** — `01M7ZVVWGXA8E93YK4X099N7AQ`
 
 ### GAP: an approval-required action cannot be invoked over MCP
 
@@ -1658,6 +1675,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Off-graph state is named
 - **node** — `01M7F15HTEG3R3KRT6DD9GV611`
 
+### GAP: the gallery's description and the node description are two fields for one concept
+
+- **expected** — One description field: the gallery's look brief is the node description, read through descriptionOf, and the gallery-net starter writes it by id.
+- **current** — Core seeds sys.f.description labelled 'node description', beside the gallery's sys.f.gallery.description labelled 'description'. The core label differs only so a name typed (description::, kb set <id> description) still resolves to one field.
+- **impact** — A look's brief shows as a field and not as the subtitle under its name; a person sees two description fields in Add field; the core field's label reads oddly.
+- **closes** — The gallery family ships a declared migration that moves sys.f.gallery.description values onto sys.f.description and retires its field with an alias, and the core field takes the label 'description'.
+- **node** — `01M7ZP9E60FSJZGBMZEBEFSNGQ`
+
 ### GAP: the graph legend overlays a renderer that cannot pan
 
 - **expected** — A renderer that cannot move its content (treemap: no zoom, no pan) lays out around the legend, so an open legend covers nothing for good
@@ -1823,6 +1848,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A CI job on a runner with systemd >= 256 and user credentials (or a container with systemd as PID 1) that runs the runtime suite, so hostSeals is true there and the skip goes.
 - **node** — `01M6XSXADG90BAMC22ZXWGV57D`
 
+### GAP: the tag page draws its Fields and Tagged instances blocks beside ui.node-sections, not through it
+
+- **expected** — A tag page's template field list and its tagged instances are sections contributed to ui.node-sections (DESIGN-UI.md → Node pages), like every other region of a node's page below or beside its outline, so their place, title and order are read the way every section's are.
+- **current** — outline-editor.tsx draws SchemaSection (TagFieldsConfig plus Tagged instances, packages/extension/outline-ui/src/schema-section.tsx) directly between the outline and References, then NodeSections. The point that exists for per-kind page regions is bypassed for the one kind kb itself uses most.
+- **impact** — Two mechanisms for one concept (a titled region of a node page per kind): a family cannot add to or order around the tag config, and the supertag config sections proposed in docs/research/2026-11-22-supertag-surface.md have nothing to plug into until it is one point.
+- **closes** — WP-1 of docs/research/2026-11-22-supertag-surface.md: contribute the two blocks to ui.node-sections for sys.tag (and sys.field), with section order read from data; outline-editor draws NodeSections only.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M7ZKJGQ06YDE93NSCCP49VR0`
+
 ### GAP: the view filter is stored in its legacy map syntax, and its text-anywhere row has no datalog form
 
 - **expected** — sys.f.view.filter holds a view's narrowing as the printed :where of its conditions (printEdn), the form sys.f.query holds, so any condition the query placement can hold the narrowing can too, and both lift and lower through one IR
@@ -1887,6 +1921,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — An installed extension depends only on keys the host owns; a pair of installed extensions cannot be a provider and a consumer.
 - **closes** — A shared key home for third-party keys (the codependency record's Q1), or a by-name key resolved by the kernel.
 - **node** — `01M68NFCSWZ41EJNBVDJ23RPFJ`
+
+### GAP: two mechanisms lay a row's hover actions over it
+
+- **expected** — One kit component owns actions laid over a row's right end: absolute, no width, shown on hover or focus, always shown where nothing hovers, inert while hidden (DESIGN-UI.md → References, 'Row actions take no width'). NodeLinkRow's Link and the outline row's view toolbar both use it.
+- **current** — NodeLinkRow's RowAction (packages/kit/ui-sdk/src/components/node-link-row.tsx) and NodeBlock's ViewToolbar overlay (packages/extension/outline-ui/src/node-block.tsx) each place, reveal and ground the overlay themselves; the toolbar's group/frame also reveals it while a child row is hovered, and it takes clicks while hidden.
+- **impact** — A third row action would copy one of the two; the two already differ in reveal scope, touch rule and whether a hidden action takes clicks.
+- **closes** — Lift RowAction into the kit as the one overlay (with the toolbar's 'stay while something it opened is open' rule) and draw NodeBlock's toolbar through it.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M7ZN612X0JRVRG29RARKF1DR`
 
 ### GAP: two tabs editing the same row overwrite each other silently
 
@@ -2139,6 +2182,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — On a hosted kb ui behind a socket, the CLI and kb mcp cannot drive the person's tabs (ui.screen and its commands) or find the running server; the browser, through the proxy, is unaffected
 - **closes** — A presence record that is a loopback origin or a socket path (validated as the origin is), with servingUi and the screen relay fetching over the socket
 - **node** — `01M5CMVS78WRBD760MNSS3BMJJ`
+
+### GAP: a landing that never answers holds the workspace with no way home
+
+- **expected** — While the shell holds the workspace for the ui.landing answer, the person always has a way to stay home: the sidebar's Home row (or the held state itself) ends the wait at the root
+- **current** — The hold ends only at the answer, a failure, or a navigation that changes the URL. At / the sidebar's Home row navigates to / and moves nothing, so a provider that never settles (days waiting for today's node over a live connection that never delivers it) leaves 'Opening your workspace…' until the person picks another sidebar row
+- **impact** — On a connection that never delivers today's node the workspace stays in its loading state; before the hold the root was usable meanwhile
+- **closes** — A stay-home gesture the landing hears (Home while asked settles land() at home), with a render spec that holds a landing forever and leaves it by Home
+- **node** — `01M7ZN4675JTGVXVGH49Z0QF90`
 
 ### GAP: a layout's panes are not mentions of the nodes they show
 

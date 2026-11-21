@@ -22,10 +22,11 @@ export const OUTLINE_IDS = {
    */
   childCountsField: "sys.f.outline.child-counts",
   /**
-   * Whether the outline hides the reference count at the right edge of rows.
-   * The count is shown when this setting is unset (`showsReferenceCounts`).
+   * "Add description" / "Edit description": the node command, on ⌘K, the
+   * node menu and Mod-Shift-E, that opens the node's description for editing
+   * where it is drawn (DESIGN-UI.md → Outline editor, "A node's description").
    */
-  hideReferenceCountsField: "sys.f.outline.hide-reference-counts",
+  describeCommand: "sys.cmd.outline.describe",
   /** "Copy as…": the node command, on ⌘K, the node menu and Mod-Shift-C. */
   copyAsCommand: "sys.cmd.outline.copy-as",
   /**

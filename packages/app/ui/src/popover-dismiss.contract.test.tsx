@@ -4,10 +4,11 @@
  * one way): the add-a-ref picker, the pane switcher and an extension's
  * menu; and
  * those the shell hosts for its kits and families, which need its stores
- * to open: the ontology picker and the outline's frame filter.
+ * to open: the ontology picker and the outline's frame filter; and the
+ * page head's folded crumbs.
  */
 import { act } from "react";
-import { ViewSettingsPopoverHost } from "@kb/outline-ui";
+import { FoldedCrumbs, ViewSettingsPopoverHost } from "@kb/outline-ui";
 import { OntologyPicker } from "@kb/ui-sdk";
 import { dismissContract, renderPopover } from "@kb/ui-test-kit";
 import { fixtureGraph } from "@/api/fixture-graph";
@@ -76,6 +77,19 @@ dismissContract({
       <OntologyPicker ontologies={[{ id: "o1", label: "Ont" }]} activeId={null} onSelect={noop} />,
       find('[role="listbox"][aria-label="Ontologies"]'),
       trigger('button[aria-label="Ontology"]'),
+    ),
+  "packages/extension/outline-ui/src/folded-crumbs.tsx": (host) =>
+    renderPopover(
+      host,
+      <FoldedCrumbs
+        folded={() => [
+          { id: "a", text: "Daily notes" },
+          { id: "b", text: "2026" },
+        ]}
+        onOpen={noop}
+      />,
+      find('[role="menu"][aria-label="Folded crumbs"]'),
+      trigger('button[aria-haspopup="menu"]'),
     ),
   "packages/extension/outline-ui/src/view-settings-popover.tsx": async (host) => {
     useGraphStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");

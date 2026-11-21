@@ -11,11 +11,11 @@
  */
 import { Suspense, act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { bundledPlugin, type WireNode } from "@kb/contracts";
 import { DAYS_IDS, daysExtension } from "@kb/days";
 import { daysUiPlugin } from "@kb/days-ui";
-import { SYSTEM_IDS } from "@kb/model";
+import { present, SYSTEM_IDS } from "@kb/model";
 import { definePlugin } from "@kb/plugin";
 import { OutlineEditor } from "@kb/outline-ui";
 import { NodeSectionPoint, syncUiPlugins } from "@kb/ui-sdk";
@@ -150,9 +150,13 @@ describe("day page (component)", () => {
     await show();
     expect(headings()).toEqual(["Made or edited this day"]);
     // What is dated the day is a reference, naming the field that dates it.
-    const references = container.querySelector(`[data-references-for="${DAY.id}"]`);
-    expect(references?.textContent).toContain("due →Call the plumber");
-    expect(references?.textContent).not.toContain("File taxes");
+    // References open from their one closed line.
+    const references = await vi.waitFor(() =>
+      present(container.querySelector(`[data-references-for="${DAY.id}"]`), "References"),
+    );
+    await act(async () => references.querySelector<HTMLButtonElement>("h2 button")?.click());
+    expect(references.textContent).toContain("due →Call the plumber");
+    expect(references.textContent).not.toContain("File taxes");
     expect(section("days.touched-day")).not.toContain("Call the plumber");
     // Every fixture node was made and edited on another day.
     expect(section("days.touched-day")).toContain("Nothing yet.");

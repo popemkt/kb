@@ -57,6 +57,21 @@ describe("matchCandidate", () => {
     ]);
   });
 
+  it("carries a node's description through as the row's hint, and no hint when it has none", () => {
+    const rows = pickerRows(
+      [
+        { id: "t.meeting", label: "meeting", hint: "People in a room at a time" },
+        { id: "t.task", label: "task", hint: null },
+      ],
+      { query: "" },
+    );
+    expect(rows.map((row) => (row.kind === "item" ? row.hint : undefined))).toEqual([
+      "People in a room at a time",
+      undefined,
+    ]);
+    expect(rows[1]).not.toHaveProperty("hint");
+  });
+
   it("requires three letters for fuzzy matches and keeps shorter literal matches", () => {
     expect(matchCandidate("Daily Updates", "n.report", "du")).toBeNull();
     expect(matchCandidate("Captured URL", "sys.f.capture.url", "du")).toBeNull();

@@ -15,17 +15,6 @@ export function showsChildCounts(family: Pick<NodeLike, "props"> | undefined): b
   return family !== undefined && firstBool(OUTLINE_IDS.childCountsField)(family.props) === true;
 }
 
-/**
- * Whether an outline row shows a reference counter at its right edge when
- * other rows reference it (DESIGN-UI.md → Contextual references); on when
- * the node says nothing.
- */
-export function showsReferenceCounts(family: Pick<NodeLike, "props"> | undefined): boolean {
-  return (
-    family === undefined || firstBool(OUTLINE_IDS.hideReferenceCountsField)(family.props) !== true
-  );
-}
-
 const REF_FORMS: readonly RefForm[] = ["label", "link", "id"];
 const INDENTS: readonly ExportOptions["indent"][] = ["spaces", "tabs"];
 

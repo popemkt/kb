@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   TAG_PALETTE,
   djb2Hash,
+  fieldInkOn,
   hashTagColor,
   nodeTagColors,
   UNTAGGED_COLOR,
@@ -36,6 +37,10 @@ function at(day: number): string {
 }
 
 /** The palette of a workspace holding exactly `nodes`. */
+function refs(...ids: string[]): WireNode["props"][string] {
+  return ids.map((v) => ({ t: "ref" as const, v }));
+}
+
 function graph(...nodes: WireNode[]): TagPalette {
   return tagPalette(nodes);
 }
@@ -200,5 +205,49 @@ describe("one palette for the whole workspace (review: scoped projections)", () 
     // The projection is handed the whole graph, and colours its chips from it.
     const projected = wireToOutlineMap(scoped, full);
     expect(projected.get("n.member")?.tags[0]?.color).toBe(workspaceColor);
+  });
+});
+
+describe("a field wears the colour of the tag that brings it (DESIGN-UI.md → Field values)", () => {
+  const node = (id: string, props: WireNode["props"]): WireNode => ({
+    id,
+    text: id,
+    children: [],
+    props,
+    createdAt: at(1),
+    updatedAt: at(1),
+  });
+  const wire = [
+    tagNode("t.event", { [SYSTEM_IDS.fieldsField]: refs("f.at") }),
+    tagNode("t.task", {
+      [SYSTEM_IDS.colorField]: [{ t: "str", v: "#22c55e" }],
+      [SYSTEM_IDS.fieldsField]: refs("f.status"),
+    }),
+    tagNode("t.meeting", {
+      [SYSTEM_IDS.colorField]: [{ t: "str", v: "#8b5cf6" }],
+      [SYSTEM_IDS.extendsField]: refs("t.event"),
+      [SYSTEM_IDS.fieldsField]: refs("f.venue", "f.status"),
+    }),
+    node("n", {
+      [SYSTEM_IDS.typeField]: refs("t.task", "t.meeting"),
+      "f.loose": [{ t: "str", v: "x" }],
+    }),
+  ];
+  const byId = wireToOutlineMap(wire);
+  const inkOf = (fieldId: string) => fieldInkOn(byId.get("n"), fieldId, byId);
+
+  it("inks a field in its tag's colour, as a chip's text is inked", () => {
+    expect(inkOf("f.venue")).toContain("#8b5cf6");
+    expect(inkOf("f.venue")).toContain("var(--tag-ink-mix)");
+  });
+
+  it("gives a field two tags bring to the first, and an ancestor's field to the chip that brought it", () => {
+    expect(inkOf("f.status")).toContain("#22c55e");
+    expect(inkOf("f.at")).toContain("#8b5cf6");
+  });
+
+  it("leaves a field no tag brings, and a node with no tag, neutral", () => {
+    expect(inkOf("f.loose")).toBeNull();
+    expect(fieldInkOn(byId.get("t.task"), SYSTEM_IDS.colorField, byId)).toBeNull();
   });
 });

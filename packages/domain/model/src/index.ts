@@ -141,6 +141,7 @@ export {
   type ShownRow,
 } from "./contextual-ref.ts";
 export { selectionRoots } from "./selection.ts";
+export { descriptionOf, descriptionValueOf } from "./description.ts";
 export {
   isA,
   kindsOf,
@@ -148,6 +149,7 @@ export {
   tagAncestors,
   tagChains,
   templateFieldsOf,
+  templateSourcesOf,
   type TagChains,
 } from "./tag-kinds.ts";
 export { closesCycle, type NodeLookup } from "./ref-chain.ts";
