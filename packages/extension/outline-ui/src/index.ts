@@ -36,7 +36,7 @@ export {
 } from "./outline.store";
 export { notePick, recentPicks } from "./picker-recency";
 export { QueryResultsSection } from "./query-results";
-export { ReferencesView } from "./references-section";
+export { unlinkedMentionRows } from "./unlinked-mentions-model";
 export { useNodeKeyDown } from "./use-node-keydown";
 export { useSelectionKeymap } from "./use-selection-keymap";
 export { ValueSlot } from "./value-slot";

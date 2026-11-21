@@ -482,6 +482,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — registryFor requires the store's switches (no default), or the runtime layer resolves FamilyKernels per call; a contract property that composing the manifest mid-session keeps every action and procedure reachable.
 - **node** — `01M7C87K56AJY519YZ51NPF06F`
 
+### GAP: A rejected optimistic mention Link can leave a stale undo step
+
+- **expected** — An outline undo step can reverse only a write the server accepted, using the text that write actually replaced.
+- **current** — The page records an undo step when a conditional Link succeeds in its replica. An intervening edit can make the server refuse the same write after the undo step is already recorded.
+- **impact** — Undoing the rejected Link can send a replacement with the earlier source text and overwrite the concurrent edit.
+- **closes** — Make history follow the shared write settlement and cover a Link rejected by the server after local success. Prove that undo preserves the intervening text.
+- **node** — `01M7XRPAHQ1ZB2CHNAXEN4B0KM`
+
 ### GAP: a remote root keeps no persisted mirror, so it cannot start or read offline
 
 - **expected** — A remote store persists its last mirror (nodes and tail head) so a restart offline reads it, and a quota stop leaves something to read (docs/research/2026-10-31-online-stores.md §3.4).

@@ -24,6 +24,7 @@ import {
   GraphSnapshotSchema,
   ServerMessageSchema,
   WIRE_PROTOCOL,
+  type ActionRequest,
 } from "@kb/contracts";
 import { schemaToJsonSchema } from "@kb/model";
 import { FrameMessage, PageMessage } from "@kb/sandbox";
@@ -95,9 +96,11 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // The page sends the ids its optimistic outline paste minted (`node.addTree`
 // `ids`); a server of an earlier protocol could discard those ids and mint its
 // own. The fingerprint also covers the existing sandbox protocol.
+// `node.update` and `node.batch` carry an `expectedText` precondition; a
+// server of an earlier protocol would drop it and commit against changed text.
 const RECORDED = {
   protocol: 13,
-  fingerprint: "aee621ac83b03d25fd09cfc3b3f0d0f511cbfefb250ebeee386d9c614d475302",
+  fingerprint: "9f41092080cffbb2a309da76da6b02a86e0ef5103c56d00a677c94ec7cd1e776",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */
@@ -118,14 +121,20 @@ interface ManifestAction {
   readonly outputSchema: unknown;
 }
 
-/** Every action the server offers, as its manifest lists them, each by what a call to it carries. */
-async function offered(url: string): Promise<unknown[]> {
+async function callPageAction(url: string, invocation: ActionRequest): Promise<unknown> {
   const res = await fetch(`${url}/api/action`, {
     method: "POST",
     headers: { "content-type": "application/json", origin: new URL(url).origin },
-    body: JSON.stringify({ id: "kb.manifest", input: {} }),
+    body: JSON.stringify(invocation),
   });
-  const receipt = (await res.json()) as { output: { actions: ManifestAction[] } };
+  return res.json();
+}
+
+/** Every action the server offers, as its manifest lists them, each by what a call to it carries. */
+async function offered(url: string): Promise<unknown[]> {
+  const receipt = (await callPageAction(url, { id: "kb.manifest", input: {} })) as {
+    output: { actions: ManifestAction[] };
+  };
   return receipt.output.actions
     .map(({ id, mode, batchOf, inputSchema, outputSchema }) => ({
       id,
@@ -169,5 +178,25 @@ describe("the wire protocol", () => {
     expect(actions.length).toBeGreaterThan(50);
     const now = { protocol: WIRE_PROTOCOL, fingerprint: wireFingerprint(actions) };
     expect(now, "the wire changed: see the comment at the top of this file").toEqual(RECORDED);
+  });
+
+  test("carries the source text precondition from the page to the update planner", async () => {
+    const id = "n.changed-before-link";
+    expect(
+      await callPageAction(handle.url, {
+        id: "node.add",
+        input: { id, text: "newer source text", parent: null },
+      }),
+    ).toMatchObject({ status: "succeeded" });
+    expect(
+      await callPageAction(handle.url, {
+        id: "node.update",
+        input: { id, text: "linked text", expectedText: "older source text" },
+      }),
+    ).toMatchObject({ status: "failed", code: "conflict" });
+    expect(await callPageAction(handle.url, { id: "node.get", input: { id } })).toMatchObject({
+      status: "succeeded",
+      output: { node: { text: "newer source text" } },
+    });
   });
 });

@@ -1,0 +1,4 @@
+{
+  "reason": "Unlinked mentions checks the inline source and the rendered reference before offering Link. The production eager chunk set grows by 258 bytes after the outline's shared chunks are rebuilt.",
+  "raise": { "page-eager": { "bytes": 258 } }
+}

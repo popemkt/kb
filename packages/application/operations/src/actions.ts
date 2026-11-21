@@ -521,6 +521,13 @@ export const planNodeUpdate = Effect.fn("node.update.plan")(function* (
     if (!held) throw new ResolveError("not_found", `node not found: ${input.id}`, { id: input.id });
     return cloneNode(held);
   });
+  if (input.expectedText !== undefined && node.text !== input.expectedText) {
+    return yield* domainError(
+      "conflict",
+      "The node’s text changed. Read the new text before editing it.",
+      { id: input.id },
+    );
+  }
   const upserts: KbNode[] = [];
   let built: IndexedNodes | undefined;
   const graph = (): IndexedNodes => (built ??= IndexedNodes.of(nodes));

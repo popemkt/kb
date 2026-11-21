@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect } from "react";
+import { lazy, Suspense, useCallback, useContext, useEffect } from "react";
 import {
   browserHost,
   isTextEntry,
@@ -22,7 +22,6 @@ import { NodeBlock } from "./node-block";
 import { QueryResultsSection } from "./query-results";
 import { NodeCommandPalette } from "./node-command-palette";
 import { NodeSections } from "./node-sections";
-import { ReferencesSection } from "./references-section";
 import { SchemaSection } from "./schema-section";
 import { ZoomedRootHeader } from "./zoomed-root-header";
 import { useSelectionKeymap } from "./use-selection-keymap";
@@ -32,6 +31,10 @@ import { setOutlineHost } from "./outline-hosts";
 import { useLeadsOutlines, useOutlineHost } from "./outline-host";
 import { takesRows } from "./takes-rows";
 import { GhostRow } from "./ghost-row";
+
+const ReferencesSection = lazy(() =>
+  import("./references-section").then((module) => ({ default: module.ReferencesSection })),
+);
 
 /**
  * The root's rows. The root is a frame like any other: its view shows its
@@ -130,7 +133,9 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
 
         {takesRows(root, rootView?.key ?? null) && <CreateStrip parentId={rootNodeId} />}
         <SchemaSection nodeId={rootNodeId} />
-        <ReferencesSection nodeId={rootNodeId} />
+        <Suspense fallback={null}>
+          <ReferencesSection key={rootNodeId} nodeId={rootNodeId} />
+        </Suspense>
         <NodeSections nodeId={rootNodeId} />
         {leads ? <OutlinePageKeys /> : null}
       </div>

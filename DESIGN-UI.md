@@ -325,6 +325,10 @@ be kept, never how it is sent.
     someone checks compatibility in both directions. Record the fingerprint
     when both builds can still work together. Bump the protocol when either
     side would read a message differently.
+    Changing the meaning of an action across builds requires a protocol bump,
+    even when the action's new input is optional. An older server would drop a
+    conditional text edit's precondition
+    ([Conditional text edits](DESIGN.md#conditional-text-edits)).
   - _A reload waits, keeps the page, and says so._ A tab reloads when the
     server speaks another protocol, or as a fallback when a chunk it asks
     for is gone even so (Vite's `vite:preloadError`, or a view's error
@@ -1492,12 +1496,33 @@ reference…_ is withheld from a row that already is one. View filters, sort and
 board grouping read a row's own props, so a reference inside a table or board
 sorts and groups as an empty node. Enter at the end of an expanded reference
 opens a sibling, where an expanded ordinary row opens its first child, because
-`planSplit` reads the row's own children. The References list shows a
-reference by its rendered target text rather than by the ancestor context it
-sits in, so on the original's own page a reference row reads as a copy of the
-original's text; a context breadcrumb is the obvious next step and is not
-built. There is no global ⌘K entry: a contextual reference needs both a host
-row and a target, and the global palette has no two-step for that.
+`planSplit` reads the row's own children. There is no global ⌘K entry: a contextual
+reference needs both a host row and a target, and the global palette has no
+two-step for that.
+
+On a zoomed node, **References** lists the other nodes with a
+`:node/mentions` edge to it. Each referrer has a clickable ancestor path
+above it. Its chevron reveals the shown node’s children visible in the current
+outline as ordinary rows. For a contextual reference, those are its target’s
+children. The referrer stays in place.
+
+**Unlinked mentions** follows References. It finds a case-insensitive
+whole-word or phrase match for the displayed title in plain-text segments.
+The inline parser must read the replacement as a reference at that span.
+Titles must have at least three characters.
+The node, its ancestors and descendants, system and schema nodes, and
+rows with a mention edge are excluded. The section shows up to 50 rows at
+first and reveals another 50 with **Show more**. **Link** replaces the
+first matched span with an inline reference using the matched wording.
+It is one text write and one undo step. The write requires the source text
+the match was read from ([Conditional text edits](DESIGN.md#conditional-text-edits)).
+
+An outline row with incoming mentions has a count at its right edge.
+Clicking the count opens the node in the same pane and scrolls to
+References. A single query groups the mention relation by target for all
+mounted counters in the replica. Each row subscribes to its own count.
+Counts appear by default. The outline family's **hide reference counts**
+checkbox turns them off.
 
 A References row names each field its referrer points here through
 (`NodeIndex.referenceFields`, read by the carriers that made the

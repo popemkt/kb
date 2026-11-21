@@ -94,8 +94,8 @@ export const planReplaceField = (
   values: PropValue[],
 ) => replaceProps(nodes, id, [{ field, values }]);
 
-export const planUpdateText = (_nodes: WireNode[], id: string, text: string) =>
-  update(id, { text });
+export const planUpdateText = (id: string, text: string, expectedText?: string) =>
+  update(id, expectedText === undefined ? { text } : { text, expectedText });
 /**
  * Split a row's text at `cursor` into itself and a new row after it (or the
  * first child of the node it shows when it is an expanded parent: a

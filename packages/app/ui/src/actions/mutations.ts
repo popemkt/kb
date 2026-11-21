@@ -147,6 +147,7 @@ async function runPlan(plan: PlannedMutation): Promise<RunOptimisticResult> {
   }
   const preWire = useGraphStore.getState().wireNodes;
   const result = await runOptimistic(plan);
+  // GAP [[01M7XRPAHQ1ZB2CHNAXEN4B0KM]] a server refusal can leave this optimistic undo step behind.
   if (result.ok) recordHistory(preWire, plan);
   return result;
 }
@@ -191,7 +192,7 @@ export const mutations: PageWrites = {
     const store = useGraphStore.getState();
     if (!store.wireNodes.some((node) => node.id === id)) return;
 
-    const plan = planUpdateText(store.wireNodes, id, content);
+    const plan = planUpdateText(id, content);
     const action = plan.actions[0];
     if (action === undefined) return;
     // Each keystroke commits here; the lane pushes the last of a pause, in
@@ -203,11 +204,11 @@ export const mutations: PageWrites = {
     if (receipt.status === "failed") toast(failureText(receipt));
   },
 
-  setNodeText(id: string, text: string): Promise<boolean> {
+  setNodeText(id: string, text: string, expectedText?: string): Promise<boolean> {
     if (!useGraphStore.getState().wireNodes.some((node) => node.id === id)) {
       return Promise.resolve(false);
     }
-    return applyPlan(planUpdateText(wire(), id, text));
+    return applyPlan(planUpdateText(id, text, expectedText));
   },
 
   async createNodeAfter(afterId: string): Promise<void> {

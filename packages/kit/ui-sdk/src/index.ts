@@ -260,6 +260,7 @@ export { isPinned, listPinnedNavItems, pinnedRefIds, pinnedRefIdsFor } from "./l
 export { rowsAbout } from "./lib/selection";
 export {
   closesCycleOf,
+  formatRefToken,
   nodeCandidates,
   type RefCreation,
   refCreationOf,
@@ -369,6 +370,7 @@ export {
 export { resultNodeIds } from "./lib/use-query-node-rows";
 export {
   answerOf,
+  BACKLINK_COUNTS_QUERY,
   conditionsEdn,
   derivedWith,
   type EdnRunner,

@@ -1,4 +1,4 @@
-import { nameIn, type NodeMap, type SchemaIndex } from "@kb/ui-sdk";
+import { nameIn, type OutlineNode, type SchemaIndex } from "@kb/ui-sdk";
 
 /** One crumb: the node it opens and its name. */
 export interface Crumb {
@@ -11,7 +11,12 @@ export interface Crumb {
  * each named by its row's name (`nameIn`, DESIGN.md → Display text), Untitled
  * when it has none.
  */
-export function crumbsTo(root: string, home: string, nodes: NodeMap, schema: SchemaIndex): Crumb[] {
+export function crumbsTo(
+  root: string,
+  home: string,
+  nodes: ReadonlyMap<string, OutlineNode>,
+  schema: SchemaIndex,
+): Crumb[] {
   const chain: Crumb[] = [];
   const seen = new Set<string>();
   let id: string | null = root;

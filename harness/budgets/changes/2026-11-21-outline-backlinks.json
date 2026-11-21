@@ -1,0 +1,8 @@
+{
+  "reason": "The reference counter and its jump to References are available on every outline row. The production eager set is 4,128 bytes larger than the preceding refactor, which already exceeded the ceiling by 198 bytes. The checkbox seed adds 188 bytes to the CLI. The outline exports its setting reader and UI SDK exports the existing reference formatter for the Link action.",
+  "raise": {
+    "cli-closure": { "bytes": 188 },
+    "page-eager": { "bytes": 4326 },
+    "surface": { "@kb/outline": 1, "@kb/ui-sdk": 1 }
+  }
+}
