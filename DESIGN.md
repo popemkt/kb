@@ -686,7 +686,9 @@ type PropValue =
     display rule, never a write: the stored text stays the person's, and
     editing a row edits it. A row draws the title while no one edits it, a
     reference to the node is labelled by it, and search finds a node by
-    its text or its title and answers with the title (`graph.search`,
+    its stored text or by its name, the title read as plain words
+    (`nodeName`, so `with Rob` finds `Check up with [[id|Rob]]`), and
+    answers with the title (`graph.search`,
     every index implementation alike; DESIGN-UI.md → Panes and layouts →
     titles from fields). A reference names a field by id, so renaming the
     field changes no title's meaning.
@@ -2757,7 +2759,7 @@ same lane. One path to a client, whatever a node's provenance.
   literal substrings of stored text or display title, sorts by node id, then
   limits the results. Stored and virtual nodes participate.
 - **Text candidates.** The server's node index lazily builds an in-memory
-  SQLite FTS5 trigram index over the current text and titles, for either
+  SQLite FTS5 trigram index over the current text and names, for either
   store backend. It updates documents when the node or any lookup in its
   title changes. A graph replacement discards the projection and the next
   indexed search builds it again. Candidate matches go through the same
