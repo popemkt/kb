@@ -2161,14 +2161,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A push channel chosen at pairing (a UnifiedPush distributor or an ntfy topic), a host action that publishes to it, and the shell posting what arrives.
 - **node** — `01M7WZ0QV3HAB6YRKS8CHE1793`
 
-### GAP: the reference token has two grammars, mention.ts and the inline parser
-
-- **expected** — One statement of the label token: the inline grammar (inline.ts) and :node/mentions extraction (mention.ts) read the same tokens.
-- **current** — mention.ts scans with MENTION_RE and inline.ts parses refs in its own branch. They differ on a token inside inline code (mention extracts it, the parser leaves it text) and on a label that holds '['.
-- **impact** — A ref written in code is a backlink the page does not draw as a pill; rare, and nothing is lost.
-- **closes** — mentionSpans derived from parseInlineSource's ref spans (or the reverse), with the mention property test and the inline tests over one grammar; a store-wide check that the mentions it derives are unchanged, or a declared change.
-- **node** — `01M7HCW3N0TSYGSXVNQS2K8H0Y`
-
 ### GAP: the routines calendar names an event by its synced title, the node's stored text, so its chips show markup
 
 - **expected** — An event reads as its node's display text (DESIGN.md → Display text): plain in a calendar chip, an agenda row, the event box heading, its popover, the move prompt and a sync issue; and what is synced to Google Calendar is said, not left to the stored text.
@@ -3618,6 +3610,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Move the row layout into components/ui/ beside EnumSelect and PopoverShell, which this file already uses.
 - **rule** — UI import matrix
 - **node** — `01M1RXNMP8NQZ2WD8F2E8V6QBH`
+
+### GAP: the reference token has two grammars, mention.ts and the inline parser
+
+- **expected** — One statement of the label token: the inline grammar (inline.ts) and :node/mentions extraction (mention.ts) read the same tokens.
+- **current** — mention.ts scans with MENTION_RE and inline.ts parses refs in its own branch. They differ on a token inside inline code (mention extracts it, the parser leaves it text) and on a label that holds '['.
+- **impact** — A ref written in code is a backlink the page does not draw as a pill; rare, and nothing is lost.
+- **closes** — mentionSpans derived from parseInlineSource's ref spans (or the reverse), with the mention property test and the inline tests over one grammar; a store-wide check that the mentions it derives are unchanged, or a declared change.
+- **node** — `01M7HCW3N0TSYGSXVNQS2K8H0Y`
 
 ### GAP: the release bundle is one file, so every command parses host code
 
