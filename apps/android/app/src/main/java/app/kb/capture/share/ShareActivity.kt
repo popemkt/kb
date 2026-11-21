@@ -24,7 +24,9 @@ import kotlinx.coroutines.withContext
  * "Queued · <store>" and finishes, so the person is back in the source app
  * at once. Delivery happens later, in [DeliveryWorker].
  *
- * Only exercised by hand on a device so far. GAP [[01M7QTAJ9GSK02FMWNR4XQGFMT]]
+ * `bin/android-smoke` drives it on an emulator with shared text and links;
+ * an image a real app grants is not shared there yet.
+ * GAP [[01M7YG9CYP7B06M7ZS5QX7QMAM]]
  */
 class ShareActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

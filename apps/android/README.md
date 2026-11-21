@@ -52,6 +52,28 @@ a store. The Gradle project is not part of the Bun workspace
 Validate's `android` job runs the two commands above, in the same shell, on
 every change that reaches the app ([`docs/ci.md`](../../docs/ci.md)).
 
+### On an emulator
+
+`bin/android-smoke` runs the capture lifecycle on a headless emulator
+against a scratch store, and keeps a screenshot of each step. The
+`android-emulator` shell adds the emulator and an AOSP system image of the
+same platform to the build's SDK. It needs KVM on Linux, and the
+workspace's dependencies (`bun install`) for the store's host:
+
+```sh
+nix develop .#android-emulator -c bin/android-smoke [out-dir]
+# → <out-dir>/shots/*.png, receipts.jsonl, host.log, emulator.log
+```
+
+It shares a multiline text and a link before any store is paired, then
+kills the app. It pairs the store through the Stores form, as a person
+does. It checks that an image the app may not read is refused whole. It
+shares to a sleeping host, kills the app and wakes the host. It shares
+while offline and lets the background worker deliver after reconnecting,
+with the app closed. Then it compares the store's receipts with what was
+shared. The script's header lists what it does not reach yet.
+Nothing runs it on a schedule (GAP [[01M7YGA1ZSD4MARTYMA8K0KJVA]]).
+
 ## Install
 
 1. On the phone, turn on Developer options, then **USB debugging** (or
