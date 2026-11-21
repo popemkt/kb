@@ -3,14 +3,14 @@
  * fingerprint the database itself keeps, and atomicity when a write fails
  * part-way through the transaction.
  */
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { Cause, Clock, Effect, Exit } from "effect";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { canonicalJson, isDomainError, present, type KbNode } from "@kb/model";
+import { dirname, join } from "node:path";
+import { canonicalJson, isDomainError, present, rankOf, StoreState, type KbNode } from "@kb/model";
 import { WriteLockDeadline } from "@kb/contracts";
 import { SqliteStore } from "../src/index.ts";
 
@@ -186,8 +186,8 @@ describe("SqliteStore", () => {
             const version = db
               .query<{ value: string }, []>("SELECT value FROM meta WHERE key = 'schema_version'")
               .get();
-            // 6 since the tail records the caller's via of each commit; see `connection.ts`.
-            expect(present(version, "expected schema_version").value).toBe("6");
+            // 7 since the tail records the mark each commit began on; see `connection.ts`.
+            expect(present(version, "expected schema_version").value).toBe("7");
           });
         }),
       ),
@@ -264,6 +264,47 @@ describe("SqliteStore", () => {
       ),
     ));
 
+  test("a schema-6 tail gains the base column: its rows chain to nothing, so the next commit after another writer's reads every row", () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const root = yield* Effect.acquireRelease(
+            Effect.promise(() => mkdtemp(join(tmpdir(), "kb-sqlite-"))),
+            (dir) => Effect.promise(() => rm(dir, { recursive: true, force: true })),
+          );
+          const one = new SqliteStore(root);
+          yield* Effect.addFinalizer(() => one.closeEffect);
+          yield* one.commitEffect({ upserts: [node("n-a", "a")], deletes: [] }, { at: AT });
+          // Back to schema 6, and a commit an earlier kb made: a row with no base.
+          withRawConnection(one.path, (db) => {
+            db.run("ALTER TABLE tx DROP COLUMN base");
+            db.run("UPDATE meta SET value = '6' WHERE key = 'schema_version'");
+            db.prepare<unknown, [string, string]>("INSERT INTO nodes (id, body) VALUES (?, ?)").run(
+              "n-b",
+              canonicalJson(node("n-b", "b")),
+            );
+            db.run(
+              `INSERT INTO tx (rev, at, ops, mark)
+               SELECT 2, '${AT}', '{"deletes":[],"upserts":[]}', value FROM meta WHERE key = 'rev'`,
+            );
+          });
+
+          const rebuilt = spyOn(StoreState, "of");
+          try {
+            const { writes } = yield* one.commitEffect(
+              { upserts: [node("n-b", "b2")], deletes: [] },
+              { at: AT },
+            );
+            expect(rebuilt).toHaveBeenCalledTimes(1);
+            expect(writes[0]?.before?.text).toBe("b");
+          } finally {
+            rebuilt.mockRestore();
+          }
+          expect(one.txTail.entries().map(({ rev }) => rev)).toEqual([1, 2, 3]);
+        }),
+      ),
+    ));
+
   test("a cold schema-5 read proceeds under the write lock and the first commit upgrades it", () =>
     Effect.runPromise(
       Effect.scoped(
@@ -303,6 +344,104 @@ describe("SqliteStore", () => {
             expect(made?.via).toBe("job:a");
           } finally {
             yield* reopened.closeEffect;
+          }
+        }),
+      ),
+    ));
+
+  test("a commit after another writer's recorded commits brings its kept state forward through the tail", () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const one = yield* scratchStore;
+          const two = new SqliteStore(dirname(dirname(one.path)));
+          yield* Effect.addFinalizer(() => two.closeEffect);
+          yield* one.commitEffect(
+            {
+              upserts: [{ ...node("n-p", "p"), children: ["n-a"] }, node("n-a", "a")],
+              deletes: [],
+            },
+            { at: AT },
+          );
+          // Another writer appends a child, records a transaction it did not
+          // commit (the saved-query virtual set's kind), then edits the child.
+          yield* two.commitEffect(
+            {
+              upserts: [{ ...node("n-p", "p"), children: ["n-a", "n-b"] }, node("n-b", "b")],
+              deletes: [],
+            },
+            { at: AT },
+          );
+          yield* two.txTail.append({ upserts: [node("n-v", "virtual")], deletes: [] }, { at: AT });
+          const edited = (yield* two.commitEffect(
+            {
+              upserts: [{ ...present((yield* two.loadEffect)[1], "n-b"), text: "b2" }],
+              deletes: [],
+            },
+            { at: AT },
+          )).tx.upserts[0];
+
+          const rebuilt = spyOn(StoreState, "of");
+          try {
+            const { writes } = yield* one.commitEffect(
+              {
+                upserts: [
+                  { ...node("n-p", "p"), children: ["n-a", "n-b", "n-c"] },
+                  node("n-c", "c"),
+                  node("n-v", "real"),
+                ],
+                deletes: [],
+              },
+              { at: AT },
+            );
+            // Nothing decoded the graph: the other writer's commits came from the tail.
+            expect(rebuilt).not.toHaveBeenCalled();
+            const before = new Map(writes.map((write) => [write.after?.id, write.before]));
+            expect(before.get("n-p")?.children).toEqual(["n-a", "n-b"]);
+            // The recorded transaction the store never committed is not in the state.
+            expect(before.get("n-v")).toBeUndefined();
+          } finally {
+            rebuilt.mockRestore();
+          }
+          const left = new Map((yield* two.loadEffect).map((n) => [n.id, n]));
+          expect(left.get("n-b")).toEqual(edited);
+          const ranks = ["n-a", "n-b", "n-c"].map((id) => {
+            const rank = rankOf(left.get(id));
+            return rank.ranked ? rank.order : "";
+          });
+          expect(ranks.every((rank, i) => i === 0 || (ranks[i - 1] ?? "") < rank)).toBe(true);
+        }),
+      ),
+    ));
+
+  test("a write the tail does not explain is read in full by the next commit", () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const one = yield* scratchStore;
+          const two = new SqliteStore(dirname(dirname(one.path)));
+          yield* Effect.addFinalizer(() => two.closeEffect);
+          yield* one.commitEffect({ upserts: [node("n-a", "a")], deletes: [] }, { at: AT });
+          // A hand write records nothing; a recorded commit after it starts
+          // from the state the hand write left, which the tail cannot explain.
+          withRawConnection(one.path, (db) => {
+            db.prepare<unknown, [string, string]>("INSERT INTO nodes (id, body) VALUES (?, ?)").run(
+              "n-x",
+              canonicalJson(node("n-x", "by hand")),
+            );
+          });
+          yield* two.commitEffect({ upserts: [node("n-b", "b")], deletes: [] }, { at: AT });
+
+          const rebuilt = spyOn(StoreState, "of");
+          try {
+            const { writes } = yield* one.commitEffect(
+              { upserts: [node("n-x", "x")], deletes: [] },
+              { at: AT },
+            );
+            expect(rebuilt).toHaveBeenCalledTimes(1);
+            expect(writes[0]?.before?.text).toBe("by hand");
+          } finally {
+            rebuilt.mockRestore();
           }
         }),
       ),

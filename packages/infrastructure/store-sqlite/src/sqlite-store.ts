@@ -50,8 +50,10 @@ interface NodeRow {
  *
  * The state this store last read or wrote is kept under its `rev`
  * (`KeptState`), so a commit that lands on that state settles its ranks
- * without decoding every row; another writer moves `rev`, and the commit
- * reads the rows as it always did.
+ * without decoding every row. Another writer moves `rev`; when the tail
+ * recorded every write since (`SqliteTxTail.committedBetween`), the commit
+ * brings the kept state forward through those transactions, and otherwise it
+ * reads every row.
  */
 export class SqliteStore implements EffectStore {
   readonly path: string;
@@ -119,10 +121,16 @@ function commitTx(
       const stale = staleCommitError(expected, base);
       // Thrown to roll the transaction back; the connection passes it through.
       if (stale !== null) throw stale;
-      // Taken, not read: a commit that fails leaves nothing kept.
-      // GAP [[01M7X33AK295XK8CNKFGEAAPZD]] A foreign write forces a full read under the lock.
+      // Taken, not read: a commit that fails leaves nothing kept. Brought
+      // forward through what other writers committed since, which costs
+      // what they wrote; a write the tail cannot explain costs every row.
       const state =
-        kept.take(base) ?? (tx.upserts.length === 0 ? null : StoreState.of(storedNodes(db, path)));
+        kept.take(base, (from, held) => {
+          const committed = base === null ? null : txTail.committedBetween(db, from, base);
+          if (committed === null) return null;
+          for (const step of committed) held.apply(step);
+          return held;
+        }) ?? (tx.upserts.length === 0 ? null : StoreState.of(storedNodes(db, path)));
       const applied = state === null ? tx : rankTx(state, tx);
       const writes = writesOf(applied, (id) => {
         if (state !== null) return state.get(id);
@@ -138,7 +146,7 @@ function commitTx(
       // transaction is not recorded: it changes nothing and says nothing.
       const committedRecord =
         applied.upserts.length > 0 || applied.deletes.length > 0
-          ? txTail.appendWithin(db, applied, record)
+          ? txTail.appendWithin(db, applied, record, base)
           : null;
       // Read under the write lock, after the triggers: the state this
       // commit leaves is the one a reopen will name.
@@ -191,11 +199,12 @@ function loadNodes(
       try: () => {
         const db = connection.peek();
         if (db === null) return [];
-        // The mark first: a write landing between it and the rows leaves rows
-        // newer than the mark, which the next commit sees as another state
-        // and reads again — never the other way round.
-        const mark = commitMark(db);
-        const nodes = storedNodes(db, path);
+        // One read transaction, so the mark names exactly the rows read: a
+        // commit brings the kept state forward from that mark.
+        const { mark, nodes } = db.transaction(() => ({
+          mark: commitMark(db),
+          nodes: storedNodes(db, path),
+        }))();
         if (mark !== null) kept.keep(mark, StoreState.of(nodes));
         return nodes;
       },

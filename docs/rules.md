@@ -787,7 +787,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: an older kb taking a crashed holder's lock can collide with a writer taking it in place
 
 - **expected** — Two processes never hold a store's write lock at once, an older kb's included: once no kb from before the kernel lock can write a store, the lock is flock(2) alone and nothing judges a pid stale.
-- **current** — During an update an older kb steals a lock whose pid is dead. A writer holding the flock writes its pid over that same dead pid in place. If the older kb read the dead pid just before the writer wrote, it removes or renames the file after the writer checked it, and both enter.
+- **current** — During an update an older kb steals a lock whose pid is dead. A writer holding the flock writes its pid over that same dead pid in place. If the older kb read the dead pid just before the writer wrote, it removes or renames the file after the writer checked it, and both enter. The pid-file kbs that do this are v0.3.0 (the last stable release) and nightlies before 2026-11-17. Their steal reads and then unlinks by name, blind, so nothing a current writer does can close the race while one of them may still run. Owner decision 2026-11-21: stay open until a stable release with the flock lock ships, then run todo 01M7K50TFYFRWRJBTQ8V76489P.
 - **impact** — After a crash of a lock holder while an older kb is still running, a narrow race can let one older and one new writer commit at once, and one write is lost. Two older writers have the same race between themselves.
 - **closes** — Removing the older-writer reading one release after the kernel lock ships (todo 01M7K50TFYFRWRJBTQ8V76489P), once no older kb can still write a store.
 - **node** — `01M7K7RWGW47P9WY09SZTAEP4B`
@@ -1455,7 +1455,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: older JSONL writers cannot recover a pending tail record
 
 - **expected** — Every writer that can open the same JSONL root recognizes the published tail revision after an interrupted archive.
-- **current** — Current JSONL writers recover the write-ahead record under the node lock. An older writer takes the lock but reads only tx.jsonl; it cannot see the journal.
+- **current** — Current JSONL writers recover the write-ahead record under the node lock. An older writer takes the lock but reads only tx.jsonl; it cannot see the journal. Older means any kb from before the journal (ee9d5400, 2026-11-18): the pid-file kbs (v0.3.0, nightlies before 2026-11-17) and the flock nightlies of 2026-11-17 and 18. The flock ones take the same kernel lock and read the same holder record as current main, so no lock format can fence them out without fencing current main too. Owner decision 2026-11-21: stay open until those processes are gone.
 - **impact** — If a current writer publishes a node replacement and dies before archival, or archival fails, an older writer can reuse the published revision. Readers can then require a snapshot, and that revision cannot unambiguously identify a write across versions.
 - **closes** — Upgrade the remaining older processes that write the root to a version that recovers the pending record.
 - **node** — `01M7Q21QJJWSB6JBZPW3EWT6K8`
@@ -1782,14 +1782,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — selecting many items in 3D means clicking each
 - **closes** — a 3D workspace step that owns the marquee, picking items by their projected boxes
 - **node** — `01M41AB88FH1G58NR7AZE0SZJF`
-
-### GAP: SQLite commits decode the whole graph under the write lock after a foreign write
-
-- **expected** — A commit bases rank and write settlement on the current committed state while keeping the SQLite write lock only for work proportional to the changes involved.
-- **current** — When a foreign write moves the commit mark, SqliteStore loses its kept state. Its next upsert decodes all rows and rebuilds StoreState inside BEGIN IMMEDIATE.
-- **impact** — A large graph stretches the write lock hold time and stalls the local event loop during decoding. The six-writer scratch repro still showed seconds of event-loop delay after lock acquisition became asynchronous.
-- **closes** — Bring kept state forward from the durable transaction tail when it spans the change, with a full read as the fallback for an unexplained fingerprint. Verify lock duration and foreground request latency under concurrent writers.
-- **node** — `01M7X33AK295XK8CNKFGEAAPZD`
 
 ### GAP: stacking on and of tilted solids is approximate
 
@@ -3388,6 +3380,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — text on round solids is visible only in 2D
 - **closes** — 3D plan step 7: billboards
 - **node** — `01M41GAZJS5TD86RFSAJJB4XKD`
+
+### GAP: SQLite commits decode the whole graph under the write lock after a foreign write
+
+- **expected** — A commit bases rank and write settlement on the current committed state while keeping the SQLite write lock only for work proportional to the changes involved.
+- **current** — When a foreign write moves the commit mark, SqliteStore loses its kept state. Its next upsert decodes all rows and rebuilds StoreState inside BEGIN IMMEDIATE.
+- **impact** — A large graph stretches the write lock hold time and stalls the local event loop during decoding. The six-writer scratch repro still showed seconds of event-loop delay after lock acquisition became asynchronous.
+- **closes** — Bring kept state forward from the durable transaction tail when it spans the change, with a full read as the fallback for an unexplained fingerprint. Verify lock duration and foreground request latency under concurrent writers.
+- **node** — `01M7X33AK295XK8CNKFGEAAPZD`
 
 ### GAP: store staleness is size+mtime, not a fingerprint
 
