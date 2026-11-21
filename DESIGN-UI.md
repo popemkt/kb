@@ -1600,7 +1600,15 @@ the row's anatomy, a primitive of `@kb/ui-sdk` that prefs renders too
 | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Follow** (a ref's node, an option's page, a url) | plain click on a _pointer segment_ — a ref label, an option chip, a url's link, a `[[ref]]` pill in text — exactly as in node text; ⌘/Ctrl-click anywhere on the value | ⌘Enter, at rest or editing                                                                                                                 |
 | **Edit**                                           | plain click anywhere else in the slot; a caret lands where the click did                                                                                               | Enter or F2; a printable key opens it with that key typed (replacing the value; a picker starts its query with it); Space flips a checkbox |
-| **Add** (many-valued fields only)                  | the "+" in the trailing space of the last value, on hover or focus                                                                                                     | Enter at the end of a typed value; the picker, which stays open                                                                            |
+| **Add** (many-valued fields only)                  | the "+" in the trailing space of the last value, on hover or focus                                                                                                     | Enter at the end of a typed value; the picker, which stays open; from anywhere on the row, Add value… in its ⌘K menu                       |
+
+**Add value…** is the Add verb reached from the row's ⌘K menu, for a field
+whose row is off screen or collapsed. It lists the fields the row draws as
+rows and does what the picked field's "+" does (`FieldHandle.addValue`):
+its picker for a picked kind, a new empty slot for a typed one, and the
+slot itself for a field that holds one value or none. A closed row opens
+first, and the landing waits for its fields to be drawn
+(`landInFieldsOf`).
 
 Following is one function for every pointer in kb (`lib/follow.ts`:
 `routePointerClick`, the bullet rule `bulletClickIntent`, and `useFollow`,
@@ -3285,7 +3293,7 @@ The groups, in the menu's order (`NODE_MENU_GROUPS`):
 | Group | What it holds | Its rows today |
 | --- | --- | --- |
 | `lead` | how the node itself opens and shows | "Open in …" for its tag's view; "Show/Hide preview", "Show/Hide properties" |
-| `make` | what the node is and holds | Add tag, Remove tag…, Make your own tag that extends this, Turn into query, Turn into reference… (Change reference target… on a reference), Add field, Set field…, Make supertag, Type this reference…, Remove reference… |
+| `make` | what the node is and holds | Add tag, Remove tag…, Make your own tag that extends this, Turn into query, Turn into reference… (Change reference target… on a reference), Add field, Add value…, Set field…, Make supertag, Type this reference…, Remove reference… |
 | `open` | where it opens | Search everything…, Open in panel, Open as workspace, Open with: …, Copy node ID |
 | `arrange` | where it sits | Indent, Outdent, Move to…, Move and leave reference… |
 | `mark` | what marks it | Pin / Unpin, Show / Hide debug fields |

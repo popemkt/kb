@@ -161,6 +161,7 @@ describe("FieldPicker", () => {
       },
       openPicker: () => undefined,
       addSlot: () => undefined,
+      addValue: () => undefined,
       leave: () => undefined,
       claimKeyboard: () => undefined,
       focusSlot: () => undefined,

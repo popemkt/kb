@@ -45,7 +45,7 @@ import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { chartUiPlugin } from "@kb/chart-ui";
 import { syncPagePlugins } from "@/test-support/page-plugins";
-import { NodeCommandPalette, outlineNodes, useOutlineStore } from "@kb/outline-ui";
+import { NodeBlock, NodeCommandPalette, outlineNodes, useOutlineStore } from "@kb/outline-ui";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { collectionsUiPlugin } from "@kb/collections-ui";
 import { framedAs, viewFieldNodes } from "@/fixtures/view-fields";
@@ -99,6 +99,16 @@ function graph(): WireNode[] {
       props: { [SYSTEM_IDS.queryField]: [{ t: "str", v: "[:find ?e :where [?e]]" }] },
     }),
     ctxRefWire("n.ref", "n.plain"),
+    // A row with a field it draws as a row: what Add value… offers.
+    wire({
+      id: "f.note",
+      text: "note",
+      props: {
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+        [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("text")],
+      },
+    }),
+    wire({ id: "n.noted", text: "A noted row", props: { "f.note": [{ t: "str", v: "first" }] } }),
     // Where Move to… puts rows.
     wire({
       id: "n.inbox",
@@ -145,6 +155,7 @@ describe("node command palette", () => {
     g.KeyboardEvent = dom.KeyboardEvent;
     g.MouseEvent = dom.MouseEvent;
     g.Node = dom.Node;
+    g.MutationObserver = dom.MutationObserver;
     g.CSS = { escape: (s: string) => s };
     g.requestAnimationFrame = (fn: () => void) => {
       fn();
@@ -573,6 +584,34 @@ describe("node command palette", () => {
       }
     },
   );
+
+  it("Add value… adds a value to a field the row draws, where the row draws it", async () => {
+    const outline = dom.document.createElement("div");
+    dom.document.body.appendChild(outline);
+    const rows = createRoot(outline as unknown as HTMLDivElement);
+    try {
+      await act(async () => {
+        rows.render(<NodeBlock nodeId="n.noted" instanceKey="row/n.noted" depth={0} />);
+      });
+      useOutlineStore.setState({ selectedNodeId: "n.noted", selectedInstanceKey: "row/n.noted" });
+      await act(async () => {
+        root.render(<NodeCommandPalette open onClose={() => {}} />);
+      });
+      expect(labels()).toContain("Add value…");
+      await pick("Add value…");
+      expect(labels()).toEqual(["note"]);
+      await pickTag("f.note");
+      // The field's own "+": a new slot to type the next value in, open.
+      await vi.waitFor(() =>
+        expect(
+          outline.querySelector('[contenteditable="true"]')?.getAttribute("data-placeholder"),
+        ).toBe("Enter to add another · Esc to finish"),
+      );
+    } finally {
+      act(() => rows.unmount());
+      outline.remove();
+    }
+  });
 
   it("offers Change reference target on a node that already is one, and repoints it", async () => {
     await open("n.ref");

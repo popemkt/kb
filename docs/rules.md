@@ -2047,14 +2047,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Plugins migrate their own data, declared and previewed
 - **node** — `01M7342YFJC4B6DMAFD8MTSTD7`
 
-### GAP: the node palette has no "Add value to <field>" command
-
-- **expected** — The node's ⌘K menu offers "Add value to <field>" for each field the node shows, reaching the same picker the + does.
-- **current** — Adding a value is only Enter or the inline + on the field row.
-- **impact** — Keyboard-only users cannot add a value to a field whose row is off screen or collapsed.
-- **closes** — A palette step per shown field that opens the field's value picker.
-- **node** — `01M3KA39PQAJZJ6C6ZY4RV1SPZ`
-
 ### GAP: the offline demo spells graph-owned seed ids
 
 - **expected** — The graph family supplies the seed nodes and ids its offline demo uses through the composition root.
@@ -3600,6 +3592,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a family cannot contribute a node command to a slot: the outline's indent, outdent and 'Filter…' stay the shell's, and expand/collapse all sit after the default-view rows
 - **closes** — an order on node commands, read by the one menu builder
 - **node** — `01M531QSQ2DJDSPYB132RQ5RBC`
+
+### GAP: the node palette has no "Add value to <field>" command
+
+- **expected** — The node's ⌘K menu offers "Add value to <field>" for each field the node shows, reaching the same picker the + does.
+- **current** — Adding a value is only Enter or the inline + on the field row.
+- **impact** — Keyboard-only users cannot add a value to a field whose row is off screen or collapsed.
+- **closes** — A palette step per shown field that opens the field's value picker.
+- **node** — `01M3KA39PQAJZJ6C6ZY4RV1SPZ`
 
 ### GAP: the outline keydown handler is a 64-branch callback
 

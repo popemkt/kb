@@ -115,7 +115,7 @@ export function FieldValueStack({
   const { spec } = useSlotKind(fieldType, fieldId, schema);
   const many = cardinalityOf(schema.get(fieldId)?.props, (id) => schema.get(id)) === "many";
   const { field, pending, setPending, picking, pickerQuery, setPicking, stackRef } = useFieldHandle(
-    { nodeId, fieldId, values, many, instanceKey },
+    { nodeId, fieldId, values, many, picks: spec.editor === "picker", instanceKey },
   );
   const drop = (id: number) => setPending((ids) => ids.filter((x) => x !== id));
   const paste = usePasteValues({
@@ -130,8 +130,6 @@ export function FieldValueStack({
     setPending,
     setPicking,
   });
-  /** Adding is the picker for picked values, and a new empty slot for typed ones. */
-  const beginAdd = spec.editor === "picker" ? field.openPicker : field.addSlot;
   const canAdd = !readOnly && many && values.length > 0 && !picking;
 
   return (
@@ -151,7 +149,7 @@ export function FieldValueStack({
           key={key}
           layout={spec.layout}
           onRemove={readOnly ? null : () => field.remove(value)}
-          onAdd={canAdd && i === values.length - 1 && pending.length === 0 ? beginAdd : null}
+          onAdd={canAdd && i === values.length - 1 && pending.length === 0 ? field.addValue : null}
         >
           <ValueSlot
             value={value}
@@ -369,12 +367,15 @@ function useFieldHandle({
   fieldId,
   values,
   many,
+  picks,
   instanceKey,
 }: {
   nodeId: string;
   fieldId: string;
   values: PropValue[];
   many: boolean;
+  /** Its values are picked, not typed: the next one is added in its picker. */
+  picks: boolean;
   instanceKey: string | undefined;
 }) {
   /**
@@ -409,6 +410,8 @@ function useFieldHandle({
     create: (creation, name) => browserHost().writes.createRefTarget(creation, name),
     openPicker: (query = "") => setPicker({ query }),
     addSlot: () => setPending((ids) => [...ids, (nextPending.current += 1)]),
+    addValue: () =>
+      picks ? setPicker({ query: "" }) : setPending((ids) => [...ids, (nextPending.current += 1)]),
     // Back from an empty field opened from its chip closes it into the chips;
     // from any other field, back is to the row.
     leave: (way) => {

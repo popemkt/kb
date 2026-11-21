@@ -243,6 +243,7 @@ export function ValuesSlot({
       create: (creation, text) => browserHost().writes.createRefTarget(creation, text),
       openPicker: () => undefined,
       addSlot: () => undefined,
+      addValue: () => undefined,
       leave: (way) => close(LEAVING[way]),
       claimKeyboard: () => undefined,
       focusSlot: () => close("stay"),

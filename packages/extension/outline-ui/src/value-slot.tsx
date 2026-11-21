@@ -65,6 +65,7 @@ function loneField(value: PropValue | null, onCommit: (next: PropValue) => void)
     create: () => Promise.resolve(null),
     openPicker: () => undefined,
     addSlot: () => undefined,
+    addValue: () => undefined,
     leave: () => undefined,
     claimKeyboard: () => undefined,
     focusSlot: () => undefined,
@@ -322,6 +323,9 @@ function useSlotGestures(args: SlotArgs) {
         quiet.current = false;
       },
       editAtEnd: () => begin("end"),
+      // A field that holds many, from a value it holds, adds the next; any
+      // other slot is where its value is set.
+      add: () => (field.many && !args.isNew ? field.addValue() : begin("end")),
     });
   });
 

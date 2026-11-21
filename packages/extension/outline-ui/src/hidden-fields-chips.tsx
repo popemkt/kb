@@ -95,7 +95,8 @@ export function HiddenFieldsChips({
     const el = line.current;
     if (el === null) return undefined;
     const focus = () => focusCurrent.current();
-    return registerSlot(el, { focus, editAtEnd: focus });
+    // The line holds no value to edit or add to: every arrival is the chip.
+    return registerSlot(el, { focus, editAtEnd: focus, add: focus });
   }, []);
 
   /** A chip the keyboard goes to once the line redraws, by place: the first tucked one, expanded. */

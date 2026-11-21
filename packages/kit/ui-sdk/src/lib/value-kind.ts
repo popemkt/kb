@@ -119,6 +119,11 @@ export interface FieldHandle {
   /** Open an empty slot for the next value, after the last. */
   addSlot: () => void;
   /**
+   * Add the next value the field's way, as its inline "+" does: its picker
+   * for picked values, an empty slot for typed ones.
+   */
+  addValue: () => void;
+  /**
    * The keyboard leaves the field for its row: `up` past the first value
    * (the row's text, at its end), `down` past the last (the next row), or
    * `back` (Escape: the row, selected).

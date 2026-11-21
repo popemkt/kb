@@ -40,6 +40,7 @@ import {
   LinkSimpleIcon,
   MagnifyingGlassIcon,
   PencilSimpleLineIcon,
+  PlusIcon,
   PushPinIcon,
   PushPinSlashIcon,
   SidebarSimpleIcon,
@@ -90,6 +91,7 @@ import {
   ontologyPath,
   type OutlineCommandApi,
   type ProvidedView,
+  resolveVisibleProps,
   ViewPoint,
   uiKernelReader,
   textOr,
@@ -466,6 +468,21 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     many: true,
     chrome: () => ({ label: "Add field", icon: <TextTIcon size={14} weight="bold" /> }),
     run: (ctx) => ctx.palette.openStep("outline.add-field"),
+  },
+  {
+    // DESIGN-UI.md → Field values: a value added from the keyboard, wherever
+    // the field's row is drawn.
+    id: "add-value",
+    menu: nodeMenu("make", 42),
+    chrome: () => ({ label: "Add value…", icon: <PlusIcon size={14} weight="bold" /> }),
+    when: (ctx) => {
+      const node = targetShownNode(ctx);
+      return (
+        node !== undefined &&
+        resolveVisibleProps(node, browserHost().schema()).some((p) => p.placement === "row")
+      );
+    },
+    run: (ctx) => ctx.palette.openStep("outline.add-value"),
   },
   {
     id: "set-field",

@@ -1010,6 +1010,7 @@ describe("a date value keeps the slot's keys", () => {
       create: () => Promise.resolve(null),
       openPicker: () => undefined,
       addSlot: () => calls.push("addSlot"),
+      addValue: () => calls.push("addValue"),
       leave: (to) => calls.push(`leave:${to}`),
       claimKeyboard: () => undefined,
       focusSlot: () => undefined,
