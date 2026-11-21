@@ -1183,14 +1183,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — E16 of the extension SDK plan
 - **node** — `01M43ASYY0EC1E4TYFXYXHZEME`
 
-### GAP: hierarchicalLayout mixes forest construction with placement in 21 branches
-
-- **expected** — Forest construction (from edges) and placement (from a forest) are separate pure functions, as they already are for the tree renderer.
-- **current** — hierarchicalLayout derives roots, walks children and assigns coordinates in one pass with cycle guards inline.
-- **impact** — The cycle guard - the subtle part - is not separately testable, and the same forest logic exists again in tree-graph.
-- **closes** — Reuse the forest builder tree-graph already has and leave this function as placement only.
-- **node** — `01M1MGCR50QEXX7R4JDJ51HQFY`
-
 ### GAP: icon-only buttons are hand-rolled outside IconButton
 
 - **expected** — Every icon-only control draws the shared IconButton.
@@ -3015,6 +3007,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — No token needs to enter the graph or the ledger.
 - **closes** — Dotenv rotation, file mode and refusal tests.
 - **node** — `01M6EKFSVWFZQTWABBHQJ86CJ8`
+
+### GAP: hierarchicalLayout mixes forest construction with placement in 21 branches
+
+- **expected** — Forest construction (from edges) and placement (from a forest) are separate pure functions, as they already are for the tree renderer.
+- **current** — Closed: depthLayers is the pure layer construction, its cycle guard tested on its own, and hierarchicalLayout only places columns. It does not reuse buildTreeForest: a layer is a node's shortest depth, a tree hangs it under the first parent a depth-first walk meets, so reuse would move nodes.
+- **impact** — The cycle guard - the subtle part - is not separately testable, and the same forest logic exists again in tree-graph.
+- **closes** — Reuse the forest builder tree-graph already has and leave this function as placement only.
+- **node** — `01M1MGCR50QEXX7R4JDJ51HQFY`
 
 ### GAP: import graph misses package-entry bypasses
 
