@@ -265,10 +265,12 @@ HTTP routes compose the action runtime when they invoke an action. Static
 files and identity reads use the filesystem without building that runtime.
 
 HTTP handlers have 35 seconds to produce a response, allowing a screen command
-to wait its full 30 seconds. On expiry `kb ui` responds with a JSON 503, requests
-cancellation of the handler and writes one line to stderr with the method and
-path. Bun's HTTP idle timeout is 45 seconds on either listener. WebSocket
-traffic and streaming response bodies continue under their own lifetimes.
+to wait its full 30 seconds. On expiry `kb ui` responds with a plain-text 503
+and `Retry-After: 1` so a capture client treats the timeout as a delivery failure
+it can retry. The host requests cancellation of the handler and writes one line
+to stderr with the method and path. Bun's HTTP idle timeout is 45 seconds on
+either listener. WebSocket traffic and streaming response bodies continue under
+their own lifetimes.
 
 `GET /api/health` runs after the normal request guard and reads only process
 metrics. It reports active HTTP handlers (`inFlight`), the age of the oldest

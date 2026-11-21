@@ -35,10 +35,14 @@ export function requestHealth(deadlineMs = REQUEST_DEADLINE_MS) {
       const expire = () => {
         if (expired !== undefined) return expired;
         const message = `Request exceeded the ${String(deadlineMs)} ms deadline.`;
-        expired = Response.json(
-          { status: "failed", code: "timeout", message },
-          { status: 503, headers: { "Cache-Control": "no-store" } },
-        );
+        expired = new Response(message, {
+          status: 503,
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8",
+            "Cache-Control": "no-store",
+            "Retry-After": "1",
+          },
+        });
         writeErr(`kb ui: ${req.method} ${JSON.stringify(pathname)}: ${message}`);
         abort.abort();
         return expired;

@@ -20,7 +20,9 @@ test("a deadline answers once and tracks work until cancellation settles", async
 
     const result = await response;
     expect(result.status).toBe(503);
-    expect(await result.json()).toMatchObject({ code: "timeout" });
+    expect(result.headers.get("Retry-After")).toBe("1");
+    expect(result.headers.get("Content-Type")).toStartWith("text/plain");
+    expect(await result.text()).toBe("Request exceeded the 50 ms deadline.");
     expect(signal.aborted).toBe(true);
 
     const pending = await health.response().json();
