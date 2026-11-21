@@ -35,6 +35,19 @@ describe("text history", () => {
     expect(present(undoTextEdit(first.history, s("ab"), none), "undo").state).toEqual(s("a"));
   });
 
+  it("ends a typing burst at a write of the page's, so the typing after it is undone first", () => {
+    const write = { write: true };
+    let h = recordTextEdit(fresh, s("a"), 0, null);
+    // The page writes mid-burst; the next keystroke, inside the window, starts a step.
+    h = recordTextEdit(h, s("ab"), 10, write);
+    const typing = present(undoTextEdit(h, s("abc"), pageOf([write])), "the newer typing");
+    expect(typing).toMatchObject({ state: s("ab"), page: false });
+    const page = present(undoTextEdit(typing.history, s("ab"), pageOf([write])), "the write");
+    expect(page).toMatchObject({ state: null, page: true });
+    const first = present(undoTextEdit(page.history, s("ab"), none), "the older typing");
+    expect(first).toMatchObject({ state: s("a"), page: false });
+  });
+
   it("a new edit clears what could be redone, and an empty history does nothing", () => {
     const h = recordTextEdit(fresh, s("a"), 0, null);
     const undone = present(undoTextEdit(h, s("ab"), none), "undo");

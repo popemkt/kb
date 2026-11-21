@@ -106,7 +106,8 @@ function wroteSince(undo: readonly unknown[], mark: unknown): boolean {
 /**
  * Record that the text is about to leave `before`, the page's last entry
  * being `mark`. A burst of typing records only its first state, so one undo
- * takes the burst back.
+ * takes the burst back; a write of the page's made during it ends the
+ * burst, so the typing after it is a step of its own, undone first.
  */
 export function recordTextEdit(
   history: TextHistory,
@@ -114,7 +115,8 @@ export function recordTextEdit(
   now: number,
   mark: unknown,
 ): TextHistory {
-  if (now - history.at < TEXT_HISTORY_COALESCE_MS && history.undo.at(-1)?.kind === "text") {
+  const last = history.undo.at(-1);
+  if (now - history.at < TEXT_HISTORY_COALESCE_MS && last?.kind === "text" && last.mark === mark) {
     return { ...history, redo: [], at: now };
   }
   return {
