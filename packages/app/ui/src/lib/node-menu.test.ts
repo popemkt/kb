@@ -11,6 +11,7 @@
  * the menu shows or hides each display option the opening offers.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { mutations } from "@/actions/mutations";
 import {
   SYSTEM_IDS,
   displayDefaultId,
@@ -98,6 +99,7 @@ function context(): CommandContext {
     debugFields: useDebugFieldsStore.getState(),
     workspace: useWorkspaceStore.getState(),
     palette: { close: () => {}, openStep: () => {} },
+    writes: mutations,
   };
 }
 

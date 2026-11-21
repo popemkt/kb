@@ -92,15 +92,13 @@ export function ChartPage({ params, host }: ViewProps<ChartParams>) {
         setEditing(false);
         return;
       }
-      const proposed = await browserHost().proposeView({
+      const proposed = await browserHost().writes.proposeView({
         view: ChartView,
         params: { spec },
         ...(params.source === undefined ? {} : { host: params.source }),
       });
-      if ("refused" in proposed) {
-        toast(`The chart cannot be saved: ${proposed.refused}`);
-        return;
-      }
+      // Refused, the write path has said why: the editor stays open.
+      if ("refused" in proposed) return;
       setEditing(false);
       if (params.source !== undefined)
         browserHost().navigatePane(pane, nodePath(params.source, proposed.id));

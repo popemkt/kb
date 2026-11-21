@@ -1,5 +1,6 @@
 import {
   asInstance,
+  browserHost,
   Bullet,
   bulletClickIntent,
   cn,
@@ -310,7 +311,7 @@ function CaretEditor({
     setCaretSerializedOffset(el, caret);
     revealMarkupAtSelection(el);
     setTyped({ text: next, caret });
-    await pick.write?.();
+    await pick.write?.(browserHost().writes);
     pick.landed?.();
   };
 

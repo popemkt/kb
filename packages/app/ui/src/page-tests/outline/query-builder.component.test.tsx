@@ -352,6 +352,7 @@ describe("the query builder", () => {
         creating: false,
         name: "task",
         alternate: false,
+        writes: browserHost().writes,
       });
     });
     expect(outlineNodes().get(nodeId)?.props[SYSTEM_IDS.queryField]).toEqual([theirs]);

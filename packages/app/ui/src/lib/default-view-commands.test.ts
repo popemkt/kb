@@ -5,6 +5,7 @@
  * `sys.f.views` and touches no other host.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { mutations } from "@/actions/mutations";
 import { SYSTEM_IDS, defaultViewIdOf, hostViewIds, present, viewOptionId } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { fixtureGraph } from "@/api/fixture-graph";
@@ -62,6 +63,7 @@ function context(): CommandContext {
     debugFields: useDebugFieldsStore.getState(),
     workspace: useWorkspaceStore.getState(),
     palette: { close: () => {}, openStep: () => {} },
+    writes: mutations,
   };
 }
 

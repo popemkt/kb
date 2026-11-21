@@ -45,14 +45,7 @@ export {
   useWireNodes,
 } from "./hooks";
 
-export {
-  browserHost,
-  type BrowserHost,
-  BrowserHostService,
-  keepEditing,
-  type ProposedView,
-  type ViewProposal,
-} from "./host";
+export { browserHost, type BrowserHost, BrowserHostService, keepEditing } from "./host";
 export type { HostedFrame, SandboxEvents, SandboxPorts, SandboxRun } from "./sandbox";
 // Running sandboxed code the one way: its trust, its ports and the calls
 // waiting on a person, its frame, and the card a person answers them on.
@@ -357,7 +350,13 @@ export {
   type PageProjection,
   PageProjectionService,
 } from "./lib/page-ports";
-export type { MatchingAdd, MovePlace, PageWrites } from "./lib/page-writes";
+export type {
+  MatchingAdd,
+  MovePlace,
+  PageWrites,
+  ProposedView,
+  ViewProposal,
+} from "./lib/page-writes";
 export {
   type FieldContext,
   fieldContextOf,

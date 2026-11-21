@@ -23,6 +23,7 @@ import {
   type MatchingAdd,
   type MovePlace,
   type PropValue,
+  type ViewProposal,
 } from "@kb/ui-sdk";
 import { FRAME_VIEW_FAMILY, frameSettingWrite, type ViewConfig } from "@kb/views";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
@@ -100,8 +101,17 @@ export const planReplaceField = (
   values: PropValue[],
 ) => replaceProps(nodes, id, [{ field, values }]);
 
-export const planUpdateText = (id: string, text: string, expectedText?: string) =>
-  update(id, expectedText === undefined ? { text } : { text, expectedText });
+/**
+ * Write `id`'s text. Written on the text it was read from (`expectedText`,
+ * DESIGN.md → Conditional text edits), the write can be refused by the
+ * server after the replica took it, so its undo step waits for the server
+ * (`completion`): an undo of a refused write would put back text it never
+ * replaced there.
+ */
+export const planUpdateText = (id: string, text: string, expectedText?: string): PlannedMutation =>
+  expectedText === undefined
+    ? update(id, { text })
+    : { ...update(id, { text, expectedText }), completion: "confirmed" };
 /**
  * Split a row's text at `cursor` into itself and a new row after it (or the
  * first child of the node it shows when it is an expanded parent: a
@@ -147,6 +157,24 @@ export function planSplit(
     focusCursor: 0,
     ...(drawnUnder === null ? {} : { focusInstanceKey: childInstanceKey(drawnUnder, newId) }),
   };
+}
+/**
+ * A view node made from settings, `id` minted here so the replica's commit
+ * and the server's are one node: left to the action, each would mint its
+ * own. `view.propose` is the one check of a proposed view (DESIGN.md → View
+ * nodes), so the page writes exactly what an agent could propose.
+ */
+export function planProposeView(proposal: ViewProposal, id: string): PlannedMutation {
+  return plan({
+    id: "view.propose",
+    input: {
+      id,
+      view: proposal.view.id,
+      params: proposal.params,
+      ...(proposal.host === undefined ? {} : { host: proposal.host }),
+      ...(proposal.text === undefined ? {} : { text: proposal.text }),
+    },
+  });
 }
 export function planDelete(
   _nodes: WireNode[],

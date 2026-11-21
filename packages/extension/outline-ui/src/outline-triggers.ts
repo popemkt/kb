@@ -17,6 +17,7 @@ import {
   nodeCandidates,
   type NodeMap,
   type OpenTrigger,
+  type PageWrites,
   type PaletteStep,
   type PickerRow,
   pickerRows,
@@ -53,7 +54,7 @@ function openedAfterSpace(opener: string, query: string) {
 interface StepTarget<Result> {
   readonly nodeId: string;
   readonly conversion?: {
-    readonly remove: () => Promise<boolean>;
+    readonly remove: (writes: PageWrites) => Promise<boolean>;
     readonly land: (result: Result) => void;
     readonly refused: () => void;
   };
@@ -73,7 +74,7 @@ function stepPick<Result>(
   at: StepTarget<Result>,
   picked: { readonly id: string; readonly creating: boolean; readonly name: string },
 ): TriggerPick {
-  const commit = () =>
+  const commit = (writes: PageWrites) =>
     step.commit({
       targetNodeId: at.nodeId,
       targetNodeIds: [at.nodeId],
@@ -82,14 +83,15 @@ function stepPick<Result>(
       creating: picked.creating,
       name: picked.name,
       alternate: false,
+      writes,
     });
   const conversion = at.conversion;
   if (conversion === undefined) return { insert: "", write: commit };
   return {
     consume: async () => {
-      const landed = await browserHost().writes.together(async () => {
-        const result = await commit();
-        return result === null || !(await conversion.remove()) ? null : result;
+      const landed = await browserHost().writes.together(async (writes) => {
+        const result = await commit(writes);
+        return result === null || !(await conversion.remove(writes)) ? null : result;
       });
       if (landed === null) conversion.refused();
       else conversion.land(landed);
@@ -307,7 +309,7 @@ function fieldTrigger(
     return {
       nodeId: parent,
       conversion: {
-        remove: () => browserHost().writes.deleteNode(row.nodeId, { parent, text }),
+        remove: (writes) => writes.deleteNode(row.nodeId, { parent, text }),
         land: (fieldId) => {
           if (focusIsFree()) land(fieldId);
         },

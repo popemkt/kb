@@ -103,11 +103,10 @@ export const addTag: PaletteStep = {
   icon: <HashIcon size={12} weight="bold" />,
   createLabel: (name) => `Create tag "${name}"`,
   candidates: (graph) => schemaCandidates(graph.wireNodes, "tag"),
-  commit: async ({ targetNodeIds, pickedId, creating, name }) => {
-    const { writes } = browserHost();
+  commit: async ({ targetNodeIds, pickedId, creating, name, writes: page }) => {
     // A tag made here and the rows it tags are one write, even over one row:
     // a refused tagging leaves no tag behind. Nothing here reads what it wrote.
-    const id = await writes.together(async () => {
+    const id = await page.together(async (writes) => {
       const tagId = creating ? await writes.defineTag(name) : pickedId;
       if (tagId !== null) {
         await Promise.all(targetNodeIds.map((nodeId) => writes.addTag(nodeId, tagId)));
@@ -136,11 +135,10 @@ const removeTag: PaletteStep = {
     const carried = tagsCarried(graph.wireNodes, graph.targetNodeIds);
     return nodesOfKind(graph.wireNodes, SYSTEM_IDS.tag).filter((tag) => carried.has(tag.id));
   },
-  commit: async ({ targetNodeIds, pickedId }) => {
-    const { writes } = browserHost();
+  commit: async ({ targetNodeIds, pickedId, writes: page }) => {
     const graph = browserHost().graph.state().wireNodes;
     const carrying = targetNodeIds.filter((id) => tagsCarried(graph, [id]).has(pickedId));
-    await asOneWrite(carrying, () =>
+    await asOneWrite(page, carrying, (writes) =>
       Promise.all(carrying.map((id) => writes.removeTag(id, pickedId))),
     );
   },
@@ -152,9 +150,8 @@ export const addField: PaletteStep<string | null> = {
   icon: <TextTIcon size={12} weight="bold" />,
   createLabel: (name) => `Create field "${name}"`,
   candidates: (graph) => schemaCandidates(graph.wireNodes, "field"),
-  commit: async ({ targetNodeIds, schema, pickedId, creating, name }) => {
-    const { writes } = browserHost();
-    const id = await asOneWrite(targetNodeIds, async () => {
+  commit: async ({ targetNodeIds, schema, pickedId, creating, name, writes: page }) => {
+    const id = await asOneWrite(page, targetNodeIds, async (writes) => {
       const fieldId = creating ? await writes.defineField(name) : pickedId;
       if (fieldId === null) return null;
       // An empty typed value is what makes the row appear and focusable; the
@@ -201,13 +198,13 @@ const setField: PaletteStep = {
   placeholder: "Search a field's options...",
   icon: <PencilSimpleLineIcon size={12} weight="regular" />,
   candidates: (graph) => fieldOptions(graph.wireNodes),
-  commit: async ({ targetNodeIds, pickedId }) => {
-    const { writes, graph } = browserHost();
+  commit: async ({ targetNodeIds, pickedId, writes: page }) => {
+    const { graph } = browserHost();
     const field = graph.state().wireNodes.find((n) => n.children.includes(pickedId));
     if (field === undefined) return;
     // A field that holds one value has it replaced; one that holds many gains it.
     const value = { t: "ref", v: pickedId } as const;
-    await asOneWrite(targetNodeIds, () =>
+    await asOneWrite(page, targetNodeIds, (writes) =>
       Promise.all(targetNodeIds.map((id) => writes.updateProp(id, field.id, value))),
     );
   },
@@ -220,10 +217,10 @@ const addRef: PaletteStep = {
   // A reference to itself is not a reference.
   candidates: (graph) => nodeCandidates(graph.nodes, { exclude: (id) => id === graph.anchorId }),
   limit: 12,
-  commit: async ({ targetNodeId, pickedId }) => {
+  commit: async ({ targetNodeId, pickedId, writes }) => {
     // The whole creation gesture, and nothing but existing primitives: point
     // the target field at the picked node. The field is the kind.
-    await browserHost().writes.updateProp(targetNodeId, SYSTEM_IDS.refTargetField, {
+    await writes.updateProp(targetNodeId, SYSTEM_IDS.refTargetField, {
       t: "ref",
       v: pickedId,
     });

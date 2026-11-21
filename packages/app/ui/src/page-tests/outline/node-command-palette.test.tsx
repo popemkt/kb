@@ -732,6 +732,28 @@ describe("node command palette", () => {
       expect(views()).toHaveLength(0);
       expect(nodeOf(String(view?.v))).toBeUndefined();
     });
+
+    it("Add chart refused: the write path says why, once", async () => {
+      // No Views list or views field to file the chart in: view.propose refuses it.
+      useGraphStore.getState().hydrateFromWire(graph(), 1, "fixtures");
+      useUiStore.setState({ toasts: [] });
+      const host = browserHost();
+      const command = present(
+        host
+          .nodeCommands(
+            { nodeId: "n.query", frameId: "n.query", nodeIds: ["n.query"] },
+            { close: () => {}, openStep: () => {} },
+          )
+          .find((c) => c.label === "Add chart"),
+        "Add chart",
+      );
+      await act(async () => {
+        await command.run();
+      });
+      const told = useUiStore.getState().toasts;
+      expect(told.reduce((n, t) => n + t.count, 0)).toBe(1);
+      expect(nodeOf("n.query")?.props[SYSTEM_IDS.viewsField] ?? []).toHaveLength(0);
+    });
   });
 });
 

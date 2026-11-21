@@ -172,17 +172,9 @@ async function runPlan(plan: PlannedMutation): Promise<RunOptimisticResult> {
     // names, else the one the editor resolves.
     editor().activateNode(result.focusId, result.focusCursor ?? 0, result.focusInstanceKey);
   }
-  // GAP [[01M7XRPAHQ1ZB2CHNAXEN4B0KM]] a server refusal can leave this optimistic undo step behind.
   useGraphStore.getState().recordUndo(history);
   return result;
 }
-
-/**
- * Run `plan` as a page write: one undo step, or part of the gesture being
- * made (`together`). For a write the page makes outside `PageWrites`, such
- * as a proposed view (`proposeView`), so it is undone as every page write is.
- */
-export const runPageWrite = runPlan;
 
 async function applyPlan(plan: PlannedMutation | null): Promise<boolean> {
   return plan === null ? false : (await runPlan(plan)).ok;
@@ -400,9 +392,9 @@ export const mutations: PageWrites = {
     return { references };
   },
 
-  async together<T>(made: () => Promise<T>): Promise<T | null> {
+  async together<T>(made: (writes: PageWrites) => Promise<T>): Promise<T | null> {
     // A gesture inside another is part of it.
-    if (gesture !== null) return made();
+    if (gesture !== null) return made(mutations);
     const open = {
       actions: [] as ActionRequest[],
       redoActions: [] as ActionRequest[],
@@ -411,12 +403,19 @@ export const mutations: PageWrites = {
     gesture = open;
     let result: T;
     try {
-      result = await made();
+      result = await made(mutations);
     } finally {
       gesture = null;
     }
     if (open.actions.length > 0 && !(await applyPlan(open))) return null;
     return result;
+  },
+
+  async proposeView(proposal) {
+    const { planProposeView } = await import("@/actions/plan");
+    const id = ulid();
+    const written = await runPlan(planProposeView(proposal, id));
+    return written.ok ? { id } : { refused: written.refused ?? "view.propose was refused" };
   },
 
   history: () => {
@@ -493,7 +492,9 @@ export const mutations: PageWrites = {
     const pins = pinnedRefIdsFor(shownNodes(), nodeId);
     if (pins.length > 0) {
       // Every pin of the node goes, as one write.
-      await mutations.together(() => Promise.all(pins.map((refId) => mutations.deleteNode(refId))));
+      await mutations.together((writes) =>
+        Promise.all(pins.map((refId) => writes.deleteNode(refId))),
+      );
       return true;
     }
     const plan = planPinNode(wire(), nodeId, ulid());

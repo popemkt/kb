@@ -414,6 +414,7 @@ describe("Filter… host visibility", () => {
         debugFields: useDebugFieldsStore.getState(),
         workspace: useWorkspaceStore.getState(),
         palette: { close: () => {}, openStep: () => {} },
+        writes: mutations,
       });
     });
 

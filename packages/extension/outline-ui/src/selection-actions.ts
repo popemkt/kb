@@ -152,10 +152,10 @@ function moveToGroup({ instanceKey, side }: ActionOf<"moveToGroup">): void {
     seen.add(nodeId);
     return [{ nodeId, fieldId: group.fieldId, value: step.value }];
   });
-  const { writes } = browserHost();
   void asOneWrite(
+    browserHost().writes,
     moves.map((move) => move.nodeId),
-    () =>
+    (writes) =>
       Promise.all(moves.map((move) => writes.moveToGroup(move.nodeId, move.fieldId, move.value))),
   );
   const opens = head?.group?.[side]?.opens;
@@ -176,8 +176,9 @@ function deleteRow({ nodeId, instanceKey }: ActionOf<"delete">): void {
   const prev = store.getPreviousVisibleInstance(first);
   const next = store.getNextVisibleInstance(last);
   const { ids } = topRows(nodeId);
-  const { writes } = browserHost();
-  void asOneWrite(ids, () => Promise.all(ids.map((id) => writes.deleteNode(id)))).then(() => {
+  void asOneWrite(browserHost().writes, ids, (writes) =>
+    Promise.all(ids.map((id) => writes.deleteNode(id))),
+  ).then(() => {
     if (ids.some((id) => outlineNodes().has(id))) return;
     const pick = prev ?? next;
     if (pick) {

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ASSET_MAX_BYTES } from "@kb/operations";
-import { setPostAction } from "@/api/action";
+import { setPostAction, type ActionResponse } from "@/api/action";
 import { tabSession } from "@/api/tab-session";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { mutations } from "./mutations";
@@ -50,5 +50,30 @@ describe("mutations invoke shared actions", () => {
     expect(useGraphStore.getState().index?.getNode("n.root-a")?.props["sys.f.query"]).toEqual([
       { t: "str", v: "[:find ?e]" },
     ]);
+  });
+
+  it("a conditional text write is one undo step only once the server takes it", async () => {
+    // A Link from Unlinked mentions: written on the text it was read from.
+    const id = "n.root-a";
+    const source = outlineNodes().get(id)?.text ?? "";
+    const reply = Promise.withResolvers<ActionResponse>();
+    setPostAction(async (invocation) =>
+      invocation.id === "node.update" ? reply.promise : post(invocation),
+    );
+    const written = mutations.setNodeText(id, `${source} linked`, source);
+    await vi.waitFor(() => expect(outlineNodes().get(id)?.text).toBe(`${source} linked`));
+    expect(useGraphStore.getState().undoStack).toHaveLength(0);
+    // Another edit reached the server first: it refuses the write, so no undo
+    // step can put back the text the write never replaced there.
+    reply.resolve({
+      status: "failed",
+      id: "node.update",
+      code: "conflict",
+      message: "The text changed on the server",
+    });
+    expect(await written).toBe(false);
+    await waitForBrowserPushes();
+    expect(useGraphStore.getState().undoStack).toHaveLength(0);
+    expect(await mutations.undo()).toBe(false);
   });
 });

@@ -17,8 +17,8 @@ import type { ThemePref, WidthPref } from "./theme";
 import type { PickerCandidate } from "./picker";
 import type { SchemaIndex } from "./schema";
 import type { NodeMap } from "./types";
+import type { PageWrites } from "./page-writes";
 import type { FamilyView } from "./view-key";
-import { browserHost } from "../host";
 
 /** What commands read and drive on the outline store. */
 export interface OutlineCommandApi {
@@ -98,6 +98,8 @@ interface PaletteStepPick {
   readonly name: string;
   /** Picked the step's alternate way (`PaletteStep.alternate`): Alt+Enter, or an Alt-click. */
   readonly alternate: boolean;
+  /** The writes the commit makes: the page's, or a gesture's it is part of (a pick in the text). */
+  readonly writes: PageWrites;
 }
 
 /**
@@ -156,6 +158,8 @@ export interface CommandContext {
   readonly debugFields: DebugFieldsCommandApi;
   readonly workspace: WorkspaceCommandApi;
   readonly palette: PaletteSurface;
+  /** The writes the command makes: the page's, or a gesture's it runs in (a / pick). */
+  readonly writes: PageWrites;
 }
 
 /** A command's own label and icon, for commands no node names. */
@@ -244,22 +248,26 @@ export interface NodeCommandListing {
   readonly faceOf?: string | undefined;
   readonly label: string;
   readonly icon: ReactNode;
-  /** Run the command; it answers once the writes it waits for are made. */
-  readonly run: () => Promise<void>;
+  /**
+   * Run the command, its writes made through `writes` (a gesture's), else
+   * the page's; it answers once the writes it waits for are made.
+   */
+  readonly run: (writes?: PageWrites) => Promise<void>;
 }
 
 /**
- * Run `gesture`, the writes of a gesture about `rows`, as one write
- * (DESIGN-UI.md → Outline editor, "A selection is a range of rows"): over
- * several rows gathered by `PageWrites.together`; over one row as it is,
- * that row's write being one write already, so a write whose result the
- * gesture reads has landed when it reads it.
+ * Run `gesture`, the writes of a gesture about `rows` made through
+ * `writes`, as one write (DESIGN-UI.md → Outline editor, "A selection is a
+ * range of rows"): over several rows gathered by `PageWrites.together`;
+ * over one row as it is, that row's write being one write already, so a
+ * write whose result the gesture reads has landed when it reads it.
  */
 export function asOneWrite<T>(
+  writes: PageWrites,
   rows: readonly string[],
-  gesture: () => Promise<T>,
+  gesture: (writes: PageWrites) => Promise<T>,
 ): Promise<T | null> {
-  return rows.length > 1 ? browserHost().writes.together(gesture) : gesture();
+  return rows.length > 1 ? writes.together(gesture) : gesture(writes);
 }
 
 /**
@@ -270,10 +278,12 @@ export function asOneWrite<T>(
  */
 export async function nodeAction(
   ctx: CommandContext,
-  body: (nodeId: string) => unknown,
+  body: (nodeId: string, writes: PageWrites) => unknown,
 ): Promise<void> {
   const { nodeIds } = ctx.target;
-  const written = asOneWrite(nodeIds, () => Promise.all(nodeIds.map((nodeId) => body(nodeId))));
+  const written = asOneWrite(ctx.writes, nodeIds, (writes) =>
+    Promise.all(nodeIds.map((nodeId) => body(nodeId, writes))),
+  );
   ctx.palette.close();
   await written;
 }
