@@ -2178,14 +2178,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A core page entry plugin holding them as children.
 - **node** — `01M549THN6RH36SEE9QTSZ0PZP`
 
-### GAP: the sigma renderer's lifecycle effect carries 32 branches
-
-- **expected** — Renderer setup, event wiring and teardown are three named steps, with the graph-building step shared across renderers.
-- **current** — One useEffect constructs the sigma instance, wires every event, applies reducers and tears down, branching on capability and selection state throughout.
-- **impact** — The effect is the renderer, so nothing about it can be tested without a DOM and a real sigma instance.
-- **closes** — Extract createSigmaRenderer(el, opts) returning {update, destroy} and let the effect be three calls.
-- **node** — `01M1MGCPJTV66QSFCR44XG29YM`
-
 ### GAP: the stage's GPU meter times queue completion, not timestamp queries
 
 - **expected** — gpuMs is each frame's own GPU time, from timestamp queries around its passes, on every backend.
@@ -3658,6 +3650,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — an extension can be on in one host and off in the other with nothing reporting it; the agent sidebar can be switched on against a server that runs no agent, which answers unknown_channel; the server's catalog lists lab.page while the page has the lab off, so an agent can propose a view the page does not draw
 - **closes** — defineExtension per family, kb.manifest.extensions with enabled, and a browser resolver keyed by family name; the lab's off-by-default becomes a server-side setting that the registry loads by and the manifest reports, and its Preferences row writes that setting (E10, E10b)
 - **node** — `01M41H30N0SV4QE5R8VQQ1K4ZA`
+
+### GAP: the sigma renderer's lifecycle effect carries 32 branches
+
+- **expected** — Renderer setup, event wiring and teardown are three named steps, with the graph-building step shared across renderers.
+- **current** — Closed: sigma-renderer.ts names the steps: mountSigma (the instance, its label pipeline and the cluster hulls) and wireSigmaInput (hover, click, open, trace, isolate, drag) each return their teardown, and SigmaGraph's lifecycle effect is the calls. The graph-building pass shares its placement with every renderer through computeLayoutPositions.
+- **impact** — The effect is the renderer, so nothing about it can be tested without a DOM and a real sigma instance.
+- **closes** — Extract createSigmaRenderer(el, opts) returning {update, destroy} and let the effect be three calls.
+- **node** — `01M1MGCPJTV66QSFCR44XG29YM`
 
 ### GAP: the Sky borrows the graph's toScreen across the UI zones until it moves to scene/gpu/screen.ts
 
