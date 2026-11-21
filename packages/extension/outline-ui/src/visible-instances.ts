@@ -75,6 +75,8 @@ type FramePagesMap = Readonly<Record<string, number>>;
 /** What a walk carries all the way down: the graph, the query answers, the
  * per-frame page counts, and the list it appends to. */
 interface WalkContext {
+  /** The outline host walked: every row it reaches is keyed under it. */
+  host: string;
   nodes: NodeMap;
   schema: SchemaIndex;
   /**
@@ -227,7 +229,7 @@ function walkQueryResults(
   } catch {
     return;
   }
-  const keyFor = (id: string) => projectedRowKey(frame.id, id);
+  const keyFor = (id: string) => projectedRowKey(ctx.host, frame.id, id);
   if (projectsRows(view.key)) {
     const inner = underSlot(chain, view, frame.id);
     if (inner === null) return;
@@ -255,8 +257,8 @@ function walkVisibleInstances(
   // Each draws its target open or closed as the target's own choice is, not
   // open by default: a choice is per node. GAP [[01M7D8AP4A4W6S2X5T1DSE9D77]]
   if (opensInPlace(instanceKey)) {
-    for (const id of openReferencesOf(ctx.expansion, frame.id, frame.text)) {
-      walkVisibleInstances(ctx, id, openReferenceKey(frame.id, id), chain);
+    for (const id of openReferencesOf(ctx.expansion, ctx.host, frame.id, frame.text)) {
+      walkVisibleInstances(ctx, id, openReferenceKey(ctx.host, frame.id, id), chain);
     }
   }
   // Open or closed is the row's own.
@@ -310,7 +312,7 @@ function walkRowChildren(
  * slots around the outline's root, the pages revealed, the rows detail
  * views show and the days calendars are open at.
  */
-type WalkSource = Omit<WalkContext, "out">;
+type WalkSource = Omit<WalkContext, "out" | "host">;
 
 /**
  * The rows the outline host `host` draws under `rootNodeId`, in render order,
@@ -325,7 +327,7 @@ export function collectVisibleInstances(
   const { nodes, schema, views } = source;
   const root = nodes.get(rootNodeId);
   if (!root) return out;
-  const ctx: WalkContext = { ...source, out };
+  const ctx: WalkContext = { ...source, host, out };
 
   // The root's rows sit in the root frame's slot, inside the outline's.
   const view = frameViewOf(root, schema, views);

@@ -43,7 +43,7 @@ test("Alt-click opens a reference under its row, editable there, and again close
   const pill = rowBlock.locator(`[data-kb-ref-id="${target}"]`).first();
 
   await pill.click({ modifiers: ["Alt"] });
-  const open = block(page, `ref:row:${row}/${target}`);
+  const open = block(page, `ref:row:tree@${row}/${target}`);
   await expect(open).toBeVisible();
   await expect(pill).toHaveAttribute("aria-expanded", "true");
   // Still on this page: the click opened in place and went nowhere.

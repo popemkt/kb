@@ -11,7 +11,13 @@ import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { childInstanceKey, outlineInstanceKey, projectedRowKey, syncUiPlugins } from "@kb/ui-sdk";
+import {
+  childInstanceKey,
+  outlineInstanceKey,
+  MAIN_OUTLINE_HOST,
+  projectedRowKey,
+  syncUiPlugins,
+} from "@kb/ui-sdk";
 import type { WireNode } from "@kb/contracts";
 import { present, SYSTEM_IDS, type PropValue } from "@kb/model";
 import { installDomGlobals } from "@kb/ui-test-kit";
@@ -203,7 +209,7 @@ describe("+ Add where a frame's rows are drawn", () => {
     // Its text opens as the query's result, the one instance that draws it.
     const [added] = tagged();
     expect(useOutlineStore.getState().activeInstanceKey).toBe(
-      projectedRowKey("q", present(added, "the added result").id),
+      projectedRowKey(MAIN_OUTLINE_HOST, "q", present(added, "the added result").id),
     );
   });
 });

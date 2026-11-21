@@ -27,6 +27,7 @@ import {
 import { queryDefOf, queryTextOf } from "@kb/model";
 import { projectsRows, type FrameViewKey } from "@kb/views";
 import { addFrameRow } from "./editing-writes";
+import { useOutlineHost } from "./outline-host";
 import { useOutlineNode, useOutlineNodes } from "./outline.store";
 import { FrameViewSlot } from "./frame-view-slot";
 import { GhostRow } from "./ghost-row";
@@ -68,6 +69,7 @@ function AddResult({
   depth: number;
   atRest: boolean;
 }) {
+  const host = useOutlineHost();
   return (
     <GhostRow
       depth={depth}
@@ -80,7 +82,7 @@ function AddResult({
             frameId: queryId,
             isQuerySource: true,
             // As the list draws a result, below.
-            rowKey: (id) => projectedRowKey(queryId, id),
+            rowKey: (id) => projectedRowKey(host, queryId, id),
           },
           [],
         )
@@ -152,6 +154,7 @@ export function QueryResultsSection({
   const node = useOutlineNode(nodeId);
   const nodes = useOutlineNodes();
   const read = useGraphRead();
+  const host = useOutlineHost();
   // The builder is the node's query field's, whatever it holds; only a
   // definition runs, so a query emptied keeps the editor that writes it.
   const text = queryTextOf(node);
@@ -235,7 +238,7 @@ export function QueryResultsSection({
         </StatusLine>
       ) : (
         ids.map((id) => {
-          const key = projectedRowKey(nodeId, id);
+          const key = projectedRowKey(host, nodeId, id);
           return renderNode({
             nodeId: id,
             instanceKey: key,

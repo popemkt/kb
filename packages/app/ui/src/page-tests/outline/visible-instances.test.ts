@@ -91,8 +91,8 @@ describe("visible instances", () => {
       .getVisibleInstances()
       .map((i) => i.instanceKey);
     expect(keys).toContain("tree/n.q1");
-    expect(keys).toContain(projectedRowKey("n.q1", "n.root-a"));
-    expect(keys).toContain(projectedRowKey("n.q1", "n.root-b"));
+    expect(keys).toContain(projectedRowKey(MAIN_OUTLINE_HOST, "n.q1", "n.root-a"));
+    expect(keys).toContain(projectedRowKey(MAIN_OUTLINE_HOST, "n.q1", "n.root-b"));
   });
 
   it("arrow neighbors move from tree into query results and across refs", async () => {
@@ -100,9 +100,9 @@ describe("visible instances", () => {
     await resultsAnswered();
     const store = useOutlineStore.getState();
     const fromQuery = present(store.getNextVisibleInstance("tree/n.q1"), "next from query");
-    expect(fromQuery.instanceKey).toBe(projectedRowKey("n.q1", "n.root-a"));
+    expect(fromQuery.instanceKey).toBe(projectedRowKey(MAIN_OUTLINE_HOST, "n.q1", "n.root-a"));
     const across = store.getNextVisibleInstance(fromQuery.instanceKey);
-    expect(across?.instanceKey).toBe(projectedRowKey("n.q1", "n.root-b"));
+    expect(across?.instanceKey).toBe(projectedRowKey(MAIN_OUTLINE_HOST, "n.q1", "n.root-b"));
   });
 
   it("a zoomed query node offers its results, as the rows its page draws", async () => {
@@ -113,8 +113,8 @@ describe("visible instances", () => {
       .getVisibleInstances()
       .map((i) => i.instanceKey);
     expect(keys).toEqual([
-      projectedRowKey("n.q1", "n.root-a"),
-      projectedRowKey("n.q1", "n.root-b"),
+      projectedRowKey(MAIN_OUTLINE_HOST, "n.q1", "n.root-a"),
+      projectedRowKey(MAIN_OUTLINE_HOST, "n.q1", "n.root-b"),
     ]);
   });
 
@@ -226,8 +226,33 @@ describe("a row's subtree keys walk the rows the outline draws", () => {
     try {
       outline().getVisibleInstances("pane:p2");
       await present(useGraphStore.getState().queries, "replica queries").ask(TODO_EDN);
-      outline().expandSubtree(projectedRowKey("n.q1", "n.root-a"), "pane:p2");
+      outline().expandSubtree(projectedRowKey("pane:p2", "n.q1", "n.root-a"), "pane:p2");
       expect(["n.root-a", "n.child-a2"].map(collapsed)).toEqual([false, false]);
+    } finally {
+      setOutlineHost("pane:p2", null);
+    }
+  });
+
+  it("keys a query's results under the outline they are drawn in, one row per pane", async () => {
+    // The query's page open in the main pane and in a second one.
+    useGraphStore.getState().zoomTo("n.q1");
+    setOutlineHost("pane:p2", { root: "n.q1", chain: [], open: null });
+    try {
+      outline().getVisibleInstances("pane:p2");
+      await present(useGraphStore.getState().queries, "replica queries").ask(TODO_EDN);
+      const keysOf = (host?: string) =>
+        outline()
+          .getVisibleInstances(host)
+          .map((row) => row.instanceKey);
+      const side = keysOf("pane:p2");
+      expect(side).toEqual([
+        projectedRowKey("pane:p2", "n.q1", "n.root-a"),
+        projectedRowKey("pane:p2", "n.q1", "n.root-b"),
+      ]);
+      expect(side.some((key) => keysOf().includes(key))).toBe(false);
+      // The keyboard walks a result in the outline it is drawn in.
+      const [first, second] = side;
+      expect(outline().getNextVisibleInstance(present(first, "first"))?.instanceKey).toBe(second);
     } finally {
       setOutlineHost("pane:p2", null);
     }

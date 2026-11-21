@@ -140,7 +140,8 @@ interface OutlineState {
   selectedRows: () => VisibleInstance[];
   toggleCollapse: (id: string) => void;
   /** Open the reference to `targetId` in the text of `sourceId` under its row, or close it. */
-  toggleReference: (sourceId: string, targetId: string) => void;
+  /** Open or close the reference to `targetId` in the text of `sourceId`, under its row in host `host`. */
+  toggleReference: (sourceId: string, targetId: string, host: string) => void;
   /**
    * Open the row at `instanceKey` and every row drawn under it (`subtreeOf`),
    * as the outline of host `host`, the one the key was pressed in, draws them.
@@ -693,8 +694,8 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
       choose([[id, node.collapsed]]);
     },
 
-    toggleReference: (sourceId, targetId) => {
-      const key = openReferenceKey(sourceId, targetId);
+    toggleReference: (sourceId, targetId, host) => {
+      const key = openReferenceKey(host, sourceId, targetId);
       choose([[key, get().expansion.get(key) !== true]]);
     },
 

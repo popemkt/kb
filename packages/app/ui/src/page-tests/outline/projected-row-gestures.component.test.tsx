@@ -11,7 +11,13 @@ import type { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { fieldContextOf, frameConfigOf, projectedRowKey, schemaOf } from "@kb/ui-sdk";
+import {
+  fieldContextOf,
+  frameConfigOf,
+  MAIN_OUTLINE_HOST,
+  projectedRowKey,
+  schemaOf,
+} from "@kb/ui-sdk";
 import { paramsFrom } from "@kb/views";
 import { Result } from "effect";
 import { useGraphStore } from "@/stores/graph.store";
@@ -69,7 +75,7 @@ describe("projected query-result rows behave like owned rows", () => {
     );
   }
 
-  const key = projectedRowKey("n.root-a", "n.root-b");
+  const key = projectedRowKey(MAIN_OUTLINE_HOST, "n.root-a", "n.root-b");
   const row = () =>
     present(container.querySelector(`[data-node-row="true"][data-instance-key="${key}"]`), "row");
   const bullet = () =>

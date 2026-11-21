@@ -17,6 +17,7 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import {
   childInstanceKey,
   outlineInstanceKey,
+  MAIN_OUTLINE_HOST,
   projectedRowKey,
   syncUiPlugins,
   WORKSPACE_ROOT_ID,
@@ -275,7 +276,10 @@ describe("selection-mode dispatcher (characterization)", () => {
         "fixtures",
       );
     act(() => useOutlineStore.getState().toggleCollapse("n.ref-a"));
-    const instanceKey = childInstanceKey(projectedRowKey("n.q", "n.root-b"), "n.ref-a");
+    const instanceKey = childInstanceKey(
+      projectedRowKey(MAIN_OUTLINE_HOST, "n.q", "n.root-b"),
+      "n.ref-a",
+    );
     act(() => useOutlineStore.getState().selectNode("n.ref-a", instanceKey));
     act(() => root.render(<Host />));
     await press("o");

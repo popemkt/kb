@@ -46,8 +46,7 @@ export function openFromHost(host: string, id: string): void {
 
 /**
  * The outline host whose rows include `instanceKey`: the host it is keyed
- * under when an outline is mounted there, else the main pane's (a projected
- * row's key names its query, not its host).
+ * under when an outline is mounted there, else the main pane's.
  */
 export function outlineHostOfInstance(instanceKey: string | null): string {
   if (instanceKey === null) return MAIN_OUTLINE_HOST;

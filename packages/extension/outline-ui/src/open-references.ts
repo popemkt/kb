@@ -27,9 +27,19 @@ export function referencesIn(text: string): NodeId[] {
   return [...new Set(extractMentions(text))];
 }
 
-/** The references the text of `sourceId` names that are open under its row, in text order. */
-export function openReferencesOf(expansion: Expansion, sourceId: string, text: string): NodeId[] {
-  return referencesIn(text).filter((id) => expansion.get(openReferenceKey(sourceId, id)) === true);
+/**
+ * The references the text of `sourceId` names that are open under its row in
+ * the outline of host `host`, in text order.
+ */
+export function openReferencesOf(
+  expansion: Expansion,
+  host: string,
+  sourceId: string,
+  text: string,
+): NodeId[] {
+  return referencesIn(text).filter(
+    (id) => expansion.get(openReferenceKey(host, sourceId, id)) === true,
+  );
 }
 
 /**

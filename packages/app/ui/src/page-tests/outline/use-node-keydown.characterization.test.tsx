@@ -24,6 +24,7 @@ import {
   childInstanceKey,
   outlineInstanceKey,
   PaneContext,
+  MAIN_OUTLINE_HOST,
   projectedRowKey,
   renderInlineMarkdown,
   rowTextOf,
@@ -170,7 +171,9 @@ describe("outline editing keymap (characterization)", () => {
    * runs in: an outline row that is being edited.
    */
   function mount(nodeId: string, cursor: number, projectedRow = false): HTMLElement {
-    const instanceKey = projectedRow ? projectedRowKey("n.q", nodeId) : keyOf(nodeId);
+    const instanceKey = projectedRow
+      ? projectedRowKey(MAIN_OUTLINE_HOST, "n.q", nodeId)
+      : keyOf(nodeId);
     act(() => {
       useOutlineStore.getState().activateNode(nodeId, cursor, instanceKey);
     });
@@ -266,7 +269,10 @@ describe("outline editing keymap (characterization)", () => {
           "fixtures",
         );
       act(() => useOutlineStore.getState().toggleCollapse("n.ref-a"));
-      const instanceKey = childInstanceKey(projectedRowKey("n.q", "n.root-b"), "n.ref-a");
+      const instanceKey = childInstanceKey(
+        projectedRowKey(MAIN_OUTLINE_HOST, "n.q", "n.root-b"),
+        "n.ref-a",
+      );
       act(() => useOutlineStore.getState().activateNode("n.ref-a", 0, instanceKey));
       act(() => root.render(<Host nodeId="n.ref-a" instanceKey={instanceKey} />));
       const el = present(container.querySelector<HTMLElement>('[data-editor="true"]'), "editor");
@@ -550,7 +556,7 @@ describe("outline editing keymap (characterization)", () => {
       const opened: string[] = [];
       setOutlineHost("pane:p2", { root: "n.child-a2", chain: [], open: (id) => opened.push(id) });
       try {
-        const instanceKey = projectedRowKey("n.q", "n.root-b");
+        const instanceKey = projectedRowKey(MAIN_OUTLINE_HOST, "n.q", "n.root-b");
         act(() => useOutlineStore.getState().activateNode("n.root-b", 0, instanceKey));
         act(() =>
           root.render(

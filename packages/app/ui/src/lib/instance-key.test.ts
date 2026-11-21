@@ -8,6 +8,7 @@ import {
   outlineInstanceKey,
   pageTitleInstanceKey,
   parentInstanceKey,
+  MAIN_OUTLINE_HOST,
   projectedRowKey,
   syncUiPlugins,
 } from "@kb/ui-sdk";
@@ -33,15 +34,15 @@ describe("render-instance identity", () => {
   it("builds distinct keys for outline vs query-result instances", () => {
     const nodes = outlineNodes();
     const treeKey = outlineInstanceKey("n.root-a", nodes);
-    const refKey = projectedRowKey("n.q1", "n.root-a");
+    const refKey = projectedRowKey(MAIN_OUTLINE_HOST, "n.q1", "n.root-a");
     expect(treeKey).toBe("tree/n.root-a");
-    expect(refKey).toBe("ref:row:n.q1/n.root-a");
+    expect(refKey).toBe("ref:row:tree@n.q1/n.root-a");
     expect(treeKey).not.toBe(refKey);
     expect(childInstanceKey(treeKey, "n.child-a1")).toBe("tree/n.root-a/n.child-a1");
   });
 
   it("reads query-result-ness from the key: the result row, not its descendants", () => {
-    const result = projectedRowKey("n.q1", "n.root-a");
+    const result = projectedRowKey(MAIN_OUTLINE_HOST, "n.q1", "n.root-a");
     const nested = childInstanceKey(result, "n.child-a1");
     const tree = outlineInstanceKey("n.root-a", outlineNodes());
     expect(isProjectedRow(result)).toBe(true);
@@ -66,7 +67,7 @@ describe("render-instance identity", () => {
 
   it("activate binds editing to one instance when the same nodeId appears twice", () => {
     const treeKey = "tree/n.root-a";
-    const refKey = projectedRowKey("n.q1", "n.root-a");
+    const refKey = projectedRowKey(MAIN_OUTLINE_HOST, "n.q1", "n.root-a");
 
     useOutlineStore.getState().activateNode("n.root-a", 2, treeKey);
     let s = useOutlineStore.getState();
@@ -89,12 +90,12 @@ describe("parentInstanceKey", () => {
   it("is what a row is drawn under: its parent row, or its host at the top", () => {
     expect(parentInstanceKey("tree/n.root-a/n.child-a1")).toBe("tree/n.root-a");
     expect(parentInstanceKey("tree/n.root-a")).toBe("tree");
-    const result = projectedRowKey("n.q", "n.root-b");
+    const result = projectedRowKey(MAIN_OUTLINE_HOST, "n.q", "n.root-b");
     expect(parentInstanceKey(childInstanceKey(result, "n.ref"))).toBe(result);
   });
 
   it("is null where the row's place is computed, not a child edge", () => {
-    expect(parentInstanceKey(projectedRowKey("n.q", "n.root-b"))).toBeNull();
+    expect(parentInstanceKey(projectedRowKey(MAIN_OUTLINE_HOST, "n.q", "n.root-b"))).toBeNull();
     expect(parentInstanceKey(canvasInstanceKey("2d", "card", "n.root-a"))).toBeNull();
     expect(parentInstanceKey(pageTitleInstanceKey("n.root-a"))).toBeNull();
   });

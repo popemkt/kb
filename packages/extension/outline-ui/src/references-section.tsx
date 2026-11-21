@@ -9,10 +9,10 @@ import {
   useAnswered,
   useGraphRead,
   usePageGraph,
-  usePane,
 } from "@kb/ui-sdk";
 import { backlinkRows, type BacklinkRow } from "./backlinks";
 import { NodeBlock } from "./node-block";
+import { useOutlineHost } from "./outline-host";
 import { RowBreadcrumbs } from "./row-breadcrumbs";
 import { useReferencesScroll } from "./references-scroll";
 import { SectionHeading } from "./section-heading";
@@ -27,9 +27,8 @@ export function ReferencesSection({ nodeId }: { nodeId: string }) {
   );
 
   const section = useReferencesScroll(nodeId);
-  const pane = usePane();
   // The same referrer can also be a result in this page or visible in another pane.
-  const parentKey = projectedRowKey(`references:${pane}`, nodeId);
+  const parentKey = projectedRowKey(useOutlineHost(), "references", nodeId);
   return (
     <>
       {backlinks.length > 0 && (

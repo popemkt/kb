@@ -505,10 +505,12 @@ each structural intent, so it holds whatever chord runs it.
 
 **Projected rows.** A projected row is a node drawn under a row because
 that row computes it, not because it is a child: a query's results are
-the projected rows of the query's row. Its instance key names its source
-and the node, `ref:row:<source>/<node>` (`projectedRowKey`,
-`isProjectedRow` in `lib/instance-key.ts`), and is read from the key
-wherever the answer matters, so what a projected row can do is the same
+the projected rows of the query's row. Its instance key names the outline
+host it is drawn in, its source and the node,
+`ref:row:<host>@<source>/<node>` (`projectedRowKey`, `isProjectedRow` in
+`lib/instance-key.ts`), so a source open in two panes draws two rows and
+the keyboard walks each in its own outline (`hostOfInstance`). The key is
+read wherever the answer matters, so what a projected row can do is the same
 on every surface (list row, table row, card):
 
 - It has no child edge to its source, so no structural chord acts on it:
@@ -1463,7 +1465,7 @@ row's text (`[[id|label]]`) shows its target under the row, without
 leaving the page and without making a node. The reference is open while
 its target is drawn as a projected row of the row
 ([Projected rows](#outline-editor-i1)), keyed
-`ref:row:<the row's node>/<target>`. It is the row a contextual reference
+`ref:row:<host>@<the row's node>/<target>`. It is the row a contextual reference
 draws: the target's text, tags, fields and children, edited in place.
 Open references come first under the row, before its fields and
 children, in the order the text names them, and they show while the row
@@ -1485,8 +1487,8 @@ stored, and it is dropped once the row's text no longer names the
 reference. A reference opens only under a row of the outline's own tree.
 Under a projected row, or a row inside one, Alt-click follows as a plain
 click does, so two references that name each other cannot open into
-each other forever. The same node in two places shares its open
-references, as a query's results do (GAP [[01M411FPC839XBJJ873V1VYYYD]]). An opened reference draws its target open or closed as the target's own
+each other forever. The same node in two places of one outline shares its
+open references; in two panes, each outline holds its own. An opened reference draws its target open or closed as the target's own
 choice is, since a choice is per node, rather than open one level by
 default (GAP [[01M7D8AP4A4W6S2X5T1DSE9D77]]).
 
@@ -4275,9 +4277,9 @@ until "Save workspace".
   of the host that a row is keyed under, and a row activated without an
   instance takes its row in the outline being worked in. The page-wide
   parts of editing (the selection keymap, undo, the node palette) are
-  owned by the one outline that leads (`useLeadsOutlines`). A query's
-  projected rows name their query, not their host
-  (GAP [[01M411FPC839XBJJ873V1VYYYD]]).
+  owned by the one outline that leads (`useLeadsOutlines`). A projected
+  row (a query's result, a reference opened in place) is keyed under its
+  host too ([Projected rows](#outline-editor-i1)).
 - **A dashboard is fixed.** The layout view in a pane draws its own panes
   with the same grid, locked. Its panes take ids under their pane's
   (`<outer>:<inner>`), and each draws its page through a slot shown for its

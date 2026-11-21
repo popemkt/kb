@@ -51,7 +51,7 @@ export function outlineFrameSubject(
   // Read when asked, so a frame that moved names its rows where it is now.
   const rowKey = (nodeId: string) =>
     isQuerySource
-      ? projectedRowKey(frameId, nodeId)
+      ? projectedRowKey(host, frameId, nodeId)
       : childInstanceKey(instanceKey ?? outlineInstanceKey(frameId, outlineNodes(), host), nodeId);
   return {
     ...frame,

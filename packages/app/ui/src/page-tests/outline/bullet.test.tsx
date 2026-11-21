@@ -28,6 +28,7 @@ import {
   bulletRingDash,
   queryIconPath,
   outlineInstanceKey,
+  MAIN_OUTLINE_HOST,
   projectedRowKey,
   WORKSPACE_ROOT_ID,
   type OutlineNode,
@@ -271,7 +272,7 @@ describe("reference-row bullet click parity", () => {
   let container: HTMLDivElement;
   let root: Root;
 
-  const refKey = projectedRowKey("n.q1", "n.root-a");
+  const refKey = projectedRowKey(MAIN_OUTLINE_HOST, "n.q1", "n.root-a");
 
   beforeAll(() => {
     dom = new Window();

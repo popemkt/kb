@@ -3,6 +3,7 @@ import type { ViewKey } from "@kb/views";
 import {
   browserHost,
   type Follow,
+  hostOfInstance,
   NodeTextHost,
   type NodeTextHostBinding,
   type NodeTextHostProps,
@@ -82,16 +83,23 @@ export function NodeContent({
   const inPlace = instanceKey !== undefined && opensInPlace(instanceKey);
   const expansion = useOutlineStore((s) => s.expansion);
   const open = useMemo(
-    () => new Set(inPlace ? openReferencesOf(expansion, textNodeId, content) : []),
-    [inPlace, expansion, textNodeId, content],
+    () =>
+      new Set(
+        inPlace
+          ? openReferencesOf(expansion, hostOfInstance(instanceKey), textNodeId, content)
+          : [],
+      ),
+    [inPlace, expansion, instanceKey, textNodeId, content],
   );
   const follow = useCallback<Follow>(
     (target, how) => {
       if (how === "in-place" && inPlace && target.kind === "node") {
-        useOutlineStore.getState().toggleReference(textNodeId, target.id);
+        useOutlineStore
+          .getState()
+          .toggleReference(textNodeId, target.id, hostOfInstance(instanceKey));
       } else onFollow(target, how);
     },
-    [inPlace, textNodeId, onFollow],
+    [inPlace, instanceKey, textNodeId, onFollow],
   );
   return (
     <NodeTextHost

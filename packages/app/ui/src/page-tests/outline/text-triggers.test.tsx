@@ -18,6 +18,7 @@ import {
   DateTargetService,
   nodeMenu,
   outlineInstanceKey,
+  MAIN_OUTLINE_HOST,
   projectedRowKey,
   syncUiPlugins,
 } from "@kb/ui-sdk";
@@ -421,7 +422,7 @@ describe("triggers in the text", () => {
     });
 
     it("stays text on a projected row whose source is also its parent", async () => {
-      await typed(">stat", LINE, LINE, projectedRowKey(ABOVE, LINE));
+      await typed(">stat", LINE, LINE, projectedRowKey(MAIN_OUTLINE_HOST, ABOVE, LINE));
       expect(listed()).toEqual([]);
       expect(textOf(LINE)).toBe(">stat");
     });

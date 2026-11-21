@@ -6,6 +6,7 @@ import {
   bulletClickIntent,
   cn,
   guideLineStyle,
+  hostOfInstance,
   NodeRow,
   nodeTarget,
   outlineInstanceKey,
@@ -323,8 +324,9 @@ function OpenReferences({
 }) {
   const expansion = useOutlineStore((s) => s.expansion);
   if (!opensInPlace(instanceKey) || showsAncestor(instanceKey, node, schema)) return null;
-  return openReferencesOf(expansion, shown.id, shown.text).map((id) => {
-    const key = openReferenceKey(shown.id, id);
+  const host = hostOfInstance(instanceKey);
+  return openReferencesOf(expansion, host, shown.id, shown.text).map((id) => {
+    const key = openReferenceKey(host, shown.id, id);
     return <NodeBlock key={key} nodeId={id} instanceKey={key} depth={depth + 1} />;
   });
 }

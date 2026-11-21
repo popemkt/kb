@@ -17,8 +17,15 @@ export function outlineHostOfPane(pane: string): string {
   return pane === MAIN_PANE ? MAIN_OUTLINE_HOST : `pane:${pane}`;
 }
 
-/** The host an instance key is keyed under: everything before its first separator. */
+/**
+ * The host an instance key is keyed under: a projected row's names it after
+ * its prefix (`projectedRowKey`), every other key before its first separator.
+ */
 export function hostOfInstance(instanceKey: string): string {
+  if (instanceKey.startsWith(PROJECTED_ROW_PREFIX)) {
+    const rest = instanceKey.slice(PROJECTED_ROW_PREFIX.length);
+    return rest.slice(0, Math.max(0, rest.indexOf(HOST_MARK)));
+  }
   const cut = instanceKey.indexOf("/");
   return cut < 0 ? instanceKey : instanceKey.slice(0, cut);
 }
@@ -79,6 +86,8 @@ const PROJECTION_PREFIX = "ref:";
 const PROJECTED_ROW_PREFIX = `${PROJECTION_PREFIX}row:`;
 const CANVAS_PREFIX = `${PROJECTION_PREFIX}canvas:`;
 const TITLE_PREFIX = `${PROJECTION_PREFIX}title:`;
+/** Between a projected row's outline host and its source (`projectedRowKey`). */
+const HOST_MARK = "@";
 
 /**
  * A page's title, edited where the page head draws it: a projected instance,
@@ -102,12 +111,12 @@ export function canvasInstanceKey(projection: string, cardId: string, nodeId: st
 /**
  * A projected row: node `nodeId` drawn under the row of `sourceId` because
  * that row computes it (DESIGN-UI.md → Projected rows), not because it is
- * a child. It names its source, not its outline host, so one source open in
- * two panes draws rows under the same keys, and the keyboard walks them in
- * the main pane's outline. GAP [[01M411FPC839XBJJ873V1VYYYD]]
+ * a child, in the outline of host `host`. It names its host as every row
+ * does, so one source open in two panes draws two rows, and the keyboard
+ * walks each in the outline it is drawn in (`hostOfInstance`).
  */
-export function projectedRowKey(sourceId: string, nodeId: string): string {
-  return `${PROJECTED_ROW_PREFIX}${sourceId}/${nodeId}`;
+export function projectedRowKey(host: string, sourceId: string, nodeId: string): string {
+  return `${PROJECTED_ROW_PREFIX}${host}${HOST_MARK}${sourceId}/${nodeId}`;
 }
 
 /**
@@ -133,16 +142,16 @@ export function isProjectedRow(instanceKey: string): boolean {
   return projectedRowOf(instanceKey) !== null;
 }
 
-/** The source and node of projected row `instanceKey` (`projectedRowKey`), or null when it is not one. */
+/** The host, source and node of projected row `instanceKey` (`projectedRowKey`), or null when it is not one. */
 export function projectedRowOf(
   instanceKey: string,
-): { readonly sourceId: string; readonly nodeId: string } | null {
+): { readonly host: string; readonly sourceId: string; readonly nodeId: string } | null {
   if (!instanceKey.startsWith(PROJECTED_ROW_PREFIX)) return null;
-  // `ref:row:<sourceId>/<nodeId>` — one separator; a descendant adds more.
-  const [sourceId, nodeId, ...below] = instanceKey.slice(PROJECTED_ROW_PREFIX.length).split("/");
-  return sourceId === undefined || nodeId === undefined || below.length > 0
-    ? null
-    : { sourceId, nodeId };
+  // `ref:row:<host>@<sourceId>/<nodeId>` — one separator; a descendant adds more.
+  const [head, nodeId, ...below] = instanceKey.slice(PROJECTED_ROW_PREFIX.length).split("/");
+  const mark = head?.indexOf(HOST_MARK) ?? -1;
+  if (head === undefined || mark < 0 || nodeId === undefined || below.length > 0) return null;
+  return { host: head.slice(0, mark), sourceId: head.slice(mark + 1), nodeId };
 }
 
 /**
@@ -152,7 +161,7 @@ export function projectedRowOf(
  */
 export function instanceAncestorIds(instanceKey: string): string[] {
   const path = instanceKey.startsWith(PROJECTED_ROW_PREFIX)
-    ? instanceKey.slice(PROJECTED_ROW_PREFIX.length)
+    ? instanceKey.slice(instanceKey.indexOf(HOST_MARK) + 1)
     : instanceKey.slice(instanceKey.indexOf("/") + 1);
   return path.split("/").slice(0, -1);
 }

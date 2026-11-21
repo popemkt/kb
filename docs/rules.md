@@ -1613,14 +1613,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Pass the field-absence condition through the shared undoable PageWrites property update. Record undo history only for the accepted write.
 - **node** — `01M7XM3JDSQN8BK0RMQCD3HZM9`
 
-### GAP: query-result rows are not keyed per pane
-
-- **expected** — query-result rows carry their outline host in their instance key, like other rows
-- **current** — ref:row: keys name their source, not their host, and the keyboard walks them in the main pane's outline
-- **impact** — the same query open in two panes shares row instances; keyboard navigation in query results goes to the main pane
-- **closes** — put the host in the query-row instance key
-- **node** — `01M411FPC839XBJJ873V1VYYYD`
-
 ### GAP: rankBetween grows ranks by a digit per tail append within one plan
 
 - **expected** — appending many siblings in one plan keeps rank length bounded (e.g. rank allocation that spreads appended ranks)
@@ -3240,6 +3232,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — An unchanged query implementation can fail the full core gate nondeterministically; this blocked the extension UI PR.
 - **closes** — Generate meaningful non-empty cases by construction alongside broad random cases, preserve the comparison contract, and reproduce the failing coverage distribution.
 - **node** — `01M6WV8JS4GPF0TRYDZY948C40`
+
+### GAP: query-result rows are not keyed per pane
+
+- **expected** — query-result rows carry their outline host in their instance key, like other rows
+- **current** — ref:row: keys name their source, not their host, and the keyboard walks them in the main pane's outline
+- **impact** — the same query open in two panes shares row instances; keyboard navigation in query results goes to the main pane
+- **closes** — put the host in the query-row instance key
+- **node** — `01M411FPC839XBJJ873V1VYYYD`
 
 ### GAP: RefEditor mixes candidate search, keyboard handling and rendering in 22 branches
 

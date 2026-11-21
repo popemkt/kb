@@ -17,6 +17,7 @@ import {
 } from "@kb/ui-sdk";
 import { openReferenceKey, referencesIn } from "./open-references";
 import { outlineNodes, useOutlineStore } from "./outline.store";
+import { outlineHostOfInstance } from "./outline-hosts";
 
 /** What a step's candidates are drawn from. */
 type StepGraph = Parameters<PaletteStep["candidates"]>[0];
@@ -25,6 +26,12 @@ type StepGraph = Parameters<PaletteStep["candidates"]>[0];
 function textNodeOf(nodes: NodeMap, rowId: string | null) {
   const row = rowId === null ? undefined : nodes.get(rowId);
   return row === undefined ? undefined : shownNode(row, browserHost().schema());
+}
+
+/** The outline the step's row is worked in: the host of the selected, else the edited, row. */
+function workingHost(): string {
+  const { selectedInstanceKey, activeInstanceKey } = useOutlineStore.getState();
+  return outlineHostOfInstance(selectedInstanceKey ?? activeInstanceKey);
 }
 
 /** The node a reference in `text` names, by its name; a gone one by the reference's label, else its id. */
@@ -44,7 +51,7 @@ function referenceRows(
   const text = textNodeOf(graph.nodes, graph.anchorId);
   if (text === undefined) return [];
   return referencesIn(text.text).map((id) => {
-    const said = note(openReferenceKey(text.id, id));
+    const said = note(openReferenceKey(workingHost(), text.id, id));
     return {
       id,
       label: referenceLabel(graph.nodes, text.text, id),
@@ -64,7 +71,9 @@ export const expandReference: PaletteStep = {
     ),
   commit: ({ targetNodeId, pickedId }) => {
     const text = textNodeOf(outlineNodes(), targetNodeId);
-    if (text !== undefined) useOutlineStore.getState().toggleReference(text.id, pickedId);
+    if (text !== undefined) {
+      useOutlineStore.getState().toggleReference(text.id, pickedId, workingHost());
+    }
     return Promise.resolve();
   },
 };

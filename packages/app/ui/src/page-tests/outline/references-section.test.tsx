@@ -7,7 +7,7 @@ import { extensionNodeId, isQueryNode, present, SYSTEM_IDS } from "@kb/model";
 import { OUTLINE_IDS } from "@kb/outline";
 import { OutlineEditor, outlineNodes } from "@kb/outline-ui";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
-import { childInstanceKey, projectedRowKey, syncUiPlugins } from "@kb/ui-sdk";
+import { childInstanceKey, MAIN_OUTLINE_HOST, projectedRowKey, syncUiPlugins } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
@@ -105,7 +105,7 @@ describe("node page references", () => {
     const child = find('[data-backlink-id] [data-node-block][data-node-id="n.criteria"]');
     expect(child?.textContent).toContain("Acceptance criteria");
     expect(child?.dataset.instanceKey).not.toBe(
-      childInstanceKey(projectedRowKey(TARGET, "n.decision"), "n.criteria"),
+      childInstanceKey(projectedRowKey(MAIN_OUTLINE_HOST, TARGET, "n.decision"), "n.criteria"),
     );
   });
 

@@ -7,6 +7,7 @@ import {
   groupChildrenForBoard,
   type NodeMap,
   providedFrameViews,
+  MAIN_OUTLINE_HOST,
   projectedRowKey,
   type SchemaIndex,
   schemaOf,
@@ -304,8 +305,12 @@ describe("W7.1 BoardCardsView + toolbar", () => {
         widthPref: "full",
       }),
     );
-    expect(html).toContain(`data-instance-key="${projectedRowKey("frame1", "c1")}"`);
-    expect(html).toContain(`data-instance-key="${projectedRowKey("frame1", "c2")}"`);
+    expect(html).toContain(
+      `data-instance-key="${projectedRowKey(MAIN_OUTLINE_HOST, "frame1", "c1")}"`,
+    );
+    expect(html).toContain(
+      `data-instance-key="${projectedRowKey(MAIN_OUTLINE_HOST, "frame1", "c2")}"`,
+    );
   });
 
   it("setFrameView board/cards persists on the frame's view node", async () => {

@@ -208,7 +208,7 @@ const SELECTION_STEPS: SelectionSteps = {
   moveDown: ({ nodeId }) => arrange((ids) => browserHost().writes.moveNodesDown(ids), nodeId),
   moveToGroup,
   // The selection's keys are the page's, pressed in no pane, so a row's
-  // outline is the one its key names. GAP [[01M411FPC839XBJJ873V1VYYYD]]
+  // outline is the one its key names (a projected row's too).
   zoom: ({ nodeId, instanceKey }) => zoomIntoRow(nodeId, outlineHostOfInstance(instanceKey)),
   zoomOut: ({ instanceKey }) => zoomOut(outlineHostOfInstance(instanceKey)),
   expandSubtree: ({ instanceKey }) => {

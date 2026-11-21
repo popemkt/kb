@@ -14,6 +14,7 @@ import { present } from "@kb/model";
 import {
   EXPANSION_STORAGE_KEY,
   outlineInstanceKey,
+  MAIN_OUTLINE_HOST,
   projectedRowKey,
   syncUiPlugins,
 } from "@kb/ui-sdk";
@@ -31,7 +32,7 @@ afterAll(() => syncUiPlugins([]));
 
 const ROW = "n.root-c";
 const TEXT = "See [[n.root-b|Search]] and [[n.root-a]]";
-const OPEN_B = projectedRowKey(ROW, "n.root-b");
+const OPEN_B = projectedRowKey(MAIN_OUTLINE_HOST, ROW, "n.root-b");
 
 describe("a reference in the text opens in place", () => {
   let dom: Window;
@@ -96,9 +97,9 @@ describe("a reference in the text opens in place", () => {
   }
 
   const drawnUnder = () =>
-    [...container.querySelectorAll(`[data-node-block][data-instance-key^="ref:row:${ROW}/"]`)].map(
-      (el) => el.getAttribute("data-node-id"),
-    );
+    [
+      ...container.querySelectorAll(`[data-node-block][data-instance-key^="ref:row:tree@${ROW}/"]`),
+    ].map((el) => el.getAttribute("data-node-id"));
 
   it("Alt-click opens the target under the row as a projected row, and again closes it", async () => {
     await draw();
@@ -124,7 +125,10 @@ describe("a reference in the text opens in place", () => {
       .getVisibleInstances()
       .map((row) => row.instanceKey);
     const at = keys.indexOf(rowKey());
-    expect(keys.slice(at + 1, at + 3)).toEqual([OPEN_B, projectedRowKey(ROW, "n.root-a")]);
+    expect(keys.slice(at + 1, at + 3)).toEqual([
+      OPEN_B,
+      projectedRowKey(MAIN_OUTLINE_HOST, ROW, "n.root-a"),
+    ]);
   });
 
   it("is the tab's alone: never stored", async () => {
@@ -142,7 +146,7 @@ describe("a reference in the text opens in place", () => {
   });
 
   it("under a projected row, Alt-click opens nothing in place", async () => {
-    const projected = projectedRowKey("n.root-a", ROW);
+    const projected = projectedRowKey(MAIN_OUTLINE_HOST, "n.root-a", ROW);
     await act(async () => {
       root.render(<NodeBlock nodeId={ROW} instanceKey={projected} depth={1} />);
     });
