@@ -149,7 +149,7 @@ export const OUTLINE_COMMANDS: readonly Command[] = [
   {
     // DESIGN-UI.md → Outline editor, "A node's description": on Mod-Shift-E too.
     id: OUTLINE_IDS.describeCommand,
-    menu: nodeMenu("lead", 40),
+    menu: nodeMenu("make", 41),
     chrome: (ctx) => ({
       label: targetDescription(ctx)?.has === true ? "Edit description" : "Add description",
       icon: <NotePencilIcon size={14} />,

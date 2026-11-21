@@ -3421,7 +3421,7 @@ The groups, in the menu's order (`NODE_MENU_GROUPS`):
 | Group | What it holds | Its rows today |
 | --- | --- | --- |
 | `lead` | how the node itself opens and shows | "Open in …" for its tag's view; "Show/Hide preview", "Show/Hide properties" |
-| `make` | what the node is and holds | Add tag, Remove tag…, Make your own tag that extends this, Turn into query, Turn into reference… (Change reference target… on a reference), Add field, Add value…, Set field…, Make supertag, Type this reference…, Remove reference… |
+| `make` | what the node is and holds | Add tag, Remove tag…, Make your own tag that extends this, Turn into query, Turn into reference… (Change reference target… on a reference), Add field, Add / Edit description, Add value…, Set field…, Make supertag, Type this reference…, Remove reference… |
 | `open` | where it opens | Search everything…, Open in panel, Open as workspace, Open with: …, Copy node ID |
 | `arrange` | where it sits | Indent, Outdent, Move to…, Move and leave reference… |
 | `mark` | what marks it | Pin / Unpin, Show / Hide debug fields |
