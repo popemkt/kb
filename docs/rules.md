@@ -1866,14 +1866,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Give table/board cells the same slot navigation order the outline uses.
 - **node** — `01M3KA3A8JZN1GH9DXK2SNZ1N1`
 
-### GAP: the # and > pickers list rows that do not match the query and ignore recency
-
-- **expected** — A trigger picker lists what matches the query, ranked by recency and use, the way the value picker does (orderCandidates, picker-recency).
-- **current** — matchCandidate matches an id substring, so every sys.tag.* id matches #ta; outlineTriggers stepTrigger feeds an alphabetical nodesOfKind list to pickerRows, so recency and use counts are never applied (F2, F3 in docs/research/2026-11-20-outliner-tana-parity.md).
-- **impact** — The first thing a Tana user touches is noisy: system tags and fields pad every list, nothing shows a type, and a declared seam (picker-recency) is unused here.
-- **closes** — Brief 2 in docs/research/2026-11-20-outliner-tana-parity.md: label-only match, orderCandidates in addTag and addField candidates, glyph and use-count note.
-- **node** — `01M7WW1MDZPJQRME00HG81PSKS`
-
 ### GAP: the 3D gizmo shows over a locked selection
 
 - **expected** — What the selection shows follows what may be done to it: a locked item shows no transform gizmo, as 2D shows it no resize handles.
@@ -3430,6 +3422,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Independent polling deadlines could expire while the owning test still had time to finish. Maintaining the loop separately in 13 test files also made cleanup inconsistent.
 - **closes** — Use the shared until helper in the Bun tests that poll for observable results, and verify that an expired wait stops before the next test.
 - **node** — `01M7B3HX9R9DNDDTJY546W1HH3`
+
+### GAP: the # and > pickers list rows that do not match the query and ignore recency
+
+- **expected** — A trigger picker lists what matches the query, ranked by recency and use, the way the value picker does (orderCandidates, picker-recency).
+- **current** — matchCandidate matches an id substring, so every sys.tag.* id matches #ta; outlineTriggers stepTrigger feeds an alphabetical nodesOfKind list to pickerRows, so recency and use counts are never applied (F2, F3 in docs/research/2026-11-20-outliner-tana-parity.md).
+- **impact** — The first thing a Tana user touches is noisy: system tags and fields pad every list, nothing shows a type, and a declared seam (picker-recency) is unused here.
+- **closes** — Brief 2 in docs/research/2026-11-20-outliner-tana-parity.md: label-only match, orderCandidates in addTag and addField candidates, glyph and use-count note.
+- **node** — `01M7WW1MDZPJQRME00HG81PSKS`
 
 ### GAP: the 3D bullet atlas has a fixed capacity
 
