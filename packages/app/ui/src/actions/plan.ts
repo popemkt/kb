@@ -150,7 +150,7 @@ export function planSplit(
 export function planDelete(
   _nodes: WireNode[],
   id: string,
-  draft?: { readonly parent: string; readonly text: string },
+  draft?: { readonly parent: string | null; readonly text: string },
 ): PlannedMutation {
   const deletion = { id: "node.delete", input: { id, descendants: "cascade" } };
   if (draft === undefined) return plan(deletion);

@@ -168,3 +168,92 @@ describe("a pasted outline's place", () => {
       .toEqual([{ tree: "- one", format: "md", place: { parent: null } }]);
   });
 });
+
+/**
+ * A paste into an empty row: the row goes only once the server took the
+ * tree, and only while it still holds nothing; the caret goes to the last
+ * row the server answered once that row reaches the page (GAP
+ * 01M7XMM97Q7Q251R5GGZGACGC9, closed).
+ */
+describe("a pasted outline's source row", () => {
+  const AT = "2026-11-11T00:00:00.000Z";
+  const wire = (id: string, text: string, children: readonly string[] = []) => ({
+    id,
+    text,
+    props: {},
+    children: [...children],
+    createdAt: AT,
+    updatedAt: AT,
+  });
+  const outline: IngestHandler = {
+    match: { gestures: ["paste"], types: ["text/plain"] },
+    priority: 0,
+    ingest: ({ text }) => ({ tree: text, format: "md" }),
+  };
+  const deleted: unknown[] = [];
+  let shown: ReturnType<typeof wire>[] = [];
+  let accept: PromiseWithResolvers<readonly string[]>;
+  const base = testBrowserHost();
+  const host = testBrowserHost({
+    wireNodes: () => shown,
+    writes: {
+      ...base.writes,
+      addTree: () => accept.promise,
+      deleteNode: (id, draft) => {
+        deleted.push({ id, draft });
+        return Promise.resolve(true);
+      },
+    },
+  });
+  /** Show `nodes` as the page's graph, and tell whoever listens. */
+  const show = (...nodes: ReturnType<typeof wire>[]) => {
+    shown = nodes;
+    host.setNodes([]);
+  };
+  const paste = () =>
+    ingestPort(
+      () => [outline],
+      () => ({ nodeId: "n.source", text: "" }),
+    ).offer({ ...pasted, text: "- one" }, refuseText);
+
+  beforeAll(() => syncUiPlugins([testHostPlugin(host)]));
+  afterAll(() => syncUiPlugins([]));
+  beforeEach(() => {
+    deleted.length = 0;
+    accept = Promise.withResolvers();
+    show(wire("n.parent", "parent", ["n.source"]), wire("n.source", ""));
+  });
+
+  it("stays when the server refuses the tree", async () => {
+    setToastSink(() => {});
+    expect(paste()).toBe(true);
+    accept.reject(new Error("refused"));
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(deleted).toEqual([]);
+  });
+
+  it("stays when the person typed into it before the server answered", async () => {
+    expect(paste()).toBe(true);
+    show(wire("n.parent", "parent", ["n.source"]), wire("n.source", "typed meanwhile"));
+    accept.resolve(["n.made"]);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(deleted).toEqual([]);
+  });
+
+  it("goes once accepted, under the commit's empty-line check", async () => {
+    expect(paste()).toBe(true);
+    accept.resolve(["n.made"]);
+    await expect
+      .poll(() => deleted)
+      .toEqual([{ id: "n.source", draft: { parent: "n.parent", text: "" } }]);
+  });
+
+  it("gives the caret to the server's last row once that row reaches the page", async () => {
+    expect(paste()).toBe(true);
+    accept.resolve(["n.server-made"]);
+    await expect.poll(() => deleted.length).toBe(1);
+    expect(host.active()).toBeNull();
+    show(wire("n.parent", "parent", ["n.server-made"]), wire("n.server-made", "one"));
+    await expect.poll(() => host.active()?.nodeId).toBe("n.server-made");
+  });
+});

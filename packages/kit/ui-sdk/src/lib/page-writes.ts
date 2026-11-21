@@ -98,7 +98,7 @@ export interface PageWrites {
    */
   readonly deleteNode: (
     id: string,
-    draft?: { readonly parent: string; readonly text: string },
+    draft?: { readonly parent: string | null; readonly text: string },
   ) => Promise<boolean>;
   /**
    * Merge the next row into this one (Delete at the end of a row).

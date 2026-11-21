@@ -1524,14 +1524,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — prune on a delete that is not undone, restore the choice on undo
 - **node** — `01M52E0177292798G5908A74GG`
 
-### GAP: outline paste deletes its source and focuses a row before server acceptance
-
-- **expected** — An outline paste keeps an empty source row until the server accepts the tree. Focus moves to the last authoritative row after it reaches the outline.
-- **current** — packages/app/ui/src/actions/mutations.ts returns the optimistic node.addTree ids to addTreeAt in the shared ingest path. addTreeAt can delete the source row and focus an id the server later replaces or refuses. The receipt can arrive before the authoritative rows reach the page.
-- **impact** — A refused paste can lose its source row. A server that mints replacement ids can leave focus on a speculative row that disappears.
-- **closes** — Use the settled node.addTree receipt to decide whether to remove a source row that is still empty. When the authoritative rows reach the outline, focus its last row. Cover refusal, changed source content, and replacement ids arriving after the receipt. See outline paste ids.
-- **node** — `01M7XMM97Q7Q251R5GGZGACGC9`
-
 ### GAP: outline zoom is one per tab, not one per pane
 
 - **expected** — each pane's outline has its own zoom root, read from the pane's location; the store's rootNodeId is derived from it, not stored beside it
@@ -3164,6 +3156,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Move MdView into the primitives zone; it takes text and options and touches no store.
 - **rule** — UI import matrix
 - **node** — `01M1RXNKKK31EGJWCA1KCV6V20`
+
+### GAP: outline paste deletes its source and focuses a row before server acceptance
+
+- **expected** — An outline paste keeps an empty source row until the server accepts the tree. Focus moves to the last authoritative row after it reaches the outline.
+- **current** — packages/app/ui/src/actions/mutations.ts returns the optimistic node.addTree ids to addTreeAt in the shared ingest path. addTreeAt can delete the source row and focus an id the server later replaces or refuses. The receipt can arrive before the authoritative rows reach the page.
+- **impact** — A refused paste can lose its source row. A server that mints replacement ids can leave focus on a speculative row that disappears.
+- **closes** — Use the settled node.addTree receipt to decide whether to remove a source row that is still empty. When the authoritative rows reach the outline, focus its last row. Cover refusal, changed source content, and replacement ids arriving after the receipt. See outline paste ids.
+- **node** — `01M7XMM97Q7Q251R5GGZGACGC9`
 
 ### GAP: outline view modes and graph renderers are local registries, not ViewPoint members
 

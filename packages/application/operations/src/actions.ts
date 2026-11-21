@@ -115,7 +115,7 @@ export const nodeDeleteDef = {
     /** Parent deletion is never implicitly shallow; cascade is the default. */
     descendants: z.enum(["cascade", "reparent"]).optional(),
     /** Consume a draft line only while it still has this text, parent and no content besides its text. */
-    requireEmptyLine: z.object({ parent: z.string(), text: z.string() }).optional(),
+    requireEmptyLine: z.object({ parent: z.string().nullable(), text: z.string() }).optional(),
     /** Bypass sys.* write-guard (browse yes / break no). */
     force: z.boolean().optional(),
   }),
@@ -497,7 +497,7 @@ export const planNodeDelete = Effect.fn("node.delete.plan")(function* (
       line.text !== expected.text ||
       line.children.length > 0 ||
       Object.keys(line.props).length > 0 ||
-      graph.parentOf(input.id) !== expected.parent
+      (graph.parentOf(input.id) ?? null) !== expected.parent
     ) {
       return yield* domainError("conflict", "The draft line changed before it could be converted", {
         id: input.id,

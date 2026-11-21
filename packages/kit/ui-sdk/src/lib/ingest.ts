@@ -206,12 +206,37 @@ function holdsNothing(id: string, text: string): boolean {
   );
 }
 
+/** The row `id`'s text as the page holds it now, or undefined when it is gone. */
+function textNow(id: string): string | undefined {
+  return browserHost()
+    .wireNodes()
+    .find((n) => n.id === id)?.text;
+}
+
+/** Resolve once the page holds `id`: the server's row has reached the page. */
+function reached(id: string): Promise<void> {
+  const page = browserHost().graph;
+  return new Promise((resolve) => {
+    const arrived = (): boolean => {
+      if (textNow(id) === undefined) return false;
+      resolve();
+      return true;
+    };
+    if (arrived()) return;
+    const stop = page.subscribe(() => {
+      if (arrived()) stop();
+    });
+  });
+}
+
 /**
  * Add `tree` after the row `site` names, in one transaction, and put the
  * caret at the end of the last node it made. A row that held nothing was
  * where the person meant the tree to go: it gives the tree its place, and
- * goes. A top-level row's tree goes to the top level, at its end, never to
- * the capture target.
+ * goes once the server has taken the tree, if it still holds nothing then;
+ * the commit checks that again (`deleteNode`'s draft). The caret goes to the
+ * last row the server answered when that row reaches the page. A top-level
+ * row's tree goes to the top level, at its end, never to the capture target.
  */
 async function addTreeAt(tree: string, format: OutlineFormatId, site: IngestSite): Promise<void> {
   const host = browserHost();
@@ -221,9 +246,14 @@ async function addTreeAt(tree: string, format: OutlineFormatId, site: IngestSite
     parent,
     ...(position === undefined ? {} : { position: empty ? position : position + 1 }),
   });
-  if (empty) await host.writes.deleteNode(site.nodeId);
+  const textThen = textNow(site.nodeId);
+  if (empty && textThen !== undefined && holdsNothing(site.nodeId, textThen)) {
+    await host.writes.deleteNode(site.nodeId, { parent, text: textThen });
+  }
   const last = ids.at(-1);
-  if (last !== undefined) host.activateNode(last);
+  if (last === undefined) return;
+  await reached(last);
+  host.activateNode(last);
 }
 
 /**

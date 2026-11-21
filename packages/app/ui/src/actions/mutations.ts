@@ -64,7 +64,7 @@ import { typeRefsOf, SYSTEM_IDS } from "@kb/model";
 import { shownNodes, useGraphStore } from "@/stores/graph.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { pageRows } from "@/stores/page"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { pageEditor } from "@/stores/page-editor"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
-import { invoke, invokeCoalesced, invokeLocal } from "@/session/runtime";
+import { invoke, invokeCoalesced, invokeLocal, invokeSettled } from "@/session/runtime";
 
 /** The page's editor's state now: where a write lands the caret. */
 const editor = () => pageEditor().getState();
@@ -539,7 +539,13 @@ export const mutations: PageWrites = {
   },
 
   async addTree(tree, format, place) {
-    const receipt = await invoke("node.addTree", { outline: tree, format, ...place });
+    // The server's answer, not the replica's: a refused tree made nothing, and
+    // an older server may answer ids of its own (`confirmsMint`).
+    const { receipt: local, settled } = await invokeSettled({
+      id: "node.addTree",
+      input: { outline: tree, format, ...place },
+    });
+    const receipt = local.status === "failed" ? local : await settled;
     if (receipt.status === "failed") throw new Error(receipt.message);
     return AddedTreeSchema.parse(receipt.output).ids;
   },
