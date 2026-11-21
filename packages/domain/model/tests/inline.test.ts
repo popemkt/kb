@@ -78,6 +78,28 @@ describe("parseInlineMd", () => {
     expect(parseInlineMd("[[sys.tag| ]]")).toEqual([{ t: "ref", id: "sys.tag", label: undefined }]);
   });
 
+  it("reads the reference token by one grammar: a label may hold [, a blank id is text", () => {
+    expect(parseInlineMd("[[n.a|draft [2]]")).toEqual([{ t: "ref", id: "n.a", label: "draft [2" }]);
+    literal("[[ ]]");
+    expect(parseInlineMd("[[[n.a]]")).toEqual([
+      { t: "text", v: "[" },
+      { t: "ref", id: "n.a", label: undefined },
+    ]);
+  });
+
+  it("binds a ref tighter than emphasis, and inline code tighter than a ref", () => {
+    expect(parseInlineMd("**see [[n.a|A]]** ok")).toEqual([
+      { t: "text", v: "**see " },
+      { t: "ref", id: "n.a", label: "A" },
+      { t: "text", v: "** ok" },
+    ]);
+    expect(parseInlineMd("*a [[n.a|x*y]]")).toEqual([
+      { t: "text", v: "*a " },
+      { t: "ref", id: "n.a", label: "x*y" },
+    ]);
+    expect(parseInlineMd("`[[n.a]]`")).toEqual([{ t: "codeSpan", v: "[[n.a]]" }]);
+  });
+
   it("parses ![alt](assets/…) into media segments by kind", () => {
     clearInlineMdCache();
     expect(parseInlineMd("pic ![cat](assets/01.png) end")).toEqual([

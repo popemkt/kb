@@ -1687,14 +1687,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — shear in the item record
 - **node** — `01M41W5655T0R7791KKJM4WYB2`
 
-### GAP: search matches a node's stored text and title, not the words it reads as
-
-- **expected** — graph.search (kb search, MCP, the page's index search) finds a node by its plain display text too, so 'with Rob' finds 'Check up with Rob', as ⌘K does.
-- **current** — node-table search matches the stored text and nodeTitleOf (domain/query/src/index/node-table.ts), markup and ids included; ⌘K matches the name and the stored text.
-- **impact** — A search for the words a person reads beside a reference misses the node; searching an id or a label still finds it.
-- **closes** — Match plainWords(nodeTitleOf(...)) beside the text in every index implementation, a property in the shared index contract.
-- **node** — `01M7HCW2CRPCQ04SSRNG2FHSNS`
-
 ### GAP: seed removal lookup follows only direct retirement aliases
 
 - **expected** — A recorded removal stays effective when its seeded node or field is renamed again.
@@ -1757,7 +1749,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **expected** — Every surface that names a node where only a string fits reads its plain display text (nameIn / nodeName, DESIGN.md → Display text), and every rich one is fed its title (rowTitle).
 - **current** — Gallery names (tiles, styles, facets, sources, workflows), settings (extension groups, design-system card, stored shortcuts, agent settings), code script labels and the code and chart view titles, the ontology page's title, scope bar and member chips, query builder labels, view settings and tag-fields pickers, the field picker's create row, option gallery cards, a row box's accessible name, a backlink's relation chip, the related list's Link as…, the canvas edge inspector, days' refusal messages, the node menu's Make default view labels and Extend tag's name, the graph perspective picker, location labels, the sync page title and the Owned by chip read node.text; Tagged instances, Nodes with this field and ontology member rows draw the stored text rich, not the title.
 - **impact** — Markup shows where a field, tag, option or system node's name holds it (rare: these are mostly schema names), and a titled node is named by its text there.
-- **closes** — Route each through nameIn or nodeName (rowTitle for the rich ones); the e2e node-display-text walks each surface it gains.
+- **closes** — Route each through nameIn or nodeName (rowTitle for the rich ones); the e2e node-display-text walks each surface it gains. A first pass (2026-11-21, branch q1h/ref-grammar-names) routed every listed surface but the gallery tiles, the workflow composer's title and the graph perspective picker, and was set aside uncommitted and untypechecked as /tmp/q1h-ref-grammar-names.wip.patch; relationFieldsFor answering {id, name} and scriptOf(id, nodeOf) were its two shape changes.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M7HCW0W60M9G3R2QCF8FZJW1`
 
@@ -2064,14 +2056,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Host-side events (reminders, a run that needs attention) cannot reach the phone; the person has to open the app or the web UI.
 - **closes** — A push channel chosen at pairing (a UnifiedPush distributor or an ntfy topic), a host action that publishes to it, and the shell posting what arrives.
 - **node** — `01M7WZ0QV3HAB6YRKS8CHE1793`
-
-### GAP: the reference token has two grammars, mention.ts and the inline parser
-
-- **expected** — One statement of the label token: the inline grammar (inline.ts) and :node/mentions extraction (mention.ts) read the same tokens.
-- **current** — mention.ts scans with MENTION_RE and inline.ts parses refs in its own branch. They differ on a token inside inline code (mention extracts it, the parser leaves it text) and on a label that holds '['.
-- **impact** — A ref written in code is a backlink the page does not draw as a pill; rare, and nothing is lost.
-- **closes** — mentionSpans derived from parseInlineSource's ref spans (or the reverse), with the mention property test and the inline tests over one grammar; a store-wide check that the mentions it derives are unchanged, or a declared change.
-- **node** — `01M7HCW3N0TSYGSXVNQS2K8H0Y`
 
 ### GAP: the routines calendar names an event by its synced title, the node's stored text, so its chips show markup
 
@@ -3325,6 +3309,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Gate on Bun's FTS5 close() segfault (oven-sh/bun#37044); adopt once a SQLite index exists.
 - **node** — `01M1M08X7037FH9Z0Y5G1RFRXX`
 
+### GAP: search matches a node's stored text and title, not the words it reads as
+
+- **expected** — graph.search (kb search, MCP, the page's index search) finds a node by its plain display text too, so 'with Rob' finds 'Check up with Rob', as ⌘K does.
+- **current** — node-table search matches the stored text and nodeTitleOf (domain/query/src/index/node-table.ts), markup and ids included; ⌘K matches the name and the stored text.
+- **impact** — A search for the words a person reads beside a reference misses the node; searching an id or a label still finds it.
+- **closes** — Match plainWords(nodeTitleOf(...)) beside the text in every index implementation, a property in the shared index contract.
+- **node** — `01M7HCW2CRPCQ04SSRNG2FHSNS`
+
 ### GAP: seven terminal .then callbacks disable promise/always-return
 
 - **expected** — promise/always-return runs with ignoreLastCallback:true, so the rule guards mid-chain callbacks (where a missing return really does break the chain) and says nothing about a terminal fire-and-forget callback.
@@ -3626,6 +3618,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Move the row layout into components/ui/ beside EnumSelect and PopoverShell, which this file already uses.
 - **rule** — UI import matrix
 - **node** — `01M1RXNMP8NQZ2WD8F2E8V6QBH`
+
+### GAP: the reference token has two grammars, mention.ts and the inline parser
+
+- **expected** — One statement of the label token: the inline grammar (inline.ts) and :node/mentions extraction (mention.ts) read the same tokens.
+- **current** — mention.ts scans with MENTION_RE and inline.ts parses refs in its own branch. They differ on a token inside inline code (mention extracts it, the parser leaves it text) and on a label that holds '['.
+- **impact** — A ref written in code is a backlink the page does not draw as a pill; rare, and nothing is lost.
+- **closes** — mentionSpans derived from parseInlineSource's ref spans (or the reverse), with the mention property test and the inline tests over one grammar; a store-wide check that the mentions it derives are unchanged, or a declared change.
+- **node** — `01M7HCW3N0TSYGSXVNQS2K8H0Y`
 
 ### GAP: the release bundle is one file, so every command parses host code
 

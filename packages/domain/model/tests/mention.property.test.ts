@@ -1,11 +1,12 @@
 /**
  * `[[id|label]]` mention extraction (fast-check): `@kb/model`'s mention.ts,
- * the one grammar of the token. Round trip — the ids embedded in a text are exactly the ids
+ * read from the inline grammar, the token's one statement. Round trip — the ids embedded in a text are exactly the ids
  * extracted, in order, including repeats — and noise that merely resembles the
  * marker (`[`, `]`, `|` in isolation) never becomes a phantom extra mention.
  */
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
+import { parseInlineMd } from "../src/inline.ts";
 import { extractMentions, mentionSpans, replaceMentions } from "../src/mention.ts";
 import { present } from "../src/present.ts";
 
@@ -14,8 +15,9 @@ import { present } from "../src/present.ts";
 const idArb = fc.stringMatching(/^[a-zA-Z0-9._-]{1,12}$/);
 
 /** Plain surrounding text with no bracket characters at all, so it cannot
- * combine with a marker or with another fragment to form a phantom mention. */
-const cleanFragmentArb = fc.string({ maxLength: 15 }).filter((s) => !/[[\]]/.test(s));
+ * combine with a marker or with another fragment to form a phantom mention,
+ * and no backtick, so it cannot open inline code around one. */
+const cleanFragmentArb = fc.string({ maxLength: 15 }).filter((s) => !/[[\]`]/.test(s));
 
 /** Noise that resembles marker syntax without ever completing `[[...]]`:
  * lone brackets/pipes, single/unbalanced brackets, empty. */
@@ -119,5 +121,34 @@ describe("extractMentions properties (fast-check)", () => {
       ),
       { numRuns: 300 },
     );
+  });
+
+  test("mentions are exactly the refs the inline grammar parses", () => {
+    const pieces = fc.constantFrom(
+      "[[a]]",
+      "[[b|B]]",
+      "`",
+      "**",
+      "*",
+      "_",
+      "[",
+      "]",
+      "|",
+      " ",
+      "x",
+      "[[ ]]",
+    );
+    fc.assert(
+      fc.property(fc.array(pieces, { maxLength: 24 }), (parts) => {
+        const text = parts.join("");
+        const refs = parseInlineMd(text).flatMap((seg) => (seg.t === "ref" ? [seg.id] : []));
+        expect(extractMentions(text)).toEqual(refs);
+      }),
+      { numRuns: 500 },
+    );
+  });
+
+  test("a token inside inline code is code, not a mention", () => {
+    expect(extractMentions("see `[[a]]` and [[b]]")).toEqual(["b"]);
   });
 });

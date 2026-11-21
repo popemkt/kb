@@ -686,7 +686,9 @@ type PropValue =
     display rule, never a write: the stored text stays the person's, and
     editing a row edits it. A row draws the title while no one edits it, a
     reference to the node is labelled by it, and search finds a node by
-    its text or its title and answers with the title (`graph.search`,
+    its stored text or by its name, the title read as plain words
+    (`nodeName`, so `with Rob` finds `Check up with [[id|Rob]]`), and
+    answers with the title (`graph.search`,
     every index implementation alike; DESIGN-UI.md → Panes and layouts →
     titles from fields). A reference names a field by id, so renaming the
     field changes no title's meaning.
@@ -967,7 +969,11 @@ set`, MCP and the UI all replace in one write), a many-valued field gains
   Two things carry a reference in this model, and `:node/mentions` is emitted
   from **both**:
   1. a wiki-link in **text** — `[[node-id|label]]` or bare `[[node-id]]`,
-     whose one grammar is `@kb/model`'s `mention.ts` (`mentionSpans`) —
+     read by the inline grammar, the token's one statement
+     (`@kb/model`'s `inline.ts`, `refTokenAt`; `mention.ts`'s
+     `mentionSpans` is its refs), so a mention is exactly a ref the page
+     draws: a token inside inline code is code, and a ref binds tighter
+     than emphasis, so `**[[id]]**` is a ref between literal marks —
      whether the text is the node's own `text` or a `{t:"str"}` value it
      holds (`nodeMentions` in `@kb/query`): a text field's value is written,
      rendered and followed exactly like node text (DESIGN-UI.md → Field
@@ -1147,9 +1153,8 @@ sys.extension.<name>` answers it.
   form and the rest as written (`markupWords`); plain text is the plain
   reading with each reference in its form. Both live in `display-text.ts`,
   so no writer names a reference itself ([Outline formats](#outline-formats--one-tree-one-codec-each)).
-  A docs template's `renderText` still reads every token as
-  `:node/mentions` does, one inside code or emphasis included, where the
-  inline grammar sees text (GAP [[01M7HCW3N0TSYGSXVNQS2K8H0Y]]).
+  A docs template's `renderText` reads every token as `:node/mentions`
+  does, which is as the page draws it.
 
 - Datom mapping: `[id :node/text v]`, `[id :node/child child]` (+order),
   `[id :f/<fieldId> v]` with ref values as entity refs → native datalog joins
@@ -2770,7 +2775,7 @@ same lane. One path to a client, whatever a node's provenance.
   literal substrings of stored text or display title, sorts by node id, then
   limits the results. Stored and virtual nodes participate.
 - **Text candidates.** The server's node index lazily builds an in-memory
-  SQLite FTS5 trigram index over the current text and titles, for either
+  SQLite FTS5 trigram index over the current text and names, for either
   store backend. It updates documents when the node or any lookup in its
   title changes. A graph replacement discards the projection and the next
   indexed search builds it again. Candidate matches go through the same

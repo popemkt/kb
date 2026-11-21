@@ -1,7 +1,12 @@
-import { nodeTitleOf, type KbNode, type NodeId } from "@kb/model";
+import { nodeName, type KbNode, type NodeId } from "@kb/model";
 import { ReadMemo } from "./read-memo.ts";
 
-/** Lowercased separately so a match cannot cross from the source into its title. */
+/**
+ * What search matches a node against: its stored text (`source`, so an id
+ * or markup still finds it) and its name, the words it reads as (`title`,
+ * `nodeName`: its title, references read as their labels). Lowercased
+ * separately so a match cannot cross from one into the other.
+ */
 export interface SearchDocument {
   readonly source: string;
   readonly title: string;
@@ -20,7 +25,7 @@ function byId(a: KbNode, b: KbNode): number {
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
-/** The literal text and display title search over a node table. */
+/** The literal text and display-name search over a node table. */
 export class TextSearch {
   readonly #nodes: () => Iterable<KbNode>;
   readonly #nodeOf: (id: NodeId) => KbNode | undefined;
@@ -41,7 +46,7 @@ export class TextSearch {
       const node = read(id);
       if (node === undefined) return undefined;
       const source = node.text.toLowerCase();
-      const title = nodeTitleOf(id, node, read).toLowerCase();
+      const title = nodeName(id, read).toLowerCase();
       return { source, title: title === source ? "" : title };
     }, nodeOf);
   }
@@ -84,10 +89,9 @@ export class TextSearch {
   }
 
   #matches(node: KbNode, needle: string, document?: SearchDocument): boolean {
-    // GAP [[01M7HCW2CRPCQ04SSRNG2FHSNS]] matched against the source, not the words it reads as
     return (
       (document?.source ?? node.text.toLowerCase()).includes(needle) ||
-      (document?.title ?? nodeTitleOf(node.id, node, this.#nodeOf).toLowerCase()).includes(needle)
+      (document?.title ?? nodeName(node.id, this.#nodeOf).toLowerCase()).includes(needle)
     );
   }
 
