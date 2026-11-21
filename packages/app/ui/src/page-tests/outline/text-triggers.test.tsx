@@ -260,7 +260,7 @@ describe("triggers in the text", () => {
       ]);
     });
 
-    it("excludes the shown node when editing through a contextual reference", async () => {
+    it("excludes the reference row and its target when editing through it", async () => {
       const graph = useGraphStore.getState();
       graph.hydrateFromWire(
         [...graph.wireNodes, ...REF_SEED_WIRES, ctxRefWire("n.ctx", ROW)],
@@ -271,6 +271,8 @@ describe("triggers in the text", () => {
       expect(options().map((option) => option.getAttribute("data-picker-id"))).toEqual([
         "n.root-b",
       ]);
+      await typed("Search jumps [[n.ctx", "n.ctx", ROW);
+      expect(options()).toHaveLength(0);
     });
 
     it("offers the nodes matching what follows, and a pick inserts a reference to one", async () => {

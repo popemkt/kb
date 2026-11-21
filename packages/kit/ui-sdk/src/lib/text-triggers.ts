@@ -30,8 +30,13 @@ export interface TextTrigger {
   readonly id: string;
   /** The trigger typed before `cursor` in `text`, if one is. */
   readonly open: (text: string, cursor: number) => OpenTrigger | null;
-  /** What it offers for `query`, read from `nodes` (and the row `nodeId` it is typed in, when known). */
-  readonly rows: (query: string, nodes: NodeMap, nodeId?: string) => PickerRow[];
+  /** What it offers for `query`, given the row and the node whose text it shows when known. */
+  readonly rows: (
+    query: string,
+    nodes: NodeMap,
+    nodeId?: string,
+    textNodeId?: string,
+  ) => PickerRow[];
   /** How a row that makes a new node by the query's name reads ("Create tag “x”"). */
   readonly createLabel?: (name: string) => string;
   /** A row picked (by Enter, Tab or a click). */
@@ -57,8 +62,8 @@ export const refTrigger: TextTrigger = {
     const open = openRefQuery(text, cursor);
     return open === null ? null : { start: open.start, end: cursor, query: open.query };
   },
-  rows: (query, nodes, nodeId) =>
-    pickerRows(nodeCandidates(nodes, { exclude: (id) => id === nodeId }), {
+  rows: (query, nodes, nodeId, textNodeId) =>
+    pickerRows(nodeCandidates(nodes, { exclude: (id) => id === nodeId || id === textNodeId }), {
       query,
       limit: ROW_LIMIT,
     }),

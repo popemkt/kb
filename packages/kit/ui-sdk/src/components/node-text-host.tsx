@@ -190,6 +190,7 @@ function useOpenTrigger({
   cursor,
   nodes,
   nodeId,
+  textNodeId,
 }: {
   own: readonly TextTrigger[];
   editing: boolean;
@@ -197,6 +198,7 @@ function useOpenTrigger({
   cursor: number;
   nodes: NodeMap;
   nodeId: string;
+  textNodeId: string;
 }) {
   const triggers = useMemo(() => [refTrigger, ...own], [own]);
   /** The query Escape dismissed the picker at, or null. */
@@ -207,8 +209,8 @@ function useOpenTrigger({
   }, [editing, triggers, content, cursor, dismissed]);
   // Rows exist only while a trigger is typed: a closed row asks for none.
   const rows = useMemo(
-    () => (typed === null ? [] : typed.trigger.rows(typed.open.query, nodes, nodeId)),
-    [typed, nodes, nodeId],
+    () => (typed === null ? [] : typed.trigger.rows(typed.open.query, nodes, nodeId, textNodeId)),
+    [typed, nodes, nodeId, textNodeId],
   );
   const triggered = typed !== null && (rows.length > 0 || typed.trigger.none !== undefined);
   return { open: triggered ? typed : null, rows, setDismissed };
@@ -286,7 +288,8 @@ export function NodeTextHost({
     content,
     cursor,
     nodes,
-    nodeId: node === undefined ? nodeId : shownNodeId(node),
+    nodeId,
+    textNodeId: node === undefined ? nodeId : shownNodeId(node),
   });
 
   useLayoutEffect(() => {
