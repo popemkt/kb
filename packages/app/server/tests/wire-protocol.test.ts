@@ -104,9 +104,11 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // protocol reloads before it sends writes.
 // `requireEmptyLine.parent` may be null, a top-level row's draft. A server of
 // protocol 13 refuses that input, so the row stays: no new protocol.
+// `node.update` takes `requireSet`, an optional precondition only this
+// build's page sends; an older page never needs it.
 const RECORDED = {
   protocol: 13,
-  fingerprint: "eead5c8cd7fd154f63466a5415727dc66d03f808ae1936ac80ee36f0cd1afb5f",
+  fingerprint: "a245881a036e4012f3d744dd4c546af0ccefd2c90edabd98407deef66147f121",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

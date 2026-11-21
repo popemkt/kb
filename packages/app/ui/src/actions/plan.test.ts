@@ -7,6 +7,7 @@ import {
   planDelete,
   planEditFrameView,
   planIndent,
+  planInitializeProp,
   planInsertSibling,
   planMergeInto,
   planMove,
@@ -161,6 +162,43 @@ const wire = (id: string, props: WireNode["props"], children: string[] = []): Wi
   children,
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
+});
+
+describe("giving a field a value", () => {
+  const AT = "2026-11-21T00:00:00.000Z";
+  const held = { t: "str", v: "held" } as const;
+  const empty = { t: "str", v: "" } as const;
+  const nodes: WireNode[] = [
+    { id: "n.bare", text: "", props: {}, children: [], createdAt: AT, updatedAt: AT },
+    {
+      id: "n.held",
+      text: "",
+      props: { "field.f": [held] },
+      children: [],
+      createdAt: AT,
+      updatedAt: AT,
+    },
+  ];
+
+  it("sets the starter value while the field holds none, and only then", () => {
+    expect(planInitializeProp(nodes, "n.bare", "field.f", empty).actions).toEqual([
+      {
+        id: "node.update",
+        input: {
+          id: "n.bare",
+          requireUnset: ["field.f"],
+          setProps: [{ field: "field.f", value: empty }],
+        },
+      },
+    ]);
+  });
+
+  // GAP 01M7XMMCPA7H2R1P065TVCQNYC, closed.
+  it("keeps the value a field holds, and has the commit check it still holds one", () => {
+    expect(planInitializeProp(nodes, "n.held", "field.f", empty).actions).toEqual([
+      { id: "node.update", input: { id: "n.held", requireSet: ["field.f"] } },
+    ]);
+  });
 });
 
 describe("editing a frame's view", () => {

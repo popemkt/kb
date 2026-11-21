@@ -330,7 +330,6 @@ const COALESCE_MS = 280;
 let lingering: Lingering | null = null;
 
 /** Send the lingering write now, in its place in the lane, ahead of whatever is pushed next. */
-// GAP [[01M7XMMFAMVHBRBHC9X8P68FJ9]] — the queued text update can overwrite a concurrent draft edit before conversion checks it.
 function release(): void {
   const entry = lingering;
   if (entry === null) return;
@@ -488,7 +487,7 @@ export async function invokeSettled(invocation: ActionRequest): Promise<Invoked>
 /**
  * {@link invokeSettled} for a write that coalesces: typed text, where each
  * keystroke is a local commit and the server needs only the last one of a
- * pause. It is committed now, and its push lingers at the lane's end until
+ * pause, judged against the text the first was typed over (`joined`). It is committed now, and its push lingers at the lane's end until
  * {@link COALESCE_MS} pass with no further write of the same `key`, or any
  * other write is pushed or lingers, which sends it first.
  */
@@ -499,7 +498,7 @@ export async function invokeCoalesced(invocation: ActionRequest, key: string): P
   const hold = requireSession().replica.hold(touched, waiting?.hold);
   if (waiting !== null && waiting.hold === hold) {
     clearTimeout(waiting.timer);
-    waiting.invocation = invocation;
+    waiting.invocation = joined(waiting.invocation, invocation);
     waiting.timer = setTimeout(release, COALESCE_MS);
     return { receipt, settled: waiting.settled };
   }
@@ -517,6 +516,17 @@ export async function invokeCoalesced(invocation: ActionRequest, key: string): P
     settled,
   };
   return { receipt, settled };
+}
+
+/**
+ * What a run of coalesced writes sends: its last write, judged against the
+ * text its first was typed over (`expectedText`). The server never saw the
+ * keystrokes between, so it holds the first one's text or another writer's.
+ */
+function joined(first: ActionRequest, last: ActionRequest): ActionRequest {
+  const base = Predicate.isObject(first.input) ? first.input["expectedText"] : undefined;
+  if (base === undefined || !Predicate.isObject(last.input)) return last;
+  return { ...last, input: { ...last.input, expectedText: base } };
 }
 
 /** Where the page's capture target put a call's node, or null when it was not asked. */

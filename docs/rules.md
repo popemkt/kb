@@ -1119,14 +1119,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — 3D workspace step 3 (items get depth), or drawn outlines on flat items
 - **node** — `01M41AB7YM5801ZJNM1Q647SYD`
 
-### GAP: Flushing queued draft typing before conversion can overwrite a concurrent edit
-
-- **expected** — A queued text write preceding a conversion preserves concurrent edits to the same draft.
-- **current** — The ordered push lane sends pending typing as an unconditional node update before it submits the guarded conversion batch.
-- **impact** — The typing write can overwrite a concurrent draft edit before the conversion precondition reads the line.
-- **closes** — Give the coalesced draft text write a concurrency precondition and keep the conversion ordered after it.
-- **node** — `01M7XMMFAMVHBRBHC9X8P68FJ9`
-
 ### GAP: four core files have consumers in only one extension family
 
 - **expected** — Every file in SINGLE_FAMILY_LAYERS serves core or more than one extension family.
@@ -1693,14 +1685,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A repo cannot add a view without editing kb itself.
 - **closes** — The same @kb/ui-sdk the canvas browser plugin needs, published as an ambient d.ts like kb-ext-sdk, plus the server route, the shims and a loader test. The browser half is built and loaded as its own module, the repository-extension form of the backend-plugin/browser-plugin split canvas takes, not a second entry of the backend module.
 - **node** — `01M39F3N04WNEVCGHX428H8TKN`
-
-### GAP: Reusing a field during line conversion can consume the draft after its value is cleared
-
-- **expected** — The conversion checks at commit time that a picked field whose initialization was skipped still has a value.
-- **current** — The Add field step reads an existing value from the browser replica and skips initialization without a presence precondition.
-- **impact** — If a concurrent writer clears the value before the batch commits, the conversion can consume the draft and leave no field value.
-- **closes** — Check the retained field value in the same transaction that consumes the draft.
-- **node** — `01M7XMMCPA7H2R1P065TVCQNYC`
 
 ### GAP: rich text copy names emphasis and code elements beside the editor's element tree
 
@@ -2942,6 +2926,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Introduce the editor registry (it already half-exists in field-value.tsx) and have FieldRow look up rather than branch.
 - **node** — `01M1MGCHQH499KS0RV9J461F73`
 
+### GAP: Flushing queued draft typing before conversion can overwrite a concurrent edit
+
+- **expected** — A queued text write preceding a conversion preserves concurrent edits to the same draft.
+- **current** — The ordered push lane sends pending typing as an unconditional node update before it submits the guarded conversion batch.
+- **impact** — The typing write can overwrite a concurrent draft edit before the conversion precondition reads the line.
+- **closes** — Give the coalesced draft text write a concurrency precondition and keep the conversion ordered after it.
+- **node** — `01M7XMMFAMVHBRBHC9X8P68FJ9`
+
 ### GAP: getViewConfig decodes view props with 45 branches
 
 - **expected** — View configuration decodes through one Schema with declared defaults, the same way every other node-backed config should.
@@ -3282,6 +3274,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The precedence between explicit and derived columns is implicit in statement order.
 - **closes** — SLAP-extract explicitColumns / derivedColumns / mergeColumns and keep the existing view-config tests green.
 - **node** — `01M1MGCJYB7PZXM68T4AVBECYG`
+
+### GAP: Reusing a field during line conversion can consume the draft after its value is cleared
+
+- **expected** — The conversion checks at commit time that a picked field whose initialization was skipped still has a value.
+- **current** — The Add field step reads an existing value from the browser replica and skips initialization without a presence precondition.
+- **impact** — If a concurrent writer clears the value before the batch commits, the conversion can consume the draft and leave no field value.
+- **closes** — Check the retained field value in the same transaction that consumes the draft.
+- **node** — `01M7XMMCPA7H2R1P065TVCQNYC`
 
 ### GAP: routine live sync status has no ephemeral outline column
 

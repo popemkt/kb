@@ -165,6 +165,12 @@ export interface PageWrites {
     oldValue?: PropValue,
   ) => Promise<void>;
   readonly removeProp: (nodeId: string, fieldId: string, value?: PropValue) => Promise<void>;
+  /**
+   * Give the node's field a value: `value` while it holds none, else the one
+   * it holds. The commit checks the field still holds a value or none as read
+   * (`node.update`'s `requireUnset` and `requireSet`), so a batch that relies
+   * on the value is refused whole when another writer moved it.
+   */
   readonly initializeProp: (nodeId: string, fieldId: string, value: PropValue) => Promise<void>;
   /**
    * Mint a node a ref field may point at, named `name`, where the field's
