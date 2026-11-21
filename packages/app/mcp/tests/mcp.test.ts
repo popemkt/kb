@@ -2,14 +2,14 @@ import { requiresApproval } from "@kb/contracts";
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { present } from "@kb/model";
 import { mkdtemp, rm } from "node:fs/promises";
-import { addDocsView } from "@kb/test-kit";
+import { addDocsView, holdDocsView } from "@kb/test-kit";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { ACTION_META_KEY, createMcpServer } from "../src/mcp.ts";
 import { Effect } from "effect";
-import { manifest, bunFileSystemLayer } from "@kb/runtime";
+import { manifest, bunFileSystemLayer, openKb } from "@kb/runtime";
 
 const run = <A, E, R>(effect: Effect.Effect<A, E, R>): Promise<A> =>
   Effect.runPromise(effect.pipe(Effect.provide(bunFileSystemLayer)) as Effect.Effect<A, E>);
@@ -279,9 +279,11 @@ describe("MCP surface", () => {
       }),
     );
     // A docs view that cannot be read leaves the others listed and readable.
-    await Effect.runPromise(
-      addDocsView(root, "bare", { output: "docs/kb/bare.md", query: "[:find ?id]", template: "" }),
-    );
+    await holdDocsView(await openKb(root), "bare", {
+      output: "docs/kb/bare.md",
+      query: "[:find ?id]",
+      template: "",
+    });
 
     const server = await run(createMcpServer(root));
     const client = new Client({ name: "kb-mcp-test", version: "0.0.0" });

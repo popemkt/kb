@@ -1,5 +1,5 @@
 export { KB_SOURCE_BIN } from "./source-cli.ts";
-export { addDocsView } from "./docs-views.ts";
+export { addDocsView, holdDocsView } from "./docs-views.ts";
 export {
   COMMITTED_SEEDS,
   DANGLING_REF_DECISION,

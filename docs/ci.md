@@ -23,7 +23,8 @@ the pre-commit hook and `packages.kb` use — are the flake's.
   on `macos-15` and `ubuntu-24.04`, so the package is proven on Darwin and on
   Linux.
 - **`verify`** — `bun run verify`, then the generated-docs check.
-- **`core`** — `bun run test` and `bun run test:dst`.
+- **`core`** — `bun run test`, the Git source contract in its own time-bounded
+  step, and `bun run test:dst`.
 - **`ui (1/2)`, `ui (2/2)`** — `bun run test:ui`, each shard half of every
   browser package's files.
 - **`render`** — `bun run test:render`, as two Playwright projects of the render

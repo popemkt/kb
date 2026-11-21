@@ -119,6 +119,8 @@ jobs:
     if: needs.scope.outputs.runtime == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      SOURCE_GIT_CONTRACT: packages/infrastructure/source-git/tests/source-contract.test.ts
     defaults:
       run:
         shell: nix develop -c bash -e {0}
@@ -130,7 +132,17 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Core suite
-        run: bun run test
+        run: |
+          # Bun's CLI ignores replace bunfig's ignores. Keep its scope and
+          # leave the Git source contract to the bounded step below.
+          flags="$(bun -e 'import config from "./bunfig.toml"; console.log(config.test.pathIgnorePatterns.map(p => "--path-ignore-patterns=" + p).join("\n"));')"
+          mapfile -t ignores <<< "$flags"
+          bun run test "${ignores[@]}" --path-ignore-patterns="**/$SOURCE_GIT_CONTRACT"
+
+      # The parallel runner has waited on this file without flushing any
+      # results from it. Bound fixture setup and teardown as well as tests.
+      - name: Git source contract
+        run: timeout --kill-after=5s 120s bun test --timeout 30000 "./$SOURCE_GIT_CONTRACT"
 
       # Wider than the committed seeds that `bun test` already runs. Cheap
       # (pure, in-memory histories) and the only thing that exercises replay

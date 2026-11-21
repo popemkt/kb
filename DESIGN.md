@@ -1499,12 +1499,14 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   `writtenViewIssue`), for the node naming it once the commit lands. A
   setting its view's read reports, or its params cannot decode, is refused
   with every issue. Only what a write adds is judged, as a value is: a write
-  that leaves a view node's props as they were passes, and an issue its
-  settings already had is not counted, so a store holding a broken view
-  (a hand edit, a merge) stays editable and its view still reports it. A
-  field the view does not read is a person's own and never an issue
-  (Data-plane freedom). A view whose family is not loaded is not judged:
-  the data outlives the code. The frame toolbar's edits pass the check by
+  that leaves a view node's props as they were passes. For an existing node,
+  the chosen key reads the settings before and after the write. This lets a
+  person select a view before filling in its settings and edit a store
+  holding a broken view (a hand edit, a merge). The view's read still reports
+  the missing or broken settings. A field the view does not read is a
+  person's own and never an issue (Data-plane freedom). The check runs
+  when the view's family is loaded, so the data can outlive the code.
+  The frame toolbar's edits pass the check by
   construction, because each writes one setting through its slot
   (`frameSettingWrite`), which reads back what it writes. A graph view's params are its renderer's:
   the lens every renderer draws through (`@kb/graph`'s `LensParams`: the

@@ -33,12 +33,23 @@ const { BROWSER_EXTENSIONS, extensionsSettled, startUiPlugins } = await import("
 
 const SERVED_AT = EXAMPLE_SERVED_AT;
 
-/**
- * How many contributions the example's page half makes: its views' keys and
- * drawings, its section, its keys, its node command, its picker step, its
- * paste handler and its backdrop.
- */
-const FOOTPRINT = 14;
+const FOOTPRINT = [
+  ["ui.value-kinds", "example.stars"],
+  ["ui.keybindings", "example.move-up"],
+  ["ui.keybindings", "example.move-up-selected"],
+  ["ui.keybindings", "example.stamp"],
+  ["ui.keybindings", "example.unrate"],
+  ["kb.views", "example.board"],
+  ["kb.views", "example.note"],
+  ["action/guard", "example.view-settings"],
+  ["ui.commands", "example.link"],
+  ["ui.palette-steps", "example.link"],
+  ["ui.views", "example.board"],
+  ["ui.views", "example.note"],
+  ["ui.sidebar", "example.section"],
+  ["outline.ingest", "example.ratings"],
+  ["ui.backdrops", "example.glow"],
+];
 
 /** Where the server says the half is: the example's, or bytes that throw as they are imported. */
 let servedAt = SERVED_AT;
@@ -101,22 +112,7 @@ describe("a repository extension's page half (acceptance)", () => {
   it("loads beside the bundled families, and its views, sidebar section, keys, command, step, paste handler and field type's kind are the page's", async () => {
     loaded = true;
     await follow();
-    expect(pageFootprint("example").map(({ kind, id }) => [kind, id])).toEqual([
-      ["ui.value-kinds", "example.stars"],
-      ["ui.keybindings", "example.move-up"],
-      ["ui.keybindings", "example.move-up-selected"],
-      ["ui.keybindings", "example.stamp"],
-      ["ui.keybindings", "example.unrate"],
-      ["kb.views", "example.board"],
-      ["kb.views", "example.note"],
-      ["ui.commands", "example.link"],
-      ["ui.palette-steps", "example.link"],
-      ["ui.views", "example.board"],
-      ["ui.views", "example.note"],
-      ["ui.sidebar", "example.section"],
-      ["outline.ingest", "example.ratings"],
-      ["ui.backdrops", "example.glow"],
-    ]);
+    expect(pageFootprint("example").map(({ kind, id }) => [kind, id])).toEqual(FOOTPRINT);
   });
 
   it("its backdrop is one a page can choose, and a page that chose it falls through once it is off", async () => {
@@ -160,14 +156,14 @@ describe("a repository extension's page half (acceptance)", () => {
     expect(pageFootprint("example")).toEqual([]);
     loaded = true;
     await follow();
-    expect(pageFootprint("example").length).toBe(FOOTPRINT);
+    expect(pageFootprint("example")).toHaveLength(FOOTPRINT.length);
   });
 
   it("is reported failed, as any plugin of its family is, when its page half cannot be imported, and recovers while on", async () => {
     loaded = true;
     servedAt = SERVED_AT;
     await follow();
-    expect(pageFootprint("example").length).toBe(FOOTPRINT);
+    expect(pageFootprint("example")).toHaveLength(FOOTPRINT.length);
 
     // Re-served from bytes that throw, the family still on: the working
     // half gives way, and its failure is the family's.
@@ -186,7 +182,7 @@ describe("a repository extension's page half (acceptance)", () => {
     servedAt = served(`${EXAMPLE_PAGE_HALF}\n// re-served`);
     await follow();
     expect(organisationOf("example", [PAGE_FAMILY_KERNEL]).failures).toEqual([]);
-    expect(pageFootprint("example").length).toBe(FOOTPRINT);
+    expect(pageFootprint("example")).toHaveLength(FOOTPRINT.length);
   });
 
   it("tries a browser entry that failed again, so one that was passing recovers without a reload", async () => {

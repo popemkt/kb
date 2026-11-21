@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Result } from "effect";
 import { SYSTEM_IDS, hostViewIds, type KbNode } from "@kb/model";
-import { paramsFromProps } from "@kb/views";
+import { LayoutView, paramsFromProps } from "@kb/views";
 import type { KbContext } from "@kb/contracts";
 import { openKb } from "../src/session.ts";
 import { invoke } from "../src/invoke.ts";
@@ -155,7 +155,7 @@ const span = (v: string) => ({ field: SYSTEM_IDS.viewSpanField, value: { t: "str
 describe("a view node written by any action", () => {
   const BOARD_VIEW = {
     field: SYSTEM_IDS.viewField,
-    value: { t: "ref", v: CollectionBoardView.option },
+    value: { t: "ref" as const, v: CollectionBoardView.option },
   };
 
   test("node.add refuses a view node whose setting its view cannot read, and writes nothing", async () => {
@@ -179,6 +179,26 @@ describe("a view node written by any action", () => {
     });
     expect(refused).toMatchObject({ status: "failed" });
     expect(node("v.board").props[SYSTEM_IDS.viewSpanField]).toBeUndefined();
+  });
+
+  test("changing a view type still refuses an unreadable setting supplied in that write", async () => {
+    await mustInvoke("node.add", { id: "v.board", text: "", props: [BOARD_VIEW] });
+    const refused = await invoke(ctx, {
+      id: "node.update",
+      input: {
+        id: "v.board",
+        unsetProps: [{ field: SYSTEM_IDS.viewField }],
+        setProps: [
+          { field: SYSTEM_IDS.viewField, value: { t: "ref", v: LayoutView.option } },
+          { field: SYSTEM_IDS.layoutField, value: { t: "str", v: "not JSON" } },
+        ],
+      },
+    });
+    expect(refused).toMatchObject({
+      status: "failed",
+      message: expect.stringContaining("is not JSON"),
+    });
+    expect(node("v.board").props[SYSTEM_IDS.viewField]).toEqual([BOARD_VIEW.value]);
   });
 
   test("a view node that already holds one stays editable: only what a write adds is judged", async () => {

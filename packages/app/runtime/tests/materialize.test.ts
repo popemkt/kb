@@ -1,6 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { Effect } from "effect";
 import { DOCS_VIEW_OPTION, SYSTEM_IDS, present, type KbNode } from "@kb/model";
+import { holdDocsView } from "@kb/test-kit";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -92,29 +92,6 @@ async function addDocsView(
     }),
   ];
   await mustInvoke(ctx, "node.add", { id: `docs.${name}`, text: name, props });
-}
-
-/**
- * A docs view node its view cannot read, as a hand edit or a merge leaves
- * one: written past the actions, whose commit refuses it (DESIGN.md → View
- * nodes), then the store opened again.
- */
-async function heldDocsView(
-  ctx: KbContext,
-  name: string,
-  params: { output: string; query: string; template?: string },
-): Promise<KbContext> {
-  const props: KbNode["props"] = {
-    [SYSTEM_IDS.viewField]: [{ t: "ref", v: DOCS_VIEW_OPTION }],
-    [SYSTEM_IDS.viewOutputField]: [{ t: "str", v: params.output }],
-    [SYSTEM_IDS.lensQueryField]: [{ t: "str", v: params.query }],
-    ...(params.template === undefined
-      ? {}
-      : { [SYSTEM_IDS.viewTemplateField]: [{ t: "str", v: params.template }] }),
-  };
-  const view: KbNode = { ...mkNode(`docs.${name}`, name), props };
-  await Effect.runPromise(ctx.store.commitEffect({ upserts: [view], deletes: [] }, { at }));
-  return openKb(ctx.root);
 }
 
 describe("templates", () => {
@@ -301,7 +278,12 @@ describe("docs.materialize + docs.check", () => {
   test("a docs view that cannot be read is a warning; the others are still checked", async () => {
     let ctx = await seedTodos(root);
     await mustInvoke(ctx, "docs.materialize", {});
-    ctx = await heldDocsView(ctx, "bare", { output: "docs/kb/bare.md", query: TODOS_QUERY });
+    await holdDocsView(ctx, "bare", {
+      output: "docs/kb/bare.md",
+      query: TODOS_QUERY,
+      template: "",
+    });
+    ctx = await openKb(root);
     const check = (await mustInvoke(ctx, "docs.check", {})) as {
       clean: boolean;
       views: { view: string; output: string; status: string }[];
@@ -331,7 +313,12 @@ describe("docs.materialize + docs.check", () => {
   test("invalid docs views fail with typed receipts naming what is wrong", async () => {
     let ctx = await seedTodos(root);
 
-    ctx = await heldDocsView(ctx, "bare", { output: "docs/kb/bare.md", query: TODOS_QUERY });
+    await holdDocsView(ctx, "bare", {
+      output: "docs/kb/bare.md",
+      query: TODOS_QUERY,
+      template: "",
+    });
+    ctx = await openKb(root);
     const bare = await invoke(ctx, { id: "docs.check", input: { view: "bare" } });
     expect(bare.status).toBe("failed");
     if (bare.status === "failed") {
@@ -339,11 +326,12 @@ describe("docs.materialize + docs.check", () => {
       expect(bare.message).toContain("template");
     }
 
-    ctx = await heldDocsView(ctx, "escape", {
+    await holdDocsView(ctx, "escape", {
       output: "../outside.md",
       query: TODOS_QUERY,
       template: "todos",
     });
+    ctx = await openKb(root);
     const escape = await invoke(ctx, {
       id: "docs.check",
       input: { view: "escape" },
@@ -351,11 +339,12 @@ describe("docs.materialize + docs.check", () => {
     expect(escape.status).toBe("failed");
     if (escape.status === "failed") expect(escape.code).toBe("invalid_input");
 
-    ctx = await heldDocsView(ctx, "untpl", {
+    await holdDocsView(ctx, "untpl", {
       output: "docs/kb/untpl.md",
       query: TODOS_QUERY,
       template: "nope",
     });
+    ctx = await openKb(root);
     const untpl = await invoke(ctx, {
       id: "docs.check",
       input: { view: "untpl" },

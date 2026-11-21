@@ -126,10 +126,10 @@ function* committed(stored: Iterable<KbNode>, writes: readonly NodeWrite[]): Ite
  * (`viewHostsOf`), as a proposal is read for its host.
  *
  * Only what a write adds is judged, as a value is (`tx.ts`): a node whose
- * props the write leaves as they were is passed over, and an issue its
- * settings already had is not counted, so a store that holds an unreadable
- * setting stays editable and the view's read reports it as before. A field
- * the view does not read is a person's own, never an issue.
+ * props the write leaves as they were is passed over. Both versions of an
+ * existing node are read by the chosen key, so choosing a view can precede
+ * filling in its settings and a store holding an unreadable setting stays
+ * editable. A field the view does not read is a person's own, never an issue.
  */
 export function writtenViewIssue(
   keyOf: (option: NodeId) => ViewKey<unknown> | undefined,
@@ -146,10 +146,9 @@ export function writtenViewIssue(
   const hostOf = viewHostsOf(committed(stored(), writes));
   for (const { before, after, key } of judged) {
     const host = hostOf(after.id) ?? null;
-    const held =
-      before !== undefined && viewOptionOf(before) === key.option
-        ? new Set(storedIssues(key, before.props, host).map(issueText))
-        : new Set<string>();
+    const held = new Set(
+      before === undefined ? [] : storedIssues(key, before.props, host).map(issueText),
+    );
     const issues = storedIssues(key, after.props, host).filter(
       (issue) => !held.has(issueText(issue)),
     );
