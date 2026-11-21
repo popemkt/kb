@@ -5,13 +5,15 @@
  * can be exercised without a store or a live component, and so the config
  * component's module exports components only.
  */
-import { typeRefsOf, SYSTEM_IDS } from "@kb/model";
+import { descriptionOf, typeRefsOf, SYSTEM_IDS } from "@kb/model";
 import type { SchemaIndex } from "@kb/ui-sdk";
 import { rowName } from "@kb/ui-sdk";
 
 export interface TagFieldRef {
   id: string;
   name: string;
+  /** The field's description (`descriptionOf`), its hint where it is picked. */
+  hint?: string | null;
 }
 
 export function resolveTagFields(
@@ -26,7 +28,7 @@ export function resolveTagFields(
   const all: TagFieldRef[] = [];
   for (const [id, node] of schema) {
     if (typeRefsOf(node).includes(SYSTEM_IDS.field)) {
-      all.push({ id, name: rowName(node, schema) });
+      all.push({ id, name: rowName(node, schema), hint: descriptionOf(node) });
     }
   }
   all.sort((a, b) => a.name.localeCompare(b.name));
