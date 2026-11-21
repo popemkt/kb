@@ -3,22 +3,20 @@
  * "A tab outlives its build"). A page of the previous build keeps working
  * against this server as long as `WIRE_PROTOCOL` is the same, so whatever
  * such a page sends or reads is fingerprinted here: the socket's messages,
- * the action envelope and its answer, the snapshot, and every action the
- * server offers, which a page may call or run on its own replica, by id,
+ * the sandbox frame's messages, the action envelope and its answer, the
+ * snapshot, and every action the server offers by id,
  * mode, input and output, as the server's own manifest lists them.
  *
- * When this test fails, the wire changed. Decide which it is:
- * - a page of the previous build still works with it (a new optional field,
- *   a new message it ignores): record the new fingerprint below;
- * - it does not: bump `WIRE_PROTOCOL` in `@kb/contracts` and record both.
- *   Every open tab then reloads into the new build when it is idle.
+ * When this test fails, follow the compatibility rule in DESIGN-UI.md →
+ * Delivery to decide whether to record a new fingerprint or bump
+ * `WIRE_PROTOCOL` in `@kb/contracts` too.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import {
   ActionRequestSchema,
   ActionResponseSchema,
@@ -28,6 +26,7 @@ import {
   WIRE_PROTOCOL,
 } from "@kb/contracts";
 import { schemaToJsonSchema } from "@kb/model";
+import { FrameMessage, PageMessage } from "@kb/sandbox";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
 // Protocol 4: an extension row carries its origin (kb's build and the host
@@ -93,9 +92,12 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // WebMCP actions. A previous page instead sends them as the person's calls.
 // Protocol 13: the page makes an accepted sidebar approval as a person
 // gesture. The server ignores approval claims in external envelopes.
+// The page sends the ids its optimistic outline paste minted (`node.addTree`
+// `ids`); a server of an earlier protocol could discard those ids and mint its
+// own. The fingerprint also covers the existing sandbox protocol.
 const RECORDED = {
   protocol: 13,
-  fingerprint: "1950f9389f64ad76bbb03689652642a76ee0695a7e691b762d783ce6ca7b1b57",
+  fingerprint: "aee621ac83b03d25fd09cfc3b3f0d0f511cbfefb250ebeee386d9c614d475302",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */
@@ -136,7 +138,6 @@ async function offered(url: string): Promise<unknown[]> {
 }
 
 /** Every shape as a parser reads it: the side a page and a server each accept. */
-// GAP [[01M6GY0MXXXY2YQ8C3P77M2QNF]] the sandbox frame's messages are not fingerprinted, and its script is not digest-named
 function wireFingerprint(actions: unknown[]): string {
   const wire = {
     client: schemaToJsonSchema(ClientMessageSchema, "input"),
@@ -144,6 +145,8 @@ function wireFingerprint(actions: unknown[]): string {
     request: schemaToJsonSchema(ActionRequestSchema, "input"),
     response: schemaToJsonSchema(ActionResponseSchema, "input"),
     snapshot: schemaToJsonSchema(GraphSnapshotSchema, "input"),
+    frameToPage: Schema.toJsonSchemaDocument(FrameMessage),
+    pageToFrame: Schema.toJsonSchemaDocument(PageMessage),
     actions,
   };
   return createHash("sha256").update(canonical(wire)).digest("hex");

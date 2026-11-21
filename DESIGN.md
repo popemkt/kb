@@ -1469,8 +1469,10 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   reported. A setting the view takes from its host or its route, which a
   view node therefore cannot hold, is refused by its path. On success the
   node is filed at the end of the Views list and named in the host's
-  `sys.f.views` (first when `default`); otherwise nothing is written and the
-  receipt carries every issue as `{path, message}`. Any other entry that
+  `sys.f.views` (first when `default`). If the store changes before commit,
+  the action replans on the current graph and refuses a claimed view ID.
+  On failure nothing is written and the receipt carries every issue as
+  `{path, message}`. Any other entry that
   makes a view node from settings is to call the same function. The write
   check does not yet: a view node written through `node.add` or
   `node.update` is not checked against its view's settings
@@ -5414,7 +5416,7 @@ the same handler.
 
 ### Outline paste — `node.addTree`
 
-`node.addTree` takes `{outline, format?, parent?, position?, force?}` and
+`node.addTree` takes `{outline, format?, parent?, position?, ids?, force?}` and
 creates every item of the outline as one transaction. The text is read by
 the reader of `format` (`tana`, Tana Paste, when omitted), and every format
 that reads makes the same tree
@@ -5438,8 +5440,9 @@ step. A failure that belongs to a line writes nothing, and its message
 starts `outline line N:` (`details.line`). Only the commit's own checks, the
 integrity check and approval, answer for the outline as a whole.
 
-The output is `ids` (every created node in tree order: an item, then its
-children) and `lines` (each item's 1-based source line → its id). Top-level
+The optional `ids` supplies one id per item in tree order (an item, then its
+children). If omitted, the action mints them. The output gives these `ids`
+and `lines` (each item's 1-based source line → its id). Top-level
 items go under `parent` (the forest roots when omitted) at `position`,
 `position + 1`, …, or at the end, where one `node.add` would put the first.
 The action declares itself a batch of `node.add` (`batchOf`), so approval

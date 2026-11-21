@@ -37,6 +37,7 @@ import {
   type ActionRequest,
   type ActionMode,
   type ActionReceipt,
+  type EffectStore,
   type HostedFamilies,
   type SurfaceWire,
   type UiListener,
@@ -306,6 +307,7 @@ interface SurfaceCase {
   readonly name: string;
   readonly surface: ActionSurface;
   readonly root: string;
+  readonly store: EffectStore;
   /** The root's `kb ui`. */
   readonly ui: LiveUi;
   /**
@@ -367,7 +369,7 @@ function overSurfaces(
                 );
               const via = (invocation: ActionRequest) =>
                 Effect.promise(() => surface.invoke(invocation));
-              yield* check({ name, surface, root, ui, core, via });
+              yield* check({ name, surface, root, store: ctx.store, ui, core, via });
             }),
           ),
         { discard: true },
@@ -652,6 +654,52 @@ const PROPERTIES: ReadonlyArray<
           ];
           for (const write of mine) yield* expectOutcome(write, "ran");
           for (const write of its) yield* expectOutcome(write, "forbidden");
+        }),
+      ),
+  ],
+  [
+    "an outline paste keeps the supplied ids in tree order on every surface",
+    (set) =>
+      overSurfaces(set, ({ name, store, via }) =>
+        Effect.gen(function* () {
+          const [parent, child, sibling] = ["parent", "child", "sibling"].map(
+            (part) => `n.paste-${name}-${part}`,
+          );
+          const outline = "- First\n  - Nested\n- Last";
+          const paste = { id: "node.addTree", input: { outline, parent: null } };
+          expect(yield* via({ ...paste, input: { ...paste.input, ids: [parent] } })).toMatchObject({
+            status: "failed",
+            code: "invalid_input",
+          });
+          expect(
+            yield* via({ ...paste, input: { ...paste.input, ids: [parent, parent, sibling] } }),
+          ).toMatchObject({ status: "failed", code: "ambiguous" });
+
+          const ids = [parent, child, sibling];
+          expect(yield* via({ ...paste, input: { ...paste.input, ids } })).toMatchObject({
+            status: "succeeded",
+            output: { ids, lines: { 1: parent, 2: child, 3: sibling } },
+          });
+          expect(yield* via({ id: "node.get", input: { id: parent, depth: 1 } })).toMatchObject({
+            status: "succeeded",
+            output: { node: { id: parent, children: [{ id: child, text: "Nested" }] } },
+          });
+
+          const before = yield* store.fingerprint;
+          expect(before).not.toBeNull();
+          const collision = [
+            `n.paste-${name}-fresh-parent`,
+            child,
+            `n.paste-${name}-fresh-sibling`,
+          ];
+          expect(yield* via({ ...paste, input: { ...paste.input, ids: collision } })).toMatchObject(
+            {
+              status: "failed",
+              code: "ambiguous",
+              details: { id: child, line: 2 },
+            },
+          );
+          expect(yield* store.fingerprint).toBe(before);
         }),
       ),
   ],

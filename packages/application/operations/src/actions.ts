@@ -51,6 +51,7 @@ export const nodeAddDef = {
     "Create a node with optional props, parent, position (index in its sibling group; the end when omitted), and tags. An omitted parent puts it where captures go, the capture target (today's node while days is on and its captures setting says today); pass parent: null for the top level. matching names a query node: the node also gets the tags and values its conditions require and goes under the parent a child-of names, and unmet says how many conditions could not be written for it.",
   mode: { kind: "write" } as const,
   targets: ["parent"],
+  mints: "id",
   inputSchema: z.object({
     text: z.string(),
     props: z.array(PropInputSchema).optional(),
@@ -168,6 +169,7 @@ export const fieldDefineDef = {
   title: "Define field",
   description: "Mint a field node (typed sys.field)",
   mode: { kind: "write" } as const,
+  mints: "id",
   inputSchema: z.object({
     name: z.string(),
     id: z.string().optional(),
@@ -181,6 +183,7 @@ export const tagDefineDef = {
   description:
     "Mint a tag node (typed sys.tag) with optional templated fields, and the tags it extends",
   mode: { kind: "write" } as const,
+  mints: "id",
   inputSchema: z.object({
     name: z.string(),
     id: z.string().optional(),

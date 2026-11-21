@@ -48,6 +48,7 @@ export const nodeAddTreeDef = {
     "nothing; returns the created ids in tree order and each item's line.",
   mode: { kind: "write" } as const,
   targets: ["parent"],
+  mints: "ids",
   // Every call is a batch of node.adds: a guard on node.add governs it too,
   // by node.add's own mode.
   batchOf: [nodeAddDef.id],
@@ -63,6 +64,10 @@ export const nodeAddTreeDef = {
         "the node its top-level items go under; null for the top level; omitted, the capture target (today's node while days is on)",
       ),
     position: z.number().int().nonnegative().optional(),
+    ids: z
+      .array(z.string())
+      .optional()
+      .describe("one id per item in tree order, minted if omitted"),
     /** Bypass sys.* write-guard (browse yes / break no), as node.add's. */
     force: z.boolean().optional(),
   }),
@@ -322,10 +327,16 @@ export const planNodeAddTreeEffect = Effect.fn("node.addTree.plan")(function* (
   }
   const at = yield* currentIso;
   const flat = flatten(parsed.items, input.position);
-  const ids: NodeId[] = [];
-  for (let i = 0; i < flat.length; i++) ids.push(yield* freshId);
+  const ids: NodeId[] = input.ids ?? [];
+  if (input.ids !== undefined && ids.length !== flat.length) {
+    return yield* domainError(
+      "invalid_input",
+      `expected ${flat.length} outline ids, got ${ids.length}`,
+    );
+  }
+  while (ids.length < flat.length) ids.push(yield* freshId);
   const idAt = (index: number): NodeId =>
-    present(ids[index], "node.addTree mints one id per flattened item");
+    present(ids[index], "node.addTree has one id per flattened item");
   const planned: PlannedItem[] = flat.map(({ item, parentIndex, position }, index) => ({
     item,
     id: idAt(index),

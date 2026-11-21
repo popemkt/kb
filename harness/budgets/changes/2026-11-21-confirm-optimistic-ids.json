@@ -1,0 +1,6 @@
+{
+  "reason": "The page compares minted ids against the server receipt and reconciles when they differ.",
+  "raise": {
+    "page-eager": { "bytes": 182 }
+  }
+}

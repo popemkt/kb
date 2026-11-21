@@ -68,8 +68,9 @@ implementation modules under `packages/app/server/src/` split by concern:
   to replicate. Port-only actions remain server-owned.
   Cold-boot `loadGraph` may fall back to fixtures; `hydrateFromWire` is
   boot-only — live resync uses `refreshFromWire` so `loadSource` stays `api`.
-  No temp-id dance (nxus's pain): client mints final ULIDs, server accepts
-  explicit ids (already supported by `node.add`).
+  When an action declares `mints`, the page takes the final id or ids from
+  that key in the local receipt and sends them in the same input key. The
+  server therefore commits the identities the page already shows.
 - **Change flow**: server fs-watches `.kb/` (catches CLI/MCP/agent writes
   too) → reloads nodes → rebuilds a DataScript database → broadcasts node-level
   deltas on WS → the client applies deltas → open queries re-run.
@@ -170,11 +171,14 @@ server refuses is said once, as a change that was not saved, and its hold is
 dropped. The server writes every call it refuses to its log, by action,
 code, tab session and node ids, never the refusal's message, which may quote
 what was written or what the graph holds (`server/src/invoke.ts`).
+A successful receipt that names different minted IDs also drops the hold
+and asks the server for missed changes. The settled receipt names the IDs
+the server committed.
 
 **What the table guarantees.**
 
 - Only the server escalates to a snapshot. The browser fetches `/api/graph`
-  only after the server answered `snapshot-required`. A failed push asks
+  only after the server answered `snapshot-required`. Dropping a hold asks
   `since` and nothing more.
 - `awaiting-snapshot` is left only by installing a snapshot. A hello at the
   replica's rev does not clear it, and a failed fetch is retried until one
@@ -306,20 +310,21 @@ be kept, never how it is sent.
     its digest, so one the current build lacks is served from whichever kept
     build has it, and never from outside that build's own files; one no kept
     build has is `404`, never the page (`server/src/build-archive.ts`). Nothing about this is in the package:
-    whatever installs kb, the server keeps its own builds. The sandbox
-    frame's script is not digest-named, so a tab gets the current one
-    (GAP [[01M6GY0MXXXY2YQ8C3P77M2QNF]]).
+    whatever installs kb, the server keeps its own builds. Tabs get the
+    current sandbox frame script, which is covered by the wire protocol.
   - _A build is not a protocol._ A build changes with every release; the
     wire a page and a server must agree on changes rarely. Every
     connection's `hello` names the server's `WIRE_PROTOCOL` (`@kb/contracts`
     → `protocol.ts`), and a tab of the same protocol keeps working whatever
     build the server serves. The wire's fingerprint — the socket's messages,
-    the action envelope and answer, the snapshot, and the input and output
-    of every action the server offers, as its manifest lists them — is
+    the sandbox page and frame messages, the action envelope and answer, the
+    snapshot, and the input and output of every action the server offers, as
+    its manifest lists them — is
     recorded beside the version
     (`server/tests/wire-protocol.test.ts`), so changing any of it fails until
-    someone decides: still compatible (record the fingerprint), or not (bump
-    the protocol).
+    someone checks compatibility in both directions. Record the fingerprint
+    when both builds can still work together. Bump the protocol when either
+    side would read a message differently.
   - _A reload waits, keeps the page, and says so._ A tab reloads when the
     server speaks another protocol, or as a fallback when a chunk it asks
     for is gone even so (Vite's `vite:preloadError`, or a view's error

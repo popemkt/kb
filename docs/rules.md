@@ -556,14 +556,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Tools as nodes, and a how-to as a child node (or a field value) that refers to its tool; the starter writes it so and the art direction groups by it
 - **node** — `01M68CQN0E7CMMEATHT0RDYV10`
 
-### GAP: a tab of an earlier build is served the current sandbox frame script
-
-- **expected** — The sandbox frame's script is kept per build like the page's chunks (digest-named, served from the build archive), or its page↔frame messages are part of the wire fingerprint, so a tab of an earlier build talks to a frame of its own protocol.
-- **current** — dist/sandbox/frame.js keeps one name and is served no-cache; a tab of an earlier build loads the current frame, and FrameMessage/PageMessage are not fingerprinted in server/tests/wire-protocol.test.ts.
-- **impact** — A release that changes the frame protocol breaks code nodes in tabs opened before it, with no reload to fix them.
-- **closes** — Digest-name the frame script (Vite entry with a hash, the page reading its name from the build) or add the sandbox protocol's schemas to the wire fingerprint.
-- **node** — `01M6GY0MXXXY2YQ8C3P77M2QNF`
-
 ### GAP: a tag's template fields cannot be reordered
 
 - **expected** — The fields a tag templates are an ordered list a person reorders where they add and remove them.
@@ -1370,13 +1362,13 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Give the two decoders' reports a home in the ui the way ontology warnings have one — a store field plus a badge — and have the config surfaces read it instead of the log seam. Component + store work: out of g8's zone (docs/kb/waves/2026-09-09/briefs/g8-domain-typing.md).
 - **node** — `01M1XF1NA2RBAX1E6NNX6PMZ6N`
 
-### GAP: node.addTree mints its ids twice when the page runs it optimistically
+### GAP: node.batch mints missing add ids twice when run optimistically
 
-- **expected** — An optimistic write names the same nodes on the page and on the server: the ids the local commit mints are the ids the server commits, as node.add does by taking the minted id as input
-- **current** — node.addTree takes no ids, so the page's local commit (invokeSettled, writeLocal) mints one set and the server's commit another; the page shows the local ids until the push settles, then the replica converges on the server's and the local ones vanish
-- **impact** — Anything a page reads from a pasted tree before the push settles names nodes that will not exist: a selection made at once is lost, and a write that refers to a returned id (a setting naming the new Library) is refused or dangles. The gallery runs its starter on the server (ext.gallery.starter) to avoid it
-- **closes** — node.addTree takes the ids to mint (one per flattened item), filled from the local commit and pushed with the invocation, as node.add's id is
-- **node** — `01M5ZBC8DQWB1DY5Z9AAABGPYR`
+- **expected** — A node.batch add creates the same node on the page and on the server, including when the caller omits id.
+- **current** — The isomorphic node.batch planner mints an id for each node.add with no id. The page pushes the original nested calls, so the server mints other ids.
+- **impact** — A caller holding an id from the local batch receipt can lose its selection or refer to a node the server never stored.
+- **closes** — Project the ids in the local batch receipt into the corresponding node.add inputs before pushing, using the same action declaration as outline paste. Prove mixed batches keep their call order and explicit ids.
+- **node** — `01M7X43QWW4ZHWA2WFWJ6WP5ZY`
 
 ### GAP: nodes have no icon, so refs cannot show one
 
@@ -1458,6 +1450,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — storage grows with every distinct row the reader ever toggled and is re-serialised on each save
 - **closes** — prune on a delete that is not undone, restore the choice on undo
 - **node** — `01M52E0177292798G5908A74GG`
+
+### GAP: outline paste deletes its source and focuses a row before server acceptance
+
+- **expected** — An outline paste keeps an empty source row until the server accepts the tree. Focus moves to the last authoritative row after it reaches the outline.
+- **current** — packages/app/ui/src/actions/mutations.ts returns the optimistic node.addTree ids to addTreeAt in the shared ingest path. addTreeAt can delete the source row and focus an id the server later replaces or refuses. The receipt can arrive before the authoritative rows reach the page.
+- **impact** — A refused paste can lose its source row. A server that mints replacement ids can leave focus on a speculative row that disappears.
+- **closes** — Use the settled node.addTree receipt to decide whether to remove a source row that is still empty. When the authoritative rows reach the outline, focus its last row. Cover refusal, changed source content, and replacement ids arriving after the receipt. See outline paste ids.
+- **node** — `01M7XMM97Q7Q251R5GGZGACGC9`
 
 ### GAP: outline zoom is one per tab, not one per pane
 
@@ -2555,6 +2555,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYK42Y4G74JD62AD00BZS`
 
+### GAP: a tab of an earlier build is served the current sandbox frame script
+
+- **expected** — The sandbox frame's script is kept per build like the page's chunks (digest-named, served from the build archive), or its page↔frame messages are part of the wire fingerprint, so a tab of an earlier build talks to a frame of its own protocol.
+- **current** — Tabs load the current sandbox frame script. The wire fingerprint covers FrameMessage and PageMessage, so an incompatible change requires a protocol bump and reload.
+- **impact** — A release that changes the frame protocol breaks code nodes in tabs opened before it, with no reload to fix them.
+- **closes** — Digest-name the frame script (Vite entry with a hash, the page reading its name from the build) or add the sandbox protocol's schemas to the wire fingerprint.
+- **node** — `01M6GY0MXXXY2YQ8C3P77M2QNF`
+
 ### GAP: a theme's motion personality is CSS tokens, not options kb can read or set
 
 - **expected** — motion (mode, intensity, style, speed, each effect on or off) is a set of core options, each defaulting to the shown theme's value, settable through kb's actions, with Preferences showing each effective value and where it comes from
@@ -3002,6 +3010,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a new cross-family edge that is not an import (an action id, a copied id, a shared host) can make one family break when another is off, and CI stays green
 - **closes** — P1 of docs/research/2026-10-29-plugin-codependency.md
 - **node** — `01M63C0H8G86X7ZBJ48QYYNSAV`
+
+### GAP: node.addTree mints its ids twice when the page runs it optimistically
+
+- **expected** — An optimistic write names the same nodes on the page and on the server: the ids the local commit mints are the ids the server commits, as node.add does by taking the minted id as input
+- **current** — The page pushes the tree-order ids from its local node.addTree receipt. The server creates the same nodes, and the gallery starter uses its server action to file bundled pictures.
+- **impact** — Anything a page reads from a pasted tree before the push settles names nodes that will not exist: a selection made at once is lost, and a write that refers to a returned id (a setting naming the new Library) is refused or dangles. The gallery runs its starter on the server (ext.gallery.starter) to avoid it
+- **closes** — node.addTree takes the ids to mint (one per flattened item), filled from the local commit and pushed with the invocation, as node.add's id is
+- **node** — `01M5ZBC8DQWB1DY5Z9AAABGPYR`
 
 ### GAP: NodeBlock decides row chrome with 28 branches
 

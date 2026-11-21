@@ -1,4 +1,4 @@
-import { Effect, Layer, Predicate } from "effect";
+import { Effect, Equal, Layer, Predicate } from "effect";
 import {
   type ActionRequest,
   type ActionReceipt,
@@ -271,7 +271,7 @@ function requireSession(): BrowserSession {
  * The one ordered network lane for this tab's writes (DESIGN-UI.md → Replica
  * sync → Push lane). The server is handed the writes in the order the tab
  * committed them, so it judges each against the graph the person saw when
- * they made it. A push that carries a hold settles it with its receipt.
+ * they made it. A receipt that confirms the write settles its hold.
  */
 function send(invocation: ActionRequest, hold?: Hold): Promise<ActionResponse> {
   const result = pushTail.catch(() => undefined).then(() => postAction(invocation));
@@ -283,7 +283,8 @@ function send(invocation: ActionRequest, hold?: Hold): Promise<ActionResponse> {
   const { replica } = requireSession();
   return result.then(
     (response) => {
-      if (response.status === "succeeded") replica.settle(hold, response.rev);
+      if (response.status === "succeeded" && confirmsMint(invocation, response.output))
+        replica.settle(hold, response.rev);
       else replica.drop(hold);
       return response;
     },
@@ -292,6 +293,19 @@ function send(invocation: ActionRequest, hold?: Hold): Promise<ActionResponse> {
       throw error;
     },
   );
+}
+
+/** An older server can accept a push and mint its own ids. Catch up to its graph in that case. */
+function confirmsMint(invocation: ActionRequest, output: unknown): boolean {
+  const key = localActions.get(invocation.id)?.def.mints;
+  if (
+    key === undefined ||
+    !Predicate.hasProperty(invocation.input, key) ||
+    !Predicate.hasProperty(output, key)
+  )
+    return true;
+  const sent = invocation.input[key];
+  return sent === undefined || Equal.equals(sent, output[key]);
 }
 
 /**
@@ -462,12 +476,11 @@ export async function invokeSettled(invocation: ActionRequest): Promise<Invoked>
   if (receipt.status === "failed") return done(receipt);
   const hold = requireSession().replica.hold(touched);
   // What the local commit decided from this tab is pushed as given: what it
-  // filled from the tab's screen, and where the page's capture target put a
-  // node made with no chosen place. The server decides neither again, so it
-  // commits what the replica did, in the tab's day; its receipt says what
-  // was filled, as the local one does.
+  // filled from the tab's screen, where it put nodes made with no chosen
+  // place, and the ids it created them with.
   const { context } = receipt;
-  const pushed = asPlaced(asFilled(invocation, context), placed);
+  const filled = asPlaced(asFilled(invocation, context), placed);
+  const pushed = asMinted(filled, local.def.mints, receipt.output);
   return { receipt, settled: settledOf(id, pushInvocation(pushed, hold), context) };
 }
 
@@ -532,6 +545,22 @@ function asFilled(
   if (context === undefined || !Predicate.isObject(invocation.input)) return invocation;
   const filled = Object.entries(context).map(([key, { value }]) => [key, value]);
   return { ...invocation, input: { ...invocation.input, ...Object.fromEntries(filled) } };
+}
+
+/** Carry the local commit's ids back into the declared input key. */
+function asMinted(
+  invocation: ActionRequest,
+  key: string | undefined,
+  output: unknown,
+): ActionRequest {
+  if (
+    key === undefined ||
+    !Predicate.isObject(invocation.input) ||
+    invocation.input[key] !== undefined ||
+    !Predicate.hasProperty(output, key)
+  )
+    return invocation;
+  return { ...invocation, input: { ...invocation.input, [key]: output[key] } };
 }
 
 /** {@link invokeSettled} for a caller that acts on the first receipt and lets a rejected push surface as a toast. */
