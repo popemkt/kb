@@ -2,7 +2,14 @@ import { Effect } from "effect";
 import { coreExtension } from "@kb/operations";
 import { familyTags } from "@kb/contracts";
 import { definePlugin } from "@kb/plugin";
-import { HomeView, LAYOUT_NAMESPACE, LayoutView, NodeReadView, NodeView } from "@kb/views";
+import {
+  HomeView,
+  LAYOUT_NAMESPACE,
+  LayoutView,
+  nodeLocationOf,
+  NodeReadView,
+  NodeView,
+} from "@kb/views";
 import {
   provideRoute,
   provideView,
@@ -18,7 +25,7 @@ import { HomeSection, HomeSurface } from "./home";
 import { LayoutViewSurface } from "./layout-view";
 import { NodeReadSurface } from "./node-read";
 import { NodeViewSurface } from "./node-view";
-import { matchHome, matchNode } from "./routes";
+import { matchHome } from "./routes";
 
 /** The graph as the page holds it now, for a route's frame, which is read outside a render. */
 const homeLookup = (id: string) => schemaOf(useGraphStore.getState()).get(id);
@@ -59,7 +66,7 @@ export const layoutUiPlugin = definePlugin({
           RoutePoint,
           provideRoute({
             view: NodeView,
-            match: matchNode,
+            match: nodeLocationOf,
             // The page it resolves to frames itself (NodeViewSurface, PageFrame):
             // a frame here would hold that page's scroll region inside its own.
             frame: () => "full",

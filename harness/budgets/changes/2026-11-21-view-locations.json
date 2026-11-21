@@ -1,0 +1,11 @@
+{
+  "reason": "What a kb location names is read in @kb/views' location.ts (nodePath, nodeLocationOf, outlineLocationOf), beside the views that name the paths, so ui-sdk's router, the route table and a reader of a stored layout share one parser; the router still builds the outline's links. The views barrel gains nodeLocationOf, outlineLocationOf and OutlineLocation, and the CLI's eager graph gains the module (773 to 774).",
+  "raise": {
+    "cli-closure": {
+      "modules": 1
+    },
+    "surface": {
+      "@kb/views": 3
+    }
+  }
+}

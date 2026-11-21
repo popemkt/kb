@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import type { OntologyView } from "@kb/views";
+import type { OntologyView, OutlineLocation } from "@kb/views";
 
 /**
  * Tiny path router — no react-router dependency. Which page owns a path is
@@ -95,22 +95,10 @@ export function usePath(): string {
   return useSyncExternalStore(subscribePath, getPath, () => "/");
 }
 
-/** A node's location (`NodeView`'s, in `@kb/views`), where the page navigates to it. */
-
 /** `/o/<id>` (page) · `/o/<id>/outline` · `/o/<id>/graph`. */
 export function ontologyPath(id: string, view: OntologyView = "page"): string {
   const base = `/o/${encodeURIComponent(id)}`;
   return view === "page" ? base : `${base}/${view}`;
-}
-
-/**
- * Where the page's outline stands: at its home, or zoomed to a node, in an
- * ontology's scope or in none. The zoom is a place, so it is a path like any
- * other: a zoom is a step back can undo, and a reload or a link lands there.
- */
-export interface OutlineLocation {
-  readonly ontology: string | null;
-  readonly zoom: string | null;
 }
 
 /** `/` · `/outline/<id>`; in an ontology's scope `/o/<s>/outline` · `/o/<s>/outline/<id>`. */
@@ -120,20 +108,5 @@ export function outlinePath({ ontology, zoom }: OutlineLocation): string {
   return `${base === "" ? "/outline" : base}/${encodeURIComponent(zoom)}`;
 }
 
-/** The outline location `path` names, or null when it names none (or does not decode). */
-export function outlineLocationOf(path: string): OutlineLocation | null {
-  if (path === "/") return { ontology: null, zoom: null };
-  const match = /^(?:\/o\/([^/]+))?\/outline(?:\/([^/]+))?\/?$/.exec(path);
-  if (match === null) return null;
-  const [, ontology, zoom] = match;
-  // `/outline` alone names no place: the unscoped outline's home is `/`.
-  if (ontology === undefined && zoom === undefined) return null;
-  try {
-    return {
-      ontology: ontology === undefined ? null : decodeURIComponent(ontology),
-      zoom: zoom === undefined ? null : decodeURIComponent(zoom),
-    };
-  } catch {
-    return null;
-  }
-}
+// What an outline location names is read by `@kb/views`' `location.ts`, as a stored layout's reader reads it.
+export { outlineLocationOf, type OutlineLocation } from "@kb/views";

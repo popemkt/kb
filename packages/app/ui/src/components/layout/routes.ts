@@ -1,16 +1,4 @@
-import type { NodeParams, NoParams } from "@kb/views";
-import { outlineLocationOf } from "@kb/ui-sdk";
-
-/** `/node/<id>` or `/node/<id>/<view>`: the route a node is opened by (`nodePath`). */
-export function matchNode(path: string): NodeParams | null {
-  const match = /^\/node\/([^/]+)(?:\/([^/]+))?\/?$/.exec(path);
-  const node = match?.[1];
-  if (node === undefined) return null;
-  const view = match?.[2];
-  return view === undefined
-    ? { node: decodeURIComponent(node) }
-    : { node: decodeURIComponent(node), view: decodeURIComponent(view) };
-}
+import { outlineLocationOf, type NoParams } from "@kb/views";
 
 /**
  * `/` and `/outline/<id>`: where the page stands, unscoped (`outlineLocationOf`),

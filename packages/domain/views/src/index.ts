@@ -115,7 +115,6 @@ export {
   findPane,
   freshPaneId,
   layoutPanes,
-  nodePath,
   neighbourOf,
   normalizeLayout,
   openBeside,
@@ -144,3 +143,4 @@ export {
 } from "./node-view.ts";
 
 export { ProcedureView, ProcedureParams } from "./procedure.ts";
+export { nodeLocationOf, nodePath, outlineLocationOf, type OutlineLocation } from "./location.ts";
