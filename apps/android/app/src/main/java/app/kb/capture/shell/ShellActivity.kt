@@ -83,7 +83,11 @@ class ShellActivity : BridgeActivity() {
         )
     }
 
-    /** Shows [url] in its pane ([Routes.paneFor]): the shell's page, a store's UI, or the browser for anything else. */
+    /**
+     * Shows [url] in its pane ([Routes.paneFor]): the shell's views, a store's
+     * UI, or the browser for anything else. Any other address on the shell's
+     * origin is refused, because that WebView holds the bridge.
+     */
     fun show(url: String) {
         when (Routes.paneFor(url, app.pairings.all.value)) {
             Pane.Shell -> {
@@ -100,6 +104,7 @@ class ShellActivity : BridgeActivity() {
                 } catch (_: ActivityNotFoundException) {
                     // Nothing on the phone opens it; the page stays where it was.
                 }
+            Pane.Nowhere -> Unit
         }
     }
 

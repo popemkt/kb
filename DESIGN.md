@@ -5792,7 +5792,9 @@ remains GAP [[01M413SP3QSSQJMKKDK3W3J6G8]].
   touches and which refuses any JavaScript interface. Capacitor's WebView
   shows only the shell's bundled page (Stores, the capture queue, Capture)
   and holds the bridge, so the store's page gets no native access even where
-  Capacitor falls back to an origin-wide interface. Native code is kept for
+  Capacitor falls back to an origin-wide interface. A link may switch to
+  one of the shell page's own views, and nothing else on its origin, where
+  Capacitor also serves local files. Native code is kept for
   what only a device does:
   - the share receiver, and a durable queue delivered later, raw, to the
     paired store's `capture.submit` over `POST /api/action` with the device

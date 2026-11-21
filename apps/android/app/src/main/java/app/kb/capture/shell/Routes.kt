@@ -4,8 +4,12 @@ import app.kb.capture.pairing.Pairing
 import java.net.URI
 import java.net.URLEncoder
 
-/** Which of the app's two WebViews shows a URL, or neither: the shell's page, a store's UI, or the browser. */
-enum class Pane { Shell, Store, Outside }
+/**
+ * Which of the app's two WebViews shows a URL: the shell's page, a store's
+ * UI, the browser for anything else, or nowhere at all for any other
+ * address on the shell's own origin.
+ */
+enum class Pane { Shell, Store, Outside, Nowhere }
 
 /** What the back button does: step back in the shown page's own history, show a URL, or leave the app. */
 sealed interface Back {
@@ -37,7 +41,23 @@ object Routes {
     fun offline(store: Pairing?, why: String): String =
         "$QUEUE?offline=${encode(store?.name ?: "the store")}&why=${encode(why)}"
 
-    fun isShell(url: String?): Boolean = url != null && origin(url) == origin(SHELL)
+    /**
+     * Whether [url] is one of the shell's own views: the bundled page at the
+     * root of [SHELL], with one of the fragment routes it draws. Nothing else
+     * on that origin is. Capacitor serves local files there too, and its
+     * WebView holds the bridge, so a store's page that names any other path
+     * must not get it loaded.
+     */
+    fun isShell(url: String?): Boolean {
+        val uri = url?.let { runCatching { URI(it) }.getOrNull() } ?: return false
+        return origin(url) == origin(SHELL) &&
+            (uri.rawPath.isNullOrEmpty() || uri.rawPath == "/") &&
+            uri.rawQuery == null &&
+            (uri.rawFragment ?: "").substringBefore('?') in VIEWS
+    }
+
+    /** The fragment routes the shell's page draws (`shell.js`), its root included. */
+    private val VIEWS = setOf("", "/", "/stores", "/queue", "/capture")
 
     /** The paired store whose UI [url] is a page of, by origin. */
     fun storeOf(url: String?, stores: List<Pairing>): Pairing? {
@@ -83,10 +103,15 @@ object Routes {
         }
     }
 
-    /** The pane that shows [url]: the shell's page in Capacitor's WebView, a paired store's UI in the store's, anything else outside. */
+    /**
+     * The pane that shows [url]: the shell's views in Capacitor's WebView, a
+     * paired store's UI in the store's, any other address on the shell's
+     * origin nowhere, and anything else outside.
+     */
     fun paneFor(url: String?, stores: List<Pairing>): Pane =
         when {
             isShell(url) -> Pane.Shell
+            url != null && origin(url) == origin(SHELL) -> Pane.Nowhere
             storeOf(url, stores) != null -> Pane.Store
             else -> Pane.Outside
         }

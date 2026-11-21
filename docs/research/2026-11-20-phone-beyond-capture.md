@@ -253,7 +253,10 @@ unavailable, fails to register, or the legacy bridge is configured, it
 falls back to an origin-wide `addJavascriptInterface`, which would reach
 any page in its WebView. A store's page therefore never loads there, and
 it has **no native access** in any case. The token stays out of its
-reach. `ShellActivityTest` runs the real activity on Robolectric, whose
+reach. A link from the store's page may switch to the shell page's own
+views (`#/stores`, `#/queue`, `#/capture` at the root). Any other path on
+`https://localhost` is refused, because that WebView holds the bridge and
+Capacitor serves local files there (`_capacitor_file_`). `ShellActivityTest` runs the real activity on Robolectric, whose
 WebView forces that fallback, and checks the store's page against it.
 Whatever admits a phone browser to that page admits the shell: the same
 listener, origins and identity rules. One URL serves both halves. The page

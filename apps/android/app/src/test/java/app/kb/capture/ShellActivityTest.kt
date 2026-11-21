@@ -5,6 +5,7 @@ import android.content.pm.PackageInfo
 import android.net.Uri
 import android.os.Looper
 import android.view.View
+import android.webkit.WebResourceRequest
 import androidx.work.testing.WorkManagerTestInitHelper
 import app.kb.capture.pairing.Pairings
 import app.kb.capture.shell.Routes
@@ -87,4 +88,42 @@ class ShellActivityTest {
         assertFalse(Routes.isShell(shadowOf(activity.storeView).lastLoadedUrl))
         assertTrue(Routes.isShell(shadowOf(shell).lastLoadedUrl))
     }
+
+    @Test
+    fun `a store's page can hand off only to the shell's own views, never to another address on its origin`() {
+        val activity = launch().get()
+        val shell = activity.getBridge().webView
+        val storeView = activity.storeView
+        val client = shadowOf(storeView).webViewClient
+        val before = shadowOf(shell).lastLoadedUrl
+
+        for (url in listOf(
+            "https://localhost/_capacitor_file_/data/user/0/app.kb.capture/files/pairings.json",
+            "https://localhost/shell.js",
+            "https://localhost/index.html#/stores",
+        )) {
+            assertTrue(url, client.shouldOverrideUrlLoading(storeView, request(url)))
+            assertEquals(url, before, shadowOf(shell).lastLoadedUrl)
+            assertEquals(url, View.VISIBLE, storeView.visibility)
+        }
+
+        assertTrue(client.shouldOverrideUrlLoading(storeView, request(Routes.CAPTURE)))
+        assertEquals(Routes.CAPTURE, shadowOf(shell).lastLoadedUrl)
+        assertEquals(View.VISIBLE, shell.visibility)
+    }
+
+    private fun request(url: String) =
+        object : WebResourceRequest {
+            override fun getUrl(): Uri = Uri.parse(url)
+
+            override fun isForMainFrame() = true
+
+            override fun isRedirect() = false
+
+            override fun hasGesture() = true
+
+            override fun getMethod() = "GET"
+
+            override fun getRequestHeaders() = emptyMap<String, String>()
+        }
 }

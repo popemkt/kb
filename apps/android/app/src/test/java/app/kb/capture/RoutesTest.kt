@@ -55,6 +55,24 @@ class RoutesTest {
     }
 
     @Test
+    fun `only the shell page's own views count as the shell, nothing else on its origin`() {
+        for (view in listOf("https://localhost", "https://localhost/", "https://localhost/#/", Routes.STORES, Routes.QUEUE, Routes.CAPTURE, Routes.offline(personal, "timeout"))) {
+            assertEquals(view, Pane.Shell, Routes.paneFor(view, stores))
+        }
+        for (other in listOf(
+            "https://localhost/_capacitor_file_/data/user/0/app.kb.capture/files/pairings.json",
+            "https://localhost/_capacitor_content_/x",
+            "https://localhost/shell.js",
+            "https://localhost/index.html#/stores",
+            "https://localhost/?x=1#/stores",
+            "https://localhost/#/elsewhere",
+            "https://localhost:443/#/../_capacitor_file_/x",
+        )) {
+            assertEquals(other, Pane.Nowhere, Routes.paneFor(other, stores))
+        }
+    }
+
+    @Test
     fun `back walks the store's own history, then Stores, then leaves`() {
         assertEquals(Back.GoBack, Routes.back("https://kb.tail.ts.net/n/b", "https://kb.tail.ts.net/n/a", stores))
         assertEquals(Back.Load(Routes.STORES), Routes.back("https://kb.tail.ts.net/", Routes.STORES, stores))
