@@ -5365,7 +5365,7 @@ which also lists the workflows judged and not built.
 ### The routines calendar
 
 The routines family's browser half (`@kb/routines-ui`, `/calendar`) draws
-every `#event`'s instances as a calendar: a month, a week or an agenda of
+every `#event`'s instances as a calendar: a month, a week, a day or an agenda of
 the next two weeks, open at the day the URL names
 (`/calendar/<mode>/<day>`). A narrow screen opens on the agenda, and the
 week is the default elsewhere. The model and its Google sync are the
@@ -5414,10 +5414,14 @@ as they are, since a person's Cloud project registered them.
   instances do not move. A click on an empty slot opens the editor on a
   half-hour draft there, and a drag sets its length. Nothing is created
   until Save.
-- **The week is one grid.** The day header, the all-day row and the hours
-  are rows of one column template inside one scroller, the first two held
-  at the top, so a scrollbar narrows every row alike. The grid opens a
-  little above its first hour so that hour's label is drawn whole.
+- **Week and day share one time grid.** The day header, the all-day row and
+  the hours are rows of one column template inside one scroller (`time-grid.tsx`),
+  the first two held at the top, so a scrollbar narrows every row alike.
+  Week lays out seven columns and opens a little above seven (or above the
+  earliest timed instance when it is earlier); Day lays out one column and
+  opens a little above the current hour on today, else above the day's first
+  timed instance (or seven when it has none), so that hour's label is drawn
+  whole.
 - **The editor.** Title, the day (a button that opens a month: arrows move
   a day or a week, Page Up and Page Down a month, Enter picks), All day as
   a switch, and start and end times typed ("930", "9:30pm") or picked from
@@ -5469,7 +5473,7 @@ as they are, since a person's Cloud project registered them.
   page in Ho Chi Minh City keeps its meaning. Across a DST change a
   routine keeps its wall-clock time; a span across the gap is drawn to its
   wall-clock end.
-- **Keys.** `m`, `w`, `a` switch the layout; `t` goes to today; `→`/`j`/`n`
+- **Keys.** `m`, `w`, `d`, `a` switch the layout; `t` goes to today; `→`/`j`/`n`
   and `←`/`k`/`p` step by the layout's span; `c` makes a routine. Keys are
   ignored in fields, dialogs and modifier chords.
 - **One-offs tick like series.** A one-off's one instance is its event, so

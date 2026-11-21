@@ -1,8 +1,8 @@
 /**
  * The routines calendar page (DESIGN-UI.md → The routines calendar): a month,
- * a week or an agenda of every routine's instances, open at a day the URL
- * names. Narrow screens open on the agenda. Every edit is a node write through
- * the page's invoke path; the engine pushes it to Google behind the page.
+ * a week, a day or an agenda of every routine's instances, open at a day the
+ * URL names. Narrow screens open on the agenda. Every edit is a node write
+ * through the page's invoke path; the engine pushes it to Google behind the page.
  */
 import { useLayoutEffect, useMemo, useRef, type KeyboardEvent } from "react";
 import { parseDay } from "@kb/model";
@@ -23,7 +23,12 @@ import { ScopePrompt } from "./scope-prompt";
 import { CalendarToolbar, IssuesNote } from "./toolbar";
 import { TimeGrid, type LayoutProps } from "./time-grid";
 
-const MODE_KEYS: Readonly<Record<string, CalendarMode>> = { m: "month", w: "week", a: "agenda" };
+const MODE_KEYS: Readonly<Record<string, CalendarMode>> = {
+  m: "month",
+  w: "week",
+  d: "day",
+  a: "agenda",
+};
 
 /** Whether a key press belongs to a field, a modifier chord or an open dialog, not the calendar. */
 function notForCalendar(event: KeyboardEvent<HTMLElement>): boolean {
@@ -115,7 +120,7 @@ export function CalendarPage({ params }: { readonly params: CalendarParams }) {
         modes={CALENDAR_MODES}
       />
       <IssuesNote issues={model.issues} onOpen={actions.edit} />
-      {mode === "week" ? <TimeGrid mode="week" {...layout} /> : null}
+      {mode === "week" || mode === "day" ? <TimeGrid key={mode} mode={mode} {...layout} /> : null}
       {mode === "month" ? (
         <MonthView
           layout={layout}

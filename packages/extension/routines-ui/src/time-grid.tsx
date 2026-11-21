@@ -58,10 +58,14 @@ const GRID_COLUMNS: Readonly<Record<TimeGridMode, string>> = {
 /** Room above the hour the grid opens at, so that hour's label is drawn whole under the header. */
 const LABEL_ROOM = 10;
 
-function openHour({ days, model, zone }: LayoutProps): number {
+function openHour({ days, model, zone, today, now }: LayoutProps, mode: TimeGridMode): number {
   const starts = days
     .flatMap((day) => model.byDay.get(day) ?? [])
     .flatMap((entry) => (entry.start === null ? [] : [wallClock(entry.start, zone).minutes]));
+  if (mode === "day") {
+    if (days[0] === today) return Math.floor(wallClock(now, zone).minutes / 60);
+    return starts.length > 0 ? Math.floor(Math.min(...starts) / 60) : OPEN_HOUR;
+  }
   return Math.min(OPEN_HOUR, Math.floor(Math.min(...starts, OPEN_HOUR * 60) / 60));
 }
 
@@ -225,7 +229,7 @@ export function TimeGrid({ mode, ...layout }: LayoutProps & { readonly mode: Tim
   const scroller = useRef<HTMLDivElement>(null);
   const columns = GRID_COLUMNS[mode];
   // Stepping to another week keeps where the person scrolled; something earlier opens it there.
-  const opensAt = openHour(layout);
+  const opensAt = openHour(layout, mode);
   useLayoutEffect(() => {
     if (scroller.current !== null)
       scroller.current.scrollTop = Math.max(0, opensAt * HOUR_PX - LABEL_ROOM);
