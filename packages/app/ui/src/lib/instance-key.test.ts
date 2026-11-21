@@ -6,6 +6,7 @@ import {
   isProjectedInstance,
   isProjectedRow,
   outlineInstanceKey,
+  MAIN_OUTLINE_HOST,
   pageTitleInstanceKey,
   parentInstanceKey,
   placeOfInstance,
@@ -97,7 +98,7 @@ describe("parentInstanceKey", () => {
   it("is null where the row's place is computed, not a child edge", () => {
     expect(parentInstanceKey(projectedRowKey("n.q", "n.root-b"))).toBeNull();
     expect(parentInstanceKey(canvasInstanceKey("2d", "card", "n.root-a"))).toBeNull();
-    expect(parentInstanceKey(pageTitleInstanceKey("n.root-a"))).toBeNull();
+    expect(parentInstanceKey(pageTitleInstanceKey("n.root-a", MAIN_OUTLINE_HOST))).toBeNull();
   });
 });
 

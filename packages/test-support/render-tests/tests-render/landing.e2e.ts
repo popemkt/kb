@@ -118,3 +118,51 @@ test("Enter on a ⌘K hit opens the node's page, the keyboard on it", async ({ p
     })
     .toMatch(/^Fixture node 17 .*!$/u);
 });
+
+test("a ⌘K hit already open in another pane opens in the focused one, the keyboard on its title there", async ({
+  page,
+}) => {
+  // Two panes, the main one focused at node 3 and a second beside it
+  // already at the hit, as a person who opened it there left them.
+  await page.addInitScript(
+    ({ leaf }) => {
+      window.localStorage.setItem(
+        "kb-workspace",
+        JSON.stringify({
+          layout: {
+            split: "row",
+            children: [
+              { tabs: [{ id: "main", path: "/node/render.fixture.node.3" }] },
+              { tabs: [{ id: "p2", path: `/node/${leaf}` }] },
+            ],
+          },
+          focused: "main",
+        }),
+      );
+    },
+    { leaf: LEAF },
+  );
+  await page.goto("/node/render.fixture.node.3");
+  const main = page.locator('[data-pane="main"]');
+  const beside = page.locator('[data-pane="p2"]');
+  await expect(beside.locator("[data-zoom-title]")).toContainText("Fixture node 17");
+  await expect(main.locator("[data-zoom-title]")).toContainText("Fixture node 3");
+
+  await page.keyboard.press("ControlOrMeta+k");
+  const search = page.getByRole("dialog", { name: "Search and open" });
+  await page.keyboard.type("Fixture node 17");
+  await expect(search.locator(`[data-palette-row="${LEAF}"]`)).toBeVisible();
+  await page.keyboard.press("Enter");
+
+  // The focused pane moved to it, and its title, not the other pane's, holds the keyboard.
+  await expect(page).toHaveURL(new RegExp(`/node/${LEAF.replaceAll(".", "\\.")}$`, "u"));
+  const title = main.locator("[data-zoom-title]");
+  await expect(title).toContainText("Fixture node 17");
+  await expect(title).toBeFocused();
+  await expect(beside.locator("[data-zoom-title]")).not.toBeFocused();
+  // The pane kept its place in the grid, and its tab names where it went.
+  await expect(page.locator('[data-pane-tab="main"]')).toContainText("Fixture node 17");
+  // And it stays there: nothing the other pane draws takes it back.
+  await page.waitForTimeout(300);
+  await expect(title).toBeFocused();
+});

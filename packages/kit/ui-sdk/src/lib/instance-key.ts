@@ -99,9 +99,12 @@ const TITLE_PREFIX = `${PROJECTION_PREFIX}title:`;
  * A page's title, edited where the page head draws it: a projected instance,
  * since the outline's walk of the tree does not draw the page's own node as a
  * row, so it is activated (and is the page's edit, `editing()`) as a row is.
+ * It names the outline host whose head draws it, as a row's key does: two
+ * panes showing one node have two titles, and selecting one selects that
+ * pane's.
  */
-export function pageTitleInstanceKey(nodeId: string): string {
-  return `${TITLE_PREFIX}${nodeId}`;
+export function pageTitleInstanceKey(nodeId: string, host: string): string {
+  return `${TITLE_PREFIX}${host}:${nodeId}`;
 }
 
 /**

@@ -1389,9 +1389,11 @@ then its References.
   click or Enter, its first row focused, each row opening its node as a
   crumb does. A wider pane unfolds them again.
 - **The title selected holds the keyboard.** The page's title is its
-  node's own instance (`pageTitleInstanceKey`): selected, it takes the
-  keyboard focus, so Enter edits it, its caret at the end. A gesture that
-  opens a node for the keyboard (⌘K's Enter) selects it there; a page
+  node's own instance in its pane (`pageTitleInstanceKey`, under the pane's
+  outline host, as a row's key is): selected, it takes the keyboard focus,
+  so Enter edits it, its caret at the end. A gesture that opens a node for
+  the keyboard (⌘K's Enter) selects it in the focused pane, where it opens,
+  so another pane showing the same node keeps its title unselected; a page
   loaded or opened by pointer selects nothing.
 
 - **A page that takes rows** (a list, not a projected view or a query;
@@ -4188,8 +4190,11 @@ until "Save workspace".
   that dockview reports back into a kb tree. The kb tree is canonical, and
   dockview's JSON is never kept: projecting a tree and reading it back is
   the identity (a property test). A tree changed from outside is shown to
-  dockview again. dockview (MIT) and kb's theme (`dockview-theme.css`, every
-  value a design-system token) load in the grid's own chunk, only when a
+  dockview again; a pane that only moved to another place keeps its panel,
+  which is told its new path: rebuilding the grid would take every pane's
+  body off the page and back, and drop the keyboard on the way. dockview
+  (MIT) and kb's theme (`dockview-theme.css`, every value a design-system
+  token) load in the grid's own chunk, only when a
   second pane opens or a dashboard is shown. Floating and pop-out windows
   are off (GAP [[01M3Q5DP9TQF0E9DZMHAKHMGWD]]).
 - **Panels first, then splits and tabs, on the one tree.** A Shift-click on

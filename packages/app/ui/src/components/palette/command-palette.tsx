@@ -7,6 +7,7 @@ import {
   isCompositionKey,
   menuAnchorOf,
   navigate,
+  outlineHostOfPane,
   pageTitleInstanceKey,
   rowName,
   schemaOf,
@@ -27,6 +28,12 @@ import { shownNodes, useGraphStore } from "@/stores/graph.store";
 import { pageCommandApi, pageCommandContext, pageCommandTarget } from "@/stores/page-commands";
 import { pageEditor } from "@/stores/page-editor";
 import { useUiStore } from "@/stores/ui.store";
+import { currentWorkspace } from "@/stores/workspace.store";
+
+/** The outline host of the focused pane, the one the palette's navigations move. */
+function focusedOutlineHost(): string {
+  return outlineHostOfPane(currentWorkspace().focused);
+}
 
 /**
  * Where the node menu would open on `nodeId`: the instance it is selected
@@ -38,7 +45,7 @@ function menuInstanceOf(nodeId: string): string | null {
   const key =
     editor.selectedNodeId === nodeId && editor.selectedInstanceKey !== null
       ? editor.selectedInstanceKey
-      : pageTitleInstanceKey(nodeId);
+      : pageTitleInstanceKey(nodeId, focusedOutlineHost());
   return menuAnchorOf(key) === null ? null : key;
 }
 
@@ -172,8 +179,11 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       // (DESIGN-UI.md → Node pages): the focused pane moves to it, wherever
       // it lives, rather than the outline revealing it from home.
       navigate(nodePath(hit.id));
-      // And it is the node the keyboard is on: its page's title, selected.
-      pageEditor().getState().selectNode(hit.id, pageTitleInstanceKey(hit.id));
+      // And it is the node the keyboard is on: its page's title in the pane
+      // it opened in, the focused one, selected (another pane may show it too).
+      pageEditor()
+        .getState()
+        .selectNode(hit.id, pageTitleInstanceKey(hit.id, focusedOutlineHost()));
     },
     [onClose, nodeCommands],
   );

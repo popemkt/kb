@@ -26,6 +26,8 @@ import {
   frameViewOf,
   isPinned,
   outlinePath,
+  MAIN_OUTLINE_HOST,
+  outlineHostOfPane,
   pageTitleInstanceKey,
   providedFrameViews,
   syncUiPlugins,
@@ -673,7 +675,7 @@ describe("node command palette", () => {
   });
 
   it("opens at a page's title, where the page's node is active", async () => {
-    const key = pageTitleInstanceKey("t.super");
+    const key = pageTitleInstanceKey("t.super", MAIN_OUTLINE_HOST);
     anchor("t.super", key);
     useOutlineStore.setState({ activeNodeId: "t.super", activeInstanceKey: key });
     await act(async () => {
@@ -850,7 +852,7 @@ describe("the global palette on a page", () => {
     root = createRoot(container);
     // The page's title, where the page's node is shown and its menu opens.
     title = dom.document.createElement("div");
-    title.setAttribute("data-menu-anchor", pageTitleInstanceKey("t.super"));
+    title.setAttribute("data-menu-anchor", pageTitleInstanceKey("t.super", MAIN_OUTLINE_HOST));
     dom.document.body.appendChild(title);
   });
 
@@ -890,6 +892,11 @@ describe("the global palette on a page", () => {
       layout: singlePane({ id: "p.node", path: "/node/t.super" }),
       focused: "p.node",
     });
+    // The page's title is that pane's, where its menu opens.
+    title.setAttribute(
+      "data-menu-anchor",
+      pageTitleInstanceKey("t.super", outlineHostOfPane("p.node")),
+    );
     try {
       await openPalette();
       expect(row("Make your own tag that extends this").lastElementChild?.textContent).toBe(
@@ -1002,7 +1009,9 @@ describe("the global palette on a page", () => {
       row("Add tag").click();
     });
     expect(pageEditor().getState().selectedNodeId).toBe("t.super");
-    expect(pageEditor().getState().selectedInstanceKey).toBe(pageTitleInstanceKey("t.super"));
+    expect(pageEditor().getState().selectedInstanceKey).toBe(
+      pageTitleInstanceKey("t.super", MAIN_OUTLINE_HOST),
+    );
     expect(useUiStore.getState().nodePaletteStep).toBe("outline.add-tag");
   });
 });
