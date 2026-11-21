@@ -1671,6 +1671,17 @@ surface that draws and edits its values. None of the surfaces has a click or
 key handler of its own. A new type is one more kind, never a component
 deciding its own clicks.
 
+**Where the keyboard goes after an edit is the key's that ended it.** A key
+that closes an editor (Enter, Escape, Tab, an arrow off the text) leaves
+with the edit where it goes next, and the edit, once it lands, says how it
+ended: kept, changed, or the value taken out (nothing typed into a new one,
+or a typed one emptied). The key's destination holds in every case. Enter
+and Escape stay on the value, or, when it was taken out, go where taking a
+value out goes: its neighbour, else the row. Tab and the arrows go on from
+it either way. An edit that ends because focus went elsewhere carries no
+destination, so focus stays where it went. A line break (Shift+Enter) ends
+nothing.
+
 **A type's kind is a contribution.** `ui.value-kinds` is keyed by the
 type's option node, a child of `sys.f.fieldType` (DESIGN.md → Field types).
 The outline contributes the kinds of the eight built-in types
