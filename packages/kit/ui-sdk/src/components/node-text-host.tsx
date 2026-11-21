@@ -37,9 +37,9 @@ import {
   type TextTrigger,
   type TriggerPick,
 } from "../lib/text-triggers";
-import { rowTextReadOnlyReason } from "../lib/contextual-ref";
+import { rowText, rowTextReadOnlyReason } from "../lib/contextual-ref";
 import { refLookOf } from "../lib/ref-look";
-import type { SchemaIndex } from "../lib/schema";
+import { type SchemaIndex, schemaOf } from "../lib/schema";
 import type { NodeMap, TagBadge } from "../lib/types";
 import { InlineMarkdown } from "./md-view";
 import { useRevealMarkup } from "./use-reveal-markup";
@@ -348,7 +348,10 @@ export function NodeTextHost({
         }
         const { writes } = browserHost();
         await (direction === "undo" ? writes.undo() : writes.redo());
-        return browserHost().node(nodeId)?.text ?? null;
+        // The row's text as the graph holds it now: a reference's is its target's (`rowText`).
+        const now = schemaOf(browserHost().graph.state());
+        const row = now.get(nodeId);
+        return row === undefined ? null : rowText(row, now);
       },
     }),
     [nodeId],

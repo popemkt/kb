@@ -727,6 +727,23 @@ describe("triggers in the text", () => {
       expect(textOf(ROW)).toBe("@Ship");
     });
 
+    it("⌘Z in the reference row then shows its target's text, as the page leaves it", async () => {
+      await press(await typed("@Ship"), "Enter");
+      await vi.waitFor(() =>
+        expect(isContextualRef(present(outlineNodes().get(ROW), "row"))).toBe(true),
+      );
+      const key = outlineInstanceKey(ROW, outlineNodes());
+      act(() => useOutlineStore.getState().activateNode(ROW, "Ship kb ui shell".length, key));
+      await act(async () => root.render(<NodeBlock nodeId={ROW} instanceKey={key} depth={0} />));
+      const el = editorOf();
+      expect(el.textContent).toBe("Ship kb ui shell");
+      const other = textOf("n.root-b");
+      await act(() => mutations.setNodeText("n.root-b", "elsewhere"));
+      await chord(el);
+      await vi.waitFor(() => expect(textOf("n.root-b")).toBe(other));
+      expect(el.textContent).toBe("Ship kb ui shell");
+    });
+
     it("after other text, stays a reference in the text", async () => {
       const el = await typed("see @Ship");
       await press(el, "Enter");
