@@ -105,9 +105,11 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // `node.batch` takes `tag.define` calls, so a tag made in a picker commits
 // with the rows it tags; a server of an earlier protocol refuses that batch
 // whole, writing nothing.
+// `requireEmptyLine.parent` may be null, a top-level row's draft. An earlier build of
+// protocol 13 refuses that input, so the row stays: no new protocol.
 const RECORDED = {
   protocol: 13,
-  fingerprint: "00137d19c25c26a81cbfb92782a6ce60d866005f3773a8bf071096642ea876b9",
+  fingerprint: "9dc4fcf19e8669263ac17b1ad1c3c8c4239ce18dacc6d94318f0402974489f1a",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

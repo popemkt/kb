@@ -5444,7 +5444,7 @@ planned again, as `node.addTree` is.
 
 A `node.update` can name fields in `requireUnset` to require that they
 currently hold no values. A `node.delete` can specify `requireEmptyLine`
-with the draft's parent and exact text. Its node must still have that
+with the draft's parent (null for a top-level row) and exact text. Its node must still have that
 parent and text, with no children or props. A failed precondition is a
 conflict, checked again over the current graph whenever the batch replans.
 

@@ -8,7 +8,7 @@ import { provideEngine } from "@/session/engine";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { Effect } from "effect";
-import { declarationPlugin, type ActionRequest, type ScreensPort } from "@kb/contracts";
+import { declarationPlugin, failed, type ActionRequest, type ScreensPort } from "@kb/contracts";
 import { coreExtension } from "@kb/operations";
 import { syncUiPlugins } from "@kb/ui-sdk";
 import {
@@ -21,6 +21,7 @@ import {
   waitForBrowserPushes,
 } from "@/session/runtime";
 import { useGraphStore } from "@/stores/graph.store";
+import { mutations } from "@/actions/mutations";
 
 /** The page's index as the graph store holds it now. */
 const index = () => useGraphStore.getState().index;
@@ -141,6 +142,15 @@ describe("browser action runtime", () => {
       input: { ...input, ids },
       session: tabSession(),
     });
+  });
+
+  it("answers a paste's ids once the server took the tree, and rejects when it refused", async () => {
+    useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+    setBrowserLink({ since: vi.fn(), fetchSnapshot: vi.fn(), retryAfter: vi.fn() });
+    setPostAction(async (invocation) => failed(invocation.id, "conflict", "refused by the server"));
+    await expect(mutations.addTree("- Pasted row", "md", { parent: null })).rejects.toThrow(
+      "refused by the server",
+    );
   });
 
   it("drops optimistic outline ids and catches up when the server minted different ones", async () => {

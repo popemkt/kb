@@ -1,0 +1,6 @@
+{
+  "reason": "node.delete's requireEmptyLine names a top-level row's draft by a null parent, so an outline paste into an empty top-level row is removed under the same commit check as a nested one.",
+  "raise": {
+    "cli-closure": { "bytes": 40 }
+  }
+}

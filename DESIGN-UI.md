@@ -3382,11 +3382,14 @@ handler takes it as text.
     (`{tree, format}`; DESIGN.md → Outline formats). The page
     adds them after the row through `node.addTree`, in one transaction,
     under the guards every call meets, and puts the caret at the end of
-    the last. It always names their parent: a top-level row's go to the
+    the last the server answered, once that row reaches the outline. It
+    always names their parent: a top-level row's go to the
     top level (`parent: null`, at its end), never to the capture target
     an omitted parent would mean. A row that held nothing (no text, fields, tags or children)
     is where the person meant them to go: they take its place, and it is
-    deleted. That is a second write, so undo takes them back in two steps.
+    deleted once the server has taken the tree, if it still holds nothing
+    then, under `node.delete`'s `requireEmptyLine`. A refused tree leaves
+    the row. That is a second write, so undo takes them back in two steps.
   - **A file**, kept as an asset and linked from the row's text
     (`attachFileToNode`).
   - **Text**, put in at the caret the way typing is. The text host that
