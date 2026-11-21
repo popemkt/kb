@@ -7516,10 +7516,13 @@ paints the root on the way. The answer is the page's, not the server's: it
 is the page kernel's election, in the page's own day, so no bootstrap
 payload carries it. Its budget is about 4 s: long enough for days to
 make today's node and for the live connection to bring it, short enough
-that a landing which never answers cannot hold the workspace. A provider
-that fails, or overruns the budget, is faulted as any role provider is, and
-the page stays home with a toast that says why ("Stayed home: the landing
-did not answer in time"). The fourth is `ui.date-target`, the node a
+that a landing which never answers cannot hold the workspace. It is one
+deadline over the whole election, not a budget per candidate: when the
+elected provider is faulted and the next one is asked, that one gets what
+is left of the same 4 s. A provider that fails, or overruns the deadline,
+is faulted as any role provider is, for `ui.landing` alone (its family's
+other roles stand), and the page stays home with a toast that says why
+("Stayed home: the landing did not answer in time"). The fourth is `ui.date-target`, the node a
 followed date value opens (a `date` follow target, DESIGN-UI.md → Field
 values). Core owns it and leads nowhere, and days replaces it with the
 date's day, made if need be. A text's `@` trigger asks it too
