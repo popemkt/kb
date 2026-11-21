@@ -964,15 +964,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — windowing for the outline list that keeps caret, focus, selection, pickers and jump-to-node working
 - **node** — `01M41062Z83M38GYHC276XJ8RF`
 
-### GAP: every kb ui option parser loads with each one-shot command
-
-- **expected** — A one-shot command eagerly loads only its own command's code; a subcommand's options and their parsers (kb ui's --public-origin, --alias-origin, --embed-origin, --identity-header) are registered when that subcommand is the one invoked.
-- **current** — buildProgram in packages/app/cli/src/cli.ts registers every subcommand and its options up front, so their parsers in arguments.ts sit in the eager CLI graph; kb ui --alias-origin (#248) added 350 bytes there, raising harness/cli-closure-budgets.json.
-- **impact** — Each new subcommand option grows every one-shot command's eager graph by its parser and help text; small per option, but the budget can only be raised, never held, while options keep landing.
-- **closes** — Subcommands register their options lazily (only the invoked command's definition is imported, e.g. one module per command loaded by name), and the cli-closure byte budget is lowered to the new measurement.
-- **rule** — Hosts are accelerators: the store is the truth
-- **node** — `01M7HDP52RY5R2WJPXMMD30R8C`
-
 ### GAP: ext-canvas keeps its own copy of requireNode
 
 - **expected** — One reader of the node an action names, or its not_found refusal, in a package both @kb/operations' actions and an extension's actions may import (beside KbContext in @kb/contracts), which every action that reads one node by id calls.
@@ -2668,6 +2659,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — One row kind breaks the outline's Enter rule.
 - **closes** — planSplit counts the shown node's children.
 - **node** — `01M3KA3BBRADE3TNWQ78JNK37M`
+
+### GAP: every kb ui option parser loads with each one-shot command
+
+- **expected** — A one-shot command eagerly loads only its own command's code; a subcommand's options and their parsers (kb ui's --public-origin, --alias-origin, --embed-origin, --identity-header) are registered when that subcommand is the one invoked.
+- **current** — Closed 2026-11-21. cli.ts holds the command table, every command by name with the module under cli/src/commands/ that declares it, and loads only the invoked command's module (programFor); help, no command or an unknown one load every module, in the table's order. kb ui's option parsers moved with it into commands/ui-options.ts and kb mcp's into commands/mcp.ts, so a new subcommand option grows only its own command. The CLI fence forbids an eager import into commands/, and the cli-closure budget fell by 63,475 bytes and 11 modules to the measurement.
+- **impact** — Each new subcommand option grows every one-shot command's eager graph by its parser and help text; small per option, but the budget can only be raised, never held, while options keep landing.
+- **closes** — Subcommands register their options lazily (only the invoked command's definition is imported, e.g. one module per command loaded by name), and the cli-closure byte budget is lowered to the new measurement.
+- **rule** — Hosts are accelerators: the store is the truth
+- **node** — `01M7HDP52RY5R2WJPXMMD30R8C`
 
 ### GAP: every one-shot command rebuilds the whole index, derived sets and manifest
 

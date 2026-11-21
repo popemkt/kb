@@ -2,7 +2,7 @@ import type { Command } from "commander";
 import { Effect } from "effect";
 import { LegacyTrust, onWire } from "@kb/contracts";
 import { kbRuntimeLayer, openKbScoped, resolveRootEffect } from "@kb/runtime";
-import { ACTION_INVOKE_WIRE, cliAction, invokeCliEffect, report } from "./command.ts";
+import { ACTION_INVOKE_WIRE, cliAction, invokeCliEffect, report } from "../command.ts";
 
 /** Review root-controlled bytes, then use the ordinary required-approval invocation edge. */
 export function trustCommands(program: Command): void {

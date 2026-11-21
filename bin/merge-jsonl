@@ -7,7 +7,7 @@
 #
 # It runs the id-based driver (`kb merge-jsonl`, from source) when it can,
 # and trusts exactly two of its answers: 0, merged, and 3, a conflict
-# written to %A (packages/app/cli/src/merge-driver.ts states the codes).
+# written to %A (packages/app/cli/src/commands/merge-driver.ts states the codes).
 # Anything else — no bun on PATH, dependencies not installed, a driver that
 # crashed (exit 1) or wrote nothing (exit 2) — means %A may still be our
 # side alone, so it falls back to git's own three-way text merge of the same

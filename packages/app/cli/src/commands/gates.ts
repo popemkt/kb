@@ -20,8 +20,8 @@ import {
   kbAction,
   report,
   type GlobalOpts,
-} from "./command.ts";
-import { readTextArgEffect } from "./input.ts";
+} from "../command.ts";
+import { readTextArgEffect } from "../input.ts";
 
 const call = (ctx: KbContext, id: string, input: unknown) =>
   invokeCliEffect(ctx, onWire(ACTION_INVOKE_WIRE, { id, input }));

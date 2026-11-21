@@ -47,7 +47,7 @@ import {
   type RegisteredAction,
 } from "@kb/operations";
 import { KB_SDK_VERSION } from "@kb/ext-sdk";
-import { readEmbeddedSdkDts, writeSdkDts } from "./sdk-files.ts";
+import { readEmbeddedSdkDts, writeSdkDts } from "../sdk-files.ts";
 import { canonicalRoot } from "@kb/workspace-fs";
 import {
   admitExtensions,
@@ -65,8 +65,8 @@ import {
   report,
   outputLines,
   type GlobalOpts,
-} from "./command.ts";
-import { formatMode } from "./format.ts";
+} from "../command.ts";
+import { formatMode } from "../format.ts";
 
 const FootprintOutput = z.object({ rows: z.array(FootprintRowSchema) });
 

@@ -10,14 +10,14 @@ import type { Command } from "commander";
 import { Effect, Predicate } from "effect";
 import { onWire, type KbContext } from "@kb/contracts";
 import { writeErr } from "@kb/runtime";
-import { toInt } from "./arguments.ts";
+import { toInt } from "../arguments.ts";
 import {
   invokeCliEffect,
   ACTION_INVOKE_WIRE,
   kbAction,
   report,
   type GlobalOpts,
-} from "./command.ts";
+} from "../command.ts";
 
 const call = (ctx: KbContext, id: string, input: unknown) =>
   invokeCliEffect(ctx, onWire(ACTION_INVOKE_WIRE, { id, input }));

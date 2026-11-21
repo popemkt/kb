@@ -9,7 +9,7 @@ import { domainError } from "@kb/model";
 import { definePlugin, makeKernel } from "@kb/plugin";
 import { kbRuntimeLayer, openKbEffect, bunFileSystemLayer } from "@kb/runtime";
 import { KB_SOURCE_BIN, writeTrustedExtension } from "@kb/test-kit";
-import { planLines, walk } from "../src/procedures.ts";
+import { planLines, walk } from "../src/commands/procedures.ts";
 
 for (const mode of ["failure", "stalled", "wrong-action"] as const) {
   test(`CLI walk stops once for ${mode}`, async () => {
