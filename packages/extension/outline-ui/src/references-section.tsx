@@ -14,7 +14,6 @@ import {
 import { backlinkRows, type BacklinkRow } from "./backlinks";
 import { NodeBlock } from "./node-block";
 import { RowBreadcrumbs } from "./row-breadcrumbs";
-import { useReferencesScroll } from "./references-scroll";
 import { SectionHeading } from "./section-heading";
 import { UnlinkedMentionsSection } from "./unlinked-mentions";
 
@@ -26,14 +25,13 @@ export function ReferencesSection({ nodeId }: { nodeId: string }) {
     [nodeId, schema, index],
   );
 
-  const section = useReferencesScroll(nodeId);
   const pane = usePane();
   // The same referrer can also be a result in this page or visible in another pane.
   const parentKey = projectedRowKey(`references:${pane}`, nodeId);
   return (
     <>
       {backlinks.length > 0 && (
-        <section ref={section} className="references-section" data-references-for={nodeId}>
+        <section className="references-section" data-references-for={nodeId}>
           <SectionHeading count={backlinks.length}>References</SectionHeading>
           {backlinks.map((row) => (
             <ReferenceItem key={row.id} row={row} parentKey={parentKey} />

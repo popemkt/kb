@@ -1584,12 +1584,12 @@ so the server may refuse what the replica took; its undo step is recorded
 once the server takes it, as every text write on a reading is
 (`planUpdateText`), and a refused Link leaves none.
 
-An outline row with incoming mentions has a count at its right edge.
-Clicking the count opens the node in the same pane and scrolls to
-References. A single query groups the mention relation by target for all
-mounted counters in the replica. Each row subscribes to its own count.
-Counts appear by default. The outline family's **hide reference counts**
-checkbox turns them off.
+An outline row draws no reference count. A count at the end of a row
+sits in its text's flow, so every referenced row reads as a row with a
+number after it, and a row's reading should be its words. How many
+references a node has is said once, on its own page, in the References
+heading. The outline family's former **hide reference counts** setting is
+retired (`retires`), since there is no count to hide.
 
 A References row names each field its referrer points here through
 (`NodeIndex.referenceFields`, read by the carriers that made the

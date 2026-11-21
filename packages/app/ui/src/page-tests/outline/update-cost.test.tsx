@@ -19,7 +19,6 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { isQueryNode, present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import {
-  BACKLINK_COUNTS_QUERY,
   nodeCandidates,
   outlineInstanceKey,
   resolveRowChrome,
@@ -146,33 +145,21 @@ describe("outline update cost", () => {
     expect(new Set(renderedRows())).toEqual(new Set(["n.kid-3"]));
   });
 
-  it("shares one mention query and one answer subscription across displayed rows", async () => {
-    const queries = present(useGraphStore.getState().queries, "graph queries");
+  it("asks no mention query for the displayed rows", async () => {
+    // A row draws no reference count (DESIGN-UI.md → References), so a
+    // screen of rows watches nothing on the mention relation.
     expect(rowCount()).toBeGreaterThan(CHILDREN);
-    expect(mentionWatches()).toEqual([BACKLINK_COUNTS_QUERY]);
-    expect(mentionSubscriptions()).toEqual([BACKLINK_COUNTS_QUERY]);
-
-    await act(async () => {
-      useGraphStore.getState().applyTx([wire("n.kid-3", "An unrelated edit")], [], { rev: 2 });
-      const answer = await queries.ask(BACKLINK_COUNTS_QUERY);
-      expect(answer.kind).toBe("rows");
-    });
-    expect(mentionWatches()).toEqual([BACKLINK_COUNTS_QUERY]);
-    expect(mentionSubscriptions()).toEqual([BACKLINK_COUNTS_QUERY]);
+    expect(mentionWatches()).toEqual([]);
+    expect(mentionSubscriptions()).toEqual([]);
   });
 
-  it("updates the counter when a mention is added without rendering its target row again", async () => {
-    const counter = () => container.querySelector('[data-reference-counter="n.other"]');
-    expect(counter()).toBeNull();
+  it("re-renders only the row whose text gains a mention, not its target's", async () => {
     const changed = wire("n.kid-3", "See [[n.other|Other root]]");
     await act(async () => {
       useGraphStore.getState().applyTx([changed], [], { rev: 2 });
     });
-    await vi.waitFor(async () => {
-      await act(async () => {});
-      expect(counter()?.textContent).toBe("1");
-    });
     expect(new Set(renderedRows())).toEqual(new Set(["n.kid-3"]));
+    expect(mentionWatches()).toEqual([]);
   });
 
   it("re-renders only the toggled row when a node collapses or expands", async () => {

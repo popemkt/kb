@@ -23,7 +23,6 @@ export type { EdnRunner, KbIndex, NodeIndex } from "@kb/query";
 // that); a test takes one from `@kb/ui-test-kit`.
 export {
   answerOf,
-  BACKLINK_COUNTS_QUERY,
   conditionGraph,
   conditionsMatcher,
   derivedWith,

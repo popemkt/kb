@@ -3,8 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { bundledSeed } from "@kb/bundled";
 import type { WireNode } from "@kb/contracts";
-import { extensionNodeId, isQueryNode, present, SYSTEM_IDS } from "@kb/model";
-import { OUTLINE_IDS } from "@kb/outline";
+import { isQueryNode, present, SYSTEM_IDS } from "@kb/model";
 import { OutlineEditor, outlineNodes } from "@kb/outline-ui";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { childInstanceKey, projectedRowKey, syncUiPlugins } from "@kb/ui-sdk";
@@ -15,7 +14,6 @@ import { outlineUiPlugin } from "@/test-support/outline-plugin";
 
 const ISO = "2026-08-08T05:00:00.000Z";
 const TARGET = "n.spec";
-const FAMILY = extensionNodeId("outline");
 const PLAIN = "we should write spec soon";
 
 function wire(id: string, text: string, children: string[] = []): WireNode {
@@ -167,31 +165,5 @@ describe("node page references", () => {
     );
     await act(async () => more.click());
     expect(count("[data-link-mention]")).toBe(51);
-  });
-
-  it("opens the node at References from its row counter and respects the outline setting", async () => {
-    const scroll = vi.spyOn(dom.window.HTMLElement.prototype, "scrollIntoView");
-    await draw();
-    const counter = `[data-reference-counter="${TARGET}"]`;
-    await settled(() => expect(find(counter)?.textContent).toBe("2"));
-    await act(async () => present(find(counter), "counter").click());
-    await settled(() => expect(find(`[data-references-for="${TARGET}"]`)).not.toBeNull());
-    expect(useGraphStore.getState().rootNodeId).toBe(TARGET);
-    expect(scroll.mock.contexts).toContain(find(`[data-references-for="${TARGET}"]`));
-
-    const family = present(useGraphStore.getState().index?.getNode(FAMILY), FAMILY);
-    const disabled = {
-      ...family,
-      props: {
-        ...family.props,
-        [OUTLINE_IDS.hideReferenceCountsField]: [{ t: "bool" as const, v: true }],
-      },
-    };
-    await act(async () => {
-      useGraphStore.getState().applyTx([disabled], [], { rev: 2 });
-      useGraphStore.getState().zoomHome();
-    });
-    expect(find(`[data-node-row][data-node-id="${TARGET}"]`)).not.toBeNull();
-    expect(find(counter)).toBeNull();
   });
 });

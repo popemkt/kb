@@ -24,7 +24,7 @@ import {
   usePane,
 } from "@kb/ui-sdk";
 import { extensionNodeId } from "@kb/model";
-import { showsChildCounts, showsReferenceCounts } from "@kb/outline";
+import { showsChildCounts } from "@kb/outline";
 import { useOutlineStore } from "./outline.store";
 import { pressRowBullet } from "./row-drag";
 
@@ -33,7 +33,6 @@ import { RowChildren } from "./frame-view-slot";
 import { NodeContent } from "./node-content";
 import { RowCheck } from "./row-check";
 import { checkedTextClass, rowCheckOf } from "./row-check-state";
-import { RowReferenceCounter } from "./row-reference-counter";
 import { RowPreview } from "./row-preview";
 import { openIn, useRowOpening, useRowView } from "./row-opening";
 import { QueryResultsSection } from "./query-results";
@@ -259,7 +258,6 @@ export const NodeBlock = memo(function NodeBlock({
             </div>
           )}
         </div>
-        {showsReferenceCounts(outlineFamily) && <RowReferenceCounter nodeId={shownId} />}
       </div>
 
       <OpenReferences

@@ -380,7 +380,6 @@ export {
 export { resultNodeIds } from "./lib/use-query-node-rows";
 export {
   answerOf,
-  BACKLINK_COUNTS_QUERY,
   conditionsEdn,
   derivedWith,
   type EdnRunner,
