@@ -2,6 +2,7 @@ import type { KbNode, NodeId } from "./model.ts";
 import { typeRefsOf } from "./node-like.ts";
 import { compareRootOrder, siblingSlots, type SiblingGroups, type Slots } from "./order.ts";
 import type { NamedNodes } from "./resolve.ts";
+import { SortedList } from "./sorted-list.ts";
 
 /**
  * A node set a write plan reads and writes into (DESIGN.md → The plan
@@ -143,19 +144,6 @@ const nameKey = (typeId: NodeId, text: string): string => `${typeId}\u0000${text
 /** What `IndexedNodes` stores of a node: everything but its children, which it keeps apart. */
 type Shell = Omit<KbNode, "children">;
 
-/** The index at which `node` sits, or would be inserted, in `sorted` (visible root order). */
-function lowerBound(sorted: readonly Shell[], node: Shell): number {
-  let lo = 0;
-  let hi = sorted.length;
-  while (lo < hi) {
-    const mid = (lo + hi) >>> 1;
-    const at = sorted[mid];
-    if (at !== undefined && compareRootOrder(at, node) < 0) lo = mid + 1;
-    else hi = mid;
-  }
-  return lo;
-}
-
 /**
  * {@link NodeGraph} from indexes kept current as it is written: by id, by
  * type and text, by parent, each node's own working list of children, the
@@ -172,9 +160,8 @@ function lowerBound(sorted: readonly Shell[], node: Shell): number {
  * that parent's list (amortised O(1); a position mid-list moves the rest),
  * and reading a neighbour's rank reads one slot of a view. A parent's node
  * is joined once when it is next read, not once per child. Placing a node at
- * the forest roots costs a binary search and one array insertion, which
- * moves the roots after it — O(R) in memory moves, the one cost left that
- * grows with the store (`#root`).
+ * the forest roots, or reading a root by position, costs O(log R): the roots
+ * are a {@link SortedList} in visible order.
  */
 export class IndexedNodes implements NodeGraph {
   /** Each node without its children. */
@@ -189,7 +176,7 @@ export class IndexedNodes implements NodeGraph {
   readonly #dangling = new Map<NodeId, number>();
   readonly #rootIds = new Set<NodeId>();
   /** The roots in visible order, once asked for; kept in order by every write after that. */
-  #ordered: Shell[] | null = null;
+  #ordered: SortedList<Shell> | null = null;
   /** Bumped by every write: a view handed out before it is no longer valid. */
   #version = 0;
 
@@ -227,11 +214,12 @@ export class IndexedNodes implements NodeGraph {
     const excluded = member !== undefined && this.#parentOf.get(member) === (parent ?? undefined);
     let ids: { readonly length: number; at(index: number): NodeId | undefined };
     if (parent === null) {
-      this.#ordered ??= [...this.#rootIds]
-        .flatMap((id) => this.#shells.get(id) ?? [])
-        .toSorted(compareRootOrder);
+      this.#ordered ??= new SortedList(
+        compareRootOrder,
+        [...this.#rootIds].flatMap((id) => this.#shells.get(id) ?? []).toSorted(compareRootOrder),
+      );
       const roots = this.#ordered;
-      ids = { length: roots.length, at: (i) => roots[i]?.id };
+      ids = { length: roots.length, at: (i) => roots.at(i)?.id };
     } else {
       const list = this.#children.get(parent) ?? [];
       ids = list;
@@ -321,17 +309,13 @@ export class IndexedNodes implements NodeGraph {
     const shell = this.#shells.get(id);
     if (shell === undefined || this.#rootIds.has(id)) return;
     this.#rootIds.add(id);
-    // The insertion moves every root after it: O(R) per top-level placement.
-    // GAP [[01M52RTGASH2F5PVW7CK2Q50VN]]
-    if (this.#ordered !== null) this.#ordered.splice(lowerBound(this.#ordered, shell), 0, shell);
+    this.#ordered?.insert(shell);
   }
 
   /** Take `id` out of the roots, finding it by the version the order holds. */
   #unroot(id: NodeId): void {
     if (!this.#rootIds.delete(id)) return;
     const shell = this.#shells.get(id);
-    if (this.#ordered === null || shell === undefined) return;
-    const at = lowerBound(this.#ordered, shell);
-    if (this.#ordered[at]?.id === id) this.#ordered.splice(at, 1);
+    if (shell !== undefined) this.#ordered?.remove(shell, (root) => root.id === id);
   }
 }

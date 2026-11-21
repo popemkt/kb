@@ -922,14 +922,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — E19 of the extension SDK plan, after E13, at a 3D step boundary
 - **node** — `01M43AT0V9HHVS7ZAEPWXEGE7F`
 
-### GAP: datalog and the query builder's tag filter do not reach a subtype's nodes
-
-- **expected** — A node of a tag that extends another is that tag's node in datalog too: a derived :node/is datom holds the closure of sys.f.type over sys.f.extends, the query builder's has-tag lowers to it and the page's condition evaluator reads kindsOf, while :f/sys.f.type stays tagged-exactly.
-- **current** — kindsOf and isA read the chain in @kb/model, and the template, views, ref targets and ontology members follow it, but datalog has only :f/sys.f.type, so a has-tag filter, a saved query or a tag page's instance list names only nodes tagged exactly.
-- **impact** — A person's #meeting that extends #event shows on the calendar page, which reads the page's graph through isA, but the routines engine reads its nodes with a datalog query on sys.f.type and does not sync it; a query or a view filter for #event does not name it either.
-- **closes** — Add :node/is to CORE_DERIVED with a carrier that reads the chain and re-derives a tag's instances when its sys.f.extends changes; lower has-tag to it, evaluate it with isA, and stop canonicalizing a sys.f.type is-condition into has-tag. The routines engine's read (routines-host graph.ts) then asks :node/is and brings the tags its readers walk.
-- **node** — `01M738XHYKHDFFCN8DK595Z15T`
-
 ### GAP: Day stepping has no default shortcut
 
 - **expected** — Previous day and Next day have distinct default shortcuts that reach kb in each supported shell.
@@ -1197,7 +1189,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **expected** — A field whose value mirrors something outside the store, which no constraint can check (routines' gcal sync fields: the event id, its status, synced at), is locked to its family: the commit admits its values only from that family's actions, on every surface, and the editor names the action to use instead of an Edit.
 - **current** — sys.f.managedBy declares that a family manages a field, and the page puts an Edit step in front of a person's write, but the commit admits the write from anyone. Days needs no more (its period-key and unique-key guards keep every key valid); routines' sync fields have no constraint that could tell a right event id from a wrong one.
 - **impact** — A person's or an agent's write to a sync field can corrupt the sync's bookkeeping: a wrong gcal event id re-creates or orphans a Google event. A family that wants protection today can only reach for the sys.* node lock, which is the wrong grain.
-- **closes** — The commit reads sys.f.managedBy against the call's owning family (the called action's owner, part of the action contract), for fields that declare the lock; the field row shows the family's action in place of Edit. Only where no constraint can do the job (data-plane freedom: constrain before you lock).
+- **closes** — The commit reads sys.f.managedBy against the call's owning family (the called action's owner, part of the action contract), for fields that declare the lock; the field row shows the family's action in place of Edit. Only where no constraint can do the job (data-plane freedom: constrain before you lock). Owner decision first: how a field declares the lock (a value beside sys.f.managedBy, such as a managed/locked option), and how the commit learns the calling action's family (the owner of CurrentCall's action id).
 - **rule** — Data-plane freedom: constrain before you lock
 - **node** — `01M74AS94FM8GDGF3W10M84P43`
 
@@ -1372,14 +1364,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a rounded-rect hit volume in the shape table
 - **node** — `01M41GAZ88QXRS7M85S0JN0ZW1`
 
-### GAP: placing a top-level item inserts into the plan graph's ordered roots array
-
-- **expected** — placing an item at the forest roots costs O(log R) in a plan (an ordered structure with logarithmic insert)
-- **current** — IndexedNodes keeps the roots in one ordered array and splices into it, moving the rest in memory: O(R) per top-level placement
-- **impact** — an outline paste with many top-level items over a store with many roots does R work per item (a memmove; small constant)
-- **closes** — an ordered structure with logarithmic insert for the roots in node-graph.ts, counted in the plan test
-- **node** — `01M52RTGASH2F5PVW7CK2Q50VN`
-
 ### GAP: PropValue still carries the legacy {t:"date"} variant
 
 - **expected** — PropValue has one carrier per value; dates are {t:"str"} only.
@@ -1403,14 +1387,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — the same query open in two panes shares row instances; keyboard navigation in query results goes to the main pane
 - **closes** — put the host in the query-row instance key
 - **node** — `01M411FPC839XBJJ873V1VYYYD`
-
-### GAP: rankBetween grows ranks by a digit per tail append within one plan
-
-- **expected** — appending many siblings in one plan keeps rank length bounded (e.g. rank allocation that spreads appended ranks)
-- **current** — rankBetween bumps one digit per tail append; after ~400 appends to one group in a single plan ranks pass 12 characters and placement scans back for a usable neighbour until the commit re-spreads the group
-- **impact** — one outline paste with several hundred siblings under one parent slows per item; the counted plan test stops at 350
-- **closes** — a rank allocation in order.ts with bounded growth for repeated appends, proven by the plan test at thousands of siblings
-- **node** — `01M52RMD1V9BW6E27RYYSH2K5X`
 
 ### GAP: reach is recognised only inside the query subset parseEdn models
 
@@ -1569,7 +1545,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: stored queries may match a node by its text
 
 - **expected** — Every stored query, lens and view filter names nodes by id; a label a person picks in the query builder is written as the id it resolves to.
-- **current** — The query IR's label atom compiles to a match on the node's id or its text, so a label the query builder could resolve to an id is stored as text. ext.check.audit's ref-by-text refuses a stored query, lens, saved query or view filter that names a node by its text, so a stored one cannot land.
+- **current** — The query builder already writes a ref for a value a person picks (the field's own editor). The one writer of a label is a view filter: ViewFilterSchema holds only label atoms, the view-settings popover writes typed text there, and a label compiles to a match on a node's id or its text. ext.check.audit's ref-by-text refuses a stored one, so it cannot land in a repository store. Closing it waits on GAP 01M5E7S398F4GM2490R3RZ3ZPP (view filters stored as rows of the one condition model), where a field-is filter can hold a ref and the popover can use the field's own value picker.
 - **impact** — A saved query or a view filter that matched a tag or an option by its text silently returns nothing after a person renames it, which makes cosmetic renames unsafe.
 - **closes** — The builder resolves a label to a ref atom when it names a node.
 - **rule** — Everything references by id
@@ -1894,7 +1870,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **expected** — A kb date function (kb/today, kb/date-in-days) in a query the server runs for a client (a rows subscription over /ws, MCP graph_query) reads the civil date in that client's time zone: the client's zone travels with its request, and the run's clock sample carries it.
 - **current** — The runtime's index samples the Clock and DateTime.CurrentTimeZone in scope when the session opens (sessionOver), which is the server process's own zone; a rows subscription the server answers uses it. The page is not affected: it answers its own queries in its engine worker, in the browser's zone.
 - **impact** — When the server and a thin client are in different zones, a relative-date condition (due within the next 14 days, today) can be a day off near midnight.
-- **closes** — The subscribe frame (and graph_query) names the client's time zone, and the server builds that run's ClockSample with it, with a test that pins two zones across a midnight.
+- **closes** — The subscribe frame (and graph_query) names the client's time zone, and the server builds that run's ClockSample with it, with a test that pins two zones across a midnight. Owner decision first: the client's zone travels per query (the subscribe frame, graph.query's input, KbIndex.answerDatalog and QueryEngine.runDatalog, the page worker included) or once per call on the action envelope, which days' capture target and every other date-reading action would then share.
 - **node** — `01M5E2YBN75HF5C8HZPG62CAJH`
 
 ### GAP: the shell's page plugins belong to no family
@@ -2610,6 +2586,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M63BZRZ4RDTCE1ZFVGRNEXGR`
 
+### GAP: datalog and the query builder's tag filter do not reach a subtype's nodes
+
+- **expected** — A node of a tag that extends another is that tag's node in datalog too: a derived :node/is datom holds the closure of sys.f.type over sys.f.extends, the query builder's has-tag lowers to it and the page's condition evaluator reads kindsOf, while :f/sys.f.type stays tagged-exactly.
+- **current** — Fixed: :node/is is in CORE_DERIVED (derived over the tag chain), has-tag lowers to it and the condition evaluator reads it; the routines engine's read (routines-host graph.ts) now asks [?n :node/is ?t] and brings each tag on its nodes' chains (following sys.f.extends), so a #meeting that extends a routine is synced.
+- **impact** — A person's #meeting that extends #event shows on the calendar page, which reads the page's graph through isA, but the routines engine reads its nodes with a datalog query on sys.f.type and does not sync it; a query or a view filter for #event does not name it either.
+- **closes** — Add :node/is to CORE_DERIVED with a carrier that reads the chain and re-derives a tag's instances when its sys.f.extends changes; lower has-tag to it, evaluate it with isA, and stop canonicalizing a sys.f.type is-condition into has-tag. The routines engine's read (routines-host graph.ts) then asks :node/is and brings the tags its readers walk.
+- **node** — `01M738XHYKHDFFCN8DK595Z15T`
+
 ### GAP: defining and applying a tag can leave an orphan definition
 
 - **expected** — Defining and applying a tag in one editor gesture commits as one transaction.
@@ -3076,6 +3060,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — An androidTest suite run on an emulator from nix (androidenv system image, KVM), wired into the same gate as the unit tests.
 - **node** — `01M7QTAJ9GSK02FMWNR4XQGFMT`
 
+### GAP: placing a top-level item inserts into the plan graph's ordered roots array
+
+- **expected** — placing an item at the forest roots costs O(log R) in a plan (an ordered structure with logarithmic insert)
+- **current** — Fixed: IndexedNodes keeps the roots in a SortedList (sorted-list.ts, a treap with subtree sizes), so a top-level placement, an unroot and a positional read each cost O(log R); a property test holds it to a sorted array and counts O(log n) comparisons per insert, and node-graph.contract.test.ts still holds both adapters equal.
+- **impact** — an outline paste with many top-level items over a store with many roots does R work per item (a memmove; small constant)
+- **closes** — an ordered structure with logarithmic insert for the roots in node-graph.ts, counted in the plan test
+- **node** — `01M52RTGASH2F5PVW7CK2Q50VN`
+
 ### GAP: pre-commit admission reads the working tree
 
 - **expected** — Pre-commit reconstructs and verifies the staged snapshot for every governed path so unstaged content cannot affect the decision.
@@ -3135,6 +3127,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — An unchanged query implementation can fail the full core gate nondeterministically; this blocked the extension UI PR.
 - **closes** — Generate meaningful non-empty cases by construction alongside broad random cases, preserve the comparison contract, and reproduce the failing coverage distribution.
 - **node** — `01M6WV8JS4GPF0TRYDZY948C40`
+
+### GAP: rankBetween grows ranks by a digit per tail append within one plan
+
+- **expected** — appending many siblings in one plan keeps rank length bounded (e.g. rank allocation that spreads appended ranks)
+- **current** — Fixed: a tail step reads the k+1 digits after a rank's run of k leading z's as a counter and widens the run when it overflows (stepBefore mirrors it over 0s), so n appends grow a rank by about two characters per factor of 36; the plan test files 5000 children under one parent at a constant number of reads each.
+- **impact** — one outline paste with several hundred siblings under one parent slows per item; the counted plan test stops at 350
+- **closes** — a rank allocation in order.ts with bounded growth for repeated appends, proven by the plan test at thousands of siblings
+- **node** — `01M52RMD1V9BW6E27RYYSH2K5X`
 
 ### GAP: RefEditor mixes candidate search, keyboard handling and rendering in 22 branches
 

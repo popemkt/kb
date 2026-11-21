@@ -1,0 +1,6 @@
+{
+  "reason": "rankBetween's head and tail steps read a counter after a run of z's (or 0s) and widen the run on overflow, so a run of appends grows ranks logarithmically instead of one character per 35 appends; order.ts is in every command's eager graph.",
+  "raise": {
+    "cli-closure": { "bytes": 600 }
+  }
+}

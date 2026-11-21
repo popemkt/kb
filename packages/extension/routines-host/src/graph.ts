@@ -1,7 +1,15 @@
 import { Context, Layer, Result, DateTime, Effect, Schema } from "effect";
 import { z } from "zod";
 import { onWire, viaWithin, WireNodeSchema, type UiHostService } from "@kb/contracts";
-import { canonicalJson, PropValueSchema, type NodeLike, type PropValue } from "@kb/model";
+import {
+  canonicalJson,
+  PropValueSchema,
+  refValuesOf,
+  SYSTEM_IDS,
+  typeRefsOf,
+  type NodeLike,
+  type PropValue,
+} from "@kb/model";
 import {
   readCalendar,
   syncStatusProps,
@@ -120,9 +128,9 @@ export function makeRoutineHost(host: UiHostService): RoutineHost {
   });
   const read = Effect.fn("routines.graph.read")(function* () {
     const kinds = [T.routine, T.calendar, T.account];
-    // GAP [[01M738XHYKHDFFCN8DK595Z15T]]: tagged exactly, so a subtype's nodes are not read.
+    // What a node is (`:node/is`), subtypes included: a #meeting that extends a routine is read.
     const query =
-      "[:find ?id :where [?n :node/id ?id] [?n :f/sys.f.type ?t] (or " +
+      "[:find ?id :where [?n :node/id ?id] [?n :node/is ?t] (or " +
       kinds.map((kind) => '[?t :node/id "' + kind + '"]').join(" ") +
       ")]";
     const result = z
@@ -138,6 +146,19 @@ export function makeRoutineHost(host: UiHostService): RoutineHost {
       nodes.set(root.id, { ...root, children: (root.children ?? []).map((child) => child.id) });
       for (const child of root.children ?? [])
         if (!nodes.has(child.id)) nodes.set(child.id, { ...child, children: [] });
+    }
+    // The tags each node carries and every tag they extend, so the readers'
+    // `isA` / `nodesOfKind` walk a subtype's chain in this map.
+    const pending = [...nodes.values()].flatMap((held) => typeRefsOf(held));
+    for (let tag = pending.pop(); tag !== undefined; tag = pending.pop()) {
+      if (nodes.has(tag)) continue;
+      const found = yield* Effect.result(node(tag));
+      if (Result.isFailure(found)) {
+        if (found.failure.status === 404) continue;
+        return yield* found.failure;
+      }
+      nodes.set(tag, { ...found.success, children: [] });
+      pending.push(...refValuesOf(found.success, SYSTEM_IDS.extendsField));
     }
     return nodes;
   });

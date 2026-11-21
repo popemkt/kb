@@ -1,0 +1,6 @@
+{
+  "reason": "IndexedNodes keeps the forest roots in a SortedList (a treap with subtree sizes), so a top-level placement in a plan costs O(log R) instead of moving every root after it; node-graph.ts is in every command's eager graph.",
+  "raise": {
+    "cli-closure": { "bytes": 2100, "modules": 1 }
+  }
+}
