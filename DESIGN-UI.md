@@ -1707,6 +1707,16 @@ a line to draw. Debug fields draw every field as a row, and no line.
   (`declaresOptionSet`) — is a chip drawn in the tag chip's box, in the
   option's colour (`optionColorOf`); a field's chips wrap on one line.
 
+**A paste of several lines.** Pasting several lines into a many-valued
+field adds one value per line
+(`value-paste`, the stack's paste): blank lines are dropped, each line is
+read as the field reads a value typed (`spec.parse`), or for a picked field
+names the target its picker offers by that exact name, made first, as the
+create row makes one, where the field may make targets. The values go after
+the field's own as one write of the page's, one undo step, and the keyboard
+lands on the last. A paste with a line the field cannot read or name, or a
+single line, is the editor's, as typing is.
+
 **Option previews.** An option of a declared kind (DESIGN.md → Extension
 families → Declared options) may be drawn with a live sample of what it
 names: `OptionPreviewPoint` (`ui.option-previews`, `@kb/ui-sdk`) holds one
@@ -1876,8 +1886,7 @@ when a second family needs a trigger of its own, it becomes one.
 
 **Named gaps.** A ref value's bullet follows on a plain click (a value's
 bullet has no children of its own to expand) rather than expanding the
-target's children inline under the field. Pasting
-several lines into a many-valued field is not split into values. The node
+target's children inline under the field. The node
 palette has no "Add value to …" command. `sys.f.color` keeps its always-open
 swatch row. The PropValue union still carries the legacy `date` variant so old
 stores decode (opening rewrites it). Table and board cells are not in the

@@ -1,17 +1,12 @@
 import { useMemo, useRef, useState } from "react";
-import { declaresOptionSet } from "@kb/model";
 import {
-  closesCycleOf,
   cn,
   kindOfType,
   KB_TEXT_CLASS,
-  nodeCandidates,
-  orderCandidates,
   PickerList,
   pickerRows,
   refCreationOf,
   refSearchOf,
-  refUses,
   textOr,
   useOptionPreview,
   usePickerKeys,
@@ -22,7 +17,8 @@ import {
   type RefCreation,
   useAnswersOf,
 } from "@kb/ui-sdk";
-import { notePick, recentPicks } from "./picker-recency";
+import { fieldTargetsOf } from "./field-targets";
+import { notePick } from "./picker-recency";
 
 const inputClass = cn(
   "w-full flex-1 rounded-sm border-none bg-transparent px-1 outline-none",
@@ -55,8 +51,6 @@ const inputClass = cn(
  * Its placeholder is the input's own native attribute: `.empty-placeholder`
  * cannot render on an `<input>`, so there is one placeholder per state.
  */
-/** What a candidate refused for closing a cycle is noted with. */
-const WOULD_CYCLE = "would cycle";
 
 export function FieldPicker({
   fieldId,
@@ -87,29 +81,19 @@ export function FieldPicker({
     () => new Set(field.values.flatMap((v) => (v.t === "ref" ? [v.v] : []))),
     [field.values],
   );
-  const candidates = useMemo(() => {
-    const closes = closesCycleOf(context.schema, fieldId, field.holder);
-    return orderCandidates(nodeCandidates(search.pool, { allowed: search.allowed }), {
-      declared: declaresOptionSet(fieldNode) ? fieldNode?.children : undefined,
-      recent: recentPicks(fieldId),
-      uses: refUses(context.outline, fieldId),
-    }).map((candidate) =>
-      // Only adding is refused: a value already held stays checked and can be
-      // taken back, however the cycle came to be.
-      !selected.has(candidate.id) && closes(candidate.id)
-        ? { ...candidate, note: WOULD_CYCLE, disabled: true }
-        : candidate,
-    );
-  }, [
-    selected,
-    search.pool,
-    search.allowed,
-    fieldNode,
-    fieldId,
-    context.outline,
-    context.schema,
-    field.holder,
-  ]);
+  const candidates = useMemo(
+    () =>
+      fieldTargetsOf({
+        schema: context.schema,
+        outline: context.outline,
+        fieldId,
+        holder: field.holder,
+        selected,
+        pool: search.pool,
+        allowed: search.allowed,
+      }),
+    [context.schema, context.outline, fieldId, field.holder, selected, search.pool, search.allowed],
+  );
   const rows = useMemo(
     () => pickerRows(candidates, { query, selected, canCreate: creation !== null, limit: 50 }),
     [candidates, query, selected, creation],

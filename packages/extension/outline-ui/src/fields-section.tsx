@@ -19,6 +19,8 @@ import {
   formatPropValue,
   IconButton,
   isValueMismatch,
+  refCreationOf,
+  refSearchOf,
   ManagedNote,
   type PropValue,
   resolveFieldTypeById,
@@ -31,6 +33,7 @@ import {
   useGraphRead,
   useOptionPreview,
   type FieldHandle,
+  type ValueKindSpec,
 } from "@kb/ui-sdk";
 import { backToRow } from "./back-to-row";
 import { outlineSource, releaseOutlineKeyboard, useOutlineStore } from "./outline.store";
@@ -40,6 +43,8 @@ import { useSlotKind } from "./slot-kind";
 import { arriveAt, fieldSlot, slotAt } from "./value-slot-nav";
 import { HiddenFieldsChips } from "./hidden-fields-chips";
 import { useRowOpening } from "./row-opening";
+import { fieldTargetsOf } from "./field-targets";
+import { pastedValues } from "./value-paste";
 
 /**
  * The gallery loads when a field first draws as one: only a kind whose
@@ -113,6 +118,18 @@ export function FieldValueStack({
     { nodeId, fieldId, values, many, instanceKey },
   );
   const drop = (id: number) => setPending((ids) => ids.filter((x) => x !== id));
+  const paste = usePasteValues({
+    nodeId,
+    fieldId,
+    context,
+    spec,
+    field,
+    values,
+    many,
+    readOnly,
+    setPending,
+    setPicking,
+  });
   /** Adding is the picker for picked values, and a new empty slot for typed ones. */
   const beginAdd = spec.editor === "picker" ? field.openPicker : field.addSlot;
   const canAdd = !readOnly && many && values.length > 0 && !picking;
@@ -127,6 +144,7 @@ export function FieldValueStack({
       )}
       data-field-values={fieldId}
       data-layout={spec.layout}
+      onPaste={paste}
     >
       {valueKeys(values).map(({ key, value }, i) => (
         <ValueItem
@@ -198,6 +216,109 @@ export function FieldValueStack({
       )}
     </div>
   );
+}
+
+/**
+ * A paste of several lines into a many-valued field (DESIGN-UI.md → Field
+ * values): one value per line (`pastedValues`), a target named by a line that
+ * the field may make made first, added after the field's values as one write
+ * of the page's, one undo step. Resolves to how many values it added; null
+ * when the paste is not a list of values, and stays the editor's.
+ */
+function pasteValues(
+  text: string,
+  {
+    nodeId,
+    fieldId,
+    context,
+    spec,
+    field,
+  }: {
+    nodeId: string;
+    fieldId: string;
+    context: FieldContext;
+    spec: ValueKindSpec;
+    field: FieldHandle;
+  },
+): Promise<number> | null {
+  const creation = spec.editor === "picker" ? refCreationOf(context, fieldId) : null;
+  const targets =
+    spec.editor === "picker"
+      ? fieldTargetsOf({
+          schema: context.schema,
+          outline: context.outline,
+          fieldId,
+          holder: nodeId,
+          selected: new Set(field.values.flatMap((v) => (v.t === "ref" ? [v.v] : []))),
+          ...refSearchOf(context, fieldId),
+        })
+      : [];
+  const lines = pastedValues(text, { spec, targets, canCreate: creation !== null });
+  if (lines === null) return null;
+  const { writes } = browserHost();
+  return writes
+    .together(async () => {
+      // A target a line names that the field may make is made first.
+      const made = await Promise.all(
+        lines.map((line) =>
+          line.kind === "value" || creation === null
+            ? Promise.resolve(null)
+            : writes.createRefTarget(creation, line.name),
+        ),
+      );
+      const added = lines.flatMap((line, i): PropValue[] => {
+        if (line.kind === "value") return [line.value];
+        const id = made[i];
+        return id === null || id === undefined ? [] : [{ t: "ref", v: id }];
+      });
+      await Promise.all(added.map((value) => writes.updateProp(nodeId, fieldId, value)));
+      return added.length;
+    })
+    .then((added) => added ?? 0);
+}
+
+/**
+ * The stack's paste (`pasteValues`): a paste it reads as a list of values
+ * is the field's — nothing of it is typed into the editor, the slot or
+ * picker it landed in closes, and the keyboard lands on the last value
+ * added. Any other paste is the editor's.
+ */
+function usePasteValues({
+  nodeId,
+  fieldId,
+  context,
+  spec,
+  field,
+  values,
+  many,
+  readOnly,
+  setPending,
+  setPicking,
+}: {
+  nodeId: string;
+  fieldId: string;
+  context: FieldContext;
+  spec: ValueKindSpec;
+  field: FieldHandle;
+  values: readonly PropValue[];
+  many: boolean;
+  readOnly: boolean;
+  setPending: (ids: readonly number[]) => void;
+  setPicking: (open: boolean) => void;
+}) {
+  return (e: React.ClipboardEvent) => {
+    if (readOnly || !many) return;
+    const text = e.clipboardData.getData("text/plain");
+    const done = pasteValues(text, { nodeId, fieldId, context, spec, field });
+    if (done === null) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setPending([]);
+    setPicking(false);
+    void done.then((added) => {
+      if (added > 0) field.focusSlot(values.length + added - 1);
+    });
+  };
 }
 
 /**

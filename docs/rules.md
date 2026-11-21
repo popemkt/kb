@@ -1532,14 +1532,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — move the zoom into the pane's location
 - **node** — `01M411FP5AGQ4VB5SGJWCJAN66`
 
-### GAP: pasting several lines into a many-valued field is one value
-
-- **expected** — A multi-line paste into a many-valued field becomes one value per line.
-- **current** — The pasted text lands as a single value.
-- **impact** — Bulk entry of options or refs takes one edit per value.
-- **closes** — The value stack's paste handler splits on newlines for many-valued fields and appends one slot per line.
-- **node** — `01M3KA39GQ7Q8HSD0JKB46VCC5`
-
 ### GAP: people cannot pick a canvas item as a link target
 
 - **expected** — The Link row offers the items of the chosen page, or "link to the selection", so a person can make {node, item} and {item} links without knowing item ids.
@@ -3180,6 +3172,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Field defaults are stated once per field in code and again in the ontology, and a malformed prop degrades silently per field instead of failing the decode.
 - **closes** — Track 2 domain-typing work: express LensPerspective as a Schema and decode props through it. Not mechanical - it changes what happens on malformed input.
 - **node** — `01M1MGCEBYDFRNJX1JKXXN825H`
+
+### GAP: pasting several lines into a many-valued field is one value
+
+- **expected** — A multi-line paste into a many-valued field becomes one value per line.
+- **current** — The pasted text lands as a single value.
+- **impact** — Bulk entry of options or refs takes one edit per value.
+- **closes** — The value stack's paste handler splits on newlines for many-valued fields and appends one slot per line.
+- **node** — `01M3KA39GQ7Q8HSD0JKB46VCC5`
 
 ### GAP: pre-commit admission reads the working tree
 
