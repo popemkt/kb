@@ -474,14 +474,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Expansion keyed by row instance where a row's choice can differ from its node's (projected rows first), so an opened reference can default open without touching the node's choice
 - **node** — `01M7D8AP4A4W6S2X5T1DSE9D77`
 
-### GAP: a reference's target cannot be changed from the UI
-
-- **expected** — A reference row can be repointed from the UI.
-- **current** — Every field row a reference draws is its target's, so its own props (sys.f.ref.target) are not shown; Turn into reference... is withheld from a row that already is one. Repointing is CLI/MCP node.update only.
-- **impact** — A wrongly picked reference must be deleted and recreated in the UI.
-- **closes** — A "Change reference target..." step in the node's ⌘K menu using the shared picker.
-- **node** — `01M3KA3AZTJVQNADZ12SDPE9X1`
-
 ### GAP: a registry composed blind to the store's switches replaces the session's
 
 - **expected** — Composing a root's registry never retires one a live session still reads: every caller passes the store's switches, or a session's FamilyKernels and catalog read the root's current registry per call.
@@ -2569,6 +2561,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The query builder of docs/brainstorms/2026-10-20-query-builder, over the IR in @kb/query.
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYKQAHJNG5SSRVSYE77GN`
+
+### GAP: a reference's target cannot be changed from the UI
+
+- **expected** — A reference row can be repointed from the UI.
+- **current** — Every field row a reference draws is its target's, so its own props (sys.f.ref.target) are not shown; Turn into reference... is withheld from a row that already is one. Repointing is CLI/MCP node.update only.
+- **impact** — A wrongly picked reference must be deleted and recreated in the UI.
+- **closes** — A "Change reference target..." step in the node's ⌘K menu using the shared picker.
+- **node** — `01M3KA3AZTJVQNADZ12SDPE9X1`
 
 ### GAP: a repository extension has no node, switch or settings
 

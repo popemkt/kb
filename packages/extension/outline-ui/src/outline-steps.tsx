@@ -224,11 +224,18 @@ const addRef: PaletteStep = {
   limit: 12,
   commit: async ({ targetNodeId, pickedId }) => {
     // The whole creation gesture, and nothing but existing primitives: point
-    // the target field at the picked node. The field is the kind.
-    await browserHost().writes.updateProp(targetNodeId, SYSTEM_IDS.refTargetField, {
-      t: "ref",
-      v: pickedId,
-    });
+    // the target field at the picked node, in place of any it points at (a
+    // reference repointed). The field is the kind.
+    const { graph, writes } = browserHost();
+    const held = graph.state().wireNodes.find((n) => n.id === targetNodeId)?.props[
+      SYSTEM_IDS.refTargetField
+    ]?.[0];
+    await writes.updateProp(
+      targetNodeId,
+      SYSTEM_IDS.refTargetField,
+      { t: "ref", v: pickedId },
+      held,
+    );
   },
 };
 

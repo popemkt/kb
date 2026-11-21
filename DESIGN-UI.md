@@ -1498,9 +1498,9 @@ write that is one undo step (`setNodeText`, below). Both steps are offered
 only on a row whose text names a node, and only on one row.
 
 **Named gaps.** The reference node's own props — its target among them — are
-not drawn by its row, since every field row is the target's; the target is
-repointable only from the CLI or MCP (`node.update`), and _Turn into
-reference…_ is withheld from a row that already is one. View filters, sort and
+not drawn by its row, since every field row is the target's; on a row that
+already is a reference, _Turn into reference…_ reads _Change reference
+target…_ and repoints it, with the same step and the same write. View filters, sort and
 board grouping read a row's own props, so a reference inside a table or board
 sorts and groups as an empty node. Enter at the end of an expanded reference
 opens a sibling, where an expanded ordinary row opens its first child, because
@@ -3285,7 +3285,7 @@ The groups, in the menu's order (`NODE_MENU_GROUPS`):
 | Group | What it holds | Its rows today |
 | --- | --- | --- |
 | `lead` | how the node itself opens and shows | "Open in …" for its tag's view; "Show/Hide preview", "Show/Hide properties" |
-| `make` | what the node is and holds | Add tag, Remove tag…, Make your own tag that extends this, Turn into query, Turn into reference…, Add field, Set field…, Make supertag, Type this reference…, Remove reference… |
+| `make` | what the node is and holds | Add tag, Remove tag…, Make your own tag that extends this, Turn into query, Turn into reference… (Change reference target… on a reference), Add field, Set field…, Make supertag, Type this reference…, Remove reference… |
 | `open` | where it opens | Search everything…, Open in panel, Open as workspace, Open with: …, Copy node ID |
 | `arrange` | where it sits | Indent, Outdent, Move to…, Move and leave reference… |
 | `mark` | what marks it | Pin / Unpin, Show / Hide debug fields |

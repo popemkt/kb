@@ -574,10 +574,20 @@ describe("node command palette", () => {
     },
   );
 
-  it("drops Turn into reference on a node that already is one", async () => {
+  it("offers Change reference target on a node that already is one, and repoints it", async () => {
     await open("n.ref");
     expect(labels()).not.toContain("Turn into reference…");
-    expect(labels()[1]).toBe("Turn into query");
+    expect(labels()).toContain("Change reference target…");
+    await pick("Change reference target…");
+    await pickTag("n.inbox");
+    // The same write Turn into reference… makes: the reference's target field, replaced.
+    await vi.waitFor(() =>
+      expect(
+        useGraphStore.getState().wireNodes.find((n) => n.id === "n.ref")?.props[
+          SYSTEM_IDS.refTargetField
+        ],
+      ).toEqual([{ t: "ref", v: "n.inbox" }]),
+    );
   });
 
   it("opens at a page's title, where the page's node is active", async () => {

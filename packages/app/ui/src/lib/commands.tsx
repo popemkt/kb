@@ -441,16 +441,15 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     run: (ctx) => ctx.palette.openStep("outline.find-tagged"),
   },
   {
+    // One write, pointing the row's target field at a node: on a row that
+    // is a reference already, it repoints it.
     id: "turn-ref",
     menu: nodeMenu("make", 30),
-    chrome: () => ({
-      label: "Turn into reference…",
+    chrome: (ctx) => ({
+      label: isContextualRef(targetNode(ctx)) ? "Change reference target…" : "Turn into reference…",
       icon: <LinkSimpleIcon size={14} weight="bold" />,
     }),
-    when: (ctx) => {
-      const node = targetNode(ctx);
-      return node !== undefined && !isContextualRef(node);
-    },
+    when: (ctx) => targetNode(ctx) !== undefined,
     run: (ctx) => ctx.palette.openStep("outline.add-ref"),
   },
   {
