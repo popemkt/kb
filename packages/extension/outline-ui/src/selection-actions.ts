@@ -15,6 +15,7 @@ import {
   asOneWrite,
   browserHost,
   childInstanceKey,
+  nodeOfInstance,
   runKeyCall,
   rowTextOf,
   shownNode,
@@ -25,7 +26,8 @@ import { selectionRoots } from "@kb/model";
 import type { SelectionKeyAction } from "./selection-keymap";
 import { outlineSource, useOutlineStore, outlineNodes } from "./outline.store";
 import { enterFields } from "./value-slot-nav";
-import { openFromRow } from "./outline-hosts";
+import { zoomIntoRow, zoomOut } from "./outline-zoom";
+import { outlineHostOfInstance } from "./outline-hosts";
 
 type ActionOf<T extends SelectionKeyAction["type"]> = Extract<SelectionKeyAction, { type: T }>;
 
@@ -84,12 +86,6 @@ function append({ nodeId, instanceKey, char }: ActionOf<"append">): void {
   void browserHost().writes.updateNodeContent(textNodeId, nextText);
 }
 
-/** Open the page of the node the row shows — a reference's original — as its outline opens one. */
-function zoom({ nodeId, instanceKey }: ActionOf<"zoom">): void {
-  const node = outlineNodes().get(nodeId);
-  openFromRow(instanceKey, node ? shownNodeId(node) : nodeId);
-}
-
 /**
  * The rows a move or a delete acts on (DESIGN-UI.md → Outline editor, "A
  * selection is a range of rows"): a range's top rows, in order, else the
@@ -118,9 +114,11 @@ function eachRow(nodeId: string): readonly string[] {
   return rows.length <= 1 ? [nodeId] : rows.map((row) => row.nodeId);
 }
 
-/** The node an instance key ends at. */
-const nodeOfKey = (instanceKey: string): string =>
-  instanceKey.slice(instanceKey.lastIndexOf("/") + 1);
+/** The instances of the rows the selection marks: each row of a range, else the head's. */
+function eachInstance(instanceKey: string): readonly string[] {
+  const rows = useOutlineStore.getState().selectedRows();
+  return rows.length <= 1 ? [instanceKey] : rows.map((row) => row.instanceKey);
+}
 
 /**
  * Move the rows the selection acts on as one block (`write`), then select
@@ -131,7 +129,7 @@ function arrange(write: (ids: readonly string[]) => Promise<void>, nodeId: strin
   const { selectionAnchorKey } = useOutlineStore.getState();
   void write(ids).then(() => {
     if (range && selectionAnchorKey !== null) {
-      useOutlineStore.getState().selectRange(nodeOfKey(selectionAnchorKey), nodeId);
+      useOutlineStore.getState().selectRange(nodeOfInstance(selectionAnchorKey), nodeId);
     }
   });
 }
@@ -209,7 +207,20 @@ const SELECTION_STEPS: SelectionSteps = {
   moveUp: ({ nodeId }) => arrange((ids) => browserHost().writes.moveNodesUp(ids), nodeId),
   moveDown: ({ nodeId }) => arrange((ids) => browserHost().writes.moveNodesDown(ids), nodeId),
   moveToGroup,
-  zoom,
+  // The selection's keys are the page's, pressed in no pane, so a row's
+  // outline is the one its key names. GAP [[01M411FPC839XBJJ873V1VYYYD]]
+  zoom: ({ nodeId, instanceKey }) => zoomIntoRow(nodeId, outlineHostOfInstance(instanceKey)),
+  zoomOut: ({ instanceKey }) => zoomOut(outlineHostOfInstance(instanceKey)),
+  expandSubtree: ({ instanceKey }) => {
+    for (const key of eachInstance(instanceKey)) {
+      useOutlineStore.getState().expandSubtree(key, outlineHostOfInstance(key));
+    }
+  },
+  collapseSubtree: ({ instanceKey }) => {
+    for (const key of eachInstance(instanceKey)) {
+      useOutlineStore.getState().collapseSubtree(key, outlineHostOfInstance(key));
+    }
+  },
   createAfter,
   createBefore: ({ nodeId }) => void createNodeBefore(nodeId),
   append,

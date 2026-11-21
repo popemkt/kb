@@ -386,6 +386,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — packageShards packs mutants by line range instead of by file, emitting file:start-end entries in a shard's mutate.
 - **node** — `01M558MRWHR92991GYFRC5WWXY`
 
+### GAP: a node drawn at several places shares one open or closed choice
+
+- **expected** — Each place a node is drawn (a row instance: under its parent, as a query result, under a reference) keeps its own open or closed choice, so opening or closing one row's subtree changes only the rows drawn under it
+- **current** — The outline's expansion is one choice per node id (toggleCollapse, withExpansion, openRows): the subtree keys open or close each node they reach, so the same node drawn elsewhere (in the tree, under another query, in another pane) opens or closes with it
+- **impact** — ⌘⌥↓ on a query, a reference or a row whose descendants also appear elsewhere opens those rows everywhere, and ⌘⌥↑ closes them everywhere; Expand all and Collapse all do the same over the scope
+- **closes** — Expansion keyed by row instance where a row's choice can differ from its node's, as GAP: a reference opened in place shows its target as the target's own open or closed choice asks for references opened in place; the subtree keys then write the instances subtreeOf found
+- **node** — `01M7XP1SNNVNYZKH5GCSW3RH6C`
+
 ### GAP: a number knob's range is the declaration's, not data on its field node
 
 - **expected** — A knob field carries its own range and step as data, so every surface that writes it (kb set, node.update, the field editor) refuses a value outside them, as it refuses a value of the wrong type.
@@ -971,14 +979,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Lab principles
 - **node** — `01M3A95XAEE6FGT8ZVDRHYBDF5`
 
-### GAP: Enter on an expanded reference opens a sibling, not the target's first child
-
-- **expected** — Enter at the end of an expanded reference opens the target's first child, as on any expanded row.
-- **current** — planSplit in actions/plan.ts counts the reference's own children, which are none.
-- **impact** — One row kind breaks the outline's Enter rule.
-- **closes** — planSplit counts the shown node's children.
-- **node** — `01M3KA3BBRADE3TNWQ78JNK37M`
-
 ### GAP: every expanded outline row mounts, so load cost grows with expanded rows
 
 - **expected** — the outline mounts only rows near the viewport, and updates and first paint cost the same for 50 or 5,000 expanded rows
@@ -1003,6 +1003,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — kb get and kb search stay above about 200 ms whatever the module split does, and the cost grows with the store.
 - **closes** — docs/research/2026-11-11-cli-host-modes.md step 7.
 - **node** — `01M75MA4HB3NFDXGGKG0RE45H5`
+
+### GAP: Expand subtree / Expand all do not open results of a query that has not answered yet
+
+- **expected** — Expand subtree and Expand all open the results of every query they open, a query not yet answered included; an async version stays scoped to its page and awaits only the queries inside the requested subtree
+- **current** — The subtree walk (rowsDrawnOpen in outline.store.ts) reads the answers the page has, synchronously: a query it opens that has not answered yet draws no results, so they stay closed. An async version (580ea33e, reverted) settled the page's answers first, and Sol's re-check of 62c65a19 found two faults: Expand all applied its choices after the queries settled, so navigating meanwhile landed them on another page; and the settled walk waited on queries in branches outside the requested subtree
+- **impact** — ⌘⌥↓ on a closed query that no row has drawn opens the query but not its results or the rows under them; pressing it again once the results show opens them
+- **closes** — An async subtree step that captures its page and host, drops its result if the page has moved by the time it settles, and settles only the queries the requested subtree opens
+- **node** — `01M7XSM8DNSX1HCZW2217PX5M1`
 
 ### GAP: ext-canvas keeps its own copy of requireNode
 
@@ -1386,6 +1394,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The property in extensionContract, run over the routines memory Calendar; the rule's enforcement then moves to ci (docs/research/2026-11-11-cli-host-modes.md step 10).
 - **rule** — Hosts are accelerators: the store is the truth
 - **node** — `01M75MA1FDWA0W84EBDYGCCEHX`
+
+### GAP: o does not make the row directly below the selected one
+
+- **expected** — o in selection mode makes an empty row directly below the selected row, as selection-actions.ts createAfter says: the first child of an expanded parent, else the next sibling, a top-level row's included (the way Shift+O and Cmd+Shift+Enter now use planInsertSibling).
+- **current** — createEmptyNode (packages/app/ui/src/actions/mutations.ts) appends the new row as the LAST child of an expanded parent (planAddChild), and for a top-level row ignores afterSiblingId and adds a root with no position, so the row lands at the top of the page.
+- **impact** — o on an expanded parent or on a top-level row puts the new row somewhere other than under the row the person pressed it on; they have to find it and move it.
+- **closes** — createEmptyNode places by planInsertSibling (after) for a sibling, a top-level one included, and at position 0 for an expanded parent's first child; selection characterization tests assert the exact place for both.
+- **node** — `01M7X2C58J05ZV2KSWZSHDEWHS`
 
 ### GAP: offline writes to a shared store are unsupported (the tail is a total order the store assigns)
 
@@ -1776,14 +1792,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Tables and boards need the mouse to reach a value.
 - **closes** — Give table/board cells the same slot navigation order the outline uses.
 - **node** — `01M3KA3A8JZN1GH9DXK2SNZ1N1`
-
-### GAP: tables and boards sort, filter and group references by their own empty props
-
-- **expected** — A reference in a table or board sorts, filters and groups by its target's fields, as it renders them.
-- **current** — frame-rows.ts reads the row node's own props, so a reference sorts and groups as an empty node.
-- **impact** — References land in the wrong group or order in every view but the outline.
-- **closes** — Those steps read shownNode while still returning row ids.
-- **node** — `01M3KA3B5V5K7GYYPAYK7G6KHG`
 
 ### GAP: the # and > pickers list rows that do not match the query and ignore recency
 
@@ -2812,6 +2820,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M54V6G798RV0P805SMBG64H8`
 
+### GAP: Enter on an expanded reference opens a sibling, not the target's first child
+
+- **expected** — Enter at the end of an expanded reference opens the target's first child, as on any expanded row.
+- **current** — Fixed: planSplit now checks shownOf(nodes, id).children and parents the new first child on the target; resolveActivateKey keeps focus on the new child under the reference's instance.
+- **impact** — One row kind breaks the outline's Enter rule.
+- **closes** — planSplit counts the shown node's children.
+- **node** — `01M3KA3BBRADE3TNWQ78JNK37M`
+
 ### GAP: extension SDK mirror is not bidirectionally typed
 
 - **expected** — The dependency-free public SDK contract and runtime contract are generated from one canonical schema or proven exactly assignable in both directions.
@@ -3325,6 +3341,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P0 of docs/research/2026-10-29-plugin-codependency.md
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M63C0GJ5M78G1TFKM00RN4X6`
+
+### GAP: tables and boards sort, filter and group references by their own empty props
+
+- **expected** — A reference in a table or board sorts, filters and groups by its target's fields, as it renders them.
+- **current** — Fixed: frame-layout.ts (not frame-rows.ts) read the reference's own empty props and tags for filters, sort, board grouping, calendar day grouping, and derived table columns; all now read shownNode(row, schema) while returning row ids, and planMoveToGroup writes to shownOf().
+- **impact** — References land in the wrong group or order in every view but the outline.
+- **closes** — Those steps read shownNode while still returning row ids.
+- **node** — `01M3KA3B5V5K7GYYPAYK7G6KHG`
 
 ### GAP: tests that poll until something happens give up on a wall-clock deadline of their own
 

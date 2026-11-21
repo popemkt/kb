@@ -80,7 +80,14 @@ export interface PageWrites {
   readonly addFieldTargetTag: (fieldId: string, tagId: string) => Promise<void>;
   readonly removeFieldTargetTag: (fieldId: string, tagId: string) => Promise<void>;
   readonly setFieldTargetQuery: (fieldId: string, edn: string | null) => Promise<void>;
-  readonly splitNode: (id: string, cursor: number | "end") => Promise<void>;
+  /**
+   * Split the row's text at `cursor` into it and a new row (`"end"`: only
+   * the new row), and edit the new row. `instanceKey` is the row instance
+   * the caret was in: the new row is edited where it is drawn beside or
+   * under that one, which a row under a query result or a reference names
+   * and its node alone does not.
+   */
+  readonly splitNode: (id: string, cursor: number | "end", instanceKey?: string) => Promise<void>;
   /**
    * Delete the node and its subtree. Answers whether it landed: false when
    * the commit refused it, so a caller that moves the selection or the caret
@@ -248,10 +255,11 @@ export interface PageWrites {
   readonly addViewFilter: (frameId: string, filter: ViewFilter) => Promise<void>;
   readonly removeViewFilter: (frameId: string, filter: ViewFilter) => Promise<void>;
   /**
-   * Move a row to a group of a grouped view (DESIGN-UI.md → Groups): its
-   * values of `fieldId` become `value`, or none for "No <field>", in one
-   * write; a row already in that group is left as it is. The one way a
-   * drag or a key moves a row between groups.
+   * Move a row to a group of a grouped view (DESIGN-UI.md → Groups): the
+   * values of `fieldId` on the node it shows (`shownNode`: a reference's
+   * target, which its group is read from) become `value`, or none for
+   * "No <field>", in one write; a row already in that group is left as it
+   * is. The one way a drag or a key moves a row between groups.
    */
   readonly moveToGroup: (nodeId: string, fieldId: string, value: PropValue | null) => Promise<void>;
 }

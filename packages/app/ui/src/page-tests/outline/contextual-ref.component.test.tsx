@@ -14,6 +14,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
+import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { childInstanceKey, outlineInstanceKey, rowTextOf, syncUiPlugins } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
@@ -226,5 +227,39 @@ describe("contextual reference row", () => {
     const s = useOutlineStore.getState();
     expect(s.activeNodeId).toBeNull();
     expect(s.selectedNodeId).toBe("n.dangling");
+  });
+
+  it("Enter on an expanded reference creates the target's first child and focuses it under the reference", async () => {
+    seed([
+      ...REF_SEED_WIRES,
+      {
+        id: "n.host",
+        text: "Host page",
+        props: {},
+        children: ["n.hosted-ref"],
+        createdAt: ISO,
+        updatedAt: ISO,
+      },
+      ctxRefWire("n.hosted-ref", "n.root-a"),
+    ]);
+    // Zoom into n.host so n.root-a is not in the visible outline — only the reference is.
+    useGraphStore.getState().zoomTo("n.host");
+    useOutlineStore.getState().toggleCollapse("n.hosted-ref");
+    const refKey = outlineInstanceKey("n.hosted-ref", outlineNodes());
+    act(() => {
+      useOutlineStore.getState().activateNode("n.hosted-ref", 0, refKey);
+    });
+    await act(async () => {
+      await mutations.splitNode("n.hosted-ref", "end");
+    });
+    const firstChildId = present(outlineNodes().get("n.root-a")?.children[0], "first child");
+    expect(firstChildId).not.toBe("n.child-a1");
+    expect(outlineNodes().get("n.hosted-ref")?.children).toEqual([]);
+    // The reference itself is not written: only the new row is.
+    const reference = useGraphStore.getState().wireNodes.find((n) => n.id === "n.hosted-ref");
+    expect(reference?.updatedAt).toBe(ISO);
+    const s = useOutlineStore.getState();
+    expect(s.activeNodeId).toBe(firstChildId);
+    expect(s.activeInstanceKey).toBe(childInstanceKey(refKey, firstChildId));
   });
 });

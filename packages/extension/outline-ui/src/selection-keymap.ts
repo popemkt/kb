@@ -31,6 +31,11 @@ export type SelectionKeyAction =
    */
   | { type: "moveToGroup"; nodeId: string; instanceKey: string; side: "before" | "after" }
   | { type: "zoom"; nodeId: string; instanceKey: string }
+  /** Out to the page above the one the row's outline shows. */
+  | { type: "zoomOut"; instanceKey: string }
+  /** Open each selected row and every row under it; or close them. */
+  | { type: "expandSubtree"; instanceKey: string }
+  | { type: "collapseSubtree"; instanceKey: string }
   | { type: "createAfter"; nodeId: string }
   | { type: "createBefore"; nodeId: string }
   | { type: "delete"; nodeId: string; instanceKey: string }
@@ -185,6 +190,9 @@ const SELECTION_INTENTS = new Map<string, IntentOf>([
   ["move-to-group-before", toGroup("before")],
   ["move-to-group-after", toGroup("after")],
   ["zoom", ({ nodeId, instanceKey }) => ({ type: "zoom", nodeId, instanceKey })],
+  ["zoom-out", ({ instanceKey }) => ({ type: "zoomOut", instanceKey })],
+  ["expand-subtree", ({ instanceKey }) => ({ type: "expandSubtree", instanceKey })],
+  ["collapse-subtree", ({ instanceKey }) => ({ type: "collapseSubtree", instanceKey })],
   ["up", upOrIntoFields],
   ["extend-up", () => ({ type: "extend", direction: "up" })],
   ["extend-down", () => ({ type: "extend", direction: "down" })],

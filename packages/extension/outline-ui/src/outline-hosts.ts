@@ -36,12 +36,11 @@ export function outlineHostOf(id: string): OutlineHost | undefined {
 }
 
 /**
- * Open `id` from the outline whose rows include `instanceKey`, as a click in
- * it does (`useOpenNode`): a rooted outline moves its pane, the zoomed one zooms.
+ * Open `id` from the outline of host `host`, as a click in it does
+ * (`useOpenNode`): a rooted outline moves its pane, the zoomed one zooms.
  */
-export function openFromRow(instanceKey: string | null, id: string): void {
-  const open = outlineHostOf(outlineHostOfInstance(instanceKey))?.open ?? null;
-  (open ?? browserHost().zoomTo)(id);
+export function openFromHost(host: string, id: string): void {
+  (outlineHostOf(host)?.open ?? browserHost().zoomTo)(id);
 }
 
 /**

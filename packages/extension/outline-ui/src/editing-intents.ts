@@ -9,7 +9,7 @@
  * Exhaustiveness is the mapped type: a new `EditingIntent` variant with no row
  * here fails the build.
  */
-import { mergeWithPrevious, toggleRowChecks } from "./editing-writes";
+import { createNodeBefore, mergeWithPrevious, toggleRowChecks } from "./editing-writes";
 import {
   browserHost,
   runKeyCall,
@@ -22,7 +22,8 @@ import {
 import { outlineSource, useOutlineStore } from "./outline.store";
 import type { EditingIntent } from "./editing-keymap";
 import { enterFields } from "./value-slot-nav";
-import { openFromRow } from "./outline-hosts";
+import { openFromHost } from "./outline-hosts";
+import { zoomIntoRow, zoomOut } from "./outline-zoom";
 
 type IntentOf<T extends EditingIntent["type"]> = Extract<EditingIntent, { type: T }>;
 
@@ -105,7 +106,8 @@ function mergeNextIn({ nodeId, instanceKey, nextNodeId, caret }: IntentOf<"merge
 const EDITING_STEPS: EditingSteps = {
   claim: () => {},
   softBreak,
-  split: ({ nodeId, cursor }) => void browserHost().writes.splitNode(nodeId, cursor),
+  split: ({ nodeId, instanceKey, cursor }) =>
+    void browserHost().writes.splitNode(nodeId, cursor, instanceKey),
   indent: ({ nodeId, cursor }) => void browserHost().writes.indentNodes([nodeId], cursor),
   outdent: ({ nodeId, cursor }) => void browserHost().writes.outdentNodes([nodeId], cursor),
   deleteSubtree,
@@ -116,8 +118,15 @@ const EDITING_STEPS: EditingSteps = {
   moveDown: ({ nodeId }) => void browserHost().writes.moveNodesDown([nodeId]),
   toggleCheck: ({ nodeId }) => void toggleRowChecks([nodeId]),
   toggleCollapse: ({ nodeId }) => useOutlineStore.getState().toggleCollapse(nodeId),
+  expandSubtree: ({ instanceKey, host }) =>
+    useOutlineStore.getState().expandSubtree(instanceKey, host),
+  collapseSubtree: ({ instanceKey, host }) =>
+    useOutlineStore.getState().collapseSubtree(instanceKey, host),
+  createBefore: ({ nodeId }) => void createNodeBefore(nodeId),
+  zoom: ({ nodeId, host }) => zoomIntoRow(nodeId, host),
+  zoomOut: ({ host }) => zoomOut(host),
   // Collapsed / leaf: open the enclosing page, as the row's outline opens one.
-  zoomToParent: ({ parentId, instanceKey }) => openFromRow(instanceKey, parentId),
+  zoomToParent: ({ parentId, host }) => openFromHost(host, parentId),
   moveCaretToRow: ({ nodeId, instanceKey, cursor, x }) =>
     useOutlineStore.getState().activateNode(nodeId, cursor, instanceKey, { x }),
   select: ({ nodeId, instanceKey }) => useOutlineStore.getState().selectNode(nodeId, instanceKey),

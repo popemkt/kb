@@ -6,6 +6,8 @@ import {
   isProjectedInstance,
   isProjectedRow,
   outlineInstanceKey,
+  pageTitleInstanceKey,
+  parentInstanceKey,
   projectedRowKey,
   syncUiPlugins,
 } from "@kb/ui-sdk";
@@ -80,5 +82,20 @@ describe("render-instance identity", () => {
     s = useOutlineStore.getState();
     expect(s.activeInstanceKey).toBe(refKey);
     expect(s.activeNodeId === "n.root-a" && s.activeInstanceKey === treeKey).toBe(false);
+  });
+});
+
+describe("parentInstanceKey", () => {
+  it("is what a row is drawn under: its parent row, or its host at the top", () => {
+    expect(parentInstanceKey("tree/n.root-a/n.child-a1")).toBe("tree/n.root-a");
+    expect(parentInstanceKey("tree/n.root-a")).toBe("tree");
+    const result = projectedRowKey("n.q", "n.root-b");
+    expect(parentInstanceKey(childInstanceKey(result, "n.ref"))).toBe(result);
+  });
+
+  it("is null where the row's place is computed, not a child edge", () => {
+    expect(parentInstanceKey(projectedRowKey("n.q", "n.root-b"))).toBeNull();
+    expect(parentInstanceKey(canvasInstanceKey("2d", "card", "n.root-a"))).toBeNull();
+    expect(parentInstanceKey(pageTitleInstanceKey("n.root-a"))).toBeNull();
   });
 });

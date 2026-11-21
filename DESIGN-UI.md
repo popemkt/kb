@@ -462,11 +462,22 @@ split is what matters here:
 | **A — active edit** (caret inside node text)     | typing                       | `outline.editing`   | `outline-ui/src/editing-keymap.ts` + `outline-ui/src/use-node-keydown.ts`       |
 | **B — selection** (row selected, caret inactive) | after `Escape`, or arrow-nav | `outline.selection` | `outline-ui/src/selection-keymap.ts` + `outline-ui/src/use-selection-keymap.ts` |
 
-Mode A owns split/merge/indent/outdent, soft line break (`Shift+Enter`),
+Mode A owns split/merge/indent/outdent, soft line break (`Shift+Enter`), a
+new empty row above (`Cmd+Shift+Enter`, as `Shift+O` makes one),
 vertical caret motion, and autocomplete interception. Mode B owns
 `ArrowLeft/Right` collapse-expand-parent-firstchild, `Cmd+Shift+ArrowLeft/Right`
-a row to the group beside its own (_Groups_), `o` / `Shift+O` create-below/above, `Space` toggle, `Cmd+.` zoom, and printable-character
-re-entry into Mode A. Mode B's keys are the selected row's: a key pressed
+a row to the group beside its own (_Groups_), `o` / `Shift+O` create-below/above, `Space` toggle, and printable-character
+re-entry into Mode A. Both modes hold the structure keys a row is
+navigated by: `Cmd+ArrowUp/Down` close or open one level (Mode B:
+`ArrowLeft/Right`), `Cmd+Alt+ArrowDown` / `Cmd+Alt+ArrowUp` (Ctrl+Alt on
+Windows and Linux) open or close the row's whole subtree, every row
+the outline draws under it as it draws them all open: query results
+and references opened in place among them, and a child its view does
+not draw left as it is (each selected row's, over a range),
+`Cmd+.` zooms into the row, and `Cmd+,` zooms out to the page above the
+one its outline shows (its crumb before the last; at home nothing moves).
+The palette's Expand all and Collapse all are the same subtree step over
+every top row of the page (`expandSubtree`, `expandAllInScope`). Mode B's keys are the selected row's: a key pressed
 while focus is on a control the keyboard stops at (a text entry, or a button
 such as a tag's box or a hidden field's chip) is that control's, so Tab
 moves focus on and Enter or Space presses it (`ownsItsKeys`). Chrome the
@@ -743,8 +754,9 @@ What a gesture over a range acts on is said once, by the selection:
   row goes with it (`selectionRoots`). Tab, Shift-Tab and the moves act on
   the top rows as one block when they are one run of siblings (one parent,
   none skipped): the block goes under the sibling before it, after its
-  parent, or past the sibling beside it. A range that is not one run is told
-  so and left as it is.
+  parent, or past the sibling beside it. A range that stays is told why
+  (`BlockStays`): it is not one run, its first row has no row above it to
+  move under, or its rows are at the top with no parent to move out of.
 
 A gesture over several rows is one write. Every plan of several node writes
 is sent as one `node.batch` call (DESIGN.md →
@@ -1325,11 +1337,14 @@ the `sys.f.ref.target` ref field. The field is the whole declaration — no tag 
 because a node with no target is not a reference (DESIGN.md → [Kinds, roles and
 options](./DESIGN.md#kinds-roles-and-options)). Same anatomy as a query node
 (`sys.f.query`), so collapse state, instance keys, both keymaps, undo and the
-transient rules are the ordinary ones, and `frame-rows.ts` did not change:
-a reference row's frame is simply its target.
+transient rules are the ordinary ones. `frame-layout.ts` reads every view's
+filter, sort, group, calendar day and derived table-column keys off
+`shownNode(row, schema)` while handing back the row itself: a reference is
+filtered, sorted, grouped and dated by its target's fields, tags and text while
+its place in the frame stays the reference's own.
 
-`packages/app/ui/src/lib/contextual-ref.ts` owns the rules that make it read as a
-reference:
+`packages/kit/ui-sdk/src/lib/contextual-ref.ts` owns the rules that make it read
+as a reference:
 
 - **Display is the target's text, verbatim.** `rowText(node, nodes)` returns
   `node.text` for an ordinary row and the _target's_ text for a reference, so the
@@ -1350,11 +1365,14 @@ schema)` is the one answer to "which node does this row show" — the target
   table row, card) and in the keyboard walk: the text (`rowText`, the one text
   channel `NodeContent` renders and writes), the tag chips, the bullet's
   paint, the field rows and table/card cells, the children and query results
-  under the row, its view, what the reveal chords and ←/→ count as its
-  children, where `o` and the create-child strip mint a child, and the page
-  ⌘-click and the zoom chord open. So a reference row reads exactly like its
-  target as an ordinary row, and every write it makes lands on the target, as
-  in Tana. What stays on the reference node is its **place** — the parent
+  under the row, its view, the filter/sort/group/day and derived-column keys in
+  `frame-layout.ts`, what the reveal chords and ←/→ count as its children, where
+  Enter on an expanded row (`planSplit`), `o` and the create-child strip mint a
+  child (focused under the reference's own instance), where board/calendar drags
+  and ⌘⇧←/→ write the group field (`planMoveToGroup`), and the page ⌘-click and
+  the zoom chord open. So a reference row reads exactly like its target as an
+  ordinary row, and every write it makes lands on the target, as in Tana. What
+  stays on the reference node is its **place** — the parent
   edge, sibling order, selection, instance key, collapse, Tab, moves and
   delete — so the one row↔node identity that instance keys, both keymaps,
   optimistic mutations and undo are built on is not forked, and deleting the

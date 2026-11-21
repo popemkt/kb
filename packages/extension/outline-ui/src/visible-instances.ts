@@ -21,9 +21,11 @@ import {
   outlineInstanceKey,
   type OutlineNode,
   projectedRowKey,
+  projectedRowOf,
   resultNodeIds,
   type SchemaIndex,
   shownNode,
+  shownNodeId,
   showsAncestor,
   type SlotChain,
   slotLink,
@@ -345,6 +347,41 @@ export function collectVisibleInstances(
     walkVisibleInstances(ctx, child.id, outlineInstanceKey(child.id, nodes, host), inner);
   }
   return out;
+}
+
+/**
+ * The rows of `instances` (a walk's, in render order) drawn at and under the
+ * row at `instanceKey`: that row, then each row after it drawn under one
+ * already among them, until the first that is not. A row is drawn under
+ * another when its key nests in that row's (a child, or a row of a frame it
+ * lays out), or when it is a projected row whose source is the node that row
+ * shows (a query result, a reference opened in place). Empty when no row of
+ * `instances` is at `instanceKey`.
+ */
+export function subtreeOf(
+  instances: readonly VisibleInstance[],
+  instanceKey: string,
+  nodes: NodeMap,
+): VisibleInstance[] {
+  const at = instances.findIndex((row) => row.instanceKey === instanceKey);
+  if (at < 0) return [];
+  const rows: VisibleInstance[] = [];
+  const keys = new Set<string>();
+  const shown = new Set<string>();
+  for (const row of instances.slice(at)) {
+    const key = row.instanceKey;
+    const source = projectedRowOf(key)?.sourceId;
+    const under =
+      rows.length === 0 ||
+      keys.has(key.slice(0, key.lastIndexOf("/"))) ||
+      (source !== undefined && shown.has(source));
+    if (!under) break;
+    rows.push(row);
+    keys.add(key);
+    const node = nodes.get(row.nodeId);
+    shown.add(node === undefined ? row.nodeId : shownNodeId(node));
+  }
+  return rows;
 }
 
 export function neighborVisibleInstance(

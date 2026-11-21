@@ -28,6 +28,26 @@ export function childInstanceKey(parentKey: string, nodeId: string): string {
   return `${parentKey}/${nodeId}`;
 }
 
+/** The node a row instance draws: the last segment of its key. */
+export function nodeOfInstance(instanceKey: string): string {
+  return instanceKey.slice(instanceKey.lastIndexOf("/") + 1);
+}
+
+/**
+ * What a row instance is drawn under, so that `childInstanceKey` of it and a
+ * sibling is where that sibling is drawn beside the row: its parent row's
+ * instance, or its outline host for a top-level row. Null where the row's
+ * place is computed, not a child edge: a projected row (`projectedRowKey`),
+ * or the node a canvas card or a page title shows.
+ */
+export function parentInstanceKey(instanceKey: string): string | null {
+  if (isProjectedRow(instanceKey)) return null;
+  const cut = instanceKey.lastIndexOf("/");
+  if (cut < 0) return null;
+  const parent = instanceKey.slice(0, cut);
+  return isProjectedInstance(parent) && !parent.includes("/") ? null : parent;
+}
+
 /**
  * A node's instance in the outline host `host` (parent path + node id): the
  * key its row takes where that outline draws it from the tree. Used when

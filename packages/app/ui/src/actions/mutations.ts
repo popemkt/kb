@@ -24,13 +24,13 @@ import {
   planNewQueryNode,
   planOutdent,
   planPinNode,
-  planPrependChild,
   planRemoveTag,
   planSetProp,
   planSplit,
   planToggleChecks,
   planUnsetProp,
   planUpdateText,
+  type BlockStays,
   type FrameViewEdit,
   type PlannedMutation,
 } from "@/actions/plan";
@@ -57,7 +57,6 @@ const AddedSchema = z.object({ unmet: z.number().optional() });
 /** A size in whole megabytes, as a toast says it. */
 const mb = (bytes: number) => `${Math.round(bytes / (1024 * 1024))} MB`;
 
-import { findParentWire } from "@/lib/tx";
 import { restoreInvocations } from "@/actions/restore";
 import type { ActionRequest, WireNode } from "@kb/contracts";
 import { typeRefsOf, SYSTEM_IDS } from "@kb/model";
@@ -69,13 +68,20 @@ import { invoke, invokeCoalesced, invokeLocal } from "@/session/runtime";
 /** The page's editor's state now: where a write lands the caret. */
 const editor = () => pageEditor().getState();
 
+/** What a person is told when a block of rows stays where it is, by why (`BlockStays`). */
+const BLOCK_STAYS: Readonly<Record<BlockStays["stays"], string>> = {
+  "not-a-run": "Only rows next to each other under one parent move together",
+  "no-row-above": "The first row has no row above it to move under",
+  "no-parent": "Top-level rows have no parent to move out of",
+};
+
 /**
- * Say why a block of several rows was not moved: only one run of siblings
- * moves as one. A row on its own that cannot move (the first row, a root)
- * is left without a word, as it always was.
+ * Say why a block of several rows was not moved. A row on its own that
+ * cannot move (the first row, a root) is left without a word, as it always
+ * was.
  */
-function toldNotARun(ids: readonly string[]): void {
-  if (ids.length > 1) toast("Only rows next to each other under one parent move together");
+function toldWhyItStays(ids: readonly string[], why: BlockStays): void {
+  if (ids.length > 1) toast(BLOCK_STAYS[why.stays]);
 }
 
 function wire(): WireNode[] {
@@ -249,23 +255,9 @@ export const mutations: PageWrites = {
   },
 
   async createEmptyNodeBefore(beforeId: string): Promise<string | null> {
-    const parent = findParentWire(wire(), beforeId);
-    if (!parent) {
-      return mutations.createEmptyNode(WORKSPACE_ROOT_ID, beforeId);
-    }
-    const siblings = parent.children;
-    const idx = siblings.indexOf(beforeId);
-    const prevSibling = idx > 0 ? (siblings[idx - 1] ?? null) : null;
+    // Directly above it in its group, a top-level row's included.
     const newId = ulid();
-    let plan: PlannedMutation | null;
-    if (prevSibling !== null) {
-      plan = planInsertSibling(wire(), prevSibling, "after", newId);
-    } else {
-      plan = planPrependChild(wire(), parent.id, newId);
-    }
-    const ok = await applyPlan(plan);
-    if (!ok) return null;
-    return newId;
+    return (await applyPlan(planInsertSibling(wire(), beforeId, "before", newId))) ? newId : null;
   },
   async addTagField(tagId: string, fieldId: string): Promise<void> {
     const { planAddTagField } = await import("@/actions/plan");
@@ -302,13 +294,13 @@ export const mutations: PageWrites = {
     await applyPlan(planSetFieldTargetQuery(wire(), fieldId, edn));
   },
 
-  async splitNode(id: string, cursor: number | "end"): Promise<void> {
+  async splitNode(id: string, cursor: number | "end", instanceKey?: string): Promise<void> {
     // Expanded set from the page's rows drives Tana first-child splits.
     const expandedIds = new Set<string>();
     for (const n of pageRows().values()) {
       if (!n.collapsed) expandedIds.add(n.id);
     }
-    await applyPlan(planSplit(wire(), id, cursor, ulid(), { expandedIds }));
+    await applyPlan(planSplit(wire(), id, cursor, ulid(), { expandedIds, instanceKey }));
   },
 
   async deleteNode(id: string): Promise<boolean> {
@@ -330,8 +322,8 @@ export const mutations: PageWrites = {
 
   async indentNodes(ids: readonly string[], cursor?: number): Promise<void> {
     const plan = planIndent(wire(), ids);
-    if (!plan) {
-      toldNotARun(ids);
+    if ("stays" in plan) {
+      toldWhyItStays(ids, plan);
       return;
     }
     if (!(await applyPlan(plan)) || gesture !== null) return;
@@ -347,8 +339,8 @@ export const mutations: PageWrites = {
 
   async outdentNodes(ids: readonly string[], cursor?: number): Promise<void> {
     const plan = planOutdent(wire(), ids);
-    if (!plan) {
-      toldNotARun(ids);
+    if ("stays" in plan) {
+      toldWhyItStays(ids, plan);
       return;
     }
     if (!(await applyPlan(plan)) || gesture !== null) return;
