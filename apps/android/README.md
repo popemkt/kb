@@ -126,7 +126,8 @@ pairing waits and goes to the first store you pair.
   again.
 - **Queue** holds what this phone captured:
   - **Pending**: not delivered yet, with the reason once it has tried
-    (`Waiting for Personal: timeout`). **Retry now** starts a delivery run.
+    (`Waiting for Personal: it did not answer in time.`). **Retry now**
+    starts a delivery run.
   - **Sent**: the host committed it. The row shows the node id, and the
     copied bytes have been released.
   - **Failed**: the host refused it for a reason of its own, such as a
@@ -153,7 +154,7 @@ whenever the phone has a network. It retries with exponential backoff from
 | `invalid_input`, `not_found`, `conflict`, … | Marks the capture Failed with the host's reason. |
 | `unknown_action` | Keeps it pending: this kb has no `capture.submit` yet. |
 | `forbidden`, HTTP 401/403 | Pauses the store. Its captures wait until you pair it again. |
-| Offline, timeout, 5xx, `internal` | Keeps it pending, counts the attempt, retries later. |
+| Offline, timeout, 5xx, `internal` | Keeps it pending, counts the attempt, retries later. The reason says what failed in words (`NoAnswer`): nothing listening, the connection dropped, no network, a certificate it does not trust. It shows only the host's own message or HTTP status, never the exception's. |
 
 The host is idempotent on `captureId`, so a capture whose answer was lost is
 simply sent again.

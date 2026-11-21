@@ -239,7 +239,10 @@ shot 06-unreadable-image-not-queued
 text3='sent while the host slept'
 share -a android.intent.action.SEND -t text/plain --es android.intent.extra.TEXT "'$text3'"
 queue Pending
-await 60 shows 'text="Waiting for' || fail "the queue never said why the capture waits"
+# Through adb's reverse port a sleeping host accepts and drops the
+# connection, so the queue must say so in words (NoAnswer.Dropped).
+await 60 shows 'text="Waiting for store: the connection closed before it answered' ||
+  fail "the queue never said, in words, why the capture waits"
 [ "$(screen | grep -c 'text="Retry now"')" -eq 1 ] || fail "the unreadable image left an entry in the queue"
 shot 07-queue-host-asleep
 killed

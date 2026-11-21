@@ -2169,14 +2169,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A push channel chosen at pairing (a UnifiedPush distributor or an ntfy topic), a host action that publishes to it, and the shell posting what arrives.
 - **node** — `01M7WZ0QV3HAB6YRKS8CHE1793`
 
-### GAP: the phone's queue shows a raw Java exception as the reason a capture waits
-
-- **expected** — A pending capture's reason is a person's sentence naming the store and what happened (the store did not answer, the connection dropped, the phone is offline), as the README's How it behaves table words it.
-- **current** — Deliverer passes the transport exception's message through: on the emulator smoke (shot 07-queue-host-asleep) a sleeping host reads 'Waiting for store: unexpected end of stream on com.android.okhttp.Address@76c34e2c'.
-- **impact** — The queue's one explanation of why a share has not arrived is an object identity the person cannot act on.
-- **closes** — Map transport failures (refused, reset, end of stream, timeout, DNS) to worded reasons in the delivery decisions, with a DelivererTest case per kind, and let bin/android-smoke assert the worded reason.
-- **node** — `01M7YHBTK1JFMECMX1M5NHV851`
-
 ### GAP: the reference token has two grammars, mention.ts and the inline parser
 
 - **expected** — One statement of the label token: the inline grammar (inline.ts) and :node/mentions extraction (mention.ts) read the same tokens.
@@ -3641,6 +3633,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Add the point, make the outline palette render contributed steps, and have graph-ui contribute the step.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M545DBMQA0RGRWZY21HT3XD9`
+
+### GAP: the phone's queue shows a raw Java exception as the reason a capture waits
+
+- **expected** — A pending capture's reason is a person's sentence naming the store and what happened (the store did not answer, the connection dropped, the phone is offline), as the README's How it behaves table words it.
+- **current** — Deliverer passes the transport exception's message through: on the emulator smoke (shot 07-queue-host-asleep) a sleeping host reads 'Waiting for store: unexpected end of stream on com.android.okhttp.Address@76c34e2c'.
+- **impact** — The queue's one explanation of why a share has not arrived is an object identity the person cannot act on.
+- **closes** — Map transport failures (refused, reset, end of stream, timeout, DNS) to worded reasons in the delivery decisions, with a DelivererTest case per kind, and let bin/android-smoke assert the worded reason.
+- **node** — `01M7YHBTK1JFMECMX1M5NHV851`
 
 ### GAP: the preferences popover renders outline's PrefFieldRow
 

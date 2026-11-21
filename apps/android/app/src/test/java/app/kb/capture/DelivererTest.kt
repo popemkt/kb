@@ -5,10 +5,18 @@ import app.kb.capture.delivery.Answer
 import app.kb.capture.delivery.CaptureHost
 import app.kb.capture.delivery.Deliverer
 import app.kb.capture.delivery.HttpCaptureHost
+import app.kb.capture.delivery.NoAnswer
 import app.kb.capture.delivery.PairOutcome
 import app.kb.capture.delivery.Pairer
 import app.kb.capture.queue.Status
 import java.io.ByteArrayOutputStream
+import java.io.EOFException
+import java.io.IOException
+import java.net.ConnectException
+import java.net.SocketException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
+import javax.net.ssl.SSLHandshakeException
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -92,13 +100,27 @@ class DelivererTest {
     @Test
     fun `an unreachable host leaves the capture pending, counts the attempt and asks for a retry`() {
         paired()
-        host.submit = { Answer.Unreachable("timeout") }
+        host.submit = { Answer.Unreachable(NoAnswer.TimedOut) }
         val id = queue.enqueue(CaptureDraft(text = "t"), "personal").capture.captureId
         assertTrue(deliverer.deliverAll())
         val state = queue.get(id)!!.state
         assertEquals(Status.Pending, state.status)
         assertEquals(1, state.attempts)
-        assertEquals("Not delivered yet: timeout", state.reason)
+        assertEquals("Waiting for Personal: it did not answer in time.", state.reason)
+    }
+
+    @Test
+    fun `a host that drops the connection is named in words, never as the exception`() {
+        paired()
+        // What the emulator smoke saw from a sleeping host (shot 07-queue-host-asleep).
+        val dropped = IOException("unexpected end of stream on com.android.okhttp.Address@76c34e2c")
+        host.manifest = Answer.Unreachable(HttpCaptureHost.noAnswer(dropped))
+        val id = queue.enqueue(CaptureDraft(text = "t"), "personal").capture.captureId
+        assertTrue(deliverer.deliverAll())
+        assertEquals(
+            "Waiting for Personal: the connection closed before it answered. It may be asleep or restarting.",
+            queue.get(id)!!.state.reason,
+        )
     }
 
     @Test
@@ -110,7 +132,7 @@ class DelivererTest {
         val pending = queue.get(id)!!.state
         assertEquals(Status.Pending, pending.status)
         assertEquals(1, pending.attempts)
-        assertEquals("Not delivered yet: HTTP 503", pending.reason)
+        assertEquals("Waiting for Personal: it hit an error on its side (HTTP 503).", pending.reason)
 
         host.submit = { FakeHost.ok("""{"nodeId":"01N"}""") }
         assertFalse(deliverer.deliverAll())
@@ -198,6 +220,16 @@ class DelivererTest {
     }
 
     @Test
+    fun `pairing a host that is not listening says what to check`() {
+        host.pair = Answer.Unreachable(NoAnswer.Refused)
+        val outcome = Pairer(queue, pairings, host, TickingClock()::now).pair("http://127.0.0.1:4321", "c", "d")
+        assertEquals(
+            "Could not reach http://127.0.0.1:4321: nothing answers at its address. Is kb running there?",
+            (outcome as PairOutcome.Failed).reason,
+        )
+    }
+
+    @Test
     fun `pairing a kb without the action explains it`() {
         host.pair = Answer.Refused("unknown_action", "capture.pair")
         val outcome = Pairer(queue, pairings, host, TickingClock()::now).pair("https://x", "c", "d")
@@ -219,6 +251,33 @@ class InterpretTest {
         )
         assertTrue(HttpCaptureHost.interpret(502, "Bad gateway") is Answer.Unreachable)
         assertTrue(HttpCaptureHost.interpret(200, "<html>") is Answer.Unreachable)
+    }
+
+    @Test
+    fun `a host's own error and an unexpected status are kept as the detail of the reason`() {
+        val internal = HttpCaptureHost.interpret(200, """{"status":"failed","id":"x","code":"internal","message":"boom"}""")
+        assertEquals("it hit an error on its side (boom).", (internal as Answer.Unreachable).reason)
+        assertEquals("its address answers, but not as kb (HTTP 200).", (HttpCaptureHost.interpret(200, "<html>") as Answer.Unreachable).reason)
+    }
+
+    @Test
+    fun `a failed connection is classified by what failed`() {
+        fun of(e: IOException) = HttpCaptureHost.noAnswer(e)
+        assertEquals(NoAnswer.Dropped, of(IOException("unexpected end of stream on com.android.okhttp.Address@76c34e2c")))
+        assertEquals(NoAnswer.Dropped, of(EOFException()))
+        assertEquals(NoAnswer.Dropped, of(SocketException("Connection reset")))
+        assertEquals(
+            NoAnswer.Refused,
+            of(ConnectException("failed to connect to /127.0.0.1 (port 47392) after 30000ms: isConnected failed: ECONNREFUSED (Connection refused)")),
+        )
+        assertEquals(
+            NoAnswer.Offline,
+            of(ConnectException("failed to connect to /10.0.2.2 (port 4321) after 30000ms: connect failed: ENETUNREACH (Network is unreachable)")),
+        )
+        assertEquals(NoAnswer.TimedOut, of(SocketTimeoutException("timeout")))
+        assertEquals(NoAnswer.UnknownHost, of(UnknownHostException("Unable to resolve host \"kb.tail.ts.net\"")))
+        assertEquals(NoAnswer.Untrusted, of(SSLHandshakeException("Trust anchor for certification path not found.")))
+        assertEquals(NoAnswer.Network, of(IOException("something else")))
     }
 
     @Test
