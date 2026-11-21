@@ -1175,14 +1175,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Re-introduce policies: contribute the guards again from governancePlugin, seed the defaults, and derive who calls from the wire inside the family, once the actor model is settled. Write the enforcement tests again with them: who is asked or refused per actor, force as the owner's, configuration and policy writes needing a person, and the surface contract's properties that an approval and a policy decide the same on every surface (git history before this gap's cleanup holds the old ones).
 - **node** — `01M5E2DAVRH5CWKM27BVDYW19T`
 
-### GAP: GraphPage carries 35 branches of renderer and perspective selection
-
-- **expected** — GraphPage picks a renderer and hands it a resolved lens; renderer capability differences live in graph-capabilities.ts, not in the page.
-- **current** — The page branches on renderer, perspective presence, query error, selection and capability flags in one component body.
-- **impact** — Adding a renderer means editing the page, which is exactly the coupling capabilitiesFor was introduced to remove.
-- **closes** — Move the remaining renderer-specific branches behind RendererCapabilities and render one <GraphCanvasFrame> for every renderer.
-- **node** — `01M1MGCFTMWY5EYHEWP9QVH8Z9`
-
 ### GAP: helpers two families need are copied between them
 
 - **expected** — a helper that two families need has one home in the layer they share
@@ -2989,6 +2981,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — No extension can add a graph look.
 - **closes** — The point plus a kind row, and decoding against contributed ids.
 - **node** — `01M54PYCJ6FGCT8SGZDZPVQW7Y`
+
+### GAP: GraphPage carries 35 branches of renderer and perspective selection
+
+- **expected** — GraphPage picks a renderer and hands it a resolved lens; renderer capability differences live in graph-capabilities.ts, not in the page.
+- **current** — Closed: GraphPage is a composition of named hooks (sys switch, active perspective, lens extraction, picking, frame, settings) and two pieces (header, view); it renders one GraphCanvasFrame for every renderer, and no function in graph-page.tsx is over the complexity limit.
+- **impact** — Adding a renderer means editing the page, which is exactly the coupling capabilitiesFor was introduced to remove.
+- **closes** — Move the remaining renderer-specific branches behind RendererCapabilities and render one <GraphCanvasFrame> for every renderer.
+- **node** — `01M1MGCFTMWY5EYHEWP9QVH8Z9`
 
 ### GAP: GraphPage embeds the ontology surface's picker
 
