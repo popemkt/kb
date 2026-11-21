@@ -1,0 +1,6 @@
+{
+  "reason": "The subtree keys walk the outline of the pane they were pressed in, and wait for the queries they open (QueryAnswers.settle). Measured from a short checkout against the branch before them.",
+  "raise": {
+    "page-eager": { "bytes": 269 }
+  }
+}
