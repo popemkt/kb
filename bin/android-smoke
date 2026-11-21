@@ -254,6 +254,10 @@ shot 08-queue-sent-after-wake
 # 4. Offline: the worker delivers on reconnect with the app closed.
 say "4. share offline, reconnect with the app closed"
 a shell cmd connectivity airplane-mode enable
+# The switch returns before the network is down, and the worker would
+# reach the host over adb's reverse port if it ran first.
+disconnected() { a shell dumpsys connectivity | grep -q 'Active default network: none'; }
+await 30 disconnected || fail "airplane mode did not take the network down"
 text2='offline · delivered by the worker'
 share -a android.intent.action.SEND -t text/plain --es android.intent.extra.TEXT "'$text2'"
 a shell input keyevent KEYCODE_HOME
