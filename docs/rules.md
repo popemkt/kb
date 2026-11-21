@@ -177,6 +177,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Point handles for path items in both projections, through one shared point-drag gesture.
 - **node** — `01M53H6Z5WQACGQ8ZR14HX5EDT`
 
+### GAP: a canvas tab saves its whole document over a concurrent document edit
+
+- **expected** — ext.canvas.tx.apply carries the document it was edited from, and a save whose stored document moved since is refused or merged, as node.update refuses a stale expectedText.
+- **current** — tx.apply writes the document its caller sends; only its prop target is now planned over the graph each attempt reads.
+- **impact** — Two tabs (or a tab and an agent verb) editing one canvas: the later whole-document save drops the other edit.
+- **closes** — An expected-document precondition on tx.apply (a hash of the doc read), checked inside the commit plan, with the canvas tab re-reading on conflict.
+- **node** — `01M7YE61HDBDA0TRFCYBPRYE4W`
+
 ### GAP: a chart's page runs its query twice, once for the body and once for the figure
 
 - **expected** — a view's text resolves its data once and hands it to both body and figure
@@ -857,14 +865,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — an edge end that may be a free point (or a path item end bound to an item), written through connectItems and drawn by edgeRoute in both projections
 - **node** — `01M5QP271PQ15E7WZ36KEN055N`
 
-### GAP: Canvas commands prepare whole-node writes before the retry planner
-
-- **expected** — A Canvas edit or import derives its document, parent links and related node writes from the graph each commit attempt reads.
-- **current** — Several Canvas verbs and the tldraw import pass precomputed node upserts to GraphWrites.commit; another attempt can reuse the same snapshots. This path predates the session retry change.
-- **impact** — A concurrent edit can be replaced by an older canvas document or parent link.
-- **closes** — Move Canvas document edits, related writes and import planning into the GraphWrites callback and prove concurrent edits survive on both store backends.
-- **node** — `01M7XES1FFV2N8AEZREJN7CQG7`
-
 ### GAP: canvas context menu opens in 2D only; a right-click in 3D opens nothing
 
 - **expected** — a right-click that does not drag opens the same context menu in 3D as in 2D, on what it lands on
@@ -1002,14 +1002,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Approve a default pair that is free in the page and outline keymaps and reaches kb in macOS Chrome and the desktop shell.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M7X187JZA6QW3CFB0JHZZJPV`
-
-### GAP: defining and applying a tag can leave an orphan definition
-
-- **expected** — Defining and applying a tag in one editor gesture commits as one transaction.
-- **current** — The palette and # text picker send tag.define ahead of the node update, as on main at be415b51.
-- **impact** — If tagging the target is refused, the newly defined tag remains in the graph.
-- **closes** — Plan the tag definition and the node updates in one batch using the shared tag definition planner.
-- **node** — `01M7XCENSKX32JHABYKAD8AD6N`
 
 ### GAP: Durable browser invocation replay
 
@@ -1734,14 +1726,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The only way to take code from a stranger that kb can contain is not reachable by install; the reachable one (an extension) is not contained.
 - **closes** — P2 of docs/research/2026-10-31-plugin-sources.md, after the source reader is shared by the two sinks.
 - **node** — `01M68NFBY0FEK3Q2CW2XZ7E6DE`
-
-### GAP: Saved-query file changes invalidate every live answer
-
-- **expected** — A saved-query file change invalidates live answers that read its changed virtual datoms.
-- **current** — SavedQuerySet applies a new virtual set with NodeIndex.withVirtual, which rebuilds the query index and clears every retained answer.
-- **impact** — Adding or editing a saved-query file reruns subscriptions whose data did not change.
-- **closes** — Apply the virtual set delta through the same incremental datom path while preserving stored-node shadowing.
-- **node** — `01M7Q2GKYMMSGJGB5D4X120E3C`
 
 ### GAP: scaling a turned item across its own axes stretches each side instead of shearing
 
@@ -2745,6 +2729,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXNGSJT2J2VHDSYY7QJSD3`
 
+### GAP: Canvas commands prepare whole-node writes before the retry planner
+
+- **expected** — A Canvas edit or import derives its document, parent links and related node writes from the graph each commit attempt reads.
+- **current** — Several Canvas verbs and the tldraw import pass precomputed node upserts to GraphWrites.commit; another attempt can reuse the same snapshots. This path predates the session retry change.
+- **impact** — A concurrent edit can be replaced by an older canvas document or parent link.
+- **closes** — Move Canvas document edits, related writes and import planning into the GraphWrites callback and prove concurrent edits survive on both store backends.
+- **node** — `01M7XES1FFV2N8AEZREJN7CQG7`
+
 ### GAP: canvas move release persists the unsnapped position
 
 - **expected** — The position persisted on pointer release is the last snapped position shown during the drag; finishMove and moveNodes share one snap computation.
@@ -2867,6 +2859,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P2 of docs/research/2026-10-29-plugin-codependency.md: contribution keys in inject (restructure the four ids into keys, then resolve them in the kernel and carry each optional call on a child), with lint L1
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M63BZRZ4RDTCE1ZFVGRNEXGR`
+
+### GAP: defining and applying a tag can leave an orphan definition
+
+- **expected** — Defining and applying a tag in one editor gesture commits as one transaction.
+- **current** — The palette and # text picker send tag.define ahead of the node update, as on main at be415b51.
+- **impact** — If tagging the target is refused, the newly defined tag remains in the graph.
+- **closes** — Plan the tag definition and the node updates in one batch using the shared tag definition planner.
+- **node** — `01M7XCENSKX32JHABYKAD8AD6N`
 
 ### GAP: deleting a surface budget bypasses increase rationale
 
@@ -3324,6 +3324,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The palette command set is not enumerable, so the palette and the runner each re-derive availability, and a command cannot be tested without the runner.
 - **closes** — Introduce a ui command registry and register each command beside its implementation. Pairs with the NodeCommandPalette gap - one registry serves both.
 - **node** — `01M1MGCRNVNBE5HW27Z83PK67B`
+
+### GAP: Saved-query file changes invalidate every live answer
+
+- **expected** — A saved-query file change invalidates live answers that read its changed virtual datoms.
+- **current** — SavedQuerySet applies a new virtual set with NodeIndex.withVirtual, which rebuilds the query index and clears every retained answer.
+- **impact** — Adding or editing a saved-query file reruns subscriptions whose data did not change.
+- **closes** — Apply the virtual set delta through the same incremental datom path while preserving stored-node shadowing.
+- **node** — `01M7Q2GKYMMSGJGB5D4X120E3C`
 
 ### GAP: saved-query virtual nodes never appear in tx frames
 

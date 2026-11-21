@@ -245,4 +245,46 @@ describe.each([...STORE_BACKENDS])("node.batch over a %s store", (backend) => {
       }
     },
   );
+  test.each([false, true])(
+    "defines a tag and tags a row with it as one transaction (stale row: %s)",
+    async (stale) => {
+      const { ctx, call, node } = await opened();
+      await call("node.update", { id: "n.kept", text: stale ? "edited" : "kept" });
+      const head = ctx.log.head;
+      const tagged = { t: "ref", v: "tag.new" } as const;
+      const receipt = await invoke(ctx, {
+        id: "node.batch",
+        input: {
+          calls: [
+            { action: "tag.define", input: { id: "tag.new", name: "New tag", extends: [] } },
+            {
+              action: "node.update",
+              input: {
+                id: "n.kept",
+                expectedText: "kept",
+                setProps: [{ field: SYSTEM_IDS.typeField, value: tagged }],
+              },
+            },
+          ],
+        },
+      });
+      if (stale) {
+        // The row refused, the tag is not left behind.
+        expect(receipt).toMatchObject({ status: "failed", code: "conflict", details: { call: 1 } });
+        expect(ctx.log.head).toBe(head);
+        expect(node("tag.new")).toBeUndefined();
+      } else {
+        expect(receipt).toMatchObject({
+          status: "succeeded",
+          output: { ids: ["tag.new", "n.kept"] },
+        });
+        expect(ctx.log.head).toBe(head + 1);
+        expect(node("tag.new")?.text).toBe("New tag");
+        expect(node("tag.new")?.props[SYSTEM_IDS.typeField]).toEqual([
+          { t: "ref", v: SYSTEM_IDS.tag },
+        ]);
+        expect(node("n.kept")?.props[SYSTEM_IDS.typeField]).toEqual([tagged]);
+      }
+    },
+  );
 });

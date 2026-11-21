@@ -781,7 +781,10 @@ Pin / Unpin, Check / Uncheck, Move to…, Move and leave reference…, Copy node
 shortcut, acts on the head alone (`runCommand`). A picker step it opens is
 handed every row (`targetNodeIds`), mints what it creates once, and writes
 the pick to each row as one write (`asOneWrite`), so what it does once the
-write lands (where the selection goes after a move) reads it landed.
+write lands (where the selection goes after a move) reads it landed. A tag
+the Add tag step makes is part of that write over one row too
+(`PageWrites.together`): the definition and the tagging are one `node.batch`,
+so a refused tagging leaves no new tag behind.
 
 **A row moves anywhere: Move to…, and a drag.** Two gestures, one write
 (`PageWrites.moveNodes`): the rows a gesture moves, the selection's top

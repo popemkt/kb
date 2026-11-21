@@ -10,11 +10,13 @@ export interface GraphWrite {
 
 /**
  * A write as a family plans it: the transaction to make over the graph as it
- * is (`nodes`), null for none, or a refusal.
+ * is (`nodes`), null for none, or a refusal (`E`, a `DomainError` unless the
+ * family refuses in its own words). It may read the services `R` its action
+ * runs with, the session among them, which has caught up to `nodes`.
  */
-export type GraphPlan<W extends GraphWrite = StoreTx> = (
+export type GraphPlan<W extends GraphWrite = StoreTx, E = DomainError, R = never> = (
   nodes: readonly KbNode[],
-) => Effect.Effect<W | null, DomainError>;
+) => Effect.Effect<W | null, E, R>;
 
 /**
  * Core's write path, as a port a family's action writes through. It is the
@@ -28,12 +30,12 @@ export type GraphPlan<W extends GraphWrite = StoreTx> = (
  * index and transaction log with it. It answers the write it committed, as
  * the plan answered it, or null when the plan had nothing to write, and
  * fails with the `DomainError` `persistEffect` fails with, or the plan's
- * refusal.
+ * refusal, as the plan refused.
  */
 export interface GraphWritesPort {
-  readonly commit: <W extends GraphWrite>(
-    plan: GraphPlan<W>,
-  ) => Effect.Effect<W | null, DomainError>;
+  readonly commit: <W extends GraphWrite, E = DomainError, R = never>(
+    plan: GraphPlan<W, E, R>,
+  ) => Effect.Effect<W | null, DomainError | E, R>;
 }
 
 export class GraphWrites extends Context.Service<GraphWrites, GraphWritesPort>()(

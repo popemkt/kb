@@ -102,9 +102,12 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // preconditions (`node.delete` `requireEmptyLine`, `node.update`
 // `requireUnset`, `field.define` in `node.batch`); a page of an earlier
 // protocol reloads before it sends writes.
+// `node.batch` takes `tag.define` calls, so a tag made in a picker commits
+// with the rows it tags; a server of an earlier protocol refuses that batch
+// whole, writing nothing.
 const RECORDED = {
   protocol: 13,
-  fingerprint: "1ed4152ca86148a576e28217f954646023f6f37119923b7eb296c58e0ed18444",
+  fingerprint: "00137d19c25c26a81cbfb92782a6ce60d866005f3773a8bf071096642ea876b9",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

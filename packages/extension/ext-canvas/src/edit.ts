@@ -104,9 +104,11 @@ function canvasEditOf(edit: Exclude<Edit, { toPage: string }>): CanvasEdit {
 
 const ids = (doc: CanvasDoc) => new Set([...doc.nodes, ...doc.edges].map((record) => record.id));
 
-const canvasEditEffect = Effect.fn("ext.canvas.edit")(function* (
-  input: z.infer<typeof editInput>,
-): Effect.fn.Return<z.infer<typeof editOutput>, CanvasFail, CanvasWriteEnv> {
+/**
+ * The edits over the canvas as an attempt reads it: the document they
+ * leave, and each other page that took items, as a canvas write plans them.
+ */
+const planEdits = Effect.fn("ext.canvas.edit.plan")(function* (input: z.infer<typeof editInput>) {
   const before = yield* readCanvasEffect(input.canvasId);
   let doc = before;
   const changed = new Set<string>();
@@ -127,22 +129,38 @@ const canvasEditEffect = Effect.fn("ext.canvas.edit")(function* (
         new CanvasTxError("an item moved to its own page stays where it is"),
       );
     }
-    const page = pages.get(edit.toPage) ?? { doc: yield* readCanvasEffect(edit.toPage), ids: [] };
+    const page = pages.get(edit.toPage) ?? {
+      doc: yield* readCanvasEffect(edit.toPage),
+      ids: [],
+    };
     const current = doc;
     const taken = yield* canvasStep(() => takeItems(current, edit.ids));
     doc = taken.left;
     const landed = yield* canvasStep(() => landItems(page.doc, taken));
-    pages.set(edit.toPage, { doc: landed, ids: [...page.ids, ...taken.nodes.map((n) => n.id)] });
+    pages.set(edit.toPage, {
+      doc: landed,
+      ids: [...page.ids, ...taken.nodes.map((n) => n.id)],
+    });
     for (const carriedEdge of taken.edges) carried.add(carriedEdge.id);
   }
   const others = yield* Effect.forEach([...pages], ([page, { doc: onPage }]) =>
     canvasWithDocEffect(page, onPage),
   );
-  const written = yield* commitCanvasEffect({
-    canvasId: input.canvasId,
+  return {
     doc,
+    before,
+    changed,
+    pages,
+    carried,
     ...(others.length === 0 ? {} : { also: (at: string) => others.map((write) => write(at)) }),
-  });
+  };
+});
+
+const canvasEditEffect = Effect.fn("ext.canvas.edit")(function* (
+  input: z.infer<typeof editInput>,
+): Effect.fn.Return<z.infer<typeof editOutput>, CanvasFail, CanvasWriteEnv> {
+  const written = yield* commitCanvasEffect(input.canvasId, () => planEdits(input));
+  const { doc, before, changed, pages, carried } = written.planned;
   const left = ids(doc);
   for (const page of pages.values()) for (const id of page.ids) carried.add(id);
   return {

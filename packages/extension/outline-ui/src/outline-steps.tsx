@@ -105,7 +105,9 @@ export const addTag: PaletteStep = {
   candidates: (graph) => schemaCandidates(graph.wireNodes, "tag"),
   commit: async ({ targetNodeIds, pickedId, creating, name }) => {
     const { writes } = browserHost();
-    const id = await asOneWrite(targetNodeIds, async () => {
+    // A tag made here and the rows it tags are one write, even over one row:
+    // a refused tagging leaves no tag behind. Nothing here reads what it wrote.
+    const id = await writes.together(async () => {
       const tagId = creating ? await writes.defineTag(name) : pickedId;
       if (tagId !== null) {
         await Promise.all(targetNodeIds.map((nodeId) => writes.addTag(nodeId, tagId)));

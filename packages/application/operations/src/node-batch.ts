@@ -1,5 +1,5 @@
 /**
- * `node.batch`: several node writes and field definitions as
+ * `node.batch`: several node writes and field and tag definitions as
  * one transaction (DESIGN.md → Batches of writes). Each call is planned by
  * its action's own planner over one working copy of the nodes, the copy
  * taking each call's writes before the next is planned, and the whole is
@@ -28,6 +28,8 @@ import {
   nodeUpdateDef,
   planNodeDelete,
   planNodeUpdate,
+  tagDefineDef,
+  tagDefinitionInput,
   type PlannedNodeWrite,
 } from "./actions.ts";
 import { persistPlannedEffect } from "./session.ts";
@@ -58,6 +60,12 @@ const BatchCallSchema = z.discriminatedUnion("action", [
       id: z.string().min(1).describe("the field id later calls can reference"),
     }),
   }),
+  z.object({
+    action: z.literal("tag.define"),
+    input: tagDefineDef.inputSchema.extend({
+      id: z.string().min(1).describe("the tag id later calls can reference"),
+    }),
+  }),
 ]);
 
 type BatchCall = z.infer<typeof BatchCallSchema>;
@@ -66,14 +74,15 @@ export const nodeBatchDef = {
   id: "node.batch",
   title: "Batch node writes",
   description:
-    "Run node.add, node.update, node.delete and field.define calls as one transaction: each call " +
+    "Run node.add, node.update, node.delete, field.define and tag.define calls as one " +
+    "transaction: each call " +
     "is {action, input} with that action's own input (less force); each is planned over " +
     "what the calls before it wrote, so a later call sees an earlier one. A node.add names " +
     "its parent (null for the top level). All or nothing; returns each call's node id in order.",
   mode: { kind: "write" } as const,
   // Every call is a batch of these: a guard on any of them governs it too,
   // by that part's own mode.
-  batchOf: [nodeAddDef.id, nodeUpdateDef.id, nodeDeleteDef.id, fieldDefineDef.id],
+  batchOf: [nodeAddDef.id, nodeUpdateDef.id, nodeDeleteDef.id, fieldDefineDef.id, tagDefineDef.id],
   inputSchema: z.object({
     calls: z.array(BatchCallSchema).min(1),
     /** Bypass sys.* write-guard (browse yes / break no), for the whole commit. */
@@ -109,15 +118,24 @@ function applied(nodes: readonly KbNode[], write: PlannedNodeWrite): KbNode[] {
   return [...kept, ...put.values()];
 }
 
+/** What an adding call adds, as `node.add` takes it: a definition by its action's own planner. */
+function addInputOf(
+  nodes: readonly KbNode[],
+  call: Extract<BatchCall, { action: "node.add" | "field.define" | "tag.define" }>,
+) {
+  if (call.action === "field.define") return fieldDefinitionInput(nodes, call.input);
+  if (call.action === "tag.define") return tagDefinitionInput(nodes, call.input);
+  return Effect.succeed(call.input);
+}
+
 /** One call planned over `nodes`, by its action's own planner: its node, and what it writes. */
 const planCall = Effect.fn("node.batch.call")(function* (
   nodes: KbNode[],
   call: BatchCall,
   at: string,
 ): Effect.fn.Return<{ id: NodeId; write: PlannedNodeWrite }, DomainError> {
-  if (call.action === "node.add" || call.action === "field.define") {
-    const input =
-      call.action === "field.define" ? yield* fieldDefinitionInput(nodes, call.input) : call.input;
+  if (call.action !== "node.update" && call.action !== "node.delete") {
+    const input = yield* addInputOf(nodes, call);
     // GAP [[01M7X43QWW4ZHWA2WFWJ6WP5ZY]] an optimistic batch re-mints missing ids on the server.
     const id = input.id ?? (yield* freshId);
     const graph = IndexedNodes.of(nodes);

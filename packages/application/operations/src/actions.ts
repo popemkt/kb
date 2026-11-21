@@ -457,13 +457,6 @@ export const nodeAddEffect = Effect.fn("node.add")(function* (
   return unmet === undefined ? added : { ...added, unmet };
 });
 
-/** One node at a place its caller decided, as `node.add` writes it: the capture target is never asked. */
-const addNodeAtEffect = Effect.fn("node.add.at")(function* (
-  input: PlacedAddInput,
-): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbWriteEnv> {
-  return yield* commitAddEffect(input, () => Effect.succeed({ parent: input.parent, upserts: [] }));
-});
-
 /**
  * How a node action's commit meets the system-write rule, which the commit
  * owns (`persistEffect`): checked, unless the owner set `force`.
@@ -720,10 +713,16 @@ export const fieldDefineEffect = Effect.fn("field.define")(function* (
   return { id: result.id };
 });
 
-export const tagDefineEffect = Effect.fn("tag.define")(function* (
+/**
+ * The node a tag definition adds, resolved over `nodes`: typed `sys.tag`,
+ * templating `fields` and extending `extends`, each by name or id. Shared
+ * by the standalone definition and a batched one (`node.batch`), so a tag
+ * defined and applied in one gesture is planned as `tag.define` plans it.
+ */
+export const tagDefinitionInput = Effect.fn("tag.define.input")(function* (
+  nodes: readonly KbNode[],
   input: z.infer<typeof tagDefineDef.inputSchema>,
-): Effect.fn.Return<{ id: string }, DomainError, KbWriteEnv> {
-  const ctx = yield* KbCtx;
+): Effect.fn.Return<PlacedAddInput, DomainError> {
   const props: z.infer<typeof PropInputSchema>[] = [
     {
       field: SYSTEM_IDS.typeField,
@@ -731,29 +730,36 @@ export const tagDefineEffect = Effect.fn("tag.define")(function* (
     },
   ];
   yield* syncDomain(() => {
-    if (input.fields) {
-      for (const f of input.fields) {
-        const fieldId = resolveFieldId(ctx.nodes, f);
-        props.push({
-          field: SYSTEM_IDS.fieldsField,
-          value: { t: "ref", v: fieldId },
-        });
-      }
+    for (const f of input.fields ?? []) {
+      props.push({
+        field: SYSTEM_IDS.fieldsField,
+        value: { t: "ref", v: resolveFieldId(nodes, f) },
+      });
     }
     // A tag no node names yet extends what it likes: it closes no cycle.
     for (const parent of input.extends ?? []) {
       props.push({
         field: SYSTEM_IDS.extendsField,
-        value: { t: "ref", v: resolveTagId(ctx.nodes, parent) },
+        value: { t: "ref", v: resolveTagId(nodes, parent) },
       });
     }
   });
-  const result = yield* addNodeAtEffect({
-    id: input.id,
-    text: input.name,
-    parent: null,
-    props,
-  });
+  return { id: input.id, text: input.name, parent: null, props };
+});
+
+/**
+ * `tag.define`: the definition planned again over each attempt's graph
+ * (`commitAddEffect`), as `field.define` is, so the fields it templates and
+ * the tags it extends are resolved over what the write lands on.
+ */
+export const tagDefineEffect = Effect.fn("tag.define")(function* (
+  input: z.infer<typeof tagDefineDef.inputSchema>,
+): Effect.fn.Return<{ id: string }, DomainError, KbWriteEnv> {
+  const ctx = yield* KbCtx;
+  const definition = (nodes: readonly KbNode[]) => tagDefinitionInput(nodes, input);
+  const result = yield* commitAddEffect(yield* definition(ctx.nodes), (nodes) =>
+    Effect.map(definition(nodes), ({ parent }) => ({ parent, upserts: [] })),
+  );
   return { id: result.id };
 });
 
