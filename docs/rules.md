@@ -1053,14 +1053,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — docs/research/2026-11-11-cli-host-modes.md step 7.
 - **node** — `01M75MA4HB3NFDXGGKG0RE45H5`
 
-### GAP: Expand subtree / Expand all do not open results of a query that has not answered yet
-
-- **expected** — Expand subtree and Expand all open the results of every query they open, a query not yet answered included; an async version stays scoped to its page and awaits only the queries inside the requested subtree
-- **current** — The subtree walk (rowsDrawnOpen in outline.store.ts) reads the answers the page has, synchronously: a query it opens that has not answered yet draws no results, so they stay closed. An async version (580ea33e, reverted) settled the page's answers first, and Sol's re-check of 62c65a19 found two faults: Expand all applied its choices after the queries settled, so navigating meanwhile landed them on another page; and the settled walk waited on queries in branches outside the requested subtree
-- **impact** — ⌘⌥↓ on a closed query that no row has drawn opens the query but not its results or the rows under them; pressing it again once the results show opens them
-- **closes** — An async subtree step that captures its page and host, drops its result if the page has moved by the time it settles, and settles only the queries the requested subtree opens
-- **node** — `01M7XSM8DNSX1HCZW2217PX5M1`
-
 ### GAP: ext-canvas keeps its own copy of requireNode
 
 - **expected** — One reader of the node an action names, or its not_found refusal, in a package both @kb/operations' actions and an extension's actions may import (beside KbContext in @kb/contracts), which every action that reads one node by id calls.
@@ -2900,6 +2892,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — One row kind breaks the outline's Enter rule.
 - **closes** — planSplit counts the shown node's children.
 - **node** — `01M3KA3BBRADE3TNWQ78JNK37M`
+
+### GAP: Expand subtree / Expand all do not open results of a query that has not answered yet
+
+- **expected** — Expand subtree and Expand all open the results of every query they open, a query not yet answered included; an async version stays scoped to its page and awaits only the queries inside the requested subtree
+- **current** — The subtree walk (rowsDrawnOpen in outline.store.ts) reads the answers the page has, synchronously: a query it opens that has not answered yet draws no results, so they stay closed. An async version (580ea33e, reverted) settled the page's answers first, and Sol's re-check of 62c65a19 found two faults: Expand all applied its choices after the queries settled, so navigating meanwhile landed them on another page; and the settled walk waited on queries in branches outside the requested subtree
+- **impact** — ⌘⌥↓ on a closed query that no row has drawn opens the query but not its results or the rows under them; pressing it again once the results show opens them
+- **closes** — An async subtree step that captures its page and host, drops its result if the page has moved by the time it settles, and settles only the queries the requested subtree opens
+- **node** — `01M7XSM8DNSX1HCZW2217PX5M1`
 
 ### GAP: extension SDK mirror is not bidirectionally typed
 

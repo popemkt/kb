@@ -112,7 +112,7 @@ describe("outline update cost", () => {
       watch.mock.calls.map(([edn]) => edn).filter((edn) => edn.includes(":node/mentions"));
     mentionSubscriptions = () =>
       subscribeTo.mock.calls.map(([edn]) => edn).filter((edn) => edn.includes(":node/mentions"));
-    useOutlineStore.getState().expandAllInScope();
+    await useOutlineStore.getState().expandAllInScope();
     container = dom.window.document.createElement("div") as unknown as HTMLDivElement;
     dom.window.document.body.appendChild(container as unknown as never);
     root = createRoot(container);

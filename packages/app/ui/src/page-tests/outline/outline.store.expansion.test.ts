@@ -111,42 +111,42 @@ describe("a row's whole subtree opens and closes at once", () => {
       "fixtures",
     );
   }
-  it("opens the row and every row under it, and closes them all again; siblings untouched", () => {
+  it("opens the row and every row under it, and closes them all again; siblings untouched", async () => {
     seedSiblingAndReference();
     expect(["n.root-a", "n.child-a2", "n.root-c"].map(collapsed)).toEqual([true, true, true]);
-    outline().expandSubtree(keyOf("n.root-a"), MAIN_OUTLINE_HOST);
+    await outline().expandSubtree(keyOf("n.root-a"), MAIN_OUTLINE_HOST);
     expect(["n.root-a", "n.child-a2", "n.root-c"].map(collapsed)).toEqual([false, false, true]);
-    outline().collapseSubtree(keyOf("n.root-a"), MAIN_OUTLINE_HOST);
+    await outline().collapseSubtree(keyOf("n.root-a"), MAIN_OUTLINE_HOST);
     expect(["n.root-a", "n.child-a2", "n.root-c"].map(collapsed)).toEqual([true, true, true]);
   });
 
-  it("closes what was open below a closed row too", () => {
+  it("closes what was open below a closed row too", async () => {
     outline().toggleCollapse("n.child-a2");
     expect(collapsed("n.child-a2")).toBe(false);
-    outline().collapseSubtree(keyOf("n.root-a"), MAIN_OUTLINE_HOST);
+    await outline().collapseSubtree(keyOf("n.root-a"), MAIN_OUTLINE_HOST);
     expect(collapsed("n.child-a2")).toBe(true);
   });
 
-  it("a reference's subtree is its target's rows, under the reference", () => {
+  it("a reference's subtree is its target's rows, under the reference", async () => {
     seedSiblingAndReference();
     outline().toggleCollapse("n.root-c");
-    outline().expandSubtree(childInstanceKey(keyOf("n.root-c"), "n.ref"), MAIN_OUTLINE_HOST);
+    await outline().expandSubtree(childInstanceKey(keyOf("n.root-c"), "n.ref"), MAIN_OUTLINE_HOST);
     expect(collapsed("n.ref")).toBe(false);
     expect(collapsed("n.child-a2")).toBe(false);
     // The target's own row is another place: its choice is its own.
     expect(collapsed("n.root-a")).toBe(true);
   });
 
-  it("Expand all and Collapse all are the subtrees of the scope's top rows", () => {
+  it("Expand all and Collapse all are the subtrees of the scope's top rows", async () => {
     seedSiblingAndReference();
-    outline().expandAllInScope();
+    await outline().expandAllInScope();
     expect(["n.root-a", "n.child-a2", "n.root-c", "n.ref"].map(collapsed)).toEqual([
       false,
       false,
       false,
       false,
     ]);
-    outline().collapseAllInScope();
+    await outline().collapseAllInScope();
     expect(["n.root-a", "n.child-a2", "n.root-c", "n.ref"].map(collapsed)).toEqual([
       true,
       true,

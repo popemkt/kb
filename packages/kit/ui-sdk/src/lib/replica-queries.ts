@@ -114,7 +114,15 @@ export interface QueryAnswers {
   once(request: PageQuery): Promise<QueryAnswer>;
   ask(edn: string): Promise<QueryAnswer>;
   runner(reads?: Map<string, QueryRead>): EdnRunner;
-  settle<T>(read: (run: EdnRunner) => T): Promise<T>;
+  /**
+   * What `read` answers once the queries it asks are answered as of now:
+   * every query it named, or, given `awaits`, those of them `awaits` names
+   * from what a round read (null: every one).
+   */
+  settle<T>(
+    read: (run: EdnRunner) => T,
+    awaits?: (value: T) => ReadonlySet<string> | null,
+  ): Promise<T>;
 }
 
 export class ReplicaQueries implements QueryAnswers {
@@ -241,21 +249,33 @@ export class ReplicaQueries implements QueryAnswers {
    * What `read` answers once every query it asks is answered as of now: the
    * page's `answered` (`@kb/query`). Each round reads with the answers so far
    * and waits for the queries it named that are not current, until a round
-   * names none.
+   * names none. Given `awaits`, a round waits only for the queries it named
+   * that `awaits` names from what it read, so a reader can depend on answers
+   * it does not wait for.
    */
-  settle<T>(read: (run: EdnRunner) => T): Promise<T> {
-    return this.#settleFrom(read, 0);
+  settle<T>(
+    read: (run: EdnRunner) => T,
+    awaits?: (value: T) => ReadonlySet<string> | null,
+  ): Promise<T> {
+    return this.#settleFrom(read, awaits, 0);
   }
 
   /** One round of `settle`: read, and if it named queries that are not current, wait and read again. */
-  async #settleFrom<T>(read: (run: EdnRunner) => T, round: number): Promise<T> {
+  async #settleFrom<T>(
+    read: (run: EdnRunner) => T,
+    awaits: ((value: T) => ReadonlySet<string> | null) | undefined,
+    round: number,
+  ): Promise<T> {
     if (round >= MAX_ROUNDS) throw new Error(`a reader named new queries for ${MAX_ROUNDS} rounds`);
     const reads = new Map<string, QueryRead>();
     const value = read(this.runner(reads));
-    const stale = [...reads].flatMap(([edn, at]) => (at.current ? [] : [edn]));
+    const awaited = awaits?.(value) ?? null;
+    const stale = [...reads].flatMap(([edn, at]) =>
+      at.current || (awaited !== null && !awaited.has(edn)) ? [] : [edn],
+    );
     if (stale.length === 0) return value;
     await Promise.all(stale.map((edn) => this.ask(edn)));
-    return this.#settleFrom(read, round + 1);
+    return this.#settleFrom(read, awaits, round + 1);
   }
 
   #entry(edn: string): Entry {

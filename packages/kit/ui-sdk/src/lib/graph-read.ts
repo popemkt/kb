@@ -245,8 +245,11 @@ class AnswersRead implements QueryAnswers {
       return run(edn);
     };
   }
-  settle<T>(read: (run: EdnRunner) => T): Promise<T> {
-    return this.#read().settle(read);
+  settle<T>(
+    read: (run: EdnRunner) => T,
+    awaits?: (value: T) => ReadonlySet<string> | null,
+  ): Promise<T> {
+    return this.#read().settle(read, awaits);
   }
 }
 

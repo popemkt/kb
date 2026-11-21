@@ -384,6 +384,27 @@ export function subtreeOf(
   return rows;
 }
 
+/**
+ * The queries whose results `rows` draw: each row's shown node that is a
+ * query, where the walk runs it (`walkRowChildren`: not under a row already
+ * showing it, and not a query's own result).
+ */
+export function queriesOf(
+  rows: readonly VisibleInstance[],
+  nodes: NodeMap,
+  schema: SchemaIndex,
+): ReadonlySet<string> {
+  const edns = new Set<string>();
+  for (const { nodeId, instanceKey } of rows) {
+    const node = nodes.get(nodeId);
+    if (node === undefined || isProjectedRow(instanceKey)) continue;
+    if (showsAncestor(instanceKey, node, schema)) continue;
+    const edn = queryDefOf(shownNode(node, schema))?.edn;
+    if (hasText(edn)) edns.add(edn);
+  }
+  return edns;
+}
+
 export function neighborVisibleInstance(
   instances: VisibleInstance[],
   instanceKey: string,

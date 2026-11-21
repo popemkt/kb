@@ -19,6 +19,7 @@ import {
   browserHost,
   type CaretIntent,
   childInstanceKey,
+  type EdnRunner,
   type Expansion,
   type ExpansionChanges,
   type FamilyView,
@@ -55,6 +56,7 @@ import { isQueryNode, SYSTEM_IDS } from "@kb/model";
 import {
   collectVisibleInstances,
   neighborVisibleInstance,
+  queriesOf,
   subtreeOf,
   type VisibleInstance,
 } from "./visible-instances.ts";
@@ -144,13 +146,15 @@ interface OutlineState {
   /**
    * Open the row at `instanceKey` and every row drawn under it (`subtreeOf`),
    * as the outline of host `host`, the one the key was pressed in, draws them.
+   * Settles once the queries the subtree opens are answered and their rows
+   * opened, or with nothing opened if the page has moved meanwhile.
    */
-  expandSubtree: (instanceKey: string, host: string) => void;
+  expandSubtree: (instanceKey: string, host: string) => Promise<void>;
   /** Close the row at `instanceKey` and every row drawn under it, as `expandSubtree` finds them. */
-  collapseSubtree: (instanceKey: string, host: string) => void;
+  collapseSubtree: (instanceKey: string, host: string) => Promise<void>;
   /** Open every row the scope's outline draws, as it draws them all open. */
-  expandAllInScope: () => void;
-  collapseAllInScope: () => void;
+  expandAllInScope: () => Promise<void>;
+  collapseAllInScope: () => Promise<void>;
   expandAncestors: (id: string) => void;
   /** Reveal `id` in the outline: expand its ancestors, zoom out if needed, edit its row. */
   jumpToNode: (id: string) => void;
@@ -698,13 +702,25 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
       choose([[key, get().expansion.get(key) !== true]]);
     },
 
-    expandSubtree: (instanceKey, host) => openRows(subtreeDrawnOpen(instanceKey, host), true),
+    expandSubtree: async (instanceKey, host) => {
+      const rows = await subtreeDrawnOpen(instanceKey, host);
+      if (rows !== null) openRows(rows, true);
+    },
 
-    collapseSubtree: (instanceKey, host) => openRows(subtreeDrawnOpen(instanceKey, host), false),
+    collapseSubtree: async (instanceKey, host) => {
+      const rows = await subtreeDrawnOpen(instanceKey, host);
+      if (rows !== null) openRows(rows, false);
+    },
 
-    expandAllInScope: () => openRows(scopeDrawnOpen(), true),
+    expandAllInScope: async () => {
+      const rows = await scopeDrawnOpen();
+      if (rows !== null) openRows(rows, true);
+    },
 
-    collapseAllInScope: () => openRows(scopeDrawnOpen(), false),
+    collapseAllInScope: async () => {
+      const rows = await scopeDrawnOpen();
+      if (rows !== null) openRows(rows, false);
+    },
 
     expandAncestors: (id) => choose(ancestorsToOpen(outlineNodes(), id)),
 
@@ -941,19 +957,26 @@ function visibleInstancesOf(
   graph: PageGraphState,
   expansion: Expansion,
 ): VisibleInstance[] {
-  return instancesOver(host, graph, rowsOf(graph, expansion), expansion);
+  return instancesOver(host, graph, rowsOf(graph, expansion), expansion, runnerOf(graph));
+}
+
+/** The query answers a walk over `graph` reads: the ones the page has. */
+function runnerOf(graph: PageGraphState): EdnRunner | null {
+  return graph.queries?.runner() ?? null;
 }
 
 /**
  * The rows outline host `host` draws of `nodes`, the rows of `graph` opened
- * by `expansion`: the walk itself, over rows a caller may open as it tries
- * them (`rowsDrawnOpen`) without moving the outline's own (`rowsOf`).
+ * by `expansion`, with query results as `run` answers them: the walk itself,
+ * over rows a caller may open as it tries them (`rowsDrawnOpen`) without
+ * moving the outline's own (`rowsOf`).
  */
 function instancesOver(
   host: string,
   graph: PageGraphState,
   nodes: NodeMap,
   expansion: Expansion,
+  run: EdnRunner | null,
 ): VisibleInstance[] {
   const outline = outlineHostOf(host);
   if (outline === undefined) return [];
@@ -963,7 +986,7 @@ function instancesOver(
     {
       nodes,
       schema: schemaOf(graph),
-      run: graph.queries?.runner() ?? null,
+      run,
       views,
       chain: outline.chain,
       pages: useOutlineStore.getState().framePages,
@@ -976,33 +999,62 @@ function instancesOver(
   );
 }
 
+/** What a subtree step picks from a walk: its rows, and the queries it waits for. */
+interface Picked {
+  readonly rows: readonly VisibleInstance[];
+  /** The queries whose answers the step waits for, of those the walk ran; null for every one. */
+  readonly awaits: ReadonlySet<string> | null;
+}
+
+/** Where a page stands, which a subtree step's rows belong to. */
+function pageOf(host: string): readonly unknown[] {
+  const graph = graphNow();
+  return [graph.rootNodeId, graph.ontologyId, outlineHostOf(host)];
+}
+
 /**
- * The rows outline host `host` would draw over `graph` with every row that
- * `within` picks from its walk open: the walk, as the outline draws it
+ * The nodes of the rows outline host `host` would draw with every row that
+ * `pick` takes from its walk open: the walk, as the outline draws it
  * (`collectVisibleInstances`: query results, references opened in place, a
  * frame's view), tried again with each picked row that is closed opened,
- * until none is. A query's results are its answer, so results not yet
- * answered are not among them.
+ * until none is. A query's results are its answer, so the walk is read until
+ * every query `pick` waits for is answered (`settle`), a query no row had
+ * drawn included. Null when the page has moved by then: the rows are that
+ * page's, and opening them would land on another.
  */
-// GAP [[01M7XSM8DNSX1HCZW2217PX5M1]] results of a query not yet answered stay closed
-function rowsDrawnOpen(
+async function rowsDrawnOpen(
+  host: string,
+  pick: (rows: readonly VisibleInstance[], nodes: NodeMap, schema: SchemaIndex) => Picked,
+): Promise<string[] | null> {
+  const page = pageOf(host);
+  const read = (run: EdnRunner | null): Picked => drawnOpen(host, graphNow(), run, pick);
+  const queries = graphNow().queries;
+  const picked = queries === null ? read(null) : await queries.settle(read, ({ awaits }) => awaits);
+  const now = pageOf(host);
+  if (now.some((at, i) => at !== page[i])) return null;
+  return picked.rows.map((row) => row.nodeId);
+}
+
+/** One read of `rowsDrawnOpen`, with query results as `run` answers them now. */
+function drawnOpen(
   host: string,
   graph: PageGraphState,
-  within: (rows: readonly VisibleInstance[], nodes: NodeMap) => readonly VisibleInstance[],
-): string[] {
+  run: EdnRunner | null,
+  pick: (rows: readonly VisibleInstance[], nodes: NodeMap, schema: SchemaIndex) => Picked,
+): Picked {
   const schema = schemaOf(graph);
   let expansion = useOutlineStore.getState().expansion;
   for (;;) {
     const nodes = withExpansion(shownNodesOf(graph), expansion);
-    const rows = within(instancesOver(host, graph, nodes, expansion), nodes);
-    const closed = rows.flatMap(({ nodeId }): Array<readonly [string, boolean]> => {
+    const picked = pick(instancesOver(host, graph, nodes, expansion, run), nodes, schema);
+    const closed = picked.rows.flatMap(({ nodeId }): Array<readonly [string, boolean]> => {
       const node = nodes.get(nodeId);
       return node?.collapsed === true && isExpandableOutlineNode(node, schema)
         ? [[nodeId, true]]
         : [];
     });
     const next = withChoices(expansion, closed);
-    if (next === expansion) return rows.map((row) => row.nodeId);
+    if (next === expansion) return picked;
     expansion = next;
   }
 }
@@ -1010,16 +1062,19 @@ function rowsDrawnOpen(
 /**
  * The rows of the subtree at row `instanceKey`, as the outline of host `host`
  * draws it all open (`subtreeOf`): their nodes, whose choice is every row's
- * of that node.
+ * of that node. It waits only for the queries drawn inside it.
  */
 // GAP [[01M7XP1SNNVNYZKH5GCSW3RH6C]] a node drawn at several places shares one choice
-function subtreeDrawnOpen(instanceKey: string, host: string): string[] {
-  return rowsDrawnOpen(host, graphNow(), (rows, nodes) => subtreeOf(rows, instanceKey, nodes));
+function subtreeDrawnOpen(instanceKey: string, host: string): Promise<string[] | null> {
+  return rowsDrawnOpen(host, (walk, nodes, schema) => {
+    const rows = subtreeOf(walk, instanceKey, nodes);
+    return { rows, awaits: queriesOf(rows, nodes, schema) };
+  });
 }
 
-/** Every row of the scope's outline, as it draws them all open. */
-function scopeDrawnOpen(): string[] {
-  return rowsDrawnOpen(MAIN_OUTLINE_HOST, graphNow(), (rows) => rows);
+/** Every row of the scope's outline, as it draws them all open: every query it runs is in it. */
+function scopeDrawnOpen(): Promise<string[] | null> {
+  return rowsDrawnOpen(MAIN_OUTLINE_HOST, (rows) => ({ rows, awaits: null }));
 }
 
 /**
