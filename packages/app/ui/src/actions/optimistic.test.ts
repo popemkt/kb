@@ -32,7 +32,11 @@ describe("local action plans", () => {
     expect(calls).toEqual([
       {
         id: "node.batch",
-        input: { calls: plan.actions.map(({ id, input }) => ({ action: id, input })) },
+        // The ids its local commit minted, so the server creates the same nodes.
+        input: {
+          calls: plan.actions.map(({ id, input }) => ({ action: id, input })),
+          ids: ["n.root-a", "n.split"],
+        },
         session: tabSession(),
       },
     ]);
