@@ -273,14 +273,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — drawing a back face in 2D
 - **node** — `01M41W56GDH3M0TNGX4BDV4STR`
 
-### GAP: a foreign commit reloads the whole graph (reloadEffect rebuilds the index)
-
-- **expected** — A foreign commit whose records the tail holds applies to the index incrementally (applyTx), in reloadEffect, not beside it.
-- **current** — ingestExternalWrite -> reloadEffect -> loadEffect -> index.rebuild is O(N) per foreign commit (docs/research/2026-10-31-online-stores.md §4.3).
-- **impact** — Cheap for a CLI write; a peer editing at keystroke rate on a remote store costs one rebuild per commit, painful at 50k nodes.
-- **closes** — Incremental foreign ingest in reloadEffect when the session is current at the tail's previous rev.
-- **node** — `01M6950WQN8VDWJMSH8EZ8X3DR`
-
 ### GAP: a former Google calendar older than the kept history, or no longer trusted, keeps kb's series
 
 - **expected** — Every Google calendar a calendar node once named and none names now has kb's series on it ended, whenever the re-point or deletion happened.
@@ -2068,14 +2060,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A shared key home for third-party keys (the codependency record's Q1), or a by-name key resolved by the kernel.
 - **node** — `01M68NFCSWZ41EJNBVDJ23RPFJ`
 
-### GAP: two processes that start a kb ui for one root at once can start two servers
-
-- **expected** — Starts for one root are single-flight across processes: a start holds a pidfile lock under the root's .kb, re-checks presence once it holds the lock, and only then spawns.
-- **current** — oneStartPerRoot (runtime/src/serve.ts) makes concurrent starts in one process one start; two processes (kb open and the page's server) can each spawn a server at once, the later presence write wins and the other runs on, unlisted.
-- **impact** — An extra unsupervised kb ui can be left running over the root; neither data nor security is affected (both serve the same root on loopback, the guard applies to both).
-- **closes** — A generic pidfile lock with a home both store-jsonl (its nodes write lock) and runtime may import (not infrastructure: infra cannot import infra), e.g. a backend contract-layer package; KbRoots.serve holds it around the re-check and the spawn.
-- **node** — `01M545PFJ3285JNXYHKVCM50Z7`
-
 ### GAP: two tabs editing the same row overwrite each other silently
 
 - **expected** — a node.update carries the text it was edited from (its base), and the server refuses one whose node changed since; the tab then shows the row as changed elsewhere, takes the server's text, and the person's unsaved words are offered back, never lost silently
@@ -2271,6 +2255,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — no model suggestions for a provider and no provider check, so a provider that cannot run says so only when a turn fails
 - **closes** — hosted actions in composeHosted and serverInvoke, with a contract property over kb ui, then the two actions
 - **node** — `01M53F2M2S6J3WW0Z0KR136J6A`
+
+### GAP: a foreign commit reloads the whole graph (reloadEffect rebuilds the index)
+
+- **expected** — A foreign commit whose records the tail holds applies to the index incrementally (applyTx), in reloadEffect, not beside it.
+- **current** — ingestExternalWrite -> reloadEffect -> loadEffect -> index.rebuild is O(N) per foreign commit (docs/research/2026-10-31-online-stores.md §4.3).
+- **impact** — Cheap for a CLI write; a peer editing at keystroke rate on a remote store costs one rebuild per commit, painful at 50k nodes.
+- **closes** — Incremental foreign ingest in reloadEffect when the session is current at the tail's previous rev.
+- **node** — `01M6950WQN8VDWJMSH8EZ8X3DR`
 
 ### GAP: a frame stood up as a wall does not hold items on its face
 
@@ -3781,6 +3773,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Move both queries behind a lib/ or store selector that the components consume, so ds/ keeps one set of callers.
 - **rule** — UI import matrix
 - **node** — `01M1RXMRZKE1AJC850BRTHHHCW`
+
+### GAP: two processes that start a kb ui for one root at once can start two servers
+
+- **expected** — Starts for one root are single-flight across processes: a start holds a pidfile lock under the root's .kb, re-checks presence once it holds the lock, and only then spawns.
+- **current** — oneStartPerRoot (runtime/src/serve.ts) makes concurrent starts in one process one start; two processes (kb open and the page's server) can each spawn a server at once, the later presence write wins and the other runs on, unlisted.
+- **impact** — An extra unsupervised kb ui can be left running over the root; neither data nor security is affected (both serve the same root on loopback, the guard applies to both).
+- **closes** — A generic pidfile lock with a home both store-jsonl (its nodes write lock) and runtime may import (not infrastructure: infra cannot import infra), e.g. a backend contract-layer package; KbRoots.serve holds it around the re-check and the spawn.
+- **node** — `01M545PFJ3285JNXYHKVCM50Z7`
 
 ### GAP: TxTail allocates a rev outside the store's exclusion for virtual transactions
 

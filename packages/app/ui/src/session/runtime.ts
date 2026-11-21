@@ -100,7 +100,7 @@ const localReferences = contextReferencesOf(() =>
 );
 
 function noteBrowserStoreSynced(current: BrowserSession): void {
-  Effect.runSync(noteStoreSynced(current.ctx).pipe(Effect.provide(current.layer)));
+  noteStoreSynced(current.ctx, Effect.runSync(current.ctx.store.fingerprint));
 }
 
 /**

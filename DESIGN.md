@@ -2185,12 +2185,10 @@ CREATE TABLE meta  (key TEXT PRIMARY KEY, value TEXT);   -- schema_version, rev
   unopened store compares equal to nothing.
 - **Each tail row names the mark it began on** (`tx.base`; schema 7), beside
   the `mark` it left. A commit whose base is not the mark its kept state names
-  reads the rows from the first one that began on the kept mark, and brings
-  the state forward through them only when they chain — each begins on the
-  mark the one before it left — to its own base. Only then does the tail
-  explain every write between, since a hand write moves `meta.rev` with no row.
-  A row whose base is its mark (the saved-query virtual set's record) wrote no
-  node row and is passed over. So a commit after another writer's costs what
+  brings the state forward through the rows the tail can show it committed
+  since (`TxTail.committedSince`, below, read inside the commit's own
+  transaction), and reads every row when it cannot: a hand write moves
+  `meta.rev` with no row. So a commit after another writer's costs what
   that writer wrote, and a 50k-node store's commit after a foreign one holds
   the write lock for milliseconds rather than the second a full decode took.
   The load reads its mark and its rows in one read transaction, so the kept
@@ -2443,6 +2441,24 @@ newest published mark differs from the current store mark, `StoreTxLog` at
 open sets its floor to `head + 1`. A reader at or below that head needs a
 snapshot. This covers hand edits, backup restores and writes by older kb
 versions.
+
+Each record also carries `base`, the mark its transaction began on: a
+commit moved the store from `base` to `mark`, and a record of a
+transaction the store did not commit (the virtual set's) begins and ends
+on one mark. So the tail can say what the store committed since a state
+(`TxTail.committedSince`): the records from the last one that began on that
+state's mark, when each begins on the mark the one before it left and the
+last ends on the store's current mark (`committedSpan` in `@kb/contracts`,
+the rule's one statement). A write the tail did not record breaks the
+chain, as does a compacted tail or a record an earlier kb wrote without
+`base`, and the answer is null. Two readers use it. A session catching up
+with another writer's commits (`reloadEffect`) applies them to its index as
+it applies its own, and reads and indexes the whole graph only on null. The
+SQLite store brings its kept state forward through it under the write lock
+(SqliteStore, above). A session marks the state it holds with the
+fingerprint read *before* its nodes, so a write landing between the two is
+applied again, which leaves the nodes as they were, rather than claimed and
+never applied. The memory tail has no marks and always answers null.
 
 **Compaction.** Both tails keep their newest 2048 records and drop to 1024 when
 they pass it — the bound the ring used to impose, moved to the file so an
@@ -6672,9 +6688,12 @@ are `docs/brainstorms/2026-10-17-kb-locations/README.md`.
   is stopped with its process group (SIGTERM, then SIGKILL once a short
   grace has passed): until it serves it belongs to the
   start, so a failed or interrupted start leaves no server behind.
-  Concurrent opens of one root in one process are one start
-  (`oneStartPerRoot`); across processes they are not yet
-  (GAP [[01M545PFJ3285JNXYHKVCM50Z7]]). A missing location, or one that is not a
+  Concurrent opens of one root are one start. In one process a second
+  start waits for the first and gets its answer (`oneStartPerRoot`).
+  Across processes, a start holds the root's start lock (`.kb/ui-start.lock`,
+  the kernel lock the store's writers take, `@kb/file-write`), looks for a
+  server again once it holds it, and spawns only when there is none, so a
+  start that waited answers the server the other one started. A missing location, or one that is not a
   store, fails `not_found` with its reason and starts nothing. Started
   servers keep running with no supervisor, as a `kb ui` a person starts
   does; `kb locations` shows which are served.

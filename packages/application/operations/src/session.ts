@@ -46,22 +46,26 @@ import { personWriteRefusal } from "./write-refusal.ts";
 const seen = new WeakMap<KbContext<NodeIndex>, StoreFingerprint>();
 
 /**
- * Record that this session's index reflects the store as it is now.
- * Opening a session builds the index from the store it just read, so it says so
- * here; without that first mark the next reload rebuilds an index that is
- * already correct.
+ * Record that this session's index holds the store's state as `synced`
+ * names it. Opening a session builds the index from the store it just read,
+ * so it says so here; without that first mark the next reload rebuilds an
+ * index that is already correct.
+ *
+ * `synced` is read before the nodes were: a write landing between the two
+ * leaves nodes newer than the mark, and the next reload applies that write
+ * again, which leaves them as they are. Read after, the mark would name a
+ * write the index never saw, and a reload that applies only what came
+ * after the mark would never bring it in.
  */
-export const noteStoreSynced = Effect.fn("kb.noteStoreSynced")(function* (
-  ctx: KbContext<NodeIndex>,
-): Effect.fn.Return<void, never, KbStore> {
-  const store = yield* KbStore;
-  const fingerprint = yield* store.fingerprint;
-  if (fingerprint !== null) seen.set(ctx, fingerprint);
-});
+export function noteStoreSynced(ctx: KbContext<NodeIndex>, synced: StoreFingerprint | null): void {
+  if (synced !== null) seen.set(ctx, synced);
+}
 
 /**
  * Bring the session up to date with the store. A no-op when the store is in
- * the state this session last read or wrote.
+ * the state this session last read or wrote; the transactions other writers
+ * committed since, when the store's tail can show they are every write
+ * between (`TxTail.committedSince`); else a full read and index rebuild.
  *
  * Answers the stored nodes the reload replaced, or null when the session was
  * already current, so a caller that must say what moved (the server's ingest
@@ -79,10 +83,19 @@ export const reloadEffect = Effect.fn("kb.reload")(function* (
 ): Effect.fn.Return<ReadonlyArray<KbNode> | null, DomainError, KbStore> {
   const store = yield* KbStore;
   const fingerprint = yield* store.fingerprint;
-  if (fingerprint !== null && fingerprint === seen.get(ctx)) return null;
-  const loaded = yield* store.loadEffect;
+  const held = seen.get(ctx);
+  if (fingerprint !== null && fingerprint === held) return null;
   const replaced = ctx.index.storedNodes();
-  // GAP [[01M6950WQN8VDWJMSH8EZ8X3DR]] replay a foreign commit through the incremental index
+  // What other writers committed since the state this session holds, when
+  // the tail recorded every write between: applied as this session's own
+  // commits are, instead of reading and indexing the whole graph again.
+  const span = held === undefined ? null : store.txTail.committedSince(held);
+  if (span !== null) {
+    for (const tx of span.txs) ctx.index.applyTx(tx);
+    seen.set(ctx, span.mark);
+    return replaced;
+  }
+  const loaded = yield* store.loadEffect;
   ctx.index.rebuild(loaded);
   if (fingerprint !== null) seen.set(ctx, fingerprint);
   return replaced;

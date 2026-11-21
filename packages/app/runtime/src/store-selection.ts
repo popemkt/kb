@@ -139,7 +139,9 @@ export const createStore = Effect.fn("kb.createStore")(function* (
     );
   }
   const store = yield* acquireStore({ root, backend: name });
-  yield* createOwnStore(yield* sessionOver(root, store, [], []));
+  yield* createOwnStore(
+    yield* sessionOver(root, store, { nodes: [], fingerprint: yield* store.fingerprint }, []),
+  );
   return undefined;
 }, Effect.scoped);
 
@@ -186,7 +188,12 @@ export const copyStore = Effect.fn("kb.copyStore")(function* (
   const tail = source.txTail.entries();
   // A copy lands only on an empty target: one that holds nodes by the time
   // the commit finds it is another writer's, and is never written over.
-  const into = yield* sessionOver(to.root, target, [], []);
+  const into = yield* sessionOver(
+    to.root,
+    target,
+    { nodes: [], fingerprint: yield* target.fingerprint },
+    [],
+  );
   // An empty transaction is normally omitted; a copy must materialize its empty payload.
   if (nodes.length === 0) yield* createOwnStore(into);
   yield* persistOwnWrite(into, (held) =>

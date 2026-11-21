@@ -51,7 +51,7 @@ interface NodeRow {
  * The state this store last read or wrote is kept under its `rev`
  * (`KeptState`), so a commit that lands on that state settles its ranks
  * without decoding every row. Another writer moves `rev`; when the tail
- * recorded every write since (`SqliteTxTail.committedBetween`), the commit
+ * recorded every write since (`TxTail.committedSince`), the commit
  * brings the kept state forward through those transactions, and otherwise it
  * reads every row.
  */
@@ -126,9 +126,9 @@ function commitTx(
       // what they wrote; a write the tail cannot explain costs every row.
       const state =
         kept.take(base, (from, held) => {
-          const committed = base === null ? null : txTail.committedBetween(db, from, base);
-          if (committed === null) return null;
-          for (const step of committed) held.apply(step);
+          const span = base === null ? null : txTail.committedBetween(db, from, base);
+          if (span === null) return null;
+          for (const step of span.txs) held.apply(step);
           return held;
         }) ?? (tx.upserts.length === 0 ? null : StoreState.of(storedNodes(db, path)));
       const applied = state === null ? tx : rankTx(state, tx);

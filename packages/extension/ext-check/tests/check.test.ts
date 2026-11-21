@@ -70,6 +70,10 @@ class FixtureTail implements TxTail {
     return this.recorded.filter((tx) => tx.rev > rev);
   }
 
+  committedSince(): null {
+    return null;
+  }
+
   append(ops: StoreTx, record: TxRecord): Effect.Effect<KbTx> {
     return Effect.sync(() => this.record(ops, record));
   }

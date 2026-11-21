@@ -69,6 +69,7 @@ import { commitReceiptNamesItsWrite, tailRecordsWhoCommitted } from "./commit-re
 import { viewsMigrateRewritesLegacyShapes } from "./view-migration-contract.ts";
 import {
   commitAfterAnotherWriterMergesIntoIt,
+  tailNamesCommitsSinceAState,
   opensAndCommitsUnderContention,
   type WriteLockHolder,
   deletePreservesConcurrentSibling,
@@ -218,6 +219,10 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
   [
     "a commit after another writer's merges into what it left and settles against it",
     commitAfterAnotherWriterMergesIntoIt,
+  ],
+  [
+    "the tail names what other writers committed since a state, and nothing for a state it never named",
+    tailNamesCommitsSinceAState,
   ],
   [
     "opening is a read: reopening leaves the nodes, the fingerprint and the tail as they were",

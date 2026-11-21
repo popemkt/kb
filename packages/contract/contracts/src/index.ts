@@ -272,9 +272,10 @@ export {
   TX_TAIL_MAX_ENTRIES,
   TxOrigin,
   VIRTUAL_ORIGIN,
+  committedSpan,
   pageLength,
 } from "./tx-log.ts";
-export type { KbTxLog, TxPage, TxRecord, TxTail } from "./tx-log.ts";
+export type { KbTxLog, TailSpan, TxPage, TxRecord, TxTail } from "./tx-log.ts";
 export { TemplateRegistry, renderText } from "./template.ts";
 export type { ExtensionTemplate, TemplateContext, TemplateFn } from "./template.ts";
 export type { KbContext } from "./session.ts";
