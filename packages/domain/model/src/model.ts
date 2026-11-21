@@ -63,6 +63,12 @@ export const SYSTEM_IDS = {
   /** Optional chip color on tag definition nodes (DESIGN-RESKIN §1.8). */
   colorField: "sys.f.color",
   /**
+   * A node's description (DESIGN.md → Data model → Descriptions): text, one,
+   * drawn under its name and as its hint in pickers (`descriptionOf`), never
+   * as a field row.
+   */
+  descriptionField: "sys.f.description",
+  /**
    * Where a field's rows are drawn (DESIGN.md → Data model → field display):
    * a ref to one of its own five children below; absent reads always.
    */

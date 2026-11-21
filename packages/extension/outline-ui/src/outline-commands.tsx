@@ -12,12 +12,20 @@
 import {
   CopyIcon,
   EyeSlashIcon,
+  NotePencilIcon,
   ListBulletsIcon,
   MagnifyingGlassIcon,
   RowsIcon,
 } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
-import { DISPLAY_OPTIONS, queryTextOf, type DisplayOption, SYSTEM_IDS } from "@kb/model";
+import {
+  descriptionOf,
+  DISPLAY_OPTIONS,
+  isWritableField,
+  queryTextOf,
+  type DisplayOption,
+  SYSTEM_IDS,
+} from "@kb/model";
 import { OUTLINE_IDS } from "@kb/outline";
 import {
   browserHost,
@@ -25,6 +33,7 @@ import {
   nodeAction,
   nodeMenu,
   outlineInstanceKey,
+  shownNode,
   tagOpeningOf,
   ViewPoint,
   type Command,
@@ -32,6 +41,7 @@ import {
   type TagOpening,
 } from "@kb/ui-sdk";
 import { openCopyAs } from "./copy-as-state";
+import { describe } from "./description-state";
 import { outlineNodes, useOutlineStore } from "./outline.store";
 import { queryBuilderOpen, setQueryBuilderOpen } from "./query-builder/open";
 import { displayShownOf, setDisplayShown } from "./row-opening";
@@ -56,6 +66,23 @@ function displaying(ctx: CommandContext, option: DisplayOption): boolean | null 
   );
   if (opening === null || !opening.options.includes(option)) return null;
   return displayShownOf(node, opening, option);
+}
+
+/**
+ * The description of the node the command's target row shows: whether it
+ * has one, and whether a person may write it there; null with no target.
+ * A seeded node's is not, without force. GAP [[01M7ZP97P0FAAWC9NDQDWYAGK8]]
+ */
+function targetDescription(ctx: CommandContext): { has: boolean; writable: boolean } | null {
+  const row = ctx.target.nodeId === null ? undefined : ctx.outline.nodes.get(ctx.target.nodeId);
+  if (row === undefined) return null;
+  const schema = browserHost().schema();
+  const node = shownNode(row, schema);
+  const field = SYSTEM_IDS.descriptionField;
+  return {
+    has: descriptionOf(node) !== null,
+    writable: isWritableField(node, field, schema.get(field)),
+  };
 }
 
 const DISPLAY_CHROME: Readonly<Record<DisplayOption, { label: string; icon: ReactNode }>> = {
@@ -119,6 +146,21 @@ export const OUTLINE_COMMANDS: readonly Command[] = [
       }),
   },
   ...DISPLAY_OPTIONS.map(displayCommand),
+  {
+    // DESIGN-UI.md → Outline editor, "A node's description": on Mod-Shift-E too.
+    id: OUTLINE_IDS.describeCommand,
+    menu: nodeMenu("lead", 40),
+    chrome: (ctx) => ({
+      label: targetDescription(ctx)?.has === true ? "Edit description" : "Add description",
+      icon: <NotePencilIcon size={14} />,
+    }),
+    when: (ctx) => targetDescription(ctx)?.writable === true,
+    run: (ctx) => {
+      const nodeId = ctx.target.nodeId;
+      ctx.palette.close();
+      if (nodeId !== null) describe(nodeId);
+    },
+  },
   {
     // DESIGN-UI.md → Outline editor, "Copy, cut and Copy as…": after Copy node ID, and on Mod-Shift-C.
     id: OUTLINE_IDS.copyAsCommand,

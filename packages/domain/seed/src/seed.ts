@@ -95,6 +95,16 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const typeField = typedField(SYSTEM_IDS.typeField, "type", "ref", OWNED);
   const fieldsField = typedField(SYSTEM_IDS.fieldsField, "fields", "ref", OWNED);
   const colorField = singleField(SYSTEM_IDS.colorField, "color", "text");
+  // Any node's description (DESIGN.md → Data model → descriptions): drawn
+  // under its name and as its hint, never as a row. Its label is not plain
+  // "description", which the gallery's brief already answers to.
+  // GAP [[01M7ZP9E60FSJZGBMZEBEFSNGQ]]
+  const descriptionField = singleField(
+    SYSTEM_IDS.descriptionField,
+    "node description",
+    "text",
+    OWNED,
+  );
   // Where a field's rows are drawn: one of its own children (the option-set
   // shape), and whether it leads the lists of fields (DESIGN.md → Data model
   // → field display).
@@ -626,6 +636,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     typeField,
     fieldsField,
     colorField,
+    descriptionField,
     ...showNodes,
     pinnedField,
     childTagField,

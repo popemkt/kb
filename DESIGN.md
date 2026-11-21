@@ -630,8 +630,8 @@ type PropValue =
 
 - **Fields are nodes.** A field is just a node typed `sys.field` (e.g. node
   `01J..X` text "status"). `props` keys are field-node ids, so fields are
-  reusable anywhere, renameable in one place, and can carry their own props
-  (description, allowed values) later. Attaching any field to any node is
+  reusable anywhere, renameable in one place, and carry their own props
+  (a description, allowed values) as every node does. Attaching any field to any node is
   legal — tags only _template_ fields, never restrict them (Tana semantics).
 - **Tags (supertags) are nodes** typed `sys.tag`, holding a `sys.f.fields`
   prop listing field-node refs they template. Applying a tag = adding a
@@ -916,6 +916,28 @@ type PropValue =
   view-config readers resolve the sentinel to the field in sort keys and in
   column widths, so the next write of either stores the real id, with no
   migration pass.
+- **A node may carry a description** (descriptions): a short text that says
+  what the node is for, as Tana's does, held as the value of a core field,
+  `sys.f.description` (text, one), on any node. It is a field because a
+  node's words beside its text are a value like any other: the CLI sets it
+  by name (`kb set <id> "node description" "…"`) or id, an agent writes it through
+  `node.update`, a query matches it as `:f/sys.f.description`, and a
+  family ships one on its own node as it ships any value. Its show is never:
+  no field row draws it, because its place is under the node's name, on a
+  row and on the page the node heads, and beside the node's name where a
+  picker or a search offers it (DESIGN-UI.md → Outline editor,
+  descriptions). `descriptionOf` (`@kb/model`'s `description.ts`) is its
+  one reader, the trimmed text or nothing. An empty description is no
+  description: clearing it removes the value, so a node never holds a
+  blank one. A person's own tags and fields are described as any node is,
+  and the tag and field pickers show it. A family describes its seeded
+  nodes in its seed; a person's description of a system node (a family's
+  tag, field or command) is refused without force, as any value there is
+  that is not one of its settings (GAP [[01M7ZP97P0FAAWC9NDQDWYAGK8]]). Its label is
+  "node description" because the gallery's own `sys.f.gallery.description`
+  (a look's brief, what a style looks like) already answers to
+  "description", and a name resolves to one field
+  (GAP [[01M7ZP9E60FSJZGBMZEBEFSNGQ]]).
 - **A written value conforms to its field, or the write fails.** Tags never
   restrict which fields a node carries; a field's declared type does restrict
   what it holds. Each type accepts fixed value kinds (`acceptsValueKind` in

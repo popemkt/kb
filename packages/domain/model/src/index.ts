@@ -141,6 +141,7 @@ export {
   type ShownRow,
 } from "./contextual-ref.ts";
 export { selectionRoots } from "./selection.ts";
+export { descriptionOf } from "./description.ts";
 export {
   isA,
   kindsOf,

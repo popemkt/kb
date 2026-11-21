@@ -1237,6 +1237,50 @@ the node zoomed within an ontology. At the workspace root or in a pane
 with no subject node, the [capture destination](./DESIGN.md#provider-roles)
 decides where it goes.
 
+**A node's description.** A node's description (DESIGN.md → Data model →
+descriptions, `sys.f.description`) is drawn under its name, as Tana draws
+one, in three places, and in each it is the same value of the same field:
+
+- **On its row**, under the row's text, on the row's text column
+  (`NodeRow`'s `subtitle`, `DescriptionLine` in
+  `outline-ui/src/description-line.tsx`), inside the row's box, so it is
+  selected and dragged with the row and a tag's box moves it as it moves
+  the text. A contextual reference shows its target's.
+- **On the page it heads**, as a line of its own under the title and above
+  its tags (Outline layout → the page's title).
+- **Beside its name where it is offered**: as the one-line hint under the
+  name in every picker (`PickerCandidate.hint`, drawn by `PickerList`: the
+  tag and field pickers, `#`, `[[` and `@`, a ref field's values, the
+  palette's steps) and under a result in global search. A tag's or a
+  field's description is how a person tells two like-named ones apart
+  there.
+
+It is content on a row and a page, so it wraps where a row's text wraps
+([Long text](#long-text)); in a picker or a result it is a pointer's hint,
+clamped to one line, its whole text in a tooltip. It is set a step smaller
+than the row's text (the `meta` step, through the `.kb-description` role,
+which sets the `--kb-text-size` the text role reads) and in a text value's
+ink, so it reads as the row's second line, not as another row. A node with
+no description draws nothing: no empty line, no placeholder.
+
+It is the field's value slot (`ValueSlot`), not an editor of its own, so
+it edits as a text value does: a click, Enter or F2 on it opens it, Enter
+keeps it, Escape puts it back, and an emptied description is a value taken
+out, so clearing it removes it. Escape at rest, and leaving its editor
+with the arrows, hand the keyboard back to the row: Escape selects the row,
+↑ edits the row's text at its end, and ↓ goes on to the row's first field
+value, else the next row. The outline's own arrows pass it by: it is
+reached by pointer, by ⌘K, or by its key. ⌘K and the node menu offer **Add
+description** on a node with none and **Edit description** on one that has
+one (`sys.cmd.outline.describe`, the outline's command), and Mod-Shift-E
+runs it: a page key, so it reaches a row being edited, a selected row and,
+with neither, the page's title. It opens the description where the command's
+node is drawn (`describe`): the row selected or edited on it, else the
+page's title. On a node with none it opens an empty slot there, editing,
+which leaves nothing behind when it is left empty. A description no one
+may write without force (a system node's) is drawn as words, and the
+command is not offered there.
+
 ### Outline layout
 
 The outline lays every line out on one grid, whatever the line is: a node
@@ -1316,14 +1360,16 @@ any, take that depth's columns.
 
 #### The page's title
 
-The page's head stacks three lines at depth 0, each with an empty glyph
+The page's head stacks four lines at depth 0, each with an empty glyph
 column, so each starts on the text column the page's rows start on:
 
 1. **The title**, which owns its whole line. It wraps only where the
    column ends, and keeps its box while it is edited
    ([Long text](#long-text)).
-2. **Its tags and owner**, a line drawn only when it has either.
-3. **Its view control**, on a line of its own.
+2. **Its description**, a line drawn only when it has one or one is being
+   added ([A node's description](#outline-editor-i1)).
+3. **Its tags and owner**, a line drawn only when it has either.
+4. **Its view control**, on a line of its own.
    - On a list page it is the one quiet gear, shown on hover or keyboard
      focus of the head.
    - On a projected view or a query page it is the whole toolbar. The view

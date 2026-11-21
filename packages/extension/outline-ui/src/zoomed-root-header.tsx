@@ -24,6 +24,8 @@ import {
 } from "@kb/ui-sdk";
 import { isQueryNode } from "@kb/model";
 import { projectsRows, type FrameViewKey } from "@kb/views";
+import { DescriptionLine } from "./description-line";
+import { useDescriptionShown } from "./description-state";
 import { FieldsSection } from "./fields-section";
 import { ViewToolbar } from "./view-toolbar";
 import { NodeContent } from "./node-content";
@@ -201,6 +203,7 @@ export function ZoomedRootHeader({
   // A query page's control holds its query, one click away: never behind the gear.
   const tucked = isList && !isQueryNode(node);
   const owner = useOwner(node.id);
+  const described = useDescriptionShown(node.id, pageTitleInstanceKey(node.id));
 
   return (
     <div
@@ -219,6 +222,21 @@ export function ZoomedRootHeader({
         }
         {...menuAnchor(pageTitleInstanceKey(node.id))}
       />
+
+      {/* Its description, under the title: no line when it has none. */}
+      {described && (
+        <OutlineLine
+          depth={0}
+          className="pb-1"
+          text={
+            <DescriptionLine
+              rowId={node.id}
+              nodeId={node.id}
+              instanceKey={pageTitleInstanceKey(node.id)}
+            />
+          }
+        />
+      )}
 
       {/* Its tags and its owner: no line when it has neither. */}
       {(node.tags.length > 0 || owner !== null) && (

@@ -140,6 +140,7 @@ export const outlineExtension = defineExtension({
       props: CONFIGURES_OUTLINE,
     }),
     ...copySeed(at),
+    seededCommand(OUTLINE_IDS.describeCommand, "Edit description", at),
   ],
 });
 

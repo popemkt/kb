@@ -54,8 +54,14 @@
     --kb-field-name-space: normal;
   }
 
+  /* A node's description, under its name (DescriptionLine in
+   * @kb/outline-ui): its text value, drawn a step smaller. */
+  .kb-description {
+    --kb-text-size: var(--type-meta);
+  }
+
   .kb-text {
-    font-size: var(--type-body);
+    font-size: var(--kb-text-size, var(--type-body));
     line-height: var(--kb-text-leading);
     font-weight: var(--kb-text-weight);
   }
