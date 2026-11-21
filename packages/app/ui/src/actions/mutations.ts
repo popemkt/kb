@@ -141,6 +141,7 @@ async function runPlan(plan: PlannedMutation): Promise<RunOptimisticResult> {
   }
   const preWire = useGraphStore.getState().wireNodes;
   const result = await runOptimistic(plan);
+  // GAP [[01M7XRPAHQ1ZB2CHNAXEN4B0KM]] a server refusal can leave this optimistic undo step behind.
   if (result.ok) recordHistory(preWire, plan);
   return result;
 }
