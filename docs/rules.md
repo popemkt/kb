@@ -978,14 +978,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — E19 of the extension SDK plan, after E13, at a 3D step boundary
 - **node** — `01M43AT0V9HHVS7ZAEPWXEGE7F`
 
-### GAP: datalog and the query builder's tag filter do not reach a subtype's nodes
-
-- **expected** — A node of a tag that extends another is that tag's node in datalog too: a derived :node/is datom holds the closure of sys.f.type over sys.f.extends, the query builder's has-tag lowers to it and the page's condition evaluator reads kindsOf, while :f/sys.f.type stays tagged-exactly.
-- **current** — kindsOf and isA read the chain in @kb/model, and the template, views, ref targets and ontology members follow it, but datalog has only :f/sys.f.type, so a has-tag filter, a saved query or a tag page's instance list names only nodes tagged exactly.
-- **impact** — A person's #meeting that extends #event shows on the calendar page, which reads the page's graph through isA, but the routines engine reads its nodes with a datalog query on sys.f.type and does not sync it; a query or a view filter for #event does not name it either.
-- **closes** — Add :node/is to CORE_DERIVED with a carrier that reads the chain and re-derives a tag's instances when its sys.f.extends changes; lower has-tag to it, evaluate it with isA, and stop canonicalizing a sys.f.type is-condition into has-tag. The routines engine's read (routines-host graph.ts) then asks :node/is and brings the tags its readers walk.
-- **node** — `01M738XHYKHDFFCN8DK595Z15T`
-
 ### GAP: Day stepping has no default shortcut
 
 - **expected** — Previous day and Next day have distinct default shortcuts that reach kb in each supported shell.
@@ -2859,6 +2851,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P2 of docs/research/2026-10-29-plugin-codependency.md: contribution keys in inject (restructure the four ids into keys, then resolve them in the kernel and carry each optional call on a child), with lint L1
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M63BZRZ4RDTCE1ZFVGRNEXGR`
+
+### GAP: datalog and the query builder's tag filter do not reach a subtype's nodes
+
+- **expected** — A node of a tag that extends another is that tag's node in datalog too: a derived :node/is datom holds the closure of sys.f.type over sys.f.extends, the query builder's has-tag lowers to it and the page's condition evaluator reads kindsOf, while :f/sys.f.type stays tagged-exactly.
+- **current** — Fixed: :node/is is in CORE_DERIVED (derived over the tag chain), has-tag lowers to it and the condition evaluator reads it; the routines engine's read (routines-host graph.ts) now asks [?n :node/is ?t] and brings each tag on its nodes' chains (following sys.f.extends), so a #meeting that extends a routine is synced.
+- **impact** — A person's #meeting that extends #event shows on the calendar page, which reads the page's graph through isA, but the routines engine reads its nodes with a datalog query on sys.f.type and does not sync it; a query or a view filter for #event does not name it either.
+- **closes** — Add :node/is to CORE_DERIVED with a carrier that reads the chain and re-derives a tag's instances when its sys.f.extends changes; lower has-tag to it, evaluate it with isA, and stop canonicalizing a sys.f.type is-condition into has-tag. The routines engine's read (routines-host graph.ts) then asks :node/is and brings the tags its readers walk.
+- **node** — `01M738XHYKHDFFCN8DK595Z15T`
 
 ### GAP: deleting a surface budget bypasses increase rationale
 

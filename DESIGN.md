@@ -733,8 +733,7 @@ type PropValue =
 - **Hiding `sys.*` is a display rule, never a resolution rule.** Resolution
   surfaces — ref-target constraints, ontology membership, datalog, validity
   checks — read the kind slot (`typeRefsOf`, i.e. `sys.f.type`, through the
-  chains it names: `kindsOf`; datalog does not follow a chain yet, GAP
-  [[01M738XHYKHDFFCN8DK595Z15T]]) and return
+  chains it names: `kindsOf`, and `:node/is` in datalog) and return
   everything it names, seeded ids included: `sys.f.fieldType` legitimately
   targets six `sys.ft.*` options and `sys.f.onto.include` legitimately targets
   every supertag. Display surfaces then decide what to _show_: an unconstrained
