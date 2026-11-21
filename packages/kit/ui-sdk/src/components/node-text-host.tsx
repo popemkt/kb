@@ -37,9 +37,9 @@ import {
   type TextTrigger,
   type TriggerPick,
 } from "../lib/text-triggers";
-import { rowText, rowTextReadOnlyReason } from "../lib/contextual-ref";
+import { rowTextReadOnlyReason } from "../lib/contextual-ref";
 import { refLookOf } from "../lib/ref-look";
-import { type SchemaIndex, schemaOf } from "../lib/schema";
+import type { SchemaIndex } from "../lib/schema";
 import type { NodeMap, TagBadge } from "../lib/types";
 import { InlineMarkdown } from "./md-view";
 import { useRevealMarkup } from "./use-reveal-markup";
@@ -111,6 +111,11 @@ export interface NodeTextHostProps extends NodeTextHostBinding {
    * what a pick leaves in the text, written with the pick's own write as one.
    */
   writeText: (content: string) => Promise<unknown>;
+  /**
+   * The text as the graph holds it now, read from the node `writeText`
+   * writes (null: none): what the row shows after a page undo or redo.
+   */
+  readText: () => string | null;
   onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   /**
    * Where a paste or a drop into the text is offered (`lib/ingest`): the
@@ -227,6 +232,7 @@ export function NodeTextHost({
   onActivate,
   onChange,
   writeText,
+  readText,
   onKeyDown,
   nodes,
   schema,
@@ -348,13 +354,10 @@ export function NodeTextHost({
         }
         const { writes } = browserHost();
         await (direction === "undo" ? writes.undo() : writes.redo());
-        // The row's text as the graph holds it now: a reference's is its target's (`rowText`).
-        const now = schemaOf(browserHost().graph.state());
-        const row = now.get(nodeId);
-        return row === undefined ? null : rowText(row, now);
+        return readText();
       },
     }),
-    [nodeId],
+    [readText],
   );
   const textHistory = useTextHistory({
     editorRef,

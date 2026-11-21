@@ -12,10 +12,12 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import type { CanvasKbNode } from "@kb/canvas";
+import { SYSTEM_IDS } from "@kb/model";
 import {
   type BrowserHost,
   canvasInstanceKey,
   type OutlineNode,
+  type PageWrites,
   syncUiPlugins,
   TIMING_FALLBACK,
 } from "@kb/ui-sdk";
@@ -166,5 +168,56 @@ describe("a card's node text on a canvas", () => {
     expect(calls).toEqual([`register ${key}`, `consume ${key}`]);
     act(() => root.render(null));
     expect(calls).toContain(`unregister ${key}`);
+  });
+
+  test("⌘Z on a card bound to a reference shows the text the card edits, the reference's own", async () => {
+    const reference: OutlineNode = {
+      ...shown,
+      id: "n.ref",
+      text: "own text",
+      props: { [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: shown.id }] },
+    };
+    // The page's history: one write it makes after the card opens, which its undo takes back.
+    const undo: unknown[] = [];
+    const writes: PageWrites = {
+      ...host.writes,
+      history: () => ({ undo, redo: [] }),
+      undo: () => {
+        undo.pop();
+        host.setNodes([shown, { ...reference, text: "own text, restored" }]);
+        return Promise.resolve(true);
+      },
+    };
+    syncUiPlugins([]);
+    syncUiPlugins([testHostPlugin({ ...host, writes })]);
+    host.setNodes([shown, reference]);
+    act(() =>
+      root.render(
+        <KbNodeCard
+          card={{ ...card, nodeId: reference.id }}
+          projection="2d"
+          box={{ left: 0, top: 0, width: 280, height: 72 }}
+          editing
+          onEdit={noop}
+          selected
+          onSelect={noop}
+          onMoveStart={noop}
+          onResizeStart={noop}
+          onRotateStart={noop}
+          onPortDown={noop}
+        />,
+      ),
+    );
+    const el = document.body.querySelector<HTMLElement>("[contenteditable]");
+    expect(el?.textContent).toBe("own text");
+    undo.push({ write: true });
+    await act(async () => {
+      el?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "z", metaKey: true, bubbles: true, cancelable: true }),
+      );
+      await Promise.resolve();
+    });
+    expect(undo).toEqual([]);
+    expect(el?.textContent).toBe("own text, restored");
   });
 });

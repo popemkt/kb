@@ -39,6 +39,7 @@ const meta = {
     onActivate: noopActivate,
     onChange: noop,
     writeText: () => Promise.resolve(),
+    readText: () => null,
     onKeyDown: noop,
     ingest: { accepts: () => false, offer: () => false },
     onRemoveTag: noop,
