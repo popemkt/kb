@@ -7433,7 +7433,9 @@ Core owns the role and answers the top level, and days replaces it
 ([Days](#days)). The third is `ui.landing`, the node a page that loads at
 the root opens on, which the shell asks once per page load. Core owns it
 and stays home, and days replaces it with today (DESIGN-UI.md →
-[Days](./DESIGN-UI.md#days)). The fourth is `ui.date-target`, the node a
+[Days](./DESIGN-UI.md#days)). It is the one service call with no budget:
+a landing waits for what it needs, however long a slow machine takes, and
+a provider that fails leaves the page home with a toast that says why. The fourth is `ui.date-target`, the node a
 followed date value opens (a `date` follow target, DESIGN-UI.md → Field
 values). Core owns it and leads nowhere, and days replaces it with the
 date's day, made if need be. A text's `@` trigger asks it too

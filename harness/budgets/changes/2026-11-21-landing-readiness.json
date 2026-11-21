@@ -1,0 +1,4 @@
+{
+  "reason": "Measured from a short worktree, against 2,062,466 at integration/2026-11-21-outliner-and-capture: the landing waits for readiness with no clock and tells the person when it stays home (+6, DESIGN-UI.md → Days); Turn into query writes through initializeProp so a query another tab saved is kept (+4); and @kb/model's currentLocalDate, the writer's today, which the page's model barrel carries (+264). The production page measures 2,062,740 eager bytes.",
+  "raise": { "page-eager": { "bytes": 274 } }
+}
