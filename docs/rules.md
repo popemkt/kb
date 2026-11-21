@@ -1003,14 +1003,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M7X187JZA6QW3CFB0JHZZJPV`
 
-### GAP: defining and applying a tag can leave an orphan definition
-
-- **expected** — Defining and applying a tag in one editor gesture commits as one transaction.
-- **current** — The palette and # text picker send tag.define ahead of the node update, as on main at be415b51.
-- **impact** — If tagging the target is refused, the newly defined tag remains in the graph.
-- **closes** — Plan the tag definition and the node updates in one batch using the shared tag definition planner.
-- **node** — `01M7XCENSKX32JHABYKAD8AD6N`
-
 ### GAP: Durable browser invocation replay
 
 - **expected** — The browser invocation lane durably queues offline mutations and replays them under an explicit conflict policy.
@@ -2875,6 +2867,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P2 of docs/research/2026-10-29-plugin-codependency.md: contribution keys in inject (restructure the four ids into keys, then resolve them in the kernel and carry each optional call on a child), with lint L1
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M63BZRZ4RDTCE1ZFVGRNEXGR`
+
+### GAP: defining and applying a tag can leave an orphan definition
+
+- **expected** — Defining and applying a tag in one editor gesture commits as one transaction.
+- **current** — The palette and # text picker send tag.define ahead of the node update, as on main at be415b51.
+- **impact** — If tagging the target is refused, the newly defined tag remains in the graph.
+- **closes** — Plan the tag definition and the node updates in one batch using the shared tag definition planner.
+- **node** — `01M7XCENSKX32JHABYKAD8AD6N`
 
 ### GAP: deleting a surface budget bypasses increase rationale
 

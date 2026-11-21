@@ -25,6 +25,7 @@ const BATCH_PARTS: ReadonlySet<string> = new Set([
   "node.update",
   "node.delete",
   "field.define",
+  "tag.define",
 ]);
 
 /**
@@ -32,7 +33,6 @@ const BATCH_PARTS: ReadonlySet<string> = new Set([
  * selection is a range of rows"): each run of several node writes is one
  * `node.batch` call, so the commit takes or refuses it whole. An action a
  * batch cannot carry is sent as it is, in its place.
- * GAP [[01M7XCENSKX32JHABYKAD8AD6N]] — tag definitions commit before the rows are tagged.
  */
 export function oneWrite(actions: readonly ActionRequest[]): ActionRequest[] {
   const out: ActionRequest[] = [];

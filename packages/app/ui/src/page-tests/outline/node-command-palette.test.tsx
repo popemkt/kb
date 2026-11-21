@@ -288,6 +288,43 @@ describe("node command palette", () => {
     expect(useGraphStore.getState().undoStack).toHaveLength(1);
   });
 
+  it("makes a tag by the name typed and tags the row with it, as one write", async () => {
+    await open("n.plain");
+    await pick("Add tag");
+    const input = present(
+      dom.document.querySelector('[role="dialog"] input'),
+      "picker input",
+    ) as unknown as HTMLInputElement;
+    await act(async () => {
+      input.focus();
+      Object.getOwnPropertyDescriptor(dom.HTMLInputElement.prototype, "value")?.set?.call(
+        input,
+        "brandnew",
+      );
+      // React met no DOM when it loaded, so it reads a text change on a key.
+      input.dispatchEvent(new dom.KeyboardEvent("keyup", { bubbles: true }) as unknown as Event);
+    });
+    const create = present(
+      dom.document.querySelector<InstanceType<typeof dom.HTMLElement>>(
+        '[role="dialog"] [data-picker-create="true"]',
+      ),
+      "create row",
+    );
+    await act(async () => create.click());
+    await vi.waitFor(() =>
+      expect(typesOf("n.plain")).toContain(
+        present(
+          useGraphStore.getState().wireNodes.find((n) => n.text === "brandnew"),
+          "the new tag",
+        ).id,
+      ),
+    );
+    // The definition and the tagging are one write: one undo step, sent as one call (`oneWrite`).
+    const { undoStack } = useGraphStore.getState();
+    expect(undoStack).toHaveLength(1);
+    expect(undoStack.at(-1)?.redo.map((a) => a.id)).toEqual(["tag.define", "node.update"]);
+  });
+
   it("removes a tag from the rows of a range that carry it", async () => {
     await openOver(["n.plain", "n.query"]);
     await pick("Add tag");

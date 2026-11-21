@@ -5400,16 +5400,19 @@ planned again. A call in a batch reads the text left by its earlier calls.
 ### Batches of writes — `node.batch`
 
 `node.batch` takes `{calls, force?}`: a list of calls, each `{action, input}`
-naming `node.add`, `node.update`, `node.delete` or `field.define`, and commits them as one
-transaction. It is how one gesture over several nodes is one write: a person
+naming `node.add`, `node.update`, `node.delete`, `field.define` or `tag.define`, and
+commits them as one transaction. It is how one gesture over several nodes is one write: a person
 tagging, moving or deleting a multi-row selection in the outline
 (DESIGN-UI.md → Outline editor, "A selection is a range of rows"), an agent
 retagging what a query found, `kb action-invoke` from a script. Each call's
 input is that action's own input, read by its own schema, less `force`,
 which the batch states once for the whole commit; a `node.add` names its
 `parent` (`null` for the top level), since a batch decides every place
-itself and never asks the capture target. A batched `field.define` names
-its id so later calls can reference it.
+itself and never asks the capture target. A batched `field.define` or
+`tag.define` names its id so later calls can reference it, and is planned
+by its action's own definition planner (`fieldDefinitionInput`,
+`tagDefinitionInput`), so a tag made in a picker and the rows it tags are
+one transaction: a refused tagging leaves no tag behind.
 
 The calls are planned in order over one working copy of the nodes, each by
 its action's own planner, and each call's writes

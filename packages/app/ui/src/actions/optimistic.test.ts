@@ -39,10 +39,10 @@ describe("local action plans", () => {
   });
 
   it("sends each run of several node writes as one batch, and every other action in its place", () => {
-    const define = { id: "tag.define", input: { name: "t" } };
+    const merge = { id: "node.merge", input: { id: "x", into: "y" } };
     expect(oneWrite([update("a")])).toEqual([update("a")]);
-    expect(oneWrite([define, update("a"), update("b"), define, update("c")])).toEqual([
-      define,
+    expect(oneWrite([merge, update("a"), update("b"), merge, update("c")])).toEqual([
+      merge,
       {
         id: "node.batch",
         input: {
@@ -52,7 +52,7 @@ describe("local action plans", () => {
           ],
         },
       },
-      define,
+      merge,
       update("c"),
     ]);
   });
@@ -71,6 +71,15 @@ describe("local action plans", () => {
 
   it("includes a new field's definition in the batch that uses it", () => {
     const definition = { id: "field.define", input: { id: "field.new", name: "New field" } };
+    expect(oneWrite([definition, update("a")])).toEqual([
+      {
+        id: "node.batch",
+        input: { calls: [definition, update("a")].map(({ id, input }) => ({ action: id, input })) },
+      },
+    ]);
+  });
+  it("includes a new tag's definition in the batch that tags with it", () => {
+    const definition = { id: "tag.define", input: { id: "tag.new", name: "New tag" } };
     expect(oneWrite([definition, update("a")])).toEqual([
       {
         id: "node.batch",
