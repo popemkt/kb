@@ -3123,9 +3123,12 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     data, which no guard reads.
   - The flag goes on the invocation envelope, not in the input, so a surface
     can carry approval only if its wire format has an envelope.
-    `POST /api/action` and `kb action-invoke` do. An MCP tool call and a
-    WebMCP `execute` do not, because their arguments are the input, so a
-    call that asks is always refused over MCP and WebMCP.
+    Only a trusted in-process call can carry a positive approval assertion.
+    An external action envelope may carry a decline. The server ignores
+    its positive approval claims and recognises the page's own gesture
+    from its wire. A person who accepts an agent's approval prompt makes
+    the call as their own page gesture. A call that asks is refused over
+    MCP and WebMCP.
   - The wire also names its **actor**, who a call on it is made by: `human`
     (a gesture in the UI), `agent` (the sidebar agent, MCP, WebMCP, and any
     program that calls over HTTP), `cli`, or `script` (code in the sandbox,
@@ -3152,8 +3155,8 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     the request guard says which wire a request is on (Surfaces → Who the
     person is): the kb page in a browser is the page's, anything else a
     local program's (`HTTP_WIRE`, an agent's). The envelope the page sends
-    (`envelopeOf`) states no actor, so a relayed call is the page's on the
-    server (`// GAP [[01M5E2DAVRH5CWKM27BVDYW19T]]`). **Every call names
+    (`envelopeOf`) states no actor. The receiving wire stamps identity
+    and applies the caller ceiling described below. **Every call names
     its actor** in the core: what the invoke core takes is an
     `ActionInvocation`, whose actor the type requires. A call an action
     makes while another runs (`CoreInvoke`) is made by that one's actor
@@ -3163,7 +3166,7 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     calling `kb.manifest` on that wire. `kb.manifest` lists every action and
     says of each what is decided about the caller's own call
     (`decision`). One rule in `@kb/contracts`, `listedOn`, then leaves out an
-    action whose declaration excludes the wire's caller kind, whose guard
+    action whose declaration excludes a caller required by the wire, whose guard
     denies the call, or whose guard asks on a wire that cannot carry approval
     (`listingOf`). A call by its id or tool name still reaches the invoke
     core and is refused. The same rule lists each action once, under its
@@ -3182,10 +3185,11 @@ match, {before, commit})`) answers `allow`, `ask` or `deny`. It is
     wire (`PAGE_WIRE`), and one that carries none is a local program's
     (`HTTP_WIRE`, an agent's). A browser sends `Origin` on every
     WebSocket handshake and every `POST`. The page may narrow its action
-    envelope to the `program` caller kind, which relays WebMCP calls
-    without a person's implicit approval. The receiving wire supplies all
-    other caller kinds. Same-origin `GET`s carry no `Origin` and use the
-    program's wire. **The trade-off,
+    envelope to the `program` caller kind. When a relay changes identity,
+    the server keeps the original caller as the ceiling. An action and its
+    guards must admit both identities, including at commit and in nested
+    calls. The relay carries no implicit person approval. Same-origin
+    `GET`s carry no `Origin` and use the program's wire. **The trade-off,
     chosen plainly:** a local program can send the UI's `Origin` and pass
     as the page. That is accepted, because governance is not a security
     boundary here (Action registry → Current stance): who can reach the

@@ -91,8 +91,10 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // non-default caller kinds; a previous page ignores it.
 // Protocol 12: the page must preserve the program caller when it relays
 // WebMCP actions. A previous page instead sends them as the person's calls.
+// Protocol 13: the page makes an accepted sidebar approval as a person
+// gesture. The server ignores approval claims in external envelopes.
 const RECORDED = {
-  protocol: 12,
+  protocol: 13,
   fingerprint: "1950f9389f64ad76bbb03689652642a76ee0695a7e691b762d783ce6ca7b1b57",
 };
 

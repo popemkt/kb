@@ -30,6 +30,7 @@ const MANIFEST = [
   entry("node.get", { kind: "read" }),
   entry("render.views", { kind: "read" }),
   { ...entry("ext.gated.person", { kind: "read" }), callers: ["person"] },
+  { ...entry("ext.gated.program", { kind: "read" }), callers: ["program"] },
   entry("ext.gated.stamp", { kind: "write", approval: "required" }),
 ];
 
@@ -88,6 +89,7 @@ describe("the page's WebMCP plugin", () => {
       input: {},
       actor: "agent",
       caller: "program",
+      callerCeiling: { actor: "human", caller: "person" },
       session: tabSession(),
     });
     expect([...tools.keys()]).toEqual(["node.get", "render.views"]);
@@ -121,6 +123,7 @@ describe("the page's WebMCP plugin", () => {
       input: {},
       actor: "agent",
       caller: "program",
+      callerCeiling: { actor: "human", caller: "person" },
       session: tabSession(),
     });
     Effect.runSync(kernel.unload("webmcp"));
@@ -146,6 +149,7 @@ describe("the page's WebMCP plugin", () => {
       input: {},
       actor: "agent",
       caller: "program",
+      callerCeiling: { actor: "human", caller: "person" },
       session: tabSession(),
     });
     Effect.runSync(kernel.unload("webmcp"));

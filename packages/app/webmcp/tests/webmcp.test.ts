@@ -212,6 +212,7 @@ describe("WebMCP adapter", () => {
       input: undefined,
       actor: "agent",
       caller: "program",
+      callerCeiling: { actor: "human", caller: "person" },
     });
   });
 

@@ -381,7 +381,11 @@ const agent: SurfaceFactory = async (_root, ui) => {
             held.type === "tool-call" && held.call === event.call,
         );
         if (call === undefined) throw new Error(`approval for a call never made: ${event.call}`);
-        const invocation = onWire(AGENT_WIRE, { id: call.action, input: call.input, approved });
+        const invocation = onWire(approved ? PAGE_WIRE : AGENT_WIRE, {
+          id: call.action,
+          input: call.input,
+          ...(approved ? {} : { approved: false }),
+        });
         const receipt = await postAction(ui.at, invocation, "page");
         tab.say(AGENT_CHANNEL, { type: "receipt", conversation, call: event.call, receipt });
       }

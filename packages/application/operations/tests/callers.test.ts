@@ -14,12 +14,15 @@ import {
   hasPerson,
   onWire,
   requestOf,
+  type GuardCall,
+  type GuardVerdict,
   type KbContext,
   type SurfaceWire,
 } from "@kb/contracts";
 import type { NodeIndex } from "@kb/query";
+import { callWithin } from "@kb/sandbox";
 import { invokeReceiptWith, type RegisteredAction } from "../src/invoke.ts";
-import { interceptionOf } from "../src/interception.ts";
+import { guardBefore, guardCommit, interceptionOf } from "../src/interception.ts";
 
 const PROGRAM_WIRE: SurfaceWire = { carriesApproval: false, actor: "cli", caller: "program" };
 const MCP_LIKE_WIRE: SurfaceWire = { carriesApproval: false, actor: "agent", caller: "program" };
@@ -30,6 +33,13 @@ const DEVICE_WIRE: SurfaceWire = {
 };
 
 const FAKE_CTX = { root: "/tmp/kb-callers-test", nodes: [] } as unknown as KbContext<NodeIndex>;
+
+const denyPerson = ({ invocation }: Pick<GuardCall, "invocation">) =>
+  Effect.succeed<GuardVerdict>(
+    invocation.caller === "person"
+      ? { decision: "deny", rule: "page-denied", message: "page refused" }
+      : { decision: "allow" },
+  );
 
 const ACTIONS = new Map<string, RegisteredAction<never>>([
   [
@@ -75,14 +85,47 @@ describe("action caller enforcement through the invocation contract", () => {
     const decoded = requestOf(relay);
     if ("invalid" in decoded) throw new Error(decoded.invalid);
     const received = onWire(PAGE_WIRE, decoded.request);
-    expect(received).toMatchObject({ actor: "agent", caller: "program" });
+    expect(received).toMatchObject({
+      actor: "agent",
+      caller: "program",
+      callerCeiling: { actor: "human", caller: "person" },
+    });
     expect(hasPerson(received)).toBe(false);
+    expect(hasPerson(onWire(PAGE_WIRE, { ...relay, approved: true }))).toBe(false);
+    expect(onWire(PAGE_WIRE, { ...call, script: { subject: null, grant: {} } })).toMatchObject({
+      actor: "script",
+      caller: "person",
+      callerCeiling: { actor: "human", caller: "person" },
+    });
     for (const asserted of ["person", "capture-device", "capture-pairing"]) {
       const made = requestOf({ ...call, caller: asserted, actor: "human" });
       if ("invalid" in made) throw new Error(made.invalid);
       expect(onWire(PROGRAM_WIRE, made.request)).toMatchObject({ actor: "cli", caller: "program" });
       expect(onWire(PAGE_WIRE, made.request)).toMatchObject({ actor: "human", caller: "person" });
     }
+  });
+
+  test("a nested relay retains the ceiling for before and commit guards", async () => {
+    const action = { id: "test.guard", mode: { kind: "write" } } as const;
+    const invocation = onWire(PAGE_WIRE, { id: action.id, input: {}, caller: "program" });
+    const nested = callWithin({ invocation, action, depth: 1 }, { id: action.id, input: {} });
+    if (nested === null) throw new Error("expected a nested invocation");
+    const interception = interceptionOf({
+      guards: [
+        {
+          owner: "test",
+          id: "test.guard",
+          value: { match: action.id, before: denyPerson, commit: denyPerson },
+        },
+      ],
+    });
+    const call = { ctx: FAKE_CTX, invocation: nested, action };
+    const before = await Effect.runPromise(guardBefore(interception, { ...call, phase: "invoke" }));
+    const commit = await Effect.runPromise(
+      guardCommit(interception, { ...call, writes: [], nodeOf: () => undefined }),
+    );
+    expect(before).toMatchObject({ decision: "deny", rule: "page-denied" });
+    expect(commit).toMatchObject({ decision: "deny", rule: "page-denied" });
   });
 
   test.each(["output", "projection", "defect", "interceptor"])(

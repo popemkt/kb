@@ -437,6 +437,9 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
           const callable = actions.filter((entry) => listedOn(surface.wire, entry));
           const listed = yield* Effect.promise(() => surface.list());
           expect(listed.some(({ id }) => id === PERSON_ACTION)).toBe(name === "page");
+          expect(listed.some(({ id }) => id === PROGRAM_ACTION)).toBe(
+            name !== "page" && name !== "webmcp",
+          );
           if (name === "page") {
             const person = { id: PERSON_ACTION, input: {} };
             expect(yield* via(person)).toMatchObject({
@@ -661,7 +664,7 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
           if (!("request" in stated)) throw new Error(stated.invalid);
           expect({ name, request: stated.request }).toEqual({
             name,
-            request: { id: claims.id, input: claims.input, approved: true, script: claims.script },
+            request: { id: claims.id, input: claims.input, script: claims.script },
           });
           const made = onWire(wire, stated.request);
           expect({ name, actor: made.actor, script: made.script }).toEqual({
@@ -670,10 +673,7 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: OnListener) => Promise<v
             actor: wire.relays === true ? "script" : wire.actor,
             script: wire.relays === true ? claims.script : undefined,
           });
-          expect({ name, approved: made.approved }).toEqual({
-            name,
-            approved: wire.carriesApproval ? true : undefined,
-          });
+          expect(made.approved).toBeUndefined();
           expect({ name, actor: onWire(wire, { id: "node.get", input: {} }).actor }).toEqual({
             name,
             actor: wire.actor,

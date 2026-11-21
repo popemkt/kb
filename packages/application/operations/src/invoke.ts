@@ -237,7 +237,7 @@ const invokeCall = Effect.fn("kb.invoke")(function* <R>(
   }
   const entry = actions.get(id);
   const caller = invocationCaller(made);
-  const denied = callerRefusal(entry?.def, caller);
+  const denied = callerRefusal(entry?.def, made);
   if (denied !== null) return failed(id, "forbidden", denied);
   if (entry === undefined) return failed(id, "unknown_action", `unknown action: ${id}`);
   if (scope === "read" && entry.def.mode.kind === "write") {

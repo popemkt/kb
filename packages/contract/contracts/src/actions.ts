@@ -127,8 +127,19 @@ export function admitsCaptureCaller(def: CallerAccess): boolean {
  * or one that declares no capture caller returns the same refusal so a capture
  * listener never leaks which non-capture actions exist.
  */
-export function callerRefusal(def: CallerAccess | undefined, kind: CallerKind): string | null {
-  if (def !== undefined && admitsCaller(def, kind)) return null;
+export function callerRefusal(
+  def: CallerAccess | undefined,
+  invocation: Pick<ActionInvocation, "actor" | "caller" | "callerCeiling">,
+): string | null {
+  const kind = invocationCaller(invocation);
+  const { callerCeiling } = invocation;
+  if (
+    def !== undefined &&
+    admitsCaller(def, kind) &&
+    (callerCeiling === undefined || admitsCaller(def, invocationCaller(callerCeiling)))
+  ) {
+    return null;
+  }
   if (isCaptureCaller(kind)) {
     if (def === undefined || !admitsCaptureCaller(def)) {
       return "this listener or credential only admits capture actions";
@@ -422,30 +433,29 @@ export const ActionRequestSchema = z.object({
 export type ActionRequest = z.output<typeof ActionRequestSchema>;
 
 /**
- * The request `raw` makes, a call's envelope as it arrives from outside kb
- * (an HTTP body, `kb action-invoke`'s JSON), or why it is no request. It is
- * never refused for what it states: the surface it arrives on says who makes
- * it (`onWire`), and what that wire does not carry is dropped.
+ * Parse an external action envelope. The receiving surface stamps identity
+ * and approval. An explicit decline can only reduce authority.
  */
 export function requestOf(
   raw: unknown,
 ): { readonly request: ActionRequest } | { readonly invalid: string } {
   const parsed = ActionRequestSchema.safeParse(raw);
-  return parsed.success
-    ? { request: parsed.data }
-    : { invalid: parsed.error.issues.map((issue) => issue.message).join("; ") };
+  if (!parsed.success)
+    return { invalid: parsed.error.issues.map((issue) => issue.message).join("; ") };
+  const { approved, ...request } = parsed.data;
+  return { request: approved === false ? { ...request, approved } : request };
 }
 
 /**
- * The envelope sent to another process. The receiving wire stamps the actor
- * and can carry the page's request to act as a program.
+ * The envelope sent to another process. The receiving wire stamps identity
+ * and can carry a restriction to program callers or a decline.
  */
 export function envelopeOf(call: ActionRequest): ActionRequest {
   const { id, input, approved, caller, session, via, script } = call;
   return {
     id,
     input,
-    ...(approved === undefined ? {} : { approved }),
+    ...(approved === false ? { approved } : {}),
     ...(caller === "program" ? { caller } : {}),
     ...(session === undefined ? {} : { session }),
     ...(via === undefined ? {} : { via }),
@@ -477,6 +487,11 @@ export function sessionOfMeta(meta: unknown): string | undefined {
  */
 export type ActionInvocation = ActionRequest & {
   readonly actor: Actor;
+  /** The surface's original caller when a relay narrows it. Stamped by the host. */
+  readonly callerCeiling?: {
+    readonly actor: Actor;
+    readonly caller?: CallerKind | undefined;
+  };
 };
 
 /** One input a session filled: the reference it was read from, and the value it read. */

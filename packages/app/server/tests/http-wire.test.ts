@@ -14,14 +14,45 @@ import { Effect } from "effect";
 import { SYSTEM_IDS } from "@kb/model";
 import { CAPTURE_PAIR, CAPTURE_PAIR_CODE, type ServerMessage } from "@kb/contracts";
 import { invoke, openKb } from "@kb/runtime";
-import { FAKE_TAB_SCREEN, trustExtension, writeTrustedExtension } from "@kb/test-kit";
+import {
+  FAKE_TAB_SCREEN,
+  extensionModule,
+  trustExtension,
+  writeTrustedExtension,
+} from "@kb/test-kit";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
 let root = "";
 let handle: UiServerHandle;
 
+const RELAY_FIXTURE = extensionModule("relay-fixture", {
+  prelude: "const passthrough = { parse: (value) => value };",
+  actions: `[
+    {
+      id: "read",
+      title: "Program read",
+      description: "A read available to native programs.",
+      mode: { kind: "read" },
+      callers: ["program"],
+      inputSchema: passthrough,
+      outputSchema: passthrough,
+      handler: async () => ({ ran: true }),
+    },
+    {
+      id: "write",
+      title: "Approved write",
+      description: "A write that requires approval.",
+      mode: { kind: "write", approval: "required" },
+      inputSchema: passthrough,
+      outputSchema: passthrough,
+      handler: async () => ({ ran: true }),
+    },
+  ]`,
+});
+
 beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), "kb-http-wire-"));
+  await writeTrustedExtension(root, "relay-fixture.ts", RELAY_FIXTURE);
   await writeTrustedExtension(
     root,
     "pairing-policy.ts",
@@ -111,6 +142,26 @@ const SCREEN = { op: "screen", tab: "tab.wire", state: FAKE_TAB_SCREEN };
 const CHANNEL = { op: "channel", channel: "no.such.channel", data: {} };
 
 describe("a page that holds no token", () => {
+  test("a program relay stays within page admission and cannot assert approval", async () => {
+    await trustExtension(root, "relay-fixture.ts");
+    const read = { id: "ext.relay-fixture.read", input: {} };
+    expect((await post(read, "program")).body).toMatchObject({ status: "succeeded" });
+    expect((await post(read, "page")).body).toMatchObject({ status: "failed", code: "forbidden" });
+    expect((await post({ ...read, caller: "program" }, "page")).body).toMatchObject({
+      status: "failed",
+      code: "forbidden",
+    });
+
+    const write = { id: "ext.relay-fixture.write", input: {} };
+    expect((await post(write, "page")).body).toMatchObject({ status: "succeeded" });
+    expect(
+      (await post({ ...write, caller: "program", approved: true }, "page")).body,
+    ).toMatchObject({
+      status: "failed",
+      code: "approval_required",
+    });
+  });
+
   test("pairing on the page wire uses the action's input-only envelope", async () => {
     await trustExtension(root, "pairing-policy.ts");
     const ctx = await openKb(root);

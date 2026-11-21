@@ -51,14 +51,22 @@ export function callWithin(
 ): ActionInvocation | null;
 export function callWithin(
   outer: RunningCall | null,
-  request: ActionRequest | ActionInvocation,
+  asked: ActionRequest | ActionInvocation,
 ): ActionInvocation | null {
   const caller = outer?.invocation;
+  const callerCeiling = caller?.callerCeiling;
+  const request = callerCeiling === undefined ? asked : { ...asked, callerCeiling };
   if (caller !== undefined && (madeByScript(caller) || madeBy(request) === "script")) {
     return scriptWithin(caller, request);
   }
+  return ordinaryWithin(caller, request);
+}
+
+function ordinaryWithin(
+  caller: ActionInvocation | undefined,
+  request: ActionRequest | ActionInvocation,
+): ActionInvocation | null {
   // Identified actors keep their provenance through ordinary nested calls.
-  // Entering a sandbox is still narrowed by scriptWithin above.
   const actor =
     typeof caller?.actor === "object" ? caller.actor : (madeBy(request) ?? caller?.actor);
   if (actor === undefined) return null;

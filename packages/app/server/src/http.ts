@@ -242,14 +242,15 @@ const captureResponse = Effect.fn("kb.ui.capture")(function* (
     jsonResponse(failed(id, "forbidden", message), { status: 403 });
   yield* reloadEffect(ctx);
   const def = yield* actionDefinitionEffect(ctx, id);
-  const denied = callerRefusal(def, caller.kind);
+  const invocation = onWire(caller.wire, { id, input });
+  const denied = callerRefusal(def, invocation);
   if (denied !== null) return refuse(denied);
   const token = caller.capture?.token;
   const digest = token === undefined ? undefined : yield* captureDeviceDigest(ctx.root, token);
   if (digest !== undefined && captureCredential(ctx.nodes, digest) === undefined) {
     return refuse("capture device credential is invalid or revoked");
   }
-  const receipt = yield* serverInvoke(ctx, onWire(caller.wire, { id, input })).pipe(
+  const receipt = yield* serverInvoke(ctx, invocation).pipe(
     Effect.provideService(CaptureDeviceDigest, digest),
   );
   return actionResponse(ctx, receipt, { "cache-control": "no-store" });

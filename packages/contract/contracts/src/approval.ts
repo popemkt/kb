@@ -49,6 +49,8 @@ export interface SurfaceWire {
    * from `actor` (`"person"` for `human`, `"program"` otherwise) when omitted.
    */
   readonly caller?: CallerKind;
+  /** The original caller when this surface delegates a narrower call. */
+  readonly callerCeiling?: NonNullable<ActionInvocation["callerCeiling"]>;
   /**
    * Whether the wire relays calls others make: the page's, which carries the
    * person's gestures, the agent it hosts, WebMCP's tools and the scripts it
@@ -83,6 +85,33 @@ export function madeBy(call: ActionRequest | ActionInvocation): Actor | undefine
   return "actor" in call ? call.actor : undefined;
 }
 
+function identityOnWire(
+  wire: SurfaceWire,
+  request: ActionRequest | ActionInvocation,
+  scripted: boolean,
+) {
+  const relayed = wire.relays === true && "actor" in request ? request : undefined;
+  const authority = relayed ?? wire;
+  const wireCaller = invocationCaller(wire);
+  // An external envelope can narrow the page's identity to a program. The
+  // receiver supplies every other caller kind, including capture credentials.
+  const programRelay =
+    relayed === undefined &&
+    wire.relays === true &&
+    wireCaller === "person" &&
+    request.caller === "program";
+  const actor = scripted ? "script" : programRelay ? AGENT_ACTOR : authority.actor;
+  const caller: CallerKind = programRelay
+    ? "program"
+    : (authority.caller ?? wire.caller ?? invocationCaller({ actor }));
+  const changedIdentity = relayed === undefined && (actor !== wire.actor || caller !== wireCaller);
+  const callerCeiling =
+    authority.callerCeiling ??
+    wire.callerCeiling ??
+    (changedIdentity ? { actor: wire.actor, caller: wireCaller } : undefined);
+  return { actor, caller, callerCeiling, changedIdentity };
+}
+
 /**
  * The invocation as it reaches the invoke core from `wire`: made by the
  * wire's actor or, on a wire that relays, by whoever made the call it
@@ -94,30 +123,20 @@ export function onWire(
   wire: SurfaceWire,
   request: ActionRequest | ActionInvocation,
 ): ActionInvocation {
-  const relayed = wire.relays === true ? madeBy(request) : undefined;
-  const { approved, caller: statedCaller, script, ...call } = request;
+  const { approved, script, ...call } = request;
   const scripted = script !== undefined && carries(wire, "script");
   const via = call.via ?? wire.via;
-  const wireCaller = invocationCaller(wire);
-  // An external envelope can narrow the page's identity to a program. The
-  // receiver supplies every other caller kind, including capture credentials.
-  const programRelay =
-    relayed === undefined &&
-    wire.relays === true &&
-    wireCaller === "person" &&
-    statedCaller === "program";
-  const wireActor = programRelay ? AGENT_ACTOR : wire.actor;
-  const actor = scripted ? "script" : (relayed ?? wireActor);
-  const relayedCaller = relayed === undefined ? undefined : statedCaller;
-  const caller =
-    relayedCaller ?? (programRelay ? "program" : wire.caller) ?? invocationCaller({ actor });
+  const { actor, caller, callerCeiling, changedIdentity } = identityOnWire(wire, request, scripted);
   return {
     ...call,
     ...(via === undefined ? {} : { via }),
-    ...(approved !== undefined && carries(wire, "approved") ? { approved } : {}),
+    ...(approved !== undefined && carries(wire, "approved") && (!changedIdentity || !approved)
+      ? { approved }
+      : {}),
     ...(scripted ? { script } : {}),
     actor,
     caller,
+    ...(callerCeiling === undefined ? {} : { callerCeiling }),
   };
 }
 
@@ -208,7 +227,7 @@ export function listedOn(
 ): boolean {
   const { decision, aliasOf } = entry;
   if (aliasOf !== undefined || decision === "deny") return false;
-  if (callerRefusal(entry, invocationCaller(wire)) !== null) return false;
+  if (callerRefusal(entry, wire) !== null) return false;
   return decision === "allow" || wire.carriesApproval;
 }
 
