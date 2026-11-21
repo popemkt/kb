@@ -993,8 +993,14 @@ of its steps marks the store's last undo entry when it was taken
 it made, in its place (Triggers in the text), and ⌘Z in the row takes back
 first whatever the store wrote since the row's last step (a command run on
 the row, a pick in the palette) through the store's undo, then shows the
-text the store holds. So ⌘Z in the row takes back the last thing done
-while it is edited, and what the row shows is what the store holds.
+text the store holds. The history is the row's, not its host's: a write
+that draws the row at another instance (an indent from `/` or Tab) takes
+its host away while the row is edited, and the host drawn there takes the
+history up when the text is as it was; a store undo that redraws the row
+leaves it edited where it is drawn now (`keepEditing`). Leaving the row
+(Escape, a click elsewhere) ends its history. So ⌘Z in the row takes back
+the last thing done while it is edited, wherever that put the row, and what
+the row shows is what the store holds.
 
 **Refs are atomic in the editor.** `[[id|label]]` renders as a
 `contenteditable=false` link carrying its serialized token, in both states, so

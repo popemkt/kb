@@ -523,14 +523,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Hosts are accelerators: the store is the truth
 - **node** — `01M75MA0QYHNYGSNMJAGTZKZQ1`
 
-### GAP: a row a pick redraws starts its text history over, so ⌘Z in it cannot reach the pick
-
-- **expected** — ⌘Z in a row takes back the last thing done in it, a pick included, wherever the pick put the row: the row's history follows it when a write draws it at another instance (an /indent), or the row's ⌘Z steps the page's history once its own is spent.
-- **current** — The row's history lives in its text host (use-text-history.ts). A / pick that indents or outdents the row redraws it under a new instance key, so a new text host starts with an empty history; slashTrigger re-edits it there (keepEditing) but ⌘Z in it reaches only the typing since. Escape, then ⌘Z (the page's undo) takes the pick back in one step.
-- **impact** — After /indent or /outdent, ⌘Z while still typing in the row does not undo the indent; the person has to leave the row first. Tab-indent while editing has the same limit today.
-- **closes** — The page editor (outline.store.ts, WP-4's file in the 2026-11-20 parity work) keeps the active row's text history across a re-key of its instance, or the text host falls through to PageWrites.undo/redo when its history is empty, with the editor following the row to its new instance.
-- **node** — `01M7X9MKS1DM5JEAR2DRWS7KT6`
-
 ### GAP: a sandboxed graph.query is bounded in size, not in time
 
 - **expected** — a guest's graph.query has a deadline in the query layer
@@ -2601,6 +2593,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A local extension is always on and its configuration lives in code, not in the graph.
 - **closes** — A declaration export for repository extensions, folded into that store's seed only, with the extension contract run over a repository fixture.
 - **node** — `01M53PZ0DWZ8MJN9T64TTQ10VD`
+
+### GAP: a row a pick redraws starts its text history over, so ⌘Z in it cannot reach the pick
+
+- **expected** — ⌘Z in a row takes back the last thing done in it, a pick included, wherever the pick put the row: the row's history follows it when a write draws it at another instance (an /indent), or the row's ⌘Z steps the page's history once its own is spent.
+- **current** — The row's history lives in its text host (use-text-history.ts). A / pick that indents or outdents the row redraws it under a new instance key, so a new text host starts with an empty history; slashTrigger re-edits it there (keepEditing) but ⌘Z in it reaches only the typing since. Escape, then ⌘Z (the page's undo) takes the pick back in one step.
+- **impact** — After /indent or /outdent, ⌘Z while still typing in the row does not undo the indent; the person has to leave the row first. Tab-indent while editing has the same limit today.
+- **closes** — The page editor (outline.store.ts, WP-4's file in the 2026-11-20 parity work) keeps the active row's text history across a re-key of its instance, or the text host falls through to PageWrites.undo/redo when its history is empty, with the editor following the row to its new instance.
+- **node** — `01M7X9MKS1DM5JEAR2DRWS7KT6`
 
 ### GAP: a seeded default the owner deletes comes back on the next open
 

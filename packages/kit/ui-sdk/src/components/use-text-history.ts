@@ -44,6 +44,30 @@ export interface PageSide {
   readonly step: (direction: "undo" | "redo", state: TextState | null) => Promise<string | null>;
 }
 
+/** A row whose host was drawn away while it was edited: its history, and its text then. */
+interface Carried {
+  readonly row: string;
+  readonly history: TextHistory;
+  readonly text: string;
+}
+
+/**
+ * The row whose host was drawn away while it was edited. A write that draws
+ * the row at another instance (an indent) unmounts its host as it applies,
+ * and the row's editing goes on in the host drawn there (`keepEditing`),
+ * which takes the history up, so ⌘Z still reaches what was done before,
+ * the write included. Leaving the row (Escape, a click elsewhere) ends its
+ * history instead, and the next row to be edited takes up only its own.
+ */
+let carried: Carried | null = null;
+
+/** The history row `row` was drawn away with, when its text is still `text`. */
+function takeUp(row: string, text: string): TextHistory | null {
+  const held = carried;
+  carried = null;
+  return held?.row === row && held.text === text ? held.history : null;
+}
+
 /**
  * Text undo for the row being edited (`lib/text-history`).
  *
@@ -53,9 +77,12 @@ export interface PageSide {
  * undo entry then, so an undo reaches the page's writes in their place (a
  * pick, which the host records, or a write made on the row since). `step`
  * answers an undo or redo chord; `beforeinput`'s `historyUndo` /
- * `historyRedo` (the Edit menu) route to it too.
+ * `historyRedo` (the Edit menu) route to it too. The history belongs to the
+ * row `row`, not to this host: a host drawn away while the row is edited
+ * hands it on (`carried`), so a redraw at another instance keeps it.
  */
 export function useTextHistory({
+  row,
   editorRef,
   editing,
   content,
@@ -63,6 +90,8 @@ export function useTextHistory({
   onRestore,
   page,
 }: {
+  /** The node whose text is edited. */
+  row: string;
   editorRef: RefObject<HTMLDivElement | null>;
   editing: boolean;
   content: string;
@@ -75,6 +104,11 @@ export function useTextHistory({
   const history = useRef<TextHistory | null>(null);
   const last = useRef<TextState | null>(null);
   const mark = useCallback(() => page.history().undo.at(-1) ?? null, [page]);
+  /** The history editing starts from, the text being `text`: the row's, carried, or a new one. */
+  const begin = useCallback(
+    (text: string) => takeUp(row, text) ?? emptyTextHistory(mark()),
+    [row, mark],
+  );
 
   useLayoutEffect(() => {
     const el = editorRef.current;
@@ -83,14 +117,26 @@ export function useTextHistory({
       last.current = null;
       return;
     }
-    history.current ??= emptyTextHistory(mark());
+    if (history.current === null) history.current = begin(content);
     const state = { text: content, caret: getCaretSerializedOffset(el) };
     const prev = last.current;
     last.current = state;
     if (prev !== null && prev.text !== content) {
       history.current = recordTextEdit(history.current, prev, Date.now(), mark());
     }
-  }, [editorRef, editing, content, mark]);
+  }, [editorRef, editing, content, mark, begin]);
+
+  // The host drawn away while the row is edited: hand its history on. When
+  // editing stops first, the history has ended already (null).
+  useLayoutEffect(
+    () => () => {
+      const text = last.current?.text;
+      if (history.current !== null && text !== undefined) {
+        carried = { row, history: history.current, text };
+      }
+    },
+    [row],
+  );
 
   /** Lay `state` into the row, as the text it now holds. */
   const lay = useCallback(

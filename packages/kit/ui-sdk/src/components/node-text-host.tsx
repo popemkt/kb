@@ -15,7 +15,7 @@ import { textFlavours } from "../lib/text-copy";
 import { isCompositionKey } from "../lib/keychord";
 import { matchesChord, TEXT_HISTORY_CHORD } from "@kb/keybindings";
 import { KB_TEXT_CLASS } from "../lib/md-inline";
-import { browserHost } from "../host";
+import { browserHost, keepEditing } from "../host";
 import {
   getCaretSerializedOffset,
   insertAtSelection,
@@ -361,7 +361,8 @@ export function NodeTextHost({
   /**
    * The page's side of the row's history: its undo stacks, and its undo and
    * redo, the text then arriving as `content`, as `state` says or as the
-   * page leaves it.
+   * page leaves it. A step that redraws the row elsewhere (an indent's
+   * undo) leaves the row edited where it is drawn now (`keepEditing`).
    */
   const page = useMemo(
     () => ({
@@ -371,14 +372,18 @@ export function NodeTextHost({
           setCursor(state.caret);
           pendingEcho.current = state.text === latest.current ? null : state.text;
         }
+        const el = editorRef.current;
+        const caret = state?.caret ?? (el === null ? 0 : getCaretSerializedOffset(el));
         const { writes } = browserHost();
         await (direction === "undo" ? writes.undo() : writes.redo());
+        keepEditing(nodeId, caret);
         return readText();
       },
     }),
-    [readText],
+    [nodeId, readText],
   );
   const textHistory = useTextHistory({
+    row: nodeId,
     editorRef,
     editing,
     content,
