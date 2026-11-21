@@ -172,7 +172,6 @@ async function runPlan(plan: PlannedMutation): Promise<RunOptimisticResult> {
     // names, else the one the editor resolves.
     editor().activateNode(result.focusId, result.focusCursor ?? 0, result.focusInstanceKey);
   }
-  // GAP [[01M7XRPAHQ1ZB2CHNAXEN4B0KM]] a server refusal can leave this optimistic undo step behind.
   useGraphStore.getState().recordUndo(history);
   return result;
 }

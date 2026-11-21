@@ -100,8 +100,17 @@ export const planReplaceField = (
   values: PropValue[],
 ) => replaceProps(nodes, id, [{ field, values }]);
 
-export const planUpdateText = (id: string, text: string, expectedText?: string) =>
-  update(id, expectedText === undefined ? { text } : { text, expectedText });
+/**
+ * Write `id`'s text. Written on the text it was read from (`expectedText`,
+ * DESIGN.md → Conditional text edits), the write can be refused by the
+ * server after the replica took it, so its undo step waits for the server
+ * (`completion`): an undo of a refused write would put back text it never
+ * replaced there.
+ */
+export const planUpdateText = (id: string, text: string, expectedText?: string): PlannedMutation =>
+  expectedText === undefined
+    ? update(id, { text })
+    : { ...update(id, { text, expectedText }), completion: "confirmed" };
 /**
  * Split a row's text at `cursor` into itself and a new row after it (or the
  * first child of the node it shows when it is an expanded parent: a
