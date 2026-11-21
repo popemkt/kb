@@ -145,4 +145,104 @@ describe.each([...STORE_BACKENDS])("node.batch over a %s store", (backend) => {
     });
     expect(receipt).toMatchObject({ status: "failed", code: "invalid_move" });
   });
+
+  test.each(["child", "text", "value"] as const)(
+    "refuses the entire conversion after a concurrent %s change",
+    async (change) => {
+      const { ctx, call } = await opened();
+      await call("field.define", { id: "field.choice", name: "Choice" });
+      await call("node.update", {
+        id: "field.choice",
+        setProps: [
+          {
+            field: SYSTEM_IDS.cardinalityField,
+            value: { t: "ref", v: SYSTEM_IDS.cardinalityOne },
+          },
+        ],
+      });
+      await call("node.update", { id: "n.kept", text: ">Choice" });
+      const other = await openKb(root);
+      const value = { t: "str", v: "another tab's choice" } as const;
+      const changes = {
+        child: { id: "node.add", input: { id: "n.new", parent: "n.kept", text: "new child" } },
+        text: { id: "node.update", input: { id: "n.kept", text: "new text" } },
+        value: {
+          id: "node.update",
+          input: { id: "n.dest", setProps: [{ field: "field.choice", value }] },
+        },
+      };
+      expect(await invoke(other, changes[change])).toMatchObject({ status: "succeeded" });
+      const head = other.log.head;
+      const receipt = await invoke(ctx, {
+        id: "node.batch",
+        input: {
+          calls: [
+            {
+              action: "node.update",
+              input: {
+                id: "n.dest",
+                requireUnset: ["field.choice"],
+                setProps: [{ field: "field.choice", value: { t: "str", v: "" } }],
+              },
+            },
+            {
+              action: "node.delete",
+              input: { id: "n.kept", requireEmptyLine: { parent: "n.dest", text: ">Choice" } },
+            },
+          ],
+        },
+      });
+      expect(receipt).toMatchObject({ status: "failed", code: "conflict" });
+      const after = await openKb(root);
+      expect(after.log.head).toBe(head);
+      const line = after.nodes.find((n) => n.id === "n.kept");
+      const parent = after.nodes.find((n) => n.id === "n.dest");
+      expect(line?.text).toBe(change === "text" ? "new text" : ">Choice");
+      expect(line?.children).toEqual(change === "child" ? ["n.new"] : []);
+      expect(parent?.props["field.choice"]).toEqual(change === "value" ? [value] : undefined);
+    },
+  );
+
+  test.each([false, true])(
+    "mints the field and converts the line together (stale draft: %s)",
+    async (stale) => {
+      const { ctx, call, node } = await opened();
+      await call("node.update", { id: "n.kept", text: stale ? "edited" : ">New field" });
+      const head = ctx.log.head;
+      const value = { t: "str", v: "" } as const;
+      const receipt = await invoke(ctx, {
+        id: "node.batch",
+        input: {
+          calls: [
+            { action: "field.define", input: { id: "field.new", name: "New field" } },
+            {
+              action: "node.update",
+              input: {
+                id: "n.dest",
+                requireUnset: ["field.new"],
+                setProps: [{ field: "field.new", value }],
+              },
+            },
+            {
+              action: "node.delete",
+              input: { id: "n.kept", requireEmptyLine: { parent: "n.dest", text: ">New field" } },
+            },
+          ],
+        },
+      });
+      if (stale) {
+        expect(receipt).toMatchObject({ status: "failed", code: "conflict", details: { call: 2 } });
+        expect(ctx.log.head).toBe(head);
+        expect(node("field.new")).toBeUndefined();
+        expect(node("n.kept")?.text).toBe("edited");
+        expect(node("n.dest")?.props["field.new"]).toBeUndefined();
+      } else {
+        expect(receipt).toMatchObject({ status: "succeeded" });
+        expect(ctx.log.head).toBe(head + 1);
+        expect(node("field.new")?.text).toBe("New field");
+        expect(node("n.kept")).toBeUndefined();
+        expect(node("n.dest")?.props["field.new"]).toEqual([value]);
+      }
+    },
+  );
 });

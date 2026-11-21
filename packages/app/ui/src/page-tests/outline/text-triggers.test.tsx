@@ -10,10 +10,18 @@ import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { bundledPlugin } from "@kb/contracts";
 import { daysExtension } from "@kb/days";
-import { isContextualRef, parseDateInput, present, SYSTEM_IDS } from "@kb/model";
+import { fieldTypeValue, isContextualRef, parseDateInput, present, SYSTEM_IDS } from "@kb/model";
 import { definePlugin } from "@kb/plugin";
-import { browserHost, DateTargetService, outlineInstanceKey, syncUiPlugins } from "@kb/ui-sdk";
+import {
+  browserHost,
+  DateTargetService,
+  outlineInstanceKey,
+  projectedRowKey,
+  syncUiPlugins,
+} from "@kb/ui-sdk";
+import { setPostAction, type ActionResponse } from "@/api/action";
 import { mutations } from "@/actions/mutations";
+import { waitForBrowserPushes } from "@/session/runtime";
 import { useGraphStore } from "@/stores/graph.store";
 import { REF_SEED_WIRES } from "@/fixtures/contextual-ref";
 import { rankedFixture } from "@/test-support/ranked-fixture";
@@ -70,14 +78,15 @@ describe("triggers in the text", () => {
   });
 
   afterEach(() => {
+    setPostAction(null);
     act(() => root.unmount());
     container.remove();
   });
 
   /** Edit row `row` with `text` in it, the caret at its end. */
-  async function typed(text: string, row = ROW): Promise<HTMLElement> {
+  async function typed(text: string, row = ROW, instanceKey?: string): Promise<HTMLElement> {
     await act(async () => mutations.updateNodeContent(row, text));
-    const key = outlineInstanceKey(row, outlineNodes());
+    const key = instanceKey ?? outlineInstanceKey(row, outlineNodes());
     act(() => useOutlineStore.getState().activateNode(row, text.length, key));
     await act(async () => {
       root.render(<NodeBlock nodeId={row} instanceKey={key} depth={0} />);
@@ -185,7 +194,58 @@ describe("triggers in the text", () => {
       });
     });
 
-    it("is one undo step: the line comes back as typed and the field goes", async () => {
+    it("keeps the parent's existing single field value when picked again", async () => {
+      const value = { t: "str", v: "in progress" } as const;
+      const nodes = rankedFixture().map((node) => {
+        if (node.id === ABOVE) return { ...node, props: { "field.status": [value] } };
+        if (node.id !== "field.status") return node;
+        return {
+          ...node,
+          props: {
+            ...node.props,
+            [SYSTEM_IDS.cardinalityField]: [{ t: "ref" as const, v: SYSTEM_IDS.cardinalityOne }],
+          },
+        };
+      });
+      useGraphStore.getState().hydrateFromWire(nodes, 1, "fixtures");
+      const el = await typedOnLine(">stat");
+      expect(listed()).toContain("status");
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(outlineNodes().has(LINE)).toBe(false));
+      expect(propOf(ABOVE, "field.status")).toEqual([value]);
+    });
+
+    it("focuses the picked field when a different field follows it", async () => {
+      const nodes = rankedFixture().flatMap((node) => {
+        if (node.id === "field.status") {
+          return [node, { ...node, id: "field.second", text: "second" }];
+        }
+        if (node.id !== ABOVE) return [node];
+        return [
+          {
+            ...node,
+            props: {
+              "field.status": [{ t: "str" as const, v: "doing" }],
+              "field.second": [{ t: "str" as const, v: "another value" }],
+            },
+          },
+        ];
+      });
+      useGraphStore.getState().hydrateFromWire(nodes, 1, "fixtures");
+      const el = await typedOnLine(">stat");
+      const section = present(container.querySelector(`[data-fields-for="${ABOVE}"]`), "fields");
+      const slots = ["status", "second"].map((field) =>
+        present(section.querySelector(`[data-field="field.${field}"] [data-value-slot]`), field),
+      );
+      expect([...section.querySelectorAll("[data-value-slot]")]).toEqual(slots);
+      const pickedSlot = present(slots[0], "picked slot");
+      await press(el, "Enter");
+      await vi.waitFor(() =>
+        expect(pickedSlot.contains(dom.document.activeElement as unknown as Node)).toBe(true),
+      );
+    });
+
+    it("is one undo step: the line comes back empty and the field goes", async () => {
       const el = await typedOnLine(">stat");
       await press(el, "Enter");
       await vi.waitFor(() => expect(propOf(ABOVE, "field.status")).toHaveLength(1));
@@ -193,7 +253,94 @@ describe("triggers in the text", () => {
       await act(() => mutations.undo());
       await vi.waitFor(() => expect(outlineNodes().get(ABOVE)?.children).toEqual([LINE]));
       expect(propOf(ABOVE, "field.status")).toEqual([]);
+      expect(textOf(LINE)).toBe("");
+      await act(() => mutations.redo());
+      expect(outlineNodes().has(LINE)).toBe(false);
+      expect(propOf(ABOVE, "field.status")).toHaveLength(1);
+    });
+
+    it("undoes and redoes a conversion that defines a new field", async () => {
+      const name = "Review delivery note";
+      const el = await typedOnLine(`>${name}`);
+      expect(listed()).toContain(`Create field "${name}"`);
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(useGraphStore.getState().undoStack).toHaveLength(1));
+      const definition = useGraphStore.getState().wireNodes.find((node) => node.text === name);
+      const field = present(definition, name).id;
+      expect(propOf(field, SYSTEM_IDS.typeField)).toContainEqual({ t: "ref", v: SYSTEM_IDS.field });
+      expect(propOf(ABOVE, field)).toEqual([{ t: "str", v: "" }]);
+      expect(outlineNodes().has(LINE)).toBe(false);
+
+      await act(async () => {
+        expect(await mutations.undo()).toBe(true);
+      });
+      expect(outlineNodes().has(field)).toBe(false);
+      expect(propOf(ABOVE, field)).toEqual([]);
+      expect(outlineNodes().get(ABOVE)?.children).toEqual([LINE]);
+      expect(textOf(LINE)).toBe("");
+
+      await act(async () => {
+        expect(await mutations.redo()).toBe(true);
+      });
+      expect(textOf(field)).toBe(name);
+      expect(propOf(ABOVE, field)).toEqual([{ t: "str", v: "" }]);
+      expect(outlineNodes().has(LINE)).toBe(false);
+    });
+
+    it("keeps the typed text and focus when the conversion is refused", async () => {
+      const nodes = rankedFixture().map((node) =>
+        node.id === "field.status"
+          ? {
+              ...node,
+              props: { ...node.props, [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")] },
+            }
+          : node,
+      );
+      useGraphStore.getState().hydrateFromWire(nodes, 1, "fixtures");
+      useUiStore.setState({ toasts: [] });
+      const el = await typedOnLine(">stat");
+      expect(listed()).toContain("status");
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(useUiStore.getState().toasts).toHaveLength(1));
       expect(textOf(LINE)).toBe(">stat");
+      expect(el.textContent).toBe(">stat");
+      expect(dom.document.activeElement).toBe(el);
+      expect(propOf(ABOVE, "field.status")).toEqual([]);
+      expect(useGraphStore.getState().undoStack).toHaveLength(0);
+    });
+
+    it("restores the caret without adding undo history when only the server refuses", async () => {
+      const nodes = rankedFixture().map((node) =>
+        node.id === LINE ? { ...node, text: ">stat" } : node,
+      );
+      useGraphStore.getState().hydrateFromWire(nodes, 1, "api");
+      const reply = Promise.withResolvers<ActionResponse>();
+      setPostAction(async ({ id }) =>
+        id === "node.batch" ? reply.promise : { status: "succeeded", id, rev: 1, output: {} },
+      );
+      const el = await typedOnLine(">stat");
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(outlineNodes().has(LINE)).toBe(false));
+      expect(useGraphStore.getState().undoStack).toHaveLength(0);
+      expect(dom.document.activeElement.closest("[data-value-slot]")).toBeNull();
+      await act(async () => {
+        reply.resolve({
+          status: "failed",
+          id: "node.batch",
+          code: "conflict",
+          message: "The draft changed on the server",
+        });
+        await waitForBrowserPushes();
+      });
+      await vi.waitFor(() => {
+        const active = dom.document.activeElement;
+        expect(active.getAttribute("contenteditable")).toBe("true");
+        expect(active.textContent).toBe(">stat");
+        expect(dom.document.getSelection().focusOffset).toBe(5);
+      });
+      expect(textOf(LINE)).toBe(">stat");
+      expect(propOf(ABOVE, "field.status")).toEqual([]);
+      expect(useGraphStore.getState().undoStack).toHaveLength(0);
     });
 
     it("stays text on a row that holds more than its text, or sits under no node", async () => {
@@ -213,6 +360,12 @@ describe("triggers in the text", () => {
       expect(container.querySelector('[role="listbox"]')).toBeNull();
       await typedOnLine("> quoted");
       expect(container.querySelector('[role="listbox"]')).toBeNull();
+    });
+
+    it("stays text on a projected row whose source is also its parent", async () => {
+      await typed(">stat", LINE, projectedRowKey(ABOVE, LINE));
+      expect(listed()).toEqual([]);
+      expect(textOf(LINE)).toBe(">stat");
     });
   });
 
@@ -346,6 +499,25 @@ describe("triggers in the text", () => {
       expect(textOf(ROW)).toBe("See [[n.root-b|Search jumps to matching nodes]]");
       await chord(el);
       await vi.waitFor(() => expect(textOf(ROW)).toBe("See [[Search jumps"));
+    });
+
+    it("a refused pick leaves the typed text and the caret, and no undo step", async () => {
+      // The page refuses the write (`PageWrites.together` answers null).
+      const refuse = vi.spyOn(browserHost().writes, "together").mockResolvedValue(null);
+      const el = await typed("x #to");
+      const undoBefore = useGraphStore.getState().undoStack.length;
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(refuse).toHaveBeenCalled());
+      await vi.waitFor(() => expect(el.textContent).toBe("x #to"));
+      refuse.mockRestore();
+      expect(textOf(ROW)).toBe("x #to");
+      expect(dom.document.getSelection().focusOffset).toBe(5);
+      expect(useGraphStore.getState().undoStack).toHaveLength(undoBefore);
+      // The row's history forgot it: ⌘Z in the row takes back no write of the page's.
+      const undo = vi.spyOn(browserHost().writes, "undo");
+      await chord(el);
+      expect(undo).not.toHaveBeenCalled();
+      undo.mockRestore();
     });
 
     it("typing after a pick undoes first, then the pick", async () => {

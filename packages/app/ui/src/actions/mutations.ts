@@ -16,6 +16,7 @@ import {
   planDefineTag,
   planDelete,
   planIndent,
+  planInitializeProp,
   planInsertSibling,
   planMergeInto,
   planMergeWithPrevious,
@@ -103,18 +104,31 @@ function indexed(id: string): KbNode | undefined {
   return useGraphStore.getState().index?.getNode(id);
 }
 
-function recordHistory(preWire: WireNode[], plan: PlannedMutation): void {
-  useGraphStore.getState().recordUndo({
-    undo: restoreInvocations(wire(), preWire),
-    redo: plan.actions,
-  });
+function historyOf(preWire: WireNode[], plan: PlannedMutation) {
+  const undoText = plan.undoText;
+  const before =
+    undoText === undefined || undoText.size === 0
+      ? preWire
+      : preWire.map((node) => {
+          const text = undoText.get(node.id);
+          return text === undefined ? node : { ...node, text };
+        });
+  return {
+    undo: restoreInvocations(wire(), before),
+    redo: plan.redoActions ?? plan.actions,
+  };
 }
 
 /**
  * The gesture being made (`together`): the actions its writes planned, in
  * order, sent as one write when it ends. Null while no gesture is open.
  */
-let gesture: { actions: ActionRequest[] } | null = null;
+let gesture: {
+  actions: ActionRequest[];
+  redoActions: ActionRequest[];
+  undoText: Map<string, string>;
+  completion?: PlannedMutation["completion"];
+} | null = null;
 
 async function invokeAll(actions: Array<{ id: string; input: unknown }>): Promise<boolean> {
   const localOnly = useGraphStore.getState().loadSource !== "api";
@@ -137,11 +151,20 @@ async function invokeAll(actions: Array<{ id: string; input: unknown }>): Promis
 async function runPlan(plan: PlannedMutation): Promise<RunOptimisticResult> {
   if (gesture !== null) {
     gesture.actions.push(...plan.actions);
+    gesture.redoActions.push(...(plan.redoActions ?? plan.actions));
+    for (const [id, text] of plan.undoText ?? []) gesture.undoText.set(id, text);
+    if (plan.completion !== undefined) gesture.completion = plan.completion;
     return { ok: true };
   }
   const preWire = useGraphStore.getState().wireNodes;
   const result = await runOptimistic(plan);
-  if (result.ok) recordHistory(preWire, plan);
+  if (!result.ok) return result;
+  const history = historyOf(preWire, plan);
+  if (result.confirmed !== undefined && !(await result.confirmed)) return { ok: false };
+  if (result.focusId !== undefined) {
+    editor().activateNode(result.focusId, result.focusCursor ?? 0);
+  }
+  useGraphStore.getState().recordUndo(history);
   return result;
 }
 
@@ -311,8 +334,8 @@ export const mutations: PageWrites = {
     await applyPlan(planSplit(wire(), id, cursor, ulid(), { expandedIds }));
   },
 
-  async deleteNode(id: string): Promise<boolean> {
-    return applyPlan(planDelete(wire(), id));
+  async deleteNode(id, draft): Promise<boolean> {
+    return applyPlan(planDelete(wire(), id, draft));
   },
 
   async mergeNextIntoThis(thisId: string, nextId: string): Promise<void> {
@@ -371,10 +394,14 @@ export const mutations: PageWrites = {
     return { references };
   },
 
-  async together<T>(made: () => Promise<T>): Promise<T> {
+  async together<T>(made: () => Promise<T>): Promise<T | null> {
     // A gesture inside another is part of it.
     if (gesture !== null) return made();
-    const open = { actions: [] as ActionRequest[] };
+    const open = {
+      actions: [] as ActionRequest[],
+      redoActions: [] as ActionRequest[],
+      undoText: new Map<string, string>(),
+    };
     gesture = open;
     let result: T;
     try {
@@ -382,7 +409,7 @@ export const mutations: PageWrites = {
     } finally {
       gesture = null;
     }
-    if (open.actions.length > 0) await applyPlan({ actions: open.actions });
+    if (open.actions.length > 0 && !(await applyPlan(open))) return null;
     return result;
   },
 
@@ -409,6 +436,10 @@ export const mutations: PageWrites = {
 
   async removeProp(nodeId: string, fieldId: string, value?: PropValue): Promise<void> {
     await applyPlan(planUnsetProp(wire(), nodeId, fieldId, value));
+  },
+
+  async initializeProp(nodeId, fieldId, value): Promise<void> {
+    await applyPlan(planInitializeProp(nodeId, fieldId, value));
   },
 
   async createRefTarget(creation: RefCreation, name: string): Promise<string | null> {

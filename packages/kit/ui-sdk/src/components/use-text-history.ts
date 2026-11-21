@@ -23,8 +23,9 @@ export interface TextHistoryControl {
   /**
    * Record a pick (`TextTrigger`): one write of the page's, which took the
    * text from `before` to `after`; its arrival as `content` is not typing.
+   * Answers how to forget it again, when the write is refused.
    */
-  readonly recordPick: (before: TextState, after: TextState) => void;
+  readonly recordPick: (before: TextState, after: TextState) => () => void;
 }
 
 /**
@@ -100,8 +101,14 @@ export function useTextHistory({
   );
 
   const recordPick = useCallback((before: TextState, after: TextState) => {
-    history.current = recordPageStep(history.current, before, after);
+    const prior = history.current;
+    const recorded = recordPageStep(prior, before, after);
+    history.current = recorded;
     last.current = after;
+    return () => {
+      if (history.current === recorded) history.current = prior;
+      last.current = before;
+    };
   }, []);
 
   useEffect(() => {

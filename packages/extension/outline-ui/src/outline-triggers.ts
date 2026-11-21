@@ -13,6 +13,7 @@ import {
   dateTarget,
   datesLead,
   instanceAncestorIds,
+  isProjectedRow,
   nodeCandidates,
   type NodeMap,
   type OpenTrigger,
@@ -26,7 +27,7 @@ import {
   type TriggerPick,
 } from "@kb/ui-sdk";
 import { longDateLabel, relativeDateLabel, todayLocal } from "./date-display";
-import { outlineNodes } from "./outline.store";
+import { outlineNodes, useOutlineStore } from "./outline.store";
 import { addField, addTag, OUTLINE_STEPS } from "./outline-steps";
 import { slashTrigger } from "./slash-trigger";
 import { landInFieldsOf } from "./value-slot-nav";
@@ -46,58 +47,69 @@ function openedAfterSpace(opener: string, query: string) {
 }
 
 /**
- * Where a palette step opened from the text writes, read when it is picked:
- * the node the pick is for, the writes made with the step's as the same one
- * write, and what follows once that is made.
+ * Where a palette step writes, read when picked. A conversion consumes the
+ * source row in the same batch and moves focus when the batch lands.
  */
-interface StepTarget {
+interface StepTarget<Result> {
   readonly nodeId: string;
-  readonly with?: () => Promise<unknown>;
-  readonly after?: () => void;
-}
-
-/**
- * The pick of `picked` in `step`, opened from the text
- * of `row`, to the node `at` names: the trigger goes from the text, and its
- * write is the step's commit with what goes with it, made with the text's
- * as one write (`TriggerPick`).
- */
-function stepPick(
-  step: PaletteStep,
-  row: { readonly schema: SchemaIndex },
-  at: StepTarget | null,
-  picked: { readonly id: string; readonly creating: boolean; readonly name: string },
-): TriggerPick {
-  if (at === null) return { insert: "" };
-  return {
-    insert: "",
-    write: async () => {
-      await at.with?.();
-      await step.commit({
-        targetNodeId: at.nodeId,
-        targetNodeIds: [at.nodeId],
-        schema: row.schema,
-        pickedId: picked.id,
-        creating: picked.creating,
-        name: picked.name,
-        alternate: false,
-      });
-    },
-    ...(at.after === undefined ? {} : { landed: at.after }),
+  readonly conversion?: {
+    readonly remove: () => Promise<boolean>;
+    readonly land: (result: Result) => void;
+    readonly refused: () => void;
   };
 }
 
 /**
- * A palette step opened from the text of `row`: a pick takes the trigger
- * out of the text and commits to the node `target` names (the row, unless
- * it says otherwise), with what goes with it, as one write.
+ * The pick of `picked` in `step`, opened from the text of `row`, to the
+ * node `at` names. Where the row stays, the trigger goes from the text and
+ * the step's commit is the pick's write, made with the text's as one write
+ * (`TriggerPick`). A conversion consumes the row instead: the commit and
+ * the row's removal are one write, and focus moves once it lands, or stays
+ * on the line when it is refused.
  */
-function stepTrigger(
+function stepPick<Result>(
+  step: PaletteStep<Result | null>,
+  row: { readonly schema: SchemaIndex },
+  at: StepTarget<Result>,
+  picked: { readonly id: string; readonly creating: boolean; readonly name: string },
+): TriggerPick {
+  const commit = () =>
+    step.commit({
+      targetNodeId: at.nodeId,
+      targetNodeIds: [at.nodeId],
+      schema: row.schema,
+      pickedId: picked.id,
+      creating: picked.creating,
+      name: picked.name,
+      alternate: false,
+    });
+  const conversion = at.conversion;
+  if (conversion === undefined) return { insert: "", write: commit };
+  return {
+    consume: async () => {
+      const landed = await browserHost().writes.together(async () => {
+        const result = await commit();
+        return result === null || !(await conversion.remove()) ? null : result;
+      });
+      if (landed === null) conversion.refused();
+      else conversion.land(landed);
+    },
+  };
+}
+
+/**
+ * A palette step opened from the text of `row`: a pick commits to the node
+ * `target` names (the row, unless it says otherwise), editing the trigger's
+ * span or consuming the row (`stepPick`).
+ */
+function stepTrigger<Result>(
   id: string,
-  step: PaletteStep,
+  step: PaletteStep<Result | null>,
   open: TextTrigger["open"],
   row: { readonly nodeId: string; readonly schema: SchemaIndex },
-  target: () => StepTarget | null = () => ({ nodeId: row.nodeId }),
+  target: (typed: { readonly query: string }) => StepTarget<Result> | null = () => ({
+    nodeId: row.nodeId,
+  }),
 ): TextTrigger {
   return {
     id,
@@ -113,12 +125,16 @@ function stepTrigger(
         { query, canCreate: step.createLabel !== undefined, limit: step.limit ?? LIMIT },
       ),
     ...(step.createLabel === undefined ? {} : { createLabel: step.createLabel }),
-    pick: (picked, typed) =>
-      stepPick(step, row, target(), {
-        id: picked.id,
-        creating: picked.kind === "create",
-        name: typed.query.trim(),
-      }),
+    pick: (picked, typed) => {
+      const at = target(typed);
+      return at === null
+        ? null
+        : stepPick(step, row, at, {
+            id: picked.id,
+            creating: picked.kind === "create",
+            name: typed.query.trim(),
+          });
+    },
   };
 }
 
@@ -231,16 +247,13 @@ function referenceTrigger(
     pick: async (picked, typed) => {
       const target = await mentioned(picked);
       if (target === null) return { insert: `@${typed.query}` };
-      return stepPick(
+      const pick = stepPick(
         turnIntoReference,
         row,
-        { nodeId: row.nodeId, after: () => browserHost().selectNode(row.nodeId, instanceKey) },
-        {
-          id: target.id,
-          creating: false,
-          name: typed.query.trim(),
-        },
+        { nodeId: row.nodeId },
+        { id: target.id, creating: false, name: typed.query.trim() },
       );
+      return { ...pick, landed: () => browserHost().selectNode(row.nodeId, instanceKey) };
     },
   };
 }
@@ -252,7 +265,7 @@ function referenceTrigger(
  */
 function emptyLineOf(nodeId: string, instanceKey: string | undefined): string | null {
   const node = outlineNodes().get(nodeId);
-  if (node === undefined || instanceKey === undefined) return null;
+  if (node === undefined || instanceKey === undefined || isProjectedRow(instanceKey)) return null;
   // The key ends with the row's own node: a reference row's is the reference, not its target.
   if (!instanceKey.endsWith(`/${nodeId}`)) return null;
   const above = instanceAncestorIds(instanceKey).at(-1) ?? null;
@@ -277,13 +290,33 @@ function fieldTrigger(
       ? null
       : { start: 0, end: cursor, query: match[1] ?? "" };
   };
-  return stepTrigger("field", addField, open, row, () => {
+  return stepTrigger("field", addField, open, row, (typed) => {
     const parent = emptyLineOf(row.nodeId, instanceKey);
     if (parent === null || instanceKey === undefined) return null;
+    const text = `>${typed.query}`;
+    const land = landInFieldsOf(instanceKey, parent);
+    const focusIsFree = () => {
+      const { activeInstanceKey, selectedInstanceKey } = useOutlineStore.getState();
+      const focused = document.activeElement;
+      return (
+        activeInstanceKey === instanceKey ||
+        (selectedInstanceKey === null &&
+          (focused === document.body || focused?.isConnected !== true))
+      );
+    };
     return {
       nodeId: parent,
-      with: () => browserHost().writes.deleteNode(row.nodeId),
-      after: landInFieldsOf(instanceKey, parent),
+      conversion: {
+        remove: () => browserHost().writes.deleteNode(row.nodeId, { parent, text }),
+        land: (fieldId) => {
+          if (focusIsFree()) land(fieldId);
+        },
+        refused: () => {
+          if (focusIsFree() && outlineNodes().get(row.nodeId)?.parentId === parent) {
+            useOutlineStore.getState().activateNode(row.nodeId, text.length, instanceKey);
+          }
+        },
+      },
     };
   });
 }

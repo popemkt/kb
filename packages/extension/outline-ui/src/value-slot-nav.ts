@@ -104,27 +104,27 @@ export function enterFields(instanceKey: string, which: "first" | "last"): boole
 }
 
 /**
- * Land on node `nodeId`'s last field value where its fields are drawn nearest
+ * Land on the picked field's first value where node `nodeId` is drawn nearest
  * row instance `instanceKey`, at rest, once the page has drawn the write that
  * follows: under its row, or in the page head when it is the page. The row's
  * place is read now, since that write may take the row away.
  */
-export function landInFieldsOf(instanceKey: string, nodeId: string): () => void {
+export function landInFieldsOf(instanceKey: string, nodeId: string): (fieldId: string) => void {
   const row = document.querySelector(
     `[data-node-block][data-instance-key="${CSS.escape(instanceKey)}"]`,
   );
   const around: Element[] = [];
   for (let at = row?.parentElement ?? null; at !== null; at = at.parentElement) around.push(at);
   const sectionOf = `[data-fields-for="${CSS.escape(nodeId)}"]`;
-  const land = () => {
-    const section = around
-      .find((el) => el.isConnected && el.querySelector(sectionOf) !== null)
-      ?.querySelector(sectionOf);
-    const first = section?.querySelector(SLOT);
-    const slot = first === null || first === undefined ? undefined : sectionSlots(first).at(-1);
-    if (slot !== undefined) arriveAt(slot, "rest");
-  };
-  return () => {
+  return (fieldId) => {
+    const land = () => {
+      const section =
+        around
+          .find((el) => el.isConnected && el.querySelector(sectionOf) !== null)
+          ?.querySelector(sectionOf) ?? null;
+      const slot = section === null ? null : fieldSlot(section, fieldId);
+      if (slot !== null) arriveAt(slot, "rest");
+    };
     if (typeof requestAnimationFrame === "function") requestAnimationFrame(land);
     else land();
   };

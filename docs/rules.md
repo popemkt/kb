@@ -987,6 +987,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Add :node/is to CORE_DERIVED with a carrier that reads the chain and re-derives a tag's instances when its sys.f.extends changes; lower has-tag to it, evaluate it with isA, and stop canonicalizing a sys.f.type is-condition into has-tag. The routines engine's read (routines-host graph.ts) then asks :node/is and brings the tags its readers walk.
 - **node** — `01M738XHYKHDFFCN8DK595Z15T`
 
+### GAP: defining and applying a tag can leave an orphan definition
+
+- **expected** — Defining and applying a tag in one editor gesture commits as one transaction.
+- **current** — The palette and # text picker send tag.define ahead of the node update, as on main at be415b51.
+- **impact** — If tagging the target is refused, the newly defined tag remains in the graph.
+- **closes** — Plan the tag definition and the node updates in one batch using the shared tag definition planner.
+- **node** — `01M7XCENSKX32JHABYKAD8AD6N`
+
 ### GAP: Durable browser invocation replay
 
 - **expected** — The browser invocation lane durably queues offline mutations and replays them under an explicit conflict policy.
@@ -1077,6 +1085,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — front and side views of a canvas of flat cards look empty
 - **closes** — 3D workspace step 3 (items get depth), or drawn outlines on flat items
 - **node** — `01M41AB7YM5801ZJNM1Q647SYD`
+
+### GAP: Flushing queued draft typing before conversion can overwrite a concurrent edit
+
+- **expected** — A queued text write preceding a conversion preserves concurrent edits to the same draft.
+- **current** — The ordered push lane sends pending typing as an unconditional node update before it submits the guarded conversion batch.
+- **impact** — The typing write can overwrite a concurrent draft edit before the conversion precondition reads the line.
+- **closes** — Give the coalesced draft text write a concurrency precondition and keep the conversion ordered after it.
+- **node** — `01M7XMMFAMVHBRBHC9X8P68FJ9`
 
 ### GAP: four core files have consumers in only one extension family
 
@@ -1654,6 +1670,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A repo cannot add a view without editing kb itself.
 - **closes** — The same @kb/ui-sdk the canvas browser plugin needs, published as an ambient d.ts like kb-ext-sdk, plus the server route, the shims and a loader test. The browser half is built and loaded as its own module, the repository-extension form of the backend-plugin/browser-plugin split canvas takes, not a second entry of the backend module.
 - **node** — `01M39F3N04WNEVCGHX428H8TKN`
+
+### GAP: Reusing a field during line conversion can consume the draft after its value is cleared
+
+- **expected** — The conversion checks at commit time that a picked field whose initialization was skipped still has a value.
+- **current** — The Add field step reads an existing value from the browser replica and skips initialization without a presence precondition.
+- **impact** — If a concurrent writer clears the value before the batch commits, the conversion can consume the draft and leave no field value.
+- **closes** — Check the retained field value in the same transaction that consumes the draft.
+- **node** — `01M7XMMCPA7H2R1P065TVCQNYC`
 
 ### GAP: rich text copy names emphasis and code elements beside the editor's element tree
 

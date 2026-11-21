@@ -60,6 +60,8 @@ export const NodeUpdateInputSchema = z.object({
   id: z.string(),
   text: z.string().optional(),
   setProps: z.array(PropInputSchema).optional(),
+  /** Require these fields (by name or id) to hold no values before this edit. */
+  requireUnset: z.array(z.string()).optional(),
   unsetProps: z.array(z.object({ field: z.string(), value: z.unknown().optional() })).optional(),
   /** Move under this parent, or to the forest roots when null. */
   parent: z.string().nullable().optional(),

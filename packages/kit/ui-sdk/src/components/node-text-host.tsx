@@ -257,6 +257,7 @@ export function NodeTextHost({
   const pendingEcho = useRef<string | null>(null);
   /** The text as last rendered: what a pick that resolves later is laid into. */
   const latest = useRef(content);
+  const consuming = useRef(false);
   useLayoutEffect(() => {
     latest.current = content;
   }, [content]);
@@ -355,35 +356,58 @@ export function NodeTextHost({
   useOpenPills(editorRef, openReferences);
 
   /**
-   * Lay a pick into the text: what it inserts replaces the trigger's span,
-   * the caret after it. The text and the pick's own write are then written
-   * as one write of the page's (`PageWrites.together`), one undo step, which
-   * the row's history holds in its place (`recordPick`). The text typed
-   * before the pick has landed by then, so the undo brings it back. A pick
-   * that resolves later is laid into the text as it is then, unless the
-   * span has changed meanwhile.
+   * Lay a pick into the text as it is now, unless the span has changed
+   * meanwhile. A pick that consumes the row owns the write and focus.
+   * Otherwise what it inserts replaces the trigger's span, the caret after
+   * it, and the text and the pick's own write are written as one write of
+   * the page's (`PageWrites.together`), one undo step, which the row's
+   * history holds in its place (`recordPick`). The text typed before the
+   * pick has landed by then, so the undo brings it back. A refused write
+   * leaves the text and the caret as they were.
    */
   const applyPick = useCallback(
-    async (made: TriggerPick | Promise<TriggerPick>, span: OpenTrigger) => {
+    async (made: TriggerPick | null | Promise<TriggerPick | null>, span: OpenTrigger) => {
       const was = content.slice(span.start, span.end);
       const pick = await made;
       const text = latest.current;
       if (text.slice(span.start, span.end) !== was) return;
-      const next = text.slice(0, span.start) + pick.insert + text.slice(span.end);
-      const caret = span.start + pick.insert.length;
-      if (next !== text) pendingEcho.current = next;
-      if (editorRef.current) {
-        renderInlineMarkdown(editorRef.current, next, refs);
-        setCaretSerializedOffset(editorRef.current, caret);
-        revealMarkupAtSelection(editorRef.current);
+      if (pick === null || consuming.current) return;
+      if ("consume" in pick) {
+        consuming.current = true;
+        try {
+          await pick.consume();
+        } finally {
+          consuming.current = false;
+        }
+        return;
       }
-      setCursor(caret);
-      if (instanceKey !== undefined) placeCaret(instanceKey, caret);
-      textHistory.recordPick({ text, caret: span.end }, { text: next, caret });
-      await browserHost().writes.together(async () => {
-        await writeText(next);
+      const before = { text, caret: span.end };
+      const after = {
+        text: text.slice(0, span.start) + pick.insert + text.slice(span.end),
+        caret: span.start + pick.insert.length,
+      };
+      const lay = (state: typeof after) => {
+        pendingEcho.current = state.text === latest.current ? null : state.text;
+        if (editorRef.current) {
+          renderInlineMarkdown(editorRef.current, state.text, refs);
+          setCaretSerializedOffset(editorRef.current, state.caret);
+          revealMarkupAtSelection(editorRef.current);
+        }
+        setCursor(state.caret);
+        if (instanceKey !== undefined) placeCaret(instanceKey, state.caret);
+      };
+      lay(after);
+      const forget = textHistory.recordPick(before, after);
+      const landed = await browserHost().writes.together(async () => {
+        await writeText(after.text);
         await pick.write?.();
+        return true;
       });
+      if (landed === null) {
+        forget();
+        lay(before);
+        return;
+      }
       pick.landed?.();
     },
     [content, instanceKey, placeCaret, refs, textHistory, writeText],
