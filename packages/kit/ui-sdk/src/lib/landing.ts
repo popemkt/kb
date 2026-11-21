@@ -90,6 +90,7 @@ export async function land(): Promise<void> {
     if (id !== null) replacePath(nodePath(id));
     else if (failures.length > 0) toast(`Stayed home: ${failureText(failures[0])}`);
   } finally {
+    // A move ends the deadline too, leaving a stalled call pending. GAP [[01M7ZVVWGXA8E93YK4X099N7AQ]]
     clearTimeout(deadline);
     stop();
   }

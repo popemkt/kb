@@ -654,6 +654,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Hosts are accelerators: the store is the truth
 - **node** — `01M40WSVNKVH3ZY8QE0GN5DY8X`
 
+### GAP: an abandoned landing call can stay pending for the page session
+
+- **expected** — When the person navigates away while the landing is asked, the provider call it started still ends by the one deadline: it is answered, refused or given up on within about 4 s, and its fault, if any, is recorded as any overrun's is.
+- **current** — land() (packages/kit/ui-sdk/src/lib/landing.ts:93) clears the deadline in its finally as soon as the page moves, so the late promise never rejects, and a provider that never answers leaves callPageRole's fiber, and the role call, pending for the rest of the page session.
+- **impact** — A stalled landing abandoned by navigation is never faulted and its call never settles: a small leak per page load, and a misbehaving provider escapes the fault that would demote it. The page itself is not held.
+- **closes** — Keep the deadline running until the election settles rather than until land() returns (clear it when answer settles, not in land's finally), so a move ends the wait for the shell but not the bound on the call; a test with fake timers that navigates mid-call and sees the stalled provider faulted at 4 s.
+- **node** — `01M7ZVVWGXA8E93YK4X099N7AQ`
+
 ### GAP: an approval-required action cannot be invoked over MCP
 
 - **expected** — an MCP caller can obtain approval and then invoke an approval-required write
