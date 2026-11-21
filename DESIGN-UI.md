@@ -473,7 +473,7 @@ Mode A owns split/merge/indent/outdent, soft line break (`Shift+Enter`), a
 new empty row above (`Cmd+Shift+Enter`, as `Shift+O` makes one),
 vertical caret motion, and autocomplete interception. Mode B owns
 `ArrowLeft/Right` collapse-expand-parent-firstchild, `Cmd+Shift+ArrowLeft/Right`
-a row to the group beside its own (_Groups_), `o` / `Shift+O` create-below/above, `Space` toggle, and printable-character
+a row to the group beside its own (_Groups_), `o` / `Shift+O` create the row directly below (an open row's first child, else the next sibling, a top-level row's included) / above, `Space` toggle, and printable-character
 re-entry into Mode A. Both modes hold the structure keys a row is
 navigated by: `Cmd+ArrowUp/Down` close or open one level (Mode B:
 `ArrowLeft/Right`), `Cmd+Alt+ArrowDown` / `Cmd+Alt+ArrowUp` (Ctrl+Alt on
