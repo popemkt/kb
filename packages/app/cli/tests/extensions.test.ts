@@ -330,9 +330,18 @@ describe("kb ext list", () => {
     expect(tagsOf("canvas")).toEqual(["canvas"]);
     const guards = output.points.find(({ point }) => point === "action/guard")?.listeners;
     // Core owns required approval; governance contributes no policy guard.
+    // Each family that provides views checks the view nodes of them a write leaves.
     expect(guards?.map(({ id }) => id)).toEqual([
+      "core.view-settings",
+      "outline.view-settings",
+      "collections.view-settings",
+      "graph.view-settings",
+      "canvas.view-settings",
       "ext.canvas.run-fields",
       "ext.code.script-run",
+      "code.view-settings",
+      "chart.view-settings",
+      "backdrops.view-settings",
       "ext.days.unique-key",
       "ext.days.period-tag",
       "ext.days.period-key",
@@ -344,8 +353,9 @@ describe("kb ext list", () => {
     expect(human.out).toContain(
       "action/guard (registry): list, T3, registry/page; strictest verdict",
     );
-    expect(human.out).toContain("  1. ext.canvas.run-fields (canvas/canvas)");
-    expect(human.out).toContain("  2. ext.code.script-run (code)");
+    expect(human.out).toContain("  1. core.view-settings (core/core)");
+    expect(human.out).toContain("  6. ext.canvas.run-fields (canvas/canvas)");
+    expect(human.out).toContain("  7. ext.code.script-run (code)");
   });
 });
 

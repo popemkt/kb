@@ -1380,14 +1380,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — shapes show their node
 - **node** — `01M42Q9H3RA1FHZYYYP2M9QJ4V`
 
-### GAP: only view.propose checks a view node's settings against its key
-
-- **expected** — every write of a view node, from any action, is checked by its view key
-- **current** — view.propose runs viewNodeFor; node.add and node.update can write a view node whose settings its view cannot read
-- **impact** — an agent or script using the generic node actions can store a broken view, which then renders its fallback
-- **closes** — the write check in tx.ts can reach the view keys, injected or with keys held as data
-- **node** — `01M40X308W34T0PGSN12S9K2K2`
-
 ### GAP: orbit controls stand in the lab kit, not the scene kit
 
 - **expected** — Orbit (a pan read as a bearing round a target, plus a dolly and flights) is a scene-kit view control any 3D view can use, beside the stage.
@@ -3043,6 +3035,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — o on an expanded parent or on a top-level row puts the new row somewhere other than under the row the person pressed it on; they have to find it and move it.
 - **closes** — createEmptyNode places by planInsertSibling (after) for a sibling, a top-level one included, and at position 0 for an expanded parent's first child; selection characterization tests assert the exact place for both.
 - **node** — `01M7X2C58J05ZV2KSWZSHDEWHS`
+
+### GAP: only view.propose checks a view node's settings against its key
+
+- **expected** — every write of a view node, from any action, is checked by its view key
+- **current** — Fixed: every family that provides views contributes a <family>.view-settings commit guard beside them (declarationPlugin, viewSettingsGuard), which reads each view node a write leaves through @kb/views' writtenViewIssue, the same stored-settings read viewNodeFor's round trip takes; node.add, node.update and any other action that writes a broken setting is refused, and an issue a node already held does not block its edits.
+- **impact** — an agent or script using the generic node actions can store a broken view, which then renders its fallback
+- **closes** — the write check in tx.ts can reach the view keys, injected or with keys held as data
+- **node** — `01M40X308W34T0PGSN12S9K2K2`
 
 ### GAP: ontology member rows render outline's MdView
 

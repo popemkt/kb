@@ -1482,12 +1482,25 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   the action replans on the current graph and refuses a claimed view ID.
   On failure nothing is written and the receipt carries every issue as
   `{path, message}`. Any other entry that
-  makes a view node from settings is to call the same function. The write
-  check does not yet: a view node written through `node.add` or
-  `node.update` is not checked against its view's settings
-  (GAP [[01M40X308W34T0PGSN12S9K2K2]]). The frame toolbar's edits need no check of their
-  own, because each writes one setting through its slot (`frameSettingWrite`),
-  which reads back what it writes. A graph view's params are its renderer's:
+  makes a view node from settings is to call the same function.
+- **Every write of a view node is checked by its view's key**, whichever
+  action makes it (`node.add`, `node.update`, a batch, a family's own). The
+  family that provides a view guards its view nodes at the commit: beside
+  each view it contributes, `declarationPlugin` contributes the
+  `<family>.view-settings` guard (`viewSettingsGuard`, matching every
+  write), which reads each view node the commit leaves through the same
+  stored-settings read a proposal's round trip takes (`@kb/views`'
+  `writtenViewIssue`), for the node naming it once the commit lands. A
+  setting its view's read reports, or its params cannot decode, is refused
+  with every issue. Only what a write adds is judged, as a value is: a write
+  that leaves a view node's props as they were passes, and an issue its
+  settings already had is not counted, so a store holding a broken view
+  (a hand edit, a merge) stays editable and its view still reports it. A
+  field the view does not read is a person's own and never an issue
+  (Data-plane freedom). A view whose family is not loaded is not judged:
+  the data outlives the code. The frame toolbar's edits pass the check by
+  construction, because each writes one setting through its slot
+  (`frameSettingWrite`), which reads back what it writes. A graph view's params are its renderer's:
   the lens every renderer draws through (`@kb/graph`'s `LensParams`: the
   query, focus and hops, the edge kinds, the node budget and the mappings),
   then the settings that renderer reads, so a proposed graph view sets which
@@ -1900,7 +1913,7 @@ the chart as marks. How the browser draws it is DESIGN-UI.md → Chart views.
   one through `view.propose` from the catalog entry; the UI's "Add chart"
   proposes one for a query node, and its spec editor writes `sys.f.chart`
   through the same check. Like every view node, one written through
-  `node.update` is not checked (GAP [[01M40X308W34T0PGSN12S9K2K2]]).
+  `node.update` is checked by its key at the commit.
 
 #### Code views
 
@@ -1921,8 +1934,7 @@ grant}`: the code is one text prop, `sys.f.code`, held and read
   no code runs `STARTER_CODE`, which lists its subject's children.
 - **Agents write code views through `view.propose`**, from the catalog
   entry, whose description is the guest's whole API. Like every view node,
-  one written through `node.update` is not checked
-  (GAP [[01M40X308W34T0PGSN12S9K2K2]]).
+  one written through `node.update` is checked by its key at the commit.
 - **On a text surface it is shown, not run**: where it runs, what its grant
   lets it ask, and its code in a fence no backtick in it can close. On a
   page it is that text under what the code draws as of the render
