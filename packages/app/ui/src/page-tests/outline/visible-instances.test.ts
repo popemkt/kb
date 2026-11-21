@@ -207,16 +207,51 @@ describe("a row's subtree keys walk the rows the outline draws", () => {
   it("opens the results a query draws and the rows under them, then closes them", async () => {
     await queryOpen();
     expect(["n.root-a", "n.child-a2", "n.qc"].map(collapsed)).toEqual([true, true, true]);
-    outline().expandSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
+    await outline().expandSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
     // n.root-a is drawn under the query as its result; its rows open with it.
     expect(["n.root-a", "n.child-a2", "n.qc"].map(collapsed)).toEqual([false, false, false]);
-    outline().collapseSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
+    await outline().collapseSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
     expect(["n.q1", "n.root-a", "n.child-a2", "n.qc"].map(collapsed)).toEqual([
       true,
       true,
       true,
       true,
     ]);
+  });
+
+  it("waits for a query no row has drawn yet, then opens its results", async () => {
+    // n.q1 closed and never asked: its results come with the walk that opens it.
+    expect(useGraphStore.getState().queries?.read(TODO_EDN).current).toBe(false);
+    await outline().expandSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
+    expect(["n.q1", "n.root-a", "n.child-a2"].map(collapsed)).toEqual([false, false, false]);
+  });
+
+  it("waits only for the queries inside the subtree it opens", async () => {
+    // n.q1 open beside n.root-a, its query not answered: n.root-a's step does not wait on it.
+    outline().toggleCollapse("n.q1");
+    const queries = present(useGraphStore.getState().queries, "replica queries");
+    const asked: string[] = [];
+    const ask = queries.ask.bind(queries);
+    queries.ask = (edn) => {
+      asked.push(edn);
+      return ask(edn);
+    };
+    try {
+      await outline().expandSubtree("tree/n.root-a", MAIN_OUTLINE_HOST);
+    } finally {
+      queries.ask = ask;
+    }
+    expect(collapsed("n.root-a")).toBe(false);
+    expect(asked).not.toContain(TODO_EDN);
+  });
+
+  it("opens nothing when the page moves before its queries answer", async () => {
+    // Expand all waits on n.q1's query; meanwhile the page zooms to n.root-a.
+    outline().toggleCollapse("n.q1");
+    const step = outline().expandAllInScope();
+    useGraphStore.getState().zoomTo("n.root-a");
+    await step;
+    expect(["n.qc", "n.child-a2"].map(collapsed)).toEqual([true, true]);
   });
 
   it("walks the rows of the pane the key was pressed in", async () => {
@@ -226,7 +261,7 @@ describe("a row's subtree keys walk the rows the outline draws", () => {
     try {
       outline().getVisibleInstances("pane:p2");
       await present(useGraphStore.getState().queries, "replica queries").ask(TODO_EDN);
-      outline().expandSubtree(projectedRowKey("n.q1", "n.root-a"), "pane:p2");
+      await outline().expandSubtree(projectedRowKey("n.q1", "n.root-a"), "pane:p2");
       expect(["n.root-a", "n.child-a2"].map(collapsed)).toEqual([false, false]);
     } finally {
       setOutlineHost("pane:p2", null);
@@ -238,11 +273,11 @@ describe("a row's subtree keys walk the rows the outline draws", () => {
     await mutations.setFrameView("n.q1", CollectionTableView);
     outline().toggleCollapse("n.qc");
     await queryOpen();
-    outline().collapseSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
+    await outline().collapseSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
     expect(collapsed("n.q1")).toBe(true);
     expect(collapsed("n.qc")).toBe(false);
     outline().toggleCollapse("n.qc");
-    outline().expandSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
+    await outline().expandSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
     expect(collapsed("n.q1")).toBe(false);
     expect(collapsed("n.qc")).toBe(true);
   });

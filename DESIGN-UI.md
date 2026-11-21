@@ -484,7 +484,11 @@ not draw left as it is (each selected row's, over a range),
 `Cmd+.` zooms into the row, and `Cmd+,` zooms out to the page above the
 one its outline shows (its crumb before the last; at home nothing moves).
 The palette's Expand all and Collapse all are the same subtree step over
-every top row of the page (`expandSubtree`, `expandAllInScope`). Mode B's keys are the selected row's: a key pressed
+every top row of the page (`expandSubtree`, `expandAllInScope`). A query the
+step opens draws its results once answered, so the step waits for the
+queries inside the subtree it opens (`settle`'s `awaits`; every query of the
+page for Expand all) and opens their results too. Its rows are its page's: if the page
+has moved by the time they are answered, the step opens nothing. Mode B's keys are the selected row's: a key pressed
 while focus is on a control the keyboard stops at (a text entry, or a button
 such as a tag's box or a hidden field's chip) is that control's, so Tab
 moves focus on and Enter or Space presses it (`ownsItsKeys`). Chrome the

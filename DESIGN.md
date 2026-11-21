@@ -5414,12 +5414,13 @@ planned again. A call in a batch reads the text left by its earlier calls.
 
 ### Batches of writes — `node.batch`
 
-`node.batch` takes `{calls, force?}`: a list of calls, each `{action, input}`
-naming `node.add`, `node.update`, `node.delete`, `field.define` or `tag.define`, and
-commits them as one transaction. It is how one gesture over several nodes is one write: a person
-tagging, moving or deleting a multi-row selection in the outline
-(DESIGN-UI.md → Outline editor, "A selection is a range of rows"), an agent
-retagging what a query found, `kb action-invoke` from a script. Each call's
+`node.batch` takes `{calls, ids?, force?}`, where each call has an
+`{action, input}` naming `node.add`, `node.update`, `node.delete`,
+`field.define` or `tag.define`. It commits the calls in one transaction.
+The outline uses it to tag, move or delete a multi-row selection
+(DESIGN-UI.md → Outline editor, "A selection is a range of rows"). An agent
+can use it to retag query results, and a script can call it through
+`kb action-invoke`. Each call's
 input is that action's own input, read by its own schema, less `force`,
 which the batch states once for the whole commit; a `node.add` names its
 `parent` (`null` for the top level), since a batch decides every place
@@ -5448,7 +5449,12 @@ with the draft's parent (null for a top-level row) and exact text. Its node must
 parent and text, with no children or props. A failed precondition is a
 conflict, checked again over the current graph whenever the batch replans.
 
-The output is `{ ids }`, each call's node in call order. The action declares itself a batch of its parts
+The output is `{ ids }`, each call's node in call order. `ids` in the input
+is the same list, one id per call: a `node.add` that names no id of its own
+is created with its call's, and one is minted when the list is omitted; a
+list of another length is refused. It is the batch's `mints` key, so a page
+that commits a batch first pushes the ids its commit answered and the server
+creates the nodes the page shows, as `node.addTree` does. The action declares itself a batch of its parts
 (`batchOf`), so a guard on any of them governs it, decided with each part's
 own mode ([Action registry](#action-registry)). It declares no `targets`,
 since its nodes are inside its calls, so a script cannot call it (Sandbox →

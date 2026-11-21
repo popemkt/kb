@@ -99,6 +99,29 @@ describe.each([...STORE_BACKENDS])("node.batch over a %s store", (backend) => {
     expect(node("n.a")?.text).toBe("a");
   });
 
+  test("creates an add that names no id under the batch's id for its call", async () => {
+    // A page commits a batch first and pushes the ids its commit answered
+    // (`mints: "ids"`), so the server creates the nodes the page shows.
+    const { ctx, node } = await opened();
+    const calls = [
+      { action: "node.update", input: { id: "n.a", text: "renamed" } },
+      { action: "node.add", input: { text: "minted here", parent: "n.dest" } },
+      { action: "node.add", input: { id: "n.own", text: "own id", parent: null } },
+    ];
+    const receipt = await invoke(ctx, {
+      id: "node.batch",
+      input: { calls, ids: ["n.a", "n.pushed", "n.own"] },
+    });
+    expect(receipt).toMatchObject({
+      status: "succeeded",
+      output: { ids: ["n.a", "n.pushed", "n.own"] },
+    });
+    expect(node("n.pushed")?.text).toBe("minted here");
+    // One id per call, or none: a list that does not fit the calls is refused.
+    const short = await invoke(ctx, { id: "node.batch", input: { calls, ids: ["n.a"] } });
+    expect(short).toMatchObject({ status: "failed", code: "invalid_input" });
+  });
+
   test("deletes nothing more for a node an earlier call already deleted, as node.delete does", async () => {
     const { ctx, node } = await opened();
     const head = ctx.log.head;

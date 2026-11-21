@@ -1,0 +1,6 @@
+{
+  "reason": "node.batch takes ids, one per call, and declares them its mints key, so an optimistic batch pushes the ids its local commit minted and the server creates the nodes the page shows.",
+  "raise": {
+    "cli-closure": { "bytes": 368 }
+  }
+}

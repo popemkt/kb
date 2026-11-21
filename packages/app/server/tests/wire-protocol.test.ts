@@ -107,9 +107,12 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // whole, writing nothing.
 // `requireEmptyLine.parent` may be null, a top-level row's draft. An earlier build of
 // protocol 13 refuses that input, so the row stays: no new protocol.
+// The page sends the ids its optimistic `node.batch` minted (`ids`, one per
+// call); a server of an earlier protocol drops them and mints its own, and the
+// page catches up to its graph, as for `node.addTree`.
 const RECORDED = {
   protocol: 13,
-  fingerprint: "9dc4fcf19e8669263ac17b1ad1c3c8c4239ce18dacc6d94318f0402974489f1a",
+  fingerprint: "cbce2f6b7b43b70138da780e63c0994ee802b8b3853cd5f460ab3f816291c6c8",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

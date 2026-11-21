@@ -203,6 +203,27 @@ describe("the page's query answers", () => {
     expect(await queries.settle(follow)).toEqual(direct);
   });
 
+  it("settles only the queries a reader's awaits names, reading the rest as they stand", async () => {
+    const index = new DatascriptIndex([node("a", "b")], { derived: derivedWith({}) });
+    const other = textOf("a");
+    const queries = new ReplicaQueries(
+      {
+        // `other` never answers: a settle that waited for it would never return.
+        run: (request) =>
+          request.edn === other
+            ? new Promise<QueryAnswer>(() => {})
+            : Promise.resolve(answerOf(index, request, clock)),
+      },
+      () => index.generation,
+      wall,
+    );
+    const read = (run: (edn: string) => unknown[][]) => ({
+      ids: run(IDS).length,
+      other: run(other).length,
+    });
+    expect(await queries.settle(read, () => new Set([IDS]))).toEqual({ ids: 1, other: 0 });
+  });
+
   it("a clocked answer lapses at the next local midnight, and a watched one is asked again", async () => {
     // 2026-03-10T22:00:00Z: 23:00 in Amsterdam, an hour before its midnight.
     const hand = handClock(Date.UTC(2026, 2, 10, 22));

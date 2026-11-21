@@ -1045,14 +1045,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — docs/research/2026-11-11-cli-host-modes.md step 7.
 - **node** — `01M75MA4HB3NFDXGGKG0RE45H5`
 
-### GAP: Expand subtree / Expand all do not open results of a query that has not answered yet
-
-- **expected** — Expand subtree and Expand all open the results of every query they open, a query not yet answered included; an async version stays scoped to its page and awaits only the queries inside the requested subtree
-- **current** — The subtree walk (rowsDrawnOpen in outline.store.ts) reads the answers the page has, synchronously: a query it opens that has not answered yet draws no results, so they stay closed. An async version (580ea33e, reverted) settled the page's answers first, and Sol's re-check of 62c65a19 found two faults: Expand all applied its choices after the queries settled, so navigating meanwhile landed them on another page; and the settled walk waited on queries in branches outside the requested subtree
-- **impact** — ⌘⌥↓ on a closed query that no row has drawn opens the query but not its results or the rows under them; pressing it again once the results show opens them
-- **closes** — An async subtree step that captures its page and host, drops its result if the page has moved by the time it settles, and settles only the queries the requested subtree opens
-- **node** — `01M7XSM8DNSX1HCZW2217PX5M1`
-
 ### GAP: ext-canvas keeps its own copy of requireNode
 
 - **expected** — One reader of the node an action names, or its not_found refusal, in a package both @kb/operations' actions and an extension's actions may import (beside KbContext in @kb/contracts), which every action that reads one node by id calls.
@@ -1402,14 +1394,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The policy is honest in code and invisible in the product: the one audience who could fix a malformed prop is the one who cannot see it. Repeat renders also re-log the same warning, because getViewConfig runs per node per render.
 - **closes** — Give the two decoders' reports a home in the ui the way ontology warnings have one — a store field plus a badge — and have the config surfaces read it instead of the log seam. Component + store work: out of g8's zone (docs/kb/waves/2026-09-09/briefs/g8-domain-typing.md).
 - **node** — `01M1XF1NA2RBAX1E6NNX6PMZ6N`
-
-### GAP: node.batch mints missing add ids twice when run optimistically
-
-- **expected** — A node.batch add creates the same node on the page and on the server, including when the caller omits id.
-- **current** — The isomorphic node.batch planner mints an id for each node.add with no id. The page pushes the original nested calls, so the server mints other ids.
-- **impact** — A caller holding an id from the local batch receipt can lose its selection or refer to a node the server never stored.
-- **closes** — Project the ids in the local batch receipt into the corresponding node.add inputs before pushing, using the same action declaration as outline paste. Prove mixed batches keep their call order and explicit ids.
-- **node** — `01M7X43QWW4ZHWA2WFWJ6WP5ZY`
 
 ### GAP: nodes have no icon, so refs cannot show one
 
@@ -2853,6 +2837,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — planSplit counts the shown node's children.
 - **node** — `01M3KA3BBRADE3TNWQ78JNK37M`
 
+### GAP: Expand subtree / Expand all do not open results of a query that has not answered yet
+
+- **expected** — Expand subtree and Expand all open the results of every query they open, a query not yet answered included; an async version stays scoped to its page and awaits only the queries inside the requested subtree
+- **current** — The subtree walk (rowsDrawnOpen in outline.store.ts) reads the answers the page has, synchronously: a query it opens that has not answered yet draws no results, so they stay closed. An async version (580ea33e, reverted) settled the page's answers first, and Sol's re-check of 62c65a19 found two faults: Expand all applied its choices after the queries settled, so navigating meanwhile landed them on another page; and the settled walk waited on queries in branches outside the requested subtree
+- **impact** — ⌘⌥↓ on a closed query that no row has drawn opens the query but not its results or the rows under them; pressing it again once the results show opens them
+- **closes** — An async subtree step that captures its page and host, drops its result if the page has moved by the time it settles, and settles only the queries the requested subtree opens
+- **node** — `01M7XSM8DNSX1HCZW2217PX5M1`
+
 ### GAP: extension SDK mirror is not bidirectionally typed
 
 - **expected** — The dependency-free public SDK contract and runtime contract are generated from one canonical schema or proven exactly assignable in both directions.
@@ -3075,6 +3067,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Anything a page reads from a pasted tree before the push settles names nodes that will not exist: a selection made at once is lost, and a write that refers to a returned id (a setting naming the new Library) is refused or dangles. The gallery runs its starter on the server (ext.gallery.starter) to avoid it
 - **closes** — node.addTree takes the ids to mint (one per flattened item), filled from the local commit and pushed with the invocation, as node.add's id is
 - **node** — `01M5ZBC8DQWB1DY5Z9AAABGPYR`
+
+### GAP: node.batch mints missing add ids twice when run optimistically
+
+- **expected** — A node.batch add creates the same node on the page and on the server, including when the caller omits id.
+- **current** — The isomorphic node.batch planner mints an id for each node.add with no id. The page pushes the original nested calls, so the server mints other ids.
+- **impact** — A caller holding an id from the local batch receipt can lose its selection or refer to a node the server never stored.
+- **closes** — Project the ids in the local batch receipt into the corresponding node.add inputs before pushing, using the same action declaration as outline paste. Prove mixed batches keep their call order and explicit ids.
+- **node** — `01M7X43QWW4ZHWA2WFWJ6WP5ZY`
 
 ### GAP: NodeBlock decides row chrome with 28 branches
 
