@@ -11,6 +11,8 @@ import { chmodSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync 
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { Effect } from "effect";
+import { WIRE_PROTOCOL } from "@kb/contracts";
+import { KB_SOURCE_BIN } from "@kb/test-kit";
 import {
   kbCandidates,
   kbChannel,
@@ -50,8 +52,16 @@ function script(file: string, body: string): string {
  */
 const RUNTIME = "kb-test-runtime";
 const NEEDS_BUN = `exec ${RUNTIME} "$@"`;
-/** A stand-in Bun that answers `--version` and any command with a receipt. */
-const FAKE_BUN = `case "$1" in --version) echo 9.9.9 ;; *) echo '{"status":"succeeded","output":{"rows":[]}}' ;; esac`;
+/** What a kb of `protocol` answers `kb --version --json` with. */
+function versionJson(protocol: number, version = "9.9.9"): string {
+  return JSON.stringify({ version, protocol });
+}
+/** A kb script that answers `--version --json` as a kb of `protocol` does, and nothing else. */
+function speaks(protocol: number, version?: string): string {
+  return `echo '${versionJson(protocol, version)}'`;
+}
+/** A stand-in Bun that answers `--version` as a kb of this app's protocol, and any command with a receipt. */
+const FAKE_BUN = `case "$1" in --version) ${speaks(WIRE_PROTOCOL)} ;; *) echo '{"status":"succeeded","output":{"rows":[]}}' ;; esac`;
 
 describe("programPath", () => {
   test("adds the install places to a bare PATH, and the build's runtimes last", () => {
@@ -161,6 +171,47 @@ describe("resolveKb", () => {
   });
 });
 
+describe("a kb that runs but does not speak this app's wire protocol", () => {
+  const env = kbEnvironment({ path: BARE, home: "/nonexistent", user: undefined });
+  async function probe(body: string): Promise<string | null> {
+    const kb: KbCandidate = { source: "path", file: script(join(scratchDir(), "kb"), body) };
+    return Effect.runPromise(processProbe(env)(kb));
+  }
+
+  test("a kb older than `kb --version --json` is passed over, and the protocol it needs named", async () => {
+    // Before it reported its protocol, kb printed its version alone, whatever followed the flag.
+    const why = await probe("echo 0.3.1-nightly.20261101000000");
+    expect(why).toContain("0.3.1-nightly.20261101000000");
+    expect(why).toContain(`wire protocol ${WIRE_PROTOCOL}`);
+    expect(why).toContain("update kb");
+  });
+
+  test("an older protocol asks for a newer kb", async () => {
+    const why = await probe(speaks(WIRE_PROTOCOL - 1, "0.3.2"));
+    expect(why).toBe(
+      `kb 0.3.2 speaks wire protocol ${WIRE_PROTOCOL - 1}, and this app speaks ${WIRE_PROTOCOL}: update kb`,
+    );
+  });
+
+  test("a newer protocol asks for a newer app", async () => {
+    const why = await probe(speaks(WIRE_PROTOCOL + 1, "0.4.0"));
+    expect(why).toBe(
+      `kb 0.4.0 speaks wire protocol ${WIRE_PROTOCOL + 1}, and this app speaks ${WIRE_PROTOCOL}: update kb desktop`,
+    );
+  });
+
+  test("this checkout's kb speaks the protocol this app was built with", async () => {
+    // The checkout's kb execs Bun by name: the one this test runs on.
+    const withBun = kbEnvironment({
+      path: process.env.PATH,
+      home: "/nonexistent",
+      user: undefined,
+    });
+    const kb: KbCandidate = { source: "checkout", file: KB_SOURCE_BIN };
+    expect(await Effect.runPromise(processProbe(withBun, 30_000)(kb))).toBeNull();
+  });
+});
+
 describe("a kb that execs bun, from an app with a bare PATH", () => {
   test("without the build's Bun it cannot run, and says why", async () => {
     const dir = scratchDir();
@@ -192,7 +243,7 @@ describe("a kb that execs bun, from an app with a bare PATH", () => {
   test("a release build that finds the checkout's kb broken runs the installed one", async () => {
     const dir = scratchDir();
     const checkout = script(join(dir, "checkout", "bin", "kb"), NEEDS_BUN);
-    const installed = script(join(dir, "profile", "bin", "kb"), "echo 0.3.1");
+    const installed = script(join(dir, "profile", "bin", "kb"), speaks(WIRE_PROTOCOL));
     const env = kbEnvironment({ path: BARE, home: join(dir, "home"), user: undefined });
     const places = { checkout, path: `${join(dir, "profile", "bin")}${delimiter}${env.PATH}` };
     const release = await Effect.runPromise(

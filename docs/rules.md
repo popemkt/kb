@@ -1240,14 +1240,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The locations family gains an origin (a URL-typed field beside sys.f.location.path, status derived by probing it), and the desktop lists and opens remotes through location.list and location.open.
 - **node** — `01M7QTTRFKDF9B7F4M29Z84XJQ`
 
-### GAP: kb desktop proves its kb runs, not that it is new enough
-
-- **expected** — Resolution passes over a kb that runs but lacks what the desktop calls (capture.submit, capture.pair), the same way it passes over one that cannot run, and says which version it needs.
-- **current** — processProbe in packages/app/desktop/src/core/kb-command.ts asks only kb --version to answer; an older installed kb wins in a release build and quick capture to its stores is refused with "update kb".
-- **impact** — On a Mac whose installed kb is an older nightly, a release build runs it ahead of a newer checkout kb, so capture to local stores fails until the installed kb is updated or "kb" is set.
-- **closes** — kb --version (or a capabilities action) reports the contract versions it serves, and the probe requires the capture contract the desktop speaks.
-- **node** — `01M7WV5DBWNMEWS2QG6M4VP3QY`
-
 ### GAP: kb desktop reads a remote's capture contract once, at pairing
 
 - **expected** — The desktop learns which capture contracts a paired remote accepts from its kb.manifest when it checks the store, as the Android app does before it delivers (Deliverer.checkContract), so the store list and a capture see the host's current contract.
@@ -3032,6 +3024,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Not reachable now; a new writer that skips the schema could make a javascript: link clickable.
 - **closes** — Validate in withLink (the one writer) and make itemLead's type a checked link.
 - **node** — `01M55AE092VNPBQKGGZZHZZY9W`
+
+### GAP: kb desktop proves its kb runs, not that it is new enough
+
+- **expected** — Resolution passes over a kb that runs but lacks what the desktop calls (capture.submit, capture.pair), the same way it passes over one that cannot run, and says which version it needs.
+- **current** — processProbe in packages/app/desktop/src/core/kb-command.ts asks only kb --version to answer; an older installed kb wins in a release build and quick capture to its stores is refused with "update kb".
+- **impact** — On a Mac whose installed kb is an older nightly, a release build runs it ahead of a newer checkout kb, so capture to local stores fails until the installed kb is updated or "kb" is set.
+- **closes** — kb --version (or a capabilities action) reports the contract versions it serves, and the probe requires the capture contract the desktop speaks.
+- **node** — `01M7WV5DBWNMEWS2QG6M4VP3QY`
 
 ### GAP: kb mutation skipped saving its baseline after a report failure
 
