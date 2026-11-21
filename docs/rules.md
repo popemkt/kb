@@ -273,14 +273,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — dropOver takes the frame's view (frameViewOf, its sort and group), and a drop over a sorted or grouped frame's rows lands in the frame with the line on the frame's own row.
 - **node** — `01M7D25CX9D6V64G19PYJJYCXM`
 
-### GAP: a DST scenario is not hermetic: KB_DATA moved under it changes its store
-
-- **expected** — A seeded DST history replays to a byte-identical store every time (dst.test.ts, each committed seed replays to a byte-identical store), on any machine and under any load, whatever else the process does meanwhile
-- **current** — A scenario reads where kb keeps its data (KB_DATA, through currentData) each time a commit keeps its backup, and that work reads the seeded clock. So moving KB_DATA while a scenario runs changes its stamps from there on (23 of 543 lines, reproduced 2026-11-14). The test preload moves KB_DATA in every beforeEach, and a test that overruns its budget keeps running beside the next one, so an overrun replay diverges: CI run 43497638157 (seed dst-3, after the looped replay test overran 32 s) and, likely, the dst-2 divergence once under load (four stamps 46 s apart). Each committed seed is now its own test, inside the budget, so only a genuine hang overruns.
-- **impact** — A DST replay depends on process-global state outside the simulation: whatever moves KB_DATA mid-run, an overrun included, makes it diverge, and the failure reads as nondeterminism in the store
-- **closes** — A scenario pins its own data directory: currentData read from a provided service whose default is the environment, so runScenario provides one it owns and nothing outside can move it
-- **node** — `01M740E2KPGXWP4WKTE2XZ6N56`
-
 ### GAP: a family a host composes is switched only where that host runs
 
 - **expected** — every surface can write any family's switch, a hosted one included, and kb ext list lists it
@@ -800,6 +792,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — two hosts to keep in step: quality, visibility and no-restart fixes land twice
 - **closes** — move the shared GPU backdrop host out of backdrops-ui into a kit package (beside @kb/scene-gpu) with its scene registry passed in, then port arena-scene.ts onto mountBackdrop and delete Arena's wrapper; the port drops Arena's write() and its Pod re-fire in favour of reactions.impulse / reactions.stir read in frame(), and Arena passes backdrop-continuity.contract.test.tsx
 - **node** — `01M5SYY397F5NPN3CHWGCSPQSY`
+
+### GAP: browser tests duplicate polling loops with independent deadlines
+
+- **expected** — Browser tests waiting for an observable result share a helper in @kb/ui-test-kit and use the owning test timeout.
+- **current** — Browser-scope tests in @kb/ui and @kb/graph-ui implement their own polls, several with individual deadlines.
+- **impact** — A busy host can expire a poll while its enclosing test still has time to finish, and each test must own its own cleanup.
+- **closes** — Provide one Vitest-compatible wait in @kb/ui-test-kit, tie it to the test lifetime, and migrate the browser callers.
+- **node** — `01M7WYE1A1B7RX5H6Q7058C14A`
 
 ### GAP: BrowserStore IndexedDB persistence
 
@@ -1532,14 +1532,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — move store-jsonl's write-lock into a shared package as a path-keyed lock, take it around recordBuild's refresh-or-publish and prune, and add a concurrent refresh-vs-prune test
 - **node** — `01M6H0QPT8K2YPY6XV6SM5WRYH`
 
-### GAP: query print-roundtrip coverage quota depends on independent random samples
-
-- **expected** — Query round-trip coverage includes a guaranteed meaningful set of non-empty answers, independent of chance.
-- **current** — ir.test.ts samples 100 independently generated stores and queries, then requires at least 8 non-empty answers. CI run 42451620455 produced 7, although every round-trip comparison passed.
-- **impact** — An unchanged query implementation can fail the full core gate nondeterministically; this blocked the extension UI PR.
-- **closes** — Generate meaningful non-empty cases by construction alongside broad random cases, preserve the comparison contract, and reproduce the failing coverage distribution.
-- **node** — `01M6WV8JS4GPF0TRYDZY948C40`
-
 ### GAP: query-result rows are not keyed per pane
 
 - **expected** — query-result rows carry their outline host in their instance key, like other rows
@@ -1784,14 +1776,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — References land in the wrong group or order in every view but the outline.
 - **closes** — Those steps read shownNode while still returning row ids.
 - **node** — `01M3KA3B5V5K7GYYPAYK7G6KHG`
-
-### GAP: tests that poll until something happens give up on a wall-clock deadline of their own
-
-- **expected** — One test-kit wait-until helper that polls until its condition holds, bounded by the test's own timeout, which is what every such test means by 'soon'
-- **current** — Seven test files each carry their own poll loop with a deadline of 2 to 10 s (cli tests/surfaces.ts, server screens/channels/cross-process-sync/extension-reload, agent providers/bridge, workspace-fs extensions); each gives up and asserts at its deadline
-- **impact** — A loop gives up at its deadline whatever the machine's load. The events they wait for take milliseconds, so the margin is a hundred times or more and none has failed yet, but the loops are seven copies of one mechanism with seven deadlines
-- **closes** — Move the loop into @kb/test-kit, bounded by the test's timeout, and replace the seven copies with it
-- **node** — `01M7B3HX9R9DNDDTJY546W1HH3`
 
 ### GAP: the # and > pickers list rows that do not match the query and ignore recency
 
@@ -2380,6 +2364,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Choose one carrier (the date variant, since PropValue already names it, or drop the variant), migrate stored values on open the way migrateFieldTypeValues does for type values, and list one kind for date.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M39X7NQV187BDQVGH81997M5`
+
+### GAP: a DST scenario is not hermetic: KB_DATA moved under it changes its store
+
+- **expected** — A seeded DST history replays to a byte-identical store every time (dst.test.ts, each committed seed replays to a byte-identical store), on any machine and under any load, whatever else the process does meanwhile
+- **current** — Closed: runScenario supplies a private data directory for every backup made during replay. A regression repoints KB_DATA after 30 operations, verifies identical store bytes and checks that the redirected directory stays empty.
+- **impact** — A DST replay depends on process-global state outside the simulation: whatever moves KB_DATA mid-run, an overrun included, makes it diverge, and the failure reads as nondeterminism in the store
+- **closes** — A scenario pins its own data directory: currentData read from a provided service whose default is the environment, so runScenario provides one it owns and nothing outside can move it
+- **node** — `01M740E2KPGXWP4WKTE2XZ6N56`
 
 ### GAP: a family that only kb ui hosts contributes no registry actions
 
@@ -3061,6 +3053,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Same registry as the FieldRow gap: one place maps a field type to its editor.
 - **node** — `01M1MGCND3KMDYJPSSMD2E4Q9J`
 
+### GAP: query print-roundtrip coverage quota depends on independent random samples
+
+- **expected** — Query round-trip coverage includes a guaranteed meaningful set of non-empty answers, independent of chance.
+- **current** — Closed: curated queries exercise each generated clause shape with a guaranteed non-empty result. The randomized round-trip comparison no longer depends on how many of its runs produce rows.
+- **impact** — An unchanged query implementation can fail the full core gate nondeterministically; this blocked the extension UI PR.
+- **closes** — Generate meaningful non-empty cases by construction alongside broad random cases, preserve the comparison contract, and reproduce the failing coverage distribution.
+- **node** — `01M6WV8JS4GPF0TRYDZY948C40`
+
 ### GAP: RefEditor mixes candidate search, keyboard handling and rendering in 22 branches
 
 - **expected** — Ref candidate search and keyboard navigation are a hook (useRefCandidates) the editor renders from.
@@ -3226,6 +3226,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — P0 of docs/research/2026-10-29-plugin-codependency.md
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M63C0GJ5M78G1TFKM00RN4X6`
+
+### GAP: tests that poll until something happens give up on a wall-clock deadline of their own
+
+- **expected** — One test-kit wait-until helper that polls until its condition holds, bounded by the test's own timeout, which is what every such test means by 'soon'
+- **current** — Closed: one until helper in @kb/test-kit replaces 15 polling loops across 13 Bun test files. Bun owns the timeout, reports the awaited condition and stops pending waits at test completion.
+- **impact** — Independent polling deadlines could expire while the owning test still had time to finish. Maintaining the loop separately in 13 test files also made cleanup inconsistent.
+- **closes** — Use the shared until helper in the Bun tests that poll for observable results, and verify that an expired wait stops before the next test.
+- **node** — `01M7B3HX9R9DNDDTJY546W1HH3`
 
 ### GAP: the 3D bullet atlas has a fixed capacity
 

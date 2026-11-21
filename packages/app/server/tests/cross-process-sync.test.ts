@@ -1,4 +1,4 @@
-import { KB_SOURCE_BIN } from "@kb/test-kit";
+import { KB_SOURCE_BIN, until } from "@kb/test-kit";
 /**
  * Live sync across processes: a running `kb ui`, a `kb add` from a second
  * process, and the write reaching the UI's watchers as a `tx` frame.
@@ -22,12 +22,6 @@ import { childProcessEnv } from "@kb/runtime";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
 const CLI = KB_SOURCE_BIN;
-
-/**
- * Generous next to `STORE_CHANGES_POLL` (1s), the port's bound for an
- * unreported write: the property is "live", not "fast".
- */
-const FRAME_TIMEOUT_MS = 5000;
 
 type TxFrame = Extract<ServerMessage, { op: "tx" }>;
 
@@ -62,19 +56,11 @@ async function watchingClient(port: number): Promise<{ ws: WebSocket; frames: Se
   return { ws, frames };
 }
 
-async function txFrameMatching(
-  frames: ServerMessage[],
-  text: string,
-): Promise<TxFrame | undefined> {
-  const deadline = Date.now() + FRAME_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    const hit = frames.find(
-      (f): f is TxFrame => f.op === "tx" && f.upserts.some((n) => n.text === text),
-    );
-    if (hit !== undefined) return hit;
-    await Bun.sleep(25);
-  }
-  return undefined;
+async function txFrameMatching(frames: ServerMessage[], text: string): Promise<TxFrame> {
+  return until(
+    () => frames.find((f): f is TxFrame => f.op === "tx" && f.upserts.some((n) => n.text === text)),
+    `a transaction containing "${text}"`,
+  );
 }
 
 async function graphRev(handle: UiServerHandle): Promise<number> {
@@ -95,29 +81,23 @@ describe.each(["jsonl", "sqlite"] as const)("a %s store", (store) => {
     await rm(root, { recursive: true, force: true });
   });
 
-  test(
-    "a CLI write from another process reaches a running server as a tx frame",
-    async () => {
-      root = await mkdtemp(join(tmpdir(), `kb-cross-process-${store}-`));
-      await kb(root, "init", "--store", store, "--bare");
-      handle = await Effect.runPromise(startUi({ root, port: 0, openBrowser: false }));
-      const client = await watchingClient(Number(new URL(handle.url).port));
-      ws = client.ws;
-      const before = await graphRev(handle);
+  test("a CLI write from another process reaches a running server as a tx frame", async () => {
+    root = await mkdtemp(join(tmpdir(), `kb-cross-process-${store}-`));
+    await kb(root, "init", "--store", store, "--bare");
+    handle = await Effect.runPromise(startUi({ root, port: 0, openBrowser: false }));
+    const client = await watchingClient(Number(new URL(handle.url).port));
+    ws = client.ws;
+    const before = await graphRev(handle);
 
-      await kb(root, "add", "written by another process");
-      const first = await txFrameMatching(client.frames, "written by another process");
-      expect(first).toBeDefined();
-      expect(first?.rev).toBeGreaterThan(before);
-      expect(await graphRev(handle)).toBe(first?.rev ?? -1);
+    await kb(root, "add", "written by another process");
+    const first = await txFrameMatching(client.frames, "written by another process");
+    expect(first.rev).toBeGreaterThan(before);
+    expect(await graphRev(handle)).toBe(first.rev);
 
-      // The second write is the one a stale watch would miss: the first
-      // replaced the file the watch was opened on.
-      await kb(root, "add", "and again");
-      const second = await txFrameMatching(client.frames, "and again");
-      expect(second).toBeDefined();
-      expect(second?.rev).toBeGreaterThan(first?.rev ?? Infinity);
-    },
-    3 * FRAME_TIMEOUT_MS + 10_000,
-  );
+    // The second write is the one a stale watch would miss: the first
+    // replaced the file the watch was opened on.
+    await kb(root, "add", "and again");
+    const second = await txFrameMatching(client.frames, "and again");
+    expect(second.rev).toBeGreaterThan(first.rev);
+  }, 30_000);
 });

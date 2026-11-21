@@ -7,7 +7,7 @@
  */
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { Effect, Schema } from "effect";
+import { Context, Effect, Schema } from "effect";
 
 /**
  * A test run that named no home store of its own. Never caught: the fix is
@@ -57,10 +57,14 @@ export function dataPath(
   return join(data !== undefined && data !== "" ? data : join(home, ".local", "share"), "kb");
 }
 
-export const currentData: Effect.Effect<string> = Effect.sync(() =>
-  // oxlint-disable-next-line node/no-process-env -- the one read of the user's persistent data directory
-  dataPath(process.env, process.platform, homedir()),
-);
+/** A runtime can pin its own data directory. The default resolves the environment at each read. */
+export const DataDirectory = Context.Reference<() => string>("kb/DataDirectory", {
+  defaultValue: () => () =>
+    // oxlint-disable-next-line node/no-process-env -- the one read of the user's persistent data directory
+    dataPath(process.env, process.platform, homedir()),
+});
+
+export const currentData = Effect.map(DataDirectory, (directory) => directory());
 
 /**
  * The home store's directory now. The environment is read each time this

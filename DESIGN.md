@@ -494,6 +494,12 @@ by time takes one of three forms:
 Bench-lane files (`bun run bench`) print wall time and are held to nothing
 but comparisons made within one run.
 
+Bun tests waiting for an observable result use `until` from `@kb/test-kit`.
+The probe retries on `undefined`. The runner owns the timeout and stops any
+pending wait when the test finishes, reporting what it was waiting for.
+An ended wait stays pending so the test body cannot resume during teardown.
+Tests register resource cleanup with the runner before waiting.
+
 **Coverage is a signal, never a gate.** It may be reported; there is no
 "fail below N%" check and there will not be one. Chasing a percentage
 manufactures exactly the noise this doctrine forbids.
@@ -6429,9 +6435,12 @@ are `docs/brainstorms/2026-10-17-kb-locations/README.md`.
   back.
 - **The per-user data directory**, owned by `dataPath` in `@kb/workspace-fs`,
   is `$KB_DATA`, else `~/Library/Application Support/kb` on macOS, else
-  `${XDG_DATA_HOME:-~/.local/share}/kb`. A test run must name `KB_DATA`;
-  there is no fallback to the person's data. Trust and installed extension
-  state belong here.
+  `${XDG_DATA_HOME:-~/.local/share}/kb`. Effect code resolves it through
+  `DataDirectory`, which reads the environment by default. A test run must
+  name `KB_DATA` or provide a directory through the service. Each seeded
+  simulation provides a private directory for the whole replay, so changes
+  to the process environment leave its store bytes unchanged. Trust and
+  installed extension state belong here.
 - **The home store** is `$KB_HOME` when set, else `<data>/home`. It is a full root,
   seeded with the bundled fold like any store, so opening it gives tables,
   boards and queries over the locations with nothing of its own; opened, it

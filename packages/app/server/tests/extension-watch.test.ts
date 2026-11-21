@@ -13,7 +13,13 @@ import { SYSTEM_IDS, extensionNodeId, present } from "@kb/model";
 import type { ServerMessage } from "@kb/contracts";
 import { kbManifestDef } from "@kb/operations";
 import { childProcessEnv } from "@kb/runtime";
-import { extensionModule, KB_SOURCE_BIN, trustExtension, writeExtension } from "@kb/test-kit";
+import {
+  extensionModule,
+  KB_SOURCE_BIN,
+  trustExtension,
+  writeExtension,
+  until,
+} from "@kb/test-kit";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
 const FOLDER = join(".kb", "extensions");
@@ -66,33 +72,6 @@ async function connect(url: string) {
   return frames;
 }
 
-async function until<T>(read: () => T | undefined, what: string): Promise<T> {
-  const end = Date.now() + 10_000;
-  while (Date.now() < end) {
-    const found = read();
-    if (found !== undefined) return found;
-    await Bun.sleep(25);
-  }
-  throw new Error(`timed out waiting for ${what}`);
-}
-
-/**
- * Ask `read` until it answers, as a page asks `kb.manifest` again after it
- * is told the manifest moved: the state is the signal, never which frame
- * came first, since a server also tells a page each runtime change (a
- * trust or lock reading, its first one at start included) whether or not
- * the composition moved.
- */
-async function settled<T>(read: () => Promise<T | undefined>, what: string): Promise<T> {
-  const end = Date.now() + 10_000;
-  while (Date.now() < end) {
-    const found = await read();
-    if (found !== undefined) return found;
-    await Bun.sleep(25);
-  }
-  throw new Error(`timed out waiting for ${what}`);
-}
-
 /** What the server last told this connection of its watch. */
 function watched(frames: readonly ServerMessage[]): string | null | undefined {
   const told = frames.filter((frame) => frame.op === "extension-watch");
@@ -140,7 +119,8 @@ test("watching, an edit to an own extension is followed, and its new bytes wait 
       prelude: `import {writeFileSync} from "node:fs";writeFileSync(${JSON.stringify(marker)},"ran");`,
     }),
   );
-  const edited = await settled(async () => {
+  // The manifest content shows the edit. The server can announce other runtime changes first.
+  const edited = await until(async () => {
     const row = await liveRow(handle);
     return row !== undefined && row.digest !== first ? row : undefined;
   }, "the edit to be followed");
@@ -152,7 +132,7 @@ test("watching, an edit to an own extension is followed, and its new bytes wait 
   // Trusted again, the new bytes run.
   frames.length = 0;
   const second = await trustExtension(root, "live.ts");
-  await settled(async () => {
+  await until(async () => {
     const row = await liveRow(handle);
     return row?.trusted === true && row.digest === second ? row : undefined;
   }, "the new bytes to be trusted");
@@ -179,7 +159,7 @@ test("a runtime change that moves nothing tells no page; the edit after it is to
     "live.ts",
     extensionModule("live", { declaration, actions: actions(2) }),
   );
-  await settled(async () => {
+  await until(async () => {
     const row = await liveRow(handle);
     return row !== undefined && row.digest !== first ? row : undefined;
   }, "the edit to be followed");

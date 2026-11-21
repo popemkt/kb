@@ -4,7 +4,7 @@
  * (`@kb/contracts` → `protocol.ts`). It stands in for the browser wherever a
  * test needs a live tab and has no page.
  */
-import { Effect } from "effect";
+import { Effect, Exit } from "effect";
 import { present } from "@kb/model";
 import {
   SCREEN_APPLIED,
@@ -92,15 +92,27 @@ export class FakeTab {
     screen: ScreenState | null = FAKE_TAB_SCREEN,
     from: "page" | "program" = "page",
   ): Effect.Effect<FakeTab> {
-    return Effect.gen(function* () {
-      const origin = new URL(uiAddressOf(at)).origin;
-      const url =
-        at.kind === "tcp" ? `${origin.replace(/^http/, "ws")}/ws` : `ws+unix://${at.path}:/ws`;
-      const socket = new WebSocket(url, { headers: from === "page" ? { origin } : {} });
-      const tab = new FakeTab(id, socket);
-      yield* tab.#exchange(null, (msg) => msg.op === "hello");
-      if (screen !== null) yield* tab.publish(screen);
-      return tab;
+    return Effect.acquireUseRelease(
+      Effect.sync(() => {
+        const origin = new URL(uiAddressOf(at)).origin;
+        const url =
+          at.kind === "tcp" ? `${origin.replace(/^http/, "ws")}/ws` : `ws+unix://${at.path}:/ws`;
+        return new FakeTab(id, new WebSocket(url, { headers: from === "page" ? { origin } : {} }));
+      }),
+      (tab) =>
+        Effect.gen(function* () {
+          yield* tab.#exchange(null, (msg) => msg.op === "hello");
+          if (screen !== null) yield* tab.publish(screen);
+          return tab;
+        }),
+      (tab, exit) => (Exit.isFailure(exit) ? tab.close : Effect.void),
+    );
+  }
+
+  /** Close a connected tab with the scope, while allowing interruption during its handshake. */
+  static scoped(...args: Parameters<typeof FakeTab.open>) {
+    return Effect.acquireRelease(FakeTab.open(...args), (tab) => tab.close, {
+      interruptible: true,
     });
   }
 
