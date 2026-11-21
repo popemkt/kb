@@ -16,7 +16,7 @@ import { useGraphStore } from "@/stores/graph.store";
 import { useUiStore } from "@/stores/ui.store";
 import { mountActiveTextHost } from "@/test-support/active-text-host";
 import { installDomGlobals } from "@kb/ui-test-kit";
-import { resetOutlineStore } from "@/test-support/outline-store";
+import { resetOutlineStore, rowKey } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import {
   outlineNodes,
@@ -72,8 +72,8 @@ function hydrate(): void {
       [FILES, "q.first", FROM_FILE],
     );
   // Both start collapsed: open them, as `seedWithReference` does.
-  act(() => useOutlineStore.getState().toggleCollapse(PARENT));
-  act(() => useOutlineStore.getState().toggleCollapse(FILES));
+  act(() => useOutlineStore.getState().toggleCollapse(rowKey(PARENT)));
+  act(() => useOutlineStore.getState().toggleCollapse(rowKey(FILES)));
 }
 
 /** What the page has toasted. */

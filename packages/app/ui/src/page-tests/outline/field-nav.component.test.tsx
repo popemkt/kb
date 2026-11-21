@@ -11,7 +11,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { present, SYSTEM_IDS } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
-import { resetOutlineStore } from "@/test-support/outline-store";
+import { resetOutlineStore, rowKey } from "@/test-support/outline-store";
 import { outlineInstanceKey, setCaretSerializedOffset, syncUiPlugins } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
@@ -96,7 +96,7 @@ describe.each([
   beforeEach(async () => {
     resetOutlineStore();
     useGraphStore.getState().hydrateFromWire(graph, 1, "fixtures");
-    useOutlineStore.getState().toggleCollapse("n.a");
+    useOutlineStore.getState().toggleCollapse(rowKey("n.a"));
     container = dom.window.document.createElement("div") as unknown as HTMLDivElement;
     dom.window.document.body.appendChild(container as unknown as never);
     root = createRoot(container);

@@ -43,7 +43,6 @@ describe("node sections in a scoped outline", () => {
       ];
       const scoped = wireToOutlineMap(
         wire.filter((n) => n.id === "day"),
-        new Set(),
         wire,
       );
       vi.mocked(useNodes).mockReturnValue(scoped);

@@ -32,7 +32,7 @@ const wires: WireNode[] = [
   node("frame", "Sprint", {}, ["r1"]),
   node("r1", "row", { [SYSTEM_IDS.typeField]: ref("t.task") }),
 ];
-const nodes = wireToOutlineMap(wires, new Set());
+const nodes = wireToOutlineMap(wires);
 const schema = schemaOfGraph(nodes);
 
 describe("the view settings' fields", () => {
@@ -45,13 +45,10 @@ describe("the view settings' fields", () => {
   });
 
   it("offers a pinned field first, before the rows' templated ones", () => {
-    const pinned = wireToOutlineMap(
-      [
-        ...wires.filter((n) => n.id !== "f.zeta"),
-        field("f.zeta", "zeta", { [SYSTEM_IDS.pinnedField]: [{ t: "bool", v: true }] }),
-      ],
-      new Set(),
-    );
+    const pinned = wireToOutlineMap([
+      ...wires.filter((n) => n.id !== "f.zeta"),
+      field("f.zeta", "zeta", { [SYSTEM_IDS.pinnedField]: [{ t: "bool", v: true }] }),
+    ]);
     expect(frameFieldCandidates("frame", pinned, schemaOfGraph(pinned)).map((c) => c.id)).toEqual([
       "f.zeta",
       "f.status",

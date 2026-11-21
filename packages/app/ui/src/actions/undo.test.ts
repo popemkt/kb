@@ -7,7 +7,7 @@ import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { resetOutlineStore } from "@/test-support/outline-store";
+import { resetOutlineStore, rowKey } from "@/test-support/outline-store";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.
@@ -58,7 +58,7 @@ describe("undo / redo (D19)", () => {
 
   it("undoes an indent: node returns to its previous parent", async () => {
     act(() => {
-      useOutlineStore.getState().toggleCollapse("n.root-a");
+      useOutlineStore.getState().toggleCollapse(rowKey("n.root-a"));
     });
     await mutations.indentNodes(["n.root-b"]);
     expect(outlineNodes().get("n.root-b")?.parentId).toBe("n.root-a");
@@ -90,8 +90,8 @@ describe("undo / redo (D19)", () => {
     // Expand root-a → child-a2 chain so the visual predecessor of root-b
     // (the next root row) is its deepest last descendant, n.grandchild.
     act(() => {
-      useOutlineStore.getState().toggleCollapse("n.root-a");
-      useOutlineStore.getState().toggleCollapse("n.child-a2");
+      useOutlineStore.getState().toggleCollapse(rowKey("n.root-a"));
+      useOutlineStore.getState().toggleCollapse(rowKey("n.child-a2"));
     });
     const bKey = "tree/n.root-b";
     const s = useOutlineStore.getState();

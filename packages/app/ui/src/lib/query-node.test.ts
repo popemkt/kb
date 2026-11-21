@@ -7,7 +7,7 @@ import { isQueryNode, present, queryDefOf, SYSTEM_IDS } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { resultNodeIds, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { resetOutlineStore } from "@/test-support/outline-store";
+import { resetOutlineStore, rowClosed, rowKey } from "@/test-support/outline-store";
 import type { WireNode } from "@kb/contracts";
 import { outlineNodes, useOutlineStore } from "@kb/outline-ui";
 
@@ -128,21 +128,21 @@ describe("query node collapse state (cheap-by-default)", () => {
     expect(q1.collapsed).toBe(true);
     expect(q1.children).toEqual([]);
 
-    store.toggleCollapse("n.q1");
-    expect(present(outlineNodes().get("n.q1"), "n.q1").collapsed).toBe(false);
+    store.toggleCollapse(rowKey("n.q1"));
+    expect(rowClosed("n.q1")).toBe(false);
 
     // Non-query leaf nodes still cannot toggle.
-    useOutlineStore.getState().toggleCollapse("n.root-c");
-    expect(present(outlineNodes().get("n.root-c"), "n.root-c").collapsed).toBe(false);
+    useOutlineStore.getState().toggleCollapse(rowKey("n.root-c"));
+    expect(rowClosed("n.root-c")).toBe(false);
 
-    useOutlineStore.getState().toggleCollapse("n.q1");
-    expect(present(outlineNodes().get("n.q1"), "n.q1").collapsed).toBe(true);
+    useOutlineStore.getState().toggleCollapse(rowKey("n.q1"));
+    expect(rowClosed("n.q1")).toBe(true);
   });
 
   it("expanded state survives a tx-driven map rebuild", () => {
     const store = useOutlineStore.getState();
-    store.toggleCollapse("n.q1");
-    expect(present(outlineNodes().get("n.q1"), "n.q1").collapsed).toBe(false);
+    store.toggleCollapse(rowKey("n.q1"));
+    expect(rowClosed("n.q1")).toBe(false);
     // Simulate an incoming WS tx touching an unrelated node.
     useGraphStore.getState().applyTx(
       [
@@ -160,7 +160,7 @@ describe("query node collapse state (cheap-by-default)", () => {
     );
     const graph = useGraphStore.getState();
     expect(outlineNodes().get("n.new")).toBeDefined();
-    expect(present(outlineNodes().get("n.q1"), "n.q1").collapsed).toBe(false);
+    expect(rowClosed("n.q1")).toBe(false);
     expect(graph.rootNodeId).toBe(WORKSPACE_ROOT_ID);
   });
 });

@@ -13,7 +13,7 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { mutations } from "@/actions/mutations";
 import { useGraphStore } from "@/stores/graph.store";
 import { mountActiveTextHost } from "@/test-support/active-text-host";
-import { resetOutlineStore } from "@/test-support/outline-store";
+import { resetOutlineStore, rowClosed, rowKey } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { createTransientNode, NodeBlock, outlineNodes, useOutlineStore } from "@kb/outline-ui";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
@@ -81,7 +81,7 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
 
   it("D05: Tab into a collapsed sibling expands it and keeps focus", async () => {
     // n.root-a starts collapsed (default) and precedes n.root-b.
-    expect(outlineNodes().get("n.root-a")?.collapsed).toBe(true);
+    expect(rowClosed("n.root-a")).toBe(true);
 
     const bKey = outlineInstanceKey("n.root-b", outlineNodes());
     act(() => {
@@ -96,7 +96,7 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
     // Reparented under the previously collapsed sibling…
     expect(outlineNodes().get("n.root-b")?.parentId).toBe("n.root-a");
     // …which auto-expanded so the row stays visible…
-    expect(outlineNodes().get("n.root-a")?.collapsed).toBe(false);
+    expect(rowClosed("n.root-a")).toBe(false);
     expect(s1.getVisibleNodes()).toContain("n.root-b");
     // …and focus remains on the indented node.
     expect(s1.activeNodeId).toBe("n.root-b");
@@ -104,7 +104,7 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
 
   it("D08: Backspace at index 0 of a first child outdents instead of swallowing", async () => {
     act(() => {
-      useOutlineStore.getState().toggleCollapse("n.root-a");
+      useOutlineStore.getState().toggleCollapse(rowKey("n.root-a"));
     });
     const nodes = outlineNodes();
     const childKey = outlineInstanceKey("n.child-a1", nodes);

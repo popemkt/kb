@@ -83,7 +83,7 @@ function fieldTypeOntology(): WireNode[] {
 const OPTION_IDS = Object.values(FIELD_TYPE_OPTION_IDS).slice().toSorted();
 
 function ontology(): NodeMap {
-  return wireToOutlineMap(fieldTypeOntology(), new Set());
+  return wireToOutlineMap(fieldTypeOntology());
 }
 
 /**
@@ -107,7 +107,7 @@ async function answeredOver(
 ): Promise<QueryAnswers> {
   const index = new DatascriptIndex(graph, { derived: derivedWith({}) });
   const queries = answersOver(index);
-  const nodes = wireToOutlineMap(graph, new Set());
+  const nodes = wireToOutlineMap(graph);
   await queries.settle((run) =>
     resolveAllowedRefIds(nodes.get(fieldId), schemaOfGraph(nodes), run),
   );
@@ -203,7 +203,7 @@ describe("ref picker candidates (declared targets win)", () => {
         },
       }),
     ];
-    const nodes = wireToOutlineMap(graph, new Set());
+    const nodes = wireToOutlineMap(graph);
     const html = renderRefSlot(nodes, await answeredOver(graph, "f.pick"), true, "f.pick");
     expect(html).toContain('role="listbox"');
     expect(html).toContain("n.target");

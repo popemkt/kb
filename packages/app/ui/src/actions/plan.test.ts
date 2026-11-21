@@ -30,7 +30,7 @@ describe("outline action input builders", () => {
   it("split keeps the expanded-first-child decision in the UI", () => {
     expect(
       planSplit(fixtureGraph.nodes, "n.root-a", 4, "new", {
-        expandedIds: new Set(["n.root-a"]),
+        open: true,
       }).actions,
     ).toEqual([
       { id: "node.update", input: { id: "n.root-a", text: "Ship" } },
@@ -45,7 +45,7 @@ describe("outline action input builders", () => {
     const text = fixtureGraph.nodes.find((node) => node.id === "n.root-b")?.text ?? "";
     expect(
       planSplit(fixtureGraph.nodes, "n.root-b", text.length, "new", {
-        expandedIds: new Set(),
+        open: false,
       }).actions.map((action) => action.id),
     ).toEqual(["node.add"]);
   });
@@ -295,20 +295,20 @@ describe("splitting a contextual reference", () => {
 
   // Only the new row is written: the reference itself is not touched.
   it("opens the target's first child when the reference is expanded and the target has children", () => {
-    expect(planSplit(graph, "r", "end", "new", { expandedIds: new Set(["r"]) }).actions).toEqual([
+    expect(planSplit(graph, "r", "end", "new", { open: true }).actions).toEqual([
       { id: "node.add", input: { id: "new", text: "", parent: "t", position: 0 } },
     ]);
   });
 
   it("opens a sibling after a reference whose target is gone, expanded or not", () => {
     const dangling = wire("r", { [SYSTEM_IDS.refTargetField]: [ref("gone")] });
-    expect(
-      planSplit([parent, dangling], "r", "end", "new", { expandedIds: new Set(["r"]) }).actions,
-    ).toEqual([{ id: "node.add", input: { id: "new", text: "", parent: "p", position: 1 } }]);
+    expect(planSplit([parent, dangling], "r", "end", "new", { open: true }).actions).toEqual([
+      { id: "node.add", input: { id: "new", text: "", parent: "p", position: 1 } },
+    ]);
   });
 
   it("opens a sibling after the reference when the reference is collapsed", () => {
-    expect(planSplit(graph, "r", "end", "new", { expandedIds: new Set() }).actions).toEqual([
+    expect(planSplit(graph, "r", "end", "new", { open: false }).actions).toEqual([
       { id: "node.add", input: { id: "new", text: "", parent: "p", position: 1 } },
     ]);
   });

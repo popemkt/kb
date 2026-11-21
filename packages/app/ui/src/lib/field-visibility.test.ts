@@ -17,7 +17,7 @@ function schemaFor(nodes: NodeMap): SchemaIndex {
 }
 
 function mapFromFixture() {
-  return wireToOutlineMap(fixtureGraph.nodes, new Set());
+  return wireToOutlineMap(fixtureGraph.nodes);
 }
 
 /** Each field's placement, by field id. */
@@ -69,7 +69,7 @@ describe("field visibility", () => {
         updatedAt: "",
       },
     ];
-    const nodes = wireToOutlineMap(wire, new Set());
+    const nodes = wireToOutlineMap(wire);
     const field = resolveVisibleProps(
       present(nodes.get("field.status"), "field.status"),
       schemaFor(nodes),
@@ -125,7 +125,7 @@ describe("field visibility", () => {
         updatedAt: "",
       },
     ];
-    const nodes = wireToOutlineMap(wire, new Set());
+    const nodes = wireToOutlineMap(wire);
     const visible = resolveVisibleProps(
       present(nodes.get("n.member"), "n.member"),
       schemaFor(nodes),
@@ -160,7 +160,7 @@ describe("field visibility", () => {
         updatedAt: "",
       },
     ];
-    const nodes = wireToOutlineMap(wire, new Set());
+    const nodes = wireToOutlineMap(wire);
     const visible = resolveVisibleProps(
       present(nodes.get("field.status"), "field.status"),
       schemaFor(nodes),
@@ -189,47 +189,44 @@ describe("field visibility", () => {
     });
     const pinned: Record<string, PropValue[]> = { "sys.f.pinned": [{ t: "bool", v: true }] };
     const graph = (member: Record<string, PropValue[]>) =>
-      wireToOutlineMap(
-        [
-          fieldNode("sys.f.type", show("sys.show.never")),
-          fieldNode("f.plain"),
-          fieldNode("f.filled", show("sys.show.filled")),
-          fieldNode("f.never", show("sys.show.never")),
-          fieldNode("f.pinned", pinned),
-          fieldNode("f.hidden", show("sys.show.hidden")),
-          fieldNode("f.tucked", show("sys.show.tucked")),
-          {
-            id: "t.task",
-            text: "task",
-            children: [],
-            props: {
-              "sys.f.type": [{ t: "ref" as const, v: "sys.tag" }],
-              "sys.f.fields": [
-                "f.plain",
-                "f.filled",
-                "f.never",
-                "f.pinned",
-                "f.hidden",
-                "f.tucked",
-              ].map((v) => ({
-                t: "ref" as const,
-                v,
-              })),
-            },
-            createdAt: at,
-            updatedAt: at,
+      wireToOutlineMap([
+        fieldNode("sys.f.type", show("sys.show.never")),
+        fieldNode("f.plain"),
+        fieldNode("f.filled", show("sys.show.filled")),
+        fieldNode("f.never", show("sys.show.never")),
+        fieldNode("f.pinned", pinned),
+        fieldNode("f.hidden", show("sys.show.hidden")),
+        fieldNode("f.tucked", show("sys.show.tucked")),
+        {
+          id: "t.task",
+          text: "task",
+          children: [],
+          props: {
+            "sys.f.type": [{ t: "ref" as const, v: "sys.tag" }],
+            "sys.f.fields": [
+              "f.plain",
+              "f.filled",
+              "f.never",
+              "f.pinned",
+              "f.hidden",
+              "f.tucked",
+            ].map((v) => ({
+              t: "ref" as const,
+              v,
+            })),
           },
-          {
-            id: "n.task",
-            text: "a task",
-            children: [],
-            props: { "sys.f.type": [{ t: "ref" as const, v: "t.task" }], ...member },
-            createdAt: at,
-            updatedAt: at,
-          },
-        ],
-        new Set(),
-      );
+          createdAt: at,
+          updatedAt: at,
+        },
+        {
+          id: "n.task",
+          text: "a task",
+          children: [],
+          props: { "sys.f.type": [{ t: "ref" as const, v: "t.task" }], ...member },
+          createdAt: at,
+          updatedAt: at,
+        },
+      ]);
     const resolve = (
       member: Record<string, PropValue[]>,
       debug = false,

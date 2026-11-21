@@ -35,7 +35,7 @@ function queryWire(): WireNode {
 }
 
 function outlineMap(): Map<string, OutlineNode> {
-  return wireToOutlineMap([...fixtureGraph.nodes, queryWire()], new Set());
+  return wireToOutlineMap([...fixtureGraph.nodes, queryWire()]);
 }
 
 function renderBullet(node: OutlineNode, isRef: boolean): string {
@@ -90,7 +90,7 @@ describe("result row render (W4)", () => {
       id: "sys.query.open-todos",
       text: "open-todos",
     };
-    const nodes = wireToOutlineMap([...fixtureGraph.nodes, saved], new Set());
+    const nodes = wireToOutlineMap([...fixtureGraph.nodes, saved]);
     const html = renderBullet(
       present(nodes.get("sys.query.open-todos"), "sys.query.open-todos"),
       false,

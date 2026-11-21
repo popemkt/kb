@@ -28,6 +28,7 @@ export {
   useAnswers,
   useReplicaQueries,
   useIsActive,
+  useIsOpen,
   useIsSelected,
   useNode,
   useNodePaletteOpen,
@@ -233,6 +234,7 @@ export {
 export {
   forestRootIds,
   formatPropValue,
+  isRowOpen,
   loadExpansion,
   loadIdSet,
   resolveProps,
@@ -241,7 +243,6 @@ export {
   saveIdSet,
   type Expansion,
   wireToOutlineMap,
-  withExpansion,
 } from "./lib/graph-view";
 export {
   canvasInstanceKey,
@@ -256,6 +257,7 @@ export {
   outlineInstanceKey,
   pageTitleInstanceKey,
   parentInstanceKey,
+  placeOfInstance,
   projectedRowKey,
   projectedRowOf,
 } from "./lib/instance-key";

@@ -27,7 +27,7 @@ import { provideKeybinding } from "@kb/keybindings";
 import { useGraphStore } from "@/stores/graph.store";
 import { rankedFixture } from "@/test-support/ranked-fixture";
 import { installDomGlobals } from "@kb/ui-test-kit";
-import { resetOutlineStore } from "@/test-support/outline-store";
+import { resetOutlineStore, rowClosed, rowKey } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { outlineNodes, useOutlineStore, useSelectionKeymap } from "@kb/outline-ui";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
@@ -188,33 +188,33 @@ describe("selection-mode dispatcher (characterization)", () => {
 
   it("toggleCollapse: Space flips the row open", async () => {
     selectAndMount("n.root-a");
-    expect(node("n.root-a")?.collapsed).toBe(true);
+    expect(rowClosed("n.root-a")).toBe(true);
     await press(" ");
-    expect(node("n.root-a")?.collapsed).toBe(false);
+    expect(rowClosed("n.root-a")).toBe(false);
   });
 
   it("collapse: ArrowLeft on an expanded parent closes it", async () => {
-    act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
+    act(() => useOutlineStore.getState().toggleCollapse(rowKey("n.root-a")));
     selectAndMount("n.root-a");
     await press("ArrowLeft");
-    expect(node("n.root-a")?.collapsed).toBe(true);
+    expect(rowClosed("n.root-a")).toBe(true);
   });
 
   it("expand: ArrowRight on a collapsed parent opens it", async () => {
     selectAndMount("n.root-a");
     await press("ArrowRight");
-    expect(node("n.root-a")?.collapsed).toBe(false);
+    expect(rowClosed("n.root-a")).toBe(false);
   });
 
   it("selectParent: ArrowLeft on a leaf climbs", async () => {
-    act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
+    act(() => useOutlineStore.getState().toggleCollapse(rowKey("n.root-a")));
     selectAndMount("n.child-a1");
     await press("ArrowLeft");
     expect(useOutlineStore.getState().selectedNodeId).toBe("n.root-a");
   });
 
   it("selectFirstChild: ArrowRight on an expanded parent descends", async () => {
-    act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
+    act(() => useOutlineStore.getState().toggleCollapse(rowKey("n.root-a")));
     selectAndMount("n.root-a");
     await press("ArrowRight");
     expect(useOutlineStore.getState().selectedNodeId).toBe("n.child-a1");
@@ -227,21 +227,21 @@ describe("selection-mode dispatcher (characterization)", () => {
   });
 
   it("outdent: Shift+Tab lifts a child to the forest", async () => {
-    act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
+    act(() => useOutlineStore.getState().toggleCollapse(rowKey("n.root-a")));
     selectAndMount("n.child-a1");
     await press("Tab", { shiftKey: true });
     expect(node("n.child-a1")?.parentId).toBe(WORKSPACE_ROOT_ID);
   });
 
   it("moveUp: Meta+Shift+ArrowUp swaps with the previous sibling", async () => {
-    act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
+    act(() => useOutlineStore.getState().toggleCollapse(rowKey("n.root-a")));
     selectAndMount("n.child-a2");
     await press("ArrowUp", { metaKey: true, shiftKey: true });
     expect(node("n.root-a")?.children).toEqual(["n.child-a2", "n.child-a1"]);
   });
 
   it("moveDown: Meta+Shift+ArrowDown swaps with the next sibling", async () => {
-    act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
+    act(() => useOutlineStore.getState().toggleCollapse(rowKey("n.root-a")));
     selectAndMount("n.child-a1");
     await press("ArrowDown", { metaKey: true, shiftKey: true });
     expect(node("n.root-a")?.children).toEqual(["n.child-a2", "n.child-a1"]);
@@ -254,7 +254,7 @@ describe("selection-mode dispatcher (characterization)", () => {
   });
 
   it("createAfter: o on an expanded parent mints its first child", async () => {
-    act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
+    act(() => useOutlineStore.getState().toggleCollapse(rowKey("n.root-a")));
     selectAndMount("n.root-a");
     await press("o");
     const minted = useOutlineStore.getState().activeNodeId;
@@ -284,8 +284,8 @@ describe("selection-mode dispatcher (characterization)", () => {
         fixtureGraph.rev,
         "fixtures",
       );
-    act(() => useOutlineStore.getState().toggleCollapse("n.ref-a"));
     const instanceKey = childInstanceKey(projectedRowKey("n.q", "n.root-b"), "n.ref-a");
+    act(() => useOutlineStore.getState().toggleCollapse(instanceKey));
     act(() => useOutlineStore.getState().selectNode("n.ref-a", instanceKey));
     act(() => root.render(<Host />));
     await press("o");
@@ -297,7 +297,7 @@ describe("selection-mode dispatcher (characterization)", () => {
   });
 
   it("createAfter: o on a leaf mints the next sibling", async () => {
-    act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
+    act(() => useOutlineStore.getState().toggleCollapse(rowKey("n.root-a")));
     selectAndMount("n.child-a1");
     await press("o");
     const minted = useOutlineStore.getState().activeNodeId;
@@ -306,7 +306,7 @@ describe("selection-mode dispatcher (characterization)", () => {
   });
 
   it("createBefore: O mints the row directly above", async () => {
-    act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
+    act(() => useOutlineStore.getState().toggleCollapse(rowKey("n.root-a")));
     selectAndMount("n.child-a2");
     await press("O");
     const minted = useOutlineStore.getState().activeNodeId;

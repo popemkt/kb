@@ -13,12 +13,12 @@ import { nameIn } from "./contextual-ref";
 import { tagColorOf, tagPalette, type TagPalette } from "./tag-color";
 import { resolveVisibleProps, isFieldHidden, type ResolvePropsOptions } from "./field-visibility";
 import { hasText } from "./text";
+import { placeOfInstance } from "./instance-key";
 import {
   EXPANDED_STORAGE_KEY,
   EXPANSION_STORAGE_KEY,
   WORKSPACE_ROOT_ID,
   isSysPrefixed,
-  type NodeMap,
   type OutlineNode,
   type ResolvedProp,
   type TagBadge,
@@ -155,7 +155,8 @@ export function isPartialProjection(map: ReadonlyMap<string, OutlineNode>): bool
 
 /**
  * The outline view model for `nodes`. Each node's tag chips — names and
- * colours — and its default collapse (does it show fields?) are resolved against
+ * colours — and its default collapse (does it show fields?; whether a row is
+ * open is the reader's, per place: `isRowOpen`) are resolved against
  * `graph`: the whole graph, which is `nodes` itself unless `nodes` is a
  * projection of it (an ontology scope). The outline's structure comes from
  * `nodes`; what the schema means, and the tag palette (`tagPalette`, one
@@ -170,7 +171,6 @@ export function isPartialProjection(map: ReadonlyMap<string, OutlineNode>): bool
  */
 export function wireToOutlineMap(
   nodes: WireNode[],
-  expandedIds: Set<string>,
   graph: readonly WireNode[] = nodes,
   previous: readonly ReadonlyMap<string, OutlineNode>[] = [],
 ): Map<string, OutlineNode> {
@@ -212,13 +212,12 @@ export function wireToOutlineMap(
     // A forest root is in no children list: the workspace is its parent.
     const parentId = parentOf.get(wire.id) ?? (rootSet.has(wire.id) ? WORKSPACE_ROOT_ID : null);
     const tags = resolveTags(wire, byId, palette);
-    const collapsed = nodeDefaultsCollapsed(wire, byId) && !expandedIds.has(wire.id);
     keep({
       id: wire.id,
       text: wire.text,
       parentId,
       children: [...wire.children],
-      collapsed,
+      collapsed: nodeDefaultsCollapsed(wire, byId),
       props: wire.props,
       createdAt: wire.createdAt,
       updatedAt: wire.updatedAt,
@@ -231,79 +230,18 @@ export function wireToOutlineMap(
 }
 
 /**
- * Which rows the reader opened or closed, by id: a choice over the row's
- * default collapse (does it show children or fields?). A row with no choice
- * shows its default.
+ * Which rows the reader opened or closed, each under the place it stands at
+ * (`placeOfInstance`): a choice over the row's default collapse (does it show
+ * children or fields?). A row with no choice shows its default.
  */
 export type Expansion = ReadonlyMap<string, boolean>;
 
-/** A node shown the other way from its default, one object per node. */
-const flipped = new WeakMap<OutlineNode, OutlineNode>();
-
-function shownAs(node: OutlineNode, open: boolean | undefined): OutlineNode {
-  if (open === undefined || open === !node.collapsed) return node;
-  let copy = flipped.get(node);
-  if (copy === undefined) {
-    copy = { ...node, collapsed: !open };
-    flipped.set(node, copy);
-  }
-  return copy;
-}
-
-/** `base` as `expansion` shows it, read through: no map is built. */
-class ExpansionView implements ReadonlyMap<string, OutlineNode> {
-  readonly #base: NodeMap;
-  readonly #expansion: Expansion;
-
-  constructor(base: NodeMap, expansion: Expansion) {
-    this.#base = base;
-    this.#expansion = expansion;
-  }
-
-  get size(): number {
-    return this.#base.size;
-  }
-
-  get(id: string): OutlineNode | undefined {
-    const node = this.#base.get(id);
-    return node === undefined ? undefined : shownAs(node, this.#expansion.get(id));
-  }
-
-  has(id: string): boolean {
-    return this.#base.has(id);
-  }
-
-  *entries(): MapIterator<[string, OutlineNode]> {
-    for (const [id, node] of this.#base) yield [id, shownAs(node, this.#expansion.get(id))];
-  }
-
-  keys(): MapIterator<string> {
-    return this.#base.keys();
-  }
-
-  *values(): MapIterator<OutlineNode> {
-    for (const [, node] of this.entries()) yield node;
-  }
-
-  forEach(each: (node: OutlineNode, id: string, map: NodeMap) => void): void {
-    for (const [id, node] of this.entries()) each(node, id, this);
-  }
-
-  [Symbol.iterator](): MapIterator<[string, OutlineNode]> {
-    return this.entries();
-  }
-}
-
 /**
- * The rows of `base` (a projection at default collapse: the schema, or a
- * scope's projection) as `expansion` opens and closes them. It is a view, not
- * a copy: it holds no map of its own, and reads each row through `base`. A
- * row shown as its default is `base`'s own object; one shown the other way is
- * one object per `base` node, so a row's identity changes exactly when what
- * it shows does, as `wireToOutlineMap`'s does.
+ * Whether the row of `node` drawn at `instanceKey` is open: the reader's
+ * choice for its place, else its node's default (`collapsed`).
  */
-export function withExpansion(base: NodeMap, expansion: Expansion): NodeMap {
-  return expansion.size === 0 ? base : new ExpansionView(base, expansion);
+export function isRowOpen(node: OutlineNode, instanceKey: string, expansion: Expansion): boolean {
+  return expansion.get(placeOfInstance(instanceKey)) ?? !node.collapsed;
 }
 
 export function resolveProps(
@@ -367,7 +305,7 @@ export function saveIdSet(key: string, ids: Set<string>): void {
   }
 }
 
-/** The stored form of an expansion: the ids opened and the ids closed. */
+/** The stored form of an expansion: the places opened and the places closed. */
 const StoredExpansion = Schema.Struct({
   open: Schema.Array(Schema.String),
   closed: Schema.Array(Schema.String),
@@ -375,8 +313,17 @@ const StoredExpansion = Schema.Struct({
 
 const decodeStoredExpansion = Schema.decodeUnknownOption(Schema.fromJsonString(StoredExpansion));
 
+/**
+ * Where a stored choice stands: a place as it is stored, or, for a bare node
+ * id an older build kept a node's one choice under, that node's place in the
+ * outline's tree (`placeOfId`). A place always has a separator; an id never.
+ */
+function storedPlace(key: string, placeOfId: (id: string) => string): string {
+  return key.includes("/") ? key : placeOfId(key);
+}
+
 /** The `{ open, closed }` stored under `kb-expansion`, or null when it is absent or unreadable. */
-function readStoredExpansion(): Map<string, boolean> | null {
+function readStoredExpansion(placeOfId: (id: string) => string): Map<string, boolean> | null {
   let raw: string | null = null;
   try {
     raw = localStorage.getItem(EXPANSION_STORAGE_KEY);
@@ -387,26 +334,27 @@ function readStoredExpansion(): Map<string, boolean> | null {
   const stored = Option.getOrNull(decodeStoredExpansion(raw));
   if (stored === null) return null;
   const expansion = new Map<string, boolean>();
-  for (const id of stored.open) expansion.set(id, true);
-  for (const id of stored.closed) expansion.set(id, false);
+  for (const key of stored.open) expansion.set(storedPlace(key, placeOfId), true);
+  for (const key of stored.closed) expansion.set(storedPlace(key, placeOfId), false);
   return expansion;
 }
 
 /**
  * The expansion kept in storage, shared by every tab: `kb-expansion`, or,
- * while no build has written that, the legacy `kb-expanded` open ids. A read
- * writes nothing.
+ * while no build has written that, the legacy `kb-expanded` open ids. A node
+ * id stored by an older build is read as the node's tree place (`placeOfId`).
+ * A read writes nothing.
  */
-export function loadExpansion(): Expansion {
+export function loadExpansion(placeOfId: (id: string) => string): Expansion {
   return (
-    readStoredExpansion() ??
-    new Map([...loadIdSet(EXPANDED_STORAGE_KEY)].map((id) => [id, true] as const))
+    readStoredExpansion(placeOfId) ??
+    new Map([...loadIdSet(EXPANDED_STORAGE_KEY)].map((id) => [placeOfId(id), true] as const))
   );
 }
 
 /**
- * A tab's changes to its expansion, by id: the choice it now holds, or null
- * where it holds none.
+ * A tab's changes to its expansion, by place: the choice it now holds, or
+ * null where it holds none.
  */
 export type ExpansionChanges = ReadonlyMap<string, boolean | null>;
 
@@ -415,11 +363,14 @@ export type ExpansionChanges = ReadonlyMap<string, boolean | null>;
  * this tab's: another tab's choices for other rows survive as they are. One
  * write, so the stored form is never half-written.
  */
-export function saveExpansionChanges(changes: ExpansionChanges): void {
-  const stored = new Map(loadExpansion());
-  for (const [id, open] of changes) {
-    if (open === null) stored.delete(id);
-    else stored.set(id, open);
+export function saveExpansionChanges(
+  changes: ExpansionChanges,
+  placeOfId: (id: string) => string,
+): void {
+  const stored = new Map(loadExpansion(placeOfId));
+  for (const [place, open] of changes) {
+    if (open === null) stored.delete(place);
+    else stored.set(place, open);
   }
   const open: string[] = [];
   const closed: string[] = [];

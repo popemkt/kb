@@ -80,10 +80,10 @@ export function NodeContent({
     [node.id, textNodeId, instanceKey, schema],
   );
   const inPlace = instanceKey !== undefined && opensInPlace(instanceKey);
-  const expansion = useOutlineStore((s) => s.expansion);
+  const references = useOutlineStore((s) => s.openReferences);
   const open = useMemo(
-    () => new Set(inPlace ? openReferencesOf(expansion, textNodeId, content) : []),
-    [inPlace, expansion, textNodeId, content],
+    () => new Set(inPlace ? openReferencesOf(references, textNodeId, content) : []),
+    [inPlace, references, textNodeId, content],
   );
   const follow = useCallback<Follow>(
     (target, how) => {

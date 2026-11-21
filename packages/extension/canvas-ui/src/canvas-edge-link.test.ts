@@ -39,15 +39,12 @@ function fieldNode(id: string, text: string, fieldType: string): WireNode {
 }
 
 function graph(sourceProps: WireNode["props"] = {}): Map<string, OutlineNode> {
-  return wireToOutlineMap(
-    [
-      wireNode("n.a", "A", { props: sourceProps }),
-      wireNode("n.b", "B"),
-      fieldNode("f.link", "link", "ref"),
-      fieldNode("f.note", "note", "text"),
-    ],
-    new Set(),
-  );
+  return wireToOutlineMap([
+    wireNode("n.a", "A", { props: sourceProps }),
+    wireNode("n.b", "B"),
+    fieldNode("f.link", "link", "ref"),
+    fieldNode("f.note", "note", "text"),
+  ]);
 }
 
 const nodes = graph();
@@ -239,24 +236,21 @@ describe("choosing a field", () => {
 describe("the fields an edge offers are the fields its write accepts", () => {
   /** n.t is a #todo; f.todo allows only #todos; sys.f.kept is kb's own ref field. */
   const schema = schemaFor(
-    wireToOutlineMap(
-      [
-        wireNode("n.a", "A"),
-        wireNode("n.b", "B"),
-        wireNode("n.t", "T", { props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: "tag.todo" }] } }),
-        fieldNode("f.link", "link", "ref"),
-        fieldNode("f.note", "note", "text"),
-        fieldNode("sys.f.kept", "kept", "ref"),
-        wireNode("f.todo", "todo", {
-          props: {
-            [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
-            [SYSTEM_IDS.fieldTypeField]: [{ t: "str", v: "ref" }],
-            [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: "tag.todo" }],
-          },
-        }),
-      ],
-      new Set(),
-    ),
+    wireToOutlineMap([
+      wireNode("n.a", "A"),
+      wireNode("n.b", "B"),
+      wireNode("n.t", "T", { props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: "tag.todo" }] } }),
+      fieldNode("f.link", "link", "ref"),
+      fieldNode("f.note", "note", "text"),
+      fieldNode("sys.f.kept", "kept", "ref"),
+      wireNode("f.todo", "todo", {
+        props: {
+          [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+          [SYSTEM_IDS.fieldTypeField]: [{ t: "str", v: "ref" }],
+          [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: "tag.todo" }],
+        },
+      }),
+    ]),
   );
   const toward = (target: string) =>
     ctx({

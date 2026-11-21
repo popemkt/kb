@@ -60,7 +60,7 @@ export const expandReference: PaletteStep = {
   icon: <ArrowsOutLineVerticalIcon size={12} weight="bold" />,
   candidates: (graph) =>
     referenceRows(graph, (key) =>
-      useOutlineStore.getState().expansion.get(key) === true ? "Expanded" : undefined,
+      useOutlineStore.getState().openReferences.has(key) ? "Expanded" : undefined,
     ),
   commit: ({ targetNodeId, pickedId }) => {
     const text = textNodeOf(outlineNodes(), targetNodeId);

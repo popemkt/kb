@@ -282,7 +282,7 @@ describe("ontology scope", () => {
 
 /** The ids a projection of the scope holds: what `inScope` must answer for. */
 function projected(s: GraphStateData): Set<string> {
-  return new Set(wireToOutlineMap(scopedWireOf(s), new Set(), s.wireNodes).keys());
+  return new Set(wireToOutlineMap(scopedWireOf(s), s.wireNodes).keys());
 }
 
 function expectInScopeMatchesProjection(): void {

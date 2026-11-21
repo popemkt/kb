@@ -17,7 +17,7 @@ import { installDomGlobals } from "@kb/ui-test-kit";
 import { mutations } from "@/actions/mutations";
 import { useGraphStore } from "@/stores/graph.store";
 import { useUiStore } from "@/stores/ui.store";
-import { resetOutlineStore } from "@/test-support/outline-store";
+import { resetOutlineStore, rowKey } from "@/test-support/outline-store";
 import { rankedFixture } from "@/test-support/ranked-fixture";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { NodeBlock, outlineNodes, useOutlineStore, useSelectionKeymap } from "@kb/outline-ui";
@@ -220,7 +220,7 @@ describe("a selection is a range of rows", () => {
   });
 
   it("leaves a range that is not one run of siblings where it is, and says so", async () => {
-    act(() => selection().toggleCollapse("n.root-a"));
+    act(() => selection().toggleCollapse(rowKey("n.root-a")));
     selectAndMount("n.child-a2");
     // a2 is collapsed over its child, so the next row down is n.root-b.
     await press("ArrowDown", { shiftKey: true });
@@ -233,7 +233,7 @@ describe("a selection is a range of rows", () => {
   });
 
   it("a range from a first child stays on Tab, told that its first row has no row above", async () => {
-    act(() => selection().toggleCollapse("n.root-a"));
+    act(() => selection().toggleCollapse(rowKey("n.root-a")));
     selectAndMount("n.child-a1");
     await press("ArrowDown", { shiftKey: true });
     expect(selection().selectedNodeIds).toEqual(["n.child-a1", "n.child-a2"]);

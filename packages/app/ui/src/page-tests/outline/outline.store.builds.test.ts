@@ -1,15 +1,14 @@
 /**
  * How many node maps a move builds, a reader's read of the rows included.
  * Each snapshot builds the schema map. Unscoped, the outline's rows are the
- * schema itself, or a view over it that opens and closes rows
- * (`withExpansion`), which builds no map. A scope builds its own projection,
- * and expanding or collapsing builds nothing.
+ * schema itself; whether a row is open is its place's (`isRowOpen`), so
+ * expanding or collapsing builds no map. A scope builds its own projection.
  *
  * A build is counted where every node map is built: `wireToOutlineMap`.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import { schemaOf, wireToOutlineMap } from "@kb/ui-sdk";
+import { outlineInstanceKey, schemaOf, wireToOutlineMap } from "@kb/ui-sdk";
 import type * as UiSdk from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
@@ -62,15 +61,16 @@ describe("node maps built per move", () => {
     expect(builds()).toBe(1);
   });
 
-  it("a toggle builds nothing: the rows are a view over the schema", () => {
+  it("a toggle builds nothing: the rows are the schema, opened by place", () => {
     hydrate();
     expect(outlineNodes()).toBe(schemaOf(graph()));
     const parent = graph().wireNodes.find((n) => n.children.length > 0);
     expect(parent).toBeDefined();
-    useOutlineStore.getState().toggleCollapse(parent?.id ?? "");
+    const key = outlineInstanceKey(parent?.id ?? "", outlineNodes());
+    useOutlineStore.getState().toggleCollapse(key);
     expect(builds()).toBe(0);
-    expect(outlineNodes()).not.toBeInstanceOf(Map);
-    expect(outlineNodes().get(parent?.id ?? "")?.collapsed).toBe(false);
+    expect(outlineNodes()).toBe(schemaOf(graph()));
+    expect(useOutlineStore.getState().isOpen(key)).toBe(true);
   });
 
   it("entering a scope builds the scope's projection alone; leaving it builds nothing", () => {

@@ -91,7 +91,8 @@ type EditorTextVerbs = Pick<
  * `NodeTextPort` (`EditorTextVerbs`); starting to edit a row
  * (`activateNode`); opening the rows above one so it shows
  * (`expandAncestors`, which a structural write asks before it lands the caret
- * on the row it moved); and opening or closing one row (`toggleCollapse`).
+ * on the row it moved); and whether one row is open, and opening or closing
+ * it (`isOpen`, `toggleCollapse`), each by the instance it is drawn at.
  */
 interface PageEditorState extends EditorTextVerbs {
   readonly activeNodeId: string | null;
@@ -108,7 +109,8 @@ interface PageEditorState extends EditorTextVerbs {
   /** Start editing a node's text in one instance, with the caret at `cursorPos`. */
   readonly activateNode: (nodeId: string, cursorPos?: number, instanceKey?: string) => void;
   readonly expandAncestors: (id: string) => void;
-  readonly toggleCollapse: (id: string) => void;
+  readonly isOpen: (instanceKey: string) => boolean;
+  readonly toggleCollapse: (instanceKey: string) => void;
 }
 
 /**
@@ -135,6 +137,7 @@ const IDLE: PageEditorState = {
   selectNode: () => undefined,
   activateNode: () => undefined,
   expandAncestors: () => undefined,
+  isOpen: () => false,
   toggleCollapse: () => undefined,
 };
 
