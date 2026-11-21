@@ -194,8 +194,11 @@ describe("a pasted outline's source row", () => {
   let shown: ReturnType<typeof wire>[] = [];
   let accept: PromiseWithResolvers<readonly string[]>;
   const base = testBrowserHost();
+  /** Each row the caret was put in, and where in its text. */
+  const carets: Array<readonly [string, number | undefined]> = [];
   const host = testBrowserHost({
     wireNodes: () => shown,
+    activateNode: (nodeId, at) => void carets.push([nodeId, at]),
     writes: {
       ...base.writes,
       addTree: () => accept.promise,
@@ -220,6 +223,7 @@ describe("a pasted outline's source row", () => {
   afterAll(() => syncUiPlugins([]));
   beforeEach(() => {
     deleted.length = 0;
+    carets.length = 0;
     accept = Promise.withResolvers();
     show(wire("n.parent", "parent", ["n.source"]), wire("n.source", ""));
   });
@@ -252,8 +256,9 @@ describe("a pasted outline's source row", () => {
     expect(paste()).toBe(true);
     accept.resolve(["n.server-made"]);
     await expect.poll(() => deleted.length).toBe(1);
-    expect(host.active()).toBeNull();
+    expect(carets).toEqual([]);
     show(wire("n.parent", "parent", ["n.server-made"]), wire("n.server-made", "one"));
-    await expect.poll(() => host.active()?.nodeId).toBe("n.server-made");
+    // At the end of its text, as typing on would continue it.
+    await expect.poll(() => carets).toEqual([["n.server-made", 3]]);
   });
 });

@@ -112,9 +112,13 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // page catches up to its graph, as for `node.addTree`.
 // `node.add`, `node.addTree` and `node.update` take an optional `createFields`,
 // including add and update calls in `node.batch`. Earlier pages omit it.
+// `requireEmptyLine.parent` may be null, a top-level row's draft. An earlier build of
+// protocol 13 refuses that input, so the row stays: no new protocol.
+// `node.update` takes `requireSet`, an optional precondition only this
+// build's page sends; an older page never needs it.
 const RECORDED = {
   protocol: 13,
-  fingerprint: "d8eb64dc5b1cb3a9f398e0cede395c7b54280abe79a81a87d3f77da36a6660e8",
+  fingerprint: "ff5982552d9f4dbe4bb9be7c56dc0eeffeb818698757f72a4c1c7cc2f321b5df",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

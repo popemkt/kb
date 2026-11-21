@@ -226,6 +226,36 @@ describe.each([...STORE_BACKENDS])("node.batch over a %s store", (backend) => {
     },
   );
 
+  // GAP 01M7XMMCPA7H2R1P065TVCQNYC, closed: a field the line reuses keeps its
+  // value only if it still holds one when the line is consumed.
+  test("refuses reusing a field whose value another tab cleared before the line went", async () => {
+    const { ctx, call, node } = await opened();
+    await call("field.define", { id: "field.choice", name: "Choice" });
+    const value = { t: "str", v: "kept value" } as const;
+    await call("node.update", { id: "n.dest", setProps: [{ field: "field.choice", value }] });
+    await call("node.update", { id: "n.kept", text: ">Choice" });
+    const other = await openKb(root);
+    const cleared = await invoke(other, {
+      id: "node.update",
+      input: { id: "n.dest", unsetProps: [{ field: "field.choice" }] },
+    });
+    expect(cleared).toMatchObject({ status: "succeeded" });
+    const receipt = await invoke(ctx, {
+      id: "node.batch",
+      input: {
+        calls: [
+          { action: "node.update", input: { id: "n.dest", requireSet: ["field.choice"] } },
+          {
+            action: "node.delete",
+            input: { id: "n.kept", requireEmptyLine: { parent: "n.dest", text: ">Choice" } },
+          },
+        ],
+      },
+    });
+    expect(receipt).toMatchObject({ status: "failed", code: "conflict", details: { call: 0 } });
+    expect(node("n.kept")?.text).toBe(">Choice");
+  });
+
   test.each([false, true])(
     "mints the field and converts the line together (stale draft: %s)",
     async (stale) => {

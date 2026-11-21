@@ -163,7 +163,10 @@ to the replica at once, and its push lingers as the lane's last write until a
 pause (`COALESCE_MS`) passes with no keystroke for that node, or any other
 write is pushed or lingers, which sends it first (`invokeCoalesced`). Only
 the last write lingers, so a keystroke joins only the push right before it,
-never one another write has followed. So no write waits
+never one another write has followed. The coalesced push carries the text
+its run's first keystroke was typed over (`expectedText`), so a concurrent
+edit is refused as a conflict, not overwritten, and a guarded write behind it
+(a line's conversion) sees that refusal. So no write waits
 on the network before it commits locally — Enter splits the row at once, and
 the next keystroke lands in the new one — and no text is pushed after a write
 that followed it, such as the undo or merge that deletes its node. A push the

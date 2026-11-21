@@ -551,13 +551,18 @@ export const planNodeUpdate = Effect.fn("node.update.plan")(function* (
     );
   }
 
-  for (const field of input.requireUnset ?? []) {
+  // Whether each field named holds a value, as the edit was planned on.
+  const preconditions = [
+    ...(input.requireUnset ?? []).map((field) => ({ field, holds: false })),
+    ...(input.requireSet ?? []).map((field) => ({ field, holds: true })),
+  ];
+  for (const { field, holds } of preconditions) {
     const id = yield* syncDomain(() => resolveFieldIn(graph(), field));
-    if ((node.props[id]?.length ?? 0) > 0) {
-      return yield* domainError("conflict", "The field gained a value before it could be added", {
-        id: node.id,
-        field: id,
-      });
+    if ((node.props[id]?.length ?? 0) > 0 !== holds) {
+      const message = holds
+        ? "The field lost its value before it could be kept"
+        : "The field gained a value before it could be added";
+      return yield* domainError("conflict", message, { id: node.id, field: id });
     }
   }
 

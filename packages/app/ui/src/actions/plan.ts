@@ -410,9 +410,20 @@ export function planUnsetProp(
   return update(id, { unsetProps: [{ field, ...(value === undefined ? {} : { value }) }] });
 }
 
-/** Set the starter value only if the graph still has no value for this field. */
-export function planInitializeProp(id: string, field: string, value: PropValue): PlannedMutation {
-  return update(id, { requireUnset: [field], setProps: [{ field, value }] });
+/**
+ * Give the node's field a value: `value` while it holds none, else the one
+ * it holds. Either way the commit checks the field is still as it was read.
+ */
+export function planInitializeProp(
+  nodes: WireNode[],
+  id: string,
+  field: string,
+  value: PropValue,
+): PlannedMutation {
+  const holds = (nodes.find((node) => node.id === id)?.props[field]?.length ?? 0) > 0;
+  return holds
+    ? update(id, { requireSet: [field] })
+    : update(id, { requireUnset: [field], setProps: [{ field, value }] });
 }
 export const planAddTag = (n: WireNode[], id: string, tag: string) =>
   planSetProp(n, id, SYSTEM_IDS.typeField, { t: "ref", v: tag });

@@ -222,9 +222,12 @@ async function frameConfig(frameId: string): Promise<ViewConfig> {
 export const mutations: PageWrites = {
   async updateNodeContent(id: string, content: string): Promise<void> {
     const store = useGraphStore.getState();
-    if (!store.wireNodes.some((node) => node.id === id)) return;
+    const held = store.wireNodes.find((node) => node.id === id);
+    if (held === undefined) return;
 
-    const plan = planUpdateText(id, content);
+    // Typed over the text the page shows, and refused if the server holds
+    // other text by then: a concurrent edit is not overwritten.
+    const plan = planUpdateText(id, content, held.text);
     const action = plan.actions[0];
     if (action === undefined) return;
     // Each keystroke commits here; the lane pushes the last of a pause, in
@@ -447,7 +450,7 @@ export const mutations: PageWrites = {
   },
 
   async initializeProp(nodeId, fieldId, value): Promise<void> {
-    await applyPlan(planInitializeProp(nodeId, fieldId, value));
+    await applyPlan(planInitializeProp(wire(), nodeId, fieldId, value));
   },
 
   async createRefTarget(creation: RefCreation, name: string): Promise<string | null> {

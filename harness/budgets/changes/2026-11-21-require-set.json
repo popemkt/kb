@@ -1,0 +1,6 @@
+{
+  "reason": "node.update takes requireSet beside requireUnset, checked by one precondition loop, so a line conversion that reuses a field is refused whole when the field lost its value meanwhile.",
+  "raise": {
+    "cli-closure": { "bytes": 280 }
+  }
+}
