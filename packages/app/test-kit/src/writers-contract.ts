@@ -5,8 +5,172 @@
  */
 import { expect } from "bun:test";
 import { Effect } from "effect";
-import { present, rankOf, type KbNode } from "@kb/model";
-import { CONTRACT_AT as AT, plainNode, scratchRoot, type StoreFactory } from "./store-session.ts";
+import { KbStore, onWire, type EffectStore, type KbContext } from "@kb/contracts";
+import { present, rankOf, SYSTEM_IDS, type DomainError, type KbNode } from "@kb/model";
+import { persistPlannedEffect } from "@kb/operations";
+import { IN_PROCESS_WIRE, invokeReceiptEffect, kbRuntimeLayer } from "@kb/runtime";
+import {
+  backendRoot,
+  CONTRACT_AT as AT,
+  openSession,
+  plainNode,
+  scratchRoot,
+  type StoreFactory,
+} from "./store-session.ts";
+
+/** Land a competing write after the action's plan and before its first commit. */
+const raceAction = Effect.fn("storeContract.raceAction")(function* (
+  ctx: KbContext,
+  action: { id: string; input: unknown },
+  competing: Effect.Effect<unknown, DomainError>,
+) {
+  let attempts = 0;
+  const store: EffectStore = {
+    ...ctx.store,
+    commitEffect: (tx, record, expected) =>
+      Effect.gen(function* () {
+        attempts += 1;
+        if (attempts === 1) yield* competing;
+        return yield* ctx.store.commitEffect(tx, record, expected);
+      }),
+  };
+  const receipt = yield* invokeReceiptEffect(ctx, onWire(IN_PROCESS_WIRE, action)).pipe(
+    Effect.provideService(KbStore, store),
+    Effect.provide(kbRuntimeLayer(ctx)),
+  );
+  return { receipt, attempts };
+});
+
+/** Deleting one child preserves the sibling a concurrent writer just added. */
+export function deletePreservesConcurrentSibling(makeStore: StoreFactory): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* backendRoot(makeStore);
+        const other = yield* Effect.acquireRelease(
+          Effect.sync(() => makeStore(root)),
+          (store) => store.closeEffect,
+        );
+        const doomed = plainNode("n-doomed", "remove me");
+        const sibling = plainNode("n-sibling", "keep me here");
+        const list = parent([doomed.id]);
+        yield* other.commitEffect({ upserts: [list, doomed], deletes: [] }, { at: AT });
+        const ctx = yield* Effect.acquireRelease(
+          openSession(root),
+          (session) => session.store.closeEffect,
+        );
+        const { receipt, attempts } = yield* raceAction(
+          ctx,
+          { id: "node.delete", input: { id: doomed.id } },
+          other.commitEffect(
+            { upserts: [parent([doomed.id, sibling.id]), sibling], deletes: [] },
+            { at: AT },
+          ),
+        );
+        expect(attempts).toBe(2);
+        expect(receipt.status).toBe("succeeded");
+        const stored = yield* other.loadEffect;
+        expect(stored.some((node) => node.id === doomed.id)).toBe(false);
+        expect(stored.find((node) => node.id === list.id)?.children).toEqual([sibling.id]);
+      }),
+    ),
+  );
+}
+
+/** Two writers changing distinct fields on one node keep both edits. */
+export function updatePreservesConcurrentField(makeStore: StoreFactory): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* backendRoot(makeStore);
+        const other = yield* Effect.acquireRelease(
+          Effect.sync(() => makeStore(root)),
+          (store) => store.closeEffect,
+        );
+        const node = plainNode("n-edit", "a view");
+        yield* other.commitEffect({ upserts: [node], deletes: [] }, { at: AT });
+        const ctx = yield* Effect.acquireRelease(
+          openSession(root),
+          (session) => session.store.closeEffect,
+        );
+        const starting = present(ctx.index.getNode(node.id), "the node being edited");
+        const concurrent = {
+          [SYSTEM_IDS.viewColwidthField]: [{ t: "str" as const, v: '{"name":180}' }],
+        };
+        const value = { t: "num" as const, v: 42 };
+        const expectedProps = { ...concurrent, [SYSTEM_IDS.viewPagesizeField]: [value] };
+        const { receipt, attempts } = yield* raceAction(
+          ctx,
+          {
+            id: "node.update",
+            input: { id: node.id, setProps: [{ field: SYSTEM_IDS.viewPagesizeField, value }] },
+          },
+          other.commitEffect(
+            { upserts: [{ ...starting, props: concurrent }], deletes: [] },
+            { at: AT },
+          ),
+        );
+        expect(attempts).toBe(2);
+        expect(receipt).toMatchObject({
+          status: "succeeded",
+          output: { node: { props: expectedProps } },
+        });
+        const stored = yield* other.loadEffect;
+        expect(stored.find((candidate) => candidate.id === node.id)?.props).toEqual(expectedProps);
+      }),
+    ),
+  );
+}
+
+/** A session keeps replanning a write as other commits land on the same parent. */
+export function plannedWriteSurvivesContention(makeStore: StoreFactory): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* backendRoot(makeStore);
+        const ctx = yield* Effect.acquireRelease(
+          openSession(root),
+          (session) => session.store.closeEffect,
+        );
+        const other = yield* Effect.acquireRelease(
+          Effect.sync(() => makeStore(root)),
+          (store) => store.closeEffect,
+        );
+        yield* other.commitEffect({ upserts: [parent([])], deletes: [] }, { at: AT });
+        const head = other.txTail.entries().length;
+        const contenders = Array.from({ length: 6 }, (_, i) => plainNode(`n-other-${i}`, "other"));
+        const own = plainNode("n-own", "own");
+        let plans = 0;
+        const committed = yield* persistPlannedEffect(ctx, (nodes) =>
+          Effect.gen(function* () {
+            const current = present(
+              nodes.find((node) => node.id === "n-p"),
+              "the parent",
+            );
+            // Each contender commits after the plan read the parent and before its conditional write.
+            const winner = contenders[plans];
+            plans += 1;
+            if (winner !== undefined) {
+              yield* other.commitEffect(
+                { upserts: [parent([...current.children, winner.id]), winner], deletes: [] },
+                { at: AT },
+              );
+            }
+            return { upserts: [parent([...current.children, own.id]), own], deletes: [] };
+          }),
+        ).pipe(Effect.provide(kbRuntimeLayer(ctx)));
+
+        const children = [...contenders.map((node) => node.id), own.id];
+        expect(plans).toBe(children.length);
+        expect(committed?.upserts[0]?.children).toEqual(children);
+        expect(ctx.index.getNode("n-p")?.children).toEqual(children);
+        const stored = yield* other.loadEffect;
+        expect(stored.find((node) => node.id === "n-p")?.children).toEqual(children);
+        expect(other.txTail.entries()).toHaveLength(head + children.length);
+      }),
+    ),
+  );
+}
 
 /** The parent every writer below appends under, holding `children`. */
 function parent(children: string[]): KbNode {

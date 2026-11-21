@@ -233,14 +233,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The chips line moves to a shared field-list component (or the detail view draws FieldsSection) so both surfaces take one placement
 - **node** — `01M7EY5YQKG919B47FD255B34B`
 
-### GAP: A concurrent SQLite CLI writer exited before committing
-
-- **expected** — Independent CLI additions commit under ordinary contention, or return a conflict that can be diagnosed and retried.
-- **current** — During scratch stress with four CLI writers and eight subscribers, one SQLite kb add exited 1 before writing its node. The harness preserved the exit code and missed the receipt on stdout. A rerun capturing both streams passed all 16 additions.
-- **impact** — The first run required retrying the missing addition. The 12 additions that completed stayed durable.
-- **closes** — Reproduce with structured CLI receipts, classify the refusal, and add a concurrent store regression if the refusal is outside the conflict contract.
-- **node** — `01M7Q56B5T0H4HEW6BP85BT1S9`
-
 ### GAP: a dashboard's inner panes are not in the screen state
 
 - **expected** — every pane on screen, including those inside a dashboard, is listed in the screen state and can be targeted
@@ -824,6 +816,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — moving the item leaves the arrow behind; a half-made diagram does not hold together
 - **closes** — an edge end that may be a free point (or a path item end bound to an item), written through connectItems and drawn by edgeRoute in both projections
 - **node** — `01M5QP271PQ15E7WZ36KEN055N`
+
+### GAP: Canvas commands prepare whole-node writes before the retry planner
+
+- **expected** — A Canvas edit or import derives its document, parent links and related node writes from the graph each commit attempt reads.
+- **current** — Several Canvas verbs and the tldraw import pass precomputed node upserts to GraphWrites.commit; another attempt can reuse the same snapshots. This path predates the session retry change.
+- **impact** — A concurrent edit can be replaced by an older canvas document or parent link.
+- **closes** — Move Canvas document edits, related writes and import planning into the GraphWrites callback and prove concurrent edits survive on both store backends.
+- **node** — `01M7XES1FFV2N8AEZREJN7CQG7`
 
 ### GAP: canvas context menu opens in 2D only; a right-click in 3D opens nothing
 
@@ -2341,6 +2341,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — the view catalog does not grow from code views that proved themselves (decision 4C)
 - **closes** — a promotion action plus a review-and-commit flow that writes the code view as an extension view
 - **node** — `01M41DKTTRA55RA1KF4QBWQ9MF`
+
+### GAP: A concurrent SQLite CLI writer exited before committing
+
+- **expected** — Independent CLI additions commit under ordinary contention, or return a conflict that can be diagnosed and retried.
+- **current** — Four concurrent CLI writers reproduced a stale fingerprint conflict on SQLite. The failing kb add exhausted three immediate attempts, reported the conflict on stdout and wrote nothing. The session now replans or rechecks conflicting commits with jittered backoff within a bounded retry window.
+- **impact** — The first run required retrying the missing addition. The 12 additions that completed stayed durable.
+- **closes** — Share the session retry policy and prove across both store backends that a planned append preserves six intervening writes and commits once.
+- **node** — `01M7Q56B5T0H4HEW6BP85BT1S9`
 
 ### GAP: a confirming frame for an earlier write overwrites a later optimistic write
 

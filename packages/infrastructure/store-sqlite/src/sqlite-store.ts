@@ -1,7 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { watch } from "node:fs";
 import { dirname } from "node:path";
-import { Effect, Predicate, type Stream } from "effect";
+import { Clock, Effect, Predicate, type Stream } from "effect";
 import {
   canonicalJson,
   decodeStoredNode,
@@ -18,12 +18,18 @@ import {
   fingerprintChanges,
   KeptState,
   staleCommitError,
+  WriteLockDeadline,
   type EffectStore,
   type StoreCommit,
   type StoreFingerprint,
   type TxRecord,
 } from "@kb/contracts";
-import { commitMark, sqliteConnection, type SqliteConnection } from "./connection.ts";
+import {
+  commitMark,
+  setBusyTimeout,
+  sqliteConnection,
+  type SqliteConnection,
+} from "./connection.ts";
 import { sqliteStorePath } from "./paths.ts";
 import { SqliteTxTail } from "./tx-tail.ts";
 
@@ -72,7 +78,6 @@ function mapCommitError(err: unknown, path: string): DomainError {
  * without decoding every row; another writer moves `rev`, and the commit
  * reads the rows as it always did.
  */
-// GAP [[01M7Q56B5T0H4HEW6BP85BT1S9]] intermittent refusal observed in concurrent CLI writes
 export class SqliteStore implements EffectStore {
   readonly path: string;
   readonly loadEffect: Effect.Effect<KbNode[], DomainError>;
@@ -120,54 +125,70 @@ interface CommitRequest {
  * on, a conditional commit is checked against exactly that, and the ranks
  * `rankTx` settles are settled against it too.
  */
-function commitTx(
+const commitTx = Effect.fnUntraced(function* (
   connection: SqliteConnection,
   path: string,
   { tx, record, expected }: CommitRequest,
   txTail: SqliteTxTail,
   kept: KeptState<StoreState>,
-): Effect.Effect<StoreCommit, DomainError> {
-  return Effect.try({
+): Effect.fn.Return<StoreCommit, DomainError> {
+  const deadline = yield* WriteLockDeadline;
+  const clock = yield* Clock.Clock;
+  const waitForLock =
+    deadline === undefined
+      ? undefined
+      : () => {
+          const remaining = Math.ceil(deadline - clock.currentTimeMillisUnsafe());
+          if (remaining <= 0)
+            throw domainError("conflict", `timed out waiting for write lock ${path}`, { path });
+          return remaining;
+        };
+  return yield* Effect.try({
     try: () => {
-      const db = connection.open();
+      const db = connection.open(waitForLock);
       const read = db.query<NodeRow, [string]>("SELECT id, body FROM nodes WHERE id = ?");
       const drop = db.prepare<unknown, [string]>("DELETE FROM nodes WHERE id = ?");
       const upsert = db.prepare<unknown, [string, string]>(
         `INSERT INTO nodes (id, body) VALUES (?, ?)
            ON CONFLICT(id) DO UPDATE SET body = excluded.body`,
       );
-      const committed = db
-        .transaction(() => {
-          const base = commitMark(db);
-          const stale = staleCommitError(expected, base);
-          // Thrown to roll the transaction back; `catch` below passes it through.
-          if (stale !== null) throw stale;
-          // Taken, not read: a commit that fails leaves nothing kept.
-          const state =
-            kept.take(base) ??
-            (tx.upserts.length === 0 ? null : StoreState.of(storedNodes(db, path)));
-          const applied = state === null ? tx : rankTx(state, tx);
-          const writes = writesOf(applied, (id) => {
-            if (state !== null) return state.get(id);
-            const row = read.get(id);
-            return row === null ? undefined : storedNode(row, path);
-          });
-          for (const id of applied.deletes) drop.run(id);
-          for (const node of applied.upserts) upsert.run(node.id, canonicalJson(node));
-          // After the rows, whose triggers have moved `rev`, so the mark the
-          // tail stamps is the one a reopen will read; inside the same
-          // transaction, so on this backend the node rows and their log entry
-          // are one act with no crash window between them. An empty
-          // transaction is not recorded: it changes nothing and says nothing.
-          const committedRecord =
-            applied.upserts.length > 0 || applied.deletes.length > 0
-              ? txTail.appendWithin(db, applied, record)
-              : null;
-          // Read under the write lock, after the triggers: the state this
-          // commit leaves is the one a reopen will name.
-          return { base, applied, state, after: commitMark(db), record: committedRecord, writes };
-        })
-        .immediate();
+      const write = db.transaction(() => {
+        const base = commitMark(db);
+        const stale = staleCommitError(expected, base);
+        // Thrown to roll the transaction back; `catch` below passes it through.
+        if (stale !== null) throw stale;
+        // Taken, not read: a commit that fails leaves nothing kept.
+        const state =
+          kept.take(base) ??
+          (tx.upserts.length === 0 ? null : StoreState.of(storedNodes(db, path)));
+        const applied = state === null ? tx : rankTx(state, tx);
+        const writes = writesOf(applied, (id) => {
+          if (state !== null) return state.get(id);
+          const row = read.get(id);
+          return row === null ? undefined : storedNode(row, path);
+        });
+        for (const id of applied.deletes) drop.run(id);
+        for (const node of applied.upserts) upsert.run(node.id, canonicalJson(node));
+        // After the rows, whose triggers have moved `rev`, so the mark the
+        // tail stamps is the one a reopen will read; inside the same
+        // transaction, so on this backend the node rows and their log entry
+        // are one act with no crash window between them. An empty
+        // transaction is not recorded: it changes nothing and says nothing.
+        const committedRecord =
+          applied.upserts.length > 0 || applied.deletes.length > 0
+            ? txTail.appendWithin(db, applied, record)
+            : null;
+        // Read under the write lock, after the triggers: the state this
+        // commit leaves is the one a reopen will name.
+        return { base, applied, state, after: commitMark(db), record: committedRecord, writes };
+      });
+      let committed: ReturnType<typeof write>;
+      setBusyTimeout(db, waitForLock?.());
+      try {
+        committed = write.immediate();
+      } finally {
+        if (waitForLock !== undefined) setBusyTimeout(db);
+      }
       if (committed.state !== null && committed.after !== null) {
         committed.state.apply(committed.applied);
         kept.keep(committed.after, committed.state);
@@ -182,7 +203,7 @@ function commitTx(
     },
     catch: (err) => (isDomainError(err) ? err : mapCommitError(err, path)),
   });
-}
+});
 
 /**
  * `meta.rev`, the count of row changes the database's own triggers keep. It

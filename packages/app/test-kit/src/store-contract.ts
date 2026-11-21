@@ -23,10 +23,10 @@
  */
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
-import { Cause, Duration, Effect, Exit, Option, Queue, Stream } from "effect";
+import { Cause, Clock, Duration, Effect, Exit, Option, Queue, Stream } from "effect";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { onWire, STORE_CHANGES_POLL } from "@kb/contracts";
+import { onWire, STORE_CHANGES_POLL, WriteLockDeadline } from "@kb/contracts";
 import {
   applyTx,
   compareRootOrder,
@@ -67,7 +67,12 @@ import {
 } from "./seed-opening-contract.ts";
 import { commitReceiptNamesItsWrite, tailRecordsWhoCommitted } from "./commit-record-contract.ts";
 import { viewsMigrateRewritesLegacyShapes } from "./view-migration-contract.ts";
-import { commitAfterAnotherWriterMergesIntoIt } from "./writers-contract.ts";
+import {
+  commitAfterAnotherWriterMergesIntoIt,
+  deletePreservesConcurrentSibling,
+  plannedWriteSurvivesContention,
+  updatePreservesConcurrentField,
+} from "./writers-contract.ts";
 
 export type { StoreFactory } from "./store-session.ts";
 
@@ -287,11 +292,36 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
     conditionalCommitNamesItsBase,
   ],
   ["two conditional commits from one state: at most one lands", conditionalCommitsRace],
+  ["a commit with an exhausted lock deadline leaves the store unchanged", exhaustedLockDeadline],
+  ["a session replans a write through repeated commit conflicts", plannedWriteSurvivesContention],
+  ["node.update preserves a concurrent edit to a different field", updatePreservesConcurrentField],
+  ["node.delete preserves a concurrently added sibling", deletePreservesConcurrentSibling],
   [
     "a commit that cannot be written fails with a DomainError and leaves no store",
     unwritableCommitFails,
   ],
 ];
+
+function exhaustedLockDeadline(makeStore: StoreFactory): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* backendRoot(makeStore);
+        const store = yield* Effect.acquireRelease(
+          Effect.sync(() => makeStore(root)),
+          (held) => held.closeEffect,
+        );
+        const before = yield* stateOf(store);
+        const deadline = yield* Clock.currentTimeMillis;
+        const error = yield* Effect.flip(
+          store.commitEffect({ upserts: [plainNode("n-a", "a")], deletes: [] }, { at: AT }),
+        ).pipe(Effect.provideService(WriteLockDeadline, deadline));
+        expect(error.code).toBe("conflict");
+        expect(yield* stateOf(store)).toEqual(before);
+      }),
+    ),
+  );
+}
 
 function unwrittenStoreIsEmpty(makeStore: StoreFactory): Promise<void> {
   return Effect.runPromise(

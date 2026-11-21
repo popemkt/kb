@@ -118,7 +118,7 @@ const planCall = Effect.fn("node.batch.call")(function* (
   }
   if (call.action === "node.update") {
     const byId = new Map(nodes.map((node) => [node.id, node]));
-    const { write } = yield* planNodeUpdate(nodes, call.input, at, (id) => byId.get(id));
+    const write = yield* planNodeUpdate(nodes, call.input, at, (id) => byId.get(id));
     return { id: call.input.id, write };
   }
   // A node already gone is deleted already: nothing to write, as `node.delete`.
