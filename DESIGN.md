@@ -6642,9 +6642,12 @@ are `docs/brainstorms/2026-10-17-kb-locations/README.md`.
   is stopped with its process group (SIGTERM, then SIGKILL once a short
   grace has passed): until it serves it belongs to the
   start, so a failed or interrupted start leaves no server behind.
-  Concurrent opens of one root in one process are one start
-  (`oneStartPerRoot`); across processes they are not yet
-  (GAP [[01M545PFJ3285JNXYHKVCM50Z7]]). A missing location, or one that is not a
+  Concurrent opens of one root are one start. In one process a second
+  start waits for the first and gets its answer (`oneStartPerRoot`).
+  Across processes, a start holds the root's start lock (`.kb/ui-start.lock`,
+  the kernel lock the store's writers take, `@kb/file-write`), looks for a
+  server again once it holds it, and spawns only when there is none, so a
+  start that waited answers the server the other one started. A missing location, or one that is not a
   store, fails `not_found` with its reason and starts nothing. Started
   servers keep running with no supervisor, as a `kb ui` a person starts
   does; `kb locations` shows which are served.

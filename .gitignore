@@ -57,6 +57,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # kb ui presence — which local kb ui serves this root, while one does. Runtime
 # state like a pidfile: written by `kb ui`, removed when it stops.
 .kb/ui.json
+# The lock a start of a kb ui for this root holds (DESIGN.md → Locations).
+.kb/ui-start.lock
+.kb/ui-start.lock.*.tmp
 
 # kb canvas captures — the pictures `ui.capture` had a tab draw, kept for an
 # agent to open by path. Runtime state like ui.json: the newest few are kept.

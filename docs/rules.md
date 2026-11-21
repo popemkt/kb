@@ -2300,14 +2300,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A shared key home for third-party keys (the codependency record's Q1), or a by-name key resolved by the kernel.
 - **node** — `01M68NFCSWZ41EJNBVDJ23RPFJ`
 
-### GAP: two processes that start a kb ui for one root at once can start two servers
-
-- **expected** — Starts for one root are single-flight across processes: a start holds a pidfile lock under the root's .kb, re-checks presence once it holds the lock, and only then spawns.
-- **current** — oneStartPerRoot (runtime/src/serve.ts) makes concurrent starts in one process one start; two processes (kb open and the page's server) can each spawn a server at once, the later presence write wins and the other runs on, unlisted.
-- **impact** — An extra unsupervised kb ui can be left running over the root; neither data nor security is affected (both serve the same root on loopback, the guard applies to both).
-- **closes** — A generic pidfile lock with a home both store-jsonl (its nodes write lock) and runtime may import (not infrastructure: infra cannot import infra), e.g. a backend contract-layer package; KbRoots.serve holds it around the re-check and the spawn.
-- **node** — `01M545PFJ3285JNXYHKVCM50Z7`
-
 ### GAP: two tabs editing the same row overwrite each other silently
 
 - **expected** — a node.update carries the text it was edited from (its base), and the server refuses one whose node changed since; the tab then shows the row as changed elsewhere, takes the server's text, and the person's unsaved words are offered back, never lost silently
@@ -3741,6 +3733,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Move both queries behind a lib/ or store selector that the components consume, so ds/ keeps one set of callers.
 - **rule** — UI import matrix
 - **node** — `01M1RXMRZKE1AJC850BRTHHHCW`
+
+### GAP: two processes that start a kb ui for one root at once can start two servers
+
+- **expected** — Starts for one root are single-flight across processes: a start holds a pidfile lock under the root's .kb, re-checks presence once it holds the lock, and only then spawns.
+- **current** — oneStartPerRoot (runtime/src/serve.ts) makes concurrent starts in one process one start; two processes (kb open and the page's server) can each spawn a server at once, the later presence write wins and the other runs on, unlisted.
+- **impact** — An extra unsupervised kb ui can be left running over the root; neither data nor security is affected (both serve the same root on loopback, the guard applies to both).
+- **closes** — A generic pidfile lock with a home both store-jsonl (its nodes write lock) and runtime may import (not infrastructure: infra cannot import infra), e.g. a backend contract-layer package; KbRoots.serve holds it around the re-check and the spawn.
+- **node** — `01M545PFJ3285JNXYHKVCM50Z7`
 
 ### GAP: TxTail allocates a rev outside the store's exclusion for virtual transactions
 

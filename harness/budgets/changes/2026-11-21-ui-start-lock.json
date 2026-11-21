@@ -1,0 +1,4 @@
+{
+  "reason": "A kb ui start holds the root's start lock and looks for a server again before it spawns, so two processes starting one root start one server.",
+  "raise": { "cli-closure": { "bytes": 208 } }
+}

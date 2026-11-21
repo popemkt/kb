@@ -93,6 +93,26 @@ describe("starting a kb ui for a root", () => {
     expect(identity.root).toBe(root);
   }, 30_000);
 
+  test("two starts for one root at once, as two processes make them, start one server", async () => {
+    // Each spawn is counted, then becomes the real kb.
+    const spawns = join(scratch, "spawns");
+    const counted = launch(
+      ["sh", "-c", `echo spawned >> ${JSON.stringify(spawns)}; exec "$0" "$@"`, CLI],
+      20_000,
+    );
+    // Not through oneStartPerRoot: that joins starts in one process only.
+    const urls = await run(
+      Effect.all(
+        [serveRoot(root, counted), serveRoot(root, counted)].map((start) =>
+          start.pipe(Effect.provide(bunFileSystemLayer)),
+        ),
+        { concurrency: "unbounded" },
+      ),
+    );
+    expect(urls[0]).toBe(urls[1]);
+    expect((await readFile(spawns, "utf8")).trim().split("\n")).toEqual(["spawned"]);
+  }, 40_000);
+
   test("a child that stops before it serves fails with its exit and its stderr", async () => {
     const message = await failureOf(
       serveRoot(
