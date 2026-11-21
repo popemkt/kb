@@ -40,6 +40,7 @@ import {
   LinkSimpleIcon,
   MagnifyingGlassIcon,
   PencilSimpleLineIcon,
+  PlusIcon,
   PushPinIcon,
   PushPinSlashIcon,
   SidebarSimpleIcon,
@@ -93,6 +94,7 @@ import {
   type OutlineCommandApi,
   type PageWrites,
   type ProvidedView,
+  resolveVisibleProps,
   ViewPoint,
   uiKernelReader,
   textOr,
@@ -443,16 +445,15 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     run: (ctx) => ctx.palette.openStep("outline.find-tagged"),
   },
   {
+    // One write, pointing the row's target field at a node: on a row that
+    // is a reference already, it repoints it.
     id: "turn-ref",
     menu: nodeMenu("make", 30),
-    chrome: () => ({
-      label: "Turn into reference…",
+    chrome: (ctx) => ({
+      label: isContextualRef(targetNode(ctx)) ? "Change reference target…" : "Turn into reference…",
       icon: <LinkSimpleIcon size={14} weight="bold" />,
     }),
-    when: (ctx) => {
-      const node = targetNode(ctx);
-      return node !== undefined && !isContextualRef(node);
-    },
+    when: (ctx) => targetNode(ctx) !== undefined,
     run: (ctx) => ctx.palette.openStep("outline.add-ref"),
   },
   {
@@ -469,6 +470,21 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     many: true,
     chrome: () => ({ label: "Add field", icon: <TextTIcon size={14} weight="bold" /> }),
     run: (ctx) => ctx.palette.openStep("outline.add-field"),
+  },
+  {
+    // DESIGN-UI.md → Field values: a value added from the keyboard, wherever
+    // the field's row is drawn.
+    id: "add-value",
+    menu: nodeMenu("make", 42),
+    chrome: () => ({ label: "Add value…", icon: <PlusIcon size={14} weight="bold" /> }),
+    when: (ctx) => {
+      const node = targetShownNode(ctx);
+      return (
+        node !== undefined &&
+        resolveVisibleProps(node, browserHost().schema()).some((p) => p.placement === "row")
+      );
+    },
+    run: (ctx) => ctx.palette.openStep("outline.add-value"),
   },
   {
     id: "set-field",

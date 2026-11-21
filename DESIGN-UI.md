@@ -1536,9 +1536,9 @@ write that is one undo step (`setNodeText`, below). Both steps are offered
 only on a row whose text names a node, and only on one row.
 
 **Named gaps.** The reference node's own props — its target among them — are
-not drawn by its row, since every field row is the target's; the target is
-repointable only from the CLI or MCP (`node.update`), and _Turn into
-reference…_ is withheld from a row that already is one. View filters, sort and
+not drawn by its row, since every field row is the target's; on a row that
+already is a reference, _Turn into reference…_ reads _Change reference
+target…_ and repoints it, with the same step and the same write. View filters, sort and
 board grouping read a row's own props, so a reference inside a table or board
 sorts and groups as an empty node. Enter at the end of an expanded reference
 opens a sibling, where an expanded ordinary row opens its first child, because
@@ -1641,7 +1641,15 @@ the row's anatomy, a primitive of `@kb/ui-sdk` that prefs renders too
 | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Follow** (a ref's node, an option's page, a url) | plain click on a _pointer segment_ — a ref label, an option chip, a url's link, a `[[ref]]` pill in text — exactly as in node text; ⌘/Ctrl-click anywhere on the value | ⌘Enter, at rest or editing                                                                                                                 |
 | **Edit**                                           | plain click anywhere else in the slot; a caret lands where the click did                                                                                               | Enter or F2; a printable key opens it with that key typed (replacing the value; a picker starts its query with it); Space flips a checkbox |
-| **Add** (many-valued fields only)                  | the "+" in the trailing space of the last value, on hover or focus                                                                                                     | Enter at the end of a typed value; the picker, which stays open                                                                            |
+| **Add** (many-valued fields only)                  | the "+" in the trailing space of the last value, on hover or focus                                                                                                     | Enter at the end of a typed value; the picker, which stays open; from anywhere on the row, Add value… in its ⌘K menu                       |
+
+**Add value…** is the Add verb reached from the row's ⌘K menu, for a field
+whose row is off screen or collapsed. It lists the fields the row draws as
+rows and does what the picked field's "+" does (`FieldHandle.addValue`):
+its picker for a picked kind, a new empty slot for a typed one, and the
+slot itself for a field that holds one value or none. A closed row opens
+first, and the landing waits for its fields to be drawn
+(`landInFieldsOf`).
 
 Following is one function for every pointer in kb (`lib/follow.ts`:
 `routePointerClick`, the bullet rule `bulletClickIntent`, and `useFollow`,
@@ -1751,6 +1759,16 @@ a line to draw. Debug fields draw every field as a row, and no line.
 - **option** — a ref field that declares its values by parenting them
   (`declaresOptionSet`) — is a chip drawn in the tag chip's box, in the
   option's colour (`optionColorOf`); a field's chips wrap on one line.
+
+**A paste of several lines.** Pasting several lines into a many-valued
+field adds one value per line
+(`value-paste`, the stack's paste): blank lines are dropped, each line is
+read as the field reads a value typed (`spec.parse`), or for a picked field
+names the target its picker offers by that exact name, made first, as the
+create row makes one, where the field may make targets. The values go after
+the field's own as one write of the page's, one undo step, and the keyboard
+lands on the last. A paste with a line the field cannot read or name, or a
+single line, is the editor's, as typing is.
 
 **Option previews.** An option of a declared kind (DESIGN.md → Extension
 families → Declared options) may be drawn with a live sample of what it
@@ -1923,8 +1941,7 @@ when a second family needs a trigger of its own, it becomes one.
 
 **Named gaps.** A ref value's bullet follows on a plain click (a value's
 bullet has no children of its own to expand) rather than expanding the
-target's children inline under the field. Pasting
-several lines into a many-valued field is not split into values. The node
+target's children inline under the field. The node
 palette has no "Add value to …" command. `sys.f.color` keeps its always-open
 swatch row. The PropValue union still carries the legacy `date` variant so old
 stores decode (opening rewrites it).
@@ -3322,7 +3339,7 @@ The groups, in the menu's order (`NODE_MENU_GROUPS`):
 | Group | What it holds | Its rows today |
 | --- | --- | --- |
 | `lead` | how the node itself opens and shows | "Open in …" for its tag's view; "Show/Hide preview", "Show/Hide properties" |
-| `make` | what the node is and holds | Add tag, Remove tag…, Make your own tag that extends this, Turn into query, Turn into reference…, Add field, Set field…, Make supertag, Type this reference…, Remove reference… |
+| `make` | what the node is and holds | Add tag, Remove tag…, Make your own tag that extends this, Turn into query, Turn into reference… (Change reference target… on a reference), Add field, Add value…, Set field…, Make supertag, Type this reference…, Remove reference… |
 | `open` | where it opens | Search everything…, Open in panel, Open as workspace, Open with: …, Copy node ID |
 | `arrange` | where it sits | Indent, Outdent, Move to…, Move and leave reference… |
 | `mark` | what marks it | Pin / Unpin, Show / Hide debug fields |
@@ -7811,6 +7828,16 @@ pointer to somewhere else: breadcrumbs, sidebar entries, chips, picker
 rows. A clamped label carries its full text in a `title` tooltip.
 `outline-layout.e2e.ts` measures the title in a real engine at a desktop
 and a phone width.
+
+A field's value is content too, but a value is read beside its node, not
+as the page. A value at rest shows at most six lines (`line-clamp-6`,
+`useLongValue` in `field-value`): one that overflows them draws "Show
+more" under it, which shows it whole and turns to "Show less". Whether it
+overflows is measured on the drawn value, again when its text or width
+changes. Reading it whole is the drawn value's passing state, written
+nowhere, and is not editing it: editing shows the whole value, as it always
+does. So a pasted log, or a canvas's document under Show properties,
+stays a few lines in the outline until it is asked for.
 
 ### Elevation
 

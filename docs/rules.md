@@ -450,14 +450,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A default per place: a reference opened in place defaults its target's row open (isRowOpen reads the place's default before the node's), with the undoable rule judging a choice against that default
 - **node** — `01M7D8AP4A4W6S2X5T1DSE9D77`
 
-### GAP: a reference's target cannot be changed from the UI
-
-- **expected** — A reference row can be repointed from the UI.
-- **current** — Every field row a reference draws is its target's, so its own props (sys.f.ref.target) are not shown; Turn into reference... is withheld from a row that already is one. Repointing is CLI/MCP node.update only.
-- **impact** — A wrongly picked reference must be deleted and recreated in the UI.
-- **closes** — A "Change reference target..." step in the node's ⌘K menu using the shared picker.
-- **node** — `01M3KA3AZTJVQNADZ12SDPE9X1`
-
 ### GAP: a registry composed blind to the store's switches replaces the session's
 
 - **expected** — Composing a root's registry never retires one a live session still reads: every caller passes the store's switches, or a session's FamilyKernels and catalog read the root's current registry per call.
@@ -654,6 +646,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A field shown with no value is a first-class state the slot draws (an opened-but-empty field), so Add field writes no placeholder value; or the store accepts an empty ref as no value.
 - **node** — `01M7WVNN93MWQ3FYK5J86P6ASD`
 
+### GAP: Add field writes 0 to make a number field's row appear
+
+- **expected** — Adding a field shows its row with an empty slot, for every type, and writes no value the person did not give.
+- **current** — A field row appears only while the node holds a value for it, so Add field writes the type's initial value (FIELD_TYPE_SPEC.initial). For number that is 0, since an empty string is not a value a number field stores; the slot then reads 0 rather than empty.
+- **impact** — A number field added and left alone holds a 0 the person never entered, and it counts in queries, sums and filters.
+- **closes** — A field row that can exist without a value (a declared-but-empty field on the node, as data), so Add field writes nothing; then drop FieldTypeSpec.initial.
+- **node** — `01M7YW0HJFHQ08HTGBBW1EWYER`
+
 ### GAP: admission bundles an extension's page half but never imports or decodes it
 
 - **expected** — kb ext validate refuses a repository extension whose page half would fail in the page: it imports the bundled page half in a page-like environment and decodes its page surface as the page does, so a page half that loads but contributes wrongly fails the gate.
@@ -686,14 +686,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — browser agents cannot use approval-required actions
 - **closes** — an in-page approval prompt shared with the sidebar agent (roadmap step 5)
 - **node** — `01M3S5DDJ7MP2VZ4WJB007RRR5`
-
-### GAP: an empty number slot draws its editor starter, 0, as if it were a value
-
-- **expected** — an empty number field reads as empty (the italic "Empty" a status or text slot shows), and the editor opens on a blank input
-- **current** — the number kind starts its editor from {t:num, v:0} (FIELD_TYPE_SPEC in ui-sdk lib/field-type.ts) and its isBlank reads that as filled, so every empty number slot shows 0; the Add field palette step also writes that 0 to make the row appear
-- **impact** — a card or row reads Points 0 where nothing is stored; a reviewer took a new board card for one with a value set
-- **closes** — split the starter an editor shows from the value Add field writes: the number slot draws blank when no value is stored, and the Add field step writes what makes an empty row appear without a number
-- **node** — `01M7DAJCF878DEPVQHE6R7FJT9`
 
 ### GAP: an event line draws its calendar dot among its words, so the calendar name starts after the text column
 
@@ -1168,14 +1160,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — per-item origins in the gizmo
 - **node** — `01M41W57GRNCMBJG1RYJQTA68P`
 
-### GAP: long field values are drawn in full in the outline
-
-- **expected** — A field value longer than a few lines is clamped in the outline's field row, with an expand control to read it whole, as a row's own text is not (DESIGN-UI → Long text covers node text and pointer labels only).
-- **current** — A field's value renders in full and wraps (FieldsSection → NodeField); nothing clamps or expands a long value.
-- **impact** — Show properties on a #canvas node reveals its document field, so the row draws the whole canvas JSON; any long text field (pasted logs, notes) stretches the outline the same way.
-- **closes** — A clamp-with-expand on the outline's field value view, stated in DESIGN-UI → Long text, with a test on a long value; the canvas document under Show properties then shows a few clamped lines.
-- **node** — `01M6BAEDQ6NQTXPBY5VNTJ5KBN`
-
 ### GAP: Manage capture devices with verified host approval
 
 - **expected** — A person can inspect, pair and revoke their devices from an authenticated host surface. Pairings survive a store move and expired codes are retired.
@@ -1322,14 +1306,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — two outline panes cannot be zoomed into different nodes at the root route
 - **closes** — move the zoom into the pane's location
 - **node** — `01M411FP5AGQ4VB5SGJWCJAN66`
-
-### GAP: pasting several lines into a many-valued field is one value
-
-- **expected** — A multi-line paste into a many-valued field becomes one value per line.
-- **current** — The pasted text lands as a single value.
-- **impact** — Bulk entry of options or refs takes one edit per value.
-- **closes** — The value stack's paste handler splits on newlines for many-valued fields and appends one slot per line.
-- **node** — `01M3KA39GQ7Q8HSD0JKB46VCC5`
 
 ### GAP: people cannot pick a canvas item as a link target
 
@@ -1773,14 +1749,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Show the existing dry-run diff in the migration approval dialog.
 - **rule** — Plugins migrate their own data, declared and previewed
 - **node** — `01M7342YFJC4B6DMAFD8MTSTD7`
-
-### GAP: the node palette has no "Add value to <field>" command
-
-- **expected** — The node's ⌘K menu offers "Add value to <field>" for each field the node shows, reaching the same picker the + does.
-- **current** — Adding a value is only Enter or the inline + on the field row.
-- **impact** — Keyboard-only users cannot add a value to a field whose row is off screen or collapsed.
-- **closes** — A palette step per shown field that opens the field's value picker.
-- **node** — `01M3KA39PQAJZJ6C6ZY4RV1SPZ`
 
 ### GAP: the offline demo spells graph-owned seed ids
 
@@ -2264,6 +2232,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYKQAHJNG5SSRVSYE77GN`
 
+### GAP: a reference's target cannot be changed from the UI
+
+- **expected** — A reference row can be repointed from the UI.
+- **current** — Every field row a reference draws is its target's, so its own props (sys.f.ref.target) are not shown; Turn into reference... is withheld from a row that already is one. Repointing is CLI/MCP node.update only.
+- **impact** — A wrongly picked reference must be deleted and recreated in the UI.
+- **closes** — A "Change reference target..." step in the node's ⌘K menu using the shared picker.
+- **node** — `01M3KA3AZTJVQNADZ12SDPE9X1`
+
 ### GAP: A rejected optimistic mention Link can leave a stale undo step
 
 - **expected** — An outline undo step can reverse only a write the server accepted, using the text that write actually replaced.
@@ -2379,6 +2355,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Add one registry output parser for Effect-native and Promise handlers, map mismatch to an internal contract failure, and add invalid-output tests.
 - **rule** — Domain typing — parse unknown at the boundary
 - **node** — `01M1PJSSQYFV2E160JANGBPKCK`
+
+### GAP: an empty number slot draws its editor starter, 0, as if it were a value
+
+- **expected** — an empty number field reads as empty (the italic "Empty" a status or text slot shows), and the editor opens on a blank input
+- **current** — the number kind starts its editor from {t:num, v:0} (FIELD_TYPE_SPEC in ui-sdk lib/field-type.ts) and its isBlank reads that as filled, so every empty number slot shows 0; the Add field palette step also writes that 0 to make the row appear
+- **impact** — a card or row reads Points 0 where nothing is stored; a reviewer took a new board card for one with a value set
+- **closes** — split the starter an editor shows from the value Add field writes: the number slot draws blank when no value is stored, and the Add field step writes what makes an empty row appear without a number
+- **node** — `01M7DAJCF878DEPVQHE6R7FJT9`
 
 ### GAP: an outline component owns the live-query subscription
 
@@ -2867,6 +2851,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXMQPVJKREGDS7D37J1MWN`
 
+### GAP: long field values are drawn in full in the outline
+
+- **expected** — A field value longer than a few lines is clamped in the outline's field row, with an expand control to read it whole, as a row's own text is not (DESIGN-UI → Long text covers node text and pointer labels only).
+- **current** — A field's value renders in full and wraps (FieldsSection → NodeField); nothing clamps or expands a long value.
+- **impact** — Show properties on a #canvas node reveals its document field, so the row draws the whole canvas JSON; any long text field (pasted logs, notes) stretches the outline the same way.
+- **closes** — A clamp-with-expand on the outline's field value view, stated in DESIGN-UI → Long text, with a test on a long value; the canvas document under Show properties then shows a few clamped lines.
+- **node** — `01M6BAEDQ6NQTXPBY5VNTJ5KBN`
+
 ### GAP: mapSelectionKey maps keys to actions through a 46-branch chain
 
 - **expected** — A declarative keymap table (chord -> action factory) that the mapper looks up, so the binding set is data and can be listed, documented and rebound.
@@ -3051,6 +3043,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Field defaults are stated once per field in code and again in the ontology, and a malformed prop degrades silently per field instead of failing the decode.
 - **closes** — Track 2 domain-typing work: express LensPerspective as a Schema and decode props through it. Not mechanical - it changes what happens on malformed input.
 - **node** — `01M1MGCEBYDFRNJX1JKXXN825H`
+
+### GAP: pasting several lines into a many-valued field is one value
+
+- **expected** — A multi-line paste into a many-valued field becomes one value per line.
+- **current** — The pasted text lands as a single value.
+- **impact** — Bulk entry of options or refs takes one edit per value.
+- **closes** — The value stack's paste handler splits on newlines for many-valued fields and appends one slot per line.
+- **node** — `01M3KA39GQ7Q8HSD0JKB46VCC5`
 
 ### GAP: phone capture lifecycle has no device or emulator evidence
 
@@ -3575,6 +3575,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a family cannot contribute a node command to a slot: the outline's indent, outdent and 'Filter…' stay the shell's, and expand/collapse all sit after the default-view rows
 - **closes** — an order on node commands, read by the one menu builder
 - **node** — `01M531QSQ2DJDSPYB132RQ5RBC`
+
+### GAP: the node palette has no "Add value to <field>" command
+
+- **expected** — The node's ⌘K menu offers "Add value to <field>" for each field the node shows, reaching the same picker the + does.
+- **current** — Adding a value is only Enter or the inline + on the field row.
+- **impact** — Keyboard-only users cannot add a value to a field whose row is off screen or collapsed.
+- **closes** — A palette step per shown field that opens the field's value picker.
+- **node** — `01M3KA39PQAJZJ6C6ZY4RV1SPZ`
 
 ### GAP: the outline keydown handler is a 64-branch callback
 

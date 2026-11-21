@@ -495,6 +495,47 @@ describe("a text value is node text", () => {
     expect(slot.getAttribute("data-editing")).toBe("true");
   });
 
+  it("clamps a value longer than its lines at rest, with a toggle to read it whole", async () => {
+    // The page measures what it draws; this DOM lays nothing out, so the
+    // value says it is taller than its clamp.
+    const proto = dom.window.HTMLElement.prototype as unknown as object;
+    const was = {
+      scroll: Object.getOwnPropertyDescriptor(proto, "scrollHeight"),
+      client: Object.getOwnPropertyDescriptor(proto, "clientHeight"),
+    };
+    Object.defineProperty(proto, "scrollHeight", { configurable: true, get: () => 400 });
+    Object.defineProperty(proto, "clientHeight", { configurable: true, get: () => 120 });
+    try {
+      const slot = await mountText("a long note\n".repeat(40));
+      expect(editable().getAttribute("data-clamped")).toBe("true");
+      const toggle = present(
+        container.querySelector<HTMLElement>('[data-long-value-toggle="true"]'),
+        "toggle",
+      );
+      expect(toggle.textContent).toBe("Show more");
+      await act(async () => {
+        toggle.click();
+      });
+      // Read whole, not edited.
+      expect(editable().getAttribute("data-clamped")).toBeNull();
+      expect(toggle.textContent).toBe("Show less");
+      expect(slot.getAttribute("data-editing")).toBeNull();
+    } finally {
+      for (const [name, descriptor] of [
+        ["scrollHeight", was.scroll],
+        ["clientHeight", was.client],
+      ] as const) {
+        if (descriptor === undefined) Reflect.deleteProperty(proto, name);
+        else Object.defineProperty(proto, name, descriptor);
+      }
+    }
+  });
+
+  it("a short value has no toggle", async () => {
+    await mountText("short");
+    expect(container.querySelector('[data-long-value-toggle="true"]')).toBeNull();
+  });
+
   it("renders its inline markdown at rest: formatting and ref pills", async () => {
     await mountText("**bold** and [[n.x|X]]");
     expect(editable().querySelector("strong")?.textContent).toBe("bold");
@@ -563,11 +604,11 @@ describe("a number value reads in the locale", () => {
     container.remove();
   });
 
-  async function mountNumber(v: number) {
+  async function mountNumber(v: number | null) {
     await act(async () => {
       root.render(
         createElement(ValueSlot, {
-          value: { t: "num", v },
+          value: v === null ? null : { t: "num", v },
           fieldType: "number",
           fieldId: "f.estimate",
           context,
@@ -599,6 +640,18 @@ describe("a number value reads in the locale", () => {
       slot.click();
     });
     expect(editable().textContent).toBe(numberEditText(1234567.5));
+  });
+
+  it("reads as empty while it holds no number, and opens on a blank input", async () => {
+    const slot = await mountNumber(null);
+    expect(editable().textContent).toBe("");
+    expect(editable().className).toContain("empty-placeholder");
+    await act(async () => {
+      slot.click();
+    });
+    expect(editable().textContent).toBe("");
+    await typeAndLeave("7");
+    expect(committed).toEqual([{ t: "num", v: 7 }]);
   });
 
   it("reads typing in the locale's separators, grouping ignored", async () => {
@@ -957,6 +1010,7 @@ describe("a date value keeps the slot's keys", () => {
       create: () => Promise.resolve(null),
       openPicker: () => undefined,
       addSlot: () => calls.push("addSlot"),
+      addValue: () => calls.push("addValue"),
       leave: (to) => calls.push(`leave:${to}`),
       claimKeyboard: () => undefined,
       focusSlot: () => undefined,

@@ -384,7 +384,7 @@ function CaretRest({
   refs,
   rejected,
 }: {
-  viewRef: React.Ref<HTMLDivElement>;
+  viewRef: React.RefObject<HTMLDivElement | null>;
   className: string;
   /** Null: the slot is unset and shows its placeholder. */
   text: string | null;
@@ -395,30 +395,50 @@ function CaretRest({
   refs: RefLook;
   rejected: RejectedInput | null;
 }) {
+  const long = useLongValue(viewRef, text);
   return (
     <>
-      <div
-        key="view"
-        ref={viewRef}
-        className={className}
-        data-editable-text="true"
-        data-empty-placeholder={text === null ? "true" : undefined}
-        data-rejected={rejected !== null ? "true" : undefined}
-        aria-invalid={rejected !== null || undefined}
-        title={rejected?.reason}
-      >
-        {/* D17: empty state is CSS-only (:empty::before) — the DOM stays
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div
+          key="view"
+          ref={viewRef}
+          className={cn(className, long.clamped && LONG_VALUE_CLAMP)}
+          data-editable-text="true"
+          data-empty-placeholder={text === null ? "true" : undefined}
+          data-rejected={rejected !== null ? "true" : undefined}
+          data-clamped={long.clamped ? "true" : undefined}
+          aria-invalid={rejected !== null || undefined}
+          title={rejected?.reason}
+        >
+          {/* D17: empty state is CSS-only (:empty::before) — the DOM stays
             empty so the caret lands on a truly blank editor. */}
-        {text === null ? null : href?.kind === "href" ? (
-          <UrlLink href={href.href} />
-        ) : markdown ? (
-          <InlineMarkdown text={text} refs={refs} />
-        ) : chip ? (
-          <span className={INLINE_TEXT_CLASSES.code} data-secret-ref="true">
-            {text}
-          </span>
-        ) : (
-          text
+          {text === null ? null : href?.kind === "href" ? (
+            <UrlLink href={href.href} />
+          ) : markdown ? (
+            <InlineMarkdown text={text} refs={refs} />
+          ) : chip ? (
+            <span className={INLINE_TEXT_CLASSES.code} data-secret-ref="true">
+              {text}
+            </span>
+          ) : (
+            text
+          )}
+        </div>
+        {long.toggle && (
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-expanded={!long.clamped}
+            data-long-value-toggle="true"
+            className="self-start px-1 text-meta text-foreground/40 hover:text-foreground/70"
+            onClick={(e) => {
+              // Reading it whole is not editing it.
+              e.stopPropagation();
+              long.flip();
+            }}
+          >
+            {long.clamped ? "Show more" : "Show less"}
+          </button>
         )}
       </div>
       {rejected !== null && (
@@ -432,6 +452,37 @@ function CaretRest({
       )}
     </>
   );
+}
+
+/** How many lines a long value shows at rest before it is clamped (DESIGN-UI.md → Long text). */
+const LONG_VALUE_CLAMP = "line-clamp-6";
+
+/**
+ * Whether a value at rest is clamped (DESIGN-UI.md → Long text): a value
+ * longer than its clamp shows the clamp's lines and a toggle to read it
+ * whole, and back. Whether it overflows is measured on the drawn value, again
+ * when its text or its width changes; reading it whole is this drawn
+ * value's passing state, written nowhere.
+ */
+function useLongValue(viewRef: React.RefObject<HTMLDivElement | null>, text: string | null) {
+  const [whole, setWhole] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  useLayoutEffect(() => {
+    const el = viewRef.current;
+    // An unset value has nothing to clamp; a new text is measured anew.
+    if (el === null || whole || text === null) return undefined;
+    const measure = () => setOverflows(el.scrollHeight > el.clientHeight + 1);
+    measure();
+    if (typeof ResizeObserver === "undefined") return undefined;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [viewRef, text, whole]);
+  return {
+    clamped: !whole,
+    toggle: whole || overflows,
+    flip: () => setWhole((was) => !was),
+  };
 }
 
 /**

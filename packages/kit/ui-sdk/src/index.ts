@@ -205,6 +205,7 @@ export { failureText, personRefusal, refusalNames } from "./lib/refusal";
 export {
   clearAllowedRefIdsCache,
   emptyValueForType,
+  initialValueForType,
   isValueMismatch,
   resolveAllowedRefIds,
   resolveAllowedRefIdsCached,

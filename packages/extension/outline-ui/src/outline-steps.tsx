@@ -14,6 +14,7 @@ import {
   HashIcon,
   LinkSimpleIcon,
   PencilSimpleLineIcon,
+  PlusIcon,
   TextTIcon,
 } from "@phosphor-icons/react";
 import type { WireNode } from "@kb/contracts";
@@ -21,7 +22,7 @@ import type { ContributionEntry } from "@kb/plugin";
 import {
   asOneWrite,
   browserHost,
-  emptyValueForType,
+  initialValueForType,
   nodeCandidates,
   orderCandidates,
   type NodeMap,
@@ -29,6 +30,9 @@ import {
   type PickerCandidate,
   refUses,
   resolveFieldTypeById,
+  resolveVisibleProps,
+  shownNode,
+  type SchemaIndex,
 } from "@kb/ui-sdk";
 import { outlineNodes, useOutlineStore } from "./outline.store";
 import { moveRows } from "./row-moves";
@@ -44,6 +48,7 @@ import {
 } from "@kb/model";
 import { fieldGlyphOf } from "./value-views";
 import { notePick, recentPicks } from "./picker-recency";
+import { landInFieldsOf } from "./value-slot-nav";
 
 /**
  * Nodes whose kind slot points at `kind`, by name: the tags (`sys.tag`) the
@@ -157,7 +162,7 @@ export const addField: PaletteStep<string | null> = {
       // An empty typed value is what makes the row appear and focusable; the
       // field's own declared type decides which editor that row gets.
       // A row that holds a value keeps it (`initializeProp`).
-      const empty = emptyValueForType(resolveFieldTypeById(fieldId, schema));
+      const empty = initialValueForType(resolveFieldTypeById(fieldId, schema));
       await Promise.all(
         targetNodeIds.map((nodeId) => writes.initializeProp(nodeId, fieldId, empty)),
       );
@@ -165,6 +170,41 @@ export const addField: PaletteStep<string | null> = {
     });
     if (id !== null) notePick("field", id);
     return id;
+  },
+};
+
+/** The fields the row of `rowId` draws as rows, as its fields section shows them: what Add value offers. */
+function rowFields(nodes: NodeMap, schema: SchemaIndex, rowId: string | null): PickerCandidate[] {
+  const row = rowId === null ? undefined : nodes.get(rowId);
+  const shown = row === undefined ? undefined : shownNode(row, schema);
+  if (shown === undefined) return [];
+  return resolveVisibleProps(shown, schema)
+    .filter((prop) => prop.placement === "row")
+    .map((prop) => ({ id: prop.fieldId, label: prop.fieldName }));
+}
+
+/**
+ * Add value… (the node menu): one row per field the row draws, and a pick
+ * adds a value to that field where the row draws it, as the field's own "+"
+ * does — its picker, or a new slot to type in, or the slot of a field that
+ * holds none. A closed row is opened first, so the field is drawn.
+ */
+const addValue: PaletteStep = {
+  label: "Add value",
+  placeholder: "Search the fields this shows...",
+  icon: <PlusIcon size={12} weight="bold" />,
+  candidates: (graph) => rowFields(graph.nodes, browserHost().schema(), graph.anchorId),
+  // No write: the value is added in the field, where it is drawn.
+  commit: ({ targetNodeId, schema, pickedId }) => {
+    const store = useOutlineStore.getState();
+    const instanceKey = store.selectedInstanceKey ?? store.activeInstanceKey;
+    const row = outlineNodes().get(targetNodeId);
+    if (instanceKey !== null && row !== undefined) {
+      const land = landInFieldsOf(instanceKey, shownNode(row, schema).id);
+      if (row.collapsed) store.toggleCollapse(targetNodeId);
+      land(pickedId, "add");
+    }
+    return Promise.resolve();
   },
 };
 
@@ -219,11 +259,18 @@ const addRef: PaletteStep = {
   limit: 12,
   commit: async ({ targetNodeId, pickedId, writes }) => {
     // The whole creation gesture, and nothing but existing primitives: point
-    // the target field at the picked node. The field is the kind.
-    await writes.updateProp(targetNodeId, SYSTEM_IDS.refTargetField, {
-      t: "ref",
-      v: pickedId,
-    });
+    // the target field at the picked node, in place of any it points at (a
+    // reference repointed). The field is the kind.
+    const { graph } = browserHost();
+    const held = graph.state().wireNodes.find((n) => n.id === targetNodeId)?.props[
+      SYSTEM_IDS.refTargetField
+    ]?.[0];
+    await writes.updateProp(
+      targetNodeId,
+      SYSTEM_IDS.refTargetField,
+      { t: "ref", v: pickedId },
+      held,
+    );
   },
 };
 
@@ -299,6 +346,7 @@ export const OUTLINE_STEPS: readonly ContributionEntry<PaletteStep>[] = [
   { id: "remove-tag", value: removeTag },
   { id: "add-field", value: addField },
   { id: "set-field", value: setField },
+  { id: "add-value", value: addValue },
   { id: "add-ref", value: addRef },
   { id: "move-to", value: moveTo },
   { id: "move-leaving-reference", value: moveLeavingReference },

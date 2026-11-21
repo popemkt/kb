@@ -28,6 +28,11 @@ export interface SlotControl {
   focus: () => void;
   /** Open the editor with the caret at the end of the value. */
   editAtEnd: () => void;
+  /**
+   * Add a value to the slot's field: the field's next one (`addValue`) when
+   * it holds many and this slot holds one, else this slot's editor.
+   */
+  add: () => void;
 }
 
 const controls = new WeakMap<Element, SlotControl>();
@@ -88,10 +93,11 @@ function instanceSlots(instanceKey: string, root: ParentNode = document): HTMLEl
 }
 
 /** Put the keyboard on a slot: at rest, or with its editor open at the end. */
-export function arriveAt(slot: Element, how: "rest" | "edit"): void {
+export function arriveAt(slot: Element, how: "rest" | "edit" | "add"): void {
   const control = controls.get(slot);
   if (control === undefined) return;
   if (how === "edit") control.editAtEnd();
+  else if (how === "add") control.add();
   else control.focus();
 }
 
@@ -109,29 +115,57 @@ export function enterFields(instanceKey: string, which: "first" | "last"): boole
 
 /**
  * Land on the picked field's first value where node `nodeId` is drawn nearest
- * row instance `instanceKey`, at rest, once the page has drawn the write that
- * follows: under its row, or in the page head when it is the page. The row's
- * place is read now, since that write may take the row away.
+ * row instance `instanceKey`, once the page has drawn the write that follows:
+ * under its row, or in the page head when it is the page. It lands at rest,
+ * or (`add`) adding a value to the field there. The row's place is read now,
+ * since that write may take the row away.
  */
-export function landInFieldsOf(instanceKey: string, nodeId: string): (fieldId: string) => void {
+export function landInFieldsOf(
+  instanceKey: string,
+  nodeId: string,
+): (fieldId: string, how?: "rest" | "add") => void {
   const row = document.querySelector(
     `[data-node-block][data-instance-key="${CSS.escape(instanceKey)}"]`,
   );
   const around: Element[] = [];
   for (let at = row?.parentElement ?? null; at !== null; at = at.parentElement) around.push(at);
   const sectionOf = fieldsSectionForSelector(nodeId);
-  return (fieldId) => {
-    const land = () => {
+  return (fieldId, how = "rest") => {
+    const slotNow = () => {
       const section =
         around
           .find((el) => el.isConnected && el.querySelector(sectionOf) !== null)
           ?.querySelector(sectionOf) ?? null;
-      const slot = section === null ? null : fieldSlot(section, fieldId);
-      if (slot !== null) arriveAt(slot, "rest");
+      return section === null ? null : fieldSlot(section, fieldId);
     };
-    if (typeof requestAnimationFrame === "function") requestAnimationFrame(land);
-    else land();
+    whenDrawn(slotNow, around.find((el) => el.isConnected) ?? null, (slot) => arriveAt(slot, how));
   };
+}
+
+/** How long a landing waits for the page to draw what it lands on. */
+const DRAW_WAIT_MS = 1000;
+
+/**
+ * Run `then` on what `find` finds once the page has drawn it: at the next
+ * frame, or, where the write that follows draws it later (a row opened to
+ * show its fields), when it appears under `root`, for a moment at most.
+ */
+function whenDrawn<T>(find: () => T | null, root: Element | null, then: (found: T) => void): void {
+  const attempt = () => {
+    const found = find();
+    if (found !== null) then(found);
+    return found !== null;
+  };
+  const first = () => {
+    if (attempt() || root === null || typeof MutationObserver !== "function") return;
+    const watch = new MutationObserver(() => {
+      if (attempt()) watch.disconnect();
+    });
+    watch.observe(root, { childList: true, subtree: true });
+    setTimeout(() => watch.disconnect(), DRAW_WAIT_MS);
+  };
+  if (typeof requestAnimationFrame === "function") requestAnimationFrame(first);
+  else first();
 }
 
 /** How many field values a row instance shows. */
