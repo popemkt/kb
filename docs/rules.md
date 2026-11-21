@@ -1420,14 +1420,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Phase 2 of the note: child #rule clauses for the core-philosophy subset, evidence-stale from a bound digest, and resolved file#test citation, all in @kb/ext-check.
 - **node** — `01M7EY3MTKXJQQT4XGJYF3J88A`
 
-### GAP: phone capture lifecycle has no device or emulator evidence
-
-- **expected** — An instrumented test drives the share receiver on a headless emulator: share text, URL, image and two images from a real intent, kill the process between file copy and publish, restart, go offline and reconnect, and compare what the host received with the original (research 2026-11-18 §5, phase 0 · Phone lifecycle).
-- **current** — JVM unit tests cover payload building, queue durability and delivery decisions against a scripted host. The receiver activity, WorkManager scheduling and Keystore sealing are exercised only by hand on a device.
-- **impact** — A regression in intent parsing, content-URI grants or background delivery is found by the owner on their phone, not by a test.
-- **closes** — An androidTest suite run on an emulator from nix (androidenv system image, KVM), wired into the same gate as the unit tests.
-- **node** — `01M7QTAJ9GSK02FMWNR4XQGFMT`
-
 ### GAP: physical shortcut hints must use the shared chord key domain
 
 - **expected** — Shortcut hints agree with actual election for chords that constrain both physical code and character key, deriving representative keys from the shared chord model.
@@ -1803,6 +1795,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — On a slow machine or connection a person with days on opens kb at home instead of today, with no sign that the landing failed; anything that relies on landing on today (the render paste spec did) is timing-dependent.
 - **closes** — The landing awaits a readiness signal the page owns (live connection up, the day in the replica) rather than wall-clock budgets, or tells the person when it falls back; a render spec that lands on today under a throttled page.
 - **node** — `01M7CC1GD0A1J314ZTAR54F8AD`
+
+### GAP: the emulator capture smoke runs in no gate
+
+- **expected** — Validate's android job, or a scheduled Linux job beside it, runs bin/android-smoke on ubuntu-24.04 with KVM, so a change that breaks pairing, queueing or delivery on a device goes red.
+- **current** — bin/android-smoke runs by hand (nix develop .#android-emulator -c bin/android-smoke); it passed on shared-server on 2026-11-21. No workflow runs it.
+- **impact** — The device lifecycle is proven when someone runs the smoke, not on every change that reaches the app.
+- **closes** — A step in the android job (or a nightly job): the KVM udev rule GitHub's Linux runners need, the android-emulator shell, bun install for the scratch host, then the smoke, with shots/ uploaded on failure. Measure its minutes first; the owner decides whether it runs per PR or nightly.
+- **node** — `01M7YGA1ZSD4MARTYMA8K0KJVA`
+
+### GAP: the emulator smoke shares no image a real app granted
+
+- **expected** — bin/android-smoke shares an image, and two images at once, from a real source app (the Files app's share sheet, or a test-only sender APK with a FileProvider), so the receiver's content-URI grant, its SEND_MULTIPLE path and the bytes and order of the files the host stores are checked on a device.
+- **current** — The smoke shares text and a link. Its one image share has no grant (adb's shell cannot pass a read of another app's media) and checks only that the share is refused whole; am builds no list of streams, so SEND_MULTIPLE is not reached. Files are covered by the JVM payload and queue tests only.
+- **impact** — A regression in how the receiver reads granted content URIs, or in multi-image shares, is still found on the owner's phone first.
+- **closes** — Drive DocumentsUI's share sheet from the smoke (multi-select, Share, kb), or install a small sender APK built beside the app, then compare each stored asset's digest with the shared file's, in order.
+- **node** — `01M7YG9CYP7B06M7ZS5QX7QMAM`
 
 ### GAP: the extension dependency graph has no command, view or reverse edges
 
@@ -3101,6 +3109,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Track 2 domain-typing work: express LensPerspective as a Schema and decode props through it. Not mechanical - it changes what happens on malformed input.
 - **node** — `01M1MGCEBYDFRNJX1JKXXN825H`
 
+### GAP: phone capture lifecycle has no device or emulator evidence
+
+- **expected** — An instrumented test drives the share receiver on a headless emulator: share text, URL, image and two images from a real intent, kill the process between file copy and publish, restart, go offline and reconnect, and compare what the host received with the original (research 2026-11-18 §5, phase 0 · Phone lifecycle).
+- **current** — JVM unit tests cover payload building, queue durability and delivery decisions against a scripted host. The receiver activity, WorkManager scheduling and Keystore sealing are exercised only by hand on a device.
+- **impact** — A regression in intent parsing, content-URI grants or background delivery is found by the owner on their phone, not by a test.
+- **closes** — An androidTest suite run on an emulator from nix (androidenv system image, KVM), wired into the same gate as the unit tests.
+- **node** — `01M7QTAJ9GSK02FMWNR4XQGFMT`
+
 ### GAP: pre-commit admission reads the working tree
 
 - **expected** — Pre-commit reconstructs and verifies the staged snapshot for every governed path so unstaged content cannot affect the decision.
@@ -3609,6 +3625,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Two pinpoint disables of a rule that is error everywhere else, on the one ui path with a measured latency bar.
 - **closes** — palette-index.test.ts asserts open <50ms and keystroke <10ms at 50k nodes. A standalone benchmark puts Array.from({length:n}) about 40% behind new Array(n) at that size, and the push variant flipped that test red on three of four full-suite runs on a loaded machine. Close it by making the 50k path fast enough that the allocation shape stops mattering (incremental or worker-side palette search), then delete both disables.
 - **node** — `01M1MFJXAQ8NVBMA6E6CZ7CY9W`
+
+### GAP: the phone's queue shows a raw Java exception as the reason a capture waits
+
+- **expected** — A pending capture's reason is a person's sentence naming the store and what happened (the store did not answer, the connection dropped, the phone is offline), as the README's How it behaves table words it.
+- **current** — Deliverer passes the transport exception's message through: on the emulator smoke (shot 07-queue-host-asleep) a sleeping host reads 'Waiting for store: unexpected end of stream on com.android.okhttp.Address@76c34e2c'.
+- **impact** — The queue's one explanation of why a share has not arrived is an object identity the person cannot act on.
+- **closes** — Map transport failures (refused, reset, end of stream, timeout, DNS) to worded reasons in the delivery decisions, with a DelivererTest case per kind, and let bin/android-smoke assert the worded reason.
+- **node** — `01M7YHBTK1JFMECMX1M5NHV851`
 
 ### GAP: the preferences popover renders outline's PrefFieldRow
 
