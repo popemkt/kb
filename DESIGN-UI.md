@@ -1707,7 +1707,11 @@ a line to draw. Debug fields draw every field as a row, and no line.
 - **date** is a local calendar day (`@kb/model` `local-date`), labelled near
   today (Today, Fri, Oct 12), edited in `DateEditor`: typed phrases
   (`parseDateInput`: tomorrow, next fri, in 2 weeks, oct 3) with a live
-  preview, over a keyboard-first calendar.
+  preview, over a keyboard-first calendar. Its arrows are its own (↑/↓ a
+  day, ⇧↑/⇧↓ a week, PageUp/PageDown a month); every other key is the
+  slot's, as on any value: Enter sets the date and, at the end of a
+  many-valued field's, opens the next value, Tab sets it and moves on,
+  Escape leaves it.
 - **checkbox** is a checkbox, not a switch.
 - **secret** is the reference to where a key lives (`env:NAME`,
   `keychain:<service>[/<account>]`), shown as a code chip under a key
@@ -1878,8 +1882,11 @@ the caret as they were.
   where it is drawn then (under its new parent, after Indent), the caret
   where `/` was.
 
-`[[` is every text host's. `@`, `#`, `>` and `/` are the outline's: its
-rows pass them to their text host beside `[[`. A trigger with nothing to
+`[[` is every text host's, and a text value's editor runs it too: a pick
+lays the reference into the value being edited, written when the edit is
+kept (`useTextTriggers`, the one hook both surfaces take). `@`, `#`, `>`
+and `/` are the outline's: its rows pass them to their text host beside
+`[[`. A trigger with nothing to
 offer is closed, so its keys stay the text's: `@` or `#` in prose and `> ` starting a
 quote are typed as text. Escape closes the picker and keeps the text, until
 the query changes. The table is the text host's own, not a plugin point;
@@ -1887,9 +1894,7 @@ when a second family needs a trigger of its own, it becomes one.
 
 **Named gaps.** A ref value's bullet follows on a plain click (a value's
 bullet has no children of its own to expand) rather than expanding the
-target's children inline under the field. `[[` completion is not offered while
-editing a text value (a typed token still mentions). The date editor's Enter
-commits without opening a next value, and its Tab does not move on. Pasting
+target's children inline under the field. Pasting
 several lines into a many-valued field is not split into values. The node
 palette has no "Add value to …" command. `sys.f.color` keeps its always-open
 swatch row. The PropValue union still carries the legacy `date` variant so old

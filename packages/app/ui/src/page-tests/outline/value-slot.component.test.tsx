@@ -20,6 +20,7 @@ import {
   fieldContextOf,
   TAG_PALETTE,
   wireToOutlineMap,
+  type FieldHandle,
   type FollowHow,
   type FollowTarget,
   type NodeMap,
@@ -400,14 +401,23 @@ describe("a text value is node text", () => {
     container.remove();
   });
 
-  async function mountText(v: string) {
+  const linkable: NodeMap = new Map([
+    ["n.target", stubOutlineNode({ id: "n.target", text: "Target one" })],
+  ]);
+  const linkContext = fieldContextOf({
+    schema: schemaOfGraph(linkable),
+    nodes: linkable,
+    queries: null,
+  });
+
+  async function mountText(v: string, within = context) {
     await act(async () => {
       root.render(
         createElement(ValueSlot, {
           value: { t: "str", v },
           fieldType: "text",
           fieldId: "f.note",
-          context,
+          context: within,
           onCommit: (next: PropValue) => committed.push(next),
           onFollow: (target: FollowTarget) => followed.push(target),
         }),
@@ -439,6 +449,51 @@ describe("a text value is node text", () => {
       );
     });
   }
+
+  /** Type `text` at the end of the value, as the browser does: the DOM, the caret, then input. */
+  async function typeAtEnd(text: string) {
+    await act(async () => {
+      const el = editable();
+      const doc = dom.window.document;
+      el.append(doc.createTextNode(text) as unknown as Node);
+      const range = doc.createRange();
+      range.selectNodeContents(el as unknown as never);
+      range.collapse(false);
+      const selection = present(dom.window.getSelection(), "selection");
+      selection.removeAllRanges();
+      selection.addRange(range);
+      el.dispatchEvent(new dom.window.Event("input", { bubbles: true }) as unknown as Event);
+    });
+  }
+
+  const listbox = () => container.querySelector('[role="listbox"]');
+
+  it("[[ opens the node picker at the caret, and a pick lays a reference into the value", async () => {
+    const slot = await mountText("see ", linkContext);
+    await act(async () => {
+      slot.click();
+    });
+    await typeAtEnd("[[Targ");
+    expect(listbox()?.textContent).toContain("Target one");
+    // Enter is the picker's: it picks, and the value is still being edited.
+    await key("Enter");
+    expect(listbox()).toBeNull();
+    expect(slot.getAttribute("data-editing")).toBe("true");
+    await leave();
+    expect(committed).toEqual([{ t: "str", v: "see [[n.target|Target one]]" }]);
+  });
+
+  it("Escape closes the [[ picker and keeps the edit open", async () => {
+    const slot = await mountText("", linkContext);
+    await act(async () => {
+      slot.click();
+    });
+    await typeAtEnd("[[Targ");
+    expect(listbox()).not.toBeNull();
+    await key("Escape");
+    expect(listbox()).toBeNull();
+    expect(slot.getAttribute("data-editing")).toBe("true");
+  });
 
   it("renders its inline markdown at rest: formatting and ref pills", async () => {
     await mountText("**bold** and [[n.x|X]]");
@@ -856,5 +911,118 @@ describe("an option value is a chip", () => {
     // The picker keeps the field's own order of its options.
     const offered = [...container.querySelectorAll('[role="option"]')].map((o) => o.textContent);
     expect(offered).toEqual(["Todo", "Done"]);
+  });
+});
+
+describe("a date value keeps the slot's keys", () => {
+  let dom: InstalledDom;
+  let container: HTMLDivElement;
+  let root: Root;
+  let committed: PropValue[];
+  let calls: string[];
+  let leaked: number;
+
+  beforeAll(() => {
+    dom = installDomGlobals();
+    (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
+  });
+
+  afterAll(() => {
+    delete (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT;
+    dom.restore();
+  });
+
+  beforeEach(() => {
+    committed = [];
+    calls = [];
+    leaked = 0;
+    container = dom.window.document.createElement("div") as unknown as HTMLDivElement;
+    dom.window.document.body.appendChild(container as unknown as never);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  /** A many-valued date field holding one date, its editor open. */
+  async function editDate(v: string) {
+    const field: FieldHandle = {
+      holder: "n.task",
+      values: [{ t: "str", v }],
+      many: true,
+      add: () => undefined,
+      remove: () => undefined,
+      create: () => Promise.resolve(null),
+      openPicker: () => undefined,
+      addSlot: () => calls.push("addSlot"),
+      leave: (to) => calls.push(`leave:${to}`),
+      claimKeyboard: () => undefined,
+      focusSlot: () => undefined,
+    };
+    await act(async () => {
+      root.render(
+        createElement(
+          "div",
+          { onKeyDown: () => (leaked += 1) },
+          createElement(ValueSlot, {
+            value: { t: "str", v },
+            fieldType: "date",
+            fieldId: "f.due",
+            context,
+            field,
+            onCommit: (next: PropValue) => committed.push(next),
+            onFollow: () => undefined,
+          }),
+        ),
+      );
+    });
+    const slot = present(container.querySelector<HTMLElement>("[data-value-slot]"), "slot");
+    await act(async () => {
+      slot.click();
+    });
+    return present(container.querySelector<HTMLInputElement>('input[aria-label="Date"]'), "input");
+  }
+
+  async function press(input: HTMLInputElement, key: string, shiftKey = false) {
+    await act(async () => {
+      input.setSelectionRange(input.value.length, input.value.length);
+      input.dispatchEvent(
+        new dom.window.KeyboardEvent("keydown", {
+          key,
+          shiftKey,
+          bubbles: true,
+          cancelable: true,
+        }) as unknown as Event,
+      );
+    });
+  }
+
+  it("Enter at the end of the date sets it and opens the next value", async () => {
+    const input = await editDate("2026-10-01");
+    await press(input, "ArrowDown");
+    await press(input, "Enter");
+    expect(committed).toEqual([{ t: "str", v: "2026-10-02" }]);
+    expect(calls).toEqual(["addSlot"]);
+    expect(leaked).toBe(0);
+  });
+
+  it("Tab sets the date and moves on", async () => {
+    const input = await editDate("2026-10-01");
+    await press(input, "ArrowDown");
+    await press(input, "Tab");
+    expect(committed).toEqual([{ t: "str", v: "2026-10-02" }]);
+    expect(calls).toEqual(["leave:down"]);
+  });
+
+  it("Escape leaves without setting, and no key reaches the outline behind", async () => {
+    const input = await editDate("2026-10-01");
+    await press(input, "ArrowDown");
+    await press(input, "a");
+    await press(input, "Escape");
+    expect(committed).toEqual([]);
+    expect(container.querySelector('input[aria-label="Date"]')).toBeNull();
+    expect(leaked).toBe(0);
   });
 });

@@ -179,6 +179,7 @@ export { type NodeTextPort } from "./components/node-text-port";
 export { NoFrame } from "./components/no-frame";
 export { NotFound } from "./components/not-found";
 export { PickerList } from "./components/picker-list";
+export { useTextTriggers } from "./components/use-text-triggers";
 export { PrefFieldRow } from "./components/pref-field-row";
 export { POPOVER_VALUE_CLASS, PopoverShell } from "./components/popover-shell";
 export { OntologyPicker } from "./components/ontology-picker";

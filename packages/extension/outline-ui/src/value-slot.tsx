@@ -375,7 +375,7 @@ function useSlotGestures(args: SlotArgs) {
       composing.current = false;
     },
     onKeyDown: (e: React.KeyboardEvent) => {
-      // A key inside an open picker or the date editor is theirs; it only
+      // A key inside an open picker, or a date editor's move, is theirs; it only
       // reaches here if they let it.
       const intent = valueSlotIntent(e, {
         editing,

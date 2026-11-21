@@ -1,7 +1,8 @@
 /**
  * The date editor is keyboard-first: arrows move the date it is about to set
- * and the calendar follows, Enter sets it, Escape leaves it, and a day in the
- * calendar is one click. Typing phrases is `parseDateInput`'s (tested there):
+ * and the calendar follows, and a day in the calendar is one click. Enter,
+ * Tab and Escape are the value slot's, as on every value (the app's
+ * value-slot tests drive them through a slot). Typing phrases is `parseDateInput`'s (tested there):
  * React's `onChange` does not fire for an `<input>` under happy-dom.
  */
 import { act, createElement } from "react";
@@ -88,15 +89,6 @@ describe("DateEditor", () => {
     expect(picked()).toBe("2026-10-25");
   });
 
-  it("Enter sets what is shown; Escape leaves without setting", async () => {
-    const input = await open("2026-10-01");
-    await press(input, "ArrowDown");
-    await press(input, "Enter");
-    expect(committed).toEqual(["2026-10-02"]);
-    await press(input, "Escape");
-    expect(cancelled).toBe(1);
-  });
-
   it("a day in the calendar is one click", async () => {
     await open("2026-10-01");
     const day = present(
@@ -109,13 +101,13 @@ describe("DateEditor", () => {
     expect(committed).toEqual(["2026-10-15"]);
   });
 
-  it("keys never reach the outline behind the editor", async () => {
-    let leaked = 0;
+  it("a move never reaches what is behind the editor; any other key goes on to the slot", async () => {
+    const reached: string[] = [];
     await act(async () => {
       root.render(
         createElement(
           "div",
-          { onKeyDown: () => (leaked += 1) },
+          { onKeyDown: (e: { key: string }) => reached.push(e.key) },
           createElement(DateEditor, {
             initialText: "",
             onCommit: () => undefined,
@@ -126,7 +118,8 @@ describe("DateEditor", () => {
     });
     const input = present(container.querySelector<HTMLInputElement>("input"), "input");
     await press(input, "ArrowDown");
-    await press(input, "a");
-    expect(leaked).toBe(0);
+    await press(input, "PageUp");
+    await press(input, "Enter");
+    expect(reached).toEqual(["Enter"]);
   });
 });

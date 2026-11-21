@@ -6,8 +6,9 @@
  * thing on every type. A slot is keyed at rest (focused, its editor closed:
  * it moves, opens, removes, follows) and while it edits. Whose keys an
  * editing slot's are is the kind's editor mode (`EDITOR_MODES[…].keys`): a
- * caret editor leaves them to the slot, a picker or the date editor keeps
- * them, because the same Enter, Escape and arrows move through its own list.
+ * caret editor and the date editor leave them to the slot (the date editor
+ * keeps only its arrows, which move the date), a picker keeps them, because
+ * the same Enter, Escape and arrows move through its own list.
  */
 import { isPrintableKey, lookupChord, type Chord, type KeyChordEvent } from "@kb/keybindings";
 
@@ -144,7 +145,7 @@ export function valueSlotIntent(
   if (!state.editing) return restIntent(event, state);
   if (state.composing) return "contain";
   const accepts = (binding: SlotBinding) => NEEDS[binding.intent]?.(state) ?? true;
-  // An editor that owns its keys (a picker, the date editor) moves through
+  // An editor that owns its keys (a picker, a swatch row) moves through
   // its own list with them; only ⌘Enter is still the slot's.
   if (state.keys === "editor") return lookupChord(event, [FOLLOW], accepts)?.intent ?? "contain";
   return lookupChord(event, EDITING_KEYS, accepts)?.intent ?? arrowOff(event, state) ?? "contain";

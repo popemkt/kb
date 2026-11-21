@@ -1274,14 +1274,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Add only the namespace-width and SDK-exposure measurement needed by a future approved lane.
 - **node** — `01M787EFNSYXKT510HYDPGVB9A`
 
-### GAP: no [[ completion while editing a text field value
-
-- **expected** — Typing [[ in a text value opens the same node picker node text does.
-- **current** — Text values share the live-markdown input step but not the [[ completion trigger; a typed label still counts as a mention.
-- **impact** — Linking from a text value needs the id by hand.
-- **closes** — Wire the shared picker's [[ trigger into the text value editor (one trigger, both surfaces).
-- **node** — `01M3KA394XS9DCGY9RHS151G6F`
-
 ### GAP: no feature-specific storage outside the store (an allowed-file list under KB_DATA) — debatable; refine later
 
 - **expected** — A feature keeps its state in the store. Off-store files are generic and listed: under KB_DATA the home store, trust.json, secrets/, extensions/ and backups/; runtime presence (.kb/ui.json, the socket); rebuildable caches in KB_CACHE. A check refuses any other path a feature writes there. Debatable; the owner wants this refined later.
@@ -1835,14 +1827,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The philosophy is checked for code shape but not for data: a commit can leave the store holding references that resolve to nothing, and nothing proves a rename never changes what a query means.
 - **closes** — Phase 3 of the note: the three properties in storeContract over JSONL and SQLite, each with a falsifying case.
 - **node** — `01M7EY3NJJZMRTXJEM0TMKJCH4`
-
-### GAP: the date editor's Enter and Tab skip the value keymap
-
-- **expected** — Enter at the end of a date value opens the next value and Tab moves on, as in every other value kind.
-- **current** — DateEditor's Enter commits without opening a next value; its Tab does not move to the next slot.
-- **impact** — Dates are the one value kind that breaks the slot keyboard grammar.
-- **closes** — DateEditor delegates Enter/Tab to the ValueSlot keymap instead of handling them itself.
-- **node** — `01M3KA39ATBBJHPY4AWP7VKX8G`
 
 ### GAP: the days landing gives up on a fixed budget and silently leaves the person at home
 
@@ -2972,6 +2956,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Turn the chain into a table of {key, mods, toAction} entries. Behaviour-preserving only if the current first-match order is reproduced exactly, so it needs its own change with the keymap tests as the gate.
 - **node** — `01M1MGCH7SD69CRSSV75X789QW`
 
+### GAP: no [[ completion while editing a text field value
+
+- **expected** — Typing [[ in a text value opens the same node picker node text does.
+- **current** — Text values share the live-markdown input step but not the [[ completion trigger; a typed label still counts as a mention.
+- **impact** — Linking from a text value needs the id by hand.
+- **closes** — Wire the shared picker's [[ trigger into the text value editor (one trigger, both surfaces).
+- **node** — `01M3KA394XS9DCGY9RHS151G6F`
+
 ### GAP: no one coverage property holds every family to all three hosts
 
 - **expected** — One property holds every declared family to a seed node, a server entry and a browser entry.
@@ -3486,6 +3478,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a view extension cannot say itself in text without editing core, and core carries code-fence policy
 - **closes** — codeText moves to @kb/code with its key (E8)
 - **node** — `01M41H2ZG7C0SV1DYZE6MMKPFE`
+
+### GAP: the date editor's Enter and Tab skip the value keymap
+
+- **expected** — Enter at the end of a date value opens the next value and Tab moves on, as in every other value kind.
+- **current** — DateEditor's Enter commits without opening a next value; its Tab does not move to the next slot.
+- **impact** — Dates are the one value kind that breaks the slot keyboard grammar.
+- **closes** — DateEditor delegates Enter/Tab to the ValueSlot keymap instead of handling them itself.
+- **node** — `01M3KA39ATBBJHPY4AWP7VKX8G`
 
 ### GAP: the default design system's light accent and warning sit below body-text AA
 

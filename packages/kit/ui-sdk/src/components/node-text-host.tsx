@@ -28,15 +28,7 @@ import {
   setCaretSerializedOffset,
 } from "../lib/md-edit.ts";
 import { nodeTarget, routePointerClick, type Follow } from "../lib/follow";
-import { usePickerKeys } from "../lib/use-picker";
-import type { PickerRow } from "../lib/picker";
-import {
-  openTriggerAt,
-  refTrigger,
-  type OpenTrigger,
-  type TextTrigger,
-  type TriggerPick,
-} from "../lib/text-triggers";
+import type { OpenTrigger, TextTrigger, TriggerPick } from "../lib/text-triggers";
 import { rowTextReadOnlyReason, shownNodeId } from "../lib/contextual-ref";
 import { refLookOf } from "../lib/ref-look";
 import type { SchemaIndex } from "../lib/schema";
@@ -44,7 +36,7 @@ import type { NodeMap, TagBadge } from "../lib/types";
 import { InlineMarkdown } from "./md-view";
 import { useRevealMarkup } from "./use-reveal-markup";
 import { useTextHistory } from "./use-text-history";
-import { PickerList } from "./picker-list";
+import { useTextTriggers } from "./use-text-triggers";
 import { nearestOffsetForX, offsetFromPoint } from "../lib/caret";
 import { TagChipGroup, type TagChipAction } from "./tag-chip";
 
@@ -184,48 +176,6 @@ function useOpenPills(
   });
 }
 
-/** A surface with no triggers of its own. */
-const NONE: readonly TextTrigger[] = [];
-
-/**
- * The trigger typed at the caret while the text is edited, and its rows:
- * every text's `[[`, then the surface's `own`. Escape dismisses it until
- * its query changes or typing resumes (D14), and a trigger with nothing to
- * offer is closed, unless it answers Enter then.
- */
-function useOpenTrigger({
-  own,
-  editing,
-  content,
-  cursor,
-  nodes,
-  nodeId,
-  textNodeId,
-}: {
-  own: readonly TextTrigger[];
-  editing: boolean;
-  content: string;
-  cursor: number;
-  nodes: NodeMap;
-  nodeId: string;
-  textNodeId: string;
-}) {
-  const triggers = useMemo(() => [refTrigger, ...own], [own]);
-  /** The query Escape dismissed the picker at, or null. */
-  const [dismissed, setDismissed] = useState<string | null>(null);
-  const typed = useMemo(() => {
-    const at = editing ? openTriggerAt(triggers, content, cursor) : null;
-    return at !== null && at.open.query === dismissed ? null : at;
-  }, [editing, triggers, content, cursor, dismissed]);
-  // Rows exist only while a trigger is typed: a closed row asks for none.
-  const rows = useMemo(
-    () => (typed === null ? [] : typed.trigger.rows(typed.open.query, nodes, nodeId, textNodeId)),
-    [typed, nodes, nodeId, textNodeId],
-  );
-  const triggered = typed !== null && (rows.length > 0 || typed.trigger.none !== undefined);
-  return { open: triggered ? typed : null, rows, setDismissed };
-}
-
 export function NodeTextHost({
   nodeId,
   instanceKey,
@@ -255,7 +205,7 @@ export function NodeTextHost({
   unregisterTextHost,
   ingest,
   onRemoveTag,
-  triggers: own = NONE,
+  triggers: own,
   openReferences,
 }: NodeTextHostProps) {
   /**
@@ -293,15 +243,20 @@ export function NodeTextHost({
     [content, onChange],
   );
 
-  const { open, rows, setDismissed } = useOpenTrigger({
+  // The text's triggers open the one node picker; its keys run before the row's.
+  const triggers = useTextTriggers({
     own,
     editing,
-    content,
+    text: content,
     cursor,
     nodes,
     nodeId,
     textNodeId: node === undefined ? nodeId : shownNodeId(node),
+    anchorRef: editorRef,
+    // A pick is laid in by `applyPick`, below: it runs on a key or a click, after render.
+    apply: (made, span) => void applyPick(made, span),
   });
+  const resumeTriggers = triggers.resume;
 
   useLayoutEffect(() => {
     if (!isActive || instanceKey === undefined) return undefined;
@@ -334,7 +289,7 @@ export function NodeTextHost({
       const placedCursor = seatCaret(el, placement.at, content.length);
       setCursor(placedCursor);
       if (intent) consumeCaret(intent.instanceKey);
-      setDismissed(null);
+      resumeTriggers();
     } else if (!editing) {
       wasActive.current = false;
       pendingEcho.current = null;
@@ -348,7 +303,7 @@ export function NodeTextHost({
     pendingCaret,
     consumeCaret,
     refs,
-    setDismissed,
+    resumeTriggers,
   ]);
 
   const restoreText = useCallback(
@@ -458,33 +413,15 @@ export function NodeTextHost({
     [content, instanceKey, placeCaret, refs, textHistory, writeText],
   );
 
-  /** A row picked, or (Enter with none) what the trigger does then. */
-  const pickRow = (row: PickerRow | null) => {
-    if (open === null) return;
-    const made = row === null ? open.trigger.none?.(open.open) : open.trigger.pick(row, open.open);
-    if (made !== undefined) void applyPick(made, open.open);
-  };
-
-  // The text's triggers open the one node picker; its keys run before the row's.
-  const picker = usePickerKeys({
-    rows,
-    query: open?.open.query ?? "",
-    scope: open?.trigger.id,
-    pickOnTab: true,
-    onPick: pickRow,
-    // D14: Escape dismisses the picker without blurring or leaving edit mode.
-    onCancel: () => setDismissed(open?.open.query ?? null),
-  });
-
   const handleInput = useCallback(() => {
     const el = editorRef.current;
     if (el && !isComposing.current) {
       const { text, caret } = readInlineInput(el, refs);
       setCursor(caret);
-      setDismissed(null);
+      resumeTriggers();
       emit(text);
     }
-  }, [emit, refs, setDismissed]);
+  }, [emit, refs, resumeTriggers]);
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -587,7 +524,7 @@ export function NodeTextHost({
         return;
       }
 
-      if (open !== null && picker.handleKeyDown(e)) {
+      if (triggers.keyDown(e)) {
         // D14: Escape dismisses the popover only — stay editing, keep caret.
         if (e.key === "Escape") e.stopPropagation();
         return;
@@ -596,7 +533,7 @@ export function NodeTextHost({
       setCursor(getCaretSerializedOffset(editorRef.current));
       onKeyDown(e);
     },
-    [open, picker, onKeyDown, textHistory],
+    [triggers, onKeyDown, textHistory],
   );
 
   const showPadlock = readOnly && !isActive;
@@ -674,19 +611,7 @@ export function NodeTextHost({
           )
         )}
 
-        {open !== null && (
-          <PickerList
-            placement="popover"
-            anchorRef={editorRef}
-            rows={rows}
-            activeIndex={picker.activeIndex}
-            onHover={picker.setActiveIndex}
-            onPick={pickRow}
-            {...(open.trigger.createLabel === undefined
-              ? {}
-              : { createLabel: open.trigger.createLabel })}
-          />
-        )}
+        {triggers.list}
       </div>
     </>
   );

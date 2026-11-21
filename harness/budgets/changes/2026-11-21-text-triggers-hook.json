@@ -1,0 +1,6 @@
+{
+  "reason": "The triggers typed in a text are one hook, useTextTriggers, so a text value's editor runs node text's [[ instead of a copy of it.",
+  "raise": {
+    "surface": { "@kb/ui-sdk": 1 }
+  }
+}
