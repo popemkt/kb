@@ -1,0 +1,7 @@
+{
+  "reason": "Every write of a view node is checked by its view's key: @kb/views exports writtenViewIssue, the commit's reading of the view nodes a write leaves, and each family's declaration plugin contributes the guard that runs it (viewSettingsGuard in @kb/contracts, which the CLI loads eagerly).",
+  "raise": {
+    "cli-closure": { "bytes": 1913 },
+    "surface": { "@kb/views": 1 }
+  }
+}

@@ -95,6 +95,7 @@ export {
 export {
   planViewProposal,
   viewNodeFor,
+  writtenViewIssue,
   type PlannedView,
   type ViewNodeProposal,
   type ViewProposal,

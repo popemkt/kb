@@ -144,3 +144,64 @@ describe("view.propose", () => {
     expect(hostViewIds(node(FRAME))).toEqual([]);
   });
 });
+
+/**
+ * Every write of a view node is checked by its view's key, whichever action
+ * makes it (DESIGN.md → View nodes): a setting its view cannot read is
+ * refused, and a store that already holds one stays editable.
+ */
+const span = (v: string) => ({ field: SYSTEM_IDS.viewSpanField, value: { t: "str", v } });
+
+describe("a view node written by any action", () => {
+  const BOARD_VIEW = {
+    field: SYSTEM_IDS.viewField,
+    value: { t: "ref", v: CollectionBoardView.option },
+  };
+
+  test("node.add refuses a view node whose setting its view cannot read, and writes nothing", async () => {
+    const before = ctx.nodes.length;
+    const refused = await invoke(ctx, {
+      id: "node.add",
+      input: { id: "v.bad", text: "", props: [BOARD_VIEW, span("fortnight")] },
+    });
+    expect(refused).toMatchObject({ status: "failed" });
+    expect(refused.status === "failed" ? refused.message : "").toContain("sys.f.view.span");
+    expect(ctx.nodes.length).toBe(before);
+    await mustInvoke("node.add", { id: "v.good", text: "", props: [BOARD_VIEW, span("week")] });
+    expect(node("v.good").props[SYSTEM_IDS.viewSpanField]).toEqual([{ t: "str", v: "week" }]);
+  });
+
+  test("node.update refuses a setting its view cannot read", async () => {
+    await mustInvoke("node.add", { id: "v.board", text: "", props: [BOARD_VIEW] });
+    const refused = await invoke(ctx, {
+      id: "node.update",
+      input: { id: "v.board", setProps: [span("fortnight")] },
+    });
+    expect(refused).toMatchObject({ status: "failed" });
+    expect(node("v.board").props[SYSTEM_IDS.viewSpanField]).toBeUndefined();
+  });
+
+  test("a view node that already holds one stays editable: only what a write adds is judged", async () => {
+    // Written past the actions, as a store from before the check holds it.
+    const at = new Date().toISOString();
+    const held: KbNode = {
+      id: "v.held",
+      text: "",
+      props: {
+        [SYSTEM_IDS.viewField]: [{ t: "ref", v: CollectionBoardView.option }],
+        [SYSTEM_IDS.viewSpanField]: [{ t: "str", v: "fortnight" }],
+      },
+      children: [],
+      createdAt: at,
+      updatedAt: at,
+    };
+    await Effect.runPromise(ctx.store.commitEffect({ upserts: [held], deletes: [] }, { at }));
+    ctx = await openKb(root);
+    await mustInvoke("node.update", { id: "v.held", text: "Fortnightly" });
+    await mustInvoke("node.update", {
+      id: "v.held",
+      setProps: [{ field: STATUS, value: { t: "str", v: "a person's own field" } }],
+    });
+    expect(node("v.held").text).toBe("Fortnightly");
+  });
+});
