@@ -1710,13 +1710,14 @@ on the text host (`TextTrigger`, `lib/text-triggers.ts`). Each row of it
 says where a trigger opens, what it offers and what a pick does; the host
 runs every row with the one picker engine and the one list. A pick
 can replace what was typed for the trigger, the opener and its query, and
-may then write, or consume the row in a write. A pick that replaces the
+may then write, or consume what was typed (the row, for `>`) in writes of
+its own and own the focus after them. A pick that replaces the
 typed text writes the text it leaves and its own write as one write of the
 page's (`PageWrites.together`: one `node.batch`, one undo step), so one
 undo puts the row back as it was before the pick: the typed trigger back,
-the reference, tag or command's write gone. ⌘Z in the row reaches it in
-its place among the row's typing (`lib/text-history.ts`, a `page` step
-tied to the store's undo entry), and ⌘⇧Z makes it again. A refused write leaves the text and
+the reference or tag gone. ⌘Z in the row reaches it in its place among
+the row's typing (`lib/text-history.ts`, a `page` step tied to the store's
+undo entry), and ⌘⇧Z makes it again. A refused write leaves the text and
 the caret as they were.
 
 - `[[` opens anywhere and offers every node (`nodeCandidates`). A pick
@@ -1762,12 +1763,16 @@ the caret as they were.
 - `/` opens at the start of the text or after a space, its query one word,
   so `a/b` and an address are text. It offers the row's node menu, the
   commands and the order the node palette shows (`BrowserHost.nodeCommands`),
-  matched by label. A pick takes `/` and the query out of the text and
-  runs the command about the row. A command that opens a picker step (Add
-  tag, Move to…) opens it in the node palette, on the row. Once the write
-  has landed and nothing else holds the focus, the row is edited where it
-  is drawn then (under its new parent, after Indent), the caret where `/`
-  was.
+  matched by label. A pick consumes what was typed for it: `/` and the
+  query go from the text as typing takes text away, then the command runs
+  about the row through the page's write path (`PageWrites.together`), so
+  the writes it answers are one undo step, and no undo brings the typed
+  trigger back, whether a command's write joins that step or not (Add
+  chart's view is not a page write). A command that opens a picker step
+  (Add tag, Move to…) opens it in the node palette, on the row. Once the
+  write has landed and nothing else holds the focus, the row is edited
+  where it is drawn then (under its new parent, after Indent), the caret
+  where `/` was.
 
 `[[` is every text host's. `@`, `#`, `>` and `/` are the outline's: its
 rows pass them to their text host beside `[[`. A trigger with nothing to

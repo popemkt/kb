@@ -340,6 +340,10 @@ export function outlineTriggers(
     mentionTrigger(nodeId),
     stepTrigger("tag", addTag, openedAfterSpace("#", "[^\\s#]*"), row),
     fieldTrigger(row, instanceKey),
-    slashTrigger(rowNodeId, openedAfterSpace("/", "[^\\s/]*")),
+    slashTrigger(
+      { nodeId: rowNodeId, textNodeId: nodeId },
+      instanceKey,
+      openedAfterSpace("/", "[^\\s/]*"),
+    ),
   ];
 }

@@ -48,32 +48,44 @@ function keepEditing(nodeId: string, caret: number): void {
 }
 
 /**
- * `/` in the text of the row whose node is `nodeId`, opening where `open`
- * says: the row's commands, matched by their labels. A pick takes `/` and
- * the query out of the text and runs the command about the row, with the
- * text's write, as one write; the row is still edited after it, where `/`
+ * `/` in the text of row `row.nodeId` (its text node `row.textNodeId`'s),
+ * drawn at `instanceKey`, opening where `open` says: the row's commands,
+ * matched by their labels. A pick consumes what was typed for it: `/` and
+ * the query go from the text as typing takes text away, then the command
+ * runs about the row through the page's write path (`PageWrites.together`),
+ * so what it writes, once it answers, is one undo step, and its undo leaves
+ * the text as the pick left it. The row is still edited after it, where `/`
  * was (`keepEditing`).
  */
-export function slashTrigger(nodeId: string, open: TextTrigger["open"]): TextTrigger {
+export function slashTrigger(
+  row: { readonly nodeId: string; readonly textNodeId: string },
+  instanceKey: string | undefined,
+  open: TextTrigger["open"],
+): TextTrigger {
   return {
     id: "command",
     open,
     rows: (query) =>
       pickerRows(
-        commandsOf(nodeId).map(({ id, label }) => ({ id, label })),
+        commandsOf(row.nodeId).map(({ id, label }) => ({ id, label })),
         { query },
       ),
-    pick: (picked, typed) => ({
-      insert: "",
-      // A command plans its writes as it runs, so they join the pick's one write.
-      // GAP [[01M7X8ATCXT6TBS4YVGAT7P746]] its listing answers no promise to wait for.
-      write: () => {
-        void commandsOf(nodeId)
-          .find((command) => command.id === picked.id)
-          ?.run();
-        return Promise.resolve();
-      },
-      landed: () => keepEditing(nodeId, typed.start),
-    }),
+    pick: (picked, typed) => {
+      const command = commandsOf(row.nodeId).find(({ id }) => id === picked.id);
+      if (command === undefined) return null;
+      return {
+        consume: async () => {
+          const host = browserHost();
+          const text = host.node(row.textNodeId)?.text ?? "";
+          const left = text.slice(0, typed.start) + text.slice(typed.end);
+          await host.writes.updateNodeContent(row.textNodeId, left);
+          // The editor takes the text as written, the caret where `/` was.
+          host.activateNode(row.nodeId, typed.start, instanceKey);
+          // GAP [[01M7XSNFCYHHYD7VKTZXPYG60B]] a command that does not answer its writes makes them apart.
+          await host.writes.together(command.run);
+          keepEditing(row.nodeId, typed.start);
+        },
+      };
+    },
   };
 }

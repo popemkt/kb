@@ -113,14 +113,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Draw links as screen-space quads (three's Line2NodeMaterial / LineSegments2 with a per-instance width updated in place, or a TSL quad strip), sized by the square root of weight, keeping the one-draw batch and no per-frame allocation.
 - **node** — `01M3AZSFJ9A8K8FYGHF5ADEAPT`
 
-### GAP: a / pick waits only for the writes a command makes at once
-
-- **expected** — A node command's listing answers its command's promise (NodeCommandListing.run: () => Promise<void>, nodeAction answering its write), so a / pick in the text waits for every write the command makes and they are one write with the text's (PageWrites.together).
-- **current** — NodeCommandListing.run answers void (listNodeCommands in app/ui lib/commands.tsx, nodeAction in ui-sdk command-point.ts), so slashTrigger (outline-ui slash-trigger.ts) runs the command inside the pick's together and only the writes it plans before its first await join that write.
-- **impact** — Every node command today plans its writes at once, so a / pick is one undo step. A command that writes after awaiting something (Add chart proposes its view first) makes its write separately: ⌃Z takes back the text and that write in two steps.
-- **closes** — run answers the command's promise in command-point.ts and listNodeCommands (commands.tsx is WP-5's file in the 2026-11-20 parity work packages), and slashTrigger awaits it.
-- **node** — `01M7X8ATCXT6TBS4YVGAT7P746`
-
 ### GAP: a 3D capture briefly shows two frames
 
 - **expected** — no visible flash
@@ -418,6 +410,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — One large file can grow a shard past its budget and, past ~2.5x, past the job's timeout, so that shard is cancelled and its files are retested every run.
 - **closes** — packageShards packs mutants by line range instead of by file, emitting file:start-end entries in a shard's mutate.
 - **node** — `01M558MRWHR92991GYFRC5WWXY`
+
+### GAP: a node command that does not answer its writes makes them apart from its undo step
+
+- **expected** — Every node command's run answers the writes it makes, through the page's write path (PageWrites), so a / pick or a palette run waits for them and they are one undo step (PageWrites.together).
+- **current** — NodeCommandListing.run and nodeAction answer the command's promise, but several command bodies fire their write without answering it (void writes.defineTag in Make my tag, void writes.updateProp in Make query, the makeSupertag and Add chart async blocks, void setFrameView, void invokeAction in command-forms), and Add chart's view.propose goes to invoke directly, not through PageWrites, so it has no undo step at all.
+- **impact** — Such a command's write is not part of the / pick's undo step (or the palette run's): it is its own step, or, for Add chart, no step. The typed trigger never comes back (the / pick consumes it as typing), but undo takes the command back in more than one step or not at all.
+- **closes** — Each listed body returns its write instead of voiding it (commands.tsx is WP-5's file, chart-ui and command-forms are shared), and view.propose becomes a planned write in mutations (WP-4's), so its view node is made and undone as any page write.
+- **node** — `01M7XSNFCYHHYD7VKTZXPYG60B`
 
 ### GAP: a number knob's range is the declaration's, not data on its field node
 

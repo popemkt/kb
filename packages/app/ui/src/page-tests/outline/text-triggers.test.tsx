@@ -14,7 +14,9 @@ import { fieldTypeValue, isContextualRef, parseDateInput, present, SYSTEM_IDS } 
 import { definePlugin } from "@kb/plugin";
 import {
   browserHost,
+  CommandPoint,
   DateTargetService,
+  nodeMenu,
   outlineInstanceKey,
   projectedRowKey,
   syncUiPlugins,
@@ -51,6 +53,22 @@ const days = bundledPlugin(
     apply: (ctx) => ctx.provide(DateTargetService, (date) => Promise.resolve(`days.${date}`)),
   }),
 );
+
+/** A node command, `label`, that runs `run`. */
+const probe = (label: string, run: () => void | Promise<void>) =>
+  definePlugin({
+    name: "probe",
+    apply: (ctx) =>
+      ctx.contribute(CommandPoint, {
+        id: "probe",
+        value: {
+          id: "probe.run",
+          menu: nodeMenu("make", 100),
+          chrome: () => ({ label, icon: null }),
+          run,
+        },
+      }),
+  });
 
 describe("triggers in the text", () => {
   let dom: Window;
@@ -582,7 +600,7 @@ describe("triggers in the text", () => {
       expect(all).toEqual(menu.map((command) => command.label));
     });
 
-    it("runs a command about the row: /ind indents it, and the text goes, in one undo step", async () => {
+    it("runs a command about the row: /ind indents it in one undo step, and the text goes as typing does", async () => {
       const el = await typed("/ind");
       const parentBefore = outlineNodes().get(ROW)?.parentId ?? null;
       const undoBefore = useGraphStore.getState().undoStack.length;
@@ -592,7 +610,50 @@ describe("triggers in the text", () => {
       expect(useGraphStore.getState().undoStack).toHaveLength(undoBefore + 1);
       await act(() => mutations.undo());
       await vi.waitFor(() => expect(outlineNodes().get(ROW)?.parentId ?? null).toBe(parentBefore));
-      expect(textOf(ROW)).toBe("/ind");
+      expect(textOf(ROW)).toBe("");
+    });
+
+    describe("a command's writes", () => {
+      afterEach(() => syncPagePlugins([outlineUiPlugin]));
+
+      it("are one undo step when it answers them, made after a wait", async () => {
+        syncPagePlugins([
+          outlineUiPlugin,
+          probe("Rename both", async () => {
+            await Promise.resolve();
+            await mutations.setNodeText("n.root-a", "one");
+            await mutations.setNodeText("n.root-b", "two");
+          }),
+        ]);
+        const el = await typed("/rename");
+        const undoBefore = useGraphStore.getState().undoStack.length;
+        await press(el, "Enter");
+        await vi.waitFor(() => expect(textOf("n.root-b")).toBe("two"));
+        expect(useGraphStore.getState().undoStack).toHaveLength(undoBefore + 1);
+        await act(() => mutations.undo());
+        expect(textOf("n.root-a")).not.toBe("one");
+        expect(textOf("n.root-b")).not.toBe("two");
+        expect(textOf(ROW)).toBe("");
+      });
+
+      it("that cannot join its undo step leave the typed trigger out of every undo", async () => {
+        // Made later, and with no undo step of its own (as Add chart's view.propose is).
+        syncPagePlugins([
+          outlineUiPlugin,
+          probe("Rename later", () => {
+            setTimeout(() => void mutations.updateNodeContent("n.root-a", "later"), 0);
+          }),
+        ]);
+        const el = await typed("/later");
+        const undoBefore = useGraphStore.getState().undoStack.length;
+        await press(el, "Enter");
+        await vi.waitFor(() => expect(textOf("n.root-a")).toBe("later"));
+        expect(textOf(ROW)).toBe("");
+        expect(useGraphStore.getState().undoStack).toHaveLength(undoBefore);
+        await act(() => mutations.undo());
+        expect(textOf(ROW)).toBe("");
+        expect(el.textContent).toBe("");
+      });
     });
 
     it("a command that is a picker step opens it in the node palette, where a pick writes", async () => {
