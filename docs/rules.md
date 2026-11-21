@@ -289,15 +289,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — the host families' declarations reported (not loaded) by every process, or the agent's declaration joining the bundled list with a host half that only kb ui loads
 - **node** — `01M43H3T8XEMTNBARC024PZD2W`
 
-### GAP: a family cannot declare a migration of its data
-
-- **expected** — A family's manifest declares a data version and pure, idempotent migration steps; an update shows their dry-run diff on its approval sheet, applies them as one transaction that can be undone, and records a migration node.
-- **current** — A family changes its data only through seed retirement rows (renames, applied on open without a preview) and bespoke passes such as views' migrate; neither is previewed, approved, undoable as a unit or recorded.
-- **impact** — The routines to events rename, and any change to what a family's data means, would rewrite a person's nodes without their seeing it first.
-- **closes** — A manifest data block, a migration runner with a contract suite, the dry-run diff on the trust sheet and a #migration record node.
-- **rule** — Plugins migrate their own data, declared and previewed
-- **node** — `01M7342YFJC4B6DMAFD8MTSTD7`
-
 ### GAP: a family's paste transform runs in the page at T3, not in the isolated frame at T1
 
 - **expected** — A provideIngest transform (text in, outline paste text out) runs in the extension's isolated frame (connect-src 'none') at T1: it sees the pasted text but can send it nowhere
@@ -670,14 +661,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — host lifecycle owns its views: deleting a host or dropping a view from sys.f.views deletes view nodes nothing else names
 - **node** — `01M3YM5Y5XYDZ1C7G0PCQ1RMK8`
 
-### GAP: a view node's markdown has no layout of its own
-
-- **expected** — each view type contributes its own markdown projection: filters, sort, board grouping, table columns, graph edges
-- **current** — render.view's markdown lists the view, its settings and the nodes its subject shows, the same shape for every view
-- **impact** — Claude Code and other hosts without ui:// see a flat list where the person sees a board, table or graph
-- **closes** — each view key carries a markdown projection beside its params
-- **node** — `01M40X30G92A0E57C02JHQ9A1G`
-
 ### GAP: a view's narrowing is evaluated in JS by the condition evaluator, not ANDed onto the frame's query at compile
 
 - **expected** — A view's narrowing is lowered (lowerIr) and ANDed onto its frame's rows in datalog: appended to the :where of a query frame that does not aggregate, and run over the children of any other frame, in one budgeted execution with the query's results
@@ -939,6 +922,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Separate design question recorded in briefs/p1-persistence.md section 4: protocol, discovery, and fallback when no server is running.
 - **node** — `01M1M08WPQTB514E7JERKYEDWZ`
 
+### GAP: CLI properties and tree input lack relative-date context
+
+- **expected** — Every surface parses the same date phrases the UI's DateEditor accepts.
+- **current** — @kb/model's parseTypedValue accepts today as the reference date for relative phrases. The CLI property mapper and the shared node.addTree parser used by CLI and MCP call it without today.
+- **impact** — Relative phrases such as today and next fri work in the date editor but fail on these input paths.
+- **closes** — Supply the reference date to the shared parser from CLI property parsing and the node.addTree path used by CLI and MCP.
+- **node** — `01M3KA3AEEFG0E200V4D63G5SN`
+
 ### GAP: code-image identity parked for the single-owner shortcut model
 
 - **expected** — Revisit loaded-code image identity only if kb needs stronger authentication than its single-owner local trust/approval model.
@@ -1053,6 +1044,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Once a plugin type grows handlers that do things (reacting to changes, creating nodes, running hooks), kb has two extension mechanisms and they compete, which overshadows tags. Meanwhile a family's own type clutters the global type menu for fields it was never meant for.
 - **closes** — The owner's decision between the two options below (or a third), stated in DESIGN.md → Field types; the type menu then offers what that decision says.
 - **node** — `01M7KVYBVC5N8VJSBBJCYE74SE`
+
+### GAP: five React Compiler lint rules remain on the blocking ratchet
+
+- **expected** — react/refs, react/exhaustive-effect-dependencies, react/set-state-in-effect, react/memo-dependencies and react/globals all run at error with zero violations.
+- **current** — react/hooks already runs at error. The blocking baseline in harness/lint-warn-baseline.json tracks 28 warnings across the five remaining rules.
+- **impact** — The remaining violations can lead to stale values or repeated renders. The blocking ratchet prevents the count from growing.
+- **closes** — Drain per component with the UI suite (bun run test:ui) as the guard, re-snapshot the ledger, and promote each rule to error when its count reaches 0.
+- **node** — `01M35NJQPKW5YVNVFFAFAYXPFH`
 
 ### GAP: flat canvas items vanish in level 3D views
 
@@ -1557,14 +1556,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — An opaque clause/section kind in the IR (ir.ts) that parse.ts produces for unmodelled forms and compile.ts emits unchanged; find-type inference then treats vars bound only there as scalar.
 - **node** — `01M39X8RPQBWFVDNG77BB3ZCMH`
 
-### GAP: React Compiler rules oxlint 1.83 added sit on the ratchet, not at error
-
-- **expected** — react/refs, exhaustive-effect-dependencies, set-state-in-effect, hooks, memo-dependencies and globals are error with zero sites, like the rest of oxlint's correctness and suspicious categories.
-- **current** — The oxlint 1.76 -> 1.83 bump turned them on through those categories with 59 existing sites, mostly the imperative graph and canvas components (sigma, three, the canvas doc hook) reading refs during render and syncing state in effects. They are warn with counts frozen in harness/lint-warn-baseline.json.
-- **impact** — Each site can render stale values or cascade renders. The ratchet stops new ones, but the existing 59 stay until drained.
-- **closes** — Drain per component with the UI suite (bun run test:ui) as the guard, re-snapshot the ledger, and promote each rule to error when its count reaches 0.
-- **node** — `01M35NJQPKW5YVNVFFAFAYXPFH`
-
 ### GAP: Recent nodes are one browser's, not a person's
 
 - **expected** — Recent follows the person: the nodes they last stood at on any device, if cross-device recents come to matter
@@ -1596,15 +1587,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Every consumer needs bun on PATH; a machine without bun cannot run a release.
 - **closes** — The server reads the UI dist through one asset source that a compiled build fills from embedded files (Bun.embeddedFiles) and a bundle fills from disk; then publish.yml, the one release path, adds a compile matrix and release-smoke runs on each binary.
 - **node** — `01M56H9MA14N5TG8640BN6PHXP`
-
-### GAP: renaming a sys.* or plugin node's label needs force
-
-- **expected** — A text-only write to a seeded node commits without force; the seed keeps the edited label (it already does on open).
-- **current** — The commit admits a text-only write to a sys.* node, and a store-contract property proves the label survives the next open, but the zoomed header still shows a padlock on a seeded node's title and the editor does not let it be edited.
-- **impact** — A person cannot call the events tag habit, or a status option Waiting, in their own words without overriding the whole protection.
-- **closes** — Replace the padlock with an owned-by note that names the node's family, and let a seeded node's title be edited as any node's is.
-- **rule** — Data-plane freedom: labels are cosmetic
-- **node** — `01M7342W0CNMFK152YEFNJHPP4`
 
 ### GAP: render shards split by test count, so every backdrop test lands in shard 1
 
@@ -1884,14 +1866,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A render-tests spec that loads the benchmark document and asserts the frame-time histogram, on hardware the CI lane can hold steady
 - **node** — `01M5PMJEGCJPMVNCKBDYZ0V57G`
 
-### GAP: the CLI has no relative dates (today, next fri)
-
-- **expected** — Every surface parses the same date phrases the UI's DateEditor accepts.
-- **current** — The UI parses phrases like today / next fri; the CLI and MCP take absolute YYYY-MM-DD only.
-- **impact** — Two date grammars depending on surface.
-- **closes** — Move the phrase parser into @kb/model next to parseTypedValue and call it from CLI/MCP.
-- **node** — `01M3KA3AEEFG0E200V4D63G5SN`
-
 ### GAP: the CLI's eager graph loads every family's painters and the host's engines
 
 - **expected** — From the CLI entry, painters and engines load at first use (chart-vega's Vega, gallery-net, canvas' tldraw reader, the QuickJS engine, store-sqlite when selected, source-git at first fetch), and the @kb/runtime barrel exports the mode-neutral core only.
@@ -1997,6 +1971,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Every family reads its nodes through a type named for the outline.
 - **closes** — One rename across the workspace, done when the canvas packages are free to touch.
 - **node** — `01M53GQC1V4S043899SSX8Q47J`
+
+### GAP: the migration approval dialog omits the dry-run diff
+
+- **expected** — The migration approval dialog shows the dry-run diff.
+- **current** — The migration procedure shows the dry-run diff on its page. The approval dialog omits it. Rollback is tracked in G09EVF.
+- **impact** — A person must inspect the preview separately before approving.
+- **closes** — Show the existing dry-run diff in the migration approval dialog.
+- **rule** — Plugins migrate their own data, declared and previewed
+- **node** — `01M7342YFJC4B6DMAFD8MTSTD7`
 
 ### GAP: the node palette has no "Add value to <field>" command
 
@@ -2111,15 +2094,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A GPU busy with another app's work reads as the backdrop's cost, so its quality steps down when it need not; on WebGL2 quality only falls once frames actually drop.
 - **closes** — Timestamp readings that hold on Metal (per pass, or three's per-frame grouping fixed), checked against wall time on the M4, and the WebGL2 disjoint timer where the browser has it.
 - **node** — `01M5STYVVX474T8WBT4FY341CM`
-
-### GAP: the system-write rule refuses additive edits to seeded nodes
-
-- **expected** — A person's field added to a seeded tag's template, a child under a seeded node and an option under a seeded field commit without force; removing or reordering what the seed ships is refused.
-- **current** — The commit admits a person's ids in a seeded node's children and template and keeps every seeded id there in order (systemWriteRefusal, proven over every surface by the surface contract), but the editor still hides Add field on seeded tags, refuses a child under a seeded node before it reaches the commit (isSysPrefixed guards in the page), and toasts that sys.* nodes are read-only.
-- **impact** — A person cannot add a field to a family's tag (a Location on the events tag), an option to its option set, or a child under it, so extending a plugin's model means forking it.
-- **closes** — The editor offers the additive gestures on every node, Add field on a seeded tag and a child under a seeded node, asking the commit's rule instead of isSysPrefixed, and its refusals name the owner.
-- **rule** — Data-plane freedom: additive edits
-- **node** — `01M7342V3W6X9PFNWVZ92WD7SF`
 
 ### GAP: the systemd-creds sealed-store contract runs only on a host that can seal
 
@@ -2258,6 +2232,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a busy untrusted code view can stutter its own frame
 - **closes** — run QuickJS inside a blob Worker in the frame
 - **node** — `01M41DKVB5R21NRCE4T9R4KES1`
+
+### GAP: views without ViewDef.text render a generic markdown body
+
+- **expected** — Each view's markdown reflects its layout and settings, including grouping for boards, columns for tables and edges for graphs.
+- **current** — render.view uses ViewDef.text when the view provides it. Views without that contribution, such as the outline board and tree graph, fall back to settings and a flat list of subject nodes.
+- **impact** — Text-only clients lose the view-specific layout and relationships for views that use the fallback.
+- **closes** — Add ViewDef.text contributions for the remaining view types so their markdown conveys the layout.
+- **node** — `01M40X30G92A0E57C02JHQ9A1G`
 
 ### GAP: WebGPU-only render specs skip where Chromium has no WebGPU adapter
 
@@ -3055,6 +3037,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Lift candidate search into a hook beside fuzzyNodeCandidates and leave RefEditor as presentation.
 - **node** — `01M1MGCP1EF5GM8NA32JEJRJ9Q`
 
+### GAP: renaming a sys.* or plugin node's label needs force
+
+- **expected** — A text-only write to a seeded node commits without force; the seed keeps the edited label (it already does on open).
+- **current** — The zoomed header lets a person edit a seeded node's title. The edit commits without force and the seeded label survives reopen, as covered by the shared store contract.
+- **impact** — A person cannot call the events tag habit, or a status option Waiting, in their own words without overriding the whole protection.
+- **closes** — Replace the padlock with an owned-by note that names the node's family, and let a seeded node's title be edited as any node's is.
+- **rule** — Data-plane freedom: labels are cosmetic
+- **node** — `01M7342W0CNMFK152YEFNJHPP4`
+
 ### GAP: repository extensions have no fail-closed admission
 
 - **expected** — Repository-owned extensions pass one explicit admission operation that compiles and decodes contributions, rejects duplicate IDs, validates handlers against definitions, and reports zero loader failures.
@@ -3455,6 +3446,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Contained today: SVG is served with CSP default-src 'none' and canvas pictures render as <img>. A future inline use of a sanitised SVG would fetch external CSS.
 - **closes** — Decode CSS escapes, then run safeCss over each style element's joined text; add the four vectors from Sol round 8 as rows.
 - **node** — `01M55ADZWF54Q5MN8AEXDM1W1D`
+
+### GAP: the system-write rule refuses additive edits to seeded nodes
+
+- **expected** — A person's field added to a seeded tag's template, a child under a seeded node and an option under a seeded field commit without force; removing or reordering what the seed ships is refused.
+- **current** — The editor commits a person's child under a seeded node and a field on a seeded tag without force. Shipped template fields are marked as shipped. The shared surface contract covers the commit guard.
+- **impact** — A person cannot add a field to a family's tag (a Location on the events tag), an option to its option set, or a child under it, so extending a plugin's model means forking it.
+- **closes** — The editor offers the additive gestures on every node, Add field on a seeded tag and a child under a seeded node, asking the commit's rule instead of isSysPrefixed, and its refusals name the owner.
+- **rule** — Data-plane freedom: additive edits
+- **node** — `01M7342V3W6X9PFNWVZ92WD7SF`
 
 ### GAP: the tx log is MemoryTxLog on both stores; a sqlite root could have a durable one as a table
 
