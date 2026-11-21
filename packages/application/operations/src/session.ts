@@ -166,8 +166,8 @@ export const persistEffect = Effect.fn("kb.persist")(function* (
 const COMMIT_WAIT_MS = 15_000;
 
 // Preparing a write may itself refuse. Only a conflict during commit starts another attempt.
-const retryCommit = Effect.fnUntraced(function* <A, R>(
-  attempt: Effect.Effect<Result.Result<A, DomainError>, DomainError, R>,
+const retryCommit = Effect.fnUntraced(function* <A, E, R>(
+  attempt: Effect.Effect<Result.Result<A, DomainError>, E, R>,
 ) {
   const deadline = (yield* WriteLockDeadline) ?? (yield* Clock.currentTimeMillis) + COMMIT_WAIT_MS;
   const run = Effect.provideService(attempt, WriteLockDeadline, deadline);
@@ -294,12 +294,13 @@ const persistAttempt = Effect.fn("kb.persist.attempt")(function* (
  */
 export const persistPlannedEffect = Effect.fn("kb.persistPlanned")(function* <
   W extends { readonly upserts: readonly KbNode[]; readonly deletes: readonly NodeId[] },
+  E = DomainError,
   R = never,
 >(
   ctx: KbContext<NodeIndex>,
-  plan: (nodes: readonly KbNode[]) => Effect.Effect<W | null, DomainError, R>,
+  plan: (nodes: readonly KbNode[]) => Effect.Effect<W | null, E, R>,
   options: PersistOptions = {},
-): Effect.fn.Return<W | null, DomainError, KbStore | R> {
+): Effect.fn.Return<W | null, DomainError | E, KbStore | R> {
   return yield* retryCommit(
     Effect.gen(function* () {
       yield* reloadEffect(ctx);

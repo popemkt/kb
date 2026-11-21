@@ -16,14 +16,21 @@ import { z } from "zod";
 import {
   CoreInvoke,
   CurrentCall,
-  KbCtx,
+  type KbCtx,
   Screens,
   type ExtensionAction,
   type FamilyKernels,
   type GraphWrites,
 } from "@kb/contracts";
 import type { KbIndexService } from "@kb/query";
-import { freshId, relationFieldFit, relationMisfit, resolveFieldId, type KbNode } from "@kb/model";
+import {
+  freshId,
+  present,
+  relationFieldFit,
+  relationMisfit,
+  resolveFieldId,
+  type KbNode,
+} from "@kb/model";
 import {
   CANVAS_ALIGN_EDGES,
   CANVAS_LAYOUTS,
@@ -391,16 +398,24 @@ function itemOf(doc: CanvasDoc, p: Placement, id: string): CanvasNode {
 const canvasPlaceEffect = Effect.fn("ext.canvas.place")(function* (
   input: z.infer<typeof placeInput>,
 ): Effect.fn.Return<z.infer<typeof placeOutput>, CanvasFail, WriteEnv> {
-  let doc = yield* readCanvasEffect(input.canvasId);
   const ids: string[] = [];
-  for (const p of input.items) {
-    const id = p.move ?? p.make?.id ?? (yield* freshId);
-    const placed = yield* canvasStep(() => placeItem(doc, itemOf(doc, p, id), whereOf(p)));
-    doc = placed.doc;
-    ids.push(id);
-  }
-  const written = yield* commitCanvasEffect({ canvasId: input.canvasId, doc });
-  return { canvasId: input.canvasId, placed: placedOf(doc, ids), lints: written.lints };
+  for (const p of input.items) ids.push(p.move ?? p.make?.id ?? (yield* freshId));
+  const written = yield* commitCanvasEffect(input.canvasId, () =>
+    Effect.gen(function* () {
+      let doc = yield* readCanvasEffect(input.canvasId);
+      for (const [i, p] of input.items.entries()) {
+        const id = present(ids[i], "an id per placement");
+        const before = doc;
+        doc = (yield* canvasStep(() => placeItem(before, itemOf(before, p, id), whereOf(p)))).doc;
+      }
+      return { doc };
+    }),
+  );
+  return {
+    canvasId: input.canvasId,
+    placed: placedOf(written.planned.doc, ids),
+    lints: written.lints,
+  };
 });
 
 // ── arrange ─────────────────────────────────────────────────────────────
@@ -474,30 +489,36 @@ function layerValue(
 const canvasArrangeEffect = Effect.fn("ext.canvas.arrange")(function* (
   input: z.infer<typeof arrangeInput>,
 ): Effect.fn.Return<z.infer<typeof arrangeOutput>, CanvasFail, WriteEnv> {
-  const ctx = yield* KbCtx;
-  const before = yield* readCanvasEffect(input.canvasId);
-  const field = input.field;
-  const fieldId =
-    field === undefined ? undefined : yield* canvasStep(() => resolveFieldId(ctx.nodes, field));
-  const nodes = new Map(ctx.nodes.map((node) => [node.id, node]));
-  const { layout, order, flip } = input;
-  const doc = yield* canvasStep(() => {
-    requireItems(before, input.ids);
-    if (order !== undefined) return orderItems(before, input.ids, order);
-    if (flip !== undefined) return flipItems(before, input.ids, flip);
-    return arrangeItems(before, input.ids, {
-      layout: layout ?? "row",
-      ...(input.gap === undefined ? {} : { gap: input.gap }),
-      ...(input.columns === undefined ? {} : { columns: input.columns }),
-      ...(input.edge === undefined ? {} : { edge: input.edge }),
-      ...(input.axis === undefined ? {} : { axis: input.axis }),
-      ...(fieldId === undefined
-        ? {}
-        : { layerOf: (item: CanvasNode) => layerValue(nodes, item.nodeId, fieldId) }),
-    });
-  });
-  const written = yield* commitCanvasEffect({ canvasId: input.canvasId, doc });
-  return { canvasId: input.canvasId, arranged: placedOf(doc, input.ids), lints: written.lints };
+  const { layout, order, flip, field } = input;
+  const written = yield* commitCanvasEffect(input.canvasId, (graph) =>
+    Effect.gen(function* () {
+      const before = yield* readCanvasEffect(input.canvasId);
+      const fieldId =
+        field === undefined ? undefined : yield* canvasStep(() => resolveFieldId(graph, field));
+      const nodes = new Map(graph.map((node) => [node.id, node]));
+      const doc = yield* canvasStep(() => {
+        requireItems(before, input.ids);
+        if (order !== undefined) return orderItems(before, input.ids, order);
+        if (flip !== undefined) return flipItems(before, input.ids, flip);
+        return arrangeItems(before, input.ids, {
+          layout: layout ?? "row",
+          ...(input.gap === undefined ? {} : { gap: input.gap }),
+          ...(input.columns === undefined ? {} : { columns: input.columns }),
+          ...(input.edge === undefined ? {} : { edge: input.edge }),
+          ...(input.axis === undefined ? {} : { axis: input.axis }),
+          ...(fieldId === undefined
+            ? {}
+            : { layerOf: (item: CanvasNode) => layerValue(nodes, item.nodeId, fieldId) }),
+        });
+      });
+      return { doc };
+    }),
+  );
+  return {
+    canvasId: input.canvasId,
+    arranged: placedOf(written.planned.doc, input.ids),
+    lints: written.lints,
+  };
 });
 
 // ── connect ─────────────────────────────────────────────────────────────
@@ -570,7 +591,7 @@ const bindableFieldEffect = Effect.fn("ext.canvas.connect.bind")(function* (
 });
 
 function bindWrite(
-  nodes: KbNode[],
+  nodes: readonly KbNode[],
   edge: CanvasEdge,
   fieldId: string | undefined,
 ): Pick<CanvasWrite, "also"> {
@@ -607,28 +628,28 @@ function connectionLook(input: z.infer<typeof connectInput>) {
 const canvasConnectEffect = Effect.fn("ext.canvas.connect")(function* (
   input: z.infer<typeof connectInput>,
 ): Effect.fn.Return<z.infer<typeof connectOutput>, CanvasFail, WriteEnv> {
-  const ctx = yield* KbCtx;
-  const before = yield* readCanvasEffect(input.canvasId);
   const bind = input.bind;
-  const arrival = before.nodes.find((item) => item.id === input.to)?.nodeId;
-  const fieldId = bind === undefined ? undefined : yield* bindableFieldEffect(bind, arrival);
   const id = yield* freshId;
   const bindingId = yield* freshId;
-  const { doc, edge } = yield* canvasStep(() =>
-    connectItems(before, {
-      id,
-      bindingId,
-      from: input.from,
-      to: input.to,
-      ...connectionLook(input),
-      ...(fieldId === undefined ? {} : { bindField: fieldId }),
+  const written = yield* commitCanvasEffect(input.canvasId, (nodes) =>
+    Effect.gen(function* () {
+      const before = yield* readCanvasEffect(input.canvasId);
+      const arrival = before.nodes.find((item) => item.id === input.to)?.nodeId;
+      const fieldId = bind === undefined ? undefined : yield* bindableFieldEffect(bind, arrival);
+      const { doc, edge } = yield* canvasStep(() =>
+        connectItems(before, {
+          id,
+          bindingId,
+          from: input.from,
+          to: input.to,
+          ...connectionLook(input),
+          ...(fieldId === undefined ? {} : { bindField: fieldId }),
+        }),
+      );
+      return { doc, edge, fieldId, ...bindWrite(nodes, edge, fieldId) };
     }),
   );
-  const written = yield* commitCanvasEffect({
-    canvasId: input.canvasId,
-    doc,
-    ...bindWrite(ctx.nodes, edge, fieldId),
-  });
+  const { edge, fieldId } = written.planned;
   return {
     canvasId: input.canvasId,
     edge: edge.id,
@@ -646,28 +667,38 @@ const groupInput = z.object({
 });
 const groupOutput = z.object({ canvasId: z.string(), group: PlacedSchema, lints: LintDiffSchema });
 
+/** `doc` with `ids` gathered into a new frame `id` a grid step round them, as ⌘G gathers them. */
+function groupedDoc(
+  doc: CanvasDoc,
+  ids: readonly string[],
+  id: string,
+  label: string | undefined,
+): CanvasDoc {
+  requireItems(doc, ids);
+  const grouped = groupItems(doc, ids, id, GRID_STEP);
+  if (label === undefined) return grouped;
+  return {
+    ...grouped,
+    nodes: grouped.nodes.map((node) =>
+      node.id === id && isGroupNode(node) ? { ...node, label } : node,
+    ),
+  };
+}
+
 const canvasGroupEffect = Effect.fn("ext.canvas.group")(function* (
   input: z.infer<typeof groupInput>,
 ): Effect.fn.Return<z.infer<typeof groupOutput>, CanvasFail, WriteEnv> {
-  const before = yield* readCanvasEffect(input.canvasId);
   const id = yield* freshId;
-  const doc = yield* canvasStep(() => {
-    requireItems(before, input.ids);
-    // A grid step round them, as ⌘G gathers them.
-    const grouped = groupItems(before, input.ids, id, GRID_STEP);
-    const label = input.label;
-    if (label === undefined) return grouped;
-    return {
-      ...grouped,
-      nodes: grouped.nodes.map((node) =>
-        node.id === id && isGroupNode(node) ? { ...node, label } : node,
-      ),
-    };
-  });
-  const [group] = placedOf(doc, [id]);
-  if (group === undefined) return yield* Effect.fail(new CanvasTxError("nothing to group"));
-  const written = yield* commitCanvasEffect({ canvasId: input.canvasId, doc });
-  return { canvasId: input.canvasId, group, lints: written.lints };
+  const written = yield* commitCanvasEffect(input.canvasId, () =>
+    Effect.gen(function* () {
+      const before = yield* readCanvasEffect(input.canvasId);
+      const doc = yield* canvasStep(() => groupedDoc(before, input.ids, id, input.label));
+      const [group] = placedOf(doc, [id]);
+      if (group === undefined) return yield* Effect.fail(new CanvasTxError("nothing to group"));
+      return { doc, group };
+    }),
+  );
+  return { canvasId: input.canvasId, group: written.planned.group, lints: written.lints };
 });
 
 const ungroupInput = z.object({
@@ -680,22 +711,30 @@ const ungroupOutput = z.object({
   lints: LintDiffSchema,
 });
 
+/** `doc` with the frames `ids` taken apart, their members where they stand; refused for an item no frame. */
+function ungroupedDoc(doc: CanvasDoc, ids: readonly string[]) {
+  requireItems(doc, ids);
+  const notFrames = ids.filter((id) => !doc.nodes.some((n) => n.id === id && isGroupNode(n)));
+  if (notFrames.length > 0) {
+    throw new CanvasRelationError(`${notFrames.join(", ")} is not a frame to take apart`);
+  }
+  return ungroupItems(doc, ids);
+}
+
 const canvasUngroupEffect = Effect.fn("ext.canvas.ungroup")(function* (
   input: z.infer<typeof ungroupInput>,
 ): Effect.fn.Return<z.infer<typeof ungroupOutput>, CanvasFail, WriteEnv> {
-  const before = yield* readCanvasEffect(input.canvasId);
-  const { doc, released } = yield* canvasStep(() => {
-    requireItems(before, input.ids);
-    const notFrames = input.ids.filter(
-      (id) => !before.nodes.some((n) => n.id === id && isGroupNode(n)),
-    );
-    if (notFrames.length > 0) {
-      throw new CanvasRelationError(`${notFrames.join(", ")} is not a frame to take apart`);
-    }
-    return ungroupItems(before, input.ids);
-  });
-  const written = yield* commitCanvasEffect({ canvasId: input.canvasId, doc });
-  return { canvasId: input.canvasId, released: [...released], lints: written.lints };
+  const written = yield* commitCanvasEffect(input.canvasId, () =>
+    Effect.gen(function* () {
+      const before = yield* readCanvasEffect(input.canvasId);
+      return yield* canvasStep(() => ungroupedDoc(before, input.ids));
+    }),
+  );
+  return {
+    canvasId: input.canvasId,
+    released: [...written.planned.released],
+    lints: written.lints,
+  };
 });
 
 // ── promote ─────────────────────────────────────────────────────────────
@@ -715,20 +754,20 @@ const promoteOutput = z.object({
 const canvasPromoteEffect = Effect.fn("ext.canvas.promote")(function* (
   input: z.infer<typeof promoteInput>,
 ): Effect.fn.Return<z.infer<typeof promoteOutput>, CanvasFail, WriteEnv> {
-  const before = yield* readCanvasEffect(input.canvasId);
-  // A locked card is promoted too: it changes what the card shows, not where
-  // it stands, as the inspector's words and node stay editable on one.
-  const text = yield* canvasStep(() => promotableText(before, input.id));
+  const nodeId = input.nodeId ?? (yield* freshId);
   // The node and the card that shows it are one transaction: a failed canvas
   // write leaves no node behind, and the pair is one step of history.
-  const nodeId = input.nodeId ?? (yield* freshId);
-  const planned = yield* planAddEffect((yield* KbCtx).nodes, { text }, nodeId);
-  const doc = yield* canvasStep(() => promoteItem(before, input.id, nodeId));
-  const written = yield* commitCanvasEffect({
-    canvasId: input.canvasId,
-    doc,
-    also: () => planned.upserts,
-  });
+  const written = yield* commitCanvasEffect(input.canvasId, (nodes) =>
+    Effect.gen(function* () {
+      const before = yield* readCanvasEffect(input.canvasId);
+      // A locked card is promoted too: it changes what the card shows, not where
+      // it stands, as the inspector's words and node stay editable on one.
+      const text = yield* canvasStep(() => promotableText(before, input.id));
+      const planned = yield* planAddEffect(nodes, { text }, nodeId);
+      const doc = yield* canvasStep(() => promoteItem(before, input.id, nodeId));
+      return { doc, also: () => planned.upserts };
+    }),
+  );
   return { canvasId: input.canvasId, id: input.id, nodeId, lints: written.lints };
 });
 

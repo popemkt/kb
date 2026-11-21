@@ -177,6 +177,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Point handles for path items in both projections, through one shared point-drag gesture.
 - **node** — `01M53H6Z5WQACGQ8ZR14HX5EDT`
 
+### GAP: a canvas tab saves its whole document over a concurrent document edit
+
+- **expected** — ext.canvas.tx.apply carries the document it was edited from, and a save whose stored document moved since is refused or merged, as node.update refuses a stale expectedText.
+- **current** — tx.apply writes the document its caller sends; only its prop target is now planned over the graph each attempt reads.
+- **impact** — Two tabs (or a tab and an agent verb) editing one canvas: the later whole-document save drops the other edit.
+- **closes** — An expected-document precondition on tx.apply (a hash of the doc read), checked inside the commit plan, with the canvas tab re-reading on conflict.
+- **node** — `01M7YE61HDBDA0TRFCYBPRYE4W`
+
 ### GAP: a chart's page runs its query twice, once for the body and once for the figure
 
 - **expected** — a view's text resolves its data once and hands it to both body and figure
@@ -856,14 +864,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — moving the item leaves the arrow behind; a half-made diagram does not hold together
 - **closes** — an edge end that may be a free point (or a path item end bound to an item), written through connectItems and drawn by edgeRoute in both projections
 - **node** — `01M5QP271PQ15E7WZ36KEN055N`
-
-### GAP: Canvas commands prepare whole-node writes before the retry planner
-
-- **expected** — A Canvas edit or import derives its document, parent links and related node writes from the graph each commit attempt reads.
-- **current** — Several Canvas verbs and the tldraw import pass precomputed node upserts to GraphWrites.commit; another attempt can reuse the same snapshots. This path predates the session retry change.
-- **impact** — A concurrent edit can be replaced by an older canvas document or parent link.
-- **closes** — Move Canvas document edits, related writes and import planning into the GraphWrites callback and prove concurrent edits survive on both store backends.
-- **node** — `01M7XES1FFV2N8AEZREJN7CQG7`
 
 ### GAP: canvas context menu opens in 2D only; a right-click in 3D opens nothing
 
@@ -2744,6 +2744,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Promote NodeContent, or the read-only part of it the card needs, into the primitives zone beside Bullet and NodeRow.
 - **rule** — UI import matrix
 - **node** — `01M1RXNGSJT2J2VHDSYY7QJSD3`
+
+### GAP: Canvas commands prepare whole-node writes before the retry planner
+
+- **expected** — A Canvas edit or import derives its document, parent links and related node writes from the graph each commit attempt reads.
+- **current** — Several Canvas verbs and the tldraw import pass precomputed node upserts to GraphWrites.commit; another attempt can reuse the same snapshots. This path predates the session retry change.
+- **impact** — A concurrent edit can be replaced by an older canvas document or parent link.
+- **closes** — Move Canvas document edits, related writes and import planning into the GraphWrites callback and prove concurrent edits survive on both store backends.
+- **node** — `01M7XES1FFV2N8AEZREJN7CQG7`
 
 ### GAP: canvas move release persists the unsnapped position
 

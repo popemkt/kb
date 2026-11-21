@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { GraphWrites, type GraphWritesPort, type KbContext } from "@kb/contracts";
 import { present, type DomainError, type KbNode } from "@kb/model";
 import { persist } from "@kb/test-kit";
@@ -26,6 +26,9 @@ const AT = "2026-10-04T00:00:00.000Z";
 function plainNode(id: string, text: string, children: string[] = []): KbNode {
   return { id, text, props: {}, children, createdAt: AT, updatedAt: AT };
 }
+
+/** A family's refusal in its own words, as a plan may raise one. */
+class Refused extends Schema.TaggedError<Refused>()("Test/Refused", { why: Schema.String }) {}
 
 /** Run `use` against the `GraphWrites` the runtime binds for `ctx`. */
 function withWrites<A, E>(
@@ -82,6 +85,16 @@ describe.each([...STORE_BACKENDS])(
       );
       expect(failure.code).toBe("invalid_input");
       expect(ctx.index.getNode("n.orphan-parent")).toBeUndefined();
+      expect(ctx.log.head).toBe(head);
+    });
+
+    test("a plan's refusal in its own words is the commit's failure, as raised, and writes nothing", async () => {
+      const ctx = await openKb(root);
+      const head = ctx.log.head;
+      const failure = await withWrites(ctx, (writes) =>
+        Effect.flip(writes.commit(() => Effect.fail(new Refused({ why: "not today" })))),
+      );
+      expect(failure).toBeInstanceOf(Refused);
       expect(ctx.log.head).toBe(head);
     });
 

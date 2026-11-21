@@ -4725,7 +4725,10 @@ figure?}`. `viewText` looks the view up in the catalog and falls back to
     resolver is asked again with what it writes when it runs inside a call,
     and the index and the transaction log move with it. It answers the
     write as the plan answered it, so a plan may carry what it decided (the
-    day it found) alongside the nodes.
+    day it found) alongside the nodes. A plan may refuse in its family's
+    own words (a canvas verb's relation error), and may read the services
+    its action runs with, the session among them, caught up to the nodes it
+    is handed.
 
   `graph-writes.test.ts` (`app/runtime`) holds this over the binding. What
   a write means is pure and below the port, so a family plans exactly what
@@ -5037,7 +5040,12 @@ gestures go through — the one transform (`transformItem`), surface snap
 (`snap.ts`), membership and the drop rule (`membership.ts`), placing on a
 frame's face (`placedOnFace`), the edge record the pointer's edge drag makes
 (`connectItems`) — and each write is one `commitCanvasEffect`: one store
-transaction, one step of an open canvas's history.
+transaction, one step of an open canvas's history. A verb hands it a plan,
+not a document: the plan reads the stored document (`readCanvasEffect`) and
+every node it rewrites beside it (a bound edge's source, a promoted card's
+node, another page that takes items) inside `GraphWrites.commit`, so it is
+made again over each attempt's graph and a write another process made
+meanwhile is kept (`canvas-concurrent.test.ts`, over every store backend).
 
 - **Relations read both ways** (`relations.ts`). Directions are the canvas's
   own axes — left and right along x, north and south along y (north up the
@@ -5194,7 +5202,9 @@ is a `.tldraw` archive (a ZIP holding tldraw-sync's `db.sqlite`, whose
 lowering is `@kb/canvas`'s pure `tldrawBoard`, so any source of tldraw's
 store records can use it.
 - The first page by tldraw's page order is the board, filed under `parent`;
-  the others are its pages. Everything is one transaction, and the answer
+  the others are its pages. Everything is one transaction, planned inside
+  `GraphWrites.commit` over each attempt's graph (the parent's children, the
+  fields kb already has), and the answer
   names each page, the record nodes and fields it made, its lints (each
   once), and `reported`: what kb drew differently or not at all.
 - A `frame` is a frame; a tldraw `group` is no item, its members standing

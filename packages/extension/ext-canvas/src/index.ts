@@ -3,7 +3,7 @@ import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import {
   ActionPoint,
-  KbCtx,
+  type KbCtx,
   extensionNamespace,
   provideAction,
   type ExtensionAction,
@@ -72,7 +72,6 @@ const applyOutput = z.object({
 export const canvasTxApplyEffect = Effect.fn("ext.canvas.tx.apply")(function* (
   input: z.infer<typeof applyInput>,
 ): Effect.fn.Return<z.infer<typeof applyOutput>, CanvasFail, KbCtx | GraphWrites | FileSystem> {
-  const ctx = yield* KbCtx;
   const doc = yield* parseDocEffect(input.doc, input.canvasId);
   const hasPropOps =
     (input.setProps !== undefined && input.setProps.length > 0) ||
@@ -84,13 +83,15 @@ export const canvasTxApplyEffect = Effect.fn("ext.canvas.tx.apply")(function* (
     );
   }
   const ops = { set: input.setProps, unset: input.unsetProps };
-  const written = yield* commitCanvasEffect({
-    canvasId: input.canvasId,
-    doc,
-    ...(hasPropOps && target !== undefined
-      ? { also: (at: string) => [withPropOps(ctx.nodes, target, ops, at)] }
-      : {}),
-  });
+  // GAP [[01M7YE61HDBDA0TRFCYBPRYE4W]] the document is the caller's, written whole.
+  const written = yield* commitCanvasEffect(input.canvasId, (nodes) =>
+    Effect.succeed({
+      doc,
+      ...(hasPropOps && target !== undefined
+        ? { also: (at: string) => [withPropOps(nodes, target, ops, at)] }
+        : {}),
+    }),
+  );
   return {
     canvasId: input.canvasId,
     doc: written.doc,
