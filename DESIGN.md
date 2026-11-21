@@ -7514,9 +7514,12 @@ link or an address names its place, and that place wins. The shell draws
 no workspace until the answer settles, so a page that lands elsewhere never
 paints the root on the way. The answer is the page's, not the server's: it
 is the page kernel's election, in the page's own day, so no bootstrap
-payload carries it. It is the one service call with no budget:
-a landing waits for what it needs, however long a slow machine takes, and
-a provider that fails leaves the page home with a toast that says why. The fourth is `ui.date-target`, the node a
+payload carries it. Its budget is about 4 s: long enough for days to
+make today's node and for the live connection to bring it, short enough
+that a landing which never answers cannot hold the workspace. A provider
+that fails, or overruns the budget, is faulted as any role provider is, and
+the page stays home with a toast that says why ("Stayed home: the landing
+did not answer in time"). The fourth is `ui.date-target`, the node a
 followed date value opens (a `date` follow target, DESIGN-UI.md → Field
 values). Core owns it and leads nowhere, and days replaces it with the
 date's day, made if need be. A text's `@` trigger asks it too

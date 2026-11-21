@@ -188,8 +188,8 @@ imports `provideLanding` from `kb-ext-sdk/page` and calls it with its plugin
 context and an async function answering a node id, or null to stay home.
 The page asks the elected provider once per load, only when the address
 names no place, and draws nothing until it answers, so the page opens
-straight on that node. A rejection keeps the page home with a
-"Stayed home: …" toast.
+straight on that node. It waits about 4 s at most: a rejection, or no
+answer by then, keeps the page home with a "Stayed home: …" toast.
 
 ```ts
 // .kb/extensions/inbox.page.tsx, whose manifest claims

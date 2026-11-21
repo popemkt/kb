@@ -5698,11 +5698,12 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
   root, so a load that opens on today paints today first; a navigation
   while it is asked (a sidebar row, Back) ends the wait where the person
   went. The move replaces the root's
-  history entry, so Back leaves the page. The landing has no clock: days
-  answers once today's node is in the page's replica, which on a slow
-  machine or connection is when the live connection brings it. If days
-  fails (the action refused today's node), the page stays home and a toast
-  says "Stayed home:" and why.
+  history entry, so Back leaves the page. Days answers once today's node
+  is in the page's replica, which on a slow machine or connection is when
+  the live connection brings it. The wait is bounded by the role's budget,
+  about 4 s: if days fails (the action refused today's node) or has not
+  answered by then, the page stays home, drawn at once, and a toast says
+  "Stayed home:" and why ("the landing did not answer in time").
 - **The capture target's replacement** answers today's node through
   `ext.days.today`, with the page's local day, unless the family's
   `captures` setting says the top level. ⌘K "Add node" with nothing

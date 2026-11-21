@@ -1,8 +1,9 @@
 /**
  * Where a page that loads at the root opens (DESIGN.md → Provider roles,
  * DESIGN-UI.md → Days): the `ui.landing` role, which core owns and days
- * replaces through its manifest, asked once per page load and only while the
- * page stands, unmoved, at the root with nothing in its URL.
+ * replaces through its manifest, asked once per page load, only while the
+ * page stands, unmoved, at the root with nothing in its URL, and for about
+ * 4 s at most.
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { bundledPlugin } from "@kb/contracts";
@@ -66,14 +67,13 @@ describe("ui.landing", () => {
     expect(window.history.length).toBe(depth);
   });
 
-  it("waits for a slow answer, however long, rather than giving up on a clock", async () => {
+  it("waits for a slow answer that comes within its budget", async () => {
     vi.useFakeTimers();
     try {
       const pending = Promise.withResolvers<string>();
       syncPagePlugins([daysLanding(() => pending.promise)]);
       const landing = land();
-      // Long past any budget a slow machine could miss.
-      await vi.advanceTimersByTimeAsync(60_000);
+      await vi.advanceTimersByTimeAsync(3_500);
       expect(getPath()).toBe("/");
       pending.resolve("days.2026-11-11");
       await landing;

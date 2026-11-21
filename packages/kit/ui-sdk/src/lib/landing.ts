@@ -5,9 +5,9 @@
  * ({@link stayHome}); a family that replaces it (days, with today) is
  * elected over it, and an extension's page half joins the election through
  * {@link provideLanding}. The shell asks once per page load ({@link landOnce}),
- * before it first draws the workspace, so a page that opens elsewhere never
- * shows the root on the way; a family switched on later, or a plugin
- * reloaded, never moves the page.
+ * before it first draws the workspace, waiting at most its budget, so a
+ * page that opens elsewhere never shows the root on the way; a family
+ * switched on later, or a plugin reloaded, never moves the page.
  */
 import { LANDING_ROLE } from "@kb/contracts";
 import { Role, Service, type PluginContext } from "@kb/plugin";
@@ -37,11 +37,13 @@ export function provideLanding(ctx: PluginContext, landing: Landing) {
 }
 
 /**
- * No budget: a landing waits for what it needs to be ready (days, for
- * today's node to reach the page), however long a slow machine takes, and
- * ends with an answer or a failure, never with a clock.
+ * How long the page waits for where it opens: long enough for days to make
+ * today's node and for the live connection to bring it, and short enough
+ * that a landing which never answers (a connection that never delivers)
+ * cannot hold the workspace. Past it the role faults the provider, as any
+ * overrun does, and core's default keeps the page home.
  */
-const NO_BUDGET = Number.POSITIVE_INFINITY;
+const LANDING_BUDGET_MS = 4000;
 
 /** Whether the page stands at the root with nothing in its URL. */
 function atRoot(): boolean {
@@ -51,13 +53,14 @@ function atRoot(): boolean {
 /**
  * Ask the landing role where this page opens, and go there, if the page is
  * at the root with nothing in its URL now and has not moved by the time the
- * answer comes. It settles at the answer, or as soon as the page moves: a
- * person who leaves while it is asked stays where they went, and a shell
- * that waits on it to draw stops waiting. The move replaces the root's
- * history entry, so Back leaves the page rather than returning to a root
- * that would land again. A provider that fails is demoted and the page
- * stays home, and the person is told why, since they expected to land
- * elsewhere.
+ * answer comes. It settles at the answer, at the role's budget
+ * ({@link LANDING_BUDGET_MS}), or as soon as the page moves: a person who
+ * leaves while it is asked stays where they went, and a shell that waits
+ * on it to draw stops waiting. The move replaces the root's history entry,
+ * so Back leaves the page rather than returning to a root that would land
+ * again. A provider that fails, or does not answer within the budget, is
+ * demoted and the page stays home, and the person is told why, since they
+ * expected to land elsewhere.
  */
 export async function land(): Promise<void> {
   if (!atRoot()) return;
@@ -65,17 +68,26 @@ export async function land(): Promise<void> {
   const stop = subscribePath(() => moved.resolve("moved"));
   try {
     const failures: unknown[] = [];
-    const ask = (landing: Landing) =>
-      landing().catch((cause: unknown) => {
-        failures.push(cause);
-        throw cause;
-      });
-    const answer = callPageRole(LandingRole, ask, NO_BUDGET).catch(() => null);
-    // GAP [[01M7ZN4675JTGVXVGH49Z0QF90]] only a move ends the wait: Home at the root moves nothing
+    // Landings asked that have not settled: one left when the answer comes
+    // is one the budget gave up on.
+    const unsettled = { count: 0 };
+    const ask = (landing: Landing) => {
+      unsettled.count += 1;
+      return landing()
+        .catch((cause: unknown) => {
+          failures.push(cause);
+          throw cause;
+        })
+        .finally(() => {
+          unsettled.count -= 1;
+        });
+    };
+    const answer = callPageRole(LandingRole, ask, LANDING_BUDGET_MS).catch(() => null);
     const id = await Promise.race([answer, moved.promise]);
     if (id === "moved" || !atRoot()) return;
     if (id !== null) replacePath(nodePath(id));
     else if (failures.length > 0) toast(`Stayed home: ${failureText(failures[0])}`);
+    else if (unsettled.count > 0) toast("Stayed home: the landing did not answer in time");
   } finally {
     stop();
   }

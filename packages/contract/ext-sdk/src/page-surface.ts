@@ -801,9 +801,10 @@ export declare function provideFieldEditor(
 
 /**
  * Where a page that loads at the root opens: the id of the node to open, or
- * null to stay home. A rejection keeps the page home and tells the person
- * why ("Stayed home: …"). The page asks it once per load, before it first
- * draws the workspace, and never while a link names another place.
+ * null to stay home. A rejection, or no answer within about 4 s, keeps the
+ * page home and tells the person why ("Stayed home: …"). The page asks it
+ * once per load, before it first draws the workspace, and never while a
+ * link names another place.
  */
 export type Landing = () => Promise<string | null>;
 
