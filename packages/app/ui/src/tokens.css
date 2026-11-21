@@ -40,9 +40,18 @@
   --tag-weight: var(--font-weight-ui, 500);
   /* A field row's label column, from the text column to the value column. */
   --kb-field-label: 120px;
+  /* Settings' label column: a setting's name is a sentence, drawn whole. */
+  --kb-setting-label: 200px;
 }
 
 @layer components {
+  /* A setting's row: its name column is Settings' own, and a name too long
+   * for it wraps instead of being cut short (FieldName in @kb/ui-sdk). */
+  .kb-setting {
+    --kb-field-label: var(--kb-setting-label);
+    --kb-field-name-space: normal;
+  }
+
   .kb-text {
     font-size: var(--type-body);
     line-height: var(--kb-text-leading);

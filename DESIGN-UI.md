@@ -1260,6 +1260,13 @@ An inline mark never moves it:
   their words on one column. Why: a value's lead glyph is part of the value,
   not a column of its own, and giving every value an empty glyph slot would
   move plain values a step to the right.
+- **Where a field row is drawn sets its label column.** The surface states
+  the column's width (`--kb-field-label`) and whether a name too long for it
+  wraps (`--kb-field-name-space`, cut short with an ellipsis unless the
+  surface says `normal`), and the field row reads both. An outline row keeps
+  the 120px column and cuts. A Settings row (`kb-setting`) takes Settings'
+  wider column (`--kb-setting-label`) and draws a setting's whole name,
+  wrapped where it must, because a family's settings read as sentences.
 
 A block, such as a table, a board or a still preview's box, starts where a
 child row's box does, on the child's glyph column. Its rows, if it draws

@@ -1766,14 +1766,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A Set field step that, after the field is picked, opens the field's own value editor once (the field row's editor, through the picker step) and writes its value to every target in one asOneWrite
 - **node** — `01M7CY0205F8GSDTNMSSG35S97`
 
-### GAP: Settings cuts a setting's name short
-
-- **expected** — A setting in Settings shows its whole name, wrapping if it must, so a family's settings read as the sentences they are (show child counts, suggest relations).
-- **current** — Settings draws each setting with the generic field row (settings-fold.tsx), whose name column is sized for an outline row's field names and cuts a longer one with an ellipsis: show child cou…, suggest relati….
-- **impact** — A setting cannot be read without hovering or opening it, and a family has to choose short names to fit a column meant for another place.
-- **closes** — The field row takes its name column's width from where it is drawn: the full name in Settings, wrapped if it must; the outline row keeps its column.
-- **node** — `01M7F9300H9FDW5BGCBVQQFTXW`
-
 ### GAP: Settings does not preview a family switch
 
 - **expected** — Settings reads extension.impact before a switch and shows effects and pending reasons.
@@ -3348,6 +3340,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Search cost grows linearly with the graph and no ranking is possible.
 - **closes** — Gate on Bun's FTS5 close() segfault (oven-sh/bun#37044); adopt once a SQLite index exists.
 - **node** — `01M1M08X7037FH9Z0Y5G1RFRXX`
+
+### GAP: Settings cuts a setting's name short
+
+- **expected** — A setting in Settings shows its whole name, wrapping if it must, so a family's settings read as the sentences they are (show child counts, suggest relations).
+- **current** — Fixed: the field row's name reads its wrapping from the cascade (--kb-field-name-space, nowrap unless a surface says normal) as it reads its width (--kb-field-label); Settings' rows carry kb-setting, which sets a 200px column (--kb-setting-label) and normal wrapping, so a setting's whole name shows; the outline row keeps its 120px column and cuts.
+- **impact** — A setting cannot be read without hovering or opening it, and a family has to choose short names to fit a column meant for another place.
+- **closes** — The field row takes its name column's width from where it is drawn: the full name in Settings, wrapped if it must; the outline row keeps its column.
+- **node** — `01M7F9300H9FDW5BGCBVQQFTXW`
 
 ### GAP: seven terminal .then callbacks disable promise/always-return
 
