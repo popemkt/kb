@@ -962,6 +962,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Add :node/is to CORE_DERIVED with a carrier that reads the chain and re-derives a tag's instances when its sys.f.extends changes; lower has-tag to it, evaluate it with isA, and stop canonicalizing a sys.f.type is-condition into has-tag. The routines engine's read (routines-host graph.ts) then asks :node/is and brings the tags its readers walk.
 - **node** — `01M738XHYKHDFFCN8DK595Z15T`
 
+### GAP: Day stepping has no default shortcut
+
+- **expected** — Previous day and Next day have distinct default shortcuts that reach kb in each supported shell.
+- **current** — The commands ship in the palette. Chrome on macOS reserves Command-Option-Left and Command-Option-Right for switching tabs, and Ctrl brackets overlap the history shortcuts.
+- **impact** — Day stepping needs the palette or a shortcut the person assigns.
+- **closes** — Approve a default pair that is free in the page and outline keymaps and reaches kb in macOS Chrome and the desktop shell.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M7X187JZA6QW3CFB0JHZZJPV`
+
 ### GAP: Durable browser invocation replay
 
 - **expected** — The browser invocation lane durably queues offline mutations and replays them under an explicit conflict policy.

@@ -11,7 +11,15 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi 
 import { SYSTEM_IDS, type PropValue } from "@kb/model";
 import type { ActionReceipt } from "@kb/contracts";
 import { routineOption, ROUTINE_FIELDS as F, ROUTINE_TAGS as T } from "@kb/routines";
-import { getPath, setToastSink, subscribePath, syncUiPlugins, type OutlineNode } from "@kb/ui-sdk";
+import {
+  canGo,
+  getPath,
+  navigate,
+  setToastSink,
+  subscribePath,
+  syncUiPlugins,
+  type OutlineNode,
+} from "@kb/ui-sdk";
 import {
   installDomGlobals,
   testBrowserHost,
@@ -337,8 +345,14 @@ describe("sync services", () => {
       code: "internal",
       message: "consent_denied",
     };
-    await open("/calendar/connect?state=s&error=access_denied", []);
+    await open("/calendar/sync", []);
+    const entries = window.history.length;
+    act(() => navigate("/calendar/connect?state=s&error=access_denied"));
+    await settle();
     expect(text()).toContain("The Google sign-in was cancelled.");
     expect(button("Back to sync services")).toBeDefined();
+    expect(window.location.search).toBe("");
+    expect(window.history.length).toBe(entries + 1);
+    expect(canGo()).toEqual({ back: true, forward: false });
   });
 });

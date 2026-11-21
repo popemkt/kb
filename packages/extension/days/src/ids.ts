@@ -41,6 +41,8 @@ export const DAYS_IDS = {
   todayAction: "ext.days.today",
   /** ⌘K "Go to today", a `sys.command` node the seed declares. */
   todayCommand: "sys.cmd.days.today",
+  previousDayCommand: "sys.cmd.days.previous-day",
+  nextDayCommand: "sys.cmd.days.next-day",
   /** The commit guard that keeps one node per key. */
   uniqueKeyGuard: "ext.days.unique-key",
   /** The commit guard that keeps the day and week tag settings to tags that extend the base. */

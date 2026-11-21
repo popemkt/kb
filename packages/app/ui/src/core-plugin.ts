@@ -12,16 +12,36 @@ import { Effect } from "effect";
 import { bundledPlugin, declarationPlugin, familyTags } from "@kb/contracts";
 import { coreExtension } from "@kb/operations";
 import { definePlugin, type Plugin } from "@kb/plugin";
+import { SYSTEM_IDS } from "@kb/model";
 import {
   CaptureTargetService,
+  CommandPoint,
   DateTargetService,
   LandingService,
+  go,
   leadsNowhere,
   stayHome,
   subscribeUiKernel,
   tellKeymaps,
   topLevelCapture,
+  type Command,
 } from "@kb/ui-sdk";
+
+function historyCommand(id: string, delta: number): Command {
+  return {
+    id,
+    menu: { where: "global" },
+    run: ({ palette }) => {
+      palette.close();
+      go(delta);
+    },
+  };
+}
+
+const historyCommands = [
+  historyCommand(SYSTEM_IDS.cmdGoBack, -1),
+  historyCommand(SYSTEM_IDS.cmdGoForward, 1),
+];
 
 export const coreUiPlugin: Plugin = bundledPlugin(
   coreExtension,
@@ -32,6 +52,9 @@ export const coreUiPlugin: Plugin = bundledPlugin(
       Effect.all(
         [
           ctx.plugin(declarationPlugin(coreExtension)),
+          ...historyCommands.map((command) =>
+            ctx.contribute(CommandPoint, { id: command.id, value: command }),
+          ),
           ctx.provide(CaptureTargetService, topLevelCapture),
           ctx.provide(LandingService, stayHome),
           ctx.provide(DateTargetService, leadsNowhere),

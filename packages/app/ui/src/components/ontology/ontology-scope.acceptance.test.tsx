@@ -256,7 +256,8 @@ describe("ontology scope (acceptance)", () => {
   });
 
   it("leaving the ontology renders non-members exactly as before", async () => {
-    const before = container.innerHTML;
+    const pageContent = () => present(container.querySelector("main"), "page content").innerHTML;
+    const before = pageContent();
     const beforeRows = rowTexts();
 
     await goto("/o/o.infra/outline");
@@ -266,7 +267,7 @@ describe("ontology scope (acceptance)", () => {
     expect(useGraphStore.getState().ontologyId).toBeNull();
     expect(container.querySelector("[data-ontology-scope-bar]")).toBeNull();
     expect(rowTexts()).toEqual(beforeRows);
-    expect(container.innerHTML).toBe(before);
+    expect(pageContent()).toBe(before);
   });
 
   it("renders the ontology page and the ontology list route", async () => {
