@@ -166,26 +166,26 @@ describe("outline store (WireNode adaptation)", () => {
     expect(outlineNodes().get("n.root-c")?.collapsed).toBe(false);
   });
 
-  it("expandAllInScope expands every expandable node in the forest", async () => {
+  it("expandAllInScope expands every expandable node in the forest", () => {
     seed();
-    await useOutlineStore.getState().expandAllInScope();
+    useOutlineStore.getState().expandAllInScope();
     expect(outlineNodes().get("n.root-a")?.collapsed).toBe(false);
     expect(outlineNodes().get("n.root-b")?.collapsed).toBe(false);
     expect(outlineNodes().get("n.child-a2")?.collapsed).toBe(false);
   });
 
-  it("collapseAllInScope collapses expandable nodes in the current scope", async () => {
+  it("collapseAllInScope collapses expandable nodes in the current scope", () => {
     seed();
-    await useOutlineStore.getState().expandAllInScope();
-    await useOutlineStore.getState().collapseAllInScope();
+    useOutlineStore.getState().expandAllInScope();
+    useOutlineStore.getState().collapseAllInScope();
     expect(outlineNodes().get("n.root-a")?.collapsed).toBe(true);
     expect(outlineNodes().get("n.root-b")?.collapsed).toBe(true);
   });
 
-  it("expand/collapse all respects zoomed subtree scope", async () => {
+  it("expand/collapse all respects zoomed subtree scope", () => {
     seed();
     useGraphStore.getState().zoomTo("n.root-a");
-    await useOutlineStore.getState().expandAllInScope();
+    useOutlineStore.getState().expandAllInScope();
     expect(outlineNodes().get("n.root-a")?.collapsed).toBe(true);
     expect(outlineNodes().get("n.child-a1")?.collapsed).toBe(false);
     expect(outlineNodes().get("n.root-b")?.collapsed).toBe(true);

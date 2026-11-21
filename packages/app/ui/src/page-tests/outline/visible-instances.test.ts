@@ -207,23 +207,16 @@ describe("a row's subtree keys walk the rows the outline draws", () => {
   it("opens the results a query draws and the rows under them, then closes them", async () => {
     await queryOpen();
     expect(["n.root-a", "n.child-a2", "n.qc"].map(collapsed)).toEqual([true, true, true]);
-    await outline().expandSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
+    outline().expandSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
     // n.root-a is drawn under the query as its result; its rows open with it.
     expect(["n.root-a", "n.child-a2", "n.qc"].map(collapsed)).toEqual([false, false, false]);
-    await outline().collapseSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
+    outline().collapseSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
     expect(["n.q1", "n.root-a", "n.child-a2", "n.qc"].map(collapsed)).toEqual([
       true,
       true,
       true,
       true,
     ]);
-  });
-
-  it("waits for a query no row has drawn yet, then opens its results", async () => {
-    // n.q1 closed and never asked: its results come with the walk that opens it.
-    expect(useGraphStore.getState().queries?.read(TODO_EDN).current).toBe(false);
-    await outline().expandSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
-    expect(["n.q1", "n.root-a", "n.child-a2"].map(collapsed)).toEqual([false, false, false]);
   });
 
   it("walks the rows of the pane the key was pressed in", async () => {
@@ -233,7 +226,7 @@ describe("a row's subtree keys walk the rows the outline draws", () => {
     try {
       outline().getVisibleInstances("pane:p2");
       await present(useGraphStore.getState().queries, "replica queries").ask(TODO_EDN);
-      await outline().expandSubtree(projectedRowKey("n.q1", "n.root-a"), "pane:p2");
+      outline().expandSubtree(projectedRowKey("n.q1", "n.root-a"), "pane:p2");
       expect(["n.root-a", "n.child-a2"].map(collapsed)).toEqual([false, false]);
     } finally {
       setOutlineHost("pane:p2", null);
@@ -245,11 +238,11 @@ describe("a row's subtree keys walk the rows the outline draws", () => {
     await mutations.setFrameView("n.q1", CollectionTableView);
     outline().toggleCollapse("n.qc");
     await queryOpen();
-    await outline().collapseSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
+    outline().collapseSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
     expect(collapsed("n.q1")).toBe(true);
     expect(collapsed("n.qc")).toBe(false);
     outline().toggleCollapse("n.qc");
-    await outline().expandSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
+    outline().expandSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
     expect(collapsed("n.q1")).toBe(false);
     expect(collapsed("n.qc")).toBe(true);
   });

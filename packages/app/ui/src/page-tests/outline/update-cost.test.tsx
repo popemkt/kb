@@ -102,7 +102,7 @@ describe("outline update cost", () => {
   beforeEach(async () => {
     resetOutlineStore();
     useGraphStore.getState().hydrateFromWire(graph(), 1, "fixtures");
-    await useOutlineStore.getState().expandAllInScope();
+    useOutlineStore.getState().expandAllInScope();
     container = dom.window.document.createElement("div") as unknown as HTMLDivElement;
     dom.window.document.body.appendChild(container as unknown as never);
     root = createRoot(container);
