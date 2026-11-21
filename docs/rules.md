@@ -129,14 +129,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A colour-scheme member on BackdropProps, fed by the shell and held by the backdrop contract suite and the SDK d.ts
 - **node** — `01M7PBBDSCWT98ZS7BGR17AHJN`
 
-### GAP: a board wider than its pane cuts its last columns off with no sign that it scrolls
-
-- **expected** — a board whose columns run past the pane shows that more lie beyond it: an edge fade or a scroll hint on the side that scrolls, gone at the end
-- **current** — the board scrolls sideways (overflow-x-auto) and cuts the last column at the pane edge with nothing showing more is there; main does this too, and every option now having a column (Tana views line) makes it more often
-- **impact** — at 1280px the Blocked and No Status columns of a four-option board are cut off and look missing
-- **closes** — one edge-fade mechanism for horizontal scrollers in the kit, read by the board (and lanes and cards)
-- **node** — `01M7DAJSTW3PP7375FECAA2DHS`
-
 ### GAP: a call's actor and approval are declared by the caller, not proven
 
 - **expected** — each surface authenticates its caller, so actor and approved are facts kb checks, and policies are a boundary rather than a guard against accidents
@@ -2052,6 +2044,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Two typescript/no-unsafe-type-assertion hits remain in ui src. One of them is the seam that deleted fourteen per-callback assertions; the other is the labelled-node sprite accessor.
 - **closes** — Upstream exports a generic constructor and types nodeThreeObject as Object3D | falsy, or those two members become augmentable exported interfaces.
 - **node** — `01M1P2RAJVTB4CESYGEVF7NDE1`
+
+### GAP: a board wider than its pane cuts its last columns off with no sign that it scrolls
+
+- **expected** — a board whose columns run past the pane shows that more lie beyond it: an edge fade or a scroll hint on the side that scrolls, gone at the end
+- **current** — Fixed: one kit mechanism, EDGE_FADE_CLASS with useEdgeFade (scrollEdgesOf), marks the edges of a horizontal scroller past which more lies, and tokens.css fades them; the board and the lanes read it. Cards are a wrapping grid and never scroll sideways; the table is left as it was.
+- **impact** — at 1280px the Blocked and No Status columns of a four-option board are cut off and look missing
+- **closes** — one edge-fade mechanism for horizontal scrollers in the kit, read by the board (and lanes and cards)
+- **node** — `01M7DAJSTW3PP7375FECAA2DHS`
 
 ### GAP: a canvas item with a link shows no mark on the canvas
 

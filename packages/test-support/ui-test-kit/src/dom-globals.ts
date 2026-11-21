@@ -19,6 +19,7 @@ const KEYS = [
   "Node",
   "CSS",
   "requestAnimationFrame",
+  "ResizeObserver",
 ] as const;
 
 export interface InstalledDom {
@@ -45,6 +46,7 @@ export function installDomGlobals(url = "http://localhost/"): InstalledDom {
   g.MouseEvent = dom.MouseEvent;
   g.Node = dom.Node;
   g.CSS = { escape: (s: string) => s };
+  g.ResizeObserver = dom.ResizeObserver;
   g.requestAnimationFrame = (cb: (t: number) => void) => {
     cb(0);
     return 0;
