@@ -201,37 +201,35 @@ export function nearestOffsetForX(
   }
 }
 
-/** Serialized offset under viewport point (clientX/clientY). Null when no caret. F16. */
 /**
- * The two vendor spellings of "what caret is under this point". `lib.dom`
- * declares both, one of them deprecated, and neither is present on every
- * target this app runs on; naming them here keeps the probe a probe rather
- * than a deprecated call site.
+ * The collapsed range under a viewport point, by whichever spelling `doc`
+ * has: Blink and WebKit's `caretRangeFromPoint` first, else the standard
+ * `caretPositionFromPoint`; null when it has neither or no caret is there.
+ * `lib.dom` declares both as always present; the `in` probes are what say
+ * which one this browser has.
  */
-interface CaretDocument {
-  caretRangeFromPoint?: (x: number, y: number) => Range | null;
-  caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+function caretRangeAt(doc: Document, x: number, y: number): Range | null {
+  if ("caretRangeFromPoint" in doc) {
+    // oxlint-disable-next-line typescript/no-deprecated -- the vendor spelling, tried first: not every WebKit this app runs in has caretPositionFromPoint
+    return doc.caretRangeFromPoint(x, y);
+  }
+  return caretPositionRangeAt(doc, x, y);
 }
 
+function caretPositionRangeAt(doc: Document, x: number, y: number): Range | null {
+  if (!("caretPositionFromPoint" in doc)) return null;
+  const pos = doc.caretPositionFromPoint(x, y);
+  if (!pos) return null;
+  const r = doc.createRange();
+  r.setStart(pos.offsetNode, pos.offset);
+  r.collapse(true);
+  return r;
+}
+
+/** Serialized offset under viewport point (clientX/clientY). Null when no caret. F16. */
 export function offsetFromPoint(el: HTMLElement, clientX: number, clientY: number): number | null {
   try {
-    let range: Range | null = null;
-    // GAP [[01M1P2R0XMSK1MRVQ8P2JH5V0Z]]: lib.dom marks caretRangeFromPoint
-    // @deprecated, so a direct Document call is typescript/no-deprecated. This
-    // one cast keeps the probe off that type and the method call bound.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- GAP [[01M1P2R0XMSK1MRVQ8P2JH5V0Z]]
-    const doc = document as unknown as CaretDocument;
-    if (typeof doc.caretRangeFromPoint === "function") {
-      range = doc.caretRangeFromPoint(clientX, clientY);
-    } else if (typeof doc.caretPositionFromPoint === "function") {
-      const pos = doc.caretPositionFromPoint(clientX, clientY);
-      if (pos) {
-        const r = document.createRange();
-        r.setStart(pos.offsetNode, pos.offset);
-        r.collapse(true);
-        range = r;
-      }
-    }
+    const range = caretRangeAt(document, clientX, clientY);
     if (!range || !el.contains(range.startContainer)) return null;
     return serializedOffsetOfBoundary(el, range.startContainer, range.startOffset);
   } catch {

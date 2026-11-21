@@ -921,14 +921,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Body tones in canvas-style.ts, both painters resolving them, and a look-contract assertion.
 - **node** — `01M540YKDP4WQPSJR41GH0Q90V`
 
-### GAP: caretRangeFromPoint needs a CaretDocument cast because lib.dom marks it deprecated
-
-- **expected** — offsetFromPoint calls document.caretRangeFromPoint bound, with no type assertion, and typescript/no-deprecated does not fire on the DOM method.
-- **current** — lib.dom marks caretRangeFromPoint @deprecated. A direct Document call is typescript/no-deprecated (ratchet rise). The one remaining assertion is document as unknown as CaretDocument so the probe stays off that type and the method is called bound.
-- **impact** — ui src keeps one typescript/no-unsafe-type-assertion that a check cannot replace until the DOM lib drops the deprecation or the ratchet promotes no-deprecated to error with a pinpoint disable.
-- **closes** — lib.dom removes @deprecated from caretRangeFromPoint, or caretPositionFromPoint is the only probe and Chrome implements it everywhere this app runs.
-- **node** — `01M1P2R0XMSK1MRVQ8P2JH5V0Z`
-
 ### GAP: charts have no categorical palette
 
 - **expected** — each design system carries a categorical chart palette, checked for colour-blind separation and contrast in light and dark
@@ -2777,6 +2769,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Move it to lib/ (pure DOM math) or components/ui/ (if it rendered); rewire the three importers and the colocated test.
 - **rule** — UI import matrix
 - **node** — `01M1XCB0ETCJH03FGJS6E75AFP`
+
+### GAP: caretRangeFromPoint needs a CaretDocument cast because lib.dom marks it deprecated
+
+- **expected** — offsetFromPoint calls document.caretRangeFromPoint bound, with no type assertion, and typescript/no-deprecated does not fire on the DOM method.
+- **current** — Closed: caretRangeAt probes each spelling with in and calls the vendor caretRangeFromPoint bound, under a pinpoint typescript/no-deprecated disable with its reason now that the rule is error; no type assertion is left.
+- **impact** — ui src keeps one typescript/no-unsafe-type-assertion that a check cannot replace until the DOM lib drops the deprecation or the ratchet promotes no-deprecated to error with a pinpoint disable.
+- **closes** — lib.dom removes @deprecated from caretRangeFromPoint, or caretPositionFromPoint is the only probe and Chrome implements it everywhere this app runs.
+- **node** — `01M1P2R0XMSK1MRVQ8P2JH5V0Z`
 
 ### GAP: check audit matched substrings instead of wired invocations
 

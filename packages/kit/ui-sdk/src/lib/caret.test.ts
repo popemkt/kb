@@ -46,4 +46,29 @@ describe("offsetFromPoint", () => {
       }
     }
   });
+
+  it("falls back to caretPositionFromPoint where caretRangeFromPoint is absent", () => {
+    const el = document.createElement("div");
+    el.textContent = "hello";
+    document.body.append(el);
+    const text = el.firstChild;
+    const had = "caretRangeFromPoint" in document;
+    const range = Object.getOwnPropertyDescriptor(document, "caretRangeFromPoint");
+    const position = Object.getOwnPropertyDescriptor(document, "caretPositionFromPoint");
+    if (had) Reflect.deleteProperty(document, "caretRangeFromPoint");
+    Object.defineProperty(document, "caretPositionFromPoint", {
+      configurable: true,
+      writable: true,
+      value: () => ({ offsetNode: text, offset: 3 }),
+    });
+    try {
+      expect("caretRangeFromPoint" in document).toBe(false);
+      expect(offsetFromPoint(el, 0, 0)).toBe(3);
+    } finally {
+      el.remove();
+      if (range !== undefined) Object.defineProperty(document, "caretRangeFromPoint", range);
+      if (position === undefined) Reflect.deleteProperty(document, "caretPositionFromPoint");
+      else Object.defineProperty(document, "caretPositionFromPoint", position);
+    }
+  });
 });
