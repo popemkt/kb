@@ -1557,14 +1557,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — move store-jsonl's write-lock into a shared package as a path-keyed lock, take it around recordBuild's refresh-or-publish and prune, and add a concurrent refresh-vs-prune test
 - **node** — `01M6H0QPT8K2YPY6XV6SM5WRYH`
 
-### GAP: Query conversion must preserve a query saved by another tab
-
-- **expected** — The picker sets the query field only if it is empty when the write commits.
-- **current** — A tag pick can replace a query that another tab saved after the picker opened.
-- **impact** — Picking a tag can discard an existing saved query and its conditions.
-- **closes** — Pass the field-absence condition through the shared undoable PageWrites property update. Record undo history only for the accepted write.
-- **node** — `01M7XM3JDSQN8BK0RMQCD3HZM9`
-
 ### GAP: query-result rows are not keyed per pane
 
 - **expected** — query-result rows carry their outline host in their instance key, like other rows
@@ -1793,14 +1785,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Tables and boards need the mouse to reach a value.
 - **closes** — Give table/board cells the same slot navigation order the outline uses.
 - **node** — `01M3KA3A8JZN1GH9DXK2SNZ1N1`
-
-### GAP: the # and > pickers list rows that do not match the query and ignore recency
-
-- **expected** — A trigger picker lists what matches the query, ranked by recency and use, the way the value picker does (orderCandidates, picker-recency).
-- **current** — matchCandidate matches an id substring, so every sys.tag.* id matches #ta; outlineTriggers stepTrigger feeds an alphabetical nodesOfKind list to pickerRows, so recency and use counts are never applied (F2, F3 in docs/research/2026-11-20-outliner-tana-parity.md).
-- **impact** — The first thing a Tana user touches is noisy: system tags and fields pad every list, nothing shows a type, and a declared seam (picker-recency) is unused here.
-- **closes** — Brief 2 in docs/research/2026-11-20-outliner-tana-parity.md: label-only match, orderCandidates in addTag and addField candidates, glyph and use-count note.
-- **node** — `01M7WW1MDZPJQRME00HG81PSKS`
 
 ### GAP: the 3D gizmo shows over a locked selection
 
@@ -2219,14 +2203,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Secondary labels, hints and counts set in translucent foreground can sit below AA in any design system without anything going red.
 - **closes** — Classify the translucent text roles (a small set of named text tokens, e.g. subtle and faint, in place of ad-hoc /N steps), hold each to its threshold in the guard, and retire the raw /N text utilities.
 - **node** — `01M3BEJDX4YP2DPHSCFS66NZK1`
-
-### GAP: turning a node into a query matches every node in the store
-
-- **expected** — A new query asks for its first condition, as Tana does, so the result is what the person meant.
-- **current** — turn-query writes DEFAULT_QUERY_EDN (no conditions); the page shows the whole store under the row (F5 in docs/research/2026-11-20-outliner-tana-parity.md).
-- **impact** — The first query a person makes floods the page with system nodes; the builder is below the fold.
-- **closes** — Brief 6 in docs/research/2026-11-20-outliner-tana-parity.md: Turn into query opens the query-only tag picker (findTagged, over addTag's candidates, no create row) and writes a tag condition by id; it tags nothing and mints nothing, which Add tag's commit would.
-- **node** — `01M7WW1S48RQ48GD7A14VZG545`
 
 ### GAP: two installed extensions cannot share a service key
 
@@ -3217,6 +3193,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Same registry as the FieldRow gap: one place maps a field type to its editor.
 - **node** — `01M1MGCND3KMDYJPSSMD2E4Q9J`
 
+### GAP: Query conversion must preserve a query saved by another tab
+
+- **expected** — The picker sets the query field only if it is empty when the write commits.
+- **current** — A tag pick can replace a query that another tab saved after the picker opened.
+- **impact** — Picking a tag can discard an existing saved query and its conditions.
+- **closes** — Pass the field-absence condition through the shared undoable PageWrites property update. Record undo history only for the accepted write.
+- **node** — `01M7XM3JDSQN8BK0RMQCD3HZM9`
+
 ### GAP: query print-roundtrip coverage quota depends on independent random samples
 
 - **expected** — Query round-trip coverage includes a guaranteed meaningful set of non-empty answers, independent of chance.
@@ -3430,6 +3414,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Independent polling deadlines could expire while the owning test still had time to finish. Maintaining the loop separately in 13 test files also made cleanup inconsistent.
 - **closes** — Use the shared until helper in the Bun tests that poll for observable results, and verify that an expired wait stops before the next test.
 - **node** — `01M7B3HX9R9DNDDTJY546W1HH3`
+
+### GAP: the # and > pickers list rows that do not match the query and ignore recency
+
+- **expected** — A trigger picker lists what matches the query, ranked by recency and use, the way the value picker does (orderCandidates, picker-recency).
+- **current** — matchCandidate matches an id substring, so every sys.tag.* id matches #ta; outlineTriggers stepTrigger feeds an alphabetical nodesOfKind list to pickerRows, so recency and use counts are never applied (F2, F3 in docs/research/2026-11-20-outliner-tana-parity.md).
+- **impact** — The first thing a Tana user touches is noisy: system tags and fields pad every list, nothing shows a type, and a declared seam (picker-recency) is unused here.
+- **closes** — Brief 2 in docs/research/2026-11-20-outliner-tana-parity.md: label-only match, orderCandidates in addTag and addField candidates, glyph and use-count note.
+- **node** — `01M7WW1MDZPJQRME00HG81PSKS`
 
 ### GAP: the 3D bullet atlas has a fixed capacity
 
@@ -3739,6 +3731,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Four pinpoint disables, and a port shaped so only one listener per event can ever exist. Today that is true by construction (the client owns the socket), which is why this is deferred rather than wrong.
 - **closes** — Widen WsLike to {addEventListener, removeEventListener, send, close} and update every injected fake (api/live.test.ts and the ws tests). That is a test-double contract change across the package, not a mechanical edit, so it needs its own commit.
 - **node** — `01M1MHKS8EV3DD378TZSX44EJG`
+
+### GAP: turning a node into a query matches every node in the store
+
+- **expected** — A new query asks for its first condition, as Tana does, so the result is what the person meant.
+- **current** — turn-query writes DEFAULT_QUERY_EDN (no conditions); the page shows the whole store under the row (F5 in docs/research/2026-11-20-outliner-tana-parity.md).
+- **impact** — The first query a person makes floods the page with system nodes; the builder is below the fold.
+- **closes** — Brief 6 in docs/research/2026-11-20-outliner-tana-parity.md: Turn into query opens the query-only tag picker (findTagged, over addTag's candidates, no create row) and writes a tag condition by id; it tags nothing and mints nothing, which Add tag's commit would.
+- **node** — `01M7WW1S48RQ48GD7A14VZG545`
 
 ### GAP: two definitions of which node is a canvas
 
