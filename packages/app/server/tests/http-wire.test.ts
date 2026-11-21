@@ -47,6 +47,29 @@ const RELAY_FIXTURE = extensionModule("relay-fixture", {
       outputSchema: passthrough,
       handler: async () => ({ ran: true }),
     },
+    {
+      id: "project",
+      title: "Projected read",
+      description: "Returns different fields to people and programs.",
+      mode: { kind: "read" },
+      inputSchema: passthrough,
+      outputSchema: passthrough,
+      callerOutput: {
+        person: { parse: ({ visible, personOnly, rows }) => ({
+          visible, personOnly, version: "person", rows: rows.map(({ id, personOnly }) => ({ id, personOnly })),
+        }) },
+        program: { parse: ({ visible, programOnly, rows, broken }) => {
+          if (broken) throw new Error(programOnly);
+          return {
+            visible, programOnly, version: "program", rows: rows.map(({ id, programOnly }) => ({ id, programOnly })),
+          };
+        } },
+      },
+      handler: async (_ctx, { broken }) => ({
+        visible: true, personOnly: "person detail", programOnly: "program detail", broken,
+        rows: [{ id: "row", personOnly: "person row detail", programOnly: "program row detail" }],
+      }),
+    },
   ]`,
 });
 
@@ -181,6 +204,38 @@ describe("a page that holds no token", () => {
     expect(pairing.status).toBe(200);
     expect(pairing.body.code).toBe("approval_required");
     expect(pairing.body).toHaveProperty("message", "approve pairing");
+  });
+
+  test("a program relay only receives output visible to both callers", async () => {
+    await trustExtension(root, "relay-fixture.ts");
+    const read = { id: "ext.relay-fixture.project", input: {} };
+    expect((await post(read, "page")).body.output).toEqual({
+      visible: true,
+      personOnly: "person detail",
+      version: "person",
+      rows: [{ id: "row", personOnly: "person row detail" }],
+    });
+    expect((await post(read, "program")).body.output).toEqual({
+      visible: true,
+      programOnly: "program detail",
+      version: "program",
+      rows: [{ id: "row", programOnly: "program row detail" }],
+    });
+    const relayed = await post({ ...read, caller: "program" }, "page");
+    expect(relayed.body.status).toBe("succeeded");
+    expect(relayed.body.output).toEqual({
+      visible: true,
+      rows: [{ id: "row" }],
+    });
+    const broken = { ...read, input: { broken: true } };
+    const failure = {
+      status: "failed",
+      id: read.id,
+      code: "internal",
+      message: "action output is invalid",
+    };
+    expect((await post(broken, "program")).body).toEqual(failure);
+    expect((await post({ ...broken, caller: "program" }, "page")).body).toEqual(failure);
   });
 
   test("edits: a node it adds and renames is written", async () => {

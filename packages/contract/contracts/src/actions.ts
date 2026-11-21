@@ -298,7 +298,8 @@ export interface ActionDefinition<
   /**
    * Optional per-caller output projection schemas. After the handler's output
    * passes `outputSchema`, the invoke core applies the caller's declared
-   * projection to the receipt.
+   * projection to the receipt. A relay also applies its caller ceiling's
+   * projection, keeping only output common to both.
    */
   callerOutput?: Readonly<Partial<Record<CallerKind, ActionSchema>>>;
   /** An input-only action drops request metadata and runs without person approval. */

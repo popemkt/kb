@@ -7,7 +7,6 @@ import {
   type ActionInvocation,
   type ActionMode,
   type ActionReceipt,
-  type CallerKind,
   failed,
   succeeded,
   type ExtensionPromiseHandler,
@@ -149,21 +148,67 @@ const parseOutput = Effect.fnUntraced(function* (
   );
 });
 
-/**
- * Output interceptors and schemas read unprojected data. Keep their
- * diagnostics on the host when the receipt goes to a capture caller.
- */
+/** Keep JSON fields and values common to both projections at the same path. */
+function commonOutput(left: unknown, right: unknown): unknown {
+  if (Array.isArray(left) && Array.isArray(right) && left.length === right.length) {
+    const items = left.map((item, index) => commonOutput(item, right[index]));
+    return items.includes(undefined) ? undefined : items;
+  }
+  if (Predicate.isObject(left) && Predicate.isObject(right)) {
+    const entries: [string, unknown][] = [];
+    for (const [key, value] of Object.entries(left)) {
+      if (!Object.hasOwn(right, key)) continue;
+      const common = commonOutput(value, right[key]);
+      if (common !== undefined) entries.push([key, common]);
+    }
+    return Object.fromEntries(entries);
+  }
+  return Object.is(left, right) ? left : undefined;
+}
+
+const projectOutput = Effect.fnUntraced(function* (
+  id: string,
+  output: unknown,
+  callerProjection: ActionDefinition["outputSchema"] | undefined,
+  ceilingProjection: ActionDefinition["outputSchema"] | undefined,
+) {
+  const projection = callerProjection ?? ceilingProjection;
+  if (projection === undefined) return output;
+  if (ceilingProjection === undefined || ceilingProjection === projection) {
+    return yield* parseOutput(id, projection, output);
+  }
+  // Each schema sees the full validated result, independently of the other.
+  // Compare what their results expose on the wire, including transformed values.
+  const projected = yield* parseOutput(id, projection, structuredClone(output));
+  const callerValue: unknown = JSON.parse(JSON.stringify(projected));
+  const limited = yield* parseOutput(id, ceilingProjection, output);
+  const ceilingValue: unknown = JSON.parse(JSON.stringify(limited));
+  const common = commonOutput(callerValue, ceilingValue);
+  if (common === undefined) {
+    return yield* domainError("internal", `action ${id} has incompatible output projections`);
+  }
+  return common;
+});
+
+/** Keep diagnostics that can contain unprojected values on the host. */
 const outputForCaller = Effect.fnUntraced(function* (
   def: ActionDefinition,
-  caller: CallerKind,
+  invocation: ActionInvocation,
   output: Effect.Effect<unknown, DomainError>,
 ) {
+  const caller = invocationCaller(invocation);
+  const { callerCeiling } = invocation;
+  const callerProjection = def.callerOutput?.[caller];
+  const ceilingProjection =
+    callerCeiling === undefined ? undefined : def.callerOutput?.[invocationCaller(callerCeiling)];
   const finish = Effect.gen(function* () {
     const validated = yield* parseOutput(def.id, def.outputSchema, yield* output);
-    const projection = def.callerOutput?.[caller];
-    return projection === undefined ? validated : yield* parseOutput(def.id, projection, validated);
+    return yield* projectOutput(def.id, validated, callerProjection, ceilingProjection);
   });
-  if (!isCaptureCaller(caller)) return yield* finish;
+  const capture = isCaptureCaller(caller);
+  if (!capture && callerProjection === undefined && ceilingProjection === undefined) {
+    return yield* finish;
+  }
   return yield* finish.pipe(
     Effect.catchCause((cause) =>
       Effect.gen(function* () {
@@ -173,7 +218,10 @@ const outputForCaller = Effect.fnUntraced(function* (
           diagnostic instanceof Error ? diagnostic.message : String(diagnostic),
           isDomainError(diagnostic) ? diagnostic.details : undefined,
         );
-        return yield* domainError("internal", "capture action output is invalid");
+        return yield* domainError(
+          "internal",
+          capture ? "capture action output is invalid" : "action output is invalid",
+        );
       }),
     ),
   );
@@ -236,7 +284,6 @@ const invokeCall = Effect.fn("kb.invoke")(function* <R>(
     });
   }
   const entry = actions.get(id);
-  const caller = invocationCaller(made);
   const denied = callerRefusal(entry?.def, made);
   if (denied !== null) return failed(id, "forbidden", denied);
   if (entry === undefined) return failed(id, "unknown_action", `unknown action: ${id}`);
@@ -291,7 +338,7 @@ const invokeCall = Effect.fn("kb.invoke")(function* <R>(
   const output = interceptOutput(interception, { ctx, invocation, action }, produced).pipe(
     asCall(invocation),
   );
-  const projected = yield* outputForCaller(entry.def, caller, output);
+  const projected = yield* outputForCaller(entry.def, made, output);
   return succeeded(id, projected, fill.context);
 });
 
