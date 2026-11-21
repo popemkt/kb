@@ -2227,15 +2227,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Recompose those themes narrow-head art below the head band (or let a backdrop presentation reserve the band), checked by a narrow-width screenshot per theme
 - **node** — `01M7355M039ESNZV6N85EV8BQ2`
 
-### GAP: three corner radii (2px, 3px, 5px) sit off the radius scale
-
-- **expected** — Every corner radius is a step derived from the design system's --radius, so a swap re-rounds everything.
-- **current** — canvas-resize-handles.tsx uses rounded-[2px], ontology-page.tsx's segmented control rounded-[5px], and tokens.css's .kb-md-code a fixed 3px, each under a GAP marker (a disable of design-tokens/no-raw-design-value in the two components).
-- **impact** — A design system that changes --radius leaves these three corners unchanged.
-- **closes** — Map each onto a step (xs 4px or sm 6px, a 1-2px visible change), or add a step if the size is a real role. That is a visible change, so it lands outside the no-visual-change token restructure (wave 2026-09-24 f1).
-- **rule** — Design tokens: no bypass
-- **node** — `01M3AF8G4N9JHJB8YYEWF8F5SZ`
-
 ### GAP: three philosophy checks wait on their prerequisites (Phase 5)
 
 - **expected** — Families migrate their own data has a migration-runner contract (P6); one contract, every implementation has a check over one registry form every port declares (P8); and weakening a philosophy rule (deleting its check, editing its principle) passes a governance door (docs/research/2026-11-13-philosophy-as-checks.md, Phase 5).
@@ -3723,6 +3714,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Four pinpoint disables, and a port shaped so only one listener per event can ever exist. Today that is true by construction (the client owns the socket), which is why this is deferred rather than wrong.
 - **closes** — Widen WsLike to {addEventListener, removeEventListener, send, close} and update every injected fake (api/live.test.ts and the ws tests). That is a test-double contract change across the package, not a mechanical edit, so it needs its own commit.
 - **node** — `01M1MHKS8EV3DD378TZSX44EJG`
+
+### GAP: three corner radii (2px, 3px, 5px) sit off the radius scale
+
+- **expected** — Every corner radius is a step derived from the design system's --radius, so a swap re-rounds everything.
+- **current** — Closed: the canvas resize handle and the inline-code chip are rounded-xs, and the ontology page's segmented control is rounded-sm, its md track's radius less the track padding; DESIGN-UI.md -> Radius says so.
+- **impact** — A design system that changes --radius leaves these three corners unchanged.
+- **closes** — Map each onto a step (xs 4px or sm 6px, a 1-2px visible change), or add a step if the size is a real role. That is a visible change, so it lands outside the no-visual-change token restructure (wave 2026-09-24 f1).
+- **rule** — Design tokens: no bypass
+- **node** — `01M3AF8G4N9JHJB8YYEWF8F5SZ`
 
 ### GAP: two definitions of which node is a canvas
 
