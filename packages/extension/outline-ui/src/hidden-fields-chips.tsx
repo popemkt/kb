@@ -15,10 +15,11 @@ import { cn, indentStyle, resolveFieldTypeById, type SchemaIndex } from "@kb/ui-
 import { useSlotKind } from "./slot-kind";
 import { arriveAt, neighbourSlot, registerSlot } from "./value-slot-nav";
 
-/** A field the line draws as a chip: its id and its name. */
+/** A field the line draws as a chip: its id, its name, and its glyph's ink (`fieldInkOn`). */
 interface ChipField {
   readonly fieldId: string;
   readonly fieldName: string;
+  readonly ink: string | null;
 }
 
 interface HiddenFieldsChipsProps {
@@ -247,7 +248,7 @@ function FieldChip({
         onOpen();
       }}
     >
-      <ChipGlyph icon={icon} />
+      <ChipGlyph icon={icon} color={chip.ink} />
       <span className="ml-1">{chip.fieldName}</span>
     </button>
   );
@@ -256,11 +257,22 @@ function FieldChip({
 /**
  * A chip's glyph, as wide as a field row's glyph box so the first one is
  * centred in the glyph column, in the chip's ink at rest unless `ink` says
- * otherwise.
+ * otherwise, or in its tag's colour (`color`), as the field's row glyph is.
  */
-function ChipGlyph({ icon: Glyph, ink = "text-faint-foreground" }: { icon: Icon; ink?: string }) {
+function ChipGlyph({
+  icon: Glyph,
+  ink = "text-faint-foreground",
+  color = null,
+}: {
+  icon: Icon;
+  ink?: string;
+  color?: string | null;
+}) {
   return (
-    <span className={cn("flex h-5 w-6 shrink-0 items-center justify-center", ink)}>
+    <span
+      className={cn("flex h-5 w-6 shrink-0 items-center justify-center", ink)}
+      style={color === null ? undefined : { color }}
+    >
       <Glyph size={13} aria-hidden />
     </span>
   );

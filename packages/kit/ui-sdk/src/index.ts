@@ -246,6 +246,7 @@ export {
   isProjectedInstance,
   isProjectedRow,
   MAIN_OUTLINE_HOST,
+  mayBeInHost,
   nodeOfInstance,
   outlineHostOfPane,
   outlineInstanceKey,
@@ -302,7 +303,14 @@ export {
   pageCapturePlanner,
   topLevelCapture,
 } from "./lib/capture-target";
-export { type Landing, LandingService, land, landOnce, stayHome } from "./lib/landing";
+export {
+  type Landing,
+  LandingService,
+  land,
+  landOnce,
+  provideLanding,
+  stayHome,
+} from "./lib/landing";
 export {
   type DateTarget,
   DateTargetService,
@@ -380,7 +388,6 @@ export {
 export { resultNodeIds } from "./lib/use-query-node-rows";
 export {
   answerOf,
-  BACKLINK_COUNTS_QUERY,
   conditionsEdn,
   derivedWith,
   type EdnRunner,
@@ -459,7 +466,7 @@ export {
   useFollowThrough,
 } from "./lib/follow";
 export { type GraphLabelFace, graphLabelFont, wrapGraphLabel } from "./lib/graph-label";
-export { guideLineStyle, HANGING_GLYPH, indentStyle } from "./lib/indent";
+export { GLYPH_COLUMN, guideLineStyle, HANGING_GLYPH, indentStyle } from "./lib/indent";
 export { keptLoad } from "./lib/kept-load";
 export { isCompositionKey, keyChordEvent } from "./lib/keychord";
 export { currentKeymap, type KeyCall, keyCallOf, runKeyCall, tellKeymaps } from "./lib/keybindings";
@@ -533,6 +540,7 @@ export {
 } from "./lib/stale-build";
 export {
   djb2Hash,
+  fieldInkOn,
   hashTagColor,
   nodeTagColors,
   optionColorOf,

@@ -4,7 +4,7 @@
  */
 import { SHORTCUT_IDS } from "@kb/keybindings";
 import type { WireNode } from "@kb/contracts";
-import { SYSTEM_IDS, nodeName, viewHostsOf } from "@kb/model";
+import { SYSTEM_IDS, descriptionOf, nodeName, viewHostsOf } from "@kb/model";
 
 export type PaletteEntryKind = "command" | "node";
 
@@ -18,6 +18,8 @@ export interface PaletteEntry {
   idLower: string;
   /** For a node's command: the node it acts on, by its label. */
   target?: string;
+  /** A node's description (`descriptionOf`), drawn under its name; never matched. */
+  hint?: string;
 }
 
 export interface PaletteIndex {
@@ -42,14 +44,16 @@ export function buildPaletteIndex(nodes: WireNode[], rev: number): PaletteIndex 
   const global = nodes.filter(
     (node) => !isCommandNode(node) || node.props[SHORTCUT_IDS.commandContext] === undefined,
   );
-  const entries = global.map((n) =>
-    entryOf(
+  const entries = global.map((n) => {
+    const entry = entryOf(
       n.id,
       nodeName(n.id, nodeOf, hostOf) || n.id,
       isCommandNode(n) ? "command" : "node",
       n.text,
-    ),
-  );
+    );
+    const hint = descriptionOf(n);
+    return hint === null ? entry : { ...entry, hint };
+  });
   // Commands first for empty-query browsing, then stable by text.
   entries.sort((a, b) => {
     if (a.kind !== b.kind) return a.kind === "command" ? -1 : 1;

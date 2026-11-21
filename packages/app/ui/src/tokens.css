@@ -60,6 +60,12 @@
     font-weight: var(--kb-text-weight);
   }
 
+  /* A node's description, under its name (DescriptionLine in
+   * @kb/outline-ui): its text value, drawn at the meta step. */
+  .kb-description .kb-text {
+    font-size: var(--type-meta);
+  }
+
   /* F9: row text host — active and inactive share pre-wrap so \n never collapses. */
   .kb-text-row {
     white-space: pre-wrap;

@@ -1,0 +1,6 @@
+{
+  "reason": "A node's description is its hint where it is offered (DESIGN-UI.md → Outline editor, \"A node's description\"): the picker's row and the global search's result draw it under the name, taking the page's eager set from 2084924 to 2085539 bytes, measured from a short checkout against the branch before it.",
+  "raise": {
+    "page-eager": { "bytes": 615 }
+  }
+}

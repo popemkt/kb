@@ -32,8 +32,6 @@ export interface BacklinkRow {
    * day. None when it only mentions the node in its own text.
    */
   relations: BacklinkRelation[];
-  /** Ancestor path above this row, outermost first (home omitted). */
-  breadcrumbs: readonly Crumb[];
 }
 
 /** Where a referrer's references are read, field by field (`NodeIndex.referenceFields`). */
@@ -92,7 +90,6 @@ export function backlinkRows(
         referrer === undefined || references === null
           ? []
           : relationsThrough(referrer, references.referenceFields(referrer, nodeId), schema),
-      breadcrumbs: rowBreadcrumbs(schema, b.id),
     };
   });
 }

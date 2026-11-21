@@ -132,6 +132,7 @@ test("a row and a References row draw a bare reference by its target's name", as
   await expect(row(page, deleted?.id ?? "").locator("a.kb-md-ref")).toHaveText(["Ghost", ghost]);
 
   await page.goto(`/node/${rob}`);
+  await page.locator(`[data-references-for="${rob}"] h2 button`).click();
   const references = page.locator(`[data-references-for="${rob}"] [data-node-id]`);
   for (const probe of [ref, bare]) {
     const referrer = references.filter({ hasText: words(probe?.plain ?? "") });

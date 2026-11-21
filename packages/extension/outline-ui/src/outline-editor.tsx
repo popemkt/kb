@@ -132,6 +132,7 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
         {rootRows}
 
         {takesRows(root, rootView?.key ?? null) && <CreateStrip parentId={rootNodeId} />}
+        {/* GAP [[01M7ZKJGQ06YDE93NSCCP49VR0]] drawn beside ui.node-sections, not contributed to it */}
         <SchemaSection nodeId={rootNodeId} />
         <Suspense fallback={null}>
           <ReferencesSection key={rootNodeId} nodeId={rootNodeId} />

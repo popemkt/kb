@@ -1,0 +1,6 @@
+{
+  "reason": "The page head's crumbs fold into \"…\" on a narrow pane (DESIGN-UI.md → Node pages): @kb/outline-ui exports FoldedCrumbs, the menu of folded crumbs, which the shell's dismiss contract opens as it opens the outline's frame filter (ViewSettingsPopoverHost).",
+  "raise": {
+    "surface": { "@kb/outline-ui": 1 }
+  }
+}
