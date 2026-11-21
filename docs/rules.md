@@ -954,14 +954,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Separate design question recorded in briefs/p1-persistence.md section 4: protocol, discovery, and fallback when no server is running.
 - **node** — `01M1M08WPQTB514E7JERKYEDWZ`
 
-### GAP: CLI properties and tree input lack relative-date context
-
-- **expected** — Every surface parses the same date phrases the UI's DateEditor accepts.
-- **current** — @kb/model's parseTypedValue accepts today as the reference date for relative phrases. The CLI property mapper and the shared node.addTree parser used by CLI and MCP call it without today.
-- **impact** — Relative phrases such as today and next fri work in the date editor but fail on these input paths.
-- **closes** — Supply the reference date to the shared parser from CLI property parsing and the node.addTree path used by CLI and MCP.
-- **node** — `01M3KA3AEEFG0E200V4D63G5SN`
-
 ### GAP: code-image identity parked for the single-owner shortcut model
 
 - **expected** — Revisit loaded-code image identity only if kb needs stronger authentication than its single-owner local trust/approval model.
@@ -2793,6 +2785,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The full core gate can fail outside the extension UI, and the original trace cannot distinguish a child crash from a transport failure.
 - **closes** — Use process.exitCode and natural shutdown for every CLI exit path; prove multi-MB receipts and errors survive delayed pipe readers byte-exactly, and the surface contract passes repeatedly under parallel load.
 - **node** — `01M6WW0WE9QD8W2KCRM1NW8SHB`
+
+### GAP: CLI properties and tree input lack relative-date context
+
+- **expected** — Every surface parses the same date phrases the UI's DateEditor accepts.
+- **current** — @kb/model's parseTypedValue accepts today as the reference date for relative phrases. The CLI property mapper and the shared node.addTree parser used by CLI and MCP call it without today.
+- **impact** — Relative phrases such as today and next fri work in the date editor but fail on these input paths.
+- **closes** — Supply the reference date to the shared parser from CLI property parsing and the node.addTree path used by CLI and MCP.
+- **node** — `01M3KA3AEEFG0E200V4D63G5SN`
 
 ### GAP: command dispatcher eagerly reaches chart engines and QuickJS
 

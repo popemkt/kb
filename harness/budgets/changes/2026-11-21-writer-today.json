@@ -1,0 +1,7 @@
+{
+  "reason": "The CLI's --prop, set and unset and the shared node.addTree planner read a relative date against the writer's today (DESIGN.md → field values): @kb/model exports currentLocalDate, the one owner of that day, and ParseContext, the parser's context the CLI passes it in. The CLI's eager graph measures 2,892,337 bytes, up from 2,891,869.",
+  "raise": {
+    "surface": { "@kb/model": 2 },
+    "cli-closure": { "bytes": 468 }
+  }
+}

@@ -1,5 +1,7 @@
 import { Clock, DateTime, Effect, Option, Random } from "effect";
 import { ulid } from "ulid";
+import { dayAt, type LocalDate } from "./local-date.ts";
+import { present } from "./present.ts";
 
 /**
  * Time and identity seam — the single owner of both nondeterminism sources that
@@ -503,6 +505,18 @@ export const clockSampler: Effect.Effect<() => ClockSample> = Effect.gen(functio
   const zone = yield* Effect.serviceOption(DateTime.CurrentTimeZone);
   const timeZone = DateTime.zoneToString(Option.getOrElse(zone, DateTime.zoneMakeLocal));
   return () => ({ nowMs: clock.currentTimeMillisUnsafe(), timeZone });
+});
+
+/**
+ * TIME OWNER — the writer's today: the civil date the `Clock`'s instant falls
+ * on in the time zone in scope (the host's own when none is provided). What a
+ * relative date a person types (`today`, `next fri`) is read against
+ * (`parseTypedValue`'s `today`), on every surface that takes typed values.
+ */
+export const currentLocalDate: Effect.Effect<LocalDate> = Effect.map(clockSampler, (sample) => {
+  const { nowMs, timeZone } = sample();
+  // The sampler names a zone it rendered itself, so it reads back; UTC is the floor.
+  return present(dayAt(nowMs, timeZone) ?? dayAt(nowMs, "UTC"), "UTC is a time zone");
 });
 
 /** Holds the `Random` service as the single source of store identity entropy. */

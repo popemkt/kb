@@ -927,7 +927,10 @@ type PropValue =
   pasted key is refused before it can reach a committed store; only the
   process that needs the key reads it, through its `SecretSource`, as
   [Agent packages](#agent-packages) → providers states), and every
-  surface parses raw input through the same `parseTypedValue`. A `ref` must
+  surface parses raw input through the same `parseTypedValue`, a relative
+  date (`today`, `next fri`) against the writer's today (`currentLocalDate`,
+  the `Clock` in the zone in scope), so the CLI, an outline paste and the
+  date editor read one phrase as one day. A `ref` must
   also name a node the graph stores. The check (`valueConformanceError`) is part of
   `txIntegrityError`, so it runs where outline integrity already runs —
   `persistEffect`, which every action on every surface (CLI, MCP, HTTP/WS, the

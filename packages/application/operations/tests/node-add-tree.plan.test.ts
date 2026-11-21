@@ -12,8 +12,15 @@
  *   constant.
  */
 import { describe, expect, test } from "bun:test";
-import { Effect } from "effect";
-import { IndexedNodes, type KbNode, type NodeGraph, type Slots } from "@kb/model";
+import { Clock, DateTime, Effect } from "effect";
+import {
+  IndexedNodes,
+  SYSTEM_IDS,
+  fieldTypeValue,
+  type KbNode,
+  type NodeGraph,
+  type Slots,
+} from "@kb/model";
 import { planNodeAddTreeEffect } from "../src/node-add-tree.ts";
 
 const ROOTS = 5000;
@@ -138,5 +145,37 @@ describe("planning an outline under one parent", () => {
       expect(cost.puts).toBe(items);
       expect(cost.files).toBe(items);
     }
+  });
+});
+
+describe("an outline's date values", () => {
+  test("read a relative date against the writer's today, in the writer's zone", () => {
+    const due: KbNode = {
+      id: "f.due",
+      text: "due",
+      props: {
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+        [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("date")],
+      },
+      children: [],
+      createdAt: "",
+      updatedAt: "",
+    };
+    const base = Effect.runSync(Clock.clockWith(Effect.succeed));
+    // 2026-11-21T20:00Z: still Saturday the 21st in UTC, already Sunday the 22nd in Tokyo.
+    const clock: Clock.Clock = Object.assign(Object.create(base) as Clock.Clock, {
+      currentTimeMillisUnsafe: () => Date.UTC(2026, 10, 21, 20),
+    });
+    const plan = Effect.runSync(
+      planNodeAddTreeEffect(
+        { outline: "- Ship it\n  - due:: tomorrow", parent: null },
+        IndexedNodes.of([due]),
+      ).pipe(
+        Effect.provideService(Clock.Clock, clock),
+        Effect.provide(DateTime.layerCurrentZoneNamed("Asia/Tokyo")),
+      ),
+    );
+    const item = plan.upserts.find((n) => n.text === "Ship it");
+    expect(item?.props["f.due"]).toEqual([{ t: "str", v: "2026-11-23" }]);
   });
 });

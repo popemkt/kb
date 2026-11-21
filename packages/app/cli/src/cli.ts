@@ -24,6 +24,7 @@ import {
   FIELD_TYPES,
   SYSTEM_IDS,
   currentIso,
+  currentLocalDate,
   ensureDomainError,
   isSysPrefixed,
   resolveFieldId,
@@ -229,12 +230,13 @@ function addEffect(
       if (text === undefined) {
         return yield* new UsageError({ message: "kb add: missing <text> (or --outline <file>)" });
       }
+      const today = yield* currentLocalDate;
       const plan = mapAdd({
         text,
         parent,
         position: opts.position,
         tags: opts.tag,
-        props: opts.prop.map((arg) => parsePropArg(arg, declaredTypes(ctx.nodes))),
+        props: opts.prop.map((arg) => parsePropArg(arg, declaredTypes(ctx.nodes), { today })),
         matching: opts.matching,
         id: opts.id,
         force: opts.force === true,
@@ -530,16 +532,18 @@ function buildProgram(): Command {
     .option("--force", "allow edits on sys.* nodes", false)
     .action(
       kbAction((ctx, globals, [id, field, value, opts]: [string, string, string, SetOpts]) =>
-        runPlanEffect(
-          ctx,
-          mapSet({
-            id,
-            field,
-            value: parseFieldValue(value, declaredTypes(ctx.nodes)(field), field),
-            force: opts.force === true,
-          }),
-          globals,
-          { create: opts.create === true },
+        Effect.flatMap(currentLocalDate, (today) =>
+          runPlanEffect(
+            ctx,
+            mapSet({
+              id,
+              field,
+              value: parseFieldValue(value, declaredTypes(ctx.nodes)(field), field, { today }),
+              force: opts.force === true,
+            }),
+            globals,
+            { create: opts.create === true },
+          ),
         ),
       ),
     );
@@ -554,18 +558,20 @@ function buildProgram(): Command {
     .action(
       kbAction(
         (ctx, globals, [id, field, value, opts]: [string, string, string | undefined, ForceOpts]) =>
-          runPlanEffect(
-            ctx,
-            mapUnset({
-              id,
-              field,
-              value:
-                value === undefined
-                  ? undefined
-                  : parseFieldValue(value, declaredTypes(ctx.nodes)(field), field),
-              force: opts.force === true,
-            }),
-            globals,
+          Effect.flatMap(currentLocalDate, (today) =>
+            runPlanEffect(
+              ctx,
+              mapUnset({
+                id,
+                field,
+                value:
+                  value === undefined
+                    ? undefined
+                    : parseFieldValue(value, declaredTypes(ctx.nodes)(field), field, { today }),
+                force: opts.force === true,
+              }),
+              globals,
+            ),
           ),
       ),
     );
