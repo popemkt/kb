@@ -1503,7 +1503,8 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   the chosen key reads the settings before and after the write. This lets a
   person select a view before filling in its settings and edit a store
   holding a broken view (a hand edit, a merge). The view's read still reports
-  the missing or broken settings. A field the view does not read is a
+  issues, which a write can carry forward only with the same stored inputs.
+  A field the view does not read is a
   person's own and never an issue (Data-plane freedom). The check runs
   when the view's family is loaded, so the data can outlive the code.
   The frame toolbar's edits pass the check by

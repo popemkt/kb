@@ -13,6 +13,7 @@
  * moves it onto the canvas's view node (`parseLegacyCamera`).
  */
 import type { NodeId, NodeProps, PropValue } from "@kb/model";
+import type { ConfigReport } from "@kb/views";
 import { isRecord } from "./fields.ts";
 import { CANVAS_IDS } from "./ids.ts";
 
@@ -93,7 +94,7 @@ function poseOfValue(value: PropValue | undefined): CanvasPose | undefined {
  */
 export function readCanvasCamera(
   props: NodeProps,
-  report: (warning: string) => void = () => {},
+  report: ConfigReport = () => {},
 ): CanvasCamera | undefined {
   const [named] = props[CANVAS_IDS.canvasProjectionField] ?? [];
   if (named === undefined) return undefined;
@@ -101,13 +102,17 @@ export function readCanvasCamera(
     (p) => named.t === "ref" && PROJECTION_OPTIONS[p] === named.v,
   );
   if (projection === undefined) {
-    report(`${CANVAS_IDS.canvasProjectionField}: ${JSON.stringify(named)} names no projection`);
+    report(`${CANVAS_IDS.canvasProjectionField}: ${JSON.stringify(named)} names no projection`, [
+      CANVAS_IDS.canvasProjectionField,
+    ]);
     return undefined;
   }
   const [stored] = props[CANVAS_IDS.canvasPoseField] ?? [];
   const pose = poseOfValue(stored);
   if (stored !== undefined && pose === undefined)
-    report(`${CANVAS_IDS.canvasPoseField}: ${JSON.stringify(stored)} is no pose`);
+    report(`${CANVAS_IDS.canvasPoseField}: ${JSON.stringify(stored)} is no pose`, [
+      CANVAS_IDS.canvasPoseField,
+    ]);
   return pose === undefined ? { projection } : { projection, pose };
 }
 

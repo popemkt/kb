@@ -157,6 +157,10 @@ describe("a view node written by any action", () => {
     field: SYSTEM_IDS.viewField,
     value: { t: "ref" as const, v: CollectionBoardView.option },
   };
+  const LAYOUT_VIEW = {
+    field: SYSTEM_IDS.viewField,
+    value: { t: "ref" as const, v: LayoutView.option },
+  };
 
   test("node.add refuses a view node whose setting its view cannot read, and writes nothing", async () => {
     const before = ctx.nodes.length;
@@ -189,7 +193,7 @@ describe("a view node written by any action", () => {
         id: "v.board",
         unsetProps: [{ field: SYSTEM_IDS.viewField }],
         setProps: [
-          { field: SYSTEM_IDS.viewField, value: { t: "ref", v: LayoutView.option } },
+          LAYOUT_VIEW,
           { field: SYSTEM_IDS.layoutField, value: { t: "str", v: "not JSON" } },
         ],
       },
@@ -199,6 +203,41 @@ describe("a view node written by any action", () => {
       message: expect.stringContaining("is not JSON"),
     });
     expect(node("v.board").props[SYSTEM_IDS.viewField]).toEqual([BOARD_VIEW.value]);
+  });
+
+  test("a type-only change can select a view before filling in its required settings", async () => {
+    await mustInvoke("node.add", { id: "v.board", text: "", props: [BOARD_VIEW] });
+    await mustInvoke("node.update", {
+      id: "v.board",
+      unsetProps: [{ field: SYSTEM_IDS.viewField }],
+      setProps: [LAYOUT_VIEW],
+    });
+    expect(node("v.board").props[SYSTEM_IDS.viewField]).toEqual([LAYOUT_VIEW.value]);
+    expect(node("v.board").props[SYSTEM_IDS.layoutField]).toBeUndefined();
+  });
+
+  test("a type switch cannot replace an old invalid setting with another with the same error", async () => {
+    const field = SYSTEM_IDS.layoutField;
+    const old = { t: "str" as const, v: "old broken" };
+    await mustInvoke("node.add", {
+      id: "v.board",
+      text: "",
+      props: [BOARD_VIEW, { field, value: old }],
+    });
+    const refused = await invoke(ctx, {
+      id: "node.update",
+      input: {
+        id: "v.board",
+        unsetProps: [{ field: SYSTEM_IDS.viewField }, { field }],
+        setProps: [LAYOUT_VIEW, { field, value: { t: "str", v: "new broken" } }],
+      },
+    });
+    expect(refused).toMatchObject({
+      status: "failed",
+      message: expect.stringContaining("is not JSON"),
+    });
+    expect(node("v.board").props[SYSTEM_IDS.viewField]).toEqual([BOARD_VIEW.value]);
+    expect(node("v.board").props[field]).toEqual([old]);
   });
 
   test("a view node that already holds one stays editable: only what a write adds is judged", async () => {
@@ -220,8 +259,12 @@ describe("a view node written by any action", () => {
     await mustInvoke("node.update", { id: "v.held", text: "Fortnightly" });
     await mustInvoke("node.update", {
       id: "v.held",
-      setProps: [{ field: STATUS, value: { t: "str", v: "a person's own field" } }],
+      setProps: [
+        { field: STATUS, value: { t: "str", v: "a person's own field" } },
+        { field: SYSTEM_IDS.viewHideEmptyField, value: { t: "bool", v: true } },
+      ],
     });
     expect(node("v.held").text).toBe("Fortnightly");
+    expect(node("v.held").props[SYSTEM_IDS.viewHideEmptyField]).toEqual([{ t: "bool", v: true }]);
   });
 });

@@ -61,7 +61,7 @@ export function viewNodeFor<P>(
   if (Result.isFailure(params)) return Result.fail(params.failure);
   const settings = key.config.write(params.success);
   const { reported, back } = readViewNode(key, settings, host);
-  const issues: ViewIssue[] = [...reported];
+  const issues = reported.map(({ issue }) => issue);
   if (Result.isFailure(back))
     issues.push(...back.failure.map((issue) => unheld(key, issue.path, issue.message)));
   else issues.push(...differences(key, params.success, back.success));
@@ -85,18 +85,53 @@ function readViewNode<P>(
   props: NodeProps,
   host: NodeId | null,
 ): {
-  readonly reported: readonly ViewIssue[];
+  readonly reported: readonly { issue: ViewIssue; fields?: readonly NodeId[] }[];
   readonly back: Result.Result<P, readonly ViewIssue[]>;
 } {
-  const reported: ViewIssue[] = [];
-  const read = key.config.read(props, host, (message) => reported.push({ path: [], message }));
+  const reported: { issue: ViewIssue; fields?: readonly NodeId[] }[] = [];
+  const read = key.config.read(props, host, (message, fields) =>
+    reported.push({ issue: { path: [], message }, fields }),
+  );
   return { reported, back: paramsIssues(key, read) };
 }
 
-/** Every issue a view node's stored settings have for `host`: reported, then undecodable. */
-function storedIssues(key: ViewKey<unknown>, props: NodeProps, host: NodeId | null): ViewIssue[] {
-  const { reported, back } = readViewNode(key, props, host);
-  return Result.isFailure(back) ? [...reported, ...back.failure] : [...reported];
+/** Stored read errors carry the actual inputs that produced them. */
+function storedIssues(key: ViewKey<unknown>, props: NodeProps, host: NodeId | null) {
+  const readFields = new Set<NodeId>();
+  const used = (field: string | symbol): void => {
+    if (typeof field === "string") readFields.add(field);
+  };
+  const observed = new Proxy<NodeProps & Record<symbol, unknown>>(props, {
+    get(target, field) {
+      used(field);
+      return target[field];
+    },
+    has(target, field) {
+      used(field);
+      return Reflect.has(target, field);
+    },
+    getOwnPropertyDescriptor(target, field) {
+      used(field);
+      return Reflect.getOwnPropertyDescriptor(target, field);
+    },
+    ownKeys(target) {
+      const fields = Reflect.ownKeys(target);
+      fields.forEach(used);
+      return fields;
+    },
+  });
+  const { reported, back } = readViewNode(key, observed, host);
+  const identified = (issue: ViewIssue, fields: Iterable<NodeId>) => ({
+    issue,
+    identity: canonicalJson([
+      issue,
+      [...fields].toSorted().map((field) => [field, props[field] ?? []]),
+    ]),
+  });
+  return [
+    ...reported.map(({ issue, fields }) => identified(issue, fields ?? readFields)),
+    ...(Result.isFailure(back) ? back.failure.map((issue) => identified(issue, readFields)) : []),
+  ];
 }
 
 /** A view node a commit writes whose settings its view cannot read, and why. */
@@ -128,8 +163,8 @@ function* committed(stored: Iterable<KbNode>, writes: readonly NodeWrite[]): Ite
  * Only what a write adds is judged, as a value is (`tx.ts`): a node whose
  * props the write leaves as they were is passed over. Both versions of an
  * existing node are read by the chosen key, so choosing a view can precede
- * filling in its settings and a store holding an unreadable setting stays
- * editable. A field the view does not read is a person's own, never an issue.
+ * filling in its settings. An issue carries forward only with its original
+ * stored inputs. A field the view does not read is a person's own.
  */
 export function writtenViewIssue(
   keyOf: (option: NodeId) => ViewKey<unknown> | undefined,
@@ -147,10 +182,12 @@ export function writtenViewIssue(
   for (const { before, after, key } of judged) {
     const host = hostOf(after.id) ?? null;
     const held = new Set(
-      before === undefined ? [] : storedIssues(key, before.props, host).map(issueText),
+      before === undefined
+        ? []
+        : storedIssues(key, before.props, host).map(({ identity }) => identity),
     );
-    const issues = storedIssues(key, after.props, host).filter(
-      (issue) => !held.has(issueText(issue)),
+    const issues = storedIssues(key, after.props, host).flatMap(({ issue, identity }) =>
+      held.has(identity) ? [] : [issue],
     );
     if (issues.length > 0) return { id: after.id, view: key.id, issues };
   }

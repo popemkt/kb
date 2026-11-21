@@ -752,6 +752,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Compare production bundle inputs before and after integration and account for the increase by source area. Measure an on-demand tag-template controls chunk and verify that tag editing still works.
 - **node** — `01M7Z86SRDCZ6A3B7E7MKNEAM5`
 
+### GAP: Bound the Git source contract fixture commands in the parallel core suite
+
+- **expected** — The Git source contract fixture setup and teardown finish or fail with the stalled command identified when run by the parallel core suite.
+- **current** — A synchronous fixture Git spawn can stall a Bun worker in CI before it emits a result. Validate runs the file in a separate step with a two-minute deadline.
+- **impact** — CI can fail at the step deadline without identifying the stalled Git command. The parallel core run previously waited until the 30-minute job limit.
+- **closes** — Reproduce the synchronous spawn stall in CI, make fixture commands finish or fail within their own deadlines, and restore the file to the parallel core suite once verified.
+- **node** — `01M7ZBVT9HEJAB68AG8QBTBCQG`
+
 ### GAP: browser tests duplicate polling loops with independent deadlines
 
 - **expected** — Browser tests waiting for an observable result share a helper in @kb/ui-test-kit and use the owning test timeout.

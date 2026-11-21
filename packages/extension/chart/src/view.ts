@@ -173,7 +173,7 @@ function readSpec(raw: string | undefined, report: ConfigReport): { spec?: unkno
   try {
     return { spec: JSON.parse(raw) as unknown };
   } catch {
-    report(`${CHART_IDS.chartField} is not JSON`);
+    report(`${CHART_IDS.chartField} is not JSON`, [CHART_IDS.chartField]);
     return {};
   }
 }

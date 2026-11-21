@@ -119,7 +119,7 @@ function readArrangement(raw: string | undefined, report: ConfigReport): unknown
   try {
     return { root: JSON.parse(raw) as unknown };
   } catch {
-    report(`${SYSTEM_IDS.layoutField} is not JSON`);
+    report(`${SYSTEM_IDS.layoutField} is not JSON`, [SYSTEM_IDS.layoutField]);
     return {};
   }
 }

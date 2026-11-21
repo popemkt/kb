@@ -139,8 +139,7 @@ jobs:
           mapfile -t ignores <<< "$flags"
           bun run test "${ignores[@]}" --path-ignore-patterns="**/$SOURCE_GIT_CONTRACT"
 
-      # The parallel runner has waited on this file without flushing any
-      # results from it. Bound fixture setup and teardown as well as tests.
+      # GAP [[01M7ZBVT9HEJAB68AG8QBTBCQG]] A synchronous fixture Git spawn can stall a CI worker.
       - name: Git source contract
         run: timeout --kill-after=5s 120s bun test --timeout 30000 "./$SOURCE_GIT_CONTRACT"
 

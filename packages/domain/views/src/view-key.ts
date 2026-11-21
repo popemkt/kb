@@ -110,8 +110,8 @@ export interface ViewPage {
   readonly input: unknown;
 }
 
-/** Where a config reader sends a stored prop it had to ignore. */
-export type ConfigReport = (warning: string) => void;
+/** Where a config reader sends a warning and the stored fields that caused it, if known. */
+export type ConfigReport = (warning: string, fields?: readonly NodeId[]) => void;
 
 /** A report that goes nowhere: for a read whose warnings another read already tells. */
 export const ignoreReport: ConfigReport = () => {};

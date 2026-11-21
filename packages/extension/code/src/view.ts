@@ -85,7 +85,7 @@ export function grantSentence(grant: CodeGrant): string {
 function readGrant(raw: string | undefined, report: ConfigReport): { grant?: CodeGrant } {
   const grant = grantOfText(raw);
   if (Result.isSuccess(grant)) return { grant: grant.success };
-  report(grant.failure);
+  report(grant.failure, [CODE_IDS.codeGrantField]);
   return {};
 }
 
