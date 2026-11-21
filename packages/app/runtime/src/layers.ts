@@ -92,57 +92,68 @@ export function kbRuntimeLayer(
   hosted?: HostedFamilies,
 ): Layer.Layer<ActionHandlerEnv> {
   const hostedRows = hosted?.rows ?? Effect.succeed([]);
-  const registry = hostedRows.pipe(
+  const compose = hostedRows.pipe(
     Effect.andThen(sessionRegistry(ctx, hosted?.kernel)),
     Effect.provide(bunFileSystemLayer),
   );
-  return Layer.mergeAll(
-    bunFileSystemLayer,
-    extensionStorageLayer.pipe(Layer.provide(bunFileSystemLayer)),
-    extensionCompilerLayer,
-    Layer.succeed(SourceReader, gitSourceReader()),
-    Layer.succeed(BundledMarketplaces, BUNDLED_MARKETPLACES),
-    kbStoreLayer(ctx.store),
-    Layer.effect(SessionSeed, registry.pipe(Effect.map(() => sessionSeed(ctx)))),
-    kbCtxLayer(ctx),
-    graphWritesLayer.pipe(Layer.provide(Layer.merge(kbCtxLayer(ctx), kbStoreLayer(ctx.store)))),
-    Layer.succeed(KbIndexService, ctx.index),
-    Layer.succeed(QueryEngineService, engineOf(ctx.index)),
-    savedQueriesLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
-    assetsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
-    codeTrustLayer().pipe(Layer.provide(bunFileSystemLayer)),
-    legacyTrustLayer().pipe(Layer.provide(bunFileSystemLayer)),
-    ignoredRootFilesLayer.pipe(Layer.provide(bunFileSystemLayer)),
-    legacyDocsViewsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
-    kbRootsLayer(registeredLocationPaths).pipe(Layer.provide(bunFileSystemLayer)),
-    screens,
-    Layer.effect(TemplateRegistry, registry.pipe(Effect.map(({ templates }) => templates))),
-    Layer.effect(ViewCatalog, registry.pipe(Effect.map((held) => familyViews(held, hosted)))),
-    Layer.effect(
-      CaptureTarget,
-      registry.pipe(Effect.map(({ kernel }) => kernelCaptureTarget(kernel))),
-    ),
-    Layer.effect(
-      ExtensionCatalog,
-      Effect.all([registry, hostedRows]).pipe(
-        Effect.map(([{ families }, rows]) => [...families, ...rows]),
+  // One registry per runtime: every service below reads the one snapshot, so
+  // the root's families are read and reconciled once, not once per service.
+  return Layer.unwrap(
+    Effect.map(Effect.cached(compose), (registry) =>
+      Layer.mergeAll(
+        bunFileSystemLayer,
+        extensionStorageLayer.pipe(Layer.provide(bunFileSystemLayer)),
+        extensionCompilerLayer,
+        Layer.succeed(SourceReader, gitSourceReader()),
+        Layer.succeed(BundledMarketplaces, BUNDLED_MARKETPLACES),
+        kbStoreLayer(ctx.store),
+        Layer.effect(SessionSeed, registry.pipe(Effect.map(() => sessionSeed(ctx)))),
+        kbCtxLayer(ctx),
+        graphWritesLayer.pipe(Layer.provide(Layer.merge(kbCtxLayer(ctx), kbStoreLayer(ctx.store)))),
+        Layer.succeed(KbIndexService, ctx.index),
+        Layer.succeed(QueryEngineService, engineOf(ctx.index)),
+        savedQueriesLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
+        assetsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
+        codeTrustLayer().pipe(Layer.provide(bunFileSystemLayer)),
+        legacyTrustLayer().pipe(Layer.provide(bunFileSystemLayer)),
+        ignoredRootFilesLayer.pipe(Layer.provide(bunFileSystemLayer)),
+        legacyDocsViewsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
+        kbRootsLayer(registeredLocationPaths).pipe(Layer.provide(bunFileSystemLayer)),
+        screens,
+        Layer.effect(TemplateRegistry, registry.pipe(Effect.map(({ templates }) => templates))),
+        Layer.effect(ViewCatalog, registry.pipe(Effect.map((held) => familyViews(held, hosted)))),
+        Layer.effect(
+          CaptureTarget,
+          registry.pipe(Effect.map(({ kernel }) => kernelCaptureTarget(kernel))),
+        ),
+        Layer.effect(
+          ExtensionCatalog,
+          Effect.all([registry, hostedRows]).pipe(
+            Effect.map(([{ families }, rows]) => [...families, ...rows]),
+          ),
+        ),
+        Layer.effect(ExtensionFailures, registry.pipe(Effect.map(({ failures }) => failures))),
+        Layer.effect(
+          FamilyKernels,
+          registry.pipe(Effect.map((held) => familyKernels(held, hosted))),
+        ),
+        Layer.succeed(UntrustedEngine, quickjsEngine),
+        Layer.succeed(CoreInvoke, coreInvoke(ctx, screens, hosted)),
+        Layer.effect(
+          ActionCatalog,
+          registry.pipe(
+            Effect.map(
+              (held) => reachableActions(held, familyKernels(held, hosted)).manifestEntries,
+            ),
+          ),
+        ),
+        // The session's guards and interceptors: a commit made under this layer
+        // is put to them whoever planned it.
+        Layer.effect(
+          CurrentInterception,
+          registry.pipe(Effect.map(({ interception }) => interception)),
+        ),
       ),
-    ),
-    Layer.effect(ExtensionFailures, registry.pipe(Effect.map(({ failures }) => failures))),
-    Layer.effect(FamilyKernels, registry.pipe(Effect.map((held) => familyKernels(held, hosted)))),
-    Layer.succeed(UntrustedEngine, quickjsEngine),
-    Layer.succeed(CoreInvoke, coreInvoke(ctx, screens, hosted)),
-    Layer.effect(
-      ActionCatalog,
-      registry.pipe(
-        Effect.map((held) => reachableActions(held, familyKernels(held, hosted)).manifestEntries),
-      ),
-    ),
-    // The session's guards and interceptors: a commit made under this layer
-    // is put to them whoever planned it.
-    Layer.effect(
-      CurrentInterception,
-      registry.pipe(Effect.map(({ interception }) => interception)),
     ),
   );
 }

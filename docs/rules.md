@@ -1045,14 +1045,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Hosts are accelerators: the store is the truth
 - **node** — `01M7HDP52RY5R2WJPXMMD30R8C`
 
-### GAP: every one-shot command rebuilds the whole index, derived sets and manifest
-
-- **expected** — A command pays for what it reads: manifest JSON Schemas are built for kb.manifest and MCP tools/list only, the DataScript index on first datalog use, and derived sets on demand, or from a snapshot keyed by the store fingerprint.
-- **current** — The DataScript db is built on first datalog use (DatascriptIndex), the node table reads every node's references on its first change (NodeTable), and the action table converts schemas to JSON Schema only when a call lists them (kb.manifest, MCP tools/list), so kb get does none of these. Opening a root still reads the transaction tail's head and commit mark (StoreTxLog decides its replay floor at open), and module init (zod schemas, the bundled declarations and seed fold) is step 8.
-- **impact** — kb get and kb search stay above about 200 ms whatever the module split does, and the cost grows with the store.
-- **closes** — docs/research/2026-11-11-cli-host-modes.md step 7.
-- **node** — `01M75MA4HB3NFDXGGKG0RE45H5`
-
 ### GAP: Expand subtree / Expand all do not open results of a query that has not answered yet
 
 - **expected** — Expand subtree and Expand all open the results of every query they open, a query not yet answered included; an async version stays scoped to its page and awaits only the queries inside the requested subtree
@@ -2900,6 +2892,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — One row kind breaks the outline's Enter rule.
 - **closes** — planSplit counts the shown node's children.
 - **node** — `01M3KA3BBRADE3TNWQ78JNK37M`
+
+### GAP: every one-shot command rebuilds the whole index, derived sets and manifest
+
+- **expected** — A command pays for what it reads: manifest JSON Schemas are built for kb.manifest and MCP tools/list only, the DataScript index on first datalog use, and derived sets on demand, or from a snapshot keyed by the store fingerprint.
+- **current** — Closed 2026-11-21. The DataScript db is built on first datalog use (DatascriptIndex), the node table reads every node's references on its first change (NodeTable), and the action table converts schemas to JSON Schema only when a call lists them (kb.manifest, MCP tools/list), so kb get does none of these. A runtime layer composes one registry for all its services (kbRuntimeLayer), where it had reconciled the session schema and read the root's families once per service, about nine times per command; and the derived refs are read from the fold opening already made (derivedOf), where opening had folded every family's seed twice. What a get still pays at open (the tx tail decoded whole, the schema reconcile, the registry build, module init) is the owner's choice under gap 01M7B2SRJ6NAQB5ZSAJNDWPY5A.
+- **impact** — kb get and kb search stay above about 200 ms whatever the module split does, and the cost grows with the store.
+- **closes** — docs/research/2026-11-11-cli-host-modes.md step 7.
+- **node** — `01M75MA4HB3NFDXGGKG0RE45H5`
 
 ### GAP: extension SDK mirror is not bidirectionally typed
 
