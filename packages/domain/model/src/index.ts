@@ -148,6 +148,7 @@ export {
   tagAncestors,
   tagChains,
   templateFieldsOf,
+  templateSourcesOf,
   type TagChains,
 } from "./tag-kinds.ts";
 export { closesCycle, type NodeLookup } from "./ref-chain.ts";

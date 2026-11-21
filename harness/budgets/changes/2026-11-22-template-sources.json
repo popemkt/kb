@@ -1,0 +1,6 @@
+{
+  "reason": "A field row says which tag brought its field (DESIGN-UI.md → Field values, \"A field wears its tag's colour\"): @kb/model exports templateSourcesOf, the map templateFieldsOf now derives from.",
+  "raise": {
+    "surface": { "@kb/model": 1 }
+  }
+}
