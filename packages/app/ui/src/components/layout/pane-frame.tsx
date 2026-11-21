@@ -3,6 +3,8 @@ import {
   cn,
   matchRoute,
   NotFound,
+  PaneLocationContext,
+  usePane,
   RoutePoint,
   useContributions,
   ViewSlot,
@@ -10,6 +12,7 @@ import {
   type ResolvedRoute,
 } from "@kb/ui-sdk";
 import { PageBackdropHost, ThemeArt } from "@kb/appearance-kit";
+import { useWorkspaceStore } from "@/stores/workspace.store";
 import { RegionScrollbar } from "./region-scrollbar";
 
 const NOT_FOUND = <NotFound what="Page" back={{ label: "Home", path: "/" }} />;
@@ -120,19 +123,25 @@ function RouteBody({ route, subject }: { route: ResolvedRoute; subject: string |
 export function PaneFrame({ path, subject }: { readonly path: string; readonly subject?: string }) {
   const route = matchRoute(useContributions(RoutePoint), path);
   const body = route === null ? NOT_FOUND : <RouteBody route={route} subject={subject} />;
+  // The focused pane stands where the URL does, which the page's own zoom
+  // follows, so it reads that (null); every other pane, its kept location.
+  const pane = usePane();
+  const followsPage = useWorkspaceStore((s) => s.focused === pane);
   return (
-    <div className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col" data-pane-path={path}>
-      {route?.chrome}
-      {/* Above the router: the backdrop outlives the page under it, drawn in whichever head declares it. */}
-      <PageBackdropHost>
-        <PageFrame frame={route?.frame ?? "scroll"}>{body}</PageFrame>
-      </PageBackdropHost>
-      {/* Over this pane: the theme's gesture for this pane's own page change,
-       * keyed on its path, so moving the focus between panes plays nothing
-       * (`.kb-veil`: hidden under reduced motion and with `pageWipe` off). */}
-      <div className="kb-veil pointer-events-none absolute inset-0 z-40">
-        <ThemeArt plane="pane" path={path} />
+    <PaneLocationContext.Provider value={followsPage ? null : path}>
+      <div className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col" data-pane-path={path}>
+        {route?.chrome}
+        {/* Above the router: the backdrop outlives the page under it, drawn in whichever head declares it. */}
+        <PageBackdropHost>
+          <PageFrame frame={route?.frame ?? "scroll"}>{body}</PageFrame>
+        </PageBackdropHost>
+        {/* Over this pane: the theme's gesture for this pane's own page change,
+         * keyed on its path, so moving the focus between panes plays nothing
+         * (`.kb-veil`: hidden under reduced motion and with `pageWipe` off). */}
+        <div className="kb-veil pointer-events-none absolute inset-0 z-40">
+          <ThemeArt plane="pane" path={path} />
+        </div>
       </div>
-    </div>
+    </PaneLocationContext.Provider>
   );
 }

@@ -151,6 +151,36 @@ describe("panes (acceptance)", () => {
     expect(panes()).toEqual([{ id: "main", path: "/node/n.b" }]);
   });
 
+  it("each outline pane stands at the zoom its own location names", async () => {
+    await act(async () =>
+      useWorkspaceStore.setState({
+        layout: {
+          split: "row",
+          children: [{ tabs: [{ id: "main", path: "/" }] }, { tabs: [{ id: "side", path: "/" }] }],
+        },
+        focused: "main",
+      }),
+    );
+    await act(async () => navigate("/outline/n.a"));
+    const row = (pane: string, key: string) =>
+      paneBody(pane)?.querySelector(`[data-instance-key="${key}"]`) ?? null;
+    await until(
+      () => row("main", "tree/n.a/n.b") !== null && row("side", "pane:side/n.a") !== null,
+    );
+    // The focused pane is zoomed to the project; the other stays at home.
+    expect(row("main", "tree/n.a/n.b")).not.toBeNull();
+    expect(row("side", "pane:side/n.a")).not.toBeNull();
+    expect(row("side", "pane:side/n.a/n.b")).toBeNull();
+
+    // Focusing the home pane leaves the first at its zoom.
+    await act(async () => useWorkspaceStore.getState().focus("side"));
+    expect(getPath()).toBe("/");
+    await until(() => row("main", "tree/n.a") !== null, 300);
+    expect(row("main", "tree/n.a/n.b")).not.toBeNull();
+    expect(row("main", "tree/n.a")).toBeNull();
+    expect(row("side", "pane:side/n.a")).not.toBeNull();
+  });
+
   it("a layout that contains itself stops at the first repeat", async () => {
     await act(async () => navigate("/node/v.self"));
     await until(() => container.textContent.includes("This view cannot be shown here"));

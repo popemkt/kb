@@ -15,6 +15,7 @@ import type { SidebarNavItem } from "../components/sidebar-row";
 import type { NodeIndex } from "../query";
 import type { QueryAnswers } from "./replica-queries";
 import { wireToOutlineMap } from "./graph-view";
+import { outlineLocationOf } from "./router";
 import { schemaOf } from "./schema";
 import { type NodeMap, WORKSPACE_ROOT_ID } from "./types";
 
@@ -162,6 +163,20 @@ export function shownNodesOf(state: ScopeSource): NodeMap {
 /** Whether the page can show `id` under its scope: the workspace, or a row of `shownNodesOf`. */
 export function inScope(state: ScopeSource, id: string): boolean {
   return id === WORKSPACE_ROOT_ID || shownNodesOf(state).has(id);
+}
+
+/**
+ * The node an outline at location `path` stands at (DESIGN-UI.md → The zoom
+ * is a location): the zoom the location names, or the scope's home at its
+ * home, so each pane's outline has the zoom of its own location. A zoom the
+ * page cannot show stands at the home. A path that names no outline location
+ * of the page's scope (none, a node's route, another scope) reads the page's
+ * zoom, the focused pane's (`rootNodeId`).
+ */
+export function zoomAt(state: PageGraphState, path: string | null): string {
+  const at = path === null ? null : outlineLocationOf(path);
+  if (at === null || at.ontology !== state.ontologyId) return state.rootNodeId;
+  return at.zoom !== null && inScope(state, at.zoom) ? at.zoom : state.homeRootId;
 }
 
 /**

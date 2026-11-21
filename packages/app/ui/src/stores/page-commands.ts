@@ -19,6 +19,7 @@ import {
   type CommandContext,
   type CommandTarget,
   type OutlineCommandApi,
+  type PageGraphState,
   type PaletteSurface,
 } from "@kb/ui-sdk";
 import { paneSubjectAt } from "@/lib/pane-subject";
@@ -31,17 +32,17 @@ import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { currentWorkspace } from "@/stores/workspace.store";
 
-function focusedPaneSubject(zoom: string): string | null {
+function focusedPaneSubject(graph: PageGraphState): string | null {
   const workspace = currentWorkspace();
   const path = findPane(workspace.layout, workspace.focused)?.path;
   if (path === undefined) return null;
-  const subject = paneSubjectAt(currentContributions(RoutePoint), path, zoom);
+  const subject = paneSubjectAt(currentContributions(RoutePoint), path, graph);
   return subject === WORKSPACE_ROOT_ID ? null : (subject ?? null);
 }
 
 export function pageCommandApi(): OutlineCommandApi {
   const graph = useGraphStore.getState();
-  const paneSubjectId = focusedPaneSubject(graph.rootNodeId);
+  const paneSubjectId = focusedPaneSubject(graph);
   return {
     selectedNodeId: pageEditor().getState().selectedNodeId,
     paneSubjectId,

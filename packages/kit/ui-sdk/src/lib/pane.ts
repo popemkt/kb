@@ -15,3 +15,17 @@ export const PaneContext = createContext<string>(MAIN_PANE);
 export function usePane(): string {
   return useContext(PaneContext);
 }
+
+/**
+ * The location the caller's pane stands at (its path), or null where it
+ * stands at the page's own: in the focused pane, whose location is the URL
+ * the page follows, and outside any pane. The page a pane draws is drawn at
+ * it (`PaneFrame`), so a view reads where its own pane stands, not where the
+ * focused pane does.
+ */
+export const PaneLocationContext = createContext<string | null>(null);
+
+/** The location the caller's pane stands at, or null at the page's own (`PaneLocationContext`). */
+export function usePaneLocation(): string | null {
+  return useContext(PaneLocationContext);
+}

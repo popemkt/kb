@@ -42,6 +42,7 @@ export {
   useRefLook,
   useSchema,
   useWireNodes,
+  useZoom,
 } from "./hooks";
 
 export {
@@ -343,6 +344,7 @@ export {
   type ScopeSource,
   scopedWireOf,
   shownNodesOf,
+  zoomAt,
 } from "./lib/page-graph";
 export {
   EMPTY_EDITOR,
@@ -479,7 +481,7 @@ export {
 } from "./lib/md-edit";
 export { assetSrcUrl, KB_TEXT_CLASS } from "./lib/md-inline";
 export { HeldStill, prefersReducedMotion, useReducedMotion } from "./lib/motion";
-export { MAIN_PANE, PaneContext, usePane } from "./lib/pane";
+export { MAIN_PANE, PaneContext, PaneLocationContext, usePane, usePaneLocation } from "./lib/pane";
 export {
   type PaneReport,
   type PaneScreenPort,

@@ -7,8 +7,9 @@ import {
   type OutlineNode,
   useFrameView,
   useNodePaletteOpen,
-  usePageGraph,
   useSlotChain,
+  usePaneLocation,
+  useZoom,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
 import { PageBackdrop } from "@kb/appearance-kit";
@@ -84,9 +85,12 @@ function CreateStrip({ parentId }: { readonly parentId: string }) {
  * views are available on zoomed/nested frames via ViewToolbar.
  */
 export function OutlineEditor({ root: rootProp }: { readonly root?: string | undefined }) {
-  // Rooted at its own node in a pane, else at the outline's zoom.
-  const zoomRoot = usePageGraph((s) => s.rootNodeId);
+  // Rooted at its own node in a pane, else at its pane's zoom.
+  const zoomRoot = useZoom();
+  const paneLocation = usePaneLocation();
   const rootNodeId = rootProp ?? zoomRoot;
+  // At the page's zoom (the focused pane), the walk reads the store's, which a zoom moves first.
+  const walkRoot = rootProp ?? (paneLocation === null ? null : zoomRoot);
   const root = useOutlineNode(rootNodeId);
   const rootView = useFrameView(root);
   // The keyboard walk of this outline's rows starts where its root frame's slot does.
@@ -94,9 +98,9 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
   const slotChain = useSlotChain();
   const open = useContext(OpenNodeContext);
   useEffect(() => {
-    setOutlineHost(host, { root: rootProp ?? null, chain: slotChain, open });
+    setOutlineHost(host, { root: walkRoot, chain: slotChain, open });
     return () => setOutlineHost(host, null);
-  }, [host, rootProp, slotChain, open]);
+  }, [host, walkRoot, slotChain, open]);
   const leads = useLeadsOutlines();
 
   if (!root) {

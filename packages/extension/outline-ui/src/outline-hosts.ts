@@ -1,10 +1,11 @@
 import { browserHost, hostOfInstance, MAIN_OUTLINE_HOST, type SlotChain } from "@kb/ui-sdk";
 
 /**
- * An outline on screen, as the keyboard walk needs it: the node it is rooted
- * at (null for the outline's zoom, which the store owns), the slots around
- * its root frame, as its host renders them, and how it opens a node (its
- * pane's `OpenNodeContext`; null for the zoomed outline, which zooms).
+ * An outline on screen, as the keyboard walk needs it: the node it shows at
+ * its root (its own root, or its pane's zoom; null at the page's zoom, which
+ * the store owns and a zoom moves before any outline redraws), the slots
+ * around its root frame, as its host renders them, and how it opens a node
+ * (its pane's `OpenNodeContext`; null for a zoomed outline, which zooms).
  */
 interface OutlineHost {
   readonly root: string | null;
@@ -12,7 +13,7 @@ interface OutlineHost {
   readonly open: ((id: string) => void) | null;
 }
 
-/** The zoomed outline, before any host has said where it sits. */
+/** The zoomed outline, before any host has said where it sits: at the page's zoom. */
 const UNMOUNTED_MAIN: OutlineHost = { root: null, chain: [], open: null };
 
 /**
@@ -20,7 +21,7 @@ const UNMOUNTED_MAIN: OutlineHost = { root: null, chain: [], open: null };
  * outline says where it is rooted and what slots surround it, so the store's
  * walk of a row's outline starts where that outline's slot does. A port, like
  * `frame-views`, so the store reads no React. The main host is always there:
- * the zoom is the store's whether or not its outline is mounted.
+ * the page's zoom is the store's whether or not its outline is mounted.
  */
 const hosts = new Map<string, OutlineHost>();
 

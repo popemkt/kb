@@ -9,6 +9,7 @@ import {
   shownNodesOf,
   textOr,
   usePane,
+  useZoom,
   WORKSPACE_ROOT_ID,
   type ViewProps,
 } from "@kb/ui-sdk";
@@ -31,7 +32,7 @@ const INDENT: readonly string[] = ["ps-0", "ps-5", "ps-10"];
  */
 // GAP [[01M5MWXM43Y12KDBM4JG7X1VRX]] the read view shows no fields: no core field value draws them
 export function NodeReadSurface({ params }: ViewProps<NodeReadParams>) {
-  const zoom = useGraphStore((s) => s.rootNodeId);
+  const zoom = useZoom();
   const wireNodes = useGraphStore((s) => s.wireNodes);
   const ontologyId = useGraphStore((s) => s.ontologyId);
   const ontologyMembers = useGraphStore((s) => s.ontologyMembers);

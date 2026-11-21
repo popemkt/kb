@@ -1532,14 +1532,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Use the settled node.addTree receipt to decide whether to remove a source row that is still empty. When the authoritative rows reach the outline, focus its last row. Cover refusal, changed source content, and replacement ids arriving after the receipt. See outline paste ids.
 - **node** — `01M7XMM97Q7Q251R5GGZGACGC9`
 
-### GAP: outline zoom is one per tab, not one per pane
-
-- **expected** — each pane's outline has its own zoom root, read from the pane's location; the store's rootNodeId is derived from it, not stored beside it
-- **current** — the page has one zoom, which follows the focused pane's location (/outline/<id>): every pane at an outline location shows (and is titled by) that zoom, and a pane's own location shows its zoom only once the pane is focused
-- **impact** — two outline panes cannot be zoomed into different nodes at the root route
-- **closes** — move the zoom into the pane's location
-- **node** — `01M411FP5AGQ4VB5SGJWCJAN66`
-
 ### GAP: pasting several lines into a many-valued field is one value
 
 - **expected** — A multi-line paste into a many-valued field becomes one value per line.
@@ -3172,6 +3164,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Another plugin cannot embed one outline mode or one renderer by key, and the view contract does not cover them, so a renderer that leaks a WebGL context or ignores reduced motion is not caught by the shared suite.
 - **closes** — After A1 lands sys.f.view and view nodes: make each mode and each renderer a ViewKey with its own view, migrate sys.f.view.mode to refs to the option nodes, and delete the local registries (plugin-composition brief, section 6, row later).
 - **node** — `01M3EZRFJ9RYFJJ4MW322RQ28S`
+
+### GAP: outline zoom is one per tab, not one per pane
+
+- **expected** — each pane's outline has its own zoom root, read from the pane's location; the store's rootNodeId is derived from it, not stored beside it
+- **current** — the page has one zoom, which follows the focused pane's location (/outline/<id>): every pane at an outline location shows (and is titled by) that zoom, and a pane's own location shows its zoom only once the pane is focused
+- **impact** — two outline panes cannot be zoomed into different nodes at the root route
+- **closes** — move the zoom into the pane's location
+- **node** — `01M411FP5AGQ4VB5SGJWCJAN66`
 
 ### GAP: OutlineNode.cursorPosition is deprecated but is still the canvas editor's caret channel
 

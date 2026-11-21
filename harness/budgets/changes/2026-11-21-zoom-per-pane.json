@@ -1,0 +1,6 @@
+{
+  "reason": "Each pane stands at the zoom of its own location (DESIGN-UI.md → Panes and layouts: the zoom is a location): the ui-sdk barrel exports the pane's location (PaneLocationContext, usePaneLocation), the zoom a location names (zoomAt) and the hook an outline reads it with (useZoom).",
+  "raise": {
+    "surface": { "@kb/ui-sdk": 4 }
+  }
+}

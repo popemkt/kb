@@ -14,6 +14,7 @@ import {
   usePageGraph,
   usePane,
   useSchema,
+  useZoom,
   ViewErrorBoundary,
   type ViewProps,
 } from "@kb/ui-sdk";
@@ -23,13 +24,12 @@ import { useRecent, useRecordRecent } from "./recents";
 
 /**
  * The outline: at its `root` when it has one (a node opened in a pane), else
- * at the page's zoom. A rooted outline opens a node by moving its pane to it;
- * the zoomed one zooms, which pushes the zoom's location (`/outline/<id>`).
- * The page has one zoom, which follows the focused pane's location, so two
- * panes at outline locations show the same node. GAP [[01M411FP5AGQ4VB5SGJWCJAN66]]
+ * at its pane's zoom (`useZoom`). A rooted outline opens a node by moving its
+ * pane to it; the zoomed one zooms, which pushes the zoom's location
+ * (`/outline/<id>`). Each pane at an outline location stands at its own zoom.
  */
 export function OutlineSurface({ params }: ViewProps<OutlineParams>) {
-  const zoomRoot = usePageGraph((s) => s.rootNodeId);
+  const zoomRoot = useZoom();
   const homeRoot = usePageGraph((s) => s.homeRootId);
   const { root } = params;
   useRecordRecent(root ?? zoomRoot, homeRoot);

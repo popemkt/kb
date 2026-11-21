@@ -48,10 +48,10 @@ function useSections(path: string): readonly Section[] {
   const views = useContributions(ViewPoint);
   const catalog = usePageCatalog();
   const nodes = useShownNodes();
-  const zoom = useGraphStore((s) => s.rootNodeId);
+  const zoom = useGraphStore((s) => shownZoomAt(path, s));
   const schema = useGraphStore(schemaOf);
   const route = matchRoute(routes, path);
-  const host = route === null ? null : (hostOf(route.params) ?? shownZoomAt(path, zoom) ?? null);
+  const host = route === null ? null : (hostOf(route.params) ?? zoom ?? null);
   const sections: Section[] = [];
   const hostNode = host === null ? undefined : nodes.get(host);
   if (host !== null && hostNode !== undefined) {

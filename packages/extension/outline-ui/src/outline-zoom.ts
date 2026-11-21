@@ -26,9 +26,8 @@ export function zoomIntoRow(nodeId: string, host: string): void {
 export function zoomOut(hostId: string): void {
   const host = outlineHostOf(hostId);
   const graph = browserHost().graph.state();
-  const rooted = host?.root ?? null;
-  const root = rooted ?? graph.rootNodeId;
-  const home = rooted === null ? graph.homeRootId : WORKSPACE_ROOT_ID;
+  const root = host?.root ?? graph.rootNodeId;
+  const home = (host?.open ?? null) === null ? graph.homeRootId : WORKSPACE_ROOT_ID;
   if (root === home) return;
   const crumbs = crumbsTo(root, home, outlineNodes(), browserHost().schema());
   const above = crumbs.at(-2)?.id ?? home;

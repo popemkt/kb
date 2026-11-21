@@ -19,9 +19,8 @@ import { useGraphStore, useShownNode } from "@/stores/graph.store";
 export function usePaneTitle(path: string): string {
   const routes = useContributions(RoutePoint);
   const route = matchRoute(routes, path);
-  const zoom = useGraphStore((s) => s.rootNodeId);
   const schema = useGraphStore(schemaOf);
-  const id = paneSubjectAt(routes, path, zoom);
+  const id = useGraphStore((s) => paneSubjectAt(routes, path, s));
   const node = useShownNode(id === undefined || id === WORKSPACE_ROOT_ID ? null : id);
   const text = id === WORKSPACE_ROOT_ID ? "Home" : node === undefined ? "" : rowName(node, schema);
   if (route === null) return "Not found";

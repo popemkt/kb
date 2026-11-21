@@ -1,5 +1,5 @@
 import { Predicate } from "effect";
-import { matchRoute, outlineLocationOf } from "@kb/ui-sdk";
+import { matchRoute, outlineLocationOf, type PageGraphState, zoomAt } from "@kb/ui-sdk";
 
 /** The params a page names its subject by, in the order a title prefers them. */
 const SUBJECT_KEYS = ["node", "perspective", "id", "root", "view"] as const;
@@ -12,22 +12,23 @@ const SUBJECT_KEYS = ["node", "perspective", "id", "root", "view"] as const;
 export function paneSubjectAt(
   routes: Parameters<typeof matchRoute>[0],
   path: string,
-  zoom: string,
+  graph: PageGraphState,
 ): string | undefined {
-  const shown = shownZoomAt(path, zoom);
+  const shown = shownZoomAt(path, graph);
   if (shown !== undefined) return shown;
   const route = matchRoute(routes, path);
   return route === null ? undefined : subjectOf(route.params);
 }
 
 /**
- * An outline's explicit zoom, or the page's one `zoom` at the unscoped home.
- * The pane's own location names the zoom only while it is focused
- * (GAP [[01M411FP5AGQ4VB5SGJWCJAN66]]).
+ * The node an outline at `path` stands at: in the page's scope, its zoom as
+ * `zoomAt` reads it (its home at the home); in another scope, the zoom the
+ * location names. Undefined where `path` names no outline location.
  */
-export function shownZoomAt(path: string, zoom: string): string | undefined {
+export function shownZoomAt(path: string, graph: PageGraphState): string | undefined {
   const outline = outlineLocationOf(path);
-  return outline?.zoom ?? (outline?.ontology === null ? zoom : undefined);
+  if (outline === null) return undefined;
+  return outline.ontology === graph.ontologyId ? zoomAt(graph, path) : (outline.zoom ?? undefined);
 }
 
 function subjectOf(params: unknown): string | undefined {

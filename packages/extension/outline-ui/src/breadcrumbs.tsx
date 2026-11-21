@@ -6,10 +6,11 @@ import {
   OpenNodeContext,
   usePageGraph,
   useSchema,
+  useZoom,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
 import { crumbsTo } from "./crumbs";
-import { useOutlineStore, useOutlineNodes } from "./outline.store";
+import { useOutlineNodes } from "./outline.store";
 
 /**
  * Where the outline is: home, then each node down to its root. The zoomed
@@ -17,19 +18,16 @@ import { useOutlineStore, useOutlineNodes } from "./outline.store";
  * (`OpenNodeContext`).
  */
 export function Breadcrumbs({ root }: { readonly root?: string | undefined }) {
-  const zoomRoot = usePageGraph((s) => s.rootNodeId);
+  const zoomRoot = useZoom();
+  const homeRoot = usePageGraph((s) => s.homeRootId);
   const rootNodeId = root ?? zoomRoot;
-  // getBreadcrumbs builds a fresh array; selecting it directly makes the
-  // uSES snapshot unstable (infinite rerender). Derive it with useMemo.
+  // A zoomed outline's crumbs run from the scope's home, a rooted one's from the workspace.
+  const home = root === undefined ? homeRoot : WORKSPACE_ROOT_ID;
   const nodes = useOutlineNodes();
   const schema = useSchema();
   const crumbs = useMemo(
-    () =>
-      root === undefined
-        ? useOutlineStore.getState().getBreadcrumbs()
-        : crumbsTo(root, WORKSPACE_ROOT_ID, nodes, schema),
-    // oxlint-disable-next-line react-hooks/exhaustive-deps -- getBreadcrumbs is read off getState(), so its real inputs are named here by hand
-    [nodes, schema, rootNodeId, root],
+    () => crumbsTo(rootNodeId, home, nodes, schema),
+    [nodes, schema, rootNodeId, home],
   );
   const open = useContext(OpenNodeContext);
   const zoomHomeInStore = browserHost().zoomHome;

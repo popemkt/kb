@@ -23,7 +23,8 @@ import type { RefLook } from "./lib/md-edit";
 import { usePaneScreenThrough, type PaneCarryOut, type PaneReport } from "./lib/pane-screen";
 import { schemaOf, type SchemaIndex } from "./lib/schema";
 import type { NodeMap, OutlineNode } from "./lib/types";
-import type { PageGraphState } from "./lib/page-graph";
+import { type PageGraphState, zoomAt } from "./lib/page-graph";
+import { usePaneLocation } from "./lib/pane";
 import type { Appearance, Prefs } from "./lib/theme";
 import { browserHost, type BrowserHost } from "./host";
 import { type FrameViewKey, FRAME_VIEW_FAMILY, isFrameViewKey } from "@kb/views";
@@ -187,6 +188,15 @@ export function usePageGraph<T>(select: (state: PageGraphState) => T): T {
   const { graph } = browserHost();
   const snapshot = () => select(graph.state());
   return useSyncExternalStore(graph.subscribe, snapshot, snapshot);
+}
+
+/**
+ * The node the caller's outline stands at: the zoom its pane's location names
+ * (`zoomAt`), so two panes zoom apart; in the focused pane, the page's zoom.
+ */
+export function useZoom(): string {
+  const path = usePaneLocation();
+  return usePageGraph((s) => zoomAt(s, path));
 }
 
 /** The page's graph, read by this component: it re-renders when what it read changes. */

@@ -175,8 +175,8 @@ export function currentWorkspace(): WorkspaceStore {
 
 /**
  * The live arrangement as a layout to keep: a pane at a zoom of the outline
- * keeps the node it is zoomed to (`/node/<id>`), since a layout's panes are
- * drawn side by side and the page has one zoom, which moves on.
+ * keeps the node it is zoomed to (`/node/<id>`), since a zoom is where a
+ * pane stands for now and a saved layout names the nodes its panes show.
  */
 function keptLayout(layout: LayoutTree): LayoutTree {
   return layoutPanes(layout).reduce((kept, pane) => {

@@ -4247,9 +4247,15 @@ until "Save workspace".
   the unscoped location it lands at. A zoom key (⌘., ⌘↑) opens as its row's
   outline opens a node (`openFromRow`): a rooted outline moves its pane. A
   zoom in a dashboard's outline moves the pane that holds the dashboard, as
-  every open from a dashboard does (`navigatePane`). The page still has one
-  zoom, so every pane at an outline location shows, and is titled by, the
-  focused pane's (GAP [[01M411FP5AGQ4VB5SGJWCJAN66]]).
+  every open from a dashboard does (`navigatePane`). Each pane stands at
+  the zoom of its own location: a pane's page is drawn at its location
+  (`PaneLocationContext`, `usePaneLocation`), and its outline, crumbs,
+  title, switcher and screen state read the zoom from it (`zoomAt`,
+  `useZoom`), so two panes zoom apart. The page's zoom (`rootNodeId`) is
+  the focused pane's, followed from the URL; the focused pane reads it
+  (its location is the URL), so a zoom's selection lands under the new
+  root before the outline redraws, and commands, the sidebar and a path
+  that names no outline location read it.
 - **The home is core's, the outline draws it.** The unscoped zoom
   locations are the route of core's home view (`layout.home`, the layout
   plugin), which shows the zoom in the store's default view type for no

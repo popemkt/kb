@@ -4,8 +4,8 @@ import {
   outlineInstanceKey,
   type PaneCommand,
   type PaneSelection,
-  usePageGraph,
   usePaneScreen,
+  useZoom,
 } from "@kb/ui-sdk";
 import { useOutlineStore, outlineNodes } from "./outline.store";
 import { outlineHostOfInstance } from "./outline-hosts";
@@ -67,7 +67,7 @@ function selectInOutline(
  */
 export function useOutlineScreen(root: string | undefined): void {
   const host = useOutlineHost();
-  const zoomRoot = usePageGraph((s) => s.rootNodeId);
+  const zoomRoot = useZoom();
   const focused = useOutlineStore((s) =>
     outlineHostOfInstance(s.activeInstanceKey) === host ? s.activeNodeId : null,
   );
