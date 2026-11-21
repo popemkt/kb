@@ -1,5 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { WORKSPACE_ROOT } from "../src/workspace.ts";
@@ -58,4 +58,31 @@ test("a push, which names no range, selects every gate", () => {
   const gates = scope();
   expect(Object.keys(gates).length).toBeGreaterThan(0);
   expect(Object.values(gates).every(Boolean)).toBe(true);
+});
+
+/** Commit a touch of `path` alone and return what the change selects. */
+const touch = (path: string) => {
+  const base = change(`touch ${path}`, () => {
+    mkdirSync(join(cwd, path, ".."), { recursive: true });
+    writeFileSync(join(cwd, path), `${Math.random()}\n`);
+  });
+  return scope(base, "HEAD");
+};
+
+test("the Android gate is selected by what the Gradle build reads, and only by that", () => {
+  const gradle = readFileSync(join(WORKSPACE_ROOT, "apps/android/app/build.gradle.kts"), "utf8");
+  // Every file the build reads from outside apps/android, named relative to it.
+  const outside = [...gradle.matchAll(/"\.\.\/\.\.\/([^"]+)"/g)].map((m) => m[1] as string);
+  expect(outside).toContain("packages/app/ui/src/design-system.css");
+  for (const path of [
+    "apps/android/app/src/main/assets/public/shell.js",
+    "apps/android/gradle/libs.versions.toml",
+    "nix/android-shell.nix",
+    "flake.lock",
+    ...outside,
+  ]) {
+    expect(touch(path).android, path).toBe(true);
+  }
+  expect(touch("packages/x.ts").android).toBe(false);
+  expect(touch("docs/y.md").android).toBe(false);
 });

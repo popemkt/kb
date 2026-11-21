@@ -1,4 +1,3 @@
-// No gate builds or tests this project yet. GAP [[01M7QTAHN8YW57M1R1XYGRBSZ8]]
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)

@@ -28,3 +28,8 @@ gate() {
 
 # The runtime suites: anything but prose.
 gate runtime strays '^(docs/.*\.md|README\.md)$'
+
+# The Android app (apps/android), a Gradle project outside the workspace: its
+# own tree, the dev shell it builds in, the files its build reads from the
+# workspace (`../../` paths in app/build.gradle.kts), and this gate itself.
+gate android touches '^(apps/android/|nix/android-shell\.nix$|flake\.(nix|lock)$|packages/app/ui/src/design-system\.css$|bin/ci-scope$|\.github/workflows/validate\.yml$)'

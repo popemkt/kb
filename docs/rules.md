@@ -1906,13 +1906,13 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — the two read actions beside the agent's other actions, each answered by every adapter, with a property over kb ui
 - **node** — `01M5ZF97R8ZK857GS29QGVD3EN`
 
-### GAP: the Android capture app is built and tested by no gate
+### GAP: the Android shell page's JS is typechecked and linted by no gate
 
-- **expected** — apps/android is held by a check like every package: CI (or the pre-commit chain when apps/android is staged) runs gradle testDebugUnitTest and assembleDebug in nix develop .#android, so a change that breaks the receiver goes red.
-- **current** — Nothing runs it. bun run verify, Nx and CI see only the Bun workspace (packages/*/*); the Gradle build and its JVM unit tests run only when a person runs them (apps/android/README.md).
-- **impact** — The phone app can stop building, or its payload drift from the capture contract, with every gate green.
-- **closes** — A CI job (Linux, no macOS runner needed) running the two Gradle tasks in the android dev shell, and a docs/ci.md row for apps/android.
-- **node** — `01M7QTAHN8YW57M1R1XYGRBSZ8`
+- **expected** — apps/android/app/src/main/assets/public/shell.js is held like the workspace's code: typechecked (checkJs, or TypeScript compiled into the assets at build time) and linted by the one oxlint ruleset in bun run verify.
+- **current** — The android job builds the APK and runs the JVM tests, which drive the page's moves through Shell but never parse shell.js; bun run lint names packages, harness and vite.config.ts only, and nothing typechecks the page.
+- **impact** — A typo or an undefined name in the page's JS ships in an APK that builds green; it shows only when a person opens Stores, Queue or Capture on a phone.
+- **closes** — Add the page to the lint and typecheck scope (a tsconfig with checkJs over assets/public, or a TS source compiled by the Gradle build), and drop this marker from apps/android/README.md.
+- **node** — `01M7YBRZ6F5DVBKD0EXA16XG73`
 
 ### GAP: the backdrop bar's mechanical checks are read by a reviewer, not run
 
@@ -3438,6 +3438,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A graph with more than 400 distinct bullets (many multi-tag colour sets) draws the overflow as the wrong bullet in the bullet theme.
 - **closes** — A second atlas page (a texture array) or painting overflow cells on demand, with a test that a graph past the capacity draws every bullet from its own cell.
 - **node** — `01M3FNF3PFQA9J4XM76G3K7P9A`
+
+### GAP: the Android capture app is built and tested by no gate
+
+- **expected** — apps/android is held by a check like every package: CI (or the pre-commit chain when apps/android is staged) runs gradle testDebugUnitTest and assembleDebug in nix develop .#android, so a change that breaks the receiver goes red.
+- **current** — Nothing runs it. bun run verify, Nx and CI see only the Bun workspace (packages/*/*); the Gradle build and its JVM unit tests run only when a person runs them (apps/android/README.md).
+- **impact** — The phone app can stop building, or its payload drift from the capture contract, with every gate green.
+- **closes** — A CI job (Linux, no macOS runner needed) running the two Gradle tasks in the android dev shell, and a docs/ci.md row for apps/android.
+- **node** — `01M7QTAHN8YW57M1R1XYGRBSZ8`
 
 ### GAP: the browser UI cannot carry approval for an action
 

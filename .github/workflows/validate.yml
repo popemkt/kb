@@ -23,6 +23,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       runtime: ${{ steps.scope.outputs.runtime }}
+      android: ${{ steps.scope.outputs.android }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -212,18 +213,54 @@ jobs:
           KB_RENDER_TIMING: "1"
         run: bun run test:render --project="$PROJECT"
 
+  # The Android app (apps/android), a Gradle project the workspace does not
+  # see: its JVM unit tests, then the debug APK, in the flake's android dev
+  # shell, so the JDK, Gradle and SDK are the ones a person builds with.
+  # Linux only; the shell also exists for aarch64-darwin, but the build is
+  # the same and a macOS slot is the account's scarce resource.
+  android:
+    needs: scope
+    if: needs.scope.outputs.android == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: nix develop .#android -c bash -e {0}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Set up
+        uses: ./.github/actions/setup
+        with:
+          install: false
+
+      - name: Unit tests and the debug APK
+        run: gradle -p apps/android --no-daemon testDebugUnitTest assembleDebug
+
+      - name: Keep the test report of a failed run
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: android-test-report
+          path: apps/android/app/build/reports/tests/
+          if-no-files-found: ignore
+
   validate:
     if: always()
-    needs: [scope, verify, nix, core, ui, render]
+    needs: [scope, verify, nix, core, ui, render, android]
     runs-on: ubuntu-24.04
     steps:
+      # A gate is skipped only by its `if`, which reads the scope's answer
+      # for it (bin/ci-scope), so once scope has passed a skip on a PR means
+      # the change did not select that gate. A push selects every gate, so
+      # there a skip is a failure.
       - name: All selected gates passed
         env:
           RESULTS: ${{ toJSON(needs) }}
         run: |
           echo "$RESULTS" | jq -e '
-            .scope.result == "success" and .verify.result == "success" and
-            ([.nix.result, .core.result, .ui.result, .render.result] |
-              all(. == "success" or
-                (. == "skipped" and $prose)))
-          ' --argjson prose '${{ github.event_name == 'pull_request' && needs.scope.outputs.runtime == 'false' }}'
+            .scope.result == "success" and
+            (del(.scope) | all(.result == "success" or
+              (.result == "skipped" and $pr)))
+          ' --argjson pr '${{ github.event_name == 'pull_request' }}'

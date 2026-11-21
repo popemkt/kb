@@ -31,6 +31,12 @@ the pre-commit hook and `packages.kb` use — are the flake's.
   need a GPU or macOS's fonts and scrollbars) on `macos-15`, and `portable`
   (every other spec) on `ubuntu-24.04`. `MACOS_SPECS` in the render config
   names which specs are `macos`, with the reason for each group.
+- **`android`** — the Android app (`apps/android`, a Gradle project the Bun
+  workspace does not see): `gradle testDebugUnitTest assembleDebug` in the
+  flake's `android` dev shell, so its JVM unit tests run and the debug APK
+  builds with the JDK, Gradle and SDK a person builds with. On
+  `ubuntu-24.04` only, and only when a change reaches the app (below). A
+  failed run keeps its test report as the `android-test-report` artifact.
 - **`validate`** — aggregate result of every selected gate; the single required check.
 
 ## Pre-commit: the same questions, one commit earlier
@@ -101,12 +107,17 @@ and which prints one answer per gate. PRs whose entire diff is
 Markdown under `docs/` or `README.md` run verify (including rule-home audits)
 and generated-doc checks only. All other paths conservatively select all
 suites: shared graph packages, extensions, assets and build configuration can
-all affect browser rendering. Unknown paths select everything. The final `validate` job is the single required check. It reads every job
-result, accepts skipped runtime jobs only for prose-only PRs, and fails for
-failed or cancelled gates. Skipped runtime jobs are
-intentional only for prose; verify remains unconditional.
+all affect browser rendering. Unknown paths select everything. `android` is
+the one gate selected the other way round, by the paths it reads: the app's
+own tree, its dev shell and the flake, the files its Gradle build names
+outside it, and its own selection and job. Nothing else in the repository
+reaches the APK. The final `validate` job is the single required check. It
+reads every job result and fails for failed or cancelled gates. A gate is
+skipped only by its `if`, which reads the scope's answer for it, so on a PR,
+once `scope` has passed, a skip means the change did not select that gate;
+on a push to `main` a skip fails. Verify has no `if` and always runs.
 
-Core, UI and the portable render specs run on Ubuntu, leaving three macOS
+Core, UI, Android and the portable render specs run on Ubuntu, leaving three macOS
 jobs per run: the two `macos` render shards and the Nix package check. A
 Linux runner has no queue; the account runs five macOS jobs at once, so with
 three per run two runs in flight already queue the third, and macOS wait
