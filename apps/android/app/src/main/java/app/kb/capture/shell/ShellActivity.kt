@@ -54,6 +54,13 @@ class ShellActivity : BridgeActivity() {
 
     private val shown: WebView get() = if (storeView.visibility == View.VISIBLE) storeView else shellView
 
+    /**
+     * Set by each open of a store. The open's first page, once loaded, starts
+     * the store pane's history, so Back from it goes to Stores and not into a
+     * visit before the open.
+     */
+    private var opening = false
+
     private var choosing: ValueCallback<Array<Uri>>? = null
     private val chooseFiles =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -72,7 +79,7 @@ class ShellActivity : BridgeActivity() {
                 override fun handleOnBackPressed() {
                     val view = shown
                     val history = view.copyBackForwardList()
-                    val previous = history.getItemAtIndex(history.currentIndex - 1)?.url
+                    val previous = if (history.currentIndex > 0) history.getItemAtIndex(history.currentIndex - 1)?.url else null
                     when (val back = Routes.back(view.url, previous, app.pairings.all.value)) {
                         Back.GoBack -> view.goBack()
                         is Back.Load -> show(back.url)
@@ -95,6 +102,7 @@ class ShellActivity : BridgeActivity() {
                 reveal(shellView, storeView)
             }
             Pane.Store -> {
+                opening = true
                 storeView.loadUrl(url)
                 reveal(storeView, shellView)
             }
@@ -139,7 +147,7 @@ class ShellActivity : BridgeActivity() {
 
     /**
      * The store pane's navigation: its own store's pages stay, anything else
-     * goes through [show]. When a store's UI does not load (offline, the host
+     * goes through [show]. An open's first page starts the pane's history. When a store's UI does not load (offline, the host
      * asleep, a proxy's 5xx, a capture-only listener's 403), the queue is
      * shown in its place, saying why, rather than a broken page.
      */
@@ -149,6 +157,12 @@ class ShellActivity : BridgeActivity() {
             if (Routes.paneFor(url, app.pairings.all.value) == Pane.Store) return false
             show(url)
             return true
+        }
+
+        override fun onPageFinished(view: WebView, url: String?) {
+            if (!opening) return
+            opening = false
+            view.clearHistory()
         }
 
         override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {

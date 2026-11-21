@@ -112,6 +112,38 @@ class ShellActivityTest {
         assertEquals(View.VISIBLE, shell.visibility)
     }
 
+    @Test
+    fun `reopening a store starts its history afresh, so Back goes to Stores and not into an earlier visit`() {
+        val activity = launch().get()
+        val shell = activity.getBridge().webView
+        activity.finishLoading("$store/")
+        assertEquals(1, activity.storeView.copyBackForwardList().size)
+
+        activity.finishLoading("$store/n/old")
+        activity.show(Routes.STORES)
+        activity.show("$store/")
+        activity.finishLoading("$store/")
+        assertEquals(1, activity.storeView.copyBackForwardList().size)
+
+        activity.onBackPressedDispatcher.onBackPressed()
+        assertEquals(View.VISIBLE, shell.visibility)
+        assertEquals(Routes.STORES, shadowOf(shell).lastLoadedUrl)
+    }
+
+    /**
+     * The store pane finishes loading [url], as a real WebView would: the
+     * page joins the history, then the client hears it finished. Robolectric's
+     * WebView keeps no history of its own, and its clearHistory drops every
+     * entry where a real one keeps the page it shows, so that page is put back.
+     */
+    private fun ShellActivity.finishLoading(url: String) {
+        val shadow = shadowOf(storeView)
+        shadow.pushEntryToHistory(url)
+        val size = storeView.copyBackForwardList().size
+        shadow.webViewClient.onPageFinished(storeView, url)
+        if (storeView.copyBackForwardList().size < size) shadow.pushEntryToHistory(url)
+    }
+
     private fun request(url: String) =
         object : WebResourceRequest {
             override fun getUrl(): Uri = Uri.parse(url)
