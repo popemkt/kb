@@ -1,4 +1,4 @@
-import { Predicate, Schema } from "effect";
+import { Schema } from "effect";
 import { isValidWorkspaceName, requestOf, type ActionRequest } from "@kb/contracts";
 import { LIST_FIELDS_QUERY, LIST_TAGS_QUERY, backlinksQuery } from "@kb/query";
 import {
@@ -15,17 +15,10 @@ import {
   type PropValue,
   LIST_ONTOLOGIES_QUERY,
 } from "@kb/model";
-import { OUTLINE_FORMAT_IDS, outlineFieldNames, outlineFormat } from "@kb/outline-paste";
 
 export interface PlannedAction {
   id: string;
   input: unknown;
-  /**
-   * The fields the input names, when planning it already read them (an
-   * outline's field lines, read by the one outline parser while planning);
-   * otherwise `fieldsNeedingCreate` reads them from the input's prop entries.
-   */
-  fields?: readonly string[];
 }
 
 /** A field named on argv (by name or id) → the type its values are parsed as. */
@@ -98,6 +91,8 @@ export function mapAdd(opts: {
   /** A query node whose requirements the node takes (DESIGN.md → What a match requires). */
   matching?: string;
   id?: string;
+  /** `--create`: define the fields `props` names that do not exist yet, with the add. */
+  createFields?: boolean;
   force?: boolean;
 }): PlannedAction {
   const props = opts.props ?? [];
@@ -111,22 +106,15 @@ export function mapAdd(opts: {
       ...(props.length > 0 ? { props } : {}),
       ...(opts.matching !== undefined ? { matching: opts.matching } : {}),
       ...(opts.id !== undefined ? { id: opts.id } : {}),
+      ...(opts.createFields === true ? { createFields: true } : {}),
       ...(opts.force === true ? { force: true } : {}),
     },
   };
 }
 
-/** The outline format `id` names, or undefined for an id no format has (the action refuses it). */
-function formatNamed(id: string | undefined) {
-  const known = OUTLINE_FORMAT_IDS.find((candidate) => candidate === (id ?? "tana"));
-  return known === undefined ? undefined : outlineFormat(known);
-}
-
 /**
  * `kb add --outline`: the whole outline text in its format, placed like
- * `kb add`'s one node. Planning reads its field lines once, through the
- * format's reader, for `--create`; an outline that does not read names
- * none, and the action reports why.
+ * `kb add`'s one node. The action reads it; planning here does not.
  */
 export function mapAddTree(opts: {
   outline: string;
@@ -135,17 +123,18 @@ export function mapAddTree(opts: {
   /** As {@link mapAdd}'s. */
   parent?: string | null;
   position?: number;
+  /** As {@link mapAdd}'s, for the fields the outline's field lines name. */
+  createFields?: boolean;
   force?: boolean;
 }): PlannedAction {
-  const parsed = formatNamed(opts.format)?.read?.(opts.outline);
   return {
     id: "node.addTree",
-    fields: parsed?.ok === true ? outlineFieldNames(parsed.items) : [],
     input: {
       outline: opts.outline,
       ...(opts.format !== undefined ? { format: opts.format } : {}),
       ...(opts.parent !== undefined ? { parent: opts.parent } : {}),
       ...(opts.position !== undefined ? { position: opts.position } : {}),
+      ...(opts.createFields === true ? { createFields: true } : {}),
       ...(opts.force === true ? { force: true } : {}),
     },
   };
@@ -155,6 +144,8 @@ export function mapSet(opts: {
   id: string;
   field: string;
   value: PropValue;
+  /** `--create`: define the field with the write when it does not exist yet. */
+  createFields?: boolean;
   force?: boolean;
 }): PlannedAction {
   return {
@@ -162,6 +153,7 @@ export function mapSet(opts: {
     input: {
       id: opts.id,
       setProps: [{ field: opts.field, value: opts.value }],
+      ...(opts.createFields === true ? { createFields: true } : {}),
       ...(opts.force === true ? { force: true } : {}),
     },
   };
@@ -433,25 +425,4 @@ export function mapActionInvoke(raw: unknown): ActionRequest {
   throw new UsageError({
     message: 'action-invoke expects JSON object with string "id" and optional "input"',
   });
-}
-
-/**
- * Fields referenced by a planned apply that may need --create minting: those
- * the plan already read ({@link PlannedAction.fields}), else the prop entries
- * of `node.add` / `node.update`.
- */
-export function fieldsNeedingCreate(plan: PlannedAction): string[] {
-  if (plan.fields !== undefined) return [...plan.fields];
-  const input = plan.input;
-  if (!Predicate.isObject(input)) return [];
-  const entries = [input.props, input.setProps].flatMap((list) =>
-    Array.isArray(list) ? (list as unknown[]) : [],
-  );
-  const names: string[] = [];
-  for (const entry of entries) {
-    if (Predicate.hasProperty(entry, "field") && typeof entry.field === "string") {
-      names.push(entry.field);
-    }
-  }
-  return names;
 }

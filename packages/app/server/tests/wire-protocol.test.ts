@@ -102,9 +102,11 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // preconditions (`node.delete` `requireEmptyLine`, `node.update`
 // `requireUnset`, `field.define` in `node.batch`); a page of an earlier
 // protocol reloads before it sends writes.
+// `node.add`, `node.addTree`, `node.update` and `node.batch` take an optional
+// `createFields`, which a previous page never sends.
 const RECORDED = {
   protocol: 13,
-  fingerprint: "1ed4152ca86148a576e28217f954646023f6f37119923b7eb296c58e0ed18444",
+  fingerprint: "eff685721999fa355a12ee18710f7d8c7f282e59c2c80639068a42f0e20f3537",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

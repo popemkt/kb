@@ -64,14 +64,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 ## Gaps
 
-### GAP: --create mints missing fields in their own transactions before the write that needs them
-
-- **expected** — field definitions a --create write needs are planned into the same transaction as that write (node.add, node.addTree, node.update/set)
-- **current** — ensureFieldsEffect in the CLI mints each missing field through field.define, one transaction per field, before the action runs
-- **impact** — a failed add, outline paste or set leaves the minted fields behind, and minting several fields is not atomic
-- **closes** — a pure planFieldDefine shared by field.define and the write actions, with create moved into the actions' input
-- **node** — `01M52F7X4YQ7W3TJHVPBBXARGP`
-
 ### GAP: .kb/views/*.json docs view specs are still read, for the one-time import
 
 - **expected** — docs views exist only as view nodes; no .kb/views reader remains
@@ -2406,6 +2398,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 
 ## Closed
+
+### GAP: --create mints missing fields in their own transactions before the write that needs them
+
+- **expected** — field definitions a --create write needs are planned into the same transaction as that write (node.add, node.addTree, node.update/set)
+- **current** — Fixed: node.add, node.addTree, node.update (and those calls in node.batch) take createFields; planMissingFields in @kb/operations defines each missing field in the write's own plan, and the CLI's --create sends it instead of minting through field.define first.
+- **impact** — a failed add, outline paste or set leaves the minted fields behind, and minting several fields is not atomic
+- **closes** — a pure planFieldDefine shared by field.define and the write actions, with create moved into the actions' input
+- **node** — `01M52F7X4YQ7W3TJHVPBBXARGP`
 
 ### GAP: /api/action does not check Origin
 

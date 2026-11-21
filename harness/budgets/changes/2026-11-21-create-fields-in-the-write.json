@@ -1,0 +1,11 @@
+{
+  "reason": "A write's createFields (`kb add --create`) is one contracts schema, CreateFieldsSchema, shared by node.add, node.addTree and node.update, and planned by the operations' planMissingFields, so a write defines its missing fields in its own transaction; the CLI's own minting loop is gone.",
+  "raise": {
+    "cli-closure": {
+      "bytes": 200
+    },
+    "surface": {
+      "@kb/contracts": 1
+    }
+  }
+}

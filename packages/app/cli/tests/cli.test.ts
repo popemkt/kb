@@ -548,6 +548,42 @@ describe("cli e2e (tmpdir)", () => {
     expect(Object.values(got.children[0].props)).toContainEqual([{ t: "str", v: "3" }]);
   });
 
+  test("--create mints fields in the write's own transaction: a failed write leaves none", async () => {
+    await kb(["init", "--bare"]);
+    const fieldNames = async (): Promise<string[]> =>
+      (JSON.parse((await kb(["field", "list"])).stdout).output.rows as string[][]).map(
+        (row) => row[1] ?? "",
+      );
+    const before = await fieldNames();
+
+    // An add whose parent is missing, an outline with a dangling ref, and a
+    // set on a missing node: each fails, and none leaves a field behind.
+    const add = await kb([
+      "add",
+      "x",
+      "--parent",
+      "no-such-parent",
+      "--prop",
+      "alpha=1",
+      "--prop",
+      "beta=2",
+      "--create",
+    ]);
+    expect(add.code).toBe(1);
+    const file = join(root, "bad.md");
+    await writeFile(file, "- Plan\n  - gamma:: 3\n- See [[nowhere]]\n");
+    expect((await kb(["add", "--outline", file, "--top", "--create"])).code).toBe(1);
+    expect((await kb(["set", "no-such-node", "delta", "4", "--create"])).code).toBe(1);
+    expect(await fieldNames()).toEqual(before);
+
+    // The same writes that succeed define what they name, with the write.
+    const ok = await kb(["add", "y", "--top", "--prop", "alpha=1", "--create"]);
+    expect(ok.code).toBe(0);
+    const id = JSON.parse(ok.stdout).output.id as string;
+    expect((await kb(["set", id, "delta", "4", "--create"])).code).toBe(0);
+    expect((await fieldNames()).toSorted()).toEqual([...before, "alpha", "delta"].toSorted());
+  });
+
   test("export writes nodes in a format, and add --outline --format reads one back", async () => {
     await kb(["init", "--bare"]);
     await kb(["tag", "define", "todo"]);

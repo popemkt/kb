@@ -7,6 +7,7 @@ import {
   type KbContext,
   KbCtx,
   type KbStore,
+  CreateFieldsSchema,
   NodeUpdateInputSchema,
   PropInputSchema,
   SavedQueries,
@@ -32,6 +33,8 @@ import {
   syncDomain,
   placedRank,
   planNodeAdd,
+  isSysPrefixed,
+  type NodeGraph,
   projectPropEdits,
   nodeTitleOf,
   PropValueSchema,
@@ -72,6 +75,7 @@ export const nodeAddDef = {
         "a query node's id: the node gets what its conditions require (DESIGN.md → What a match requires)",
       ),
     id: z.string().optional(),
+    createFields: CreateFieldsSchema,
     /** Bypass sys.* write-guard (browse yes / break no). */
     force: z.boolean().optional(),
   }),
@@ -412,10 +416,11 @@ const planNodeAddEffect = Effect.fn("node.add.plan")(function* (
   const at = yield* currentIso;
   const id = input.id ?? (yield* freshId);
   const { graph, upserts } = placedGraph(ctx.nodes, made);
+  const defined = yield* planMissingFields(graph, input.createFields, fieldsNamed(input.props), at);
   const { node, written } = yield* syncDomain(() =>
     planNodeAdd(graph, { ...input, parent: input.parent ?? undefined }, id, at),
   );
-  return { id, node, upserts: upserts(written) };
+  return { id, node, upserts: upserts([...defined, ...written]) };
 });
 
 /**
@@ -546,6 +551,12 @@ export const planNodeUpdate = Effect.fn("node.update.plan")(function* (
   const upserts: KbNode[] = [];
   let built: IndexedNodes | undefined;
   const graph = (): IndexedNodes => (built ??= IndexedNodes.of(nodes));
+  if (input.createFields === true) {
+    const defined = yield* planMissingFields(graph(), true, fieldsNamed(input.setProps), at);
+    upserts.push(
+      ...defined.map((id) => present(graph().get(id), "a defined field is in the graph")),
+    );
+  }
 
   for (const field of input.requireUnset ?? []) {
     const id = yield* syncDomain(() => resolveFieldIn(graph(), field));
@@ -676,6 +687,16 @@ export const nodeGetEffect = Effect.fn("node.get")(function* (
   return { node: pullSubtree(ctx, input.id, input.depth) };
 });
 
+/** The node `field.define` adds for `name`: a typed `sys.field` at the top level. */
+function fieldDefinition(name: string, id: NodeId | undefined): PlacedAddInput {
+  return {
+    id,
+    text: name,
+    parent: null,
+    props: [{ field: SYSTEM_IDS.typeField, value: { t: "ref", v: SYSTEM_IDS.field } }],
+  };
+}
+
 /** The node an explicit field definition adds, shared by standalone and batched definitions. */
 export const fieldDefinitionInput = Effect.fn("field.define.input")(function* (
   nodes: readonly KbNode[],
@@ -691,18 +712,45 @@ export const fieldDefinitionInput = Effect.fn("field.define.input")(function* (
       ids: existing.map((e) => e.id),
     });
   }
-  return {
-    id: input.id,
-    text: input.name,
-    parent: null,
-    props: [
-      {
-        field: SYSTEM_IDS.typeField,
-        value: { t: "ref", v: SYSTEM_IDS.field },
-      },
-    ],
-  };
+  return fieldDefinition(input.name, input.id);
 });
+
+/**
+ * The fields a write names that `graph` does not hold, each defined in
+ * `graph` as `field.define` defines it, when the write asks for it
+ * (`createFields`): planned into the write's own plan, so they commit with
+ * the write or not at all. A `sys.*` name is never minted. Returns the ids
+ * it defined.
+ */
+export const planMissingFields = Effect.fn("field.define.missing")(function* (
+  graph: NodeGraph,
+  createFields: boolean | undefined,
+  names: Iterable<string>,
+  at: string,
+): Effect.fn.Return<NodeId[], DomainError> {
+  if (createFields !== true) return [];
+  const defined: NodeId[] = [];
+  for (const name of new Set(names)) {
+    if (isSysPrefixed(name)) continue;
+    const missing = yield* syncDomain(() => resolveFieldIn(graph, name)).pipe(
+      Effect.as(false),
+      Effect.catchIf(
+        (err) => err.code === "not_found",
+        () => Effect.succeed(true),
+      ),
+    );
+    if (!missing) continue;
+    const id = yield* freshId;
+    const definition = fieldDefinition(name, id);
+    yield* syncDomain(() => planNodeAdd(graph, { ...definition, parent: undefined }, id, at));
+    defined.push(id);
+  }
+  return defined;
+});
+
+/** The fields a write's prop entries name, by name or id. */
+export const fieldsNamed = (entries: readonly { readonly field: string }[] | undefined) =>
+  (entries ?? []).map(({ field }) => field);
 
 /**
  * `field.define`: the definition planned again over each attempt's graph
