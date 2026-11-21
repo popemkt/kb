@@ -12,6 +12,7 @@ import {
   SYSTEM_IDS,
   type FieldType,
   type KbNode,
+  type ParseContext,
   type PropValue,
   LIST_ONTOLOGIES_QUERY,
 } from "@kb/model";
@@ -51,10 +52,17 @@ export function declaredTypes(nodes: KbNode[]): DeclaredTypes {
  * The one parser every surface shares (`parseTypedValue` in @kb/model): the
  * type decides the value kind, and an argument the type cannot read — `abc`
  * for a number, `javascript:` for a url — is a usage error, not a coercion.
- * A bare host for a url field is written as the `https://` link it names.
+ * A bare host for a url field is written as the `https://` link it names,
+ * and a relative date (`today`, `next fri`) is read against `context.today`,
+ * the writer's.
  */
-export function parseFieldValue(raw: string, type: FieldType, field: string): PropValue {
-  const parsed = parseTypedValue(raw, type);
+export function parseFieldValue(
+  raw: string,
+  type: FieldType,
+  field: string,
+  context: ParseContext,
+): PropValue {
+  const parsed = parseTypedValue(raw, type, context);
   if (parsed.ok) return parsed.value;
   throw new UsageError({ message: `${field} is a ${type} field; ${parsed.reason}` });
 }
@@ -63,13 +71,14 @@ export function parseFieldValue(raw: string, type: FieldType, field: string): Pr
 export function parsePropArg(
   arg: string,
   typeOf: DeclaredTypes,
+  context: ParseContext,
 ): { field: string; value: PropValue } {
   const eq = arg.indexOf("=");
   if (eq <= 0) {
     throw new UsageError({ message: `invalid --prop (expected field=value): ${arg}` });
   }
   const field = arg.slice(0, eq);
-  return { field, value: parseFieldValue(arg.slice(eq + 1), typeOf(field), field) };
+  return { field, value: parseFieldValue(arg.slice(eq + 1), typeOf(field), field, context) };
 }
 
 /**

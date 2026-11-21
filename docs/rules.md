@@ -906,14 +906,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Separate design question recorded in briefs/p1-persistence.md section 4: protocol, discovery, and fallback when no server is running.
 - **node** — `01M1M08WPQTB514E7JERKYEDWZ`
 
-### GAP: CLI properties and tree input lack relative-date context
-
-- **expected** — Every surface parses the same date phrases the UI's DateEditor accepts.
-- **current** — @kb/model's parseTypedValue accepts today as the reference date for relative phrases. The CLI property mapper and the shared node.addTree parser used by CLI and MCP call it without today.
-- **impact** — Relative phrases such as today and next fri work in the date editor but fail on these input paths.
-- **closes** — Supply the reference date to the shared parser from CLI property parsing and the node.addTree path used by CLI and MCP.
-- **node** — `01M3KA3AEEFG0E200V4D63G5SN`
-
 ### GAP: code-image identity parked for the single-owner shortcut model
 
 - **expected** — Revisit loaded-code image identity only if kb needs stronger authentication than its single-owner local trust/approval model.
@@ -1739,14 +1731,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The philosophy is checked for code shape but not for data: a commit can leave the store holding references that resolve to nothing, and nothing proves a rename never changes what a query means.
 - **closes** — Phase 3 of the note: the three properties in storeContract over JSONL and SQLite, each with a falsifying case.
 - **node** — `01M7EY3NJJZMRTXJEM0TMKJCH4`
-
-### GAP: the days landing gives up on a fixed budget and silently leaves the person at home
-
-- **expected** — The landing on today waits for readiness: the page's live connection and the day node reaching its replica, however long a slow machine takes, and says so if it truly cannot land, instead of a fixed budget that falls back without a word.
-- **current** — land() asks the landing role with a 5 s budget (LANDING_BUDGET_MS), and days' answer waits at most 3 s for the made day to reach the page (ARRIVAL_MS); past either, the page stays at / without telling the person. On macOS CI the render suite's page-load landing missed its budget, so the paste spec now opens a node page instead of depending on the landing.
-- **impact** — On a slow machine or connection a person with days on opens kb at home instead of today, with no sign that the landing failed; anything that relies on landing on today (the render paste spec did) is timing-dependent.
-- **closes** — The landing awaits a readiness signal the page owns (live connection up, the day in the replica) rather than wall-clock budgets, or tells the person when it falls back; a render spec that lands on today under a throttled page.
-- **node** — `01M7CC1GD0A1J314ZTAR54F8AD`
 
 ### GAP: the emulator capture smoke runs in no gate
 
@@ -2585,6 +2569,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The full core gate can fail outside the extension UI, and the original trace cannot distinguish a child crash from a transport failure.
 - **closes** — Use process.exitCode and natural shutdown for every CLI exit path; prove multi-MB receipts and errors survive delayed pipe readers byte-exactly, and the surface contract passes repeatedly under parallel load.
 - **node** — `01M6WW0WE9QD8W2KCRM1NW8SHB`
+
+### GAP: CLI properties and tree input lack relative-date context
+
+- **expected** — Every surface parses the same date phrases the UI's DateEditor accepts.
+- **current** — @kb/model's parseTypedValue accepts today as the reference date for relative phrases. The CLI property mapper and the shared node.addTree parser used by CLI and MCP call it without today.
+- **impact** — Relative phrases such as today and next fri work in the date editor but fail on these input paths.
+- **closes** — Supply the reference date to the shared parser from CLI property parsing and the node.addTree path used by CLI and MCP.
+- **node** — `01M3KA3AEEFG0E200V4D63G5SN`
 
 ### GAP: command dispatcher eagerly reaches chart engines and QuickJS
 
@@ -3494,6 +3486,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Dates are the one value kind that breaks the slot keyboard grammar.
 - **closes** — DateEditor delegates Enter/Tab to the ValueSlot keymap instead of handling them itself.
 - **node** — `01M3KA39ATBBJHPY4AWP7VKX8G`
+
+### GAP: the days landing gives up on a fixed budget and silently leaves the person at home
+
+- **expected** — The landing on today waits for readiness: the page's live connection and the day node reaching its replica, however long a slow machine takes, and says so if it truly cannot land, instead of a fixed budget that falls back without a word.
+- **current** — land() asks the landing role with a 5 s budget (LANDING_BUDGET_MS), and days' answer waits at most 3 s for the made day to reach the page (ARRIVAL_MS); past either, the page stays at / without telling the person. On macOS CI the render suite's page-load landing missed its budget, so the paste spec now opens a node page instead of depending on the landing.
+- **impact** — On a slow machine or connection a person with days on opens kb at home instead of today, with no sign that the landing failed; anything that relies on landing on today (the render paste spec did) is timing-dependent.
+- **closes** — The landing awaits a readiness signal the page owns (live connection up, the day in the replica) rather than wall-clock budgets, or tells the person when it falls back; a render spec that lands on today under a throttled page.
+- **node** — `01M7CC1GD0A1J314ZTAR54F8AD`
 
 ### GAP: the default design system's light accent and warning sit below body-text AA
 

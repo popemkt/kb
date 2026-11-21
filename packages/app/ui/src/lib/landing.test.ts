@@ -4,7 +4,7 @@
  * replaces through its manifest, asked once per page load and only while the
  * page stands, unmoved, at the root with nothing in its URL.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { bundledPlugin } from "@kb/contracts";
 import { daysExtension } from "@kb/days";
 import { definePlugin } from "@kb/plugin";
@@ -14,6 +14,7 @@ import {
   landOnce,
   LandingService,
   navigate,
+  setToastSink,
   syncUiPlugins,
   type Landing,
 } from "@kb/ui-sdk";
@@ -63,6 +64,43 @@ describe("ui.landing", () => {
     await land();
     expect(getPath()).toBe("/node/days.2026-11-11");
     expect(window.history.length).toBe(depth);
+  });
+
+  it("waits for a slow answer, however long, rather than giving up on a clock", async () => {
+    vi.useFakeTimers();
+    try {
+      const pending = Promise.withResolvers<string>();
+      syncPagePlugins([daysLanding(() => pending.promise)]);
+      const landing = land();
+      // Long past any budget a slow machine could miss.
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(getPath()).toBe("/");
+      pending.resolve("days.2026-11-11");
+      await landing;
+      expect(getPath()).toBe("/node/days.2026-11-11");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a landing that fails stays home and tells the person why", async () => {
+    const told: string[] = [];
+    setToastSink((message) => told.push(message));
+    syncPagePlugins([
+      daysLanding(() => Promise.reject(new Error("2026-11-11's node was refused: locked"))),
+    ]);
+    await land();
+    expect(getPath()).toBe("/");
+    expect(told).toEqual(["Stayed home: 2026-11-11's node was refused: locked"]);
+  });
+
+  it("a landing that answers home says nothing", async () => {
+    const told: string[] = [];
+    setToastSink((message) => told.push(message));
+    syncPagePlugins([daysLanding(() => Promise.resolve(null))]);
+    await land();
+    expect(getPath()).toBe("/");
+    expect(told).toEqual([]);
   });
 
   it("a page that loads anywhere but the root, or with a query, is not asked", async () => {

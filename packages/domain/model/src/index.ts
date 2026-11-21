@@ -54,7 +54,7 @@ export {
   parseTypedValue,
   valueSource,
 } from "./field-value.ts";
-export type { NumberSeparators, ParsedValue } from "./field-value.ts";
+export type { NumberSeparators, ParseContext, ParsedValue } from "./field-value.ts";
 export {
   configures,
   isShipped,
@@ -86,6 +86,7 @@ export {
   SYSTEM_IDS,
   clockSampler,
   currentIso,
+  currentLocalDate,
   isoFromMillis,
   extensionNameOf,
   extensionNodeId,

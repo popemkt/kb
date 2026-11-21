@@ -5630,15 +5630,19 @@ The days family's browser half (`@kb/days-ui`; the model is DESIGN.md →
   or reloading a plugin, never moves the page. The shell asks only while
   the page is at `/` with nothing in its URL, and moves only if the page
   has not moved by the time the answer comes. The move replaces the root's
-  history entry, so Back leaves the page.
+  history entry, so Back leaves the page. The landing has no clock: days
+  answers once today's node is in the page's replica, which on a slow
+  machine or connection is when the live connection brings it. If days
+  fails (the action refused today's node), the page stays home and a toast
+  says "Stayed home:" and why.
 - **The capture target's replacement** answers today's node through
   `ext.days.today`, with the page's local day, unless the family's
   `captures` setting says the top level. ⌘K "Add node" with nothing
   selected and a picker's "create" row for a new top-level node both go
   through the role (`captureNode`), so either lands in today. When the
-  action refuses or the node never reaches the page, the replacement fails
-  rather than answering the top level itself: the role demotes it and
-  core's default answers.
+  action refuses, or the node has not reached the page within the capture
+  role's budget, the replacement fails rather than answering the top level
+  itself: the role demotes it and core's default answers.
 
 ## Design tokens
 

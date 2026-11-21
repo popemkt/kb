@@ -143,18 +143,36 @@ describe("arg → invocation mapping", () => {
     });
   });
 
+  /** A writer whose today is Saturday 2026-11-21. */
+  const writer = { today: { year: 2026, month: 11, day: 21 } };
+
   test("parseFieldValue reads an argument as the declared type, never by its shape", () => {
-    expect(parseFieldValue("42", "text", "f")).toEqual({ t: "str", v: "42" });
-    expect(parseFieldValue("true", "text", "f")).toEqual({ t: "str", v: "true" });
-    expect(parseFieldValue("42", "number", "f")).toEqual({ t: "num", v: 42 });
-    expect(parseFieldValue("-3.5", "number", "f")).toEqual({ t: "num", v: -3.5 });
-    expect(parseFieldValue("true", "checkbox", "f")).toEqual({ t: "bool", v: true });
-    expect(parseFieldValue("false", "checkbox", "f")).toEqual({ t: "bool", v: false });
-    expect(parseFieldValue("42", "ref", "f")).toEqual({ t: "ref", v: "42" });
-    expect(parseFieldValue("https://x.dev", "url", "f")).toEqual({ t: "str", v: "https://x.dev" });
+    expect(parseFieldValue("42", "text", "f", writer)).toEqual({ t: "str", v: "42" });
+    expect(parseFieldValue("true", "text", "f", writer)).toEqual({ t: "str", v: "true" });
+    expect(parseFieldValue("42", "number", "f", writer)).toEqual({ t: "num", v: 42 });
+    expect(parseFieldValue("-3.5", "number", "f", writer)).toEqual({ t: "num", v: -3.5 });
+    expect(parseFieldValue("true", "checkbox", "f", writer)).toEqual({ t: "bool", v: true });
+    expect(parseFieldValue("false", "checkbox", "f", writer)).toEqual({ t: "bool", v: false });
+    expect(parseFieldValue("42", "ref", "f", writer)).toEqual({ t: "ref", v: "42" });
+    expect(parseFieldValue("https://x.dev", "url", "f", writer)).toEqual({
+      t: "str",
+      v: "https://x.dev",
+    });
     // A bare host is written as the link it names; a non-link is refused.
-    expect(parseFieldValue("x.dev/a", "url", "f")).toEqual({ t: "str", v: "https://x.dev/a" });
-    expect(parseFieldValue("2026-09-24", "date", "f")).toEqual({ t: "str", v: "2026-09-24" });
+    expect(parseFieldValue("x.dev/a", "url", "f", writer)).toEqual({
+      t: "str",
+      v: "https://x.dev/a",
+    });
+    expect(parseFieldValue("2026-09-24", "date", "f", writer)).toEqual({
+      t: "str",
+      v: "2026-09-24",
+    });
+    // A relative date reads against the writer's today, as the date editor's does.
+    expect(parseFieldValue("tomorrow", "date", "f", writer)).toEqual({ t: "str", v: "2026-11-22" });
+    expect(parseFieldValue("next fri", "date", "f", writer)).toEqual({
+      t: "str",
+      v: "2026-11-27",
+    });
     for (const [raw, type] of [
       ["abc", "number"],
       ["", "number"],
@@ -164,7 +182,7 @@ describe("arg → invocation mapping", () => {
       ["javascript:alert(1)", "url"],
       ["not a link", "url"],
     ] as const satisfies readonly (readonly [string, FieldType])[]) {
-      expect(() => parseFieldValue(raw, type, "f")).toThrow(UsageError);
+      expect(() => parseFieldValue(raw, type, "f", writer)).toThrow(UsageError);
     }
   });
 
@@ -186,11 +204,11 @@ describe("arg → invocation mapping", () => {
     expect(typeOf("type")).toBe("ref");
     expect(typeOf("sys.f.pinned")).toBe("checkbox");
     expect(typeOf("not-yet-minted")).toBe("text");
-    expect(parsePropArg("estimate=3", typeOf)).toEqual({
+    expect(parsePropArg("estimate=3", typeOf, writer)).toEqual({
       field: "estimate",
       value: { t: "num", v: 3 },
     });
-    expect(() => parsePropArg("estimate", typeOf)).toThrow(UsageError);
+    expect(() => parsePropArg("estimate", typeOf, writer)).toThrow(UsageError);
   });
 });
 
