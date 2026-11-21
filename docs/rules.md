@@ -1326,7 +1326,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **expected** — A field whose value mirrors something outside the store, which no constraint can check (routines' gcal sync fields: the event id, its status, synced at), is locked to its family: the commit admits its values only from that family's actions, on every surface, and the editor names the action to use instead of an Edit.
 - **current** — sys.f.managedBy declares that a family manages a field, and the page puts an Edit step in front of a person's write, but the commit admits the write from anyone. Days needs no more (its period-key and unique-key guards keep every key valid); routines' sync fields have no constraint that could tell a right event id from a wrong one.
 - **impact** — A person's or an agent's write to a sync field can corrupt the sync's bookkeeping: a wrong gcal event id re-creates or orphans a Google event. A family that wants protection today can only reach for the sys.* node lock, which is the wrong grain.
-- **closes** — The commit reads sys.f.managedBy against the call's owning family (the called action's owner, part of the action contract), for fields that declare the lock; the field row shows the family's action in place of Edit. Only where no constraint can do the job (data-plane freedom: constrain before you lock).
+- **closes** — The commit reads sys.f.managedBy against the call's owning family (the called action's owner, part of the action contract), for fields that declare the lock; the field row shows the family's action in place of Edit. Only where no constraint can do the job (data-plane freedom: constrain before you lock). Owner decision first: how a field declares the lock (a value beside sys.f.managedBy, such as a managed/locked option), and how the commit learns the calling action's family (the owner of CurrentCall's action id).
 - **rule** — Data-plane freedom: constrain before you lock
 - **node** — `01M74AS94FM8GDGF3W10M84P43`
 
@@ -1794,7 +1794,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: stored queries may match a node by its text
 
 - **expected** — Every stored query, lens and view filter names nodes by id; a label a person picks in the query builder is written as the id it resolves to.
-- **current** — The query IR's label atom compiles to a match on the node's id or its text, so a label the query builder could resolve to an id is stored as text. ext.check.audit's ref-by-text refuses a stored query, lens, saved query or view filter that names a node by its text, so a stored one cannot land.
+- **current** — The query builder already writes a ref for a value a person picks (the field's own editor). The one writer of a label is a view filter: ViewFilterSchema holds only label atoms, the view-settings popover writes typed text there, and a label compiles to a match on a node's id or its text. ext.check.audit's ref-by-text refuses a stored one, so it cannot land in a repository store. Closing it waits on GAP 01M5E7S398F4GM2490R3RZ3ZPP (view filters stored as rows of the one condition model), where a field-is filter can hold a ref and the popover can use the field's own value picker.
 - **impact** — A saved query or a view filter that matched a tag or an option by its text silently returns nothing after a person renames it, which makes cosmetic renames unsafe.
 - **closes** — The builder resolves a label to a ref atom when it names a node.
 - **rule** — Everything references by id
@@ -2167,7 +2167,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **expected** — A kb date function (kb/today, kb/date-in-days) in a query the server runs for a client (a rows subscription over /ws, MCP graph_query) reads the civil date in that client's time zone: the client's zone travels with its request, and the run's clock sample carries it.
 - **current** — The runtime's index samples the Clock and DateTime.CurrentTimeZone in scope when the session opens (sessionOver), which is the server process's own zone; a rows subscription the server answers uses it. The page is not affected: it answers its own queries in its engine worker, in the browser's zone.
 - **impact** — When the server and a thin client are in different zones, a relative-date condition (due within the next 14 days, today) can be a day off near midnight.
-- **closes** — The subscribe frame (and graph_query) names the client's time zone, and the server builds that run's ClockSample with it, with a test that pins two zones across a midnight.
+- **closes** — The subscribe frame (and graph_query) names the client's time zone, and the server builds that run's ClockSample with it, with a test that pins two zones across a midnight. Owner decision first: the client's zone travels per query (the subscribe frame, graph.query's input, KbIndex.answerDatalog and QueryEngine.runDatalog, the page worker included) or once per call on the action envelope, which days' capture target and every other date-reading action would then share.
 - **node** — `01M5E2YBN75HF5C8HZPG62CAJH`
 
 ### GAP: the shell's page plugins belong to no family
