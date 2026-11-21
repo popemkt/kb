@@ -1337,6 +1337,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — docs/research/2026-11-11-cli-host-modes.md section 5 and step 12.
 - **node** — `01M788TCV1H6XEE8X7TGTPP1Y1`
 
+### GAP: node palette advertises a ⌘S that is bound to nothing
+
+- **expected** — A label names a key that runs the command.
+- **current** — commands.tsx search-all reads Search everything… ⌘S; page-keys.ts leaves ⌘S to the browser, so the key does nothing (F6 in docs/research/2026-11-20-outliner-tana-parity.md).
+- **impact** — A hint that lies teaches people the keyboard is broken.
+- **closes** — Brief 6 in docs/research/2026-11-20-outliner-tana-parity.md: drop the label, or bind ⌘S as the owner decides.
+- **node** — `01M7WW1PRXPC058Y8MPDN8ADM0`
+
 ### GAP: node-config decode warnings reach the browser log, not the UI
 
 - **expected** — A malformed config prop is visible where the config is: a badge or bar beside the graph / view frame, the way resolveOntology's warnings surface through ontology-scope-bar and ontology-page.
@@ -1785,6 +1793,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Move the loop into @kb/test-kit, bounded by the test's timeout, and replace the seven copies with it
 - **node** — `01M7B3HX9R9DNDDTJY546W1HH3`
 
+### GAP: the # and > pickers list rows that do not match the query and ignore recency
+
+- **expected** — A trigger picker lists what matches the query, ranked by recency and use, the way the value picker does (orderCandidates, picker-recency).
+- **current** — matchCandidate matches an id substring, so every sys.tag.* id matches #ta; outlineTriggers stepTrigger feeds an alphabetical nodesOfKind list to pickerRows, so recency and use counts are never applied (F2, F3 in docs/research/2026-11-20-outliner-tana-parity.md).
+- **impact** — The first thing a Tana user touches is noisy: system tags and fields pad every list, nothing shows a type, and a declared seam (picker-recency) is unused here.
+- **closes** — Brief 2 in docs/research/2026-11-20-outliner-tana-parity.md: label-only match, orderCandidates in addTag and addField candidates, glyph and use-count note.
+- **node** — `01M7WW1MDZPJQRME00HG81PSKS`
+
 ### GAP: the 3D gizmo shows over a locked selection
 
 - **expected** — What the selection shows follows what may be done to it: a locked item shows no transform gizmo, as 2D shows it no resize handles.
@@ -1963,6 +1979,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Every new inline form is another branch in the same function, and the interaction between forms (a ref inside bold, an escape inside code) is only tested end to end.
 - **closes** — Split into recognizers over a cursor and drive them from a list. The existing md-inline tests are the gate; this is a rewrite, not a mechanical move.
 - **node** — `01M1MGCM9RWXE3CYANZK5K4KC0`
+
+### GAP: the kb UI has no Back or Forward command or control (the desktop app's store window has none either)
+
+- **expected** — The kb UI has Back and Forward as commands, with buttons in its header and bindable keys, so the page and the desktop app's store window can move through navigation history.
+- **current** — kit/ui-sdk/src/lib/router.ts is pushState plus popstate with no Back or Forward command, button or key. A browser tab has the browser's own Back; the desktop app (Electrobun, packages/app/desktop) shows the store's own kb page in a window with no navigation chrome, so it has none either. The Android and iOS apps are capture-only and show no kb page (F7 in docs/research/2026-11-20-outliner-tana-parity.md).
+- **impact** — After zooming or following a reference in the kb UI there is no in-app way back, in the desktop store window or in a tab without browser chrome.
+- **closes** — Brief 3 in docs/research/2026-11-20-outliner-tana-parity.md: header buttons, Go back and Go forward commands on Mod-[ and Mod-], router canGo and go.
+- **node** — `01M7WW1VZJBCBMXTQ2W3NSN6T2`
 
 ### GAP: the kit's node type is named for the outline
 
@@ -2168,6 +2192,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Secondary labels, hints and counts set in translucent foreground can sit below AA in any design system without anything going red.
 - **closes** — Classify the translucent text roles (a small set of named text tokens, e.g. subtle and faint, in place of ad-hoc /N steps), hold each to its threshold in the guard, and retire the raw /N text utilities.
 - **node** — `01M3BEJDX4YP2DPHSCFS66NZK1`
+
+### GAP: turning a node into a query matches every node in the store
+
+- **expected** — A new query asks for its first condition, as Tana does, so the result is what the person meant.
+- **current** — turn-query writes DEFAULT_QUERY_EDN (no conditions); the page shows the whole store under the row (F5 in docs/research/2026-11-20-outliner-tana-parity.md).
+- **impact** — The first query a person makes floods the page with system nodes; the builder is below the fold.
+- **closes** — Brief 6 in docs/research/2026-11-20-outliner-tana-parity.md: Turn into query opens the query-only tag picker (findTagged, over addTag's candidates, no create row) and writes a tag condition by id; it tags nothing and mints nothing, which Add tag's commit would.
+- **node** — `01M7WW1S48RQ48GD7A14VZG545`
 
 ### GAP: two installed extensions cannot share a service key
 
