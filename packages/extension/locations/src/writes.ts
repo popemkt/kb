@@ -8,7 +8,14 @@
  * moves it first, and the store's commit settles the ranks (DESIGN.md →
  * Sibling ranks). Pinning is the home store's Pinned list, as for any node.
  */
-import { SYSTEM_IDS, seededField, seededTag, type KbNode, type PropValue } from "@kb/model";
+import {
+  nodeName,
+  SYSTEM_IDS,
+  seededField,
+  seededTag,
+  type KbNode,
+  type PropValue,
+} from "@kb/model";
 import type { NodeLookup } from "@kb/contracts";
 import { LOCATION_IDS } from "./ids.ts";
 
@@ -59,7 +66,7 @@ export function locationEntries(nodes: readonly KbNode[]): LocationEntry[] {
   });
   const entry = (node: KbNode): LocationEntry => ({
     id: node.id,
-    label: node.text,
+    label: nodeName(node.id, (id) => byId.get(id)),
     paths: pathsOf(node),
     pinned: pinned.has(node.id),
   });

@@ -25,7 +25,6 @@ import {
   logWarn,
   toast,
   useGeneration,
-  useNode,
   useNodes,
   useSandboxPorts,
   useSandboxTrust,
@@ -199,8 +198,8 @@ function ScriptRow({
 
 /** One attached script by its node; nothing while the node is not a script kb can run. */
 function AttachedScript({ attached, ...rest }: { readonly attached: Attached } & RowProps) {
-  const node = useNode(attached.script);
-  const script = node === undefined ? null : scriptOf(node);
+  const nodes = useNodes();
+  const script = scriptOf(attached.script, (id) => nodes.get(id));
   return script === null ? null : (
     <ScriptRow subject={attached.subject} script={script} {...rest} />
   );

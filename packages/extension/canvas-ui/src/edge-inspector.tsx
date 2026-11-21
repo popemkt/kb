@@ -9,11 +9,12 @@ import {
   type IconChoice,
 } from "./canvas-dock.tsx";
 import { ColorSwatches, EdgeLookRows } from "./item-style-rows";
+import type { RelationFieldChoice } from "@kb/model";
 
 export interface EdgeInspectorProps {
   edge: CanvasEdge;
   /** The ref fields a native link on this edge can bind (`edgeFields`). */
-  refFields: readonly { readonly id: string; readonly text: string }[];
+  refFields: readonly RelationFieldChoice[];
   onModeChange: (mode: KbLinkMode) => void;
   onFieldChange: (fieldId: string) => void;
   onDelete: () => void;
@@ -77,7 +78,7 @@ function LinkRows({
               )}
               onClick={() => onFieldChange(f.id)}
             >
-              {f.text}
+              {f.name}
             </DockPick>
           ))}
         </div>

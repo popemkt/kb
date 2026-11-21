@@ -19,6 +19,7 @@ import { logWarn } from "./log";
 import type { OutlineNode } from "./types";
 import type { SchemaIndex } from "./schema";
 import { viewKeyOfNode } from "./view-node";
+import { nameIn } from "./contextual-ref";
 
 /**
  * A view frame's configuration (`@kb/views`' `decodeFrameConfig`), with what
@@ -138,5 +139,5 @@ export function frameViewLabelOf(
   schema: SchemaIndex,
 ): string | null {
   const option = viewOptionOf(node);
-  return (option === null ? undefined : schema.get(option)?.text) ?? null;
+  return option === null || schema.get(option) === undefined ? null : nameIn(schema, option);
 }

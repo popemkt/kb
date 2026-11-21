@@ -11,6 +11,7 @@ import { BracketsCurlyIcon, ChartBarIcon } from "@phosphor-icons/react";
 import { CHART_IDS, ChartView, type ChartParams, type ChartSpec } from "@kb/chart";
 import { viewNodeFor, nodePath } from "@kb/views";
 import {
+  useSchema,
   browserHost,
   IconButton,
   toast,
@@ -22,6 +23,7 @@ import {
 } from "@kb/ui-sdk";
 import { useChartData, type ChartData } from "./chart-data";
 import { SpecEditor } from "./spec-editor";
+import { nodeName } from "@kb/model";
 
 const ChartCanvas = lazy(() => import("./chart-canvas"));
 
@@ -58,15 +60,17 @@ function Missing({ data, label }: { readonly data: ChartData; readonly label: st
 
 export function ChartPage({ params, host }: ViewProps<ChartParams>) {
   const source = useNode(params.source) ?? null;
-  const viewNode = useNode(host.viewNode);
+  const schema = useSchema();
+  const nameOf = (id: string | undefined) =>
+    id === undefined ? "" : nodeName(id, (of) => schema.get(of));
   const appearance = useAppearance().key;
   const data = useChartData(source);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const pane = usePane();
-  const sourceText = source?.text.trim() ?? "";
+  const sourceText = nameOf(params.source);
   const label = sourceText !== "" ? sourceText : (params.source ?? "This node");
-  const viewText = viewNode?.text.trim() ?? "";
+  const viewText = nameOf(host.viewNode);
   const title = viewText !== "" ? viewText : label;
   const columns = useMemo(() => (data.kind === "rows" ? data.columns : []), [data]);
 

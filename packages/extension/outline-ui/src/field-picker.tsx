@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { declaresOptionSet } from "@kb/model";
 import {
+  nameIn,
   closesCycleOf,
   cn,
   kindOfType,
@@ -146,8 +147,8 @@ export function FieldPicker({
       onCancel={onClose}
       onRemoveLast={field.many && last !== undefined ? () => field.remove(last) : undefined}
       placeholder={creation === null ? "Search…" : "Search or create…"}
-      label={`Pick ${textOr(fieldNode?.text, "a value")}`}
-      listLabel={textOr(fieldNode?.text, "Values")}
+      label={`Pick ${textOr(nameIn(context.schema, fieldId), "a value")}`}
+      listLabel={textOr(nameIn(context.schema, fieldId), "Values")}
       createLabel={(name) => createLabelOf(creation, context, name)}
       leadOf={
         preview === null ? undefined : (row) => (row.kind === "item" ? preview(row.id) : null)
@@ -247,7 +248,7 @@ function createLabelOf(creation: RefCreation | null, context: FieldContext, name
     // A node of a kind is one (a new tag, a new field); a node of a tag carries it.
     const kind = kindOfType(creation.tagId);
     if (kind !== null) return `Create ${kind} “${name}”`;
-    return `Create #${textOr(context.schema.get(creation.tagId)?.text, "tag")} “${name}”`;
+    return `Create #${textOr(nameIn(context.schema, creation.tagId), "tag")} “${name}”`;
   }
   return `Create “${name}”`;
 }

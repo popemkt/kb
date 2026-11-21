@@ -59,6 +59,8 @@ describe("location writes", () => {
     const { nodes } = register([], "/work/a", "l.a");
     const renamed = register(nodes, "/work/a", "unused", "Alpha");
     expect(locationEntries(renamed.nodes)[0]?.label).toBe("Alpha");
+    const marked = register(nodes, "/work/a", "unused", "`kb` **work**");
+    expect(locationEntries(marked.nodes)[0]?.label).toBe("kb work");
   });
 
   test("a default label is the directory's name, or its parent's and its own when taken", () => {

@@ -52,6 +52,7 @@ import {
   TrashIcon,
 } from "@phosphor-icons/react";
 import {
+  nodeName,
   checkOf,
   extensionNodeId,
   extractMentions,
@@ -68,6 +69,7 @@ import {
 } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import {
+  nameIn,
   browserHost,
   type Command,
   type CommandContext,
@@ -419,7 +421,7 @@ const NODE_COMMANDS: readonly NodeCommand[] = [
     when: (ctx) => typeRefsOf(targetNode(ctx)).includes(SYSTEM_IDS.tag),
     run: (ctx) =>
       nodeAction(ctx, (nodeId) => {
-        const name = textOr(ctx.outline.nodes.get(nodeId)?.text.trim(), nodeId);
+        const name = textOr(nameIn(browserHost().schema(), nodeId), nodeId);
         void browserHost()
           .writes.defineTag(`my ${name}`, [nodeId])
           .then((id) => {
@@ -744,13 +746,9 @@ function frameViewCommands(ctx: CommandContext): {
   };
 }
 
-/** What a menu calls a view node: its text, else the label of the view it names. */
-function viewLabel(byId: ReadonlyMap<string, WireNode>, viewId: string): string {
-  const view = byId.get(viewId);
-  const text = view?.text.trim() ?? "";
-  if (text !== "") return text;
-  const option = viewOptionOf(view);
-  return (option === null ? undefined : byId.get(option)?.text) ?? viewId;
+/** What a menu calls a node: its name, else its id. */
+function menuName(byId: ReadonlyMap<string, WireNode>, id: string): string {
+  return nodeName(id, (of) => byId.get(of)) || id;
 }
 
 /**
@@ -770,7 +768,7 @@ function defaultViewCommands(ctx: CommandContext): readonly CommandRegistration[
     .map((viewId) => ({
       hostId: targetId,
       viewId,
-      label: `Make default view: ${viewLabel(byId, viewId)}`,
+      label: `Make default view: ${menuName(byId, viewId)}`,
     }));
   const ofView = isViewNode(target)
     ? wires
@@ -778,7 +776,7 @@ function defaultViewCommands(ctx: CommandContext): readonly CommandRegistration[
         .map((host) => ({
           hostId: host.id,
           viewId: targetId,
-          label: `Make default view of ${host.text.trim() || host.id}`,
+          label: `Make default view of ${menuName(byId, host.id)}`,
         }))
     : [];
   return [...ofHost, ...ofView].map(

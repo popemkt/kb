@@ -460,15 +460,15 @@ function Detail({ term, children }: { readonly term: string; readonly children: 
 export function ExtensionDetails({
   nodeId,
   group,
-  textOf,
+  nameOf,
 }: {
   readonly nodeId: string;
   readonly group: PanelExtensionGroup;
-  readonly textOf: (id: string) => string | undefined;
+  readonly nameOf: (id: string) => string | undefined;
 }) {
   const extension = group.effective;
   const row = extension?.row;
-  const adds = extension === undefined ? [] : contributionGroups(extension, textOf);
+  const adds = extension === undefined ? [] : contributionGroups(extension, nameOf);
   const services =
     row === undefined
       ? []

@@ -261,6 +261,7 @@ export { isValidWorkspaceName } from "./workspace-name.ts";
 export {
   relationFieldFit,
   relationFieldsFor,
+  type RelationFieldChoice,
   relationInverseOf,
   relationMisfit,
 } from "./relation.ts";

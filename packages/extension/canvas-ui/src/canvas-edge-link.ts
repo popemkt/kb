@@ -11,8 +11,8 @@
  * Pure: the fresh binding id arrives on the context, the way the pointer
  * reducer takes its edge ids, so a plan is a function of its inputs.
  */
-import { relationFieldFit, relationFieldsFor } from "@kb/model";
-import type { EdnRunner, OutlineNode, PropValue, SchemaIndex } from "@kb/ui-sdk";
+import { relationFieldFit, relationFieldsFor, type RelationFieldChoice } from "@kb/model";
+import type { EdnRunner, PropValue, SchemaIndex } from "@kb/ui-sdk";
 import type { CanvasEdge, CanvasNode, KbLinkMode } from "@kb/canvas";
 import { planNativeBind } from "./canvas-api";
 
@@ -89,7 +89,7 @@ export type EdgeFieldContext = Pick<EdgeRelinkContext, "byId" | "nodes" | "run">
  * source's node to its target's can be typed as (`relationFieldsFor`, the
  * rule every relation write reads), none when an end stands for no node.
  */
-export function edgeFields(edge: CanvasEdge, ctx: EdgeFieldContext): OutlineNode[] {
+export function edgeFields(edge: CanvasEdge, ctx: EdgeFieldContext): RelationFieldChoice[] {
   const endpoints = kbEndpoints(edge, ctx);
   if (endpoints === null) return [];
   return relationFieldsFor(ctx.nodes, endpoints.to.nodeId, ctx.run);

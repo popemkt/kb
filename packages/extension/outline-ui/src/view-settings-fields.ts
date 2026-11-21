@@ -6,6 +6,7 @@
  */
 import { pinnedFirst, typeRefsOf, SYSTEM_IDS } from "@kb/model";
 import {
+  rowName,
   browserHost,
   isFieldHidden,
   isSysPrefixed,
@@ -78,7 +79,7 @@ export function frameFieldCandidates(
     if (seen.has(node.id) || isSysPrefixed(node.id)) continue;
     if (!typeRefsOf(node).includes(SYSTEM_IDS.field)) continue;
     if (isFieldHidden(node.id, schema)) continue;
-    others.push({ id: node.id, label: node.text === "" ? node.id : node.text });
+    others.push({ id: node.id, label: rowName(node, schema) || node.id });
   }
   return pinnedFirst(
     [...templated, ...others.toSorted((a, b) => a.label.localeCompare(b.label))],

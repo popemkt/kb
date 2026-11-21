@@ -22,8 +22,7 @@ const scriptListEffect = Effect.fn("ext.code.script.list")(function* (
   const ctx = yield* KbCtx;
   const named = input.subjects.flatMap((subject) =>
     scriptIdsOf(ctx.index.getNode(subject)).flatMap((id) => {
-      const node = ctx.index.getNode(id);
-      const script = node === undefined ? null : scriptOf(node);
+      const script = scriptOf(id, (of) => ctx.index.getNode(of));
       return script === null ? [] : [{ subject, script }];
     }),
   );
