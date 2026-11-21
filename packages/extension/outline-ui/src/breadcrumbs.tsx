@@ -148,6 +148,8 @@ function useCrumbFolding(nav: React.RefObject<HTMLElement | null>, crumbs: reado
       }
     };
     fold();
+    // A host with no ResizeObserver (a DOM without layout) folds once, as drawn.
+    if (typeof ResizeObserver === "undefined") return undefined;
     const room = row.closest<HTMLElement>(".outline-editor") ?? row;
     const observer = new ResizeObserver(fold);
     observer.observe(room);
