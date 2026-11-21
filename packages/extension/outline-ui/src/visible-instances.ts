@@ -89,8 +89,10 @@ interface WalkContext {
   /** The slots around the outline's root frame, as its host renders it (`useSlotChain`). */
   chain: SlotChain;
   pages: FramePagesMap;
-  /** The reader's expansion: each row's open or closed choice, and the references opened in place (`open-references`). */
+  /** The reader's expansion: each row's open or closed choice, by place (`isRowOpen`). */
   expansion: Expansion;
+  /** The references opened in place (`open-references`). */
+  references: ReadonlySet<string>;
   /** The row each frame's detail view shows, as the outline keeps it (frame id -> node id). */
   details: Readonly<Record<string, string>>;
   /** The day each frame's calendar is open at, as the outline keeps it (frame id -> day). */
@@ -253,10 +255,10 @@ function walkVisibleInstances(
   if (showsAncestor(instanceKey, node, ctx.schema)) return;
   const frame = shownNode(node, ctx.schema);
   // The references its text opens in place come first, open or closed the row.
-  // Each draws its target open or closed as the target's own choice is, not
-  // open by default: a choice is per node. GAP [[01M7D8AP4A4W6S2X5T1DSE9D77]]
+  // Each draws its target at its own place, closed by default as the target
+  // is, not open. GAP [[01M7D8AP4A4W6S2X5T1DSE9D77]]
   if (opensInPlace(instanceKey)) {
-    for (const id of openReferencesOf(ctx.expansion, frame.id, frame.text)) {
+    for (const id of openReferencesOf(ctx.references, frame.id, frame.text)) {
       walkVisibleInstances(ctx, id, openReferenceKey(frame.id, id), chain);
     }
   }

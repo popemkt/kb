@@ -13,7 +13,7 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { mutations } from "@/actions/mutations";
 import { useGraphStore } from "@/stores/graph.store";
 import { mountActiveTextHost } from "@/test-support/active-text-host";
-import { resetOutlineStore, rowClosed } from "@/test-support/outline-store";
+import { resetOutlineStore, rowClosed, rowKey } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { createTransientNode, NodeBlock, outlineNodes, useOutlineStore } from "@kb/outline-ui";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
@@ -104,7 +104,7 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
 
   it("D08: Backspace at index 0 of a first child outdents instead of swallowing", async () => {
     act(() => {
-      useOutlineStore.getState().toggleCollapse("n.root-a");
+      useOutlineStore.getState().toggleCollapse(rowKey("n.root-a"));
     });
     const nodes = outlineNodes();
     const childKey = outlineInstanceKey("n.child-a1", nodes);

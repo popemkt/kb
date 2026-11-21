@@ -327,9 +327,9 @@ function OpenReferences({
   instanceKey: string;
   depth: number;
 }) {
-  const expansion = useOutlineStore((s) => s.expansion);
+  const references = useOutlineStore((s) => s.openReferences);
   if (!opensInPlace(instanceKey) || showsAncestor(instanceKey, node, schema)) return null;
-  return openReferencesOf(expansion, shown.id, shown.text).map((id) => {
+  return openReferencesOf(references, shown.id, shown.text).map((id) => {
     const key = openReferenceKey(shown.id, id);
     return <NodeBlock key={key} nodeId={id} instanceKey={key} depth={depth + 1} />;
   });

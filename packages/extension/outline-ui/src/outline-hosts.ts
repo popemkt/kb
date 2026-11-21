@@ -35,6 +35,11 @@ export function outlineHostOf(id: string): OutlineHost | undefined {
   return hosts.get(id) ?? (id === MAIN_OUTLINE_HOST ? UNMOUNTED_MAIN : undefined);
 }
 
+/** The hosts with an outline on screen, the main one always among them. */
+export function outlineHostIds(): readonly string[] {
+  return [MAIN_OUTLINE_HOST, ...[...hosts.keys()].filter((id) => id !== MAIN_OUTLINE_HOST)];
+}
+
 /**
  * Open `id` from the outline of host `host`, as a click in it does
  * (`useOpenNode`): a rooted outline moves its pane, the zoomed one zooms.

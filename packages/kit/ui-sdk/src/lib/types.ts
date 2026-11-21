@@ -21,7 +21,7 @@ export function isSysPrefixed(id: string): boolean {
   return id.startsWith("sys.");
 }
 
-/** The reader's expansion, `{ open, closed }` node ids (`loadExpansion`). */
+/** The reader's expansion, `{ open, closed }` places (`loadExpansion`). */
 export const EXPANSION_STORAGE_KEY = "kb-expansion";
 /**
  * The legacy form: node ids the reader opened. Read when `kb-expansion` is

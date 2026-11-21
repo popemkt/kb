@@ -130,15 +130,26 @@ describe("a reference in the text opens in place", () => {
   it("is the tab's alone: never stored", async () => {
     await draw();
     await altClick(pill("n.root-b"));
-    expect(useOutlineStore.getState().expansion.get(OPEN_B)).toBe(true);
+    expect(useOutlineStore.getState().openReferences.has(OPEN_B)).toBe(true);
     expect(dom.localStorage.getItem(EXPANSION_STORAGE_KEY) ?? "").not.toContain("ref:row:");
+  });
+
+  it("is held apart from the open or closed choice of the row it draws", async () => {
+    await draw();
+    await altClick(pill("n.root-b"));
+    // Opening and closing the drawn target's own row leaves the reference open.
+    await act(async () => useOutlineStore.getState().toggleCollapse(OPEN_B));
+    expect(useOutlineStore.getState().isOpen(OPEN_B)).toBe(true);
+    await act(async () => useOutlineStore.getState().toggleCollapse(OPEN_B));
+    expect(useOutlineStore.getState().isOpen(OPEN_B)).toBe(false);
+    expect(drawnUnder()).toEqual(["n.root-b"]);
   });
 
   it("is dropped once the row's text no longer names the reference", async () => {
     await draw();
     await altClick(pill("n.root-b"));
     await act(async () => mutations.updateNodeContent(ROW, "See [[n.root-a]]"));
-    expect(useOutlineStore.getState().expansion.has(OPEN_B)).toBe(false);
+    expect(useOutlineStore.getState().openReferences.has(OPEN_B)).toBe(false);
   });
 
   it("under a projected row, Alt-click opens nothing in place", async () => {
@@ -153,9 +164,7 @@ describe("a reference in the text opens in place", () => {
       "pill",
     );
     await altClick(ref);
-    expect(
-      [...useOutlineStore.getState().expansion.keys()].filter((k) => k.startsWith("ref:row:")),
-    ).toEqual([]);
+    expect(useOutlineStore.getState().openReferences.size).toBe(0);
   });
 
   it("edits the target in place: its text is the target's", async () => {
@@ -196,7 +205,7 @@ describe("a reference in the text opens in place", () => {
       await pick("Expand reference…");
       expect(labels()).toEqual(["Search jumps to matching nodes", "Ship kb ui shell"]);
       await pick("Search jumps");
-      expect(useOutlineStore.getState().expansion.get(OPEN_B)).toBe(true);
+      expect(useOutlineStore.getState().openReferences.has(OPEN_B)).toBe(true);
 
       await openMenu();
       await pick("Expand reference…");

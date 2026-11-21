@@ -332,6 +332,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
       chain: [],
       pages: {},
       expansion: new Map(),
+      references: new Set(),
       details: {},
       days: {},
       today: "2026-11-14",

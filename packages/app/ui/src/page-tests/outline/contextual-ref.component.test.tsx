@@ -18,7 +18,7 @@ import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { childInstanceKey, outlineInstanceKey, rowTextOf, syncUiPlugins } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { resetOutlineStore, rowClosed } from "@/test-support/outline-store";
+import { resetOutlineStore, rowClosed, rowKey } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { NodeBlock, outlineNodes, outlineSource, useOutlineStore } from "@kb/outline-ui";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
@@ -104,7 +104,7 @@ describe("contextual reference row", () => {
   });
 
   it("draws the target's tag chips and field rows, as the target's row would", async () => {
-    useOutlineStore.getState().toggleCollapse("n.ctx");
+    useOutlineStore.getState().toggleCollapse(rowKey("n.ctx"));
     const key = await render("n.ctx");
     const block = present(container.querySelector(`[data-instance-key="${key}"]`), "block");
     expect(block.querySelector("[data-node-trailing]")?.textContent).toContain("todo");
@@ -112,7 +112,7 @@ describe("contextual reference row", () => {
   });
 
   it("expands into the target's children, under the reference's own instance", async () => {
-    useOutlineStore.getState().toggleCollapse("n.ctx");
+    useOutlineStore.getState().toggleCollapse(rowKey("n.ctx"));
     const refKey = await render("n.ctx");
     for (const child of ["n.child-a1", "n.child-a2"]) {
       expect(
@@ -136,8 +136,8 @@ describe("contextual reference row", () => {
       },
       ctxRefWire("n.loop-ref", "n.loop"),
     ]);
-    useOutlineStore.getState().toggleCollapse("n.loop");
-    useOutlineStore.getState().toggleCollapse("n.loop-ref");
+    useOutlineStore.getState().toggleCollapse(rowKey("n.loop"));
+    useOutlineStore.getState().toggleCollapse(rowKey("n.loop-ref"));
     const key = await render("n.loop");
     const refKey = childInstanceKey(key, "n.loop-ref");
     expect(container.querySelector(`[data-instance-key="${refKey}"]`)).toBeTruthy();
@@ -149,7 +149,7 @@ describe("contextual reference row", () => {
   });
 
   it("is an ordinary row for instance keys and keyboard navigation", () => {
-    useOutlineStore.getState().toggleCollapse("n.ctx");
+    useOutlineStore.getState().toggleCollapse(rowKey("n.ctx"));
     const refKey = outlineInstanceKey("n.ctx", outlineNodes());
     expect(refKey).toBe("tree/n.ctx");
     const instances = useOutlineStore.getState().getVisibleInstances();
@@ -244,7 +244,7 @@ describe("contextual reference row", () => {
     ]);
     // Zoom into n.host so n.root-a is not in the visible outline — only the reference is.
     useGraphStore.getState().zoomTo("n.host");
-    useOutlineStore.getState().toggleCollapse("n.hosted-ref");
+    useOutlineStore.getState().toggleCollapse(rowKey("n.hosted-ref"));
     const refKey = outlineInstanceKey("n.hosted-ref", outlineNodes());
     act(() => {
       useOutlineStore.getState().activateNode("n.hosted-ref", 0, refKey);

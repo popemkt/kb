@@ -63,8 +63,12 @@ import {
   type VisibleInstance,
 } from "./visible-instances.ts";
 import type { FrameViewKey } from "@kb/views";
-import { outlineHostOf, outlineHostOfInstance as walkHostOf } from "./outline-hosts";
-import { isReferenceKey, openReferenceHolds, openReferenceKey } from "./open-references";
+import {
+  outlineHostIds,
+  outlineHostOf,
+  outlineHostOfInstance as walkHostOf,
+} from "./outline-hosts";
+import { openReferenceHolds, openReferenceKey } from "./open-references";
 import { crumbsTo, type Crumb } from "./crumbs";
 
 export type { VisibleInstance };
@@ -93,6 +97,8 @@ interface ActivateOpts {
 interface OutlineState {
   /** Which rows the reader opened or closed; the rows themselves are `outlineNodes()`. */
   expansion: Expansion;
+  /** The references opened in place, each under its projected row's key (`open-references`): this tab's, never stored. */
+  openReferences: ReadonlySet<string>;
   /** Data-layer node id currently being edited. */
   activeNodeId: string | null;
   /** Render-instance key for the active editor (disambiguates duplicates). */
@@ -200,6 +206,7 @@ export type OutlineStateData = {
 
 export const initialOutlineState: OutlineStateData = {
   expansion: new Map(),
+  openReferences: new Set(),
   framePages: {},
   frameDetails: {},
   frameDays: {},
@@ -243,15 +250,12 @@ function schemaNow(): SchemaIndex {
 }
 
 /**
- * Whether the reader can still undo choosing `open` for row `id`: the row can
- * expand and `open` is not its default. A row the graph does not hold now
- * keeps its choice, so a row deleted and restored (an undo) comes back as the
- * reader left it. A reference opened in place holds while it is open and its
- * row's text names it (`openReferenceHolds`).
+ * Whether the reader can still undo choosing `open` for the row at `place`:
+ * the row can expand and `open` is not its default. A row the graph does not
+ * hold now keeps its choice, so a row deleted and restored (an undo) comes
+ * back as the reader left it.
  */
 function isUndoable(place: string, open: boolean, schema: SchemaIndex): boolean {
-  const reference = openReferenceHolds(place, open, schema);
-  if (reference !== null) return reference;
   // GAP [[01M52E0177292798G5908A74GG]]
   const node = schema.get(nodeOfInstance(place));
   // A row's default is `node.collapsed`: a choice to open is one to change it.
@@ -289,13 +293,27 @@ function changesOf(before: Expansion, after: Expansion): ExpansionChanges {
  */
 function keptExpansion(current: Expansion, next: Expansion, schema: SchemaIndex): Expansion {
   const kept = undoable(next, schema);
-  // The references opened in place are this tab's alone: storage holds rows' choices.
-  const changes = new Map([...changesOf(current, kept)].filter(([id]) => !isReferenceKey(id)));
+  const changes = changesOf(current, kept);
   // GAP [[01M52E01JB6CFKT2M8CAS171EJ]]
   if (changes.size > 0) {
-    saveExpansionChanges(changes, (id, open) => isUndoable(id, open, schema));
+    saveExpansionChanges(
+      changes,
+      (place, open) => isUndoable(place, open, schema),
+      placeOfIdIn(schema),
+    );
   }
   return kept;
+}
+
+/** A node's place in the outline's tree over `nodes`: where a choice an older build stored by id stands. */
+function placeOfIdIn(nodes: NodeMap): (id: string) => string {
+  return (id) => placeOfInstance(outlineInstanceKey(id, nodes));
+}
+
+/** The references of `open` whose rows' text still names them (`openReferenceHolds`). */
+function heldReferences(open: ReadonlySet<string>, schema: SchemaIndex): ReadonlySet<string> {
+  const held = [...open].filter((key) => openReferenceHolds(key, schema));
+  return held.length === open.size ? open : new Set(held);
 }
 
 /**
@@ -718,7 +736,9 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
 
     toggleReference: (sourceId, targetId) => {
       const key = openReferenceKey(sourceId, targetId);
-      choose([[key, get().expansion.get(key) !== true]]);
+      const open = new Set(get().openReferences);
+      if (!open.delete(key)) open.add(key);
+      set({ openReferences: open });
     },
 
     expandSubtree: async (instanceKey, host) => {
@@ -880,17 +900,26 @@ function keptFocus(prev: OutlineStateData, nodes: NodeMap): Partial<OutlineState
 }
 
 /**
- * The expansion kept across a move from `from` to `to` (both at default
- * collapse): a row shown open stays open when the move makes its default
- * collapsed — it gained children or fields while the reader looked at it.
+ * The expansion kept across a move from `prev` to `next`: a row shown open
+ * stays open when the move makes its node's default collapsed — it gained
+ * children or fields while the reader looked at it. The choice is set at
+ * each place an outline on screen draws the node without one.
  */
-function keptOpen(expansion: Expansion, from: NodeMap, to: NodeMap): Expansion {
+function keptOpen(expansion: Expansion, prev: PageGraphState, next: PageGraphState): Expansion {
+  const from = shownNodesOf(prev);
+  const flipped = new Set<string>();
+  for (const [id, node] of shownNodesOf(next)) {
+    if (node.collapsed && from.get(id)?.collapsed === false) flipped.add(id);
+  }
+  if (flipped.size === 0) return expansion;
   let kept: Map<string, boolean> | null = null;
-  for (const [id, node] of to) {
-    if (!node.collapsed || expansion.has(id)) continue;
-    if (from.get(id)?.collapsed !== false) continue;
-    kept ??= new Map(expansion);
-    kept.set(id, true);
+  for (const host of outlineHostIds()) {
+    for (const row of visibleInstancesOf(host, next, expansion)) {
+      const place = placeOfInstance(row.instanceKey);
+      if (!flipped.has(row.nodeId) || expansion.has(place)) continue;
+      kept ??= new Map(expansion);
+      kept.set(place, true);
+    }
   }
   return kept ?? expansion;
 }
@@ -921,7 +950,8 @@ function follow(change: GraphChange, prev: PageGraphState, next: PageGraphState)
   if (change === "load") {
     useOutlineStore.setState({
       // A load writes nothing: storage is read, as every tab left it.
-      expansion: undoable(loadExpansion(), schema),
+      expansion: undoable(loadExpansion(placeOfIdIn(shownNodesOf(next))), schema),
+      openReferences: new Set<string>(),
       ...NO_FOCUS,
       pendingCaret: null,
       transientIds: new Set<string>(),
@@ -929,12 +959,13 @@ function follow(change: GraphChange, prev: PageGraphState, next: PageGraphState)
     return;
   }
   const to = shownNodesOf(next);
-  const open = keptOpen(outline.expansion, shownNodesOf(prev), to);
+  const open = keptOpen(outline.expansion, prev, next);
   const expansion = keptExpansion(outline.expansion, open, schema);
   const kept = KEPT_FOCUS[change](outline, to);
   const focus = { ...outline, ...kept };
   useOutlineStore.setState({
     expansion,
+    openReferences: heldReferences(outline.openReferences, schema),
     ...kept,
     // A range keeps its anchor and its head where the moved graph still
     // draws both, and the rows between them are read again.
@@ -1010,6 +1041,7 @@ function instancesOver(
       chain: outline.chain,
       pages: useOutlineStore.getState().framePages,
       expansion,
+      references: useOutlineStore.getState().openReferences,
       details: useOutlineStore.getState().frameDetails,
       days: useOutlineStore.getState().frameDays,
       today: todayNow(),
@@ -1086,7 +1118,6 @@ function drawnOpen(
  * The rows of the subtree at row `instanceKey`, as the outline of host `host`
  * draws it all open (`subtreeOf`). It waits only for the queries drawn inside it.
  */
-// GAP [[01M7XP1SNNVNYZKH5GCSW3RH6C]] a node drawn at several places shares one choice
 function subtreeDrawnOpen(
   instanceKey: string,
   host: string,

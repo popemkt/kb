@@ -326,13 +326,15 @@ describe("reference-row bullet click parity", () => {
 
   it("a plain click expands the reference row in place, never zooms", async () => {
     // n.root-a has children and hydrates collapsed.
-    expect(rowClosed("n.root-a")).toBe(true);
+    expect(rowClosed("n.root-a", refKey)).toBe(true);
     const bullet = await renderRefRow();
 
     clickBullet(bullet);
 
     const graph = useGraphStore.getState();
-    expect(rowClosed("n.root-a")).toBe(false);
+    expect(rowClosed("n.root-a", refKey)).toBe(false);
+    // The node's row in the tree is another place: it stays as it was.
+    expect(rowClosed("n.root-a")).toBe(true);
     expect(graph.rootNodeId).toBe(WORKSPACE_ROOT_ID);
   });
 
@@ -343,7 +345,7 @@ describe("reference-row bullet click parity", () => {
 
     const graph = useGraphStore.getState();
     expect(graph.rootNodeId).toBe("n.root-a");
-    expect(rowClosed("n.root-a")).toBe(true);
+    expect(rowClosed("n.root-a", refKey)).toBe(true);
   });
 
   describe("the bullet's menu gesture opens the node menu on its row", () => {
@@ -356,7 +358,7 @@ describe("reference-row bullet click parity", () => {
       const bullet = await renderRefRow();
       fire(bullet, new dom.MouseEvent("contextmenu", { bubbles: true, cancelable: true }) as never);
       expect(isOpenOnRow()).toBe(true);
-      expect(rowClosed("n.root-a")).toBe(true);
+      expect(rowClosed("n.root-a", refKey)).toBe(true);
     });
 
     it("a finger held still opens it, and the click it lifts with lands nowhere", async () => {
@@ -378,7 +380,7 @@ describe("reference-row bullet click parity", () => {
       const elsewhere = new dom.MouseEvent("click", { bubbles: true, cancelable: true });
       container.dispatchEvent(elsewhere as unknown as Event);
       expect(elsewhere.defaultPrevented).toBe(true);
-      expect(rowClosed("n.root-a")).toBe(true);
+      expect(rowClosed("n.root-a", refKey)).toBe(true);
       // Then the page's clicks are its own again.
       act(() => void vi.advanceTimersByTime(400));
       const later = new dom.MouseEvent("click", { bubbles: true, cancelable: true });
@@ -461,7 +463,7 @@ describe("reference-row bullet click parity", () => {
       act(() => void vi.advanceTimersByTime(500));
       clickBullet(bullet);
       expect(useUiStore.getState().nodePaletteOpen).toBe(false);
-      expect(rowClosed("n.root-a")).toBe(false);
+      expect(rowClosed("n.root-a", refKey)).toBe(false);
     });
   });
 });

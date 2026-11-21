@@ -306,7 +306,7 @@ export function saveIdSet(key: string, ids: Set<string>): void {
   }
 }
 
-/** The stored form of an expansion: the ids opened and the ids closed. */
+/** The stored form of an expansion: the places opened and the places closed. */
 const StoredExpansion = Schema.Struct({
   open: Schema.Array(Schema.String),
   closed: Schema.Array(Schema.String),
@@ -314,8 +314,17 @@ const StoredExpansion = Schema.Struct({
 
 const decodeStoredExpansion = Schema.decodeUnknownOption(Schema.fromJsonString(StoredExpansion));
 
+/**
+ * Where a stored choice stands: a place as it is stored, or, for a bare node
+ * id an older build kept a node's one choice under, that node's place in the
+ * outline's tree (`placeOfId`). A place always has a separator; an id never.
+ */
+function storedPlace(key: string, placeOfId: (id: string) => string): string {
+  return key.includes("/") ? key : placeOfId(key);
+}
+
 /** The `{ open, closed }` stored under `kb-expansion`, or null when it is absent or unreadable. */
-function readStoredExpansion(): Map<string, boolean> | null {
+function readStoredExpansion(placeOfId: (id: string) => string): Map<string, boolean> | null {
   let raw: string | null = null;
   try {
     raw = localStorage.getItem(EXPANSION_STORAGE_KEY);
@@ -326,26 +335,27 @@ function readStoredExpansion(): Map<string, boolean> | null {
   const stored = Option.getOrNull(decodeStoredExpansion(raw));
   if (stored === null) return null;
   const expansion = new Map<string, boolean>();
-  for (const id of stored.open) expansion.set(id, true);
-  for (const id of stored.closed) expansion.set(id, false);
+  for (const key of stored.open) expansion.set(storedPlace(key, placeOfId), true);
+  for (const key of stored.closed) expansion.set(storedPlace(key, placeOfId), false);
   return expansion;
 }
 
 /**
  * The expansion kept in storage, shared by every tab: `kb-expansion`, or,
- * while no build has written that, the legacy `kb-expanded` open ids. A read
- * writes nothing.
+ * while no build has written that, the legacy `kb-expanded` open ids. A node
+ * id stored by an older build is read as the node's tree place (`placeOfId`).
+ * A read writes nothing.
  */
-export function loadExpansion(): Expansion {
+export function loadExpansion(placeOfId: (id: string) => string): Expansion {
   return (
-    readStoredExpansion() ??
-    new Map([...loadIdSet(EXPANDED_STORAGE_KEY)].map((id) => [id, true] as const))
+    readStoredExpansion(placeOfId) ??
+    new Map([...loadIdSet(EXPANDED_STORAGE_KEY)].map((id) => [placeOfId(id), true] as const))
   );
 }
 
 /**
- * A tab's changes to its expansion, by id: the choice it now holds, or null
- * where it holds none.
+ * A tab's changes to its expansion, by place: the choice it now holds, or
+ * null where it holds none.
  */
 export type ExpansionChanges = ReadonlyMap<string, boolean | null>;
 
@@ -357,12 +367,13 @@ export type ExpansionChanges = ReadonlyMap<string, boolean | null>;
  */
 export function saveExpansionChanges(
   changes: ExpansionChanges,
-  keeps: (id: string, open: boolean) => boolean,
+  keeps: (place: string, open: boolean) => boolean,
+  placeOfId: (id: string) => string,
 ): void {
-  const stored = new Map(loadExpansion());
-  for (const [id, open] of changes) {
-    if (open === null) stored.delete(id);
-    else stored.set(id, open);
+  const stored = new Map(loadExpansion(placeOfId));
+  for (const [place, open] of changes) {
+    if (open === null) stored.delete(place);
+    else stored.set(place, open);
   }
   const open: string[] = [];
   const closed: string[] = [];

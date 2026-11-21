@@ -475,7 +475,8 @@ re-entry into Mode A. Both modes hold the structure keys a row is
 navigated by: `Cmd+ArrowUp/Down` close or open one level (Mode B:
 `ArrowLeft/Right`), `Cmd+Alt+ArrowDown` / `Cmd+Alt+ArrowUp` (Ctrl+Alt on
 Windows and Linux) open or close the row's whole subtree, every row
-the outline draws under it as it draws them all open: query results
+the outline draws under it, at the place it draws it, as it draws them
+all open: query results
 and references opened in place among them, and a child its view does
 not draw left as it is (each selected row's, over a range),
 `Cmd+.` zooms into the row, and `Cmd+,` zooms out to the page above the
@@ -1061,24 +1062,33 @@ The outline's row asks with the setting's value, and every other view
 that draws a bullet (a card, a table cell, a link row) never asks, because
 its rows do not open in place.
 
-**Expansion is the reader's, per tab.** `expansion` holds a choice per row,
-open or closed, and the references opened in place (Contextual references
-→ A reference in the text opens in place), a row's choice only while the
-reader can undo it: a choice that equals the row's default, or names a row
-that can no longer expand, is dropped (`undoable`), so no row is held
-collapsed with no gesture to open it. A row the graph does not hold now
-keeps its choice, so a row restored by an undo comes back as the reader
-left it. A row shown open stays open when the graph
-gives it children or fields. Each tab keeps its own expansion while it is
+**Expansion is the reader's, per tab.** `expansion` holds a choice per
+place, open or closed. A place is where a row stands in the graph: a row of
+the outline's tree is its path from the workspace root, whichever pane
+draws it, so the main outline and an outline in another pane share it; a
+projected row (a query's result, a reference opened in place) is its own
+key (`placeOfInstance`). A node drawn at several places is open or closed
+at each one on its own: opening a row in the tree leaves the same node
+closed where a query draws it, and Expand subtree opens the places it
+walks, not the node. A choice stays only while the reader can undo it: a
+choice that equals the row's default, or names a row that can no longer
+expand, is dropped (`undoable`), so no row is held collapsed with no
+gesture to open it. A row the graph does not hold now keeps its choice, so
+a row restored by an undo comes back as the reader left it. A row shown
+open stays open when the graph gives it children or fields, at each place
+an outline on screen draws it. Each tab keeps its own expansion while it is
 open, and storage seeds it at load: another tab's choices are read at the
 next load, never merged in by a graph move. Storage is shared, so a save
-applies only the ids this tab changed onto what storage holds at that moment
-(`saveExpansionChanges`), never a snapshot of the tab's, and drops stored
-choices that are no longer undoable on the way. A load writes nothing. The
-stored form is one key, `kb-expansion`, holding `{ open, closed }` and
-written in one `setItem`. While it is absent, the legacy `kb-expanded` (open
-ids) is read in its place. The legacy key is never written or deleted, so a
-tab on an older build still reads it.
+applies only the places this tab changed onto what storage holds at that
+moment (`saveExpansionChanges`), never a snapshot of the tab's, and drops
+stored choices that are no longer undoable on the way. A load writes
+nothing. The stored form is one key, `kb-expansion`, holding
+`{ open, closed }` and written in one `setItem`. A place has a separator
+and a node id never does, so a bare id an older build stored there, a
+node's one choice, is read as the node's place in the tree, and the next
+save stores it so. While the key is absent, the legacy `kb-expanded` (open
+ids, read the same way) is read in its place. The legacy key is never
+written or deleted, so a tab on an older build still reads it.
 
 **A row depends on what it reads, not on the graph.** The page holds the
 graph as whole values — the outline's rows (`outlineNodes`), and the graph
@@ -1482,17 +1492,20 @@ and its own tint).
   one.
 
 Which references are open is the reader's, held in the outline's
-expansion (Outline editor → Expansion is the reader's, per tab) beside
-each row's open or closed choice, under the projected row's key. Like
-those choices, it is one tab's and never undone. Unlike them, it is not
-stored, and it is dropped once the row's text no longer names the
-reference. A reference opens only under a row of the outline's own tree.
-Under a projected row, or a row inside one, Alt-click follows as a plain
-click does, so two references that name each other cannot open into
-each other forever. The same node in two places shares its open
-references, as a query's results do (GAP [[01M411FPC839XBJJ873V1VYYYD]]). An opened reference draws its target open or closed as the target's own
-choice is, since a choice is per node, rather than open one level by
-default (GAP [[01M7D8AP4A4W6S2X5T1DSE9D77]]).
+`openReferences` under the projected row's key, apart from the rows'
+open or closed choices (Outline editor → Expansion is the reader's, per
+tab): that key is also the place of the target's row, and opening or
+closing that row leaves the reference open. Like those choices, it is
+one tab's and never undone. Unlike them, it is not stored, and it is
+dropped once the row's text no longer names the reference. A reference
+opens only under a row of the outline's own tree. Under a projected row,
+or a row inside one, Alt-click follows as a plain click does, so two
+references that name each other cannot open into each other forever.
+The same node in two places shares its open references, as a query's
+results do (GAP [[01M411FPC839XBJJ873V1VYYYD]]). An opened reference
+draws its target at its own place, closed when the target is collapsed
+by default, rather than open one level by default
+(GAP [[01M7D8AP4A4W6S2X5T1DSE9D77]]).
 
 **Remove reference…** (⌘K, the node menu's make group) turns a reference
 in the row's text back into plain text, as `refName` reads it (DESIGN.md

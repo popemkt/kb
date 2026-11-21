@@ -30,10 +30,17 @@ export function childInstanceKey(parentKey: string, nodeId: string): string {
 
 /**
  * The place a row instance stands at, which its open or closed choice is
- * kept under (`isRowOpen`).
+ * kept under (`isRowOpen`): where in the graph it is drawn, whatever pane
+ * draws it. A row of an outline's walk of the tree stands at its path, under
+ * the canonical host whichever host walks it; a projected instance (a query's
+ * result, a reference opened in place, and every row under one) at its own
+ * key, which already names its source rather than its host. So a node drawn
+ * at two places keeps two choices, and one place open in two panes keeps one.
  */
 export function placeOfInstance(instanceKey: string): string {
-  return nodeOfInstance(instanceKey);
+  if (isProjectedInstance(instanceKey)) return instanceKey;
+  const cut = instanceKey.indexOf("/");
+  return cut < 0 ? instanceKey : `${MAIN_OUTLINE_HOST}${instanceKey.slice(cut)}`;
 }
 
 /** The node a row instance draws: the last segment of its key. */

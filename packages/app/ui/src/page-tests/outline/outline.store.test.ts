@@ -2,7 +2,7 @@ import { beforeAll, afterAll, beforeEach, describe, expect, it, vi } from "vites
 import { present } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { outlineInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
-import { resetOutlineStore, rowClosed } from "@/test-support/outline-store";
+import { resetOutlineStore, rowClosed, rowKey } from "@/test-support/outline-store";
 import { useUiStore } from "@/stores/ui.store";
 import { useGraphStore } from "@/stores/graph.store";
 import { pageGraph } from "@/stores/graph-read";
@@ -129,7 +129,7 @@ describe("outline store (WireNode adaptation)", () => {
 
   it("toggleCollapse expands to show direct children (nested stay collapsed)", () => {
     seed();
-    useOutlineStore.getState().toggleCollapse("n.root-a");
+    useOutlineStore.getState().toggleCollapse(rowKey("n.root-a"));
     expect(useOutlineStore.getState().getVisibleNodes()).toEqual([
       "lens.all-mentions",
       "n.root-a",
@@ -138,7 +138,7 @@ describe("outline store (WireNode adaptation)", () => {
       "n.root-b",
       "n.root-c",
     ]);
-    useOutlineStore.getState().toggleCollapse("n.root-a");
+    useOutlineStore.getState().toggleCollapse(rowKey("n.root-a"));
     expect(useOutlineStore.getState().getVisibleNodes()).toEqual([
       "lens.all-mentions",
       "n.root-a",
@@ -154,13 +154,13 @@ describe("outline store (WireNode adaptation)", () => {
 
   it("toggleCollapse expands field-only nodes", () => {
     seed();
-    useOutlineStore.getState().toggleCollapse("n.root-b");
+    useOutlineStore.getState().toggleCollapse(rowKey("n.root-b"));
     expect(rowClosed("n.root-b")).toBe(false);
   });
 
   it("does nothing when toggling a leaf without fields or children", () => {
     seed();
-    useOutlineStore.getState().toggleCollapse("n.root-c");
+    useOutlineStore.getState().toggleCollapse(rowKey("n.root-c"));
     expect(rowClosed("n.root-c")).toBe(false);
   });
 
@@ -222,7 +222,7 @@ describe("outline store (WireNode adaptation)", () => {
 
   it("getPrevious / getNext respect collapsed subtrees", () => {
     seed();
-    useOutlineStore.getState().toggleCollapse("n.root-a");
+    useOutlineStore.getState().toggleCollapse(rowKey("n.root-a"));
     const s = useOutlineStore.getState();
     const aKey = outlineInstanceKey("n.root-a", outlineNodes());
     const bKey = outlineInstanceKey("n.root-b", outlineNodes());
@@ -261,7 +261,7 @@ describe("outline store (WireNode adaptation)", () => {
 
     it("preserves collapse state across deltas", () => {
       seed();
-      useOutlineStore.getState().toggleCollapse("n.root-a");
+      useOutlineStore.getState().toggleCollapse(rowKey("n.root-a"));
       expect(rowClosed("n.root-a")).toBe(false);
       useGraphStore.getState().applyTx([wire("n.new", "x")], [], { rev: 2 });
       expect(rowClosed("n.root-a")).toBe(false);

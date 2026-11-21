@@ -386,14 +386,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Each listed body returns its write instead of voiding it (commands.tsx is WP-5's file, chart-ui and command-forms are shared), and view.propose becomes a planned write in mutations (WP-4's), so its view node is made and undone as any page write.
 - **node** — `01M7XSNFCYHHYD7VKTZXPYG60B`
 
-### GAP: a node drawn at several places shares one open or closed choice
-
-- **expected** — Each place a node is drawn (a row instance: under its parent, as a query result, under a reference) keeps its own open or closed choice, so opening or closing one row's subtree changes only the rows drawn under it
-- **current** — The outline's expansion is one choice per node id (toggleCollapse, withExpansion, openRows): the subtree keys open or close each node they reach, so the same node drawn elsewhere (in the tree, under another query, in another pane) opens or closes with it
-- **impact** — ⌘⌥↓ on a query, a reference or a row whose descendants also appear elsewhere opens those rows everywhere, and ⌘⌥↑ closes them everywhere; Expand all and Collapse all do the same over the scope
-- **closes** — Expansion keyed by row instance where a row's choice can differ from its node's, as GAP: a reference opened in place shows its target as the target's own open or closed choice asks for references opened in place; the subtree keys then write the instances subtreeOf found
-- **node** — `01M7XP1SNNVNYZKH5GCSW3RH6C`
-
 ### GAP: a number knob's range is the declaration's, not data on its field node
 
 - **expected** — A knob field carries its own range and step as data, so every surface that writes it (kb set, node.update, the field editor) refuses a value outside them, as it refuses a value of the wrong type.
@@ -466,12 +458,12 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — An instance key for a value slot so the target's children can render under it, then the bullet toggles expansion like a row bullet.
 - **node** — `01M3KA38YPZZFKQRZM9ZP6C99F`
 
-### GAP: a reference opened in place shows its target as the target's own open or closed choice
+### GAP: a reference opened in place shows its target closed when the target is collapsed by default
 
 - **expected** — Opening a reference in place shows its target open one level by default, as screen state of that open reference alone, never stored
-- **current** — The outline's expansion is one choice per node (toggleCollapse, withExpansion): the opened reference draws its target open or closed as every row of that node is, so a target closed in the tree opens closed (visible-instances.ts)
-- **impact** — To read or edit what the target holds, the reader opens it once more, and that opens it in the tree too, and is saved as the node's choice
-- **closes** — Expansion keyed by row instance where a row's choice can differ from its node's (projected rows first), so an opened reference can default open without touching the node's choice
+- **current** — Expansion is a choice per place, and an opened reference draws its target at its own place (ref:row:<row>/<target>), whose default is the target's own: a target with children or fields opens closed (visible-instances.ts, isRowOpen)
+- **impact** — To read or edit what the target holds, the reader opens it once more at that place; the tree and storage are untouched, but the second gesture remains
+- **closes** — A default per place: a reference opened in place defaults its target's row open (isRowOpen reads the place's default before the node's), with the undoable rule judging a choice against that default
 - **node** — `01M7D8AP4A4W6S2X5T1DSE9D77`
 
 ### GAP: a reference's target cannot be changed from the UI
@@ -2536,6 +2528,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A 'Move to…' palette step that picks the new parent, and row drag and drop, both through node.move.
 - **rule** — Editor first (the editor is the main human editing surface)
 - **node** — `01M5CRYPQ3CGJKP20TQFADPRH1`
+
+### GAP: a node drawn at several places shares one open or closed choice
+
+- **expected** — Each place a node is drawn (a row instance: under its parent, as a query result, under a reference) keeps its own open or closed choice, so opening or closing one row's subtree changes only the rows drawn under it
+- **current** — The outline's expansion is one choice per node id (toggleCollapse, withExpansion, openRows): the subtree keys open or close each node they reach, so the same node drawn elsewhere (in the tree, under another query, in another pane) opens or closes with it
+- **impact** — ⌘⌥↓ on a query, a reference or a row whose descendants also appear elsewhere opens those rows everywhere, and ⌘⌥↑ closes them everywhere; Expand all and Collapse all do the same over the scope
+- **closes** — Expansion keyed by row instance where a row's choice can differ from its node's, as GAP: a reference opened in place shows its target closed when the target is collapsed by default asks for references opened in place; the subtree keys then write the instances subtreeOf found
+- **node** — `01M7XP1SNNVNYZKH5GCSW3RH6C`
 
 ### GAP: a node's title reaches its row, ref values, search and the picker, not every place the page names a node
 
