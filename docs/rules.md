@@ -1248,14 +1248,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The store list and the capture path ask the remote's kb.manifest (with the device credential) for captureContract, update accepts, and show waiting or paused states as Android does.
 - **node** — `01M7WZGP3B84JK08R43Y642C7N`
 
-### GAP: kb desktop resolves its kb once, at launch
-
-- **expected** — The desktop notices when the kb it runs stops answering (or a better one appears) and resolves again, without a restart.
-- **current** — packages/app/desktop/src/shell/electrobun/index.ts probes the candidates once at launch and keeps the choice for the life of the process.
-- **impact** — A kb installed, rebuilt or removed while the app runs is not seen until the person quits and reopens kb; the store list then says the kb could not run, and the advice says to reopen.
-- **closes** — KbCli resolves lazily and re-resolves after a run that failed without a receipt, behind the same KbRunner port.
-- **node** — `01M7WV5D06HSMA1JFBBRGE0B13`
-
 ### GAP: kb desktop stamps build-machine paths into the app
 
 - **expected** — A built app carries no path of the machine or checkout it was built on; a kb for it is bundled or installed.
@@ -3032,6 +3024,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — On a Mac whose installed kb is an older nightly, a release build runs it ahead of a newer checkout kb, so capture to local stores fails until the installed kb is updated or "kb" is set.
 - **closes** — kb --version (or a capabilities action) reports the contract versions it serves, and the probe requires the capture contract the desktop speaks.
 - **node** — `01M7WV5DBWNMEWS2QG6M4VP3QY`
+
+### GAP: kb desktop resolves its kb once, at launch
+
+- **expected** — The desktop notices when the kb it runs stops answering (or a better one appears) and resolves again, without a restart.
+- **current** — packages/app/desktop/src/shell/electrobun/index.ts probes the candidates once at launch and keeps the choice for the life of the process.
+- **impact** — A kb installed, rebuilt or removed while the app runs is not seen until the person quits and reopens kb; the store list then says the kb could not run, and the advice says to reopen.
+- **closes** — KbCli resolves lazily and re-resolves after a run that failed without a receipt, behind the same KbRunner port.
+- **node** — `01M7WV5D06HSMA1JFBBRGE0B13`
 
 ### GAP: kb mutation skipped saving its baseline after a report failure
 

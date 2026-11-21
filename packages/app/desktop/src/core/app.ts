@@ -17,7 +17,7 @@ import type { DesktopConfig } from "./config.ts";
 import { startControlServer, type ControlActions, type ControlServer } from "./control.ts";
 import { nodePagePath, parseDeepLink } from "./deep-link.ts";
 import type { FocusReturn } from "./focus.ts";
-import { describeKb, type KbInUse } from "./kb-command.ts";
+import { describeKb, type KbRunner } from "./kb-command.ts";
 import { CaptureClient, DeviceSettings, DesktopShell, FocusKeeper, KbCli } from "./services.ts";
 import type { MenuEntry, Shell, ShellWindow, WindowFrame } from "./shell.ts";
 import { findStore, StoreDirectory, StoreError, type Store, type Stores } from "./stores.ts";
@@ -103,8 +103,8 @@ interface Ctx {
   readonly shell: Shell;
   readonly config: DesktopConfig;
   readonly stores: Stores;
-  /** The kb the store list runs, which the list names. */
-  readonly kb: KbInUse;
+  /** Which kb the store list runs now, which the list names. */
+  readonly kb: KbRunner["inUse"];
   readonly focus: FocusReturn;
   readonly submit: SubmitCapture;
   readonly windows: Map<string, StoreWindow>;
@@ -391,10 +391,12 @@ function pageActions(ctx: Ctx, w: Windows, c: Capture): ControlActions {
         problem: "",
       })),
       Effect.catch((err: StoreError) => Effect.succeed({ stores: [], problem: err.message })),
-      Effect.map((listed) => ({
+      // Read after the list, which resolves the kb when it must.
+      Effect.zip(ctx.kb),
+      Effect.map(([listed, inUse]) => ({
         ...listed,
-        kb: describeKb(ctx.kb.kb),
-        passedOver: ctx.kb.skipped.map(({ kb, why }) => `${describeKb(kb)}: ${why}`),
+        kb: inUse.kb === null ? "none that runs" : describeKb(inUse.kb),
+        passedOver: inUse.skipped.map(({ kb, why }) => `${describeKb(kb)}: ${why}`),
         captureStore: config.settings.captureStore ?? "",
         hotkey: config.settings.hotkey,
       })),

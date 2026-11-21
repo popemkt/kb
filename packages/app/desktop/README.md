@@ -24,9 +24,9 @@ open build/*/kb.app    # unsigned, so the first open may need right-click → Op
 The first build downloads Electrobun's macOS core (about 50 MB) from its
 GitHub release into `node_modules/electrobun`.
 
-**Which kb it runs.** The app does not include kb. At launch it tries
-these in order and runs the first whose `kb --version --json` names the
-wire protocol the app was built with:
+**Which kb it runs.** The app does not include kb. When a command first
+needs one, it tries these in order and runs the first whose
+`kb --version --json` names the wire protocol the app was built with:
 
 1. `"kb"` in `settings.json` (see below)
 2. `KB_DESKTOP_KB`
@@ -45,9 +45,15 @@ version alone and is passed over as older. The protocol is the one a page
 and its server must agree on (DESIGN-UI.md → Delivery); it covers
 `capture.submit` and `capture.pair`, so a kb that is chosen has the capture
 calls this app makes. The ones passed over, and why, are logged and listed
-under the store list, which also names the kb in use. When none answers, the app says which it tried and quits. A
-kb you named (1 or 2) that is missing is reported the same way, rather than
-skipped in silence.
+under the store list, which also names the kb in use. A kb you named (1 or 2) that is missing is reported the same way, rather than skipped in silence.
+
+The app keeps the kb it chose while the places above stay as they were. A
+kb installed, updated or removed at one of them, or a command that ends
+without a receipt, makes it choose again at the next command, so there is
+nothing to restart. When the kb that ran the command is the one passed over
+then, it stopped answering, and the kb chosen in its place runs the
+command. When no kb answers, the app still starts: the store list says
+which kbs it tried and why, and every command looks again.
 
 Why a stable build runs the installed kb before the checkout's: a stable
 build is the app you use every day, and the installed kb is the one you
@@ -157,9 +163,8 @@ offset), source: {app: "kb desktop"}, text}`. The host maps the text to
   store list in WKWebView, with the installed kb and with the checkout's
   kb on the build's Bun. The tray, `open-url`, dock reopen and focus return
   are not run there yet.
-- **Which kb runs.** It is resolved once, at launch
-  (GAP `01M7WV5D06HSMA1JFBBRGE0B13`). The checkout and Bun paths a build records are those of the build machine
-  (GAP `01M7WV5DQDNMQMR9QYJN839TNJ`).
+- **Which kb runs.** The checkout and Bun paths a build records are those
+  of the build machine (GAP `01M7WV5DQDNMQMR9QYJN839TNJ`).
 - **The capture wire is declared twice.** The capture envelope and the
   `capture.pair` answer are written out in `src/core/capture.ts`, matching
   `@kb/contracts` by hand (GAP `01M7QTTTHGVFE32XRVV96A696K`).

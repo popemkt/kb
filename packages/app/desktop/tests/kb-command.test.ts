@@ -233,7 +233,14 @@ describe("a kb that execs bun, from an app with a bare PATH", () => {
       runtimes: [bun],
     });
     expect(await Effect.runPromise(processProbe(env)(kb))).toBeNull();
-    const runner = kbProcessRunner({ kb, skipped: [] }, { env, settingsFile: "/s.json" });
+    const runner = await Effect.runPromise(
+      kbProcessRunner({
+        candidates: () => [kb],
+        probe: processProbe(env),
+        env,
+        settingsFile: "/s.json",
+      }),
+    );
     expect(await Effect.runPromise(runner.run(dir, ["locations"]))).toEqual({
       status: "succeeded",
       output: { rows: [] },
@@ -256,20 +263,123 @@ describe("a kb that execs bun, from an app with a bare PATH", () => {
     expect(dev.skipped.map((s) => s.kb)).toEqual([{ source: "checkout", file: checkout }]);
     expect(dev.skipped[0]?.why).toContain("exited 127");
   });
+});
 
-  test("a kb that fails without a receipt names itself and the setting that fixes it", async () => {
-    const dir = scratchDir();
-    const kb: KbCandidate = { source: "checkout", file: script(join(dir, "kb"), NEEDS_BUN) };
-    const env = kbEnvironment({ path: BARE, home: join(dir, "home"), user: undefined });
-    const runner = kbProcessRunner(
-      { kb, skipped: [] },
-      { env, settingsFile: "/Users/a/kb-desktop/settings.json" },
+/** What a kb that answers this app's probe prints for a command: a receipt, unless `broken` exists. */
+function workingKb(dir: string, name: string, broken = join(dir, `${name}.broken`)): string {
+  const log = join(dir, `${name}.log`);
+  return script(
+    join(dir, name, "kb"),
+    [
+      `[ -e '${broken}' ] && { echo "bun: not found" >&2; exit 127; }`,
+      `case "$1" in --version) ${speaks(WIRE_PROTOCOL)} ;; *) echo "$*" >>'${log}'; echo '{"status":"succeeded","output":{"by":"${name}"}}' ;; esac`,
+    ].join("\n"),
+  );
+}
+
+describe("the kb a runner runs", () => {
+  const SETTINGS = "/Users/a/kb-desktop/settings.json";
+  const env = kbEnvironment({ path: BARE, home: "/nonexistent", user: undefined });
+
+  /** A runner over `candidates`, counting the probes it makes. */
+  async function runner(candidates: () => readonly KbCandidate[]) {
+    const probed: string[] = [];
+    const probe: KbProbe = (kb) => {
+      probed.push(kb.file);
+      return processProbe(env)(kb);
+    };
+    const kb = await Effect.runPromise(
+      kbProcessRunner({ candidates, probe, env, settingsFile: SETTINGS }),
     );
-    const receipt = await Effect.runPromise(runner.run(dir, ["locations"]));
+    return {
+      probed,
+      inUse: () => Effect.runPromise(kb.inUse),
+      run: (args: readonly string[]) => Effect.runPromise(kb.run("/root", args)),
+    };
+  }
+
+  test("resolves when it is first asked, and keeps its choice while the candidates stay", async () => {
+    const dir = scratchDir();
+    const a: KbCandidate = { source: "path", file: workingKb(dir, "a") };
+    const kb = await runner(() => [a]);
+    expect(kb.probed).toEqual([]);
+    expect(await kb.run(["locations"])).toEqual({ status: "succeeded", output: { by: "a" } });
+    expect(await kb.run(["locations"])).toEqual({ status: "succeeded", output: { by: "a" } });
+    expect(await kb.inUse()).toEqual({ kb: a, skipped: [] });
+    expect(kb.probed).toEqual([a.file]);
+  });
+
+  test("a kb that stops answering is passed over at the run it fails, which the next kb runs", async () => {
+    const dir = scratchDir();
+    const a: KbCandidate = { source: "setting", file: workingKb(dir, "a") };
+    const b: KbCandidate = { source: "path", file: workingKb(dir, "b") };
+    const kb = await runner(() => [a, b]);
+    expect(await kb.run(["locations"])).toEqual({ status: "succeeded", output: { by: "a" } });
+    writeFileSync(join(dir, "a.broken"), "");
+    expect(await kb.run(["locations"])).toEqual({ status: "succeeded", output: { by: "b" } });
+    const now = await kb.inUse();
+    expect(now.kb).toEqual(b);
+    expect(now.skipped.map((s) => s.kb)).toEqual([a]);
+    expect(now.skipped[0]?.why).toContain("exited 127");
+  });
+
+  test("a kb that appears ahead of the one in use is run from the next run on", async () => {
+    const dir = scratchDir();
+    const a: KbCandidate = { source: "setting", file: join(dir, "a", "kb") };
+    const b: KbCandidate = { source: "path", file: workingKb(dir, "b") };
+    const kb = await runner(() => [a, b]);
+    expect(await kb.run(["locations"])).toEqual({ status: "succeeded", output: { by: "b" } });
+    workingKb(dir, "a");
+    expect(await kb.run(["locations"])).toEqual({ status: "succeeded", output: { by: "a" } });
+    expect(await kb.inUse()).toEqual({ kb: a, skipped: [] });
+  });
+
+  test("with no kb that runs, a run says what it tried and what to do, and the next run looks again", async () => {
+    const dir = scratchDir();
+    const a: KbCandidate = { source: "setting", file: join(dir, "a", "kb") };
+    const kb = await runner(() => [a]);
+    const none = await kb.run(["locations"]);
+    expect(none.status).toBe("failed");
+    const message = none.status === "failed" ? none.message : "";
+    expect(message).toContain("kb desktop found no kb that runs");
+    expect(message).toContain(`${a.file} ("kb" in settings.json): there is no file at ${a.file}`);
+    expect(message).toContain(`Set "kb" in ${SETTINGS}`);
+    expect((await kb.inUse()).kb).toBeNull();
+    workingKb(dir, "a");
+    expect(await kb.run(["locations"])).toEqual({ status: "succeeded", output: { by: "a" } });
+  });
+
+  test("a kb that fails a command without a receipt but still answers is named, and not run twice", async () => {
+    const dir = scratchDir();
+    const file = script(
+      join(dir, "a", "kb"),
+      `case "$1" in --version) ${speaks(WIRE_PROTOCOL)} ;; *) echo "$*" >>'${dir}/a.log'; echo "bun: not found" >&2; exit 127 ;; esac`,
+    );
+    const a: KbCandidate = { source: "checkout", file };
+    const kb = await runner(() => [a]);
+    const receipt = await kb.run(["locations"]);
     expect(receipt.status).toBe("failed");
     const message = receipt.status === "failed" ? receipt.message : "";
     expect(message).toStartWith("kb exited 127:");
-    expect(message).toContain(`It ran ${kb.file} (the checkout the app was built from).`);
-    expect(message).toContain('Set "kb" in /Users/a/kb-desktop/settings.json');
+    expect(message).toContain(`It ran ${file} (the checkout the app was built from).`);
+    expect(message).toContain(`Set "kb" in ${SETTINGS}`);
+    expect(await Bun.file(join(dir, "a.log")).text()).toBe("--root /root locations --json\n");
+    expect(kb.probed).toEqual([file, file]);
+  });
+
+  test("a command that fails with a receipt is the kb's answer, and keeps the kb", async () => {
+    const dir = scratchDir();
+    const file = script(
+      join(dir, "a", "kb"),
+      `case "$1" in --version) ${speaks(WIRE_PROTOCOL)} ;; *) echo '{"status":"failed","code":"not_found","message":"no such store"}' ;; esac`,
+    );
+    const kb = await runner(() => [{ source: "path", file }]);
+    expect(await kb.run(["open", "x"])).toEqual({
+      status: "failed",
+      code: "not_found",
+      message: "no such store",
+    });
+    await kb.run(["open", "x"]);
+    expect(kb.probed).toEqual([file]);
   });
 });

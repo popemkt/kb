@@ -6,9 +6,9 @@
  * kb's runtime: the kb it runs is whichever this machine has pinned, and the
  * app and kb update independently.
  */
-import { existsSync, realpathSync } from "node:fs";
+import { existsSync, realpathSync, statSync } from "node:fs";
 import { delimiter, dirname, join, resolve } from "node:path";
-import { Effect, Option, Schema } from "effect";
+import { Effect, Option, Result, Schema, SynchronizedRef } from "effect";
 import { childProcessEnv } from "@kb/child-process";
 import { KbVersionSchema, WIRE_PROTOCOL } from "@kb/contracts";
 
@@ -87,10 +87,11 @@ export function describeKb(kb: KbCandidate): string {
 
 /**
  * What to do when the desktop's kb cannot run, said once: name a kb that
- * runs in the settings. The app resolves its kb at launch, so it applies
- * after a reopen.
+ * runs in the settings. The app reads its settings at launch, so the
+ * setting applies after a reopen; a kb installed where the app looks is
+ * seen at the next command (`kbProcessRunner`).
  */
-export function kbAdvice(settingsFile: string): string {
+function kbAdvice(settingsFile: string): string {
   return `Set "kb" in ${settingsFile} to the full path of a kb that runs (in a terminal, \`command -v kb\` prints one), then quit and reopen kb.`;
 }
 
@@ -167,7 +168,7 @@ interface SkippedKb {
 }
 
 /** The kb the desktop runs, and the candidates before it that could not run. */
-export interface KbInUse {
+interface KbInUse {
   readonly kb: KbCandidate;
   readonly skipped: readonly SkippedKb[];
 }
@@ -292,57 +293,116 @@ const decodeReceipt = Schema.decodeUnknownOption(Schema.fromJsonString(ReceiptSc
 
 /** Runs one-shot kb commands. A port, so the core is tested without a kb. */
 export interface KbRunner {
-  /** Which kb runs the commands, so the store list can say so. */
-  readonly inUse: KbInUse;
+  /** Which kb runs the commands now, or none and why, so the store list can say so. */
+  readonly inUse: Effect.Effect<KbChoice>;
   /** `kb --root <root> <args…> --json`, read as a receipt; a kb that cannot run is a failed one. */
   run(root: string, args: readonly string[]): Effect.Effect<Receipt>;
 }
 
-/**
- * The receipt a `--json` command printed (one JSON object), or why there is
- * none, followed by `context`: which kb ran and what to do about it.
- */
-function receiptOf(stdout: string, stderr: string, code: number, context: string): Receipt {
-  return Option.getOrElse(decodeReceipt(stdout), () => ({
-    status: "failed",
-    code: "internal",
-    message: `kb exited ${code}: ${tailOf({ stdout, stderr, code, timedOut: false })}. ${context}`,
-  }));
+/** Why no kb runs the commands: each kb tried and why it could not run, and what to do. */
+export function noKbMessage(skipped: readonly SkippedKb[], settingsFile: string): string {
+  return [
+    skipped.length === 0 ? "kb desktop found no kb." : "kb desktop found no kb that runs:",
+    ...skipped.map(({ kb, why }) => `• ${describeKb(kb)}: ${why}`),
+    `Install kb, or: ${kbAdvice(settingsFile)}`,
+  ].join("\n");
 }
 
 /**
- * The runner over a real kb, in `env` (`kbEnvironment`). A kb that does not
- * answer with a receipt is a failure that names the kb that ran and says
- * what to do (`kbAdvice` over `settingsFile`).
+ * The candidates as they are on disk: each file, the file it leads to and
+ * when that last changed. A choice holds while this does, so a kb
+ * installed, updated or removed at any candidate's place is resolved again.
  */
-export function kbProcessRunner(
-  inUse: KbInUse,
-  options: {
-    readonly env: Readonly<Record<string, string>>;
-    readonly settingsFile: string;
-    readonly timeoutMs?: number;
-  },
-): KbRunner {
+function candidatesKey(candidates: readonly KbCandidate[]): string {
+  return JSON.stringify(
+    candidates.map(({ source, file }) => {
+      const stat = statSync(file, { throwIfNoEntry: false });
+      return [source, file, stat === undefined ? null : [realpathSync(file), stat.mtimeMs]];
+    }),
+  );
+}
+
+/** A command that ended without the kb's own receipt, as one. */
+function failed(message: string): Receipt {
+  return { status: "failed", code: "internal", message };
+}
+
+/** A choice, and the candidates it was made from (`candidatesKey`). */
+interface Resolved {
+  readonly key: string;
+  readonly choice: KbChoice;
+}
+
+/** The kb that ran a command and gave no receipt, and why. */
+interface NoReceipt {
+  readonly kb: KbCandidate;
+  readonly why: string;
+}
+
+/**
+ * The runner over real processes, in `env` (`kbEnvironment`). It resolves
+ * its kb (`resolveKb` over `candidates()` and `probe`) when first asked, and
+ * keeps the choice while it found a kb and the candidates on disk stay as
+ * they were (`candidatesKey`). A command that ends without a receipt
+ * resolves again: when that passes over the kb that ran it, the kb stopped
+ * answering and the command did not run, so the kb now chosen runs it. A
+ * failure names the kb that ran and says what to do (`kbAdvice` over
+ * `settingsFile`). So a kb installed, rebuilt or removed while the app runs
+ * is seen at the next command, without a restart.
+ */
+export const kbProcessRunner = Effect.fn("kb.desktop.kb.runner")(function* (options: {
+  readonly candidates: () => readonly KbCandidate[];
+  readonly probe: KbProbe;
+  readonly env: Readonly<Record<string, string>>;
+  readonly settingsFile: string;
+  readonly timeoutMs?: number;
+}) {
   const timeout = options.timeoutMs ?? 60_000;
-  const context = `It ran ${describeKb(inUse.kb)}. ${kbAdvice(options.settingsFile)}`;
-  return {
-    inUse,
-    run: Effect.fn("kb.desktop.kb.run")(
-      function* (root: string, args: readonly string[]) {
-        const finished = yield* runToEnd(
-          [inUse.kb.file, "--root", root, ...args, "--json"],
-          options.env,
-          timeout,
-        );
-        return receiptOf(finished.stdout, finished.stderr, finished.code, context);
-      },
-      Effect.catch((why: string) =>
-        Effect.succeed<Receipt>({
-          status: "failed",
-          code: "internal",
-          message: `kb could not run: ${why}. ${context}`,
+  const resolved = yield* SynchronizedRef.make<Resolved | null>(null);
+  const current = SynchronizedRef.modifyEffect(resolved, (held) =>
+    Effect.suspend(() => {
+      const candidates = options.candidates();
+      const key = candidatesKey(candidates);
+      if (held !== null && held.choice.kb !== null && held.key === key)
+        return Effect.succeed([held.choice, held] as const);
+      return Effect.map(
+        resolveKb(candidates, options.probe),
+        (choice) => [choice, { key, choice }] as const,
+      );
+    }),
+  );
+
+  /** One run of the command by `kb`: its receipt, or why it gave none. */
+  const attempt = (kb: KbCandidate, root: string, args: readonly string[]) =>
+    runToEnd([kb.file, "--root", root, ...args, "--json"], options.env, timeout).pipe(
+      Effect.mapError((why): NoReceipt => ({ kb, why: `kb could not run: ${why}` })),
+      Effect.flatMap((finished) =>
+        Option.match(decodeReceipt(finished.stdout), {
+          onSome: (receipt) => Effect.succeed(receipt),
+          onNone: () =>
+            Effect.fail<NoReceipt>({ kb, why: `kb exited ${finished.code}: ${tailOf(finished)}` }),
         }),
       ),
-    ),
-  };
-}
+    );
+
+  const unanswered = ({ kb, why }: NoReceipt) =>
+    failed(`${why}. It ran ${describeKb(kb)}. ${kbAdvice(options.settingsFile)}`);
+
+  const run = Effect.fn("kb.desktop.kb.run")(function* (root: string, args: readonly string[]) {
+    const choice = yield* current;
+    if (choice.kb === null) return failed(noKbMessage(choice.skipped, options.settingsFile));
+    const first = yield* Effect.result(attempt(choice.kb, root, args));
+    if (Result.isSuccess(first)) return first.success;
+    yield* SynchronizedRef.set(resolved, null);
+    const again = yield* current;
+    const ran = first.failure.kb;
+    if (!again.skipped.some(({ kb }) => kb.file === ran.file)) return unanswered(first.failure);
+    if (again.kb === null) return failed(noKbMessage(again.skipped, options.settingsFile));
+    return yield* attempt(again.kb, root, args).pipe(
+      Effect.catch((noReceipt: NoReceipt) => Effect.succeed(unanswered(noReceipt))),
+    );
+  });
+
+  const runner: KbRunner = { inUse: current, run };
+  return runner;
+});
