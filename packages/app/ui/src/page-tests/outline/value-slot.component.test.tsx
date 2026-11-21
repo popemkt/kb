@@ -563,11 +563,11 @@ describe("a number value reads in the locale", () => {
     container.remove();
   });
 
-  async function mountNumber(v: number) {
+  async function mountNumber(v: number | null) {
     await act(async () => {
       root.render(
         createElement(ValueSlot, {
-          value: { t: "num", v },
+          value: v === null ? null : { t: "num", v },
           fieldType: "number",
           fieldId: "f.estimate",
           context,
@@ -599,6 +599,18 @@ describe("a number value reads in the locale", () => {
       slot.click();
     });
     expect(editable().textContent).toBe(numberEditText(1234567.5));
+  });
+
+  it("reads as empty while it holds no number, and opens on a blank input", async () => {
+    const slot = await mountNumber(null);
+    expect(editable().textContent).toBe("");
+    expect(editable().className).toContain("empty-placeholder");
+    await act(async () => {
+      slot.click();
+    });
+    expect(editable().textContent).toBe("");
+    await typeAndLeave("7");
+    expect(committed).toEqual([{ t: "num", v: 7 }]);
   });
 
   it("reads typing in the locale's separators, grouping ignored", async () => {

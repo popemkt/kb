@@ -686,6 +686,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A field shown with no value is a first-class state the slot draws (an opened-but-empty field), so Add field writes no placeholder value; or the store accepts an empty ref as no value.
 - **node** — `01M7WVNN93MWQ3FYK5J86P6ASD`
 
+### GAP: Add field writes 0 to make a number field's row appear
+
+- **expected** — Adding a field shows its row with an empty slot, for every type, and writes no value the person did not give.
+- **current** — A field row appears only while the node holds a value for it, so Add field writes the type's initial value (FIELD_TYPE_SPEC.initial). For number that is 0, since an empty string is not a value a number field stores; the slot then reads 0 rather than empty.
+- **impact** — A number field added and left alone holds a 0 the person never entered, and it counts in queries, sums and filters.
+- **closes** — A field row that can exist without a value (a declared-but-empty field on the node, as data), so Add field writes nothing; then drop FieldTypeSpec.initial.
+- **node** — `01M7YW0HJFHQ08HTGBBW1EWYER`
+
 ### GAP: admission bundles an extension's page half but never imports or decodes it
 
 - **expected** — kb ext validate refuses a repository extension whose page half would fail in the page: it imports the bundled page half in a page-like environment and decodes its page surface as the page does, so a page half that loads but contributes wrongly fails the gate.
@@ -718,14 +726,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — browser agents cannot use approval-required actions
 - **closes** — an in-page approval prompt shared with the sidebar agent (roadmap step 5)
 - **node** — `01M3S5DDJ7MP2VZ4WJB007RRR5`
-
-### GAP: an empty number slot draws its editor starter, 0, as if it were a value
-
-- **expected** — an empty number field reads as empty (the italic "Empty" a status or text slot shows), and the editor opens on a blank input
-- **current** — the number kind starts its editor from {t:num, v:0} (FIELD_TYPE_SPEC in ui-sdk lib/field-type.ts) and its isBlank reads that as filled, so every empty number slot shows 0; the Add field palette step also writes that 0 to make the row appear
-- **impact** — a card or row reads Points 0 where nothing is stored; a reviewer took a new board card for one with a value set
-- **closes** — split the starter an editor shows from the value Add field writes: the number slot draws blank when no value is stored, and the Add field step writes what makes an empty row appear without a number
-- **node** — `01M7DAJCF878DEPVQHE6R7FJT9`
 
 ### GAP: an event line draws its calendar dot among its words, so the calendar name starts after the text column
 
@@ -2669,6 +2669,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Add one registry output parser for Effect-native and Promise handlers, map mismatch to an internal contract failure, and add invalid-output tests.
 - **rule** — Domain typing — parse unknown at the boundary
 - **node** — `01M1PJSSQYFV2E160JANGBPKCK`
+
+### GAP: an empty number slot draws its editor starter, 0, as if it were a value
+
+- **expected** — an empty number field reads as empty (the italic "Empty" a status or text slot shows), and the editor opens on a blank input
+- **current** — the number kind starts its editor from {t:num, v:0} (FIELD_TYPE_SPEC in ui-sdk lib/field-type.ts) and its isBlank reads that as filled, so every empty number slot shows 0; the Add field palette step also writes that 0 to make the row appear
+- **impact** — a card or row reads Points 0 where nothing is stored; a reviewer took a new board card for one with a value set
+- **closes** — split the starter an editor shows from the value Add field writes: the number slot draws blank when no value is stored, and the Add field step writes what makes an empty row appear without a number
+- **node** — `01M7DAJCF878DEPVQHE6R7FJT9`
 
 ### GAP: an outline component owns the live-query subscription
 

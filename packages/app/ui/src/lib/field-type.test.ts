@@ -3,6 +3,7 @@ import {
   clearAllowedRefIdsCache,
   derivedWith,
   emptyValueForType,
+  initialValueForType,
   isSysPrefixed,
   isValueMismatch,
   nodeCandidates,
@@ -68,6 +69,10 @@ describe("field types", () => {
     expect(isValueMismatch("url", { t: "str", v: "https://x" })).toBe(false);
     expect(emptyValueForType("checkbox")).toEqual({ t: "bool", v: false });
     expect(emptyValueForType("ref")).toEqual({ t: "ref", v: "" });
+    // An empty number slot draws nothing; Add field still writes a number.
+    expect(emptyValueForType("number")).toEqual({ t: "str", v: "" });
+    expect(initialValueForType("number")).toEqual({ t: "num", v: 0 });
+    expect(initialValueForType("text")).toEqual({ t: "str", v: "" });
   });
 
   it("filters ref suggestions by targetTag union", () => {

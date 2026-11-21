@@ -21,7 +21,7 @@ import type { ContributionEntry } from "@kb/plugin";
 import {
   asOneWrite,
   browserHost,
-  emptyValueForType,
+  initialValueForType,
   nodeCandidates,
   orderCandidates,
   type NodeMap,
@@ -157,7 +157,7 @@ export const addField: PaletteStep<string | null> = {
       if (fieldId === null) return null;
       // An empty typed value is what makes the row appear and focusable; the
       // field's own declared type decides which editor that row gets.
-      const empty = emptyValueForType(resolveFieldTypeById(fieldId, schema));
+      const empty = initialValueForType(resolveFieldTypeById(fieldId, schema));
       const targets = new Set(targetNodeIds);
       // GAP [[01M7XMMCPA7H2R1P065TVCQNYC]] — skipped initialization has no commit-time presence check.
       const missing = graph

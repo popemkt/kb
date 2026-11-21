@@ -142,14 +142,23 @@ export function clearAllowedRefIdsCache(): void {
  * `@kb/outline-ui`'s `field-value` keys the editor registry by the same union.
  */
 interface FieldTypeSpec {
-  /** Starter value for an empty typed editor. */
+  /**
+   * What a slot that holds no value draws, and its editor starts from:
+   * nothing. A type with no empty value of its own (a number) draws an empty
+   * string, which its kind reads as blank.
+   */
   readonly empty: PropValue;
+  /**
+   * What Add field writes so the field's row appears, where `empty` is not a
+   * value the type stores. Absent: `empty`.
+   */
+  readonly initial?: PropValue;
 }
 
 const FIELD_TYPE_SPEC: Record<FieldType, FieldTypeSpec> = {
   text: { empty: { t: "str", v: "" } },
-  // GAP [[01M7DAJCF878DEPVQHE6R7FJT9]] an empty number slot draws this 0 as if it were stored
-  number: { empty: { t: "num", v: 0 } },
+  // GAP [[01M7YW0HJFHQ08HTGBBW1EWYER]] Add field writes 0 to make a number field's row appear
+  number: { empty: { t: "str", v: "" }, initial: { t: "num", v: 0 } },
   time: { empty: { t: "str", v: "" } },
   date: { empty: { t: "str", v: "" } },
   url: { empty: { t: "str", v: "" } },
@@ -167,7 +176,13 @@ export function isValueMismatch(fieldType: FieldType, value: PropValue): boolean
   return !conformsToType(fieldType, value);
 }
 
-/** Empty / starter value for a typed editor. */
+/** What a slot that holds no value draws, and an empty typed editor starts from. */
 export function emptyValueForType(fieldType: FieldType): PropValue {
   return { ...FIELD_TYPE_SPEC[fieldType].empty };
+}
+
+/** What Add field writes so a field of this type shows its row (`FieldTypeSpec.initial`). */
+export function initialValueForType(fieldType: FieldType): PropValue {
+  const spec = FIELD_TYPE_SPEC[fieldType];
+  return { ...(spec.initial ?? spec.empty) };
 }
