@@ -99,9 +99,12 @@ const TITLE_PREFIX = `${PROJECTION_PREFIX}title:`;
  * A page's title, edited where the page head draws it: a projected instance,
  * since the outline's walk of the tree does not draw the page's own node as a
  * row, so it is activated (and is the page's edit, `editing()`) as a row is.
+ * It names the outline host whose head draws it, as a row's key does: two
+ * panes showing one node have two titles, and selecting one selects that
+ * pane's.
  */
-export function pageTitleInstanceKey(nodeId: string): string {
-  return `${TITLE_PREFIX}${nodeId}`;
+export function pageTitleInstanceKey(nodeId: string, host: string): string {
+  return `${TITLE_PREFIX}${host}:${nodeId}`;
 }
 
 /**
@@ -123,6 +126,19 @@ export function canvasInstanceKey(projection: string, cardId: string, nodeId: st
  */
 export function projectedRowKey(sourceId: string, nodeId: string): string {
   return `${PROJECTED_ROW_PREFIX}${sourceId}/${nodeId}`;
+}
+
+/**
+ * Whether instance `instanceKey` of node `nodeId` may be drawn by outline
+ * host `host`: a row keyed under that host, or the page's title there. A
+ * title or a row keyed under another host is another pane's. A query's
+ * projected row or a canvas card names its source, not its host, so its key
+ * cannot rule it out.
+ */
+export function mayBeInHost(instanceKey: string, nodeId: string, host: string): boolean {
+  if (instanceKey.startsWith(TITLE_PREFIX))
+    return instanceKey === pageTitleInstanceKey(nodeId, host);
+  return isProjectedInstance(instanceKey) || hostOfInstance(instanceKey) === host;
 }
 
 /**

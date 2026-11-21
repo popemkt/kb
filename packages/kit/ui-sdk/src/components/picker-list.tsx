@@ -159,13 +159,26 @@ function PickerRowButton({
         lead !== undefined &&
         lead !== null && <span className="flex shrink-0 items-center">{lead}</span>
       )}
-      <span className="min-w-0 flex-1 truncate">
-        {row.kind === "item" ? <RowLabel row={row} /> : createLabel(row.name)}
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate">
+          {row.kind === "item" ? <RowLabel row={row} /> : createLabel(row.name)}
+        </span>
+        {row.kind === "item" && <RowHint hint={row.hint} />}
       </span>
       {row.kind === "item" && row.note !== undefined && row.note !== "" && (
         <span className="shrink-0 text-caption">{row.note}</span>
       )}
     </button>
+  );
+}
+
+/** The node's description under its label: one line here, whole in its title. */
+function RowHint({ hint }: { hint: string | undefined }) {
+  if (hint === undefined) return null;
+  return (
+    <span className="truncate text-meta text-foreground/70" title={hint} data-picker-hint="true">
+      {hint}
+    </span>
   );
 }
 

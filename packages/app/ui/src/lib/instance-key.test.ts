@@ -5,7 +5,10 @@ import {
   childInstanceKey,
   isProjectedInstance,
   isProjectedRow,
+  mayBeInHost,
+  outlineHostOfPane,
   outlineInstanceKey,
+  MAIN_OUTLINE_HOST,
   pageTitleInstanceKey,
   parentInstanceKey,
   placeOfInstance,
@@ -97,7 +100,7 @@ describe("parentInstanceKey", () => {
   it("is null where the row's place is computed, not a child edge", () => {
     expect(parentInstanceKey(projectedRowKey("n.q", "n.root-b"))).toBeNull();
     expect(parentInstanceKey(canvasInstanceKey("2d", "card", "n.root-a"))).toBeNull();
-    expect(parentInstanceKey(pageTitleInstanceKey("n.root-a"))).toBeNull();
+    expect(parentInstanceKey(pageTitleInstanceKey("n.root-a", MAIN_OUTLINE_HOST))).toBeNull();
   });
 });
 
@@ -113,5 +116,25 @@ describe("placeOfInstance", () => {
     expect(placeOfInstance(childInstanceKey(result, "n.ref"))).toBe(
       childInstanceKey(result, "n.ref"),
     );
+  });
+});
+
+describe("mayBeInHost", () => {
+  const OTHER = outlineHostOfPane("p2");
+
+  it("tells a pane's own row and title from another pane's", () => {
+    expect(mayBeInHost(childInstanceKey(MAIN_OUTLINE_HOST, "n.a"), "n.a", MAIN_OUTLINE_HOST)).toBe(
+      true,
+    );
+    expect(mayBeInHost(childInstanceKey(OTHER, "n.a"), "n.a", MAIN_OUTLINE_HOST)).toBe(false);
+    expect(
+      mayBeInHost(pageTitleInstanceKey("n.a", MAIN_OUTLINE_HOST), "n.a", MAIN_OUTLINE_HOST),
+    ).toBe(true);
+    expect(mayBeInHost(pageTitleInstanceKey("n.a", OTHER), "n.a", MAIN_OUTLINE_HOST)).toBe(false);
+  });
+
+  it("cannot rule out a projected row or a canvas card, whose key names no host", () => {
+    expect(mayBeInHost(projectedRowKey("q.source", "n.a"), "n.a", OTHER)).toBe(true);
+    expect(mayBeInHost(canvasInstanceKey("2d", "card.1", "n.a"), "n.a", OTHER)).toBe(true);
   });
 });

@@ -630,8 +630,8 @@ type PropValue =
 
 - **Fields are nodes.** A field is just a node typed `sys.field` (e.g. node
   `01J..X` text "status"). `props` keys are field-node ids, so fields are
-  reusable anywhere, renameable in one place, and can carry their own props
-  (description, allowed values) later. Attaching any field to any node is
+  reusable anywhere, renameable in one place, and carry their own props
+  (a description, allowed values) as every node does. Attaching any field to any node is
   legal — tags only _template_ fields, never restrict them (Tana semantics).
 - **Tags (supertags) are nodes** typed `sys.tag`, holding a `sys.f.fields`
   prop listing field-node refs they template. Applying a tag = adding a
@@ -916,6 +916,31 @@ type PropValue =
   view-config readers resolve the sentinel to the field in sort keys and in
   column widths, so the next write of either stores the real id, with no
   migration pass.
+- **A node may carry a description** (descriptions): a short text that says
+  what the node is for, as Tana's does, held as the value of a core field,
+  `sys.f.description` (text, one), on any node. It is a field because a
+  node's words beside its text are a value like any other: the CLI sets it
+  by name (`kb set <id> "node description" "…"`) or id, an agent writes it through
+  `node.update`, a query matches it as `:f/sys.f.description`, and a
+  family ships one on its own node as it ships any value. Its show is never:
+  no field row draws it, because its place is under the node's name, on a
+  row and on the page the node heads, and beside the node's name where a
+  picker or a search offers it (DESIGN-UI.md → Outline editor,
+  descriptions). `description.ts` (`@kb/model`) is its
+  one reader: `descriptionOf` is the trimmed text or nothing, which every
+  surface draws, and `descriptionValueOf` the value as stored, which an
+  edit replaces and a removal takes out, whatever space it was written
+  with. An empty description is no
+  description: clearing it removes the value, so a node never holds a
+  blank one. A person's own tags and fields are described as any node is,
+  and the tag and field pickers show it. A family describes its seeded
+  nodes in its seed; a person's description of a system node (a family's
+  tag, field or command) is refused without force, as any value there is
+  that is not one of its settings (GAP [[01M7ZP97P0FAAWC9NDQDWYAGK8]]). Its label is
+  "node description" because the gallery's own `sys.f.gallery.description`
+  (a look's brief, what a style looks like) already answers to
+  "description", and a name resolves to one field
+  (GAP [[01M7ZP9E60FSJZGBMZEBEFSNGQ]]).
 - **A written value conforms to its field, or the write fails.** Tags never
   restrict which fields a node carries; a field's declared type does restrict
   what it holds. Each type accepts fixed value kinds (`acceptsValueKind` in
@@ -7504,9 +7529,25 @@ Core owns the role and answers the top level, and days replaces it
 ([Days](#days)). The third is `ui.landing`, the node a page that loads at
 the root opens on, which the shell asks once per page load. Core owns it
 and stays home, and days replaces it with today (DESIGN-UI.md →
-[Days](./DESIGN-UI.md#days)). It is the one service call with no budget:
-a landing waits for what it needs, however long a slow machine takes, and
-a provider that fails leaves the page home with a toast that says why. The fourth is `ui.date-target`, the node a
+[Days](./DESIGN-UI.md#days)). It is the official way for a family to say
+where the page opens: a page half answers through `provideLanding`
+(`kb-ext-sdk/page`), its manifest claims `ui.landing` in `replaces`, and
+election picks the one answer, by the role node's `sys.f.provider` and
+otherwise the claims' priority, so two families never both move the page.
+It is asked only while the page stands at `/` with nothing in its URL: a
+link or an address names its place, and that place wins. The shell draws
+no workspace until the answer settles, so a page that lands elsewhere never
+paints the root on the way. The answer is the page's, not the server's: it
+is the page kernel's election, in the page's own day, so no bootstrap
+payload carries it. Its budget is about 4 s: long enough for days to
+make today's node and for the live connection to bring it, short enough
+that a landing which never answers cannot hold the workspace. It is one
+deadline over the whole election, not a budget per candidate: when the
+elected provider is faulted and the next one is asked, that one gets what
+is left of the same 4 s. A provider that fails, or overruns the deadline,
+is faulted as any role provider is, for `ui.landing` alone (its family's
+other roles stand), and the page stays home with a toast that says why
+("Stayed home: the landing did not answer in time"). The fourth is `ui.date-target`, the node a
 followed date value opens (a `date` follow target, DESIGN-UI.md → Field
 values). Core owns it and leads nowhere, and days replaces it with the
 date's day, made if need be. A text's `@` trigger asks it too

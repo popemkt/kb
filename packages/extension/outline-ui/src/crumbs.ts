@@ -1,4 +1,11 @@
-import { nameIn, type OutlineNode, type SchemaIndex } from "@kb/ui-sdk";
+import { cn, nameIn, type OutlineNode, type SchemaIndex } from "@kb/ui-sdk";
+
+/** A crumb's look: Home's, a node's, the current node's and "…" alike. */
+export const CRUMB = cn(
+  "rounded-sm px-1.5 py-0.5",
+  "text-foreground/65 hover:text-foreground hover:bg-foreground/5",
+  "transition-colors duration-100",
+);
 
 /** One crumb: the node it opens and its name. */
 export interface Crumb {

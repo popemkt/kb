@@ -207,7 +207,19 @@ const COPY_AS_BINDING = provideKeybinding("copy-as", {
   run: { command: OUTLINE_IDS.copyAsCommand },
 });
 
+/**
+ * Add or Edit description on Mod-Shift-E, a page key like Copy as…, so it
+ * reaches a row being edited, a selected row and the page's title alike,
+ * about what ⌘K's commands are about (DESIGN-UI.md → Outline editor, "A
+ * node's description").
+ */
+const DESCRIBE_BINDING = provideKeybinding("describe", {
+  context: "core.page",
+  chord: "Mod-Shift-E",
+  run: { command: OUTLINE_IDS.describeCommand },
+});
+
 export const OUTLINE_KEYBOARD = {
   contexts: [EDITING_CONTEXT, SELECTION_CONTEXT],
-  bindings: [...EDITING_BINDINGS, ...SELECTION_BINDINGS, COPY_AS_BINDING],
+  bindings: [...EDITING_BINDINGS, ...SELECTION_BINDINGS, COPY_AS_BINDING, DESCRIBE_BINDING],
 };

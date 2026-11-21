@@ -1,0 +1,8 @@
+{
+  "reason": "The 2026-11-22 UX batch together: the descriptions branch's reader (description.ts, which the CLI's eager graph takes with @kb/model) and the References branch's retirement row in the outline's declaration each fit the CLI closure's slack alone, and together take it from 2798060 to 2798269 bytes, measured on the integration branch.",
+  "raise": {
+    "cli-closure": {
+      "bytes": 209
+    }
+  }
+}

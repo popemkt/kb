@@ -12,6 +12,11 @@ export interface FieldRowProps {
    * registry answers it beside the editor), a preference's is its own.
    */
   icon: Icon;
+  /**
+   * The glyph's ink: the colour of the tag that brings the field
+   * (`fieldInkOn`). Absent, the glyph is neutral.
+   */
+  ink?: string | null;
   fieldId?: string;
   label: string;
   labelTitle?: string;
@@ -39,10 +44,12 @@ export interface FieldRowProps {
  */
 function FieldGlyph({
   icon: Glyph,
+  ink,
   fieldId,
   label,
   onFollow,
-}: Pick<FieldRowProps, "icon" | "fieldId" | "label" | "onFollow">) {
+}: Pick<FieldRowProps, "icon" | "ink" | "fieldId" | "label" | "onFollow">) {
+  const inked = ink === undefined || ink === null ? undefined : { color: ink };
   if (fieldId === undefined || onFollow === undefined) return <InertGlyph icon={Glyph} />;
   return (
     <IconButton
@@ -50,7 +57,9 @@ function FieldGlyph({
       weight="regular"
       icon={Glyph}
       label={`Configure field ${label}`}
+      style={inked}
       data-field-configure={fieldId}
+      data-field-ink={inked === undefined ? undefined : "tag"}
       onClick={(e) => {
         e.stopPropagation();
         onFollow(nodeTarget(fieldId), followHowOf(e));
@@ -127,6 +136,7 @@ function MismatchWarning() {
 export function FieldRow({
   depth = 0,
   icon,
+  ink,
   fieldId,
   label,
   labelTitle,
@@ -169,7 +179,9 @@ export function FieldRow({
   return (
     <OutlineLine
       depth={depth + 1}
-      glyph={<FieldGlyph icon={icon} fieldId={fieldId} label={label} onFollow={onFollow} />}
+      glyph={
+        <FieldGlyph icon={icon} ink={ink} fieldId={fieldId} label={label} onFollow={onFollow} />
+      }
       text={
         <>
           <FieldName fieldId={fieldId} label={label} labelTitle={labelTitle} debug={debug} />

@@ -136,11 +136,14 @@ export function TagChip({ tag, onClick, onRemove, action, className }: TagChipPr
       {action === undefined ? null : (
         <button
           type="button"
+          // Always there, so the chip is as wide at rest as on hover and a
+          // row's words never rewrap under the pointer; faint until the row
+          // is hovered or holds focus.
           className={cn(
-            "hidden shrink-0 items-center self-stretch border-l border-current/25 pl-1 outline-none",
-            "group-hover/node:inline-flex group-focus-within/node:inline-flex focus-visible:inline-flex",
-            "[@media(hover:none)]:inline-flex",
-            "rounded-r-sm opacity-70 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-primary/60",
+            "inline-flex shrink-0 items-center self-stretch border-l border-current/25 pl-1 outline-none",
+            "rounded-r-sm opacity-40 transition-opacity duration-100",
+            "group-hover/node:opacity-70 group-focus-within/node:opacity-70",
+            "hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-primary/60",
           )}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {

@@ -1,0 +1,6 @@
+{
+  "reason": "The 2026-11-22 UX batch's eager bytes no change file recorded, measured as the page-bundle test measures them (production build), main 751c5039 at 2078620 bytes, the integration at 2088505. Landing and ⌘K Enter (ux/landing-and-search-enter: the ui.landing hook and provideLanding, the hold before the first paint, ⌘K Enter opening the node's page with its title focused per pane, the folded crumbs and their menu, a pane's panel kept when only its path moves): +2876, which its branch did not record. Descriptions and tag colours: +7261, of which its own change files record 6868, so +393 met only together with the others. Add/Edit description in the focused pane (mayBeInHost): +116. References calm (the row reference count dropped): -368. Net 3017, which leaves the 1278 bytes of headroom main had.",
+  "raise": {
+    "page-eager": { "bytes": 3017 }
+  }
+}
