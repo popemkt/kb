@@ -1172,8 +1172,13 @@ move operations, every store's commit, the merge, and — through the operations
 
 - **A rank is a variable-length base-36 fraction.** `rankBetween(a, b)` is
   always strictly between its bounds, because a rank can always grow by a
-  character; a head or tail insert steps the first digit that can move instead
-  of halving the gap. No rank ends in `0` (it would tie with its own prefix);
+  character; a head or tail insert steps instead of halving the gap. A tail
+  step reads the `k + 1` digits after a rank's run of `k` leading `z`s as a
+  counter and adds one, and when the counter would start with `z` the run
+  grows and a wider counter starts (`y`, `z1`, `z11` … `zyz`, `zz1`); a head
+  step is its mirror over leading `0`s. Each run holds 36 times the steps of
+  the last, so n appends in a row grow a rank by about two characters per
+  factor of 36: 3 characters at 1000, 7 at 50 000. No rank ends in `0` (it would tie with its own prefix);
   a bound that does is read without it. The property test beside it holds
   `a < between(a, b) < b` for any two ranks, long ones included.
 - **A placement is a position, and the rank is derived.** `node.add` and
@@ -1239,18 +1244,14 @@ once, when it is next read, not once per child. That list is the only record
 of a node's children: the node itself is stored without them, and `get` is
 the one place the two are joined, so no read sees children the graph no
 longer holds. It holds the roots in order
-once asked, so each placement at the roots costs a binary search. Two costs
-remain:
-
-- Each placement at the roots inserts into the ordered array, and that moves
-  the roots after it in memory (O(R) moves; GAP
-  [[01M52RTGASH2F5PVW7CK2Q50VN]]).
-- Appending to one group within one plan steps each rank after the last
-  (`rankBetween`'s tail step), and the ranks grow: 12 characters at about
-  400 appends, 58 at 2000. Past `MAX_RANK_LENGTH` (12) a rank is not
-  usable, so each later placement scans back over the whole group for a
-  usable neighbour, O(k) per item, until the commit re-spreads the group
-  (GAP [[01M52RMD1V9BW6E27RYYSH2K5X]]).
+once asked, so each placement at the roots costs a binary search. One cost
+remains: each placement at the roots inserts into the ordered array, and that
+moves the roots after it in memory (O(R) moves; GAP
+[[01M52RTGASH2F5PVW7CK2Q50VN]]). Appending to one group within one plan steps
+each rank after the last (`rankBetween`'s tail step), whose growth is
+logarithmic ([Sibling ranks](#sibling-ranks)), so a plan of thousands of
+siblings under one parent keeps every rank usable and reads a constant number
+of neighbours per item.
 
 `node-graph.contract.test.ts` runs the same properties over both adapters,
 using random forests with dangling children, and random renames, retags,

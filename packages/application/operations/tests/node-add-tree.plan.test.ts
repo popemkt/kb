@@ -127,12 +127,11 @@ function underOneParent(items: number) {
 }
 
 describe("planning an outline under one parent", () => {
-  // Up to about 400 children: past that, a run of appends grows its ranks past
-  // the 12 characters a rank may use (`rankBetween` steps the tail), and each
-  // placement scans back for a usable neighbour until the commit re-spreads
-  // the group — the cost DESIGN.md → The plan graph names as left.
+  // Thousands of children: a run of appends keeps its ranks short
+  // (`rankBetween` steps the tail with logarithmic growth), so no placement
+  // scans back over the group for a usable neighbour.
   test("files each child in place: a constant number of reads per item, and no parent rewrite", () => {
-    for (const items of [10, 350]) {
+    for (const items of [10, 350, 5000]) {
       const cost = underOneParent(items);
       expect(cost.readsPerItem).toBeLessThan(12);
       expect(cost.puts).toBe(items);

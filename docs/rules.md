@@ -1621,14 +1621,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — put the host in the query-row instance key
 - **node** — `01M411FPC839XBJJ873V1VYYYD`
 
-### GAP: rankBetween grows ranks by a digit per tail append within one plan
-
-- **expected** — appending many siblings in one plan keeps rank length bounded (e.g. rank allocation that spreads appended ranks)
-- **current** — rankBetween bumps one digit per tail append; after ~400 appends to one group in a single plan ranks pass 12 characters and placement scans back for a usable neighbour until the commit re-spreads the group
-- **impact** — one outline paste with several hundred siblings under one parent slows per item; the counted plan test stops at 350
-- **closes** — a rank allocation in order.ts with bounded growth for repeated appends, proven by the plan test at thousands of siblings
-- **node** — `01M52RMD1V9BW6E27RYYSH2K5X`
-
 ### GAP: reach is recognised only inside the query subset parseEdn models
 
 - **expected** — (reach ...) works in any datalog query: parseEdn keeps where-clauses it does not model (predicates, not/or, _ wildcards, 2-element patterns) and sections like :with/:keys/:limit as opaque IR the compiler emits verbatim, so the parser never has to fall a whole query back to raw.
@@ -3240,6 +3232,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — An unchanged query implementation can fail the full core gate nondeterministically; this blocked the extension UI PR.
 - **closes** — Generate meaningful non-empty cases by construction alongside broad random cases, preserve the comparison contract, and reproduce the failing coverage distribution.
 - **node** — `01M6WV8JS4GPF0TRYDZY948C40`
+
+### GAP: rankBetween grows ranks by a digit per tail append within one plan
+
+- **expected** — appending many siblings in one plan keeps rank length bounded (e.g. rank allocation that spreads appended ranks)
+- **current** — Fixed: a tail step reads the k+1 digits after a rank's run of k leading z's as a counter and widens the run when it overflows (stepBefore mirrors it over 0s), so n appends grow a rank by about two characters per factor of 36; the plan test files 5000 children under one parent at a constant number of reads each.
+- **impact** — one outline paste with several hundred siblings under one parent slows per item; the counted plan test stops at 350
+- **closes** — a rank allocation in order.ts with bounded growth for repeated appends, proven by the plan test at thousands of siblings
+- **node** — `01M52RMD1V9BW6E27RYYSH2K5X`
 
 ### GAP: RefEditor mixes candidate search, keyboard handling and rendering in 22 branches
 
