@@ -49,6 +49,8 @@ The debug APK is signed with the SDK's generated debug key, which is enough
 for `adb install`. Nothing here signs with anyone's account or publishes to
 a store. The Gradle project is not part of the Bun workspace
 (`packages/*/*`): `bun install`, `bun run verify` and Nx do not see it.
+Validate's `android` job runs the two commands above, in the same shell, on
+every change that reaches the app ([`docs/ci.md`](../../docs/ci.md)).
 
 ## Install
 
@@ -184,5 +186,6 @@ The unit tests (`app/src/test`) run on the JVM, with no emulator. They cover:
   only in the WebView with no bridge, even where Capacitor falls back to an
   origin-wide interface.
 
-The page's JS is not typechecked or linted, as the rest of the Gradle
-project is not gated yet (GAP [[01M7QTAHN8YW57M1R1XYGRBSZ8]]).
+The page's JS is not typechecked or linted: the `android` job builds the
+APK and runs these tests, and neither parses it
+(GAP [[01M7YBRZ6F5DVBKD0EXA16XG73]]).
