@@ -1,0 +1,6 @@
+{
+  "reason": "What an empty slot draws and what Add field writes are two columns of the field-type table, so an empty number slot reads as empty: initialValueForType names the second.",
+  "raise": {
+    "surface": { "@kb/ui-sdk": 1 }
+  }
+}

@@ -1,10 +1,17 @@
 package app.kb.capture.delivery
 
 import app.kb.capture.capture.PayloadWriter
+import java.io.EOFException
 import java.io.IOException
 import java.io.OutputStream
+import java.net.ConnectException
 import java.net.HttpURLConnection
+import java.net.NoRouteToHostException
+import java.net.SocketException
+import java.net.SocketTimeoutException
 import java.net.URL
+import java.net.UnknownHostException
+import javax.net.ssl.SSLHandshakeException
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -28,8 +35,29 @@ sealed interface Answer {
     /** The host would not take this device's credential (HTTP 401/403, or `forbidden`). */
     data class Unauthorized(val message: String) : Answer
 
-    /** No answer: offline, timed out, a 5xx, or something that is not a kb host. Worth trying again. */
-    data class Unreachable(val message: String) : Answer
+    /**
+     * No answer: offline, timed out, a 5xx, or something that is not a kb
+     * host. Worth trying again. [detail] is only ever the host's own word
+     * (its error message, an HTTP status), never a transport exception's.
+     */
+    data class Unreachable(val why: NoAnswer, val detail: String? = null) : Answer {
+        /** The reason as a person reads it, after "Waiting for <store>: ". */
+        val reason: String get() = why.words + detail?.let { " ($it)" }.orEmpty() + if (why.words.endsWith("?")) "" else "."
+    }
+}
+
+/** Why a host gave no answer, each worded once, as a clause about the host. */
+enum class NoAnswer(val words: String) {
+    BadAddress("its address is not a URL"),
+    UnknownHost("its address does not resolve. Check the URL, or this phone's network"),
+    Offline("this phone has no network"),
+    Refused("nothing answers at its address. Is kb running there?"),
+    Dropped("the connection closed before it answered. It may be asleep or restarting"),
+    TimedOut("it did not answer in time"),
+    Untrusted("this phone does not trust its HTTPS certificate"),
+    HostError("it hit an error on its side"),
+    NotKb("its address answers, but not as kb"),
+    Network("the connection failed"),
 }
 
 /** One kb host's action endpoint, `POST <store>/api/action`, on the program wire. */
@@ -64,8 +92,8 @@ class HttpCaptureHost(private val timeoutMs: Int = 30_000) : CaptureHost {
         val endpoint =
             try {
                 URL(url.trimEnd('/') + "/api/action")
-            } catch (e: Exception) {
-                return Answer.Unreachable("Not a URL: $url")
+            } catch (_: Exception) {
+                return Answer.Unreachable(NoAnswer.BadAddress)
             }
         val conn = endpoint.openConnection() as HttpURLConnection
         return try {
@@ -82,7 +110,7 @@ class HttpCaptureHost(private val timeoutMs: Int = 30_000) : CaptureHost {
             val text = (if (status in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader()?.use { it.readText() } ?: ""
             interpret(status, text)
         } catch (e: IOException) {
-            Answer.Unreachable(e.message ?: e.javaClass.simpleName)
+            Answer.Unreachable(noAnswer(e))
         } finally {
             conn.disconnect()
         }
@@ -107,12 +135,32 @@ class HttpCaptureHost(private val timeoutMs: Int = 30_000) : CaptureHost {
                     val message = receipt["message"]?.jsonPrimitive?.content ?: code
                     when (code) {
                         "forbidden" -> Answer.Unauthorized(message)
-                        "internal" -> Answer.Unreachable("host error: $message")
+                        "internal" -> Answer.Unreachable(NoAnswer.HostError, message)
                         else -> Answer.Refused(code, message)
                     }
                 }
-                status in 500..599 -> Answer.Unreachable("HTTP $status")
-                else -> Answer.Unreachable("Not a kb host (HTTP $status)")
+                status in 500..599 -> Answer.Unreachable(NoAnswer.HostError, "HTTP $status")
+                else -> Answer.Unreachable(NoAnswer.NotKb, "HTTP $status")
+            }
+        }
+
+        /**
+         * What failed when a call raised [e], by the exception's type first.
+         * The platform's message is read only where the type is shared
+         * (a refused connect and an unreachable network are both a
+         * [ConnectException]; OkHttp ends a dropped stream with a plain
+         * [IOException]), and it is never shown.
+         */
+        fun noAnswer(e: IOException): NoAnswer {
+            val message = e.message.orEmpty()
+            return when {
+                e is SocketTimeoutException -> NoAnswer.TimedOut
+                e is UnknownHostException -> NoAnswer.UnknownHost
+                e is SSLHandshakeException -> NoAnswer.Untrusted
+                e is ConnectException || e is NoRouteToHostException ->
+                    if ("ENETUNREACH" in message || "Network is unreachable" in message) NoAnswer.Offline else NoAnswer.Refused
+                e is EOFException || e is SocketException || "unexpected end of stream" in message -> NoAnswer.Dropped
+                else -> NoAnswer.Network
             }
         }
     }

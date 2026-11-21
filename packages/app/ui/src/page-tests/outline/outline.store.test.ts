@@ -2,7 +2,7 @@ import { beforeAll, afterAll, beforeEach, describe, expect, it, vi } from "vites
 import { present } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { outlineInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
-import { resetOutlineStore } from "@/test-support/outline-store";
+import { resetOutlineStore, rowClosed, rowKey } from "@/test-support/outline-store";
 import { useUiStore } from "@/stores/ui.store";
 import { useGraphStore } from "@/stores/graph.store";
 import { pageGraph } from "@/stores/graph-read";
@@ -81,12 +81,10 @@ describe("outline store (WireNode adaptation)", () => {
     const changed = [...after.keys()].filter((id) => after.get(id) !== before.get(id));
     expect(changed).toEqual(["n.child-a1"]);
 
-    // Expansion replaces only the toggled node.
-    useOutlineStore.getState().toggleCollapse("n.root-a");
-    const toggled = outlineNodes();
-    expect([...toggled.keys()].filter((id) => toggled.get(id) !== after.get(id))).toEqual([
-      "n.root-a",
-    ]);
+    // Expansion replaces no node: open or closed is the row's place's.
+    useOutlineStore.getState().toggleCollapse(outlineInstanceKey("n.root-a", after));
+    expect(outlineNodes()).toBe(after);
+    expect(rowClosed("n.root-a")).toBe(false);
   });
 
   it("activate / select / deactivate", () => {
@@ -120,7 +118,7 @@ describe("outline store (WireNode adaptation)", () => {
 
   it("defaults expandable nodes collapsed; visible list shows roots only", () => {
     seed();
-    expect(outlineNodes().get("n.root-a")?.collapsed).toBe(true);
+    expect(rowClosed("n.root-a")).toBe(true);
     expect(useOutlineStore.getState().getVisibleNodes()).toEqual([
       "lens.all-mentions",
       "n.root-a",
@@ -131,7 +129,7 @@ describe("outline store (WireNode adaptation)", () => {
 
   it("toggleCollapse expands to show direct children (nested stay collapsed)", () => {
     seed();
-    useOutlineStore.getState().toggleCollapse("n.root-a");
+    useOutlineStore.getState().toggleCollapse(rowKey("n.root-a"));
     expect(useOutlineStore.getState().getVisibleNodes()).toEqual([
       "lens.all-mentions",
       "n.root-a",
@@ -140,7 +138,7 @@ describe("outline store (WireNode adaptation)", () => {
       "n.root-b",
       "n.root-c",
     ]);
-    useOutlineStore.getState().toggleCollapse("n.root-a");
+    useOutlineStore.getState().toggleCollapse(rowKey("n.root-a"));
     expect(useOutlineStore.getState().getVisibleNodes()).toEqual([
       "lens.all-mentions",
       "n.root-a",
@@ -151,44 +149,44 @@ describe("outline store (WireNode adaptation)", () => {
 
   it("defaults field-only expandable nodes collapsed", () => {
     seed();
-    expect(outlineNodes().get("n.root-b")?.collapsed).toBe(true);
+    expect(rowClosed("n.root-b")).toBe(true);
   });
 
   it("toggleCollapse expands field-only nodes", () => {
     seed();
-    useOutlineStore.getState().toggleCollapse("n.root-b");
-    expect(outlineNodes().get("n.root-b")?.collapsed).toBe(false);
+    useOutlineStore.getState().toggleCollapse(rowKey("n.root-b"));
+    expect(rowClosed("n.root-b")).toBe(false);
   });
 
   it("does nothing when toggling a leaf without fields or children", () => {
     seed();
-    useOutlineStore.getState().toggleCollapse("n.root-c");
-    expect(outlineNodes().get("n.root-c")?.collapsed).toBe(false);
+    useOutlineStore.getState().toggleCollapse(rowKey("n.root-c"));
+    expect(rowClosed("n.root-c")).toBe(false);
   });
 
-  it("expandAllInScope expands every expandable node in the forest", () => {
+  it("expandAllInScope expands every expandable node in the forest", async () => {
     seed();
-    useOutlineStore.getState().expandAllInScope();
-    expect(outlineNodes().get("n.root-a")?.collapsed).toBe(false);
-    expect(outlineNodes().get("n.root-b")?.collapsed).toBe(false);
-    expect(outlineNodes().get("n.child-a2")?.collapsed).toBe(false);
+    await useOutlineStore.getState().expandAllInScope();
+    expect(rowClosed("n.root-a")).toBe(false);
+    expect(rowClosed("n.root-b")).toBe(false);
+    expect(rowClosed("n.child-a2")).toBe(false);
   });
 
-  it("collapseAllInScope collapses expandable nodes in the current scope", () => {
+  it("collapseAllInScope collapses expandable nodes in the current scope", async () => {
     seed();
-    useOutlineStore.getState().expandAllInScope();
-    useOutlineStore.getState().collapseAllInScope();
-    expect(outlineNodes().get("n.root-a")?.collapsed).toBe(true);
-    expect(outlineNodes().get("n.root-b")?.collapsed).toBe(true);
+    await useOutlineStore.getState().expandAllInScope();
+    await useOutlineStore.getState().collapseAllInScope();
+    expect(rowClosed("n.root-a")).toBe(true);
+    expect(rowClosed("n.root-b")).toBe(true);
   });
 
-  it("expand/collapse all respects zoomed subtree scope", () => {
+  it("expand/collapse all respects zoomed subtree scope", async () => {
     seed();
     useGraphStore.getState().zoomTo("n.root-a");
-    useOutlineStore.getState().expandAllInScope();
-    expect(outlineNodes().get("n.root-a")?.collapsed).toBe(true);
-    expect(outlineNodes().get("n.child-a1")?.collapsed).toBe(false);
-    expect(outlineNodes().get("n.root-b")?.collapsed).toBe(true);
+    await useOutlineStore.getState().expandAllInScope();
+    expect(rowClosed("n.root-a")).toBe(true);
+    expect(rowClosed("n.child-a1")).toBe(false);
+    expect(rowClosed("n.root-b")).toBe(true);
   });
 
   it("zoomTo selects the first visible row under the root, never the root itself", () => {
@@ -224,7 +222,7 @@ describe("outline store (WireNode adaptation)", () => {
 
   it("getPrevious / getNext respect collapsed subtrees", () => {
     seed();
-    useOutlineStore.getState().toggleCollapse("n.root-a");
+    useOutlineStore.getState().toggleCollapse(rowKey("n.root-a"));
     const s = useOutlineStore.getState();
     const aKey = outlineInstanceKey("n.root-a", outlineNodes());
     const bKey = outlineInstanceKey("n.root-b", outlineNodes());
@@ -263,10 +261,10 @@ describe("outline store (WireNode adaptation)", () => {
 
     it("preserves collapse state across deltas", () => {
       seed();
-      useOutlineStore.getState().toggleCollapse("n.root-a");
-      expect(outlineNodes().get("n.root-a")?.collapsed).toBe(false);
+      useOutlineStore.getState().toggleCollapse(rowKey("n.root-a"));
+      expect(rowClosed("n.root-a")).toBe(false);
       useGraphStore.getState().applyTx([wire("n.new", "x")], [], { rev: 2 });
-      expect(outlineNodes().get("n.root-a")?.collapsed).toBe(false);
+      expect(rowClosed("n.root-a")).toBe(false);
     });
 
     it("preserves zoom + selection when targets survive", () => {
@@ -342,7 +340,7 @@ describe("outline store (WireNode adaptation)", () => {
         seen.push([
           useGraphStore.getState().rootNodeId,
           outline.activeNodeId,
-          outlineNodes().get("n.child-a2")?.collapsed === false,
+          !rowClosed("n.child-a2"),
         ]);
       });
       useOutlineStore.getState().jumpToNode("n.grandchild");

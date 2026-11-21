@@ -1,0 +1,6 @@
+{
+  "reason": "The shared node batch accepts a tag definition, planned by the tag definition planner tag.define shares, so a tag made in a picker commits with the rows it tags.",
+  "raise": {
+    "cli-closure": { "bytes": 383 }
+  }
+}

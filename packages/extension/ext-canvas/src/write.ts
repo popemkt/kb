@@ -134,7 +134,7 @@ export interface CanvasPropUnset {
  * other node a native edge bind or unbind writes beside the document.
  */
 export function withPropOps(
-  nodes: KbNode[],
+  nodes: readonly KbNode[],
   id: NodeId,
   ops: { readonly set?: readonly CanvasPropSet[]; readonly unset?: readonly CanvasPropUnset[] },
   at: string,
@@ -257,7 +257,8 @@ function holding(host: KbNode, docStr: string, at: string): KbNode {
 /**
  * The `#canvas` node `canvasId` as it is to be stored holding `doc`, for a
  * write that changes a second canvas beside its own (its `also`): refused
- * when the node is not a canvas a write may take.
+ * when the node is not a canvas a write may take. Read inside a canvas
+ * write's plan, so the node is the one the attempt reads.
  */
 export const canvasWithDocEffect = Effect.fn("ext.canvas.withDoc")(function* (
   canvasId: string,
@@ -271,54 +272,82 @@ export const canvasWithDocEffect = Effect.fn("ext.canvas.withDoc")(function* (
 
 /** What one canvas write commits: the document, and the other nodes the same act changes. */
 export interface CanvasWrite {
-  readonly canvasId: string;
   readonly doc: CanvasDoc;
   /**
    * The other nodes this write changes, as they are to be stored, each
-   * built from a clone (`cloneNode`) and stamped by the caller; written in
-   * the same transaction as the document.
+   * built from a clone (`cloneNode`) of the node the plan read and stamped
+   * by the caller; written in the same transaction as the document.
    */
   readonly also?: (at: string) => readonly KbNode[];
 }
 
-/** What a canvas write answers: the document as stored, and the lints it made and cleared. */
-export interface CanvasWritten {
+/**
+ * A canvas write as a verb plans it: over the graph a commit attempt reads
+ * (`nodes`, and the session, caught up to them), the document it writes and
+ * the other nodes the same act changes, with whatever else the verb answers
+ * from them. Made again on each attempt, as every write core plans is
+ * (`GraphWrites.commit`), so a write another process made meanwhile is kept.
+ */
+export type CanvasPlan<W extends CanvasWrite, R> = (
+  nodes: readonly KbNode[],
+) => Effect.Effect<W, CanvasFail, R>;
+
+/** What a canvas write answers: the document as stored, the lints it made and cleared, and its plan. */
+export interface CanvasWritten<W extends CanvasWrite = CanvasWrite> {
   readonly doc: string;
   readonly lints: CanvasLintDiff;
+  readonly planned: W;
 }
 
 /**
- * Write `doc` onto the `#canvas` node `canvasId`, replacing the document it
- * holds, in one transaction with `also`. Nothing is written when the host is
+ * Write the document `plan` makes onto the `#canvas` node `canvasId`,
+ * replacing the one it holds, in one transaction with the plan's `also`.
+ * The plan is made over the graph each commit attempt reads, so the
+ * document it starts from (`readCanvasEffect`) and every node it rewrites
+ * are the store's as the write lands. Nothing is written when the host is
  * not a canvas or a node `also` builds cannot be. Answers the document as
  * stored and what the write did to the canvas's lints (`lintDiff`), so
  * every canvas write's receipt says what it broke and what it fixed.
  */
-export const commitCanvasEffect = Effect.fn("ext.canvas.commit")(function* (
-  write: CanvasWrite,
-): Effect.fn.Return<CanvasWritten, CanvasFail, CanvasWriteEnv> {
+export const commitCanvasEffect = Effect.fn("ext.canvas.commit")(function* <
+  W extends CanvasWrite,
+  R = never,
+>(
+  canvasId: string,
+  plan: CanvasPlan<W, R>,
+): Effect.fn.Return<CanvasWritten<W>, CanvasFail, CanvasWriteEnv | R> {
   const ctx = yield* KbCtx;
-  const docStr = stringifyCanvasDoc(write.doc);
   // One stamp per transaction, from the Clock the store's replay overrides.
   const at = yield* currentIso;
-  const host = yield* canvasStep(() => assertCanvasHost(ctx, write.canvasId));
-  const canvas = holding(host, docStr, at);
-  const also = yield* canvasStep(() => write.also?.(at) ?? []);
-  // Each document is linted in the kb it stands in: the one before the write, and the one it leaves.
-  const before = lintCanvas(
-    write.canvasId,
-    storedDoc(host),
-    canvasWorld(yield* readableEffect(also)),
+  const committed = yield* (yield* GraphWrites).commit((nodes) =>
+    Effect.gen(function* () {
+      const host = yield* canvasStep(() => assertCanvasHost(ctx, canvasId));
+      const planned = yield* plan(nodes);
+      const doc = stringifyCanvasDoc(planned.doc);
+      const canvas = holding(host, doc, at);
+      const also = yield* canvasStep(() => planned.also?.(at) ?? []);
+      // Each document is linted in the kb it stands in: the one before the write, and the one it leaves.
+      const before = lintCanvas(
+        canvasId,
+        storedDoc(host),
+        canvasWorld(yield* readableEffect(also)),
+      );
+      const after = lintCanvas(
+        canvasId,
+        planned.doc,
+        canvasWorld(yield* readableEffect([...also, canvas])),
+      );
+      return {
+        upserts: [canvas, ...also],
+        deletes: [],
+        planned,
+        doc,
+        lints: lintDiff(before, after),
+      };
+    }),
   );
-  const after = lintCanvas(
-    write.canvasId,
-    write.doc,
-    canvasWorld(yield* readableEffect([...also, canvas])),
-  );
-  const upserts = [canvas, ...also];
-  // GAP [[01M7XES1FFV2N8AEZREJN7CQG7]]: prepare the Canvas edit in the commit planner.
-  yield* (yield* GraphWrites).commit(() => Effect.succeed({ upserts, deletes: [] }));
-  return { doc: docStr, lints: lintDiff(before, after) };
+  const { planned, doc, lints } = present(committed, "a canvas write always writes its canvas");
+  return { planned, doc, lints };
 });
 
 /**

@@ -1,23 +1,17 @@
+import { inlineSpanSource, parseInlineSource, refTokenAt } from "./inline.ts";
 import type { NodeId } from "./model.ts";
 
 /**
- * The reference token in text: `[[node-id|label]]` or bare `[[node-id]]`.
- * This module is the grammar `:node/mentions` and the text writes scan
- * with, so a token one of them sees is a token every one of them sees. The
- * inline grammar (`inline.ts`) parses the token again for the page.
- * GAP [[01M7HCW3N0TSYGSXVNQS2K8H0Y]]
+ * The references a text makes, read from the inline grammar (`inline.ts`,
+ * the reference token's one statement): `:node/mentions` and the text writes
+ * see exactly the refs the page draws, so a token inside inline code is
+ * code, not a mention.
  *
  * The `[[` completion scan in `@kb/ui-sdk`'s `lib/refs.ts` is a different
  * concept and does not belong here: it looks for an *open* token — a `[[`
  * the person is still typing, with no `]]` yet — which this grammar by
  * definition never matches.
- *
- * The id group excludes `[` as well as `]`/`|`: a real id is ULID/`sys.*`
- * shaped and never contains one, and excluding it lets the scan re-sync to a
- * genuine `[[id]]` marker after a stray extra `[` in surrounding prose (e.g.
- * `[[[id]]`) instead of swallowing that `[` into the captured id.
  */
-const MENTION_RE = /\[\[([^[\]|]+)(?:\|([^\]]*))?\]\]/g;
 
 /** One token as it sits in a text: its span, its target and its label. */
 export interface MentionSpan {
@@ -33,10 +27,14 @@ export interface MentionSpan {
 
 /** Every token in `text`, in order, with repeats. */
 export function mentionSpans(text: string): MentionSpan[] {
+  if (!text.includes("[[")) return [];
   const out: MentionSpan[] = [];
-  for (const m of text.matchAll(MENTION_RE)) {
-    const raw = m[1] ?? "";
-    out.push({ start: m.index, end: m.index + m[0].length, id: raw.trim(), label: m[2] });
+  let at = 0;
+  for (const span of parseInlineSource(text)) {
+    const source = inlineSpanSource(span);
+    const token = span.seg.t === "ref" ? refTokenAt(source, 0) : null;
+    if (token) out.push({ start: at, end: at + source.length, id: token.id, label: token.label });
+    at += source.length;
   }
   return out;
 }

@@ -1,10 +1,7 @@
-export {
-  extensionRuntimeChanges,
-  ownExtensionEdits,
-  ownExtensionPath,
-} from "./extension-changes.ts";
 export { childProcessEnv, type ChildKind } from "./child-env.ts";
 export { closureOf } from "./extension-loader.ts";
+export { ownExtensionFolder } from "./extension-folder.ts";
+export { invalidateRootExtensions } from "./extension-state.ts";
 export type { DigestedClosure } from "./extension-closure.ts";
 export { servedPage } from "./families.ts";
 export { IN_PROCESS_WIRE, invoke } from "./invoke.ts";

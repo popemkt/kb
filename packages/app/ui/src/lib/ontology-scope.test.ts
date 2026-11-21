@@ -138,7 +138,7 @@ describe("member rows", () => {
         [SYSTEM_IDS.ontoMemberField]: [{ t: "ref", v: "n.p" }],
       }),
     ];
-    const map = wireToOutlineMap(wire, new Set());
+    const map = wireToOutlineMap(wire);
     const r = resolveScope(wire, "o", await answeredOver(wire, "o"));
     const rows = memberRows(r, labelOf(map));
     expect(rows.map((x) => x.label)).toEqual(["alpha", "pinned one", "zeta"]);
@@ -164,7 +164,7 @@ describe("member rows", () => {
         [SYSTEM_IDS.ontoExcludeField]: [{ t: "ref", v: "n.a" }],
       }),
     ];
-    const map = wireToOutlineMap(wire, new Set());
+    const map = wireToOutlineMap(wire);
     const r = resolveScope(wire, "o", await answeredOver(wire, "o"));
     expect(memberRows(r, labelOf(map))).toEqual([]);
     expect(excludedRows(r, labelOf(map)).map((x) => x.label)).toEqual(["alpha"]);
@@ -183,13 +183,10 @@ describe("member rows", () => {
     ];
     const r = resolveScope(wire, "o", await answeredOver(wire, "o"));
     // A members-only map: exactly what the ontology page holds while scoped.
-    const scoped = wireToOutlineMap(
-      wire.filter((n) => n.id !== "n.a"),
-      new Set(),
-    );
+    const scoped = wireToOutlineMap(wire.filter((n) => n.id !== "n.a"));
     expect(excludedRows(r, labelOf(scoped)).map((x) => x.label)).toEqual(["n.a"]);
     // The page's resolver falls back to the unscoped nodes, so it recovers it.
-    const unscoped = wireToOutlineMap(wire, new Set());
+    const unscoped = wireToOutlineMap(wire);
     const pageResolver = (id: string) => {
       const a = unscoped.get(id)?.text.trim();
       if (a !== undefined && a !== "") return a;

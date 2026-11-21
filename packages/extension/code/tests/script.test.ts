@@ -3,12 +3,16 @@
  * on the node it runs for by `sys.f.scripts`.
  */
 import { describe, expect, test } from "bun:test";
-import { SYSTEM_IDS, canonicalJson } from "@kb/model";
+import { SYSTEM_IDS, canonicalJson, type KbNode } from "@kb/model";
 import { CODE_IDS, DEFAULT_GRANT, scriptIdsOf, scriptOf } from "@kb/code";
 
 const str = (v: string) => [{ t: "str" as const, v }];
 /** Tagged `#script`, as every script is. */
 const TAGGED = { [SYSTEM_IDS.typeField]: [{ t: "ref" as const, v: CODE_IDS.scriptTag }] };
+
+/** A node read as a script, in a graph that holds only it. */
+const scriptOfNode = (node: { id: string; text: string; props: KbNode["props"] }) =>
+  scriptOf(node.id, (id) => (id === node.id ? node : undefined));
 
 describe("scripts", () => {
   test("a node names its scripts in order", () => {
@@ -28,7 +32,7 @@ describe("scripts", () => {
     const grant = { reads: "subject" as const, actions: ["ext.canvas.place"] };
     const code = "  kb.on('canvas.page', () => {});\n";
     expect(
-      scriptOf({
+      scriptOfNode({
         id: "s",
         text: "Badges",
         props: {
@@ -39,7 +43,7 @@ describe("scripts", () => {
       }),
     ).toEqual({ id: "s", label: "Badges", code, grant });
     expect(
-      scriptOf({ id: "s", text: "", props: { ...TAGGED, [CODE_IDS.codeField]: str("x()") } }),
+      scriptOfNode({ id: "s", text: "", props: { ...TAGGED, [CODE_IDS.codeField]: str("x()") } }),
     ).toEqual({
       id: "s",
       label: "s",
@@ -49,10 +53,12 @@ describe("scripts", () => {
   });
 
   test("a node not tagged #script, with no code, or with a grant that is none, is no script", () => {
-    expect(scriptOf({ id: "s", text: "", props: { [CODE_IDS.codeField]: str("x()") } })).toBeNull();
-    expect(scriptOf({ id: "s", text: "", props: TAGGED })).toBeNull();
     expect(
-      scriptOf({
+      scriptOfNode({ id: "s", text: "", props: { [CODE_IDS.codeField]: str("x()") } }),
+    ).toBeNull();
+    expect(scriptOfNode({ id: "s", text: "", props: TAGGED })).toBeNull();
+    expect(
+      scriptOfNode({
         id: "s",
         text: "",
         props: {

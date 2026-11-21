@@ -1,18 +1,21 @@
-import { beforeAll, afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { present, SYSTEM_IDS } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { viewFieldNodes } from "@/fixtures/view-fields";
 import {
+  childInstanceKey,
   MAIN_OUTLINE_HOST,
   MAX_VIEW_DEPTH,
   projectedRowKey,
+  ReplicaQueries,
   slotLink,
   syncUiPlugins,
+  type QueryAnswer,
 } from "@kb/ui-sdk";
 import type { WireNode } from "@kb/contracts";
 import { useGraphStore } from "@/stores/graph.store";
 import { OutlineListView } from "@kb/views";
-import { resetOutlineStore } from "@/test-support/outline-store";
+import { resetOutlineStore, rowClosed, rowKey } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { outlineNodes, setOutlineHost, useOutlineStore } from "@kb/outline-ui";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
@@ -41,6 +44,14 @@ function queryWire(): WireNode {
     createdAt: "2026-08-08T00:00:00.000Z",
     updatedAt: "2026-08-08T00:00:00.000Z",
   };
+}
+
+/** The keys of the rows the main outline draws now. */
+function drawnKeys(): string[] {
+  return useOutlineStore
+    .getState()
+    .getVisibleInstances()
+    .map((i) => i.instanceKey);
 }
 
 describe("visible instances", () => {
@@ -84,7 +95,7 @@ describe("visible instances", () => {
   }
 
   it("includes query-result instances when the query node is expanded", async () => {
-    useOutlineStore.getState().toggleCollapse("n.q1");
+    useOutlineStore.getState().toggleCollapse(rowKey("n.q1"));
     await resultsAnswered();
     const keys = useOutlineStore
       .getState()
@@ -95,8 +106,24 @@ describe("visible instances", () => {
     expect(keys).toContain(projectedRowKey(MAIN_OUTLINE_HOST, "n.q1", "n.root-b"));
   });
 
+  it("a node is open or closed at each place it is drawn: in the tree, and as a query's result", async () => {
+    const result = projectedRowKey(MAIN_OUTLINE_HOST, "n.q1", "n.root-a");
+    const underResult = `${result}/n.child-a1`;
+    useOutlineStore.getState().toggleCollapse(rowKey("n.q1"));
+    useOutlineStore.getState().toggleCollapse(rowKey("n.root-a"));
+    await resultsAnswered();
+    expect(drawnKeys()).toContain("tree/n.root-a/n.child-a1");
+    expect(drawnKeys()).toContain(result);
+    expect(drawnKeys()).not.toContain(underResult);
+
+    useOutlineStore.getState().toggleCollapse(result);
+    useOutlineStore.getState().toggleCollapse(rowKey("n.root-a"));
+    expect(drawnKeys()).not.toContain("tree/n.root-a/n.child-a1");
+    expect(drawnKeys()).toContain(underResult);
+  });
+
   it("arrow neighbors move from tree into query results and across refs", async () => {
-    useOutlineStore.getState().toggleCollapse("n.q1");
+    useOutlineStore.getState().toggleCollapse(rowKey("n.q1"));
     await resultsAnswered();
     const store = useOutlineStore.getState();
     const fromQuery = present(store.getNextVisibleInstance("tree/n.q1"), "next from query");
@@ -120,7 +147,7 @@ describe("visible instances", () => {
 
   it("zoomed children use full-chain outline keys", () => {
     useGraphStore.getState().zoomTo("n.root-a");
-    useOutlineStore.getState().toggleCollapse("n.child-a2");
+    useOutlineStore.getState().toggleCollapse(rowKey("n.child-a2"));
     const keys = useOutlineStore
       .getState()
       .getVisibleInstances()
@@ -135,9 +162,9 @@ describe("visible instances", () => {
   it("table-mode frame emits only sorted direct children (no grandchildren)", async () => {
     const { mutations } = await import("@/actions/mutations");
     useGraphStore.getState().zoomTo("n.root-a");
-    useOutlineStore.getState().toggleCollapse("n.root-a");
+    useOutlineStore.getState().toggleCollapse(rowKey("n.root-a"));
     // Expand would show grandchild in list mode; table must stay flat.
-    useOutlineStore.getState().toggleCollapse("n.child-a2");
+    useOutlineStore.getState().toggleCollapse(rowKey("n.child-a2"));
 
     await mutations.setFrameView("n.root-a", CollectionTableView);
     await mutations.setFrameSetting("n.root-a", "sort", [
@@ -169,7 +196,7 @@ describe("visible instances", () => {
 });
 
 const outline = () => useOutlineStore.getState();
-const collapsed = (id: string) => present(outlineNodes().get(id), id).collapsed;
+const collapsed = (id: string) => rowClosed(id);
 
 describe("a row's subtree keys walk the rows the outline draws", () => {
   /** n.q1 holds a stored child, n.qc, over a child of its own. */
@@ -197,26 +224,103 @@ describe("a row's subtree keys walk the rows the outline draws", () => {
       );
   });
 
+  /** n.root-a's row as n.q1's result, and n.child-a2's row under it: places of their own. */
+  const result = projectedRowKey(MAIN_OUTLINE_HOST, "n.q1", "n.root-a");
+  const underResult = childInstanceKey(result, "n.child-a2");
+  const closedAt = (key: string) => !outline().isOpen(key);
+
   /** The query open, and its results answered, as a page that draws them has them. */
   async function queryOpen(): Promise<void> {
-    outline().toggleCollapse("n.q1");
+    outline().toggleCollapse(rowKey("n.q1"));
     outline().getVisibleInstances();
     await present(useGraphStore.getState().queries, "replica queries").ask(TODO_EDN);
   }
 
   it("opens the results a query draws and the rows under them, then closes them", async () => {
     await queryOpen();
-    expect(["n.root-a", "n.child-a2", "n.qc"].map(collapsed)).toEqual([true, true, true]);
-    outline().expandSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
-    // n.root-a is drawn under the query as its result; its rows open with it.
-    expect(["n.root-a", "n.child-a2", "n.qc"].map(collapsed)).toEqual([false, false, false]);
-    outline().collapseSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
-    expect(["n.q1", "n.root-a", "n.child-a2", "n.qc"].map(collapsed)).toEqual([
+    expect([result, underResult, rowKey("n.qc")].map(closedAt)).toEqual([true, true, true]);
+    await outline().expandSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
+    // n.root-a is drawn under the query as its result; its rows open there.
+    expect([result, underResult, rowKey("n.qc")].map(closedAt)).toEqual([false, false, false]);
+    // Its row in the tree is another place, left as it was.
+    expect(collapsed("n.root-a")).toBe(true);
+    await outline().collapseSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
+    expect([rowKey("n.q1"), result, underResult, rowKey("n.qc")].map(closedAt)).toEqual([
       true,
       true,
       true,
       true,
     ]);
+  });
+
+  it("waits for a query no row has drawn yet, then opens its results", async () => {
+    // n.q1 closed and never asked: its results come with the walk that opens it.
+    expect(useGraphStore.getState().queries?.read(TODO_EDN).current).toBe(false);
+    await outline().expandSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
+    expect([rowKey("n.q1"), result, underResult].map(closedAt)).toEqual([false, false, false]);
+  });
+
+  it("expands and collapses all projected rows across more cold queries than the cache holds", async () => {
+    // The page cache keeps 256 unwatched queries.
+    const wires = Array.from(
+      { length: 257 },
+      (_, i): WireNode => ({
+        ...queryWire(),
+        id: `n.query-${i}`,
+        props: {
+          [SYSTEM_IDS.queryField]: [
+            { t: "str", v: `[:find ?id :where [?n :node/id ?id] [(= ${i} ${i})]]` },
+          ],
+        },
+      }),
+    );
+    useGraphStore.getState().hydrateFromWire([...fixtureGraph.nodes, ...wires], 1, "fixtures");
+    const run = vi.fn(
+      (): Promise<QueryAnswer> =>
+        Promise.resolve({ kind: "rows", generation: 0, rows: [["n.root-a"]] }),
+    );
+    const queries = new ReplicaQueries({ run }, () => 0, {
+      now: () => 0,
+      set: () => () => {},
+    });
+    useGraphStore.setState({ queries });
+    const results = wires.map(({ id }) => projectedRowKey(MAIN_OUTLINE_HOST, id, "n.root-a"));
+
+    await outline().expandAllInScope();
+    expect(results.every((key) => outline().isOpen(key))).toBe(true);
+    expect(run).toHaveBeenCalledTimes(wires.length);
+
+    await outline().collapseAllInScope();
+    expect(results.every(closedAt)).toBe(true);
+    expect(run.mock.calls.length).toBeLessThanOrEqual(wires.length * 2);
+  });
+
+  it("waits only for the queries inside the subtree it opens", async () => {
+    // n.q1 open beside n.root-a, its query not answered: n.root-a's step does not wait on it.
+    outline().toggleCollapse(rowKey("n.q1"));
+    const queries = present(useGraphStore.getState().queries, "replica queries");
+    const asked: string[] = [];
+    const ask = queries.ask.bind(queries);
+    queries.ask = (edn) => {
+      asked.push(edn);
+      return ask(edn);
+    };
+    try {
+      await outline().expandSubtree("tree/n.root-a", MAIN_OUTLINE_HOST);
+    } finally {
+      queries.ask = ask;
+    }
+    expect(collapsed("n.root-a")).toBe(false);
+    expect(asked).not.toContain(TODO_EDN);
+  });
+
+  it("opens nothing when the page moves before its queries answer", async () => {
+    // Expand all waits on n.q1's query; meanwhile the page zooms to n.root-a.
+    outline().toggleCollapse(rowKey("n.q1"));
+    const step = outline().expandAllInScope();
+    useGraphStore.getState().zoomTo("n.root-a");
+    await step;
+    expect(["n.qc", "n.child-a2"].map(collapsed)).toEqual([true, true]);
   });
 
   it("walks the rows of the pane the key was pressed in", async () => {
@@ -226,8 +330,9 @@ describe("a row's subtree keys walk the rows the outline draws", () => {
     try {
       outline().getVisibleInstances("pane:p2");
       await present(useGraphStore.getState().queries, "replica queries").ask(TODO_EDN);
-      outline().expandSubtree(projectedRowKey("pane:p2", "n.q1", "n.root-a"), "pane:p2");
-      expect(["n.root-a", "n.child-a2"].map(collapsed)).toEqual([false, false]);
+      await outline().expandSubtree(projectedRowKey("pane:p2", "n.q1", "n.root-a"), "pane:p2");
+      expect([result, underResult].map(closedAt)).toEqual([false, false]);
+      expect(collapsed("n.root-a")).toBe(true);
     } finally {
       setOutlineHost("pane:p2", null);
     }
@@ -261,13 +366,13 @@ describe("a row's subtree keys walk the rows the outline draws", () => {
   it("leaves the stored children a query's view does not draw as they are", async () => {
     const { mutations } = await import("@/actions/mutations");
     await mutations.setFrameView("n.q1", CollectionTableView);
-    outline().toggleCollapse("n.qc");
+    outline().toggleCollapse(rowKey("n.qc"));
     await queryOpen();
-    outline().collapseSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
+    await outline().collapseSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
     expect(collapsed("n.q1")).toBe(true);
     expect(collapsed("n.qc")).toBe(false);
-    outline().toggleCollapse("n.qc");
-    outline().expandSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
+    outline().toggleCollapse(rowKey("n.qc"));
+    await outline().expandSubtree("tree/n.q1", MAIN_OUTLINE_HOST);
     expect(collapsed("n.q1")).toBe(false);
     expect(collapsed("n.qc")).toBe(true);
   });

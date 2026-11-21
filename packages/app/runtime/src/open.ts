@@ -64,8 +64,16 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
     selectStore(root),
     (store) =>
       Effect.gen(function* () {
+        // Before the load: see `noteStoreSynced`.
+        const fingerprint = yield* store.fingerprint;
         const loaded = yield* store.loadEffect;
-        const ctx = yield* sessionOver(root, store, loaded, derivedWith({}), textCandidates);
+        const ctx = yield* sessionOver(
+          root,
+          store,
+          { nodes: loaded, fingerprint },
+          derivedWith({}),
+          textCandidates,
+        );
         yield* reconcileSessionSchema(ctx);
         yield* reportLegacyViews(root, ctx.nodes, sessionSeed(ctx).retired);
         return ctx;

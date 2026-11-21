@@ -22,6 +22,7 @@ import {
   conformsToType,
   fieldTypeOf,
   type FieldType,
+  type KbNode,
   type NodeId,
   type PropEntry,
   type PropValue,
@@ -143,42 +144,54 @@ function boardLints(
   );
 }
 
-const canvasImportEffect = Effect.fn("ext.canvas.import")(function* (
-  input: z.infer<typeof importInput>,
-): Effect.fn.Return<z.infer<typeof importOutput>, CanvasFail, CanvasWriteEnv> {
-  const ctx = yield* KbCtx;
-  const fs = yield* FileSystem;
-  const path = isAbsolute(input.path) ? input.path : join(ctx.root, input.path);
-  const bytes = yield* fs
-    .readFile(path)
-    .pipe(Effect.mapError((err) => new CanvasTxError(`cannot read ${input.path}: ${err.message}`)));
-  // The reader (a ZIP inflater and SQLite) loads with the first import, not with every command.
-  const { tldrawRecords } = yield* Effect.promise(() => import("./tldraw-file.ts"));
-  const records = yield* canvasStep(() => tldrawRecords(bytes));
-  const keys = tldrawKeys(records);
-  if (keys.pages.length === 0) {
-    return yield* Effect.fail(new CanvasTxError(`${input.path} holds no page`));
-  }
-  const ids = new Map<string, NodeId>();
-  for (const key of [...keys.pages, ...keys.records]) ids.set(key, yield* freshId);
-  const idOf = (key: string) => present(ids.get(key), `an id was minted for ${key}`);
-  const board = tldrawBoard(records, { page: idOf, record: idOf });
-  const at = yield* currentIso;
-  const graph = IndexedNodes.of(ctx.nodes);
+/** A board as `tldrawBoard` lowers it. */
+type TldrawBoard = ReturnType<typeof tldrawBoard>;
+
+/** Where an import files the board it plans, and what it names it. */
+interface ImportPlace {
+  readonly idOf: (key: string) => NodeId;
+  /** The board: its first page. */
+  readonly canvasId: NodeId;
+  readonly at: string;
+  readonly name: string | undefined;
+  readonly parent: string | undefined;
+}
+
+/** A field an import writes a meta key's values in: one kb has, or one it makes. */
+interface ImportField {
+  readonly field: string;
+  readonly id: NodeId;
+  readonly made: boolean;
+  readonly type: FieldType;
+}
+
+/**
+ * The board planned over the graph a commit attempt reads (`nodes`), as
+ * `node.add` plans each node: its pages as `#canvas` nodes, the board filed
+ * under its parent, the fields its meta keys need that kb does not have,
+ * and each record card's node under its page. Planned again on each
+ * attempt, so a child another process filed under the parent is kept.
+ */
+const planImport = Effect.fn("ext.canvas.import.plan")(function* (
+  nodes: readonly KbNode[],
+  board: TldrawBoard,
+  place: ImportPlace,
+) {
+  const { idOf, canvasId, at } = place;
+  const graph = IndexedNodes.of(nodes);
   const written = new Set<NodeId>();
   /** One node planned into the graph the import writes, as `node.add` plans one. */
-  const add = (node: Parameters<typeof planNodeAdd>[1], id: NodeId, when: string) => {
-    for (const w of planNodeAdd(graph, node, id, when).written) written.add(w);
+  const add = (node: Parameters<typeof planNodeAdd>[1], id: NodeId) => {
+    for (const w of planNodeAdd(graph, node, id, at).written) written.add(w);
   };
-  const canvasId = idOf(present(keys.pages[0], "a board has a page"));
-  const fields = new Map<string, { field: string; id: NodeId; made: boolean; type: FieldType }>();
+  const fields = new Map<string, ImportField>();
   yield* canvasStep(() => {
     board.pages.forEach((page, i) => {
       const isBoard = i === 0;
-      const parent = isBoard ? input.parent : canvasId;
+      const parent = isBoard ? place.parent : canvasId;
       add(
         {
-          text: isBoard && input.name !== undefined ? input.name : page.name,
+          text: isBoard && place.name !== undefined ? place.name : page.name,
           tags: ["canvas"],
           props: [
             { field: CANVAS_IDS.canvasField, value: { t: "str", v: stringifyCanvasDoc(page.doc) } },
@@ -186,7 +199,6 @@ const canvasImportEffect = Effect.fn("ext.canvas.import")(function* (
           ...(parent === undefined ? {} : { parent }),
         },
         idOf(page.key),
-        at,
       );
     });
   });
@@ -194,7 +206,7 @@ const canvasImportEffect = Effect.fn("ext.canvas.import")(function* (
   for (const { name, values } of board.records.flatMap((r) => r.fields)) {
     valuesByName.set(name, [...(valuesByName.get(name) ?? []), ...values]);
   }
-  const boardName = input.name ?? present(board.pages[0], "a board has a page").name;
+  const boardName = place.name ?? present(board.pages[0], "a board has a page").name;
   for (const [name, values] of valuesByName) {
     const found = fieldFor(graph, name, boardName, values);
     if (found.id !== null) {
@@ -217,7 +229,6 @@ const canvasImportEffect = Effect.fn("ext.canvas.import")(function* (
           ],
         },
         id,
-        at,
       ),
     );
     fields.set(name, { field: found.name, id, made: true, type });
@@ -228,14 +239,41 @@ const canvasImportEffect = Effect.fn("ext.canvas.import")(function* (
         const field = present(fields.get(name), name);
         return values.map((raw) => ({ field: field.id, value: propValue(raw, field.type) }));
       });
-      add({ text: record.text, props, parent: idOf(record.page) }, idOf(record.key), at);
+      add({ text: record.text, props, parent: idOf(record.page) }, idOf(record.key));
     }
   });
   const upserts = [...written].map((id) =>
     present(graph.get(id), "a planned node is in the graph"),
   );
-  // GAP [[01M7XES1FFV2N8AEZREJN7CQG7]]: plan the import against the graph each attempt reads.
-  yield* (yield* GraphWrites).commit(() => Effect.succeed({ upserts, deletes: [] }));
+  return { upserts, deletes: [], fields };
+});
+
+const canvasImportEffect = Effect.fn("ext.canvas.import")(function* (
+  input: z.infer<typeof importInput>,
+): Effect.fn.Return<z.infer<typeof importOutput>, CanvasFail, CanvasWriteEnv> {
+  const ctx = yield* KbCtx;
+  const fs = yield* FileSystem;
+  const path = isAbsolute(input.path) ? input.path : join(ctx.root, input.path);
+  const bytes = yield* fs
+    .readFile(path)
+    .pipe(Effect.mapError((err) => new CanvasTxError(`cannot read ${input.path}: ${err.message}`)));
+  // The reader (a ZIP inflater and SQLite) loads with the first import, not with every command.
+  const { tldrawRecords } = yield* Effect.promise(() => import("./tldraw-file.ts"));
+  const records = yield* canvasStep(() => tldrawRecords(bytes));
+  const keys = tldrawKeys(records);
+  if (keys.pages.length === 0) {
+    return yield* Effect.fail(new CanvasTxError(`${input.path} holds no page`));
+  }
+  const ids = new Map<string, NodeId>();
+  for (const key of [...keys.pages, ...keys.records]) ids.set(key, yield* freshId);
+  const idOf = (key: string) => present(ids.get(key), `an id was minted for ${key}`);
+  const board = tldrawBoard(records, { page: idOf, record: idOf });
+  const at = yield* currentIso;
+  const canvasId = idOf(present(keys.pages[0], "a board has a page"));
+  const committed = yield* (yield* GraphWrites).commit((nodes) =>
+    planImport(nodes, board, { idOf, canvasId, at, name: input.name, parent: input.parent }),
+  );
+  const { upserts, fields } = present(committed, "an import always writes its board");
   const world = canvasWorld([...ctx.nodes, ...upserts]);
   return {
     canvasId,

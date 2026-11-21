@@ -89,10 +89,10 @@ export function resolveTagIn(graph: NamedNodes, nameOrId: string): NodeId {
   return resolveNamed(graph, nameOrId, "tag");
 }
 
-export function resolveFieldId(nodes: KbNode[], nameOrId: string): NodeId {
+export function resolveFieldId(nodes: readonly KbNode[], nameOrId: string): NodeId {
   return resolveFieldIn(new ScannedNodes(nodes), nameOrId);
 }
 
-export function resolveTagId(nodes: KbNode[], nameOrId: string): NodeId {
+export function resolveTagId(nodes: readonly KbNode[], nameOrId: string): NodeId {
   return resolveTagIn(new ScannedNodes(nodes), nameOrId);
 }

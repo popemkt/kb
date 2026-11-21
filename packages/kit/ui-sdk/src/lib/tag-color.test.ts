@@ -198,7 +198,7 @@ describe("one palette for the whole workspace (review: scoped projections)", () 
     const scoped = [tagNode(newer, {}, at(2)), tagged];
     expect(tagColorOf(newer, tagPalette(scoped))).toBe(hashTagColor(newer));
     // The projection is handed the whole graph, and colours its chips from it.
-    const projected = wireToOutlineMap(scoped, new Set(), full);
+    const projected = wireToOutlineMap(scoped, full);
     expect(projected.get("n.member")?.tags[0]?.color).toBe(workspaceColor);
   });
 });

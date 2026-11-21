@@ -337,6 +337,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
       chain: [],
       pages: {},
       expansion: new Map(),
+      references: new Set(),
       details: {},
       days: {},
       today: "2026-11-14",
@@ -418,6 +419,7 @@ describe("Filter… host visibility", () => {
         debugFields: useDebugFieldsStore.getState(),
         workspace: useWorkspaceStore.getState(),
         palette: { close: () => {}, openStep: () => {} },
+        writes: mutations,
       });
     });
 
@@ -510,9 +512,11 @@ describe("a board's groups (DESIGN-UI.md → Groups)", () => {
     const { act } = await import("react");
     const win = new Window({ url: "https://kb.test/" });
     const g = globalThis as typeof globalThis & { window: Window; document: Document };
-    const prev = { window: g.window, document: g.document };
+    const prev = { window: g.window, document: g.document, ResizeObserver: g.ResizeObserver };
     g.window = win as unknown as Window & typeof globalThis.window;
     g.document = win.document as unknown as Document;
+    // The board measures its scroller's edges (`useEdgeFade`).
+    g.ResizeObserver = win.ResizeObserver;
     const host = win.document.createElement("div");
     win.document.body.appendChild(host);
     const root = createRoot(host as unknown as Element);
@@ -549,6 +553,7 @@ describe("a board's groups (DESIGN-UI.md → Groups)", () => {
       await act(async () => root.unmount());
       g.window = prev.window;
       g.document = prev.document;
+      g.ResizeObserver = prev.ResizeObserver;
     }
   });
 

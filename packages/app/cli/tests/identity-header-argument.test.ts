@@ -5,7 +5,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import { CommanderError } from "commander";
-import { checkUiListen, collectIdentity } from "../src/arguments.ts";
+import { checkUiListen, collectIdentity } from "../src/commands/ui-options.ts";
 
 describe("--identity-header", () => {
   test("collects the logins under the one header it names", () => {

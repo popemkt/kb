@@ -11,6 +11,7 @@ import {
 import { cardinalityOf, declaresOptionSet, type FieldType } from "@kb/model";
 import { PlusIcon, XIcon } from "@phosphor-icons/react";
 import {
+  fieldsSectionProps,
   browserHost,
   cn,
   type FieldContext,
@@ -19,6 +20,8 @@ import {
   formatPropValue,
   IconButton,
   isValueMismatch,
+  refCreationOf,
+  refSearchOf,
   ManagedNote,
   type PropValue,
   resolveFieldTypeById,
@@ -31,6 +34,7 @@ import {
   useGraphRead,
   useOptionPreview,
   type FieldHandle,
+  type ValueKindSpec,
 } from "@kb/ui-sdk";
 import { backToRow } from "./back-to-row";
 import { outlineSource, releaseOutlineKeyboard, useOutlineStore } from "./outline.store";
@@ -40,6 +44,8 @@ import { useSlotKind } from "./slot-kind";
 import { arriveAt, fieldSlot, slotAt } from "./value-slot-nav";
 import { HiddenFieldsChips } from "./hidden-fields-chips";
 import { useRowOpening } from "./row-opening";
+import { fieldTargetsOf } from "./field-targets";
+import { pastedValues } from "./value-paste";
 
 /**
  * The gallery loads when a field first draws as one: only a kind whose
@@ -110,11 +116,21 @@ export function FieldValueStack({
   const { spec } = useSlotKind(fieldType, fieldId, schema);
   const many = cardinalityOf(schema.get(fieldId)?.props, (id) => schema.get(id)) === "many";
   const { field, pending, setPending, picking, pickerQuery, setPicking, stackRef } = useFieldHandle(
-    { nodeId, fieldId, values, many, instanceKey },
+    { nodeId, fieldId, values, many, picks: spec.editor === "picker", instanceKey },
   );
   const drop = (id: number) => setPending((ids) => ids.filter((x) => x !== id));
-  /** Adding is the picker for picked values, and a new empty slot for typed ones. */
-  const beginAdd = spec.editor === "picker" ? field.openPicker : field.addSlot;
+  const paste = usePasteValues({
+    nodeId,
+    fieldId,
+    context,
+    spec,
+    field,
+    values,
+    many,
+    readOnly,
+    setPending,
+    setPicking,
+  });
   const canAdd = !readOnly && many && values.length > 0 && !picking;
 
   return (
@@ -127,13 +143,14 @@ export function FieldValueStack({
       )}
       data-field-values={fieldId}
       data-layout={spec.layout}
+      onPaste={paste}
     >
       {valueKeys(values).map(({ key, value }, i) => (
         <ValueItem
           key={key}
           layout={spec.layout}
           onRemove={readOnly ? null : () => field.remove(value)}
-          onAdd={canAdd && i === values.length - 1 && pending.length === 0 ? beginAdd : null}
+          onAdd={canAdd && i === values.length - 1 && pending.length === 0 ? field.addValue : null}
         >
           <ValueSlot
             value={value}
@@ -201,6 +218,109 @@ export function FieldValueStack({
 }
 
 /**
+ * A paste of several lines into a many-valued field (DESIGN-UI.md → Field
+ * values): one value per line (`pastedValues`), a target named by a line that
+ * the field may make made first, added after the field's values as one write
+ * of the page's, one undo step. Resolves to how many values it added; null
+ * when the paste is not a list of values, and stays the editor's.
+ */
+function pasteValues(
+  text: string,
+  {
+    nodeId,
+    fieldId,
+    context,
+    spec,
+    field,
+  }: {
+    nodeId: string;
+    fieldId: string;
+    context: FieldContext;
+    spec: ValueKindSpec;
+    field: FieldHandle;
+  },
+): Promise<number> | null {
+  const creation = spec.editor === "picker" ? refCreationOf(context, fieldId) : null;
+  const targets =
+    spec.editor === "picker"
+      ? fieldTargetsOf({
+          schema: context.schema,
+          outline: context.outline,
+          fieldId,
+          holder: nodeId,
+          selected: new Set(field.values.flatMap((v) => (v.t === "ref" ? [v.v] : []))),
+          ...refSearchOf(context, fieldId),
+        })
+      : [];
+  const lines = pastedValues(text, { spec, targets, canCreate: creation !== null });
+  if (lines === null) return null;
+  const { writes } = browserHost();
+  return writes
+    .together(async () => {
+      // A target a line names that the field may make is made first.
+      const made = await Promise.all(
+        lines.map((line) =>
+          line.kind === "value" || creation === null
+            ? Promise.resolve(null)
+            : writes.createRefTarget(creation, line.name),
+        ),
+      );
+      const added = lines.flatMap((line, i): PropValue[] => {
+        if (line.kind === "value") return [line.value];
+        const id = made[i];
+        return id === null || id === undefined ? [] : [{ t: "ref", v: id }];
+      });
+      await Promise.all(added.map((value) => writes.updateProp(nodeId, fieldId, value)));
+      return added.length;
+    })
+    .then((added) => added ?? 0);
+}
+
+/**
+ * The stack's paste (`pasteValues`): a paste it reads as a list of values
+ * is the field's — nothing of it is typed into the editor, the slot or
+ * picker it landed in closes, and the keyboard lands on the last value
+ * added. Any other paste is the editor's.
+ */
+function usePasteValues({
+  nodeId,
+  fieldId,
+  context,
+  spec,
+  field,
+  values,
+  many,
+  readOnly,
+  setPending,
+  setPicking,
+}: {
+  nodeId: string;
+  fieldId: string;
+  context: FieldContext;
+  spec: ValueKindSpec;
+  field: FieldHandle;
+  values: readonly PropValue[];
+  many: boolean;
+  readOnly: boolean;
+  setPending: (ids: readonly number[]) => void;
+  setPicking: (open: boolean) => void;
+}) {
+  return (e: React.ClipboardEvent) => {
+    if (readOnly || !many) return;
+    const text = e.clipboardData.getData("text/plain");
+    const done = pasteValues(text, { nodeId, fieldId, context, spec, field });
+    if (done === null) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setPending([]);
+    setPicking(false);
+    void done.then((added) => {
+      if (added > 0) field.focusSlot(values.length + added - 1);
+    });
+  };
+}
+
+/**
  * A key per value that survives the others changing: its content, and which
  * occurrence of that content it is (a field may hold one value twice). An
  * index key remounted every value after a removed one — and dropped the
@@ -248,12 +368,15 @@ function useFieldHandle({
   fieldId,
   values,
   many,
+  picks,
   instanceKey,
 }: {
   nodeId: string;
   fieldId: string;
   values: PropValue[];
   many: boolean;
+  /** Its values are picked, not typed: the next one is added in its picker. */
+  picks: boolean;
   instanceKey: string | undefined;
 }) {
   /**
@@ -288,6 +411,8 @@ function useFieldHandle({
     create: (creation, name) => browserHost().writes.createRefTarget(creation, name),
     openPicker: (query = "") => setPicker({ query }),
     addSlot: () => setPending((ids) => [...ids, (nextPending.current += 1)]),
+    addValue: () =>
+      picks ? setPicker({ query: "" }) : setPending((ids) => [...ids, (nextPending.current += 1)]),
     // Back from an empty field opened from its chip closes it into the chips;
     // from any other field, back is to the row.
     leave: (way) => {
@@ -572,7 +697,7 @@ export function FieldsSection({ nodeId, depth, instanceKey }: FieldsSectionProps
   };
 
   return (
-    <div className="fields-section" data-fields-for={nodeId} ref={section}>
+    <div className="fields-section" {...fieldsSectionProps(nodeId, instanceKey)} ref={section}>
       <CloseOpenedField.Provider value={close}>
         {rows.map((p) => (
           <Field

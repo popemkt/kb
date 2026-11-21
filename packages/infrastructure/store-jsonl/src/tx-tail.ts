@@ -22,7 +22,9 @@ import {
 import {
   TX_TAIL_KEEP_ENTRIES,
   TX_TAIL_MAX_ENTRIES,
+  committedSpan,
   pageLength,
+  type TailSpan,
   type TxPage,
   type TxRecord,
   type TxTail,
@@ -36,7 +38,10 @@ import { contentMark, storeMark } from "./content-mark.ts";
 
 interface TailRecord {
   readonly tx: KbTx;
+  /** The store's mark once the record's transaction was published. */
   readonly mark: string;
+  /** The mark it began on; null on a record an earlier kb wrote, or one adopted. */
+  readonly base: string | null;
   readonly bytes: number;
 }
 
@@ -46,14 +51,22 @@ interface History {
   readonly complete: boolean;
 }
 
-function lineOf(tx: KbTx, mark: string): string {
-  return `${canonicalJson({ ...tx, mark })}\n`;
+function lineOf(tx: KbTx, mark: string, base: string | null): string {
+  return `${canonicalJson(base === null ? { ...tx, mark } : { ...tx, mark, base })}\n`;
+}
+
+function stringAt(raw: unknown, key: "mark" | "base"): string | null {
+  return Predicate.hasProperty(raw, key) && typeof raw[key] === "string" ? raw[key] : null;
 }
 
 function decodeLine(line: string): TailRecord {
   const raw: unknown = JSON.parse(line);
-  const mark = Predicate.hasProperty(raw, "mark") && typeof raw.mark === "string" ? raw.mark : "";
-  return { tx: decodeStoredTx(raw), mark, bytes: Buffer.byteLength(line) + 1 };
+  return {
+    tx: decodeStoredTx(raw),
+    mark: stringAt(raw, "mark") ?? "",
+    base: stringAt(raw, "base"),
+    bytes: Buffer.byteLength(line) + 1,
+  };
 }
 
 function addRecord(history: readonly TailRecord[], pending: TailRecord): TailRecord[] {
@@ -127,6 +140,19 @@ export class JsonlTxTail implements TxTail {
     return this.published().records.map((record) => record.tx);
   }
 
+  committedSince(from: string): TailSpan | null {
+    const { records, mark } = this.published();
+    // Read after the records, so a commit published between the two ends
+    // the span short of `to` and answers null rather than missing it.
+    const to = mark === undefined ? storeMark(this.nodesPath) : mark;
+    if (to === null) return null;
+    return committedSpan(
+      records.map((record) => ({ base: record.base, mark: record.mark, ops: () => record.tx.ops })),
+      from,
+      to,
+    );
+  }
+
   since(rev: number, page?: TxPage): KbTx[] {
     const after = this.published().records.filter((record) => record.tx.rev > rev);
     if (page === undefined) return after.map((record) => record.tx);
@@ -153,7 +179,7 @@ export class JsonlTxTail implements TxTail {
   transact(ops: StoreTx, record: TxRecord, base: string, mark: string, publish?: () => void): KbTx {
     const rev = this.archivePending(base) + 1;
     const tx = recordedTx(rev, ops, record);
-    durableReplaceFile({ path: this.pendingPath, body: lineOf(tx, mark) });
+    durableReplaceFile({ path: this.pendingPath, body: lineOf(tx, mark, base) });
     publish?.();
     // The commit is already visible. If this cleanup cannot finish, readers
     // use the journal and the next writer must finish it before reusing it.
@@ -178,7 +204,8 @@ export class JsonlTxTail implements TxTail {
             txs.slice(-TX_TAIL_KEEP_ENTRIES).map((tx) => ({
               tx,
               mark,
-              bytes: Buffer.byteLength(lineOf(tx, mark)),
+              base: null,
+              bytes: Buffer.byteLength(lineOf(tx, mark, null)),
             })),
           );
         },
@@ -269,7 +296,7 @@ export class JsonlTxTail implements TxTail {
     }
     const records = addRecord(history.records, pending);
     if (history.complete && history.records.length < TX_TAIL_MAX_ENTRIES) {
-      this.syncHistory(lineOf(pending.tx, pending.mark), records);
+      this.syncHistory(lineOf(pending.tx, pending.mark, pending.base), records);
     } else {
       this.writeHistory(records);
     }
@@ -289,7 +316,7 @@ export class JsonlTxTail implements TxTail {
   }
 
   private writeHistory(records: readonly TailRecord[]): void {
-    const body = records.map((record) => lineOf(record.tx, record.mark)).join("");
+    const body = records.map((record) => lineOf(record.tx, record.mark, record.base)).join("");
     this.cache = null;
     durableReplaceFile({ path: this.path, backupPath: this.backupPath, body });
     this.cache = { key: fileKey(this.path), records, complete: true };

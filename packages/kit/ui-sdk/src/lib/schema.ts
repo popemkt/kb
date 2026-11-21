@@ -60,7 +60,7 @@ export function schemaOf(snapshot: SchemaSource): SchemaIndex {
   if (before?.wire === snapshot.wireNodes) return before.schema;
   const wire = [...snapshot.wireNodes];
   const previous = [newest?.schema, before?.schema].filter((s) => s !== undefined);
-  const schema = schemaOfGraph(wireToOutlineMap(wire, new Set(), wire, previous));
+  const schema = schemaOfGraph(wireToOutlineMap(wire, wire, previous));
   built = [{ wire: snapshot.wireNodes, schema }, newest];
   return schema;
 }

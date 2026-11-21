@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatDay, type LocalDate } from "@kb/model";
-import { calendarWeeks, dateEditorIntent, sameDay } from "./date-calendar";
+import { calendarWeeks, dateMoveOf, sameDay } from "./date-calendar";
 
 const TODAY: LocalDate = { year: 2026, month: 9, day: 28 };
 
@@ -18,8 +18,8 @@ describe("the month grid", () => {
 
 describe("the date editor's keys", () => {
   const moved = (key: string, shiftKey = false) => {
-    const intent = dateEditorIntent({ key, shiftKey });
-    return intent?.type === "move" ? formatDay(intent.to(TODAY)) : intent?.type;
+    const move = dateMoveOf({ key, shiftKey });
+    return move === null ? null : formatDay(move(TODAY));
   };
 
   it("move the date by a day, a week and a month", () => {
@@ -31,10 +31,7 @@ describe("the date editor's keys", () => {
     expect(moved("PageUp")).toBe("2026-08-28");
   });
 
-  it("set it on Enter or Tab, leave it on Escape, and leave ←/→ to the text", () => {
-    expect(moved("Enter")).toBe("commit");
-    expect(moved("Tab")).toBe("commit");
-    expect(moved("Escape")).toBe("cancel");
-    expect(dateEditorIntent({ key: "ArrowLeft" })).toBeNull();
+  it("leave Enter, Tab and Escape to the value slot, and ←/→ to the text", () => {
+    for (const key of ["Enter", "Tab", "Escape", "ArrowLeft"]) expect(moved(key)).toBeNull();
   });
 });

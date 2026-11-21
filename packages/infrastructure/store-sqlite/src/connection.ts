@@ -18,7 +18,7 @@ import { takeWriteLock } from "@kb/contracts";
 import { domainError, isDomainError, type DomainError } from "@kb/model";
 
 /** Bumped when the table shape changes; stored in `meta` so a file can say. */
-const SCHEMA_VERSION = "6";
+const SCHEMA_VERSION = "7";
 
 /**
  * `meta.rev` is the store's commit mark, and the database keeps it: a trigger
@@ -42,6 +42,14 @@ export function hasTable(db: Database, name: string): boolean {
       .query<unknown, [string]>("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ?")
       .get(name) !== null
   );
+}
+
+/** Columns of the transaction tail, empty before the table exists. */
+export function tailColumns(db: Database): string[] {
+  return db
+    .query<{ name: string }, []>("PRAGMA table_info(tx)")
+    .all()
+    .map(({ name }) => name);
 }
 
 /** The store's commit mark: `meta.rev`, or null when the database has none. */
@@ -85,13 +93,14 @@ function migrate(db: Database): void {
        session TEXT,
        via TEXT,
        ops TEXT NOT NULL,
-       mark TEXT NOT NULL
+       mark TEXT NOT NULL,
+       base TEXT
      )`,
   );
-  // Schemas 4–6 each added one optional metadata column to the tail.
-  const columns = db.query<{ name: string }, []>("PRAGMA table_info(tx)").all();
-  for (const name of ["actor", "session", "via"]) {
-    if (!columns.some((column) => column.name === name)) {
+  // Schemas 4–7 each added one optional column to the tail.
+  const columns = tailColumns(db);
+  for (const name of ["actor", "session", "via", "base"]) {
+    if (!columns.includes(name)) {
       db.run(`ALTER TABLE tx ADD COLUMN ${name} TEXT`);
     }
   }

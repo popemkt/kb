@@ -1,7 +1,7 @@
 import { BACKDROP_OPTIONS, MOTION_FIELD_IDS, designSystemOptionId } from "@kb/appearance";
 import { SYSTEM_IDS, declaredIdOf, extensionNodeId, firstRef, type KbNode } from "@kb/model";
 import { bundledOwners } from "@kb/bundled";
-import { useNode } from "@kb/ui-sdk";
+import { useSchema, nameIn, useNode } from "@kb/ui-sdk";
 
 /** Who declares each node of the bundled seed: read once, where a card first needs it. */
 let owners: ReadonlyMap<string, string> | undefined;
@@ -25,6 +25,7 @@ function useThemeFacts(id: string): {
 } {
   const optionId = designSystemOptionId(id);
   const option = useNode(optionId);
+  const schema = useSchema();
   owners ??= bundledOwners();
   const family = owners.get(optionId);
   const owner = useNode(family === undefined ? undefined : extensionNodeId(family));
@@ -34,13 +35,13 @@ function useThemeFacts(id: string): {
   const style = useNode(chosenId(option, MOTION_FIELD_IDS.style));
   const speed = useNode(chosenId(option, MOTION_FIELD_IDS.speed));
   const motion = [intensity, style, speed].flatMap((node) =>
-    node === undefined ? [] : [node.text],
+    node === undefined ? [] : [nameIn(schema, node.id)],
   );
   const pairs =
-    backdrop?.text ??
+    (backdrop === undefined ? undefined : nameIn(schema, backdrop.id)) ??
     (backdropId === undefined ? null : declaredIdOf(BACKDROP_OPTIONS, backdropId));
   return {
-    by: owner?.text ?? family ?? null,
+    by: (owner === undefined ? undefined : nameIn(schema, owner.id)) ?? family ?? null,
     pairs: pairs ?? null,
     motion: motion.length === 0 ? null : motion.join(", "),
   };

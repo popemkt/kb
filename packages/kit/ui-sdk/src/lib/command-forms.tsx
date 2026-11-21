@@ -80,9 +80,8 @@ export function provideCommand(id: string, form: CommandForm): ContributionEntry
         ctx.palette.openStep(run.step);
         return undefined;
       }
-      return nodeAction(
-        ctx,
-        (nodeId) => void invokeAction({ ...run, input: callInput(run, { id: nodeId }) }),
+      return nodeAction(ctx, (nodeId) =>
+        invokeAction({ ...run, input: callInput(run, { id: nodeId }) }),
       );
     },
   };

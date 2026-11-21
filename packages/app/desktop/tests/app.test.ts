@@ -31,6 +31,7 @@ import {
   type WindowFrame,
   type WindowSpec,
 } from "../src/index.ts";
+import { noKbMessage } from "../src/core/kb-command.ts";
 import { memoryKeychain } from "./memory-keychain.ts";
 
 interface FakeWindow extends ShellWindow {
@@ -115,7 +116,7 @@ function fakeKb(): KbRunner & { calls: string[][] } {
   const calls: string[][] = [];
   return {
     calls,
-    inUse: { kb: { source: "path", file: "/fake/bin/kb" }, skipped: [] },
+    inUse: Effect.succeed({ kb: { source: "path", file: "/fake/bin/kb" }, skipped: [] }),
     run(_root, args) {
       calls.push([...args]);
       if (args[0] === "locations")
@@ -439,12 +440,12 @@ describe("the store list page", () => {
     const broken = fakeKb();
     const kb: KbRunner & { calls: string[][] } = {
       calls: broken.calls,
-      inUse: {
+      inUse: Effect.succeed({
         kb: { source: "checkout", file: "/src/kb/bin/kb" },
         skipped: [
           { kb: { source: "setting", file: "/gone/kb" }, why: "there is no file at /gone/kb" },
         ],
-      },
+      }),
       run: (root, args) =>
         args[0] === "locations"
           ? Effect.succeed({
@@ -467,6 +468,39 @@ describe("the store list page", () => {
       kb: "/src/kb/bin/kb (the checkout the app was built from)",
       passedOver: ['/gone/kb ("kb" in settings.json): there is no file at /gone/kb'],
     });
+    await Effect.runPromise(app.settle);
+  });
+
+  test("with no kb that runs, the app starts and its store list says what it tried", async () => {
+    const skipped = [
+      { kb: { source: "path", file: "/old/bin/kb" }, why: "kb 0.3.1 speaks wire protocol 12" },
+    ] as const;
+    const calls: string[][] = [];
+    const kb: KbRunner & { calls: string[][] } = {
+      calls,
+      inUse: Effect.succeed({ kb: null, skipped }),
+      run: (_root, args) => {
+        calls.push([...args]);
+        return Effect.succeed({
+          status: "failed",
+          code: "internal",
+          message: noKbMessage(skipped, "/s.json"),
+        });
+      },
+    };
+    const { ui, app } = await started([], undefined, kb);
+    expect(ui.exited()).toBe(false);
+    const page = ui.open().find((w) => w.spec.title === "kb stores");
+    const token = new URL(page?.url ?? "").searchParams.get("t") ?? "";
+    const answer = await fetch(`${app.control().origin}/api/stores`, {
+      headers: { "x-kb-desktop": token },
+    });
+    const listed = (await answer.json()) as { problem: string; kb: string; passedOver: string[] };
+    expect(listed.kb).toBe("none that runs");
+    expect(listed.problem).toContain("kb desktop found no kb that runs:");
+    expect(listed.passedOver).toEqual([
+      "/old/bin/kb (kb on the PATH): kb 0.3.1 speaks wire protocol 12",
+    ]);
     await Effect.runPromise(app.settle);
   });
 });

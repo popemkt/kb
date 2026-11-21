@@ -1,7 +1,7 @@
 /**
  * `renderText`: a docs template's refs rendered as words, each as
- * `@kb/model`'s `refName` reads it. It reads tokens with the one grammar
- * (`@kb/model`'s mention.ts), so it sees exactly the tokens the
+ * `@kb/model`'s `refName` reads it. It reads tokens as `@kb/model`'s
+ * mention.ts reads them from the inline grammar, so it sees exactly the tokens the
  * `:node/mentions` datoms see — the rendering half of the extraction
  * property in model's `mention.property.test.ts`.
  */
@@ -34,7 +34,8 @@ describe("renderText", () => {
 
   test("renders each token as its label, trimmed, else its target's name, else its id; text between is kept", () => {
     const idArb = fc.stringMatching(/^[a-z0-9._-]{1,8}$/);
-    const plainArb = fc.string({ maxLength: 12 }).filter((s) => !/[[\]|]/.test(s));
+    // No backtick either: inline code around a token makes it code, not a ref.
+    const plainArb = fc.string({ maxLength: 12 }).filter((s) => !/[[\]|`]/.test(s));
     fc.assert(
       fc.property(
         fc.array(

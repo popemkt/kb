@@ -1,6 +1,9 @@
 import { memo, useCallback, useMemo, useState, type ComponentType } from "react";
 import { CaretDownIcon, CaretRightIcon } from "@phosphor-icons/react";
 import {
+  EDGE_FADE_CLASS,
+  useEdgeFade,
+  fieldsSectionProps,
   browserHost,
   Bullet,
   bulletClickIntent,
@@ -138,6 +141,15 @@ export function BoardCardsView({
     mounted: frameNode !== undefined || rowIds !== undefined,
   });
   const { attach, className: breakoutClass, data: breakoutData } = breakout;
+  // The board's and the lanes' scroller: measured to break out, and to fade an edge that hides more.
+  const fade = useEdgeFade();
+  const scroller = useCallback(
+    (element: HTMLElement | null) => {
+      attach(element);
+      fade(element);
+    },
+    [attach, fade],
+  );
 
   if (!frameNode && !rowIds) return null;
 
@@ -149,6 +161,7 @@ export function BoardCardsView({
         frame={frame}
         filters={view.params.filters}
         context={context}
+        scroller={scroller}
         breakout={breakout}
       />
     );
@@ -156,11 +169,10 @@ export function BoardCardsView({
 
   return (
     <div
-      ref={attach}
+      ref={view.key === CollectionBoardView ? scroller : attach}
       className={cn(
         "board-cards-view my-2",
-        // GAP [[01M7DAJSTW3PP7375FECAA2DHS]] nothing shows that the columns scroll on past the edge
-        view.key === CollectionBoardView && "overflow-x-auto",
+        view.key === CollectionBoardView && ["overflow-x-auto", EDGE_FADE_CLASS],
         breakoutClass,
       )}
       data-board-cards-view="true"
@@ -263,19 +275,22 @@ function Lanes({
   frame,
   filters,
   context,
-  breakout: { attach, className, data },
+  scroller,
+  breakout: { className, data },
 }: {
   rows: readonly OutlineNode[];
   keyFor: (nodeId: string) => string;
   frame: FrameSubject;
   filters: readonly ViewFilter[];
   context: FieldContext;
+  /** The lanes' scroller ref: measured to break out, and to fade an edge that hides more. */
+  scroller: (element: HTMLElement | null) => void;
   breakout: ViewBreakout;
 }) {
   return (
     <div
-      ref={attach}
-      className={cn("board-cards-view my-2 overflow-x-auto", className)}
+      ref={scroller}
+      className={cn("board-cards-view my-2 overflow-x-auto", EDGE_FADE_CLASS, className)}
       data-board-cards-view="true"
       data-view-mode="board"
       data-lanes="true"
@@ -487,7 +502,7 @@ const ViewCard = memo(function ViewCard({
         </div>
       )}
       {displayCols.length > 0 && (
-        <div className="mt-1 flex flex-col gap-0.5">
+        <div className="mt-1 flex flex-col gap-0.5" {...fieldsSectionProps(shown.id, instanceKey)}>
           {displayCols.map((col) => (
             <Field
               key={col.fieldId}

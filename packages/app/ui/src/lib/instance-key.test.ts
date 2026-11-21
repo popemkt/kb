@@ -9,6 +9,7 @@ import {
   pageTitleInstanceKey,
   parentInstanceKey,
   MAIN_OUTLINE_HOST,
+  placeOfInstance,
   projectedRowKey,
   syncUiPlugins,
 } from "@kb/ui-sdk";
@@ -98,5 +99,25 @@ describe("parentInstanceKey", () => {
     expect(parentInstanceKey(projectedRowKey(MAIN_OUTLINE_HOST, "n.q", "n.root-b"))).toBeNull();
     expect(parentInstanceKey(canvasInstanceKey("2d", "card", "n.root-a"))).toBeNull();
     expect(parentInstanceKey(pageTitleInstanceKey("n.root-a"))).toBeNull();
+  });
+});
+
+describe("placeOfInstance", () => {
+  it("is a tree row's path from the workspace root, whichever pane draws it", () => {
+    expect(placeOfInstance("tree/n.root-a/n.child-a1")).toBe("tree/n.root-a/n.child-a1");
+    expect(placeOfInstance("pane:p2/n.root-a/n.child-a1")).toBe("tree/n.root-a/n.child-a1");
+  });
+
+  it("is a projected row's canonical key, and a row's under one, whichever pane draws it", () => {
+    const result = projectedRowKey(MAIN_OUTLINE_HOST, "n.q", "n.root-b");
+    const side = projectedRowKey("pane:p2", "n.q", "n.root-b");
+    expect(placeOfInstance(result)).toBe(result);
+    expect(placeOfInstance(side)).toBe(result);
+    expect(placeOfInstance(childInstanceKey(result, "n.ref"))).toBe(
+      childInstanceKey(result, "n.ref"),
+    );
+    expect(placeOfInstance(childInstanceKey(side, "n.ref"))).toBe(
+      childInstanceKey(result, "n.ref"),
+    );
   });
 });

@@ -1,10 +1,17 @@
 import { Effect, Predicate } from "effect";
 import { z } from "zod";
-import { type ActionDefinition, type CaptureTarget, KbCtx, type KbStore } from "@kb/contracts";
+import {
+  type ActionDefinition,
+  type CaptureTarget,
+  CreateFieldsSchema,
+  KbCtx,
+  type KbStore,
+} from "@kb/contracts";
 import {
   ResolveError,
   cardinalityOf,
   currentIso,
+  currentLocalDate,
   declaresOptionSet,
   domainError,
   fieldTypeOf,
@@ -18,6 +25,7 @@ import {
   type DomainError,
   type FieldType,
   type KbNode,
+  type LocalDate,
   type NodeId,
   type NodeGraph,
   type ParsedValue,
@@ -25,8 +33,13 @@ import {
   syncDomain,
   type PropEntry,
 } from "@kb/model";
-import { OUTLINE_FORMAT_IDS, outlineFormat, type OutlineItem } from "@kb/outline-paste";
-import { forcedBy, nodeAddDef } from "./actions.ts";
+import {
+  OUTLINE_FORMAT_IDS,
+  outlineFieldNames,
+  outlineFormat,
+  type OutlineItem,
+} from "@kb/outline-paste";
+import { forcedBy, nodeAddDef, planMissingFields } from "./actions.ts";
 import { placedGraph, placeOf } from "./place.ts";
 import { persistPlannedEffect } from "./session.ts";
 
@@ -68,6 +81,7 @@ export const nodeAddTreeDef = {
       .array(z.string())
       .optional()
       .describe("one id per item in tree order, minted if omitted"),
+    createFields: CreateFieldsSchema,
     /** Bypass sys.* write-guard (browse yes / break no), as node.add's. */
     force: z.boolean().optional(),
   }),
@@ -189,21 +203,30 @@ function bareRef(raw: string, resolve: Resolve, graph: NodeGraph, options: reado
   return only === undefined ? resolve(raw) : only.id;
 }
 
+/** What an item's field values are read against. */
+interface ValueReading {
+  readonly resolve: Resolve;
+  readonly graph: NodeGraph;
+  /** The field's options, when it is a ref field. */
+  readonly options: readonly FieldOption[];
+  /** The writer's today, for a relative date. */
+  readonly today: LocalDate;
+}
+
 /**
  * One field value read as its field's type. A ref field's value is one ref:
  * a whole `[[id]]` / `[[item text]]` token, or a bare id, option name or
  * item text (`bareRef`), resolved like any ref; text around a token is
  * refused, since a ref holds no prose. Every other type reads the text, its
- * refs linked, through the one `parseTypedValue`.
+ * refs linked, through the one `parseTypedValue`, a relative date against the
+ * writer's `today`.
  */
 function readValue(
   raw: string,
   type: FieldType,
-  resolve: Resolve,
-  graph: NodeGraph,
-  options: readonly FieldOption[],
+  { resolve, graph, options, today }: ValueReading,
 ): ParsedValue {
-  if (type !== "ref") return parseTypedValue(linkText(raw, resolve), type);
+  if (type !== "ref") return parseTypedValue(linkText(raw, resolve), type, { today });
   const spans = mentionSpans(raw);
   const [only] = spans;
   if (only === undefined) {
@@ -255,6 +278,7 @@ const itemProps = Effect.fnUntraced(function* (
   item: OutlineItem,
   graph: NodeGraph,
   resolve: Resolve,
+  today: LocalDate,
 ) {
   const entries: PropEntry[] = [];
   const held = new Set<NodeId>();
@@ -276,9 +300,9 @@ const itemProps = Effect.fnUntraced(function* (
         );
       }
       held.add(fieldId);
-      const read = yield* syncDomain(() => readValue(raw, type, resolve, graph, options)).pipe(
-        Effect.mapError(atLine(line)),
-      );
+      const read = yield* syncDomain(() =>
+        readValue(raw, type, { resolve, graph, options, today }),
+      ).pipe(Effect.mapError(atLine(line)));
       if (!read.ok) {
         return yield* domainError(
           "invalid_input",
@@ -326,6 +350,7 @@ export const planNodeAddTreeEffect = Effect.fn("node.addTree.plan")(function* (
     return yield* domainError("invalid_input", "the outline has no items");
   }
   const at = yield* currentIso;
+  const today = yield* currentLocalDate;
   const flat = flatten(parsed.items, input.position);
   const ids: NodeId[] = input.ids ?? [];
   if (input.ids !== undefined && ids.length !== flat.length) {
@@ -344,11 +369,13 @@ export const planNodeAddTreeEffect = Effect.fn("node.addTree.plan")(function* (
     position,
   }));
 
+  const written = new Set<NodeId>(
+    yield* planMissingFields(graph, input.createFields, outlineFieldNames(parsed.items), at),
+  );
   const resolve = refResolver(graph, planned);
-  const written = new Set<NodeId>();
 
   for (const { item, id, parent, position } of planned) {
-    const props = yield* itemProps(item, graph, resolve);
+    const props = yield* itemProps(item, graph, resolve, today);
     const { written: wrote } = yield* syncDomain(() =>
       planNodeAdd(
         graph,

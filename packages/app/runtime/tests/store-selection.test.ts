@@ -14,10 +14,11 @@ import { isDomainError, present, type DomainError, type KbNode } from "@kb/model
 import type { FileSystem } from "effect/FileSystem";
 import { JsonlStore } from "@kb/store-jsonl";
 import { bunFileSystemLayer } from "../src/platform.ts";
-import { SqliteStore } from "@kb/store-sqlite";
+import { loadSqliteStore } from "@kb/store-sqlite";
 import { createStore, migrateStore, selectStore } from "../src/store-selection.ts";
 import { openKbEffect } from "../src/open.ts";
 
+const { SqliteStore } = await loadSqliteStore();
 const AT = "2026-01-01T00:00:00.000Z";
 
 function node(id: string, text: string): KbNode {

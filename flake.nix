@@ -42,26 +42,26 @@
         pkgs:
         let
           system = pkgs.stdenv.hostPlatform.system;
-          # The Android SDK's licence is accepted for this shell alone, and only
-          # where androidenv ships its tools (`apps/android/README.md`).
+          # The Android SDK's licence is accepted for these shells alone (`android`
+          # and `android-emulator`), and only where androidenv ships its tools
+          # (`apps/android/README.md`).
           android =
             nixpkgs.lib.optionalAttrs
               (builtins.elem system [
                 "x86_64-linux"
                 "aarch64-darwin"
               ])
-              {
-                android =
-                  (import nixpkgs {
-                    inherit system;
-                    config = {
-                      allowUnfree = true;
-                      android_sdk.accept_license = true;
-                    };
-                  }).callPackage
-                    ./nix/android-shell.nix
-                    { };
-              };
+              (
+                (import nixpkgs {
+                  inherit system;
+                  config = {
+                    allowUnfree = true;
+                    android_sdk.accept_license = true;
+                  };
+                }).callPackages
+                  ./nix/android-shell.nix
+                  { }
+              );
         in
         android
         // {

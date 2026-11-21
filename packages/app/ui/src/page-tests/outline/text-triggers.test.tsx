@@ -677,6 +677,38 @@ describe("triggers in the text", () => {
       expect(textOf(ROW)).toBe("");
     });
 
+    it("⌘Z in the row the pick redrew takes the pick back, and the editor follows the row", async () => {
+      await typed("/ind");
+      // The row drawn where the graph puts it, as the page draws it: a write
+      // that moves it redraws it at its new instance the moment it applies.
+      function Drawn() {
+        useGraphStore((s) => s.wireNodes);
+        const key = outlineInstanceKey(ROW, outlineNodes());
+        return <NodeBlock key={key} nodeId={ROW} instanceKey={key} depth={0} />;
+      }
+      await act(async () => root.render(<Drawn />));
+      act(() =>
+        useOutlineStore.getState().activateNode(ROW, 4, outlineInstanceKey(ROW, outlineNodes())),
+      );
+      const parentBefore = outlineNodes().get(ROW)?.parentId ?? null;
+      await press(editorOf(), "Enter");
+      await vi.waitFor(() => expect(outlineNodes().get(ROW)?.parentId).toBe("n.root-b"));
+      // Editing goes on at the new instance (`keepEditing`).
+      await vi.waitFor(() =>
+        expect(useOutlineStore.getState().activeInstanceKey).toBe(
+          outlineInstanceKey(ROW, outlineNodes()),
+        ),
+      );
+      await chord(editorOf());
+      await vi.waitFor(() => expect(outlineNodes().get(ROW)?.parentId ?? null).toBe(parentBefore));
+      // And on at the row's place again once the undo puts it back.
+      await vi.waitFor(() =>
+        expect(useOutlineStore.getState().activeInstanceKey).toBe(
+          outlineInstanceKey(ROW, outlineNodes()),
+        ),
+      );
+    });
+
     describe("a command's writes", () => {
       afterEach(() => syncPagePlugins([outlineUiPlugin]));
 
@@ -701,7 +733,7 @@ describe("triggers in the text", () => {
       });
 
       it("that cannot join its undo step leave the typed trigger out of every undo", async () => {
-        // Made later, and with no undo step of its own (as Add chart's view.propose is).
+        // Made later, after the command answered, and with no undo step of its own.
         syncPagePlugins([
           outlineUiPlugin,
           probe("Rename later", () => {

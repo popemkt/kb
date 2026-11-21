@@ -148,6 +148,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
       creating: row.id === CREATE_ROW_ID,
       name: query.trim(),
       alternate: alternate && picker.alternate !== undefined,
+      writes: browserHost().writes,
     };
     // The step writes to every row as one write itself (`asOneWrite`).
     void picker.commit(pick);

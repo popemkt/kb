@@ -18,8 +18,8 @@ import {
   CONNECT_PATH,
   type SyncParams,
 } from "@kb/routines";
-import { nodesOfKind } from "@kb/model";
-import { cn, Dialog, navigate, replacePath, toast, useNodes } from "@kb/ui-sdk";
+import { nodeName, nodesOfKind } from "@kb/model";
+import { textOr, cn, Dialog, navigate, replacePath, toast, useNodes } from "@kb/ui-sdk";
 import { BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from "./buttons";
 import { CALENDAR_PATH, syncPath } from "./routes";
 import { setupCall } from "./setup-calls";
@@ -206,9 +206,10 @@ export function SyncPage({ params }: { readonly params: SyncParams }) {
       ? "Connecting to Google"
       : params.account === undefined
         ? "Sync services"
-        : account === undefined || account.text === ""
-          ? "Google Calendar"
-          : account.text;
+        : textOr(
+            account === undefined ? "" : nodeName(account.id, (id) => nodes.get(id)),
+            "Google Calendar",
+          );
   return (
     <div
       className="flex h-full min-h-0 flex-col overflow-y-auto bg-background text-foreground"

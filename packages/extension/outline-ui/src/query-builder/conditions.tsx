@@ -15,9 +15,10 @@ import type { WireNode } from "@kb/contracts";
 import { declaresOptionSet, pinnedFirst, templateFieldsOf, SYSTEM_IDS } from "@kb/model";
 import type { ConditionEdge, ConditionRow } from "@kb/query";
 import {
+  rowName,
+  nameIn,
   cn,
   formatPropValue,
-  hasText,
   type GraphRead,
   isSysPrefixed,
   nodeCandidates,
@@ -134,7 +135,9 @@ function subjectCandidates(builder: Builder): PickerCandidate[] {
 }
 
 function labelOf(read: GraphRead, id: string): string {
-  return [read.schema.get(id)?.text, read.outline.get(id)?.text].find(hasText) ?? id;
+  const node = read.schema.get(id) ?? read.outline.get(id);
+  const name = node === undefined ? "" : rowName(node, read.schema);
+  return name === "" ? id : name;
 }
 
 /** A given text as a slot names it: an empty one is `""`, so it reads as the value it is. */
@@ -218,7 +221,7 @@ function ValuesShown({
           <OptionChip
             key={option.id}
             id={option.id}
-            label={option.text || option.id}
+            label={nameIn(read.schema, option.id) || option.id}
             color={optionColorOf(option, field)}
           />
         );

@@ -65,6 +65,7 @@ function loneField(value: PropValue | null, onCommit: (next: PropValue) => void)
     create: () => Promise.resolve(null),
     openPicker: () => undefined,
     addSlot: () => undefined,
+    addValue: () => undefined,
     leave: () => undefined,
     claimKeyboard: () => undefined,
     focusSlot: () => undefined,
@@ -322,6 +323,9 @@ function useSlotGestures(args: SlotArgs) {
         quiet.current = false;
       },
       editAtEnd: () => begin("end"),
+      // A field that holds many, from a value it holds, adds the next; any
+      // other slot is where its value is set.
+      add: () => (field.many && !args.isNew ? field.addValue() : begin("end")),
     });
   });
 
@@ -375,7 +379,7 @@ function useSlotGestures(args: SlotArgs) {
       composing.current = false;
     },
     onKeyDown: (e: React.KeyboardEvent) => {
-      // A key inside an open picker or the date editor is theirs; it only
+      // A key inside an open picker, or a date editor's move, is theirs; it only
       // reaches here if they let it.
       const intent = valueSlotIntent(e, {
         editing,

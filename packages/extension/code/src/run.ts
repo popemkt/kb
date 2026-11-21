@@ -28,7 +28,7 @@ const scriptRunEffect = Effect.fn("ext.code.script.run")(function* (
   const ctx = yield* KbCtx;
   const node = ctx.index.getNode(input.script);
   if (node === undefined) return yield* domainError("not_found", `no node ${input.script}`);
-  const script = scriptOf(node);
+  const script = scriptOf(node.id, (of) => ctx.index.getNode(of));
   if (script === null) {
     return yield* domainError("invalid_input", `${input.script} is no #script kb can run`);
   }

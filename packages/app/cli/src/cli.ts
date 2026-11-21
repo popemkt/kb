@@ -1,283 +1,88 @@
 #!/usr/bin/env bun
-import { Command, CommanderError } from "commander";
-import { Effect } from "effect";
-import { FileSystem } from "effect/FileSystem";
-import { join } from "node:path";
-import { UI_DEFAULT_PORT, type KbContext, type ActionReceipt, onWire } from "@kb/contracts";
-import {
-  kbRuntimeLayer,
-  openKbScoped,
-  registerOpenedRoot,
-  type ActionHandlerEnv,
-  resolveRootEffect,
-  STORE_BACKENDS,
-  createStore,
-  deployGovernance,
-  migrateStore,
-  type GovernanceMode,
-  type StoreBackend,
-  writeOut,
-  writeErr,
-} from "@kb/runtime";
-import {
-  type DomainError,
-  FIELD_TYPES,
-  SYSTEM_IDS,
-  currentIso,
-  ensureDomainError,
-  isSysPrefixed,
-  resolveFieldId,
-  resolveTagId,
-} from "@kb/model";
-import { exampleSeedNodes, isPristine } from "./example.ts";
+import { Command } from "commander";
+import { WIRE_PROTOCOL } from "@kb/contracts";
 import { KB_SDK_VERSION } from "@kb/ext-sdk";
-import { VERSION_FLAGS } from "./version-option.ts";
-import { bundledSeed } from "@kb/bundled";
-import {
-  EXIT_USAGE,
-  checkUiListen,
-  collectIdentity,
-  collectAliasOrigins,
-  collectEmbedOrigins,
-  collectScripts,
-  toGovernance,
-  toInt,
-  toPublicOrigin,
-  toPort,
-  toSessionMode,
-} from "./arguments.ts";
-import {
-  invokeCliEffect,
-  ACTION_INVOKE_WIRE,
-  EXIT_FAILED,
-  EXIT_OK,
-  cliAction,
-  handleCliError,
-  kbAction,
-  outputLines,
-  report,
-  type GlobalOpts,
-} from "./command.ts";
-import { filledLines, formatReceipt } from "./format.ts";
-import { trustCommands } from "./trust.ts";
-import { extensionCommands } from "./extensions.ts";
-import { gateCommands } from "./gates.ts";
-import { locationCommands } from "./locations.ts";
-import { migrateCommands, procedureCommands } from "./procedures.ts";
-import { mergeDriverCommand } from "./merge-driver.ts";
-import { relationCommands } from "./relations.ts";
-import { hostExtensions } from "./host-plugins.ts";
-import { readActionJsonEffect, readTextArgEffect } from "./input.ts";
-import {
-  fieldsNeedingCreate,
-  mapActionInvoke,
-  mapAdd,
-  mapAddTree,
-  mapBacklinks,
-  mapChildren,
-  mapExport,
-  mapFieldDefine,
-  mapFieldList,
-  mapFieldTarget,
-  mapFieldTargetQuery,
-  mapFieldType,
-  mapGet,
-  mapMv,
-  mapOntologyList,
-  mapOntologyMembers,
-  mapQuery,
-  mapRm,
-  mapRun,
-  mapSearch,
-  mapSet,
-  mapTagDefine,
-  mapTagList,
-  mapUnset,
-  declaredTypes,
-  parseFieldValue,
-  parsePropArg,
-  UsageError,
-  type PlannedAction,
-} from "./map.ts";
-import {
-  persistPlannedEffect,
-  storeBackupDef,
-  storeBackupsDef,
-  storeRestoreDef,
-} from "@kb/operations";
+import { deployGovernance, type GovernanceMode } from "@kb/runtime";
+import { toGovernance } from "./arguments.ts";
+import { EXIT_OK, handleCliError } from "./command.ts";
+import { VERSION_FLAGS, versionJson } from "./version-option.ts";
 
-/** `--store` / `--to`: one of {@link STORE_BACKENDS}, or a usage failure. */
-function parseStoreBackend(value: string, flag: string): StoreBackend {
-  const found = STORE_BACKENDS.find((name) => name === value);
-  if (found === undefined) {
-    throw new CommanderError(
-      EXIT_USAGE,
-      "commander.invalidArgument",
-      `${flag} must be one of ${STORE_BACKENDS.join(", ")} (got ${JSON.stringify(value)})`,
-    );
-  }
-  return found;
-}
-
-function ensureFieldsEffect(
-  ctx: KbContext,
-  plan: PlannedAction,
-  create: boolean,
-): Effect.Effect<ActionReceipt | null, DomainError, ActionHandlerEnv> {
-  return Effect.gen(function* () {
-    if (!create) return null;
-    // Minted in their own transactions, before the write. GAP [[01M52F7X4YQ7W3TJHVPBBXARGP]]
-    for (const name of fieldsNeedingCreate(plan)) {
-      if (isSysPrefixed(name) || name === "type" || name === "fields") {
-        continue;
-      }
-      const outcome = yield* Effect.try({
-        try: () => {
-          resolveFieldId(ctx.nodes, name);
-          return "ok" as const;
-        },
-        catch: (err) => ensureDomainError(err),
-      }).pipe(
-        Effect.catchIf(
-          (err) => err.code === "not_found",
-          () => Effect.succeed("missing" as const),
-        ),
-      );
-      if (outcome !== "missing") continue;
-      const receipt = yield* invokeCliEffect(
-        ctx,
-        onWire(ACTION_INVOKE_WIRE, { id: "field.define", input: { name } }),
-      );
-      if (receipt.status === "failed") return receipt;
-    }
-    return null;
-  });
-}
-
-/** Run a planned registry action and write formatted stdout. */
-export function runPlanEffect(
-  ctx: KbContext,
-  plan: PlannedAction,
-  globals: GlobalOpts,
-  opts: { create?: boolean; command?: string } = {},
-): Effect.Effect<number, Error, ActionHandlerEnv> {
-  return Effect.gen(function* () {
-    const created = yield* ensureFieldsEffect(ctx, plan, opts.create === true);
-    if (created && created.status === "failed") {
-      writeOut(formatReceipt(created, { json: globals.json === true }));
-      return EXIT_FAILED;
-    }
-
-    const receipt = yield* invokeCliEffect(
-      ctx,
-      onWire(ACTION_INVOKE_WIRE, { id: plan.id, input: plan.input }),
-    );
-
-    writeOut(
-      formatReceipt(receipt, {
-        json: globals.json === true,
-        command: opts.command,
-      }),
-    );
-    return receipt.status === "succeeded" ? EXIT_OK : EXIT_FAILED;
-  });
-}
-
-function collect(value: string, previous: string[]): string[] {
-  return previous.concat([value]);
-}
-
-interface ForceOpts {
-  force?: boolean;
-}
-interface IdOpts {
-  id?: string;
-}
-interface AddOpts extends IdOpts, ForceOpts {
-  parent?: string;
-  top?: boolean;
-  position?: number;
-  tag: string[];
-  prop: string[];
-  matching?: string;
-  create?: boolean;
-  outline?: string;
-  format?: string;
-}
+/** What a command module adds to the program: the commands it declares, with their options. */
+type Declare = (program: Command) => void;
 
 /**
- * `kb add`: one node from argv (`node.add`), or a whole outline from a file or
- * stdin (`node.addTree`), placed by the same `--parent` / `--top` /
- * `--position`. Without `--parent` or `--top` it lands where captures go,
- * the capture target (DESIGN.md → Provider roles). An outline carries its
- * own text, tags, fields and ids, so the flags that would say them again are
- * refused rather than merged.
+ * The command table: every `kb` command by name, in the order help lists
+ * them, with the module under `commands/` that declares it. A module is
+ * loaded only when one of its commands is the one run, so a command's
+ * options, their parsers and its own code cost every other command nothing
+ * (the CLI row of `LAZY_FENCES` holds `commands/` behind these imports).
+ * Help, and a name no row holds, load every module, so commander lists
+ * them all and suggests the nearest.
  */
-function addEffect(
-  ctx: KbContext,
-  globals: GlobalOpts,
-  text: string | undefined,
-  opts: AddOpts,
-): Effect.Effect<number, Error, ActionHandlerEnv> {
-  return Effect.gen(function* () {
-    const create = { create: opts.create === true };
-    if (opts.top === true && opts.parent !== undefined) {
-      return yield* new UsageError({ message: "kb add: --parent and --top name two places" });
-    }
-    const parent = opts.top === true ? null : opts.parent;
-    if (opts.outline === undefined) {
-      if (text === undefined) {
-        return yield* new UsageError({ message: "kb add: missing <text> (or --outline <file>)" });
-      }
-      const plan = mapAdd({
-        text,
-        parent,
-        position: opts.position,
-        tags: opts.tag,
-        props: opts.prop.map((arg) => parsePropArg(arg, declaredTypes(ctx.nodes))),
-        matching: opts.matching,
-        id: opts.id,
-        force: opts.force === true,
-      });
-      return yield* runPlanEffect(ctx, plan, globals, create);
-    }
-    if (
-      text !== undefined ||
-      opts.tag.length > 0 ||
-      opts.prop.length > 0 ||
-      opts.matching !== undefined ||
-      opts.id !== undefined
-    ) {
-      return yield* new UsageError({
-        message:
-          "kb add --outline takes text, tags, fields and ids from the outline itself, and matches no query",
-      });
-    }
-    const outline = yield* readTextArgEffect("--outline", opts.outline);
-    const plan = mapAddTree({
-      outline,
-      format: opts.format,
-      parent,
-      position: opts.position,
-      force: opts.force === true,
-    });
-    return yield* runPlanEffect(ctx, plan, globals, create);
-  });
-}
-interface SetOpts extends ForceOpts {
-  create?: boolean;
-}
-interface MvOpts extends ForceOpts {
-  position?: number;
-  rootParent?: boolean;
-}
+const COMMANDS: readonly {
+  readonly names: readonly string[];
+  readonly load: () => Promise<Declare>;
+}[] = [
+  { names: ["mcp"], load: () => import("./commands/mcp.ts").then((m) => m.mcpCommand) },
+  { names: ["ui"], load: () => import("./commands/ui.ts").then((m) => m.uiCommand) },
+  {
+    names: ["init", "store"],
+    load: () => import("./commands/store.ts").then((m) => m.storeCommands),
+  },
+  {
+    names: ["add", "set", "unset", "get", "export", "rm", "mv"],
+    load: () => import("./commands/nodes.ts").then((m) => m.nodeCommands),
+  },
+  {
+    names: ["field", "tag", "ontology"],
+    load: () => import("./commands/schema.ts").then((m) => m.schemaCommands),
+  },
+  {
+    names: ["query", "run", "search", "backlinks", "children"],
+    load: () => import("./commands/reads.ts").then((m) => m.readCommands),
+  },
+  {
+    names: ["ext"],
+    load: () => import("./commands/extensions.ts").then((m) => m.extensionCommands),
+  },
+  { names: ["trust"], load: () => import("./commands/trust.ts").then((m) => m.trustCommands) },
+  {
+    names: ["locations", "open"],
+    load: () => import("./commands/locations.ts").then((m) => m.locationCommands),
+  },
+  {
+    names: ["procedure"],
+    load: () => import("./commands/procedures.ts").then((m) => m.procedureCommands),
+  },
+  {
+    names: ["migrate"],
+    load: () => import("./commands/procedures.ts").then((m) => m.migrateCommands),
+  },
+  {
+    names: ["trace", "suggest", "relate"],
+    load: () => import("./commands/relations.ts").then((m) => m.relationCommands),
+  },
+  {
+    names: ["docs", "check"],
+    load: () => import("./commands/gates.ts").then((m) => m.gateCommands),
+  },
+  {
+    names: ["merge-jsonl"],
+    load: () => import("./commands/merge-driver.ts").then((m) => m.mergeDriverCommand),
+  },
+  {
+    names: ["action-invoke"],
+    load: () => import("./commands/action-invoke.ts").then((m) => m.actionInvokeCommand),
+  },
+];
 
-function buildProgram(): Command {
+/** The program before any command: its name, version, global options and governance hook. */
+function baseProgram(argv: readonly string[]): Command {
   const program = new Command();
   program
     .name("kb")
     .description("Repo-native outliner datastore")
-    .version(KB_SDK_VERSION, VERSION_FLAGS)
+    .version(argv.includes("--json") ? versionJson(WIRE_PROTOCOL) : KB_SDK_VERSION, VERSION_FLAGS)
     .option("--json", "machine-readable JSON output", false)
     .option("--root <path>", "repo root containing .kb/")
     .option(
@@ -291,537 +96,28 @@ function buildProgram(): Command {
     })
     .exitOverride()
     .showHelpAfterError(false);
-
-  program
-    .command("mcp")
-    .description("Serve the kb MCP server on stdio")
-    .option(
-      "--session <mode>",
-      "follow: make each call that names no session in the person's most recently active tab",
-      toSessionMode,
-    )
-    .action(
-      cliAction((globals, [opts]: [{ session?: "follow" }]) =>
-        Effect.gen(function* () {
-          const { startMcp } = yield* Effect.promise(() => import("@kb/mcp"));
-          const root = yield* resolveRootEffect({ root: globals.root });
-          yield* startMcp(root, opts.session === undefined ? {} : { session: opts.session });
-          // keep the process alive; the transport owns stdio from here
-          return yield* Effect.never;
-        }),
-      ),
-    );
-
-  // GAP [[01M7HDP52RY5R2WJPXMMD30R8C]] kb ui's options load with every command.
-  program
-    .command("ui")
-    .description("Serve the kb browser UI + subscription backend")
-    .option("--port <n>", "backend listen port, 0 for any free one (default 4321)", toPort)
-    .option(
-      "--socket <path>",
-      "listen on a Unix socket only its owner can connect to (mode 0600), for a proxy on this host; with --public-origin",
-    )
-    .option("--capture-only", "serve only pairing, capture version and authenticated delivery")
-    .option("--dev", "spawn the Vite dev server (HMR) and proxy to the backend", false)
-    .option("--dev-port <n>", "Vite dev server port (default 5173)", toPort)
-    .option(
-      "--public-origin <url>",
-      "browser origin when served through a reverse proxy",
-      toPublicOrigin,
-    )
-    .option(
-      "--alias-origin <url>",
-      "another origin the proxy serves the UI at; links keep --public-origin (repeatable)",
-      collectAliasOrigins,
-    )
-    .option(
-      "--embed-origin <url>",
-      "let the page at this origin frame kb, and tell it the tab's session (repeatable)",
-      collectEmbedOrigins,
-    )
-    .option(
-      "--embed-script <url>",
-      "when a page an --embed-origin names frames kb, load this script in kb for it (repeatable)",
-      collectScripts,
-    )
-    .option(
-      "--identity-header <header=login>",
-      "trust the reverse proxy's <header> to name the person; a request whose header is <login> is theirs (repeatable; with --socket)",
-      collectIdentity,
-    )
-    .option(
-      "--watch-extensions",
-      "follow edits to this root's own .kb/extensions as they are saved (saved changes need trust again)",
-    )
-    .option("--no-open", "do not open a browser")
-    .action(
-      cliAction(
-        (
-          globals,
-          [opts]: [
-            {
-              port?: number;
-              socket?: string;
-              dev?: boolean;
-              captureOnly?: boolean;
-              devPort?: number;
-              publicOrigin?: string;
-              aliasOrigin?: readonly string[];
-              embedOrigin?: readonly string[];
-              embedScript?: readonly string[];
-              identityHeader?: { header: string; people: readonly string[] };
-              watchExtensions?: boolean;
-              open?: boolean;
-            },
-          ],
-        ) =>
-          Effect.gen(function* () {
-            checkUiListen(opts);
-            const { identityHeaderIdentity, runUiCli } = yield* Effect.promise(
-              () => import("@kb/server"),
-            );
-            const root = yield* resolveRootEffect({ root: globals.root });
-            return yield* runUiCli({
-              root,
-              port: opts.port ?? UI_DEFAULT_PORT,
-              socket: opts.socket,
-              openBrowser: opts.open !== false,
-              dev: opts.dev === true,
-              captureOnly: opts.captureOnly === true,
-              devPort: opts.devPort,
-              publicOrigin: opts.publicOrigin,
-              aliasOrigins: opts.aliasOrigin ?? [],
-              embedding: { origins: opts.embedOrigin ?? [], scripts: opts.embedScript ?? [] },
-              // The page is the server's owner; a hosted deployment may name
-              // the person by the proxy it trusts instead.
-              identity:
-                opts.identityHeader === undefined
-                  ? []
-                  : [identityHeaderIdentity(opts.identityHeader)],
-              extensions:
-                opts.captureOnly === true
-                  ? []
-                  : yield* hostExtensions(
-                      root,
-                      opts.publicOrigin ?? `http://127.0.0.1:${opts.port ?? UI_DEFAULT_PORT}`,
-                    ),
-              openedBy: ACTION_INVOKE_WIRE,
-              watchExtensions: opts.watchExtensions === true,
-            });
-          }),
-      ),
-    );
-
-  program
-    .command("init")
-    .description("Initialize .kb/ at --root or cwd")
-    .option("--bare", "skip the example content (supertags, fields, query, ontologies)")
-    .option(`--store <${STORE_BACKENDS.join("|")}>`, "storage backend", "jsonl")
-    .action(
-      // Not `kbAction`: init is the one command that runs *before* a session
-      // could be opened — it creates the root and picks the store the open
-      // will then select. `ext-sdk --write` opens the same way.
-      cliAction((globals, [opts]: [{ bare?: boolean; store?: string }]) =>
-        Effect.gen(function* () {
-          const backend = parseStoreBackend(opts.store ?? "jsonl", "--store");
-          const root = yield* resolveRootEffect({ root: globals.root, allowCreate: true });
-          const fs = yield* FileSystem;
-          yield* fs
-            .makeDirectory(join(root, ".kb", "queries"), { recursive: true })
-            .pipe(Effect.mapError(ensureDomainError));
-          yield* createStore(root, backend);
-
-          const ctx = yield* openKbScoped(root);
-
-          /*
-           * Example content lands here rather than in the system seed on
-           * purpose: the seed runs on every open and is write-guarded, so
-           * demo nodes there would come back after you deleted them and no
-           * test fixture could avoid them. Init runs once, by choice, and
-           * only fills a store nobody has put anything into yet.
-           */
-          let examples = 0;
-          if (opts.bare !== true) {
-            const seed = bundledSeed();
-            const written = yield* persistPlannedEffect(ctx, (nodes) =>
-              isPristine(nodes, seed)
-                ? Effect.map(currentIso, (at) => ({ upserts: exampleSeedNodes(at), deletes: [] }))
-                : Effect.succeed(null),
-            ).pipe(Effect.provide(kbRuntimeLayer(ctx)));
-            examples = written?.upserts.length ?? 0;
-          }
-          // The root a person makes is one of their locations; not being listed costs the picker only.
-          const unlisted = yield* registerOpenedRoot(ctx, ACTION_INVOKE_WIRE).pipe(
-            Effect.provide(kbRuntimeLayer(ctx)),
-          );
-          if (unlisted !== null)
-            writeErr(`kb init: this root is not among your locations: ${unlisted}`);
-
-          const msg =
-            globals.json === true
-              ? JSON.stringify({
-                  status: "succeeded",
-                  id: "init",
-                  output: { root: ctx.root, store: backend, exampleNodes: examples },
-                })
-              : examples > 0
-                ? `initialized ${join(ctx.root, ".kb")} (${backend}) with ${examples} example nodes (ordinary nodes — delete any of them)`
-                : `initialized ${join(ctx.root, ".kb")} (${backend})`;
-          writeOut(msg);
-          return EXIT_OK;
-        }),
-      ),
-    );
-
-  const store = program.command("store").description("Storage backend operations");
-  store
-    .command("migrate")
-    .description(`Move this root's nodes to the other backend and remove the old files`)
-    .requiredOption(`--to <${STORE_BACKENDS.join("|")}>`, "target backend")
-    .action(
-      cliAction((globals, [opts]: [{ to: string }]) =>
-        Effect.gen(function* () {
-          const target = parseStoreBackend(opts.to, "--to");
-          const root = yield* resolveRootEffect({ root: globals.root });
-          const result = yield* migrateStore(root, target);
-          writeOut(
-            globals.json === true
-              ? JSON.stringify({ status: "succeeded", id: "store.migrate", output: result })
-              : `migrated ${String(result.nodes)} nodes from ${result.from} to ${result.to} (${result.path})`,
-          );
-          return EXIT_OK;
-        }),
-      ),
-    );
-
-  storeBackupCommands(store);
-
-  program
-    .command("add")
-    .description("Create a node, or a whole outline in one transaction (--outline)")
-    .argument("[text]", "node text")
-    .option("--outline <file>", "add an outline from a file, or - for stdin")
-    .option("--format <id>", "the outline's format: tana (default), md, logseq, plain or json")
-    .option("--parent <id>", "parent node id (default: the capture target, today's node with days)")
-    .option("--top", "add at the top level, not the capture target", false)
-    .option("--position <n>", "child index", toInt)
-    .option("--tag <name>", "tag name (repeatable)", collect, [])
-    .option("--prop <field=value>", "prop (repeatable)", collect, [])
-    .option(
-      "--matching <query-id>",
-      "give it what the query's conditions require (tags, values, a child-of's parent)",
-    )
-    .option("--id <id>", "explicit node id")
-    .option("--create", "mint missing fields", false)
-    .option("--force", "allow minting or parenting under sys.* nodes", false)
-    .action(
-      kbAction((ctx, globals, [text, opts]: [string | undefined, AddOpts]) =>
-        addEffect(ctx, globals, text, opts),
-      ),
-    );
-
-  program
-    .command("set")
-    .description("Set a property on a node")
-    .argument("<id>", "node id")
-    .argument("<field>", "field name or id")
-    .argument("<value>", "value, parsed as the field's declared type")
-    .option("--create", "mint missing field", false)
-    .option("--force", "allow edits on sys.* nodes", false)
-    .action(
-      kbAction((ctx, globals, [id, field, value, opts]: [string, string, string, SetOpts]) =>
-        runPlanEffect(
-          ctx,
-          mapSet({
-            id,
-            field,
-            value: parseFieldValue(value, declaredTypes(ctx.nodes)(field), field),
-            force: opts.force === true,
-          }),
-          globals,
-          { create: opts.create === true },
-        ),
-      ),
-    );
-
-  program
-    .command("unset")
-    .description("Unset a property on a node")
-    .argument("<id>", "node id")
-    .argument("<field>", "field name or id")
-    .argument("[value]", "specific value to remove, parsed as the field's declared type")
-    .option("--force", "allow edits on sys.* nodes", false)
-    .action(
-      kbAction(
-        (ctx, globals, [id, field, value, opts]: [string, string, string | undefined, ForceOpts]) =>
-          runPlanEffect(
-            ctx,
-            mapUnset({
-              id,
-              field,
-              value:
-                value === undefined
-                  ? undefined
-                  : parseFieldValue(value, declaredTypes(ctx.nodes)(field), field),
-              force: opts.force === true,
-            }),
-            globals,
-          ),
-      ),
-    );
-
-  program
-    .command("get")
-    .description("Pull a node subtree")
-    .argument("<id>", "node id")
-    .option("--depth <n>", "pull depth", toInt, 1)
-    .action(
-      kbAction((ctx, globals, [id, opts]: [string, { depth: number }]) =>
-        runPlanEffect(ctx, mapGet({ id, depth: opts.depth }), globals),
-      ),
-    );
-
-  program
-    .command("export")
-    .description("Write nodes, and what is under them, as text in an outline format")
-    .argument("<ids...>", "node ids")
-    .option("--format <id>", "md (default), plain, html, tana, logseq or json")
-    .option("--refs <form>", "how a reference is written: label (default), link or id")
-    .option("--indent <unit>", "spaces (default) or tabs")
-    .option("--no-children", "each node alone, without what is under it")
-    .option("--no-fields", "without tags and fields")
-    .action(
-      kbAction(
-        (
-          ctx,
-          globals,
-          [ids, opts]: [
-            string[],
-            { format?: string; refs?: string; indent?: string; children: boolean; fields: boolean },
-          ],
-        ) => runPlanEffect(ctx, mapExport({ ids, ...opts }), globals),
-      ),
-    );
-
-  program
-    .command("rm")
-    .description("Delete a node")
-    .argument("<id>", "node id")
-    .option("--force", "allow deleting sys.* nodes", false)
-    .action(
-      kbAction((ctx, globals, [id, opts]: [string, ForceOpts]) =>
-        runPlanEffect(ctx, mapRm({ id, force: opts.force === true }), globals),
-      ),
-    );
-
-  program
-    .command("mv")
-    .description("Move a node under a new parent (use --root-parent to detach)")
-    .argument("<id>", "node id")
-    .argument("[parent]", "new parent id")
-    .option("--position <n>", "child index", toInt)
-    .option("--root-parent", "detach from parent", false)
-    .option("--force", "allow moving under sys.* parents", false)
-    .action(
-      kbAction((ctx, globals, [id, parent, opts]: [string, string | undefined, MvOpts]) =>
-        Effect.gen(function* () {
-          const parentArg = opts.rootParent === true ? null : parent;
-          if (parentArg === undefined) {
-            return yield* new UsageError({ message: "mv requires <parent> or --root-parent" });
-          }
-          return yield* runPlanEffect(
-            ctx,
-            mapMv({
-              id,
-              parent: parentArg,
-              position: opts.position,
-              force: opts.force === true,
-            }),
-            globals,
-          );
-        }),
-      ),
-    );
-
-  const field = program.command("field").description("Field operations");
-  field
-    .command("define")
-    .description("Mint a field node")
-    .argument("<name>", "field name")
-    .option("--id <id>", "explicit id")
-    .action(
-      kbAction((ctx, globals, [name, opts]: [string, IdOpts]) =>
-        runPlanEffect(ctx, mapFieldDefine({ name, id: opts.id }), globals),
-      ),
-    );
-  field
-    .command("list")
-    .description("List field nodes")
-    .action(kbAction((ctx, globals) => runPlanEffect(ctx, mapFieldList(), globals)));
-  field
-    .command("type")
-    .description(`Set sys.f.fieldType on a field (${FIELD_TYPES.join("|")})`)
-    .argument("<field>", "field name or id")
-    .argument("<type>", "field type")
-    .action(
-      kbAction((ctx, globals, [fieldName, type]: [string, string]) =>
-        Effect.gen(function* () {
-          const fieldId = resolveFieldId(ctx.nodes, fieldName);
-          const node = ctx.nodes.find((n) => n.id === fieldId);
-          // Props are multi-valued and set appends, so the prior value has to
-          // be unset explicitly — whichever form it was stored in.
-          const previous = node?.props[SYSTEM_IDS.fieldTypeField]?.[0];
-          return yield* runPlanEffect(ctx, mapFieldType({ fieldId, type, previous }), globals);
-        }),
-      ),
-    );
-  field
-    .command("target")
-    .description("Add sys.f.targetTag constraint (union) on a ref field")
-    .argument("<field>", "field name or id")
-    .argument("<tag>", "tag name or id")
-    .action(
-      kbAction((ctx, globals, [fieldName, tag]: [string, string]) =>
-        Effect.gen(function* () {
-          const fieldId = resolveFieldId(ctx.nodes, fieldName);
-          const tagId = resolveTagId(ctx.nodes, tag);
-          return yield* runPlanEffect(ctx, mapFieldTarget({ fieldId, tagId }), globals);
-        }),
-      ),
-    );
-  field
-    .command("target-query")
-    .description("Set sys.f.targetQuery EDN constraint (wins over targetTag)")
-    .argument("<field>", "field name or id")
-    .argument("<edn>", "datalog EDN returning allowed node ids")
-    .action(
-      kbAction((ctx, globals, [fieldName, edn]: [string, string]) =>
-        Effect.gen(function* () {
-          const fieldId = resolveFieldId(ctx.nodes, fieldName);
-          const node = ctx.nodes.find((n) => n.id === fieldId);
-          const prev = node?.props[SYSTEM_IDS.targetQueryField]?.[0];
-          const previous = prev?.t === "str" ? { t: "str" as const, v: prev.v } : undefined;
-          return yield* runPlanEffect(
-            ctx,
-            mapFieldTargetQuery({ fieldId, edn, previous }),
-            globals,
-          );
-        }),
-      ),
-    );
-
-  const tag = program.command("tag").description("Tag operations");
-  tag
-    .command("define")
-    .description("Mint a tag node")
-    .argument("<name>", "tag name")
-    .option("--id <id>", "explicit id")
-    .option("--field <name>", "templated field (repeatable)", collect, [])
-    .option("--extends <tag>", "a tag it extends (repeatable, in order)", collect, [])
-    .action(
-      kbAction(
-        (ctx, globals, [name, opts]: [string, IdOpts & { field: string[]; extends: string[] }]) =>
-          runPlanEffect(
-            ctx,
-            mapTagDefine({ name, id: opts.id, fields: opts.field, extends: opts.extends }),
-            globals,
-          ),
-      ),
-    );
-  tag
-    .command("list")
-    .description("List tag nodes")
-    .action(kbAction((ctx, globals) => runPlanEffect(ctx, mapTagList(), globals)));
-
-  const ontology = program.command("ontology").description("Ontology operations (#ontology nodes)");
-  ontology
-    .command("list")
-    .description("List #ontology nodes")
-    .action(kbAction((ctx, globals) => runPlanEffect(ctx, mapOntologyList(), globals)));
-  ontology
-    .command("members")
-    .description("Resolve an ontology's members (tags + pins + query + extends)")
-    .argument("<id>", "ontology node id")
-    .option("--reasons", "include per-member provenance")
-    .action(
-      kbAction((ctx, globals, [id, opts]: [string, { reasons?: boolean }]) =>
-        runPlanEffect(ctx, mapOntologyMembers({ id, reasons: opts.reasons === true }), globals),
-      ),
-    );
-
-  program
-    .command("query")
-    .description("Run a raw EDN datalog query")
-    .argument("<edn>", "EDN query string")
-    .action(
-      kbAction((ctx, globals, [edn]: [string]) =>
-        runPlanEffect(ctx, mapQuery({ query: edn }), globals),
-      ),
-    );
-
-  program
-    .command("run")
-    .description("Execute a saved query from .kb/queries/<name>.edn")
-    .argument("<name>", "saved query name (without .edn)")
-    .action(
-      kbAction((ctx, globals, [name]: [string]) => runPlanEffect(ctx, mapRun(name), globals)),
-    );
-
-  program
-    .command("search")
-    .description("Search node text and titles (case-insensitive substring)")
-    .argument("<text>", "search text")
-    .action(
-      kbAction((ctx, globals, [text]: [string]) =>
-        runPlanEffect(ctx, mapSearch(text), globals, { command: "search" }),
-      ),
-    );
-
-  program
-    .command("backlinks")
-    .description("Nodes that mention <id>")
-    .argument("<id>", "node id")
-    .action(
-      kbAction((ctx, globals, [id]: [string]) => runPlanEffect(ctx, mapBacklinks(id), globals)),
-    );
-
-  program
-    .command("children")
-    .description("Direct children of a node")
-    .argument("<id>", "node id")
-    .action(
-      kbAction((ctx, globals, [id]: [string]) =>
-        runPlanEffect(ctx, mapChildren(id), globals, { command: "children" }),
-      ),
-    );
-
-  extensionCommands(program);
-  trustCommands(program);
-  locationCommands(program);
-  procedureCommands(program);
-  migrateCommands(program);
-  relationCommands(program);
-  gateCommands(program);
-  mergeDriverCommand(program);
-
-  program
-    .command("action-invoke")
-    .description('Raw registry invoke: JSON {"id","input"} or "-" for stdin')
-    .argument("<json>", 'JSON object or "-"')
-    .action(
-      kbAction((ctx, globals, [jsonArg]: [string]) =>
-        Effect.gen(function* () {
-          const raw = yield* readActionJsonEffect(jsonArg);
-          const invocation = onWire(ACTION_INVOKE_WIRE, mapActionInvoke(raw));
-          const receipt = yield* invokeCliEffect(ctx, invocation);
-          if (globals.json !== true) for (const line of filledLines(receipt)) writeErr(line);
-          writeOut(formatReceipt(receipt, { json: globals.json === true }));
-          return receipt.status === "succeeded" ? EXIT_OK : EXIT_FAILED;
-        }),
-      ),
-    );
-
   return program;
+}
+
+/**
+ * The program `argv` runs: the base, with the commands of the row that
+ * names its command, or of every row when it names none of them.
+ */
+export function programFor(argv: readonly string[]): Promise<Command> {
+  return Promise.resolve()
+    .then(() => {
+      // Read the global options before selecting a module. Commander's
+      // exit override can throw during this scan, so main handles it
+      // through the same promise as the command's parse.
+      const [name] = baseProgram(argv).parseOptions(argv.slice(2)).operands;
+      const named = COMMANDS.filter(({ names }) => name !== undefined && names.includes(name));
+      return Promise.all((named.length > 0 ? named : COMMANDS).map((row) => row.load()));
+    })
+    .then((declares) => {
+      const program = baseProgram(argv);
+      for (const declare of declares) declare(program);
+      return program;
+    });
 }
 
 /**
@@ -830,97 +126,12 @@ function buildProgram(): Command {
  * uses.
  */
 export function main(argv: string[] = process.argv): Promise<number> {
-  return buildProgram()
-    .parseAsync(argv)
+  return programFor(argv)
+    .then((program) => program.parseAsync(argv))
     .then(() => (typeof process.exitCode === "number" ? process.exitCode : EXIT_OK))
     .catch((err: unknown) => {
       const code = handleCliError(err, argv.includes("--json"));
       process.exitCode = code;
       return code;
     });
-}
-
-/** One backup as a line: its id, its nodes, where it is, and whether the store is still that state. */
-function backupLine(backup: {
-  id: string;
-  nodes: number;
-  path: string;
-  current?: boolean;
-  pinned?: boolean;
-}): string {
-  const now = `${backup.current === true ? "  (current)" : ""}${backup.pinned === true ? "  (pinned)" : ""}`;
-  return `${backup.id}  ${String(backup.nodes)} nodes  ${backup.path}${now}`;
-}
-
-/** `kb store backup | backups | restore`: the `store.*` backup actions (DESIGN.md → Storage → Backups). */
-function storeBackupCommands(store: Command): void {
-  store
-    .command("backup")
-    .description(
-      "Graph backup on this machine; excludes queries, pages, ui.json, extensions and assets",
-    )
-    .action(
-      kbAction((ctx, globals) =>
-        invokeCliEffect(ctx, onWire(ACTION_INVOKE_WIRE, { id: storeBackupDef.id, input: {} })).pipe(
-          Effect.map((receipt) =>
-            report(
-              receipt,
-              globals,
-              outputLines(storeBackupDef, (out) => [
-                `${out.fresh ? "backed up" : "already backed up"}: ${backupLine(out.backup)}`,
-                "graph only; excludes queries, pages, ui.json, extensions and .kb/assets",
-                ...out.removed.map((old) => `removed ${old.id}`),
-              ]),
-            ),
-          ),
-        ),
-      ),
-    );
-  store
-    .command("backups")
-    .description("This root's graph backups on this machine, newest first")
-    .action(
-      kbAction((ctx, globals) =>
-        invokeCliEffect(
-          ctx,
-          onWire(ACTION_INVOKE_WIRE, { id: storeBackupsDef.id, input: {} }),
-        ).pipe(
-          Effect.map((receipt) =>
-            report(
-              receipt,
-              globals,
-              outputLines(storeBackupsDef, (out) => [
-                ...out.backups.map(backupLine),
-                `keeps the newest ${String(out.kept)} (kb set sys.extension.core "backups kept" <n>)`,
-              ]),
-            ),
-          ),
-        ),
-      ),
-    );
-  store
-    .command("restore")
-    .description(
-      "Restore a graph backup as one transaction, after a safety graph backup; root files and assets excluded; asks first",
-    )
-    .argument("<backup>", "the backup's id, as `kb store backups` lists it")
-    .action(
-      kbAction((ctx, globals, [backup]: [string]) =>
-        invokeCliEffect(
-          ctx,
-          onWire(ACTION_INVOKE_WIRE, { id: storeRestoreDef.id, input: { backup } }),
-        ).pipe(
-          Effect.map((receipt) =>
-            report(
-              receipt,
-              globals,
-              outputLines(storeRestoreDef, (out) => [
-                `restored ${out.restored.id}: ${String(out.upserts)} written, ${String(out.deletes)} deleted`,
-                `the state it replaced is backup ${out.replaced.id} (kb store restore ${out.replaced.id} undoes this)`,
-              ]),
-            ),
-          ),
-        ),
-      ),
-    );
 }

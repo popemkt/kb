@@ -49,15 +49,16 @@ interface EditorModeSpec {
   readonly opensOnFocusWhenEmpty: boolean;
   /**
    * Whose keys these are while the slot edits. `slot`: the slot's keymap
-   * (Enter commits, Escape reverts). `editor`: the editor's own — a picker
-   * moves through its candidates with the same keys.
+   * (Enter commits, Escape reverts), after any the editor takes for itself
+   * (the date editor's arrows). `editor`: the editor's own — a picker moves
+   * through its candidates with the same keys.
    */
   readonly keys: "slot" | "editor";
 }
 
 export const EDITOR_MODES: Readonly<Record<EditorMode, EditorModeSpec>> = {
   caret: { autoOpens: true, opensOnFocusWhenEmpty: false, keys: "slot" },
-  calendar: { autoOpens: true, opensOnFocusWhenEmpty: false, keys: "editor" },
+  calendar: { autoOpens: true, opensOnFocusWhenEmpty: false, keys: "slot" },
   picker: { autoOpens: true, opensOnFocusWhenEmpty: true, keys: "editor" },
   toggle: { autoOpens: false, opensOnFocusWhenEmpty: false, keys: "slot" },
   swatch: { autoOpens: false, opensOnFocusWhenEmpty: false, keys: "editor" },

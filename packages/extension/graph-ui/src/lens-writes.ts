@@ -1,7 +1,7 @@
 /**
- * The graph's writes to its view nodes, each through the page's host: an edit
- * through its write port (`browserHost().writes`), a new view node through
- * `proposeView`, so the graph names no shell module to write.
+ * The graph's writes to its view nodes, each through the page's write port
+ * (`browserHost().writes`): an edit, or a new view node (`proposeView`), so
+ * the graph names no shell module to write.
  */
 import { browserHost, type PropValue } from "@kb/ui-sdk";
 import { SYSTEM_IDS } from "@kb/model";
@@ -29,7 +29,7 @@ export const saveGraphPerspective = (
   perspective: LensPerspective,
   name: string,
 ) =>
-  browserHost().proposeView({
+  browserHost().writes.proposeView({
     view: renderer,
     params: rendererParamsOf(renderer, perspective),
     text: name.trim() || "Graph perspective",

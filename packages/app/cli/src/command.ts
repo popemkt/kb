@@ -15,6 +15,7 @@ import {
   type ActionReceipt,
   type ActionInvocation,
   type KbContext,
+  onWire,
   type SurfaceWire,
 } from "@kb/contracts";
 import {
@@ -30,7 +31,7 @@ import {
   bunFileSystemLayer,
 } from "@kb/runtime";
 import { type FailureCode, ResolveError, isDomainError, receiptCodeOf } from "@kb/model";
-import { UsageError } from "./map.ts";
+import { UsageError, type PlannedAction } from "./map.ts";
 import { EXIT_USAGE } from "./arguments.ts";
 import { filledLines, formatReceipt } from "./format.ts";
 
@@ -254,3 +255,38 @@ export const invokeCliEffect = Effect.fn("invokeCliEffect")(function* (
   );
   return approved ? yield* invokeReceiptEffect(ctx, { ...call, approved: true }) : receipt;
 });
+
+/** Run a planned registry action and write formatted stdout. */
+export function runPlanEffect(
+  ctx: KbContext,
+  plan: PlannedAction,
+  globals: GlobalOpts,
+  opts: { command?: string } = {},
+): Effect.Effect<number, Error, ActionHandlerEnv> {
+  return Effect.gen(function* () {
+    const receipt = yield* invokeCliEffect(
+      ctx,
+      onWire(ACTION_INVOKE_WIRE, { id: plan.id, input: plan.input }),
+    );
+
+    writeOut(
+      formatReceipt(receipt, {
+        json: globals.json === true,
+        command: opts.command,
+      }),
+    );
+    return receipt.status === "succeeded" ? EXIT_OK : EXIT_FAILED;
+  });
+}
+
+/** Commander's collector for a repeatable option. */
+export function collect(value: string, previous: string[]): string[] {
+  return previous.concat([value]);
+}
+
+export interface ForceOpts {
+  force?: boolean;
+}
+export interface IdOpts {
+  id?: string;
+}

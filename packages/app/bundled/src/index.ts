@@ -126,14 +126,17 @@ export function bundledOwners(): ReadonlyMap<NodeId, string> {
 }
 
 /**
- * The derived ref attributes an index over `declarations`' fold derives:
- * the core ones, with the reference relation also fed by each field a
- * declaration says carries references (`refCarriers`), and each node the
- * fold seeds owned by its declaration's node under `sys.extensions`
- * (`:node/owner`). Pure data, like the fold.
+ * The derived ref attributes an index over `declarations` derives, read
+ * from their `fold` (`foldSeed` of the same declarations, which a caller
+ * opening a store has already made): the core ones, with the reference
+ * relation also fed by each field a declaration says carries references
+ * (`refCarriers`), and each node the fold seeds owned by its declaration's
+ * node under `sys.extensions` (`:node/owner`). Pure data, like the fold.
  */
-export function derivedOf(declarations: readonly ExtensionDeclaration[]): readonly DerivedRef[] {
-  const { owners } = foldSeed(declarations);
+export function derivedOf(
+  declarations: readonly ExtensionDeclaration[],
+  { owners }: Pick<FoldedSeed, "owners">,
+): readonly DerivedRef[] {
   return derivedWith({
     carriers: declarations.flatMap((declaration) => declaration.refCarriers ?? []),
     owners: new Map([...owners].map(([id, owner]) => [id, extensionNodeId(owner)] as const)),
@@ -149,5 +152,5 @@ export function derivedOf(declarations: readonly ExtensionDeclaration[]): readon
  */
 // GAP [[01M549TK1WP4E6T4QHNDRSDYQA]] the page and client derive refs and ownership from the bundled fold only
 export function bundledDerived(): readonly DerivedRef[] {
-  return derivedOf(BUNDLED_DECLARATIONS);
+  return derivedOf(BUNDLED_DECLARATIONS, bundledFold());
 }

@@ -75,6 +75,7 @@ function walk(): string[] {
     chain: [],
     pages: {},
     expansion: new Map(),
+    references: new Set(),
     details: useOutlineStore.getState().frameDetails,
     days: {},
     today: "2026-11-14",

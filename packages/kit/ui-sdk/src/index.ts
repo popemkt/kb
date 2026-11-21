@@ -28,6 +28,7 @@ export {
   useAnswers,
   useReplicaQueries,
   useIsActive,
+  useIsOpen,
   useIsSelected,
   useNode,
   useNodePaletteOpen,
@@ -45,13 +46,7 @@ export {
   useZoom,
 } from "./hooks";
 
-export {
-  browserHost,
-  type BrowserHost,
-  BrowserHostService,
-  type ProposedView,
-  type ViewProposal,
-} from "./host";
+export { browserHost, type BrowserHost, BrowserHostService, keepEditing } from "./host";
 export type { HostedFrame, SandboxEvents, SandboxPorts, SandboxRun } from "./sandbox";
 // Running sandboxed code the one way: its trust, its ports and the calls
 // waiting on a person, its frame, and the card a person answers them on.
@@ -179,6 +174,7 @@ export { type NodeTextPort } from "./components/node-text-port";
 export { NoFrame } from "./components/no-frame";
 export { NotFound } from "./components/not-found";
 export { PickerList } from "./components/picker-list";
+export { useTextTriggers } from "./components/use-text-triggers";
 export { PrefFieldRow } from "./components/pref-field-row";
 export { POPOVER_VALUE_CLASS, PopoverShell } from "./components/popover-shell";
 export { OntologyPicker } from "./components/ontology-picker";
@@ -210,6 +206,7 @@ export { failureText, personRefusal, refusalNames } from "./lib/refusal";
 export {
   clearAllowedRefIdsCache,
   emptyValueForType,
+  initialValueForType,
   isValueMismatch,
   resolveAllowedRefIds,
   resolveAllowedRefIdsCached,
@@ -232,6 +229,7 @@ export {
 export {
   forestRootIds,
   formatPropValue,
+  isRowOpen,
   loadExpansion,
   loadIdSet,
   resolveProps,
@@ -240,7 +238,6 @@ export {
   saveIdSet,
   type Expansion,
   wireToOutlineMap,
-  withExpansion,
 } from "./lib/graph-view";
 export {
   canvasInstanceKey,
@@ -255,6 +252,7 @@ export {
   outlineInstanceKey,
   pageTitleInstanceKey,
   parentInstanceKey,
+  placeOfInstance,
   projectedRowKey,
   projectedRowOf,
 } from "./lib/instance-key";
@@ -355,7 +353,13 @@ export {
   type PageProjection,
   PageProjectionService,
 } from "./lib/page-ports";
-export type { MatchingAdd, MovePlace, PageWrites } from "./lib/page-writes";
+export type {
+  MatchingAdd,
+  MovePlace,
+  PageWrites,
+  ProposedView,
+  ViewProposal,
+} from "./lib/page-writes";
 export {
   type FieldContext,
   fieldContextOf,
@@ -435,6 +439,10 @@ export { oklchToRgb, readTokenColor, toRenderableColor, provideColorTokens } fro
 export {
   asElement,
   asInstance,
+  FIELDS_SECTION_SELECTOR,
+  fieldsSectionForSelector,
+  fieldsSectionOfSelector,
+  fieldsSectionProps,
   isTextEntry,
   isTyping,
   isTextNode,
@@ -583,6 +591,7 @@ export { copyText, putFlavours, writeFlavours, type ClipboardFlavours } from "./
 export { useFocusReturn, usePickerKeys } from "./lib/use-picker";
 export { useNarrowViewport } from "./lib/viewport";
 export { BREAKOUT_CLASS, type BreakoutReach, useBreakoutShift } from "./lib/breakout";
+export { EDGE_FADE_CLASS, type ScrollEdges, scrollEdgesOf, useEdgeFade } from "./lib/edge-fade";
 export { useLoadSeed } from "./lib/load-seed";
 export { tagOpeningOf, tagRowViewOf, type TagOpening } from "./lib/tag-opening";
 

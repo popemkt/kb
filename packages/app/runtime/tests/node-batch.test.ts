@@ -99,6 +99,29 @@ describe.each([...STORE_BACKENDS])("node.batch over a %s store", (backend) => {
     expect(node("n.a")?.text).toBe("a");
   });
 
+  test("creates an add that names no id under the batch's id for its call", async () => {
+    // A page commits a batch first and pushes the ids its commit answered
+    // (`mints: "ids"`), so the server creates the nodes the page shows.
+    const { ctx, node } = await opened();
+    const calls = [
+      { action: "node.update", input: { id: "n.a", text: "renamed" } },
+      { action: "node.add", input: { text: "minted here", parent: "n.dest" } },
+      { action: "node.add", input: { id: "n.own", text: "own id", parent: null } },
+    ];
+    const receipt = await invoke(ctx, {
+      id: "node.batch",
+      input: { calls, ids: ["n.a", "n.pushed", "n.own"] },
+    });
+    expect(receipt).toMatchObject({
+      status: "succeeded",
+      output: { ids: ["n.a", "n.pushed", "n.own"] },
+    });
+    expect(node("n.pushed")?.text).toBe("minted here");
+    // One id per call, or none: a list that does not fit the calls is refused.
+    const short = await invoke(ctx, { id: "node.batch", input: { calls, ids: ["n.a"] } });
+    expect(short).toMatchObject({ status: "failed", code: "invalid_input" });
+  });
+
   test("deletes nothing more for a node an earlier call already deleted, as node.delete does", async () => {
     const { ctx, node } = await opened();
     const head = ctx.log.head;
@@ -203,6 +226,36 @@ describe.each([...STORE_BACKENDS])("node.batch over a %s store", (backend) => {
     },
   );
 
+  // GAP 01M7XMMCPA7H2R1P065TVCQNYC, closed: a field the line reuses keeps its
+  // value only if it still holds one when the line is consumed.
+  test("refuses reusing a field whose value another tab cleared before the line went", async () => {
+    const { ctx, call, node } = await opened();
+    await call("field.define", { id: "field.choice", name: "Choice" });
+    const value = { t: "str", v: "kept value" } as const;
+    await call("node.update", { id: "n.dest", setProps: [{ field: "field.choice", value }] });
+    await call("node.update", { id: "n.kept", text: ">Choice" });
+    const other = await openKb(root);
+    const cleared = await invoke(other, {
+      id: "node.update",
+      input: { id: "n.dest", unsetProps: [{ field: "field.choice" }] },
+    });
+    expect(cleared).toMatchObject({ status: "succeeded" });
+    const receipt = await invoke(ctx, {
+      id: "node.batch",
+      input: {
+        calls: [
+          { action: "node.update", input: { id: "n.dest", requireSet: ["field.choice"] } },
+          {
+            action: "node.delete",
+            input: { id: "n.kept", requireEmptyLine: { parent: "n.dest", text: ">Choice" } },
+          },
+        ],
+      },
+    });
+    expect(receipt).toMatchObject({ status: "failed", code: "conflict", details: { call: 0 } });
+    expect(node("n.kept")?.text).toBe(">Choice");
+  });
+
   test.each([false, true])(
     "mints the field and converts the line together (stale draft: %s)",
     async (stale) => {
@@ -242,6 +295,48 @@ describe.each([...STORE_BACKENDS])("node.batch over a %s store", (backend) => {
         expect(node("field.new")?.text).toBe("New field");
         expect(node("n.kept")).toBeUndefined();
         expect(node("n.dest")?.props["field.new"]).toEqual([value]);
+      }
+    },
+  );
+  test.each([false, true])(
+    "defines a tag and tags a row with it as one transaction (stale row: %s)",
+    async (stale) => {
+      const { ctx, call, node } = await opened();
+      await call("node.update", { id: "n.kept", text: stale ? "edited" : "kept" });
+      const head = ctx.log.head;
+      const tagged = { t: "ref", v: "tag.new" } as const;
+      const receipt = await invoke(ctx, {
+        id: "node.batch",
+        input: {
+          calls: [
+            { action: "tag.define", input: { id: "tag.new", name: "New tag", extends: [] } },
+            {
+              action: "node.update",
+              input: {
+                id: "n.kept",
+                expectedText: "kept",
+                setProps: [{ field: SYSTEM_IDS.typeField, value: tagged }],
+              },
+            },
+          ],
+        },
+      });
+      if (stale) {
+        // The row refused, the tag is not left behind.
+        expect(receipt).toMatchObject({ status: "failed", code: "conflict", details: { call: 1 } });
+        expect(ctx.log.head).toBe(head);
+        expect(node("tag.new")).toBeUndefined();
+      } else {
+        expect(receipt).toMatchObject({
+          status: "succeeded",
+          output: { ids: ["tag.new", "n.kept"] },
+        });
+        expect(ctx.log.head).toBe(head + 1);
+        expect(node("tag.new")?.text).toBe("New tag");
+        expect(node("tag.new")?.props[SYSTEM_IDS.typeField]).toEqual([
+          { t: "ref", v: SYSTEM_IDS.tag },
+        ]);
+        expect(node("n.kept")?.props[SYSTEM_IDS.typeField]).toEqual([tagged]);
       }
     },
   );

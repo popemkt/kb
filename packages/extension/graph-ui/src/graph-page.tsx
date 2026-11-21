@@ -31,7 +31,9 @@ import {
   DEFAULT_RENDERER,
   type LensPerspective,
   type LensRenderer,
+  type RendererKey,
 } from "@kb/graph";
+import type { WireNode } from "@kb/contracts";
 import { PerspectivePicker } from "./perspective-picker";
 import { RendererSwitch } from "./renderer-switch";
 import { GraphCanvasFrame } from "./graph-canvas-frame";
@@ -58,13 +60,8 @@ export interface GraphPageProps {
   ontologyId?: string | null;
 }
 
-// oxlint-disable-next-line complexity -- GAP [[01M1MGCFTMWY5EYHEWP9QVH8Z9]]
-export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPageProps) {
-  const wireNodes = useWireNodes();
-  const { zoomTo } = browserHost();
-  const ontologyMembers = usePageGraph((s) => s.ontologyMembers);
-  const appearance = useAppearance();
-
+/** The sys switch, kept per device: whether system, command and schema nodes are drawn. */
+function useIncludeSystemNodes(): readonly [boolean, () => void] {
   const [includeSystemNodes, setIncludeSystemNodes] = useState(() => {
     try {
       return localStorage.getItem(SYS_STORAGE_KEY) === "1";
@@ -72,8 +69,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
       return false;
     }
   });
-
-  const toggleSys = () => {
+  const toggle = useCallback(() => {
     setIncludeSystemNodes((v) => {
       const next = !v;
       try {
@@ -81,8 +77,19 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
       } catch {}
       return next;
     });
-  };
+  }, []);
+  return [includeSystemNodes, toggle];
+}
 
+/**
+ * The perspectives on offer and the one the path names (or the default), with
+ * the path rewritten to name it once the list is as of now.
+ */
+function useActivePerspective(
+  wireNodes: readonly WireNode[],
+  perspectiveId: string | null,
+  ontologyId: string | null,
+) {
   const listed = useAnswered((run) => listPerspectiveNodes(run, wireNodes), [wireNodes]);
   const perspectiveNodes = listed.value;
   const perspectives = useMemo(() => perspectiveNodes.map(parsePerspective), [perspectiveNodes]);
@@ -103,14 +110,26 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
     }
   }, [active, perspectiveId, ontologyId, listSettled]);
 
+  return { listSettled, perspectiveNodes, perspectives, active };
+}
+
+interface LensScope {
+  readonly wireNodes: readonly WireNode[];
+  readonly active: LensPerspective | null;
+  readonly includeSystemNodes: boolean;
+  readonly ontologyId: string | null;
+}
+
+/**
+ * The graph and the view it was extracted for, as one snapshot. `held` is
+ * null until the first lens query is answered.
+ */
+function useLensExtraction({ wireNodes, active, includeSystemNodes, ontologyId }: LensScope) {
+  const ontologyMembers = usePageGraph((s) => s.ontologyMembers);
   const restrictTo = useMemo(
     () => (ontologyId !== null ? (ontologyMembers ?? new Set<string>()) : undefined),
     [ontologyId, ontologyMembers],
   );
-
-  // An ontology decides WHICH nodes, a perspective decides how they look —
-  // orthogonal, so both pickers sit in the header together (r5 §1.4).
-  const ontologies = useMemo(() => listOntologyItems(wireNodes), [wireNodes]);
 
   // What the graph is extracted from, settled for 300ms: an edit burst
   // re-extracts once, after it, rather than on every keystroke.
@@ -155,21 +174,19 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
   );
   const held = useLastSettled(extraction, "graph");
   const extracted = held ?? { graph: EMPTY_LENS, view: extraction.value.view };
-  const lensGraph = extracted.graph;
+  return { held, lensGraph: extracted.graph, view: extracted.view };
+}
 
-  const forest = useMemo(
-    () => (active ? buildTreeForest(lensGraph.nodes, lensGraph.edges, active.focus) : []),
-    [lensGraph.nodes, lensGraph.edges, active],
-  );
-
-  // Zooming navigates: in the scope, to the scope's outline.
-  const onNodeOpen = useCallback((id: string) => zoomTo(id), [zoomTo]);
-
-  const renderer = active?.renderer ?? DEFAULT_RENDERER;
-  const rendererKey = useRenderer(renderer);
-
-  // Graph interaction state — selection + camera live on the frame, not per-renderer.
-  const [controls, setControls] = useState<GraphCameraControls | null>(null);
+/**
+ * The frame's selection and the trace begun from it: selection lives on the
+ * frame, not per renderer, and a node the graph no longer draws is let go.
+ */
+function useGraphPicking(
+  active: LensPerspective | null,
+  lensGraph: GraphLens,
+  wireNodes: readonly WireNode[],
+  rendererKey: RendererKey<unknown> | null,
+) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedNode = lensGraph.nodes.find((node) => node.id === selectedId);
   const selection = selectedNode ? selectionFromNode(selectedNode) : null;
@@ -203,8 +220,6 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
     },
     [trace, rendererKey, active],
   );
-  const [searchHighlight, setSearchHighlight] = useState<Set<string> | null>(null);
-  const [filterIds, setFilterIds] = useState<Set<string> | null>(null);
   useEffect(() => {
     if (selectedId !== null && !lensGraph.nodes.some((node) => node.id === selectedId))
       setSelectedId(null);
@@ -215,15 +230,70 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
     clearTrace();
   }, [clearTrace]);
 
-  // What the renderer view draws from, beside the settings it decodes from the perspective.
+  return { selection, setSelection, clearSelection, traced, related, saveTrace, savingTrace };
+}
+
+/** The renderer's settings, read off the perspective node through its key. */
+function useRendererSettings(
+  rendererKey: RendererKey<unknown> | null,
+  perspectiveNodes: readonly WireNode[],
+  active: LensPerspective | null,
+) {
+  const activeProps = perspectiveNodes.find((node) => node.id === active?.id)?.props;
+  return useMemo(
+    () =>
+      rendererKey !== null && activeProps !== undefined
+        ? paramsFromProps(rendererKey, activeProps, null, lensReport())
+        : null,
+    [rendererKey, activeProps],
+  );
+}
+
+interface PageFrameInput extends Pick<
+  GraphFrame,
+  | "lensGraph"
+  | "searchHighlight"
+  | "filterIds"
+  | "selection"
+  | "setSelection"
+  | "setControls"
+  | "onNodeOpen"
+  | "trace"
+> {
+  readonly view: Parameters<typeof graphViewKey>[1] & {
+    readonly id: string;
+    readonly query: string;
+  };
+  readonly active: LensPerspective | null;
+}
+
+/** What the renderer view draws from, beside the settings it decodes from the perspective. */
+function usePageFrame({
+  lensGraph,
+  view,
+  active,
+  searchHighlight,
+  filterIds,
+  selection,
+  setSelection,
+  setControls,
+  onNodeOpen,
+  trace,
+}: PageFrameInput): GraphFrame {
+  const appearance = useAppearance();
+  const forest = useMemo(
+    () => (active ? buildTreeForest(lensGraph.nodes, lensGraph.edges, active.focus) : []),
+    [lensGraph.nodes, lensGraph.edges, active],
+  );
+
   const layoutKey = active?.id ?? "";
   const focus = active?.focus ?? null;
-  const frame = useMemo(
+  return useMemo(
     (): GraphFrame => ({
       lensGraph,
       forest,
       layoutKey,
-      viewKey: graphViewKey({ ...extracted.view, focus }, extracted.view),
+      viewKey: graphViewKey({ ...view, focus }, view),
       appearance,
       searchHighlight,
       filterIds,
@@ -231,118 +301,83 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
       setSelection,
       setControls,
       onNodeOpen,
-      trace: traced.frame,
+      trace,
     }),
     [
       lensGraph,
       forest,
       layoutKey,
-      extracted.view,
+      view,
       focus,
       appearance,
       searchHighlight,
       filterIds,
       selection,
       setSelection,
+      setControls,
       onNodeOpen,
-      traced.frame,
+      trace,
     ],
   );
-  // The renderer's settings, read off the perspective node through its key.
-  const activeProps = perspectiveNodes.find((node) => node.id === active?.id)?.props;
-  const settings = useMemo(
-    () =>
-      rendererKey !== null && activeProps !== undefined
-        ? paramsFromProps(rendererKey, activeProps, null, lensReport())
-        : null,
-    [rendererKey, activeProps],
+}
+
+export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPageProps) {
+  const wireNodes = useWireNodes();
+  const { zoomTo } = browserHost();
+  const [includeSystemNodes, toggleSys] = useIncludeSystemNodes();
+  const { listSettled, perspectiveNodes, perspectives, active } = useActivePerspective(
+    wireNodes,
+    perspectiveId,
+    ontologyId,
   );
-  const unavailable = (
-    <WorkspaceState
-      title="Visualization unavailable"
-      description={
-        settings !== null && Result.isFailure(settings)
-          ? `${renderer} cannot read this perspective: ${settings.failure}`
-          : `No renderer is registered for ${renderer}. Choose another visualization above.`
-      }
-    />
-  );
+  const { held, lensGraph, view } = useLensExtraction({
+    wireNodes,
+    active,
+    includeSystemNodes,
+    ontologyId,
+  });
+
+  // Zooming navigates: in the scope, to the scope's outline.
+  const onNodeOpen = useCallback((id: string) => zoomTo(id), [zoomTo]);
+
+  const renderer = active?.renderer ?? DEFAULT_RENDERER;
+  const rendererKey = useRenderer(renderer);
+
+  // Camera controls live on the frame, not per renderer.
+  const [controls, setControls] = useState<GraphCameraControls | null>(null);
+  const picking = useGraphPicking(active, lensGraph, wireNodes, rendererKey);
+  const { selection, setSelection, traced } = picking;
+  const [searchHighlight, setSearchHighlight] = useState<Set<string> | null>(null);
+  const [filterIds, setFilterIds] = useState<Set<string> | null>(null);
+
+  const frame = usePageFrame({
+    lensGraph,
+    view,
+    active,
+    searchHighlight,
+    filterIds,
+    selection,
+    setSelection,
+    setControls,
+    onNodeOpen,
+    trace: traced.frame,
+  });
+  const settings = useRendererSettings(rendererKey, perspectiveNodes, active);
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
-      <header className="kb-chrome flex min-h-11 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-foreground/[0.06] px-4 py-2">
-        {/* Under an ontology its own header names the scope and switches its views. */}
-        {ontologyId === null ? (
-          <span className="kb-display text-ui font-medium text-muted-foreground">graph</span>
-        ) : null}
-        <PerspectivePicker
-          perspectives={perspectives}
-          activeId={active?.id ?? null}
-          renderer={rendererKey}
-          onSelect={(id) => navigate(graphPath(id))}
-        />
-        {ontologies.length > 0 && ontologyId === null ? (
-          <OntologyPicker
-            ontologies={ontologies}
-            activeId={ontologyId}
-            placeholder="all nodes"
-            onSelect={(id) => navigate(ontologyPath(id, "graph"))}
-            onClear={() => navigate(graphPath(active?.id ?? null))}
-          />
-        ) : null}
-        {active ? (
-          <RendererSwitch
-            value={renderer}
-            onChange={(r: LensRenderer) => {
-              void setGraphRenderer(active.id, r);
-            }}
-          />
-        ) : null}
-        <button
-          type="button"
-          className={cn(
-            "rounded-md px-2 py-0.5 text-label font-medium transition-colors duration-100",
-            includeSystemNodes
-              ? "bg-foreground/[0.08] text-foreground"
-              : "text-faint-foreground hover:bg-foreground/[0.04] hover:text-muted-foreground",
-          )}
-          data-elide-toggle="true"
-          aria-pressed={includeSystemNodes}
-          title={
-            includeSystemNodes
-              ? "Hide system, command and schema nodes"
-              : "Show system, command and schema nodes"
-          }
-          onClick={toggleSys}
-        >
-          System nodes
-        </button>
-        <span className="text-label text-faint-foreground">
-          {lensGraph.dropped > 0
-            ? `top ${lensGraph.nodes.length} of ${lensGraph.nodes.length + lensGraph.dropped} nodes by degree`
-            : `${lensGraph.nodes.length} nodes`}{" "}
-          · {lensGraph.edges.length} edges
-        </span>
-        {lensGraph.dropped > 0 && active ? (
-          <button
-            type="button"
-            className="rounded-md bg-foreground/[0.06] px-2 py-0.5 text-caption font-medium text-foreground/60 transition-colors hover:bg-foreground/[0.1] hover:text-foreground/80"
-            onClick={() => zoomTo(active.id)}
-          >
-            edit max-nodes
-          </button>
-        ) : null}
-        {hasText(lensGraph.queryError) && (
-          <span
-            className="flex items-center gap-1 rounded-xs bg-warning/10 px-1.5 py-0.5 text-label text-warning"
-            title={lensGraph.queryError}
-          >
-            <WarningIcon size={12} /> query error
-          </span>
-        )}
-      </header>
+      <GraphPageHeader
+        ontologyId={ontologyId}
+        perspectives={perspectives}
+        active={active}
+        renderer={renderer}
+        rendererKey={rendererKey}
+        includeSystemNodes={includeSystemNodes}
+        onToggleSys={toggleSys}
+        lensGraph={lensGraph}
+      />
       <div className="relative min-h-0 flex-1 kb-workspace-reveal">
-        {!listed.settled && !active ? null : !active ? (
+        {!listSettled && !active ? null : !active ? (
           <WorkspaceState
             title="No graph perspectives yet"
             description="A perspective chooses which nodes and connections to explore."
@@ -354,38 +389,175 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
             controls={controls}
             selectedNodeId={selection?.nodeId ?? null}
             selection={selection}
-            onClearSelection={clearSelection}
+            onClearSelection={picking.clearSelection}
             onOpenNode={onNodeOpen}
             onSearchChange={setSearchHighlight}
             onFilterChange={setFilterIds}
             queryError={lensGraph.queryError}
             perspective={active}
             trace={traced}
-            related={related}
-            onSaveTrace={(name) => void saveTrace(name)}
-            savingTrace={savingTrace}
+            related={picking.related}
+            onSaveTrace={(name) => void picking.saveTrace(name)}
+            savingTrace={picking.savingTrace}
           >
-            {held !== null && lensGraph.nodes.length === 0 && !hasText(lensGraph.queryError) ? (
-              <WorkspaceState
-                title="No nodes in view"
-                description="Broaden the node query in Graph options."
-              />
-            ) : rendererKey !== null && settings !== null && Result.isSuccess(settings) ? (
-              <GraphFrameContext.Provider value={frame}>
-                <ViewSlot
-                  view={rendererKey}
-                  params={settings.success}
-                  placement="page"
-                  fallback={unavailable}
-                  subject={active.id}
-                />
-              </GraphFrameContext.Provider>
-            ) : (
-              unavailable
-            )}
+            <GraphView
+              empty={
+                held !== null && lensGraph.nodes.length === 0 && !hasText(lensGraph.queryError)
+              }
+              renderer={renderer}
+              rendererKey={rendererKey}
+              settings={settings}
+              frame={frame}
+              subject={active.id}
+            />
           </GraphCanvasFrame>
         )}
       </div>
     </div>
+  );
+}
+
+interface GraphPageHeaderProps {
+  readonly ontologyId: string | null;
+  readonly perspectives: LensPerspective[];
+  readonly active: LensPerspective | null;
+  readonly renderer: LensRenderer;
+  readonly rendererKey: RendererKey<unknown> | null;
+  readonly includeSystemNodes: boolean;
+  readonly onToggleSys: () => void;
+  readonly lensGraph: GraphLens;
+}
+
+/** The page's header: which perspective, which ontology, which renderer, and what is drawn. */
+function GraphPageHeader({
+  ontologyId,
+  perspectives,
+  active,
+  renderer,
+  rendererKey,
+  includeSystemNodes,
+  onToggleSys,
+  lensGraph,
+}: GraphPageHeaderProps) {
+  const wireNodes = useWireNodes();
+  const { zoomTo } = browserHost();
+  // An ontology decides WHICH nodes, a perspective decides how they look —
+  // orthogonal, so both pickers sit in the header together (r5 §1.4).
+  const ontologies = useMemo(() => listOntologyItems(wireNodes), [wireNodes]);
+  return (
+    <header className="kb-chrome flex min-h-11 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-foreground/[0.06] px-4 py-2">
+      {/* Under an ontology its own header names the scope and switches its views. */}
+      {ontologyId === null ? (
+        <span className="kb-display text-ui font-medium text-muted-foreground">graph</span>
+      ) : null}
+      <PerspectivePicker
+        perspectives={perspectives}
+        activeId={active?.id ?? null}
+        renderer={rendererKey}
+        onSelect={(id) => navigate(graphPath(id))}
+      />
+      {ontologies.length > 0 && ontologyId === null ? (
+        <OntologyPicker
+          ontologies={ontologies}
+          activeId={ontologyId}
+          placeholder="all nodes"
+          onSelect={(id) => navigate(ontologyPath(id, "graph"))}
+          onClear={() => navigate(graphPath(active?.id ?? null))}
+        />
+      ) : null}
+      {active ? (
+        <RendererSwitch
+          value={renderer}
+          onChange={(r: LensRenderer) => {
+            void setGraphRenderer(active.id, r);
+          }}
+        />
+      ) : null}
+      <button
+        type="button"
+        className={cn(
+          "rounded-md px-2 py-0.5 text-label font-medium transition-colors duration-100",
+          includeSystemNodes
+            ? "bg-foreground/[0.08] text-foreground"
+            : "text-faint-foreground hover:bg-foreground/[0.04] hover:text-muted-foreground",
+        )}
+        data-elide-toggle="true"
+        aria-pressed={includeSystemNodes}
+        title={
+          includeSystemNodes
+            ? "Hide system, command and schema nodes"
+            : "Show system, command and schema nodes"
+        }
+        onClick={onToggleSys}
+      >
+        System nodes
+      </button>
+      <span className="text-label text-faint-foreground">
+        {lensGraph.dropped > 0
+          ? `top ${lensGraph.nodes.length} of ${lensGraph.nodes.length + lensGraph.dropped} nodes by degree`
+          : `${lensGraph.nodes.length} nodes`}{" "}
+        · {lensGraph.edges.length} edges
+      </span>
+      {lensGraph.dropped > 0 && active ? (
+        <button
+          type="button"
+          className="rounded-md bg-foreground/[0.06] px-2 py-0.5 text-caption font-medium text-foreground/60 transition-colors hover:bg-foreground/[0.1] hover:text-foreground/80"
+          onClick={() => zoomTo(active.id)}
+        >
+          edit max-nodes
+        </button>
+      ) : null}
+      {hasText(lensGraph.queryError) && (
+        <span
+          className="flex items-center gap-1 rounded-xs bg-warning/10 px-1.5 py-0.5 text-label text-warning"
+          title={lensGraph.queryError}
+        >
+          <WarningIcon size={12} /> query error
+        </span>
+      )}
+    </header>
+  );
+}
+
+interface GraphViewProps {
+  /** The lens answered with no nodes and no query error. */
+  readonly empty: boolean;
+  readonly renderer: LensRenderer;
+  readonly rendererKey: RendererKey<unknown> | null;
+  readonly settings: ReturnType<typeof useRendererSettings>;
+  readonly frame: GraphFrame;
+  readonly subject: string;
+}
+
+/** What the frame holds: the renderer's view, or why there is nothing to draw. */
+function GraphView({ empty, renderer, rendererKey, settings, frame, subject }: GraphViewProps) {
+  const unavailable = (
+    <WorkspaceState
+      title="Visualization unavailable"
+      description={
+        settings !== null && Result.isFailure(settings)
+          ? `${renderer} cannot read this perspective: ${settings.failure}`
+          : `No renderer is registered for ${renderer}. Choose another visualization above.`
+      }
+    />
+  );
+  if (empty)
+    return (
+      <WorkspaceState
+        title="No nodes in view"
+        description="Broaden the node query in Graph options."
+      />
+    );
+  if (rendererKey === null || settings === null || !Result.isSuccess(settings)) return unavailable;
+  return (
+    <GraphFrameContext.Provider value={frame}>
+      <ViewSlot
+        view={rendererKey}
+        params={settings.success}
+        placement="page"
+        fallback={unavailable}
+        subject={subject}
+      />
+    </GraphFrameContext.Provider>
   );
 }

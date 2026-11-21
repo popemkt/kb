@@ -10,6 +10,7 @@
  */
 import { findPane } from "@kb/views";
 import {
+  browserHost,
   currentContributions,
   providedFrameViews,
   RoutePoint,
@@ -73,6 +74,7 @@ export function pageCommandContext(target: CommandTarget, palette: PaletteSurfac
     debugFields: useDebugFieldsStore.getState(),
     workspace: currentWorkspace(),
     palette,
+    writes: browserHost().writes,
   };
 }
 

@@ -33,6 +33,8 @@ import { moveRows } from "./row-moves";
 export interface DropRow {
   /** The row's node. */
   readonly id: string;
+  /** Where the row is drawn: its instance. */
+  readonly instanceKey: string;
   /** The node whose children it shows: a reference row's target, else the row's node. */
   readonly shownId: string;
   /** Its parent, null at the top level. */
@@ -55,7 +57,7 @@ export interface DropRow {
 export interface Drop {
   readonly place: MovePlace;
   readonly line: { readonly top: number; readonly left: number; readonly right: number };
-  /** A row whose children the rows join first, opened when it is collapsed. */
+  /** The row (its instance) whose children the rows join first, opened when it is closed. */
   readonly into: string | null;
 }
 
@@ -78,7 +80,7 @@ export function dropOver(row: DropRow, x: number, y: number): Drop {
     return {
       place: { parent: row.shownId, after: null },
       line: line(box.bottom, box.textLeft),
-      into: row.id,
+      into: row.instanceKey,
     };
   }
   return {
@@ -134,7 +136,8 @@ function drawsChildren(row: Element): boolean {
 function rowAt(x: number, y: number, nodes: NodeMap, moved: ReadonlySet<string>): DropRow | null {
   const row = rowElementAt(x, y);
   const node = nodes.get(row?.getAttribute("data-node-id") ?? "");
-  if (row === null || node === undefined) return null;
+  const instanceKey = row?.getAttribute("data-instance-key") ?? null;
+  if (row === null || node === undefined || instanceKey === null) return null;
   const parentId = node.parentId ?? WORKSPACE_ROOT_ID;
   const siblings = nodes.get(parentId)?.children ?? [];
   const before = siblings
@@ -144,10 +147,11 @@ function rowAt(x: number, y: number, nodes: NodeMap, moved: ReadonlySet<string>)
   const text = row.querySelector(".node-content")?.getBoundingClientRect();
   return {
     id: node.id,
+    instanceKey,
     shownId: shownNodeId(node),
     parent: parentId === WORKSPACE_ROOT_ID ? null : parentId,
     before: before ?? null,
-    childrenShown: !node.collapsed && drawsChildren(row),
+    childrenShown: useOutlineStore.getState().isOpen(instanceKey) && drawsChildren(row),
     box: {
       top: box.top,
       bottom: box.bottom,
@@ -316,9 +320,7 @@ class RowDrag {
     this.release();
     if (picked === null || drop === null) return;
     const store = useOutlineStore.getState();
-    if (drop.into !== null && outlineNodes().get(drop.into)?.collapsed === true) {
-      store.toggleCollapse(drop.into);
-    }
+    if (drop.into !== null && !store.isOpen(drop.into)) store.toggleCollapse(drop.into);
     void moveRows(picked.ids, picked.span, drop.place, false);
   };
 

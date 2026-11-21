@@ -9,6 +9,7 @@ import { WORKSPACE_ROOT } from "../src/workspace.ts";
  *   Every derived artifact from kb execution, mutation testing, and caching is
  *   properly ignored by git:
  *     - .kb/nodes.jsonl.lock (write lock)
+ *     - .kb/ui-start.lock (the lock a kb ui start holds)
  *     - .kb/nodes.jsonl.bak, *.bak (backup files)
  *     - .kb/kb.sqlite-wal, .kb/kb.sqlite-shm (SqliteStore derived files)
  *     - .kb/tx.jsonl, .kb/tx.jsonl.bak (JsonlStore transaction tail)
@@ -22,6 +23,7 @@ import { WORKSPACE_ROOT } from "../src/workspace.ts";
 
 const REQUIRED_IGNORED = [
   ".kb/nodes.jsonl.lock",
+  ".kb/ui-start.lock",
   ".kb/nodes.jsonl.bak",
   ".kb/kb.sqlite-wal",
   ".kb/kb.sqlite-shm",

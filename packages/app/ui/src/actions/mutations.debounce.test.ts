@@ -15,6 +15,9 @@ async function added(act: () => Promise<unknown>): Promise<string> {
   return fresh[0]?.id ?? "";
 }
 
+/** A node's text as the fixture graph holds it: what the server holds before any write. */
+const textOf = (id: string) => fixtureGraph.nodes.find((node) => node.id === id)?.text;
+
 const succeeded = (invocation: ActionRequest): ActionResponse => ({
   status: "succeeded",
   id: invocation.id,
@@ -49,9 +52,22 @@ describe("debounced text invocation", () => {
     expect(post).toHaveBeenCalledTimes(1);
     expect(post).toHaveBeenCalledWith({
       id: "node.update",
-      input: { id: "n.root-a", text: "two" },
+      input: { id: "n.root-a", text: "two", expectedText: textOf("n.root-a") },
       session: tabSession(),
     });
+  });
+
+  // GAP 01M7XMMFAMVHBRBHC9X8P68FJ9, closed: the typing a conversion sends
+  // ahead of itself must not overwrite what another writer put there.
+  it("sends the typing a later write flushes on the text its run began from", async () => {
+    await mutations.updateNodeContent("n.root-a", "draft");
+    await mutations.updateNodeContent("n.root-a", "draft::");
+    await mutations.setNodeText("n.root-b", "next write", textOf("n.root-b"));
+    await waitForBrowserPushes();
+    expect(post.mock.calls.map(([call]) => call.input)).toEqual([
+      { id: "n.root-a", text: "draft::", expectedText: textOf("n.root-a") },
+      { id: "n.root-b", text: "next write", expectedText: textOf("n.root-b") },
+    ]);
   });
 });
 

@@ -13,10 +13,10 @@ import {
   usePickerKeys,
 } from "@kb/ui-sdk";
 import { SectionHeading } from "./section-heading";
-import { PlusIcon, XIcon } from "@phosphor-icons/react";
-import { isShipped } from "@kb/model";
+import { CaretDownIcon, CaretUpIcon, PlusIcon, XIcon } from "@phosphor-icons/react";
+import { isShipped, SYSTEM_IDS } from "@kb/model";
 import { fieldGlyphOf } from "./value-views";
-import { resolveTagFields, type TagFieldRef } from "./tag-fields";
+import { movedTemplate, resolveTagFields, type TagFieldRef } from "./tag-fields";
 
 export interface TagFieldsConfigViewProps {
   /** Fields this tag templates onto its members, in `sys.f.fields` order. */
@@ -31,6 +31,11 @@ export interface TagFieldsConfigViewProps {
   shipped: ReadonlySet<string>;
   onAdd: (name: string) => void;
   onRemove: (fieldId: string) => void;
+  /**
+   * Move a person's field to index `to` of the order it leaves (`movedTemplate`):
+   * a move button steps it one place, a drop puts it where it lands.
+   */
+  onMove: (fieldId: string, to: number) => void;
   /** Carry out a follow (`useFollow`): a field's glyph opens the field. */
   onFollow: Follow;
 }
@@ -44,7 +49,9 @@ export interface TagFieldsConfigViewProps {
  * from the UI at all — only the CLI. Tags are ordinary nodes, so this lives on
  * the tag's own page beside its other fields rather than in a special panel.
  * Every tag takes a person's fields, a system tag's too; what its owner
- * ships stays, so those rows say "shipped" where a person's offer a remove.
+ * ships stays, in its place, so those rows say "shipped" where a person's
+ * offer a remove and a move: a step up or down, or a drag onto another row.
+ * The template's order is the order its members' field rows show in.
  *
  * Kept as a pure view with a connected wrapper below: store reads do not
  * survive `renderToStaticMarkup`, so the logic has to be testable without one.
@@ -55,9 +62,11 @@ export function TagFieldsConfigView({
   shipped,
   onAdd,
   onRemove,
+  onMove,
   onFollow,
 }: TagFieldsConfigViewProps) {
   const [draft, setDraft] = useState("");
+  const [dragged, setDragged] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
   const anchorRef = useRef<HTMLDivElement>(null);
 
@@ -95,36 +104,19 @@ export function TagFieldsConfigView({
         </p>
       )}
 
-      {template.map((field) => (
-        // The row's glyph opens the field (FieldRow), where it is configured.
-        <FieldRow
+      {template.map((field, at) => (
+        <TemplateFieldRow
           key={field.id}
-          depth={-1}
-          icon={fieldGlyphOf("text", field.id)}
-          label={field.name}
-          fieldId={field.id}
+          field={field}
+          at={at}
+          count={template.length}
+          mine={!shipped.has(field.id)}
+          dragged={dragged}
+          setDragged={setDragged}
+          onMove={onMove}
+          onRemove={onRemove}
           onFollow={onFollow}
-        >
-          <div className="flex min-w-0 flex-1 items-center justify-end">
-            {shipped.has(field.id) ? (
-              <span
-                className="text-meta text-foreground/30"
-                title="Its owner ships this field with the tag, so it stays"
-                data-field-shipped="true"
-              >
-                shipped
-              </span>
-            ) : (
-              <IconButton
-                label={`Remove field ${field.name} from this tag`}
-                title={`Remove ${field.name} from this tag`}
-                icon={XIcon}
-                className="opacity-0 group-hover/field:opacity-100 focus-visible:opacity-100"
-                onClick={() => onRemove(field.id)}
-              />
-            )}
-          </div>
-        </FieldRow>
+        />
       ))}
 
       <div className="mt-1 flex items-center gap-1.5 px-1">
@@ -166,7 +158,108 @@ export function TagFieldsConfigView({
   );
 }
 
-// GAP [[01M5CRYP40YAHA2ZQFB850ARVZ]] template fields are added and removed, never reordered
+/** One field of the template: a person's moves and goes, a shipped one stays where it is. */
+function TemplateFieldRow({
+  field,
+  at,
+  count,
+  mine,
+  dragged,
+  setDragged,
+  onMove,
+  onRemove,
+  onFollow,
+}: {
+  field: TagFieldRef;
+  at: number;
+  count: number;
+  mine: boolean;
+  /** The field being dragged, if any. */
+  dragged: string | null;
+  setDragged: (fieldId: string | null) => void;
+  onMove: (fieldId: string, to: number) => void;
+  onRemove: (fieldId: string) => void;
+  onFollow: Follow;
+}) {
+  const reveal = "opacity-0 group-hover/field:opacity-100 focus-visible:opacity-100";
+  const landing = dragged !== null && dragged !== field.id;
+  return (
+    // A person's row drags onto another row, landing at that row's place.
+    <div
+      draggable={mine}
+      data-tag-field={field.id}
+      data-dragging={dragged === field.id ? "true" : undefined}
+      className={cn(mine && "cursor-grab", dragged === field.id && "opacity-50")}
+      onDragStart={(e) => {
+        if (!mine) return;
+        e.dataTransfer.effectAllowed = "move";
+        setDragged(field.id);
+      }}
+      onDragEnd={() => setDragged(null)}
+      onDragOver={(e) => {
+        if (!landing) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+      }}
+      onDrop={(e) => {
+        if (dragged === null || dragged === field.id) return;
+        e.preventDefault();
+        onMove(dragged, at);
+        setDragged(null);
+      }}
+    >
+      {/* The row's glyph opens the field (FieldRow), where it is configured. */}
+      <FieldRow
+        depth={-1}
+        icon={fieldGlyphOf("text", field.id)}
+        label={field.name}
+        fieldId={field.id}
+        onFollow={onFollow}
+      >
+        <div className="flex min-w-0 flex-1 items-center justify-end">
+          {mine ? (
+            <>
+              {at > 0 && (
+                <IconButton
+                  label={`Move ${field.name} up`}
+                  title={`Move ${field.name} up`}
+                  icon={CaretUpIcon}
+                  className={reveal}
+                  onClick={() => onMove(field.id, at - 1)}
+                />
+              )}
+              {at < count - 1 && (
+                <IconButton
+                  label={`Move ${field.name} down`}
+                  title={`Move ${field.name} down`}
+                  icon={CaretDownIcon}
+                  className={reveal}
+                  onClick={() => onMove(field.id, at + 1)}
+                />
+              )}
+              <IconButton
+                label={`Remove field ${field.name} from this tag`}
+                title={`Remove ${field.name} from this tag`}
+                icon={XIcon}
+                className={reveal}
+                onClick={() => onRemove(field.id)}
+              />
+            </>
+          ) : (
+            <span
+              className="text-meta text-foreground/30"
+              title="Its owner ships this field with the tag, so it stays in its place"
+              data-field-shipped="true"
+            >
+              shipped
+            </span>
+          )}
+        </div>
+      </FieldRow>
+    </div>
+  );
+}
+
 export function TagFieldsConfig({ tagId }: { tagId: string }) {
   const schema = usePageGraph(schemaOf);
   const follow = useFollow();
@@ -187,6 +280,18 @@ export function TagFieldsConfig({ tagId }: { tagId: string }) {
       shipped={shipped}
       onFollow={follow}
       onRemove={(fieldId) => void browserHost().writes.removeTagField(tagId, fieldId)}
+      onMove={(fieldId, to) => {
+        const order = movedTemplate(
+          template.map((field) => field.id),
+          fieldId,
+          to,
+        );
+        void browserHost().writes.replaceField(
+          tagId,
+          SYSTEM_IDS.fieldsField,
+          order.map((id) => ({ t: "ref", v: id })),
+        );
+      }}
       onAdd={(name) => {
         void (async () => {
           // Reuse an existing field with this name rather than minting a

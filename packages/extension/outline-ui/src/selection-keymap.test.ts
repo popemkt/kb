@@ -148,6 +148,7 @@ describe("mapSelectionKey", () => {
     expect(mapSelectionKey(key(" "), ctx("b"))).toEqual({
       type: "toggleCollapse",
       nodeId: "b",
+      instanceKey: "tree/b",
     });
   });
 
@@ -160,10 +161,12 @@ describe("mapSelectionKey", () => {
     expect(mapSelectionKey(key(" "), ctx("b"))).toEqual({
       type: "toggleCollapse",
       nodeId: "b",
+      instanceKey: "tree/b",
     });
     expect(mapSelectionKey(key("o"), ctx("b"))).toEqual({
       type: "createAfter",
       nodeId: "b",
+      instanceKey: "tree/b",
     });
   });
 
@@ -268,7 +271,12 @@ describe("mapSelectionKey chord table (characterization)", () => {
     ],
     ["ArrowDown at the bottom", key("ArrowDown"), "c", null],
     // 6. ArrowLeft: close, else climb.
-    ["ArrowLeft on an expanded parent", key("ArrowLeft"), "b", { type: "collapse", nodeId: "b" }],
+    [
+      "ArrowLeft on an expanded parent",
+      key("ArrowLeft"),
+      "b",
+      { type: "collapse", nodeId: "b", instanceKey: "tree/b" },
+    ],
     [
       "ArrowLeft on a leaf with a parent",
       key("ArrowLeft"),
@@ -278,7 +286,12 @@ describe("mapSelectionKey chord table (characterization)", () => {
     ["ArrowLeft on a rootless leaf", key("ArrowLeft"), "a", null],
     ["ArrowLeft on an unknown node", key("ArrowLeft"), "unknown", null],
     // 7. ArrowRight: open, else descend.
-    ["ArrowRight on a collapsed parent", key("ArrowRight"), "d", { type: "expand", nodeId: "d" }],
+    [
+      "ArrowRight on a collapsed parent",
+      key("ArrowRight"),
+      "d",
+      { type: "expand", nodeId: "d", instanceKey: "tree/d" },
+    ],
     [
       "ArrowRight on an expanded parent",
       key("ArrowRight"),
@@ -296,15 +309,20 @@ describe("mapSelectionKey chord table (characterization)", () => {
       { type: "edit", nodeId: "b", instanceKey: "tree/b" },
     ],
     // 9. All three spellings of the space bar toggle.
-    ["Space", key(" "), "b", { type: "toggleCollapse", nodeId: "b" }],
-    ['"Space"', key("Space"), "b", { type: "toggleCollapse", nodeId: "b" }],
-    ['"Spacebar"', key("Spacebar"), "b", { type: "toggleCollapse", nodeId: "b" }],
+    ["Space", key(" "), "b", { type: "toggleCollapse", nodeId: "b", instanceKey: "tree/b" }],
+    ['"Space"', key("Space"), "b", { type: "toggleCollapse", nodeId: "b", instanceKey: "tree/b" }],
+    [
+      '"Spacebar"',
+      key("Spacebar"),
+      "b",
+      { type: "toggleCollapse", nodeId: "b", instanceKey: "tree/b" },
+    ],
     // 10. Tab, with Alt ignored.
     ["Tab", key("Tab"), "b", { type: "indent", nodeId: "b" }],
     ["Shift+Tab", key("Tab", { shiftKey: true }), "b", { type: "outdent", nodeId: "b" }],
     ["Alt+Tab", key("Tab", { altKey: true }), "b", { type: "indent", nodeId: "b" }],
     // 11. Case is the binding: o and O are two rows, not one plus a modifier.
-    ["o", key("o"), "b", { type: "createAfter", nodeId: "b" }],
+    ["o", key("o"), "b", { type: "createAfter", nodeId: "b", instanceKey: "tree/b" }],
     ["O", key("O"), "b", { type: "createBefore", nodeId: "b" }],
     ["Shift+O", key("O", { shiftKey: true }), "b", { type: "createBefore", nodeId: "b" }],
     // 12. Delete, either key.

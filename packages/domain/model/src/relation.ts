@@ -12,6 +12,7 @@
  */
 import { allowedRefIdsOf, fieldTypeOf } from "./field-type.ts";
 import { isSysPrefixed, SYSTEM_IDS, type NodeId, type PropValue } from "./model.ts";
+import { nodeName } from "./display-text.ts";
 import { typeRefsOf, type NodeLike } from "./node-like.ts";
 
 /** A field node's inverse label, or null when it names none. */
@@ -63,17 +64,24 @@ export function relationMisfit(
   return MISFITS[fit](field, target);
 }
 
+/** A field a relation can be typed as, named as it reads (`nodeName`). */
+export interface RelationFieldChoice {
+  readonly id: NodeId;
+  readonly name: string;
+}
+
 /**
  * The fields a relation to `target` can be typed as: every node
- * `relationFieldFit` says fits, by text. What a "Link as…" picker and a
+ * `relationFieldFit` says fits, by name. What a "Link as…" picker and a
  * canvas edge's field menu offer.
  */
-export function relationFieldsFor<N extends NodeLike>(
-  nodes: ReadonlyMap<NodeId, N>,
+export function relationFieldsFor(
+  nodes: ReadonlyMap<NodeId, NodeLike>,
   target: NodeId,
   runQuery: ((edn: string) => unknown[][]) | null,
-): N[] {
+): RelationFieldChoice[] {
   return [...nodes.values()]
     .filter((node) => relationFieldFit(node, target, nodes, runQuery) === "fits")
-    .toSorted((a, b) => a.text.localeCompare(b.text) || a.id.localeCompare(b.id));
+    .map((node) => ({ id: node.id, name: nodeName(node.id, (id) => nodes.get(id)) || node.id }))
+    .toSorted((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
 }

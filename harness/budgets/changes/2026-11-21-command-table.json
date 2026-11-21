@@ -1,0 +1,4 @@
+{
+  "reason": "The command table loads only the invoked command's module from cli/src/commands/ (gap 01M7HDP52RY5R2WJPXMMD30R8C), so no command's options, parsers or code load with another; kb ui's option parsers moved with it into commands/ui-options.ts.",
+  "raise": { "cli-closure": { "bytes": -63475, "modules": -11 } }
+}

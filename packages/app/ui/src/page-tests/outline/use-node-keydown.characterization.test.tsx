@@ -37,7 +37,7 @@ import { useGraphStore } from "@/stores/graph.store";
 import { rankedFixture } from "@/test-support/ranked-fixture";
 import { mountActiveTextHost } from "@/test-support/active-text-host";
 import { installDomGlobals } from "@kb/ui-test-kit";
-import { resetOutlineStore } from "@/test-support/outline-store";
+import { resetOutlineStore, rowClosed, rowKey } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import {
   outlineNodes,
@@ -120,7 +120,7 @@ function seedWithReference(): void {
       fixtureGraph.rev,
       "fixtures",
     );
-  act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
+  act(() => useOutlineStore.getState().toggleCollapse(rowKey("n.root-a")));
 }
 
 describe("outline editing keymap (characterization)", () => {
@@ -268,11 +268,11 @@ describe("outline editing keymap (characterization)", () => {
           fixtureGraph.rev,
           "fixtures",
         );
-      act(() => useOutlineStore.getState().toggleCollapse("n.ref-a"));
       const instanceKey = childInstanceKey(
         projectedRowKey(MAIN_OUTLINE_HOST, "n.q", "n.root-b"),
         "n.ref-a",
       );
+      act(() => useOutlineStore.getState().toggleCollapse(instanceKey));
       act(() => useOutlineStore.getState().activateNode("n.ref-a", 0, instanceKey));
       act(() => root.render(<Host nodeId="n.ref-a" instanceKey={instanceKey} />));
       const el = present(container.querySelector<HTMLElement>('[data-editor="true"]'), "editor");
@@ -306,7 +306,7 @@ describe("outline editing keymap (characterization)", () => {
     });
 
     it("Backspace at offset 0 is claimed and does not outdent", async () => {
-      act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
+      act(() => useOutlineStore.getState().toggleCollapse(rowKey("n.root-a")));
       const before = node("n.child-a1")?.parentId;
       expect(await press(mount("n.child-a1", 0, true), "Backspace")).toBe(true);
       expect(node("n.child-a1")?.parentId).toBe(before);
@@ -323,12 +323,13 @@ describe("outline editing keymap (characterization)", () => {
     it("Ctrl+Shift+ArrowUp is NOT structural: it reaches the collapse branch", async () => {
       // The ref guard names metaKey only, so the ctrl spelling falls through to
       // the `metaKey || ctrlKey` arm below — collapse, not reorder.
-      act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
-      expect(node("n.root-a")?.collapsed).toBe(false);
+      const result = projectedRowKey(MAIN_OUTLINE_HOST, "n.q", "n.root-a");
+      act(() => useOutlineStore.getState().toggleCollapse(result));
+      expect(rowClosed("n.root-a", result)).toBe(false);
       expect(
         await press(mount("n.root-a", 0, true), "ArrowUp", { ctrlKey: true, shiftKey: true }),
       ).toBe(true);
-      expect(node("n.root-a")?.collapsed).toBe(true);
+      expect(rowClosed("n.root-a", result)).toBe(true);
     });
 
     it("Backspace mid-text is left to the browser", async () => {
@@ -407,7 +408,7 @@ describe("outline editing keymap (characterization)", () => {
     });
 
     it("Shift+Tab outdents", async () => {
-      act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
+      act(() => useOutlineStore.getState().toggleCollapse(rowKey("n.root-a")));
       expect(await press(mount("n.child-a1", 3, false), "Tab", { shiftKey: true })).toBe(true);
       expect(node("n.child-a1")?.parentId).toBe(WORKSPACE_ROOT_ID);
     });
@@ -444,13 +445,13 @@ describe("outline editing keymap (characterization)", () => {
     });
 
     it("a first child at offset 0 outdents (D08)", async () => {
-      act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
+      act(() => useOutlineStore.getState().toggleCollapse(rowKey("n.root-a")));
       expect(await press(mount("n.child-a1", 0, false), "Backspace")).toBe(true);
       expect(node("n.child-a1")?.parentId).toBe(WORKSPACE_ROOT_ID);
     });
 
     it("a later sibling at offset 0 merges into its visible predecessor (D09)", async () => {
-      act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
+      act(() => useOutlineStore.getState().toggleCollapse(rowKey("n.root-a")));
       const merged =
         present(node("n.child-a1"), "predecessor").text + present(node("n.child-a2"), "row").text;
       expect(await press(mount("n.child-a2", 0, false), "Backspace")).toBe(true);
@@ -483,7 +484,7 @@ describe("outline editing keymap (characterization)", () => {
 
   describe("vertical arrows", () => {
     it("Meta+Shift+ArrowUp reorders the row above its previous sibling", async () => {
-      act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
+      act(() => useOutlineStore.getState().toggleCollapse(rowKey("n.root-a")));
       expect(siblingOrder("n.root-a")).toEqual(["n.child-a1", "n.child-a2"]);
       expect(
         await press(mount("n.child-a2", 3, false), "ArrowUp", { metaKey: true, shiftKey: true }),
@@ -492,7 +493,7 @@ describe("outline editing keymap (characterization)", () => {
     });
 
     it("Meta+Shift+ArrowDown reorders the row below its next sibling", async () => {
-      act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
+      act(() => useOutlineStore.getState().toggleCollapse(rowKey("n.root-a")));
       expect(
         await press(mount("n.child-a1", 3, false), "ArrowDown", { metaKey: true, shiftKey: true }),
       ).toBe(true);
@@ -500,13 +501,13 @@ describe("outline editing keymap (characterization)", () => {
     });
 
     it("Meta+ArrowUp collapses an expanded parent", async () => {
-      act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
+      act(() => useOutlineStore.getState().toggleCollapse(rowKey("n.root-a")));
       expect(await press(mount("n.root-a", 0, false), "ArrowUp", { metaKey: true })).toBe(true);
-      expect(node("n.root-a")?.collapsed).toBe(true);
+      expect(rowClosed("n.root-a")).toBe(true);
     });
 
     it("Meta+ArrowUp on a leaf zooms to the enclosing page", async () => {
-      act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
+      act(() => useOutlineStore.getState().toggleCollapse(rowKey("n.root-a")));
       expect(await press(mount("n.child-a1", 0, false), "ArrowUp", { metaKey: true })).toBe(true);
       expect(useGraphStore.getState().rootNodeId).toBe("n.root-a");
     });
@@ -514,9 +515,9 @@ describe("outline editing keymap (characterization)", () => {
     it("Meta+Alt+ArrowDown opens the whole subtree, Ctrl+Alt+ArrowUp closes it, the caret staying", async () => {
       const el = mount("n.root-a", 2, false);
       expect(await press(el, "ArrowDown", { metaKey: true, altKey: true })).toBe(true);
-      expect([node("n.root-a")?.collapsed, node("n.child-a2")?.collapsed]).toEqual([false, false]);
+      expect([rowClosed("n.root-a"), rowClosed("n.child-a2")]).toEqual([false, false]);
       expect(await press(el, "ArrowUp", { ctrlKey: true, altKey: true })).toBe(true);
-      expect([node("n.root-a")?.collapsed, node("n.child-a2")?.collapsed]).toEqual([true, true]);
+      expect([rowClosed("n.root-a"), rowClosed("n.child-a2")]).toEqual([true, true]);
       expect(useOutlineStore.getState().activeNodeId).toBe("n.root-a");
     });
 
@@ -538,7 +539,7 @@ describe("outline editing keymap (characterization)", () => {
     });
 
     it("Meta+. zooms into the row being edited, and Ctrl+, zooms out to the page above", async () => {
-      act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
+      act(() => useOutlineStore.getState().toggleCollapse(rowKey("n.root-a")));
       const text = node("n.child-a2")?.text;
       expect(await press(mount("n.child-a2", 3, false), ".", { metaKey: true })).toBe(true);
       expect(useGraphStore.getState().rootNodeId).toBe("n.child-a2");
@@ -582,25 +583,25 @@ describe("outline editing keymap (characterization)", () => {
     });
 
     it("Meta+ArrowDown expands a collapsed parent", async () => {
-      expect(node("n.root-a")?.collapsed).toBe(true);
+      expect(rowClosed("n.root-a")).toBe(true);
       expect(await press(mount("n.root-a", 0, false), "ArrowDown", { metaKey: true })).toBe(true);
-      expect(node("n.root-a")?.collapsed).toBe(false);
+      expect(rowClosed("n.root-a")).toBe(false);
     });
 
     it("Meta+ArrowDown on a row with nothing to reveal is claimed and inert", async () => {
       // No children and no tags: tags alone make a childless row expandable,
       // which is why this case cannot use one of the tagged fixture rows.
-      act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
+      act(() => useOutlineStore.getState().toggleCollapse(rowKey("n.root-a")));
       const el = mount("n.child-a1", 3, false);
       const before = {
-        collapsed: node("n.child-a1")?.collapsed,
+        collapsed: rowClosed("n.child-a1"),
         active: useOutlineStore.getState().activeNodeId,
       };
       expect(await press(el, "ArrowDown", { metaKey: true })).toBe(true);
       const after = useOutlineStore.getState();
       const graph = useGraphStore.getState();
       expect(after.activeNodeId).toBe(before.active);
-      expect(node("n.child-a1")?.collapsed).toBe(before.collapsed);
+      expect(rowClosed("n.child-a1")).toBe(before.collapsed);
       expect(graph.rootNodeId).toBe(WORKSPACE_ROOT_ID);
     });
 
@@ -608,9 +609,9 @@ describe("outline editing keymap (characterization)", () => {
       // `tags.length > 0` is part of the expandable test, so the chord is not a
       // children-only gesture.
       const el = mount("n.root-b", 3, false);
-      expect(node("n.root-b")?.collapsed).toBe(true);
+      expect(rowClosed("n.root-b")).toBe(true);
       expect(await press(el, "ArrowDown", { metaKey: true })).toBe(true);
-      expect(node("n.root-b")?.collapsed).toBe(false);
+      expect(rowClosed("n.root-b")).toBe(false);
     });
 
     it("bare ArrowUp crosses to the previous visible row", async () => {

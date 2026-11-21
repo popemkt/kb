@@ -87,7 +87,7 @@ export type EditingIntent =
   | { type: "moveUp"; nodeId: string }
   | { type: "moveDown"; nodeId: string }
   | { type: "toggleCheck"; nodeId: string }
-  | { type: "toggleCollapse"; nodeId: string }
+  | { type: "toggleCollapse"; nodeId: string; instanceKey: string }
   /** Open the row and every row under it; or close them. */
   | { type: "expandSubtree"; instanceKey: string; host: string }
   | { type: "collapseSubtree"; instanceKey: string; host: string }
@@ -183,14 +183,14 @@ function deleteIntent(ctx: EditingKeyContext): EditingIntent | null {
 function revealIntent(ctx: EditingKeyContext, key: string): EditingIntent {
   if (key === "ArrowUp") {
     if (ctx.childCount > 0 && !ctx.collapsed) {
-      return { type: "toggleCollapse", nodeId: ctx.nodeId };
+      return { type: "toggleCollapse", nodeId: ctx.nodeId, instanceKey: ctx.instanceKey };
     }
     return ctx.parentId === null
       ? { type: "claim" }
       : { type: "zoomToParent", parentId: ctx.parentId, host: ctx.host };
   }
   if (ctx.collapsed && (ctx.childCount > 0 || ctx.tagCount > 0)) {
-    return { type: "toggleCollapse", nodeId: ctx.nodeId };
+    return { type: "toggleCollapse", nodeId: ctx.nodeId, instanceKey: ctx.instanceKey };
   }
   return { type: "claim" };
 }

@@ -20,6 +20,7 @@
 import { Effect } from "effect";
 import type { ActionGuard } from "@kb/contracts";
 import {
+  nodeName,
   SYSTEM_IDS,
   tagChains,
   typeRefsOf,
@@ -88,15 +89,22 @@ function changesKeyOrTags({ before, after }: NodeWrite): boolean {
   return !same(keyValues(before), keyValues(after)) || !same(typeRefsOf(before), typeRefsOf(after));
 }
 
+/** How a refusal reads a node: whole, so it names the node as it reads (`nodeName`). */
+type NodeRead = (id: string) => NodeLike | undefined;
+
+/** `node` as a refusal names it: as it reads, as written now. */
+const nameOf = (node: NodeLike, nodeOf: NodeRead): string =>
+  nodeName(node.id, (id) => (id === node.id ? node : nodeOf(id))) || node.id;
+
 /** Why `node`'s key is not a period of it, or null when it is one or there is none. */
-function keyRefusal(node: NodeLike, nodeOf: NodeLookup): string | null {
+function keyRefusal(node: NodeLike, nodeOf: NodeRead): string | null {
   const values = keyValues(node);
   if (values.length === 0) return null;
   const shown = values.map((value) => `“${String(value.v)}”`).join(", ");
   const periods = periodsOf(node, nodeOf);
   const [period] = periods;
   if (period === undefined || periods.length > 1)
-    return `“${node.text}” holds the period ${shown}, but only a node that is one #day, #week or #year has a period`;
+    return `“${nameOf(node, nodeOf)}” holds the period ${shown}, but only a node that is one #day, #week or #year has a period`;
   const fits = values.every((value) => value.t === "str" && period.fits(value.v));
   return fits
     ? null
@@ -109,12 +117,12 @@ function keyRefusal(node: NodeLike, nodeOf: NodeLookup): string | null {
  * family would make a second node for that date). Taking the tag off is
  * the way out: it takes the key with it (`untag.ts`).
  */
-function removalRefusal({ before, after }: NodeWrite, nodeOf: NodeLookup): string | null {
+function removalRefusal({ before, after }: NodeWrite, nodeOf: NodeRead): string | null {
   if (after === undefined || keyValues(before).length === 0 || keyValues(after).length > 0)
     return null;
   const [period] = periodsOf(after, nodeOf);
   if (period === undefined) return null;
-  return `“${after.text}” is a ${period.name}, so its period can be changed but not removed: take #${period.name} off to make it an ordinary node`;
+  return `“${nameOf(after, nodeOf)}” is a ${period.name}, so its period can be changed but not removed: take #${period.name} off to make it an ordinary node`;
 }
 
 const leftBy = (writes: readonly NodeWrite[]) =>
@@ -140,7 +148,7 @@ function judgedBy(writes: readonly NodeWrite[], held: Iterable<NodeLike>): NodeL
  */
 export function periodKeyRefusal(
   writes: readonly NodeWrite[],
-  nodeOf: NodeLookup,
+  nodeOf: NodeRead,
   held: Iterable<NodeLike> = [],
 ): string | null {
   for (const write of writes) {

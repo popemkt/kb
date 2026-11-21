@@ -8,9 +8,13 @@ import { LayoutView, layoutPanes, type LayoutTree } from "@kb/views";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 
 const invoke = vi.fn();
-vi.mock("@/session/runtime", () => ({ invoke: (id: string, input: unknown) => invoke(id, input) }));
+vi.mock("@/session/runtime", () => ({
+  invoke: (id: string, input: unknown) => invoke(id, input),
+  invokeLocal: ({ id, input }: { id: string; input: unknown }) => invoke(id, input),
+}));
 
 const { getPath, navigate } = await import("@kb/ui-sdk");
+const { useUiStore } = await import("@/stores/ui.store");
 const { startWorkspace, useWorkspaceStore, WORKSPACE_STORAGE_KEY } =
   await import("@/stores/workspace.store");
 
@@ -75,14 +79,17 @@ describe("the workspace", () => {
   it("saves the arrangement as a layout node through view.propose, the zoom kept as its node", async () => {
     useWorkspaceStore.getState().navigatePane("main", "/outline/n.zoomed");
     useWorkspaceStore.getState().openBeside("main", "/graph");
-    invoke.mockResolvedValue({
-      status: "succeeded",
-      id: "view.propose",
-      output: { id: "v.saved" },
-    });
-    await expect(useWorkspaceStore.getState().save("Morning")).resolves.toBe("v.saved");
+    invoke.mockImplementation((_action: string, { id }: { id: string }) =>
+      Promise.resolve({
+        status: "succeeded",
+        id: "view.propose",
+        output: { id },
+      }),
+    );
+    const saved = await useWorkspaceStore.getState().save("Morning");
+    expect(saved).toEqual(expect.any(String));
     expect(invoke).toHaveBeenCalledWith("view.propose", {
-      id: expect.any(String),
+      id: saved,
       view: LayoutView.id,
       text: "Morning",
       params: {
@@ -105,5 +112,6 @@ describe("the workspace", () => {
       message: "nope",
     });
     await expect(useWorkspaceStore.getState().save("Broken")).resolves.toBeNull();
+    expect(useUiStore.getState().toasts.at(-1)?.text).toContain("nope");
   });
 });

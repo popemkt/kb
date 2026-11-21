@@ -75,6 +75,8 @@ export interface RowChromeInput {
    * (`showsAncestor`) are read from it.
    */
   instanceKey: string;
+  /** Whether the row is open there (`isRowOpen`): open or closed is the row's own. */
+  open: boolean;
   showDebugFields: boolean;
   /** Hidden fields the row's display draws anyway (`ResolvePropsOptions.revealed`). */
   revealed?: ReadonlySet<string> | undefined;
@@ -111,14 +113,15 @@ export function resolveRowRows({
 
 /**
  * What the row draws is its shown node's (`shownNode`): children, query,
- * fields. Whether it is open is the row's own (`node.collapsed`), and so is
- * the reference ring.
+ * fields. Whether it is open is the row's own (`open`), and so is the
+ * reference ring.
  */
 export function resolveRowChrome({
   node,
   schema,
   view,
   instanceKey,
+  open,
   showDebugFields,
   revealed,
 }: RowChromeInput): RowChrome {
@@ -135,8 +138,8 @@ export function resolveRowChrome({
     hasFields,
     hasFrameRows,
     isExpandable,
-    showToolbar: hasFrameRows && !node.collapsed && (projected || rows.showsQueryResults),
+    showToolbar: hasFrameRows && open && (projected || rows.showsQueryResults),
     projected,
-    showsChildContainer: isExpandable && !node.collapsed,
+    showsChildContainer: isExpandable && open,
   };
 }

@@ -81,15 +81,15 @@ export function NodeContent({
     [node.id, textNodeId, instanceKey, schema],
   );
   const inPlace = instanceKey !== undefined && opensInPlace(instanceKey);
-  const expansion = useOutlineStore((s) => s.expansion);
+  const references = useOutlineStore((s) => s.openReferences);
   const open = useMemo(
     () =>
       new Set(
         inPlace
-          ? openReferencesOf(expansion, hostOfInstance(instanceKey), textNodeId, content)
+          ? openReferencesOf(references, hostOfInstance(instanceKey), textNodeId, content)
           : [],
       ),
-    [inPlace, expansion, instanceKey, textNodeId, content],
+    [inPlace, references, instanceKey, textNodeId, content],
   );
   const follow = useCallback<Follow>(
     (target, how) => {
@@ -116,7 +116,7 @@ export function NodeContent({
       onChange={(next) => {
         if (next !== content) void browserHost().writes.updateNodeContent(textNodeId, next);
       }}
-      writeText={(next) => browserHost().writes.setNodeText(textNodeId, next)}
+      writeText={(next, writes) => writes.setNodeText(textNodeId, next)}
       readText={readText}
       ingest={ingest}
       triggers={triggers}

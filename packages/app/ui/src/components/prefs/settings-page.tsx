@@ -35,6 +35,8 @@ import {
   type Setting,
 } from "@kb/model";
 import {
+  rowName,
+  nameIn,
   browserHost,
   type EnumOption,
   EnumSelect,
@@ -221,7 +223,7 @@ function useExtensionNodes(
     const node = graph.schema.get(id);
     if (node === undefined) return [];
     const settings = settingsOf(graph.schema.values(), (other) => graph.schema.get(other), id);
-    return [{ id, label: node.text, settings }];
+    return [{ id, label: rowName(node, graph.schema), settings }];
   });
 }
 
@@ -707,7 +709,11 @@ function extensionSection(
     row === undefined ? bundled === undefined : extensionShelf(row.origin) === "installed";
   const after =
     group !== undefined ? (
-      <ExtensionDetails nodeId={id} group={group} textOf={(of) => graph.schema.get(of)?.text} />
+      <ExtensionDetails
+        nodeId={id}
+        group={group}
+        nameOf={(of) => nameIn(graph.schema, of) || undefined}
+      />
     ) : catalog !== null && installed ? (
       <RetainedExtension name={name} markets={markets} />
     ) : null;

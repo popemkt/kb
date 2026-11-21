@@ -22,9 +22,6 @@ import { currentIso, diffTx, type DomainError, domainError, ensureDomainError } 
 import { reloadEffect } from "@kb/operations";
 import {
   bunFileSystemLayer,
-  extensionRuntimeChanges,
-  ownExtensionEdits,
-  ownExtensionPath,
   sessionRegistry,
   childProcessEnv,
   openKbScoped,
@@ -42,6 +39,11 @@ import {
 } from "@kb/workspace-fs";
 import { ensureUiBuilt, type UiBuildError, type UiEnsureResult } from "./build.ts";
 import { EXTENSIONS_WATCH_NODE, extensionsWatched } from "./extension-watch.ts";
+import {
+  extensionRuntimeChanges,
+  ownExtensionEdits,
+  ownExtensionPath,
+} from "./extension-changes.ts";
 import {
   UI_DEV_DEFAULT_PORT,
   bunSpawnDev,

@@ -1,12 +1,9 @@
 import {
-  pointerKind,
-  asInstance,
   graphLabelFont,
   prefersReducedMotion,
   readTiming,
   readTokenColor,
   type Appearance,
-  type PointerKind,
 } from "@kb/ui-sdk";
 import type { LensNode } from "./graph-lens";
 import {
@@ -17,12 +14,7 @@ import {
   type LensLinkStyle,
 } from "@kb/graph";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import Graph from "graphology";
-import Sigma from "sigma";
-import { EdgeArrowProgram } from "sigma/rendering";
-import { EdgeCurvedArrowProgram } from "@sigma/edge-curve";
-import { createNodeBorderProgram } from "@sigma/node-border";
-import { LINK_STYLES } from "./graph-link-styles";
+import type Sigma from "sigma";
 import {
   graphEmphasisAlpha,
   graphFocus,
@@ -32,27 +24,23 @@ import {
 } from "./graph-interaction.ts";
 import { computeLayoutPositions } from "./graph-layouts";
 import { createFA2Layout, type FA2Controller } from "./fa2-layout";
-import { NodeDrag } from "./graph-drag";
-import { placedDrag, sigmaDragSurface } from "./sigma-drag";
 import { clusterPlacement, DiscSettle, discRadius, discSpacing, linkWidth } from "./graph-discs";
 import { fitView } from "./graph-camera";
 import { sigmaCameraControls, type GraphCameraControls } from "./graph-camera-controls";
-import { selectionFromNode, type GraphSelection } from "./graph-selection";
-import {
-  drawGraphLabel,
-  drawGraphHover,
-  placeGraphLabels,
-  reserveInGraphLabels,
-  resetGraphLabels,
-  setGraphLabelPaint,
-  type GraphNodeBox,
-} from "./sigma-labels.ts";
-import { createBulletProgram, SigmaBullets } from "./sigma-bullets";
-import { DEFAULT_GRAPH_THEME, restingLink, type GraphTheme, type NodeForm } from "./graph-themes";
+import type { GraphSelection } from "./graph-selection";
+import { setGraphLabelPaint } from "./sigma-labels.ts";
+import { SigmaBullets } from "./sigma-bullets";
+import { DEFAULT_GRAPH_THEME, restingLink, type GraphTheme } from "./graph-themes";
 import { withGraphAlpha } from "./graph-dim";
-import { clusterHulls } from "./cluster-hulls";
 import { GraphTooltip } from "./graph-tooltip";
 import { sigmaEmphasis, type SigmaEmphasis } from "./sigma-emphasis";
+import {
+  edgeProgram,
+  mountSigma,
+  NODE_PROGRAMS,
+  wireSigmaInput,
+  withCameraIntent,
+} from "./sigma-renderer";
 
 export interface SigmaGraphProps extends GraphEmphasis {
   nodes: LensNode[];
@@ -79,45 +67,6 @@ export interface SigmaGraphProps extends GraphEmphasis {
   edgeLabel?: (edge: LensEdge) => string;
 }
 
-/**
- * Nodes are drawn with a ring: the ground colour at rest, so a node reads
- * clean against the links and neighbours behind it, and the ink for the node
- * in focus. `sigma-emphasis` picks the ring colour per node.
- */
-const NodeRingProgram = createNodeBorderProgram({
-  borders: [
-    { size: { value: 0.16 }, color: { attribute: "ringColor" } },
-    { size: { fill: true }, color: { attribute: "color" } },
-  ],
-  drawLabel: drawGraphLabel,
-  drawHover: drawGraphHover,
-});
-
-/**
- * The sigma node program each form is drawn with: a solid is its disc in
- * 2D, and a bullet is the outline's bullet (`sigma-bullets`).
- */
-const NODE_PROGRAMS: Record<NodeForm, "ring" | "bullet"> = {
-  sphere: "ring",
-  cube: "ring",
-  bullet: "bullet",
-};
-
-/** The sigma edge program each link shape is drawn with. */
-const EDGE_PROGRAMS = { straight: EdgeArrowProgram, curved: EdgeCurvedArrowProgram } as const;
-const edgeProgram = (style: LensLinkStyle): keyof typeof EDGE_PROGRAMS =>
-  LINK_STYLES[style].curved ? "curved" : "straight";
-
-/** Drawn nodes at least this big (CSS px radius) keep labels off themselves. */
-/** What made a press sigma reports: its captors hear mouse and touch events, a pointer's kind when it is one. */
-const pointerOf = (original: MouseEvent | TouchEvent): PointerKind =>
-  "pointerType" in original
-    ? pointerKind(String(original.pointerType))
-    : "touches" in original
-      ? "touch"
-      : "mouse";
-
-const MIN_BLOCKING_RADIUS = 3;
 /** Above this many nodes, label density thins with the square root of the count. */
 const LABEL_CROWD = 400;
 
@@ -189,194 +138,46 @@ export function SigmaGraph(props: SigmaGraphProps) {
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return undefined;
-    const graph = new Graph({ multi: true, type: "directed" });
-    const sigma = new Sigma(graph, el, {
-      allowInvalidContainer: true,
-      labelFont: graphLabelFont(),
-      labelSize: 12,
-      labelRenderedSizeThreshold: 0,
-      labelDensity: 0.7,
-      defaultDrawNodeLabel: drawGraphLabel,
-      defaultDrawNodeHover: drawGraphHover,
-      defaultNodeType: NODE_PROGRAMS[(live.current.theme ?? DEFAULT_GRAPH_THEME).form],
-      nodeProgramClasses: { ring: NodeRingProgram, bullet: createBulletProgram(bullets.current) },
-      defaultEdgeType: edgeProgram(live.current.linkStyle ?? "straight"),
-      edgeProgramClasses: EDGE_PROGRAMS,
-      stagePadding: 70,
-      zIndex: true,
-      // A node is a disc in the layout's space (`graph-discs`): its size scales with the layout.
-      itemSizesReference: "positions",
-      zoomToSizeRatioFunction: (ratio) => ratio,
+    const mounted = mountSigma(el, {
+      form: (live.current.theme ?? DEFAULT_GRAPH_THEME).form,
+      linkStyle: live.current.linkStyle ?? "straight",
+      bullets: bullets.current,
+      hullCanvas: cluster ? hullRef.current : null,
     });
+    const { sigma } = mounted;
     sigmaRef.current = sigma;
     emphasis.current = sigmaEmphasis(sigma, readTiming(), prefersReducedMotion);
-    // A glyph painted before the UI face has loaded is painted again once it has.
-    let mounted = true;
-    if ("fonts" in document)
-      void document.fonts.ready.then(() => {
-        if (!mounted) return;
-        bullets.current.paint();
-        sigma.refresh();
-      });
-    // The drawn nodes' boxes are what labels must not cover. They are sampled
-    // when the frame's first label is placed (see resetGraphLabels), after
-    // sigma has processed this frame's positions and camera.
-    const sampleNodes = (out: GraphNodeBox[]) => {
-      graph.forEachNode((id, attrs) => {
-        const display = sigma.getNodeDisplayData(id);
-        if (!display || display.hidden) return;
-        const r = sigma.scaleSize(display.size);
-        if (r < MIN_BLOCKING_RADIUS) return;
-        const at = sigma.framedGraphToViewport(display);
-        const degree = typeof attrs.degree === "number" ? attrs.degree : 0;
-        out.push({ x: at.x - r - 1, y: at.y - r - 1, width: 2 * r + 2, height: 2 * r + 2, degree });
-      });
-    };
-    sigma.on("beforeRender", () => {
-      resetGraphLabels(
-        el.querySelectorAll<HTMLCanvasElement>("canvas.sigma-labels, canvas.sigma-hovers"),
-        sampleNodes,
-      );
-    });
-
     topology.current = "";
     settle.current.reset();
     cameraIntent.current = false;
-    const controls = sigmaCameraControls(() => sigmaRef.current);
-    live.current.onControlsReady?.({
-      ...controls,
-      fit: () => {
-        cameraIntent.current = true;
-        controls.fit();
-      },
-      reset: () => {
-        cameraIntent.current = true;
-        controls.reset();
-      },
-      zoomIn: () => {
-        cameraIntent.current = true;
-        controls.zoomIn();
-      },
-      zoomOut: () => {
-        cameraIntent.current = true;
-        controls.zoomOut();
-      },
-      focusNode: (id) => {
-        cameraIntent.current = true;
-        controls.focusNode(id);
-      },
-    });
-    const hulls = cluster && hullRef.current ? clusterHulls(sigma, hullRef.current) : null;
-    // After sigma has drawn: cluster titles take their places first, then the
-    // node labels it asked for are placed in priority order.
-    sigma.on("afterRender", () => {
-      const labels = el.querySelector<HTMLCanvasElement>("canvas.sigma-labels");
-      if (labels === null) return;
-      hulls?.draw((box) => reserveInGraphLabels(labels, box));
-      placeGraphLabels(labels);
-    });
-    // A press on a node drags it in the layout the graph stands in now: the
-    // force layout while there is one, else the placed layout.
-    const placed = placedDrag(graph);
-    const drag = new NodeDrag(() => layoutRef.current ?? placed, sigmaDragSurface(sigma));
-    let suppressClick = false;
-    /** The node the last click landed on, which a double-click must land on again to open. */
-    let clicked: string | null = null;
     const markCamera = () => {
       cameraIntent.current = true;
     };
-    el.addEventListener("pointerdown", markCamera);
-    el.addEventListener("wheel", markCamera, { passive: true });
-    sigma.on("enterNode", ({ node }) => {
-      hovered.current = node;
-      el.style.cursor = "pointer";
-      const display = sigma.getNodeDisplayData(node);
-      if (display) setTooltip({ id: node, ...sigma.framedGraphToViewport(display) });
-      refresh();
+    live.current.onControlsReady?.(
+      withCameraIntent(
+        sigmaCameraControls(() => sigmaRef.current),
+        markCamera,
+      ),
+    );
+    const unwire = wireSigmaInput(sigma, el, {
+      target: () => live.current,
+      hulls: mounted.hulls,
+      layout: () => layoutRef.current,
+      hovered,
+      markCamera,
+      refresh,
+      setTooltip,
+      isolate: (key) => setIsolated((previous) => (previous === key ? null : key)),
     });
-    sigma.on("leaveNode", () => {
-      hovered.current = null;
-      el.style.cursor = "default";
-      setTooltip(null);
-      refresh();
-    });
-    const clickNode = (node: string, original: unknown) => {
-      clicked = node;
-      const native = asInstance(original, MouseEvent);
-      if (native?.metaKey === true || native?.ctrlKey === true) {
-        live.current.onNodeOpen(node);
-        return;
-      }
-      const { selectedNodeId: from, onTraceTo } = live.current;
-      if (native?.shiftKey === true && onTraceTo && typeof from === "string" && from !== node) {
-        onTraceTo(node);
-        return;
-      }
-      const meta = live.current.nodes.find((n) => n.id === node);
-      if (meta) live.current.onSelectionChange?.(selectionFromNode(meta));
-    };
-    sigma.on("clickNode", ({ node, event }) => {
-      if (suppressClick) {
-        suppressClick = false;
-        clicked = null;
-        return;
-      }
-      clickNode(node, event.original);
-    });
-    // Sigma reads any second click inside its timeout as a double-click,
-    // wherever it lands: only one whose first click hit this node opens it;
-    // any other is the click it is (select A, then click or shift-click B).
-    sigma.on("doubleClickNode", ({ node, event }) => {
-      event.preventSigmaDefault();
-      if (clicked === node) live.current.onNodeOpen(node);
-      else clickNode(node, event.original);
-      clicked = null;
-    });
-    sigma.on("clickStage", ({ event }) => {
-      clicked = null;
-      if (suppressClick) {
-        suppressClick = false;
-        return;
-      }
-      live.current.onSelectionChange?.(null);
-      const key = hulls?.hit(event.x, event.y);
-      if (key !== undefined && key !== "")
-        setIsolated((previous) => (previous === key ? null : key));
-    });
-    sigma.on("downNode", ({ node, event }) => {
-      event.preventSigmaDefault();
-      suppressClick = false;
-      drag.down(node, event.x, event.y, pointerOf(event.original));
-    });
-    const move = (e: MouseEvent) => {
-      const rect = el.getBoundingClientRect();
-      const x = e.clientX - rect.left,
-        y = e.clientY - rect.top;
-      if (hovered.current !== null) setTooltip({ id: hovered.current, x, y });
-      if (e.target instanceof Node && el.contains(e.target)) hulls?.hover(x, y);
-      drag.move(x, y);
-    };
-    const up = () => {
-      suppressClick = drag.up();
-    };
-    document.addEventListener("mousemove", move);
-    document.addEventListener("mouseup", up);
-    if (import.meta.env.MODE === "test-render")
-      (el as HTMLDivElement & { __kbSigma?: Sigma }).__kbSigma = sigma;
     return () => {
-      mounted = false;
-      el.removeEventListener("pointerdown", markCamera);
-      el.removeEventListener("wheel", markCamera);
-      document.removeEventListener("mousemove", move);
-      document.removeEventListener("mouseup", up);
+      unwire();
       emphasis.current?.dispose();
       emphasis.current = null;
       layoutRef.current?.kill();
       layoutRef.current = null;
-      sigma.kill();
+      mounted.unmount();
       sigmaRef.current = null;
       live.current.onControlsReady?.(null);
-      delete (el as HTMLDivElement & { __kbSigma?: Sigma }).__kbSigma;
     };
   }, [layoutKey, layout, cluster, refresh]);
 

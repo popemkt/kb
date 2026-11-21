@@ -176,6 +176,43 @@ function keyDomain(chord: Chord): KeyMatch | undefined {
   return undefined;
 }
 
+/** The character a US layout types at a layout-dependent place, for a place whose key the layout decides. */
+const US_PLACE_KEYS: Readonly<Record<string, string>> = {
+  BracketLeft: "[",
+  BracketRight: "]",
+  Backslash: "\\",
+  Minus: "-",
+  Equal: "=",
+  Semicolon: ";",
+  Quote: "'",
+  Backquote: "`",
+  Comma: ",",
+  Period: ".",
+  Slash: "/",
+};
+
+/**
+ * One key value a press of `chord` carries (`KeyboardEvent.key`), read from
+ * the same key domain overlap is decided over: its first listed key; for a
+ * chord by place alone, the key its place carries (Space's `" "`, a numpad
+ * place's digit, a named key's own name), or for a place whose character the
+ * layout decides, the one a US layout types there. "" when no key can be
+ * named (any key, a predicate). What a hint probes a keymap with, so a
+ * binding that constrains both the place and the character is met by the
+ * press it claims.
+ */
+export function representativeKey(chord: Chord): string {
+  const listed = listedKeys(keyDomain(chord));
+  if (listed !== null) return listed[0] ?? "";
+  const place = chord.physicalKey;
+  if (place === undefined) return "";
+  const letter = /^Key([A-Z])$/.exec(place)?.[1];
+  if (letter !== undefined) return letter.toLowerCase();
+  const digit = /^Digit([0-9])$/.exec(place)?.[1];
+  if (digit !== undefined) return digit;
+  return US_PLACE_KEYS[place] ?? "";
+}
+
 /**
  * Whether one key event could match both chords: they admit a common key,
  * and some state of the four modifiers satisfies both. A keymap whose

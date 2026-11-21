@@ -115,7 +115,8 @@ const INERT_WRITES: PageWrites = {
   // This host moves nothing.
   moveNodes: () => Promise.resolve(null),
   // A gesture's writes are this host's: it makes none of them, so the gesture runs as it is.
-  together: (gesture) => gesture(),
+  together: (gesture) => gesture(INERT_WRITES),
+  proposeView: () => Promise.resolve({ refused: "this test host makes no views" }),
   updateProp: done,
   initializeProp: done,
   removeProp: done,
@@ -201,6 +202,7 @@ export function testBrowserHost(overrides: Partial<BrowserHost> = {}): TestBrows
     events: () => QUIET_ACTIVITY,
     // A stand-in selects nothing and has no rows to open or close.
     isSelected: () => false,
+    isOpen: () => false,
     toggleCollapse: () => {},
     activateNode: (nodeId, cursorPos, instanceKey) => {
       active = { nodeId, instanceKey };
@@ -255,7 +257,6 @@ export function testBrowserHost(overrides: Partial<BrowserHost> = {}): TestBrows
         if (held.get(pane)?.owner === owner) held.delete(pane);
       },
     },
-    proposeView: () => Promise.resolve({ refused: "this test host makes no views" }),
     sandbox: {
       hostFrame: () => {
         throw new Error("this test host hosts no sandbox frame");

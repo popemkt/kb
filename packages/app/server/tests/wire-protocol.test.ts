@@ -102,9 +102,23 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // preconditions (`node.delete` `requireEmptyLine`, `node.update`
 // `requireUnset`, `field.define` in `node.batch`); a page of an earlier
 // protocol reloads before it sends writes.
+// `node.batch` takes `tag.define` calls, so a tag made in a picker commits
+// with the rows it tags; a server of an earlier protocol refuses that batch
+// whole, writing nothing.
+// `requireEmptyLine.parent` may be null, a top-level row's draft. An earlier build of
+// protocol 13 refuses that input, so the row stays: no new protocol.
+// The page sends the ids its optimistic `node.batch` minted (`ids`, one per
+// call); a server of an earlier protocol drops them and mints its own, and the
+// page catches up to its graph, as for `node.addTree`.
+// `node.add`, `node.addTree` and `node.update` take an optional `createFields`,
+// including add and update calls in `node.batch`. Earlier pages omit it.
+// `requireEmptyLine.parent` may be null, a top-level row's draft. An earlier build of
+// protocol 13 refuses that input, so the row stays: no new protocol.
+// `node.update` takes `requireSet`, an optional precondition only this
+// build's page sends; an older page never needs it.
 const RECORDED = {
   protocol: 13,
-  fingerprint: "1ed4152ca86148a576e28217f954646023f6f37119923b7eb296c58e0ed18444",
+  fingerprint: "ff5982552d9f4dbe4bb9be7c56dc0eeffeb818698757f72a4c1c7cc2f321b5df",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

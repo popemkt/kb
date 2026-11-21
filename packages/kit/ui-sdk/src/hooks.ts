@@ -87,6 +87,11 @@ export function useIsActive(nodeId: string, instanceKey: string): boolean {
   return useHostValue((host) => host.isActive(nodeId, instanceKey));
 }
 
+/** Whether the row drawn at `instanceKey` is open. */
+export function useIsOpen(instanceKey: string): boolean {
+  return useHostValue((host) => host.isOpen(instanceKey));
+}
+
 /** Whether a node is selected in this instance. */
 export function useIsSelected(nodeId: string, instanceKey: string): boolean {
   return useHostValue((host) => host.isSelected(nodeId, instanceKey));

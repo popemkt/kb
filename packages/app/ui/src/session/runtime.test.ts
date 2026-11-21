@@ -8,7 +8,7 @@ import { provideEngine } from "@/session/engine";
 import { outlineUiPlugin } from "@/test-support/outline-plugin";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { Effect } from "effect";
-import { declarationPlugin, type ActionRequest, type ScreensPort } from "@kb/contracts";
+import { declarationPlugin, failed, type ActionRequest, type ScreensPort } from "@kb/contracts";
 import { coreExtension } from "@kb/operations";
 import { syncUiPlugins } from "@kb/ui-sdk";
 import {
@@ -21,6 +21,7 @@ import {
   waitForBrowserPushes,
 } from "@/session/runtime";
 import { useGraphStore } from "@/stores/graph.store";
+import { mutations } from "@/actions/mutations";
 
 /** The page's index as the graph store holds it now. */
 const index = () => useGraphStore.getState().index;
@@ -138,6 +139,46 @@ describe("browser action runtime", () => {
     expect(since).not.toHaveBeenCalled();
     expect(post).toHaveBeenCalledExactlyOnceWith({
       id: "node.addTree",
+      input: { ...input, ids },
+      session: tabSession(),
+    });
+  });
+
+  it("answers a paste's ids once the server took the tree, and rejects when it refused", async () => {
+    useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+    setBrowserLink({ since: vi.fn(), fetchSnapshot: vi.fn(), retryAfter: vi.fn() });
+    setPostAction(async (invocation) => failed(invocation.id, "conflict", "refused by the server"));
+    await expect(mutations.addTree("- Pasted row", "md", { parent: null })).rejects.toThrow(
+      "refused by the server",
+    );
+  });
+
+  it("pushes the ids a batch's local commit minted for adds that named none", async () => {
+    useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+    const since = vi.fn();
+    setBrowserLink({ since, fetchSnapshot: vi.fn(), retryAfter: vi.fn() });
+    const post = vi.fn(async (invocation: ActionRequest) => ({
+      status: "succeeded" as const,
+      id: invocation.id,
+      output: { ids: (invocation.input as { ids: string[] }).ids },
+      rev: 2,
+    }));
+    setPostAction(post);
+
+    const input = {
+      calls: [
+        { action: "node.update", input: { id: "n.root-a", text: "Renamed" } },
+        { action: "node.add", input: { text: "Batched row", parent: "n.root-a" } },
+      ],
+    };
+    const { receipt, settled } = await invokeSettled({ id: "node.batch", input });
+    if (receipt.status !== "succeeded") throw new Error(receipt.message);
+    const { ids } = receipt.output as { ids: string[] };
+    expect(index()?.getNode(ids[1] ?? "")?.text).toBe("Batched row");
+    expect(await settled).toMatchObject({ status: "succeeded", output: { ids } });
+    expect(since).not.toHaveBeenCalled();
+    expect(post).toHaveBeenCalledExactlyOnceWith({
+      id: "node.batch",
       input: { ...input, ids },
       session: tabSession(),
     });

@@ -28,7 +28,7 @@ import {
 } from "@kb/ui-sdk";
 import type * as UiSdk from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
-import { resetOutlineStore } from "@/test-support/outline-store";
+import { resetOutlineStore, rowKey } from "@/test-support/outline-store";
 import { useGraphStore } from "@/stores/graph.store";
 import { bundledSeed } from "@kb/bundled";
 import { syncPagePlugins } from "@/test-support/page-plugins";
@@ -112,7 +112,7 @@ describe("outline update cost", () => {
       watch.mock.calls.map(([edn]) => edn).filter((edn) => edn.includes(":node/mentions"));
     mentionSubscriptions = () =>
       subscribeTo.mock.calls.map(([edn]) => edn).filter((edn) => edn.includes(":node/mentions"));
-    useOutlineStore.getState().expandAllInScope();
+    await useOutlineStore.getState().expandAllInScope();
     container = dom.window.document.createElement("div") as unknown as HTMLDivElement;
     dom.window.document.body.appendChild(container as unknown as never);
     root = createRoot(container);
@@ -177,13 +177,13 @@ describe("outline update cost", () => {
 
   it("re-renders only the toggled row when a node collapses or expands", async () => {
     await act(async () => {
-      useOutlineStore.getState().toggleCollapse("n.parent");
+      useOutlineStore.getState().toggleCollapse(rowKey("n.parent"));
     });
     expect(rowCount()).toBe(useOutlineStore.getState().getVisibleNodes().length);
     expect(renderedRows()).toEqual(["n.parent"]);
 
     await act(async () => {
-      useOutlineStore.getState().toggleCollapse("n.parent");
+      useOutlineStore.getState().toggleCollapse(rowKey("n.parent"));
     });
     // The parent, and the children it mounts — nothing beside it.
     const rendered = renderedRows();

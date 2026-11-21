@@ -1,5 +1,6 @@
 import { isSysPrefixed, relationInverseOf, type KbNode } from "@kb/model";
 import {
+  nameIn,
   type EdnRunner,
   type NodeIndex,
   queryBacklinks,
@@ -110,6 +111,6 @@ function relationsThrough(
     if (isSysPrefixed(field) || !fields.has(field)) return [];
     const fieldNode = schema.get(field);
     const inverse = relationInverseOf(fieldNode);
-    return [{ field, label: inverse ?? `${fieldNode?.text ?? field} →` }];
+    return [{ field, label: inverse ?? `${nameIn(schema, field) || field} →` }];
   });
 }

@@ -229,7 +229,11 @@ const TOGGLE_CLASS = {
 } as const;
 const BODY_CLASS = { group: "pt-1", section: "pb-3 pl-4", inner: "pb-1 pl-4" } as const;
 
-/** One setting of `nodeId`, drawn with the page's field editor, and a note under it. */
+/**
+ * One setting of `nodeId`, drawn with the page's field editor, and a note
+ * under it. Its row takes Settings' name column (`kb-setting`), so the
+ * setting's whole name shows, wrapped where it must.
+ */
 export function SettingRow({
   graph,
   nodeId,
@@ -252,7 +256,7 @@ export function SettingRow({
     depth: -1,
   });
   return (
-    <div data-setting={field} data-setting-of={nodeId}>
+    <div className="kb-setting" data-setting={field} data-setting-of={nodeId}>
       {editor}
       {note}
     </div>

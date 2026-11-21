@@ -17,7 +17,7 @@ import {
   bunFileSystemLayer,
   IN_PROCESS_WIRE,
 } from "@kb/runtime";
-import { runPlanEffect } from "../src/cli.ts";
+import { runPlanEffect } from "../src/command.ts";
 import { mapAdd, mapGet } from "../src/map.ts";
 import { onWire, type ManifestEntry } from "@kb/contracts";
 import {

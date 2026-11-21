@@ -14,6 +14,7 @@ import {
   frameViewOf,
   hasText,
   isProjectedRow,
+  isRowOpen,
   type EdnRunner,
   type GroupSteps,
   MAIN_OUTLINE_HOST,
@@ -90,8 +91,10 @@ interface WalkContext {
   /** The slots around the outline's root frame, as its host renders it (`useSlotChain`). */
   chain: SlotChain;
   pages: FramePagesMap;
-  /** The reader's expansion: here, the references opened in place (`open-references`). */
+  /** The reader's expansion: each row's open or closed choice, by place (`isRowOpen`). */
   expansion: Expansion;
+  /** The references opened in place (`open-references`). */
+  references: ReadonlySet<string>;
   /** The row each frame's detail view shows, as the outline keeps it (frame id -> node id). */
   details: Readonly<Record<string, string>>;
   /** The day each frame's calendar is open at, as the outline keeps it (frame id -> day). */
@@ -254,15 +257,15 @@ function walkVisibleInstances(
   if (showsAncestor(instanceKey, node, ctx.schema)) return;
   const frame = shownNode(node, ctx.schema);
   // The references its text opens in place come first, open or closed the row.
-  // Each draws its target open or closed as the target's own choice is, not
-  // open by default: a choice is per node. GAP [[01M7D8AP4A4W6S2X5T1DSE9D77]]
+  // Each draws its target at its own place, closed by default as the target
+  // is, not open. GAP [[01M7D8AP4A4W6S2X5T1DSE9D77]]
   if (opensInPlace(instanceKey)) {
-    for (const id of openReferencesOf(ctx.expansion, ctx.host, frame.id, frame.text)) {
+    for (const id of openReferencesOf(ctx.references, ctx.host, frame.id, frame.text)) {
       walkVisibleInstances(ctx, id, openReferenceKey(ctx.host, frame.id, id), chain);
     }
   }
   // Open or closed is the row's own.
-  if (node.collapsed) return;
+  if (!isRowOpen(node, instanceKey, ctx.expansion)) return;
   walkRowChildren(ctx, node, instanceKey, chain);
 }
 
@@ -384,6 +387,27 @@ export function subtreeOf(
     shown.add(node === undefined ? row.nodeId : shownNodeId(node));
   }
   return rows;
+}
+
+/**
+ * The queries whose results `rows` draw: each row's shown node that is a
+ * query, where the walk runs it (`walkRowChildren`: not under a row already
+ * showing it, and not a query's own result).
+ */
+export function queriesOf(
+  rows: readonly VisibleInstance[],
+  nodes: NodeMap,
+  schema: SchemaIndex,
+): ReadonlySet<string> {
+  const edns = new Set<string>();
+  for (const { nodeId, instanceKey } of rows) {
+    const node = nodes.get(nodeId);
+    if (node === undefined || isProjectedRow(instanceKey)) continue;
+    if (showsAncestor(instanceKey, node, schema)) continue;
+    const edn = queryDefOf(shownNode(node, schema))?.edn;
+    if (hasText(edn)) edns.add(edn);
+  }
+  return edns;
 }
 
 export function neighborVisibleInstance(

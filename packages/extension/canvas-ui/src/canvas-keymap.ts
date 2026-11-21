@@ -13,7 +13,7 @@
  * beside the hook that owns the effects (`use-canvas-keyboard`).
  */
 import { currentKeymap, keyCallOf, type KeyCall } from "@kb/ui-sdk";
-import type { Chord, KeyChordEvent, Keymap } from "@kb/keybindings";
+import { representativeKey, type Chord, type KeyChordEvent, type Keymap } from "@kb/keybindings";
 import {
   CANVAS_CONTEXT_IDS,
   CANVAS_SHORTCUTS,
@@ -113,13 +113,16 @@ export function canvasKeymap(name: CanvasKeyContextName): Keymap {
   return currentKeymap(CANVAS_CONTEXT_IDS[name]);
 }
 
-/** A press of `chord`: its key, or its place, with the modifiers it holds down and no others. */
+/**
+ * A press of `chord`: its place, and the key that press carries
+ * (`representativeKey`, from the shared chord model), with the modifiers it
+ * holds down and no others. A chord by place alone presses its place's key,
+ * so a binding that names both the place and the character meets it.
+ */
 function pressOf(chord: Chord): KeyChordEvent | null {
-  const key =
-    typeof chord.key === "string" ? chord.key : Array.isArray(chord.key) ? chord.key[0] : "";
-  if (key === undefined || typeof chord.key === "function") return null;
+  if (typeof chord.key === "function") return null;
   return {
-    key,
+    key: representativeKey(chord),
     ...(chord.physicalKey === undefined ? {} : { physicalKey: chord.physicalKey }),
     metaKey: chord.meta === true || (chord.mod === true && chord.ctrl !== true),
     ctrlKey: chord.ctrl === true,

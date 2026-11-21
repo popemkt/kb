@@ -20,6 +20,7 @@ import {
   XIcon,
 } from "@phosphor-icons/react";
 import {
+  nameIn,
   browserHost,
   IconButton,
   PrefFieldRow,
@@ -56,8 +57,7 @@ function GroupSetting({ frameId, groupFieldId }: { frameId: string; groupFieldId
     groupFieldId === null
       ? ""
       : (fields.find((f) => f.id === groupFieldId)?.label ??
-        browserHost().schema().get(groupFieldId)?.text ??
-        groupFieldId);
+        (nameIn(browserHost().schema(), groupFieldId) || groupFieldId));
   return (
     <PrefFieldRow icon={SquaresFourIcon} label="group by">
       <ChoiceSlot
@@ -93,8 +93,7 @@ function DateFieldSetting({
     dateFieldId === null
       ? ""
       : (fields.find((f) => f.id === dateFieldId)?.label ??
-        schema.get(dateFieldId)?.text ??
-        dateFieldId);
+        (nameIn(schema, dateFieldId) || dateFieldId));
   return (
     <PrefFieldRow icon={CalendarBlankIcon} label="date field">
       <ChoiceSlot

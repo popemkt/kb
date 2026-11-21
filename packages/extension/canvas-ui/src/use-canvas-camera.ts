@@ -36,7 +36,7 @@ async function writeCamera(
 ): Promise<string | null> {
   const host = browserHost();
   if (viewId === null) {
-    const proposed = await host.proposeView({
+    const proposed = await host.writes.proposeView({
       view: CanvasView,
       params: { id: canvasId, ...camera },
       host: canvasId,

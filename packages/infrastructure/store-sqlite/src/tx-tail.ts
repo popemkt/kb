@@ -5,14 +5,18 @@
  * ```sql
  * CREATE TABLE tx (rev INTEGER PRIMARY KEY, at TEXT NOT NULL,
  *                  origin TEXT, actor TEXT, session TEXT, via TEXT,
- *                  ops TEXT NOT NULL, mark TEXT NOT NULL);
+ *                  ops TEXT NOT NULL, mark TEXT NOT NULL, base TEXT);
  * ```
  *
  * `ops` is the `canonicalJson` of the `StoreTx` — the nodes' own bytes again,
  * for the same reason the `nodes` table stores a body rather than a column per
  * field. `mark` is the store's commit mark (`meta.rev`, which is also its
  * fingerprint) as of that append, which is what {@link SqliteTxTail.isCurrent}
- * compares.
+ * compares. `base` is the mark the append's transaction began on: a store
+ * commit's rows moved the mark from `base` to `mark`, and a record of a
+ * transaction the store did not commit leaves the two equal. Rows chained
+ * base to mark are what {@link SqliteTxTail.committedSince} reads; null
+ * on a row an earlier kb wrote, which chains to nothing.
  *
  * `rev` is the tail's own counter, not `meta.rev`: `meta.rev` counts row
  * changes, so it moves by n for a commit of n rows and also for a write that
@@ -39,12 +43,14 @@ import {
 import {
   TX_TAIL_KEEP_ENTRIES,
   TX_TAIL_MAX_ENTRIES,
+  committedSpan,
   pageLength,
+  type TailSpan,
   type TxPage,
   type TxRecord,
   type TxTail,
 } from "@kb/contracts";
-import { commitMark, hasTable, type SqliteConnection } from "./connection.ts";
+import { commitMark, hasTable, tailColumns, type SqliteConnection } from "./connection.ts";
 
 interface TxRow {
   rev: number;
@@ -148,7 +154,38 @@ export class SqliteTxTail implements TxTail {
   }
 
   append(ops: StoreTx, record: TxRecord): Effect.Effect<KbTx, DomainError> {
-    return this.connection.write((db) => this.appendWithin(db, ops, record));
+    // Not a store commit: no row moved, so it begins on the mark it records.
+    return this.connection.write((db) => this.appendWithin(db, ops, record, commitMark(db)));
+  }
+
+  committedSince(from: string): TailSpan | null {
+    const db = this.connection.peek();
+    if (db === null) return null;
+    // One read transaction: the rows and the mark they must end on are one state.
+    return db.transaction(() => {
+      const to = commitMark(db);
+      return to === null ? null : this.committedBetween(db, from, to);
+    })();
+  }
+
+  /**
+   * {@link committedSince} to the state marked `to`, read inside a
+   * transaction the caller opened — how a commit brings its kept state
+   * forward under the write lock. The rows from the last one that began on
+   * `from` are read; the rule is `committedSpan`'s.
+   */
+  committedBetween(db: Database, from: string, to: string): TailSpan | null {
+    if (!tailColumns(db).includes("base")) return null;
+    const rows = db
+      .query<TxRow & { base: string | null; mark: string }, [string]>(
+        "SELECT * FROM tx WHERE rev >= (SELECT MAX(rev) FROM tx WHERE base = ?) ORDER BY rev",
+      )
+      .all(from);
+    return committedSpan(
+      rows.map((row) => ({ base: row.base, mark: row.mark, ops: () => toKbTx(row).ops })),
+      from,
+      to,
+    );
   }
 
   adopt(txs: readonly KbTx[]): Effect.Effect<void, DomainError> {
@@ -180,16 +217,27 @@ export class SqliteTxTail implements TxTail {
   /**
    * Insert one record inside a transaction the caller already opened — how the
    * store records its own commits, and the reason there is no crash window
-   * between the node rows and the log entry on this backend.
+   * between the node rows and the log entry on this backend. `base` is the
+   * mark that transaction began on.
    */
-  appendWithin(db: Database, ops: StoreTx, record: TxRecord): KbTx {
+  appendWithin(db: Database, ops: StoreTx, record: TxRecord, base: string | null): KbTx {
     const rev =
       (db.query<{ rev: number | null }, []>("SELECT MAX(rev) AS rev FROM tx").get()?.rev ?? 0) + 1;
     db.prepare<
       unknown,
-      [number, string, string | null, string | null, string | null, string | null, string, string]
+      [
+        number,
+        string,
+        string | null,
+        string | null,
+        string | null,
+        string | null,
+        string,
+        string,
+        string | null,
+      ]
     >(
-      "INSERT INTO tx (rev, at, origin, actor, session, via, ops, mark) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO tx (rev, at, origin, actor, session, via, ops, mark, base) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
     ).run(
       rev,
       record.at,
@@ -199,6 +247,7 @@ export class SqliteTxTail implements TxTail {
       record.via ?? null,
       canonicalJson(ops),
       commitMark(db) ?? "",
+      base,
     );
 
     // Compaction is part of the same transaction: a tail that shed its head
