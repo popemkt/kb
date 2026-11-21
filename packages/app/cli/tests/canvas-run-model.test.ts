@@ -25,9 +25,15 @@ import {
   type ScriptedRuntime,
 } from "@kb/agent";
 import { CODE_IDS } from "@kb/code";
-import { NO_SECRETS, type ExtensionEntry } from "@kb/contracts";
+import { NO_SECRETS, onWire, type ActionInvocation, type ExtensionEntry } from "@kb/contracts";
 import { canonicalJson } from "@kb/model";
-import { bunFileSystemLayer } from "@kb/runtime";
+import {
+  IN_PROCESS_WIRE,
+  bunFileSystemLayer,
+  invokeReceiptEffect,
+  kbRuntimeLayer,
+  openKb,
+} from "@kb/runtime";
 import { codeDigest } from "@kb/sandbox";
 import { startUi, type UiServerHandle } from "@kb/server";
 const RUN = "ext.canvas.run";
@@ -233,7 +239,7 @@ describe("ext.canvas.run with the agent's model", () => {
     const from = built.length;
     // The page's wire ignores a positive approval claim on a call it relays as
     // a script's (DESIGN.md → Action registry), so both ask for approval here;
-    // an approved script call is refused in process (script-run.test.ts).
+    // an approved script call is refused in process (the test below).
     for (const approved of [false, true]) {
       const receipt = await call(
         RUN,
@@ -248,6 +254,27 @@ describe("ext.canvas.run with the agent's model", () => {
         code: "approval_required",
       });
     }
+    expect(built).toHaveLength(from);
+  });
+  test("an approved script's call of the run is refused in process, so none reaches the model", async () => {
+    const from = built.length;
+    const ctx = await openKb(root);
+    // Already approved and relayed as the script made it, with the server's
+    // hosted agent beside the registry: only the grant decides it.
+    const scripted: ActionInvocation = {
+      id: RUN,
+      input: { canvasId: "n.computer" },
+      actor: "script",
+      caller: "program",
+      approved: true,
+      script: { subject: "n.computer", grant: { reads: "graph", actions: [RUN] } },
+    };
+    const receipt = await Effect.runPromise(
+      invokeReceiptEffect(ctx, onWire(IN_PROCESS_WIRE, scripted)).pipe(
+        Effect.provide(kbRuntimeLayer(ctx, undefined, handle.hosted)),
+      ),
+    );
+    expect(receipt).toMatchObject({ status: "failed", code: "forbidden" });
     expect(built).toHaveLength(from);
   });
   test("a script a run performs cannot ask the model, whatever its grant names", async () => {
