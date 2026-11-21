@@ -136,7 +136,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
   const handleSelect = (row: PickerRow | null, alternate = false) => {
     if (row === null) return;
     if (picker === null) {
-      commands.find((c) => c.id === row.id)?.run();
+      void commands.find((c) => c.id === row.id)?.run();
       return;
     }
     if (targetNodeId === null) return;

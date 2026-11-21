@@ -242,7 +242,8 @@ export interface NodeCommandListing {
   readonly faceOf?: string | undefined;
   readonly label: string;
   readonly icon: ReactNode;
-  readonly run: () => void;
+  /** Run the command; it answers once the writes it waits for are made. */
+  readonly run: () => Promise<void>;
 }
 
 /**
@@ -259,11 +260,20 @@ export function asOneWrite<T>(
   return rows.length > 1 ? browserHost().writes.together(gesture) : gesture();
 }
 
-/** A node command that acts on each row it is about (`target.nodeIds`), as one write (`asOneWrite`), and dismisses the menu. */
-export function nodeAction(ctx: CommandContext, body: (nodeId: string) => unknown): void {
+/**
+ * A node command that acts on each row it is about (`target.nodeIds`), as
+ * one write (`asOneWrite`), and dismisses the menu. It answers once that
+ * write is made: the writes `body` answers, so a caller's gesture can wait
+ * for them.
+ */
+export async function nodeAction(
+  ctx: CommandContext,
+  body: (nodeId: string) => unknown,
+): Promise<void> {
   const { nodeIds } = ctx.target;
-  void asOneWrite(nodeIds, () => Promise.all(nodeIds.map((nodeId) => body(nodeId))));
+  const written = asOneWrite(nodeIds, () => Promise.all(nodeIds.map((nodeId) => body(nodeId))));
   ctx.palette.close();
+  await written;
 }
 
 /** The core page's owner of the palette-step seam. */

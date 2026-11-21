@@ -68,7 +68,7 @@ export function slashTrigger(nodeId: string, open: TextTrigger["open"]): TextTri
       // A command plans its writes as it runs, so they join the pick's one write.
       // GAP [[01M7X8ATCXT6TBS4YVGAT7P746]] its listing answers no promise to wait for.
       write: () => {
-        commandsOf(nodeId)
+        void commandsOf(nodeId)
           .find((command) => command.id === picked.id)
           ?.run();
         return Promise.resolve();

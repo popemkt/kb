@@ -158,7 +158,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       onClose();
       const nodeCommand = nodeCommands.find((c) => c.id === hit.id && hit.target !== undefined);
       if (nodeCommand !== undefined) {
-        nodeCommand.run();
+        void nodeCommand.run();
         return;
       }
       if (hit.kind === "command") {
