@@ -72,6 +72,16 @@ const core = definePlugin({
   apply: (ctx) => ctx.provide(CaptureTargetService, topLevelCapture),
 });
 
+/**
+ * `pending`, once fake time lets it settle. The tab's day is made by a write
+ * of its own, so the capture planned before it lands on a moved replica and
+ * is planned again after the retry's jittered wait (DESIGN.md → Storage).
+ */
+async function settled<T>(pending: Promise<T>): Promise<T> {
+  await vi.advanceTimersByTimeAsync(50);
+  return pending;
+}
+
 describe("a capture across the tab's and the store's midnight", () => {
   const pushes: Push[] = [];
   let socket: FakeWsSocket;
@@ -129,8 +139,9 @@ describe("a capture across the tab's and the store's midnight", () => {
 
   it("is committed by the server where the tab showed it, in the tab's day", async () => {
     expect(TAB_DAY).not.toBe(STORE_DAY);
-    const receipt = await invoke("node.add", { id: CAPTURED, text: "captured after midnight" });
-    await vi.advanceTimersByTimeAsync(0);
+    const receipt = await settled(
+      invoke("node.add", { id: CAPTURED, text: "captured after midnight" }),
+    );
     expect(receipt.status).toBe("succeeded");
     // The tab commits under its own day, made for it.
     expect(shown(TAB_DAY)?.children).toEqual([CAPTURED]);
@@ -160,8 +171,9 @@ describe("a capture across the tab's and the store's midnight", () => {
   });
 
   it("reads an undefined parent as none given, and pushes the tab's place", async () => {
-    await invoke("node.add", { id: CAPTURED, text: "undefined parent", parent: undefined });
-    await vi.advanceTimersByTimeAsync(0);
+    await settled(
+      invoke("node.add", { id: CAPTURED, text: "undefined parent", parent: undefined }),
+    );
     await serve(0, 2, [wire(TAB_DAY, dayIn(TAB_ZONE))]);
     expect(pushes[1]?.input).toMatchObject({ id: CAPTURED, parent: TAB_DAY });
     // As it crosses the wire: JSON keeps the place.

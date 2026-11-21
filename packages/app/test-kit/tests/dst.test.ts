@@ -64,6 +64,7 @@ describe("DST — seeded histories over the real plan/apply path", () => {
         const r = await run(seed);
         expect(r.violations, `${seed}: ${r.violations.join("; ")}`).toEqual([]);
         expect(r.ops).toBe(60);
+        expect(r.succeeded, `${seed}: no op landed`).toBeGreaterThan(0);
         expect(r.nodes.length).toBeGreaterThan(0);
       },
     );

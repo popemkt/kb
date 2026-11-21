@@ -490,6 +490,8 @@ export interface ScenarioResult {
   json: string;
   nodes: KbNode[];
   ops: number;
+  /** How many of the ops the registry accepted: a history whose writes all fail exercises nothing. */
+  succeeded: number;
   /** Invariant violations (empty = all held). Asserted by the caller. */
   violations: string[];
 }
@@ -507,11 +509,15 @@ export const runScenario = Effect.fn("kb.runScenario")(function* (
 ): Effect.fn.Return<ScenarioResult, DomainError> {
   const opsCount = opts.ops ?? 60;
   const base = opts.base ?? BASE_EPOCH;
-  const step = opts.step ?? 1000;
+  // Every clock read advances it, so one read is a millisecond: a write's own
+  // reads stay far inside its 15 s write-lock deadline, as they do on a real
+  // clock, and the stamps still strictly increase.
+  const step = opts.step ?? 1;
   const root = yield* Effect.promise(() => mkdtemp(join(tmpdir(), "kb-dst-")));
   const data = join(root, "data");
   const violations: string[] = [];
   let applied = 0;
+  let succeeded = 0;
 
   const program = Effect.gen(function* () {
     const ctx = yield* openKbEffect(root);
@@ -548,6 +554,7 @@ export const runScenario = Effect.fn("kb.runScenario")(function* (
       ).pipe(Effect.provide(kbRuntimeLayer(ctx)));
 
       if (receipt.status === "succeeded") {
+        succeeded++;
         const mintedId = mintedNodeId(receipt.output);
         if (mintedId !== undefined) {
           if (action.id === "field.define") fieldIds.push(mintedId);
@@ -585,7 +592,7 @@ export const runScenario = Effect.fn("kb.runScenario")(function* (
   yield* program;
 
   const snap = snapshotSync(root);
-  return { seed, root, json: snap.json, nodes: snap.nodes, ops: applied, violations };
+  return { seed, root, json: snap.json, nodes: snap.nodes, ops: applied, succeeded, violations };
 });
 
 export const cleanup = Effect.fn("kb.cleanupScenario")(function* (
