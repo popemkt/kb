@@ -177,7 +177,10 @@ tap() {
   a shell input tap $(centre "$@")
 }
 
-link() { a shell am start -W -a android.intent.action.VIEW -d "$1" "$package" >/dev/null; }
+link() {
+  uri=$(printf '%s' "$1" | sed "s/'/'\\\\''/g")
+  a shell "am start -W -a android.intent.action.VIEW -d '$uri' '$package'" >/dev/null
+}
 # The queue, on its <Pending|Sent|Failed> tab.
 queue() {
   link kb://queue

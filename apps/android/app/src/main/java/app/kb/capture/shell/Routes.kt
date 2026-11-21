@@ -165,8 +165,8 @@ object Routes {
             val eq = part.indexOf('=')
             val rawKey = if (eq == -1) part else part.substring(0, eq)
             val rawVal = if (eq == -1) "" else part.substring(eq + 1)
-            val key = runCatching { URLDecoder.decode(rawKey, Charsets.UTF_8) }.getOrNull() ?: continue
-            val value = runCatching { URLDecoder.decode(rawVal, Charsets.UTF_8) }.getOrNull() ?: continue
+            val key = runCatching { URLDecoder.decode(rawKey, "UTF-8") }.getOrNull() ?: continue
+            val value = runCatching { URLDecoder.decode(rawVal, "UTF-8") }.getOrNull() ?: continue
             out[key] = value
         }
         return out
@@ -184,5 +184,5 @@ object Routes {
         return "$scheme://$host$port"
     }
 
-    private fun encode(s: String) = URLEncoder.encode(s, Charsets.UTF_8).replace("+", "%20")
+    private fun encode(s: String) = URLEncoder.encode(s, "UTF-8").replace("+", "%20")
 }

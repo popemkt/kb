@@ -54,15 +54,17 @@ function when(iso) {
   return Number.isNaN(at.getTime()) ? iso : at.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
 }
 
-function clearPairHash() {
+function clearPairHash(expectedHash) {
   appliedPairPrefill = null;
-  if (location.hash.startsWith("#/stores?")) history.replaceState(null, "", "#/stores");
+  if (location.hash.startsWith("#/stores?") && (expectedHash === undefined || location.hash === expectedHash)) {
+    history.replaceState(null, "", "#/stores");
+  }
 }
 
 function storesView(params) {
   const prefillUrl = params.get("url");
   const prefillCode = params.get("code");
-  if (prefillUrl && prefillCode && appliedPairPrefill !== location.hash) {
+  if (prefillUrl && prefillCode && !pairing.busy && appliedPairPrefill !== location.hash) {
     appliedPairPrefill = location.hash;
     pairing = { open: true, busy: false, message: null, url: prefillUrl, code: prefillCode };
   }
@@ -70,13 +72,17 @@ function storesView(params) {
   const form = () => {
     const submit = async (event) => {
       event.preventDefault();
+      if (pairing.busy) return;
+      const url = pairing.url;
+      const code = pairing.code;
+      const submittedHash = location.hash;
       pairing = { ...pairing, busy: true, message: null };
       render();
       try {
-        const result = await call("pair", { url: pairing.url, code: pairing.code });
+        const result = await call("pair", { url, code });
         if (result.ok) {
           pairing = { open: false, busy: false, message: null, url: "https://", code: "" };
-          clearPairHash();
+          clearPairHash(submittedHash);
           note = { bad: false, text: result.message };
         } else {
           pairing = { ...pairing, busy: false, message: result.message };
