@@ -98,9 +98,13 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 // own. The fingerprint also covers the existing sandbox protocol.
 // `node.update` and `node.batch` carry an `expectedText` precondition; a
 // server of an earlier protocol would drop it and commit against changed text.
+// The field shortcut depends on the server checking draft and field
+// preconditions (`node.delete` `requireEmptyLine`, `node.update`
+// `requireUnset`, `field.define` in `node.batch`); a page of an earlier
+// protocol reloads before it sends writes.
 const RECORDED = {
   protocol: 13,
-  fingerprint: "9f41092080cffbb2a309da76da6b02a86e0ef5103c56d00a677c94ec7cd1e776",
+  fingerprint: "1ed4152ca86148a576e28217f954646023f6f37119923b7eb296c58e0ed18444",
 };
 
 /** JSON with every object's keys sorted, so the fingerprint is the shape's, not its order's. */

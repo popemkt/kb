@@ -19,12 +19,17 @@ export interface OpenTrigger {
   readonly query: string;
 }
 
-/** What a pick does: the text that replaces the trigger's span, then any write. */
-export interface TriggerPick {
-  readonly insert: string;
-  /** A write made once the text is in place. */
-  readonly write?: () => Promise<void>;
-}
+/** A pick edits its span or consumes the row in a graph write. */
+export type TriggerPick =
+  | {
+      readonly insert: string;
+      /** A write made once the text is in place. */
+      readonly write?: () => Promise<void>;
+    }
+  | {
+      /** Owns the row's removal and the focus after the write lands. */
+      readonly consume: () => Promise<void>;
+    };
 
 export interface TextTrigger {
   readonly id: string;
@@ -40,7 +45,10 @@ export interface TextTrigger {
   /** How a row that makes a new node by the query's name reads ("Create tag “x”"). */
   readonly createLabel?: (name: string) => string;
   /** A row picked (by Enter, Tab or a click). */
-  readonly pick: (row: PickerRow, open: OpenTrigger) => TriggerPick | Promise<TriggerPick>;
+  readonly pick: (
+    row: PickerRow,
+    open: OpenTrigger,
+  ) => TriggerPick | null | Promise<TriggerPick | null>;
   /**
    * Enter or Tab with nothing to pick. A trigger that answers it stays open
    * with no rows; one that does not is closed then, and its keys are the

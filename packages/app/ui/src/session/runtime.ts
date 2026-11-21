@@ -330,6 +330,7 @@ const COALESCE_MS = 280;
 let lingering: Lingering | null = null;
 
 /** Send the lingering write now, in its place in the lane, ahead of whatever is pushed next. */
+// GAP [[01M7XMMFAMVHBRBHC9X8P68FJ9]] — the queued text update can overwrite a concurrent draft edit before conversion checks it.
 function release(): void {
   const entry = lingering;
   if (entry === null) return;

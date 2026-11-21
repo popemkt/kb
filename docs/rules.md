@@ -113,11 +113,11 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Draw links as screen-space quads (three's Line2NodeMaterial / LineSegments2 with a per-instance width updated in place, or a TSL quad strip), sized by the square root of weight, keeping the one-draw batch and no per-frame allocation.
 - **node** — `01M3AZSFJ9A8K8FYGHF5ADEAPT`
 
-### GAP: a # or > pick in the text is two writes, the text's and the step's
+### GAP: a # pick in the text is two writes, the text's and the step's
 
-- **expected** — A trigger pick that writes (# tags the row, > adds a field) is one write with the text it takes out, so one undo takes back both (DESIGN-UI.md → Triggers in the text; asOneWrite).
-- **current** — The text host lays the pick into the text through its own text write, then the step commits its own one write (stepTrigger in outline-triggers.ts); undo takes the tag or field back first, and the text second.
-- **impact** — Undoing a # or > pick takes two steps, and the first leaves #query or >query back in the row without its picker.
+- **expected** — A # pick is one write with the text it takes out, so one undo takes back both (DESIGN-UI.md → Triggers in the text).
+- **current** — The text host lays the pick into the text through its own text write, then the step commits its own one write (stepTrigger in outline-triggers.ts); undo takes the tag back first, and the text second. A > pick takes the line away in its write, so it is one undo.
+- **impact** — Undoing a # pick takes two steps, and the first leaves #query back in the row without its picker.
 - **closes** — TriggerPick.write returns a planned mutation the host applies together with its text write (mutations.together), or the text host's write joins the step's plan.
 - **node** — `01M7D4AYQFJGZQGJZ3KD7M388R`
 
@@ -670,6 +670,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXMRB7AZB7DPFR6XBPBKQ9`
 
+### GAP: Add field with a ref field is refused: its empty value is a ref to no node
+
+- **expected** — Add field (the menu's, the palette's, or > in the text) on a field whose type is ref (options, a node) adds the field to the node with no value yet, and its slot opens for a pick (DESIGN-UI.md → Field values: one slot grammar).
+- **current** — addField writes emptyValueForType(type) as the first value; for ref that is {t:ref, v:""}, and the commit refuses it: field <id> refs missing node (valueConformanceError in @kb/model field-value.ts).
+- **impact** — A person cannot add an options or node field (status, owner, a family's state) from Add field or >; the write is refused with a toast, and nothing is added.
+- **closes** — A field shown with no value is a first-class state the slot draws (an opened-but-empty field), so Add field writes no placeholder value; or the store accepts an empty ref as no value.
+- **node** — `01M7WVNN93MWQ3FYK5J86P6ASD`
+
 ### GAP: admission bundles an extension's page half but never imports or decodes it
 
 - **expected** — kb ext validate refuses a repository extension whose page half would fail in the page: it imports the bundled page half in a page-like environment and decodes its page surface as the page does, so a page half that loads but contributes wrongly fails the gate.
@@ -979,6 +987,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M7X187JZA6QW3CFB0JHZZJPV`
 
+### GAP: defining and applying a tag can leave an orphan definition
+
+- **expected** — Defining and applying a tag in one editor gesture commits as one transaction.
+- **current** — The palette and # text picker send tag.define ahead of the node update, as on main at be415b51.
+- **impact** — If tagging the target is refused, the newly defined tag remains in the graph.
+- **closes** — Plan the tag definition and the node updates in one batch using the shared tag definition planner.
+- **node** — `01M7XCENSKX32JHABYKAD8AD6N`
+
 ### GAP: Durable browser invocation replay
 
 - **expected** — The browser invocation lane durably queues offline mutations and replays them under an explicit conflict policy.
@@ -1086,6 +1102,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — front and side views of a canvas of flat cards look empty
 - **closes** — 3D workspace step 3 (items get depth), or drawn outlines on flat items
 - **node** — `01M41AB7YM5801ZJNM1Q647SYD`
+
+### GAP: Flushing queued draft typing before conversion can overwrite a concurrent edit
+
+- **expected** — A queued text write preceding a conversion preserves concurrent edits to the same draft.
+- **current** — The ordered push lane sends pending typing as an unconditional node update before it submits the guarded conversion batch.
+- **impact** — The typing write can overwrite a concurrent draft edit before the conversion precondition reads the line.
+- **closes** — Give the coalesced draft text write a concurrency precondition and keep the conversion ordered after it.
+- **node** — `01M7XMMFAMVHBRBHC9X8P68FJ9`
 
 ### GAP: four core files have consumers in only one extension family
 
@@ -1661,6 +1685,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A repo cannot add a view without editing kb itself.
 - **closes** — The same @kb/ui-sdk the canvas browser plugin needs, published as an ambient d.ts like kb-ext-sdk, plus the server route, the shims and a loader test. The browser half is built and loaded as its own module, the repository-extension form of the backend-plugin/browser-plugin split canvas takes, not a second entry of the backend module.
 - **node** — `01M39F3N04WNEVCGHX428H8TKN`
+
+### GAP: Reusing a field during line conversion can consume the draft after its value is cleared
+
+- **expected** — The conversion checks at commit time that a picked field whose initialization was skipped still has a value.
+- **current** — The Add field step reads an existing value from the browser replica and skips initialization without a presence precondition.
+- **impact** — If a concurrent writer clears the value before the batch commits, the conversion can consume the draft and leave no field value.
+- **closes** — Check the retained field value in the same transaction that consumes the draft.
+- **node** — `01M7XMMCPA7H2R1P065TVCQNYC`
 
 ### GAP: rich text copy names emphasis and code elements beside the editor's element tree
 

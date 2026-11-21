@@ -117,6 +117,7 @@ const INERT_WRITES: PageWrites = {
   // A gesture's writes are this host's: it makes none of them, so the gesture runs as it is.
   together: (gesture) => gesture(),
   updateProp: done,
+  initializeProp: done,
   removeProp: done,
   addTag: done,
   removeTag: done,

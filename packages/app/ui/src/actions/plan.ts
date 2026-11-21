@@ -30,6 +30,12 @@ import { findParentWire, wireById } from "@/lib/tx";
 
 export interface PlannedMutation {
   actions: ActionRequest[];
+  /** Text to restore for a row whose draft the gesture consumed. */
+  undoText?: ReadonlyMap<string, string>;
+  /** Replay after undo when the preconditions need the restored draft text. */
+  redoActions?: ActionRequest[];
+  /** Publish history and completion only after the server accepts the write. */
+  completion?: "confirmed";
   focusId?: string;
   focusCursor?: number;
   /** The instance `focusId` is edited at, when the write knows it; else the editor resolves it. */
@@ -141,8 +147,22 @@ export function planSplit(
     ...(drawnUnder === null ? {} : { focusInstanceKey: childInstanceKey(drawnUnder, newId) }),
   };
 }
-export const planDelete = (_nodes: WireNode[], id: string) =>
-  plan({ id: "node.delete", input: { id, descendants: "cascade" } });
+export function planDelete(
+  _nodes: WireNode[],
+  id: string,
+  draft?: { readonly parent: string; readonly text: string },
+): PlannedMutation {
+  const deletion = { id: "node.delete", input: { id, descendants: "cascade" } };
+  if (draft === undefined) return plan(deletion);
+  return {
+    actions: [{ ...deletion, input: { ...deletion.input, requireEmptyLine: draft } }],
+    redoActions: [
+      { ...deletion, input: { ...deletion.input, requireEmptyLine: { ...draft, text: "" } } },
+    ],
+    undoText: new Map([[id, ""]]),
+    completion: "confirmed",
+  };
+}
 export function planMergeInto(
   nodes: WireNode[],
   id: string,
@@ -388,6 +408,11 @@ export function planUnsetProp(
   value?: PropValue,
 ): PlannedMutation {
   return update(id, { unsetProps: [{ field, ...(value === undefined ? {} : { value }) }] });
+}
+
+/** Set the starter value only if the graph still has no value for this field. */
+export function planInitializeProp(id: string, field: string, value: PropValue): PlannedMutation {
+  return update(id, { requireUnset: [field], setProps: [{ field, value }] });
 }
 export const planAddTag = (n: WireNode[], id: string, tag: string) =>
   planSetProp(n, id, SYSTEM_IDS.typeField, { t: "ref", v: tag });

@@ -144,24 +144,32 @@ const removeTag: PaletteStep = {
   },
 };
 
-export const addField: PaletteStep = {
+export const addField: PaletteStep<string | null> = {
   label: "Add field",
   placeholder: "Search or name a field...",
   icon: <TextTIcon size={12} weight="bold" />,
   createLabel: (name) => `Create field "${name}"`,
   candidates: (graph) => schemaCandidates(graph.wireNodes, "field"),
   commit: async ({ targetNodeIds, schema, pickedId, creating, name }) => {
-    const { writes } = browserHost();
+    const { graph, writes } = browserHost();
     const id = await asOneWrite(targetNodeIds, async () => {
       const fieldId = creating ? await writes.defineField(name) : pickedId;
       if (fieldId === null) return null;
       // An empty typed value is what makes the row appear and focusable; the
       // field's own declared type decides which editor that row gets.
       const empty = emptyValueForType(resolveFieldTypeById(fieldId, schema));
-      await Promise.all(targetNodeIds.map((nodeId) => writes.updateProp(nodeId, fieldId, empty)));
+      const targets = new Set(targetNodeIds);
+      // GAP [[01M7XMMCPA7H2R1P065TVCQNYC]] — skipped initialization has no commit-time presence check.
+      const missing = graph
+        .state()
+        .wireNodes.filter(
+          (node) => targets.has(node.id) && (node.props[fieldId]?.length ?? 0) === 0,
+        );
+      await Promise.all(missing.map((node) => writes.initializeProp(node.id, fieldId, empty)));
       return fieldId;
     });
     if (id !== null) notePick("field", id);
+    return id;
   },
 };
 

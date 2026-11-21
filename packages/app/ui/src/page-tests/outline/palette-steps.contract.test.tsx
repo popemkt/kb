@@ -212,7 +212,7 @@ describe("node-palette steps", () => {
 
   it("runs each step: picking a row hands its write the row and the pick", async () => {
     for (const { id, value } of steps()) {
-      const commit = vi.spyOn(value, "commit").mockResolvedValue();
+      const commit = vi.spyOn(value, "commit").mockResolvedValue(undefined);
       await openStep(id);
       const [first] = rows();
       await act(async () => present(first, `${id}'s first row`).click());

@@ -23,6 +23,7 @@ import {
   type RankSlot,
   IndexedNodes,
   resolveFieldId,
+  resolveFieldIn,
   resolveTagId,
   type DomainError,
   type KbNode,
@@ -113,6 +114,8 @@ export const nodeDeleteDef = {
     id: z.string(),
     /** Parent deletion is never implicitly shallow; cascade is the default. */
     descendants: z.enum(["cascade", "reparent"]).optional(),
+    /** Consume a draft line only while it still has this text, parent and no content besides its text. */
+    requireEmptyLine: z.object({ parent: z.string(), text: z.string() }).optional(),
     /** Bypass sys.* write-guard (browse yes / break no). */
     force: z.boolean().optional(),
   }),
@@ -480,26 +483,38 @@ export interface PlannedNodeWrite {
  * a batch of it (`node.batch`): the node gone, with its subtree unless
  * `descendants: "reparent"`, and detached from every parent.
  */
-export function planNodeDelete(
+export const planNodeDelete = Effect.fn("node.delete.plan")(function* (
   nodes: readonly KbNode[],
   input: z.infer<typeof nodeDeleteDef.inputSchema>,
   at: string,
-): PlannedNodeWrite {
+): Effect.fn.Return<PlannedNodeWrite, DomainError> {
+  const expected = input.requireEmptyLine;
+  if (expected !== undefined) {
+    const graph = IndexedNodes.of(nodes);
+    const line = graph.get(input.id);
+    if (
+      line === undefined ||
+      line.text !== expected.text ||
+      line.children.length > 0 ||
+      Object.keys(line.props).length > 0 ||
+      graph.parentOf(input.id) !== expected.parent
+    ) {
+      return yield* domainError("conflict", "The draft line changed before it could be converted", {
+        id: input.id,
+      });
+    }
+  }
   const deletes =
     input.descendants === "reparent" ? [input.id] : collectSubtreeIds(nodes, input.id);
   return { upserts: detachFromParents(nodes, input.id, at), deletes };
-}
+});
 
 export const nodeDeleteEffect = Effect.fn("node.delete")(function* (
   input: z.infer<typeof nodeDeleteDef.inputSchema>,
 ): Effect.fn.Return<{ id: string; deleted: true }, DomainError, KbWriteEnv> {
   const ctx = yield* KbCtx;
   const at = yield* currentIso;
-  yield* persistPlannedEffect(
-    ctx,
-    (nodes) => Effect.succeed(planNodeDelete(nodes, input, at)),
-    forcedBy(input),
-  );
+  yield* persistPlannedEffect(ctx, (nodes) => planNodeDelete(nodes, input, at), forcedBy(input));
   return { id: input.id, deleted: true };
 });
 
@@ -531,6 +546,16 @@ export const planNodeUpdate = Effect.fn("node.update.plan")(function* (
   const upserts: KbNode[] = [];
   let built: IndexedNodes | undefined;
   const graph = (): IndexedNodes => (built ??= IndexedNodes.of(nodes));
+
+  for (const field of input.requireUnset ?? []) {
+    const id = yield* syncDomain(() => resolveFieldIn(graph(), field));
+    if ((node.props[id]?.length ?? 0) > 0) {
+      return yield* domainError("conflict", "The field gained a value before it could be added", {
+        id: node.id,
+        field: id,
+      });
+    }
+  }
 
   yield* syncDomain(() => {
     if (input.text !== undefined) node.text = input.text;
@@ -651,37 +676,46 @@ export const nodeGetEffect = Effect.fn("node.get")(function* (
   return { node: pullSubtree(ctx, input.id, input.depth) };
 });
 
+/** The node an explicit field definition adds, shared by standalone and batched definitions. */
+export const fieldDefinitionInput = Effect.fn("field.define.input")(function* (
+  nodes: readonly KbNode[],
+  input: z.infer<typeof fieldDefineDef.inputSchema>,
+): Effect.fn.Return<PlacedAddInput, DomainError> {
+  const existing = nodes.filter(
+    (n) =>
+      n.text === input.name &&
+      (n.props[SYSTEM_IDS.typeField] ?? []).some((v) => v.t === "ref" && v.v === SYSTEM_IDS.field),
+  );
+  if (existing.length > 0 && (input.id === undefined || input.id === "")) {
+    return yield* domainError("ambiguous", `field already exists: ${input.name}`, {
+      ids: existing.map((e) => e.id),
+    });
+  }
+  return {
+    id: input.id,
+    text: input.name,
+    parent: null,
+    props: [
+      {
+        field: SYSTEM_IDS.typeField,
+        value: { t: "ref", v: SYSTEM_IDS.field },
+      },
+    ],
+  };
+});
+
+/**
+ * `field.define`: the definition planned again over each attempt's graph
+ * (`commitAddEffect`), so a field of the same name another writer made
+ * meanwhile is refused, never defined twice.
+ */
 export const fieldDefineEffect = Effect.fn("field.define")(function* (
   input: z.infer<typeof fieldDefineDef.inputSchema>,
 ): Effect.fn.Return<{ id: string }, DomainError, KbWriteEnv> {
-  const result = yield* commitAddEffect(
-    {
-      id: input.id,
-      text: input.name,
-      props: [
-        {
-          field: SYSTEM_IDS.typeField,
-          value: { t: "ref", v: SYSTEM_IDS.field },
-        },
-      ],
-    },
-    (nodes) => {
-      const existing = nodes.filter(
-        (n) =>
-          n.text === input.name &&
-          (n.props[SYSTEM_IDS.typeField] ?? []).some(
-            (v) => v.t === "ref" && v.v === SYSTEM_IDS.field,
-          ),
-      );
-      if (existing.length > 0 && (input.id === undefined || input.id === "")) {
-        return Effect.fail(
-          domainError("ambiguous", `field already exists: ${input.name}`, {
-            ids: existing.map((e) => e.id),
-          }),
-        );
-      }
-      return Effect.succeed({ parent: null, upserts: [] });
-    },
+  const ctx = yield* KbCtx;
+  const definition = (nodes: readonly KbNode[]) => fieldDefinitionInput(nodes, input);
+  const result = yield* commitAddEffect(yield* definition(ctx.nodes), (nodes) =>
+    Effect.map(definition(nodes), ({ parent }) => ({ parent, upserts: [] })),
   );
   return { id: result.id };
 });

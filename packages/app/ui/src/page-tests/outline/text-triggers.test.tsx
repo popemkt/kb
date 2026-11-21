@@ -10,12 +10,15 @@ import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { bundledPlugin } from "@kb/contracts";
 import { daysExtension } from "@kb/days";
-import { parseDateInput, present, SYSTEM_IDS } from "@kb/model";
+import { fieldTypeValue, parseDateInput, present, SYSTEM_IDS } from "@kb/model";
 import { definePlugin } from "@kb/plugin";
-import { DateTargetService, outlineInstanceKey, syncUiPlugins } from "@kb/ui-sdk";
+import { DateTargetService, outlineInstanceKey, projectedRowKey, syncUiPlugins } from "@kb/ui-sdk";
+import { setPostAction, type ActionResponse } from "@/api/action";
 import { mutations } from "@/actions/mutations";
 import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
+import { waitForBrowserPushes } from "@/session/runtime";
 import { useGraphStore } from "@/stores/graph.store";
+import { useUiStore } from "@/stores/ui.store";
 import { rankedFixture } from "@/test-support/ranked-fixture";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
@@ -83,14 +86,24 @@ describe("triggers in the text", () => {
   });
 
   afterEach(() => {
+    setPostAction(null);
     act(() => root.unmount());
     container.remove();
   });
 
-  /** Edit the text shown by `row`, the caret at its end. */
-  async function typed(text: string, row = ROW, textNodeId = row): Promise<HTMLElement> {
+  /**
+   * Edit the text shown by `row`, the caret at its end: `textNodeId` when the
+   * row shows another node's text, at `instanceKey` when the row is drawn as
+   * one particular instance.
+   */
+  async function typed(
+    text: string,
+    row = ROW,
+    textNodeId = row,
+    instanceKey?: string,
+  ): Promise<HTMLElement> {
     await act(async () => mutations.updateNodeContent(textNodeId, text));
-    const key = outlineInstanceKey(row, outlineNodes());
+    const key = instanceKey ?? outlineInstanceKey(row, outlineNodes());
     act(() => useOutlineStore.getState().activateNode(row, text.length, key));
     await act(async () => {
       root.render(<NodeBlock nodeId={row} instanceKey={key} depth={0} />);
@@ -169,20 +182,224 @@ describe("triggers in the text", () => {
   });
 
   describe(">", () => {
-    it("on a row that is only it, offers the fields, and a pick empties the row and adds one", async () => {
-      const el = await typed(">stat");
+    /** An empty line: n.grandchild, alone under n.child-a2, holds nothing but its text. */
+    const LINE = "n.grandchild";
+    const ABOVE = "n.child-a2";
+
+    /** Edit `LINE` with `text` in it, drawn under its parent's row, as the outline draws it. */
+    async function typedOnLine(text: string): Promise<HTMLElement> {
+      await act(async () => mutations.updateNodeContent(LINE, text));
+      const key = outlineInstanceKey(LINE, outlineNodes());
+      act(() => useOutlineStore.getState().activateNode(LINE, text.length, key));
+      await act(async () => {
+        root.render(
+          <NodeBlock
+            nodeId={ABOVE}
+            instanceKey={outlineInstanceKey(ABOVE, outlineNodes())}
+            depth={0}
+          />,
+        );
+      });
+      return present(
+        container.querySelector<HTMLElement>(`[data-instance-key="${key}"] [contenteditable]`),
+        "editor",
+      );
+    }
+
+    it("on an empty line, a pick makes the line a field of the node it is under", async () => {
+      const el = await typedOnLine(">stat");
       expect(listed()).toContain("status2 nodes");
       expect(options()[0]?.querySelector("svg")).not.toBeNull();
       await press(el, "Enter");
-      await vi.waitFor(() => expect(propOf(ROW, "field.status")).toHaveLength(1));
-      expect(textOf(ROW)).toBe("");
+      await vi.waitFor(() => expect(propOf(ABOVE, "field.status")).toHaveLength(1));
+      expect(outlineNodes().get(LINE)).toBeUndefined();
+      expect(outlineNodes().get(ABOVE)?.children).toEqual([]);
+      expect(propOf(LINE, "field.status")).toEqual([]);
+    });
+
+    it("lands in the new field's value, drawn under the node's row", async () => {
+      const el = await typedOnLine(">stat");
+      await press(el, "Enter");
+      await vi.waitFor(() => {
+        const section = container.querySelector(`[data-fields-for="${ABOVE}"]`);
+        const slot = section?.querySelector('[data-field="field.status"] [data-value-slot]');
+        expect(slot).not.toBeNull();
+        expect(slot?.contains(dom.document.activeElement as unknown as Node)).toBe(true);
+      });
+    });
+
+    it("keeps the parent's existing single field value when picked again", async () => {
+      const value = { t: "str", v: "in progress" } as const;
+      const nodes = rankedFixture().map((node) => {
+        if (node.id === ABOVE) return { ...node, props: { "field.status": [value] } };
+        if (node.id !== "field.status") return node;
+        return {
+          ...node,
+          props: {
+            ...node.props,
+            [SYSTEM_IDS.cardinalityField]: [{ t: "ref" as const, v: SYSTEM_IDS.cardinalityOne }],
+          },
+        };
+      });
+      useGraphStore.getState().hydrateFromWire(nodes, 1, "fixtures");
+      const el = await typedOnLine(">stat");
+      expect(listed()).toContain("status3 nodes");
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(outlineNodes().has(LINE)).toBe(false));
+      expect(propOf(ABOVE, "field.status")).toEqual([value]);
+    });
+
+    it("focuses the picked field when a different field follows it", async () => {
+      const nodes = rankedFixture().flatMap((node) => {
+        if (node.id === "field.status") {
+          return [node, { ...node, id: "field.second", text: "second" }];
+        }
+        if (node.id !== ABOVE) return [node];
+        return [
+          {
+            ...node,
+            props: {
+              "field.status": [{ t: "str" as const, v: "doing" }],
+              "field.second": [{ t: "str" as const, v: "another value" }],
+            },
+          },
+        ];
+      });
+      useGraphStore.getState().hydrateFromWire(nodes, 1, "fixtures");
+      const el = await typedOnLine(">stat");
+      const section = present(container.querySelector(`[data-fields-for="${ABOVE}"]`), "fields");
+      const slots = ["status", "second"].map((field) =>
+        present(section.querySelector(`[data-field="field.${field}"] [data-value-slot]`), field),
+      );
+      expect([...section.querySelectorAll("[data-value-slot]")]).toEqual(slots);
+      const pickedSlot = present(slots[0], "picked slot");
+      await press(el, "Enter");
+      await vi.waitFor(() =>
+        expect(pickedSlot.contains(dom.document.activeElement as unknown as Node)).toBe(true),
+      );
+    });
+
+    it("is one undo step: the line comes back empty and the field goes", async () => {
+      const el = await typedOnLine(">stat");
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(propOf(ABOVE, "field.status")).toHaveLength(1));
+      expect(useGraphStore.getState().undoStack).toHaveLength(1);
+      await act(() => mutations.undo());
+      await vi.waitFor(() => expect(outlineNodes().get(ABOVE)?.children).toEqual([LINE]));
+      expect(propOf(ABOVE, "field.status")).toEqual([]);
+      expect(textOf(LINE)).toBe("");
+      await act(() => mutations.redo());
+      expect(outlineNodes().has(LINE)).toBe(false);
+      expect(propOf(ABOVE, "field.status")).toHaveLength(1);
+    });
+
+    it("undoes and redoes a conversion that defines a new field", async () => {
+      const name = "Review delivery note";
+      const el = await typedOnLine(`>${name}`);
+      expect(listed()).toContain(`Create field "${name}"`);
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(useGraphStore.getState().undoStack).toHaveLength(1));
+      const definition = useGraphStore.getState().wireNodes.find((node) => node.text === name);
+      const field = present(definition, name).id;
+      expect(propOf(field, SYSTEM_IDS.typeField)).toContainEqual({ t: "ref", v: SYSTEM_IDS.field });
+      expect(propOf(ABOVE, field)).toEqual([{ t: "str", v: "" }]);
+      expect(outlineNodes().has(LINE)).toBe(false);
+
+      await act(async () => {
+        expect(await mutations.undo()).toBe(true);
+      });
+      expect(outlineNodes().has(field)).toBe(false);
+      expect(propOf(ABOVE, field)).toEqual([]);
+      expect(outlineNodes().get(ABOVE)?.children).toEqual([LINE]);
+      expect(textOf(LINE)).toBe("");
+
+      await act(async () => {
+        expect(await mutations.redo()).toBe(true);
+      });
+      expect(textOf(field)).toBe(name);
+      expect(propOf(ABOVE, field)).toEqual([{ t: "str", v: "" }]);
+      expect(outlineNodes().has(LINE)).toBe(false);
+    });
+
+    it("keeps the typed text and focus when the conversion is refused", async () => {
+      const nodes = rankedFixture().map((node) =>
+        node.id === "field.status"
+          ? {
+              ...node,
+              props: { ...node.props, [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")] },
+            }
+          : node,
+      );
+      useGraphStore.getState().hydrateFromWire(nodes, 1, "fixtures");
+      useUiStore.setState({ toasts: [] });
+      const el = await typedOnLine(">stat");
+      expect(listed()).toContain("status2 nodes");
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(useUiStore.getState().toasts).toHaveLength(1));
+      expect(textOf(LINE)).toBe(">stat");
+      expect(el.textContent).toBe(">stat");
+      expect(dom.document.activeElement).toBe(el);
+      expect(propOf(ABOVE, "field.status")).toEqual([]);
+      expect(useGraphStore.getState().undoStack).toHaveLength(0);
+    });
+
+    it("restores the caret without adding undo history when only the server refuses", async () => {
+      const nodes = rankedFixture().map((node) =>
+        node.id === LINE ? { ...node, text: ">stat" } : node,
+      );
+      useGraphStore.getState().hydrateFromWire(nodes, 1, "api");
+      const reply = Promise.withResolvers<ActionResponse>();
+      setPostAction(async ({ id }) =>
+        id === "node.batch" ? reply.promise : { status: "succeeded", id, rev: 1, output: {} },
+      );
+      const el = await typedOnLine(">stat");
+      await press(el, "Enter");
+      await vi.waitFor(() => expect(outlineNodes().has(LINE)).toBe(false));
+      expect(useGraphStore.getState().undoStack).toHaveLength(0);
+      expect(dom.document.activeElement.closest("[data-value-slot]")).toBeNull();
+      await act(async () => {
+        reply.resolve({
+          status: "failed",
+          id: "node.batch",
+          code: "conflict",
+          message: "The draft changed on the server",
+        });
+        await waitForBrowserPushes();
+      });
+      await vi.waitFor(() => {
+        const active = dom.document.activeElement;
+        expect(active.getAttribute("contenteditable")).toBe("true");
+        expect(active.textContent).toBe(">stat");
+        expect(dom.document.getSelection().focusOffset).toBe(5);
+      });
+      expect(textOf(LINE)).toBe(">stat");
+      expect(propOf(ABOVE, "field.status")).toEqual([]);
+      expect(useGraphStore.getState().undoStack).toHaveLength(0);
+    });
+
+    it("stays text on a row that holds more than its text, or sits under no node", async () => {
+      // Children.
+      await typed(">stat", ABOVE);
+      expect(container.querySelector('[role="listbox"]')).toBeNull();
+      // A tag and a field, at the top.
+      await typed(">stat", "n.root-b");
+      expect(container.querySelector('[role="listbox"]')).toBeNull();
+      // Nothing but its text, at the top: no node to be a field of.
+      await typed(">stat");
+      expect(container.querySelector('[role="listbox"]')).toBeNull();
     });
 
     it("stays text after other text, and as a quote", async () => {
-      await typed("a >stat");
+      await typedOnLine("a >stat");
       expect(container.querySelector('[role="listbox"]')).toBeNull();
-      await typed("> quoted");
+      await typedOnLine("> quoted");
       expect(container.querySelector('[role="listbox"]')).toBeNull();
+    });
+
+    it("stays text on a projected row whose source is also its parent", async () => {
+      await typed(">stat", LINE, LINE, projectedRowKey(ABOVE, LINE));
+      expect(listed()).toEqual([]);
+      expect(textOf(LINE)).toBe(">stat");
     });
   });
 

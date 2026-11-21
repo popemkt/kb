@@ -1,0 +1,8 @@
+{
+  "reason": "The shared node batch accepts a field definition so a new field and its first value can commit with the draft-line conversion.",
+  "raise": {
+    "cli-closure": {
+      "bytes": 442
+    }
+  }
+}

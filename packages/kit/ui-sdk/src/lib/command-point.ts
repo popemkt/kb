@@ -105,7 +105,7 @@ interface PaletteStepPick {
  * over one picker engine (`lib/picker`), so only the candidate source,
  * whether a new one may be minted, and the write vary.
  */
-export interface PaletteStep {
+export interface PaletteStep<Result = unknown> {
   readonly label: string;
   readonly placeholder: string;
   readonly icon: ReactNode;
@@ -119,7 +119,8 @@ export interface PaletteStep {
    * reference"); absent, Alt picks as Enter does.
    */
   readonly alternate?: string;
-  readonly commit: (pick: PaletteStepPick) => Promise<void>;
+  /** The write and any result a caller uses to continue the gesture. */
+  readonly commit: (pick: PaletteStepPick) => Promise<Result>;
 }
 
 /**
@@ -253,7 +254,10 @@ export interface NodeCommandListing {
  * that row's write being one write already, so a write whose result the
  * gesture reads has landed when it reads it.
  */
-export function asOneWrite<T>(rows: readonly string[], gesture: () => Promise<T>): Promise<T> {
+export function asOneWrite<T>(
+  rows: readonly string[],
+  gesture: () => Promise<T>,
+): Promise<T | null> {
   return rows.length > 1 ? browserHost().writes.together(gesture) : gesture();
 }
 

@@ -10,6 +10,8 @@ import {
   browserHost,
   dateTarget,
   datesLead,
+  instanceAncestorIds,
+  isProjectedRow,
   nodeCandidates,
   type NodeMap,
   type PaletteStep,
@@ -21,9 +23,9 @@ import {
   textOr,
 } from "@kb/ui-sdk";
 import { longDateLabel, relativeDateLabel, todayLocal } from "./date-display";
-import { outlineNodes } from "./outline.store";
+import { outlineNodes, useOutlineStore } from "./outline.store";
 import { addField, addTag } from "./outline-steps";
-import { enterFields } from "./value-slot-nav";
+import { landInFieldsOf } from "./value-slot-nav";
 
 /** How many rows a trigger's picker shows. */
 const LIMIT = 12;
@@ -40,18 +42,34 @@ function openedAfterSpace(opener: string, query: string) {
 }
 
 /**
- * A palette step opened from the text: a pick takes the trigger out of the
- * text, then commits.
- *
- * GAP [[01M7D4AYQFJGZQGJZ3KD7M388R]] — the text's write and the step's are
- * two writes, so one undo takes back the step's alone.
+ * Where a palette step writes, read when picked. A conversion consumes the
+ * source row in the same batch and moves focus when the batch lands.
  */
-function stepTrigger(
+interface StepTarget<Result> {
+  readonly nodeId: string;
+  readonly conversion?: {
+    readonly remove: () => Promise<boolean>;
+    readonly land: (result: Result) => void;
+    readonly refused: () => void;
+  };
+}
+
+/**
+ * A palette step opened from the text of `row`: commit to the node
+ * `target` names, either editing the trigger span or consuming the row.
+ *
+ * GAP [[01M7D4AYQFJGZQGJZ3KD7M388R]] — where the row stays (`#`), the
+ * text's write and the step's are two writes, so one undo takes back the
+ * step's alone.
+ */
+function stepTrigger<Result>(
   id: string,
-  step: PaletteStep,
+  step: PaletteStep<Result | null>,
   open: TextTrigger["open"],
   row: { readonly nodeId: string; readonly schema: SchemaIndex },
-  then?: () => void,
+  target: (typed: { readonly query: string }) => StepTarget<Result> | null = () => ({
+    nodeId: row.nodeId,
+  }),
 ): TextTrigger {
   return {
     id,
@@ -67,21 +85,31 @@ function stepTrigger(
         { query, canCreate: step.createLabel !== undefined, limit: step.limit ?? LIMIT },
       ),
     ...(step.createLabel === undefined ? {} : { createLabel: step.createLabel }),
-    pick: (picked, typed) => ({
-      insert: "",
-      write: async () => {
-        await step.commit({
-          targetNodeId: row.nodeId,
-          targetNodeIds: [row.nodeId],
-          schema: row.schema,
-          pickedId: picked.id,
-          creating: picked.kind === "create",
-          name: typed.query.trim(),
-          alternate: false,
+    pick: (picked, typed) => {
+      const at = target(typed);
+      if (at === null) return null;
+      const conversion = at.conversion;
+      const write = async () => {
+        const landed = await browserHost().writes.together(async () => {
+          const result = await step.commit({
+            targetNodeId: at.nodeId,
+            targetNodeIds: [at.nodeId],
+            schema: row.schema,
+            pickedId: picked.id,
+            creating: picked.kind === "create",
+            name: typed.query.trim(),
+            alternate: false,
+          });
+          if (result === null || (conversion !== undefined && !(await conversion.remove()))) {
+            return null;
+          }
+          return result;
         });
-        then?.();
-      },
-    }),
+        if (landed === null) conversion?.refused();
+        else conversion?.land(landed);
+      };
+      return conversion === undefined ? { insert: "", write } : { consume: write };
+    },
   };
 }
 
@@ -148,13 +176,68 @@ const mentionTrigger = (nodeId: string): TextTrigger => ({
   },
 });
 
-/** `>`: it and a field's name are the row's whole text, the caret at its end. */
-const fieldOpen: TextTrigger["open"] = (text, cursor) => {
-  const match = /^>([^\s>][^\n]*|)$/u.exec(text);
-  return match === null || cursor !== text.length
-    ? null
-    : { start: 0, end: cursor, query: match[1] ?? "" };
-};
+/**
+ * The node row `nodeId`, drawn at `instanceKey`, is an empty line of: the
+ * node it is drawn under, when that is its parent and the row holds nothing
+ * but its text (no child, no field, no tag). Null when it is not one.
+ */
+function emptyLineOf(nodeId: string, instanceKey: string | undefined): string | null {
+  const node = outlineNodes().get(nodeId);
+  if (node === undefined || instanceKey === undefined || isProjectedRow(instanceKey)) return null;
+  // The key ends with the row's own node: a reference row's is the reference, not its target.
+  if (!instanceKey.endsWith(`/${nodeId}`)) return null;
+  const above = instanceAncestorIds(instanceKey).at(-1) ?? null;
+  const empty = node.children.length === 0 && Object.keys(node.props).length === 0;
+  return empty && above !== null && above === node.parentId ? above : null;
+}
+
+/**
+ * `>` on an empty line, as a field's name begins (Tana's): it and the name
+ * are the row's whole text, the caret at its end. A pick makes the line a
+ * field of the node it is under: the line goes, the field is added to that
+ * node in the same write, and the caret lands in the field's value where
+ * that node's fields are drawn.
+ */
+function fieldTrigger(
+  row: { readonly nodeId: string; readonly schema: SchemaIndex },
+  instanceKey: string | undefined,
+): TextTrigger {
+  const open: TextTrigger["open"] = (text, cursor) => {
+    const match = /^>([^\s>][^\n]*|)$/u.exec(text);
+    return match === null || cursor !== text.length || emptyLineOf(row.nodeId, instanceKey) === null
+      ? null
+      : { start: 0, end: cursor, query: match[1] ?? "" };
+  };
+  return stepTrigger("field", addField, open, row, (typed) => {
+    const parent = emptyLineOf(row.nodeId, instanceKey);
+    if (parent === null || instanceKey === undefined) return null;
+    const text = `>${typed.query}`;
+    const land = landInFieldsOf(instanceKey, parent);
+    const focusIsFree = () => {
+      const { activeInstanceKey, selectedInstanceKey } = useOutlineStore.getState();
+      const focused = document.activeElement;
+      return (
+        activeInstanceKey === instanceKey ||
+        (selectedInstanceKey === null &&
+          (focused === document.body || focused?.isConnected !== true))
+      );
+    };
+    return {
+      nodeId: parent,
+      conversion: {
+        remove: () => browserHost().writes.deleteNode(row.nodeId, { parent, text }),
+        land: (fieldId) => {
+          if (focusIsFree()) land(fieldId);
+        },
+        refused: () => {
+          if (focusIsFree() && outlineNodes().get(row.nodeId)?.parentId === parent) {
+            useOutlineStore.getState().activateNode(row.nodeId, text.length, instanceKey);
+          }
+        },
+      },
+    };
+  });
+}
 
 /**
  * The outline's triggers for the text of row `nodeId` (the node its text
@@ -169,9 +252,6 @@ export function outlineTriggers(
   return [
     mentionTrigger(nodeId),
     stepTrigger("tag", addTag, openedAfterSpace("#", "[^\\s#]*"), row),
-    // The field added, the caret goes into its value, as Tab into a row's fields does.
-    stepTrigger("field", addField, fieldOpen, row, () => {
-      if (instanceKey !== undefined) enterFields(instanceKey, "last");
-    }),
+    fieldTrigger(row, instanceKey),
   ];
 }

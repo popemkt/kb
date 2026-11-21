@@ -245,6 +245,7 @@ export {
   canvasInstanceKey,
   childInstanceKey,
   hostOfInstance,
+  instanceAncestorIds,
   isProjectedInstance,
   isProjectedRow,
   MAIN_OUTLINE_HOST,
