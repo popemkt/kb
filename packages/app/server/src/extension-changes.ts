@@ -1,12 +1,15 @@
-/** Proactive runtime change signals; ordinary calls use the same lock fingerprint. */
+/**
+ * A host's proactive signals that a root's extensions changed: a running
+ * `kb ui` pushes a changed manifest sooner. A one-shot command needs none of
+ * it, since ordinary calls read the same lock fingerprint.
+ */
 import { statSync, watch } from "node:fs";
 import { dirname, relative } from "node:path";
 import { Effect, Layer, Stream } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { CodeTrust, ExtensionStorage, directorySignals } from "@kb/contracts";
 import { codeTrustLayer, extensionStorageLayer } from "@kb/workspace-fs";
-import { ownExtensionFolder } from "./extension-folder.ts";
-import { invalidateRootExtensions } from "./extension-state.ts";
+import { invalidateRootExtensions, ownExtensionFolder } from "@kb/runtime";
 
 export function extensionRuntimeChanges(root: string) {
   return Stream.unwrap(

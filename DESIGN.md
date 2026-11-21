@@ -2185,7 +2185,10 @@ looking:
 Presence rather than a config key because there is nothing else to configure —
 the answer is a single bit, the file that holds the data is the least
 surprising place to keep it, and a config file that disagreed with the tree
-would be a second source of truth for which store is real. Both present is an
+would be a second source of truth for which store is real. Presence reads
+only each adapter's file list (`sqliteStoreFiles`); the SQLite adapter and
+`bun:sqlite` load when a root selects it (`loadSqliteStore`), so a command on a
+JSONL root parses neither. Both present is an
 error rather than a precedence rule: a precedence rule would silently pick one
 and leave the other's writes stranded, which is the failure mode worth being
 loud about. The code is `conflict` — two stores claiming the same root is
@@ -3840,7 +3843,7 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   setting `sys.f.extensions.watch` (a checkbox, `extensionsWatched` in
   `@kb/server`) is on, so a person can leave it on. The flag is per run and
   the setting is the store's, committed with it.
-  - **What watching does.** `ownExtensionEdits` (`app/runtime`) watches the
+  - **What watching does.** `ownExtensionEdits` (`app/server`) watches the
     folder and every folder under it, creating it when it is initially missing.
     Its parent-directory signal follows removal and recreation, replacing the
     scoped recursive watch when the directory identity changes. Disabling

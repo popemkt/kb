@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { canonicalJson, isDomainError, present, type KbNode } from "@kb/model";
 import { WriteLockDeadline } from "@kb/contracts";
-import { SqliteStore } from "../src/index.ts";
+import { SqliteStore } from "../src/sqlite-store.ts";
 
 const AT = "2026-01-01T00:00:00.000Z";
 
@@ -113,7 +113,7 @@ describe("SqliteStore", () => {
              console.log("committed");
              await Bun.stdin.text();`,
             [
-              import.meta.resolve("../src/index.ts"),
+              import.meta.resolve("../src/sqlite-store.ts"),
               import.meta.resolve("effect"),
               join(store.path, "../.."),
             ],

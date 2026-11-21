@@ -1947,14 +1947,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A render-tests spec that loads the benchmark document and asserts the frame-time histogram, on hardware the CI lane can hold steady
 - **node** — `01M5PMJEGCJPMVNCKBDYZ0V57G`
 
-### GAP: the CLI's eager graph loads every family's painters and the host's engines
-
-- **expected** — From the CLI entry, painters and engines load at first use (chart-vega's Vega, gallery-net, canvas' tldraw reader, the QuickJS engine, store-sqlite when selected, source-git at first fetch), and the @kb/runtime barrel exports the mode-neutral core only.
-- **current** — cli.ts imports @kb/runtime, whose barrel statically reaches bundled.ts (BUNDLED_EXTENSIONS builds every family's server plugin at module load), layers.ts (source-git) and store-selection.ts (store-sqlite). Chart's Vega, gallery's starter pictures, canvas' tldraw reader and QuickJS load on first use. store-sqlite (8.5 KB) and source-git (8.6 KB) stay eager: each is plain code with no dependency of its own, and a lazy store-sqlite first needs its file list (which presence detection reads on every open) to live outside its adapter, because Bun keeps a package eager when it is imported both statically and dynamically. The runtime barrel still exports host-only modules (step 6). The command path's static closure is 2.7 MB and 720 modules.
-- **impact** — About 135-145 ms of module init on every command, plus their parse once the build is split; kb get cannot approach 100 ms.
-- **closes** — docs/research/2026-11-11-cli-host-modes.md steps 4-6, each removing its breach row from the CLI lazy fence.
-- **node** — `01M75MA300NQJS5M3V6GEWQS8E`
-
 ### GAP: the command palette draws every command the same way, so a theme cannot draw functions as cards
 
 - **expected** — the shown design system may present palette commands in its own form (Transistor: a function card with name(), a MEM cost and slots; ART-DIRECTION.md → Transistor)
@@ -3478,6 +3470,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — the core suite cannot drop below about 215 s locally however many workers it gets: four workers ran it in 298 s, sixteen in 239 s; on CI's Ubuntu runner four workers took 407 s against 466 s serial
 - **closes** — a test file per matrix cell over shared surface factories, or a cheaper one-shot CLI (the startup measurements in PR #189)
 - **node** — `01M79GV5XZGH57HF5174KXYYAB`
+
+### GAP: the CLI's eager graph loads every family's painters and the host's engines
+
+- **expected** — From the CLI entry, painters and engines load at first use (chart-vega's Vega, gallery-net, canvas' tldraw reader, the QuickJS engine, store-sqlite when selected, source-git at first fetch), and the @kb/runtime barrel exports the mode-neutral core only.
+- **current** — Closed 2026-11-21. Chart's Vega, gallery's starter pictures, canvas' tldraw reader and QuickJS loaded on first use already; now the SQLite adapter and its engine load when a root selects it (loadSqliteStore; presence reads only sqliteStoreFiles), the git reader and its transport at a source's first fetch (gitSourceReader), and the gallery's handlers with their network and image code at the family's first call. The extension watchers (extensionRuntimeChanges, ownExtensionEdits) moved from the @kb/runtime barrel into @kb/server. The CLI fence forbids bun:sqlite, the git transport and the gallery's http client, and the command path's static closure fell by about 38 KB and 10 modules. pendingRequests stays in the runtime: both hosts (kb ui and kb mcp) use it and no host package is shared. What module init still costs (Effect, zod, DataScript) is gap 01M7B2SRJ6NAQB5ZSAJNDWPY5A.
+- **impact** — About 135-145 ms of module init on every command, plus their parse once the build is split; kb get cannot approach 100 ms.
+- **closes** — docs/research/2026-11-11-cli-host-modes.md steps 4-6, each removing its breach row from the CLI lazy fence.
+- **node** — `01M75MA300NQJS5M3V6GEWQS8E`
 
 ### GAP: the cluster renderer's lifecycle effect carries 28 branches
 
