@@ -1593,7 +1593,11 @@ hundreds of places costs one line until the reader asks for more
   outline row's bullet folds its children (`bulletClickIntent`: a click
   toggles, ⌘/Ctrl-click opens, Shift-click opens beside), and a folded
   place carries the halo. A click on a place's or a reference's words
-  opens that node.
+  opens that node. These rows have no outline keymap, so a bullet that
+  folds is their keyboard way to do it: it takes Tab, says whether it is
+  open (`aria-expanded`), and Enter or Space toggles it (`Bullet`'s
+  `focusable`). An outline row's bullet folds by the outline's keys and
+  stays out of the tab order.
 - **A reference's own children** fold by its bullet in the same way. Open,
   they are the shown node's children that are visible in the current
   outline, drawn as ordinary rows one level further in; for a contextual
@@ -1603,13 +1607,16 @@ hundreds of places costs one line until the reader asks for more
   paged as references are.
 
 **Row actions take no width.** An action a row offers, such as Link on an
-unlinked mention, is drawn over the row's right end while the row is
-hovered or holds focus (`NodeLinkRow`'s `action`). It sits on the page's
-own ground, faded in from the left, so the words under it stay legible up
-to it. It takes no width, so showing it never moves or rewraps a word of
-the row. Hidden, it takes no clicks, so a click there still opens the row.
-It is a button, so Tab reaches it and focus shows it. Where nothing
-hovers (`hover: none`), it is always shown. The alternatives we rejected:
+unlinked mention, is drawn over the right end of the row's words, before
+its tags, while the row is hovered or holds focus (`NodeLinkRow`'s
+`action`). It never covers a tag chip, so both stay reachable. It sits on
+the page's own ground, faded in from the left, so the words under it stay
+legible up to it. It takes no width, so showing it never moves or rewraps
+a word of the row. Only the action itself takes the pointer, and only
+while shown: the fade never does, so a click or tap beside it still
+reaches the row. It is a button, so Tab reaches it and focus shows it.
+Where nothing hovers (`hover: none`), it is always shown. The alternatives
+we rejected:
 
 - an inline button: it pushed the row's words aside;
 - a reserved actions gutter: it shortens every row to keep space for an

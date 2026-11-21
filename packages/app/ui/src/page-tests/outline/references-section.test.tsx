@@ -156,6 +156,50 @@ describe("node page references", () => {
     expect(count("[data-backlink-id]")).toBe(0);
   });
 
+  it("folds by bullets that Tab reaches and that say whether they are open", async () => {
+    await draw(TARGET);
+    await openReferences();
+    const referrer = bulletOf('[data-backlink-id="n.decision"]');
+    const place = bulletOf('[data-reference-place="n.project"] >');
+    // A row that holds nothing to fold keeps its bullet out of the tab order.
+    const leaf = bulletOf('[data-backlink-id="n.follow-up"]');
+    expect([referrer.tabIndex, place.tabIndex, leaf.tabIndex]).toEqual([0, 0, -1]);
+    expect(referrer.getAttribute("aria-expanded")).toBe("false");
+    expect(place.getAttribute("aria-expanded")).toBe("true");
+    expect(leaf.hasAttribute("aria-expanded")).toBe(false);
+
+    // Enter on the bullet is the bullet's (a button's click), never the row's open.
+    await act(async () => {
+      const page = present(referrer.ownerDocument.defaultView, "the bullet's window");
+      referrer.dispatchEvent(new page.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    });
+    expect(useGraphStore.getState().rootNodeId).toBe(TARGET);
+    await act(async () => referrer.click());
+    expect(bulletOf('[data-backlink-id="n.decision"]').getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("lays Link over the words' end, never over a tag chip", async () => {
+    const tag = wire("t.idea", "idea");
+    tag.props[SYSTEM_IDS.typeField] = [{ t: "ref", v: SYSTEM_IDS.tag }];
+    const tagged = wire("n.tagged", "please write spec today");
+    tagged.props[SYSTEM_IDS.typeField] = [{ t: "ref", v: tag.id }];
+    await draw(TARGET, [tag, tagged]);
+    await openReferences(true);
+    const row = await vi.waitFor(() =>
+      present(find('[data-unlinked-mention-id="n.tagged"]'), "tagged mention"),
+    );
+    const words = present(row.querySelector("[data-row-words]"), "the words' column");
+    const action = present(row.querySelector("[data-row-action]"), "Link's overlay");
+    const chip = present(row.querySelector("[data-tag-chip]"), "the tag chip");
+    expect(words.contains(action)).toBe(true);
+    expect(words.contains(chip)).toBe(false);
+    // The fade never takes the pointer; only Link's own target does, while shown.
+    expect(action.className).toContain("pointer-events-none");
+    expect(action.className).not.toMatch(/:pointer-events-auto/);
+    const target = present(row.querySelector("[data-row-action-target]"), "Link's target");
+    expect(target.contains(row.querySelector('[data-link-mention="n.tagged"]'))).toBe(true);
+  });
+
   it("expands the shown target's children for a contextual backlink", async () => {
     const reference = wire("n.context", "", ["n.own-child"]);
     reference.props[SYSTEM_IDS.refTargetField] = [{ t: "ref", v: TARGET }];

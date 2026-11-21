@@ -76,7 +76,7 @@ export function NodeLinkRow({
     <NodeRow
       depth={depth}
       nodeId={id}
-      className={cn("w-full text-left", action !== undefined && "relative")}
+      className="w-full text-left"
       onRowClick={() => open(id)}
       bullet={
         <Bullet
@@ -84,6 +84,7 @@ export function NodeLinkRow({
           isRef
           collapsible={fold !== undefined}
           collapsed={fold !== undefined && !fold.open}
+          focusable={fold !== undefined}
           onClick={(e) => {
             e.stopPropagation();
             const intent = bulletClickIntent(e, fold !== undefined);
@@ -96,12 +97,12 @@ export function NodeLinkRow({
       content={
         <>
           {leading}
-          <MdView
-            text={text}
-            className="min-w-0 flex-1 text-foreground/85"
-            onFollow={follow}
-            refs={refs}
-          />
+          {/* The words' own column, which an action is laid over: the
+              tags after it stay uncovered and tappable. */}
+          <div className="relative min-w-0 flex-1" data-row-words="true">
+            <MdView text={text} className="text-foreground/85" onFollow={follow} refs={refs} />
+            {action !== undefined && <RowAction>{action}</RowAction>}
+          </div>
           {tags.length > 0 && (
             <TagChipGroup
               tags={[...tags]}
@@ -111,7 +112,6 @@ export function NodeLinkRow({
               }}
             />
           )}
-          {action !== undefined && <RowAction>{action}</RowAction>}
         </>
       }
     />
@@ -119,11 +119,13 @@ export function NodeLinkRow({
 }
 
 /**
- * The row's action, laid over its right end: absolute, so it takes no
- * width; shown while the row is hovered or something in it holds focus,
- * and always where nothing hovers; on a ground of the page's own colour,
- * faded in from the left, so the words under it stay legible up to it.
- * Hidden, it takes no clicks, so a click there still opens the row.
+ * The row's action, laid over the right end of its words, before its
+ * tags: absolute, so it takes no width; shown while the row is hovered or
+ * something in it holds focus, and always where nothing hovers; on a
+ * ground of the page's own colour, faded in from the left, so the words
+ * under it stay legible up to it. Only the action itself takes the
+ * pointer, and only while shown: the fade never does, so a tap or click
+ * beside the action still reaches the row.
  * NodeBlock's view toolbar lays itself over its row on its own terms.
  * GAP [[01M7ZN612X0JRVRG29RARKF1DR]]
  */
@@ -134,15 +136,23 @@ function RowAction({ children }: { readonly children: ReactNode }) {
         "absolute right-0 top-0 flex items-center pl-6 pr-1",
         "bg-linear-to-r from-transparent via-background via-40% to-background",
         "pointer-events-none opacity-0 transition-opacity duration-100",
-        "group-hover/node:pointer-events-auto group-hover/node:opacity-100",
-        "group-focus-within/node:pointer-events-auto group-focus-within/node:opacity-100",
-        "[@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100",
+        "group-hover/node:opacity-100 group-focus-within/node:opacity-100",
+        "[@media(hover:none)]:opacity-100",
       )}
       style={{ height: "var(--kb-row-h)" }}
       data-row-action="true"
-      onClick={(e) => e.stopPropagation()}
     >
-      {children}
+      <span
+        className={cn(
+          "pointer-events-none",
+          "group-hover/node:pointer-events-auto group-focus-within/node:pointer-events-auto",
+          "[@media(hover:none)]:pointer-events-auto",
+        )}
+        data-row-action-target="true"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {children}
+      </span>
     </div>
   );
 }

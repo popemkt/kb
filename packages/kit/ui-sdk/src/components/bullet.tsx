@@ -29,6 +29,14 @@ interface BulletProps extends OutlineBulletOptions {
    * `touch-action: none`, so a finger drags it rather than scrolling the page.
    */
   onPress?: ((e: React.PointerEvent<HTMLButtonElement>) => void) | undefined;
+  /**
+   * The bullet is its row's keyboard way to fold what is under it: a row
+   * with no outline keymap (a References row) has no other. It then takes
+   * Tab and says whether it is open (`aria-expanded`); Enter or Space
+   * clicks it. An outline row's bullet folds by the outline's keys, so it
+   * stays out of the tab order.
+   */
+  focusable?: boolean | undefined;
 }
 
 /**
@@ -149,7 +157,7 @@ const BULLET_SHAPES: Record<BulletShape, (props: { a: BulletAppearance }) => Rea
 
 const noMenu = () => {};
 
-export function Bullet({ node, onClick, onMenu, onPress, ...options }: BulletProps) {
+export function Bullet({ node, onClick, onMenu, onPress, focusable, ...options }: BulletProps) {
   const appearance = outlineBulletAppearance(node, options);
   const Shape = BULLET_SHAPES[appearance.shape];
   const menu = useMenuGesture(onMenu ?? noMenu);
@@ -169,10 +177,14 @@ export function Bullet({ node, onClick, onMenu, onPress, ...options }: BulletPro
         "bullet-container group/bullet relative flex h-6 w-6 shrink-0 items-center justify-center",
         "rounded-sm hover:bg-foreground/5 transition-colors duration-100",
         "cursor-pointer [-webkit-touch-callout:none]",
+        focusable === true && "outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
         onPress !== undefined && "touch-none",
       )}
       style={appearance.isSys ? { opacity: BULLET_SYS_OPACITY } : undefined}
-      tabIndex={-1}
+      tabIndex={focusable === true ? 0 : -1}
+      aria-expanded={
+        focusable === true && options.collapsible === true ? options.collapsed !== true : undefined
+      }
       data-bullet-kind={appearance.kind}
       data-bullet-ref={appearance.isRef ? "true" : undefined}
       data-bullet-sys={appearance.isSys ? "true" : undefined}
