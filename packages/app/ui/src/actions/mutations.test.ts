@@ -76,4 +76,31 @@ describe("mutations invoke shared actions", () => {
     expect(useGraphStore.getState().undoStack).toHaveLength(0);
     expect(await mutations.undo()).toBe(false);
   });
+
+  it("a gesture holds only the writes made through it: another edit made meanwhile is its own step", async () => {
+    const a = outlineNodes().get("n.root-a")?.text;
+    const release = Promise.withResolvers<void>();
+    const before = useGraphStore.getState().undoStack.length;
+    // A / command that waits, then writes through its gesture's writes.
+    const gesture = mutations.together(async (writes) => {
+      await release.promise;
+      await writes.setNodeText("n.root-a", "from the command");
+      return writes;
+    });
+    // An edit made elsewhere in the tab while it waits.
+    expect(await mutations.setNodeText("n.root-b", "made meanwhile")).toBe(true);
+    expect(useGraphStore.getState().undoStack).toHaveLength(before + 1);
+    release.resolve();
+    const leaked = await gesture;
+    expect(useGraphStore.getState().undoStack).toHaveLength(before + 2);
+    // Undo takes back the command alone.
+    await mutations.undo();
+    expect(outlineNodes().get("n.root-a")?.text).toBe(a);
+    expect(outlineNodes().get("n.root-b")?.text).toBe("made meanwhile");
+    // A write through the gesture's handle after it ended is a write of its own.
+    expect(leaked).not.toBeNull();
+    expect(await leaked?.setNodeText("n.root-a", "after the gesture")).toBe(true);
+    expect(outlineNodes().get("n.root-a")?.text).toBe("after the gesture");
+    expect(useGraphStore.getState().undoStack).toHaveLength(before + 2);
+  });
 });

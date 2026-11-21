@@ -402,14 +402,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — let the outline page take a frame view override from the pane
 - **node** — `01M411FPKHWPRFTWDYKVXBDYSB`
 
-### GAP: a pending / command's gesture can capture a separate edit made in the same tab
-
-- **expected** — A / pick's batch (PageWrites.together around command.run) holds only the writes that command makes, so undo takes back that command and nothing else.
-- **current** — PageWrites.together opens one page-wide gesture: every planned write made in the tab while it is open joins it. A / command that awaits (a server call, a later write) keeps the gesture open, and a separate edit made meanwhile (a field value, another row's command) is captured into the same batch and undone with it.
-- **impact** — Rare (an edit made in the moment a / command is pending), but then one undo takes back the command and the unrelated edit together, and a refusal of either refuses both.
-- **closes** — A gesture scoped to its caller rather than the page: commands write through a writes handle their context hands them (CommandContext.writes bound to the gesture) instead of the global browserHost().writes, since the browser has no async context to tell the command's continuation from other work. The same scoping serves the text host's pick batch and nodeAction's asOneWrite.
-- **node** — `01M7XVRNAJBC9Q09SKCGRQTMHC`
-
 ### GAP: a plugin backdrop runs with the page's power; nothing confines it to its canvas and its knobs
 
 - **expected** — A repository extension's backdrop is handed only its canvas (or GPU context) and its knob values, and can read no kb data: its scene runs in an isolated host (a sandboxed frame or a worker drawing to an OffscreenCanvas) that the slot feeds
@@ -2220,6 +2212,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A one-off reminder (a dentist visit) cannot be marked done from the calendar; deleting it is the only way to clear it.
 - **closes** — The engine projects a one-off routine's own fact (done or skipped) onto its single event, with the shared projection test, and the calendar drops its series guard on done and skip.
 - **node** — `01M6HGRGWW0WZ41V24SK89KXQY`
+
+### GAP: a pending / command's gesture can capture a separate edit made in the same tab
+
+- **expected** — A / pick's batch (PageWrites.together around command.run) holds only the writes that command makes, so undo takes back that command and nothing else.
+- **current** — PageWrites.together opens one page-wide gesture: every planned write made in the tab while it is open joins it. A / command that awaits (a server call, a later write) keeps the gesture open, and a separate edit made meanwhile (a field value, another row's command) is captured into the same batch and undone with it.
+- **impact** — Rare (an edit made in the moment a / command is pending), but then one undo takes back the command and the unrelated edit together, and a refusal of either refuses both.
+- **closes** — A gesture scoped to its caller rather than the page: commands write through a writes handle their context hands them (CommandContext.writes bound to the gesture) instead of the global browserHost().writes, since the browser has no async context to tell the command's continuation from other work. The same scoping serves the text host's pick batch and nodeAction's asOneWrite.
+- **node** — `01M7XVRNAJBC9Q09SKCGRQTMHC`
 
 ### GAP: a proposed graph view cannot set its query or mappings
 
