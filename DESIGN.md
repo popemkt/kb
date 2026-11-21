@@ -1953,9 +1953,12 @@ tail records and what a session's index applies.
 state it last read or wrote — a `StoreState` (`@kb/model`): the nodes, each
 node's parent and the roots, moved by the transactions it commits — under the
 fingerprint that names that state. A commit whose base is that fingerprint
-settles its ranks against the kept state instead of decoding every node; any
-other base — another writer's commit, a hand edit — is read as it always was,
-and a commit that fails keeps nothing. The kept state is never the truth: the
+settles its ranks against the kept state instead of decoding every node. A
+commit on any other base brings the kept state forward through the
+transactions other writers committed since, when the adapter can show its tail
+recorded every write between (SQLite, below); a base it cannot explain — a
+hand edit, a compacted tail, an earlier kb's write — is read in full. A commit
+that fails keeps nothing. The kept state is never the truth: the
 fingerprint decides which state a commit lands on, so "a commit after another
 writer's merges into what it left and settles against it" is a contract
 property every adapter runs, and dropping the kept state costs one read.
@@ -2159,6 +2162,18 @@ CREATE TABLE meta  (key TEXT PRIMARY KEY, value TEXT);   -- schema_version, rev
   way to see a foreign writer, is a per-connection counter and fails exactly
   that. Null when the file does not exist, so an
   unopened store compares equal to nothing.
+- **Each tail row names the mark it began on** (`tx.base`; schema 7), beside
+  the `mark` it left. A commit whose base is not the mark its kept state names
+  reads the rows from the first one that began on the kept mark, and brings
+  the state forward through them only when they chain — each begins on the
+  mark the one before it left — to its own base. Only then does the tail
+  explain every write between, since a hand write moves `meta.rev` with no row.
+  A row whose base is its mark (the saved-query virtual set's record) wrote no
+  node row and is passed over. So a commit after another writer's costs what
+  that writer wrote, and a 50k-node store's commit after a foreign one holds
+  the write lock for milliseconds rather than the second a full decode took.
+  The load reads its mark and its rows in one read transaction, so the kept
+  state is exactly the state its mark names.
 - **The store owns the connection.** It opens lazily on first `load` or
   `commit` and stays open for the store's lifetime; `close()` exists for tests.
   Reads can open current and older schemas while a writer holds the lock.

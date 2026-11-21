@@ -1,0 +1,4 @@
+{
+  "reason": "A SQLite commit after another writer's brings its kept state forward through the tail rows that chain from its mark, instead of decoding every row under the write lock.",
+  "raise": { "cli-closure": { "bytes": 719 } }
+}
